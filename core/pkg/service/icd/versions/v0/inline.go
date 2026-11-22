@@ -246,6 +246,17 @@ func (f enumFilter) usable(e payload.EnumEntry) bool {
 	return true
 }
 
+// LiftKind returns the JSON field of base with kind, and the enum values and time
+// format of old that kind can hold. note receives each entry that it drops.
+func LiftKind(
+	old InlineField,
+	kind payload.Kind,
+	base JSONBaseField,
+	note func(format string, args ...any),
+) JSONField {
+	return liftRead(old, kind, base, enumFilter{seen: set.New[string](), note: note})
+}
+
 // liftRead returns the JSON field of base with kind and the options of old.
 func liftRead(
 	old InlineField,

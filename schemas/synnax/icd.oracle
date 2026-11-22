@@ -667,7 +667,9 @@ WriteBinding struct {
         @doc value "is the key of the message field to send."
     }
     channel   channel.Key = 0 {
-        @doc value "is the command channel whose values the field sends."
+        @doc value     "is the command channel whose values the field sends."
+        @ref kind      use
+        @ref on_delete restrict
     }
     data_type telem.DataType = "" {
         @doc value """

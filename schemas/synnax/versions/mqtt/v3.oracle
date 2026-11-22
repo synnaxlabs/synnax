@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/icd/v1"
+import "schemas/synnax/versions/task/v2"
+
 QoS = v1.QoS
 
 SparkplugDataType = v1.SparkplugDataType
@@ -31,9 +36,116 @@ WriteField = v1.WriteField
 
 BaseWriteTarget = v1.BaseWriteTarget
 
-WriteTarget = v1.WriteTarget
+InlineTarget struct extends BaseWriteTarget {
+    at       uint32 = 0 {
+        @doc value "is the index of the target in the targets of its config."
+    }
+    topic    string = "" {
+        @doc value "is the topic to publish to."
+    }
+    qos      QoS = at_least_once {
+        @doc value "is the quality of service of the publish."
+    }
+    retained bool = false {
+        @doc value "is true when the broker retains the published message."
+    }
+    channel  ChannelField = {} {
+        @doc value "is the command channel whose writes trigger the publish."
+    }
+    fields   WriteField[] = [] {
+        @doc value "are the static and generated fields of the payload."
+    }
 
-WriteConfig = v1.WriteConfig
+    @doc value "is a plain target from before ICDs, which held its payload inline."
+}
+
+InlineWrite struct {
+    targets InlineTarget[] = [] {
+        @doc value "are the plain targets that hold their payloads inline."
+    }
+
+    @doc value "holds the plain targets of a write config from before ICDs."
+}
+
+WriteTarget union on type extends BaseWriteTarget {
+    plain {
+        topic    string = "" {
+            @doc value "is the topic to publish to."
+        }
+        qos      QoS = at_least_once {
+            @doc value "is the quality of service of the publish."
+        }
+        retained bool = false {
+            @doc value "is true when the broker retains the published message."
+        }
+        icd      icd.Key          {
+            @doc value "is the key of the ICD that holds the message."
+        }
+        message  icd.WriteMessage {
+            @doc value """
+                is the message the target publishes. A command on any bound channel
+                publishes one document.
+            """
+        }
+
+        @doc value "publishes the JSON documents of one ICD message to one topic."
+    }
+    sparkplug {
+        group     string = "" {
+            @doc value "is the Sparkplug group ID of the edge node."
+        }
+        edge_node string = "" {
+            @doc value "is the Sparkplug edge node ID."
+        }
+        device    string = "" {
+            @doc value "is the Sparkplug device ID. Empty for a tag of the edge node."
+        }
+        tag       string = "" {
+            @doc value "is the name of the tag to command."
+        }
+        tag_type  SparkplugDataType = double {
+            @doc value "is the Sparkplug B data type the command value is sent as."
+        }
+        channel   channel.Key = 0 {
+            @doc value "is the Synnax command channel whose writes trigger the command."
+        }
+        name      string = "" {
+            @doc value "is the human-readable name of the command channel."
+        }
+
+        @doc value "sends a Sparkplug B command for one tag."
+    }
+
+    @doc value  """
+        is a single destination of an MQTT write task. The type field selects a plain
+        topic that publishes an ICD message or a Sparkplug B tag command.
+    """
+    @go marshal
+}
+
+WriteConfig struct extends task.StartConfig {
+    device  device.Key = "" {
+        @doc value "is the key of the broker device to write to."
+    }
+    targets WriteTarget[] {
+        @doc value "contains the topics and tags to write to."
+    }
+    inline  InlineWrite?  {
+        @doc value  """
+            holds the plain targets of a config from before ICDs. A write moves their
+            payloads into a new ICD, adds the targets, and clears it.
+        """
+        @go marshal omit
+    }
+
+    @doc value  """
+        configures an MQTT write task, which publishes a message whenever a value is
+        written to the command channel of a target.
+    """
+    @go imex    body
+    @go marshal
+    @go migrate
+}
 
 ScanConfig = v1.ScanConfig
 
