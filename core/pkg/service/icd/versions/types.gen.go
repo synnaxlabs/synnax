@@ -265,5 +265,45 @@ type ReadBinding = v1.ReadBinding
 // ReadMessage reads one message of an ICD.
 type ReadMessage = v1.ReadMessage
 
+// WriteValue is a fixed value that a write binding sends as its field. Its type is the
+// kind of the field.
+type WriteValue = v1.WriteValue
+
+// WriteValueVariant is implemented by every WriteValue variant.
+type WriteValueVariant = v1.WriteValueVariant
+
+// FloatWriteValue is a fixed float.
+type FloatWriteValue = v1.FloatWriteValue
+
+// IntegerWriteValue is a fixed signed integer.
+type IntegerWriteValue = v1.IntegerWriteValue
+
+// UnsignedWriteValue is a fixed unsigned integer.
+type UnsignedWriteValue = v1.UnsignedWriteValue
+
+// StringWriteValue is a fixed string.
+type StringWriteValue = v1.StringWriteValue
+
+// BooleanWriteValue is a fixed boolean.
+type BooleanWriteValue = v1.BooleanWriteValue
+
+// TimestampWriteValue is a fixed timestamp.
+type TimestampWriteValue = v1.TimestampWriteValue
+
+// JSONWriteValue is a fixed JSON value.
+type JSONWriteValue = v1.JSONWriteValue
+
+// UuidWriteValue is a fixed UUID.
+type UuidWriteValue = v1.UuidWriteValue
+
+// BytesWriteValue is fixed bytes.
+type BytesWriteValue = v1.BytesWriteValue
+
+// WriteBinding fills one message field with a command channel or a fixed value.
+type WriteBinding = v1.WriteBinding
+
+// WriteMessage sends one message of an ICD.
+type WriteMessage = v1.WriteMessage
+
 // BinaryBaseField carries the parts every binary field shares.
 type BinaryBaseField = v1.BinaryBaseField

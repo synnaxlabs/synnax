@@ -93,6 +93,85 @@ UUIDDefault = Annotated[
 ]
 
 
+class FloatWriteValue(BaseModel):
+    """Is a fixed float."""
+
+    type: Literal["float"] = "float"
+    value: payload_.Float
+
+
+class IntegerWriteValue(BaseModel):
+    """Is a fixed signed integer."""
+
+    type: Literal["integer"] = "integer"
+    value: payload_.Integer = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class UnsignedWriteValue(BaseModel):
+    """Is a fixed unsigned integer."""
+
+    type: Literal["unsigned"] = "unsigned"
+    value: payload_.Unsigned = Field(ge=0, le=18446744073709551615)
+
+
+class StringWriteValue(BaseModel):
+    """Is a fixed string."""
+
+    type: Literal["string"] = "string"
+    value: str
+
+
+class BooleanWriteValue(BaseModel):
+    """Is a fixed boolean."""
+
+    type: Literal["boolean"] = "boolean"
+    value: bool
+
+
+class TimestampWriteValue(BaseModel):
+    """Is a fixed timestamp."""
+
+    type: Literal["timestamp"] = "timestamp"
+    value: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class JSONWriteValue(BaseModel):
+    """Is a fixed JSON value."""
+
+    type: Literal["json"] = "json"
+    value: str
+
+
+class UuidWriteValue(BaseModel):
+    """Is a fixed UUID."""
+
+    type: Literal["uuid"] = "uuid"
+    value: UUID
+
+
+class BytesWriteValue(BaseModel):
+    """Is fixed bytes."""
+
+    type: Literal["bytes"] = "bytes"
+    value: str
+
+
+# Is a fixed value that a write binding sends as its field. Its type is the kind
+# of the field.
+WriteValue = Annotated[
+    FloatWriteValue
+    | IntegerWriteValue
+    | UnsignedWriteValue
+    | StringWriteValue
+    | BooleanWriteValue
+    | TimestampWriteValue
+    | JSONWriteValue
+    | UuidWriteValue
+    | BytesWriteValue,
+    Field(discriminator="type"),
+]
+
+
 class Where(BaseModel):
     """Is a filter that selects ICDs.
 
@@ -254,6 +333,25 @@ JSONMatch = Annotated[
 ]
 
 
+class WriteBinding(BaseModel):
+    """Fills one message field with a command channel or a fixed value.
+
+    Attributes:
+        field: Is the key of the message field to send.
+        channel: Is the command channel whose values the field sends.
+        data_type: Is the data type of the command channel that a client creates for the
+            field. Empty takes the default of the field's kind. The Core ignores it once
+            the channel exists.
+        value: Is the fixed value that the field sends. A binding with a value has
+            channel 0 and no data type.
+    """
+
+    field: FieldKey
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    data_type: telem.DataType = telem.DataType("")
+    value: WriteValue | None = None
+
+
 class RetrieveRequest(BaseModel):
     """Is a request to retrieve icds.
 
@@ -331,6 +429,19 @@ class ReadMessage(BaseModel):
     message: MessageKey
     index: FieldKey | None = None
     bindings: list[ReadBinding] = Field(default_factory=list)
+
+
+class WriteMessage(BaseModel):
+    """Sends one message of an ICD.
+
+    Attributes:
+        message: Is the key of the ICD message to send.
+        bindings: Are the fields that command channels or fixed values fill. Each other
+            field sends its default.
+    """
+
+    message: MessageKey
+    bindings: list[WriteBinding] = Field(default_factory=list)
 
 
 class DelimitedTextField(TextBaseField):
