@@ -29,6 +29,7 @@ describe("resolveIcon", () => {
       name: "calc",
       dataType: DataType.FLOAT32,
       expression: "x + 1",
+      calculated: true,
       virtual: true,
     });
     expect(resolveIcon(ch)).toBe(Icon.Calculation);

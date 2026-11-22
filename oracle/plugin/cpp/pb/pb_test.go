@@ -95,6 +95,35 @@ var _ = Describe("C++ PB Plugin", func() {
 		)
 
 		It(
+			"Should give a generic use the protobuf namespace of the struct that uses it",
+			func() {
+				AddFilterSchema(loader)
+				source := `
+				import "schemas/x/filter"
+
+				@cpp output "client/cpp/thing"
+				@pb
+
+				Kind struct {
+					name string
+					@go output "core/pkg/api/thing"
+				}
+				Thing struct {
+					keys filter.Set<uuid>?
+					@go output "core/pkg/service/thing"
+				}
+			`
+				resp := MustGenerate(source, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/proto.gen.h").
+					ToContain(
+						"inline std::pair<::service::thing::pb::UuidSet, x::errors::Error> " +
+							"uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID>& self) {",
+					).
+					ToNotContain("::api::thing::pb::UuidSet")
+			},
+		)
+
+		It(
 			"Should declare every generic use translator before any definition",
 			func() {
 				source := `

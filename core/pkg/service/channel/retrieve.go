@@ -52,18 +52,9 @@ func MatchInternal(internal bool) Filter {
 }
 
 // MatchVirtual returns a filter for channels that are virtual if virtual is true, or
-// are not virtual if virtual is false. Calculated channels are excluded from the
-// virtual bucket even though they are stored with Virtual=true.
+// are not virtual if virtual is false.
 func MatchVirtual(virtual bool) Filter {
 	return Match(func(_ gorp.Context, _ Retrieve, ch *Channel) (bool, error) {
-		isVirtual := ch.Virtual && !ch.IsCalculated()
-		return isVirtual == virtual, nil
-	})
-}
-
-// MatchCalculated returns a filter for channels that have a non-empty Expression field.
-func MatchCalculated() Filter {
-	return Match(func(_ gorp.Context, _ Retrieve, ch *Channel) (bool, error) {
-		return ch.IsCalculated(), nil
+		return ch.Virtual == virtual, nil
 	})
 }

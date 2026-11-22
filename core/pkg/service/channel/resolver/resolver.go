@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel
+// Package resolver resolves the channels of a channel service into Arc symbols, and
+// runs compiles that read channels against a consistent view of them.
+package resolver
 
 import (
 	"context"
@@ -19,34 +21,53 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
+
+// New returns a resolver that maps the channels of channels to Arc symbols by name or
+// numeric key, for analyzing and compiling Arc expressions such as calculations. The
+// resolver looks up channels in snap and sees only the channels that every filter
+// matches.
+func New(
+	channels *channel.Service,
+	snap gorp.Snapshot,
+	filters ...channel.Filter,
+) arc.SymbolResolver {
+	return &symbolResolver{channels: channels, snap: snap, filters: filters}
+}
+
+// AllowDashedNames reports whether Arc may treat '-' as an identifier character, which
+// a channel name can hold when channels does not validate names.
+func AllowDashedNames(channels *channel.Service) bool {
+	return !channels.ShouldValidateNames()
+}
 
 // symbolResolver resolves cluster channels into Arc symbols by name or numeric key. It
 // is the dynamic resolver attached to a program root's GlobalResolver: cluster channels
 // can appear or disappear at runtime, so they cannot be snapshotted into the ambient
 // prelude at analysis time.
 type symbolResolver struct {
-	svc     *Service
-	snap    gorp.Snapshot
-	filters []Filter
+	channels *channel.Service
+	snap     gorp.Snapshot
+	filters  []channel.Filter
 }
 
 var _ symbol.Resolver = (*symbolResolver)(nil)
 
-func (r *symbolResolver) toSymbol(ch Channel) *symbol.Symbol {
+func (r *symbolResolver) toSymbol(ch channel.Channel) *symbol.Symbol {
 	return &symbol.Symbol{
 		Name:       ch.Name,
 		Kind:       symbol.KindChannel,
 		Type:       types.Chan(types.FromTelem(ch.DataType)),
 		ID:         int(ch.Key()),
-		Renameable: !r.svc.IsBuiltIn(ch.Key()),
+		Renameable: !r.channels.IsBuiltIn(ch.Key()),
 	}
 }
 
-func (r *symbolResolver) retrieve() Retrieve {
-	q := r.svc.NewRetrieve()
+func (r *symbolResolver) retrieve() channel.Retrieve {
+	q := r.channels.NewRetrieve()
 	for _, f := range r.filters {
 		q = q.Where(f)
 	}
@@ -59,12 +80,12 @@ func (r *symbolResolver) Resolve(
 	name string,
 ) (*symbol.Symbol, error) {
 	key, err := strconv.ParseUint(name, 10, 32)
-	var ch Channel
+	var ch channel.Channel
 	q := r.retrieve().Entry(&ch)
 	if err == nil {
-		q = q.Where(MatchKeys(Key(key)))
+		q = q.Where(channel.MatchKeys(channel.Key(key)))
 	} else {
-		q = q.Where(MatchNames(name))
+		q = q.Where(channel.MatchNames(name))
 	}
 	if err = q.Exec(ctx, r.snap); err != nil {
 		return nil, err
@@ -77,41 +98,42 @@ func (r *symbolResolver) Search(
 	ctx context.Context,
 	name string,
 ) ([]*symbol.Symbol, error) {
-	var results []Channel
+	var results []channel.Channel
 	if err := r.retrieve().
-		Where(MatchInternal(false)).
+		Where(channel.MatchInternal(false)).
 		Search(name).
 		Entries(&results).Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
-	return lo.Map(results, func(item Channel, _ int) *symbol.Symbol {
+	return lo.Map(results, func(item channel.Channel, _ int) *symbol.Symbol {
 		return r.toSymbol(item)
 	}), nil
 }
 
-// NewConsistentResolver returns a resolver that answers each name the way r first
-// answered it. Arc resolves a name several times in one analysis or compile, and a
-// rename that commits part way through would otherwise give that pass both answers.
-// Use one per analysis or compile. It is safe for concurrent use.
-func NewConsistentResolver(r arc.SymbolResolver) arc.SymbolResolver {
+// NewConsistent returns a resolver that answers each name the way r first answered it.
+// Arc resolves a name several times in one analysis or compile, and a rename that
+// commits part way through would otherwise give that pass both answers. Use one per
+// analysis or compile. It is safe for concurrent use.
+func NewConsistent(r arc.SymbolResolver) arc.SymbolResolver {
 	return &consistentResolver{
 		SymbolResolver: r,
 		resolved:       make(map[string]resolution),
 	}
 }
 
-// NewCheckedResolver returns a consistent resolver that looks up channels in snap and
-// records each name it looks up in lookups, for CompileConsistent.
-func (s *Service) NewCheckedResolver(
+// NewChecked returns a consistent resolver that looks up the channels of channels in
+// snap and records each name it looks up in lookups, for CompileConsistent.
+func NewChecked(
+	channels *channel.Service,
 	snap gorp.Snapshot,
 	lookups *Lookups,
 ) arc.SymbolResolver {
 	return &consistentResolver{
-		SymbolResolver: s.NewArcSymbolResolver(snap),
+		SymbolResolver: New(channels, snap),
 		resolved:       make(map[string]resolution),
 		record: func(name string, first resolution) {
 			lookups.Record(func(ctx context.Context, snap gorp.Snapshot) (bool, error) {
-				return first.same(s.NewArcSymbolResolver(snap).Resolve(ctx, name))
+				return first.same(New(channels, snap).Resolve(ctx, name))
 			})
 		},
 	}

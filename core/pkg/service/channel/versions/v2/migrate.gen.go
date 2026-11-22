@@ -27,8 +27,6 @@ func autoMigrateChannel(_ context.Context, old v1.Channel) (Channel, error) {
 		LocalIndex:  old.LocalIndex,
 		Virtual:     old.Virtual,
 		Concurrency: old.Concurrency,
-		Operations:  old.Operations,
-		Expression:  old.Expression,
 		Group:       old.Group,
 	}, nil
 }

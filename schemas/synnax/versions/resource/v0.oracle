@@ -104,6 +104,9 @@ Type enum {
     enumeration      = "enumeration" {
         @doc value "identifies an enumeration."
     }
+    calculation      = "calculation" {
+        @doc value "identifies a calculation."
+    }
 
     @doc value "is the type of the resource."
 }

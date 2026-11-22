@@ -122,8 +122,6 @@ func validateChannel(ch channel.Channel) error {
 	_, storable := dataTypes[ch.DataType]
 	var reason string
 	switch {
-	case ch.IsCalculated():
-		reason = "is calculated, and Sift can only take stored channels"
 	case ch.Virtual:
 		reason = "is virtual, and the Core stores no data for virtual channels"
 	case ch.Index() == 0:

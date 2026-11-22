@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
@@ -34,6 +35,7 @@ var _ = Describe("Metrics", func() {
 		It("Should create a service with valid configuration", func(ctx SpecContext) {
 			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
+				Calculation:        calcSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
 				DB:                 dist.DB,
@@ -49,6 +51,14 @@ var _ = Describe("Metrics", func() {
 				HostKey: dist.Identity.HostKey,
 				Storage: dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
+		})
+		It("Should fail with a missing Calculation service", func(ctx SpecContext) {
+			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				HostKey: dist.Identity.HostKey,
+				Storage: dist.Storage,
+			})).Error().To(MatchError(ContainSubstring("calculation: must be non-nil")))
 		})
 		It("Should fail with missing Framer service", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
@@ -89,6 +99,7 @@ var _ = Describe("Metrics", func() {
 			MustOpen(
 				metrics.OpenService(context.Background(), metrics.ServiceConfig{
 					Channel:            channelSvc,
+					Calculation:        calcSvc,
 					Group:              groupSvc,
 					Framer:             framerSvc,
 					HostKey:            dist.Identity.HostKey,
@@ -147,7 +158,15 @@ var _ = Describe("Metrics", func() {
 				).To(Succeed())
 				Expect(ch.Name).To(Equal(expectedName))
 				Expect(ch.DataType).To(Equal(telem.Float32T))
-				Expect(ch.IsCalculated()).To(BeTrue())
+				Expect(ch.Virtual).To(BeTrue())
+				var calc calculation.Calculation
+				Expect(calcSvc.NewRetrieve().
+					Where(calculation.MatchOutputs(ch.Key())).
+					Entry(&calc).
+					Exec(ctx, dist.DB),
+				).To(Succeed())
+				Expect(calc.Expression).
+					To(Equal("return " + names[4] + " + " + names[5]))
 			},
 		)
 		It("Should create ts size metric channel", func(ctx SpecContext) {
@@ -177,6 +196,7 @@ var _ = Describe("Metrics", func() {
 		It("Should reuse existing channels", func(ctx SpecContext) {
 			svc2 := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
+				Calculation:        calcSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
 				HostKey:            dist.Identity.HostKey,
@@ -200,6 +220,7 @@ var _ = Describe("Metrics", func() {
 			GinkgoHelper()
 			return MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
+				Calculation:        calcSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
 				HostKey:            dist.Identity.HostKey,
@@ -266,6 +287,7 @@ var _ = Describe("Metrics", func() {
 		It("Should name the writer after the host node", func(ctx SpecContext) {
 			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
+				Calculation:        calcSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
 				HostKey:            dist.Identity.HostKey,
@@ -330,6 +352,7 @@ var _ = Describe("Metrics", func() {
 
 			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
+				Calculation:        calcSvc,
 				Group:              groupSvc,
 				DB:                 dist.DB,
 				Framer:             framerSvc,

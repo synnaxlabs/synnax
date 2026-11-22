@@ -67,22 +67,34 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			return nil
 		},
 	}))
-	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
+	creator = calctestutil.Creator{
+		DB:      db,
+		Channel: channelSvc,
+		Calculation: MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:      db,
+			Channel: channelSvc,
+		})),
+	}
 })
 
 func openGraph(ctx context.Context) *graph.Graph {
 	GinkgoHelper()
 	return MustOpen(graph.Open(ctx, graph.Config{
-		DB:      db,
-		Channel: channelSvc,
-		Status:  statusSvc,
+		DB:          db,
+		Channel:     channelSvc,
+		Calculation: creator.Calculation,
+		Status:      statusSvc,
 	}))
 }
 
 func fetchStatus(ctx context.Context, key channel.Key) (calculation.Status, bool) {
+	c, err := creator.CalculationOf(ctx, key)
+	if err != nil {
+		return calculation.Status{}, false
+	}
 	var statuses []calculation.Status
-	err := statusSvc.NewRetrieve[struct{}]().
-		Where(status.MatchOwners[struct{}](channel.ResourceID(key))).
+	err = statusSvc.NewRetrieve[struct{}]().
+		Where(status.MatchOwners[struct{}](calculation.ResourceID(c.Key))).
 		Entries(&statuses).
 		Exec(ctx, db)
 	if err != nil || len(statuses) == 0 {
@@ -122,15 +134,19 @@ func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 		"expected status to be cleared for channel %d", key)
 }
 
+// expressionOf returns the expression of the calculation that writes the channel with
+// key, which a report of its runtime names.
+func expressionOf(ctx context.Context, key channel.Key) string {
+	GinkgoHelper()
+	return MustSucceed(creator.CalculationOf(ctx, key)).Expression
+}
+
 // setExpression applies a set of the expression of the calculated channel with key.
 func setExpression(ctx context.Context, key channel.Key, expr string) {
 	GinkgoHelper()
-	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		_, err := channelSvc.NewWriter(tx).Apply(ctx, key, channel.NewSetAction(
-			channel.SetPayload{Path: []string{"expression"}, Value: expr},
-		))
-		return err
-	})).To(Succeed())
+	Expect(creator.Apply(ctx, key, calculation.NewSetAction(
+		calculation.SetPayload{Path: []string{"expression"}, Value: expr},
+	))).To(Succeed())
 }
 
 func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataType {
@@ -176,7 +192,7 @@ func createDep(ctx context.Context, depName string) channel.Channel {
 func deleteDep(ctx context.Context, depName string) {
 	GinkgoHelper()
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return channelSvc.NewWriter(tx).DeleteManyByNames(ctx, []string{depName}, false)
+		return channelSvc.NewWriter(tx).DeleteManyByNames(ctx, []string{depName})
 	})).To(Succeed())
 }
 
@@ -1143,8 +1159,30 @@ var _ = Describe("Graph", func() {
 				Expect(s.Variant).To(Equal(status.VariantError))
 				Expect(s.Message).To(Equal("Failed to compile calculation"))
 				Expect(s.Description).ToNot(BeEmpty())
-				Expect(s.Owner).To(HaveValue(Equal(channel.ResourceID(calc.Key()))))
+				c := MustSucceed(creator.CalculationOf(ctx, calc.Key()))
+				Expect(s.Owner).To(HaveValue(Equal(calculation.ResourceID(c.Key))))
 				Expect(s.Name).To(Equal("st_detail"))
+			},
+		)
+
+		It(
+			"Should rename the status of a calculation when its output is renamed",
+			func(ctx SpecContext) {
+				openGraph(ctx)
+				calc := createBrokenCalc(ctx, "st_rename", "st_rename_dep")
+				expectStatus(ctx, calc.Key())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := channelSvc.NewWriter(tx).Apply(
+						ctx,
+						calc.Key(),
+						channel.NewRenameAction(channel.RenamePayload{Name: "st_renamed"}),
+					)
+					return err
+				})).To(Succeed())
+				Eventually(func() string {
+					s, _ := fetchStatus(ctx, calc.Key())
+					return s.Name
+				}).Should(Equal("st_renamed"))
 			},
 		)
 
@@ -1241,12 +1279,19 @@ var _ = Describe("Graph", func() {
 				g := openGraph(ctx)
 
 				By("Reporting a runtime status the way the calculation framer does")
-				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
-					Name:    "st_keep",
-					Variant: status.VariantInfo,
-					Message: "calculating",
-					Time:    telem.Now(),
-				})).To(Succeed())
+				Expect(
+					g.SetRuntimeStatus(
+						ctx,
+						calc.Key(),
+						expressionOf(ctx, calc.Key()),
+						&calculation.Status{
+							Name:    "st_keep",
+							Variant: status.VariantInfo,
+							Message: "calculating",
+							Time:    telem.Now(),
+						},
+					),
+				).To(Succeed())
 				expectRuntimeStatusHeld := func() {
 					GinkgoHelper()
 					Consistently(func() bool {
@@ -1282,12 +1327,19 @@ var _ = Describe("Graph", func() {
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Reporting a runtime error the way the calculation framer does")
-				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
-					Name:    "st_expr",
-					Variant: status.VariantError,
-					Message: "Failed to run calculation",
-					Time:    telem.Now(),
-				})).To(Succeed())
+				Expect(
+					g.SetRuntimeStatus(
+						ctx,
+						calc.Key(),
+						expressionOf(ctx, calc.Key()),
+						&calculation.Status{
+							Name:    "st_expr",
+							Variant: status.VariantError,
+							Message: "Failed to run calculation",
+							Time:    telem.Now(),
+						},
+					),
+				).To(Succeed())
 				expectStatus(ctx, calc.Key())
 
 				By("Editing the expression to a different valid one")
@@ -1425,12 +1477,19 @@ var _ = Describe("Graph", func() {
 				Expression: "return rt_set_dep + 1",
 			}))
 
-			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
-				Name:    "rt_set",
-				Variant: status.VariantError,
-				Message: "Failed to run calculation",
-				Time:    telem.Now(),
-			})).To(Succeed())
+			Expect(
+				g.SetRuntimeStatus(
+					ctx,
+					calc.Key(),
+					expressionOf(ctx, calc.Key()),
+					&calculation.Status{
+						Name:    "rt_set",
+						Variant: status.VariantError,
+						Message: "Failed to run calculation",
+						Time:    telem.Now(),
+					},
+				),
+			).To(Succeed())
 
 			s := expectStatus(ctx, calc.Key())
 			Expect(s.Message).To(Equal("Failed to run calculation"))
@@ -1439,20 +1498,29 @@ var _ = Describe("Graph", func() {
 		It(
 			"Should write only reports that change the stored status",
 			func(ctx SpecContext) {
-				g := openGraph(ctx)
 				createDep(ctx, "rt_change_dep")
 				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name: "rt_change", DataType: telem.Int64T,
 					Expression: "return rt_change_dep + 1",
 				}))
+				// The graph opens over the calculation, so no change of its creation
+				// clears a status that the spec reports.
+				g := openGraph(ctx)
 				report := func(variant status.Variant, at telem.TimeStamp) {
 					GinkgoHelper()
-					Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
-						Name:    "rt_change",
-						Variant: variant,
-						Message: "Message",
-						Time:    at,
-					})).To(Succeed())
+					Expect(
+						g.SetRuntimeStatus(
+							ctx,
+							calc.Key(),
+							expressionOf(ctx, calc.Key()),
+							&calculation.Status{
+								Name:    "rt_change",
+								Variant: variant,
+								Message: "Message",
+								Time:    at,
+							},
+						),
+					).To(Succeed())
 				}
 				storedTime := func() telem.TimeStamp {
 					GinkgoHelper()
@@ -1489,12 +1557,19 @@ var _ = Describe("Graph", func() {
 				}))
 				report := func() {
 					GinkgoHelper()
-					Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
-						Name:    "rt_repeat",
-						Variant: status.VariantError,
-						Message: "Failed to run calculation",
-						Time:    telem.Now(),
-					})).To(Succeed())
+					Expect(
+						g.SetRuntimeStatus(
+							ctx,
+							calc.Key(),
+							expressionOf(ctx, calc.Key()),
+							&calculation.Status{
+								Name:    "rt_repeat",
+								Variant: status.VariantError,
+								Message: "Failed to run calculation",
+								Time:    telem.Now(),
+							},
+						),
+					).To(Succeed())
 				}
 				report()
 				// reportsUnderSnapshot reports whether a report finishes while another
@@ -1535,12 +1610,19 @@ var _ = Describe("Graph", func() {
 				calc := createBrokenCalc(ctx, "rt_invalid", "rt_invalid_dep")
 				expectStatus(ctx, calc.Key())
 
-				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
-					Name:    "rt_invalid",
-					Variant: status.VariantSuccess,
-					Message: "Calculation running",
-					Time:    telem.Now(),
-				})).To(Succeed())
+				Expect(
+					g.SetRuntimeStatus(
+						ctx,
+						calc.Key(),
+						expressionOf(ctx, calc.Key()),
+						&calculation.Status{
+							Name:    "rt_invalid",
+							Variant: status.VariantSuccess,
+							Message: "Calculation running",
+							Time:    telem.Now(),
+						},
+					),
+				).To(Succeed())
 
 				s, ok := fetchStatus(ctx, calc.Key())
 				Expect(ok).To(BeTrue())
@@ -1570,7 +1652,10 @@ var _ = Describe("Graph", func() {
 					ctx, calc.Key(), report("Failed to compile calculation"),
 				)).To(Succeed())
 				Expect(g.SetRuntimeStatus(
-					ctx, calc.Key(), report("Failed to run calculation"),
+					ctx,
+					calc.Key(),
+					expressionOf(ctx, calc.Key()),
+					report("Failed to run calculation"),
 				)).To(Succeed())
 				Expect(expectStatus(ctx, calc.Key()).Message).
 					To(Equal("Failed to compile calculation"))
@@ -1578,7 +1663,10 @@ var _ = Describe("Graph", func() {
 				By("Clearing the rejection")
 				Expect(g.ClearRuntimeStatus(ctx, calc.Key())).To(Succeed())
 				Expect(g.SetRuntimeStatus(
-					ctx, calc.Key(), report("Failed to run calculation"),
+					ctx,
+					calc.Key(),
+					expressionOf(ctx, calc.Key()),
+					report("Failed to run calculation"),
 				)).To(Succeed())
 				Expect(expectStatus(ctx, calc.Key()).Message).
 					To(Equal("Failed to run calculation"))
@@ -1599,7 +1687,7 @@ var _ = Describe("Graph", func() {
 					if !batchWrites(r, "rt_keep_dep") {
 						return
 					}
-					reports <- g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+					reports <- g.SetRuntimeStatus(ctx, calc.Key(), expressionOf(ctx, calc.Key()), &calculation.Status{
 						Name:    "rt_keep",
 						Variant: status.VariantInfo,
 						Message: "calculating",
@@ -1632,12 +1720,19 @@ var _ = Describe("Graph", func() {
 					return channelSvc.NewWriter(tx).Delete(ctx, calc.Key(), false)
 				})).To(Succeed())
 
-				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
-					Name:    "rt_gone",
-					Variant: status.VariantError,
-					Message: "Failed to run calculation",
-					Time:    telem.Now(),
-				})).To(Succeed())
+				Expect(
+					g.SetRuntimeStatus(
+						ctx,
+						calc.Key(),
+						"return rt_gone_dep + 1",
+						&calculation.Status{
+							Name:    "rt_gone",
+							Variant: status.VariantError,
+							Message: "Failed to run calculation",
+							Time:    telem.Now(),
+						},
+					),
+				).To(Succeed())
 
 				_, ok := fetchStatus(ctx, calc.Key())
 				Expect(ok).To(BeFalse())
@@ -1653,12 +1748,19 @@ var _ = Describe("Graph", func() {
 				Name: "rt_clear", DataType: telem.Int64T,
 				Expression: "return rt_clear_dep + 1",
 			}))
-			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
-				Name:    "rt_clear",
-				Variant: status.VariantError,
-				Message: "Failed to run calculation",
-				Time:    telem.Now(),
-			})).To(Succeed())
+			Expect(
+				g.SetRuntimeStatus(
+					ctx,
+					calc.Key(),
+					expressionOf(ctx, calc.Key()),
+					&calculation.Status{
+						Name:    "rt_clear",
+						Variant: status.VariantError,
+						Message: "Failed to run calculation",
+						Time:    telem.Now(),
+					},
+				),
+			).To(Succeed())
 			expectStatus(ctx, calc.Key())
 
 			Expect(g.ClearRuntimeStatus(ctx, calc.Key())).To(Succeed())
@@ -1710,12 +1812,19 @@ var _ = Describe("Graph", func() {
 				Name: "rt_accept_keep", DataType: telem.Int64T,
 				Expression: "return rt_accept_keep_dep + 1",
 			}))
-			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
-				Name:    "rt_accept_keep",
-				Variant: status.VariantError,
-				Message: "Failed to run calculation",
-				Time:    telem.Now(),
-			})).To(Succeed())
+			Expect(
+				g.SetRuntimeStatus(
+					ctx,
+					calc.Key(),
+					expressionOf(ctx, calc.Key()),
+					&calculation.Status{
+						Name:    "rt_accept_keep",
+						Variant: status.VariantError,
+						Message: "Failed to run calculation",
+						Time:    telem.Now(),
+					},
+				),
+			).To(Succeed())
 
 			Expect(g.AcceptDefinition(ctx, calc.Key())).To(Succeed())
 
@@ -1743,12 +1852,19 @@ var _ = Describe("Graph", func() {
 				_, ok := fetchStatus(ctx, calc.Key())
 				Expect(ok).To(BeFalse())
 
-				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
-					Name:    "rt_accept",
-					Variant: status.VariantError,
-					Message: "Failed to run calculation",
-					Time:    telem.Now(),
-				})).To(Succeed())
+				Expect(
+					g.SetRuntimeStatus(
+						ctx,
+						calc.Key(),
+						expressionOf(ctx, calc.Key()),
+						&calculation.Status{
+							Name:    "rt_accept",
+							Variant: status.VariantError,
+							Message: "Failed to run calculation",
+							Time:    telem.Now(),
+						},
+					),
+				).To(Succeed())
 				Expect(expectStatus(ctx, calc.Key()).Message).
 					To(Equal("Failed to run calculation"))
 			},
@@ -1772,12 +1888,19 @@ var _ = Describe("Graph", func() {
 		}
 		report := func(ctx context.Context, variant status.Variant) {
 			GinkgoHelper()
-			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
-				Name:    calc.Name,
-				Variant: variant,
-				Message: "Calculation status",
-				Time:    telem.Now(),
-			})).To(Succeed())
+			Expect(
+				g.SetRuntimeStatus(
+					ctx,
+					calc.Key(),
+					expressionOf(ctx, calc.Key()),
+					&calculation.Status{
+						Name:    calc.Name,
+						Variant: variant,
+						Message: "Calculation status",
+						Time:    telem.Now(),
+					},
+				),
+			).To(Succeed())
 		}
 
 		It("Should return false for a channel with no status", func(ctx SpecContext) {
@@ -1810,17 +1933,19 @@ var _ = Describe("Graph", func() {
 	Describe("Lifecycle", func() {
 		It("Should open and close without error", func(ctx SpecContext) {
 			Expect(MustOpen(graph.Open(ctx, graph.Config{
-				DB:      db,
-				Channel: channelSvc,
-				Status:  statusSvc,
+				DB:          db,
+				Channel:     channelSvc,
+				Calculation: creator.Calculation,
+				Status:      statusSvc,
 			}))).ToNot(BeNil())
 		})
 
 		It("Should disconnect observer on Close", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
-				DB:      db,
-				Channel: channelSvc,
-				Status:  statusSvc,
+				DB:          db,
+				Channel:     channelSvc,
+				Calculation: creator.Calculation,
+				Status:      statusSvc,
 			}))
 			base := channel.Channel{
 				Name:     "lc_disc_base",
@@ -1876,9 +2001,10 @@ var _ = Describe("Graph", func() {
 
 		It("Should handle Close being called twice", func(ctx SpecContext) {
 			g := MustOpen(graph.Open(ctx, graph.Config{
-				DB:      db,
-				Channel: channelSvc,
-				Status:  statusSvc,
+				DB:          db,
+				Channel:     channelSvc,
+				Calculation: creator.Calculation,
+				Status:      statusSvc,
 			}))
 			Expect(g.Close()).To(Succeed())
 		})

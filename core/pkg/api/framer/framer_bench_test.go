@@ -10,7 +10,7 @@
 package framer_test
 
 import (
-	"fmt"
+	"slices"
 	"testing"
 	"time"
 	"uuid"
@@ -67,40 +67,59 @@ func openServiceLayer(b *testing.B) (*service.Layer, *gorp.DB) {
 }
 
 // BenchmarkStreamKeyChange measures a streamer request that resends the same keys and
-// waits for its ack. The keys are one virtual channel and the calculated channels that
-// read it.
+// waits for its ack. The keys are raw virtual channels and the calculated channels that
+// read the first of them.
 func BenchmarkStreamKeyChange(b *testing.B) {
 	layer, db := openServiceLayer(b)
-	creator := calctestutil.Creator{DB: db, Channel: layer.Channel}
+	creator := calctestutil.Creator{
+		DB:          db,
+		Channel:     layer.Channel,
+		Calculation: layer.Calculation,
+	}
 	api := xtestutil.MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
-		DB:      db,
-		Framer:  layer.Framer,
-		Channel: layer.Channel,
-		RBAC:    layer.RBAC,
-		Errors:  errors.NewCodec(),
+		DB:          db,
+		Framer:      layer.Framer,
+		Channel:     layer.Channel,
+		Calculation: layer.Calculation,
+		RBAC:        layer.RBAC,
+		Errors:      errors.NewCodec(),
 	}))
-	for _, calculated := range []int{0, 1, 10, 100} {
-		b.Run(fmt.Sprintf("calculated=%d", calculated), func(b *testing.B) {
+	cases := []struct {
+		name            string
+		raw, calculated int
+	}{
+		{"calculated=0", 1, 0},
+		{"calculated=1", 1, 1},
+		{"calculated=10", 1, 10},
+		{"calculated=100", 1, 100},
+		{"raw=100", 100, 0},
+		{"raw=1000", 1000, 0},
+	}
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
 			ctx := b.Context()
-			base := channel.Channel{
-				Name:     channeltestutil.UniqueChannelName(),
-				DataType: telem.Float32T,
-				Virtual:  true,
+			raw := make([]channel.Channel, c.raw)
+			for i := range raw {
+				raw[i] = channel.Channel{
+					Name:     channeltestutil.UniqueChannelName(),
+					DataType: telem.Float32T,
+					Virtual:  true,
+				}
 			}
-			calculations := make([]calctestutil.Calculation, calculated)
+			calculations := make([]calctestutil.Calculation, c.calculated)
 			for i := range calculations {
 				calculations[i] = calctestutil.Calculation{
 					Name:       channeltestutil.UniqueChannelName(),
 					DataType:   telem.Float32T,
-					Expression: "return " + base.Name + " * 2",
+					Expression: "return " + raw[0].Name + " * 2",
 				}
 			}
 			gomega.Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return layer.Channel.NewWriter(tx).Create(ctx, &base)
+				return layer.Channel.NewWriter(tx).CreateMany(ctx, &raw)
 			})).To(gomega.Succeed())
 			calcs := xtestutil.MustSucceed(creator.CreateMany(ctx, calculations))
 			calcs = append(calcs, xtestutil.MustSucceed(creator.Indexes(ctx, calcs))...)
-			keys := channel.KeysFromChannels(append([]channel.Channel{base}, calcs...))
+			keys := channel.KeysFromChannels(slices.Concat(raw, calcs))
 			u := xtestutil.MustSucceed(rbactestutil.CreateUser(
 				ctx,
 				db,

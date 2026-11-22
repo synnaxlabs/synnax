@@ -1453,7 +1453,8 @@
         "index": 0,
         "virtual": true,
         "internal": false,
-        "expression": "return pressure_1 * 2"
+        "expression": "return pressure_1 * 2",
+        "calculated": true
       },
       "d": {
         "key": 1048580,

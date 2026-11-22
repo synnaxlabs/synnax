@@ -19,6 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -52,6 +53,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Calculation stores the calculation of each calculated metric channel.
+	//
+	// [REQUIRED]
+	Calculation *calculation.Service
 	// Framer is used to write metrics to the metric channels.
 	//
 	// [REQUIRED]
@@ -83,6 +88,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.DB = override.Nil(c.DB, other.DB)
@@ -99,6 +105,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.metrics")
 	v.NotNil("channel", c.Channel)
+	v.NotNil("calculation", c.Calculation)
 	v.NotNil("framer", c.Framer)
 	v.NonZero("host_key", c.HostKey)
 	v.NotNil("storage", c.Storage)
@@ -238,18 +245,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}); err != nil {
 		return nil, err
 	}
-	// Do this in a separate transaction otherwise the Arc analyzer won't parse the
-	// calculated channel expressions.
 	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		calculatedChannels := createCalculatedMetrics(namePrefix)
-		for i := range calculatedChannels {
-			calculatedChannels[i].Group = &s.group.Key
-		}
-		return cfg.Channel.NewWriter(tx).CreateMany(
-			ctx,
-			&calculatedChannels,
-			channel.RetrieveIfNameExists(),
-		)
+		return createCalculatedMetrics(ctx, tx, cfg, namePrefix, &s.group.Key)
 	}); err != nil {
 		return nil, err
 	}

@@ -104,14 +104,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rackSvc = svc.Rack
 	taskSvc = svc.Task
 	channelSvc = svc.Channel
-	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
+	creator = calctestutil.Creator{
+		DB:          db,
+		Channel:     channelSvc,
+		Calculation: svc.Calculation,
+	}
 	arcSvc = svc.Arc
 	statusSvc = svc.Status
 	apiChannelSvc := MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
-		DB:      db,
-		RBAC:    rbacSvc,
-		Channel: channelSvc,
-		Status:  svc.Status,
+		DB:          db,
+		RBAC:        rbacSvc,
+		Channel:     channelSvc,
+		Status:      svc.Status,
+		Calculation: svc.Calculation,
 	}))
 	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   db,
@@ -123,6 +128,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Arc:             arcSvc,
 		Status:          statusSvc,
 		Channel:         channelSvc,
+		Calculation:     svc.Calculation,
 		RBAC:            rbacSvc,
 		DispatchChannel: bind.Write(binder, apiChannelSvc.Dispatch),
 		Stopper:         svc.TaskStopper,
