@@ -80,8 +80,8 @@ struct Where {
     /// @brief internal matches the built-in channels, or every other channel when
     /// false.
     ::x::filter::Field<::x::filter::Bool> internal;
-    /// @brief virtual_ matches virtual channels that are not calculated, or every other
-    /// channel when false.
+    /// @brief virtual_ matches virtual channels, or every other channel when false. The
+    /// channel API counts the output of a calculation as not virtual.
     std::optional<bool> virtual_;
     /// @brief path matches the channels at full paths: the names of the folders from
     /// the top, then the channel's name, joined by '.'.

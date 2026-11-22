@@ -91,16 +91,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	framerSvc = svc.Framer
 	channelSvc = svc.Channel
-	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
+	creator = calctestutil.Creator{
+		DB:          db,
+		Channel:     channelSvc,
+		Calculation: svc.Calculation,
+	}
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
 	apiSvc = MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
-		DB:      db,
-		Framer:  svc.Framer,
-		Channel: svc.Channel,
-		RBAC:    svc.RBAC,
-		Records: svc.Signals.Records(),
-		Errors:  errors.NewCodec(),
+		DB:          db,
+		Framer:      svc.Framer,
+		Channel:     svc.Channel,
+		Calculation: svc.Calculation,
+		RBAC:        svc.RBAC,
+		Records:     svc.Signals.Records(),
+		Errors:      errors.NewCodec(),
 	}))
 	Expect(svc.User.NewRetrieve().
 		Where(user.MatchRootUser(true)).

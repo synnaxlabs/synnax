@@ -16,6 +16,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -118,18 +119,19 @@ func createBenchChannels(
 	calcs := make([]channel.Channel, count)
 	for i := range calcs {
 		calcs[i] = channel.Channel{
-			Name:       fmt.Sprintf("bench_calc_%d", i),
-			DataType:   telem.Float32T,
-			Expression: "return bench_base * 2",
+			Name:        fmt.Sprintf("bench_calc_%d", i),
+			DataType:    telem.Float32T,
+			Virtual:     true,
+			Leaseholder: node.KeyFree,
 		}
 	}
 	if err := db.WithTx(b.Context(), func(tx gorp.Tx) error {
-		return svc.NewWriter(tx).CreateMany(b.Context(), &calcs)
+		return svc.NewWriter(tx).CreateMany(b.Context(), &calcs, channel.FreeIndex())
 	}); err != nil {
 		b.Fatalf("failed to create calculated channels: %v", err)
 	}
-	indexes := make([]channel.Key, len(calcs))
-	for i, c := range calcs {
+	indexes := make([]channel.Key, count)
+	for i, c := range calcs[:count] {
 		indexes[i] = c.Index()
 	}
 	return indexes
@@ -142,12 +144,12 @@ func (e *benchEnv) close(b *testing.B) {
 	}
 }
 
-// owners resolves the calculated channels indexed by key.
+// owners resolves the channels indexed by key, other than key itself.
 func (e *benchEnv) owners(b *testing.B, key channel.Key) []channel.Channel {
 	b.Helper()
 	var owners []channel.Channel
 	if err := e.svc.NewRetrieve().
-		Where(channel.MatchCalculated()).
+		Where(channel.MatchIsIndex(false)).
 		Where(e.svc.MatchIndexes(key)).
 		Entries(&owners).
 		Exec(b.Context(), db); err != nil {
@@ -184,7 +186,8 @@ func BenchmarkMatchIndexes(b *testing.B) {
 			for range b.N {
 				var all []channel.Channel
 				if err := env.svc.NewRetrieve().
-					Where(channel.MatchCalculated()).
+					Where(channel.MatchVirtual(true)).
+					Where(channel.MatchIsIndex(false)).
 					Entries(&all).
 					Exec(b.Context(), db); err != nil {
 					b.Fatalf("failed to scan: %v", err)

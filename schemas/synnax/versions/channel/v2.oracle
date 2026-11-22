@@ -18,10 +18,8 @@ LocalKey = v0.LocalKey
 
 Name = v0.Name
 
-OperationType = v0.OperationType
-
-Operation = v0.Operation
-
 Channel struct extends v1.Channel {
     -internal
+    -operations
+    -expression
 }

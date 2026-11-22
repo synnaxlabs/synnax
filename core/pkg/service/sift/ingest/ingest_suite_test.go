@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -54,16 +55,22 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
-	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
-	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
-		DB:      node.DB,
+	calcSvc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+		DB:      db,
 		Channel: channelSvc,
-		Status:  statusSvc,
+	}))
+	creator = calctestutil.Creator{DB: db, Channel: channelSvc, Calculation: calcSvc}
+	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		DB:          node.DB,
+		Calculation: calcSvc,
+		Channel:     channelSvc,
+		Status:      statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		DB:           node.DB,
 		Framer:       node.Framer,
 		Channel:      channelSvc,
+		Calculation:  calcSvc,
 		ChannelGraph: channelGraph,
 	}))
 })

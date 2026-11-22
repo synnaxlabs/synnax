@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel_test
+package resolver_test
 
 import (
 	"strconv"
@@ -19,12 +19,13 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("NewArcSymbolResolver", func() {
+var _ = Describe("New", func() {
 	It("Should resolve a channel by name", func(ctx SpecContext) {
 		ch := &channel.Channel{
 			Name:     "resolver_test_ch",
@@ -36,7 +37,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		})).To(Succeed())
 
 		sym := MustSucceed(
-			svc.NewArcSymbolResolver(db).Resolve(ctx, "resolver_test_ch"),
+			resolver.New(svc, db).Resolve(ctx, "resolver_test_ch"),
 		)
 		Expect(sym.Name).To(Equal("resolver_test_ch"))
 		Expect(sym.Kind).To(Equal(symbol.KindChannel))
@@ -56,7 +57,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		})).To(Succeed())
 
 		sym := MustSucceed(
-			svc.NewArcSymbolResolver(db).Resolve(ctx, "resolver_internal_ch"),
+			resolver.New(svc, db).Resolve(ctx, "resolver_internal_ch"),
 		)
 		Expect(sym.Renameable).To(BeFalse())
 	})
@@ -72,7 +73,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		})).To(Succeed())
 
 		sym := MustSucceed(
-			svc.NewArcSymbolResolver(db).Resolve(ctx, strconv.Itoa(int(ch.Key()))),
+			resolver.New(svc, db).Resolve(ctx, strconv.Itoa(int(ch.Key()))),
 		)
 		Expect(sym.Name).To(Equal("resolver_key_test_ch"))
 		Expect(sym.Kind).To(Equal(symbol.KindChannel))
@@ -80,7 +81,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 	})
 
 	It("Should return an error for a nonexistent symbol", func(ctx SpecContext) {
-		Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, "does_not_exist_anywhere")).
+		Expect(resolver.New(svc, db).Resolve(ctx, "does_not_exist_anywhere")).
 			Error().To(MatchError(query.ErrNotFound))
 	})
 
@@ -119,7 +120,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		})
 
 		It("Should not resolve a hidden channel by name", func(ctx SpecContext) {
-			r := svc.NewArcSymbolResolver(db, hide())
+			r := resolver.New(svc, db, hide())
 			Expect(r.Resolve(ctx, hidden.Name)).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(r.Resolve(ctx, visible.Name)).
@@ -127,7 +128,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		})
 
 		It("Should not resolve a hidden channel by numeric key", func(ctx SpecContext) {
-			r := svc.NewArcSymbolResolver(db, hide())
+			r := resolver.New(svc, db, hide())
 			Expect(r.Resolve(ctx, strconv.Itoa(int(hidden.Key())))).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(r.Resolve(ctx, strconv.Itoa(int(visible.Key())))).
@@ -136,22 +137,50 @@ var _ = Describe("NewArcSymbolResolver", func() {
 
 		It("Should leave a hidden channel out of search", func(ctx SpecContext) {
 			Eventually(func(g Gomega) {
-				g.Expect(svc.NewArcSymbolResolver(db).Search(ctx, "resolver_filter")).
+				g.Expect(resolver.New(svc, db).Search(ctx, "resolver_filter")).
 					To(ContainElements(
 						HaveField("ID", int(visible.Key())),
 						HaveField("ID", int(hidden.Key())),
 					))
 			}).Should(Succeed())
-			Expect(svc.NewArcSymbolResolver(db, hide()).Search(ctx, "resolver_filter")).
+			Expect(resolver.New(svc, db, hide()).Search(ctx, "resolver_filter")).
 				To(SatisfyAll(
 					ContainElement(HaveField("ID", int(visible.Key()))),
 					Not(ContainElement(HaveField("ID", int(hidden.Key())))),
 				))
 		})
 	})
+	It("Should resolve a channel created through the service by name", func(
+		ctx SpecContext,
+	) {
+		ch := channel.Channel{
+			Name:     "arc_resolver_by_name",
+			DataType: telem.Float32T,
+			Virtual:  true,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		sym := MustSucceed(resolver.New(svc, db).Resolve(ctx, ch.Name))
+		Expect(sym.Name).To(Equal(ch.Name))
+		Expect(sym.ID).To(Equal(int(ch.Key())))
+	})
+
+	It("Should fuzzy-search channels by name", func(ctx SpecContext) {
+		ch := channel.Channel{
+			Name:     "catalina",
+			DataType: telem.Float32T,
+			Virtual:  true,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		Expect(resolver.New(svc, db).Search(ctx, ch.Name)).
+			To(ContainElement(HaveField("Name", ch.Name)))
+	})
 })
 
-var _ = Describe("NewConsistentResolver", func() {
+var _ = Describe("NewConsistent", func() {
 	var ch *channel.Channel
 	BeforeEach(func(ctx SpecContext) {
 		ch = &channel.Channel{
@@ -172,7 +201,7 @@ var _ = Describe("NewConsistentResolver", func() {
 	It(
 		"Should resolve a renamed channel by the name it first had",
 		func(ctx SpecContext) {
-			r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(db))
+			r := resolver.NewConsistent(resolver.New(svc, db))
 			Expect(r.Resolve(ctx, "consistent_resolver_ch")).
 				To(HaveField("ID", int(ch.Key())))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -188,7 +217,7 @@ var _ = Describe("NewConsistentResolver", func() {
 	It(
 		"Should keep reporting a missing name after it is created",
 		func(ctx SpecContext) {
-			r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(db))
+			r := resolver.NewConsistent(resolver.New(svc, db))
 			Expect(r.Resolve(ctx, "consistent_resolver_later")).Error().
 				To(MatchError(query.ErrNotFound))
 			later := &channel.Channel{
@@ -206,14 +235,14 @@ var _ = Describe("NewConsistentResolver", func() {
 			})
 			Expect(r.Resolve(ctx, "consistent_resolver_later")).Error().
 				To(MatchError(query.ErrNotFound))
-			Expect(channel.NewConsistentResolver(svc.NewArcSymbolResolver(db)).
+			Expect(resolver.NewConsistent(resolver.New(svc, db)).
 				Resolve(ctx, "consistent_resolver_later")).
 				To(HaveField("ID", int(later.Key())))
 		},
 	)
 
 	It("Should return a separate symbol for each lookup", func(ctx SpecContext) {
-		r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(db))
+		r := resolver.NewConsistent(resolver.New(svc, db))
 		first := MustSucceed(r.Resolve(ctx, "consistent_resolver_ch"))
 		first.Name = "changed"
 		Expect(r.Resolve(ctx, "consistent_resolver_ch")).
@@ -221,7 +250,7 @@ var _ = Describe("NewConsistentResolver", func() {
 	})
 
 	It("Should resolve the same name from many goroutines", func(ctx SpecContext) {
-		r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(db))
+		r := resolver.NewConsistent(resolver.New(svc, db))
 		var wg sync.WaitGroup
 		for range 8 {
 			wg.Go(func() {
@@ -236,7 +265,7 @@ var _ = Describe("NewConsistentResolver", func() {
 	})
 
 	It("Should search through the wrapped resolver", func(ctx SpecContext) {
-		r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(db))
+		r := resolver.NewConsistent(resolver.New(svc, db))
 		Eventually(func(g Gomega) {
 			g.Expect(r.Search(ctx, "consistent_resolver")).
 				To(ContainElement(HaveField("ID", int(ch.Key()))))

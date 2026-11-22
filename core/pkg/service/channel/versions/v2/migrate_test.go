@@ -10,6 +10,8 @@
 package v2_test
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -17,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v2"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -83,5 +86,53 @@ var _ = Describe("Migration", func() {
 			"key",
 			stored[0].Key().String(),
 		))
+	})
+})
+
+var _ = Describe("StageCalculations", func() {
+	It("Should keep its key, which the applied set holds forever", func() {
+		Expect(v2.StageCalculations.Key()).To(Equal("v63_stage_calculations"))
+	})
+
+	It("Should stage the expression and operations of each channel that has one", func(
+		ctx SpecContext,
+	) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		ops := []v1.Operation{{Type: v1.OperationTypeAvg, Duration: telem.Second}}
+		stored := []v1.Channel{
+			{
+				Name:        "doubled",
+				Leaseholder: node.KeyFree,
+				LocalKey:    1,
+				DataType:    telem.Float32T,
+				Virtual:     true,
+				Expression:  "return pressure * 2",
+				Operations:  ops,
+			},
+			{Name: "pressure", Leaseholder: 1, LocalKey: 2, DataType: telem.Float32T},
+		}
+		Expect(gorp.WrapWriter[v1.Key, v1.Channel](db).Set(ctx, stored...)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			Instrumentation: alamos.New("test"),
+			DB:              db,
+			Namespace:       "channel",
+			Migrations: []gorp.Migration{
+				v2.StageCalculations,
+				v2.Migration,
+			},
+		})).To(Succeed())
+		blob, closer := MustSucceed2(db.Get(
+			[]byte(v2.CalculationKVPrefix + stored[0].Key().String()),
+		))
+		Expect(closer.Close()).To(Succeed())
+		var staged v2.StagedCalculation
+		Expect(json.Unmarshal(blob, &staged)).To(Succeed())
+		Expect(staged).To(Equal(v2.StagedCalculation{
+			Expression: "return pressure * 2",
+			Operations: ops,
+		}))
+		Expect(db.Get([]byte(v2.CalculationKVPrefix + stored[1].Key().String()))).
+			Error().To(MatchError(query.ErrNotFound))
 	})
 })

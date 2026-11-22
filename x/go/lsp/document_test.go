@@ -301,3 +301,58 @@ var _ = Describe("Document", func() {
 		})
 	})
 })
+
+var _ = Describe("UTF-16 columns", func() {
+	// é is two bytes and one UTF-16 unit, 水 is three bytes and one unit, and U+1F525
+	// is four bytes and two units.
+	const line = "aé水\U0001F525b"
+	DescribeTable("ByteOffset", func(col uint32, want int) {
+		Expect(lsp.ByteOffset(line, col)).To(Equal(want))
+	},
+		Entry("the start", uint32(0), 0),
+		Entry("after an ASCII character", uint32(1), 1),
+		Entry("after a two-byte character", uint32(2), 3),
+		Entry("after a three-byte character", uint32(3), 6),
+		Entry("after an astral character", uint32(5), 10),
+		Entry("the end", uint32(6), 11),
+		Entry("past the end", uint32(9), 11),
+	)
+	DescribeTable("UTF16Column", func(offset int, want uint32) {
+		Expect(lsp.UTF16Column(line, offset)).To(Equal(want))
+	},
+		Entry("the start", 0, uint32(0)),
+		Entry("after a two-byte character", 3, uint32(2)),
+		Entry("after a three-byte character", 6, uint32(3)),
+		Entry("after an astral character", 10, uint32(5)),
+		Entry("the end", 11, uint32(6)),
+	)
+
+	Describe("Word lookups", func() {
+		const content = "/*\U0001F525é*/ time.now"
+		// time starts at UTF-16 column 8 and now at column 13.
+		It(
+			"Should find the word at a UTF-16 column after non-ASCII characters",
+			func() {
+				Expect(lsp.GetWordAtPosition(content, protocol.Position{Character: 9})).
+					To(Equal("time"))
+			},
+		)
+
+		It("Should find the qualified prefix at a UTF-16 column", func() {
+			Expect(lsp.GetQualifiedPrefixWordAtPosition(
+				content,
+				protocol.Position{Character: 14},
+			)).To(Equal("time.now"))
+		})
+
+		It("Should give the range of the word in UTF-16 columns", func() {
+			Expect(
+				lsp.GetWordRangeAtPosition(content, protocol.Position{Character: 14}),
+			).
+				To(Equal(&protocol.Range{
+					Start: protocol.Position{Character: 13},
+					End:   protocol.Position{Character: 16},
+				}))
+		})
+	})
+})

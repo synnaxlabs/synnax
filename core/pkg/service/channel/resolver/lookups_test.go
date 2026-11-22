@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel_test
+package resolver_test
 
 import (
 	"context"
@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -40,9 +41,9 @@ var _ = Describe("CompileConsistent", func() {
 
 	It("Should compile and check once when no lookup changes", func(ctx SpecContext) {
 		var compiles, checks int
-		Expect(channel.CompileConsistent(ctx, db, func(
+		Expect(resolver.CompileConsistent(ctx, db, func(
 			_ gorp.Snapshot,
-			lookups *channel.Lookups,
+			lookups *resolver.Lookups,
 		) (int, error) {
 			compiles++
 			lookups.Record(func(context.Context, gorp.Snapshot) (bool, error) {
@@ -59,16 +60,16 @@ var _ = Describe("CompileConsistent", func() {
 		ctx SpecContext,
 	) {
 		var snaps []gorp.Snapshot
-		Expect(channel.CompileConsistent(ctx, db, func(
+		Expect(resolver.CompileConsistent(ctx, db, func(
 			snap gorp.Snapshot,
-			lookups *channel.Lookups,
+			lookups *resolver.Lookups,
 		) (int, error) {
 			snaps = append(snaps, snap)
 			lookups.Record(func(context.Context, gorp.Snapshot) (bool, error) {
 				return false, nil
 			})
 			return len(snaps), nil
-		})).Error().To(MatchError(channel.ErrLookupsChanged))
+		})).Error().To(MatchError(resolver.ErrLookupsChanged))
 		Expect(snaps).To(HaveLen(5))
 		Expect(snaps).To(HaveEach(BeIdenticalTo(db)))
 	})
@@ -78,9 +79,9 @@ var _ = Describe("CompileConsistent", func() {
 	) {
 		cancelCtx, cancel := context.WithCancel(ctx)
 		var compiles int
-		Expect(channel.CompileConsistent(cancelCtx, db, func(
+		Expect(resolver.CompileConsistent(cancelCtx, db, func(
 			_ gorp.Snapshot,
-			lookups *channel.Lookups,
+			lookups *resolver.Lookups,
 		) (int, error) {
 			compiles++
 			cancel()
@@ -93,9 +94,9 @@ var _ = Describe("CompileConsistent", func() {
 	})
 
 	It("Should return the error of a check", func(ctx SpecContext) {
-		Expect(channel.CompileConsistent(ctx, db, func(
+		Expect(resolver.CompileConsistent(ctx, db, func(
 			_ gorp.Snapshot,
-			lookups *channel.Lookups,
+			lookups *resolver.Lookups,
 		) (int, error) {
 			lookups.Record(func(context.Context, gorp.Snapshot) (bool, error) {
 				return false, errors.New("check failed")
@@ -109,12 +110,12 @@ var _ = Describe("CompileConsistent", func() {
 	) {
 		ch := createChannel(ctx, "checked_rename_ch")
 		var compiles int
-		Expect(channel.CompileConsistent(ctx, db, func(
+		Expect(resolver.CompileConsistent(ctx, db, func(
 			snap gorp.Snapshot,
-			lookups *channel.Lookups,
+			lookups *resolver.Lookups,
 		) (*symbol.Symbol, error) {
 			compiles++
-			sym, err := svc.NewCheckedResolver(snap, lookups).
+			sym, err := resolver.NewChecked(svc, snap, lookups).
 				Resolve(ctx, "checked_rename_ch")
 			if compiles == 1 {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -134,12 +135,12 @@ var _ = Describe("CompileConsistent", func() {
 			compiles int
 			ch       channel.Channel
 		)
-		sym := MustSucceed(channel.CompileConsistent(ctx, db, func(
+		sym := MustSucceed(resolver.CompileConsistent(ctx, db, func(
 			snap gorp.Snapshot,
-			lookups *channel.Lookups,
+			lookups *resolver.Lookups,
 		) (*symbol.Symbol, error) {
 			compiles++
-			sym, err := svc.NewCheckedResolver(snap, lookups).
+			sym, err := resolver.NewChecked(svc, snap, lookups).
 				Resolve(ctx, "checked_later_ch")
 			if compiles == 1 {
 				ch = createChannel(ctx, "checked_later_ch")
@@ -155,7 +156,7 @@ var _ = Describe("Lookups", func() {
 	DescribeTable(
 		"Unchanged",
 		func(ctx SpecContext, answers []bool, unchanged bool) {
-			lookups := &channel.Lookups{}
+			lookups := &resolver.Lookups{}
 			for _, same := range answers {
 				lookups.Record(func(context.Context, gorp.Snapshot) (bool, error) {
 					return same, nil
@@ -177,7 +178,7 @@ var _ = Describe("Lookups", func() {
 	)
 
 	It("Should return the error of a lookup", func(ctx SpecContext) {
-		lookups := &channel.Lookups{}
+		lookups := &resolver.Lookups{}
 		lookups.Record(func(context.Context, gorp.Snapshot) (bool, error) {
 			return false, errors.New("lookup failed")
 		})
@@ -186,13 +187,13 @@ var _ = Describe("Lookups", func() {
 })
 
 var _ = Describe("RetryChanged", func() {
-	// changing returns a function that returns channel.ErrLookupsChanged for its first
+	// changing returns a function that returns resolver.ErrLookupsChanged for its first
 	// changes calls, and counts each call in calls.
 	changing := func(changes int, calls *int) func() (int, error) {
 		return func() (int, error) {
 			*calls++
 			if *calls <= changes {
-				return 0, channel.ErrLookupsChanged
+				return 0, resolver.ErrLookupsChanged
 			}
 			return 42, nil
 		}
@@ -200,20 +201,20 @@ var _ = Describe("RetryChanged", func() {
 
 	It("Should call again until the lookups hold", func(ctx SpecContext) {
 		var calls int
-		Expect(channel.RetryChanged(ctx, changing(2, &calls))).To(Equal(42))
+		Expect(resolver.RetryChanged(ctx, changing(2, &calls))).To(Equal(42))
 		Expect(calls).To(Equal(3))
 	})
 
 	It("Should fail after three changed calls", func(ctx SpecContext) {
 		var calls int
-		Expect(channel.RetryChanged(ctx, changing(3, &calls))).Error().
-			To(MatchError(channel.ErrLookupsChanged))
+		Expect(resolver.RetryChanged(ctx, changing(3, &calls))).Error().
+			To(MatchError(resolver.ErrLookupsChanged))
 		Expect(calls).To(Equal(3))
 	})
 
 	It("Should return another error at once", func(ctx SpecContext) {
 		var calls int
-		Expect(channel.RetryChanged(ctx, func() (int, error) {
+		Expect(resolver.RetryChanged(ctx, func() (int, error) {
 			calls++
 			return 0, query.ErrNotFound
 		})).Error().To(MatchError(query.ErrNotFound))
@@ -223,10 +224,10 @@ var _ = Describe("RetryChanged", func() {
 	It("Should stop waiting when the context is cancelled", func(ctx SpecContext) {
 		cancelCtx, cancel := context.WithCancel(ctx)
 		var calls int
-		Expect(channel.RetryChanged(cancelCtx, func() (int, error) {
+		Expect(resolver.RetryChanged(cancelCtx, func() (int, error) {
 			calls++
 			cancel()
-			return 0, channel.ErrLookupsChanged
+			return 0, resolver.ErrLookupsChanged
 		})).Error().To(MatchError(context.Canceled))
 		Expect(calls).To(Equal(1))
 	})

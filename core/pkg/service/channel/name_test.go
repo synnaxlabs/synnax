@@ -112,9 +112,12 @@ var _ = Describe("Unique names", Ordered, func() {
 			return svc.NewWriter(tx).CreateMany(ctx, &chs)
 		})
 		Expect(err).To(MatchError(validate.ErrValidation))
-		pathErr, ok := errors.AsType[validate.PathError](err)
+		batchErr, ok := errors.AsType[channel.BatchError](err)
 		Expect(ok).To(BeTrue())
-		Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
+		Expect(batchErr.At).To(Equal(1))
+		pathErr, ok := errors.AsType[validate.PathError](batchErr.Err)
+		Expect(ok).To(BeTrue())
+		Expect(pathErr.Path).To(Equal([]string{"name"}))
 	})
 
 	It("Should refuse a create whose name another channel holds, naming that channel",

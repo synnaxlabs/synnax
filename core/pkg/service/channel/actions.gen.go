@@ -34,7 +34,7 @@ const (
 // CreatePayload replaces the channel with the given created state. Emitted by the Core
 // when a channel is created; clients never dispatch it.
 type CreatePayload struct {
-	Channel Channel `json:"channel" msgpack:"channel"`
+	Channel Created `json:"channel" msgpack:"channel"`
 }
 
 // SetPayload replaces the value at a path. It creates the absent objects on the path,
