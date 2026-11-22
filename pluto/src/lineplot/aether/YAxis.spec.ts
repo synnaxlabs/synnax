@@ -674,10 +674,7 @@ describe("XAxis", () => {
     });
 
     it("should keep its segments while it holds", () => {
-      const moved = telemTest.source<[bounds.Bounds, MultiSeries]>([
-        WINDOWS.y1[1].x,
-        new MultiSeries(),
-      ]);
+      const moved: XSource = telemTest.source([WINDOWS.y1[1].x, new MultiSeries()]);
       const x = mount(
         { y1: [WINDOWS.y1[0], { ...WINDOWS.y1[1], source: moved }] },
         { type: "time" },

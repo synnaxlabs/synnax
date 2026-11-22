@@ -44,8 +44,8 @@ export type UseTriggers = Triggers.ModeConfig<TriggerMode>;
 export interface UseRefValue {
   reset: () => void;
   /**
-   * Moves the view to view without emitting a change, for a view set elsewhere, and
-   * masks selection, a box in the same space as view. A zero selection clears the mask.
+   * Moves the view to view without emitting a change. Masks selection, a box in the
+   * space of view, or clears the mask when selection is zero.
    */
   sync: (view: box.Box, selection?: box.Box) => void;
 }
@@ -55,6 +55,10 @@ export interface UseProps {
   onChange?: UseHandler;
   resetOnDoubleClick?: boolean;
   threshold?: dimensions.Dimensions;
+  /**
+   * The home view. Each new box, even one equal to the last, resets the view and clears
+   * the mask.
+   */
   initial?: box.Box;
   ref?: RefObject<UseRefValue | undefined> | ForwardedRef<UseRefValue | undefined>;
   /**
@@ -171,7 +175,7 @@ export const use = ({
   const defaultMode = initialTriggers?.defaultMode ?? "zoom";
 
   const [maskBox, setMaskBox, maskBoxRef] = useCombinedStateAndRef<box.Box>(box.ZERO);
-  // The bound of the select drag in progress, which is null until it arrives.
+  // The bound of the select drag in progress, or null when none is.
   const dragBoundRef = useRef<DragBound | null>(null);
   const [maskMode, setMaskMode] = useState<Mode>(defaultMode);
   const [stateRef, setStateRef] = useStateRef<box.Box>(initial);
@@ -182,7 +186,6 @@ export const use = ({
   const prevCursorRef = useRef<xy.XY>(xy.ZERO);
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
-  // Each new initial box is a reset. A reset can move the data under the view.
   useEffect(() => {
     setMaskBox(box.ZERO);
     setStateRef(() => box.truncate(initial, calculateTruncPrecision(initial)));
@@ -293,8 +296,8 @@ export const use = ({
       return setStateRef(box.DECIMAL);
     }
 
-    // A drag that starts as another mode can end as a select, so the bound loads at
-    // the first select event, from where the drag started.
+    // A drag that starts as another mode can end as a select, so the bound loads at the
+    // first select event, from where the drag started.
     if (mode === "select" && dragBoundRef.current == null && selectBound != null) {
       const x = constructScale(stateRef.current, canvas).x.pos(box_.one.x);
       const drag: DragBound = { bound: null, loaded: selectBound(x) };
@@ -306,7 +309,7 @@ export const use = ({
       dragBoundRef.current = null;
       const args = { box: box_, triggers, cursor, mode, canvas };
       // A select drag that ends before its bound arrives commits once it does.
-      if (drag?.bound == null && drag != null)
+      if (drag != null && drag.bound == null)
         void drag.loaded.then((b) => endDrag(args, b));
       else endDrag(args, drag?.bound ?? bounds.INFINITE);
       return;

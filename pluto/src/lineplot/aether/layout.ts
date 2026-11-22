@@ -229,8 +229,8 @@ export class Layout {
   }
 
   /**
-   * @returns the value at a decimal position across the home view. A position where
-   * two segments meet gives the lower bound of the later one.
+   * @returns the value at a decimal position across the home view. A position where two
+   * segments meet gives the lower bound of the later one.
    */
   reverseHome(position: number): number {
     const i = lastAtOrBelow(this.positionLowers, position);
@@ -238,10 +238,10 @@ export class Layout {
   }
 
   /**
-   * @returns the values that a span of decimal positions across the home view holds.
-   * An edge where two segments meet gives the bound of the segment inside the span.
+   * @returns the values that a span of decimal positions across the home view holds. An
+   * edge where two segments meet gives the bound of the segment inside the span.
    */
-  reverseHomeSpan({ lower, upper }: bounds.Bounds): bounds.Bounds {
+  reverseHomeBounds({ lower, upper }: bounds.Bounds): bounds.Bounds {
     let i = lastAtOrBelow(this.positionLowers, upper);
     if (i > 0 && this.positionLowers[i] === upper) i--;
     return { lower: this.reverseHome(lower), upper: this.reverseHomes[i].pos(upper) };

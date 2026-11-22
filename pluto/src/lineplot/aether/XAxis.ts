@@ -33,8 +33,8 @@ const breakSourceZ = z.enum(["plot", "axis"]);
 export type BreakSource = z.infer<typeof breakSourceZ>;
 
 /**
- * Opens or closes the break under a click, opens or closes every break, or opens the
- * breaks at the given gap starts.
+ * Opens or closes the break under a click, opens or closes every break, or sets the
+ * open breaks to the given gap starts.
  */
 const breakActionZ = z.discriminatedUnion("variant", [
   z.object({
@@ -173,7 +173,11 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
    * @returns the values that the closed break of layout at a decimal position across
    * the plot hides, or null.
    */
-  hiddenAt(layout: Layout, position: number, plot: box.Box): bounds.Bounds | null {
+  static hiddenAt(
+    layout: Layout,
+    position: number,
+    plot: box.Box,
+  ): bounds.Bounds | null {
     const hit = BREAK_HIT_DISTANCE / box.width(plot);
     return layout.gapAt(position, hit, true)?.bounds ?? null;
   }
@@ -321,7 +325,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
 // width, centered on the seam.
 const remap = (before: Layout, after: Layout, b: box.Box, view: boolean): box.Box => {
   const x = box.xBounds(b);
-  const values = before.reverseHomeSpan(x);
+  const values = before.reverseHomeBounds(x);
   let lower = after.home(values.lower);
   let upper = after.home(values.upper);
   if (view && upper <= lower) {

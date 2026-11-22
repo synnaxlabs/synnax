@@ -676,8 +676,8 @@ describe("LinePlot", () => {
       cursor: xy.ZERO,
     });
 
-    // renderFrame renders a frame, with the elements that extra returns, whose plot
-    // has a closed break and an open one, and returns change for each break action.
+    // renderFrame renders a frame, with the elements that extra returns, whose plot has
+    // a closed break and an open one, and returns change for each break action.
     const renderFrame = async (
       change: lineplot.BreaksChange | null = CHANGE,
       extra: () => ReactNode = () => null,
@@ -744,16 +744,12 @@ describe("LinePlot", () => {
       };
     };
 
-    it("should report the break counts of the plot", async () => {
-      await renderFrame();
-    });
-
     it("should mount with the open breaks it is given", async () => {
       const { plot } = await renderFrame();
       expect(plot.state.openBreaks).toEqual([2]);
     });
 
-    it("should keep the open breaks it mounts with through its first view", async () => {
+    it("should keep its first open breaks through its first view", async () => {
       const { plot, getBreakChange } = await renderFrame(CHANGE, () => (
         <LinePlot.Viewport initial={box.DECIMAL} />
       ));
@@ -986,7 +982,7 @@ describe("LinePlot", () => {
       });
     });
 
-    it("should not toggle a break on a click on a strip with breaks disabled", async () => {
+    it("should not toggle a break on a strip with breaks disabled", async () => {
       const { getBreakChange } = await renderFrame(CHANGE, () => (
         <LinePlot.XAxis axisKey="x2" location="top" type="time">
           <LinePlot.Range.Provider breaksDisabled />
@@ -1067,7 +1063,7 @@ describe("LinePlot", () => {
     });
 
     describe("select bound", () => {
-      it("should bound a select drag by the seams on each side of its start", async () => {
+      it("should bound a select drag by the seams around its start", async () => {
         vi.spyOn(lineplot.LinePlot.prototype, "getSeams").mockReturnValue([0.3, 0.6]);
         const { result } = await renderFrame();
         const bound = result.current.selectBound;
@@ -1092,10 +1088,7 @@ describe("LinePlot", () => {
           throw new Error("no seams");
         });
         const { result } = await renderFrame();
-        expect(await result.current.selectBound(0.45)).toEqual({
-          lower: -Infinity,
-          upper: Infinity,
-        });
+        expect(await result.current.selectBound(0.45)).toEqual(bounds.INFINITE);
       });
     });
   });

@@ -91,7 +91,7 @@ describe("Layout", () => {
     });
 
     it("should map a span that ends where two segments meet to the earlier one", () => {
-      const s = layout.reverseHomeSpan({
+      const s = layout.reverseHomeBounds({
         lower: 0.05,
         upper: layout.segments[1].position.lower,
       });
@@ -100,7 +100,7 @@ describe("Layout", () => {
     });
 
     it("should map a span that starts where two segments meet to the later one", () => {
-      const s = layout.reverseHomeSpan({
+      const s = layout.reverseHomeBounds({
         lower: layout.segments[1].position.lower,
         upper: 0.25,
       });

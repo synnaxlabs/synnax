@@ -272,8 +272,8 @@ export abstract class BaseAxis<
 
 // clip drops the segments wholly outside lower and upper, and moves the outer edges to
 // them. A bound in a gap moves to the nearest segment it keeps, as the gap collapses. A
-// window of two bounds that holds no segment stays as set. When one bound leaves no
-// segment inside, the nearest one takes both edges.
+// window of two bounds that holds no segment stays as set. With one bound and no
+// segment inside, the nearest segment takes that bound.
 const clip = (
   segments: bounds.Bounds[],
   lower?: number,

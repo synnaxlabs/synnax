@@ -224,9 +224,8 @@ export class LinePlot
     x1: Layout | null,
   ): void {
     const findByXDecimal = this.findDrawnByXDecimal.bind(this);
-    const axis = this.axes.at(0);
     const hiddenAt = (position: number) =>
-      axis == null || x1 == null ? null : axis.hiddenAt(x1, position, region);
+      x1 == null ? null : XAxis.hiddenAt(x1, position, region);
     const p = { findByXDecimal, hiddenAt, region, canvases };
     this.tooltips.forEach((t) => t.render(p));
   }
@@ -249,7 +248,7 @@ export class LinePlot
     return Object.fromEntries(
       this.axes.map((a, i) => [
         a.state.axisKey ?? a.key,
-        a.layout(axisProps(i, this.state)).reverseHomeSpan(positions),
+        a.layout(axisProps(i, this.state)).reverseHomeBounds(positions),
       ]),
     );
   }

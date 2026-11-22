@@ -282,7 +282,7 @@ const viewRange = (view: bounds.Bounds): TimeRange | undefined => {
 };
 
 // Returns the time range of a span, or undefined for a span with no finite edge.
-const boundRange = (span: bounds.Bounds): TimeRange | undefined => {
+const spanRange = (span: bounds.Bounds): TimeRange | undefined => {
   const { lower, upper } = span;
   if (!Number.isFinite(lower) && !Number.isFinite(upper)) return undefined;
   return new TimeRange(
@@ -482,7 +482,7 @@ export class ChannelData
     };
     const range = view == null ? undefined : viewRange(view);
     if (range != null) limit.view = range;
-    const boundary = span == null ? undefined : boundRange(span);
+    const boundary = span == null ? undefined : spanRange(span);
     if (boundary != null) limit.bound = boundary;
     if (settling) limit.settling = true;
     return { keys: [key], window, limit };

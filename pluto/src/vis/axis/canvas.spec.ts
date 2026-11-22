@@ -10,16 +10,14 @@
 import { box, type location, scale, xy } from "@synnaxlabs/x";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { type AxisProps, axisStateZ, BREAK_WIDTH } from "@/vis/axis/axis";
-import { Bottom, newCanvas } from "@/vis/axis/canvas";
-import type { Tick } from "@/vis/axis/ticks";
+import { axis } from "@/vis/axis";
 import { canvasTest } from "@/vis/render/testutil";
 
 const LOCATIONS: location.Outer[] = ["bottom", "top", "left", "right"];
 
 const POSITION = xy.construct(20, 400);
 
-const PROPS: AxisProps = {
+const PROPS: axis.AxisProps = {
   plot: box.construct({ x: 0, y: 0 }, { width: 300, height: 200 }),
   // Reaches 20 past the axis on each side.
   container: box.construct({ x: 0, y: 0 }, { width: 340, height: 450 }),
@@ -29,7 +27,7 @@ const PROPS: AxisProps = {
 };
 
 const state = (loc: location.Outer) =>
-  axisStateZ.parse({
+  axis.axisStateZ.parse({
     color: "#000000",
     gridColor: "#333333",
     font: "12px sans-serif",
@@ -50,11 +48,11 @@ describe("axis/canvas", () => {
       baseline: CanvasTextBaseline = "alphabetic",
     ): xy.XY[] => {
       const surface = canvasTest.atlasSurface();
-      const axis = newCanvas(loc, surface.context, state(loc));
+      const canvas = axis.newCanvas(loc, surface.context, state(loc));
       surface.canvas.textAlign = align;
       surface.canvas.textBaseline = baseline;
       surface.clear();
-      axis.render(PROPS);
+      canvas.render(PROPS);
       return surface.glyphs();
     };
 
@@ -81,10 +79,10 @@ describe("axis/canvas", () => {
     (["bottom", "top"] as const).forEach((loc) =>
       it(`should draw ${loc} tick labels inside the size it reports`, () => {
         const surface = canvasTest.atlasSurface();
-        const axis = newCanvas(loc, surface.context, state(loc));
-        const { size } = axis.render(PROPS);
+        const canvas = axis.newCanvas(loc, surface.context, state(loc));
+        const { size } = canvas.render(PROPS);
         surface.clear();
-        axis.render({ ...PROPS, size });
+        canvas.render({ ...PROPS, size });
         const glyphs = surface.glyphs();
         expect(glyphs.length).toBeGreaterThan(0);
         const inkOffset =
@@ -112,11 +110,11 @@ describe("axis/canvas", () => {
       },
     ];
 
-    const render = (ticks: Tick[]) => {
+    const render = (ticks: axis.Tick[]) => {
       const r = canvasTest.record();
-      const axis = new Bottom(r.context, state("bottom"));
-      vi.spyOn(axis.tickFactory, "create").mockReturnValue(ticks);
-      axis.render({ ...PROPS, segments: SEGMENTS });
+      const canvas = new axis.Bottom(r.context, state("bottom"));
+      vi.spyOn(canvas.tickFactory, "create").mockReturnValue(ticks);
+      canvas.render({ ...PROPS, segments: SEGMENTS });
       const { calls } = r.lower2d;
       const labels = calls.filter((c) => c.op === "fillText").map((c) => c.args[0]);
       const ends = calls.filter((c) => c.op === "lineTo").map((c) => c.args[0]);
@@ -125,8 +123,8 @@ describe("axis/canvas", () => {
 
     it("should draw a faint mark at each open break", () => {
       const r = canvasTest.record();
-      const axis = newCanvas("bottom", r.context, state("bottom"));
-      axis.render({ ...PROPS, openBreaks: [0.25] });
+      const canvas = axis.newCanvas("bottom", r.context, state("bottom"));
+      canvas.render({ ...PROPS, openBreaks: [0.25] });
       const { calls } = r.lower2d;
       const faint = calls.findIndex(
         ({ op, args: [alpha] }) =>
@@ -143,7 +141,7 @@ describe("axis/canvas", () => {
 
     it("should stop the axis line at the mark of each seam", () => {
       const { ends } = render([]);
-      expect(ends).toContain(POSITION.x + 150 - BREAK_WIDTH / 2);
+      expect(ends).toContain(POSITION.x + 150 - axis.BREAK_WIDTH / 2);
       expect(ends).toContain(POSITION.x + 300);
     });
 
@@ -206,8 +204,8 @@ describe("axis/canvas", () => {
 
     it("should draw every label of an axis with no breaks", () => {
       const r = canvasTest.record();
-      const axis = newCanvas("bottom", r.context, state("bottom"));
-      axis.render(PROPS);
+      const canvas = axis.newCanvas("bottom", r.context, state("bottom"));
+      canvas.render(PROPS);
       const labels = r.lower2d.calls.filter((c) => c.op === "fillText");
       expect(labels.length).toBeGreaterThan(0);
     });

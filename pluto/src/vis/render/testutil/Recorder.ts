@@ -180,8 +180,7 @@ export class Recorder {
     },
   };
 
-  /** The recorder as the render context it stands in for, for code that takes one
-   * outside an aether tree. */
+  /** The recorder as a render context, for code that runs outside an Aether tree. */
   get context(): render.Context {
     return this as unknown as render.Context;
   }
