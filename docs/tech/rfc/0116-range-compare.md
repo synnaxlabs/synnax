@@ -70,9 +70,9 @@ color once and saves it in the reference's `color`: the range's own color when i
 clearly apart from every color on the plot, else the first unused series color
 (`docs/claude/ux.md:69`). Clearly apart is an OKLab distance of 0.05 or more in normal
 vision and in three simulations of color blindness, the check that enumerations use
-(`console/src/feature/enumeration/check.ts:17`). The swatch on a range heading in the
-legend changes the plot's color for that range, never the range's own color. Absolute
-mode keeps the color by channel.
+(`pluto/src/enumeration/check.ts:17`). The swatch on a range heading in the legend
+changes the plot's color for that range, never the range's own color. Absolute mode
+keeps the color by channel.
 
 ### 2.4 Identifying lines and filtering
 
