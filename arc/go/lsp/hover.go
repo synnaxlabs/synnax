@@ -64,6 +64,12 @@ func (s *Server) Hover(
 	if n, _, quoted := d.channelNameAt(params.Position); quoted {
 		return s.channelHover(ctx, d, n, params.Position), nil
 	}
+	// A dotted name that is no channel is a module member, which the word hovers.
+	if n, ok := d.pathAt(params.Position); ok {
+		if h := s.channelHover(ctx, d, n, params.Position); h != nil {
+			return h, nil
+		}
+	}
 
 	operator := s.getOperatorAtPosition(displayContent, params.Position)
 	if operator != "" {
@@ -112,7 +118,7 @@ func (s *Server) Hover(
 	return markdownHover(contents), nil
 }
 
-// channelHover returns the hover of the quoted channel name n at pos, or nil when n
+// channelHover returns the hover of the channel that n names at pos, or nil when n
 // names no channel.
 func (s *Server) channelHover(
 	ctx context.Context,
@@ -125,10 +131,10 @@ func (s *Server) channelHover(
 		scope = d.findScopeAtPosition(pos)
 	}
 	sym, err := scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
-	if err != nil {
+	if err != nil || sym.Kind != symbol.KindChannel {
 		return nil
 	}
-	return markdownHover(s.symbolHover(sym, n.Head))
+	return markdownHover(s.symbolHover(sym, n.String()))
 }
 
 // markdownHover returns a hover of markdown contents, or nil when contents is empty.

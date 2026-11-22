@@ -54,30 +54,46 @@ type document struct {
 	names *nameTokens
 }
 
-// nameTokens holds the tokens of one content that can hold a quoted channel name: the
-// quoted names and the string literals, whose placeholders can hold them. It lexes the
-// content on first use and keeps the tokens until the content changes, so a lookup by
-// position costs the same at any document length.
+// nameTokens holds the tokens of one content that can hold a quoted channel name (the
+// quoted names and the string literals, whose placeholders can hold them) and its
+// dotted names. It lexes the content on first use and keeps them until the content
+// changes, so a lookup by position costs the same at any document length.
 type nameTokens struct {
 	mu      sync.Mutex
 	content string
 	lexed   bool
 	tokens  []antlr.Token
+	paths   []pathToken
 }
 
 // of returns the name tokens of content in order. Callers must not change them.
 func (n *nameTokens) of(content string) []antlr.Token {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	if !n.lexed || n.content != content {
-		n.content, n.lexed, n.tokens = content, true, lexNameTokens(content)
-	}
+	n.lex(content)
 	return n.tokens
 }
 
-func lexNameTokens(content string) []antlr.Token {
+// pathsOf returns the dotted names of content in order. Callers must not change them.
+func (n *nameTokens) pathsOf(content string) []pathToken {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.lex(content)
+	return n.paths
+}
+
+func (n *nameTokens) lex(content string) {
+	if n.lexed && n.content == content {
+		return
+	}
+	tokens := tokenizeContent(content)
+	n.content, n.lexed = content, true
+	n.tokens, n.paths = keepNameTokens(tokens), linePaths(tokens)
+}
+
+func keepNameTokens(tokens []antlr.Token) []antlr.Token {
 	var kept []antlr.Token
-	for _, t := range tokenizeContent(content) {
+	for _, t := range tokens {
 		switch t.GetTokenType() {
 		case parser.ArcLexerCHANNEL_NAME,
 			parser.ArcLexerSTR_LITERAL,
@@ -238,6 +254,21 @@ func (d *document) channelNameAt(
 		}
 	}
 	return parser.Name{}, protocol.Range{}, false
+}
+
+// pathAt returns the dotted name whose text holds pos.
+func (d *document) pathAt(pos protocol.Position) (parser.Name, bool) {
+	ps := d.names.pathsOf(d.displayContent())
+	// Paths do not overlap, so only the first that ends after pos can hold it.
+	i := sort.Search(len(ps), func(i int) bool {
+		end := ps[i].rng.End
+		return end.Line > pos.Line ||
+			(end.Line == pos.Line && end.Character > pos.Character)
+	})
+	if i < len(ps) && holds(ps[i].rng, pos) {
+		return ps[i].name, true
+	}
+	return parser.Name{}, false
 }
 
 // channelNameIn returns the quoted channel name at pos in the name token t, and its
