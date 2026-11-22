@@ -14,6 +14,9 @@ import (
 	"encoding/binary"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -61,6 +64,21 @@ func segmentFiles(fs xfs.FS, key cesium.ChannelKey) int {
 	return n
 }
 
+// iterated returns the values of key that iter reads from its position on.
+func iterated(iter *cesium.Iterator, key cesium.ChannelKey) []int64 {
+	GinkgoHelper()
+	var out []int64
+	for iter.Next(cesium.AutoSpan) {
+		for _, s := range iter.Value().Get(key).Series {
+			for i := 0; i+8 <= len(s.Data); i += 8 {
+				out = append(out, int64(binary.LittleEndian.Uint64(s.Data[i:])))
+			}
+		}
+	}
+	Expect(iter.Error()).ToNot(HaveOccurred())
+	return out
+}
+
 var _ = Describe("Check: segments that only parts hold", func() {
 	It("Should keep the file of a parted segment that a delete empties while an "+
 		"iterator that loaded it reads", func(ctx SpecContext) {
@@ -81,18 +99,61 @@ var _ = Describe("Check: segments that only parts hold", func() {
 			telem.TimeRange{Start: telem.SecondTS, End: 11 * telem.SecondTS},
 		)).To(Succeed())
 		Expect(segmentFiles(fs, data)).To(Equal(3), "the iterator pins the segment")
-		var read []int64
-		for iter.Next(cesium.AutoSpan) {
-			for _, s := range iter.Value().Get(data).Series {
-				for i := 0; i+8 <= len(s.Data); i += 8 {
-					read = append(read, int64(binary.LittleEndian.Uint64(s.Data[i:])))
-				}
-			}
-		}
-		Expect(iter.Error()).ToNot(HaveOccurred())
-		Expect(read).To(HaveLen(30))
+		Expect(iterated(iter, data)).To(HaveLen(30))
 		Expect(iter.Close()).To(Succeed())
 		Expect(segmentFiles(fs, data)).To(Equal(2))
+	})
+
+	It("Should keep the file of a parted segment that a delete empties after a switch "+
+		"writes its record to a new part, while an iterator that loaded the old part "+
+		"reads", func(ctx SpecContext) {
+		fs := headHoldFS{
+			FS:      xfs.NewMem(),
+			held:    make(chan struct{}, 1),
+			release: make(chan struct{}),
+			cleans:  &atomic.Int64{},
+		}
+		idx, data := closeParted(ctx, fs)
+		db := partedDB(ctx, fs)
+		DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
+		DeferCleanup(StartRun(db.Run))
+		release := sync.OnceFunc(func() { close(fs.release) })
+		DeferCleanup(release)
+		iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			Bounds:   telem.TimeRangeMax,
+			Channels: []cesium.ChannelKey{data},
+		}))
+		Expect(iter.SeekFirst()).To(BeTrue())
+		// The kills of the second segments of both keys leave part 1 half dead, so
+		// switch 3 writes the first segments to a new part.
+		Expect(db.DeleteTimeRange(
+			ctx,
+			[]cesium.ChannelKey{idx, data},
+			telem.TimeRange{Start: 11 * telem.SecondTS, End: 21 * telem.SecondTS},
+		)).To(Succeed())
+		switched := make(chan error, 1)
+		go func() { switched <- switchLog(db, fs, 3) }()
+		Eventually(fs.held).WithTimeout(time.Minute).Should(Receive())
+		cleans := fs.cleans.Load()
+		release()
+		Eventually(switched).WithTimeout(time.Minute).Should(Receive(Succeed()))
+		// The checkpointer hands the head to the state before its clean, and a
+		// writer's open waits for the state owner.
+		Eventually(fs.cleans.Load).Should(BeNumerically(">", cleans))
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{idx, data},
+			Start:    1_000 * telem.SecondTS,
+		}))
+		Expect(w.Close()).To(Succeed())
+		Expect(parted(fs, 3, data)).To(Equal([]uint64{2, 3}))
+		Expect(db.DeleteTimeRange(
+			ctx,
+			[]cesium.ChannelKey{data},
+			telem.TimeRange{Start: telem.SecondTS, End: 11 * telem.SecondTS},
+		)).To(Succeed())
+		Expect(segmentFiles(fs, data)).To(Equal(3), "the iterator pins part 1")
+		Expect(iter.Close()).To(Succeed())
+		Expect(segmentFiles(fs, data)).To(Equal(1))
 	})
 
 	It("Should drop in a sweep a key with no record whose parted samples a delete "+
