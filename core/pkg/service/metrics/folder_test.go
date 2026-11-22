@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -48,19 +49,26 @@ var _ = Describe("Folder", func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statuses,
 		}))
-		graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		calcs := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:      node.DB,
 			Channel: channels,
-			Status:  statuses,
+		}))
+		graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+			DB:          node.DB,
+			Calculation: calcs,
+			Channel:     channels,
+			Status:      statuses,
 		}))
 		framers := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 			DB:           node.DB,
 			Framer:       node.Framer,
 			Channel:      channels,
+			Calculation:  calcs,
 			ChannelGraph: graph,
 		}))
 		cfg = metrics.ServiceConfig{
 			Channel:            channels,
+			Calculation:        calcs,
 			Group:              groups,
 			Framer:             framers,
 			DB:                 node.DB,
