@@ -56,7 +56,8 @@ var _ = Describe("Strict retrieve check", func() {
 
 	It("Should refuse an or inside a branch of the or", func(ctx SpecContext) {
 		Expect(retrieve(ctx, &channel.Where{Or: []channel.Where{{
-			Or: []channel.Where{{Name: &filter.String{In: []string{"x"}}}},
+			Name: &filter.String{In: []string{"x"}},
+			Or:   []channel.Where{{Name: &filter.String{In: []string{"y"}}}},
 		}}})).To(refused)
 	})
 })
