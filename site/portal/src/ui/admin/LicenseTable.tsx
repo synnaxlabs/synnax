@@ -11,7 +11,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { ReactElement } from "react";
 
-import type { License, Organization } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import { term } from "@/server/license/limits";
 import { statusOf } from "@/server/license/status";
 import { Licenses } from "@/ui/licenses";
@@ -19,10 +19,10 @@ import { Row, Table } from "@/ui/Table";
 import { useClock } from "@/ui/useClock";
 
 export interface LicenseEntry {
-  license: License;
+  license: schema.License;
   seats: number;
   /** organization shows in its own column when set. */
-  organization?: Organization;
+  organization?: schema.Organization;
 }
 
 export interface LicenseTableProps {

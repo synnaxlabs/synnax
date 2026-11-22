@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { License } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 
 export type Status = "active" | "expiring" | "expired" | "revoked";
 
@@ -20,7 +20,7 @@ export const isStatus = (value: string): value is Status =>
 export const EXPIRING = 30 * 24 * 60 * 60 * 1000;
 
 /** statusOf derives a license's state from its dates at `now`. */
-export const statusOf = (lic: License, now: Date): Status => {
+export const statusOf = (lic: schema.License, now: Date): Status => {
   if (lic.revokedAt != null) return "revoked";
   if (lic.expiresAt == null) return "active";
   const left = lic.expiresAt.getTime() - now.getTime();
