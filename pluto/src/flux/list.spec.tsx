@@ -449,24 +449,27 @@ describe("useList", () => {
     );
     act(() => result.current.more());
     await waitFor(() => expect(result.current.answered).toBe(true));
+    const keysOf = (target: string, req: unknown) =>
+      target === "/range/retrieve"
+        ? ranger.retrieveRequestZ.parse(req).where?.key?.in
+        : null;
+    const readsOutside = (target: string, req: unknown): boolean =>
+      keysOf(target, req)?.includes(outside.key) === true;
+    // A frame from another spec makes the reader fetch the range it names, at times in
+    // the same batch. Only a read of the outside range alone fails, so that fetch never
+    // does.
     const reads = rejectRequests(
       reader,
-      (target, req) =>
-        target === "/range/retrieve" &&
-        ranger.retrieveRequestZ.parse(req).order == null,
+      (target, req) => keysOf(target, req)?.length === 1 && readsOutside(target, req),
       new Error("boom"),
     );
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const callback = vi.fn();
     result.current.subscribe(callback, outside.key)();
     await waitFor(() =>
-      expect(
-        reads.mock.calls.some(
-          ([target, req]) =>
-            target === "/range/retrieve" &&
-            ranger.retrieveRequestZ.parse(req).order == null,
-        ),
-      ).toBe(true),
+      expect(reads.mock.calls.some(([target, req]) => readsOutside(target, req))).toBe(
+        true,
+      ),
     );
     await act(async () => {});
     expect(error).not.toHaveBeenCalled();
