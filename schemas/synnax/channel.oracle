@@ -439,4 +439,5 @@ Where filter Channel {
         name, and path matches, at the top level or as the branches of one or.
     """
     @response type     APIChannel
+    @ts shortcut       omit
 }
