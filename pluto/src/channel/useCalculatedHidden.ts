@@ -35,7 +35,7 @@ const failureOf = (error: unknown): status.Status => {
 interface Lookups {
   /**
    * Looks up each of keys that no lookup in flight holds, and that no lookup failed for
-   * since the picker last opened.
+   * since the picker last opened or a lookup last answered.
    */
   run: (outputs: Outputs, keys: channel.Key[]) => void;
   /**
@@ -61,13 +61,16 @@ const createLookups = (): Lookups => {
   let open = false;
   let report: Report | undefined;
   const notify = () => listeners.forEach((onChange) => onChange());
-  const run = async (outputs: Outputs, keys: channel.Key[]) => {
+  const run = async (outputs: Outputs, keys: channel.Key[]): Promise<void> => {
     keys.forEach((key) => looking.add(key));
     running++;
     notify();
+    let retry: channel.Key[] = [];
     try {
       await outputs.retrieve(keys);
-      keys.forEach((key) => failed.delete(key));
+      // The Core answers again, so the channels that failed are looked up again.
+      retry = [...failed].filter((key) => !looking.has(key));
+      failed.clear();
       failure = undefined;
       reported = false;
     } catch (e) {
@@ -81,6 +84,7 @@ const createLookups = (): Lookups => {
     keys.forEach((key) => looking.delete(key));
     running--;
     notify();
+    if (retry.length > 0) await run(outputs, retry);
   };
   return {
     run: (outputs, keys) => {

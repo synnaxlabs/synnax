@@ -294,6 +294,31 @@ describe("Channel select", () => {
       expect(c.queryByText(FAILED)).not.toBeNull();
     });
 
+    it("should look a failed channel up again once a later lookup answers", async () => {
+      const failing = await createPlain();
+      const later = await createPlain();
+      let failures = 1;
+      const spy = rejectRequests(
+        client,
+        (target, req) => {
+          if (target !== LOOKUP || failures === 0) return false;
+          const { where } = req as calculation.RetrieveRequest;
+          if (where?.output?.in?.includes(failing.key) !== true) return false;
+          failures--;
+          return true;
+        },
+        new Error("calculations unavailable"),
+      );
+      onTestFinished(() => spy.mockRestore());
+      const c = render(<Picker keys={[failing.key]} />, { wrapper });
+      toggle(c);
+      expect(await c.findByText(FAILED)).toBeTruthy();
+      // The open list takes in another channel, and its lookup answers.
+      c.rerender(<Picker keys={[failing.key, later.key]} />);
+      expect(await c.findByText(later.name)).toBeTruthy();
+      expect(await c.findByText(failing.name)).toBeTruthy();
+    });
+
     it("should look a failed channel up again when the picker opens again", async () => {
       const plain = await createPlain();
       const { restore } = failLookups();
