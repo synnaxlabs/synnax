@@ -263,7 +263,6 @@ describe("Secret", () => {
 
     it("should add a file secret of a watched rack to the watch", async () => {
       const client = createTestClient();
-      await waitForStreamLive(client.connection);
       const [r, other] = await Promise.all([
         client.racks.create({ name: "Watched" }),
         client.racks.create({ name: "Unwatched" }),
