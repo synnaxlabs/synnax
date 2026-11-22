@@ -70,6 +70,9 @@ type Channel struct {
 	// retrieve, filled only when a retrieve request asks for them. A task config shows
 	// as its task.
 	Uses []Use `json:"uses,omitzero" msgpack:"uses,omitempty"`
+	// Calculated is true if a calculation writes the channel, whether or not the caller
+	// can retrieve the calculation.
+	Calculated bool `json:"calculated" msgpack:"calculated"`
 	// Path is the names of the channel's folders from the top, then its name, joined by
 	// '.'. It is filled only when a retrieve request asks for it, and only when the
 	// caller can retrieve every folder on it.

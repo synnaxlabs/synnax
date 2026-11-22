@@ -185,14 +185,16 @@ func (d *document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range
 	return lsp.GetWordRangeAtPosition(d.displayContent(), pos)
 }
 
+// findScopeAtPosition returns the scope at pos, a protocol position in UTF-16 units.
 func (d *document) findScopeAtPosition(pos protocol.Position) *symbol.Symbol {
+	if text, ok := lsp.GetLine(d.Content, pos.Line); ok {
+		pos = fromUTF16In(text, pos)
+	}
 	return findScopeAt(d.IR.Symbols, d.isBlock(), pos)
 }
 
-// findScopeAt is the snapshot-friendly form of (*Document).findScopeAtPosition:
-// it operates on a symbol tree and isBlock flag passed in by the caller so
-// handlers can snapshot doc fields under the server lock and then resolve a
-// scope without touching the live Document.
+// findScopeAt returns the scope of symbols at pos, whose column counts code points as
+// token columns do. isBlock reports that symbols come from the body of a function.
 func findScopeAt(
 	symbols *symbol.Symbol,
 	isBlock bool,
@@ -243,18 +245,29 @@ func (d *document) resolveSymbolAtPosition(
 }
 
 // channelNameAt returns the quoted channel name whose token holds pos, or the dotted
-// name in a placeholder that holds pos, and its range.
+// name in a placeholder that holds pos, and its range. pos and the range are protocol
+// positions in UTF-16 units.
 func (d *document) channelNameAt(
 	pos protocol.Position,
 ) (parser.Name, protocol.Range, bool) {
-	ts := d.names.of(d.displayContent())
+	content := d.displayContent()
+	text, ok := lsp.GetLine(content, pos.Line)
+	if !ok {
+		return parser.Name{}, protocol.Range{}, false
+	}
+	at := fromUTF16In(text, pos)
+	ts := d.names.of(content)
 	line := int(pos.Line) + 1
 	// Tokens do not overlap, so of the tokens that start before line, only the last can
 	// reach it.
 	i := sort.Search(len(ts), func(i int) bool { return ts[i].GetLine() > line })
 	for j := i - 1; j >= 0; j-- {
-		if n, r, ok := channelNameIn(ts[j], pos); ok {
-			return n, r, true
+		// A name token sits on the line of pos.
+		if n, r, ok := channelNameIn(ts[j], at); ok {
+			return n, protocol.Range{
+				Start: toUTF16In(text, r.Start),
+				End:   toUTF16In(text, r.End),
+			}, true
 		}
 		if ts[j].GetLine() < line {
 			break
@@ -342,13 +355,15 @@ func placeholderChannelNameAt(
 	return parser.Name{}, protocol.Range{}, false
 }
 
-// holds reports whether the one-line range r holds pos.
+// holds reports whether the one-line range r holds pos, its end included, as a word
+// lookup does.
 func holds(r protocol.Range, pos protocol.Position) bool {
 	return pos.Line == r.Start.Line && pos.Character >= r.Start.Character &&
-		pos.Character < r.End.Character
+		pos.Character <= r.End.Character
 }
 
-// tokenRange returns the range of a token that spans one line.
+// tokenRange returns the range of a token that spans one line, with columns in code
+// points.
 func tokenRange(t antlr.Token) protocol.Range {
 	start := protocol.Position{
 		Line:      uint32(t.GetLine() - 1),

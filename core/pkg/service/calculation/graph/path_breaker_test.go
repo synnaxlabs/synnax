@@ -32,6 +32,7 @@ var _ = Describe("Bare paths in the calculation graph (breaker)", Ordered, func(
 	var (
 		pdb     *gorp.DB
 		psvc    *channel.Service
+		creator calctestutil.Creator
 		pstatus *status.Service
 		stand   group.Key
 	)
@@ -50,6 +51,14 @@ var _ = Describe("Bare paths in the calculation graph (breaker)", Ordered, func(
 			HostKey: node.Identity.HostKey,
 			Status:  pstatus,
 		}))
+		creator = calctestutil.Creator{
+			DB:      pdb,
+			Channel: psvc,
+			Calculation: MustOpen(calculation.OpenService(
+				ctx,
+				calculation.ServiceConfig{DB: pdb, Channel: psvc},
+			)),
+		}
 		g := group.Group{Name: standDir, Scope: resource.TypeChannel}
 		Expect(pdb.WithTx(ctx, func(tx gorp.Tx) error {
 			return groups.NewWriter(tx).Create(ctx, &g)
@@ -75,10 +84,10 @@ var _ = Describe("Bare paths in the calculation graph (breaker)", Ordered, func(
 			return psvc.NewWriter(tx).Delete(ctx, key, false)
 		})).To(Succeed())
 	}
-	hasStatus := func(ctx SpecContext, key channel.Key) bool {
+	hasStatus := func(ctx SpecContext, key calculation.Key) bool {
 		var statuses []calculation.Status
 		Expect(pstatus.NewRetrieve[struct{}]().
-			Where(status.MatchOwners[struct{}](channel.ResourceID(key))).
+			Where(status.MatchOwners[struct{}](calculation.ResourceID(key))).
 			Entries(&statuses).
 			Exec(ctx, pdb)).To(Succeed())
 		return len(statuses) > 0
@@ -87,12 +96,13 @@ var _ = Describe("Bare paths in the calculation graph (breaker)", Ordered, func(
 	DescribeTable("G1 heals a calculation when the channel at its path is made again",
 		func(ctx SpecContext, dep, ref string) {
 			MustOpen(graph.Open(ctx, graph.Config{
-				DB:      pdb,
-				Channel: psvc,
-				Status:  pstatus,
+				DB:          pdb,
+				Channel:     psvc,
+				Calculation: creator.Calculation,
+				Status:      pstatus,
 			}))
 			first := createInStand(ctx, dep)
-			calc := MustSucceed(calctestutil.Creator{DB: pdb, Channel: psvc}.Create(
+			out := MustSucceed(creator.Create(
 				ctx,
 				calctestutil.Calculation{
 					Name:       dep + "_calc",
@@ -100,14 +110,15 @@ var _ = Describe("Bare paths in the calculation graph (breaker)", Ordered, func(
 					Expression: "return " + ref + " + 1",
 				},
 			))
+			calc := MustSucceed(creator.CalculationOf(ctx, out.Key()))
 			By("Deleting the channel that the calculation reads")
 			deleteKey(ctx, first.Key())
-			Eventually(func() bool { return hasStatus(ctx, calc.Key()) },
+			Eventually(func() bool { return hasStatus(ctx, calc.Key) },
 				2*time.Second, 10*time.Millisecond).Should(BeTrue())
 			By("Making the channel again under the same path")
 			second := createInStand(ctx, dep)
 			Expect(second.Key()).ToNot(Equal(first.Key()))
-			Eventually(func() bool { return hasStatus(ctx, calc.Key()) },
+			Eventually(func() bool { return hasStatus(ctx, calc.Key) },
 				2*time.Second, 10*time.Millisecond).Should(BeFalse(),
 				"the calculation that reads %s still has an error status", ref)
 		},

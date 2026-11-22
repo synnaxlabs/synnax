@@ -507,6 +507,27 @@ func QuoteChannelName(path string) string {
 	return b.String()
 }
 
+// IsIdentifier reports whether name lexes as one identifier, so as no keyword, literal,
+// or type name.
+func IsIdentifier(name string) bool {
+	lexer := NewArcLexer(antlr.NewInputStream(name))
+	lexer.RemoveErrorListeners()
+	tokens := lexer.GetAllTokens()
+	return len(tokens) == 1 &&
+		tokens[0].GetTokenType() == ArcLexerIDENTIFIER &&
+		tokens[0].GetText() == name
+}
+
+// ChannelText returns the text that names the channel name in Arc source: name bare
+// when it is an identifier that taken reports free, and QuoteChannelName(name)
+// otherwise. taken reports whether another symbol holds a name where the text goes.
+func ChannelText(name string, taken func(string) bool) string {
+	if IsIdentifier(name) && !taken(name) {
+		return name
+	}
+	return QuoteChannelName(name)
+}
+
 // IdentifierName returns the name of a flow identifier. A bare identifier returns
 // its name as the head; a qualified one (m.f) returns the head and the tail.
 func IdentifierName(id IIdentifierContext) Name {

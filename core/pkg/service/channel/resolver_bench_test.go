@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/telem"
@@ -29,7 +30,7 @@ func BenchmarkResolve(b *testing.B) {
 	env := newBenchEnv(b, 5_000)
 	b.Cleanup(func() { env.close(b) })
 	key := createResolveFolders(b, env)
-	r := env.svc.NewArcSymbolResolver(env.db)
+	r := resolver.New(env.svc, env.db)
 	for _, c := range []struct {
 		name    string
 		resolve func(context.Context) (*symbol.Symbol, error)

@@ -134,8 +134,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   /** internal matches the built-in channels, or every other channel when false. */
   internal: filter.boolZ.optional(),
   /**
-   * virtual matches virtual channels that are not calculated, or every other channel
-   * when false.
+   * virtual matches virtual channels, or every other channel when false. The channel
+   * API counts the output of a calculation as not virtual.
    */
   virtual: z.boolean().optional(),
   /**
@@ -241,6 +241,11 @@ export const payloadZ = z.object({
    * its task.
    */
   uses: zod.nullToUndefined(useZ.array()),
+  /**
+   * calculated is true if a calculation writes the channel, whether or not the caller
+   * can retrieve the calculation.
+   */
+  calculated: z.boolean().default(false),
   /**
    * path is the names of the channel's folders from the top, then its name, joined by
    * '.'. It is filled only when a retrieve request asks for it, and only when the

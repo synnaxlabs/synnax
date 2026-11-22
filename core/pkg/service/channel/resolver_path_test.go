@@ -14,7 +14,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -68,15 +70,15 @@ var _ = Describe("Arc paths", Ordered, func() {
 	) {
 		first := create(ctx, "pt_01")
 		path := standDir + ".pt_01"
-		Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, path)).
+		Expect(resolver.New(svc, db).Resolve(ctx, path)).
 			To(HaveField("ID", int(first.Key())))
 		deleteChannel(ctx, first.Key())
-		Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, path)).Error().
+		Expect(resolver.New(svc, db).Resolve(ctx, path)).Error().
 			To(MatchError(ContainSubstring("channel '" + path + "'")))
 		second := create(ctx, "pt_01")
 		DeferCleanup(func(ctx SpecContext) { deleteChannel(ctx, second.Key()) })
 		Expect(second.Key()).ToNot(Equal(first.Key()))
-		Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, path)).
+		Expect(resolver.New(svc, db).Resolve(ctx, path)).
 			To(HaveField("ID", int(second.Key())))
 	})
 
@@ -86,13 +88,11 @@ var _ = Describe("Arc paths", Ordered, func() {
 		read := create(ctx, "tc_01")
 		DeferCleanup(func(ctx SpecContext) { deleteChannel(ctx, read.Key()) })
 		result := MustSucceed(
-			channel.NewCalculationAnalyzer(svc.NewArcSymbolResolver(db)).Analyze(
+			compiler.NewAnalyzer(resolver.New(svc, db)).AnalyzeExpression(
 				ctx,
-				channel.Channel{
-					Name:       UniqueChannelName(),
-					Virtual:    true,
-					Expression: "return " + standDir + ".tc_01 * 2",
-				},
+				channel.Channel{Name: UniqueChannelName(), Virtual: true},
+				"return "+standDir+".tc_01 * 2",
+				false,
 			),
 		)
 		Expect(result.Deps).To(ConsistOf(read.Key()))
@@ -100,14 +100,11 @@ var _ = Describe("Arc paths", Ordered, func() {
 
 	It("Should name a bare path that matches nothing", func(ctx SpecContext) {
 		missing := standDir + ".missing"
-		analyzer := channel.NewCalculationAnalyzer(svc.NewArcSymbolResolver(db))
-		res, err := analyzer.Analyze(
+		res, err := compiler.NewAnalyzer(resolver.New(svc, db)).AnalyzeExpression(
 			ctx,
-			channel.Channel{
-				Name:       UniqueChannelName(),
-				Virtual:    true,
-				Expression: "return " + missing + " * 2",
-			},
+			channel.Channel{Name: UniqueChannelName(), Virtual: true},
+			"return "+missing+" * 2",
+			false,
 		)
 		Expect(err).
 			To(MatchError(ContainSubstring(missing + " does not exist")))

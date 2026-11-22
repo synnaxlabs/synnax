@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -48,7 +49,14 @@ var _ = Describe("Module member names in a calculation", Ordered, func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statuses,
 		}))
-		creator = calctestutil.Creator{DB: db, Channel: channels}
+		creator = calctestutil.Creator{
+			DB:      db,
+			Channel: channels,
+			Calculation: MustOpen(calculation.OpenService(
+				ctx,
+				calculation.ServiceConfig{DB: db, Channel: channels},
+			)),
+		}
 		g := group.Group{Name: "math", Scope: resource.TypeChannel}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return groups.NewWriter(tx).Create(ctx, &g)
@@ -64,44 +72,40 @@ var _ = Describe("Module member names in a calculation", Ordered, func() {
 		})).To(Succeed())
 	})
 
-	It("Should save, compile, and compute a calculation that reads the channel at a "+
-		"module member's path", func(ctx SpecContext) {
-		var inf channel.Channel
-		Expect(channels.NewRetrieve().
-			Where(channel.MatchPaths("math.inf")).
-			Entry(&inf).
-			Exec(ctx, db)).To(Succeed())
-		out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
-			Name:       UniqueChannelName(),
-			DataType:   telem.Float64T,
-			Expression: "return math.inf * 2.0",
-		}))
-		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
-			ChannelService: channels,
-			Channel:        out,
-		}))
-		c := MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
-		fr := frame.NewUnary(inf.Key(), telem.NewSeriesV(1.5, 2.5))
-		written, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
-		Expect(changed).To(BeTrue())
-		Expect(written.Get(out.Key()).Series[0]).
-			To(telem.MatchSeriesDataV(3.0, 5.0))
-	})
+	DescribeTable("Should save, compile, and compute a calculation that reads the "+
+		"channel at a module member's path",
+		func(ctx SpecContext, expression string) {
+			var inf channel.Channel
+			Expect(channels.NewRetrieve().
+				Where(channel.MatchPaths("math.inf")).
+				Entry(&inf).
+				Exec(ctx, db)).To(Succeed())
+			out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float64T,
+				Expression: expression,
+			}))
+			mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
+				ChannelService: channels,
+				Channel:        out,
+				Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
+			}))
+			c := MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
+			fr := frame.NewUnary(inf.Key(), telem.NewSeriesV(1.5, 2.5))
+			written, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(written.Get(out.Key()).Series[0]).
+				To(telem.MatchSeriesDataV(3.0, 5.0))
+		},
+		Entry("by its bare path", "return math.inf * 2.0"),
+	)
 
-	It("Should fail a module member that no channel holds the same way at save and at "+
-		"compile", func(ctx SpecContext) {
-		calc := channel.Channel{
-			Name:       UniqueChannelName(),
-			DataType:   telem.Float64T,
-			Virtual:    true,
-			Expression: "return math.nan * 2.0",
-		}
-		_, saveErr := channel.NewCalculationAnalyzer(channels.NewArcSymbolResolver(db)).
-			Analyze(ctx, calc)
-		Expect(saveErr).To(MatchError(ContainSubstring("math.nan does not exist")))
-		Expect(compiler.PreProcess(ctx, db, compiler.Config{
-			ChannelService: channels,
-			Channel:        calc,
-		})).Error().To(MatchError(saveErr.Error()))
-	})
+	It("Should refuse to save a calculation that reads a module member with no channel",
+		func(ctx SpecContext) {
+			Expect(creator.Create(ctx, calctestutil.Calculation{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float64T,
+				Expression: "return math.nan * 2.0",
+			})).Error().To(MatchError(ContainSubstring("math.nan does not exist")))
+		})
 })

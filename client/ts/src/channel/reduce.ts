@@ -26,6 +26,8 @@ const fromStored = ({ localKey, localIndex, ...rest }: Stored): Payload =>
       ...rest,
       key: keyOf(rest.leaseholder, localKey),
       index: localIndex === 0 ? 0 : keyOf(rest.leaseholder, localIndex),
+      // A create carries the expression of the calculation that writes the channel.
+      calculated: rest.virtual && rest.expression !== "",
     },
     { label: "created channel" },
   );

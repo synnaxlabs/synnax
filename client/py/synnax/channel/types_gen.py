@@ -118,8 +118,8 @@ class Where(BaseModel):
         data_type: Selects by data_type.
         is_index: Selects by is_index.
         internal: Matches the built-in channels, or every other channel when false.
-        virtual: Matches virtual channels that are not calculated, or every other
-            channel when false.
+        virtual: Matches virtual channels, or every other channel when false. The
+            channel API counts the output of a calculation as not virtual.
         path: Matches the channels at full paths: the names of the folders from the top,
             then the channel's name, joined by '.'.
         groups: Matches the channels in any of the given groups.
@@ -227,6 +227,8 @@ class Payload(BaseModel):
         uses: Are the records that read or write the channel and that the caller can
             retrieve, filled only when a retrieve request asks for them. A task config
             shows as its task.
+        calculated: Is true if a calculation writes the channel, whether or not the
+            caller can retrieve the calculation.
         path: Is the names of the channel's folders from the top, then its name, joined
             by '.'. It is filled only when a retrieve request asks for it, and only when
             the caller can retrieve every folder on it.
@@ -246,6 +248,7 @@ class Payload(BaseModel):
     status: Status | None = None
     group: group_.Key | None = None
     uses: list[Use] | None = None
+    calculated: bool = False
     path: str | None = None
 
     @_override

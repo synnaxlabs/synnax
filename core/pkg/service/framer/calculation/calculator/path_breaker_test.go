@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -33,10 +34,11 @@ var _ = Describe(
 	ContinueOnFailure,
 	func() {
 		var (
-			pdb    *gorp.DB
-			psvc   *channel.Service
-			groups *group.Service
-			base   channel.Channel
+			pdb     *gorp.DB
+			psvc    *channel.Service
+			creator calctestutil.Creator
+			groups  *group.Service
+			base    channel.Channel
 		)
 		const dir = "calc_dir"
 		BeforeAll(func(ctx SpecContext) {
@@ -55,6 +57,14 @@ var _ = Describe(
 				HostKey: node.Identity.HostKey,
 				Status:  statusSvc,
 			}))
+			creator = calctestutil.Creator{
+				DB:      pdb,
+				Channel: psvc,
+				Calculation: MustOpen(calculation.OpenService(
+					ctx,
+					calculation.ServiceConfig{DB: pdb, Channel: psvc},
+				)),
+			}
 			g := group.Group{Name: dir, Scope: resource.TypeChannel}
 			Expect(pdb.WithTx(ctx, func(tx gorp.Tx) error {
 				return groups.NewWriter(tx).Create(ctx, &g)
@@ -72,7 +82,7 @@ var _ = Describe(
 
 		DescribeTable("C4 computes each sample of a calculation that reads a bare path",
 			func(ctx SpecContext, name, ref string) {
-				out := MustSucceed(calctestutil.Creator{DB: pdb, Channel: psvc}.Create(
+				out := MustSucceed(creator.Create(
 					ctx,
 					calctestutil.Calculation{
 						Name:       name,
@@ -83,6 +93,7 @@ var _ = Describe(
 				mod := MustSucceed(compiler.Compile(ctx, pdb, compiler.Config{
 					ChannelService: psvc,
 					Channel:        out,
+					Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
 				}))
 				c := MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
 				fr := frame.NewUnary(base.Key(), telem.NewSeriesV[int64](10, 20, 30))
@@ -110,7 +121,7 @@ var _ = Describe(
 				Expect(pdb.WithTx(ctx, func(tx gorp.Tx) error {
 					return psvc.NewWriter(tx).Create(ctx, &inf)
 				})).To(Succeed())
-				out := MustSucceed(calctestutil.Creator{DB: pdb, Channel: psvc}.Create(
+				out := MustSucceed(creator.Create(
 					ctx,
 					calctestutil.Calculation{
 						Name:       "by_math_path",
@@ -121,6 +132,7 @@ var _ = Describe(
 				MustSucceed(compiler.Compile(ctx, pdb, compiler.Config{
 					ChannelService: psvc,
 					Channel:        out,
+					Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
 				}))
 			})
 	},

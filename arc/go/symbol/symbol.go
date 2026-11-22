@@ -403,7 +403,7 @@ const maxProgramLocalChannelKey = 1 << 20
 func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	if sym.Name != "" && !sym.Internal {
 		existing, err := s.Resolve(ctx, sym.Name)
-		if err != nil && !isUndefined(err) {
+		if err != nil && !IsUndefined(err) {
 			return nil, err
 		}
 		if err == nil && existing.AST != nil {
@@ -887,7 +887,7 @@ func (s *Symbol) findChannel(
 			}
 		default:
 			sym, err := l.resolve(ctx, r)
-			if err != nil && !isUndefined(err) {
+			if err != nil && !IsUndefined(err) {
 				return nil, err
 			}
 			if err == nil && sym.Kind == KindChannel &&
@@ -921,7 +921,7 @@ func (s *Symbol) resolveLexical(
 	}
 	if s.globalResolver != nil {
 		sym, err := s.globalResolver.Resolve(ctx, name)
-		if err != nil && !isUndefined(err) {
+		if err != nil && !IsUndefined(err) {
 			return nil, err
 		}
 		if err == nil && (opts.includeInternal || !sym.Internal) {

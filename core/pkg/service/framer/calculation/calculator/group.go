@@ -22,9 +22,14 @@ import (
 
 type Status = calculation.Status
 
-// Report saves st for the calculation of the channel with the given key and returns
-// true when it saved st.
-type Report = func(ctx context.Context, key channel.Key, st Status) bool
+// Report saves st for the calculation of the channel with the given key, which ran
+// expression, and returns true when it saved st.
+type Report = func(
+	ctx context.Context,
+	key channel.Key,
+	expression string,
+	st Status,
+) bool
 
 type Group []*Calculator
 
@@ -59,7 +64,7 @@ func (g Group) Next(
 		next, changedLocal, err := c.Next(ctx, output, output)
 		if err != nil {
 			c.failed = true
-			report(ctx, c.Channel().Key(), Status{
+			report(ctx, c.Channel().Key(), c.Expression(), Status{
 				Name:        c.Channel().Name,
 				Variant:     status.VariantError,
 				Message:     "Failed to run calculation",
@@ -73,7 +78,7 @@ func (g Group) Next(
 		}
 		changed = true
 		if c.failed {
-			c.failed = !report(ctx, c.Channel().Key(), Status{
+			c.failed = !report(ctx, c.Channel().Key(), c.Expression(), Status{
 				Name:    c.Channel().Name,
 				Variant: status.VariantSuccess,
 				Message: "Calculation running",

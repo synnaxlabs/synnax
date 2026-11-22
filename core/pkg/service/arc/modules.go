@@ -18,7 +18,7 @@ import (
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -88,7 +88,7 @@ func (s *Service) modulePaths(
 // in lookups. A read gives the same answer when it gives the same text or error.
 func (s *Service) checkedModuleSource(
 	snap gorp.Snapshot,
-	lookups *channel.Lookups,
+	lookups *resolver.Lookups,
 ) func(context.Context, string) (arctext.Text, error) {
 	return func(ctx context.Context, path string) (arctext.Text, error) {
 		t, err := s.retrieveModuleText(ctx, snap, path)

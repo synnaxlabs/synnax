@@ -46,6 +46,7 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		Virtual:     r.Virtual,
 		Internal:    r.Internal,
 		Expression:  r.Expression,
+		Calculated:  r.Calculated,
 		Operations:  operationsVal,
 		Concurrency: concurrencyVal,
 	}
@@ -94,6 +95,7 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	r.Virtual = pb.Virtual
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression
+	r.Calculated = pb.Calculated
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB(pb.Status, xpb.NilFromPBAny)
 		if err != nil {

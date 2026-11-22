@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel
+// Package resolver resolves the channels of a channel service into Arc symbols, and
+// runs compiles that read channels against a consistent view of them.
+package resolver
 
 import (
 	"context"
@@ -19,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -26,13 +29,39 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// New returns a resolver that maps the channels of channels to Arc symbols by path,
+// name, or key, for analyzing and compiling Arc expressions such as calculations. The
+// resolver looks up channels in snap.
+func New(channels *channel.Service, snap gorp.Snapshot) arc.SymbolResolver {
+	return &symbolResolver{channels: channels, snap: snap}
+}
+
+// NewSubject returns a resolver like New that sees only what a subject can retrieve.
+// access returns whether the subject can retrieve a record, and the resolver calls it
+// at each lookup. A channel that the subject cannot retrieve, or a path through a
+// folder that it cannot retrieve, resolves nothing. Every holder of a bare name counts
+// toward an ambiguous name, whose error names only the paths that the subject can see.
+func NewSubject(
+	channels *channel.Service,
+	snap gorp.Snapshot,
+	access func(context.Context) (func(resource.ID) bool, error),
+) arc.SymbolResolver {
+	return &symbolResolver{channels: channels, snap: snap, access: access}
+}
+
+// AllowDashedNames reports whether Arc may treat '-' as an identifier character, which
+// a channel name can hold when channels does not validate names.
+func AllowDashedNames(channels *channel.Service) bool {
+	return !channels.ShouldValidateNames()
+}
+
 // symbolResolver resolves cluster channels into Arc symbols by path, name, or key. It
 // is the dynamic resolver attached to a program root's GlobalResolver: cluster channels
 // can appear or disappear at runtime, so they cannot be snapshotted into the ambient
 // prelude at analysis time.
 type symbolResolver struct {
-	svc  *Service
-	snap gorp.Snapshot
+	channels *channel.Service
+	snap     gorp.Snapshot
 	// access returns whether the subject of the resolver can retrieve a record, or is
 	// nil when the resolver sees every channel and folder.
 	access func(context.Context) (func(resource.ID) bool, error)
@@ -40,19 +69,19 @@ type symbolResolver struct {
 
 var _ symbol.Resolver = (*symbolResolver)(nil)
 
-func (r *symbolResolver) toSymbol(ch Channel) *symbol.Symbol {
+func (r *symbolResolver) toSymbol(ch channel.Channel) *symbol.Symbol {
 	return &symbol.Symbol{
 		Name:       ch.Name,
 		Kind:       symbol.KindChannel,
 		Type:       types.Chan(types.FromTelem(ch.DataType)),
 		ID:         int(ch.Key()),
-		Renameable: !r.svc.IsBuiltIn(ch.Key()),
+		Renameable: !r.channels.IsBuiltIn(ch.Key()),
 	}
 }
 
 // retrieve returns a query that sees only what the subject of r can retrieve.
-func (r *symbolResolver) retrieve(ctx context.Context) (Retrieve, error) {
-	q := r.svc.NewRetrieve()
+func (r *symbolResolver) retrieve(ctx context.Context) (channel.Retrieve, error) {
+	q := r.channels.NewRetrieve()
 	if r.access == nil {
 		return q, nil
 	}
@@ -60,10 +89,10 @@ func (r *symbolResolver) retrieve(ctx context.Context) (Retrieve, error) {
 	if err != nil {
 		return q, err
 	}
-	return q.AllowFolders(allowed).Where(Match(func(
+	return q.AllowFolders(allowed).Where(channel.Match(func(
 		_ gorp.Context,
-		_ Retrieve,
-		ch *Channel,
+		_ channel.Retrieve,
+		ch *channel.Channel,
 	) (bool, error) {
 		return allowed(ch.ResourceID()), nil
 	})), nil
@@ -83,13 +112,15 @@ func (r *symbolResolver) Resolve(
 		return nil, err
 	}
 	path := strings.IndexByte(name, validate.PathSeparator) >= 0
-	match := MatchPaths(name)
+	match := channel.MatchPaths(name)
 	if !path {
 		// Every holder of a bare name counts, as a compile with no subject counts them.
 		// Access decides only whether one holder binds.
-		q, match = r.svc.NewRetrieve(), MatchNames(validate.NormalizeName(name))
+		q, match = r.channels.NewRetrieve(), channel.MatchNames(
+			validate.NormalizeName(name),
+		)
 	}
-	var chs []Channel
+	var chs []channel.Channel
 	if err = q.Where(match).Entries(&chs).Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
@@ -108,11 +139,11 @@ func (r *symbolResolver) Resolve(
 		}
 		return sym, nil
 	default:
-		ambiguous := ambiguousName(name, KeysFromChannels(chs))
+		ambiguous := channel.AmbiguousName(name, channel.KeysFromChannels(chs))
 		if r.access == nil {
 			return nil, ambiguous
 		}
-		return nil, r.svc.DescribeAmbiguity(ctx, r.snap, ambiguous, r.access)
+		return nil, r.channels.DescribeAmbiguity(ctx, r.snap, ambiguous, r.access)
 	}
 }
 
@@ -125,8 +156,10 @@ func (r *symbolResolver) ResolveKey(
 	if err != nil {
 		return nil, err
 	}
-	var ch Channel
-	if err = q.Where(MatchKeys(Key(key))).Entry(&ch).Exec(ctx, r.snap); err != nil {
+	var ch channel.Channel
+	if err = q.Where(channel.MatchKeys(channel.Key(key))).
+		Entry(&ch).
+		Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
 	return r.toSymbol(ch), nil
@@ -135,8 +168,8 @@ func (r *symbolResolver) ResolveKey(
 // visible returns the channels of chs that the subject of r can retrieve.
 func (r *symbolResolver) visible(
 	ctx context.Context,
-	chs []Channel,
-) ([]Channel, error) {
+	chs []channel.Channel,
+) ([]channel.Channel, error) {
 	if r.access == nil {
 		return chs, nil
 	}
@@ -144,7 +177,7 @@ func (r *symbolResolver) visible(
 	if err != nil {
 		return nil, err
 	}
-	return lo.Filter(chs, func(ch Channel, _ int) bool {
+	return lo.Filter(chs, func(ch channel.Channel, _ int) bool {
 		return allowed(ch.ResourceID())
 	}), nil
 }
@@ -158,41 +191,42 @@ func (r *symbolResolver) Search(
 	if err != nil {
 		return nil, err
 	}
-	var results []Channel
+	var results []channel.Channel
 	if err = q.
-		Where(MatchInternal(false)).
+		Where(channel.MatchInternal(false)).
 		Search(name).
 		Entries(&results).Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
-	return lo.Map(results, func(item Channel, _ int) *symbol.Symbol {
+	return lo.Map(results, func(item channel.Channel, _ int) *symbol.Symbol {
 		return r.toSymbol(item)
 	}), nil
 }
 
-// NewConsistentResolver returns a resolver that answers each name and key the way r
+// NewConsistent returns a resolver that answers each name and key the way r
 // first answered it. Arc resolves a name several times in one analysis or compile, and
 // a rename that commits part way through would otherwise give that pass both answers.
 // Use one per analysis or compile. It is safe for concurrent use.
-func NewConsistentResolver(r arc.SymbolResolver) arc.SymbolResolver {
+func NewConsistent(r arc.SymbolResolver) arc.SymbolResolver {
 	return &consistentResolver{
 		SymbolResolver: r,
 		resolved:       make(map[lookup]resolution),
 	}
 }
 
-// NewCheckedResolver returns a consistent resolver that looks up channels in snap and
-// records each name and key it looks up in lookups, for CompileConsistent.
-func (s *Service) NewCheckedResolver(
+// NewChecked returns a consistent resolver that looks up the channels of channels in
+// snap and records each name and key it looks up in lookups, for CompileConsistent.
+func NewChecked(
+	channels *channel.Service,
 	snap gorp.Snapshot,
 	lookups *Lookups,
 ) arc.SymbolResolver {
 	return &consistentResolver{
-		SymbolResolver: s.NewArcSymbolResolver(snap),
+		SymbolResolver: New(channels, snap),
 		resolved:       make(map[lookup]resolution),
 		record: func(l lookup, first resolution) {
 			lookups.Record(func(ctx context.Context, snap gorp.Snapshot) (bool, error) {
-				return first.same(l.run(ctx, s.NewArcSymbolResolver(snap)))
+				return first.same(l.run(ctx, New(channels, snap)))
 			})
 		},
 	}
@@ -223,8 +257,8 @@ type resolution struct {
 func (res resolution) same(sym *symbol.Symbol, err error) (bool, error) {
 	// A name that several channels hold is an answer, the same only for the same
 	// holders.
-	ambiguous, isAmbiguous := errors.AsType[AmbiguousNameError](err)
-	first, wasAmbiguous := errors.AsType[AmbiguousNameError](res.err)
+	ambiguous, isAmbiguous := errors.AsType[channel.AmbiguousNameError](err)
+	first, wasAmbiguous := errors.AsType[channel.AmbiguousNameError](res.err)
 	if isAmbiguous || wasAmbiguous {
 		return isAmbiguous && wasAmbiguous &&
 			set.New(ambiguous.Holders...).Equal(set.New(first.Holders...)), nil

@@ -695,7 +695,7 @@ class TestChannel:
         )
         reset_channel = client.channels.create(
             name=channel_name(),
-            data_type=sy.DataType.UINT8,
+            data_type=sy.DataType.BOOLEAN,
             index=idx_ch.key,
         )
 

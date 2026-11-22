@@ -83,7 +83,8 @@ func (e *UndefinedSymbolError) Error() string {
 	return "undefined symbol: " + e.Name
 }
 
-func isUndefined(err error) bool {
+// IsUndefined reports whether err says that a name resolves to no symbol.
+func IsUndefined(err error) bool {
 	_, undefined := errors.AsType[*UndefinedSymbolError](err)
 	return undefined || errors.Is(err, query.ErrNotFound)
 }

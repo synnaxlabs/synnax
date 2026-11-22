@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -57,11 +59,20 @@ var _ = Describe("Sibling breaker", Ordered, ContinueOnFailure, func() {
 		})).To(Succeed())
 		return g
 	}
+	// pathOf returns the position of a batch error, when err is one, and then the path
+	// of its error.
 	pathOf := func(err error) []string {
 		GinkgoHelper()
+		b, batched := errors.AsType[channel.BatchError](err)
+		if batched {
+			err = b.Err
+		}
 		pe, ok := errors.AsType[validate.PathError](err)
 		Expect(ok).To(BeTrue(), "not a path error: %v", err)
-		return pe.Path
+		if !batched {
+			return pe.Path
+		}
+		return append([]string{strconv.Itoa(b.At)}, pe.Path...)
 	}
 
 	It(
@@ -85,7 +96,7 @@ var _ = Describe("Sibling breaker", Ordered, ContinueOnFailure, func() {
 			err = db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &one)
 			})
-			Expect(pathOf(err)).To(Equal([]string{"0", "name"}))
+			Expect(pathOf(err)).To(Equal([]string{"name"}))
 		},
 	)
 

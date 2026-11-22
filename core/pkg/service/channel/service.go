@@ -16,8 +16,6 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -25,11 +23,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/diagnostics"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -41,6 +36,17 @@ import (
 
 // LimitChecker returns an error when a count of external channels exceeds the limit.
 type LimitChecker = func(types.Uint20) error
+
+// Fill holds the expression and operations of the calculation that writes a channel. A
+// create action carries them for clients that read them from the channel.
+type Fill struct {
+	Expression string
+	Operations []Operation
+}
+
+// Filler returns the fill of each channel among keys that a calculation writes, as tx
+// sees them.
+type Filler = func(ctx context.Context, tx gorp.Tx, keys ...Key) (map[Key]Fill, error)
 
 // ServiceConfig configures the service-layer channel service.
 type ServiceConfig struct {
@@ -68,7 +74,8 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to no cap.
 	Limit LimitChecker
-	// Status publishes error/clear statuses for calculated channels.
+	// Status writes the statuses of channels, such as the warning for a renamed holder
+	// of a built-in name.
 	//
 	// [REQUIRED]
 	Status *status.Service
@@ -78,6 +85,17 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	ValidateNames *bool
+	// Fills fills the create action of a stored channel that a create links to a new
+	// index. Declare makes no channel that it fills a built-in.
+	//
+	// [OPTIONAL] - Defaults to filling nothing.
+	Fills Filler
+	// Computes reports whether the holder of a use computes the channel, as a
+	// calculation computes the channel it writes. Declare never adopts a computed
+	// channel as a built-in.
+	//
+	// [OPTIONAL] - Defaults to no holder computing a channel.
+	Computes func(Use) bool
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -105,13 +123,15 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
+	c.Fills = override.Nil(c.Fills, other.Fills)
+	c.Computes = override.Nil(c.Computes, other.Computes)
 	return c
 }
 
 // Service is the top-level channel service. It owns the channel metadata table,
 // retrieval, search integration, and the create/delete/rename orchestration. It takes
 // keys from the distribution-layer allocator and creates, renames, and deletes the
-// storage channels. It also infers DataTypes for calculated channels on write.
+// storage channels.
 type Service struct {
 	cfg     ServiceConfig
 	db      *gorp.DB
@@ -252,108 +272,6 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 	return nil
 }
 
-// NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by path,
-// name, or key, for analyzing and compiling Arc expressions such as calculated
-// channels. The resolver looks up channels in snap.
-func (s *Service) NewArcSymbolResolver(snap gorp.Snapshot) arc.SymbolResolver {
-	return &symbolResolver{svc: s, snap: snap}
-}
-
-// NewSubjectResolver returns a resolver like NewArcSymbolResolver that sees only what a
-// subject can retrieve. access returns whether the subject can retrieve a record, and
-// the resolver calls it at each lookup. A channel that the subject cannot retrieve, or
-// a path through a folder that it cannot retrieve, resolves nothing. Every holder of a
-// bare name counts toward an ambiguous name, whose error names only the paths that the
-// subject can see.
-func (s *Service) NewSubjectResolver(
-	snap gorp.Snapshot,
-	access func(context.Context) (func(resource.ID) bool, error),
-) arc.SymbolResolver {
-	return &symbolResolver{svc: s, snap: snap, access: access}
-}
-
-// CalculationInputs returns the stored channels that the calculated channels among
-// channels read, directly or through other calculated channels, including the channels
-// that reset their operations. The channels need not be stored yet. A calculation whose
-// expression fails analysis adds nothing, since it cannot run. A failed read returns
-// its error. CalculationInputs reads through snap.
-func (s *Service) CalculationInputs(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	channels []Channel,
-) (Keys, error) {
-	analyzer := NewCalculationAnalyzer(s.NewArcSymbolResolver(snap), parser.Config{
-		AllowDashedNames: !s.ShouldValidateNames(),
-	})
-	var (
-		inputs  Keys
-		visited = set.New[Key]()
-	)
-	// A write replaces only the stored form of a calculated channel, so the walk still
-	// reads the stored form of every other channel among channels.
-	for _, ch := range channels {
-		if ch.IsCalculated() {
-			visited.Add(ch.Key())
-		}
-	}
-	for len(channels) > 0 {
-		var next Keys
-		for _, ch := range channels {
-			reads, err := calculationReads(ctx, analyzer, ch)
-			if err != nil {
-				return nil, err
-			}
-			for _, k := range reads {
-				// A channel among channels that is not stored yet has no local key.
-				if k.LocalKey() == 0 {
-					continue
-				}
-				inputs = append(inputs, k)
-				if !visited.Contains(k) {
-					visited.Add(k)
-					next = append(next, k)
-				}
-			}
-		}
-		channels = nil
-		if err := s.NewRetrieve().
-			Where(MatchKeys(next...)).
-			Where(MatchCalculated()).
-			Entries(&channels).
-			Exec(ctx, snap); err != nil {
-			return nil, err
-		}
-	}
-	return inputs.Unique(), nil
-}
-
-// calculationReads returns the channels that ch reads, including the channels that
-// reset its operations. It returns none when ch is not calculated or its expression
-// fails analysis.
-func calculationReads(
-	ctx context.Context,
-	analyzer *CalculationAnalyzer,
-	ch Channel,
-) (Keys, error) {
-	if !ch.IsCalculated() {
-		return nil, nil
-	}
-	result, err := analyzer.Analyze(ctx, ch)
-	if _, ok := errors.AsType[*diagnostics.Diagnostics](err); ok {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	reads := result.Deps
-	for _, op := range ch.Operations {
-		if op.ResetChannel != 0 {
-			reads = append(reads, op.ResetChannel)
-		}
-	}
-	return reads, nil
-}
-
 // freeIndexResolver adapts the Service to the distribution framer writer's
 // FreeIndexResolver interface without exposing resolution on the Service itself.
 type freeIndexResolver struct{ svc *Service }
@@ -389,11 +307,8 @@ func (s *Service) FreeIndexResolver() writer.FreeIndexResolver {
 // NewWriter returns a Writer scoped to tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc: s,
-		tx:  tx,
-		analyzer: NewCalculationAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
-			AllowDashedNames: !s.ShouldValidateNames(),
-		}),
+		svc:        s,
+		tx:         tx,
 		dispatcher: s.state.Dispatcher(),
 	}
 }
