@@ -25,6 +25,7 @@ describe("Color.Editor", () => {
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
     await waitForStreamLive(client.connection);
+    await waitForStreamLive(other.connection);
   });
 
   const renderEditor = (key: color.Key, disabled?: boolean) =>
