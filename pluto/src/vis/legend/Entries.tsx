@@ -58,6 +58,8 @@ export interface EntriesProps {
   colorPickerVisible?: boolean;
   onColorPickerVisibleChange?: state.Setter<boolean>;
   entryProps?: Omit<Flex.BoxProps, "background">;
+  /** Keeps the start column of each entry, so labels line up with no start. */
+  indented?: boolean;
 }
 
 export const Entries = memo(
@@ -135,6 +137,7 @@ const Entry = ({
   onHoverChange,
   sorted: _,
   shade = 10,
+  indented = false,
   colorPickerVisible,
   onColorPickerVisibleChange,
   className,
@@ -165,7 +168,7 @@ const Entry = ({
             onVisibleChange={onColorPickerVisibleChange}
           />
         )}
-        {start != null && (
+        {(start != null || indented) && (
           <span className={CSS.BE("legend-entry", "start")}>{start}</span>
         )}
         <Text.MaybeEditable

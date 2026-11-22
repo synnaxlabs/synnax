@@ -25,10 +25,6 @@
     & > .pluto-legend-divider {
         grid-column: 1 / -1;
     }
-
-    & > .pluto-legend-footer {
-        grid-column: 1 / -1;
-    }
 }
 
 /* Each group heads its entries, which line up with the group's name. */

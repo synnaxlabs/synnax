@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
   countHidden,
   inScope,
+  isLineHidden,
   type Item,
   NONE_HIDDEN,
   type Scope,
@@ -56,6 +57,12 @@ describe("lineplot visibility", () => {
 
     it("should hide a line in every range", () => {
       expect(hide(NOTHING, LINE_1).hidden).toEqual({ ...NONE_HIDDEN, lines: ["l1"] });
+    });
+
+    it("should show a line in every range, also where its eye hid it", () => {
+      const hidden = hide(hide(NOTHING, TRACE_1A), LINE_1);
+      expect(hidden.hidden).toEqual({ ...NONE_HIDDEN, lines: ["l1"] });
+      expect(show(hidden, LINE_1)).toEqual(NOTHING);
     });
 
     it("should show a line hidden in every range only in the range picked", () => {
@@ -150,6 +157,26 @@ describe("lineplot visibility", () => {
         ranges: ["a"],
         traces: ["l2/b"],
       });
+    });
+  });
+
+  describe("isLineHidden", () => {
+    it("should be true for a line hidden in every range", () => {
+      expect(isLineHidden(hide(NOTHING, LINE_1).hidden, "l1", SCOPE)).toBe(true);
+    });
+
+    it("should be true for a line hidden in each range one at a time", () => {
+      const hidden = { ...NONE_HIDDEN, traces: ["l1/a", "l1/b", "l1/c"] };
+      expect(isLineHidden(hidden, "l1", SCOPE)).toBe(true);
+    });
+
+    it("should be false for a line shown in one range", () => {
+      const hidden = { ...NONE_HIDDEN, traces: ["l1/a", "l1/b"] };
+      expect(isLineHidden(hidden, "l1", SCOPE)).toBe(false);
+    });
+
+    it("should be false with no ranges in scope", () => {
+      expect(isLineHidden(NONE_HIDDEN, "l1", { ...SCOPE, ranges: [] })).toBe(false);
     });
   });
 
