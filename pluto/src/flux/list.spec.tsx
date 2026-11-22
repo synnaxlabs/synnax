@@ -22,7 +22,7 @@ import { type PropsWithChildren, type ReactElement, useEffect, useState } from "
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
