@@ -11,7 +11,9 @@ package lsp
 
 import (
 	"context"
+	"sort"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -48,6 +50,42 @@ type document struct {
 	analyzed  string
 	Version   int32
 	debouncer *debounce.Debouncer
+	// names is shared by every snapshot of the document.
+	names *nameTokens
+}
+
+// nameTokens holds the tokens of one content that can hold a quoted channel name: the
+// quoted names and the string literals, whose placeholders can hold them. It lexes the
+// content on first use and keeps the tokens until the content changes, so a lookup by
+// position costs the same at any document length.
+type nameTokens struct {
+	mu      sync.Mutex
+	content string
+	lexed   bool
+	tokens  []antlr.Token
+}
+
+// of returns the name tokens of content in order. Callers must not change them.
+func (n *nameTokens) of(content string) []antlr.Token {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if !n.lexed || n.content != content {
+		n.content, n.lexed, n.tokens = content, true, lexNameTokens(content)
+	}
+	return n.tokens
+}
+
+func lexNameTokens(content string) []antlr.Token {
+	var kept []antlr.Token
+	for _, t := range tokenizeContent(content) {
+		switch t.GetTokenType() {
+		case parser.ArcLexerCHANNEL_NAME,
+			parser.ArcLexerSTR_LITERAL,
+			parser.ArcLexerSTR_LITERAL_MULTI:
+			kept = append(kept, t)
+		}
+	}
+	return kept
 }
 
 func (d *document) isBlock() bool {
@@ -133,7 +171,10 @@ func (d *document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range
 
 // findScopeAtPosition returns the scope at pos, a protocol position in UTF-16 units.
 func (d *document) findScopeAtPosition(pos protocol.Position) *symbol.Symbol {
-	return findScopeAt(d.IR.Symbols, d.isBlock(), newLineText(d.Content).fromUTF16(pos))
+	if text, ok := lsp.GetLine(d.Content, pos.Line); ok {
+		pos = fromUTF16In(text, pos)
+	}
+	return findScopeAt(d.IR.Symbols, d.isBlock(), pos)
 }
 
 // findScopeAt returns the scope of symbols at pos, whose column counts code points as
@@ -166,7 +207,7 @@ func (d *document) resolveSymbolAtPosition(
 	ctx context.Context,
 	pos protocol.Position,
 ) (*symbol.Symbol, error) {
-	n, _, quoted := channelNameAt(d.displayContent(), pos)
+	n, _, quoted := d.channelNameAt(pos)
 	if !quoted {
 		n = parser.Name{Head: d.getWordAtPosition(pos)}
 	}
@@ -182,23 +223,46 @@ func (d *document) resolveSymbolAtPosition(
 
 // channelNameAt returns the quoted channel name whose token holds pos, and the range
 // of the token. pos and the range are protocol positions in UTF-16 units.
-func channelNameAt(
-	content string,
+func (d *document) channelNameAt(
 	pos protocol.Position,
 ) (parser.Name, protocol.Range, bool) {
-	lines := newLineText(content)
-	at := lines.fromUTF16(pos)
-	for _, t := range tokenizeContent(content) {
-		switch t.GetTokenType() {
-		case parser.ArcLexerCHANNEL_NAME:
-			if r := tokenRange(t); holds(r, at) {
-				return parser.TokenName(t), lines.rangeToUTF16(r), true
-			}
-		case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
-			if n, r, ok := placeholderChannelNameAt(t, at); ok {
-				return n, lines.rangeToUTF16(r), true
-			}
+	content := d.displayContent()
+	text, ok := lsp.GetLine(content, pos.Line)
+	if !ok {
+		return parser.Name{}, protocol.Range{}, false
+	}
+	at := fromUTF16In(text, pos)
+	ts := d.names.of(content)
+	line := int(pos.Line) + 1
+	// Tokens do not overlap, so of the tokens that start before line, only the last can
+	// reach it.
+	i := sort.Search(len(ts), func(i int) bool { return ts[i].GetLine() > line })
+	for j := i - 1; j >= 0; j-- {
+		// A name token sits on the line of pos.
+		if n, r, ok := channelNameIn(ts[j], at); ok {
+			return n, protocol.Range{
+				Start: toUTF16In(text, r.Start),
+				End:   toUTF16In(text, r.End),
+			}, true
 		}
+		if ts[j].GetLine() < line {
+			break
+		}
+	}
+	return parser.Name{}, protocol.Range{}, false
+}
+
+// channelNameIn returns the quoted channel name at pos in the name token t, and its
+// range.
+func channelNameIn(
+	t antlr.Token,
+	pos protocol.Position,
+) (parser.Name, protocol.Range, bool) {
+	if t.GetTokenType() != parser.ArcLexerCHANNEL_NAME {
+		return placeholderChannelNameAt(t, pos)
+	}
+	if r := tokenRange(t); holds(r, pos) {
+		return parser.TokenName(t), r, true
 	}
 	return parser.Name{}, protocol.Range{}, false
 }

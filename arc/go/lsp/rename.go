@@ -68,7 +68,7 @@ func (s *Server) PrepareRename(
 		return nil, nil
 	}
 	s.logUnexpectedSymbolError(sym, err)
-	if n, r, quoted := channelNameAt(doc.displayContent(), params.Position); quoted {
+	if n, r, quoted := doc.channelNameAt(params.Position); quoted {
 		return &protocol.PrepareRenamePlaceholder{Range: r, Placeholder: n.Head}, nil
 	}
 	if r := doc.getWordRangeAtPosition(params.Position); r != nil {
