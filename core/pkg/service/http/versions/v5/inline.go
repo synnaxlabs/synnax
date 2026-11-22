@@ -94,17 +94,30 @@ func ResolveReadConfig(
 	if err != nil {
 		return icdv1.ICD{}, false, err
 	}
+	liftFills(ic, staged, paths, note)
+	cfg.Inline = nil
+	return ic, true, nil
+}
+
+// liftFills turns the fill value of each field of staged into the default of its field
+// in ic, whose messages hold the endpoints of staged in order, at paths. note receives
+// the path of each fill value that does not convert.
+func liftFills(
+	ic icdv1.ICD,
+	staged []InlineEndpoint,
+	paths []string,
+	note func(path, change string),
+) {
 	for i, e := range staged {
 		p, ok := ic.Messages[i].Payload.Variant.(icdv1.JSONPayload)
 		if !ok {
 			panic("lifted message " + ic.Messages[i].Name + " is not a JSON message")
 		}
-		fields := p.Fields
 		for j, f := range e.Fields {
 			if f.FillValue == nil {
 				continue
 			}
-			if err = liftFill(&fields[j], f, *f.FillValue); err != nil {
+			if err := liftFill(&p.Fields[j], f, *f.FillValue); err != nil {
 				note(
 					paths[i]+".fields."+strconv.Itoa(j),
 					"fill value was dropped: "+err.Error(),
@@ -112,8 +125,6 @@ func ResolveReadConfig(
 			}
 		}
 	}
-	cfg.Inline = nil
-	return ic, true, nil
 }
 
 func toInline(f ReadField, _ int) icdv0.InlineField {
@@ -133,80 +144,12 @@ func toInline(f ReadField, _ int) icdv0.InlineField {
 // the enum labels of old and the time format of field. It returns an error when fill
 // does not convert to the kind of field.
 func liftFill(field *icdv1.JSONField, old ReadField, fill any) error {
-	var (
-		f   xjson.Field
-		set func(sample []byte) icdv1.JSONFieldVariant
-	)
 	enums := lo.Map(old.EnumValues, func(e payload.EnumEntry, _ int) xjson.Enum {
 		return xjson.NewEnum(e.Label, e.Value)
 	})
-	switch v := field.Variant.(type) {
-	case icdv1.FloatJSONField:
-		f = xjson.Field{DataType: telem.Float64T, Enums: enums}
-		set = func(s []byte) icdv1.JSONFieldVariant {
-			v.Default = new(payload.Float(math.Float64frombits(fixed(s))))
-			return v
-		}
-	case icdv1.IntegerJSONField:
-		f = xjson.Field{DataType: telem.Int64T, Enums: enums}
-		set = func(s []byte) icdv1.JSONFieldVariant {
-			v.Default = new(payload.Integer(int64(fixed(s))))
-			return v
-		}
-	case icdv1.UnsignedJSONField:
-		f = xjson.Field{DataType: telem.Uint64T, Enums: enums}
-		set = func(s []byte) icdv1.JSONFieldVariant {
-			v.Default = new(payload.Unsigned(fixed(s)))
-			return v
-		}
-	case icdv1.BooleanJSONField:
-		f = xjson.Field{DataType: telem.BooleanT, Enums: enums}
-		set = func(s []byte) icdv1.JSONFieldVariant {
-			v.Default = new(s[0] != 0)
-			return v
-		}
-	case icdv1.StringJSONField:
-		f = xjson.Field{DataType: telem.StringT}
-		set = func(s []byte) icdv1.JSONFieldVariant {
-			v.Default = new(string(variable(s)))
-			return v
-		}
-	case icdv1.TimestampJSONField:
-		format, err := xjson.ParseTimeFormat(string(v.TimeFormat))
-		if err != nil {
-			return err
-		}
-		f = xjson.Field{DataType: telem.TimestampT, TimeFormat: format}
-		set = func(s []byte) icdv1.JSONFieldVariant {
-			v.Default = &icdv1.TimestampDefault{
-				Variant: icdv1.ConstantTimestampDefault{
-					Value: telem.TimeStamp(fixed(s)),
-				},
-			}
-			return v
-		}
-	case icdv1.JSONJSONField:
-		f = xjson.Field{DataType: telem.JSONT}
-		set = func(s []byte) icdv1.JSONFieldVariant {
-			v.Default = new(string(variable(s)))
-			return v
-		}
-	case icdv1.UuidJSONField:
-		f = xjson.Field{DataType: telem.UUIDT}
-		set = func(s []byte) icdv1.JSONFieldVariant {
-			v.Default = &icdv1.UUIDDefault{
-				Variant: icdv1.ConstantUUIDDefault{Value: uuid.UUID(s)},
-			}
-			return v
-		}
-	case icdv1.BytesJSONField:
-		f = xjson.Field{DataType: telem.BytesT}
-		set = func(s []byte) icdv1.JSONFieldVariant {
-			v.Default = new(base64.StdEncoding.EncodeToString(variable(s)))
-			return v
-		}
-	default:
-		panic("no default for JSON field " + field.Base().Name)
+	f, err := fillField(*field, enums)
+	if err != nil {
+		return err
 	}
 	raw, err := json.Marshal(fill)
 	if err != nil {
@@ -220,8 +163,77 @@ func liftFill(field *icdv1.JSONField, old ReadField, fill any) error {
 	if err != nil {
 		return err
 	}
-	field.Variant = set(sample)
+	field.Variant = withDefault(*field, sample)
 	return nil
+}
+
+// fillField returns the decoder field that reads a fill value into the kind of field.
+func fillField(field icdv1.JSONField, enums []xjson.Enum) (xjson.Field, error) {
+	switch v := field.Variant.(type) {
+	case icdv1.FloatJSONField:
+		return xjson.Field{DataType: telem.Float64T, Enums: enums}, nil
+	case icdv1.IntegerJSONField:
+		return xjson.Field{DataType: telem.Int64T, Enums: enums}, nil
+	case icdv1.UnsignedJSONField:
+		return xjson.Field{DataType: telem.Uint64T, Enums: enums}, nil
+	case icdv1.BooleanJSONField:
+		return xjson.Field{DataType: telem.BooleanT, Enums: enums}, nil
+	case icdv1.StringJSONField:
+		return xjson.Field{DataType: telem.StringT}, nil
+	case icdv1.TimestampJSONField:
+		format, err := xjson.ParseTimeFormat(string(v.TimeFormat))
+		return xjson.Field{DataType: telem.TimestampT, TimeFormat: format}, err
+	case icdv1.JSONJSONField:
+		return xjson.Field{DataType: telem.JSONT}, nil
+	case icdv1.UuidJSONField:
+		return xjson.Field{DataType: telem.UUIDT}, nil
+	case icdv1.BytesJSONField:
+		return xjson.Field{DataType: telem.BytesT}, nil
+	default:
+		panic("no default for JSON field " + field.Base().Name)
+	}
+}
+
+// withDefault returns the variant of field with sample, as fillField reads it, for its
+// default.
+func withDefault(field icdv1.JSONField, sample []byte) icdv1.JSONFieldVariant {
+	switch v := field.Variant.(type) {
+	case icdv1.FloatJSONField:
+		v.Default = new(payload.Float(math.Float64frombits(fixed(sample))))
+		return v
+	case icdv1.IntegerJSONField:
+		v.Default = new(payload.Integer(int64(fixed(sample))))
+		return v
+	case icdv1.UnsignedJSONField:
+		v.Default = new(payload.Unsigned(fixed(sample)))
+		return v
+	case icdv1.BooleanJSONField:
+		v.Default = new(sample[0] != 0)
+		return v
+	case icdv1.StringJSONField:
+		v.Default = new(string(variable(sample)))
+		return v
+	case icdv1.TimestampJSONField:
+		v.Default = &icdv1.TimestampDefault{
+			Variant: icdv1.ConstantTimestampDefault{
+				Value: telem.TimeStamp(fixed(sample)),
+			},
+		}
+		return v
+	case icdv1.JSONJSONField:
+		v.Default = new(string(variable(sample)))
+		return v
+	case icdv1.UuidJSONField:
+		v.Default = &icdv1.UUIDDefault{
+			Variant: icdv1.ConstantUUIDDefault{Value: uuid.UUID(sample)},
+		}
+		return v
+	case icdv1.BytesJSONField:
+		v.Default = new(base64.StdEncoding.EncodeToString(variable(sample)))
+		return v
+	default:
+		panic("no default for JSON field " + field.Base().Name)
+	}
 }
 
 // fixed returns the 8-byte sample s as a uint64.
