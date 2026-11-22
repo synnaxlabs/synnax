@@ -350,6 +350,8 @@ describe("proxies", () => {
   let tunnels: string[];
   // Servers do not close upgraded or tunneled sockets.
   const sockets: Socket[] = [];
+  let proxyURL: string;
+  let refusal: string | null;
 
   beforeAll(async () => {
     dir = mkdtempSync(join(tmpdir(), "freighter-proxy-"));
@@ -369,6 +371,10 @@ describe("proxies", () => {
     proxy.on("connect", (req: IncomingMessage, socket, head) => {
       const target = new URL(`http://${req.url}`);
       tunnels.push(target.port);
+      if (refusal != null) {
+        socket.end(`HTTP/1.1 ${refusal}\r\n\r\n`);
+        return;
+      }
       const upstream = connect(Number(target.port), target.hostname, () => {
         socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
         upstream.write(head);
@@ -383,7 +389,7 @@ describe("proxies", () => {
       server.on("connection", (socket: Socket) => sockets.push(socket));
     plainEndpoint = new url.URL({ host: "127.0.0.1", port: await listen(plain) });
     tlsEndpoint = new url.URL({ host: "127.0.0.1", port: await listen(tls) });
-    const proxyURL = `http://127.0.0.1:${await listen(proxy)}`;
+    proxyURL = `http://127.0.0.1:${await listen(proxy)}`;
     vi.stubEnv("HTTP_PROXY", proxyURL);
     vi.stubEnv("HTTPS_PROXY", proxyURL);
     // Undici reads the lowercase variables first.
@@ -404,6 +410,8 @@ describe("proxies", () => {
 
   beforeEach(() => {
     tunnels = [];
+    refusal = null;
+    vi.stubEnv("HTTP_PROXY", proxyURL);
     vi.stubEnv("NO_PROXY", "");
   });
 
@@ -448,6 +456,29 @@ describe("proxies", () => {
       (e: unknown) => e,
     );
     expect(Unreachable.matches(err)).toBe(true);
+  });
+
+  it("should not throw Unreachable when the proxy needs authentication", async () => {
+    refusal = "407 Proxy Authentication Required";
+    const client = new HTTPClient({
+      endpoint: plainEndpoint,
+      codec: binary.JSON_CODEC,
+    });
+    const err = await client.send("/", { message: "hi" }, messageZ, messageZ).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(TypeError);
+    expect(Unreachable.matches(err)).toBe(false);
+  });
+
+  it("should name a proxy variable that is not a valid URL", () => {
+    vi.stubEnv("HTTP_PROXY", " ");
+    const config = { endpoint: plainEndpoint, codec: binary.JSON_CODEC };
+    expect(() => new HTTPClient(config)).toThrow(
+      'HTTP_PROXY is not a valid proxy URL: " "',
+    );
+    expect(() => trustCA(ca)).toThrow("HTTP_PROXY is not a valid proxy URL");
   });
 
   it("should connect directly to a host in NO_PROXY", async () => {

@@ -62,7 +62,7 @@ const UNREACHABLE_CODES = new Set([
 const DENO_TCP_CONNECT_ERROR = "client error (Connect): tcp connect error";
 
 // Undici's ProxyAgent fails with this when the proxy cannot reach the target.
-const PROXY_TUNNEL_FAILURE = /^Proxy response \(\d+\) !== 200 when HTTP Tunneling$/;
+const PROXY_TUNNEL_FAILURE = /^Proxy response \(50[234]\) !== 200 when HTTP Tunneling$/;
 
 const shouldCastToUnreachable = (
   err: Error & { code?: unknown; errno?: unknown },

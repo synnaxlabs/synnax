@@ -121,7 +121,25 @@ const loadUndici = async (ca?: string) => {
   return { fetch, WebSocket, dispatcher };
 };
 
+const PROXY_VARIABLES: Array<[string, string]> = [
+  ["http_proxy", "HTTP_PROXY"],
+  ["https_proxy", "HTTPS_PROXY"],
+];
+
+// Undici reads the lowercase name first, and an empty value sets no proxy.
+const proxyVariables = (): Array<[string, string]> =>
+  PROXY_VARIABLES.flatMap(([lower, upper]): Array<[string, string]> => {
+    const name = process.env[lower] == null ? upper : lower;
+    const value = process.env[name];
+    return value == null || value === "" ? [] : [[name, value]];
+  });
+
 const nodeConnector = (ca?: string): Connector => {
+  // Undici throws for an invalid proxy URL only at the first connection, and without
+  // the name of the variable.
+  for (const [name, value] of proxyVariables())
+    if (!URL.canParse(value))
+      throw new Error(`${name} is not a valid proxy URL: "${value}"`);
   // Node's built-in fetch and WebSocket reject an Agent from the undici package, so
   // the connections use the package's own fetch and WebSocket. The import waits for
   // the first connection, so a client that never connects never loads undici.
@@ -182,20 +200,19 @@ const denoConnector = (deno: object, ca: string): Connector => {
   };
 };
 
-const PROXY_VARIABLES = ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"];
-
 // Bun and Deno read the proxy variables themselves. Node's global fetch does not.
 const usesNodeProxy = (): boolean =>
   runtime.RUNTIME === "node" &&
   typeof document === "undefined" &&
   !("Bun" in globalThis) &&
   !("Deno" in globalThis) &&
-  PROXY_VARIABLES.some((name) => (process.env[name] ?? "") !== "");
+  proxyVariables().length > 0;
 
 /**
  * Returns the connector a client uses when it is given none: the runtime's global
  * fetch and WebSocket. In Node, when HTTP_PROXY or HTTPS_PROXY is set, the connector
  * sends connections through that proxy, except to the hosts in NO_PROXY.
+ * @throws {Error} in Node, if a proxy variable is not a valid URL.
  */
 export const defaultConnector = (): Connector =>
   usesNodeProxy() ? nodeConnector() : GLOBAL_CONNECTOR;
@@ -208,6 +225,7 @@ export const defaultConnector = (): Connector =>
  * @param caCert - The PEM text of the CA certificate.
  * @throws {Error} in a browser, which trusts only the operating system or browser
  * certificate store.
+ * @throws {Error} in Node, if a proxy variable is not a valid URL.
  */
 export const trustCA = (caCert: string): Connector => {
   const deno: unknown = Reflect.get(globalThis, "Deno");
