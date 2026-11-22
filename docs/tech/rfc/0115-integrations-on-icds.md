@@ -168,7 +168,10 @@ until 0.63.0. Each carries a migration from the version that shipped:
 - MQTT v3 migrates read entries as v2 does, and migrates each v1 and v2 write target,
   including one in an 0.61.0 export, into an ICD message.
 - Kafka v1 migrates each v0 task into one ICD.
-- HTTP v5 migrates each v4 endpoint into one ICD message.
+- HTTP v5 migrates each v4 endpoint into one ICD message. An ICD default cannot be NaN,
+  so the task's `nan_fill_enabled` turns on when v4 had it or when an optional field had
+  no `fill_value`. A missing required float field in such a task then writes NaN with a
+  warning, where v4 skipped the endpoint's group.
 
 The MQTT v1 to v2 migration writes ICDs when a Core upgrades.
 
