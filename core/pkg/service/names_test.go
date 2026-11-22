@@ -11,6 +11,7 @@ package service_test
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 	"uuid"
 
@@ -28,15 +29,18 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelversions "github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupversions "github.com/synnaxlabs/synnax/pkg/service/group/versions"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	resourcev0 "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -349,5 +353,107 @@ var _ = Describe("Name upgrade", func() {
 		check(first)
 		Expect(first.Close()).To(Succeed())
 		check(MustOpen(svctestutil.OpenLayer(ctx, n)))
+	})
+
+	It("Should leave what each Arc shows as changed since its deploy", func(
+		ctx SpecContext,
+	) {
+		n := testutil.NewNode(ctx)
+		first := MustSucceed(svctestutil.OpenLayer(ctx, n))
+		pt := channel.Channel{
+			Name:        "pt-01",
+			DataType:    telem.Float32T,
+			Virtual:     true,
+			Leaseholder: node.KeyFree,
+		}
+		bench := rack.Rack{Name: "bench"}
+		automation := func(name, raw string) arc.Arc {
+			return arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+				Name: name,
+				Source: arc.Source{Variant: arc.TextSource{
+					Text: text.Text{Doc: text.Create(raw)},
+				}},
+			}}}
+		}
+		running := automation("running", "x := pt-01 * 2")
+		edited := automation("edited", "y := pt-01 * 3")
+		var runningTask, editedTask *task.Task
+		Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			if err = first.Channel.NewWriter(tx).Create(ctx, &pt); err != nil {
+				return err
+			}
+			if err = first.Rack.NewWriter(tx).Create(ctx, &bench); err != nil {
+				return err
+			}
+			w := first.Arc.NewWriter(tx)
+			if err = w.Create(ctx, &running); err != nil {
+				return err
+			}
+			if err = w.Create(ctx, &edited); err != nil {
+				return err
+			}
+			update := arc.TaskUpdate{Rack: &bench.Key}
+			if runningTask, err = w.UpdateTask(
+				ctx,
+				running.Base().Key,
+				update,
+			); err != nil {
+				return err
+			}
+			editedTask, err = w.UpdateTask(ctx, edited.Base().Key, update)
+			return err
+		})).To(Succeed())
+		Expect(first.Close()).To(Succeed())
+		// The Driver ran each deploy, and the edited Arc then saved an edit.
+		deployed := drift.Hashes{Text: "deployed"}
+		Expect(gorp.WrapWriter[drift.Key, drift.Record](n.DB).Set(
+			ctx,
+			drift.Record{Task: runningTask.Key, Stored: deployed, Deployed: deployed},
+			drift.Record{
+				Task:     editedTask.Key,
+				Stored:   drift.Hashes{Text: "edited"},
+				Deployed: deployed,
+			},
+		)).To(Succeed())
+		// The store is as v0.62 left it: the Arc text pass has not run.
+		record := []byte("gorp.migration.Composition")
+		b, closer := MustSucceed2(n.Storage.KV.Get(record))
+		var applied []string
+		Expect(json.Unmarshal(b, &applied)).To(Succeed())
+		Expect(closer.Close()).To(Succeed())
+		applied = slices.DeleteFunc(applied, func(k string) bool {
+			return k == "v63_rename_arc_channels"
+		})
+		Expect(n.Storage.KV.Set(ctx, record, MustSucceed(json.Marshal(applied)))).
+			To(Succeed())
+
+		l := MustOpen(svctestutil.OpenLayer(ctx, n))
+		Expect(sourceOf(ctx, n, running.Base().Key)).To(Equal("x := 'pt-01' * 2"))
+		// The Driver configures the running task again from the stored text.
+		var current task.Task
+		Expect(l.Task.NewRetrieve().
+			Where(task.MatchKeys(runningTask.Key)).
+			Entry(&current).
+			Exec(ctx, n.DB)).To(Succeed())
+		stat := &task.Status{
+			Owner:   new(task.ResourceID(current.Key)),
+			Name:    "running",
+			Variant: status.VariantSuccess,
+			Time:    telem.Now(),
+			Details: task.StatusDetails{Running: true, ConfigHash: current.ConfigHash},
+		}
+		Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Status.NewWriter(tx).Set(ctx, stat)
+		})).To(Succeed())
+		records := MustSucceed(l.Arc.RetrieveDrift(
+			ctx,
+			n.DB,
+			running.Base().Key,
+			edited.Base().Key,
+		))
+		Expect(arc.Changes(records[running.Base().Key])).To(BeEmpty())
+		Expect(arc.Changes(records[edited.Base().Key])).To(Equal([]arc.Change{
+			{Type: arc.TypeAutomation, Kind: arc.ChangeKindChanged},
+		}))
 	})
 })

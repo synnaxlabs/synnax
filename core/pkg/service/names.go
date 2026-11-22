@@ -18,6 +18,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -301,9 +302,9 @@ func renameSource(src *arc.Source, rename func(string) (string, bool)) bool {
 }
 
 // newRenameReport returns the migration that writes a warning status for each rename
-// that the name and clash passes staged, and then deletes the staged renames. It runs
-// after the text passes.
-func newRenameReport(statuses *status.Service) gorp.Migration {
+// that the name and clash passes staged, renames the storage of each renamed channel in
+// ts, and then deletes the staged renames. It runs after the text passes.
+func newRenameReport(statuses *status.Service, ts *cesium.DB) gorp.Migration {
 	return migrate.New(
 		"v63_report_renames",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
@@ -315,7 +316,10 @@ func newRenameReport(statuses *status.Service) gorp.Migration {
 			if err != nil {
 				return err
 			}
-			w := statuses.NewWriter(tx)
+			var (
+				w      = statuses.NewWriter(tx)
+				stored = make(map[cesium.ChannelKey]string)
+			)
 			for _, r := range renames {
 				noun := "channel"
 				if r.ID.Type == resource.TypeGroup {
@@ -342,6 +346,20 @@ func newRenameReport(statuses *status.Service) gorp.Migration {
 				if err = w.Set(ctx, &s); err != nil {
 					return err
 				}
+				if r.ID.Type != resource.TypeChannel {
+					continue
+				}
+				key, err := channel.ParseKey(r.ID.Key)
+				if err != nil {
+					return err
+				}
+				// A free channel has no storage.
+				if !key.Free() {
+					stored[cesium.ChannelKey(key)] = name
+				}
+			}
+			if err = ts.RenameChannels(ctx, stored); err != nil {
+				return err
 			}
 			return resourcev0.ClearRenames(ctx, tx)
 		},

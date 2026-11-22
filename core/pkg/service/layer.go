@@ -981,7 +981,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("composition"),
 		DB:              cfg.Distribution.DB,
 		Namespace:       "Composition",
-		Migrations:      []gorp.Migration{arcTextMigration, newRenameReport(l.Status)},
+		Migrations: []gorp.Migration{
+			arcTextMigration,
+			newRenameReport(l.Status, cfg.Storage.TS),
+		},
 	}); !ok(err, nil) {
 		return nil, err
 	}
