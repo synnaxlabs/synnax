@@ -17,24 +17,14 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import (
-    certificate,
+    certificate as certificate_,
     channel as channel_,
     rack as rack_,
     secret,
     status as status_,
 )
 from synnax.resource import ID
-
-SECURITY_MODE_NONE: Literal["None"] = "None"
-
-SECURITY_MODE_SIGN: Literal["Sign"] = "Sign"
-
-SECURITY_MODE_SIGN_AND_ENCRYPT: Literal["SignAndEncrypt"] = "SignAndEncrypt"
-
-
-SecurityMode = Literal["None", "Sign", "SignAndEncrypt"]
-
-SECURITY_POLICY_NONE: Literal["None"] = "None"
+from x import telem
 
 SECURITY_POLICY_BASIC128_RSA15: Literal["Basic128Rsa15"] = "Basic128Rsa15"
 
@@ -52,7 +42,6 @@ SECURITY_POLICY_AES256_SHA256_RSA_PSS: Literal["Aes256_Sha256_RsaPss"] = (
 
 
 SecurityPolicy = Literal[
-    "None",
     "Basic128Rsa15",
     "Basic256",
     "Basic256Sha256",
@@ -63,54 +52,91 @@ SecurityPolicy = Literal[
 Key: TypeAlias = UUID
 
 
-class Connection(BaseModel):
-    """Holds the settings that the Driver connects to a server with.
+class Read(BaseModel):
+    """Binds a node, or a member of its structure value, to a channel.
 
     Attributes:
-        endpoint: Is the endpoint URL of the server.
-        username: Is the user name to authenticate with. Empty for anonymous.
-        password: Is the secret that holds the password. Absent for no password.
-        security_mode: Is the message security mode.
-        security_policy: Is the security policy.
-        client_certificate: Is the certificate that the Driver presents. Absent for the
-            Driver certificate.
-        server_certificate: Is the trusted server certificate. Absent to trust the first
-            certificate that the server presents.
-        certificate_validation_disabled: Is true when the Driver accepts any server
-            certificate.
-        client_timeout_ms: Is the timeout of each request and connection, in
-            milliseconds.
-        secure_channel_lifetime_ms: Is the lifetime of the secure channel, in
-            milliseconds.
-        session_timeout_ms: Is the timeout of the session, in milliseconds.
-    """
-
-    endpoint: str = Field(min_length=1)
-    username: str = ""
-    password: secret.Key | None = None
-    security_mode: SecurityMode = "None"
-    security_policy: SecurityPolicy = "None"
-    client_certificate: certificate.Key | None = None
-    server_certificate: certificate.Key | None = None
-    certificate_validation_disabled: bool = False
-    client_timeout_ms: int = Field(default=5000, ge=100, le=4294967295)
-    secure_channel_lifetime_ms: int = Field(default=600000, ge=1000, le=4294967295)
-    session_timeout_ms: int = Field(default=1200000, ge=1000, le=4294967295)
-
-
-class ReadField(BaseModel):
-    """Binds a member of a node's structure value to a channel.
-
-    Attributes:
-        node_id: Is the ID of the node that holds the structure.
+        node: Is the ID of the node, as nsu=<namespace URI>;<i|s|g|b>=<identifier>, or
+            the identifier alone in namespace 0.
         field: Is the path to a member of the node's structure value. Names join with
-            '.', and '&' escapes the next character.
-        channel: Is the channel that holds the samples of the member.
+            '.', and '&' escapes the next character. Empty binds the whole value.
+        index: Is the index channel of the channel.
+        channel: Is the channel that holds the samples of the node.
     """
 
-    node_id: str = Field(min_length=1)
-    field: str = Field(min_length=1)
-    channel: channel_.Key = Field(ge=0, le=4294967295)
+    node: str = Field(min_length=1)
+    field: str = ""
+    index: channel_.Key = Field(gt=0, le=4294967295)
+    channel: channel_.Key = Field(gt=0, le=4294967295)
+
+
+class Write(BaseModel):
+    """Binds a node to the channel that commands it.
+
+    Attributes:
+        node: Is the ID of the node, as nsu=<namespace URI>;<i|s|g|b>=<identifier>, or
+            the identifier alone in namespace 0.
+        channel: Is the channel that commands the node.
+    """
+
+    node: str = Field(min_length=1)
+    channel: channel_.Key = Field(gt=0, le=4294967295)
+
+
+class AnonymousAuth(BaseModel):
+    """Logs in with no credentials."""
+
+    type: Literal["anonymous"] = "anonymous"
+
+
+class UsernameAuth(BaseModel):
+    """Logs in with a user name and password."""
+
+    type: Literal["username"] = "username"
+    username: str = Field(min_length=1)
+    password: secret.Key | None = None
+
+
+class CertificateAuth(BaseModel):
+    """Logs in with a user certificate."""
+
+    type: Literal["certificate"] = "certificate"
+    certificate: certificate_.Key
+
+
+# Is how the Driver logs in to the server.
+Auth = Annotated[
+    AnonymousAuth | UsernameAuth | CertificateAuth,
+    Field(discriminator="type"),
+]
+
+
+class FirstUseServerTrust(BaseModel):
+    """Trusts the first certificate that the server presents, which the scanner then
+    pins.
+    """
+
+    type: Literal["first_use"] = "first_use"
+
+
+class PinnedServerTrust(BaseModel):
+    """Trusts one stored server certificate."""
+
+    type: Literal["pinned"] = "pinned"
+    certificate: certificate_.Key
+
+
+class ValidationDisabledServerTrust(BaseModel):
+    """Accepts any server certificate."""
+
+    type: Literal["validation_disabled"] = "validation_disabled"
+
+
+# Is which server certificates the Driver trusts.
+ServerTrust = Annotated[
+    FirstUseServerTrust | PinnedServerTrust | ValidationDisabledServerTrust,
+    Field(discriminator="type"),
+]
 
 
 class StatusDetails(BaseModel):
@@ -127,7 +153,75 @@ class StatusDetails(BaseModel):
     connected: bool = False
 
 
+class SecuredChannel(BaseModel):
+    """Holds the settings of a signed or encrypted connection.
+
+    Attributes:
+        policy: Is the security policy.
+        client_certificate: Is the certificate that the Driver presents. Absent for the
+            Driver certificate.
+        server_trust: Is which server certificates the Driver trusts.
+    """
+
+    policy: SecurityPolicy
+    client_certificate: certificate_.Key | None = None
+    server_trust: ServerTrust = Field(
+        default_factory=lambda: FirstUseServerTrust(type="first_use")
+    )
+
+
 Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class NoneSecurity(BaseModel):
+    """Signs and encrypts no messages."""
+
+    mode: Literal["none"] = "none"
+
+
+class SignSecurity(SecuredChannel):
+    """Signs every message."""
+
+    mode: Literal["sign"] = "sign"
+
+
+class SignAndEncryptSecurity(SecuredChannel):
+    """Signs and encrypts every message."""
+
+    mode: Literal["sign_and_encrypt"] = "sign_and_encrypt"
+
+
+# Is the message security of a connection.
+Security = Annotated[
+    NoneSecurity | SignSecurity | SignAndEncryptSecurity,
+    Field(discriminator="mode"),
+]
+
+
+class Connection(BaseModel):
+    """Holds the settings that the Driver connects to a server with.
+
+    Attributes:
+        endpoint: Is the endpoint URL of the server.
+        auth: Is how the Driver logs in.
+        security: Is the message security of the connection.
+        client_timeout: Is the timeout of each request and connection attempt.
+        secure_channel_lifetime: Is the lifetime of the secure channel.
+        session_timeout: Is the timeout of the session.
+    """
+
+    endpoint: str = Field(min_length=1)
+    auth: Auth = Field(default_factory=lambda: AnonymousAuth(type="anonymous"))
+    security: Security = Field(default_factory=lambda: NoneSecurity(mode="none"))
+    client_timeout: telem.TimeSpan = Field(
+        default=telem.TimeSpan(5000000000), ge=100000000, le=9223372036854775807
+    )
+    secure_channel_lifetime: telem.TimeSpan = Field(
+        default=telem.TimeSpan(600000000000), ge=1000000000, le=9223372036854775807
+    )
+    session_timeout: telem.TimeSpan = Field(
+        default=telem.TimeSpan(1200000000000), ge=1000000000, le=9223372036854775807
+    )
 
 
 class Server(BaseModel):
@@ -138,10 +232,8 @@ class Server(BaseModel):
         rack: Is the key of the rack whose Driver connects to the server.
         name: Is a human-readable name for the server.
         connection: Holds the settings that the Driver connects with.
-        read_indexes: Are the index channels of the channels that read tasks write to.
-        read_channels: Maps a node ID to the channel that holds the node's samples.
-        read_fields: Bind members of structure values to channels.
-        write_channels: Maps a node ID to the channel that commands the node.
+        reads: Bind the nodes that read tasks sample to channels.
+        writes: Bind the nodes that write tasks command to channels.
         status: Is the current connection status of the server.
     """
 
@@ -149,16 +241,8 @@ class Server(BaseModel):
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str = Field(min_length=1)
     connection: Connection
-    read_indexes: list[Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = Field(
-        default_factory=list
-    )
-    read_channels: dict[str, Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = (
-        Field(default_factory=dict)
-    )
-    read_fields: list[ReadField] = Field(default_factory=list)
-    write_channels: dict[str, Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = (
-        Field(default_factory=dict)
-    )
+    reads: list[Read] = Field(default_factory=list)
+    writes: list[Write] = Field(default_factory=list)
     status: Status | None = None
 
     @_override

@@ -23,10 +23,40 @@ import (
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
+var (
+	fullyPopulatedSecuredChannel = v0.SecuredChannel{
+		Policy:            v0.SecurityPolicy("Basic128Rsa15"),
+		ClientCertificate: new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+		ServerTrust:       v0.ServerTrust{Variant: v0.FirstUseServerTrust{}},
+	}
+)
+
 var _ = Describe("Codec", func() {
+	Describe("Auth", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Auth) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Auth
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("anonymous variant", v0.Auth{Variant: v0.AnonymousAuth{}}),
+			Entry("username variant", v0.Auth{Variant: v0.UsernameAuth{
+				Username: "test_1",
+				Password: new(secret.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+			}}),
+			Entry("certificate variant", v0.Auth{Variant: v0.CertificateAuth{
+				Certificate: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			}}),
+		)
+	})
 	Describe("Connection", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.Connection) {
@@ -39,54 +69,81 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Connection{
-				Endpoint:                      "test_1",
-				Username:                      "test_2",
-				Password:                      new(secret.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"))),
-				SecurityMode:                  v0.SecurityMode("None"),
-				SecurityPolicy:                v0.SecurityPolicy("None"),
-				ClientCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-				ServerCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-				CertificateValidationDisabled: false,
-				ClientTimeoutMs:               10,
-				SecureChannelLifetimeMs:       11,
-				SessionTimeoutMs:              12,
+				Endpoint:              "test_1",
+				Auth:                  v0.Auth{Variant: v0.AnonymousAuth{}},
+				Security:              v0.Security{Variant: v0.NoneSecurity{}},
+				ClientTimeout:         telem.TimeSpan(5),
+				SecureChannelLifetime: telem.TimeSpan(6),
+				SessionTimeout:        telem.TimeSpan(7),
 			}),
 			Entry("zero values", v0.Connection{
-				Endpoint:                      "",
-				Username:                      "",
-				Password:                      nil,
-				SecurityMode:                  v0.SecurityMode(""),
-				SecurityPolicy:                v0.SecurityPolicy(""),
-				ClientCertificate:             nil,
-				ServerCertificate:             nil,
-				CertificateValidationDisabled: false,
-				ClientTimeoutMs:               0,
-				SecureChannelLifetimeMs:       0,
-				SessionTimeoutMs:              0,
+				Endpoint:              "",
+				Auth:                  v0.Auth{Variant: v0.AnonymousAuth{}},
+				Security:              v0.Security{Variant: v0.NoneSecurity{}},
+				ClientTimeout:         telem.TimeSpan(0),
+				SecureChannelLifetime: telem.TimeSpan(0),
+				SessionTimeout:        telem.TimeSpan(0),
 			}),
 		)
 	})
-	Describe("ReadField", func() {
+	Describe("Read", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.ReadField) {
+			func(original v0.Read) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.ReadField
+				var decoded v0.Read
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.ReadField{
-				NodeID:  "test_1",
+			Entry("fully populated", v0.Read{
+				Node:    "test_1",
 				Field:   "test_2",
-				Channel: channel.Key(4),
+				Index:   channel.Key(4),
+				Channel: channel.Key(5),
 			}),
-			Entry("zero values", v0.ReadField{
-				NodeID:  "",
+			Entry("zero values", v0.Read{
+				Node:    "",
 				Field:   "",
+				Index:   channel.Key(0),
 				Channel: channel.Key(0),
 			}),
+		)
+	})
+	Describe("SecuredChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.SecuredChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.SecuredChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedSecuredChannel),
+			Entry("zero values", v0.SecuredChannel{
+				Policy:            v0.SecurityPolicy(""),
+				ClientCertificate: nil,
+				ServerTrust:       v0.ServerTrust{Variant: v0.FirstUseServerTrust{}},
+			}),
+		)
+	})
+	Describe("Security", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Security) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Security
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("none variant", v0.Security{Variant: v0.NoneSecurity{}}),
+			Entry("sign variant", v0.Security{Variant: v0.SignSecurity{SecuredChannel: fullyPopulatedSecuredChannel}}),
+			Entry("sign_and_encrypt variant", v0.Security{Variant: v0.SignAndEncryptSecurity{SecuredChannel: fullyPopulatedSecuredChannel}}),
 		)
 	})
 	Describe("Server", func() {
@@ -105,90 +162,115 @@ var _ = Describe("Codec", func() {
 				Rack: rack.Key(3),
 				Name: "test_3",
 				Connection: v0.Connection{
-					Endpoint:                      "test_5",
-					Username:                      "test_6",
-					Password:                      new(secret.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-					SecurityMode:                  v0.SecurityMode("None"),
-					SecurityPolicy:                v0.SecurityPolicy("None"),
-					ClientCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"))),
-					ServerCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
-					CertificateValidationDisabled: false,
-					ClientTimeoutMs:               14,
-					SecureChannelLifetimeMs:       15,
-					SessionTimeoutMs:              16,
+					Endpoint:              "test_5",
+					Auth:                  v0.Auth{Variant: v0.AnonymousAuth{}},
+					Security:              v0.Security{Variant: v0.NoneSecurity{}},
+					ClientTimeout:         telem.TimeSpan(9),
+					SecureChannelLifetime: telem.TimeSpan(10),
+					SessionTimeout:        telem.TimeSpan(11),
 				},
-				ReadIndexes:  []channel.Key{channel.Key(17)},
-				ReadChannels: map[string]channel.Key{"test_17": channel.Key(18)},
-				ReadFields: []v0.ReadField{
+				Reads: []v0.Read{
 					{
-						NodeID:  "test_19",
-						Field:   "test_20",
-						Channel: channel.Key(22),
+						Node:    "test_12",
+						Field:   "test_13",
+						Index:   channel.Key(15),
+						Channel: channel.Key(16),
 					},
 				},
-				WriteChannels: map[string]channel.Key{"test_22": channel.Key(23)},
+				Writes: []v0.Write{{Node: "test_17", Channel: channel.Key(19)}},
 			}),
 			Entry("zero values", v0.Server{
 				Key:  uuid.Nil(),
 				Rack: rack.Key(0),
 				Name: "",
 				Connection: v0.Connection{
-					Endpoint:                      "",
-					Username:                      "",
-					Password:                      nil,
-					SecurityMode:                  v0.SecurityMode(""),
-					SecurityPolicy:                v0.SecurityPolicy(""),
-					ClientCertificate:             nil,
-					ServerCertificate:             nil,
-					CertificateValidationDisabled: false,
-					ClientTimeoutMs:               0,
-					SecureChannelLifetimeMs:       0,
-					SessionTimeoutMs:              0,
+					Endpoint:              "",
+					Auth:                  v0.Auth{Variant: v0.AnonymousAuth{}},
+					Security:              v0.Security{Variant: v0.NoneSecurity{}},
+					ClientTimeout:         telem.TimeSpan(0),
+					SecureChannelLifetime: telem.TimeSpan(0),
+					SessionTimeout:        telem.TimeSpan(0),
 				},
-				ReadIndexes:   []channel.Key{},
-				ReadChannels:  map[string]channel.Key{},
-				ReadFields:    []v0.ReadField{},
-				WriteChannels: map[string]channel.Key{},
+				Reads:  []v0.Read{},
+				Writes: []v0.Write{},
 			}),
 			Entry("empty collections", v0.Server{
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Rack: rack.Key(3),
 				Name: "test_3",
 				Connection: v0.Connection{
-					Endpoint:                      "test_5",
-					Username:                      "test_6",
-					Password:                      new(secret.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-					SecurityMode:                  v0.SecurityMode("None"),
-					SecurityPolicy:                v0.SecurityPolicy("None"),
-					ClientCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"))),
-					ServerCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
-					CertificateValidationDisabled: false,
-					ClientTimeoutMs:               14,
-					SecureChannelLifetimeMs:       15,
-					SessionTimeoutMs:              16,
+					Endpoint:              "test_5",
+					Auth:                  v0.Auth{Variant: v0.AnonymousAuth{}},
+					Security:              v0.Security{Variant: v0.NoneSecurity{}},
+					ClientTimeout:         telem.TimeSpan(9),
+					SecureChannelLifetime: telem.TimeSpan(10),
+					SessionTimeout:        telem.TimeSpan(11),
 				},
-				ReadIndexes:   []channel.Key{},
-				ReadChannels:  map[string]channel.Key{},
-				ReadFields:    []v0.ReadField{},
-				WriteChannels: map[string]channel.Key{},
+				Reads:  []v0.Read{},
+				Writes: []v0.Write{},
 			}),
+		)
+	})
+	Describe("ServerTrust", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.ServerTrust) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.ServerTrust
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("first_use variant", v0.ServerTrust{Variant: v0.FirstUseServerTrust{}}),
+			Entry("pinned variant", v0.ServerTrust{Variant: v0.PinnedServerTrust{
+				Certificate: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			}}),
+			Entry("validation_disabled variant", v0.ServerTrust{Variant: v0.ValidationDisabledServerTrust{}}),
+		)
+	})
+	Describe("Write", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Write) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Write
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.Write{Node: "test_1", Channel: channel.Key(3)}),
+			Entry("zero values", v0.Write{Node: "", Channel: channel.Key(0)}),
 		)
 	})
 })
 
+func BenchmarkEncodeDecodeAuth(b *testing.B) {
+	seed := v0.Auth{Variant: v0.AnonymousAuth{}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Auth
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeConnection(b *testing.B) {
 	seed := v0.Connection{
-		Endpoint:                      "test_1",
-		Username:                      "test_2",
-		Password:                      new(secret.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"))),
-		SecurityMode:                  v0.SecurityMode("None"),
-		SecurityPolicy:                v0.SecurityPolicy("None"),
-		ClientCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-		ServerCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-		CertificateValidationDisabled: false,
-		ClientTimeoutMs:               10,
-		SecureChannelLifetimeMs:       11,
-		SessionTimeoutMs:              12,
+		Endpoint:              "test_1",
+		Auth:                  v0.Auth{Variant: v0.AnonymousAuth{}},
+		Security:              v0.Security{Variant: v0.NoneSecurity{}},
+		ClientTimeout:         telem.TimeSpan(5),
+		SecureChannelLifetime: telem.TimeSpan(6),
+		SessionTimeout:        telem.TimeSpan(7),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -205,11 +287,12 @@ func BenchmarkEncodeDecodeConnection(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeReadField(b *testing.B) {
-	seed := v0.ReadField{
-		NodeID:  "test_1",
+func BenchmarkEncodeDecodeRead(b *testing.B) {
+	seed := v0.Read{
+		Node:    "test_1",
 		Field:   "test_2",
-		Channel: channel.Key(4),
+		Index:   channel.Key(4),
+		Channel: channel.Key(5),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -218,7 +301,41 @@ func BenchmarkEncodeDecodeReadField(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.ReadField
+		var decoded v0.Read
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeSecuredChannel(b *testing.B) {
+	seed := fullyPopulatedSecuredChannel
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.SecuredChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeSecurity(b *testing.B) {
+	seed := v0.Security{Variant: v0.NoneSecurity{}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Security
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -232,28 +349,22 @@ func BenchmarkEncodeDecodeServer(b *testing.B) {
 		Rack: rack.Key(3),
 		Name: "test_3",
 		Connection: v0.Connection{
-			Endpoint:                      "test_5",
-			Username:                      "test_6",
-			Password:                      new(secret.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-			SecurityMode:                  v0.SecurityMode("None"),
-			SecurityPolicy:                v0.SecurityPolicy("None"),
-			ClientCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"))),
-			ServerCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
-			CertificateValidationDisabled: false,
-			ClientTimeoutMs:               14,
-			SecureChannelLifetimeMs:       15,
-			SessionTimeoutMs:              16,
+			Endpoint:              "test_5",
+			Auth:                  v0.Auth{Variant: v0.AnonymousAuth{}},
+			Security:              v0.Security{Variant: v0.NoneSecurity{}},
+			ClientTimeout:         telem.TimeSpan(9),
+			SecureChannelLifetime: telem.TimeSpan(10),
+			SessionTimeout:        telem.TimeSpan(11),
 		},
-		ReadIndexes:  []channel.Key{channel.Key(17)},
-		ReadChannels: map[string]channel.Key{"test_17": channel.Key(18)},
-		ReadFields: []v0.ReadField{
+		Reads: []v0.Read{
 			{
-				NodeID:  "test_19",
-				Field:   "test_20",
-				Channel: channel.Key(22),
+				Node:    "test_12",
+				Field:   "test_13",
+				Index:   channel.Key(15),
+				Channel: channel.Key(16),
 			},
 		},
-		WriteChannels: map[string]channel.Key{"test_22": channel.Key(23)},
+		Writes: []v0.Write{{Node: "test_17", Channel: channel.Key(19)}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -270,20 +381,101 @@ func BenchmarkEncodeDecodeServer(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeServerTrust(b *testing.B) {
+	seed := v0.ServerTrust{Variant: v0.FirstUseServerTrust{}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.ServerTrust
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeWrite(b *testing.B) {
+	seed := v0.Write{Node: "test_1", Channel: channel.Key(3)}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Write
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func FuzzDecodeAuth(f *testing.F) {
+	{
+		seed := v0.Auth{Variant: v0.AnonymousAuth{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Auth{Variant: v0.UsernameAuth{
+			Username: "test_1",
+			Password: new(secret.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Auth{Variant: v0.CertificateAuth{
+			Certificate: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Auth
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Auth
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeConnection(f *testing.F) {
 	{
 		seed := v0.Connection{
-			Endpoint:                      "test_1",
-			Username:                      "test_2",
-			Password:                      new(secret.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"))),
-			SecurityMode:                  v0.SecurityMode("None"),
-			SecurityPolicy:                v0.SecurityPolicy("None"),
-			ClientCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-			ServerCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-			CertificateValidationDisabled: false,
-			ClientTimeoutMs:               10,
-			SecureChannelLifetimeMs:       11,
-			SessionTimeoutMs:              12,
+			Endpoint:              "test_1",
+			Auth:                  v0.Auth{Variant: v0.AnonymousAuth{}},
+			Security:              v0.Security{Variant: v0.NoneSecurity{}},
+			ClientTimeout:         telem.TimeSpan(5),
+			SecureChannelLifetime: telem.TimeSpan(6),
+			SessionTimeout:        telem.TimeSpan(7),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -293,17 +485,12 @@ func FuzzDecodeConnection(f *testing.F) {
 	}
 	{
 		seed := v0.Connection{
-			Endpoint:                      "",
-			Username:                      "",
-			Password:                      nil,
-			SecurityMode:                  v0.SecurityMode(""),
-			SecurityPolicy:                v0.SecurityPolicy(""),
-			ClientCertificate:             nil,
-			ServerCertificate:             nil,
-			CertificateValidationDisabled: false,
-			ClientTimeoutMs:               0,
-			SecureChannelLifetimeMs:       0,
-			SessionTimeoutMs:              0,
+			Endpoint:              "",
+			Auth:                  v0.Auth{Variant: v0.AnonymousAuth{}},
+			Security:              v0.Security{Variant: v0.NoneSecurity{}},
+			ClientTimeout:         telem.TimeSpan(0),
+			SecureChannelLifetime: telem.TimeSpan(0),
+			SessionTimeout:        telem.TimeSpan(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -333,12 +520,13 @@ func FuzzDecodeConnection(f *testing.F) {
 	})
 }
 
-func FuzzDecodeReadField(f *testing.F) {
+func FuzzDecodeRead(f *testing.F) {
 	{
-		seed := v0.ReadField{
-			NodeID:  "test_1",
+		seed := v0.Read{
+			Node:    "test_1",
 			Field:   "test_2",
-			Channel: channel.Key(4),
+			Index:   channel.Key(4),
+			Channel: channel.Key(5),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -347,9 +535,10 @@ func FuzzDecodeReadField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.ReadField{
-			NodeID:  "",
+		seed := v0.Read{
+			Node:    "",
 			Field:   "",
+			Index:   channel.Key(0),
 			Channel: channel.Key(0),
 		}
 		w := orc.NewWriter(0)
@@ -359,7 +548,7 @@ func FuzzDecodeReadField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.ReadField
+		var decoded v0.Read
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -369,7 +558,97 @@ func FuzzDecodeReadField(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.ReadField
+		var redecoded v0.Read
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSecuredChannel(f *testing.F) {
+	{
+		seed := fullyPopulatedSecuredChannel
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.SecuredChannel{
+			Policy:            v0.SecurityPolicy(""),
+			ClientCertificate: nil,
+			ServerTrust:       v0.ServerTrust{Variant: v0.FirstUseServerTrust{}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.SecuredChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.SecuredChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSecurity(f *testing.F) {
+	{
+		seed := v0.Security{Variant: v0.NoneSecurity{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Security{Variant: v0.SignSecurity{SecuredChannel: fullyPopulatedSecuredChannel}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Security{Variant: v0.SignAndEncryptSecurity{SecuredChannel: fullyPopulatedSecuredChannel}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Security
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Security
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -387,28 +666,22 @@ func FuzzDecodeServer(f *testing.F) {
 			Rack: rack.Key(3),
 			Name: "test_3",
 			Connection: v0.Connection{
-				Endpoint:                      "test_5",
-				Username:                      "test_6",
-				Password:                      new(secret.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-				SecurityMode:                  v0.SecurityMode("None"),
-				SecurityPolicy:                v0.SecurityPolicy("None"),
-				ClientCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"))),
-				ServerCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
-				CertificateValidationDisabled: false,
-				ClientTimeoutMs:               14,
-				SecureChannelLifetimeMs:       15,
-				SessionTimeoutMs:              16,
+				Endpoint:              "test_5",
+				Auth:                  v0.Auth{Variant: v0.AnonymousAuth{}},
+				Security:              v0.Security{Variant: v0.NoneSecurity{}},
+				ClientTimeout:         telem.TimeSpan(9),
+				SecureChannelLifetime: telem.TimeSpan(10),
+				SessionTimeout:        telem.TimeSpan(11),
 			},
-			ReadIndexes:  []channel.Key{channel.Key(17)},
-			ReadChannels: map[string]channel.Key{"test_17": channel.Key(18)},
-			ReadFields: []v0.ReadField{
+			Reads: []v0.Read{
 				{
-					NodeID:  "test_19",
-					Field:   "test_20",
-					Channel: channel.Key(22),
+					Node:    "test_12",
+					Field:   "test_13",
+					Index:   channel.Key(15),
+					Channel: channel.Key(16),
 				},
 			},
-			WriteChannels: map[string]channel.Key{"test_22": channel.Key(23)},
+			Writes: []v0.Write{{Node: "test_17", Channel: channel.Key(19)}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -422,22 +695,15 @@ func FuzzDecodeServer(f *testing.F) {
 			Rack: rack.Key(0),
 			Name: "",
 			Connection: v0.Connection{
-				Endpoint:                      "",
-				Username:                      "",
-				Password:                      nil,
-				SecurityMode:                  v0.SecurityMode(""),
-				SecurityPolicy:                v0.SecurityPolicy(""),
-				ClientCertificate:             nil,
-				ServerCertificate:             nil,
-				CertificateValidationDisabled: false,
-				ClientTimeoutMs:               0,
-				SecureChannelLifetimeMs:       0,
-				SessionTimeoutMs:              0,
+				Endpoint:              "",
+				Auth:                  v0.Auth{Variant: v0.AnonymousAuth{}},
+				Security:              v0.Security{Variant: v0.NoneSecurity{}},
+				ClientTimeout:         telem.TimeSpan(0),
+				SecureChannelLifetime: telem.TimeSpan(0),
+				SessionTimeout:        telem.TimeSpan(0),
 			},
-			ReadIndexes:   []channel.Key{},
-			ReadChannels:  map[string]channel.Key{},
-			ReadFields:    []v0.ReadField{},
-			WriteChannels: map[string]channel.Key{},
+			Reads:  []v0.Read{},
+			Writes: []v0.Write{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -451,22 +717,15 @@ func FuzzDecodeServer(f *testing.F) {
 			Rack: rack.Key(3),
 			Name: "test_3",
 			Connection: v0.Connection{
-				Endpoint:                      "test_5",
-				Username:                      "test_6",
-				Password:                      new(secret.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
-				SecurityMode:                  v0.SecurityMode("None"),
-				SecurityPolicy:                v0.SecurityPolicy("None"),
-				ClientCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"))),
-				ServerCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
-				CertificateValidationDisabled: false,
-				ClientTimeoutMs:               14,
-				SecureChannelLifetimeMs:       15,
-				SessionTimeoutMs:              16,
+				Endpoint:              "test_5",
+				Auth:                  v0.Auth{Variant: v0.AnonymousAuth{}},
+				Security:              v0.Security{Variant: v0.NoneSecurity{}},
+				ClientTimeout:         telem.TimeSpan(9),
+				SecureChannelLifetime: telem.TimeSpan(10),
+				SessionTimeout:        telem.TimeSpan(11),
 			},
-			ReadIndexes:   []channel.Key{},
-			ReadChannels:  map[string]channel.Key{},
-			ReadFields:    []v0.ReadField{},
-			WriteChannels: map[string]channel.Key{},
+			Reads:  []v0.Read{},
+			Writes: []v0.Write{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -486,6 +745,94 @@ func FuzzDecodeServer(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.Server
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeServerTrust(f *testing.F) {
+	{
+		seed := v0.ServerTrust{Variant: v0.FirstUseServerTrust{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.ServerTrust{Variant: v0.PinnedServerTrust{
+			Certificate: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.ServerTrust{Variant: v0.ValidationDisabledServerTrust{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.ServerTrust
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.ServerTrust
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWrite(f *testing.F) {
+	{
+		seed := v0.Write{Node: "test_1", Channel: channel.Key(3)}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Write{Node: "", Channel: channel.Key(0)}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Write
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Write
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

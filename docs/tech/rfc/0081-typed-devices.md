@@ -220,15 +220,19 @@ Field groups per make:
   `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,
   `startup_parameters`, `read_index`, `write_state_index`, input and output channel
   maps.
-- **OPC UA server**: identity `rack`, `name`, and `connection` (endpoint, credentials,
-  security mode and policy, certificates, timeouts); configuration `read_indexes` and
-  the node channel maps `read_channels`, `read_fields`, and `write_channels`
-  (`console/src/feature/opcua/device/types/versions/v2.ts`). The connect form and the scanner's
-  server certificate pin write the identity group; the task forms write the
-  configuration group. The timeouts have minimums of 100 ms and 1 s. The endpoint is an
-  `opc.tcp` URL, which the schema checks once Oracle has a Go pattern rule. Mode `None`
-  pairs only with policy `None`; Oracle has no rule across two fields, so the Core's
-  server writer checks the pair.
+- **OPC UA server**: identity `rack`, `name`, and `connection`; configuration `reads`
+  and `writes`. The connect form and the scanner's server certificate pin write the
+  identity group; the task forms write the configuration group. `connection` holds the
+  endpoint, an `auth` union (`anonymous`, `username` with a password secret, or
+  `certificate` with a user certificate that has a private key), a `security` union
+  (`none`, or `sign` and `sign_and_encrypt` with a policy, an optional client
+  certificate, and a `server_trust` union of `first_use`, `pinned`, or
+  `validation_disabled`), and three `TimeSpan` timeouts with minimums of 100 ms and 1 s.
+  A read binds a node, a structure field, and an index channel to a channel; a write
+  binds a node to its command channel. A node ID names its namespace by URI
+  (`nsu=<uri>;<id>`), because a server can renumber its namespace indexes; the writer
+  normalizes node IDs, refuses an index other than 0, and refuses duplicate bindings.
+  The Core refuses an endpoint that is not an `opc.tcp` URL.
 - **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
   channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
@@ -382,12 +386,19 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    bus order in `position` (`console/src/feature/ethercat/device/types.ts:50-51`). Slave
    rows grouped by `rack` and `network` yield one `ethercat.Master` per group, `rack`
    and `interface` from the group, `slaves` ordered by `position`, and each slave's
-   `master` set to the new key. An OPC UA row is fixed so it passes the typed rules: a
-   timeout of 0 takes its default and a smaller one rises to its minimum. Mode `None`
-   with a real policy becomes `Sign`, and a secured mode with policy `None` takes
-   `Basic256Sha256`, so the migration never lowers security. An endpoint without a
-   scheme gains `opc.tcp://`; any other endpoint that is not an `opc.tcp` URL is
-   quarantined.
+   `master` set to the new key. An OPC UA row is fixed so it passes the typed rules.
+   Timeouts in milliseconds become `TimeSpan` values; 0 takes the default and a smaller
+   value rises to the minimum. A user name or password becomes `username` auth,
+   otherwise `anonymous`. Mode `None` with a real policy becomes `sign`, and a secured
+   mode with policy `None` takes `Basic256Sha256`, so the migration never lowers
+   security. A secured row trusts `validation_disabled` when validation was off, else
+   `pinned` with its server certificate, else `first_use`. Each read takes the index of
+   its channel from the channel table; a binding whose channel is gone is dropped with a
+   warning. A binding whose node ID names a namespace index other than 0 cannot be
+   resolved without the server, so it is parked in KV under
+   `sy_opcua_unresolved/<server key>` and the server gets a warning status. An endpoint
+   without a scheme gains `opc.tcp://`; any other endpoint that is not an `opc.tcp` URL
+   is quarantined.
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
    map.
@@ -442,7 +453,11 @@ green at every step. The migration brings 0.59 data forward near the end.
   OPC UA, Modbus, HTTP: the Oracle structs, generated types in four languages, the
   writers, and routes. Each lands dark.
 - **Phases 9 to 14: Driver, one integration each.** Scanner and tasks on the typed
-  client. Phase 9 also adds `common::Sync<D>`.
+  client. Phase 9 also adds `common::Sync<D>`. The OPC UA phase logs in with a user
+  certificate (`UA_ClientConfig_setAuthenticationCert`), and its scanner resolves the
+  bindings parked under `sy_opcua_unresolved/<server key>` against the server's
+  `NamespaceArray` on its next connect, writes them through the configuration update,
+  deletes the entry, and clears the warning.
 - **Phases 15 to 20: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 20 deletes the file.

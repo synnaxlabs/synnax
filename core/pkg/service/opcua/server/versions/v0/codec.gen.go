@@ -17,36 +17,86 @@ import (
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (a Auth) EncodeOrc(w *orc.Writer) error {
+	switch v := a.Variant.(type) {
+	case AnonymousAuth:
+		w.String("anonymous")
+	case UsernameAuth:
+		w.String("username")
+		w.String(v.Username)
+		if v.Password != nil {
+			w.Bool(true)
+			w.Write((*v.Password)[:])
+		} else {
+			w.Bool(false)
+		}
+	case CertificateAuth:
+		w.String("certificate")
+		w.Write(v.Certificate[:])
+	default:
+		return errors.Newf("Auth: nil or unknown variant %T", a.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (a *Auth) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "anonymous":
+		var v AnonymousAuth
+		a.Variant = v
+	case "username":
+		var v UsernameAuth
+		if v.Username, err = r.String(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv secret.Key
+				if _, err := r.Read(hv[:]); err != nil {
+					return err
+				}
+				v.Password = &hv
+			}
+		}
+		a.Variant = v
+	case "certificate":
+		var v CertificateAuth
+		if _, err := r.Read(v.Certificate[:]); err != nil {
+			return err
+		}
+		a.Variant = v
+	default:
+		return errors.Newf("Auth: unknown variant %q", tag)
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (c Connection) EncodeOrc(w *orc.Writer) error {
 	w.String(c.Endpoint)
-	w.String(c.Username)
-	if c.Password != nil {
-		w.Bool(true)
-		w.Write((*c.Password)[:])
-	} else {
-		w.Bool(false)
+	if err := c.Auth.EncodeOrc(w); err != nil {
+		return err
 	}
-	w.String(string(c.SecurityMode))
-	w.String(string(c.SecurityPolicy))
-	if c.ClientCertificate != nil {
-		w.Bool(true)
-		w.Write((*c.ClientCertificate)[:])
-	} else {
-		w.Bool(false)
+	if err := c.Security.EncodeOrc(w); err != nil {
+		return err
 	}
-	if c.ServerCertificate != nil {
-		w.Bool(true)
-		w.Write((*c.ServerCertificate)[:])
-	} else {
-		w.Bool(false)
-	}
-	w.Bool(c.CertificateValidationDisabled)
-	w.Uint32(uint32(c.ClientTimeoutMs))
-	w.Uint32(uint32(c.SecureChannelLifetimeMs))
-	w.Uint32(uint32(c.SessionTimeoutMs))
+	w.Int64(int64(c.ClientTimeout))
+	w.Int64(int64(c.SecureChannelLifetime))
+	w.Int64(int64(c.SessionTimeout))
 	return nil
 }
 
@@ -56,92 +106,52 @@ func (c *Connection) DecodeOrc(r *orc.Reader) error {
 	if c.Endpoint, err = r.String(); err != nil {
 		return err
 	}
-	if c.Username, err = r.String(); err != nil {
+	if err = c.Auth.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = c.Security.DecodeOrc(r); err != nil {
 		return err
 	}
 	{
-		present, err := r.Bool()
+		rawV, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		if present {
-			var hv secret.Key
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			c.Password = &hv
-		}
+		c.ClientTimeout = telem.TimeSpan(rawV)
 	}
 	{
-		rawV, err := r.String()
+		rawV, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		c.SecurityMode = SecurityMode(rawV)
+		c.SecureChannelLifetime = telem.TimeSpan(rawV)
 	}
 	{
-		rawV, err := r.String()
+		rawV, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		c.SecurityPolicy = SecurityPolicy(rawV)
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv certificate.Key
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			c.ClientCertificate = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv certificate.Key
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			c.ServerCertificate = &hv
-		}
-	}
-	if c.CertificateValidationDisabled, err = r.Bool(); err != nil {
-		return err
-	}
-	if c.ClientTimeoutMs, err = r.Uint32(); err != nil {
-		return err
-	}
-	if c.SecureChannelLifetimeMs, err = r.Uint32(); err != nil {
-		return err
-	}
-	if c.SessionTimeoutMs, err = r.Uint32(); err != nil {
-		return err
+		c.SessionTimeout = telem.TimeSpan(rawV)
 	}
 	return nil
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (rf ReadField) EncodeOrc(w *orc.Writer) error {
-	w.String(rf.NodeID)
-	w.String(rf.Field)
-	w.Uint32(uint32(rf.Channel))
+func (rv Read) EncodeOrc(w *orc.Writer) error {
+	w.String(rv.Node)
+	w.String(rv.Field)
+	w.Uint32(uint32(rv.Index))
+	w.Uint32(uint32(rv.Channel))
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
+func (rv *Read) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if rf.NodeID, err = r.String(); err != nil {
+	if rv.Node, err = r.String(); err != nil {
 		return err
 	}
-	if rf.Field, err = r.String(); err != nil {
+	if rv.Field, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -149,7 +159,107 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		rf.Channel = channel.Key(rawV)
+		rv.Index = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		rv.Channel = channel.Key(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (sc SecuredChannel) EncodeOrc(w *orc.Writer) error {
+	w.String(string(sc.Policy))
+	if sc.ClientCertificate != nil {
+		w.Bool(true)
+		w.Write((*sc.ClientCertificate)[:])
+	} else {
+		w.Bool(false)
+	}
+	if err := sc.ServerTrust.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (sc *SecuredChannel) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		sc.Policy = SecurityPolicy(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv certificate.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			sc.ClientCertificate = &hv
+		}
+	}
+	if err = sc.ServerTrust.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (s Security) EncodeOrc(w *orc.Writer) error {
+	switch v := s.Variant.(type) {
+	case NoneSecurity:
+		w.String("none")
+	case SignSecurity:
+		w.String("sign")
+		if err := v.SecuredChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+	case SignAndEncryptSecurity:
+		w.String("sign_and_encrypt")
+		if err := v.SecuredChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("Security: nil or unknown variant %T", s.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (s *Security) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "none":
+		var v NoneSecurity
+		s.Variant = v
+	case "sign":
+		var v SignSecurity
+		if err := v.SecuredChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		s.Variant = v
+	case "sign_and_encrypt":
+		var v SignAndEncryptSecurity
+		if err := v.SecuredChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		s.Variant = v
+	default:
+		return errors.Newf("Security: unknown variant %q", tag)
 	}
 	return nil
 }
@@ -162,36 +272,22 @@ func (s Server) EncodeOrc(w *orc.Writer) error {
 	if err := s.Connection.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.Bool(s.ReadIndexes != nil)
-	if s.ReadIndexes != nil {
-		w.Uint32(uint32(len(s.ReadIndexes)))
-		for i := range s.ReadIndexes {
-			w.Uint32(uint32(s.ReadIndexes[i]))
-		}
-	}
-	w.Bool(s.ReadChannels != nil)
-	if s.ReadChannels != nil {
-		w.Uint32(uint32(len(s.ReadChannels)))
-		for key, val := range s.ReadChannels {
-			w.String(key)
-			w.Uint32(uint32(val))
-		}
-	}
-	w.Bool(s.ReadFields != nil)
-	if s.ReadFields != nil {
-		w.Uint32(uint32(len(s.ReadFields)))
-		for i := range s.ReadFields {
-			if err := s.ReadFields[i].EncodeOrc(w); err != nil {
+	w.Bool(s.Reads != nil)
+	if s.Reads != nil {
+		w.Uint32(uint32(len(s.Reads)))
+		for i := range s.Reads {
+			if err := s.Reads[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
 	}
-	w.Bool(s.WriteChannels != nil)
-	if s.WriteChannels != nil {
-		w.Uint32(uint32(len(s.WriteChannels)))
-		for key, val := range s.WriteChannels {
-			w.String(key)
-			w.Uint32(uint32(val))
+	w.Bool(s.Writes != nil)
+	if s.Writes != nil {
+		w.Uint32(uint32(len(s.Writes)))
+		for i := range s.Writes {
+			if err := s.Writes[i].EncodeOrc(w); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -226,59 +322,9 @@ func (s *Server) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			s.ReadIndexes = make([]channel.Key, n)
-			for i := range s.ReadIndexes {
-				{
-					rawV, err := r.Uint32()
-					if err != nil {
-						return err
-					}
-					s.ReadIndexes[i] = channel.Key(rawV)
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.ReadChannels = make(map[string]channel.Key, n)
-			for range n {
-				var key string
-				var val channel.Key
-				if key, err = r.String(); err != nil {
-					return err
-				}
-				{
-					rawV, err := r.Uint32()
-					if err != nil {
-						return err
-					}
-					val = channel.Key(rawV)
-				}
-				s.ReadChannels[key] = val
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.ReadFields = make([]ReadField, n)
-			for i := range s.ReadFields {
-				if err = s.ReadFields[i].DecodeOrc(r); err != nil {
+			s.Reads = make([]Read, n)
+			for i := range s.Reads {
+				if err = s.Reads[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -294,23 +340,77 @@ func (s *Server) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			s.WriteChannels = make(map[string]channel.Key, n)
-			for range n {
-				var key string
-				var val channel.Key
-				if key, err = r.String(); err != nil {
+			s.Writes = make([]Write, n)
+			for i := range s.Writes {
+				if err = s.Writes[i].DecodeOrc(r); err != nil {
 					return err
 				}
-				{
-					rawV, err := r.Uint32()
-					if err != nil {
-						return err
-					}
-					val = channel.Key(rawV)
-				}
-				s.WriteChannels[key] = val
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (st ServerTrust) EncodeOrc(w *orc.Writer) error {
+	switch v := st.Variant.(type) {
+	case FirstUseServerTrust:
+		w.String("first_use")
+	case PinnedServerTrust:
+		w.String("pinned")
+		w.Write(v.Certificate[:])
+	case ValidationDisabledServerTrust:
+		w.String("validation_disabled")
+	default:
+		return errors.Newf("ServerTrust: nil or unknown variant %T", st.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (st *ServerTrust) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "first_use":
+		var v FirstUseServerTrust
+		st.Variant = v
+	case "pinned":
+		var v PinnedServerTrust
+		if _, err := r.Read(v.Certificate[:]); err != nil {
+			return err
+		}
+		st.Variant = v
+	case "validation_disabled":
+		var v ValidationDisabledServerTrust
+		st.Variant = v
+	default:
+		return errors.Newf("ServerTrust: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wv Write) EncodeOrc(w *orc.Writer) error {
+	w.String(wv.Node)
+	w.Uint32(uint32(wv.Channel))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wv *Write) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if wv.Node, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		wv.Channel = channel.Key(rawV)
 	}
 	return nil
 }

@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/opcua/server/json.gen.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::opcua::server {
@@ -30,30 +31,46 @@ TEST(Server, AppliesDefaults) {
     const auto server = Server::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(server.connection.endpoint, "opc.tcp://plc:4840");
-    ASSERT_EQ(server.connection.security_mode, SECURITY_MODE_NONE);
-    ASSERT_EQ(server.connection.client_timeout_ms, 5000);
-    ASSERT_FALSE(server.connection.password.has_value());
-    ASSERT_TRUE(server.read_channels.empty());
+    ASSERT_TRUE(std::holds_alternative<AnonymousAuth>(server.connection.auth));
+    ASSERT_TRUE(std::holds_alternative<NoneSecurity>(server.connection.security));
+    ASSERT_EQ(server.connection.client_timeout, x::telem::SECOND * 5);
+    ASSERT_TRUE(server.reads.empty());
     ASSERT_FALSE(server.status.has_value());
 }
 
-/// @brief it should round trip a server through JSON.
+/// @brief it should round trip a secured server with bindings through JSON.
 TEST(Server, RoundTrips) {
     x::json::Parser parser(valid_server());
     auto server = Server::parse(parser);
     ASSERT_NIL(parser.error());
-    server.connection.password = x::uuid::create();
-    server.read_indexes = {3};
-    server.read_channels["ns=2;s=Tag_One"] = 4;
-    server.read_fields.push_back(
-        ReadField{.node_id = "ns=2;i=7", .field = "a.b", .channel = 5}
+    UsernameAuth auth;
+    auth.username = "op";
+    auth.password = x::uuid::create();
+    server.connection.auth = auth;
+    SignAndEncryptSecurity security;
+    security.policy = SECURITY_POLICY_BASIC_256_SHA_256;
+    PinnedServerTrust trust;
+    trust.certificate = x::uuid::create();
+    security.server_trust = trust;
+    server.connection.security = security;
+    server.reads.push_back(
+        Read{.node = "nsu=urn:plc;s=Temp", .index = 3, .channel = 4}
     );
+    server.writes.push_back(Write{.node = "nsu=urn:plc;s=Valve", .channel = 5});
     x::json::Parser round(server.to_json());
     const auto parsed = Server::parse(round);
     ASSERT_NIL(round.error());
-    ASSERT_EQ(parsed.connection.password, server.connection.password);
-    ASSERT_EQ(parsed.read_indexes, server.read_indexes);
-    ASSERT_EQ(parsed.read_channels.at("ns=2;s=Tag_One"), 4);
-    ASSERT_EQ(parsed.read_fields.at(0).field, "a.b");
+    const auto &parsed_auth = std::get<UsernameAuth>(parsed.connection.auth);
+    ASSERT_EQ(parsed_auth.password, auth.password);
+    const auto &parsed_security = std::get<SignAndEncryptSecurity>(
+        parsed.connection.security
+    );
+    ASSERT_EQ(parsed_security.policy, SECURITY_POLICY_BASIC_256_SHA_256);
+    ASSERT_EQ(
+        std::get<PinnedServerTrust>(parsed_security.server_trust).certificate,
+        trust.certificate
+    );
+    ASSERT_EQ(parsed.reads.at(0).index, 3);
+    ASSERT_EQ(parsed.writes.at(0).node, "nsu=urn:plc;s=Valve");
 }
 }

@@ -16,24 +16,10 @@ import "github.com/synnaxlabs/synnax/pkg/service/opcua/server/versions/v0"
 // Key uniquely identifies an OPC UA server.
 type Key = v0.Key
 
-// SecurityMode is the OPC UA message security mode of a connection.
-type SecurityMode = v0.SecurityMode
-
-const (
-	// SecurityModeNone signs and encrypts no messages.
-	SecurityModeNone SecurityMode = v0.SecurityModeNone
-	// SecurityModeSign signs every message.
-	SecurityModeSign SecurityMode = v0.SecurityModeSign
-	// SecurityModeSignAndEncrypt signs and encrypts every message.
-	SecurityModeSignAndEncrypt SecurityMode = v0.SecurityModeSignAndEncrypt
-)
-
-// SecurityPolicy is the OPC UA security policy of a connection.
+// SecurityPolicy is the OPC UA security policy of a secured connection.
 type SecurityPolicy = v0.SecurityPolicy
 
 const (
-	// SecurityPolicyNone uses no security policy.
-	SecurityPolicyNone SecurityPolicy = v0.SecurityPolicyNone
 	// SecurityPolicyBasic128Rsa15 is the deprecated Basic128Rsa15 policy.
 	SecurityPolicyBasic128Rsa15 SecurityPolicy = v0.SecurityPolicyBasic128Rsa15
 	// SecurityPolicyBasic256 is the deprecated Basic256 policy.
@@ -46,11 +32,100 @@ const (
 	SecurityPolicyAes256Sha256RsaPss SecurityPolicy = v0.SecurityPolicyAes256Sha256RsaPss
 )
 
+// Auth is how the Driver logs in to the server.
+type Auth = v0.Auth
+
+// AuthVariant is implemented by every Auth variant.
+type AuthVariant = v0.AuthVariant
+
+// AuthType is the "type" value that selects a variant of Auth.
+type AuthType = v0.AuthType
+
+const (
+	// AnonymousAuthType logs in with no credentials.
+	AnonymousAuthType AuthType = v0.AnonymousAuthType
+	// UsernameAuthType logs in with a user name and password.
+	UsernameAuthType AuthType = v0.UsernameAuthType
+	// CertificateAuthType logs in with a user certificate.
+	CertificateAuthType AuthType = v0.CertificateAuthType
+)
+
+// AnonymousAuth logs in with no credentials.
+type AnonymousAuth = v0.AnonymousAuth
+
+// UsernameAuth logs in with a user name and password.
+type UsernameAuth = v0.UsernameAuth
+
+// CertificateAuth logs in with a user certificate.
+type CertificateAuth = v0.CertificateAuth
+
+// ServerTrust is which server certificates the Driver trusts.
+type ServerTrust = v0.ServerTrust
+
+// ServerTrustVariant is implemented by every ServerTrust variant.
+type ServerTrustVariant = v0.ServerTrustVariant
+
+// ServerTrustType is the "type" value that selects a variant of ServerTrust.
+type ServerTrustType = v0.ServerTrustType
+
+const (
+	// FirstUseServerTrustType trusts the first certificate that the server presents,
+	// which the scanner then pins.
+	FirstUseServerTrustType ServerTrustType = v0.FirstUseServerTrustType
+	// PinnedServerTrustType trusts one stored server certificate.
+	PinnedServerTrustType ServerTrustType = v0.PinnedServerTrustType
+	// ValidationDisabledServerTrustType accepts any server certificate.
+	ValidationDisabledServerTrustType ServerTrustType = v0.ValidationDisabledServerTrustType
+)
+
+// FirstUseServerTrust trusts the first certificate that the server presents, which the
+// scanner then pins.
+type FirstUseServerTrust = v0.FirstUseServerTrust
+
+// PinnedServerTrust trusts one stored server certificate.
+type PinnedServerTrust = v0.PinnedServerTrust
+
+// ValidationDisabledServerTrust accepts any server certificate.
+type ValidationDisabledServerTrust = v0.ValidationDisabledServerTrust
+
+// SecuredChannel holds the settings of a signed or encrypted connection.
+type SecuredChannel = v0.SecuredChannel
+
+// Security is the message security of a connection.
+type Security = v0.Security
+
+// SecurityVariant is implemented by every Security variant.
+type SecurityVariant = v0.SecurityVariant
+
+// SecurityType is the "mode" value that selects a variant of Security.
+type SecurityType = v0.SecurityType
+
+const (
+	// NoneSecurityType signs and encrypts no messages.
+	NoneSecurityType SecurityType = v0.NoneSecurityType
+	// SignSecurityType signs every message.
+	SignSecurityType SecurityType = v0.SignSecurityType
+	// SignAndEncryptSecurityType signs and encrypts every message.
+	SignAndEncryptSecurityType SecurityType = v0.SignAndEncryptSecurityType
+)
+
+// NoneSecurity signs and encrypts no messages.
+type NoneSecurity = v0.NoneSecurity
+
+// SignSecurity signs every message.
+type SignSecurity = v0.SignSecurity
+
+// SignAndEncryptSecurity signs and encrypts every message.
+type SignAndEncryptSecurity = v0.SignAndEncryptSecurity
+
 // Connection holds the settings that the Driver connects to a server with.
 type Connection = v0.Connection
 
-// ReadField binds a member of a node's structure value to a channel.
-type ReadField = v0.ReadField
+// Read binds a node, or a member of its structure value, to a channel.
+type Read = v0.Read
+
+// Write binds a node to the channel that commands it.
+type Write = v0.Write
 
 // StatusDetails identifies the server and rack that a status pertains to.
 type StatusDetails = v0.StatusDetails

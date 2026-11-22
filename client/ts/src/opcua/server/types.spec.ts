@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { opcua } from "@/opcua";
@@ -19,27 +19,46 @@ const SERVER = {
   connection: { endpoint: "opc.tcp://plc:4840" },
 } as const;
 
+const SIGNED = {
+  mode: "sign",
+  policy: "Basic256Sha256",
+  clientCertificate: "33333333-3333-4333-8333-333333333333",
+} as const;
+
 describe("serverZ", () => {
   it("should parse a server and apply the defaults", () => {
     const server = opcua.server.serverZ.parse(SERVER);
-    expect(server.connection.securityMode).toEqual("None");
-    expect(server.connection.clientTimeoutMs).toEqual(5000);
-    expect(server.connection.password).toBeUndefined();
-    expect(server.readIndexes).toEqual([]);
-    expect(server.readChannels).toEqual({});
+    expect(server.connection.auth).toEqual({ type: "anonymous" });
+    expect(server.connection.security).toEqual({ mode: "none" });
+    expect(server.connection.clientTimeout).toEqual(TimeSpan.seconds(5).nanoseconds);
+    expect(server.reads).toEqual([]);
+    expect(server.writes).toEqual([]);
   });
 
-  it("should keep the case of node IDs from the wire", () => {
-    const wire = {
+  it("should default a secured connection to trust on first use", () => {
+    const server = opcua.server.serverZ.parse({
       ...SERVER,
-      read_channels: { "ns=2;s=tag_one": 5 },
-      write_channels: { "ns=2;s=tag_two": 6 },
-    };
-    const server = opcua.server.serverZ.parse(
-      caseconv.snakeToCamel(wire, { schema: opcua.server.serverZ }),
-    );
-    expect(server.readChannels).toEqual({ "ns=2;s=tag_one": 5 });
-    expect(server.writeChannels).toEqual({ "ns=2;s=tag_two": 6 });
+      connection: { ...SERVER.connection, security: SIGNED },
+    });
+    expect(server.connection.security).toEqual({
+      ...SIGNED,
+      serverTrust: { type: "first_use" },
+    });
+  });
+
+  it("should parse a user name login and the bindings", () => {
+    const server = opcua.server.serverZ.parse({
+      ...SERVER,
+      connection: {
+        ...SERVER.connection,
+        auth: { type: "username", username: "op" },
+      },
+      reads: [{ node: "nsu=urn:plc;s=Temp", index: 1, channel: 2 }],
+      writes: [{ node: "nsu=urn:plc;s=Valve", channel: 3 }],
+    });
+    expect(server.connection.auth).toEqual({ type: "username", username: "op" });
+    expect(server.reads[0].field).toEqual("");
+    expect(server.writes[0].channel).toEqual(3);
   });
 
   const INVALID: [string, Record<string, unknown>][] = [
@@ -47,16 +66,34 @@ describe("serverZ", () => {
     ["an empty endpoint", { connection: { endpoint: "" } }],
     [
       "an unknown security policy",
-      { connection: { ...SERVER.connection, securityPolicy: "Basic512" } },
+      { connection: { ...SERVER.connection, security: { ...SIGNED, policy: "None" } } },
+    ],
+    [
+      "a user name login without a user name",
+      {
+        connection: { ...SERVER.connection, auth: { type: "username", username: "" } },
+      },
     ],
     [
       "a request timeout under 100 ms",
-      { connection: { ...SERVER.connection, clientTimeoutMs: 99 } },
+      {
+        connection: {
+          ...SERVER.connection,
+          clientTimeout: TimeSpan.milliseconds(99).nanoseconds,
+        },
+      },
     ],
     [
       "a session timeout under 1 s",
-      { connection: { ...SERVER.connection, sessionTimeoutMs: 999 } },
+      {
+        connection: {
+          ...SERVER.connection,
+          sessionTimeout: TimeSpan.milliseconds(999).nanoseconds,
+        },
+      },
     ],
+    ["a read without an index", { reads: [{ node: "i=85", channel: 2 }] }],
+    ["a write without a node", { writes: [{ node: "", channel: 3 }] }],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {
     expect(opcua.server.serverZ.safeParse({ ...SERVER, ...change }).success).toBe(

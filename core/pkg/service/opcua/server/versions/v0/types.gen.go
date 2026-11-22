@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
+	"regexp"
 	"strconv"
 	"uuid"
 
@@ -23,42 +24,21 @@ import (
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v1"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
+	"github.com/synnaxlabs/x/errors"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
+var validatePattern0 = regexp.MustCompile("^opc[.]tcp://([^][/:[:space:]]+|[[][0-9A-Fa-f:.]+[]])(:[0-9]{1,5})?(/[^[:space:]]*)?$")
+
 // Key uniquely identifies an OPC UA server.
 type Key = uuid.UUID
 
-// SecurityMode is the OPC UA message security mode of a connection.
-type SecurityMode string
-
-const (
-	// SecurityModeNone signs and encrypts no messages.
-	SecurityModeNone SecurityMode = "None"
-	// SecurityModeSign signs every message.
-	SecurityModeSign SecurityMode = "Sign"
-	// SecurityModeSignAndEncrypt signs and encrypts every message.
-	SecurityModeSignAndEncrypt SecurityMode = "SignAndEncrypt"
-)
-
-// IsValid reports whether s is one of the defined SecurityMode
-// values.
-func (s SecurityMode) IsValid() bool {
-	switch s {
-	case SecurityModeNone, SecurityModeSign, SecurityModeSignAndEncrypt:
-		return true
-	default:
-		return false
-	}
-}
-
-// SecurityPolicy is the OPC UA security policy of a connection.
+// SecurityPolicy is the OPC UA security policy of a secured connection.
 type SecurityPolicy string
 
 const (
-	// SecurityPolicyNone uses no security policy.
-	SecurityPolicyNone SecurityPolicy = "None"
 	// SecurityPolicyBasic128Rsa15 is the deprecated Basic128Rsa15 policy.
 	SecurityPolicyBasic128Rsa15 SecurityPolicy = "Basic128Rsa15"
 	// SecurityPolicyBasic256 is the deprecated Basic256 policy.
@@ -75,49 +55,549 @@ const (
 // values.
 func (s SecurityPolicy) IsValid() bool {
 	switch s {
-	case SecurityPolicyNone, SecurityPolicyBasic128Rsa15, SecurityPolicyBasic256, SecurityPolicyBasic256Sha256, SecurityPolicyAes128Sha256RsaOaep, SecurityPolicyAes256Sha256RsaPss:
+	case SecurityPolicyBasic128Rsa15, SecurityPolicyBasic256, SecurityPolicyBasic256Sha256, SecurityPolicyAes128Sha256RsaOaep, SecurityPolicyAes256Sha256RsaPss:
 		return true
 	default:
 		return false
 	}
 }
 
+// AuthType is the "type" value that selects a variant of Auth.
+type AuthType string
+
+const (
+	// AnonymousAuthType logs in with no credentials.
+	AnonymousAuthType AuthType = "anonymous"
+	// UsernameAuthType logs in with a user name and password.
+	UsernameAuthType AuthType = "username"
+	// CertificateAuthType logs in with a user certificate.
+	CertificateAuthType AuthType = "certificate"
+)
+
+// AuthVariant is implemented by every Auth variant.
+type AuthVariant interface {
+	isAuthVariant()
+}
+
+// AnonymousAuth logs in with no credentials.
+type AnonymousAuth struct {
+}
+
+func (AnonymousAuth) isAuthVariant() {}
+
+// UsernameAuth logs in with a user name and password.
+type UsernameAuth struct {
+	// Username is the user name to log in with.
+	Username string `json:"username" msgpack:"username"`
+	// Password is the secret that holds the password. Absent for no password.
+	Password *secret.Key `json:"password,omitzero" msgpack:"password,omitempty"`
+}
+
+func (UsernameAuth) isAuthVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (u UsernameAuth) Validate() error {
+	v := validate.New("UsernameAuth")
+	v.NotEmptyString("username", u.Username)
+	return v.Error()
+}
+
+// CertificateAuth logs in with a user certificate.
+type CertificateAuth struct {
+	// Certificate is the user certificate to log in with. It holds a private key and is
+	// not the certificate that secures the channel.
+	Certificate certificate.Key `json:"certificate" msgpack:"certificate"`
+}
+
+func (CertificateAuth) isAuthVariant() {}
+
+// Auth is how the Driver logs in to the server.
+type Auth struct {
+	Variant AuthVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Auth) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case AnonymousAuth:
+		return json.MarshalEncode(enc, struct {
+			Type AuthType `json:"type"`
+			AnonymousAuth
+		}{Type: AnonymousAuthType, AnonymousAuth: v})
+	case UsernameAuth:
+		return json.MarshalEncode(enc, struct {
+			Type AuthType `json:"type"`
+			UsernameAuth
+		}{Type: UsernameAuthType, UsernameAuth: v})
+	case CertificateAuth:
+		return json.MarshalEncode(enc, struct {
+			Type AuthType `json:"type"`
+			CertificateAuth
+		}{Type: CertificateAuthType, CertificateAuth: v})
+	default:
+		return errors.Newf("Auth: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Auth) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type AuthType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case AnonymousAuthType:
+		var v struct {
+			Type AuthType `json:"type"`
+			AnonymousAuth
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AnonymousAuth
+	case UsernameAuthType:
+		var v struct {
+			Type AuthType `json:"type"`
+			UsernameAuth
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.UsernameAuth
+	case CertificateAuthType:
+		var v struct {
+			Type AuthType `json:"type"`
+			CertificateAuth
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CertificateAuth
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Auth: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Auth) Type() AuthType {
+	switch u.Variant.(type) {
+	case AnonymousAuth:
+		return AnonymousAuthType
+	case UsernameAuth:
+		return UsernameAuthType
+	case CertificateAuth:
+		return CertificateAuthType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Auth) Validate() error {
+	v := validate.New("Auth")
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case UsernameAuth:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
+
+// ServerTrustType is the "type" value that selects a variant of ServerTrust.
+type ServerTrustType string
+
+const (
+	// FirstUseServerTrustType trusts the first certificate that the server presents,
+	// which the scanner then pins.
+	FirstUseServerTrustType ServerTrustType = "first_use"
+	// PinnedServerTrustType trusts one stored server certificate.
+	PinnedServerTrustType ServerTrustType = "pinned"
+	// ValidationDisabledServerTrustType accepts any server certificate.
+	ValidationDisabledServerTrustType ServerTrustType = "validation_disabled"
+)
+
+// ServerTrustVariant is implemented by every ServerTrust variant.
+type ServerTrustVariant interface {
+	isServerTrustVariant()
+}
+
+// FirstUseServerTrust trusts the first certificate that the server presents, which the
+// scanner then pins.
+type FirstUseServerTrust struct {
+}
+
+func (FirstUseServerTrust) isServerTrustVariant() {}
+
+// PinnedServerTrust trusts one stored server certificate.
+type PinnedServerTrust struct {
+	// Certificate is the only server certificate that the Driver trusts.
+	Certificate certificate.Key `json:"certificate" msgpack:"certificate"`
+}
+
+func (PinnedServerTrust) isServerTrustVariant() {}
+
+// ValidationDisabledServerTrust accepts any server certificate.
+type ValidationDisabledServerTrust struct {
+}
+
+func (ValidationDisabledServerTrust) isServerTrustVariant() {}
+
+// ServerTrust is which server certificates the Driver trusts.
+type ServerTrust struct {
+	Variant ServerTrustVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ServerTrust) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case FirstUseServerTrust:
+		return json.MarshalEncode(enc, struct {
+			Type ServerTrustType `json:"type"`
+			FirstUseServerTrust
+		}{Type: FirstUseServerTrustType, FirstUseServerTrust: v})
+	case PinnedServerTrust:
+		return json.MarshalEncode(enc, struct {
+			Type ServerTrustType `json:"type"`
+			PinnedServerTrust
+		}{Type: PinnedServerTrustType, PinnedServerTrust: v})
+	case ValidationDisabledServerTrust:
+		return json.MarshalEncode(enc, struct {
+			Type ServerTrustType `json:"type"`
+			ValidationDisabledServerTrust
+		}{Type: ValidationDisabledServerTrustType, ValidationDisabledServerTrust: v})
+	default:
+		return errors.Newf("ServerTrust: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ServerTrust) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ServerTrustType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case FirstUseServerTrustType:
+		var v struct {
+			Type ServerTrustType `json:"type"`
+			FirstUseServerTrust
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FirstUseServerTrust
+	case PinnedServerTrustType:
+		var v struct {
+			Type ServerTrustType `json:"type"`
+			PinnedServerTrust
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PinnedServerTrust
+	case ValidationDisabledServerTrustType:
+		var v struct {
+			Type ServerTrustType `json:"type"`
+			ValidationDisabledServerTrust
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ValidationDisabledServerTrust
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ServerTrust: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ServerTrust) Type() ServerTrustType {
+	switch u.Variant.(type) {
+	case FirstUseServerTrust:
+		return FirstUseServerTrustType
+	case PinnedServerTrust:
+		return PinnedServerTrustType
+	case ValidationDisabledServerTrust:
+		return ValidationDisabledServerTrustType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u ServerTrust) Validate() error {
+	v := validate.New("ServerTrust")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
+
+// SecuredChannel holds the settings of a signed or encrypted connection.
+type SecuredChannel struct {
+	// Policy is the security policy.
+	Policy SecurityPolicy `json:"policy" msgpack:"policy"`
+	// ClientCertificate is the certificate that the Driver presents. Absent for the
+	// Driver certificate.
+	ClientCertificate *certificate.Key `json:"client_certificate,omitzero" msgpack:"client_certificate,omitempty"`
+	// ServerTrust is which server certificates the Driver trusts.
+	ServerTrust ServerTrust `json:"server_trust" msgpack:"server_trust"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SecuredChannel) SetDefaults() {
+	s.ServerTrust.Variant = FirstUseServerTrust{}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SecuredChannel) Validate() error {
+	v := validate.New("SecuredChannel")
+	v.Ternaryf("policy", !s.Policy.IsValid(), "invalid policy: %v", s.Policy)
+	v.Exec(func() error { return validate.PathedError(s.ServerTrust.Validate(), "server_trust") })
+	return v.Error()
+}
+
+// SecurityType is the "mode" value that selects a variant of Security.
+type SecurityType string
+
+const (
+	// NoneSecurityType signs and encrypts no messages.
+	NoneSecurityType SecurityType = "none"
+	// SignSecurityType signs every message.
+	SignSecurityType SecurityType = "sign"
+	// SignAndEncryptSecurityType signs and encrypts every message.
+	SignAndEncryptSecurityType SecurityType = "sign_and_encrypt"
+)
+
+// SecurityVariant is implemented by every Security variant.
+type SecurityVariant interface {
+	isSecurityVariant()
+}
+
+// NoneSecurity signs and encrypts no messages.
+type NoneSecurity struct {
+}
+
+func (NoneSecurity) isSecurityVariant() {}
+
+// SignSecurity signs every message.
+type SignSecurity struct {
+	SecuredChannel
+}
+
+func (SignSecurity) isSecurityVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SignSecurity) SetDefaults() {
+	s.SecuredChannel.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SignSecurity) Validate() error {
+	v := validate.New("SignSecurity")
+	v.Exec(s.SecuredChannel.Validate)
+	return v.Error()
+}
+
+// SignAndEncryptSecurity signs and encrypts every message.
+type SignAndEncryptSecurity struct {
+	SecuredChannel
+}
+
+func (SignAndEncryptSecurity) isSecurityVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SignAndEncryptSecurity) SetDefaults() {
+	s.SecuredChannel.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SignAndEncryptSecurity) Validate() error {
+	v := validate.New("SignAndEncryptSecurity")
+	v.Exec(s.SecuredChannel.Validate)
+	return v.Error()
+}
+
+// Security is the message security of a connection.
+type Security struct {
+	Variant SecurityVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "mode" tag injected.
+func (u Security) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case NoneSecurity:
+		return json.MarshalEncode(enc, struct {
+			Type SecurityType `json:"mode"`
+			NoneSecurity
+		}{Type: NoneSecurityType, NoneSecurity: v})
+	case SignSecurity:
+		return json.MarshalEncode(enc, struct {
+			Type SecurityType `json:"mode"`
+			SignSecurity
+		}{Type: SignSecurityType, SignSecurity: v})
+	case SignAndEncryptSecurity:
+		return json.MarshalEncode(enc, struct {
+			Type SecurityType `json:"mode"`
+			SignAndEncryptSecurity
+		}{Type: SignAndEncryptSecurityType, SignAndEncryptSecurity: v})
+	default:
+		return errors.Newf("Security: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "mode" field.
+func (u *Security) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type SecurityType `json:"mode"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case NoneSecurityType:
+		var v struct {
+			Type SecurityType `json:"mode"`
+			NoneSecurity
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.NoneSecurity
+	case SignSecurityType:
+		var v struct {
+			Type SecurityType `json:"mode"`
+			SignSecurity
+		}
+		v.SignSecurity.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SignSecurity
+	case SignAndEncryptSecurityType:
+		var v struct {
+			Type SecurityType `json:"mode"`
+			SignAndEncryptSecurity
+		}
+		v.SignAndEncryptSecurity.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SignAndEncryptSecurity
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Security: unknown mode %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Mode returns the mode of the active variant, or an empty mode when there is none.
+func (u Security) Mode() SecurityType {
+	switch u.Variant.(type) {
+	case NoneSecurity:
+		return NoneSecurityType
+	case SignSecurity:
+		return SignSecurityType
+	case SignAndEncryptSecurity:
+		return SignAndEncryptSecurityType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Security) Validate() error {
+	v := validate.New("Security")
+	v.Ternary("mode", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case SignSecurity:
+		v.Exec(variant.Validate)
+	case SignAndEncryptSecurity:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
+
 // Connection holds the settings that the Driver connects to a server with.
 type Connection struct {
 	// Endpoint is the endpoint URL of the server.
 	Endpoint string `json:"endpoint" msgpack:"endpoint"`
-	// Username is the user name to authenticate with. Empty for anonymous.
-	Username string `json:"username" msgpack:"username"`
-	// Password is the secret that holds the password. Absent for no password.
-	Password *secret.Key `json:"password,omitzero" msgpack:"password,omitempty"`
-	// SecurityMode is the message security mode.
-	SecurityMode SecurityMode `json:"security_mode" msgpack:"security_mode"`
-	// SecurityPolicy is the security policy.
-	SecurityPolicy SecurityPolicy `json:"security_policy" msgpack:"security_policy"`
-	// ClientCertificate is the certificate that the Driver presents. Absent for the
-	// Driver certificate.
-	ClientCertificate *certificate.Key `json:"client_certificate,omitzero" msgpack:"client_certificate,omitempty"`
-	// ServerCertificate is the trusted server certificate. Absent to trust the first
-	// certificate that the server presents.
-	ServerCertificate *certificate.Key `json:"server_certificate,omitzero" msgpack:"server_certificate,omitempty"`
-	// CertificateValidationDisabled is true when the Driver accepts any server
-	// certificate.
-	CertificateValidationDisabled bool `json:"certificate_validation_disabled" msgpack:"certificate_validation_disabled"`
-	// ClientTimeoutMs is the timeout of each request and connection, in milliseconds.
-	ClientTimeoutMs uint32 `json:"client_timeout_ms" msgpack:"client_timeout_ms"`
-	// SecureChannelLifetimeMs is the lifetime of the secure channel, in milliseconds.
-	SecureChannelLifetimeMs uint32 `json:"secure_channel_lifetime_ms" msgpack:"secure_channel_lifetime_ms"`
-	// SessionTimeoutMs is the timeout of the session, in milliseconds.
-	SessionTimeoutMs uint32 `json:"session_timeout_ms" msgpack:"session_timeout_ms"`
+	// Auth is how the Driver logs in.
+	Auth Auth `json:"auth" msgpack:"auth"`
+	// Security is the message security of the connection.
+	Security Security `json:"security" msgpack:"security"`
+	// ClientTimeout is the timeout of each request and connection attempt.
+	ClientTimeout telem.TimeSpan `json:"client_timeout" msgpack:"client_timeout"`
+	// SecureChannelLifetime is the lifetime of the secure channel.
+	SecureChannelLifetime telem.TimeSpan `json:"secure_channel_lifetime" msgpack:"secure_channel_lifetime"`
+	// SessionTimeout is the timeout of the session.
+	SessionTimeout telem.TimeSpan `json:"session_timeout" msgpack:"session_timeout"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
 func (c *Connection) SetDefaults() {
-	c.SecurityMode = SecurityModeNone
-	c.SecurityPolicy = SecurityPolicyNone
-	c.ClientTimeoutMs = 5000
-	c.SecureChannelLifetimeMs = 600000
-	c.SessionTimeoutMs = 1200000
+	c.Auth.Variant = AnonymousAuth{}
+	c.Security.Variant = NoneSecurity{}
+	c.ClientTimeout = 5000000000
+	c.SecureChannelLifetime = 600000000000
+	c.SessionTimeout = 1200000000000
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
@@ -143,32 +623,55 @@ func (c *Connection) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (c Connection) Validate() error {
 	v := validate.New("Connection")
-	v.Ternaryf("security_mode", !c.SecurityMode.IsValid(), "invalid security_mode: %v", c.SecurityMode)
-	v.Ternaryf("security_policy", !c.SecurityPolicy.IsValid(), "invalid security_policy: %v", c.SecurityPolicy)
 	v.NotEmptyString("endpoint", c.Endpoint)
-	v.GreaterThanEq("client_timeout_ms", c.ClientTimeoutMs, 100)
-	v.GreaterThanEq("secure_channel_lifetime_ms", c.SecureChannelLifetimeMs, 1000)
-	v.GreaterThanEq("session_timeout_ms", c.SessionTimeoutMs, 1000)
+	v.Ternary("endpoint", !validatePattern0.MatchString(string(c.Endpoint)), "Endpoint must be an opc.tcp:// URL with a host and an optional port and path")
+	v.GreaterThanEq("client_timeout", c.ClientTimeout, 100000000)
+	v.GreaterThanEq("secure_channel_lifetime", c.SecureChannelLifetime, 1000000000)
+	v.GreaterThanEq("session_timeout", c.SessionTimeout, 1000000000)
+	v.Exec(func() error { return validate.PathedError(c.Auth.Validate(), "auth") })
+	v.Exec(func() error { return validate.PathedError(c.Security.Validate(), "security") })
 	return v.Error()
 }
 
-// ReadField binds a member of a node's structure value to a channel.
-type ReadField struct {
-	// NodeID is the ID of the node that holds the structure.
-	NodeID string `json:"node_id" msgpack:"node_id"`
+// Read binds a node, or a member of its structure value, to a channel.
+type Read struct {
+	// Node is the ID of the node, as nsu=<namespace URI>;<i|s|g|b>=<identifier>, or the
+	// identifier alone in namespace 0.
+	Node string `json:"node" msgpack:"node"`
 	// Field is the path to a member of the node's structure value. Names join with '.',
-	// and '&' escapes the next character.
+	// and '&' escapes the next character. Empty binds the whole value.
 	Field string `json:"field" msgpack:"field"`
-	// Channel is the channel that holds the samples of the member.
+	// Index is the index channel of the channel.
+	Index channel.Key `json:"index" msgpack:"index"`
+	// Channel is the channel that holds the samples of the node.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (r ReadField) Validate() error {
-	v := validate.New("ReadField")
-	v.NotEmptyString("node_id", r.NodeID)
-	v.NotEmptyString("field", r.Field)
+func (r Read) Validate() error {
+	v := validate.New("Read")
+	v.NotEmptyString("node", r.Node)
+	v.NonZero("index", r.Index)
+	v.NonZero("channel", r.Channel)
+	return v.Error()
+}
+
+// Write binds a node to the channel that commands it.
+type Write struct {
+	// Node is the ID of the node, as nsu=<namespace URI>;<i|s|g|b>=<identifier>, or the
+	// identifier alone in namespace 0.
+	Node string `json:"node" msgpack:"node"`
+	// Channel is the channel that commands the node.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w Write) Validate() error {
+	v := validate.New("Write")
+	v.NotEmptyString("node", w.Node)
+	v.NonZero("channel", w.Channel)
 	return v.Error()
 }
 
@@ -195,14 +698,10 @@ type Server struct {
 	Name string `json:"name" msgpack:"name"`
 	// Connection holds the settings that the Driver connects with.
 	Connection Connection `json:"connection" msgpack:"connection"`
-	// ReadIndexes are the index channels of the channels that read tasks write to.
-	ReadIndexes []channel.Key `json:"read_indexes" msgpack:"read_indexes"`
-	// ReadChannels maps a node ID to the channel that holds the node's samples.
-	ReadChannels map[string]channel.Key `json:"read_channels" msgpack:"read_channels"`
-	// ReadFields bind members of structure values to channels.
-	ReadFields []ReadField `json:"read_fields" msgpack:"read_fields"`
-	// WriteChannels maps a node ID to the channel that commands the node.
-	WriteChannels map[string]channel.Key `json:"write_channels" msgpack:"write_channels"`
+	// Reads bind the nodes that read tasks sample to channels.
+	Reads []Read `json:"reads" msgpack:"reads"`
+	// Writes bind the nodes that write tasks command to channels.
+	Writes []Write `json:"writes" msgpack:"writes"`
 	// Status is the current connection status of the server.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
@@ -237,8 +736,11 @@ func (s Server) Validate() error {
 	v := validate.New("Server")
 	v.NotEmptyString("name", s.Name)
 	v.Exec(func() error { return validate.PathedError(s.Connection.Validate(), "connection") })
-	for i := range s.ReadFields {
-		v.Exec(func() error { return validate.PathedError(s.ReadFields[i].Validate(), "read_fields", strconv.Itoa(i)) })
+	for i := range s.Reads {
+		v.Exec(func() error { return validate.PathedError(s.Reads[i].Validate(), "reads", strconv.Itoa(i)) })
+	}
+	for i := range s.Writes {
+		v.Exec(func() error { return validate.PathedError(s.Writes[i].Validate(), "writes", strconv.Itoa(i)) })
 	}
 	return v.Error()
 }

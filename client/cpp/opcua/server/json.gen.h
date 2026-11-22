@@ -11,9 +11,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <string>
-#include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/certificate/json.gen.h"
@@ -23,66 +22,92 @@
 #include "client/cpp/secret/json.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/types.gen.h"
 
 namespace synnax::opcua::server {
+
+inline SecuredChannel SecuredChannel::parse(x::json::Parser parser) {
+    return SecuredChannel{
+        .policy = parser.field<std::string>("policy"),
+        .client_certificate = parser.field<std::optional<::synnax::certificate::Key>>(
+            "client_certificate"
+        ),
+        .server_trust = parser.has("server_trust")
+                          ? parse_server_trust(parser.child("server_trust"))
+                          : ServerTrust{FirstUseServerTrust{}},
+    };
+}
+
+inline x::json::json SecuredChannel::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["policy"] = this->policy;
+    if (this->client_certificate.has_value())
+        j["client_certificate"] = this->client_certificate->to_json();
+    j["server_trust"] = ::synnax::opcua::server::to_json(this->server_trust);
+    return j;
+}
 
 inline Connection Connection::parse(x::json::Parser parser) {
     return Connection{
         .endpoint = parser.required_field<std::string>("endpoint"),
-        .username = parser.field<std::string>("username", ""),
-        .password = parser.field<std::optional<::synnax::secret::Key>>("password"),
-        .security_mode = parser.field<std::string>("security_mode", "None"),
-        .security_policy = parser.field<std::string>("security_policy", "None"),
-        .client_certificate = parser.field<std::optional<::synnax::certificate::Key>>(
-            "client_certificate"
+        .auth = parser.has("auth") ? parse_auth(parser.child("auth"))
+                                   : Auth{AnonymousAuth{}},
+        .security = parser.has("security") ? parse_security(parser.child("security"))
+                                           : Security{NoneSecurity{}},
+        .client_timeout = parser.field<::x::telem::TimeSpan>(
+            "client_timeout",
+            ::x::telem::TimeSpan(5000000000)
         ),
-        .server_certificate = parser.field<std::optional<::synnax::certificate::Key>>(
-            "server_certificate"
+        .secure_channel_lifetime = parser.field<::x::telem::TimeSpan>(
+            "secure_channel_lifetime",
+            ::x::telem::TimeSpan(600000000000)
         ),
-        .certificate_validation_disabled = parser.field<bool>(
-            "certificate_validation_disabled",
-            false
+        .session_timeout = parser.field<::x::telem::TimeSpan>(
+            "session_timeout",
+            ::x::telem::TimeSpan(1200000000000)
         ),
-        .client_timeout_ms = parser.field<std::uint32_t>("client_timeout_ms", 5000),
-        .secure_channel_lifetime_ms = parser.field<std::uint32_t>(
-            "secure_channel_lifetime_ms",
-            600000
-        ),
-        .session_timeout_ms = parser
-                                  .field<std::uint32_t>("session_timeout_ms", 1200000),
     };
 }
 
 inline x::json::json Connection::to_json() const {
     x::json::json j = x::json::json::object();
     j["endpoint"] = this->endpoint;
-    j["username"] = this->username;
-    if (this->password.has_value()) j["password"] = this->password->to_json();
-    j["security_mode"] = this->security_mode;
-    j["security_policy"] = this->security_policy;
-    if (this->client_certificate.has_value())
-        j["client_certificate"] = this->client_certificate->to_json();
-    if (this->server_certificate.has_value())
-        j["server_certificate"] = this->server_certificate->to_json();
-    j["certificate_validation_disabled"] = this->certificate_validation_disabled;
-    j["client_timeout_ms"] = this->client_timeout_ms;
-    j["secure_channel_lifetime_ms"] = this->secure_channel_lifetime_ms;
-    j["session_timeout_ms"] = this->session_timeout_ms;
+    j["auth"] = ::synnax::opcua::server::to_json(this->auth);
+    j["security"] = ::synnax::opcua::server::to_json(this->security);
+    j["client_timeout"] = this->client_timeout.nanoseconds();
+    j["secure_channel_lifetime"] = this->secure_channel_lifetime.nanoseconds();
+    j["session_timeout"] = this->session_timeout.nanoseconds();
     return j;
 }
 
-inline ReadField ReadField::parse(x::json::Parser parser) {
-    return ReadField{
-        .node_id = parser.required_field<std::string>("node_id"),
-        .field = parser.required_field<std::string>("field"),
-        .channel = parser.field<::synnax::channel::Key>("channel"),
+inline Read Read::parse(x::json::Parser parser) {
+    return Read{
+        .node = parser.required_field<std::string>("node"),
+        .field = parser.field<std::string>("field", ""),
+        .index = parser.required_field<::synnax::channel::Key>("index"),
+        .channel = parser.required_field<::synnax::channel::Key>("channel"),
     };
 }
 
-inline x::json::json ReadField::to_json() const {
+inline x::json::json Read::to_json() const {
     x::json::json j = x::json::json::object();
-    j["node_id"] = this->node_id;
+    j["node"] = this->node;
     j["field"] = this->field;
+    j["index"] = this->index;
+    j["channel"] = this->channel;
+    return j;
+}
+
+inline Write Write::parse(x::json::Parser parser) {
+    return Write{
+        .node = parser.required_field<std::string>("node"),
+        .channel = parser.required_field<::synnax::channel::Key>("channel"),
+    };
+}
+
+inline x::json::json Write::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["node"] = this->node;
     j["channel"] = this->channel;
     return j;
 }
@@ -109,24 +134,8 @@ inline Server Server::parse(x::json::Parser parser) {
         .rack = parser.field<::synnax::rack::Key>("rack"),
         .name = parser.required_field<std::string>("name"),
         .connection = parser.field<Connection>("connection"),
-        .read_indexes = parser.field<std::vector<::synnax::channel::Key>>(
-            "read_indexes",
-            std::vector<::synnax::channel::Key>{}
-        ),
-        .read_channels = parser.field<
-            std::unordered_map<std::string, ::synnax::channel::Key>>(
-            "read_channels",
-            std::unordered_map<std::string, ::synnax::channel::Key>{}
-        ),
-        .read_fields = parser.field<std::vector<ReadField>>(
-            "read_fields",
-            std::vector<ReadField>{}
-        ),
-        .write_channels = parser.field<
-            std::unordered_map<std::string, ::synnax::channel::Key>>(
-            "write_channels",
-            std::unordered_map<std::string, ::synnax::channel::Key>{}
-        ),
+        .reads = parser.field<std::vector<Read>>("reads", std::vector<Read>{}),
+        .writes = parser.field<std::vector<Write>>("writes", std::vector<Write>{}),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
@@ -137,12 +146,174 @@ inline x::json::json Server::to_json() const {
     j["rack"] = this->rack;
     j["name"] = this->name;
     j["connection"] = this->connection.to_json();
-    j["read_indexes"] = this->read_indexes;
-    j["read_channels"] = this->read_channels;
-    j["read_fields"] = x::json::to_array(this->read_fields);
-    j["write_channels"] = this->write_channels;
+    j["reads"] = x::json::to_array(this->reads);
+    j["writes"] = x::json::to_array(this->writes);
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
+}
+
+inline AnonymousAuth AnonymousAuth::parse(x::json::Parser parser) {
+    AnonymousAuth result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json AnonymousAuth::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    return j;
+}
+
+inline UsernameAuth UsernameAuth::parse(x::json::Parser parser) {
+    UsernameAuth result;
+    result.username = parser.required_field<std::string>("username");
+    result.password = parser.field<std::optional<::synnax::secret::Key>>("password");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json UsernameAuth::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["username"] = this->username;
+    if (this->password.has_value()) j["password"] = this->password->to_json();
+    j["type"] = this->type;
+    return j;
+}
+
+inline CertificateAuth CertificateAuth::parse(x::json::Parser parser) {
+    CertificateAuth result;
+    result.certificate = parser.field<::synnax::certificate::Key>("certificate");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CertificateAuth::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["certificate"] = this->certificate.to_json();
+    j["type"] = this->type;
+    return j;
+}
+
+inline FirstUseServerTrust FirstUseServerTrust::parse(x::json::Parser parser) {
+    FirstUseServerTrust result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json FirstUseServerTrust::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    return j;
+}
+
+inline PinnedServerTrust PinnedServerTrust::parse(x::json::Parser parser) {
+    PinnedServerTrust result;
+    result.certificate = parser.field<::synnax::certificate::Key>("certificate");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json PinnedServerTrust::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["certificate"] = this->certificate.to_json();
+    j["type"] = this->type;
+    return j;
+}
+
+inline ValidationDisabledServerTrust
+ValidationDisabledServerTrust::parse(x::json::Parser parser) {
+    ValidationDisabledServerTrust result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ValidationDisabledServerTrust::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    return j;
+}
+
+inline NoneSecurity NoneSecurity::parse(x::json::Parser parser) {
+    NoneSecurity result;
+    result.mode = parser.field<std::string>("mode");
+    return result;
+}
+
+inline x::json::json NoneSecurity::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["mode"] = this->mode;
+    return j;
+}
+
+inline SignSecurity SignSecurity::parse(x::json::Parser parser) {
+    SignSecurity result;
+    static_cast<SecuredChannel &>(result) = SecuredChannel::parse(parser);
+    result.mode = parser.field<std::string>("mode");
+    return result;
+}
+
+inline x::json::json SignSecurity::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = SecuredChannel::to_json(); parent.is_object())
+        j.update(parent);
+    j["mode"] = this->mode;
+    return j;
+}
+
+inline SignAndEncryptSecurity SignAndEncryptSecurity::parse(x::json::Parser parser) {
+    SignAndEncryptSecurity result;
+    static_cast<SecuredChannel &>(result) = SecuredChannel::parse(parser);
+    result.mode = parser.field<std::string>("mode");
+    return result;
+}
+
+inline x::json::json SignAndEncryptSecurity::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = SecuredChannel::to_json(); parent.is_object())
+        j.update(parent);
+    j["mode"] = this->mode;
+    return j;
+}
+
+inline Auth parse_auth(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "anonymous") return AnonymousAuth::parse(parser);
+    if (discriminator == "username") return UsernameAuth::parse(parser);
+    if (discriminator == "certificate") return CertificateAuth::parse(parser);
+    parser.field_err("type", "unknown Auth type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Auth &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline ServerTrust parse_server_trust(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "first_use") return FirstUseServerTrust::parse(parser);
+    if (discriminator == "pinned") return PinnedServerTrust::parse(parser);
+    if (discriminator == "validation_disabled")
+        return ValidationDisabledServerTrust::parse(parser);
+    parser.field_err("type", "unknown ServerTrust type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const ServerTrust &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Security parse_security(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("mode");
+    if (discriminator == "none") return NoneSecurity::parse(parser);
+    if (discriminator == "sign") return SignSecurity::parse(parser);
+    if (discriminator == "sign_and_encrypt")
+        return SignAndEncryptSecurity::parse(parser);
+    parser.field_err("mode", "unknown Security mode: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Security &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

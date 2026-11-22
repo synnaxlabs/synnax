@@ -11,10 +11,9 @@
 
 #pragma once
 
-#include <cstdint>
 #include <optional>
 #include <string>
-#include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/certificate/types.gen.h"
@@ -24,20 +23,18 @@
 #include "client/cpp/secret/types.gen.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::opcua::server {
 
-struct ReadField;
+struct Read;
+struct Write;
 struct StatusDetails;
+struct SecuredChannel;
 struct Connection;
 struct Server;
 
-constexpr const char *SECURITY_MODE_NONE = "None";
-constexpr const char *SECURITY_MODE_SIGN = "Sign";
-constexpr const char *SECURITY_MODE_SIGN_AND_ENCRYPT = "SignAndEncrypt";
-
-constexpr const char *SECURITY_POLICY_NONE = "None";
 constexpr const char *SECURITY_POLICY_BASIC_128_RSA_15 = "Basic128Rsa15";
 constexpr const char *SECURITY_POLICY_BASIC_256 = "Basic256";
 constexpr const char *SECURITY_POLICY_BASIC_256_SHA_256 = "Basic256Sha256";
@@ -47,19 +44,105 @@ constexpr const char *SECURITY_POLICY_AES_256_SHA_256_RSA_PSS = "Aes256_Sha256_R
 
 using Key = x::uuid::UUID;
 
-/// @brief ReadField binds a member of a node's structure value to a channel.
-struct ReadField {
-    /// @brief node_id is the ID of the node that holds the structure.
-    std::string node_id;
+/// @brief Read binds a node, or a member of its structure value, to a channel.
+struct Read {
+    /// @brief node is the ID of the node, as nsu=<namespace
+    /// URI>;<i|s|g|b>=<identifier>, or the identifier alone in namespace 0.
+    std::string node;
     /// @brief field is the path to a member of the node's structure value. Names join
-    /// with '.', and '&' escapes the next character.
-    std::string field;
-    /// @brief channel is the channel that holds the samples of the member.
+    /// with '.', and '&' escapes the next character. Empty binds the whole value.
+    std::string field = "";
+    /// @brief index is the index channel of the channel.
+    ::synnax::channel::Key index = 0;
+    /// @brief channel is the channel that holds the samples of the node.
     ::synnax::channel::Key channel = 0;
 
-    static ReadField parse(x::json::Parser parser);
+    static Read parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief Write binds a node to the channel that commands it.
+struct Write {
+    /// @brief node is the ID of the node, as nsu=<namespace
+    /// URI>;<i|s|g|b>=<identifier>, or the identifier alone in namespace 0.
+    std::string node;
+    /// @brief channel is the channel that commands the node.
+    ::synnax::channel::Key channel = 0;
+
+    static Write parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AnonymousAuth logs in with no credentials.
+struct AnonymousAuth {
+    std::string type = "anonymous";
+
+    static AnonymousAuth parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief UsernameAuth logs in with a user name and password.
+struct UsernameAuth {
+    std::string type = "username";
+    /// @brief username is the user name to log in with.
+    std::string username;
+    /// @brief password is the secret that holds the password. Absent for no password.
+    std::optional<::synnax::secret::Key> password;
+
+    static UsernameAuth parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CertificateAuth logs in with a user certificate.
+struct CertificateAuth {
+    std::string type = "certificate";
+    /// @brief certificate is the user certificate to log in with. It holds a private
+    /// key and is not the certificate that secures the channel.
+    ::synnax::certificate::Key certificate;
+
+    static CertificateAuth parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Auth is how the Driver logs in to the server.
+using Auth = std::variant<AnonymousAuth, UsernameAuth, CertificateAuth>;
+
+Auth parse_auth(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Auth &value);
+
+/// @brief FirstUseServerTrust trusts the first certificate that the server presents,
+/// which the scanner then pins.
+struct FirstUseServerTrust {
+    std::string type = "first_use";
+
+    static FirstUseServerTrust parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief PinnedServerTrust trusts one stored server certificate.
+struct PinnedServerTrust {
+    std::string type = "pinned";
+    /// @brief certificate is the only server certificate that the Driver trusts.
+    ::synnax::certificate::Key certificate;
+
+    static PinnedServerTrust parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ValidationDisabledServerTrust accepts any server certificate.
+struct ValidationDisabledServerTrust {
+    std::string type = "validation_disabled";
+
+    static ValidationDisabledServerTrust parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ServerTrust is which server certificates the Driver trusts.
+using ServerTrust = std::
+    variant<FirstUseServerTrust, PinnedServerTrust, ValidationDisabledServerTrust>;
+
+ServerTrust parse_server_trust(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const ServerTrust &value);
 
 /// @brief StatusDetails identifies the server and rack that a status pertains to.
 struct StatusDetails {
@@ -74,41 +157,70 @@ struct StatusDetails {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Connection holds the settings that the Driver connects to a server with.
-struct Connection {
-    /// @brief endpoint is the endpoint URL of the server.
-    std::string endpoint;
-    /// @brief username is the user name to authenticate with. Empty for anonymous.
-    std::string username = "";
-    /// @brief password is the secret that holds the password. Absent for no password.
-    std::optional<::synnax::secret::Key> password;
-    /// @brief security_mode is the message security mode.
-    std::string security_mode = SECURITY_MODE_NONE;
-    /// @brief security_policy is the security policy.
-    std::string security_policy = SECURITY_POLICY_NONE;
+/// @brief SecuredChannel holds the settings of a signed or encrypted connection.
+struct SecuredChannel {
+    /// @brief policy is the security policy.
+    std::string policy;
     /// @brief client_certificate is the certificate that the Driver presents. Absent
     /// for the Driver certificate.
     std::optional<::synnax::certificate::Key> client_certificate;
-    /// @brief server_certificate is the trusted server certificate. Absent to trust the
-    /// first certificate that the server presents.
-    std::optional<::synnax::certificate::Key> server_certificate;
-    /// @brief certificate_validation_disabled is true when the Driver accepts any
-    /// server certificate.
-    bool certificate_validation_disabled = false;
-    /// @brief client_timeout_ms is the timeout of each request and connection, in
-    /// milliseconds.
-    std::uint32_t client_timeout_ms = 5000;
-    /// @brief secure_channel_lifetime_ms is the lifetime of the secure channel, in
-    /// milliseconds.
-    std::uint32_t secure_channel_lifetime_ms = 600000;
-    /// @brief session_timeout_ms is the timeout of the session, in milliseconds.
-    std::uint32_t session_timeout_ms = 1200000;
+    /// @brief server_trust is which server certificates the Driver trusts.
+    ServerTrust server_trust = FirstUseServerTrust{};
 
-    static Connection parse(x::json::Parser parser);
+    static SecuredChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief NoneSecurity signs and encrypts no messages.
+struct NoneSecurity {
+    std::string mode = "none";
+
+    static NoneSecurity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief SignSecurity signs every message.
+struct SignSecurity : public SecuredChannel {
+    std::string mode = "sign";
+
+    static SignSecurity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief SignAndEncryptSecurity signs and encrypts every message.
+struct SignAndEncryptSecurity : public SecuredChannel {
+    std::string mode = "sign_and_encrypt";
+
+    static SignAndEncryptSecurity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Security is the message security of a connection.
+using Security = std::variant<NoneSecurity, SignSecurity, SignAndEncryptSecurity>;
+
+Security parse_security(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Security &value);
+
+/// @brief Connection holds the settings that the Driver connects to a server with.
+struct Connection {
+    /// @brief endpoint is the endpoint URL of the server.
+    std::string endpoint;
+    /// @brief auth is how the Driver logs in.
+    Auth auth = AnonymousAuth{};
+    /// @brief security is the message security of the connection.
+    Security security = NoneSecurity{};
+    /// @brief client_timeout is the timeout of each request and connection attempt.
+    ::x::telem::TimeSpan client_timeout = ::x::telem::TimeSpan(5000000000);
+    /// @brief secure_channel_lifetime is the lifetime of the secure channel.
+    ::x::telem::TimeSpan secure_channel_lifetime = ::x::telem::TimeSpan(600000000000);
+    /// @brief session_timeout is the timeout of the session.
+    ::x::telem::TimeSpan session_timeout = ::x::telem::TimeSpan(1200000000000);
+
+    static Connection parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Server is an OPC UA server that a rack's Driver connects to.
 struct Server {
@@ -120,16 +232,10 @@ struct Server {
     std::string name;
     /// @brief connection holds the settings that the Driver connects with.
     Connection connection;
-    /// @brief read_indexes are the index channels of the channels that read tasks write
-    /// to.
-    std::vector<::synnax::channel::Key> read_indexes = {};
-    /// @brief read_channels maps a node ID to the channel that holds the node's
-    /// samples.
-    std::unordered_map<std::string, ::synnax::channel::Key> read_channels = {};
-    /// @brief read_fields bind members of structure values to channels.
-    std::vector<ReadField> read_fields = {};
-    /// @brief write_channels maps a node ID to the channel that commands the node.
-    std::unordered_map<std::string, ::synnax::channel::Key> write_channels = {};
+    /// @brief reads bind the nodes that read tasks sample to channels.
+    std::vector<Read> reads = {};
+    /// @brief writes bind the nodes that write tasks command to channels.
+    std::vector<Write> writes = {};
     /// @brief status is the current connection status of the server.
     std::optional<Status> status;
 
