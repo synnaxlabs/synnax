@@ -58,7 +58,6 @@
     &:not(.lyra--modal) {
         animation: var(--pluto-dialog-animation);
         box-shadow: var(--pluto-shadow-overlay);
-        z-index: 6;
 
         /* The frame writes the space left between the trigger and the window edges. */
         max-height: min(
@@ -86,12 +85,10 @@
 
     &.lyra--hidden {
         opacity: 0;
-        z-index: -1;
         pointer-events: none;
     }
 
     &.lyra--visible {
-        z-index: 5;
         opacity: 1;
     }
 }

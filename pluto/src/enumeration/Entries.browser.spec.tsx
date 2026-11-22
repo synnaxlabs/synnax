@@ -9,6 +9,7 @@
 
 import type { enumeration } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { color, id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -91,7 +92,7 @@ describe("Enumeration.Table", () => {
     );
   });
 
-  describe("swatch", () => {
+  describe("swatch and drag", () => {
     const wrapper = createSynnaxWrapper({ client: null });
 
     interface HarnessProps {
@@ -144,6 +145,22 @@ describe("Enumeration.Table", () => {
           }),
         ],
       ]);
+    });
+
+    it("should picture a dragged entry with its name and color", () => {
+      const fixed = { type: "fixed" as const, value: color.construct("#00ff00") };
+      render(
+        <Haul.Provider>
+          <Harness initial={[createEntry("Running", 1, { color: fixed })]} />
+        </Haul.Provider>,
+        { wrapper },
+      );
+      fireEvent.dragStart(screen.getByRole("button", { name: "Move entry 1" }), {
+        dataTransfer: new DataTransfer(),
+      });
+      const tile = document.querySelector<HTMLElement>(".lyra-haul-preview__tile");
+      expect(tile?.style.background).toBe("rgb(0, 255, 0)");
+      expect(screen.getByText("Value 1")).toBeTruthy();
     });
 
     describe("named colors", () => {
