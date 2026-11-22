@@ -67,6 +67,22 @@ func benchChannels(n int, prefix string) benchResolver {
 	return r
 }
 
+// benchFlagChannels returns the channels of benchChannels(n, "") and a bool flag
+// channel for each of the n statements.
+func benchFlagChannels(n int) benchResolver {
+	r := benchChannels(n, "")
+	for i := range n {
+		name := "flag_" + strconv.Itoa(i)
+		r[name] = symbol.Symbol{
+			Name: name,
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.Bool()),
+			ID:   2*n + i + 1,
+		}
+	}
+	return r
+}
+
 // benchSource returns n statements made from the format of one, which takes the index
 // of the statement twice.
 func benchSource(header, format string, n int) string {
@@ -134,6 +150,17 @@ func BenchmarkCompile(b *testing.B) {
 					n,
 				),
 				benchChannels(n, ""),
+			)
+		})
+		b.Run("expression calls"+suffix, func(b *testing.B) {
+			benchCompile(
+				b,
+				benchSource(
+					"import math\n\n",
+					"math.is_nan(sensor_%d) -> flag_%d\n",
+					n,
+				),
+				benchFlagChannels(n),
 			)
 		})
 		b.Run("constants"+suffix, func(b *testing.B) {

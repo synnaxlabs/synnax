@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -48,11 +49,7 @@ type pathClashError struct {
 
 // Error implements the error interface.
 func (e *pathClashError) Error() string {
-	return fmt.Sprintf(
-		"%s is both a member of module %s and a channel",
-		e.Path,
-		e.Module,
-	)
+	return fmt.Sprintf("%s (module %s)", e.Path, e.Module)
 }
 
 // GetHint implements the hint interface of diagnostics.
@@ -70,14 +67,31 @@ type UndefinedSymbolError struct {
 	scope *Symbol
 	// channel is true when only a channel could have matched Name.
 	channel bool
+	// keyword is true for a dotted name with a keyword segment, which Arc cannot read as
+	// the path of a channel.
+	keyword bool
 }
 
 // Error implements the error interface.
 func (e *UndefinedSymbolError) Error() string {
 	if e.channel {
-		return "channel does not exist: " + e.Name
+		return e.Name + " does not exist"
 	}
 	return "undefined symbol: " + e.Name
+}
+
+// keywordHint returns the hint for path, a dotted name with a keyword segment.
+func keywordHint(path string) string {
+	folder, name, _ := strings.Cut(path, ".")
+	if folder == parser.LiteralAUTHORITY {
+		return fmt.Sprintf(
+			"folder %q cannot be read in Arc yet. rename the folder, or use the "+
+				"channel's own name: %s",
+			folder,
+			name,
+		)
+	}
+	return fmt.Sprintf("channel name %q cannot be read in Arc yet. rename the channel", name)
 }
 
 func isUndefined(err error) bool {
@@ -94,6 +108,9 @@ func (e *UndefinedSymbolError) GetHint() string {
 	head := e.Name
 	if dot := strings.IndexByte(head, '.'); dot > 0 {
 		head = head[:dot]
+	}
+	if e.keyword {
+		return keywordHint(e.Name)
 	}
 	if !e.channel && e.scope.IsAmbientModule(head) {
 		return fmt.Sprintf(

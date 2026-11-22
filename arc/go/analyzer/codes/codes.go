@@ -493,7 +493,7 @@ math.inf -> sensor_avg`,
 	ChannelUndefined = diagnostics.Kind{
 		Code:     "E4011",
 		Severity: protocol.DiagnosticSeverityError,
-		Message:  "channel does not exist",
+		Message:  "does not exist",
 		Problem:  "The code names a channel by a path that no channel has.",
 		Example:  `sensor -> stand.valve_cmd`,
 	}

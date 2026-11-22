@@ -36,7 +36,7 @@ var _ = Describe("Bare channel path check", func() {
 		)
 		Expect(*diagnostics).To(ContainElement(HaveField(
 			"Message",
-			"channel does not exist: m.inf.x",
+			"m.inf.x does not exist",
 		)), diagnostics.String())
 	})
 })

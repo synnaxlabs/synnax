@@ -58,10 +58,14 @@ func (s *Server) Hover(
 	}
 
 	displayContent := d.displayContent()
-	// A dotted name that is no channel is a module member, which the word hovers.
-	if n, ok := d.pathAt(params.Position, s.parserConfig()); ok {
+	// A dotted name is a channel or a member of an imported module, which the word
+	// hovers. A segment alone names neither.
+	if n, ok := d.pathAt(params.Position); ok {
 		if h := s.channelHover(ctx, d, n, params.Position); h != nil {
 			return h, nil
+		}
+		if !d.importsModule(ctx, n.Head, params.Position) {
+			return nil, nil
 		}
 	}
 

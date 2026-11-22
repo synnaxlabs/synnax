@@ -104,7 +104,7 @@ stand.trig -> f()
 		_, diagnostics := analyze(ctx, "stand.pt_02 -> stand.valve_cmd")
 		Expect(*diagnostics).To(ContainElement(HaveField(
 			"Message",
-			"channel does not exist: stand.pt_02",
+			"stand.pt_02 does not exist",
 		)), diagnostics.String())
 	})
 
@@ -116,7 +116,7 @@ stand.trig -> f()
 				codes.PathClash.Code,
 			)), diagnostics.String())
 			Expect(diagnostics.String()).To(ContainSubstring(
-				"math.inf is both a member of module math and a channel",
+				"module member and channel share a name: math.inf (module math)",
 			))
 		},
 		Entry(

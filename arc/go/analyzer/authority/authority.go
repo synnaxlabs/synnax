@@ -130,12 +130,14 @@ func analyzeChannelEntry(
 		return
 	}
 	sym, err := ctx.ResolveName(n)
-	if err != nil {
-		_, undefined := errors.AsType[*symbol.UndefinedSymbolError](err)
-		if !undefined {
-			ctx.Diagnostics.Add(diagnostics.Error(err, entry))
-			return
-		}
+	_, undefined := errors.AsType[*symbol.UndefinedSymbolError](err)
+	switch {
+	// A clash, an ambiguous name, and a path that names nothing each report their own
+	// error.
+	case err != nil && (!undefined || n.Tail != ""):
+		ctx.Diagnostics.Add(diagnostics.Error(err, entry))
+		return
+	case err != nil || sym.Kind != symbol.KindChannel:
 		ctx.Diagnostics.Add(codes.SymbolUndefined.Atf(
 			entry,
 			"channel '%s' not found",

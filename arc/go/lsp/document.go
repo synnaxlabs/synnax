@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -53,30 +54,35 @@ type document struct {
 	paths *pathTokens
 }
 
-// pathTokens holds the dotted names of one content. It lexes the content on first use
-// and keeps them until the content changes, so a lookup by position costs the same at
-// any document length.
+// pathTokens holds the dotted names and the format strings of one content. It lexes the
+// content on first use and keeps them until the content changes.
 type pathTokens struct {
-	mu      sync.Mutex
-	content string
-	lexed   bool
-	paths   []pathToken
+	// cfg is the lexer configuration of the content.
+	cfg        parser.Config
+	mu         sync.Mutex
+	content    string
+	lexed      bool
+	paths      []pathToken
+	fmtStrings []antlr.Token
 }
 
-// of returns the dotted names of content in order. Callers must not change them.
-func (p *pathTokens) of(content string, cfg parser.Config) []pathToken {
+// of returns the dotted names and the format strings of content in order. Callers must
+// not change them.
+func (p *pathTokens) of(content string) ([]pathToken, []antlr.Token) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if !p.lexed || p.content != content {
+		tokens := tokenizeContent(content, p.cfg)
 		p.content, p.lexed = content, true
-		p.paths = linePaths(tokenizeContent(content, cfg))
+		p.paths, p.fmtStrings = linePaths(tokens), fmtStringTokens(tokens)
 	}
-	return p.paths
+	return p.paths, p.fmtStrings
 }
 
-// pathAt returns the dotted name whose text holds pos.
-func (d *document) pathAt(pos protocol.Position, cfg parser.Config) (parser.Name, bool) {
-	ps := d.paths.of(d.displayContent(), cfg)
+// pathAt returns the dotted name whose text holds pos, in code or in a placeholder of
+// a format string.
+func (d *document) pathAt(pos protocol.Position) (parser.Name, bool) {
+	ps, fmtStrings := d.paths.of(d.displayContent())
 	// Paths do not overlap, so only the first that ends after pos can hold it.
 	i := sort.Search(len(ps), func(i int) bool {
 		end := ps[i].rng.End
@@ -86,7 +92,26 @@ func (d *document) pathAt(pos protocol.Position, cfg parser.Config) (parser.Name
 	if i < len(ps) && holds(ps[i].rng, pos) {
 		return ps[i].name, true
 	}
+	for _, t := range fmtStrings {
+		if n, ok := placeholderPathAt(t, pos, d.paths.cfg); ok {
+			return n, true
+		}
+	}
 	return parser.Name{}, false
+}
+
+// importsModule reports whether name is an import alias in the scope at pos.
+func (d *document) importsModule(
+	ctx context.Context,
+	name string,
+	pos protocol.Position,
+) bool {
+	scope := d.findScopeAtPosition(pos)
+	if scope == nil {
+		return false
+	}
+	sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking)
+	return err == nil && sym.Kind == symbol.KindModuleAlias
 }
 
 func (d *document) isBlock() bool {
@@ -206,12 +231,19 @@ func (d *document) resolveSymbolAtPosition(
 	ctx context.Context,
 	pos protocol.Position,
 ) (*symbol.Symbol, error) {
-	word := d.getWordAtPosition(pos)
-	if word == "" {
-		return nil, nil
-	}
 	scope := d.findScopeAtPosition(pos)
 	if scope == nil {
+		return nil, nil
+	}
+	// A dotted name that names a channel is one symbol, whichever segment holds pos.
+	if n, ok := d.pathAt(pos); ok {
+		sym, err := scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
+		if err == nil && sym.Kind == symbol.KindChannel {
+			return sym, nil
+		}
+	}
+	word := d.getWordAtPosition(pos)
+	if word == "" {
 		return nil, nil
 	}
 	return scope.Resolve(ctx, word, symbol.WithoutUsageTracking)

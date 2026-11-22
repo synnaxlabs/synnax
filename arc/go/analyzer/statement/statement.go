@@ -1553,6 +1553,13 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 
+	if target.Tail != "" && varScope.Kind != symbol.KindChannel {
+		ctx.Diagnostics.Add(codes.AssignmentTarget.Atf(
+			ctx.AST, "cannot assign to module member '%s'", name,
+		))
+		return
+	}
+
 	if varScope.Kind == symbol.KindLoopVariable {
 		ctx.Diagnostics.Add(codes.AssignmentTarget.Atf(
 			ctx.AST, "cannot assign to loop variable '%s'", name,

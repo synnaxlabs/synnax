@@ -284,7 +284,15 @@ func bindChannelParam(
 		return false
 	}
 	channelSym, err := aCtx.Scope.ResolveChannelKey(aCtx, k)
-	if err != nil || channelSym.Type.Kind != types.KindChan {
+	// A key that names no channel is a deleted channel, which a node keeps.
+	if _, undefined := errors.AsType[*symbol.UndefinedSymbolError](err); undefined {
+		return true
+	}
+	if err != nil {
+		aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
+		return false
+	}
+	if channelSym.Type.Kind != types.KindChan {
 		return true
 	}
 	if err = param.Type.ChanDirection.CheckCompatibility(

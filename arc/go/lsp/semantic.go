@@ -562,29 +562,17 @@ func expandStringToken(
 	cfg parser.Config,
 ) []lsp.Token {
 	text := t.GetText()
-	body, flags, ok := literal.StripQuotes(text)
-	prefixLen := 0
-	for prefixLen < 2 && prefixLen < len(text) && (text[prefixLen] == 'r' || text[prefixLen] == 'f') {
-		prefixLen++
-	}
-	if !ok || !flags.Format {
+	prefixLen, segs, ok := fmtStrSegments(text)
+	if !ok {
 		return plainStringTokens(t, prefixLen)
 	}
-	segs, err := literal.FmtStrSplit(body, flags)
-	if err != nil || !literal.FmtStrHasPlaceholder(segs) {
-		return plainStringTokens(t, prefixLen)
-	}
-	const delimLen = 1
 	e := fmtStrEmitter{
 		ctx:     ctx,
 		docIR:   docIR,
 		cfg:     cfg,
 		text:    text,
-		bodyOff: prefixLen + delimLen,
-		at: textPositions(protocol.Position{
-			Line:      uint32(t.GetLine() - 1),
-			Character: uint32(t.GetColumn()),
-		}, text),
+		bodyOff: prefixLen + fmtStrDelimLen,
+		at:      tokenPositions(t),
 	}
 	e.emit(0, prefixLen, SemanticTokenTypeFunction)
 	e.emit(prefixLen, e.bodyOff, SemanticTokenTypeString)
@@ -604,8 +592,37 @@ func expandStringToken(
 		e.emitInner(seg)
 		e.emit(textEnd+e.bodyOff, seg.End+e.bodyOff, semanticTokenTypeStringPlaceholder)
 	}
-	e.emit(len(text)-delimLen, len(text), SemanticTokenTypeString)
+	e.emit(len(text)-fmtStrDelimLen, len(text), SemanticTokenTypeString)
 	return e.tokens
+}
+
+// fmtStrDelimLen is the length of the quote that opens and closes a string token.
+const fmtStrDelimLen = 1
+
+// fmtStrSegments returns the length of the prefix letters of the string token text and
+// the segments of its body. It reports false for a string with no placeholder.
+func fmtStrSegments(text string) (int, []literal.FmtStrSegment, bool) {
+	body, flags, ok := literal.StripQuotes(text)
+	prefixLen := 0
+	for prefixLen < 2 && prefixLen < len(text) && (text[prefixLen] == 'r' || text[prefixLen] == 'f') {
+		prefixLen++
+	}
+	if !ok || !flags.Format {
+		return prefixLen, nil, false
+	}
+	segs, err := literal.FmtStrSplit(body, flags)
+	if err != nil || !literal.FmtStrHasPlaceholder(segs) {
+		return prefixLen, nil, false
+	}
+	return prefixLen, segs, true
+}
+
+// tokenPositions returns the position of each byte of the text of t, and of its end.
+func tokenPositions(t antlr.Token) []protocol.Position {
+	return textPositions(protocol.Position{
+		Line:      uint32(t.GetLine() - 1),
+		Character: uint32(t.GetColumn()),
+	}, t.GetText())
 }
 
 // plainStringTokens colors the prefix of t as a function and the rest as a string.

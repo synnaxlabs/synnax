@@ -417,6 +417,12 @@ type Name struct {
 	text string
 }
 
+// KeywordSegment reports whether n is a dotted name with a keyword segment, which only
+// a module member can be: no channel path with one can be read in Arc.
+func (n Name) KeywordSegment() bool {
+	return n.Tail != "" && (n.Head == LiteralAUTHORITY || n.Tail == LiteralFOR)
+}
+
 // String returns the joined name: head and tail with a dot between. It returns "" for
 // the zero Name.
 func (n Name) String() string {

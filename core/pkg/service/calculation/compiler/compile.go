@@ -97,7 +97,7 @@ func preProcess(
 		Body:    ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
-	return arc.CompileGraph(ctx, g, arc.NewRoot(resolver),
+	return arc.CompileGraph(ctx, g, channel.NewCalculationRoot(resolver),
 		arc.WithAllowDashedNames(!cfg.ChannelService.ShouldValidateNames()))
 }
 
@@ -249,7 +249,7 @@ func compile(
 	if err = addReads(ctx, &g, resolver, calcFn.Channels.Read); err != nil {
 		return Module{}, err
 	}
-	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(resolver),
+	program, err := arc.CompileGraph(ctx, g, channel.NewCalculationRoot(resolver),
 		arc.WithAllowDashedNames(!cfg.ChannelService.ShouldValidateNames()))
 	if err != nil {
 		return Module{}, err

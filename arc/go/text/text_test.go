@@ -3486,8 +3486,7 @@ var _ = Describe("Text", func() {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
-				Expect(diagnostics.String()).
-					To(ContainSubstring("channel does not exist: a.b"))
+				Expect(diagnostics.String()).To(ContainSubstring("a.b does not exist"))
 			},
 		)
 

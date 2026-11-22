@@ -37,6 +37,7 @@ var _ = Describe("Bare paths in the calculation graph (breaker)", Ordered, func(
 	)
 	const standDir = "heal_stand"
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
 		pdb = node.DB
 		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: pdb}))

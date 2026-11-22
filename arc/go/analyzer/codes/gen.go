@@ -128,10 +128,13 @@ func generate(k diagnostics.Kind) (kind, error) {
 		for _, d := range report(k.Example, module) {
 			if d.Code == k.Code {
 				if d.Message != k.Message &&
-					!strings.HasPrefix(d.Message, k.Message+": ") {
+					!strings.HasPrefix(d.Message, k.Message+": ") &&
+					!strings.HasSuffix(d.Message, " "+k.Message) {
 					return kind{}, errors.Newf(
-						"the message of %s does not start with its headline %q: %s",
-						k.Code, k.Message, d.Message,
+						"the message of %s neither starts nor ends with its headline %q: %s",
+						k.Code,
+						k.Message,
+						d.Message,
 					)
 				}
 				return out, nil

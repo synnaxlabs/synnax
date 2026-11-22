@@ -845,6 +845,16 @@ var _ = Describe("Diagnostics", func() {
 					"type mismatch: expected i32",
 					"type mismatch: expected i32",
 				),
+				Entry(
+					"a detail that ends with the headline",
+					"x has a type mismatch",
+					"x has a type mismatch",
+				),
+				Entry(
+					"a detail that ends with the headline joined to a word",
+					"x has atype mismatch",
+					"type mismatch: x has atype mismatch",
+				),
 			)
 
 			It("Should move the text of a wrapping error to the end", func() {

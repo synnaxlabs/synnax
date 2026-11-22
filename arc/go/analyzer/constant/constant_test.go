@@ -108,7 +108,7 @@ var _ = Describe("Check", func() {
 			"constant overflow: 128 overflows i8",
 		),
 		Entry("/ by zero", "x := 5 / 0", codes.DivisionByZero.Code,
-			"division by zero: integer division by zero"),
+			"integer division by zero"),
 		Entry("% by zero", "x := 5 % 0", codes.DivisionByZero.Code,
 			"division by zero: integer modulo by zero"),
 		Entry("unary - of the signed minimum", "x := -i8(-128)",
@@ -185,7 +185,7 @@ var _ = Describe("Check", func() {
 			expectDiagnostic(
 				analyze(bCtx, fmt.Sprintf(template, "1 / 0")),
 				codes.DivisionByZero.Code,
-				"division by zero: integer division by zero",
+				"integer division by zero",
 			)
 		},
 		Entry("flow variable", "x i8 := %s"),
@@ -214,7 +214,7 @@ ch -> g(a=%s)`),
 		expectDiagnostic(
 			analyze(bCtx, inFunc(`s := f"{1 / 0}"`)),
 			codes.DivisionByZero.Code,
-			"division by zero: integer division by zero",
+			"integer division by zero",
 		)
 	})
 
@@ -222,7 +222,7 @@ ch -> g(a=%s)`),
 		diags := analyze(bCtx, "func g(a i64) i64 {\n    return a\n}\n"+
 			inFunc("x := (1 / 0) + g(2 % 0) + -(100 * 100000000000000000)"))
 		Expect(diags).To(HaveLen(3), diags.String())
-		Expect(diags[0].Message).To(Equal("division by zero: integer division by zero"))
+		Expect(diags[0].Message).To(Equal("integer division by zero"))
 		Expect(
 			diags[1].Message,
 		).To(Equal("division by zero: integer modulo by zero"))
@@ -236,11 +236,11 @@ ch -> g(a=%s)`),
 			expectDiagnostic(analyze(bCtx, inFunc(body)), code, msg)
 		},
 		Entry("division by zero", "x := (1 + (2 * (3 / (0))))",
-			codes.DivisionByZero.Code, "division by zero: integer division by zero"),
+			codes.DivisionByZero.Code, "integer division by zero"),
 		Entry("overflow", "x i8 := ((64) + ((32 + (32))))",
 			codes.ConstantOverflow.Code, "constant overflow: 128 overflows i8"),
 		Entry("constant part of a non-constant expression", "x i32 := ich + (1 / 0)",
-			codes.DivisionByZero.Code, "division by zero: integer division by zero"),
+			codes.DivisionByZero.Code, "integer division by zero"),
 	)
 
 	DescribeTable("accepted expressions",

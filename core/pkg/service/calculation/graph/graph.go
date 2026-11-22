@@ -452,6 +452,31 @@ func (g *Graph) persistRepairs(
 }
 
 // handleChanges reconciles the Graph with the latest change to each channel.
+// foldedPaths returns the path of each channel that latest creates or updates in a
+// folder, as tx holds its folders, so that a calculation that reads it by path is
+// reconciled. A channel at the top has its name as its path, and a delete heals
+// nothing.
+func foldedPaths(
+	ctx context.Context,
+	tx gorp.Tx,
+	latest map[channel.Key]channelChange,
+) ([]string, error) {
+	var folded []channel.Channel
+	for _, chg := range latest {
+		if chg.Kind != gorp.ChangeDelete && chg.Value.Group != nil {
+			folded = append(folded, chg.Value)
+		}
+	}
+	if len(folded) == 0 {
+		return nil, nil
+	}
+	paths, err := channel.Paths(ctx, tx, folded)
+	if err != nil {
+		return nil, err
+	}
+	return channel.PathTexts(paths), nil
+}
+
 func (g *Graph) handleChanges(
 	ctx context.Context,
 	latest map[channel.Key]channelChange,
@@ -485,6 +510,11 @@ func (g *Graph) handleChanges(
 			}
 			g.enqueueDependents(ch.Key(), queued)
 		}
+		paths, err := foldedPaths(ctx, tx, latest)
+		if err != nil {
+			return err
+		}
+		unresolvedNames = append(unresolvedNames, paths...)
 		var reconciled []channel.Channel
 		reconciled, valid = g.reconcileQueued(
 			ctx, tx, queued, unresolvedNames, analyzer,

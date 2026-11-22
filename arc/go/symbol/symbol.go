@@ -711,7 +711,8 @@ func (s *Symbol) resolve(
 
 // ResolveName resolves the name that a value site in Arc source holds. A dotted name
 // that no call follows is the member of an imported module or the channel at that
-// path, and fails when it is both. Any other name resolves as ResolveMember does.
+// path, and fails when it is both. A dotted name with a keyword segment is a member
+// only. Any other name resolves as ResolveMember does.
 func (s *Symbol) ResolveName(
 	ctx context.Context,
 	n parser.Name,
@@ -736,21 +737,26 @@ func (s *Symbol) resolvePath(
 	var (
 		member    *Symbol
 		memberErr error
+		channel   *Symbol
 		path      = n.String()
-		module    = s.findModule(n.Head, opts)
+		module    = s.findModule(n.Head)
+		keyword   = n.KeywordSegment()
 	)
 	if module != nil && !strings.Contains(n.Tail, ".") {
 		member, memberErr = module.Resolve(ctx, n.Tail)
 	}
-	channel, err := s.findChannel(ctx, channelLookup{path: path}, opts)
-	if err != nil {
-		return nil, err
+	if !keyword {
+		var err error
+		channel, err = s.findChannel(ctx, channelLookup{path: path}, opts)
+		if err != nil {
+			return nil, err
+		}
 	}
 	switch {
 	case member != nil && channel != nil:
 		return nil, codes.PathClash.Mark(&pathClashError{Path: path, Module: n.Head})
 	case member != nil:
-		if module.Kind == KindModuleAlias && !opts.suppressUsage {
+		if !opts.suppressUsage {
 			module.Used = true
 		}
 		return member, nil
@@ -758,30 +764,33 @@ func (s *Symbol) resolvePath(
 		return channel, nil
 	case memberErr != nil:
 		return nil, memberErr
-	case s.IsAmbientModule(n.Head):
+	case module == nil && s.IsAmbientModule(n.Head):
 		// The hint names the import that the module needs.
 		return nil, codes.SymbolUndefined.Mark(
 			&UndefinedSymbolError{ctx: ctx, Name: path, scope: s},
 		)
 	}
-	return nil, undefinedChannel(ctx, path, s)
+	return nil, codes.ChannelUndefined.Mark(&UndefinedSymbolError{
+		ctx:     ctx,
+		Name:    path,
+		scope:   s,
+		channel: true,
+		keyword: keyword,
+	})
 }
 
-// findModule returns the module that name refers to from s: an import alias or, with
-// includeInternal, a module. Only the children of s and its ancestors count, so a
-// lookup never reaches a global resolver.
-func (s *Symbol) findModule(name string, opts resolveOpts) *Symbol {
+// findModule returns the import alias that name refers to from s. Only an import makes
+// a name a module, and only the children of s and its ancestors count, so a lookup
+// never reaches a global resolver.
+func (s *Symbol) findModule(name string) *Symbol {
 	for scope := s; scope != nil; scope = scope.Parent {
 		for _, child := range scope.children {
-			visible := opts.includeInternal || !child.Internal
-			module := child.Kind == KindModuleAlias ||
-				(opts.includeInternal && child.Kind == KindModule)
-			if child.Name == name && module && visible {
+			if child.Name == name && child.Kind == KindModuleAlias {
 				return child
 			}
 		}
 		if r, ok := scope.globalResolver.(scopeResolver); ok {
-			if module := r.scope.findModule(name, opts); module != nil {
+			if module := r.scope.findModule(name); module != nil {
 				return module
 			}
 		}
@@ -885,7 +894,7 @@ func (s *Symbol) findChannel(
 			if err != nil && !isUndefined(err) {
 				return nil, err
 			}
-			if err == nil && sym.Kind == KindChannel && l.matches(sym) &&
+			if err == nil && sym.Kind == KindChannel &&
 				(opts.includeInternal || !sym.Internal) {
 				return sym, nil
 			}

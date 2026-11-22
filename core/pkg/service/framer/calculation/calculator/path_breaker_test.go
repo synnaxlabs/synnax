@@ -40,6 +40,7 @@ var _ = Describe(
 		)
 		const dir = "calc_dir"
 		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
 			node := testutil.NewNode(ctx)
 			pdb = node.DB
 			groups = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: pdb}))
@@ -117,11 +118,10 @@ var _ = Describe(
 						Expression: "return math.inf * 2.0",
 					},
 				))
-				_, err := compiler.Compile(ctx, pdb, compiler.Config{
+				MustSucceed(compiler.Compile(ctx, pdb, compiler.Config{
 					ChannelService: psvc,
 					Channel:        out,
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 			})
 	},
 )

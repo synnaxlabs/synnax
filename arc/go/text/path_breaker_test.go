@@ -66,7 +66,7 @@ var _ = Describe("Bare channel paths (breaker)", func() {
 		)
 		Expect(*diagnostics).To(ContainElement(And(
 			HaveField("Code", codes.ChannelUndefined.Code),
-			HaveField("Message", "channel does not exist: stand.pt_02"),
+			HaveField("Message", "stand.pt_02 does not exist"),
 		)), diagnostics.String())
 	})
 
@@ -96,8 +96,7 @@ var _ = Describe("Bare channel paths (breaker)", func() {
 		)
 		Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
 		Expect(inter.Nodes).ToNot(BeEmpty())
-		_, err := text.Compile(ctx, inter)
-		Expect(err).ToNot(HaveOccurred())
+		MustSucceed(text.Compile(ctx, inter))
 	})
 
 	It("B4 names a missing path with the text that D-286 approved", func(
@@ -110,12 +109,17 @@ var _ = Describe("Bare channel paths (breaker)", func() {
 		)), diagnostics.String())
 	})
 
-	It("C1 compiles a bare path whose last segment is the keyword for", func(
+	It("C1 refuses a bare path whose last segment is the keyword for", func(
 		ctx SpecContext,
 	) {
-		inter, diagnostics := analyze(ctx, "stand.for -> stand.valve_cmd")
-		Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
-		Expect(inter.Nodes).ToNot(BeEmpty())
+		_, diagnostics := analyze(ctx, "stand.for -> stand.valve_cmd")
+		Expect(*diagnostics).To(ContainElement(And(
+			HaveField("Code", codes.ChannelUndefined.Code),
+			HaveField("Message", "stand.for does not exist"),
+		)), diagnostics.String())
+		Expect(diagnostics.String()).To(ContainSubstring(
+			`channel name "for" cannot be read in Arc yet. rename the channel`,
+		))
 	})
 
 	It("C2 compiles a bare path in a format string placeholder", func(

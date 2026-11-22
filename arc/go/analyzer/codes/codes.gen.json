@@ -235,7 +235,7 @@
   },
   "E4011": {
     "severity": "error",
-    "message": "channel does not exist",
+    "message": "does not exist",
     "problem": "The code names a channel by a path that no channel has.",
     "example": "sensor -> stand.valve_cmd"
   },

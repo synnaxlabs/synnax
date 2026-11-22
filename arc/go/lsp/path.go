@@ -116,3 +116,55 @@ func tokenRange(t antlr.Token) protocol.Range {
 	end.Character += uint32(utf8.RuneCountInString(t.GetText()))
 	return protocol.Range{Start: start, End: end}
 }
+
+// fmtStringTokens returns the string tokens of tokens that hold a placeholder.
+func fmtStringTokens(tokens []antlr.Token) []antlr.Token {
+	var out []antlr.Token
+	for _, t := range tokens {
+		switch t.GetTokenType() {
+		case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
+			if _, _, ok := fmtStrSegments(t.GetText()); ok {
+				out = append(out, t)
+			}
+		}
+	}
+	return out
+}
+
+// placeholderPathAt returns the dotted name at pos inside a placeholder of the format
+// string t.
+func placeholderPathAt(
+	t antlr.Token,
+	pos protocol.Position,
+	cfg parser.Config,
+) (parser.Name, bool) {
+	prefixLen, segs, ok := fmtStrSegments(t.GetText())
+	if !ok {
+		return parser.Name{}, false
+	}
+	at, bodyOff := tokenPositions(t), prefixLen+fmtStrDelimLen
+	for _, seg := range segs {
+		if !seg.IsPlaceholder {
+			continue
+		}
+		inner := tokenizeContent(seg.Text, cfg)
+		// A token counts runes, and the offsets of a segment count bytes.
+		runeStart := make([]int, 0, len(seg.Text)+1)
+		for i := range seg.Text {
+			runeStart = append(runeStart, i)
+		}
+		runeStart = append(runeStart, len(seg.Text))
+		offset := func(rune int) int { return bodyOff + seg.Offsets[runeStart[rune]] }
+		for _, p := range barePaths(inner, nil) {
+			first, last := inner[p.idents[0]], inner[p.idents[len(p.idents)-1]]
+			r := protocol.Range{
+				Start: at[offset(first.GetStart())],
+				End:   at[offset(last.GetStop()+1)],
+			}
+			if holds(r, pos) {
+				return p.name, true
+			}
+		}
+	}
+	return parser.Name{}, false
+}
