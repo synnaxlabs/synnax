@@ -401,13 +401,18 @@ var _ = Describe("Delete intents", func() {
 			)).To(Succeed())
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 			Expect(db.Intend([]cesium.ChannelKey{other})).To(Succeed())
+			var file []byte
 			restarted, fs := crashWith(ctx, func(cp *xfs.MemFS) {
 				f := MustSucceed(cp.Open("delete-intents", os.O_RDWR))
 				MustSucceed(f.WriteAt([]byte{0xFF}, 4))
 				Expect(f.Close()).To(Succeed())
+				file = MustSucceed(xfs.ReadFile(cp, "delete-intents"))
 			})
 			Expect(intents(fs)).To(Equal(1))
-			Expect(restarted.CorruptIntents()).To(Equal(1))
+			Expect(
+				restarted.CorruptIntents(),
+			).To(Equal(1), "delete-intents at the open: %x",
+				file)
 			kept := sweep(ctx, restarted, []cesium.ChannelKey{idx})
 			Expect(kept).To(ConsistOf(HaveField("Key", data)))
 			expectGone(ctx, restarted, fs, other)
