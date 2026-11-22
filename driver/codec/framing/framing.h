@@ -130,11 +130,9 @@ struct SyncConfig {
 };
 
 /// @brief creates a framer for frames that start with a sync sequence and a length
-/// field. A frame that it reads starts at the sync sequence and has no checksum, so a
-/// message layout can hold the header fields. It finds the next sync sequence after
-/// bytes that are not a frame. Its encode writes the sync sequence and the length into
-/// the header of the frame, and appends the checksum. Its idle drops a partial frame,
-/// which a corrupt length can leave waiting on bytes that never arrive.
+/// field. A frame that it reads starts at the sync sequence and has no checksum. It
+/// finds the next sync sequence after bytes that are not a frame. Its encode writes the
+/// sync sequence and the length into the header of the frame, and appends the checksum.
 /// @returns CONFIG_ERROR when the sync sequence is empty, the length field is not 1, 2,
 /// or 4 bytes or overlaps the sync sequence, or max_length is larger than MAX_SIZE or
 /// too small for the header.
