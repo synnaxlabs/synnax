@@ -16,7 +16,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Flux } from "@/flux";
 import { Group } from "@/group";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 describe("Group queries", () => {
   let controller: AbortController;

@@ -18,10 +18,10 @@ interface Size {
   height: number;
 }
 
-// The offset size of an HTML element, unlike its bounding box, ignores transforms.
+// A ResizeObserver loop can come from a change of less than a pixel. The offset size
+// rounds it away, and Chromium writes a computed size to six digits, so only the
+// layout box keeps it. A callback that changes a scale reads as a resize.
 const measure = (element: Element): Size => {
-  if (element instanceof HTMLElement)
-    return { width: element.offsetWidth, height: element.offsetHeight };
   const { width, height } = element.getBoundingClientRect();
   return { width, height };
 };

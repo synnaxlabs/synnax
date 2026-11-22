@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, failRequests } from "@synnaxlabs/client/testutil";
+import { ranger } from "@synnaxlabs/client";
+import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -15,7 +16,7 @@ import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Ranger } from "@/ranger";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
@@ -95,7 +96,15 @@ describe("useChildren", () => {
     const parent = await createRange("parent", TimeStamp.now());
     const reader = createTestClient();
     const readerWrapper = await createAsyncSynnaxWrapper({ client: reader });
-    failRequests(reader, "/range/retrieve", new Error("Core unreachable"));
+    // A frame from another spec makes the reader fetch the range it names. That fetch
+    // must not fail, or the client reports it to the console.
+    rejectRequests(
+      reader,
+      (target, req) =>
+        target === "/range/retrieve" &&
+        ranger.retrieveRequestZ.parse(req).where?.parents != null,
+      new Error("Core unreachable"),
+    );
     const { result } = renderHook(
       () => ({
         ...Ranger.useChildren({ parents: [parent.key] }),

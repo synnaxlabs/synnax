@@ -14,7 +14,7 @@ import type { Flux } from "@synnaxlabs/pluto";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { assert } from "vitest";
+import { assert, beforeAll } from "vitest";
 
 import { Range } from "@/feature/range";
 import { Modals } from "@/platform/modals";
@@ -27,7 +27,6 @@ import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   CaptureStatuses,
   createTestStore,
-  preload,
   renderLazy,
   type TestStore,
 } from "@/testutil";
@@ -99,5 +98,4 @@ export const renderOverview = async (
 };
 
 /** Loads the module of the lazy overview before the specs of a file run. */
-export const preloadOverview = (): void =>
-  preload(async () => await import("@/feature/range/overview/Overview"));
+export const preloadOverview = (): void => beforeAll(TAB.Content.preload);

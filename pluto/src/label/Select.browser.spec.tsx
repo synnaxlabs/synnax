@@ -17,7 +17,7 @@ import { render } from "vitest-browser-react";
 
 import { Access } from "@/access";
 import { Label } from "@/label";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 

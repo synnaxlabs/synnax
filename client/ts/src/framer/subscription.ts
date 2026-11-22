@@ -32,6 +32,13 @@ export interface PointsLimit {
    * Defaults to the window.
    */
   view?: TimeRange;
+  /**
+   * The time the subscription may draw. It reads and draws only the tiles that overlap
+   * it, but the stream and the raw samples at the edge of the window ignore it. A tile
+   * that crosses an edge of the bound stays whole, so the caller clips its draw to the
+   * bound. Defaults to no bound.
+   */
+  bound?: TimeRange;
   /** Draws the view from the samples held and reads none, as while a zoom moves. */
   settling?: boolean;
 }

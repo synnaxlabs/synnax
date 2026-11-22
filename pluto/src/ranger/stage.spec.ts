@@ -15,7 +15,7 @@ import type { FC, PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 // A float64 holds the nanoseconds of this instant exactly.
 const EXACT = new Date(Date.UTC(2026, 0, 1));
