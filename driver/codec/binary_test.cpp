@@ -321,6 +321,16 @@ TEST(Binary, RefuseTwoFallbacks) {
     EXPECT_EQ(err.data, "messages frame and other both have no identifier");
 }
 
+/// @brief it should refuse a message with an identifier.
+TEST(Binary, RefuseIdentifier) {
+    const auto f = field<icd::UnsignedBinaryField>("v", 0, 8);
+    auto m = frame(f, x::telem::UINT8_T);
+    m.payload.identifier = icd::FieldIdentifier{.field = f.key, .value = 1};
+    const auto [dec, err] = Binary::create({m});
+    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+    EXPECT_EQ(err.data, "message frame: identifiers are not supported yet");
+}
+
 /// @brief it should decode a frame without allocating once a first decode is done.
 TEST(Binary, DecodeWithoutAllocating) {
     auto f = field<icd::IntegerBinaryField>("temp", 0, 16);
