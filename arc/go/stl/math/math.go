@@ -262,8 +262,7 @@ const name = "math"
 // NewSymbols returns a fresh slice of ambient prelude symbols this package
 // contributes: the math module and the deprecated bare aliases (avg, min,
 // max, derivative) whose Deprecated field points at the canonical module
-// member. Every call allocates new Symbol values so analyses can mutate
-// them (e.g. apply type substitutions) without corrupting other analyses.
+// member.
 func NewSymbols() []*symbol.Symbol {
 	avg := createBaseSymbol(avgSymbolName, avgDoc)
 	minSym := createBaseSymbol(minSymbolName, minDoc)

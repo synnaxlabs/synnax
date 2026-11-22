@@ -309,11 +309,9 @@ func (s *Symbol) ResolveModule(ctx context.Context, path string) (*Symbol, error
 // directly to the ambient prelude as siblings of the root — this is
 // where STL symbols, test channels, and custom modules belong.
 //
-// Each ambient global is shallow-copied before being attached so the
-// per-root Parent assignment does not mutate the caller's symbol. This
-// matters when a caller reuses the same slice across multiple roots:
-// without the copy, the second NewRoot call would re-parent symbols
-// away from the first root's ambient.
+// NewRoot shallow-copies each ambient global before it sets the copy's parent, and no
+// analysis or compile through the root writes to an ambient global or its descendants,
+// so roots in any number of goroutines may share ambientGlobals.
 func NewRoot(
 	dynamicResolver Resolver,
 	ambientGlobals []*Symbol,

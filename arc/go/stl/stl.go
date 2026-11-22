@@ -31,9 +31,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 )
 
-// NewSymbols returns every STL package's ambient prelude symbols. Roots in any number
-// of goroutines may share the result, since analysis and compilation never write to
-// it, so a caller builds it once and keeps it.
+// NewSymbols returns every STL package's ambient prelude symbols. Roots may share the
+// result, as symbol.NewRoot describes, so a caller builds it once and keeps it.
 func NewSymbols() []*symbol.Symbol {
 	return slices.Concat(
 		channels.NewSymbols(),
