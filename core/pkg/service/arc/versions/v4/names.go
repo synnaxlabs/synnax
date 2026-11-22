@@ -18,12 +18,11 @@ import (
 // Core stored, with each dashed name that held reports true for written as a quoted
 // channel token. A dashed name is an identifier that holds '-', as v0.62 lexed it with
 // dashed names on. QuoteDashedNames reads code and the placeholders of format strings,
-// and leaves comments, the rest of strings, quoted tokens, and names that a placeholder
-// writes with an escape as they are.
+// and leaves comments, the rest of strings, and quoted tokens as they are. A name that
+// a placeholder writes with an escape keeps the escape inside the quotes.
 func QuoteDashedNames(text string, held func(string) bool) string {
 	var edits []span
-	scanCode(text, nil, func(s span) {
-		name := text[s.start:s.end]
+	scanCode(text, offsets{}, func(s span, name string) {
 		if strings.IndexByte(name, '-') >= 0 && held(name) {
 			edits = append(edits, s)
 		}
@@ -35,7 +34,8 @@ func QuoteDashedNames(text string, held func(string) bool) string {
 	b.Grow(len(text) + 2*len(edits))
 	last := 0
 	for _, e := range edits {
-		// A dashed name holds no quote or backslash, so it needs no escape.
+		// A name written in code holds no quote or backslash, and one in a placeholder
+		// keeps the escapes the format string removes before it lexes the name.
 		b.WriteString(text[last:e.start])
 		b.WriteByte('\'')
 		b.WriteString(text[e.start:e.end])
@@ -49,16 +49,42 @@ func QuoteDashedNames(text string, held func(string) bool) string {
 // span is the byte range [start, end) of an identifier.
 type span struct{ start, end int }
 
-// scanCode calls found with the span of each identifier in the code src, in order. When
-// at is not nil, src is a placeholder of a format string, at holds the offset in the
-// enclosing text of each byte of src and of its end, and each span is in the enclosing
-// text. It follows the v0.62 lexer with dashed names on.
-func scanCode(src string, at []int, found func(span)) {
+// offsets maps a byte offset in a source to its offset in the enclosing text. A nil at
+// maps j to base + j. Otherwise at holds the offset of each byte and of the end.
+type offsets struct {
+	at   []int
+	base int
+}
+
+func (o offsets) pos(j int) int {
+	if o.at != nil {
+		return o.at[j]
+	}
+	return o.base + j
+}
+
+// sub returns the offsets of the source that starts at i in the source of o.
+func (o offsets) sub(i int) offsets {
+	if o.at != nil {
+		return offsets{at: o.at[i:]}
+	}
+	return offsets{base: o.base + i}
+}
+
+// scanCode calls found with the span in the enclosing text of each identifier in the
+// code src, in order, and with the name that the identifier reads. off maps src into
+// the enclosing text. It follows the v0.62 lexer with dashed names on, and the quoted
+// channel token of v63.
+func scanCode(src string, off offsets, found func(span, string)) {
 	for i := 0; i < len(src); {
 		c := src[i]
 		switch {
 		case strings.HasPrefix(src[i:], "//"):
-			i += strings.IndexAny(src[i:]+"\n", "\r\n")
+			if end := strings.IndexAny(src[i:], "\r\n"); end >= 0 {
+				i += end
+			} else {
+				i = len(src)
+			}
 		case strings.HasPrefix(src[i:], "/*"):
 			if end := strings.Index(src[i+2:], "*/"); end >= 0 {
 				i += end + 4
@@ -75,10 +101,10 @@ func scanCode(src string, at []int, found func(span)) {
 			n, ok := stringLen(src[i:])
 			switch {
 			case ok:
-				scanFormatString(src[i:i+n], offsetsFrom(at, i, n), found)
+				scanFormatString(src[i:i+n], off.sub(i), found)
 				i += n
 			case c == 'r' || c == 'f':
-				i = scanIdentifier(src, i, at, found)
+				i = scanIdentifier(src, i, off, found)
 			default:
 				i += skip(src[i:], n)
 			}
@@ -87,7 +113,7 @@ func scanCode(src string, at []int, found func(span)) {
 			// drops the character after it too.
 			i = min(i+2, len(src))
 		case isIdentifierByte(c) && (c < '0' || c > '9'):
-			i = scanIdentifier(src, i, at, found)
+			i = scanIdentifier(src, i, off, found)
 		default:
 			i++
 		}
@@ -96,7 +122,7 @@ func scanCode(src string, at []int, found func(span)) {
 
 // scanIdentifier calls found with the identifier that starts at src[i], and returns its
 // end. A '-' joins an identifier unless '>' or '=' comes after it.
-func scanIdentifier(src string, i int, at []int, found func(span)) int {
+func scanIdentifier(src string, i int, off offsets, found func(span, string)) int {
 	end := i + 1
 	for end < len(src) {
 		c := src[end]
@@ -109,11 +135,7 @@ func scanIdentifier(src string, i int, at []int, found func(span)) int {
 		}
 		end++
 	}
-	if at == nil {
-		found(span{start: i, end: end})
-	} else {
-		found(span{start: at[i], end: at[end]})
-	}
+	found(span{start: off.pos(i), end: off.pos(end)}, src[i:end])
 	return end
 }
 
@@ -155,9 +177,6 @@ func stringLen(src string) (int, bool) {
 	case strings.HasPrefix(src, "r"), strings.HasPrefix(src, "f"):
 		prefix = 1
 	}
-	if prefix == 2 && !isQuote(src, 2) {
-		prefix = 1
-	}
 	if !isQuote(src, prefix) {
 		return prefix, false
 	}
@@ -183,24 +202,10 @@ func isQuote(src string, i int) bool {
 	return i < len(src) && (src[i] == '"' || src[i] == '`')
 }
 
-// offsetsFrom returns the offsets in the enclosing text of the n bytes of src that
-// start at i, and of their end. A nil at means src is the enclosing text.
-func offsetsFrom(at []int, i, n int) []int {
-	if at != nil {
-		return at[i : i+n+1]
-	}
-	out := make([]int, n+1)
-	for j := range out {
-		out[j] = i + j
-	}
-	return out
-}
-
 // scanFormatString calls found with each identifier in the placeholders of the string
-// literal lit, when lit is a format string. at holds the offset in the enclosing text
-// of each byte of lit and of its end. A string that v0.62 could not split holds no
-// identifiers.
-func scanFormatString(lit string, at []int, found func(span)) {
+// literal lit, when lit is a format string. off maps lit into the enclosing text. A
+// string that v0.62 could not split holds no identifiers.
+func scanFormatString(lit string, off offsets, found func(span, string)) {
 	prefix := strings.IndexAny(lit, "\"`")
 	if strings.IndexByte(lit[:prefix], 'f') < 0 {
 		return
@@ -226,11 +231,11 @@ func scanFormatString(lit string, at []int, found func(span)) {
 		return
 	}
 	for _, p := range placeholders {
-		offsets := make([]int, p.end-p.start+1)
-		for i := range offsets {
-			offsets[i] = at[start+from[p.start+i]]
+		at := make([]int, p.end-p.start+1)
+		for i := range at {
+			at[i] = off.pos(start + from[p.start+i])
 		}
-		scanCode(value[p.start:p.end], offsets, found)
+		scanCode(value[p.start:p.end], offsets{at: at}, found)
 	}
 }
 
