@@ -29,6 +29,8 @@ func refuse(format string, args ...any) error {
 // core is the data of the state and the rules that change it. Only the owner uses it.
 type core struct {
 	versions set.Set[uint16]
+	// count counts the publishes of the owner for readers of more than one Channel.
+	count    *pubCount
 	channels map[uint32]*chanState
 	segments map[uint64]*segState
 	intents  set.Set[uint32]
@@ -67,6 +69,7 @@ type core struct {
 func newCore(versions set.Set[uint16]) *core {
 	return &core{
 		versions:  versions,
+		count:     &pubCount{},
 		channels:  map[uint32]*chanState{},
 		segments:  map[uint64]*segState{},
 		intents:   set.Set[uint32]{},
@@ -79,7 +82,7 @@ func newCore(versions set.Set[uint16]) *core {
 func (c *core) channel(key uint32) *chanState {
 	ch, ok := c.channels[key]
 	if !ok {
-		ch = &chanState{key: key}
+		ch = &chanState{key: key, count: c.count}
 		c.channels[key] = ch
 		c.keysChanged = true
 	}
@@ -340,6 +343,7 @@ func (c *core) drop(key uint32, pre []Preload) error {
 			c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: key, File: s.vis.File})
 		}
 		delete(c.channels, key)
+		c.count.begin()
 		ch.pub.Store(nil)
 		c.keysChanged = true
 	}

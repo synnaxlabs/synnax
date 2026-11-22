@@ -12,6 +12,7 @@ package state
 import (
 	"context"
 	"maps"
+	"runtime"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -42,6 +43,9 @@ type Config struct {
 	OnHead func(generation uint64, s *Snapshot)
 	// Generation is the generation of the head that Open loads, from 1.
 	Generation uint64
+	// BetweenLoads, when set, runs in Pair between the loads of its two Channels, so a
+	// spec can publish there.
+	BetweenLoads func()
 }
 
 // Validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -112,6 +116,7 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 		return nil, err
 	}
 	s.core.generation, s.core.head = cfg.Generation, cfg.Generation
+	s.core.count.end()
 	s.step = s.run
 	s.nextID, s.nextAlign = max(head.Limits.Segments, 1), max(head.Limits.Alignments, 1)
 	return s, nil
@@ -122,6 +127,7 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 // returns an error that wraps ErrRefused for a record that breaks a rule, or
 // log.ErrUnknown for one this binary does not apply.
 func (s *State) Replay(sequence uint64, records []log.Record, pre ...Preload) error {
+	defer s.core.count.end()
 	return s.core.apply(sequence, records, pre)
 }
 
@@ -143,6 +149,7 @@ func (s *State) Run(ctx context.Context) error {
 	defer close(s.exit)
 	s.core.endReplay()
 	s.storeKeys()
+	s.core.count.end()
 	s.nextID = max(s.nextID, s.core.limits.Segments, 1)
 	s.nextAlign = max(s.nextAlign, s.core.limits.Alignments)
 	for {
@@ -197,6 +204,7 @@ func (s *State) run() {
 	} else if closed {
 		s.failParked(ErrClosed)
 	}
+	s.core.count.end()
 	s.stepped <- closed
 }
 
@@ -260,6 +268,7 @@ func (s *State) storeKeysIfChanged() {
 
 // storeKeys publishes the map of keys for readers. Only the owner calls it.
 func (s *State) storeKeys() {
+	s.core.count.begin()
 	s.core.keysChanged = false
 	m := maps.Clone(s.core.channels)
 	s.keys.Store(&m)
@@ -278,6 +287,31 @@ func (s *State) Channel(key uint32) *Channel {
 	}
 	return ch.pub.Load()
 }
+
+// Pair returns the visible state of key and of clock from one step of the owner, or nil
+// for a key that the state holds no segment of. It loads both again while the owner
+// publishes between its loads. It also returns the publish count of the loads, which
+// Unchanged takes.
+func (s *State) Pair(key, clock uint32) (ch, clocks *Channel, count uint64) {
+	for {
+		if count = s.core.count.n.Load(); count%2 == 1 {
+			runtime.Gosched()
+			continue
+		}
+		ch = s.Channel(key)
+		if s.cfg.BetweenLoads != nil {
+			s.cfg.BetweenLoads()
+		}
+		clocks = s.Channel(clock)
+		if s.core.count.n.Load() == count {
+			return ch, clocks, count
+		}
+	}
+}
+
+// Unchanged reports whether the owner published nothing since the loads of Pair that
+// returned count.
+func (s *State) Unchanged(count uint64) bool { return s.core.count.n.Load() == count }
 
 type durableRequest struct {
 	sequence uint64
@@ -316,6 +350,8 @@ type partedRequest struct {
 func (*partedRequest) fail(error) {}
 
 func (r *partedRequest) run(s *State) {
+	// The swap changes the parts that a load pins, so it opens the count of publishes.
+	s.core.count.begin()
 	r.swap()
 	s.core.head = r.generation
 	changed := set.New[uint32]()

@@ -24,12 +24,12 @@ import (
 )
 
 // logView is what one iterator of a key reads: the visible Channels of the key and of
-// its clock, with the parts of their ranges, which the engine loads and pins together,
-// so the samples and their stamps come from one state. The data cursor loads the view
-// at each seek. The clock cursors that the index opens read the view and never load the
-// live state. Each lookup of the index closes its clock cursor and reader before it
-// returns, and the calls of an iterator never overlap, so a reload never unpins what a
-// clock cursor still reads.
+// its clock, with the parts of their ranges, which the engine loads from one step of
+// the state and pins together, so the samples and their stamps come from one state. The
+// data cursor loads the view at each seek. The clock cursors that the index opens read
+// the view and never load the live state. Each lookup of the index closes its clock
+// cursor and reader before it returns, and the calls of an iterator never overlap, so a
+// reload never unpins what a clock cursor still reads.
 type logView struct {
 	e          *engine
 	key, clock ChannelKey
