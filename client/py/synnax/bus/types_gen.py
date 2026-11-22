@@ -52,11 +52,12 @@ class Poll(BaseModel):
     """Sends a query at a fixed rate. The task reads replies as any frame.
 
     Attributes:
-        query: Is the frame that the task sends, which the framing of the task encodes.
+        query: Is the frame that the task sends, from 1 to 65536 bytes, which the
+            framing of the task encodes.
         rate: Is how often the task sends the query, in Hertz.
     """
 
-    query: Bytes = Field(min_length=1)
+    query: Bytes = Field(min_length=1, max_length=65536)
     rate: telem.Rate = Field(default=telem.Rate(1), gt=0, allow_inf_nan=False)
 
 

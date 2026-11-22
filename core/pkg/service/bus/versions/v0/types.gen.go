@@ -395,7 +395,8 @@ func (u Framing) Validate() error {
 
 // Poll sends a query at a fixed rate. The task reads replies as any frame.
 type Poll struct {
-	// Query is the frame that the task sends, which the framing of the task encodes.
+	// Query is the frame that the task sends, from 1 to 65536 bytes, which the framing
+	// of the task encodes.
 	Query []byte `json:"query" msgpack:"query"`
 	// Rate is how often the task sends the query, in Hertz.
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
@@ -430,6 +431,7 @@ func (p *Poll) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (p Poll) Validate() error {
 	v := validate.New("Poll")
 	v.MinBytes("query", p.Query, 1)
+	v.MaxBytes("query", p.Query, 65536)
 	v.GreaterThan("rate", p.Rate, 0)
 	return v.Error()
 }

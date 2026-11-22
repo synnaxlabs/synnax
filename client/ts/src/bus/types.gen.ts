@@ -40,8 +40,11 @@ export interface Checksum extends z.infer<typeof checksumZ> {}
 
 /** Poll sends a query at a fixed rate. The task reads replies as any frame. */
 export const pollZ = z.object({
-  /** query is the frame that the task sends, which the framing of the task encodes. */
-  query: binary.bytesZ.check(zod.minBytes(1)),
+  /**
+   * query is the frame that the task sends, from 1 to 65536 bytes, which the framing of
+   * the task encodes.
+   */
+  query: binary.bytesZ.check(zod.minBytes(1)).check(zod.maxBytes(65536)),
   /** rate is how often the task sends the query, in Hertz. */
   rate: z.number().gt(0).default(1),
 });

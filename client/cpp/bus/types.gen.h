@@ -38,8 +38,8 @@ enum class LengthSize : std::uint8_t {
 
 /// @brief Poll sends a query at a fixed rate. The task reads replies as any frame.
 struct Poll {
-    /// @brief query is the frame that the task sends, which the framing of the task
-    /// encodes.
+    /// @brief query is the frame that the task sends, from 1 to 65536 bytes, which the
+    /// framing of the task encodes.
     std::vector<std::uint8_t> query;
     /// @brief rate is how often the task sends the query, in Hertz.
     ::x::telem::Rate rate = ::x::telem::Rate(1);
