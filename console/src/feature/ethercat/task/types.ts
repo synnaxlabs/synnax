@@ -15,13 +15,7 @@ import { Device } from "@/feature/ethercat/device";
 import { READ_TYPE, WRITE_TYPE } from "@/feature/ethercat/types";
 import { Task } from "@/platform/task";
 
-export {
-  devicesOf,
-  PREFIX,
-  READ_TYPE,
-  SCAN_TYPE,
-  WRITE_TYPE,
-} from "@/feature/ethercat/types";
+export { devicesOf, PREFIX, READ_TYPE, WRITE_TYPE } from "@/feature/ethercat/types";
 
 export type ReadChannel = ethercat.ReadChannel;
 
