@@ -13,15 +13,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { POST as channelsRoute } from "@/pages/api/users/[id]/channels";
 import { POST as deleteRoute } from "@/pages/api/users/[id]/delete";
-import {
-  activation,
-  event,
-  invitation,
-  license,
-  type Organization,
-  organization,
-  referral,
-} from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, type Team } from "@/server/directory";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
@@ -54,7 +46,7 @@ const STAFF_TEAM: Team = {
 describe("user routes", () => {
   let store: Memory;
   let h: Harness;
-  let acme: Organization;
+  let acme: schema.Organization;
 
   beforeAll(async () => {
     store = await openMemory();
@@ -88,7 +80,7 @@ describe("user routes", () => {
   };
 
   /** createDesktop gives a user a personal organization linked to one machine. */
-  const createDesktop = async (userID: string): Promise<Organization> => {
+  const createDesktop = async (userID: string): Promise<schema.Organization> => {
     const personal = await createOrganization(store, {
       kind: "personal",
       ownerUserID: userID,
@@ -101,7 +93,7 @@ describe("user routes", () => {
       license: lic.key,
       fingerprint: [HASH_A],
     });
-    await store.query.insert(event).values({
+    await store.query.insert(schema.event).values({
       at: NOW,
       kind: "link",
       actor: userID,
@@ -116,19 +108,19 @@ describe("user routes", () => {
     const remove = async (id = ADA) =>
       await call(deleteRoute, { params: { id }, path: `/api/users/${id}/delete` });
 
-    const owned = async (org: Organization) => ({
+    const owned = async (org: schema.Organization) => ({
       organizations: await store.query
         .select()
-        .from(organization)
-        .where(eq(organization.key, org.key)),
+        .from(schema.organization)
+        .where(eq(schema.organization.key, org.key)),
       licenses: await store.query
         .select()
-        .from(license)
-        .where(eq(license.organization, org.key)),
+        .from(schema.license)
+        .where(eq(schema.license.organization, org.key)),
       events: await store.query
         .select()
-        .from(event)
-        .where(eq(event.organization, org.key)),
+        .from(schema.event)
+        .where(eq(schema.event.organization, org.key)),
     });
 
     it("should reject a visitor who is not logged in", async () => {
@@ -162,7 +154,7 @@ describe("user routes", () => {
         licenses: [],
         events: [],
       });
-      expect(await store.query.select().from(activation)).toEqual([]);
+      expect(await store.query.select().from(schema.activation)).toEqual([]);
     });
 
     it("should delete the referral the user claimed", async () => {
@@ -170,9 +162,9 @@ describe("user routes", () => {
       await createReferral(store, { key: "bob-link-001", userID: BOB, claimedAt: NOW });
       h.signIn(STAFF);
       await remove();
-      expect((await store.query.select().from(referral)).map((r) => r.userID)).toEqual([
-        BOB,
-      ]);
+      expect(
+        (await store.query.select().from(schema.referral)).map((r) => r.userID),
+      ).toEqual([BOB]);
     });
 
     it("should delete the invitations sent to the user's address", async () => {
@@ -186,9 +178,9 @@ describe("user routes", () => {
       });
       h.signIn(STAFF);
       await remove();
-      expect((await store.query.select().from(invitation)).map((i) => i.email)).toEqual(
-        ["cy@example.com"],
-      );
+      expect(
+        (await store.query.select().from(schema.invitation)).map((i) => i.email),
+      ).toEqual(["cy@example.com"]);
     });
 
     it("should keep the user's events on a team and the records of others", async () => {
@@ -196,7 +188,7 @@ describe("user routes", () => {
       const bob = await createDesktop(BOB);
       const lic = await createLicense(store, { organization: acme.key });
       await createActivation(store, { license: lic.key, fingerprint: [HASH_B] });
-      await store.query.insert(event).values({
+      await store.query.insert(schema.event).values({
         at: NOW,
         kind: "activate",
         actor: ADA,
@@ -211,13 +203,13 @@ describe("user routes", () => {
         events: [expect.objectContaining({ actor: ADA })],
       });
       expect((await owned(bob)).licenses).toHaveLength(1);
-      expect(await store.query.select().from(activation)).toHaveLength(2);
+      expect(await store.query.select().from(schema.activation)).toHaveLength(2);
     });
 
     it("should delete a user who never visited the portal", async () => {
       h.signIn(STAFF);
       expect((await remove()).status).toBe(204);
-      expect(await store.query.select().from(organization)).toEqual([acme]);
+      expect(await store.query.select().from(schema.organization)).toEqual([acme]);
     });
 
     it("should refuse a member of the staff team", async () => {
@@ -243,7 +235,7 @@ describe("user routes", () => {
       h.signIn(STAFF);
       await expectError(await remove(), 500, "Internal error");
       expect((await owned(personal)).licenses).toHaveLength(1);
-      expect(await store.query.select().from(invitation)).toHaveLength(1);
+      expect(await store.query.select().from(schema.invitation)).toHaveLength(1);
       expect(await h.directory.account(ADA)).not.toBeNull();
     });
   });
@@ -256,18 +248,18 @@ describe("user routes", () => {
         body: { channels },
       });
 
-    const capOf = async (org: Organization) => ({
+    const capOf = async (org: schema.Organization) => ({
       organization: (
         await store.query
           .select()
-          .from(organization)
-          .where(eq(organization.key, org.key))
+          .from(schema.organization)
+          .where(eq(schema.organization.key, org.key))
       )[0].desktopChannels,
       licenses: (
         await store.query
           .select()
-          .from(license)
-          .where(eq(license.organization, org.key))
+          .from(schema.license)
+          .where(eq(schema.license.organization, org.key))
       ).map((l) => l.channels),
     });
 

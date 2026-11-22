@@ -10,12 +10,12 @@
 // A user is active on a UTC day when one of their Desktop machines logs in or renews
 // that day. The app renews at launch and every six hours while it runs.
 
-import type { EventKind } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** DESKTOP are the events that count as Desktop use. */
-export const DESKTOP: EventKind[] = ["link", "renew"];
+export const DESKTOP: schema.EventKind[] = ["link", "renew"];
 
 /** Usage is how one user has used Synnax Desktop. */
 export interface Usage {
