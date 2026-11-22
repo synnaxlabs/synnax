@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, scheduler, sync, TimeSpan } from "@synnaxlabs/x";
+import { type destructor, type record, scheduler, sync, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { isConnectionError, NotFoundError } from "@/errors";
@@ -23,7 +23,7 @@ type Request = { includeUses?: boolean };
 type Single<K extends record.Key> = Request & { key: K };
 
 /** A record whose retrieve can fill the resources that use it. */
-type Used<K extends record.Key> = Keyed<K> & object & { uses?: unknown };
+type Used<K extends record.Key> = Keyed<K> & object & { uses?: unknown[] };
 
 /** Joins a burst of changes on the channels of uses, such as the moves of a drag. */
 const REFETCH_DEBOUNCE = TimeSpan.milliseconds(100);
@@ -74,7 +74,7 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     space: Retrieves<Single<K>, R>;
   };
   private readonly cfg: UsesConfig<K, R, Q>;
-  private readonly store: Table<K, Pick<R, "key" | "uses">>;
+  private readonly store: Table<K, Used<K>>;
   private readonly deletes: Deletes<K> = { inFlight: 0, seq: 0, at: new Map() };
   private readonly changes = { count: 0 };
   /** The members of each maintained query that asks for uses. */
@@ -85,7 +85,7 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     const { name, cache, table, key } = cfg;
     this.cfg = cfg;
     // No table fetch, so the reconcile after a reconnect cannot write uses.
-    const store = cache.createTable<K, Pick<R, "key" | "uses">>({
+    const store = cache.createTable<K, Used<K>>({
       name: `${name}.uses`,
     });
     store.hold({ held: () => this.watched() });
@@ -177,6 +177,15 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
    */
   lacks(record: R, query: Q): boolean {
     return query.includeUses === true && this.store.get(record.key) == null;
+  }
+
+  /**
+   * Records that the records with the keys have no uses, since this client is creating
+   * them. A query that asks for uses then lists them with no fetch.
+   * @returns a destructor that restores the uses that the client held before.
+   */
+  created(keys: K[]): destructor.Destructor {
+    return this.store.set(keys.map((key) => ({ key, uses: [] })));
   }
 
   /**

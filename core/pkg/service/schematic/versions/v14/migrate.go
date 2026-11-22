@@ -13,8 +13,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/migrate"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 )
@@ -69,7 +72,8 @@ func MigrateScaleIndicatorConfig(
 	return cfg, nil
 }
 
-// MigrateNodeConfig lifts a v13 node config to v14. See MigrateSchematic for colors.
+// MigrateNodeConfig lifts a v13 node config to v14. See MigrateSchematic for colors. A
+// custom node keeps its state overrides.
 func MigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, error) {
 	cfg, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
@@ -82,6 +86,7 @@ func MigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, err
 	} else {
 		cfg.Variant = migrateReadoutColors(old.Variant, cfg.Variant)
 	}
+	cfg.Variant = migrateCustomStates(old.Variant, cfg.Variant)
 	return cfg, nil
 }
 
@@ -178,6 +183,29 @@ func migrateReadoutColors(
 		return n
 	}
 	return migrated
+}
+
+func migrateCustomStates(
+	old v13.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) NodeConfigVariant {
+	switch o := old.(type) {
+	case v13.CustomActuatorNodeConfig:
+		n := as[CustomActuatorNodeConfig](migrated)
+		n.StateOverrides = migrateStateOverrides(o.StateOverrides)
+		return n
+	case v13.CustomStaticNodeConfig:
+		n := as[CustomStaticNodeConfig](migrated)
+		n.StateOverrides = migrateStateOverrides(o.StateOverrides)
+		return n
+	}
+	return migrated
+}
+
+func migrateStateOverrides(old []symbolv4.State) []symbol.StateOverride {
+	return lo.Map(old, func(s symbolv4.State, _ int) symbol.StateOverride {
+		return symbol.StateOverride{Key: s.Key, Name: s.Name, Regions: s.Regions}
+	})
 }
 
 // as returns a migrated variant as a T. It panics when v is not a T, since a generated

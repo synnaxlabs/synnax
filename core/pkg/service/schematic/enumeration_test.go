@@ -85,10 +85,10 @@ var _ = Describe("Enumeration references", func() {
 	It("Should list a schematic whose select or indicator uses the enumeration", func(
 		ctx SpecContext,
 	) {
-		Expect(enumSvc.Dependents(ctx, db, used.Key)).To(ConsistOf(
+		Expect(enumSvc.Uses(ctx, db, used.Key)).To(ConsistOf(
 			schematic.ResourceID(diagram.Key),
 		))
-		Expect(enumSvc.Dependents(ctx, db, other.Key)).To(BeEmpty())
+		Expect(enumSvc.Uses(ctx, db, other.Key)).To(BeEmpty())
 	})
 
 	It("Should refuse the delete of an enumeration that a select uses", func(
