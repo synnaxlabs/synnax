@@ -920,7 +920,8 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
             operation.token()
         );
         if (built == nullptr) return {nullptr, handled};
-        auto [stored, err] = this->rack.tasks.retrieve(tsk.key);
+        // Read on every rack, since the rack client finds no task moved off its rack.
+        auto [stored, err] = this->ctx->client->tasks.retrieve(tsk.key);
         if (!err && stored.config_hash == tsk.config_hash)
             return {std::move(built), true};
         built->stop(true);
@@ -933,8 +934,15 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
             return {nullptr, true};
         }
         if (stored.rack != this->rack.key) {
-            // The Driver of the new rack deploys the task.
+            // The Driver of the new rack dropped the start, since it read the task
+            // before the move.
             LOG(INFO) << "releasing task moved to another rack: " << tsk;
+            fail(
+                synnax::status::VARIANT_WARNING,
+                "Task moved to another rack",
+                "A save moved the task to another rack while the Driver configured it. "
+                "Start the task again."
+            );
             this->clear_deploy(entry);
             this->statuses->drop(tsk.key);
             this->discard(tsk.key, true);

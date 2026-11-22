@@ -2672,25 +2672,22 @@ TEST_F(TaskManagerTest, StartFailsWhenTheHashCheckFails) {
     const auto s = WAIT_FOR_TASK_STATUS(
         streamer,
         task,
+        // The run that lost the Core sends its status again, without the command.
         [](const synnax::task::Status &s) {
-            return s.details.cmd == "s1" &&
-                   s.variant != synnax::status::VARIANT_LOADING;
+            return s.message == "Failed to configure task";
         }
     );
     EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(s.message, "Failed to configure task");
     EXPECT_FALSE(s.details.running);
     EXPECT_EQ(state->exec_count.load(), 0);
 }
 
 /// @brief it should release a task that one save moves to another rack and changes
-/// during its configure, without configuring it again or writing a status.
+/// during its configure, without configuring it again, and warn the start.
 TEST_F(TaskManagerTest, ReleasesTaskMovedToAnotherRackDuringConfigure) {
     const auto other = ASSERT_NIL_P(client->racks.create("move_target"));
-    x::telem::TimeStamp moved_at;
     auto factory = std::make_unique<RacingTaskFactory>(
         [&](const std::shared_ptr<Context> &ctx, const synnax::task::Task &task) {
-            moved_at = x::telem::TimeStamp::now();
             EXPECT_NIL(ctx->client->tasks.dispatch(
                 task.key,
                 {synnax::task::set({.path = {"rack"}, .value = other.key}),
@@ -2722,7 +2719,22 @@ TEST_F(TaskManagerTest, ReleasesTaskMovedToAnotherRackDuringConfigure) {
     );
     EXPECT_TRUE(state->stop_will_reconfigure.load());
     EXPECT_EQ(state->exec_count.load(), 0);
-    expect_no_driver_status(task, false, moved_at);
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "s1" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(s.message, "Task moved to another rack");
+    EXPECT_EQ(
+        s.description,
+        "A save moved the task to another rack while the Driver configured it. Start "
+        "the task again."
+    );
+    EXPECT_FALSE(s.details.running);
     std::lock_guard lock(f->mu);
     EXPECT_EQ(f->task_states.size(), 1);
 }

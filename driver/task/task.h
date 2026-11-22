@@ -607,8 +607,8 @@ private:
     /// a save of a record that its hash covers, such as an ICD, moves the stored hash
     /// during the configure. Refuses a pinned start instead. When the hash moves, the
     /// starts that joined operation run again as their own commands, and a task that
-    /// the save moved to another rack is released. A failed read fails the deploy. tsk
-    /// ends as the revision last configured.
+    /// the save moved to another rack is released with a warning. A failed read fails
+    /// the deploy. tsk ends as the revision last configured.
     /// @returns the configured task, or nullptr, and whether a factory handles tsk.
     std::pair<std::unique_ptr<Task>, bool> configure(
         synnax::task::Task &tsk,
