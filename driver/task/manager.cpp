@@ -22,6 +22,9 @@
 
 namespace driver::task {
 namespace {
+/// @brief the most times that one deploy configures a task whose config hash moves.
+constexpr int MAX_CONFIGURES = 3;
+
 /// @returns the status that tells a command that a stop cancelled the start of task.
 synnax::task::Status cancelled_start_status(
     const synnax::task::Key &task,
@@ -733,13 +736,7 @@ void Manager::execute_op(
                 entry->instance->stop(silent);
                 entry->instance = nullptr;
             }
-            LOG(INFO) << "configuring task " << tsk;
-            auto [driver_task, handled] = this->factory->configure_task(
-                this->ctx,
-                tsk,
-                op.cmd.key,
-                operation.token()
-            );
+            auto [driver_task, handled] = this->configure(tsk, op, operation);
             {
                 std::lock_guard entry_lock{entry->mu};
                 entry->deployed_hash = driver_task != nullptr ? tsk.config_hash : "";
@@ -890,6 +887,51 @@ void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
                              " while the task was running. Start the task again.";
     }
     this->ctx->set_status(status);
+}
+
+std::pair<std::unique_ptr<Task>, bool>
+Manager::configure(synnax::task::Task &tsk, const Op &op, Operation &operation) {
+    for (int attempt = 1;; attempt++) {
+        LOG(INFO) << "configuring task " << tsk;
+        auto [built, handled] = this->factory->configure_task(
+            this->ctx,
+            tsk,
+            op.cmd.key,
+            operation.token()
+        );
+        if (built == nullptr) return {nullptr, handled};
+        auto [stored, err] = this->rack.tasks.retrieve(tsk.key);
+        // The read only looks for a save that raced the configure, so a failed read
+        // keeps the task.
+        if (err)
+            LOG(WARNING) << "failed to check the config hash of task " << tsk << ": "
+                         << err;
+        if (err || stored.config_hash == tsk.config_hash)
+            return {std::move(built), true};
+        LOG(INFO) << "config of task " << tsk << " changed while it was configured";
+        built->stop(true);
+        tsk = std::move(stored);
+        operation.set_task(tsk.name, tsk.config_hash);
+        if (!op.cmd.pinned && attempt < MAX_CONFIGURES) continue;
+        synnax::task::Status status;
+        status.owner = synnax::task::resource_id(tsk.key);
+        status.name = tsk.name;
+        status.details.running = false;
+        status.details.config_hash = tsk.config_hash;
+        if (op.cmd.pinned) {
+            status.variant = synnax::status::VARIANT_WARNING;
+            status.message = "Config changed";
+            status.description = "The task config changed while the Driver configured "
+                                 "it. Review the task, then start it again.";
+        } else {
+            status.variant = synnax::status::VARIANT_ERROR;
+            status.message = "Failed to configure task";
+            status.description = "The task config kept changing while the Driver "
+                                 "configured it. Start the task again.";
+        }
+        if (!op.cmd.key.empty()) operation.answer(status);
+        return {nullptr, true};
+    }
 }
 
 void Manager::refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation) {
