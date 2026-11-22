@@ -134,8 +134,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   /** internal matches the built-in channels, or every other channel when false. */
   internal: filter.boolZ.optional(),
   /**
-   * virtual matches virtual channels that are not calculated, or every other channel
-   * when false.
+   * virtual matches virtual channels, or every other channel when false. The channel
+   * API counts the output of a calculation as not virtual.
    */
   virtual: z.boolean().optional(),
   /**
@@ -235,8 +235,6 @@ export const payloadZ = z.object({
   status: statusZ.optional(),
   /** group is the group the channel sits in, if any. */
   group: group.keyZ.optional(),
-  /** description is free text that says what the channel holds. */
-  description: z.string().check(zod.maxLength(1024)).default(""),
   /**
    * uses are the records that read or write the channel and that the caller can
    * retrieve, filled only when a retrieve request asks for them. A task config shows as
@@ -244,11 +242,18 @@ export const payloadZ = z.object({
    */
   uses: zod.nullToUndefined(useZ.array()),
   /**
+   * calculated is true if a calculation writes the channel, whether or not the caller
+   * can retrieve the calculation.
+   */
+  calculated: z.boolean().default(false),
+  /**
    * path is the names of the channel's folders from the top, then its name, joined by
    * '.'. It is filled only when a retrieve request asks for it, and only when the
    * caller can retrieve every folder on it.
    */
   path: z.string().optional(),
+  /** description is free text that says what the channel holds. */
+  description: z.string().check(zod.maxLength(1024)).default(""),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 

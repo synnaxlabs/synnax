@@ -28,7 +28,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -50,7 +52,7 @@ type (
 // ServiceConfig is the configuration for the Arc API service.
 type ServiceConfig struct {
 	// DB holds the channels and modules that compilation reads. Compilation reads it as
-	// channel.CompileConsistent describes.
+	// resolver.CompileConsistent describes.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -71,6 +73,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Calculation holds the calculation of each calculated channel that an automation
+	// reads.
+	//
+	// [REQUIRED]
+	Calculation *calculation.Service
 	// RBAC reads the access of the subject of each LSP stream.
 	//
 	// [REQUIRED]
@@ -102,6 +109,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.DispatchChannel = override.Nil(c.DispatchChannel, other.DispatchChannel)
 	c.Stopper = override.Nil(c.Stopper, other.Stopper)
@@ -115,6 +123,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
 	v.NotNil("channel", c.Channel)
+	v.NotNil("calculation", c.Calculation)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("dispatch_channel", c.DispatchChannel)
 	v.NotNil("stopper", c.Stopper)
@@ -126,6 +135,7 @@ type Service struct {
 	internal        *arc.Service
 	status          *status.Service
 	channel         *channel.Service
+	calculation     *calculation.Service
 	rbac            *rbac.Service
 	dispatchChannel freighter.UnaryHandler[
 		apichannel.DispatchRequest,
@@ -146,6 +156,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		internal:        cfg.Arc,
 		status:          cfg.Status,
 		channel:         cfg.Channel,
+		calculation:     cfg.Calculation,
 		rbac:            cfg.RBAC,
 		dispatchChannel: cfg.DispatchChannel,
 		stopper:         cfg.Stopper,
@@ -254,7 +265,7 @@ type (
 )
 
 // PrepareUpdateTask compiles the arc of req before UpdateTask opens its transaction, as
-// channel.RetryChanged does. An unbind compiles nothing. It returns query.ErrNotFound
+// resolver.RetryChanged does. An unbind compiles nothing. It returns query.ErrNotFound
 // when the arc to compile does not exist.
 func (s *Service) PrepareUpdateTask(
 	ctx context.Context,
@@ -263,7 +274,7 @@ func (s *Service) PrepareUpdateTask(
 	if req.Rack != nil && *req.Rack == 0 {
 		return arc.Build{}, nil
 	}
-	return channel.RetryChanged(ctx, func() (arc.Build, error) {
+	return resolver.RetryChanged(ctx, func() (arc.Build, error) {
 		return s.internal.Build(ctx, req.Key)
 	})
 }
@@ -461,17 +472,18 @@ func materialize(a Arc) Arc {
 }
 
 // compile compiles the source of an automation into its program and the calculated
-// channels that the program reads, as channel.RetryChanged does, and leaves a module as
+// channels that the program reads, as resolver.RetryChanged does, and leaves a module
+// as
 // is. Returns an error if parsing, analysis, or compilation fails.
 func (s *Service) compile(ctx context.Context, a *Arc) error {
 	automation, ok := a.Variant.(arc.AutomationArc)
 	if !ok {
 		return nil
 	}
-	prog, err := channel.RetryChanged(ctx, func() (arclang.Program, error) {
-		return channel.CompileConsistent(ctx, s.db, func(
+	prog, err := resolver.RetryChanged(ctx, func() (arclang.Program, error) {
+		return resolver.CompileConsistent(ctx, s.db, func(
 			snap gorp.Snapshot,
-			lookups *channel.Lookups,
+			lookups *resolver.Lookups,
 		) (arclang.Program, error) {
 			root := s.internal.NewRoot(snap, lookups)
 			switch src := automation.Source.Variant.(type) {
@@ -491,7 +503,7 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	if err != nil {
 		return err
 	}
-	calculations, err := channel.RetryChanged(ctx, func() ([]arc.Calculation, error) {
+	calculations, err := resolver.RetryChanged(ctx, func() ([]arc.Calculation, error) {
 		return s.compileCalculations(ctx, prog)
 	})
 	if err != nil {
@@ -520,28 +532,37 @@ func (s *Service) compileCalculations(
 	if len(reads) == 0 {
 		return nil, nil
 	}
-	var channels []channel.Channel
-	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.channel.NewRetrieve().
+	var (
+		channels []channel.Channel
+		calcs    map[channel.Key]calculation.Calculation
+	)
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if err = s.channel.NewRetrieve().
 			Entries(&channels).
 			Where(channel.MatchKeys(reads.Slice()...)).
-			Exec(ctx, snap)
+			Exec(ctx, snap); err != nil {
+			return err
+		}
+		calcs, err = s.calculation.Outputs(ctx, snap, reads.Slice()...)
+		return err
 	}); err != nil {
 		return nil, err
 	}
 	g, err := graph.New(graph.Config{
 		Instrumentation: s.Instrumentation,
 		Channel:         s.channel,
+		Calculation:     s.calculation,
 		DB:              s.db,
 	})
 	if err != nil {
 		return nil, err
 	}
 	for _, ch := range channels {
-		if !ch.IsCalculated() {
+		c, ok := calcs[ch.Key()]
+		if !ok {
 			continue
 		}
-		err = g.Add(ctx, ch)
+		err = g.Add(ctx, ch, c)
 		_, invalid := errors.AsType[*diagnostics.Diagnostics](err)
 		if err != nil && !invalid && !errors.Is(err, graph.ErrCycle) {
 			return nil, err

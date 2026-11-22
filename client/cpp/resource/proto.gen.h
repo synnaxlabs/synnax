@@ -62,6 +62,7 @@ type_to_pb(const std::string &cpp) {
         {TYPE_COLOR, ::service::resource::pb::TYPE_COLOR},
         {TYPE_ICD, ::service::resource::pb::TYPE_ICD},
         {TYPE_ENUMERATION, ::service::resource::pb::TYPE_ENUMERATION},
+        {TYPE_CALCULATION, ::service::resource::pb::TYPE_CALCULATION},
     };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -148,6 +149,8 @@ type_from_pb(::service::resource::pb::Type pb) {
             return {TYPE_ICD, x::errors::NIL};
         case ::service::resource::pb::TYPE_ENUMERATION:
             return {TYPE_ENUMERATION, x::errors::NIL};
+        case ::service::resource::pb::TYPE_CALCULATION:
+            return {TYPE_CALCULATION, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized Type protobuf value")};
     }

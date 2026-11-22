@@ -53,28 +53,20 @@ func (p RenamePayload) Handle(c Channel) (Channel, error) {
 
 // document is the part of a channel that path actions edit.
 type document struct {
-	Expression  string      `json:"expression"`
-	Operations  []Operation `json:"operations"`
-	Group       *group.Key  `json:"group,omitzero"`
-	Description string      `json:"description"`
+	Group       *group.Key `json:"group,omitzero"`
+	Description string     `json:"description"`
 }
 
 // edit applies a path action to a copy of the channel's document. A document that gains
 // a member it does not declare, such as a path to the channel's data type, is rejected.
 func edit(c Channel, apply func(map[string]any) error) (Channel, error) {
 	d, err := patch.Edit(
-		document{
-			Expression:  c.Expression,
-			Operations:  c.Operations,
-			Group:       c.Group,
-			Description: c.Description,
-		},
+		document{Group: c.Group, Description: c.Description},
 		apply,
 	)
 	if err != nil {
 		return Channel{}, err
 	}
-	c.Expression, c.Operations, c.Group = d.Expression, d.Operations, d.Group
-	c.Description = d.Description
+	c.Group, c.Description = d.Group, d.Description
 	return c, nil
 }

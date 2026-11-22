@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	. "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -40,7 +41,14 @@ var _ = Describe("Creator", Ordered, func() {
 			HostKey: dist.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		creator = Creator{DB: dist.DB, Channel: svc}
+		creator = Creator{
+			DB:      dist.DB,
+			Channel: svc,
+			Calculation: MustOpen(calculation.OpenService(
+				ctx,
+				calculation.ServiceConfig{DB: dist.DB, Channel: svc},
+			)),
+		}
 		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, dist.DB, svc, 1))
 		var ch channel.Channel
 		Expect(svc.NewRetrieve().
@@ -60,7 +68,8 @@ var _ = Describe("Creator", Ordered, func() {
 					Expression: "return " + input + " * 2",
 				}))
 				Expect(out.Name).To(Equal(name))
-				Expect(out.Expression).To(Equal("return " + input + " * 2"))
+				Expect(MustSucceed(creator.CalculationOf(ctx, out.Key())).Expression).
+					To(Equal("return " + input + " * 2"))
 				Expect(out.Key()).ToNot(BeZero())
 				Expect(out.Index()).ToNot(BeZero())
 				Expect(out.Virtual).To(BeTrue())
@@ -70,7 +79,6 @@ var _ = Describe("Creator", Ordered, func() {
 					Where(channel.MatchKeys(out.Key())).
 					Entry(&stored).
 					Exec(ctx, creator.DB)).To(Succeed())
-				Expect(stored.Expression).To(Equal(out.Expression))
 			},
 		)
 		It(

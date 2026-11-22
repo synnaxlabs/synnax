@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -115,15 +116,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
-	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+	calcSvc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:      db,
 		Channel: channelSvc,
-		Status:  statusSvc,
+	}))
+	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		DB:          db,
+		Calculation: calcSvc,
+		Channel:     channelSvc,
+		Status:      statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		DB:           db,
 		Framer:       node.Framer,
 		Channel:      channelSvc,
+		Calculation:  calcSvc,
 		ChannelGraph: channelGraph,
 	}))
 	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{

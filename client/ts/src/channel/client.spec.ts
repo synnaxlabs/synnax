@@ -32,6 +32,7 @@ const RENAMED: channel.Payload = {
   internal: false,
   expression: "",
   operations: [],
+  calculated: false,
   concurrency: control.Concurrency.exclusive,
   description: "",
 };

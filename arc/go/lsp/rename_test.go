@@ -365,7 +365,9 @@ func main() {
 						Start: protocol.Position{Line: 1, Character: 13},
 						End:   protocol.Position{Line: 1, Character: 19},
 					},
-					NewText: "it's",
+					// A bare reference takes the quoted form of a name that is not an
+					// identifier.
+					NewText: `'it\'s'`,
 				},
 				protocol.TextEdit{
 					Range: protocol.Range{

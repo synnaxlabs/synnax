@@ -12,9 +12,9 @@ package testutil
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -26,10 +26,8 @@ type Calculation struct {
 	// Expression is the Arc expression that the calculation evaluates.
 	Expression string
 	// Operations are the operations of the calculation.
-	Operations []channel.Operation
-	// DataType is the data type of the output channel.
-	//
-	// [OPTIONAL] - The data type of Expression replaces it.
+	Operations []calculation.Operation
+	// DataType is not read: the data type of Expression types the output.
 	DataType telem.DataType
 }
 
@@ -37,8 +35,10 @@ type Calculation struct {
 type Creator struct {
 	// DB is the database that holds the channels.
 	DB *gorp.DB
-	// Channel is the channel service that stores the calculations.
+	// Channel is the channel service that stores the output channels.
 	Channel *channel.Service
+	// Calculation is the calculation service that stores the calculations.
+	Calculation *calculation.Service
 }
 
 // Create creates calc and returns its output channel.
@@ -59,22 +59,54 @@ func (c Creator) CreateMany(
 	ctx context.Context,
 	calcs []Calculation,
 ) ([]channel.Channel, error) {
-	channels := make([]channel.Channel, len(calcs))
-	for i, calc := range calcs {
-		channels[i] = channel.Channel{
-			Name:       calc.Name,
-			DataType:   calc.DataType,
-			Expression: calc.Expression,
-			Operations: calc.Operations,
-		}
-	}
+	outputs := make([]channel.Channel, len(calcs))
 	if err := c.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return c.Channel.NewWriter(tx).CreateMany(ctx, &channels)
+		w := c.Calculation.NewWriter(tx)
+		for i, calc := range calcs {
+			record := calculation.Calculation{
+				Expression: calc.Expression,
+				Operations: calc.Operations,
+			}
+			created, err := w.CreateOutput(ctx, &record, calc.Name, nil)
+			if err != nil {
+				return err
+			}
+			outputs[i] = created[0]
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}
-	// The writer appends the index channels that it creates after the outputs.
-	return slices.Clip(channels[:len(calcs)]), nil
+	return outputs, nil
+}
+
+// CalculationOf returns the calculation that writes the channel with key output.
+func (c Creator) CalculationOf(
+	ctx context.Context,
+	output channel.Key,
+) (calculation.Calculation, error) {
+	var calc calculation.Calculation
+	err := c.Calculation.NewRetrieve().
+		Where(calculation.MatchOutputs(output)).
+		Entry(&calc).
+		Exec(ctx, c.DB)
+	return calc, err
+}
+
+// Apply applies acts to the calculation that writes the channel with key output.
+func (c Creator) Apply(
+	ctx context.Context,
+	output channel.Key,
+	acts ...calculation.Action,
+) error {
+	calc, err := c.CalculationOf(ctx, output)
+	if err != nil {
+		return err
+	}
+	return c.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		_, err := c.Calculation.NewWriter(tx).Apply(ctx, calc.Key, acts...)
+		return err
+	})
 }
 
 // Indexes returns the index channel of each output, in the order of outputs.

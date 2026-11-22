@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -58,11 +60,20 @@ var _ = Describe("Clash checks", func() {
 		Expect(errors.As(err, &clash)).To(BeTrue(), "no UniqueError in %v", err)
 		return clash
 	}
+	// pathOf returns the position of a batch error, when err is one, and then the path
+	// of its error.
 	pathOf := func(err error) []string {
 		GinkgoHelper()
-		var p validate.PathError
-		Expect(errors.As(err, &p)).To(BeTrue(), "no PathError in %v", err)
-		return p.Path
+		b, batched := errors.AsType[channel.BatchError](err)
+		if batched {
+			err = b.Err
+		}
+		pe, ok := errors.AsType[validate.PathError](err)
+		Expect(ok).To(BeTrue(), "not a path error: %v", err)
+		if !batched {
+			return pe.Path
+		}
+		return append([]string{strconv.Itoa(b.At)}, pe.Path...)
 	}
 
 	It("Should refuse a stored channel's name with a UniqueError naming it", func(

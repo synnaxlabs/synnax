@@ -185,15 +185,10 @@ type Channel struct {
 	// concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.
 	Concurrency pb.Concurrency `protobuf:"varint,8,opt,name=concurrency,proto3,enum=x.control.pb.Concurrency" json:"concurrency,omitempty"`
-	// operations contains aggregation operations applied to this channel's data.
-	Operations []*Operation `protobuf:"bytes,9,rep,name=operations,proto3" json:"operations,omitempty"`
-	// expression is an Arc expression for calculated channels. If set, the channel is
-	// automatically configured as virtual.
-	Expression string `protobuf:"bytes,10,opt,name=expression,proto3" json:"expression,omitempty"`
 	// group is the group the channel sits in, if any.
-	Group *string `protobuf:"bytes,11,opt,name=group,proto3,oneof" json:"group,omitempty"`
+	Group *string `protobuf:"bytes,9,opt,name=group,proto3,oneof" json:"group,omitempty"`
 	// description is free text that says what the channel holds.
-	Description   string `protobuf:"bytes,12,opt,name=description,proto3" json:"description,omitempty"`
+	Description   string `protobuf:"bytes,10,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -282,20 +277,6 @@ func (x *Channel) GetConcurrency() pb.Concurrency {
 		return x.Concurrency
 	}
 	return pb.Concurrency(0)
-}
-
-func (x *Channel) GetOperations() []*Operation {
-	if x != nil {
-		return x.Operations
-	}
-	return nil
-}
-
-func (x *Channel) GetExpression() string {
-	if x != nil {
-		return x.Expression
-	}
-	return ""
 }
 
 func (x *Channel) GetGroup() string {
@@ -821,8 +802,8 @@ type Where struct {
 	IsIndex *pb1.Bool `protobuf:"bytes,8,opt,name=is_index,json=isIndex,proto3,oneof" json:"is_index,omitempty"`
 	// internal matches the built-in channels, or every other channel when false.
 	Internal *pb1.Bool `protobuf:"bytes,9,opt,name=internal,proto3,oneof" json:"internal,omitempty"`
-	// virtual matches virtual channels that are not calculated, or every other channel
-	// when false.
+	// virtual matches virtual channels, or every other channel when false. The channel
+	// API counts the output of a calculation as not virtual.
 	Virtual *bool `protobuf:"varint,10,opt,name=virtual,proto3,oneof" json:"virtual,omitempty"`
 	// path matches the channels at full paths: the names of the folders from the top,
 	// then the channel's name, joined by '.'.
@@ -964,7 +945,7 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\tOperation\x125\n" +
 	"\x04type\x18\x01 \x01(\x0e2!.service.channel.pb.OperationTypeR\x04type\x12#\n" +
 	"\rreset_channel\x18\x02 \x01(\rR\fresetChannel\x12\x1a\n" +
-	"\bduration\x18\x03 \x01(\x03R\bduration\"\xb2\x03\n" +
+	"\bduration\x18\x03 \x01(\x03R\bduration\"\xd3\x02\n" +
 	"\aChannel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vleaseholder\x18\x02 \x01(\rR\vleaseholder\x12\x1b\n" +
@@ -974,16 +955,10 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\vlocal_index\x18\x06 \x01(\rR\n" +
 	"localIndex\x12\x18\n" +
 	"\avirtual\x18\a \x01(\bR\avirtual\x12;\n" +
-	"\vconcurrency\x18\b \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x12=\n" +
-	"\n" +
-	"operations\x18\t \x03(\v2\x1d.service.channel.pb.OperationR\n" +
-	"operations\x12\x1e\n" +
-	"\n" +
-	"expression\x18\n" +
-	" \x01(\tR\n" +
-	"expression\x12\x19\n" +
-	"\x05group\x18\v \x01(\tH\x00R\x05group\x88\x01\x01\x12 \n" +
-	"\vdescription\x18\f \x01(\tR\vdescriptionB\b\n" +
+	"\vconcurrency\x18\b \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x12\x19\n" +
+	"\x05group\x18\t \x01(\tH\x00R\x05group\x88\x01\x01\x12 \n" +
+	"\vdescription\x18\n" +
+	" \x01(\tR\vdescriptionB\b\n" +
 	"\x06_group\">\n" +
 	"\tWhereList\x121\n" +
 	"\x06values\x18\x01 \x03(\v2\x19.service.channel.pb.WhereR\x06values\"!\n" +
@@ -1087,28 +1062,27 @@ var file_core_pkg_service_channel_pb_channel_proto_goTypes = []any{
 var file_core_pkg_service_channel_pb_channel_proto_depIdxs = []int32{
 	0,  // 0: service.channel.pb.Operation.type:type_name -> service.channel.pb.OperationType
 	14, // 1: service.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
-	1,  // 2: service.channel.pb.Channel.operations:type_name -> service.channel.pb.Operation
-	13, // 3: service.channel.pb.WhereList.values:type_name -> service.channel.pb.Where
-	4,  // 4: service.channel.pb.KeySet.in:type_name -> service.channel.pb.KeyList
-	6,  // 5: service.channel.pb.NodeKeySet.in:type_name -> service.channel.pb.NodeKeyList
-	8,  // 6: service.channel.pb.TelemDataTypeSet.in:type_name -> service.channel.pb.TelemDataTypeList
-	10, // 7: service.channel.pb.StringSet.in:type_name -> service.channel.pb.StringList
-	3,  // 8: service.channel.pb.Where.and:type_name -> service.channel.pb.WhereList
-	3,  // 9: service.channel.pb.Where.or:type_name -> service.channel.pb.WhereList
-	13, // 10: service.channel.pb.Where.not:type_name -> service.channel.pb.Where
-	5,  // 11: service.channel.pb.Where.key:type_name -> service.channel.pb.KeySet
-	15, // 12: service.channel.pb.Where.name:type_name -> x.filter.pb.String
-	7,  // 13: service.channel.pb.Where.leaseholder:type_name -> service.channel.pb.NodeKeySet
-	9,  // 14: service.channel.pb.Where.data_type:type_name -> service.channel.pb.TelemDataTypeSet
-	16, // 15: service.channel.pb.Where.is_index:type_name -> x.filter.pb.Bool
-	16, // 16: service.channel.pb.Where.internal:type_name -> x.filter.pb.Bool
-	11, // 17: service.channel.pb.Where.path:type_name -> service.channel.pb.StringSet
-	12, // 18: service.channel.pb.Where.groups:type_name -> service.channel.pb.GroupKeyList
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	13, // 2: service.channel.pb.WhereList.values:type_name -> service.channel.pb.Where
+	4,  // 3: service.channel.pb.KeySet.in:type_name -> service.channel.pb.KeyList
+	6,  // 4: service.channel.pb.NodeKeySet.in:type_name -> service.channel.pb.NodeKeyList
+	8,  // 5: service.channel.pb.TelemDataTypeSet.in:type_name -> service.channel.pb.TelemDataTypeList
+	10, // 6: service.channel.pb.StringSet.in:type_name -> service.channel.pb.StringList
+	3,  // 7: service.channel.pb.Where.and:type_name -> service.channel.pb.WhereList
+	3,  // 8: service.channel.pb.Where.or:type_name -> service.channel.pb.WhereList
+	13, // 9: service.channel.pb.Where.not:type_name -> service.channel.pb.Where
+	5,  // 10: service.channel.pb.Where.key:type_name -> service.channel.pb.KeySet
+	15, // 11: service.channel.pb.Where.name:type_name -> x.filter.pb.String
+	7,  // 12: service.channel.pb.Where.leaseholder:type_name -> service.channel.pb.NodeKeySet
+	9,  // 13: service.channel.pb.Where.data_type:type_name -> service.channel.pb.TelemDataTypeSet
+	16, // 14: service.channel.pb.Where.is_index:type_name -> x.filter.pb.Bool
+	16, // 15: service.channel.pb.Where.internal:type_name -> x.filter.pb.Bool
+	11, // 16: service.channel.pb.Where.path:type_name -> service.channel.pb.StringSet
+	12, // 17: service.channel.pb.Where.groups:type_name -> service.channel.pb.GroupKeyList
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_channel_pb_channel_proto_init() }

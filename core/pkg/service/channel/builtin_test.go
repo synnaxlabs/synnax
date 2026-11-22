@@ -250,19 +250,6 @@ var _ = Describe("Built-in channels", func() {
 		},
 	)
 
-	It("Should refuse a calculated channel", func(ctx SpecContext) {
-		ch := command()
-		ch.DataType = telem.Float32T
-		ch.Expression = "return 1"
-		Expect(declare(ctx, &ch)).To(And(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(
-				`built-in channel "`+ch.Name+`" can't be calculated`,
-			)),
-		))
-		Expect(retrieve(ctx, ch.Name)).To(BeEmpty())
-	})
-
 	It("Should let a renamed user channel be deleted", func(ctx SpecContext) {
 		held := command()
 		held.DataType = telem.Float32T
@@ -364,8 +351,8 @@ var _ = Describe("Built-in channels across restarts", func() {
 			defer func() { Expect(statusSvc.Close()).To(Succeed()) }()
 			svc := MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{
 				Channel: node.Channel,
-				DB:      node.DB,
 				TS:      node.Storage.TS,
+				DB:      node.DB,
 				HostKey: node.Identity.HostKey,
 				Status:  statusSvc,
 			}))
