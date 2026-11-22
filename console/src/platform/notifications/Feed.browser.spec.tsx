@@ -13,15 +13,11 @@ import { usePopover } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useRef, useState } from "react";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
 import { Notifications } from "@/platform/notifications";
-import {
-  disableActEnvironment,
-  installPortalRoot,
-  renderWithConsole,
-} from "@/testutil";
+import { installPortalRoot, renderWithConsole } from "@/testutil";
 
 const Harness = ({
   crude,
@@ -52,10 +48,6 @@ const Content: Notifications.Notification = ({ status }) => (
   <span>Custom content for {status.message}</span>
 );
 Content.match = (status) => status.key === "special";
-
-// The tooltip specs hover for real, and the feed and the tooltip then update on the
-// browser's schedule, which no act can wrap.
-disableActEnvironment();
 
 describe("Notifications", () => {
   installPortalRoot();
@@ -280,6 +272,17 @@ describe("Notifications", () => {
   });
 
   describe("a card tooltip", () => {
+    // These specs hover for real, and the feed and the tooltip then update on the
+    // browser's schedule, which no act can wrap.
+    let actEnvironment: boolean | undefined;
+    beforeAll(() => {
+      actEnvironment = globalThis.IS_REACT_ACT_ENVIRONMENT;
+      globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+    });
+    afterAll(() => {
+      globalThis.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
+    });
+
     const TooltipHarness = (): ReactElement => {
       const add = Status.useAdder();
       return (
