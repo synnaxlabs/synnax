@@ -108,16 +108,11 @@ func (db *DB) openLogIterator(
 	if ch.IsIndex {
 		clock = ch.Key
 	}
+	view := &logView{e: db.engine, key: key, clock: clock}
 	idx := &index.Domain{
 		Instrumentation: db.Instrumentation,
-		DB:              logSource{e: db.engine, key: clock},
+		DB:              logSource{view: view, clock: true},
 		Channel:         db.mu.channels[clock],
 	}
-	return unary.NewIterator(
-		db.Instrumentation,
-		ch,
-		logSource{e: db.engine, key: key},
-		idx,
-		cfg,
-	)
+	return unary.NewIterator(db.Instrumentation, ch, logSource{view: view}, idx, cfg)
 }

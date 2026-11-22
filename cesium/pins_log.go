@@ -25,24 +25,28 @@ type pins struct {
 	dead    map[uint64]ChannelKey
 }
 
-// load returns the visible Channel of key from e, and pins each of its segments under
-// the same lock that release takes, so release never unlinks a segment that a Channel
-// it returned still names. It unpins held, the segments of an earlier load, and returns
-// the segments it pinned.
-func (e *engine) load(key ChannelKey, held []uint64) (*state.Channel, []uint64, error) {
+// loadView returns the visible Channels of key and of its clock from e, and pins each
+// of their segments under the same lock that release takes, so release never unlinks a
+// segment that a Channel it returned still names, and both come from one state. It
+// unpins held, the segments of an earlier load, and returns the segments it pinned.
+func (e *engine) loadView(
+	key, clock ChannelKey,
+	held []uint64,
+) (ch, clocks *state.Channel, ids []uint64, err error) {
 	e.pins.mu.Lock()
-	ch := e.state.Channel(key)
-	var ids []uint64
-	if ch != nil {
-		ids = make([]uint64, len(ch.Segments))
-		for i, seg := range ch.Segments {
-			ids[i] = seg.ID
+	ch, clocks = e.state.Channel(key), e.state.Channel(clock)
+	for _, c := range []*state.Channel{ch, clocks} {
+		if c == nil || (c == clocks && clock == key) {
+			continue
+		}
+		for _, seg := range c.Segments {
+			ids = append(ids, seg.ID)
 		}
 	}
 	e.pins.pin(ids)
 	free := e.pins.unpin(held)
 	e.pins.mu.Unlock()
-	return ch, ids, e.unlink(free)
+	return ch, clocks, ids, e.unlink(free)
 }
 
 // pin pins segment id for a reader.
