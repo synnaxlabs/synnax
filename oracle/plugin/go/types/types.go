@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -1218,6 +1219,30 @@ type templateData struct {
 	Namespace  string
 	repoRoot   string
 	Decls      []declData
+	// Patterns are the compiled regexes of the pattern checks, one per distinct regex.
+	Patterns []patternVar
+}
+
+// patternVar is a package-level regex that pattern checks match against.
+type patternVar struct {
+	// Name is the Go name of the var.
+	Name string
+	// Literal is the quoted regex.
+	Literal string
+}
+
+// patternVar returns the name of the var that holds pattern, adding the var when the
+// file has none for it.
+func (d *templateData) patternVar(pattern string) string {
+	literal := strconv.Quote(pattern)
+	for _, p := range d.Patterns {
+		if p.Literal == literal {
+			return p.Name
+		}
+	}
+	name := "validatePattern" + strconv.Itoa(len(d.Patterns))
+	d.Patterns = append(d.Patterns, patternVar{Name: name, Literal: literal})
+	return name
 }
 
 // importAlias returns the import alias for a cross-package reference,
@@ -1426,6 +1451,10 @@ import (
 {{- end}}
 {{- end}}
 )
+{{- end}}
+{{- range .Patterns}}
+
+var {{.Name}} = regexp.MustCompile({{.Literal}})
 {{- end}}
 {{- range .Decls}}
 {{- with .Alias}}
@@ -1679,7 +1708,7 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- else if eq .Kind "lt"}}
 	v.Ternary("{{.FieldName}}", !({{$val}} < {{$s.Receiver}}.{{.Arg}}), {{.Message}})
 {{- else if eq .Kind "pattern"}}
-	v.Ternary("{{.FieldName}}", !regexp.MustCompile({{.Arg}}).MatchString(string({{$val}})), {{.Message}})
+	v.Ternary("{{.FieldName}}", !{{.Arg}}.MatchString(string({{$val}})), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -1819,7 +1848,7 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 {{- else if eq .Kind "lt"}}
 	v.Ternary("{{.FieldName}}", !({{$val}} < {{$vt.Receiver}}.{{.Arg}}), {{.Message}})
 {{- else if eq .Kind "pattern"}}
-	v.Ternary("{{.FieldName}}", !regexp.MustCompile({{.Arg}}).MatchString(string({{$val}})), {{.Message}})
+	v.Ternary("{{.FieldName}}", !{{.Arg}}.MatchString(string({{$val}})), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}

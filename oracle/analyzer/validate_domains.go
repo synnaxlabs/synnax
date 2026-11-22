@@ -517,7 +517,12 @@ func structComparisonProblems(
 		name := t.QualifiedName + "." + f.Name
 		_, declared := form.Field(f.Name)
 		if m := validation.Matches(f.Domains, "go"); m != nil {
-			if declared {
+			switch {
+			case len(form.TypeParams) > 0:
+				problems = append(problems, fmt.Sprintf(
+					"%s has a pattern rule, but %s is generic", name, t.QualifiedName,
+				))
+			case declared:
 				problems = append(problems, matchProblems(name, f, *m, table)...)
 			}
 			continue
@@ -556,6 +561,9 @@ func structComparisonProblems(
 	return problems
 }
 
+const patternArgsProblem = ` has a pattern rule, but it takes a "regex" and an ` +
+	`optional "message"`
+
 // matchProblems returns the problems of the pattern rule m on the field f named name.
 func matchProblems(
 	name string,
@@ -565,6 +573,15 @@ func matchProblems(
 ) []string {
 	if f.Optional || resolution.PrimitiveBase(f.Type, table) != "string" {
 		return []string{name + " has a pattern rule, but only a required string can"}
+	}
+	expr, _ := f.Domains["go"].Expressions.Find("validate")
+	for _, v := range expr.Values[1:] {
+		if v.Kind != resolution.ValueKindString {
+			return []string{name + patternArgsProblem}
+		}
+	}
+	if m.Pattern == "" || len(expr.Values) > 3 {
+		return []string{name + patternArgsProblem}
 	}
 	if _, err := regexp.Compile(m.Pattern); err != nil {
 		return []string{

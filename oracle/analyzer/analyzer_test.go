@@ -1314,6 +1314,27 @@ Node union on variant {
 					name string { @go validate pattern "^(a$" }
 				}
 			`, "test.Device.name has a pattern rule that is not valid"),
+			Entry("with a pattern that is not a string", `
+				Device struct {
+					name string { @go validate pattern foo }
+				}
+			`, "test.Device.name has a pattern rule, but it takes a"),
+			Entry("with an empty pattern", `
+				Device struct {
+					name string { @go validate pattern "" }
+				}
+			`, "test.Device.name has a pattern rule, but it takes a"),
+			Entry("with a message that is not a string", `
+				Device struct {
+					name string { @go validate pattern "^a$" 5 }
+				}
+			`, "test.Device.name has a pattern rule, but it takes a"),
+			Entry("with a pattern in a generic struct", `
+				Device struct<T> {
+					name string { @go validate pattern "^a$" }
+					value T
+				}
+			`, "test.Device.name has a pattern rule, but test.Device is generic"),
 		)
 
 		DescribeTable(

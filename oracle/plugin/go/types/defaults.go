@@ -721,7 +721,7 @@ type constraintCheckData struct {
 	// non_zero (numeric or uuid), ge, le, lt (numeric), or pattern (string).
 	Kind string
 	// Arg is the length or numeric threshold literal for the kinds that take one, the
-	// Go name of the compared field for lt, or the quoted regex for pattern.
+	// Go name of the compared field for lt, or the regex var for pattern.
 	Arg string
 	// Message is the quoted error message of an lt or pattern check.
 	Message string
@@ -843,7 +843,7 @@ func goPatternCheck(
 		GoName:    naming.GetFieldName(field),
 		FieldName: casing.FieldSnake(field.Name),
 		Kind:      "pattern",
-		Arg:       strconv.Quote(m.Pattern),
+		Arg:       data.patternVar(m.Pattern),
 		Message:   strconv.Quote(message),
 	}, true
 }
