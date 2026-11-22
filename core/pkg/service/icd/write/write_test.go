@@ -202,8 +202,41 @@ var _ = Describe("Write", func() {
 
 		It("Should take the default data type of the field's kind", func() {
 			wm := writeOf(tagged, icd.WriteBinding{Field: id.Base().Key})
-			Expect(write.Encoder(wm, plant, nil)).ToNot(BeNil())
+			enc := MustSucceed(write.Encoder(wm, plant, nil))
+			v := uuid.New()
+			Expect(enc.Encode(nil, [][]byte{v[:]})).
+				To(MatchJSON(`{"id":"` + v.String() + `"}`))
 		})
+
+		DescribeTable("Should take float64 for a scaled field of an integer kind",
+			func(scale, offset float64, expected string) {
+				raw := jsonField("raw", icd.IntegerJSONField{})
+				base := raw.Base()
+				base.Scale, base.Offset = scale, offset
+				raw.SetBase(base)
+				m := jsonMessage("Raw", raw)
+				ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m}}
+				wm := writeOf(m, icd.WriteBinding{Field: raw.Base().Key})
+				enc := MustSucceed(write.Encoder(wm, ic, nil))
+				Expect(enc.Encode(nil, [][]byte{telem.NewSeriesV(10.0).Data})).
+					To(MatchJSON(expected))
+			},
+			Entry("a scale", 0.5, 0.0, `{"raw":20}`),
+			Entry("an offset", 1.0, 4.0, `{"raw":6}`),
+		)
+
+		It("Should take the data type of a channel that exists over its binding's",
+			func() {
+				wm := writeOf(setpoint, icd.WriteBinding{
+					Field:    temp.Base().Key,
+					Channel:  valueKey,
+					DataType: telem.Int32T,
+				})
+				enc := MustSucceed(write.Encoder(wm, plant, dataTypes))
+				Expect(enc.Encode(nil, [][]byte{telem.NewSeriesV(20.5).Data})).
+					To(MatchJSON(`{"temp":20.5,"mode":"auto","limit":1}`))
+			},
+		)
 
 		DescribeTable("Should refuse a write the message cannot send",
 			func(wm icd.WriteMessage, expected string) {
