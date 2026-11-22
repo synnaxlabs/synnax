@@ -13,10 +13,12 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name = "codec",
     srcs = [
+        "bits.cpp",
         "json.cpp",
         "match.cpp",
     ],
     hdrs = [
+        "bits.h",
         "errors.h",
         "json.h",
     ],
@@ -36,6 +38,7 @@ cc_library(
 cc_test(
     name = "codec_test",
     srcs = [
+        "bits_test.cpp",
         "decode_fixture_test.cpp",
         "json_test.cpp",
     ],
