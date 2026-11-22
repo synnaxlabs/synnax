@@ -11,6 +11,7 @@ package state
 
 import (
 	"math"
+	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
@@ -279,10 +280,16 @@ func (c *core) drop(key uint32) error {
 		}
 	}
 	if ch, ok := c.channels[key]; ok {
-		c.dropped = append(
-			c.dropped,
-			Kill{Key: key, All: true, Generation: c.generation},
-		)
+		// A head names a key only while it holds a durable segment or parts, so a
+		// replayed Drop of any other key finds no state of it.
+		if ch.oldest != 0 || slices.ContainsFunc(ch.segs, func(s *segState) bool {
+			return s.dur.created
+		}) {
+			c.dropped = append(
+				c.dropped,
+				Kill{Key: key, All: true, Generation: c.generation},
+			)
+		}
 		// The database unlinks the file of each segment once no reader pins it.
 		for _, s := range ch.segs {
 			delete(c.segments, s.vis.ID)
