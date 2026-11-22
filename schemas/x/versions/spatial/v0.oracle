@@ -186,7 +186,7 @@ Bounds struct<T extends numeric = float64> {
 
 ClosedBounds struct<T extends numeric = float64> {
     lower T {
-        @doc value "is the inclusive lower bound."
+        @doc value   "is the inclusive lower bound."
         @go validate lt upper
     }
     upper T {
