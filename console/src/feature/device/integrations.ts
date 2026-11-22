@@ -69,7 +69,7 @@ export const HARDWARE: Hardware[] = [
   },
   {
     ...EtherCAT.Device.HARDWARE,
-    ContextMenuItems: EtherCAT.Device.ContextMenuItems,
+    ContextMenuItems: EtherCAT.ContextMenuItems,
     useCreateRead: EtherCAT.Task.useCreateRead,
     useCreateWrite: EtherCAT.Task.useCreateWrite,
   },

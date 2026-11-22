@@ -13,15 +13,14 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 import { strings, unique } from "@synnaxlabs/x";
 
-import {
-  useEnabledState,
-  useSlavesByKeys,
-  useToggleEnabled,
-} from "@/feature/ethercat/device/queries";
+import { Device } from "@/feature/ethercat/device";
 import { Task } from "@/feature/ethercat/task";
-import { Device } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 
-interface ConfigureItemProps extends Pick<Device.ContextMenuItemsProps, "onConfigure"> {
+interface ConfigureItemProps extends Pick<
+  PlatformDevice.ContextMenuItemsProps,
+  "onConfigure"
+> {
   deviceKey: device.Key;
 }
 
@@ -37,27 +36,27 @@ const CONFIGURE_MANY = {
   suggestIdentifiers: ({ name }: device.Device) => strings.createShortIdentifiers(name),
 };
 
-const READ_TASK_ITEM = Device.createTaskContextMenuItem({
+const READ_TASK_ITEM = PlatformDevice.createTaskContextMenuItem({
   itemKey: "ethercat.readTask",
   label: "Create read task",
   useCreate: Task.useCreateRead,
   configureMany: CONFIGURE_MANY,
 });
 
-const WRITE_TASK_ITEM = Device.createTaskContextMenuItem({
+const WRITE_TASK_ITEM = PlatformDevice.createTaskContextMenuItem({
   itemKey: "ethercat.writeTask",
   label: "Create write task",
   useCreate: Task.useCreateWrite,
   configureMany: CONFIGURE_MANY,
 });
 
-export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
+export const ContextMenuItems = (props: PlatformDevice.ContextMenuItemsProps) => {
   const keys = props.selection.ids.map((id) => id.key);
   const hasUpdatePermission = Access.useUpdateGranted(device.resourceID(keys));
-  const { update: toggleEnabled } = useToggleEnabled();
+  const { update: toggleEnabled } = Device.useToggleEnabled();
 
-  const { allDisabled, allEnabled } = useEnabledState({ keys });
-  const slaves = useSlavesByKeys(keys) ?? [];
+  const { allDisabled, allEnabled } = Device.useEnabledState({ keys });
+  const slaves = Device.useSlavesByKeys(keys) ?? [];
   // A task takes only the slaves with entries on its side, all on one network.
   const selectionOf = (side: Task.PDOType) => {
     const used = slaves.filter(({ properties }) => properties.pdos[side].length > 0);
@@ -96,7 +95,7 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
       {taskItems.length > 0 && (
         <>
           {taskItems.map(({ item, selection }) => (
-            <Device.TaskContextMenuItems
+            <PlatformDevice.TaskContextMenuItems
               key={item.itemKey}
               {...props}
               selection={selection}
