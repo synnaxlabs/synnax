@@ -17,13 +17,21 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -341,6 +349,163 @@ var _ = Describe("Ungroup groups", Ordered, func() {
 		Expect(moved.Project).To(Equal(&proj.Key))
 		Expect(exists(ctx, folder.Key)).To(BeFalse())
 	})
+
+	// noTop places a folder's parent at the top of its tree.
+	noTop := func() *resource.ID { return nil }
+	inProject := func() *resource.ID { return new(proj.ResourceID()) }
+	underRack := func() *resource.ID { return new(layer.Rack.EmbeddedKey.ResourceID()) }
+	DescribeTable("Should move a member of each type to the parent of the folder", func(
+		ctx SpecContext,
+		scope resource.Type,
+		top func() *resource.ID,
+		create func(ctx SpecContext, tx gorp.Tx, folder *group.Key) (resource.ID, error),
+	) {
+		parent := group.Group{Name: UniqueChannelName(), Parent: top()}
+		if parent.Parent == nil {
+			parent.Scope = scope
+		}
+		var (
+			member resource.ID
+			folder group.Group
+		)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			w := layer.Group.NewWriter(tx)
+			if err = w.Create(ctx, &parent); err != nil {
+				return err
+			}
+			folder = group.Group{
+				Name:   UniqueChannelName(),
+				Parent: new(parent.ResourceID()),
+			}
+			if err = w.Create(ctx, &folder); err != nil {
+				return err
+			}
+			member, err = create(ctx, tx, &folder.Key)
+			return err
+		})).To(Succeed())
+		MustSucceed(apply(ctx, impact.ApplyOptions{}, folder.Key))
+		Expect(layer.Group.Children(ctx, db, parent.Key)).To(ContainElement(member))
+		Expect(exists(ctx, folder.Key)).To(BeFalse())
+	},
+		Entry("a channel", resource.TypeChannel, noTop, func(
+			ctx SpecContext, tx gorp.Tx, folder *group.Key,
+		) (resource.ID, error) {
+			ch := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+				Group:    folder,
+			}
+			err := layer.Channel.NewWriter(tx).Create(ctx, &ch)
+			return channel.ResourceID(ch.Key()), err
+		}),
+		Entry("a color", resource.TypeColor, noTop, func(
+			ctx SpecContext, tx gorp.Tx, folder *group.Key,
+		) (resource.ID, error) {
+			n := color.Named{
+				Name:  UniqueChannelName(),
+				Light: xcolor.Color{G: 255, A: 255},
+				Group: folder,
+			}
+			err := layer.Color.NewWriter(tx).Create(ctx, &n)
+			return color.ResourceID(n.Key), err
+		}),
+		Entry("a device", resource.TypeDevice, underRack, func(
+			ctx SpecContext, tx gorp.Tx, folder *group.Key,
+		) (resource.ID, error) {
+			key := UniqueChannelName()
+			d := device.Device{
+				Key:      key,
+				Rack:     layer.Rack.EmbeddedKey,
+				Location: key,
+				Name:     key,
+				Make:     "Make",
+				Model:    "Model",
+				Group:    folder,
+			}
+			return device.ResourceID(key), layer.Device.NewWriter(tx).Create(ctx, &d)
+		}),
+		Entry("a line plot", resource.TypeProject, inProject, func(
+			ctx SpecContext, tx gorp.Tx, folder *group.Key,
+		) (resource.ID, error) {
+			lp := defaults.Fill(lineplot.LinePlot{
+				Name:    UniqueChannelName(),
+				Project: &proj.Key,
+				Group:   folder,
+			})
+			err := layer.LinePlot.NewWriter(tx).Create(ctx, &lp)
+			return lineplot.ResourceID(lp.Key), err
+		}),
+		Entry("a log", resource.TypeProject, inProject, func(
+			ctx SpecContext, tx gorp.Tx, folder *group.Key,
+		) (resource.ID, error) {
+			l := defaults.Fill(log.Log{
+				Name:    UniqueChannelName(),
+				Project: &proj.Key,
+				Group:   folder,
+			})
+			err := layer.Log.NewWriter(tx).Create(ctx, &l)
+			return log.ResourceID(l.Key), err
+		}),
+		Entry("a panel", resource.TypeProject, inProject, func(
+			ctx SpecContext, tx gorp.Tx, folder *group.Key,
+		) (resource.ID, error) {
+			pn := defaults.Fill(panel.Panel{
+				Name:    UniqueChannelName(),
+				Project: &proj.Key,
+				Group:   folder,
+			})
+			err := layer.Panel.NewWriter(tx).Create(ctx, &pn)
+			return panel.ResourceID(pn.Key), err
+		}),
+		Entry("a project", resource.TypeProject, noTop, func(
+			ctx SpecContext, tx gorp.Tx, folder *group.Key,
+		) (resource.ID, error) {
+			pr := project.Project{Name: UniqueChannelName(), Group: folder}
+			err := layer.Project.NewWriter(tx).Create(ctx, &pr)
+			return project.ResourceID(pr.Key), err
+		}),
+		Entry("a rack", resource.TypeDevice, noTop, func(
+			ctx SpecContext, tx gorp.Tx, folder *group.Key,
+		) (resource.ID, error) {
+			r := rack.Rack{Name: UniqueChannelName(), Group: folder}
+			err := layer.Rack.NewWriter(tx).Create(ctx, &r)
+			return r.Key.ResourceID(), err
+		}),
+		Entry("a schematic", resource.TypeProject, inProject, func(
+			ctx SpecContext, tx gorp.Tx, folder *group.Key,
+		) (resource.ID, error) {
+			sch := schematic.Schematic{
+				Name:    UniqueChannelName(),
+				Project: &proj.Key,
+				Group:   folder,
+			}
+			err := layer.Schematic.NewWriter(tx).Create(ctx, &sch)
+			return schematic.ResourceID(sch.Key), err
+		}),
+		Entry("a symbol", resource.TypeSchematicSymbol, noTop, func(
+			ctx SpecContext, tx gorp.Tx, folder *group.Key,
+		) (resource.ID, error) {
+			sym := defaults.Fill(symbol.Symbol{
+				Name:  "Inlet",
+				Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+				Group: folder,
+			})
+			err := layer.Schematic.Symbol.NewWriter(tx).Create(ctx, &sym)
+			return symbol.ResourceID(sym.Key), err
+		}),
+		Entry("a table", resource.TypeProject, inProject, func(
+			ctx SpecContext, tx gorp.Tx, folder *group.Key,
+		) (resource.ID, error) {
+			t := defaults.Fill(table.Table{
+				Name:    UniqueChannelName(),
+				Project: &proj.Key,
+				Group:   folder,
+			})
+			err := layer.Table.NewWriter(tx).Create(ctx, &t)
+			return table.ResourceID(t.Key), err
+		}),
+	)
 
 	It("Should refuse a folder whose parent the change also ungroups", func(
 		ctx SpecContext,
