@@ -234,7 +234,7 @@ var _ = Describe("Name upgrade", func() {
 		ctx SpecContext,
 	) {
 		n := testutil.NewNode(ctx)
-		rigs, ab, xy := folder("Rigs"), folder("a_b"), folder("x.y")
+		rigs, ab, xy, ac := folder("Rigs"), folder("a_b"), folder("x.y"), folder("a.c")
 		stored := storeV062(ctx, n, []string{
 			"pt-01",
 			"stand.pt",
@@ -246,50 +246,59 @@ var _ = Describe("Name upgrade", func() {
 			"x.y",
 			"a_b_2",
 			"tripled",
+			"a_c",
 		}, func(cs []channelv1.Channel) {
 			cs[6].Expression = "return pt-01 * 2"
 			// A channel in another folder holds the first suffix of a moved channel.
 			cs[8].Group = &rigs.Key
 			// The lower key keeps the name, so the text keeps naming it.
 			cs[9].Expression = "return pressure * 3"
-		}, rigs, ab, xy)
+		}, rigs, ab, xy, ac)
 		arcs := storeArcs(
 			ctx,
 			n,
-			[]string{"x := pt-01 * 2 // pt-01"},
+			[]string{"x := pt-01 * 2 + pt-02 // pt-01"},
 			[]string{"{ return pt-01 }"},
 		)
 
 		l := MustOpen(svctestutil.OpenLayer(ctx, n))
 
 		Expect(namesOf(ctx, n, stored)).To(Equal(map[channel.Key]string{
-			stored[0].Key(): "pt-01",
-			stored[1].Key(): "stand_pt",
-			stored[2].Key(): "pressure",
-			stored[3].Key(): "pressure_2",
-			stored[4].Key(): "Rigs",
-			stored[5].Key(): "a_b_3",
-			stored[6].Key(): "doubled",
-			stored[7].Key(): "x_y",
-			stored[8].Key(): "a_b_2",
-			stored[9].Key(): "tripled",
+			stored[0].Key():  "pt-01",
+			stored[1].Key():  "stand_pt",
+			stored[2].Key():  "pressure",
+			stored[3].Key():  "pressure_2",
+			stored[4].Key():  "Rigs",
+			stored[5].Key():  "a_b_3",
+			stored[6].Key():  "doubled",
+			stored[7].Key():  "x_y",
+			stored[8].Key():  "a_b_2",
+			stored[9].Key():  "tripled",
+			stored[10].Key(): "a_c",
 		}))
 		var folders []group.Group
 		Expect(gorp.NewRetrieve[group.Key, group.Group]().
-			Where(gorp.MatchKeys[group.Key, group.Group](rigs.Key, ab.Key, xy.Key)).
+			Where(gorp.MatchKeys[group.Key, group.Group](
+				rigs.Key,
+				ab.Key,
+				xy.Key,
+				ac.Key,
+			)).
 			Entries(&folders).
 			Exec(ctx, n.DB)).To(Succeed())
 		Expect(folders).To(ConsistOf(
 			HaveField("Name", "Rigs_2"),
 			HaveField("Name", "a_b"),
 			HaveField("Name", "x_y_2"),
+			HaveField("Name", "a_c_2"),
 		))
 		doubled := calculationOf(ctx, n, l.Calculation, stored[6].Key())
 		Expect(doubled.Expression).To(Equal("return 'pt-01' * 2"))
 		Expect(doubled.Reads).To(Equal([]channel.Key{stored[0].Key()}))
 		Expect(calculationOf(ctx, n, l.Calculation, stored[9].Key()).Expression).
 			To(Equal("return pressure * 3"))
-		Expect(sourceOf(ctx, n, arcs[0])).To(Equal("x := 'pt-01' * 2 // pt-01"))
+		Expect(sourceOf(ctx, n, arcs[0])).
+			To(Equal("x := 'pt-01' * 2 + pt-02 // pt-01"))
 		Expect(sourceOf(ctx, n, arcs[1])).To(Equal("{ return 'pt-01' }"))
 		statuses := renameStatuses(ctx, n)
 		reported := make(map[string]string, len(statuses))
@@ -303,6 +312,7 @@ var _ = Describe("Name upgrade", func() {
 			"x_y":        "Renamed channel",
 			"Rigs_2":     "Renamed folder",
 			"x_y_2":      "Renamed folder",
+			"a_c_2":      "Renamed folder",
 		}))
 		Expect(statuses["a_b_3"].Description).To(ContainSubstring(`"a.b" to "a_b_3"`))
 		Expect(MustSucceed(resourcev0.StagedRenames(n.DB))).To(BeEmpty())

@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
@@ -194,54 +195,44 @@ var _ = Describe("Ontology drop", func() {
 })
 
 var _ = Describe("Retired channels", func() {
-	names := []string{
-		"sy_ontology_resource_set",
-		"sy_ontology_resource_delete",
-		"sy_ontology_relationship_set",
-		"sy_ontology_relationship_delete",
-		"sy_range_alias_set",
-		"sy_range_alias_delete",
-		"sy_range_alias_action_set",
-	}
-	retrieve := func(
-		ctx SpecContext,
-		db *gorp.DB,
-		l *service.Layer,
-	) []channel.Channel {
-		GinkgoHelper()
-		var chs []channel.Channel
-		Expect(l.Channel.NewRetrieve().
-			Where(channel.MatchNames(names...)).
-			Entries(&chs).
-			Exec(ctx, db)).To(Succeed())
-		return chs
-	}
-
 	It(
-		"Should delete the retired channels of an upgraded store",
+		"Should delete the retired channels of the Core and keep each user channel that "+
+			"holds a retired name",
 		func(ctx SpecContext) {
 			n := testutil.NewNode(ctx)
-			first := MustSucceed(svctestutil.OpenLayer(ctx, n))
-			chs := make([]channel.Channel, len(names))
-			for i, name := range names {
-				chs[i] = channel.Channel{
-					Name:        name,
-					DataType:    telem.StringT,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-				}
+			stored := storeV062(ctx, n, []string{
+				"sy_range_alias_set",
+				"sy_ontology_resource_set",
+				"sy_range_alias_delete",
+			}, func(cs []channelv1.Channel) {
+				cs[0].Internal = true
+				cs[1].Internal = true
+			})
+			l := MustSucceed(svctestutil.OpenLayer(ctx, n))
+			Expect(namesOf(ctx, n, stored)).To(Equal(map[channel.Key]string{
+				stored[2].Key(): "sy_range_alias_delete",
+			}))
+			later := channel.Channel{
+				Name:        "sy_ontology_resource_set",
+				DataType:    telem.StringT,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
 			}
 			Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return first.Channel.NewWriter(tx).CreateMany(ctx, &chs)
+				return l.Channel.NewWriter(tx).Create(ctx, &later)
 			})).To(Succeed())
-			Expect(retrieve(ctx, n.DB, first)).To(HaveLen(len(names)))
-			Expect(first.Close()).To(Succeed())
-			second := MustSucceed(svctestutil.OpenLayer(ctx, n))
-			Expect(retrieve(ctx, n.DB, second)).To(BeEmpty())
-			Expect(second.Close()).To(Succeed())
-			By("Opening again with no channels to delete")
-			Expect(retrieve(ctx, n.DB, MustOpen(svctestutil.OpenLayer(ctx, n)))).
-				To(BeEmpty())
+			Expect(l.Close()).To(Succeed())
+			By("Opening again with a user channel made with a retired name")
+			MustOpen(svctestutil.OpenLayer(ctx, n))
+			var kept []channel.Channel
+			Expect(gorp.NewRetrieve[channel.Key, channel.Channel]().
+				Where(gorp.MatchKeys[channel.Key, channel.Channel](
+					stored[2].Key(),
+					later.Key(),
+				)).
+				Entries(&kept).
+				Exec(ctx, n.DB)).To(Succeed())
+			Expect(kept).To(HaveLen(2))
 		},
 	)
 })

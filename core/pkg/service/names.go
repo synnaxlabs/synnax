@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/text"
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	resourcev0 "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -50,9 +52,21 @@ var nameClashMigration = migrate.New(
 		if err != nil {
 			return err
 		}
-		renamed := make(set.Set[resource.ID], len(staged))
+		from := make(map[resource.ID]string, len(staged))
 		for _, r := range staged {
-			renamed.Add(r.ID)
+			from[r.ID] = r.From
+		}
+		// base returns the name that the suffix of a renamed item starts from: the
+		// rewrite of its old name when a name pass renamed it, or else its name.
+		base := func(id resource.ID, name, empty string) string {
+			old, ok := from[id]
+			if !ok {
+				return name
+			}
+			if rewritten := resourcev0.SanitizeName(old); rewritten != "" {
+				return rewritten
+			}
+			return empty
 		}
 		var channels []channel.Channel
 		if err = gorp.NewRetrieve[channel.Key, channel.Channel]().
@@ -95,10 +109,12 @@ var nameClashMigration = migrate.New(
 				continue
 			}
 			c := channels[h]
+			_, channelRenamed := from[c.ResourceID()]
+			_, folderRenamed := from[f.ResourceID()]
 			builtIn := parent == (group.Key{}) && f.Name == groupv1.MetricsFolder
-			if builtIn ||
-				renamed.Contains(c.ResourceID()) && !renamed.Contains(f.ResourceID()) {
-				name := resourcev0.FreeName(c.Name, func(name string) bool {
+			if builtIn || channelRenamed && !folderRenamed {
+				first := base(c.ResourceID(), c.Name, "channel_"+c.Key().String())
+				name := resourcev0.FreeName(first, func(name string) bool {
 					return names.Contains(name) ||
 						siblings.Contains(sibling{parent: parent, name: name})
 				})
@@ -119,7 +135,8 @@ var nameClashMigration = migrate.New(
 				}
 				continue
 			}
-			name := resourcev0.FreeName(f.Name, func(name string) bool {
+			first := base(f.ResourceID(), f.Name, "folder")
+			name := resourcev0.FreeName(first, func(name string) bool {
 				return siblings.Contains(sibling{parent: parent, name: name})
 			})
 			siblings.Add(sibling{parent: parent, name: name})
@@ -304,17 +321,21 @@ func newRenameReport(statuses *status.Service) gorp.Migration {
 				if r.ID.Type == resource.TypeGroup {
 					noun = "folder"
 				}
-				name := names[r.ID]
+				name, ok := names[r.ID]
+				if !ok {
+					return errors.Newf("staged rename of %s names no record", r.ID)
+				}
 				s := status.Status[any]{
 					Name:    name,
 					Variant: status.VariantWarning,
 					Message: "Renamed " + noun,
 					Description: fmt.Sprintf(
-						"The upgrade renamed %s %q to %q. A name must now be unique "+
-							"in its folder and hold no '.' or invisible character.",
+						"The upgrade renamed %s %q to %q, because %s. Update each "+
+							"reference to the old name outside Synnax.",
 						noun,
 						r.From,
 						name,
+						renameReason(r.From, noun),
 					),
 					Time: telem.Now(),
 				}
@@ -325,6 +346,26 @@ func newRenameReport(statuses *status.Service) gorp.Migration {
 			return resourcev0.ClearRenames(ctx, tx)
 		},
 	)
+}
+
+// renameReason returns why the name passes renamed a noun that held the name from.
+func renameReason(from, noun string) string {
+	rewritten := resourcev0.SanitizeName(from)
+	switch {
+	case !utf8.ValidString(from):
+		return "the old name held bytes that are not valid text"
+	case strings.Contains(from, "."):
+		return "a '.' now separates the folders of a path, so a name cannot hold one"
+	case rewritten == "":
+		return "the old name showed no visible character"
+	case rewritten != resourcev0.NormalizeName(from):
+		return "the old name held a character that shows as nothing or as a space " +
+			"other than a plain space"
+	case from != resourcev0.NormalizeName(from):
+		return "names are now stored in Unicode normal form C (NFC), and the old " +
+			"name was not"
+	}
+	return "another " + noun + " or a folder beside it held the same name"
 }
 
 // resourceNames returns the name of each channel and channel folder by resource ID.

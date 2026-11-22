@@ -1155,15 +1155,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 				l.Table,
 				cfg.Distribution.Channel.IssuedAtFirstOpen,
 			),
+			newRetiredChannelDelete(l.Channel),
 		),
 	}); !ok(err, nil) {
-		return nil, err
-	}
-	if err = deleteRetiredChannels(
-		ctx,
-		cfg.Distribution.DB,
-		l.Channel,
-	); !ok(err, nil) {
 		return nil, err
 	}
 	// Metrics writes calculations, so it opens after the migrations that build them.
