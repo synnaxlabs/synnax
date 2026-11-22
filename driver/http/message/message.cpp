@@ -86,16 +86,17 @@ std::pair<std::vector<codec::Binding>, x::errors::Error> Reader::bind(
         const auto &ch = found->second;
         bindings.push_back({.field = b.field, .data_type = ch.data_type});
         m.channels.push_back(ch.key);
-        if (i == 0)
-            m.index = ch.index;
-        else if (ch.index != m.index)
-            return {{}, invalid("every channel must share one index channel")};
         const bool index_field = rm.index == b.field;
         if (index_field && !ch.is_index)
             return {{}, invalid("the index field must write to an index channel")};
         if (!index_field && ch.is_index)
             return {{}, invalid("only the index field can write to an index channel")};
         if (index_field) m.index_field = i;
+        const auto key = index_field ? ch.key : ch.index;
+        if (key == 0) continue;
+        auto idx = std::ranges::find(m.indexes, key, &Index::key);
+        if (idx == m.indexes.end()) idx = m.indexes.insert(idx, Index{.key = key});
+        if (index_field) idx->field = i;
     }
     if (rm.index.has_value() && !m.index_field.has_value())
         return {{}, invalid("the index field has no channel")};
@@ -139,8 +140,8 @@ std::pair<Reader, x::errors::Error> Reader::create(
                 Reader{},
                 x::errors::Error(err, "message " + name + ": " + err.data)
             };
-        if (m.index != 0)
-            if (auto claim_err = claim(writers, m.index, name))
+        for (const auto &idx: m.indexes)
+            if (auto claim_err = claim(writers, idx.key, name))
                 return {Reader{}, claim_err};
         for (std::size_t k = 0; k < m.channels.size(); k++) {
             if (k == m.index_field) continue;
@@ -171,10 +172,14 @@ x::errors::Error Reader::read(
         return {x::errors::VALIDATION, "the response matches no message"};
     const auto &m = this->messages[*i];
     const auto &samples = this->decoder.samples(*i);
-    auto stamp = received;
-    if (m.index_field.has_value())
-        stamp = samples[*m.index_field].at<x::telem::TimeStamp>(0);
-    if (m.index != 0) fr.emplace(m.index, x::telem::Series(stamp));
+    for (const auto &[key, field]: m.indexes)
+        fr.emplace(
+            key,
+            x::telem::Series(
+                field.has_value() ? samples[*field].at<x::telem::TimeStamp>(0)
+                                  : received
+            )
+        );
     for (std::size_t k = 0; k < samples.size(); k++)
         if (k != m.index_field) fr.emplace(m.channels[k], samples[k].deep_copy());
     return x::errors::NIL;

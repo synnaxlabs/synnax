@@ -134,15 +134,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await fill("Timeout", "60");
     await openTab("Options");
     for (let i = 0; i < STAGES.length; i++)
-      await session.click(
-        properties.getByRole("button", { name: "Add option" }).first(),
-        { zoom: false },
-      );
-    const options = properties.locator(".pluto-state-mapping-list .lyra-list__item");
+      await session.click(properties.getByRole("button", { name: "Add entry" }), {
+        zoom: false,
+      });
     for (const [i, name] of STAGES.entries()) {
-      const nameInput = options.nth(i).locator("input").first();
+      const nameInput = properties.getByLabel(`Name ${i + 1}`, { exact: true });
       await session.waitFor(nameInput);
       await nameInput.fill(name);
+      await nameInput.blur();
       await session.settle(200);
     }
 

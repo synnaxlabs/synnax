@@ -26,7 +26,7 @@ export interface ActuatorProps
   specKey: string;
   onClick?: MouseEventHandler<HTMLElement>;
   scale?: number;
-  stateOverrides?: schematic.symbol.State[];
+  stateOverrides?: schematic.symbol.StateOverride[];
 }
 
 export const Actuator = ({
@@ -42,7 +42,8 @@ export const Actuator = ({
 }: ActuatorProps): ReactElement => {
   const { symbol, missing } = Symbol.useResolved(specKey);
   const spec = symbol?.data;
-  const invalid = spec != null && !Custom.isValidSVG(spec.svg);
+  const paints = Custom.usePaints(spec, enabled ? 1 : 0, stateOverrides, strokeColor);
+  const invalid = spec != null && !Custom.isValidSVG(spec.drawing.markup);
   if (missing || invalid)
     return (
       <Note.Note variant="warning" className={className}>
@@ -73,8 +74,7 @@ export const Actuator = ({
           orientation={orientation}
           scale={scale}
           strokeColor={strokeColor}
-          enabled={enabled}
-          stateOverrides={stateOverrides}
+          paints={paints}
         />
       )}
     </Toggle.Button>

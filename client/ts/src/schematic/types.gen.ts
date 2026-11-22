@@ -1397,10 +1397,10 @@ export const customActuatorNodeConfigZ = toggleConfigZ.extend({
   /** specKey is the key of the custom symbol spec this instance renders. */
   specKey: z.string(),
   /**
-   * stateOverrides contains per-instance overrides of the spec's visual states, matched
-   * to the spec's states by key.
+   * stateOverrides contains per-instance replacements of the spec's region colors, one
+   * for each value that the node draws, in value order: Base, then Active.
    */
-  stateOverrides: symbol.stateZ.array().default(() => []),
+  stateOverrides: symbol.stateOverrideZ.array().default(() => []),
 });
 export interface CustomActuatorNodeConfig extends z.infer<
   typeof customActuatorNodeConfigZ
@@ -1414,10 +1414,10 @@ export const customStaticNodeConfigZ = labeledConfigZ
     /** specKey is the key of the custom symbol spec this instance renders. */
     specKey: z.string(),
     /**
-     * stateOverrides contains per-instance overrides of the spec's visual states, matched
-     * to the spec's states by key.
+     * stateOverrides contains per-instance replacements of the spec's region colors, one
+     * for each value that the node draws, in value order: Base, then Active.
      */
-    stateOverrides: symbol.stateZ.array().default(() => []),
+    stateOverrides: symbol.stateOverrideZ.array().default(() => []),
   });
 export interface CustomStaticNodeConfig extends z.infer<
   typeof customStaticNodeConfigZ

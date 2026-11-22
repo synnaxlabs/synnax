@@ -70,9 +70,9 @@ color once and saves it in the reference's `color`: the range's own color when i
 clearly apart from every color on the plot, else the first unused series color
 (`docs/claude/ux.md:69`). Clearly apart is an OKLab distance of 0.05 or more in normal
 vision and in three simulations of color blindness, the check that enumerations use
-(`console/src/feature/enumeration/check.ts:17`). The swatch on a range heading in the
-legend changes the plot's color for that range, never the range's own color. Absolute
-mode keeps the color by channel.
+(`pluto/src/enumeration/check.ts:17`). The swatch on a range heading in the legend
+changes the plot's color for that range, never the range's own color. Absolute mode
+keeps the color by channel.
 
 ### 2.4 Identifying lines and filtering
 
@@ -89,13 +89,14 @@ mode keeps the color by channel.
   channel. Inside a channel, each range shows its color, name, and value, sorted by
   value from high to low. The hovered line's entry is bold. The tooltip lists as many
   entries as fit inside the plot, and the last one then reads "and N more".
-- **Hide and solo**: An eye on a range heading hides the range. An eye on a channel
+- **Hide and isolate**: An eye on a range heading hides the range. An eye on a channel
   under a range hides that pair. Option or Alt click on an eye shows only that item, and
-  a second Option or Alt click restores the earlier set. The menu of a legend entry has
-  Show only this range, Show only this channel, Hide this channel in all ranges, and
-  Show all. When an item is hidden, the legend ends with "Show all (N hidden)". Hidden
-  state stays session state for each window, as hidden lines are today
-  (`console/src/session/lineplot/slice.ts:77`), and is never saved with the plot.
+  a second Option or Alt click restores the earlier set. The menu acts on what was
+  clicked. A range name has Isolate. A channel in the legend, or a line, has Isolate in
+  this range, Isolate in all ranges, and Hide in all ranges, which reads Show in all
+  ranges when the channel is hidden in each range. When an item is hidden, the plot menu
+  has Show all. Hidden state stays session state for each window, as hidden lines are
+  today (`console/src/session/lineplot/slice.ts:77`), and is never saved with the plot.
 - **Scale**: Colors stay distinct for 8 ranges (`docs/claude/ux.md:64`). Past 8, colors
   repeat, and hover, the tooltip, and hide tell the ranges apart.
 

@@ -15,10 +15,10 @@ import type { record } from "@synnaxlabs/x";
 import {
   type ControlState,
   type Hidden,
+  type Isolation,
   type SelectionState,
   SLICE_NAME,
   type SliceState,
-  type Solo,
   type State,
   type StoreState,
   type ToolbarState,
@@ -71,11 +71,11 @@ const selectHidden = (params: KeyedSelectorParams): Hidden => {
 /** Selects the items of the plot that do not show. */
 export const useSelectHidden = createSelector(selectHidden);
 
-const selectSolo = (params: KeyedSelectorParams): Solo | null =>
-  selectState(params).solo;
+const selectIsolation = (params: KeyedSelectorParams): Isolation | null =>
+  selectState(params).isolation;
 
-/** Selects the item the user showed alone, if any. */
-export const useSelectSolo = createSelector(selectSolo);
+/** Selects the item the user isolated, if any. */
+export const useSelectIsolation = createSelector(selectIsolation);
 
 const selectMeasureMode = (params: KeyedSelectorParams): lineplot.measure.Mode =>
   selectState(params).measure.mode;

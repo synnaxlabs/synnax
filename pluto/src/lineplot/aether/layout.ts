@@ -297,21 +297,30 @@ export const collapse = (
   return result;
 };
 
+export interface ShownSpansProps {
+  /**
+   * A static window that ends after now runs. The plot instead counts a window as
+   * running while its channels stream, so this rule is an estimate of the plot.
+   */
+  now: TimeStamp;
+  /**
+   * The newest sample, where each dynamic window ends and a running window stops for
+   * laying out the gaps.
+   */
+  newest: TimeStamp;
+  /** The open breaks, as the lower bounds of their gaps. */
+  open?: readonly number[];
+}
+
 /**
  * @returns the spans of time that a plot of windows shows with its gaps collapsed, in
  * time order. Each span holds one or more windows, the margins and time between them,
  * and each open gap between them. The outer edges are the exact edges of the windows,
  * so the last span stays open when a window has no end.
- * @param now - a static window that ends after now runs, as the plot lays it out.
- * @param newest - the newest sample, where each dynamic window ends and a running
- * window stops for laying out the gaps.
- * @param open - the open breaks, as the lower bounds of their gaps.
  */
 export const shownSpans = (
   windows: Window[],
-  now: TimeStamp,
-  newest: TimeStamp,
-  open: readonly number[] = [],
+  { now, newest, open = [] }: ShownSpansProps,
 ): TimeRange[] => {
   const resolved = windows.map((w) => resolveWindow(w, newest));
   const traces = windows.map((w, i): line.DataBounds => {
