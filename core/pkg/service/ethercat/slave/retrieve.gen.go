@@ -59,6 +59,11 @@ func newIndexes() indexes {
 			Targets: func(e *Slave) []rack.Key {
 				return []rack.Key{e.Rack}
 			},
+			Retarget: func(e *Slave, from, to rack.Key) {
+				if e.Rack == from {
+					e.Rack = to
+				}
+			},
 		}),
 		master: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Slave, master.Key]{
 			Name:     "master",
@@ -67,6 +72,11 @@ func newIndexes() indexes {
 			Kind:     gorp.Place,
 			Targets: func(e *Slave) []master.Key {
 				return []master.Key{e.Master}
+			},
+			Retarget: func(e *Slave, from, to master.Key) {
+				if e.Master == from {
+					e.Master = to
+				}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Slave](
