@@ -192,7 +192,7 @@ inline Where Where::parse(x::json::Parser parser) {
         .not_ = parser.field<x::mem::indirect<Where>>("not"),
         .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
         .name = parser.field<std::optional<::x::filter::String>>("name"),
-        .serial = parser.field<std::optional<::x::filter::Ordered<std::uint32_t>>>(
+        .serial = parser.field<std::optional<::x::filter::Ordered<std::uint64_t>>>(
             "serial"
         ),
         .vendor_id = parser.field<std::optional<::x::filter::Ordered<std::uint32_t>>>(

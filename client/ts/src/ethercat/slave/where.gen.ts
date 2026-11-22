@@ -58,7 +58,7 @@ const inputs = {
   /** name selects by name. */
   name: filter.stringInputZ.exactOptional(),
   /** serial selects by serial. */
-  serial: filter.orderedInputZ(z.uint32()).exactOptional(),
+  serial: filter.orderedInputZ(z.uint64()).exactOptional(),
   /** vendorId selects by vendor_id. */
   vendorId: filter.orderedInputZ(z.uint32()).exactOptional(),
   /** productCode selects by product_code. */
