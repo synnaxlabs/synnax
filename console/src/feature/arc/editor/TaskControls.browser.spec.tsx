@@ -15,7 +15,7 @@ import {
 import { Arc } from "@synnaxlabs/pluto";
 import { crdt } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -72,8 +72,16 @@ const hoverRedeploy = async (): Promise<void> => {
 const searchAndClickRack = async (name: string): Promise<void> => {
   fireEvent.click(await findDialogTrigger());
   const search = await waitFor(() => screen.getByPlaceholderText("Search drivers..."));
+  const dialog = search.closest<HTMLElement>('[role="dialog"]');
+  if (dialog == null) throw new Error("no dialog holds the rack search");
   fireEvent.change(search, { target: { value: name } });
-  const option = await waitFor(() => screen.getByText(name));
+  // Until the search answers, the first page can show the row and then unmount it.
+  const option = await waitFor(() => {
+    const options = within(dialog).getAllByRole("option");
+    if (options.length !== 1 || options[0].textContent?.includes(name) !== true)
+      throw new Error(`the search for ${name} has not answered`);
+    return options[0];
+  });
   fireEvent.click(option);
 };
 
