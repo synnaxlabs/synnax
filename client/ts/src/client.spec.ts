@@ -448,10 +448,14 @@ describe("logout", () => {
     ["a password", { username: "synnax", password: "secret" }],
     ["an API key", { apiKey: "secret" }],
     ["a token", { token: "secret" }],
+    ["an OpenID Connect code", { oidc: { ...CODE, code: "secret" } }],
   ])("should keep no copy of %s on the client", async (_, given) => {
     const client = new Synnax({ host: "localhost", port: 9090, ...given });
     await client.auth.logout();
-    expect(Object.values(client.params)).not.toContain("secret");
+    const text = JSON.stringify(client.params, (_, v: unknown) =>
+      typeof v === "bigint" ? v.toString() : v,
+    );
+    expect(text).not.toContain("secret");
     await client.close();
   });
 });
