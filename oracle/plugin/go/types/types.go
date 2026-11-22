@@ -583,6 +583,7 @@ func (f *goFile) templateData(aliasOverrides map[string]string) *templateData {
 		AliasOverrides: aliasOverrides,
 	}
 	return &templateData{
+		patterns:   &[]patternVar{},
 		Package:    pkg,
 		OutputPath: f.outputPath,
 		Namespace:  namespace,
@@ -1219,9 +1220,14 @@ type templateData struct {
 	Namespace  string
 	repoRoot   string
 	Decls      []declData
-	// Patterns are the compiled regexes of the pattern checks, one per distinct regex.
-	Patterns []patternVar
+	// patterns holds the compiled regexes of the pattern checks, one per distinct
+	// regex.
+	// Copies of the data share it, since any of them can add a check.
+	patterns *[]patternVar
 }
+
+// Patterns returns the regex vars the file declares.
+func (d *templateData) Patterns() []patternVar { return *d.patterns }
 
 // patternVar is a package-level regex that pattern checks match against.
 type patternVar struct {
@@ -1235,13 +1241,13 @@ type patternVar struct {
 // file has none for it.
 func (d *templateData) patternVar(pattern string) string {
 	literal := strconv.Quote(pattern)
-	for _, p := range d.Patterns {
+	for _, p := range *d.patterns {
 		if p.Literal == literal {
 			return p.Name
 		}
 	}
-	name := "validatePattern" + strconv.Itoa(len(d.Patterns))
-	d.Patterns = append(d.Patterns, patternVar{Name: name, Literal: literal})
+	name := "validatePattern" + strconv.Itoa(len(*d.patterns))
+	*d.patterns = append(*d.patterns, patternVar{Name: name, Literal: literal})
 	return name
 }
 
