@@ -354,6 +354,8 @@ type partedRequest struct {
 func (*partedRequest) fail(error) {}
 
 func (r *partedRequest) run(s *State) {
+	// The swap changes the parts that a load pins, so it opens the count of publishes.
+	s.core.count.begin()
 	r.swap()
 	s.core.head = r.generation
 	changed := set.New[uint32]()
