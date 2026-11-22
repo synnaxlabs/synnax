@@ -13,6 +13,7 @@ import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
+import { recordColumn } from "@/framer/record";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 /** Fetches channel payloads. Missing channels are omitted, not thrown. */
@@ -158,6 +159,35 @@ export class WriteAdapter {
     return true;
   }
 
+  /**
+   * @returns the keys of the channels that the keys of a record name, by the same rule
+   * as a record frame.
+   * @throws {ValidationError} if a key names both a channel key and a channel name of
+   * the writer.
+   */
+  async adaptRecordKeys(keys: string[]): Promise<channel.Key[]> {
+    return await Promise.all(
+      keys.map(async (k) => await this.adaptToKey(this.recordKey(k))),
+    );
+  }
+
+  /**
+   * @returns the channel that a key of a record frame names. A record keys its columns
+   * by string, so a key of all digits is a channel key unless a channel of the writer
+   * holds it as a name.
+   * @throws {ValidationError} if the writer holds both a channel with that name and a
+   * channel with that key.
+   */
+  private recordKey(k: string): channel.Key | channel.Name {
+    const col = recordColumn(k);
+    if (typeof col === "string" || this.byName?.has(k) !== true) return col;
+    if (this.byKey.has(col))
+      throw new ValidationError(
+        `Record column "${k}" names both channel ${col} and the channel named "${k}"`,
+      );
+    return k;
+  }
+
   private async fetchChannel(
     ch: channel.Key | channel.Name | channel.Payload,
   ): Promise<channel.Payload> {
@@ -251,7 +281,7 @@ export class WriteAdapter {
     const kvs = Object.entries(columnsOrData);
     for (let i = 0; i < kvs.length; i++) {
       const [k, v] = kvs[i];
-      const pld = await this.fetchChannel(k);
+      const pld = await this.fetchChannel(this.recordKey(k));
       const s = new Series({ data: v, dataType: pld.dataType });
       cols.push(pld.key);
       data.push(s);
