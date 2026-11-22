@@ -593,8 +593,7 @@ export class Client extends query.Retriever<
    * name.
    * @returns The retrieved channel.
    * @throws {NotFoundError} if the channel does not exist in the cluster.
-   * @throws {MultipleFoundError} if several channels hold the name. Its message, from
-   * the Core, quotes the paths that the caller can see and counts the others.
+   * @throws {MultipleFoundError} if several channels hold the name.
    *
    * @example
    *
@@ -651,8 +650,7 @@ export class Client extends query.Retriever<
     if (isSingle && typeof lookups[0] === "number")
       return await super.retrieve({ key: lookups[0] });
     const where = lookupWhere(lookups);
-    // One lookup needs exactly one channel, so the Core refuses an ambiguous name.
-    const res = await super.retrieve({ where, strict: isSingle });
+    const res = await super.retrieve({ where });
     checkForMultipleOrNoResults("channel", { where }, res, isSingle);
     return isSingle ? res[0] : res;
   }
