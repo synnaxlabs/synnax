@@ -165,7 +165,7 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 		if err := v.Validate(); err != nil {
 			return err
 		}
-		return w.Update(ctx, key, func(d Device) (Device, error) {
+		return w.update(ctx, key, func(d Device) (Device, error) {
 			if err := refuseModelChange(d.Model(), v.Model); err != nil {
 				return Device{}, err
 			}
@@ -180,7 +180,7 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 		if err := v.Validate(); err != nil {
 			return err
 		}
-		return w.Update(ctx, key, func(d Device) (Device, error) {
+		return w.update(ctx, key, func(d Device) (Device, error) {
 			b := d.Base()
 			b.Name = v.Name
 			b.Identifier = v.Identifier
