@@ -1488,8 +1488,12 @@ describe("MQTT read form", () => {
           [createField("pressure", "float")],
           createKeyListedAt("01"),
         );
-        onTestFinished(async () => await client.icds.delete([shared.key, entry.icd]));
-        await renderRead({ entries: [entry] });
+        const { draft } = await renderRead({ entries: [entry] });
+        // The Core deletes no ICD that a task uses.
+        onTestFinished(async () => {
+          await client.tasks.delete(draft.key);
+          await client.icds.delete([shared.key, entry.icd]);
+        });
         await openTopic();
         fireEvent.click(await findDialogTriggerByText(TOPIC));
         const dialogs = await screen.findAllByRole("dialog");
