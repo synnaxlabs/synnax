@@ -51,7 +51,8 @@ type target interface {
 // a frame holds command i of each bound channel, and the last command of a channel with
 // fewer. A field with no command since the start sends its default. The target
 // publishes nothing until each field with no default has a command. A command that its
-// field cannot hold is dropped, and the field keeps its last command.
+// field cannot hold is dropped, and the field keeps its last good command. A document
+// goes out only for a row that holds a good command.
 type messageTarget struct {
 	topic    string
 	qos      byte
@@ -60,12 +61,10 @@ type messageTarget struct {
 	// channels holds the command channel of each binding.
 	channels channel.Keys
 	received []bool
-	// last holds the last command of each binding that received one.
+	// last holds the last good command of each binding that received one.
 	last [][]byte
 	// next holds the commands of the document to encode, nil for a binding with none.
 	next [][]byte
-	// spare holds a buffer for each binding to copy a new command into.
-	spare [][]byte
 	// rows holds the commands of each binding in one frame.
 	rows [][][]byte
 }
@@ -99,7 +98,6 @@ func newMessageTarget(
 		received: make([]bool, n),
 		last:     make([][]byte, n),
 		next:     make([][]byte, n),
-		spare:    make([][]byte, n),
 		rows:     make([][][]byte, n),
 	}
 	dataTypes := make(map[channel.Key]telem.DataType, n)
@@ -113,7 +111,7 @@ func newMessageTarget(
 		}
 		dataTypes[b.Channel] = ch.DataType
 		t.channels[i] = b.Channel
-		t.last[i], t.spare[i] = []byte{}, []byte{}
+		t.last[i] = []byte{}
 	}
 	if t.encoder, err = write.Encoder(target.Message, ic, dataTypes); err != nil {
 		return nil, errors.Wrap(err, path)
@@ -127,26 +125,29 @@ func (t *messageTarget) String() string { return "target " + t.topic }
 // reset implements target.
 func (t *messageTarget) reset() { clear(t.received) }
 
-// publications implements target.
+// publications implements target. It yields the error of each command that its field
+// cannot hold, then the document of the row.
 func (t *messageTarget) publications(fr framer.Frame) iter.Seq2[publication, error] {
 	return func(yield func(publication, error) bool) {
 		for row := range t.gather(fr) {
+			good := false
 			for b, rows := range t.rows {
-				t.next[b] = nil
-				if row < len(rows) {
-					t.next[b] = append(t.spare[b][:0], rows[row]...)
-				} else if t.received[b] {
-					t.next[b] = t.last[b]
+				if row >= len(rows) {
+					continue
 				}
+				if err := t.encoder.Check(b, rows[row]); err != nil {
+					if !yield(publication{}, err) {
+						return
+					}
+					continue
+				}
+				t.last[b] = append(t.last[b][:0], rows[row]...)
+				t.received[b], good = true, true
 			}
-			if !t.ready() {
-				t.commit(row)
+			if !good || !t.fill() {
 				continue
 			}
 			payload, err := t.encoder.Encode(nil, t.next)
-			if err == nil {
-				t.commit(row)
-			}
 			pub := publication{
 				topic: t.topic, payload: payload, qos: t.qos, retained: t.retained,
 			}
@@ -177,24 +178,19 @@ func (t *messageTarget) gather(fr framer.Frame) int {
 	return n
 }
 
-// ready reports whether next holds a command for each field with no default.
-func (t *messageTarget) ready() bool {
-	for b, command := range t.next {
-		if command == nil && !t.encoder.HasDefault(b) {
-			return false
+// fill fills next with the last good command of each binding, and reports whether each
+// field with no default has one.
+func (t *messageTarget) fill() bool {
+	ready := true
+	for b := range t.next {
+		t.next[b] = nil
+		if t.received[b] {
+			t.next[b] = t.last[b]
+		} else if !t.encoder.HasDefault(b) {
+			ready = false
 		}
 	}
-	return true
-}
-
-// commit makes the commands of row the last commands of their bindings.
-func (t *messageTarget) commit(row int) {
-	for b, rows := range t.rows {
-		if row < len(rows) {
-			t.last[b], t.spare[b] = t.next[b], t.last[b]
-			t.received[b] = true
-		}
-	}
+	return ready
 }
 
 // writeSink is the driver.Sink of an MQTT write task.
