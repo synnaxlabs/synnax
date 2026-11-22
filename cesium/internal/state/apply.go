@@ -343,6 +343,9 @@ func (c *core) replace(r *log.Replace) error {
 	case !copied(old.dur.pointers, r.Pointers):
 		return refuse("replace of segment %d, whose pointers differ from the copy",
 			r.Old)
+	case len(r.Pointers) == 0:
+		return refuse("replace of segment %d by %d, which holds no pointer", r.Old,
+			r.New)
 	case !rising(r.Pointers):
 		return refuse("replace of segment %d by %d, whose pointers overlap or fall "+
 			"out of stream order", r.Old, r.New)

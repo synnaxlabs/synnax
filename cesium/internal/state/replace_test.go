@@ -256,6 +256,23 @@ var _ = Describe("Rewrites", func() {
 	})
 })
 
+var _ = Describe("Replace of a segment with no pointer", func() {
+	It("Should refuse a Replace that holds no pointer", func() {
+		head := sample()
+		head.Channels[1].Segments[0].Sealed = true
+		head.Channels[1].Segments[0].Pointers = nil
+		s := MustSucceed(state.Open(config(&appended{}), head))
+		Expect(s.Replay(10, []log.Record{
+			&log.Create{Segment: 9, Key: 6, Clock: 5, Version: 1, DataType: 4},
+			&log.Replace{Old: 3, New: 9},
+		})).To(SatisfyAll(
+			MatchError(state.ErrRefused),
+			MatchError(ContainSubstring("replace of segment 3 by 9, which holds no "+
+				"pointer")),
+		))
+	})
+})
+
 var _ = Describe("Parted candidates", func() {
 	It("Should name a parted segment that a Tombstone puts back in the head, and "+
 		"name it to the next switch", func() {
