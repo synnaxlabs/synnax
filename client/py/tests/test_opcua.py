@@ -14,7 +14,6 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
-import synnax.opcua.server
 from tests.task_targets import TaskTargets
 
 
