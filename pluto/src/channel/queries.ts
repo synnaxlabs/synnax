@@ -96,6 +96,7 @@ export const ZERO_FORM_VALUES: z.infer<
   leaseholder: 0,
   virtual: false,
   expression: "",
+  calculated: false,
   concurrency: control.Concurrency.exclusive,
   operations: [ZERO_OPERATION],
 };
