@@ -93,7 +93,16 @@ receive before it answers, as an HTTP endpoint holds its request.
 
 A write task binds channels to fields. A field with no channel takes its `default` (a
 constant or a generator). The Core refuses to save a write task that leaves a field with
-no channel and no default.
+no channel and no default. When a write task is configured, the form creates a command
+channel for each binding that has none, from the binding's `data_type`, as read forms
+do.
+
+An ICD edit can break a saved write task: a field with no channel and no default, a
+binding to a deleted field, or a target whose message was deleted. The task keeps the
+message it was configured with until Redeploy. On Redeploy and at each Core start, the
+configure fails with the status "Failed to configure task" and a description that names
+the field and the fix, and the task sends nothing. The ICD shows no warning, because the
+Redeploy prompt is the signal. Every write integration follows this rule.
 
 The task service hashes each record a task references (`HashReferences` and
 `HashedTables` in `core/pkg/service/task/config/config.go`). An ICD write changes the
