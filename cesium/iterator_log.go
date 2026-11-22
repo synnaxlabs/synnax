@@ -35,21 +35,24 @@ type logView struct {
 	ch, clocks *state.Channel
 	loaded     bool
 	// pinned holds the segments of the last load, which the view pins until the next
-	// load or the Close of the data cursor.
-	pinned []uint64
+	// load or the Close of the data cursor. spare is the array that the next load
+	// fills.
+	pinned, spare []uint64
 	// err holds the error of an unlink after an unpin of a load, which Close returns.
 	err error
 }
 
 func (v *logView) load() {
-	ch, clocks, pinned, err := v.e.loadView(v.key, v.clock, v.pinned)
-	v.ch, v.clocks, v.pinned, v.loaded = ch, clocks, pinned, true
+	ch, clocks, pinned, err := v.e.loadView(v.key, v.clock, v.pinned, v.spare)
+	v.ch, v.clocks, v.loaded = ch, clocks, true
+	v.pinned, v.spare = pinned, v.pinned[:0]
 	v.err = errors.Join(v.err, err)
 }
 
 func (v *logView) close() error {
 	err := errors.Join(v.err, v.e.unpin(v.pinned))
-	v.ch, v.clocks, v.pinned, v.err, v.loaded = nil, nil, nil, nil, false
+	v.ch, v.clocks, v.err, v.loaded = nil, nil, nil, false
+	v.pinned, v.spare = v.pinned[:0], v.spare[:0]
 	return err
 }
 

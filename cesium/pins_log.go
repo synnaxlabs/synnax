@@ -28,10 +28,11 @@ type pins struct {
 // loadView returns the visible Channels of key and of its clock from one step of the
 // state, and pins each of their segments under the same lock that release takes, so
 // release never unlinks a segment that a Channel it returned still names. It unpins
-// held, the segments of an earlier load, and returns the segments it pinned.
+// held, the segments of an earlier load, and returns the segments it pinned, in buf
+// when it has room. buf must not share an array with held.
 func (e *engine) loadView(
 	key, clock ChannelKey,
-	held []uint64,
+	held, buf []uint64,
 ) (ch, clocks *state.Channel, ids []uint64, err error) {
 	for {
 		var count uint64
@@ -44,13 +45,32 @@ func (e *engine) loadView(
 		}
 		e.pins.mu.Unlock()
 	}
-	for _, c := range []*state.Channel{ch, clocks} {
-		if c == nil || (c == clocks && clock == key) {
-			continue
-		}
-		for _, seg := range c.Segments {
+	if clock == key {
+		clocks = nil
+	}
+	n := 0
+	if ch != nil {
+		n += len(ch.Segments)
+	}
+	if clocks != nil {
+		n += len(clocks.Segments)
+	}
+	ids = buf[:0]
+	if cap(ids) < n {
+		ids = make([]uint64, 0, n)
+	}
+	if ch != nil {
+		for _, seg := range ch.Segments {
 			ids = append(ids, seg.ID)
 		}
+	}
+	if clocks != nil {
+		for _, seg := range clocks.Segments {
+			ids = append(ids, seg.ID)
+		}
+	}
+	if clock == key {
+		clocks = ch
 	}
 	e.pins.pin(ids)
 	free := e.pins.unpin(held)
