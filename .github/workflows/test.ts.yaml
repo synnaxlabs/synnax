@@ -380,6 +380,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/diagnostics"
           if [ "$RUNNER_OS" = Linux ] && docker inspect synnax &> /dev/null; then
             docker logs synnax &> "$RUNNER_TEMP/diagnostics/core.log"
+            # The tail in the job output shows the Core side of a failure without the
+            # artifact.
+            tail -n 2000 "$RUNNER_TEMP/diagnostics/core.log"
           fi
           if [ -d "$ATTACHMENTS" ]; then
             cp -R "$ATTACHMENTS" "$RUNNER_TEMP/diagnostics/attachments"

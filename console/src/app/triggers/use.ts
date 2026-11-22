@@ -107,13 +107,16 @@ export const use = (): void => {
       }
       const panelKey = getSelectedPanel();
       const focused = getFocusedTab();
-      if (canEditPanel && panelKey != null && focused != null) {
-        if (getIsOverlaid()) sessionDispatch(Session.Panel.stopOverlaying({}));
-        dispatch({
-          key: panelKey,
-          actions: [panel.removeTab({ key: focused })],
-        });
-        return;
+      if (panelKey != null && focused != null) {
+        if (canEditPanel == null) return;
+        if (canEditPanel) {
+          if (getIsOverlaid()) sessionDispatch(Session.Panel.stopOverlaying({}));
+          dispatch({
+            key: panelKey,
+            actions: [panel.removeTab({ key: focused })],
+          });
+          return;
+        }
       }
       // A page cannot close the tab that holds it.
       if (Session.Runtime.ENGINE !== "tauri") return;

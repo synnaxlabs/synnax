@@ -889,12 +889,41 @@ says why in a sentence, then gives the raw error.
   the plot shows that zoom, the item reads "Zoom out". The tooltip hides while the menu
   is open.
 
+### Plot breaks
+
+- On an absolute time x1 axis, each gap between ranges, past a margin on each side,
+  collapses into a seam. An x2 axis always shows true time, as the axes share one view.
+  A seam draws a 12 px grey band through the plot and the range strip, with dashed
+  edges, and a `//` centered in a gap in the axis line.
+- All segments share one tick interval. In each segment, the first tick whose full label
+  fits is an anchor with the date and time: "Nov 18 14:31". No label comes before the
+  anchor of its segment, and no label overlaps a seam or an anchor.
+- A range bar that crosses a seam draws on each side, cut at the seam with the fade of
+  the plot edge. A range wholly inside a collapsed gap draws nothing.
+- A click on a band, or on its `//` on the axis, opens the break in every plot mode. An
+  open gap keeps a faint `//` at its middle, and a click on it closes the gap. A click
+  on the plot never closes a gap, so a click on data stays a click on data.
+- When a break opens or closes, the times at the edges of the view stay in view. The
+  zoom history and the selection keep their times too.
+- The plot menu holds "Open all breaks" while a break is closed, and "Close all breaks"
+  while one is open. Reset zoom closes all breaks. The Session stores the open breaks
+  with the view, so a reload shows the same times.
+- A toggle in the plot controls hides and shows the breaks. Hidden breaks show the plot
+  in true time. The toggle resets the zoom, and it shows while the plot has a break,
+  shown or hidden. The Session stores whether the breaks hide.
+- Over a band, the tooltip lists the hidden time ("Hidden", "From", "To") and "Click to
+  show". Over a segment, it lists only the lines of that segment.
+- A measure across a closed break keeps the true ΔX and ΔY and marks ΔX with `//`. It
+  draws no oblique line and no slope, as no line joins data across a break.
+- A select drag stops at the seams of the segment where it starts. A zoom box crosses
+  seams. To select across a gap, open its break.
+
 ### Plot controls
 
 - The controls on a plot hold tools for reading it: zoom, pan, select, reset zoom,
-  tooltip, the range strip, measure, and hold. Each is state of the window, never saved
-  with the plot. A setting saved with the plot goes in the toolbar, even when it changes
-  what the plot shows, such as the time mode.
+  tooltip, the range strip, the breaks toggle, measure, and hold. Each is state of the
+  window, never saved with the plot. A setting saved with the plot goes in the toolbar,
+  even when it changes what the plot shows, such as the time mode.
 
 ### Plot range select
 

@@ -442,7 +442,8 @@ var _ = Describe("ScanTask", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
-					g.Expect(stat.Message).To(Equal("broker refused the subscription"))
+					g.Expect(stat.Description).
+						To(Equal("broker refused the subscription"))
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-3"))
 				}).Should(Succeed())
 			},
@@ -544,7 +545,7 @@ var _ = Describe("ScanTask", func() {
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx)
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
-					g.Expect(stat.Message).To(Equal("context deadline exceeded"))
+					g.Expect(stat.Description).To(Equal("context deadline exceeded"))
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-9"))
 				}).Should(Succeed())
 			},

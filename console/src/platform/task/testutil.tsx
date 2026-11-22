@@ -24,7 +24,7 @@ import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import type { Status } from "@synnaxlabs/lyra/status";
-import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { Errors, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, sync, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
@@ -42,12 +42,12 @@ import {
   type ReactElement,
   useImperativeHandle,
 } from "react";
-import { expect, onTestFailed, onTestFinished, TestRunner } from "vitest";
+import { beforeAll, expect, onTestFailed, onTestFinished, TestRunner } from "vitest";
 import type { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
-import type { FormTabProps } from "@/platform/task/Form";
+import type { Forms, FormTabProps } from "@/platform/task/Form";
 import type { PlotChannels } from "@/platform/task/plot";
 import { type Registry, RegistryProvider } from "@/platform/task/registry";
 import type { CreateParams, UseCreate } from "@/platform/task/useCreate";
@@ -542,6 +542,29 @@ const renderTaskFormTabSteps = async (
   );
   return { ...result, ...created, store, tabKey: tab.key };
 };
+
+// The default fallback resolves source maps, which outlasts the warm-up.
+const NoFallback = (): null => null;
+
+/**
+ * Loads the modules of a domain's lazy task forms before the specs of a file run, so a
+ * cold load counts against the hook timeout and not the first spec that renders a form.
+ */
+export const preloadForms = (forms: Forms): void =>
+  beforeAll(async () => {
+    // The forms render outside a panel tab, so each one fails once its module loads.
+    const { unmount } = await renderLazy(
+      <>
+        {Object.entries(forms).map(([type, Form]) => (
+          <Errors.Boundary key={type} FallbackComponent={NoFallback}>
+            <Form taskKey="" />
+          </Errors.Boundary>
+        ))}
+      </>,
+      { onCaughtError: () => {} },
+    );
+    unmount();
+  });
 
 /**
  * Waits for a wrapForm task form to leave preview mode. The form renders read-only

@@ -22,8 +22,12 @@ class Limits:
     min_wait_ms: int
     #: The limit on the median error of a wait, in percent of the wait.
     max_error_percent: float
-    #: The limit in ms on the span from the shortest to the longest held time of a wait.
+    #: The limit in ms on the spread of a wait: the span from its shortest held time to
+    #: the ``spread_percentile`` of its held times.
     max_spread_ms: float
+    #: The percentile of held times the spread runs to. An OS that is not real-time can
+    #: hold any one wake late for its other threads, so only a real-time OS uses 100.
+    spread_percentile: float = 90.0
 
 
 # Each limit is the worst value measured at the shortest wait plus a margin.
@@ -34,7 +38,12 @@ LIMITS: dict[str, dict[str, Limits]] = {
         "Darwin": Limits(min_wait_ms=1, max_error_percent=2.5, max_spread_ms=1.5),
         "Windows": Limits(min_wait_ms=5, max_error_percent=0.5, max_spread_ms=0.1),
         # The cRIO-9041 of the HITL station: at worst 1.2% late, with a 0.032 ms spread.
-        "NI Linux RT": Limits(min_wait_ms=1, max_error_percent=2.0, max_spread_ms=0.1),
+        "NI Linux RT": Limits(
+            min_wait_ms=1,
+            max_error_percent=2.0,
+            max_spread_ms=0.1,
+            spread_percentile=100.0,
+        ),
     },
     "Go": {
         "Linux": Limits(min_wait_ms=1, max_error_percent=8.0, max_spread_ms=0.3),

@@ -23,7 +23,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -31,6 +31,7 @@ import { aetherTest } from "@/aether/testutil";
 import { LinePlot } from "@/lineplot/aether/LinePlot";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
+import { measure } from "@/lineplot/measure/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
@@ -275,6 +276,422 @@ describe("LinePlot with a tooltip", () => {
       .map((c) => String(c.args[0]));
     expect(texts).toContain("10");
     expect(texts).not.toContain("7");
+  });
+});
+
+describe("LinePlot getXBounds", () => {
+  const teardowns: (() => void)[] = [];
+  afterEach(() => {
+    for (const teardown of teardowns) teardown();
+    teardowns.length = 0;
+  });
+
+  it("should give the values that positions across the home view hold", () => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.construct(0.5, 0, 0.5, 1),
+      grid: {},
+    });
+    stack.driver.update([...base, "x1"], XAxis.TYPE, {
+      location: "bottom",
+      autoBoundPadding: 0,
+    });
+    stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
+    stack.driver.update([...base, "x1", "y1", "l1"], line.Line.TYPE, {
+      x: seriesSpec([0, 1000]),
+      y: seriesSpec([0, 1]),
+      color: "#ff0000",
+    });
+    renderPlot(recorder);
+    const plot = stack.driver.find<LinePlot>(base);
+    expect(plot.getXBounds({ lower: 0.25, upper: 0.5 })).toEqual({
+      x1: { lower: 250, upper: 500 },
+    });
+    expect(plot.getXPositions({ lower: 250, upper: 500 })).toEqual({
+      x1: { lower: 0.25, upper: 0.5 },
+    });
+  });
+});
+
+describe("LinePlot breaks", () => {
+  const teardowns: (() => void)[] = [];
+  afterEach(() => {
+    for (const teardown of teardowns) teardown();
+    teardowns.length = 0;
+  });
+
+  // mount mounts a plot of two minutes a day apart, whose gap collapses into a break
+  // at the middle of the plot.
+  const mount = () => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+        [tooltip.Tooltip.TYPE]: tooltip.Tooltip,
+        [measure.Measure.TYPE]: measure.Measure,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    const setOpenBreaks = (openBreaks: number[]): void =>
+      stack.driver.update(base, LinePlot.TYPE, {
+        container: box.construct(0, 0, 1000, 500),
+        viewport: box.DECIMAL,
+        grid: {},
+        openBreaks,
+      });
+    setOpenBreaks([]);
+    stack.driver.update([...base, "x1"], XAxis.TYPE, {
+      location: "bottom",
+      type: "time",
+      autoBoundPadding: 0,
+    });
+    stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
+    const minute = Number(TimeSpan.MINUTE.valueOf());
+    const day = Number(TimeSpan.DAY.valueOf());
+    [0, day].forEach((start, i) =>
+      stack.driver.update([...base, "x1", "y1", `l${i}`], line.Line.TYPE, {
+        x: seriesSpec([start, start + minute]),
+        y: seriesSpec([0, 1]),
+        color: "#ff0000",
+      }),
+    );
+    const plot = stack.driver.find<LinePlot>(base);
+    renderPlot(recorder);
+    const texts = (): string[] =>
+      recorder.upper2d.calls
+        .filter((c) => c.op === "fillText")
+        .map((c) => String(c.args[0]));
+    const lines = (): number =>
+      recorder.upper2d.calls.filter((c) => c.op === "lineTo").length;
+    const update = (key: string, type: string, state: Record<string, unknown>) => {
+      recorder.upper2d.calls.length = 0;
+      stack.driver.update([...base, key], type, state);
+      renderPlot(recorder);
+    };
+    return { plot, recorder, stack, base, setOpenBreaks, texts, lines, update };
+  };
+
+  it("should count the open and closed breaks of its first x axis", () => {
+    const { plot, recorder, setOpenBreaks } = mount();
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 1 });
+    const change = plot.getBreakChange({
+      action: { variant: "all", open: true },
+      viewport: box.DECIMAL,
+      held: [],
+      selection: box.ZERO,
+    });
+    setOpenBreaks(change?.openBreaks ?? []);
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 1, closed: 0 });
+  });
+
+  it("should count the breaks of its first x axis while they are hidden", () => {
+    const { plot, recorder, stack, base } = mount();
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+      breaksHidden: true,
+    });
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 1 });
+  });
+
+  it("should count no hidden breaks while the x source of x1 fails", () => {
+    const { plot, recorder, stack, base } = mount();
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+      breaksHidden: true,
+    });
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 1 });
+    const failed = vi.spyOn(line.Line.prototype, "xBounds").mockImplementation(() => {
+      throw new Error("x source failed");
+    });
+    teardowns.push(() => failed.mockRestore());
+    stack.driver.update(base, LinePlot.TYPE, { ...plot.state });
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 0 });
+  });
+
+  it("should not count a hidden break outside the manual bounds of x1", () => {
+    const { plot, recorder, stack, base } = mount();
+    stack.driver.update([...base, "x1"], XAxis.TYPE, {
+      location: "bottom",
+      type: "time",
+      autoBoundPadding: 0,
+      bounds: { lower: 0, upper: Number(TimeSpan.MINUTE.valueOf()) * 2 },
+      manualBounds: { lower: true, upper: true },
+    });
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+      breaksHidden: true,
+    });
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 0 });
+  });
+
+  it("should give the seams of its first x axis across the home view", () => {
+    const { plot } = mount();
+    const seams = plot.getSeams();
+    expect(seams).toHaveLength(1);
+    expect(seams[0]).toBeCloseTo(0.5, 2);
+  });
+
+  it("should list the time that a break hides under the tooltip", () => {
+    const { texts, update } = mount();
+    update("tooltip", tooltip.Tooltip.TYPE, { position: { x: 500, y: 250 } });
+    expect(texts()).toContain("Hidden");
+    update("tooltip", tooltip.Tooltip.TYPE, { position: { x: 250, y: 250 } });
+    expect(texts()).not.toContain("Hidden");
+  });
+
+  it("should not join two measured points across a closed break", () => {
+    const { lines, update } = mount();
+    const measureAt = (two: number): number => {
+      update("measure", measure.Measure.TYPE, {
+        one: { x: 100, y: 250 },
+        two: { x: two, y: 250 },
+        hover: null,
+      });
+      return lines();
+    };
+    expect(measureAt(900)).toEqual(measureAt(400) - 1);
+  });
+
+  it("should join two measured points of an x axis after the first", () => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+        [measure.Measure.TYPE]: measure.Measure,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+    });
+    const minute = Number(TimeSpan.MINUTE.valueOf());
+    const day = Number(TimeSpan.DAY.valueOf());
+    const axis = (axisKey: string, yAxisKey: string) => {
+      stack.driver.update([...base, axisKey], XAxis.TYPE, {
+        axisKey,
+        location: axisKey === "x1" ? "bottom" : "top",
+        type: "time",
+        autoBoundPadding: 0,
+      });
+      stack.driver.update([...base, axisKey, yAxisKey], YAxis.TYPE, {
+        location: "left",
+      });
+    };
+    // x1 collapses the day between its two lines. The flat line of x2 spans that day,
+    // so the measure finds its points at the middle of the plot.
+    axis("x1", "y1");
+    [0, day].forEach((start, i) =>
+      stack.driver.update([...base, "x1", "y1", `l${i}`], line.Line.TYPE, {
+        x: seriesSpec([start, start + minute]),
+        y: seriesSpec([0, 2]),
+        color: "#ff0000",
+      }),
+    );
+    axis("x2", "y2");
+    const end = day + minute;
+    stack.driver.update([...base, "x2", "y2", "l"], line.Line.TYPE, {
+      x: seriesSpec([0, end]),
+      y: seriesSpec([1, 1]),
+      color: "#0000ff",
+    });
+    renderPlot(recorder);
+    recorder.upper2d.calls.length = 0;
+    stack.driver.update([...base, "measure"], measure.Measure.TYPE, {
+      one: { x: 1, y: 250 },
+      two: { x: 999, y: 250 },
+      hover: null,
+    });
+    renderPlot(recorder);
+    const texts = recorder.upper2d.calls
+      .filter((c) => c.op === "fillText")
+      .map((c) => String(c.args[0]));
+    expect(texts).toContain("ΔX");
+    expect(texts.filter((t) => t.endsWith(" //"))).toEqual([]);
+  });
+
+  it("should count no breaks while the x source of x1 fails", () => {
+    const { plot, recorder, setOpenBreaks } = mount();
+    const failed = vi.spyOn(line.Line.prototype, "xBounds").mockImplementation(() => {
+      throw new Error("x source failed");
+    });
+    teardowns.push(() => failed.mockRestore());
+    setOpenBreaks([]);
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 0 });
+  });
+
+  it("should lay out every x axis after the first in true time", () => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+    });
+    const minute = Number(TimeSpan.MINUTE.valueOf());
+    const day = Number(TimeSpan.DAY.valueOf());
+    ["x1", "x2"].forEach((axisKey) => {
+      stack.driver.update([...base, axisKey], XAxis.TYPE, {
+        axisKey,
+        location: axisKey === "x1" ? "bottom" : "top",
+        type: "time",
+        autoBoundPadding: 0,
+      });
+      stack.driver.update([...base, axisKey, "y1"], YAxis.TYPE, { location: "left" });
+      [0, day].forEach((start, i) =>
+        stack.driver.update([...base, axisKey, "y1", `l${i}`], line.Line.TYPE, {
+          x: seriesSpec([start, start + minute]),
+          y: seriesSpec([0, 1]),
+          color: "#ff0000",
+        }),
+      );
+    });
+    renderPlot(recorder);
+    const plot = stack.driver.find<LinePlot>(base);
+    const { x1, x2 } = plot.getXBounds({ lower: 0.25, upper: 0.25 });
+    expect(x1.lower).toBeLessThan(minute);
+    expect(x2.lower).toBeCloseTo((day + minute) / 4, -6);
+  });
+});
+
+describe("LinePlot trace spans", () => {
+  const teardowns: (() => void)[] = [];
+  afterEach(() => {
+    for (const teardown of teardowns) teardown();
+    teardowns.length = 0;
+  });
+
+  // mount mounts two lines of one group on x1, with samples from 0 to 10 and from 20
+  // to 30.
+  const mount = (type: "time" | "relative"): XAxis => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+    });
+    stack.driver.update([...base, "x1"], XAxis.TYPE, {
+      location: "bottom",
+      type,
+      autoBoundPadding: 0,
+    });
+    stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
+    [0, 20].forEach((start, i) =>
+      stack.driver.update([...base, "x1", "y1", `l${i}`], line.Line.TYPE, {
+        x: seriesSpec([start, start + 10]),
+        y: seriesSpec([i, i + 1]),
+        color: "#ff0000",
+        group: "g",
+      }),
+    );
+    renderPlot(recorder);
+    return stack.driver.find<XAxis>([...base, "x1"]);
+  };
+
+  const PROPS = {
+    grid: {},
+    plot: box.construct(0, 0, 1000, 500),
+    container: box.construct(0, 0, 1000, 500),
+    viewport: box.DECIMAL,
+    hold: false,
+    breaksHidden: true,
+    openBreaks: [],
+  };
+
+  it("should give each line of a group its own half of a time axis", () => {
+    const layout = mount("time").layout(PROPS);
+    expect(layout.span("l0")).toEqual({ lower: -Infinity, upper: 15 });
+    expect(layout.span("l1")).toEqual({ lower: 15, upper: Infinity });
+  });
+
+  it("should find a value only in the line that owns the time", () => {
+    const found = mount("time")
+      .findByXValue(PROPS, 25)
+      .filter((r) => Number.isFinite(r.value.y));
+    expect(found.map((r) => r.key)).toEqual(["l1"]);
+  });
+
+  it("should give each line its window with a margin on a relative axis", () => {
+    const layout = mount("relative").layout(PROPS);
+    const second = Number(TimeSpan.SECOND.valueOf());
+    expect(layout.span("l0")).toEqual({ lower: -second, upper: 10 + second });
+    expect(layout.span("l1")).toEqual({ lower: 20 - second, upper: 30 + second });
   });
 });
 

@@ -30,7 +30,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
-import { createRunningRack } from "@/platform/device/testutil";
+import { createRunningRack, pickDevice } from "@/platform/device/testutil";
 import { renderModalOpener } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
@@ -47,10 +47,7 @@ const createRange = async () =>
 // The device list pages, so a search finds the device however many the Core holds.
 const selectDevice = async (name: string) => {
   fireEvent.click(await findDialogTriggerByText("Select connection"));
-  fireEvent.change(await screen.findByPlaceholderText("Search connections..."), {
-    target: { value: name },
-  });
-  fireEvent.click(await screen.findByText(name));
+  await pickDevice(name, "Search connections...");
 };
 
 const clickUpload = () =>
@@ -184,10 +181,7 @@ describe("Sift.Range.useUploadModal", () => {
       data: { assets: ["pad"], last: "pad" },
     });
     fireEvent.click(await findDialogTriggerByText(first.name));
-    fireEvent.change(await screen.findByPlaceholderText("Search connections..."), {
-      target: { value: second.name },
-    });
-    fireEvent.click(await screen.findByText(second.name));
+    await pickDevice(second.name, "Search connections...");
     await listedSecond;
     expect(await findDialogTriggerByText("pad")).toBeTruthy();
     expect(screen.queryByText("stand")).toBeNull();
@@ -220,10 +214,7 @@ describe("Sift.Range.useUploadModal", () => {
       message: "Sift is unreachable",
     });
     fireEvent.click(await findDialogTriggerByText(first.name));
-    fireEvent.change(await screen.findByPlaceholderText("Search connections..."), {
-      target: { value: second.name },
-    });
-    fireEvent.click(await screen.findByText(second.name));
+    await pickDevice(second.name, "Search connections...");
     await listedSecond;
     await waitFor(() =>
       expect(statuses.map((s) => s.message)).toContain("Failed to list Sift assets"),

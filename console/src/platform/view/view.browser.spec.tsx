@@ -24,7 +24,11 @@ import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { createTestRange } from "@/platform/range/testutil";
 import { View } from "@/platform/view";
-import { createTabWrapper, type TabWrapper } from "@/platform/view/testutil";
+import {
+  createTabWrapper,
+  findViewTab,
+  type TabWrapper,
+} from "@/platform/view/testutil";
 import { Session } from "@/session";
 import {
   awaitTextEditing,
@@ -32,6 +36,7 @@ import {
   commitTextEdit,
   countEditableText,
   createTestClientWithGrants,
+  createTestClientWithHeldGrants,
   getBySelector,
   getIconButton,
   type Grants,
@@ -123,15 +128,6 @@ const renderHarness = async (
   return wrapped;
 };
 
-/**
- * Clicks the chip of the view with the name. Waits first for the create button, which
- * shows that the policies of a subject who may create views have loaded.
- */
-const clickView = async (name: string): Promise<void> => {
-  await waitFor(() => getIconButton(getViews(), "add"));
-  fireEvent.click(await screen.findByRole("tab", { name }));
-};
-
 /** Opens the create view modal. @returns its name input. */
 const openCreateModal = async (): Promise<HTMLInputElement> => {
   const add = await waitFor(() => getIconButton(getViews(), "add"));
@@ -196,7 +192,7 @@ describe("View", () => {
   it("moves the selection to a view whose tab is clicked", async () => {
     const saved = await createView();
     await renderHarness();
-    await clickView(saved.name);
+    fireEvent.click(await findViewTab(saved.name));
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));
   });
 
@@ -323,7 +319,7 @@ describe("View", () => {
       await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
     fireEvent.change(input, { target: { value: "alpha" } });
     expect(input.value).toBe("alpha");
-    await clickView(saved.name);
+    fireEvent.click(await findViewTab(saved.name));
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));
     expect(
       screen.getByPlaceholderText<HTMLInputElement>("Search ranges...").value,
@@ -396,7 +392,7 @@ describe("View open in a tab", () => {
   it("stores a view opened from the strip in its tab", async () => {
     const saved = await createView();
     const wrapped = await renderHarness();
-    await clickView(saved.name);
+    fireEvent.click(await findViewTab(saved.name));
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));
     await waitFor(async () =>
       expect(await retrieveTab(wrapped)).toEqual({
@@ -410,7 +406,7 @@ describe("View open in a tab", () => {
   it("stores the static view in its tab when it opens again", async () => {
     const saved = await createView();
     const wrapped = await renderHarness(client, showing(saved));
-    await clickView("All ranges");
+    fireEvent.click(await findViewTab("All ranges"));
     await waitFor(() => expect(selectedViewName()).toBe("All ranges"));
     await waitFor(async () =>
       expect(await retrieveTab(wrapped)).toEqual({
@@ -427,7 +423,7 @@ describe("View open in a tab", () => {
     const wrapped = await renderHarness(client, EXPLORER, [
       { ...showing(saved), key: other },
     ]);
-    await clickView(saved.name);
+    fireEvent.click(await findViewTab(saved.name));
     await waitFor(() =>
       expect(
         Session.Panel.selectSelectedTabs(wrapped.store.getState(), wrapped.panelKey),
@@ -441,6 +437,27 @@ describe("View open in a tab", () => {
     });
   });
 
+  it("disables a view's tab until the grant to open it loads", async () => {
+    const saved = await createView();
+    const { client: subject, release } = await createTestClientWithHeldGrants(client, {
+      retrieve: [
+        ranger.TYPE_RESOURCE_ID,
+        view.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
+      ],
+      update: [panel.TYPE_RESOURCE_ID],
+    });
+    await renderHarness(subject);
+    const tab = await screen.findByRole("tab", { name: saved.name });
+    expect(tab.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(tab);
+    await act(async () => {});
+    expect(selectedViewName()).toBe("All ranges");
+    release();
+    fireEvent.click(await findViewTab(saved.name));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+  });
+
   it("keeps the view of a subject who may not change the panel", async () => {
     const saved = await createView();
     const subject = await createTestClientWithGrants(client, {
@@ -451,7 +468,8 @@ describe("View open in a tab", () => {
       ],
     });
     const wrapped = await renderHarness(subject);
-    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    // A denial leaves the tab enabled, and its click keeps the view.
+    fireEvent.click(await findViewTab(saved.name));
     await act(async () => {});
     expect(selectedViewName()).toBe("All ranges");
     expect(await retrieveTab(wrapped)).toEqual({
@@ -491,10 +509,7 @@ describe("View open in a new tab", () => {
   it("opens a view in a new tab on a Cmd+click", async () => {
     const saved = await createView();
     const wrapped = await renderHarness();
-    await waitFor(() => getIconButton(getViews(), "add"));
-    fireEvent.click(await screen.findByRole("tab", { name: saved.name }), {
-      metaKey: true,
-    });
+    fireEvent.click(await findViewTab(saved.name), { metaKey: true });
     expect(await waitForNewTab(wrapped)).toMatchObject(showing(saved));
     expect(selectedViewName()).toBe("All ranges");
   });
