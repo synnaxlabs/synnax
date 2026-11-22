@@ -76,6 +76,7 @@ const Delete = ({
   const busy = removeVariant === "loading" || replaceVariant === "loading";
   Modals.useBusy(busy);
   const failed = removeVariant === "error" || replaceVariant === "error";
+  // A refused action shows the live result again, but not while it reloads.
   const res = held == null || (failed && live.variant !== "loading") ? live : held;
   const users = res.data?.uses ?? NO_USERS;
   const inUse = users.length > 0;
