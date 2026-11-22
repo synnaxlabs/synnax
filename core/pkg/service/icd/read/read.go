@@ -117,12 +117,10 @@ func (r Resolver) Hash(
 	if len(reads) == 0 {
 		return nil
 	}
+	keys := lo.Uniq(lo.Map(reads, func(rd Read, _ int) icd.Key { return rd.ICD }))
 	var found []icd.ICD
 	if err := r.icds.NewRetrieve().
-		Where(icd.MatchKeys(lo.Uniq(lo.Map(
-			reads,
-			func(rd Read, _ int) icd.Key { return rd.ICD },
-		))...)).
+		Where(icd.MatchKeys(keys...)).
 		Entries(&found).
 		Exec(ctx, snap); err != nil {
 		return err
