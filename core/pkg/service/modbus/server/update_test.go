@@ -104,6 +104,34 @@ var _ = Describe("Update", func() {
 		)).To(MatchError(ContainSubstring("msgpack")))
 	})
 
+	It("Should apply the identity defaults that msgpack leaves out", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{
+			"group": "identity",
+			"rack":  1,
+			"name":  "Boiler PLC",
+			"connection": map[string]any{
+				"transport": "tcp",
+				"host":      "plc",
+				"port":      502,
+			},
+		}))
+		var got server.Update
+		Expect(msgpack.Unmarshal(raw, &got)).To(Succeed())
+		expected := server.Identity{
+			Rack: 1,
+			Name: "Boiler PLC",
+			Connection: server.Connection{Variant: server.TcpConnection{
+				TimeoutMs: 1000,
+				Retries:   1,
+				Host:      "plc",
+				Port:      502,
+				UnitID:    255,
+			}},
+			Requests: requests(),
+		}
+		Expect(got.Variant).To(Equal(server.IdentityUpdate{Identity: expected}))
+	})
+
 	It("Should reject an unknown group", func() {
 		raw := MustSucceed(msgpack.Marshal(map[string]any{"group": "other"}))
 		var got server.Update
