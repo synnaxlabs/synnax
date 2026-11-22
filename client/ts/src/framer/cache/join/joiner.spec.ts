@@ -12,11 +12,10 @@ import { type breaker, Rate, Size, sleep, TimeSpan, TimeStamp } from "@synnaxlab
 import { describe, expect, it } from "vitest";
 
 import type { channel } from "@/channel";
-import { rawIndex } from "@/framer/cache/block";
-import { Joins } from "@/framer/cache/join";
-import { Joiner } from "@/framer/cache/joiner";
+import { block } from "@/framer/cache/block";
+import { join as cacheJoin } from "@/framer/cache/join";
 import { Reader, type RemoteReader } from "@/framer/cache/reader";
-import { Store } from "@/framer/cache/store";
+import { store as cacheStore } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { UnsupportedError } from "@/index";
 import { SyntheticCore, type SyntheticCoreProps } from "@/testutil";
@@ -51,8 +50,8 @@ const createJoiner = (
     budget,
   }: JoinerOptions = {},
 ) => {
-  const store = new Store({ now: core.now, budget });
-  const joins = new Joins(store);
+  const store = new cacheStore.Store({ now: core.now, budget });
+  const joins = new cacheJoin.Joins(store);
   const reader = new Reader({
     readRemote,
     retrieveChannels: core.retrieveChannels,
@@ -68,7 +67,13 @@ const createJoiner = (
     removalDelay: TimeSpan.ZERO,
     breaker,
   });
-  const joiner = new Joiner({ joins, reader, streamer, now: core.now, breaker });
+  const joiner = new cacheJoin.Joiner({
+    joins,
+    reader,
+    streamer,
+    now: core.now,
+    breaker,
+  });
   // Streams the channel with its index and joins them, as a subscription does.
   const join = (
     ch: channel.Key,
@@ -100,12 +105,12 @@ const tick = (core: SyntheticCore): (() => void) => {
 };
 
 // Pins the channel's raw block of the Core's clock, as a subscription to it does.
-const pinOpen = (store: Store, core: SyntheticCore, ch: channel.Key): void =>
-  store.repin(new Set(), new Set([store.raw(ch, rawIndex(core.now()))]));
+const pinOpen = (store: cacheStore.Store, core: SyntheticCore, ch: channel.Key): void =>
+  store.repin(new Set(), new Set([store.raw(ch, block.rawIndex(core.now()))]));
 
 // Returns true when the stream writes both channels into open blocks that hold the same
 // number of samples.
-const paired = (store: Store, a: channel.Key, b: channel.Key): boolean => {
+const paired = (store: cacheStore.Store, a: channel.Key, b: channel.Key): boolean => {
   const [x, y] = [store.open(a), store.open(b)];
   return x != null && y != null && x.coveredCount === y.coveredCount;
 };
@@ -173,7 +178,7 @@ describe("Joiner", () => {
     try {
       await expect.poll(() => joins.joined(data), POLL).toBe(true);
       // Another channel's block enters the store before the next sample streams.
-      store.raw(other, rawIndex(core.now()));
+      store.raw(other, block.rawIndex(core.now()));
       core.advance(TimeSpan.milliseconds(100));
       await expect.poll(() => paired(store, data, index), POLL).toBe(true);
       expect(store.open(index)?.coveredCount).toBeGreaterThan(10);

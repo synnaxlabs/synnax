@@ -26,11 +26,11 @@ import {
 import type { channel } from "@/channel";
 import { NotFoundError, UnsupportedError } from "@/errors";
 import type { ChannelRetriever } from "@/framer/adapter";
-import { domainOf } from "@/framer/cache/block";
+import { block } from "@/framer/cache/block";
 import { dynamic } from "@/framer/cache/dynamic";
 import { stamps as cacheStamps } from "@/framer/cache/stamps";
 import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
-import { calculated, type Store } from "@/framer/cache/store";
+import { store } from "@/framer/cache/store";
 import type { Demand, MultiplexedStreamer } from "@/framer/cache/streamer";
 import type { Frame } from "@/framer/frame";
 import { createBreaker, isDefinitive } from "@/framer/retry";
@@ -47,7 +47,7 @@ const realign = (times: MultiSeries, alignment: bigint, tr: TimeRange): Series =
 
 export interface LatestProps {
   /** Reports the history changes that make the samples read go out of date. */
-  store: Store;
+  store: store.Store;
   streamer: MultiplexedStreamer;
   /** Reads the newest count stored samples of each channel in the time range. */
   readLatest: (keys: channel.Key[], count: number, tr: TimeRange) => Promise<Frame>;
@@ -489,7 +489,7 @@ export class Latest {
         let seed: Series | null = null;
         let times: Series[] = [];
         if (!payload.virtual) this.dedupe = "alignment";
-        else this.dedupe = calculated(payload) ? "time" : null;
+        else this.dedupe = store.calculated(payload) ? "time" : null;
         this.seedable = this.dedupe == null;
         if (this.seedable && this.pending != null)
           this.props.store.recordStreamed(this.key, this.pending);
@@ -640,7 +640,7 @@ export class Latest {
     if (newest == null || this.dedupe == null) return s;
     if (
       this.dedupe === "alignment" &&
-      domainOf(s.alignment) === domainOf(newest.alignment)
+      block.domainOf(s.alignment) === block.domainOf(newest.alignment)
     ) {
       const overlap = newest.alignment + BigInt(newest.length) - s.alignment;
       if (overlap >= BigInt(s.length)) return null;

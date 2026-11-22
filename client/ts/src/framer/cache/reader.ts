@@ -24,17 +24,9 @@ import {
 import type { channel } from "@/channel";
 import { isConnectionError, NotFoundError, UnexpectedError } from "@/errors";
 import type { ChannelRetriever } from "@/framer/adapter";
-import {
-  align,
-  countBefore,
-  type Part,
-  RAW_LEVEL,
-  type RawBlock,
-  rawKey,
-  split,
-} from "@/framer/cache/block";
+import { block as cacheBlock } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
-import type { Store } from "@/framer/cache/store";
+import type { store as cacheStore } from "@/framer/cache/store";
 import type { Frame } from "@/framer/frame";
 
 /** Reads a telemetry frame from the Core, reduced when a reduction is given. */
@@ -54,11 +46,11 @@ export const COMMIT_MARGIN = TimeSpan.seconds(1);
 // the read up to the channel's newest sample, since the stream acked the channel before
 // it.
 interface Request {
-  block: RawBlock;
+  block: cacheBlock.RawBlock;
   end: TimeStamp;
   catchUp: boolean;
   // The blocks the read filled, which a catch-up keeps until its caller releases them.
-  pinned?: Set<RawBlock>;
+  pinned?: Set<cacheBlock.RawBlock>;
 }
 
 // One Core read from start to end over the blocks first to last, shared by every
@@ -79,7 +71,7 @@ export interface ReaderProps {
   /** Looks up the index of each channel a fetch reads. */
   retrieveChannels: ChannelRetriever;
   /** Caches fetched blocks, and holds the blocks the stream writes into. */
-  store: Store;
+  store: cacheStore.Store;
   /**
    * Used to batch read requests to the server to minimize traffic. The window is not
    * extended by later reads, so it is also the maximum wait before a batch fires.
@@ -136,7 +128,9 @@ export class Reader {
    */
   async fill(tr: TimeRange, ch: channel.Key): Promise<void> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
-    const blocks = grid.indexes(tr, RAW_LEVEL).map((i) => this.props.store.raw(ch, i));
+    const blocks = grid
+      .indexes(tr, cacheBlock.RAW_LEVEL)
+      .map((i) => this.props.store.raw(ch, i));
     const waits: Array<Promise<void>> = [];
     for (const b of blocks) {
       if (b.covers(tr)) continue;
@@ -179,7 +173,7 @@ export class Reader {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
     const { store } = this.props;
     const block = store.raw(ch, first);
-    const pinned = new Set<RawBlock>();
+    const pinned = new Set<cacheBlock.RawBlock>();
     const release = (): void => store.repin(pinned, new Set());
     try {
       await this.batcher.enqueue({ block, end: TimeStamp.MAX, catchUp: true, pinned });
@@ -288,7 +282,7 @@ export class Reader {
     // it ran, and null when every channel's did.
     const rewritten = new Set<channel.Key | null>();
     const span = new TimeRange(
-      grid.tileRange({ level: RAW_LEVEL, index: first }).start,
+      grid.tileRange({ level: cacheBlock.RAW_LEVEL, index: first }).start,
       tr.end,
     );
     const stopWatching = store.onInvalidate((ch, changed) => {
@@ -314,7 +308,7 @@ export class Reader {
       const changed =
         series.length > 0 && store.retainDataType(key, series[0].dataType);
       const timestamps = idx === 0 ? [] : (grouped.get(idx) ?? []);
-      const parts = split(timestamps, series);
+      const parts = cacheBlock.split(timestamps, series);
       const targets = [...(requested.get(key) ?? [])];
       // A read fills the blocks of the index it reads along with a channel, and a
       // catch-up fills the blocks of the newer samples it read.
@@ -354,13 +348,18 @@ export class Reader {
         const part = parts.get(block.index) ?? { timestamps: [], series: [] };
         const end = TimeStamp.max(from, TimeStamp.min(block.range.end, trusted));
         const base = merged ? 0 : block.coveredCount;
-        const aligned = align(block.index, base, part.timestamps, part.series);
+        const aligned = cacheBlock.align(
+          block.index,
+          base,
+          part.timestamps,
+          part.series,
+        );
         // An older read can end inside the coverage of a newer one, which then keeps
         // its end, count, and seal.
         if (block.coveredEnd.after(end))
           block.fill(aligned, block.coveredEnd, block.coveredCount);
         else {
-          block.fill(aligned, end, base + countBefore(part.timestamps, end));
+          block.fill(aligned, end, base + cacheBlock.countBefore(part.timestamps, end));
           block.sealed = !seen.before(end);
         }
         // A pin before the set, since the set can evict the blocks filled before it.
@@ -369,7 +368,7 @@ export class Reader {
           pinned.add(block);
           store.repin(new Set(), new Set([block]));
         });
-        store.set(rawKey(key, block.index), block);
+        store.set(cacheBlock.rawKey(key, block.index), block);
       });
     });
     return refetch;
@@ -401,7 +400,7 @@ export class Reader {
 
 // Returns the end of the span of the newest sample in the parts, or start when there is
 // none.
-const newestEnd = (parts: Part[], start: TimeStamp): TimeStamp => {
+const newestEnd = (parts: cacheBlock.Part[], start: TimeStamp): TimeStamp => {
   const part = parts.findLast((p) => p.series.length > 0);
   if (part == null) return start;
   const last = part.series[part.series.length - 1];

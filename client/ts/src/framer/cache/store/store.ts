@@ -22,19 +22,12 @@ import {
 
 import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import {
-  type Block,
-  domainOf,
-  offsetOf,
-  RAW_LEVEL,
-  RawBlock,
-  rawKey,
-} from "@/framer/cache/block";
+import { block as cacheBlock } from "@/framer/cache/block";
 import { dynamic } from "@/framer/cache/dynamic";
 import { grid } from "@/framer/cache/grid";
 import { COMMIT_MARGIN } from "@/framer/cache/reader";
 
-export interface StoreProps extends Partial<
+export interface Props extends Partial<
   Pick<dynamic.Props, "dynamicBufferSize" | "now">
 > {
   /**
@@ -75,7 +68,7 @@ const DEFAULT_LIVE_SAMPLES = 2 ** 17;
 const ENTRY_OVERHEAD = 256;
 
 // Moves the samples of the buffer's leading series into the block as fetched ones.
-const flushInto = (block: RawBlock, buffer: dynamic.Dynamic): void => {
+const flushInto = (block: cacheBlock.RawBlock, buffer: dynamic.Dynamic): void => {
   const flushed = buffer.flush();
   if (flushed != null && flushed.length > 0)
     block.fill([flushed], block.coveredEnd, block.coveredCount);
@@ -83,14 +76,14 @@ const flushInto = (block: RawBlock, buffer: dynamic.Dynamic): void => {
 
 // A cached block and the bytes it counted against the budget at its last set.
 interface Entry {
-  block: Block;
+  block: cacheBlock.Block;
   bytes: number;
 }
 
 // The stream's buffer of one channel, and the raw block it writes into.
 interface Live {
   buffer: dynamic.Dynamic;
-  block: RawBlock | null;
+  block: cacheBlock.RawBlock | null;
 }
 
 // A sample of an index channel.
@@ -170,12 +163,12 @@ export class Store {
   constructor({
     budget = DEFAULT_BUDGET,
     staleThreshold = DEFAULT_STALE_THRESHOLD,
-    dynamicBufferSize = grid.tileSpan(RAW_LEVEL),
+    dynamicBufferSize = grid.tileSpan(cacheBlock.RAW_LEVEL),
     liveSamples = DEFAULT_LIVE_SAMPLES,
     instrumentation = alamos.NOOP,
     now = () => TimeStamp.now(),
     node = () => undefined,
-  }: StoreProps = {}) {
+  }: Props = {}) {
     this.budget = budget.valueOf();
     this.staleThreshold = staleThreshold;
     this.dynamicBufferSize = dynamicBufferSize;
@@ -186,7 +179,7 @@ export class Store {
   }
 
   /** @returns the block cached under the key, marking it the most recently used. */
-  get(key: string): Block | undefined {
+  get(key: string): cacheBlock.Block | undefined {
     const entry = this.entries.get(key);
     if (entry == null) return undefined;
     this.entries.delete(key);
@@ -200,8 +193,8 @@ export class Store {
    * floor of its channel's index. The block it sets is never evicted. Call it again
    * after the block changes, so its new size counts against the budget.
    */
-  set(key: string, block: Block): void {
-    if (block instanceof RawBlock) {
+  set(key: string, block: cacheBlock.Block): void {
+    if (block instanceof cacheBlock.RawBlock) {
       this.applyFloor(block);
       this.changed(block.channel);
       if (block.coveredCount > 0)
@@ -221,7 +214,7 @@ export class Store {
    * Moves a subscription's pins from the blocks it served to the blocks it serves now,
    * then evicts least recently used blocks past the budget.
    */
-  repin(prev: Set<Block>, next: Set<Block>): void {
+  repin(prev: Set<cacheBlock.Block>, next: Set<cacheBlock.Block>): void {
     prev.forEach((b) => {
       if (!next.has(b)) b.pins--;
     });
@@ -236,7 +229,7 @@ export class Store {
    * past the budget.
    * @returns the fetch, which the block keeps as pending until it settles.
    */
-  hold(block: RawBlock, fetch: Promise<void>): Promise<void> {
+  hold(block: cacheBlock.RawBlock, fetch: Promise<void>): Promise<void> {
     const pending = fetch.finally(() => {
       if (block.pending !== pending) return;
       block.pending = null;
@@ -268,7 +261,7 @@ export class Store {
   delete(key: string): void {
     const entry = this.entries.get(key);
     if (entry == null) return;
-    if (entry.block instanceof RawBlock) this.changed(entry.block.channel);
+    if (entry.block instanceof cacheBlock.RawBlock) this.changed(entry.block.channel);
     this.entries.delete(key);
     this.bytes -= entry.bytes;
   }
@@ -277,7 +270,7 @@ export class Store {
    * @returns true when the block's fetched samples are too old to answer reads. A held
    * block never expires, nor does a sealed block that history signals keep valid.
    */
-  expired(block: Block): boolean {
+  expired(block: cacheBlock.Block): boolean {
     if (block.held) return false;
     const age = this.now().valueOf() - block.fetchedAt.valueOf();
     if ((age < 0n ? -age : age) < this.staleThreshold.valueOf()) return false;
@@ -287,7 +280,7 @@ export class Store {
   // A sealed block fetched while the stream carried the history signals stays valid
   // until a signal names it. The signals name only the channels stored on the node, and
   // never an append.
-  private signaled(block: Block): boolean {
+  private signaled(block: cacheBlock.Block): boolean {
     const node = this.node();
     return (
       block.sealed &&
@@ -366,7 +359,7 @@ export class Store {
       .map(([key, { block }]) => [key, block] as const)
       .filter(([, b]) => (ch == null || b.channel === ch) && b.range.overlapsWith(tr));
     for (const [key, block] of touched)
-      if (!(block instanceof RawBlock)) this.delete(key);
+      if (!(block instanceof cacheBlock.RawBlock)) this.delete(key);
       else if (block.expire()) this.set(key, block);
     this.invalidateHandlers.forEach((h) => h(ch, tr, missed));
   }
@@ -381,11 +374,11 @@ export class Store {
    * block comes back without its fetched samples.
    * @throws {UnexpectedError} if another kind of block holds the raw block's key.
    */
-  raw(ch: channel.Key, index: number): RawBlock {
+  raw(ch: channel.Key, index: number): cacheBlock.RawBlock {
     const cached = this.findRaw(ch, index);
-    const key = rawKey(ch, index);
+    const key = cacheBlock.rawKey(ch, index);
     if (cached == null) {
-      const block = new RawBlock(ch, index, this.now);
+      const block = new cacheBlock.RawBlock(ch, index, this.now);
       this.set(key, block);
       return block;
     }
@@ -397,11 +390,11 @@ export class Store {
    * @returns the channel's raw block at the index, or undefined when none is cached.
    * @throws {UnexpectedError} if another kind of block holds the raw block's key.
    */
-  findRaw(ch: channel.Key, index: number): RawBlock | undefined {
-    const key = rawKey(ch, index);
+  findRaw(ch: channel.Key, index: number): cacheBlock.RawBlock | undefined {
+    const key = cacheBlock.rawKey(ch, index);
     const cached = this.get(key);
     if (cached == null) return undefined;
-    if (!(cached instanceof RawBlock))
+    if (!(cached instanceof cacheBlock.RawBlock))
       throw new UnexpectedError(`block ${key} is not a raw block`);
     return cached;
   }
@@ -446,7 +439,7 @@ export class Store {
   }
 
   /** @returns the block the stream is writing the channel's samples into, if any. */
-  open(ch: channel.Key): RawBlock | null {
+  open(ch: channel.Key): cacheBlock.RawBlock | null {
     return this.live.get(ch)?.block ?? null;
   }
 
@@ -455,13 +448,13 @@ export class Store {
    * replaces closes, complete when the stream moved past it. The store keeps an open
    * block.
    */
-  join(block: RawBlock): void {
+  join(block: cacheBlock.RawBlock): void {
     const live = this.liveOf(block.channel);
     if (live.block === block) return;
     if (live.block != null) this.seal(live, live.block.index < block.index);
     block.buffer = live.buffer;
     live.block = block;
-    this.set(rawKey(block.channel, block.index), block);
+    this.set(cacheBlock.rawKey(block.channel, block.index), block);
   }
 
   /**
@@ -473,7 +466,7 @@ export class Store {
    * @param p - The piece.
    * @param newRun - True when the piece holds the first sample a writer wrote.
    */
-  append(block: RawBlock, p: Series, newRun = false): void {
+  append(block: cacheBlock.RawBlock, p: Series, newRun = false): void {
     const live = this.liveOf(block.channel);
     const opened = live.block !== block;
     if (opened) this.join(block);
@@ -488,9 +481,9 @@ export class Store {
     const res = live.buffer.write(new MultiSeries([p]));
     const flushed = res.flushed.series.length > 0;
     if (flushed) block.fill(res.flushed.series, block.coveredEnd, block.coveredCount);
-    block.extend(p.timeRange.end, offsetOf(p.alignment) + p.length);
+    block.extend(p.timeRange.end, cacheBlock.offsetOf(p.alignment) + p.length);
     if (opened || flushed || res.allocated.series.length > 0)
-      this.set(rawKey(block.channel, block.index), block);
+      this.set(cacheBlock.rawKey(block.channel, block.index), block);
     if (this.indexOf.get(block.channel) === block.channel)
       this.trim(block.channel, block);
   }
@@ -554,13 +547,13 @@ export class Store {
     if (complete) block.extend(block.range.end, block.coveredCount);
     block.buffer = null;
     live.block = null;
-    this.set(rawKey(block.channel, block.index), block);
+    this.set(cacheBlock.rawKey(block.channel, block.index), block);
   }
 
   // Moves the index's floor once more than half the sample limit streamed past it. The
   // new floor keeps a quarter of the limit, and never passes the commit point. Each
   // block of the index's channels at either floor takes it again.
-  private trim(index: channel.Key, open: RawBlock): void {
+  private trim(index: channel.Key, open: cacheBlock.RawBlock): void {
     const prev = this.floors.get(index);
     const keep = this.liveSamples / 4;
     const committed = this.now().sub(COMMIT_MARGIN);
@@ -588,13 +581,15 @@ export class Store {
     const kept = prev?.start;
     this.floors.set(index, { start: next, kept });
     const domains = new Set(
-      [next, kept].flatMap((m) => (m == null ? [] : [Number(domainOf(m.alignment))])),
+      [next, kept].flatMap((m) =>
+        m == null ? [] : [Number(cacheBlock.domainOf(m.alignment))],
+      ),
     );
     for (const [ch, of] of this.indexOf) {
       if (of !== index) continue;
       for (const domain of domains) {
         const block = this.peekRaw(ch, domain);
-        if (block != null) this.set(rawKey(ch, domain), block);
+        if (block != null) this.set(cacheBlock.rawKey(ch, domain), block);
       }
       this.changed(ch);
     }
@@ -602,23 +597,23 @@ export class Store {
 
   // Drops the block's samples before the kept floor of its channel's index, and splits
   // its series at both floors, so that every channel of the index draws from them.
-  private applyFloor(block: RawBlock): void {
+  private applyFloor(block: cacheBlock.RawBlock): void {
     const index = this.indexOf.get(block.channel);
     const floor = index == null ? undefined : this.floors.get(index);
     if (floor == null) return;
     const { start, kept } = floor;
-    if (domainOf(start.alignment) === BigInt(block.index))
+    if (cacheBlock.domainOf(start.alignment) === BigInt(block.index))
       block.split(start.alignment, start.time);
-    if (kept != null && domainOf(kept.alignment) === BigInt(block.index)) {
+    if (kept != null && cacheBlock.domainOf(kept.alignment) === BigInt(block.index)) {
       block.split(kept.alignment, kept.time);
       block.trim(kept.alignment, kept.time);
     }
   }
 
   // Returns the cached raw block, leaving its recency alone.
-  private peekRaw(ch: channel.Key, index: number): RawBlock | undefined {
-    const block = this.entries.get(rawKey(ch, index))?.block;
-    return block instanceof RawBlock ? block : undefined;
+  private peekRaw(ch: channel.Key, index: number): cacheBlock.RawBlock | undefined {
+    const block = this.entries.get(cacheBlock.rawKey(ch, index))?.block;
+    return block instanceof cacheBlock.RawBlock ? block : undefined;
   }
 
   private changed(ch: channel.Key): void {

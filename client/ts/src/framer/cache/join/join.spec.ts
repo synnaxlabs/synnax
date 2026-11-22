@@ -11,15 +11,15 @@ import { DataType, Series, TimeRange, TimeSpan, type TimeStamp } from "@synnaxla
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
-import { alignmentOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
+import { block } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
-import { Joins, type Wait } from "@/framer/cache/join";
-import { Store } from "@/framer/cache/store";
+import { join } from "@/framer/cache/join";
+import { store as cacheStore } from "@/framer/cache/store";
 
 const INDEX = 1;
 const DATA = 2;
 const BLOCK = 100;
-const RANGE = grid.tileRange({ level: RAW_LEVEL, index: BLOCK });
+const RANGE = grid.tileRange({ level: block.RAW_LEVEL, index: BLOCK });
 
 const at = (seconds: number): TimeStamp => RANGE.start.add(TimeSpan.seconds(seconds));
 
@@ -44,8 +44,8 @@ const createFrame = (...entries: Array<[channel.Key, Series]>) =>
   new Map(entries.map(([k, s]) => [k, [s]]));
 
 const createJoins = () => {
-  const store = new Store({ dynamicBufferSize: 100 });
-  const joins = new Joins(store);
+  const store = new cacheStore.Store({ dynamicBufferSize: 100 });
+  const joins = new join.Joins(store);
   joins.join(DATA, INDEX);
   return { store, joins };
 };
@@ -61,19 +61,24 @@ const createJoined = () => {
 };
 
 // Returns the waits of the given members, as a catch-up read of them begins.
-const waitsOf = (joins: Joins, ...keys: channel.Key[]): Wait[] =>
+const waitsOf = (joins: join.Joins, ...keys: channel.Key[]): join.Wait[] =>
   joins.waiting(INDEX).filter((w) => keys.includes(w.key));
 
-const keysOf = (joins: Joins): channel.Key[] => joins.waiting(INDEX).map((w) => w.key);
+const keysOf = (joins: join.Joins): channel.Key[] =>
+  joins.waiting(INDEX).map((w) => w.key);
 
-const leadingOf = (store: Store, ch: channel.Key): Series | null =>
+const leadingOf = (store: cacheStore.Store, ch: channel.Key): Series | null =>
   store.open(ch)?.buffer?.leadingBuffer ?? null;
 
-const streamed = (store: Store, ch: channel.Key): number[] =>
+const streamed = (store: cacheStore.Store, ch: channel.Key): number[] =>
   Array.from(leadingOf(store, ch) ?? []).map(Number);
 
 // Returns the series of the channel's raw blocks in time order, the open one last.
-const seriesOf = (store: Store, ch: channel.Key, ...blocks: number[]): Series[] => {
+const seriesOf = (
+  store: cacheStore.Store,
+  ch: channel.Key,
+  ...blocks: number[]
+): Series[] => {
   const fetched = blocks.flatMap((b) => [...store.raw(ch, b).fetched]);
   const leading = leadingOf(store, ch);
   return leading == null ? fetched : [...fetched, leading];
@@ -84,9 +89,9 @@ const touches = (series: Series[]): boolean[] =>
   series.slice(1).map((s, i) => series[i].timeRange.end.equals(s.timeRange.start));
 
 // Fills the block with a read of both members' samples at the seconds.
-const fillRead = (store: Store, seconds: number[]): void => {
+const fillRead = (store: cacheStore.Store, seconds: number[]): void => {
   const span = spanOf(seconds);
-  const alignment = alignmentOf(BLOCK, 0);
+  const alignment = block.alignmentOf(BLOCK, 0);
   store
     .raw(INDEX, BLOCK)
     .fill([createIndex(seconds, alignment)], span.end, seconds.length);
@@ -95,7 +100,7 @@ const fillRead = (store: Store, seconds: number[]): void => {
     .fill([createData(seconds, alignment, span)], span.end, seconds.length);
 };
 
-const NEXT_DOMAIN = alignmentOf(1, 0);
+const NEXT_DOMAIN = block.alignmentOf(1, 0);
 
 describe("Joins", () => {
   describe("landed", () => {
@@ -114,7 +119,7 @@ describe("Joins", () => {
       expect(keysOf(joins)).toEqual([]);
       expect(joins.joined(DATA)).toBe(true);
       expect(streamed(store, DATA)).toEqual([10, 20, 30]);
-      expect(leadingOf(store, DATA)?.alignment).toBe(alignmentOf(BLOCK, 0));
+      expect(leadingOf(store, DATA)?.alignment).toBe(block.alignmentOf(BLOCK, 0));
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(3).add(1));
     });
 
@@ -150,11 +155,11 @@ describe("Joins", () => {
       const fetched = spanOf([1, 2, 3, 4]);
       store
         .raw(INDEX, BLOCK)
-        .fill([createIndex([1, 2, 3, 4], alignmentOf(BLOCK, 0))], fetched.end, 4);
+        .fill([createIndex([1, 2, 3, 4], block.alignmentOf(BLOCK, 0))], fetched.end, 4);
       store
         .raw(DATA, BLOCK)
         .fill(
-          [createData([10, 20, 30, 40], alignmentOf(BLOCK, 0), fetched)],
+          [createData([10, 20, 30, 40], block.alignmentOf(BLOCK, 0), fetched)],
           fetched.end,
           4,
         );
@@ -166,7 +171,7 @@ describe("Joins", () => {
       );
       expect(joins.landed(INDEX, waitsOf(joins, INDEX, DATA)).size).toBe(0);
       expect(streamed(store, DATA)).toEqual([50, 60]);
-      expect(leadingOf(store, DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
+      expect(leadingOf(store, DATA)?.alignment).toBe(block.alignmentOf(BLOCK, 4));
       expect(store.raw(INDEX, BLOCK).coveredCount).toBe(6);
       expect(store.raw(DATA, BLOCK).coveredCount).toBe(6);
     });
@@ -178,11 +183,11 @@ describe("Joins", () => {
       const fetched = spanOf([1, 2, 3, 4]);
       store
         .raw(INDEX, BLOCK)
-        .fill([createIndex([1, 2, 3, 4], alignmentOf(BLOCK, 0))], claimed, 4);
+        .fill([createIndex([1, 2, 3, 4], block.alignmentOf(BLOCK, 0))], claimed, 4);
       store
         .raw(DATA, BLOCK)
         .fill(
-          [createData([10, 20, 30, 40], alignmentOf(BLOCK, 0), fetched)],
+          [createData([10, 20, 30, 40], block.alignmentOf(BLOCK, 0), fetched)],
           claimed,
           4,
         );
@@ -194,7 +199,7 @@ describe("Joins", () => {
       );
       expect(joins.landed(INDEX, waitsOf(joins, INDEX, DATA)).size).toBe(0);
       expect(streamed(store, DATA)).toEqual([50, 60]);
-      expect(leadingOf(store, DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
+      expect(leadingOf(store, DATA)?.alignment).toBe(block.alignmentOf(BLOCK, 4));
       expect(store.raw(INDEX, BLOCK).coveredEnd).toEqual(claimed);
     });
 
@@ -203,14 +208,20 @@ describe("Joins", () => {
       store
         .raw(INDEX, BLOCK)
         .fill(
-          [createIndex([1, 2, 3, 4, 5, 6], alignmentOf(BLOCK, 0))],
+          [createIndex([1, 2, 3, 4, 5, 6], block.alignmentOf(BLOCK, 0))],
           at(6).add(1),
           6,
         );
       store
         .raw(DATA, BLOCK)
         .fill(
-          [createData([10, 20, 30, 40], alignmentOf(BLOCK, 0), spanOf([1, 2, 3, 4]))],
+          [
+            createData(
+              [10, 20, 30, 40],
+              block.alignmentOf(BLOCK, 0),
+              spanOf([1, 2, 3, 4]),
+            ),
+          ],
           at(4).add(1),
           4,
         );
@@ -223,7 +234,7 @@ describe("Joins", () => {
       expect(joins.landed(INDEX, waitsOf(joins, INDEX, DATA)).size).toBe(0);
       expect(joins.bounced(DATA)).toBe(false);
       expect(streamed(store, DATA)).toEqual([50, 60, 70, 80]);
-      expect(leadingOf(store, DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
+      expect(leadingOf(store, DATA)?.alignment).toBe(block.alignmentOf(BLOCK, 4));
     });
 
     it("should give fresh samples the offsets after a block's newest sample", () => {
@@ -232,14 +243,14 @@ describe("Joins", () => {
       store
         .raw(INDEX, BLOCK)
         .fill(
-          [createIndex([1, 2, 3, 4, 5, 6], alignmentOf(BLOCK, 0))],
+          [createIndex([1, 2, 3, 4, 5, 6], block.alignmentOf(BLOCK, 0))],
           at(4).add(1),
           4,
         );
       joins.write(createFrame([INDEX, createIndex([5, 6, 7, 8], 10n)]));
       joins.landed(INDEX, waitsOf(joins, INDEX));
       expect(leadingOf(store, INDEX)?.length).toBe(2);
-      expect(leadingOf(store, INDEX)?.alignment).toBe(alignmentOf(BLOCK, 6));
+      expect(leadingOf(store, INDEX)?.alignment).toBe(block.alignmentOf(BLOCK, 6));
     });
 
     it("should send back a member whose read missed samples before the stream", () => {
@@ -247,7 +258,7 @@ describe("Joins", () => {
       const fetched = spanOf([1, 2, 3, 4]);
       store
         .raw(INDEX, BLOCK)
-        .fill([createIndex([1, 2, 3, 4], alignmentOf(BLOCK, 0))], fetched.end, 4);
+        .fill([createIndex([1, 2, 3, 4], block.alignmentOf(BLOCK, 0))], fetched.end, 4);
       joins.write(
         createFrame(
           [INDEX, createIndex([5, 6], 10n)],
@@ -268,7 +279,7 @@ describe("Joins", () => {
       const fetched = spanOf([1, 2, 3, 4]);
       store
         .raw(INDEX, BLOCK)
-        .fill([createIndex([1, 2, 3, 4], alignmentOf(BLOCK, 0))], fetched.end, 4);
+        .fill([createIndex([1, 2, 3, 4], block.alignmentOf(BLOCK, 0))], fetched.end, 4);
       joins.landed(INDEX, waitsOf(joins, INDEX));
       joins.write(
         createFrame(
@@ -278,7 +289,7 @@ describe("Joins", () => {
       );
       expect(joins.landed(INDEX, waitsOf(joins, DATA), true).size).toBe(0);
       expect(streamed(store, DATA)).toEqual([50, 60]);
-      expect(leadingOf(store, DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
+      expect(leadingOf(store, DATA)?.alignment).toBe(block.alignmentOf(BLOCK, 4));
     });
   });
 
@@ -350,11 +361,11 @@ describe("Joins", () => {
     it("should continue the index stream into a new Core domain", () => {
       const { joins } = createJoined();
       const waiting = joins.write(
-        createFrame([INDEX, createIndex([3], alignmentOf(1, 0))]),
+        createFrame([INDEX, createIndex([3], block.alignmentOf(1, 0))]),
       );
       expect(waiting.size).toBe(0);
       expect(
-        joins.write(createFrame([INDEX, createIndex([4], alignmentOf(2, 5))])),
+        joins.write(createFrame([INDEX, createIndex([4], block.alignmentOf(2, 5))])),
       ).toEqual(new Set([INDEX]));
     });
 
@@ -373,15 +384,15 @@ describe("Joins", () => {
           expect(touches(series)).toEqual([false]);
           expect(series[0].timeRange).toEqual(spanOf([1, 2]));
           expect(series[1].timeRange.start).toEqual(at(5));
-          expect(series[1].alignment).toBe(alignmentOf(BLOCK, 2));
+          expect(series[1].alignment).toBe(block.alignmentOf(BLOCK, 2));
         });
       });
 
       it.each([8, 1000])(
         "should keep the series of one run touching across blocks with %d sample buffers",
         (dynamicBufferSize) => {
-          const store = new Store({ dynamicBufferSize });
-          const joins = new Joins(store);
+          const store = new cacheStore.Store({ dynamicBufferSize });
+          const joins = new join.Joins(store);
           joins.join(DATA, INDEX);
           joins.landed(INDEX, waitsOf(joins, INDEX, DATA));
           const seconds = Array.from({ length: 400 }, (_, i) => i / 2);
@@ -505,7 +516,7 @@ describe("Joins", () => {
 
     it("should keep a member joined when the change misses its open block", () => {
       const { joins } = createJoined();
-      const earlier = grid.tileRange({ level: RAW_LEVEL, index: BLOCK - 1 });
+      const earlier = grid.tileRange({ level: block.RAW_LEVEL, index: BLOCK - 1 });
       expect(joins.invalidate(DATA, earlier).size).toBe(0);
       expect(joins.joined(DATA)).toBe(true);
     });
@@ -523,7 +534,7 @@ describe("Joins", () => {
       expect(joins.flush(DATA)).toEqual(new Set([INDEX]));
       expect(keysOf(joins)).toEqual([DATA]);
       expect(store.open(DATA)).toBeNull();
-      expect(joins.catchUpFrom(DATA, at(1000))).toBe(rawIndex(at(1000)));
+      expect(joins.catchUpFrom(DATA, at(1000))).toBe(block.rawIndex(at(1000)));
     });
   });
 

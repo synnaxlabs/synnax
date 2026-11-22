@@ -17,15 +17,7 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import {
-  align,
-  countBefore,
-  RAW_LEVEL,
-  RawBlock,
-  rawIndex,
-  rawKey,
-  split,
-} from "@/framer/cache/block";
+import { block as cacheBlock } from "@/framer/cache/block";
 import { dynamic } from "@/framer/cache/dynamic";
 import { grid } from "@/framer/cache/grid";
 import { UnexpectedError } from "@/index";
@@ -53,41 +45,41 @@ const blockAlignment = (index: number, offset: number): bigint =>
 describe("block", () => {
   describe("rawIndex", () => {
     it("should return the index of the raw block that holds a timestamp", () => {
-      const span = grid.tileSpan(RAW_LEVEL);
-      expect(rawIndex(TimeStamp.ZERO)).toBe(0);
-      expect(rawIndex(new TimeStamp(span.valueOf() - 1n))).toBe(0);
-      expect(rawIndex(new TimeStamp(span.valueOf()))).toBe(1);
-      expect(rawIndex(new TimeStamp(span.valueOf() * 7n + 5n))).toBe(7);
+      const span = grid.tileSpan(cacheBlock.RAW_LEVEL);
+      expect(cacheBlock.rawIndex(TimeStamp.ZERO)).toBe(0);
+      expect(cacheBlock.rawIndex(new TimeStamp(span.valueOf() - 1n))).toBe(0);
+      expect(cacheBlock.rawIndex(new TimeStamp(span.valueOf()))).toBe(1);
+      expect(cacheBlock.rawIndex(new TimeStamp(span.valueOf() * 7n + 5n))).toBe(7);
     });
 
     it("should round the index of a timestamp before the epoch down", () => {
-      expect(rawIndex(new TimeStamp(-1n))).toBe(-1);
+      expect(cacheBlock.rawIndex(new TimeStamp(-1n))).toBe(-1);
     });
   });
 
   describe("rawKey", () => {
     it("should key a raw block by channel and index", () => {
-      expect(rawKey(12, 3)).toBe("12/raw/3");
+      expect(cacheBlock.rawKey(12, 3)).toBe("12/raw/3");
     });
   });
 
   describe("align", () => {
     it("should count offsets of a series from the base", () => {
       const ts = createTimestamps(500n, 1, 2, 3, 4);
-      const [aligned] = align(2, 10, [ts], [createValues(501n, [1, 2])]);
+      const [aligned] = cacheBlock.align(2, 10, [ts], [createValues(501n, [1, 2])]);
       expect(aligned.alignment).toBe(blockAlignment(2, 11));
       expect(Array.from(aligned)).toEqual([1, 2]);
     });
 
     it("should join index series with consecutive Core alignments", () => {
       const ts = [createTimestamps(500n, 1, 2), createTimestamps(502n, 3, 4)];
-      const [aligned] = align(0, 0, ts, [createValues(501n, [1, 2, 3])]);
+      const [aligned] = cacheBlock.align(0, 0, ts, [createValues(501n, [1, 2, 3])]);
       expect(aligned.alignment).toBe(blockAlignment(0, 1));
     });
 
     it("should continue offsets across a jump in Core alignment", () => {
       const ts = [createTimestamps(500n, 1, 2), createTimestamps(9000n, 3, 4, 5)];
-      const aligned = align(0, 0, ts, [
+      const aligned = cacheBlock.align(0, 0, ts, [
         createValues(500n, [1, 2]),
         createValues(9001n, [4, 5]),
       ]);
@@ -99,7 +91,7 @@ describe("block", () => {
 
     it("should align index series to themselves", () => {
       const ts = [createTimestamps(500n, 1, 2), createTimestamps(9000n, 3)];
-      const aligned = align(4, 7, ts, ts);
+      const aligned = cacheBlock.align(4, 7, ts, ts);
       expect(aligned.map((s) => s.alignment)).toEqual([
         blockAlignment(4, 7),
         blockAlignment(4, 9),
@@ -110,26 +102,31 @@ describe("block", () => {
     it("should keep the data and time range of each series", () => {
       const tr = seconds(5).range(seconds(9));
       const values = createValues(500n, [7, 8], tr);
-      const [aligned] = align(0, 0, [createTimestamps(500n, 5, 6)], [values]);
+      const [aligned] = cacheBlock.align(
+        0,
+        0,
+        [createTimestamps(500n, 5, 6)],
+        [values],
+      );
       expect(aligned.data).toBe(values.data);
       expect(aligned.timeRange).toEqual(tr);
     });
 
     it("should skip empty series", () => {
       const empty = new Series({ data: new Float32Array([]), alignment: 7n });
-      expect(align(0, 0, [], [empty])).toEqual([]);
+      expect(cacheBlock.align(0, 0, [], [empty])).toEqual([]);
     });
 
     it("should throw when no index samples share a series' Core alignment", () => {
       const ts = createTimestamps(500n, 1, 2);
-      const aligned = () => align(3, 0, [ts], [createValues(501n, [1, 2])]);
+      const aligned = () => cacheBlock.align(3, 0, [ts], [createValues(501n, [1, 2])]);
       expect(aligned).toThrow(UnexpectedError);
       expect(aligned).toThrow("no index samples share alignment 501 in raw block 3");
     });
   });
 
   describe("split", () => {
-    const span = grid.tileSpan(RAW_LEVEL);
+    const span = grid.tileSpan(cacheBlock.RAW_LEVEL);
     // Returns index samples at the given offsets from the start of raw block 0.
     const createIndex = (alignment: bigint, ...ms: number[]): Series =>
       new Series({
@@ -143,7 +140,7 @@ describe("block", () => {
       const edge = Number(span.milliseconds);
       const ts = createIndex(500n, 1, edge - 1, edge, 2 * edge + 1);
       const values = createValues(500n, [1, 2, 3, 4], ts.timeRange);
-      const parts = [...split([ts], [values]).values()];
+      const parts = [...cacheBlock.split([ts], [values]).values()];
       expect(parts.map((p) => p.series.map((s) => Array.from(s)))).toEqual([
         [[1, 2]],
         [[3]],
@@ -161,7 +158,7 @@ describe("block", () => {
       const edge = Number(span.milliseconds);
       const ts = [createIndex(500n, 1, 2), createIndex(502n, edge + 1)];
       const parts = [
-        ...split(ts, [createValues(501n, [2, 3], ts[0].timeRange)]).values(),
+        ...cacheBlock.split(ts, [createValues(501n, [2, 3], ts[0].timeRange)]).values(),
       ];
       expect(parts.map((p) => p.series.map((s) => s.alignmentBounds))).toEqual([
         [{ lower: 501n, upper: 502n }],
@@ -173,7 +170,7 @@ describe("block", () => {
       const edge = Number(span.milliseconds);
       const ts = createIndex(500n, 1, edge + 1);
       const parts = [
-        ...split([ts], [createValues(500n, [1, 2], ts.timeRange)]).values(),
+        ...cacheBlock.split([ts], [createValues(500n, [1, 2], ts.timeRange)]).values(),
       ];
       const buffers = parts.flatMap((p) => [p.timestamps[0], p.series[0]]);
       buffers.forEach((s) =>
@@ -184,20 +181,20 @@ describe("block", () => {
     it("should make parts only for the blocks that hold index samples", () => {
       const edge = Number(span.milliseconds);
       const ts = createIndex(500n, 1, 2 * edge + 1);
-      const parts = split([ts], [createValues(500n, [1, 2], ts.timeRange)]);
+      const parts = cacheBlock.split([ts], [createValues(500n, [1, 2], ts.timeRange)]);
       expect([...parts.keys()]).toEqual([0, 2]);
     });
 
     it("should keep a series in one block as it is", () => {
       const ts = createIndex(500n, 1, 2);
       const values = createValues(500n, [1, 2], ts.timeRange);
-      const [part] = split([ts], [values]).values();
+      const [part] = cacheBlock.split([ts], [values]).values();
       expect(part.series[0].buffer).toBe(values.buffer);
     });
 
     it("should leave out samples with no index sample of their Core alignment", () => {
       const ts = createIndex(500n, 1, 2);
-      const [part] = split([ts], [createValues(501n, [1, 2])]).values();
+      const [part] = cacheBlock.split([ts], [createValues(501n, [1, 2])]).values();
       expect(part.series.map((s) => Array.from(s))).toEqual([[1]]);
       expect(part.series[0].alignment).toBe(501n);
     });
@@ -206,11 +203,11 @@ describe("block", () => {
   describe("countBefore", () => {
     it("should count the samples stamped before a timestamp across series", () => {
       const ts = [createTimestamps(0n, 1, 2, 3), createTimestamps(3n, 5, 8)];
-      expect(countBefore(ts, seconds(0))).toBe(0);
-      expect(countBefore(ts, seconds(3))).toBe(2);
-      expect(countBefore(ts, seconds(6))).toBe(4);
-      expect(countBefore(ts, seconds(9))).toBe(5);
-      expect(countBefore([], seconds(9))).toBe(0);
+      expect(cacheBlock.countBefore(ts, seconds(0))).toBe(0);
+      expect(cacheBlock.countBefore(ts, seconds(3))).toBe(2);
+      expect(cacheBlock.countBefore(ts, seconds(6))).toBe(4);
+      expect(cacheBlock.countBefore(ts, seconds(9))).toBe(5);
+      expect(cacheBlock.countBefore([], seconds(9))).toBe(0);
     });
   });
 
@@ -219,11 +216,11 @@ describe("block", () => {
       createValues(blockAlignment(0, offset), values, tr);
 
     it("should span one raw tile of the grid", () => {
-      const block = new RawBlock(1, 3);
+      const block = new cacheBlock.RawBlock(1, 3);
       expect(block.range).toEqual(
         new TimeRange(
-          grid.tileSpan(RAW_LEVEL).mult(3),
-          grid.tileSpan(RAW_LEVEL).mult(4),
+          grid.tileSpan(cacheBlock.RAW_LEVEL).mult(3),
+          grid.tileSpan(cacheBlock.RAW_LEVEL).mult(4),
         ),
       );
       expect(block.coveredEnd).toEqual(block.range.start);
@@ -231,19 +228,19 @@ describe("block", () => {
 
     describe("covers", () => {
       it("should cover nothing before a fill", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         expect(block.covers(seconds(1).range(seconds(2)))).toBe(false);
       });
 
       it("should cover a read that ends at or before the covered end", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         block.fill([], seconds(10), 0);
         expect(block.covers(seconds(1).range(seconds(10)))).toBe(true);
         expect(block.covers(seconds(9).range(seconds(11)))).toBe(false);
       });
 
       it("should cover a read past the block once the whole block is covered", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         block.fill([], block.range.end, 0);
         expect(block.covers(seconds(1).range(seconds(200)))).toBe(true);
       });
@@ -251,7 +248,7 @@ describe("block", () => {
 
     describe("trim", () => {
       it("should drop the series before the alignment and cover from start", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         const kept = fetched(2, [3, 4], seconds(3).range(seconds(5)));
         block.fill(
           [fetched(0, [1, 2], seconds(1).range(seconds(3))), kept],
@@ -268,7 +265,7 @@ describe("block", () => {
 
     describe("split", () => {
       it("should split the series that holds the alignment into two views", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         const whole = fetched(0, [1, 2, 3, 4], seconds(1).range(seconds(5)));
         block.fill([whole], seconds(5), 4);
         block.split(blockAlignment(0, 1), seconds(2));
@@ -284,7 +281,7 @@ describe("block", () => {
 
     describe("fill", () => {
       it("should record the covered end and the index samples before it", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         block.fill([fetched(0, [1, 2], seconds(1).range(seconds(3)))], seconds(5), 2);
         expect(block.coveredEnd).toEqual(seconds(5));
         expect(block.coveredCount).toBe(2);
@@ -292,7 +289,7 @@ describe("block", () => {
       });
 
       it("should stamp the first fill only", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         expect(block.fetchedAt).toEqual(TimeStamp.ZERO);
         block.fill([], seconds(5), 0);
         const first = block.fetchedAt;
@@ -302,7 +299,7 @@ describe("block", () => {
       });
 
       it("should keep the series it already holds when a tail overlaps them", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         const head = fetched(0, [1, 2, 3], seconds(1).range(seconds(4)));
         block.fill([head], seconds(3), 2);
         block.fill([fetched(2, [3, 4], seconds(3).range(seconds(5)))], seconds(6), 4);
@@ -311,7 +308,7 @@ describe("block", () => {
       });
 
       it("should start a trimmed series where the series before it ends", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         block.fill(
           [fetched(0, [1, 2, 3], seconds(1).range(seconds(4)))],
           seconds(3),
@@ -323,7 +320,7 @@ describe("block", () => {
       });
 
       it("should end a trimmed series where the series after it starts", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         const next = fetched(4, [5, 6], seconds(5).range(seconds(7)));
         block.fill(
           [
@@ -348,7 +345,7 @@ describe("block", () => {
 
     describe("expire", () => {
       it("should drop the fetched samples, their coverage, and the seal", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         block.fill([fetched(0, [1], seconds(1).range(seconds(2)))], seconds(5), 1);
         block.sealed = true;
         expect(block.expire()).toBe(true);
@@ -359,13 +356,13 @@ describe("block", () => {
       });
 
       it("should report a block with nothing to drop", () => {
-        expect(new RawBlock(1, 0).expire()).toBe(false);
+        expect(new cacheBlock.RawBlock(1, 0).expire()).toBe(false);
       });
     });
 
     describe("seriesIn", () => {
       it("should return the fetched series that overlap a range", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         const early = fetched(0, [1], seconds(1).range(seconds(2)));
         const late = fetched(1, [2], seconds(8).range(seconds(9)));
         block.fill([early, late], seconds(9), 2);
@@ -373,7 +370,7 @@ describe("block", () => {
       });
 
       it("should return the open buffer after the fetched series", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         const early = fetched(0, [1], seconds(1).range(seconds(2)));
         block.fill([early], seconds(4), 1);
         const buffer = new dynamic.Dynamic({ dynamicBufferSize: 10 });
@@ -388,7 +385,7 @@ describe("block", () => {
       });
 
       it("should judge the open buffer by the span of its samples", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         const buffer = new dynamic.Dynamic({ dynamicBufferSize: 10 });
         buffer.write(
           new MultiSeries([createValues(9n, [1, 2], seconds(4).range(seconds(6)))]),
@@ -403,23 +400,23 @@ describe("block", () => {
 
     describe("held", () => {
       it("should not hold an empty block", () => {
-        expect(new RawBlock(1, 0).held).toBe(false);
+        expect(new cacheBlock.RawBlock(1, 0).held).toBe(false);
       });
 
       it("should hold a block while the stream writes into it", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         block.buffer = new dynamic.Dynamic({ dynamicBufferSize: 10 });
         expect(block.held).toBe(true);
       });
 
       it("should hold a block while a fetch fills it", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         block.pending = Promise.resolve();
         expect(block.held).toBe(true);
       });
 
       it("should hold a block while a subscription pins it", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         block.fill([fetched(0, [1], seconds(1).range(seconds(2)))], seconds(5), 1);
         block.pins++;
         expect(block.held).toBe(true);
@@ -428,7 +425,7 @@ describe("block", () => {
       });
 
       it("should not hold a block for a series a caller acquires", () => {
-        const block = new RawBlock(1, 0);
+        const block = new cacheBlock.RawBlock(1, 0);
         const series = fetched(0, [1], seconds(1).range(seconds(2)));
         block.fill([series], seconds(5), 1);
         series.acquire();
@@ -438,7 +435,7 @@ describe("block", () => {
     });
 
     it("should stop counting the bytes of the series it drops", () => {
-      const block = new RawBlock(1, 0);
+      const block = new cacheBlock.RawBlock(1, 0);
       block.fill([fetched(0, [1, 2], seconds(1).range(seconds(5)))], seconds(5), 2);
       expect(block.bytes).toBe(2 * 4);
       block.expire();
@@ -446,7 +443,7 @@ describe("block", () => {
     });
 
     it("should count the bytes of every series it holds", () => {
-      const block = new RawBlock(1, 0);
+      const block = new cacheBlock.RawBlock(1, 0);
       block.fill([fetched(0, [1, 2], seconds(1).range(seconds(3)))], seconds(5), 2);
       const buffer = new dynamic.Dynamic({ dynamicBufferSize: 10 });
       buffer.write(
