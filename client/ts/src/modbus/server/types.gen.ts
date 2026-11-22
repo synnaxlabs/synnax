@@ -56,13 +56,13 @@ export interface Requests extends z.infer<typeof requestsZ> {}
 /** Stats holds the request counters of a server. */
 export const statsZ = z.object({
   /** requests is the number of requests tried, retries included. */
-  requests: z.uint64().default(0),
+  requests: z.number().default(0),
   /** retries is the number of requests tried again after a temporary error. */
-  retries: z.uint64().default(0),
+  retries: z.number().default(0),
   /** timeouts is the number of requests that the unit did not answer in time. */
-  timeouts: z.uint64().default(0),
+  timeouts: z.number().default(0),
   /** exceptions is the number of requests answered with an exception. */
-  exceptions: z.uint64().default(0),
+  exceptions: z.number().default(0),
   /** lastResponse is the time from sending the last answered request to its reply. */
   lastResponse: telem.timeSpanZ.default(TimeSpan.ZERO),
   /** maxResponse is the longest time from sending a request to its reply. */

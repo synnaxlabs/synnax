@@ -69,6 +69,18 @@ describe("serverZ", () => {
     expect(server.writeChannels).toEqual({ "coil-1": 6 });
   });
 
+  it("should parse the request counters of a status as numbers", () => {
+    const details = modbus.server.statusDetailsZ.parse({
+      rack: 1,
+      server: SERVER.key,
+      connected: true,
+      stats: { requests: 7, retries: 1, lastResponse: 2000000 },
+    });
+    expect(details.stats?.requests).toEqual(7);
+    expect(details.stats?.timeouts).toEqual(0);
+    expect(details.stats?.lastResponse.milliseconds).toEqual(2);
+  });
+
   const INVALID: [string, Record<string, unknown>][] = [
     ["an empty name", { name: "" }],
     ["no transport", { connection: { host: "plc", port: 502 } }],

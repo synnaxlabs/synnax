@@ -227,7 +227,8 @@ Field groups per make:
   or RTU), and `requests` (RFC 0091 §2.0); configuration `read_index` and the register
   channel maps `read_channels` and `write_channels`. The connect form writes the
   identity group; the task forms write the configuration group. Its `StatusDetails` hold
-  `connected` and the request counts as `stats` (RFC 0091 §2.7).
+  `connected` and the request counts as `stats` (RFC 0091 §2.7). The migration writes a
+  stored row without `transport` as TCP, the only transport a stable release had.
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
   union), `max_concurrent_requests`, `health_check`, per-path read and write channel
   maps (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver

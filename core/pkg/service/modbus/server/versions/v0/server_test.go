@@ -71,26 +71,26 @@ var _ = Describe("Server", func() {
 		}))
 	})
 
-	It("Should apply the defaults of each transport", func() {
-		var s v0.Server
-		Expect(json.Unmarshal([]byte(`{
-			"key": "22222222-2222-4222-8222-222222222222",
-			"rack": 1,
-			"name": "PLC",
-			"connection": {"transport": "rtu", "serial_port": "COM3"}
-		}`), &s)).To(Succeed())
-		Expect(s.Connection.Variant).To(Equal(v0.RtuConnection{
-			TimeoutMs:  1000,
-			Retries:    1,
-			SerialPort: "COM3",
-			BaudRate:   19200,
-			Parity:     v0.ParityEven,
-			StopBits:   1,
-			UnitID:     1,
-		}))
-		Expect(s.Requests).To(Equal(server().Requests))
-		Expect(s.Validate()).To(Succeed())
-	})
+	DescribeTable("Should apply the defaults of each transport",
+		func(connection string, expected v0.ConnectionVariant) {
+			var s v0.Server
+			Expect(json.Unmarshal([]byte(`{
+				"key": "22222222-2222-4222-8222-222222222222",
+				"rack": 1,
+				"name": "PLC",
+				"connection": `+connection+`
+			}`), &s)).To(Succeed())
+			Expect(s.Connection.Variant).To(Equal(expected))
+			Expect(s.Requests).To(Equal(server().Requests))
+			Expect(s.Validate()).To(Succeed())
+		},
+		Entry("TCP", `{"transport": "tcp", "host": "plc", "port": 502}`, tcp()),
+		Entry(
+			"RTU",
+			`{"transport": "rtu", "serial_port": "/dev/ttyUSB0"}`,
+			rtu(),
+		),
+	)
 
 	It("Should round trip a server through JSON", func() {
 		s := server()

@@ -143,15 +143,19 @@ Requests struct {
 Stats struct {
     requests      uint64 = 0 {
         @doc value "is the number of requests tried, retries included."
+        @ts type   "number"
     }
     retries       uint64 = 0 {
         @doc value "is the number of requests tried again after a temporary error."
+        @ts type   "number"
     }
     timeouts      uint64 = 0 {
         @doc value "is the number of requests that the unit did not answer in time."
+        @ts type   "number"
     }
     exceptions    uint64 = 0 {
         @doc value "is the number of requests answered with an exception."
+        @ts type   "number"
     }
     last_response telem.TimeSpan = 0 {
         @doc value "is the time from sending the last answered request to its reply."
