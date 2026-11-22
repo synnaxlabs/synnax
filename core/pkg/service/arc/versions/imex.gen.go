@@ -16,12 +16,13 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 
 // Latest is the portable schema version stamped on exported Arc envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v4.Version
+const Latest = v5.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Arc
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -39,6 +40,12 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 		}
 		return t4, nil
 	case v4.Version:
+		t4, err := env.Decode[v4.Arc]()
+		if err != nil {
+			return Arc{}, err
+		}
+		return t4, nil
+	case v5.Version:
 		return env.Decode[Arc]()
 	}
 	return Arc{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)

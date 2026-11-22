@@ -11,71 +11,71 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
+import "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v5"
 
 // Key is a unique identifier for an Arc module.
-type Key = v4.Key
+type Key = v5.Key
 
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
-type Mode = v4.Mode
+type Mode = v5.Mode
 
 const (
 	// ModeText stores the module as Arc source text.
-	ModeText Mode = v4.ModeText
+	ModeText Mode = v5.ModeText
 	// ModeGraph stores the module as a visual dataflow graph.
-	ModeGraph Mode = v4.ModeGraph
+	ModeGraph Mode = v5.ModeGraph
 )
 
 // Source is the source code of an Arc. The mode selects text or a graph.
-type Source = v4.Source
+type Source = v5.Source
 
 // SourceVariant is implemented by every Source variant.
-type SourceVariant = v4.SourceVariant
+type SourceVariant = v5.SourceVariant
 
 // TextSource is Arc source code written as text.
-type TextSource = v4.TextSource
+type TextSource = v5.TextSource
 
 // GraphSource is Arc source code drawn as a visual dataflow graph.
-type GraphSource = v4.GraphSource
+type GraphSource = v5.GraphSource
 
 // Base carries the fields that every Arc shares.
-type Base = v4.Base
+type Base = v5.Base
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
-type Arc = v4.Arc
+type Arc = v5.Arc
 
 // ArcVariant is implemented by every Arc variant.
-type ArcVariant = v4.ArcVariant
+type ArcVariant = v5.ArcVariant
 
 // AutomationArc is an Arc that runs on a rack as a task.
-type AutomationArc = v4.AutomationArc
+type AutomationArc = v5.AutomationArc
 
 // ModuleArc is an Arc that holds code for other Arcs to import.
-type ModuleArc = v4.ModuleArc
-type Status = v4.Status
+type ModuleArc = v5.ModuleArc
+type Status = v5.Status
 
 // ChangeKind is how a piece of an automation's content differs from what its task last
 // ran.
-type ChangeKind = v4.ChangeKind
+type ChangeKind = v5.ChangeKind
 
 const (
-	ChangeKindChanged ChangeKind = v4.ChangeKindChanged
-	ChangeKindAdded   ChangeKind = v4.ChangeKindAdded
-	ChangeKindRemoved ChangeKind = v4.ChangeKindRemoved
+	ChangeKindChanged ChangeKind = v5.ChangeKindChanged
+	ChangeKindAdded   ChangeKind = v5.ChangeKindAdded
+	ChangeKindRemoved ChangeKind = v5.ChangeKindRemoved
 )
 
 // Change is one difference between an automation's content and what its task last ran.
-type Change = v4.Change
+type Change = v5.Change
 
 // Type specifies whether an Arc runs on a rack as an automation or holds code for other
 // Arcs to import as a module.
-type Type = v4.Type
+type Type = v5.Type
 
 const (
-	TypeAutomation Type = v4.TypeAutomation
-	TypeModule     Type = v4.TypeModule
+	TypeAutomation Type = v5.TypeAutomation
+	TypeModule     Type = v5.TypeModule
 )
 
 // Calculation is a calculated channel that an automation reads, compiled to a module.
-type Calculation = v4.Calculation
+type Calculation = v5.Calculation
