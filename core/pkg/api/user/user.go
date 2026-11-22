@@ -97,21 +97,14 @@ type (
 )
 
 // Create creates users and returns them. A user with a zero key gets a new one. It
-// returns access.ErrDenied when the subject cannot create users, and a validation error
-// for a root user, a missing role, or a key that already exists. A new user has no
-// login method until it is given a password, API key, or provider link.
+// returns a validation error for a root user, a missing role, or a key that already
+// exists. A new user has no login method until it is given a password, API key, or
+// provider link.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(s.db).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []resource.ID{{Type: resource.TypeUser}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	w := s.internal.NewWriter(tx)
 	created := make([]user.User, len(req.Users))
 	for i, u := range req.Users {

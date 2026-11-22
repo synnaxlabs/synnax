@@ -195,15 +195,17 @@ var _ = Describe("Service", func() {
 			"Should deny access when the subject lacks create permission",
 			func(ctx SpecContext) {
 				fctx, subject := nonRootCtx(ctx)
+				key := uuid.New()
 				Expect(create(fctx, apiuser.CreateRequest{
 					Users: []user.User{{
+						Key:  key,
 						Name: "denied",
 						Role: rbacSvc.Builtin.ViewerKey,
 					}},
 				})).Error().To(denied(
 					subject,
 					access.ActionCreate,
-					resource.ID{Type: resource.TypeUser},
+					user.ResourceID(key),
 				))
 			},
 		)

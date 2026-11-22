@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type access, user } from "@synnaxlabs/client";
-import { array, deep, uuid, verbs } from "@synnaxlabs/x";
+import { array, deep, errors, uuid, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -85,17 +85,16 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   update: async ({ client, value }) => {
     const { username, password, ...u } = value();
     const created = await client.users.create({ key: uuid.create(), ...u });
-    let registered = false;
     try {
       await client.auth.createPassword({
         subject: user.resourceID(created.key),
         username,
         password,
       });
-      registered = true;
-    } finally {
+    } catch (e) {
       // a user with no password cannot log in, so a failed registration removes it
-      if (!registered) await client.users.delete(created.key);
+      await client.users.delete(created.key).catch(console.error);
+      throw errors.fromUnknown(e);
     }
   },
 });

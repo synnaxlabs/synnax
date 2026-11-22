@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/client";
+import { status, user } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -97,3 +97,13 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
 };
 
 export const useRegisterModal = Modals.create(Register);
+
+/**
+ * Reports whether the subject may register a user. Registering creates the user, then
+ * gives it a password, which needs update on the user.
+ */
+export const useRegisterGranted = (): boolean => {
+  const create = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
+  const update = Access.useUpdateGranted(user.TYPE_RESOURCE_ID);
+  return create && update;
+};
