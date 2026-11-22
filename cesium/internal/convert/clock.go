@@ -270,42 +270,15 @@ func (h *handle) split(
 			h.cut(key, name, off, end, c.key)
 			return nil
 		}
-		n, final, err := h.take(c, k, pos, d, density, off)
-		if err != nil {
+		p := piece{c: c, k: k, pos: pos, first: first, d: d, density: density}
+		if err = h.piece(&p, name, off, end); err != nil {
 			return err
 		}
-		if n == 0 {
+		if p.n == 0 {
 			h.cut(key, name, off, end, c.key)
 			return nil
 		}
-		length := n * uint32(density)
-		switch {
-		// A whole pointer that ends by 1 ns after its last stamp has a stamp for each
-		// sample.
-		case density == 0 && final && !d.cut && c.last[k] >= d.end-1:
-			length = end - off
-		case density == 0:
-			if n, length, err = h.walk(name, off, end, n); err != nil {
-				return err
-			}
-			if n == 0 {
-				h.cut(key, name, off, end, c.key)
-				return nil
-			}
-		}
-		last, timed, err := h.lastOf(c, k, pos, n, first)
-		if err != nil {
-			return err
-		}
-		short := timed < n
-		if short {
-			n, length = timed, timed*uint32(density)
-			if density == 0 {
-				if _, length, err = h.walk(name, off, end, n); err != nil {
-					return err
-				}
-			}
-		}
+		n, length, last, short := p.n, p.length, p.last, p.short
 		pieces[d.file] = append(pieces[d.file], state.Pointer{
 			First:     first,
 			Last:      last,
@@ -325,6 +298,64 @@ func (h *handle) split(
 		}
 	}
 	return nil
+}
+
+// piece is the piece of data pointer d that the stamps of pointer k of c from position
+// pos time, whose first stamp is first. piece fills n, length, and last, its samples,
+// bytes, and last stamp, and short, which is true when a stamp outside k ended it.
+type piece struct {
+	c       *clock
+	k       int
+	pos     uint32
+	first   telem.TimeStamp
+	d       pointer
+	density telem.Density
+	n       uint32
+	length  uint32
+	last    telem.TimeStamp
+	short   bool
+}
+
+// piece fills p for the samples of the file name from stream offset off to end. It
+// leaves p.n zero when no stamp times the sample at off.
+func (h *handle) piece(p *piece, name string, off, end uint32) error {
+	n, final, err := h.take(p.c, p.k, p.pos, p.d, p.density, off)
+	if err != nil || n == 0 {
+		return err
+	}
+	// A whole pointer that ends by 1 ns after its last stamp has a stamp for each
+	// sample.
+	whole := final && !p.d.cut && p.c.last[p.k] >= p.d.end-1
+	if p.n, p.length, err = h.span(name, off, end, n, p.density, whole); err != nil ||
+		p.n == 0 {
+		return err
+	}
+	var timed uint32
+	if p.last, timed, err = h.lastOf(p.c, p.k, p.pos, p.n, p.first); err != nil ||
+		timed == p.n {
+		return err
+	}
+	p.short = true
+	p.n, p.length, err = h.span(name, off, end, timed, p.density, false)
+	return err
+}
+
+// span returns how many of n samples of density at off of the file name end by end, and
+// their bytes. A density of zero is a variable type, whose prefixes it walks unless
+// whole is true: then the samples take every byte up to end.
+func (h *handle) span(
+	name string,
+	off, end, n uint32,
+	density telem.Density,
+	whole bool,
+) (uint32, uint32, error) {
+	switch {
+	case density != 0:
+		return n, n * uint32(density), nil
+	case whole:
+		return n, end - off, nil
+	}
+	return h.walk(name, off, end, n)
 }
 
 // lastOf returns the stamp of the last of the n samples from position pos of pointer k
