@@ -13,7 +13,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
-import { createTaskStatus } from "@/platform/task/testutil";
+import { createTaskStatus, getControlsFrame } from "@/platform/task/testutil";
 import { getIconButton, queryIcon, renderWithConsole } from "@/testutil";
 
 describe("Controls.Bar", () => {
@@ -186,14 +186,34 @@ describe("Controls.Bar", () => {
       expect(queryIcon(loading.container, "loading")).toBeTruthy();
     });
 
-    it("should neither expand nor offer diagnostics without a status", async () => {
-      const { container } = await renderWithConsole(
+    it("should stay collapsed when a missing status is clicked", async () => {
+      const { container, rerender } = await renderWithConsole(
         <Task.Controls.Bar running={false} onDeploy={vi.fn()} />,
       );
       expect(queryIcon(container, "status-concentric")).toBeTruthy();
       fireEvent.click(screen.getByText("No status"));
+      rerender(
+        <Task.Controls.Bar
+          status={createTaskStatus()}
+          running={false}
+          onDeploy={vi.fn()}
+        />,
+      );
       expect(screen.queryByText("Copy diagnostics")).toBeNull();
-      expect(queryIcon(container, "collapse")).toBeNull();
+    });
+
+    it("should contract the expanded status on a click on the bar", async () => {
+      const { container } = await renderWithConsole(
+        <Task.Controls.Bar
+          status={createTaskStatus()}
+          running={false}
+          onDeploy={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByText("Running smoothly"));
+      expect(screen.getByText("Copy diagnostics")).toBeTruthy();
+      fireEvent.click(getControlsFrame(container));
+      expect(screen.queryByText("Copy diagnostics")).toBeNull();
     });
   });
 
@@ -260,20 +280,21 @@ describe("Controls.Bar", () => {
       expect(onDeploy).not.toHaveBeenCalled();
     });
 
-    it("should keep a click on an action from reaching an ancestor", async () => {
+    it("should keep a click in the action row from contracting the status", async () => {
       const parentClick = vi.fn();
-      const onDeploy = vi.fn();
-      const { container } = await renderWithConsole(
+      await renderWithConsole(
         <div onClick={parentClick}>
           <Task.Controls.Bar
             status={createTaskStatus()}
             running={false}
-            onDeploy={onDeploy}
+            extraActions={<span>extra</span>}
+            onDeploy={vi.fn()}
           />
         </div>,
       );
-      fireEvent.click(getIconButton(container, "play"));
-      expect(onDeploy).toHaveBeenCalledTimes(1);
+      fireEvent.click(screen.getByText("Running smoothly"));
+      fireEvent.click(screen.getByText("extra"));
+      expect(screen.getByText("Copy diagnostics")).toBeTruthy();
       expect(parentClick).not.toHaveBeenCalled();
     });
   });
