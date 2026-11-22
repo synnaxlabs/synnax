@@ -112,7 +112,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Instrumentation: cfg.Instrumentation,
 		// A named color delete rewrites the schematic outside any schematic write, so
 		// the service sends the schematic as a create.
-		OnDetach: func(_ context.Context, tx gorp.Tx, sch Schematic) error {
+		OnRewrite: func(_ context.Context, tx gorp.Tx, sch Schematic) error {
 			s.state.Dispatcher().
 				Attach(tx, sch.Key, NewCreateAction(CreatePayload{Schematic: sch}))
 			return nil

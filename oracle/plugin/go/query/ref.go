@@ -64,6 +64,8 @@ type refInfo struct {
 	// Zero is the Go zero value of a scalar field that holds no target while it is
 	// zero, because its default is zero. It is empty for any other field.
 	Zero string
+	// RetargetBody is the body of the reference's Retarget function.
+	RetargetBody string
 }
 
 // HoldsNone reports whether an entry can hold no target through the field.

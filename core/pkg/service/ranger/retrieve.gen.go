@@ -71,6 +71,21 @@ func newIndexes() indexes {
 					return v == t
 				})
 			},
+			Retarget: func(e *Range, from, to label.Key) {
+				if slices.ContainsFunc(e.Labels, func(k1 label.Key) bool {
+					return k1 == to
+				}) {
+					e.Labels = slices.DeleteFunc(e.Labels, func(k1 label.Key) bool {
+						return k1 == from
+					})
+				} else {
+					for i2 := range e.Labels {
+						if e.Labels[i2] == from {
+							e.Labels[i2] = to
+						}
+					}
+				}
+			},
 		}),
 		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Range, Key]{
 			Name:     "parent",
@@ -83,6 +98,11 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []Key{*e.Parent}
+			},
+			Retarget: func(e *Range, from, to Key) {
+				if e.Parent != nil && *e.Parent == from {
+					*e.Parent = to
+				}
 			},
 		}),
 		colorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Range, color.Key]{
@@ -104,6 +124,17 @@ func newIndexes() indexes {
 				if e.Color != nil {
 					if v3, ok := e.Color.Variant.(color.NamedRef); ok && v3.Key == t {
 						e.Color = nil
+					}
+				}
+			},
+			Retarget: func(e *Range, from, to color.Key) {
+				if e.Color != nil {
+					switch v4 := e.Color.Variant.(type) {
+					case color.NamedRef:
+						if v4.Key == from {
+							v4.Key = to
+						}
+						e.Color.Variant = v4
 					}
 				}
 			},

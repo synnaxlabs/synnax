@@ -70,6 +70,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Schematic, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Schematic, from, to group.Key) {
+				if e.Group != nil && *e.Group == from {
+					*e.Group = to
+				}
+			},
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, project.Key]{
 			Name:     "project",
@@ -81,6 +86,11 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []project.Key{*e.Project}
+			},
+			Retarget: func(e *Schematic, from, to project.Key) {
+				if e.Project != nil && *e.Project == from {
+					*e.Project = to
+				}
 			},
 		}),
 		nodesConfigStrokeColorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, color.Key]{
@@ -239,6 +249,122 @@ func newIndexes() indexes {
 							}
 						}
 						e.Nodes[i25].Config.Variant = v26
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to color.Key) {
+				for i37 := range e.Nodes {
+					switch v38 := e.Nodes[i37].Config.Variant.(type) {
+					case BoxNodeConfig:
+						if v38.StrokeColor != nil {
+							switch v39 := v38.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v39.Key == from {
+									v39.Key = to
+								}
+								v38.StrokeColor.Variant = v39
+							}
+						}
+						e.Nodes[i37].Config.Variant = v38
+					case CircleNodeConfig:
+						if v38.StrokeColor != nil {
+							switch v40 := v38.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v40.Key == from {
+									v40.Key = to
+								}
+								v38.StrokeColor.Variant = v40
+							}
+						}
+						e.Nodes[i37].Config.Variant = v38
+					case GaugeNodeConfig:
+						if v38.StrokeColor != nil {
+							switch v41 := v38.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v41.Key == from {
+									v41.Key = to
+								}
+								v38.StrokeColor.Variant = v41
+							}
+						}
+						e.Nodes[i37].Config.Variant = v38
+					case LineNodeConfig:
+						if v38.StrokeColor != nil {
+							switch v42 := v38.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v42.Key == from {
+									v42.Key = to
+								}
+								v38.StrokeColor.Variant = v42
+							}
+						}
+						e.Nodes[i37].Config.Variant = v38
+					case PolygonNodeConfig:
+						if v38.StrokeColor != nil {
+							switch v43 := v38.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v43.Key == from {
+									v43.Key = to
+								}
+								v38.StrokeColor.Variant = v43
+							}
+						}
+						e.Nodes[i37].Config.Variant = v38
+					case StateIndicatorNodeConfig:
+						if v38.StrokeColor != nil {
+							switch v44 := v38.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v44.Key == from {
+									v44.Key = to
+								}
+								v38.StrokeColor.Variant = v44
+							}
+						}
+						e.Nodes[i37].Config.Variant = v38
+					case StringDisplayNodeConfig:
+						if v38.StrokeColor != nil {
+							switch v45 := v38.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v45.Key == from {
+									v45.Key = to
+								}
+								v38.StrokeColor.Variant = v45
+							}
+						}
+						e.Nodes[i37].Config.Variant = v38
+					case ValueNodeConfig:
+						if v38.StrokeColor != nil {
+							switch v46 := v38.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v46.Key == from {
+									v46.Key = to
+								}
+								v38.StrokeColor.Variant = v46
+							}
+						}
+						e.Nodes[i37].Config.Variant = v38
+					case CylinderNodeConfig:
+						if v38.StrokeColor != nil {
+							switch v47 := v38.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v47.Key == from {
+									v47.Key = to
+								}
+								v38.StrokeColor.Variant = v47
+							}
+						}
+						e.Nodes[i37].Config.Variant = v38
+					case TankNodeConfig:
+						if v38.StrokeColor != nil {
+							switch v48 := v38.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v48.Key == from {
+									v48.Key = to
+								}
+								v38.StrokeColor.Variant = v48
+							}
+						}
+						e.Nodes[i37].Config.Variant = v38
 					}
 				}
 			},
@@ -505,6 +631,133 @@ func newIndexes() indexes {
 					}
 				}
 			},
+			Retarget: func(e *Schematic, from, to color.Key) {
+				for i40 := range e.Nodes {
+					switch v41 := e.Nodes[i40].Config.Variant.(type) {
+					case BoxNodeConfig:
+						if v41.FillColor != nil {
+							switch v42 := v41.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v42.Key == from {
+									v42.Key = to
+								}
+								v41.FillColor.Variant = v42
+							}
+						}
+						e.Nodes[i40].Config.Variant = v41
+					case ButtonNodeConfig:
+						if v41.FillColor != nil {
+							switch v43 := v41.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v43.Key == from {
+									v43.Key = to
+								}
+								v41.FillColor.Variant = v43
+							}
+						}
+						e.Nodes[i40].Config.Variant = v41
+					case CircleNodeConfig:
+						if v41.FillColor != nil {
+							switch v44 := v41.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v44.Key == from {
+									v44.Key = to
+								}
+								v41.FillColor.Variant = v44
+							}
+						}
+						e.Nodes[i40].Config.Variant = v41
+					case InputNodeConfig:
+						if v41.FillColor != nil {
+							switch v45 := v41.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v45.Key == from {
+									v45.Key = to
+								}
+								v41.FillColor.Variant = v45
+							}
+						}
+						e.Nodes[i40].Config.Variant = v41
+					case OffPageReferenceNodeConfig:
+						if v41.FillColor != nil {
+							switch v46 := v41.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v46.Key == from {
+									v46.Key = to
+								}
+								v41.FillColor.Variant = v46
+							}
+						}
+						e.Nodes[i40].Config.Variant = v41
+					case PolygonNodeConfig:
+						if v41.FillColor != nil {
+							switch v47 := v41.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v47.Key == from {
+									v47.Key = to
+								}
+								v41.FillColor.Variant = v47
+							}
+						}
+						e.Nodes[i40].Config.Variant = v41
+					case SelectNodeConfig:
+						if v41.FillColor != nil {
+							switch v48 := v41.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v48.Key == from {
+									v48.Key = to
+								}
+								v41.FillColor.Variant = v48
+							}
+						}
+						e.Nodes[i40].Config.Variant = v41
+					case SetpointNodeConfig:
+						if v41.FillColor != nil {
+							switch v49 := v41.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v49.Key == from {
+									v49.Key = to
+								}
+								v41.FillColor.Variant = v49
+							}
+						}
+						e.Nodes[i40].Config.Variant = v41
+					case ValueNodeConfig:
+						if v41.FillColor != nil {
+							switch v50 := v41.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v50.Key == from {
+									v50.Key = to
+								}
+								v41.FillColor.Variant = v50
+							}
+						}
+						e.Nodes[i40].Config.Variant = v41
+					case CylinderNodeConfig:
+						if v41.FillColor != nil {
+							switch v51 := v41.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v51.Key == from {
+									v51.Key = to
+								}
+								v41.FillColor.Variant = v51
+							}
+						}
+						e.Nodes[i40].Config.Variant = v41
+					case TankNodeConfig:
+						if v41.FillColor != nil {
+							switch v52 := v41.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v52.Key == from {
+									v52.Key = to
+								}
+								v41.FillColor.Variant = v52
+							}
+						}
+						e.Nodes[i40].Config.Variant = v41
+					}
+				}
+			},
 			Inline: func(
 				ctx context.Context,
 				tx gorp.Tx,
@@ -649,6 +902,34 @@ func newIndexes() indexes {
 					}
 				}
 			},
+			Retarget: func(e *Schematic, from, to color.Key) {
+				for i13 := range e.Nodes {
+					switch v14 := e.Nodes[i13].Config.Variant.(type) {
+					case ScaleNodeConfig:
+						if v14.LevelColor != nil {
+							switch v15 := v14.LevelColor.Variant.(type) {
+							case color.NamedRef:
+								if v15.Key == from {
+									v15.Key = to
+								}
+								v14.LevelColor.Variant = v15
+							}
+						}
+						e.Nodes[i13].Config.Variant = v14
+					case TankNodeConfig:
+						if v14.LevelColor != nil {
+							switch v16 := v14.LevelColor.Variant.(type) {
+							case color.NamedRef:
+								if v16.Key == from {
+									v16.Key = to
+								}
+								v14.LevelColor.Variant = v16
+							}
+						}
+						e.Nodes[i13].Config.Variant = v14
+					}
+				}
+			},
 			Inline: func(
 				ctx context.Context,
 				tx gorp.Tx,
@@ -727,6 +1008,34 @@ func newIndexes() indexes {
 							}
 						}
 						e.Nodes[i9].Config.Variant = v10
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to color.Key) {
+				for i13 := range e.Nodes {
+					switch v14 := e.Nodes[i13].Config.Variant.(type) {
+					case ScaleNodeConfig:
+						if v14.AxisColor != nil {
+							switch v15 := v14.AxisColor.Variant.(type) {
+							case color.NamedRef:
+								if v15.Key == from {
+									v15.Key = to
+								}
+								v14.AxisColor.Variant = v15
+							}
+						}
+						e.Nodes[i13].Config.Variant = v14
+					case TankNodeConfig:
+						if v14.AxisColor != nil {
+							switch v16 := v14.AxisColor.Variant.(type) {
+							case color.NamedRef:
+								if v16.Key == from {
+									v16.Key = to
+								}
+								v14.AxisColor.Variant = v16
+							}
+						}
+						e.Nodes[i13].Config.Variant = v14
 					}
 				}
 			},
@@ -850,6 +1159,67 @@ func newIndexes() indexes {
 							}
 						}
 						e.Nodes[i15].Config.Variant = v16
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to color.Key) {
+				for i22 := range e.Nodes {
+					switch v23 := e.Nodes[i22].Config.Variant.(type) {
+					case ScaleNodeConfig:
+						if v23.TextColor != nil {
+							switch v24 := v23.TextColor.Variant.(type) {
+							case color.NamedRef:
+								if v24.Key == from {
+									v24.Key = to
+								}
+								v23.TextColor.Variant = v24
+							}
+						}
+						e.Nodes[i22].Config.Variant = v23
+					case StringDisplayNodeConfig:
+						if v23.TextColor != nil {
+							switch v25 := v23.TextColor.Variant.(type) {
+							case color.NamedRef:
+								if v25.Key == from {
+									v25.Key = to
+								}
+								v23.TextColor.Variant = v25
+							}
+						}
+						e.Nodes[i22].Config.Variant = v23
+					case TextBoxNodeConfig:
+						if v23.TextColor != nil {
+							switch v26 := v23.TextColor.Variant.(type) {
+							case color.NamedRef:
+								if v26.Key == from {
+									v26.Key = to
+								}
+								v23.TextColor.Variant = v26
+							}
+						}
+						e.Nodes[i22].Config.Variant = v23
+					case ValueNodeConfig:
+						if v23.TextColor != nil {
+							switch v27 := v23.TextColor.Variant.(type) {
+							case color.NamedRef:
+								if v27.Key == from {
+									v27.Key = to
+								}
+								v23.TextColor.Variant = v27
+							}
+						}
+						e.Nodes[i22].Config.Variant = v23
+					case TankNodeConfig:
+						if v23.TextColor != nil {
+							switch v28 := v23.TextColor.Variant.(type) {
+							case color.NamedRef:
+								if v28.Key == from {
+									v28.Key = to
+								}
+								v23.TextColor.Variant = v28
+							}
+						}
+						e.Nodes[i22].Config.Variant = v23
 					}
 				}
 			},
@@ -1022,6 +1392,89 @@ func newIndexes() indexes {
 							}
 						}
 						e.Edges[i19].Config.Variant = v20
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to color.Key) {
+				for i28 := range e.Edges {
+					switch v29 := e.Edges[i28].Config.Variant.(type) {
+					case PipeEdgeConfig:
+						if v29.StrokeColor != nil {
+							switch v30 := v29.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v30.Key == from {
+									v30.Key = to
+								}
+								v29.StrokeColor.Variant = v30
+							}
+						}
+						e.Edges[i28].Config.Variant = v29
+					case ElectricEdgeConfig:
+						if v29.StrokeColor != nil {
+							switch v31 := v29.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v31.Key == from {
+									v31.Key = to
+								}
+								v29.StrokeColor.Variant = v31
+							}
+						}
+						e.Edges[i28].Config.Variant = v29
+					case SecondaryEdgeConfig:
+						if v29.StrokeColor != nil {
+							switch v32 := v29.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v32.Key == from {
+									v32.Key = to
+								}
+								v29.StrokeColor.Variant = v32
+							}
+						}
+						e.Edges[i28].Config.Variant = v29
+					case JacketedEdgeConfig:
+						if v29.StrokeColor != nil {
+							switch v33 := v29.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v33.Key == from {
+									v33.Key = to
+								}
+								v29.StrokeColor.Variant = v33
+							}
+						}
+						e.Edges[i28].Config.Variant = v29
+					case HydraulicEdgeConfig:
+						if v29.StrokeColor != nil {
+							switch v34 := v29.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v34.Key == from {
+									v34.Key = to
+								}
+								v29.StrokeColor.Variant = v34
+							}
+						}
+						e.Edges[i28].Config.Variant = v29
+					case PneumaticEdgeConfig:
+						if v29.StrokeColor != nil {
+							switch v35 := v29.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v35.Key == from {
+									v35.Key = to
+								}
+								v29.StrokeColor.Variant = v35
+							}
+						}
+						e.Edges[i28].Config.Variant = v29
+					case DataEdgeConfig:
+						if v29.StrokeColor != nil {
+							switch v36 := v29.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v36.Key == from {
+									v36.Key = to
+								}
+								v29.StrokeColor.Variant = v36
+							}
+						}
+						e.Edges[i28].Config.Variant = v29
 					}
 				}
 			},

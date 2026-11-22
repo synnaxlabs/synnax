@@ -84,7 +84,7 @@ func OpenService(
 		Migrations: versions.Migrations,
 		// A named color delete rewrites the panel outside any panel write, so the
 		// service sends the panel as a create.
-		OnDetach: func(_ context.Context, tx gorp.Tx, p Panel) error {
+		OnRewrite: func(_ context.Context, tx gorp.Tx, p Panel) error {
 			s.state.Dispatcher().
 				Attach(tx, p.Key, NewCreateAction(CreatePayload{Panel: p}))
 			return nil
