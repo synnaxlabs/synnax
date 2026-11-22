@@ -15,8 +15,7 @@ import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Policy } from "@/access/policy";
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = Policy.formPath;
 

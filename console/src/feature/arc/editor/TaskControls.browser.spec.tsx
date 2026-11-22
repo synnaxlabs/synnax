@@ -33,6 +33,7 @@ import {
   findDialogTrigger,
   findDialogTriggerByText,
   getIconButton,
+  pickOption,
   queryIcon,
   queryIconButton,
   renderSuspended,
@@ -69,14 +70,6 @@ const hoverRedeploy = async (): Promise<void> => {
   fireEvent.pointerOver(button, { pointerType: "mouse" });
 };
 
-const searchAndClickRack = async (name: string): Promise<void> => {
-  fireEvent.click(await findDialogTrigger());
-  const search = await waitFor(() => screen.getByPlaceholderText("Search drivers..."));
-  fireEvent.change(search, { target: { value: name } });
-  const option = await waitFor(() => screen.getByText(name));
-  fireEvent.click(option);
-};
-
 describe("TaskControls", () => {
   it("should bind the rack when one is picked", async () => {
     const rck = await createArcRack();
@@ -91,7 +84,8 @@ describe("TaskControls", () => {
         "true",
       ),
     );
-    await searchAndClickRack(rck.name);
+    fireEvent.click(await findDialogTrigger());
+    await pickOption(rck.name, "Search drivers...");
     await waitFor(async () => {
       const tsk = await client.arcs.task.retrieve(a.key);
       expect(tsk).not.toBeNull();

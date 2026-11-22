@@ -19,6 +19,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
+	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -346,7 +347,7 @@ func (d *Decoder) appendNumeric(dst []byte, raw jsontext.Value) ([]byte, error) 
 // type is not numeric, or v does not convert to it.
 func (d *Decoder) AppendFloat(dst []byte, v float64) ([]byte, error) {
 	n := number{kind: floatNumber, f: v}
-	if math.IsNaN(v) || math.IsInf(v, 0) {
+	if !xmath.Finite(v) {
 		return nil, errors.Wrapf(validate.ErrValidation, "%s is not finite", n)
 	}
 	if dt := d.field.DataType; !numeric(dt) {

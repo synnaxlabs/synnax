@@ -22,7 +22,7 @@ import { type PropsWithChildren, type ReactElement, useEffect, useState } from "
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
@@ -442,7 +442,9 @@ describe("useList", () => {
       name: "outside",
       timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
     });
-    const reader = createTestClient();
+    // With no change stream, a change from another spec starts no fetch that the
+    // rejection below would fail.
+    const reader = createTestClient({ cache: false });
     const { result } = renderHook(
       () => Flux.useList(ranges, { name: "ranges", query: byName() }),
       { wrapper: createSynnaxWrapper({ client: reader }) },

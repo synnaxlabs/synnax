@@ -16,11 +16,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Access } from "@/platform/access";
 import { Label } from "@/platform/label";
-import {
-  createTestLabel,
-  createTestLabelName,
-  searchAndClickLabel,
-} from "@/platform/label/testutil";
+import { createTestLabel, createTestLabelName } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import {
   createConsoleWrapper,
@@ -28,6 +24,7 @@ import {
   findDialogTrigger,
   getIconButton,
   type Grants,
+  pickOption,
   renderSuspended,
   uniqueToken,
 } from "@/testutil";
@@ -61,7 +58,8 @@ describe("Label.Select", () => {
     });
     const onChange = vi.fn();
     await renderSelect(<Label.SelectMultiple value={[]} onChange={onChange} />);
-    await searchAndClickLabel(label.name);
+    fireEvent.click(await findDialogTrigger());
+    await pickOption(label.name, "Search labels...");
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     expect(onChange.mock.calls[0][0]).toEqual([label.key]);
   });

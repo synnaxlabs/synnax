@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schema } from "@/server/db";
 import type { Store } from "@/server/db/db";
-import { event, type EventKind, type Organization } from "@/server/db/schema";
 import {
   ADMIN_ROLE,
   type Directory,
@@ -18,7 +18,7 @@ import {
 import { badRequest, notFound } from "@/server/errors";
 
 /** Team is a team organization with the Clerk organization that backs it. */
-export type Team = Organization & { clerkOrgID: string };
+export type Team = schema.Organization & { clerkOrgID: string };
 
 /** Change is who changes a team's members, and when. */
 export interface Change {
@@ -41,13 +41,13 @@ export const requireRole = (role: string): void => {
 const record = async (
   store: Store,
   { team, actor, now }: Change,
-  kind: EventKind,
+  kind: schema.EventKind,
   detail: Record<string, unknown>,
   apply: () => Promise<void>,
 ): Promise<void> =>
   await store.transact(async (tx) => {
     await tx
-      .insert(event)
+      .insert(schema.event)
       .values({ at: now, kind, actor, organization: team.key, detail });
     await apply();
   });

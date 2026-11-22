@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { LinePlot } from "@/lineplot";
 import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 import { canvasTest } from "@/vis/render/testutil";
 
 describe("LinePlot.Frame", () => {
