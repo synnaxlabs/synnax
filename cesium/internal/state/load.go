@@ -22,7 +22,7 @@ import (
 // load sets c to the durable state s of a head. It returns an error that wraps
 // ErrRefused when a value of s breaks a rule, or log.ErrUnknown for a segment format
 // version that this binary does not read.
-func (c *core) load(s *Snapshot) error {
+func (c *core) load(s *Snapshot, generation uint64) error {
 	if s.Limits.Alignments > uint64(telem.LeadingDomain) {
 		return refuse(
 			"head has alignment number limit %d, above %d",
@@ -33,6 +33,11 @@ func (c *core) load(s *Snapshot) error {
 	c.sequence, c.limits, c.reserved = s.Sequence, s.Limits, s.Limits
 	for _, ch := range s.Channels {
 		cs := c.channel(ch.Key)
+		if ch.Parts != nil {
+			cs.oldest, cs.newest, cs.generation = ch.Parts.Oldest, ch.Parts.Newest,
+				generation
+			cs.repart()
+		}
 		for _, seg := range ch.Segments {
 			if err := c.checkSegment(ch.Key, seg); err != nil {
 				return err
@@ -161,7 +166,9 @@ func (c *core) snapshot() *Snapshot {
 			}
 			ch.Segments = append(ch.Segments, d)
 		}
-		if len(ch.Segments) > 0 {
+		// A key that only parts hold stays, so the snapshot names every stored key.
+		ch.Parts = c.channels[k].parts
+		if len(ch.Segments) > 0 || ch.Parts != nil {
 			s.Channels = append(s.Channels, ch)
 		}
 	}
@@ -170,5 +177,9 @@ func (c *core) snapshot() *Snapshot {
 	if len(s.Intents) == 0 {
 		s.Intents = nil
 	}
+	for _, k := range keys {
+		s.Kills = append(s.Kills, c.channels[k].kills...)
+	}
+	s.Kills = append(s.Kills, c.dropped...)
 	return s
 }

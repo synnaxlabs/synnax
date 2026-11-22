@@ -49,6 +49,9 @@ type options struct {
 	// when identified is true.
 	identity   uint64
 	identified bool
+	// partSize is the size of the sealed segment records in a head at which a switch
+	// moves them to a part, or zero for 8 MiB.
+	partSize int
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
@@ -136,6 +139,10 @@ func WithPointerLog() Option { return func(o *options) { o.pointerLog = true } }
 func WithIdentity(id uint64) Option {
 	return func(o *options) { o.identity, o.identified = id, true }
 }
+
+// WithPartSize sets the size of the sealed segment records in a head at which a switch
+// of the pointer log layout moves them to a part. Zero means 8 MiB.
+func WithPartSize(size int) Option { return func(o *options) { o.partSize = size } }
 
 // WithGCConfig sets the garbage collection configuration for the DB. See the GCConfig
 // struct for more details.

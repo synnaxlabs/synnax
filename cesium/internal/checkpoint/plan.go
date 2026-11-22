@@ -15,6 +15,8 @@ import (
 	"sort"
 
 	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/invariants"
 )
 
 // plan is what a switch writes: the parts that it keeps, the parts that it writes, and
@@ -23,6 +25,9 @@ type plan struct {
 	index  *Index
 	writes []partWrite
 	head   []*state.Channel
+	// err is the error of each part that the switch keeps because a read of it for its
+	// rewrite failed.
+	err error
 }
 
 type partWrite struct {
@@ -30,29 +35,38 @@ type partWrite struct {
 	channels []*state.Channel
 }
 
-// plan diffs s, the whole state at a switch, against the index of the last head. A part
-// record that s no longer holds is dead. A part with half its records dead, or with a
-// record whose segment s holds cut, is written again under a new identity. Sealed
-// segments that no part holds go to a new part once their records pass the part size.
-// The head holds the rest. Both s and each part keep their records in rising order of
-// key, then identity, so plan walks them side by side.
+// plan folds the kills of s, the state at a switch, into the dead marks of the parts
+// of the last head. A part with half its records dead is written again under a new
+// identity. A segment of s whose record a part holds live stays there. Sealed segments
+// that no part holds go to a new part once their records pass the part size. The head
+// holds the rest. Both s and each part keep their records in rising order of key, then
+// identity, so plan walks them side by side.
 func (c *Checkpointer) plan(s *state.Snapshot) plan {
 	pl := plan{index: &Index{limit: max(c.index.limit, s.Limits.Parts, 1)}}
 	f := flatten(s)
+	var kills map[uint32][]state.Kill
+	if len(s.Kills) > 0 {
+		kills = make(map[uint32][]state.Kill)
+	}
+	for _, k := range s.Kills {
+		kills[k.Key] = append(kills[k.Key], k)
+	}
 	for _, p := range c.index.parts {
 		q := p
 		q.Dead = slices.Clone(p.Dead)
+		q.fold(kills)
 		at := f.match(&q)
-		dead, cut := q.deadCount(), false
-		for i, j := range at {
-			if j >= 0 && !sameSegment(f.segment(j), q.segs[i]) {
-				cut = true
-			}
-		}
+		dead := q.deadCount()
 		switch {
 		case dead == len(q.segs):
-		case cut || 2*dead >= len(q.segs):
-			pl.add(f.channels(at, q.keys))
+		case 2*dead >= len(q.segs):
+			// A part that fails a read for its rewrite stays, with its dead marks.
+			if live, err := c.live(q); err != nil {
+				pl.err = errors.Join(pl.err, err)
+				pl.index.parts = append(pl.index.parts, q)
+			} else {
+				pl.add(live)
+			}
 			f.part(at)
 		default:
 			pl.index.parts = append(pl.index.parts, q)
@@ -65,6 +79,44 @@ func (c *Checkpointer) plan(s *state.Snapshot) plan {
 	}
 	pl.head = f.keep(false)
 	return pl
+}
+
+// live returns the records of p that are not dead, read through the cache.
+func (c *Checkpointer) live(p indexed) ([]*state.Channel, error) {
+	var out []*state.Channel
+	for i := 0; i < len(p.keys); {
+		key := p.keys[i]
+		r, err := c.cfg.Cache.Records(p.Part, key)
+		if err != nil {
+			return nil, err
+		}
+		var segs []state.Segment
+		for j, seg := range r.Segments {
+			if !p.dead(r.First + j) {
+				segs = append(segs, seg)
+			}
+		}
+		if len(segs) > 0 {
+			out = append(out, &state.Channel{Key: key, Segments: segs})
+		}
+		for i < len(p.keys) && p.keys[i] == key {
+			i++
+		}
+	}
+	return out, nil
+}
+
+// tags returns the tags of the records of the parts that pl writes.
+func (pl *plan) tags() []state.Tag {
+	var tags []state.Tag
+	for _, w := range pl.writes {
+		for _, ch := range w.channels {
+			for _, seg := range ch.Segments {
+				tags = append(tags, state.Tag{Part: w.id, Segment: seg})
+			}
+		}
+	}
+	return tags
 }
 
 // add queues a new part of channels.
@@ -97,8 +149,9 @@ func (f *flat) segment(j int) state.Segment {
 	return f.s.Channels[i].Segments[j-f.first[i]]
 }
 
-// match returns the number of the segment of each record of p, or -1 for a dead record,
-// and kills each live record whose segment the state no longer holds.
+// match returns the number of the segment of each live record of p, or -1 for a dead
+// record or one whose segment the state does not hold. A kill marks the record of each
+// change to a sealed segment dead, so a live record is the record that the state holds.
 func (f *flat) match(p *indexed) []int {
 	at := make([]int, len(p.segs))
 	ci := 0
@@ -111,14 +164,16 @@ func (f *flat) match(p *indexed) []int {
 			ci++
 		}
 		if ci == len(f.s.Channels) || f.s.Channels[ci].Key != p.keys[i] {
-			p.kill(i)
 			continue
 		}
 		segs := f.s.Channels[ci].Segments
 		k, ok := slices.BinarySearchFunc(segs, seg.ID, compareID)
 		if !ok {
-			p.kill(i)
 			continue
+		}
+		if invariants.Enabled && !sameSegment(segs[k], seg) {
+			panic(errors.Newf("checkpoint: part %d holds a live record of segment %d "+
+				"that the state holds changed", p.ID, seg.ID))
 		}
 		at[i] = f.first[ci] + k
 	}
@@ -134,22 +189,6 @@ func (f *flat) part(at []int) {
 			f.parted[j] = true
 		}
 	}
-}
-
-// channels returns the segments at, with the key of each in keys, as channels.
-func (f *flat) channels(at []int, keys []uint32) []*state.Channel {
-	var out []*state.Channel
-	for i, j := range at {
-		if j < 0 {
-			continue
-		}
-		if len(out) == 0 || out[len(out)-1].Key != keys[i] {
-			out = append(out, &state.Channel{Key: keys[i]})
-		}
-		c := out[len(out)-1]
-		c.Segments = append(c.Segments, f.segment(j))
-	}
-	return out
 }
 
 // keep returns the segments that no part holds, the sealed ones alone when sealed is

@@ -47,6 +47,9 @@ type Segment struct {
 	Length, TailCRC uint32
 	// Pointers are the committed ranges, in stream order.
 	Pointers []Pointer
+	// Part is the identity of a part that holds this record as it is, or 0. A reader
+	// may read the pointers of the segment from that part.
+	Part uint64
 }
 
 // Channel is the state of one key. A Channel that the state publishes never changes.
@@ -54,6 +57,33 @@ type Channel struct {
 	Key uint32
 	// Segments are in rising order of identity.
 	Segments []Segment
+	// Parts names the parts that hold records of the key, or is nil when none does.
+	Parts *Parts
+}
+
+// Parts names the parts that hold records of a key in a head, and the kills of the
+// segments of the key that no head holds as dead marks yet. A Parts never changes.
+type Parts struct {
+	// Oldest and Newest are the identities of the oldest and newest of the parts.
+	Oldest, Newest uint64
+	// Generation is the generation of the head that names the parts.
+	Generation uint64
+	Kills      []Kill
+}
+
+// Kill marks the record of a segment of a key dead in each part of its generation or
+// older. A Kill with All set marks every record of the key.
+type Kill struct {
+	Key        uint32
+	All        bool
+	Segment    uint64
+	Generation uint64
+}
+
+// Range names the oldest and newest part that hold records of a key.
+type Range struct {
+	Key            uint32
+	Oldest, Newest uint64
 }
 
 // Limits are the values below which the database gives out identities and numbers.
@@ -75,4 +105,6 @@ type Snapshot struct {
 	Channels []*Channel
 	// Intents are the keys of the live delete intents, in rising order.
 	Intents []uint32
+	// Kills are the kills that no head holds as dead marks yet.
+	Kills []Kill
 }

@@ -26,7 +26,7 @@ type cutAt struct {
 // checkTombstone checks t against the durable view: the key is live, no live pointer
 // of another key on the key's clock lies in the range, and each cut names the live
 // pointer that holds an end of the range, inside it.
-func (c *core) checkTombstone(t *log.Tombstone) error {
+func (c *core) checkTombstone(t *log.Tombstone, users []User) error {
 	start, end := telem.TimeStamp(t.Start), telem.TimeStamp(t.End)
 	ch := c.channels[t.Key]
 	var left, right cutAt
@@ -37,24 +37,8 @@ func (c *core) checkTombstone(t *log.Tombstone) error {
 	case ch == nil:
 		return refuse("tombstone of key %d, which holds no segment", t.Key)
 	}
-	for _, s := range c.segments {
-		if s.key == t.Key || s.vis.Clock != t.Key || !s.dur.created {
-			continue
-		}
-		for _, p := range s.dur.pointers {
-			if p.First < end && p.Last >= start {
-				return refuse(
-					"tombstone of clock %d from %d to %d, which "+
-						"key %d uses from %d to %d",
-					t.Key,
-					start,
-					end,
-					s.key,
-					p.First,
-					p.Last,
-				)
-			}
-		}
+	if err := c.checkClock(t, users); err != nil {
+		return err
 	}
 	for _, s := range ch.segs {
 		for i, p := range s.dur.pointers {
@@ -113,17 +97,82 @@ func checkCut(key uint32, side string, cut *log.Cut, at cutAt) error {
 
 // tombstone applies t to both views, which a durable Tombstone changes at once, and
 // buries each sealed segment that no live pointer is left in.
-func (c *core) tombstone(t *log.Tombstone) error {
-	if err := c.checkTombstone(t); err != nil {
+func (c *core) tombstone(t *log.Tombstone, pre []Preload) error {
+	users := usersOf(pre, t.Key)
+	if ch := c.channels[t.Key]; ch != nil {
+		c.putBack(t.Key, recordsOf(pre, t.Key))
+		if users == nil {
+			users = ch.deleteUsers(t)
+		}
+	}
+	if err := c.checkTombstone(t, users); err != nil {
 		return err
 	}
 	ch := c.channels[t.Key]
 	for _, s := range slices.Clone(ch.segs) {
+		before := s.vis.Pointers
 		s.vis.Pointers = cut(s.vis.Pointers, t)
 		s.dur.pointers = cut(s.dur.pointers, t)
+		// A part may hold the record of a sealed segment before the cut.
+		if !slices.Equal(before, s.vis.Pointers) {
+			s.vis.Part = 0
+			if s.dur.sealed {
+				ch.kills = append(ch.kills, Kill{
+					Key:        t.Key,
+					Segment:    s.vis.ID,
+					Generation: c.generation,
+				})
+				ch.repart()
+			}
+		}
 		c.bury(s)
 	}
 	ch.publish()
+	return nil
+}
+
+// checkClock refuses t when a segment of another key that names the key of t as its
+// clock holds data in the range of t. A segment that a part holds counts through its
+// record in users.
+func (c *core) checkClock(t *log.Tombstone, users []User) error {
+	start, end := telem.TimeStamp(t.Start), telem.TimeStamp(t.End)
+	uses := func(key uint32, ptrs []Pointer) error {
+		for _, p := range ptrs {
+			if p.First < end && p.Last >= start {
+				return refuse("tombstone of clock %d from %d to %d, which key %d uses "+
+					"from %d to %d", t.Key, start, end, key, p.First, p.Last)
+			}
+		}
+		return nil
+	}
+	for _, s := range c.segments {
+		if s.key == t.Key || s.vis.Clock != t.Key || !s.dur.created || s.vis.Part != 0 {
+			continue
+		}
+		if err := uses(s.key, s.dur.pointers); err != nil {
+			return err
+		}
+	}
+	for _, u := range users {
+		// The records of a key that a Drop took out are dead.
+		if c.channels[u.Key] == nil {
+			continue
+		}
+		if err := uses(u.Key, u.Segment.Pointers); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// deleteUsers returns the users that the delete claim of the range of t holds.
+func (c *chanState) deleteUsers(t *log.Tombstone) []User {
+	for _, cl := range c.claims {
+		if cl.w == nil && cl.start == telem.TimeStamp(t.Start) &&
+			cl.end == telem.TimeStamp(t.End)-1 {
+			return cl.users
+		}
+	}
 	return nil
 }
 
@@ -185,6 +234,9 @@ type Delete struct {
 	c    *claim
 	key  uint32
 	done chan error
+	// pre holds the preload of the key, in preload, or none.
+	pre     []Preload
+	preload [1]Preload
 	// Left and Right are the durable pointers that hold the start and the end of the
 	// range, or nil when no pointer holds that end.
 	Left, Right *Edge
@@ -215,35 +267,69 @@ func (r *beginDeleteRequest) run(s *State) {
 			return
 		}
 	}
+	records, err := s.core.preloadOf(ch, r.d.pre)
+	if err != nil {
+		r.d.done <- err
+		return
+	}
 	r.d.Empty = true
+	// A segment that a part holds counts through its record in the preload.
 	for _, seg := range ch.segs {
-		for _, p := range seg.dur.pointers {
-			if p.First > last || p.Last < r.start {
-				continue
-			}
-			r.d.Empty = false
-			if p.First < r.start {
-				r.d.Left = &Edge{Segment: seg.vis, Pointer: p}
-			}
-			if p.Last >= r.end {
-				r.d.Right = &Edge{Segment: seg.vis, Pointer: p}
-			}
+		if seg.vis.Part == 0 {
+			r.edges(&seg.vis, seg.dur.pointers, last)
 		}
 	}
-	r.d.c = &claim{start: r.start, end: last, bounded: true}
+	for i := range records {
+		r.edges(&records[i], records[i].Pointers, last)
+	}
+	// The Tombstone cuts the records that the delete reaches as head segments.
+	s.core.putBack(r.d.key, records)
+	r.d.c = &claim{
+		start:   r.start,
+		end:     last,
+		bounded: true,
+		users:   usersOf(r.d.pre, r.d.key),
+	}
 	ch.claims = append(ch.claims, r.d.c)
 	r.d.done <- nil
 }
 
+// edges notes on the delete of r each pointer of ptrs, of segment seg, in the range up
+// to last, and the pointers that hold the ends of the range.
+func (r *beginDeleteRequest) edges(seg *Segment, ptrs []Pointer, last telem.TimeStamp) {
+	for _, p := range ptrs {
+		if p.First > last || p.Last < r.start {
+			continue
+		}
+		r.d.Empty = false
+		if p.First < r.start {
+			r.d.Left = &Edge{Segment: *seg, Pointer: p}
+		}
+		if p.Last >= r.end {
+			r.d.Right = &Edge{Segment: *seg, Pointer: p}
+		}
+	}
+}
+
 // BeginDelete claims the time range from start to end of key for a delete, and returns
 // the durable pointers at its ends, from which the caller builds the cuts of a
-// Tombstone. Until Release, a commit or a writer start that reaches the range gets an
-// error that wraps ErrConflict, so the durable view of the range does not change. It
-// returns an error that wraps ErrConflict when the claim of a writer or another delete
-// reaches the range.
-func (s *State) BeginDelete(key uint32, start, end telem.TimeStamp) (*Delete, error) {
+// Tombstone. pre is the preload of key over the range. Until Release, a commit or a
+// writer start that reaches the range gets an error that wraps ErrConflict, so the
+// durable view of the range does not change. It returns an error that wraps ErrConflict
+// when the claim of a writer or another delete reaches the range, and ErrStale when pre
+// is stale.
+func (s *State) BeginDelete(
+	key uint32,
+	start, end telem.TimeStamp,
+	pre ...Preload,
+) (*Delete, error) {
 	d := &Delete{s: s, key: key, done: make(chan error, 1)}
-	if err := s.enqueue(&beginDeleteRequest{d: d, start: start, end: end}); err != nil {
+	if i, found := search(pre, key); found {
+		d.preload[0] = pre[i]
+		d.pre = d.preload[:]
+	}
+	r := &beginDeleteRequest{d: d, start: start, end: end}
+	if err := s.enqueue(r); err != nil {
 		return nil, err
 	}
 	if err := wait(s, d.done); err != nil {
@@ -259,7 +345,9 @@ type checkDeleteRequest struct {
 
 func (r *checkDeleteRequest) fail(err error) { r.d.done <- err }
 
-func (r *checkDeleteRequest) run(s *State) { r.d.done <- s.core.checkTombstone(r.t) }
+func (r *checkDeleteRequest) run(s *State) {
+	r.d.done <- s.core.checkTombstone(r.t, r.d.c.users)
+}
 
 // Check checks t with the rule that a durable Tombstone must pass, so the caller logs
 // only a Tombstone that the state applies. It returns an error that wraps ErrRefused

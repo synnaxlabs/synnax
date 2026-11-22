@@ -57,18 +57,35 @@ func (db *DB) dropLog(keys []ChannelKey) error {
 		if !live && stored == nil {
 			continue
 		}
-		if !ch.IsIndex && !timesItself(stored, k) {
+		own, err := db.engine.preload(k, telem.TimeStampMin, telem.TimeStampMax, true)
+		if err != nil {
+			return err
+		}
+		if !ch.IsIndex && !timesItself(stored, own.Segments, k) {
 			dropped = append(dropped, k)
 			continue
 		}
 		if !db.indexUsedOutside(k, dropping) &&
-			!clockStoredOutside(snapshot, k, dropping) {
+			!clockStoredOutside(snapshot, own.Users, k, dropping) {
 			clocks = append(clocks, k)
 		}
 	}
 	dropped = append(dropped, clocks...)
 	if len(dropped) == 0 {
 		return nil
+	}
+	// The Drop of each key checks the part records that name it as their clock.
+	for _, k := range dropped {
+		if _, err = db.engine.withPreloads(
+			nil,
+			[]ChannelKey{k},
+			telem.TimeStampMin,
+			telem.TimeStampMax,
+			true,
+			func(pre []state.Preload) error { return db.engine.state.BeginDrop(k, pre...) },
+		); err != nil {
+			return err
+		}
 	}
 	var entry log.Entry
 	for _, k := range dropped {
@@ -97,21 +114,23 @@ func (db *DB) removeLogDir(key ChannelKey) error {
 	return db.fs.SyncDir("")
 }
 
-// timesItself reports whether a stored segment of ch, the stored channel of key, has
-// key as its clock.
-func timesItself(ch *state.Channel, key ChannelKey) bool {
-	if ch == nil {
-		return false
+// timesItself reports whether a stored segment of key has key as its clock: a segment
+// of ch, the stored channel of key, that no part holds, or a part record of parted.
+func timesItself(ch *state.Channel, parted []state.Segment, key ChannelKey) bool {
+	clocked := func(seg state.Segment) bool { return seg.Clock == key }
+	if ch != nil && slices.ContainsFunc(ch.Segments, func(seg state.Segment) bool {
+		return seg.Part == 0 && clocked(seg)
+	}) {
+		return true
 	}
-	return slices.ContainsFunc(ch.Segments, func(seg state.Segment) bool {
-		return seg.Clock == key
-	})
+	return slices.ContainsFunc(parted, clocked)
 }
 
 // clockStoredOutside reports whether a stored segment of a key outside dropping has
-// clock as its clock.
+// clock as its clock: a segment of s that no part holds, or a part record of users.
 func clockStoredOutside(
 	s *state.Snapshot,
+	users []state.User,
 	clock ChannelKey,
 	dropping set.Set[ChannelKey],
 ) bool {
@@ -120,12 +139,14 @@ func clockStoredOutside(
 			continue
 		}
 		for _, seg := range ch.Segments {
-			if seg.Clock == clock {
+			if seg.Part == 0 && seg.Clock == clock {
 				return true
 			}
 		}
 	}
-	return false
+	return slices.ContainsFunc(users, func(u state.User) bool {
+		return !dropping.Contains(u.Key)
+	})
 }
 
 // indexUsedOutside reports whether a channel outside dropping, open or kept, uses
@@ -163,7 +184,7 @@ func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error
 	if err = db.engine.intend(cleared, true); err != nil {
 		return nil, err
 	}
-	sizes := storedSizes(snapshot)
+	sizes, parted := storedSizes(snapshot)
 	keys := set.New[ChannelKey]()
 	for k := range db.mu.channels {
 		keys.Add(k)
@@ -174,13 +195,20 @@ func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error
 	kept := set.New[ChannelKey]()
 	var drop []ChannelKey
 	for k := range keys {
-		switch {
-		case records.Contains(k):
-		case intents.Contains(k) || sizes[k] == 0:
-			drop = append(drop, k)
-		default:
-			kept.Add(k)
+		if records.Contains(k) {
+			continue
 		}
+		if !intents.Contains(k) {
+			size, err := db.storedSize(k, sizes, parted)
+			if err != nil {
+				return nil, err
+			}
+			if size > 0 {
+				kept.Add(k)
+				continue
+			}
+		}
+		drop = append(drop, k)
 	}
 	hidden := db.usedLogIndexes(records, kept)
 	drop = slices.DeleteFunc(drop, hidden.Contains)
@@ -242,19 +270,47 @@ func (db *DB) usedLogIndexes(records, kept set.Set[ChannelKey]) set.Set[ChannelK
 	return used
 }
 
-// storedSizes returns the committed bytes of each key that the state holds.
-func storedSizes(s *state.Snapshot) map[ChannelKey]telem.Size {
+// storedSizes returns the committed bytes of each key that the state holds in segments
+// that no part holds, and the keys that parts hold records of.
+func storedSizes(s *state.Snapshot) (map[ChannelKey]telem.Size, set.Set[ChannelKey]) {
 	sizes := make(map[ChannelKey]telem.Size, len(s.Channels))
+	parted := set.New[ChannelKey]()
 	for _, ch := range s.Channels {
 		var size telem.Size
 		for _, seg := range ch.Segments {
+			if seg.Part != 0 {
+				continue
+			}
 			for _, ptr := range seg.Pointers {
 				size += telem.Size(ptr.Length)
 			}
 		}
 		sizes[ch.Key] = size
+		if ch.Parts != nil {
+			parted.Add(ch.Key)
+		}
 	}
-	return sizes
+	return sizes, parted
+}
+
+// storedSize returns the committed bytes of key in sizes, and of its live part records
+// when parted holds key. sizes and parted are what storedSizes returns.
+func (db *DB) storedSize(
+	key ChannelKey,
+	sizes map[ChannelKey]telem.Size,
+	parted set.Set[ChannelKey],
+) (telem.Size, error) {
+	size := sizes[key]
+	if !parted.Contains(key) {
+		return size, nil
+	}
+	pre, err := db.engine.records(key, telem.TimeStampMin, telem.TimeStampMax)
+	for _, seg := range pre.Segments {
+		for _, ptr := range seg.Pointers {
+			size += telem.Size(ptr.Length)
+		}
+	}
+	return size, err
 }
 
 // keptLogChannels returns the channels of kept that are still hidden, in rising order
@@ -264,7 +320,7 @@ func (db *DB) keptLogChannels(kept set.Set[ChannelKey]) ([]KeptChannel, error) {
 	if err != nil {
 		return nil, err
 	}
-	sizes := storedSizes(snapshot)
+	sizes, parted := storedSizes(snapshot)
 	out := make([]KeptChannel, 0, len(kept))
 	for k := range kept {
 		ch, ok := db.mu.hiddenChannels[k]
@@ -277,7 +333,11 @@ func (db *DB) keptLogChannels(kept set.Set[ChannelKey]) ([]KeptChannel, error) {
 		if ch.IsIndex {
 			index = 0
 		}
-		out = append(out, KeptChannel{Key: k, Index: index, Size: sizes[k]})
+		size, err := db.storedSize(k, sizes, parted)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, KeptChannel{Key: k, Index: index, Size: size})
 	}
 	slices.SortFunc(out, func(a, b KeptChannel) int { return int(a.Key) - int(b.Key) })
 	return out, nil

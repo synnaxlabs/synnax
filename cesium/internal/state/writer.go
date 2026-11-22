@@ -64,6 +64,9 @@ type claim struct {
 	start, end telem.TimeStamp
 	bounded    bool
 	pinned     bool
+	// users are the part records that name the key of a delete claim as their clock,
+	// which the check and the durable apply of its Tombstone read.
+	users []User
 }
 
 func (c *claim) reaches(first, last telem.TimeStamp) bool {
@@ -99,18 +102,23 @@ func (w *Writer) call(r request) error {
 	return wait(w.s, w.done)
 }
 
-type openRequest struct{ w *Writer }
+type openRequest struct {
+	w   *Writer
+	pre []Preload
+}
 
 func (r *openRequest) fail(err error) { r.w.done <- err }
 
-func (r *openRequest) run(s *State) { r.w.done <- s.openWriter(r.w) }
+func (r *openRequest) run(s *State) { r.w.done <- s.openWriter(r.w, r.pre) }
 
-// OpenWriter opens a writer of cfg. It returns an error that wraps ErrConflict when the
+// OpenWriter opens a writer of cfg. pre holds the preload of each key of cfg at its
+// start, in rising order of key. It returns an error that wraps ErrConflict when the
 // start lies in stored data of one of its keys, when a bounded claim starts inside
-// another claim, or when another writer that is not bounded claims one of its keys. The
-// writer takes over each open segment of its keys that no writer holds, when it has the
-// same clock, type, and version, and every commit of it is durable.
-func (s *State) OpenWriter(cfg WriterConfig) (*Writer, error) {
+// another claim, or when another writer that is not bounded claims one of its keys, and
+// ErrStale when a preload is stale. The writer takes over each open segment of its keys
+// that no writer holds, when it has the same clock, type, and version, and every commit
+// of it is durable.
+func (s *State) OpenWriter(cfg WriterConfig, pre ...Preload) (*Writer, error) {
 	w := &Writer{
 		s:      s,
 		cfg:    cfg,
@@ -122,20 +130,24 @@ func (s *State) OpenWriter(cfg WriterConfig) (*Writer, error) {
 	for _, k := range cfg.Keys {
 		w.types[k.Key] = k.DataType
 	}
-	if err := w.call(&openRequest{w: w}); err != nil {
+	if err := w.call(&openRequest{w: w, pre: pre}); err != nil {
 		return nil, err
 	}
 	return w, nil
 }
 
-func (s *State) openWriter(w *Writer) error {
+func (s *State) openWriter(w *Writer, pre []Preload) error {
 	start := w.cfg.Start
 	for key := range w.types {
 		ch := s.core.channels[key]
 		if ch == nil {
 			continue
 		}
-		if p, ok := ch.overlaps(start, start, false); ok {
+		records, err := s.core.preloadOf(ch, pre)
+		if err != nil {
+			return err
+		}
+		if p, ok := ch.stored(start, start, records); ok {
 			return errors.Wrapf(
 				ErrConflict,
 				"writer of key %d starts at %d, inside its "+
@@ -419,23 +431,26 @@ func (w *Writer) NewAlignment() (uint32, error) {
 }
 
 type commitRequest struct {
-	w *Writer
-	c *log.Commit
+	w   *Writer
+	c   *log.Commit
+	pre []Preload
 }
 
 func (r *commitRequest) fail(err error) { r.w.done <- err }
 
-func (r *commitRequest) run(s *State) { r.w.done <- s.commit(r.w, r.c) }
+func (r *commitRequest) run(s *State) { r.w.done <- s.commit(r.w, r.c, r.pre) }
 
 // Commit checks c against the claims and the stored data of its keys, and makes its
-// samples visible. The caller logs c at its next sync. It returns an error that wraps
+// samples visible. pre holds the preload of each key of c from First to Last, in rising
+// order of key. The caller logs c at its next sync. It returns an error that wraps
 // ErrConflict when c overlaps stored data of a key or reaches another writer's claim,
-// and an error that wraps ErrRefused when c breaks a value rule.
-func (w *Writer) Commit(c *log.Commit) error {
-	return w.call(&commitRequest{w: w, c: c})
+// ErrStale when a preload is stale, and an error that wraps ErrRefused when c breaks a
+// value rule.
+func (w *Writer) Commit(c *log.Commit, pre ...Preload) error {
+	return w.call(&commitRequest{w: w, c: c, pre: pre})
 }
 
-func (s *State) checkVisible(w *Writer, c *log.Commit) error {
+func (s *State) checkVisible(w *Writer, c *log.Commit, pre []Preload) error {
 	if err := s.core.checkCommit(c); err != nil {
 		return err
 	}
@@ -459,7 +474,11 @@ func (s *State) checkVisible(w *Writer, c *log.Commit) error {
 			return err
 		}
 		ch := s.core.channels[seg.key]
-		if p, ok := ch.overlaps(first, last, false); ok {
+		records, err := s.core.preloadOf(ch, pre)
+		if err != nil {
+			return err
+		}
+		if p, ok := ch.stored(first, last, records); ok {
 			return errors.Wrapf(ErrConflict, "commit of key %d from %d to %d overlaps "+
 				"its stored data from %d to %d", seg.key, first, last, p.First, p.Last)
 		}
@@ -480,8 +499,8 @@ func (s *State) checkVisible(w *Writer, c *log.Commit) error {
 	return nil
 }
 
-func (s *State) commit(w *Writer, c *log.Commit) error {
-	if err := s.checkVisible(w, c); err != nil {
+func (s *State) commit(w *Writer, c *log.Commit, pre []Preload) error {
+	if err := s.checkVisible(w, c, pre); err != nil {
 		return err
 	}
 	first, last := telem.TimeStamp(c.First), telem.TimeStamp(c.Last)
@@ -493,10 +512,16 @@ func (s *State) commit(w *Writer, c *log.Commit) error {
 	}
 	for _, slot := range c.Slots {
 		seg := s.core.segments[slot.Segment]
+		if records := recordsOf(pre, seg.key); len(records) > 0 {
+			s.core.checked[seg.vis.ID] = union(s.core.checked[seg.vis.ID], records)
+		}
 		p, extended := grow(seg.vis.Pointers, telem.Alignment(c.Alignment), first, last,
 			seg.vis.Length, slot.Length, c.Samples)
 		seg.vis.Pointers = extend(seg.vis.Pointers, p, extended, false)
 		seg.vis.Length, seg.vis.TailCRC = slot.Length, slot.TailCRC
+		if ch := s.core.channels[seg.key]; !slices.Contains(ch.pending, seg) {
+			ch.pending = append(ch.pending, seg)
+		}
 		s.core.channels[seg.key].checkViews()
 		s.core.channels[seg.key].publish()
 	}
@@ -619,6 +644,7 @@ func (r *switchRequest) run(s *State) {
 	}
 	sortSeals(seals)
 	snap := s.core.snapshot()
+	s.core.generation = r.generation
 	if len(seals) > 0 {
 		var e log.Entry
 		for i := range seals {

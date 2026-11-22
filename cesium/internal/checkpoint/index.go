@@ -10,6 +10,7 @@
 package checkpoint
 
 import (
+	"bytes"
 	"cmp"
 	"os"
 	"slices"
@@ -29,6 +30,9 @@ const defaultPartSize = 8 << 20
 // finds the dead and cut records of each part against it.
 type Index struct {
 	parts []indexed
+	// ranges are the part ranges of the head that x holds the parts of, once its switch
+	// sets them.
+	ranges []state.Range
 	// limit is the part identity limit.
 	limit uint64
 }
@@ -74,37 +78,95 @@ func index(p Part, channels []*state.Channel) indexed {
 	return ip
 }
 
-// Merge adds the segments of the parts of x that are not dead to s, the snapshot of the
-// head that names them.
-func (x *Index) Merge(s *state.Snapshot) {
-	if len(x.parts) == 0 {
-		return
+// rangesAfter returns the part range of each key that live records of the parts of x
+// hold, in rising order of key. It returns the ranges of last when x has its parts with
+// the same dead marks, since the ranges depend on those alone.
+func (x *Index) rangesAfter(last *Index) []state.Range {
+	if last.ranges != nil && len(x.parts) == len(last.parts) &&
+		slices.EqualFunc(x.parts, last.parts, func(a, b indexed) bool {
+			return a.ID == b.ID && bytes.Equal(a.Dead, b.Dead)
+		}) {
+		return last.ranges
 	}
-	byKey := make(map[uint32]*state.Channel, len(s.Channels))
-	for _, c := range s.Channels {
-		byKey[c.Key] = c
-	}
+	return x.liveRanges()
+}
+
+// liveRanges returns the part range of each key that live records of the parts of x
+// hold, in rising order of key.
+func (x *Index) liveRanges() []state.Range {
+	// held holds one entry per key of each part with a live record, as a range of that
+	// part alone. The parts are in rising order of identity, and so are their keys.
+	var n int
 	for _, p := range x.parts {
-		for i, seg := range p.segs {
-			if p.dead(i) {
-				continue
+		for i, key := range p.keys {
+			if i == 0 || key != p.keys[i-1] {
+				n++
 			}
-			c, ok := byKey[p.keys[i]]
-			if !ok {
-				c = &state.Channel{Key: p.keys[i]}
-				byKey[c.Key] = c
-				s.Channels = append(s.Channels, c)
-			}
-			c.Segments = append(c.Segments, seg)
 		}
 	}
-	slices.SortFunc(s.Channels, func(a, b *state.Channel) int {
-		return cmp.Compare(a.Key, b.Key)
+	held := make([]state.Range, 0, n)
+	for _, p := range x.parts {
+		for i, key := range p.keys {
+			if p.dead(i) || (len(held) > 0 && held[len(held)-1].Key == key &&
+				held[len(held)-1].Oldest == p.ID) {
+				continue
+			}
+			held = append(held, state.Range{Key: key, Oldest: p.ID, Newest: p.ID})
+		}
+	}
+	slices.SortFunc(held, func(a, b state.Range) int {
+		return cmp.Or(cmp.Compare(a.Key, b.Key), cmp.Compare(a.Oldest, b.Oldest))
 	})
-	for _, c := range s.Channels {
-		slices.SortFunc(c.Segments, func(a, b state.Segment) int {
-			return cmp.Compare(a.ID, b.ID)
-		})
+	ranges := held[:0]
+	for _, r := range held {
+		if len(ranges) > 0 && ranges[len(ranges)-1].Key == r.Key {
+			ranges[len(ranges)-1].Newest = r.Oldest
+			continue
+		}
+		ranges = append(ranges, r)
+	}
+	return ranges
+}
+
+// Parted returns what the parts of x hold for the state: the parts, the tags of their
+// records, and the part range of each key that their records hold.
+func (x *Index) Parted() ([]Part, []state.Tag, []state.Range) {
+	parts := make([]Part, len(x.parts))
+	var tags []state.Tag
+	for i, p := range x.parts {
+		parts[i] = p.Part
+		for _, seg := range p.segs {
+			tags = append(tags, state.Tag{Part: p.ID, Segment: seg})
+		}
+	}
+	return parts, tags, x.ranges
+}
+
+// Live returns the live records of key in the parts of x, by segment identity.
+func (x *Index) Live(key uint32) map[uint64]state.Segment {
+	live := make(map[uint64]state.Segment)
+	for _, p := range x.parts {
+		i, _ := slices.BinarySearch(p.keys, key)
+		for ; i < len(p.keys) && p.keys[i] == key; i++ {
+			if !p.dead(i) {
+				live[p.segs[i].ID] = p.segs[i]
+			}
+		}
+	}
+	return live
+}
+
+// fold marks each record of p dead that a kill of the generation of p or later names.
+func (p *indexed) fold(kills map[uint32][]state.Kill) {
+	if len(kills) == 0 {
+		return
+	}
+	for i, key := range p.keys {
+		for _, k := range kills[key] {
+			if k.Generation >= p.Generation && (k.All || k.Segment == p.segs[i].ID) {
+				p.kill(i)
+			}
+		}
 	}
 }
 
@@ -117,9 +179,7 @@ func (x *Index) ids() set.Set[uint64] {
 	return ids
 }
 
-func (p *indexed) dead(i int) bool {
-	return i/8 < len(p.Dead) && p.Dead[i/8]&(1<<(i%8)) != 0
-}
+func (p *indexed) dead(i int) bool { return !p.Live(i) }
 
 func (p *indexed) kill(i int) {
 	if len(p.Dead) == 0 {

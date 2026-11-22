@@ -14,6 +14,7 @@ package checkpoint
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/binary"
 	"fmt"
 	"slices"
@@ -50,7 +51,6 @@ const (
 	sectionChans         = 4
 	sectionSegs          = 5
 	sectionPtrs          = 6
-	sectionTombs         = 7
 	sectionClocks        = 8
 	sectionIntent        = 9
 	sectionCount         = 9
@@ -73,8 +73,8 @@ var (
 	headFormat = format{
 		name:     "head",
 		kind:     kindHead,
-		sections: []int{1, 2, 3, 4, 5, 6, 7, 8, 9},
-		sizes:    [sectionCount + 1]uint32{0, 48, 1, 24, 20, 32, 36, 96, 4, 4},
+		sections: []int{1, 2, 3, 4, 5, 6, 8, 9},
+		sizes:    [sectionCount + 1]uint32{0, 48, 1, 24, 16, 32, 36, 0, 4, 4},
 		place:    place.Head,
 	}
 	partFormat = format{
@@ -101,12 +101,23 @@ type Part struct {
 	Dead []byte
 }
 
+// Live reports whether segment record i of p is not dead.
+func (p Part) Live(i int) bool {
+	return i/8 >= len(p.Dead) || p.Dead[i/8]&(1<<(i%8)) == 0
+}
+
 // Name returns the file name of the head of generation.
 func Name(generation uint64) string { return fmt.Sprintf("%016x.head", generation) }
 
-// encodeHead returns the bytes of the head of generation in database db that holds s
-// and names parts. The bytes depend on its arguments alone.
-func encodeHead(db, generation uint64, s *state.Snapshot, parts []Part) []byte {
+// encodeHead returns the bytes of the head of generation in database db that holds s,
+// names parts, and gives each key of ranges its part range. The bytes depend on its
+// arguments alone.
+func encodeHead(
+	db, generation uint64,
+	s *state.Snapshot,
+	parts []Part,
+	ranges []state.Range,
+) []byte {
 	return headFormat.encode(db, body{
 		file:     generation,
 		second:   s.Sequence,
@@ -114,6 +125,8 @@ func encodeHead(db, generation uint64, s *state.Snapshot, parts []Part) []byte {
 		channels: s.Channels,
 		intents:  s.Intents,
 		parts:    parts,
+		ranges:   ranges,
+		ranged:   true,
 	})
 }
 
@@ -126,6 +139,12 @@ type body struct {
 	channels     []*state.Channel
 	intents      []uint32
 	parts        []Part
+	// ranges are the part ranges of a head in rising order of key. A key of ranges
+	// that channels lack gets a channel record with no segment.
+	ranges []state.Range
+	// ranged is true when ranges alone name the part ranges, as for the head of a
+	// switch, whose channels may carry the ranges of the head before.
+	ranged bool
 }
 
 func (f *format) encode(db uint64, bd body) []byte {
@@ -143,7 +162,9 @@ func (f *format) encodeBody(db uint64, bd body) []byte {
 	for _, p := range bd.parts {
 		l.counts[sectionDead] += uint64(len(p.Dead))
 	}
-	l.counts[sectionChans] = uint64(len(bd.channels))
+	eachChannel(bd, func(uint32, []state.Segment, state.Range) {
+		l.counts[sectionChans]++
+	})
 	for _, c := range bd.channels {
 		l.counts[sectionSegs] += uint64(len(c.Segments))
 		for _, seg := range c.Segments {
@@ -155,7 +176,7 @@ func (f *format) encodeBody(db uint64, bd body) []byte {
 	l.place()
 	b := make([]byte, l.length)
 	putParts(b, &l, bd.parts)
-	putChannels(b, &l, bd.channels)
+	putChannels(b, &l, bd)
 	putUint32s(b[l.offsets[sectionClocks]:], clocks)
 	putUint32s(b[l.offsets[sectionIntent]:], bd.intents)
 	for i, kind := range f.sections {
@@ -210,18 +231,49 @@ func putParts(b []byte, l *layout, parts []Part) {
 	}
 }
 
-func putChannels(b []byte, l *layout, channels []*state.Channel) {
+// eachChannel calls f with the key, segments, and part range of each channel of bd in
+// rising order of key: a channel of bd.channels with the range of its key in bd.ranges,
+// or a channel of no segment for a key of bd.ranges alone. Unless bd.ranged, a key with
+// no range in bd.ranges keeps the range of its channel.
+func eachChannel(bd body, f func(key uint32, segs []state.Segment, r state.Range)) {
+	ranges := bd.ranges
+	i := 0
+	for _, c := range bd.channels {
+		for ; i < len(ranges) && ranges[i].Key < c.Key; i++ {
+			f(ranges[i].Key, nil, ranges[i])
+		}
+		r := state.Range{Key: c.Key}
+		if c.Parts != nil && !bd.ranged {
+			r.Oldest, r.Newest = c.Parts.Oldest, c.Parts.Newest
+		}
+		if i < len(ranges) && ranges[i].Key == c.Key {
+			r = ranges[i]
+			i++
+		}
+		f(c.Key, c.Segments, r)
+	}
+	for ; i < len(ranges); i++ {
+		f(ranges[i].Key, nil, ranges[i])
+	}
+}
+
+func putChannels(b []byte, l *layout, bd body) {
 	cAt, sAt := l.offsets[sectionChans], l.offsets[sectionSegs]
 	pAt := l.offsets[sectionPtrs]
 	var segs, ptrs uint32
-	for _, c := range channels {
+	eachChannel(bd, func(
+		key uint32,
+		channelSegs []state.Segment,
+		r state.Range,
+	) {
 		if l.f.kind == kindHead {
-			putLE32(b[cAt:], c.Key, segs, 0, noPart, noPart)
+			putLE32(b[cAt:], key, segs, partIndex(bd.parts, r.Oldest),
+				partIndex(bd.parts, r.Newest))
 		} else {
-			putLE32(b[cAt:], c.Key, segs)
+			putLE32(b[cAt:], key, segs)
 		}
 		cAt += uint64(l.f.sizes[sectionChans])
-		for _, seg := range c.Segments {
+		for _, seg := range channelSegs {
 			binary.LittleEndian.PutUint64(b[sAt:], seg.ID)
 			putLE32(b[sAt+8:], seg.Clock, seg.Length, seg.TailCRC, ptrs)
 			binary.LittleEndian.PutUint16(b[sAt+24:], seg.Version)
@@ -239,7 +291,23 @@ func putChannels(b []byte, l *layout, channels []*state.Channel) {
 			ptrs += uint32(len(seg.Pointers))
 			segs++
 		}
+	})
+}
+
+// partIndex returns the index in parts of the part of identity id, or noPart for 0.
+// parts are in rising order of identity.
+func partIndex(parts []Part, id uint64) uint32 {
+	if id == 0 {
+		return noPart
 	}
+	i, found := slices.BinarySearchFunc(parts, id, func(p Part, id uint64) int {
+		return cmp.Compare(p.ID, id)
+	})
+	if !found {
+		panic(errors.Newf("checkpoint: a channel names part %d, which the head does "+
+			"not", id))
+	}
+	return uint32(i)
 }
 
 func (f *format) putSector(b []byte, l *layout, db uint64, bd body) {

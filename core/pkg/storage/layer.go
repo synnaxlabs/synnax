@@ -135,6 +135,11 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	PointerLogEnabled *bool
+	// PartSize is the size of the sealed segment records in a head at which a switch of
+	// the time-series engine moves them to a part.
+	//
+	// [OPTIONAL] - Defaults to the size of the engine.
+	PartSize int
 	// Version is the semantic version of the Core, without a "v" prefix. Open checks it
 	// against the version recorded in the data directory, unless it is a 0.0 version.
 	//
@@ -174,6 +179,7 @@ func (cfg LayerConfig) Override(other LayerConfig) LayerConfig {
 	cfg.Random = override.Nil(cfg.Random, other.Random)
 	cfg.Executor = override.Nil(cfg.Executor, other.Executor)
 	cfg.PointerLogEnabled = override.Nil(cfg.PointerLogEnabled, other.PointerLogEnabled)
+	cfg.PartSize = override.Numeric(cfg.PartSize, other.PartSize)
 	cfg.Version = override.String(cfg.Version, other.Version)
 	cfg.UpdateBackupDisabled = override.Nil(
 		cfg.UpdateBackupDisabled,
@@ -594,6 +600,9 @@ func openTS(
 	}
 	if cfg.Executor != nil {
 		opts = append(opts, cesium.WithExecutor(cfg.Executor))
+	}
+	if cfg.PartSize != 0 {
+		opts = append(opts, cesium.WithPartSize(cfg.PartSize))
 	}
 	dir := filepath.Join(cfg.Dirname, cesiumDir)
 	if !*cfg.PointerLogEnabled {

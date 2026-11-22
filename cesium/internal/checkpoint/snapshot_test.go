@@ -109,8 +109,12 @@ func sample(pointers int) *state.Snapshot {
 // section returns the offset and record count of section kind of head b.
 func section(b []byte, kind int) (off, count uint64) {
 	table := binary.LittleEndian.Uint64(b[72:])
-	e := b[table+uint64(kind-1)*24:]
-	return binary.LittleEndian.Uint64(e[8:]), binary.LittleEndian.Uint64(e[16:])
+	for i := range uint64(binary.LittleEndian.Uint32(b[80:])) {
+		if e := b[table+i*24:]; binary.LittleEndian.Uint16(e) == uint16(kind) {
+			return binary.LittleEndian.Uint64(e[8:]), binary.LittleEndian.Uint64(e[16:])
+		}
+	}
+	return 0, 0
 }
 
 // reseal sets every checksum of head b again, so a change to b reaches the checks

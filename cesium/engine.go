@@ -10,12 +10,15 @@
 package cesium
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
@@ -70,6 +73,28 @@ type engine struct {
 	shutdown sync.Once
 	closeErr error
 	pins     pins
+	// partSize is the part size of the checkpointer.
+	partSize int
+	// cache is the part cache of the checkpointer and the readers.
+	cache *checkpoint.Cache
+	// parts holds the parts that the last two heads name, which the range of a Channel
+	// may name. Only the state owner stores it, in the step that publishes the ranges.
+	parts atomic.Pointer[partSets]
+	// replaying is true while recovery replays the logs into the state.
+	replaying bool
+	// opened holds the parts of the head that open loaded, whose records name segment
+	// files that the orphan pass keeps. It is nil after that pass.
+	opened *checkpoint.Index
+}
+
+// partSets are the parts of the last two heads.
+type partSets struct{ live, older headParts }
+
+// headParts are the parts that the head of generation names, in rising order of
+// identity.
+type headParts struct {
+	generation uint64
+	parts      []checkpoint.Part
 }
 
 // openEngine recovers the database of the root of o, or makes a new one in an empty
@@ -93,7 +118,6 @@ func openEngine(o *options) (*engine, error) {
 		if r.parts, err = checkpoint.LoadParts(o.fs, r.db, r.head); err != nil {
 			return nil, err
 		}
-		r.parts.Merge(snapshot)
 	}
 	e := &engine{
 		ins:      o.Instrumentation,
@@ -102,37 +126,54 @@ func openEngine(o *options) (*engine, error) {
 		ready:    make(chan struct{}),
 		failed:   make(chan struct{}),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
+		partSize: o.partSize,
 	}
 	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]state.Dead)
+	e.pins.parts, e.pins.keys = make(map[uint64]int), make(map[ChannelKey]int)
 	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
 		return nil, err
 	}
 	created := snapshot == nil
+	generation := r.head.Generation
 	if created {
 		if snapshot, err = e.create(o, r, old); err != nil {
 			return nil, err
 		}
+		generation = 1
 	}
 	// The state loads a created snapshot before head 1 commits it, so a conversion that
 	// breaks a rule leaves the old layout.
 	if e.state, err = state.Open(state.Config{
-		Versions: set.New[uint16](0, segmentVersion),
-		Version:  segmentVersion,
-		Append:   e.append,
-		Executor: e.exec,
-		OnHead:   e.onHead,
+		Versions:   set.New[uint16](0, segmentVersion),
+		Version:    segmentVersion,
+		Append:     e.append,
+		Executor:   e.exec,
+		OnHead:     e.onHead,
+		Generation: generation,
 	}, snapshot); err != nil {
 		return nil, err
 	}
+	var head1 *checkpoint.Index
 	if created {
-		if err = commit(o, r, snapshot); err != nil {
+		if head1, err = commit(o, r, snapshot); err != nil {
 			return nil, err
 		}
 	}
-	e.db, e.head = r.db, r.head.Generation
+	e.db, e.head, e.opened = r.db, r.head.Generation, r.parts
 	e.stored = set.New[ChannelKey]()
 	for _, ch := range snapshot.Channels {
 		e.stored.Add(ch.Key)
+	}
+	// Replay preloads the part records that its records reach.
+	e.cache = checkpoint.NewCache(e.fs, r.db, partCacheSize)
+	e.parts.Store(&partSets{
+		live: headParts{generation: r.head.Generation, parts: r.head.Parts},
+	})
+	if head1 != nil {
+		// The state holds every record of the created snapshot. It tags the ones that
+		// the parts of head 1 hold, as for the parts of a switch.
+		parts, tags, ranges := head1.Parted()
+		e.parted(1, parts, tags, ranges)
 	}
 	if err = e.recover(r); err != nil {
 		return nil, err
@@ -174,24 +215,33 @@ func (e *engine) create(o *options, r *recovery, old bool) (*state.Snapshot, err
 }
 
 // commit writes head 1 of snapshot, and the parts of its sealed segments, over the file
-// of log 1, whose header the log writes at its start.
-func commit(o *options, r *recovery, snapshot *state.Snapshot) error {
+// of log 1, whose header the log writes at its start. It returns the index of the
+// parts.
+func commit(
+	o *options,
+	r *recovery,
+	snapshot *state.Snapshot,
+) (*checkpoint.Index, error) {
 	if err := log.Prepare(o.fs, 1, log.FileSize); err != nil {
-		return err
+		return nil, err
 	}
-	parts, err := checkpoint.Create(o.fs, r.db, 1, snapshot, 0)
+	x, err := checkpoint.Create(o.fs, r.db, 1, snapshot, o.partSize)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	r.parts, r.head = parts, checkpoint.Header{DB: r.db, Generation: 1}
+	parts, _, _ := x.Parted()
+	r.parts, r.head = x, checkpoint.Header{DB: r.db, Generation: 1, Parts: parts}
 	r.heads, r.logs = []uint64{1}, []uint64{1}
-	return nil
+	return x, nil
 }
 
 // recover replays the logs into the state, writes again what recovery read, logs a
 // Restart after an unclean stop, and opens the log where recovery left it.
 func (e *engine) recover(r *recovery) (err error) {
-	if err = r.replay(e.replay); err != nil {
+	e.replaying = true
+	err = r.replay(e.replay)
+	e.replaying = false
+	if err != nil {
 		return err
 	}
 	if err = r.rewrite(); err != nil {
@@ -236,9 +286,68 @@ func (e *engine) recover(r *recovery) (err error) {
 		Executor: e.exec,
 		Parts:    r.parts,
 		Live:     r.head.Generation,
+		PartSize: e.partSize,
+		Cache:    e.cache,
+		Parted:   e.parted,
+		Pinned:   e.pinned,
 	})
 	return err
 }
+
+// parted hands what a new head holds to the state, which makes its parts readable for
+// the Channels that it publishes with their ranges.
+func (e *engine) parted(
+	generation uint64,
+	parts []checkpoint.Part,
+	tags []state.Tag,
+	ranges []state.Range,
+) {
+	swap := func() {
+		e.parts.Store(&partSets{
+			live:  headParts{generation: generation, parts: parts},
+			older: e.parts.Load().live,
+		})
+	}
+	if err := e.state.Parted(generation, tags, ranges, swap); err != nil {
+		e.ins.L.Error("state refused what a head holds", zap.Error(err))
+	}
+}
+
+// partsOf returns the parts that p, the parts of key, names, from the head that p
+// names.
+func (e *engine) partsOf(key ChannelKey, p *state.Parts) ([]checkpoint.Part, error) {
+	if p == nil {
+		return nil, nil
+	}
+	sets := e.parts.Load()
+	var head headParts
+	switch p.Generation {
+	case sets.live.generation:
+		head = sets.live
+	case sets.older.generation:
+		head = sets.older
+	default:
+		return nil, errors.Newf(
+			"key %d names the parts of head %d, which the engine no longer holds",
+			key,
+			p.Generation,
+		)
+	}
+	lo, found := slices.BinarySearchFunc(head.parts, p.Oldest, compareParts)
+	hi, foundNewest := slices.BinarySearchFunc(head.parts, p.Newest, compareParts)
+	if !found || !foundNewest {
+		return nil, errors.Newf(
+			"key %d names parts %d to %d, which head %d does not name",
+			key,
+			p.Oldest,
+			p.Newest,
+			p.Generation,
+		)
+	}
+	return head.parts[lo : hi+1], nil
+}
+
+func compareParts(p checkpoint.Part, id uint64) int { return cmp.Compare(p.ID, id) }
 
 func (e *engine) append(entry *log.Entry) { e.log.Append(entry) }
 
@@ -309,6 +418,7 @@ func (e *engine) run(ctx context.Context) error {
 		orphaned := make(chan error, 1)
 		e.exec(func() { orphaned <- e.orphans(snapshot) })
 		err = <-orphaned
+		e.opened = nil
 	}
 	close(e.ready)
 	if err == nil {
@@ -333,15 +443,62 @@ func (e *engine) fail(err error) {
 // replay applies the records of one recovered entry to the state, and keeps stored
 // current.
 func (e *engine) replay(sequence uint64, records []log.Record) error {
+	var (
+		pre     []state.Preload
+		err     error
+		created map[uint64]ChannelKey
+	)
 	for _, r := range records {
 		switch r := r.(type) {
 		case *log.Create:
 			e.stored.Add(r.Key)
+			if created == nil {
+				created = make(map[uint64]ChannelKey)
+			}
+			created[r.Segment] = r.Key
+		case *log.Commit:
+			first, last := telem.TimeStamp(r.First), telem.TimeStamp(r.Last)
+			for _, slot := range r.Slots {
+				key, ok := e.state.KeyOf(slot.Segment)
+				if !ok {
+					key, ok = created[slot.Segment]
+				}
+				if ok {
+					if pre, err = e.addPreload(
+						pre,
+						key,
+						first,
+						last,
+						false,
+					); err != nil {
+						return err
+					}
+				}
+			}
+		case *log.Tombstone:
+			start, end := telem.TimeStamp(r.Start), telem.TimeStamp(r.End)
+			if pre, err = e.addPreload(pre, r.Key, start, end-1, true); err != nil {
+				return err
+			}
 		case *log.Drop:
 			e.stored.Remove(r.Key)
+			pre, err = e.addPreload(
+				pre,
+				r.Key,
+				telem.TimeStampMin,
+				telem.TimeStampMax,
+				true,
+			)
+			if err != nil {
+				return err
+			}
 		}
 	}
-	return e.state.Replay(sequence, records)
+	slices.SortFunc(
+		pre,
+		func(a, b state.Preload) int { return cmp.Compare(a.Key, b.Key) },
+	)
+	return e.state.Replay(sequence, records, pre...)
 }
 
 // close closes the owners once.
@@ -351,6 +508,9 @@ func (e *engine) close() error {
 	})
 	return e.closeErr
 }
+
+// partCacheSize is the budget of the part cache.
+const partCacheSize = 64 << 20
 
 // segmentName returns the file name of segment id of key, or the name of old file n of
 // key for a version 0 segment, whose n is not zero.
@@ -394,12 +554,25 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 		return err
 	}
 	removed := false
+	var parted map[uint64]state.Segment
 	for _, info := range infos {
 		name := dir + "/" + info.Name()
 		if !strings.HasSuffix(name, ".seg") && !strings.HasSuffix(name, ".chk") {
 			continue
 		}
 		seg, ok := named[name]
+		if !ok && e.opened != nil && strings.HasSuffix(name, ".seg") {
+			if id, err := strconv.ParseUint(
+				strings.TrimSuffix(info.Name(), ".seg"),
+				16,
+				64,
+			); err == nil {
+				if parted == nil {
+					parted = e.opened.Live(key)
+				}
+				seg, ok = parted[id]
+			}
+		}
 		if !ok {
 			if err = e.fs.Remove(name); err != nil {
 				return err

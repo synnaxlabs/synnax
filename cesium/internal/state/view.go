@@ -48,6 +48,39 @@ type chanState struct {
 	segs   []*segState
 	claims []*claim
 	pub    atomic.Pointer[Channel]
+	// oldest and newest are the part range of the key, in the parts of the head of
+	// generation.
+	oldest, newest, generation uint64
+	// kills are the kills of segments of the key that no head holds yet. An append
+	// may share the array of a published Channel, so a change other than an append
+	// takes a new slice.
+	kills []Kill
+	// parts holds the range and kills of c for the Channels that c publishes.
+	parts *Parts
+	// pending holds the segments of c with visible commits that are not durable yet.
+	pending []*segState
+}
+
+// partsGeneration returns the generation of the head whose parts the range of c names,
+// or 0 when c has no range.
+func (c *chanState) partsGeneration() uint64 {
+	if c.oldest == 0 {
+		return 0
+	}
+	return c.generation
+}
+
+// repart sets the parts of c from its range and kills.
+func (c *chanState) repart() {
+	c.parts = nil
+	if c.oldest != 0 {
+		c.parts = &Parts{
+			Oldest:     c.oldest,
+			Newest:     c.newest,
+			Generation: c.generation,
+			Kills:      c.kills,
+		}
+	}
 }
 
 // insert adds s to c in order of identity.
@@ -105,27 +138,35 @@ func (c *chanState) checkViews() {
 
 // publish stores a new visible Channel of c for readers.
 func (c *chanState) publish() {
-	ch := &Channel{Key: c.key, Segments: make([]Segment, 0, len(c.segs))}
+	ch := &Channel{
+		Key:      c.key,
+		Segments: make([]Segment, 0, len(c.segs)),
+		Parts:    c.parts,
+	}
 	for _, s := range c.segs {
 		ch.Segments = append(ch.Segments, s.vis)
 	}
 	c.pub.Store(ch)
 }
 
-// overlaps returns the first pointer of c, in the durable view or the visible one, that
-// shares a stamp with [first, last], and false when there is none. It reads every
-// pointer, since a backfill leaves the pointers of a segment out of time order.
-func (c *chanState) overlaps(
+// overlapsDurable returns the first durable pointer of c that shares a stamp with
+// [first, last], and false when there is none. A segment that a part holds counts
+// through its record in records.
+func (c *chanState) overlapsDurable(
 	first, last telem.TimeStamp,
-	durableView bool,
+	records ...[]Segment,
 ) (Pointer, bool) {
 	for _, s := range c.segs {
-		ptrs := s.vis.Pointers
-		if durableView {
-			ptrs = s.dur.pointers
+		if s.vis.Part != 0 {
+			continue
 		}
-		for _, p := range ptrs {
-			if p.First <= last && first <= p.Last {
+		if p, ok := overlap(s.dur.pointers, first, last); ok {
+			return p, true
+		}
+	}
+	for _, segs := range records {
+		for _, s := range segs {
+			if p, ok := overlap(s.Pointers, first, last); ok {
 				return p, true
 			}
 		}

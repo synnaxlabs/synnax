@@ -80,7 +80,22 @@ func (e *engine) deleteRange(
 	if tr.Start == tr.End {
 		return false, nil
 	}
-	d, err := e.state.BeginDelete(key, tr.Start, tr.End)
+	// A delete of a clock checks the records of the keys that it times.
+	timed := key == clock
+	var (
+		d   *state.Delete
+		pre state.Preload
+		err error
+	)
+	for {
+		if pre, err = e.preload(key, tr.Start, tr.End-1, timed); err != nil {
+			return false, err
+		}
+		d, err = e.state.BeginDelete(key, tr.Start, tr.End, pre)
+		if !errors.Is(err, state.ErrStale) {
+			break
+		}
+	}
 	if err != nil {
 		return false, err
 	}
@@ -117,7 +132,7 @@ func (e *engine) cutAt(
 	left bool,
 ) (*log.Cut, error) {
 	p := edge.Pointer
-	stamps, err := e.stamps(clock, p.Alignment, p.Samples)
+	stamps, err := e.stamps(clock, p)
 	if err != nil {
 		return nil, err
 	}
@@ -150,27 +165,48 @@ func (e *engine) cutAt(
 	}, nil
 }
 
-// stamps returns the stamps of the samples samples of clock from alignment on, which
-// the pointers of clock at the same domain hold.
+// stamps returns the stamps that clock holds for the samples of pointer p of a key it
+// times: from the segments of clock that the state holds, and from the records of its
+// parts that reach the time range of p, both read from one Channel.
 func (e *engine) stamps(
 	clock ChannelKey,
-	alignment telem.Alignment,
-	samples uint32,
-) ([]telem.TimeStamp, error) {
-	out := make([]telem.TimeStamp, samples)
-	from, found := alignment.SampleIndex(), uint32(0)
-	ch := e.state.Channel(clock)
+	p state.Pointer,
+) (out []telem.TimeStamp, err error) {
+	ch, h, err, unlinkErr := e.load(clock, held{})
+	defer func() { err = errors.Join(err, unlinkErr, e.unpin(h)) }()
+	if err != nil {
+		return nil, err
+	}
 	if ch == nil {
 		return nil, errors.Newf("clock %d holds no stamps", clock)
 	}
-	var b []byte
+	pre := state.Preload{Key: clock}
+	for _, part := range h.parts {
+		if part.First > p.Last || p.First > part.Last {
+			continue
+		}
+		r, err := e.cache.Records(part, clock)
+		if err != nil {
+			return nil, err
+		}
+		addLive(&pre, ch.Parts, part, r, p.First, p.Last)
+	}
+	segs := pre.Segments
 	for _, seg := range ch.Segments {
+		if seg.Part == 0 {
+			segs = append(segs, seg)
+		}
+	}
+	out = make([]telem.TimeStamp, p.Samples)
+	from, found := p.Alignment.SampleIndex(), uint32(0)
+	var b []byte
+	for _, seg := range segs {
 		for _, q := range seg.Pointers {
-			if q.Alignment.DomainIndex() != alignment.DomainIndex() {
+			if q.Alignment.DomainIndex() != p.Alignment.DomainIndex() {
 				continue
 			}
 			lo, hi := max(from, q.Alignment.SampleIndex()),
-				min(from+samples, q.Alignment.SampleIndex()+q.Samples)
+				min(from+p.Samples, q.Alignment.SampleIndex()+q.Samples)
 			if lo >= hi {
 				continue
 			}
@@ -185,9 +221,9 @@ func (e *engine) stamps(
 			found += hi - lo
 		}
 	}
-	if found != samples {
+	if found != p.Samples {
 		return nil, errors.Newf("clock %d holds %d of the %d stamps from alignment %d",
-			clock, found, samples, uint64(alignment))
+			clock, found, p.Samples, uint64(p.Alignment))
 	}
 	return out, nil
 }

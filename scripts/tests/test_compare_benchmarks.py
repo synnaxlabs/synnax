@@ -463,6 +463,8 @@ class TestParse:
         assert [g.name for g in only.selected()] == [
             "cesium/write",
             "cesium/read",
+            "cesium/read-parts",
+            "cesium/delete-parts",
             "cesium/switch",
         ]
 

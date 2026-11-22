@@ -121,11 +121,12 @@ var _ = Describe("Check: a Reserve at each crash point", func() {
 					})))
 				}
 				st := MustSucceed(state.Open(state.Config{
-					Versions: config(&appended{}).Versions,
-					Version:  1,
-					Append:   func(e *log.Entry) { l.Append(e) },
-					Executor: goExe,
-					OnHead:   func(uint64, *state.Snapshot) {},
+					Versions:   config(&appended{}).Versions,
+					Version:    1,
+					Append:     func(e *log.Entry) { l.Append(e) },
+					Executor:   goExe,
+					OnHead:     func(uint64, *state.Snapshot) {},
+					Generation: 1,
 				}, head(1, 1)))
 				l = MustSucceed(log.Start(log.Config{
 					FS:       imageFS{FS: disk, take: take},
