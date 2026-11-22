@@ -124,9 +124,37 @@ func (c *core) record(r log.Record, pre []Preload) error {
 		return c.intent(r)
 	case *log.Tombstone:
 		return c.tombstone(r, pre)
+	case *log.Check:
+		return c.check(r)
 	default:
 		return errors.Wrapf(log.ErrUnknown, "the state does not apply a %T record", r)
 	}
+}
+
+// check turns on the checks of a sealed version 0 segment that now has its check file.
+// A part may hold its record from before, so the record goes back to the head, with a
+// kill of the copy that a part holds.
+func (c *core) check(r *log.Check) error {
+	s := c.segments[r.Segment]
+	switch {
+	case s == nil || !s.dur.created:
+		return refuse("check of segment %d, which no create made", r.Segment)
+	case s.vis.Version != 0 || !s.dur.sealed:
+		return refuse("check of segment %d, which is not a sealed version 0 segment",
+			r.Segment)
+	case s.vis.Checked:
+		return refuse("check of segment %d, which has its checks", r.Segment)
+	}
+	ch := c.channels[s.key]
+	s.vis.Checked, s.vis.Part = true, 0
+	ch.kills = append(ch.kills, Kill{
+		Key:        s.key,
+		Segment:    s.vis.ID,
+		Generation: c.generation,
+	})
+	ch.repart()
+	ch.publish()
+	return nil
 }
 
 func (c *core) reserve(r *log.Reserve) error {

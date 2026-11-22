@@ -23,6 +23,14 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// checkedSample is sample(2) with its first segment an old file with its checks.
+func checkedSample() *state.Snapshot {
+	s := sample(2)
+	seg := &s.Channels[0].Segments[0]
+	seg.Version, seg.File, seg.Checked = 0, 1, true
+	return s
+}
+
 var _ = Describe("Head", func() {
 	DescribeTable(
 		"Should decode the state that it encodes",
@@ -46,7 +54,14 @@ var _ = Describe("Head", func() {
 		Entry("a small state", sample(2)),
 		Entry("a state over three chunks", sample(4000)),
 		Entry("an empty state", &state.Snapshot{Sequence: 1}),
+		Entry("a version 0 segment with its checks", checkedSample()),
 	)
+
+	It("Should write the check flag of a version 0 segment in bit 1", func() {
+		b := mustEncode(checkedSample())
+		segs, _ := section(b, 5)
+		Expect(b[segs+27]).To(Equal(uint8(3)), "sealed and checked")
+	})
 
 	It("Should lay out the header sector, the sections, and both tables", func() {
 		s := sample(2)

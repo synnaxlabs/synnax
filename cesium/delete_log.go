@@ -265,6 +265,10 @@ func (e *engine) readSegment(
 	b []byte,
 	off int64,
 ) error {
+	cfg, err := e.readConfig(key, seg)
+	if err != nil {
+		return err
+	}
 	h := e.openSegment(key, seg)
-	return errors.Join(e.segmentConfig(seg).ReadAt(h, b, off), h.Close())
+	return errors.Join(cfg.ReadAt(h, b, off), h.Close())
 }

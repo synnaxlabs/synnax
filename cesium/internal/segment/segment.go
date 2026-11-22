@@ -53,6 +53,9 @@ type Config struct {
 	Variable bool
 	// Bare is true for a version 0 segment: an old data file with no trailers.
 	Bare bool
+	// Checks are the checksums of a version 0 segment that has its check file, which
+	// ReadAt then checks, or nil.
+	Checks *Checks
 }
 
 func (c Config) place(offset int64) place.Place {
@@ -72,9 +75,14 @@ func (c Config) trailer() int64 {
 // FileOffset returns the file offset of stream offset x of the segment.
 func (c Config) FileOffset(x int64) int64 { return x + c.trailer()*(x/BlockSize) }
 
-// ReadAt reads len(p) stream bytes from stream offset off of the segment in r, with no
-// check, and leaves out the trailers.
+// ReadAt reads len(p) stream bytes from stream offset off of the segment in r, and
+// leaves out the trailers. It checks only a version 0 segment with Checks: it returns
+// an
+// error that wraps place.ErrCorrupt for a block that fails two reads.
 func (c Config) ReadAt(r io.ReaderAt, p []byte, off int64) error {
+	if c.Checks != nil {
+		return c.readBare(r, p, off)
+	}
 	for len(p) > 0 {
 		n := min(BlockSize-int(off%BlockSize), len(p))
 		if _, err := r.ReadAt(p[:n], c.FileOffset(off)); err != nil {

@@ -411,8 +411,8 @@ func (r *partedRequest) run(s *State) {
 
 // sameRecord reports whether a and b are the same sealed segment record.
 func sameRecord(a, b Segment) bool {
-	return a.Sealed && b.Sealed && a.Length == b.Length && a.TailCRC == b.TailCRC &&
-		slices.Equal(a.Pointers, b.Pointers)
+	return a.Sealed && b.Sealed && a.Checked == b.Checked && a.Length == b.Length &&
+		a.TailCRC == b.TailCRC && slices.Equal(a.Pointers, b.Pointers)
 }
 
 // Parted queues what the head of generation holds once it commits: the tags of the

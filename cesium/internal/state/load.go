@@ -77,6 +77,9 @@ func (c *core) checkSegment(key uint32, seg Segment) error {
 	case seg.Version != 0 && seg.File != 0:
 		return refuse("segment %d of version %d names old file %d", seg.ID,
 			seg.Version, seg.File)
+	case seg.Version != 0 && seg.Checked:
+		return refuse("segment %d of version %d has the check flag of an old file",
+			seg.ID, seg.Version)
 	}
 	var end uint32
 	for _, p := range seg.Pointers {

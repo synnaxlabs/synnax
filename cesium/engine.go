@@ -559,13 +559,23 @@ func (f oldFS) Open(name string, flag int) (xfs.File, error) {
 }
 
 // removeSegment removes the file of segment id of key, whose old file is n. For a
-// version 0 segment, it tries the names in the order of oldFS, and removes
-// N.domain_temp only when N.domain is missing.
+// version 0 segment, it also removes its check file, and it tries the names of the old
+// file in the order of oldFS, removing N.domain_temp only when N.domain is missing.
 func (e *engine) removeSegment(key ChannelKey, id uint64, n uint16) error {
 	name := segmentName(key, id, n)
 	if n == 0 {
 		return e.fs.Remove(name)
 	}
+	if err := e.removeOld(name); err != nil {
+		return err
+	}
+	return e.fs.Remove(checkName(key, id))
+}
+
+// removeOld removes the old file name, or the file that an old compaction renamed it
+// to when name is missing. The first open that loads a head can rename that file to
+// name at any time, so it tries name once more.
+func (e *engine) removeOld(name string) error {
 	ok, err := e.fs.Exists(name)
 	if err != nil {
 		return err
@@ -590,16 +600,20 @@ const (
 	truncatedTmpSuffix = ".truncated.tmp"
 )
 
-// orphans removes each segment and check file of a channel directory that snapshot does
-// not name, and cuts each named segment file to its committed length. On an open that
-// loaded a head, it also removes the leftovers of the old layout that hold no data, and
-// moves each old file that the conversion read from its compaction file into place.
-// The checkpointer cleans the root.
+// orphans removes each segment file of a channel directory that snapshot does not name,
+// and each check file of a segment that has no checks on, and cuts each named segment
+// file to its committed length. On an open that loaded a head, it also removes the
+// leftovers of the old layout that hold no data, and moves each old file that the
+// conversion read from its compaction file into place. The checkpointer cleans the
+// root.
 func (e *engine) orphans(snapshot *state.Snapshot) error {
 	named := make(map[string]state.Segment)
 	for _, ch := range snapshot.Channels {
 		for _, seg := range ch.Segments {
 			named[segmentName(ch.Key, seg.ID, seg.File)] = seg
+			if seg.Checked {
+				named[checkName(ch.Key, seg.ID)] = seg
+			}
 		}
 	}
 	infos, err := e.fs.List("")
@@ -644,8 +658,16 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 			return err
 		}
 		changed = changed || moved
-		if left ||
-			!strings.HasSuffix(name, ".seg") && !strings.HasSuffix(name, ".chk") {
+		if strings.HasSuffix(name, ".chk") {
+			if !d.checked(name, info) {
+				if err = e.fs.Remove(name); err != nil {
+					return err
+				}
+				changed = true
+			}
+			continue
+		}
+		if left || !strings.HasSuffix(name, ".seg") {
 			continue
 		}
 		seg, ok := d.segment(name, info)
@@ -702,6 +724,21 @@ func (d *orphanDir) segment(name string, info xfs.FileInfo) (state.Segment, bool
 	}
 	seg, ok := d.live()[id]
 	return seg, ok
+}
+
+// checked reports whether name, a check file of the directory with info, belongs to a
+// version 0 segment that the head names with its checks on.
+func (d *orphanDir) checked(name string, info xfs.FileInfo) bool {
+	if _, ok := d.named[name]; ok {
+		return true
+	}
+	hex, _ := strings.CutSuffix(info.Name(), ".chk")
+	id, err := strconv.ParseUint(hex, 16, 64)
+	if err != nil {
+		return false
+	}
+	seg, ok := d.live()[id]
+	return ok && seg.Checked
 }
 
 // namesOld reports whether the head names a version 0 segment whose old file is old.
@@ -788,6 +825,32 @@ func (e *engine) cut(name string, size int64) error {
 		return err
 	}
 	return errors.Join(f.Truncate(size), f.Close())
+}
+
+// checkName returns the name of the check file of version 0 segment id of key.
+func checkName(key ChannelKey, id uint64) string {
+	return fmt.Sprintf("%d/%016x.chk", key, id)
+}
+
+// readConfig returns the config of seg, a segment of key, for a read: with the checks
+// of a version 0 segment that has its check file. It reads a check file that fails its
+// checksum once more, then returns an error that wraps place.ErrCorrupt.
+func (e *engine) readConfig(key ChannelKey, seg state.Segment) (segment.Config, error) {
+	cfg := e.segmentConfig(seg)
+	if !seg.Checked {
+		return cfg, nil
+	}
+	var err error
+	for range 2 {
+		var b []byte
+		if b, err = xfs.ReadFile(e.fs, checkName(key, seg.ID)); err != nil {
+			return cfg, err
+		}
+		if cfg.Checks, err = cfg.DecodeChecks(b, int64(seg.Length)); err == nil {
+			return cfg, nil
+		}
+	}
+	return cfg, err
 }
 
 // segmentConfig returns the identity and block layout of seg.

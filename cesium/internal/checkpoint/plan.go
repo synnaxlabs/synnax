@@ -277,5 +277,5 @@ func recordSize(seg state.Segment) int {
 
 func sameSegment(a, b state.Segment) bool {
 	return a.Length == b.Length && a.TailCRC == b.TailCRC && a.Sealed == b.Sealed &&
-		slices.Equal(a.Pointers, b.Pointers)
+		a.Checked == b.Checked && slices.Equal(a.Pointers, b.Pointers)
 }

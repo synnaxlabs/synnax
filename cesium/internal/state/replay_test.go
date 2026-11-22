@@ -354,7 +354,9 @@ var _ = Describe("Replay", func() {
 		Entry("a clear of a key with no intent", &log.Intent{Key: 9, Cleared: true},
 			state.ErrRefused, "intent of key 9 cleared, but it has none"),
 		Entry("a replace", &log.Replace{Old: 2, New: 5}, log.ErrUnknown, "Replace"),
-		Entry("a check", &log.Check{Segment: 2}, log.ErrUnknown, "Check"),
+		Entry("a check of a version 1 segment", &log.Check{Segment: 2},
+			state.ErrRefused, "check of segment 2, which is not a sealed version 0 "+
+				"segment"),
 	)
 
 	It("Should refuse a commit that names segments of two clocks", func() {

@@ -45,6 +45,7 @@ const (
 	// of a part with no dead segment.
 	noPart        uint32 = 0xFFFFFFFF
 	flagSealed    uint8  = 1
+	flagChecked   uint8  = 2
 	sectionParts         = 1
 	sectionDead          = 2
 	sectionKills         = 3
@@ -280,6 +281,9 @@ func putChannels(b []byte, l *layout, bd body) {
 			b[sAt+26] = seg.DataType
 			if seg.Sealed {
 				b[sAt+27] = flagSealed
+			}
+			if seg.Checked {
+				b[sAt+27] |= flagChecked
 			}
 			binary.LittleEndian.PutUint16(b[sAt+28:], seg.File)
 			sAt += uint64(l.f.sizes[sectionSegs])

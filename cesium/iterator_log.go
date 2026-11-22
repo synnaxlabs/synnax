@@ -267,11 +267,15 @@ func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 // OpenReader implements domain.Ranges.
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
+	cfg, err := c.e.readConfig(c.key, r.seg)
+	if err != nil {
+		return nil, err
+	}
 	c.e.pin(r.seg.ID)
 	return &logReader{
 		e:      c.e,
 		id:     r.seg.ID,
-		cfg:    c.e.segmentConfig(r.seg),
+		cfg:    cfg,
 		h:      c.e.openSegment(c.key, r.seg),
 		offset: int64(r.ptr.Offset),
 		size:   int64(r.ptr.Length),

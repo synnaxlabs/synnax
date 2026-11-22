@@ -116,7 +116,7 @@ var headRefusals = []headRefusal{
 		return b
 	}, place.ErrCorrupt, "key 5 has no segment record and no part"},
 	{"segment flag", func(b []byte) []byte {
-		b[at(b, 5, 2, 27)] = 2
+		b[at(b, 5, 2, 27)] = 4
 		return b
 	}, place.ErrCorrupt, "segment 3 has unknown flags"},
 	{"segment reserved byte", func(b []byte) []byte {
