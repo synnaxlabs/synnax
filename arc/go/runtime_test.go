@@ -77,15 +77,10 @@ func compileWithModules(
 	channelSyms []symbol.Symbol,
 ) arc.Program {
 	GinkgoHelper()
-	ambient := func() []*symbol.Symbol {
-		stlSyms := stl.NewSymbols()
-		syms := make([]*symbol.Symbol, 0, len(stlSyms)+len(channelSyms))
-		syms = append(syms, stlSyms...)
-		for i := range channelSyms {
-			s := channelSyms[i]
-			syms = append(syms, &s)
-		}
-		return syms
+	ambient := stl.NewSymbols()
+	for i := range channelSyms {
+		s := channelSyms[i]
+		ambient = append(ambient, &s)
 	}
 	loader := text.NewLoader(text.LoaderConfig{
 		Source: func(_ context.Context, path string) (text.Text, error) {
@@ -97,7 +92,7 @@ func compileWithModules(
 		},
 		Ambient: ambient,
 	})
-	root := symbol.NewRoot(nil, ambient(), symbol.WithModules(loader))
+	root := symbol.NewRoot(nil, ambient, symbol.WithModules(loader))
 	return MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
 }
 

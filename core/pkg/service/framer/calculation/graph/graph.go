@@ -17,6 +17,8 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
@@ -97,7 +99,9 @@ type groupInfo struct {
 }
 
 type Graph struct {
-	cfg      Config
+	cfg Config
+	// stl holds the Arc standard library symbols, which every compile shares.
+	stl      []*symbol.Symbol
 	channels map[channel.Key]*channelInfo
 	groups   map[int]*groupInfo
 	alamos.Instrumentation
@@ -113,6 +117,7 @@ func New(cfgs ...Config) (*Graph, error) {
 	return &Graph{
 		Instrumentation: cfg.Instrumentation,
 		cfg:             cfg,
+		stl:             stl.NewSymbols(),
 		channels:        make(map[channel.Key]*channelInfo),
 		groups:          make(map[int]*groupInfo),
 		nextGroupID:     0,
@@ -735,6 +740,7 @@ func (g *Graph) compile(
 		ChannelService: g.cfg.Channel,
 		Channel:        ch,
 		Calculation:    c,
+		STL:            g.stl,
 	})
 }
 
@@ -1187,6 +1193,7 @@ func (g *Graph) fetchDependencyDiagnostics(
 		ChannelService: g.cfg.Channel,
 		Channel:        ch,
 		Calculation:    c,
+		STL:            g.stl,
 	})
 	if preErr != nil || len(prog.Functions) == 0 {
 		return nil, nil

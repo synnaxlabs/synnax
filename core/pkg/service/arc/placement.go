@@ -203,11 +203,11 @@ func errRoot(verb string) error {
 	)
 }
 
-// reservedNames returns the names of the modules every Arc can import without a user
-// module.
-func reservedNames() set.Set[string] {
+// reservedNames returns the names of the modules in ambient, which every Arc can import
+// without a user module.
+func reservedNames(ambient []*symbol.Symbol) set.Set[string] {
 	names := set.New[string]()
-	for _, sym := range standardSymbols() {
+	for _, sym := range ambient {
 		if sym.Kind == symbol.KindModule && !sym.Internal {
 			names.Add(sym.Name)
 		}

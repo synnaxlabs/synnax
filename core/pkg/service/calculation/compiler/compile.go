@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
@@ -45,6 +46,11 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Calculation calculation.Calculation
+	// STL holds the Arc standard library symbols, which every root of the compile
+	// shares.
+	//
+	// [REQUIRED]
+	STL []*symbol.Symbol
 }
 
 var _ config.Config[Config] = Config{}
@@ -53,6 +59,7 @@ func (c Config) Override(other Config) Config {
 	c.Channel = other.Channel
 	c.Calculation = other.Calculation
 	c.ChannelService = override.Nil(c.ChannelService, other.ChannelService)
+	c.STL = override.Slice(c.STL, other.STL)
 	return c
 }
 
@@ -65,6 +72,7 @@ func (c Config) Validate() error {
 		"must be the key of the channel",
 	)
 	v.NotNil("channel_service", c.ChannelService)
+	v.NotEmptySlice("stl", c.STL)
 	return v.Error()
 }
 
@@ -92,7 +100,7 @@ func preProcess(
 	cfg Config,
 	symbols arc.SymbolResolver,
 ) (arc.Program, error) {
-	ana := NewAnalyzer(symbols, parser.Config{
+	ana := NewAnalyzer(symbols, cfg.STL, parser.Config{
 		AllowDashedNames: resolver.AllowDashedNames(cfg.ChannelService),
 	})
 	result, err := ana.AnalyzeExpression(
@@ -112,7 +120,7 @@ func preProcess(
 		Body: ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Calculation.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
-	return arc.CompileGraph(ctx, g, arc.NewRoot(symbols),
+	return arc.CompileGraph(ctx, g, symbol.NewRoot(symbols, cfg.STL),
 		arc.WithAllowDashedNames(resolver.AllowDashedNames(cfg.ChannelService)))
 }
 
@@ -296,7 +304,7 @@ func compile(
 	cfg Config,
 	symbols arc.SymbolResolver,
 ) (Module, error) {
-	result, err := NewAnalyzer(symbols, parser.Config{
+	result, err := NewAnalyzer(symbols, cfg.STL, parser.Config{
 		AllowDashedNames: resolver.AllowDashedNames(cfg.ChannelService),
 	}).AnalyzeExpression(
 		ctx,
@@ -336,7 +344,7 @@ func compileAnalyzed(
 	if err := addReads(ctx, &g, symbols, result.Reads); err != nil {
 		return Module{}, err
 	}
-	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(symbols),
+	program, err := arc.CompileGraph(ctx, g, symbol.NewRoot(symbols, cfg.STL),
 		arc.WithAllowDashedNames(resolver.AllowDashedNames(cfg.ChannelService)))
 	if err != nil {
 		return Module{}, err

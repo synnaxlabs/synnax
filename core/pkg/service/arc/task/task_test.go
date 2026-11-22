@@ -27,6 +27,8 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -215,7 +217,10 @@ var _ = Describe("Task", Ordered, func() {
 		return newFactoryWith(
 			func(ctx context.Context, key uuid.UUID) (svcarc.AutomationArc, error) {
 				symbols := resolver.New(channelSvc, db)
-				root := arc.NewRoot(symbols, arcstatus.NewSymbols()...)
+				root := symbol.NewRoot(
+					symbols,
+					slices.Concat(stl.NewSymbols(), arcstatus.NewSymbols()),
+				)
 				module, err := arc.CompileGraph(ctx, g, root)
 				if err != nil {
 					return svcarc.AutomationArc{}, err
@@ -240,9 +245,9 @@ var _ = Describe("Task", Ordered, func() {
 		return newFactoryWith(
 			func(_ context.Context, _ uuid.UUID) (svcarc.AutomationArc, error) {
 				symbols := resolver.New(channelSvc, db)
-				root := arc.NewRoot(symbols, slices.Concat(
-					arcstatus.NewSymbols(), ranges.NewSymbols(),
-				)...)
+				root := symbol.NewRoot(symbols, slices.Concat(
+					stl.NewSymbols(), arcstatus.NewSymbols(), ranges.NewSymbols(),
+				))
 				module, err := arc.CompileText(ctx, prof, root)
 				if err != nil {
 					return svcarc.AutomationArc{}, err

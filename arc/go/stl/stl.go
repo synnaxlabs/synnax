@@ -31,10 +31,9 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 )
 
-// NewSymbols returns a fresh slice of every STL package's ambient prelude
-// symbols. Each call allocates a new tree so concurrent analyses (e.g. the
-// LSP serving multiple documents) and successive analyses on the same
-// process never share mutable symbol state.
+// NewSymbols returns every STL package's ambient prelude symbols. Roots in any number
+// of goroutines may share the result, since analysis and compilation never write to
+// it, so a caller builds it once and keeps it.
 func NewSymbols() []*symbol.Symbol {
 	return slices.Concat(
 		channels.NewSymbols(),

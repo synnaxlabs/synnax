@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -105,6 +106,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			ChannelService: channelSvc,
 			Channel:        out,
 			Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
+			STL:            stl.NewSymbols(),
 		}))
 		return MustOpen(calculator.Open(
 			ctx,
@@ -1016,6 +1018,7 @@ var _ = Describe("Calculator", Ordered, func() {
 					ChannelService: channelSvc,
 					Channel:        calc,
 					Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
+					STL:            stl.NewSymbols(),
 				})).Error().To(MatchError(ContainSubstring("type mismatch")))
 			},
 		)
@@ -1418,7 +1421,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
 			})).To(Succeed())
 			res := MustSucceed(
-				compiler.NewAnalyzer(resolver.New(channelSvc, db)).
+				compiler.NewAnalyzer(resolver.New(channelSvc, db), stl.NewSymbols()).
 					AnalyzeExpression(
 						ctx,
 						channel.Channel{Name: calc.Name, Virtual: true},
@@ -1432,6 +1435,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				ChannelService: channelSvc,
 				Channel:        out,
 				Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
+				STL:            stl.NewSymbols(),
 			}))
 			return MustOpen(calculator.Open(ctx, calculator.Config{Module: mod})), out
 		}
@@ -1531,6 +1535,7 @@ var _ = Describe("Calculator", Ordered, func() {
 					ChannelService: channelSvc,
 					Channel:        calc,
 					Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
+					STL:            stl.NewSymbols(),
 				}))
 				c := MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
 				fr := frame.NewUnary(

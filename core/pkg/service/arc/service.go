@@ -173,6 +173,8 @@ type Service struct {
 	directories *directory.Table
 	// root is the directory that holds every Arc.
 	root directory.Key
+	// ambient holds the standard modules, which every root shares.
+	ambient []*symbol.Symbol
 	// reserved holds the standard module names, which no entry of root may take.
 	reserved set.Set[string]
 	state    *actions.State[Key, Action]
@@ -219,10 +221,10 @@ func (s *Service) newRoot(
 		Source:   source,
 		Paths:    paths,
 		Channels: channels,
-		Ambient:  standardSymbols,
+		Ambient:  s.ambient,
 		Config:   parser.Config{AllowDashedNames: s.AllowDashedNames()},
 	})
-	return symbol.NewRoot(channels, standardSymbols(), symbol.WithModules(modules))
+	return symbol.NewRoot(channels, s.ambient, symbol.WithModules(modules))
 }
 
 func standardSymbols() []*symbol.Symbol {
@@ -583,9 +585,11 @@ func OpenService(
 }
 
 func newService(cfg ServiceConfig) *Service {
+	ambient := standardSymbols()
 	return &Service{
 		cfg:           cfg,
-		reserved:      reservedNames(),
+		ambient:       ambient,
+		reserved:      reservedNames(ambient),
 		state:         actions.NewState[Key, Action](cfg.DB),
 		table:         cfg.Table.table,
 		indexes:       cfg.Table.indexes,

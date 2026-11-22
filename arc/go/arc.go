@@ -15,14 +15,12 @@ package arc
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/program"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 )
@@ -56,17 +54,6 @@ func newOptions(opts []Option) options {
 // disabled.
 func WithAllowDashedNames(allow bool) Option {
 	return func(o *options) { o.cfg.AllowDashedNames = allow }
-}
-
-// NewRoot returns a program root with the standard library symbols and
-// any extras attached to the ambient prelude, and resolver installed as
-// the GlobalResolver. This is the canonical entry point for production
-// compilation: callers pass any additional static symbols (e.g. status
-// types) as extras alongside the resolver. STL symbols are freshly
-// allocated per call so no analysis can corrupt another's view of the
-// standard library.
-func NewRoot(resolver SymbolResolver, extras ...*symbol.Symbol) *symbol.Symbol {
-	return symbol.NewRoot(resolver, slices.Concat(stl.NewSymbols(), extras))
 }
 
 // CompileGraph parses, analyzes, and compiles a graph-mode program

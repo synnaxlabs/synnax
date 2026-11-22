@@ -13,6 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -67,6 +69,9 @@ type Service struct {
 	indexes  indexes
 	state    *actions.State[Key, Action]
 	channels *channel.Service
+	// stl holds the Arc standard library symbols, which every analysis and compile
+	// shares.
+	stl []*symbol.Symbol
 }
 
 // OpenService opens a Service. When the error is nil, the caller must close the
@@ -80,6 +85,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		indexes:  newIndexes(),
 		state:    actions.NewState[Key, Action](cfg.DB),
 		channels: cfg.Channel,
+		stl:      stl.NewSymbols(),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()

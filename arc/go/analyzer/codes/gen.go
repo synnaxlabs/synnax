@@ -67,6 +67,7 @@ func channel(name string, t types.Type, id int) symbol.Symbol {
 }
 
 func newRoot() *symbol.Symbol {
+	ambient := stl.NewSymbols()
 	loader := text.NewLoader(text.LoaderConfig{
 		Source: func(_ context.Context, path string) (text.Text, error) {
 			src, ok := modules[path]
@@ -75,9 +76,9 @@ func newRoot() *symbol.Symbol {
 			}
 			return text.Text{Raw: src}, nil
 		},
-		Ambient: stl.NewSymbols,
+		Ambient: ambient,
 	})
-	root := symbol.NewRoot(nil, stl.NewSymbols(), symbol.WithModules(loader))
+	root := symbol.NewRoot(nil, ambient, symbol.WithModules(loader))
 	for i := range channels {
 		ch := channels[i]
 		root.Parent.AddChild(&ch)

@@ -19,7 +19,6 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -52,15 +51,16 @@ type Analyzer struct {
 	symbols  arc.SymbolResolver
 	resolver *cachingResolver
 	cfg      parser.Config
-	// stl holds the Arc standard library symbols, built on the first analysis.
-	// symbol.NewRoot copies them into each analysis, so later analyses reuse them.
+	// stl holds the Arc standard library symbols, which every analysis shares.
 	stl []*symbol.Symbol
 }
 
 // NewAnalyzer returns an Analyzer that falls back to symbolResolver for
-// symbols not yet in the internal cache.
+// symbols not yet in the internal cache. Each analysis shares stl, the Arc standard
+// library symbols.
 func NewAnalyzer(
 	symbolResolver arc.SymbolResolver,
+	stl []*symbol.Symbol,
 	cfgs ...parser.Config,
 ) *Analyzer {
 	r := &cachingResolver{}
@@ -71,6 +71,7 @@ func NewAnalyzer(
 		symbols:  symbolResolver,
 		resolver: r,
 		cfg:      parser.ConfigOf(cfgs...),
+		stl:      stl,
 	}
 }
 
@@ -134,9 +135,6 @@ func (a *Analyzer) AnalyzeExpression(
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", expression), a.cfg)
 	if err != nil {
 		return AnalysisResult{}, err
-	}
-	if a.stl == nil {
-		a.stl = stl.NewSymbols()
 	}
 	root := symbol.NewRoot(a.resolver, a.stl)
 	aCtx := acontext.NewRoot(ctx, t, root).WithConfig(a.cfg)

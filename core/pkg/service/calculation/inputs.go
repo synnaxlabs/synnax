@@ -64,6 +64,7 @@ type Unsaved struct {
 func (s *Service) newAnalyzer(snap gorp.Snapshot) *compiler.Analyzer {
 	return compiler.NewAnalyzer(
 		resolver.New(s.channels, snap),
+		s.stl,
 		parser.Config{AllowDashedNames: resolver.AllowDashedNames(s.channels)},
 	)
 }

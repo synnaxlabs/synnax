@@ -15,7 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -79,7 +81,7 @@ var _ = Describe("Analyze", func() {
 	It("Should return the error of a failed read instead of diagnostics", func(
 		ctx SpecContext,
 	) {
-		a := compiler.NewAnalyzer(failingResolver{})
+		a := newAnalyzer(failingResolver{})
 		res, err := analyze(ctx, a, formula{
 			Name:       "calc",
 			Expression: "return sensor + 1",
@@ -92,7 +94,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should infer the correct type for integer literal expressions",
 			func(ctx SpecContext) {
-				a := compiler.NewAnalyzer(StaticResolver{})
+				a := newAnalyzer(StaticResolver{})
 				ch := formula{Name: "calc", Expression: "return 1 + 2"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Int64T))
@@ -102,7 +104,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should infer the correct type for float literal expressions",
 			func(ctx SpecContext) {
-				a := compiler.NewAnalyzer(StaticResolver{})
+				a := newAnalyzer(StaticResolver{})
 				ch := formula{Name: "calc", Expression: "return 1.0 + 2.0"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Float64T))
@@ -120,7 +122,7 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := compiler.NewAnalyzer(r)
+				a := newAnalyzer(r)
 				ch := formula{Name: "calc", Expression: "return sensor * 2.0"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Float32T))
@@ -138,7 +140,7 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := compiler.NewAnalyzer(r)
+				a := newAnalyzer(r)
 				ch := formula{Name: "calc", Expression: "return sensor + 1"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Int64T))
@@ -162,7 +164,7 @@ var _ = Describe("Analyze", func() {
 						ID:   20,
 					},
 				}
-				a := compiler.NewAnalyzer(r)
+				a := newAnalyzer(r)
 				ch := formula{Name: "calc", Expression: "return a + b"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Float64T))
@@ -180,7 +182,7 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := compiler.NewAnalyzer(
+				a := newAnalyzer(
 					r,
 					parser.Config{AllowDashedNames: true},
 				)
@@ -195,7 +197,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should return no deps for a pure literal expression",
 			func(ctx SpecContext) {
-				a := compiler.NewAnalyzer(StaticResolver{})
+				a := newAnalyzer(StaticResolver{})
 				ch := formula{Name: "calc", Expression: "return 1 + 2"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.Deps).To(BeEmpty())
@@ -213,7 +215,7 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := compiler.NewAnalyzer(r)
+				a := newAnalyzer(r)
 				ch := formula{Name: "calc", Expression: "return sensor * 2.0"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.Deps).To(ConsistOf(channel.Key(10)))
@@ -237,7 +239,7 @@ var _ = Describe("Analyze", func() {
 						ID:   20,
 					},
 				}
-				a := compiler.NewAnalyzer(r)
+				a := newAnalyzer(r)
 				ch := formula{Name: "calc", Expression: "return a + b"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.Deps).To(ConsistOf(channel.Key(10), channel.Key(20)))
@@ -255,7 +257,7 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := compiler.NewAnalyzer(r)
+				a := newAnalyzer(r)
 				ch := formula{
 					Name:       "calc",
 					Expression: "return sensor + sensor",
@@ -268,7 +270,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should resolve deps from the temp cache for previously analyzed channels",
 			func(ctx SpecContext) {
-				a := compiler.NewAnalyzer(StaticResolver{})
+				a := newAnalyzer(StaticResolver{})
 				first := formula{
 					Name:        "first",
 					Expression:  "return 1.0",
@@ -290,7 +292,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should resolve a previously analyzed channel by name",
 			func(ctx SpecContext) {
-				a := compiler.NewAnalyzer(StaticResolver{})
+				a := newAnalyzer(StaticResolver{})
 				sensor := formula{
 					Name:        "sensor",
 					Expression:  "return 1.0",
@@ -312,7 +314,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should cache multiple channels and resolve a chain of dependencies",
 			func(ctx SpecContext) {
-				a := compiler.NewAnalyzer(StaticResolver{})
+				a := newAnalyzer(StaticResolver{})
 				first := formula{
 					Name:        "first",
 					Expression:  "return 1.0",
@@ -349,7 +351,7 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := compiler.NewAnalyzer(r)
+				a := newAnalyzer(r)
 				MustSucceed(analyze(ctx, a, formula{
 					Name:       "sensor",
 					Expression: "return 1",
@@ -365,7 +367,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should still resolve by name when the channel has key 0",
 			func(ctx SpecContext) {
-				a := compiler.NewAnalyzer(StaticResolver{})
+				a := newAnalyzer(StaticResolver{})
 				sensor := formula{
 					Name:       "sensor",
 					Expression: "return 1.0",
@@ -383,7 +385,7 @@ var _ = Describe("Analyze", func() {
 
 	Describe("Error Handling", func() {
 		It("Should return an error for invalid syntax", func(ctx SpecContext) {
-			a := compiler.NewAnalyzer(StaticResolver{})
+			a := newAnalyzer(StaticResolver{})
 			ch := formula{Name: "calc", Expression: "return {{invalid"}
 			Expect(
 				analyze(ctx, a, ch),
@@ -394,7 +396,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should return an error for an undefined channel reference",
 			func(ctx SpecContext) {
-				a := compiler.NewAnalyzer(StaticResolver{})
+				a := newAnalyzer(StaticResolver{})
 				ch := formula{
 					Name:       "calc",
 					Expression: "return nonexistent + 1",
@@ -411,7 +413,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should return zero AnalysisResult on parse error",
 			func(ctx SpecContext) {
-				a := compiler.NewAnalyzer(StaticResolver{})
+				a := newAnalyzer(StaticResolver{})
 				ch := formula{Name: "calc", Expression: "return {{invalid"}
 				Expect(analyze(ctx, a, ch)).Error().
 					To(MatchError(ContainSubstring("extraneous input")))
@@ -419,7 +421,7 @@ var _ = Describe("Analyze", func() {
 		)
 
 		It("Should return unresolved names on analysis error", func(ctx SpecContext) {
-			a := compiler.NewAnalyzer(StaticResolver{})
+			a := newAnalyzer(StaticResolver{})
 			ch := formula{Name: "calc", Expression: "return nonexistent + 1"}
 			res, err := analyze(ctx, a, ch)
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
@@ -440,7 +442,7 @@ var _ = Describe("Analyze", func() {
 						ID:   1,
 					},
 				}
-				a := compiler.NewAnalyzer(r)
+				a := newAnalyzer(r)
 				ch := formula{
 					Name:       "calc",
 					Expression: "return sensor",
@@ -491,7 +493,7 @@ var _ = Describe("Analyze", func() {
 						ID:   100,
 					},
 				}
-				a := compiler.NewAnalyzer(r)
+				a := newAnalyzer(r)
 				ch := formula{Name: "calc", Expression: "return external * 2.0"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Float64T))
@@ -503,7 +505,7 @@ var _ = Describe("Analyze", func() {
 			"Should never report an analyzed channel without a data type",
 			func(ctx SpecContext, found int) {
 				r := &disappearingResolver{found: found}
-				a := compiler.NewAnalyzer(r)
+				a := newAnalyzer(r)
 				res, err := analyze(ctx, a, formula{
 					Name:       "calc",
 					Expression: "return 100 / base",
@@ -519,7 +521,7 @@ var _ = Describe("Analyze", func() {
 			"Should resolve a dependency the same way throughout one analysis",
 			func(ctx SpecContext) {
 				r := &disappearingResolver{found: 1}
-				a := compiler.NewAnalyzer(r)
+				a := newAnalyzer(r)
 				res := MustSucceed(analyze(ctx, a, formula{
 					Name:       "calc",
 					Expression: "return 100 / base",
@@ -570,4 +572,9 @@ func disappearingEntries() []TableEntry {
 		entries = append(entries, Entry(fmt.Sprintf("found %d times", found), found))
 	}
 	return entries
+}
+
+// newAnalyzer returns an analyzer with its own standard library symbols.
+func newAnalyzer(r arc.SymbolResolver, cfgs ...parser.Config) *compiler.Analyzer {
+	return compiler.NewAnalyzer(r, stl.NewSymbols(), cfgs...)
 }

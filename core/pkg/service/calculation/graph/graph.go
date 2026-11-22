@@ -17,6 +17,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
@@ -60,8 +62,10 @@ type Graph struct {
 	svc          *channel.Service
 	calculations *calculation.Service
 	status       *status.Service
-	obs          observe.Observer[Changes]
-	disconnect   observe.Disconnect
+	// stl holds the Arc standard library symbols, which every analysis shares.
+	stl        []*symbol.Symbol
+	obs        observe.Observer[Changes]
+	disconnect observe.Disconnect
 	// disconnectCalculations stops the observation of the calculation table.
 	disconnectCalculations observe.Disconnect
 	// outputs maps the key of each calculation to the key of its output, so a delete of
@@ -149,6 +153,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 		svc:             cfg.Channel,
 		calculations:    cfg.Calculation,
 		status:          cfg.Status,
+		stl:             stl.NewSymbols(),
 		obs:             observe.New[Changes](),
 	}
 	g.mu.nodes = make(map[channel.Key]node)
@@ -762,7 +767,7 @@ func (g *Graph) clearNodeStatus(
 }
 
 func (g *Graph) newAnalyzer(tx gorp.Tx) *compiler.Analyzer {
-	return compiler.NewAnalyzer(resolver.New(g.svc, tx), parser.Config{
+	return compiler.NewAnalyzer(resolver.New(g.svc, tx), g.stl, parser.Config{
 		AllowDashedNames: resolver.AllowDashedNames(g.svc),
 	})
 }

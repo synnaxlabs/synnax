@@ -35,6 +35,7 @@ func defaultNewRoot() *symbol.Symbol {
 // NewModuleRoot builds an STL-populated root that imports the user modules in
 // sources, keyed by import path.
 func NewModuleRoot(sources map[string]string) *symbol.Symbol {
+	ambient := stl.NewSymbols()
 	loader := text.NewLoader(text.LoaderConfig{
 		Source: func(_ context.Context, path string) (text.Text, error) {
 			src, ok := sources[path]
@@ -46,9 +47,9 @@ func NewModuleRoot(sources map[string]string) *symbol.Symbol {
 		Paths: func(context.Context) ([]string, error) {
 			return slices.Sorted(maps.Keys(sources)), nil
 		},
-		Ambient: stl.NewSymbols,
+		Ambient: ambient,
 	})
-	return symbol.NewRoot(nil, stl.NewSymbols(), symbol.WithModules(loader))
+	return symbol.NewRoot(nil, ambient, symbol.WithModules(loader))
 }
 
 // SetupTestServer creates a new arc LSP server with a MockClient for

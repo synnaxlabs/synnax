@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -114,6 +115,7 @@ func (e *benchEnv) openCalculator(
 		ChannelService: e.channelSvc,
 		Channel:        out,
 		Calculation:    record,
+		STL:            stl.NewSymbols(),
 	})
 	if err != nil {
 		b.Fatalf("failed to compile calculator: %v", err)

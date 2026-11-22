@@ -85,7 +85,7 @@ var _ = Describe("Loader", func() {
 				return text.Text{Raw: src}, nil
 			},
 			Channels: chans,
-			Ambient:  stl.NewSymbols,
+			Ambient:  stl.NewSymbols(),
 		})
 		return symbol.NewRoot(chans, stl.NewSymbols(), symbol.WithModules(loader))
 	}

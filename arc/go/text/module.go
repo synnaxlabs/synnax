@@ -31,8 +31,9 @@ type LoaderConfig struct {
 	Paths func(ctx context.Context) ([]string, error)
 	// Channels resolves channel names for each module's root. May be nil.
 	Channels symbol.Resolver
-	// Ambient returns the prelude symbols for each module's root. May be nil.
-	Ambient func() []*symbol.Symbol
+	// Ambient holds the prelude symbols of each module's root, which every module
+	// shares. May be nil.
+	Ambient []*symbol.Symbol
 	// Config is the parser configuration for each module.
 	Config parser.Config
 }
@@ -101,11 +102,7 @@ func (l *Loader) load(ctx context.Context, path string) (*unit, error) {
 	if diag != nil && !diag.Ok() {
 		return nil, compileError(path, diag)
 	}
-	var ambient []*symbol.Symbol
-	if l.cfg.Ambient != nil {
-		ambient = l.cfg.Ambient()
-	}
-	root := symbol.NewRoot(l.cfg.Channels, ambient, symbol.WithModules(l))
+	root := symbol.NewRoot(l.cfg.Channels, l.cfg.Ambient, symbol.WithModules(l))
 	root.Name, root.UserDefined = path, true
 	u, diag := analyzeUnit(ctx, parsed, root, true, []parser.Config{l.cfg.Config})
 	if diag != nil && !diag.Ok() {

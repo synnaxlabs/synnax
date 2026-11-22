@@ -12,12 +12,14 @@ package arc_test
 import (
 	"io/fs"
 	"os"
+	"slices"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -79,7 +81,8 @@ func findRepositoryPrograms() ([]string, error) {
 	return paths, nil
 }
 
-func newRepositoryRoot() *symbol.Symbol {
+// newRepositoryRoot returns a root over ambient that holds the repository's channels.
+func newRepositoryRoot(ambient []*symbol.Symbol) *symbol.Symbol {
 	channels := make([]*symbol.Symbol, 0, len(repositoryChannels))
 	id := 1
 	for name, t := range repositoryChannels {
@@ -91,7 +94,7 @@ func newRepositoryRoot() *symbol.Symbol {
 		})
 		id++
 	}
-	return arc.NewRoot(nil, channels...)
+	return symbol.NewRoot(nil, slices.Concat(ambient, channels))
 }
 
 var _ = Describe("Repository programs", func() {
@@ -103,7 +106,11 @@ var _ = Describe("Repository programs", func() {
 		"should compile",
 		func(ctx SpecContext, path string) {
 			raw := string(MustSucceed(fs.ReadFile(repository, path)))
-			MustSucceed(arc.CompileText(ctx, arc.Text{Raw: raw}, newRepositoryRoot()))
+			MustSucceed(arc.CompileText(
+				ctx,
+				arc.Text{Raw: raw},
+				newRepositoryRoot(stl.NewSymbols()),
+			))
 		},
 		lo.Map(paths, func(path string, _ int) TableEntry { return Entry(path, path) }),
 	)

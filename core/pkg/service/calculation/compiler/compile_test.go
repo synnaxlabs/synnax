@@ -12,6 +12,7 @@ package compiler_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
@@ -73,6 +74,7 @@ var _ = Describe("Compile", func() {
 			ChannelService: channelSvc,
 			Channel:        calc,
 			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
+			STL:            stl.NewSymbols(),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
@@ -96,6 +98,7 @@ var _ = Describe("Compile", func() {
 			ChannelService: channelSvc,
 			Channel:        calc,
 			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
+			STL:            stl.NewSymbols(),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
@@ -118,6 +121,7 @@ var _ = Describe("Compile", func() {
 			ChannelService: channelSvc,
 			Channel:        calc,
 			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
+			STL:            stl.NewSymbols(),
 		}))
 		Expect(
 			mod.Dependencies.Reads.Slice(),
@@ -146,6 +150,7 @@ var _ = Describe("Compile", func() {
 			ChannelService: channelSvc,
 			Channel:        calc,
 			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
+			STL:            stl.NewSymbols(),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
@@ -163,6 +168,7 @@ var _ = Describe("Compile", func() {
 			ChannelService: channelSvc,
 			Channel:        calc,
 			Calculation:    c,
+			STL:            stl.NewSymbols(),
 		})).Error().To(ContainSubstring("extraneous input '{'"))
 	})
 })

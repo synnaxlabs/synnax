@@ -271,6 +271,7 @@ func (w Writer) compile(
 		ChannelService: w.channels,
 		Channel:        output,
 		Calculation:    *c,
+		STL:            w.svc.stl,
 	}), "operations"); err != nil {
 		return err
 	}
