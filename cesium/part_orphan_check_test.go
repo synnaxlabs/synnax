@@ -114,6 +114,7 @@ var _ = Describe("Part orphan check", func() {
 				cesium.WithFS(headGateFS{FS: fs, armed: armed}),
 				cesium.WithPointerLog(),
 				cesium.WithRandom(rand.NewPCG(1, 2)),
+				pcgIdentity(1, 2),
 			))
 			armed.Store(true)
 			stop := GoRun(ctx, reopened.Run)

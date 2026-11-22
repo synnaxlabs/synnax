@@ -56,6 +56,7 @@ var _ = Describe("Pointer log determinism check", func() {
 				cesium.WithFS(fs),
 				cesium.WithPointerLog(),
 				cesium.WithRandom(rand.NewPCG(1, 2)),
+				pcgIdentity(1, 2),
 			))
 			stop := GoRun(ctx, db.Run)
 			return db, func() error {

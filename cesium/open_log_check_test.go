@@ -27,6 +27,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// pcgIdentity holds the identity of each database that Cesium makes with the random
+// source rand.NewPCG(a, b): the first value that the source draws, which is not 0.
+func pcgIdentity(a, b uint64) cesium.Option {
+	return cesium.WithIdentity(rand.NewPCG(a, b).Uint64())
+}
+
 // openLog opens and runs Cesium on the pointer log in fs, and returns its close.
 func openLog(ctx context.Context, fs xfs.FS) (*cesium.DB, func() error, error) {
 	db, err := cesium.Open(
@@ -35,6 +41,7 @@ func openLog(ctx context.Context, fs xfs.FS) (*cesium.DB, func() error, error) {
 		cesium.WithFS(fs),
 		cesium.WithPointerLog(),
 		cesium.WithRandom(rand.NewPCG(1, 2)),
+		pcgIdentity(1, 2),
 	)
 	if err != nil {
 		return nil, nil, err

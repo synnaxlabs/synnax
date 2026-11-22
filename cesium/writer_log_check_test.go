@@ -75,6 +75,7 @@ var _ = Describe("Pointer log writer check", func() {
 		db = MustOpen(cesium.Open(ctx, "", append([]cesium.Option{
 			cesium.WithFS(fs),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
+			pcgIdentity(1, 2),
 		}, opts...)...))
 		stop = StartRun(db.Run)
 	}

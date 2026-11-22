@@ -128,6 +128,7 @@ var _ = Describe("Pointer log fatal path breaker", func() {
 			cesium.WithFS(fs),
 			cesium.WithPointerLog(),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
+			pcgIdentity(1, 2),
 		))
 		runCtx, cancel := context.WithCancel(context.Background())
 		done = make(chan struct{})
@@ -212,6 +213,7 @@ var _ = Describe("Pointer log breaker", func() {
 			cesium.WithFS(fs),
 			cesium.WithPointerLog(),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
+			pcgIdentity(1, 2),
 		))
 		opened, run, closed := db, GoRun(GinkgoT().Context(), db.Run), false
 		stopAndClose := func() {
