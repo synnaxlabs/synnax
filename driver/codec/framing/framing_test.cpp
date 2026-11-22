@@ -651,6 +651,30 @@ TEST(Sync, RefuseConfig) {
     refuse(c, "the maximum length must be at most 65536, not 65537");
 }
 
+/// @brief it should encode a frame of MAX_SIZE bytes in every framing, and refuse one
+/// more byte.
+TEST(Framer, EncodeMaxSize) {
+    std::vector<std::unique_ptr<Framer>> framers;
+    framers.push_back(delimited_by("\n"));
+    framers.push_back(ASSERT_NIL_P(fixed(MAX_SIZE)));
+    framers.push_back(cobs());
+    framers.push_back(slip());
+    framers.push_back(ASSERT_NIL_P(sync({
+        .sync = {0xAA},
+        .length_offset = 1,
+        .length_size = 4,
+        .checksum = Checksum{},
+    })));
+    for (const auto &f: framers) {
+        Bytes wire;
+        ASSERT_NIL(f->encode(Bytes(MAX_SIZE, 0x11), wire));
+        ASSERT_OCCURRED_AS(
+            f->encode(Bytes(MAX_SIZE + 1, 0x11), wire),
+            x::errors::VALIDATION
+        );
+    }
+}
+
 /// @brief it should split a stream without allocating once its buffer has grown.
 TEST(Framer, SplitWithoutAllocating) {
     const auto d = delimited_by("\r\n");
