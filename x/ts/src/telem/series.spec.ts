@@ -13,16 +13,18 @@ import { describe, expect, it, type Mock, test, vi } from "vitest";
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
-import type { GLBufferController } from "@/telem/gl";
-import { type CrudeSeries, MultiSeries, Series } from "@/telem/series";
 import {
   type CrudeDataType,
+  type CrudeSeries,
   DataType,
+  type GLBufferController,
+  MultiSeries,
+  Series,
   Size,
   TimeRange,
   TimeSpan,
   TimeStamp,
-} from "@/telem/telem";
+} from "@/telem";
 
 // WebGL copies data whether it is a buffer or a view.
 const viewBytes = (data: AllowSharedBufferSource): Uint8Array =>

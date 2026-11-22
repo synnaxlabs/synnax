@@ -33,6 +33,7 @@ import (
 	sectestutil "github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -88,6 +89,7 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -1137,5 +1139,36 @@ var _ = Describe("Auth methods", func() {
 			[]auth.Method{},
 			[]auth.Method{auth.MethodAPIKey, auth.MethodPassword},
 		),
+		Entry(
+			"no OIDC without a provider",
+			[]auth.Method{auth.MethodPassword, auth.MethodOIDC},
+			[]auth.Method{auth.MethodPassword},
+		),
 	)
+	It("Should accept OIDC with a provider", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
+			OIDCProviders: []oidc.Provider{{
+				Name:     "idp",
+				Issuer:   "https://idp.example.com",
+				ClientID: "synnax",
+			}},
+		}))
+		Expect(layer.Auth.Methods()).To(Equal([]auth.Method{
+			auth.MethodAPIKey,
+			auth.MethodOIDC,
+			auth.MethodPassword,
+		}))
+	})
+	It("Should reject OIDC as the only method without a provider", func(
+		ctx SpecContext,
+	) {
+		node := testutil.NewNode(ctx)
+		Expect(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
+			AuthMethods: []auth.Method{auth.MethodOIDC},
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("oidc needs at least one provider")),
+		))
+	})
 })

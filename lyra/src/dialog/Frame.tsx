@@ -98,6 +98,8 @@ export interface ContextValue {
    */
   toggleAt: (target: HTMLElement) => void;
   visible: boolean;
+  /** Whether the dialog is open and placed, at the height it shows at. */
+  placed: boolean;
   variant: Variant;
   /** The corner of the trigger the dialog opens from. */
   location: location.XY;
@@ -117,6 +119,7 @@ const [Context, useContext] = context.create<ContextValue>({
     toggleAt: () => {},
     variant: "floating",
     visible: false,
+    placed: false,
     triggerRef: () => {},
   },
   displayName: "Dialog.Context",
@@ -520,6 +523,7 @@ export const Frame = ({
     toggle,
     toggleAt,
     visible,
+    placed: visible && (variant === "modal" || hasPlacement),
     onPointerEnter,
     variant,
     location: targetCorner,

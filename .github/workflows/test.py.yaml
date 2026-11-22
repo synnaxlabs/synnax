@@ -32,7 +32,7 @@ on:
         required: true
         type: string
       free_threaded:
-        description: Whether to also test on free-threaded Python 3.14t, on Ubuntu
+        description: Whether to also test on free-threaded Python 3.14t
         required: false
         type: boolean
         default: false
@@ -103,8 +103,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        # The versions follow SPEC 0. oldest is the lower bound of requires-python. Only
-        # Ubuntu runs 3.14t.
+        # The versions follow SPEC 0. oldest is the lower bound of requires-python.
         python:
           ${{ fromJSON(inputs.lowest && '["oldest"]' || inputs.free_threaded &&
           '["oldest", "3.14", "3.15", "3.14t"]' || '["oldest", "3.14", "3.15"]') }}
@@ -112,10 +111,6 @@ jobs:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
-          - os: macos-latest
-            python: 3.14t
-          - os: windows-latest
-            python: 3.14t
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -209,6 +204,13 @@ jobs:
         if: inputs.core_image != '' && (runner.os != 'Linux' || env.FORK == 'true')
         shell: bash
         run: echo 'PYTEST_ADDOPTS=-m "not core"' >> "$GITHUB_ENV"
+
+      # Only the Linux runners start the Freighter server, so the others skip the tests
+      # that need it.
+      - name: Skip the tests that need the Freighter server
+        if: inputs.freighter_image != '' && runner.os != 'Linux'
+        shell: bash
+        run: echo 'PYTEST_ADDOPTS=-m "not http and not ws"' >> "$GITHUB_ENV"
 
       # Without a limit, a hung test run holds the job for up to 6 hours. Only Python
       # 3.15 measures coverage.

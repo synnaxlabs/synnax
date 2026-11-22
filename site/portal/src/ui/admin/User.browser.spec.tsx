@@ -20,7 +20,7 @@ import {
   vi,
 } from "vitest";
 
-import type { Organization } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import { NOW } from "@/server/license/testutil";
 import { NONE } from "@/server/usage";
 import { Admin } from "@/ui/admin";
@@ -32,7 +32,7 @@ const ACCOUNT = {
   joinedAt: NOW,
 };
 
-const personalOf = (desktopChannels: number | null): Organization => ({
+const personalOf = (desktopChannels: number | null): schema.Organization => ({
   key: uuid.create(),
   kind: "personal",
   name: "Ada Lovelace",
@@ -58,7 +58,7 @@ describe("Admin.User", () => {
     vi.unstubAllGlobals();
   });
 
-  const renderUser = (personal: Organization | null): void => {
+  const renderUser = (personal: schema.Organization | null): void => {
     render(
       <Admin.User
         account={ACCOUNT}

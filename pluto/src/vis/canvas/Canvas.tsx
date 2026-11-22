@@ -241,6 +241,15 @@ export const Canvas = ({
   );
 };
 
+/**
+ * @returns the top left of the mounted canvas in client pixels, or null when no canvas
+ * is mounted.
+ */
+export const topLeft = (): xy.XY | null => {
+  const container = document.querySelector(`.${CSS.B("canvas-container")}`);
+  return container == null ? null : box.topLeft(container);
+};
+
 export const useRegion = (
   handler: UseResizeHandler,
   opts?: UseResizeOpts,
