@@ -42,7 +42,7 @@ const Preview = ({
 
 export const spec: Spec<"value", schematic.ValueNodeConfig> = {
   key: "value",
-  name: "Primitive.Value",
+  name: "Value",
   Form: ValueForm,
   Node: Symbol,
   Preview,

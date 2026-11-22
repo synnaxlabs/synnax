@@ -36,7 +36,7 @@ const Preview = ({
 
 export const spec: Spec<"setpoint", schematic.SetpointNodeConfig> = {
   key: "setpoint",
-  name: "Primitive.Setpoint",
+  name: "Setpoint",
   Form: SetpointForm,
   Node: Symbol,
   Preview,

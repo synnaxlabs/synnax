@@ -308,7 +308,7 @@ const CONFIG_Z = schematic.buttonNodeConfigZ;
 
 const CONFIG = CONFIG_Z.parse({
   variant: "button",
-  label: { label: "Primitive.Button" },
+  label: { label: "Button" },
 });
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });

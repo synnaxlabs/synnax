@@ -16,7 +16,7 @@ import type { Spec } from "@/schematic/node/spec";
 
 export const spec: Spec<"light", schematic.LightNodeConfig> = {
   key: "light",
-  name: "Primitive.Light",
+  name: "Light",
   Form: LightForm,
   Node: Symbol,
   Preview: Primitive.Light,
