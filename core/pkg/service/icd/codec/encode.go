@@ -90,6 +90,7 @@ type encodeField struct {
 // field, and a boolean field takes only 0 and 1 from one. NewJSONEncoder returns an
 // error wrapping validate.ErrValidation when:
 //   - a field has no binding and no default
+//   - a field's default is not valid, bound or not
 //   - a binding names no field of m, or a field has two bindings
 //   - a binding's data type does not write to its field's kind
 //   - a scaled field's channel is not a float
