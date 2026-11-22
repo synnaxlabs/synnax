@@ -53,6 +53,7 @@ const CREATED: channel.Stored = {
   operations: undefined,
   expression: "",
   group: undefined,
+  description: "",
 };
 
 /** Returns a frame of another client's create of the channel. */

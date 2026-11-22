@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { control } from "@synnaxlabs/x";
+import { control, DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { actionZ, set } from "@/channel/actions";
@@ -19,7 +19,7 @@ const STORED: Payload = {
   key: (1 << 20) | 5,
   name: "pt_01",
   leaseholder: 1,
-  dataType: "float32",
+  dataType: DataType.FLOAT32,
   isIndex: false,
   index: 0,
   virtual: true,
