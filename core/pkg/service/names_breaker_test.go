@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -170,13 +171,13 @@ var _ = Describe("Name upgrade breaker", func() {
 			})).
 			Entries(&top).
 			Exec(ctx, n.DB)).To(Succeed())
-		held := make(map[string]bool, len(top))
+		held := make(set.Set[string], len(top))
 		for _, c := range top {
-			held[c.Name] = true
+			held.Add(c.Name)
 		}
 		var clashes []string
 		for _, f := range folders {
-			if held[f.Name] {
+			if held.Contains(f.Name) {
 				clashes = append(clashes, f.Name)
 			}
 		}

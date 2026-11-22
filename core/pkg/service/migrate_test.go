@@ -196,8 +196,8 @@ var _ = Describe("Ontology drop", func() {
 
 var _ = Describe("Retired channels", func() {
 	It(
-		"Should delete the retired channels of the Core and keep each user channel that "+
-			"holds a retired name",
+		"Should delete the retired channels of the Core and keep each user channel "+
+			"that holds a retired name",
 		func(ctx SpecContext) {
 			n := testutil.NewNode(ctx)
 			stored := storeV062(ctx, n, []string{
@@ -215,7 +215,12 @@ var _ = Describe("Retired channels", func() {
 					Expect(l.Close()).To(Succeed())
 				}
 			})
-			Expect(namesOf(ctx, n, stored)).To(Equal(map[channel.Key]string{
+			for _, retired := range stored[:2] {
+				Expect(gorp.NewRetrieve[channel.Key, channel.Channel]().
+					Where(gorp.MatchKeys[channel.Key, channel.Channel](retired.Key())).
+					Exists(ctx, n.DB)).To(BeFalse())
+			}
+			Expect(namesOf(ctx, n, stored[2:])).To(Equal(map[channel.Key]string{
 				stored[2].Key(): "sy_range_alias_delete",
 			}))
 			later := channel.Channel{
