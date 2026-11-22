@@ -661,7 +661,7 @@ func (s *Service) Delete(
 		}
 	}
 	if len(req.Names) > 0 {
-		return struct{}{}, w.DeleteManyByNames(ctx, req.Names, false)
+		return struct{}{}, w.DeleteManyByNames(ctx, req.Names)
 	}
 	return struct{}{}, nil
 }
