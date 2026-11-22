@@ -10,7 +10,7 @@
 import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { ni } from "@/ni";
 import { query } from "@/query";
 import { resource } from "@/resource";
