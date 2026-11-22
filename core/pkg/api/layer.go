@@ -42,6 +42,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	httpserver "github.com/synnaxlabs/synnax/pkg/api/http/server"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
@@ -280,6 +281,11 @@ type Transport struct {
 	OPCUAServerRetrieve freighter.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]
 	OPCUAServerUpdate   freighter.UnaryServer[server.UpdateRequest, struct{}]
 	OPCUAServerDelete   freighter.UnaryServer[server.DeleteRequest, struct{}]
+	// HTTP SERVER
+	HTTPServerRetrieve freighter.UnaryServer[
+		httpserver.RetrieveRequest,
+		httpserver.RetrieveResponse,
+	]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -380,6 +386,7 @@ type Layer struct {
 	NIDevice    *nidevice.Service
 	NIChassis   *nichassis.Service
 	OPCUAServer *server.Service
+	HTTPServer  *httpserver.Service
 	Policy      *policy.Service
 	Role        *role.Service
 	Arc         *arc.Service
@@ -615,6 +622,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.OPCUAServerRetrieve,
 		t.OPCUAServerUpdate,
 		t.OPCUAServerDelete,
+		// HTTP SERVER
+		t.HTTPServerRetrieve,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -919,6 +928,8 @@ func (l *Layer) BindTo(t Transport) {
 	t.OPCUAServerRetrieve.BindHandler(bind.Read(l.binder, l.OPCUAServer.Retrieve))
 	t.OPCUAServerUpdate.BindHandler(bind.Write(l.binder, l.OPCUAServer.Update))
 	t.OPCUAServerDelete.BindHandler(bind.Write(l.binder, l.OPCUAServer.Delete))
+	// HTTP SERVER
+	t.HTTPServerRetrieve.BindHandler(bind.Read(l.binder, l.HTTPServer.Retrieve))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
@@ -1198,6 +1209,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.OPCUAServer, err = server.NewService(server.ServiceConfig{
 		Server: cfg.Service.OPCUA.Servers,
+		Status: cfg.Service.Status,
+	}); err != nil {
+		return nil, err
+	}
+	if l.HTTPServer, err = httpserver.NewService(httpserver.ServiceConfig{
+		Server: cfg.Service.HTTP.Servers,
 		Status: cfg.Service.Status,
 	}); err != nil {
 		return nil, err

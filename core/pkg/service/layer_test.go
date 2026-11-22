@@ -43,6 +43,7 @@ import (
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	httpv2 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
+	httpserver "github.com/synnaxlabs/synnax/pkg/service/http/server"
 	httpv3 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 	httpv4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	httpv5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
@@ -1278,6 +1279,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Device", resource.TypeDevice),
 		Entry("Enumeration", resource.TypeEnumeration),
 		Entry("Group", resource.TypeGroup),
+		Entry("HTTPServer", resource.TypeHTTPServer),
 		Entry("Label", resource.TypeLabel),
 		Entry("Lineplot", resource.TypeLineplot),
 		Entry("Log", resource.TypeLog),
@@ -1347,6 +1349,28 @@ var _ = Describe("Resource search", Ordered, func() {
 		res := MustSucceed(layer.Resource.Search(ctx, db, resource.SearchQuery{
 			Term:  "pump",
 			Types: []resource.Type{resource.TypeOpcuaServer},
+		}))
+		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
+			return r.ID
+		})).To(ConsistOf(s.ResourceID()))
+	})
+
+	It("Should find HTTP servers by name", func(ctx SpecContext) {
+		s := httpserver.Server{
+			Key:  uuid.New(),
+			Rack: layer.Rack.EmbeddedKey,
+			Name: "Pump Gateway",
+			Host: "pump.example.com",
+			Auth: httpserver.Auth{Variant: httpserver.NoneAuth{}},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return gorp.NewCreate[httpserver.Key, httpserver.Server]().
+				Entry(&s).
+				Exec(ctx, tx)
+		})).To(Succeed())
+		res := MustSucceed(layer.Resource.Search(ctx, db, resource.SearchQuery{
+			Term:  "gateway",
+			Types: []resource.Type{resource.TypeHTTPServer},
 		}))
 		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
 			return r.ID

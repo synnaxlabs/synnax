@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	httpserver "github.com/synnaxlabs/synnax/pkg/api/http/server"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
@@ -662,6 +663,11 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/opcua/server/delete",
 		),
+		// HTTP SERVER
+		HTTPServerRetrieve: unary[
+			httpserver.RetrieveRequest,
+			httpserver.RetrieveResponse,
+		](router, "/api/v1/http/server/retrieve"),
 
 		// ACCESS
 		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](

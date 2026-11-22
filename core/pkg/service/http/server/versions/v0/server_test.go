@@ -22,6 +22,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Server", func() {
@@ -277,4 +278,78 @@ var _ = Describe("Server", func() {
 			s.Reads = []v0.Read{read("/a~1b/~0c/0")}
 		}),
 	)
+})
+
+var _ = Describe("msgpack", func() {
+	DescribeTable("Should round trip an auth",
+		func(a v0.Auth) {
+			var decoded v0.Auth
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(a)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(a))
+		},
+		Entry("none", v0.Auth{Variant: v0.NoneAuth{}}),
+		Entry("bearer", v0.Auth{Variant: v0.BearerAuth{Token: uuid.New()}}),
+		Entry("basic", v0.Auth{Variant: v0.BasicAuth{
+			Username: "admin",
+			Password: uuid.New(),
+		}}),
+		Entry("API key", v0.Auth{Variant: v0.APIKeyAuth{
+			Key:    uuid.New(),
+			SendAs: v0.SendAsQueryParam,
+			Name:   "key",
+		}}),
+		Entry("no variant", v0.Auth{}),
+	)
+
+	DescribeTable("Should round trip a response",
+		func(r v0.Response) {
+			var decoded v0.Response
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(r)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(r))
+		},
+		Entry("string", v0.Response{Variant: v0.StringResponse{
+			Pointer:       "/status",
+			ExpectedValue: "ok",
+		}}),
+		Entry("number", v0.Response{Variant: v0.NumberResponse{
+			Pointer:       "/code",
+			ExpectedValue: 200,
+		}}),
+		Entry("boolean", v0.Response{Variant: v0.BooleanResponse{
+			Pointer:       "/up",
+			ExpectedValue: true,
+		}}),
+		Entry("null", v0.Response{Variant: v0.NullResponse{Pointer: "/error"}}),
+	)
+
+	It("Should apply the defaults of an API key", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{
+			"type": "api_key",
+			"name": "X-Key",
+		}))
+		var decoded v0.Auth
+		Expect(msgpack.Unmarshal(raw, &decoded)).To(Succeed())
+		Expect(decoded.Variant).To(Equal(v0.APIKeyAuth{
+			SendAs: v0.SendAsHeader,
+			Name:   "X-Key",
+		}))
+	})
+
+	It("Should reject an unknown auth type", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{"type": "oauth"}))
+		var decoded v0.Auth
+		Expect(msgpack.Unmarshal(raw, &decoded)).
+			To(MatchError(validate.ErrValidation))
+	})
+
+	It("Should reject an unknown expected value type", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{
+			"expected_value_type": "date",
+		}))
+		var decoded v0.Response
+		Expect(msgpack.Unmarshal(raw, &decoded)).
+			To(MatchError(validate.ErrValidation))
+	})
 })
