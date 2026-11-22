@@ -375,7 +375,7 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 		snap gorp.Snapshot,
 		lookups *resolver.Lookups,
 	) (arc.Program, error) {
-		return s.compileWith(ctx, s.NewRoot(snap, lookups), automation)
+		return s.cfg.Compile(ctx, automation, s.NewRoot(snap, lookups))
 	})
 	if err != nil {
 		return AutomationArc{}, err
@@ -432,7 +432,7 @@ func (s *Service) buildIn(
 	root := s.NewRoot(snap, lookups)
 	switch v := a.Variant.(type) {
 	case AutomationArc:
-		b.program, b.err = s.compileWith(ctx, root, v)
+		b.program, b.err = s.cfg.Compile(ctx, v, root)
 		b.loaded = arctext.LoadedPaths(root)
 	case ModuleArc:
 		b.err = s.analyzeModule(ctx, root, v)
@@ -458,15 +458,6 @@ func (s *Service) retrieveHashed(
 		return Arc{}, "", err
 	}
 	return a, hash, nil
-}
-
-// compileWith compiles the automation's source against root.
-func (s *Service) compileWith(
-	ctx context.Context,
-	root *symbol.Symbol,
-	automation AutomationArc,
-) (arc.Program, error) {
-	return s.cfg.Compile(ctx, automation, root)
 }
 
 func compileSource(

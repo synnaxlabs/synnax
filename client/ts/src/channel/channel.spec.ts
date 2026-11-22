@@ -866,8 +866,8 @@ describe("cached reads", () => {
       });
       const ch = await createVirtual(local);
       const other = await createVirtual(local);
-      // A cluster running without name validation can hold duplicates. Forge
-      // the collision: an ambiguous name must never resolve from the store.
+      // Channels in different folders can share a name. Forge the collision: an
+      // ambiguous name must never resolve from the store.
       local.channels.store.set([
         new channel.Channel({ ...other.payload, name: ch.name }),
       ]);

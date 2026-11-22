@@ -21,8 +21,7 @@ import (
 )
 
 // NewMigrations returns the ordered migration chain for stored arcs. root is the
-// directory that holds each Arc stored in no directory. cfg is the parser config of the
-// Core that stored the Arcs.
+// directory that holds each Arc stored in no directory.
 func NewMigrations(root uuid.UUID) []gorp.Migration {
 	return slices.Concat(
 		[]gorp.Migration{v0.NormalizeKeys, v0.Migration},

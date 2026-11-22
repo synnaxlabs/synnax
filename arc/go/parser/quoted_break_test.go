@@ -43,7 +43,7 @@ var _ = Describe("Quoted channel names in the parser (break)", func() {
 		Entry("P4 multi", "x := `it's\n'a'`"),
 		Entry("P5 line comment", "x := 1 // it's"),
 		Entry("P6 block comment", "x := 1 /* it's\n 'a */"),
-		Entry("P7 dashed off", `x := "a'b'c"`),
+		Entry("P7 several quotes", `x := "a'b'c"`),
 	)
 	DescribeTable("P fails to parse",
 		func(src string) {
