@@ -147,8 +147,8 @@ class CRIOCase(HardwareCase):
                 with self._try_to("stop the cRIO Driver"):
                     self.stop_driver()
                 with self._try_to("copy the cRIO Driver log"):
-                    # A retry shares the results directory, so each attempt keeps
-                    # its own log.
+                    # A retry shares the results directory, so each attempt keeps its
+                    # own log.
                     log = self.results_dir / "crio-driver.log"
                     attempt = 1
                     while log.exists():
