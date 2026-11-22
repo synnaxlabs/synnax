@@ -82,7 +82,7 @@ TEST(ControlPipeline, ReportsMissedCommands) {
     );
     streamer_factory->config.on_missed();
     ASSERT_EQ(sink->misses, 1);
-    ASSERT_EQ(sink->stop_err, x::errors::NIL);
+    ASSERT_NIL(sink->stop_err);
     control.stop();
 }
 

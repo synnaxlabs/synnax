@@ -4776,6 +4776,8 @@ TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
     ASSERT_FALSE(states->is_authorized(data_ch.key, other_sub));
     ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
     pipe->resume();
+    // The rack closes a manager whose run failed, which stops its workers.
+    manager->close();
     ASSERT_NIL(writer.close());
 }
 }
