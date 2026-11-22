@@ -232,7 +232,8 @@ var _ = Describe(
 	"Check: the state replayed from its newest head and the live state",
 	func() {
 		It(
-			"Should agree in every field after each event, across switches and their parts",
+			"Should agree in every field after each event, across switches and their "+
+				"parts",
 			func() {
 				const size = 4 << 20
 				// reached counts what the workload reached over every run key, so the
@@ -514,7 +515,9 @@ var _ = Describe(
 							telem.TimeStampMin,
 							telem.TimeStampMax,
 							true,
-							func(pre []state.Preload) error { return st.BeginDrop(6, pre...) },
+							func(pre []state.Preload) error {
+								return st.BeginDrop(6, pre...)
+							},
 						)
 						add(&log.Drop{Key: 6})
 						reached.drops++
