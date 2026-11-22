@@ -122,9 +122,10 @@ func benchmarkCompact(b *testing.B, size int) {
 }
 
 // BenchmarkCompactCommit writes one frame of float32 samples to 32 channels, then
-// commits and syncs it, per iteration, on the OS file system. With rewrite set, the
-// compactor copies 256 MiB of a segment of another key at the default rate for the
-// whole run. It reports the 99th percentile of the time of an iteration.
+// commits and syncs it, 20,000 times per iteration, on the OS file system. With rewrite
+// set, the compactor rewrites seven segments of another key at the default rate, and
+// the run fails when the rewrites end before the commits. It reports the 99th
+// percentile of the time of a commit.
 func BenchmarkCompactCommit(b *testing.B) {
 	for _, rewrite := range []bool{false, true} {
 		b.Run(fmt.Sprintf("rewrite=%t", rewrite), func(b *testing.B) {
@@ -138,8 +139,9 @@ func benchmarkCompactCommit(b *testing.B, rewrite bool) {
 	dir := b.TempDir()
 	db := runCompactDB(b, dir)
 	keys := createIndexedChannels(b, db, 1, 32)
+	running := func() bool { return true }
 	if rewrite {
-		startRewrite(b, db, dir)
+		running = startRewrite(b, db, dir, 7)
 	}
 	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 		Channels: keys,
@@ -148,41 +150,44 @@ func benchmarkCompactCommit(b *testing.B, rewrite bool) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	const samples = 125
+	const samples, commits = 125, 20_000
 	data := telem.NewSeries(make([]float32, samples))
 	stamps := make([]telem.TimeStamp, samples)
 	start := telem.SecondTS
-	took := make([]time.Duration, 0, 1<<20)
+	took := make([]time.Duration, 0, commits)
 	b.ReportAllocs()
 	for b.Loop() {
-		began := time.Now()
-		for i := range stamps {
-			stamps[i] = start + telem.TimeStamp(i)
-		}
-		series := make([]telem.Series, len(keys))
-		series[0] = telem.NewSeries(stamps)
-		for i := 1; i < len(series); i++ {
-			series[i] = data
-		}
-		if _, _, err := w.Write(
-			b.Context(),
-			telem.MultiFrame(keys, series),
-			nil,
-		); err != nil {
-			b.Fatal(err)
-		}
-		if _, _, err := w.Commit(b.Context(), nil); err != nil {
-			b.Fatal(err)
-		}
-		if err := w.Sync(); err != nil {
-			b.Fatal(err)
-		}
-		start += telem.TimeStamp(samples)
-		if len(took) < cap(took) {
+		for range commits {
+			began := time.Now()
+			for i := range stamps {
+				stamps[i] = start + telem.TimeStamp(i)
+			}
+			series := make([]telem.Series, len(keys))
+			series[0] = telem.NewSeries(stamps)
+			for i := 1; i < len(series); i++ {
+				series[i] = data
+			}
+			if _, _, err := w.Write(
+				b.Context(),
+				telem.MultiFrame(keys, series),
+				nil,
+			); err != nil {
+				b.Fatal(err)
+			}
+			if _, _, err := w.Commit(b.Context(), nil); err != nil {
+				b.Fatal(err)
+			}
+			if err := w.Sync(); err != nil {
+				b.Fatal(err)
+			}
+			start += telem.TimeStamp(samples)
 			took = append(took, time.Since(began))
 		}
 	}
 	b.StopTimer()
+	if !running() {
+		b.Fatal("the rewrites ended before the commits")
+	}
 	reportP99(b, took)
 	if err := w.Close(); err != nil {
 		b.Error(err)
@@ -190,9 +195,10 @@ func benchmarkCompactCommit(b *testing.B, rewrite bool) {
 }
 
 // BenchmarkCompactRead reads an index and a data channel of 100 stretches of 100
-// samples, per iteration, on the OS file system. With rewrite set, the compactor copies
-// 256 MiB of a segment of another key at the default rate for the whole run. It reports
-// the 99th percentile of the time of an iteration.
+// samples, per iteration, on the OS file system. With rewrite set, the compactor
+// rewrites a segment of another key at the default rate, and the run fails when the
+// rewrite ends before the reads. It reports the 99th percentile of the time of an
+// iteration.
 func BenchmarkCompactRead(b *testing.B) {
 	for _, rewrite := range []bool{false, true} {
 		b.Run(fmt.Sprintf("rewrite=%t", rewrite), func(b *testing.B) {
@@ -217,8 +223,9 @@ func benchmarkCompactRead(b *testing.B, rewrite bool) {
 	for s := range stretches {
 		writePartsStretch(b, b.Context(), db, keys, s*samples, samples)
 	}
+	running := func() bool { return true }
 	if rewrite {
-		startRewrite(b, db, dir)
+		running = startRewrite(b, db, dir, 1)
 	}
 	took := make([]time.Duration, 0, 1<<20)
 	b.ReportAllocs()
@@ -232,6 +239,9 @@ func benchmarkCompactRead(b *testing.B, rewrite bool) {
 		}
 	}
 	b.StopTimer()
+	if !running() {
+		b.Fatal("the rewrite ended before the reads")
+	}
 	reportP99(b, took)
 }
 
@@ -287,10 +297,11 @@ func writeCompactFrame(
 	}
 }
 
-// startRewrite writes 512 samples of 1 MiB to a text key in one sealed segment, deletes
-// the second half, and returns once the compactor starts to write the new segment. At
-// the default rate of 64 MiB a second, the copy of the first half takes 4 s.
-func startRewrite(b *testing.B, db *cesium.DB, dir string) {
+// startRewrite writes segments sealed segments of 512 samples of 1 MiB to a text key,
+// deletes the last quarter of each, and returns once the compactor starts to write the
+// first new segment. At the default rate of 64 MiB a second, the copy of each segment
+// takes 6 s. The function it returns reports whether a rewrite still runs.
+func startRewrite(b *testing.B, db *cesium.DB, dir string, segments int) func() bool {
 	b.Helper()
 	keys := []cesium.ChannelKey{1000, 1001}
 	if err := db.CreateChannel(
@@ -305,6 +316,7 @@ func startRewrite(b *testing.B, db *cesium.DB, dir string) {
 		b.Fatal(err)
 	}
 	const chunks, chunk = 8, 64
+	const per = chunks * chunk
 	sample := strings.Repeat("x", 1<<20)
 	strs := make([]string, chunk)
 	for i := range strs {
@@ -312,31 +324,35 @@ func startRewrite(b *testing.B, db *cesium.DB, dir string) {
 	}
 	text := telem.NewSeriesV(strs...)
 	stamps := make([]telem.TimeStamp, chunk)
-	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
-		Channels: keys,
-		Start:    telem.SecondTS,
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
-	for c := range chunks {
-		for i := range stamps {
-			stamps[i] = telem.TimeStamp(c*chunk+i+1) * telem.SecondTS
-		}
-		if _, _, err = w.Write(b.Context(), telem.MultiFrame(
-			keys,
-			[]telem.Series{telem.NewSeries(stamps), text},
-		), nil); err != nil {
+	stamp := func(i int) telem.TimeStamp { return telem.TimeStamp(i+1) * telem.SecondTS }
+	// The open of each writer seals the segment of the one before it.
+	for seg := range segments {
+		w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
+			Channels: keys,
+			Start:    stamp(seg * per),
+		})
+		if err != nil {
 			b.Fatal(err)
 		}
-		if _, _, err = w.Commit(b.Context(), nil); err != nil {
+		for c := range chunks {
+			for i := range stamps {
+				stamps[i] = stamp(seg*per + c*chunk + i)
+			}
+			if _, _, err = w.Write(b.Context(), telem.MultiFrame(
+				keys,
+				[]telem.Series{telem.NewSeries(stamps), text},
+			), nil); err != nil {
+				b.Fatal(err)
+			}
+			if _, _, err = w.Commit(b.Context(), nil); err != nil {
+				b.Fatal(err)
+			}
+		}
+		if err = w.Close(); err != nil {
 			b.Fatal(err)
 		}
 	}
-	if err = w.Close(); err != nil {
-		b.Fatal(err)
-	}
-	end := telem.TimeStamp(chunks*chunk+1) * telem.SecondTS
+	end := stamp(segments * per)
 	writeCompactFrame(
 		b,
 		db,
@@ -345,15 +361,26 @@ func startRewrite(b *testing.B, db *cesium.DB, dir string) {
 		telem.NewSeries([]telem.TimeStamp{end}),
 		telem.NewSeriesV("end"),
 	)
-	half := telem.TimeStamp(chunks*chunk/2+1) * telem.SecondTS
-	if err = db.DeleteTimeRange(b.Context(), keys[1:], half.Range(end)); err != nil {
-		b.Fatal(err)
+	for seg := range segments {
+		tail := stamp(seg*per + per*3/4).Range(stamp((seg + 1) * per))
+		if err := db.DeleteTimeRange(b.Context(), keys[1:], tail); err != nil {
+			b.Fatal(err)
+		}
 	}
-	awaitSegments(b, dir, keys[1], 3)
+	// The old segments, the segment of the end frame, and the first new segment.
+	names := awaitSegments(b, dir, keys[1], segments+2)
+	slices.Sort(names)
+	old := names[:segments]
+	return func() bool {
+		return slices.ContainsFunc(old, func(name string) bool {
+			_, err := os.Stat(filepath.Join(dir, strconv.Itoa(int(keys[1])), name))
+			return err == nil
+		})
+	}
 }
 
-// awaitSegments returns once the directory of key in dir holds n segment files.
-func awaitSegments(b *testing.B, dir string, key cesium.ChannelKey, n int) {
+// awaitSegments returns the names of the segment files of key in dir once there are n.
+func awaitSegments(b *testing.B, dir string, key cesium.ChannelKey, n int) []string {
 	b.Helper()
 	segments := filepath.Join(dir, strconv.Itoa(int(key)))
 	for {
@@ -361,10 +388,14 @@ func awaitSegments(b *testing.B, dir string, key cesium.ChannelKey, n int) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		if len(slices.DeleteFunc(entries, func(e os.DirEntry) bool {
-			return !strings.HasSuffix(e.Name(), ".seg")
-		})) == n {
-			return
+		var names []string
+		for _, e := range entries {
+			if strings.HasSuffix(e.Name(), ".seg") {
+				names = append(names, e.Name())
+			}
+		}
+		if len(names) == n {
+			return names
 		}
 		time.Sleep(time.Millisecond)
 	}
