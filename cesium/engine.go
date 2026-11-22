@@ -55,6 +55,8 @@ type engine struct {
 	budget *segment.Budget
 	// compact rewrites the segments that pass the candidate test of the state.
 	compact *compactor
+	// limit is the budget of the background reads, which each owner of them shares.
+	limit *limiter
 	// head is the generation of the head that recovery used.
 	head uint64
 	// switched is the generation of a log that recovery made live, whose head the
@@ -165,7 +167,8 @@ func openEngine(o *options) (*engine, error) {
 	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
 		return nil, err
 	}
-	e.compact = newCompactor(e, o.clock, int64(o.gcCfg.Rate))
+	e.limit = newLimiter(o.clock, o.gcCfg.Rate)
+	e.compact = newCompactor(e, o.clock, e.limit)
 	return e, nil
 }
 

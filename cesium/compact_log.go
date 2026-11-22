@@ -12,7 +12,6 @@ package cesium
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
@@ -32,11 +31,11 @@ var errStopped = errors.New("compactor stopped")
 // compactor rewrites the candidates of the state into new segments that hold only their
 // live ranges, one segment at a time. Each job of a rewrite runs on the executor: it
 // reads and checks at most jobBlocks blocks of the old segment and copies their live
-// bytes. The jobs read at most rate bytes a second on clock.
+// bytes. The jobs count their reads in limit, the budget of the background reads.
 type compactor struct {
 	e     *engine
 	clock xtime.Clock
-	rate  float64
+	limit *limiter
 	wake  chan struct{}
 	// started is closed once the orphan pass is done, which would remove the file of a
 	// rewrite in progress.
@@ -71,11 +70,11 @@ type rewrite struct {
 	read int64
 }
 
-func newCompactor(e *engine, clock xtime.Clock, rate int64) *compactor {
+func newCompactor(e *engine, clock xtime.Clock, limit *limiter) *compactor {
 	c := &compactor{
 		e:       e,
 		clock:   clock,
-		rate:    float64(rate),
+		limit:   limit,
 		wake:    make(chan struct{}, 1),
 		started: make(chan struct{}),
 		stop:    make(chan struct{}),
@@ -232,11 +231,11 @@ func (c *compactor) copyLive(
 		w:    segment.NewWriter(dst, newCfg),
 		ptrs: ptrs,
 	}
-	start := c.clock.Now()
 	for c.rw.ptr < len(ptrs) && err == nil {
+		read := c.rw.read
 		c.e.exec(c.step)
 		if err = <-c.stepped; err == nil {
-			err = c.pace(ctx, start, c.rw.read)
+			err = c.pace(ctx, c.rw.read-read)
 		}
 	}
 	if err == nil {
@@ -296,10 +295,10 @@ func (c *compactor) copyBlocks() error {
 	return nil
 }
 
-// pace waits until read, the bytes that the rewrite that began at start read, keeps to
-// the rate.
-func (c *compactor) pace(ctx context.Context, start time.Time, read int64) error {
-	at := start.Add(time.Duration(float64(read) / c.rate * float64(time.Second)))
+// pace counts n bytes that a job read in the limiter, and waits until the reads fit its
+// rate. It returns the error of ctx, or errStopped once close runs.
+func (c *compactor) pace(ctx context.Context, n int64) error {
+	at := c.limit.reserve(n)
 	if !at.After(c.clock.Now()) {
 		return nil
 	}

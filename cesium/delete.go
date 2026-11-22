@@ -43,8 +43,8 @@ type GCConfig struct {
 	//
 	// [OPTIONAL] Default: 0.2
 	Threshold float32
-	// Rate is the most bytes a second that the pointer log layout reads to rewrite the
-	// segments that pass Threshold.
+	// Rate is the most bytes a second that the background reads of the pointer log
+	// layout take together, such as the rewrites of the segments that pass Threshold.
 	//
 	// [OPTIONAL] Default: 64 MiB
 	Rate telem.Size
