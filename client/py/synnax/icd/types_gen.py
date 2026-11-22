@@ -254,6 +254,16 @@ class ReadBinding(BaseModel):
     data_type: telem.DataType = telem.DataType("")
 
 
+class WriteBaseBinding(BaseModel):
+    """Carries the parts every write binding shares.
+
+    Attributes:
+        field: Is the key of the message field to fill.
+    """
+
+    field: FieldKey
+
+
 class CanIdentifier(BaseModel):
     """Matches a CAN frame by arbitration identifier."""
 
@@ -331,25 +341,6 @@ JSONMatch = Annotated[
     | PresentJSONMatch,
     Field(discriminator="type"),
 ]
-
-
-class WriteBinding(BaseModel):
-    """Fills one message field with a command channel or a fixed value.
-
-    Attributes:
-        field: Is the key of the message field to send.
-        channel: Is the command channel whose values the field sends.
-        data_type: Is the data type of the command channel that a client creates for the
-            field. Empty takes float64 for a scaled field and the default of the field's
-            kind for any other. The Core ignores it once the channel exists.
-        value: Is the fixed value that the field sends. A binding with a value has
-            channel 0 and no data type.
-    """
-
-    field: FieldKey
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    data_type: telem.DataType = telem.DataType("")
-    value: WriteValue | None = None
 
 
 class RetrieveRequest(BaseModel):
@@ -431,17 +422,26 @@ class ReadMessage(BaseModel):
     bindings: list[ReadBinding] = Field(default_factory=list)
 
 
-class WriteMessage(BaseModel):
-    """Sends one message of an ICD.
+class ChannelWriteBinding(WriteBaseBinding):
+    """Fills a field with the values of a command channel."""
 
-    Attributes:
-        message: Is the key of the ICD message to send.
-        bindings: Are the fields that command channels or fixed values fill. Each other
-            field sends its default.
-    """
+    type: Literal["channel"] = "channel"
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    data_type: telem.DataType | None = None
 
-    message: MessageKey
-    bindings: list[WriteBinding] = Field(default_factory=list)
+
+class ValueWriteBinding(WriteBaseBinding):
+    """Fills a field with a fixed value."""
+
+    type: Literal["value"] = "value"
+    value: WriteValue
+
+
+# Fills one message field with a command channel or a fixed value.
+WriteBinding = Annotated[
+    ChannelWriteBinding | ValueWriteBinding,
+    Field(discriminator="type"),
+]
 
 
 class DelimitedTextField(TextBaseField):
@@ -585,6 +585,19 @@ BinaryField = Annotated[
     FloatBinaryField | IntegerBinaryField | UnsignedBinaryField,
     Field(discriminator="kind"),
 ]
+
+
+class WriteMessage(BaseModel):
+    """Sends one message of an ICD.
+
+    Attributes:
+        message: Is the key of the ICD message to send.
+        bindings: Are the fields that command channels or fixed values fill. Each other
+            field sends its default.
+    """
+
+    message: MessageKey
+    bindings: list[WriteBinding] = Field(default_factory=list)
 
 
 class BinaryPayload(BaseModel):

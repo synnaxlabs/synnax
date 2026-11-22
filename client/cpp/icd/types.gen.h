@@ -40,7 +40,7 @@ struct Where;
 struct Cursor;
 struct BaseField;
 struct ReadBinding;
-struct WriteBinding;
+struct WriteBaseBinding;
 struct RetrieveRequest;
 struct TextBaseField;
 struct JSONBaseField;
@@ -374,6 +374,15 @@ struct ReadBinding {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief WriteBaseBinding carries the parts every write binding shares.
+struct WriteBaseBinding {
+    /// @brief field is the key of the message field to fill.
+    FieldKey field;
+
+    static WriteBaseBinding parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief CanIdentifier matches a CAN frame by arbitration identifier.
 struct CanIdentifier {
     std::string type = "can";
@@ -550,24 +559,6 @@ json_match_from_proto(const ::service::icd::pb::JSONMatch &pb);
     return std::visit([](const auto &v) -> const JSONBaseMatch & { return v; }, value);
 }
 
-/// @brief WriteBinding fills one message field with a command channel or a fixed value.
-struct WriteBinding {
-    /// @brief field is the key of the message field to send.
-    FieldKey field;
-    /// @brief channel is the command channel whose values the field sends.
-    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
-    /// @brief data_type is the data type of the command channel that a client creates
-    /// for the field. Empty takes float64 for a scaled field and the default of the
-    /// field's kind for any other. The Core ignores it once the channel exists.
-    ::x::telem::DataType data_type = ::x::telem::DataType("");
-    /// @brief value is the fixed value that the field sends. A binding with a value has
-    /// channel 0 and no data type.
-    std::optional<WriteValue> value;
-
-    static WriteBinding parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
 struct RetrieveOptions {
     /// @brief search_term keeps the icds that match the term, closest match first.
@@ -684,17 +675,44 @@ struct ReadMessage {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief WriteMessage sends one message of an ICD.
-struct WriteMessage {
-    /// @brief message is the key of the ICD message to send.
-    MessageKey message;
-    /// @brief bindings are the fields that command channels or fixed values fill. Each
-    /// other field sends its default.
-    std::vector<WriteBinding> bindings = {};
+/// @brief ChannelWriteBinding fills a field with the values of a command channel.
+struct ChannelWriteBinding : public WriteBaseBinding {
+    std::string type = "channel";
+    /// @brief channel is the command channel whose values the field sends. 0 means that
+    /// a client creates the channel on configure.
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    /// @brief data_type is the data type of the command channel that a client creates
+    /// for the field. Absent takes float64 for a scaled field and the default of the
+    /// field's kind for any other. The Core ignores it once the channel exists.
+    std::optional<::x::telem::DataType> data_type;
 
-    static WriteMessage parse(x::json::Parser parser);
+    static ChannelWriteBinding parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief ValueWriteBinding fills a field with a fixed value.
+struct ValueWriteBinding : public WriteBaseBinding {
+    std::string type = "value";
+    /// @brief value is the fixed value that the field sends.
+    WriteValue value;
+
+    static ValueWriteBinding parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteBinding fills one message field with a command channel or a fixed value.
+using WriteBinding = std::variant<ChannelWriteBinding, ValueWriteBinding>;
+
+WriteBinding parse_write_binding(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteBinding &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const WriteBaseBinding &base(const WriteBinding &value) {
+    return std::visit(
+        [](const auto &v) -> const WriteBaseBinding & { return v; },
+        value
+    );
+}
 
 /// @brief DelimitedTextField is a field read from one item of a delimited text line.
 struct DelimitedTextField : public TextBaseField {
@@ -1011,6 +1029,18 @@ binary_field_from_proto(const ::service::icd::pb::BinaryField &pb);
         value
     );
 }
+
+/// @brief WriteMessage sends one message of an ICD.
+struct WriteMessage {
+    /// @brief message is the key of the ICD message to send.
+    MessageKey message;
+    /// @brief bindings are the fields that command channels or fixed values fill. Each
+    /// other field sends its default.
+    std::vector<WriteBinding> bindings = {};
+
+    static WriteMessage parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief BinaryPayload is a payload of raw bytes.
 struct BinaryPayload {

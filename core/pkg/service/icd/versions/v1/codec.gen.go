@@ -1345,52 +1345,96 @@ func (uuidd *UUIDDefault) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (wbb WriteBaseBinding) EncodeOrc(w *orc.Writer) error {
+	w.Write(wbb.Field[:])
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wbb *WriteBaseBinding) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(wbb.Field[:]); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (wb WriteBinding) EncodeOrc(w *orc.Writer) error {
-	w.Write(wb.Field[:])
-	w.Uint32(uint32(wb.Channel))
-	w.String(string(wb.DataType))
-	if wb.Value != nil {
-		w.Bool(true)
-		if err := wb.Value.EncodeOrc(w); err != nil {
+	switch v := wb.Variant.(type) {
+	case ChannelWriteBinding:
+		w.String("channel")
+		if err := v.WriteBaseBinding.EncodeOrc(w); err != nil {
 			return err
 		}
-	} else {
-		w.Bool(false)
+		w.Uint32(uint32(v.Channel))
+		if v.DataType != nil {
+			w.Bool(true)
+			w.String(string(*v.DataType))
+		} else {
+			w.Bool(false)
+		}
+	case ValueWriteBinding:
+		w.String("value")
+		if err := v.WriteBaseBinding.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.Value.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("WriteBinding: nil or unknown variant %T", wb.Variant)
 	}
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (wb *WriteBinding) DecodeOrc(r *orc.Reader) error {
-	if _, err := r.Read(wb.Field[:]); err != nil {
+	tag, err := r.StringBytes()
+	if err != nil {
 		return err
 	}
-	{
-		rawV, err := r.Uint32()
-		if err != nil {
+	switch string(tag) {
+	case "channel":
+		var v ChannelWriteBinding
+		if err := v.WriteBaseBinding.DecodeOrc(r); err != nil {
 			return err
 		}
-		wb.Channel = channel.Key(rawV)
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		wb.DataType = telem.DataType(rawV)
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv WriteValue
-			if err = hv.DecodeOrc(r); err != nil {
+		{
+			rawV, err := r.Uint32()
+			if err != nil {
 				return err
 			}
-			wb.Value = &hv
+			v.Channel = channel.Key(rawV)
 		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv telem.DataType
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					hv = telem.DataType(rawV)
+				}
+				v.DataType = &hv
+			}
+		}
+		wb.Variant = v
+	case "value":
+		var v ValueWriteBinding
+		if err := v.WriteBaseBinding.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err = v.Value.DecodeOrc(r); err != nil {
+			return err
+		}
+		wb.Variant = v
+	default:
+		return errors.Newf("WriteBinding: unknown variant %q", tag)
 	}
 	return nil
 }
