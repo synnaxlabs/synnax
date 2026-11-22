@@ -53,7 +53,8 @@ Base struct {
         @key
     }
     name      string {
-        @doc value "is a human-readable name for the module."
+        @doc value         "is a human-readable name for the module."
+        @validate required
     }
     source    Source = text {
         @doc value "is the Arc's source code, written as text or drawn as a graph."
