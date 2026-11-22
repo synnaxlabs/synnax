@@ -22,7 +22,6 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
-import { Channel as PChannel } from "@synnaxlabs/pluto";
 import { binary, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
@@ -53,7 +52,6 @@ import {
   awaitTextEditingElement,
   CaptureStatuses,
   commitTextEdit,
-  renderHookWithConsole,
   resolveFocusedTab,
 } from "@/testutil";
 
@@ -117,11 +115,7 @@ describe("channel/tree", () => {
 
     it("hauls a built-in channel as a schematic value element only", async () => {
       const ch = await retrieveInternalChannel();
-      const { result } = await renderHookWithConsole(
-        () => PChannel.useResultBuiltIns(),
-        { client },
-      );
-      await waitFor(() => expect(result.current.variant).toBe("success"));
+      await client.channels.builtIns.retrieve();
       const items = Item.haulItems(
         createResource(channelClient.resourceID(ch.key), ch.name),
         client,
@@ -348,16 +342,16 @@ describe("channel/tree", () => {
 
     it("withholds rename from a built-in channel", async () => {
       const ch = await retrieveInternalChannel();
+      // With the keys in hand the menu renders its final items at once.
+      await client.channels.builtIns.retrieve();
       assertDefined(Item.ContextMenu);
       await renderTreeContextMenu(Item.ContextMenu, {
         client,
         resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
       });
-      // Delete shares the update permission the rename item needs, and the menu reads
-      // the built-in keys, so both prove the gates resolved before the absence below.
+      // Delete shares the update permission the rename item needs, so its presence
+      // proves the gate resolved before the absence below is read.
       expect(await screen.findByText("Delete")).toBeTruthy();
-      await waitFor(() => expect(PChannel.getCachedBuiltIns(client)).toBeDefined());
-      await act(async () => {});
       expect(screen.queryByText("Rename")).toBeNull();
     });
 

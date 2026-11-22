@@ -1426,49 +1426,6 @@ describe("useTombstone", () => {
   });
 });
 
-describe("peek", () => {
-  type Query = { key: string; scope?: string };
-
-  const createPeek = (retrieve: () => Promise<number>) =>
-    Flux.createRetrieve<Query, number>({
-      name: "Resource",
-      normalizeQuery: (q) => ({ scope: "all", ...q }),
-      retrieve,
-    });
-
-  it("returns undefined and starts no fetch when no reader asked", () => {
-    const retrieve = vi.fn(async () => 1);
-    const { peek } = createPeek(retrieve);
-    expect(peek(client, { key: "a" })).toBeUndefined();
-    expect(retrieve).not.toHaveBeenCalled();
-  });
-
-  it("returns undefined while the fetch runs, then the answer", async () => {
-    const fetched = Promise.withResolvers<number>();
-    const { peek, useResult } = createPeek(async () => await fetched.promise);
-    const { result } = renderHook(() => useResult({ key: "a" }), { wrapper: Wrapper });
-    await waitFor(() => expect(result.current.variant).toEqual("loading"));
-    expect(peek(client, { key: "a" })).toBeUndefined();
-    await act(async () => {
-      fetched.resolve(7);
-      await fetched.promise;
-    });
-    await waitFor(() => expect(result.current.variant).toEqual("success"));
-    expect(peek(client, { key: "a" })).toEqual(7);
-    expect(peek(client, { key: "a", scope: "all" })).toEqual(7);
-    expect(peek(client, { key: "b" })).toBeUndefined();
-  });
-
-  it("returns undefined after a failure", async () => {
-    const { peek, useResult } = createPeek(async () => {
-      throw new Error("refused");
-    });
-    const { result } = renderHook(() => useResult({ key: "a" }), { wrapper: Wrapper });
-    await waitFor(() => expect(result.current.variant).toEqual("error"));
-    expect(peek(client, { key: "a" })).toBeUndefined();
-  });
-});
-
 describe("createSelector", () => {
   interface Data {
     name: string;

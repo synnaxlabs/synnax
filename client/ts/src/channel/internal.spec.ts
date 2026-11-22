@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { id, observe } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
 import {
   createProxiedTestClient,
   createTestClient,
   FAST_RETRY,
+  holdResponses,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -38,21 +38,11 @@ describe("Internal line across a reconnect", () => {
       onRetry: () => {},
       onInternalError: (error) => internal.push(error),
     });
-    const original = client.channels.retrieveBuiltIns.bind(client.channels);
-    const builtIns = vi.spyOn(client.channels, "retrieveBuiltIns");
     await client.connect();
     await waitForStreamLive(client.connection);
-    await expect.poll(() => builtIns.mock.calls.length).toBeGreaterThanOrEqual(1);
-    await builtIns.mock.results[0].value;
+    await client.channels.builtIns.retrieve();
     // The reply of the next connection is slow.
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    builtIns.mockImplementation(async (): Promise<channel.Key[]> => {
-      await gate;
-      return await original();
-    });
+    const held = holdResponses(client, "/channel/retrieve-built-ins");
     const prefix = `internal_${id.create()}`;
     const list = client.channels.watch({
       where: { internal: { eq: false }, name: { startsWith: prefix } },
@@ -67,7 +57,7 @@ describe("Internal line across a reconnect", () => {
     );
     await proxy.restore();
     await waitForStreamLive(client.connection);
-    await expect.poll(() => builtIns.mock.calls.length).toBe(2);
+    await expect.poll(() => held.sent()).toBe(1);
     const ch = await remote.channels.create({
       name: `${prefix}_a`,
       dataType: "float32",
@@ -85,7 +75,7 @@ describe("Internal line across a reconnect", () => {
         });
       expect(internal.map(chainOf)).toEqual([]);
     } finally {
-      release();
+      held.release();
       off();
     }
   }, 30000);

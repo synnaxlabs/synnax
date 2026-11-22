@@ -254,14 +254,6 @@ export interface UseTombstone<Query extends query.Params> {
 }
 
 /**
- * Reads a query's settled answer outside React, for a query with no `getCached`.
- * Returns undefined while no fetch has answered and after a failure. Starts no fetch.
- */
-export interface Peek<Query extends query.Params, Data extends state.State> {
-  (client: Client, query: Query): Data | undefined;
-}
-
-/**
  * A warm-cache projected read: returns the selected slice of the query's cached
  * answer and re-renders only when that slice changes. Never suspends and never
  * fetches; a parent must have retrieved the query (see useEnsure).
@@ -335,7 +327,6 @@ export interface CreateRetrieveReturn<
   useInvalidate: UseInvalidate<Query>;
   useRefresh: UseRefresh<Query>;
   useTombstone: UseTombstone<Query>;
-  peek: Peek<Query, Data>;
   createSelector: CreateSelector<Query, Data>;
   createResultSelector: CreateResultSelector<Query, Data>;
 }
@@ -810,11 +801,6 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
       useInvalidate<Query, Data>(locals, createParams.normalizeQuery),
     useRefresh: () => useRefresh<Query, Data>(context),
     useTombstone: (query: Query) => useTombstone(context, query),
-    peek: (client: Client, q: Query) => {
-      const hash = query.hash(createParams.normalizeQuery?.(q) ?? q);
-      const settled = locals.get(client)?.settled.get(hash);
-      return settled != null && "data" in settled ? settled.data : undefined;
-    },
     createSelector: <Selected, ExtendedQuery extends Query = Query>(
       select: Select<Data, ExtendedQuery, Selected>,
       equal?: (a: Selected, b: Selected) => boolean,

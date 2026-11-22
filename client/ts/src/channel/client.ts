@@ -32,6 +32,7 @@ import {
   rename,
   scopedActionZ,
 } from "@/channel/actions";
+import { BuiltIns } from "@/channel/builtins";
 import {
   analyzeParams,
   isCalculated,
@@ -325,6 +326,8 @@ export class Client extends query.Retriever<
   private readonly usesStore: query.Table<Key, Uses>;
   private readonly usesChanges: { count: number };
   private readonly refetchUses: () => void;
+  /** The keys of the built-in channels, fetched once per connection to the Core. */
+  readonly builtIns: BuiltIns;
 
   constructor(cfg: ClientConfig) {
     const { writer, statuses, cache } = cfg;
@@ -419,21 +422,21 @@ export class Client extends query.Retriever<
         },
       }),
     );
-    // The built-in keys arrive with the first connection, and the Core checks the
-    // internal line until then. A reconnect fetches them again and keeps the last keys
-    // until the answer lands, since a list that checks the line itself needs them.
-    let builtIns: Set<Key> | null = null;
-    cache.onEpoch(() => {
-      this.retrieveBuiltIns()
-        .then((keys) => {
-          builtIns = new Set(keys);
-        })
-        .catch((exc: unknown) => {
-          if (isConnectionError(exc)) return;
-          cache.onError(new Error("failed to fetch built-in channels", { cause: exc }));
-        });
+    // The Core checks the internal line until the built-in keys arrive.
+    const builtIns = new BuiltIns({
+      fetch: async () => {
+        const { keys } = await cfg.unary.send(
+          "/channel/retrieve-built-ins",
+          {},
+          z.object({}),
+          retrieveBuiltInsResponseZ,
+        );
+        return keys;
+      },
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onError: (error) => cache.onError(error),
     });
-    const lines = createLines(() => builtIns);
+    const lines = createLines(() => builtIns.get());
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
       table: composed,
@@ -493,6 +496,7 @@ export class Client extends query.Retriever<
     this.usesStore = usesStore;
     this.usesChanges = usesChanges;
     this.refetchUses = refetchUses;
+    this.builtIns = builtIns;
   }
 
   /**
@@ -666,20 +670,6 @@ export class Client extends query.Retriever<
       countLimitedResponseZ,
     );
     return count;
-  }
-
-  /**
-   * Retrieves the keys of the built-in channels, which Core services declare for their
-   * own work. Any caller may retrieve them.
-   */
-  async retrieveBuiltIns(): Promise<Key[]> {
-    const { keys } = await this.cfg.unary.send(
-      "/channel/retrieve-built-ins",
-      {},
-      z.object({}),
-      retrieveBuiltInsResponseZ,
-    );
-    return keys;
   }
 
   /** Renames the channels in one transaction, giving each key the name at its index. */

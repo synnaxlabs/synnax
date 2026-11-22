@@ -26,8 +26,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// record is a channel as the client sees it, since the TypeScript matches reads the
-// same records.
+// record is one channel of the vectors that the TypeScript matches read too. Internal
+// marks the channels the spec declares as built-in.
 type record struct {
 	Key         channel.Key    `json:"key"`
 	Name        string         `json:"name"`

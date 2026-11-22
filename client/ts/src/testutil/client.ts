@@ -163,6 +163,26 @@ export const failRequests = (
 };
 
 /**
+ * Answers each request to target with what answer returns, or fails it with what answer
+ * throws, so the Core does not get it. The response schema of the request parses the
+ * answer. Call it inside a test: the answers end when that test finishes.
+ */
+export const answerRequests = (
+  client: Synnax,
+  target: string,
+  answer: () => Promise<unknown>,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (args[0] !== target) return await send(...args);
+    return args[3].parse(await answer());
+  });
+  onTestFinished(() => spy.mockRestore());
+};
+
+/**
  * Holds each response to target, or to each request that target matches, until release
  * is called or the test finishes. responded resolves when the first held response
  * arrives, and sent returns the count of held requests.

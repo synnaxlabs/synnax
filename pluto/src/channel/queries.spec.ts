@@ -10,6 +10,7 @@
 import { channel, DataType, project } from "@synnaxlabs/client";
 import {
   createTestClient,
+  failRequests,
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
@@ -640,44 +641,44 @@ describe("queries", () => {
       });
       const { result } = renderHook(() => Channel.useResultBuiltIns(), { wrapper });
       await waitFor(() => expect(result.current.variant).toBe("success"));
-      const keys = await client.channels.retrieveBuiltIns();
-      expect(keys.length).toBeGreaterThan(0);
-      expect(result.current.data).toEqual(new Set(keys));
-      expect(result.current.data?.has(ch.key)).toBe(false);
+      const keys = await client.channels.builtIns.retrieve();
+      await waitFor(() => expect(result.current.data?.keys).toBe(keys));
+      expect(keys.size).toBeGreaterThan(0);
+      expect(keys.has(ch.key)).toBe(false);
     });
 
-    it("should give a later reader the keys without a fetch", async () => {
+    it("should read the keys the client fetched and fetch nothing", async () => {
       const local = createTestClient();
-      // The client fetches the keys for itself when its stream connects.
       await local.connect();
       await waitForStreamLive(local.connection);
-      const localWrapper = await createAsyncSynnaxWrapper({ client: local });
-      const first = renderHook(() => Channel.useResultBuiltIns(), {
-        wrapper: localWrapper,
-      });
-      await waitFor(() => expect(first.result.current.variant).toBe("success"));
+      const keys = await local.channels.builtIns.retrieve();
       const send = spyOnSend(local);
-      const { result } = renderHook(() => Channel.useResultBuiltIns(), {
-        wrapper: localWrapper,
-      });
-      expect(result.current.data).toBe(first.result.current.data);
-      const targets = send.mock.calls.map(([target]) => target);
-      expect(targets).not.toContain("/channel/retrieve-built-ins");
-    });
-  });
-
-  describe("getCachedBuiltIns", () => {
-    it("should return undefined before a reader fetches the keys", () => {
-      expect(Channel.getCachedBuiltIns(createTestClient())).toBeUndefined();
-    });
-
-    it("should return the keys a reader fetched", async () => {
-      const local = createTestClient();
       const { result } = renderHook(() => Channel.useResultBuiltIns(), {
         wrapper: await createAsyncSynnaxWrapper({ client: local }),
       });
-      await waitFor(() => expect(result.current.variant).toBe("success"));
-      expect(Channel.getCachedBuiltIns(local)).toBe(result.current.data);
+      expect(result.current.data?.keys).toBe(keys);
+      const targets = send.mock.calls.map(([target]) => target);
+      expect(targets).not.toContain("/channel/retrieve-built-ins");
+    });
+
+    it("should hold the error when the fetch of the client fails", async () => {
+      const internal: Error[] = [];
+      const local = createTestClient({ onInternalError: (e) => internal.push(e) });
+      failRequests(local, "/channel/retrieve-built-ins", new Error("refused"));
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const { result } = renderHook(() => Channel.useResultBuiltIns(), {
+        wrapper: await createAsyncSynnaxWrapper({ client: local }),
+      });
+      await waitFor(() =>
+        expect(result.current.data?.error?.message).toBe(
+          "failed to fetch built-in channels",
+        ),
+      );
+      expect(result.current.data?.keys).toBeNull();
+      expect(internal.map((e) => e.message)).toEqual([
+        "failed to fetch built-in channels",
+      ]);
     });
   });
 

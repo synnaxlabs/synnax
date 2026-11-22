@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/channel/actions";
+export * from "@/channel/builtins";
 export * from "@/channel/client";
 export * from "@/channel/payload";
 export * from "@/channel/types.gen";

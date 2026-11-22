@@ -82,7 +82,6 @@ var _ = Describe("Built-in channels", func() {
 		Expect(declare(ctx, &ch)).To(Succeed())
 		Expect(ch.Key()).ToNot(BeZero())
 		Expect(svc.BuiltIns()).To(ContainElement(ch.Key()))
-		Expect(svc.BuiltIns()).To(ContainElement(ch.Key()))
 		Expect(retrieve(ctx, ch.Name)).To(HaveLen(1))
 	})
 
@@ -112,11 +111,21 @@ var _ = Describe("Built-in channels", func() {
 		create(ctx, &afterIndex)
 		Expect(free.Free()).To(BeTrue())
 		Expect(leased.Free()).To(BeFalse())
+		// The free keys sit next to each other, so a check off by one key fails.
+		Expect(free.Key().LocalKey()).To(Equal(before.Key().LocalKey() + 1))
+		Expect(after.Key().LocalKey()).To(Equal(free.Key().LocalKey() + 1))
+		// A rename asks the service whether the key is built-in.
+		rename := func(ch channel.Channel) error {
+			return db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).
+					Rename(ctx, ch.Key(), UniqueChannelName(), false)
+			})
+		}
 		for _, ch := range []channel.Channel{free, leased} {
-			Expect(svc.BuiltIns()).To(ContainElement(ch.Key()))
+			Expect(rename(ch)).To(MatchError(validate.ErrValidation))
 		}
 		for _, ch := range []channel.Channel{before, beforeIndex, after, afterIndex} {
-			Expect(svc.BuiltIns()).ToNot(ContainElement(ch.Key()))
+			Expect(rename(ch)).To(Succeed(), "channel %d is not built-in", ch.Key())
 		}
 		builtIns := svc.BuiltIns()
 		Expect(builtIns).To(ContainElements(free.Key(), leased.Key()))

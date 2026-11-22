@@ -80,7 +80,7 @@ describe("Uses", () => {
 describe("Built-in channels", () => {
   it("should retrieve the keys of the built-in channels", async () => {
     const cmd = await client.channels.retrieve("sy_task_cmd");
-    expect(await client.channels.retrieveBuiltIns()).toContain(cmd.key);
+    expect((await client.channels.builtIns.retrieve()).has(cmd.key)).toBe(true);
   });
 
   it("should match the built-in channels with the internal line", async () => {

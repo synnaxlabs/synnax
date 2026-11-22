@@ -36,7 +36,7 @@ import { Tree } from "@/platform/tree";
 
 const haulItems: Tree.HaulItems = ({ name, id: { key } }, client) => {
   const ch = Number(key);
-  if (PChannel.getCachedBuiltIns(client)?.has(ch) !== true)
+  if (client.channels.builtIns.get()?.has(ch) !== true)
     return [PChannel.createHaulItem(ch)];
   return [
     PSchematic.createHaulItem({
@@ -51,9 +51,9 @@ const haulItems: Tree.HaulItems = ({ name, id: { key } }, client) => {
  * arrive. A failed fetch allows a rename, since the Core refuses a built-in rename.
  */
 const useRenamable = (key: channel.Key): boolean => {
-  const { variant, data } = PChannel.useResultBuiltIns();
-  if (variant === "error") return true;
-  return data != null && !data.has(key);
+  const { data } = PChannel.useResultBuiltIns();
+  if (data?.keys != null) return !data.keys.has(key);
+  return data?.error != null;
 };
 
 const FACTS = ["Channel"];

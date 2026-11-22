@@ -8,12 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, DataType } from "@synnaxlabs/client";
-import {
-  createTestClient,
-  failRequests,
-  RoleClients,
-} from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
@@ -22,7 +17,6 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { createElement, Fragment } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
@@ -35,7 +29,6 @@ import {
 } from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
-  CaptureStatuses,
   commitTextEdit,
   createTestClientWithGrants,
   getIconButton,
@@ -91,51 +84,6 @@ describe("channel/Toolbar", () => {
     await act(async () => fireEvent.click(button));
     expect(await screen.findByPlaceholderText("Channel name")).toBeTruthy();
     expect(await screen.findByText("Derivative")).toBeTruthy();
-  });
-});
-
-describe("channel/Toolbar built-in keys", () => {
-  it("should report a failed fetch of the built-in keys once", async () => {
-    await client.channels.create(
-      [0, 1].map(() => ({
-        name: uniqueName("ch"),
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      })),
-    );
-    // The client fetches the keys for itself too, and reports its own failure.
-    const internal: Error[] = [];
-    const failed = createTestClient({ onInternalError: (e) => internal.push(e) });
-    failRequests(failed, "/channel/retrieve-built-ins", new Error("refused"));
-    let statuses: Status.NotificationSpec[] = [];
-    await renderToolbar(
-      createElement(
-        Fragment,
-        null,
-        Channel.TOOLBAR.content,
-        createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
-      ),
-      { client: failed, items: Channel.TREE_ITEMS },
-    );
-    const failures = () =>
-      statuses.filter(
-        ({ message }) => message === "Failed to retrieve built-in channels",
-      );
-    await waitFor(() => expect(failures()).toHaveLength(1));
-    // Each tree item reads the keys and fails again on its first mount.
-    await waitFor(() =>
-      expect(document.querySelectorAll(".lyra-tree__item").length).toBeGreaterThan(1),
-    );
-    await act(async () => {});
-    expect(failures()).toHaveLength(1);
-    expect(failures()[0].description).toBe(
-      "Failed to retrieve built-in channels: refused",
-    );
-    await waitFor(() =>
-      expect(internal.map((e) => e.message)).toEqual([
-        "failed to fetch built-in channels",
-      ]),
-    );
   });
 });
 
