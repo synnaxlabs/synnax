@@ -4766,11 +4766,18 @@ TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
     pipe->pause();
     grpc::framer::StreamerResponse missed;
     missed.set_missed(true);
+    const auto missed_at = std::chrono::steady_clock::now();
     stream->push(missed);
     auto end = ended.get_future();
     ASSERT_EQ(
         end.wait_for((10 * x::telem::SECOND).chrono()),
         std::future_status::ready
+    );
+    // The failed task sync waits one poll interval before the run ends, so the rack
+    // does not start runs in a tight loop.
+    ASSERT_GE(
+        std::chrono::steady_clock::now() - missed_at,
+        ManagerConfig{}.poll_interval.chrono()
     );
     // The paused pipe fails the task sync too, which ends the run with no error, so
     // the rack starts another run and the Driver keeps running.
@@ -5117,7 +5124,7 @@ TEST_F(ScriptedControlTest, OutageAcrossARunRestartKeepsTheLastMirror) {
     const std::vector<double> want{1, 3};
     ASSERT_EQ(got(), want);
     pipe->resume();
-    // The monitor loop may wait in a read, which close joins.
+    // Unblock the detached monitor read, which still waits for a reply.
     this->scripted.control->close();
     manager->close();
 }

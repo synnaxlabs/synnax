@@ -62,7 +62,8 @@ class States {
     std::vector<Held> held;
     /// @brief true once a set has replaced the mirror.
     bool known = false;
-    /// @brief counts holds, so set can ignore a read that started before a hold.
+    /// @brief counts holds, stream restarts, and full logs, so set can ignore a read
+    /// that began before one of them.
     uint64_t gen = 0;
     /// @brief the number of reads that began and have not ended.
     size_t open_reads = 0;
@@ -130,6 +131,9 @@ public:
         uint64_t log_pos;
     };
 
+    /// @brief the most updates that an open read keeps to apply on top of its snapshot.
+    static constexpr size_t MAX_LOG = 1024;
+
     /// @brief the most frames a hold keeps. A hold that would keep more publishes its
     /// frames filtered against the last mirror and opens the bus, and the read it waits
     /// for still replaces the mirror when it lands.
@@ -144,7 +148,16 @@ public:
     /// lands applies it again on top of its snapshot.
     void apply(const x::control::Update<synnax::channel::Key> &update) {
         std::lock_guard hold_lock(this->hold_mu);
-        if (this->open_reads > 0) this->log.push_back(update);
+        if (this->open_reads > 0) {
+            // A read that would apply more updates than the cap is outdated, and its
+            // caller reads again.
+            if (this->log.size() >= MAX_LOG) {
+                ++this->gen;
+                this->log_base += this->log.size();
+                this->log.clear();
+            } else
+                this->log.push_back(update);
+        }
         std::unique_lock lock(this->mu);
         this->apply_locked(update);
     }
@@ -157,6 +170,14 @@ public:
         return {.gen = this->gen, .log_pos = this->log_base + this->log.size()};
     }
 
+    /// @brief ignores every read that began before this call, with no hold. Call it
+    /// when the stream restarts, since a read that began before can miss the
+    /// transfers made while the stream was down.
+    void outdate_reads() {
+        std::lock_guard lock(this->hold_mu);
+        ++this->gen;
+    }
+
     /// @brief ends a read that failed.
     void abandon(const Read &) {
         std::lock_guard lock(this->hold_mu);
@@ -167,7 +188,7 @@ public:
     /// that landed while the read was open on top, and opens the bus. Each frame of a
     /// hold is filtered against the new mirror and published in the order it came,
     /// before any frame that route gets after this call. A read that began before a
-    /// later hold is ignored, since it can miss the changes that the hold waits for.
+    /// later hold, stream restart, or full log is ignored, since it can miss changes.
     /// @returns false when the read was ignored.
     bool
     set(const std::vector<x::control::State<synnax::channel::Key>> &next,

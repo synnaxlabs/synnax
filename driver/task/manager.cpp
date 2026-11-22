@@ -245,6 +245,8 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
             LOG(WARNING) << "failed to send task statuses again: " << err;
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
+    // A read from an earlier run can miss the transfers made while no stream ran.
+    this->control_states->outdate_reads();
     this->read_control_states_or_retry();
     this->retrieve_rack_name();
     LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
@@ -317,15 +319,19 @@ read_control(const synnax::Synnax &client, control::States &states) {
 
 void Manager::read_control_states_or_retry() {
     const auto [applied, err] = read_control(*this->ctx->client, *this->control_states);
-    if (!err) {
-        if (applied) this->control_unread->store(false);
+    if (applied) {
+        this->control_unread->store(false);
         return;
     }
     this->control_states->release();
     this->control_unread->store(true);
-    LOG(WARNING) << "failed to read control state, so the local bus uses the last one "
-                    "read until a read succeeds: "
-                 << err;
+    if (err)
+        LOG(WARNING) << "failed to read control state, so the local bus uses the last "
+                        "one read until a read succeeds: "
+                     << err;
+    else
+        LOG(WARNING) << "a read of control state was outdated, so the local bus uses "
+                        "the last one read until a read succeeds";
 }
 
 void Manager::retrieve_rack_name() {

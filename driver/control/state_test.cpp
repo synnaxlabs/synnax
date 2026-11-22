@@ -479,6 +479,45 @@ TEST(StatesTest, SetAppliesUpdatesThatLandDuringTheRead) {
     ASSERT_TRUE(states.is_authorized(2, ARC));
 }
 
+/// @brief it should ignore a read that began before a stream restart and lands after
+/// the read of the new run.
+TEST(StatesTest, SetIgnoresAReadThatARestartOutdated) {
+    States states;
+    const auto old_read = states.begin_read();
+    states.outdate_reads();
+    const auto new_read = states.begin_read();
+    ASSERT_TRUE(
+        states.set({{.subject = OPERATOR, .resource = 1, .authority = 200}}, new_read)
+    );
+    ASSERT_FALSE(
+        states.set({{.subject = ARC, .resource = 1, .authority = 200}}, old_read)
+    );
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(1, ARC));
+}
+
+/// @brief it should ignore a read that more than MAX_LOG updates landed during, so the
+/// log of updates stays bounded.
+TEST(StatesTest, SetIgnoresAReadPastTheLogCap) {
+    States states;
+    const auto read = states.begin_read();
+    for (size_t i = 0; i <= States::MAX_LOG; i++)
+        states.apply(
+            x::control::Update<synnax::channel::Key>{
+                .transfers = {{
+                    .from = std::nullopt,
+                    .to = x::control::State<synnax::channel::Key>{
+                        .subject = OPERATOR,
+                        .resource = static_cast<synnax::channel::Key>(i + 1),
+                        .authority = 200
+                    },
+                }}
+            }
+        );
+    ASSERT_FALSE(states.set({}, read));
+    ASSERT_TRUE(states.set({}, states.begin_read()));
+}
+
 /// @brief it should publish nothing while closed at the start of a run, and open once
 /// the first read sets the mirror.
 TEST(StatesTest, ClosedUntilTheFirstSet) {
