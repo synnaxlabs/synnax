@@ -104,9 +104,14 @@ func (db *DB) dropLog(keys []ChannelKey) error {
 	return err
 }
 
-// removeLogDir removes every file in the directory of a dropped key but the files that
-// an undo moved aside, which are the telemetry of another channel, and then the
-// directory once it is empty.
+// removeLogDir removes the files in the directory of a dropped key that no reader may
+// still read, and the directory once it is empty. It keeps the files that an undo moved
+// aside, which are the telemetry of another channel. The Drop gave the segments of the
+// key that the state holds to the engine, which unlinks each file once no reader pins
+// it. While a load of the key pins parts, its segment files stay: the next open's
+// orphan pass removes the version 1 ones, and the old files of version 0 segments stay.
+// A directory that a reader keeps goes at a later Sweep, as the directory of a torn
+// key.
 func (db *DB) removeLogDir(key ChannelKey) error {
 	dir := keyToDirName(key)
 	infos, err := db.fs.List(dir)
@@ -116,17 +121,19 @@ func (db *DB) removeLogDir(key ChannelKey) error {
 	if err != nil {
 		return err
 	}
-	undone := false
+	pinned := db.engine.pinnedFiles(key)
+	kept := false
 	for _, info := range infos {
-		if strings.HasSuffix(info.Name(), ".undone") {
-			undone = true
+		name := path.Join(dir, info.Name())
+		if strings.HasSuffix(name, ".undone") || pinned(name) {
+			kept = true
 			continue
 		}
-		if err = db.fs.Remove(path.Join(dir, info.Name())); err != nil {
+		if err = db.fs.Remove(name); err != nil {
 			return err
 		}
 	}
-	if undone {
+	if kept {
 		return db.fs.SyncDir(dir)
 	}
 	if err = db.fs.Remove(dir); err != nil {

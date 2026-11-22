@@ -273,6 +273,31 @@ var _ = Describe("Delete on the pointer log", func() {
 			Expect(values(ctx, data)).To(Equal([]int64{20, 21}))
 		})
 
+	It("Should finish a read that pinned the segments of a key across its Drop",
+		func(ctx SpecContext) {
+			write(ctx, 10, 11)
+			write(ctx, 20, 21)
+			iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+				Bounds:   telem.TimeRangeMax,
+				Channels: []cesium.ChannelKey{data},
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			var got []int64
+			for iter.Next(cesium.AutoSpan) {
+				for _, s := range iter.Value().Get(data).Series {
+					for i := range int(s.Len()) {
+						got = append(got, s.ValueAt[int64](i))
+					}
+				}
+			}
+			Expect(iter.Error()).ToNot(HaveOccurred())
+			Expect(got).To(Equal([]int64{10, 11, 20, 21}))
+			Expect(iter.Close()).To(Succeed())
+			dir := strconv.FormatUint(uint64(data), 10)
+			Expect(fs.List(dir)).To(BeEmpty(), "the last reader unlinks the segments")
+		})
+
 	It(
 		"Should refuse a backfill that straddles an end of a delete in flight, and stay "+
 			"healthy",
