@@ -1954,7 +1954,8 @@ TEST(Bytes, ToJSON) {
     EXPECT_EQ(to_json(BYTES), "+/8AYXNt/w==");
 }
 
-/// @brief it should reject bytes that are not standard, padded base64 text.
+/// @brief it should reject bytes that are not canonical, padded base64 text in the
+/// standard alphabet.
 TEST(Bytes, RejectInvalid) {
     const auto reject = [](const json &data, const std::string &message) {
         Parser parser(json{{"data", data}});
@@ -1963,6 +1964,7 @@ TEST(Bytes, RejectInvalid) {
         EXPECT_EQ(parser.errors->at(0)["message"], message);
     };
     reject("+/8AYXNt/w", "expected padded, canonical base64");
+    reject("+/8AYXNt/x==", "expected padded, canonical base64");
     reject("-_8AYXNt_w==", "expected padded, canonical base64");
     reject(json::array({251, 255}), "expected a base64 string");
 }
