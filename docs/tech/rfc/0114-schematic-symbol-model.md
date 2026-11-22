@@ -16,6 +16,8 @@ or a connector.
 
 ## 1 Motivation
 
+The line citations in this section are to the `core/v0.62.0` tag.
+
 - **A variant for each drawing**: Each new built-in drawing is a new variant
   (`schemas/synnax/schematic.oracle:351-990`), and a custom symbol fixes static or
   actuator behavior on the drawing (`schemas/synnax/symbol.oracle:92-93`).
@@ -57,7 +59,7 @@ or a connector.
 | Symbol    | A picture drawn once that only scales or stretches | `symbol`                                                            |
 | Shape     | Code draws it from numbers on each copy, no state  | `box`, `circle`, `polygon`, `line`, `text_box`                      |
 | Container | It holds other items                               | `group_box`, components                                             |
-| Connector | Both ends attach to handles                        | The `EdgeConfig` styles (`schemas/synnax/schematic.oracle:127-141`) |
+| Connector | Both ends attach to handles                        | The `EdgeConfig` styles (`schemas/synnax/schematic.oracle:129-143`) |
 
 Twelve more variants pass the symbol test and keep their variants: `tank`, `cylinder`,
 `scale`, `value`, `string_display`, `state_indicator`, `gauge`, `setpoint`, `input`,
@@ -258,7 +260,8 @@ no entry after its match. Pluto then adds the unknown indicator. `within` 0.9 to
 reads 0.5 as 0, so a valve at 0.5 shows Closed with no indicator, as today. A state with
 no source, or with a `channel` source that has no `key`, draws its default entry, or
 fraction 0 for a number state, with no indicator. The binding holds the number format,
-as each readout does today (`schemas/synnax/schematic.oracle:1224-1249`).
+as each readout does today (`schemas/synnax/schematic.oracle:1224-1249` at
+`core/v0.62.0`).
 
 Looks apply in order, and a later look wins on each field it sets. Look fields are
 optional, so an absent field, such as `hidden`, means that the look does not set it, as
@@ -306,7 +309,7 @@ shipped key never changes, and a shipped built-in name never changes.
 
 A save that changes the spec of a symbol in use, such as its looks, parts, drawing,
 states, commands, or interactions, lists the schematics that use the symbol
-(`core/pkg/service/resource/resource.go:59-74`) and shows which of them are under
+(`core/pkg/service/resource/resource.go:59-68`) and shows which of them are under
 control, then asks to confirm. The save carries the list that the user confirmed, and
 the Core refuses the save when the list, or which of them are under control, changed, so
 the dialog asks again. The custom `symbol.Ref` uses `@ref on_delete restrict`, so a
@@ -355,7 +358,7 @@ import made before phase 2 stay separate symbols.
 A custom symbol holds only shapes. It starts from an SVG upload or a blank canvas, and
 the editor's drawing tools save SVG markup. A part names its shapes by `#id`, `.class`,
 or `[data-region-id]`, as the editor writes them
-(`console/src/feature/schematic/symbol/edit/Preview.tsx:201-203`), and the Core refuses
+(`console/src/feature/schematic/symbol/edit/Preview.tsx:204-209`), and the Core refuses
 any other selector on save. If one picture is not enough, it is a component. A component
 declares its own handles, each linked to one member's handle, and outside pipes attach
 only to those.
