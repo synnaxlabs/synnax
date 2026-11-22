@@ -81,14 +81,16 @@ func (u *Update) DecodeMsgpack(dec *msgpack.Decoder) error {
 
 // Apply replaces the field group that update carries on the master stored under key
 // and keeps the other group as stored. It returns an error wrapping query.ErrNotFound
-// when no master is stored under key and a validation error when update is invalid.
+// when no master is stored under key, and a validation error when update is invalid or
+// repeats a slave key. A rename or rack move updates the status, or writes it as
+// unknown when it is missing.
 func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 	switch v := update.Variant.(type) {
 	case IdentityUpdate:
 		if err := v.Validate(); err != nil {
 			return err
 		}
-		return w.Update(ctx, key, func(m Master) (Master, error) {
+		return w.update(ctx, key, func(m Master) (Master, error) {
 			m.Rack = v.Rack
 			m.Interface = v.Interface
 			m.Slaves = v.Slaves
@@ -98,7 +100,7 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 		if err := v.Validate(); err != nil {
 			return err
 		}
-		return w.Update(ctx, key, func(m Master) (Master, error) {
+		return w.update(ctx, key, func(m Master) (Master, error) {
 			m.Name = v.Name
 			return m, nil
 		})

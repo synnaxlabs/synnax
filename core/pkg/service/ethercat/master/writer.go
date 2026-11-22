@@ -80,12 +80,9 @@ func (w Writer) Create(ctx context.Context, m *Master) error {
 	return w.setStatus(ctx, *m)
 }
 
-// Update applies change to the master stored under key, inside the transaction, and
-// stores the result. A rename or rack move updates the status, or writes it as unknown
-// when it is missing. It returns an error wrapping query.ErrNotFound when no master is
-// stored under key and a validation error when the result is invalid or repeats a
-// slave key.
-func (w Writer) Update(
+// update applies change to the master stored under key and writes the status on a
+// rename or rack move.
+func (w Writer) update(
 	ctx context.Context,
 	key Key,
 	change func(Master) (Master, error),
