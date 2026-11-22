@@ -56,6 +56,7 @@ import {
   retrieveRequestZ,
   statusZ,
   type Use,
+  type Where,
 } from "@/channel/types.gen";
 import { createLines } from "@/channel/where";
 import {
@@ -65,7 +66,6 @@ import {
   matches,
   retrieveInputZ,
   serverComputed,
-  shortcutZ,
 } from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
 import { isConnectionError, ValidationError } from "@/errors";
@@ -635,9 +635,10 @@ export class Client extends query.Retriever<
     }
     if (isSingle && variant === "keys")
       return await super.retrieve({ key: normalized[0] as Key });
-    const where = isSingle
-      ? singleWhere(normalized[0])
-      : shortcutZ.parse(normalized).where;
+    let where: Where;
+    if (isSingle) where = singleWhere(normalized[0]);
+    else if (variant === "keys") where = { key: { in: normalized as Key[] } };
+    else where = { name: { in: normalized as Name[] } };
     const res = await super.retrieve({ where });
     checkForMultipleOrNoResults("channel", { where }, res, isSingle);
     return isSingle ? res[0] : res;
