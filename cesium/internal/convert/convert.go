@@ -301,15 +301,18 @@ func (r *reader) pointers(key uint32, density telem.Density) (_ []pointer, err e
 		if p.size == 0 {
 			continue
 		}
+		file := fileName(key, p.file)
 		f, ok := files[p.file]
 		if !ok {
-			if f, err = r.oldFile(key, p.file); err != nil {
+			if f, err = r.oldFile(file); err != nil {
 				return nil, err
 			}
 			files[p.file] = f
 		}
-		p.temp = f.temp
-		file, size := p.name(key), f.size
+		if p.temp = f.temp; p.temp {
+			file += tempSuffix
+		}
+		size := f.size
 		if density != 0 && int64(p.size)%int64(density) != 0 {
 			return nil, errors.Newf(
 				"a pointer of key %d at %d of %s holds %d bytes, not whole samples",
@@ -342,12 +345,11 @@ type oldFile struct {
 	temp bool
 }
 
-// oldFile returns old data file n of key. When the file is missing and the file that
-// an old compaction renamed it to exists, that file holds the bytes of n. The old
-// compaction renames n aside before it moves the compacted copy into place, and never
-// syncs. A missing file has length zero.
-func (r *reader) oldFile(key uint32, n uint16) (oldFile, error) {
-	name := fileName(key, n)
+// oldFile returns the old data file name. When the file is missing and the file that
+// an old compaction renamed it to exists, that file holds the bytes of name. The old
+// compaction renames name aside before it moves the compacted copy into place, and
+// never syncs. A missing file has length zero.
+func (r *reader) oldFile(name string) (oldFile, error) {
 	info, err := r.FS.Stat(name)
 	if err == nil {
 		return oldFile{size: info.Size()}, nil
