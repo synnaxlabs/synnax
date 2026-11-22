@@ -13,6 +13,7 @@ import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
+import { recordColumn } from "@/framer/record";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 /** Fetches channel payloads. Missing channels are omitted, not thrown. */
@@ -158,6 +159,35 @@ export class WriteAdapter {
     return true;
   }
 
+  /**
+   * @returns the keys of the channels that the keys of a record name, by the same rule
+   * as a record frame.
+   * @throws {ValidationError} if a key names both a channel key and a channel name of
+   * the writer.
+   */
+  async adaptRecordKeys(keys: string[]): Promise<channel.Key[]> {
+    return await Promise.all(
+      keys.map(async (k) => await this.adaptToKey(this.recordKey(k))),
+    );
+  }
+
+  /**
+   * @returns the channel that a key of a record frame names. A record keys its columns
+   * by string, so a key of all digits is a channel key unless a channel of the writer
+   * holds it as a name.
+   * @throws {ValidationError} if the writer holds both a channel with that name and a
+   * channel with that key.
+   */
+  private recordKey(k: string): channel.Key | channel.Name {
+    const col = recordColumn(k);
+    if (typeof col === "string" || this.byName?.has(k) !== true) return col;
+    if (this.byKey.has(col))
+      throw new ValidationError(
+        `Record column "${k}" names both channel ${col} and the channel named "${k}"`,
+      );
+    return k;
+  }
+
   private async fetchChannel(
     ch: channel.Key | channel.Name | channel.Payload,
   ): Promise<channel.Payload> {
@@ -171,16 +201,6 @@ export class WriteAdapter {
     const where = channel.lookupWhere([typeof ch === "object" ? ch.key : ch]);
     checkForMultipleOrNoResults("channel", { where }, res, true);
     return res[0];
-  }
-
-  /**
-   * @returns the channel that a key of a record frame names. A record keys its columns
-   * by string, so a string of digits is a channel key unless a channel of the writer
-   * holds it as a name.
-   */
-  private recordKey(k: string): channel.Key | channel.Name {
-    if (this.byName?.has(k) || !/^\d+$/.test(k)) return k;
-    return Number(k);
   }
 
   private async adaptToKey(k: channel.Key | channel.Name): Promise<channel.Key> {
