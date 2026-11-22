@@ -16,7 +16,8 @@ import { group } from "@/group";
 
 /**
  * @returns the typed lines of a channel Where. The internal line checks the keys that
- * builtIns returns, and only the Core checks it while builtIns returns null.
+ * builtIns returns, and only the Core checks it while builtIns returns null. Only the
+ * Core checks a path, since it holds the names of the folders.
  */
 export const createLines = (builtIns: () => Set<Key> | null): Lines => ({
   ...group.MEMBER_LINES,
@@ -27,4 +28,5 @@ export const createLines = (builtIns: () => Set<Key> | null): Lines => ({
       filter.matchesSet(value, keys.has(ch.key));
   },
   virtual: (ch, value) => (ch.virtual && !isCalculated(ch)) === value,
+  path: null,
 });

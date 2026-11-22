@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -37,6 +38,28 @@ func (e *notExportedError) Error() string {
 	return fmt.Sprintf("not exported: '%s' in module %q", e.Name, e.Module)
 }
 
+// pathClashError is returned for a dotted name that is both a member of an imported
+// module and the path of a channel.
+type pathClashError struct {
+	// Path is the dotted name.
+	Path string
+	// Module is the name of the module that holds the member.
+	Module string
+}
+
+// Error implements the error interface.
+func (e *pathClashError) Error() string {
+	return fmt.Sprintf("%s (module %s)", e.Path, e.Module)
+}
+
+// GetHint implements the hint interface of diagnostics.
+func (e *pathClashError) GetHint() string {
+	return fmt.Sprintf(
+		"quote the channel (%s), import the module with `as`, or rename one",
+		parser.QuoteChannelName(e.Path),
+	)
+}
+
 // UndefinedSymbolError is returned when a symbol cannot be resolved. It lazily
 // computes "did you mean" suggestions only when GetHint() is called, avoiding
 // expensive search operations on the common path where the error is discarded
@@ -47,10 +70,16 @@ type UndefinedSymbolError struct {
 	scope *Symbol
 	// channel is true when only a channel could have matched Name.
 	channel bool
+	// keyword is true for a dotted name with a keyword segment, which names a channel
+	// only in quoted form.
+	keyword bool
 }
 
 // Error implements the error interface.
 func (e *UndefinedSymbolError) Error() string {
+	if e.channel {
+		return e.Name + " does not exist"
+	}
 	return "undefined symbol: " + e.Name
 }
 
@@ -69,6 +98,10 @@ func (e *UndefinedSymbolError) GetHint() string {
 	head := e.Name
 	if dot := strings.IndexByte(head, '.'); dot > 0 {
 		head = head[:dot]
+	}
+	if e.keyword {
+		return "a path with a keyword segment needs quotes: " +
+			parser.QuoteChannelName(e.Name)
 	}
 	if !e.channel && e.scope.IsAmbientModule(head) {
 		return fmt.Sprintf(

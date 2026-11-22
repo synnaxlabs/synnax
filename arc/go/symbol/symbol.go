@@ -277,14 +277,14 @@ type Symbol struct {
 	// when a name is not found among Children. Set on the root only via NewRoot.
 	globalResolver Resolver
 	// moduleResolver supplies the modules the ambient prelude does not hold.
-	moduleResolver Resolver
+	moduleResolver ModuleResolver
 }
 
 // RootOption configures a root built by NewRoot.
 type RootOption func(*Symbol)
 
 // WithModules resolves import paths missing from the ambient prelude through r.
-func WithModules(r Resolver) RootOption {
+func WithModules(r ModuleResolver) RootOption {
 	return func(root *Symbol) { root.moduleResolver = r }
 }
 
@@ -292,7 +292,7 @@ func WithModules(r Resolver) RootOption {
 var ErrModuleNotFound = errors.New("module not found")
 
 // ModuleResolver returns the resolver installed by WithModules, nil if none.
-func (s *Symbol) ModuleResolver() Resolver { return s.Root().moduleResolver }
+func (s *Symbol) ModuleResolver() ModuleResolver { return s.Root().moduleResolver }
 
 // ResolveModule returns the module at path, or ErrModuleNotFound.
 func (s *Symbol) ResolveModule(ctx context.Context, path string) (*Symbol, error) {
@@ -677,13 +677,6 @@ func (s *Symbol) ResolveMember(
 // so that UndefinedSymbolError reports the original scope (where "did
 // you mean" suggestions should be drawn from), not the topmost ancestor.
 //
-// When name parses as a uint32, the walk matches symbols by ID instead
-// of by Name. The Arc lexer forbids identifiers starting with a digit,
-// so an all-numeric input is unambiguously an ID reference (graph
-// inputs, channel-key literals in source). The branches share the walk
-// shape (children → global resolver → parent) so a caller passing either
-// kind of key gets the same scoping semantics.
-//
 // Resolving on a KindModuleAlias transparently dispatches to its
 // Target — that is, member lookups (`alias.Resolve("foo")`) walk into
 // the module the alias points at. Direct lookups that *find* an alias
@@ -710,35 +703,101 @@ func (s *Symbol) resolve(
 
 // ResolveName resolves n from s. A quoted channel name finds only the channel of that
 // exact name that s or an ancestor holds or that a global resolver gives, so it never
-// binds a variable or reads its path as a channel key. Any other name resolves as
-// ResolveMember does.
+// binds a variable. A dotted name that no call follows is the member of an imported
+// module or the channel at that path, and fails when it is both. A dotted name with a
+// keyword segment is a member only. Any other name resolves as ResolveMember does.
 func (s *Symbol) ResolveName(
 	ctx context.Context,
 	n parser.Name,
 	options ...ResolveOption,
 ) (*Symbol, error) {
-	if !n.Quoted {
+	if !n.Quoted && (n.Tail == "" || n.Callee) {
 		return s.ResolveMember(ctx, n.Head, n.Tail, options...)
 	}
 	var opts resolveOpts
 	for _, o := range options {
 		o(&opts)
 	}
-	isPath := func(sym *Symbol) bool { return sym.Name == n.Head }
-	return s.resolveChannel(ctx, isPath, n.Head, opts, s)
+	if !n.Quoted {
+		return s.resolvePath(ctx, n, opts)
+	}
+	return s.resolveChannel(ctx, channelLookup{path: n.Head}, opts, s)
+}
+
+// resolvePath resolves the bare dotted name n.
+func (s *Symbol) resolvePath(
+	ctx context.Context,
+	n parser.Name,
+	opts resolveOpts,
+) (*Symbol, error) {
+	var (
+		member    *Symbol
+		memberErr error
+		channel   *Symbol
+		path      = n.String()
+		module    = s.findModule(n.Head)
+		keyword   = n.KeywordSegment()
+	)
+	if module != nil && !strings.Contains(n.Tail, ".") {
+		member, memberErr = module.Resolve(ctx, n.Tail)
+	}
+	if !keyword {
+		var err error
+		channel, err = s.findChannel(ctx, channelLookup{path: path}, opts)
+		if err != nil {
+			return nil, err
+		}
+	}
+	switch {
+	case member != nil && channel != nil:
+		return nil, codes.PathClash.Mark(&pathClashError{Path: path, Module: n.Head})
+	case member != nil:
+		if !opts.suppressUsage {
+			module.Used = true
+		}
+		return member, nil
+	case channel != nil:
+		return channel, nil
+	case memberErr != nil:
+		return nil, memberErr
+	case module == nil && s.IsAmbientModule(n.Head):
+		// The hint names the import that the module needs.
+		return nil, codes.SymbolUndefined.Mark(
+			&UndefinedSymbolError{ctx: ctx, Name: path, scope: s},
+		)
+	}
+	return nil, codes.ChannelUndefined.Mark(&UndefinedSymbolError{
+		ctx:     ctx,
+		Name:    path,
+		scope:   s,
+		channel: true,
+		keyword: keyword,
+	})
+}
+
+// findModule returns the import alias that name refers to from s. Only an import makes
+// a name a module, and only the children of s and its ancestors count, so a lookup
+// never reaches a global resolver.
+func (s *Symbol) findModule(name string) *Symbol {
+	for scope := s; scope != nil; scope = scope.Parent {
+		for _, child := range scope.children {
+			if child.Name == name && child.Kind == KindModuleAlias {
+				return child
+			}
+		}
+		if r, ok := scope.globalResolver.(scopeResolver); ok {
+			if module := r.scope.findModule(name); module != nil {
+				return module
+			}
+		}
+	}
+	return nil
 }
 
 // ResolveChannelKey finds the channel with key that s or an ancestor holds, or that a
 // global resolver gives.
 func (s *Symbol) ResolveChannelKey(ctx context.Context, key uint32) (*Symbol, error) {
-	isKey := func(sym *Symbol) bool { return uint32(sym.ID) == key }
-	return s.resolveChannel(
-		ctx,
-		isKey,
-		strconv.FormatUint(uint64(key), 10),
-		resolveOpts{},
-		s,
-	)
+	return s.resolveChannel(ctx, channelLookup{key: key, byKey: true}, resolveOpts{}, s)
 }
 
 // resolveMember finds the member of module s that the caller may see.
@@ -761,45 +820,88 @@ func (s *Symbol) resolveMember(
 	return child, nil
 }
 
-// resolveChannel finds the channel that matches in s or its ancestors: a channel child,
-// or one that a global resolver gives for name.
+// channelLookup is one lookup of a channel: by key, or else by path.
+type channelLookup struct {
+	path  string
+	key   uint32
+	byKey bool
+}
+
+func (l channelLookup) matches(sym *Symbol) bool {
+	if l.byKey {
+		return uint32(sym.ID) == l.key
+	}
+	return sym.Name == l.path
+}
+
+func (l channelLookup) resolve(ctx context.Context, r Resolver) (*Symbol, error) {
+	if l.byKey {
+		return r.ResolveKey(ctx, l.key)
+	}
+	return r.Resolve(ctx, l.path)
+}
+
+// name returns the path or the key as text, for the error when nothing matches.
+func (l channelLookup) name() string {
+	if l.byKey {
+		return strconv.FormatUint(uint64(l.key), 10)
+	}
+	return l.path
+}
+
+// resolveChannel finds the channel that l matches in s or its ancestors: a channel
+// child, or one that a global resolver gives.
 func (s *Symbol) resolveChannel(
 	ctx context.Context,
-	matches func(*Symbol) bool,
-	name string,
+	l channelLookup,
 	opts resolveOpts,
 	origin *Symbol,
 ) (*Symbol, error) {
-	isChannel := func(child *Symbol) bool {
-		return child.Kind == KindChannel && matches(child)
+	sym, err := s.findChannel(ctx, l, opts)
+	if sym != nil || err != nil {
+		return sym, err
 	}
+	return nil, undefinedChannel(ctx, l.name(), origin)
+}
+
+// findChannel is resolveChannel that returns no symbol and no error when no channel
+// matches.
+func (s *Symbol) findChannel(
+	ctx context.Context,
+	l channelLookup,
+	opts resolveOpts,
+) (*Symbol, error) {
 	for scope := s; scope != nil; scope = scope.Parent {
-		if child := scope.findChild(isChannel); child != nil {
-			return child, nil
+		for _, child := range scope.children {
+			if child.Kind == KindChannel && l.matches(child) {
+				return child, nil
+			}
 		}
 		switch r := scope.globalResolver.(type) {
 		case nil:
 		case scopeResolver:
-			// A lexical lookup reads digits as an ID and marks the aliases it finds as
-			// used, so the walk goes on through the scope of the resolver.
-			sym, err := r.scope.resolveChannel(ctx, matches, name, opts, origin)
-			if !IsUndefined(err) {
+			// The scope of the resolver can hold a variable of the same name, so the
+			// walk goes on through its channels only.
+			if sym, err := r.scope.findChannel(ctx, l, opts); sym != nil || err != nil {
 				return sym, err
 			}
 		default:
-			sym, err := r.Resolve(ctx, name)
+			sym, err := l.resolve(ctx, r)
 			if err != nil && !IsUndefined(err) {
 				return nil, err
 			}
-			// A resolver reads digits as a channel key, so it can give a channel that
-			// does not match.
-			if err == nil && isChannel(sym) && (opts.includeInternal || !sym.Internal) {
+			if err == nil && sym.Kind == KindChannel &&
+				(opts.includeInternal || !sym.Internal) {
 				return sym, nil
 			}
 		}
 	}
-	return nil, codes.SymbolUndefined.Mark(
-		&UndefinedSymbolError{ctx: ctx, Name: name, scope: origin, channel: true},
+	return nil, nil
+}
+
+func undefinedChannel(ctx context.Context, name string, scope *Symbol) error {
+	return codes.ChannelUndefined.Mark(
+		&UndefinedSymbolError{ctx: ctx, Name: name, scope: scope, channel: true},
 	)
 }
 
@@ -809,11 +911,7 @@ func (s *Symbol) resolveLexical(
 	opts resolveOpts,
 	origin *Symbol,
 ) (*Symbol, error) {
-	matches := func(child *Symbol) bool { return child.Name == name }
-	if id, err := strconv.ParseUint(name, 10, 31); err == nil {
-		matches = func(child *Symbol) bool { return child.ID == int(id) }
-	}
-	if child := s.findChild(matches); child != nil {
+	if child := s.FindChild(name); child != nil {
 		if opts.includeInternal || (!child.Internal && child.Kind != KindModule) {
 			if child.Kind == KindModuleAlias && !opts.suppressUsage {
 				child.Used = true

@@ -20,11 +20,14 @@ type memberRule struct {
 	// pinned is true when the top parent of the group must be the record's holder, or
 	// none when the record has no holder.
 	pinned bool
+	// namespaced is true when the names of the records and the groups in one group are
+	// unique.
+	namespaced bool
 }
 
 // memberRules holds the rule of each type that can sit in a group.
 var memberRules = map[resource.Type]memberRule{
-	resource.TypeChannel:         {scope: resource.TypeChannel},
+	resource.TypeChannel:         {scope: resource.TypeChannel, namespaced: true},
 	resource.TypeColor:           {scope: resource.TypeColor},
 	resource.TypeDevice:          {scope: resource.TypeDevice, pinned: true},
 	resource.TypeLineplot:        {scope: resource.TypeProject},

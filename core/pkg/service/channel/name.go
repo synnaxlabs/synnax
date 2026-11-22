@@ -27,7 +27,9 @@ func newNameIndex() *gorp.UniqueIndex[Key, Channel, string] {
 	return gorp.NewUniqueIndex(
 		"unique_name",
 		nameSpace,
-		func(c Channel) (string, bool) { return validate.NormalizeName(c.Name), true },
+		func(c Channel) (string, bool, error) {
+			return validate.NormalizeName(c.Name), true, nil
+		},
 	)
 }
 
@@ -69,8 +71,7 @@ func normalizePtr(s *string) *string {
 }
 
 // NormalizeNames returns names, each in NFC, the form in which the Core stores names.
-// It
-// returns names itself when every name is in NFC, so the caller must not change the
+// It returns names itself when every name is in NFC, so the caller must not change the
 // result.
 func NormalizeNames(names []string) []string {
 	var out []string

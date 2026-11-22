@@ -83,6 +83,9 @@ struct Where {
     /// @brief virtual_ matches virtual channels, or every other channel when false. The
     /// channel API counts the output of a calculation as not virtual.
     std::optional<bool> virtual_;
+    /// @brief path matches the channels at full paths: the names of the folders from
+    /// the top, then the channel's name, joined by '.'.
+    ::x::filter::Field<::x::filter::Set<std::string>> path;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {
@@ -218,6 +221,10 @@ struct Channel {
     ::x::control::Concurrency concurrency = ::x::control::Concurrency::Exclusive;
     /// @brief status is the current operational status of the channel.
     std::optional<Status> status;
+    /// @brief path is the names of the channel's folders from the top, then its name,
+    /// joined by '.'. It is filled only when a retrieve request asks for it, and only
+    /// when the caller can retrieve every folder on it.
+    std::optional<std::string> path;
 
     static Channel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -241,6 +248,8 @@ struct RetrieveOptions {
     std::optional<std::uint32_t> limit;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
+    /// @brief include_path includes the path of each record.
+    bool include_path = false;
 };
 
 /// @brief RetrieveRequest is a request to retrieve channels.
@@ -258,6 +267,8 @@ struct RetrieveRequest {
     std::optional<std::uint32_t> limit;
     /// @brief include_status includes the status of each record.
     bool include_status = false;
+    /// @brief include_path includes the path of each record.
+    bool include_path = false;
 
     /// @brief returns a request for the records that where selects.
     static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
@@ -268,6 +279,7 @@ struct RetrieveRequest {
             .after = options.after,
             .limit = options.limit,
             .include_status = options.include_status,
+            .include_path = options.include_path,
         };
     }
 

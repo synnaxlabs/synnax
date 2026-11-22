@@ -37,6 +37,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            channelSvc,
 				Calculation:        calcSvc,
 				Group:              groupSvc,
+				Status:             statusSvc,
 				Framer:             framerSvc,
 				DB:                 dist.DB,
 				HostKey:            dist.Identity.HostKey,
@@ -55,11 +56,23 @@ var _ = Describe("Metrics", func() {
 		It("Should fail with a missing Calculation service", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel: channelSvc,
+				Status:  statusSvc,
 				Framer:  framerSvc,
 				HostKey: dist.Identity.HostKey,
 				Storage: dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("calculation: must be non-nil")))
 		})
+
+		It("Should fail with a missing Status service", func(ctx SpecContext) {
+			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Channel:     channelSvc,
+				Calculation: calcSvc,
+				Framer:      framerSvc,
+				HostKey:     dist.Identity.HostKey,
+				Storage:     dist.Storage,
+			})).Error().To(MatchError(ContainSubstring("status: must be non-nil")))
+		})
+
 		It("Should fail with missing Framer service", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel: channelSvc,
@@ -101,6 +114,7 @@ var _ = Describe("Metrics", func() {
 					Channel:            channelSvc,
 					Calculation:        calcSvc,
 					Group:              groupSvc,
+					Status:             statusSvc,
 					Framer:             framerSvc,
 					HostKey:            dist.Identity.HostKey,
 					DB:                 dist.DB,
@@ -198,6 +212,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            channelSvc,
 				Calculation:        calcSvc,
 				Group:              groupSvc,
+				Status:             statusSvc,
 				Framer:             framerSvc,
 				HostKey:            dist.Identity.HostKey,
 				DB:                 dist.DB,
@@ -222,6 +237,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            channelSvc,
 				Calculation:        calcSvc,
 				Group:              groupSvc,
+				Status:             statusSvc,
 				Framer:             framerSvc,
 				HostKey:            dist.Identity.HostKey,
 				DB:                 dist.DB,
@@ -289,6 +305,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            channelSvc,
 				Calculation:        calcSvc,
 				Group:              groupSvc,
+				Status:             statusSvc,
 				Framer:             framerSvc,
 				HostKey:            dist.Identity.HostKey,
 				DB:                 dist.DB,
@@ -354,6 +371,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            channelSvc,
 				Calculation:        calcSvc,
 				Group:              groupSvc,
+				Status:             statusSvc,
 				DB:                 dist.DB,
 				Framer:             framerSvc,
 				HostKey:            dist.Identity.HostKey,

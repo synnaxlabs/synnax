@@ -160,6 +160,34 @@ var _ = Describe("Go Group Plugin", func() {
 		},
 	)
 
+	It("Should mark the rule of a namespaced member", func() {
+		resp := MustGenerate(`
+			import "schemas/group"
+
+			@go output "core/pkg/service/channel"
+
+			Channel struct {
+				key   uint32 {
+					@key
+				}
+				name  string
+				group group.Key? {
+					@group scope channel
+					@group namespaced
+				}
+
+				@resource type "channel"
+			}
+		`, "channel", loader, p)
+		Expect(resp.Files).To(HaveLen(1))
+		ExpectContent(resp, "members.gen.go").
+			ToBeValidGoSource().
+			ToContain(
+				"namespaced bool",
+				"resource.TypeChannel: {scope: resource.TypeChannel, namespaced: true},",
+			)
+	})
+
 	It("Should return the error of a malformed @group", func() {
 		req := MustGenerateRequest(`
 			import "schemas/group"

@@ -54,30 +54,46 @@ type document struct {
 	names *nameTokens
 }
 
-// nameTokens holds the tokens of one content that can hold a quoted channel name: the
-// quoted names and the string literals, whose placeholders can hold them. It lexes the
-// content on first use and keeps the tokens until the content changes, so a lookup by
-// position costs the same at any document length.
+// nameTokens holds the tokens of one content that can hold a quoted channel name (the
+// quoted names and the string literals, whose placeholders can hold them) and its
+// dotted names. It lexes the content on first use and keeps them until the content
+// changes, so a lookup by position costs the same at any document length.
 type nameTokens struct {
 	mu      sync.Mutex
 	content string
 	lexed   bool
 	tokens  []antlr.Token
+	paths   []pathToken
 }
 
 // of returns the name tokens of content in order. Callers must not change them.
 func (n *nameTokens) of(content string) []antlr.Token {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	if !n.lexed || n.content != content {
-		n.content, n.lexed, n.tokens = content, true, lexNameTokens(content)
-	}
+	n.lex(content)
 	return n.tokens
 }
 
-func lexNameTokens(content string) []antlr.Token {
+// pathsOf returns the dotted names of content in order. Callers must not change them.
+func (n *nameTokens) pathsOf(content string) []pathToken {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.lex(content)
+	return n.paths
+}
+
+func (n *nameTokens) lex(content string) {
+	if n.lexed && n.content == content {
+		return
+	}
+	tokens := tokenizeContent(content)
+	n.content, n.lexed = content, true
+	n.tokens, n.paths = keepNameTokens(tokens), linePaths(tokens)
+}
+
+func keepNameTokens(tokens []antlr.Token) []antlr.Token {
 	var kept []antlr.Token
-	for _, t := range tokenizeContent(content) {
+	for _, t := range tokens {
 		switch t.GetTokenType() {
 		case parser.ArcLexerCHANNEL_NAME,
 			parser.ArcLexerSTR_LITERAL,
@@ -207,22 +223,30 @@ func (d *document) resolveSymbolAtPosition(
 	ctx context.Context,
 	pos protocol.Position,
 ) (*symbol.Symbol, error) {
-	n, _, quoted := d.channelNameAt(pos)
-	if !quoted {
-		n = parser.Name{Head: d.getWordAtPosition(pos)}
-	}
-	if n.Head == "" {
-		return nil, nil
-	}
 	scope := d.findScopeAtPosition(pos)
 	if scope == nil {
 		return nil, nil
 	}
-	return scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
+	if n, _, ok := d.channelNameAt(pos); ok {
+		return scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
+	}
+	// A dotted name that names a channel is one symbol, whichever segment holds pos.
+	if n, ok := d.pathAt(pos); ok {
+		sym, err := scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
+		if err == nil && sym.Kind == symbol.KindChannel {
+			return sym, nil
+		}
+	}
+	word := d.getWordAtPosition(pos)
+	if word == "" {
+		return nil, nil
+	}
+	return scope.ResolveName(ctx, parser.Name{Head: word}, symbol.WithoutUsageTracking)
 }
 
-// channelNameAt returns the quoted channel name whose token holds pos, and the range
-// of the token. pos and the range are protocol positions in UTF-16 units.
+// channelNameAt returns the quoted channel name whose token holds pos, or the dotted
+// name in a placeholder that holds pos, and its range. pos and the range are protocol
+// positions in UTF-16 units.
 func (d *document) channelNameAt(
 	pos protocol.Position,
 ) (parser.Name, protocol.Range, bool) {
@@ -252,6 +276,35 @@ func (d *document) channelNameAt(
 	return parser.Name{}, protocol.Range{}, false
 }
 
+// importsModule reports whether name is an import alias in the scope at pos.
+func (d *document) importsModule(
+	ctx context.Context,
+	name string,
+	pos protocol.Position,
+) bool {
+	scope := d.findScopeAtPosition(pos)
+	if scope == nil {
+		return false
+	}
+	sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking)
+	return err == nil && sym.Kind == symbol.KindModuleAlias
+}
+
+// pathAt returns the dotted name whose text holds pos.
+func (d *document) pathAt(pos protocol.Position) (parser.Name, bool) {
+	ps := d.names.pathsOf(d.displayContent())
+	// Paths do not overlap, so only the first that ends after pos can hold it.
+	i := sort.Search(len(ps), func(i int) bool {
+		end := ps[i].rng.End
+		return end.Line > pos.Line ||
+			(end.Line == pos.Line && end.Character > pos.Character)
+	})
+	if i < len(ps) && holds(ps[i].rng, pos) {
+		return ps[i].name, true
+	}
+	return parser.Name{}, false
+}
+
 // channelNameIn returns the quoted channel name at pos in the name token t, and its
 // range.
 func channelNameIn(
@@ -267,8 +320,8 @@ func channelNameIn(
 	return parser.Name{}, protocol.Range{}, false
 }
 
-// placeholderChannelNameAt returns the quoted channel name at pos inside a placeholder
-// of the format string t, and its range.
+// placeholderChannelNameAt returns the quoted channel name or the dotted name at pos
+// inside a placeholder of the format string t, and its range.
 func placeholderChannelNameAt(
 	t antlr.Token,
 	pos protocol.Position,
@@ -289,6 +342,13 @@ func placeholderChannelNameAt(
 			r := protocol.Range{Start: f.at[spans[i][0]], End: f.at[spans[i][1]]}
 			if holds(r, pos) {
 				return parser.TokenName(it), r, true
+			}
+		}
+		for _, p := range barePaths(inner, nil) {
+			first, last := p.idents[0], p.idents[len(p.idents)-1]
+			r := protocol.Range{Start: f.at[spans[first][0]], End: f.at[spans[last][1]]}
+			if holds(r, pos) {
+				return p.name, r, true
 			}
 		}
 	}

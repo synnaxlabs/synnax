@@ -29,7 +29,7 @@ type Kind struct {
 	// Severity is the severity of each diagnostic of the kind.
 	Severity protocol.DiagnosticSeverity
 	// Message is the headline of the kind. The message of each diagnostic of the kind
-	// is the headline, or the headline and a detail.
+	// is the headline, the headline and a detail, or a detail that ends with it.
 	Message string
 	// Problem describes the kind for its documentation.
 	Problem string
@@ -38,10 +38,11 @@ type Kind struct {
 }
 
 // describe returns the message of a diagnostic of the kind with detail. The message
-// starts with the headline.
+// starts with the headline, unless detail already ends with it.
 func (k Kind) describe(detail string) string {
 	head := k.Message + ": "
-	if k.Message == "" || detail == k.Message || strings.HasPrefix(detail, head) {
+	if k.Message == "" || detail == k.Message || strings.HasPrefix(detail, head) ||
+		strings.HasSuffix(detail, " "+k.Message) {
 		return detail
 	}
 	return head + detail

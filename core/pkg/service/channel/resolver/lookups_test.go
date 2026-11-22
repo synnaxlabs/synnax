@@ -128,6 +128,30 @@ var _ = Describe("CompileConsistent", func() {
 		Expect(compiles).To(Equal(2))
 	})
 
+	It("Should compile again when a channel by key is renamed before the check", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx, "checked_key_ch")
+		var compiles int
+		sym := MustSucceed(resolver.CompileConsistent(ctx, db, func(
+			snap gorp.Snapshot,
+			lookups *resolver.Lookups,
+		) (*symbol.Symbol, error) {
+			compiles++
+			sym, err := resolver.NewChecked(svc, snap, lookups).
+				ResolveKey(ctx, uint32(ch.Key()))
+			if compiles == 1 {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).
+						Rename(ctx, ch.Key(), "checked_key_ch_2", false)
+				})).To(Succeed())
+			}
+			return sym, err
+		}))
+		Expect(sym.Name).To(Equal("checked_key_ch_2"))
+		Expect(compiles).To(Equal(2))
+	})
+
 	It("Should compile again when a missing channel is created before the check", func(
 		ctx SpecContext,
 	) {

@@ -92,6 +92,7 @@ func (s *Server) SemanticTokensFull(
 func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []uint32 {
 	allTokens := tokenizeContent(content)
 	importIdents := importContextIdents(allTokens)
+	channels := pathChannelIdents(ctx, allTokens, importIdents, docIR)
 	var tokens []lsp.Token
 	// Track prev/next token types so classifyToken can handle qualified names (e.g.,
 	// control.set_authority).
@@ -105,6 +106,10 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 			continue
 		}
 		if isRoutingKey(allTokens, i) {
+			continue
+		}
+		if channels.Contains(i) {
+			tokens = appendTokenPerLine(tokens, t, SemanticTokenTypeChannel)
 			continue
 		}
 		var prevType, nextType int
@@ -133,6 +138,36 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 		tokens = appendTokenPerLine(tokens, t, *tokenType)
 	}
 	return lsp.EncodeSemanticTokens(tokens)
+}
+
+// pathChannelIdents returns the index of each identifier of a dotted name in tokens
+// that names a channel.
+func pathChannelIdents(
+	ctx context.Context,
+	tokens []antlr.Token,
+	imports set.Set[int],
+	docIR ir.IR,
+) set.Set[int] {
+	if docIR.Symbols == nil {
+		return nil
+	}
+	var out set.Set[int]
+	for _, p := range barePaths(tokens, imports) {
+		first := tokens[p.idents[0]]
+		scope := findScopeAtInternalPosition(
+			docIR.Symbols,
+			position{Line: first.GetLine(), Col: first.GetColumn()},
+		)
+		sym, err := scope.ResolveName(ctx, p.name, symbol.WithoutUsageTracking)
+		if err != nil || sym.Kind != symbol.KindChannel {
+			continue
+		}
+		if out == nil {
+			out = make(set.Set[int])
+		}
+		out.Add(p.idents...)
+	}
+	return out
 }
 
 // isRoutingKey reports whether the token at i is a TRUE or FALSE naming a

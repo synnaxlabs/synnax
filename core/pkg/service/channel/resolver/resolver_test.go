@@ -10,6 +10,7 @@
 package resolver_test
 
 import (
+	"context"
 	"strconv"
 	"sync"
 
@@ -20,6 +21,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -62,7 +65,7 @@ var _ = Describe("New", func() {
 		Expect(sym.Renameable).To(BeFalse())
 	})
 
-	It("Should resolve a channel by numeric key", func(ctx SpecContext) {
+	It("Should resolve a channel by key", func(ctx SpecContext) {
 		ch := &channel.Channel{
 			Name:     "resolver_key_test_ch",
 			Virtual:  true,
@@ -73,11 +76,30 @@ var _ = Describe("New", func() {
 		})).To(Succeed())
 
 		sym := MustSucceed(
-			resolver.New(svc, db).Resolve(ctx, strconv.Itoa(int(ch.Key()))),
+			resolver.New(svc, db).ResolveKey(ctx, uint32(ch.Key())),
 		)
 		Expect(sym.Name).To(Equal("resolver_key_test_ch"))
 		Expect(sym.Kind).To(Equal(symbol.KindChannel))
 		Expect(sym.Type).To(Equal(types.Chan(types.I64())))
+	})
+
+	It("Should resolve digits as a name, not as a key", func(ctx SpecContext) {
+		keyed := &channel.Channel{
+			Name:     "resolver_digits_keyed",
+			Virtual:  true,
+			DataType: telem.Int64T,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, keyed)
+		})).To(Succeed())
+		digits := strconv.Itoa(int(keyed.Key()))
+		r := resolver.New(svc, db)
+		Expect(r.Resolve(ctx, digits)).Error().To(MatchError(query.ErrNotFound))
+		named := &channel.Channel{Name: digits, Virtual: true, DataType: telem.Int64T}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, named)
+		})).To(Succeed())
+		Expect(r.Resolve(ctx, digits)).To(HaveField("ID", int(named.Key())))
 	})
 
 	It("Should return an error for a nonexistent symbol", func(ctx SpecContext) {
@@ -85,10 +107,13 @@ var _ = Describe("New", func() {
 			Error().To(MatchError(query.ErrNotFound))
 	})
 
-	Describe("Filters", func() {
+	Describe("NewSubject", func() {
 		var visible, hidden channel.Channel
-		hide := func() channel.Filter {
-			return channel.Not(channel.MatchKeys(hidden.Key()))
+		// hiding returns an access read that refuses id.
+		hiding := func(id resource.ID) func(context.Context) (func(resource.ID) bool, error) {
+			return func(context.Context) (func(resource.ID) bool, error) {
+				return func(other resource.ID) bool { return other != id }, nil
+			}
 		}
 		BeforeEach(func(ctx SpecContext) {
 			visible = channel.Channel{
@@ -120,18 +145,18 @@ var _ = Describe("New", func() {
 		})
 
 		It("Should not resolve a hidden channel by name", func(ctx SpecContext) {
-			r := resolver.New(svc, db, hide())
+			r := resolver.NewSubject(svc, db, hiding(hidden.ResourceID()))
 			Expect(r.Resolve(ctx, hidden.Name)).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(r.Resolve(ctx, visible.Name)).
 				To(HaveField("ID", int(visible.Key())))
 		})
 
-		It("Should not resolve a hidden channel by numeric key", func(ctx SpecContext) {
-			r := resolver.New(svc, db, hide())
-			Expect(r.Resolve(ctx, strconv.Itoa(int(hidden.Key())))).Error().
+		It("Should not resolve a hidden channel by key", func(ctx SpecContext) {
+			r := resolver.NewSubject(svc, db, hiding(hidden.ResourceID()))
+			Expect(r.ResolveKey(ctx, uint32(hidden.Key()))).Error().
 				To(MatchError(query.ErrNotFound))
-			Expect(r.Resolve(ctx, strconv.Itoa(int(visible.Key())))).
+			Expect(r.ResolveKey(ctx, uint32(visible.Key()))).
 				To(HaveField("ID", int(visible.Key())))
 		})
 
@@ -143,11 +168,22 @@ var _ = Describe("New", func() {
 						HaveField("ID", int(hidden.Key())),
 					))
 			}).Should(Succeed())
-			Expect(resolver.New(svc, db, hide()).Search(ctx, "resolver_filter")).
+			Expect(
+				resolver.NewSubject(svc, db, hiding(hidden.ResourceID())).
+					Search(ctx, "resolver_filter"),
+			).
 				To(SatisfyAll(
 					ContainElement(HaveField("ID", int(visible.Key()))),
 					Not(ContainElement(HaveField("ID", int(hidden.Key())))),
 				))
+		})
+
+		It("Should return the error of the access read", func(ctx SpecContext) {
+			failed := func(context.Context) (func(resource.ID) bool, error) {
+				return nil, errors.New("access read failed")
+			}
+			Expect(resolver.NewSubject(svc, db, failed).Resolve(ctx, visible.Name)).
+				Error().To(MatchError("access read failed"))
 		})
 	})
 	It("Should resolve a channel created through the service by name", func(
@@ -240,6 +276,24 @@ var _ = Describe("NewConsistent", func() {
 				To(HaveField("ID", int(later.Key())))
 		},
 	)
+
+	It("Should resolve a renamed channel by key the way it first did", func(
+		ctx SpecContext,
+	) {
+		r := resolver.NewConsistent(resolver.New(svc, db))
+		Expect(r.ResolveKey(ctx, uint32(ch.Key()))).
+			To(HaveField("Name", "consistent_resolver_ch"))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Rename(
+				ctx, ch.Key(), "consistent_resolver_ch_by_key", false,
+			)
+		})).To(Succeed())
+		Expect(r.ResolveKey(ctx, uint32(ch.Key()))).
+			To(HaveField("Name", "consistent_resolver_ch"))
+		Expect(resolver.NewConsistent(resolver.New(svc, db)).
+			ResolveKey(ctx, uint32(ch.Key()))).
+			To(HaveField("Name", "consistent_resolver_ch_by_key"))
+	})
 
 	It("Should return a separate symbol for each lookup", func(ctx SpecContext) {
 		r := resolver.NewConsistent(resolver.New(svc, db))

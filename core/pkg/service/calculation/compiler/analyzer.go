@@ -13,8 +13,8 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
@@ -73,26 +73,46 @@ func (r *cachingResolver) Resolve(
 	ctx context.Context,
 	name string,
 ) (*symbol.Symbol, error) {
-	i, err := strconv.Atoi(name)
-	if err == nil {
-		if s, ok := r.temp.keys[i]; ok {
-			return s, nil
-		}
-	} else {
-		if s, ok := r.temp.names[name]; ok {
-			return s, nil
-		}
+	if s, ok := r.temp.names[name]; ok {
+		return s, nil
 	}
 	sym, resolveErr := r.SymbolResolver.Resolve(ctx, name)
-	if errors.Is(resolveErr, query.ErrNotFound) {
+	// The analysis reports an ambiguous name as a diagnostic, like an unknown one.
+	_, ambiguous := errors.AsType[channel.AmbiguousNameError](resolveErr)
+	switch {
+	case errors.Is(resolveErr, query.ErrNotFound):
 		if s, ok := r.temp.unstored[name]; ok {
 			return s, nil
 		}
 		r.unresolved.Add(name)
-	} else if resolveErr != nil && r.readErr == nil {
+	case resolveErr != nil && !ambiguous && r.readErr == nil:
 		r.readErr = resolveErr
 	}
 	return sym, resolveErr
+}
+
+// ResolveKey resolves the channel with key, an analyzed channel first.
+func (r *cachingResolver) ResolveKey(
+	ctx context.Context,
+	key uint32,
+) (*symbol.Symbol, error) {
+	if s, ok := r.temp.keys[int(key)]; ok {
+		return s, nil
+	}
+	return r.SymbolResolver.ResolveKey(ctx, key)
+}
+
+// NewCalculationRoot returns the root that a calculation's expression resolves in: the
+// channels that resolver gives and the standard library with no module that a program
+// can import, since a calculation imports none.
+func NewCalculationRoot(resolver arc.SymbolResolver) *symbol.Symbol {
+	return symbol.NewRoot(resolver, calculationSymbols())
+}
+
+func calculationSymbols() []*symbol.Symbol {
+	return lo.Reject(stl.NewSymbols(), func(s *symbol.Symbol, _ int) bool {
+		return s.Kind == symbol.KindModule && !s.Internal
+	})
 }
 
 // AnalysisResult holds the output of a calculation analysis. On error,
@@ -133,7 +153,7 @@ func (a *Analyzer) AnalyzeExpression(
 		return AnalysisResult{}, err
 	}
 	if a.stl == nil {
-		a.stl = stl.NewSymbols()
+		a.stl = calculationSymbols()
 	}
 	root := symbol.NewRoot(a.resolver, a.stl)
 	aCtx := acontext.NewRoot(ctx, t, root)

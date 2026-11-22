@@ -121,7 +121,11 @@ type Channel struct {
 	Group *string `protobuf:"bytes,13,opt,name=group,proto3,oneof" json:"group,omitempty"`
 	// calculated is true if a calculation writes the channel, whether or not the caller
 	// can retrieve the calculation.
-	Calculated    bool `protobuf:"varint,15,opt,name=calculated,proto3" json:"calculated,omitempty"`
+	Calculated bool `protobuf:"varint,15,opt,name=calculated,proto3" json:"calculated,omitempty"`
+	// path is the names of the channel's folders from the top, then its name, joined by
+	// '.'. It is filled only when a retrieve request asks for it, and only when the
+	// caller can retrieve every folder on it.
+	Path          *string `protobuf:"bytes,16,opt,name=path,proto3,oneof" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -254,6 +258,13 @@ func (x *Channel) GetCalculated() bool {
 	return false
 }
 
+func (x *Channel) GetPath() string {
+	if x != nil && x.Path != nil {
+		return *x.Path
+	}
+	return ""
+}
+
 // Cursor is a position in an order of channels: the sort value and the key of a
 // channel.
 type Cursor struct {
@@ -380,6 +391,8 @@ type RetrieveRequest struct {
 	Limit *uint32 `protobuf:"varint,5,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// include_status includes the status of each record.
 	IncludeStatus bool `protobuf:"varint,6,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
+	// include_path includes the path of each record.
+	IncludePath   bool `protobuf:"varint,8,opt,name=include_path,json=includePath,proto3" json:"include_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -456,6 +469,13 @@ func (x *RetrieveRequest) GetIncludeStatus() bool {
 	return false
 }
 
+func (x *RetrieveRequest) GetIncludePath() bool {
+	if x != nil {
+		return x.IncludePath
+	}
+	return false
+}
+
 // RetrieveResponse holds the channels a RetrieveRequest selects.
 type RetrieveResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -506,7 +526,7 @@ var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xff\x03\n" +
+	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xa1\x04\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -528,9 +548,11 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x05group\x18\r \x01(\tH\x01R\x05group\x88\x01\x01\x12\x1e\n" +
 	"\n" +
 	"calculated\x18\x0f \x01(\bR\n" +
-	"calculatedB\t\n" +
+	"calculated\x12\x17\n" +
+	"\x04path\x18\x10 \x01(\tH\x02R\x04path\x88\x01\x01B\t\n" +
 	"\a_statusB\b\n" +
-	"\x06_groupJ\x04\b\x0e\x10\x0f\"<\n" +
+	"\x06_groupB\a\n" +
+	"\x05_pathJ\x04\b\x0e\x10\x0f\"<\n" +
 	"\x06Cursor\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01B\a\n" +
@@ -539,7 +561,7 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x05field\x18\x01 \x01(\x0e2\x1a.api.channel.pb.OrderFieldR\x05field\x12\x1e\n" +
 	"\n" +
 	"descending\x18\x02 \x01(\bR\n" +
-	"descending\"\xbd\x02\n" +
+	"descending\"\xe0\x02\n" +
 	"\x0fRetrieveRequest\x124\n" +
 	"\x05where\x18\x01 \x01(\v2\x19.service.channel.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
@@ -547,7 +569,8 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x05order\x18\x03 \x01(\v2\x15.api.channel.pb.OrderH\x01R\x05order\x88\x01\x01\x121\n" +
 	"\x05after\x18\x04 \x01(\v2\x16.api.channel.pb.CursorH\x02R\x05after\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x05 \x01(\rH\x03R\x05limit\x88\x01\x01\x12%\n" +
-	"\x0einclude_status\x18\x06 \x01(\bR\rincludeStatusB\b\n" +
+	"\x0einclude_status\x18\x06 \x01(\bR\rincludeStatus\x12!\n" +
+	"\finclude_path\x18\b \x01(\bR\vincludePathB\b\n" +
 	"\x06_whereB\b\n" +
 	"\x06_orderB\b\n" +
 	"\x06_afterB\b\n" +

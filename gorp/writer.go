@@ -44,7 +44,8 @@ type Writer[K Key, E Entry[K]] struct {
 }
 
 // WrapWriter wraps the given Tx to provide a strongly typed Writer that checks no
-// references. The Writer keeps the indexes of each open Table of E on the DB of tx
+// references and no unique values, so it is for migrations only. The Writer keeps the
+// indexes of each open Table of E on the DB of tx
 // current, and records its writes under the name of the table of E, with the links of
 // the references of each open Table of E.
 func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
@@ -175,7 +176,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		}
 	}
 	for _, u := range w.uniques {
-		if err = u.Check(ctx, w.tx, &entry); err != nil {
+		if err = u.check(ctx, w.tx, &entry); err != nil {
 			return err
 		}
 	}

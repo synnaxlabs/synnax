@@ -346,7 +346,7 @@ var _ = Describe("AST Utilities", func() {
 		)
 
 		DescribeTable("Should allocate only what GetPrimaryExpression allocates",
-			func(code string) {
+			func(code string, text float64) {
 				expr := parseExpr(code)
 				holdText(expr)
 				descent := testing.AllocsPerRun(100, func() {
@@ -354,10 +354,10 @@ var _ = Describe("AST Utilities", func() {
 				})
 				Expect(testing.AllocsPerRun(100, func() {
 					parser.ExpressionName(expr)
-				})).To(Equal(descent))
+				})).To(Equal(descent + text))
 			},
-			Entry("bare name", "x"),
-			Entry("qualified name", "m.doubled"),
+			Entry("bare name", "x", 0.0),
+			Entry("qualified name, plus its text", "m.doubled", 1.0),
 		)
 	})
 
@@ -495,8 +495,12 @@ var _ = Describe("AST Utilities", func() {
 		})
 
 		It("Should split a qualified identifier", func() {
-			Expect(parser.IdentifierName(identifierOf("trig -> m.f"))).
-				To(Equal(parser.Name{Head: "m", Tail: "f"}))
+			Expect(parser.IdentifierName(identifierOf("trig -> m.f"))).To(And(
+				HaveField("Head", "m"),
+				HaveField("Tail", "f"),
+				HaveField("Quoted", false),
+				HaveField("Callee", false),
+			))
 		})
 
 		It("Should return the whole path of a quoted channel name", func() {
@@ -619,8 +623,18 @@ var _ = Describe("AST Utilities", func() {
 		})
 
 		It("Should split a qualified identifier", func() {
-			Expect(parser.PrimaryName(primaryOf("math.avg"))).
-				To(Equal(parser.Name{Head: "math", Tail: "avg"}))
+			Expect(parser.PrimaryName(primaryOf("math.avg"))).To(And(
+				HaveField("Head", "math"),
+				HaveField("Tail", "avg"),
+				HaveField("Quoted", false),
+				HaveField("Callee", false),
+			))
+		})
+
+		It("Should join a qualified name with no allocation", func() {
+			n := parser.PrimaryName(primaryOf("stand.sensors.pt_01"))
+			Expect(testing.AllocsPerRun(100, func() { _ = n.String() })).To(BeZero())
+			Expect(n.String()).To(Equal("stand.sensors.pt_01"))
 		})
 
 		It("Should return the path of a quoted channel name", func() {
@@ -632,16 +646,17 @@ var _ = Describe("AST Utilities", func() {
 			Expect(parser.PrimaryName(primaryOf("42"))).To(BeZero())
 		})
 
-		DescribeTable("Should not allocate for an unquoted name",
-			func(code string) {
+		DescribeTable("Should allocate at most the text of an unquoted name",
+			func(code string, allocs float64) {
 				primary := primaryOf(code)
 				holdText(primary)
 				Expect(testing.AllocsPerRun(100, func() {
 					parser.PrimaryName(primary)
-				})).To(BeZero())
+				})).To(Equal(allocs))
 			},
-			Entry("bare name", "x"),
-			Entry("qualified name", "math.avg"),
+			Entry("bare name", "x", 0.0),
+			Entry("qualified name", "math.avg", 1.0),
+			Entry("path of three segments", "stand.sensors.pt_01", 1.0),
 		)
 
 		It("Should join or blank the name to match the parts", func() {

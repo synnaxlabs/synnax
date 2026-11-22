@@ -195,7 +195,8 @@ sequence main {
 	It("G1 an undefined quoted name suggests only channels", func(ctx SpecContext) {
 		_, diagnostics := analyze(ctx,
 			"func outx() {\n\t'out' = 1.0\n}\n'pt_01' -> 'outy'")
-		Expect(diagnostics.String()).To(ContainSubstring("undefined symbol: outy"))
+		Expect(diagnostics.String()).
+			To(ContainSubstring("outy does not exist"))
 		Expect(diagnostics.String()).ToNot(ContainSubstring("outx"))
 	})
 })

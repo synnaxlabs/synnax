@@ -26,7 +26,8 @@ type Create[K Key, E Entry[K]] struct {
 	exclusive bool
 }
 
-// NewCreate opens a new Create query.
+// NewCreate opens a new Create query. A Create that no Table built checks no
+// references and no unique values, so it is for migrations only.
 func NewCreate[K Key, E Entry[K]]() Create[K, E] {
 	return Create[K, E]{}
 }

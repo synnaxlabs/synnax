@@ -94,6 +94,9 @@ func BenchmarkWriterCreate(b *testing.B) {
 			db := env.db
 			chs := make([]channel.Channel, batch)
 			b.ReportAllocs()
+			// The setup leaves garbage, and its collection would otherwise run in the
+			// timed loop.
+			runtime.GC()
 			b.ResetTimer()
 			for i := range b.N {
 				for j := range chs {
@@ -126,6 +129,7 @@ func BenchmarkWriterRename(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
+	runtime.GC()
 	b.ResetTimer()
 	for i := range b.N {
 		name := fmt.Sprintf("rename_%d", i+1)
@@ -154,6 +158,7 @@ func BenchmarkWriterMove(b *testing.B) {
 	}
 	targets := []*group.Key{&g.Key, nil}
 	b.ReportAllocs()
+	runtime.GC()
 	b.ResetTimer()
 	for i := range b.N {
 		if err = env.db.WithTx(b.Context(), func(tx gorp.Tx) error {
@@ -203,6 +208,7 @@ func BenchmarkOpenService(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
+	runtime.GC()
 	b.ResetTimer()
 	for i := range b.N {
 		svc = open()
