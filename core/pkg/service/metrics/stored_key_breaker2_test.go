@@ -48,6 +48,7 @@ var _ = Describe("Stored key breaker 2", func() {
 		statuses = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: n.DB}))
 		channels = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: n.Channel,
+			TS:      n.Storage.TS,
 			DB:      n.DB,
 			HostKey: n.Identity.HostKey,
 			Status:  statuses,
