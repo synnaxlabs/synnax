@@ -63,7 +63,22 @@ jobs:
           sparse-checkout: .github/scripts
           persist-credentials: false
 
+      # A run whose merge failed has no results, so the classifier marks each surface as
+      # an error. A failed request still fails the job.
+      - name: Find the results
+        id: find
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          count=$(.github/scripts/gh_api.sh \
+            "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts?name=surfaces" \
+            --jq '[.artifacts[] | select(.expired | not)] | length')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
       - name: Download the results
+        if: steps.find.outputs.count != '0'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: surfaces

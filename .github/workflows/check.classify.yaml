@@ -203,7 +203,8 @@ jobs:
           if-no-files-found: ignore
 
   # Label - Classify fetches the results from another run, and that request has no
-  # retry, so it gets one artifact. Each surface keeps its own directory in it.
+  # retry, so it gets one artifact. Each surface keeps its own directory in it. The
+  # originals stay, so a rerun of failed jobs merges every surface again.
   merge:
     name: Merge the results
     needs: surface
@@ -217,16 +218,15 @@ jobs:
           name: surfaces
           pattern: surface-*
           separate-directories: true
-          delete-merged: true
 
-  # Runs last, so Label - Classify finds every result.
+  # Runs last, so Label - Classify finds every result. It runs after a failed merge too:
+  # Label - Classify then finds no results and raises the pull request to review/human.
   relay:
     name: Relay the results
     needs: merge
     if:
-      ${{ !cancelled() && needs.merge.result == 'success' && github.actor !=
-      'dependabot[bot]' && github.event.pull_request.head.repo.full_name ==
-      github.repository }}
+      ${{ !cancelled() && github.event.pull_request.head.repo.full_name ==
+      github.repository && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
