@@ -981,6 +981,9 @@ func addFieldMethods(
 	if chk, ok := goLessThanCheck(field, siblings, parent); ok {
 		sd.ConstraintChecks = append(sd.ConstraintChecks, chk)
 	}
+	if chk, ok := goPatternCheck(field, parent, data); ok {
+		sd.ConstraintChecks = append(sd.ConstraintChecks, chk)
+	}
 	if step, ok := goRecurseStep(field, fd, validateRule); ok {
 		sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 	}
@@ -1675,6 +1678,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.Finite("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "lt"}}
 	v.Ternary("{{.FieldName}}", !({{$val}} < {{$s.Receiver}}.{{.Arg}}), {{.Message}})
+{{- else if eq .Kind "pattern"}}
+	v.Ternary("{{.FieldName}}", !regexp.MustCompile({{.Arg}}).MatchString(string({{$val}})), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -1813,6 +1818,8 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.Finite("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "lt"}}
 	v.Ternary("{{.FieldName}}", !({{$val}} < {{$vt.Receiver}}.{{.Arg}}), {{.Message}})
+{{- else if eq .Kind "pattern"}}
+	v.Ternary("{{.FieldName}}", !regexp.MustCompile({{.Arg}}).MatchString(string({{$val}})), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}

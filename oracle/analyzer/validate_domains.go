@@ -11,6 +11,7 @@ package analyzer
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 
 	"github.com/samber/lo"
@@ -484,9 +485,10 @@ func validateFiniteRules(table *resolution.Table, diag *diagnostics.Files) {
 	}
 }
 
-// validateComparisonRules errors on a `@go validate` rule that is not lt <field>, on
-// one outside a struct field or in a generic struct, and on one whose field and
-// compared field are not two required numbers of one type in the same struct.
+// validateComparisonRules errors on a `@go validate` rule that is not lt <field> or
+// pattern "<regex>", on one outside a struct field, on an lt rule in a generic struct
+// or whose field and compared field are not two required numbers of one type in the
+// same struct, and on a pattern rule outside a required string or with a bad regex.
 func validateComparisonRules(table *resolution.Table, diag *diagnostics.Files) {
 	for _, t := range table.Types {
 		var problems []string
@@ -514,11 +516,17 @@ func structComparisonProblems(
 	for _, f := range fields {
 		name := t.QualifiedName + "." + f.Name
 		_, declared := form.Field(f.Name)
+		if m := validation.Matches(f.Domains, "go"); m != nil {
+			if declared {
+				problems = append(problems, matchProblems(name, f, *m, table)...)
+			}
+			continue
+		}
 		lt := validation.LessThan(f.Domains, "go")
 		if lt == nil {
 			if _, set := f.Domains["go"].Expressions.Find("validate"); set && declared {
-				problems = append(problems, name+
-					" has a @go validate rule, but only lt <field> is supported")
+				problems = append(problems, name+" has a @go validate rule, but only "+
+					`lt <field> and pattern "<regex>" are supported`)
 			}
 			continue
 		}
@@ -546,6 +554,24 @@ func structComparisonProblems(
 		}
 	}
 	return problems
+}
+
+// matchProblems returns the problems of the pattern rule m on the field f named name.
+func matchProblems(
+	name string,
+	f resolution.Field,
+	m validation.Match,
+	table *resolution.Table,
+) []string {
+	if f.Optional || resolution.PrimitiveBase(f.Type, table) != "string" {
+		return []string{name + " has a pattern rule, but only a required string can"}
+	}
+	if _, err := regexp.Compile(m.Pattern); err != nil {
+		return []string{
+			fmt.Sprintf("%s has a pattern rule that is not valid: %v", name, err),
+		}
+	}
+	return nil
 }
 
 func isRequiredNumber(f resolution.Field, table *resolution.Table) bool {

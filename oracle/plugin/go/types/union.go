@@ -367,11 +367,11 @@ func processInlineVariant(
 			vd.ConstraintChecks,
 			goConstraintChecks(f, defaultOnly.Contains(f.Name), fd)...,
 		)
-		if chk, ok := goLessThanCheck(
-			f,
-			siblings,
-			restated(f, defaultOnly, parents),
-		); ok {
+		parent := restated(f, defaultOnly, parents)
+		if chk, ok := goLessThanCheck(f, siblings, parent); ok {
+			vd.ConstraintChecks = append(vd.ConstraintChecks, chk)
+		}
+		if chk, ok := goPatternCheck(f, parent, data); ok {
 			vd.ConstraintChecks = append(vd.ConstraintChecks, chk)
 		}
 	}

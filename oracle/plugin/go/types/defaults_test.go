@@ -887,6 +887,31 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			},
 		)
 
+		It("Should check that a string matches a pattern", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Device struct {
+					identifier string {
+						@go validate pattern "^$|^[a-z]+$" "lowercase only"
+					}
+					name string {
+						@go validate pattern "^[A-Z]"
+					}
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`"regexp"`,
+				"v.Ternary(\"identifier\", "+
+					"!regexp.MustCompile(\"^$|^[a-z]+$\").MatchString(string(d.Identifier)), "+
+					"\"lowercase only\")",
+				"v.Ternary(\"name\", "+
+					"!regexp.MustCompile(\"^[A-Z]\").MatchString(string(d.Name)), "+
+					"\"must match ^[A-Z]\")",
+			)
+		})
+
 		It("Should check a restated field's own lt rule", func() {
 			source := `
 				@go output "core/pkg/service/x"
