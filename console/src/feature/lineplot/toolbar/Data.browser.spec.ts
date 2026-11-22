@@ -359,9 +359,11 @@ describe("lineplot/toolbar/Data", () => {
       await screen.findByText(plotted.name);
       // A read of the cache also calls watch, so only the keys that subscribe count.
       const watch = client.ranges.watch.bind(client.ranges);
-      const subscribed: unknown[] = [];
+      const subscribed: string[] = [];
       const spy = vi.spyOn(client.ranges, "watch").mockImplementation((query) => {
         const live = watch(query);
+        // The list query keeps its identity, or the list reads again on each render.
+        if (typeof query !== "string") return live;
         return {
           ...live,
           onChange: (handler) => {
@@ -374,9 +376,7 @@ describe("lineplot/toolbar/Data", () => {
       openSearch();
       await optionsShowing(plotted);
       // The Core reads a watched key that is not a UUID as a range name.
-      const names = subscribed.filter(
-        (query) => typeof query === "string" && !ranger.keyZ.safeParse(query).success,
-      );
+      const names = subscribed.filter((query) => !ranger.keyZ.safeParse(query).success);
       expect(names).toEqual([]);
     });
 
