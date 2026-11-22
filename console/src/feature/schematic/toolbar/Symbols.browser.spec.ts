@@ -326,7 +326,9 @@ describe("Schematic toolbar Symbols drag preview", () => {
         document.querySelector(".pluto-custom-drawing #body")?.getAttribute("fill"),
       ).toBe("#ff0000"),
     );
-    fireEvent.dragStart(await screen.findByText(name));
+    fireEvent.dragStart(await screen.findByText(name), {
+      dataTransfer: new DataTransfer(),
+    });
     const body = layer()?.querySelector(".pluto-custom-drawing #body");
     expect(body?.getAttribute("fill")).toBe("#ff0000");
   });
