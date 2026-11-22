@@ -233,12 +233,13 @@ var _ = Describe("Rewrites", func() {
 					Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
 				}))
 				id := MustSucceed(w.NewSegment(6))
-				records := []log.Record{
-					&log.Create{Segment: id, Key: 6, Clock: 5, Version: 1, DataType: 4},
-				}
+				records := make([]log.Record, 0, 2)
 				if closed {
 					Expect(w.Close()).To(Succeed())
-					records = nil
+				} else {
+					records = append(records, &log.Create{
+						Segment: id, Key: 6, Clock: 5, Version: 1, DataType: 4,
+					})
 				}
 				records = append(records, replace(func(r *log.Replace) { r.New = id }))
 				Expect(a.durable(records)).To(Succeed())
