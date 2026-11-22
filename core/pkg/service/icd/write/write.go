@@ -46,13 +46,17 @@ var defaultDataTypes = map[payload.Kind]telem.DataType{
 // binding sends its value as its field. dataTypes holds the data type of each channel
 // that exists. A binding to another channel takes its own data type, or else float64
 // for a scaled field and the default of its field's kind for any other. Encoder returns
-// a validation error when ic lacks the message, the message is not JSON, wm binds no
-// channels, a value does not suit its field, or the encoder refuses the bindings.
+// a validation error when wm is not valid, ic lacks the message, the message is not
+// JSON, wm binds no channels, a value does not suit its field, or the encoder refuses
+// the bindings.
 func Encoder(
 	wm icd.WriteMessage,
 	ic icd.ICD,
 	dataTypes map[channel.Key]telem.DataType,
 ) (*codec.JSONEncoder, error) {
+	if err := wm.Validate(); err != nil {
+		return nil, err
+	}
 	i := slices.IndexFunc(ic.Messages, func(m icd.Message) bool {
 		return m.Key == wm.Message
 	})
