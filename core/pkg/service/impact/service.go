@@ -130,9 +130,9 @@ type PlanOptions struct {
 
 // Plan returns every record that c touches with the picks of opts, as seen by snap, and
 // the token that Apply checks. A delete pick on a channel adds its holders, as Apply
-// does. A delete of groups has no entries. It writes nothing. A pick that is not a
-// choice, that names no visible entry, or that its entry does not allow fails with a
-// validation error.
+// does. A delete of groups lists each tombstone in the groups as a cascade entry with
+// its path. It writes nothing. A pick that is not a choice, that names no visible
+// entry, or that its entry does not allow fails with a validation error.
 func (s *Service) Plan(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -152,7 +152,7 @@ func (s *Service) Plan(
 		r.plan.Token = token(channelsSum(v.Keys, r.plan))
 		return r.plan, nil
 	case DeleteGroupsChange:
-		p, err := groupsPlan(c, opts.Picks, opts.Hidden)
+		p, err := s.planGroups(ctx, snap, c, v.Keys, opts)
 		if err != nil {
 			return Plan{}, err
 		}
@@ -310,39 +310,31 @@ func (s *Service) deleteGroups(
 	keys []group.Key,
 	opts ApplyOptions,
 ) (Plan, error) {
-	p, err := groupsPlan(c, opts.Picks, opts.Hidden)
+	p, err := s.planGroups(ctx, tx, c, keys, PlanOptions{
+		Picks:  opts.Picks,
+		Hidden: opts.Hidden,
+	})
 	if err != nil {
 		return Plan{}, err
 	}
 	if opts.Token != "" {
 		// A change of its own keeps c off the heap when no token comes.
-		now := Plan{Change: Change{Variant: DeleteGroupsChange{Keys: keys}}}
+		now := p
+		now.Change = Change{Variant: DeleteGroupsChange{Keys: keys}}
 		if err = checkToken(opts.Token, groupsSum(keys, now), now); err != nil {
 			return Plan{}, err
 		}
 		p.Token = opts.Token
 	}
-	dead, err := s.cfg.Channel.NewWriter(tx).DeleteTombstones(ctx, keys...)
-	if err != nil {
-		return Plan{}, err
-	}
-	var paths []string
-	if len(dead) > 0 {
-		if paths, err = s.tombstonePaths(ctx, tx, keys, dead); err != nil {
+	if len(p.Entries) > 0 {
+		w := s.cfg.Channel.NewWriter(tx)
+		if _, err = w.DeleteTombstones(ctx, keys...); err != nil {
 			return Plan{}, err
 		}
 	}
 	if err = s.cfg.Group.NewWriter(tx).Delete(ctx, keys...); err != nil {
 		return Plan{}, err
 	}
-	for i, t := range dead {
-		p.Entries = append(p.Entries, Entry{
-			Record: channel.ResourceID(t.Key),
-			Effect: EffectCascade,
-			Path:   &paths[i],
-		})
-	}
-	slices.SortFunc(p.Entries, compareEntries)
 	return p, nil
 }
 
@@ -350,7 +342,7 @@ func (s *Service) deleteGroups(
 // A group inside a deleted one is deleted too, so each walk ends at a deleted group.
 func (s *Service) tombstonePaths(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	keys []group.Key,
 	dead []channel.Tombstone,
 ) ([]string, error) {
@@ -358,7 +350,7 @@ func (s *Service) tombstonePaths(
 	if err := s.cfg.Group.NewRetrieve().
 		Where(group.MatchKeys(keys...)).
 		Entries(&groups).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	deleted := make(map[group.Key]group.Group, len(groups))

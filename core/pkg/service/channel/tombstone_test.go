@@ -240,6 +240,23 @@ var _ = Describe("Tombstone", Ordered, func() {
 		},
 	)
 
+	It("Should return the tombstones in folders and leave them in place", func(
+		ctx SpecContext,
+	) {
+		g := createFolder(ctx)
+		other := createFolder(ctx)
+		dead := deleteHeld(ctx, channel.Channel{Group: &g.Key})
+		deleteHeld(ctx, channel.Channel{Group: &other.Key})
+		found := MustSucceed(svc.Tombstones(ctx, db, g.Key))
+		Expect(found).To(HaveLen(1))
+		Expect(found[0].Key).To(Equal(dead.Key()))
+		Expect(found[0].Name).To(Equal(dead.Name))
+		Expect(found[0].Group).To(Equal(&g.Key))
+		_, ok := tombstoneOf(ctx, dead.Key())
+		Expect(ok).To(BeTrue())
+		Expect(svc.Tombstones(ctx, db, createFolder(ctx).Key)).To(BeEmpty())
+	})
+
 	It("Should skip a tombstone path in the folder of a channel it rehomes", func(
 		ctx SpecContext,
 	) {

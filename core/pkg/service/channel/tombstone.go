@@ -303,21 +303,45 @@ func (w Writer) tombstoneAt(
 	return w.svc.tombstones.paths.Holder(ctx, w.tx, p)
 }
 
+// Tombstones returns the tombstones in the groups with keys, as snap sees them.
+func (s *Service) Tombstones(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	groups ...group.Key,
+) ([]Tombstone, error) {
+	_, dead, err := s.tombstonesIn(ctx, snap, groups)
+	return dead, err
+}
+
+// tombstonesIn returns the keys of the tombstones in groups and the tombstones, as snap
+// sees them.
+func (s *Service) tombstonesIn(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	groups []group.Key,
+) ([]Key, []Tombstone, error) {
+	keys, err := s.tombstones.groups.Get(ctx, snap, groups...)
+	if err != nil || len(keys) == 0 {
+		return nil, nil, err
+	}
+	dead := make([]Tombstone, 0, len(keys))
+	if err = s.tombstones.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Tombstone](keys...)).
+		Entries(&dead).
+		Exec(ctx, snap); err != nil {
+		return nil, nil, err
+	}
+	return keys, dead, nil
+}
+
 // DeleteTombstones deletes the tombstones in the groups with keys and returns them. A
 // tombstone refuses the delete of its group, so a group delete calls it first.
 func (w Writer) DeleteTombstones(
 	ctx context.Context,
 	groups ...group.Key,
 ) ([]Tombstone, error) {
-	keys, err := w.svc.tombstones.groups.Get(ctx, w.tx, groups...)
+	keys, dead, err := w.svc.tombstonesIn(ctx, w.tx, groups)
 	if err != nil || len(keys) == 0 {
-		return nil, err
-	}
-	dead := make([]Tombstone, 0, len(keys))
-	if err = w.svc.tombstones.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Tombstone](keys...)).
-		Entries(&dead).
-		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
 	return dead, w.svc.tombstones.table.NewDelete().
