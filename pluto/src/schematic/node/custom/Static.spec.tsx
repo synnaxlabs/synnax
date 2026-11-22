@@ -18,8 +18,8 @@ import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const Static = Node.REGISTRY.custom_static.Preview;
 
-// The preview renders the symbol from its props, so props the schema does not
-// carry, such as a stroke color, pass through as they are.
+// The preview renders the symbol from its props, so props the schema does not carry,
+// such as a stroke color, pass through as they are.
 const config = (props: { specKey: string } & Record<string, unknown>) => ({
   ...schematic.customStaticNodeConfigZ.parse({
     variant: "custom_static",
