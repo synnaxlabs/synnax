@@ -12,8 +12,7 @@ import { act, render } from "@testing-library/react";
 import { type ReactElement, use } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { FallbackProps } from "@/errors/Fallback";
-import { SuspenseBoundary } from "@/errors/SuspenseBoundary";
+import { Errors } from "@/errors";
 
 const Suspender = ({ promise }: { promise: Promise<string> }): ReactElement => (
   <div>{use(promise)}</div>
@@ -39,9 +38,9 @@ describe("SuspenseBoundary", () => {
 
   it("should render children when nothing suspends or throws", () => {
     const c = render(
-      <SuspenseBoundary>
+      <Errors.SuspenseBoundary>
         <div>resolved</div>
-      </SuspenseBoundary>,
+      </Errors.SuspenseBoundary>,
     );
     expect(c.getByText("resolved")).toBeTruthy();
   });
@@ -49,9 +48,9 @@ describe("SuspenseBoundary", () => {
   it("should render the loading fallback while a child suspends", () => {
     const { promise, resolve } = Promise.withResolvers<string>();
     const c = render(
-      <SuspenseBoundary loading={<div>loading</div>}>
+      <Errors.SuspenseBoundary loading={<div>loading</div>}>
         <Suspender promise={promise} />
-      </SuspenseBoundary>,
+      </Errors.SuspenseBoundary>,
     );
     expect(c.getByText("loading")).toBeTruthy();
     resolve("done");
@@ -59,18 +58,18 @@ describe("SuspenseBoundary", () => {
 
   it("should render the delayed loading indicator by default while suspended", () => {
     const c = render(
-      <SuspenseBoundary>
+      <Errors.SuspenseBoundary>
         <Suspender promise={new Promise<string>(() => {})} />
-      </SuspenseBoundary>,
+      </Errors.SuspenseBoundary>,
     );
     expect(c.container.querySelector(".lyra-status__loading")).not.toBeNull();
   });
 
   it("should render nothing while suspended when loading is null", () => {
     const c = render(
-      <SuspenseBoundary loading={null}>
+      <Errors.SuspenseBoundary loading={null}>
         <Suspender promise={new Promise<string>(() => {})} />
-      </SuspenseBoundary>,
+      </Errors.SuspenseBoundary>,
     );
     expect(c.container.innerHTML).toBe("");
   });
@@ -79,9 +78,9 @@ describe("SuspenseBoundary", () => {
     // The fallback resolves the error's stack in an effect.
     const c = await act(async () =>
       render(
-        <SuspenseBoundary>
+        <Errors.SuspenseBoundary>
           <Thrower throwable={new Error("boom")} />
-        </SuspenseBoundary>,
+        </Errors.SuspenseBoundary>,
       ),
     );
     expect(c.getByText("boom")).toBeTruthy();
@@ -89,13 +88,13 @@ describe("SuspenseBoundary", () => {
   });
 
   it("should render a custom FallbackComponent when a child throws", () => {
-    const Fallback = ({ error }: FallbackProps) => (
+    const Fallback = ({ error }: Errors.FallbackProps) => (
       <div data-testid="custom">{error.message}</div>
     );
     const c = render(
-      <SuspenseBoundary FallbackComponent={Fallback}>
+      <Errors.SuspenseBoundary FallbackComponent={Fallback}>
         <Thrower throwable={new Error("boom")} />
-      </SuspenseBoundary>,
+      </Errors.SuspenseBoundary>,
     );
     expect(c.getByTestId("custom").textContent).toBe("boom");
   });
@@ -103,15 +102,15 @@ describe("SuspenseBoundary", () => {
   it("should expose the original status on error.cause when a thrown Error wraps one", () => {
     const inner = new Error("raw");
     const s = status.fromException(inner, "Failed to fetch");
-    let received!: FallbackProps["error"];
-    const Fallback = ({ error }: FallbackProps) => {
+    let received!: Errors.FallbackProps["error"];
+    const Fallback = ({ error }: Errors.FallbackProps) => {
       received = error;
       return <div>caught</div>;
     };
     render(
-      <SuspenseBoundary FallbackComponent={Fallback}>
+      <Errors.SuspenseBoundary FallbackComponent={Fallback}>
         <Thrower throwable={status.toError(s)} />
-      </SuspenseBoundary>,
+      </Errors.SuspenseBoundary>,
     );
     expect(received.message).toBe("Failed to fetch");
     expect(received.cause).toBe(s);
@@ -123,13 +122,13 @@ describe("SuspenseBoundary", () => {
       if (shouldThrow) throw new Error("boom");
       return <div>recovered</div>;
     };
-    const Fallback = ({ resetErrorBoundary }: FallbackProps) => (
+    const Fallback = ({ resetErrorBoundary }: Errors.FallbackProps) => (
       <button onClick={resetErrorBoundary}>retry</button>
     );
     const c = render(
-      <SuspenseBoundary FallbackComponent={Fallback}>
+      <Errors.SuspenseBoundary FallbackComponent={Fallback}>
         <Maybe />
-      </SuspenseBoundary>,
+      </Errors.SuspenseBoundary>,
     );
     expect(c.getByText("retry")).toBeTruthy();
     shouldThrow = false;

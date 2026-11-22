@@ -10,10 +10,9 @@
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { LinePlot } from "@/lineplot";
 import { lineplot } from "@/lineplot/aether";
-import { Frame } from "@/lineplot/Frame";
-import { Viewport } from "@/lineplot/Viewport";
-import { render } from "@/testutil/render";
+import { render } from "@/testutil";
 
 const WORKER_PATH = [
   "alamos",
@@ -30,9 +29,9 @@ const WORKER_PATH = [
 describe("Viewport", () => {
   it("should overlay the spinner and message only while loading", async () => {
     const { container, root } = render(
-      <Frame aetherKey="plot" loadingMessage="Fetching 90d of data">
-        <Viewport />
-      </Frame>,
+      <LinePlot.Frame aetherKey="plot" loadingMessage="Fetching 90d of data">
+        <LinePlot.Viewport />
+      </LinePlot.Frame>,
       { render: true, registry: lineplot.REGISTRY },
     );
     let plot: lineplot.LinePlot | null = null;
@@ -58,9 +57,9 @@ describe("Viewport", () => {
 
   it("should show the corner spinner while fetching after the first load", async () => {
     const { container, root } = render(
-      <Frame aetherKey="plot">
-        <Viewport />
-      </Frame>,
+      <LinePlot.Frame aetherKey="plot">
+        <LinePlot.Viewport />
+      </LinePlot.Frame>,
       { render: true, registry: lineplot.REGISTRY },
     );
     let plot: lineplot.LinePlot | null = null;

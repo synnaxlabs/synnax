@@ -16,8 +16,7 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Arc } from "@/arc";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 

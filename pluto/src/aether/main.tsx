@@ -20,12 +20,7 @@ import {
 } from "react";
 import type { z } from "zod";
 
-import type {
-  CallersFromSchema,
-  EmptyMethodsSchema,
-  MethodsSchema,
-} from "@/aether/aether/aether";
-import type { MainComms } from "@/aether/aether/message";
+import type { aether } from "@/aether/aether";
 import { type Handle, type RawSetArg, Store } from "@/aether/store";
 
 /** Value supplied by the Aether context to descendants of {@link Provider}. */
@@ -52,7 +47,7 @@ export interface ProviderProps extends PropsWithChildren {
   workerEnabled?: boolean;
   /** Pre-built comms (e.g. from {@link aether.createMockPair} in tests). Takes
    * precedence over {@link workerURL} and {@link workerEnabled}. */
-  worker?: MainComms;
+  worker?: aether.MainComms;
   /** Default timeout for async method invocations. Defaults to 5s. */
   invokeTimeout?: CrudeTimeSpan;
 }
@@ -90,11 +85,11 @@ export const Provider = ({ children, ...config }: ProviderProps): ReactElement =
  * registry, and the subscribe / getSnapshot pair consumed by `useSyncExternalStore`. */
 export interface UseLifecycleReturn<
   StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
-  Methods extends MethodsSchema = EmptyMethodsSchema,
+  Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > {
   path: readonly string[];
   setState: (state: RawSetArg<StateSchema>, transfer?: Transferable[]) => void;
-  methods: CallersFromSchema<Methods>;
+  methods: aether.CallersFromSchema<Methods>;
   subscribe: (listener: () => void) => destructor.Destructor;
   getSnapshot: () => z.infer<StateSchema>;
 }
@@ -103,7 +98,7 @@ type StateHandler<T = unknown> = (state: T) => void;
 
 interface UseLifecycleProps<
   StateSchema extends z.ZodType,
-  Methods extends MethodsSchema = EmptyMethodsSchema,
+  Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > {
   /** Component type, matched against the worker-side registry. */
   type: string;
@@ -130,7 +125,7 @@ interface UseLifecycleProps<
  * {@link useUnidirectional} instead. */
 export const useLifecycle = <
   StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
-  Methods extends MethodsSchema = EmptyMethodsSchema,
+  Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 >({
   type,
   aetherKey,
@@ -190,7 +185,7 @@ export interface ComponentProps {
 
 export interface UseProps<
   StateSchema extends z.ZodType,
-  Methods extends MethodsSchema = EmptyMethodsSchema,
+  Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > extends Omit<UseLifecycleProps<StateSchema, Methods>, "onReceive"> {
   onAetherChange?: (state: z.infer<StateSchema>) => void;
 }
@@ -202,17 +197,17 @@ interface ComponentContext {
 /** Tuple returned by {@link use}: `[ctx, state, setState, methods]`. */
 export type UseReturn<
   StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
-  Methods extends MethodsSchema = EmptyMethodsSchema,
+  Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > = [
   ComponentContext,
   z.infer<StateSchema>,
   (state: RawSetArg<StateSchema>, transfer?: Transferable[]) => void,
-  CallersFromSchema<Methods>,
+  aether.CallersFromSchema<Methods>,
 ];
 
 export interface UseUnidirectionalProps<
   StateSchema extends z.ZodType,
-  Methods extends MethodsSchema = EmptyMethodsSchema,
+  Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > extends Pick<
   UseLifecycleProps<StateSchema, Methods>,
   "schema" | "aetherKey" | "methods"
@@ -224,9 +219,9 @@ export interface UseUnidirectionalProps<
 }
 
 export interface UseUnidirectionalReturn<
-  Methods extends MethodsSchema = EmptyMethodsSchema,
+  Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > extends ComponentContext {
-  methods: CallersFromSchema<Methods>;
+  methods: aether.CallersFromSchema<Methods>;
 }
 
 /** One-way binding for components whose state lives in React. Pushes `state` to the
@@ -234,7 +229,7 @@ export interface UseUnidirectionalReturn<
  * propagate back. Use {@link use} for bidirectional state. */
 export const useUnidirectional = <
   StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
-  Methods extends MethodsSchema = EmptyMethodsSchema,
+  Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 >({
   state,
   ...rest
@@ -261,7 +256,7 @@ export const useUnidirectional = <
  * registry. */
 export const use = <
   StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
-  Methods extends MethodsSchema = EmptyMethodsSchema,
+  Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 >(
   props: UseProps<StateSchema, Methods>,
 ): UseReturn<StateSchema, Methods> => {

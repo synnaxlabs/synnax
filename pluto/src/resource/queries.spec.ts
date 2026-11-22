@@ -14,8 +14,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Resource } from "@/resource";
-import { renderHookSuspended } from "@/testutil";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });

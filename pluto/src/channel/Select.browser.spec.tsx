@@ -16,7 +16,7 @@ import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 
 import { Channel } from "@/channel";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 const TRIGGER_CLASS = "pluto-channel__trigger";
 

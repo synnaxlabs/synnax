@@ -32,7 +32,7 @@ import { z } from "zod";
 
 import { Access } from "@/access";
 import { Color } from "@/color";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 const other = createTestClient();

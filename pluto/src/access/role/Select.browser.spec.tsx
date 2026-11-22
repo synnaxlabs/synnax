@@ -16,7 +16,7 @@ import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 
 import { Role } from "@/access/role";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 

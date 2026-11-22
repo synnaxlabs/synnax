@@ -22,7 +22,10 @@ import { StatusIndicator } from "@/rack/StatusIndicator";
 
 export interface SelectSingleProps
   extends
-    Omit<Select.SingleFrameProps<rack.Key, rack.Payload | undefined>, "data">,
+    Omit<
+      Select.SingleFrameProps<rack.Key, rack.Payload | undefined>,
+      "data" | "selectedFirst"
+    >,
     Omit<Flux.UseListParams<ListQuery, rack.Rack>, "name">,
     Omit<Dialog.FrameProps, "onChange">,
     Pick<Select.ItemsProps<rack.Key>, "emptyContent">,

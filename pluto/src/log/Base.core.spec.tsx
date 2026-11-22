@@ -14,9 +14,9 @@ import { color, id } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Base } from "@/log/Base";
+import { Log } from "@/log";
 import { createAetherSetup, DEFAULT_STATE, initialStateOf } from "@/log/testutil";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
 // state (empty, scrolling, selectionStart, etc.). All other Aether consumers
@@ -58,7 +58,7 @@ describe("log/Base", () => {
       const { setState } = setupAether();
       render(
         <Triggers.Provider>
-          <Base
+          <Log.Base
             channels={[
               log.channelEntryZ.parse({
                 channel: 1,
