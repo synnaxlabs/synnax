@@ -125,12 +125,13 @@ var _ = Describe("Delete on the pointer log, broken by a crash", func() {
 			closeDB()
 			re, closeRe := breakOpen(ctx, image)
 			Expect(breakValues(ctx, re)).To(Equal([]int64{20, 21, 22}))
+			// Run returns only after the orphan pass, and a read does not wait for it.
+			closeRe()
 			if segs := breakSegments(image, breakData); len(segs) != 1 {
 				failures = append(failures, fmt.Sprintf(
 					"run key %d: segment files %v after the orphan pass", runKey, segs,
 				))
 			}
-			closeRe()
 		}
 		Expect(failures).To(BeEmpty())
 	})
