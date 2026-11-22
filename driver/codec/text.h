@@ -99,9 +99,10 @@ public:
     /// line belongs to the message with the longest prefix that starts it, or else to
     /// the message with no prefix.
     /// @returns CONFIG_ERROR when two messages have the same prefix or no prefix, a
-    /// delimiter or tag is empty, a binding names no field of its message, a default is
-    /// not finite or does not fit its channel, or a field does not convert to the data
-    /// type of its binding.
+    /// delimiter or tag is empty, a tag contains its delimiter or starts with
+    /// whitespace, a binding names no field of its message, a default is not finite or
+    /// does not fit its channel, or a field does not convert to the data type of its
+    /// binding.
     static std::pair<Text, x::errors::Error>
     create(const std::vector<TextMessage> &messages);
 
