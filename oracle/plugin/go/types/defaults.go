@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -754,7 +755,7 @@ func goConstraintChecks(
 			FieldName: jsonName,
 			Kind:      kind,
 			Arg:       arg,
-			Deref:     field.Optional,
+			Deref:     field.Optional && !typemap.Nilable(field.Type, data.table),
 		}
 	}
 	required := rules.Required && !field.Optional

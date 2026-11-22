@@ -408,8 +408,7 @@ var _ = Describe("Validate", func() {
 			DescribeTable(
 				"MinBytes should count decoded bytes",
 				func(text string, short bool) {
-					value, err := base64.StdEncoding.DecodeString(text)
-					Expect(err).ToNot(HaveOccurred())
+					value := MustSucceed(base64.StdEncoding.DecodeString(text))
 					Expect(v.MinBytes("field", value, 3)).To(Equal(short))
 					if short {
 						Expect(v.Error()).To(MatchError(ContainSubstring(
@@ -426,8 +425,7 @@ var _ = Describe("Validate", func() {
 			DescribeTable(
 				"MaxBytes should count decoded bytes",
 				func(text string, long bool) {
-					value, err := base64.StdEncoding.DecodeString(text)
-					Expect(err).ToNot(HaveOccurred())
+					value := MustSucceed(base64.StdEncoding.DecodeString(text))
 					Expect(v.MaxBytes("field", value, 3)).To(Equal(long))
 					if long {
 						Expect(v.Error()).To(MatchError(ContainSubstring(
