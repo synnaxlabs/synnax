@@ -9,14 +9,14 @@
 
 import { describe, expect, it } from "vitest";
 
-import { LogFactory } from "@/log/aether/telem/factory";
-import { noopLogSourceSpec } from "@/log/aether/telem/noop";
-import type { LogSource } from "@/log/aether/telem/types";
+import { log, LogFactory, type LogSource } from "@/log/aether";
 
 describe("NoopLogSource", () => {
   it("should return an empty array from value()", () => {
     const factory = new LogFactory(null);
-    const source = factory.create(noopLogSourceSpec) as LogSource;
+    // A log with no telemetry reads from the no-op source.
+    const spec = log.logStateZ.shape.telem.parse(undefined);
+    const source = factory.create(spec) as LogSource;
     expect(source.value().data).toEqual([]);
   });
 });
