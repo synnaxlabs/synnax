@@ -58,12 +58,27 @@ var (
 
 const valueKey channel.Key = 2
 
+func channelOf(key icd.FieldKey, ch channel.Key, dt *telem.DataType) icd.WriteBinding {
+	return icd.WriteBinding{Variant: icd.ChannelWriteBinding{
+		WriteBaseBinding: icd.WriteBaseBinding{Field: key},
+		Channel:          ch,
+		DataType:         dt,
+	}}
+}
+
+func valueOf(key icd.FieldKey, v icd.WriteValueVariant) icd.WriteBinding {
+	return icd.WriteBinding{Variant: icd.ValueWriteBinding{
+		WriteBaseBinding: icd.WriteBaseBinding{Field: key},
+		Value:            icd.WriteValue{Variant: v},
+	}}
+}
+
 func bind(f icd.JSONField) icd.WriteBinding {
-	return icd.WriteBinding{Field: f.Base().Key, Channel: valueKey}
+	return channelOf(f.Base().Key, valueKey, nil)
 }
 
 func fixed(f icd.JSONField, v icd.WriteValueVariant) icd.WriteBinding {
-	return icd.WriteBinding{Field: f.Base().Key, Value: &icd.WriteValue{Variant: v}}
+	return valueOf(f.Base().Key, v)
 }
 
 func writeOf(m icd.Message, bindings ...icd.WriteBinding) icd.WriteMessage {
@@ -190,10 +205,10 @@ var _ = Describe("Write", func() {
 		It(
 			"Should take the data type of a binding whose channel does not exist",
 			func() {
-				wm := writeOf(setpoint, icd.WriteBinding{
-					Field:    temp.Base().Key,
-					DataType: telem.Int32T,
-				})
+				wm := writeOf(
+					setpoint,
+					channelOf(temp.Base().Key, 0, new(telem.Int32T)),
+				)
 				enc := MustSucceed(write.Encoder(wm, plant, nil))
 				Expect(enc.Encode(nil, [][]byte{telem.NewSeriesV[int32](7).Data})).
 					To(MatchJSON(`{"temp":7,"mode":"auto","limit":1}`))
@@ -201,7 +216,7 @@ var _ = Describe("Write", func() {
 		)
 
 		It("Should take the default data type of the field's kind", func() {
-			wm := writeOf(tagged, icd.WriteBinding{Field: id.Base().Key})
+			wm := writeOf(tagged, channelOf(id.Base().Key, 0, nil))
 			enc := MustSucceed(write.Encoder(wm, plant, nil))
 			v := uuid.New()
 			Expect(enc.Encode(nil, [][]byte{v[:]})).
@@ -216,7 +231,7 @@ var _ = Describe("Write", func() {
 				raw.SetBase(base)
 				m := jsonMessage("Raw", raw)
 				ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m}}
-				wm := writeOf(m, icd.WriteBinding{Field: raw.Base().Key})
+				wm := writeOf(m, channelOf(raw.Base().Key, 0, nil))
 				enc := MustSucceed(write.Encoder(wm, ic, nil))
 				Expect(enc.Encode(nil, [][]byte{telem.NewSeriesV(10.0).Data})).
 					To(MatchJSON(expected))
@@ -227,11 +242,10 @@ var _ = Describe("Write", func() {
 
 		It("Should take the data type of a channel that exists over its binding's",
 			func() {
-				wm := writeOf(setpoint, icd.WriteBinding{
-					Field:    temp.Base().Key,
-					Channel:  valueKey,
-					DataType: telem.Int32T,
-				})
+				wm := writeOf(
+					setpoint,
+					channelOf(temp.Base().Key, valueKey, new(telem.Int32T)),
+				)
 				enc := MustSucceed(write.Encoder(wm, plant, dataTypes))
 				Expect(enc.Encode(nil, [][]byte{telem.NewSeriesV(20.5).Data})).
 					To(MatchJSON(`{"temp":20.5,"mode":"auto","limit":1}`))
@@ -250,7 +264,7 @@ var _ = Describe("Write", func() {
 				"does not exist in ICD Plant",
 			),
 			Entry("a message that is not JSON",
-				writeOf(frame, icd.WriteBinding{}),
+				writeOf(frame, bind(temp)),
 				"message Frame is not a JSON message",
 			),
 			Entry("a message with no bindings",
@@ -269,32 +283,17 @@ var _ = Describe("Write", func() {
 				writeOf(setpoint, bind(limit)),
 				"field temp: needs a channel or a default",
 			),
-			Entry("a value with a channel",
-				writeOf(setpoint, bind(limit), icd.WriteBinding{
-					Field:   temp.Base().Key,
-					Channel: valueKey,
-					Value:   &icd.WriteValue{Variant: icd.FloatWriteValue{Value: 5}},
-				}),
-				"bindings.1.channel: a binding with a value cannot have a channel",
-			),
-			Entry("a value with a data type",
-				writeOf(setpoint, bind(limit), icd.WriteBinding{
-					Field:    temp.Base().Key,
-					DataType: telem.Float32T,
-					Value:    &icd.WriteValue{Variant: icd.FloatWriteValue{Value: 5}},
-				}),
-				"bindings.1.data_type: a binding with a value cannot have a data type",
-			),
 			Entry("a value of another kind than its field",
 				writeOf(setpoint, bind(limit), fixed(temp, icd.StringWriteValue{})),
 				"bindings.1.value: field temp of kind float needs a value of its kind",
 			),
 			Entry(
 				"a value for a field that does not exist",
-				writeOf(setpoint, bind(limit), icd.WriteBinding{
-					Field: uuid.Nil(),
-					Value: &icd.WriteValue{Variant: icd.FloatWriteValue{Value: 5}},
-				}),
+				writeOf(
+					setpoint,
+					bind(limit),
+					valueOf(uuid.Nil(), icd.FloatWriteValue{Value: 5}),
+				),
 				"bindings.1.field: field 00000000-0000-0000-0000-000000000000 does not exist",
 			),
 			Entry("a value for a field that a channel fills",

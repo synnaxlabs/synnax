@@ -662,26 +662,41 @@ WriteValue union on type payload.Kind {
     @pb omit
 }
 
-WriteBinding struct {
-    field     FieldKey       {
-        @doc value "is the key of the message field to send."
+WriteBaseBinding struct {
+    field FieldKey {
+        @doc value "is the key of the message field to fill."
     }
-    channel   channel.Key = 0 {
-        @doc value "is the command channel whose values the field sends."
+
+    @doc value  "carries the parts every write binding shares."
+    @go marshal
+    @pb omit
+}
+
+WriteBinding union on type extends WriteBaseBinding {
+    channel {
+        channel   channel.Key = 0 {
+            @doc value """
+                is the command channel whose values the field sends. 0 means that a
+                client creates the channel on configure.
+            """
+        }
+        data_type telem.DataType? {
+            @doc value """
+                is the data type of the command channel that a client creates for the
+                field. Absent takes float64 for a scaled field and the default of the
+                field's kind for any other. The Core ignores it once the channel exists.
+            """
+            @ts type   "string"
+        }
+
+        @doc value "fills a field with the values of a command channel."
     }
-    data_type telem.DataType = "" {
-        @doc value """
-            is the data type of the command channel that a client creates for the field.
-            Empty takes float64 for a scaled field and the default of the field's kind
-            for any other. The Core ignores it once the channel exists.
-        """
-        @ts type   "string"
-    }
-    value     WriteValue?    {
-        @doc value """
-            is the fixed value that the field sends. A binding with a value has channel
-            0 and no data type.
-        """
+    value {
+        value WriteValue {
+            @doc value "is the fixed value that the field sends."
+        }
+
+        @doc value "fills a field with a fixed value."
     }
 
     @doc value  "fills one message field with a command channel or a fixed value."
