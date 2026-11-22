@@ -96,6 +96,8 @@ a color picker has no "+".
 
 - A compound icon is a base icon with a modifier (add, import, export) or a stack. Draw
   it as one glyph with `Icon.createFromPath`. Do not layer icons at run time.
+  `scripts/compound_icon.py` makes the glyph of a base and a modifier. For a line base,
+  give it the line width (`--line-width`), so the cut ends get round caps.
 - The modifier sits at top right: 9 units wide, centered at (17.5, 6.5), with a 2.5-unit
   stem (2 on a line base). The base scales to 0.9 from its bottom-left corner.
 - An eye modifier is 11 units wide, centered in an 11-unit square at top right. It is
@@ -493,7 +495,9 @@ bound, a log precision, or the line plot X channel.
   option hides when the text matches a name in any case, and after a click until the
   text changes, so a second click makes no copy. It needs create permission. A filter
   never creates. A new parent range covers the ranges that move into it. Under the
-  divider, the create option comes first, then "No <noun>".
+  divider, the create option comes first, then "No <noun>". The "Replace with" select of
+  the enumeration delete dialog only picks: a new enumeration has no entries for the
+  users to move to.
 - A create button at the foot of a dialog, such as "New project" in the project selector
   or "Create palette", is a small `Button.CreateListItem` with its own margin: 1rem from
   the sides and the bottom of the dialog. Under a hairline, it keeps the same 1rem
@@ -502,12 +506,17 @@ bound, a log precision, or the line plot X channel.
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
-- An open select marks the current value and opens scrolled to it.
-- An open `Select.Multiple` and the line plot's Ranges select list their selected values
-  first, with no divider: their joined tint marks where they end. The order is set when
-  the select opens and holds while it stays open, so an item never moves under the
-  pointer. A search lists its matches in their own order. GitHub and GitLab do the same.
-  A filter menu keeps its own order.
+- An open select marks the current value and opens scrolled to it. The first arrow key
+  moves on from the current value, as in a native dropdown.
+- An open select lists its current values first when it sets `selectedFirst`, as
+  `Select.Single` does, or when it pins them with `fixedItems`.
+- A `selectedFirst` select shows no divider: the joined tint of several values marks
+  where they end. Its order is set when it opens and holds while it stays open, so an
+  item never moves under the pointer. A current value that loads after it opens joins
+  the values listed first, until the user scrolls, moves the cursor, or searches. A
+  search lists its matches in their own order. GitHub and GitLab do the same.
+- Any other select keeps its order, as `Select.Simple` does. A filter menu keeps its own
+  order.
 - The placeholder of an empty `shadow` or `text` multiple select is a text button. A
   click on it opens the select beside it, as a click on a tag does. The placeholder and
   the add button take the select's size, medium by default, so they stand a step above
@@ -833,13 +842,19 @@ bound, a log precision, or the line plot X channel.
   focus to the first cell of the new row. An empty table shows only the add button.
 - Every row shows its remove button at all times, at the end of the row. A remove moves
   focus to the row that takes its place.
+- A table whose items have an order shows a drag handle in each row's gutter, in place
+  of the row label. A drag drops the row in the place of the row it lands on, and a line
+  on the grid shows where. The up and down arrows on a focused handle move the row by
+  one.
 - Enter moves down, Shift+Enter moves up, and Tab moves right.
 - Esc puts back the value the cell held when it took focus. A second Esc leaves the
   cell. Esc never commits typed text.
 - A cell with an error has a red frame, and its message shows on hover.
 - Paste keeps the values that parse. A cell whose text does not parse keeps its value
-  and shows the error until an edit. A first row in which no number parses is a heading,
-  and paste drops it.
+  and shows the error until an edit. A first row in which no number or boolean parses is
+  a heading, and paste drops it. A single value pasted into a text cell goes to that
+  cell. Into a checkbox, a custom cell, or a cell whose column has its own reader, it
+  parses like a block. Elsewhere, such as on a select, paste ignores it.
 
 ### Status and toasts
 
@@ -892,12 +907,41 @@ says why in a sentence, then gives the raw error.
   the plot shows that zoom, the item reads "Zoom out". The tooltip hides while the menu
   is open.
 
+### Plot breaks
+
+- On an absolute time x1 axis, each gap between ranges, past a margin on each side,
+  collapses into a seam. An x2 axis always shows true time, as the axes share one view.
+  A seam draws a 12 px grey band through the plot and the range strip, with dashed
+  edges, and a `//` centered in a gap in the axis line.
+- All segments share one tick interval. In each segment, the first tick whose full label
+  fits is an anchor with the date and time: "Nov 18 14:31". No label comes before the
+  anchor of its segment, and no label overlaps a seam or an anchor.
+- A range bar that crosses a seam draws on each side, cut at the seam with the fade of
+  the plot edge. A range wholly inside a collapsed gap draws nothing.
+- A click on a band, or on its `//` on the axis, opens the break in every plot mode. An
+  open gap keeps a faint `//` at its middle, and a click on it closes the gap. A click
+  on the plot never closes a gap, so a click on data stays a click on data.
+- When a break opens or closes, the times at the edges of the view stay in view. The
+  zoom history and the selection keep their times too.
+- The plot menu holds "Open all breaks" while a break is closed, and "Close all breaks"
+  while one is open. Reset zoom closes all breaks. The Session stores the open breaks
+  with the view, so a reload shows the same times.
+- A toggle in the plot controls hides and shows the breaks. Hidden breaks show the plot
+  in true time. The toggle resets the zoom, and it shows while the plot has a break,
+  shown or hidden. The Session stores whether the breaks hide.
+- Over a band, the tooltip lists the hidden time ("Hidden", "From", "To") and "Click to
+  show". Over a segment, it lists only the lines of that segment.
+- A measure across a closed break keeps the true ΔX and ΔY and marks ΔX with `//`. It
+  draws no oblique line and no slope, as no line joins data across a break.
+- A select drag stops at the seams of the segment where it starts. A zoom box crosses
+  seams. To select across a gap, open its break.
+
 ### Plot controls
 
 - The controls on a plot hold tools for reading it: zoom, pan, select, reset zoom,
-  tooltip, the range strip, measure, and hold. Each is state of the window, never saved
-  with the plot. A setting saved with the plot goes in the toolbar, even when it changes
-  what the plot shows, such as the time mode.
+  tooltip, the range strip, the breaks toggle, measure, and hold. Each is state of the
+  window, never saved with the plot. A setting saved with the plot goes in the toolbar,
+  even when it changes what the plot shows, such as the time mode.
 
 ### Plot range select
 

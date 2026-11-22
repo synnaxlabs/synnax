@@ -16,9 +16,9 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Base, type BaseProps } from "@/log/Base";
+import { Log } from "@/log";
 import { createAetherSetup, DEFAULT_STATE, initialStateOf } from "@/log/testutil";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
 // state (empty, scrolling, selectionStart, etc.). All other Aether consumers
@@ -51,8 +51,8 @@ const Wrapper: FC<PropsWithChildren> = ({ children }) => (
 
 const setupAether = createAetherSetup(mockAetherUse);
 
-const renderLog = (props: Partial<BaseProps> = {}) =>
-  render(<Base {...props} />, { wrapper: Wrapper });
+const renderLog = (props: Partial<Log.BaseProps> = {}) =>
+  render(<Log.Base {...props} />, { wrapper: Wrapper });
 
 const getLogDiv = (container: HTMLElement): HTMLElement => {
   const div = container.querySelector(".pluto-log");
@@ -96,7 +96,7 @@ describe("log/Base", () => {
       const { rerender } = renderLog();
       expect(screen.getByLabelText("Loading")).toBeDefined();
       setupAether({ empty: false, loading: false });
-      rerender(<Base />);
+      rerender(<Log.Base />);
       expect(screen.queryByLabelText("Loading")).toBeNull();
     });
 
@@ -106,7 +106,7 @@ describe("log/Base", () => {
       expect(screen.getByLabelText("Loading entries")).toBeDefined();
       expect(screen.queryByLabelText("Loading")).toBeNull();
       setupAether({ empty: false, loading: true, blank: false });
-      rerender(<Base />);
+      rerender(<Log.Base />);
       expect(screen.queryByLabelText("Loading entries")).toBeNull();
       expect(screen.getByLabelText("Loading")).toBeDefined();
     });

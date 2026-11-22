@@ -156,7 +156,7 @@ const selectionColorRefs = (
     COLOR_FIELDS,
     VALUE_COLOR_FIELDS[cfg.variant],
   );
-  if (cfg.variant === "state_indicator")
+  if (cfg.variant === "state_indicator" && cfg.enumeration == null)
     cfg.options.forEach((o, i) => {
       if (o.color != null)
         refs.push({

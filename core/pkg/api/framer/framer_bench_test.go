@@ -10,6 +10,7 @@
 package framer_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -65,6 +66,66 @@ func openServiceLayer(b *testing.B) (*service.Layer, *gorp.DB) {
 	return layer, node.DB
 }
 
+// createCalculatedChannels creates a virtual channel and n calculated channels that
+// read it. It returns the keys of all of them, the virtual channel first.
+func createCalculatedChannels(
+	ctx context.Context,
+	layer *service.Layer,
+	db *gorp.DB,
+	n int,
+) channel.Keys {
+	base := channel.Channel{
+		Name:     channeltestutil.UniqueChannelName(),
+		DataType: telem.Float32T,
+		Virtual:  true,
+	}
+	calcs := make([]channel.Channel, n)
+	for i := range calcs {
+		calcs[i] = channel.Channel{
+			Name:       channeltestutil.UniqueChannelName(),
+			DataType:   telem.Float32T,
+			Expression: "return " + base.Name + " * 2",
+		}
+	}
+	gomega.Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		w := layer.Channel.NewWriter(tx)
+		if err := w.Create(ctx, &base); err != nil {
+			return err
+		}
+		return w.CreateMany(ctx, &calcs)
+	})).To(gomega.Succeed())
+	return channel.KeysFromChannels(append([]channel.Channel{base}, calcs...))
+}
+
+// subjectContext creates a user that may retrieve keys and returns a Freighter context
+// that carries the user as its subject.
+func subjectContext(
+	ctx context.Context,
+	layer *service.Layer,
+	db *gorp.DB,
+	keys channel.Keys,
+) freighter.Context {
+	u := xtestutil.MustSucceed(rbactestutil.CreateUser(
+		ctx,
+		db,
+		layer.RBAC,
+		layer.User,
+		user.User{Name: "bench-" + uuid.New().String()},
+	))
+	xtestutil.MustSucceed(rbactestutil.Grant(
+		ctx,
+		db,
+		layer.RBAC,
+		layer.User,
+		u.Key,
+		[]access.Action{access.ActionRetrieve},
+		svcframer.ResourceIDs(keys)...,
+	))
+	fCtx := freighter.Context{Context: ctx, Params: freighter.Params{}}
+	fCtx.Set("Subject", u.ResourceID())
+	return fCtx
+}
+
 // BenchmarkStreamKeyChange measures a streamer request that resends the same keys and
 // waits for its ack. The keys are one virtual channel and the calculated channels that
 // read it.
@@ -80,45 +141,8 @@ func BenchmarkStreamKeyChange(b *testing.B) {
 	for _, calculated := range []int{0, 1, 10, 100} {
 		b.Run(fmt.Sprintf("calculated=%d", calculated), func(b *testing.B) {
 			ctx := b.Context()
-			base := channel.Channel{
-				Name:     channeltestutil.UniqueChannelName(),
-				DataType: telem.Float32T,
-				Virtual:  true,
-			}
-			calcs := make([]channel.Channel, calculated)
-			for i := range calcs {
-				calcs[i] = channel.Channel{
-					Name:       channeltestutil.UniqueChannelName(),
-					DataType:   telem.Float32T,
-					Expression: "return " + base.Name + " * 2",
-				}
-			}
-			gomega.Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				w := layer.Channel.NewWriter(tx)
-				if err := w.Create(ctx, &base); err != nil {
-					return err
-				}
-				return w.CreateMany(ctx, &calcs)
-			})).To(gomega.Succeed())
-			keys := channel.KeysFromChannels(append([]channel.Channel{base}, calcs...))
-			u := xtestutil.MustSucceed(rbactestutil.CreateUser(
-				ctx,
-				db,
-				layer.RBAC,
-				layer.User,
-				user.User{Name: "bench-" + uuid.New().String()},
-			))
-			xtestutil.MustSucceed(rbactestutil.Grant(
-				ctx,
-				db,
-				layer.RBAC,
-				layer.User,
-				u.Key,
-				[]access.Action{access.ActionRetrieve},
-				svcframer.ResourceIDs(keys)...,
-			))
-			fCtx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-			fCtx.Set("Subject", u.ResourceID())
+			keys := createCalculatedChannels(ctx, layer, db, calculated)
+			fCtx := subjectContext(ctx, layer, db, keys)
 			client, server := freightertestutil.NewStreams[
 				apiframer.StreamerRequest,
 				apiframer.StreamerResponse,

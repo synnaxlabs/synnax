@@ -13,7 +13,7 @@ import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useDeleteDataModal } from "@/feature/framer/useDeleteDataModal";
+import { Framer } from "@/feature/framer";
 import {
   createTestIndexedPair,
   type TestIndexedPair,
@@ -25,13 +25,14 @@ import {
   pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
+import { pickOption } from "@/testutil";
 
 const client = createTestClient();
 
 const SAMPLES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const openModal = async (c: Synnax | null = null): Promise<ModalOpenerHandle<void>> => {
-  const handle = await renderModalOpener(useDeleteDataModal, [], { client: c });
+  const handle = await renderModalOpener(Framer.useDeleteDataModal, [], { client: c });
   await screen.findByText("Delete data");
   return handle;
 };
@@ -48,10 +49,7 @@ const createWrittenPair = async (): Promise<TestIndexedPair> => {
 
 const selectChannel = async (name: string): Promise<void> => {
   fireEvent.click(screen.getByText("Select channels to delete"));
-  fireEvent.change(await screen.findByPlaceholderText("Search channels...", {}), {
-    target: { value: name },
-  });
-  fireEvent.click(await screen.findByText(name, {}));
+  await pickOption(name, "Search channels...");
 };
 
 const goToConfirmStep = async (): Promise<void> => {

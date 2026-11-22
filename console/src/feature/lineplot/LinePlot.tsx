@@ -27,7 +27,6 @@ import {
   box,
   type color,
   location,
-  scale,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -99,6 +98,36 @@ const RangeAnnotationContextMenu = ({
     />
   );
 };
+
+interface BreaksMenuItemsProps {
+  linePlotRef: RefObject<Base.FrameRef | null>;
+  breaks: pLineplot.BreakCounts;
+}
+
+const BreaksMenuItems = ({
+  linePlotRef,
+  breaks,
+}: BreaksMenuItemsProps): ReactElement => (
+  <>
+    {breaks.closed > 0 && (
+      <Menu.Item
+        itemKey="openBreaks"
+        onClick={() => linePlotRef.current?.setAllBreaks(true)}
+      >
+        <Icon.Expand /> Open all breaks
+      </Menu.Item>
+    )}
+    {breaks.open > 0 && (
+      <Menu.Item
+        itemKey="closeBreaks"
+        onClick={() => linePlotRef.current?.setAllBreaks(false)}
+      >
+        <Icon.Collapse /> Close all breaks
+      </Menu.Item>
+    )}
+    {breaks.open + breaks.closed > 0 && <Menu.Divider />}
+  </>
+);
 
 // Compare holds what the menus of a plot on a relative x axis act on.
 interface Compare {
@@ -187,13 +216,12 @@ const CompareMenuItems = ({
     }, "Failed to set T0");
   const handleZoom = () =>
     handleError(async () => {
-      const bounds = await linePlotRef.current?.getBounds();
-      if (bounds == null) return;
-      const s = scale.Scale.scale<number>(bounds.x1).scale(1);
-      linePlotRef.current?.toggleZoom(range.key, {
-        lower: s.pos(Number(shown.start.valueOf() - zero.valueOf())),
-        upper: s.pos(Number(shown.end.valueOf() - zero.valueOf())),
+      const positions = await linePlotRef.current?.getXPositions({
+        lower: Number(shown.start.valueOf() - zero.valueOf()),
+        upper: Number(shown.end.valueOf() - zero.valueOf()),
       });
+      if (positions == null) return;
+      linePlotRef.current?.toggleZoom(range.key, positions.x1);
     }, "Failed to zoom to range");
   return (
     <>
@@ -275,6 +303,8 @@ interface ContextMenuContentProps {
   csvLines: DownloadLine[];
   linePlotRef: RefObject<Base.FrameRef | null>;
   editable: boolean;
+  breaks: pLineplot.BreakCounts;
+  breaksHidden: boolean;
   menuKeys: string[];
   compare: Compare | null;
 }
@@ -283,6 +313,8 @@ const ContextMenuContent = ({
   csvLines,
   linePlotRef,
   editable,
+  breaks,
+  breaksHidden,
   menuKeys,
   compare,
 }: ContextMenuContentProps): ReactElement => {
@@ -295,10 +327,9 @@ const ContextMenuContent = ({
   const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
   const getTimeRange = async (): Promise<TimeRange> => {
-    const bounds = await linePlotRef.current?.getBounds();
+    const bounds = await linePlotRef.current?.getXBounds(box.xBounds(selection));
     if (bounds == null) throw new Error("No bounds available");
-    const s = scale.Scale.scale<number>(1).scale(bounds.x1);
-    return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
+    return new TimeRange(bounds.x1.lower, bounds.x1.upper);
   };
   const copyText = (fmt: (tr: TimeRange) => string) => async () =>
     fmt(await getTimeRange());
@@ -324,6 +355,9 @@ const ContextMenuContent = ({
           />
           <Menu.Divider />
         </>
+      )}
+      {FLAGS.breaks && !breaksHidden && (
+        <BreaksMenuItems breaks={breaks} linePlotRef={linePlotRef} />
       )}
       {compare != null && (
         <CompareMenuItems
@@ -438,6 +472,8 @@ const Internal = (): ReactElement => {
   }));
 
   const { enableTooltip, clickMode, hold } = Session.LinePlot.useSelectControlState();
+  const storedBreaksHidden = Session.LinePlot.useSelectBreaksHidden();
+  const breaksHidden = !FLAGS.breaks || storedBreaksHidden;
   const mode = Session.LinePlot.useSelectViewportMode();
   const triggers = Viewport.DEFAULT_TRIGGERS[mode];
   // Only setViewport bumps the trigger. A stored viewport came from the plot itself.
@@ -451,8 +487,8 @@ const Internal = (): ReactElement => {
   useTriggerHold({ key, enabled: hasUpdatePermission });
   useResetZoomOnRangeChange({ key });
 
-  const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
-    ({ box: b, stage, mode }) => {
+  const handleViewportChange = useDebouncedCallback(
+    ({ box: b, stage, mode }: Viewport.UseEvent) => {
       if (stage !== "end") return;
       if (mode === "select") dispatch(Session.LinePlot.setSelection({ key, box: b }));
       else
@@ -467,6 +503,24 @@ const Internal = (): ReactElement => {
     VIEWPORT_DEBOUNCE,
     [dispatch, key],
   );
+
+  const handleOpenBreaksChange = ({
+    openBreaks: open,
+    viewport,
+    selection,
+  }: Base.OpenBreaksChange) => {
+    // A view stored after the change would hold the times of the layout before it.
+    handleViewportChange.flush();
+    dispatch(
+      Session.LinePlot.storeBreaks({
+        key,
+        open,
+        pan: box.bottomLeft(viewport),
+        zoom: box.dims(viewport),
+        selection,
+      }),
+    );
+  };
 
   const handleSelectRule = (ruleKey: string) =>
     dispatch(Session.LinePlot.setSelectedRule({ key, ruleKey }));
@@ -498,11 +552,14 @@ const Internal = (): ReactElement => {
     ),
   };
 
+  const [breaks, setBreaks] = useState<pLineplot.BreakCounts>({ open: 0, closed: 0 });
   const menuRenderProp = ({ keys }: Menu.ContextMenuMenuProps) => (
     <ContextMenuContent
       csvLines={csvLines}
       linePlotRef={linePlotRef}
       editable={hasUpdatePermission}
+      breaks={breaks}
+      breaksHidden={breaksHidden}
       menuKeys={keys}
       compare={
         relative
@@ -555,8 +612,15 @@ const Internal = (): ReactElement => {
           onDoubleClick={handleDoubleClick}
           clearOverScan={CLEAR_OVERSCAN}
           visible={visible}
+          breaksHidden={breaksHidden}
+          onBreaksChange={setBreaks}
+          initialOpenBreaks={vis.breaks.open}
+          onOpenBreaksChange={handleOpenBreaksChange}
         >
-          <Controls hasAnnotations={hasAnnotations} />
+          <Controls
+            hasAnnotations={hasAnnotations}
+            hasBreaks={breaks.open + breaks.closed > 0}
+          />
         </Base.LinePlot>
       </Menu.ContextMenu>
     </div>

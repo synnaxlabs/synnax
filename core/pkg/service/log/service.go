@@ -104,9 +104,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			slices.Clone(versions.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
-		// A channel or named color delete rewrites the log outside any log write, so
-		// the service sends the log as a create.
-		OnDetach: func(_ context.Context, tx gorp.Tx, l Log) error {
+		// A channel or named color delete, or a retarget, rewrites the log outside any
+		// log write, so the service sends it as a create.
+		OnRewrite: func(_ context.Context, tx gorp.Tx, l Log) error {
 			s.state.Dispatcher().
 				Attach(tx, l.Key, NewCreateAction(CreatePayload{Log: l}))
 			return nil

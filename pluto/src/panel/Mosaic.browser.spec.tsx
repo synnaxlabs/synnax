@@ -31,7 +31,7 @@ import { userEvent } from "vitest/browser";
 
 import { Errors } from "@/errors";
 import { Panel } from "@/panel";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 // writer is a second connected client used to emit changes the wrapper client

@@ -2827,6 +2827,8 @@ func (snc *SelectNodeConfig) Patch(c patch.Cursor) error {
 		})
 	case "options":
 		return patch.List(&snc.Options, c.Next())
+	case "enumeration":
+		return patch.OptionalValue(&snc.Enumeration, c.Next())
 	case "disabled":
 		return patch.Value(&snc.Disabled, c.Next())
 	case "on_click_delay":
@@ -3053,6 +3055,8 @@ func (sinc *StateIndicatorNodeConfig) Patch(c patch.Cursor) error {
 		})
 	case "options":
 		return patch.List(&sinc.Options, c.Next())
+	case "enumeration":
+		return patch.OptionalValue(&sinc.Enumeration, c.Next())
 	case "size":
 		return patch.Defaulted(&sinc.Size, c.Next(), func(def *StateIndicatorNodeConfig) {
 			sinc.Size = def.Size

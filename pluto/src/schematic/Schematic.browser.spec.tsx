@@ -20,7 +20,7 @@ import { aether } from "@/aether/aether";
 import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
 import { control } from "@/telem/control/aether";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 import { diagram } from "@/vis/diagram/aether";
 import { latestSample } from "@/vis/latestSample/aether";
 import { canvasTest } from "@/vis/render/testutil";

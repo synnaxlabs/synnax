@@ -104,7 +104,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Migrations: versions.Migrations,
 		// A named color delete rewrites the table outside any table write, so the
 		// service sends the table as a create.
-		OnDetach: func(_ context.Context, tx gorp.Tx, t Table) error {
+		OnRewrite: func(_ context.Context, tx gorp.Tx, t Table) error {
 			s.state.Dispatcher().
 				Attach(tx, t.Key, NewCreateAction(CreatePayload{Table: t}))
 			return nil

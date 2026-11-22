@@ -9,12 +9,13 @@
 
 import "@/select/Dialog.css";
 
-import { destructor } from "@synnaxlabs/x";
+import { array, destructor } from "@synnaxlabs/x";
 import {
   type MouseEvent,
   type PropsWithChildren,
   type ReactNode,
   useEffect,
+  useLayoutEffect,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -24,14 +25,16 @@ import { CSS } from "@/css";
 import { Dialog as BaseDialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks";
 import { Input } from "@/input";
+import { List } from "@/list";
 import { Menu } from "@/menu";
 import { usePath } from "@/menu/filter";
 import { menuKeyDown, menuKeyUp, openContextMenu } from "@/menu/keyboard";
 import { CONTEXT_TARGET } from "@/menu/types";
 import { useContext } from "@/select/Context";
+import { onFirstInput } from "@/select/firstInput";
 import { useRegistryContext } from "@/select/registry";
 import { ClosedContext, InlineContext, useViewingContext } from "@/select/scope";
-import { useGetElement } from "@/select/use";
+import { useGetElement, useOrder } from "@/select/use";
 
 /** Props for {@link Dialog}. */
 export interface DialogProps extends BaseDialog.DialogProps {
@@ -68,6 +71,39 @@ const getServerSnapshot = (): boolean => false;
 const Closed = ({ children }: PropsWithChildren): ReactNode => {
   const [detached] = useState(() => document.createElement("div"));
   return createPortal(<ClosedContext value>{children}</ClosedContext>, detached);
+};
+
+// The dialog opens on its first choice, as a native dropdown does. A fetched list can
+// load the choice after the dialog is placed, so the reveal waits for it once, until
+// the user's first input. The list never moves under the user.
+const useRevealChoice = (placed: boolean): void => {
+  const registry = useRegistryContext("Select.Dialog");
+  const order = useOrder();
+  const getElement = useGetElement();
+  const { scrollToIndex, getData } = List.useUtilContext();
+  const { getState } = useContext();
+  // Read through a ref, so the reveal runs once per open as these change identity.
+  const readRef = useSyncedRef({ order, getElement, scrollToIndex, getData, getState });
+  useLayoutEffect(() => {
+    if (!placed) return;
+    const { order, getElement, scrollToIndex, getData, getState } = readRef.current;
+    const selected = array.toArray(getState().value);
+    const stops: destructor.Destructor[] = [];
+    const stop = (): void => stops.splice(0).forEach((s) => s());
+    const tryReveal = (): void => {
+      // A search lists its matches in their own order.
+      if (registry.getTerm() !== "") return stop();
+      const key = order.getOrder().find((k) => selected.includes(k));
+      if (key == null) return;
+      stop();
+      const element = getElement(key);
+      if (element != null) element.scrollIntoView({ block: "nearest" });
+      else scrollToIndex(getData().indexOf(key));
+    };
+    stops.push(onFirstInput(registry, stop), order.subscribe(tryReveal));
+    tryReveal();
+    return stop;
+  }, [placed, registry, readRef]);
 };
 
 interface ViewsProps extends PropsWithChildren, Pick<DialogProps, "menu" | "hasMenu"> {
@@ -180,7 +216,8 @@ export const Dialog = ({
   hasMenu,
   ...rest
 }: DialogProps): ReactNode => {
-  const { visible } = BaseDialog.useContext();
+  const { visible, placed } = BaseDialog.useContext();
+  useRevealChoice(placed);
   // Under a submenu that the menu filter passes, a selection shows its options in the
   // menu or nothing.
   const nested = usePath().length > 0;
