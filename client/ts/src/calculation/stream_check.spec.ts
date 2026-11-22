@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { calculation } from "@/calculation";
 import { channel } from "@/channel";
-import { type Synnax } from "@/client";
+import type Synnax from "@/client";
 import { framer } from "@/framer";
 import {
   createEmptyRole,
