@@ -18,7 +18,7 @@ import {
   type Window,
 } from "@synnaxlabs/x";
 
-import type { TickType } from "@/vis/axis/ticks";
+import type { axis } from "@/vis/axis";
 import type { line } from "@/vis/line/aether";
 
 /** The window of a line on an x axis, in axis values. */
@@ -361,7 +361,7 @@ const margined = ({ bounds: b, edge }: line.DataBounds): bounds.Bounds => ({
  */
 export const spans = (
   traces: Trace[],
-  type: TickType,
+  type: axis.TickType,
   segments: bounds.Bounds[] = [],
 ): Map<string, bounds.Bounds> => {
   const finite = traces.filter((t) => bounds.isFinite(t.bounds));
