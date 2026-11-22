@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -223,11 +224,11 @@ func QuotePath(path string) string {
 	return b.String()
 }
 
-// AmbiguousName returns the validation error that holds the AmbiguousNameError of name
-// and holders.
+// AmbiguousName returns the query.ErrMultipleResults error that holds the
+// AmbiguousNameError of name and holders.
 func AmbiguousName(name string, holders Keys) error {
 	err := AmbiguousNameError{Name: name, Holders: holders}
-	return validate.WithCause(err, "%s", err.Error())
+	return query.MultipleResults(err, "%s", err.Error())
 }
 
 // KeysByNames returns the key of the channel that holds each of names, compared in NFC,
@@ -260,10 +261,10 @@ func (s *Service) KeysByNames(
 
 // DescribeAmbiguity returns err as a subject sees it when err is an AmbiguousNameError,
 // and returns err unchanged otherwise. access returns whether the subject can retrieve
-// a record. The result is a validation error that quotes the path of each holder that
-// the subject can retrieve along with every folder on its path, then counts the other
-// holders. errors.As still finds the AmbiguousNameError in it. Paths are as snap holds
-// them.
+// a record. The result is a query.ErrMultipleResults error that quotes the path of each
+// holder that the subject can retrieve along with every folder on its path, then counts
+// the other holders. errors.As still finds the AmbiguousNameError in it. Paths are as
+// snap holds them.
 func (s *Service) DescribeAmbiguity(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -303,7 +304,7 @@ func (s *Service) DescribeAmbiguity(
 	} else if hidden > 0 {
 		shown = append(shown, fmt.Sprintf("%d you cannot see", hidden))
 	}
-	return validate.WithCause(
+	return query.MultipleResults(
 		err,
 		"%d channels are named '%s': %s",
 		len(ambiguous.Holders),

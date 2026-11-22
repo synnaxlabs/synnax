@@ -28,9 +28,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Strict retrieve", func() {
@@ -102,7 +102,7 @@ var _ = Describe("Strict retrieve", func() {
 	It("Should refuse a name that several channels hold, naming only the paths the "+
 		"subject can see", func(ctx SpecContext) {
 		Expect(retrieve(ctx, byName(name), true)).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
+			MatchError(query.ErrMultipleResults),
 			MatchError(ContainSubstring(fmt.Sprintf(
 				"2 channels are named '%s': '%s.%s', and 1 more you cannot see",
 				name,
