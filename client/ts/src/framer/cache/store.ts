@@ -20,7 +20,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import {
   type Block,
@@ -113,12 +113,26 @@ export interface Floor {
  */
 export type InvalidateHandler = (ch: channel.Key | null, tr: TimeRange) => void;
 
+/** Answers which channels a calculation writes, whether the reader sees it or not. */
+export interface CalculationOutputs {
+  /** @returns the keys among keys that a calculation writes. */
+  retrieve: (keys: channel.Key[]) => Promise<Set<channel.Key>>;
+  /**
+   * Calls handler with whether a calculation writes the channel, each time the answer
+   * may have changed.
+   */
+  onChange: (
+    key: channel.Key,
+    handler: (written: boolean) => void,
+  ) => destructor.Destructor;
+}
+
 /**
- * @returns true when a calculation writes the channel's samples. It writes a calculated
- * channel and the virtual index of one.
+ * @returns true when a calculation writes the channel's samples: an output named in
+ * outputs, or the virtual index of a calculation.
  */
-export const calculated = (p: channel.Payload): boolean =>
-  channel.isCalculated(p) || (p.virtual && p.isIndex);
+export const calculated = (p: channel.Payload, outputs: Set<channel.Key>): boolean =>
+  outputs.has(p.key) || (p.virtual && p.isIndex);
 
 /**
  * Caches blocks of channel samples under one byte budget. The least recently used block
@@ -300,15 +314,16 @@ export class Store {
 
   /**
    * Records the channel, which decides whether history signals name it, and which
-   * index's floor its raw samples follow.
+   * index's floor its raw samples follow. calculated is true when a calculation writes
+   * its samples.
    */
-  setChannel(p: channel.Payload): void {
+  setChannel(p: channel.Payload, calculated: boolean): void {
     const index = p.isIndex ? p.key : p.index;
     if (index !== 0) {
       this.indexOf.set(p.key, index);
       this.indexOf.set(index, index);
     }
-    if (calculated(p)) this.calculated.add(p.key);
+    if (calculated) this.calculated.add(p.key);
     else this.calculated.delete(p.key);
     if (p.virtual) this.leaseholders.delete(p.key);
     else this.leaseholders.set(p.key, p.leaseholder);

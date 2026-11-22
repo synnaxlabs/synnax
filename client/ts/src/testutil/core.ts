@@ -25,6 +25,7 @@ import {
 import { channel } from "@/channel";
 import { AccessDeniedError, NotFoundError, ValidationError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
+import { type CalculationOutputs } from "@/framer/cache/store";
 import { Feed, type FeedProps } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import {
@@ -92,6 +93,12 @@ interface Rewrite {
   delta: number;
 }
 
+/** The calculation outputs of a Core with no calculations. */
+export const NO_OUTPUTS: CalculationOutputs = {
+  retrieve: async () => new Set(),
+  onChange: () => () => {},
+};
+
 /**
  * A Core in memory that serves one index channel and float32 channels sampled on it at
  * a fixed rate. Reads follow the Core's group sizes, group anchors, alignments, and
@@ -152,6 +159,11 @@ export class SyntheticCore {
   private readonly watchers = new Map<
     channel.Key,
     Set<query.ChangeHandler<channel.Channel>>
+  >();
+  private readonly outputKeys = new Set<channel.Key>();
+  private readonly outputWatchers = new Map<
+    channel.Key,
+    Set<(written: boolean) => void>
   >();
 
   constructor({
@@ -219,6 +231,7 @@ export class SyntheticCore {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
+      this.outputKeys.add(this.calculated.key);
     }
     this.historyChange = new channel.Channel({
       key: HISTORY_CHANGE_KEY,
@@ -231,6 +244,23 @@ export class SyntheticCore {
 
   /** @returns the time on the Core's clock. */
   now = (): TimeStamp => this.clock;
+
+  /** Answers which of the Core's channels a calculation writes. */
+  outputs: CalculationOutputs = {
+    retrieve: async (keys) => new Set(keys.filter((k) => this.outputKeys.has(k))),
+    onChange: (key, handler) => {
+      const handlers = this.outputWatchers.get(key) ?? new Set();
+      this.outputWatchers.set(key, handlers.add(handler));
+      return () => handlers.delete(handler);
+    },
+  };
+
+  /** Makes a calculation start or stop writing a channel, and tells its watchers. */
+  setOutput(key: channel.Key, written: boolean): void {
+    if (written) this.outputKeys.add(key);
+    else this.outputKeys.delete(key);
+    this.outputWatchers.get(key)?.forEach((handler) => handler(written));
+  }
 
   /** Retrieves the payloads of the Core's channels with the given keys or names. */
   retrieveChannels: ChannelRetriever = async (params) => {
@@ -312,6 +342,7 @@ export class SyntheticCore {
       now: this.now,
       readRemote: async (tr, keys, reduction) => this.read(tr, keys, reduction),
       retrieveChannels: this.retrieveChannels,
+      outputs: this.outputs,
       openStreamer: async (config) => this.openStreamer(config),
       readLatest: async (keys, count, tr) => this.readLatest(keys, count, tr),
       readFirst: async (keys) => this.readFirst(keys),

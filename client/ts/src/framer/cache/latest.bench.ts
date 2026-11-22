@@ -49,6 +49,7 @@ const createCore = () => {
     store,
     streamer,
     retrieveChannels: async (keys) => await core.retrieveChannels(keys),
+    outputs: core.outputs,
     now: core.now,
     readLatest: async (keys, count, tr) => core.readLatest(keys, count, tr),
   };

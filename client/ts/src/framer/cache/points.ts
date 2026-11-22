@@ -44,7 +44,12 @@ import { type Joins } from "@/framer/cache/join";
 import { type Joiner } from "@/framer/cache/joiner";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
-import { calculated, type Floor, type Store } from "@/framer/cache/store";
+import {
+  calculated,
+  type CalculationOutputs,
+  type Floor,
+  type Store,
+} from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import {
   isCut,
@@ -66,6 +71,8 @@ export interface PointsProps {
   streamer: MultiplexedStreamer;
   joiner: Joiner;
   retrieveChannels: ChannelRetriever;
+  /** Answers which channels a calculation writes. */
+  outputs: CalculationOutputs;
   /** Reads the newest count stored samples of each channel in the time range. */
   readLatest: (keys: channel.Key[], count: number, tr: TimeRange) => Promise<Frame>;
   now: () => TimeStamp;
@@ -121,6 +128,10 @@ export class Points {
   private readonly retrying = new Set<string>();
   private readonly rejected = new Set<string>();
   private readonly stopInvalidations: destructor.Destructor;
+  private readonly stopOutputs: destructor.Destructor;
+  // output is whether a calculation writes the channel, as of the last resolve, and
+  // undefined until a resolve answers.
+  private output: boolean | undefined;
   // boundary is where tiles end and raw samples begin. It trails rawFrom until the
   // tiles that replace the samples before it land, so no span goes blank.
   private boundary = TimeStamp.ZERO;
@@ -178,6 +189,15 @@ export class Points {
       });
       if (this.streaming && this.index != null) void this.readStored();
       this.changed();
+    });
+    // A calculation that starts or stops writing the channel decides whether it draws.
+    this.stopOutputs = props.outputs.onChange(key, (written) => {
+      if (this.output == null || written === this.output) return;
+      this.parked = null;
+      this.readFailure = null;
+      this.breaker.reset();
+      this.restart();
+      void this.resolve();
     });
     void this.resolve();
   }
@@ -346,6 +366,7 @@ export class Points {
     this.abort.abort();
     this.notifier.notify();
     this.stopInvalidations();
+    this.stopOutputs();
     this.props.store.repin(this.pins, new Set());
     this.pins.clear();
     this.held.clear();
@@ -391,17 +412,22 @@ export class Points {
     const generation = this.generation;
     while (generation === this.generation)
       try {
-        const [payload] = await this.props.retrieveChannels([this.key]);
+        const [[payload], written] = await Promise.all([
+          this.props.retrieveChannels([this.key]),
+          this.props.outputs.retrieve([this.key]),
+        ]);
         if (generation !== this.generation) return;
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
-        if (payload.virtual && !calculated(payload))
+        this.output = written.has(this.key);
+        const derived = calculated(payload, written);
+        if (payload.virtual && !derived)
           throw new ValidationError(
             `virtual channel ${payload.name} has no samples to draw`,
           );
         const index = payload.isIndex ? payload.key : payload.index;
         if (index === 0)
           throw new ValidationError(`channel ${payload.name} has no index to draw on`);
-        this.props.store.setChannel(payload);
+        this.props.store.setChannel(payload, derived);
         this.index = index;
         this.moveBoundary();
         this.stream(index);

@@ -18,7 +18,7 @@ import { ValidationError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
 import { query } from "@/query";
-import { PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
+import { NO_OUTPUTS, PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
 
 const RENAMED: channel.Payload = {
   key: 1,
@@ -129,6 +129,7 @@ const createStreamedClient = async ({
     unary,
     file: new HTTPClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
     retrieveChannels: async () => [],
+    outputs: NO_OUTPUTS,
   });
   const channels = new channel.Client({
     framer: frames,

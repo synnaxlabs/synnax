@@ -96,10 +96,11 @@ const createPoints = (
 ) => {
   const store = new Store({ now: core.now, ...storeProps });
   const joins = new Joins(store);
-  const { retrieveChannels, now } = core;
+  const { retrieveChannels, outputs, now } = core;
   const reader = new Reader({
     readRemote,
     retrieveChannels,
+    outputs,
     store,
     batchDebounce: DEBOUNCE,
     now,
@@ -122,6 +123,7 @@ const createPoints = (
     streamer,
     joiner,
     retrieveChannels,
+    outputs,
     readLatest,
     now,
     breaker: pointsBreaker,

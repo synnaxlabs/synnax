@@ -79,6 +79,7 @@ export interface FeedOptions extends Omit<
   FeedProps,
   | "readRemote"
   | "retrieveChannels"
+  | "outputs"
   | "openStreamer"
   | "readLatest"
   | "readFirst"
@@ -111,6 +112,7 @@ export class Feed {
     const {
       readRemote,
       retrieveChannels,
+      outputs,
       openStreamer,
       budget,
       instrumentation,
@@ -133,6 +135,7 @@ export class Feed {
     this.reader = new Reader({
       readRemote,
       retrieveChannels,
+      outputs,
       store: this.store,
       batchDebounce,
       fetchTimeout,
@@ -243,6 +246,7 @@ export class Feed {
         streamer: this.streamer,
         joiner: this.joiner,
         retrieveChannels: this.props.retrieveChannels,
+        outputs: this.props.outputs,
         readLatest: async (keys, count, tr) =>
           await this.latest.enqueue({ keys, count, tr }),
         now: this.now,

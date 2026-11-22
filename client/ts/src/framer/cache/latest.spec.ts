@@ -55,6 +55,7 @@ const createLatest = (
   const props: LatestProps = {
     store,
     streamer,
+    outputs: core.outputs,
     retrieveChannels: async (keys) => {
       await onRetrieve();
       return await core.retrieveChannels(keys);
@@ -1167,7 +1168,15 @@ describe("Latest", () => {
   it("should end the load's wait for the stream's ack on close", async () => {
     const core = createCore();
     const { streamer, open, close } = createLatest(core);
-    const waitAcked = vi.spyOn(streamer, "waitAcked");
+    // The ack never comes, so the load still waits for it at the close.
+    const waitAcked = vi
+      .spyOn(streamer, "waitAcked")
+      .mockImplementation(
+        async (_, signal) =>
+          await new Promise((_resolve, reject) =>
+            signal?.addEventListener("abort", () => reject(new Error("closed"))),
+          ),
+      );
     const latest = open(100);
     try {
       await expect.poll(() => waitAcked.mock.calls.length, POLL).toBe(1);

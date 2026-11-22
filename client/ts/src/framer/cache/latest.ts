@@ -30,7 +30,7 @@ import { domainOf } from "@/framer/cache/block";
 import { Dynamic } from "@/framer/cache/dynamic";
 import { IndexStamps, Stamps } from "@/framer/cache/stamps";
 import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
-import { calculated, type Store } from "@/framer/cache/store";
+import { calculated, type CalculationOutputs, type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import { type Frame } from "@/framer/frame";
 import { createBreaker, isDefinitive } from "@/framer/retry";
@@ -52,6 +52,8 @@ export interface LatestProps {
   /** Reads the newest count stored samples of each channel in the time range. */
   readLatest: (keys: channel.Key[], count: number, tr: TimeRange) => Promise<Frame>;
   retrieveChannels: ChannelRetriever;
+  /** Answers which channels a calculation writes. */
+  outputs: CalculationOutputs;
   now: () => TimeStamp;
   /** Retry behavior for failed reads. */
   breaker?: breaker.Config;
@@ -113,6 +115,10 @@ export class Latest {
   private running: Load | null;
   private readonly demand: Demand;
   private readonly stopInvalidations: () => void;
+  private readonly stopOutputs: () => void;
+  // output is whether a calculation writes the channel, as of the last load, and
+  // undefined until a load answers.
+  private output: boolean | undefined;
   // timeSource is null until the channel is found.
   private timeSource: { index: channel.Key } | "self" | "stamps" | null = null;
   // indexStamps holds the index series that stamp the samples held, from the first
@@ -180,6 +186,14 @@ export class Latest {
     this.stopInvalidations = props.store.onInvalidate((ch, tr) => {
       if (ch == null || ch === key) this.changed(tr);
     });
+    // A calculation that starts or stops writing the channel changes how it dedupes.
+    this.stopOutputs = props.outputs.onChange(key, (written) => {
+      if (this.output == null || written === this.output) return;
+      this.taken = false;
+      this.clear();
+      this.restart(0);
+      this.notify();
+    });
     this.running = { abort: new AbortController(), mark: 0 };
     void this.load(this.running);
   }
@@ -243,6 +257,7 @@ export class Latest {
     this.timeSource = null;
     this.restart(null);
     this.stopInvalidations();
+    this.stopOutputs();
     this.demand.close();
     this.clear();
   }
@@ -476,18 +491,24 @@ export class Latest {
   // from the newest series the stream carried for another request, and streams.
   private async load(run: Load): Promise<void> {
     const { signal } = run.abort;
-    const { retrieveChannels, streamer, now } = this.props;
+    const { retrieveChannels, outputs, streamer, now } = this.props;
     const brk = createBreaker(this.notifier, this.props.breaker);
     while (this.running === run)
       try {
-        const [payload] = await retrieveChannels([this.key]);
+        const [[payload], written] = await Promise.all([
+          retrieveChannels([this.key]),
+          outputs.retrieve([this.key]),
+        ]);
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
-        if (this.running === run) this.findTimeSource(payload);
+        if (this.running === run) {
+          this.findTimeSource(payload);
+          this.output = written.has(this.key);
+        }
         let read: Series[] = [];
         let seed: Series | null = null;
         let times: Series[] = [];
         if (!payload.virtual) this.dedupe = "alignment";
-        else this.dedupe = calculated(payload) ? "time" : null;
+        else this.dedupe = calculated(payload, written) ? "time" : null;
         this.seedable = this.dedupe == null;
         if (this.seedable && this.pending != null)
           this.props.store.recordStreamed(this.key, this.pending);

@@ -56,6 +56,7 @@ const createJoiner = (
   const reader = new Reader({
     readRemote,
     retrieveChannels: core.retrieveChannels,
+    outputs: core.outputs,
     store,
     batchDebounce: TimeSpan.milliseconds(5),
     now: core.now,

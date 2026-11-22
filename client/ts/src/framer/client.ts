@@ -23,6 +23,7 @@ import {
 
 import { channel } from "@/channel";
 import { type ChannelRetriever } from "@/framer/adapter";
+import { type CalculationOutputs } from "@/framer/cache/store";
 import { Deleter } from "@/framer/deleter";
 import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
@@ -41,6 +42,8 @@ export interface ClientConfig {
   unary: UnaryClient;
   file: FileTransport;
   retrieveChannels: ChannelRetriever;
+  /** Answers which channels a calculation writes, for the feeds' caches. */
+  outputs: CalculationOutputs;
   /** Receives each failed reconnect attempt of a feed's stream. */
   onRetry?: (error: Error) => void;
   /** The key of the Core node the client connects to, once known. */
@@ -118,6 +121,7 @@ export class Client {
       readRemote: async (tr, keys, reduction) =>
         await this.read(tr, keys, { reduction }),
       retrieveChannels: this.cfg.retrieveChannels,
+      outputs: this.cfg.outputs,
       openStreamer: async (config) => await this.openStreamer(config),
       readLatest: async (keys, count, tr) =>
         await this.readLatestNFrame(keys, count, tr),

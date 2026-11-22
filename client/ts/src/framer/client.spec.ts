@@ -13,7 +13,12 @@ import { describe, expect, it } from "vitest";
 
 import { framer } from "@/framer";
 import { UnsupportedError } from "@/index";
-import { createTestClient, secondsLinspace, TEST_CORE_ADDRESS } from "@/testutil";
+import {
+  createTestClient,
+  NO_OUTPUTS,
+  secondsLinspace,
+  TEST_CORE_ADDRESS,
+} from "@/testutil";
 import { Transport } from "@/transport";
 
 const client = createTestClient();
@@ -30,6 +35,7 @@ describe("Client", () => {
         retrieveChannels: async () => {
           throw new Unreachable({ message: "core down" });
         },
+        outputs: NO_OUTPUTS,
         onRetry: (error) => retries.push(error),
       });
       const feed = unreachable.openFeed({

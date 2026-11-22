@@ -28,7 +28,7 @@ import { tileRange, tiles } from "@/framer/cache/grid";
 import { Reader, type ReaderProps } from "@/framer/cache/reader";
 import { Store } from "@/framer/cache/store";
 import { NotFoundError, UnexpectedError } from "@/index";
-import { createTestClient, SyntheticCore } from "@/testutil";
+import { createTestClient, NO_OUTPUTS, SyntheticCore } from "@/testutil";
 
 const blockRange = (tile: number): TimeRange => tileRange({ level: RAW_LEVEL, tile });
 
@@ -108,6 +108,7 @@ const createReader = ({
       await beforeRetrieve?.();
       return await core.retrieveChannels(keys);
     },
+    outputs: core.outputs,
     now: core.now,
     ...props,
     store,
@@ -722,6 +723,7 @@ describe("Reader", () => {
         },
         retrieveChannels: async (keys) =>
           (await client.channels.retrieve(keys as channel.Key[])).map((c) => c.payload),
+        outputs: NO_OUTPUTS,
         store,
       });
       const empty = blockRange(rawTile(start) - 3);
@@ -757,6 +759,7 @@ describe("Reader", () => {
         readRemote: async (tr, keys) => await client.read(tr, keys),
         retrieveChannels: async (keys) =>
           (await client.channels.retrieve(keys as channel.Key[])).map((c) => c.payload),
+        outputs: NO_OUTPUTS,
         store,
       });
       await reader.fill(blockRange(first), data.key);

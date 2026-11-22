@@ -24,7 +24,7 @@ import { framer } from "@/framer";
 import { query } from "@/query";
 import { status } from "@/status";
 import { task } from "@/task";
-import { PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
+import { NO_OUTPUTS, PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
 
 // Every request fails, so the cache holds only what the stream delivers.
 const unary: UnaryClient = {
@@ -49,6 +49,7 @@ const createStreamedClient = async (recordCap?: number) => {
     unary,
     file: new HTTPClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
     retrieveChannels: async () => [],
+    outputs: NO_OUTPUTS,
   });
   const statuses = new status.Client({ unary, cache });
   const tasks = new task.Client({ unary, framer: frames, cache, statuses });

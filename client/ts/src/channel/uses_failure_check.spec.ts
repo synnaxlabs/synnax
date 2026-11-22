@@ -16,7 +16,7 @@ import { batch } from "@/batch";
 import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { query } from "@/query";
-import { PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
+import { NO_OUTPUTS, PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
 
 const FAILED: channel.Payload = {
   key: 1,
@@ -79,6 +79,7 @@ const createFake = async () => {
       unary,
       file: new HTTPClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
       retrieveChannels: async () => [],
+      outputs: NO_OUTPUTS,
     }),
     unary,
     writer: new channel.Writer(unary),

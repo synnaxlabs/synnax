@@ -336,11 +336,27 @@ export default class Synnax extends framer.Client {
       );
       return result.map((ch) => ch.payload);
     };
+    // The arrows read this.calculations only when called, after construction completes.
+    const outputs: framer.CalculationOutputs = {
+      retrieve: async (keys) =>
+        new Set(
+          (await this.calculations.outputs.retrieve(keys))
+            .filter(calculation.isOutput)
+            .map(({ key }) => key),
+        ),
+      onChange: (key, handler) =>
+        this.calculations.outputs.subscribe(
+          (event) =>
+            handler(event.variant === "set" && calculation.isOutput(event.value)),
+          key,
+        ),
+    };
     super({
       stream: transport.stream,
       unary: transport.unary,
       file: transport.file,
       retrieveChannels,
+      outputs,
       onRetry: parsedParams.onRetry,
       // The arrow reads this.conn only when called, after construction completes.
       node: () => this.conn.status.details.nodeKey,

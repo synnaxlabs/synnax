@@ -34,7 +34,7 @@ import {
   split,
 } from "@/framer/cache/block";
 import { tileRange, tiles } from "@/framer/cache/grid";
-import { type Store } from "@/framer/cache/store";
+import { calculated, type CalculationOutputs, type Store } from "@/framer/cache/store";
 import { type Frame } from "@/framer/frame";
 
 /** Reads a telemetry frame from the Core, reduced when a reduction is given. */
@@ -78,6 +78,8 @@ export interface ReaderProps {
   readRemote: RemoteReader;
   /** Looks up the index of each channel a fetch reads. */
   retrieveChannels: ChannelRetriever;
+  /** Answers which channels a calculation writes. */
+  outputs: CalculationOutputs;
   /** Caches fetched blocks, and holds the blocks the stream writes into. */
   store: Store;
   /**
@@ -115,12 +117,13 @@ export class Reader {
     const {
       readRemote,
       retrieveChannels,
+      outputs,
       store,
       batchDebounce = DEFAULT_BATCH_DEBOUNCE,
       fetchTimeout = TimeSpan.seconds(30),
       now = () => TimeStamp.now(),
     } = props;
-    this.props = { readRemote, retrieveChannels, store, fetchTimeout, now };
+    this.props = { readRemote, retrieveChannels, outputs, store, fetchTimeout, now };
     this.batcher = new scheduler.Batcher({
       interval: batchDebounce,
       exec: async (entries) => await this.batchRead(entries),
@@ -259,7 +262,7 @@ export class Reader {
     { first, last, start, catchUp, entries }: Group,
     tr: TimeRange,
   ): Promise<Set<Request>> {
-    const { readRemote, retrieveChannels, store, now } = this.props;
+    const { readRemote, retrieveChannels, outputs, store, now } = this.props;
     const committed = now().sub(COMMIT_MARGIN);
     const requested = Map.groupBy(
       entries.map(({ req }) => req),
@@ -268,8 +271,8 @@ export class Reader {
     const channels = [...requested.keys()];
     const pins = entries.flatMap(({ req }) => (req.pinned == null ? [] : [req.pinned]));
     const refetch = new Set<Request>();
-    const payloads = await this.timed(
-      retrieveChannels(channels),
+    const [payloads, written] = await this.timed(
+      Promise.all([retrieveChannels(channels), outputs.retrieve(channels)]),
       `retrieve of channels ${channels.join(", ")}`,
     );
     if (this.closed) return refetch;
@@ -279,7 +282,7 @@ export class Reader {
       const idx = p.isIndex ? p.key : p.index;
       indexOf.set(p.key, idx);
       if (idx !== 0) indexOf.set(idx, idx);
-      store.setChannel(p);
+      store.setChannel(p, calculated(p, written));
     });
     channels.forEach((ch) => {
       if (!indexOf.has(ch)) throw new NotFoundError(`channel ${ch} not found`);
