@@ -43,6 +43,43 @@ type StatusDetails struct {
 // Status is the operational status of a slave.
 type Status = status.Status[StatusDetails]
 
+// StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP.
+type StartupParameter = ethercat.StartupParameter
+
+// OpMode is a synchronization mode that a slave lists in its SII.
+type OpMode struct {
+	// Name is the name of the mode, such as DC-Synchron. Empty when the slave gives
+	// none.
+	Name string `json:"name" msgpack:"name"`
+	// AssignActivate is the value of the DC activation registers 0x0980 and 0x0981.
+	AssignActivate uint16 `json:"assign_activate" msgpack:"assign_activate"`
+	// Sync0Cycle is the SYNC0 cycle in nanoseconds. 0 when sync0_factor sets the cycle.
+	Sync0Cycle uint32 `json:"sync0_cycle" msgpack:"sync0_cycle"`
+	// Sync0Factor is the SYNC0 cycle as a multiple of the bus cycle when positive, or
+	// as a fraction of it when negative.
+	Sync0Factor int16 `json:"sync0_factor" msgpack:"sync0_factor"`
+	// Sync0Shift is the SYNC0 shift in nanoseconds.
+	Sync0Shift int32 `json:"sync0_shift" msgpack:"sync0_shift"`
+	// Sync1Factor is the SYNC1 cycle as a multiple of the SYNC0 cycle when positive, or
+	// of the bus cycle when negative.
+	Sync1Factor int16 `json:"sync1_factor" msgpack:"sync1_factor"`
+	// Sync1Shift is the SYNC1 shift in nanoseconds after SYNC0.
+	Sync1Shift int32 `json:"sync1_shift" msgpack:"sync1_shift"`
+}
+
+// OpModeChoice is the synchronization mode that the user chose for a slave.
+type OpModeChoice struct {
+	// Index is the index of the mode in the op_modes of the slave.
+	Index uint16 `json:"index" msgpack:"index"`
+	// AssignActivate is the AssignActivate of the mode, which shows that index is stale
+	// when the slave lists other modes.
+	AssignActivate uint16 `json:"assign_activate" msgpack:"assign_activate"`
+	// Sync0Cycle replaces the SYNC0 cycle of the mode. 0 keeps the cycle of the mode.
+	Sync0Cycle telem.TimeSpan `json:"sync0_cycle" msgpack:"sync0_cycle"`
+	// Sync1Cycle replaces the SYNC1 cycle of the mode. 0 keeps the cycle of the mode.
+	Sync1Cycle telem.TimeSpan `json:"sync1_cycle" msgpack:"sync1_cycle"`
+}
+
 // PDOEntry is a PDO entry that a scan found on a slave.
 type PDOEntry struct {
 	// Name is the name of the entry, such as Input.
@@ -551,11 +588,19 @@ type Slave struct {
 	Master master.Key `json:"master" msgpack:"master"`
 	// Pdos are the PDO entries that the scan found on the slave.
 	Pdos PDOs `json:"pdos" msgpack:"pdos"`
+	// OpModes are the synchronization modes that the slave lists in its SII.
+	OpModes []OpMode `json:"op_modes" msgpack:"op_modes"`
+	// SwitchedAt is when the Driver last switched the slave to Synnax only. 0 when it
+	// never has.
+	SwitchedAt telem.TimeStamp `json:"switched_at" msgpack:"switched_at"`
 	// Identifier is the prefix of the slave's channel names. The slave is unconfigured
 	// while it is empty.
 	Identifier string `json:"identifier" msgpack:"identifier"`
 	// Disabled is whether the Driver leaves the slave out of the tasks it runs.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// OpMode is the synchronization mode the Driver sets up. Absent lets the Driver
+	// pick it.
+	OpMode *OpModeChoice `json:"op_mode,omitzero" msgpack:"op_mode,omitempty"`
 	// StartupParameters are the CoE objects the Driver writes to the slave in PRE-OP.
 	StartupParameters []StartupParameter `json:"startup_parameters" msgpack:"startup_parameters"`
 	// ReadIndex is the index channel of the channels that the slave reads into.

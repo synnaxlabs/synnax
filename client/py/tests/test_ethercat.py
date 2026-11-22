@@ -886,6 +886,8 @@ class TestEtherCATSlaveResource:
         assert not slave.disabled
         assert slave.pdos.inputs == []
         assert slave.read_bindings == []
+        assert slave.op_modes == []
+        assert slave.op_mode is None
 
     @pytest.mark.parametrize("missing", ["master", "vendor_id", "revision", "name"])
     def test_requires_a_field(self, missing: str) -> None:

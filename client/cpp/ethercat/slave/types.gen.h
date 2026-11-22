@@ -20,6 +20,7 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/ethercat/master/types.gen.h"
+#include "client/cpp/ethercat/types.gen.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
@@ -32,21 +33,68 @@
 
 namespace synnax::ethercat::slave {
 
+struct OpMode;
+struct OpModeChoice;
 struct PDOEntry;
 struct ReadBinding;
-struct StartupParameterBase;
 struct WriteBinding;
 struct StatusDetails;
 struct Where;
 struct Cursor;
 struct PDOs;
+struct Configuration;
 struct RetrieveRequest;
 struct Identity;
-struct Configuration;
 struct Slave;
 struct RetrieveResponse;
 
 using Key = x::uuid::UUID;
+
+using StartupParameter = ::synnax::ethercat::StartupParameter;
+
+/// @brief OpMode is a synchronization mode that a slave lists in its SII.
+struct OpMode {
+    /// @brief name is the name of the mode, such as DC-Synchron. Empty when the slave
+    /// gives none.
+    std::string name = "";
+    /// @brief assign_activate is the value of the DC activation registers 0x0980 and
+    /// 0x0981.
+    std::uint16_t assign_activate = 0;
+    /// @brief sync0_cycle is the SYNC0 cycle in nanoseconds. 0 when sync0_factor sets
+    /// the cycle.
+    std::uint32_t sync0_cycle = 0;
+    /// @brief sync0_factor is the SYNC0 cycle as a multiple of the bus cycle when
+    /// positive, or as a fraction of it when negative.
+    std::int16_t sync0_factor = 0;
+    /// @brief sync0_shift is the SYNC0 shift in nanoseconds.
+    std::int32_t sync0_shift = 0;
+    /// @brief sync1_factor is the SYNC1 cycle as a multiple of the SYNC0 cycle when
+    /// positive, or of the bus cycle when negative.
+    std::int16_t sync1_factor = 0;
+    /// @brief sync1_shift is the SYNC1 shift in nanoseconds after SYNC0.
+    std::int32_t sync1_shift = 0;
+
+    static OpMode parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief OpModeChoice is the synchronization mode that the user chose for a slave.
+struct OpModeChoice {
+    /// @brief index is the index of the mode in the op_modes of the slave.
+    std::uint16_t index = 0;
+    /// @brief assign_activate is the AssignActivate of the mode, which shows that index
+    /// is stale when the slave lists other modes.
+    std::uint16_t assign_activate = 0;
+    /// @brief sync0_cycle replaces the SYNC0 cycle of the mode. 0 keeps the cycle of
+    /// the mode.
+    ::x::telem::TimeSpan sync0_cycle = ::x::telem::TimeSpan(0);
+    /// @brief sync1_cycle replaces the SYNC1 cycle of the mode. 0 keeps the cycle of
+    /// the mode.
+    ::x::telem::TimeSpan sync1_cycle = ::x::telem::TimeSpan(0);
+
+    static OpModeChoice parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief PDOEntry is a PDO entry that a scan found on a slave.
 struct PDOEntry {
@@ -87,27 +135,14 @@ struct ReadBinding {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief StartupParameterBase carries the fields that every startup parameter shares.
-struct StartupParameterBase {
-    /// @brief index is the CoE object dictionary index of the object.
-    std::uint16_t index = 0;
-    /// @brief sub_index is the CoE object dictionary sub-index of the object.
-    std::uint8_t sub_index = 0;
-    /// @brief name is what the parameter sets, for display.
-    std::string name = "";
-
-    static StartupParameterBase parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief WriteBinding is the pair of channels that a slave maps for one output entry.
 struct WriteBinding {
     /// @brief index is the CoE object dictionary index of the output entry.
     std::uint16_t index = 0;
     /// @brief sub_index is the CoE object dictionary sub-index of the output entry.
     std::uint8_t sub_index = 0;
-    /// @brief command is the channel that commands the entry.
-    ::synnax::channel::Key command = 0;
+    /// @brief command is the channel that commands the entry. 0 is no channel.
+    ::synnax::channel::Key command = ::synnax::channel::Key(0);
     /// @brief state is the channel that holds the state of the entry. 0 is no channel.
     ::synnax::channel::Key state = ::synnax::channel::Key(0);
 
@@ -199,131 +234,35 @@ struct PDOs {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Int8StartupParameter writes a int8 value.
-struct Int8StartupParameter : public StartupParameterBase {
-    std::string data_type = "int8";
-    /// @brief value is the value written to the object.
-    std::int8_t value = 0;
+/// @brief Configuration holds the slave fields that the user owns.
+struct Configuration {
+    /// @brief name is a human-readable name for the slave.
+    std::string name;
+    /// @brief identifier is the prefix of the slave's channel names. The slave is
+    /// unconfigured while it is empty.
+    std::string identifier = "";
+    /// @brief disabled is whether the Driver leaves the slave out of the tasks it runs.
+    bool disabled = false;
+    /// @brief op_mode is the synchronization mode the Driver sets up. Absent lets the
+    /// Driver pick it.
+    std::optional<OpModeChoice> op_mode;
+    /// @brief startup_parameters are the CoE objects the Driver writes to the slave in
+    /// PRE-OP.
+    std::vector<StartupParameter> startup_parameters = {};
+    /// @brief read_index is the index channel of the channels that the slave reads
+    /// into.
+    ::synnax::channel::Key read_index = ::synnax::channel::Key(0);
+    /// @brief write_state_index is the index channel of the state channels of the
+    /// slave's outputs.
+    ::synnax::channel::Key write_state_index = ::synnax::channel::Key(0);
+    /// @brief read_bindings are the channels of the input entries.
+    std::vector<ReadBinding> read_bindings = {};
+    /// @brief write_bindings are the channels of the output entries.
+    std::vector<WriteBinding> write_bindings = {};
 
-    static Int8StartupParameter parse(x::json::Parser parser);
+    static Configuration parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
-
-/// @brief Int16StartupParameter writes a int16 value.
-struct Int16StartupParameter : public StartupParameterBase {
-    std::string data_type = "int16";
-    /// @brief value is the value written to the object.
-    std::int16_t value = 0;
-
-    static Int16StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Int32StartupParameter writes a int32 value.
-struct Int32StartupParameter : public StartupParameterBase {
-    std::string data_type = "int32";
-    /// @brief value is the value written to the object.
-    std::int32_t value = 0;
-
-    static Int32StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Int64StartupParameter writes a int64 value.
-struct Int64StartupParameter : public StartupParameterBase {
-    std::string data_type = "int64";
-    /// @brief value is the value written to the object.
-    std::int64_t value = 0;
-
-    static Int64StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Uint8StartupParameter writes a uint8 value.
-struct Uint8StartupParameter : public StartupParameterBase {
-    std::string data_type = "uint8";
-    /// @brief value is the value written to the object.
-    std::uint8_t value = 0;
-
-    static Uint8StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Uint16StartupParameter writes a uint16 value.
-struct Uint16StartupParameter : public StartupParameterBase {
-    std::string data_type = "uint16";
-    /// @brief value is the value written to the object.
-    std::uint16_t value = 0;
-
-    static Uint16StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Uint32StartupParameter writes a uint32 value.
-struct Uint32StartupParameter : public StartupParameterBase {
-    std::string data_type = "uint32";
-    /// @brief value is the value written to the object.
-    std::uint32_t value = 0;
-
-    static Uint32StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Uint64StartupParameter writes a uint64 value.
-struct Uint64StartupParameter : public StartupParameterBase {
-    std::string data_type = "uint64";
-    /// @brief value is the value written to the object.
-    std::uint64_t value = 0;
-
-    static Uint64StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Float32StartupParameter writes a float32 value.
-struct Float32StartupParameter : public StartupParameterBase {
-    std::string data_type = "float32";
-    /// @brief value is the value written to the object.
-    float value = 0;
-
-    static Float32StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Float64StartupParameter writes a float64 value.
-struct Float64StartupParameter : public StartupParameterBase {
-    std::string data_type = "float64";
-    /// @brief value is the value written to the object.
-    double value = 0;
-
-    static Float64StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP,
-/// before the slave moves to SAFE-OP. Its data type sets the size of the write and the
-/// type of its value.
-using StartupParameter = std::variant<
-    Int8StartupParameter,
-    Int16StartupParameter,
-    Int32StartupParameter,
-    Int64StartupParameter,
-    Uint8StartupParameter,
-    Uint16StartupParameter,
-    Uint32StartupParameter,
-    Uint64StartupParameter,
-    Float32StartupParameter,
-    Float64StartupParameter>;
-
-StartupParameter parse_startup_parameter(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const StartupParameter &value);
-
-/// @brief returns the fields every variant of the union shares.
-[[nodiscard]] inline const StartupParameterBase &base(const StartupParameter &value) {
-    return std::visit(
-        [](const auto &v) -> const StartupParameterBase & { return v; },
-        value
-    );
-}
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
@@ -384,35 +323,13 @@ struct Identity {
     ::synnax::ethercat::master::Key master;
     /// @brief pdos are the PDO entries that the scan found on the slave.
     PDOs pdos = {};
+    /// @brief op_modes are the synchronization modes that the slave lists in its SII.
+    std::vector<OpMode> op_modes = {};
+    /// @brief switched_at is when the Driver last switched the slave to Synnax only. 0
+    /// when it never has.
+    ::x::telem::TimeStamp switched_at = ::x::telem::TimeStamp(0);
 
     static Identity parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Configuration holds the slave fields that the user owns.
-struct Configuration {
-    /// @brief name is a human-readable name for the slave.
-    std::string name;
-    /// @brief identifier is the prefix of the slave's channel names. The slave is
-    /// unconfigured while it is empty.
-    std::string identifier = "";
-    /// @brief disabled is whether the Driver leaves the slave out of the tasks it runs.
-    bool disabled = false;
-    /// @brief startup_parameters are the CoE objects the Driver writes to the slave in
-    /// PRE-OP.
-    std::vector<StartupParameter> startup_parameters = {};
-    /// @brief read_index is the index channel of the channels that the slave reads
-    /// into.
-    ::synnax::channel::Key read_index = ::synnax::channel::Key(0);
-    /// @brief write_state_index is the index channel of the state channels of the
-    /// slave's outputs.
-    ::synnax::channel::Key write_state_index = ::synnax::channel::Key(0);
-    /// @brief read_bindings are the channels of the input entries.
-    std::vector<ReadBinding> read_bindings = {};
-    /// @brief write_bindings are the channels of the output entries.
-    std::vector<WriteBinding> write_bindings = {};
-
-    static Configuration parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -436,11 +353,19 @@ struct Slave {
     ::synnax::ethercat::master::Key master;
     /// @brief pdos are the PDO entries that the scan found on the slave.
     PDOs pdos = {};
+    /// @brief op_modes are the synchronization modes that the slave lists in its SII.
+    std::vector<OpMode> op_modes = {};
+    /// @brief switched_at is when the Driver last switched the slave to Synnax only. 0
+    /// when it never has.
+    ::x::telem::TimeStamp switched_at = ::x::telem::TimeStamp(0);
     /// @brief identifier is the prefix of the slave's channel names. The slave is
     /// unconfigured while it is empty.
     std::string identifier = "";
     /// @brief disabled is whether the Driver leaves the slave out of the tasks it runs.
     bool disabled = false;
+    /// @brief op_mode is the synchronization mode the Driver sets up. Absent lets the
+    /// Driver pick it.
+    std::optional<OpModeChoice> op_mode;
     /// @brief startup_parameters are the CoE objects the Driver writes to the slave in
     /// PRE-OP.
     std::vector<StartupParameter> startup_parameters = {};

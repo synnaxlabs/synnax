@@ -20,6 +20,80 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (om OpMode) EncodeOrc(w *orc.Writer) error {
+	w.String(om.Name)
+	w.Uint16(uint16(om.AssignActivate))
+	w.Uint32(uint32(om.Sync0Cycle))
+	w.Int16(int16(om.Sync0Factor))
+	w.Int32(int32(om.Sync0Shift))
+	w.Int16(int16(om.Sync1Factor))
+	w.Int32(int32(om.Sync1Shift))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (om *OpMode) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if om.Name, err = r.String(); err != nil {
+		return err
+	}
+	if om.AssignActivate, err = r.Uint16(); err != nil {
+		return err
+	}
+	if om.Sync0Cycle, err = r.Uint32(); err != nil {
+		return err
+	}
+	if om.Sync0Factor, err = r.Int16(); err != nil {
+		return err
+	}
+	if om.Sync0Shift, err = r.Int32(); err != nil {
+		return err
+	}
+	if om.Sync1Factor, err = r.Int16(); err != nil {
+		return err
+	}
+	if om.Sync1Shift, err = r.Int32(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (omc OpModeChoice) EncodeOrc(w *orc.Writer) error {
+	w.Uint16(uint16(omc.Index))
+	w.Uint16(uint16(omc.AssignActivate))
+	w.Int64(int64(omc.Sync0Cycle))
+	w.Int64(int64(omc.Sync1Cycle))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (omc *OpModeChoice) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if omc.Index, err = r.Uint16(); err != nil {
+		return err
+	}
+	if omc.AssignActivate, err = r.Uint16(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		omc.Sync0Cycle = telem.TimeSpan(rawV)
+	}
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		omc.Sync1Cycle = telem.TimeSpan(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (pdoe PDOEntry) EncodeOrc(w *orc.Writer) error {
 	w.String(pdoe.Name)
 	w.String(pdoe.PdoName)
@@ -174,8 +248,26 @@ func (s Slave) EncodeOrc(w *orc.Writer) error {
 	if err := s.Pdos.EncodeOrc(w); err != nil {
 		return err
 	}
+	w.Bool(s.OpModes != nil)
+	if s.OpModes != nil {
+		w.Uint32(uint32(len(s.OpModes)))
+		for i := range s.OpModes {
+			if err := s.OpModes[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Int64(int64(s.SwitchedAt))
 	w.String(s.Identifier)
 	w.Bool(s.Disabled)
+	if s.OpMode != nil {
+		w.Bool(true)
+		if err := s.OpMode.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
 	w.Bool(s.StartupParameters != nil)
 	if s.StartupParameters != nil {
 		w.Uint32(uint32(len(s.StartupParameters)))
@@ -242,11 +334,49 @@ func (s *Slave) DecodeOrc(r *orc.Reader) error {
 	if err = s.Pdos.DecodeOrc(r); err != nil {
 		return err
 	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.OpModes = make([]OpMode, n)
+			for i := range s.OpModes {
+				if err = s.OpModes[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		s.SwitchedAt = telem.TimeStamp(rawV)
+	}
 	if s.Identifier, err = r.String(); err != nil {
 		return err
 	}
 	if s.Disabled, err = r.Bool(); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv OpModeChoice
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			s.OpMode = &hv
+		}
 	}
 	{
 		present, err := r.Bool()
