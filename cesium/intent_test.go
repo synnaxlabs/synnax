@@ -409,10 +409,8 @@ var _ = Describe("Delete intents", func() {
 				file = MustSucceed(xfs.ReadFile(cp, "delete-intents"))
 			})
 			Expect(intents(fs)).To(Equal(1))
-			Expect(
-				restarted.CorruptIntents(),
-			).To(Equal(1), "delete-intents at the open: %x",
-				file)
+			corrupt := restarted.CorruptIntents()
+			Expect(corrupt).To(Equal(1), "delete-intents at the open: %x", file)
 			kept := sweep(ctx, restarted, []cesium.ChannelKey{idx})
 			Expect(kept).To(ConsistOf(HaveField("Key", data)))
 			expectGone(ctx, restarted, fs, other)
