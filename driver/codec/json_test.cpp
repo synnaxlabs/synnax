@@ -113,10 +113,10 @@ void assert_decodes_without_allocating(
     const std::string_view doc
 ) {
     auto dec = ASSERT_NIL_P(JSON::create(routed(first, second)));
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(doc)), 1);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(doc)), 1U);
     const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
     for (int i = 0; i < 100; i++)
-        ASSERT_EQ(ASSERT_NIL_P(dec.decode(doc)), 1);
+        ASSERT_EQ(ASSERT_NIL_P(dec.decode(doc)), 1U);
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
 }
 }
@@ -152,8 +152,8 @@ TEST(JSON, ReplacesSamplesOnEachDecode) {
     auto dec = ASSERT_NIL_P(
         JSON::create({reading<icd::FloatJSONField>(x::telem::FLOAT64_T)})
     );
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1})")), 0);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 2})")), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1})")), 0U);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 2})")), 0U);
     ASSERT_EQ(dec.samples(0)[0].values<double>(), std::vector<double>{2});
 }
 
@@ -174,7 +174,7 @@ TEST(JSON, DecodesNowDefault) {
         .default_ = icd::NowTimestampDefault{};
     auto dec = ASSERT_NIL_P(JSON::create({m}));
     const auto before = x::telem::TimeStamp::now();
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), 0U);
     const auto stamp = dec.samples(0)[0].at<x::telem::TimeStamp>(0);
     ASSERT_GE(stamp, before);
     ASSERT_LE(stamp, x::telem::TimeStamp::now());
@@ -186,9 +186,9 @@ TEST(JSON, DecodesRandomDefault) {
     std::get<icd::UuidJSONField>(m.payload.fields[0])
         .default_ = icd::RandomUUIDDefault{};
     auto dec = ASSERT_NIL_P(JSON::create({m}));
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), 0U);
     const auto first = dec.samples(0)[0].uuids()[0];
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), 0U);
     ASSERT_NE(first, x::uuid::NIL);
     ASSERT_NE(dec.samples(0)[0].uuids()[0], first);
 }
