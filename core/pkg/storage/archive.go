@@ -75,6 +75,28 @@ func writeEntry(tw *tar.Writer, fsys xfs.FS, name string) (err error) {
 	return err
 }
 
+// archiveHolds reports whether the archive name in fsys holds the directory dir.
+func archiveHolds(fsys xfs.FS, name, dir string) (held bool, err error) {
+	f, err := fsys.Open(name, os.O_RDONLY)
+	if err != nil {
+		return false, err
+	}
+	defer func() { err = errors.Combine(err, f.Close()) }()
+	tr := tar.NewReader(f)
+	for {
+		hdr, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		if strings.HasPrefix(hdr.Name, dir+"/") {
+			return true, nil
+		}
+	}
+}
+
 // extractArchive writes each entry of the tar archive at name in fsys to dst. It
 // returns an error for an entry that is not a directory or a file, or whose name is not
 // a local path.

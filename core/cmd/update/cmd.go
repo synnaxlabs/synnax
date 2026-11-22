@@ -11,10 +11,13 @@
 package update
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -32,6 +35,7 @@ import (
 const (
 	flagFile    = "file"
 	flagTimeout = "timeout"
+	flagYes     = "yes"
 )
 
 // NewCmd returns the command that updates the Core, with the subcommands that list the
@@ -109,7 +113,8 @@ func newUndoCmd() *cobra.Command {
 			"Telemetry stays, but the telemetry of channels created after the " +
 			"backup moves to an orphaned directory in the backups directory. When " +
 			"the binary that synnax update replaced is the Core version to run, the " +
-			"command puts it back.",
+			"command puts it back. An undo to before the update that converted the " +
+			"telemetry files loses the telemetry written since, and asks first.",
 		Example: "synnax update undo --data /mnt/ssd1\n" +
 			"synnax update undo 1793000000-0.60.1 --data /mnt/ssd1",
 		Args:    cobra.MaximumNArgs(1),
@@ -123,10 +128,16 @@ func newUndoCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return undo(cmd.Context(), cmd.OutOrStdout(), backups, dir, args)
+			return undo(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout(), backups, dir,
+				args)
 		},
 	}
 	addFlags(undoCmd)
+	undoCmd.Flags().Bool(
+		flagYes,
+		false,
+		"Undo without the question when the undo loses telemetry",
+	)
 	return undoCmd
 }
 
@@ -193,6 +204,7 @@ func bindFlags(cmd *cobra.Command, _ []string) error {
 
 func undo(
 	ctx context.Context,
+	in io.Reader,
 	w io.Writer,
 	backups *storage.Backups,
 	dir string,
@@ -204,16 +216,31 @@ func undo(
 	}
 	// Without a Core service, or with one that uses dir, the binary belongs to dir.
 	owned := !installed || filepath.Clean(inst.Data) == dir
-	var res storage.Restored
+	var backup storage.Backup
 	if len(args) == 1 {
-		if res, err = backups.Restore(args[0]); err != nil {
-			return errors.Wrapf(err, "failed to restore backup %s", args[0])
+		backup.Name = args[0]
+	} else {
+		backup, err = backups.Newest()
+		if errors.Is(err, storage.ErrUndone) && owned {
+			// The data is back, but the binary of the update may still be in place.
+			return putBackUndone(ctx, w, backups, inst.Binary, err)
 		}
-	} else if res, err = backups.Undo(); errors.Is(err, storage.ErrUndone) && owned {
-		// The data is back, but the binary of the update may still be in place.
-		return putBackUndone(ctx, w, backups, inst.Binary, err)
-	} else if err != nil {
+		if err != nil {
+			return err
+		}
+	}
+	lost, err := backups.LosesTelemetry(backup.Name)
+	if err != nil {
 		return err
+	}
+	if lost {
+		if err = confirmLoss(in, w, viper.GetBool(flagYes)); err != nil {
+			return err
+		}
+	}
+	res, err := backups.Restore(backup.Name)
+	if err != nil {
+		return errors.Wrapf(err, "failed to restore backup %s", backup.Name)
 	}
 	if err = matchOwner(dir); err != nil {
 		return errors.Wrap(err, "failed to give the restored files to the data owner")
@@ -251,6 +278,40 @@ func undo(
 		))
 	}
 	return printLines(w, run)
+}
+
+// confirmLoss warns that the undo loses the telemetry written since the update that
+// converted the telemetry files, and asks to go on. It returns an error that names
+// --yes when the answer is not yes, when there is no answer, or when in is a file that
+// is not a terminal. With yes, it only warns.
+func confirmLoss(in io.Reader, w io.Writer, yes bool) error {
+	if err := printLines(
+		w,
+		"This undo goes back to before the update that converted the telemetry files.",
+		"The telemetry written since that update is lost: the Core of the backup does "+
+			"not read it, and the next update moves it aside with the suffix .undone.",
+	); err != nil || yes {
+		return err
+	}
+	stopped := errors.New(
+		"stopped the undo. To undo anyway, run the command again with --yes",
+	)
+	if f, ok := in.(*os.File); ok {
+		if info, err := f.Stat(); err != nil || info.Mode()&os.ModeCharDevice == 0 {
+			return stopped
+		}
+	}
+	if _, err := fmt.Fprint(w, "Undo anyway? [y/N] "); err != nil {
+		return err
+	}
+	answer, err := bufio.NewReader(in).ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	if a := strings.ToLower(strings.TrimSpace(answer)); a != "y" && a != "yes" {
+		return stopped
+	}
+	return nil
 }
 
 // putBackUndone puts back the binary that an undone update replaced, as putBackFor does

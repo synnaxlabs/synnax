@@ -130,34 +130,66 @@ func (b *Backups) restore(name string) (res Restored, err error) {
 // ErrUndone is returned when an earlier undo already restored the newest backup.
 var ErrUndone = errors.New("update already undone")
 
-// Undo restores the newest backup, as Restore does. It returns an error when there is
-// no backup, and ErrUndone when an earlier undo already restored the newest backup.
+// Undo restores the newest backup, as Restore does. It returns the errors of Newest.
 func (b *Backups) Undo() (Restored, error) {
 	return b.locked(func() (Restored, error) {
-		backups, err := b.List()
+		newest, err := b.Newest()
 		if err != nil {
 			return Restored{}, err
-		}
-		if len(backups) == 0 {
-			return Restored{}, errors.New(
-				"there is no update to undo: the data has no backups",
-			)
-		}
-		newest := backups[len(backups)-1]
-		recorded, err := b.readVersion()
-		if err != nil {
-			return Restored{}, err
-		}
-		if recorded == newest.Version {
-			return Restored{}, errors.Mark(errors.Newf(
-				"The last update is already undone. To restore backup %s again, "+
-					"run `synnax update undo %s`.",
-				newest.Name,
-				newest.Name,
-			), ErrUndone)
 		}
 		return b.restore(newest.Name)
 	})
+}
+
+// Newest returns the backup that Undo restores. It returns an error when there is no
+// backup, and ErrUndone when an earlier undo already restored the newest backup.
+func (b *Backups) Newest() (Backup, error) {
+	backups, err := b.List()
+	if err != nil {
+		return Backup{}, err
+	}
+	if len(backups) == 0 {
+		return Backup{}, errors.New(
+			"there is no update to undo: the data has no backups",
+		)
+	}
+	newest := backups[len(backups)-1]
+	recorded, err := b.readVersion()
+	if err != nil {
+		return Backup{}, err
+	}
+	if recorded == newest.Version {
+		return Backup{}, errors.Mark(errors.Newf(
+			"The last update is already undone. To restore backup %s again, run "+
+				"`synnax update undo %s`.",
+			newest.Name,
+			newest.Name,
+		), ErrUndone)
+	}
+	return newest, nil
+}
+
+// LosesTelemetry reports whether a Restore of the named backup loses the telemetry that
+// Cesium wrote after the backup: the backup holds the metadata of the old Cesium
+// layout, and the live Cesium files are on the pointer log, which that metadata does
+// not describe. It returns false for a backup that does not exist.
+func (b *Backups) LosesTelemetry(name string) (bool, error) {
+	held, err := archiveHolds(b.fs, path.Join(backupsDir, name+archiveExt), cesiumDir)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil || !held {
+		return false, err
+	}
+	if exists, err := b.fs.Exists(cesiumDir); err != nil || !exists {
+		return false, err
+	}
+	ts, err := b.fs.Sub(cesiumDir)
+	if err != nil {
+		return false, err
+	}
+	_, oldLayout, err := cesium.MetaFiles(ts)
+	return err == nil && !oldLayout, err
 }
 
 // extract unpacks the archive of the named backup into an empty directory and returns

@@ -190,6 +190,7 @@ var _ = Describe("Cesium identity", func() {
 		id := l.TS.Identity()
 		write(ctx, l, 100, indexCh.Key, dataCh.Key)
 		Expect(closeLayer()).To(Succeed())
+		Expect(newBackups(dir).LosesTelemetry(onlyBackup(dir))).To(BeTrue())
 		Expect(MustSucceed(newBackups(dir).Undo()).Backup.Version).To(Equal("0.62.0"))
 		l, closeLayer = MustSucceed2(openOnLog(ctx, cfg))
 		again := l.TS.Identity()
@@ -222,6 +223,7 @@ var _ = Describe("Cesium identity", func() {
 		Expect(archiveEntries(archiveFile(dir, onlyBackup(dir)))).
 			To(HaveEach(HavePrefix("kv/")))
 		files := entries(filepath.Join(dir, "cesium"))
+		Expect(newBackups(dir).LosesTelemetry(onlyBackup(dir))).To(BeFalse())
 		Expect(MustSucceed(newBackups(dir).Undo()).OrphanedDir).To(BeEmpty())
 		Expect(entries(filepath.Join(dir, "cesium"))).To(Equal(files))
 		l, closeLayer = MustSucceed2(openOnLog(

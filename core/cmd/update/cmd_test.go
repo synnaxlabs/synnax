@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -59,9 +60,12 @@ var _ = Describe("Update", func() {
 		DeferCleanup(func() { Expect(os.RemoveAll(dir)).To(Succeed()) })
 	})
 
-	run := func(args ...string) (string, error) {
+	// runIn runs the command with args and the answers in input, and returns its
+	// output.
+	runIn := func(input string, args ...string) (string, error) {
 		var out bytes.Buffer
 		cmd := update.NewCmd(release.DefaultConfig)
+		cmd.SetIn(strings.NewReader(input))
 		cmd.SetOut(&out)
 		cmd.SetErr(io.Discard)
 		cmd.SetArgs(append(
@@ -72,6 +76,7 @@ var _ = Describe("Update", func() {
 		err := cmd.Execute()
 		return out.String(), err
 	}
+	run := func(args ...string) (string, error) { return runIn("", args...) }
 
 	Describe("History", func() {
 		It("Should say when there are no backups", func() {
@@ -167,6 +172,51 @@ var _ = Describe("Update", func() {
 		It("Should return an error when there is no backup", func() {
 			Expect(run("undo")).Error().
 				To(MatchError(ContainSubstring("there is no update to undo")))
+		})
+
+		Context("When the undo goes back to before the conversion", func() {
+			BeforeEach(func() {
+				createBackup(dir, "0000000001-0.62.0", "cesium/1/meta.json")
+				// A head in the Cesium directory marks the pointer log layout.
+				Expect(os.MkdirAll(filepath.Join(dir, "cesium"), 0o700)).To(Succeed())
+				Expect(os.WriteFile(
+					filepath.Join(dir, "cesium", "0000000000000001.head"),
+					nil,
+					0o600,
+				)).To(Succeed())
+			})
+
+			DescribeTable("Should warn, and stop when the answer is not yes",
+				func(input string) {
+					out, err := runIn(input, "undo")
+					Expect(err).To(MatchError("stopped the undo. To undo anyway, " +
+						"run the command again with --yes"))
+					Expect(out).To(ContainSubstring(
+						"The telemetry written since that update is lost",
+					))
+					Expect(fs.ReadFile(os.DirFS(dir), "VERSION")).
+						To(BeEquivalentTo("0.60.0"))
+				},
+				Entry("no answer", ""),
+				Entry("no", "n\n"),
+			)
+
+			It("Should undo after a yes", func() {
+				Expect(MustSucceed(runIn("y\n", "undo"))).To(SatisfyAll(
+					ContainSubstring("Undo anyway? [y/N] "),
+					ContainSubstring("Restored backup 0000000001-0.62.0."),
+				))
+				Expect(fs.ReadFile(os.DirFS(dir), "VERSION")).
+					To(BeEquivalentTo("0.62.0"))
+			})
+
+			It("Should warn and undo with no question with --yes", func() {
+				Expect(MustSucceed(run("undo", "--yes"))).To(SatisfyAll(
+					ContainSubstring("The telemetry written since that update is lost"),
+					Not(ContainSubstring("[y/N]")),
+					ContainSubstring("Restored backup 0000000001-0.62.0."),
+				))
+			})
 		})
 
 		It("Should return an error for a missing backup", func() {
