@@ -87,7 +87,7 @@ double value(const Text &dec, const std::size_t m, const std::size_t s) {
 /// @brief it should read delimited fields at their positions.
 TEST(Text, DecodeDelimited) {
     auto dec = ASSERT_NIL_P(Text::create({message("line", {at("a", 0), at("c", 2)})}));
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode("1.5,2,-3e2")), 0);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode("1.5,2,-3e2")), 0U);
     EXPECT_EQ(value(dec, 0, 0), 1.5);
     EXPECT_EQ(value(dec, 0, 1), -300);
 }
@@ -150,10 +150,10 @@ TEST(Text, RouteByPrefix) {
             message("gga", {at("a", 1)}, "$GPGGA"),
         })
     );
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode("$GPGGA,1")), 2);
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode("$GPRMC,2")), 1);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode("$GPGGA,1")), 2U);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode("$GPRMC,2")), 1U);
     EXPECT_EQ(value(dec, 1, 0), 2);
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode("$HC,3")), 0);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode("$HC,3")), 0U);
 }
 
 /// @brief it should match no message for a blank line, even with a message that has no
@@ -295,12 +295,12 @@ TEST(Text, DecodeWithoutAllocating) {
     );
     constexpr std::string_view gga = "$GPGGA,-122.41941550000,T=1e3";
     constexpr std::string_view any = "1,2,3,0.000123456789012";
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(gga)), 0);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(any)), 1);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(gga)), 0U);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(any)), 1U);
     const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
     for (int i = 0; i < 100; i++) {
-        ASSERT_EQ(ASSERT_NIL_P(dec.decode(gga)), 0);
-        ASSERT_EQ(ASSERT_NIL_P(dec.decode(any)), 1);
+        ASSERT_EQ(ASSERT_NIL_P(dec.decode(gga)), 0U);
+        ASSERT_EQ(ASSERT_NIL_P(dec.decode(any)), 1U);
     }
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
 }
