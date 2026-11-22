@@ -21,13 +21,11 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
-import { Layout } from "@/lineplot/aether/layout";
-import { type BreakAction, type BreaksRequest, XAxis } from "@/lineplot/aether/XAxis";
-import { YAxis } from "@/lineplot/aether/YAxis";
+import { lineplot } from "@/lineplot/aether";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { buildStack } from "@/testutil/internal";
-import { Line } from "@/vis/line/aether/line";
+import { line } from "@/vis/line/aether";
 import { lineTest } from "@/vis/line/aether/testutil";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -71,8 +69,8 @@ interface MountProps {
 }
 
 interface Mount {
-  xAxis: XAxis;
-  axis: YAxis;
+  xAxis: lineplot.XAxis;
+  axis: lineplot.YAxis;
   setVisible: (line: string, visible: boolean) => void;
   setXAxis: (state: Record<string, unknown>) => void;
   calls: canvasTest.RecordingGL["calls"];
@@ -80,7 +78,8 @@ interface Mount {
 }
 
 // across returns a layout of one segment over b, so a y axis bounds its lines inside b.
-const across = (b: bounds.Bounds): Layout => new Layout([b], box.DECIMAL);
+const across = (b: bounds.Bounds): lineplot.Layout =>
+  new lineplot.Layout([b], box.DECIMAL);
 
 describe("YAxis", () => {
   const teardowns: (() => void)[] = [];
@@ -105,9 +104,9 @@ describe("YAxis", () => {
     const stack = buildStack({
       registry: {
         [lineTest.Host.TYPE]: lineTest.Host,
-        [XAxis.TYPE]: XAxis,
-        [YAxis.TYPE]: YAxis,
-        [Line.TYPE]: Line,
+        [lineplot.XAxis.TYPE]: lineplot.XAxis,
+        [lineplot.YAxis.TYPE]: lineplot.YAxis,
+        [line.Line.TYPE]: line.Line,
       },
       render: recorder,
     });
@@ -115,29 +114,29 @@ describe("YAxis", () => {
     const path = [...xPath, "y1"];
     stack.driver.update(xPath.slice(0, -1), lineTest.Host.TYPE, {});
     const setXAxis = (state: Record<string, unknown>): void =>
-      stack.driver.update(xPath, XAxis.TYPE, {
+      stack.driver.update(xPath, lineplot.XAxis.TYPE, {
         location: "bottom",
         autoBoundPadding: 0,
         ...xAxis,
         ...state,
       });
     setXAxis({});
-    stack.driver.update(path, YAxis.TYPE, {
+    stack.driver.update(path, lineplot.YAxis.TYPE, {
       location: "left",
       autoBoundPadding: 0,
       ...axis,
     });
-    const setVisible = (line: string, visible: boolean): void =>
-      stack.driver.update([...path, line], Line.TYPE, {
+    const setVisible = (key: string, visible: boolean): void =>
+      stack.driver.update([...path, key], line.Line.TYPE, {
         color: color.construct("#ff0000"),
-        ...lines[line],
+        ...lines[key],
         visible,
       });
-    Object.keys(lines).forEach((line) => setVisible(line, !hidden.includes(line)));
+    Object.keys(lines).forEach((key) => setVisible(key, !hidden.includes(key)));
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
     return {
-      xAxis: stack.driver.find<XAxis>(xPath),
-      axis: stack.driver.find<YAxis>(path),
+      xAxis: stack.driver.find<lineplot.XAxis>(xPath),
+      axis: stack.driver.find<lineplot.YAxis>(path),
       setVisible,
       setXAxis,
       calls,
@@ -171,7 +170,7 @@ describe("YAxis", () => {
           hold: false,
           breaksHidden: false,
           openBreaks: [],
-          layout: new Layout([{ lower: 0, upper: 50 }], box.DECIMAL),
+          layout: new lineplot.Layout([{ lower: 0, upper: 50 }], box.DECIMAL),
         },
         raised,
       );
@@ -186,7 +185,7 @@ describe("YAxis", () => {
 
     it("should draw the x axis before it returns the error of an x source", () => {
       const m = mount();
-      const failed = vi.spyOn(Line.prototype, "xBounds").mockImplementation(() => {
+      const failed = vi.spyOn(line.Line.prototype, "xBounds").mockImplementation(() => {
         throw new Error("x source failed");
       });
       teardowns.push(() => failed.mockRestore());
@@ -238,14 +237,22 @@ describe("YAxis", () => {
     it("should bound each line over its own span", () => {
       const m = mount();
       const spans = new Map([["railed", { lower: 20, upper: 60 }]]);
-      const layout = new Layout([{ lower: 0, upper: 100 }], box.DECIMAL, spans);
+      const layout = new lineplot.Layout(
+        [{ lower: 0, upper: 100 }],
+        box.DECIMAL,
+        spans,
+      );
       expect(m.axis.bounds(false, layout)).toEqual({ lower: 1, upper: 3 });
     });
 
     it("should give no bounds for a line whose span holds no time", () => {
       const m = mount();
       const spans = new Map([["railed", { lower: 30, upper: 30 }]]);
-      const layout = new Layout([{ lower: 0, upper: 100 }], box.DECIMAL, spans);
+      const layout = new lineplot.Layout(
+        [{ lower: 0, upper: 100 }],
+        box.DECIMAL,
+        spans,
+      );
       expect(m.axis.bounds(false, layout)).toEqual({ lower: 1, upper: 3 });
     });
 
@@ -465,31 +472,34 @@ describe("XAxis", () => {
     >,
     xState: Record<string, unknown> = {},
     recorder: canvasTest.Recorder = canvasTest.record(),
-  ): XAxis => {
+  ): lineplot.XAxis => {
     (recorder as { gl: unknown }).gl = GL;
     const stack = buildStack({
       registry: {
         [lineTest.Host.TYPE]: lineTest.Host,
-        [XAxis.TYPE]: XAxis,
-        [YAxis.TYPE]: YAxis,
-        [Line.TYPE]: Line,
+        [lineplot.XAxis.TYPE]: lineplot.XAxis,
+        [lineplot.YAxis.TYPE]: lineplot.YAxis,
+        [line.Line.TYPE]: line.Line,
       },
       render: recorder,
     });
     const xPath = [...stack.basePath, "host", "x1"];
     stack.driver.update(xPath.slice(0, -1), lineTest.Host.TYPE, {});
-    stack.driver.update(xPath, XAxis.TYPE, {
+    stack.driver.update(xPath, lineplot.XAxis.TYPE, {
       location: "bottom",
       autoBoundPadding: 0,
       ...xState,
     });
     Object.entries(yAxes).forEach(([yKey, lines]) => {
       const yPath = [...xPath, yKey];
-      stack.driver.update(yPath, YAxis.TYPE, { location: "left", autoBoundPadding: 0 });
+      stack.driver.update(yPath, lineplot.YAxis.TYPE, {
+        location: "left",
+        autoBoundPadding: 0,
+      });
       lines.forEach(({ x: b, edge, source }, i) => {
         const x: XSource = source ?? telemTest.source([b, new MultiSeries()]);
         x.edge = edge;
-        stack.driver.update([...yPath, `line${i}`], Line.TYPE, {
+        stack.driver.update([...yPath, `line${i}`], line.Line.TYPE, {
           x: specOf(x),
           y: sourceSpec([1, 2]),
           color: color.construct("#ff0000"),
@@ -498,7 +508,7 @@ describe("XAxis", () => {
       });
     });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
-    return stack.driver.find<XAxis>(xPath);
+    return stack.driver.find<lineplot.XAxis>(xPath);
   };
 
   describe("bounds", () => {
@@ -584,7 +594,8 @@ describe("XAxis", () => {
       viewport: box.DECIMAL,
       openBreaks,
     });
-    const segmentBounds = (x: XAxis) => x.layout(props()).segments.map((s) => s.bounds);
+    const segmentBounds = (x: lineplot.XAxis) =>
+      x.layout(props()).segments.map((s) => s.bounds);
 
     it("should give each window far from the others its own segment", () => {
       const x = mount(WINDOWS, { type: "time" });
@@ -745,17 +756,20 @@ describe("XAxis", () => {
     const view = (lower: number, upper: number): box.Box =>
       box.construct({ x: lower, y: 0 }, { x: upper, y: 1 }, 0, 0, box.DECIMAL.root);
     const request = (
-      action: BreakAction,
+      action: lineplot.BreakAction,
       viewport = box.DECIMAL,
       selection = box.ZERO,
-    ): BreaksRequest => ({ action, viewport, held: [], selection });
-    const toggle = (x: number, source: "plot" | "axis" = "plot"): BreakAction => ({
+    ): lineplot.BreaksRequest => ({ action, viewport, held: [], selection });
+    const toggle = (
+      x: number,
+      source: "plot" | "axis" = "plot",
+    ): lineplot.BreakAction => ({
       variant: "toggle",
       x,
       source,
     });
     // shown returns the values at the x edges of a view, with openBreaks open.
-    const shown = (x: XAxis, openBreaks: number[], viewport: box.Box) => {
+    const shown = (x: lineplot.XAxis, openBreaks: number[], viewport: box.Box) => {
       const layout = x.layout({ ...props(openBreaks), viewport });
       return [layout.reverse(0), layout.reverse(1)];
     };
@@ -802,7 +816,7 @@ describe("XAxis", () => {
       expect(change).not.toBeNull();
       const before = x.layout(props());
       const after = x.layout(props(change!.openBreaks));
-      const values = (l: Layout, b: box.Box) => {
+      const values = (l: lineplot.Layout, b: box.Box) => {
         const { lower, upper } = box.xBounds(b);
         return [l.reverseHome(lower), l.reverseHome(upper)];
       };
@@ -831,7 +845,7 @@ describe("XAxis", () => {
 
     it("should open and close every break", () => {
       const x = mount(WINDOWS, { type: "time" });
-      const all = (open: boolean): BreakAction => ({ variant: "all", open });
+      const all = (open: boolean): lineplot.BreakAction => ({ variant: "all", open });
       expect(x.breaks(props(), request(all(true)), PLOT)?.openBreaks).toEqual([GAP]);
       expect(x.breaks(props([GAP]), request(all(false)), PLOT)?.openBreaks).toEqual([]);
       expect(x.breaks(props(), request(all(false)), PLOT)).toBeNull();
@@ -839,7 +853,7 @@ describe("XAxis", () => {
 
     it("should open the breaks that a set names", () => {
       const x = mount(WINDOWS, { type: "time" });
-      const set: BreakAction = { variant: "set", open: [GAP] };
+      const set: lineplot.BreakAction = { variant: "set", open: [GAP] };
       expect(x.breaks(props(), request(set), PLOT)?.openBreaks).toEqual([GAP]);
       expect(x.breaks(props([GAP]), request(set), PLOT)).toBeNull();
     });
@@ -847,7 +861,7 @@ describe("XAxis", () => {
     it("should keep the width of a view inside a gap that closes", () => {
       const x = mount(WINDOWS, { type: "time" });
       const inGap = view(0.4, 0.6);
-      const action: BreakAction = { variant: "all", open: false };
+      const action: lineplot.BreakAction = { variant: "all", open: false };
       const change = x.breaks(props([GAP]), request(action, inGap), PLOT);
       const { lower, upper } = box.xBounds(change!.viewport);
       expect(upper - lower).toBeCloseTo(0.2);
@@ -856,7 +870,7 @@ describe("XAxis", () => {
 
     it("should drop open breaks whose gaps the axis no longer has", () => {
       const x = mount(WINDOWS, { type: "time" });
-      const close: BreakAction = { variant: "all", open: false };
+      const close: lineplot.BreakAction = { variant: "all", open: false };
       expect(x.breaks(props([12345]), request(close), PLOT)?.openBreaks).toEqual([]);
     });
   });

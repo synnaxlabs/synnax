@@ -12,8 +12,7 @@ import { box, color, location, scale, xy } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { text } from "@/text/aether";
-import { Draw2D } from "@/vis/draw2d";
-import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
+import { Draw2D, SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d";
 
 const THEME = theme.themeZ.parse(theme.SYNNAX_LIGHT);
 

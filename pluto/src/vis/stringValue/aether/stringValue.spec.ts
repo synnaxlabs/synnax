@@ -14,7 +14,7 @@ import type { z } from "zod";
 
 import { telemTest } from "@/telem/aether/testutil";
 import { renderAether } from "@/testutil/internal";
-import type { FillTextOptions } from "@/vis/draw2d/canvas";
+import type { FillTextOptions } from "@/vis/draw2d";
 import { canvasTest } from "@/vis/render/testutil";
 import { stringValue } from "@/vis/stringValue/aether";
 

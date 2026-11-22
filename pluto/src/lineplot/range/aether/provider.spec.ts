@@ -21,7 +21,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { Layout } from "@/lineplot/aether/layout";
+import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
 import { ranger } from "@/ranger/aether";
 import { renderAether } from "@/testutil/internal";
@@ -53,7 +53,7 @@ const renderProps = (
   timeRange: TimeRange,
   shown: TimeRange = timeRange,
 ): range.ProviderProps => ({
-  layout: new Layout([shown.numericBounds], box.DECIMAL),
+  layout: new lineplot.Layout([shown.numericBounds], box.DECIMAL),
   region: REGION,
   timeRange,
   raised: [],
@@ -713,7 +713,7 @@ describe("Provider", () => {
         upper: at(upper),
       }));
       return {
-        layout: new Layout(b, box.DECIMAL),
+        layout: new lineplot.Layout(b, box.DECIMAL),
         region: REGION,
         timeRange: new TimeRange(b[0].lower, b[b.length - 1].upper),
         raised: [],

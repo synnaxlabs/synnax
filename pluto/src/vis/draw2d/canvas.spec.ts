@@ -11,10 +11,7 @@ import { scale, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { text } from "@/text/aether";
-import {
-  domRadii,
-  SugaredOffscreenCanvasRenderingContext2D,
-} from "@/vis/draw2d/canvas";
+import { domRadii, SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d";
 
 /** The properties the wrapper caches, so a repeat set never reaches the canvas. */
 const CACHED_PROPS = [
