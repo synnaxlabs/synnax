@@ -440,6 +440,22 @@ describe("Enumeration.Settings", () => {
     for (const { key } of checked) await waitForDeleted(key);
   });
 
+  it("should offer no Delete when one checked enumeration is in use", async () => {
+    const checked = [await createEnumeration(), await createEnumeration()];
+    await createSelectUser(checked[0].key);
+    await awaitGranted(client, enumeration.resourceID(checked[0].key), "delete");
+    await renderEnumerations();
+    const used = await screen.findByRole("option", { name: checked[0].name });
+    await within(used).findByText("Used by 1");
+    for (const { name } of checked) {
+      const option = await screen.findByRole("option", { name });
+      fireEvent.click(within(option).getByRole("checkbox", { name: "Select" }));
+    }
+    await openContextMenu(checked[1].name);
+    expect(screen.queryByRole("menuitem", { name: /Used by/ })).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
+  });
+
   it("should disable Cancel and Delete while the delete runs", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
