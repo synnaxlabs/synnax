@@ -445,6 +445,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		) (map[channel.Key]channel.Fill, error) {
 			return l.Calculation.Fills(ctx, tx, keys...)
 		},
+		Computes: func(u channel.Use) bool {
+			return u.Holder.Table == string(resource.TypeCalculation) &&
+				u.Direction == channel.DirectionWrite
+		},
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}
