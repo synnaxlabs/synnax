@@ -9,8 +9,9 @@
 
 import type { status } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { usePopover } from "@synnaxlabs/lyra/hooks";
+import { ClockProvider, usePopover } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
+import { TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useRef, useState } from "react";
 import { describe, expect, it } from "vitest";
@@ -272,6 +273,11 @@ describe("Notifications", () => {
   });
 
   describe("a card tooltip", () => {
+    // The feed re-renders each second to drop old notifications, outside any act. A
+    // stopped clock keeps the slow hover of these specs from catching a tick.
+    const STOPPED_AT = TimeStamp.now();
+    const FROZEN = (): TimeStamp => STOPPED_AT;
+
     const TooltipHarness = (): ReactElement => {
       const add = Status.useAdder();
       return (
@@ -288,7 +294,9 @@ describe("Notifications", () => {
             <Dialog.Trigger>Open</Dialog.Trigger>
             <Dialog.Dialog>Modal</Dialog.Dialog>
           </Dialog.Frame>
-          <Notifications.Feed notifications={[]} />
+          <ClockProvider value={FROZEN}>
+            <Notifications.Feed notifications={[]} />
+          </ClockProvider>
         </>
       );
     };
