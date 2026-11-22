@@ -84,6 +84,11 @@ func openEngine(o *options) (*engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	// An undo that a crash cut short can have moved the parts already, so the check
+	// comes before they load.
+	if snapshot, err = undoUnheld(o, r, snapshot); err != nil {
+		return nil, err
+	}
 	if snapshot != nil {
 		if r.parts, err = checkpoint.LoadParts(o.fs, r.db, r.head); err != nil {
 			return nil, err

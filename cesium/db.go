@@ -169,6 +169,15 @@ func (db *DB) Read(
 // intent's channel stays, and Sweep keeps it when no record holds its key.
 func (db *DB) CorruptIntents() int { return db.corruptIntents }
 
+// Identity returns the database identity, which the caller keeps and passes to
+// WithIdentity at each later Open. It is 0 on the old layout.
+func (db *DB) Identity() uint64 {
+	if db.engine == nil {
+		return 0
+	}
+	return db.engine.db
+}
+
 // Metrics returns current metrics for the database.
 func (db *DB) Metrics() Metrics {
 	db.mu.RLock()

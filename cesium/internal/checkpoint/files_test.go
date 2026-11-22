@@ -284,6 +284,16 @@ var _ = Describe("Files", func() {
 							lg(2), lg(3)))
 					})
 
+				It("Should keep the files that an undo moved aside", func() {
+					const undone = ".00000000000000ab.undone"
+					part := "0000000000000005.part" + undone
+					complete(1, 2, 3)
+					create(lg(1), lg(2), lg(3), head(1)+undone, lg(1)+undone, part)
+					Expect(checkpoint.Clean(fs, 3)).To(Succeed())
+					Expect(left()).To(ConsistOf(head(2), head(3), lg(2), lg(3),
+						head(1)+undone, lg(1)+undone, part))
+				})
+
 				It("Should keep no older head whose logs are not all there", func() {
 					complete(1, 2, 4)
 					create(lg(1), lg(3), lg(4), "meta.json", head(1)+".damaged")
