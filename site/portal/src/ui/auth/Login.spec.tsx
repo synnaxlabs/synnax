@@ -14,7 +14,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { Invited } from "@/server/invitation";
-import { Login } from "@/ui/auth/Login";
+import { Auth } from "@/ui/auth";
 
 const INVITED = {
   invitation: { email: "ada@acme.co" },
@@ -47,7 +47,7 @@ describe("Login", () => {
   afterEach(cleanup);
 
   it("should keep an invited address fixed and visible to password managers", () => {
-    render(<Login target="/" invited={INVITED} />);
+    render(<Auth.Login target="/" invited={INVITED} />);
     const input = email();
     expect(input.readOnly).toBe(true);
     expect(input.disabled).toBe(false);
@@ -55,7 +55,7 @@ describe("Login", () => {
   });
 
   it("should tell a visitor at login that accounts get release notes", () => {
-    render(<Login target="/" invited={null} />);
+    render(<Auth.Login target="/" invited={null} />);
     expect(
       screen.getByText(
         "We email you our release notes. You can unsubscribe at any time.",

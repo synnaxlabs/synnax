@@ -10,8 +10,7 @@
 import { errors } from "@synnaxlabs/x";
 import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 
-import { schema } from "@/server/db";
-import type { Query, Store } from "@/server/db/db";
+import { type Query, schema, type Store } from "@/server/db";
 import { expiring } from "@/server/license/notice";
 import type { Mailer } from "@/server/mail";
 
