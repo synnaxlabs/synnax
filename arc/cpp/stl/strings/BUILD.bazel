@@ -23,6 +23,7 @@ cc_library(
     deps = [
         ":state",
         "//arc/cpp/stl",
+        "//x/cpp/strings",
     ],
 )
 

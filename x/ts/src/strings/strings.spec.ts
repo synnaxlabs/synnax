@@ -241,3 +241,63 @@ describe("count", () => {
     expect(strings.count(1, "entry", "entries")).toEqual("1 entry");
   });
 });
+
+describe("formatFloat", () => {
+  it.each([
+    [-1.5, "-1.5"],
+    [1e10, "10000000000"],
+    [1e20, "100000000000000000000"],
+    [1e21, "1e+21"],
+    [1e-6, "0.000001"],
+    [1.5e-7, "1.5e-7"],
+    [Number.MAX_VALUE, "1.7976931348623157e+308"],
+    [5e-324, "5e-324"],
+    [1000000000000000128, "1000000000000000100"],
+    [0, "0"],
+    [-0, "-0"],
+    [NaN, "NaN"],
+    [Infinity, "Infinity"],
+    [-Infinity, "-Infinity"],
+  ])("should format the float64 %s as %s", (value, expected) => {
+    expect(strings.formatFloat(value)).toEqual(expected);
+  });
+
+  it.each([
+    [0.1, "0.1"],
+    [1e20, "100000000000000000000"],
+    [1e30, "1e+30"],
+    [1e-6, "0.000001"],
+    [1.5e-7, "1.5e-7"],
+    [0.000244140625, "0.00024414062"],
+    [-0, "-0"],
+    [NaN, "NaN"],
+  ])("should format the float32 %s as %s", (value, expected) => {
+    expect(strings.formatFloat(Math.fround(value), 32)).toEqual(expected);
+  });
+
+  it("should keep the sign of a value that rounds to float32 zero", () => {
+    expect(strings.formatFloat(-1e-50, 32)).toEqual("-0");
+  });
+
+  it("should format text that parses back to the same bits", () => {
+    const view = new DataView(new ArrayBuffer(8));
+    let seed = 1;
+    const next = (): number => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed;
+    };
+    for (let i = 0; i < 20_000; i++) {
+      view.setUint32(0, next());
+      view.setUint32(4, next());
+      const f64 = view.getFloat64(0);
+      if (!Number.isNaN(f64))
+        expect(Object.is(Number(strings.formatFloat(f64)), f64)).toBe(true);
+      view.setUint32(0, next());
+      const f32 = view.getFloat32(0);
+      if (!Number.isNaN(f32))
+        expect(Object.is(Math.fround(Number(strings.formatFloat(f32, 32))), f32)).toBe(
+          true,
+        );
+    }
+  });
+});
