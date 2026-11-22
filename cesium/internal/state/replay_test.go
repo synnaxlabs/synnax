@@ -230,9 +230,9 @@ var _ = Describe("Replay", func() {
 		func(sealing log.Record) {
 			Expect(replay(create(7, 9, 5), sealing)).To(Succeed())
 			run(s)
-			Expect(s.Channel(9)).To(BeNil())
-			Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 7, Key: 9}}))
 			Expect(MustSucceed(s.Snapshot()).Channels).To(HaveLen(2))
+			Expect(s.Channel(9).Segments).To(BeEmpty())
+			Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 7, Key: 9}}))
 		},
 		Entry("a Seal", &log.Seal{Segment: 7}),
 		Entry("a Restart", &log.Restart{}),
