@@ -102,6 +102,8 @@ var _ = Describe("Compile keys breaker", Ordered, ContinueOnFailure, func() {
 			Exec(ctx, snap)).To(Succeed())
 		return tsk
 	}
+	// deploy binds the Arc with key to a task and takes its program as the embedded
+	// Driver's configure does.
 	deploy := func(ctx SpecContext, key arc.Key) task.Key {
 		GinkgoHelper()
 		var tsk *task.Task
@@ -109,6 +111,7 @@ var _ = Describe("Compile keys breaker", Ordered, ContinueOnFailure, func() {
 			tsk, err = w.UpdateTask(ctx, key, arc.TaskUpdate{Rack: new(testRack.Key)})
 			return err
 		})).To(Succeed())
+		MustSucceed(svc.CompileProgram(ctx, key))
 		return tsk.Key
 	}
 	// running returns the status of a Driver that runs the config the task with key

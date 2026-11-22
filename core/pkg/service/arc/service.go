@@ -381,7 +381,54 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 		return AutomationArc{}, err
 	}
 	automation.Program = &prog
+	if err = s.RecordDeploy(ctx, automation); err != nil {
+		return AutomationArc{}, err
+	}
 	return automation, nil
+}
+
+// RecordDeploy stores the channels of automation's program, which a Driver now takes
+// to run, as the lists of the automation and the deployed lists of its task's drift
+// record. Equal lists write nothing.
+func (s *Service) RecordDeploy(ctx context.Context, automation AutomationArc) error {
+	_, graph := automation.Source.Variant.(GraphSource)
+	b := Build{}
+	b.reads, b.writes = channelKeys(automation.Program.IR, graph)
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var a Arc
+		if err := s.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Arc](automation.Key)).
+			Entry(&a).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		if err := s.NewWriter(tx).syncKeys(ctx, a.Base(), b); err != nil {
+			return err
+		}
+		tasks, err := retrieveTaskKeys(
+			ctx,
+			s.cfg.Task,
+			tx,
+			s.cfg.MatchTasks(automation.Key),
+		)
+		if err != nil || len(tasks) == 0 {
+			return err
+		}
+		var rec drift.Record
+		err = s.drifts.NewRetrieve().
+			Where(gorp.MatchKeys[drift.Key, drift.Record](tasks[0])).
+			Entry(&rec).
+			Exec(ctx, tx)
+		if errors.Is(err, query.ErrNotFound) {
+			return nil
+		}
+		if err != nil ||
+			slices.Equal(rec.Reads, b.reads) && slices.Equal(rec.Writes, b.writes) {
+			return err
+		}
+		rec.Reads, rec.Writes = b.reads, b.writes
+		return s.drifts.NewCreate().Entry(&rec).Exec(ctx, tx)
+	})
 }
 
 // DanglingMigration returns the migration identified by key that clears, from each

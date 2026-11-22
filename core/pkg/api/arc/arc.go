@@ -506,6 +506,10 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	automation.Program = &prog
 	automation.Calculations = calculations
 	a.Variant = automation
+	// A rack's fetch is a Driver taking the program to run.
+	if auth.GetSubject(ctx).Type == resource.TypeRack {
+		return s.internal.RecordDeploy(ctx, automation)
+	}
 	return nil
 }
 

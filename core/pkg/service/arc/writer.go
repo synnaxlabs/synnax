@@ -261,13 +261,8 @@ func (w Writer) UpdateTask(
 	if err != nil {
 		return nil, err
 	}
-	// The task's next run is the program of b, so b's lists are the Arc's and the
-	// deployed ones.
 	if err = w.syncKeys(ctx, a.Base(), b); err != nil {
 		return nil, err
-	}
-	if b.err == nil {
-		rec.Reads, rec.Writes = b.reads, b.writes
 	}
 	rec.Task = written.Key
 	if err = w.writeRecord(ctx, tsk, rec, hashes); err != nil {

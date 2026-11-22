@@ -118,6 +118,8 @@ var _ = Describe("Compile keys", Ordered, func() {
 	arcTarget := func(key arc.Key) gorp.Target {
 		return gorp.NewTarget(string(resource.TypeArc), key)
 	}
+	// deploy binds the Arc with key to a task and takes its program as the embedded
+	// Driver's configure does.
 	deploy := func(ctx SpecContext, key arc.Key) task.Key {
 		GinkgoHelper()
 		var tsk *task.Task
@@ -125,6 +127,7 @@ var _ = Describe("Compile keys", Ordered, func() {
 			tsk, err = w.UpdateTask(ctx, key, arc.TaskUpdate{Rack: new(testRack.Key)})
 			return err
 		})).To(Succeed())
+		MustSucceed(svc.CompileProgram(ctx, key))
 		return tsk.Key
 	}
 	// run reports the task with key as running the config it holds, as the Driver does.
@@ -392,6 +395,35 @@ var _ = Describe("Compile keys", Ordered, func() {
 			return channelSvc.NewWriter(tx).Delete(ctx, ch.Key(), false)
 		})).To(Succeed())
 		Expect(uses(ctx, ch)).To(ConsistOf(arcTarget(a.Base().Key), drifted))
+	})
+
+	It("Should hold the channel that the Driver's program reads after the channel is "+
+		"made again under its name and the Core restarts", func(ctx SpecContext) {
+		gone := channel.Channel{Name: "ck_again", DataType: telem.Float64T}
+		gone.Virtual = true
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &gone)
+		})).To(Succeed())
+		a := createArc(
+			ctx,
+			arc.TypeAutomation,
+			textBase("ck_a", "ck_again * 2.0 -> ck_out"),
+		)
+		key := a.Base().Key
+		deploy(ctx, key)
+		Expect(deployed(ctx, key)()).To(Equal([2][]channel.Key{keys(gone), keys(out)}))
+		again := channel.Channel{Name: "ck_again", DataType: telem.Float64T}
+		again.Virtual = true
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := channelSvc.NewWriter(tx)
+			if err := w.Delete(ctx, gone.Key(), false); err != nil {
+				return err
+			}
+			return w.Create(ctx, &again)
+		})).To(Succeed())
+		// A Core start configures the task again, which takes the program again.
+		MustSucceed(svc.CompileProgram(ctx, key))
+		Expect(deployed(ctx, key)()).To(Equal([2][]channel.Key{keys(again), keys(out)}))
 	})
 
 	It("Should keep the deployed lists while edits change the Arc's lists, and take "+
