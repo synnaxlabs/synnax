@@ -102,9 +102,11 @@ export const pickOption = async (
   const list = scope ?? field.closest<HTMLElement>('[role="dialog"]');
   if (list == null) throw new Error(`no dialog holds the field "${search}"`);
   fireEvent.change(field, { target: { value: name } });
+  // A select that creates entries offers to create the name until the search lists it.
   const option = await waitFor(() => {
     const options = within(list).queryAllByRole("option");
-    if (options.length !== 1 || options[0].textContent?.includes(name) !== true)
+    const text = options[0]?.textContent ?? "";
+    if (options.length !== 1 || !text.includes(name) || text.startsWith("Create "))
       throw new Error(`the search for ${name} has not answered`);
     return options[0];
   });
