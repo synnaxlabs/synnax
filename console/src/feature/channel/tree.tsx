@@ -61,8 +61,7 @@ const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
   return (
     <PChannel.HaulPreview
       channel={ch.payload}
-      index={PChannel.getCachedIndex(client, ch.payload)}
-      calculated={PChannel.getCachedIsOutput(client, ch.payload)}
+      {...PChannel.getCachedPreviewProps(client, ch.payload)}
       count={count}
     />
   );

@@ -11,7 +11,7 @@ import { calculation, type channel } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
-export type RetrieveOutputQuery = {
+type RetrieveOutputQuery = {
   /** The key of the channel. */
   channel: channel.Key;
 };
@@ -20,7 +20,7 @@ export type RetrieveOutputQuery = {
  * Answers with the calculation that writes the channel of the query, or with none. The
  * lookups of a tick share one request.
  */
-export const { useResult: useResultOutput } = Flux.createRetrieve<
+const { useResult: useResultOutput } = Flux.createRetrieve<
   RetrieveOutputQuery,
   calculation.Output
 >({
