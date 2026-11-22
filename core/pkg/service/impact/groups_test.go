@@ -142,6 +142,7 @@ var _ = Describe("Delete groups", Ordered, func() {
 		folder := createFolder(ctx, "impact-tombstoned", nil)
 		ch := tombstone(ctx, folder)
 		Expect(apply(ctx, impact.ApplyOptions{}, folder.Key)).To(Equal(impact.Plan{
+			Change:  deleteOf(folder.Key),
 			Entries: []impact.Entry{cascade(ch, "impact-tombstoned."+ch.Name)},
 		}))
 		Expect(exists(ctx, folder.Key)).To(BeFalse())
@@ -168,6 +169,7 @@ var _ = Describe("Delete groups", Ordered, func() {
 		gone := createFolder(ctx, "impact-gone", &kept)
 		ch := tombstone(ctx, gone)
 		Expect(apply(ctx, impact.ApplyOptions{}, gone.Key)).To(Equal(impact.Plan{
+			Change:  deleteOf(gone.Key),
 			Entries: []impact.Entry{cascade(ch, "impact-gone."+ch.Name)},
 		}))
 		Expect(exists(ctx, kept.Key)).To(BeTrue())
