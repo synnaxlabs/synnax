@@ -115,7 +115,12 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 	delete(body, "version")
 	delete(body, "type")
 	delete(body, "name")
-	decoded, err := store.Decode(ctx, env.Version, msgpack.EncodedJSON(body))
+	decoded, err := store.Decode(
+		ctx,
+		env.Version,
+		msgpack.EncodedJSON(body),
+		env.DecodeOptions()...,
+	)
 	if err != nil {
 		return nil, err
 	}

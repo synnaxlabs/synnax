@@ -10,6 +10,7 @@
 package imex
 
 import (
+	"encoding/json/v2"
 	"strings"
 
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -74,18 +75,24 @@ func PeekVersion(blob msgpack.EncodedJSON, resource string) (Version, error) {
 	return peek.Version, nil
 }
 
-// DecodeBlob unmarshals blob as T, treating a nil blob as a zero T so empty entries
-// round-trip without erroring. resource and v name the blob in errors ("log data").
+// DecodeBlob unmarshals blob as T with opts, treating a nil blob as a zero T so empty
+// entries round-trip without erroring. resource and v name the blob in errors ("log
+// data").
 func DecodeBlob[T any](
 	blob msgpack.EncodedJSON,
 	resource string,
 	v Version,
+	opts ...json.Options,
 ) (T, error) {
 	var t T
 	if blob == nil {
 		return t, nil
 	}
-	if err := blob.Unmarshal(&t); err != nil {
+	b, err := json.Marshal(blob)
+	if err == nil {
+		err = json.Unmarshal(b, &t, opts...)
+	}
+	if err != nil {
 		return t, errors.Wrapf(err, "decode v%d %s", v, resource)
 	}
 	return t, nil

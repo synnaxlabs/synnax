@@ -13,6 +13,7 @@ package versions
 
 import (
 	"context"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v1"
@@ -37,10 +38,11 @@ func decodeReadConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (ReadConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.ReadConfig](data, "opcua.ReadConfig", version)
+		t1, err := imex.DecodeBlob[v1.ReadConfig](data, "opcua.ReadConfig", version, opts...)
 		if err != nil {
 			return ReadConfig{}, err
 		}
@@ -50,7 +52,7 @@ func decodeReadConfig(
 		}
 		return t2, nil
 	case v2.Version:
-		return imex.DecodeBlob[ReadConfig](data, "opcua.ReadConfig", version)
+		return imex.DecodeBlob[ReadConfig](data, "opcua.ReadConfig", version, opts...)
 	}
 	return ReadConfig{}, imex.NewErrUnsupportedVersion("opcua.ReadConfig", version, Latest)
 }
@@ -67,16 +69,17 @@ func decodeWriteConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (WriteConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.WriteConfig](data, "opcua.WriteConfig", version)
+		t1, err := imex.DecodeBlob[v1.WriteConfig](data, "opcua.WriteConfig", version, opts...)
 		if err != nil {
 			return WriteConfig{}, err
 		}
 		return t1, nil
 	case v2.Version:
-		return imex.DecodeBlob[WriteConfig](data, "opcua.WriteConfig", version)
+		return imex.DecodeBlob[WriteConfig](data, "opcua.WriteConfig", version, opts...)
 	}
 	return WriteConfig{}, imex.NewErrUnsupportedVersion("opcua.WriteConfig", version, Latest)
 }
@@ -93,16 +96,17 @@ func decodeScanConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (ScanConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.ScanConfig](data, "opcua.ScanConfig", version)
+		t1, err := imex.DecodeBlob[v1.ScanConfig](data, "opcua.ScanConfig", version, opts...)
 		if err != nil {
 			return ScanConfig{}, err
 		}
 		return t1, nil
 	case v2.Version:
-		return imex.DecodeBlob[ScanConfig](data, "opcua.ScanConfig", version)
+		return imex.DecodeBlob[ScanConfig](data, "opcua.ScanConfig", version, opts...)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("opcua.ScanConfig", version, Latest)
 }

@@ -13,6 +13,7 @@ package versions
 
 import (
 	"context"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
@@ -38,10 +39,11 @@ func decodeReadConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (ReadConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.ReadConfig](data, "mqtt.ReadConfig", version)
+		t1, err := imex.DecodeBlob[v1.ReadConfig](data, "mqtt.ReadConfig", version, opts...)
 		if err != nil {
 			return ReadConfig{}, err
 		}
@@ -51,13 +53,13 @@ func decodeReadConfig(
 		}
 		return t2, nil
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.ReadConfig](data, "mqtt.ReadConfig", version)
+		t2, err := imex.DecodeBlob[v2.ReadConfig](data, "mqtt.ReadConfig", version, opts...)
 		if err != nil {
 			return ReadConfig{}, err
 		}
 		return t2, nil
 	case v3.Version:
-		return imex.DecodeBlob[ReadConfig](data, "mqtt.ReadConfig", version)
+		return imex.DecodeBlob[ReadConfig](data, "mqtt.ReadConfig", version, opts...)
 	}
 	return ReadConfig{}, imex.NewErrUnsupportedVersion("mqtt.ReadConfig", version, Latest)
 }
@@ -74,22 +76,23 @@ func decodeWriteConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (WriteConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.WriteConfig](data, "mqtt.WriteConfig", version)
+		t1, err := imex.DecodeBlob[v1.WriteConfig](data, "mqtt.WriteConfig", version, opts...)
 		if err != nil {
 			return WriteConfig{}, err
 		}
 		return t1, nil
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.WriteConfig](data, "mqtt.WriteConfig", version)
+		t2, err := imex.DecodeBlob[v2.WriteConfig](data, "mqtt.WriteConfig", version, opts...)
 		if err != nil {
 			return WriteConfig{}, err
 		}
 		return t2, nil
 	case v3.Version:
-		return imex.DecodeBlob[WriteConfig](data, "mqtt.WriteConfig", version)
+		return imex.DecodeBlob[WriteConfig](data, "mqtt.WriteConfig", version, opts...)
 	}
 	return WriteConfig{}, imex.NewErrUnsupportedVersion("mqtt.WriteConfig", version, Latest)
 }
@@ -106,22 +109,23 @@ func decodeScanConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (ScanConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.ScanConfig](data, "mqtt.ScanConfig", version)
+		t1, err := imex.DecodeBlob[v1.ScanConfig](data, "mqtt.ScanConfig", version, opts...)
 		if err != nil {
 			return ScanConfig{}, err
 		}
 		return t1, nil
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.ScanConfig](data, "mqtt.ScanConfig", version)
+		t2, err := imex.DecodeBlob[v2.ScanConfig](data, "mqtt.ScanConfig", version, opts...)
 		if err != nil {
 			return ScanConfig{}, err
 		}
 		return t2, nil
 	case v3.Version:
-		return imex.DecodeBlob[ScanConfig](data, "mqtt.ScanConfig", version)
+		return imex.DecodeBlob[ScanConfig](data, "mqtt.ScanConfig", version, opts...)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("mqtt.ScanConfig", version, Latest)
 }
@@ -138,22 +142,23 @@ func decodeEdgeConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (EdgeConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.EdgeConfig](data, "mqtt.EdgeConfig", version)
+		t1, err := imex.DecodeBlob[v1.EdgeConfig](data, "mqtt.EdgeConfig", version, opts...)
 		if err != nil {
 			return EdgeConfig{}, err
 		}
 		return t1, nil
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.EdgeConfig](data, "mqtt.EdgeConfig", version)
+		t2, err := imex.DecodeBlob[v2.EdgeConfig](data, "mqtt.EdgeConfig", version, opts...)
 		if err != nil {
 			return EdgeConfig{}, err
 		}
 		return t2, nil
 	case v3.Version:
-		return imex.DecodeBlob[EdgeConfig](data, "mqtt.EdgeConfig", version)
+		return imex.DecodeBlob[EdgeConfig](data, "mqtt.EdgeConfig", version, opts...)
 	}
 	return EdgeConfig{}, imex.NewErrUnsupportedVersion("mqtt.EdgeConfig", version, Latest)
 }

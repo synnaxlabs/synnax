@@ -13,6 +13,7 @@ package versions
 
 import (
 	"context"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
@@ -37,10 +38,11 @@ func decodeAnalogReadConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (AnalogReadConfig, error) {
 	switch version {
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.AnalogReadConfig](data, "ni.AnalogReadConfig", version)
+		t2, err := imex.DecodeBlob[v2.AnalogReadConfig](data, "ni.AnalogReadConfig", version, opts...)
 		if err != nil {
 			return AnalogReadConfig{}, err
 		}
@@ -50,7 +52,7 @@ func decodeAnalogReadConfig(
 		}
 		return t3, nil
 	case v3.Version:
-		return imex.DecodeBlob[AnalogReadConfig](data, "ni.AnalogReadConfig", version)
+		return imex.DecodeBlob[AnalogReadConfig](data, "ni.AnalogReadConfig", version, opts...)
 	}
 	return AnalogReadConfig{}, imex.NewErrUnsupportedVersion("ni.AnalogReadConfig", version, Latest)
 }
@@ -67,10 +69,11 @@ func decodeCounterReadConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (CounterReadConfig, error) {
 	switch version {
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.CounterReadConfig](data, "ni.CounterReadConfig", version)
+		t2, err := imex.DecodeBlob[v2.CounterReadConfig](data, "ni.CounterReadConfig", version, opts...)
 		if err != nil {
 			return CounterReadConfig{}, err
 		}
@@ -80,7 +83,7 @@ func decodeCounterReadConfig(
 		}
 		return t3, nil
 	case v3.Version:
-		return imex.DecodeBlob[CounterReadConfig](data, "ni.CounterReadConfig", version)
+		return imex.DecodeBlob[CounterReadConfig](data, "ni.CounterReadConfig", version, opts...)
 	}
 	return CounterReadConfig{}, imex.NewErrUnsupportedVersion("ni.CounterReadConfig", version, Latest)
 }
@@ -97,10 +100,11 @@ func decodeAnalogWriteConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (AnalogWriteConfig, error) {
 	switch version {
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.AnalogWriteConfig](data, "ni.AnalogWriteConfig", version)
+		t2, err := imex.DecodeBlob[v2.AnalogWriteConfig](data, "ni.AnalogWriteConfig", version, opts...)
 		if err != nil {
 			return AnalogWriteConfig{}, err
 		}
@@ -110,7 +114,7 @@ func decodeAnalogWriteConfig(
 		}
 		return t3, nil
 	case v3.Version:
-		return imex.DecodeBlob[AnalogWriteConfig](data, "ni.AnalogWriteConfig", version)
+		return imex.DecodeBlob[AnalogWriteConfig](data, "ni.AnalogWriteConfig", version, opts...)
 	}
 	return AnalogWriteConfig{}, imex.NewErrUnsupportedVersion("ni.AnalogWriteConfig", version, Latest)
 }
@@ -127,10 +131,11 @@ func decodeDigitalReadConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (DigitalReadConfig, error) {
 	switch version {
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.DigitalReadConfig](data, "ni.DigitalReadConfig", version)
+		t2, err := imex.DecodeBlob[v2.DigitalReadConfig](data, "ni.DigitalReadConfig", version, opts...)
 		if err != nil {
 			return DigitalReadConfig{}, err
 		}
@@ -140,7 +145,7 @@ func decodeDigitalReadConfig(
 		}
 		return t3, nil
 	case v3.Version:
-		return imex.DecodeBlob[DigitalReadConfig](data, "ni.DigitalReadConfig", version)
+		return imex.DecodeBlob[DigitalReadConfig](data, "ni.DigitalReadConfig", version, opts...)
 	}
 	return DigitalReadConfig{}, imex.NewErrUnsupportedVersion("ni.DigitalReadConfig", version, Latest)
 }
@@ -157,10 +162,11 @@ func decodeDigitalWriteConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (DigitalWriteConfig, error) {
 	switch version {
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.DigitalWriteConfig](data, "ni.DigitalWriteConfig", version)
+		t2, err := imex.DecodeBlob[v2.DigitalWriteConfig](data, "ni.DigitalWriteConfig", version, opts...)
 		if err != nil {
 			return DigitalWriteConfig{}, err
 		}
@@ -170,7 +176,7 @@ func decodeDigitalWriteConfig(
 		}
 		return t3, nil
 	case v3.Version:
-		return imex.DecodeBlob[DigitalWriteConfig](data, "ni.DigitalWriteConfig", version)
+		return imex.DecodeBlob[DigitalWriteConfig](data, "ni.DigitalWriteConfig", version, opts...)
 	}
 	return DigitalWriteConfig{}, imex.NewErrUnsupportedVersion("ni.DigitalWriteConfig", version, Latest)
 }
@@ -187,10 +193,11 @@ func decodeScanConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (ScanConfig, error) {
 	switch version {
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.ScanConfig](data, "ni.ScanConfig", version)
+		t2, err := imex.DecodeBlob[v2.ScanConfig](data, "ni.ScanConfig", version, opts...)
 		if err != nil {
 			return ScanConfig{}, err
 		}
@@ -200,7 +207,7 @@ func decodeScanConfig(
 		}
 		return t3, nil
 	case v3.Version:
-		return imex.DecodeBlob[ScanConfig](data, "ni.ScanConfig", version)
+		return imex.DecodeBlob[ScanConfig](data, "ni.ScanConfig", version, opts...)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("ni.ScanConfig", version, Latest)
 }

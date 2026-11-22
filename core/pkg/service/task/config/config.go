@@ -78,14 +78,17 @@ type Store interface {
 	// which must be the key of a task. It returns an error wrapping query.ErrNotFound
 	// when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
-	// Decode converts a config blob at the given version to the current stored shape
-	// with defaults applied. It reads no stored data. A version that predates the
-	// type's ladder runs the type's legacy rewrite first. It returns a validation error
-	// when data does not decode at version or version is newer than the store's.
+	// Decode converts a config blob at the given version, decoded with opts, to the
+	// current stored shape with defaults applied. It reads no stored data. A version
+	// that predates the type's ladder runs the type's legacy rewrite first. It returns
+	// a
+	// validation error when data does not decode at version or version is newer than
+	// the store's.
 	Decode(
 		ctx context.Context,
 		version imex.Version,
 		data msgpack.EncodedJSON,
+		opts ...json.Options,
 	) (Decoded, error)
 	// Normalize decodes data as Decode does, then normalizes the result on tx as
 	// Decoded.Normalize does.
@@ -551,6 +554,7 @@ func (s *Service[E]) Decode(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (Decoded, error) {
 	ladder := s.cfg.Ladder
 	// A legacy rewrite or a migration gives a field that its source lacks the zero
@@ -567,7 +571,7 @@ func (s *Service[E]) Decode(
 			s.cfg.Type, version, ladder.Latest,
 		)
 	}
-	e, err := ladder.Decode(ctx, version, data)
+	e, err := ladder.Decode(ctx, version, data, opts...)
 	if err != nil {
 		return Decoded{}, errors.Wrapf(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,

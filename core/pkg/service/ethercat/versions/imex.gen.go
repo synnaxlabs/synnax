@@ -13,6 +13,7 @@ package versions
 
 import (
 	"context"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
@@ -38,10 +39,11 @@ func decodeReadConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (ReadConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.ReadConfig](data, "ethercat.ReadConfig", version)
+		t1, err := imex.DecodeBlob[v1.ReadConfig](data, "ethercat.ReadConfig", version, opts...)
 		if err != nil {
 			return ReadConfig{}, err
 		}
@@ -55,7 +57,7 @@ func decodeReadConfig(
 		}
 		return t3, nil
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.ReadConfig](data, "ethercat.ReadConfig", version)
+		t2, err := imex.DecodeBlob[v2.ReadConfig](data, "ethercat.ReadConfig", version, opts...)
 		if err != nil {
 			return ReadConfig{}, err
 		}
@@ -65,7 +67,7 @@ func decodeReadConfig(
 		}
 		return t3, nil
 	case v3.Version:
-		return imex.DecodeBlob[ReadConfig](data, "ethercat.ReadConfig", version)
+		return imex.DecodeBlob[ReadConfig](data, "ethercat.ReadConfig", version, opts...)
 	}
 	return ReadConfig{}, imex.NewErrUnsupportedVersion("ethercat.ReadConfig", version, Latest)
 }
@@ -82,10 +84,11 @@ func decodeWriteConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (WriteConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.WriteConfig](data, "ethercat.WriteConfig", version)
+		t1, err := imex.DecodeBlob[v1.WriteConfig](data, "ethercat.WriteConfig", version, opts...)
 		if err != nil {
 			return WriteConfig{}, err
 		}
@@ -99,7 +102,7 @@ func decodeWriteConfig(
 		}
 		return t3, nil
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.WriteConfig](data, "ethercat.WriteConfig", version)
+		t2, err := imex.DecodeBlob[v2.WriteConfig](data, "ethercat.WriteConfig", version, opts...)
 		if err != nil {
 			return WriteConfig{}, err
 		}
@@ -109,7 +112,7 @@ func decodeWriteConfig(
 		}
 		return t3, nil
 	case v3.Version:
-		return imex.DecodeBlob[WriteConfig](data, "ethercat.WriteConfig", version)
+		return imex.DecodeBlob[WriteConfig](data, "ethercat.WriteConfig", version, opts...)
 	}
 	return WriteConfig{}, imex.NewErrUnsupportedVersion("ethercat.WriteConfig", version, Latest)
 }
@@ -126,22 +129,23 @@ func decodeScanConfig(
 	ctx context.Context,
 	version imex.Version,
 	data msgpack.EncodedJSON,
+	opts ...json.Options,
 ) (ScanConfig, error) {
 	switch version {
 	case v1.Version:
-		t1, err := imex.DecodeBlob[v1.ScanConfig](data, "ethercat.ScanConfig", version)
+		t1, err := imex.DecodeBlob[v1.ScanConfig](data, "ethercat.ScanConfig", version, opts...)
 		if err != nil {
 			return ScanConfig{}, err
 		}
 		return t1, nil
 	case v2.Version:
-		t2, err := imex.DecodeBlob[v2.ScanConfig](data, "ethercat.ScanConfig", version)
+		t2, err := imex.DecodeBlob[v2.ScanConfig](data, "ethercat.ScanConfig", version, opts...)
 		if err != nil {
 			return ScanConfig{}, err
 		}
 		return t2, nil
 	case v3.Version:
-		return imex.DecodeBlob[ScanConfig](data, "ethercat.ScanConfig", version)
+		return imex.DecodeBlob[ScanConfig](data, "ethercat.ScanConfig", version, opts...)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("ethercat.ScanConfig", version, Latest)
 }
