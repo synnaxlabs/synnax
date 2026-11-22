@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { enumeration, schematic } from "@synnaxlabs/client";
-import { createTestClientWithPolicy } from "@synnaxlabs/client/testutil";
+import { createTestClientWithPolicy, holdResponses } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it, onTestFinished } from "vitest";
@@ -99,6 +99,32 @@ describe("Enumeration.Settings", () => {
     await waitFor(() =>
       expect(document.activeElement).toBe(within(entries).getByLabelText("Name 1")),
     );
+  });
+
+  it("should list a new enumeration first before the Core answers", async () => {
+    const prefix = uniqueName("order");
+    await client.enumerations.create({ name: `${prefix}-a` });
+    await renderEnumerations();
+    fireEvent.change(screen.getByPlaceholderText("Search enumerations"), {
+      target: { value: prefix },
+    });
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+    const { release } = holdResponses(client, "/enumeration/create");
+    await clickAndSettle("Create enumeration");
+    const created = `${prefix}-z`;
+    fireEvent.change(await screen.findByLabelText("Enumeration name"), {
+      target: { value: created },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
+    const optionNames = (): Array<string | null> =>
+      screen.getAllByRole("option").map((o) => o.getAttribute("aria-label"));
+    await waitFor(() => expect(optionNames()).toEqual([created, `${prefix}-a`]));
+    release();
+    // The new enumeration opens once the Core answers.
+    await screen.findByRole("region", { name: `${created} entries` });
+    expect(optionNames()).toEqual([created, `${prefix}-a`]);
   });
 
   it("should keep focus in the search when a new enumeration shows again", async () => {

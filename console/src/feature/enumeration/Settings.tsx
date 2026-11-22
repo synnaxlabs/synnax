@@ -163,13 +163,14 @@ interface CreateFormProps {
 }
 
 const CreateForm = ({ onCreated }: CreateFormProps): ReactElement => {
-  const { close, created } = PlatformSettings.useCreate();
+  const { close, creating, created } = PlatformSettings.useCreate();
   const { updateAsync, variant } = Enumeration.useCreate();
   const [name, setName] = useState("");
   const handleSave = (): void => {
     const trimmed = name.trim();
     if (trimmed === "" || variant === "loading") return;
     const key = uuid.create();
+    creating(key);
     void (async () => {
       if ((await updateAsync({ key, name: trimmed })) === false) return;
       // The new enumeration lists at the top, so its entries show to take focus.
