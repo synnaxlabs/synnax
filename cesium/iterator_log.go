@@ -94,14 +94,17 @@ func (c *logCursor) load() {
 			c.ranges = c.ranges[:0]
 			return
 		}
-		for i, seg := range r.Segments {
-			if p.Live(r.First+i) && !killed(ch.Parts.Kills, p, seg.ID) {
+		c.ranges = slices.Grow(c.ranges, len(r.Segments))
+		for i := range r.Segments {
+			if seg := &r.Segments[i]; p.Live(r.First+i) &&
+				!killed(ch.Parts.Kills, p, seg.ID) {
 				c.add(seg)
 			}
 		}
 	}
-	for _, seg := range ch.Segments {
-		if seg.Part == 0 {
+	c.ranges = slices.Grow(c.ranges, len(ch.Segments))
+	for i := range ch.Segments {
+		if seg := &ch.Segments[i]; seg.Part == 0 {
 			c.add(seg)
 		}
 	}
@@ -117,9 +120,9 @@ func (c *logCursor) load() {
 }
 
 // add adds the pointers of seg to the ranges of c.
-func (c *logCursor) add(seg state.Segment) {
+func (c *logCursor) add(seg *state.Segment) {
 	for _, ptr := range seg.Pointers {
-		c.ranges = append(c.ranges, logRange{seg: seg, ptr: ptr, start: ptr.First})
+		c.ranges = append(c.ranges, logRange{seg: *seg, ptr: ptr, start: ptr.First})
 	}
 }
 
