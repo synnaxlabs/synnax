@@ -68,6 +68,8 @@ func (c *core) checkSegment(key uint32, seg Segment) error {
 			c.limits.Segments)
 	case c.segments[seg.ID] != nil:
 		return refuse("head names segment %d twice", seg.ID)
+	case seg.Sealed && len(seg.Pointers) == 0:
+		return refuse("head names segment %d, sealed with no pointer", seg.ID)
 	case !c.versions.Contains(seg.Version):
 		return errors.Wrapf(log.ErrUnknown, "segment %d has format version %d", seg.ID,
 			seg.Version)
