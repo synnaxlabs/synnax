@@ -122,12 +122,11 @@ class Binary {
         x::errors::Error decode(std::span<const std::uint8_t> payload);
     };
 
-    /// @brief Header matches frames by the raw value of an identifier field. Messages
-    /// whose identifier fields have one layout share a header.
+    /// @brief Header matches frames by the raw bits of an identifier field. Messages
+    /// whose identifier fields read the same bits share a header.
     struct Header {
         BitRange bits;
-        bool is_signed = false;
-        std::unordered_map<std::int64_t, std::size_t> messages;
+        std::unordered_map<std::uint64_t, std::size_t> messages;
     };
 
     /// @brief Masked matches the CAN frames whose identifier, under mask, is id.

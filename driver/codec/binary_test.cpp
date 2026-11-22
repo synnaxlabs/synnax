@@ -648,6 +648,28 @@ TEST(Binary, RefuseSameFieldValue) {
     );
 }
 
+/// @brief it should refuse signed and unsigned identifier fields on the same bits whose
+/// values have the same raw bits.
+TEST(Binary, RefuseSameFieldBitsAcrossSigns) {
+    assert_refuses_all(
+        {
+            tagged("a", -1, field<icd::IntegerBinaryField>("kind", 0, 8)),
+            tagged("b", 255),
+        },
+        "messages a and b match the same identifier value 255"
+    );
+}
+
+/// @brief it should refuse an identifier field that ends past the fixed payload length.
+TEST(Binary, RefuseIdentifierPastLength) {
+    auto m = tagged("a", 1, field<icd::UnsignedBinaryField>("kind", 16, 8));
+    m.payload.length = 2;
+    assert_refuses_all(
+        {m},
+        "message a: identifier: field kind: the field ends past the 2-byte payload"
+    );
+}
+
 /// @brief it should refuse an identifier value that its field cannot hold.
 TEST(Binary, RefuseFieldValueOutOfRange) {
     assert_refuses_all(

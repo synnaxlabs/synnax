@@ -422,6 +422,12 @@ Binary::route(const BinaryMessage &m, const std::size_t i, const Layout &fields)
         return config_error(context + ": field " + b.name + " is a float field");
     auto [bits, err] = BitRange::create(b);
     if (err) return as_config(err, context + ": field " + b.name);
+    if (const auto length = m.payload.length;
+        length.has_value() && bits.end() > *length)
+        return config_error(
+            context + ": field " + b.name + ": the field ends past the " +
+            std::to_string(*length) + "-byte payload"
+        );
     const bool is_signed = std::holds_alternative<icd::IntegerBinaryField>(f);
     const std::int64_t v = id.value;
     const auto n = b.bit_length;
@@ -432,14 +438,15 @@ Binary::route(const BinaryMessage &m, const std::size_t i, const Layout &fields)
         return config_error(
             context + ": " + std::to_string(v) + " is out of range for field " + b.name
         );
-    auto h = std::ranges::find_if(this->headers, [&](const Header &hd) {
-        return hd.bits == bits && hd.is_signed == is_signed;
-    });
+    auto h = std::ranges::find(this->headers, bits, &Header::bits);
     if (h == this->headers.end()) {
-        this->headers.push_back({.bits = bits, .is_signed = is_signed});
+        this->headers.push_back({.bits = bits});
         h = std::prev(this->headers.end());
     }
-    const auto [it, inserted] = h->messages.try_emplace(v, i);
+    const auto raw = n >= 64
+                       ? static_cast<std::uint64_t>(v)
+                       : static_cast<std::uint64_t>(v) & ((std::uint64_t{1} << n) - 1);
+    const auto [it, inserted] = h->messages.try_emplace(raw, i);
     if (!inserted)
         return config_error(
             "messages " + this->messages[it->second].name + " and " + m.name +
@@ -511,10 +518,7 @@ Binary::decode(const std::span<const std::uint8_t> payload) {
     std::optional<std::size_t> found;
     for (const auto &h: this->headers) {
         if (payload.size() < h.bits.end()) continue;
-        const auto raw = h.is_signed
-                           ? h.bits.read_signed(payload.data())
-                           : static_cast<std::int64_t>(h.bits.read(payload.data()));
-        const auto it = h.messages.find(raw);
+        const auto it = h.messages.find(h.bits.read(payload.data()));
         if (it == h.messages.end()) continue;
         if (found.has_value())
             return {
