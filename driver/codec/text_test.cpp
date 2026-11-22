@@ -242,6 +242,18 @@ TEST(Text, RefuseSharedPrefix) {
     );
 }
 
+/// @brief it should refuse a tag that a trimmed item can never start with.
+TEST(Text, RefuseUnmatchableTag) {
+    auto m = message("a", {tagged("t", "T: ")});
+    m.payload.delimiter = " ";
+    assert_refuses({m}, "message a: field t: the tag contains the delimiter \" \"");
+    for (const auto *tag: {" T", "\tT", "\rT"})
+        assert_refuses(
+            {message("a", {tagged("t", tag)})},
+            "message a: field t: the tag starts with whitespace"
+        );
+}
+
 /// @brief it should refuse an empty delimiter or tag.
 TEST(Text, RefuseEmpty) {
     auto m = message("a", {});

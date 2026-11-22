@@ -46,8 +46,11 @@ std::string_view trim(const std::string_view s) {
 
 }
 
-std::pair<Text::Field, x::errors::Error>
-Text::Field::create(const icd::TextField &f, const x::telem::DataType &dt) {
+std::pair<Text::Field, x::errors::Error> Text::Field::create(
+    const icd::TextField &f,
+    const x::telem::DataType &dt,
+    const std::string_view delimiter
+) {
     const auto &b = icd::base(f);
     Field field{
         .name = b.name,
@@ -59,6 +62,19 @@ Text::Field::create(const icd::TextField &f, const x::telem::DataType &dt) {
     if (const auto *tagged = std::get_if<icd::TaggedTextField>(&f)) {
         if (tagged->tag.empty())
             return {Field{}, x::errors::Error(CONFIG_ERROR, "the tag is empty")};
+        if (tagged->tag.contains(delimiter))
+            return {
+                Field{},
+                x::errors::Error(
+                    CONFIG_ERROR,
+                    "the tag contains the delimiter " + x::json::quote(delimiter)
+                ),
+            };
+        if (SPACE.contains(tagged->tag.front()))
+            return {
+                Field{},
+                x::errors::Error(CONFIG_ERROR, "the tag starts with whitespace")
+            };
         field.tagged = true;
         field.tag = tagged->tag;
     } else
@@ -159,7 +175,7 @@ Text::create(const std::vector<TextMessage> &messages) {
                     ),
                 };
             const auto &f = *found->second;
-            auto [field, err] = Field::create(f, b.data_type);
+            auto [field, err] = Field::create(f, b.data_type, m.payload.delimiter);
             if (err)
                 return {
                     Text{},

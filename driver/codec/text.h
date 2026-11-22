@@ -55,8 +55,11 @@ class Text {
         /// field, or nothing when the field requires one.
         std::optional<x::telem::Series> fallback;
 
-        static std::pair<Field, x::errors::Error>
-        create(const synnax::icd::TextField &f, const x::telem::DataType &dt);
+        static std::pair<Field, x::errors::Error> create(
+            const synnax::icd::TextField &f,
+            const x::telem::DataType &dt,
+            std::string_view delimiter
+        );
         [[nodiscard]] x::errors::Error
         append_float(double v, x::telem::Series &dst) const;
         /// @brief appends the sample of the field in items, the items of one line, or
