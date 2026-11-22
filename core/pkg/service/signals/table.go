@@ -60,6 +60,11 @@ type TableConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	//
 	// [OPTIONAL] - Defaults to the key field of the JSON sample.
 	SetKey func(sample []byte) (K, error)
+	// SetCheck returns the check of one sample of the set channel. A streamer sends the
+	// sample only to a subject that passes it, in place of a check of Resource.
+	//
+	// [OPTIONAL] - Defaults to a check of Resource.
+	SetCheck func(sample []byte) (Check, error)
 	// SetDisabled is true when an action channel describes the sets of the table, so
 	// the table has no set channel.
 	//
@@ -93,6 +98,7 @@ func (c TableConfig[K, E]) Override(other TableConfig[K, E]) TableConfig[K, E] {
 	c.DeleteName = override.String(c.DeleteName, other.DeleteName)
 	c.MarshalSet = override.Nil(c.MarshalSet, other.MarshalSet)
 	c.SetKey = override.Nil(c.SetKey, other.SetKey)
+	c.SetCheck = override.Nil(c.SetCheck, other.SetCheck)
 	c.SetDisabled = override.Nil(c.SetDisabled, other.SetDisabled)
 	return c
 }
@@ -188,9 +194,24 @@ func (f *tableFeed[K, E]) records() map[channel.Key]Record {
 		},
 	}
 	if f.set != nil {
-		records[f.set.Key()] = Record{Of: recordOf(f.cfg.SetKey, f.cfg.Resource)}
+		records[f.set.Key()] = Record{
+			Of:    recordOf(f.cfg.SetKey, f.cfg.Resource),
+			Check: f.cfg.SetCheck,
+		}
 	}
 	return records
+}
+
+// CheckJSON returns a SetCheck that decodes each sample as the JSON of an E and checks
+// it with check.
+func CheckJSON[E any](check func(E) Check) func(sample []byte) (Check, error) {
+	return func(sample []byte) (Check, error) {
+		var e E
+		if err := json.Unmarshal(sample, &e); err != nil {
+			return nil, err
+		}
+		return check(e), nil
+	}
 }
 
 // MarshalJSON encodes e as one variable JSON sample.
