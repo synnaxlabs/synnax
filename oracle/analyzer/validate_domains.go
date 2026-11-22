@@ -505,7 +505,8 @@ func validateComparisonRules(table *resolution.Table, diag *diagnostics.Files) {
 	}
 }
 
-// structComparisonProblems returns the problems of the lt rules on the fields of t.
+// structComparisonProblems returns the problems of the @go validate rules on the fields
+// of t.
 func structComparisonProblems(
 	t resolution.Type,
 	form resolution.StructForm,

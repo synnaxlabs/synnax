@@ -1220,8 +1220,7 @@ type templateData struct {
 	Namespace  string
 	repoRoot   string
 	Decls      []declData
-	// patterns holds the compiled regexes of the pattern checks, one per distinct
-	// regex.
+	// patterns holds one compiled regex for each distinct regex of the pattern checks.
 	// Copies of the data share it, since any of them can add a check.
 	patterns *[]patternVar
 }
