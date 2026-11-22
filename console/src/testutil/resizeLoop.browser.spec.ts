@@ -58,6 +58,20 @@ describe("traceResizeLoops", () => {
     expect(reports[0]).toContain("resizeLoop.browser.spec");
   });
 
+  it("should name an element that a callback resized by under a pixel", async () => {
+    // Chromium writes the computed height of a tall element to six digits.
+    const element = box(root, "shrinker", 12000.25);
+    element.style.width = "10px";
+    observe(element, () => {
+      element.style.height = `${element.getBoundingClientRect().height - 0.125}px`;
+    });
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain(
+      "div.shrinker changed from 10x12000.25 to 10x12000.125",
+    );
+  });
+
   it("should report nothing for a resize outside a callback", async () => {
     const element = box(root, "still", 10);
     observe(element, () => {});
