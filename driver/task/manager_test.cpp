@@ -24,7 +24,6 @@
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
-#include "client/cpp/errors/errors.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/pipe.h"
 #include "client/cpp/testutil/testutil.h"
@@ -4708,8 +4707,9 @@ TEST_F(TaskManagerTest, MissedChangesReadControlStateAndRackNameAgain) {
     ASSERT_NIL(writer.close());
 }
 
-/// @brief it should keep the control state mirror and end the run when the read of
-/// control state after a missed marker fails, so the mirror never passes every writer.
+/// @brief it should keep the control state mirror and end the run with no error when
+/// the read of control state after a missed marker fails, so the mirror never passes
+/// every writer and the rack starts another run.
 TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
     auto index_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("missed_fail_idx"),
@@ -4771,8 +4771,9 @@ TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
         end.wait_for((10 * x::telem::SECOND).chrono()),
         std::future_status::ready
     );
-    // The run ends with the failed read of control state.
-    ASSERT_TRUE(synnax::errors::is_unreachable(end.get()));
+    // The run ends with no error, so the rack starts another run and the Driver
+    // keeps running.
+    ASSERT_NIL(end.get());
     ASSERT_FALSE(states->is_authorized(data_ch.key, other_sub));
     ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
     pipe->resume();

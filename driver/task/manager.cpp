@@ -249,7 +249,6 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
     this->retrieve_rack_name();
     LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
-    x::errors::Error sync_err = x::errors::NIL;
     do {
         auto [frame, read_err] = this->streamer->read();
         if (read_err) break;
@@ -274,18 +273,24 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
                             "behind. Reading the tasks, control state, and rack name "
                             "again.";
             // The bus filters local writes with the control mirror, so it is read
-            // first. A failed read ends the run and keeps the mirror, since an empty
-            // one passes every writer. The next run reads it again. Transfers that the
-            // stream delivers after a read apply on top.
-            if (sync_err = this->read_control_states(); sync_err) break;
+            // first. A failed read or sync ends the run with no error, so the rack
+            // starts the next run, which reads both again, and never stops the
+            // Driver. The mirror stays as it was, since an empty one passes every
+            // writer. Transfers that the stream delivers after a read apply on top.
+            if (const auto err = this->read_control_states()) {
+                LOG(WARNING) << "failed to read control state after a miss: " << err;
+                break;
+            }
             this->retrieve_rack_name();
-            if (sync_err = this->sync_tasks(true); sync_err) break;
+            if (const auto err = this->sync_tasks(true)) {
+                LOG(WARNING) << "failed to sync tasks after a miss: " << err;
+                break;
+            }
         }
     } while (true);
     std::lock_guard<std::mutex> lock{this->mu};
     const auto c_err = this->streamer->close();
     this->streamer = nullptr;
-    if (sync_err) return sync_err;
     return c_err;
 }
 
