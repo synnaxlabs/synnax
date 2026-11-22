@@ -225,8 +225,9 @@ Field groups per make:
   the node channel maps `read_channels`, `read_fields`, and `write_channels`
   (`console/src/feature/opcua/device/types/versions/v2.ts`). The connect form and the scanner's
   server certificate pin write the identity group; the task forms write the
-  configuration group. Mode `None` pairs only with policy `None`, the timeouts have
-  minimums of 100 ms and 1 s, and the endpoint is an `opc.tcp` URL.
+  configuration group. The timeouts have minimums of 100 ms and 1 s, and the endpoint is
+  an `opc.tcp` URL. Mode `None` pairs only with policy `None`; Oracle has no rule across
+  two fields, so the Core's server writer checks the pair.
 - **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
   channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
