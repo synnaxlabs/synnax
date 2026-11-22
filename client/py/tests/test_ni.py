@@ -14,7 +14,6 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 import synnax as sy
-import synnax.ni.chassis
 from x.strings import random_name
 
 
@@ -739,6 +738,21 @@ class TestNITask:
                 ),
             ],
         )
+
+    def test_func_gen_channel_keeps_a_positive_frequency(self) -> None:
+        ch = sy.ni.AOFuncGenChannel(port=0, frequency=12.5)
+        assert ch.frequency == 12.5
+
+    @pytest.mark.parametrize("frequency", [0, -5])
+    def test_func_gen_channel_rejects_a_frequency_that_is_not_positive(
+        self, frequency: float
+    ) -> None:
+        with pytest.raises(ValidationError):
+            sy.ni.AOFuncGenChannel(port=0, frequency=frequency)
+
+    def test_func_gen_channel_requires_a_frequency(self) -> None:
+        with pytest.raises(ValidationError):
+            sy.ni.AOFuncGenChannel.model_validate({"port": 0})
 
     def test_invalid_channel_type_rejected(self) -> None:
         """An unknown channel type discriminator fails validation."""

@@ -14,6 +14,10 @@ namespace {
 constexpr size_t PDO_HEADER_SIZE = 8;
 constexpr size_t PDO_ENTRY_SIZE = 8;
 constexpr size_t OP_MODE_SIZE = 24;
+/// @brief the byte of the general category that holds the CoE details.
+constexpr size_t COE_DETAILS = 5;
+/// @brief the SDO information bit of the CoE details.
+constexpr uint8_t SDO_INFO = 0x02;
 
 /// @brief reads a little-endian value of n bytes from data at offset.
 uint32_t read(const std::span<const uint8_t> data, const size_t offset, const int n) {
@@ -82,5 +86,9 @@ parse_op_modes(const std::span<const uint8_t> data, const Strings &strings) {
             .sync1_shift = static_cast<int32_t>(read(data, off + 8, 4)),
         });
     return modes;
+}
+
+bool parse_sdo_info(const std::span<const uint8_t> data) {
+    return data.size() > COE_DETAILS && (data[COE_DETAILS] & SDO_INFO) != 0;
 }
 }

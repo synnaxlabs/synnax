@@ -10,6 +10,7 @@
 package cert_test
 
 import (
+	"bytes"
 	"encoding/pem"
 	"path"
 
@@ -52,6 +53,16 @@ var _ = Describe("Loader", func() {
 			def := cert.DefaultLoaderConfig
 			Expect(fs.Remove(path.Join(def.CertsDir, def.CACertPath))).To(Succeed())
 			Expect(countPEMBlocks(MustSucceed(l.TrustAnchorsPEM()))).To(Equal(1))
+		})
+
+		It("Should separate a CA certificate with no trailing newline", func() {
+			testutil.GenerateCerts(fs)
+			def := cert.DefaultLoaderConfig
+			caPath := path.Join(def.CertsDir, def.CACertPath)
+			ca := MustSucceed(xfs.ReadFile(fs, caPath))
+			Expect(xfs.WriteFile(fs, caPath, bytes.TrimRight(ca, "\n"))).To(Succeed())
+			l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
+			Expect(countPEMBlocks(MustSucceed(l.TrustAnchorsPEM()))).To(Equal(2))
 		})
 
 		It("Should return an error when no certificates exist", func() {

@@ -55,3 +55,21 @@ describe("calcTimeline", () => {
     });
   });
 });
+
+describe("calcTimeline massflow", () => {
+  const example = CALC_EXAMPLES.find((e) => e.id === "massflow")!;
+  const lines = example.code.split("\n");
+  const CALLS: Record<string, string> = {
+    density: "fluids.density(",
+    orifice: "fluids.orifice_flow(",
+    mass_flow: "fluids.orifice_flow(",
+  };
+
+  it("should highlight the call that computes the active node", () => {
+    for (const { activeLines, state } of example.steps) {
+      const call = CALLS[state.activeNodes?.[0] ?? ""];
+      if (call == null) continue;
+      expect(activeLines.map((l) => lines[l - 1]).join("\n")).toContain(call);
+    }
+  });
+});

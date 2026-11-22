@@ -50,9 +50,10 @@ func (cfg Config) Validate() error {
 // Override implements config.Config.
 func (cfg Config) Override(other Config) Config {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.EnablePropagation = override.Nil(cfg.EnableLogging, other.EnableLogging)
-	cfg.EnableLogging = override.Nil(cfg.EnablePropagation, other.EnablePropagation)
+	cfg.EnablePropagation = override.Nil(cfg.EnablePropagation, other.EnablePropagation)
+	cfg.EnableLogging = override.Nil(cfg.EnableLogging, other.EnableLogging)
 	cfg.EnableTracing = override.Nil(cfg.EnableTracing, other.EnableTracing)
+	cfg.Level = override.Numeric(cfg.Level, other.Level)
 	return cfg
 }
 

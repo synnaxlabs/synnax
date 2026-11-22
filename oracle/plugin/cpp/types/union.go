@@ -85,13 +85,7 @@ func (p *Plugin) processUnion(
 		}
 	}
 
-	if base, ok := resolver.SharedBase(form, "cpp", data.table); ok {
-		parent, resolved := base.Resolve(data.table)
-		if !resolved {
-			panic(fmt.Sprintf("union %s extends unresolved base %s", name, base.Name))
-		}
-		ud.Base = p.resolveExtendsType(base, parent, data)
-	}
+	ud.Base = p.unionBase(name, form, data)
 
 	enumType, _, borrows := resolution.Dealias(form.Enum, data.table)
 	borrows = borrows && form.BorrowsEnum()
@@ -105,17 +99,7 @@ func (p *Plugin) processUnion(
 		variantName := cppnaming.VariantTypeName(name, v.Name)
 		discDefault := fmt.Sprintf("%q", v.Name)
 		if borrows {
-			member, ok := enumMember(enumType, v.Name)
-			if !ok {
-				panic(fmt.Sprintf(
-					"union %s variant %q has no member in enum %s",
-					name, v.Name, enumType.Name,
-				))
-			}
-			discDefault = p.defaultRenderer(data).EnumVariant(validation.EnumVariant{
-				Type:    enumType,
-				Variant: member,
-			})
+			discDefault = p.borrowedDiscriminator(name, v.Name, enumType, data)
 		}
 		sd := structData{
 			Name: variantName,
@@ -136,6 +120,45 @@ func (p *Plugin) processUnion(
 		})
 	}
 	return variants, ud
+}
+
+// unionBase returns the C++ type of the struct every variant of the union inherits, or
+// "" when the variants share no base.
+func (p *Plugin) unionBase(
+	name string,
+	form resolution.UnionForm,
+	data *templateData,
+) string {
+	base, ok := resolver.SharedBase(form, "cpp", data.table)
+	if !ok {
+		return ""
+	}
+	parent, resolved := base.Resolve(data.table)
+	if !resolved {
+		panic(fmt.Sprintf("union %s extends unresolved base %s", name, base.Name))
+	}
+	return p.resolveExtendsType(base, parent, data)
+}
+
+// borrowedDiscriminator returns the discriminator default of the variant value of the
+// union name, written as the member of the borrowed enum enumType.
+func (p *Plugin) borrowedDiscriminator(
+	name string,
+	value string,
+	enumType resolution.Type,
+	data *templateData,
+) string {
+	member, ok := enumMember(enumType, value)
+	if !ok {
+		panic(fmt.Sprintf(
+			"union %s variant %q has no member in enum %s",
+			name, value, enumType.Name,
+		))
+	}
+	return p.defaultRenderer(data).EnumVariant(validation.EnumVariant{
+		Type:    enumType,
+		Variant: member,
+	})
 }
 
 // addVariantBody adds the bases, payload fields, and protobuf message of the variant v

@@ -47,6 +47,24 @@ describe("json", () => {
     });
   });
 
+  describe("parsePointer", () => {
+    it("should give no tokens for the whole document", () => {
+      expect(json.parsePointer("")).toEqual([]);
+    });
+
+    it("should split a pointer into its tokens", () => {
+      expect(json.parsePointer("/items/0/name")).toEqual(["items", "0", "name"]);
+    });
+
+    it("should give an empty token for a member with an empty key", () => {
+      expect(json.parsePointer("/")).toEqual([""]);
+    });
+
+    it("should unescape a slash and then a tilde", () => {
+      expect(json.parsePointer("/a~1b/c~0d/~01")).toEqual(["a/b", "c~d", "~1"]);
+    });
+  });
+
   describe("primitiveZ", () => {
     it("should accept a string", () => {
       expect(json.primitiveZ.parse("hello")).toBe("hello");

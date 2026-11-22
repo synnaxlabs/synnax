@@ -391,9 +391,9 @@ var _ = Describe("Analyze", func() {
 	})
 
 	Describe("Derivative Operation Type Override", func() {
-		It(
-			"Should infer float64 DataType when derivative is the last operation",
-			func(ctx SpecContext) {
+		DescribeTable(
+			"Should infer the DataType from the operations",
+			func(ctx SpecContext, ops []channel.Operation, expected telem.DataType) {
 				r := StaticResolver{
 					{
 						Name: "sensor",
@@ -404,41 +404,40 @@ var _ = Describe("Analyze", func() {
 				}
 				a := channel.NewCalculationAnalyzer(r)
 				ch := channel.Channel{
-					Name:       "deriv_calc",
+					Name:       "calc",
 					Expression: "return sensor",
-					Operations: []channel.Operation{
-						{Type: channel.OperationTypeDerivative},
-					},
+					Operations: ops,
 				}
 				res := MustSucceed(a.Analyze(ctx, ch))
-				Expect(res.ChanDataType).To(Equal(telem.Float64T))
+				Expect(res.ChanDataType).To(Equal(expected))
 				Expect(res.ExpressionReturnType).To(Equal(types.I32()))
 			},
-		)
-
-		It(
-			"Should not override DataType when avg is the last operation",
-			func(ctx SpecContext) {
-				r := StaticResolver{
-					{
-						Name: "sensor2",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   2,
-					},
-				}
-				a := channel.NewCalculationAnalyzer(r)
-				ch := channel.Channel{
-					Name:       "avg_calc",
-					Expression: "return sensor2",
-					Operations: []channel.Operation{
-						{Type: channel.OperationTypeAvg},
-					},
-				}
-				res := MustSucceed(a.Analyze(ctx, ch))
-				Expect(res.ChanDataType).To(Equal(telem.Int32T))
-				Expect(res.ExpressionReturnType).To(Equal(types.I32()))
-			},
+			Entry(
+				"derivative",
+				[]channel.Operation{{Type: channel.OperationTypeDerivative}},
+				telem.Float64T,
+			),
+			Entry(
+				"derivative then none",
+				[]channel.Operation{
+					{Type: channel.OperationTypeDerivative},
+					{Type: channel.OperationTypeNone},
+				},
+				telem.Float64T,
+			),
+			Entry(
+				"derivative then avg",
+				[]channel.Operation{
+					{Type: channel.OperationTypeDerivative},
+					{Type: channel.OperationTypeAvg},
+				},
+				telem.Float64T,
+			),
+			Entry(
+				"avg",
+				[]channel.Operation{{Type: channel.OperationTypeAvg}},
+				telem.Int32T,
+			),
 		)
 	})
 

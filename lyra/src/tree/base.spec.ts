@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -85,7 +86,7 @@ describe("tree/base", () => {
       const result = flatten({
         nodes,
         expanded: ["b"],
-        sort: (a, b) => a.key.localeCompare(b.key),
+        sort: compare.by((n) => n.key),
       });
       expect(result.keys).toEqual(["a", "b", "c", "d"]);
     });
@@ -93,7 +94,7 @@ describe("tree/base", () => {
     it("should sort copies and leave the caller's arrays in order", () => {
       const children: Node[] = [{ key: "d" }, { key: "c" }];
       const nodes: Node[] = [{ key: "b", children }, { key: "a" }];
-      flatten({ nodes, expanded: ["b"], sort: (a, b) => a.key.localeCompare(b.key) });
+      flatten({ nodes, expanded: ["b"], sort: compare.by((n) => n.key) });
       expect(nodes.map(({ key }) => key)).toEqual(["b", "a"]);
       expect(children.map(({ key }) => key)).toEqual(["d", "c"]);
     });

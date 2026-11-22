@@ -45,6 +45,7 @@ type document struct {
 	analyzed  string
 	Version   int32
 	debouncer *debounce.Debouncer
+	wordChars lsp.WordChars
 }
 
 func (d *document) isBlock() bool {
@@ -68,6 +69,28 @@ func unwrapPosition(pos protocol.Position) protocol.Position {
 		pos.Character--
 	}
 	return pos
+}
+
+func unwrapPositions(r protocol.Range) protocol.Range {
+	return protocol.Range{Start: unwrapPosition(r.Start), End: unwrapPosition(r.End)}
+}
+
+// unwrapDiagnostics moves the positions of diags, from analysis of a parsed block, to
+// their places in the document. It modifies diags in place.
+func unwrapDiagnostics(diags diagnostics.Diagnostics) diagnostics.Diagnostics {
+	for i := range diags {
+		d := &diags[i]
+		d.Range = unwrapPositions(d.Range)
+		for j := range d.Notes {
+			d.Notes[j].Location.Range = unwrapPositions(d.Notes[j].Location.Range)
+		}
+		for _, fix := range d.Fixes {
+			for k := range fix.Edits {
+				fix.Edits[k].Range = unwrapPositions(fix.Edits[k].Range)
+			}
+		}
+	}
+	return diags
 }
 
 func (d *document) toDocRange(r protocol.Range) protocol.Range {
@@ -99,11 +122,11 @@ func (d *document) toDocLocations(locs []protocol.Location) []protocol.Location 
 }
 
 func (d *document) getWordAtPosition(pos protocol.Position) string {
-	return lsp.GetWordAtPosition(d.displayContent(), pos)
+	return lsp.GetWordAtPosition(d.displayContent(), pos, d.wordChars)
 }
 
 func (d *document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range {
-	return lsp.GetWordRangeAtPosition(d.displayContent(), pos)
+	return lsp.GetWordRangeAtPosition(d.displayContent(), pos, d.wordChars)
 }
 
 func (d *document) findScopeAtPosition(pos protocol.Position) *symbol.Symbol {

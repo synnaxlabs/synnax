@@ -9,18 +9,17 @@
 
 import { label, query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Form } from "@synnaxlabs/lyra/form";
+import type { Form } from "@synnaxlabs/lyra/form";
 import { color, deep, TimeSpan } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const formSchema = z.object({
   key: z.string(),
@@ -40,7 +39,7 @@ const Wrapper = createSynnaxWrapper({ client });
 
 const DEBOUNCE = TimeSpan.milliseconds(100);
 // Long enough that a debounced save would have landed by now.
-const SETTLE = 500;
+const SETTLE = TimeSpan.milliseconds(500);
 
 describe("useForm", () => {
   let controller: AbortController;
@@ -109,6 +108,57 @@ describe("useForm", () => {
         name: "Apple Cat",
         age: 30,
       });
+    });
+
+    it("should read the record again when a form with no cache mounts again", async () => {
+      let stored = { key: "123", name: "Before", age: 30 };
+      const retrieve = vi.fn(async () => stored);
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve,
+        update: vi.fn(),
+      });
+      const first = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        {
+          wrapper: Wrapper,
+        },
+      );
+      first.unmount();
+      stored = { ...stored, name: "After" };
+      const second = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        { wrapper: Wrapper },
+      );
+      expect(second.result.current.form.value().name).toBe("After");
+      expect(retrieve).toHaveBeenCalledTimes(2);
+    });
+
+    it("should keep the record for a form still mounted when another unmounts", async () => {
+      let stored = { key: "123", name: "Before", age: 30 };
+      const retrieve = vi.fn(async () => stored);
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve,
+        update: vi.fn(),
+      });
+      const first = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        { wrapper: Wrapper },
+      );
+      const second = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        { wrapper: Wrapper },
+      );
+      second.unmount();
+      stored = { ...stored, name: "After" };
+      await act(async () => first.rerender());
+      expect(first.result.current.form.value().name).toBe("Before");
+      expect(retrieve).toHaveBeenCalledTimes(1);
     });
 
     it("should route a failed read to the error boundary", async () => {
@@ -486,8 +536,7 @@ describe("useForm", () => {
   it("should run one save at a time", async () => {
     const events: string[] = [];
     const gates = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
-    let enter = (): void => {};
-    const entered = new Promise<void>((resolve) => (enter = resolve));
+    const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
     let calls = 0;
     const { result } = renderHook(
       () =>
@@ -519,10 +568,8 @@ describe("useForm", () => {
   // Holds the first save open, so every save issued after it queues behind it.
   const renderHeldForm = () => {
     const saved: string[] = [];
-    let enter = (): void => {};
-    let release = (): void => {};
-    const entered = new Promise<void>((resolve) => (enter = resolve));
-    const held = new Promise<void>((resolve) => (release = resolve));
+    const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+    const { promise: held, resolve: release } = Promise.withResolvers<void>();
     const { result } = renderHook(
       () =>
         Flux.createForm<Params, typeof formSchema>({
@@ -576,10 +623,8 @@ describe("useForm", () => {
       "2": { key: "2", name: "Banana Cat", age: 12 },
     };
     const saved: string[] = [];
-    let enter = (): void => {};
-    let release = (): void => {};
-    const entered = new Promise<void>((resolve) => (enter = resolve));
-    const held = new Promise<void>((resolve) => (release = resolve));
+    const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+    const { promise: held, resolve: release } = Promise.withResolvers<void>();
     const useForm = Flux.createForm<Params, typeof formSchema>({
       initialValues: { key: "", name: "", age: 0 },
       schema: formSchema,
@@ -814,10 +859,8 @@ describe("useForm", () => {
 
     it("should abort a save already running when the record is abandoned", async () => {
       const { update, useForm, abandon } = createAbandonableForm();
-      let enter = (): void => {};
-      let release = (): void => {};
-      const entered = new Promise<void>((resolve) => (enter = resolve));
-      const held = new Promise<void>((resolve) => (release = resolve));
+      const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+      const { promise: held, resolve: release } = Promise.withResolvers<void>();
       const { result } = renderHook(
         () =>
           useForm({
@@ -845,7 +888,7 @@ describe("useForm", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
       const lbl = await client.labels.create({
         name: "Initial Name",
-        color: color.construct("#000000"),
+        color: { type: "fixed", value: color.construct("#000000") },
       });
 
       const initialValues = {
@@ -899,7 +942,7 @@ describe("useForm", () => {
     it("should not mark form fields as touched when setting them view the listener", async () => {
       const lbl = await client.labels.create({
         name: "Initial Name",
-        color: color.construct("#000000"),
+        color: { type: "fixed", value: color.construct("#000000") },
       });
 
       const initialValues = {
@@ -1015,6 +1058,155 @@ describe("useForm", () => {
       });
       act(() => listenerSet(path.name, "Remote Name"));
       expect(result.current.form.value().name).toEqual("Remote Name");
+    });
+  });
+
+  describe("a remote reset during an unsaved edit", () => {
+    const INITIAL = { key: "1", name: "Initial Name", age: 25 };
+
+    const renderResetForm = async () => {
+      let listenerReset!: (values: z.infer<typeof formSchema>) => void;
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "1", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve: async () => INITIAL,
+        update: async () => {},
+        mountListeners: ({ reset }) => {
+          listenerReset = reset;
+          return () => {};
+        },
+      });
+      const { result } = await renderHookSuspended(
+        () => useForm({ query: { key: "1" } }),
+        { wrapper: Wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => result.current.form.set(path.name, "Edited Name"));
+      return {
+        result,
+        listenerReset: (values: z.infer<typeof formSchema>) => listenerReset(values),
+      };
+    };
+
+    it("should keep the edit touched when the reset leaves the values equal", async () => {
+      const { result, listenerReset } = await renderResetForm();
+      act(() => listenerReset({ ...INITIAL }));
+      expect(result.current.form.value().name).toEqual("Edited Name");
+      expect(result.current.form.get(path.name).touched).toBe(true);
+    });
+
+    it("should take the remote values as the baseline", async () => {
+      const { result, listenerReset } = await renderResetForm();
+      act(() => listenerReset({ ...INITIAL, age: 30 }));
+      expect(result.current.form.value()).toEqual({
+        key: "1",
+        name: "Edited Name",
+        age: 30,
+      });
+      act(() => result.current.form.set(path.name, "Initial Name"));
+      expect(result.current.form.get(path.name).touched).toBe(false);
+    });
+  });
+
+  describe("a remote change during a pending edit", () => {
+    const listSchema = z.object({
+      key: z.string(),
+      channels: z.array(z.object({ key: z.string(), port: z.number() })),
+      extra: z.object({ x: z.number() }).optional(),
+    });
+    type List = z.infer<typeof listSchema>;
+    const { channels, extra } = deep.path<List>();
+    const INITIAL: List = {
+      key: "1",
+      channels: [
+        { key: "a", port: 1 },
+        { key: "ns=1;s=x.y", port: 2 },
+      ],
+    };
+
+    // The form never saves, so each edit stays pending.
+    const renderListForm = async () => {
+      let listenerSet!: Form.SetFunc;
+      let listenerReset!: (values: List) => void;
+      const useForm = Flux.createForm<Params, typeof listSchema>({
+        initialValues: { key: "1", channels: [] },
+        schema: listSchema,
+        name: "test",
+        retrieve: async () => INITIAL,
+        update: async () => {},
+        mountListeners: ({ set, reset }) => {
+          listenerSet = set;
+          listenerReset = reset;
+          return () => {};
+        },
+      });
+      const { result } = await renderHookSuspended(
+        () => useForm({ query: { key: "1" } }),
+        { wrapper: Wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      return {
+        result,
+        listenerSet: (values: List["channels"]) => listenerSet(channels, values),
+        listenerReset: (values: List) => listenerReset(values),
+      };
+    };
+
+    it("should drop a pending edit to an entry a remote reset removed", async () => {
+      const { result, listenerReset } = await renderListForm();
+      act(() => result.current.form.set(channels.a.port, 5));
+      const remote = { key: "1", channels: [{ key: "ns=1;s=x.y", port: 2 }] };
+      act(() => listenerReset(remote));
+      expect(result.current.form.value()).toEqual(remote);
+    });
+
+    it("should keep a pending edit to an entry a remote reset kept", async () => {
+      const { result, listenerReset } = await renderListForm();
+      act(() => result.current.form.set(channels.a.port, 5));
+      act(() =>
+        listenerReset({
+          key: "1",
+          channels: [
+            { key: "a", port: 1 },
+            { key: "ns=1;s=x.y", port: 9 },
+          ],
+        }),
+      );
+      expect(result.current.form.value().channels).toEqual([
+        { key: "a", port: 5 },
+        { key: "ns=1;s=x.y", port: 9 },
+      ]);
+    });
+
+    it("should drop a pending edit to an entry with a dot in its key that a remote reset removed", async () => {
+      const { result, listenerReset } = await renderListForm();
+      act(() => result.current.form.set(channels["ns=1;s=x.y"].port, 7));
+      const remote = { key: "1", channels: [{ key: "a", port: 1 }] };
+      act(() => listenerReset(remote));
+      expect(result.current.form.value()).toEqual(remote);
+    });
+
+    it("should drop a pending edit when a remote write replaces the list without the entry", async () => {
+      const { result, listenerSet } = await renderListForm();
+      act(() => result.current.form.set(channels.a.port, 5));
+      const remote = [{ key: "ns=1;s=x.y", port: 2 }];
+      act(() => listenerSet(remote));
+      expect(result.current.form.value().channels).toEqual(remote);
+    });
+
+    it("should drop a pending edit when a remote reset empties the list", async () => {
+      const { result, listenerReset } = await renderListForm();
+      act(() => result.current.form.set(channels.a.port, 5));
+      act(() => listenerReset({ key: "1", channels: [] }));
+      expect(result.current.form.value().channels).toEqual([]);
+    });
+
+    it("should keep a pending edit under an object the remote value lacks", async () => {
+      const { result, listenerReset } = await renderListForm();
+      act(() => result.current.form.set(deep.present(extra).x, 3));
+      act(() => listenerReset(INITIAL));
+      expect(result.current.form.value().extra).toEqual({ x: 3 });
     });
   });
 

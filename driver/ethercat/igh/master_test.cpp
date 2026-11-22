@@ -90,6 +90,51 @@ void create_assignable_layout(MockAPI::Slave &slave) {
     };
 }
 
+/// @brief returns a CoE dictionary that holds 0x6000:07, a counter, and 0x6030:01, a
+/// voltage, as IgH reads them from an IOLITE 6xSTG.
+std::vector<MockAPI::DictionaryObject> create_dictionary() {
+    return {
+        {.info = {.index = 0x6000, .max_sub_index = 8, .name = "DI Inputs"},
+         .entries = {{7, {.name = "BufCounter", .data_type = 0x0007}}}},
+        {.info = {.index = 0x6030, .max_sub_index = 6, .name = "UnBuf Inputs"},
+         .entries = {{1, {.name = "u1", .data_type = 0x0008}}}},
+    };
+}
+
+/// @brief makes slave map the counter and the voltage of create_dictionary() through
+/// PDO 0x1A00 on its inputs.
+void create_dictionary_layout(MockAPI::Slave &slave) {
+    slave.syncs = {
+        {EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x07, 32}, {0x6030, 0x01, 32}}}}}
+    };
+}
+
+/// @brief returns a dictionary of count objects, each with one entry.
+std::vector<MockAPI::DictionaryObject> create_objects(const uint16_t count) {
+    std::vector<MockAPI::DictionaryObject> objects;
+    objects.reserve(count);
+    for (uint16_t i = 0; i < count; ++i)
+        objects.push_back(
+            {.info = {.index = static_cast<uint16_t>(0x2000 + i), .name = "Object"},
+             .entries = {{0, {.name = "Value", .data_type = 0x0007}}}}
+        );
+    return objects;
+}
+
+/// @brief returns an SII that lists CoE in the mailbox protocols, with a general
+/// category that says whether the slave gives SDO information.
+std::vector<uint16_t> create_coe_sii(const bool sdo_info) {
+    std::vector<uint16_t> words(0x40, 0);
+    words[0x1C] = 0x0004;
+    std::vector<uint16_t> general(16, 0);
+    if (sdo_info) general[2] = 0x0200;
+    words.push_back(30);
+    words.push_back(static_cast<uint16_t>(general.size()));
+    words.insert(words.end(), general.begin(), general.end());
+    words.push_back(0xFFFF);
+    return words;
+}
+
 /// @brief a mode that runs on the sync manager events.
 const dc::OpMode FREE_RUN{.name = "FreeRun"};
 
@@ -389,6 +434,166 @@ TEST_F(IGHMasterTest, ScanFillsNamesAndDataTypesFromTheRegistry) {
     EXPECT_EQ(inputs[0].data_type, known->data_type);
 }
 
+/// @brief it should name each entry and give its data type from the CoE dictionary
+/// that IgH read from the slave, the final object of the dictionary included.
+TEST_F(IGHMasterTest, ScanNamesEntriesFromTheDictionaryOfTheSlave) {
+    auto &slave = this->api->add_slave();
+    create_dictionary_layout(slave);
+    slave.dictionary = create_dictionary();
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    const auto &inputs = slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 2);
+    EXPECT_EQ(inputs[0].name, "BufCounter");
+    EXPECT_EQ(inputs[0].data_type, x::telem::UINT32_T);
+    EXPECT_EQ(inputs[1].name, "u1");
+    EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
+}
+
+/// @brief it should keep the generic name of an entry of the object that IgH still
+/// reads, with no lookup that IgH would write to the kernel log.
+TEST_F(IGHMasterTest, ScanKeepsTheNameOfAnEntryThatIgHHasNotRead) {
+    auto &slave = this->api->add_slave();
+    create_dictionary_layout(slave);
+    slave.dictionary = create_dictionary();
+    slave.dictionary[1].entries.clear();
+    slave.dictionary.push_back({.info = {.index = 0xF050, .max_sub_index = 4}});
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    const auto &inputs = slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 2);
+    EXPECT_EQ(inputs[0].name, "BufCounter");
+    EXPECT_EQ(inputs[1].name, "Input (uint32) 0x6030:01");
+    EXPECT_EQ(slave.entry_reads, 1);
+}
+
+/// @brief it should name an entry at a later scan once IgH has read the dictionary.
+TEST_F(IGHMasterTest, ScanNamesAnEntryOnceIgHHasReadIt) {
+    auto &slave = this->api->add_slave();
+    create_dictionary_layout(slave);
+    const auto first = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(first[0].properties.input_pdos[0].name, "Input (uint32) 0x6000:07");
+    slave.dictionary = create_dictionary();
+    const auto second = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(second[0].properties.input_pdos[0].name, "BufCounter");
+}
+
+/// @brief it should read the CoE objects of a slave once IgH has read its dictionary,
+/// the final entries included, as IgH mixes up the replies otherwise.
+TEST_F(IGHMasterTest, ScanWaitsForIgHToReadTheDictionaryOfASlave) {
+    auto &slave = this->api->add_slave();
+    slave.sii = create_coe_sii(true);
+    create_dictionary_layout(slave);
+    slave.dictionary = create_dictionary();
+    slave.dictionary[1].entries[6] = {.name = "u6", .data_type = 0x0008};
+    slave.dictionary_read = 1;
+    slave.wide_objects[{0x1018, 4}] = 7;
+    const auto started = this->clock.steady();
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_LT(this->clock.steady() - started, std::chrono::seconds(1));
+    EXPECT_EQ(slaves[0].properties.serial, 7);
+    EXPECT_EQ(slaves[0].status.serial_error, "");
+    EXPECT_EQ(slaves[0].properties.input_pdos[1].name, "u1");
+}
+
+/// @brief it should keep waiting while IgH reads more of the dictionary, however long
+/// the whole read takes.
+TEST_F(IGHMasterTest, ScanWaitsWhileIgHKeepsReadingTheDictionary) {
+    auto &slave = this->api->add_slave();
+    slave.sii = create_coe_sii(true);
+    slave.dictionary = create_objects(100);
+    slave.dictionary_read = 1;
+    slave.wide_objects[{0x1018, 4}] = 7;
+    const auto started = this->clock.steady();
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_GT(this->clock.steady() - started, std::chrono::seconds(5));
+    EXPECT_EQ(slaves[0].properties.serial, 7);
+    EXPECT_EQ(slaves[0].status.serial_error, "");
+}
+
+/// @brief it should read the CoE objects of a slave once IgH has read no more of its
+/// dictionary for 5 s.
+TEST_F(IGHMasterTest, ScanStopsWaitingOnceIgHStopsReadingTheDictionary) {
+    auto &slave = this->api->add_slave();
+    slave.sii = create_coe_sii(true);
+    slave.dictionary = create_objects(3);
+    slave.dictionary_read = 2;
+    slave.dictionary_stalled = true;
+    slave.wide_objects[{0x1018, 4}] = 7;
+    const auto started = this->clock.steady();
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    const auto waited = this->clock.steady() - started;
+    EXPECT_GE(waited, std::chrono::seconds(5));
+    EXPECT_LT(waited, std::chrono::seconds(6));
+    EXPECT_EQ(slaves[0].properties.serial, 7);
+}
+
+/// @brief it should count an object whose description holds no name as described
+/// once it has sub-indices or IgH describes a later object.
+TEST_F(IGHMasterTest, ScanWaitsPastObjectsWithNoName) {
+    auto &slave = this->api->add_slave();
+    slave.sii = create_coe_sii(true);
+    slave.dictionary = create_objects(3);
+    slave.dictionary[1].info.name.clear();
+    slave.dictionary[2] = {
+        .info = {.index = 0x2002, .max_sub_index = 1},
+        .entries = {{1, {.name = "Value", .data_type = 0x0007}}},
+    };
+    slave.dictionary_read = 1;
+    slave.wide_objects[{0x1018, 4}] = 7;
+    const auto started = this->clock.steady();
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_LT(this->clock.steady() - started, std::chrono::seconds(1));
+    EXPECT_EQ(slaves[0].properties.serial, 7);
+}
+
+/// @brief it should look up a final entry that IgH does not have less and less often,
+/// as IgH logs each miss.
+TEST_F(IGHMasterTest, ScanBacksOffLookupsOfAMissingFinalEntry) {
+    auto &slave = this->api->add_slave();
+    slave.sii = create_coe_sii(true);
+    slave.dictionary = create_objects(1);
+    slave.dictionary[0].info.max_sub_index = 2;
+    ASSERT_NIL_P(this->master.scan());
+    EXPECT_LE(slave.entry_reads, 7);
+}
+
+/// @brief it should not wait for a dictionary that IgH does not read: that of a slave
+/// with no CoE, or with no SDO information.
+TEST_F(IGHMasterTest, ScanDoesNotWaitForADictionaryThatIgHDoesNotRead) {
+    this->api->add_slave();
+    this->api->add_slave().sii = create_coe_sii(false);
+    const auto started = this->clock.steady();
+    ASSERT_NIL_P(this->master.scan());
+    EXPECT_LT(this->clock.steady() - started, std::chrono::seconds(1));
+}
+
+/// @brief it should keep the name and data type that the registry gives a known
+/// slave at each scan, as SOEM does.
+TEST_F(IGHMasterTest, ScanPrefersTheRegistryToTheDictionary) {
+    constexpr uint32_t beckhoff = 0x00000002;
+    constexpr uint32_t el3102 = 0x0C1E3052;
+    slave::Properties registry{};
+    ASSERT_TRUE(esi::lookup_device_pdos(beckhoff, el3102, 1, registry));
+    const auto known = std::ranges::find_if(registry.input_pdos, [](const auto &p) {
+        return !p.is_padding() && p.bit_length == 16;
+    });
+    ASSERT_NE(known, registry.input_pdos.end());
+    auto &slave = this->api->add_slave("EL3102", beckhoff, el3102);
+    slave.syncs = {
+        {EC_DIR_INPUT, {{0x1A00, {{known->index, known->sub_index, 16}}}}},
+    };
+    slave.dictionary = {
+        {.info =
+             {.index = known->index, .max_sub_index = known->sub_index, .name = "AI"},
+         .entries = {{known->sub_index, {.name = "Other", .data_type = 0x0006}}}},
+    };
+    ASSERT_NIL_P(this->master.scan());
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    const auto &inputs = slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 1);
+    EXPECT_EQ(inputs[0].name, known->name);
+    EXPECT_EQ(inputs[0].data_type, known->data_type);
+}
+
 /// @brief it should store the settings that the catalog describes for a slave, read
 /// from that slave's own object dictionary.
 TEST_F(IGHMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
@@ -509,6 +714,24 @@ TEST_F(IGHMasterTest, ScanReadsOnlyTheSIIOfAStartingSlave) {
     EXPECT_TRUE(slaves[1].properties.settings.has_value());
 }
 
+/// @brief it should read a slave that was starting at the scan again at a later scan,
+/// once the slave has left INIT.
+TEST_F(IGHMasterTest, ScanReadsAStartingSlaveAgainOnceItLeavesInit) {
+    auto &slave = this->api
+                      ->add_slave("6xSTG", testutil::DEWESOFT, testutil::IOLITE_6XSTG);
+    slave.info.al_state = EC_AL_STATE_INIT;
+    slave.objects = testutil::stg_objects(0);
+    slave.wide_objects[{0x1018, 4}] = 9;
+    ASSERT_TRUE(ASSERT_NIL_P(this->master.scan())[0].status.starting);
+    ASSERT_TRUE(ASSERT_NIL_P(this->master.scan())[0].status.starting);
+    slave.info.al_state = EC_AL_STATE_PREOP;
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(slaves[0].status.state, slave::State::PRE_OP);
+    EXPECT_FALSE(slaves[0].status.starting);
+    EXPECT_EQ(slaves[0].properties.serial, 9);
+    EXPECT_TRUE(slaves[0].properties.settings.has_value());
+}
+
 /// @brief it should read the CoE objects of each slave that was starting at the scan
 /// once it reaches PRE-OP, disabled ones included, and start without one that stays in
 /// INIT.
@@ -542,6 +765,22 @@ TEST_F(IGHMasterTest, ActivateReadsAStartingSlaveOnceItReachesPreOP) {
     EXPECT_FALSE(slaves[1].properties.settings.has_value());
     EXPECT_FALSE(slaves[2].status.starting);
     EXPECT_EQ(slaves[2].properties.serial, 10);
+}
+
+/// @brief it should wait for IgH to read the dictionary of a slave that reaches PRE-OP
+/// after the scan before it reads the CoE objects of the slave.
+TEST_F(IGHMasterTest, ActivateWaitsForTheDictionaryOfASlaveThatReachesPreOP) {
+    auto &slave = this->api->add_slave();
+    slave.info.al_state = EC_AL_STATE_INIT;
+    slave.reads_to_pre_op = 1;
+    slave.sii = create_coe_sii(true);
+    slave.dictionary = create_objects(20);
+    slave.dictionary_read = 1;
+    slave.wide_objects[{0x1018, 4}] = 7;
+    this->configs = {{1, {}}};
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_EQ(this->image.slaves[0].properties.serial, 7);
+    EXPECT_EQ(this->image.slaves[0].status.serial_error, "");
 }
 
 /// @brief it should give the reason for each way an SDO read fails.
@@ -823,9 +1062,77 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveStaysBelowOP) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: module 1 (TestSlave) is in SAFE-OP"
+        "failed to reach OP (no module reached OP for 10s): module 1 (TestSlave) is in "
+        "SAFE-OP"
     );
     EXPECT_TRUE(activation.refusals.empty());
+}
+
+/// @brief it should keep waiting while the slaves reach OP one at a time, as IgH moves
+/// them, for longer than the OP timeout in all.
+TEST_F(IGHMasterTest, ActivateWaitsWhileTheSlavesReachOPOneAtATime) {
+    for (int i = 1; i <= 3; ++i)
+        this->api->add_slave().reads_to_reach = 700 * i;
+    ASSERT_NIL_P(this->master.scan());
+    const auto started = this->clock.steady();
+    ASSERT_NIL(this->activate().err);
+    EXPECT_GE(this->clock.steady() - started, std::chrono::seconds(21));
+}
+
+/// @brief it should report each slave that reaches OP.
+TEST_F(IGHMasterTest, ActivateReportsEachSlaveThatReachesOP) {
+    for (int i = 1; i <= 3; ++i)
+        this->api->add_slave().reads_to_reach = 700 * i;
+    ASSERT_NIL_P(this->master.scan());
+    std::vector<std::pair<size_t, size_t>> reports;
+    ASSERT_NIL(this->master
+                   .activate(
+                       {
+                           .period = PERIOD,
+                           .slaves = this->configs,
+                           .progress = [&reports](
+                                           const size_t operational,
+                                           const size_t total
+                                       ) { reports.emplace_back(operational, total); },
+                       },
+                       [](const master::Image &) {}
+                   )
+                   .err);
+    const std::vector<std::pair<size_t, size_t>> expected{{1, 3}, {2, 3}, {3, 3}};
+    EXPECT_EQ(reports, expected);
+}
+
+/// @brief it should fail once no slave has reached OP for the OP timeout, counted from
+/// the latest slave that reached OP.
+TEST_F(IGHMasterTest, ActivateFailsOnceNoSlaveReachesOPForTheTimeout) {
+    this->api->add_slave().reads_to_reach = 700;
+    this->api->add_slave().reaches = EC_AL_STATE_SAFEOP;
+    ASSERT_NIL_P(this->master.scan());
+    const auto started = this->clock.steady();
+    const auto activation = this->activate();
+    ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
+    EXPECT_EQ(
+        activation.err.data,
+        "failed to reach OP (no module reached OP for 10s): module 2 (TestSlave) is in "
+        "SAFE-OP"
+    );
+    const auto elapsed = this->clock.steady() - started;
+    EXPECT_GE(elapsed, std::chrono::seconds(17));
+    EXPECT_LT(elapsed, std::chrono::seconds(18));
+}
+
+/// @brief it should stop waiting for OP once the cancel of the plan stops.
+TEST_F(IGHMasterTest, ActivateEndsWhenCanceled) {
+    this->api->add_slave().reaches = EC_AL_STATE_SAFEOP;
+    ASSERT_NIL_P(this->master.scan());
+    x::breaker::Breaker cancel;
+    cancel.start();
+    const auto activation = this->master.activate(
+        {.period = PERIOD, .slaves = this->configs, .cancel = &cancel},
+        [&cancel](const master::Image &) { cancel.stop(); }
+    );
+    ASSERT_OCCURRED_AS(activation.err, x::errors::CANCELLED);
+    EXPECT_EQ(activation.err.data, "the start stopped before the slaves reached OP");
 }
 
 /// @brief it should start when a slave whose configuration state it cannot read is in
@@ -851,8 +1158,8 @@ TEST_F(IGHMasterTest, ActivateReportsASlaveWhoseStateItCannotRead) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: module 1 (TestSlave): failed to read its "
-        "state: Input/output error"
+        "failed to reach OP (no module reached OP for 10s): module 1 (TestSlave): "
+        "failed to read its state: Input/output error"
     );
 }
 
@@ -894,8 +1201,8 @@ TEST_F(IGHMasterTest, ActivateWaitsForASlaveBelowOPWithNoErrorFlag) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: module 1 (EL4002) is in PRE-OP with an AL "
-        "error; module 2 (EL1008) is in SAFE-OP"
+        "failed to reach OP (no module reached OP for 10s): module 1 (EL4002) is in "
+        "PRE-OP with an AL error; module 2 (EL1008) is in SAFE-OP"
     );
     const std::map<uint16_t, slave::Refusal> refusals{
         {1, {.reason = "refused SAFE-OP"}},
@@ -928,6 +1235,16 @@ TEST_F(IGHMasterTest, ScanReadsTheModesOfEachSlaveFromItsSII) {
     const auto slaves = ASSERT_NIL_P(this->master.scan());
     EXPECT_EQ(slaves[0].properties.op_modes, (std::vector{FREE_RUN, DC_SYNC}));
     EXPECT_TRUE(slaves[1].properties.op_modes.empty());
+}
+
+/// @brief it should read no word past the end marker of an SII, as IgH logs a kernel
+/// error for each such read.
+TEST_F(IGHMasterTest, ScanReadsNoWordPastTheEndOfTheSII) {
+    create_dc(this->api->add_slave(), {FREE_RUN, DC_SYNC});
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    ASSERT_EQ(slaves.size(), 1);
+    EXPECT_EQ(slaves[0].properties.op_modes, (std::vector{FREE_RUN, DC_SYNC}));
+    EXPECT_EQ(this->api->slaves[0].sii_overreads, 0);
 }
 
 /// @brief it should fail the scan when it cannot read the SII of a slave.
@@ -1356,32 +1673,92 @@ TEST_F(IGHMasterTest, ReadReturnsTheAbortOfAMissingObject) {
     ASSERT_OCCURRED_AS_P(this->master.read(1, 0x8040, 0x15), coe::OBJECT_MISSING);
 }
 
-/// @brief it should accept a value that the slave holds on the running bus, and write
-/// nothing.
-TEST_F(IGHMasterTest, WriteAcceptsAValueThatTheSlaveHolds) {
+/// @brief it should write nothing on the running bus for a value that the slave holds,
+/// but add it to the startup parameters, so the slave gets it back when it restarts.
+TEST_F(IGHMasterTest, WriteKeepsAValueThatTheSlaveHolds) {
     this->api->add_slave().objects[{0x8000, 0x15}] = 3;
     ASSERT_NIL(this->scan_and_activate());
     ASSERT_NIL(this->master.write(1, {FILTER}));
     EXPECT_TRUE(this->api->slaves[0].downloads.empty());
+    const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
+    EXPECT_EQ(this->api->slaves[0].startup_sdos, expected);
 }
 
-/// @brief it should refuse a value that the slave does not hold on the running bus,
-/// since IgH writes its startup parameters again each time the slave restarts.
-TEST_F(IGHMasterTest, WriteRefusesAValueThatTheSlaveDoesNotHold) {
+/// @brief it should add nothing on the running bus for a value that the startup
+/// parameters already end with.
+TEST_F(IGHMasterTest, WriteAddsNoStartupParameterThatIgHAlreadyHolds) {
+    this->api->add_slave();
+    this->configs = {{1, {.startup_parameters = {FILTER}}}};
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_NIL(this->master.write(1, {FILTER}));
+    const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
+    EXPECT_EQ(this->api->slaves[0].downloads, expected);
+    EXPECT_EQ(this->api->slaves[0].startup_sdos, expected);
+}
+
+/// @brief it should write a value that the slave does not hold on the running bus, and
+/// add it to the startup parameters, which IgH writes again when the slave restarts.
+TEST_F(IGHMasterTest, WriteChangesAValueOnTheRunningBus) {
     this->api->add_slave();
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     ASSERT_NIL(this->scan_and_activate());
     auto changed = FILTER;
     changed.value = 4;
-    const auto err = this->master.write(1, {changed});
+    ASSERT_NIL(this->master.write(1, {changed}));
+    const std::vector<MockAPI::SDO> expected{
+        {0x8000, 0x15, {0x03, 0x00}},
+        {0x8000, 0x15, {0x04, 0x00}},
+    };
+    EXPECT_EQ(this->api->slaves[0].downloads, expected);
+    EXPECT_EQ(this->api->slaves[0].startup_sdos, expected);
+}
+
+/// @brief it should refuse a value on the running bus that IgH does not add to the
+/// startup parameters, and put back the value that the slave held.
+TEST_F(IGHMasterTest, WriteRefusesAValueThatIgHCannotKeep) {
+    this->api->add_slave().objects[{0x8000, 0x15}] = 0;
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->config_sdo_fails = true;
+    const auto err = this->master.write(1, {FILTER});
     ASSERT_OCCURRED_AS(err, errors::SETTING_CONFLICT);
     EXPECT_EQ(
         err.data,
         "the IgH master cannot change 0x8000:15 (Filter) of module 1 (TestSlave) while "
         "other tasks run the bus. Stop them, then start this task first"
     );
-    const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
+    const std::vector<MockAPI::SDO> expected{
+        {0x8000, 0x15, {0x03, 0x00}},
+        {0x8000, 0x15, {0x00, 0x00}},
+    };
     EXPECT_EQ(this->api->slaves[0].downloads, expected);
+    EXPECT_EQ(this->api->slaves[0].objects.at({0x8000, 0x15}), 0);
+}
+
+/// @brief it should refuse a change on the running bus once the slave has the most
+/// startup parameters that IgH can add, and write nothing.
+TEST_F(IGHMasterTest, WriteRefusesAChangeAtTheRunningAdditionLimit) {
+    this->api->add_slave().objects[{0x8000, 0x15}] = 0;
+    ASSERT_NIL(this->scan_and_activate());
+    auto changed = FILTER;
+    for (size_t i = 0; i < RUNNING_ADDITION_LIMIT; i++) {
+        changed.value = 3 + static_cast<int>(i % 2);
+        ASSERT_NIL(this->master.write(1, {changed}));
+    }
+    changed.value = 5;
+    ASSERT_OCCURRED_AS(this->master.write(1, {changed}), errors::SETTING_CONFLICT);
+    EXPECT_EQ(this->api->slaves[0].downloads.size(), RUNNING_ADDITION_LIMIT);
+    EXPECT_EQ(this->api->slaves[0].startup_sdos.size(), RUNNING_ADDITION_LIMIT);
+}
+
+/// @brief it should refuse a value on the running bus for a slave that the bus does not
+/// configure, and write nothing.
+TEST_F(IGHMasterTest, WriteRefusesAValueForASlaveWithNoConfiguration) {
+    this->api->add_slave();
+    this->api->add_slave().objects[{0x8000, 0x15}] = 0;
+    this->configs = {{2, {.enabled = false}}};
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_OCCURRED_AS(this->master.write(2, {FILTER}), errors::SETTING_CONFLICT);
+    EXPECT_TRUE(this->api->slaves[1].downloads.empty());
 }
 
 /// @brief it should return the reason a slave on the running bus fails to read a
@@ -1421,6 +1798,23 @@ TEST_F(IGHMasterTest, ActivateRegistersTheEntriesAStartupParameterAssigns) {
     EXPECT_EQ(inputs[0].index, 0x6010);
     EXPECT_EQ(inputs[0].bit_length, 32);
     ASSERT_NIL_P(this->image.offset(assigned_entry()));
+}
+
+/// @brief it should name the entries of the PDO a startup parameter assigns from the
+/// CoE dictionary that IgH read from the slave.
+TEST_F(IGHMasterTest, ActivateNamesTheEntriesAStartupParameterAssigns) {
+    auto &slave = this->api->add_slave();
+    create_assignable_layout(slave);
+    slave.dictionary = {
+        {.info = {.index = 0x6010, .max_sub_index = 1, .name = "Strain"},
+         .entries = {{1, {.name = "Value", .data_type = 0x0008}}}},
+    };
+    this->configs = {{1, {.startup_parameters = {ASSIGN_INPUTS}}}};
+    ASSERT_NIL(this->scan_and_activate());
+    const auto &inputs = this->image.slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 1);
+    EXPECT_EQ(inputs[0].name, "Value");
+    EXPECT_EQ(inputs[0].data_type, x::telem::FLOAT32_T);
 }
 
 /// @brief it should read the layout of each slave from that slave's own object
@@ -1674,6 +2068,59 @@ TEST_F(IGHMasterTest, SendFailsWhenADomainCannotBeQueued) {
     const auto err = this->master.send();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
     EXPECT_EQ(err.data, "failed to queue a domain: Input/output error");
+}
+
+/// @brief it should not read or write the process data of a slave that IgH reports
+/// below SAFE-OP, and report the slave as inputless until it reaches SAFE-OP.
+TEST_F(IGHMasterTest, SendSkipsTheProcessDataOfASlaveBelowSafeOp) {
+    create_io(this->api->add_slave());
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->slaves[1].info.al_state = EC_AL_STATE_PREOP;
+    ASSERT_NIL(this->master.send());
+    EXPECT_EQ(this->api->queued, (std::vector<size_t>{0}));
+    const auto err = this->master.receive();
+    ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(err.data, "incomplete working counter: 3 of 6");
+    EXPECT_EQ(
+        std::vector(this->master.inputless().begin(), this->master.inputless().end()),
+        (std::vector<uint16_t>{2})
+    );
+    this->api->slaves[1].info.al_state = EC_AL_STATE_SAFEOP;
+    this->api->queued.clear();
+    ASSERT_NIL(this->master.send());
+    EXPECT_EQ(this->api->queued, (std::vector<size_t>{0, 1}));
+    ASSERT_NIL(this->master.receive());
+}
+
+/// @brief it should keep the process data of a slave while IgH scans the bus and
+/// reports no state.
+TEST_F(IGHMasterTest, SendKeepsTheProcessDataOfASlaveWhileIgHScans) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->scanning = true;
+    ASSERT_NIL(this->master.send());
+    EXPECT_EQ(this->api->queued, (std::vector<size_t>{0}));
+}
+
+/// @brief it should not read the state of a slave whose latest cycle was full.
+TEST_F(IGHMasterTest, SendReadsNoStateOfASlaveWithAFullCycle) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_NIL(this->master.receive());
+    this->api->slaves[0].state_unreadable = true;
+    ASSERT_NIL(this->master.send());
+}
+
+/// @brief it should fail when it cannot read the state of a slave that missed a full
+/// cycle.
+TEST_F(IGHMasterTest, SendFailsWhenTheStateOfASlaveCannotBeRead) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->slaves[0].state_unreadable = true;
+    const auto err = this->master.send();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "failed to read the state of module 1: Input/output error");
 }
 
 /// @brief it should report a slave whose state or info it cannot read as lost.

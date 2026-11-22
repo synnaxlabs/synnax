@@ -18,6 +18,7 @@
     --pluto-bg: var(--pluto-gray-l2);
 
     background: var(--pluto-bg);
+    transition: var(--pluto-btn-transition);
 }
 
 .lyra-header-group:has(> .lyra-header-group__toggle:hover) {

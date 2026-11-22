@@ -10,15 +10,14 @@
 import { status, task } from "@synnaxlabs/client";
 import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { deep, id } from "@synnaxlabs/x";
+import { deep, id, map } from "@synnaxlabs/x";
 import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { Task } from "@/task";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 
@@ -56,7 +55,7 @@ describe("queries", () => {
       const renders = new Map<task.Key, number>();
       const Item = ({ itemKey }: { itemKey: task.Key }): ReactElement => {
         const t = List.useItem<task.Key, task.Task>(itemKey);
-        renders.set(itemKey, (renders.get(itemKey) ?? 0) + 1);
+        map.increment(renders, itemKey);
         return <span>{`${t?.name} ${t?.status?.variant ?? "none"}`}</span>;
       };
       const renderItem = ({ key }: { key: task.Key }) => (

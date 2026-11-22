@@ -10,6 +10,7 @@
  */
 
 .console-settings__card {
+    container: settings-card / inline-size;
     padding: 0 3rem;
 }
 
@@ -18,7 +19,13 @@
     overflow: hidden;
 }
 
+/* The text takes at least 36rem beside the control, else the control wraps under it. */
 .console-settings__entry {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem 5rem;
+    align-items: center;
+    justify-content: space-between;
     min-height: 10rem;
     padding: 2.5rem 0;
 
@@ -32,5 +39,13 @@
 }
 
 .console-settings__entry-text {
+    flex: 1 1 36rem;
     min-width: 0;
+}
+
+/* In a narrow card, every control goes under its label, so no two entries differ. */
+@container settings-card (width < 72rem) {
+    .console-settings__entry-text {
+        flex-basis: 100%;
+    }
 }

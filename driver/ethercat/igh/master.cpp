@@ -145,6 +145,60 @@ void read_serial(
     slave.status.serial_error = err.data;
 }
 
+/// @brief names each entry of slave with the name and data type that the CoE
+/// dictionary of the slave at ring position gives. IgH reads the dictionary of
+/// object_count objects in the background after its scan, so an entry that it has not
+/// read yet keeps its name.
+void fill_dictionary_entries(
+    const API &api,
+    const unsigned int master_index,
+    const uint16_t position,
+    const uint16_t object_count,
+    slave::Properties &slave
+) {
+    std::vector<ObjectInfo> objects;
+    for (uint16_t i = 0; i < object_count; ++i) {
+        ObjectInfo object;
+        if (api.object_info(master_index, position, i, object) != 0) break;
+        objects.push_back(std::move(object));
+    }
+    // A lookup of an entry that IgH has not read writes an error to the kernel log. IgH
+    // reads the name of an object, then its entries, then the next object. IgH gives no
+    // sign that it has read the final object, so it counts once it has a name.
+    std::map<uint16_t, uint8_t> read;
+    for (size_t i = 0; i < objects.size(); ++i) {
+        const bool next_named = i + 1 < objects.size() ? !objects[i + 1].name.empty()
+                                                       : i + 1 == object_count;
+        if (!objects[i].name.empty() && next_named)
+            read[objects[i].index] = objects[i].max_sub_index;
+    }
+    const auto fill = [&](std::vector<pdo::Properties> &pdos) {
+        for (auto &pdo: pdos) {
+            const auto object = read.find(pdo.index);
+            if (pdo.is_padding() || object == read.end() ||
+                pdo.sub_index > object->second)
+                continue;
+            EntryInfo entry;
+            if (api.entry_info(
+                    master_index,
+                    position,
+                    pdo.index,
+                    pdo.sub_index,
+                    entry
+                ) != 0 ||
+                entry.name.empty())
+                continue;
+            pdo.name = std::move(entry.name);
+            pdo.data_type = telem::map_ethercat_to_synnax(
+                static_cast<telem::DataType>(entry.data_type),
+                pdo.bit_length
+            );
+        }
+    };
+    fill(slave.input_pdos);
+    fill(slave.output_pdos);
+}
+
 /// @brief reads the PDO layout that the slave at position assigns.
 std::pair<std::vector<pdo::Sync>, x::errors::Error>
 read_layout(const API &api, ec_master_t *master, const uint16_t position) {
@@ -160,6 +214,11 @@ std::string reason(const int ret) {
     return std::generic_category().message(-ret);
 }
 
+/// @brief how long the master waits for IgH to read more of a CoE dictionary. IgH
+/// starts to read the dictionary of a slave 3 s after the slave reaches PRE-OP.
+const auto DICTIONARY_TIMEOUT = x::telem::SECOND * 5;
+/// @brief the time between reads of the dictionaries while IgH reads them.
+const auto DICTIONARY_POLL_INTERVAL = x::telem::MILLISECOND * 100;
 /// @brief the time between reads of the slave states while the slaves move to OP.
 const auto OP_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 /// @brief how long the master waits for IgH to finish a scan of the bus.
@@ -195,20 +254,18 @@ uint16_t ring_position(const uint16_t position) {
     return position - 1;
 }
 
-/// @brief returns whether a slave in state is below PRE-OP. IgH aborts each SDO
-/// transfer of a slave in INIT.
-bool starting(const slave::State state) {
-    return state == slave::State::INIT || state == slave::State::BOOT ||
-           state == slave::State::UNKNOWN;
-}
+/// @brief what the master reads from the SII of a slave.
+struct SII {
+    /// @brief the DC modes of the slave.
+    std::vector<dc::OpMode> op_modes;
+    /// @brief whether IgH reads the CoE dictionary of the slave.
+    bool dictionary = false;
+};
 
-/// @brief reads the DC modes from the SII of the slave at ring position.
-/// @returns the modes and 0, or the negative error code of a failed read.
-std::pair<std::vector<dc::OpMode>, int> read_op_modes(
-    const API &api,
-    const unsigned int master_index,
-    const uint16_t position
-) {
+/// @brief reads the SII of the slave at ring position.
+/// @returns the SII and 0, or the negative error code of a failed read.
+std::pair<SII, int>
+read_sii(const API &api, const unsigned int master_index, const uint16_t position) {
     std::map<uint16_t, std::vector<uint8_t>> categories;
     const auto read = [&](const uint32_t offset, std::span<uint16_t> words) {
         // IgH rejects a read of no words.
@@ -219,12 +276,16 @@ std::pair<std::vector<dc::OpMode>, int> read_op_modes(
         return api.sii_read(master_index, position, offset, words);
     };
     for (uint32_t offset = sii::CATEGORIES;;) {
-        std::array<uint16_t, 2> header{};
-        int ret = read(offset, header);
-        const auto [type, size] = header;
+        // The SII that IgH holds ends at the type word of the end marker, and IgH logs
+        // a kernel error for each read past its end.
+        uint16_t type = 0;
+        uint16_t size = 0;
+        int ret = read(offset, std::span(&type, 1));
         if (ret == 0 && type == sii::END) break;
+        if (ret == 0) ret = read(offset + 1, std::span(&size, 1));
         std::vector<uint16_t> words;
-        if (ret == 0 && (type == sii::STRINGS || type == sii::DC)) {
+        if (ret == 0 &&
+            (type == sii::STRINGS || type == sii::DC || type == sii::GENERAL)) {
             words.resize(size);
             ret = read(offset + 2, words);
         }
@@ -238,11 +299,23 @@ std::pair<std::vector<dc::OpMode>, int> read_op_modes(
         }
         offset += 2 + size;
     }
+    std::array<uint16_t, 1> protocols{};
+    const int ret = read(sii::MAILBOX_PROTOCOLS, protocols);
+    // A SII too short to hold the protocols lists none.
+    if (ret != 0 && ret != -EINVAL) return {{}, ret};
+    const bool coe = ret == 0 && (protocols[0] & sii::COE) != 0;
+    const auto general = categories.find(sii::GENERAL);
     return {
-        sii::parse_op_modes(
-            categories[sii::DC],
-            sii::parse_strings(categories[sii::STRINGS])
-        ),
+        {
+            .op_modes = sii::parse_op_modes(
+                categories[sii::DC],
+                sii::parse_strings(categories[sii::STRINGS])
+            ),
+            // IgH reads the dictionary unless the general category turns off SDO
+            // information.
+            .dictionary = coe && (general == categories.end() ||
+                                  sii::parse_sdo_info(general->second)),
+        },
         0
     };
 }
@@ -367,9 +440,30 @@ Master::~Master() {
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() {
-    if (!this->initialized)
+    if (!this->initialized) {
         if (auto err = this->initialize()) return {{}, err};
+    } else {
+        this->read_started();
+        this->read_dictionaries();
+    }
     return {this->cached_slaves, x::errors::NIL};
+}
+
+void Master::read_dictionaries() {
+    for (auto &slave: this->cached_slaves) {
+        auto &props = slave.properties;
+        const auto pos = ring_position(props.position);
+        ec_slave_info_t info{};
+        if (this->api->master_get_slave(this->ec_master, pos, &info) != 0) continue;
+        fill_dictionary_entries(
+            *this->api,
+            this->master_index,
+            pos,
+            info.sdo_count,
+            props
+        );
+        esi::fill_known_entries(props);
+    }
 }
 
 x::errors::Error Master::initialize() {
@@ -414,6 +508,7 @@ x::errors::Error Master::initialize() {
 
     this->cached_slaves.clear();
     this->cached_slaves.reserve(master_info.slave_count);
+    this->dictionaries.clear();
     this->reference_clock.reset();
 
     for (unsigned int i = 0; i < master_info.slave_count; ++i) {
@@ -433,7 +528,7 @@ x::errors::Error Master::initialize() {
         result.properties.serial = slave_info.serial_number;
         result.properties.name = slave_info.name;
         result.status.state = slave::from_al_state(slave_info.al_state);
-        result.status.starting = starting(result.status.state);
+        result.status.starting = slave::starting(result.status.state);
         // IgH reads DC receive times only from slaves with a distributed clock, and it
         // makes the first of them the reference clock.
         if (!this->reference_clock && slave_info.ports[0].receive_time != 0)
@@ -447,7 +542,7 @@ x::errors::Error Master::initialize() {
                 break;
             }
         esi::fill(result);
-        auto [modes, ret] = read_op_modes(
+        auto [sii, ret] = read_sii(
             *this->api,
             this->master_index,
             static_cast<uint16_t>(i)
@@ -460,10 +555,15 @@ x::errors::Error Master::initialize() {
                     reason(ret)
                 )
             );
-        result.properties.op_modes = std::move(modes);
-        if (!result.status.starting) this->read_coe(result);
+        result.properties.op_modes = std::move(sii.op_modes);
+        if (sii.dictionary) this->dictionaries.insert(result.properties.position);
         this->cached_slaves.push_back(std::move(result));
     }
+    std::vector<slave::DiscoveryResult *> started;
+    for (auto &slave: this->cached_slaves)
+        if (!slave.status.starting) started.push_back(&slave);
+    this->read_coe(started);
+    this->read_dictionaries();
     slave::clear_duplicate_serials(this->cached_slaves);
 
     this->initialized = true;
@@ -472,49 +572,130 @@ x::errors::Error Master::initialize() {
     return x::errors::NIL;
 }
 
-void Master::read_coe(slave::DiscoveryResult &slave) {
-    auto &props = slave.properties;
-    const auto pos = ring_position(props.position);
-    read_serial(*this->api, this->ec_master, pos, slave);
-    auto [settings, err] = esi::read_settings(
-        props.vendor_id,
-        props.product_code,
-        props.revision,
-        props.op_modes,
-        sdo_reader(*this->api, this->ec_master, pos)
-    );
-    slave.status.settings_error = err.data;
-    props.settings = std::move(settings);
+void Master::await_dictionaries(const std::vector<slave::DiscoveryResult *> &slaves) {
+    struct Progress {
+        uint16_t position;
+        uint16_t listed = 0;
+        uint16_t described = 0;
+        std::chrono::steady_clock::time_point next_lookup;
+        x::telem::TimeSpan lookup_gap = DICTIONARY_POLL_INTERVAL;
+    };
+    std::vector<Progress> pending;
+    for (const auto *slave: slaves)
+        if (this->dictionaries.contains(slave->properties.position))
+            pending.push_back({.position = ring_position(slave->properties.position)});
+    auto deadline = this->cfg.clock.steady() + DICTIONARY_TIMEOUT.chrono();
+    while (!pending.empty()) {
+        const auto now = this->cfg.clock.steady();
+        bool progressed = false;
+        // IgH lists the objects, then reads the description and then the entries of
+        // each. A description can hold no name, so an object counts as described once
+        // it or a later object has a name or sub-indices.
+        std::erase_if(pending, [&](Progress &read) {
+            ec_slave_info_t info{};
+            if (this->api->master_get_slave(this->ec_master, read.position, &info) != 0)
+                return false;
+            if (info.sdo_count != read.listed) {
+                read = {.position = read.position, .listed = info.sdo_count};
+                progressed = true;
+            }
+            ObjectInfo object;
+            for (uint16_t i = read.described; i < read.listed; ++i)
+                if (this->api->object_info(
+                        this->master_index,
+                        read.position,
+                        i,
+                        object
+                    ) == 0 &&
+                    (!object.name.empty() || object.max_sub_index != 0)) {
+                    read.described = i + 1;
+                    progressed = true;
+                }
+            if (read.listed == 0 || read.described < read.listed ||
+                now < read.next_lookup)
+                return false;
+            // IgH gives no sign that it has read the final entry, and it logs each
+            // lookup of an entry it has not read, so the lookups back off.
+            EntryInfo entry;
+            if (this->api->object_info(
+                    this->master_index,
+                    read.position,
+                    read.listed - 1,
+                    object
+                ) == 0 &&
+                this->api->entry_info(
+                    this->master_index,
+                    read.position,
+                    object.index,
+                    object.max_sub_index,
+                    entry
+                ) == 0) {
+                progressed = true;
+                return true;
+            }
+            read.next_lookup = now + read.lookup_gap.chrono();
+            read.lookup_gap = read.lookup_gap * 2;
+            return false;
+        });
+        if (pending.empty()) return;
+        if (progressed) deadline = now + DICTIONARY_TIMEOUT.chrono();
+        if (now >= deadline) {
+            for (const auto &read: pending)
+                LOG(WARNING) << "[ethercat.igh] IgH read no more of the CoE dictionary "
+                             << "of module " << read.position + 1 << " for "
+                             << DICTIONARY_TIMEOUT;
+            return;
+        }
+        this->cfg.clock.sleep(DICTIONARY_POLL_INTERVAL);
+    }
+}
+
+void Master::read_coe(const std::vector<slave::DiscoveryResult *> &slaves) {
+    this->await_dictionaries(slaves);
+    for (auto *slave: slaves) {
+        auto &props = slave->properties;
+        const auto pos = ring_position(props.position);
+        read_serial(*this->api, this->ec_master, pos, *slave);
+        auto [settings, err] = esi::read_settings(
+            props.vendor_id,
+            props.product_code,
+            props.revision,
+            props.op_modes,
+            sdo_reader(*this->api, this->ec_master, pos)
+        );
+        slave->status.settings_error = err.data;
+        props.settings = std::move(settings);
+    }
+}
+
+size_t Master::read_started() {
+    std::vector<slave::DiscoveryResult *> ready;
+    size_t still = 0;
+    for (auto &slave: this->cached_slaves) {
+        if (!slave.status.starting) continue;
+        ec_slave_info_t info{};
+        const auto pos = ring_position(slave.properties.position);
+        const bool read = this->api->master_get_slave(this->ec_master, pos, &info) == 0;
+        const auto state = slave::from_al_state(info.al_state);
+        if (!read || slave::starting(state)) {
+            still++;
+            continue;
+        }
+        slave.status.state = state;
+        slave.status.starting = false;
+        ready.push_back(&slave);
+    }
+    if (ready.empty()) return still;
+    this->read_coe(ready);
+    slave::clear_duplicate_serials(this->cached_slaves);
+    return still;
 }
 
 void Master::read_starting() {
-    std::vector<slave::DiscoveryResult *> pending;
-    for (auto &slave: this->cached_slaves)
-        if (slave.status.starting) pending.push_back(&slave);
-    if (pending.empty()) return;
     // IgH moves each slave to PRE-OP in the background while the master is open.
     const auto deadline = this->cfg.clock.steady() + this->cfg.pre_op_timeout.chrono();
-    while (true) {
-        std::vector<slave::DiscoveryResult *> still;
-        for (auto *slave: pending) {
-            ec_slave_info_t info{};
-            const auto pos = ring_position(slave->properties.position);
-            const bool read = this->api
-                                  ->master_get_slave(this->ec_master, pos, &info) == 0;
-            const auto state = slave::from_al_state(info.al_state);
-            if (!read || starting(state)) {
-                still.push_back(slave);
-                continue;
-            }
-            slave->status.state = state;
-            slave->status.starting = false;
-            this->read_coe(*slave);
-        }
-        pending = std::move(still);
-        if (pending.empty() || this->cfg.clock.steady() >= deadline) break;
+    while (this->read_started() > 0 && this->cfg.clock.steady() < deadline)
         this->cfg.clock.sleep(OP_POLL_INTERVAL);
-    }
-    slave::clear_duplicate_serials(this->cached_slaves);
 }
 
 uint64_t Master::app_time() const {
@@ -564,9 +745,11 @@ std::pair<master::Change, x::errors::Error> Master::changed() {
     return {{}, x::errors::NIL};
 }
 
-x::errors::Error
-Master::download(const slave::Properties &slave, const slave::StartupParameter &param) {
-    const auto data = param.bytes();
+x::errors::Error Master::download(
+    const slave::Properties &slave,
+    const slave::StartupParameter &param,
+    const std::span<const uint8_t> data
+) {
     uint32_t abort_code = 0;
     const int ret = this->api->master_sdo_download(
         this->ec_master,
@@ -600,9 +783,22 @@ x::errors::Error Master::write(
     const auto &slave = this->cached_slaves[position - 1].properties;
     if (!this->activated) {
         for (const auto &param: parameters)
-            if (auto err = this->download(slave, param)) return err;
+            if (auto err = this->download(slave, param, param.bytes())) return err;
         return x::errors::NIL;
     }
+    const auto config = std::ranges::find(
+        this->slave_configs,
+        position,
+        &std::pair<uint16_t, ec_slave_config_t *>::first
+    );
+    const auto conflict = [&](const slave::StartupParameter &param) {
+        return x::errors::Error(
+            errors::SETTING_CONFLICT,
+            "the IgH master cannot change " + param.to_string() + " of module " +
+                std::to_string(position) + " (" + slave.name +
+                ") while other tasks run the bus. Stop them, then start this task first"
+        );
+    };
     for (const auto &param: parameters) {
         const auto want = param.bytes();
         std::vector<uint8_t> held(want.size());
@@ -625,14 +821,33 @@ x::errors::Error Master::write(
                     ") failed to read startup parameter " + param.to_string() + ": " +
                     sdo_failure(ret, abort_code).reason()
             );
-        if (size != want.size() || held != want)
-            return x::errors::Error(
-                errors::SETTING_CONFLICT,
-                "the IgH master cannot change " + param.to_string() + " of module " +
-                    std::to_string(position) + " (" + slave.name +
-                    ") while other tasks run the bus. Stop them, then start this "
-                    "task first"
-            );
+        held.resize(size);
+        const bool holds = held == want;
+        if (config == this->slave_configs.end()) {
+            if (!holds) return conflict(param);
+            continue;
+        }
+        auto &kept = this->startup_values[{position, param.index, param.sub_index}];
+        auto &added = this->running_additions[position];
+        if (kept != want && added >= RUNNING_ADDITION_LIMIT) return conflict(param);
+        if (!holds)
+            if (auto err = this->download(slave, param, want)) return err;
+        if (kept == want) continue;
+        // IgH documents config SDOs for use before activation, but IgH 1.6 takes one on
+        // a running bus under the master lock and writes it when the slave restarts.
+        if (this->api->slave_config_sdo(
+                config->second,
+                param.index,
+                param.sub_index,
+                want.data(),
+                want.size()
+            ) < 0) {
+            if (!holds)
+                if (auto err = this->download(slave, param, held)) return err;
+            return conflict(param);
+        }
+        kept = want;
+        added++;
     }
     return x::errors::NIL;
 }
@@ -654,7 +869,7 @@ x::errors::Error Master::add_startup_parameters(
         const auto data = param.bytes();
         // IgH reports a rejected config SDO only as a slave stuck in PRE-OP, so a
         // direct write first gets the abort code.
-        if (auto err = this->download(slave, param)) return err;
+        if (auto err = this->download(slave, param, data)) return err;
         if (this->api->slave_config_sdo(
                 sc,
                 param.index,
@@ -667,6 +882,7 @@ x::errors::Error Master::add_startup_parameters(
                 "failed to add startup parameter " + param.to_string() + " to module " +
                     std::to_string(slave.position) + " (" + slave.name + ")"
             );
+        this->startup_values[{slave.position, param.index, param.sub_index}] = data;
     }
     return x::errors::NIL;
 }
@@ -841,11 +1057,13 @@ master::Activation Master::activate(
     // The IgH master moves the slaves to OP on its own while the caller cycles.
     start_cycle(image);
     if (!unidentified.empty()) return refuse_unidentified();
-    return this->wait_for_op();
+    return this->wait_for_op(plan);
 }
 
-master::Activation Master::wait_for_op() {
-    const auto deadline = this->cfg.clock.steady() + this->cfg.op_timeout.chrono();
+master::Activation Master::wait_for_op(const master::Plan &plan) {
+    auto deadline = this->cfg.clock.steady() + this->cfg.op_timeout.chrono();
+    const size_t total = this->slave_configs.size();
+    size_t waiting = total;
     std::optional<std::chrono::steady_clock::time_point> reset_at;
     while (true) {
         std::vector<uint16_t> pending;
@@ -855,8 +1073,21 @@ master::Activation Master::wait_for_op() {
                 state.operational == 0)
                 pending.push_back(pos);
         }
+        const bool advanced = pending.size() < waiting;
+        if (advanced) {
+            waiting = pending.size();
+            if (plan.progress) plan.progress(total - waiting, total);
+        }
         if (pending.empty()) return {};
+        if (plan.cancel != nullptr && !plan.cancel->running())
+            return {
+                .err = x::errors::Error(
+                    x::errors::CANCELLED,
+                    "the start stopped before the slaves reached OP"
+                ),
+            };
         const auto now = this->cfg.clock.steady();
+        if (advanced) deadline = now + this->cfg.op_timeout.chrono();
         if (now >= deadline) return this->op_error(pending, true);
         if (this->refusing(pending)) {
             if (!reset_at) {
@@ -928,8 +1159,10 @@ Master::op_error(const std::vector<uint16_t> &pending, const bool timed_out) {
         activation.refusals.empty() ? errors::STATE_CHANGE_ERROR
                                     : errors::STATE_CHANGE_REFUSED,
         "failed to reach OP" +
-            (timed_out ? " within " + this->cfg.op_timeout.to_string() : "") + ": " +
-            msg
+            (timed_out ? " (no module reached OP for " +
+                             this->cfg.op_timeout.to_string() + ")"
+                       : "") +
+            ": " + msg
     );
     return activation;
 }
@@ -949,7 +1182,10 @@ void Master::deactivate() {
     this->activated = false;
     this->initialized = false;
     this->slave_configs.clear();
+    this->startup_values.clear();
+    this->running_additions.clear();
     this->cached_slaves.clear();
+    this->dictionaries.clear();
     this->domains.clear();
     this->inputs.clear();
     this->outputs.clear();
@@ -979,7 +1215,15 @@ const x::errors::Error &Master::receive() {
     uint32_t working_counter = 0;
     uint32_t expected = 0;
     size_t silent = 0;
-    for (const auto &domain: this->domains) {
+    for (auto &domain: this->domains) {
+        const uint32_t full = domain.share.inputs + domain.share.outputs;
+        expected += full;
+        domain.complete = false;
+        if (domain.skipped) {
+            silent++;
+            this->latest_inputless.push_back(domain.position);
+            continue;
+        }
         if (const int ret = this->api->domain_process(domain.handle); ret != 0)
             return this->received = x::errors::Error(
                        errors::CYCLIC_ERROR,
@@ -992,12 +1236,11 @@ const x::errors::Error &Master::receive() {
                        "failed to read a domain state: " + reason(ret)
                    );
         std::memcpy(this->inputs.data() + domain.offset, domain.data, domain.size);
-        const uint32_t full = domain.share.inputs + domain.share.outputs;
-        expected += full;
         // IgH splits a domain too large for one datagram, which can change the count it
         // expects, so its own state decides whether the slave took full part.
         if (state.wc_state == EC_WC_COMPLETE) {
             working_counter += full;
+            domain.complete = true;
             continue;
         }
         working_counter += std::min<uint32_t>(state.working_counter, full);
@@ -1073,7 +1316,25 @@ x::errors::Error Master::send() {
                 );
     }
 
-    for (const auto &domain: this->domains) {
+    for (auto &domain: this->domains) {
+        domain.skipped = false;
+        // A slave can turn on its sync managers before it reports SAFE-OP, and a frame
+        // in that gap can leave it with no inputs until it restarts. A slave that
+        // changes state misses a full cycle first. IgH reports no state while it scans.
+        if (!domain.complete) {
+            ec_slave_config_state_t state{};
+            if (const int ret = this->api->slave_config_state(domain.config, &state);
+                ret != 0)
+                return x::errors::Error(
+                    errors::CYCLIC_ERROR,
+                    "failed to read the state of module " +
+                        std::to_string(domain.position) + ": " + reason(ret)
+                );
+            if (state.al_state != 0 && state.al_state < EC_AL_STATE_SAFEOP) {
+                domain.skipped = true;
+                continue;
+            }
+        }
         std::memcpy(domain.data, this->outputs.data() + domain.offset, domain.size);
         if (const int ret = this->api->domain_queue(domain.handle); ret != 0)
             return x::errors::Error(
@@ -1248,6 +1509,16 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
                 errors::PDO_MAPPING_ERROR,
                 "failed to clear the PDO mapping of " + slave_name
             );
+    if (ec_slave_info_t info{};
+        this->api->master_get_slave(this->ec_master, ring_position(position), &info) ==
+        0)
+        fill_dictionary_entries(
+            *this->api,
+            this->master_index,
+            ring_position(position),
+            info.sdo_count,
+            props
+        );
     esi::fill_known_entries(props);
     this->cached_slaves[position - 1].properties = std::move(props);
     return x::errors::NIL;
@@ -1324,6 +1595,7 @@ x::errors::Error Master::register_pdo_entries(
     this->domains.push_back({
         .position = slave.position,
         .handle = handle,
+        .config = sc,
         .offset = base,
         .size = this->api->domain_size(handle),
         .share = share,

@@ -1,0 +1,35 @@
+{
+  "description": "A JSON field has a default that is not valid JSON text.",
+  "codec_rejects": true,
+  "problems": [
+    {
+      "path": "messages.0.payload.fields.0.default",
+      "message": "default must be valid JSON"
+    }
+  ],
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "M",
+        "payload": {
+          "format": "json",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000a",
+              "name": "config",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/config",
+              "type": "json",
+              "default": "{\"mode\":"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

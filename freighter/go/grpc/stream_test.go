@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gleak"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
@@ -239,4 +240,53 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			Expect(stream.CloseSend()).To(Succeed())
 		},
 	)
+
+	It("Should release the stream when a server middleware rejects it", func() {
+		server, client, addr := startPair()
+		server.Use(freighter.MiddlewareFunc(func(
+			ctx freighter.Context,
+			_ freighter.Next,
+		) (freighter.Context, error) {
+			return ctx, errors.New("rejected")
+		}))
+		before := gleak.Goroutines()
+		// A context that never ends, so only the client can release the stream.
+		Expect(client.Stream(context.Background(), addr)).
+			Error().
+			To(MatchError(ContainSubstring("rejected")))
+		Eventually(gleak.Goroutines).ShouldNot(gleak.HaveLeaked(before))
+	})
+
+	It("Should return context.DeadlineExceeded when the context times out", func(
+		ctx SpecContext,
+	) {
+		server, client, addr := startPair()
+		server.BindHandler(func(
+			ctx context.Context,
+			_ freighter.ServerStream[testutil.Request, testutil.Response],
+		) error {
+			<-ctx.Done()
+			return nil
+		})
+		timeoutCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+		defer cancel()
+		stream := MustSucceed(client.Stream(timeoutCtx, addr))
+		Expect(stream.Receive()).Error().To(MatchError(context.DeadlineExceeded))
+	})
+
+	It("Should return context.Canceled when cancelled before opening", func(
+		ctx SpecContext,
+	) {
+		server, client, addr := startPair()
+		server.BindHandler(func(
+			ctx context.Context,
+			_ freighter.ServerStream[testutil.Request, testutil.Response],
+		) error {
+			<-ctx.Done()
+			return nil
+		})
+		cancelCtx, cancel := context.WithCancel(ctx)
+		cancel()
+		Expect(client.Stream(cancelCtx, addr)).Error().To(MatchError(context.Canceled))
+	})
 })

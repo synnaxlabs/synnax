@@ -27,6 +27,8 @@ Configuration:
     Modify the constants below to match your broker.
 """
 
+import sys
+
 import synnax as sy
 
 DEVICE_NAME = "MQTT Broker"
@@ -38,7 +40,7 @@ client = sy.Synnax()
 existing = client.devices.retrieve(name=DEVICE_NAME, ignore_not_found=True)
 if existing is not None:
     print(f"Broker already connected: {existing.name} ({existing.location})")
-    exit(0)
+    sys.exit(0)
 
 rack = client.racks.retrieve(integration=sy.mqtt.INTEGRATION)[0]
 print(f"Using rack: {rack.name} (key={rack.key})")

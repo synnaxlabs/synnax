@@ -49,6 +49,7 @@ var (
 
 type (
 	reductionFn  = func(telem.Series, int64, *telem.Series) int64
+	avgFn        = func(telem.Series, int64, *op.Mean, *telem.Series) int64
 	derivativeFn = func(
 		telem.Series,
 		telem.Series,
@@ -342,15 +343,19 @@ func (*Host) Create(nodeCfg node.Config) (node.Node, error) {
 	if nodeCfg.Node.Type == derivativeSymbolName {
 		return createDerivative(nodeCfg)
 	}
-	reductionMap, ok := ops[nodeCfg.Node.Type]
-	if !ok {
+	nodeType := nodeCfg.Node.Type
+	if _, ok := ops[nodeType]; !ok && nodeType != avgSymbolName {
 		return nil, query.ErrNotFound
 	}
 	inputIdx, err := nodeCfg.State.ResolveInput(ir.DefaultInputParam)
 	if err != nil {
 		return nil, err
 	}
-	reductionFn := reductionMap[nodeCfg.State.Input(inputIdx).DataType]
+	dataType := nodeCfg.State.Input(inputIdx).DataType
+	reductionFn := ops[nodeType][dataType]
+	if nodeType == avgSymbolName {
+		reductionFn = withMean(avgOps[dataType])
+	}
 	resetIdx := -1
 	if _, found := nodeCfg.Program.Edges.FindByTarget(ir.Handle{
 		Node:  nodeCfg.Node.Key,
@@ -487,43 +492,55 @@ func (r *avgNode) Next(ctx node.Context) {
 	r.Emit(ctx, 0)
 }
 
+// withMean gives an Avg reduction its own running state. Avg clears the state when
+// the count restarts, so every reset path clears it.
+func withMean(avg avgFn) reductionFn {
+	var mean op.Mean
+	return func(input telem.Series, prevCount int64, output *telem.Series) int64 {
+		return avg(input, prevCount, &mean, output)
+	}
+}
+
 var (
+	avgOps = map[telem.DataType]avgFn{
+		telem.Float64T:   op.AvgF64,
+		telem.Float32T:   op.AvgF32,
+		telem.Int64T:     op.AvgI64,
+		telem.TimestampT: op.AvgI64,
+		telem.Int32T:     op.AvgI32,
+		telem.Int16T:     op.AvgI16,
+		telem.Int8T:      op.AvgI8,
+		telem.Uint64T:    op.AvgU64,
+		telem.Uint32T:    op.AvgU32,
+		telem.Uint16T:    op.AvgU16,
+		telem.Uint8T:     op.AvgU8,
+	}
 	ops = map[string]map[telem.DataType]reductionFn{
-		avgSymbolName: {
-			telem.Float64T: op.AvgF64,
-			telem.Float32T: op.AvgF32,
-			telem.Int64T:   op.AvgI64,
-			telem.Int32T:   op.AvgI32,
-			telem.Int16T:   op.AvgI16,
-			telem.Int8T:    op.AvgI8,
-			telem.Uint64T:  op.AvgU64,
-			telem.Uint32T:  op.AvgU32,
-			telem.Uint16T:  op.AvgU16,
-			telem.Uint8T:   op.AvgU8,
-		},
 		minSymbolName: {
-			telem.Float64T: op.MinF64,
-			telem.Float32T: op.MinF32,
-			telem.Int64T:   op.MinI64,
-			telem.Int32T:   op.MinI32,
-			telem.Int16T:   op.MinI16,
-			telem.Int8T:    op.MinI8,
-			telem.Uint64T:  op.MinU64,
-			telem.Uint32T:  op.MinU32,
-			telem.Uint16T:  op.MinU16,
-			telem.Uint8T:   op.MinU8,
+			telem.Float64T:   op.MinF64,
+			telem.Float32T:   op.MinF32,
+			telem.Int64T:     op.MinI64,
+			telem.TimestampT: op.MinI64,
+			telem.Int32T:     op.MinI32,
+			telem.Int16T:     op.MinI16,
+			telem.Int8T:      op.MinI8,
+			telem.Uint64T:    op.MinU64,
+			telem.Uint32T:    op.MinU32,
+			telem.Uint16T:    op.MinU16,
+			telem.Uint8T:     op.MinU8,
 		},
 		maxSymbolName: {
-			telem.Float64T: op.MaxF64,
-			telem.Float32T: op.MaxF32,
-			telem.Int64T:   op.MaxI64,
-			telem.Int32T:   op.MaxI32,
-			telem.Int16T:   op.MaxI16,
-			telem.Int8T:    op.MaxI8,
-			telem.Uint64T:  op.MaxU64,
-			telem.Uint32T:  op.MaxU32,
-			telem.Uint16T:  op.MaxU16,
-			telem.Uint8T:   op.MaxU8,
+			telem.Float64T:   op.MaxF64,
+			telem.Float32T:   op.MaxF32,
+			telem.Int64T:     op.MaxI64,
+			telem.TimestampT: op.MaxI64,
+			telem.Int32T:     op.MaxI32,
+			telem.Int16T:     op.MaxI16,
+			telem.Int8T:      op.MaxI8,
+			telem.Uint64T:    op.MaxU64,
+			telem.Uint32T:    op.MaxU32,
+			telem.Uint16T:    op.MaxU16,
+			telem.Uint8T:     op.MaxU8,
 		},
 	}
 	derivOps = map[telem.DataType]derivativeFn{

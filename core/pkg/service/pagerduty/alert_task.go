@@ -242,6 +242,10 @@ func (t *alertTask) sendEvent(
 	sent := event
 	sent.RoutingKey = routingKey
 	resp, err := t.factoryCfg.Sender.SendEvent(ctx, sent)
+	// A send that a stop cancels did not fail.
+	if ctx.Err() != nil {
+		return
+	}
 	if err != nil {
 		t.factoryCfg.L.Error(
 			"failed to send PagerDuty event",

@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/payload"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -91,8 +92,7 @@ var _ = Describe("Discover", func() {
 		// description that gives advice.
 		expectFailure := func(err error, message, advice string) {
 			GinkgoHelper()
-			var f driver.Failure
-			Expect(errors.As(err, &f)).To(BeTrue())
+			f := MustBeOk(errors.AsType[driver.Failure](err))
 			Expect(f.Message).To(Equal(message))
 			Expect(f.Description).To(ContainSubstring(advice))
 		}
@@ -160,34 +160,39 @@ var _ = Describe("Discover", func() {
 		})
 	})
 
-	DescribeTable("FormatOf",
-		func(payload []byte, format driver.Format) {
-			Expect(driver.FormatOf(payload)).To(Equal(format))
+	DescribeTable(
+		"FormatOf",
+		func(data []byte, format payload.Format) {
+			Expect(driver.FormatOf(data)).To(Equal(format))
 		},
-		Entry("a JSON object", []byte(`{"v":1}`), driver.FormatJSON),
-		Entry("a JSON number", []byte("12.5"), driver.FormatJSON),
-		Entry("text that is not JSON", []byte("ON"), driver.FormatText),
-		Entry("bytes that are not text", []byte{0xff, 0xfe, 0x01}, driver.FormatBinary),
+		Entry("a JSON object", []byte(`{"v":1}`), payload.FormatJSON),
+		Entry("a JSON number", []byte("12.5"), payload.FormatJSON),
+		Entry("text that is not JSON", []byte("ON"), payload.FormatText),
+		Entry(
+			"bytes that are not text",
+			[]byte{0xff, 0xfe, 0x01},
+			payload.FormatBinary,
+		),
 	)
 
 	DescribeTable(
 		"Display",
-		func(payload []byte, format driver.Format, limit int, shown string) {
-			Expect(driver.Display(payload, format, limit)).To(Equal(shown))
+		func(data []byte, format payload.Format, limit int, shown string) {
+			Expect(driver.Display(data, format, limit)).To(Equal(shown))
 		},
-		Entry("JSON as text", []byte(`{"v":1}`), driver.FormatJSON, 16, `{"v":1}`),
-		Entry("the start of text", []byte("abcdef"), driver.FormatText, 4, "abcd"),
+		Entry("JSON as text", []byte(`{"v":1}`), payload.FormatJSON, 16, `{"v":1}`),
+		Entry("the start of text", []byte("abcdef"), payload.FormatText, 4, "abcd"),
 		Entry(
 			"binary as hex",
 			[]byte{0xff, 0xfe, 0x01},
-			driver.FormatBinary,
+			payload.FormatBinary,
 			16,
 			"fffe01",
 		),
 		Entry(
 			"the start of binary",
 			[]byte{0xff, 0xfe, 0x01},
-			driver.FormatBinary,
+			payload.FormatBinary,
 			2,
 			"fffe",
 		),

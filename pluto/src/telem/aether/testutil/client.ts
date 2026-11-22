@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type framer } from "@synnaxlabs/client";
-import { type SyntheticCore } from "@synnaxlabs/client/testutil";
+import type { framer } from "@synnaxlabs/client";
+import type { SyntheticCore } from "@synnaxlabs/client/testutil";
+import { onTestFinished } from "vitest";
 
-import { type Client } from "@/telem/aether/remote";
+import { type Client, RemoteFactory } from "@/telem/aether/remote";
 
 /**
  * @returns the client that the telemetry provider builds, served by the synthetic Core
@@ -24,3 +25,13 @@ export const createClient = (
   channels: core.channels,
   now: core.now,
 });
+
+/**
+ * @returns a remote telemetry factory served by the synthetic Core. Call it inside a
+ * test: the feed closes when that test finishes.
+ */
+export const createRemoteFactory = (core: SyntheticCore): RemoteFactory => {
+  const client = createClient(core);
+  onTestFinished(async () => await client.feed.close());
+  return new RemoteFactory(client);
+};

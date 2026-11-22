@@ -12,7 +12,6 @@ import "@/platform/device/Find.css";
 import {
   type device,
   DisconnectedError,
-  NotFoundError,
   type rack,
   task,
   TimeSpan,
@@ -28,14 +27,15 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Steps } from "@synnaxlabs/lyra/steps";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
+import { compare, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { ConnectFrame } from "@/platform/device/ConnectFrame";
-import { type Hardware } from "@/platform/device/integration";
+import type { Hardware } from "@/platform/device/integration";
 import { isReady } from "@/platform/device/racks";
 import { Modals } from "@/platform/modals";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 
 /** The command that makes a scan task scan for devices now. */
 export const SCAN_COMMAND = "scan";
@@ -116,8 +116,7 @@ const ScannerState = ({
               handleError(async () => {
                 if (client == null) throw new DisconnectedError();
                 const set = task.set({ path: ["config", "disabled"], value: false });
-                if (!(await client.tasks.dispatch(scanner.key, set)))
-                  throw new NotFoundError(`Task ${scanner.key} is not cached`);
+                await client.tasks.dispatch(scanner.key, set);
               }, "Failed to turn on scanning")
             }
           >
@@ -143,8 +142,7 @@ const byConfigured = (a: device.Device, b: device.Device): number =>
   Number(a.configured) - Number(b.configured);
 
 // A slot is a bus position, so the devices list in the order of the bus.
-const bySlot = (a: device.Device, b: device.Device): number =>
-  a.location.localeCompare(b.location, undefined, { numeric: true });
+const bySlot = compare.by((d: device.Device) => d.location, compare.natural);
 
 const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
   isReady(r) &&
@@ -154,7 +152,7 @@ const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
 
 const connectedText = (count: number, name: string): string => {
   if (count === 0) return `No ${name} devices connected.`;
-  return `${count} ${name} device${count === 1 ? "" : "s"} connected.`;
+  return `${strings.count(count, `${name} device`)} connected.`;
 };
 
 interface ScanResultProps {
@@ -245,7 +243,7 @@ const RackCard = ({
       <Header.Actions>
         {devices.length > 0 && (
           <Text.Text level="small" color={9}>
-            {devices.length === 1 ? "1 device" : `${devices.length} devices`}
+            {strings.count(devices.length, "device")}
           </Text.Text>
         )}
         <Rack.StatusIndicator status={r.status} />

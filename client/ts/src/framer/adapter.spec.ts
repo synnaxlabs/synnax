@@ -10,7 +10,7 @@
 import { array, DataType, id, Series, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { NotFoundError } from "@/errors";
 import { type ChannelRetriever, ReadAdapter, WriteAdapter } from "@/framer/adapter";
 import { Frame } from "@/index";
@@ -607,6 +607,30 @@ describe("ReadFrameAdapter", () => {
       const update = adapter.update([timeCh.name, name]);
       await expect(update).rejects.toThrow(NotFoundError);
       await expect(update).rejects.toThrow(`channels not found matching ["${name}"]`);
+    });
+  });
+});
+
+describe("ReadAdapter", () => {
+  describe("update", () => {
+    const payload = {
+      key: 1,
+      name: "a",
+      dataType: DataType.FLOAT32,
+    } as channel.Payload;
+    const retrieve: ChannelRetriever = async () => [payload];
+    const series = new Series(new Float32Array([1]));
+
+    it("should key frames by name after an update from keys to names", async () => {
+      const adapter = await ReadAdapter.open(retrieve, [1]);
+      await adapter.update(["a"]);
+      expect(adapter.adapt(new Frame([1], [series])).columns).toEqual(["a"]);
+    });
+
+    it("should key frames by key after an update from names to keys", async () => {
+      const adapter = await ReadAdapter.open(retrieve, ["a"]);
+      await adapter.update([1]);
+      expect(adapter.adapt(new Frame([1], [series])).columns).toEqual([1]);
     });
   });
 });

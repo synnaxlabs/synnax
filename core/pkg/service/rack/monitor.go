@@ -313,7 +313,8 @@ func (m *monitor) handleChange(
 			resource.TypeHTTPServer, resource.TypeLabjackDevice,
 			resource.TypeModbusServer, resource.TypeNiChassis, resource.TypeNiDevice,
 			resource.TypeOpcuaServer, resource.TypeArcDirectory, resource.TypeSecret,
-			resource.TypeCertificate, resource.TypeColor, resource.TypeICD:
+			resource.TypeCertificate, resource.TypeColor, resource.TypeICD,
+			resource.TypeEnumeration:
 		}
 	}
 }

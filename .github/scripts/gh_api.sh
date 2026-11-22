@@ -39,6 +39,12 @@ for ((attempt = 1; ; attempt++)); do
     delay=$((delay * 2))
 done
 
-cat "$out"
+# gh prints the body of a failed call to stdout. It goes to stderr, so a caller that
+# writes stdout to a file, such as GITHUB_OUTPUT, gets nothing.
+if ((code == 0)); then
+    cat "$out"
+else
+    cat "$out" >&2
+fi
 cat "$err" >&2
 exit "$code"

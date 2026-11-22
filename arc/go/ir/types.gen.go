@@ -59,7 +59,7 @@ type Edges []Edge
 // ScopeMode defines the concurrency model of a Scope.
 type ScopeMode uint8
 
-//go:generate stringer -type=ScopeMode
+//go:generate go tool stringer -type=ScopeMode
 
 const (
 	// ScopeModeUnspecified has no mode set.
@@ -73,7 +73,7 @@ const (
 // Liveness defines whether a Scope is continuously active or must be activated.
 type Liveness uint8
 
-//go:generate stringer -type=Liveness
+//go:generate go tool stringer -type=Liveness
 
 const (
 	// LivenessUnspecified has no liveness set.

@@ -49,7 +49,7 @@ VAL_ 256 Gear 0 "Park" 1 "Drive" ;
 // messages of the result.
 func importFile(
 	ctx context.Context,
-	format icd.Format,
+	format icd.ImportFormat,
 	data []byte,
 ) ([]icd.Message, error) {
 	GinkgoHelper()
@@ -64,8 +64,8 @@ func importFile(
 func checkImport(t *testing.T, messages []icd.Message, err error) {
 	t.Helper()
 	if err != nil {
-		var pathErr validate.PathError
-		if !errors.As(err, &pathErr) || !slices.Equal(pathErr.Path, []string{"data"}) ||
+		pathErr, ok := errors.AsType[validate.PathError](err)
+		if !ok || !slices.Equal(pathErr.Path, []string{"data"}) ||
 			!errors.Is(pathErr.Err, validate.ErrValidation) {
 			t.Fatalf("not a validation error at the data path: %v", err)
 		}
@@ -82,13 +82,15 @@ func checkImport(t *testing.T, messages []icd.Message, err error) {
 			t.Fatalf("message %s has payload %T", m.Name, m.Payload.Variant)
 		}
 		fields := make(set.Set[icd.FieldKey], len(p.Fields))
-		for _, f := range p.Fields {
+		for _, field := range p.Fields {
+			f := field.Base()
 			if fields.Contains(f.Key) {
 				t.Fatalf("message %s has duplicate field key %s", m.Name, f.Key)
 			}
 			fields.Add(f.Key)
 		}
-		for _, f := range p.Fields {
+		for _, field := range p.Fields {
+			f := field.Base()
 			for _, v := range []*float64{&f.Scale, &f.Offset, f.Min, f.Max} {
 				if v != nil && (math.IsNaN(*v) || math.IsInf(*v, 0)) {
 					t.Fatalf(
@@ -108,7 +110,7 @@ func checkImport(t *testing.T, messages []icd.Message, err error) {
 // fuzzImport opens a Service for f and returns a fuzz function that imports its input
 // in the given format into a new ICD and checks the result with checkImport. Nothing it
 // imports persists.
-func fuzzImport(f *testing.F, format icd.Format) func(*testing.T, []byte) {
+func fuzzImport(f *testing.F, format icd.ImportFormat) func(*testing.T, []byte) {
 	f.Helper()
 	closeOnCleanup := func(c io.Closer) {
 		f.Cleanup(func() {
@@ -177,22 +179,28 @@ var _ = Describe("Import", func() {
 	importICD := func(
 		ctx SpecContext,
 		key icd.Key,
-		format icd.Format,
+		format icd.ImportFormat,
 		data string,
 	) (icd.ICD, error) {
 		return svc.NewWriter(tx).Import(ctx, key, format, []byte(data))
 	}
 
-	DescribeTable("Should import each format",
-		func(ctx SpecContext, format icd.Format, data func() []byte, count int) {
+	DescribeTable(
+		"Should import each format",
+		func(ctx SpecContext, format icd.ImportFormat, data func() []byte, count int) {
 			Expect(MustSucceed(importFile(ctx, format, data()))).To(HaveLen(count))
 		},
-		Entry("DBC", icd.FormatDBC, func() []byte {
+		Entry("DBC", icd.ImportFormatDBC, func() []byte {
 			data, _ := readFixture("basic")
 			return data
 		}, 5),
-		Entry("CSV", icd.FormatCSV, func() []byte { return toCSV(tableRows) }, 3),
-		Entry("XLSX", icd.FormatXLSX, func() []byte { return toXLSX(tableRows) }, 3),
+		Entry("CSV", icd.ImportFormatCSV, func() []byte { return toCSV(tableRows) }, 3),
+		Entry(
+			"XLSX",
+			icd.ImportFormatXLSX,
+			func() []byte { return toXLSX(tableRows) },
+			3,
+		),
 	)
 
 	It("Should reject an unknown format", func(ctx SpecContext) {
@@ -202,21 +210,25 @@ var _ = Describe("Import", func() {
 	})
 
 	It("Should replace the messages of the ICD", func(ctx SpecContext) {
-		res := MustSucceed(importICD(ctx, ic.Key, icd.FormatDBC, importDBC))
+		res := MustSucceed(importICD(ctx, ic.Key, icd.ImportFormatDBC, importDBC))
 		Expect(res.Key).To(Equal(ic.Key))
 		Expect(res.Name).To(Equal("Bus"))
 		Expect(res.Messages).To(HaveLen(1))
 		m := res.Messages[0]
 		Expect(m.Name).To(Equal("Engine"))
-		Expect(binaryFieldOf(m, 1).Name).To(Equal("Gear"))
+		Expect(binaryFieldOf(m, 1).Base().Name).To(Equal("Gear"))
 		Expect(retrieveICD(ctx, ic.Key)).To(Equal(res))
 	})
 
 	DescribeTable("Should keep every key when a file is imported again",
 		func(ctx SpecContext, name string) {
 			data, _ := readFixture(name)
-			first := MustSucceed(importICD(ctx, ic.Key, icd.FormatDBC, string(data)))
-			second := MustSucceed(importICD(ctx, ic.Key, icd.FormatDBC, string(data)))
+			first := MustSucceed(
+				importICD(ctx, ic.Key, icd.ImportFormatDBC, string(data)),
+			)
+			second := MustSucceed(
+				importICD(ctx, ic.Key, icd.ImportFormatDBC, string(data)),
+			)
 			Expect(second).To(Equal(first))
 		},
 		Entry("value tables", "basic"),
@@ -228,8 +240,8 @@ var _ = Describe("Import", func() {
 	) {
 		csv := "message,field,start_bit,bit_length\nm,a,0,8\nm,a,8,8\nm,b,16,8\n" +
 			"n,c,0,8\nn,c,8,8\n"
-		first := MustSucceed(importICD(ctx, ic.Key, icd.FormatCSV, csv))
-		second := MustSucceed(importICD(ctx, ic.Key, icd.FormatCSV, csv))
+		first := MustSucceed(importICD(ctx, ic.Key, icd.ImportFormatCSV, csv))
+		second := MustSucceed(importICD(ctx, ic.Key, icd.ImportFormatCSV, csv))
 		Expect(second).To(Equal(first))
 		Expect(messageKeys(second.Messages)).To(HaveLen(7))
 	})
@@ -237,11 +249,11 @@ var _ = Describe("Import", func() {
 	It("Should drop missing messages and fields and add new ones", func(
 		ctx SpecContext,
 	) {
-		first := MustSucceed(importICD(ctx, ic.Key, icd.FormatCSV,
+		first := MustSucceed(importICD(ctx, ic.Key, icd.ImportFormatCSV,
 			"message,field,start_bit,bit_length\n"+
 				"Engine,rpm,0,8\nEngine,temp,8,8\nBrakes,pressure,0,8\n",
 		))
-		second := MustSucceed(importICD(ctx, ic.Key, icd.FormatCSV,
+		second := MustSucceed(importICD(ctx, ic.Key, icd.ImportFormatCSV,
 			"message,field,start_bit,bit_length\n"+
 				"Engine,rpm,16,8\nEngine,load,24,8\nDoors,open,0,1\n",
 		))
@@ -264,7 +276,7 @@ var _ = Describe("Import", func() {
 		}})
 		text := icd.ICD{Name: "Text", Messages: []icd.Message{line}}
 		Expect(svc.NewWriter(tx).Create(ctx, &text)).To(Succeed())
-		res := MustSucceed(importICD(ctx, text.Key, icd.FormatCSV,
+		res := MustSucceed(importICD(ctx, text.Key, icd.ImportFormatCSV,
 			"message,field,start_bit,bit_length\nLine,temp,0,8\nLine,rh,8,8\n",
 		))
 		m := messageNamed(res.Messages, "Line")
@@ -275,23 +287,23 @@ var _ = Describe("Import", func() {
 	})
 
 	It("Should reject data that does not parse", func(ctx SpecContext) {
-		Expect(importICD(ctx, ic.Key, icd.FormatCSV, "color\n")).Error().To(
+		Expect(importICD(ctx, ic.Key, icd.ImportFormatCSV, "color\n")).Error().To(
 			MatchError(`data: row 1: unknown column "color": validation error`),
 		)
 	})
 
 	It("Should store an import that Check finds problems in", func(ctx SpecContext) {
 		csv := "message,field,start_bit,bit_length\nm,a,0,8\nm,a,8,8\n"
-		res := MustSucceed(importICD(ctx, ic.Key, icd.FormatCSV, csv))
+		res := MustSucceed(importICD(ctx, ic.Key, icd.ImportFormatCSV, csv))
 		Expect(retrieveICD(ctx, ic.Key)).To(Equal(res))
-		Expect(icd.Check(res)).To(ConsistOf(validate.Problem{
+		Expect(problemsOf(res)).To(ConsistOf(problem{
 			Path:    "messages.0.payload.fields.1.name",
 			Message: `duplicate field name "a"`,
 		}))
 	})
 
 	It("Should return not found for a missing ICD", func(ctx SpecContext) {
-		Expect(importICD(ctx, uuid.New(), icd.FormatDBC, importDBC)).Error().
+		Expect(importICD(ctx, uuid.New(), icd.ImportFormatDBC, importDBC)).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 })

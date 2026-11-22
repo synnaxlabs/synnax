@@ -16,7 +16,7 @@ import {
   UnexpectedError,
   type user,
 } from "@synnaxlabs/client";
-import { array, color, compare, deep, type optional, verbs } from "@synnaxlabs/x";
+import { array, deep, type optional, verbs } from "@synnaxlabs/x";
 
 import { Access } from "@/access";
 import { Flux } from "@/flux";
@@ -47,8 +47,8 @@ export const {
 
 /** Compared by value: a change to the panel's layout is silenced. */
 export const useResultAppearance = createResultSelector(
-  ({ icon, color: c }) => ({ icon, color: c }),
-  (a, b) => a.icon === b.icon && color.equals(a.color, b.color),
+  ({ icon, color }) => ({ icon, color }),
+  (a, b) => a.icon === b.icon && deep.equal(a.color, b.color),
 );
 
 export type RetrieveKeysByProjectQuery = { project: project.Key; user: user.Key };
@@ -77,7 +77,7 @@ export const { use: useKeysByProject } = Flux.createRetrieve<
       .getCached();
     return window == null ? undefined : keysOf(window.records);
   },
-  equal: (prev, next) => compare.primitiveArrays(prev, next) === compare.EQUAL,
+  equal: array.equal,
 });
 
 export interface KeyParams {
@@ -201,7 +201,7 @@ const tabKeysOf = (root: panel.Node): string[] => {
 export const useTabKeys = Scope.bindHook(
   createSelector<string[]>(
     ({ root }) => tabKeysOf(root),
-    (a, b) => compare.arraysEqual(a, b),
+    (a, b) => array.equal(a, b),
   ),
 );
 

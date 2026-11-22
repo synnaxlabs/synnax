@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from typing import TypeAlias
 
 from synnax import resource
 from synnax.channel.types_gen import (
@@ -26,9 +26,6 @@ _RESOURCE_TYPE = resource.ID(type="channel")
 
 def _resource_id(key: Key) -> resource.ID:
     return resource.ID(type=_RESOURCE_TYPE.type, key=str(key))
-
-
-_OPERATION_TYPES = Literal["min", "max", "avg", "none"]
 
 
 @dataclass

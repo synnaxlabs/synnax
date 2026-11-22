@@ -3183,6 +3183,215 @@ var _ = Describe("Writer Behavior", func() {
 				})
 
 				Describe("Write Authority", func() {
+					DescribeTable(
+						"Should keep data and its index consistent when the writer loses "+
+							"control of the index",
+						func(
+							ctx SpecContext,
+							after func(w1, w2 *cesium.Writer, idx, data cesium.ChannelKey),
+							idxLen, dataLen int64,
+						) {
+							idx, data := GenerateChannelKey(), GenerateChannelKey()
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      idx,
+									Name:     "Mawson",
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								cesium.Channel{
+									Key:      data,
+									Name:     "Mertz",
+									Index:    idx,
+									DataType: telem.Int64T,
+								},
+							)).To(Succeed())
+							w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels:         []cesium.ChannelKey{idx, data},
+								Start:            10 * telem.SecondTS,
+								Authorities:      []control.Authority{100},
+								EnableAutoCommit: new(false),
+								Sync:             new(true),
+							}))
+							Expect(w1.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx, data},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+									telem.NewSeriesV[int64](1, 2, 3, 4),
+								},
+							))).To(BeTrue())
+							w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels:         []cesium.ChannelKey{idx},
+								Start:            10 * telem.SecondTS,
+								Authorities:      []control.Authority{200},
+								EnableAutoCommit: new(false),
+								Sync:             new(true),
+							}))
+							_, authorized := MustSucceed2(w1.Commit())
+							Expect(authorized).To(BeFalse())
+							after(w1, w2, idx, data)
+							f := MustSucceed(
+								db.Read(ctx, telem.TimeRangeMax, idx, data),
+							)
+							Expect(f.Get(idx).Len()).To(Equal(idxLen))
+							Expect(f.Get(data).Len()).To(Equal(dataLen))
+						},
+						Entry(
+							"commit the index and the data after control comes back",
+							func(w1, w2 *cesium.Writer, _, _ cesium.ChannelKey) {
+								Expect(w2.Close()).To(Succeed())
+								_, authorized := MustSucceed2(w1.Commit())
+								Expect(authorized).To(BeTrue())
+								Expect(w1.Close()).To(Succeed())
+							},
+							int64(4), int64(4),
+						),
+						Entry(
+							"commit the index and the data after a refused write",
+							func(w1, w2 *cesium.Writer, idx, data cesium.ChannelKey) {
+								Expect(w1.Write(telem.MultiFrame(
+									[]cesium.ChannelKey{idx, data},
+									[]telem.Series{
+										telem.NewSeriesSecondsTSV(14),
+										telem.NewSeriesV[int64](5),
+									},
+								))).To(BeFalse())
+								Expect(w2.Close()).To(Succeed())
+								_, authorized := MustSucceed2(w1.Commit())
+								Expect(
+									authorized,
+								).To(BeFalse(), "the commit reports the refused write")
+								Expect(w1.Close()).To(Succeed())
+							},
+							int64(4), int64(4),
+						),
+						Entry(
+							"commit the data on a retry after a refused write",
+							func(w1, w2 *cesium.Writer, idx, data cesium.ChannelKey) {
+								Expect(w1.Write(telem.MultiFrame(
+									[]cesium.ChannelKey{idx, data},
+									[]telem.Series{
+										telem.NewSeriesSecondsTSV(20),
+										telem.NewSeriesV[int64](5),
+									},
+								))).To(BeFalse())
+								Expect(w2.Write(telem.MultiFrame(
+									[]cesium.ChannelKey{idx},
+									[]telem.Series{telem.NewSeriesSecondsTSV(14)},
+								))).To(BeTrue())
+								MustSucceed2(w2.Commit())
+								Expect(w2.Close()).To(Succeed())
+								_, authorized := MustSucceed2(w1.Commit())
+								Expect(
+									authorized,
+								).To(BeFalse(), "the commit reports the refused write")
+								Expect(w1.Close()).To(Succeed())
+							},
+							int64(5), int64(4),
+						),
+						Entry(
+							"commit the data on a retry after another writer commits the index",
+							func(w1, w2 *cesium.Writer, idx, _ cesium.ChannelKey) {
+								Expect(w2.Write(telem.MultiFrame(
+									[]cesium.ChannelKey{idx},
+									[]telem.Series{telem.NewSeriesSecondsTSV(14)},
+								))).To(BeTrue())
+								MustSucceed2(w2.Commit())
+								Expect(w2.Close()).To(Succeed())
+								_, authorized := MustSucceed2(w1.Commit())
+								Expect(authorized).To(BeTrue())
+								Expect(w1.Close()).To(Succeed())
+							},
+							int64(5),
+							int64(4),
+						),
+						Entry(
+							"commit the data with a later write",
+							func(w1, w2 *cesium.Writer, idx, data cesium.ChannelKey) {
+								Expect(w2.Write(telem.MultiFrame(
+									[]cesium.ChannelKey{idx},
+									[]telem.Series{telem.NewSeriesSecondsTSV(14)},
+								))).To(BeTrue())
+								MustSucceed2(w2.Commit())
+								Expect(w2.Close()).To(Succeed())
+								Expect(w1.Write(telem.MultiFrame(
+									[]cesium.ChannelKey{idx, data},
+									[]telem.Series{
+										telem.NewSeriesSecondsTSV(15),
+										telem.NewSeriesV[int64](5),
+									},
+								))).To(BeTrue())
+								MustSucceed2(w1.Commit())
+								Expect(w1.Close()).To(Succeed())
+							},
+							int64(6), int64(5),
+						),
+					)
+
+					DescribeTable(
+						"Should reject an authority count that does not match the channels",
+						func(
+							ctx SpecContext,
+							channels func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey,
+							authorities []control.Authority,
+						) {
+							idx := GenerateChannelKey()
+							d1, d2 := GenerateChannelKey(), GenerateChannelKey()
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      idx,
+									Name:     "Byrd",
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								cesium.Channel{
+									Key:      d1,
+									Name:     "Balchen",
+									Index:    idx,
+									DataType: telem.Int64T,
+								},
+								cesium.Channel{
+									Key:      d2,
+									Name:     "Siple",
+									Index:    idx,
+									DataType: telem.Int64T,
+								},
+							)).To(Succeed())
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, d1, d2},
+								Start:    10 * telem.SecondTS,
+							}))
+							Expect(w.SetAuthority(cesium.WriterConfig{
+								Channels:    channels(idx, d1, d2),
+								Authorities: authorities,
+							})).To(MatchError(validate.ErrValidation))
+							Expect(w.Close()).To(MatchError(validate.ErrValidation))
+						},
+						Entry(
+							"fewer authorities than channels",
+							func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey {
+								return []cesium.ChannelKey{idx, d1, d2}
+							},
+							[]control.Authority{10, 200},
+						),
+						Entry(
+							"more authorities than channels",
+							func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey {
+								return []cesium.ChannelKey{idx, d1}
+							},
+							[]control.Authority{10, 200, 30},
+						),
+						Entry(
+							"several authorities with no channels",
+							func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey {
+								return nil
+							},
+							[]control.Authority{10, 200},
+						),
+					)
+
 					It("Should set the authority of writers", func(ctx SpecContext) {
 						var (
 							key  = GenerateChannelKey()
@@ -4391,6 +4600,61 @@ var _ = Describe("Writer Behavior", func() {
 						),
 					)
 				})
+
+				Specify(
+					"Frame with duplicate channels after a frame without them",
+					func(ctx SpecContext) {
+						otherIdx, otherData := GenerateChannelKey(), GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Name:     "Ross",
+								Key:      otherIdx,
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Name:     "Weddell",
+								Key:      otherData,
+								Index:    otherIdx,
+								DataType: telem.Int64T,
+							},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(
+							ctx,
+							cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{
+									idx,
+									data,
+									otherIdx,
+									otherData,
+								},
+								Start: 10 * telem.SecondTS,
+							},
+						))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{otherIdx, otherData},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(10, 11),
+								telem.NewSeriesV[int64](1, 2),
+							},
+						)))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{idx, idx},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(10, 11),
+								telem.NewSeriesSecondsTSV(12, 13),
+							},
+						)))
+						Expect(
+							w.Commit(),
+						).Error().
+							To(MatchError(validate.ErrValidation))
+						Expect(w.Close()).To(MatchError(ContainSubstring(
+							"frame must have exactly one series per channel",
+						)))
+					},
+				)
 
 				It(
 					"Should return no end from a partly applied commit",

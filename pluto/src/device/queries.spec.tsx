@@ -16,15 +16,14 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { caseconv, id, type record } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Device } from "@/device";
 import { Errors } from "@/errors";
-import { type Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import type { Flux } from "@/flux";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = Device.formPath;
 

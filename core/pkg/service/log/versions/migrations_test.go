@@ -35,6 +35,8 @@ var _ = Describe("Migrations", func() {
 			"v62_log_delete_range_owned",
 			"v62_log_drop_range",
 			"v62_color_alpha_byte",
+			"v62_require_name",
+			"v63_color_ref",
 		}))
 	})
 })

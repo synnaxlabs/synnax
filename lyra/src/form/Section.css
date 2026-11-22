@@ -47,6 +47,12 @@
         grid-column: 2 / -1;
     }
 
+    /* A group of tags asks for the width of all its tags, but folds them into a count,
+       so it never widens the control column. */
+    .lyra-input__item > .lyra-input-label + *:has(> .lyra-dialog__frame > .lyra-tags) {
+        contain: inline-size;
+    }
+
     /* A number or a duration holds a short value, so it keeps its control width. */
     .lyra-input__item
         > .lyra-input-label

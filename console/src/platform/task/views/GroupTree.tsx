@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Menu } from "@synnaxlabs/lyra/menu";
+import type { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
@@ -416,11 +416,14 @@ export const GroupTree = <
 
   const handleRemove = (keys: string[]) => {
     const removed = new Set(keys);
+    const { value } = ctx.get(path);
+    for (const g of value)
+      if (removed.has(g.key) && isBranch<F>(g))
+        g.fields.forEach((f) => removed.add(f.key));
     ctx.set(
       path,
-      ctx
-        .get(path)
-        .value.filter((g) => !removed.has(g.key))
+      value
+        .filter((g) => !removed.has(g.key))
         .map((g) =>
           isBranch<F>(g)
             ? { ...g, fields: g.fields.filter((f) => !removed.has(f.key)) }

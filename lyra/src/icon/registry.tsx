@@ -79,7 +79,10 @@ import {
   LuBadgeCheck,
   LuChartColumn,
   LuChartNoAxesGantt,
+  LuFile,
   LuFileBadge,
+  LuFolder,
+  LuGlobe,
   LuInfo,
   LuKeyRound,
   LuLock,
@@ -218,6 +221,7 @@ import {
   SiApachekafka,
   SiCplusplus,
   SiMqtt,
+  SiNodedotjs,
   SiNpm,
   SiPagerduty,
   SiPnpm,
@@ -263,6 +267,7 @@ import {
   VscSplitHorizontal,
   VscSplitVertical,
   VscSymbolConstant,
+  VscSymbolEnum,
   VscSymbolString,
 } from "react-icons/vsc";
 
@@ -398,11 +403,15 @@ export const Secret = wrapSVGIcon(LuSquareAsterisk, "secret");
 export const APIKey = wrapSVGIcon(LuKeyRound, "api-key");
 export const About = wrapSVGIcon(LuInfo, "about");
 export const Certificate = wrapSVGIcon(LuFileBadge, "certificate");
+export const File = wrapSVGIcon(LuFile, "file");
+export const Folder = wrapSVGIcon(LuFolder, "folder");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Boxes = wrapSVGIcon(VscChromeRestore, "boxes");
 export const Python = wrapSVGIcon(SiPython, "python");
 export const TypeScript = wrapSVGIcon(SiTypescript, "typescript");
+export const NodeJS = wrapSVGIcon(SiNodedotjs, "nodejs");
+export const Browser = wrapSVGIcon(LuGlobe, "browser");
 export const CPlusPlus = wrapSVGIcon(SiCplusplus, "cplusplus");
 export const NPM = wrapSVGIcon(SiNpm, "npm");
 export const PNPM = wrapSVGIcon(SiPnpm, "pnpm");
@@ -597,6 +606,7 @@ export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
 export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
 export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
 export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
+export const Enumeration = wrapSVGIcon(VscSymbolEnum, "enumeration");
 export const Boolean = wrapSVGIcon(RxComponentBoolean, "boolean");
 export const True = wrapSVGIcon(FaCheck, "true");
 export const False = wrapSVGIcon(FaXmark, "false");
@@ -684,6 +694,8 @@ const icons = {
   Boxes,
   Python,
   TypeScript,
+  NodeJS,
+  Browser,
   CPlusPlus,
   NPM,
   PNPM,
@@ -783,6 +795,7 @@ const icons = {
   None,
   New,
   Constant,
+  Enumeration,
   Terminal,
   TerminalOutline,
   Arc,
@@ -816,13 +829,10 @@ export const resolve = ((
   overrides?: IconProps,
 ): ReactElement | undefined => {
   if (icon == null) return;
-  if (typeof icon === "string")
-    try {
-      const C = deep.get<FC<IconProps>>(icons, icon);
-      return <C {...overrides} />;
-    } catch (cause) {
-      throw new Error(`Unable to find icon with path ${icon} in registry`, { cause });
-    }
-
+  if (typeof icon === "string") {
+    const C = deep.get<FC<IconProps>>(icons, icon);
+    if (C == null) throw new Error(`Unable to find icon with path ${icon} in registry`);
+    return <C {...overrides} />;
+  }
   return cloneElement(icon, overrides);
 }) as Resolve;

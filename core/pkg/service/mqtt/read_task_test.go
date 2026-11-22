@@ -355,8 +355,8 @@ var _ = Describe("Read task", func() {
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
 					g.Expect(stat.Message).To(Equal("Skipped 1 of 1 message"))
 					g.Expect(stat.Description).To(Equal(
-						"Message on topic plant/line4: message plant/line4: field b: " +
-							"no value at /b: validation error",
+						"Message on topic plant/line4: field b: no value at /b: " +
+							"validation error",
 					))
 					g.Expect(stat.Details.Data).To(HaveKeyWithValue("stats", SatisfyAll(
 						HaveKeyWithValue("read", BeNumerically("==", 1)),
@@ -397,7 +397,7 @@ var _ = Describe("Read task", func() {
 			Entry("a payload that is not UTF-8", telem.StringT, "\xff",
 				"invalid UTF-8"),
 			Entry("text that is not base64 into a bytes channel", telem.BytesT,
-				`{"v":"a*b="}`, "field v: illegal base64 data at input byte 1"),
+				`{"v":"a*b="}`, "field v: not canonical base64"),
 		)
 
 		It("Should reject a timestamp that is not after the last one written",

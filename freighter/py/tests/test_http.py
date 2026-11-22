@@ -11,9 +11,11 @@ import itertools
 import json
 import socket
 import ssl
+import struct
 import threading
 import uuid
 import warnings
+from collections.abc import Callable, Generator
 from pathlib import Path
 
 import pytest
@@ -80,6 +82,57 @@ class TestUnreachable:
         path.write_bytes(JSONCodec().encode(Message(id=1, message="hello")))
         with pytest.raises(freighter.Unreachable):
             unreachable_client.upload("/echo", path, Message)
+
+
+def _reset(conn: socket.socket) -> None:
+    """Closes conn with a TCP reset instead of an orderly shutdown."""
+    conn.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+
+
+def _hang(conn: socket.socket) -> None:
+    """Holds conn open until the client gives up and closes it. Reads every byte, as
+    a close with unread bytes would send a reset."""
+    while conn.recv(1 << 16):
+        pass
+
+
+@pytest.fixture
+def broken_server(request: pytest.FixtureRequest) -> Generator[URL]:
+    """A server that reads one request, then applies the parametrized behavior to its
+    connection instead of a response."""
+    behavior: Callable[[socket.socket], None] = request.param
+    listener = socket.create_server(("localhost", 0))
+
+    def serve() -> None:
+        conn, _ = listener.accept()
+        with conn:
+            conn.recv(1 << 16)
+            behavior(conn)
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    yield URL(host="localhost", port=listener.getsockname()[1])
+    thread.join(5)
+    listener.close()
+
+
+class TestReadFailure:
+    @pytest.mark.parametrize(
+        ("broken_server", "error"),
+        [(_reset, freighter.Unreachable), (_hang, freighter.Timeout)],
+        indirect=["broken_server"],
+    )
+    def test_send(self, broken_server: URL, error: type[Exception]) -> None:
+        """Should raise Unreachable on a reset and Timeout when no response arrives
+        in time."""
+        client = HTTPClient(
+            url=broken_server,
+            codec=JSONCodec(),
+            registry=create_registry(),
+            timeout=0.2,
+        )
+        with pytest.raises(error):
+            client.send("/echo", Message(id=1, message="hello"), Message)
 
 
 @pytest.mark.http

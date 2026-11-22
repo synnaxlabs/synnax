@@ -87,3 +87,15 @@ func paletteColor(i int) *color.Ref {
 	c := xcolor.FromUint32(palette[i%len(palette)])
 	return &color.Ref{Variant: color.FixedRef{Value: c}}
 }
+
+// NameMigration names each stored line plot that has an empty name "Line plot <key>",
+// where <key> is the first eight characters of its key.
+var NameMigration = migrate.NewEntry(
+	"v62_require_name",
+	func(_ context.Context, p LinePlot) (LinePlot, error) {
+		if p.Name == "" {
+			p.Name = "Line plot " + p.Key.String()[:8]
+		}
+		return p, nil
+	},
+)

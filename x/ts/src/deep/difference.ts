@@ -21,6 +21,7 @@ export const difference = (
   const diffMap: Record<string, PathValueTuple> = {};
 
   const compare = (a: unknown, b: unknown, currentPath: string): void => {
+    if (a === b) return;
     if (typeof a !== typeof b || a === null || b === null) {
       diffMap[currentPath] = [a, b];
       return;

@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { crdt, deep, id } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import {
   afterEach,
   assert,
@@ -30,8 +30,7 @@ import {
 import { Arc } from "@/arc";
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = Arc.formPath;
 

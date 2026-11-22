@@ -11,8 +11,11 @@
 
 # Prints the work a pull request needs before it is done, one item per line, and
 # nothing when it is done. Usage: shepherd_work.sh <pr>. The items are "conflict", "ci
-# <run id>" for a failed CI run on the head, "threads <count>" for review threads that
-# need action, and "outside-diff" for open Sedosaur findings outside the diff.
+# <run id>" for a failed CI run on the head, "codeql <path>:<line> <rule> <message>"
+# for each open alert that blocks a merge when the CodeQL check failed, "queue [<run
+# id>]" for a merge queue removal after the head commit, with the failed merge group
+# run when found, "threads <count>" for review threads that need action, and
+# "outside-diff" for open Sedosaur findings outside the diff.
 
 set -euo pipefail
 
@@ -42,6 +45,57 @@ if [ "$RUN" != null ] && [ "$CONCLUSION" = null ]; then
 fi
 if [ "$CONCLUSION" = failure ]; then
     echo "ci $RUN"
+fi
+
+# The CodeQL check fails on new alerts at the failure threshold of the repository, which
+# matches the main ruleset. The alert list comes from the last finished analysis, so it
+# waits for the head's scan, and it can hold alerts the pull request did not add.
+SCANS="repos/${REPO}/actions/workflows/codeql.yaml/runs?${QUERY}"
+CHECKS="repos/${REPO}/commits/${SHA}/check-runs?check_name=CodeQL"
+if [ "$(gh api "$SCANS" --jq '.workflow_runs[0].status')" = completed ] \
+    && [ "$(gh api "$CHECKS" --jq '.check_runs[0].conclusion')" = failure ]; then
+    ALERTS="code-scanning/alerts?ref=refs/pull/${PR}/merge&state=open&per_page=100"
+    # The main ruleset blocks security alerts of medium or higher and other errors.
+    # shellcheck disable=SC2016 # The jq program uses jq variables.
+    gh api "repos/${REPO}/${ALERTS}" --paginate --jq '.[]
+        | select(.rule | if .security_severity_level != null
+            then .security_severity_level | IN("medium", "high", "critical")
+            else .severity == "error" end)
+        | .most_recent_instance as $at
+        | "codeql \($at.location.path):\($at.location.start_line) \(.rule.id)"
+            + " \($at.message.text | gsub("\\s+"; " "))"'
+fi
+
+# The span from the head commit to a later merge queue removal for failed checks that
+# no new enqueue followed.
+# shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
+SPAN=$(gh api graphql -F p="$PR" -f o="${REPO%/*}" -f r="${REPO#*/}" -f query='
+query($o: String!, $r: String!, $p: Int!) {
+  repository(owner: $o, name: $r) {
+    pullRequest(number: $p) {
+      commits(last: 1) { nodes { commit { committedDate } } }
+      timelineItems(
+        last: 1
+        itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]
+      ) {
+        nodes { ... on RemovedFromMergeQueueEvent { createdAt reason } }
+      }
+    }
+  }
+}' --jq '.data.repository.pullRequest
+    | .commits.nodes[0].commit.committedDate as $head
+    | .timelineItems.nodes[0] as $removal
+    | select($removal.reason == "failed_checks" and $removal.createdAt > $head)
+    | "\($head)..\($removal.createdAt)"')
+# The removal cancels the runs of its merge group, so a failed run can end cancelled.
+if [ -n "$SPAN" ]; then
+    GROUP_RUNS=$(gh api "repos/${REPO}/actions/runs?event=merge_group&created=${SPAN}" \
+        --paginate --jq ".workflow_runs[]
+            | select(.head_branch | test(\"^gh-readonly-queue/.+/pr-${PR}-\"))
+            | \"\(.conclusion) \(.id)\"")
+    GROUP=$(grep -m1 '^failure ' <<< "$GROUP_RUNS" \
+        || grep -m1 '^cancelled ' <<< "$GROUP_RUNS" || true)
+    echo "queue${GROUP:+ ${GROUP#* }}"
 fi
 
 THREADS=$("$HERE/review_threads.sh" "$PR" | wc -l | tr -d ' ')

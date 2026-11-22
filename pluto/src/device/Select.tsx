@@ -9,20 +9,20 @@
 
 import "@/device/Select.css";
 
-import { type device } from "@synnaxlabs/client";
+import type { device } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Location, type LocationFormat } from "@/device/Location";
 import { type RetrieveMultipleQuery, useList } from "@/device/queries";
 import { StatusBadge } from "@/device/StatusBadge";
 import { StatusIndicator } from "@/device/StatusIndicator";
-import { type Flux } from "@/flux";
+import type { Flux } from "@/flux";
 
 interface ListItemProps extends List.ItemRenderProps<device.Key> {
   locationFormat?: LocationFormat;
@@ -77,6 +77,8 @@ export interface SelectSingleProps
       "resourceName" | "data" | "getItem" | "subscribe" | "children" | "itemHeight"
     >,
     Omit<Flux.UseListParams<RetrieveMultipleQuery, device.Device>, "name"> {
+  /** What the select calls a device, such as "connection". Defaults to "device". */
+  resourceName?: string;
   /** How the location of each listed device reads. */
   locationFormat?: LocationFormat;
 }
@@ -87,6 +89,7 @@ export const SelectSingle = ({
   query,
   triggerProps,
   icon = DEVICE_ICON,
+  resourceName = "device",
   locationFormat,
   ...rest
 }: SelectSingleProps): ReactElement => {
@@ -96,7 +99,7 @@ export const SelectSingle = ({
   });
   return (
     <Select.Single<device.Key, device.Device | undefined>
-      resourceName="device"
+      resourceName={resourceName}
       data={data}
       getItem={getItem}
       subscribe={subscribe}

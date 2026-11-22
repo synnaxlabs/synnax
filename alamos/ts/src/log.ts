@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 
 import { Meta } from "@/meta";
 
@@ -102,7 +102,7 @@ export class Logger {
     else console.error("ERROR", this.meta.path, msg, parseKV(kv));
   }
 
-  static readonly NOOP = new Logger();
+  static readonly NOOP = new Logger({ filters: [() => false] });
 }
 
 const parseKV = (kv: KV): record.Unknown => (typeof kv === "function" ? kv() : kv);

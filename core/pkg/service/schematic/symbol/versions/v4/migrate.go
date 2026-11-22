@@ -39,3 +39,15 @@ func MigrateState(ctx context.Context, old v3.State) (State, error) {
 func MigrateRegion(ctx context.Context, old v3.Region) (Region, error) {
 	return autoMigrateRegion(ctx, old)
 }
+
+// NameMigration names each stored symbol that has an empty name "Symbol <key>", where
+// <key> is the first eight characters of its key.
+var NameMigration = migrate.NewEntry(
+	"v62_require_name",
+	func(_ context.Context, s Symbol) (Symbol, error) {
+		if s.Name == "" {
+			s.Name = "Symbol " + s.Key.String()[:8]
+		}
+		return s, nil
+	},
+)

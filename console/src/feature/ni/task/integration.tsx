@@ -9,11 +9,13 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { AnalogReadSelectable } from "@/feature/ni/task/AnalogRead";
-import { AnalogWriteSelectable } from "@/feature/ni/task/AnalogWrite";
-import { CounterReadSelectable } from "@/feature/ni/task/CounterRead";
-import { DigitalReadSelectable } from "@/feature/ni/task/DigitalRead";
-import { DigitalWriteSelectable } from "@/feature/ni/task/DigitalWrite";
+import {
+  AnalogReadSelectable,
+  AnalogWriteSelectable,
+  CounterReadSelectable,
+  DigitalReadSelectable,
+  DigitalWriteSelectable,
+} from "@/feature/ni/task/create";
 import {
   ANALOG_READ_SCHEMAS,
   ANALOG_READ_TYPE,

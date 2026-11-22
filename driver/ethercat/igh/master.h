@@ -12,9 +12,12 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -30,14 +33,19 @@
 #include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::igh {
+/// @brief the most startup parameters that Master::write adds to one slave on a running
+/// bus. IgH writes each again at every restart of the slave.
+constexpr size_t RUNNING_ADDITION_LIMIT = 64;
+
 /// @brief how the IgH master waits for its slaves.
 struct Config {
     /// @brief how long a slave that was below PRE-OP at the scan gets to reach PRE-OP
     /// before activation, enabled or not. The default is the PreopTimeout of the ESI
     /// files.
     x::telem::TimeSpan pre_op_timeout = x::telem::SECOND * 2;
-    /// @brief how long the slaves get to reach OP after activation. Some slaves take up
-    /// to 9 s.
+    /// @brief how long the slaves get, after activation or after the latest slave
+    /// reached OP, for another slave to reach OP. IgH moves the slaves to OP one at a
+    /// time, and some take up to 9 s.
     x::telem::TimeSpan op_timeout = x::telem::SECOND * 10;
     /// @brief the host clock that the master waits on.
     x::loop::HostClock clock;
@@ -62,26 +70,42 @@ class Master final : public master::Master {
     struct Domain {
         uint16_t position = 0;
         ec_domain_t *handle = nullptr;
+        ec_slave_config_t *config = nullptr;
         /// @brief the domain memory, valid only after activation.
         uint8_t *data = nullptr;
         /// @brief where the domain starts in the inputs and outputs.
         size_t offset = 0;
         size_t size = 0;
         master::WorkingCounterShare share;
+        /// @brief whether the latest receive() found the full working counter.
+        bool complete = false;
+        /// @brief whether the latest send() left the domain out, since IgH reported
+        /// the slave below SAFE-OP.
+        bool skipped = false;
 
         /// @brief returns where the domain ends in the inputs and outputs.
         [[nodiscard]] size_t end() const { return this->offset + this->size; }
     };
     /// @brief the domain of each enabled slave with process data, in position order.
     std::vector<Domain> domains;
-    /// @brief a copy of every domain after each receive(), as the image inputs.
+    /// @brief a copy of each domain that the latest receive() processed, as the image
+    /// inputs.
     std::vector<uint8_t> inputs;
-    /// @brief the image outputs, which send() copies to every domain.
+    /// @brief the image outputs, which send() copies to each domain that it queues.
     std::vector<uint8_t> outputs;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> cached_slaves;
+    /// @brief the positions of the slaves whose CoE dictionary IgH reads.
+    std::set<uint16_t> dictionaries;
     /// @brief the configuration of each enabled slave, in position order.
     std::vector<std::pair<uint16_t, ec_slave_config_t *>> slave_configs;
+    /// @brief the last value that IgH writes to each object when its slave restarts,
+    /// by position, index, and sub-index.
+    std::map<std::tuple<uint16_t, uint16_t, uint8_t>, std::vector<uint8_t>>
+        startup_values;
+    /// @brief how many startup parameters write() added to each slave on the running
+    /// bus, by position.
+    std::map<uint16_t, size_t> running_additions;
     /// @brief whether the master has been initialized.
     bool initialized;
     /// @brief whether the master has been activated.
@@ -180,13 +204,13 @@ public:
     /// every slave in OP.
     void recover(const x::breaker::Breaker &breaker) override;
 
-    /// @brief does what master::Master::write does, but on a running bus writes
-    /// nothing, since IgH takes startup parameters only before activation. It does not
-    /// write those parameters again when the slave restarts, so a slave that loses
-    /// power goes back to the values it stores.
-    /// @returns errors::SETTING_CONFLICT when the bus runs and the slave holds another
-    /// value for a parameter. errors::STARTUP_PARAMETER_ERROR when the slave rejects or
-    /// fails to read one.
+    /// @brief does what master::Master::write does. On a running bus, it writes only
+    /// the parameters that the slave does not hold, and adds each parameter to the
+    /// startup parameters of the slave unless IgH already ends them with its value.
+    /// @returns errors::SETTING_CONFLICT when the slave has no configuration, already
+    /// has RUNNING_ADDITION_LIMIT parameters added on the running bus, or IgH refuses
+    /// to add one. After a refusal, the slave holds its old value again.
+    /// errors::STARTUP_PARAMETER_ERROR when the slave rejects or fails to read one.
     x::errors::Error write(
         uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
@@ -218,21 +242,39 @@ private:
     /// @brief opens the master and reads each slave on the bus.
     x::errors::Error initialize();
 
+    /// @brief names the entries of each slave from the CoE dictionary that IgH read
+    /// from it. IgH reads the dictionaries in the background after its scan, so a later
+    /// call can name more entries. Makes no bus traffic.
+    void read_dictionaries();
+
     /// @brief returns the application time now.
     [[nodiscard]] uint64_t app_time() const;
 
-    /// @brief waits until every enabled slave reaches OP.
+    /// @brief waits until every enabled slave reaches OP, until no slave reaches OP for
+    /// Config::op_timeout, or until the cancel of plan stops. Reports each slave that
+    /// reaches OP to the progress of plan.
     /// @returns errors::STATE_CHANGE_REFUSED with the refusals when every slave below
     /// OP still has its AL error flag set after a reset, or when one has it at
     /// Config::op_timeout. errors::STATE_CHANGE_ERROR when none has it at the timeout.
-    master::Activation wait_for_op();
+    /// x::errors::CANCELLED once the cancel of plan stops.
+    master::Activation wait_for_op(const master::Plan &plan);
+
+    /// @brief reads the CoE objects of each starting slave that has reached PRE-OP.
+    /// Returns how many slaves are still starting.
+    size_t read_started();
 
     /// @brief waits up to Config::pre_op_timeout for each slave that was starting at
-    /// the scan to reach PRE-OP, then reads its CoE objects.
+    /// the scan to reach PRE-OP, and reads its CoE objects once it does.
     void read_starting();
 
-    /// @brief reads the CoE serial number and the settings of slave.
-    void read_coe(slave::DiscoveryResult &slave);
+    /// @brief waits until IgH has read the CoE dictionary of each of slaves, as IgH
+    /// lets an SDO transfer use the mailbox of a slave while it reads the dictionary.
+    /// Stops waiting once IgH reads no more of the dictionaries for 5 s.
+    void await_dictionaries(const std::vector<slave::DiscoveryResult *> &slaves);
+
+    /// @brief reads the CoE serial number and the settings of each of slaves once IgH
+    /// has read their dictionaries.
+    void read_coe(const std::vector<slave::DiscoveryResult *> &slaves);
 
     /// @brief returns true when every slave at positions has its AL error flag set.
     [[nodiscard]] bool refusing(const std::vector<uint16_t> &positions) const;
@@ -261,11 +303,15 @@ private:
     /// counter in the latest receive().
     [[nodiscard]] bool silent(uint16_t position) const;
 
-    /// @brief writes a parameter to the slave at position with a direct SDO download.
+    /// @brief writes data to the object of param on the slave with a direct SDO
+    /// download.
     /// @returns errors::STARTUP_PARAMETER_ERROR with the abort reason when the slave
     /// rejects it.
-    x::errors::Error
-    download(const slave::Properties &slave, const slave::StartupParameter &param);
+    x::errors::Error download(
+        const slave::Properties &slave,
+        const slave::StartupParameter &param,
+        std::span<const uint8_t> data
+    );
 
     /// @brief writes a slave's startup parameters and adds them to its config, so the
     /// master writes them again at each move to SAFE-OP.

@@ -53,6 +53,10 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
   `skipLibCheck` off, with `bundler` and `nodenext` resolution, and with the oldest
   supported TypeScript (pinned in the script) and the repo's TypeScript. With
   `--window`, it only fails if the pin is out of the two-year window (Nightly runs it).
+- `check_wheels_py.sh <dir> <python>...` — builds the Python packages as the release
+  does (`.github/scripts/build_py.sh`), then installs the wheels in a new virtual
+  environment per Python. In each, it imports every module, runs `sy --help`, and runs
+  strict mypy on a script that uses the installed `synnax`.
 
 ## Copyright headers
 
@@ -114,9 +118,8 @@ the current year. Both scripts source the rule from `common/copyright.sh`.
 
 ## Sanitizers (`sanitizers/`)
 
-`asan_suppressions.txt`, `lsan_suppressions.txt`, `ubsan_suppressions.txt` — suppression
-lists for ASan/LSan/UBSan runs against the C++ driver. Add an entry here instead of
-disabling a sanitizer wholesale.
+`lsan_suppressions.txt` — leak suppressions for the `--config=asan-leak` C++ tests in
+CI. Add an entry here instead of turning LeakSanitizer off.
 
 ## Runner fleet (`runners/`)
 

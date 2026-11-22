@@ -42,6 +42,16 @@ export const openContextMenu = async (
 };
 
 /**
+ * Clicks the menu item that opens the named submenu.
+ *
+ * @returns the content of the submenu.
+ */
+export const openSubmenu = async (name: string): Promise<HTMLElement> => {
+  fireEvent.click(await screen.findByRole("menuitem", { name }));
+  return await screen.findByRole("dialog", { name });
+};
+
+/**
  * Clicks the element with the given text inside an awaited act. Content that suspends
  * inside a synchronous act scope is discarded, so a click that mounts a suspending
  * subtree (a modal, a tab) needs this instead of a bare fireEvent.
@@ -123,10 +133,11 @@ export const collapseSelectTrigger = (trigger: HTMLElement): void => {
 
 /**
  * Waits for the live dialog trigger of the mounted select whose current value renders
- * as text. Select triggers expose no accessible name, so this matches on the shown
- * value. A preview trigger opens nothing and so carries no popup, which also keeps it
- * out of this query: one holding no value renders the literal word "None", colliding
- * with a real selection of the same name while the form waits on its permission query.
+ * as text. Select triggers expose no accessible name, so this matches on the whole
+ * shown value: "rig" does not match a trigger that shows "sift_x8rigo". A preview
+ * trigger opens nothing and so carries no popup, which also keeps it out of this query:
+ * one holding no value renders the literal word "None", colliding with a real
+ * selection of the same name while the form waits on its permission query.
  */
 export const findDialogTriggerByText = async (text: string): Promise<HTMLElement> =>
   await waitFor(() => {
@@ -134,7 +145,8 @@ export const findDialogTriggerByText = async (text: string): Promise<HTMLElement
       .getAllByRole("button")
       .find(
         (b) =>
-          b.getAttribute("aria-haspopup") === "dialog" && b.textContent?.includes(text),
+          b.getAttribute("aria-haspopup") === "dialog" &&
+          within(b).queryAllByText(text).length > 0,
       );
     if (match == null) throw new Error(`dialog trigger showing "${text}" not found`);
     return match;
@@ -233,4 +245,29 @@ export const withControlHeld = (run: () => void): void => {
   } finally {
     fireEvent.keyUp(window, { key: "Control", code: "ControlLeft" });
   }
+};
+
+/** Drags one element onto another, with one DataTransfer carried through the drag. */
+export const dragOnto = (from: HTMLElement, to: HTMLElement): void => {
+  const dataTransfer = new DataTransfer();
+  fireEvent.dragStart(from, { dataTransfer });
+  fireEvent.dragOver(to, { dataTransfer });
+  fireEvent.drop(to, { dataTransfer });
+  fireEvent.dragEnd(from, { dataTransfer });
+};
+
+/**
+ * Makes each canvas transfer to an offscreen canvas that gives no WebGL context, the
+ * way a machine without a GPU does. Call it inside the describe block that needs it.
+ */
+export const installMissingGPU = (): void => {
+  beforeEach(() => {
+    Object.defineProperty(HTMLCanvasElement.prototype, "transferControlToOffscreen", {
+      configurable: true,
+      value: () => ({ getContext: () => null }),
+    });
+  });
+  afterEach(() => {
+    Reflect.deleteProperty(HTMLCanvasElement.prototype, "transferControlToOffscreen");
+  });
 };

@@ -693,3 +693,15 @@ func as[T any](v any) T {
 	}
 	return t
 }
+
+// NameMigration names each stored schematic that has an empty name "Schematic <key>",
+// where <key> is the first eight characters of its key.
+var NameMigration = migrate.NewEntry(
+	"v62_require_name",
+	func(_ context.Context, s Schematic) (Schematic, error) {
+		if s.Name == "" {
+			s.Name = "Schematic " + s.Key.String()[:8]
+		}
+		return s, nil
+	},
+)

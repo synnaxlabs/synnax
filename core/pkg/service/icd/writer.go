@@ -73,7 +73,7 @@ func (w Writer) CreateMany(ctx context.Context, ics *[]ICD) error {
 func (w Writer) Import(
 	ctx context.Context,
 	key Key,
-	format Format,
+	format ImportFormat,
 	data []byte,
 ) (ICD, error) {
 	messages, err := parse(format, data)

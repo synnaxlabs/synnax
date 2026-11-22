@@ -12,10 +12,13 @@ package alamos_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	xalamos "github.com/synnaxlabs/alamos"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/alamos"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.opentelemetry.io/otel"
+	"go.uber.org/zap/zapcore"
 )
 
 var finalizer = freighter.FinalizerFunc(
@@ -53,6 +56,72 @@ var _ = Describe("Falamos", func() {
 			))
 			_, ok = oCtx.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())
+		})
+	})
+
+	Describe("Config", func() {
+		It("Should not propagate traces when propagation is disabled", func(
+			ctx SpecContext,
+		) {
+			ins := Instrumentation("falamos", InstrumentationConfig{Trace: new(true)})
+			mw := MustSucceed(alamos.Middleware(alamos.Config{
+				Instrumentation:   ins,
+				EnablePropagation: new(false),
+			}))
+			oCtx := MustSucceed(mw.Exec(
+				freighter.Context{
+					Context: ctx,
+					Role:    freighter.RoleClient,
+					Params:  make(freighter.Params),
+				},
+				finalizer,
+			))
+			Expect(oCtx.Params).ToNot(HaveKey("alamos-traceparent"))
+		})
+
+		It("Should log requests by default", func(ctx SpecContext) {
+			ins, logs := ObservedInstrumentation(zapcore.DebugLevel)
+			mw := MustSucceed(alamos.Middleware(alamos.Config{Instrumentation: ins}))
+			MustSucceed(mw.Exec(freighter.Context{Context: ctx}, finalizer))
+			Expect(logs.Len()).To(Equal(1))
+		})
+
+		It("Should log requests when propagation is disabled", func(ctx SpecContext) {
+			ins, logs := ObservedInstrumentation(zapcore.DebugLevel)
+			mw := MustSucceed(alamos.Middleware(alamos.Config{
+				Instrumentation:   ins,
+				EnablePropagation: new(false),
+			}))
+			MustSucceed(mw.Exec(freighter.Context{Context: ctx}, finalizer))
+			Expect(logs.Len()).To(Equal(1))
+		})
+
+		It("Should not log requests when logging is disabled", func(ctx SpecContext) {
+			ins, logs := ObservedInstrumentation(zapcore.DebugLevel)
+			mw := MustSucceed(alamos.Middleware(alamos.Config{
+				Instrumentation: ins,
+				EnableLogging:   new(false),
+			}))
+			MustSucceed(mw.Exec(freighter.Context{Context: ctx}, finalizer))
+			Expect(logs.Len()).To(BeZero())
+		})
+
+		It("Should trace requests at the configured level", func(ctx SpecContext) {
+			var envs []xalamos.Environment
+			tracer := MustSucceed(xalamos.NewTracer(xalamos.TracingConfig{
+				OtelProvider:   otel.GetTracerProvider(),
+				OtelPropagator: otel.GetTextMapPropagator(),
+				Filter: func(env xalamos.Environment, _ string) bool {
+					envs = append(envs, env)
+					return false
+				},
+			}))
+			mw := MustSucceed(alamos.Middleware(alamos.Config{
+				Instrumentation: xalamos.New("falamos", xalamos.WithTracer(tracer)),
+				Level:           xalamos.EnvironmentDebug,
+			}))
+			MustSucceed(mw.Exec(freighter.Context{Context: ctx}, finalizer))
+			Expect(envs).To(Equal([]xalamos.Environment{xalamos.EnvironmentDebug}))
 		})
 	})
 })

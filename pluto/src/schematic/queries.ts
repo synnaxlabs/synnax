@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type project, query, schematic } from "@synnaxlabs/client";
-import { compare, verbs } from "@synnaxlabs/x";
+import {
+  type color,
+  NotFoundError,
+  type project,
+  query,
+  schematic,
+} from "@synnaxlabs/client";
+import { array, map, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
@@ -76,7 +82,7 @@ export const useAllConfigs = Scope.bindHook(
 // Value equality keeps the map's reference stable across unrelated config edits,
 // so consumers memoizing on it re-run only when group membership changes.
 export const useParentOf = Scope.bindHook(
-  createSelector(({ nodes }) => Group.buildParentOf(nodes), compare.mapsEqual),
+  createSelector(({ nodes }) => Group.buildParentOf(nodes), map.equal),
 );
 
 export interface ConfigParams extends KeyParams {
@@ -140,7 +146,7 @@ export const useConfigs = Scope.bindHook(
       if (cfg != null) result.set(elKey, cfg);
     }
     return result;
-  }, compare.mapsEqual),
+  }, map.equal),
 );
 
 export interface NodesParams extends KeyParams {
@@ -154,7 +160,7 @@ export const useNodes = Scope.bindHook(
       const keySet = new Set(keys);
       return nodes.filter((n) => keySet.has(n.key));
     },
-    (a, b) => compare.arraysEqual(a, b),
+    (a, b) => array.equal(a, b),
   ),
 );
 
@@ -246,8 +252,11 @@ const inheritEdgeColor = (
     const source = nodeByKey.get(edge.source.node)?.config;
     if (source == null || !("strokeColor" in source) || source.strokeColor == null)
       return a;
+    const stroke = source.strokeColor;
+    const strokeColor: color.Ref =
+      "type" in stroke ? stroke : { type: "fixed", value: stroke };
     return schematic.addEdge({
-      edge: { ...edge, config: { ...edge.config, strokeColor: source.strokeColor } },
+      edge: { ...edge, config: { ...edge.config, strokeColor } },
     });
   });
 };

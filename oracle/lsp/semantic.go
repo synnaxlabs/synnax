@@ -128,7 +128,8 @@ func mapTokenType(antlrType int, text string, prevWasAt, nameStart bool) *uint32
 	var tokenType uint32
 	switch antlrType {
 	case parser.OracleLexerSTRUCT, parser.OracleLexerENUM, parser.OracleLexerIMPORT,
-		parser.OracleLexerEXTENDS, parser.OracleLexerMAP:
+		parser.OracleLexerEXTENDS, parser.OracleLexerMAP, parser.OracleLexerUNION,
+		parser.OracleLexerACTION:
 		tokenType = semanticTokenTypeKeyword
 	case parser.OracleLexerAT:
 		tokenType = semanticTokenTypeDecorator

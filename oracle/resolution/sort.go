@@ -84,7 +84,7 @@ func Sorts(fields []Field, table *Table) ([]Sort, error) {
 // newSort returns sort with the type and textual flag of its leaf.
 func newSort(sort Sort, table *Table) (Sort, error) {
 	leaf := sort.Leaf()
-	if leaf.Optional {
+	if lo.ContainsBy(sort.Path, func(f Field) bool { return f.Optional }) {
 		return Sort{}, errors.Newf(
 			"%s: an optional field cannot be sorted",
 			sort.path(),
@@ -115,7 +115,7 @@ func subField(field Field, value ExpressionValue, table *Table) (Field, error) {
 	if value.Kind == ValueKindString {
 		name = value.StringValue
 	}
-	typ, _, ok := Dealias(field.Type, table)
+	typ, ref, ok := Dealias(field.Type, table)
 	if !ok {
 		return Field{}, errors.Newf(
 			"%s: @index sorted %s needs a struct",
@@ -123,7 +123,7 @@ func subField(field Field, value ExpressionValue, table *Table) (Field, error) {
 			name,
 		)
 	}
-	fields, ok := RecordFields(typ, table)
+	fields, ok := recordFields(typ, ref.TypeArgs, table)
 	if !ok {
 		return Field{}, errors.Newf(
 			"%s: @index sorted %s needs a struct",

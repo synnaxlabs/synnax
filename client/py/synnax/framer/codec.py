@@ -159,7 +159,7 @@ class Codec:
         ref_align = None
         byte_array_size = start_offset + _FLAGS_SIZE + _SEQ_NUM_SIZE
 
-        if len(sorted_keys) != len(self._curr_state.keys):
+        if sorted_keys != self._curr_state.keys:
             flg.all_channels_present = False
             byte_array_size += len(sorted_keys) * _KEY_SIZE
 
@@ -191,7 +191,9 @@ class Codec:
 
             byte_array_size += _series_wire_byte_length(ser)
 
-        flg.time_ranges_zero = ref_tr is None or ref_tr == 0
+        flg.time_ranges_zero = flg.eq_tr and (
+            ref_tr is None or ref_tr == TimeRange.ZERO
+        )
         flg.zero_alignments = flg.eq_align and ref_align == 0
         byte_array_size += (int(flg.eq_len) or len(sorted_keys)) * _DATA_LENGTH_SIZE
         if not flg.time_ranges_zero:

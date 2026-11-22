@@ -14,6 +14,18 @@ export const pointerZ = z
   .string()
   .regex(/^(?:$|(?:\/(?:[^~/]|~0|~1)*)+)$/, "must be a valid JSON pointer (RFC 6901)");
 
+/**
+ * @returns the unescaped tokens of a valid JSON pointer: "/a~1b/c" gives ["a/b", "c"].
+ * The pointer to the whole document gives none.
+ */
+export const parsePointer = (pointer: string): string[] =>
+  pointer === ""
+    ? []
+    : pointer
+        .slice(1)
+        .split("/")
+        .map((token) => token.replaceAll("~1", "/").replaceAll("~0", "~"));
+
 /** A JSON primitive value: string, number, boolean, or null. */
 export const primitiveZ = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 

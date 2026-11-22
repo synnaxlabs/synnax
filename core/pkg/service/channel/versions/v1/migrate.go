@@ -67,3 +67,15 @@ func migrateIndexGroups(
 	}
 	return gorp.WrapWriter[Key, Channel](tx).Set(ctx, moved...)
 }
+
+// NameMigration names each stored channel that has an empty name "channel_<key>", which
+// is a valid channel name.
+var NameMigration = migrate.NewEntry(
+	"v62_require_name",
+	func(_ context.Context, c Channel) (Channel, error) {
+		if c.Name == "" {
+			c.Name = "channel_" + c.Key().String()
+		}
+		return c, nil
+	},
+)

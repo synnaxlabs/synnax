@@ -124,6 +124,15 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
+	Describe("Non-ASCII Lines", func() {
+		It("should read the prefix in UTF-16 code units", func(ctx SpecContext) {
+			openDoc(ctx, "file:///unicode.oracle", "  é in\n")
+			list := completionFor(ctx, "file:///unicode.oracle", 0, 6)
+			Expect(labels(list.Items)).To(ContainElement("int32"))
+			Expect(labels(list.Items)).ToNot(ContainElement("import"))
+		})
+	})
+
 	Describe("Domain Name Completions", func() {
 		It("should return domain names after the @ sigil", func(ctx SpecContext) {
 			openDoc(ctx, "file:///domain.oracle", "  @\n")
@@ -394,6 +403,17 @@ var _ = Describe("Hover", func() {
 			To(ContainSubstring("marks a key type"))
 	})
 
+	It("should read the hover column in UTF-16 code units", func(ctx SpecContext) {
+		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI: "file:///utf16.oracle", Version: 1,
+				Text: "°° string\n",
+			},
+		})).To(Succeed())
+		Expect(HoverContents(hoverAt(ctx, "file:///utf16.oracle", 0, 4))).
+			To(HavePrefix("**string**"))
+	})
+
 	It("should return nil for unknown document", func(ctx SpecContext) {
 		hover := hoverAt(ctx, "file:///unknown.oracle", 0, 0)
 		Expect(hover).To(BeNil())
@@ -544,6 +564,22 @@ var _ = Describe("SemanticTokensFull", func() {
 			"keyword",
 		),
 		Entry("as a field name", "filter string\n", uint32(0), "property"),
+	)
+
+	DescribeTable(
+		"should color a declaration keyword as a keyword",
+		func(ctx SpecContext, text string, line, char uint32) {
+			openDoc(ctx, "file:///keywords.oracle", text)
+			data := tokensFor(ctx, "file:///keywords.oracle").Data
+			Expect(tokenTypeAt(ctx, data, line, char)).To(Equal("keyword"))
+		},
+		Entry("union", "Shape union on kind {}\n", uint32(0), uint32(6)),
+		Entry(
+			"action",
+			"User struct {\n    action rename {}\n}\n",
+			uint32(1),
+			uint32(4),
+		),
 	)
 
 	It("should not color the filter schema in a field type as a keyword", func(

@@ -297,6 +297,27 @@ var _ = Describe("Sender", func() {
 				senderStream.Close()
 				Expect(sCtx.Wait()).To(Succeed())
 			})
+			It("Should send each value only to the targets of its own batch", func() {
+				sender := &freightfluence.BatchSwitchSender[int, int]{}
+				sender.Senders = clientSender
+				sender.Switch = func(ctx context.Context, v int, o map[address.Address]int) error {
+					o[address.Newf("localhost:%v", v)] = v
+					return nil
+				}
+				sender.InFrom(senderStream)
+				sender.Flow(sCtx)
+				senderStream.Inlet() <- 1
+				Eventually(receiverStreams["localhost:1"].Outlet()).
+					Should(Receive(Equal(1)))
+				senderStream.Inlet() <- 2
+				Eventually(receiverStreams["localhost:2"].Outlet()).
+					Should(Receive(Equal(2)))
+				Consistently(receiverStreams["localhost:1"].Outlet()).
+					WithTimeout(50 * time.Millisecond).
+					ShouldNot(Receive())
+				senderStream.Close()
+				Expect(sCtx.Wait()).To(Succeed())
+			})
 		})
 		It("Should exit when the context is canceled", func() {
 			sender := &freightfluence.BatchSwitchSender[int, int]{}

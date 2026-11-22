@@ -42,9 +42,6 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-_RESOURCE_TYPE = ID(type="policy")
-
-
 class Client:
     _client: UnaryClient
     instrumentation: Instrumentation

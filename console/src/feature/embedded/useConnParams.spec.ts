@@ -62,8 +62,7 @@ describe("Embedded.useConnParams", () => {
   });
 
   it("should prefer a status event over an older status answer", async () => {
-    let answer: (status: Status) => void = () => {};
-    const pending = new Promise<Status>((resolve) => (answer = resolve));
+    const { promise: pending, resolve: answer } = Promise.withResolvers<Status>();
     const { emitStatus } = mockSupervisor(async () => await pending);
     const { result } = renderHook(Embedded.useConnParams, {
       wrapper: Embedded.Provider,

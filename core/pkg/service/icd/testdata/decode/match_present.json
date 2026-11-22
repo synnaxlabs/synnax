@@ -1,0 +1,125 @@
+{
+  "description": "A present rule picks the message whose pointer holds a value other than null, and a document that meets two rules is an error.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "pressure",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/pressure",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "present",
+          "pointer": "/pressure"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "status",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "state",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/state",
+            "type": "string"
+          }
+        ],
+        "match": {
+          "type": "present",
+          "pointer": "/state"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "string"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "time": 1,
+        "pressure": 2.5
+      },
+      "message": "reading",
+      "samples": [2.5]
+    },
+    {
+      "document": {
+        "time": 2,
+        "state": "run"
+      },
+      "message": "status",
+      "samples": ["run"]
+    },
+    {
+      "document": {
+        "time": 3,
+        "pressure": null,
+        "state": "idle"
+      },
+      "message": "status",
+      "samples": ["idle"]
+    },
+    {
+      "document": {
+        "time": 4,
+        "pressure": {
+          "psi": 1
+        }
+      },
+      "error": "message reading: field pressure: expected a number or boolean, got an object: validation error"
+    },
+    {
+      "document": {
+        "time": 5
+      },
+      "unmatched": true
+    },
+    {
+      "document": {
+        "time": 6,
+        "pressure": 1,
+        "state": "run"
+      },
+      "error": "document matches messages reading and status: validation error"
+    },
+    {
+      "document": {
+        "time": 7,
+        "pressure": 0
+      },
+      "message": "reading",
+      "samples": [0]
+    },
+    {
+      "document": {
+        "time": 8,
+        "state": ""
+      },
+      "message": "status",
+      "samples": [""]
+    }
+  ]
+}

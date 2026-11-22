@@ -12,6 +12,8 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
+import { compare } from "@synnaxlabs/x";
+
 import {
   BUCKET,
   bucket,
@@ -22,17 +24,19 @@ import {
   run,
   select,
   THEMES,
-  versionsZ,
-  VIDEO_VERSIONS,
+  VIDEOS,
+  type Videos,
+  videosZ,
 } from "@/cli/common";
 import { versionOf } from "@/cli/hash";
+import { dimensions } from "@/cli/mp4";
 import { stillKey, stillsDir, videoKey, videoName } from "@/manifest";
 
 const usage = `usage: pnpm upload [filter] [options]
 Uploads produced videos and stills for manifest entries whose id contains [filter]
 to the docs CDN bucket (synnax/docs on DigitalOcean Spaces), where the docs site's
-Video and Image components serve them, and writes each video's version to the docs
-site. Requires credentials in the environment:
+Video and Image components serve them, and writes each video's version and size to
+the docs site. Requires credentials in the environment:
   DO_SPACES_KEY     Spaces access key id
   DO_SPACES_SECRET  Spaces secret key
 Options:
@@ -59,7 +63,7 @@ const main = async (): Promise<void> => {
 
   const uploads: Put[] = [];
   const missing: string[] = [];
-  const versions: Record<string, string> = {};
+  const videos: Videos = {};
   for (const entry of entries) {
     if (!values["allow-draft"] && (await readStamp(entry.id))?.draft === true) {
       console.error(
@@ -98,7 +102,7 @@ const main = async (): Promise<void> => {
         path.join(OUT_ROOT, videoName(entry.id, theme)),
       );
     const version = versionOf(files);
-    versions[entry.id] = version;
+    videos[entry.id] = { version, ...dimensions(files[`${themes[0]}.mp4`]) };
     for (const theme of themes)
       uploads.push({
         file: path.join(OUT_ROOT, videoName(entry.id, theme)),
@@ -125,16 +129,16 @@ const main = async (): Promise<void> => {
     console.log("done");
   }
   console.log(`${uploads.length} files uploaded`);
-  if (Object.keys(versions).length === 0) return;
+  if (Object.keys(videos).length === 0) return;
   const merged = {
-    ...versionsZ.parse(JSON.parse(await readFile(VIDEO_VERSIONS, "utf8"))),
-    ...versions,
+    ...videosZ.parse(JSON.parse(await readFile(VIDEOS, "utf8"))),
+    ...videos,
   };
   const sorted = Object.fromEntries(
-    Object.entries(merged).sort(([a], [b]) => a.localeCompare(b)),
+    Object.entries(merged).sort(compare.by(([id]) => id)),
   );
-  await writeFile(VIDEO_VERSIONS, `${JSON.stringify(sorted, null, 2)}\n`);
-  console.log(`wrote ${path.relative(ROOT, VIDEO_VERSIONS)}`);
+  await writeFile(VIDEOS, `${JSON.stringify(sorted, null, 2)}\n`);
+  console.log(`wrote ${path.relative(ROOT, VIDEOS)}`);
 };
 
 run(main);

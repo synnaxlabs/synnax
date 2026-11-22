@@ -1462,7 +1462,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if $enum.IsIntEnum}}
 type {{$enum.Name}} uint8
 
-{{"//"}}go:generate stringer -type={{$enum.Name}}
+{{"//"}}go:generate go tool stringer -type={{$enum.Name}}
 {{- if eq (len $enum.Values) 1}}
 {{- with index $enum.Values 0}}
 
@@ -1661,6 +1661,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.GreaterThan("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "finite"}}
+	v.Finite("{{.FieldName}}", {{$val}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -1795,6 +1797,8 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.GreaterThan("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "finite"}}
+	v.Finite("{{.FieldName}}", {{$val}})
 {{- end}}
 {{- if .Closes}}
 	}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, destructor, type record } from "@synnaxlabs/x";
+import { array, destructor, type record } from "@synnaxlabs/x";
 import { useSyncExternalStore } from "react";
 
 export interface UseItemsProps<K extends record.Key, E> {
@@ -31,7 +31,7 @@ const createStore = <K extends record.Key, E>({
     },
     getSnapshot: (): E[] => {
       const next = getItem(keys);
-      if (!compare.arraysEqual(next, snapshot)) snapshot = next;
+      if (!array.equal(next, snapshot)) snapshot = next;
       return snapshot;
     },
   };

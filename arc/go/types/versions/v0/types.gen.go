@@ -15,7 +15,7 @@ package v0
 // types, and meta-types.
 type Kind uint8
 
-//go:generate stringer -type=Kind
+//go:generate go tool stringer -type=Kind
 
 const (
 	// KindInvalid marks a type that Arc cannot represent.
@@ -73,7 +73,7 @@ const (
 // ChanDirection indicates read/write direction for channel-typed parameters.
 type ChanDirection uint8
 
-//go:generate stringer -type=ChanDirection
+//go:generate go tool stringer -type=ChanDirection
 
 const (
 	// ChanDirectionNone has no direction set.

@@ -87,6 +87,8 @@ TYPE_COLOR: Literal["color"] = "color"
 
 TYPE_ICD: Literal["icd"] = "icd"
 
+TYPE_ENUMERATION: Literal["enumeration"] = "enumeration"
+
 
 Type = Literal[
     "arc",
@@ -126,4 +128,5 @@ Type = Literal[
     "certificate",
     "color",
     "icd",
+    "enumeration",
 ]

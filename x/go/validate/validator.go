@@ -10,11 +10,11 @@
 package validate
 
 import (
-	"math"
 	"reflect"
 	"unicode/utf8"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/types"
 )
@@ -88,7 +88,7 @@ func (v *Validator) NotNil(field string, value any) bool {
 // Positive returns true and attaches an error to v if the value is not greater than
 // zero or is not finite.
 func (v *Validator) Positive[T types.Numeric](field string, value T) bool {
-	return v.Ternary(field, nonFinite(value) || value <= 0, "must be positive")
+	return v.Ternary(field, !math.Finite(value) || value <= 0, "must be positive")
 }
 
 // InBounds returns true and attaches an error to v if the value is outside the
@@ -99,7 +99,7 @@ func (v *Validator) InBounds[T types.Numeric](
 ) bool {
 	return v.Ternaryf(
 		field,
-		nonFinite(value) || value < lower || value >= upper,
+		!math.Finite(value) || value < lower || value >= upper,
 		"must be in bounds [%v, %v)",
 		lower,
 		upper,
@@ -115,7 +115,7 @@ func (v *Validator) GreaterThan[T types.Numeric](
 ) bool {
 	return v.Ternaryf(
 		field,
-		nonFinite(value) || value <= threshold,
+		!math.Finite(value) || value <= threshold,
 		"must be greater than %v",
 		threshold,
 	)
@@ -130,7 +130,7 @@ func (v *Validator) GreaterThanEq[T types.Numeric](
 ) bool {
 	return v.Ternaryf(
 		field,
-		nonFinite(value) || value < threshold,
+		!math.Finite(value) || value < threshold,
 		"must be greater than or equal to %v",
 		threshold,
 	)
@@ -145,15 +145,15 @@ func (v *Validator) LessThanEq[T types.Numeric](
 ) bool {
 	return v.Ternaryf(
 		field,
-		nonFinite(value) || value > threshold,
+		!math.Finite(value) || value > threshold,
 		"must be less than or equal to %v",
 		threshold,
 	)
 }
 
-func nonFinite[T types.Numeric](value T) bool {
-	f := float64(value)
-	return math.IsNaN(f) || math.IsInf(f, 0)
+// Finite returns true and attaches an error to v if the value is NaN or infinite.
+func (v *Validator) Finite[T types.Numeric](field string, value T) bool {
+	return v.Ternary(field, !math.Finite(value), "must be finite")
 }
 
 // NonZero returns true and attaches an error to v if the value is zero.

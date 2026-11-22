@@ -7,13 +7,35 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
 WORKFLOWS = Path(__file__).resolve().parents[2] / "workflows"
+RELAY = "./.github/workflows/relay.failure.yaml"
+SELF_REPORTING = {
+    "Agent - Console QA",
+    "Agent - Lint",
+    "Agent - Nightly",
+    "Check - Runners",
+    "Test - HITL",
+}
+"""Scheduled workflows that post their own failures to Slack."""
+REQUEUED = {
+    "Agent - Bug hunt",
+    "Agent - Console QA",
+    "Agent - Lint",
+    "Agent - Nightly",
+    "Agent - Shepherd",
+    "Agent - Task",
+    "Dismiss - Sedosaur",
+    "Dispatch - Agents",
+    "Nightly",
+    "Review - Sedosaur",
+}
+"""Workflows whose jobs can stop at the usage limit of an agent login."""
 
 
 def load(path: Path) -> dict[Any, Any]:
@@ -22,15 +44,44 @@ def load(path: Path) -> dict[Any, Any]:
     return workflow
 
 
+ALL = [load(p) for p in sorted(WORKFLOWS.glob("*.y*ml"))]
+
+
+def relays(workflow: dict[Any, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [
+        (name, job)
+        for name, job in workflow["jobs"].items()
+        if job.get("uses") == RELAY
+    ]
+
+
+def relayed(flag: str) -> set[str]:
+    return {
+        w["name"]
+        for w in ALL
+        for _, job in relays(w)
+        if (job.get("with") or {}).get(flag)
+    }
+
+
 def test_every_scheduled_workflow_reports_its_failures() -> None:
-    workflows = [load(p) for p in WORKFLOWS.glob("*.y*ml")]
-    scheduled = {w["name"] for w in workflows if "schedule" in (w.get(True) or {})}
-    report = load(WORKFLOWS / "report.failures.yaml")
-    assert set(report[True]["workflow_run"]["workflows"]) == scheduled
+    scheduled = {w["name"] for w in ALL if "schedule" in (w.get(True) or {})}
+    assert scheduled >= SELF_REPORTING
+    assert relayed("report") == scheduled - SELF_REPORTING
 
 
-def test_self_reporting_workflows_are_watched() -> None:
-    report = load(WORKFLOWS / "report.failures.yaml")
-    env = report["jobs"]["report"]["steps"][0]["env"]
-    self_reporting = set(json.loads(env["SELF_REPORTING"]))
-    assert self_reporting <= set(report[True]["workflow_run"]["workflows"])
+def test_only_agent_workflows_requeue_their_failures() -> None:
+    assert relayed("requeue") == REQUEUED
+
+
+@pytest.mark.parametrize(
+    "workflow", [w for w in ALL if relays(w)], ids=lambda w: w["name"]
+)
+def test_the_relay_needs_every_other_job(workflow: dict[Any, Any]) -> None:
+    [(name, job)] = relays(workflow)
+    needs = job["needs"]
+    assert set([needs] if isinstance(needs, str) else needs) == (
+        workflow["jobs"].keys() - {name}
+    )
+    assert job["if"].startswith("always() && ")
+    assert job["if"].endswith(" && contains(needs.*.result, 'failure')")

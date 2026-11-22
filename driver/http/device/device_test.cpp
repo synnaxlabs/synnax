@@ -274,6 +274,22 @@ TEST(ConnectionConfigTest, BaseURLRejectsBareHTTPSScheme) {
     EXPECT_FALSE(parser.ok());
 }
 
+/// @brief it should reject a base URL with a port out of range.
+TEST(ConnectionConfigTest, BaseURLRejectsOutOfRangePort) {
+    x::json::json j = {{"base_url", "http://localhost:99999"}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+/// @brief it should reject a base URL with a non-numeric port.
+TEST(ConnectionConfigTest, BaseURLRejectsNonNumericPort) {
+    x::json::json j = {{"base_url", "http://localhost:abc"}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
 TEST(ConnectionConfigTest, MissingBaseURLErrors) {
     x::json::json j = {{"timeout_ms", 5000}};
     x::json::Parser parser(j);
@@ -391,6 +407,24 @@ TEST(BuildRequestTest, MergesURLAndPath) {
     EXPECT_EQ(r.method, Method::GET);
     EXPECT_EQ(r.timeout, conn.timeout);
     EXPECT_EQ(r.verify_ssl, true);
+}
+
+/// @brief it should append the request path to the base URL's path.
+TEST(BuildRequestTest, AppendsPathToBasePath) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com/v2"}})
+    );
+    RequestConfig req{.method = Method::GET, .path = "/api/data"};
+    EXPECT_EQ(build_request(conn, req).url, "http://example.com/v2/api/data");
+}
+
+/// @brief it should join a base path with a trailing slash using one slash.
+TEST(BuildRequestTest, AppendsPathToBasePathWithTrailingSlash) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com/v2/"}})
+    );
+    RequestConfig req{.method = Method::GET, .path = "/api/data"};
+    EXPECT_EQ(build_request(conn, req).url, "http://example.com/v2/api/data");
 }
 
 TEST(BuildRequestTest, CarriesBaseURLAndCap) {

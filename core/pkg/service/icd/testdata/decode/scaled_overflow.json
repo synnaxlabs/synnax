@@ -30,7 +30,7 @@
       "document": {
         "v": 1e308
       },
-      "error": "message reading: field v: Infinity is not finite: validation error"
+      "error": "field v: Infinity is not finite: validation error"
     }
   ]
 }

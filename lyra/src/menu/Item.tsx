@@ -9,11 +9,11 @@
 
 import "@/menu/Item.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { nodeText, useMatches } from "@/menu/filter";
+import { nodeText, useMatches, usePathChildren } from "@/menu/filter";
 import { useContext } from "@/menu/Menu";
 import { useSubmenusContext } from "@/menu/submenus";
 
@@ -34,11 +34,13 @@ export const Item = ({
   onPointerMove,
   onPointerLeave,
   size,
+  children,
   ...rest
 }: ItemProps): ReactElement | null => {
   const { onClick: ctxOnClick, selected, level = "p", gap } = useContext();
   const { aiming, item } = useSubmenusContext();
-  const matches = useMatches(textValue ?? nodeText(rest.children));
+  const matches = useMatches(textValue ?? nodeText(children));
+  const content = usePathChildren(children);
   const handlers = item(itemKey);
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
@@ -71,6 +73,8 @@ export const Item = ({
         handlers.onPointerLeave(e);
       }}
       {...rest}
-    />
+    >
+      {content}
+    </Button.Button>
   );
 };

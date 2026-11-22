@@ -18,6 +18,7 @@ export { Color } from "@/color";
 export { Credential } from "@/credential";
 export { Device } from "@/device";
 export { Direction } from "@/direction";
+export { Enumeration } from "@/enumeration";
 export { Errors } from "@/errors";
 export { Flux } from "@/flux";
 export { Group } from "@/group";
@@ -61,23 +62,3 @@ export { Line } from "@/vis/line";
 export { Properties } from "@/vis/properties";
 export { Staleness } from "@/vis/staleness";
 export { Value } from "@/vis/value";
-export {
-  type CrudeDataType,
-  type CrudeDensity,
-  type CrudeRate,
-  type CrudeSize,
-  type CrudeTimeSpan,
-  type CrudeTimeStamp,
-  DataType,
-  Density,
-  MultiSeries,
-  Rate,
-  Series,
-  type TelemValue,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-  type TimestampFormat,
-  type TimeZone,
-  type TypedArray,
-} from "@synnaxlabs/x";

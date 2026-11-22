@@ -60,12 +60,12 @@
         width: var(--console-list-width);
     }
 
-    .console-panes__list > :is(.lyra-header, .console-create-list-item) {
+    .console-panes__list > :is(.lyra-header, .console-panes__create) {
         flex-shrink: 0;
     }
 
     /* Its side margins come out of the column's width. */
-    &:not(.console--narrow) .console-panes__list > .console-create-list-item {
+    &:not(.console--narrow) .console-panes__list > .console-panes__create {
         width: calc(var(--console-list-width) - 2rem);
     }
 }

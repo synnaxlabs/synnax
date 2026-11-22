@@ -72,6 +72,9 @@ struct AuthConfig {
     }
 };
 
+/// @brief returns true if curl can parse url.
+[[nodiscard]] bool valid_url(const std::string &url);
+
 /// @brief connection configuration for an HTTP device.
 struct ConnectionConfig {
     /// @brief base URL (e.g., "http://192.168.1.100:8080").
@@ -106,6 +109,8 @@ struct ConnectionConfig {
                 "base_url",
                 "must include a host after the scheme, got '" + base_url + "'"
             );
+        else if (!valid_url(base_url))
+            parser.field_err("base_url", "is not a valid URL, got '" + base_url + "'");
         if (timeout <= x::telem::TimeSpan::ZERO())
             parser.field_err("timeout_ms", "must be positive");
         if (max_concurrent_requests == 0)

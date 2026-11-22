@@ -31,14 +31,14 @@ import {
 } from "@/index";
 import { license } from "@/license";
 import { query } from "@/query";
-import { TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
+import { TEST_CREDENTIALS, testClientParams } from "@/testutil";
 import { Transport } from "@/transport";
 
 const liveUnary = (): UnaryClient => {
   const transport = new Transport({
     url: new url.URL({
-      host: TEST_CLIENT_PARAMS.host,
-      port: Number(TEST_CLIENT_PARAMS.port),
+      host: testClientParams().host,
+      port: Number(testClientParams().port),
     }),
   });
   const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
@@ -68,6 +68,8 @@ interface ScriptedUnary extends UnaryClient {
   setClusterKey: (key: string) => void;
   /** Changes the license state answered by later checks. */
   setLicense: (state: license.State) => void;
+  /** Changes how far this host's clock appears ahead of the cluster's. */
+  setSkew: (skew: TimeSpan) => void;
 }
 
 /** A unary whose reachability and cluster identity change mid-test. */
@@ -83,13 +85,14 @@ const createScriptedUnary = ({
   let key = clusterKey;
   let down = failing;
   let state = license;
+  let skew = TimeSpan.ZERO;
   return {
     send: vi.fn().mockImplementation(async () => {
       if (down) throw new Unreachable({ message: "server down" });
       return {
         clusterKey: key,
         nodeVersion: __VERSION__,
-        nodeTime: TimeStamp.now(),
+        nodeTime: TimeStamp.now().sub(skew),
         license: state,
       };
     }),
@@ -97,6 +100,7 @@ const createScriptedUnary = ({
     setFailing: (next) => (down = next),
     setClusterKey: (next) => (key = next),
     setLicense: (next) => (state = next),
+    setSkew: (next) => (skew = next),
   };
 };
 
@@ -161,6 +165,8 @@ const createCore060Unary = (core: Core060 = { upgraded: false }): UnaryClient =>
     },
   };
 };
+
+const POLL = { timeout: 10_000, interval: 1 };
 
 const FAST_RETRY: breaker.Config = { baseInterval: TimeSpan.milliseconds(1), scale: 1 };
 
@@ -253,8 +259,8 @@ describe("connection", () => {
   describe("check", () => {
     it("should return a success status against a live cluster", async () => {
       const status = await connection.check({
-        host: TEST_CLIENT_PARAMS.host,
-        port: TEST_CLIENT_PARAMS.port,
+        host: testClientParams().host,
+        port: testClientParams().port,
         name: "test-cluster",
       });
       expect(status.variant).toEqual("success");
@@ -264,8 +270,8 @@ describe("connection", () => {
 
     it("should include the client version in the check", async () => {
       const status = await connection.check({
-        host: TEST_CLIENT_PARAMS.host,
-        port: TEST_CLIENT_PARAMS.port,
+        host: testClientParams().host,
+        port: testClientParams().port,
       });
       expect(status.details.clientVersion).toBeDefined();
       expect(status.details.clientServerCompatible).toBe(true);
@@ -282,7 +288,7 @@ describe("connection", () => {
 
     it("should return an error status against a dead port", async () => {
       const status = await connection.check({
-        host: TEST_CLIENT_PARAMS.host,
+        host: testClientParams().host,
         port: 9999,
       });
       expect(status.variant).toEqual("error");
@@ -302,6 +308,80 @@ describe("connection", () => {
         expect.stringContaining("excessive clock skew"),
       );
       warn.mockRestore();
+    });
+
+    const createSkewed = () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const info = vi.spyOn(console, "info").mockImplementation(() => {});
+      const unary = createScriptedUnary();
+      const send = vi.mocked(unary.send);
+      const client = createClient(unary);
+      // checks run in sequence, so the second check sent after a change starts only
+      // once the first has finished
+      const passChecks = async (skew?: TimeSpan): Promise<void> => {
+        if (skew != null) unary.setSkew(skew);
+        const target = send.mock.calls.length + 2;
+        await expect
+          .poll(() => send.mock.calls.length, POLL)
+          .toBeGreaterThanOrEqual(target);
+      };
+      const close = async (): Promise<void> => {
+        await client.close();
+        warn.mockRestore();
+        info.mockRestore();
+      };
+      return { warn, info, unary, client, passChecks, close };
+    };
+
+    it("should warn only when skew starts and log once when it ends", async () => {
+      const { warn, info, passChecks, close } = createSkewed();
+      await passChecks(TimeSpan.hours(1));
+      await passChecks(TimeSpan.hours(2));
+      await passChecks(TimeSpan.hours(3));
+      expect(warn).toHaveBeenCalledOnce();
+      expect(info).not.toHaveBeenCalled();
+      await passChecks(TimeSpan.ZERO);
+      await passChecks();
+      expect(info).toHaveBeenCalledOnce();
+      expect(info).toHaveBeenCalledWith(expect.stringContaining("back in sync"));
+      await passChecks(TimeSpan.hours(1));
+      expect(warn).toHaveBeenCalledTimes(2);
+      await close();
+    });
+
+    it("should stay skewed until skew falls below half the threshold", async () => {
+      const { warn, info, passChecks, close } = createSkewed();
+      for (const ms of [1500, 900, 1100, 800, 650, 1050, 600])
+        await passChecks(TimeSpan.milliseconds(ms));
+      expect(warn).toHaveBeenCalledOnce();
+      expect(info).not.toHaveBeenCalled();
+      await passChecks(TimeSpan.milliseconds(300));
+      expect(info).toHaveBeenCalledOnce();
+      await close();
+    });
+
+    it("should warn again when a new Core answers with skew", async () => {
+      const { warn, unary, passChecks, close } = createSkewed();
+      await passChecks(TimeSpan.hours(1));
+      expect(warn).toHaveBeenCalledOnce();
+      unary.setClusterKey("other");
+      await passChecks();
+      expect(warn).toHaveBeenCalledTimes(2);
+      await close();
+    });
+
+    it("should not warn again on a reconnect to the same Core", async () => {
+      const { warn, info, unary, client, passChecks, close } = createSkewed();
+      await passChecks(TimeSpan.hours(1));
+      unary.setFailing(true);
+      await expect.poll(() => client.status.variant, POLL).toEqual("error");
+      unary.setFailing(false);
+      await expect.poll(() => client.status.variant, POLL).toEqual("success");
+      await passChecks();
+      expect(client.status.details.clockSkewExceeded).toBe(true);
+      expect(warn).toHaveBeenCalledOnce();
+      expect(info).not.toHaveBeenCalled();
+      await close();
     });
 
     it("should not flag skew within threshold", async () => {
@@ -475,6 +555,36 @@ describe("connection", () => {
       );
       expect(checked.variant).toEqual("warning");
       expect(checked.details.streamDenied).toBe(true);
+    });
+
+    it("should reconnect when the Core stops answering a denied connection", () => {
+      const config = createConfig({ requiresStream: true, escalateAfter: 2 });
+      const denied = apply(
+        config,
+        { type: "check.success", info: createInfo() },
+        { type: "stream.denied" },
+      );
+      const error = new Unreachable({ message: "server down" });
+      const reconnecting = reduce(
+        denied,
+        { type: "check.failure", error, attempt: 1 },
+        config,
+      );
+      expect(reconnecting.variant).toEqual("loading");
+      expect(reconnecting.message).toEqual("Reconnecting");
+      const unreachable = reduce(
+        reconnecting,
+        { type: "check.failure", error, attempt: 2 },
+        config,
+      );
+      expect(unreachable.variant).toEqual("error");
+      const recovered = reduce(
+        unreachable,
+        { type: "check.success", info: createInfo() },
+        config,
+      );
+      expect(recovered.variant).toEqual("warning");
+      expect(recovered.details.streamDenied).toBe(true);
     });
 
     it("should clear a denial when the stream comes up or credentials change", () => {
@@ -1268,7 +1378,7 @@ describe("connection", () => {
         TimeSpan.seconds(60),
       );
       const send = unary.send as ReturnType<typeof vi.fn>;
-      while (send.mock.calls.length === 0) await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThan(0);
       // the stream opens behind the auth middleware, so a login lands first
       client.notify({ type: "auth.success", session: "session" });
       client.notify({ type: "stream.live" });
@@ -1312,7 +1422,7 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.clusterKey === "second",
       );
-      while (calls.length < 2) await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => calls.length, POLL).toBeGreaterThanOrEqual(2);
       expect(calls.slice(0, 2)).toEqual(["reset", "ensure"]);
       await client.close();
     });
@@ -1329,8 +1439,7 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.authenticated,
       );
-      while (ensured.mock.calls.length === 0)
-        await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => ensured.mock.calls.length, POLL).toBeGreaterThan(0);
       expect(client.status.variant).toEqual("loading");
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
@@ -1345,11 +1454,10 @@ describe("connection", () => {
         stream: { reset: async () => {}, ensure: ensured },
       });
       const send = unary.send as ReturnType<typeof vi.fn>;
-      while (send.mock.calls.length < 3) await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThanOrEqual(3);
       expect(ensured).not.toHaveBeenCalled();
       unary.setLicense("ok");
-      while (ensured.mock.calls.length === 0)
-        await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => ensured.mock.calls.length, POLL).toBeGreaterThan(0);
       await client.close();
     });
 
@@ -1382,7 +1490,7 @@ describe("connection", () => {
       expect(client.status.variant).toEqual("warning");
       expect(probes).toEqual(1);
       const checksAtDenial = checks;
-      while (probes < 2) await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => probes, POLL).toBeGreaterThanOrEqual(2);
       expect(checks - checksAtDenial).toBeGreaterThanOrEqual(3);
       expect(internal).toHaveLength(1);
       expect(AccessDeniedError.matches(internal[0])).toBe(true);
@@ -1400,8 +1508,7 @@ describe("connection", () => {
         stream: { reset: async () => {}, ensure: ensured },
         onInternalError: (error) => internal.push(error),
       });
-      while (ensured.mock.calls.length === 0)
-        await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => ensured.mock.calls.length, POLL).toBeGreaterThan(0);
       await sleep.sleep(TimeSpan.milliseconds(5));
       expect(internal).toEqual([]);
       await client.close();
@@ -1477,7 +1584,7 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.clusterKey === "second",
       );
-      while (internal.length === 0) await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => internal.length, POLL).toBeGreaterThan(0);
       expect(internal[0].message).toEqual(
         "failed to reset cache after cluster replacement",
       );
@@ -1580,11 +1687,12 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.clusterKey === "second",
       );
-      while (calls.length === 0) await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => calls.length, POLL).toBeGreaterThan(0);
       const send = unary.send as ReturnType<typeof vi.fn>;
       const sent = send.mock.calls.length;
-      while (send.mock.calls.length < sent + 3)
-        await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect
+        .poll(() => send.mock.calls.length, POLL)
+        .toBeGreaterThanOrEqual(sent + 3);
       expect(calls).toEqual(["reset"]);
       await client.close();
     });

@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -115,9 +116,11 @@ var _ = Describe("ICD", func() {
 				AuthedCtx(ctx, u),
 				apiicd.CheckRequest{ICD: icd.ICD{}},
 			))
-			Expect(res.Problems).To(Equal(validate.Problems{
-				{Path: "name", Message: "name is required"},
-			}))
+			Expect(res.Problems).To(Equal([]errors.Payload{{
+				Type: "sy.validation.path",
+				Data: `{"error":{"type":"sy.validation","data":"name is required"},` +
+					`"path":["name"]}`,
+			}}))
 		})
 
 		It("Should return no problems for a valid ICD", func(ctx SpecContext) {
@@ -136,9 +139,9 @@ var _ = Describe("ICD", func() {
 			grantOn(ctx, u.ResourceID(), access.ActionRetrieve, ic.ResourceID())
 			ic.Name = ""
 			res := MustSucceed(check(AuthedCtx(ctx, u), apiicd.CheckRequest{ICD: ic}))
-			Expect(res.Problems).To(Equal(validate.Problems{
-				{Path: "name", Message: "name is required"},
-			}))
+			Expect(res.Problems).To(HaveLen(1))
+			Expect(errors.NewCodec(validate.ErrorProvider()).Decode(res.Problems[0])).
+				To(MatchError("name: name is required"))
 		})
 
 		It("Should reject a check of an ICD it cannot retrieve", func(ctx SpecContext) {
@@ -204,7 +207,11 @@ var _ = Describe("ICD", func() {
 			data := MustSucceed(os.ReadFile("../../service/icd/testdata/basic.dbc"))
 			res := MustSucceed(importFile(
 				AuthedCtx(ctx, u),
-				apiicd.ImportRequest{Key: ic.Key, Format: icd.FormatDBC, Data: data},
+				apiicd.ImportRequest{
+					Key:    ic.Key,
+					Format: icd.ImportFormatDBC,
+					Data:   data,
+				},
 			))
 			Expect(res.ICD.Key).To(Equal(ic.Key))
 			Expect(res.ICD.Messages).ToNot(BeEmpty())
@@ -223,7 +230,7 @@ var _ = Describe("ICD", func() {
 				AuthedCtx(ctx, u),
 				apiicd.ImportRequest{
 					Key:         ic.Key,
-					Format:      icd.FormatDBC,
+					Format:      icd.ImportFormatDBC,
 					Data:        data,
 					DispatchKey: "dk-import",
 				},
@@ -240,7 +247,7 @@ var _ = Describe("ICD", func() {
 			ic := createICD(ctx, "Locked")
 			Expect(importFile(
 				AuthedCtx(ctx, createUser(ctx)),
-				apiicd.ImportRequest{Key: ic.Key, Format: icd.FormatDBC},
+				apiicd.ImportRequest{Key: ic.Key, Format: icd.ImportFormatDBC},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})

@@ -48,6 +48,11 @@ var _ = Describe("ParseNumber", func() {
 			integer[int64]{}, integer[uint64]{}, 9007199254740994.0),
 		Entry("an integer past an int64", "18446744073709551615", integer[int64]{},
 			integer[uint64]{math.MaxUint64, true}, 18446744073709551615.0),
+		Entry("the smallest int64", "-9223372036854775808",
+			integer[int64]{math.MinInt64, true}, integer[uint64]{},
+			-9223372036854775808.0),
+		Entry("an integer below an int64", "-9223372036854775809", integer[int64]{},
+			integer[uint64]{}, -9223372036854775808.0),
 		Entry("an integer past a uint64", "1e20", integer[int64]{}, integer[uint64]{},
 			1e20),
 		Entry("negative zero", "-0.0", integer[int64]{0, true},
@@ -64,5 +69,33 @@ var _ = Describe("ParseNumber", func() {
 		},
 		Entry("a word", "x", `invalid number "x"`),
 		Entry("a number past a float64", "1e999", `invalid number "1e999"`),
+	)
+})
+
+var _ = Describe("AppendFloat", func() {
+	DescribeTable("Should append the shortest JSON number that round trips",
+		func(v float64, expected string) {
+			Expect(xjson.AppendFloat([]byte("x"), v)).To(Equal([]byte("x" + expected)))
+		},
+		Entry("a whole number", 40.0, "40"),
+		Entry("a fraction", 0.1, "0.1"),
+		Entry("a large number", 1e21, "1e+21"),
+		Entry("a small number", 1e-9, "1e-9"),
+	)
+
+	DescribeTable(
+		"Should reject a float that JSON cannot hold",
+		func(v float64, expected string) {
+			Expect(xjson.AppendFloat(nil, v)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(expected),
+			))
+		},
+		Entry("NaN", math.NaN(), "NaN is not a JSON number: validation error"),
+		Entry(
+			"infinity",
+			math.Inf(1),
+			"Infinity is not a JSON number: validation error",
+		),
 	)
 })

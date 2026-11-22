@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { log, type status } from "@synnaxlabs/client";
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import {
+  array,
   bounds,
   box,
   color,
-  compare,
   DataType,
   type destructor,
   notation,
@@ -57,6 +57,9 @@ export const logStateZ = log.logZ
     // channelDataTypes: server-side data types (fetched fresh, never persisted)
     channelNames: z.record(z.string(), z.string()).default({}),
     channelDataTypes: z.record(z.string(), z.string()).default({}),
+    // channelColors: each channel's color reference resolved for the theme (never
+    // persisted)
+    channelColors: z.record(z.string(), color.colorZ).default({}),
     telem: logSourceSpecZ.default(noopLogSourceSpec),
     font: text.levelZ.default("p"),
     color: color.colorZ.optional(),
@@ -267,8 +270,8 @@ export class Log
 {
   static readonly TYPE = "log";
   static readonly z = logStateZ;
-  schema = Log.z;
-  methods = methodsZ;
+  override schema = Log.z;
+  override methods = methodsZ;
   entries: LogEntry[] = [];
   // Copied, not shared: the scrollback branch mutates this in place.
   scrollState: ScrollbackState = { ...ZERO_SCROLLBACK };
@@ -296,7 +299,7 @@ export class Log
     return this.calcVisibleLineCount(this.internal.lineHeight);
   }
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     // Read before any setState below, which overwrites prevState.
     const wasVisible = this.prevState.visible;
@@ -328,17 +331,18 @@ export class Log
     const configs: Record<string, log.ChannelEntry> = {};
     for (const entry of channelEntries) configs[entry.channel] = entry;
 
-    // Rebuild color caches only when configs or base color changed.
-    const colorChanged = !color.equals(this.state.color, this.prevState.color);
-    if (channelsChanged || colorChanged || i.prefixColors == null) {
+    // Rebuild color caches only when the channel colors or base color changed.
+    const colorChanged =
+      !color.equals(this.state.color, this.prevState.color) ||
+      this.state.channelColors !== this.prevState.channelColors;
+    if (colorChanged || i.prefixColors == null) {
       i.defaultPrefixColor = muteColor(i.textColor, i.theme);
       i.prefixColors = {};
       i.valueColors = {};
-      for (const [key, cfg] of Object.entries(configs))
-        if (cfg.color != null) {
-          i.prefixColors[key] = muteColor(cfg.color, i.theme);
-          i.valueColors[key] = color.construct(cfg.color);
-        }
+      for (const [key, c] of Object.entries(this.state.channelColors)) {
+        i.prefixColors[key] = muteColor(c, i.theme);
+        i.valueColors[key] = c;
+      }
     }
     i.configs = configs;
 
@@ -451,7 +455,7 @@ export class Log
     this.setState((p) => ({ ...p, empty, loading, blank }));
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { telem, stopListeningRestore } = this.internal;
     stopListeningRestore?.();
     telem.cleanup?.();
@@ -648,7 +652,7 @@ export class Log
       this.state.position !== position ||
       this.state.visibleStart !== sliceStart ||
       this.state.computedLineHeight !== lh ||
-      !compare.arraysEqual(this.state.rowEntries, rowEntries)
+      !array.equal(this.state.rowEntries, rowEntries)
     )
       this.setState((s) => ({
         ...s,
@@ -708,7 +712,7 @@ export class Log
     const upper = regHeight * SCROLLBAR_RENDER_THRESHOLD;
     if (proportionalHeight >= upper && top.tail === 0) return;
     const height = bounds.clamp(
-      { lower: SCROLLBAR_MIN_HEIGHT, upper },
+      { lower: Math.min(SCROLLBAR_MIN_HEIGHT, upper), upper },
       proportionalHeight,
     );
     // The thumb travels the track less its own height, over the entries that sit
@@ -759,12 +763,10 @@ export class Log
   // Returns the position of the entry, or -1 when it was evicted.
   private locate(entry: LogEntry): number {
     const time = entry.timestamp.valueOf();
-    let [lo, hi] = [0, this.entries.length];
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if (this.entries[mid].timestamp.valueOf() < time) lo = mid + 1;
-      else hi = mid;
-    }
+    const lo = array.partitionPoint(
+      this.entries.length,
+      (i) => this.entries[i].timestamp.valueOf() >= time,
+    );
     for (let i = lo; i < this.entries.length; i++) {
       if (this.entries[i] === entry) return i;
       if (this.entries[i].timestamp.valueOf() !== time) break;
@@ -813,12 +815,10 @@ export class Log
     const reached = time >= this.entries[0].timestamp.valueOf();
     if (!reached && telem.wrapped.exhausted === false) return;
     if (reached) {
-      let [lo, hi] = [0, this.entries.length];
-      while (lo < hi) {
-        const mid = (lo + hi) >>> 1;
-        if (this.entries[mid].timestamp.valueOf() <= time) lo = mid + 1;
-        else hi = mid;
-      }
+      const lo = array.partitionPoint(
+        this.entries.length,
+        (i) => this.entries[i].timestamp.valueOf() > time,
+      );
       this.scrollState.offset = Math.max(this.calcMinOffset(lineHeight), lo);
       this.scrollState.tail = 0;
     }

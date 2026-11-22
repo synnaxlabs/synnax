@@ -309,3 +309,35 @@ var _ = Describe("Group migrations", func() {
 		}))
 	})
 })
+
+var _ = Describe("MakeModelMigration", func() {
+	migrated := func(ctx SpecContext, in v2.Device) v2.Device {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		Expect(gorp.NewCreate[v2.Key, v2.Device]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Device",
+			Migrations: []gorp.Migration{v2.MakeModelMigration},
+		})).To(Succeed())
+		var out v2.Device
+		Expect(gorp.NewRetrieve[v2.Key, v2.Device]().
+			Where(gorp.MatchKeys[v2.Key, v2.Device](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	DescribeTable(
+		"Should fill only an empty make or model",
+		func(ctx SpecContext, mk, model, expectedMake, expectedModel string) {
+			d := migrated(ctx, v2.Device{Key: "dev", Make: mk, Model: model})
+			Expect(d.Make).To(Equal(expectedMake))
+			Expect(d.Model).To(Equal(expectedModel))
+		},
+		Entry("empty make and model", "", "", "unknown", "unknown"),
+		Entry("empty make", "", "PXI-6255", "unknown", "PXI-6255"),
+		Entry("empty model", "NI", "", "NI", "unknown"),
+		Entry("make and model", "NI", "PXI-6255", "NI", "PXI-6255"),
+	)
+})

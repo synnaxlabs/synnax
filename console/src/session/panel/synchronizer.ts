@@ -27,7 +27,7 @@ import {
   select,
   type StoreState,
 } from "@/session/panel/slice";
-import { type Project } from "@/session/project";
+import type { Project } from "@/session/project";
 import { Synchronizer } from "@/session/synchronizer";
 
 interface RequiredStoreState extends StoreState, Project.StoreState {}

@@ -238,9 +238,10 @@ class ImportGoldens(ConsoleCase):
         self.log(f"Importing arc golden: {label}")
         name = f"{label}_{self.suffix}"
         path = get_core_fixture_path(relative_path)
+        # The Console reads the chosen file lazily, so it must outlive the import.
         with named_envelope_copy(path, name=name) as tmp_path:
             self.console.layout.choose_import_file(tmp_path)
-        self.console.arc.wait_for_item(name)
+            self.console.arc.wait_for_item(name)
         tab = self.console.layout.get_tab(name)
         if tab.is_visible():
             self.console.layout.close_tab(name)
@@ -333,12 +334,15 @@ class ImportGoldens(ConsoleCase):
         self, toolbar: SymbolToolbar, directory: str, name: str
     ) -> None:
         """Import a bundle directory as a group named ``name`` and verify it."""
+        # The Console reads the chosen file lazily, so it must outlive the import.
         with self._group_bundle(directory, name) as zip_path:
             toolbar.import_group(zip_path)
-        if not self.console.notifications.wait_for("Imported symbol group", name=name):
-            raise AssertionError(
-                f"Import of group {name!r} did not surface a success notification"
-            )
+            if not self.console.notifications.wait_for(
+                "Imported symbol group", name=name
+            ):
+                raise AssertionError(
+                    f"Import of group {name!r} did not surface a success notification"
+                )
         self.console.notifications.close_all()
         self._symbol_groups.append(name)
         for member in GROUP_MEMBERS:

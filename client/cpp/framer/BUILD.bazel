@@ -61,6 +61,18 @@ cc_test(
 )
 
 cc_test(
+    name = "streamer_stream_test",
+    srcs = ["streamer_stream_test.cpp"],
+    deps = [
+        "//client/cpp/framer",
+        "//freighter/cpp:freighter",
+        "//x/cpp/errors",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "writer_stream_test",
     srcs = ["writer_stream_test.cpp"],
     deps = [

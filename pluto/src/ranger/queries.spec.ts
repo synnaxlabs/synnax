@@ -25,8 +25,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
 import { Ranger } from "@/ranger";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = Ranger.formPath;
 const created = Ranger.createFormPath;
@@ -55,7 +54,7 @@ describe("queries", () => {
     it("should list each range in the stage getStage gives it", async () => {
       const lbl = await client.labels.create({
         name: "stage",
-        color: color.construct("#000000"),
+        color: { type: "fixed", value: color.construct("#000000") },
       });
       const now = TimeStamp.now();
       const toDo = await createIn(lbl, now.add(TimeSpan.HOUR), now.add(TimeSpan.DAY));
@@ -161,6 +160,39 @@ describe("queries", () => {
           [middle.key]: second.key,
           [second.key]: null,
         }),
+      );
+    });
+  });
+
+  describe("useResultList", () => {
+    it("should follow a move into the ranges nested in a range", async () => {
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const top = await client.ranges.create({ name: "top", timeRange });
+      const middle = await client.ranges.create({
+        name: "middle",
+        timeRange,
+        parent: top.key,
+      });
+      const bottom = await client.ranges.create({
+        name: "bottom",
+        timeRange,
+        parent: middle.key,
+      });
+      const moved = await client.ranges.create({ name: "moved", timeRange });
+      const reader = createTestClient();
+      const { result } = renderHook(
+        () => Ranger.useResultList({ where: { ancestors: [top.key] } }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: reader }) },
+      );
+      const keys = () => result.current.data?.map((r) => r.key).sort();
+      await waitFor(() => expect(keys()).toEqual([middle.key, bottom.key].sort()));
+      await waitForStreamLive(reader.connection);
+      await client.ranges.dispatch(
+        moved.key,
+        ranger.set({ path: ["parent"], value: bottom.key }),
+      );
+      await waitFor(() =>
+        expect(keys()).toEqual([middle.key, bottom.key, moved.key].sort()),
       );
     });
   });
@@ -271,25 +303,53 @@ describe("queries", () => {
         expect(
           await result.current.updateAsync({
             key: rng.key,
-            color: color.construct("#ff0000"),
+            color: { type: "fixed", value: color.construct("#ff0000") },
           }),
         ).toBe(true);
       });
       const { color: stored } = await client.ranges.retrieve(rng.key);
-      expect(stored == null ? undefined : color.hex(stored)).toEqual("#ff0000");
+      expect(stored).toEqual({ type: "fixed", value: color.construct("#ff0000") });
     });
 
     it("should clear the color of a range", async () => {
       const rng = await client.ranges.create({
         name: "clear_color_hook",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        color: "#00ff00",
+        color: { type: "fixed", value: "#00ff00" },
       });
       const { result } = renderHook(() => Ranger.useSetColor(), { wrapper });
       await act(async () => {
         expect(await result.current.updateAsync({ key: rng.key })).toBe(true);
       });
       expect((await client.ranges.retrieve(rng.key)).color).toBeUndefined();
+    });
+  });
+
+  describe("useSetParent", () => {
+    it("should move a range under another, then to the top level", async () => {
+      const [top, rng] = await client.ranges.create([
+        {
+          name: "set_parent_top",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        },
+        {
+          name: "set_parent_hook",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        },
+      ]);
+      const { result } = renderHook(() => Ranger.useSetParent(), { wrapper });
+      await act(async () => {
+        expect(
+          await result.current.updateAsync({ key: rng.key, parent: top.key }),
+        ).toBe(true);
+      });
+      expect((await client.ranges.retrieve(rng.key)).parent).toEqual(top.key);
+      await act(async () => {
+        expect(await result.current.updateAsync({ key: rng.key, parent: null })).toBe(
+          true,
+        );
+      });
+      expect((await client.ranges.retrieve(rng.key)).parent).toBeUndefined();
     });
   });
 
@@ -392,14 +452,20 @@ describe("queries", () => {
       act(() => {
         result.current.form.set(created.name, "newFormRange");
         result.current.form.set(created.timeRange, timeRange.numeric);
-        result.current.form.set(created.color, color.construct("#FF0000"));
+        result.current.form.set(created.color, {
+          type: "fixed",
+          value: color.construct("#FF0000"),
+        });
         result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("newFormRange");
         expect(result.current.form.value().timeRange).toEqual(timeRange.numeric);
-        expect(result.current.form.value().color).toEqual(color.construct("#FF0000"));
+        expect(result.current.form.value().color).toEqual({
+          type: "fixed",
+          value: color.construct("#FF0000"),
+        });
         expect(result.current.form.value().key).toBeDefined();
         expect(result.current.form.value().key).not.toEqual("");
       });
@@ -409,11 +475,11 @@ describe("queries", () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(3));
       const label1 = await client.labels.create({
         name: "testLabel1",
-        color: "#00FF00",
+        color: { type: "fixed", value: "#00FF00" },
       });
       const label2 = await client.labels.create({
         name: "testLabel2",
-        color: "#0000FF",
+        color: { type: "fixed", value: "#0000FF" },
       });
 
       const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
@@ -479,7 +545,7 @@ describe("queries", () => {
 
       const label = await client.labels.create({
         name: "complexLabel",
-        color: "#123456",
+        color: { type: "fixed", value: "#123456" },
       });
 
       const { result } = renderHook(() => Ranger.useCreateForm({ query: null }), {
@@ -493,7 +559,10 @@ describe("queries", () => {
         result.current.form.set(created.timeRange, complexTimeRange.numeric);
         result.current.form.set(created.parent, parentRange.key);
         result.current.form.set(created.labels, [label.key]);
-        result.current.form.set(created.color, color.construct("#654321"));
+        result.current.form.set(created.color, {
+          type: "fixed",
+          value: color.construct("#654321"),
+        });
         result.current.save({ signal: controller.signal });
       });
 
@@ -501,7 +570,10 @@ describe("queries", () => {
         expect(result.current.form.value().name).toEqual("complexRange");
         expect(result.current.form.value().parent).toEqual(parentRange.key);
         expect(result.current.form.value().labels).toContain(label.key);
-        expect(result.current.form.value().color).toEqual(color.construct("#654321"));
+        expect(result.current.form.value().color).toEqual({
+          type: "fixed",
+          value: color.construct("#654321"),
+        });
         expect(result.current.form.value().timeRange).toEqual(complexTimeRange.numeric);
         expect(result.current.form.value().key).toBeDefined();
       });
@@ -692,8 +764,8 @@ describe("useLabels", () => {
 
   it("should resolve the labels of a range and follow its label edits", async () => {
     const [first, second] = await client.labels.create([
-      { name: "first", color: "#FF0000" },
-      { name: "second", color: "#00FF00" },
+      { name: "first", color: { type: "fixed", value: "#FF0000" } },
+      { name: "second", color: { type: "fixed", value: "#00FF00" } },
     ]);
     const rng = await client.ranges.create({
       name: "labeled",
@@ -709,7 +781,10 @@ describe("useLabels", () => {
   });
 
   it("should show the new name of a label the range holds", async () => {
-    const lbl = await client.labels.create({ name: "original", color: "#FF0000" });
+    const lbl = await client.labels.create({
+      name: "original",
+      color: { type: "fixed", value: "#FF0000" },
+    });
     const rng = await client.ranges.create({
       name: "labeled",
       timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),

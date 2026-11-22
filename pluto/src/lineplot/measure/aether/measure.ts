@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
   box,
@@ -22,8 +22,9 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
+import { formatRelativeTime } from "@/vis/axis/relative";
 import { Draw2D } from "@/vis/draw2d";
-import { type FindResult } from "@/vis/line/aether/line";
+import type { FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
 export const modeZ = z.enum(["one", "two"]);
@@ -46,6 +47,8 @@ export const measureStateZ = z.object({
     .optional(),
   strokeWidth: z.number().default(1),
   strokeDash: z.number().default(2),
+  /** True when x is a span from a zero, shown as T+ time. */
+  relative: z.boolean().default(false),
 });
 
 interface InternalState {
@@ -134,14 +137,16 @@ const TIME_FORMAT_THRESHOLD = TimeSpan.milliseconds(10);
 export interface MeasureProps {
   findByXDecimal: (target: number) => FindResult[];
   findByXValue: (target: number) => FindResult[];
+  /** @returns true when a closed break lies between the points one and two. */
+  closedBetween: (one: FindResult, two: FindResult) => boolean;
   region: box.Box;
 }
 
 export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   static readonly TYPE = "measure";
-  schema = measureStateZ;
+  override schema = measureStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const renderCtx = render.Context.use(ctx);
     this.internal.theme = theming.use(ctx);
     this.internal.renderCtx = renderCtx;
@@ -151,7 +156,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     this.internal.dotColorContrast = this.internal.theme.colors.textInverted;
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     render.request(ctx, "layout");
   }
 
@@ -275,7 +280,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     position: xy.XY,
     xValue: string,
     yValue: string,
-    slopeValue: string,
+    slopeValue: string | null,
     viewRegion: box.Box,
     centered: boolean,
   ): void {
@@ -283,11 +288,16 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const padding = xy.construct(LABEL_CONTAINER_PADDING);
 
     const labelWidth = LABEL_CHAR_WIDTH * 5; // "Slope" is longest at 5 chars
-    const maxValueLength = Math.max(xValue.length, yValue.length, slopeValue.length);
+    const maxValueLength = Math.max(
+      xValue.length,
+      yValue.length,
+      slopeValue?.length ?? 0,
+    );
     const width =
       labelWidth + maxValueLength * VALUE_CHAR_WIDTH + padding.x * LABEL_VALUE_SPACING;
     const lineHeight = LABEL_CONTAINER_HEIGHT;
-    const height = lineHeight * 3 + padding.y * 2;
+    const rows = slopeValue == null ? 2 : 3;
+    const height = lineHeight * rows + padding.y * 2;
 
     let region: box.Box;
     if (centered) {
@@ -330,6 +340,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       leftOffset: 0,
     });
 
+    if (slopeValue == null) return;
     this.drawPointLabelRow({
       region,
       label: "Slope",
@@ -373,7 +384,9 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       params;
     const { draw, theme } = this.internal;
     const ts = new TimeStamp(value.x);
-    const xValue = ts.toString(ts.formatBySpan(xDist), "local");
+    const xValue = this.state.relative
+      ? formatRelativeTime(value.x, Number(TimeSpan.MILLISECOND.valueOf()))
+      : ts.toString(ts.formatBySpan(xDist), "local");
     const yValue = `${math.smartRound(value.y, bounds)} ${units ?? ""}`;
 
     const pointText = `${pointNumber}`;
@@ -549,13 +562,13 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const onePos = s.pos(oneValue.position);
     const twoPos = s.pos(twoValue.position);
 
-    const xDistRaw = Math.abs(oneValue.value.x - twoValue.value.x);
+    const xDistRaw = twoValue.value.x - oneValue.value.x;
     const yDistRaw = twoValue.value.y - oneValue.value.y;
     const yDist = Math.abs(yDistRaw);
     if (!Number.isFinite(xDistRaw) || !Number.isFinite(yDist)) return;
 
-    const xDist = new TimeSpan(xDistRaw);
-    const slope = yDistRaw / xDist.seconds;
+    const xDist = new TimeSpan(Math.abs(xDistRaw));
+    const slope = yDistRaw / new TimeSpan(xDistRaw).seconds;
 
     const xPixelDist = Math.abs(onePos.x - twoPos.x);
     const yPixelDist = Math.abs(onePos.y - twoPos.y);
@@ -580,13 +593,16 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       lineWidth: strokeWidth,
     });
 
-    draw.line({
-      start: xy.construct(onePos.x, onePos.y),
-      end: xy.construct(twoPos.x, twoPos.y),
-      stroke: this.obliqueLineColor,
-      lineDash: strokeDash,
-      lineWidth: strokeWidth,
-    });
+    // No line joins data across a closed break, so neither does the oblique line.
+    const broken = props.closedBetween(oneValue, twoValue);
+    if (!broken)
+      draw.line({
+        start: xy.construct(onePos.x, onePos.y),
+        end: xy.construct(twoPos.x, twoPos.y),
+        stroke: this.obliqueLineColor,
+        lineDash: strokeDash,
+        lineWidth: strokeWidth,
+      });
 
     this.drawPointMarker(onePos, oneValue.color);
     this.drawPointMarker(twoPos, twoValue.color);
@@ -595,11 +611,12 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const trunc = xDist.lessThan(TIME_FORMAT_THRESHOLD)
       ? TimeSpan.MICROSECOND
       : TimeSpan.MILLISECOND;
-    const xValue = xDist.truncate(trunc).toString();
-    let slopeValue = math
-      .smartRound(slope, bounds.construct(Math.abs(slope)))
-      .toString();
-    if (oneValue.units != null && oneValue.units.length > 0)
+    let xValue = xDist.truncate(trunc).toString();
+    if (broken) xValue += " //";
+    let slopeValue: string | null = broken
+      ? null
+      : math.smartRound(slope, bounds.construct(Math.abs(slope))).toString();
+    if (slopeValue != null && oneValue.units != null && oneValue.units.length > 0)
       slopeValue += ` ${oneValue.units} / s`;
 
     if (isVeryClose) {
@@ -611,11 +628,16 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
 
       // Calculate combined label dimensions
       const labelWidth = LABEL_CHAR_WIDTH * 6; // "Slope" is longest at 6 chars, "ΔX" and "ΔY" are 2 chars each
-      const maxValueLength = Math.max(xValue.length, yValue.length, slopeValue.length);
+      const maxValueLength = Math.max(
+        xValue.length,
+        yValue.length,
+        slopeValue?.length ?? 0,
+      );
       const padding = LABEL_CONTAINER_PADDING;
       const combinedWidth =
         labelWidth + maxValueLength * VALUE_CHAR_WIDTH + padding * LABEL_VALUE_SPACING;
-      const combinedHeight = LABEL_CONTAINER_HEIGHT * 3 + padding * 2;
+      const combinedHeight =
+        LABEL_CONTAINER_HEIGHT * (slopeValue == null ? 2 : 3) + padding * 2;
 
       const centeredCombinedRegion = box.construct(
         xy.translate(centerPos, [-combinedWidth / 2, -combinedHeight / 2]),
@@ -683,15 +705,17 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       );
       this.drawLabelValue("ΔX", xValue, xy.translateX(xLabelPos, -15), xLabelColor);
 
-      const slopeLabelPos = this.calculateSlopeLabelPosition({
-        basePos: xy.construct((onePos.x + twoPos.x) / 2, (onePos.y + twoPos.y) / 2),
-        yLabelPos,
-        isVeryClose,
-        isHorizontal,
-        xPixelDist,
-        yPixelDist,
-      });
-      this.drawLabelValue("Slope", slopeValue, slopeLabelPos, slopeLabelColor);
+      if (slopeValue != null) {
+        const slopeLabelPos = this.calculateSlopeLabelPosition({
+          basePos: xy.construct((onePos.x + twoPos.x) / 2, (onePos.y + twoPos.y) / 2),
+          yLabelPos,
+          isVeryClose,
+          isHorizontal,
+          xPixelDist,
+          yPixelDist,
+        });
+        this.drawLabelValue("Slope", slopeValue, slopeLabelPos, slopeLabelColor);
+      }
     }
 
     const oneIsTop = onePos.y < twoPos.y;

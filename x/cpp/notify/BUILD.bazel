@@ -19,13 +19,6 @@ cc_library(
         "//conditions:default": ["polling_notifier.cpp"],
     }),
     hdrs = ["notify.h"],
-    copts = select({
-        "@platforms//os:windows": [
-            "/DWIN32_LEAN_AND_MEAN",
-            "/DNOMINMAX",
-        ],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/telem",

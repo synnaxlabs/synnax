@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 /**
@@ -63,14 +64,9 @@ export const entryZ = z.object({
 });
 export type Entry = z.infer<typeof entryZ>;
 
-export const manifestZ = entryZ.array().superRefine((entries, ctx) => {
-  const seen = new Set<string>();
-  for (const e of entries) {
-    if (seen.has(e.id))
-      ctx.addIssue({ code: "custom", message: `duplicate manifest id: ${e.id}` });
-    seen.add(e.id);
-  }
-});
+export const manifestZ = entryZ
+  .array()
+  .check(zod.uniqueBy("id", (id) => `duplicate manifest id: ${id}`));
 export type Manifest = z.infer<typeof manifestZ>;
 
 /** define validates and returns a manifest; use it in videos.ts. */

@@ -9,18 +9,18 @@
 
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { migrate } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { semver } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 import { z } from "zod";
 
 import { isDev } from "@/platform/version/build";
-import { type Target } from "@/platform/version/check";
+import type { Target } from "@/platform/version/check";
 import { Session } from "@/session";
 
 const RELEASE_URL = "https://docs.synnaxlabs.com/releases/core/latest.json";
 const UPGRADE_URL = "https://docs.synnaxlabs.com/reference/enterprise/upgrade";
 
-const releaseZ = z.object({ version: migrate.semVerZ });
+const releaseZ = z.object({ version: semver.versionZ });
 
 const fetchLatest = async (signal: AbortSignal): Promise<string> => {
   const res = await fetch(RELEASE_URL, { signal });
@@ -56,7 +56,7 @@ export const CoreNotice = ({ target }: CoreNoticeProps): ReactElement | null => 
         if (!signal.aborted) console.warn(error);
         return;
       }
-      if (signal.aborted || !migrate.semVerNewer(latest, target.version)) return;
+      if (signal.aborted || !semver.newer(latest, target.version)) return;
       addStatus({
         key: `coreUpdate-${latest}`,
         variant: "info",

@@ -253,6 +253,12 @@ var _ = Describe("Host", func() {
 					sparkplug.Int64, intValue(12), Equal(sparkplug.IntValue(12)),
 				),
 				Entry(
+					"a negative Int64 in int_value",
+					sparkplug.Int64,
+					intValue(0xFFFFFFFB),
+					Equal(sparkplug.IntValue(-5)),
+				),
+				Entry(
 					"UInt8",
 					sparkplug.UInt8,
 					intValue(255),

@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/x/errors"
@@ -92,18 +93,28 @@ func rangeOf(ctx antlr.ParserRuleContext) protocol.Range {
 		Line:      uint32(start.GetLine() - 1),
 		Character: uint32(start.GetColumn()),
 	}}
-	if stop != nil {
-		r.End = protocol.Position{
-			Line:      uint32(stop.GetLine() - 1),
-			Character: uint32(stop.GetColumn() + len(stop.GetText())),
-		}
-	} else {
-		r.End = protocol.Position{
-			Line:      r.Start.Line,
-			Character: r.Start.Character + uint32(len(start.GetText())),
-		}
+	if stop == nil {
+		stop = start
 	}
+	r.End = tokenEnd(stop)
 	return r
+}
+
+// tokenEnd returns the position just past t. Characters count code points to match
+// the ANTLR column of the start.
+func tokenEnd(t antlr.Token) protocol.Position {
+	text := t.GetText()
+	end := protocol.Position{
+		Line:      uint32(t.GetLine() - 1),
+		Character: uint32(t.GetColumn()),
+	}
+	if i := strings.LastIndexByte(text, '\n'); i >= 0 {
+		end.Line += uint32(strings.Count(text, "\n"))
+		end.Character = 0
+		text = text[i+1:]
+	}
+	end.Character += uint32(utf8.RuneCountInString(text))
+	return end
 }
 
 // Error creates an error diagnostic from an existing error. It takes the kind that
@@ -115,8 +126,7 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 		Range:    rangeOf(ctx),
 		cause:    err,
 	}
-	var marked *kindError
-	if errors.As(err, &marked) {
+	if marked, ok := errors.AsType[*kindError](err); ok {
 		d.Code, d.Severity = marked.kind.Code, marked.kind.Severity
 		// The text of an error that wraps the marked error moves to the end.
 		own := marked.Error()

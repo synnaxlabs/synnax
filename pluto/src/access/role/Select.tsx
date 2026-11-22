@@ -9,12 +9,12 @@
 
 import "@/access/role/Select.css";
 
-import { type access, type Synnax } from "@synnaxlabs/client";
+import type { access, Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select as Base } from "@synnaxlabs/lyra/select";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { icon } from "@/access/role/icon";
 import { CSS } from "@/css";

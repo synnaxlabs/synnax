@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockBoundingClientRect } from "@/testutil/dom";
@@ -870,6 +870,7 @@ describe("Triggers", () => {
     const TEXT_ENTRY_KEYS: [Triggers.Key, string][] = [
       ["Minus", "-"],
       ["Equal", "="],
+      ["Period", "."],
       ["Space", " "],
     ];
 

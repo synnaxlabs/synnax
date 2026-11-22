@@ -20,7 +20,7 @@ import { MetaData } from "@/feature/range/overview/MetaData";
 import { AddLine } from "@/feature/range/overview/Section";
 import { Sift } from "@/feature/sift";
 import { CSS } from "@/platform/css";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 
 const NO_PAIRS: ranger.kv.Pair[] = [];
@@ -36,7 +36,7 @@ const Body = ({ rangeKey: key }: BodyProps): ReactElement => {
   const openCreate = Range.useCreateModal();
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const canEdit = Access.useUpdateGranted(ranger.resourceID(key));
-  const handleCreate = canCreate ? () => openCreate({ parent: key }) : undefined;
+  const handleCreate = canCreate ? () => void openCreate({ parent: key }) : undefined;
   const showMetaData = pairs.length > 0 || adding;
   return (
     <div className={CSS.BE("range-overview", "scroll")}>

@@ -13,11 +13,11 @@ import { box, color, type destructor, scale, text, xy } from "@synnaxlabs/x";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
-import { type diagram } from "@/vis/diagram/aether";
+import type { diagram } from "@/vis/diagram/aether";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
-export const stateZ = staleness.configZ.extend({
+export const stateZ = staleness.drawnStateZ.extend({
   // box is the region the text fills. The text starts at its left edge, centers on it
   // vertically, and fades out where it would overflow.
   box: box.box,
@@ -25,7 +25,6 @@ export const stateZ = staleness.configZ.extend({
   level: text.levelZ.default("p"),
   // color is the text color. Absent, the text takes the theme's text color.
   color: color.colorZ.optional(),
-  stalenessColor: color.colorZ.optional(),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
@@ -41,7 +40,6 @@ interface InternalState {
   requestRender: render.Requestor | null;
   fontString: string;
   staleness: staleness.Registration;
-  stale: boolean;
 }
 
 /**
@@ -56,20 +54,16 @@ export class StringValue
   static readonly TYPE = "StringValue";
   static readonly z = stateZ;
 
-  schema = StringValue.z;
+  override schema = StringValue.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
     i.fontString = theme.fontString(i.theme, { level: this.state.level, code: true });
     i.source = telem.useSource(ctx, this.state.telem, i.source);
-    i.staleness = staleness.useInternalRegistration(
-      ctx,
-      i.staleness,
-      this,
-      i.source,
-      () => this.requestRender(),
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.source, () =>
+      this.requestRender(),
     );
     i.stopListening?.();
     i.stopListening = i.source.onChange(() => {
@@ -80,7 +74,7 @@ export class StringValue
     this.requestRender();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.staleness?.cleanup();
@@ -97,9 +91,10 @@ export class StringValue
   }
 
   private get textColor(): color.Color {
-    const { theme, stale } = this.internal;
-    if (stale) return staleness.resolveColor(this.state.stalenessColor, theme);
-    return this.state.color ?? theme.colors.text;
+    const { theme } = this.internal;
+    return (
+      staleness.drawnColor(this.state, theme) ?? this.state.color ?? theme.colors.text
+    );
   }
 
   render({ viewportScale = scale.XY.IDENTITY }: { viewportScale?: scale.XY }): void {

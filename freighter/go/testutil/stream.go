@@ -111,17 +111,40 @@ func (ss *StreamServer[RQ, RS]) exec(
 	if h == nil {
 		return ctx, errors.New("no handler bound to stream server")
 	}
-	return ss.Exec(
-		ctx,
-		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
-			go srv.exec(ctx, h)
-			return freighter.Context{
-				Target:   ss.address,
-				Protocol: protocol,
-				Params:   make(freighter.Params),
-			}, nil
-		}),
-	)
+	oCtx := freighter.Context{
+		Target:   ss.address,
+		Protocol: protocol,
+		Params:   make(freighter.Params),
+	}
+	// The chain runs in its own goroutine so that it wraps the handler's whole
+	// lifetime, while the client gets its stream once the chain reaches the handler.
+	started := make(chan struct{})
+	failed := make(chan error, 1)
+	go func() {
+		handled := false
+		_, err := ss.Exec(
+			ctx,
+			freighter.FinalizerFunc(func(
+				md freighter.Context,
+			) (freighter.Context, error) {
+				handled = true
+				srv.ctx = md
+				close(started)
+				return oCtx, h(md, srv)
+			}),
+		)
+		if !handled {
+			failed <- err
+			return
+		}
+		srv.close(err, ctx.Done())
+	}()
+	select {
+	case <-started:
+		return oCtx, nil
+	case err := <-failed:
+		return ctx, err
+	}
 }
 
 // StreamClient implements the freighter.StreamClient interface using go channels as the
@@ -252,11 +275,9 @@ func (ss *ServerStream[RQ, RS]) Receive() (RQ, error) {
 	}
 }
 
-func (ss *ServerStream[RQ, RS]) exec(
-	ctx context.Context,
-	handler func(context.Context, freighter.ServerStream[RQ, RS]) error,
-) {
-	err := handler(ctx, ss)
+// close ends the stream with err, the result of the server's middleware chain. The
+// error is dropped once abandoned closes.
+func (ss *ServerStream[RQ, RS]) close(err error, abandoned <-chan struct{}) {
 	errPayload := ss.errs.Encode(err, true)
 	if errPayload.Type == errors.TypeNil {
 		errPayload = ss.errs.Encode(io.EOF, true)
@@ -266,7 +287,7 @@ func (ss *ServerStream[RQ, RS]) exec(
 	// nowhere to go. Drop it rather than parking this goroutine for good.
 	select {
 	case ss.responses <- message[RS]{err: errPayload}:
-	case <-ss.ctx.Done():
+	case <-abandoned:
 	}
 }
 

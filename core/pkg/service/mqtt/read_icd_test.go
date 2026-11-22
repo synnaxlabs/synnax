@@ -332,8 +332,8 @@ var _ = Describe("Read task ICD messages", func() {
 					"plant/status", ic, readMessage(m, binding(m, 0, data[0])),
 				)))
 				broker.publish("plant/status", `{"temp":"hot"}`, false)
-				warned(ctx, t, "Message on topic plant/status: message Status: "+
-					`field temp: unknown enum label "hot": validation error`,
+				warned(ctx, t, "Message on topic plant/status: field temp: "+
+					`unknown enum label "hot": validation error`,
 				)
 				Expect(stored(ctx, data[0]).Len()).To(BeZero())
 			},

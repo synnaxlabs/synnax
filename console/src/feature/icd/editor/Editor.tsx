@@ -17,8 +17,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, ICD, Panel } from "@synnaxlabs/pluto";
-import { type deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Message } from "@/feature/icd/editor/Message";
 import { Messages } from "@/feature/icd/editor/Messages";

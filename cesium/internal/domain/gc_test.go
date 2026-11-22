@@ -1152,6 +1152,39 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Entry("writing the copy", WithFailWrite("1.domain_gc")),
 				)
 
+				It("Should keep the data readable when the copy fails to rename",
+					func(ctx SpecContext) {
+						faulty.SetOptions(WithFailRename("1.domain_gc"))
+						Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
+						faulty.SetOptions()
+						Expect(
+							testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
+						).To(Equal([]byte{10, 11, 12, 17, 18, 19}))
+					})
+
+				It("Should not keep stale bytes from a copy that failed to rename",
+					func(ctx SpecContext) {
+						faulty.SetOptions(WithFailRename("1.domain_gc"))
+						Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
+						faulty.SetOptions()
+						Expect(db.Delete(
+							ctx,
+							telem.TimeRange{
+								Start: 10*telem.SecondTS + 1,
+								End:   12*telem.SecondTS + 1,
+							},
+							fixedOffset(1),
+							fixedOffset(3),
+						)).To(Succeed())
+						Expect(db.GarbageCollect(ctx)).To(Succeed())
+						Expect(
+							MustSucceed(fs.Stat("1.domain")).Size(),
+						).To(Equal(int64(4)))
+						Expect(
+							testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
+						).To(Equal([]byte{10, 17, 18, 19}))
+					})
+
 				It("Should surface a failed rename", func(ctx SpecContext) {
 					faulty.SetOptions(WithFailRename("1.domain"))
 					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))

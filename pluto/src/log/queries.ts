@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type log, type project } from "@synnaxlabs/client";
-import { compare, verbs } from "@synnaxlabs/x";
+import type { channel, log, project } from "@synnaxlabs/client";
+import { array, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Scope } from "@/log/scope";
@@ -45,7 +45,7 @@ export const useChannels = Scope.bindHook(createSelector(({ channels }) => chann
 export const useChannelKeys = Scope.bindHook(
   createSelector(
     ({ channels }) => channels.map((e) => e.channel),
-    (a, b) => compare.arraysEqual(a, b),
+    (a, b) => array.equal(a, b),
   ),
 );
 

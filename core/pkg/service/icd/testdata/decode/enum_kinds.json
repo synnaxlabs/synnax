@@ -98,7 +98,7 @@
         "level": 1,
         "on": "YES"
       },
-      "error": "message reading: field mode: invalid number \"1e999\": validation error"
+      "error": "field mode: invalid number \"1e999\": validation error"
     }
   ]
 }

@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Fragment, type ReactElement } from "react";
+import { scheduler } from "@synnaxlabs/x";
+import { Fragment, type ReactElement, useState } from "react";
+import { flushSync } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 
@@ -197,7 +199,7 @@ describe("Tags", () => {
       .poll(() => document.querySelector(`.${CSS.BE("tags", "hidden")}`))
       .not.toBeNull()
       .then(() => document.querySelector(`.${CSS.BE("tags", "hidden")}`)!);
-    expect(list.textContent).toContain(LABELS[LABELS.length - 1]);
+    expect(list.textContent).toContain(LABELS.at(-1));
     expect(list.querySelector("svg")).toBeNull();
   });
 
@@ -218,8 +220,8 @@ describe("Tags", () => {
       const frame = container.querySelector<HTMLElement>("[data-testid=frame]")!;
       // The group fits again once its font loads, which moves the count.
       await document.fonts.ready;
-      await new Promise(requestAnimationFrame);
-      await new Promise(requestAnimationFrame);
+      await scheduler.nextFrame();
+      await scheduler.nextFrame();
       await expect.poll(() => count(frame)).not.toBeNull();
       expect(dots(frame)).toEqual(LABELS.slice(4));
       expect(faceInside(frame)).toBe(true);
@@ -356,7 +358,48 @@ describe("Tags", () => {
     frame.style.maxWidth = "1000px";
     await expect.poll(() => named(frame)).toEqual(LABELS);
   });
+
+  it("should keep its size in its resize when its tags change", async () => {
+    const errors: string[] = [];
+    const handleError = (e: ErrorEvent): void => {
+      errors.push(e.message);
+    };
+    window.addEventListener("error", handleError);
+    const { container } = await renderThemed(<Relabeled />);
+    const relabel = container.querySelector("button")!;
+    await expect.poll(() => fitted(container)).toBe(true);
+    // A change after the step's frame callbacks resizes the group before it refits.
+    await new Promise<void>((done) =>
+      requestAnimationFrame(() => {
+        flushSync(() => relabel.click());
+        done();
+      }),
+    );
+    await expect.poll(() => count(container)).toBe("+3");
+    await scheduler.nextFrame();
+    window.removeEventListener("error", handleError);
+    expect(errors).toEqual([]);
+  });
 });
+
+// A lone group that sizes itself to its tags, with a button that renames them.
+const Relabeled = (): ReactElement => {
+  const [labels, setLabels] = useState(["0123456789abcdef0123456789abcdef"]);
+  return (
+    <>
+      <button onClick={() => setLabels(LABELS.slice(0, 3))}>Relabel</button>
+      <div style={{ display: "inline-flex", maxWidth: "150px" }}>
+        <Tag.Tags full="x" grow>
+          {labels.map((label) => (
+            <Tag.Tag key={label} color="#3774d0">
+              {label}
+            </Tag.Tag>
+          ))}
+        </Tag.Tags>
+      </div>
+    </>
+  );
+};
 
 const renderGroup = (labels: string[], noun?: Tag.TagsProps["noun"]): ReactElement => (
   <div data-testid="group" style={{ display: "flex", width: "100%" }}>
@@ -500,8 +543,8 @@ describe("Stepped tags", () => {
     await userEvent.hover(first);
     await expect.poll(() => first.hasAttribute("data-lifted")).toBe(true);
     container.querySelector("[data-testid=clock]")!.firstChild!.nodeValue = "1";
-    await new Promise(requestAnimationFrame);
-    await new Promise(requestAnimationFrame);
+    await scheduler.nextFrame();
+    await scheduler.nextFrame();
     expect(first.hasAttribute("data-lifted")).toBe(true);
   });
 
@@ -531,7 +574,7 @@ describe("Stepped tags", () => {
     const tags = all.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
     await userEvent.click(tags);
     await userEvent.click(tags);
-    await new Promise(requestAnimationFrame);
+    await scheduler.nextFrame();
     expect(dots(all)).toEqual(LABELS.slice(0, 3));
     expect(dots(three)).toEqual(LABELS.slice(0, 3));
     expect(count(all)).toBe(`${LABELS.length} labels`);

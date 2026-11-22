@@ -28,6 +28,7 @@ Note: You do NOT need the OPC UA test server running to delete the device.
 """
 
 import argparse
+import sys
 
 import synnax as sy
 
@@ -66,7 +67,7 @@ if existing_device is None:
     print()
     print("The device is already disconnected from Synnax.")
     print("=" * 70)
-    exit(0)
+    sys.exit(0)
 
 # Device found - show info and prompt for confirmation
 print("Device found:")
@@ -94,7 +95,7 @@ if response in ("y", "yes"):
         print()
         print("The OPC UA server has been disconnected from Synnax.")
         print("=" * 70)
-        exit(0)
+        sys.exit(0)
 
     except Exception as e:
         print(f"✗ Failed to delete device: {e}")
@@ -104,11 +105,11 @@ if response in ("y", "yes"):
         print("2. Go to Resources → Devices")
         print(f"3. Find '{DEVICE_NAME}' and delete it")
         print("=" * 70)
-        exit(1)
+        sys.exit(1)
 
 else:
     # User cancelled
     print()
     print("Deletion cancelled - device preserved.")
     print("=" * 70)
-    exit(0)
+    sys.exit(0)

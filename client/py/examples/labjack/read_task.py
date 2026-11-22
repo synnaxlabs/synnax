@@ -24,6 +24,8 @@ Before running this example:
 This example reads from two analog input channels at 100 Hz.
 """
 
+import sys
+
 import numpy as np
 
 import synnax as sy
@@ -88,7 +90,7 @@ try:
     print("✓ Task configured successfully")
 except Exception as e:
     print(f"✗ Task configuration failed: {e}")
-    exit(1)
+    sys.exit(1)
 
 print("=" * 70)
 print("Starting LabJack Read Task")

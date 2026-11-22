@@ -88,3 +88,33 @@ var _ = Describe("Migrate functions", func() {
 		Expect(out.Data.States[0].Regions[0].FillColor).To(Equal(want))
 	})
 })
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v4.Symbol) v4.Symbol {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Symbol",
+			Migrations: []gorp.Migration{v4.NameMigration},
+		})).To(Succeed())
+		var out v4.Symbol
+		Expect(gorp.NewRetrieve[v4.Key, v4.Symbol]().
+			Where(gorp.MatchKeys[v4.Key, v4.Symbol](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless symbols",
+		func(ctx SpecContext, name, expected string) {
+			Expect(migrated(ctx, v4.Symbol{Key: key, Name: name}).Name).
+				To(Equal(expected))
+		},
+		Entry("empty name", "", "Symbol 1a2b3c4d"),
+		Entry("named symbol", "Named", "Named"),
+	)
+})

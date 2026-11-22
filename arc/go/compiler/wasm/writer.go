@@ -177,6 +177,12 @@ func (e *Writer) WriteBinaryOp(op Opcode) {
 	e.WriteOpcode(op)
 }
 
+// WriteTruncSat writes a saturating float-to-integer conversion.
+func (e *Writer) WriteTruncSat(op TruncSatOpcode) {
+	e.buf.WriteByte(0xfc)
+	e.WriteLEB128Unsigned(uint64(op))
+}
+
 // WriteI32Eqz writes an i32.eqz instruction (returns 1 if value is 0, else 0).
 func (e *Writer) WriteI32Eqz() {
 	e.WriteOpcode(OpI32Eqz)

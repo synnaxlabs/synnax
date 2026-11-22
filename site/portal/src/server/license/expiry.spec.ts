@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { type Event, event, type Organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { dueNotice, sweep } from "@/server/license/expiry";
 import { expiring } from "@/server/license/notice";
@@ -22,9 +23,9 @@ const expiringIn = (days: number) => ({
   ...LICENSE,
   expiresAt: new Date(NOW.getTime() + days * DAY),
 });
-const notice = (days: number): Event => ({
+const notice = (days: number, at = NOW): schema.Event => ({
   key: days,
-  at: NOW,
+  at,
   kind: "expiry_notice",
   actor: "system",
   organization: LICENSE.organization,
@@ -52,6 +53,12 @@ describe("expiry.dueNotice", () => {
     expect(dueNotice(expiringIn(6), [notice(7)], NOW)).toBeNull();
   });
 
+  it("should warn again for an expiry extended after its warnings", () => {
+    const lastYear = new Date(NOW.getTime() - 365 * DAY);
+    const sent = [notice(30, lastYear), notice(7, lastYear), notice(1, lastYear)];
+    expect(dueNotice(expiringIn(29.5), sent, NOW)).toBe(30);
+  });
+
   it("should be silent once expired, revoked, or perpetual", () => {
     expect(dueNotice(expiringIn(-1), [], NOW)).toBeNull();
     expect(dueNotice({ ...expiringIn(5), revokedAt: NOW }, [], NOW)).toBeNull();
@@ -61,7 +68,7 @@ describe("expiry.dueNotice", () => {
 
 describe("expiry.sweep", () => {
   let store: Memory;
-  let org: Organization;
+  let org: schema.Organization;
   let mail: Mailer & { sent: Message[] };
   let asked: string[];
   const TO = ["admin@acme.com"];
@@ -83,7 +90,7 @@ describe("expiry.sweep", () => {
     asked = [];
   });
 
-  const events = async () => await store.query.select().from(event);
+  const events = async () => await store.query.select().from(schema.event);
   const createExpiring = async (days: number, values = {}) =>
     await createLicense(store, {
       organization: org.key,
@@ -134,6 +141,19 @@ describe("expiry.sweep", () => {
     }
     expect(days).toEqual([30, 7, 1]);
     expect((await events()).map((e) => e.license)).toEqual([lic.key, lic.key, lic.key]);
+  });
+
+  it("should warn again after an amendment extends the expiry", async () => {
+    const lic = await createExpiring(29.5);
+    const at = (days: number) => new Date(NOW.getTime() + days * DAY);
+    for (const now of [NOW, at(23), at(29)])
+      await sweep({ store, mail, recipients, now });
+    await store.query
+      .update(schema.license)
+      .set({ expiresAt: at(29.5 + 365) })
+      .where(eq(schema.license.key, lic.key));
+    const sent = await sweep({ store, mail, recipients, now: at(365) });
+    expect(sent).toEqual([{ license: lic.key, days: 30, to: TO }]);
   });
 
   it("should skip an organization with nobody to mail and retry it later", async () => {

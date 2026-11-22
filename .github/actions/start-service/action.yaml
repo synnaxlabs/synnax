@@ -8,10 +8,12 @@
 # included in the file licenses/APL.txt.
 
 # Starts a container by digest, publishes its port, and waits for its health check, if
-# it has one. A workflow calls this instead of using `services`, because a service image
-# cannot be both pinned and optional. Pass the container's variables in the env of the
-# calling step and name them in `variables`. The caller removes the container: build
-# bots outlive the job.
+# it has one. An image tagged `src-<hash>` with no digest is one that a fork's run
+# built, and the action loads it from the artifact that Build - Docker uploaded. A
+# workflow calls this instead of using `services`, because a service image cannot be
+# both pinned and optional. Pass the container's variables in the env of the calling
+# step and name them in `variables`. The caller removes the container: build bots
+# outlive the job.
 
 name: Start service
 description: Start a container from a pinned image
@@ -21,7 +23,7 @@ inputs:
     description: Container name
     required: true
   image:
-    description: Image reference, pinned by digest
+    description: Image reference, pinned by digest, or the tag of a fork's image
     required: true
   port:
     description: Port to publish on the host
@@ -37,6 +39,23 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Name the artifact of the image
+      id: artifact
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+      run: |
+        if [[ $IMAGE != *@* && ${IMAGE##*:} == src-* ]]; then
+          echo "name=image-${IMAGE##*:}" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Download the image
+      if: steps.artifact.outputs.name != ''
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+      with:
+        name: ${{ steps.artifact.outputs.name }}
+        path: ${{ runner.temp }}/${{ steps.artifact.outputs.name }}
+
     - name: Start the container
       shell: bash
       env:
@@ -45,9 +64,20 @@ runs:
         PORT: ${{ inputs.port }}
         TOKEN: ${{ inputs.token }}
         VARIABLES: ${{ inputs.variables }}
+        ARTIFACT: ${{ steps.artifact.outputs.name }}
       run: |
-        docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin <<< "$TOKEN"
         docker rm --force "$NAME" 2> /dev/null || true
+        if [ -n "$ARTIFACT" ]; then
+          docker load --input "$RUNNER_TEMP/$ARTIFACT/image.tar"
+        else
+          docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin <<< "$TOKEN"
+          # Pulls from GitHub Container Registry sometimes drop the connection.
+          for attempt in 1 2 3 4 5; do
+            if docker pull --quiet "$IMAGE"; then break; fi
+            if [ "$attempt" = 5 ]; then exit 1; fi
+            sleep $((attempt * 10))
+          done
+        fi
         args=()
         for variable in $VARIABLES; do args+=(--env "$variable"); done
         docker run --detach --name "$NAME" --publish "$PORT:$PORT" "${args[@]}" "$IMAGE"

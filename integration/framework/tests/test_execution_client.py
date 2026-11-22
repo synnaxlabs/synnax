@@ -366,6 +366,45 @@ class TestExecutionClient:
         with pytest.raises(RuntimeError, match=r"^telemetry is down$"):
             execution.run(loaded)
 
+    def test_bundle_dirs(self, cases_dir: Path) -> None:
+        """Should give each test its own bundle when two cases share a file name or
+        a name matches a deeper case path."""
+        (cases_dir / "lanes_spec" / "sub").mkdir()
+        source = HOLD_CASE.replace("{HELD}", "set()")
+        (cases_dir / "lanes_spec" / "sub" / "plain.py").write_text(source)
+        (cases_dir / "lanes_spec" / "plain").mkdir()
+        (cases_dir / "lanes_spec" / "plain" / "sub.py").write_text(source)
+        parameters = {"hold": 0.0, "record": "record.jsonl", "fails_once": ""}
+        execution, loaded, results = client(
+            cases_dir,
+            {
+                "sequence_name": "a",
+                "tests": [
+                    {"case": "lanes_spec/plain", "parameters": parameters},
+                    {"case": "lanes_spec/sub/plain", "parameters": parameters},
+                    {
+                        "case": "lanes_spec/plain",
+                        "name": "sub",
+                        "parameters": parameters,
+                    },
+                    {"case": "lanes_spec/plain/sub", "parameters": parameters},
+                ],
+            },
+        )
+        execution.run(loaded)
+        tests = cases_dir.parent / "run" / "tests"
+        bundles = set()
+        for t in results:
+            assert t.bundle_dir is not None
+            bundles.add(Path(t.bundle_dir).relative_to(tests).as_posix())
+        assert bundles == {
+            "lanes_spec/plain",
+            "lanes_spec/sub/plain",
+            "lanes_spec/plain (sub)",
+            "lanes_spec/plain/sub",
+        }
+        assert all(t.status == STATUS.PASSED for t in results)
+
     def test_retry_with_peers(self, cases_dir: Path) -> None:
         """Should run the whole asynchronous sequence again for a failed test, and
         keep one result for each test."""

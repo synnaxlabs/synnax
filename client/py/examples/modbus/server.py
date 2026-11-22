@@ -20,7 +20,7 @@ from pymodbus import ModbusDeviceIdentification
 from pymodbus.client import ModbusSerialClient, ModbusTcpClient
 from pymodbus.constants import ExcCodes
 from pymodbus.datastore import ModbusServerContext
-from pymodbus.exceptions import NoSuchIdException
+from pymodbus.exceptions import ModbusException, NoSuchIdException
 from pymodbus.server import ModbusSerialServer, ModbusTcpServer
 from pymodbus.simulator import DataType, SimData, SimDevice
 from pymodbus.simulator.simcore import SimCore
@@ -105,7 +105,7 @@ class ModbusSim(DeviceSim):
                     and not client.read_coils(0, count=1, device_id=SLAVE_ID).isError()
                 ):
                     return
-            except Exception:
+            except ModbusException:
                 pass
             finally:
                 client.close()
@@ -118,7 +118,7 @@ class ModbusSim(DeviceSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> modbus.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> modbus.Device:
         return modbus.Device(
             host=ModbusSim.host,
             port=ModbusSim.port,
@@ -177,7 +177,9 @@ class ModbusGatewaySim(DeviceSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int, unit_id: int = 1) -> modbus.Device:
+    def create_device(
+        client: sy.Synnax, rack_key: int, unit_id: int = 1
+    ) -> modbus.Device:
         return modbus.Device(
             host=ModbusGatewaySim.host,
             port=ModbusGatewaySim.port,
@@ -301,7 +303,7 @@ class ModbusSerialSim(DeviceSim):
                         and not client.read_holding_registers(0).isError()
                     ):
                         return
-                except Exception:
+                except ModbusException:
                     pass
                 finally:
                     client.close()
@@ -319,7 +321,9 @@ class ModbusSerialSim(DeviceSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int, unit_id: int = 1) -> modbus.Device:
+    def create_device(
+        client: sy.Synnax, rack_key: int, unit_id: int = 1
+    ) -> modbus.Device:
         return modbus.Device(
             transport="rtu",
             serial_port=ModbusSerialSim.serial_port,
