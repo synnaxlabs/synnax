@@ -364,10 +364,10 @@ func (c *core) replace(r *log.Replace) error {
 	return nil
 }
 
-// copied reports whether ptrs, the durable pointers of a segment, and copy name the
-// same ranges, at any offsets.
-func copied(ptrs []Pointer, copy []log.Pointer) bool {
-	return slices.EqualFunc(ptrs, copy, func(p Pointer, q log.Pointer) bool {
+// copied reports whether ptrs, the durable pointers of a segment, and dst, the pointers
+// of its copy, name the same ranges at any offsets.
+func copied(ptrs []Pointer, dst []log.Pointer) bool {
+	return slices.EqualFunc(ptrs, dst, func(p Pointer, q log.Pointer) bool {
 		return int64(p.First) == q.First && int64(p.Last) == q.Last &&
 			uint64(p.Alignment) == q.Alignment && p.Length == q.Length &&
 			p.Samples == q.Samples
