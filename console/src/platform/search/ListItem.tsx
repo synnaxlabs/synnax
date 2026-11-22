@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type resource } from "@synnaxlabs/client";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { resource } from "@synnaxlabs/client";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { Palette } from "@/platform/palette";
 import { Panel } from "@/platform/panel";

@@ -13,10 +13,9 @@ import { createRef, type ReactElement, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
-import { renderProp } from "@/component/renderProp";
+import { Component } from "@/component";
 import { List } from "@/list";
-import { mockGeometry } from "@/testutil/dom";
-import { createRenderCounter } from "@/testutil/renders";
+import { createRenderCounter, mockGeometry } from "@/testutil";
 
 const removalObservers = new Set<RemovalResizeObserver>();
 
@@ -188,10 +187,12 @@ describe("List", () => {
             return undefined;
           }) as List.GetItem<string, record.KeyedNamed<string>>;
           const obs = new observe.Observer<void>();
-          const itemProp = renderProp(({ itemKey }: List.ItemProps<string>) => {
-            const item = List.useItem<string, record.KeyedNamed<string>>(itemKey);
-            return <div key={itemKey}>{item?.name}</div>;
-          });
+          const itemProp = Component.renderProp(
+            ({ itemKey }: List.ItemProps<string>) => {
+              const item = List.useItem<string, record.KeyedNamed<string>>(itemKey);
+              return <div key={itemKey}>{item?.name}</div>;
+            },
+          );
           const result = render(
             <List.Frame<string, record.KeyedNamed<string>>
               data={["1", "2", "3"]}
@@ -481,6 +482,124 @@ describe("List", () => {
         });
         expect(texts(result)).toContain("499");
         expect(onFetchMore).toHaveBeenCalledTimes(calls);
+      });
+    });
+
+    describe("focused", () => {
+      interface FocusedProps {
+        data: string[];
+        scrollHidden?: boolean;
+      }
+
+      const Focused = ({ data, scrollHidden = false }: FocusedProps): ReactElement => (
+        <>
+          <button>outside</button>
+          <List.Frame data={data} virtual itemHeight={ITEM_HEIGHT}>
+            {!scrollHidden && (
+              <List.Scroll>
+                <List.Items>
+                  {({ key, ...rest }: List.ItemProps<string>) => (
+                    <List.Item key={key} {...rest}>
+                      <input aria-label={key} />
+                    </List.Item>
+                  )}
+                </List.Items>
+              </List.Scroll>
+            )}
+          </List.Frame>
+        </>
+      );
+
+      // Focuses a field in the last mounted row, as a rename focuses the row's name.
+      const focusLastRow = (result: ReturnType<typeof render>): HTMLElement => {
+        const field = rows(result).at(-1)?.querySelector("input");
+        if (field == null) throw new Error("no rows rendered");
+        act(() => field.focus());
+        return field;
+      };
+
+      const prepend = (count: number): string[] => [
+        ...Array.from({ length: count }, (_, i) => `new-${i}`),
+        ...DATA,
+      ];
+
+      it("should keep the focused row mounted when rows land above it", () => {
+        const result = render(<Focused data={DATA} />);
+        const field = focusLastRow(result);
+        result.rerender(<Focused data={prepend(5)} />);
+        expect(field.isConnected).toBe(true);
+        expect(document.activeElement).toBe(field);
+      });
+
+      it("should keep the row pinned when the window loses the focus", () => {
+        const result = render(<Focused data={DATA} />);
+        const field = focusLastRow(result);
+        // A window blur sends a focusout with no related target and leaves the focus.
+        act(() => {
+          fireEvent.focusOut(field, { relatedTarget: null });
+        });
+        result.rerender(<Focused data={prepend(5)} />);
+        expect(field.isConnected).toBe(true);
+      });
+
+      it("should release a focused row whose key leaves the data", () => {
+        const result = render(<Focused data={DATA} />);
+        const field = focusLastRow(result);
+        const key = field.getAttribute("aria-label") ?? "";
+        result.rerender(<Focused data={DATA.filter((k) => k !== key)} />);
+        result.rerender(<Focused data={prepend(5)} />);
+        expect(result.queryByLabelText(key)).toBeNull();
+      });
+
+      it("should release a focused row when the scroll container unmounts", () => {
+        const result = render(<Focused data={DATA} />);
+        const field = focusLastRow(result);
+        const key = field.getAttribute("aria-label") ?? "";
+        result.rerender(<Focused data={DATA} scrollHidden />);
+        result.rerender(<Focused data={prepend(5)} />);
+        expect(result.queryByLabelText(key)).toBeNull();
+      });
+
+      it("should not re-render an elements context reader when the list scrolls", () => {
+        const renders = vi.fn();
+        const Reader = (): null => {
+          List.useGetElement();
+          renders();
+          return null;
+        };
+        const result = render(
+          <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT}>
+            <Reader />
+            <List.Scroll>
+              <List.Items>
+                {({ key, ...rest }: List.ItemProps<string>) => (
+                  <List.Item key={key} {...rest}>
+                    {key}
+                  </List.Item>
+                )}
+              </List.Items>
+            </List.Scroll>
+          </List.Frame>,
+        );
+        const scroller =
+          result.container.querySelector<HTMLElement>(".lyra-list__scroll");
+        if (scroller == null) throw new Error("scroll container not found");
+        renders.mockClear();
+        for (let i = 1; i <= 5; i++)
+          act(() => {
+            scroller.scrollTop = i * 10 * ITEM_HEIGHT;
+            fireEvent.scroll(scroller);
+          });
+        expect(rows(result)[0].textContent).not.toBe("0");
+        expect(renders).not.toHaveBeenCalled();
+      });
+
+      it("should release the row once the focus leaves the list", () => {
+        const result = render(<Focused data={DATA} />);
+        const field = focusLastRow(result);
+        act(() => result.getByText("outside").focus());
+        result.rerender(<Focused data={prepend(5)} />);
+        expect(field.isConnected).toBe(false);
       });
     });
 

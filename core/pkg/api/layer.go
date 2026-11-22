@@ -72,6 +72,7 @@ var DefaultLayerConfig = config.DefaultLayerConfig
 type Transport struct {
 	// AUTH
 	AuthLogin           freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
+	AuthMethods         freighter.UnaryServer[struct{}, auth.MethodsResponse]
 	AuthChangePassword  freighter.UnaryServer[auth.ChangePasswordRequest, struct{}]
 	AuthSessionCreate   freighter.UnaryServer[auth.SessionCreateRequest, auth.SessionCreateResponse]
 	AuthSessionRenew    freighter.UnaryServer[struct{}, auth.SessionRenewResponse]
@@ -80,6 +81,12 @@ type Transport struct {
 	AuthKeyCreate       freighter.UnaryServer[auth.KeyCreateRequest, auth.KeyCreateResponse]
 	AuthKeyRetrieve     freighter.UnaryServer[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse]
 	AuthKeyDelete       freighter.UnaryServer[auth.KeyDeleteRequest, struct{}]
+	// AuthOIDCLink links a provider account to the caller.
+	AuthOIDCLink freighter.UnaryServer[auth.OIDCLinkRequest, auth.OIDCLinkResponse]
+	// AuthOIDCRetrieve lists provider links.
+	AuthOIDCRetrieve freighter.UnaryServer[auth.OIDCRetrieveRequest, auth.OIDCRetrieveResponse]
+	// AuthOIDCUnlink removes provider links and ends their sessions.
+	AuthOIDCUnlink freighter.UnaryServer[auth.OIDCUnlinkRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
 	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, auth.PasswordSetResponse]
 	// USER
@@ -156,6 +163,11 @@ type Transport struct {
 	SchematicSymbolExportGroup freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
 	SchematicSymbolImportGroup freighter.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]
 	SchematicSymbolDeleteGroup freighter.UnaryServer[symbol.DeleteGroupRequest, struct{}]
+	// SchematicSymbolRetrieveBuiltins returns the symbols that the Core ships.
+	SchematicSymbolRetrieveBuiltins freighter.UnaryServer[
+		struct{},
+		symbol.RetrieveBuiltinsResponse,
+	]
 	// LOG
 	LogCreate   freighter.UnaryServer[log.CreateRequest, log.CreateResponse]
 	LogRetrieve freighter.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]
@@ -209,6 +221,8 @@ type Transport struct {
 		enumeration.RetrieveResponse,
 	]
 	EnumerationDelete freighter.UnaryServer[enumeration.DeleteRequest, struct{}]
+	// EnumerationReplace moves the users of an enumeration to another, then deletes it.
+	EnumerationReplace freighter.UnaryServer[enumeration.ReplaceRequest, struct{}]
 	// EnumerationDispatch applies path actions to an enumeration.
 	EnumerationDispatch freighter.UnaryServer[enumeration.DispatchRequest, struct{}]
 	// EnumerationRetrieveBuiltins returns the shipped values of the built-in
@@ -216,11 +230,6 @@ type Transport struct {
 	EnumerationRetrieveBuiltins freighter.UnaryServer[
 		struct{},
 		enumeration.RetrieveBuiltinsResponse,
-	]
-	// EnumerationRetrieveDependents returns the records that use an enumeration.
-	EnumerationRetrieveDependents freighter.UnaryServer[
-		enumeration.RetrieveDependentsRequest,
-		enumeration.RetrieveDependentsResponse,
 	]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
@@ -300,6 +309,8 @@ type Transport struct {
 	CertificateDelete   freighter.UnaryServer[certificate.DeleteRequest, struct{}]
 	// CertificateDispatch applies path actions to a certificate.
 	CertificateDispatch freighter.UnaryServer[certificate.DispatchRequest, struct{}]
+	// CertificateRefresh saves the details that a rack read from a certificate file.
+	CertificateRefresh freighter.UnaryServer[certificate.RefreshRequest, struct{}]
 	// ViewDispatch applies path actions to a view.
 	ViewDispatch freighter.UnaryServer[view.DispatchRequest, struct{}]
 	// IMPORT/EXPORT
@@ -377,6 +388,7 @@ func (l *Layer) BindTo(t Transport) {
 	freighter.UseOnAll(
 		insecureMiddleware,
 		t.AuthLogin,
+		t.AuthMethods,
 		t.AuthSessionCreate,
 		t.ConnectivityCheck,
 	)
@@ -406,6 +418,9 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthKeyCreate,
 		t.AuthKeyRetrieve,
 		t.AuthKeyDelete,
+		t.AuthOIDCLink,
+		t.AuthOIDCRetrieve,
+		t.AuthOIDCUnlink,
 		t.AuthPasswordSet,
 
 		// USER
@@ -477,6 +492,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicSymbolExportGroup,
 		t.SchematicSymbolImportGroup,
 		t.SchematicSymbolDeleteGroup,
+		t.SchematicSymbolRetrieveBuiltins,
 
 		// LINE PLOT
 		t.LinePlotCreate,
@@ -529,9 +545,9 @@ func (l *Layer) BindTo(t Transport) {
 		t.EnumerationCreate,
 		t.EnumerationRetrieve,
 		t.EnumerationDelete,
+		t.EnumerationReplace,
 		t.EnumerationDispatch,
 		t.EnumerationRetrieveBuiltins,
-		t.EnumerationRetrieveDependents,
 
 		// RACK
 		t.RackCreate,
@@ -600,6 +616,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.CertificateRetrieve,
 		t.CertificateDelete,
 		t.CertificateDispatch,
+		t.CertificateRefresh,
 
 		// ARC
 		t.ArcCreate,
@@ -625,6 +642,7 @@ func (l *Layer) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
+	t.AuthMethods.BindHandler(l.Auth.Methods)
 	t.AuthChangePassword.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.Auth.PrepareChangePassword,
@@ -649,6 +667,19 @@ func (l *Layer) BindTo(t Transport) {
 		return l.Auth.RetrieveKeys(ctx, snap, req)
 	}))
 	t.AuthKeyDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteKeys))
+	t.AuthOIDCLink.BindHandler(bind.WritePrepared(
+		l.binder,
+		l.Auth.PrepareLinkOIDC,
+		l.Auth.LinkOIDC,
+	))
+	t.AuthOIDCRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req auth.OIDCRetrieveRequest,
+	) (auth.OIDCRetrieveResponse, error) {
+		return l.Auth.RetrieveOIDCLinks(ctx, snap, req)
+	}))
+	t.AuthOIDCUnlink.BindHandler(bind.Write(l.binder, l.Auth.UnlinkOIDC))
 	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.Auth.PrepareSetPassword,
@@ -744,6 +775,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicSymbolDeleteGroup.BindHandler(
 		bind.Write(l.binder, l.Symbol.DeleteGroup),
 	)
+	t.SchematicSymbolRetrieveBuiltins.BindHandler(l.Symbol.RetrieveBuiltins)
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(bind.Write(l.binder, l.LinePlot.Create))
@@ -796,11 +828,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.EnumerationCreate.BindHandler(bind.Write(l.binder, l.Enumeration.Create))
 	t.EnumerationRetrieve.BindHandler(bind.Read(l.binder, l.Enumeration.Retrieve))
 	t.EnumerationDelete.BindHandler(bind.Write(l.binder, l.Enumeration.Delete))
+	t.EnumerationReplace.BindHandler(bind.Write(l.binder, l.Enumeration.Replace))
 	t.EnumerationDispatch.BindHandler(bind.Write(l.binder, l.Enumeration.Dispatch))
 	t.EnumerationRetrieveBuiltins.BindHandler(l.Enumeration.RetrieveBuiltins)
-	t.EnumerationRetrieveDependents.BindHandler(
-		bind.Read(l.binder, l.Enumeration.RetrieveDependents),
-	)
 
 	// RACK
 	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
@@ -873,6 +903,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.CertificateRetrieve.BindHandler(bind.Read(l.binder, l.Certificate.Retrieve))
 	t.CertificateDelete.BindHandler(bind.Write(l.binder, l.Certificate.Delete))
 	t.CertificateDispatch.BindHandler(bind.Write(l.binder, l.Certificate.Dispatch))
+	t.CertificateRefresh.BindHandler(
+		bind.WriteUnchecked(db, l.Certificate.Refresh),
+	)
 
 	// ARC
 	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
@@ -909,6 +942,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Held:        auth.HeldTables(),
 		Owned:       panel.OwnedTables(),
 		OwnedPlaces: panel.OwnedPlaces(),
+		Vouched:     secret.Vouched(cfg.Service.Certificate),
 	}); err != nil {
 		return nil, err
 	}
@@ -917,6 +951,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,
 		APIKey:   cfg.Service.APIKey,
+		OIDC:     cfg.Service.OIDC,
 		User:     cfg.Service.User,
 		RBAC:     cfg.Service.RBAC,
 		Identity: cfg.Distribution.Identity,
@@ -928,6 +963,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		RBAC:     cfg.Service.RBAC,
 		User:     cfg.Service.User,
 		Password: cfg.Service.Password,
+		Auth:     cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}
@@ -1020,7 +1056,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.ICD, err = icd.NewService(icd.ServiceConfig{
-		ICD: cfg.Service.ICD,
+		ICD:    cfg.Service.ICD,
+		Errors: cfg.Errors,
 	}); err != nil {
 		return nil, err
 	}
@@ -1115,8 +1152,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Secret, err = secret.NewService(secret.ServiceConfig{
-		Secret: cfg.Service.Secret,
-		RBAC:   cfg.Service.RBAC,
+		Secret:      cfg.Service.Secret,
+		RBAC:        cfg.Service.RBAC,
+		Task:        cfg.Service.Task,
+		Rack:        cfg.Service.Rack,
+		Certificate: cfg.Service.Certificate,
+		DB:          cfg.Distribution.DB,
 	}); err != nil {
 		return nil, err
 	}

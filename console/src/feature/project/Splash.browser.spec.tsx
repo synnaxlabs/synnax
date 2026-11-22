@@ -1,0 +1,266 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { access, type Synnax, user } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { id, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+
+import { Project } from "@/feature/project";
+import { Modals } from "@/platform/modals";
+import { Session } from "@/session";
+import { createConsoleWrapper, pickOption, renderWithConsole } from "@/testutil";
+
+const client: Synnax = createTestClient();
+
+describe("project/Splash", () => {
+  describe("without permissions", () => {
+    it("should hide the project list and create action when there is no client", async () => {
+      await renderWithConsole(<Project.Splash />);
+      expect(screen.getByText("Projects")).toBeDefined();
+      expect(screen.queryByText("New project")).toBeNull();
+    });
+
+    it("should report why the list is empty when it never loaded", async () => {
+      await renderWithConsole(<Project.Splash />);
+      expect(await screen.findByText("Failed to retrieve projects")).toBeDefined();
+      expect(screen.queryByText("No projects")).toBeNull();
+    });
+
+    it("should show no projects when the subject cannot retrieve any", async () => {
+      await client.projects.create({ name: uniqueName("argon") });
+      const denied = await createTestClientWithPolicy(client, {
+        name: uuid.create(),
+        objects: [
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
+        ],
+        actions: ["retrieve"],
+      });
+      const { wrapper } = await createConsoleWrapper({ client: denied });
+      render(<Project.Splash />, { wrapper });
+      expect(await screen.findByText("No projects")).toBeDefined();
+      expect(screen.queryByText("Failed to retrieve projects")).toBeNull();
+    });
+  });
+
+  describe("session controls", () => {
+    it("should log out of the Core", async () => {
+      const { store } = await renderWithConsole(<Project.Splash />);
+      act(() => {
+        store.dispatch(Session.Core.select("LOCAL"));
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+      expect(Session.Core.selectSelected(store.getState())).toBeUndefined();
+    });
+
+    it("should name the selected Core in the connection island", async () => {
+      const { store } = await renderWithConsole(<Project.Splash />);
+      act(() => {
+        store.dispatch(Session.Core.select("LOCAL"));
+      });
+      const name = Session.Core.selectSelected(store.getState())?.name;
+      if (name == null) throw new Error("no Core is selected");
+      expect(await screen.findByText(name)).toBeTruthy();
+    });
+  });
+
+  describe("awaiting a deep link's project", () => {
+    it("should show the notice only while a link waits on a selection", async () => {
+      const { store } = await renderWithConsole(<Project.Splash />);
+      const notice = "Select a project to open the link";
+      expect(screen.queryByText(notice)).toBeNull();
+      act(() => {
+        store.dispatch(Session.Link.beginProjectWait());
+      });
+      expect(await screen.findByText(notice)).toBeDefined();
+      act(() => {
+        store.dispatch(Session.Link.endProjectWait());
+      });
+      await waitFor(() => expect(screen.queryByText(notice)).toBeNull());
+    });
+  });
+
+  describe("selecting an existing project", () => {
+    it("should activate the project", async () => {
+      const name = `proj-${id.create()}`;
+      const proj = await client.projects.create({ name });
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      const { container } = render(<Project.Splash />, { wrapper });
+
+      await pickOption(name, "Search projects...", container);
+
+      await waitFor(() => {
+        const active = Session.Project.selectOptionalSelected(store.getState());
+        expect(active).toEqual(proj.key);
+      });
+    });
+  });
+
+  describe("searching", () => {
+    it("should filter the list to matching projects and allow selecting one", async () => {
+      const first = uniqueName("hydrogen");
+      const second = uniqueName("xenon");
+      await client.projects.create({ name: first });
+      const created = await client.projects.create({ name: second });
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      render(<Project.Splash />, { wrapper });
+
+      const input = await screen.findByPlaceholderText("Search projects...");
+      fireEvent.change(input, { target: { value: first } });
+      await screen.findByText(first);
+
+      fireEvent.change(input, { target: { value: second } });
+      await screen.findByText(second);
+      await waitFor(() => expect(screen.queryByText(first)).toBeNull());
+
+      fireEvent.click(screen.getByText(second));
+      await waitFor(() => {
+        const active = Session.Project.selectOptionalSelected(store.getState());
+        expect(active).toEqual(created.key);
+      });
+    });
+
+    it("should show a no-match message instead of the created-none empty state", async () => {
+      await client.projects.create({ name: uniqueName("krypton") });
+      const { wrapper } = await createConsoleWrapper({ client });
+      render(<Project.Splash />, { wrapper });
+
+      const input = await screen.findByPlaceholderText("Search projects...");
+      // One word with no separators: the Core matches each word of a term on its own,
+      // by prefix and edit distance, so a short word can hit another spec's fixture.
+      fireEvent.change(input, {
+        target: { value: uniqueName("nomatchterm").replace(/_/g, "") },
+      });
+
+      await screen.findByText("No matching projects");
+      expect(screen.queryByText("No projects")).toBeNull();
+    });
+  });
+
+  describe("keyboard navigation", () => {
+    it("should select the hovered project when Enter is pressed", async () => {
+      const name = uniqueName("kb_enter");
+      const proj = await client.projects.create({ name });
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      render(
+        <Triggers.Provider>
+          <Project.Splash />
+        </Triggers.Provider>,
+        { wrapper },
+      );
+
+      const search = await screen.findByPlaceholderText("Search projects...");
+      fireEvent.change(search, { target: { value: name } });
+      // The unfiltered list can show the project before the search answers.
+      await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+      screen.getByText(name);
+
+      fireEvent.keyDown(search, { code: "ArrowDown" });
+      fireEvent.keyUp(search, { code: "ArrowDown" });
+      fireEvent.keyDown(search, { code: "Enter" });
+      await waitFor(() => {
+        const active = Session.Project.selectOptionalSelected(store.getState());
+        expect(active).toEqual(proj.key);
+      });
+    });
+
+    it("should move the hover with the arrow keys before selecting", async () => {
+      const prefix = uniqueName("kb_arrows");
+      const a = await client.projects.create({ name: `${prefix}_a` });
+      const b = await client.projects.create({ name: `${prefix}_b` });
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      render(
+        <Triggers.Provider>
+          <Project.Splash />
+        </Triggers.Provider>,
+        { wrapper },
+      );
+
+      const search = await screen.findByPlaceholderText("Search projects...");
+      fireEvent.change(search, { target: { value: prefix } });
+      await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(2));
+      const elA = screen.getByText(a.name);
+      const elB = screen.getByText(b.name);
+      const aIsFirst =
+        (elA.compareDocumentPosition(elB) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+      const second = aIsFirst ? b : a;
+
+      fireEvent.keyDown(search, { code: "ArrowDown" });
+      fireEvent.keyUp(search, { code: "ArrowDown" });
+      fireEvent.keyDown(search, { code: "ArrowDown" });
+      fireEvent.keyUp(search, { code: "ArrowDown" });
+      fireEvent.keyDown(search, { code: "Enter" });
+      await waitFor(() => {
+        const active = Session.Project.selectOptionalSelected(store.getState());
+        expect(active).toEqual(second.key);
+      });
+    });
+
+    it("should not select a project while a modal is open", async () => {
+      const name = uniqueName("kb_modal");
+      await client.projects.create({ name });
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      render(
+        <Triggers.Provider>
+          <Modals.Stack>
+            <Project.Splash />
+          </Modals.Stack>
+        </Triggers.Provider>,
+        { wrapper },
+      );
+
+      const search = await screen.findByPlaceholderText("Search projects...");
+      fireEvent.change(search, { target: { value: name } });
+      await screen.findByText(name);
+      fireEvent.keyDown(search, { code: "ArrowDown" });
+      fireEvent.keyUp(search, { code: "ArrowDown" });
+
+      fireEvent.click(screen.getByText("New project"));
+      await screen.findByPlaceholderText("Project name");
+      fireEvent.keyDown(document.body, { code: "Enter" });
+      await act(async () => {});
+      expect(Session.Project.selectOptionalSelected(store.getState())).toBeUndefined();
+    });
+  });
+
+  describe("creating a new project", () => {
+    it("should open the create modal and activate the created project", async () => {
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      render(
+        <Modals.Stack>
+          <Project.Splash />
+        </Modals.Stack>,
+        { wrapper },
+      );
+      const name = `proj-${id.create()}`;
+
+      fireEvent.click(await screen.findByText("New project"));
+      fireEvent.change(await screen.findByPlaceholderText("Project name"), {
+        target: { value: name },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+      const active = await waitFor(() => {
+        const key = Session.Project.selectOptionalSelected(store.getState());
+        if (key == null) throw new Error("no active project selected");
+        return key;
+      });
+      const created = await client.projects.retrieve(active);
+      expect(created.name).toEqual(name);
+    });
+  });
+});

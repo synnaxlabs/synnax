@@ -13,9 +13,9 @@ import {
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Generic } from "@/generic";
+import type { Generic } from "@/generic";
 import { Text } from "@/text";
 
 export type TimeStampProps<E extends Generic.ElementType = "p"> = Omit<

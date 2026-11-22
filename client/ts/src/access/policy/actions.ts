@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type patch } from "@synnaxlabs/x";
-import { type Draft } from "immer";
+import type { patch } from "@synnaxlabs/x";
+import type { Draft } from "immer";
 import { z } from "zod";
 
 import { access } from "@/access/action";
@@ -18,7 +18,7 @@ import {
   type HandlerResult,
   type Handlers,
 } from "@/access/policy/actions.gen";
-import { type Policy } from "@/access/policy/types.gen";
+import type { Policy } from "@/access/policy/types.gen";
 import { actions } from "@/actions";
 import { resource } from "@/resource";
 

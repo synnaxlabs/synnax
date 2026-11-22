@@ -11,13 +11,13 @@ import { schematic } from "@synnaxlabs/client";
 import { color, TimeSpan } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { type FC } from "react";
+import type { FC } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 import { Staleness } from "@/vis/staleness";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { toggle } from "@/vis/toggle/aether";

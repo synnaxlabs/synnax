@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
@@ -51,8 +51,6 @@ export interface Groups {
   moreRunning: () => void;
   /** Whether a list reads. The groups keep the last answers until it lands. */
   reading: boolean;
-  /** Whether Running reads the page that moreRunning asked for. */
-  paging: boolean;
   getItem: ReturnType<typeof Flux.useList<ranger.Key, ranger.Range>>["getItem"];
   subscribe: ReturnType<typeof Flux.useList<ranger.Key, ranger.Range>>["subscribe"];
 }
@@ -117,11 +115,6 @@ export const useGroups = (): Groups => {
     runningComplete: runningList.complete,
     moreRunning: () => setRunningSize((size) => size + RUNNING_PAGE),
     reading,
-    // Show more grows the size past the answer shown, so a crossing's read never pages.
-    paging:
-      runningList.variant === "loading" &&
-      !runningList.complete &&
-      runningList.data.length < runningSize,
     getItem: runningList.getItem,
     subscribe: runningList.subscribe,
   };

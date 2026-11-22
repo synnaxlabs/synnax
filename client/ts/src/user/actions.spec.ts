@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { reduceAll } from "@/user/actions";
 import { set, setUsername } from "@/user/actions.gen";
-import { type User } from "@/user/types.gen";
+import type { User } from "@/user/types.gen";
 
 const USER: User = {
   key: "0198b5a4-0000-7000-8000-000000000001",

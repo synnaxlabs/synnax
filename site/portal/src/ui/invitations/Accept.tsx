@@ -13,7 +13,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useEffect } from "react";
 
 import { ADMIN_ROLE } from "@/server/directory";
-import { type Invited } from "@/server/invitation";
+import type { Invited } from "@/server/invitation";
 import { invitationPath, scoped } from "@/shell";
 import { navigate, post } from "@/ui/api";
 import { Auth } from "@/ui/auth";

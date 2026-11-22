@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type APIRoute } from "astro";
+import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST as createRoute } from "@/pages/api/referrals";
 import { POST as mailRoute } from "@/pages/api/referrals/[key]/mail";
 import { POST as visitRoute } from "@/pages/api/referrals/[key]/visit";
-import { referral } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, type Team } from "@/server/directory";
 import { NOW } from "@/server/license/testutil";
@@ -71,8 +71,8 @@ describe("referral routes", () => {
   const stored = async (key: string) => {
     const [row] = await store.query
       .select()
-      .from(referral)
-      .where(eq(referral.key, key));
+      .from(schema.referral)
+      .where(eq(schema.referral.key, key));
     return row;
   };
 

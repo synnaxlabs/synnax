@@ -1,82 +1,82 @@
 {
   "normally closed": [
-    "path | oklch(0.01 0.01 262.38) | none",
-    "line | oklch(0.01 0.01 262.38) | none",
-    "rect | oklch(0.01 0.01 262.38) | none"
+    "path | oklch(0.01 0.01 none) | none",
+    "line | oklch(0.01 0.01 none) | none",
+    "rect | oklch(0.01 0.01 none) | none"
   ],
   "normally closed hovered": [
-    "path | oklch(0.01 0.01 262.38 / 0.75) | oklch(0.01 0.01 262.38 / 0.15)",
-    "line | oklch(0.01 0.01 262.38 / 0.75) | oklch(0.01 0.01 262.38 / 0.15)",
-    "rect | oklch(0.01 0.01 262.38 / 0.75) | oklch(0.01 0.01 262.38 / 0.15)"
+    "path | oklch(0.01 0.01 none / 0.75) | oklch(0.01 0.01 none / 0.15)",
+    "line | oklch(0.01 0.01 none / 0.75) | oklch(0.01 0.01 none / 0.15)",
+    "rect | oklch(0.01 0.01 none / 0.75) | oklch(0.01 0.01 none / 0.15)"
   ],
   "normally closed editing": [
-    "path | oklch(0.01 0.01 262.38) | none",
-    "line | oklch(0.01 0.01 262.38) | none",
-    "rect | oklch(0.01 0.01 262.38) | none"
+    "path | oklch(0.01 0.01 none) | none",
+    "line | oklch(0.01 0.01 none) | none",
+    "rect | oklch(0.01 0.01 none) | none"
   ],
   "normally closed editing hovered": [
-    "path | oklch(0.01 0.01 262.38) | none",
-    "line | oklch(0.01 0.01 262.38) | none",
-    "rect | oklch(0.01 0.01 262.38) | none"
+    "path | oklch(0.01 0.01 none) | none",
+    "line | oklch(0.01 0.01 none) | none",
+    "rect | oklch(0.01 0.01 none) | none"
   ],
   "normally closed on": [
-    "path | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)",
-    "line | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)",
-    "rect | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)"
+    "path | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)",
+    "line | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)",
+    "rect | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)"
   ],
   "normally closed on hovered": [
-    "path | oklch(0.01 0.01 262.38 / 0.8) | oklch(0.01 0.01 262.38 / 0.85)",
-    "line | oklch(0.01 0.01 262.38 / 0.8) | oklch(0.01 0.01 262.38 / 0.85)",
-    "rect | oklch(0.01 0.01 262.38 / 0.8) | oklch(0.01 0.01 262.38 / 0.85)"
+    "path | oklch(0.01 0.01 none / 0.8) | oklch(0.01 0.01 none / 0.85)",
+    "line | oklch(0.01 0.01 none / 0.8) | oklch(0.01 0.01 none / 0.85)",
+    "rect | oklch(0.01 0.01 none / 0.8) | oklch(0.01 0.01 none / 0.85)"
   ],
   "normally closed on editing": [
-    "path | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)",
-    "line | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)",
-    "rect | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)"
+    "path | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)",
+    "line | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)",
+    "rect | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)"
   ],
   "normally closed on editing hovered": [
-    "path | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)",
-    "line | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)",
-    "rect | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)"
+    "path | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)",
+    "line | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)",
+    "rect | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)"
   ],
   "normally open": [
-    "path | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)",
-    "line | oklch(0.01 0.01 262.38) | none",
-    "rect | oklch(0.01 0.01 262.38) | none"
+    "path | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)",
+    "line | oklch(0.01 0.01 none) | none",
+    "rect | oklch(0.01 0.01 none) | none"
   ],
   "normally open hovered": [
-    "path | oklch(0.01 0.01 262.38 / 0.75) | oklch(0.01 0.01 262.38)",
-    "line | oklch(0.01 0.01 262.38 / 0.75) | oklch(0.01 0.01 262.38 / 0.15)",
-    "rect | oklch(0.01 0.01 262.38 / 0.75) | oklch(0.01 0.01 262.38 / 0.15)"
+    "path | oklch(0.01 0.01 none / 0.75) | oklch(0.01 0.01 none)",
+    "line | oklch(0.01 0.01 none / 0.75) | oklch(0.01 0.01 none / 0.15)",
+    "rect | oklch(0.01 0.01 none / 0.75) | oklch(0.01 0.01 none / 0.15)"
   ],
   "normally open editing": [
-    "path | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)",
-    "line | oklch(0.01 0.01 262.38) | none",
-    "rect | oklch(0.01 0.01 262.38) | none"
+    "path | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)",
+    "line | oklch(0.01 0.01 none) | none",
+    "rect | oklch(0.01 0.01 none) | none"
   ],
   "normally open editing hovered": [
-    "path | oklch(0.01 0.01 262.38 / 0.95) | oklch(0.01 0.01 262.38)",
-    "line | oklch(0.01 0.01 262.38 / 0.95) | oklch(0.01 0.01 262.38 / 0.25)",
-    "rect | oklch(0.01 0.01 262.38 / 0.95) | oklch(0.01 0.01 262.38 / 0.25)"
+    "path | oklch(0.01 0.01 none / 0.95) | oklch(0.01 0.01 none)",
+    "line | oklch(0.01 0.01 none / 0.95) | oklch(0.01 0.01 none / 0.25)",
+    "rect | oklch(0.01 0.01 none / 0.95) | oklch(0.01 0.01 none / 0.25)"
   ],
   "normally open on": [
-    "path | oklch(0.01 0.01 262.38) | none",
-    "line | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)",
-    "rect | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)"
+    "path | oklch(0.01 0.01 none) | none",
+    "line | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)",
+    "rect | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)"
   ],
   "normally open on hovered": [
-    "path | oklch(0.01 0.01 262.38 / 0.8) | none",
-    "line | oklch(0.01 0.01 262.38 / 0.8) | oklch(0.01 0.01 262.38 / 0.85)",
-    "rect | oklch(0.01 0.01 262.38 / 0.8) | oklch(0.01 0.01 262.38 / 0.85)"
+    "path | oklch(0.01 0.01 none / 0.8) | none",
+    "line | oklch(0.01 0.01 none / 0.8) | oklch(0.01 0.01 none / 0.85)",
+    "rect | oklch(0.01 0.01 none / 0.8) | oklch(0.01 0.01 none / 0.85)"
   ],
   "normally open on editing": [
-    "path | oklch(0.01 0.01 262.38) | none",
-    "line | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)",
-    "rect | oklch(0.01 0.01 262.38) | oklch(0.01 0.01 262.38)"
+    "path | oklch(0.01 0.01 none) | none",
+    "line | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)",
+    "rect | oklch(0.01 0.01 none) | oklch(0.01 0.01 none)"
   ],
   "normally open on editing hovered": [
-    "path | oklch(0.01 0.01 262.38 / 0.95) | none",
-    "line | oklch(0.01 0.01 262.38 / 0.95) | oklch(0.01 0.01 262.38 / 0.95)",
-    "rect | oklch(0.01 0.01 262.38 / 0.95) | oklch(0.01 0.01 262.38 / 0.95)"
+    "path | oklch(0.01 0.01 none / 0.95) | none",
+    "line | oklch(0.01 0.01 none / 0.95) | oklch(0.01 0.01 none / 0.95)",
+    "rect | oklch(0.01 0.01 none / 0.95) | oklch(0.01 0.01 none / 0.95)"
   ]
 }

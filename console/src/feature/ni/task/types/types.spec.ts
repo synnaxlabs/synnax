@@ -123,6 +123,17 @@ describe("analog read task", () => {
       ).toEqual(false);
     });
 
+    it.each([-1, 65536])("should reject port %i", (port) => {
+      expect(
+        z.validate(NI.Task.deployAnalogReadConfigZ, {
+          ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+          streamRate: 1000,
+          sampleRate: 1000,
+          channels: [{ ...NI.Task.createAIChannel(), key: "0", device: "34", port }],
+        }),
+      ).toEqual(false);
+    });
+
     it("should reject negative sample rate", () => {
       expect(
         z.validate(NI.Task.deployAnalogReadConfigZ, {
@@ -480,6 +491,75 @@ describe("deploy configs", () => {
       { path: ["channels", 0, "device"], message: "Device is required" },
     ]);
   });
+
+  const RANGE_MESSAGE = "Minimum value must be less than maximum value";
+
+  const rangeIssues = (minVal: number, maxVal: number, disabled = false) =>
+    NI.Task.deployAnalogReadConfigZ
+      .safeParse(
+        NI.Task.ANALOG_READ_SCHEMAS.config.parse({
+          channels: [
+            { ...NI.Task.createAIChannel(), key: "0", device: "34" },
+            {
+              ...NI.Task.createAIChannel(),
+              key: "1",
+              device: "34",
+              minVal,
+              maxVal,
+              disabled,
+            },
+          ],
+        }),
+      )
+      .error?.issues.filter(({ message }) => message === RANGE_MESSAGE)
+      .map(({ path }) => path);
+
+  it.each([
+    ["above", 5, -5],
+    ["equal to", 5, 5],
+  ])("should reject a minimum value %s the maximum value", (_, minVal, maxVal) => {
+    expect(rangeIssues(minVal, maxVal)).toEqual([["channels", 1, "minVal"]]);
+  });
+
+  it("should accept a minimum value below the maximum value", () => {
+    expect(rangeIssues(-5, 5) ?? []).toEqual([]);
+  });
+
+  it("should not check the range of a disabled channel", () => {
+    expect(rangeIssues(5, -5, true) ?? []).toEqual([]);
+  });
+
+  it.each([
+    [
+      "analog write",
+      NI.Task.deployAnalogWriteConfigZ,
+      NI.Task.ANALOG_WRITE_SCHEMAS.config.parse({
+        device: "34",
+        channels: [{ ...NI.Task.createAOChannel(), key: "0", minVal: 1, maxVal: 0 }],
+      }),
+    ],
+    [
+      "counter read",
+      NI.Task.deployCounterReadConfigZ,
+      NI.Task.COUNTER_READ_SCHEMAS.config.parse({
+        channels: [
+          {
+            ...NI.Task.createCIChannel(),
+            key: "0",
+            device: "34",
+            minVal: 1,
+            maxVal: 0,
+          },
+        ],
+      }),
+    ],
+  ])("should reject a reversed range on a %s channel", (_, deployZ, config) => {
+    const paths = deployZ
+      .safeParse(config)
+      .error?.issues.filter(({ message }) => message === RANGE_MESSAGE)
+      .map(({ path }) => path);
+    expect(paths).toEqual([["channels", 0, "minVal"]]);
+  });
 });
 
 describe("default ranges", () => {
@@ -491,9 +571,10 @@ describe("default ranges", () => {
     ],
     aoCurrentRanges: [{ lower: 0, upper: 0.02 }],
   };
+  const current = NI.Task.createAIChannel("ai_current");
 
   it("should give a current input the widest current range", () => {
-    expect(NI.Task.defaultAIRange("ai_current", hardware)).toEqual({
+    expect(NI.Task.defaultAIRange("ai_voltage", current, hardware)).toEqual({
       lower: -0.02,
       upper: 0.02,
     });
@@ -506,10 +587,66 @@ describe("default ranges", () => {
     });
   });
 
+  it("should give a new voltage input the widest voltage range", () => {
+    expect(
+      NI.Task.defaultAIVoltageRange({
+        ...hardware,
+        aiVoltageRanges: [
+          { lower: -1, upper: 1 },
+          { lower: -5, upper: 5 },
+        ],
+      }),
+    ).toEqual({ lower: -5, upper: 5 });
+  });
+
+  it("should give a new voltage input ±10 V on a device that reports no ranges", () => {
+    expect(NI.Task.defaultAIVoltageRange(hardware)).toEqual({ lower: -10, upper: 10 });
+    expect(NI.Task.defaultAIVoltageRange()).toEqual({ lower: -10, upper: 10 });
+  });
+
   it.each([
-    ["a voltage input", NI.Task.defaultAIRange("ai_voltage", hardware)],
+    "ai_rtd",
+    "ai_thermistor_iex",
+    "ai_thermistor_vex",
+    "ai_thermocouple",
+  ] as const)("should give %s a range of 0 to 100 °C", (type) => {
+    const channel = NI.Task.createAIChannel(type);
+    expect(NI.Task.defaultAIRange("ai_voltage", channel, hardware)).toEqual({
+      lower: 0,
+      upper: 100,
+    });
+  });
+
+  it("should give 0 to 100 °C in the units the channel keeps", () => {
+    const channel = NI.Task.AI_CHANNEL_SCHEMAS.ai_thermocouple.parse({
+      type: "ai_thermocouple",
+      units: "Kelvins",
+    });
+    expect(NI.Task.defaultAIRange("ai_temp_builtin", channel, hardware)).toEqual({
+      lower: 273.15,
+      upper: 373.15,
+    });
+  });
+
+  it.each([
+    [
+      "a voltage input",
+      NI.Task.defaultAIRange(
+        "ai_current",
+        NI.Task.createAIChannel("ai_voltage"),
+        hardware,
+      ),
+    ],
     ["a voltage output", NI.Task.defaultAORange("ao_voltage", hardware)],
-    ["a device with no hardware", NI.Task.defaultAIRange("ai_current")],
+    ["a device with no hardware", NI.Task.defaultAIRange("ai_voltage", current)],
+    [
+      "a temperature input that measured temperature before",
+      NI.Task.defaultAIRange(
+        "ai_thermocouple",
+        NI.Task.createAIChannel("ai_rtd"),
+        hardware,
+      ),
+    ],
   ])("should keep the range of %s", (_, range) => {
     expect(range).toBeUndefined();
   });
