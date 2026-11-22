@@ -366,61 +366,65 @@ func checkDefaultGroups(c *analysisCtx) {
 		if !c.owns(typ) {
 			continue
 		}
-		form, ok := typ.Form.(resolution.StructForm)
+		if form, ok := typ.Form.(resolution.StructForm); ok {
+			checkStructDefaultGroups(c, typ, form)
+		}
+	}
+}
+
+func checkStructDefaultGroups(
+	c *analysisCtx, typ resolution.Type, form resolution.StructForm,
+) {
+	var order []string
+	members := make(map[string][]resolution.Field)
+	for _, f := range form.Fields {
+		dom, ok := f.Domains[defaultDomain]
 		if !ok {
 			continue
 		}
-		var order []string
-		members := make(map[string][]resolution.Field)
-		for _, f := range form.Fields {
-			dom, ok := f.Domains[defaultDomain]
-			if !ok {
-				continue
-			}
-			for _, expr := range dom.Expressions {
-				if expr.Name != groupExpr {
-					c.diag.Add(diagnostics.Errorf(
-						nil,
-						"field %q in %q declares unknown default expression %q; the "+
-							"only one is `group`.",
-						f.Name, typ.Name, expr.Name,
-					))
-				}
-			}
-			name, marked := defaultGroup(f)
-			if !marked {
-				continue
-			}
-			if name == "" {
+		for _, expr := range dom.Expressions {
+			if expr.Name != groupExpr {
 				c.diag.Add(diagnostics.Errorf(
 					nil,
-					"field %q in %q declares `@default group` with no name; write "+
-						"`@default group \"<name>\"` and give every field in the group "+
-						"the same name.",
-					f.Name, typ.Name,
+					"field %q in %q declares unknown default expression %q; the "+
+						"only one is `group`.",
+					f.Name, typ.Name, expr.Name,
 				))
-				continue
 			}
-			if _, seen := members[name]; !seen {
-				order = append(order, name)
-			}
-			members[name] = append(members[name], f)
-			checkGroupMember(c, typ, f, name)
 		}
-		for _, name := range order {
-			if len(members[name]) > 1 {
-				continue
-			}
+		name, marked := defaultGroup(f)
+		if !marked {
+			continue
+		}
+		if name == "" {
 			c.diag.Add(diagnostics.Errorf(
 				nil,
-				"default group %q in %q has one member, %q. A group guards its fill on "+
-					"every member being zero, so a lone member guards on itself and "+
-					"fills nothing. Add the fields it belongs with, or drop the marker.",
-				name,
-				typ.Name,
-				members[name][0].Name,
+				"field %q in %q declares `@default group` with no name; write "+
+					"`@default group \"<name>\"` and give every field in the group "+
+					"the same name.",
+				f.Name, typ.Name,
 			))
+			continue
 		}
+		if _, seen := members[name]; !seen {
+			order = append(order, name)
+		}
+		members[name] = append(members[name], f)
+		checkGroupMember(c, typ, f, name)
+	}
+	for _, name := range order {
+		if len(members[name]) > 1 {
+			continue
+		}
+		c.diag.Add(diagnostics.Errorf(
+			nil,
+			"default group %q in %q has one member, %q. A group guards its fill on "+
+				"every member being zero, so a lone member guards on itself and "+
+				"fills nothing. Add the fields it belongs with, or drop the marker.",
+			name,
+			typ.Name,
+			members[name][0].Name,
+		))
 	}
 }
 

@@ -81,6 +81,14 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	w.attach(key, acts, sweep, module && pathChanged, module)
+	return nil
+}
+
+// attach registers the work that the commit of an Apply to key runs: the edit time, the
+// dispatch of acts and sweep, and the resyncs. moved is true when a module changed its
+// path.
+func (w Writer) attach(key Key, acts, sweep []Action, moved, module bool) {
 	// The edit time moves before the lock releases, so a later transaction cannot sweep
 	// the characters that this one deletes.
 	if containsTextEdit(acts) {
@@ -94,14 +102,13 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		w.dispatcher.WithDispatchKey("").Attach(w.tx, key, sweep...)
 	}
 	w.resyncs.Add(w.tx, key)
-	if module && pathChanged {
+	if moved {
 		w.pathChanges.Add(w.tx, struct{}{})
-		return nil
+		return
 	}
 	if module && containsTextEdit(acts) {
 		w.editedModules.Add(w.tx, key)
 	}
-	return nil
 }
 
 // followCommit schedules the resyncs that c asked for, then drops the edit time and

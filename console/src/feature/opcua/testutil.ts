@@ -120,6 +120,15 @@ export const createMember = (
   field,
 });
 
-/** Drags the browser node with the name onto the element that shows the target. */
-export const dragNode = async (name: string, target: string): Promise<void> =>
-  dragOnto(await screen.findByText(name), await screen.findByText(new RegExp(target)));
+/**
+ * Drags the browser node with the name onto the task channel row whose node line shows
+ * the node name and ID of target.
+ */
+export const dragNode = async (
+  name: string,
+  { nodeName, nodeId }: { nodeName: string; nodeId: string },
+): Promise<void> =>
+  dragOnto(
+    await screen.findByText(name),
+    await screen.findByText(`${nodeName} ${nodeId}`),
+  );
