@@ -18,7 +18,7 @@
 package pb
 
 import (
-	pb1 "github.com/synnaxlabs/x/color/pb"
+	pb1 "github.com/synnaxlabs/synnax/pkg/service/color/pb"
 	pb2 "github.com/synnaxlabs/x/filter/pb"
 	pb "github.com/synnaxlabs/x/telem/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -93,20 +93,20 @@ type Range struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the range.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// time_range is the temporal extent of the range, defining its start and end
-	// timestamps.
-	TimeRange *pb.TimeRange `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
-	// color is an optional display color for visual identification of the range in user
-	// interfaces.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
-	// labels are the keys of the labels attached to the range.
-	Labels []string `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
-	// parent is the key of the range this range is nested in. Empty for a top-level
-	// range.
-	Parent *string `protobuf:"bytes,6,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	// has_children is true when a range is nested in the range, derived on read and not
 	// persisted.
-	HasChildren   bool `protobuf:"varint,7,opt,name=has_children,json=hasChildren,proto3" json:"has_children,omitempty"`
+	HasChildren bool `protobuf:"varint,3,opt,name=has_children,json=hasChildren,proto3" json:"has_children,omitempty"`
+	// time_range is the temporal extent of the range, defining its start and end
+	// timestamps.
+	TimeRange *pb.TimeRange `protobuf:"bytes,4,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
+	// color is an optional display color for visual identification of the range in user
+	// interfaces, a named color or a fixed color.
+	Color *pb1.Ref `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	// labels are the keys of the labels attached to the range.
+	Labels []string `protobuf:"bytes,6,rep,name=labels,proto3" json:"labels,omitempty"`
+	// parent is the key of the range this range is nested in. Empty for a top-level
+	// range.
+	Parent        *string `protobuf:"bytes,7,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -155,6 +155,13 @@ func (x *Range) GetName() string {
 	return ""
 }
 
+func (x *Range) GetHasChildren() bool {
+	if x != nil {
+		return x.HasChildren
+	}
+	return false
+}
+
 func (x *Range) GetTimeRange() *pb.TimeRange {
 	if x != nil {
 		return x.TimeRange
@@ -162,7 +169,7 @@ func (x *Range) GetTimeRange() *pb.TimeRange {
 	return nil
 }
 
-func (x *Range) GetColor() *pb1.Color {
+func (x *Range) GetColor() *pb1.Ref {
 	if x != nil {
 		return x.Color
 	}
@@ -181,13 +188,6 @@ func (x *Range) GetParent() string {
 		return *x.Parent
 	}
 	return ""
-}
-
-func (x *Range) GetHasChildren() bool {
-	if x != nil {
-		return x.HasChildren
-	}
-	return false
 }
 
 type WhereList struct {
@@ -485,15 +485,17 @@ type Where struct {
 	Labels *LabelKeyList `protobuf:"bytes,7,opt,name=labels,proto3" json:"labels,omitempty"`
 	// parents matches the ranges nested in any of the given ranges.
 	Parents *KeyList `protobuf:"bytes,8,opt,name=parents,proto3" json:"parents,omitempty"`
+	// ancestors matches the ranges nested at any depth in any of the given ranges.
+	Ancestors *KeyList `protobuf:"bytes,9,opt,name=ancestors,proto3" json:"ancestors,omitempty"`
 	// nested matches the ranges nested in a range, or top-level ranges when false.
-	Nested *bool `protobuf:"varint,9,opt,name=nested,proto3,oneof" json:"nested,omitempty"`
+	Nested *bool `protobuf:"varint,10,opt,name=nested,proto3,oneof" json:"nested,omitempty"`
 	// labeled matches ranges that have a label, or ranges with none when false.
-	Labeled *bool `protobuf:"varint,10,opt,name=labeled,proto3,oneof" json:"labeled,omitempty"`
+	Labeled *bool `protobuf:"varint,11,opt,name=labeled,proto3,oneof" json:"labeled,omitempty"`
 	// stages matches ranges in any of the given stages at the Core's clock.
-	Stages *StageList `protobuf:"bytes,11,opt,name=stages,proto3" json:"stages,omitempty"`
+	Stages *StageList `protobuf:"bytes,12,opt,name=stages,proto3" json:"stages,omitempty"`
 	// recent matches ranges that overlap the span ending now, or starting now if
 	// negative.
-	Recent        *int64 `protobuf:"varint,12,opt,name=recent,proto3,oneof" json:"recent,omitempty"`
+	Recent        *int64 `protobuf:"varint,13,opt,name=recent,proto3,oneof" json:"recent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -584,6 +586,13 @@ func (x *Where) GetParents() *KeyList {
 	return nil
 }
 
+func (x *Where) GetAncestors() *KeyList {
+	if x != nil {
+		return x.Ancestors
+	}
+	return nil
+}
+
 func (x *Where) GetNested() bool {
 	if x != nil && x.Nested != nil {
 		return *x.Nested
@@ -616,16 +625,16 @@ var File_core_pkg_service_ranger_pb_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_ranger_pb_ranger_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/ranger/pb/ranger.proto\x12\x11service.ranger.pb\x1a\x19x/go/color/pb/color.proto\x1a\x1bx/go/filter/pb/filter.proto\x1a\x19x/go/telem/pb/telem.proto\"\xfe\x01\n" +
+	"'core/pkg/service/ranger/pb/ranger.proto\x12\x11service.ranger.pb\x1a%core/pkg/service/color/pb/color.proto\x1a\x1bx/go/filter/pb/filter.proto\x1a\x19x/go/telem/pb/telem.proto\"\x82\x02\n" +
 	"\x05Range\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
+	"\fhas_children\x18\x03 \x01(\bR\vhasChildren\x124\n" +
 	"\n" +
-	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12,\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x00R\x05color\x88\x01\x01\x12\x16\n" +
-	"\x06labels\x18\x05 \x03(\tR\x06labels\x12\x1b\n" +
-	"\x06parent\x18\x06 \x01(\tH\x01R\x06parent\x88\x01\x01\x12!\n" +
-	"\fhas_children\x18\a \x01(\bR\vhasChildrenB\b\n" +
+	"time_range\x18\x04 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x120\n" +
+	"\x05color\x18\x05 \x01(\v2\x15.service.color.pb.RefH\x00R\x05color\x88\x01\x01\x12\x16\n" +
+	"\x06labels\x18\x06 \x03(\tR\x06labels\x12\x1b\n" +
+	"\x06parent\x18\a \x01(\tH\x01R\x06parent\x88\x01\x01B\b\n" +
 	"\x06_colorB\t\n" +
 	"\a_parent\"=\n" +
 	"\tWhereList\x120\n" +
@@ -641,7 +650,7 @@ const file_core_pkg_service_ranger_pb_ranger_proto_rawDesc = "" +
 	"\aKeyList\x12\x16\n" +
 	"\x06values\x18\x01 \x03(\tR\x06values\"=\n" +
 	"\tStageList\x120\n" +
-	"\x06values\x18\x01 \x03(\x0e2\x18.service.ranger.pb.StageR\x06values\"\xf5\x04\n" +
+	"\x06values\x18\x01 \x03(\x0e2\x18.service.ranger.pb.StageR\x06values\"\xaf\x05\n" +
 	"\x05Where\x12.\n" +
 	"\x03and\x18\x01 \x01(\v2\x1c.service.ranger.pb.WhereListR\x03and\x12,\n" +
 	"\x02or\x18\x02 \x01(\v2\x1c.service.ranger.pb.WhereListR\x02or\x12/\n" +
@@ -650,12 +659,13 @@ const file_core_pkg_service_ranger_pb_ranger_proto_rawDesc = "" +
 	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x126\n" +
 	"\boverlaps\x18\x06 \x01(\v2\x15.x.telem.pb.TimeRangeH\x03R\boverlaps\x88\x01\x01\x127\n" +
 	"\x06labels\x18\a \x01(\v2\x1f.service.ranger.pb.LabelKeyListR\x06labels\x124\n" +
-	"\aparents\x18\b \x01(\v2\x1a.service.ranger.pb.KeyListR\aparents\x12\x1b\n" +
-	"\x06nested\x18\t \x01(\bH\x04R\x06nested\x88\x01\x01\x12\x1d\n" +
-	"\alabeled\x18\n" +
-	" \x01(\bH\x05R\alabeled\x88\x01\x01\x124\n" +
-	"\x06stages\x18\v \x01(\v2\x1c.service.ranger.pb.StageListR\x06stages\x12\x1b\n" +
-	"\x06recent\x18\f \x01(\x03H\x06R\x06recent\x88\x01\x01B\x06\n" +
+	"\aparents\x18\b \x01(\v2\x1a.service.ranger.pb.KeyListR\aparents\x128\n" +
+	"\tancestors\x18\t \x01(\v2\x1a.service.ranger.pb.KeyListR\tancestors\x12\x1b\n" +
+	"\x06nested\x18\n" +
+	" \x01(\bH\x04R\x06nested\x88\x01\x01\x12\x1d\n" +
+	"\alabeled\x18\v \x01(\bH\x05R\alabeled\x88\x01\x01\x124\n" +
+	"\x06stages\x18\f \x01(\v2\x1c.service.ranger.pb.StageListR\x06stages\x12\x1b\n" +
+	"\x06recent\x18\r \x01(\x03H\x06R\x06recent\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\v\n" +
@@ -695,12 +705,12 @@ var file_core_pkg_service_ranger_pb_ranger_proto_goTypes = []any{
 	(*StageList)(nil),    // 7: service.ranger.pb.StageList
 	(*Where)(nil),        // 8: service.ranger.pb.Where
 	(*pb.TimeRange)(nil), // 9: x.telem.pb.TimeRange
-	(*pb1.Color)(nil),    // 10: x.color.pb.Color
+	(*pb1.Ref)(nil),      // 10: service.color.pb.Ref
 	(*pb2.String)(nil),   // 11: x.filter.pb.String
 }
 var file_core_pkg_service_ranger_pb_ranger_proto_depIdxs = []int32{
 	9,  // 0: service.ranger.pb.Range.time_range:type_name -> x.telem.pb.TimeRange
-	10, // 1: service.ranger.pb.Range.color:type_name -> x.color.pb.Color
+	10, // 1: service.ranger.pb.Range.color:type_name -> service.color.pb.Ref
 	8,  // 2: service.ranger.pb.WhereList.values:type_name -> service.ranger.pb.Where
 	3,  // 3: service.ranger.pb.UuidSet.in:type_name -> service.ranger.pb.UuidList
 	0,  // 4: service.ranger.pb.StageList.values:type_name -> service.ranger.pb.Stage
@@ -712,12 +722,13 @@ var file_core_pkg_service_ranger_pb_ranger_proto_depIdxs = []int32{
 	9,  // 10: service.ranger.pb.Where.overlaps:type_name -> x.telem.pb.TimeRange
 	5,  // 11: service.ranger.pb.Where.labels:type_name -> service.ranger.pb.LabelKeyList
 	6,  // 12: service.ranger.pb.Where.parents:type_name -> service.ranger.pb.KeyList
-	7,  // 13: service.ranger.pb.Where.stages:type_name -> service.ranger.pb.StageList
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	6,  // 13: service.ranger.pb.Where.ancestors:type_name -> service.ranger.pb.KeyList
+	7,  // 14: service.ranger.pb.Where.stages:type_name -> service.ranger.pb.StageList
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_ranger_pb_ranger_proto_init() }

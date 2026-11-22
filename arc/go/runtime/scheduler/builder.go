@@ -78,40 +78,8 @@ func New(prog ir.IR, nodes map[string]rnode.Node) (*Scheduler, error) {
 // scope missing from topLevel.
 func validateScope(sc ir.Scope, topLevel set.Set[string]) error {
 	for _, t := range sc.Transitions {
-		if t.Kind == ir.EdgeKindUnspecified {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"scope %s has a transition with no kind: %s",
-				sc.Key,
-				t,
-			)
-		}
-		switch target := t.Target.Variant.(type) {
-		case nil:
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"scope %s has a transition with no target: %s",
-				sc.Key,
-				t,
-			)
-		case ir.StepTarget:
-			if sc.Mode == ir.ScopeModeParallel {
-				return errors.Wrapf(
-					validate.ErrValidation,
-					"scope %s has a transition with a step target it cannot take: %s",
-					sc.Key,
-					t,
-				)
-			}
-		case ir.ScopeTarget:
-			if !topLevel.Contains(target.Key) {
-				return errors.Wrapf(
-					validate.ErrValidation,
-					"scope %s has a transition to a scope that is not top-level: %s",
-					sc.Key,
-					t,
-				)
-			}
+		if err := validateTransition(sc, t, topLevel); err != nil {
+			return err
 		}
 	}
 	for _, a := range sc.Activations {
@@ -137,6 +105,45 @@ func validateScope(sc ir.Scope, topLevel set.Set[string]) error {
 			if err := validateScope(*m.Scope, topLevel); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func validateTransition(sc ir.Scope, t ir.Transition, topLevel set.Set[string]) error {
+	if t.Kind == ir.EdgeKindUnspecified {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"scope %s has a transition with no kind: %s",
+			sc.Key,
+			t,
+		)
+	}
+	switch target := t.Target.Variant.(type) {
+	case nil:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"scope %s has a transition with no target: %s",
+			sc.Key,
+			t,
+		)
+	case ir.StepTarget:
+		if sc.Mode == ir.ScopeModeParallel {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"scope %s has a transition with a step target it cannot take: %s",
+				sc.Key,
+				t,
+			)
+		}
+	case ir.ScopeTarget:
+		if !topLevel.Contains(target.Key) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"scope %s has a transition to a scope that is not top-level: %s",
+				sc.Key,
+				t,
+			)
 		}
 	}
 	return nil

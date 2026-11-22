@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel } from "@synnaxlabs/client";
-import { type Locator } from "playwright";
+import type { Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
@@ -74,7 +74,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // Released, the schematic's controls fade out instead of staying pinned.
     await capture.control(diagram, "circle").click();
     // Partway through the coldflow, the OX tank pressure swings with its regulation.
-    await session.settle(4000);
+    // The stand safes about 12 seconds after the OX main valve opens, so the steps from
+    // here to the still stay short.
+    await session.settle(2000);
     // From just before pressurization, so both range labels fit.
     await zoomPressures(session, 0.5);
 
@@ -82,8 +84,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.moveTo({ x: 26, y: 600 });
     // Canvas content draws on wall time, which virtual ticks outrun.
     await session.settleWall(1500);
-    await session.settle(1200);
+    await session.settle(600);
     await session.still("window");
+    if (world.logged.includes("OX MPV closed"))
+      throw new Error("the coldflow ended before the still");
   } finally {
     await client.close();
     await world.stop();

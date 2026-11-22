@@ -14,6 +14,7 @@ services:
     restart: on-failure
     environment:
       CLICKHOUSE_DB: uptrace
+      CLICKHOUSE_PASSWORD: uptrace
     healthcheck:
       test: ["CMD", "wget", "--sschematicer", "-q", "localhost:8123/ping"]
       interval: 1s

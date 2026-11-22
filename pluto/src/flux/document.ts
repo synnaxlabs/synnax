@@ -14,6 +14,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import {
   deep,
@@ -23,15 +24,18 @@ import {
   TimeSpan,
   zod,
 } from "@synnaxlabs/x";
-import { useEffect, useState } from "react";
-import { type z } from "zod";
+import { type RefObject, useEffect, useState } from "react";
+import type { z } from "zod";
 
 import { Synnax } from "@/synnax";
 
 /** The part of a domain client that a document form reads and edits through. */
 export interface DocumentDomain<Key extends record.Key, Doc extends query.Data> {
   watch: (key: Key) => query.Live<Doc>;
-  /** Begins a transaction of actions on the cached document, with camelCase keys. */
+  /**
+   * Begins a transaction of actions on the cached document, with camelCase keys.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction: (key: Key) => actions.Transaction<patch.Action>;
 }
 
@@ -93,6 +97,22 @@ const isKeyedList = (schema: z.ZodType, formPath: string, values: unknown): bool
   return def.type === "array" && hasKey(def.element as z.core.$ZodType);
 };
 
+interface Step {
+  value: unknown;
+  /** The index of the first part after the step. */
+  end: number;
+}
+
+// The child of the node that the parts from the start reach in one step of
+// `deep.resolve`, which takes the longest run of parts that names a child.
+const stepFrom = (node: unknown, parts: string[], start: number): Step | null => {
+  for (let end = parts.length; end > start; end--) {
+    const found = deep.resolve(node, parts.slice(start, end).join(deep.SEPARATOR));
+    if (found != null && found.parent === node) return { value: found.value, end };
+  }
+  return null;
+};
+
 /**
  * Finds where a form path lands in the values.
  *
@@ -109,27 +129,22 @@ const locate = (
   let node = values;
   let i = 0;
   while (i < parts.length) {
+    const step = stepFrom(node, parts, i);
     if (Array.isArray(node)) {
-      const list = node as unknown as record.Unknown;
-      const best = deep.findBestKey(list, parts.slice(i));
-      const entry = best == null ? null : deep.defaultGetter(list, best[0]);
-      if (best != null && isEntry(entry)) {
-        path.push(entry.key);
-        node = entry;
-        i += best[1];
+      if (step != null && isEntry(step.value)) {
+        path.push(step.value.key);
+        node = step.value;
+        i = step.end;
         continue;
       }
       if (isKeyedList(schema, parts.slice(0, i).join(deep.SEPARATOR), values))
         return null;
       return { path, node, rest: parts.slice(i).join(deep.SEPARATOR) };
     }
-    if (node == null || typeof node !== "object") break;
-    const best = deep.findBestKey(node as record.Unknown, parts.slice(i));
-    if (best == null) break;
-    const [key, consumed] = best;
-    path.push(key);
-    node = (node as record.Unknown)[key];
-    i += consumed;
+    if (step == null) break;
+    path.push(parts.slice(i, step.end).join(deep.SEPARATOR));
+    node = step.value;
+    i = step.end;
   }
   if (i < parts.length) {
     path.push(...parts.slice(i));
@@ -155,6 +170,8 @@ interface StoreParams<
   /** The path of the edited part in the document. */
   path: string[];
   onError: (error: unknown) => void;
+  /** Holds what each send waits for, read when the send starts. */
+  beforeSend: RefObject<(() => Promise<unknown>) | undefined>;
 }
 
 /**
@@ -175,13 +192,16 @@ class DocumentStore<
   readonly query: Query;
   private readonly key: Key;
   private readonly params: StoreParams<Key, Doc, Query, V>;
-  private doc: Doc;
+  /** The cached document the values show, undefined while none is cached. */
+  private doc?: Doc;
   private values: V;
-  /** Whether the cached document no longer holds the edited part. */
+  /** Whether the document left the cache or no longer holds the edited part. */
   private removed = false;
   private readonly edits: Edit[] = [];
   private batched: actions.Transaction<patch.Action> | null = null;
   private readonly inFlight = new Set<Promise<boolean>>();
+  /** Settles once the last send has waited for beforeSend. */
+  private waited: Promise<unknown> = Promise.resolve();
 
   constructor(params: StoreParams<Key, Doc, Query, V>) {
     this.params = params;
@@ -199,9 +219,12 @@ class DocumentStore<
 
   get = (): V => {
     const cached = this.params.domain.watch(this.key).getCached();
-    // A deleted document, or one whose edited part another client removed, keeps its
-    // last values and takes no edits.
-    if (query.isLive(cached) && cached !== this.doc) {
+    // A document that left the cache, as on a delete, or one whose edited part another
+    // client removed, keeps its last values and takes no edits.
+    if (!query.isLive(cached)) {
+      this.doc = undefined;
+      this.removed = true;
+    } else if (cached !== this.doc) {
       this.doc = cached;
       const next = this.params.toValues(cached, this.query);
       this.removed = next === undefined;
@@ -276,6 +299,10 @@ class DocumentStore<
       return;
     }
     void this.takeValid();
+    if (this.removed) {
+      fn();
+      return;
+    }
     const tx = this.params.domain.beginTransaction(this.key);
     this.batched = tx;
     try {
@@ -345,9 +372,15 @@ class DocumentStore<
       // The Core applies each action of a dispatch, so a replaced value that fails its
       // schema would fail the dispatch.
       for (const p of replaced) edit.writes.delete(p);
+      // The edit leaves the store until it holds an open transaction again, so a throw
+      // drops it.
+      const i = this.edits.indexOf(edit);
+      this.edits.splice(i, 1);
+      clearTimeout(edit.timer);
       edit.tx.abort();
       edit.tx = this.params.domain.beginTransaction(this.key);
       edit.tx.add([...edit.writes.values()].map(({ action }) => action));
+      this.edits.splice(i, 0, edit);
     }
     // The guards read the document without the replaced writes.
     const action = this.setAction(path, value);
@@ -401,8 +434,7 @@ class DocumentStore<
     const values = this.get();
     for (const edit of [...this.edits]) {
       const shown = [...edit.writes].some(
-        ([at, { value, valid }]) =>
-          !valid && deep.equal(deep.get(values, at, { optional: true }), value),
+        ([at, { value, valid }]) => !valid && deep.equal(deep.get(values, at), value),
       );
       if (shown && !this.removed) continue;
       clearTimeout(edit.timer);
@@ -435,6 +467,18 @@ class DocumentStore<
   }
 
   private async commit(tx: actions.Transaction<patch.Action>): Promise<boolean> {
+    const beforeSend = this.params.beforeSend.current;
+    // Each wait starts after the one before, so the sends still commit in order. The
+    // send that owns a wait reports its rejection, so the chain drops it.
+    const waited = beforeSend == null ? null : this.waited.then(beforeSend);
+    if (waited != null) this.waited = waited.catch(() => undefined);
+    try {
+      await waited;
+    } catch (e) {
+      tx.abort();
+      this.params.onError(e);
+      return false;
+    }
     try {
       await tx.commit();
       return true;
@@ -480,6 +524,11 @@ export interface UseDocumentFormParams<Query> extends Pick<
   "mode" | "onHasTouched"
 > {
   query: Query;
+  /**
+   * Runs before each send, which waits for it to settle and fails if it rejects. A
+   * form passes it when the Core must hold the edits of another form first.
+   */
+  beforeSend?: () => Promise<unknown>;
 }
 
 export interface UseDocumentFormReturn<Schema extends z.ZodType> {
@@ -523,10 +572,12 @@ export const createDocumentForm = <
     query,
     mode,
     onHasTouched,
+    beforeSend,
   }: UseDocumentFormParams<Query>): UseDocumentFormReturn<Schema> => {
     useEnsure({ key: query.key });
     const client = Synnax.use();
     const handleError = Status.useErrorHandler();
+    const beforeSendRef = useSyncedRef(beforeSend);
     const create = (): DocumentStore<Key, Doc, Query, z.infer<Schema>> => {
       if (client == null)
         throw new DisconnectedError(`Cannot edit ${name}: no Core connected.`);
@@ -538,6 +589,7 @@ export const createDocumentForm = <
         toValues,
         path: pathOf(query),
         onError: (error) => handleError(error, `Failed to save ${name}`),
+        beforeSend: beforeSendRef,
       });
     };
     const [store, setStore] = useState(create);

@@ -18,4 +18,4 @@ class Guarded<G> extends Base {
   }
 }
 
-export const newMutex = <G>(guard: G): Mutex<G> => new Guarded(guard) as Mutex<G>;
+export const createMutex = <G>(guard: G): Mutex<G> => new Guarded(guard) as Mutex<G>;

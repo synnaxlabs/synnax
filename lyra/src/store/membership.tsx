@@ -58,8 +58,8 @@ export interface MembershipItem {
 export interface Membership<K extends record.Key = record.Key> {
   /**
    * Context distributes the controlled set to keyed consumers. It diffs value changes
-   * and notifies only the listeners whose keys entered or left the set, so item
-   * re-renders stay surgical via useItem.
+   * and notifies only the listeners whose keys entered, left, or moved in the set, so
+   * item re-renders stay surgical via useItem.
    */
   Context: (props: MembershipProps<K>) => ReactElement;
   useContext: () => ContextValue<K>;
@@ -83,6 +83,9 @@ export interface Membership<K extends record.Key = record.Key> {
 }
 
 const NOOP = () => {};
+
+const indexes = (value: MembershipValue): Map<record.Key, number> =>
+  new Map(array.toArray(value).map((k, i) => [k, i]));
 
 /**
  * createMembership mints a typed set-membership context: a Provider that publishes a
@@ -122,11 +125,13 @@ export const createMembership = (name: string): Membership => {
       getValue,
     };
     useLayoutEffect(() => {
-      const changed = new Set(array.toArray(valueRef.current)).symmetricDifference(
-        new Set(array.toArray(value)),
+      const prev = indexes(valueRef.current);
+      const next = indexes(value);
+      const changed = [...new Set([...prev.keys(), ...next.keys()])].filter(
+        (k) => prev.get(k) !== next.get(k),
       );
       valueRef.current = value;
-      if (changed.size > 0) notifyListeners(Array.from(changed));
+      if (changed.length > 0) notifyListeners(changed);
     }, [value, notifyListeners]);
     return <BaseContext value={ctx}>{children}</BaseContext>;
   };

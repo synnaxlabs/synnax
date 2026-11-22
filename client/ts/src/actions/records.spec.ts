@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, type patch, type record } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { access } from "@/access";
@@ -82,20 +83,18 @@ const defineCase = <K extends record.Key, R extends Named & record.Keyed<K>, A>(
   },
 });
 
-const uniqueName = () => `dispatch_${id.create()}`;
-
 const CASES: Case[] = [
   defineCase(
     "device",
     (c) => c.devices,
     device.set,
     async (c) => {
-      const { key: r } = await c.racks.create({ name: uniqueName() });
+      const { key: r } = await c.racks.create({ name: uniqueName("dispatch") });
       return await c.devices.create({
         key: id.create(),
         rack: r,
         location: "dev1",
-        name: uniqueName(),
+        name: uniqueName("dispatch"),
         make: "ni",
         model: "pxi",
         properties: {},
@@ -107,7 +106,7 @@ const CASES: Case[] = [
     "rack",
     (c) => c.racks,
     rack.set,
-    async (c) => await c.racks.create({ name: uniqueName() }),
+    async (c) => await c.racks.create({ name: uniqueName("dispatch") }),
     "name: required",
   ),
   defineCase(
@@ -115,11 +114,11 @@ const CASES: Case[] = [
     (c) => c.users,
     user.set,
     async (c) => {
-      const role = await c.access.roles.create({ name: uniqueName() });
+      const role = await c.access.roles.create({ name: uniqueName("dispatch") });
       return await c.users.create({
         username: id.create(),
         password: "test",
-        name: uniqueName(),
+        name: uniqueName("dispatch"),
         role: role.key,
       });
     },
@@ -129,21 +128,22 @@ const CASES: Case[] = [
     "group",
     (c) => c.groups,
     group.set,
-    async (c) => await c.groups.create({ name: uniqueName(), scope: "channel" }),
+    async (c) =>
+      await c.groups.create({ name: uniqueName("dispatch"), scope: "channel" }),
     "name: required",
   ),
   defineCase(
     "project",
     (c) => c.projects,
     project.set,
-    async (c) => await c.projects.create({ name: uniqueName() }),
+    async (c) => await c.projects.create({ name: uniqueName("dispatch") }),
     "name: required",
   ),
   defineCase(
     "view",
     (c) => c.views,
     view.set,
-    async (c) => await c.views.create({ name: uniqueName(), type: "range" }),
+    async (c) => await c.views.create({ name: uniqueName("dispatch"), type: "range" }),
     "name: required",
   ),
   defineCase(
@@ -151,9 +151,9 @@ const CASES: Case[] = [
     (c) => c.access.policies,
     access.policy.set,
     async (c) => {
-      const role = await c.access.roles.create({ name: uniqueName() });
+      const role = await c.access.roles.create({ name: uniqueName("dispatch") });
       return await c.access.policies.create({
-        name: uniqueName(),
+        name: uniqueName("dispatch"),
         role: role.key,
         objects: [],
         actions: ["retrieve"],
@@ -165,7 +165,7 @@ const CASES: Case[] = [
     "role",
     (c) => c.access.roles,
     access.role.set,
-    async (c) => await c.access.roles.create({ name: uniqueName() }),
+    async (c) => await c.access.roles.create({ name: uniqueName("dispatch") }),
     "name: required",
   ),
   defineCase(
@@ -174,11 +174,11 @@ const CASES: Case[] = [
     schematic.symbol.set,
     async (c) => {
       const { key } = await c.groups.create({
-        name: uniqueName(),
+        name: uniqueName("dispatch"),
         scope: "schematic_symbol",
       });
       return await c.schematics.symbols.create({
-        name: uniqueName(),
+        name: uniqueName("dispatch"),
         data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
         group: key,
       });
@@ -191,7 +191,10 @@ const CASES: Case[] = [
     arc.directory.set,
     async (c) => {
       const root = await c.arcs.directories.retrieveRoot();
-      return await c.arcs.directories.create({ parent: root.key, name: uniqueName() });
+      return await c.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName("dispatch"),
+      });
     },
     'name "" must contain only letters, digits, and underscores',
   ),
@@ -206,7 +209,7 @@ describe("record dispatch", () => {
   describe.each(CASES)("$type", ({ create, refusal }) => {
     it("should hold a dispatched edit in the cache once the dispatch resolves", async () => {
       const rec = await create(client);
-      const name = uniqueName();
+      const name = uniqueName("dispatch");
       await rec.dispatch(client, { path: ["name"], value: name, guards: [] });
       expect(rec.cachedName(client)).toBe(name);
       expect(await rec.storedName(createTestClient())).toBe(name);
@@ -233,7 +236,7 @@ describe("record dispatch", () => {
     it("should rename a record that the client does not cache", async () => {
       const rec = await create(remote);
       const fresh = createTestClient();
-      const name = uniqueName();
+      const name = uniqueName("dispatch");
       await rec.rename(fresh, name);
       expect(await rec.storedName(fresh)).toBe(name);
     });
@@ -241,7 +244,7 @@ describe("record dispatch", () => {
     it("should apply another client's dispatch to a cached record", async () => {
       const rec = await create(client);
       await rec.storedName(remote);
-      const name = uniqueName();
+      const name = uniqueName("dispatch");
       await rec.dispatch(client, { path: ["name"], value: name, guards: [] });
       await expect.poll(() => rec.cachedName(remote)).toBe(name);
     });
@@ -249,8 +252,12 @@ describe("record dispatch", () => {
     it("should settle its own echo so a later remote edit shows", async () => {
       const rec = await create(client);
       await rec.storedName(remote);
-      await rec.dispatch(client, { path: ["name"], value: uniqueName(), guards: [] });
-      const name = uniqueName();
+      await rec.dispatch(client, {
+        path: ["name"],
+        value: uniqueName("dispatch"),
+        guards: [],
+      });
+      const name = uniqueName("dispatch");
       await rec.dispatch(remote, { path: ["name"], value: name, guards: [] });
       await expect.poll(() => rec.cachedName(client)).toBe(name);
     });
@@ -258,8 +265,8 @@ describe("record dispatch", () => {
     it("should read a later remote edit with no change stream", async () => {
       const unstreamed = createTestClient({ cache: false });
       const rec = await create(unstreamed);
-      await rec.rename(unstreamed, uniqueName());
-      const name = uniqueName();
+      await rec.rename(unstreamed, uniqueName("dispatch"));
+      const name = uniqueName("dispatch");
       await rec.rename(remote, name);
       expect(await rec.listedName(unstreamed)).toBe(name);
     });

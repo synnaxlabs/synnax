@@ -281,6 +281,13 @@ var _ = Describe("TimeRange", func() {
 				Expect(tr.OverlapsWith(tr2)).To(BeTrue())
 			})
 		})
+
+		It("Should make an invalid main TimeRange valid before the check", func() {
+			tr := rangeSeconds(10, 0)
+			tr2 := rangeSeconds(2, 5)
+			Expect(tr.OverlapsWith(tr2)).To(BeTrue())
+			Expect(tr2.OverlapsWith(tr)).To(BeTrue())
+		})
 	})
 
 	Describe("Swap", func() {

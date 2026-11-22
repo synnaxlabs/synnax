@@ -1,0 +1,99 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/color"
+import "schemas/x/filter"
+import "schemas/x/patch"
+
+@go output "core/pkg/service/enumeration"
+@py output "client/py/synnax/enumeration"
+@ts output "client/ts/src/enumeration"
+
+Key = uuid {
+    @doc value "is the key of an enumeration."
+}
+
+Entry struct {
+    key      string     {
+        @doc value           "is the key of the entry, unique in its enumeration."
+        @validate min_length 1
+    }
+    value    float64    {
+        @doc value       """
+            is the value that selects the entry, unique in its enumeration. Selects and
+            buttons write it.
+        """
+        @validate finite
+    }
+    name     string     {
+        @doc value "is the name of the entry."
+    }
+    abnormal bool = false {
+        @doc value "is true when the entry is a state that needs attention."
+    }
+    color    color.Ref? {
+        @doc value "is the color of the entry. When absent, the symbol picks the color."
+    }
+
+    @doc value  "is one state of an enumeration: a value with a name and a color."
+    @go marshal
+}
+
+Enumeration struct {
+    key     Key = create {
+        @doc value "is the key of the enumeration."
+        @key
+    }
+    name    string  {
+        @doc value           "is the name of the enumeration."
+        @index sorted
+        @patch
+        @search
+        @validate min_length 1
+    }
+    entries Entry[] = [] {
+        @doc value "are the states of the enumeration."
+        @patch
+    }
+
+    action Create {
+        enumeration Enumeration
+
+        @doc value """
+            replaces the enumeration with the given created state. Emitted by the Core
+            when an enumeration is created; clients never dispatch it.
+        """
+    }
+
+    action Set = patch.Set
+
+    action Remove = patch.Remove
+
+    action Insert = patch.Insert
+
+    action Move = patch.Move
+
+    @create
+    @doc value     """
+        is a set of states that maps exact values to names and colors. A record that
+        shows states holds its key, so an edit to the enumeration changes each user.
+    """
+    @go marshal
+    @go migrate
+    @resource type "enumeration"
+    @retrieve
+}
+
+Where filter Enumeration {
+    key
+    name
+
+    @doc value         "is a filter that selects enumerations."
+    @go request_output "core/pkg/api/enumeration"
+}

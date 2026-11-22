@@ -29,7 +29,8 @@ on:
         default: false
 
 concurrency:
-  group: docs-${{ github.workflow }}-${{ github.ref }}
+  group:
+    docs-${{ github.workflow }}-${{ github.event.merge_group.head_sha || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -42,9 +43,12 @@ jobs:
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -54,7 +58,7 @@ jobs:
       # unauthenticated requests.
       - name: Build
         env:
-          DOCS_GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: pnpm build:docs
 
       # The Console and Desktop updaters poll these feeds, so each must redirect per
@@ -78,6 +82,6 @@ jobs:
         timeout-minutes: 15
         working-directory: site/docs
         env:
-          DOCS_GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
           STRICT: ${{ inputs.strict && '--strict' || '' }}
         run: pnpm check-site:build && pnpm check-site ${STRICT:+"$STRICT"}

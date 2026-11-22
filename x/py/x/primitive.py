@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-_Primitive = str | int | float | bool | None
-
 
 def is_primitive(value: object) -> bool:
     return isinstance(value, (str, int, float, bool, type(None)))

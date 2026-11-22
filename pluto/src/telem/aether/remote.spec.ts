@@ -30,20 +30,7 @@ import {
 } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
-import { createFactory, type CreateOptions } from "@/telem/aether/factory";
-import {
-  ChannelData,
-  type ChannelDataProps,
-  type Client,
-  DISCONNECTED_STATUS,
-  streamChannelStringValue,
-  streamChannelValue,
-} from "@/telem/aether/remote";
-import {
-  type NumberSource,
-  type StringSource,
-  type ValueProps,
-} from "@/telem/aether/telem";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { line } from "@/vis/line/aether";
 
@@ -84,7 +71,7 @@ describe("remote", () => {
   const connect = (
     core: SyntheticCore,
     props: Partial<framer.FeedProps> = {},
-  ): Client => {
+  ): telem.Client => {
     const client = telemTest.createClient(core, { ...OPTIONS, ...props });
     closers.push(async () => await client.feed.close());
     return client;
@@ -92,19 +79,24 @@ describe("remote", () => {
 
   describe("channel values", () => {
     const createNumber = (
-      client: Client | null,
+      client: telem.Client | null,
       ch: channel.Key,
-      options?: CreateOptions,
-    ): NumberSource => {
-      const spec = streamChannelValue({ channel: ch });
-      const source = createFactory(client).create(spec, options) as NumberSource;
+      options?: telem.CreateOptions,
+    ): telem.NumberSource => {
+      const spec = telem.streamChannelValue({ channel: ch });
+      const source = telem
+        .createFactory(client)
+        .create(spec, options) as telem.NumberSource;
       closers.push(() => source.cleanup?.());
       return source;
     };
 
-    const createString = (client: Client | null, ch: channel.Key): StringSource => {
-      const spec = streamChannelStringValue({ channel: ch });
-      const source = createFactory(client).create(spec) as StringSource;
+    const createString = (
+      client: telem.Client | null,
+      ch: channel.Key,
+    ): telem.StringSource => {
+      const spec = telem.streamChannelStringValue({ channel: ch });
+      const source = telem.createFactory(client).create(spec) as telem.StringSource;
       closers.push(() => source.cleanup?.());
       return source;
     };
@@ -354,11 +346,11 @@ describe("remote", () => {
 
   describe("ChannelData", () => {
     const create = (
-      client: Client | null,
-      props: Partial<ChannelDataProps>,
-      options?: CreateOptions,
-    ): ChannelData => {
-      const source = new ChannelData(
+      client: telem.Client | null,
+      props: Partial<telem.ChannelDataProps>,
+      options?: telem.CreateOptions,
+    ): telem.ChannelData => {
+      const source = new telem.ChannelData(
         client,
         { channel: 0, window: staticWindow(HOME), ...props },
         options,
@@ -368,7 +360,10 @@ describe("remote", () => {
       return source;
     };
 
-    const settle = async (source: ChannelData, props?: ValueProps): Promise<void> =>
+    const settle = async (
+      source: telem.ChannelData,
+      props?: telem.ValueProps,
+    ): Promise<void> =>
       await expect.poll(() => source.value(props).status.variant, POLL).toBe("success");
 
     // Counts the reductions of every read the Core serves.
@@ -383,7 +378,7 @@ describe("remote", () => {
       return { client, reductions };
     };
 
-    const view = (start: TimeSpan, end: TimeSpan, points = 1000): ValueProps => ({
+    const view = (start: TimeSpan, end: TimeSpan, points = 1000): telem.ValueProps => ({
       bounds: { lower: ns(START.add(start)), upper: ns(START.add(end)) },
       points,
     });
@@ -404,9 +399,10 @@ describe("remote", () => {
       await settle(y);
       const [, series] = y.value().data;
       expect(series.series.every((s) => s.alignmentMultiple > 1n)).toBe(true);
-      // Each min_max group holds two samples.
-      expect(series.length / 2).toBeGreaterThan(900);
-      expect(series.length / 2).toBeLessThan(1100);
+      // A tile's point limit rounds up to a power of two, so the line draws 1 to 2
+      // times its 1000 points.
+      expect(series.length).toBeGreaterThan(1000);
+      expect(series.length).toBeLessThan(2000);
       expect(series.series[0].timeRange.start).toEqual(START);
       expect(
         series.series.at(-1)?.timeRange.end.afterEq(HOME.end.sub(RATE.period)),
@@ -687,6 +683,23 @@ describe("remote", () => {
       await expect.poll(last, POLL).toBe(newest(core, key).at(-1));
     });
 
+    it("should read the value bounds of a static window across its view", async () => {
+      const core = createCore();
+      const client = connect(core);
+      const subscribe = vi.spyOn(client.feed, "subscribe");
+      const y = create(client, { channel: core.data[0].key, aggregation: "average" });
+      await settle(y);
+      const lower = ns(START);
+      const upper = ns(HOME.end) + ns(new TimeStamp(TimeSpan.minutes(1)));
+      y.value({ extremesKept: true, bounds: { lower, upper } });
+      const kept = subscribe.mock.calls
+        .map(([request]) => request.limit)
+        .filter((limit) => limit.variant === "points" && limit.extremesKept === true);
+      expect(kept).toEqual([
+        expect.objectContaining({ view: new TimeRange(BigInt(lower), BigInt(upper)) }),
+      ]);
+    });
+
     it("should bound a static index by its home view", async () => {
       const core = createCore();
       const x = create(connect(core), {
@@ -695,6 +708,193 @@ describe("remote", () => {
       });
       await settle(x);
       expect(x.value().data[0]).toEqual(HOME.numericBounds);
+      expect(x.value().edge).toBeUndefined();
+    });
+
+    describe("static window that streams", () => {
+      // A running range: it started a minute after the Core's first sample, and has no
+      // end.
+      const FROM = START.add(TimeSpan.minutes(1));
+      const OPEN = staticWindow(new TimeRange(FROM, TimeStamp.MAX));
+
+      it("should end its bounds at the newest sample and keep its start", async () => {
+        const core = createCore({ end: START.add(TimeSpan.minutes(5)) });
+        const { key } = core.data[0];
+        const x = create(connect(core), {
+          channel: key,
+          useIndexOfChannel: true,
+          window: OPEN,
+        });
+        await settle(x);
+        expect(x.value().data[0]).toEqual({
+          lower: ns(FROM),
+          upper: ns(newest(core, key).timeRange.end),
+        });
+        expect(x.value().edge).toBe("growing");
+      });
+
+      it("should grow its bounds as samples arrive", async () => {
+        const core = createCore();
+        const { key } = core.data[0];
+        const x = create(connect(core), {
+          channel: key,
+          useIndexOfChannel: true,
+          window: OPEN,
+        });
+        await settle(x);
+        core.advance(TimeSpan.seconds(1));
+        const upper = ns(newest(core, key).timeRange.end);
+        await expect.poll(() => x.value().data[0].upper, POLL).toBe(upper);
+        expect(x.value().data[0].lower).toBe(ns(FROM));
+      });
+
+      it("should read its value bounds across the view it is passed", async () => {
+        const core = createCore();
+        const client = connect(core);
+        const subscribe = vi.spyOn(client.feed, "subscribe");
+        const { key } = core.data[0];
+        const y = create(client, {
+          channel: key,
+          window: OPEN,
+          aggregation: "average",
+        });
+        await settle(y);
+        const upper = ns(newest(core, key).timeRange.end);
+        const lower = upper - ns(new TimeStamp(TimeSpan.seconds(30)));
+        y.value({ extremesKept: true, bounds: { lower, upper } });
+        const kept = subscribe.mock.calls
+          .map(([request]) => request.limit)
+          .filter((limit) => limit.variant === "points" && limit.extremesKept === true);
+        expect(kept).toEqual([
+          expect.objectContaining({
+            view: new TimeRange(BigInt(lower), BigInt(upper)),
+          }),
+        ]);
+      });
+
+      it("should draw only the tiles inside the span it is passed", async () => {
+        const core = createCore();
+        const client = connect(core);
+        const subscribe = vi.spyOn(client.feed, "subscribe");
+        const y = create(client, { channel: core.data[0].key, window: OPEN });
+        const lower = ns(FROM);
+        const upper = lower + ns(new TimeStamp(TimeSpan.minutes(1)));
+        await expect
+          .poll(() => {
+            y.value({
+              bounds: { lower, upper },
+              points: 100,
+              span: { lower, upper: Infinity },
+            });
+            return subscribe.mock.calls.length;
+          }, POLL)
+          .toBeGreaterThan(0);
+        expect(subscribe.mock.calls[0][0].limit).toEqual(
+          expect.objectContaining({
+            bound: new TimeRange(BigInt(lower), TimeStamp.MAX),
+          }),
+        );
+      });
+
+      it("should have no bounds for a range that has not started", async () => {
+        const core = createCore();
+        const x = create(connect(core), {
+          channel: core.data[0].key,
+          useIndexOfChannel: true,
+          window: staticWindow(new TimeRange(TimeStamp.MAX, TimeStamp.MAX)),
+        });
+        await settle(x);
+        expect(x.value().data[0]).toEqual(bounds.INVALID);
+      });
+
+      it("should end its bounds at the newest sample before a planned end", async () => {
+        const core = createCore();
+        const { key } = core.data[0];
+        const end = NOW.add(TimeSpan.hours(1));
+        const x = create(connect(core), {
+          channel: key,
+          useIndexOfChannel: true,
+          window: staticWindow(new TimeRange(FROM, end)),
+        });
+        await settle(x);
+        expect(x.value().data[0]).toEqual({
+          lower: ns(FROM),
+          upper: ns(newest(core, key).timeRange.end),
+        });
+      });
+    });
+
+    describe("update", () => {
+      const SHORT = new TimeRange(START, START.add(TimeSpan.minutes(5)));
+
+      it("should keep its samples while those of a new window load", async () => {
+        const core = createCore();
+        const props = { channel: core.data[0].key, useIndexOfChannel: true };
+        const x = create(connect(core), props);
+        await settle(x);
+        expect(x.update({ ...props, window: staticWindow(SHORT) })).toBe(true);
+        const { data } = x.value();
+        expect(data[0]).toEqual(SHORT.numericBounds);
+        expect(data[1].length).toBeGreaterThan(0);
+      });
+
+      it("should draw the samples of its new window", async () => {
+        const core = createCore();
+        const props = { channel: core.data[0].key, useIndexOfChannel: true };
+        const x = create(connect(core), props);
+        await settle(x);
+        x.update({ ...props, window: staticWindow(SHORT) });
+        await expect
+          .poll(() => x.value({ points: 100 }).data[1].bounds.upper, POLL)
+          .toBeLessThanOrEqual(ns(SHORT.end));
+      });
+
+      it("should keep its samples when a live window stops", async () => {
+        const core = createCore();
+        const props = { channel: core.data[0].key, useIndexOfChannel: true };
+        const x = create(connect(core), {
+          ...props,
+          window: dynamicWindow(TimeSpan.minutes(1)),
+        });
+        await settle(x);
+        expect(x.value().edge).toBe("rolling");
+        const stopped = new TimeRange(core.now().sub(TimeSpan.minutes(1)), core.now());
+        expect(x.update({ ...props, window: staticWindow(stopped) })).toBe(true);
+        // The window still streams until its end passes the commit point.
+        const { data, edge } = x.value();
+        expect(edge).toBe("growing");
+        expect(data[0]).toEqual({
+          lower: ns(stopped.start),
+          upper: ns(newest(core, props.channel).timeRange.end),
+        });
+        expect(data[1].length).toBeGreaterThan(0);
+      });
+
+      it("should keep its samples while those of a new aggregation load", async () => {
+        const core = createCore();
+        const props = {
+          channel: core.data[0].key,
+          window: staticWindow(HOME),
+          aggregation: "average" as const,
+        };
+        const y = create(connect(core), props);
+        await settle(y);
+        // The Core's min_max groups span each value plus and minus one.
+        expect(y.value().data[0].upper).toBeCloseTo(1, 1);
+        expect(y.update({ ...props, aggregation: "min_max" })).toBe(true);
+        const { data, aggregation } = y.value();
+        expect(aggregation).toBe("min_max");
+        expect(data[1].length).toBeGreaterThan(0);
+        await expect.poll(() => y.value().data[0].upper, POLL).toBeGreaterThan(1.5);
+      });
+
+      it("should not take props that draw another channel", () => {
+        const core = createCore();
+        const x = create(connect(core), { channel: core.data[0].key });
+        expect(x.update({ channel: core.index.key, window: staticWindow(HOME) })).toBe(
+          false,
+        );
+      });
     });
 
     it("should bound a live index by the span before its newest sample", async () => {
@@ -721,7 +921,9 @@ describe("remote", () => {
       const END = START.add(TimeSpan.minutes(5));
       const SPAN = TimeSpan.seconds(10);
 
-      const createLine = (core: SyntheticCore): [ChannelData, ChannelData] => {
+      const createLine = (
+        core: SyntheticCore,
+      ): [telem.ChannelData, telem.ChannelData] => {
         const client = connect(core);
         const props = { channel: core.data[0].key, window: dynamicWindow(SPAN) };
         return [
@@ -737,7 +939,7 @@ describe("remote", () => {
         const upper = ns(newest(core, core.data[0].key).timeRange.end);
         const expected = { lower: upper - ns(new TimeStamp(SPAN)), upper };
         expect(x.value().data[0]).toEqual(expected);
-        expect(x.value().rolling).toBe(true);
+        expect(x.value().edge).toBe("rolling");
         core.advance(TimeSpan.minutes(1));
         await sleep.sleep(TimeSpan.milliseconds(50));
         expect(x.value().data[0]).toEqual(expected);
@@ -754,9 +956,9 @@ describe("remote", () => {
         const [x, y] = createLine(core);
         await settle(x);
         await settle(y);
-        expect(y.value().rolling).toBe(false);
+        expect(y.value().edge).toBeUndefined();
         const { upper } = x.value().data[0];
-        const shown: ValueProps = {
+        const shown: telem.ValueProps = {
           extremesKept: true,
           bounds: { lower: upper - ns(new TimeStamp(SPAN)), upper },
         };
@@ -793,9 +995,9 @@ describe("remote", () => {
 
     // Returns the client with its channel retrievals run through retrieve.
     const withRetrieve = (
-      client: Client,
-      retrieve: Client["channels"]["retrieve"],
-    ): Client => ({ ...client, channels: { retrieve } });
+      client: telem.Client,
+      retrieve: telem.Client["channels"]["retrieve"],
+    ): telem.Client => ({ ...client, channels: { retrieve } });
 
     it("should retry a channel retrieval that fails to connect", async () => {
       const core = createCore();
@@ -823,8 +1025,7 @@ describe("remote", () => {
     it("should drop a channel retrieval that lands after cleanup", async () => {
       const core = createCore();
       const client = connect(core);
-      let release: () => void = () => {};
-      const released = new Promise<void>((resolve) => (release = resolve));
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
       let [started, landed] = [false, false];
       const gated = withRetrieve(client, async (ch) => {
         started = true;
@@ -866,7 +1067,7 @@ describe("remote", () => {
     const LIVE_START = TimeStamp.seconds(100);
     const PERIOD = TimeSpan.milliseconds(100);
 
-    const createLive = (): { core: SyntheticCore; client: Client } => {
+    const createLive = (): { core: SyntheticCore; client: telem.Client } => {
       const core = new SyntheticCore({
         rate: 10,
         start: LIVE_START,
@@ -879,7 +1080,7 @@ describe("remote", () => {
     // number of its samples.
     const stream = async (
       core: SyntheticCore,
-      client: Client,
+      client: telem.Client,
       key: channel.Key,
       count: number,
     ): Promise<void> => {
@@ -900,14 +1101,14 @@ describe("remote", () => {
     // with the index as the line's X channel or with no X channel.
     const createLine = (
       core: SyntheticCore,
-      client: Client,
+      client: telem.Client,
       span: TimeSpan,
       indexAsX: boolean,
-    ): [ChannelData, ChannelData] => {
+    ): [telem.ChannelData, telem.ChannelData] => {
       const yChannel = core.data[0].key;
       const xChannel = indexAsX ? core.index.key : 0;
-      const create = (props: Partial<ChannelDataProps>): ChannelData => {
-        const source = new ChannelData(
+      const create = (props: Partial<telem.ChannelDataProps>): telem.ChannelData => {
+        const source = new telem.ChannelData(
           client,
           { channel: yChannel, window: dynamicWindow(span), xChannel, ...props },
           undefined,
@@ -927,7 +1128,11 @@ describe("remote", () => {
       Array.from({ length: to - from }, (_, i) => from + i);
 
     // Returns the index of every sample a line of x and y draws, in order.
-    const drawn = (x: ChannelData, y: ChannelData, shown?: ValueProps): number[] =>
+    const drawn = (
+      x: telem.ChannelData,
+      y: telem.ChannelData,
+      shown?: telem.ValueProps,
+    ): number[] =>
       line
         .buildDrawOperations(
           x.value(shown).data[1],
@@ -992,7 +1197,7 @@ describe("remote", () => {
         await expect
           .poll(() => drawn(x, y), POLL)
           .toEqual(expect.arrayContaining(samples(from, to)));
-        const paused: ValueProps = {
+        const paused: telem.ValueProps = {
           bounds: { lower: ns(end.sub(span)), upper: ns(end) },
           points: 2000,
         };
@@ -1011,24 +1216,26 @@ describe("remote", () => {
 
   describe("disconnected", () => {
     it("should still create remote sources from a null-client factory", () => {
-      const factory = createFactory(null);
-      expect(factory.create(streamChannelValue({ channel: 1 }))).not.toBeNull();
+      const factory = telem.createFactory(null);
+      expect(factory.create(telem.streamChannelValue({ channel: 1 }))).not.toBeNull();
     });
 
     it("should report a disconnected status once instead of throwing", () => {
       const statuses: cstatus.Crude[] = [];
-      const source = createFactory(null).create(streamChannelValue({ channel: 1 }), {
-        onStatusChange: (s) => statuses.push(s),
-      }) as NumberSource;
+      const source = telem
+        .createFactory(null)
+        .create(telem.streamChannelValue({ channel: 1 }), {
+          onStatusChange: (s) => statuses.push(s),
+        }) as telem.NumberSource;
       expect(source.value().data).toBeNaN();
       // A repeated read must not report again: the source is rebuilt on reconnect.
       expect(source.value().data).toBeNaN();
-      expect(statuses).toEqual([DISCONNECTED_STATUS]);
+      expect(statuses).toEqual([telem.DISCONNECTED_STATUS]);
     });
 
     it("should return empty, loaded data from a disconnected line source", () => {
       const statuses: cstatus.Crude[] = [];
-      const source = new ChannelData(
+      const source = new telem.ChannelData(
         null,
         { channel: 1, window: staticWindow(HOME) },
         { onStatusChange: (s) => statuses.push(s) },
@@ -1037,7 +1244,7 @@ describe("remote", () => {
       expect(data[0]).toStrictEqual(bounds.INVALID);
       expect(data[1]).toHaveLength(0);
       expect(status.variant).not.toBe("loading");
-      expect(statuses).toEqual([DISCONNECTED_STATUS]);
+      expect(statuses).toEqual([telem.DISCONNECTED_STATUS]);
     });
   });
 });

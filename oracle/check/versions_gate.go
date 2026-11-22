@@ -238,9 +238,9 @@ func propagateChanges(
 	}
 }
 
-// referencesAny reports whether t's fields, variants, or extended types name a type in
-// names. An inline variant's payload is part of its union, so its references count as
-// the union's.
+// referencesAny reports whether t's fields, variants, extended types, alias target, or
+// distinct base name a type in names. An inline variant's payload is part of its union,
+// so its references count as the union's.
 func referencesAny(
 	t resolution.Type,
 	names set.Set[string],
@@ -265,6 +265,10 @@ func referencesAny(
 				}
 			}
 			refs = append(refs, form.Extends...)
+		case resolution.AliasForm:
+			refs = append(refs, form.Target)
+		case resolution.DistinctForm:
+			refs = append(refs, form.Base)
 		}
 	}
 	collect(t.Form)

@@ -15,7 +15,7 @@ import {
   TimeSpan,
   type url,
 } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import {
   type Connector,
@@ -24,14 +24,9 @@ import {
   type FetchResponse,
 } from "@/connector";
 import { Timeout, Unreachable } from "@/errors";
-import {
-  type FileEncoding,
-  type FileOptions,
-  type FileTransport,
-  type UploadBody,
-} from "@/file";
+import type { FileEncoding, FileOptions, FileTransport, UploadBody } from "@/file";
 import { type Context, MiddlewareCollector } from "@/middleware";
-import { type UnaryClient } from "@/unary";
+import type { UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 const ACCEPT_HEADER_KEY = "Accept";
@@ -161,8 +156,12 @@ const detectRequestStreams = (): boolean => {
 
 // Browsers implement streaming request bodies but send them only over HTTP/2 or HTTP/3,
 // and the negotiated protocol is unknowable before the request goes out. Everywhere
-// else a stream rides HTTP/1.1 chunked, which is what the Core speaks.
-const STREAMS_REQUEST_BODIES = runtime.RUNTIME === "node" && detectRequestStreams();
+// else a stream rides HTTP/1.1 chunked, which is what the Core speaks. An Electron
+// renderer sets process.versions.node but sends with the browser's fetch.
+const STREAMS_REQUEST_BODIES =
+  runtime.RUNTIME === "node" &&
+  typeof document === "undefined" &&
+  detectRequestStreams();
 
 const toSendableBody = async (body: UploadBody): Promise<UploadBody> => {
   if (STREAMS_REQUEST_BODIES || !(body instanceof ReadableStream)) return body;
@@ -367,12 +366,32 @@ export class HTTPClient
     target: string,
     request: FetchInit,
   ): Promise<FetchResponse> {
-    try {
-      return await this.connector.fetch(target, request);
-    } catch (e) {
+    const cast = (e: unknown, delivered: boolean): Error => {
       const err = errors.fromUnknown(e);
-      throw shouldCastToUnreachable(err) ? new Unreachable({ url, cause: err }) : err;
+      return shouldCastToUnreachable(err)
+        ? new Unreachable({ url, cause: err, delivered })
+        : err;
+    };
+    let res: FetchResponse;
+    try {
+      res = await this.connector.fetch(target, request);
+    } catch (e) {
+      throw cast(e, false);
     }
+    // The connection can fail after the headers arrive, while the body is read.
+    return {
+      ok: res.ok,
+      status: res.status,
+      statusText: res.statusText,
+      body: res.body,
+      arrayBuffer: async () => {
+        try {
+          return await res.arrayBuffer();
+        } catch (e) {
+          throw cast(e, true);
+        }
+      },
+    };
   }
 
   private decodeError(

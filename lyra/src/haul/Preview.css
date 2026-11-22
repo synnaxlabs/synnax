@@ -1,0 +1,149 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.lyra-haul-preview {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 30rem;
+    max-width: 56rem;
+    background: var(--pluto-gray-l1-l2);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    border-radius: var(--pluto-border-radius-medium);
+    box-shadow: var(--pluto-shadow-overlay);
+}
+
+/* An icon tile, then the name over a tight line of facts. */
+.lyra-haul-preview__main {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    min-width: 0;
+    min-height: 5.5rem;
+    padding: 0.75rem 2.5rem 0.75rem 1rem;
+}
+
+/* The tile inset matches the preview's corner. */
+.lyra-haul-preview__tile {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 4.5rem;
+    height: 4.5rem;
+    color: var(--pluto-gray-l10);
+    background: var(--pluto-gray-l3);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l5);
+    border-radius: var(--pluto-border-radius-small);
+
+    & .lyra-icon {
+        width: 2.25rem;
+        height: 2.25rem;
+    }
+}
+
+.lyra-haul-preview__tile--swatch {
+    border-color: transparent;
+}
+
+.lyra-haul-preview__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.lyra-haul-preview__name {
+    overflow: hidden;
+    white-space: nowrap;
+    line-height: 2.5rem;
+}
+
+.lyra-haul-preview__name--cut {
+    mask-image: linear-gradient(to right, black calc(100% - 4rem), transparent);
+}
+
+.lyra-haul-preview__facts {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--pluto-gray-l9);
+    font-size: var(--pluto-tiny-size);
+    line-height: var(--pluto-tiny-line-height);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.lyra-haul-preview__sep {
+    color: var(--pluto-gray-l7);
+}
+
+.lyra-haul-preview__fact {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    & .lyra-icon {
+        width: 1.75rem;
+        height: 1.75rem;
+        color: var(--pluto-gray-l8);
+    }
+}
+
+.lyra-haul-preview__count {
+    position: absolute;
+    top: -1.25rem;
+    right: -1.25rem;
+    min-width: 3.5rem;
+    height: 3.5rem;
+    padding: 0 1rem;
+    border-radius: 1.75rem;
+    background: var(--pluto-primary-z);
+    color: var(--pluto-text-on-primary);
+    font-size: var(--pluto-tiny-size);
+    font-weight: 400;
+    line-height: 3.5rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Two plates behind the preview show that the drag carries more than one object. */
+.lyra-haul-preview--stack {
+    margin: 0 1.5rem 1.5rem 0;
+
+    &::before,
+    &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: var(--pluto-gray-l1-l2);
+        border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+        border-radius: inherit;
+    }
+
+    &::before {
+        transform: translate(round(0.75rem, 1px), round(0.75rem, 1px));
+    }
+
+    &::after {
+        transform: translate(1.5rem, 1.5rem);
+        z-index: -2;
+    }
+}
+
+.lyra-haul-copy {
+    width: max-content;
+    overflow: hidden;
+    background: var(--pluto-gray-l1-l2);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    border-radius: var(--pluto-border-radius-small);
+    box-shadow: var(--pluto-shadow-overlay);
+}

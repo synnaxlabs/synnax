@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare } from "@synnaxlabs/x";
+
 import KINDS from "../../../../../arc/go/analyzer/codes/codes.gen.json";
 
 /** An Arc diagnostic kind, as the docs show it. */
@@ -41,4 +43,4 @@ export const kinds = (): Kind[] =>
   Object.entries(KINDS as Record<string, Omit<Kind, "code">>)
     .filter(([code]) => code[1] in BANDS)
     .map(([code, kind]) => ({ code, ...kind }))
-    .sort((a, b) => order(a.code).localeCompare(order(b.code)));
+    .sort(compare.by((k) => order(k.code)));

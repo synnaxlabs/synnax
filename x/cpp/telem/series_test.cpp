@@ -9,6 +9,7 @@
 
 #include <array>
 #include <iostream>
+#include <limits>
 
 #include "gtest/gtest.h"
 
@@ -666,6 +667,21 @@ TEST(TestSeries, testDeepCopyWriteIntoSpareCapacity) {
     ASSERT_EQ(s2.at<std::uint32_t>(-1), 7);
 }
 
+/// @brief it should append the strings of another string series.
+TEST(TestSeries, testWriteStringSeries) {
+    Series s(std::vector<std::string>{"a"});
+    ASSERT_EQ(s.write(Series(std::vector<std::string>{"bc", "def"})), 2);
+    ASSERT_EQ(s.size(), 3);
+    ASSERT_EQ(s.strings(), (std::vector<std::string>{"a", "bc", "def"}));
+}
+
+/// @brief it should throw when writing a series of another data type.
+TEST(TestSeries, testWriteSeriesTypeMismatch) {
+    Series s(FLOAT64_T, 4);
+    EXPECT_THROW(s.write(Series(std::vector<int32_t>{1, 2})), std::runtime_error);
+    ASSERT_EQ(s.size(), 0);
+}
+
 /// @brief it should keep the spare byte capacity of a variable series in a deep copy.
 TEST(TestSeries, testDeepCopyVariableSpareCapacity) {
     const Series s1{STRING_T, 64};
@@ -763,6 +779,20 @@ TEST(TestSeriesLinspace, EqualStartEnd) {
     const auto values = s.values<uint64_t>();
     for (size_t i = 0; i < 5; i++)
         ASSERT_EQ(values[i], 100);
+}
+
+/// @brief it should keep the spacing of count samples when the capacity holds fewer.
+TEST(TestSeriesLinspace, CappedKeepsSpacing) {
+    Series s(TIMESTAMP_T, 2);
+    ASSERT_EQ(s.write_linspace(TimeStamp(0), TimeStamp(100), 4), 2);
+    ASSERT_EQ(s.values<int64_t>(), (std::vector<int64_t>{0, 25}));
+}
+
+/// @brief it should write the start when an inclusive linspace has room for one.
+TEST(TestSeriesLinspace, InclusiveCappedToOne) {
+    Series s(TIMESTAMP_T, 1);
+    ASSERT_EQ(s.write_linspace(TimeStamp(10), TimeStamp(100), 3, true), 1);
+    ASSERT_EQ(s.at<int64_t>(0), 10);
 }
 
 /// @brief it should generate an empty series with zero count.
@@ -1569,6 +1599,30 @@ TEST(SeriesOperators, ScalarOnLeftDivision) {
 TEST(SeriesOperators, DivisionByZeroThrows) {
     auto a = Series(std::vector<double>{1.0, 2.0, 3.0});
     ASSERT_THROW(a / 0.0, std::runtime_error);
+}
+
+/// @brief it should wrap a signed minimum divided by -1 to the minimum.
+TEST(SeriesOperators, SignedMinDividedByNegativeOneWraps) {
+    constexpr auto min = std::numeric_limits<int64_t>::min();
+    auto a = Series(std::vector<int64_t>{min, 6});
+    auto b = Series(std::vector<int64_t>{-1, -1});
+    auto series = a / b;
+    ASSERT_EQ(series.at<int64_t>(0), min);
+    ASSERT_EQ(series.at<int64_t>(1), -6);
+    ASSERT_EQ((a / int64_t{-1}).at<int64_t>(0), min);
+    ASSERT_EQ((min / Series(std::vector<int64_t>{-1})).at<int64_t>(0), min);
+}
+
+/// @brief it should return zero for a signed minimum modulo -1.
+TEST(SeriesOperators, SignedMinModuloNegativeOneIsZero) {
+    constexpr auto min = std::numeric_limits<int32_t>::min();
+    auto a = Series(std::vector<int32_t>{min, 7});
+    auto b = Series(std::vector<int32_t>{-1, 3});
+    auto series = a % b;
+    ASSERT_EQ(series.at<int32_t>(0), 0);
+    ASSERT_EQ(series.at<int32_t>(1), 1);
+    ASSERT_EQ((a % int32_t{-1}).at<int32_t>(0), 0);
+    ASSERT_EQ((min % Series(std::vector<int32_t>{-1})).at<int32_t>(0), 0);
 }
 
 /// @brief Tests > comparison operator.
@@ -2741,5 +2795,56 @@ TEST(SeriesCopyFrom, WorksWithVariableDensityTypes) {
     dst.copy_from(src);
     ASSERT_EQ(dst.data_type(), STRING_T);
     ASSERT_EQ(dst.strings(), std::vector<std::string>({"foo", "bar"}));
+}
+
+/// @brief it should keep the fractional part of float values when the scalar is an
+/// integer.
+TEST(TestSeriesInplace, IntegerScalarKeepsFloatFractions) {
+    Series added(std::vector<float>{1.5f, 2.5f});
+    added.add_inplace(1);
+    ASSERT_EQ(added.values<float>(), std::vector<float>({2.5f, 3.5f}));
+    Series subtracted(std::vector<float>{1.5f, 2.5f});
+    subtracted.sub_inplace(1);
+    ASSERT_EQ(subtracted.values<float>(), std::vector<float>({0.5f, 1.5f}));
+    Series multiplied(std::vector<float>{1.5f, 2.5f});
+    multiplied.multiply_inplace(2);
+    ASSERT_EQ(multiplied.values<float>(), std::vector<float>({3.0f, 5.0f}));
+    Series divided(std::vector<float>{1.5f, 2.5f});
+    divided.divide_inplace(2);
+    ASSERT_EQ(divided.values<float>(), std::vector<float>({0.75f, 1.25f}));
+}
+
+/// @brief it should keep the fractional part of float values in scalar operators
+/// when the scalar is an integer.
+TEST(TestSeriesOperators, IntegerScalarKeepsFloatFractions) {
+    const Series s(std::vector<double>{1.5, 2.5});
+    ASSERT_EQ((s + 1).values<double>(), std::vector<double>({2.5, 3.5}));
+    ASSERT_EQ((s - 1).values<double>(), std::vector<double>({0.5, 1.5}));
+    ASSERT_EQ((s * 2).values<double>(), std::vector<double>({3.0, 5.0}));
+    ASSERT_EQ((s / 2).values<double>(), std::vector<double>({0.75, 1.25}));
+    ASSERT_EQ((s % 2).values<double>(), std::vector<double>({1.5, 0.5}));
+    ASSERT_EQ((4 - s).values<double>(), std::vector<double>({2.5, 1.5}));
+    ASSERT_EQ((15 / s).values<double>(), std::vector<double>({10.0, 6.0}));
+    ASSERT_EQ((5 % s).values<double>(), std::vector<double>({0.5, 0.0}));
+}
+
+/// @brief it should throw instead of trapping when an integer series is divided by a
+/// scalar that truncates to zero.
+TEST(TestSeriesOperators, IntegerSeriesZeroDivisorThrows) {
+    Series s(std::vector<int32_t>{4, 6});
+    ASSERT_THROW(s.divide_inplace(0.5), std::runtime_error);
+    ASSERT_THROW(s / 0.5, std::runtime_error);
+    ASSERT_THROW(s % 0.5, std::runtime_error);
+    const Series zero(std::vector<int32_t>{1, 0});
+    ASSERT_THROW(1.0 / zero, std::runtime_error);
+    ASSERT_THROW(1.0 % zero, std::runtime_error);
+}
+
+/// @brief it should apply a floating-point scalar to an integer series using
+/// integer arithmetic.
+TEST(TestSeriesOperators, FloatScalarOnIntegerSeries) {
+    const Series s(std::vector<int32_t>{4, 6});
+    ASSERT_EQ((s + 1.5).values<int32_t>(), std::vector<int32_t>({5, 7}));
+    ASSERT_EQ((s / 2.5).values<int32_t>(), std::vector<int32_t>({2, 3}));
 }
 }

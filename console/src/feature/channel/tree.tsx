@@ -10,6 +10,7 @@
 import "@/feature/channel/tree.css";
 
 import { channel, isCalculated, query, status, type Synnax } from "@synnaxlabs/client";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -42,6 +43,23 @@ const haulItems: Tree.HaulItems = ({ name, id: { key } }, client) => {
       config: { variant: "value", label: { label: name }, channel: Number(key) },
     }),
   ];
+};
+
+const FACTS = ["Channel"];
+
+const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
+  const ch = client.channels.watch(Number(resource.id.key)).getCached();
+  if (!query.isLive(ch))
+    return (
+      <Haul.Preview
+        icon={<Icon.Channel />}
+        name={resource.name}
+        facts={FACTS}
+        count={count}
+      />
+    );
+  const index = PChannel.getCachedIndex(client, ch.payload);
+  return <PChannel.HaulPreview channel={ch.payload} index={index} count={count} />;
 };
 
 const useDelete = Tree.createUseDelete({
@@ -199,6 +217,7 @@ const TreeItem = Tree.createItem({
   icon: <Icon.Channel />,
   useOnSelect: useOpen,
   haulItems,
+  haulPreview,
   Content,
   ContextMenu: TreeContextMenu,
 });

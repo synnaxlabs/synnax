@@ -88,9 +88,6 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 		position:  r.counter,
 	}
 
-	// Expand the time range to include the new gate's time range.
-	r.timeRange = r.timeRange.Union(cfg.TimeRange)
-
 	// If no one is in control or this gate has a higher authority, take control.
 	if r.curr == nil || g.authority > r.curr.authority {
 		if r.curr != nil {
@@ -108,6 +105,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 		g = nil
 		return g, t, err
 	}
+	r.timeRange = r.timeRange.Union(cfg.TimeRange)
 	r.gates.Add(g)
 	r.counter++
 	return g, t, nil
@@ -182,6 +180,9 @@ func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 func (r *region[R]) update(g *Gate[R], auth control.Authority) (t Transfer) {
 	r.Lock()
 	defer r.Unlock()
+	if !r.gates.Contains(g) {
+		return t
+	}
 	prevAuth := g.authority
 	g.authority = auth
 

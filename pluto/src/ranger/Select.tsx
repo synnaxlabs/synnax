@@ -7,20 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { type Dialog } from "@synnaxlabs/lyra/dialog";
+import type { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select as Base } from "@synnaxlabs/lyra/select";
 import { Telem } from "@synnaxlabs/lyra/telem";
-import { type ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Flux } from "@/flux";
 import { Label } from "@/label";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
+import { HaulPreview } from "@/ranger/HaulPreview";
 import { useResult } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
 
@@ -42,11 +44,21 @@ export interface SelectProps
       "query" | "filter"
     > {}
 
-export const Select = ({ filter, query, ...rest }: SelectProps): ReactElement => {
+export const Select = ({
+  filter,
+  query,
+  triggerProps,
+  ...rest
+}: SelectProps): ReactElement => {
   const { data, subscribe, getItem, status, more, search } = Flux.useList(
     (client) => client.ranges,
     { name: "ranges", filter, query },
   );
+  const resolve = Color.useResolve();
+  const renderHaulPreview = (entry: unknown): ReactNode => {
+    const range = entry as ranger.Payload;
+    return <HaulPreview range={range} color={resolve(range.color)} />;
+  };
   return (
     <Base.Single<ranger.Key, ranger.Payload | undefined>
       variant="modal"
@@ -54,6 +66,7 @@ export const Select = ({ filter, query, ...rest }: SelectProps): ReactElement =>
       icon={<Icon.Range />}
       itemHeight={45}
       dialogProps={DIALOG_PROPS}
+      triggerProps={{ renderHaulPreview, ...triggerProps }}
       {...rest}
       resourceName="range"
       data={data}

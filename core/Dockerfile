@@ -1,8 +1,8 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 
 # Stage 1: Download dependencies
-ARG GO_VERSION
-FROM golang:${GO_VERSION} AS deps
+# The tag must match the go line in go.mod.
+FROM golang:1.27.4@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf AS deps
 WORKDIR /workspace
 
 # Copy go.mod and go.sum files from all modules for better caching
@@ -90,7 +90,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     fi
 
 # Stage 3: Minimal runtime image with glibc for driver support
-FROM ubuntu:26.04
+FROM ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
 
 # Pass build args to final stage
 ARG VERSION=

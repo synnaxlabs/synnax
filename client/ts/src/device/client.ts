@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, filter, type record, zod } from "@synnaxlabs/x";
+import type { UnaryClient } from "@synnaxlabs/freighter";
+import { array, deep, type destructor, filter, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -43,7 +43,7 @@ import {
 } from "@/device/where.gen";
 import { group } from "@/group";
 import { query } from "@/query";
-import { type status } from "@/status";
+import type { status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const ACTION_CHANNEL_NAME = "sy_device_action_set";
@@ -243,12 +243,12 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.setGroupRequest = group.createMoveRequest("/device/dispatch", (keys, to) =>
-      group.moveCached(store, keys, to),
+    this.setGroupRequest = group.createMoveRequest((key, acts) =>
+      dispatcher.request("/device/dispatch", key, acts, dispatchResZ),
     );
   }
 
-  async retrieve<
+  override async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
@@ -257,9 +257,11 @@ export class Client extends query.Retriever<
       RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async retrieve(params: Key | RetrieveSingleParams | OneParams): Promise<Device>;
+  override async retrieve(
+    params: Key | RetrieveSingleParams | OneParams,
+  ): Promise<Device>;
 
-  async retrieve<
+  override async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
@@ -268,11 +270,11 @@ export class Client extends query.Retriever<
       RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Array<Device<Properties, Make, Model>>>;
 
-  async retrieve(
+  override async retrieve(
     params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Array<Device>>;
 
-  async retrieve(
+  override async retrieve(
     rawParams:
       | Key
       | Key[]
@@ -439,7 +441,11 @@ export class Client extends query.Retriever<
       async (since) =>
         await statuses.track(async (statusSince) => {
           const devices = await this.execRetrieve(req, schemas);
-          this.store.ingest(devices.map(stripStatus), { since });
+          // A caller that edits a returned device must not edit the cached one.
+          this.store.ingest(
+            devices.map((d) => deep.copy(stripStatus(d))),
+            { since },
+          );
           devices.forEach(({ status: st }) => {
             if (st != null) statuses.ingest(st, { since: statusSince });
           });

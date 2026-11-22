@@ -11,7 +11,7 @@ import { ethercat } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 
 import { type Field, sameAddress } from "@/feature/ethercat/device/settings";
-import { type SlaveProperties } from "@/feature/ethercat/device/types";
+import type { SlaveProperties } from "@/feature/ethercat/device/types";
 
 /** The type of a command on an object that the catalog does not describe. */
 const UNSIGNED: Record<number, DataType> = {
@@ -63,6 +63,9 @@ const catalogType = (
   return type.density.valueOf() === size ? type : null;
 };
 
+/** The lexical forms of a true xs:boolean. */
+const XS_TRUE = new Set(["1", "true"]);
+
 const parseCommand = (
   cmd: Element,
   fields: Field[],
@@ -71,7 +74,7 @@ const parseCommand = (
     .filter((c) => c.tagName === "Transition")
     .map((c) => c.textContent?.trim() ?? "");
   if (!transitions.some((t) => PRE_SAFE_OP_TRANSITIONS.has(t))) return null;
-  if (cmd.getAttribute("CompleteAccess") === "1") return null;
+  if (XS_TRUE.has(cmd.getAttribute("CompleteAccess")?.trim() ?? "")) return null;
   const index = parseHexDec(childText(cmd, "Index"));
   const subIndex = parseHexDec(childText(cmd, "SubIndex"));
   const data = childText(cmd, "Data")?.trim() ?? "";

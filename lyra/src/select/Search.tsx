@@ -14,8 +14,9 @@ import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks/ref";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
+import { useItemTerm } from "@/menu/filter";
 import { useRegistryContext } from "@/select/registry";
-import { useClosed } from "@/select/scope";
+import { useClosed, useInline } from "@/select/scope";
 
 /** Props for {@link Search}. */
 export interface SearchProps {
@@ -30,7 +31,9 @@ export interface SearchProps {
 /**
  * The search field of a selection dialog. It hides the fixed {@link Item}s whose text
  * does not match, and passes the term to `onSearch` for the frame's data. The term
- * clears when the dialog closes, and `onSearch` then receives an empty term.
+ * clears when the dialog closes, and `onSearch` then receives an empty term. While the
+ * options show in their menu, the words of the filter of the menu that the name of the
+ * submenu does not hold are the term, and no field shows.
  */
 export const Search = ({
   placeholder = "Search...",
@@ -44,6 +47,14 @@ export const Search = ({
   const { variant } = Dialog.useContext();
   const onSearchRef = useSyncedRef(onSearch);
   const searchedRef = useRef(false);
+  const inline = useInline();
+  const itemTerm = useItemTerm();
+  useEffect(() => {
+    if (!inline) return;
+    registry.setTerm(itemTerm);
+    searchedRef.current = itemTerm !== "";
+    onSearchRef.current?.(itemTerm);
+  }, [inline, itemTerm, registry, onSearchRef]);
   useEffect(
     () => () => {
       registry.setTerm("");
@@ -52,7 +63,7 @@ export const Search = ({
     },
     [registry, onSearchRef],
   );
-  if (closed) return null;
+  if (closed || inline) return null;
   const input = (
     <Input.Search
       value={term}

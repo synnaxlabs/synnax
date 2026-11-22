@@ -9,16 +9,15 @@
 
 import "@/schematic/node/common/form/StateMapping.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
-import { Text } from "@synnaxlabs/lyra/text";
-import { color, type deep, id } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { array, color, type deep, id } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 
@@ -53,6 +52,8 @@ const StateMappingListItem = ({
       x
       align="center"
       gap="small"
+      preventClick
+      className={CSS.BE("state-mapping-list", "item")}
     >
       <Form.TextField
         showLabel={false}
@@ -79,12 +80,7 @@ const StateMappingListItem = ({
           showHelpText={false}
         />
       )}
-      <Button.Button
-        onClick={() => onRemove(itemKey)}
-        size="small"
-        variant="text"
-        reveal
-      >
+      <Button.Button onClick={() => onRemove(itemKey)} size="small" variant="text">
         <Icon.Close />
       </Button.Button>
     </List.Item>
@@ -99,8 +95,8 @@ export const StateMappingForm = ({
   const options = Form.useFieldValue(path);
 
   const handleAddOption = (): void => {
-    const nextValue =
-      options.length === 0 ? 0 : Math.max(...options.map((o) => o.value)) + 1;
+    const max = array.maxBy(options, (o) => o.value);
+    const nextValue = max == null ? 0 : max.value + 1;
     push({ key: id.create(), name: "", value: nextValue });
   };
 
@@ -111,52 +107,44 @@ export const StateMappingForm = ({
   return (
     <Flex.Box
       y
-      gap="small"
+      empty
       align="stretch"
-      grow={options.length === 0}
-      className={CSS.B("state-mapping-list")}
-    >
-      <List.Frame data={data}>
-        <List.Scroll grow>
-          <List.Items<string>
-            emptyContent={
-              <Flex.Box center grow>
-                <Text.Text y center status="disabled" gap="tiny">
-                  No options added
-                  <Text.Text variant="link" onClick={handleAddOption}>
-                    Add an option
-                  </Text.Text>
-                </Text.Text>
-              </Flex.Box>
-            }
-          >
-            {({ itemKey, index }) => {
-              if (index >= options.length) return null;
-              return (
-                <StateMappingListItem
-                  itemKey={itemKey}
-                  index={index}
-                  path={path}
-                  showColor={showColor}
-                  duplicateValue={duplicateValues.has(options[index].value)}
-                  onRemove={remove}
-                />
-              );
-            }}
-          </List.Items>
-        </List.Scroll>
-      </List.Frame>
-      {options.length > 0 && (
-        <Button.Button
-          onClick={handleAddOption}
-          variant="text"
-          size="small"
-          textColor={10}
-        >
-          <Icon.Add />
-          Add option
-        </Button.Button>
+      justify={options.length === 0 ? "center" : undefined}
+      className={CSS.cls(
+        CSS.B("state-mapping-list"),
+        options.length === 0 && CSS.BM("state-mapping-list", "empty"),
       )}
+    >
+      {options.length > 0 && (
+        <List.Frame data={data}>
+          <List.Scroll grow className={CSS.BE("state-mapping-list", "scroll")}>
+            <List.Items<string>>
+              {({ itemKey, index }) => {
+                if (index >= options.length) return null;
+                return (
+                  <StateMappingListItem
+                    itemKey={itemKey}
+                    index={index}
+                    path={path}
+                    showColor={showColor}
+                    duplicateValue={duplicateValues.has(options[index].value)}
+                    onRemove={remove}
+                  />
+                );
+              }}
+            </List.Items>
+          </List.Scroll>
+        </List.Frame>
+      )}
+      <Button.Button
+        onClick={handleAddOption}
+        variant="text"
+        size="small"
+        textColor={10}
+      >
+        <Icon.Add />
+        Add option
+      </Button.Button>
     </Flex.Box>
   );
 };

@@ -52,6 +52,38 @@ var _ = Describe("Analyzer", func() {
 		}
 	})
 
+	It("Should qualify MustSucceed with a testutil import that has no dot", func() {
+		analysistest.RunWithSuggestedFixes(
+			GinkgoT(), analysistest.TestData(), must.Analyzer, "namedimport",
+		)
+	})
+
+	It("Should qualify MustSucceed and MustSucceed2 with a testutil alias", func() {
+		analysistest.RunWithSuggestedFixes(
+			GinkgoT(), analysistest.TestData(), must.Analyzer, "aliasimport",
+		)
+	})
+
+	It("Should add a dot import when testutil is only a blank import", func() {
+		results := analysistest.Run(
+			GinkgoT(), analysistest.TestData(), must.Analyzer, "blankimport",
+		)
+		var texts []string
+		for _, r := range results {
+			for _, d := range r.Diagnostics {
+				for _, fix := range d.SuggestedFixes {
+					for _, edit := range fix.TextEdits {
+						texts = append(texts, string(edit.NewText))
+					}
+				}
+			}
+		}
+		Expect(texts).To(ContainElements(
+			"result := MustSucceed(returnsValErr())",
+			"\t. \"github.com/synnaxlabs/x/testutil\"\n",
+		))
+	})
+
 	It("Should add testutil import when it does not exist", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
@@ -224,6 +256,10 @@ var _ = Describe("Analyzer", func() {
 			}
 		}
 		Expect(texts).To(ContainElement("r = MustSucceed(returnsValErr())"))
+	})
+
+	It("Should not treat Expect on a Gomega value as the global Expect", func() {
+		analysistest.Run(GinkgoT(), analysistest.TestData(), must.Analyzer, "gomega")
 	})
 
 	It("Should report without a fix when deleting the binding breaks the code", func() {

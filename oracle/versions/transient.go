@@ -55,11 +55,6 @@ func (f *File) closure(roots []string, persistedOnly bool) set.Set[string] {
 	}
 	out := make(set.Set[string])
 	var visit func(name string)
-	edge := func(ref resolution.TypeRef) {
-		for _, name := range f.localNames(ref) {
-			visit(name)
-		}
-	}
 	visit = func(name string) {
 		if out.Contains(name) {
 			return
@@ -69,49 +64,62 @@ func (f *File) closure(roots []string, persistedOnly bool) set.Set[string] {
 			return
 		}
 		out.Add(name)
-		switch form := t.Form.(type) {
-		case resolution.StructForm:
-			for _, fd := range form.Fields {
-				if persistedOnly && fieldOmitted(fd) {
-					continue
-				}
-				edge(fd.Type)
+		for _, ref := range formRefs(t.Form, persistedOnly) {
+			for _, next := range f.localNames(ref) {
+				visit(next)
 			}
-			for _, e := range form.Extends {
-				edge(e)
-			}
-			for _, p := range form.TypeParams {
-				if p.Constraint != nil {
-					edge(*p.Constraint)
-				}
-				if p.Default != nil {
-					edge(*p.Default)
-				}
-			}
-		case resolution.EnumForm:
-			for _, e := range form.Extends {
-				edge(e)
-			}
-		case resolution.UnionForm:
-			for _, v := range form.Variants {
-				edge(v.Type)
-			}
-			for _, e := range form.Extends {
-				edge(e)
-			}
-			if form.BorrowsEnum() {
-				edge(form.Enum)
-			}
-		case resolution.DistinctForm:
-			edge(form.Base)
-		case resolution.AliasForm:
-			edge(form.Target)
 		}
 	}
 	for _, name := range roots {
 		visit(name)
 	}
 	return out
+}
+
+// formRefs returns the type references a form holds. When persistedOnly is set, it
+// leaves out the types of omitted struct fields.
+func formRefs(form resolution.TypeForm, persistedOnly bool) []resolution.TypeRef {
+	switch form := form.(type) {
+	case resolution.StructForm:
+		return structRefs(form, persistedOnly)
+	case resolution.EnumForm:
+		return form.Extends
+	case resolution.UnionForm:
+		refs := make([]resolution.TypeRef, 0, len(form.Variants)+len(form.Extends)+1)
+		for _, v := range form.Variants {
+			refs = append(refs, v.Type)
+		}
+		refs = append(refs, form.Extends...)
+		if form.BorrowsEnum() {
+			refs = append(refs, form.Enum)
+		}
+		return refs
+	case resolution.DistinctForm:
+		return []resolution.TypeRef{form.Base}
+	case resolution.AliasForm:
+		return []resolution.TypeRef{form.Target}
+	}
+	return nil
+}
+
+func structRefs(form resolution.StructForm, persistedOnly bool) []resolution.TypeRef {
+	var refs []resolution.TypeRef
+	for _, fd := range form.Fields {
+		if persistedOnly && fieldOmitted(fd) {
+			continue
+		}
+		refs = append(refs, fd.Type)
+	}
+	refs = append(refs, form.Extends...)
+	for _, p := range form.TypeParams {
+		if p.Constraint != nil {
+			refs = append(refs, *p.Constraint)
+		}
+		if p.Default != nil {
+			refs = append(refs, *p.Default)
+		}
+	}
+	return refs
 }
 
 // localNames extracts the file-local member names a reference points at,

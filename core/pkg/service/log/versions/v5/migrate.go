@@ -46,3 +46,15 @@ func MigrateChannelEntry(
 	entry.Color = &c
 	return entry, nil
 }
+
+// NameMigration names each stored log that has an empty name "Log <key>", where <key>
+// is the first eight characters of its key.
+var NameMigration = migrate.NewEntry(
+	"v62_require_name",
+	func(_ context.Context, l Log) (Log, error) {
+		if l.Name == "" {
+			l.Name = "Log " + l.Key.String()[:8]
+		}
+		return l, nil
+	},
+)

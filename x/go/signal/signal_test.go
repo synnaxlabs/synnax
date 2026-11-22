@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var errRoutineFailed = errors.New("routine failed")
@@ -448,6 +449,59 @@ var _ = Describe("Signal", func() {
 		})
 	})
 
+	Describe("Breaker configuration", func() {
+		It("Should return an invalid config error from Wait", func() {
+			ctx, cancel := signal.Isolated()
+			defer cancel()
+			var called atomic.Bool
+			ctx.Go(func(context.Context) error {
+				called.Store(true)
+				return nil
+			}, signal.WithRetryScale(0.5))
+			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
+			Expect(called.Load()).To(BeFalse())
+			Eventually(ctx.Stopped()).Should(BeClosed())
+		})
+
+		It("Should run deferrals and cancel siblings on an invalid config", func() {
+			ctx, cancel := signal.Isolated()
+			defer cancel()
+			ctx.Go(func(ctx context.Context) error {
+				<-ctx.Done()
+				return ctx.Err()
+			})
+			var deferred atomic.Bool
+			ctx.Go(
+				func(context.Context) error { return nil },
+				signal.WithRetryScale(0.5),
+				signal.CancelOnFail(),
+				signal.Defer(func() { deferred.Store(true) }),
+			)
+			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
+			Expect(deferred.Load()).To(BeTrue())
+		})
+
+		It("Should return an invalid config error after a sibling cancels", func() {
+			ctx, cancel := signal.Isolated()
+			ctx.Go(func(ctx context.Context) error {
+				<-ctx.Done()
+				return ctx.Err()
+			})
+			cancel()
+			Eventually(ctx.Stopped()).Should(BeClosed())
+			ctx.Go(
+				func(context.Context) error { return nil },
+				signal.WithKey("invalid"),
+				signal.WithRetryScale(0.5),
+			)
+			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
+			Expect(ctx.Routines()).To(ContainElement(And(
+				HaveField("Key", "invalid"),
+				HaveField("State", signal.RoutineStateFailed),
+			)))
+		})
+	})
+
 	Describe("Regression", func() {
 		// This test was added to address the bug where if maxRestart is set, even in
 		// the case where the goroutine did not panic, it would attempt to restart. This
@@ -477,6 +531,46 @@ var _ = Describe("Signal", func() {
 
 			Expect(ctx.Wait()).To(Succeed())
 			Expect(counter).To(Equal(1))
+		})
+	})
+
+	Describe("Stopped", func() {
+		It("Should not close while a routine runs its deferrals", func() {
+			ctx, cancel := signal.Isolated()
+			defer cancel()
+			inDefer := make(chan struct{})
+			release := make(chan struct{})
+			ctx.Go(immediatelyReturnNil, signal.Defer(func() {
+				close(inDefer)
+				<-release
+			}))
+			Eventually(inDefer).Should(BeClosed())
+			ctx.Go(immediatelyReturnNil)
+			Consistently(ctx.Stopped(), 50*time.Millisecond).ShouldNot(BeClosed())
+			close(release)
+			Expect(ctx.Wait()).To(Succeed())
+			Eventually(ctx.Stopped()).Should(BeClosed())
+		})
+
+		It("Should not close while a routine waits to retry after a panic", func() {
+			ctx, cancel := signal.Isolated()
+			var attempts atomic.Int32
+			ctx.Go(func(ctx context.Context) error {
+				if attempts.Add(1) == 1 {
+					panic("first attempt")
+				}
+				<-ctx.Done()
+				return ctx.Err()
+			},
+				signal.WithRetryOnPanic(),
+				signal.WithBaseRetryInterval(200*time.Millisecond),
+			)
+			Eventually(attempts.Load).Should(Equal(int32(1)))
+			ctx.Go(immediatelyReturnNil)
+			Consistently(ctx.Stopped(), 100*time.Millisecond).ShouldNot(BeClosed())
+			cancel()
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
+			Eventually(ctx.Stopped()).Should(BeClosed())
 		})
 	})
 

@@ -37,28 +37,28 @@ class Harness:
         self.gh.serve("api */git/ref/heads/*", {"object": {"sha": SHA}})
         self.score(5)
 
-    def labels(self, *labels: str) -> None:
-        """Serves pull request 42 with the given labels."""
+    def labels(self, *labels: str, pr: int = 42) -> None:
+        """Serves a pull request with the given labels."""
         self.gh.serve(
-            "api */pulls/42",
+            f"api */pulls/{pr}",
             {
-                "head": {"sha": "head"},
+                "head": {"sha": f"head{pr}"},
                 "base": {"ref": "main"},
                 "user": {"login": "someone"},
                 "labels": [{"name": n} for n in labels],
             },
         )
 
-    def score(self, score: int) -> None:
-        """Serves the Sedosaur review that gives the head a score."""
+    def score(self, score: int, pr: int = 42) -> None:
+        """Serves the Sedosaur review that gives a pull request's head a score."""
         run = {
             "app": {"slug": "sedosaur"},
-            "external_id": "42:main",
+            "external_id": f"{pr}:main",
             "started_at": "2026-11-07T20:07:30Z",
             "conclusion": "success",
             "output": {"title": f"Confidence Score: {score}/5"},
         }
-        self.gh.serve("api */commits/head/check-runs*", {"check_runs": [run]})
+        self.gh.serve(f"api */commits/head{pr}/check-runs*", {"check_runs": [run]})
 
     def run(self, ref: str = QUEUE_REF) -> subprocess.CompletedProcess[str]:
         """Runs the script for a queue ref."""
@@ -127,19 +127,24 @@ class TestFailure:
         assert "state=failure" in post
         assert "description=could not judge pull request 42" in post
 
-    def test_posts_a_failure_when_the_ref_points_at_another_commit(
-        self, harness: Harness
-    ) -> None:
-        harness.gh.serve("api */git/ref/heads/*", {"object": {"sha": BASE}})
-        assert harness.run().returncode != 0
-        post = harness.statuses()[0]
-        assert "state=failure" in post
-        assert "description=could not judge pull request 42" in post
-
-    def test_posts_a_failure_when_the_ref_is_gone(self, harness: Harness) -> None:
-        harness.gh.fail("api */git/ref/heads/*", "gh: Not Found (HTTP 404)")
+    def test_posts_a_failure_when_the_ref_lookup_fails(self, harness: Harness) -> None:
+        harness.gh.fail("api */git/ref/heads/*", "gh: Forbidden (HTTP 403)")
         assert harness.run().returncode != 0
         assert "state=failure" in harness.statuses()[0]
+
+    def test_skips_a_destroyed_group(self, harness: Harness) -> None:
+        harness.gh.fail("api */git/ref/heads/*", "gh: Not Found (HTTP 404)")
+        result = harness.run()
+        assert result.returncode == 0
+        assert "destroyed merge group" in result.stdout
+        assert harness.statuses() == []
+
+    def test_skips_a_group_rebuilt_at_another_commit(self, harness: Harness) -> None:
+        harness.gh.serve("api */git/ref/heads/*", {"object": {"sha": BASE}})
+        result = harness.run()
+        assert result.returncode == 0
+        assert "destroyed merge group" in result.stdout
+        assert harness.statuses() == []
 
     @pytest.mark.parametrize(
         "ref",

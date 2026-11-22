@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { channel } from "@synnaxlabs/client";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Note } from "@synnaxlabs/lyra/note";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { array, deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, type UIEvent, useRef } from "react";
 
@@ -23,7 +24,7 @@ import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { BindChannels, type BindChannelsProps } from "@/platform/task/BindChannels";
 import { TareItem } from "@/platform/task/TareItem";
-import { type Channel } from "@/platform/task/types";
+import type { Channel } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
 export interface ContextMenuItemProps<C extends Channel> extends Pick<
@@ -237,12 +238,12 @@ export const ChannelList = <C extends Channel>({
         )}
       </Menu.ContextMenu>
       {status.variant !== "success" && (
-        <Input.HelpText
+        <Note.Note
           variant={status.variant}
           className={CSS.BE("channel-list", "status")}
         >
-          {status.message}
-        </Input.HelpText>
+          <Text.Text level="small">{status.message}</Text.Text>
+        </Note.Note>
       )}
       {footer}
     </Flex.Box>

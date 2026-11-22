@@ -461,6 +461,27 @@ var _ = Describe("Avg", func() {
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
 
+	It("Should average epoch-scale timestamps without overflow", func(ctx SpecContext) {
+		s := openMath(ctx, "avg", types.TimeStamp(), nil)
+		base := telem.TimeStamp(1_800_000_000) * telem.SecondTS
+		*s.inputNode.Output(0) = telem.NewSeriesV(
+			base, base+2, base+4, base+6, base+8, base+10,
+		)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
+		s.inputNode.MarkFresh(0)
+		Expect(nextChanged(ctx, s.n).Contains(0)).To(BeTrue())
+		Expect(*s.state.Node("math").Output(0)).To(
+			telem.MatchSeries(telem.NewSeriesV(base + 5)),
+		)
+		*s.inputNode.Output(0) = telem.NewSeriesV(base+12, base+14, base+16)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(7, 8, 9)
+		s.inputNode.MarkFresh(0)
+		Expect(nextChanged(ctx, s.n).Contains(0)).To(BeTrue())
+		Expect(*s.state.Node("math").Output(0)).To(
+			telem.MatchSeries(telem.NewSeriesV(base + 8)),
+		)
+	})
+
 	It("Should reset after count threshold", func(ctx SpecContext) {
 		s := openMath(ctx, "avg", types.F64(), types.Params{
 			{Name: "count", Type: types.I64(), Value: int64(3)},
@@ -593,6 +614,50 @@ var _ = Describe("Avg", func() {
 		expectOutput[int32](s.state, 20)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
+
+	It("Should not drift on a running integer average", func(ctx SpecContext) {
+		s := openMath(ctx, "avg", types.I32(), nil)
+		for i := range int32(100) {
+			*s.inputNode.Output(0) = telem.NewSeriesV(i + 1)
+			*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(
+				telem.TimeStamp(i) + 1,
+			)
+			s.inputNode.MarkFresh(0)
+			nextChanged(ctx, s.n)
+		}
+		expectOutput[int32](s.state, 50)
+	})
+
+	It("Should clear the running sum after a count reset", func(ctx SpecContext) {
+		s := openMath(ctx, "avg", types.I32(), types.Params{
+			{Name: "count", Type: types.I64(), Value: int64(2)},
+		})
+		for i, v := range []int32{1, 2, 10} {
+			*s.inputNode.Output(0) = telem.NewSeriesV(v)
+			*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(
+				telem.TimeStamp(i) + 1,
+			)
+			s.inputNode.MarkFresh(0)
+			nextChanged(ctx, s.n)
+		}
+		expectOutput[int32](s.state, 10)
+	})
+
+	It("Should clear the running sum after a node reset", func(ctx SpecContext) {
+		s := openMath(ctx, "avg", types.I32(), nil)
+		*s.inputNode.Output(0) = telem.NewSeriesV[int32](1, 2)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+		s.inputNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+
+		s.n.Reset(node.Context{})
+
+		*s.inputNode.Output(0) = telem.NewSeriesV[int32](10)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(3)
+		s.inputNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutput[int32](s.state, 10)
+	})
 })
 
 var _ = Describe("Min", func() {
@@ -605,6 +670,17 @@ var _ = Describe("Min", func() {
 		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[int32](s.state, 10)
 		expectOutputTime(s.state, 3*telem.SecondTS)
+	})
+
+	It("Should compute the minimum of a timestamp series", func(ctx SpecContext) {
+		s := openMath(ctx, "min", types.TimeStamp(), nil)
+		*s.inputNode.Output(0) = telem.NewSeriesSecondsTSV(50, 10, 70)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
+		Expect(nextChanged(ctx, s.n).Contains(0)).To(BeTrue())
+		Expect(*s.state.Node("math").Output(0)).To(
+			telem.MatchSeries(telem.NewSeriesSecondsTSV(10)),
+		)
 	})
 
 	It("Should maintain minimum across batches", func(ctx SpecContext) {
@@ -710,6 +786,17 @@ var _ = Describe("Max", func() {
 		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput(s.state, 50.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
+	})
+
+	It("Should compute the maximum of a timestamp series", func(ctx SpecContext) {
+		s := openMath(ctx, "max", types.TimeStamp(), nil)
+		*s.inputNode.Output(0) = telem.NewSeriesSecondsTSV(50, 70, 10)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
+		Expect(nextChanged(ctx, s.n).Contains(0)).To(BeTrue())
+		Expect(*s.state.Node("math").Output(0)).To(
+			telem.MatchSeries(telem.NewSeriesSecondsTSV(70)),
+		)
 	})
 
 	It("Should maintain maximum across batches", func(ctx SpecContext) {

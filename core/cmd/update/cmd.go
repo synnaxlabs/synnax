@@ -56,32 +56,7 @@ func NewCmd(cfg release.Config) *cobra.Command {
 		Example: "sudo synnax update 0.61.0\n" +
 			"sudo synnax update --file ./synnax-v0.61.0-linux",
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			file, err := cmd.Flags().GetString(flagFile)
-			if err != nil {
-				return err
-			}
-			timeout, err := cmd.Flags().GetDuration(flagTimeout)
-			if err != nil {
-				return err
-			}
-			ctx, w := cmd.Context(), cmd.OutOrStdout()
-			switch {
-			case len(args) == 1 && file != "":
-				return errors.Mark(
-					errors.New("Give a version or --file, not both."),
-					validate.ErrValidation,
-				)
-			case len(args) == 1:
-				cmd.SilenceUsage = true
-				return fromRelease(ctx, w, cfg, args[0], timeout)
-			case file != "":
-				cmd.SilenceUsage = true
-				return fromFile(ctx, w, file, timeout)
-			default:
-				return cmd.Help()
-			}
-		},
+		RunE: runUpdate(cfg),
 	}
 	group.Flags().String(flagFile, "", "Path of the Core binary to update to")
 	group.Flags().Duration(
@@ -89,6 +64,43 @@ func NewCmd(cfg release.Config) *cobra.Command {
 		10*time.Minute,
 		"How long to wait for the new Core service to commit the update",
 	)
+	group.AddCommand(newUndoCmd(), newHistoryCmd(), newRetryCmd())
+	return group
+}
+
+// runUpdate returns the RunE of the update command, which downloads releases as cfg
+// sets.
+func runUpdate(cfg release.Config) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		file, err := cmd.Flags().GetString(flagFile)
+		if err != nil {
+			return err
+		}
+		timeout, err := cmd.Flags().GetDuration(flagTimeout)
+		if err != nil {
+			return err
+		}
+		ctx, w := cmd.Context(), cmd.OutOrStdout()
+		switch {
+		case len(args) == 1 && file != "":
+			return errors.Mark(
+				errors.New("Give a version or --file, not both."),
+				validate.ErrValidation,
+			)
+		case len(args) == 1:
+			cmd.SilenceUsage = true
+			return fromRelease(ctx, w, cfg, args[0], timeout)
+		case file != "":
+			cmd.SilenceUsage = true
+			return fromFile(ctx, w, file, timeout)
+		default:
+			return cmd.Help()
+		}
+	}
+}
+
+// newUndoCmd returns the command that undoes an update.
+func newUndoCmd() *cobra.Command {
 	undoCmd := &cobra.Command{
 		Use:   "undo [backup]",
 		Short: "Undo the last update, or go back to an older backup",
@@ -114,6 +126,12 @@ func NewCmd(cfg release.Config) *cobra.Command {
 			return undo(cmd.Context(), cmd.OutOrStdout(), backups, dir, args)
 		},
 	}
+	addFlags(undoCmd)
+	return undoCmd
+}
+
+// newRetryCmd returns the command that allows a failed update to run again.
+func newRetryCmd() *cobra.Command {
 	retryCmd := &cobra.Command{
 		Use:   "retry",
 		Short: "Allow a failed update to run again",
@@ -141,6 +159,12 @@ func NewCmd(cfg release.Config) *cobra.Command {
 			))
 		},
 	}
+	addFlags(retryCmd)
+	return retryCmd
+}
+
+// newHistoryCmd returns the command that lists the metadata backups.
+func newHistoryCmd() *cobra.Command {
 	historyCmd := &cobra.Command{
 		Use:     "history",
 		Short:   "List the backups that can undo an update",
@@ -159,11 +183,8 @@ func NewCmd(cfg release.Config) *cobra.Command {
 			return history(cmd.OutOrStdout(), backups)
 		},
 	}
-	addFlags(undoCmd)
 	addFlags(historyCmd)
-	addFlags(retryCmd)
-	group.AddCommand(undoCmd, historyCmd, retryCmd)
-	return group
+	return historyCmd
 }
 
 func bindFlags(cmd *cobra.Command, _ []string) error {

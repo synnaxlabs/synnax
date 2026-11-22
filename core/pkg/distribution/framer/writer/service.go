@@ -364,6 +364,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	pipe.SetSegment(sequencerAddr, &sequencer{})
 	pipe.SetSegment(synchronizerAddr, newSynchronizer(
 		lo.Ternary(hasStorage, 1, 0)+lo.Ternary(hasFree, 1, 0),
+		*cfg.Sync,
 		s.cfg.Instrumentation,
 	))
 

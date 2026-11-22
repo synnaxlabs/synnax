@@ -24,12 +24,12 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// AnalyzeFmtStrLiteral splits a format-string token (STR_LITERAL or STR_LITERAL_MULTI
+// analyzeFmtStrLiteral splits a format-string token (STR_LITERAL or STR_LITERAL_MULTI
 // with f/rf prefix) into segments and analyzes its placeholders in ctx's scope. Each
 // placeholder parses at its position in the source. The segments go in ctx.FmtStrings
 // under strTerm, and a later call reuses them. Placeholder diagnostics anchor on the
 // offending `{...}` span.
-func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
+func analyzeFmtStrLiteral[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	strTerm antlr.TerminalNode,
 ) {
@@ -181,7 +181,7 @@ func readsFailedImport[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) bool {
-	for _, primary := range parser.CollectNamedPrimaries(expr) {
+	for _, primary := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
 		head, tail := parser.PrimaryNameParts(primary)
 		if _, err := ctx.ResolveQualified(head, tail); errors.Is(
 			err,

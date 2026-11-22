@@ -10,7 +10,7 @@
 import synnax as sy
 from tests.arc.arc import ArcCase
 
-ARC_STL_STRING_SOURCE = """
+ARC_STL_STRING_SOURCE = r"""
 // ──────────────────────────── string.len ─────────────────────────────
 // len(const)
 func len_cc() {s str} i64 {
@@ -146,6 +146,39 @@ fmt_trigger -> f"chan: {fmt_float_in:.2f}" -> fmt_chan_float_flow_out
 fmt_trigger -> f"chan: {fmt_str_in:q}" -> fmt_chan_str_flow_out
 // Multiple placeholders in one flow expression.
 fmt_trigger -> f"i={fmt_int_in}, f={fmt_float_in:.1f}" -> fmt_multi_flow_out
+// Top-level variable in flow position, with and without a trigger.
+fmt_var := 1.23
+fmt_trigger -> f"{fmt_var}" -> fmt_var_flow_out
+f"{fmt_var}" -> fmt_var_untriggered_flow_out
+// Format string as a variable value, a function input, and part of an expression.
+fmt_msg := f"{fmt_var}"
+fmt_msg -> fmt_var_value_out
+func fmt_show(s str) {
+    fmt_var_input_out = s
+}
+fmt_trigger -> fmt_show(f"{fmt_var}")
+fmt_trigger -> f"{fmt_var}" + "!" -> fmt_var_concat_out
+// Format strings that follow a channel with no other trigger.
+f"r={fmt_react_in}" -> fmt_react_flow_out
+fmt_react_msg := f"r={fmt_react_in}"
+fmt_react_msg -> fmt_react_value_out
+func fmt_react_show(s str) {
+    fmt_react_input_out = s
+}
+fmt_react_in -> fmt_react_show(f"r={fmt_react_in}")
+f"r={fmt_react_in}" + "!" -> fmt_react_concat_out
+// Format strings in a stage: an assignment, and a string joined to a format string.
+sequence fmt_stage_main {
+    stage fmt_stage_run {
+        fmt_stage_s := "a"
+        fmt_stage_s2 := "const" + fmt_stage_text_in + f" {fmt_stage_text_in}"
+        fmt_stage_s = f"{fmt_stage_in}"
+        fmt_stage_s -> fmt_stage_assign_out
+        fmt_stage_s2 -> fmt_stage_concat_out
+        1 -> fmt_stage_ready
+    }
+}
+start_stl_string_cmd => fmt_stage_main
 // Doubled-brace literal-brace escapes in flow position. This path is the
 // one that historically dropped the {{/}} collapse and emitted the raw
 // body verbatim; the assertions below pin the fixed behavior.
@@ -217,6 +250,21 @@ VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("fmt_chan_float_flow_out", sy.DataType.STRING),
     ("fmt_chan_str_flow_out", sy.DataType.STRING),
     ("fmt_multi_flow_out", sy.DataType.STRING),
+    ("fmt_var_flow_out", sy.DataType.STRING),
+    ("fmt_var_untriggered_flow_out", sy.DataType.STRING),
+    ("fmt_var_value_out", sy.DataType.STRING),
+    ("fmt_var_input_out", sy.DataType.STRING),
+    ("fmt_var_concat_out", sy.DataType.STRING),
+    ("fmt_react_in", sy.DataType.INT64),
+    ("fmt_react_flow_out", sy.DataType.STRING),
+    ("fmt_react_value_out", sy.DataType.STRING),
+    ("fmt_react_input_out", sy.DataType.STRING),
+    ("fmt_react_concat_out", sy.DataType.STRING),
+    ("fmt_stage_in", sy.DataType.INT64),
+    ("fmt_stage_text_in", sy.DataType.STRING),
+    ("fmt_stage_ready", sy.DataType.UINT8),
+    ("fmt_stage_assign_out", sy.DataType.STRING),
+    ("fmt_stage_concat_out", sy.DataType.STRING),
     # len / concat / equal outputs. Virtual (stream-read) rather than indexed
     # (DB-read): these assert pure STL-function results that only need to flow
     # through, so reading them off the subscription avoids the database
@@ -382,6 +430,20 @@ class StlString(ArcCase):
         self.log("[fmt_multi_flow] Expecting 'i=42, f=2.7'")
         self.wait_for_eq("fmt_multi_flow_out", "i=42, f=2.7")
 
+        # Flow context: top-level variable
+        self.log("[fmt_var_flow] Expecting '1.23'")
+        self.wait_for_eq("fmt_var_flow_out", "1.23")
+        self.log("[fmt_var_untriggered_flow] Expecting '1.23'")
+        self.wait_for_eq("fmt_var_untriggered_flow_out", "1.23")
+
+        # Variable value, function input, and part of an expression
+        self.log("[fmt_var_value] Expecting '1.23'")
+        self.wait_for_eq("fmt_var_value_out", "1.23")
+        self.log("[fmt_var_input] Expecting '1.23'")
+        self.wait_for_eq("fmt_var_input_out", "1.23")
+        self.log("[fmt_var_concat] Expecting '1.23!'")
+        self.wait_for_eq("fmt_var_concat_out", "1.23!")
+
         # Verb coverage: one case per verb supported by the analyzer.
         self.log("[fmt_bin] Expecting '101'")
         self.wait_for_eq("fmt_bin_fn_out", "101")
@@ -451,6 +513,29 @@ class StlString(ArcCase):
         self.log("[fmt_brace_backslash_flow] Expecting 'C:\\logs\\42.txt'")
         self.wait_for_eq("fmt_brace_backslash_flow_out", r"C:\logs\42.txt")
 
+    def _test_format_reactivity(self) -> None:
+        """Format strings that read a channel follow each new value of it."""
+        self.log("=== format string reactivity ===")
+        for value in (1, 2):
+            self.writer.write("fmt_react_in", value)
+            self.log(f"[fmt_react] Expecting 'r={value}' on each output")
+            self.wait_for_eq("fmt_react_flow_out", f"r={value}")
+            self.wait_for_eq("fmt_react_value_out", f"r={value}")
+            self.wait_for_eq("fmt_react_input_out", f"r={value}")
+            self.wait_for_eq("fmt_react_concat_out", f"r={value}!")
+
+    def _test_format_stage(self) -> None:
+        """Format strings in a stage follow each new value of the channels they read."""
+        self.log("=== format strings in a stage ===")
+        self.wait_for_eq("fmt_stage_ready", 1)
+        for value, text in ((1, "x"), (2, "y")):
+            self.writer.write("fmt_stage_in", value)
+            self.writer.write("fmt_stage_text_in", text)
+            self.log(f"[fmt_stage_assign] Expecting '{value}'")
+            self.wait_for_eq("fmt_stage_assign_out", str(value))
+            self.log(f"[fmt_stage_concat] Expecting 'const{text} {text}'")
+            self.wait_for_eq("fmt_stage_concat_out", f"const{text} {text}")
+
     def verify_sequence_execution(self) -> None:
         # len, concat, equal, and misc are all gated on str_trigger, so a single
         # write computes every output in one pass; the groups below just assert
@@ -461,3 +546,5 @@ class StlString(ArcCase):
         self._test_equal()
         self._test_misc()
         self._test_format()
+        self._test_format_reactivity()
+        self._test_format_stage()

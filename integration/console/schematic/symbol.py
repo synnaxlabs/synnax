@@ -251,6 +251,11 @@ class Symbol(ABC):
         """The element that carries the symbol's `--pluto-symbol-color` style."""
         return self.locator.locator(".lyra-symbol-colored").first
 
+    @property
+    def stale_indicator(self) -> Locator:
+        """The indicator the symbol shows while its data is stale."""
+        return self.locator.get_by_role("img", name="Stale")
+
     def delete(self) -> None:
         self.click()
         self.layout.press_delete()
@@ -285,3 +290,16 @@ class Symbol(ABC):
         # The setters that follow click the form through the hit test.
         self.notifications.close_all()
         click_past(self.page.get_by_text("Properties"))
+
+    def set_enumeration(self, name: str) -> None:
+        """Make a symbol that draws states draw the entries of an enumeration.
+
+        :param name: The name of the enumeration to pick.
+        """
+        self.click()
+        self.open_properties_tab()
+        click_past(self.page.get_by_text("Options", exact=True))
+        click_past(self.page.get_by_role("button", name="Enumeration", exact=True))
+        self.layout.select_from_dropdown(
+            name, placeholder="Search enumerations", exact=True
+        )

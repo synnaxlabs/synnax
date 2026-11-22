@@ -153,6 +153,7 @@ State Checker::check() {
                 this->current_state.client_server_compatible = true;
             }
             this->current_state.status = Status::CONNECTED;
+            this->current_state.error = x::errors::NIL;
             this->current_state.message = "Connected to " +
                                           (this->name.empty() ? "cluster" : this->name);
             this->current_state.cluster_key = res.cluster_key();

@@ -45,7 +45,7 @@ protected:
             .vendor_id = 0x1,
             .product_code = 0x2,
             .serial = serial,
-            .name = "Test Slave",
+            .name = "Test Module",
             .output_pdos = {
                 {.pdo_index = 0x1600,
                  .index = 0x7000,
@@ -110,7 +110,7 @@ protected:
             {"vendor_id", 0x1},
             {"product_code", 0x2},
             {"revision", 1},
-            {"name", "Test Slave"},
+            {"name", "Test Module"},
             {"network", NETWORK_INTERFACE},
             {"position", 1},
             {"enabled", true},
@@ -122,7 +122,7 @@ protected:
             .location = std::to_string(serial),
             .make = "DEWESoft",
             .model = "TestModule",
-            .name = "Test Slave SN:" + std::to_string(serial),
+            .name = "Test Module SN:" + std::to_string(serial),
             .properties = props,
         };
         const auto err = client->devices.create(dev);
@@ -251,7 +251,7 @@ TEST_F(EtherCATWriteTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
     EXPECT_EQ(errors[0]["path"], "channels.1.index");
     EXPECT_EQ(
         errors[0]["message"],
-        "another channel already uses entry 0x7000:01 on slave Test Slave"
+        "another channel already uses entry 0x7000:01 on module Test Module"
     );
 }
 
@@ -278,7 +278,7 @@ TEST_F(EtherCATWriteTest, ParseConfigReportsEachChannelWithNoEntry) {
     EXPECT_EQ(errors[1]["path"], "channels.1.pdo");
     EXPECT_EQ(
         errors[1]["message"],
-        "'Missing' matches no output entry on slave Test Slave. Pick an entry."
+        "'Missing' matches no output entry on module Test Module. Pick an entry."
     );
 }
 
@@ -484,9 +484,9 @@ TEST_F(EtherCATWriteTest, ParseConfigRejectsATaskWithNoEnabledChannel) {
     EXPECT_EQ(errors[0]["message"], "task must have at least one enabled channel");
 }
 
-/// @brief it should fail a start that discovers the slaves while another task starts
-/// the bus, once the start timeout passes.
-TEST_F(EtherCATWriteTest, SinkStartBehindAnotherStartFailsAtTheStartTimeout) {
+/// @brief it should start a task past the start timeout while another task brings the
+/// slaves to OP.
+TEST_F(EtherCATWriteTest, SinkStartBehindAnotherStartWaitsWhileTheSlavesReachOP) {
     const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     cfg["channels"].push_back(
@@ -510,11 +510,15 @@ TEST_F(EtherCATWriteTest, SinkStartBehindAnotherStartFailsAtTheStartTimeout) {
     this->mock_master->hold_activate();
     std::thread starter([&] { ASSERT_NIL(first->start("first", this->cancel)); });
     this->mock_master->wait_until_activating();
+    std::thread releaser([this] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        this->mock_master->release_activate();
+    });
     const auto err = second->start("second", this->cancel);
-    this->mock_master->release_activate();
+    releaser.join();
     starter.join();
-    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "Another task is still using eth0.");
+    ASSERT_NIL(err);
+    ASSERT_NIL(second->stop());
     ASSERT_NIL(first->stop());
 }
 
@@ -559,7 +563,7 @@ TEST_F(EtherCATWriteTest, SinkHoldsAWarningForSkippedStartupSettings) {
                         .vendor_id = 0x1,
                         .product_code = 0x2,
                         .serial = SLAVE_SERIAL,
-                        .name = "Test Slave",
+                        .name = "Test Module",
                     },
                 .config =
                     {.startup_parameters =
@@ -593,7 +597,7 @@ TEST_F(EtherCATWriteTest, SinkHoldsAWarningForSkippedStartupSettings) {
         sink.held_warning(),
         (common::Warning{
             .message = "Skipped startup settings",
-            .description = "Slave 1 (Test Slave) is set up for DewesoftX, so Synnax "
+            .description = "Module 1 (Test Module) is set up for DewesoftX, so Synnax "
                            "did not apply its 1 startup setting. Remove it, or switch "
                            "the device to Synnax in Configure.",
         })
@@ -619,13 +623,15 @@ TEST_F(EtherCATWriteTest, SinkHoldsAWarningWhileItsSlaveIsLost) {
     this->mock_master->set_slave_lost(1, true);
     ASSERT_EVENTUALLY_EQ_F(
         [&] { return sink.held_warning().description; },
-        std::string("Lost contact with slave 1 (Test Slave).")
+        std::string("Lost contact with module 1 (Test Module).")
     );
     EXPECT_EQ(sink.held_warning().message, "Interrupted outputs");
     this->mock_master->set_slave_lost(1, false);
     ASSERT_EVENTUALLY_EQ_F(
         [&] { return sink.held_warning().description; },
-        std::string("Slave 1 (Test Slave) returned and took the last commanded values.")
+        std::string(
+            "Module 1 (Test Module) returned and took the last commanded values."
+        )
     );
     x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(1)));
     ASSERT_NIL(sink.write(frame));
@@ -834,7 +840,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
             .vendor_id = 0x99,
             .product_code = 0x2,
             .serial = SLAVE_SERIAL,
-            .name = "Test Slave",
+            .name = "Test Module",
         }
     );
     auto mismatched_engine = std::make_shared<engine::Engine>(
@@ -845,7 +851,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     auto sink = WriteTaskSink(mismatched_engine, std::move(task_cfg));
     const auto err = sink.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "Test Slave (serial 12345) is not on the bus.");
+    EXPECT_EQ(err.data, "Test Module (serial 12345) is not on the bus.");
 }
 
 }

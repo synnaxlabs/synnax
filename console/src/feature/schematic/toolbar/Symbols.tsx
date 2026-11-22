@@ -22,7 +22,14 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, Group, Schematic } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
-import { createContext, type ReactElement, use, useEffect, useState } from "react";
+import {
+  createContext,
+  type DragEvent,
+  type ReactElement,
+  use,
+  useEffect,
+  useState,
+} from "react";
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
@@ -56,13 +63,19 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     key: id.create(),
     config: { variant },
   });
-  const handleDragStart = () => startDrag([Schematic.createHaulItem(createParams())]);
   const handleAddNode = () => addNode(createParams());
   const change = use(ChangeContext);
   const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
   const config = spec == null ? null : Schematic.Node.createConfig({ variant });
   if (spec == null || config == null) return null;
   const { name, Preview } = spec;
+  const handleDragStart = (event: DragEvent<HTMLElement>) =>
+    startDrag({
+      event,
+      items: [Schematic.createHaulItem(createParams())],
+      preview: <Preview {...config} scale={1} />,
+      anchor: "corner",
+    });
   return (
     <List.Item
       className={CSS.cls(CSS.BE("schematic-symbols", "button"))}
@@ -123,7 +136,6 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
     key: id.create(),
     config: { variant, specKey: itemKey },
   });
-  const handleDragStart = () => startDrag([Schematic.createHaulItem(createParams())]);
   const handleAddNode = () => addNode(createParams());
   const change = use(ChangeContext);
   const { update: rename } = Schematic.Symbol.useRename();
@@ -131,6 +143,18 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const handleRename = (name: string) => rename({ key: itemKey, name });
 
   if (symbol == null) return null;
+  // The node's own drawing reads the symbol through a hook, which a preview cannot.
+  const handleDragStart = (event: DragEvent<HTMLElement>) =>
+    startDrag({
+      event,
+      items: [Schematic.createHaulItem(createParams())],
+      preview: (
+        <Schematic.Node.Primitive.Div orientation="left">
+          <Schematic.Node.Custom.Drawing spec={symbol.data} />
+        </Schematic.Node.Primitive.Div>
+      ),
+      anchor: "corner",
+    });
 
   return (
     <Select.Item

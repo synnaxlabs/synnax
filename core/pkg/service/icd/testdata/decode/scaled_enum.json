@@ -63,11 +63,11 @@
     },
     {
       "document": { "temp": "HIGH", "count": 3 },
-      "error": "message reading: field temp: unknown enum label \"HIGH\": validation error"
+      "error": "field temp: unknown enum label \"HIGH\": validation error"
     },
     {
       "document": { "temp": 4, "count": 1.5 },
-      "error": "message reading: field count: 1.5 is not an integer: validation error"
+      "error": "field count: 1.5 is not an integer: validation error"
     }
   ]
 }

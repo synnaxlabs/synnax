@@ -1,7 +1,7 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 
-ARG GO_VERSION
-FROM golang:${GO_VERSION} AS builder
+# The tag must match the go line in go.mod.
+FROM golang:1.27.4@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf AS builder
 WORKDIR /workspace
 
 # Copy go.mod and go.sum files for better caching
@@ -30,7 +30,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -ldflags="-w -s" -o integration main.go
 
 # Runtime image
-FROM gcr.io/distroless/static-debian13:nonroot
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:aafe993665bf6200db38a02c11a9351e782a84b6a45e7f33b6695638c88e3931
 WORKDIR /app
 COPY --from=builder /workspace/freighter/integration/integration /app/integration
 USER nonroot:nonroot

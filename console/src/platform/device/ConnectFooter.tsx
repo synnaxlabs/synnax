@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";

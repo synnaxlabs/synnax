@@ -12,9 +12,9 @@
 PyPI file names are immutable: once a file is published it can never be uploaded
 again, and rebuilding an unchanged package does not reproduce the published bytes
 across time (a build backend upgrade alone rewrites the wheel's WHEEL file), so
-uv's hash-based `--check-url` skipping fails for unchanged packages. Pruning by
-published file name limits `uv publish` to genuinely new files. Run by the deploy
-pipeline between `uv build` and `uv publish` (see SY-4519).
+an index's hash-based skipping fails for unchanged packages. Pruning by published
+file name limits the upload to new files. The release workflow runs it between the
+package download and the publish step.
 
 Usage: prune_published.py [dist-dir]
 """

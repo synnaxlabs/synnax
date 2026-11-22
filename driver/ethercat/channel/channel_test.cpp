@@ -299,7 +299,7 @@ TEST(Input, ReportsACalibratedChannelThatTheCatalogDoesNotCalibrate) {
     EXPECT_EQ(path, "calibrated");
     EXPECT_EQ(
         message,
-        "the catalog gives no calibration for entry 0x6030:01 on slave SIRIUS"
+        "the catalog gives no calibration for entry 0x6030:01 on module SIRIUS"
     );
     EXPECT_EQ(ch, nullptr);
 }
@@ -314,7 +314,7 @@ TEST(Input, ReportsACalibrationThatDoesNotFitTheEntry) {
     EXPECT_EQ(path, "index");
     EXPECT_EQ(
         message,
-        "the catalog gives int16 samples for entry 0x6030:01 on slave SIRIUS, but the "
+        "the catalog gives int16 samples for entry 0x6030:01 on module SIRIUS, but the "
         "entry holds 32 bits"
     );
     EXPECT_EQ(ch, nullptr);
@@ -347,7 +347,7 @@ TEST(Input, ReportsADataTypeWiderThanTheEntry) {
     ASSERT_EQ(path, "data_type");
     ASSERT_EQ(
         message,
-        "data type float64 is 8 bytes but entry 0x6000:11 on slave EL3102 holds 2 "
+        "data type float64 is 8 bytes but entry 0x6000:11 on module EL3102 holds 2 "
         "bytes. Pick a 2 byte type."
     );
     ASSERT_EQ(ch, nullptr);
@@ -363,7 +363,7 @@ TEST(Input, ReportsADataTypeNarrowerThanTheEntry) {
     ASSERT_EQ(path, "data_type");
     ASSERT_EQ(
         message,
-        "data type int8 is 1 byte but entry 0x6000:11 on slave EL3102 holds 2 bytes. "
+        "data type int8 is 1 byte but entry 0x6000:11 on module EL3102 holds 2 bytes. "
         "Pick a 2 byte type."
     );
 }
@@ -378,7 +378,7 @@ TEST(Input, ReportsADataTypeTheCyclicExchangeCannotCarry) {
     ASSERT_EQ(path, "data_type");
     ASSERT_EQ(
         message,
-        "data type timestamp cannot be exchanged with entry 0x6000:11 on slave "
+        "data type timestamp cannot be exchanged with entry 0x6000:11 on module "
         "EL3102. Pick a 2 byte number type."
     );
     ASSERT_EQ(ch, nullptr);
@@ -419,7 +419,7 @@ TEST(Input, ReportsAnAddressTheSlaveDoesNotHave) {
     input(slave, parser);
     const auto [path, message] = only_error(parser);
     ASSERT_EQ(path, "index");
-    ASSERT_EQ(message, "slave EL3102 has no input entry at 0x6010:01");
+    ASSERT_EQ(message, "module EL3102 has no input entry at 0x6010:01");
 }
 
 /// @brief it should report the padding address as an address with no entry.
@@ -430,7 +430,7 @@ TEST(Input, ReportsAPaddingAddress) {
     input(slave, parser);
     const auto [path, message] = only_error(parser);
     ASSERT_EQ(path, "index");
-    ASSERT_EQ(message, "slave EL3102 has no input entry at 0x0000:00");
+    ASSERT_EQ(message, "module EL3102 has no input entry at 0x0000:00");
 }
 
 /// @brief it should report the address of an output entry as missing for an input
@@ -442,7 +442,7 @@ TEST(Input, ReportsAnOutputAddressAsMissing) {
     input(slave, parser);
     const auto [path, message] = only_error(parser);
     ASSERT_EQ(path, "index");
-    ASSERT_EQ(message, "slave EL1008 has no input entry at 0x7000:01");
+    ASSERT_EQ(message, "module EL1008 has no input entry at 0x7000:01");
 }
 
 /// @brief it should list each matching address when an unresolved name matches more
@@ -456,7 +456,7 @@ TEST(Input, ListsEveryAddressOfARepeatedNameWhenUnresolved) {
     ASSERT_EQ(path, "pdo");
     ASSERT_EQ(
         message,
-        "'Input' matches more than one input entry on slave EL1008: 0x6000:01 "
+        "'Input' matches more than one input entry on module EL1008: 0x6000:01 "
         "(Channel 1), 0x6010:01 (Channel 2), 0x6020:01 (Channel 3), 0x6030:01 "
         "(Channel 4), 0x6040:01 (Channel 5), 0x6050:01 (Channel 6), 0x6060:01 "
         "(Channel 7), 0x6070:01 (Channel 8). Pick an entry."
@@ -473,7 +473,7 @@ TEST(Input, ReportsAnUnresolvedNameTheSlaveDoesNotHave) {
     ASSERT_EQ(path, "pdo");
     ASSERT_EQ(
         message,
-        "'Analog Input Ch1' matches no input entry on slave EL3102. Pick an entry."
+        "'Analog Input Ch1' matches no input entry on module EL3102. Pick an entry."
     );
 }
 
@@ -487,7 +487,7 @@ TEST(Input, NamesTheOneAddressOfAnUnresolvedName) {
     ASSERT_EQ(path, "pdo");
     ASSERT_EQ(
         message,
-        "'Value' matches input entry 0x6000:11 on slave EL3102. Pick an entry."
+        "'Value' matches input entry 0x6000:11 on module EL3102. Pick an entry."
     );
 }
 
@@ -512,7 +512,7 @@ TEST(Input, NamesAnAddressThatSeveralPDOsRepeatOnce) {
     ASSERT_EQ(path, "pdo");
     ASSERT_EQ(
         message,
-        "'Sync error' matches input entry 0x1C32:20 (Module 1) on slave EJ7342. Pick "
+        "'Sync error' matches input entry 0x1C32:20 (Module 1) on module EJ7342. Pick "
         "an entry."
     );
 }
@@ -544,7 +544,7 @@ TEST(Output, ReportsAnInputAddressAsMissing) {
     output(slave, parser);
     const auto [path, message] = only_error(parser);
     ASSERT_EQ(path, "index");
-    ASSERT_EQ(message, "slave EL1008 has no output entry at 0x6000:01");
+    ASSERT_EQ(message, "module EL1008 has no output entry at 0x6000:01");
 }
 
 /// @brief it should report a data type that is wider than the entry.
@@ -557,7 +557,7 @@ TEST(Output, ReportsADataTypeWiderThanTheEntry) {
     ASSERT_EQ(path, "data_type");
     ASSERT_EQ(
         message,
-        "data type float32 is 4 bytes but entry 0x7000:01 on slave EL1008 holds 1 "
+        "data type float32 is 4 bytes but entry 0x7000:01 on module EL1008 holds 1 "
         "byte. Pick a 1 byte type."
     );
     ASSERT_EQ(ch, nullptr);
@@ -574,7 +574,7 @@ TEST(Output, ReportsAnInt64StopValueThatADoubleRounds) {
     ASSERT_EQ(path, "stop_value");
     ASSERT_EQ(
         message,
-        "stop value 9007199254740992 does not fit entry 0x7000:01 on slave EL2252. "
+        "stop value 9007199254740992 does not fit entry 0x7000:01 on module EL2252. "
         "Pick a whole number from -9007199254740991 to 9007199254740991."
     );
 }
@@ -613,7 +613,7 @@ TEST(Output, RejectsANegativeStopValueOnASubByteSignedEntry) {
     ASSERT_EQ(path, "stop_value");
     ASSERT_EQ(
         message,
-        "stop value -1 does not fit entry 0x7000:01 on slave EL1008. Pick a whole "
+        "stop value -1 does not fit entry 0x7000:01 on module EL1008. Pick a whole "
         "number from 0 to 1."
     );
 }
@@ -628,7 +628,7 @@ TEST(Output, RejectsAFractionalStopValueOnAnIntegerEntry) {
     ASSERT_EQ(path, "stop_value");
     ASSERT_EQ(
         message,
-        "stop value 1.5 does not fit entry 0x7000:03 on slave EL2252. Pick a whole "
+        "stop value 1.5 does not fit entry 0x7000:03 on module EL2252. Pick a whole "
         "number from 0 to 16777215."
     );
 }
@@ -643,7 +643,7 @@ TEST(Output, ReportsAFloat32StopValueOutsideItsRange) {
     ASSERT_EQ(path, "stop_value");
     ASSERT_EQ(
         message,
-        "stop value 1e+100 does not fit entry 0x7000:02 on slave EL2252. Pick a value "
+        "stop value 1e+100 does not fit entry 0x7000:02 on module EL2252. Pick a value "
         "from -3.4028235e+38 to 3.4028235e+38."
     );
 }
@@ -670,7 +670,7 @@ TEST(Output, ReportsAFloatTypeOnANarrowerEntryThatIsNot24Bits) {
     ASSERT_EQ(path, "data_type");
     ASSERT_EQ(
         message,
-        "data type float32 needs a 32 bit entry, but entry 0x7000:04 on slave EL2252 "
+        "data type float32 needs a 32 bit entry, but entry 0x7000:04 on module EL2252 "
         "holds 20 bits. Pick an integer type."
     );
     ASSERT_EQ(ch, nullptr);
@@ -687,7 +687,7 @@ TEST(Output, ReportsAStopValueThatANarrowerEntryCannotHoldForAFloatType) {
     ASSERT_EQ(path, "stop_value");
     ASSERT_EQ(
         message,
-        "stop value 16777216 does not fit entry 0x7000:03 on slave EL2252. Pick a "
+        "stop value 16777216 does not fit entry 0x7000:03 on module EL2252. Pick a "
         "whole number from 0 to 16777215."
     );
 }
@@ -704,7 +704,7 @@ TEST(Output, ListsEveryAddressOfARepeatedNameWhenUnresolved) {
     ASSERT_EQ(path, "pdo");
     ASSERT_EQ(
         message,
-        "'Output' matches more than one output entry on slave EL1008: 0x7000:01 "
+        "'Output' matches more than one output entry on module EL1008: 0x7000:01 "
         "(Channel 1), 0x7010:01 (Channel 2). Pick an entry."
     );
 }
@@ -719,7 +719,7 @@ TEST(Output, ReportsAnUnresolvedNameTheSlaveDoesNotHave) {
     ASSERT_EQ(path, "pdo");
     ASSERT_EQ(
         message,
-        "'Analog Output Ch2' matches no output entry on slave EL1008. Pick an entry."
+        "'Analog Output Ch2' matches no output entry on module EL1008. Pick an entry."
     );
 }
 
@@ -760,7 +760,7 @@ TEST(Claims, ReportsASecondChannelOnOneEntry) {
     claims.claim(input(slave, second)->entry, slave, second, "channels.1.");
     const auto [path, message] = only_error(second);
     ASSERT_EQ(path, "channels.1.index");
-    ASSERT_EQ(message, "another channel already uses entry 0x6030:01 on slave EL1008");
+    ASSERT_EQ(message, "another channel already uses entry 0x6030:01 on module EL1008");
 }
 
 /// @brief it should accept channels at the same address on two different slaves.

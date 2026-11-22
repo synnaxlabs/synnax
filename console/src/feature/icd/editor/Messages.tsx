@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type icd } from "@synnaxlabs/client";
+import type { icd } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -17,12 +18,11 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { type payload, uuid } from "@synnaxlabs/x";
 import pluralize from "pluralize";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { formatHex } from "@/feature/icd/editor/FormattedField";
-import { Button as PlatformButton } from "@/platform/button";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 
@@ -39,7 +39,7 @@ const createMessage = (messages: icd.Message[]): icd.Message => ({
   payload: { format: "binary", fields: [] },
 });
 
-const FORMAT_ICONS: Record<icd.PayloadType, ReactElement> = {
+const FORMAT_ICONS: Record<payload.Format, ReactElement> = {
   binary: <Icon.Binary />,
   text: <Icon.Text />,
   json: <Icon.JSON />,
@@ -173,9 +173,9 @@ export const Messages = ({ selected, onSelect }: MessagesProps): ReactElement =>
         </Select.Frame>
       </Menu.ContextMenu>
       {mode !== "preview" && (
-        <PlatformButton.CreateListItem size="small" onClick={handleAdd}>
+        <Button.CreateListItem size="small" onClick={handleAdd}>
           Add message
-        </PlatformButton.CreateListItem>
+        </Button.CreateListItem>
       )}
     </Flex.Box>
   );

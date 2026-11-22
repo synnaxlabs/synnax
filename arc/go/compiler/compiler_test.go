@@ -2373,6 +2373,39 @@ var _ = Describe("Compiler", func() {
 			}`, float64(-2147483648)),
 		)
 
+		DescribeTable("an integer literal should compile at the bounds of its type",
+			narrowResult,
+			Entry("i8 minimum", `{
+				x i8 := -128
+				return i64(x)
+			}`, float64(-128)),
+			Entry("i32 minimum", `{
+				x i32 := -2147483648
+				return i64(x)
+			}`, float64(-2147483648)),
+			Entry("i64 minimum", `{
+				x i64 := -9223372036854775808
+				return x
+			}`, float64(math.MinInt64)),
+			Entry("u64 maximum", `{
+				x u64 := 18446744073709551615
+				return i64(x)
+			}`, float64(-1)),
+		)
+
+		DescribeTable("a negated literal should wrap in an unsigned cast",
+			narrowResult,
+			Entry("u8", `{
+				return i64(u8(-1))
+			}`, float64(255)),
+			Entry("u32", `{
+				return i64(u32(-1))
+			}`, float64(4294967295)),
+			Entry("u64", `{
+				return i64(u64(-1))
+			}`, float64(-1)),
+		)
+
 		DescribeTable("a stepped range loop should end at the bound of the type",
 			narrowResult,
 			Entry("u8 to the maximum", `{
@@ -2836,6 +2869,21 @@ var _ = Describe("Compiler", func() {
 			`, api.EncodeI64(131071), int64(-1)),
 		)
 
+		DescribeTable("a negated literal should fit the minimum of its type",
+			narrowResult,
+			Entry("i16 declaration", `{
+				x i16 := -32768
+				return i64(x)
+			}`, float64(math.MinInt16)),
+			Entry("i8 cast", `{
+				return i64(i8(-128))
+			}`, float64(math.MinInt8)),
+			Entry("i8 operand", `{
+				n i8 := 1
+				return i64(-128 + n)
+			}`, float64(-127)),
+		)
+
 		DescribeTable("a float cast should saturate at the bounds of the target",
 			narrowResult,
 			Entry("f64 above the range to u8", `{
@@ -2878,6 +2926,22 @@ var _ = Describe("Compiler", func() {
 				x f64 := -42.9
 				return i64(i8(x))
 			}`, float64(-42)),
+			Entry("f64 above the range to i32", `{
+				x f64 := 10000000000.0
+				return i64(i32(x))
+			}`, float64(math.MaxInt32)),
+			Entry("negative f64 to u32", `{
+				x f64 := -5.0
+				return i64(u32(x))
+			}`, float64(0)),
+			Entry("f64 below the range to i64", `{
+				x f64 := -100000000000000000000.0
+				return i64(x)
+			}`, float64(math.MinInt64)),
+			Entry("f32 above the range to i32", `{
+				x f32 := 10000000000.0
+				return i64(i32(x))
+			}`, float64(math.MaxInt32)),
 		)
 	})
 
@@ -3093,6 +3157,44 @@ var _ = Describe("Compiler", func() {
 				t series f64 := s % 4.0
 				return t[0]
 			}`, 2.5),
+
+			// Series-scalar comparison
+			Entry("series-scalar greater than f64", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				m := s > 2.0
+				return m[2]
+			}`, true),
+			Entry("series-scalar less or equal i64", `{
+				s series i64 := [1, 2, 3]
+				m := s <= 1
+				return m[1]
+			}`, false),
+			Entry("series-scalar equal i64", `{
+				s series i64 := [1, 2, 3]
+				m := s == 2
+				return m[1]
+			}`, true),
+			Entry("series-scalar not equal i64", `{
+				s series i64 := [1, 2, 3]
+				m := s != 2
+				return m[1]
+			}`, false),
+
+			Entry("scalar-series less than f64", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				m := 2.0 < s
+				return m[2]
+			}`, true),
+			Entry("scalar-series less than f64 false", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				m := 2.0 < s
+				return m[1]
+			}`, false),
+			Entry("scalar-series equal i64", `{
+				s series i64 := [1, 2, 3]
+				m := 2 == s
+				return m[1]
+			}`, true),
 
 			// Series-series arithmetic (f64)
 			Entry("series-series add f64", `{
@@ -4697,38 +4799,6 @@ var _ = Describe("Compiler", func() {
 			strMod, strState, chanState = bindDefaultModules(ctx, r)
 		})
 
-		It("Should fail to compile a format function with no literal", func(
-			ctx SpecContext,
-		) {
-			resolver := []symbol.Symbol{
-				{
-					Name: "trig",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   100,
-				},
-				{
-					Name: "log",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.String()),
-					ID:   101,
-				},
-			}
-			prog := MustSucceed(text.Parse(text.Text{Raw: `trig -> f"v={42}" -> log`}))
-			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
-			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			for i := range inter.Functions {
-				if strings.HasPrefix(
-					inter.Functions[i].Key,
-					compiler.FmtStrSyntheticPrefix,
-				) {
-					inter.Functions[i].Body.AST = nil
-				}
-			}
-			Expect(compiler.Compile(ctx, inter)).Error().
-				To(MatchError(ContainSubstring("has no literal")))
-		})
-
 		It(
 			"Compiles a flow-form raw string with a single literal placeholder",
 			func(ctx SpecContext) {
@@ -4753,7 +4823,7 @@ var _ = Describe("Compiler", func() {
 				))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				strMod.SetMemory(mod.Memory())
-				synth := mod.ExportedFunction("fmt$fmt_0")
+				synth := mod.ExportedFunction("expression_0")
 				Expect(synth).ToNot(BeNil())
 				results := MustSucceed(synth.Call(ctx))
 				Expect(results).To(HaveLen(1))
@@ -4787,7 +4857,7 @@ var _ = Describe("Compiler", func() {
 			))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			strMod.SetMemory(mod.Memory())
-			synth := mod.ExportedFunction("fmt$fmt_0")
+			synth := mod.ExportedFunction("expression_0")
 			Expect(synth).ToNot(BeNil())
 			results := MustSucceed(synth.Call(ctx))
 			handle := uint32(results[0])
@@ -4820,7 +4890,7 @@ var _ = Describe("Compiler", func() {
 				))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				strMod.SetMemory(mod.Memory())
-				synth := mod.ExportedFunction("fmt$fmt_0")
+				synth := mod.ExportedFunction("expression_0")
 				Expect(synth).ToNot(BeNil())
 				results := MustSucceed(synth.Call(ctx))
 				handle := uint32(results[0])
@@ -4854,7 +4924,7 @@ var _ = Describe("Compiler", func() {
 				))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				strMod.SetMemory(mod.Memory())
-				synth := mod.ExportedFunction("fmt$fmt_0")
+				synth := mod.ExportedFunction("expression_0")
 				Expect(synth).ToNot(BeNil())
 				results := MustSucceed(synth.Call(ctx))
 				handle := uint32(results[0])
@@ -4891,8 +4961,8 @@ var _ = Describe("Compiler", func() {
 			`, resolver))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			strMod.SetMemory(mod.Memory())
-			Expect(mod.ExportedFunction("fmt$fmt_0")).ToNot(BeNil())
-			Expect(mod.ExportedFunction("fmt$fmt_1")).ToNot(BeNil())
+			Expect(mod.ExportedFunction("expression_0")).ToNot(BeNil())
+			Expect(mod.ExportedFunction("expression_1")).ToNot(BeNil())
 		})
 
 		It(
@@ -4928,7 +4998,7 @@ var _ = Describe("Compiler", func() {
 				chanState.Ingest(
 					telem.UnaryFrame[uint32](100, telem.NewSeriesV[float32](3.5)),
 				)
-				synth := mod.ExportedFunction("fmt$fmt_0")
+				synth := mod.ExportedFunction("expression_1")
 				Expect(synth).ToNot(BeNil())
 				handle := uint32(MustSucceed(synth.Call(ctx))[0])
 				str, ok := strState.Get(handle)

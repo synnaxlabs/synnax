@@ -10,7 +10,7 @@
 import { device, type ethercat, type Synnax } from "@synnaxlabs/client";
 import { id, TimeStamp } from "@synnaxlabs/x";
 
-import { type Description } from "@/feature/ethercat/device/settings";
+import type { Description } from "@/feature/ethercat/device/settings";
 import {
   MAKE,
   type PDOs,
@@ -357,6 +357,25 @@ export const createReachedStatus = async (
     message: "Discovered",
     time: TimeStamp.now(),
     details: { rack: slave.rack, connected: true },
+  });
+};
+
+/** Gives the slave a warning status, as a scan of the Driver does. */
+export const createWarningStatus = async (
+  client: Synnax,
+  slave: SlaveDevice,
+  message: string,
+  description: string,
+  connected = true,
+): Promise<void> => {
+  await client.statuses.set({
+    owner: device.resourceID(slave.key),
+    name: slave.name,
+    variant: "warning",
+    message,
+    description,
+    time: TimeStamp.now(),
+    details: { rack: slave.rack, connected },
   });
 };
 

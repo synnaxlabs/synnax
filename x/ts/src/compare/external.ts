@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/compare/binary";
 export * from "@/compare/compare";
 export * from "@/compare/text";
 export * from "@/compare/uuid";

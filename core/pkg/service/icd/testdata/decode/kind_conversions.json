@@ -82,7 +82,7 @@
         "count": 18446744073709551615,
         "armed": false
       },
-      "error": "message reading: field count: 18446744073709551615 is out of range for int64: validation error"
+      "error": "field count: 18446744073709551615 is out of range for int64: validation error"
     }
   ]
 }

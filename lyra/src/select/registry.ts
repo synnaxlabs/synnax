@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record, search } from "@synnaxlabs/x";
+import { type destructor, map, type record, search } from "@synnaxlabs/x";
 import { useLayoutEffect, useReducer, useRef, useSyncExternalStore } from "react";
 
 import { context } from "@/context";
@@ -60,12 +60,16 @@ export interface Registry {
   getOrder: (data: record.Key[]) => record.Key[];
   getElement: (key: record.Key) => HTMLElement | null;
   hasItem: (key: record.Key) => boolean;
+  /** @returns whether the element is a pinned fixed item. */
+  isPinned: (element: Element) => boolean;
   /** @returns the plain text a fixed item registered, if any. */
   getText: (key: record.Key) => string | undefined;
   /** @returns whether the search term hides the fixed item with the given key. */
   isHidden: (key: record.Key) => boolean;
   /** @returns the number of unpinned fixed items the search has not hidden. */
   countVisible: () => number;
+  /** @returns whether an unpinned fixed item has the name as its text, in any case. */
+  hasName: (name: string) => boolean;
   /** @returns the search term. */
   getTerm: () => string;
   /** Sets the search term and hides the unpinned fixed items whose text misses it. */
@@ -131,6 +135,10 @@ const useRegistry = (): Registry => {
     },
     getElement: (key) => itemsRef.current.get(key)?.element ?? null,
     hasItem: (key) => itemsRef.current.has(key),
+    isPinned: (element) =>
+      Array.from(itemsRef.current.values()).some(
+        (item) => item.pinned && item.element === element,
+      ),
     getText: (key) => itemsRef.current.get(key)?.text,
     isHidden: (key) => itemsRef.current.get(key)?.hidden ?? false,
     getTerm: () => termRef.current,
@@ -152,15 +160,18 @@ const useRegistry = (): Registry => {
         if (!hidden && !pinned) count++;
       return count;
     },
-    getLabel: (key) => {
-      let label = labelsRef.current.get(key);
-      if (label == null) {
-        label = document.createElement("span");
-        label.className = CSS.BE("select", "fixed-label");
-        labelsRef.current.set(key, label);
-      }
-      return label;
+    hasName: (name) => {
+      const lower = name.toLowerCase();
+      for (const { text, pinned } of itemsRef.current.values())
+        if (!pinned && text?.toLowerCase() === lower) return true;
+      return false;
     },
+    getLabel: (key) =>
+      map.getOrInsert(labelsRef.current, key, () => {
+        const label = document.createElement("span");
+        label.className = CSS.BE("select", "fixed-label");
+        return label;
+      }),
     subscribe,
   };
 };
@@ -205,6 +216,8 @@ const countVisible = (registry: Registry): number => registry.countVisible();
 
 const getTerm = (registry: Registry): string => registry.getTerm();
 
+const isSearching = (registry: Registry): boolean => registry.getTerm() !== "";
+
 const isHiddenItem = (registry: Registry, key?: record.Key): boolean =>
   key != null && registry.isHidden(key);
 
@@ -225,6 +238,17 @@ export const useVisibleCount = (): number =>
 
 /** @returns the search term. It re-renders the caller whenever the term changes. */
 export const useTerm = (): string => useRegistryValue("Select.useTerm", getTerm);
+
+/** @returns whether a search term is set. It re-renders the caller as that changes. */
+export const useSearching = (): boolean =>
+  useRegistryValue("Select.useSearching", isSearching);
+
+/**
+ * @returns whether an unpinned fixed item has the name as its text, in any case. It
+ * re-renders the caller whenever an item registers, unregisters, or changes.
+ */
+export const useHasName = (name: string): boolean =>
+  useRegistryValue("Select.useHasName", (registry) => registry.hasName(name));
 
 /** @returns whether the search term hides the fixed item with the given key. */
 export const useIsHidden = (key: record.Key): boolean =>

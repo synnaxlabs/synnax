@@ -9,7 +9,7 @@
 
 import { createSlice, type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { NotFoundError, panel, query } from "@synnaxlabs/client";
-import { type Drift } from "@synnaxlabs/drift";
+import type { Drift } from "@synnaxlabs/drift";
 import { Panel, Synnax } from "@synnaxlabs/pluto";
 import { array, compare, type require } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
@@ -178,7 +178,7 @@ const { actions, reducer } = createSlice({
         ];
         // Skip the no-op reselect fired on every click inside a focused tab's content;
         // a state change here re-renders mid-click and eats checkbox toggles.
-        if (!compare.arraysEqual(pan.selectedTabs, next)) pan.selectedTabs = next;
+        if (!array.equal(pan.selectedTabs, next)) pan.selectedTabs = next;
       },
     ),
     startOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
@@ -214,7 +214,7 @@ const { actions, reducer } = createSlice({
         const focused = pan.selectedTabs[0];
         if (win.selected === key && focused != null && !leafOf.has(focused))
           win.isOverlaid = false;
-        if (!compare.arraysEqual(pan.selectedTabs, next)) pan.selectedTabs = next;
+        if (!array.equal(pan.selectedTabs, next)) pan.selectedTabs = next;
       },
     ),
     stopOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
@@ -231,10 +231,10 @@ const { actions, reducer } = createSlice({
       const kept = state.order.filter((key) => live.has(key));
       const fresh = panels
         .filter(({ key }) => !kept.includes(key))
-        .sort((a, b) => compare.stringsWithNumbers(a.name, b.name))
+        .sort(compare.by(({ name }) => name, compare.natural))
         .map(({ key }) => key);
       const next = [...kept, ...fresh];
-      if (!compare.arraysEqual(state.order, next)) state.order = next;
+      if (!array.equal(state.order, next)) state.order = next;
     },
     // The index is a strip insertion slot resolved with the panel still in place, so a
     // move toward the end lands one slot short of the raw index.
@@ -244,7 +244,7 @@ const { actions, reducer } = createSlice({
       if (from !== -1) next.splice(from, 1);
       const to = Math.min(from !== -1 && from < index ? index - 1 : index, next.length);
       next.splice(Math.max(to, 0), 0, key);
-      if (!compare.arraysEqual(state.order, next)) state.order = next;
+      if (!array.equal(state.order, next)) state.order = next;
     },
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       const removed = array.toArray(keys);

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kadm"
@@ -49,9 +50,9 @@ const (
 
 // formatSchemaRegistry is a Confluent Schema Registry payload: a zero byte, a 4-byte
 // schema ID, and the encoded value.
-const formatSchemaRegistry driver.Format = "schema_registry"
+const formatSchemaRegistry payload.Format = "schema_registry"
 
-func formatOf(value []byte) driver.Format {
+func formatOf(value []byte) payload.Format {
 	if len(value) >= 5 && value[0] == 0 {
 		return formatSchemaRegistry
 	}
@@ -74,7 +75,7 @@ type browsedTopic struct {
 	// Newest is the time of the newest record. Zero when the topic holds none.
 	Newest telem.TimeStamp `json:"newest" msgpack:"newest"`
 	// Format is the format of the newest record. Empty when the topic holds none.
-	Format driver.Format `json:"format,omitempty" msgpack:"format,omitempty"`
+	Format payload.Format `json:"format,omitempty" msgpack:"format,omitempty"`
 	// Readable is false when the cluster does not let the client read the topic.
 	Readable bool `json:"readable" msgpack:"readable"`
 	// Error says why the browse could not read the offsets or the newest record of a
@@ -120,7 +121,7 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 	// A client that may not describe the configs of a topic cannot tell whether it is
 	// compacted.
 	configs, err := adm.DescribeTopicConfigs(ctx, readable...)
-	if authErr := (*kadm.AuthError)(nil); errors.As(err, &authErr) {
+	if _, ok := errors.AsType[*kadm.AuthError](err); ok {
 		configs = nil
 	} else if err != nil {
 		return nil, err
@@ -368,7 +369,7 @@ type sampledRecord struct {
 	// Headers are the headers of the record.
 	Headers []header `json:"headers" msgpack:"headers"`
 	// Format is the format of the whole record value.
-	Format driver.Format `json:"format" msgpack:"format"`
+	Format payload.Format `json:"format" msgpack:"format"`
 	// Payload is the start of the record value, from at most 16 KiB: text when Format
 	// is json or text, and hex digits otherwise.
 	Payload string `json:"payload" msgpack:"payload"`

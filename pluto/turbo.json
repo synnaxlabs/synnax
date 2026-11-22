@@ -8,6 +8,8 @@
         "$TURBO_ROOT$/{lyra,pluto,console,site/*}/src/**",
         "$TURBO_ROOT$/{lyra,pluto,console,site/*}/index.html"
       ]
-    }
+    },
+    "test": { "cache": false },
+    "cov": { "cache": false }
   }
 }

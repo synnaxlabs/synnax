@@ -18,6 +18,7 @@ from console.channels import ChannelClient
 from console.cluster import ClusterClient
 from console.devices import DevicesClient
 from console.docs import DocsClient
+from console.enumerations import EnumerationClient
 from console.labels import LabelClient
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
@@ -45,6 +46,7 @@ class Console:
     client: sy.Synnax
     cluster: ClusterClient
     docs: DocsClient
+    enumerations: EnumerationClient
     labels: LabelClient
     certificates: CertificateClient
     layout: LayoutClient
@@ -66,6 +68,7 @@ class Console:
         self.notifications = self.layout.notifications
         self.docs = DocsClient(self.layout)
         self.labels = LabelClient(layout=self.layout, client=self.client)
+        self.enumerations = EnumerationClient(layout=self.layout, client=self.client)
         self.secrets = SecretClient(self.layout)
         self.certificates = CertificateClient(self.layout)
         self.devices = DevicesClient(layout=self.layout, client=self.client)

@@ -49,7 +49,7 @@ export const useVisibility = ({
   const openTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const releaseRef = useRef<destructor.Destructor | null>(null);
-  const visibleRef = useSyncedRef(anchor != null);
+  const visibleRef = useRef(false);
   const delayRef = useSyncedRef(delay);
 
   const clearOpenTimeout = (): void => {
@@ -70,6 +70,7 @@ export const useVisibility = ({
     releaseRef.current?.();
     releaseRef.current = null;
     if (immediate) {
+      visibleRef.current = false;
       clearCloseTimeout();
       setClosing(false);
       setAnchor(null);
@@ -78,6 +79,7 @@ export const useVisibility = ({
     if (closeTimeoutRef.current != null) return;
     setClosing(true);
     closeTimeoutRef.current = setTimeout(() => {
+      visibleRef.current = false;
       closeTimeoutRef.current = null;
       setClosing(false);
       setAnchor(null);
@@ -92,6 +94,7 @@ export const useVisibility = ({
     clearCloseTimeout();
     setClosing(false);
     releaseRef.current = acquire(closeNow);
+    visibleRef.current = true;
     setAnchor(anchorRef.current);
   };
 

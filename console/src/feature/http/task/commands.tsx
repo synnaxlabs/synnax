@@ -9,8 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { useCreateRead } from "@/feature/http/task/Read";
-import { useCreateWrite } from "@/feature/http/task/Write";
+import { useCreateRead, useCreateWrite } from "@/feature/http/task/create";
 import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({

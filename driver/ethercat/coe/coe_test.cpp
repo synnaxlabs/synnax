@@ -471,6 +471,9 @@ TEST(ReadErrorTest, ReportsAnUnexpectedReplyAsAReadError) {
     );
     ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
     EXPECT_FALSE(err.matches(NO_REPLY));
-    EXPECT_EQ(err.data, "failed to read 0x8040:1C: the slave sent an unexpected reply");
+    EXPECT_EQ(
+        err.data,
+        "failed to read 0x8040:1C: the module sent an unexpected reply"
+    );
 }
 }

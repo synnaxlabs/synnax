@@ -7,18 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
-import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
-import { type Component } from "@/component";
+import type { Component } from "@/component";
+import { renderProp } from "@/component/renderProp";
+import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
-import { type position } from "@/position";
+import { Menu } from "@/menu";
+import type { position } from "@/position";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Tag } from "@/tag";
@@ -178,6 +192,127 @@ const renderFooter = async (): Promise<Element> => {
   return document.getElementById("footer") as Element;
 };
 
+const MANY_KEYS = Array.from({ length: 60 }, (_, i) => `key-${i}`);
+const CHOICE = "key-50";
+
+const fixedOptions = (): ReactElement[] =>
+  MANY_KEYS.map((key) => (
+    <Select.Item key={key} itemKey={key}>
+      {key}
+    </Select.Item>
+  ));
+
+const listSelect = (
+  virtual: boolean,
+  data: string[] = MANY_KEYS,
+  onSearch?: (term: string) => void,
+): ReactElement => (
+  <Dialog.Frame>
+    <Select.Frame<string, undefined>
+      data={data}
+      value={CHOICE}
+      onChange={() => {}}
+      virtual={virtual}
+    >
+      <Select.SingleTrigger placeholder="Pick" />
+      <Select.Dialog>
+        <Select.Body<string> resourceName="key" onSearch={onSearch}>
+          {({ key, ...p }) => (
+            <Select.Item key={key} {...p}>
+              {p.itemKey}
+            </Select.Item>
+          )}
+        </Select.Body>
+      </Select.Dialog>
+    </Select.Frame>
+  </Dialog.Frame>
+);
+
+const renderChoice = async (select: ReactElement): Promise<Element> => {
+  const { container } = await renderThemed(
+    <Triggers.Provider>{select}</Triggers.Provider>,
+  );
+  return container.querySelector(".lyra-dialog__trigger") as Element;
+};
+
+const openDialog = async (trigger: Element): Promise<Element> => {
+  await userEvent.click(trigger);
+  const dialog = page.getByRole("dialog").element();
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  return dialog;
+};
+
+const isInView = (dialog: Element, text: string): boolean => {
+  const option = Array.from(dialog.querySelectorAll("[role='option']")).find(
+    (el) => el.textContent === text,
+  );
+  const scroll = option?.closest(".lyra-list__scroll");
+  if (option == null || scroll == null) return false;
+  const { top, bottom } = option.getBoundingClientRect();
+  const view = scroll.getBoundingClientRect();
+  return top >= view.top && bottom <= view.bottom;
+};
+
+interface PinnedOptions {
+  body: DOMRect;
+  border: number;
+  listed: DOMRect;
+  divider: DOMRect;
+  pinned: DOMRect;
+}
+
+const renderPinnedOptions = async (
+  surface: Select.DialogProps["surface"],
+): Promise<PinnedOptions> => {
+  await renderThemed(
+    <Triggers.Provider>
+      <Dialog.Frame variant="floating">
+        <Dialog.Trigger>Pick</Dialog.Trigger>
+        <Select.Frame<string, undefined> data={["alpha"]} onChange={() => {}}>
+          <Select.Dialog surface={surface} aria-label="Key">
+            <Select.Body<string>
+              resourceName="key"
+              footer={
+                <>
+                  <Menu.Divider />
+                  <Select.Item<string> itemKey="none" textValue="No key">
+                    No key
+                  </Select.Item>
+                </>
+              }
+            >
+              {({ key, ...p }) => (
+                <Select.Item key={key} {...p}>
+                  {p.itemKey}
+                </Select.Item>
+              )}
+            </Select.Body>
+          </Select.Dialog>
+        </Select.Frame>
+      </Dialog.Frame>
+    </Triggers.Provider>,
+  );
+  await userEvent.click(page.getByText("Pick"));
+  const dialog = page.getByRole("dialog", { name: "Key" });
+  await expect.poll(() => computed(dialog.element(), "opacity")).toBe("1");
+  const body = document.querySelector(".lyra-select__body") as HTMLElement;
+  const rect = (selector: string): DOMRect =>
+    (document.querySelector(selector) as Element).getBoundingClientRect();
+  return {
+    body: body.getBoundingClientRect(),
+    border: body.clientLeft,
+    listed: page
+      .getByRole("option", { name: "alpha" })
+      .element()
+      .getBoundingClientRect(),
+    divider: rect(".lyra-select__body > .lyra-menu__divider"),
+    pinned: page
+      .getByRole("option", { name: "No key" })
+      .element()
+      .getBoundingClientRect(),
+  };
+};
+
 const DESCRIPTION = "Wider than the minimum width of a select dialog";
 const TRIGGER_WIDTH = 100;
 
@@ -319,7 +454,7 @@ interface ChipsOptions {
   preview?: boolean;
   haulType?: string;
   // A drag that runs while the trigger shows.
-  dragging?: Haul.DraggingState;
+  dragging?: Haul.State;
 }
 
 interface ChipsProps extends ChipsOptions {
@@ -473,9 +608,115 @@ const renderSearchless = async (
   await userEvent.click(getByRole("button", { name: multiple ? "Levels" : /^Level/ }));
   const dialog = getByRole("dialog").element();
   await expect.poll(() => computed(dialog, "opacity")).toBe("1");
-  await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+  // The first arrow key moves on from the choice.
+  await userEvent.keyboard("{ArrowDown}{Enter}");
   await expect.poll(() => onChange).toHaveBeenCalledOnce();
   return onChange;
+};
+
+interface EditButtonProps {
+  name: string;
+}
+
+const EditButton = ({ name }: EditButtonProps): ReactElement => {
+  const { open } = Dialog.useViews();
+  return (
+    <Button.Button
+      size="small"
+      aria-label={`Edit ${name}`}
+      onClick={() => open(`Editing ${name}`, <input aria-label="Name" />)}
+    >
+      <Icon.Edit />
+    </Button.Button>
+  );
+};
+
+/** Opens a select whose options each hold a button that opens a view. */
+const renderEditable = async (): Promise<ReturnType<typeof vi.fn>> => {
+  const onChange = vi.fn();
+  const items = ["low", "medium", "high"].map((key) => (
+    <Select.Item key={key} itemKey={key} textValue={key}>
+      {key}
+      <EditButton name={key} />
+    </Select.Item>
+  ));
+  await renderThemed(
+    <Triggers.Provider>
+      <Select.Simple<string>
+        resourceName="level"
+        multiple
+        value={[]}
+        onChange={onChange}
+      >
+        {items}
+      </Select.Simple>
+    </Triggers.Provider>,
+  );
+  await openEditable();
+  return onChange;
+};
+
+const openEditable = async (): Promise<void> => {
+  await userEvent.click(page.getByRole("button", { name: "Levels" }));
+  await expect.element(page.getByPlaceholder("Search levels...")).toHaveFocus();
+};
+
+const openView = async (): Promise<void> => {
+  await userEvent.click(page.getByRole("button", { name: "Edit low" }));
+  await expect.element(page.getByText("Editing low")).toBeVisible();
+};
+
+interface MenuEntry {
+  key: string;
+  name: string;
+}
+
+const MENU_ENTRIES: MenuEntry[] = [
+  { key: "1", name: "First" },
+  { key: "2", name: "Second" },
+];
+
+const renderMenuEntry = renderProp((props: List.ItemProps<string>) => (
+  <Select.Item {...props}>
+    <Text.Text>{MENU_ENTRIES.find((e) => e.key === props.itemKey)?.name}</Text.Text>
+  </Select.Item>
+));
+
+const MenuSingle = ({
+  hasMenu,
+}: Pick<Select.SingleProps<string, MenuEntry>, "hasMenu">): ReactElement => {
+  const { data, getItem } = List.useStaticData<string, MenuEntry>({
+    data: MENU_ENTRIES,
+  });
+  const [value, setValue] = useState<string>();
+  return (
+    <Triggers.Provider>
+      <Select.Single<string, MenuEntry>
+        data={data}
+        getItem={getItem}
+        value={value}
+        onChange={setValue}
+        resourceName="Entry"
+        initialHover={1}
+        hasMenu={hasMenu}
+        menu={({ keys }) => (
+          <Menu.Menu>
+            <Menu.Item itemKey="edit">{`menu for ${keys.join(",")}`}</Menu.Item>
+          </Menu.Menu>
+        )}
+      >
+        {renderMenuEntry}
+      </Select.Single>
+    </Triggers.Provider>
+  );
+};
+
+const openMenuSingle = async (
+  props: Pick<Select.SingleProps<string, MenuEntry>, "hasMenu"> = {},
+): Promise<void> => {
+  await renderThemed(<MenuSingle {...props} />);
+  await userEvent.click(page.getByRole("button", { name: "Entry" }));
+  await expect.element(page.getByRole("option", { name: "Second" })).toBeVisible();
 };
 
 describe("Select", () => {
@@ -554,14 +795,15 @@ describe("Select", () => {
   });
 
   describe("menu surface", () => {
-    it("should pick with the arrow keys and Enter, and not filter as the user types", async () => {
+    // Opens a select of two stages on the surface, and returns its onChange.
+    const openStage = async (surface: "dialog" | "menu"): Promise<Mock> => {
       const onChange = vi.fn();
       await renderThemed(
         <Triggers.Provider>
           <Dialog.Frame variant="floating">
             <Dialog.Trigger>Stage</Dialog.Trigger>
             <Select.Frame<string, undefined> multiple value={[]} onChange={onChange}>
-              <Select.Dialog surface="menu" aria-label="Stage">
+              <Select.Dialog surface={surface} aria-label="Stage">
                 <Select.List>
                   {["alpha", "beta"].map((key) => (
                     <Select.Item<string> key={key} itemKey={key}>
@@ -577,11 +819,33 @@ describe("Select", () => {
       await userEvent.click(page.getByText("Stage"));
       const dialog = page.getByRole("dialog", { name: "Stage" });
       await expect.poll(() => computed(dialog.element(), "opacity")).toBe("1");
+      return onChange;
+    };
+
+    const viewsPacked = (): boolean | undefined =>
+      page
+        .getByRole("dialog", { name: "Stage" })
+        .element()
+        .querySelector(".lyra-dialog-views")
+        ?.classList.contains("lyra--pack");
+
+    it("should pick with the arrow keys and Enter, and not filter as the user types", async () => {
+      const onChange = await openStage("menu");
       await userEvent.keyboard("b");
       expect(document.querySelector(".lyra-menu-filter")).toBeNull();
       await userEvent.keyboard("{ArrowDown}{Enter}");
       await expect.poll(() => onChange).toHaveBeenCalledOnce();
       expect(onChange.mock.calls[0][0]).toEqual(["alpha"]);
+    });
+
+    it("should not pack the options, as a menu does not", async () => {
+      await openStage("menu");
+      expect(viewsPacked()).toBe(false);
+    });
+
+    it("should pack the options on the dialog surface", async () => {
+      await openStage("dialog");
+      expect(viewsPacked()).toBe(true);
     });
   });
 
@@ -821,6 +1085,7 @@ describe("Select", () => {
         initial: ["Pass"],
         haulType: "label",
         dragging: {
+          key: "drag",
           source: { key: "list", type: "label" },
           items: [{ key: "New", type: "label" }],
         },
@@ -834,7 +1099,7 @@ describe("Select", () => {
       const trigger = await renderChips("text", 200, { preview: true });
       // A preview reads as disabled, which a user can still click.
       chip(trigger, "Pass").click();
-      await new Promise(requestAnimationFrame);
+      await scheduler.nextFrame();
       expect(document.querySelector(".lyra-dialog__dialog")).toBeNull();
     });
 
@@ -930,10 +1195,233 @@ describe("Select", () => {
     });
   });
 
+  describe("opening", () => {
+    it("should scroll a static list to the choice", async () => {
+      const dialog = await openDialog(await renderChoice(listSelect(false)));
+      await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
+    });
+
+    it("should scroll a virtual list to the choice", async () => {
+      const dialog = await openDialog(await renderChoice(listSelect(true)));
+      await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
+    });
+
+    it("should scroll a list of fixed options to the choice", async () => {
+      const trigger = await renderChoice(
+        <Select.Simple<string> resourceName="key" value={CHOICE} onChange={() => {}}>
+          {fixedOptions()}
+        </Select.Simple>,
+      );
+      const dialog = await openDialog(trigger);
+      await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
+    });
+
+    it("should scroll a multiple select to its first choice in the list", async () => {
+      const trigger = await renderChoice(
+        <Select.Simple<string>
+          resourceName="key"
+          multiple
+          value={["key-59", "key-30"]}
+          onChange={() => {}}
+        >
+          {fixedOptions()}
+        </Select.Simple>,
+      );
+      const dialog = await openDialog(trigger);
+      await expect.poll(() => isInView(dialog, "key-30")).toBe(true);
+    });
+
+    it("should scroll to a choice that loads after the dialog opens", async () => {
+      const { container, rerender } = await renderThemed(
+        <Triggers.Provider>{listSelect(true, [])}</Triggers.Provider>,
+      );
+      const dialog = await openDialog(
+        container.querySelector(".lyra-dialog__trigger") as Element,
+      );
+      // The first try at the reveal finds no options.
+      await scheduler.nextFrame();
+      await rerender(<Triggers.Provider>{listSelect(true)}</Triggers.Provider>);
+      await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
+    });
+
+    it.each([
+      [
+        "scrolls",
+        (scroll: Element) =>
+          scroll.dispatchEvent(new WheelEvent("wheel", { bubbles: true })),
+      ],
+      ["moves the cursor", async () => await userEvent.keyboard("{ArrowDown}")],
+    ])("should not scroll to a late choice once the user %s", async (_, act) => {
+      const early = MANY_KEYS.filter((key) => key !== CHOICE);
+      const { container, rerender } = await renderThemed(
+        <Triggers.Provider>{listSelect(true, early)}</Triggers.Provider>,
+      );
+      const dialog = await openDialog(
+        container.querySelector(".lyra-dialog__trigger") as Element,
+      );
+      const scroll = dialog.querySelector(".lyra-list__scroll") as Element;
+      // The reveal waits for the choice once the dialog shows.
+      await scheduler.nextFrame();
+      await act(scroll);
+      await rerender(<Triggers.Provider>{listSelect(true)}</Triggers.Provider>);
+      await scheduler.nextFrame();
+      await scheduler.nextFrame();
+      expect(scroll.scrollTop).toBe(0);
+    });
+
+    it("should not scroll to a late choice once the user searches", async () => {
+      const early = MANY_KEYS.filter((key) => key !== CHOICE);
+      const select = (data: string[]): ReactElement => (
+        <Triggers.Provider>{listSelect(true, data, () => {})}</Triggers.Provider>
+      );
+      const { container, rerender } = await renderThemed(select(early));
+      const dialog = await openDialog(
+        container.querySelector(".lyra-dialog__trigger") as Element,
+      );
+      await scheduler.nextFrame();
+      (dialog.querySelector("input") as HTMLInputElement).focus();
+      await userEvent.keyboard("k");
+      await rerender(select(MANY_KEYS));
+      await scheduler.nextFrame();
+      await scheduler.nextFrame();
+      expect(dialog.querySelector(".lyra-list__scroll")?.scrollTop).toBe(0);
+    });
+
+    it("should move the hover on from the choice", async () => {
+      const onChange = vi.fn();
+      const trigger = await renderChoice(
+        <Select.Simple<string> resourceName="key" value={CHOICE} onChange={onChange}>
+          {fixedOptions()}
+        </Select.Simple>,
+      );
+      await openDialog(trigger);
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect
+        .poll(() => onChange)
+        .toHaveBeenCalledWith("key-51", expect.anything());
+    });
+
+    it("should move to the first match of a search, not on from the choice", async () => {
+      const trigger = await renderChoice(listSelect(false, MANY_KEYS, () => {}));
+      const dialog = await openDialog(trigger);
+      (dialog.querySelector("input") as HTMLInputElement).focus();
+      await userEvent.keyboard("key{ArrowDown}");
+      await expect
+        .poll(() => dialog.querySelector(`.${CSS.M("hovered")}`)?.textContent)
+        .toBe("key-0");
+    });
+
+    it("should move on from the choice after a hover in an earlier open", async () => {
+      const onChange = vi.fn();
+      const trigger = await renderChoice(
+        <Select.Simple<string> resourceName="key" value={CHOICE} onChange={onChange}>
+          {fixedOptions()}
+        </Select.Simple>,
+      );
+      await openDialog(trigger);
+      // A hover moves only once the pointer moves between two places.
+      for (const name of ["key-47", "key-48"])
+        await userEvent.hover(page.getByRole("option", { name, exact: true }));
+      await userEvent.keyboard("{Escape}");
+      await expect.poll(() => document.querySelector("[role='dialog']")).toBeNull();
+      await openDialog(trigger);
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect
+        .poll(() => onChange)
+        .toHaveBeenCalledWith("key-51", expect.anything());
+    });
+
+    it("should not scroll to the choice of a list outside a select dialog", async () => {
+      const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+      onTestFinished(() => scroll.mockRestore());
+      await renderThemed(
+        <Triggers.Provider>
+          <Dialog.Frame variant="modal" visible>
+            <Dialog.Dialog>
+              <Select.Frame<string, undefined>
+                data={MANY_KEYS}
+                value={CHOICE}
+                onChange={() => {}}
+              >
+                <Select.List>
+                  <Select.Items<string>>
+                    {({ key, ...p }) => (
+                      <Select.Item key={key} {...p}>
+                        {p.itemKey}
+                      </Select.Item>
+                    )}
+                  </Select.Items>
+                </Select.List>
+              </Select.Frame>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      await scheduler.nextFrame();
+      await scheduler.nextFrame();
+      expect(scroll).not.toHaveBeenCalled();
+    });
+
+    it("should show the dialog already scrolled to the choice", async () => {
+      const trigger = await renderChoice(listSelect(false));
+      const shown: boolean[] = [];
+      const observer = new MutationObserver(() => {
+        const dialog = document.querySelector("[role='dialog']");
+        if (shown.length > 0 || !dialog?.classList.contains(CSS.visible(true))) return;
+        shown.push(isInView(dialog, CHOICE));
+      });
+      observer.observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributeFilter: ["class"],
+      });
+      onTestFinished(() => observer.disconnect());
+      await openDialog(trigger);
+      expect(shown).toEqual([true]);
+    });
+
+    it("should scroll a virtual list to the choice when it opens again", async () => {
+      const trigger = await renderChoice(listSelect(true));
+      const first = await openDialog(trigger);
+      await expect.poll(() => isInView(first, CHOICE)).toBe(true);
+      first.querySelector(".lyra-list__scroll")?.scrollTo({ top: 0 });
+      await userEvent.keyboard("{Escape}");
+      await expect.poll(() => document.querySelector("[role='dialog']")).toBeNull();
+      const second = await openDialog(trigger);
+      await expect.poll(() => isInView(second, CHOICE)).toBe(true);
+    });
+  });
+
   describe("footer", () => {
     it("should keep its height when the list overflows the dialog", async () => {
       const footer = await renderFooter();
       expect(footer.getBoundingClientRect().height).toBe(FOOTER_HEIGHT);
+    });
+
+    it("should line up its options and divider with the options of the list", async () => {
+      const { body, listed, divider, pinned } = await renderPinnedOptions("dialog");
+      expect(pinned.left).toBe(listed.left);
+      expect(pinned.right).toBe(listed.right);
+      expect(divider.left).toBe(listed.left);
+      expect(divider.right).toBe(listed.right);
+      expect(body.bottom - pinned.bottom).toBe(listed.left - body.left);
+    });
+
+    it("should leave its options in a menu where the panel puts them", async () => {
+      const { body, border, listed, divider, pinned } =
+        await renderPinnedOptions("menu");
+      expect(pinned.left).toBe(listed.left);
+      expect(pinned.right).toBe(listed.right);
+      expect(divider.left).toBe(listed.left);
+      expect(body.bottom - pinned.bottom).toBe(border);
+    });
+
+    it("should not inset a footer that pins no option", async () => {
+      const footer = await renderFooter();
+      const body = footer.parentElement as HTMLElement;
+      expect(footer.getBoundingClientRect().left).toBe(
+        body.getBoundingClientRect().left + body.clientLeft,
+      );
     });
   });
 
@@ -944,6 +1432,50 @@ describe("Select", () => {
         label.getBoundingClientRect().width,
       );
       expect(computed(caret, "margin-left")).toBe("0px");
+    });
+  });
+
+  describe("clearable shadow single trigger", () => {
+    const renderClearable = async (
+      onChange: (key: string | null) => void,
+    ): Promise<HTMLElement> => {
+      const { container } = await renderThemed(
+        <Dialog.Frame>
+          <Select.Frame<string, undefined> value="time" onChange={onChange} allowNone>
+            <Select.SingleTrigger variant="shadow" placeholder="Pick" clearable />
+            <Select.Dialog>
+              <Select.Item itemKey="time">Time</Select.Item>
+            </Select.Dialog>
+          </Select.Frame>
+        </Dialog.Frame>,
+      );
+      const trigger = container.querySelector<HTMLElement>(".lyra-dialog__trigger");
+      assert(trigger != null);
+      return trigger;
+    };
+
+    const clearOf = (trigger: HTMLElement): HTMLElement => {
+      const clear = trigger.querySelector<HTMLElement>(".lyra-select-clear__button");
+      assert(clear != null);
+      return clear;
+    };
+
+    it("should show its clear button in place of its caret on hover", async () => {
+      const trigger = await renderClearable(vi.fn());
+      expect(computed(clearOf(trigger), "opacity")).toBe("0");
+      await userEvent.hover(trigger);
+      await expect.poll(() => computed(clearOf(trigger), "opacity")).toBe("1");
+      const caret = trigger.querySelector(".lyra-caret-animated");
+      assert(caret != null);
+      expect(computed(caret, "visibility")).toBe("hidden");
+    });
+
+    it("should clear the selection from the button on its caret", async () => {
+      const onChange = vi.fn();
+      const trigger = await renderClearable(onChange);
+      await userEvent.hover(trigger);
+      await userEvent.click(clearOf(trigger));
+      expect(onChange).toHaveBeenLastCalledWith(null, expect.anything());
     });
   });
 
@@ -1047,6 +1579,10 @@ describe("Select", () => {
       );
       const scroll = getByRole("listbox").element();
       await expect.poll(() => scroll.scrollHeight).toBeGreaterThan(5000);
+      // The dialog scrolls to its choice a frame after it shows.
+      const dialog = getByRole("dialog").element();
+      await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+      await scheduler.nextFrame();
       scroll.scrollTop = scroll.scrollHeight;
       await expect.poll(() => getByText("old-199").elements().length).toBe(1);
 
@@ -1085,6 +1621,161 @@ describe("Select", () => {
       const find = await renderCheckable();
       expect(rect(find("Type")).left).toBeCloseTo(rect(find("type-1")).left, 0);
       expect(rect(find("Channel")).left).toBeCloseTo(rect(find("channel-1")).left, 0);
+    });
+  });
+
+  describe("views", () => {
+    it("should press Back with Enter and pick nothing", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      // Space opens the view from the focused button, so the opener has the focus in
+      // every browser.
+      (page.getByRole("button", { name: "Edit low" }).element() as HTMLElement).focus();
+      await userEvent.keyboard(" ");
+      await expect.element(page.getByText("Editing low")).toBeVisible();
+      await expect.element(page.getByRole("button", { name: "Back" })).toHaveFocus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByText("Editing low")).not.toBeInTheDocument();
+      await expect
+        .element(page.getByRole("button", { name: "Edit low" }))
+        .toHaveFocus();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should open the view again with Enter on the opener and pick nothing", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      const opener = page.getByRole("button", { name: "Edit low" });
+      (opener.element() as HTMLElement).focus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByRole("button", { name: "Back" })).toHaveFocus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(opener).toHaveFocus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByText("Editing low")).toBeVisible();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should not move the hover with an arrow key on the opener", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      (page.getByRole("button", { name: "Edit low" }).element() as HTMLElement).focus();
+      await userEvent.keyboard("{ArrowDown}");
+      await userEvent.click(page.getByPlaceholder("Search levels..."));
+      await userEvent.keyboard("{Enter}");
+      await expect
+        .poll(() => onChange)
+        .toHaveBeenCalledWith(["low"], {
+          clicked: "low",
+        });
+    });
+
+    it("should keep the keys from the options while a view shows", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      await openView();
+      await userEvent.click(page.getByLabelText("Name"));
+      await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+      expect(onChange).not.toHaveBeenCalled();
+      await userEvent.click(page.getByRole("button", { name: "Back" }));
+      await userEvent.click(page.getByPlaceholder("Search levels..."));
+      await userEvent.keyboard("{Enter}");
+      await expect
+        .poll(() => onChange)
+        .toHaveBeenCalledWith(["low"], {
+          clicked: "low",
+        });
+    });
+
+    it("should answer the keys again after the dialog closes on a view", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      await openView();
+      await userEvent.keyboard("{Escape}");
+      await expect.element(page.getByText("Editing low")).not.toBeInTheDocument();
+      await openEditable();
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect.poll(() => onChange).toHaveBeenCalledOnce();
+    });
+
+    it("should fill the minimum height of the dialog with the list", async () => {
+      const Tall = (): ReactElement => {
+        const { data, getItem } = List.useStaticData<string, MenuEntry>({
+          data: MENU_ENTRIES,
+        });
+        return (
+          <Triggers.Provider>
+            <Select.Single<string, MenuEntry>
+              data={data}
+              getItem={getItem}
+              value={undefined}
+              onChange={() => {}}
+              resourceName="Entry"
+              dialogProps={{ style: { minHeight: "60rem" } }}
+            >
+              {renderMenuEntry}
+            </Select.Single>
+          </Triggers.Provider>
+        );
+      };
+      await renderThemed(<Tall />);
+      await userEvent.click(page.getByRole("button", { name: "Entry" }));
+      await expect.element(page.getByRole("option", { name: "Second" })).toBeVisible();
+      const dialog = document.querySelector(".lyra-select__dialog")!;
+      const list = dialog.querySelector(".lyra-dialog-views > :last-child")!;
+      const style = getComputedStyle(dialog);
+      const inner =
+        dialog.getBoundingClientRect().bottom -
+        Number.parseFloat(style.borderBottomWidth) -
+        Number.parseFloat(style.paddingBottom);
+      expect(list.getBoundingClientRect().bottom).toBeCloseTo(inner, 0);
+    });
+
+    it("should join the search and the list over one hairline", async () => {
+      await renderEditable();
+      const views = document.querySelector(
+        ".lyra-select__dialog > .lyra-dialog-views",
+      )!;
+      const [search, list] = Array.from(views.children);
+      expect(computed(search, "border-bottom-left-radius")).toBe("0px");
+      expect(computed(list, "border-top-left-radius")).toBe("0px");
+      expect(list.getBoundingClientRect().top).toBe(
+        search.getBoundingClientRect().bottom - 1,
+      );
+    });
+  });
+
+  describe("option menu", () => {
+    it("should open the menu of the hovered option on Shift+F10", async () => {
+      await openMenuSingle();
+      await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+      await expect
+        .element(page.getByRole("menuitem", { name: "menu for 2" }))
+        .toBeVisible();
+    });
+
+    it("should open the menu of the hovered option on the Menu key", async () => {
+      await openMenuSingle();
+      await userEvent.keyboard("{ContextMenu}");
+      await expect
+        .element(page.getByRole("menuitem", { name: "menu for 2" }))
+        .toBeVisible();
+    });
+
+    it("should leave an option that hasMenu refuses to the platform", async () => {
+      const prevented = vi.fn();
+      const record = (e: MouseEvent): void => prevented(e.defaultPrevented);
+      window.addEventListener("contextmenu", record);
+      onTestFinished(() => window.removeEventListener("contextmenu", record));
+      await openMenuSingle({ hasMenu: (key) => key !== "2" });
+      const second = page.getByRole("option", { name: "Second" });
+      await userEvent.click(second, { button: "right" });
+      await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+      expect(prevented).toHaveBeenCalledWith(false);
+      expect(prevented).not.toHaveBeenCalledWith(true);
+      // With no menu open, Escape closes the dialog.
+      await userEvent.keyboard("{Escape}");
+      await expect.element(second).not.toBeInTheDocument();
     });
   });
 });

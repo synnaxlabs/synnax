@@ -49,12 +49,15 @@ jobs:
     outputs:
       count: ${{ steps.select.outputs.count }}
       matrix: ${{ steps.select.outputs.matrix }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
       - name: Select issues
         id: select
@@ -89,8 +92,17 @@ jobs:
       title: ${{ matrix.title }}
       timeout-minutes: 90
     secrets:
-      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
-      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  relay-failure:
+    name: Relay the failure
+    needs: [select, agent]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true
+      report: true

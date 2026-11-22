@@ -58,10 +58,39 @@ type FieldIdentifier = versions.FieldIdentifier
 // BaseField carries the parts every message field shares.
 type BaseField = versions.BaseField
 
-// BinaryField is a field read from a bit range of a binary payload.
+// BinaryField is a field read from a bit range of a binary payload. With no default, a
+// write needs a channel.
 type BinaryField = versions.BinaryField
 
-// TextField is a field read from a text line.
+// BinaryFieldVariant is implemented by every BinaryField variant.
+type BinaryFieldVariant = versions.BinaryFieldVariant
+
+// BinaryFieldType is the "kind" value that selects a variant of BinaryField.
+type BinaryFieldType = versions.BinaryFieldType
+
+const (
+	// FloatBinaryFieldType is a field whose raw bits are an IEEE 754 float of 32 or 64
+	// bits.
+	FloatBinaryFieldType BinaryFieldType = versions.FloatBinaryFieldType
+	// IntegerBinaryFieldType is a field whose raw bits are a two's complement integer.
+	IntegerBinaryFieldType BinaryFieldType = versions.IntegerBinaryFieldType
+	// UnsignedBinaryFieldType is a field whose raw bits are an unsigned integer.
+	UnsignedBinaryFieldType BinaryFieldType = versions.UnsignedBinaryFieldType
+)
+
+// FloatBinaryField is a field whose raw bits are an IEEE 754 float of 32 or 64 bits.
+type FloatBinaryField = versions.FloatBinaryField
+
+// IntegerBinaryField is a field whose raw bits are a two's complement integer.
+type IntegerBinaryField = versions.IntegerBinaryField
+
+// UnsignedBinaryField is a field whose raw bits are an unsigned integer.
+type UnsignedBinaryField = versions.UnsignedBinaryField
+
+// TextBaseField carries the parts every text field shares.
+type TextBaseField = versions.TextBaseField
+
+// TextField is a field read from a text line. With no default, a write needs a channel.
 type TextField = versions.TextField
 
 // TextFieldVariant is implemented by every TextField variant.
@@ -83,10 +112,55 @@ type DelimitedTextField = versions.DelimitedTextField
 // TaggedTextField is a field read from the text that follows a tag.
 type TaggedTextField = versions.TaggedTextField
 
+// TimestampDefault is the default of a timestamp field.
+type TimestampDefault = versions.TimestampDefault
+
+// TimestampDefaultVariant is implemented by every TimestampDefault variant.
+type TimestampDefaultVariant = versions.TimestampDefaultVariant
+
+// TimestampDefaultType is the "type" value that selects a variant of TimestampDefault.
+type TimestampDefaultType = versions.TimestampDefaultType
+
+const (
+	// ConstantTimestampDefaultType is one fixed timestamp.
+	ConstantTimestampDefaultType TimestampDefaultType = versions.ConstantTimestampDefaultType
+	// NowTimestampDefaultType is the time of each read or write.
+	NowTimestampDefaultType TimestampDefaultType = versions.NowTimestampDefaultType
+)
+
+// ConstantTimestampDefault is one fixed timestamp.
+type ConstantTimestampDefault = versions.ConstantTimestampDefault
+
+// NowTimestampDefault is the time of each read or write.
+type NowTimestampDefault = versions.NowTimestampDefault
+
+// UUIDDefault is the default of a UUID field.
+type UUIDDefault = versions.UUIDDefault
+
+// UUIDDefaultVariant is implemented by every UUIDDefault variant.
+type UUIDDefaultVariant = versions.UUIDDefaultVariant
+
+// UUIDDefaultType is the "type" value that selects a variant of UUIDDefault.
+type UUIDDefaultType = versions.UUIDDefaultType
+
+const (
+	// ConstantUUIDDefaultType is one fixed UUID.
+	ConstantUUIDDefaultType UUIDDefaultType = versions.ConstantUUIDDefaultType
+	// RandomUUIDDefaultType is a new random UUID for each read or write.
+	RandomUUIDDefaultType UUIDDefaultType = versions.RandomUUIDDefaultType
+)
+
+// ConstantUUIDDefault is one fixed UUID.
+type ConstantUUIDDefault = versions.ConstantUUIDDefault
+
+// RandomUUIDDefault is a new random UUID for each read or write.
+type RandomUUIDDefault = versions.RandomUUIDDefault
+
 // JSONBaseField carries the parts every JSON field shares.
 type JSONBaseField = versions.JSONBaseField
 
-// JSONField is a field read from a JSON document.
+// JSONField is a field read from a JSON document. With no default, a read needs its
+// value and a write needs a channel.
 type JSONField = versions.JSONField
 
 // JSONFieldVariant is implemented by every JSONField variant.
@@ -142,6 +216,9 @@ const (
 	StringJSONMatchType JSONMatchType = versions.StringJSONMatchType
 	// BooleanJSONMatchType matches an equal JSON boolean.
 	BooleanJSONMatchType JSONMatchType = versions.BooleanJSONMatchType
+	// PresentJSONMatchType matches a document that holds a value other than null at the
+	// pointer.
+	PresentJSONMatchType JSONMatchType = versions.PresentJSONMatchType
 )
 
 // FloatJSONMatch matches a JSON number equal to a float.
@@ -159,23 +236,15 @@ type StringJSONMatch = versions.StringJSONMatch
 // BooleanJSONMatch matches an equal JSON boolean.
 type BooleanJSONMatch = versions.BooleanJSONMatch
 
+// PresentJSONMatch matches a document that holds a value other than null at the
+// pointer.
+type PresentJSONMatch = versions.PresentJSONMatch
+
 // Payload is the layout of a message's payload.
 type Payload = versions.Payload
 
 // PayloadVariant is implemented by every Payload variant.
 type PayloadVariant = versions.PayloadVariant
-
-// PayloadType is the "format" value that selects a variant of Payload.
-type PayloadType = versions.PayloadType
-
-const (
-	// BinaryPayloadType is a payload of raw bytes.
-	BinaryPayloadType PayloadType = versions.BinaryPayloadType
-	// TextPayloadType is a payload of one text line.
-	TextPayloadType PayloadType = versions.TextPayloadType
-	// JSONPayloadType is a payload of one JSON document.
-	JSONPayloadType PayloadType = versions.JSONPayloadType
-)
 
 // BinaryPayload is a payload of raw bytes.
 type BinaryPayload = versions.BinaryPayload
@@ -192,6 +261,45 @@ type Message = versions.Message
 // ICD is an interface control document: the messages a system sends and receives, and
 // how to parse each one.
 type ICD = versions.ICD
+
+// ReadBinding writes the value of one message field to a channel.
+type ReadBinding = versions.ReadBinding
+
+// ReadMessage reads one message of an ICD.
+type ReadMessage = versions.ReadMessage
+
+// BinaryBaseField carries the parts every binary field shares.
+type BinaryBaseField = versions.BinaryBaseField
+
+// ImportFormat is the file format of an ICD that an import reads.
+type ImportFormat string
+
+const (
+	// ImportFormatDBC is a Vector CAN database file.
+	ImportFormatDBC ImportFormat = "dbc"
+	// ImportFormatCSV is a field table in comma-separated values. The first row is a
+	// header that names each column, in any case: message, id, extended, length, field,
+	// start_bit, bit_length, byte_order, kind, scale, offset, units, min, and max. The
+	// message, field, start_bit, and bit_length columns are required. A kind is float,
+	// integer, or unsigned, and defaults to unsigned. Each other row is one binary
+	// field, and the rows of one message form one message, with a CAN identifier when
+	// an id is present.
+	ImportFormatCSV ImportFormat = "csv"
+	// ImportFormatXLSX is a field table, laid out as for csv, in the first sheet of an
+	// Excel workbook. A numeric cell is read as its value, whatever its number format.
+	ImportFormatXLSX ImportFormat = "xlsx"
+)
+
+// IsValid reports whether i is one of the defined ImportFormat
+// values.
+func (i ImportFormat) IsValid() bool {
+	switch i {
+	case ImportFormatDBC, ImportFormatCSV, ImportFormatXLSX:
+		return true
+	default:
+		return false
+	}
+}
 
 // Where is a filter that selects ICDs.
 type Where struct {

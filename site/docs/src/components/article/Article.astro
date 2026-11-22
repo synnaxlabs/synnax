@@ -256,12 +256,21 @@ const publishedLabel =
                 font-style: italic;
                 text-align: center;
                 text-wrap: balance;
+
+                /* MDX wraps a caption written on several lines in a paragraph. */
+                & > p {
+                    margin: 0;
+                }
             }
 
             img {
                 width: 100%;
                 margin-bottom: 2rem;
                 margin-top: -2rem;
+            }
+
+            &.article-portrait img {
+                width: min(100%, 55rem);
             }
         }
     }

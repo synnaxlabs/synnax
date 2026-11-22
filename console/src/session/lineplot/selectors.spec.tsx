@@ -9,7 +9,7 @@
 
 import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
 import { act, renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
@@ -89,6 +89,26 @@ describe("lineplot selector hooks", () => {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toEqual(["r1", "r2"]);
+  });
+});
+
+describe("lineplot hidden items", () => {
+  it("should read the items and the solo that setHidden sets", () => {
+    const store = storeWith({ version: 0, windows: inWindow({ [KEY]: ZERO }) });
+    const { result } = renderHook(
+      () => ({
+        hidden: LinePlot.useSelectHidden(),
+        solo: LinePlot.useSelectSolo(),
+      }),
+      { wrapper: wrapperFor(store, KEY) },
+    );
+    const hidden = { lines: ["l1"], ranges: ["r1"], traces: ["l2/r2"] };
+    const solo = {
+      item: "range:r1",
+      restore: { lines: [], ranges: ["r3"], traces: [] },
+    };
+    act(() => void store.dispatch(LinePlot.setHidden({ key: KEY, hidden, solo })));
+    expect(result.current).toEqual({ hidden, solo });
   });
 });
 

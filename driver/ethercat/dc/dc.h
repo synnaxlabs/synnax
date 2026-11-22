@@ -226,7 +226,7 @@ select(const std::vector<OpMode> &modes, const std::optional<Choice> &choice = {
         x::errors::Error(
             errors::SLAVE_CONFIG_ERROR,
             std::format(
-                "the slave does not list mode {} with AssignActivate 0x{:04X}. {}",
+                "the module does not list mode {} with AssignActivate 0x{:04X}. {}",
                 choice->index,
                 choice->assign_activate,
                 listed.empty() ? "It lists no modes." : "It lists " + listed + "."

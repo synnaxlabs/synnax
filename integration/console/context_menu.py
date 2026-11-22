@@ -11,7 +11,12 @@
 
 import time
 
-from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import (
+    Locator,
+    Page,
+    Position,
+    TimeoutError as PlaywrightTimeoutError,
+)
 
 # Menu items may carry a keyboard-trigger badge whose letters join the label in
 # textContent ("Rename" renders as "RenameE"), so label matching must strip it.
@@ -38,13 +43,17 @@ class ContextMenu:
         """
         self.page = page
 
-    def open_on(self, element: Locator) -> "ContextMenu":
+    def open_on(
+        self, element: Locator, *, position: Position | None = None
+    ) -> "ContextMenu":
         """Right-click to open context menu.
 
         :param element: The Playwright Locator to right-click on.
+        :param position: Where to click, relative to the top left of element. Defaults
+            to its center.
         :returns: Self for method chaining.
         """
-        element.click(button="right")
+        element.click(button="right", position=position)
         menu = self.page.get_by_role("menu").first
         menu.wait_for(state="visible", timeout=5000)
         menu.get_by_role("menuitem").first.wait_for(state="visible", timeout=2000)
@@ -69,6 +78,22 @@ class ContextMenu:
                 return items.nth(index)
         return None
 
+    def _wait_for_option(self, text: str, *, exact: bool) -> Locator:
+        """Wait up to 5s for a menu item with the given label.
+
+        :param text: The label of the menu option to find.
+        :param exact: Whether to match the label exactly or as a substring.
+        :returns: Locator for the matching menu item.
+        """
+        deadline = time.monotonic() + 5
+        option = self._find_option(text, exact=exact)
+        while option is None:
+            if time.monotonic() >= deadline:
+                raise AssertionError(f"context menu offers no option {text!r}")
+            self.page.wait_for_timeout(100)
+            option = self._find_option(text, exact=exact)
+        return option
+
     def click_option(self, text: str, *, exact: bool = True) -> None:
         """Click a menu option by searching within the context menu.
 
@@ -79,13 +104,7 @@ class ContextMenu:
         :param exact: Whether to match text exactly.
         """
         menu = self._visible_menu()
-        deadline = time.monotonic() + 5
-        option = self._find_option(text, exact=exact)
-        while option is None:
-            if time.monotonic() >= deadline:
-                raise AssertionError(f"context menu offers no option {text!r}")
-            self.page.wait_for_timeout(100)
-            option = self._find_option(text, exact=exact)
+        option = self._wait_for_option(text, exact=exact)
         # Fixed-position menus may extend beyond the viewport, causing
         # both click() and click(force=True) to fail. dispatch_event
         # fires the click via the DOM and does not require the element
@@ -105,6 +124,19 @@ class ContextMenu:
         """
         self.open_on(element)
         self.click_option(action_text, exact=exact)
+
+    def sub_action(self, element: Locator, submenu: str, option: str) -> None:
+        """Right-click element, open a submenu, and click an option in it.
+
+        :param element: The Playwright Locator to right-click on.
+        :param submenu: The label of the item that opens the submenu, such as "Copy".
+        :param option: The label of the option in the submenu, such as "Link".
+        """
+        self.open_on(element)
+        self._wait_for_option(submenu, exact=True).click()
+        content = self.page.get_by_role("dialog", name=submenu, exact=True)
+        content.wait_for(state="visible", timeout=2000)
+        content.get_by_role("menuitem", name=option, exact=True).click()
 
     def has_option(self, text: str, *, exact: bool = True) -> bool:
         """Check if a menu option is visible and not disabled.

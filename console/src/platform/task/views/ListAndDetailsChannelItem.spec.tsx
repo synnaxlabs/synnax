@@ -7,19 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel as clientChannel } from "@synnaxlabs/client";
+import type { channel as clientChannel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { deep } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
-import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
-import { type Channel } from "@/platform/task/types";
-import { queryIcon, queryIconButton, uniqueName } from "@/testutil";
+import {
+  getChannelItemStatus,
+  renderInTaskForm,
+  renderInTaskFormWithClient,
+} from "@/platform/task/testutil";
+import { queryIcon, queryIconButton } from "@/testutil";
 
-const path = deep.path<{ config: { channels: Channel[] } }>();
+const path = deep.path<{ config: { channels: Task.Channel[] } }>();
 
 const client = createTestClient();
 
@@ -42,7 +46,7 @@ const renderTareable = async (
   { tareable = true }: RenderTareableOptions = {},
 ) => {
   const result = await renderInTaskFormWithClient(
-    <Task.Views.List<Channel>
+    <Task.Views.List<Task.Channel>
       path={path.config.channels}
       createChannel={() => null}
       resolve={() => null}
@@ -86,7 +90,7 @@ const renderItem = (
     />
   );
   return renderInTaskForm(
-    <Task.Views.List<Channel>
+    <Task.Views.List<Task.Channel>
       path={path.config.channels}
       createChannel={() => null}
       resolve={() => null}
@@ -129,6 +133,25 @@ describe("layouts.ListAndDetailsChannelItem", () => {
       expect(form.current?.get(path.config.channels.a.disabled).value).toBe(false),
     );
     expect(enabled().checked).toBe(true);
+  });
+
+  it("should mark a warned channel with a warning", async () => {
+    await renderItem({ warned: true });
+    expect(getChannelItemStatus(screen.getByRole("option"))).toBe("warning");
+  });
+
+  it("should mark a warned channel with an error when the channel has one", async () => {
+    const { form } = await renderItem({ warned: true });
+    act(() =>
+      form.current?.setStatus(path.config.channels.a, {
+        key: "config.channels.a",
+        variant: "error",
+        message: "Channel error",
+      }),
+    );
+    await waitFor(() =>
+      expect(getChannelItemStatus(screen.getByRole("option"))).toBe("error"),
+    );
   });
 
   it("should render command and state names when a state channel is present", async () => {

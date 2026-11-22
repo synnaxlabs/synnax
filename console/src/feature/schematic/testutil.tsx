@@ -18,8 +18,9 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Panel as PlutoPanel, Schematic as PSchematic } from "@synnaxlabs/pluto";
-import { type aether } from "@synnaxlabs/pluto/ether";
+import type { aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, render, screen, within } from "@testing-library/react";
 import {
   type ComponentType,
@@ -35,12 +36,7 @@ import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
-import {
-  assertDefined,
-  type ConsolePreloadedState,
-  createConsoleWrapper,
-  uniqueName,
-} from "@/testutil";
+import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
 export const client = createTestClient();
 
@@ -99,6 +95,15 @@ const loadSchematic = async (
   await within(utils.container).findByTestId("loaded");
 };
 
+// Canvas.useRegion measures against the lower2d canvas and bails without it, so the
+// diagram never reads as sized.
+const mountCanvas = (): void => {
+  if (document.querySelector(".pluto-canvas--lower2d") != null) return;
+  const canvas = document.createElement("div");
+  canvas.className = "pluto-canvas--lower2d";
+  document.body.appendChild(canvas);
+};
+
 export interface RenderSchematicOptions {
   schematic?: Partial<schematic.New>;
   sessionState?: Partial<Session.Schematic.State>;
@@ -106,6 +111,11 @@ export interface RenderSchematicOptions {
   additionalRegistry?: aether.ComponentRegistry;
   /** The client the component renders against; defaults to the root client. */
   as?: Client;
+  /**
+   * Selects the panel and its tab and mounts a canvas, so the diagram renders its
+   * contents.
+   */
+  visible?: boolean;
 }
 
 /**
@@ -121,6 +131,7 @@ export const renderSchematic = async (
     sessionState,
     additionalRegistry,
     as = client,
+    visible = false,
   }: RenderSchematicOptions = {},
 ) => {
   const created = await createSchematic(overrides);
@@ -135,6 +146,13 @@ export const renderSchematic = async (
     schematic.resourceID(created.key),
   );
   await primePanel(Wrapper, panelKey);
+  if (visible) {
+    mountCanvas();
+    store.dispatch(Session.Panel.select({ key: panelKey }));
+    store.dispatch(
+      Session.Panel.internalSelectTab({ key: panelKey, tabKey, otherTabKeys: [] }),
+    );
+  }
   // React counts a `use` read as a suspend even when it is cached. A sync act leaves
   // the work it queues unflushed.
   let result!: ReturnType<typeof render>;

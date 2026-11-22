@@ -25,7 +25,7 @@ slave::DiscoveryResult on_bus(const uint16_t position, const uint32_t serial) {
     result.properties.vendor_id = 2;
     result.properties.product_code = 0x12345678;
     result.properties.serial = serial;
-    result.properties.name = "Slave " + std::to_string(position);
+    result.properties.name = "Module " + std::to_string(position);
     return result;
 }
 }
@@ -47,7 +47,7 @@ TEST(SlavesBindTest, KeepsThePositionsWhenASlaveIsMissing) {
     slaves.by_key.emplace("missing", on_bus(2, 777).properties);
     const auto err = slaves.bind({on_bus(1, 888)}).second;
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "Slave 2 (serial 777) is not on the bus.");
+    EXPECT_EQ(err.data, "Module 2 (serial 777) is not on the bus.");
     EXPECT_EQ(slaves.by_key.at("missing").position, 2);
 }
 }

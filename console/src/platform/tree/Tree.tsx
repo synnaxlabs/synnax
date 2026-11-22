@@ -32,7 +32,7 @@ import {
 } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Source } from "@/platform/tree/children";
+import type { Source } from "@/platform/tree/children";
 import { useContextMenus, useItems } from "@/platform/tree/context";
 import { LIMIT } from "@/platform/tree/createSearch";
 import { type DragAndDrop, useDragAndDrop } from "@/platform/tree/dragAndDrop";
@@ -40,11 +40,11 @@ import { DefaultItem, type Item } from "@/platform/tree/item";
 import { useMenu } from "@/platform/tree/menu";
 import { MatchProvider, type Search, type SearchAnswer } from "@/platform/tree/search";
 import { isMoreKey, type Results, Store } from "@/platform/tree/store";
-import {
-  type GetResource,
-  type Resource,
-  type RootContextMenuProps,
-  type TreeState,
+import type {
+  GetResource,
+  Resource,
+  RootContextMenuProps,
+  TreeState,
 } from "@/platform/tree/types";
 import { useCopy } from "@/platform/tree/useCopy";
 
@@ -136,7 +136,7 @@ const ResourceItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
     <Item
       {...rest}
       draggingOver={draggingOver}
-      onDragStart={() => onDragStart(itemKey)}
+      onDragStart={(e) => onDragStart(itemKey, e)}
       draggable={canMove}
       {...onDropDrops}
       onDragLeave={() => setDraggingOver(false)}
@@ -212,7 +212,7 @@ const Internal = ({
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
 
   const handleExpandedChange = (arg: xstate.SetArg<string[]>) =>
-    store.setExpanded(xstate.executeSetter(arg, store.getExpanded()));
+    store.setExpanded(xstate.resolve(arg, store.getExpanded()));
 
   useEffect(() => store.start(), [store]);
 

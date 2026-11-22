@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { type errors } from "@synnaxlabs/x";
+import type { errors } from "@synnaxlabs/x";
 import type z from "zod";
 
 export interface Adder {

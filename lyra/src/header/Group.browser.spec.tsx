@@ -13,7 +13,7 @@ import { userEvent } from "vitest/browser";
 import { Button } from "@/button";
 import { Header } from "@/header";
 import { Icon } from "@/icon";
-import { computed, renderThemed, resolve } from "@/styletest";
+import { computed, renderThemed, resolve, withMotion } from "@/styletest";
 
 const renderGroup = async (onOpenChange: (open: boolean) => void = () => {}) => {
   const r = await renderThemed(
@@ -52,6 +52,18 @@ describe("Header.Group", () => {
     await userEvent.hover(toggle);
     expect(background(bar)).toBe(resolve("var(--pluto-fill-hover)"));
     expect(background(toggle)).toBe(resolve("transparent"));
+  });
+
+  it("should change its fill with the transition of a button", async () => {
+    const { bar, action } = await renderGroup();
+    withMotion(() => {
+      for (const property of [
+        "transition-property",
+        "transition-duration",
+        "transition-timing-function",
+      ])
+        expect(computed(bar, property)).toBe(computed(action, property));
+    });
   });
 
   it("should keep its rest fill while an action is hovered", async () => {

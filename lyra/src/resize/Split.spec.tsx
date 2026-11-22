@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -50,10 +51,7 @@ const drag = async (
   });
   fireEvent.pointerMove(window, { pointerId: 1, clientX: to, clientY: 0 });
   // Moves are coalesced onto the next animation frame; let one land before release.
-  await act(
-    async () =>
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
-  );
+  await act(async () => await scheduler.nextFrame());
   fireEvent.pointerUp(window, { pointerId: 1, clientX: to, clientY: 0 });
 };
 

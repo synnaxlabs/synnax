@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic, ValidationError } from "@synnaxlabs/client";
-import { color, type dimensions, id, unique } from "@synnaxlabs/x";
+import { color, type dimensions, id, map, unique } from "@synnaxlabs/x";
 import DOMPurify from "dompurify";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -43,7 +43,10 @@ export const measure = (svg: string): dimensions.Dimensions | null => {
   if (root == null) return null;
   const viewBox = root.getAttribute("viewBox");
   if (viewBox) {
-    const [, , width, height] = viewBox.split(" ").map(Number);
+    const [, , width, height] = viewBox
+      .trim()
+      .split(/[\s,]+/)
+      .map(Number);
     return { width, height };
   }
   if (root.viewBox?.baseVal)
@@ -181,12 +184,9 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
   visualElements.forEach((element) => {
     const colorPair = getElementColors(element);
     const key = getColorPairKey(colorPair);
-    if (!groups.has(key))
-      groups.set(key, {
-        elements: [],
-        colorPair,
-      });
-    groups.get(key)!.elements.push(element);
+    map
+      .getOrInsert(groups, key, () => ({ elements: [], colorPair }))
+      .elements.push(element);
   });
   return Array.from(groups.values()).map((group, index) => {
     const selectors = group.elements.map(selector);

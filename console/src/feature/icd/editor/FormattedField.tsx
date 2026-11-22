@@ -9,8 +9,8 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 export interface FormattedFieldProps<V> {
   path: deep.Target<V | undefined>;

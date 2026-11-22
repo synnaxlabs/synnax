@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type color, lineplot, NotFoundError, type project } from "@synnaxlabs/client";
-import { color as xcolor, compare, DataType, type require, verbs } from "@synnaxlabs/x";
+import { array, color as xcolor, DataType, type require, verbs } from "@synnaxlabs/x";
 
 import { Channel } from "@/channel";
 import { Color } from "@/color";
@@ -62,7 +62,7 @@ const createAxisKeysSelector = <K extends lineplot.AxisKey>(keys: readonly K[]) 
   Scope.bindHook(
     createSelector(
       ({ channels }) => keys.filter((k) => shouldDisplayAxis(k, channels)),
-      compare.arraysEqual,
+      array.equal,
     ),
   );
 
@@ -165,13 +165,27 @@ const useLinesBase = (params: KeyParams): DerivedLine[] => {
   }));
 };
 
+const useRangeColorsBase = (params: KeyParams): xcolor.Color[] => {
+  const ranges = useRanges(params);
+  const colors = useColors();
+  const stored = ranges.map((r) => r.color);
+  const auto = autoKeys(stored, colors.series);
+  return stored.map((c, i) => resolveColor(c, auto[i], colors).color);
+};
+
+/**
+ * @returns the color that a relative x axis draws each of the plot's ranges in, in the
+ * order of useRanges. A range with no stored color takes a series color.
+ */
+export const useRangeColors = Scope.bindHook(useRangeColorsBase);
+
 // useLines returns the plot's lines, each with its render color resolved for the
 // theme (a line with no stored color takes a series color). Lines are materialized
 // eagerly by the reducer, so this is the complete set of styled lines.
 export const useLines = Scope.bindHook(useLinesBase);
 
 export const useLineKeys = Scope.bindHook(
-  createSelector(({ lines }) => lines.map((l) => l.key), compare.arraysEqual),
+  createSelector(({ lines }) => lines.map((l) => l.key), array.equal),
 );
 
 export const useLineCount = Scope.bindHook(createSelector(({ lines }) => lines.length));
@@ -192,7 +206,7 @@ export interface XAxisParams {
 export const useYAxisChannels = Scope.bindHook(
   createSelector<lineplot.Channels[lineplot.YAxisKey], YAxisParams>(
     ({ channels }, { axisKey }) => channels[axisKey],
-    compare.arraysEqual,
+    array.equal,
   ),
 );
 
@@ -250,8 +264,8 @@ export const useYAxis = Scope.bindHook(
     },
     (a, b) =>
       a.axis == b.axis &&
-      compare.arraysEqual(a.channels, b.channels) &&
-      compare.arraysEqual(a.lineKeys, b.lineKeys),
+      array.equal(a.channels, b.channels) &&
+      array.equal(a.lineKeys, b.lineKeys),
   ),
 );
 
@@ -375,7 +389,7 @@ export const useAxisRuleKeys = Scope.bindHook(
   createSelector<string[], AxisRulesParams>(
     ({ rules }, { axisKey }) =>
       rules.filter((r) => r.axis === axisKey).map((r) => r.key),
-    compare.arraysEqual,
+    array.equal,
   ),
 );
 

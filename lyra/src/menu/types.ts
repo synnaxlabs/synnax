@@ -23,3 +23,10 @@ export const CONTEXT_MENU_CLASS = CSS.B("menu-context");
  * class: React rewrites className on re-render, which would wipe an imperative class.
  */
 export const CONTEXT_OPEN_ATTRIBUTE = "data-context-menu-open";
+
+/**
+ * Attribute that makes a click inside a submenu close the whole menu, as a click on a
+ * menu item does. Set it on an option that leaves the menu, such as one that opens a
+ * modal.
+ */
+export const CLOSES_ATTRIBUTE = "data-closes-menu";

@@ -124,8 +124,8 @@ func (s *Service) Exec(
 // requestError names request i in err. A validation error gets the path requests.i.
 // Any other error keeps its type, and its message starts with requests.i.
 func requestError(err error, i int) error {
-	var pathErr validate.PathError
-	if errors.Is(err, validate.ErrValidation) || errors.As(err, &pathErr) {
+	_, pathed := errors.AsType[validate.PathError](err)
+	if pathed || errors.Is(err, validate.ErrValidation) {
 		return validate.PathedError(err, "requests", strconv.Itoa(i))
 	}
 	return errors.Wrapf(err, "requests.%d", i)

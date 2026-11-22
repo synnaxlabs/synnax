@@ -23,10 +23,15 @@
     min-width: 0;
 }
 
-/* Each text sets its own shade, so the error colors each text. */
+/* Each text sets its own shade, so the status colors each text. */
 .console-channel-item.console-channel-item--error
     :is(.console-channel-item__port, .console-task__channel-name) {
     color: var(--pluto-error-p1);
+}
+
+.console-channel-item.console-channel-item--warning
+    :is(.console-channel-item__port, .console-task__channel-name) {
+    color: var(--pluto-warning-text);
 }
 
 .console-channel-item__port {

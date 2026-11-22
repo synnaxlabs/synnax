@@ -236,14 +236,26 @@ func ExpressionNameParts(expr IExpressionContext) (head, tail string) {
 }
 
 // CollectNamedPrimaries returns the primary expressions in expr that read a name,
-// bare or qualified, one per name, in source order.
-func CollectNamedPrimaries(expr IExpressionContext) []IPrimaryExpressionContext {
+// bare or qualified, one per name, in source order. A format string in fmtStrings
+// gives the names that its placeholders read.
+func CollectNamedPrimaries(
+	expr IExpressionContext,
+	fmtStrings FmtStrings,
+) []IPrimaryExpressionContext {
 	var (
 		primaries []IPrimaryExpressionContext
 		seen      = make(set.Set[string])
 		walk      func(t antlr.Tree)
 	)
 	walk = func(t antlr.Tree) {
+		if term, ok := t.(antlr.TerminalNode); ok {
+			for _, seg := range fmtStrings[term] {
+				if seg.Expr != nil {
+					walk(seg.Expr)
+				}
+			}
+			return
+		}
 		if pe, ok := t.(IPrimaryExpressionContext); ok {
 			if name := PrimaryName(pe); name != "" && !seen.Contains(name) {
 				seen.Add(name)

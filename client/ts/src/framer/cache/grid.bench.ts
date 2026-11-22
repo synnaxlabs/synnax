@@ -28,7 +28,7 @@ test("grid", async ({ bench }) => {
       "point limit",
       () =>
         void pointLimit({
-          level: HOUR_LEVEL,
+          tile: { level: HOUR_LEVEL, index: 0 },
           view: HOUR,
           points: 1000,
           drawn: "min_max",

@@ -9,12 +9,13 @@
 
 import "@/select/MultipleTrigger.css";
 
-import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
-import {
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactElement,
-  type ReactNode,
+import { array, color, primitive, type record, unique } from "@synnaxlabs/x";
+import type {
+  DragEvent,
+  KeyboardEvent,
+  MouseEvent,
+  ReactElement,
+  ReactNode,
 } from "react";
 
 import { Button } from "@/button";
@@ -26,7 +27,7 @@ import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
-import { useContext, useItemState, useSelected } from "@/select/Context";
+import { useContext, useReselectNoop, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
 import { plural } from "@/select/placeholder";
 import { useIsFixed } from "@/select/registry";
@@ -44,7 +45,9 @@ export interface MultipleTagProps<K extends record.Key> extends Omit<
   "onDragStart"
 > {
   itemKey: K;
-  onDragStart: (key: K) => void;
+  /** Removes only this tag's key from the selection, ignoring held modifier keys. */
+  onRemove: () => void;
+  onDragStart: (key: K, event: DragEvent<HTMLElement>) => void;
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
 
@@ -53,18 +56,18 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   icon,
   onDragStart,
   onClick,
+  onRemove,
   renderIcon,
 }: MultipleTagProps<K>): ReactElement | null => {
   const fixed = useIsFixed(itemKey);
   const item = List.useItem<K, E>(itemKey);
-  const { onSelect } = useItemState(itemKey);
   const label = primitive.isNonZero(item?.name) ? item.name : itemKey.toString();
   const resolvedIcon = fixed ? undefined : (renderIcon?.(item) ?? item?.icon ?? icon);
   return (
     <Tag.Tag
-      onClose={onSelect}
+      onClose={onRemove}
       onClick={onClick}
-      onDragStart={() => onDragStart(itemKey)}
+      onDragStart={(event) => onDragStart(itemKey, event)}
       draggable
       size="small"
       status={item == null && !fixed ? "error" : undefined}
@@ -90,6 +93,8 @@ export interface MultipleTriggerProps<
   haulType?: string;
   /** Builds the haul item for an entry dragged out of the trigger. */
   createHaulItem?: (entry: NonNullable<E>) => Haul.Item;
+  /** Renders the drag preview of an entry. It defaults to the entry's icon and name. */
+  renderHaulPreview?: (entry: unknown) => ReactNode;
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;
   /** Names the trigger. The tags alone never say what they are. */
@@ -131,6 +136,7 @@ export const MultipleTrigger = <
 >({
   haulType = "",
   createHaulItem,
+  renderHaulPreview,
   disabled,
   placeholder = "Select",
   variant = "outlined",
@@ -145,7 +151,9 @@ export const MultipleTrigger = <
   size,
 }: MultipleTriggerProps<K, E>): ReactElement | null => {
   const value = useSelected<K>();
-  const { setSelected } = useContext<K>();
+  const { getState, setSelected } = useContext<K>();
+  // In a multiple frame, a reselect no-op means the selection cannot be empty.
+  const reselectNoop = useReselectNoop();
   const { getItem } = List.useUtilContext<K, E>();
   const { toggle, toggleAt, visible, triggerRef } = Dialog.useContext();
   const canDrop = (hauled: Haul.DraggingState) =>
@@ -160,19 +168,38 @@ export const MultipleTrigger = <
     },
   });
 
+  const removeKey = (key: K): void => {
+    const next = array.toArray(getState().value).filter((k) => k !== key);
+    if (next.length === 0 && reselectNoop) return;
+    setSelected(next);
+  };
+
   const handleSuccessfulDrop = ({ dropped }: Haul.OnSuccessfulDropProps) => {
     const res = value.filter((key) => !dropped.some((h) => h.key === key));
     setSelected(res);
   };
 
-  const onTagDragStart = (key: K) => {
-    if (createHaulItem != null && getItem != null) {
-      const entry = getItem(key);
+  const onTagDragStart = (key: K, event: DragEvent<HTMLElement>) => {
+    const entry = getItem?.(key);
+    let item: Haul.Item = { key, type: haulType };
+    if (createHaulItem != null) {
       if (entry == null) return;
-      startDrag([createHaulItem(entry)], handleSuccessfulDrop);
-      return;
+      item = createHaulItem(entry);
     }
-    startDrag([{ key, type: haulType }], handleSuccessfulDrop);
+    const named = entry as MultipleEntry<K> | undefined;
+    const name = primitive.isNonZero(named?.name) ? named.name : key.toString();
+    startDrag({
+      event,
+      items: [item],
+      preview: renderHaulPreview?.(entry) ?? (
+        <Haul.Preview
+          icon={renderIcon?.(entry) ?? named?.icon ?? icon}
+          swatch={color.cssString(named?.color)}
+          name={name}
+        />
+      ),
+      onSuccessfulDrop: handleSuccessfulDrop,
+    });
   };
   const dragging = Haul.useDraggingState();
   const showAddButton = variant === "text" && value.length !== 0 && preview !== true;
@@ -267,6 +294,7 @@ export const MultipleTrigger = <
         children({
           key: v,
           itemKey: v,
+          onRemove: () => removeKey(v),
           onDragStart: onTagDragStart,
           onClick: openAt,
           icon,

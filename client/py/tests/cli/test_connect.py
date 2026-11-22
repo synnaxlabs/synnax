@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import socket
+import threading
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -31,6 +33,24 @@ def closed_port() -> int:
     return port
 
 
+@pytest.fixture
+def silent_port() -> Iterator[int]:
+    """A port that accepts a connection and never responds."""
+    listener = socket.create_server(("127.0.0.1", 0))
+
+    def hold() -> None:
+        conn, _ = listener.accept()
+        with conn:
+            while conn.recv(1 << 16):
+                pass
+
+    thread = threading.Thread(target=hold, daemon=True)
+    thread.start()
+    with listener:
+        yield int(listener.getsockname()[1])
+        thread.join(10)
+
+
 @pytest.mark.cli
 class TestPromptedConnection:
     def test_connects_to_prompted_address(
@@ -42,6 +62,16 @@ class TestPromptedConnection:
         assert not any("CA certificate" in q for q in user.questions)
         assert user.err.getvalue().splitlines()[-1] == (
             f"Cannot reach Synnax server at 127.0.0.1:{closed_port}"
+        )
+        assert clusters.get() is None
+
+    def test_no_response(self, clusters: Clusters, silent_port: int) -> None:
+        """Should say that the server sent no response when it does not respond in
+        time."""
+        user = Scripted("127.0.0.1", silent_port, "admin", "secret", "n")
+        assert not connect.login(user.prompt, clusters)
+        assert user.err.getvalue().splitlines()[-1] == (
+            f"No response from Synnax server at 127.0.0.1:{silent_port}"
         )
         assert clusters.get() is None
 

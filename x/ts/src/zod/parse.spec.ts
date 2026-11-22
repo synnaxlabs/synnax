@@ -622,6 +622,12 @@ describe("zod.parse", () => {
       expect(decoded.issues).toHaveLength(2);
     });
 
+    it("should encode a ParseError whose issues hold a bigint", () => {
+      const err = parseExpectingError(z.bigint().min(5n), 1n);
+      const decoded = asParseError(errors.decode(errors.encode(err)));
+      expect(decoded.issues[0]).toMatchObject({ code: "too_small", minimum: "5" });
+    });
+
     it("should round-trip the input through the registry", () => {
       const decoded = asParseError(errors.decode(errors.encode(makeError())));
       expect(decoded.input).toEqual({

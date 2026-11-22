@@ -23,7 +23,15 @@ const createICD = (): icd.ICD =>
         name: "Status",
         payload: {
           format: "binary",
-          fields: [{ key: FIELD_KEY, name: "rpm", startBit: 0, bitLength: 8 }],
+          fields: [
+            {
+              key: FIELD_KEY,
+              kind: "unsigned",
+              name: "rpm",
+              startBit: 0,
+              bitLength: 8,
+            },
+          ],
         },
       },
     ],
@@ -43,7 +51,13 @@ describe("icd.reduceAll", () => {
     const { next } = icd.reduceAll(createICD(), [
       icd.insert({
         path: ["messages", MESSAGE_KEY, "payload", "fields"],
-        value: { key: "b", name: "temp", start_bit: 8, bit_length: 8 },
+        value: {
+          key: "b",
+          kind: "unsigned",
+          name: "temp",
+          start_bit: 8,
+          bit_length: 8,
+        },
         after: FIELD_KEY,
       }),
     ]);

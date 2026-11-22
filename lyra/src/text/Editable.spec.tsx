@@ -240,6 +240,38 @@ describe("Editable", () => {
       c.rerender(<Editable value="Elsewhere" onChange={vi.fn()} />);
       expect(text.innerHTML).toBe("Elsewhere");
     });
+
+    it("should commit a rename back to the value while the write is pending", () => {
+      const onChange = vi.fn();
+      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      fireEvent.dblClick(text);
+      text.innerText = "Hello";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(onChange).toHaveBeenLastCalledWith("Hello");
+      expect(text.innerHTML).toBe("Hello");
+    });
+
+    it("should hold a rename back to the value while the earlier write lands", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      fireEvent.dblClick(text);
+      text.innerText = "Hello";
+      fireEvent.keyDown(text, { key: "Enter" });
+      c.rerender(<Editable value="World" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("Hello");
+      c.rerender(<Editable value="Hello" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("Hello");
+      c.rerender(<Editable value="Elsewhere" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("Elsewhere");
+    });
+
     it("should revert when the handler rejects the committed text", () => {
       const onChange = vi.fn<(value: string) => boolean>(() => false);
       const c = render(<Editable value="Hello" onChange={onChange} />);
@@ -251,6 +283,44 @@ describe("Editable", () => {
       expect(text.innerText).toBe("Hello");
       c.rerender(<Editable value="Hello" onChange={onChange} />);
       expect(text.innerHTML).toBe("Hello");
+    });
+
+    it("should show the pending text when Escape is pressed", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      fireEvent.dblClick(text);
+      text.innerText = "Other";
+      fireEvent.keyDown(text, { key: "Escape" });
+      expect(text.innerText).toBe("World");
+    });
+
+    it("should show the pending text when an empty commit is refused", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      fireEvent.dblClick(text);
+      text.innerText = "";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(text.innerText).toBe("World");
+    });
+
+    it("should show the first commit when the handler rejects a second", () => {
+      const onChange = vi.fn<(value: string) => boolean>((v) => v !== "Taken");
+      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      fireEvent.dblClick(text);
+      text.innerText = "Taken";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(onChange).toHaveBeenLastCalledWith("Taken");
+      expect(text.innerText).toBe("World");
     });
 
     it("should resolve asyncEdit as a cancel when the handler rejects", async () => {

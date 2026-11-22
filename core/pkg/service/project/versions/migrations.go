@@ -23,5 +23,10 @@ import (
 var Migrations = slices.Concat(
 	[]gorp.Migration{v0.NormalizeKeys, v0.Migration},
 	v1.Migrations,
-	[]gorp.Migration{v2.Migration, v3.Migration, v3.MembersMigration},
+	[]gorp.Migration{
+		v2.Migration,
+		v3.Migration,
+		v3.MembersMigration,
+		v3.NameMigration,
+	},
 )

@@ -247,7 +247,7 @@ class CalcTypeCascade(ConsoleCase):
                 calc_keys.append(ch.key)
                 if ch.index != 0:
                     calc_keys.append(ch.index)
-            except Exception:
+            except sy.NotFoundError:
                 pass
         if calc_keys:
             self.client.channels.delete(calc_keys)

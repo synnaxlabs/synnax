@@ -15,7 +15,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -108,12 +108,9 @@ describe("DeploymentCarousel", () => {
   });
 
   it("should retain the newest selection when an earlier scene finishes later", async () => {
-    let resolvePrevious!: (scene: () => ReactElement) => void;
-    vi.mocked(loadScenes.aerospace).mockReturnValue(
-      new Promise((resolve) => {
-        resolvePrevious = resolve;
-      }),
-    );
+    const { promise: previous, resolve: resolvePrevious } =
+      Promise.withResolvers<() => ReactElement>();
+    vi.mocked(loadScenes.aerospace).mockReturnValue(previous);
     render(<DeploymentCarousel />);
     await waitFor(() => expectSelection(0));
     fireEvent.click(screen.getByRole("tab", { name: "Aerospace" }));

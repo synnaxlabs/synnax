@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { trustCA } from "@synnaxlabs/freighter";
+import { type Middleware, trustCA } from "@synnaxlabs/freighter";
 import {
   array,
   breaker,
   type CrudeTimeSpan,
+  disposable,
   observe,
   sleep,
   TimeSpan,
@@ -32,6 +33,7 @@ import { color } from "@/color";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
+import { enumeration } from "@/enumeration";
 import { nodeSystem, resolveParams } from "@/env";
 import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
@@ -91,7 +93,7 @@ export const synnaxParamsZ = z.object({
     })
     .optional(),
   name: z.string().optional(),
-  retry: breaker.breakerConfigZ.optional(),
+  retry: breaker.configZ.optional(),
   cache: z.boolean().default(true),
   /**
    * Receives cache errors that have no caller to throw to (listener fan-out, streamer
@@ -108,6 +110,16 @@ export const synnaxParamsZ = z.object({
    */
   onRetry: z
     .function({ input: z.tuple([z.instanceof(Error)]), output: z.unknown() })
+    .optional(),
+  /** The clock that the cache's teardown grace reads. Defaults to the system clock. */
+  // custom, not z.function: parse would wrap the clock and check every reading
+  clock: z.custom<() => TimeStamp>((v) => typeof v === "function").optional(),
+  /** Runs on every request and stream the client opens, after its own middleware. */
+  // custom, not z.function: parse would wrap each middleware and check every call
+  middleware: z
+    .custom<Middleware[]>(
+      (v) => Array.isArray(v) && v.every((m) => typeof m === "function"),
+    )
     .optional(),
 });
 
@@ -171,9 +183,13 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
     certificate.ACTION_CHANNEL_NAME,
     certificate.DELETE_CHANNEL_NAME,
   ),
-  channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
+  channel: changes(channel.ACTION_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
   color: changes(color.ACTION_CHANNEL_NAME, color.DELETE_CHANNEL_NAME),
   device: changes(device.ACTION_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
+  enumeration: changes(
+    enumeration.ACTION_CHANNEL_NAME,
+    enumeration.DELETE_CHANNEL_NAME,
+  ),
   ethercat_master: null,
   ethercat_slave: null,
   framer: null,
@@ -216,6 +232,11 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
  * @property connection - The connection state machine.
  */
 export default class Synnax extends framer.Client {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   readonly key: string;
   readonly createdAt: TimeStamp;
   readonly params: ParsedSynnaxParams;
@@ -229,6 +250,7 @@ export default class Synnax extends framer.Client {
   readonly projects: project.Client;
   readonly labels: label.Client;
   readonly colors: color.Client;
+  readonly enumerations: enumeration.Client;
   readonly license: license.Client;
   readonly statuses: status.Client;
   readonly tasks: task.Client;
@@ -287,8 +309,7 @@ export default class Synnax extends framer.Client {
    * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
    * cannot be read, if ~/.synnax/desktop.json cannot be read, if Synnax Desktop is too
    * old, or if its key helper fails.
-   * @throws {Unreachable} If the key helper of Synnax Desktop is gone, as for a closed
-   * AppImage.
+   * @throws {Unreachable} If the key helper of Synnax Desktop is gone.
    * @throws {Error} if props.caCert is set with props.secure false, in a browser, or in
    * Deno.
    */
@@ -344,6 +365,7 @@ export default class Synnax extends framer.Client {
       onStreamDenied: (error) => this.conn.notify({ type: "stream.denied", error }),
       onStreamRetry: parsedParams.onRetry,
       onError: parsedParams.onInternalError,
+      clock: parsedParams.clock,
     });
     this.cache = cache;
     this.conn = new connection.Client({
@@ -373,6 +395,7 @@ export default class Synnax extends framer.Client {
       onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
     });
     transport.use(this.auth.middleware());
+    if (parsedParams.middleware != null) transport.use(...parsedParams.middleware);
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
     this.createdAt = TimeStamp.now();
@@ -393,6 +416,7 @@ export default class Synnax extends framer.Client {
       },
     });
     this.colors = new color.Client({ unary, cache });
+    this.enumerations = new enumeration.Client({ unary, cache });
     this.statuses = new status.Client({ unary, cache });
     this.ranges = new ranger.Client({
       framer: this,

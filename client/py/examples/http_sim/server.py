@@ -20,6 +20,7 @@ from typing import override
 
 from flask import Flask, Response, jsonify, request
 
+import synnax as sy
 from examples.simulators.device_sim import DeviceSim
 from synnax import http
 
@@ -310,7 +311,6 @@ def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
             state["power"] = data["power"]
         if "mode" in data:
             state["mode"] = data["mode"]
-        app.logger.info(f"Control command: {data} → state: {state}")
         return (
             jsonify(
                 {
@@ -337,7 +337,6 @@ def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
             state["setpoint"] = data.get("value", data)
         else:
             state["setpoint"] = data
-        app.logger.info(f"Setpoint: {data} → setpoint: {state['setpoint']}")
         return (
             jsonify({"status": "updated", "setpoint": state["setpoint"]}),
             200,
@@ -351,7 +350,6 @@ def create_app(auth_type: str = "none", delay_ms: int = 0) -> Flask:
         """
         data = request.get_json(silent=True) or {}
         config.update(data)
-        app.logger.info(f"Config update: {data} → config: {config}")
         return (
             jsonify({"status": "patched", "config": config}),
             200,
@@ -453,7 +451,7 @@ class HTTPSim(DeviceSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> http.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> http.Device:
         return http.Device(
             host=f"{HTTPSim.host}:{HTTPSim.port}",
             secure=False,
@@ -483,7 +481,7 @@ class HTTPSlowSim(HTTPSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> http.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> http.Device:
         return http.Device(
             host=f"{HTTPSlowSim.host}:{HTTPSlowSim.port}",
             secure=False,

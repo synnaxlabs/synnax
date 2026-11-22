@@ -55,9 +55,10 @@ import sys
 import tempfile
 import time
 import urllib.parse
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 AGENTS = ("claude", "codex")
 OUTPUTS = ("pr", "comment", "report")
@@ -160,7 +161,7 @@ def default_title(prompt: str) -> str:
 
 def skill_prompt(prompt: str, *, root: Path) -> str:
     """Spells out a slash skill for Codex, which does not read `.claude/skills`."""
-    m = re.fullmatch(r"/([\w-]+)(?:\s+(.*))?", prompt, flags=re.S)
+    m = re.fullmatch(r"/([\w-]+)(?:\s+(.*))?", prompt, flags=re.DOTALL)
     if m is None:
         return prompt
     skill = Path(".claude/skills") / m[1] / "SKILL.md"
@@ -226,7 +227,7 @@ def agent_command(opts: Options, *, prompt: str, out: Path) -> list[str]:
 def render_body(
     template: str, *, issue: str, description: str, labels: list[str]
 ) -> str:
-    body = re.sub(r"<!--.*?-->\n?", "", template, flags=re.S)
+    body = re.sub(r"<!--.*?-->\n?", "", template, flags=re.DOTALL)
     link = f"[{issue}]({LINEAR_URL}{issue})" if issue else "None"
     body = body.replace("[SY-####](<>)", link)
     body = body.replace("## Description\n", f"## Description\n\n{description}\n", 1)
@@ -315,21 +316,28 @@ class LoginRejected(Exception):
         self.started = started
 
 
-def claude_result(stream: str) -> tuple[str, bool, int | None, bool]:
-    """Returns the final message of a Claude Code stream-json run, whether the run
-    failed, the reset time of a usage limit it was rejected by, if any, and whether
-    Claude rejected the token of its login."""
-    message, failed, until, rejected = "", True, None, False
-    for line in stream.splitlines():
-        event = json.loads(line)
-        if event["type"] == "result":
-            message, failed = event.get("result", ""), event["is_error"]
-        elif event["type"] == "rate_limit_event":
+def refusal(events: Iterable[dict[str, Any]]) -> tuple[int | None, bool]:
+    """Returns the reset time of the usage limit that rejected a Claude Code
+    stream-json run, if any, and whether Claude rejected the token of its login."""
+    until, rejected = None, False
+    for event in events:
+        if event["type"] == "rate_limit_event":
             info = event["rate_limit_info"]
             until = info.get("resetsAt") if info["status"] == "rejected" else None
         elif event["type"] == "assistant":
             rejected |= event.get("error") == "authentication_failed"
-    return message, failed, until, rejected
+    return until, rejected
+
+
+def claude_result(stream: str) -> tuple[str, bool, int | None, bool]:
+    """Returns the final message of a Claude Code stream-json run, whether the run
+    failed, and its refusal."""
+    events = [json.loads(line) for line in stream.splitlines()]
+    message, failed = "", True
+    for event in events:
+        if event["type"] == "result":
+            message, failed = event.get("result", ""), event["is_error"]
+    return message, failed, *refusal(events)
 
 
 def run_cli(

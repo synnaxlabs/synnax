@@ -10,6 +10,8 @@
 package v3
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/gorp/migrate"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -25,3 +27,15 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Pr
 	SetGroup:     func(e *Project, g groupv1.Key) { e.Group = &g },
 	ProjectOwned: false,
 })
+
+// NameMigration names each stored project that has an empty name "Project <key>", where
+// <key> is the first eight characters of its key.
+var NameMigration = migrate.NewEntry(
+	"v62_require_name",
+	func(_ context.Context, p Project) (Project, error) {
+		if p.Name == "" {
+			p.Name = "Project " + p.Key.String()[:8]
+		}
+		return p, nil
+	},
+)

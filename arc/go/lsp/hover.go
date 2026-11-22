@@ -85,6 +85,7 @@ func (s *Server) Hover(
 	qualifiedWord := lsp.GetQualifiedPrefixWordAtPosition(
 		displayContent,
 		params.Position,
+		d.wordChars,
 	)
 	var contents string
 	if qualifiedWord != word {
@@ -100,12 +101,7 @@ func (s *Server) Hover(
 		} else {
 			scopeAtCursor = s.cfg.NewRoot()
 		}
-		contents = s.getUserSymbolHover(
-			ctx,
-			scopeAtCursor,
-			qualifiedWord,
-			displayContent,
-		)
+		contents = s.getUserSymbolHover(ctx, scopeAtCursor, qualifiedWord)
 	}
 
 	if contents == "" {
@@ -401,7 +397,7 @@ func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) st
 	if !ok {
 		return ""
 	}
-	col := int(pos.Character)
+	col := lsp.CharacterToByte(line, pos.Character)
 	if col >= len(line) {
 		return ""
 	}
@@ -428,7 +424,9 @@ func (s *Server) getHoverContents(word string) string {
 	return keywordDocs[word]
 }
 
-func (s *Server) extractDocComment(content string, sym *symbol.Symbol) string {
+// extractDocComment returns the comments directly above the definition of sym, read
+// from the text sym is defined in.
+func (s *Server) extractDocComment(sym *symbol.Symbol) string {
 	if sym.AST == nil {
 		return ""
 	}
@@ -438,7 +436,11 @@ func (s *Server) extractDocComment(content string, sym *symbol.Symbol) string {
 	}
 
 	symLine := start.GetLine()
-	tokens := tokenizeContentWithComments(content)
+	source := start.GetInputStream()
+	tokens := tokenizeContentWithComments(
+		source.GetText(0, source.Size()-1),
+		s.parserConfig(),
+	)
 	if len(tokens) == 0 {
 		return ""
 	}
@@ -526,28 +528,16 @@ func cleanDocComment(comments []string) string {
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
-// resolveDotted resolves a possibly-qualified name like "time.now" by
-// splitting on dots and walking: the head is resolved in scope, each
-// subsequent segment is resolved against the previous result's children.
-// Resolution mirrors user-code resolution (no IncludeInternal), so a
-// module that is reachable only through the ambient prelude — i.e. one the
-// document has not imported — does not resolve. Hovering a member of an
-// unimported module therefore returns nothing, matching the analyzer's
-// "undefined" diagnostic instead of rendering docs as if it were valid.
+// resolveDotted resolves a possibly-qualified name like "time.now". Resolution mirrors
+// user-code resolution (no IncludeInternal), so hovering a member of a module the
+// document has not imported returns nothing, matching the analyzer's diagnostic.
 func resolveDotted(
 	ctx context.Context,
 	scope *symbol.Symbol,
 	name string,
 ) (*symbol.Symbol, error) {
-	head, tail, hasDot := strings.Cut(name, ".")
-	sym, err := scope.Resolve(ctx, head, symbol.WithoutUsageTracking)
-	if err != nil {
-		return nil, err
-	}
-	if !hasDot {
-		return sym, nil
-	}
-	return resolveDotted(ctx, sym, tail)
+	head, tail, _ := strings.Cut(name, ".")
+	return scope.ResolveMember(ctx, head, tail, symbol.WithoutUsageTracking)
 }
 
 // variableTypeDetail renders a value variable's hover type, tagged by its kind.
@@ -566,14 +556,13 @@ func (s *Server) getUserSymbolHover(
 	ctx context.Context,
 	scope *symbol.Symbol,
 	name string,
-	content string,
 ) string {
 	sym, err := resolveDotted(ctx, scope, name)
 	if err != nil {
 		return ""
 	}
 
-	docComment := s.extractDocComment(content, sym)
+	docComment := s.extractDocComment(sym)
 
 	displayName := name
 	if displayName == "" {

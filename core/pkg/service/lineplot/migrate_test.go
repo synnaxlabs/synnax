@@ -11,6 +11,7 @@ package lineplot_test
 
 import (
 	"fmt"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -58,10 +59,13 @@ var _ = Describe("Stored v7 line plots", func() {
 			ch := keys[0]
 			// Mark the chain through v7 as applied, so only the later steps run on
 			// open.
+			last := slices.IndexFunc(versions.Migrations, func(m gorp.Migration) bool {
+				return m.Key() == v7.Migration.Key()
+			})
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "LinePlot",
-				Migrations: versions.Migrations[:len(versions.Migrations)-7],
+				Migrations: versions.Migrations[:last+1],
 			})).To(Succeed())
 			saved := ranger.Range{
 				Key:       uuid.New(),
@@ -115,9 +119,10 @@ var _ = Describe("Stored v7 line plots", func() {
 				Entry(&owner).
 				Exec(ctx, db)).To(Succeed())
 			MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-				DB:    db,
-				ImEx:  imex.NewService(),
-				Color: colorSvc,
+				DB:     db,
+				ImEx:   imex.NewService(),
+				Color:  colorSvc,
+				Ranger: rangerSvc,
 			}))
 			var got lineplot.LinePlot
 			Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().
@@ -162,9 +167,10 @@ var _ = Describe("Stored v7 line plots", func() {
 			Entry(&stored).
 			Exec(ctx, db)).To(Succeed())
 		MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-			DB:    db,
-			ImEx:  imex.NewService(),
-			Color: colorSvc,
+			DB:     db,
+			ImEx:   imex.NewService(),
+			Color:  colorSvc,
+			Ranger: rangerSvc,
 		}))
 		var got lineplot.LinePlot
 		Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().

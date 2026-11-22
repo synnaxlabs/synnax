@@ -9,8 +9,9 @@
 
 import "@/feature/device/tree.css";
 
-import { device, type rack, status, type Synnax } from "@synnaxlabs/client";
+import { device, query, type rack, status, type Synnax } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -119,10 +120,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
 const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const query = { key: resource.id.key };
-  const { data: devStatus } = Device.useResultStatus(query);
-  const { data: make } = Device.useResultMake(query);
-  const { data: location = "" } = Device.useResultLocation(query);
+  const params = { key: resource.id.key };
+  const { data: devStatus } = Device.useResultStatus(params);
+  const { data: make } = Device.useResultMake(params);
+  const { data: location = "" } = Device.useResultLocation(params);
   const integration = getIntegration(make);
   const highlight = Tree.useHighlight();
   return (
@@ -184,9 +185,23 @@ const children: Tree.Children = ({ client, id }) => [
   ),
 ];
 
+const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
+  const cached = client.devices.watch({ key: resource.id.key }).getCached();
+  const integration = getIntegration(query.isLive(cached) ? cached.make : undefined);
+  return (
+    <Haul.Preview
+      icon={getIcon(integration)}
+      name={resource.name}
+      facts={[integration?.title ?? "Device"]}
+      count={count}
+    />
+  );
+};
+
 const TreeItem = Tree.createItem({
   linkable: true,
   children,
+  haulPreview,
   ContextMenu: TreeContextMenu,
   Content,
 });

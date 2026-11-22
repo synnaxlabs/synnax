@@ -1,0 +1,39 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* A label that only some of the ranges hold. */
+.console-range-menu__partial {
+    margin-left: auto;
+    color: var(--pluto-gray-l9);
+}
+
+/* A range in the parent picker: its name, its parent, then its times at the end. */
+.console-range-menu__parent {
+    width: 72rem;
+}
+
+.console-range-menu__name {
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.console-range-menu__time {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.console-range-menu__plot {
+    max-width: 40rem;
+}
+
+.console-range-menu__added {
+    margin-left: auto;
+}

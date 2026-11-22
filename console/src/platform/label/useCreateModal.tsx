@@ -9,27 +9,29 @@
 
 import { type label, status, UnexpectedError } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Color } from "@synnaxlabs/lyra/color";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Label, Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const path = Label.createFormPath;
+export interface CreateModalParams {
+  /** The name the new label starts with. */
+  name?: string;
+}
 
 const Create = ({
   close,
-}: Modals.ContentProps<Record<never, never>, label.Key>): ReactElement => {
+  name = "",
+}: Modals.ContentProps<CreateModalParams, label.Key>): ReactElement => {
   const client = Synnax.use();
   const { form, save, variant } = Label.useCreateForm({
     query: null,
+    initialValues: { ...Label.ZERO_CREATE_FORM_VALUES, name },
     afterSave: ({ value }) => {
       const { key } = value();
       if (key == null) throw new UnexpectedError("Label key is null");
@@ -42,24 +44,7 @@ const Create = ({
       <Modal.Header icon={<Icon.Label />}>Label.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Label.createFormSchema> {...form}>
-          <Flex.Box x align="center" gap="medium">
-            <Form.Field path={path.color} showLabel={false} padHelpText={false}>
-              {(p) => <Color.Swatch aria-label="Label color" {...p} />}
-            </Form.Field>
-            <Form.Field path={path.name} showLabel={false} padHelpText={false} grow>
-              {(p) => (
-                <Input.Text
-                  placeholder="Label name"
-                  aria-label="Label name"
-                  variant="text"
-                  autoFocus
-                  level="h3"
-                  full="x"
-                  {...p}
-                />
-              )}
-            </Form.Field>
-          </Flex.Box>
+          <Label.Fields variant="text" level="h3" autoFocus />
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
@@ -81,4 +66,4 @@ const Create = ({
 };
 
 /** Opens a dialog that creates a label, and resolves with its key. */
-export const useCreateModal = Modals.createPrompt<label.Key>(Create);
+export const useCreateModal = Modals.createPrompt<label.Key, CreateModalParams>(Create);

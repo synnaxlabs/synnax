@@ -101,6 +101,9 @@ Type enum {
     icd              = "icd" {
         @doc value "identifies an interface control document."
     }
+    enumeration      = "enumeration" {
+        @doc value "identifies an enumeration."
+    }
 
     @doc value "is the type of the resource."
 }

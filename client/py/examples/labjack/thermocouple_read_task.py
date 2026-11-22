@@ -26,6 +26,8 @@ Note: Thermocouple streaming is slower than standard analog inputs due to the
       required cold junction compensation calculations.
 """
 
+import sys
+
 import numpy as np
 
 import synnax as sy
@@ -98,7 +100,7 @@ try:
     print("✓ Task configured successfully")
 except Exception as e:
     print(f"✗ Task configuration failed: {e}")
-    exit(1)
+    sys.exit(1)
 
 print("=" * 70)
 print("Starting LabJack Thermocouple Read Task")

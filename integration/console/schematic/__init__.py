@@ -9,6 +9,7 @@
 
 from console.schematic.button import Button
 from console.schematic.custom_symbol import CustomSymbol
+from console.schematic.light import Light
 from console.schematic.off_page_reference import OffPageReference
 from console.schematic.schematic import (
     SCHEMATIC_VERSION,
@@ -31,6 +32,7 @@ __all__ = [
     "Button",
     "CustomSymbol",
     "DistributionType",
+    "Light",
     "OffPageReference",
     "Properties",
     "Schematic",

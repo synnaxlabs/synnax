@@ -59,8 +59,9 @@ void Streamer::close_send() const {
 
 x::errors::Error Streamer::close() const {
     this->close_send();
-    auto [_, err] = this->stream->receive();
-    return err.skip(freighter::ERR_EOF);
+    while (true)
+        if (auto [_, err] = this->stream->receive(); err)
+            return err.skip(freighter::ERR_EOF);
 }
 
 x::errors::Error Streamer::set_channels(const std::vector<channel::Key> &channels) {

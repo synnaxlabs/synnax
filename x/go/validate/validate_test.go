@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -121,16 +122,14 @@ var _ = Describe("Validate", func() {
 		It("Should keep the Ternary message and path", func() {
 			v.Ternary("parent.childField", true, "100% wrong")
 			Expect(v.Error()).To(MatchError("parent.child_field: 100% wrong"))
-			var pathErr validate.PathError
-			Expect(errors.As(v.Error(), &pathErr)).To(BeTrue())
+			pathErr := MustBeOk(errors.AsType[validate.PathError](v.Error()))
 			Expect(pathErr.Path).To(Equal([]string{"parent", "child_field"}))
 		})
 
 		It("Should keep the Ternaryf message and path", func() {
 			v.Ternaryf("parent.childField", true, "invalid value: %v", 12)
 			Expect(v.Error()).To(MatchError("parent.child_field: invalid value: 12"))
-			var pathErr validate.PathError
-			Expect(errors.As(v.Error(), &pathErr)).To(BeTrue())
+			pathErr := MustBeOk(errors.AsType[validate.PathError](v.Error()))
 			Expect(pathErr.Path).To(Equal([]string{"parent", "child_field"}))
 		})
 
@@ -288,6 +287,7 @@ var _ = Describe("Validate", func() {
 			lessThanEq := func(value float64) bool {
 				return v.LessThanEq("field", value, math.Inf(1))
 			}
+			finite := func(value float64) bool { return v.Finite("field", value) }
 			DescribeTable("Should reject non-finite values in every numeric comparison",
 				func(check func(value float64) bool, value float64) {
 					Expect(check(value)).To(BeTrue())
@@ -308,7 +308,15 @@ var _ = Describe("Validate", func() {
 				Entry("LessThanEq with NaN", lessThanEq, math.NaN()),
 				Entry("LessThanEq with +Inf", lessThanEq, math.Inf(1)),
 				Entry("LessThanEq with -Inf", lessThanEq, math.Inf(-1)),
+				Entry("Finite with NaN", finite, math.NaN()),
+				Entry("Finite with +Inf", finite, math.Inf(1)),
+				Entry("Finite with -Inf", finite, math.Inf(-1)),
 			)
+
+			It("Should accept a finite value in Finite", func() {
+				Expect(v.Finite("field", -1.5)).To(BeFalse())
+				Expect(v.Error()).ToNot(HaveOccurred())
+			})
 
 			It("Should accept the integer extremes", func() {
 				Expect(v.GreaterThanEq("field", int64(math.MaxInt64), 0)).To(BeFalse())

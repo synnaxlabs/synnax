@@ -255,7 +255,7 @@ type storedAlias struct {
 }
 
 func (a storedAlias) GorpKey() string {
-	return a.Range.String() + "/" + strconv.Itoa(int(a.Channel))
+	return a.Range.String() + "---" + strconv.Itoa(int(a.Channel))
 }
 
 func (storedAlias) CustomTypeName() string { return "Alias" }
@@ -275,6 +275,27 @@ var _ = Describe("Range alias drop", func() {
 			Entries(&aliases).
 			Exec(ctx, legacyDB)).To(Succeed())
 		Expect(aliases).To(BeEmpty())
+	})
+
+	It("Should log each range alias it deletes", func(ctx SpecContext) {
+		n := testutil.NewNode(ctx)
+		legacyDB := gorp.Wrap(n.DB.KV(), gorp.WithCodec(msgpack.Codec))
+		alias := storedAlias{Range: uuid.New(), Channel: 1, Alias: "pressure"}
+		Expect(gorp.WrapWriter[string, storedAlias](legacyDB).Set(ctx, alias)).
+			To(Succeed())
+		core, logs := observer.New(zapcore.WarnLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		MustOpen(svctestutil.OpenLayer(ctx, n, service.LayerConfig{
+			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+		}))
+		deleted := logs.FilterMessage("deleted an entry").All()
+		Expect(deleted).To(HaveLen(1))
+		Expect(deleted[0].ContextMap()).To(Equal(map[string]any{
+			"type": "Alias",
+			"key":  alias.Range.String() + "---1",
+		}))
 	})
 })
 

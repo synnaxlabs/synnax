@@ -36,7 +36,7 @@ func synthesizeCreateTypes(c *analysisCtx) {
 	var created []resolution.Type
 	var structNewSynthesized bool
 	for _, typ := range c.table.Types {
-		if typ.Namespace != c.namespace {
+		if !c.owns(typ) {
 			continue
 		}
 		if _, ok := typ.Domains["create"]; !ok {

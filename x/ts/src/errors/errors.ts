@@ -177,6 +177,23 @@ export const fromUnknown = (value: unknown): Error => {
   return new Error(message, { cause: value });
 };
 
+/**
+ * @returns an iterator over the causes beneath err, outermost first. It follows the
+ * cause of each Error and ends at a missing cause, at a cause that is not an Error
+ * (after yielding it), at a cause the chain already holds, or after maxDepth causes.
+ */
+export function* causes(err: unknown, maxDepth: number = Infinity): Generator<unknown> {
+  const visited = new Set<unknown>([err]);
+  let current = err;
+  for (let depth = 0; depth < maxDepth && current instanceof Error; depth++) {
+    const { cause } = current;
+    if (cause == null || visited.has(cause)) return;
+    visited.add(cause);
+    yield cause;
+    current = cause;
+  }
+}
+
 /** Constant representing an unknown error type */
 export const UNKNOWN = "unknown";
 
@@ -273,9 +290,3 @@ export const payloadZ = z.object({
 
 /** Network-portable representation of an error */
 export type Payload = z.infer<typeof payloadZ>;
-
-/** Error for representing the cancellation of an operation */
-export class Canceled extends createTyped("canceled") {}
-
-/** Error for representing a method that is not implemented */
-export class NotImplemented extends createTyped("not_implemented") {}

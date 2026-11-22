@@ -16,7 +16,8 @@ export const desktop = true;
 /**
  * Docs `reference/client/connect` (Connect from Synnax Desktop): click the code button
  * in the top bar, copy the install command and the code of the Python tab, then open
- * the TypeScript tab, which shows the address and the API key, and copy its code.
+ * the TypeScript tab, copy its Node.js code, and copy the browser code, which shows the
+ * address and the API key.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
@@ -46,9 +47,17 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(modal.getByText("TypeScript", { exact: true }).first(), {
     text: true,
   });
-  await session.waitFor(modal.getByLabel("TypeScript code", { exact: true }));
+  await session.waitFor(modal.getByLabel("TypeScript Node.js code", { exact: true }));
   await session.hold(1500);
-  await session.click(copy("TypeScript code"));
+  await session.click(copy("TypeScript Node.js code"));
+  await session.hold(1500);
+
+  await session.click(modal.getByText("Browser", { exact: true }).first(), {
+    text: true,
+  });
+  await session.waitFor(modal.getByLabel("TypeScript browser code", { exact: true }));
+  await session.hold(1500);
+  await session.click(copy("TypeScript browser code"));
   await session.hold(1500);
   session.endZoom();
   await session.moveTo({ x: 1100, y: 800 });

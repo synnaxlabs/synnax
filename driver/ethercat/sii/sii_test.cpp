@@ -195,4 +195,20 @@ TEST(ParseStringsTest, GivesEachStringByIndex) {
     EXPECT_EQ(strings(3), "");
     EXPECT_EQ(strings(4), "");
 }
+
+/// @brief it should read the SDO information bit of the CoE details.
+TEST(ParseSDOInfoTest, ReadsTheSDOInformationBit) {
+    std::vector<uint8_t> data(32, 0);
+    EXPECT_FALSE(parse_sdo_info(data));
+    data[5] = 0x02;
+    EXPECT_TRUE(parse_sdo_info(data));
+    data[5] = 0xFD;
+    EXPECT_FALSE(parse_sdo_info(data));
+}
+
+/// @brief it should find no SDO information in a category too short to hold the CoE
+/// details.
+TEST(ParseSDOInfoTest, FindsNoSDOInformationInAShortCategory) {
+    EXPECT_FALSE(parse_sdo_info(std::vector<uint8_t>(5, 0xFF)));
+}
 }

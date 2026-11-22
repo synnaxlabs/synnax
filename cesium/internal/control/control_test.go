@@ -327,6 +327,28 @@ var _ = Describe("Control", func() {
 						Expect(err).To(MatchError(xcontrol.ErrUnauthorized))
 					},
 				)
+
+				It("Should not grow the region when the gate fails to open", func() {
+					cfg1, _ := baseConfig(1)
+					cfg1.Subject.Key = "g1"
+					cfg1.TimeRange = telem.NewRangeSeconds(10, 20)
+					MustSucceed2(c.OpenGate(cfg1))
+
+					cfg2, _ := baseConfig(1)
+					cfg2.Subject.Key = "g2"
+					cfg2.TimeRange = telem.NewRangeSeconds(15, 100)
+					cfg2.Authority = xcontrol.AuthorityAbsolute - 1
+					cfg2.ErrOnUnauthorizedOpen = new(true)
+					Expect(c.OpenGate(cfg2)).Error().
+						To(MatchError(xcontrol.ErrUnauthorized))
+
+					cfg3, _ := baseConfig(1)
+					cfg3.Subject.Key = "g3"
+					cfg3.TimeRange = telem.NewRangeSeconds(50, 60)
+					cfg3.Bounded = new(true)
+					g3, _ := MustSucceed2(c.OpenGate(cfg3))
+					g3.Release()
+				})
 			})
 		})
 
@@ -1047,6 +1069,31 @@ var _ = Describe("Control", func() {
 							Expect(t.Occurred()).To(BeTrue())
 							Expect(t.IsRelease()).To(BeTrue())
 							Expect(v.value).To(Equal(1))
+						})
+					})
+
+					Context("Set the authority of a released gate", func() {
+						It("Should not transfer control to the released gate", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							g1, _ := MustSucceed2(c.OpenGate(cfg1))
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = xcontrol.AuthorityAbsolute - 1
+							g2, _ := MustSucceed2(c.OpenGate(cfg2))
+
+							g1.Release()
+							t := g1.SetAuthority(xcontrol.AuthorityAbsolute)
+							Expect(t.Occurred()).To(BeFalse())
+							MustSucceed(authorize(g2))
+						})
+
+						It("Should do nothing when the gate was the last", func() {
+							cfg, _ := baseConfig(1)
+							g, _ := MustSucceed2(c.OpenGate(cfg))
+							g.Release()
+							Expect(g.SetAuthority(1).Occurred()).To(BeFalse())
 						})
 					})
 				})

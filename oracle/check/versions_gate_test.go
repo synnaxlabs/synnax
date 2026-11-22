@@ -953,6 +953,102 @@ Channel struct {
 		Expect(aliasHints(run(p))).To(BeEmpty())
 	})
 
+	It("Should pass an unchanged alias that references a changed enum", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Kind enum {
+	a = "a"
+}
+
+Kinds = Kind[]
+
+Channel struct {
+	key uuid @key
+	kinds Kinds
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+Kind enum {
+	a = "a"
+	b = "b"
+}
+
+Kinds = Kind[]
+
+Channel struct {
+	key uuid @key
+	kinds Kinds
+
+	@go marshal
+}
+`)
+		p := analyzeLive(`
+@go output "core/pkg/service/channel"
+
+Kind enum {
+	a = "a"
+	b = "b"
+}
+
+Kinds = Kind[]
+
+Channel struct {
+	key uuid @key
+	kinds Kinds
+}
+`)
+		Expect(aliasHints(run(p))).To(BeEmpty())
+	})
+
+	It("Should pass an unchanged distinct type over a changed enum", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Kind enum {
+	a = "a"
+}
+
+Kinds Kind[]
+
+Channel struct {
+	key uuid @key
+	kinds Kinds
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+Kind enum {
+	a = "a"
+	b = "b"
+}
+
+Kinds Kind[]
+
+Channel struct {
+	key uuid @key
+	kinds Kinds
+
+	@go marshal
+}
+`)
+		p := analyzeLive(`
+@go output "core/pkg/service/channel"
+
+Kind enum {
+	a = "a"
+	b = "b"
+}
+
+Kinds Kind[]
+
+Channel struct {
+	key uuid @key
+	kinds Kinds
+}
+`)
+		Expect(aliasHints(run(p))).To(BeEmpty())
+	})
+
 	It("Should pass a struct whose field types move to another resource", func() {
 		const state = `
 State enum {

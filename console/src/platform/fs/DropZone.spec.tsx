@@ -9,7 +9,7 @@
 
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { fireEvent, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { FS } from "@/platform/fs";
@@ -29,8 +29,12 @@ const TwoFileDragSource = (): ReactElement => {
   const { startDrag } = Haul.useDrag({ type: "os-file", key: "two-files" });
   return (
     <button
-      onClick={() =>
-        startDrag([Haul.FILE, { key: "second-file", type: Haul.FILE_TYPE }])
+      onDragStart={(event) =>
+        startDrag({
+          event,
+          items: [Haul.FILE, { key: "second-file", type: Haul.FILE_TYPE }],
+          preview: null,
+        })
       }
     >
       {TWO_FILE_DRAG}
@@ -91,7 +95,7 @@ describe("FS.DropZone", () => {
   it("ignores a drag carrying more than one item", async () => {
     const onDrop = vi.fn();
     const { zone } = await renderZone({ onDrop });
-    fireEvent.click(screen.getByText(TWO_FILE_DRAG));
+    fireEvent.dragStart(screen.getByText(TWO_FILE_DRAG));
     fireEvent.dragOver(zone);
     expect(zone.className).not.toContain("dragging-over");
     fireFileDrop(zone, [fakeFileEntry(createFile("a.json", "{}"))]);

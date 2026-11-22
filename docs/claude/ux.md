@@ -68,6 +68,16 @@ contrast check, so lines past the eighth can look alike to a color-blind user.
 A palette lists its colors in the order that a user sets by drag, as Figma lists styles.
 A new line takes the first series color in that order that no other line uses.
 
+On a plot in relative time, a range takes its own color when it is clearly apart from
+the other colors of the plot: an OKLab distance of 0.05 or more in normal vision and in
+three simulations of color blindness. Else it takes the series color that the fewest
+colors of the plot are close to. The Core picks the color when the range joins the plot
+and saves it on the plot. Rejected: an exact match only, which lets a range's red sit
+next to the series red.
+
+A user adds a series color in Settings, where they set its value. The Series palette in
+a color picker has no "+".
+
 ### Shape and size
 
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional
@@ -75,8 +85,8 @@ A new line takes the first series color in that order that no other line uses.
 - Radius has five steps: tiny 4, small 6, medium 9, large 12, and huge 18 px. Outlined
   and text buttons, inputs, and keycaps use tiny. Filled buttons, tags, tooltips, and
   tabs use small. View tabs, filter chips, and cards use medium. Modals, menus, explorer
-  bars, and page sections use large. The Settings section list uses huge. Do not add a
-  step.
+  bars, and page sections use large. The Settings section list uses huge, and medium
+  when it shows only icons. Do not add a step.
 - A custom icon looks precise, never cartoony: about 1.5-unit strokes on a 24 grid,
   square ends, corner radii of 1 unit or less, and filled shapes cut by clean gaps.
 - An icon centers on its ink, not its box. A star moves up 3.6% of its box, so it lines
@@ -86,6 +96,8 @@ A new line takes the first series color in that order that no other line uses.
 
 - A compound icon is a base icon with a modifier (add, import, export) or a stack. Draw
   it as one glyph with `Icon.createFromPath`. Do not layer icons at run time.
+  `scripts/compound_icon.py` makes the glyph of a base and a modifier. For a line base,
+  give it the line width (`--line-width`), so the cut ends get round caps.
 - The modifier sits at top right: 9 units wide, centered at (17.5, 6.5), with a 2.5-unit
   stem (2 on a line base). The base scales to 0.9 from its bottom-left corner.
 - Cut the base 1.75 units clear of the modifier, with no backing disc. Cut with the
@@ -190,6 +202,10 @@ A new line takes the first series color in that order that no other line uses.
   (4 rem) above the other fields.
 - Footer: no divider. Cancel, then the primary button, at the trailing edge. The leading
   edge holds only Back, a mode switch ("Create more"), or a status summary.
+- A two-pane modal with a bar under its header, such as Add data (`ICD.Picker`), is the
+  exception: a gray step 6 divider sits above the bar and above the footer, so the side
+  list ends on a line. Its hint sits under each pane title, above the values it
+  explains, and the footer's leading edge holds only the summary of the picks.
 - Esc closes the modal from any field. Validation never changes the status of the
   primary button; errors show at their fields.
 - Every step of the device connect flow is 930 px (155 rem) wide
@@ -227,6 +243,9 @@ A new line takes the first series color in that order that no other line uses.
 - Two text fields on one line, such as a username and a password, are equally wide. The
   second sits in the control of the first, not in the later field columns. An empty
   field shows what empty means: "Anonymous" for the username, "None" for the password.
+- Two number fields on one line, such as Scale and Offset, sit together at the start of
+  the control of the first, each 144 px wide, with the form's gap between them. They
+  never spread to the ends of the line.
 - A dialog shows its settings in sections, not tabs, while they fit with no scroll. The
   Modbus connect dialog has no tabs.
 - A section holds a whole topic, so a short topic joins its neighbor: the OPC UA login
@@ -276,6 +295,11 @@ bound, a log precision, or the line plot X channel.
 - Task-wide settings (Data saving, Auto start) are toggle buttons in the task footer,
   next to the start button. Each shows its icon and "On" or "Off", and its tooltip names
   the setting. They stay, read-only, when the footer hides the start button.
+- A deploy that fails before its start command goes out shows in the task footer, not
+  only in a toast, until the next deploy or a new task status. On a running task the
+  message is "Failed to deploy changes", and the footer description starts with "The
+  task still runs its last deployed config." Rejected: "Failed to start task" there,
+  which reads as if the task stopped.
 - The header stays compact: the rack name hangs under the utility buttons and adds no
   height.
 - A disabled channel dims to half strength. Its enabled dot stays at full strength, as
@@ -294,6 +318,17 @@ bound, a log precision, or the line plot X channel.
   channel table, and a fields table in the topic details, which showed each field twice.
 - A topic that reads several messages holds a node for each, with its fields beneath. A
   message's details hold its name and match, from the ICD, then its timestamp.
+- A topic that reads one message picks it in **Message format**, from the JSON messages
+  of every ICD, each shown with its ICD's name. A new topic's message goes into the ICD
+  that most of the task's topics read. A pick deletes the message that the topic read
+  before when it is a message the task made, has no fields, and no other topic reads it,
+  so new topics leave no empty messages behind. A message that the user made in the ICD
+  editor stays. The form knows the messages that the task made only while it stays open,
+  so after a reload or a reopened tab, an empty message stays too. Rejected: a stored
+  task-level ICD, which repeats each topic's ICD key.
+- A field's format stays short, so its channel shows with no scroll: Scale and Offset
+  share a line, Units shows only for a number type, and Enum mapping is one line until
+  it holds a mapping.
 - A task form is at most 1000 px wide. A task whose channel table needs more room sets
   `--console-task-form-max-width`. Modbus uses 1200 px.
 - Port banks sit side by side in columns eight ports wide, each under its title. They
@@ -321,6 +356,28 @@ bound, a log precision, or the line plot X channel.
 - A number never clips, because a clipped number reads as a different valid number.
 - A flex child that holds cut text needs `min-width: 0`.
 
+### Shared items
+
+- A shared item is a record that many places use: a named color, an enumeration, a
+  label, or an ICD message.
+- A user never needs to leave the field to create or edit a shared item. Settings is
+  still a full editor for every type: create, edit, find, and delete, and, where the
+  type supports them, see what uses an item and Replace with.
+- Each type has one form and one save path. The field and Settings may lay out its
+  fields differently, such as a Light and Dark switch in a picker and two columns in a
+  table.
+- The field's picker creates in place, as every select of things users make does. A
+  group in the picker, such as a palette, ends with a "+" text button that adds an item
+  to that group. The Series palette is the one exception: it has no "+", because a user
+  adds a series color in Settings.
+- A right click on an item in a picker opens its menu, with Edit. Shift+F10 and the Menu
+  key open it on a focused item. Edit opens the type's editor in place. A picker has no
+  hover edit button.
+- A user without create access sees no create item and no "+". A user without update
+  access gets no menu.
+- An edit reaches every user of the item. When other places use the item and the Core
+  can list them, the editor shows "Used by N".
+
 ### Pickers
 
 - A card that creates something shows the item's own icon in a large icon tile, then its
@@ -347,12 +404,19 @@ bound, a log precision, or the line plot X channel.
 - One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
   Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
 - Library has the select dialog's search under the tab bar's hairline, with a hairline
-  under it. Each palette sits under its title, which ends with the name of the hovered
-  color, else the linked one. Swatches have no tooltips.
+  under it. Each palette sits under its title, which ends with the name of the color an
+  open swatch menu acts on, else the hovered color, else the focused color, else the
+  linked one. A hovered name stays until the pointer leaves the palette, and a focused
+  name until the focus leaves it. Swatches have no tooltips.
 - A swatch shows the color's value for the current theme only.
 - An edit in Custom stores a fixed color and unlinks the value. There is no unlink
   button.
 - An optional color puts a square Auto button at the right of the tab bar, on both tabs.
+- A named color has one view in the picker for create and edit. Its labels, Name,
+  Palette (create only), and Color, share an 8rem column at the left. Every control is
+  small: 24 px, with 12 px text. The Light and Dark buttons each show a swatch of their
+  value. Create sits at the trailing edge, under a hairline across the view, 9 px from
+  each edge. An edit saves at once.
 - The saturation and brightness plane has the tiny radius.
 - The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
   icon. Hex codes use the code font, so every code takes the same width and fits.
@@ -364,7 +428,8 @@ bound, a log precision, or the line plot X channel.
 - The filter menu, its submenus, and the pickers of a filter chip use the context menu
   surface: an l6 border, the large radius, 6 px padding, and the overlay shadow.
 - Menus and non-modal dialogs share one fill, `--pluto-gray-l1-l2`. A select keeps its
-  bordered search and its framed list.
+  bordered search and its framed list. In a submenu, the list has no frame and sits on
+  the menu surface.
 - A submenu opens 100 ms after the pointer stops on its item, and at once on a click or
   ArrowRight. ArrowLeft and Esc close one level. While the pointer moves toward an open
   submenu, the items it crosses do not light or open.
@@ -382,23 +447,68 @@ bound, a log precision, or the line plot X channel.
   "No matches". While the search has the focus, the first match is lit, and Enter picks
   the lit item. The arrow keys move into the items, and a key typed on an item goes on
   in the search. Esc closes the search, then the menu. Every menu is at least 32rem (192
-  px) wide, filtering or not. A submenu matches on its `textValue`, and the filter never
-  hides its content. Keys typed into a field, such as the search of a picker, never
-  reach the filter.
+  px) wide, filtering or not. Keys typed into a field, such as the search of a picker,
+  never reach the filter.
+- The filter also searches in submenus. Each word must be in the item or in the names of
+  its submenus, in any order, so "copy link" finds Copy › Link. A match shows its icon,
+  the submenu name with a caret, then its label. A submenu whose name matches shows
+  itself, not its items. A picker, such as Color, shows nothing. A select shows its
+  matching options only when it opts in: Labels does, and Parent does not, because range
+  names would fill the menu. A key typed in an open submenu, outside a field, closes the
+  submenu and goes to the search.
 - Every explorer filters through `View.Filter`: one menu item for each property, which
   opens its picker as a submenu. A chip opens the same picker below the chip.
 - Values have 4 px corners. A picked value tints, with no checkbox, and picked values
   next to each other join into one highlight.
-- A divider separates groups of actions, never single items.
+- A divider separates groups of actions, never single items. Delete and Reload Console
+  are the exception: each one is a group of its own, as in every Console menu.
+- A resource has one context menu on every surface that shows it. Ranges use the same
+  menu in the toolbar, the explorer, the overview, and the plot strip. A surface can add
+  items, and the action of a click on the resource comes first.
+- An item for an integration, such as "Upload to Sift", shows only while the Core has
+  that integration.
+- A submenu of targets keeps a target that already has the change, with a check, and
+  disables it. Add to plot does this for a plot that shows the range.
+- A selection of two or more ranges has Compare under Add to plot. It opens a new plot
+  in relative time with the ranges, named "Compare A and B".
+- In a selection, an option that only some of the items have shows a minus mark. The
+  first click adds it to all of them, and the next click removes it from all of them.
+- A picker leaves out a choice that the Core would reject. The Parent picker leaves out
+  the edited ranges and every range nested in them.
+- A single select whose value can be empty has a "No <noun>" option with the none icon
+  (`Icon.None`), such as "No parent". It is pinned under the list, below a divider, and
+  it shows during a search. A click on the current value to clear it is not sufficient,
+  because users do not find it.
+- A select of things users make, such as labels or ranges, creates them in place. With
+  an empty search, a pinned "New <noun>" opens the create modal. While the user types,
+  it changes to "Create <noun> "text"", which creates the item at once and picks it. An
+  item that needs a choice from the user opens the create modal with the text as its
+  name: a label asks for its color. The Console never picks a color for the user. The
+  option hides when the text matches a name in any case, and after a click until the
+  text changes, so a second click makes no copy. It needs create permission. A filter
+  never creates. A new parent range covers the ranges that move into it. Under the
+  divider, the create option comes first, then "No <noun>". The "Replace with" select of
+  the enumeration delete dialog only picks: a new enumeration has no entries for the
+  users to move to.
+- A create button at the foot of a dialog, such as "New project" in the project selector
+  or "Create palette", is a small `Button.CreateListItem` with its own margin: 1rem from
+  the sides and the bottom of the dialog. Under a hairline, it keeps the same 1rem
+  above, so its fill has an even edge. It matches a small button: 24 px, with 12 px
+  text. A dialog never restyles it.
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
-- An open select marks the current value and opens scrolled to it.
-- An open `Select.Multiple` and the line plot's Ranges select list their selected values
-  first, with no divider: their joined tint marks where they end. The order is set when
-  the select opens and holds while it stays open, so an item never moves under the
-  pointer. A search lists its matches in their own order. GitHub and GitLab do the same.
-  A filter menu keeps its own order.
+- An open select marks the current value and opens scrolled to it. The first arrow key
+  moves on from the current value, as in a native dropdown.
+- An open select lists its current values first when it sets `selectedFirst`, as
+  `Select.Single` does, or when it pins them with `fixedItems`.
+- A `selectedFirst` select shows no divider: the joined tint of several values marks
+  where they end. Its order is set when it opens and holds while it stays open, so an
+  item never moves under the pointer. A current value that loads after it opens joins
+  the values listed first, until the user scrolls, moves the cursor, or searches. A
+  search lists its matches in their own order. GitHub and GitLab do the same.
+- Any other select keeps its order, as `Select.Simple` does. A filter menu keeps its own
+  order.
 - The placeholder of an empty `shadow` or `text` multiple select is a text button. A
   click on it opens the select beside it, as a click on a tag does. The placeholder and
   the add button take the select's size, medium by default, so they stand a step above
@@ -417,9 +527,9 @@ bound, a log precision, or the line plot X channel.
 - An outlined group, such as a select in a form, keeps its outline at every step.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
-- A value in a list item or a property panel shows no caret, at rest, on hover, or while
-  open, so a `shadow` select has none. Selects in toolbars, forms, and settings always
-  show their caret. A select that shows only its icon has none.
+- A `shadow` select hides its caret at rest and shows it on hover, on focus, and while
+  open. The caret keeps its space while hidden, so the value never moves. A select that
+  shows only its icon has no caret.
 - An option with a description shows the icon beside the name and the description under
   the name, through `Select.ItemDescription`. The dropdown is wide enough for each
   description on one line. Only a narrow window wraps it, and it is never cut.
@@ -473,12 +583,19 @@ bound, a log precision, or the line plot X channel.
 
 - An explorer has two bars. The first holds the search, then the views. The second holds
   Filter and its chips on the left, and the sort, layouts, and Create on the right.
-- The search is 270 px wide. A hairline that runs the full height of the bar separates
-  it from the views. Its icon is above the Filter icon.
+- The search is 40% of the bar, from 156 to 270 px. A hairline that runs the full height
+  of the bar separates it from the views. Its icon is above the Filter icon. While it
+  holds a term, a close button ends it, and so does Esc.
 - Both bars sit in one island: an l1 card with an l5 border and the large radius, inset
   6 px from the top and 9 px from the sides of the panel. An l4 line separates the two
   bars. The second bar's controls are 28 px with 13 px text.
 - Each bar is 42 px (7rem) tall. The filter bar grows when its chips wrap.
+- A narrow explorer never pushes a control out of the island. Below 900 px the chips
+  take their own line under Filter and the actions. A chip wider than its line cuts its
+  value first, then its other parts, and fades each cut. Below 528 px the layouts show
+  only their icons, below 372 px the sort does, and below 282 px Filter does. Each one
+  is then a square with a tooltip that names it. Below 420 px the search folds to its
+  icon, and a press opens it over the views until it loses the focus with no term.
 - The bars have no edit toggle. The search shows on every view. On a static view, and on
   a saved view that the user may update, the user changes the filters, the sort, and the
   layout. Other saved views show the filter chips, the sort, and the layout read-only.
@@ -542,13 +659,40 @@ bound, a log precision, or the line plot X channel.
   collapses the box to its bar. An action in the header opens the box again.
 - An empty section shows no box, only one muted "+ Noun" line that adds its first item.
 
+### Settings
+
+- The section list shows names at 800 px and wider, and only icons below. A Sidebar
+  button at its top collapses it to icons and expands it again. The choice is not saved,
+  so Settings always opens expanded.
+- The list animates over 0.15 s: the width changes, the names and group headings fade,
+  and a line fades in where each heading was. A pane that turns narrow snaps to icons.
+- The toggle and each icon keep their place in both modes, so the icon-only list is as
+  wide as it takes to center the icons.
+- The page padding steps down below 100rem and 72rem, as on the range overview.
+- An entry's control moves under its label when the label has less than 36rem. In a card
+  narrower than 72rem, every control goes under its label.
+- A name column is at least 24rem wide, and a short value column 12rem to 16rem. A list
+  that does not fit scrolls sideways.
+- A button beside a field, such as a create button or "Set password", goes under the
+  field when the field has less than 30rem.
+- The Profile name field is at most 50rem wide. The license stats stack below 96rem.
+
+### Carets
+
+- A caret at the start of an item opens the item's own content in place, such as a
+  range's children or an enumeration's entries.
+- A caret at the end of a bar opens or closes a group of items, such as a palette
+  (`Header.Group`). The History list of the docs releases page is the one exception.
+
 ### Group headings
 
 - A list that groups its items, such as the palettes on the Colors page or the groups of
   the Ranges toolbar, heads each group with `Header.Group`: one full-width bar that
-  opens and closes the group.
+  opens and closes the group. The History list of the docs releases page is the one
+  exception.
 - The bar is l2 with the item radius. Its height is the Lyra size nearest the item
-  height: `large` above a 40 px item. Hover and press fill the whole bar.
+  height: `large` above a 40 px item. Hover and press fill the whole bar with a button's
+  transition.
 - The title is a plain string or a span at the button label weight. The count follows in
   tiny l9 text, then an optional badge. The caret at the end points down when open.
 - Actions, such as a "+" that creates an item in the group, sit before the caret and do
@@ -569,6 +713,10 @@ bound, a log precision, or the line plot X channel.
   none, it shows "Star a range to add it here". Recent sorts by end, newest first. A
   finished child of a running range shows in Recent with its muted parent, and nests
   under the parent when the parent ends.
+- Only the star and the Favorite menu item add a favorite. Plot, create, search, and
+  links never add one. The plot's Ranges picker searches every range, newest first, so
+  no range needs a star to be plotted. A range that has not started shows in the toolbar
+  only as a favorite.
 - The header holds the explorer, then + (the create form set to the last hour), then
   Start. + and Start are outlined `Toolbar.CreateAction` buttons. The toolbar has no
   active range, and new plots open on Rolling 30s.
@@ -630,6 +778,9 @@ bound, a log precision, or the line plot X channel.
 - A channel that deploying will create shows the name deploying gives it, from the
   function that deploy uses. "No channel" in gray is only for a channel whose name
   cannot be known yet.
+- A typed channel name that deploying will number, because another channel holds it,
+  keeps its text. The field's help text gives the name that deploying uses: "Saves as
+  pressure_2". A free typed name shows no help text.
 - A channel that deploying skips, such as a disabled one, shows no `Icon.New`. In a
   list, its tooltip says that deploying skips it.
 - A missing channel shows the name deploying will use, and a rename edits that name. Its
@@ -670,6 +821,11 @@ bound, a log precision, or the line plot X channel.
 
 ### Table input
 
+- A table input holds plain values that belong to one record or field: an open list in a
+  few short columns, such as headers, enumeration entries, or scale points.
+- A record, with its own name, menu, or uses, goes in a record table. A fixed set of
+  values is a set of fields on one line, such as host and port. A value with more fields
+  than fit in a cell goes in a list with a details pane, as in MQTT read.
 - A ruled grid: the cells join into one box with shared lines, and headings sit in the
   box. Row labels and remove buttons sit outside it. A cell draws its border on the grid
   line, so focus and hover frame the whole cell.
@@ -678,13 +834,19 @@ bound, a log precision, or the line plot X channel.
   focus to the first cell of the new row. An empty table shows only the add button.
 - Every row shows its remove button at all times, at the end of the row. A remove moves
   focus to the row that takes its place.
+- A table whose items have an order shows a drag handle in each row's gutter, in place
+  of the row label. A drag drops the row in the place of the row it lands on, and a line
+  on the grid shows where. The up and down arrows on a focused handle move the row by
+  one.
 - Enter moves down, Shift+Enter moves up, and Tab moves right.
 - Esc puts back the value the cell held when it took focus. A second Esc leaves the
   cell. Esc never commits typed text.
 - A cell with an error has a red frame, and its message shows on hover.
 - Paste keeps the values that parse. A cell whose text does not parse keeps its value
-  and shows the error until an edit. A first row in which no number parses is a heading,
-  and paste drops it.
+  and shows the error until an edit. A first row in which no number or boolean parses is
+  a heading, and paste drops it. A single value pasted into a text cell goes to that
+  cell. Into a checkbox, a custom cell, or a cell whose column has its own reader, it
+  parses like a block. Elsewhere, such as on a select, paste ignores it.
 
 ### Status and toasts
 
@@ -717,14 +879,61 @@ says why in a sentence, then gives the raw error.
   name. Up to four more are 4 px, with no name.
 - A bar is its range color tinted over the background, with a 1 px border in the color.
   The name is in the range hue, centered on its cap height, and fades at its end. A side
-  cut by the plot edge has square corners, and the name stays at the edge.
+  cut by the plot edge has square corners and fades out over 40 px, and the name stays
+  at the edge. A fade means only "more of this range is outside the view".
+- The time sits at the bar's end in the code font: `T+h:mm:ss` for a running range, and
+  the short length (`10min`) for any other. The name gets the room first.
+- A running bar ends at the newest sample of a live plot, or at now. Its end is a 2 px
+  cap in the range color that bends around the corners, with a glow that pulses every
+  1.6 s, drawn at 15 Hz. 30 Hz doubled the CPU cost for no visible gain. Rejected: a
+  fade, a dot, stripes, or a hollow bar for "running", and elapsed time after the name.
 - In the plot, each range draws its start and end lines. Only a range that holds no
   other range gets a fill, so fills do not stack. A range with no color is not drawn.
 - Hover fills the range, dims the others, and shows its name, start, end, and duration.
-  The tooltip wraps a name past 240 px.
+  A running range shows its start, how long it has run, and its planned end if it has
+  one. The tooltip wraps a name past 240 px.
 - A click on a range zooms to it and pauses the plot. A second click on that range goes
   back to the view and pause state from before. If the view changes between the two
   clicks, the second click zooms in again. Clicks nest, one level per click.
+- The menu of a range starts with "Zoom to range", which does what a click does. While
+  the plot shows that zoom, the item reads "Zoom out". The tooltip hides while the menu
+  is open.
+
+### Plot breaks
+
+- On an absolute time x1 axis, each gap between ranges, past a margin on each side,
+  collapses into a seam. An x2 axis always shows true time, as the axes share one view.
+  A seam draws a 12 px grey band through the plot and the range strip, with dashed
+  edges, and a `//` centered in a gap in the axis line.
+- All segments share one tick interval. In each segment, the first tick whose full label
+  fits is an anchor with the date and time: "Nov 18 14:31". No label comes before the
+  anchor of its segment, and no label overlaps a seam or an anchor.
+- A range bar that crosses a seam draws on each side, cut at the seam with the fade of
+  the plot edge. A range wholly inside a collapsed gap draws nothing.
+- A click on a band, or on its `//` on the axis, opens the break in every plot mode. An
+  open gap keeps a faint `//` at its middle, and a click on it closes the gap. A click
+  on the plot never closes a gap, so a click on data stays a click on data.
+- When a break opens or closes, the times at the edges of the view stay in view. The
+  zoom history and the selection keep their times too.
+- The plot menu holds "Open all breaks" while a break is closed, and "Close all breaks"
+  while one is open. Reset zoom closes all breaks. The Session stores the open breaks
+  with the view, so a reload shows the same times.
+- A toggle in the plot controls hides and shows the breaks. Hidden breaks show the plot
+  in true time. The toggle resets the zoom, and it shows while the plot has a break,
+  shown or hidden. The Session stores whether the breaks hide.
+- Over a band, the tooltip lists the hidden time ("Hidden", "From", "To") and "Click to
+  show". Over a segment, it lists only the lines of that segment.
+- A measure across a closed break keeps the true ΔX and ΔY and marks ΔX with `//`. It
+  draws no oblique line and no slope, as no line joins data across a break.
+- A select drag stops at the seams of the segment where it starts. A zoom box crosses
+  seams. To select across a gap, open its break.
+
+### Plot controls
+
+- The controls on a plot hold tools for reading it: zoom, pan, select, reset zoom,
+  tooltip, the range strip, the breaks toggle, measure, and hold. Each is state of the
+  window, never saved with the plot. A setting saved with the plot goes in the toolbar,
+  even when it changes what the plot shows, such as the time mode.
 
 ### Plot range select
 
@@ -744,6 +953,12 @@ says why in a sentence, then gives the raw error.
 - The labels share one column as wide as the widest label, so every field starts at one
   edge. X1, the field people change least, sits at the end of the Ranges row, as both
   set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
+- The time mode, "Absolute" and "Relative" at medium size, sits right of X1. It moves
+  down with X1 below 171rem. X1 then fills its row, and the time mode lines up with the
+  right edge of Y1 and Y2. Below 76rem it shows only its icons: a clock and a timeline.
+  A change of mode resets the zoom, because a zoom in one mode means nothing in the
+  other. Rejected: the plot controls (the mode is saved), and the toolbar header (it
+  holds actions and tabs).
 - The X1 dialog floats, so it can be wider than its trigger.
 
 ### Plot lines tab
@@ -760,6 +975,31 @@ says why in a sentence, then gives the raw error.
 
 - A padded Lyra `Divider` separates the axis groups: the shared border, with 0.5rem
   above and below. A 1 px line with no space was too heavy.
+- In relative time, each range name sits above its channels. The range name is weight
+  500 in gray l10, and a channel is weight 400 in gray l9. Only the range has a swatch.
+  Each channel starts with its axis ("Y1") under the swatch, in the style of the axis
+  names of the absolute legend and the Data tab: weight 500 in gray l9. Rejected: a
+  swatch on each channel (one color again and again), a guide or bar in the range color,
+  an axis at the end of the channel, and an axis icon (a small box at text size).
+- The eyes take no room at rest. On hover the legend grows to the right as they fade in,
+  so no text moves.
+- Option or Alt click on an eye shows only that item, and a second one restores what was
+  hidden before. A channel hidden in all ranges shows again only in the range whose eye
+  the user clicks. When an item is hidden, the legend ends with "Show all (N hidden)". A
+  rolling window is named as its saved range is, such as "Rolling 5min".
+
+### Plot hover and tooltip
+
+- The pointer on a legend entry draws its lines twice as wide and on top. The other
+  lines draw at 25 percent over the background: the other ranges in relative time, and
+  the other channels in absolute time. The pointer on a line of the plot only makes its
+  tooltip entry bold. Rejected: a dim from the plot, which flickers as the pointer
+  crosses lines to read values.
+- The tooltip groups by channel. Under each channel, each range shows its color, name,
+  and value, from high to low. Rejected: channels under each range, and one flat list.
+- The tooltip lists as many entries as fit inside the plot, and stays inside it. The
+  last entry then reads "and N more". Rejected: a fixed count, which cuts a compare of 2
+  channels and 8 ranges, and no limit, where entries past the plot edge do not show.
 
 ## Interaction
 
@@ -774,6 +1014,8 @@ says why in a sentence, then gives the raw error.
   keeps its space, so the layout does not move.
 - Focus never gets lost. After an add, focus goes to the new item. When a dialog closes,
   focus goes back to where it was.
+- In a field that commits on blur, Enter or a blur commits the typed text. Esc discards
+  it and puts back the stored value.
 - Dialogs, drawers, and dropdown lists set `overscroll-behavior: contain`.
 - An empty state has one primary action, named as a verb and a noun ("Create channel").
 
@@ -790,6 +1032,31 @@ says why in a sentence, then gives the raw error.
 - Plots, schematics, tables, and the log keep their own selection, and Cmd+C copies it.
 - A copy button shows a check while it stays in view. A menu item that copies shows a
   toast, because the menu closes.
+
+### Drag previews
+
+A drag shows the smallest true form of the object, with the facts that matter. It is
+never so small that it is hard to read.
+
+- **Objects** use `Haul.Preview`: a tile, the name, then one line of facts. The frame
+  stays the same, and each type fills the tile and the facts. A channel shows its data
+  type and index. A range shows its color, start, and length, or "Planned" when it has
+  no start. Other tree resources show their type name.
+- **Colors** fill the tile: a swatch, a palette color, or a range with a color.
+- **Many objects** show the grabbed object's preview with two plates behind it and a
+  count.
+- **Schematic symbols and Arc stages** drag as the drawing alone, at canvas size, with
+  the top-left corner on the pointer, where the drop places the node.
+- **Tabs and panel tabs** drag as `Haul.Copy` of the tab at rest: its icon stays, its
+  close button goes, and the copy holds the grab point.
+- **The source dims** to 40% opacity until the drag ends. A selection dims every
+  selected item.
+
+Each source passes its own preview to `startDrag`, which requires one. There is no
+preview map. Each object type has one preview component in its own module, such as
+`Channel.HaulPreview`. A generic part (a select trigger, the tree) gets its preview from
+its domain wrapper, through `renderHaulPreview` or the tree item's `haulPreview`. A
+preview renders above every provider, so it takes plain values, not hooks.
 
 ## Prior art
 
@@ -822,3 +1089,10 @@ The `docs-refine` skill owns the forms and rhythm of docs pages, in its
 - Gradient blooms stay quiet. The Desktop band at the end of a blog post has a 30% blue
   bloom over `#181b27` in dark mode. A 70% bloom over `#282c41` was too intense, and a
   7% tint over the page surface was too flat.
+- The History list on the releases page groups the releases under the year they shipped,
+  with a caret before each year. One year is open at a time: the year of the release
+  being read opens by itself, and a click opens another. Rejected: a list that scrolls
+  inside itself, and a grid of every release three across.
+- The History list is an exception to Carets and Group headings: it is a navigation
+  tree, like the docs sidebar, so each year is a caret and a label, with the caret
+  before the year.

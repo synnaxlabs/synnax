@@ -27,8 +27,8 @@ const crossHairB = (px: number): number => 1 - px;
 const insertLocation = ({ x: px, y: py }: xy.XY): location.Location => {
   if (px > 0.33 && px < 0.66 && py > 0.33 && py < 0.66) return "center";
   const [aY, bY] = [crossHairA(px), crossHairB(px)];
-  if (py > aY && py > bY) return "bottom";
-  if (py < aY && py < bY) return "top";
+  if (py >= aY && py >= bY) return "bottom";
+  if (py <= aY && py <= bY) return "top";
   if (py > aY && py < bY) return "left";
   if (py < aY && py > bY) return "right";
   throw new Error("[bug] - invalid insert position");

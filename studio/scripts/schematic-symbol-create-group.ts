@@ -26,7 +26,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   session.startRecording();
   await session.hold(1800);
 
-  await session.click(capture.toolbarButton(page, "group", "add"), { zoom: false });
+  await session.click(capture.toolbarButton(page, "group-create"), { zoom: false });
   const name = page.locator(capture.MODAL).getByPlaceholder("Name").first();
   await session.waitFor(name);
   await session.hold(600);

@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/net/proxy"
@@ -194,6 +195,31 @@ type heardTopic struct {
 	browsedTopic
 	// retained is the number of retained messages heard.
 	retained int
+	// inferrer holds the shape of every message heard.
+	inferrer *xjson.Inferrer
+}
+
+// infer sets the kind and the time format of each field, and the index, from the shape
+// of every message heard.
+func (t *heardTopic) infer() {
+	shape := t.inferrer.Shape()
+	byPointer := make(map[string]xjson.InferredField, len(shape.Fields))
+	for _, f := range shape.Fields {
+		byPointer[f.Pointer.String()] = f
+	}
+	for i := range t.Fields {
+		f := byPointer[t.Fields[i].Pointer]
+		t.Fields[i].Kind, t.Fields[i].TimeFormat = f.Kind, f.TimeFormat
+	}
+	if shape.Index < 0 {
+		return
+	}
+	index := shape.Fields[shape.Index].Pointer.String()
+	if slices.ContainsFunc(t.Fields, func(f browsedField) bool {
+		return f.Pointer == index
+	}) {
+		t.Index = index
+	}
 }
 
 // heard is what a browse heard on each topic.
@@ -232,7 +258,7 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 					res.truncated = true
 					return false
 				}
-				t = &heardTopic{Topic: m.Topic()}
+				t = &heardTopic{Topic: m.Topic(), inferrer: xjson.NewInferrer()}
 				by[m.Topic()] = t
 			}
 			t.Count++
@@ -243,6 +269,7 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 			t.LastSeen, t.Retained = telem.Now(), m.Retained()
 			t.Payload, t.Format, t.Fields = payloadSample(p), driver.FormatOf(p),
 				payloadFields(p)
+			t.inferrer.Add(p, t.LastSeen)
 			return false
 		},
 	); err != nil {
@@ -278,7 +305,7 @@ type sampledMessage struct {
 	// Time is the time that the message arrived.
 	Time telem.TimeStamp `json:"time"`
 	// Format is the format of the whole payload.
-	Format driver.Format `json:"format"`
+	Format payload.Format `json:"format"`
 	// Payload is the start of the payload, from at most 16 KiB: text when Format is
 	// json or text, and hex digits otherwise.
 	Payload string `json:"payload"`

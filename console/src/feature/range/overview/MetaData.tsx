@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Ranger } from "@synnaxlabs/pluto";
-import { link } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement } from "react";
+import { compare, link } from "@synnaxlabs/x";
+import type { KeyboardEvent, ReactElement } from "react";
 
 import {
   AddButton,
@@ -144,7 +144,7 @@ const PairDraft = ({ rangeKey, onClose }: DraftProps): ReactElement => {
   );
 };
 
-const byKey = (a: ranger.kv.Pair, b: ranger.kv.Pair) => a.key.localeCompare(b.key);
+const byKey = compare.by((p: ranger.kv.Pair) => p.key);
 
 interface MetaDataProps extends RangeKeyProps {
   pairs: ranger.kv.Pair[];

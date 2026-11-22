@@ -12,6 +12,9 @@
     "noEmit": true,
     "declaration": true,
     "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true,
     "jsx": "react-jsx",
     "skipLibCheck": true,
     "declarationMap": true

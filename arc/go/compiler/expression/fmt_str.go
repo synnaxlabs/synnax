@@ -17,12 +17,12 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// EmitFmtSegments lowers the segments the analyzer stored for strTerm into WASM on
+// emitFmtSegments lowers the segments the analyzer stored for strTerm into WASM on
 // ctx.Writer: literals emit string.from_literal, and placeholders compile the
 // expressions the analyzer parsed and typed. Assumes the analyzer has already run
 // literal.FmtStrValidateSpec on every placeholder spec; the compiler emits spec bytes
 // verbatim without revalidation.
-func EmitFmtSegments[T antlr.ParserRuleContext](
+func emitFmtSegments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	strTerm antlr.TerminalNode,
 ) (types.Type, error) {

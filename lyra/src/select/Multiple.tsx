@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type record, strings } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Dialog as BaseDialog } from "@/dialog";
-import { type List } from "@/list";
+import type { List } from "@/list";
 import { Body, type BodyProps } from "@/select/Body";
-import { Dialog } from "@/select/Dialog";
+import { Dialog, type DialogProps } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
 import { plural, usePlaceholder } from "@/select/placeholder";
@@ -33,6 +33,7 @@ export interface MultipleProps<
       MultipleTriggerProps<K, E>,
       "disabled" | "icon" | "haulType" | "createHaulItem"
     >,
+    Pick<DialogProps, "menu" | "hasMenu">,
     Pick<List.ItemsProps<K>, "children"> {
   /**
    * Singular name of the thing being selected. It is pluralized for the placeholder.
@@ -75,8 +76,19 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   triggerProps,
   virtual = true,
   dialogProps,
+  menu,
+  hasMenu,
   variant = "connected",
   preview,
+  itemHeight,
+  closeDialogOnSelect,
+  autoSelectOnNone,
+  initialHover,
+  enableTriggers,
+  cursor,
+  moveX,
+  pinned,
+  overscan,
   ...rest
 }: MultipleProps<K, E>): ReactElement => {
   const placeholder = usePlaceholder(plural(resourceName));
@@ -93,6 +105,15 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         allowNone={allowNone}
         replaceOnSingle={replaceOnSingle}
         virtual={virtual}
+        itemHeight={itemHeight}
+        closeDialogOnSelect={closeDialogOnSelect}
+        autoSelectOnNone={autoSelectOnNone}
+        initialHover={initialHover}
+        enableTriggers={enableTriggers}
+        cursor={cursor}
+        moveX={moveX}
+        pinned={pinned}
+        overscan={overscan}
         selectedFirst
       >
         <MultipleTrigger<K, E>
@@ -100,7 +121,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
           createHaulItem={createHaulItem}
           icon={icon}
           placeholder={placeholder}
-          aria-label={caseconv.capitalize(plural(resourceName))}
+          aria-label={strings.capitalize(plural(resourceName))}
           resourceName={resourceName}
           disabled={disabled}
           preview={preview}
@@ -108,7 +129,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         >
           {renderTag}
         </MultipleTrigger>
-        <Dialog {...dialogProps}>
+        <Dialog {...dialogProps} menu={menu} hasMenu={hasMenu}>
           <Body<K>
             onSearch={onSearch}
             emptyContent={emptyContent}

@@ -13,6 +13,7 @@ import {
   type device,
   DisconnectedError,
   type rack,
+  status,
   type Synnax,
   task,
 } from "@synnaxlabs/client";
@@ -23,7 +24,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
 import { deep, narrow, primitive } from "@synnaxlabs/x";
 import { createContext, type FC, useContext, useEffect, useRef, useState } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
@@ -49,13 +50,14 @@ const FlushesContext = createContext<Set<Flush> | null>(null);
 FlushesContext.displayName = "Task.FlushesContext";
 
 /**
- * Sends the edits of a form nested in a task form before the task deploys, so the
- * deploy reads what the form shows. An edit that stays unsent stops the deploy.
+ * Sends the edits of a form nested in a task form before each save and deploy of the
+ * task, so the Core holds what the task names. An edit that stays unsent stops the
+ * deploy.
  */
-export const useFlushBeforeDeploy = (flush: Flush): void => {
+export const useFlushFirst = (flush: Flush): void => {
   const flushes = useContext(FlushesContext);
   if (flushes == null)
-    throw new Error("useFlushBeforeDeploy must be called inside a task form");
+    throw new Error("useFlushFirst must be called inside a task form");
   useEffect(() => {
     flushes.add(flush);
     return () => {
@@ -105,6 +107,8 @@ const copyConfig = <T,>(config: T): T => {
   keepInstances(config, copy);
   return copy;
 };
+
+const STILL_RUNS = "The task still runs its last deployed config.";
 
 export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
@@ -165,8 +169,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();
     const { capture } = Analytics.use();
-    const { form, flush } = useForm({ query: { key: taskKey } });
     const [nested] = useState(() => new Set<Flush>());
+    const { form, flush } = useForm({
+      query: { key: taskKey },
+      beforeSend: async () => await Promise.all([...nested].map((f) => f())),
+    });
 
     // The form saves on every edit, so a subject who cannot write the task gets it
     // read-only rather than fields that revert once the save is refused.
@@ -174,16 +181,27 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
 
     const deployChecked = useRef(false);
     const [configuring, setConfiguring] = useState(false);
+    const [failure, setFailure] = useState<Controls.DeployFailure>();
     // A Stop while a start configures cancels the start.
     const startCancelled = useRef(false);
 
     const handleDeploy = async () => {
       startCancelled.current = false;
+      setFailure(undefined);
       setConfiguring(true);
       try {
         await deploy();
       } catch (e) {
-        handleError(e, "Failed to start task");
+        const { name, status: current } = form.value();
+        const running = current?.details.running === true;
+        const heading = {
+          name,
+          message: running ? "Failed to deploy changes" : "Failed to start task",
+        };
+        handleError(e, heading);
+        const failed = status.fromException(e, heading);
+        if (running) failed.description = `${STILL_RUNS} ${failed.description}`;
+        setFailure({ status: failed, taskStatusTime: current?.time });
       }
       setConfiguring(false);
     };
@@ -279,6 +297,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
             {showControls && (
               <Controls.Controls
                 configuring={configuring}
+                failure={failure}
                 onDeploy={() => void handleDeploy()}
                 onStop={handleStop}
               />

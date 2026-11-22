@@ -35,13 +35,13 @@ class ExampleLeaf extends aether.Leaf<typeof exampleProps> {
   updatef = vi.fn();
   deletef = vi.fn();
 
-  schema = exampleProps;
+  override schema = exampleProps;
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     this.updatef();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.deletef();
   }
 }
@@ -52,13 +52,13 @@ class ExampleComposite extends aether.Composite<typeof exampleProps, ExampleLeaf
 
   static readonly TYPE = "ExampleComposite";
 
-  schema = exampleProps;
+  override schema = exampleProps;
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     this.updatef();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.deletef();
   }
 }
@@ -81,8 +81,8 @@ class InvokeLeaf
   implements aether.HandlersFromSchema<typeof invokeMethodsSchema>
 {
   static readonly TYPE = "InvokeLeaf";
-  schema = exampleProps;
-  methods = invokeMethodsSchema;
+  override schema = exampleProps;
+  override methods = invokeMethodsSchema;
   fireAndForgetSpy = vi.fn();
   getValueSpy = vi.fn(() => 42);
   throwErrorSpy = vi.fn(() => {
@@ -114,8 +114,8 @@ class InvokeLeaf
       this.slowEchoResolvers.push(() => resolve(n));
     });
   }
-  afterUpdate(): void {}
-  afterDelete(): void {}
+  override afterUpdate(): void {}
+  override afterDelete(): void {}
 }
 
 const multiProps = z.object({
@@ -125,16 +125,16 @@ const multiProps = z.object({
 
 class MultiLeaf extends aether.Leaf<typeof multiProps> {
   static readonly TYPE = "MultiLeaf";
-  schema = multiProps;
-  afterUpdate(): void {}
-  afterDelete(): void {}
+  override schema = multiProps;
+  override afterUpdate(): void {}
+  override afterDelete(): void {}
 }
 
 class EchoOnUpdateLeaf extends aether.Leaf<typeof exampleProps> {
   static readonly TYPE = "EchoOnUpdateLeaf";
-  schema = exampleProps;
+  override schema = exampleProps;
   private echoed = false;
-  afterUpdate(): void {
+  override afterUpdate(): void {
     if (this.echoed) return;
     this.echoed = true;
     // Defer the push so it lands outside the synchronous mock-worker round- trip — the
@@ -143,16 +143,16 @@ class EchoOnUpdateLeaf extends aether.Leaf<typeof exampleProps> {
     // "outside the current render" which is what this fixture exists to exercise.
     queueMicrotask(() => this.setState({ x: this.state.x + 1 }));
   }
-  afterDelete(): void {}
+  override afterDelete(): void {}
 }
 
 class ErrorOnUpdateLeaf extends aether.Leaf<typeof exampleProps> {
   static readonly TYPE = "ErrorOnUpdateLeaf";
-  schema = exampleProps;
-  afterUpdate(): void {
+  override schema = exampleProps;
+  override afterUpdate(): void {
     throw new Error("ErrorOnUpdateLeaf afterUpdate failure");
   }
-  afterDelete(): void {}
+  override afterDelete(): void {}
 }
 
 const REGISTRY: aether.ComponentRegistry = {
@@ -184,7 +184,7 @@ const createHeldPair = () => {
   const toMain: aether.WorkerMessage[][] = [];
   let workerHandler: (messages: aether.MainMessage[]) => void = () => {};
   let mainHandler: (messages: aether.WorkerMessage[]) => void = () => {};
-  const flushed = async (): Promise<void> => await scheduler.flushTaskQueue();
+  const flushed = async (): Promise<void> => await scheduler.nextTask();
   return {
     workerSide: {
       send: (messages) => toMain.push(messages),
@@ -223,14 +223,14 @@ class ErrorBoundary extends Component<
   PropsWithChildren<{ captured: CapturedError; fallback?: ReactNode }>,
   { hasError: boolean }
 > {
-  state = { hasError: false };
+  override state = { hasError: false };
   static getDerivedStateFromError() {
     return { hasError: true };
   }
-  componentDidCatch(error: Error): void {
+  override componentDidCatch(error: Error): void {
     this.props.captured.current = error;
   }
-  render(): ReactNode {
+  override render(): ReactNode {
     if (this.state.hasError) return this.props.fallback ?? null;
     return this.props.children;
   }
@@ -740,7 +740,7 @@ describe("Aether Main", () => {
         </Provider>,
       );
       expect(captured.length).toBeGreaterThanOrEqual(3);
-      expect(captured[0]).toBe(captured[captured.length - 1]);
+      expect(captured[0]).toBe(captured.at(-1));
       for (let i = 1; i < captured.length; i++) expect(captured[i]).toBe(captured[0]);
     });
     it("should keep path identity stable across re-renders", async () => {
@@ -1710,7 +1710,7 @@ describe("Aether Main", () => {
     it("should send only the fields a main update changed", async () => {
       const { handle, toWorker } = await stageLive();
       handle.setState((p) => ({ ...p, y: "b" }));
-      await scheduler.flushTaskQueue();
+      await scheduler.nextTask();
       expect(toWorker.flat()).toEqual([
         {
           variant: "update",

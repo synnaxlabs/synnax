@@ -32,6 +32,14 @@ class Unreachable(Error):
         return self.message
 
 
+class Timeout(Error):
+    """Raised when a target sends no response within the timeout. The target may still
+    run the request, so a retry is not safe.
+    """
+
+    TYPE = _FREIGHTER_EXCEPTION_TYPE + "timeout"
+
+
 class StreamClosed(Error):
     """Raised when a stream is closed."""
 
@@ -55,6 +63,8 @@ class EOF(Error):
 def _freighter_encode(exc: Exception) -> ExceptionPayload | None:
     if isinstance(exc, Unreachable):
         return ExceptionPayload(type=Unreachable.TYPE, data=exc.message)
+    if isinstance(exc, Timeout):
+        return ExceptionPayload(type=Timeout.TYPE, data=str(exc))
     if isinstance(exc, StreamClosed):
         return ExceptionPayload(type=StreamClosed.TYPE, data=str(exc))
     if isinstance(exc, EOF):
@@ -65,6 +75,8 @@ def _freighter_encode(exc: Exception) -> ExceptionPayload | None:
 def _freighter_decode(exc: ExceptionPayload) -> Exception | None:
     if exc.type == Unreachable.TYPE:
         return Unreachable(message=exc.data) if exc.data is not None else Unreachable()
+    if exc.type == Timeout.TYPE:
+        return Timeout(exc.data) if exc.data is not None else Timeout()
     if exc.type == StreamClosed.TYPE:
         return StreamClosed()
     if exc.type == EOF.TYPE:

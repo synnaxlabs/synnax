@@ -47,4 +47,40 @@ TEST(testFreighter, testMiddlewareCollector) {
     const auto res = ASSERT_NIL_P(collector.exec(ctx, &f, req));
     ASSERT_EQ(res, 2);
 }
+
+/// @brief calls the next middleware twice, as a middleware that retries does.
+class RetryMiddleware final : public PassthroughMiddleware {
+public:
+    std::pair<freighter::Context, x::errors::Error>
+    operator()(freighter::Context context, freighter::Next &next) override {
+        next(context);
+        return next(context);
+    }
+};
+
+/// @brief counts the times it runs.
+class CountMiddleware final : public PassthroughMiddleware {
+public:
+    int calls = 0;
+
+    std::pair<freighter::Context, x::errors::Error>
+    operator()(freighter::Context context, freighter::Next &next) override {
+        ++this->calls;
+        return next(context);
+    }
+};
+
+/// @brief it should run the rest of the chain each time a middleware calls next.
+TEST(testFreighter, testMiddlewareCollectorRepeatedNext) {
+    auto collector = MiddlewareCollector<int, int>();
+    const auto count = std::make_shared<CountMiddleware>();
+    auto f = BasicFinalizer();
+    collector.use(std::make_shared<RetryMiddleware>());
+    collector.use(count);
+    const auto ctx = freighter::Context("test", x::url::URL("1"), freighter::UNARY);
+    auto req = 1;
+    const auto res = ASSERT_NIL_P(collector.exec(ctx, &f, req));
+    ASSERT_EQ(res, 2);
+    ASSERT_EQ(count->calls, 2);
+}
 }

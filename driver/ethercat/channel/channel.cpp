@@ -43,7 +43,7 @@ std::optional<pdo::Entry> bind(
     if (!pdo) {
         parser.field_err(
             path + "index",
-            "slave " + slave.name + " has no " + direction(is_input) + " entry at " +
+            "module " + slave.name + " has no " + direction(is_input) + " entry at " +
                 telem::format_index_sub_index(index, sub_index)
         );
         return std::nullopt;
@@ -61,7 +61,7 @@ std::optional<pdo::Entry> bind(
         x::telem::UINT8_T,
     };
     const auto entry = "entry " + telem::format_index_sub_index(index, sub_index) +
-                       " on slave " + slave.name;
+                       " on module " + slave.name;
     const auto width = telem::infer_type_from_bit_length(pdo->bit_length).density();
     const auto pick = "Pick a " + std::to_string(width) + " byte ";
     if (!data_type.matches(NUMBER_TYPES)) {
@@ -123,7 +123,7 @@ void reject_unresolved(
         addresses.push_back(std::move(addr));
         labels.push_back(std::move(label));
     }
-    const auto on_slave = " on slave " + slave.name;
+    const auto on_slave = " on module " + slave.name;
     const auto dir = direction(is_input);
     std::string msg = "'" + name + "' matches ";
     if (labels.empty())
@@ -150,7 +150,7 @@ void check_stop_value(
         parser.field_err(
             path + "stop_value",
             std::format(
-                "stop value {} does not fit entry {} on slave {}. Pick {}.",
+                "stop value {} does not fit entry {} on module {}. Pick {}.",
                 v,
                 telem::format_index_sub_index(entry.index, entry.sub_index),
                 slave.name,
@@ -266,7 +266,7 @@ std::unique_ptr<Input> make_input(
         parser.field_err(
             "calibrated",
             "the catalog gives no calibration for entry " +
-                telem::format_index_sub_index(c.index, c.sub_index) + " on slave " +
+                telem::format_index_sub_index(c.index, c.sub_index) + " on module " +
                 slave.name
         );
         return nullptr;
@@ -275,7 +275,7 @@ std::unique_ptr<Input> make_input(
         parser.field_err(
             "index",
             "the catalog gives " + found->second.name() + " samples for entry " +
-                telem::format_index_sub_index(c.index, c.sub_index) + " on slave " +
+                telem::format_index_sub_index(c.index, c.sub_index) + " on module " +
                 slave.name + ", but the entry holds " +
                 std::to_string(entry->bit_length) + " bits"
         );
@@ -326,8 +326,8 @@ void Claims::claim(
     parser.field_err(
         path + "index",
         "another channel already uses entry " +
-            telem::format_index_sub_index(entry.index, entry.sub_index) + " on slave " +
-            slave.name
+            telem::format_index_sub_index(entry.index, entry.sub_index) +
+            " on module " + slave.name
     );
 }
 }

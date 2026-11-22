@@ -10,6 +10,8 @@
 package v2
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/gorp/migrate"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -25,3 +27,18 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, De
 	SetGroup:     func(e *Device, g groupv1.Key) { e.Group = &g },
 	ProjectOwned: false,
 })
+
+// MakeModelMigration sets an empty make or model of each stored device to "unknown". No
+// integration claims a device of that make.
+var MakeModelMigration = migrate.NewEntry(
+	"v62_require_make_model",
+	func(_ context.Context, d Device) (Device, error) {
+		if d.Make == "" {
+			d.Make = "unknown"
+		}
+		if d.Model == "" {
+			d.Model = "unknown"
+		}
+		return d, nil
+	},
+)

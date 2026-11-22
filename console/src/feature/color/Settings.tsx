@@ -12,10 +12,10 @@ import "@/feature/color/Settings.css";
 import { color, group } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Color } from "@synnaxlabs/lyra/color";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -23,10 +23,9 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { theme } from "@synnaxlabs/lyra/theme";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Color as PColor, Flux, Group } from "@synnaxlabs/pluto";
-import { array, color as xcolor, type record, uuid } from "@synnaxlabs/x";
+import { array, color as xcolor, compare, type record, uuid } from "@synnaxlabs/x";
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 import pluralize from "pluralize";
 import {
@@ -44,9 +43,9 @@ import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
 const COLUMNS: List.Column[] = [
-  { name: "Name", width: "2fr" },
-  { name: "Light", width: "1fr" },
-  { name: "Dark", width: "1fr" },
+  { name: "Name", width: "minmax(24rem, 2fr)" },
+  { name: "Light", width: "minmax(16rem, 1fr)" },
+  { name: "Dark", width: "minmax(16rem, 1fr)" },
 ];
 
 const PALETTE_PREFIX = "palette:";
@@ -213,39 +212,6 @@ const PaletteHeading = ({
   </div>
 );
 
-interface ValueProps {
-  value?: xcolor.Crude;
-  fallback?: xcolor.Crude;
-  onChange?: (value?: xcolor.Color) => void;
-  label: string;
-}
-
-const Value = ({ value, fallback, onChange, label }: ValueProps): ReactElement => (
-  <Flex.Box x align="center" gap="small">
-    {fallback == null ? (
-      <Color.Swatch
-        value={value ?? "#000000"}
-        onChange={onChange}
-        size="small"
-        aria-label={label}
-      />
-    ) : (
-      <Color.Swatch
-        value={value}
-        fallback={fallback}
-        onChange={onChange}
-        size="small"
-        aria-label={label}
-      />
-    )}
-    <Text.Text level="small" variant="code" color={value == null ? 8 : 10}>
-      {value == null ? "Auto" : xcolor.hex(value).toUpperCase()}
-    </Text.Text>
-  </Flex.Box>
-);
-
-const DARK = theme.themeZ.parse(theme.SYNNAX_DARK);
-
 const path = PColor.formPath;
 
 /** @returns whether a stored built-in differs from its shipped name or values. */
@@ -279,7 +245,9 @@ const Context = createContext<ContextValue>({
 });
 Context.displayName = "Color.Settings";
 
-const DRAG_TYPE = "application/x-synnax-color";
+const HAUL_TYPE = "palette_color";
+const canDropColor = Haul.canDropOfType(HAUL_TYPE);
+const FACTS = ["Color"];
 
 /**
  * Returns the moves that put the dragged color just before the target, given every
@@ -306,39 +274,48 @@ const placeBefore = (
   );
 };
 
-const Item = (props: List.ItemProps<color.Key>): ReactElement | null => {
+const Item = (props: List.ItemProps<color.Key>): ReactElement => (
+  <PColor.Editor itemKey={props.itemKey}>
+    <ItemContent {...props} />
+  </PColor.Editor>
+);
+
+const ItemContent = (props: List.ItemProps<color.Key>): ReactElement | null => {
   const { itemKey } = props;
   const named = List.useItem<color.Key, color.Named>(itemKey);
   const { shipped, move } = use(Context);
-  const { form } = PColor.useForm({ query: { key: itemKey } });
-  const name = Form.useField<string>(path.name, { ctx: form });
-  const light = Form.useField<xcolor.Crude, xcolor.Color>(path.light, { ctx: form });
-  const dark = Form.useField<xcolor.Crude | undefined, xcolor.Color | undefined>(
-    path.dark,
-    { ctx: form, optional: true },
-  );
+  const name = Form.useField<string>(path.name);
+  const { get } = Form.useContext();
   const canUpdate = Access.useUpdateGranted(color.resourceID(itemKey));
   const itemClass = PlatformSettings.useItemClass(itemKey);
   const [over, setOver] = useState(false);
+  const { startDrag, onDragEnd, onDragOver, onDrop } = Haul.useDragAndDrop({
+    type: HAUL_TYPE,
+    key: itemKey,
+    canDrop: canDropColor,
+    onDragOver: () => setOver(true),
+    onDrop: ({ items }) => {
+      setOver(false);
+      const dragged = items.find(({ type }) => type === HAUL_TYPE);
+      if (dragged != null && dragged.key !== itemKey)
+        move(String(dragged.key), itemKey);
+      return items;
+    },
+  });
   if (named == null) return null;
   const builtin = shipped.get(itemKey);
-  const lightValue = light.value ?? named.light;
-  const handleDragStart = (e: DragEvent): void => {
-    e.dataTransfer.setData(DRAG_TYPE, itemKey);
-    e.dataTransfer.effectAllowed = "move";
-  };
-  const handleDragOver = (e: DragEvent): void => {
-    if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
-    e.preventDefault();
-    setOver(true);
-  };
-  const handleDrop = (e: DragEvent): void => {
-    setOver(false);
-    const dragged = e.dataTransfer.getData(DRAG_TYPE);
-    if (dragged === "" || dragged === itemKey) return;
-    e.preventDefault();
-    move(dragged, itemKey);
-  };
+  const handleDragStart = (event: DragEvent): void =>
+    startDrag({
+      event,
+      items: [{ type: HAUL_TYPE, key: itemKey }],
+      preview: (
+        <Haul.Preview
+          swatch={xcolor.cssString(get(path.light).value)}
+          name={name.value}
+          facts={FACTS}
+        />
+      ),
+    });
   return (
     <Select.Item<color.Key>
       {...props}
@@ -347,9 +324,10 @@ const Item = (props: List.ItemProps<color.Key>): ReactElement | null => {
       aria-label={named.name}
       draggable={canUpdate}
       onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
       onDragLeave={() => setOver(false)}
-      onDrop={handleDrop}
+      onDrop={onDrop}
       className={CSS.cls(
         CSS.BE("color-settings", "item"),
         over && CSS.BEM("color-settings", "item", "over"),
@@ -377,19 +355,10 @@ const Item = (props: List.ItemProps<color.Key>): ReactElement | null => {
           </Flex.Box>
         </List.Cell>
         <List.Cell>
-          <Value
-            value={lightValue}
-            onChange={canUpdate ? (v) => v != null && light.onChange(v) : undefined}
-            label="Light theme color"
-          />
+          <PColor.LightInput disabled={!canUpdate} />
         </List.Cell>
         <List.Cell>
-          <Value
-            value={dark?.value}
-            fallback={theme.legible(lightValue, DARK)}
-            onChange={canUpdate ? dark?.onChange : undefined}
-            label="Dark theme color"
-          />
+          <PColor.DarkInput disabled={!canUpdate} />
         </List.Cell>
       </List.Cells>
     </Select.Item>
@@ -455,7 +424,11 @@ const NewColorForm = ({
     if (variant !== "loading") save();
   };
   return (
-    <PlatformSettings.CreateProvider close={onClose} created={onCreated}>
+    <PlatformSettings.CreateProvider
+      close={onClose}
+      creating={onCreated}
+      created={onCreated}
+    >
       <Form.Form<typeof PColor.createFormSchema> {...form}>
         <div className={CSS.BE("color-settings", "form")}>
           <span className={CSS.BE("color-settings", "form-check")} />
@@ -471,15 +444,7 @@ const NewColorForm = ({
               </Form.Field>
             </List.Cell>
             <List.Cell>
-              <Form.Field path={createPath.light} showLabel={false} padHelpText={false}>
-                {({ value, onChange }) => (
-                  <Value
-                    value={value}
-                    onChange={(v) => v != null && onChange(v)}
-                    label="Light theme color"
-                  />
-                )}
-              </Form.Field>
+              <PColor.LightInput />
             </List.Cell>
             <List.Cell>
               <Flex.Box x align="center" justify="between">
@@ -519,14 +484,10 @@ interface NewPaletteProps {
 
 const NewPalette = ({ onCreated }: NewPaletteProps): ReactElement => {
   const { close } = PlatformSettings.useCreate();
-  const { updateAsync } = Group.useCreate();
+  const { updateAsync } = PColor.useCreatePalette();
   const handleSave = async (name: string): Promise<boolean> => {
     const key = uuid.create();
-    const created = await updateAsync({
-      key,
-      name,
-      scope: color.TYPE_RESOURCE_ID.type,
-    });
+    const created = await updateAsync({ key, name });
     if (created) onCreated(key);
     return created;
   };
@@ -658,24 +619,27 @@ export const Settings = (): ReactElement => {
   );
   const paletteName = (c: color.Named): string | undefined =>
     c.group == null ? undefined : palettes.get(c.group);
-  const compare = (a: color.Named, b: color.Named): number => {
+  const byPalette = (a: color.Named, b: color.Named): number => {
     const pa = paletteName(a);
     const pb = paletteName(b);
-    if (pa !== pb) {
-      if (pa == null) return 1;
-      if (pb == null) return -1;
-      return pa.localeCompare(pb);
-    }
-    return comparePositions(a.position, b.position) || a.name.localeCompare(b.name);
+    if (pa === pb) return 0;
+    if (pa == null) return 1;
+    if (pb == null) return -1;
+    return compare.text(pa, pb);
   };
+  const inOrder = compare.chain(
+    byPalette,
+    (a, b) => comparePositions(a.position, b.position),
+    compare.by((c) => c.name),
+  );
   const sorted = list.data
     .flatMap((k) => {
       const c = byKey.get(k);
       return c == null ? [] : [c];
     })
-    .sort(compare);
+    .sort(inOrder);
   // Every color of each palette, whatever the search shows.
-  const members = Map.groupBy([...all].sort(compare), (c) => c.group ?? "");
+  const members = Map.groupBy([...all].sort(inOrder), (c) => c.group ?? "");
   const move = (dragged: color.Key, target: color.Key): void => {
     const d = byKey.get(dragged);
     const t = byKey.get(target);
@@ -688,7 +652,7 @@ export const Settings = (): ReactElement => {
     .map((c) => c.light);
   const byGroup = Map.groupBy(sorted, (c) => c.group ?? "");
   const order = [...palettes.entries()]
-    .sort(([, a], [, b]) => a.localeCompare(b))
+    .sort(compare.by(([, name]) => name))
     .map(([key]) => key);
   if (byGroup.has("")) order.push("");
   const headings = new Map<string, PaletteHeadingProps>();

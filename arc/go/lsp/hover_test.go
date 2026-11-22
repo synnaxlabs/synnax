@@ -10,6 +10,9 @@
 package lsp_test
 
 import (
+	"strings"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
@@ -803,6 +806,7 @@ func add() {a i32, b i32} i32 {
 		Entry("*=", "x *= 5", uint32(2), "*=", ""),
 		Entry("/=", "x /= 5", uint32(2), "/=", ""),
 		Entry("%=", "x %= 5", uint32(2), "%=", ""),
+		Entry("!= after a non-ASCII character", `"°" != y`, uint32(4), "!=", ""),
 	)
 
 	Describe("Edge Cases", func() {
@@ -866,6 +870,120 @@ func add() {a i32, b i32} i32 {
 				Expect(HoverContents(hover)).To(ContainSubstring("i32"))
 			},
 		)
+
+		Describe("Dashed names", func() {
+			newServer := func(allowDashedNames bool) *lsp.Server {
+				server := MustSucceed(lsp.New(lsp.Config{
+					NewRoot: func() *symbol.Symbol {
+						return NewRoot(
+							nil,
+							symbol.Symbol{
+								Name: "ox-pt-1",
+								Type: types.I32(),
+								Kind: symbol.KindVariable,
+							},
+							symbol.Symbol{
+								Name: "pt",
+								Type: types.I32(),
+								Kind: symbol.KindVariable,
+							},
+							symbol.Symbol{
+								Name: "ms",
+								Type: types.I32(),
+								Kind: symbol.KindVariable,
+							},
+						)
+					},
+					AllowDashedNames: allowDashedNames,
+				}))
+				server.SetClient(&MockClient{})
+				return server
+			}
+
+			It("should hover the whole dashed name", func(ctx SpecContext) {
+				server = newServer(true)
+				OpenArcDocument(
+					server,
+					ctx,
+					uri,
+					"func test() i32 {\n    return ox-pt-1\n}",
+				)
+				hover := Hover(server, ctx, uri, 1, 15)
+				Expect(hover).ToNot(BeNil())
+				Expect(HoverContents(hover)).To(ContainSubstring("ox-pt-1"))
+			})
+
+			It(
+				"should split a dashed name when dashed names are off",
+				func(ctx SpecContext) {
+					server = newServer(false)
+					OpenArcDocument(
+						server,
+						ctx,
+						uri,
+						"func test() i32 {\n    return ox-pt-1\n}",
+					)
+					hover := Hover(server, ctx, uri, 1, 15)
+					Expect(hover).ToNot(BeNil())
+					Expect(HoverContents(hover)).To(ContainSubstring("pt"))
+					Expect(HoverContents(hover)).ToNot(ContainSubstring("ox-pt-1"))
+				},
+			)
+
+			DescribeTable(
+				"should split where the lexer splits",
+				func(ctx SpecContext, expr string, char uint32) {
+					server = newServer(true)
+					OpenArcDocument(
+						server,
+						ctx,
+						uri,
+						"func test() i32 {\n    return "+expr+"\n}",
+					)
+					hover := Hover(server, ctx, uri, 1, char)
+					Expect(hover).ToNot(BeNil())
+					Expect(HoverContents(hover)).To(HavePrefix("#### pt\n"))
+				},
+				Entry("after an integer", "1-pt", uint32(14)),
+				Entry("after a float", "1.5-pt", uint32(16)),
+				Entry("before an arrow", "pt->ox-pt-1", uint32(11)),
+				Entry("before a minus-assign", "pt-=1", uint32(11)),
+				Entry("after a leading dash", "-pt", uint32(13)),
+				Entry("before a spaced minus", "pt - 1", uint32(11)),
+			)
+
+			It(
+				"should look up a name with many dashes in linear time",
+				func(ctx SpecContext) {
+					server = newServer(true)
+					name := strings.Repeat("a-", 10_000) + "a"
+					OpenArcDocument(server, ctx, uri, name)
+					start := time.Now()
+					Expect(Hover(server, ctx, uri, 0, uint32(len(name)-1))).To(BeNil())
+					Expect(
+						time.Since(start),
+					).To(BeNumerically("<", 100*time.Millisecond))
+				},
+				SpecTimeout(10*time.Second),
+			)
+
+			DescribeTable(
+				"should not resolve a unit suffix as a symbol",
+				func(ctx SpecContext, expr string, char uint32) {
+					server = newServer(true)
+					OpenArcDocument(
+						server,
+						ctx,
+						uri,
+						"func test() i32 {\n    return "+expr+"\n}",
+					)
+					Expect(Hover(server, ctx, uri, 1, char)).To(BeNil())
+				},
+				Entry("a time unit", "3min", uint32(13)),
+				Entry("a short time unit", "10ms", uint32(14)),
+				Entry("an unknown unit", "12pt", uint32(14)),
+			)
+		})
 	})
 
 	Describe("Qualified Module Identifiers", func() {
@@ -907,6 +1025,35 @@ func add() {a i32, b i32} i32 {
 				OpenArcDocument(server, ctx, uri, content)
 				hover := Hover(server, ctx, uri, 1, 17) // n|ow
 				Expect(hover).To(BeNil())
+			},
+		)
+
+		It(
+			"Should take a user module member's doc from the module, not the document",
+			func(ctx SpecContext) {
+				sources := map[string]string{
+					"lib.m": "\n\n// returns one\nexport func f() i64 {\n    return 1\n}",
+				}
+				server = MustSucceed(lsp.New(lsp.Config{
+					NewRoot: func() *symbol.Symbol { return NewModuleRoot(sources) },
+				}))
+				server.SetClient(&MockClient{})
+				content := "import lib.m\n\n// unrelated note\n\n" +
+					"interval(period=100ms) -> m.f()"
+				OpenArcDocument(server, ctx, uri, content)
+				hover := Hover(server, ctx, uri, 4, 28) // m.|f
+				Expect(hover).ToNot(BeNil())
+				Expect(HoverContents(hover)).To(ContainSubstring("returns one"))
+				Expect(HoverContents(hover)).ToNot(ContainSubstring("unrelated note"))
+			},
+		)
+
+		It(
+			"Should not provide hover for a member of a non-module head",
+			func(ctx SpecContext) {
+				content := "func b() {}\n\nfunc test() {\n    a := 1\n    a.b()\n}"
+				OpenArcDocument(server, ctx, uri, content)
+				Expect(Hover(server, ctx, uri, 4, 6)).To(BeNil())
 			},
 		)
 

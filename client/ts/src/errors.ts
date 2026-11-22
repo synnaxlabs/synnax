@@ -36,7 +36,7 @@ export class PathError extends ValidationError.sub("path") {
     return new PathError(decoded.path, errors.decode(decoded.error) as Error);
   }
 
-  static matchExact(e: unknown): e is PathError {
+  static override matchExact(e: unknown): e is PathError {
     return (
       e != null &&
       typeof e === "object" &&
@@ -127,6 +127,9 @@ export class DisconnectedError extends SynnaxError.sub("disconnected") {
 export const isConnectionError = (err: unknown): boolean =>
   Unreachable.matches(err) || Timeout.matches(err) || DisconnectedError.matches(err);
 
+/** Raised when an edit targets a document that is not in the client's cache. */
+export class NotCachedError extends SynnaxError.sub("not_cached") {}
+
 /** Raised when time-series data is not contiguous. */
 export class ContiguityError extends SynnaxError.sub("contiguity") {}
 
@@ -190,6 +193,9 @@ const decode = (payload: errors.Payload): Error | null => {
     return new ControlError(payload.data);
   }
 
+  if (payload.type.startsWith(NotCachedError.TYPE))
+    return new NotCachedError(payload.data);
+
   if (payload.type.startsWith(RouteError.TYPE))
     return new RouteError(payload.data, payload.data);
 
@@ -229,11 +235,7 @@ export const errorsMiddleware: Middleware = async (ctx, next) => {
     return await next(ctx);
   } catch (err) {
     if (err instanceof Unreachable)
-      throw new Unreachable({
-        message: `Cannot reach Core at ${err.url.host}:${err.url.port}`,
-        url: err.url,
-        cause: err.cause ?? err,
-      });
+      err.message = `Cannot reach Core at ${err.url.host}:${err.url.port}`;
     throw errors.fromUnknown(err);
   }
 };

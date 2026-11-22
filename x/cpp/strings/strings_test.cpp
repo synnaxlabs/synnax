@@ -126,6 +126,28 @@ TEST(Trim, AllWhitespaceIsEmpty) {
     EXPECT_EQ(x::strings::trim(""), "");
 }
 
+/// @brief it should remove a trailing line feed.
+TEST(TrimTrailingLineBreaks, RemovesLineFeed) {
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks("value\n"), "value");
+}
+
+/// @brief it should remove every trailing carriage return and line feed.
+TEST(TrimTrailingLineBreaks, RemovesCarriageReturnLineFeed) {
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks("value\r\n"), "value");
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks("value\r\n\n"), "value");
+}
+
+/// @brief it should keep spaces and the line breaks before the end.
+TEST(TrimTrailingLineBreaks, KeepsSpacesAndInnerLineBreaks) {
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks(" a\nb \n"), " a\nb ");
+}
+
+/// @brief it should return an empty string for a string of only line breaks.
+TEST(TrimTrailingLineBreaks, AllLineBreaksIsEmpty) {
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks("\r\n"), "");
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks(""), "");
+}
+
 TEST(Unquote, RemovesOneLayer) {
     EXPECT_EQ(x::strings::unquote("\"hello\""), "hello");
     EXPECT_EQ(x::strings::unquote("'hello'"), "hello");
@@ -152,4 +174,29 @@ TEST(EscapeLineBreaks, EscapesEveryLineBreak) {
         x::strings::escape_line_breaks("<html>\n  <body>\r\n</body>\n"),
         "<html>\\n  <body>\\r\\n</body>\\n"
     );
+}
+
+/// @brief it should accept ASCII and well-formed multi-byte sequences.
+TEST(ValidUTF8, AcceptsWellFormed) {
+    EXPECT_TRUE(x::strings::valid_utf8(""));
+    EXPECT_TRUE(x::strings::valid_utf8("plain"));
+    EXPECT_TRUE(x::strings::valid_utf8("caf\xC3\xA9 \xE2\x82\xAC \xF0\x9F\x98\x80"));
+}
+
+/// @brief it should reject bad lead and continuation bytes and cut sequences.
+TEST(ValidUTF8, RejectsMalformed) {
+    EXPECT_FALSE(x::strings::valid_utf8("caf\xE9"));
+    EXPECT_FALSE(x::strings::valid_utf8("\x80"));
+    EXPECT_FALSE(x::strings::valid_utf8("\xC3"));
+    EXPECT_FALSE(x::strings::valid_utf8("\xE2\x82"));
+    EXPECT_FALSE(x::strings::valid_utf8("\xC3\x28"));
+    EXPECT_FALSE(x::strings::valid_utf8("\xFF"));
+}
+
+/// @brief it should reject overlong forms, surrogates, and code points past U+10FFFF.
+TEST(ValidUTF8, RejectsOutOfRange) {
+    EXPECT_FALSE(x::strings::valid_utf8("\xC0\xAF"));
+    EXPECT_FALSE(x::strings::valid_utf8("\xE0\x80\xAF"));
+    EXPECT_FALSE(x::strings::valid_utf8("\xED\xA0\x80"));
+    EXPECT_FALSE(x::strings::valid_utf8("\xF4\x90\x80\x80"));
 }

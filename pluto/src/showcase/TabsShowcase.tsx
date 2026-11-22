@@ -49,7 +49,12 @@ const DraggableTab = ({ tabKey, children }: DraggableTabProps): ReactElement => 
   const handleDragStart: DragEventHandler<HTMLDivElement> = (e) => {
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", tabKey);
-    startDrag([{ type: TAB_TYPE, key: tabKey }]);
+    startDrag({
+      event: e,
+      items: [{ type: TAB_TYPE, key: tabKey }],
+      preview: <Haul.Copy of={e.currentTarget} />,
+      anchor: "grab",
+    });
   };
   return (
     <Tabs.Tab

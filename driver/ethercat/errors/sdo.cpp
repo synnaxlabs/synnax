@@ -110,11 +110,11 @@ std::string SDOFailure::reason() const {
         case Kind::ABORTED:
             return abort_reason(this->abort_code);
         case Kind::UNEXPECTED_REPLY:
-            return "the slave sent an unexpected reply";
+            return "the module sent an unexpected reply";
         case Kind::REPLY_TOO_LARGE:
             return "the reply is larger than the read allows";
         case Kind::MAILBOX_ERROR:
-            return "the slave refused the mailbox request";
+            return "the module refused the mailbox request";
     }
     std::unreachable();
 }

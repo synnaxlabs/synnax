@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action, type UnknownAction } from "@reduxjs/toolkit";
-import { type dimensions, type xy } from "@synnaxlabs/x";
+import type { Action, UnknownAction } from "@reduxjs/toolkit";
+import type { dimensions, xy } from "@synnaxlabs/x";
 
-import { type StoreState } from "@/state";
-import { type WindowProps } from "@/window";
+import type { StoreState } from "@/state";
+import type { WindowProps } from "@/window";
 
 /** An event emitted by drift to communicate state changes. */
 export interface Event<S extends StoreState, A extends Action = UnknownAction> {
@@ -70,6 +70,8 @@ export interface Manager {
   /**
    * Creates a new window with the given properties. The window should not be shown
    * until the ready() method is called.
+   *
+   * @throws If the runtime fails to create the window.
    */
   create: (label: string, props: Omit<WindowProps, "key">) => Promise<void>;
   /** Closes the window with the given key. */

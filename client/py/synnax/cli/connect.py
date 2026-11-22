@@ -13,7 +13,7 @@ from pathlib import Path
 
 from keyring.errors import KeyringError
 
-from freighter.exceptions import Unreachable
+from freighter.exceptions import Timeout, Unreachable
 from synnax import Synnax
 from synnax.auth import api_key_id
 from synnax.cli.prompt import Prompt
@@ -98,6 +98,9 @@ def _connect(prompt: Prompt, *, opts: Options) -> Synnax | None:
         client = Synnax(**opts.model_dump())
     except Unreachable:
         prompt.error(f"Cannot reach Synnax server at {opts.host}:{opts.port}")
+        return None
+    except Timeout:
+        prompt.error(f"No response from Synnax server at {opts.host}:{opts.port}")
         return None
     except AuthError:
         prompt.error("Invalid credentials")

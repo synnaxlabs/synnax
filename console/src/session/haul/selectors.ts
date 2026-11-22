@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch } from "@reduxjs/toolkit";
-import { type Haul } from "@synnaxlabs/lyra/haul";
+import type { Dispatch } from "@reduxjs/toolkit";
+import type { Haul } from "@synnaxlabs/lyra/haul";
 import { useDispatch } from "react-redux";
 
 import {
@@ -19,10 +19,9 @@ import {
 } from "@/session/haul/slice";
 import { Select } from "@/session/select";
 
-const selectHauling = (state: StoreState): Haul.DraggingState =>
-  state[SLICE_NAME].state;
+const selectHauling = (state: StoreState): Haul.State => state[SLICE_NAME].state;
 
-const useSelectHauling = (): Haul.DraggingState => Select.useMemo(selectHauling, []);
+const useSelectHauling = (): Haul.State => Select.useMemo(selectHauling, []);
 
 /** @returns props that keep the Haul provider's drag state in the session. */
 export const useProviderProps = (): Haul.ProviderProps => {

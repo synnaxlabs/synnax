@@ -19,7 +19,7 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
 
 /** Fetches channel payloads, throwing a {@link NotFoundError} when any is missing. */
-const retrieveRequired = async (
+export const retrieveRequired = async (
   retrieve: ChannelRetriever,
   channels: ReturnType<typeof channel.analyzeParams>["normalized"],
 ): Promise<channel.Payload[]> => {
@@ -63,18 +63,12 @@ export class ReadAdapter {
   async update(channels: channel.Params): Promise<boolean> {
     const { variant, normalized } = channel.analyzeParams(channels);
     const fetched = await retrieveRequired(this.retrieveChannels, normalized);
-    const newKeys = fetched.map((c) => c.key);
-    const newKeySet = new Set(newKeys);
-    if (newKeySet.size === this.keys.size && newKeySet.isSubsetOf(this.keys))
-      return false;
+    const newKeys = new Set(fetched.map((c) => c.key));
+    this.adapter =
+      variant === "keys" ? null : new Map(fetched.map((c) => [c.key, c.name]));
+    if (newKeys.size === this.keys.size && newKeys.isSubsetOf(this.keys)) return false;
     this.fetched = fetched;
-    if (variant === "keys") {
-      this.adapter = null;
-      this.keys = new Set(normalized);
-      return true;
-    }
-    this.adapter = new Map(fetched.map((c) => [c.key, c.name]));
-    this.keys = new Set(this.adapter.keys());
+    this.keys = newKeys;
     return true;
   }
 

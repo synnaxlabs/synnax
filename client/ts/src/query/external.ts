@@ -49,7 +49,7 @@ export {
   Retriever,
   type RetrieverParams,
 } from "@/query/retriever";
-export { type Listener } from "@/query/streamer";
+export type { Listener } from "@/query/streamer";
 export {
   createDeleteListener,
   createFetchListener,
@@ -68,10 +68,6 @@ export {
   type TableParams,
   type TableSubscriber,
 } from "@/query/table";
-export {
-  type Data,
-  type FetchOptions,
-  type Params,
-  type WriteOptions,
-} from "@/query/types";
+export type { Data, FetchOptions, Params, WriteOptions } from "@/query/types";
+export { Uses, type UsesConfig } from "@/query/uses";
 export { optimistic, type OptimisticParams } from "@/query/write";
