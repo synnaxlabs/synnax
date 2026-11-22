@@ -327,8 +327,8 @@ func (t *ScanTask) scan(ctx context.Context) error {
 	return nil
 }
 
-// check checks each device concurrently and returns the health of each, in the order
-// of devices.
+// check checks each device concurrently and returns the health of each, in the order of
+// devices.
 func (t *ScanTask) check(ctx context.Context, devices []device.Device) []health {
 	results := make([]health, len(devices))
 	checkCtx, cancel := context.WithTimeout(ctx, t.cfg.CheckTimeout)
@@ -355,8 +355,8 @@ func (t *ScanTask) check(ctx context.Context, devices []device.Device) []health 
 	return results
 }
 
-// updateStatuses writes the status of each device whose stored health differs from
-// its result in results. It returns the number of statuses it wrote.
+// updateStatuses writes the status of each device whose stored health differs from its
+// result in results. It returns the number of statuses it wrote.
 func (t *ScanTask) updateStatuses(
 	ctx context.Context,
 	devices []device.Device,

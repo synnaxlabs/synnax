@@ -100,8 +100,8 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	return d, nil
 }
 
-// registerRack writes the driver's integrations and version to its rack and reads
-// the rack back.
+// registerRack writes the driver's integrations and version to its rack and reads the
+// rack back.
 func (d *Driver) registerRack(ctx context.Context) error {
 	integrations := make([]string, len(d.cfg.Factories))
 	for i, f := range d.cfg.Factories {
@@ -656,8 +656,8 @@ func (d *Driver) deploy(ctx context.Context, t task.Task, cmdKey string) error {
 		if err != nil {
 			return err
 		}
-		// A commit that deleted the task during the deploy marked no instance. The
-		// lock orders this check before markDeleted of any later delete.
+		// A commit that deleted the task during the deploy marked no instance. The lock
+		// orders this check before markDeleted of any later delete.
 		d.mu.Lock()
 		exists, err := d.cfg.Task.NewRetrieve().
 			Where(task.MatchKeys(t.Key)).

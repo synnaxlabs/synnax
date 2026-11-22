@@ -528,8 +528,8 @@ func (g *Graph) applyDelete(
 	g.mu.rejected.Remove(chg.Key)
 }
 
-// applyCalculated inspects the calculated channel that chg sets and stores its node.
-// It returns the channel with its new data type, and reports whether the data type
+// applyCalculated inspects the calculated channel that chg sets and stores its node. It
+// returns the channel with its new data type, and reports whether the data type
 // changed.
 func (g *Graph) applyCalculated(
 	ctx context.Context,
