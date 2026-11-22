@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 // stampSize is the size of a stamp.
@@ -53,7 +54,7 @@ func (r *reader) indexes() error {
 		}
 	}
 	if err := each(len(clocks), func(i int) error {
-		h := &handle{fs: r.FS}
+		h := &handle{fs: r.FS, l: r.L}
 		return errors.Join(h.bounds(clocks[i]), h.close())
 	}); err != nil {
 		return err
@@ -76,7 +77,7 @@ func (r *reader) indexes() error {
 }
 
 // bounds reads the first and last stamp of each pointer of c, in file-offset order
-// within each old file.
+// within each old file, then checks the newest pointers.
 func (h *handle) bounds(c *clock) error {
 	order := make([]int, len(c.ptrs))
 	for k := range order {
@@ -96,6 +97,58 @@ func (h *handle) bounds(c *clock) error {
 		if c.last[k], err = h.stamp(c, k, c.count(k)-1); err != nil {
 			return err
 		}
+	}
+	return h.newest(c)
+}
+
+// newest cuts the newest pointer of c after its last stamp inside its time range, by a
+// binary search. A crash can leave zeros inside an old file, and a zero stamp is never
+// inside the range. A pointer whose first stamp is outside goes, and newest then checks
+// the pointer before it.
+func (h *handle) newest(c *clock) error {
+	for k := len(c.ptrs) - 1; k >= 0; k-- {
+		p := c.ptrs[k]
+		inside := func(s telem.TimeStamp) bool { return s >= p.start && s < p.end }
+		if inside(c.last[k]) {
+			return nil
+		}
+		name := fileName(c.key, p.file)
+		if !inside(c.first[k]) {
+			h.l.Warn(
+				"dropped the newest pointer of an index, whose first stamp is outside "+
+					"its time range",
+				zap.Uint32("key", c.key),
+				zap.String("file", name),
+				zap.Uint32("offset", p.offset),
+				zap.Uint32("stamps", c.count(k)),
+			)
+			c.ptrs, c.first, c.last = c.ptrs[:k], c.first[:k], c.last[:k]
+			continue
+		}
+		lo, hi, last := uint32(0), c.count(k)-1, c.first[k]
+		for hi-lo > 1 {
+			mid := lo + (hi-lo)/2
+			s, err := h.stamp(c, k, mid)
+			if err != nil {
+				return err
+			}
+			if inside(s) {
+				lo, last = mid, s
+			} else {
+				hi = mid
+			}
+		}
+		h.l.Warn(
+			"cut the newest pointer of an index after its last stamp inside its time "+
+				"range",
+			zap.Uint32("key", c.key),
+			zap.String("file", name),
+			zap.Uint32("offset", p.offset),
+			zap.Uint32("stamps", c.count(k)),
+			zap.Uint32("kept", lo+1),
+		)
+		c.ptrs[k].size, c.last[k] = (lo+1)*stampSize, last
+		return nil
 	}
 	return nil
 }
@@ -149,7 +202,7 @@ func (r *reader) datas() error {
 	}
 	pieces := make([]map[uint16][]state.Pointer, len(chs))
 	if err := each(len(chs), func(i int) (err error) {
-		h := &handle{fs: r.FS}
+		h := &handle{fs: r.FS, l: r.L}
 		pieces[i], err = h.data(chs[i], r.clocks[chs[i].Index], r.ptrs[chs[i].Key])
 		return errors.Join(err, h.close())
 	}); err != nil {
@@ -208,27 +261,35 @@ func (h *handle) split(
 	}
 	for off < end {
 		if k == len(c.ptrs) {
-			return noStamps(name, off, end, c.key)
+			h.cut(key, name, off, end, c.key)
+			return nil
 		}
 		n, final, err := h.take(c, k, pos, d, density, off)
 		if err != nil {
 			return err
 		}
 		if n == 0 {
-			return noStamps(name, off, end, c.key)
+			h.cut(key, name, off, end, c.key)
+			return nil
+		}
+		length := n * uint32(density)
+		switch {
+		// A whole pointer that ends by 1 ns after its last stamp has a stamp for each
+		// sample.
+		case density == 0 && final && !d.cut && c.last[k] >= d.end-1:
+			length = end - off
+		case density == 0:
+			if n, length, err = h.walk(name, off, end, n); err != nil {
+				return err
+			}
+			if n == 0 {
+				h.cut(key, name, off, end, c.key)
+				return nil
+			}
 		}
 		last := c.last[k]
 		if pos+n < c.count(k) {
 			if last, err = h.stamp(c, k, pos+n-1); err != nil {
-				return err
-			}
-		}
-		length := n * uint32(density)
-		switch {
-		case density == 0 && final:
-			length = end - off
-		case density == 0:
-			if length, err = h.walk(name, off, end, n); err != nil {
 				return err
 			}
 		}
@@ -303,61 +364,47 @@ func (h *handle) start(c *clock, d pointer) (int, uint32, telem.TimeStamp, error
 	return k, pos, first, err
 }
 
-// noStamps returns the error of bytes off to end of the file name that hold samples
-// with no stamps in clock.
-func noStamps(name string, off, end, clock uint32) error {
-	return errors.Newf(
-		"bytes %d to %d of %s have no stamps in key %d",
-		off,
-		end,
-		name,
-		clock,
+// cut logs the cut of bytes off to end of the file name of key, whose samples have no
+// stamps in clock.
+func (h *handle) cut(key uint32, name string, off, end, clock uint32) {
+	h.l.Warn(
+		"cut the samples of a data pointer that its index has no stamps for",
+		zap.Uint32("key", key),
+		zap.String("file", name),
+		zap.Uint32("offset", off),
+		zap.Uint32("bytes", end-off),
+		zap.Uint32("index", clock),
 	)
 }
 
 // walkChunk is the most bytes that one read of a walk takes.
 const walkChunk = 1 << 20
 
-// walk returns the bytes of the n variable-type samples at off of the file name, from
-// their length prefixes. It returns an error when the samples pass end.
-func (h *handle) walk(name string, off, end, n uint32) (uint32, error) {
-	at := int64(off)
-	for left := n; left > 0; {
-		if int64(end)-at < 4 {
-			return 0, errors.Newf(
-				"%d variable samples at %d of %s pass the end %d of their pointer",
-				n,
-				off,
-				name,
-				end,
-			)
-		}
+// walk returns how many of the n variable-type samples at off of the file name end by
+// end, from their length prefixes, and their bytes.
+func (h *handle) walk(name string, off, end, n uint32) (uint32, uint32, error) {
+	at, left := int64(off), n
+	for left > 0 && int64(end)-at >= 4 {
 		b, err := h.agreed(name, at, int(min(walkChunk, int64(end)-at)))
 		if err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 		i := int64(0)
 		for left > 0 && i+4 <= int64(len(b)) {
 			next := i + 4 + int64(binary.LittleEndian.Uint32(b[i:]))
 			if next > int64(len(b)) {
-				// A sample longer than a read moves the walk past it.
-				if i == 0 {
-					i, left = next, left-1
-				}
 				break
 			}
 			i, left = next, left-1
 		}
+		if i == 0 {
+			// The sample at at is longer than a read, or passes end.
+			if i = 4 + int64(binary.LittleEndian.Uint32(b)); at+i > int64(end) {
+				break
+			}
+			left--
+		}
 		at += i
 	}
-	if at > int64(end) {
-		return 0, errors.Newf(
-			"%d variable samples at %d of %s pass the end %d of their pointer",
-			n,
-			off,
-			name,
-			end,
-		)
-	}
-	return uint32(at - int64(off)), nil
+	return n - left, uint32(at - int64(off)), nil
 }

@@ -27,7 +27,7 @@ func (e *engine) convert(o *options, db uint64) (*state.Snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
-	snapshot, channels, err := convert.Read(convert.Config{
+	plan, err := convert.Read(convert.Config{
 		Instrumentation: o.Instrumentation,
 		FS:              o.fs,
 		Codec:           o.metaCodec,
@@ -36,6 +36,7 @@ func (e *engine) convert(o *options, db uint64) (*state.Snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
+	snapshot, channels := plan.Snapshot, plan.Channels
 	names, dirs := make([]string, len(channels)), make([]string, len(channels))
 	var g errgroup.Group
 	g.SetLimit(syncWidth)

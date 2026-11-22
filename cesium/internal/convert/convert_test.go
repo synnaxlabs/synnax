@@ -15,9 +15,12 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/convert"
 	"github.com/synnaxlabs/cesium/internal/place"
@@ -27,6 +30,8 @@ import (
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var codec = json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
@@ -150,10 +155,14 @@ var _ = Describe("Read", func() {
 		fs = xfs.NewMem()
 		root = oldRoot{fs: fs}
 	})
-	cfg := func() convert.Config { return convert.Config{FS: fs, Codec: codec} }
+	var cfg func() convert.Config
+	BeforeEach(func() {
+		cfg = func() convert.Config { return convert.Config{FS: fs, Codec: codec} }
+	})
 	read := func() (*state.Snapshot, []channel.Channel) {
 		GinkgoHelper()
-		return MustSucceed2(convert.Read(cfg()))
+		p := MustSucceed(convert.Read(cfg()))
+		return p.Snapshot, p.Channels
 	}
 
 	It(
@@ -216,12 +225,12 @@ var _ = Describe("Read", func() {
 		root.file(1, 1, stamps(30, 40, 10, 20))
 		root.pointers(1, old{30, 41, 1, 0, 16}, old{10, 21, 1, 16, 16})
 		var offs []int64
-		s, _ := MustSucceed2(convert.Read(convert.Config{
+		p := MustSucceed(convert.Read(convert.Config{
 			FS:    offsetFS{FS: fs, name: "1/1.domain", offs: &offs},
 			Codec: codec,
 		}))
 		Expect(offs).To(Equal([]int64{0, 0, 8, 8, 16, 16, 24, 24}))
-		Expect(s.Channels[0].Segments[0].Pointers).To(Equal([]state.Pointer{
+		Expect(p.Snapshot.Channels[0].Segments[0].Pointers).To(Equal([]state.Pointer{
 			ptr(30, 40, 2, 0, 0, 16, 2),
 			ptr(10, 20, 1, 0, 16, 16, 2),
 		}))
@@ -352,54 +361,235 @@ var _ = Describe("Read", func() {
 	)
 
 	It("Should carry the delete intents in rising order", func() {
-		s, _ := MustSucceed2(convert.Read(convert.Config{
+		p := MustSucceed(convert.Read(convert.Config{
 			FS:      fs,
 			Codec:   codec,
 			Intents: []uint32{9, 2, 9, 4},
 		}))
-		Expect(s.Intents).To(Equal([]uint32{2, 4, 9}))
+		Expect(p.Snapshot.Intents).To(Equal([]uint32{2, 4, 9}))
 	})
 
-	It("Should refuse a pointer that ends past its file", func() {
-		root.channel(idx(1))
-		root.file(1, 1, stamps(1, 2))
-		root.pointers(1, old{1, 4, 1, 0, 24})
-		Expect(convert.Read(cfg())).Error().To(MatchError(
-			"a pointer of key 1 ends at 24, past the length 16 of 1/1.domain",
-		))
-	})
+	Describe("Cuts", func() {
+		var logs *observer.ObservedLogs
+		BeforeEach(func() {
+			var ins alamos.Instrumentation
+			ins, logs = ObservedInstrumentation(zapcore.WarnLevel)
+			cfg = func() convert.Config {
+				return convert.Config{Instrumentation: ins, FS: fs, Codec: codec}
+			}
+		})
+		// warned returns the fields of each warning with the message msg.
+		warned := func(msg string) []map[string]any {
+			var fields []map[string]any
+			for _, e := range logs.FilterMessage(msg).All() {
+				fields = append(fields, e.ContextMap())
+			}
+			return fields
+		}
+		const (
+			pastFile = "cut a pointer that ends past its file to the whole samples " +
+				"inside it"
+			noStamps = "cut the samples of a data pointer that its index has no " +
+				"stamps for"
+			newest = "cut the newest pointer of an index after its last stamp " +
+				"inside its time range"
+			dropped = "dropped the newest pointer of an index, whose first stamp is " +
+				"outside its time range"
+		)
 
-	It("Should refuse a pointer to a file that does not exist", func() {
-		root.channel(idx(1))
-		root.pointers(1, old{1, 4, 2, 0, 24})
-		Expect(convert.Read(cfg())).Error().To(MatchError(
-			"a pointer of key 1 ends at 24, past the length 0 of 1/2.domain",
-		))
-	})
+		It("Should cut a pointer that ends past its file to its whole stamps", func() {
+			root.channel(idx(1))
+			root.file(1, 1, append(stamps(1, 2), 3, 0, 0))
+			root.pointers(1, old{1, 4, 1, 0, 24})
+			s, _ := read()
+			Expect(s.Channels[0].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 2, 1, 0, 0, 16, 2)},
+			))
+			Expect(warned(pastFile)).To(Equal([]map[string]any{{
+				"key":    uint32(1),
+				"file":   "1/1.domain",
+				"end":    int64(24),
+				"length": int64(19),
+				"kept":   int64(16),
+			}}))
+		})
 
-	It("Should refuse data samples that have no stamps", func() {
-		root.channel(idx(1))
-		root.file(1, 1, stamps(1, 2))
-		root.pointers(1, old{1, 3, 1, 0, 16})
-		root.channel(data(telem.Int64T))
-		root.file(2, 1, telem.NewSeriesV[int64](1, 2, 3).Data)
-		root.pointers(2, old{1, 4, 1, 0, 24})
-		Expect(convert.Read(cfg())).Error().To(MatchError(
-			"bytes 16 to 24 of 2/1.domain have no stamps in key 1",
-		))
-	})
+		It("Should drop a pointer to a file that does not exist", func() {
+			root.channel(idx(1))
+			root.pointers(1, old{1, 4, 2, 0, 24})
+			s, chs := read()
+			Expect(chs).To(HaveLen(1))
+			Expect(s.Channels).To(BeEmpty())
+			Expect(warned(pastFile)).To(ConsistOf(HaveKeyWithValue("kept", int64(0))))
+		})
 
-	It("Should refuse the data samples past the last stamp before the end of their "+
-		"pointer", func() {
-		root.channel(idx(1))
-		root.file(1, 1, stamps(1, 2, 3, 4, 5))
-		root.pointers(1, old{1, 6, 1, 0, 40})
-		root.channel(data(telem.Int64T))
-		root.file(2, 1, telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data)
-		root.pointers(2, old{1, 4, 1, 0, 40})
-		Expect(convert.Read(cfg())).Error().To(MatchError(
-			"bytes 24 to 40 of 2/1.domain have no stamps in key 1",
-		))
+		It("Should cut a variable-type pointer past its file at a whole sample, and "+
+			"time each sample it keeps", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 2, 3))
+			root.pointers(1, old{1, 4, 1, 0, 24})
+			root.channel(data(telem.StringT))
+			whole := strs("ab", "cde")
+			root.file(2, 1, append(slices.Clone(whole), strs("f")[:4]...))
+			root.pointers(2, old{1, 4, 1, 0, uint32(len(strs("ab", "cde", "f")))})
+			s, _ := read()
+			Expect(s.Channels[1].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 2, 1, 0, 0, uint32(len(whole)), 2)},
+			))
+			Expect(warned(pastFile)).To(ConsistOf(
+				HaveKeyWithValue("kept", int64(len(whole))),
+			))
+		})
+
+		It("Should cut data samples that have no stamps", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 2))
+			root.pointers(1, old{1, 3, 1, 0, 16})
+			root.channel(data(telem.Int64T))
+			root.file(2, 1, telem.NewSeriesV[int64](1, 2, 3).Data)
+			root.pointers(2, old{1, 4, 1, 0, 24})
+			s, _ := read()
+			Expect(s.Channels[1].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 2, 1, 0, 0, 16, 2)},
+			))
+			Expect(s.Channels[1].Segments[0].Length).To(BeEquivalentTo(16))
+			Expect(warned(noStamps)).To(Equal([]map[string]any{{
+				"key":    uint32(2),
+				"file":   "2/1.domain",
+				"offset": uint32(16),
+				"bytes":  uint32(8),
+				"index":  uint32(1),
+			}}))
+		})
+
+		It("Should cut the data samples past the last stamp before the end of their "+
+			"pointer", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 2, 3, 4, 5))
+			root.pointers(1, old{1, 6, 1, 0, 40})
+			root.channel(data(telem.Int64T))
+			root.file(2, 1, telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data)
+			root.pointers(2, old{1, 4, 1, 0, 40})
+			s, _ := read()
+			Expect(s.Channels[1].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 3, 1, 0, 0, 24, 3)},
+			))
+			Expect(warned(noStamps)).To(ConsistOf(SatisfyAll(
+				HaveKeyWithValue("offset", uint32(24)),
+				HaveKeyWithValue("bytes", uint32(16)),
+			)))
+		})
+
+		It("Should walk a variable-type pointer that ends past the newest stamp of "+
+			"its index, and cut the samples with no stamps", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 2))
+			root.pointers(1, old{1, 3, 1, 0, 16})
+			root.channel(data(telem.StringT))
+			b := strs("a", "bc", "def")
+			root.file(2, 1, b)
+			root.pointers(2, old{1, 4, 1, 0, uint32(len(b))})
+			s, _ := read()
+			kept := uint32(len(strs("a", "bc")))
+			Expect(s.Channels[1].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 2, 1, 0, 0, kept, 2)},
+			))
+			Expect(warned(noStamps)).To(ConsistOf(SatisfyAll(
+				HaveKeyWithValue("offset", kept),
+				HaveKeyWithValue("bytes", uint32(len(b))-kept),
+			)))
+		})
+
+		It("Should cut the bytes of a variable-type pointer that hold no whole "+
+			"sample", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 2, 3, 4))
+			root.pointers(
+				1,
+				old{1, 2, 1, 0, 8},
+				old{2, 3, 1, 8, 8},
+				old{3, 5, 1, 16, 16},
+			)
+			root.channel(data(telem.StringT))
+			b := append(strs("a"), 9, 9)
+			root.file(2, 1, b)
+			root.pointers(2, old{1, 5, 1, 0, uint32(len(b))})
+			s, _ := read()
+			Expect(s.Channels[1].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 1, 1, 0, 0, 5, 1)},
+			))
+			Expect(warned(noStamps)).To(ConsistOf(SatisfyAll(
+				HaveKeyWithValue("offset", uint32(5)),
+				HaveKeyWithValue("bytes", uint32(2)),
+			)))
+		})
+
+		It("Should cut the stamps of an index pointer past its file before the data "+
+			"it times", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 2, 3))
+			root.pointers(1, old{1, 6, 1, 0, 40})
+			root.channel(data(telem.Int64T))
+			root.file(2, 1, telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data)
+			root.pointers(2, old{1, 6, 1, 0, 40})
+			s, _ := read()
+			Expect(s.Channels[0].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 3, 1, 0, 0, 24, 3)},
+			))
+			Expect(s.Channels[1].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 3, 1, 0, 0, 24, 3)},
+			))
+			Expect(warned(pastFile)).To(HaveLen(1))
+			Expect(
+				warned(noStamps),
+			).To(ConsistOf(HaveKeyWithValue("offset", uint32(24))))
+		})
+
+		It("Should cut the newest pointer of an index after its last stamp inside its "+
+			"time range", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(10, 20, 30, 0, 0))
+			root.pointers(1, old{10, 51, 1, 0, 40})
+			s, _ := read()
+			Expect(s.Channels[0].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(10, 30, 1, 0, 0, 24, 3)},
+			))
+			Expect(warned(newest)).To(Equal([]map[string]any{{
+				"key":    uint32(1),
+				"file":   "1/1.domain",
+				"offset": uint32(0),
+				"stamps": uint32(5),
+				"kept":   uint32(3),
+			}}))
+		})
+
+		It("Should drop the newest pointer of an index whose first stamp is outside "+
+			"its range, then check the pointer before it", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 2, 0, 0, 0, 0))
+			root.pointers(1, old{1, 4, 1, 0, 24}, old{4, 7, 1, 24, 24})
+			s, _ := read()
+			Expect(s.Limits.Alignments).To(BeEquivalentTo(2))
+			Expect(s.Channels[0].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 2, 1, 0, 0, 16, 2)},
+			))
+			Expect(
+				warned(dropped),
+			).To(ConsistOf(HaveKeyWithValue("offset", uint32(24))))
+			Expect(warned(newest)).To(ConsistOf(HaveKeyWithValue("kept", uint32(2))))
+		})
+
+		It("Should not check an index pointer that is not the newest", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 0, 3, 4))
+			root.pointers(1, old{1, 3, 1, 0, 16}, old{3, 5, 1, 16, 16})
+			s, _ := read()
+			Expect(s.Channels[0].Segments[0].Pointers).To(Equal([]state.Pointer{
+				ptr(1, 0, 1, 0, 0, 16, 2),
+				ptr(3, 4, 2, 0, 16, 16, 2),
+			}))
+			Expect(logs.Len()).To(BeZero())
+		})
 	})
 
 	It(

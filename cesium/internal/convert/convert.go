@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"os"
 	"path"
 	"slices"
@@ -52,11 +53,12 @@ type Config struct {
 // Read builds the state of a root of the old layout. Each old data file that a pointer
 // names is a sealed version 0 segment, and each old index pointer takes one alignment
 // number. Read also returns the channel of each directory whose meta.json names a
-// channel with storage, in rising order of key. It skips a virtual channel, and a
-// directory with no meta.json, whose key it logs. It returns an error that names the
-// file when an old file has no two agreeing reads in three, when a pointer ends past
-// its file, or when a data pointer holds samples with no stamps.
-func Read(cfg Config) (*state.Snapshot, []channel.Channel, error) {
+// channel with storage. It skips a virtual channel, and a
+// directory with no meta.json, whose key it logs. It cuts, and logs, a pointer that
+// ends past its file, the newest pointer of an index after its last stamp inside its
+// time range, and data samples with no stamps. It returns an error that names the file
+// when an old file has no two agreeing reads in three.
+func Read(cfg Config) (*Plan, error) {
 	r := &reader{
 		Config: cfg,
 		ptrs:   make(map[uint32][]pointer),
@@ -65,9 +67,17 @@ func Read(cfg Config) (*state.Snapshot, []channel.Channel, error) {
 		next:   1,
 	}
 	if err := r.read(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return r.snapshot(), r.channels, nil
+	return &Plan{Snapshot: r.snapshot(), Channels: r.channels}, nil
+}
+
+// Plan is what Read builds from a root of the old layout.
+type Plan struct {
+	// Snapshot is the state of the first head.
+	Snapshot *state.Snapshot
+	// Channels are the channels with storage, in rising order of key.
+	Channels []channel.Channel
 }
 
 // reader holds what Read has read so far.
@@ -240,16 +250,20 @@ const pointerSize = 26
 
 // pointer is a pointer of an old index.domain file. Its time range does not hold
 // stamps: end is exclusive, and the old writer can start or end a range between
-// samples.
+// samples. cut is true when the pointer ended past its file, so it can hold fewer
+// samples than its range has stamps.
 type pointer struct {
 	start, end   telem.TimeStamp
 	file         uint16
 	offset, size uint32
+	cut          bool
 }
 
-// pointers reads the pointers of key, in rising order of start. It returns an error
-// when a pointer ends past its file or holds no whole number of samples of density.
-func (r *reader) pointers(key uint32, density telem.Density) ([]pointer, error) {
+// pointers reads the pointers of key, in rising order of start. A pointer that ends
+// past its file keeps the whole samples inside the file, and goes when it keeps none.
+// A density of zero is a variable type. It returns an error when a pointer holds no
+// whole number of samples of density.
+func (r *reader) pointers(key uint32, density telem.Density) (_ []pointer, err error) {
 	name := fmt.Sprintf("%d/index.domain", key)
 	b, err := r.readFile(name)
 	if errors.Is(err, os.ErrNotExist) {
@@ -258,6 +272,8 @@ func (r *reader) pointers(key uint32, density telem.Density) ([]pointer, error) 
 	if err != nil {
 		return nil, err
 	}
+	h := &handle{fs: r.FS, l: r.L}
+	defer func() { err = errors.Join(err, h.close()) }()
 	ptrs := make([]pointer, 0, len(b)/pointerSize)
 	sizes := make(map[uint16]int64)
 	for i := 0; i+pointerSize <= len(b); i += pointerSize {
@@ -279,16 +295,7 @@ func (r *reader) pointers(key uint32, density telem.Density) ([]pointer, error) 
 			}
 			sizes[p.file] = size
 		}
-		switch {
-		case int64(p.offset)+int64(p.size) > size:
-			return nil, errors.Newf(
-				"a pointer of key %d ends at %d, past the length %d of %s",
-				key,
-				int64(p.offset)+int64(p.size),
-				size,
-				file,
-			)
-		case density != 0 && int64(p.size)%int64(density) != 0:
+		if density != 0 && int64(p.size)%int64(density) != 0 {
 			return nil, errors.Newf(
 				"a pointer of key %d at %d of %s holds %d bytes, not whole samples",
 				key,
@@ -296,6 +303,24 @@ func (r *reader) pointers(key uint32, density telem.Density) ([]pointer, error) 
 				file,
 				p.size,
 			)
+		}
+		if end := int64(p.offset) + int64(p.size); end > size {
+			kept, err := h.inside(file, int64(p.offset), size, density)
+			if err != nil {
+				return nil, err
+			}
+			r.L.Warn(
+				"cut a pointer that ends past its file to the whole samples inside it",
+				zap.Uint32("key", key),
+				zap.String("file", file),
+				zap.Int64("end", end),
+				zap.Int64("length", size),
+				zap.Int64("kept", kept),
+			)
+			if kept == 0 {
+				continue
+			}
+			p.size, p.cut = uint32(kept), true
 		}
 		ptrs = append(ptrs, p)
 	}
@@ -350,11 +375,31 @@ func (r *reader) readFile(name string) ([]byte, error) {
 }
 
 // handle reads old files of fs, and keeps the last file it read open until the next one
-// or close. A handle serves one goroutine.
+// or close. It logs each cut to l. A handle serves one goroutine.
 type handle struct {
 	fs   xfs.FS
+	l    *alamos.Logger
 	f    xfs.File
 	name string
+}
+
+// inside returns the bytes of the whole samples of density from off of the file name
+// that end by size, its length. A density of zero is a variable type, whose length
+// prefixes it walks.
+func (h *handle) inside(
+	name string,
+	off, size int64,
+	density telem.Density,
+) (int64, error) {
+	switch {
+	case off >= size:
+		return 0, nil
+	case density != 0:
+		return (size - off) / int64(density) * int64(density), nil
+	}
+	end := uint32(min(size, math.MaxUint32))
+	_, kept, err := h.walk(name, uint32(off), end, math.MaxUint32)
+	return int64(kept), err
 }
 
 // agreed returns n bytes at off of the file name as agreed does.
