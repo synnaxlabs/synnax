@@ -15,7 +15,7 @@ export * from "@/input/IconPicker";
 export * from "@/input/Item";
 export * from "@/input/Label";
 export * from "@/input/Numeric";
-export * from "@/input/Search";
+export * from "@/input/search";
 export * from "@/input/Switch";
 export * from "@/input/Table";
 export * from "@/input/Text";

@@ -28,8 +28,8 @@ import { flushSync } from "react-dom";
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
-// The input imports the menu, so the menu imports the search directly.
-import { Input } from "@/input";
+// The input barrel imports the menu, so the menu imports only the search module.
+import { Search, type SearchProps } from "@/input/search";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { ACTIVATION_KEYS, isMoveKey, moveIndex } from "@/util";
@@ -154,7 +154,7 @@ export interface Filter {
   /** Handles the filter and move keys. Pass it to the menu surface. */
   onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
   /** Props for the search. */
-  search: Required<Pick<Input.SearchProps, "ref" | "onChange" | "onKeyDown">>;
+  search: Required<Pick<SearchProps, "ref" | "onChange" | "onKeyDown">>;
 }
 
 /**
@@ -280,7 +280,7 @@ export const Filtered = ({
 }: FilteredProps): ReactElement => (
   <FilterContext value={term ?? ""}>
     {term != null && (
-      <Input.Search
+      <Search
         {...search}
         value={term}
         className={CSS.B("menu-filter")}
