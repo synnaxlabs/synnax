@@ -169,16 +169,20 @@ const expectBefore = (first: HTMLElement, second: HTMLElement): void =>
   ).toBeTruthy();
 
 /**
- * Holds the answers to the toolbar's list reads until release. The reads of the next
- * range to start or end ask for one range, so they go through.
+ * Holds the answers to the toolbar's list reads for a later instant until release. A
+ * list also reads again for its own instant when a parallel spec deletes one of its
+ * ranges, so those reads go through. The reads of the next range to start or end ask
+ * for one range, so they go through too.
  */
-const holdListReads = () =>
-  holdResponses(
-    client,
-    (target, req) =>
-      target === "/range/retrieve" &&
-      (ranger.retrieveRequestZ.parse(req).limit ?? 0) > 1,
-  );
+const holdListReads = () => {
+  const since = TimeStamp.now();
+  return holdResponses(client, (target, req) => {
+    if (target !== "/range/retrieve") return false;
+    const { limit, where } = ranger.retrieveRequestZ.parse(req);
+    const at = (where?.overlaps ?? where?.not?.overlaps)?.start;
+    return (limit ?? 0) > 1 && at != null && at.after(since);
+  });
+};
 
 const expectFocusedRange = async (store: TestStore, key: string): Promise<void> => {
   const tab = await resolveFocusedTab(store, client);
