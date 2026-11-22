@@ -370,8 +370,8 @@ func typedLine(
 }
 
 // operatorLine returns the data of a typed line of an operator type. It reads as a bare
-// line whose hand-written matcher takes one value of the operator, so each value of an
-// in or any ORs one call.
+// line whose hand-written matcher takes the values of the operator, so an in passes all
+// of its values in one call.
 func operatorLine(
 	where resolution.Type,
 	line, field resolution.Field,
@@ -394,7 +394,7 @@ func operatorLine(
 			field.Type.Name,
 		)
 	}
-	ld.Func, ld.Scalar = typed.Func, true
+	ld.Func = typed.Func
 	return ld, nil
 }
 

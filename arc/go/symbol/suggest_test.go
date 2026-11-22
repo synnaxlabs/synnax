@@ -34,6 +34,13 @@ func (s *searchTracker) Resolve(
 	return s.inner.Resolve(ctx, name)
 }
 
+func (s *searchTracker) ResolveKey(
+	ctx context.Context,
+	key uint32,
+) (*symbol.Symbol, error) {
+	return s.inner.ResolveKey(ctx, key)
+}
+
 func (s *searchTracker) Search(
 	ctx context.Context,
 	term string,

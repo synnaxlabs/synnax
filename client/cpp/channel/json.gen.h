@@ -66,6 +66,7 @@ inline Channel Channel::parse(x::json::Parser parser) {
             ::x::control::Concurrency::Exclusive
         ),
         .status = parser.field<std::optional<Status>>("status"),
+        .path = parser.field<std::optional<std::string>>("path"),
     };
 }
 
@@ -83,6 +84,7 @@ inline x::json::json Channel::to_json() const {
     j["operations"] = x::json::to_array(this->operations);
     j["concurrency"] = this->concurrency;
     if (this->status.has_value()) j["status"] = this->status->to_json();
+    if (this->path.has_value()) j["path"] = *this->path;
     return j;
 }
 
@@ -104,6 +106,7 @@ inline Where Where::parse(x::json::Parser parser) {
         .is_index = parser.field<std::optional<::x::filter::Bool>>("is_index"),
         .internal = parser.field<std::optional<::x::filter::Bool>>("internal"),
         .virtual_ = parser.field<std::optional<bool>>("virtual"),
+        .path = parser.field<std::optional<::x::filter::Set<std::string>>>("path"),
     };
 }
 
@@ -119,6 +122,7 @@ inline x::json::json Where::to_json() const {
     if (this->is_index.has_value()) j["is_index"] = this->is_index->to_json();
     if (this->internal.has_value()) j["internal"] = this->internal->to_json();
     if (this->virtual_.has_value()) j["virtual"] = *this->virtual_;
+    if (this->path.has_value()) j["path"] = this->path->to_json();
     return j;
 }
 
@@ -158,6 +162,7 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
         .after = parser.field<std::optional<Cursor>>("after"),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
         .include_status = parser.field<bool>("include_status", false),
+        .include_path = parser.field<bool>("include_path", false),
     };
 }
 
@@ -169,6 +174,7 @@ inline x::json::json RetrieveRequest::to_json() const {
     if (this->after.has_value()) j["after"] = this->after->to_json();
     if (this->limit.has_value()) j["limit"] = *this->limit;
     j["include_status"] = this->include_status;
+    j["include_path"] = this->include_path;
     return j;
 }
 

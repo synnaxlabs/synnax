@@ -11,7 +11,6 @@ package graph
 
 import (
 	"context"
-	"strconv"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -25,6 +24,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -177,7 +177,13 @@ func Analyze(
 				if err = zyn.Uint32().Coerce().Parse(paramValue, &k); err != nil {
 					return ir.IR{}, aCtx.Diagnostics
 				}
-				channelSym, err := aCtx.Scope.Resolve(aCtx, strconv.Itoa(int(k)))
+				channelSym, err := aCtx.Scope.ResolveChannelKey(aCtx, k)
+				// A key that names no channel is a deleted channel, which a node keeps.
+				_, undefined := errors.AsType[*symbol.UndefinedSymbolError](err)
+				if err != nil && !undefined {
+					aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
+					return ir.IR{}, aCtx.Diagnostics
+				}
 				if err == nil && channelSym.Type.Kind == types.KindChan {
 					if err := param.Type.ChanDirection.CheckCompatibility(
 						channelSym.Type.ChanDirection,

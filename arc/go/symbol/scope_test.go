@@ -32,6 +32,10 @@ func (failingResolver) Resolve(context.Context, string) (*symbol.Symbol, error) 
 	return nil, context.Canceled
 }
 
+func (failingResolver) ResolveKey(context.Context, uint32) (*symbol.Symbol, error) {
+	return nil, context.Canceled
+}
+
 func (failingResolver) Search(context.Context, string) ([]*symbol.Symbol, error) {
 	return nil, context.Canceled
 }
@@ -625,7 +629,7 @@ var _ = Describe("Scope", func() {
 			},
 		)
 		It(
-			"Should match a numeric name by ID rather than by Name",
+			"Should read a numeric name as a name, never as an ID",
 			func(bCtx SpecContext) {
 				rootScope := symbol.NewRoot(nil, nil)
 				first := MustSucceed(rootScope.Add(
@@ -646,8 +650,8 @@ var _ = Describe("Scope", func() {
 				))
 				Expect(first.ID).To(Equal(0))
 				Expect(second.ID).To(Equal(1))
-				byID := MustSucceed(rootScope.Resolve(bCtx, "1"))
-				Expect(byID).To(Equal(second))
+				Expect(rootScope.Resolve(bCtx, "1")).Error().
+					To(MatchError("undefined symbol: 1"))
 			},
 		)
 		It(

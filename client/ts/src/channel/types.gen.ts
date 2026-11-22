@@ -104,6 +104,7 @@ export type Where = {
   isIndex?: filter.Bool;
   internal?: filter.Bool;
   virtual?: boolean;
+  path?: filter.Set<z.ZodString>;
   groups?: group.Key[];
   grouped?: boolean;
 };
@@ -137,6 +138,11 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
    * API counts the output of a calculation as not virtual.
    */
   virtual: z.boolean().optional(),
+  /**
+   * path matches the channels at full paths: the names of the folders from the top,
+   * then the channel's name, joined by '.'.
+   */
+  path: filter.setZ(z.string()).optional(),
   /** groups matches the channels in any of the given groups. */
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the channels in a group, or in no group when false. */
@@ -240,6 +246,12 @@ export const payloadZ = z.object({
    * can retrieve the calculation.
    */
   calculated: z.boolean().default(false),
+  /**
+   * path is the names of the channel's folders from the top, then its name, joined by
+   * '.'. It is filled only when a retrieve request asks for it, and only when the
+   * caller can retrieve every folder on it.
+   */
+  path: z.string().optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
@@ -259,6 +271,8 @@ export const retrieveRequestZ = z.strictObject({
   includeStatus: z.boolean().optional(),
   /** includeUses includes the uses of each record. */
   includeUses: z.boolean().optional(),
+  /** includePath includes the path of each record. */
+  includePath: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export interface New extends z.input<typeof payloadZ> {}

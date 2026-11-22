@@ -50,6 +50,7 @@ var (
 		channel("count", types.I64(), 3),
 		channel("label", types.String(), 4),
 		channel("sensor_avg", types.F64(), 5),
+		channel("math.inf", types.F64(), 6),
 	}
 	// modules are the modules that an example can import.
 	modules = map[string]string{"valves": "func open() i64 {\n    return 1\n}\n"}
@@ -125,10 +126,13 @@ func generate(k diagnostics.Kind) (kind, error) {
 		for _, d := range report(k.Example, module) {
 			if d.Code == k.Code {
 				if d.Message != k.Message &&
-					!strings.HasPrefix(d.Message, k.Message+": ") {
+					!strings.HasPrefix(d.Message, k.Message+": ") &&
+					!strings.HasSuffix(d.Message, " "+k.Message) {
 					return kind{}, errors.Newf(
-						"the message of %s does not start with its headline %q: %s",
-						k.Code, k.Message, d.Message,
+						"the message of %s neither starts nor ends with its headline %q: %s",
+						k.Code,
+						k.Message,
+						d.Message,
 					)
 				}
 				return out, nil

@@ -18,7 +18,9 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -128,7 +130,14 @@ func analyzeChannelEntry(
 		return
 	}
 	sym, err := ctx.ResolveName(n)
-	if err != nil {
+	_, undefined := errors.AsType[*symbol.UndefinedSymbolError](err)
+	switch {
+	// A clash, an ambiguous name, and a path or quoted name that names nothing each
+	// report their own error.
+	case err != nil && (!undefined || n.Quoted || n.Tail != ""):
+		ctx.Diagnostics.Add(diagnostics.Error(err, entry))
+		return
+	case err != nil || sym.Kind != symbol.KindChannel:
 		ctx.Diagnostics.Add(codes.SymbolUndefined.Atf(
 			entry,
 			"channel '%s' not found",

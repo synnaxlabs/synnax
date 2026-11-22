@@ -74,12 +74,12 @@ type indexStore[K Key, V comparable] interface {
 }
 
 // populateErr returns the error that every read of the index named name returns after
-// a populate that ended with err.
+// a populate that ended with err. It matches ErrIndexInvalid and holds the text of err.
 func populateErr(name string, err error) error {
 	if err == nil {
 		return nil
 	}
-	return errors.Wrapf(ErrIndexInvalid, "%q", name)
+	return errors.Wrapf(ErrIndexInvalid, "%q: %v", name, err)
 }
 
 // scopeOf returns the per-tx state of snap, or nil when snap is nil or is not a real

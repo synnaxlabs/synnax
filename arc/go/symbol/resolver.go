@@ -19,13 +19,21 @@ import "context"
 // compile time are passed to CreateRoot as ambient globals instead of
 // behind a Resolver.
 type Resolver interface {
-	// Resolve looks up a symbol by name. Numeric-looking names are
-	// equally valid keys — production resolvers typically index by both
-	// name and ID and dispatch based on input format.
+	// Resolve looks up a symbol by name. A name with a dot is the path of a channel.
 	Resolve(ctx context.Context, name string) (*Symbol, error)
+	// ResolveKey looks up the channel with key.
+	ResolveKey(ctx context.Context, key uint32) (*Symbol, error)
 	// Search returns symbols matching the given search term.
 	// Implementations should support fuzzy matching. Used for completion
 	// and "did you mean" suggestions.
+	Search(ctx context.Context, term string) ([]*Symbol, error)
+}
+
+// ModuleResolver supplies the modules that the ambient prelude does not hold.
+type ModuleResolver interface {
+	// Resolve returns the module at path, or ErrModuleNotFound.
+	Resolve(ctx context.Context, path string) (*Symbol, error)
+	// Search returns the modules whose paths match term.
 	Search(ctx context.Context, term string) ([]*Symbol, error)
 }
 
@@ -35,6 +43,10 @@ type scopeResolver struct{ scope *Symbol }
 
 func (r scopeResolver) Resolve(ctx context.Context, name string) (*Symbol, error) {
 	return r.scope.Resolve(ctx, name)
+}
+
+func (r scopeResolver) ResolveKey(ctx context.Context, key uint32) (*Symbol, error) {
+	return r.scope.ResolveChannelKey(ctx, key)
 }
 
 func (r scopeResolver) Search(ctx context.Context, term string) ([]*Symbol, error) {

@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -32,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -241,7 +243,7 @@ func (s *Service) Create(
 		req.RetrieveIfNameExists,
 	)
 	if err != nil {
-		return CreateResponse{}, err
+		return CreateResponse{}, s.describe(ctx, tx, err)
 	}
 	calcs, err := s.calculations.Outputs(ctx, tx, virtualKeys(stored)...)
 	if err != nil {
@@ -293,7 +295,8 @@ func (r RetrieveRequest) Named() []resource.ID {
 }
 
 // Retrieve retrieves the channels that the request selects and that the subject can
-// retrieve. A channel that the top level of Where names by exact name needs retrieve,
+// retrieve. A channel that the top level of Where names by exact name or path needs
+// retrieve,
 // as a named key does.
 func (s *Service) Retrieve(
 	ctx context.Context,
@@ -341,7 +344,44 @@ func (s *Service) Retrieve(
 			return RetrieveResponse{}, err
 		}
 	}
+	if req.IncludePath {
+		if err = fillPaths(ctx, snap, resChannels, res.Channels); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
+}
+
+// fillPaths sets the path of each of channels, the API forms of stored, when the
+// subject can retrieve every folder on it.
+func fillPaths(
+	ctx context.Context,
+	snap bind.Snapshot,
+	stored []channel.Channel,
+	channels []Channel,
+) error {
+	paths, err := channel.Paths(ctx, snap, stored)
+	if err != nil {
+		return err
+	}
+	// Each folder is checked once, though many paths pass it.
+	checked, allowed := make(set.Set[group.Key]), make(set.Set[group.Key])
+	visible := func(g group.Group) bool {
+		if !checked.Contains(g.Key) {
+			checked.Add(g.Key)
+			if snap.Allowed(g.ResourceID()) {
+				allowed.Add(g.Key)
+			}
+		}
+		return allowed.Contains(g.Key)
+	}
+	text := channel.PathTexts(paths)
+	for i, p := range paths {
+		if lo.EveryBy(p.Folders, visible) {
+			channels[i].Path = &text[i]
+		}
+	}
+	return nil
 }
 
 // fillUses sets the uses of each channel, leaving out the records the subject cannot
@@ -404,11 +444,14 @@ func (s *Service) retrieve(
 		where := channel.NormalizeWhere(*req.Where)
 		req.Where = &where
 	}
-	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res))
+	q, err := ApplyRetrieve(
+		req,
+		s.internal.NewRetrieve().AllowFolders(snap.Allowed).Entries(&res),
+	)
 	if err != nil {
 		return nil, err
 	}
-	named := namesByName(req.Where)
+	named := namedExactly(req.Where)
 	if !named {
 		q = q.Where(bind.Filter(snap, channel.Match))
 	}
@@ -481,11 +524,15 @@ func withOldVirtual(w channel.Where, outputs []channel.Key) channel.Where {
 	return channel.Where{And: []channel.Where{rest, {Not: &virtual}}}
 }
 
-// namesByName reports whether the top level of where names channels by exact name.
-// Clients name channels by name as they do by key, so each match needs retrieve.
-func namesByName(where *channel.Where) bool {
-	return where != nil && where.Name != nil &&
-		(where.Name.Eq != nil || len(where.Name.In) > 0)
+// namedExactly reports whether the top level of where names channels by exact name or
+// path. Clients name channels by name or path as they do by key, so each match needs
+// retrieve.
+func namedExactly(where *channel.Where) bool {
+	if where == nil {
+		return false
+	}
+	return where.Name != nil && (where.Name.Eq != nil || len(where.Name.In) > 0) ||
+		where.Path != nil && (where.Path.Eq != nil || len(where.Path.In) > 0)
 }
 
 // translateForward returns the old API form of channels. Each channel that a
@@ -654,22 +701,29 @@ type DeleteRequest struct {
 }
 
 // Delete deletes the channels that the request names by key or by name. Deleting an
-// internal channel is a validation error.
+// internal channel, or a name that several channels hold, is a validation error.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	w := s.internal.NewWriter(tx)
-	if len(req.Keys) > 0 {
-		if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
-			return struct{}{}, err
-		}
+	named, err := s.internal.KeysByNames(ctx, tx, req.Names)
+	if err != nil {
+		return struct{}{}, s.describe(ctx, tx, err)
 	}
-	if len(req.Names) > 0 {
-		return struct{}{}, w.DeleteManyByNames(ctx, req.Names)
-	}
-	return struct{}{}, nil
+	return struct{}{}, s.internal.NewWriter(tx).
+		DeleteMany(ctx, slices.Concat(req.Keys, named), false)
+}
+
+// describe returns err as the subject of ctx sees it, through
+// channel.Service.DescribeAmbiguity.
+func (s *Service) describe(ctx context.Context, tx gorp.Tx, err error) error {
+	return s.internal.DescribeAmbiguity(ctx, tx, err, func(
+		ctx context.Context,
+	) (func(resource.ID) bool, error) {
+		return s.access.NewEnforcer(tx).
+			Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
+	})
 }
 
 // DispatchRequest carries an action sequence to apply to a single channel. DispatchKey
@@ -711,14 +765,14 @@ func (s *Service) Dispatch(
 ) (DispatchResponse, error) {
 	computed, err := s.applyChannel(ctx, tx, req.DispatchKey, req.Key, req.Actions)
 	if err != nil {
-		return DispatchResponse{}, err
+		return DispatchResponse{}, s.describe(ctx, tx, err)
 	}
 	if !slices.ContainsFunc(req.Actions, editsCalculation) {
 		return DispatchResponse{Actions: computed}, nil
 	}
 	inputs, err := s.editedInputs(ctx, tx, req.Key)
 	if err != nil {
-		return DispatchResponse{}, err
+		return DispatchResponse{}, s.describe(ctx, tx, err)
 	}
 	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),

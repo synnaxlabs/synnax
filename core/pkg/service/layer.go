@@ -1168,6 +1168,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			HostKey:         cfg.Distribution.Identity.HostKey,
 			Storage:         cfg.Storage,
 			Group:           l.Group,
+			Status:          l.Status,
 		},
 	); !ok(err, l.Metrics) {
 		return nil, err

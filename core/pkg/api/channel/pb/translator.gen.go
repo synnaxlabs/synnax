@@ -61,6 +61,9 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		v := r.Group.String()
 		pb.Group = &v
 	}
+	if r.Path != nil {
+		pb.Path = r.Path
+	}
 	return pb, nil
 }
 
@@ -106,6 +109,9 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 			return channel.Channel{}, err
 		}
 		r.Group = &v
+	}
+	if pb.Path != nil {
+		r.Path = pb.Path
 	}
 	defaults.FillGroups(&r)
 	return r, nil
@@ -251,6 +257,7 @@ func RetrieveRequestToPB(r channel.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
 		SearchTerm:    r.SearchTerm,
 		IncludeStatus: r.IncludeStatus,
+		IncludePath:   r.IncludePath,
 	}
 	if r.Where != nil {
 		var err error
@@ -291,6 +298,7 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (channel.RetrieveRequest, error)
 	defaults.Prefill(&r)
 	r.SearchTerm = pb.SearchTerm
 	r.IncludeStatus = pb.IncludeStatus
+	r.IncludePath = pb.IncludePath
 	if pb.Where != nil {
 		val, err := channelpb.WhereFromPB(pb.Where)
 		if err != nil {

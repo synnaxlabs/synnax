@@ -10,15 +10,11 @@
 package metrics
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -81,29 +77,40 @@ func (s *Service) createMetrics(namePrefix string, idxKey channel.LocalKey) []me
 	return metrics
 }
 
-// createCalculatedMetrics creates, in the group with key g, each calculated metric
-// whose output does not exist yet.
+// calculatedMetric is a metric that a calculation computes from other metrics.
+type calculatedMetric struct {
+	name       string
+	expression string
+}
+
+// createCalculatedMetrics returns the calculated metrics whose inputs opened, given
+// each opened metric by the name that the service gives it. A metric reads each input
+// by its current name, quoted when a user renamed it.
 func createCalculatedMetrics(
-	ctx context.Context,
-	tx gorp.Tx,
-	cfg ServiceConfig,
 	namePrefix string,
-	g *group.Key,
-) error {
-	name := namePrefix + "total_size_gb"
-	exists, err := cfg.Channel.NewRetrieve().
-		Where(channel.MatchNames(name)).
-		Exists(ctx, tx)
-	if err != nil || exists {
-		return err
+	opened map[string]channel.Channel,
+) []calculatedMetric {
+	tsName, kvName := namePrefix+tsSizeMetricName, namePrefix+kvSizeMetricName
+	ts, tsOpened := opened[tsName]
+	kv, kvOpened := opened[kvName]
+	if !tsOpened || !kvOpened {
+		return nil
 	}
-	c := calculation.Calculation{Expression: fmt.Sprintf(
-		"return %s%s + %s%s",
-		namePrefix,
-		tsSizeMetricName,
-		namePrefix,
-		kvSizeMetricName,
-	)}
-	_, err = cfg.Calculation.NewWriter(tx).CreateOutput(ctx, &c, name, g)
-	return err
+	return []calculatedMetric{{
+		name: namePrefix + "total_size_gb",
+		expression: fmt.Sprintf(
+			"return %s + %s",
+			inputText(ts.Name, tsName),
+			inputText(kv.Name, kvName),
+		),
+	}}
+}
+
+// inputText returns the text that reads the input named name, whose given name is
+// given: bare while it keeps that name, and quoted otherwise.
+func inputText(name, given string) string {
+	if name == given {
+		return name
+	}
+	return channel.QuotePath(name)
 }

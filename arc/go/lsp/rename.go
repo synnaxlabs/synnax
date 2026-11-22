@@ -172,7 +172,13 @@ func (s *Server) renameTextEdits(
 		return parser.ChannelText(newName, taken), true, nil
 	}
 	sites := channelSites(doc.Content, doc.isBlock())
-	for _, t := range tokenizeContent(doc.Content) {
+	tokens := tokenizeContent(doc.Content)
+	paths := pathChannelIdents(ctx, tokens, importContextIdents(tokens), doc.IR)
+	for i, t := range tokens {
+		// A segment of a dotted name that names a channel is part of that name.
+		if paths.Contains(i) {
+			continue
+		}
 		switch t.GetTokenType() {
 		case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
 			f, ok := parseFormatString(t)

@@ -49,8 +49,8 @@ func newItemIndex() *gorp.UniqueIndex[uint32, uniqueItem, uniqueSibling] {
 	return gorp.NewUniqueIndex(
 		"sibling",
 		uniqueSpaceName,
-		func(i uniqueItem) (uniqueSibling, bool) {
-			return uniqueSibling{Parent: i.Folder, Name: i.Name}, !i.Exempt
+		func(i uniqueItem) (uniqueSibling, bool, error) {
+			return uniqueSibling{Parent: i.Folder, Name: i.Name}, !i.Exempt, nil
 		},
 	)
 }
@@ -59,8 +59,8 @@ func newFolderIndex() *gorp.UniqueIndex[string, uniqueFolder, uniqueSibling] {
 	return gorp.NewUniqueIndex(
 		"sibling",
 		uniqueSpaceName,
-		func(f uniqueFolder) (uniqueSibling, bool) {
-			return uniqueSibling{Parent: f.Parent, Name: f.Name}, true
+		func(f uniqueFolder) (uniqueSibling, bool, error) {
+			return uniqueSibling{Parent: f.Parent, Name: f.Name}, true, nil
 		},
 	)
 }
@@ -330,6 +330,146 @@ var _ = Describe("UniqueIndex", func() {
 		})
 	})
 
+	Describe("Holder", func() {
+		var itemIndex *gorp.UniqueIndex[uint32, uniqueItem, uniqueSibling]
+		BeforeEach(func(ctx SpecContext) {
+			openDB()
+			openFolders(ctx)
+			itemIndex = newItemIndex()
+			items = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, uniqueItem]{
+				DB:         db,
+				Name:       "item",
+				Indexes:    []gorp.Index[uint32, uniqueItem]{itemIndex},
+				References: []gorp.Reference[uint32, uniqueItem]{newItemFolderRef()},
+			}))
+		})
+
+		It("Should find the holder of a value in any table of the space", func(
+			ctx SpecContext,
+		) {
+			Expect(
+				createFolder(ctx, db, uniqueFolder{Key: "a", Name: "a"}),
+			).To(Succeed())
+			Expect(createItem(ctx, db, uniqueItem{Key: 1, Folder: "a", Name: "pt"})).
+				To(Succeed())
+			holder, found := MustSucceed2(
+				itemIndex.Holder(ctx, db, uniqueSibling{Name: "a"}),
+			)
+			Expect(found).To(BeTrue())
+			Expect(holder).To(Equal(gorp.NewTarget("folder", "a")))
+			holder, found = MustSucceed2(
+				itemIndex.Holder(ctx, db, uniqueSibling{Parent: "a", Name: "pt"}),
+			)
+			Expect(found).To(BeTrue())
+			Expect(holder).To(Equal(itemTarget(1)))
+			_, found = MustSucceed2(
+				itemIndex.Holder(ctx, db, uniqueSibling{Name: "pt"}),
+			)
+			Expect(found).To(BeFalse())
+		})
+
+		It("Should return the key of a holder in the index's own table only", func(
+			ctx SpecContext,
+		) {
+			Expect(
+				createFolder(ctx, db, uniqueFolder{Key: "b", Name: "b"}),
+			).To(Succeed())
+			Expect(createItem(ctx, db, uniqueItem{Key: 3, Folder: "b", Name: "pt"})).
+				To(Succeed())
+			key, held := MustSucceed2(
+				itemIndex.Key(ctx, db, uniqueSibling{Parent: "b", Name: "pt"}),
+			)
+			Expect(held).To(BeTrue())
+			Expect(key).To(Equal(uint32(3)))
+			_, held = MustSucceed2(itemIndex.Key(ctx, db, uniqueSibling{Name: "b"}))
+			Expect(held).To(BeFalse())
+		})
+
+		It("Should see a value staged in the snapshot", func(ctx SpecContext) {
+			tx := db.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+			Expect(
+				createItem(ctx, tx, uniqueItem{Key: 2, Name: "staged"}),
+			).To(Succeed())
+			holder, found := MustSucceed2(
+				itemIndex.Holder(ctx, tx, uniqueSibling{Name: "staged"}),
+			)
+			Expect(found).To(BeTrue())
+			Expect(holder).To(Equal(itemTarget(2)))
+			_, found = MustSucceed2(
+				itemIndex.Holder(ctx, db, uniqueSibling{Name: "staged"}),
+			)
+			Expect(found).To(BeFalse())
+		})
+	})
+
+	Describe("A value that fails", func() {
+		errBad := errors.New("bad value")
+		newFailingIndex := func() *gorp.UniqueIndex[uint32, uniqueItem, string] {
+			return gorp.NewUniqueIndex(
+				"failing",
+				"failing",
+				func(i uniqueItem) (string, bool, error) {
+					if i.Name == "bad" {
+						return "", false, errBad
+					}
+					return i.Name, true, nil
+				},
+			)
+		}
+		openFailing := func(ctx SpecContext, idx *gorp.UniqueIndex[uint32, uniqueItem, string]) {
+			GinkgoHelper()
+			items = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, uniqueItem]{
+				DB:      db,
+				Name:    "item",
+				Indexes: []gorp.Index[uint32, uniqueItem]{idx},
+			}))
+		}
+		BeforeEach(func() { openDB() })
+
+		It("Should fail every check after a stored entry fails the populate", func(
+			ctx SpecContext,
+		) {
+			Expect(gorp.WrapWriter[uint32, uniqueItem](db).Set(
+				ctx,
+				uniqueItem{Key: 1, Name: "bad"},
+			)).To(Succeed())
+			idx := newFailingIndex()
+			openFailing(ctx, idx)
+			invalid := SatisfyAll(
+				MatchError(gorp.ErrIndexInvalid),
+				MatchError(ContainSubstring("bad value")),
+			)
+			Expect(createItem(ctx, db, uniqueItem{Key: 2, Name: "pt"})).To(invalid)
+			Expect(idx.Holder(ctx, db, "pt")).Error().To(invalid)
+		})
+
+		It("Should refuse a write through the table of an entry whose value fails",
+			func(ctx SpecContext) {
+				openFailing(ctx, newFailingIndex())
+				Expect(createItem(ctx, db, uniqueItem{Key: 1, Name: "bad"})).
+					To(MatchError(errBad))
+				Expect(createItem(ctx, db, uniqueItem{Key: 2, Name: "pt"})).
+					To(Succeed())
+			},
+		)
+
+		It("Should stage no value for a raw write of an entry whose value fails",
+			func(ctx SpecContext) {
+				idx := newFailingIndex()
+				openFailing(ctx, idx)
+				Expect(createItem(ctx, db, uniqueItem{Key: 1, Name: "pt"})).
+					To(Succeed())
+				Expect(gorp.WrapWriter[uint32, uniqueItem](db).Set(
+					ctx,
+					uniqueItem{Key: 1, Name: "bad"},
+				)).To(Succeed())
+				_, found := MustSucceed2(idx.Holder(ctx, db, "pt"))
+				Expect(found).To(BeFalse())
+			},
+		)
+	})
+
 	Describe("Stored duplicates", func() {
 		BeforeEach(func(ctx SpecContext) {
 			openDB()
@@ -367,7 +507,7 @@ var _ = Describe("UniqueIndex", func() {
 					gorp.NewUniqueIndex(
 						"name",
 						uniqueSpaceName,
-						func(i uniqueItem) (string, bool) { return i.Name, true },
+						func(i uniqueItem) (string, bool, error) { return i.Name, true, nil },
 					),
 				},
 			})).Error().To(MatchError(ContainSubstring(

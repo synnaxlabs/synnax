@@ -120,6 +120,8 @@ class Where(BaseModel):
         internal: Matches the built-in channels, or every other channel when false.
         virtual: Matches virtual channels, or every other channel when false. The
             channel API counts the output of a calculation as not virtual.
+        path: Matches the channels at full paths: the names of the folders from the top,
+            then the channel's name, joined by '.'.
         groups: Matches the channels in any of the given groups.
         grouped: Matches the channels in a group, or in no group when false.
     """
@@ -136,6 +138,7 @@ class Where(BaseModel):
     is_index: filter.Bool | None = None
     internal: filter.Bool | None = None
     virtual: bool | None = None
+    path: filter.Set[str] | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
 
@@ -160,6 +163,7 @@ WhereInput = TypedDict(
         "is_index": filter.BoolInput,
         "internal": filter.BoolInput,
         "virtual": bool,
+        "path": filter.SetInput[str],
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
     },
@@ -225,6 +229,9 @@ class Payload(BaseModel):
             shows as its task.
         calculated: Is true if a calculation writes the channel, whether or not the
             caller can retrieve the calculation.
+        path: Is the names of the channel's folders from the top, then its name, joined
+            by '.'. It is filled only when a retrieve request asks for it, and only when
+            the caller can retrieve every folder on it.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
@@ -242,6 +249,7 @@ class Payload(BaseModel):
     group: group_.Key | None = None
     uses: list[Use] | None = None
     calculated: bool = False
+    path: str | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -259,6 +267,7 @@ class RetrieveRequest(BaseModel):
         limit: Is the most channels to return.
         include_status: Includes the status of each record.
         include_uses: Includes the uses of each record.
+        include_path: Includes the path of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -270,6 +279,7 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_status: bool = False
     include_uses: bool = False
+    include_path: bool = False
 
 
 class RetrieveResponse(BaseModel):

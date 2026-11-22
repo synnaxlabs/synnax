@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -24,20 +25,20 @@ import (
 )
 
 var _ = Describe("Quoted channel names in a graph function", func() {
-	// importedModules compiles a graph of one function with the param x and body,
-	// beside a channel named x, and returns the module of each function its WASM
+	// compileImports compiles a graph of one function with the param input and body,
+	// beside a channel named name, and returns the module of each function its WASM
 	// imports.
-	importedModules := func(ctx SpecContext, body string) []string {
+	compileImports := func(ctx SpecContext, input, name, body string) []string {
 		GinkgoHelper()
 		g := arc.Graph{Functions: []ir.Function{{
 			Key:     "f",
-			Inputs:  types.Params{{Name: "x", Type: types.F64()}},
+			Inputs:  types.Params{{Name: input, Type: types.F64()}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 			Body:    ir.Body{Raw: body},
 		}}}
 		root := symbol.NewRoot(nil, stl.NewSymbols())
 		root.Parent.AddChild(&symbol.Symbol{
-			Name: "x",
+			Name: name,
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.F64()),
 			ID:   7,
@@ -55,6 +56,10 @@ var _ = Describe("Quoted channel names in a graph function", func() {
 			},
 		)
 	}
+	importedModules := func(ctx SpecContext, body string) []string {
+		GinkgoHelper()
+		return compileImports(ctx, "x", "x", body)
+	}
 
 	It("Should read the channel, not a param that shares its name", func(
 		ctx SpecContext,
@@ -67,4 +72,14 @@ var _ = Describe("Quoted channel names in a graph function", func() {
 		Expect(importedModules(ctx, "{\n\treturn x * 2.0\n}")).
 			ToNot(ContainElement("channels"))
 	})
+
+	DescribeTable("Should read an input named in quoted form by the quoted name",
+		func(ctx SpecContext, name, body string) {
+			Expect(compileImports(ctx, parser.QuoteChannelName(name), name, body)).
+				ToNot(ContainElement("channels"))
+		},
+		Entry("a dotted path", "stand.pt", "{\n\treturn 'stand.pt' * 2.0\n}"),
+		Entry("a name with a quote", "it's", "{\n\treturn 'it\\'s' * 2.0\n}"),
+		Entry("a name with a backslash", `a\b`, "{\n\treturn 'a\\\\b' * 2.0\n}"),
+	)
 })

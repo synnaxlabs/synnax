@@ -17,8 +17,8 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// pathSeparator joins the segments of a path. A path segment never holds it.
-const pathSeparator = '.'
+// PathSeparator joins the segments of a path. A path segment never holds it.
+const PathSeparator = '.'
 
 // IsPathSegment reports whether s can name one segment of a path: valid UTF-8 in NFC,
 // not empty after trimming spaces, and with no '.' and no character that shows as
@@ -32,7 +32,7 @@ func IsPathSegment(s string) bool {
 		return false
 	}
 	for _, r := range s {
-		if r == pathSeparator || isInvisible(r) {
+		if r == PathSeparator || isInvisible(r) {
 			return false
 		}
 	}
@@ -49,7 +49,7 @@ func asciiPathSegment(s string) (ascii, ok bool) {
 		switch {
 		case c >= utf8.RuneSelf:
 			return false, false
-		case c == pathSeparator || c < ' ' || c == 0x7f:
+		case c == PathSeparator || c < ' ' || c == 0x7f:
 			return true, false
 		case c != ' ':
 			visible = true
@@ -59,8 +59,15 @@ func asciiPathSegment(s string) (ascii, ok bool) {
 }
 
 // NormalizeName returns s in Unicode Normalization Form C, the one form in which names
-// are stored and compared.
-func NormalizeName(s string) string { return norm.NFC.String(s) }
+// are stored and compared. It returns an ASCII s as is, since ASCII is in NFC.
+func NormalizeName(s string) string {
+	for i := range len(s) {
+		if s[i] >= utf8.RuneSelf {
+			return norm.NFC.String(s)
+		}
+	}
+	return s
+}
 
 // brailleBlank is U+2800, a symbol (So) that shows as nothing.
 const brailleBlank = '\u2800'
