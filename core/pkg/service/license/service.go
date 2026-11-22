@@ -643,8 +643,11 @@ func (s *Service) monitor(ctx context.Context) {
 		case <-time.After(interval):
 		}
 		wasBehind := s.clockBehind.Load()
+		// An error from a stop in the middle of a check is not a failure.
 		if err := s.syncClock(ctx); err != nil {
-			s.cfg.L.Warn("failed to check the clock", zap.Error(err))
+			if ctx.Err() == nil {
+				s.cfg.L.Warn("failed to check the clock", zap.Error(err))
+			}
 			continue
 		}
 		if s.clockBehind.Load() {
@@ -652,7 +655,9 @@ func (s *Service) monitor(ctx context.Context) {
 		}
 		if wasBehind {
 			if err := s.load(ctx); err != nil {
-				s.cfg.L.Warn("failed to reload the license", zap.Error(err))
+				if ctx.Err() == nil {
+					s.cfg.L.Warn("failed to reload the license", zap.Error(err))
+				}
 				continue
 			}
 			s.logState()
