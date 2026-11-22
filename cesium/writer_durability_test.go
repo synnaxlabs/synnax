@@ -72,7 +72,7 @@ var _ = Describe("Writer errors", func() {
 				Start:    5 * telem.SecondTS,
 			}))
 			// Group 2 overlaps its stored data, so its commit fails.
-			err := db.Write(ctx, 5*telem.SecondTS, telem.MultiFrame(
+			Expect(db.Write(ctx, 5*telem.SecondTS, telem.MultiFrame(
 				[]cesium.ChannelKey{idx1, d1, idx2, d2},
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(5, 6),
@@ -80,8 +80,7 @@ var _ = Describe("Writer errors", func() {
 					telem.NewSeriesSecondsTSV(5, 15),
 					telem.NewSeriesV[int64](3, 4),
 				},
-			))
-			Expect(err).To(MatchError(domain.ErrWriteConflict))
+			))).To(MatchError(domain.ErrWriteConflict))
 		},
 	)
 
