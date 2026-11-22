@@ -35,9 +35,11 @@ type core struct {
 	threshold float32
 	// candidates holds the segments that pass the candidate test.
 	candidates set.Set[uint64]
-	channels   map[uint32]*chanState
-	segments   map[uint64]*segState
-	intents    set.Set[uint32]
+	// count counts the publishes of the owner for readers of more than one Channel.
+	count    *pubCount
+	channels map[uint32]*chanState
+	segments map[uint64]*segState
+	intents  set.Set[uint32]
 	// sequence is the sequence of the last durable entry.
 	sequence uint64
 	// limits are the durable limits, below which the state gives out values. reserved
@@ -62,6 +64,9 @@ type core struct {
 	// dropUsers holds, for each key that BeginDrop took, the part records that name it
 	// as their clock, for the durable apply of its Drop.
 	dropUsers map[uint32][]User
+	// dropRecords holds, for each key that BeginDrop took, the part records of the key,
+	// whose files its Drop gives to TakeDead.
+	dropRecords map[uint32][]Segment
 	// putBacks holds the keys with put-back records that a Parted has yet to take out.
 	putBacks set.Set[uint32]
 	// checked holds, for each segment with visible commits that are not durable yet,
@@ -72,23 +77,25 @@ type core struct {
 
 func newCore(cfg Config) *core {
 	return &core{
-		versions:   cfg.Versions,
-		version:    cfg.Version,
-		threshold:  cfg.Threshold,
-		candidates: set.Set[uint64]{},
-		channels:   map[uint32]*chanState{},
-		segments:   map[uint64]*segState{},
-		intents:    set.Set[uint32]{},
-		keys:       set.Set[uint32]{},
-		dropUsers:  map[uint32][]User{},
-		checked:    map[uint64][]Segment{},
+		versions:    cfg.Versions,
+		version:     cfg.Version,
+		threshold:   cfg.Threshold,
+		candidates:  set.Set[uint64]{},
+		count:       &pubCount{},
+		channels:    map[uint32]*chanState{},
+		segments:    map[uint64]*segState{},
+		intents:     set.Set[uint32]{},
+		keys:        set.Set[uint32]{},
+		dropUsers:   map[uint32][]User{},
+		dropRecords: map[uint32][]Segment{},
+		checked:     map[uint64][]Segment{},
 	}
 }
 
 func (c *core) channel(key uint32) *chanState {
 	ch, ok := c.channels[key]
 	if !ok {
-		ch = &chanState{key: key}
+		ch = &chanState{key: key, count: c.count}
 		c.channels[key] = ch
 		c.keysChanged = true
 	}
@@ -413,6 +420,11 @@ func (c *core) drop(key uint32, pre []Preload) error {
 		users = c.dropUsers[key]
 	}
 	delete(c.dropUsers, key)
+	records := recordsOf(pre, key)
+	if records == nil {
+		records = c.dropRecords[key]
+	}
+	delete(c.dropRecords, key)
 	// A segment that a part holds counts through its record in users.
 	for _, s := range c.segments {
 		if s.key != key && s.vis.Clock == key && s.dur.created && s.vis.Part == 0 {
@@ -432,11 +444,20 @@ func (c *core) drop(key uint32, pre []Preload) error {
 			c.dropped,
 			Kill{Key: key, All: true, Generation: c.generation},
 		)
+		// The database unlinks the file of each segment once no reader pins it. A
+		// record whose segment the state holds goes with that segment.
+		for _, rec := range records {
+			if _, held := c.segments[rec.ID]; !held {
+				c.dead = append(c.dead, Dead{Segment: rec.ID, Key: key})
+			}
+		}
 		for _, s := range ch.segs {
 			delete(c.segments, s.vis.ID)
 			c.candidates.Remove(s.vis.ID)
+			c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: key})
 		}
 		delete(c.channels, key)
+		c.count.begin()
 		ch.pub.Store(nil)
 		c.keysChanged = true
 	}

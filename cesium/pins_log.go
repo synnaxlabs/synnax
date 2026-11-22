@@ -12,11 +12,13 @@ package cesium
 import (
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // pins counts the readers of each segment, and holds each dead segment that waits for
@@ -40,29 +42,79 @@ type held struct {
 	parts    []checkpoint.Part
 }
 
-// load returns the visible Channel of key from e and the parts of its range, or the
-// error of parts that e no longer holds. It pins each segment and part under the same
-// lock that release takes, so release never unlinks a segment that a Channel it
-// returned still names, and a switch keeps each part. It unpins prev, the pins of an
-// earlier load, and returns the new pins and the error of the unlinks that the unpin
-// frees.
+// load returns the visible Channel of key and the parts of its range, and pins them, as
+// loadView does for a key and its clock. It unpins prev, the pins of an earlier load.
 func (e *engine) load(
 	key ChannelKey,
 	prev held,
 ) (ch *state.Channel, h held, err, unlinkErr error) {
 	e.pins.mu.Lock()
+	ch = e.state.Channel(key)
+	h, err = e.pinLocked(key, ch, nil)
+	free := e.pins.unpin(prev)
+	e.pins.mu.Unlock()
+	return ch, h, err, e.unlink(free)
+}
+
+// loadView returns the visible Channels of key and of its clock from one step of the
+// state, so the samples of key and their stamps come from one state, with the parts of
+// their ranges, or the error of parts that e no longer holds. It pins each segment and
+// part under the same lock that release takes, so release never unlinks a segment that
+// a Channel it returned still names, and a switch keeps each part. It unpins prev, the
+// pins of an earlier load, and returns the new pins and the error of the unlinks that
+// the unpin frees. It puts the segments that it pins in the arrays of buf when they
+// have room, which must not share an array with prev. For an index, clock is key, and
+// the clock half of the view is the same Channel with no pins of its own.
+func (e *engine) loadView(
+	key, clock ChannelKey,
+	prev [2]held,
+	buf [2][]uint64,
+) (chs [2]*state.Channel, hs [2]held, err, unlinkErr error) {
+	for {
+		var count uint64
+		chs[0], chs[1], count = e.state.Pair(key, clock)
+		e.pins.mu.Lock()
+		// A segment leaves the state only on a step that publishes, so with the count
+		// unchanged, release has unlinked no segment of chs.
+		if e.state.Unchanged(count) {
+			break
+		}
+		e.pins.mu.Unlock()
+	}
+	hs[0], err = e.pinLocked(key, chs[0], buf[0])
+	if clock == key {
+		chs[1] = chs[0]
+	} else {
+		var clockErr error
+		hs[1], clockErr = e.pinLocked(clock, chs[1], buf[1])
+		err = errors.Join(err, clockErr)
+	}
+	free := append(e.pins.unpin(prev[0]), e.pins.unpin(prev[1])...)
+	e.pins.mu.Unlock()
+	return chs, hs, err, e.unlink(free)
+}
+
+// pinLocked pins each segment of ch, the visible Channel of key, and the parts of its
+// range, and returns them, or the error of parts that e no longer holds. It puts the
+// segments in buf when it has room. The caller holds e.pins.mu.
+func (e *engine) pinLocked(
+	key ChannelKey,
+	ch *state.Channel,
+	buf []uint64,
+) (h held, err error) {
 	h.key = key
-	if ch = e.state.Channel(key); ch != nil {
-		h.segments = make([]uint64, len(ch.Segments))
-		for i, seg := range ch.Segments {
-			h.segments[i] = seg.ID
+	if ch != nil {
+		h.segments = buf[:0]
+		if cap(h.segments) < len(ch.Segments) {
+			h.segments = make([]uint64, 0, len(ch.Segments))
+		}
+		for _, seg := range ch.Segments {
+			h.segments = append(h.segments, seg.ID)
 		}
 		h.parts, err = e.partsOf(key, ch.Parts)
 	}
 	e.pins.pin(h)
-	free := e.pins.unpin(prev)
-	e.pins.mu.Unlock()
-	return ch, h, err, e.unlink(free)
+	return h, err
 }
 
 // pinned returns the parts that readers pin.
@@ -102,6 +154,25 @@ func (e *engine) release(dead []state.Dead) error {
 	}
 	e.pins.mu.Unlock()
 	return e.unlink(free)
+}
+
+// pinnedFiles reports which files of the directory of key a reader may still read: the
+// file of each dead segment of key that waits for its last reader, and every segment
+// file of key while a load of key pins parts, since that load may read any segment of
+// key that a part held a record of.
+func (e *engine) pinnedFiles(key ChannelKey) func(name string) bool {
+	e.pins.mu.Lock()
+	defer e.pins.mu.Unlock()
+	if e.pins.keys[key] > 0 {
+		return func(name string) bool { return strings.HasSuffix(name, ".seg") }
+	}
+	names := set.New[string]()
+	for _, d := range e.pins.dead {
+		if d.Key == key {
+			names.Add(segmentName(key, d.Segment))
+		}
+	}
+	return names.Contains
 }
 
 // unlink removes the file of each segment of dead, and tries every removal.
