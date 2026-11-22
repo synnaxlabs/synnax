@@ -687,18 +687,17 @@ describe("queries", () => {
         virtual: true,
       });
       const { result } = renderHook(() => Channel.useResultBuiltIns(), { wrapper });
-      await waitFor(() => expect(result.current.variant).toBe("success"));
-      const keys = await client.channels.builtIns.retrieve();
+      const { keys } = await client.channels.builtIns.retrieve();
       await waitFor(() => expect(result.current.data?.keys).toBe(keys));
-      expect(keys.size).toBeGreaterThan(0);
-      expect(keys.has(ch.key)).toBe(false);
+      expect(keys?.size).toBeGreaterThan(0);
+      expect(keys?.has(ch.key)).toBe(false);
     });
 
     it("should read the keys the client fetched and fetch nothing", async () => {
       const local = createTestClient();
       await local.connect();
       await waitForStreamLive(local.connection);
-      const keys = await local.channels.builtIns.retrieve();
+      const { keys } = await local.channels.builtIns.retrieve();
       const send = spyOnSend(local);
       const { result } = renderHook(() => Channel.useResultBuiltIns(), {
         wrapper: await createAsyncSynnaxWrapper({ client: local }),

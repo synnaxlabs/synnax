@@ -411,9 +411,11 @@ const reconnectWithList = async (after: AfterReconnect): Promise<void> => {
         .getCached()
         ?.records.map((c) => c.key)
         .sort();
-    await expect.poll(() => internal.length > 0 || keys()?.length === 2).toBe(true);
-    expect(internal.map((e) => e.message)).toEqual([]);
+    // A failed refetch keeps the last keys and reports once.
+    const reported = after === "fails-once" ? [MESSAGE] : [];
+    await expect.poll(() => keys()?.length).toBe(2);
     expect(keys()).toEqual([first.key, second.key].sort());
+    await expect.poll(() => internal.map((e) => e.message)).toEqual(reported);
   } finally {
     rejected?.mockRestore();
     off();

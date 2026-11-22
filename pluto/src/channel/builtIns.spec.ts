@@ -40,9 +40,11 @@ const reconnect = async (
 
 describe("useResultBuiltIns across a reconnect", () => {
   it("should hold a dropped fetch as failed and take the keys of the next connection", async () => {
+    const internal: Error[] = [];
     const { proxy, client } = await createProxiedTestClient({
       retry: FAST_RETRY,
       onRetry: () => {},
+      onInternalError: (e) => internal.push(e),
     });
     // The first fetch fails as a dropped link does.
     let dropped = false;
@@ -61,6 +63,9 @@ describe("useResultBuiltIns across a reconnect", () => {
     await waitFor(() => expect(result.current.data?.error).not.toBeNull());
     expect(dropped).toBe(true);
     expect(result.current.data?.keys).toBeNull();
+    expect(internal.map((e) => e.message)).toEqual([
+      "failed to fetch built-in channels",
+    ]);
     await reconnect(client, proxy);
     await waitFor(() => expect(result.current.data?.keys).not.toBeNull(), {
       timeout: 8000,
