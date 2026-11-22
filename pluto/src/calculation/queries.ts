@@ -17,8 +17,9 @@ type RetrieveOutputQuery = {
 };
 
 /**
- * Answers with the calculation that writes the channel of the query, or with none. The
- * lookups of a tick share one request.
+ * Answers with how the channel of the query is written: hidden when a calculation that
+ * the reader cannot retrieve writes it, and otherwise with the calculation that writes
+ * it, or none. The lookups of a tick share one request.
  */
 export const { useResult: useResultOutput } = Flux.createRetrieve<
   RetrieveOutputQuery,
@@ -50,8 +51,6 @@ export const useIsOutput = (channel: channel.Key): boolean | undefined => {
   return output == null ? undefined : calculation.isOutput(output);
 };
 
-// The status of the calculation that writes the channel, null when no calculation
-// writes it or the calculation has none, and undefined until the cache can tell.
 /**
  * Answers with the status of the calculation that writes the channel of the query, or
  * null when no calculation writes it or the calculation has no status. The lookups of
@@ -71,7 +70,7 @@ export const { useResult: useResultStatus } = Flux.createRetrieve<
     const unsubscribeOutputs = client.calculations.outputs.subscribe(notify, channel);
     const unsubscribeStatuses = client.statuses.store.subscribe((event) => {
       const output = client.calculations.outputs.get(channel);
-      const calc = output == null || output.hidden ? null : output.calculation;
+      const calc = output == null ? null : calculation.keyOf(output);
       if (
         calc != null &&
         client.statuses.ownerKeys(event, "calculation")?.includes(calc)

@@ -98,6 +98,13 @@ export type Output =
 export const isOutput = (output: Output): boolean =>
   output.hidden || output.calculation != null;
 
+/**
+ * @returns the key of the calculation that writes the channel of output, or null when
+ * none does or the reader cannot retrieve it.
+ */
+export const keyOf = (output: Output): Key | null =>
+  output.hidden ? null : output.calculation;
+
 const stripStatus = ({ status: _, ...calc }: Calculation): Stored => calc;
 
 /** Config for {@link Client}. */
@@ -279,9 +286,10 @@ export class Client extends query.Retriever<
    */
   async retrieveStatus(output: channel.Key): Promise<Status | null> {
     const [writer] = await this.outputs.retrieve([output]);
-    if (writer.hidden || writer.calculation == null) return null;
-    await this.statuses.retrieveOwned([resourceID(writer.calculation)]);
-    return this.statusOf(writer.calculation) ?? null;
+    const calc = keyOf(writer);
+    if (calc == null) return null;
+    await this.statuses.retrieveOwned([resourceID(calc)]);
+    return this.statusOf(calc) ?? null;
   }
 
   /**
@@ -292,8 +300,8 @@ export class Client extends query.Retriever<
   getCachedStatus(output: channel.Key): Status | null | undefined {
     const writer = this.outputs.get(output);
     if (writer == null) return undefined;
-    if (writer.hidden || writer.calculation == null) return null;
-    return this.statusOf(writer.calculation);
+    const calc = keyOf(writer);
+    return calc == null ? null : this.statusOf(calc);
   }
 
   /** Deletes the calculations with keys. Their outputs stay as channels. */
