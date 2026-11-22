@@ -736,7 +736,7 @@ void Manager::execute_op(
                 entry->instance->stop(silent);
                 entry->instance = nullptr;
             }
-            auto [driver_task, handled] = this->configure(tsk, op, operation);
+            auto [driver_task, handled] = this->configure(tsk, op, entry, operation);
             {
                 std::lock_guard entry_lock{entry->mu};
                 entry->deployed_hash = driver_task != nullptr ? tsk.config_hash : "";
@@ -889,8 +889,28 @@ void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
     this->ctx->set_status(status);
 }
 
-std::pair<std::unique_ptr<Task>, bool>
-Manager::configure(synnax::task::Task &tsk, const Op &op, Operation &operation) {
+std::pair<std::unique_ptr<Task>, bool> Manager::configure(
+    synnax::task::Task &tsk,
+    const Op &op,
+    const std::shared_ptr<Entry> &entry,
+    Operation &operation
+) {
+    const auto fail = [&](const std::string &variant,
+                          const std::string &message,
+                          const std::string &description) {
+        // A boot deploy has no command to answer. After a failed read, the next run
+        // deploys the task again.
+        if (op.cmd.key.empty()) return;
+        synnax::task::Status status;
+        status.owner = synnax::task::resource_id(tsk.key);
+        status.name = tsk.name;
+        status.variant = variant;
+        status.message = message;
+        status.description = description;
+        status.details.running = false;
+        status.details.config_hash = tsk.config_hash;
+        operation.answer(status);
+    };
     for (int attempt = 1;; attempt++) {
         LOG(INFO) << "configuring task " << tsk;
         auto [built, handled] = this->factory->configure_task(
@@ -901,35 +921,50 @@ Manager::configure(synnax::task::Task &tsk, const Op &op, Operation &operation) 
         );
         if (built == nullptr) return {nullptr, handled};
         auto [stored, err] = this->rack.tasks.retrieve(tsk.key);
-        // The read only looks for a save that raced the configure, so a failed read
-        // keeps the task.
-        if (err)
+        if (!err && stored.config_hash == tsk.config_hash)
+            return {std::move(built), true};
+        built->stop(true);
+        // A REMOVE op follows the delete of the task.
+        if (err.matches(x::errors::NOT_FOUND)) return {nullptr, true};
+        if (err) {
             LOG(WARNING) << "failed to check the config hash of task " << tsk << ": "
                          << err;
-        if (err || stored.config_hash == tsk.config_hash)
-            return {std::move(built), true};
-        LOG(INFO) << "config of task " << tsk << " changed while it was configured";
-        built->stop(true);
-        tsk = std::move(stored);
-        operation.set_task(tsk.name, tsk.config_hash);
-        if (!op.cmd.pinned && attempt < MAX_CONFIGURES) continue;
-        synnax::task::Status status;
-        status.owner = synnax::task::resource_id(tsk.key);
-        status.name = tsk.name;
-        status.details.running = false;
-        status.details.config_hash = tsk.config_hash;
-        if (op.cmd.pinned) {
-            status.variant = synnax::status::VARIANT_WARNING;
-            status.message = "Config changed";
-            status.description = "The task config changed while the Driver configured "
-                                 "it. Review the task, then start it again.";
-        } else {
-            status.variant = synnax::status::VARIANT_ERROR;
-            status.message = "Failed to configure task";
-            status.description = "The task config kept changing while the Driver "
-                                 "configured it. Start the task again.";
+            fail(synnax::status::VARIANT_ERROR, "Failed to configure task", err.data);
+            return {nullptr, true};
         }
-        if (!op.cmd.key.empty()) operation.answer(status);
+        if (stored.rack != this->rack.key) {
+            // The Driver of the new rack deploys the task.
+            LOG(INFO) << "releasing task moved to another rack: " << tsk;
+            this->clear_deploy(entry);
+            this->statuses->drop(tsk.key);
+            this->discard(tsk.key, true);
+            return {nullptr, true};
+        }
+        LOG(INFO) << "config of task " << tsk << " changed while it was configured";
+        tsk = std::move(stored);
+        const auto released = operation.change_config(tsk.name, tsk.config_hash);
+        if (!released.empty()) {
+            // Each start fetches the task again, which refuses a start pinned to the
+            // older config.
+            std::lock_guard lock{this->mu};
+            for (const auto &start: std::views::reverse(released))
+                this->op_queue.push_front(Op{Op::Type::DEPLOY, tsk.key, {}, start});
+        }
+        if (!op.cmd.pinned && attempt < MAX_CONFIGURES) continue;
+        if (op.cmd.pinned)
+            fail(
+                synnax::status::VARIANT_WARNING,
+                "Config changed",
+                "The task config changed while the Driver configured it. Review the "
+                "task, then start it again."
+            );
+        else
+            fail(
+                synnax::status::VARIANT_ERROR,
+                "Failed to configure task",
+                "The task config kept changing while the Driver configured it. Start "
+                "the task again."
+            );
         return {nullptr, true};
     }
 }

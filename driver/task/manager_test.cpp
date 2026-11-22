@@ -303,17 +303,33 @@ public:
     }
 };
 
-/// @brief builds tracking tasks, and edits the stored config of the task during each of
-/// the first edits configures, as a save of a record that the config hash covers does.
-class EditingTaskFactory final : public Factory {
+/// @brief raises the rate in the stored config of task, which moves its config hash.
+void bump_rate(const std::shared_ptr<Context> &ctx, const synnax::task::Task &task) {
+    EXPECT_NIL(ctx->client->tasks.dispatch(
+        task.key,
+        {synnax::task::set(
+            {.path = {"config", "rate"}, .value = task.config.at("rate").get<int>() + 1}
+        )}
+    ));
+}
+
+/// @brief builds tracking tasks, then runs race during each of the first races
+/// configures, as a save of the task or of a record that its hash covers would. A gated
+/// factory holds its first configure until released.
+class RacingTaskFactory final : public Factory {
 public:
+    using Race = std::function<
+        void(const std::shared_ptr<Context> &, const synnax::task::Task &)>;
+
     std::vector<std::shared_ptr<TrackingTaskState>> task_states;
     /// @brief hashes holds the config hash of the revision each task was built from.
     std::vector<std::string> hashes;
     std::mutex mu;
-    int edits;
+    std::atomic<bool> stuck{false};
+    std::atomic<bool> released;
 
-    explicit EditingTaskFactory(const int edits): edits(edits) {}
+    RacingTaskFactory(Race race, const int races, const bool gated = false):
+        released(!gated), race(std::move(race)), races(races) {}
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
@@ -322,22 +338,26 @@ public:
         x::breaker::Breaker &
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
-        std::lock_guard lock(mu);
-        if (edits > 0) {
-            edits--;
-            EXPECT_NIL(ctx->client->tasks.dispatch(
-                task.key,
-                {synnax::task::set(
-                    {.path = {"config", "rate"},
-                     .value = task.config.at("rate").get<int>() + 1}
-                )}
-            ));
+        if (!this->released) {
+            this->stuck = true;
+            while (!this->released)
+                std::this_thread::sleep_for((10 * x::telem::MILLISECOND).chrono());
         }
+        std::lock_guard lock(this->mu);
         auto state = std::make_shared<TrackingTaskState>();
-        task_states.push_back(state);
-        hashes.push_back(task.config_hash);
-        return {std::make_unique<TrackingTask>(ctx, task, state), true};
+        auto built = std::make_unique<TrackingTask>(ctx, task, state);
+        this->task_states.push_back(state);
+        this->hashes.push_back(task.config_hash);
+        if (this->races > 0) {
+            this->races--;
+            this->race(ctx, task);
+        }
+        return {std::move(built), true};
     }
+
+private:
+    Race race;
+    int races;
 };
 
 /// @brief a task whose start blocks until released or cancelled, then answers.
@@ -2464,7 +2484,7 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashIsRefused) {
 /// @brief it should configure a task again when its config hash moves during the
 /// configure, and run the start on the newer revision.
 TEST_F(TaskManagerTest, ConfiguresAgainWhenHashMovesDuringConfigure) {
-    auto factory = std::make_unique<EditingTaskFactory>(1);
+    auto factory = std::make_unique<RacingTaskFactory>(bump_rate, 1);
     auto *f = factory.get();
     start_manager(std::move(factory));
 
@@ -2495,7 +2515,7 @@ TEST_F(TaskManagerTest, ConfiguresAgainWhenHashMovesDuringConfigure) {
 /// @brief it should refuse a pinned start when the config hash moves during the
 /// configure, and run no instance built from the newer revision.
 TEST_F(TaskManagerTest, PinnedStartIsRefusedWhenHashMovesDuringConfigure) {
-    auto factory = std::make_unique<EditingTaskFactory>(1);
+    auto factory = std::make_unique<RacingTaskFactory>(bump_rate, 1);
     auto *f = factory.get();
     start_manager(std::move(factory));
 
@@ -2534,7 +2554,7 @@ TEST_F(TaskManagerTest, PinnedStartIsRefusedWhenHashMovesDuringConfigure) {
 /// @brief it should fail a start when the config hash moves during each of three
 /// configures.
 TEST_F(TaskManagerTest, StartFailsWhenHashKeepsMovingDuringConfigure) {
-    auto factory = std::make_unique<EditingTaskFactory>(3);
+    auto factory = std::make_unique<RacingTaskFactory>(bump_rate, 3);
     auto *f = factory.get();
     start_manager(std::move(factory));
 
@@ -2563,6 +2583,261 @@ TEST_F(TaskManagerTest, StartFailsWhenHashKeepsMovingDuringConfigure) {
         EXPECT_TRUE(f->task_states[i]->stopped.load());
         EXPECT_EQ(f->task_states[i]->exec_count.load(), 0);
     }
+}
+
+/// @brief it should stop a task deleted during its configure, run nothing on it, and
+/// write no status that would recreate the one the delete removed.
+TEST_F(TaskManagerTest, StopsTaskDeletedDuringConfigure) {
+    x::telem::TimeStamp deleted_at;
+    auto factory = std::make_unique<RacingTaskFactory>(
+        [&](const std::shared_ptr<Context> &ctx, const synnax::task::Task &task) {
+            deleted_at = x::telem::TimeStamp::now();
+            EXPECT_NIL(ctx->client->tasks.del(task.key));
+        },
+        1
+    );
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    std::shared_ptr<TrackingTaskState> state;
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            if (f->task_states.empty()) return false;
+            state = f->task_states[0];
+            return state->stopped.load();
+        },
+        [] { return "task not stopped"; }
+    );
+    EXPECT_TRUE(state->stop_will_reconfigure.load());
+    EXPECT_EQ(state->exec_count.load(), 0);
+    expect_no_driver_status(task, true, deleted_at);
+    std::lock_guard lock(f->mu);
+    EXPECT_EQ(f->task_states.size(), 1);
+}
+
+/// @brief builds a tracking task in its first configure, then cuts the Core connection,
+/// so the config hash check fails. Later configures build quiet tasks.
+class CutAtConfigureFactory final : public Factory {
+    std::unique_ptr<CorePipe> &pipe;
+    std::atomic<bool> cut{false};
+
+public:
+    const std::shared_ptr<TrackingTaskState>
+        state = std::make_shared<TrackingTaskState>();
+
+    explicit CutAtConfigureFactory(std::unique_ptr<CorePipe> &pipe): pipe(pipe) {}
+
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &,
+        x::breaker::Breaker &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        if (this->cut) return {std::make_unique<MockEchoTask>(ctx, task, true), true};
+        auto built = std::make_unique<TrackingTask>(ctx, task, this->state);
+        this->pipe->pause();
+        this->pipe->cut();
+        this->cut = true;
+        return {std::move(built), true};
+    }
+};
+
+/// @brief it should fail a start whose config hash check fails, and stop the task it
+/// configured.
+TEST_F(TaskManagerTest, StartFailsWhenTheHashCheckFails) {
+    auto factory = std::make_unique<CutAtConfigureFactory>(this->pipe);
+    const auto state = factory->state;
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    ASSERT_EVENTUALLY_TRUE(state->stopped.load());
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "s1" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(s.message, "Failed to configure task");
+    EXPECT_FALSE(s.details.running);
+    EXPECT_EQ(state->exec_count.load(), 0);
+}
+
+/// @brief it should release a task that one save moves to another rack and changes
+/// during its configure, without configuring it again or writing a status.
+TEST_F(TaskManagerTest, ReleasesTaskMovedToAnotherRackDuringConfigure) {
+    const auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    x::telem::TimeStamp moved_at;
+    auto factory = std::make_unique<RacingTaskFactory>(
+        [&](const std::shared_ptr<Context> &ctx, const synnax::task::Task &task) {
+            moved_at = x::telem::TimeStamp::now();
+            EXPECT_NIL(ctx->client->tasks.dispatch(
+                task.key,
+                {synnax::task::set({.path = {"rack"}, .value = other.key}),
+                 synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+            ));
+        },
+        1
+    );
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    std::shared_ptr<TrackingTaskState> state;
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            if (f->task_states.empty()) return false;
+            state = f->task_states[0];
+            return state->stopped.load();
+        },
+        [] { return "task not stopped"; }
+    );
+    EXPECT_TRUE(state->stop_will_reconfigure.load());
+    EXPECT_EQ(state->exec_count.load(), 0);
+    expect_no_driver_status(task, false, moved_at);
+    std::lock_guard lock(f->mu);
+    EXPECT_EQ(f->task_states.size(), 1);
+}
+
+/// @brief it should refuse a start pinned to the older config that joined a start whose
+/// config hash moved during the configure, and run only the start it joined.
+TEST_F(TaskManagerTest, JoinedPinnedStartIsRefusedWhenHashMovesDuringConfigure) {
+    auto factory = std::make_unique<RacingTaskFactory>(nullptr, 0, true);
+    auto *f = factory.get();
+    x::defer::defer release([f] { f->released = true; });
+    start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    ASSERT_EVENTUALLY_TRUE(f->stuck.load());
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "s2",
+         .config_hash = task.config_hash,
+         .pinned = true}
+    );
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2" && s.message == "Starting task";
+    });
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
+    f->released = true;
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2" && s.variant != synnax::status::VARIANT_LOADING;
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(s.message, "Config changed");
+    EXPECT_EQ(
+        s.description,
+        "The task config changed after you saw it. Review the task, then start it "
+        "again."
+    );
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 2 &&
+                   f->task_states[1]->exec_count.load() == 1;
+        },
+        [] { return "task not configured again"; }
+    );
+    std::lock_guard lock(f->mu);
+    EXPECT_EQ(f->hashes[1], task.config_hash);
+    EXPECT_EQ(f->task_states[0]->exec_count.load(), 0);
+    std::lock_guard order_lock(f->task_states[1]->cmd_order_mu);
+    EXPECT_EQ(f->task_states[1]->cmd_order, std::vector<std::string>{"s1"});
+}
+
+/// @brief it should run a start that joined a pinned start on the newer config, when
+/// the config hash moves during the configure and the pinned start is refused.
+TEST_F(TaskManagerTest, JoinedStartDeploysNewerConfigWhenPinnedStartIsRefused) {
+    auto factory = std::make_unique<RacingTaskFactory>(nullptr, 0, true);
+    auto *f = factory.get();
+    x::defer::defer release([f] { f->released = true; });
+    start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "s1",
+         .config_hash = task.config_hash,
+         .pinned = true}
+    );
+    ASSERT_EVENTUALLY_TRUE(f->stuck.load());
+    send_start(client, task, "s2");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2" && s.message == "Starting task";
+    });
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
+    f->released = true;
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s1" && s.variant != synnax::status::VARIANT_LOADING;
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(s.message, "Config changed");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 2 &&
+                   f->task_states[1]->exec_count.load() == 1;
+        },
+        [] { return "joined start not deployed"; }
+    );
+    std::lock_guard lock(f->mu);
+    EXPECT_EQ(f->hashes[1], task.config_hash);
+    EXPECT_EQ(f->task_states[0]->exec_count.load(), 0);
+    std::lock_guard order_lock(f->task_states[1]->cmd_order_mu);
+    EXPECT_EQ(f->task_states[1]->cmd_order, std::vector<std::string>{"s2"});
 }
 
 /// @brief it should keep the running state and config hash of the live instance after

@@ -605,11 +605,17 @@ private:
     execute_op(const Op &op, const std::shared_ptr<Entry> &entry, Operation &operation);
     /// @brief configures tsk, and configures it again, up to three times in all, while
     /// a save of a record that its hash covers, such as an ICD, moves the stored hash
-    /// during the configure. Refuses a pinned start instead. tsk ends as the revision
-    /// last configured.
+    /// during the configure. Refuses a pinned start instead. When the hash moves, the
+    /// starts that joined operation run again as their own commands, and a task that
+    /// the save moved to another rack is released. A failed read fails the deploy. tsk
+    /// ends as the revision last configured.
     /// @returns the configured task, or nullptr, and whether a factory handles tsk.
-    std::pair<std::unique_ptr<Task>, bool>
-    configure(synnax::task::Task &tsk, const Op &op, Operation &operation);
+    std::pair<std::unique_ptr<Task>, bool> configure(
+        synnax::task::Task &tsk,
+        const Op &op,
+        const std::shared_ptr<Entry> &entry,
+        Operation &operation
+    );
     /// @brief clears the deployed hash so the next start rebuilds.
     static void clear_deploy(const std::shared_ptr<Entry> &entry);
     /// @brief tells the sender of a start command that the start began, so it waits
