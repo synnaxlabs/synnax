@@ -339,10 +339,16 @@ func (c *core) drop(key uint32, pre []Preload) error {
 		}
 	}
 	if ch, ok := c.channels[key]; ok {
-		c.dropped = append(
-			c.dropped,
-			Kill{Key: key, All: true, Generation: c.generation},
-		)
+		// A head names a key only while it holds a durable segment or parts, so a
+		// replayed Drop of any other key finds no state of it.
+		if ch.oldest != 0 || slices.ContainsFunc(ch.segs, func(s *segState) bool {
+			return s.dur.created
+		}) {
+			c.dropped = append(
+				c.dropped,
+				Kill{Key: key, All: true, Generation: c.generation},
+			)
+		}
 		// The database unlinks the file of each segment once no reader pins it. A
 		// record whose segment the state holds goes with that segment.
 		for _, rec := range records {
