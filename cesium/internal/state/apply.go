@@ -306,7 +306,8 @@ func (c *core) seal(r *log.Seal) error {
 
 // test adds s to the candidates when it is sealed in the durable view, untagged, of the
 // format version of new segments, and its dead share is above the threshold, and takes
-// it out when not.
+// it out when not. A segment that a part holds gets no test until a Tombstone puts its
+// record back in the head.
 func (c *core) test(s *segState) {
 	var live uint64
 	for _, p := range s.dur.pointers {
@@ -332,8 +333,7 @@ func (c *core) replace(r *log.Replace) error {
 	case old.vis.Part != 0:
 		return refuse("replace of segment %d, whose record part %d holds", r.Old,
 			old.vis.Part)
-	case s == nil || !s.dur.created || s.dur.sealed || s.dur.length != 0 ||
-		s.holder != nil:
+	case s == nil || !s.dur.created || s.dur.length != 0 || s.holder != nil:
 		return refuse("replace of segment %d by %d, which is not a new segment",
 			r.Old, r.New)
 	case s.key != old.key || s.vis.Clock != old.vis.Clock ||
@@ -343,6 +343,12 @@ func (c *core) replace(r *log.Replace) error {
 	case !copied(old.dur.pointers, r.Pointers):
 		return refuse("replace of segment %d, whose pointers differ from the copy",
 			r.Old)
+	case !rising(r.Pointers):
+		return refuse("replace of segment %d by %d, whose pointers overlap or fall "+
+			"out of stream order", r.Old, r.New)
+	case end(r.Pointers[len(r.Pointers)-1]) > uint64(r.Length):
+		return refuse("replace of segment %d by %d, whose pointers end past its "+
+			"length %d", r.Old, r.New, r.Length)
 	}
 	ptrs := make([]Pointer, len(r.Pointers))
 	for i, p := range r.Pointers {
@@ -374,10 +380,21 @@ func copied(ptrs []Pointer, dst []log.Pointer) bool {
 	})
 }
 
-// bury takes s out of the state when it is sealed in the durable view and no durable
-// pointer is left in it, and gives it to TakeDead: its file holds no live byte. It
-// reads
-// only the durable view, so replay and the owner bury the same segments.
+// rising reports whether ptrs rise in stream order with no overlap.
+func rising(ptrs []log.Pointer) bool {
+	for i := 1; i < len(ptrs); i++ {
+		if uint64(ptrs[i].Offset) < end(ptrs[i-1]) {
+			return false
+		}
+	}
+	return true
+}
+
+func end(p log.Pointer) uint64 { return uint64(p.Offset) + uint64(p.Length) }
+
+// bury takes s out of the state when it is sealed in the durable view with no durable
+// pointer, and gives it to TakeDead: its file holds no live byte. It reads only the
+// durable view, so replay and the owner bury the same segments.
 func (c *core) bury(s *segState) {
 	if !s.dur.sealed || len(s.dur.pointers) > 0 {
 		return

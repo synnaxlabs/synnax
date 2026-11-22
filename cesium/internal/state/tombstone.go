@@ -124,8 +124,8 @@ func (c *core) tombstone(t *log.Tombstone, pre []Preload) error {
 				})
 				ch.repart()
 			}
+			c.test(s)
 		}
-		c.test(s)
 		c.bury(s)
 	}
 	ch.publish()

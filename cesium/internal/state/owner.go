@@ -437,9 +437,9 @@ func (r *deadRequest) run(s *State) {
 	r.done <- nil
 }
 
-// TakeDead returns the segments that left the state since the last call, by a Tombstone
-// or a Seal that left them sealed with no live pointer, or with no durable byte. The
-// database unlinks their files once no reader pins them.
+// TakeDead returns the segments that left the state since the last call, by a
+// Tombstone, a Seal, or a Restart that left them sealed with no live pointer, or with
+// no durable byte. The database unlinks their files once no reader pins them.
 func (s *State) TakeDead() ([]Dead, error) {
 	r := &deadRequest{done: make(chan error, 1)}
 	if err := s.enqueue(r); err != nil {
