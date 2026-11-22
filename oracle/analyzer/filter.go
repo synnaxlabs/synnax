@@ -698,7 +698,8 @@ func orderingTypes(
 
 // retrieveResponse derives the response and returns it with the fields of the records
 // it holds. A `@response type T` on the filter replaces the target with T, and the
-// response takes T's outputs.
+// response takes T's outputs. A `@response mixin S` appends the fields of the struct S
+// after the records.
 func retrieveResponse(
 	c *analysisCtx,
 	where, target resolution.Type,
@@ -716,28 +717,24 @@ func retrieveResponse(
 		}
 	}
 	domains := c.fileDomains
-	if dom, ok := where.Domains["response"]; ok {
-		def := filterDef(where)
-		expr, ok := dom.Expressions.Find("type")
-		if !ok || len(expr.Values) == 0 ||
-			expr.Values[0].Kind != resolution.ValueKindIdent {
-			c.report(diagnostics.Errorf(
-				def, "filter %s: @response takes `type <Type>`", where.Name,
-			))
-			return resolution.Type{}, nil, false
-		}
-		elem = resolution.TypeRef{Name: expr.Values[0].IdentValue}
-		resolveTypeRef(c, &where, &elem)
-		override, ok := c.table.Get(elem.Name)
+	def := filterDef(where)
+	dom, hasResponse := where.Domains["response"]
+	typeExpr, hasType := dom.Expressions.Find("type")
+	mixinExpr, hasMixin := dom.Expressions.Find("mixin")
+	if hasResponse && !hasType && !hasMixin {
+		c.report(diagnostics.Errorf(
+			def,
+			"filter %s: @response takes `type <Type>` or `mixin <Type>`",
+			where.Name,
+		))
+		return resolution.Type{}, nil, false
+	}
+	if hasType {
+		override, ok := responseType(c, where, typeExpr, "type")
 		if !ok {
-			c.report(diagnostics.Errorf(
-				def,
-				"filter %s: unknown response type %s",
-				where.Name,
-				expr.Values[0].IdentValue,
-			))
 			return resolution.Type{}, nil, false
 		}
+		elem = resolution.TypeRef{Name: override.QualifiedName}
 		target = override
 		if fields, ok = resolution.RecordFields(override, c.table); !ok {
 			c.report(diagnostics.Errorf(
@@ -750,19 +747,80 @@ func retrieveResponse(
 		}
 		domains = layDomains(c.fileDomains, override.Domains, "output", "omit")
 	}
+	responseFields := []resolution.Field{requiredField(
+		plural,
+		arrayOf(elem),
+		fmt.Sprintf("are the %s the request selects.", words),
+	)}
+	if hasMixin {
+		mixin, ok := responseType(c, where, mixinExpr, "mixin")
+		if !ok {
+			return resolution.Type{}, nil, false
+		}
+		if _, ok := mixin.Form.(resolution.StructForm); !ok {
+			c.report(diagnostics.Errorf(
+				def,
+				"filter %s: the response mixin %s must be a struct",
+				where.Name,
+				mixin.QualifiedName,
+			))
+			return resolution.Type{}, nil, false
+		}
+		for _, f := range resolution.UnifiedFields(mixin, c.table) {
+			if f.Name == plural {
+				c.report(diagnostics.Errorf(
+					def,
+					"filter %s: the response mixin %s holds a field named %s, as the "+
+						"records do",
+					where.Name,
+					mixin.QualifiedName,
+					plural,
+				))
+				return resolution.Type{}, nil, false
+			}
+			responseFields = append(responseFields, f)
+		}
+	}
 	// The response exists only where the request does.
 	domains = atRequestOutput(layDomains(domains, where.Domains, "omit"), where)
 	return resolution.Type{
 		Name: "RetrieveResponse",
-		Form: resolution.StructForm{Fields: []resolution.Field{requiredField(
-			plural,
-			arrayOf(elem),
-			fmt.Sprintf("are the %s the request selects.", words),
-		)}},
+		Form: resolution.StructForm{Fields: responseFields},
 		Domains: withDoc(domains, fmt.Sprintf(
 			"holds the %s a RetrieveRequest selects.", words,
 		)),
 	}, withVariantFields(target, fields, c.table), true
+}
+
+// responseType resolves the type that the expression named name of a filter's
+// `@response` gives, and reports an error when it gives none or names no type.
+func responseType(
+	c *analysisCtx,
+	where resolution.Type,
+	expr resolution.Expression,
+	name string,
+) (resolution.Type, bool) {
+	def := filterDef(where)
+	if len(expr.Values) == 0 || expr.Values[0].Kind != resolution.ValueKindIdent {
+		c.report(diagnostics.Errorf(
+			def, "filter %s: @response takes `%s <Type>`", where.Name, name,
+		))
+		return resolution.Type{}, false
+	}
+	ref := resolution.TypeRef{Name: expr.Values[0].IdentValue}
+	resolveTypeRef(c, &where, &ref)
+	typ, ok := c.table.Get(ref.Name)
+	if !ok {
+		c.report(diagnostics.Errorf(
+			def,
+			"filter %s: unknown response %s %s",
+			where.Name,
+			name,
+			expr.Values[0].IdentValue,
+		))
+		return resolution.Type{}, false
+	}
+	return typ, true
 }
 
 // withVariantFields returns fields with the payload fields of each variant of a union
