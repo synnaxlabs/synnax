@@ -78,7 +78,7 @@ TEST(Slave, RoundTrips) {
     ASSERT_EQ(parsed.write_bindings[0].command, 8);
     ASSERT_EQ(parsed.write_bindings[0].state, 0);
     ASSERT_EQ(parsed.op_modes[0].sync0_shift, -5);
-    ASSERT_EQ(parsed.op_mode->assign_activate, 0x300);
+    ASSERT_EQ(parsed.op_mode.value_or(OpModeChoice{}).assign_activate, 0x300);
 }
 
 /// @brief it should parse the startup parameter variant that its data type names and
