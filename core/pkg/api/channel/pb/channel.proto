@@ -106,8 +106,8 @@ message RetrieveRequest {
   bool include_status = 6;
   // include_path includes the path of each record.
   bool include_path = 8;
-  // strict refuses each name or path that several channels hold. A strict where holds
-  // only key, name, and path matches, at the top level or as the branches of one or.
+  // strict refuses each name that several channels hold. A strict where holds only key,
+  // name, and path matches, at the top level or as the branches of one or.
   bool strict = 9;
 }
 

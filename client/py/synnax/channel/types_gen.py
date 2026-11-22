@@ -267,9 +267,8 @@ class RetrieveRequest(BaseModel):
         include_status: Includes the status of each record.
         include_uses: Includes the uses of each record.
         include_path: Includes the path of each record.
-        strict: Refuses each name or path that several channels hold. A strict where
-            holds only key, name, and path matches, at the top level or as the branches
-            of one or.
+        strict: Refuses each name that several channels hold. A strict where holds only
+            key, name, and path matches, at the top level or as the branches of one or.
     """
 
     model_config = ConfigDict(extra="forbid")
