@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // sibling is a name in a channel folder, or at the top when parent is the zero key.
@@ -50,7 +49,7 @@ var nameClashMigration = migrate.New(
 		}
 		renamed := make(set.Set[resource.ID], len(staged))
 		for _, r := range staged {
-			renamed.Add(r.Resource)
+			renamed.Add(r.ID)
 		}
 		var channels []channel.Channel
 		if err = gorp.NewRetrieve[channel.Key, channel.Channel]().
@@ -68,7 +67,7 @@ var nameClashMigration = migrate.New(
 			holders  = make(map[sibling]int, len(channels))
 		)
 		for i, c := range channels {
-			at := sibling{name: validate.NormalizeName(c.Name)}
+			at := sibling{name: resourcev0.NormalizeName(c.Name)}
 			if c.Group != nil {
 				at.parent = *c.Group
 			}
@@ -78,7 +77,7 @@ var nameClashMigration = migrate.New(
 		}
 		at := make([]sibling, len(folders))
 		for i, f := range folders {
-			at[i].name = validate.NormalizeName(f.Name)
+			at[i].name = resourcev0.NormalizeName(f.Name)
 			if f.Parent != nil {
 				if at[i].parent, err = group.KeyFromResourceID(*f.Parent); err != nil {
 					return err
@@ -240,10 +239,8 @@ func quoteSource(src *arc.Source, held func(string) bool) bool {
 		}
 	case arc.GraphSource:
 		for i, f := range v.Graph.Functions {
-			if quoted := arcv4.QuoteDashedNames(
-				f.Body.Raw,
-				held,
-			); quoted != f.Body.Raw {
+			quoted := arcv4.QuoteDashedNames(f.Body.Raw, held)
+			if quoted != f.Body.Raw {
 				v.Graph.Functions[i].Body.Raw = quoted
 				src.Variant, changed = v, true
 			}
@@ -270,10 +267,10 @@ func newRenameReport(statuses *status.Service) gorp.Migration {
 			w := statuses.NewWriter(tx)
 			for _, r := range renames {
 				noun := "channel"
-				if r.Resource.Type == resource.TypeGroup {
+				if r.ID.Type == resource.TypeGroup {
 					noun = "folder"
 				}
-				name := names[r.Resource]
+				name := names[r.ID]
 				s := status.Status[any]{
 					Name:    name,
 					Variant: status.VariantWarning,

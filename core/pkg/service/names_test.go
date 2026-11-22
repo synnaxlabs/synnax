@@ -99,6 +99,7 @@ var _ = Describe("Name upgrade", func() {
 			"a.b",
 			"doubled",
 			"x.y",
+			"a_b_2",
 		}
 		alloc := make([]distchannel.Channel, len(names))
 		for i, name := range names {
@@ -120,13 +121,15 @@ var _ = Describe("Name upgrade", func() {
 			}
 		}
 		stored[6].Expression = "return pt-01 * 2"
-		Expect(gorp.WrapWriter[channelv1.Key, channelv1.Channel](n.DB).
-			Set(ctx, stored...)).To(Succeed())
 		rigs := groupv1.Group{
 			Key:   uuid.New(),
 			Name:  "Rigs",
 			Scope: resource.TypeChannel,
 		}
+		// A channel in another folder holds the first suffix of a moved channel.
+		stored[8].Group = &rigs.Key
+		Expect(gorp.WrapWriter[channelv1.Key, channelv1.Channel](n.DB).
+			Set(ctx, stored...)).To(Succeed())
 		ab := groupv1.Group{Key: uuid.New(), Name: "a_b", Scope: resource.TypeChannel}
 		xy := groupv1.Group{Key: uuid.New(), Name: "x.y", Scope: resource.TypeChannel}
 		Expect(
@@ -185,9 +188,10 @@ var _ = Describe("Name upgrade", func() {
 			keys[2].Key(): "pressure",
 			keys[3].Key(): "pressure_2",
 			keys[4].Key(): "Rigs",
-			keys[5].Key(): "a_b_2",
+			keys[5].Key(): "a_b_3",
 			keys[6].Key(): "doubled",
 			keys[7].Key(): "x_y",
+			keys[8].Key(): "a_b_2",
 		}))
 		var folders []group.Group
 		Expect(gorp.NewRetrieve[group.Key, group.Group]().
@@ -245,14 +249,14 @@ var _ = Describe("Name upgrade", func() {
 		for _, s := range statuses {
 			Expect(s.Variant).To(Equal(status.VariantWarning))
 			reported[s.Name] = s.Message
-			if s.Name == "a_b_2" {
-				Expect(s.Description).To(ContainSubstring(`"a.b" to "a_b_2"`))
+			if s.Name == "a_b_3" {
+				Expect(s.Description).To(ContainSubstring(`"a.b" to "a_b_3"`))
 			}
 		}
 		Expect(reported).To(Equal(map[string]string{
 			"stand_pt":   "Renamed channel",
 			"pressure_2": "Renamed channel",
-			"a_b_2":      "Renamed channel",
+			"a_b_3":      "Renamed channel",
 			"x_y":        "Renamed channel",
 			"Rigs_2":     "Renamed folder",
 			"x_y_2":      "Renamed folder",
