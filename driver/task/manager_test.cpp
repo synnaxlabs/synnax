@@ -24,6 +24,7 @@
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
+#include "client/cpp/errors/errors.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/pipe.h"
 #include "client/cpp/testutil/testutil.h"
@@ -4780,5 +4781,257 @@ TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
     // The rack closes a manager whose run failed, which stops its workers.
     manager->close();
     ASSERT_NIL(writer.close());
+}
+namespace {
+/// @brief answers control state reads with the replies a spec gives it, one per read,
+/// and blocks a read until its reply comes.
+class ScriptedControl final : public synnax::control::RetrieveClient {
+    std::mutex mu;
+    std::condition_variable cv;
+    std::vector<std::pair<grpc::control::RetrieveResponse, x::errors::Error>> replies;
+    int waiting = 0;
+    bool closed = false;
+
+public:
+    /// @brief answers the next read with states, or with err when it is set.
+    void reply(
+        const std::vector<synnax::control::State> &states,
+        const x::errors::Error &err = x::errors::NIL
+    ) {
+        grpc::control::RetrieveResponse res;
+        for (const auto &st: states) {
+            auto *pb = res.add_states();
+            *pb->mutable_subject() = st.subject.to_proto().first;
+            pb->set_resource(st.resource);
+            pb->set_authority(st.authority);
+        }
+        {
+            std::lock_guard lock(this->mu);
+            this->replies.emplace_back(std::move(res), err);
+        }
+        this->cv.notify_all();
+    }
+
+    /// @returns true once a read waits for its reply.
+    bool wait_for_read() {
+        std::unique_lock lock(this->mu);
+        return this->cv.wait_for(lock, std::chrono::seconds(5), [this] {
+            return this->waiting > 0;
+        });
+    }
+
+    /// @brief fails every read from now on, so no read blocks a stop.
+    void close() {
+        {
+            std::lock_guard lock(this->mu);
+            this->closed = true;
+        }
+        this->cv.notify_all();
+    }
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<grpc::control::RetrieveResponse, x::errors::Error>
+    send(const std::string &, grpc::control::RetrieveRequest &) override {
+        std::unique_lock lock(this->mu);
+        ++this->waiting;
+        this->cv.notify_all();
+        this->cv.wait(lock, [this] { return this->closed || !this->replies.empty(); });
+        --this->waiting;
+        if (this->replies.empty()) return {{}, freighter::UNREACHABLE};
+        auto r = std::move(this->replies.front());
+        this->replies.erase(this->replies.begin());
+        return r;
+    }
+};
+
+/// @brief a manager on a scripted stream and scripted control state reads.
+struct ScriptedManager {
+    std::shared_ptr<ScriptedStream> stream = std::make_shared<ScriptedStream>();
+    std::shared_ptr<ScriptedControl> control = std::make_shared<ScriptedControl>();
+    ContextCaptureFactory *factory = nullptr;
+};
+}
+
+/// @brief the channel that the scripted control state specs route frames on.
+constexpr synnax::channel::Key BUS_KEY = 4242;
+
+/// @brief a frame of one sample on BUS_KEY.
+x::telem::Frame bus_frame(const double v) {
+    return x::telem::Frame(BUS_KEY, x::telem::Series(v));
+}
+
+class ScriptedControlTest : public TaskManagerTest {
+protected:
+    ScriptedManager scripted;
+    std::vector<double> published;
+    std::mutex published_mu;
+    control::Publish publish = [this](const x::telem::Frame &fr) {
+        std::lock_guard lock(this->published_mu);
+        this->published.push_back(fr.at<double>(BUS_KEY, 0));
+    };
+
+    std::vector<double> got() {
+        std::lock_guard lock(this->published_mu);
+        return this->published;
+    }
+
+    /// @brief starts a manager whose first control read gets first. With piped set,
+    /// the manager reaches the Core through pipe.
+    void start(const std::function<void()> &first, const bool piped = false) {
+        auto conn = test_client_config();
+        if (piped) {
+            pipe = std::make_unique<CorePipe>(conn.port);
+            conn.host = "127.0.0.1";
+            conn.port = pipe->port;
+        }
+        const auto managed = std::make_shared<synnax::Synnax>(conn);
+        managed->telem = synnax::framer::Client(
+            std::make_unique<ScriptedStreamerClient>(this->scripted.stream),
+            nullptr,
+            managed->channels
+        );
+        managed->control = synnax::control::Client(this->scripted.control);
+        // The open ack.
+        this->scripted.stream->push({});
+        first();
+        auto factory = std::make_unique<ContextCaptureFactory>();
+        this->scripted.factory = factory.get();
+        const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
+        manager = std::make_unique<Manager>(
+            managed_rack,
+            managed,
+            std::move(factory),
+            ManagerConfig{.poll_interval = 50 * x::telem::MILLISECOND}
+        );
+        std::promise<void> started;
+        thread = std::thread([&] {
+            ASSERT_NIL(manager->run([&] { started.set_value(); }));
+        });
+        ASSERT_EQ(
+            started.get_future().wait_for((5 * x::telem::SECOND).chrono()),
+            std::future_status::ready
+        );
+    }
+
+    [[nodiscard]] std::shared_ptr<control::States> states() const {
+        return this->scripted.factory->captured_ctx->control_states();
+    }
+
+    void miss() const {
+        grpc::framer::StreamerResponse missed;
+        missed.set_missed(true);
+        this->scripted.stream->push(missed);
+    }
+
+    void TearDown() override {
+        this->scripted.control->close();
+        TaskManagerTest::TearDown();
+    }
+};
+
+const x::control::Subject OWNER{"owner", "owner-1"};
+const x::control::Subject OTHER{"other", "other-5"};
+
+/// @brief it should hold the bus while the control read after a miss is in flight,
+/// then publish the held frames of the writer with authority in order.
+TEST_F(ScriptedControlTest, MissHoldsTheBusUntilTheReadLands) {
+    start([this] {
+        this->scripted.control->reply(
+            {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+        );
+    });
+    const auto st = this->states();
+    miss();
+    ASSERT_TRUE(this->scripted.control->wait_for_read());
+    st->route(bus_frame(1), OWNER, this->publish);
+    st->route(bus_frame(2), OTHER, this->publish);
+    st->route(bus_frame(3), OWNER, this->publish);
+    ASSERT_TRUE(got().empty());
+    this->scripted.control->reply(
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    const std::vector<double> want{1, 3};
+    ASSERT_EVENTUALLY_EQ_F([&] { return got() == want; }, true);
+}
+
+/// @brief it should publish the held frames filtered against the last mirror when the
+/// read after a miss fails, keep forwarding with that mirror, and keep the run going.
+TEST_F(ScriptedControlTest, FailedReadOnAMissReleasesWithTheLastMirror) {
+    start([this] {
+        this->scripted.control->reply(
+            {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+        );
+    });
+    const auto st = this->states();
+    miss();
+    ASSERT_TRUE(this->scripted.control->wait_for_read());
+    st->route(bus_frame(1), OWNER, this->publish);
+    st->route(bus_frame(2), OTHER, this->publish);
+    st->route(bus_frame(3), OWNER, this->publish);
+    ASSERT_TRUE(got().empty());
+    this->scripted.control->reply({}, freighter::UNREACHABLE);
+    const std::vector<double> released{1, 3};
+    ASSERT_EVENTUALLY_EQ_F([&] { return got() == released; }, true);
+    st->route(bus_frame(4), OWNER, this->publish);
+    st->route(bus_frame(5), OTHER, this->publish);
+    const std::vector<double> forwarded{1, 3, 4};
+    ASSERT_EQ(got(), forwarded);
+    // The monitor loop reads the control state again.
+    ASSERT_TRUE(this->scripted.control->wait_for_read());
+    this->scripted.control->reply(
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+}
+
+/// @brief it should keep the last mirror in force through an outage that spans a run
+/// restart, so local frames of the writer with authority still reach the bus.
+TEST_F(ScriptedControlTest, OutageAcrossARunRestartKeepsTheLastMirror) {
+    start(
+        [this] {
+            this->scripted.control->reply(
+                {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+            );
+        },
+        true
+    );
+    const auto st = this->states();
+    pipe->pause();
+    // The read after the miss fails too, and the failed task sync ends the run.
+    this->scripted.control->reply({}, freighter::UNREACHABLE);
+    miss();
+    thread.join();
+    st->route(bus_frame(1), OWNER, this->publish);
+    st->route(bus_frame(2), OTHER, this->publish);
+    // The next run cannot reach the Core either.
+    ASSERT_TRUE(synnax::errors::is_unreachable(manager->run()));
+    st->route(bus_frame(3), OWNER, this->publish);
+    st->route(bus_frame(4), OTHER, this->publish);
+    const std::vector<double> want{1, 3};
+    ASSERT_EQ(got(), want);
+    pipe->resume();
+    manager->close();
+}
+
+/// @brief it should start with the bus closed when the first control read fails, keep
+/// the run going, and open the bus once a later read succeeds.
+TEST_F(ScriptedControlTest, FailedFirstReadKeepsTheRunAndOpensLater) {
+    start([this] { this->scripted.control->reply({}, freighter::UNREACHABLE); });
+    const auto st = this->states();
+    st->route(bus_frame(1), OWNER, this->publish);
+    ASSERT_TRUE(this->scripted.control->wait_for_read());
+    ASSERT_TRUE(got().empty());
+    this->scripted.control->reply(
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] {
+            st->route(bus_frame(2), OWNER, this->publish);
+            return !got().empty();
+        },
+        true
+    );
+    for (const auto v: got())
+        EXPECT_EQ(v, 2);
 }
 }

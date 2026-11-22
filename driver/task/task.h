@@ -428,6 +428,9 @@ public:
         poll_interval(cfg.poll_interval),
         shutdown_timeout(cfg.shutdown_timeout),
         worker_count(cfg.worker_count) {
+        // The bus forwards nothing until the first read of the control state. The
+        // mirror then stays in force through outages and runs.
+        this->control_states->close();
         this->ctx->set_rack_name(this->rack.name);
     }
 
@@ -548,6 +551,9 @@ private:
     /// @brief set by the streamer when the Core dropped task changes. Read and written
     /// only on the thread that runs the streamer.
     bool missed = false;
+    /// @brief true while a read of the control state has failed and none has
+    /// succeeded since.
+    std::atomic<bool> control_unread{false};
 
     /// @brief channels used to receive task events.
     struct {
@@ -564,11 +570,12 @@ private:
     /// @brief opens the streamer for task set/delete/cmd channels.
     x::errors::Error open_streamer();
     /// @brief replaces the control state mirror with the cluster's current state.
-    /// Best-effort: a failed read is logged and leaves the mirror empty.
-    void retrieve_initial_control_states();
-    /// @brief replaces the control state mirror with the cluster's current state.
+    /// @param generation the mirror generation that the read starts at.
     /// @returns the error of a failed read, which leaves the mirror as it was.
-    x::errors::Error read_control_states();
+    x::errors::Error read_control_states(uint64_t generation);
+    /// @brief reads the control state. A failed read ends a hold with the last mirror
+    /// and leaves the read to the monitor loop, which tries again each poll.
+    void read_control_states_or_retry(uint64_t generation);
     /// @brief loads and queues all existing tasks from the cluster.
     x::errors::Error configure_initial_tasks();
     /// @brief removes the tasks the Core no longer has and deploys each task it has.

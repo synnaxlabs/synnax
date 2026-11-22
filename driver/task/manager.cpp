@@ -245,7 +245,7 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
             LOG(WARNING) << "failed to send task statuses again: " << err;
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
-    this->retrieve_initial_control_states();
+    this->read_control_states_or_retry(this->control_states->generation());
     this->retrieve_rack_name();
     LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
@@ -272,15 +272,12 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
             LOG(WARNING) << "the Core dropped task changes because the Driver fell "
                             "behind. Reading the tasks, control state, and rack name "
                             "again.";
-            // The bus filters local writes with the control mirror, so it is read
-            // first. A failed read or sync ends the run with no error, so the rack
-            // starts the next run, which reads both again, and never stops the
-            // Driver. The mirror stays as it was, since an empty one passes every
-            // writer. Transfers that the stream delivers after a read apply on top.
-            if (const auto err = this->read_control_states()) {
-                LOG(WARNING) << "failed to read control state after a miss: " << err;
-                break;
-            }
+            // The bus filters local writes with the control mirror, so it holds them
+            // while the mirror is read first. A failed read keeps the last mirror
+            // and leaves the read to the monitor loop. A failed sync ends the run with
+            // no error, so the rack starts the next run and never stops the Driver.
+            // Transfers that the stream delivers after a read apply on top.
+            this->read_control_states_or_retry(this->control_states->hold());
             this->retrieve_rack_name();
             if (const auto err = this->sync_tasks(true)) {
                 LOG(WARNING) << "failed to sync tasks after a miss: " << err;
@@ -294,21 +291,22 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
     return c_err;
 }
 
-x::errors::Error Manager::read_control_states() {
+x::errors::Error Manager::read_control_states(const uint64_t generation) {
     auto [states, err] = this->ctx->client->control.retrieve();
     if (err) return err;
-    this->control_states->set(states);
+    // A read that a later hold outdated is not used, and that hold reads again.
+    if (this->control_states->set(states, generation)) this->control_unread = false;
     return x::errors::NIL;
 }
 
-void Manager::retrieve_initial_control_states() {
-    if (const auto err = this->read_control_states()) {
-        // The mirror of an earlier run may hold control that ended during an outage.
-        // An empty mirror treats every channel as uncontrolled, the Core arbitrates
-        // every write, and transfers on the stream fill the mirror again.
-        LOG(WARNING) << "failed to retrieve initial control state: " << err;
-        this->control_states->set({});
-    }
+void Manager::read_control_states_or_retry(const uint64_t generation) {
+    const auto err = this->read_control_states(generation);
+    if (!err) return;
+    this->control_states->release();
+    this->control_unread = true;
+    LOG(WARNING) << "failed to read control state, so the local bus uses the last one "
+                    "read until a read succeeds: "
+                 << err;
 }
 
 void Manager::retrieve_rack_name() {
@@ -647,6 +645,10 @@ void Manager::monitor_loop() {
     while (this->breaker.running()) {
         this->breaker.wait_for(this->poll_interval);
         if (!this->breaker.running()) break;
+        if (this->control_unread &&
+            !this->read_control_states(this->control_states->generation()) &&
+            !this->control_unread)
+            LOG(INFO) << "read control state again for the local bus";
         // Checked after the lock is released: a warning blocks on the network, and a
         // stuck Core is exactly when steps run late.
         std::vector<std::shared_ptr<Operation>> running;

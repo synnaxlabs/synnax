@@ -41,22 +41,12 @@ public:
         cfg(std::move(cfg)) {}
 
     [[nodiscard]] x::errors::Error write(const x::telem::Frame &fr) override {
-        if (this->states->all_authorized(fr, this->cfg.subject)) {
-            VLOG(1) << "[bus.writer] publishing frame with " << fr.size()
-                    << " channels to bus";
-            this->bus->publish(fr);
-        } else {
-            auto filtered = this->states->filter(fr, this->cfg.subject);
-            LOG_FIRST_N(WARNING, 10)
-                << "[bus.writer] dropped " << fr.size() - filtered.size() << " of "
-                << fr.size() << " channels from bus for " << this->cfg.subject.name
-                << ": no authority. This is normal when another writer holds control.";
-            if (!filtered.empty()) {
-                VLOG(1) << "[bus.writer] publishing filtered frame with "
-                        << filtered.size() << " channels to bus";
-                this->bus->publish(filtered);
-            }
-        }
+        // A held frame publishes after this call, so the callback owns what it uses.
+        this->states->route(
+            fr,
+            this->cfg.subject,
+            [bus = this->bus](const x::telem::Frame &f) { bus->publish(f); }
+        );
         return this->server->write(fr);
     }
 
