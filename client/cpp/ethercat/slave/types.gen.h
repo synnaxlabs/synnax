@@ -20,6 +20,7 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/ethercat/master/types.gen.h"
+#include "client/cpp/ethercat/types.gen.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
@@ -33,32 +34,30 @@
 namespace synnax::ethercat::slave {
 
 struct PDOEntry;
-struct StartupParameterBase;
+struct ReadBinding;
 struct WriteBinding;
 struct StatusDetails;
 struct Where;
 struct Cursor;
-struct InputEntry;
-struct OutputEntry;
-struct ReadBinding;
-struct RetrieveRequest;
 struct PDOs;
+struct Configuration;
+struct RetrieveRequest;
+struct Identity;
 struct Slave;
 struct RetrieveResponse;
 
-constexpr const char *SAMPLES_RAW = "raw";
-constexpr const char *SAMPLES_CALIBRATED = "calibrated";
-constexpr const char *SAMPLES_SCALED = "scaled";
-constexpr const char *SAMPLES_CALIBRATED_SCALED = "calibrated_scaled";
-
 using Key = x::uuid::UUID;
 
-/// @brief PDOEntry holds the fields of a PDO entry that a scan found on a slave.
+using StartupParameter = ::synnax::ethercat::StartupParameter;
+
+/// @brief PDOEntry is a PDO entry that a scan found on a slave.
 struct PDOEntry {
     /// @brief name is the name of the entry, such as Input.
     std::string name;
     /// @brief pdo_name is the name of the PDO that holds the entry, such as Channel 1.
-    std::optional<std::string> pdo_name;
+    std::string pdo_name = "";
+    /// @brief pdo_index is the index of the PDO that holds the entry, such as 0x1A00.
+    std::uint16_t pdo_index = 0;
     /// @brief index is the CoE object dictionary index of the entry.
     std::uint16_t index = 0;
     /// @brief sub_index is the CoE object dictionary sub-index of the entry.
@@ -72,16 +71,21 @@ struct PDOEntry {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief StartupParameterBase carries the fields that every startup parameter shares.
-struct StartupParameterBase {
-    /// @brief index is the CoE object dictionary index of the object.
+/// @brief ReadBinding is the channel that a slave maps for one input entry.
+struct ReadBinding {
+    /// @brief index is the CoE object dictionary index of the input entry.
     std::uint16_t index = 0;
-    /// @brief sub_index is the CoE object dictionary sub-index of the object.
+    /// @brief sub_index is the CoE object dictionary sub-index of the input entry.
     std::uint8_t sub_index = 0;
-    /// @brief name is what the parameter sets, for display.
-    std::string name = "";
+    /// @brief scaled is whether the channel holds the scaled samples of the entry.
+    bool scaled = false;
+    /// @brief calibrated is whether the channel holds the calibrated samples of the
+    /// entry.
+    bool calibrated = false;
+    /// @brief channel is the channel that holds the samples of the entry.
+    ::synnax::channel::Key channel = 0;
 
-    static StartupParameterBase parse(x::json::Parser parser);
+    static ReadBinding parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -91,10 +95,10 @@ struct WriteBinding {
     std::uint16_t index = 0;
     /// @brief sub_index is the CoE object dictionary sub-index of the output entry.
     std::uint8_t sub_index = 0;
-    /// @brief command is the channel that commands the entry.
-    ::synnax::channel::Key command = 0;
-    /// @brief state is the channel that holds the state of the entry.
-    std::optional<::synnax::channel::Key> state;
+    /// @brief command is the channel that commands the entry. 0 is no channel.
+    ::synnax::channel::Key command = ::synnax::channel::Key(0);
+    /// @brief state is the channel that holds the state of the entry. 0 is no channel.
+    ::synnax::channel::Key state = ::synnax::channel::Key(0);
 
     static WriteBinding parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -124,7 +128,7 @@ struct Where {
     /// @brief name selects by name.
     ::x::filter::Field<::x::filter::String> name;
     /// @brief serial selects by serial.
-    ::x::filter::Field<::x::filter::Ordered<std::uint32_t>> serial;
+    ::x::filter::Field<::x::filter::Ordered<std::uint64_t>> serial;
     /// @brief vendor_id selects by vendor_id.
     ::x::filter::Field<::x::filter::Ordered<std::uint32_t>> vendor_id;
     /// @brief product_code selects by product_code.
@@ -173,164 +177,41 @@ struct Cursor {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief InputEntry is an entry that the slave sends.
-struct InputEntry : public PDOEntry {
-    /// @brief pdo_index is the index of the TxPDO that holds the entry, 0x1A00 to
-    /// 0x1BFF.
-    std::uint16_t pdo_index = 0;
+/// @brief PDOs holds the PDO entries of a slave.
+struct PDOs {
+    /// @brief inputs are the entries that the slave sends.
+    std::vector<PDOEntry> inputs = {};
+    /// @brief outputs are the entries that the slave receives.
+    std::vector<PDOEntry> outputs = {};
 
-    static InputEntry parse(x::json::Parser parser);
+    static PDOs parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief OutputEntry is an entry that the slave receives.
-struct OutputEntry : public PDOEntry {
-    /// @brief pdo_index is the index of the RxPDO that holds the entry, 0x1600 to
-    /// 0x17FF.
-    std::uint16_t pdo_index = 0;
+/// @brief Configuration holds the slave fields that the user owns.
+struct Configuration {
+    /// @brief name is a human-readable name for the slave.
+    std::string name;
+    /// @brief identifier is the prefix of the slave's channel names. The slave is
+    /// unconfigured while it is empty.
+    std::string identifier = "";
+    /// @brief disabled is whether the Driver leaves the slave out of the tasks it runs.
+    bool disabled = false;
+    /// @brief startup_parameters are the CoE objects the Driver writes to the slave in
+    /// PRE-OP.
+    std::vector<StartupParameter> startup_parameters = {};
+    /// @brief read_index is the index channel of the channels that the slave reads
+    /// into.
+    ::synnax::channel::Key read_index = ::synnax::channel::Key(0);
+    /// @brief write_state_index is the index channel of the state channels of the
+    /// slave's outputs.
+    ::synnax::channel::Key write_state_index = ::synnax::channel::Key(0);
+    /// @brief read_bindings are the channels of the input entries.
+    std::vector<ReadBinding> read_bindings = {};
+    /// @brief write_bindings are the channels of the output entries.
+    std::vector<WriteBinding> write_bindings = {};
 
-    static OutputEntry parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Int8StartupParameter writes a int8 value.
-struct Int8StartupParameter : public StartupParameterBase {
-    std::string data_type = "int8";
-    /// @brief value is the value written to the object.
-    std::int8_t value = 0;
-
-    static Int8StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Int16StartupParameter writes a int16 value.
-struct Int16StartupParameter : public StartupParameterBase {
-    std::string data_type = "int16";
-    /// @brief value is the value written to the object.
-    std::int16_t value = 0;
-
-    static Int16StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Int32StartupParameter writes a int32 value.
-struct Int32StartupParameter : public StartupParameterBase {
-    std::string data_type = "int32";
-    /// @brief value is the value written to the object.
-    std::int32_t value = 0;
-
-    static Int32StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Int64StartupParameter writes a int64 value.
-struct Int64StartupParameter : public StartupParameterBase {
-    std::string data_type = "int64";
-    /// @brief value is the value written to the object.
-    std::int64_t value = 0;
-
-    static Int64StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Uint8StartupParameter writes a uint8 value.
-struct Uint8StartupParameter : public StartupParameterBase {
-    std::string data_type = "uint8";
-    /// @brief value is the value written to the object.
-    std::uint8_t value = 0;
-
-    static Uint8StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Uint16StartupParameter writes a uint16 value.
-struct Uint16StartupParameter : public StartupParameterBase {
-    std::string data_type = "uint16";
-    /// @brief value is the value written to the object.
-    std::uint16_t value = 0;
-
-    static Uint16StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Uint32StartupParameter writes a uint32 value.
-struct Uint32StartupParameter : public StartupParameterBase {
-    std::string data_type = "uint32";
-    /// @brief value is the value written to the object.
-    std::uint32_t value = 0;
-
-    static Uint32StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Uint64StartupParameter writes a uint64 value.
-struct Uint64StartupParameter : public StartupParameterBase {
-    std::string data_type = "uint64";
-    /// @brief value is the value written to the object.
-    std::uint64_t value = 0;
-
-    static Uint64StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Float32StartupParameter writes a float32 value.
-struct Float32StartupParameter : public StartupParameterBase {
-    std::string data_type = "float32";
-    /// @brief value is the value written to the object.
-    float value = 0;
-
-    static Float32StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Float64StartupParameter writes a float64 value.
-struct Float64StartupParameter : public StartupParameterBase {
-    std::string data_type = "float64";
-    /// @brief value is the value written to the object.
-    double value = 0;
-
-    static Float64StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP,
-/// before the slave moves to SAFE-OP. Its data type sets the size of the write and the
-/// type of its value.
-using StartupParameter = std::variant<
-    Int8StartupParameter,
-    Int16StartupParameter,
-    Int32StartupParameter,
-    Int64StartupParameter,
-    Uint8StartupParameter,
-    Uint16StartupParameter,
-    Uint32StartupParameter,
-    Uint64StartupParameter,
-    Float32StartupParameter,
-    Float64StartupParameter>;
-
-StartupParameter parse_startup_parameter(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const StartupParameter &value);
-
-/// @brief returns the fields every variant of the union shares.
-[[nodiscard]] inline const StartupParameterBase &base(const StartupParameter &value) {
-    return std::visit(
-        [](const auto &v) -> const StartupParameterBase & { return v; },
-        value
-    );
-}
-
-/// @brief ReadBinding is the channel that a slave maps for one input entry.
-struct ReadBinding {
-    /// @brief index is the CoE object dictionary index of the input entry.
-    std::uint16_t index = 0;
-    /// @brief sub_index is the CoE object dictionary sub-index of the input entry.
-    std::uint8_t sub_index = 0;
-    /// @brief samples is which samples of the entry the channel holds.
-    std::string samples = SAMPLES_RAW;
-    /// @brief channel is the channel that holds the samples of the entry.
-    ::synnax::channel::Key channel = 0;
-
-    static ReadBinding parse(x::json::Parser parser);
+    static Configuration parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -377,14 +258,24 @@ struct RetrieveRequest {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief PDOs holds the PDO entries of a slave.
-struct PDOs {
-    /// @brief inputs are the entries that the slave sends.
-    std::vector<InputEntry> inputs = {};
-    /// @brief outputs are the entries that the slave receives.
-    std::vector<OutputEntry> outputs = {};
+/// @brief Identity holds the slave fields that the scanner owns.
+struct Identity {
+    /// @brief rack is the key of the rack the slave is connected to.
+    ::synnax::rack::Key rack = 0;
+    /// @brief serial is the serial number of the slave. 0 when the slave reports none.
+    std::uint32_t serial = 0;
+    /// @brief vendor_id is the EtherCAT vendor ID of the slave.
+    std::uint32_t vendor_id = 0;
+    /// @brief product_code is the product code of the slave.
+    std::uint32_t product_code = 0;
+    /// @brief revision is the revision number of the slave.
+    std::uint32_t revision = 0;
+    /// @brief master is the master on whose bus the slave sits.
+    ::synnax::ethercat::master::Key master;
+    /// @brief pdos are the PDO entries that the scan found on the slave.
+    PDOs pdos = {};
 
-    static PDOs parse(x::json::Parser parser);
+    static Identity parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -397,7 +288,7 @@ struct Slave {
     /// @brief name is a human-readable name for the slave.
     std::string name;
     /// @brief serial is the serial number of the slave. 0 when the slave reports none.
-    std::uint32_t serial = 0;
+    std::uint64_t serial = 0;
     /// @brief vendor_id is the EtherCAT vendor ID of the slave.
     std::uint32_t vendor_id = 0;
     /// @brief product_code is the product code of the slave.
@@ -418,10 +309,10 @@ struct Slave {
     std::vector<StartupParameter> startup_parameters = {};
     /// @brief read_index is the index channel of the channels that the slave reads
     /// into.
-    std::optional<::synnax::channel::Key> read_index;
+    ::synnax::channel::Key read_index = ::synnax::channel::Key(0);
     /// @brief write_state_index is the index channel of the state channels of the
     /// slave's outputs.
-    std::optional<::synnax::channel::Key> write_state_index;
+    ::synnax::channel::Key write_state_index = ::synnax::channel::Key(0);
     /// @brief read_bindings are the channels of the input entries.
     std::vector<ReadBinding> read_bindings = {};
     /// @brief write_bindings are the channels of the output entries.
@@ -432,6 +323,29 @@ struct Slave {
     static Slave parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief IdentityUpdate writes the fields that the scanner owns.
+struct IdentityUpdate : public Identity {
+    std::string group = "identity";
+
+    static IdentityUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConfigurationUpdate replaces the fields that the user owns. A client sends
+/// the whole group, because a field it leaves out is cleared.
+struct ConfigurationUpdate : public Configuration {
+    std::string group = "configuration";
+
+    static ConfigurationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update is a write to one field group of a slave.
+using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
 
 /// @brief RetrieveResponse holds the slaves a RetrieveRequest selects.
 struct RetrieveResponse {

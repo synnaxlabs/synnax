@@ -9,9 +9,13 @@
 
 from synnax.ethercat.slave.types_gen import (
     TYPE_RESOURCE_ID,
+    Configuration,
+    ConfigurationUpdate,
     Cursor,
     Float32StartupParameter,
     Float64StartupParameter,
+    Identity,
+    IdentityUpdate,
     InputEntry,
     Int8StartupParameter,
     Int16StartupParameter,
@@ -32,6 +36,7 @@ from synnax.ethercat.slave.types_gen import (
     Uint16StartupParameter,
     Uint32StartupParameter,
     Uint64StartupParameter,
+    Update,
     Where,
     WhereInput,
     WriteBinding,
@@ -40,9 +45,13 @@ from synnax.ethercat.slave.types_gen import (
 
 __all__ = [
     "TYPE_RESOURCE_ID",
+    "Configuration",
+    "ConfigurationUpdate",
     "Cursor",
     "Float32StartupParameter",
     "Float64StartupParameter",
+    "Identity",
+    "IdentityUpdate",
     "InputEntry",
     "Int8StartupParameter",
     "Int16StartupParameter",
@@ -63,6 +72,7 @@ __all__ = [
     "Uint16StartupParameter",
     "Uint32StartupParameter",
     "Uint64StartupParameter",
+    "Update",
     "Where",
     "WhereInput",
     "WriteBinding",

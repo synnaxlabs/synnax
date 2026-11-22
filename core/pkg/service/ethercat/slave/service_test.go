@@ -33,6 +33,7 @@ import (
 var _ = Describe("Service", func() {
 	var (
 		svc     *slave.Service
+		stat    *status.Service
 		rackSvc *rack.Service
 		tx      gorp.Tx
 		m       master.Master
@@ -40,7 +41,7 @@ var _ = Describe("Service", func() {
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
-		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
@@ -52,7 +53,10 @@ var _ = Describe("Service", func() {
 			DB:     db,
 			Status: stat,
 		}))
-		svc = MustOpen(slave.OpenService(ctx, slave.ServiceConfig{DB: db}))
+		svc = MustOpen(slave.OpenService(ctx, slave.ServiceConfig{
+			DB:     db,
+			Status: stat,
+		}))
 		tx = DeferClose(db.OpenTx())
 		m = master.Master{
 			Key:       uuid.New(),
@@ -86,9 +90,19 @@ var _ = Describe("Service", func() {
 				To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
 
+		It("Should reject a config missing the status service", func(ctx SpecContext) {
+			Expect(slave.OpenService(ctx, slave.ServiceConfig{DB: db})).Error().
+				To(MatchError(ContainSubstring("status: must be non-nil")))
+		})
+
 		It("Should let a later config override an earlier one", func() {
-			cfg := slave.ServiceConfig{}.Override(slave.ServiceConfig{DB: db})
+			cfg := slave.ServiceConfig{
+				DB: db,
+			}.Override(
+				slave.ServiceConfig{Status: stat},
+			)
 			Expect(cfg.DB).To(BeIdenticalTo(db))
+			Expect(cfg.Status).To(BeIdenticalTo(stat))
 			Expect(cfg.Validate()).To(Succeed())
 		})
 	})

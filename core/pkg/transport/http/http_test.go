@@ -220,9 +220,24 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/ethercat/master/delete",
 			),
 			Entry(
+				"unary EtherCAT slave create",
+				http.MethodPost,
+				"/api/v1/ethercat/slave/create",
+			),
+			Entry(
 				"unary EtherCAT slave retrieve",
 				http.MethodPost,
 				"/api/v1/ethercat/slave/retrieve",
+			),
+			Entry(
+				"unary EtherCAT slave update",
+				http.MethodPost,
+				"/api/v1/ethercat/slave/update",
+			),
+			Entry(
+				"unary EtherCAT slave delete",
+				http.MethodPost,
+				"/api/v1/ethercat/slave/delete",
 			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),

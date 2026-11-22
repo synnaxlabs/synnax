@@ -285,7 +285,10 @@ type Transport struct {
 	EtherCATMasterDelete   freighter.UnaryServer[ethercatmaster.DeleteRequest, struct{}]
 
 	// ETHERCAT SLAVE
+	EtherCATSlaveCreate   freighter.UnaryServer[ethercatslave.CreateRequest, ethercatslave.CreateResponse]
 	EtherCATSlaveRetrieve freighter.UnaryServer[ethercatslave.RetrieveRequest, ethercatslave.RetrieveResponse]
+	EtherCATSlaveUpdate   freighter.UnaryServer[ethercatslave.UpdateRequest, struct{}]
+	EtherCATSlaveDelete   freighter.UnaryServer[ethercatslave.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -627,7 +630,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.EtherCATMasterUpdate,
 		t.EtherCATMasterDelete,
 		// ETHERCAT SLAVE
+		t.EtherCATSlaveCreate,
 		t.EtherCATSlaveRetrieve,
+		t.EtherCATSlaveUpdate,
+		t.EtherCATSlaveDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -936,7 +942,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.EtherCATMasterUpdate.BindHandler(bind.Write(l.binder, l.EtherCATMaster.Update))
 	t.EtherCATMasterDelete.BindHandler(bind.Write(l.binder, l.EtherCATMaster.Delete))
 	// ETHERCAT SLAVE
+	t.EtherCATSlaveCreate.BindHandler(bind.Write(l.binder, l.EtherCATSlave.Create))
 	t.EtherCATSlaveRetrieve.BindHandler(bind.Read(l.binder, l.EtherCATSlave.Retrieve))
+	t.EtherCATSlaveUpdate.BindHandler(bind.Write(l.binder, l.EtherCATSlave.Update))
+	t.EtherCATSlaveDelete.BindHandler(bind.Write(l.binder, l.EtherCATSlave.Delete))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
