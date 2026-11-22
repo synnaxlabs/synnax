@@ -1583,6 +1583,14 @@ describe("Input.Table", () => {
       expect(onMove).toHaveBeenCalledWith(0, 2);
     });
 
+    it("should dim the whole row while it drags", () => {
+      renderDraggable(vi.fn());
+      fireEvent.dragStart(handle("1"), { dataTransfer: new DataTransfer() });
+      expect(rowOf("1").hasAttribute("data-haul-source")).toBe(true);
+      fireEvent.dragEnd(handle("1"), { dataTransfer: new DataTransfer() });
+      expect(rowOf("1").hasAttribute("data-haul-source")).toBe(false);
+    });
+
     it("should not drag a row from one of its cells", () => {
       const onMove = vi.fn();
       renderDraggable(onMove);
