@@ -159,16 +159,16 @@ NodeConfig union on variant extends v13.NodeConfig {
     custom_actuator {
         state_overrides symbol.StateOverride[] = [] {
             @doc value """
-                contains per-instance overrides of the spec's visual states, matched to
-                the spec's states by key.
+                contains per-instance replacements of the spec's region colors, one for
+                each value that the node draws, in value order: Base, then Active.
             """
         }
     }
     custom_static {
         state_overrides symbol.StateOverride[] = [] {
             @doc value """
-                contains per-instance overrides of the spec's visual states, matched to
-                the spec's states by key.
+                contains per-instance replacements of the spec's region colors, one for
+                each value that the node draws, in value order: Base, then Active.
             """
         }
     }
