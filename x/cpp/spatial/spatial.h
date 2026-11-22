@@ -12,7 +12,9 @@
 #include "x/cpp/spatial/types.gen.h"
 
 namespace x::spatial {
-/// @brief returns upper - lower, which is negative when lower is above upper.
+/// @brief returns the span of the bounds.
+/// @param bounds the bounds to measure.
+/// @returns upper - lower, which is negative when lower is above upper.
 [[nodiscard]] inline double span(const ClosedBounds &bounds) {
     return bounds.upper - bounds.lower;
 }
