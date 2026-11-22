@@ -200,6 +200,20 @@ func (u *UniqueIndex[K, E, V]) Key(
 	return u.store.Holder(scopeOf(snap), v, nil)
 }
 
+// Value returns the value of the entry of the table of u under key, as seen by snap,
+// and false when no entry has key.
+func (u *UniqueIndex[K, E, V]) Value(
+	ctx context.Context,
+	snap Snapshot,
+	key K,
+) (V, bool, error) {
+	var none V
+	if err := u.store.Wait(ctx); err != nil {
+		return none, false, err
+	}
+	return u.store.Value(scopeOf(snap), key)
+}
+
 // Committing returns the keys of the table of u that a transaction in its commit maps
 // to v. Holder misses them until the commit flushes. The commit can fail, so a caller
 // checks each key against storage.

@@ -18,6 +18,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
@@ -29,11 +30,11 @@ import (
 // concurrent use.
 func (s *Service) LinkWriter(ctx context.Context, snap gorp.Snapshot) json.Options {
 	w := &linkWriter{
-		ctx:     ctx,
-		snap:    snap,
-		svc:     s,
-		paths:   make(map[Key]string),
-		folders: make(map[group.Key]group.Path),
+		ctx:      ctx,
+		snap:     snap,
+		svc:      s,
+		paths:    make(map[Key]string),
+		prefixes: make(map[group.Key]string),
 	}
 	return json.WithMarshalers(json.MarshalToFunc(w.write))
 }
@@ -43,8 +44,10 @@ type linkWriter struct {
 	snap gorp.Snapshot
 	svc  *Service
 	// paths holds the path of each key written so far, or "" for a key of no channel.
-	paths   map[Key]string
-	folders map[group.Key]group.Path
+	paths map[Key]string
+	// prefixes holds the path text of each folder read so far, with a trailing
+	// separator.
+	prefixes map[group.Key]string
 }
 
 func (w *linkWriter) write(enc *jsontext.Encoder, k Key) error {
@@ -65,35 +68,53 @@ func (w *linkWriter) path(k Key) (string, error) {
 	if p, ok := w.paths[k]; ok {
 		return p, nil
 	}
-	var chs []Channel
-	if err := w.svc.NewRetrieve().
-		Where(MatchKeys(k)).
-		SkipMissingKeys().
-		Entries(&chs).
-		Exec(w.ctx, w.snap); err != nil {
+	sibling, ok, err := w.svc.indexes.sibling.Value(w.ctx, w.snap, k)
+	if err != nil {
 		return "", err
 	}
-	if len(chs) == 0 {
+	if !ok {
 		w.paths[k] = ""
 		return "", nil
 	}
-	ch := chs[0]
-	var folders group.Path
-	if ch.Group != nil {
-		f, ok := w.folders[*ch.Group]
-		if !ok {
-			found, err := group.Paths(w.ctx, w.snap, *ch.Group)
-			if err != nil {
-				return "", err
-			}
-			f = found[*ch.Group]
-			w.folders[*ch.Group] = f
+	p := sibling.Name
+	if sibling.Parent != (group.Key{}) {
+		prefix, err := w.prefix(sibling.Parent)
+		if err != nil {
+			return "", err
 		}
-		folders = f
+		p = prefix + p
 	}
-	p := PathTexts([]Path{{Folders: folders, Name: ch.Name}})[0]
 	w.paths[k] = p
 	return p, nil
+}
+
+// prefix returns the path text of folder with a trailing separator. It reads each
+// folder once and builds on the prefix of its parent, so sibling folders share their
+// ancestors' reads. A path stops at a parent that is not a folder, as group.Paths does.
+func (w *linkWriter) prefix(folder group.Key) (string, error) {
+	if prefix, ok := w.prefixes[folder]; ok {
+		return prefix, nil
+	}
+	var g group.Group
+	if err := gorp.NewRetrieve[group.Key, group.Group]().
+		Where(gorp.MatchKeys[group.Key, group.Group](folder)).
+		Entry(&g).
+		Exec(w.ctx, w.snap); err != nil {
+		return "", err
+	}
+	var parent string
+	if g.Parent != nil && g.Parent.Type == resource.TypeGroup {
+		key, err := group.KeyFromResourceID(*g.Parent)
+		if err != nil {
+			return "", err
+		}
+		if parent, err = w.prefix(key); err != nil {
+			return "", err
+		}
+	}
+	prefix := parent + g.Name + string(validate.PathSeparator)
+	w.prefixes[folder] = prefix
+	return prefix, nil
 }
 
 // LinkReader decodes the channel links of imported files. A JSON number is a raw key,
@@ -157,19 +178,25 @@ func (r *LinkReader) resolve(path string) (Key, error) {
 	if k, ok := r.keys[path]; ok {
 		return k, nil
 	}
-	var chs []Channel
-	if err := r.svc.NewRetrieve().
-		Where(MatchPaths(path)).
-		Entries(&chs).
-		Exec(r.ctx, r.snap); err != nil {
+	k, ok, err := r.lookup(path)
+	if err != nil {
 		return 0, err
 	}
-	if len(chs) == 0 {
+	if !ok {
 		r.missing.Add(path)
-		r.keys[path] = 0
-		return 0, nil
 	}
-	k := chs[0].Key()
 	r.keys[path] = k
 	return k, nil
+}
+
+func (r *LinkReader) lookup(path string) (Key, bool, error) {
+	sibling, ok, err := Retrieve{indexes: r.svc.indexes}.siblingAt(
+		r.ctx,
+		r.snap,
+		validate.NormalizeName(path),
+	)
+	if err != nil || !ok {
+		return 0, false, err
+	}
+	return r.svc.indexes.sibling.Key(r.ctx, r.snap, sibling)
 }

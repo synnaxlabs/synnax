@@ -218,5 +218,5 @@ func (s *Service) Export(
 	if err != nil {
 		return ExportResponse{}, err
 	}
-	return env.WithEncodeOptions(s.channel.LinkWriter(ctx, snap))
+	return env.WithEncodeOptions(s.channel.LinkWriter(ctx, snap)).Freeze()
 }

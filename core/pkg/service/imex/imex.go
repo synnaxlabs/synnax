@@ -127,7 +127,9 @@ type Envelope struct {
 	codec encoding.Codec
 	raw   []byte
 	body  map[string]any
-	// encoded is the body as WithEncodeOptions wrote it, or nil.
+	// encodeOptions are the options that WithEncodeOptions added.
+	encodeOptions []json.Options
+	// encoded is the body as Freeze wrote it, or nil.
 	encoded jsontext.Value
 	// decodeOptions are the options that WithDecodeOptions added.
 	decodeOptions []json.Options
@@ -146,22 +148,29 @@ func (e Envelope) MarshalJSONTo(enc *jsontext.Encoder) error {
 			"envelope has no body; build one with Encode before marshaling",
 		)
 	}
-	return json.MarshalEncode(enc, e.body)
+	return json.MarshalEncode(enc, e.body, e.encodeOptions...)
 }
 
-// WithEncodeOptions returns e with its body written now with opts, in a deterministic
-// order. An exporter passes the encoder of its channel links, which reads the Core, so
-// the body is written while the exporter can read it. MarshalJSONTo then writes those
-// bytes. It returns an error when e has no body or opts fail to write it.
-func (e Envelope) WithEncodeOptions(opts ...json.Options) (Envelope, error) {
+// WithEncodeOptions returns e with opts added to each marshal of its body. An exporter
+// passes the encoder of its channel links, which reads the Core: marshal e while that
+// read is valid, or Freeze it first.
+func (e Envelope) WithEncodeOptions(opts ...json.Options) Envelope {
+	e.encodeOptions = append(slices.Clip(e.encodeOptions), opts...)
+	return e
+}
+
+// Freeze returns e with its body written now with its encode options, in a
+// deterministic order, so that a later marshal reads nothing those options read. It
+// returns an error when e has no body or the options fail to write it.
+func (e Envelope) Freeze() (Envelope, error) {
 	if e.body == nil {
 		return Envelope{}, errors.New(
-			"envelope has no body; build one with Encode before encoding",
+			"envelope has no body; build one with Encode before freezing",
 		)
 	}
 	encoded, err := json.Marshal(
 		e.body,
-		append([]json.Options{json.Deterministic(true)}, opts...)...,
+		append([]json.Options{json.Deterministic(true)}, e.encodeOptions...)...,
 	)
 	if err != nil {
 		return Envelope{}, errors.Wrap(err, "encode envelope body")

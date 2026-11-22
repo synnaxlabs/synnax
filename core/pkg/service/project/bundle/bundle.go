@@ -174,10 +174,7 @@ func (s *Service) Export(
 		if err != nil {
 			return nil, nil, err
 		}
-		if env, err = env.WithEncodeOptions(links); err != nil {
-			return nil, nil, err
-		}
-		if files[path], err = encoder.Encode(env); err != nil {
+		if files[path], err = encoder.Encode(env.WithEncodeOptions(links)); err != nil {
 			return nil, nil, err
 		}
 	}

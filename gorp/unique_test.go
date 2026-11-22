@@ -385,6 +385,30 @@ var _ = Describe("UniqueIndex", func() {
 			Expect(held).To(BeFalse())
 		})
 
+		It("Should return the value of an entry by key, as the snapshot sees it", func(
+			ctx SpecContext,
+		) {
+			Expect(
+				createFolder(ctx, db, uniqueFolder{Key: "c", Name: "c"}),
+			).To(Succeed())
+			Expect(createItem(ctx, db, uniqueItem{Key: 4, Folder: "c", Name: "pt"})).
+				To(Succeed())
+			v, held := MustSucceed2(itemIndex.Value(ctx, db, 4))
+			Expect(held).To(BeTrue())
+			Expect(v).To(Equal(uniqueSibling{Parent: "c", Name: "pt"}))
+			_, held = MustSucceed2(itemIndex.Value(ctx, db, 99))
+			Expect(held).To(BeFalse())
+			tx := db.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+			Expect(createItem(ctx, tx, uniqueItem{Key: 5, Name: "staged"})).
+				To(Succeed())
+			v, held = MustSucceed2(itemIndex.Value(ctx, tx, 5))
+			Expect(held).To(BeTrue())
+			Expect(v).To(Equal(uniqueSibling{Name: "staged"}))
+			_, held = MustSucceed2(itemIndex.Value(ctx, db, 5))
+			Expect(held).To(BeFalse())
+		})
+
 		It("Should see a value staged in the snapshot", func(ctx SpecContext) {
 			tx := db.OpenTx()
 			defer func() { Expect(tx.Close()).To(Succeed()) }()
