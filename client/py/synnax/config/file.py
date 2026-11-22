@@ -12,7 +12,9 @@ import json
 import os
 import pathlib
 import shutil
+import sys
 import tempfile
+import time
 from typing import Any
 
 from synnax.exceptions import ConfigurationError
@@ -73,7 +75,7 @@ class File:
             f.close()
             if path.exists():
                 shutil.copymode(path, f.name)
-            os.replace(f.name, path)
+            _replace(f.name, path)
 
     def get(self, key: str) -> Any:
         """Gets a value from the config file."""
@@ -92,6 +94,23 @@ class File:
         """Deletes a value from the config file."""
         del self.config[key]
         self.save()
+
+
+# Windows refuses to replace a file that another process, such as a virus scanner,
+# holds open for a moment. On other platforms, a PermissionError is final.
+_REPLACE_RETRY_DELAYS: tuple[float, ...] = (
+    (0.01, 0.05, 0.1, 0.5) if sys.platform == "win32" else ()
+)
+
+
+def _replace(src: str, dst: pathlib.Path) -> None:
+    for delay in _REPLACE_RETRY_DELAYS:
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            time.sleep(delay)
+    os.replace(src, dst)
 
 
 def _set_nested(d: dict[str, Any], key: str, value: Any) -> None:

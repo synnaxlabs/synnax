@@ -118,6 +118,17 @@ class TestFile:
         assert File(config_dir=tmp_path).config == {"a": 1}
         assert [p.name for p in tmp_path.iterdir()] == ["config.json"]
 
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows share modes")
+    def test_write_while_another_handle_is_open(self, tmp_path: Path) -> None:
+        """Should save once another process closes its brief handle on the file."""
+        config = File(config_dir=tmp_path)
+        config.set("a", 1)
+        # Python opens files without FILE_SHARE_DELETE, as a virus scanner does.
+        handle = open(tmp_path / "config.json", encoding="utf-8")
+        threading.Timer(0.05, handle.close).start()
+        config.set("a", 2)
+        assert File(config_dir=tmp_path).config == {"a": 2}
+
     @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
     def test_write_keeps_the_mode(self, tmp_path: Path) -> None:
         """Should keep the mode of the saved file."""
