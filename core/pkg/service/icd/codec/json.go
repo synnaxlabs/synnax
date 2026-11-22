@@ -208,11 +208,55 @@ type jsonVariant struct {
 	floatDefault *payload.Float
 }
 
+// quotedDefault returns d as a JSON string, or nil when d is nil.
+func quotedDefault(d *string) (jsontext.Value, error) {
+	if d == nil {
+		return nil, nil
+	}
+	v, err := jsontext.AppendQuote(nil, *d)
+	if err != nil {
+		return nil, errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	return v, nil
+}
+
+// readTimestampDefault sets the fallback or generator of a timestamp field from d, if
+// any.
+func (f *jsonField) readTimestampDefault(d *icd.TimestampDefault) error {
+	if d == nil {
+		return nil
+	}
+	switch v := d.Variant.(type) {
+	case icd.ConstantTimestampDefault:
+		f.fallback = telem.ByteOrder.AppendUint64(nil, uint64(v.Value))
+	case icd.NowTimestampDefault:
+		f.generate = appendNow
+	case nil:
+		return errUntypedDefault
+	}
+	return nil
+}
+
+// readUUIDDefault sets the fallback or generator of a UUID field from d, if any.
+func (f *jsonField) readUUIDDefault(d *icd.UUIDDefault) error {
+	if d == nil {
+		return nil
+	}
+	switch v := d.Variant.(type) {
+	case icd.ConstantUUIDDefault:
+		f.fallback = v.Value[:]
+	case icd.RandomUUIDDefault:
+		f.generate = appendRandomUUID
+	case nil:
+		return errUntypedDefault
+	}
+	return nil
+}
+
 // readVariant sets the kind of f from the variant of jf, and the fallback or generator
 // of a timestamp or UUID field. It returns the rest of what the variant sets.
 func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 	out := jsonVariant{sample: xjson.Field{DataType: f.dataType, Enums: enumsOf(jf)}}
-	var err error
 	switch v := jf.Variant.(type) {
 	case icd.FloatJSONField:
 		f.kind = payload.KindFloat
@@ -227,64 +271,54 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 		if v.Default != nil {
 			out.fallback = strconv.AppendUint(nil, uint64(*v.Default), 10)
 		}
-	case icd.StringJSONField:
-		f.kind = payload.KindString
-		if v.Default != nil {
-			if out.fallback, err = jsontext.AppendQuote(nil, *v.Default); err != nil {
-				return jsonVariant{}, errors.Wrap(validate.ErrValidation, err.Error())
-			}
-		}
 	case icd.BooleanJSONField:
 		f.kind = payload.KindBoolean
 		if v.Default != nil {
 			out.fallback = strconv.AppendBool(nil, *v.Default)
 		}
+	default:
+		if err := f.readTextVariant(jf, &out); err != nil {
+			return jsonVariant{}, err
+		}
+	}
+	return out, nil
+}
+
+// readTextVariant sets the kind of f and the fields of out from the variant of jf, a
+// field whose values are not numbers or Booleans.
+func (f *jsonField) readTextVariant(jf icd.JSONField, out *jsonVariant) error {
+	var err error
+	switch v := jf.Variant.(type) {
+	case icd.StringJSONField:
+		f.kind = payload.KindString
+		out.fallback, err = quotedDefault(v.Default)
+		return err
 	case icd.TimestampJSONField:
 		f.kind = payload.KindTimestamp
 		format := string(v.TimeFormat)
 		if out.sample.TimeFormat, err = xjson.ParseTimeFormat(format); err != nil {
-			return jsonVariant{}, err
+			return err
 		}
-		if v.Default != nil {
-			switch d := v.Default.Variant.(type) {
-			case icd.ConstantTimestampDefault:
-				f.fallback = telem.ByteOrder.AppendUint64(nil, uint64(d.Value))
-			case icd.NowTimestampDefault:
-				f.generate = appendNow
-			case nil:
-				return jsonVariant{}, errUntypedDefault
-			}
-		}
+		return f.readTimestampDefault(v.Default)
 	case icd.JSONJSONField:
 		f.kind = payload.KindJSON
-		if v.Default != nil {
-			if out.fallback, err = jsonText(*v.Default); err != nil {
-				return jsonVariant{}, errors.Wrap(err, "default")
-			}
+		if v.Default == nil {
+			return nil
 		}
+		if out.fallback, err = jsonText(*v.Default); err != nil {
+			return errors.Wrap(err, "default")
+		}
+		return nil
 	case icd.UuidJSONField:
 		f.kind = payload.KindUUID
-		if v.Default != nil {
-			switch d := v.Default.Variant.(type) {
-			case icd.ConstantUUIDDefault:
-				f.fallback = d.Value[:]
-			case icd.RandomUUIDDefault:
-				f.generate = appendRandomUUID
-			case nil:
-				return jsonVariant{}, errUntypedDefault
-			}
-		}
+		return f.readUUIDDefault(v.Default)
 	case icd.BytesJSONField:
 		f.kind = payload.KindBytes
-		if v.Default != nil {
-			if out.fallback, err = jsontext.AppendQuote(nil, *v.Default); err != nil {
-				return jsonVariant{}, errors.Wrap(validate.ErrValidation, err.Error())
-			}
-		}
+		out.fallback, err = quotedDefault(v.Default)
+		return err
 	default:
-		return jsonVariant{}, errors.Wrap(validate.ErrValidation, "type is required")
+		return errors.Wrap(validate.ErrValidation, "type is required")
 	}
-	return out, nil
 }
 
 var (

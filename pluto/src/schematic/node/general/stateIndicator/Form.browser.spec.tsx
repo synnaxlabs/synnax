@@ -9,7 +9,6 @@
 
 import { type channel, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { mockGeometry } from "@synnaxlabs/lyra/testutil";
 import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
@@ -24,8 +23,6 @@ const path = deep.path<schematic.StateIndicatorNodeConfig>();
 const client = createTestClient();
 
 describe("StateIndicator form", () => {
-  // Without a box, the dropdown's virtual list shows no items.
-  beforeAll(() => mockGeometry(100, 100));
   let wrapper: FC<PropsWithChildren>;
   let ch: channel.Channel;
   beforeAll(async () => {

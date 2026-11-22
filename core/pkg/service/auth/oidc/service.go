@@ -14,7 +14,9 @@ package oidc
 
 import (
 	"context"
+	"maps"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 	"uuid"
@@ -33,8 +35,8 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
-	"golang.org/x/sync/singleflight"
 )
 
 // Provider is an OpenID Connect provider that the Core accepts logins from.
@@ -76,6 +78,10 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to none.
 	Providers []Provider
+	// DiscoveryTimeout bounds each read of a provider's discovery document.
+	//
+	// [OPTIONAL] - Defaults to 5 seconds.
+	DiscoveryTimeout time.Duration
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -87,6 +93,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.User = override.Nil(c.User, other.User)
 	c.NewUserRole = override.UUID(c.NewUserRole, other.NewUserRole)
 	c.Providers = override.Slice(c.Providers, other.Providers)
+	c.DiscoveryTimeout = override.Numeric(c.DiscoveryTimeout, other.DiscoveryTimeout)
 	return c
 }
 
@@ -96,6 +103,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("user", c.User)
 	v.Ternary("new_user_role", c.NewUserRole == uuid.Nil(), "must be set")
+	v.Positive("discovery_timeout", c.DiscoveryTimeout)
 	names := make(set.Set[string], len(c.Providers))
 	for _, p := range c.Providers {
 		v.Ternary("providers", p.Name == "", "name must be set")
@@ -114,6 +122,10 @@ type Service struct {
 	indexes   indexes
 	providers map[string]*provider
 	issuers   set.Set[string]
+	shutdown  context.CancelFunc
+	reads     sync.WaitGroup
+	// transport carries the discovery reads, so Close can drop their connections.
+	transport *http.Transport
 }
 
 var _ auth.Authenticator = (*Service)(nil)
@@ -121,59 +133,94 @@ var _ auth.Authenticator = (*Service)(nil)
 // requestTimeout bounds one request to a provider.
 const requestTimeout = 10 * time.Second
 
-// provider reads its discovery document on first use, so a provider that is down when
-// the Core starts does not stop the Core. Concurrent logins share one read, and a
-// failed read is retried by the next login.
+// retryAfter is how long a provider whose discovery failed answers with that failure
+// before the next read.
+const retryAfter = 30 * time.Second
+
+// provider reads its discovery document in the background, so a provider that is down
+// when the Core starts does not stop the Core. Concurrent reads share one request, and
+// a failed read is kept for retryAfter.
 type provider struct {
 	Provider
-	reads      singleflight.Group
-	mu         sync.Mutex
-	discovered *gooidc.Provider
+	timeout   time.Duration
+	transport http.RoundTripper
+	// ctx ends the reads when the service closes.
+	ctx context.Context
+	L   *alamos.Logger
+	wg  *sync.WaitGroup
+	mu  struct {
+		sync.Mutex
+		discovered *gooidc.Provider
+		err        error
+		failed     time.Time
+		// reading closes when the read in flight ends. It is nil when none is.
+		reading chan struct{}
+	}
 }
 
-func (p *provider) cached() *gooidc.Provider {
+// state returns the discovered provider, or the error of a read that failed less than
+// retryAfter ago. Both are nil when the provider needs a new read.
+func (p *provider) state() (*gooidc.Provider, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.discovered
+	if p.mu.err != nil && time.Since(p.mu.failed) >= retryAfter {
+		return nil, nil
+	}
+	return p.mu.discovered, p.mu.err
 }
 
-func (p *provider) discover(ctx context.Context) (*gooidc.Provider, error) {
-	if d := p.cached(); d != nil {
-		return d, nil
+// read starts a read of the discovery document, or joins the one in flight. The
+// returned channel closes when the read ends.
+func (p *provider) read() <-chan struct{} {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.mu.reading != nil {
+		return p.mu.reading
 	}
-	read := p.reads.DoChan("", func() (any, error) {
-		readCtx, cancel := context.WithTimeout(
-			context.WithoutCancel(ctx),
-			requestTimeout,
-		)
+	reading := make(chan struct{})
+	p.mu.reading = reading
+	p.wg.Go(func() {
+		ctx, cancel := context.WithTimeout(p.ctx, p.timeout)
 		defer cancel()
-		readCtx = gooidc.ClientContext(
-			readCtx,
-			&http.Client{Timeout: requestTimeout},
+		ctx = gooidc.ClientContext(
+			ctx,
+			&http.Client{Timeout: p.timeout, Transport: p.transport},
 		)
-		d, err := gooidc.NewProvider(readCtx, p.Issuer)
-		if err != nil {
-			return nil, errors.Wrapf(err, "discover provider %q", p.Name)
-		}
+		d, err := gooidc.NewProvider(ctx, p.Issuer)
 		p.mu.Lock()
 		defer p.mu.Unlock()
-		p.discovered = d
-		return nil, nil
+		defer close(reading)
+		p.mu.reading = nil
+		if err != nil {
+			p.mu.err = errors.Wrapf(err, "discover provider %q", p.Name)
+			p.mu.failed = time.Now()
+			p.L.Warn("OIDC provider unavailable", zap.Error(p.mu.err))
+			return
+		}
+		p.mu.discovered, p.mu.err = d, nil
 	})
+	return reading
+}
+
+// discover returns the discovered provider, waiting for a read when it has none. It
+// returns the error of a read that failed less than retryAfter ago without a new read.
+func (p *provider) discover(ctx context.Context) (*gooidc.Provider, error) {
+	if d, err := p.state(); d != nil || err != nil {
+		return d, err
+	}
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
-	case res := <-read:
-		if res.Err != nil {
-			return nil, res.Err
-		}
-		return p.cached(), nil
+		return nil, errors.Wrapf(ctx.Err(), "discover provider %q", p.Name)
+	case <-p.read():
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		return p.mu.discovered, p.mu.err
 	}
 }
 
 // OpenService opens a [Service] with the given configurations.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
+	cfg, err := config.New(ServiceConfig{DiscoveryTimeout: 5 * time.Second}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -182,10 +229,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		indexes:   newIndexes(),
 		providers: make(map[string]*provider, len(cfg.Providers)),
 		issuers:   make(set.Set[string], len(cfg.Providers)),
-	}
-	for _, p := range cfg.Providers {
-		s.providers[p.Name] = &provider{Provider: p}
-		s.issuers.Add(p.Issuer)
+		transport: &http.Transport{Proxy: http.ProxyFromEnvironment},
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[LinkKey, Link]{
 		DB:              cfg.DB,
@@ -195,22 +239,78 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}); err != nil {
 		return nil, err
 	}
+	readCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	s.shutdown = cancel
+	for _, p := range cfg.Providers {
+		s.issuers.Add(p.Issuer)
+		pr := &provider{
+			Provider:  p,
+			timeout:   cfg.DiscoveryTimeout,
+			transport: s.transport,
+			ctx:       readCtx,
+			L:         cfg.L,
+			wg:        &s.reads,
+		}
+		s.providers[p.Name] = pr
+		pr.read()
+	}
 	return s, nil
 }
 
-// Close closes the service and releases its resources.
-func (s *Service) Close() error { return s.table.Close() }
+// Close stops the discovery reads in flight and closes the service.
+func (s *Service) Close() error {
+	s.shutdown()
+	s.reads.Wait()
+	s.transport.CloseIdleConnections()
+	return s.table.Close()
+}
 
-func (s *Service) newRetrieve() Retrieve {
+// NewRetrieve opens a query for stored links.
+func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }
 
-func (s *Service) newWriter(tx gorp.Tx) writer {
-	return writer{svc: s, tx: tx}
+// NewWriter opens a [Writer] that runs in tx.
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{svc: s, tx: tx}
 }
 
-// account is a provider account that proved itself at the provider.
-type account struct {
+// Login is where a client sends a person to log in through a provider.
+type Login struct {
+	// Provider is the name of the provider.
+	Provider string
+	// AuthorizationEndpoint is the provider's login address.
+	AuthorizationEndpoint string
+	// ClientID is the Core's client ID at the provider.
+	ClientID string
+}
+
+// Logins returns the login address of each provider whose discovery document the
+// Core has read, sorted by name. It never waits on a provider: it leaves out each
+// provider whose document is not read yet or failed to read, and starts a new read for
+// it unless one failed less than a retry interval ago.
+func (s *Service) Logins() []Login {
+	logins := make([]Login, 0, len(s.providers))
+	for _, name := range slices.Sorted(maps.Keys(s.providers)) {
+		p := s.providers[name]
+		d, err := p.state()
+		if d == nil {
+			if err == nil {
+				p.read()
+			}
+			continue
+		}
+		logins = append(logins, Login{
+			Provider:              name,
+			AuthorizationEndpoint: d.Endpoint().AuthURL,
+			ClientID:              p.ClientID,
+		})
+	}
+	return logins
+}
+
+// Account is a provider account that proved itself at the provider.
+type Account struct {
 	// Provider is the name of the provider.
 	Provider string
 	// Issuer is the issuer URL of the provider.
@@ -221,20 +321,20 @@ type account struct {
 	Name string
 }
 
-// verify exchanges the authorization code in creds with its provider and returns the
+// Verify exchanges the authorization code in creds with its provider and returns the
 // account that the provider's ID token names. It returns a validation error for an
 // unknown provider and [auth.ErrInvalidCredentials] when the provider rejects the code
 // or issues an ID token that fails verification. Every provider token is discarded.
-func (s *Service) verify(
+func (s *Service) Verify(
 	ctx context.Context,
 	creds auth.OIDCCredentials,
-) (account, error) {
+) (Account, error) {
 	if err := creds.Validate(); err != nil {
-		return account{}, err
+		return Account{}, err
 	}
 	p, ok := s.providers[creds.Provider]
 	if !ok {
-		return account{}, errors.Wrapf(
+		return Account{}, errors.Wrapf(
 			validate.ErrValidation,
 			"unknown provider %q",
 			creds.Provider,
@@ -242,28 +342,28 @@ func (s *Service) verify(
 	}
 	discovered, err := p.discover(ctx)
 	if err != nil {
-		return account{}, err
+		return Account{}, err
 	}
 	tok, err := exchange(ctx, p, discovered, creds)
 	if err != nil {
-		return account{}, err
+		return Account{}, err
 	}
 	raw, ok := tok.Extra("id_token").(string)
 	if !ok {
-		return account{}, auth.ErrInvalidCredentials
+		return Account{}, auth.ErrInvalidCredentials
 	}
 	idToken, err := discovered.Verifier(&gooidc.Config{ClientID: p.ClientID}).
 		Verify(ctx, raw)
 	if err != nil {
-		return account{}, auth.ErrInvalidCredentials
+		return Account{}, auth.ErrInvalidCredentials
 	}
 	var claims struct {
 		Name string `json:"name"`
 	}
 	if err = idToken.Claims(&claims); err != nil {
-		return account{}, auth.ErrInvalidCredentials
+		return Account{}, auth.ErrInvalidCredentials
 	}
-	return account{
+	return Account{
 		Provider: p.Name,
 		Issuer:   p.Issuer,
 		ID:       idToken.Subject,
@@ -315,24 +415,24 @@ func (s *Service) Authenticate(
 			proof.Variant,
 		)
 	}
-	acc, err := s.verify(ctx, creds.OIDCCredentials)
+	account, err := s.Verify(ctx, creds.OIDCCredentials)
 	if err != nil {
 		return auth.Identity{}, err
 	}
 	var link Link
 	err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.newRetrieve().
-			Where(MatchIssuers(acc.Issuer)).
-			Where(MatchAccounts(acc.ID)).
+		err := s.NewRetrieve().
+			Where(MatchIssuers(account.Issuer)).
+			Where(MatchAccounts(account.ID)).
 			Entry(&link).
 			Exec(ctx, tx)
 		if !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
-		if s.providers[acc.Provider].UserCreationDisabled {
+		if s.providers[account.Provider].UserCreationDisabled {
 			return auth.ErrInvalidCredentials
 		}
-		link, err = s.createUser(ctx, tx, acc)
+		link, err = s.createUser(ctx, tx, account)
 		return err
 	})
 	if err != nil {
@@ -352,7 +452,7 @@ func (s *Service) Version(
 	credential uuid.UUID,
 ) (telem.TimeStamp, error) {
 	var link Link
-	if err := s.newRetrieve().
+	if err := s.NewRetrieve().
 		Where(MatchKeys(credential)).
 		Entry(&link).
 		Exec(ctx, snap); err != nil {
@@ -371,10 +471,10 @@ func (s *Service) Version(
 func (s *Service) createUser(
 	ctx context.Context,
 	tx gorp.Tx,
-	acc account,
+	account Account,
 ) (Link, error) {
 	// a provider need not send a name claim
-	name := lo.Ternary(acc.Name != "", acc.Name, "Unnamed user")
+	name := lo.Ternary(account.Name != "", account.Name, "Unnamed user")
 	u, err := s.cfg.User.NewWriter(tx).Create(
 		ctx,
 		user.User{Name: name, Role: s.cfg.NewUserRole},
@@ -382,5 +482,5 @@ func (s *Service) createUser(
 	if err != nil {
 		return Link{}, err
 	}
-	return s.newWriter(tx).create(ctx, u.Key, acc)
+	return s.NewWriter(tx).Create(ctx, u.Key, account)
 }

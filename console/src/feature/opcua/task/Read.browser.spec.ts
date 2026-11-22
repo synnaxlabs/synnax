@@ -562,7 +562,7 @@ describe("Read", () => {
         skipped: [],
       },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     const { args } = await search.answered;
     expect(args).toMatchObject({ device: device.key, nodeId: folder.nodeId });
     expect(args).not.toHaveProperty("connection");
@@ -617,7 +617,7 @@ describe("Read", () => {
         skipped: [],
       },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     fireEvent.click(await screen.findByRole("button", { name: "Add" }));
     await waitFor(async () =>
       expect((await retrieveChannels(draft.key)).map((ch) => ch.nodeName)).toEqual([
@@ -672,7 +672,7 @@ describe("Read", () => {
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     let search: task.Command;
     try {
-      await dragNode(folder.name, held.nodeName);
+      await dragNode(folder.name, held);
       search = await awaitCommand(
         streamer,
         first.scan.key,
@@ -727,7 +727,7 @@ describe("Read", () => {
       type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
       data: { channels: [], truncated: false, skipped: [] },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     await search.answered;
     await waitFor(() =>
       expect(statuses).toContainEqual(
@@ -754,7 +754,7 @@ describe("Read", () => {
         skipped: [],
       },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     await search.answered;
     await screen.findByText(`Add 1 variable from ${folder.name}?`);
     expect(
@@ -776,7 +776,7 @@ describe("Read", () => {
         skipped: ["ns=1;s=A: Access denied.", "ns=1;s=B: Access denied."],
       },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     await search.answered;
     await screen.findByText(`Add 1 variable from ${folder.name}?`);
     expect(
@@ -795,7 +795,7 @@ describe("Read", () => {
       variant: "error",
       message: "Failed to browse",
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     await search.answered;
     await waitFor(() =>
       expect(statuses).toContainEqual(
@@ -892,9 +892,9 @@ describe("Read structure members", () => {
     });
     fireEvent.click(await screen.findByText(motor.name));
     await members.answered;
-    await dragNode(`${motor.name}.Speed`, held.nodeName);
-    await dragNode(`${motor.name}.Torque`, held.nodeName);
-    await dragNode(`${motor.name}.Speed`, held.nodeName);
+    await dragNode(`${motor.name}.Speed`, held);
+    await dragNode(`${motor.name}.Torque`, held);
+    await dragNode(`${motor.name}.Speed`, held);
     await waitFor(async () => {
       const { config } = await client.tasks.retrieve({
         key: draft.key,

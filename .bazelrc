@@ -32,6 +32,12 @@ common --repo_contents_cache_gc_max_age=0
 build --remote_local_fallback
 build --incompatible_remote_local_fallback_for_remote_cache
 
+# Bazel keeps remote outputs off disk and trusts the action cache of a reused output
+# base. If a _virtual_includes or _virtual_imports directory is gone, a local compile or
+# protoc run then fails with exit code 39 on every retry. Bazel checks the outputs it
+# must download on disk, so it runs the symlink actions again.
+build --remote_download_regex=.*/_virtual_(includes|imports)/.*
+
 # Static linking keeps hidden symbol visibility from breaking shared library links.
 build --dynamic_mode=off
 

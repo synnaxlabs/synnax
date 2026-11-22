@@ -114,14 +114,7 @@ func (f *formatter) emitLeadingComments() bool {
 	for _, tok := range allTokens {
 		if tok.GetChannel() == hiddenChan {
 			if tok.GetTokenType() == commentLine || tok.GetTokenType() == commentBlk {
-				// A blank line splitting the leading comments (the copyright
-				// header vs. a following note) is meaningful; keep exactly one.
-				if emitted && tok.GetLine() > prevEndLine+1 {
-					f.newline()
-				}
-				f.writeLine(tok.GetText())
-				prevEndLine = tok.GetLine() + strings.Count(tok.GetText(), "\n")
-				f.emitted.Add(tok.GetTokenIndex())
+				prevEndLine = f.emitLeadingComment(tok, emitted, prevEndLine)
 				emitted = true
 			}
 		} else if tok.GetChannel() == antlr.TokenDefaultChannel {
@@ -134,6 +127,21 @@ func (f *formatter) emitLeadingComments() bool {
 		}
 	}
 	return emitted
+}
+
+// emitLeadingComment emits the leading comment tok and returns its last line. emitted
+// is true when a comment came before tok, which ended on prevEndLine.
+func (f *formatter) emitLeadingComment(
+	tok antlr.Token, emitted bool, prevEndLine int,
+) int {
+	// A blank line splitting the leading comments (the copyright header vs. a following
+	// note) is meaningful; keep exactly one.
+	if emitted && tok.GetLine() > prevEndLine+1 {
+		f.newline()
+	}
+	f.writeLine(tok.GetText())
+	f.emitted.Add(tok.GetTokenIndex())
+	return tok.GetLine() + strings.Count(tok.GetText(), "\n")
 }
 
 // emitCommentsBefore emits any comments that appear before the given token index.
@@ -1049,19 +1057,7 @@ func (f *formatter) formatFieldWithBraces(
 	}
 	domains = f.sortDomainLines(domains)
 
-	// Calculate alignment: max length of "@domain command"
-	maxPrefixLen := 0
-	for _, dom := range domains {
-		prefixLen := 1 + len(dom.IDENT().GetText()) // "@" + domain name
-		if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
-			expr := dom.DomainContent().Expression()
-			prefixLen += 1 + len(expr.IDENT().GetText()) // " " + command
-		}
-		if prefixLen > maxPrefixLen {
-			maxPrefixLen = prefixLen
-		}
-	}
-
+	maxPrefixLen := domainPrefixWidth(domains)
 	for _, dom := range domains {
 		if dom.body {
 			f.emitCommentsBefore(dom.GetStart().GetTokenIndex())
@@ -1081,26 +1077,51 @@ func (f *formatter) formatFieldWithBraces(
 		f.newline()
 	}
 
-	// Domain removals (-@name): field-level markers first, then body markers.
+	f.formatFieldOmits(domainOmits, fieldBody)
+	f.currentIndent--
+	f.writeIndent()
+	f.writeLine("}")
+}
+
+// formatFieldOmits writes the domain removals (-@name) of a field: field-level markers
+// first, then body markers.
+func (f *formatter) formatFieldOmits(
+	domainOmits []parser.IDomainOmitContext,
+	fieldBody parser.IFieldBodyContext,
+) {
 	for _, om := range domainOmits {
 		f.writeIndent()
 		f.write("-@")
 		f.write(om.IDENT().GetText())
 		f.newline()
 	}
-	if fieldBody != nil {
-		for _, om := range fieldBody.AllDomainOmit() {
-			f.emitCommentsBefore(om.GetStart().GetTokenIndex())
-			f.writeIndent()
-			f.write("-@")
-			f.write(om.IDENT().GetText())
-			f.newline()
+	if fieldBody == nil {
+		return
+	}
+	for _, om := range fieldBody.AllDomainOmit() {
+		f.emitCommentsBefore(om.GetStart().GetTokenIndex())
+		f.writeIndent()
+		f.write("-@")
+		f.write(om.IDENT().GetText())
+		f.newline()
+	}
+}
+
+// domainPrefixWidth returns the longest "@domain command" prefix of domains, which
+// their values align after.
+func domainPrefixWidth[T domainLine](domains []T) int {
+	maxPrefixLen := 0
+	for _, dom := range domains {
+		prefixLen := 1 + len(dom.IDENT().GetText()) // "@" + domain name
+		if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
+			expr := dom.DomainContent().Expression()
+			prefixLen += 1 + len(expr.IDENT().GetText()) // " " + command
+		}
+		if prefixLen > maxPrefixLen {
+			maxPrefixLen = prefixLen
 		}
 	}
-
-	f.currentIndent--
-	f.writeIndent()
-	f.writeLine("}")
+	return maxPrefixLen
 }
 
 // domainLine is the surface shared by the domain context kinds the formatter sorts:

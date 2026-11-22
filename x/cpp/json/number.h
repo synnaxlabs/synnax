@@ -72,4 +72,10 @@ public:
     /// -Infinity.
     [[nodiscard]] std::string to_string() const;
 };
+
+/// @brief parses text, which Number::parse accepts, as the nearest double. It keeps no
+/// copy of text, so it allocates only for text of 64 characters or more.
+/// @returns VALIDATION when text is not a decimal number, or is past the range of a
+/// double.
+std::pair<double, errors::Error> parse_float64(std::string_view text);
 }
