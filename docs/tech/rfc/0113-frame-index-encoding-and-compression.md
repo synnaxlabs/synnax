@@ -73,17 +73,17 @@ Live frames batch at 25 Hz, the stream rate. Each ratio is raw bytes over encode
 ## 3 Decisions
 
 1. **Measure real frames first**: The Core reports encoded frame bytes and the index
-   share per stream. Phase 7 waits for that data.
+   share per stream. Phase 8 waits for that data.
 2. **No default compression on live streams**: Deflate runs at 53 MB/s and gains less
    than zstd. Most Cores run on a LAN, where compression costs more than it saves.
 3. **zstd for frame reads, when the client opts in**: A browser always sends
    `Accept-Encoding` and cannot decline it (RFC 0059 §4.4), so that header alone cannot
    be the opt-in. The Core compresses a `/frame/read` frame body with zstd level 1 only
-   when the request also asks for it with a Synnax request option, and `Accept-Encoding`
-   includes `zstd`. Chrome 123, Firefox 126, and Safari 26.3 decode it natively. A
-   client that does not opt in gets the same body as today, so shipped Consoles and
-   clients do not change. The rule of RFC 0059 §4.4 that a frame read is never
-   compressed holds unless the client opts in.
+   when the request body also asks for it, as RFC 0059 §4.3 sets for read options, and
+   `Accept-Encoding` includes `zstd`. Chrome 123, Firefox 126, and Safari 26.3 decode it
+   natively. A client that does not opt in gets the same body as today, so shipped
+   Consoles and clients do not change. The rule of RFC 0059 §4.4 that a frame read is
+   never compressed holds unless the client opts in.
 4. **A constant-step index in a new codec version**: The encoder writes an index series
    as start and step when it has at least two samples and every delta is equal, and as
    raw samples otherwise. It uses the reserved extended flags byte (`codec.go`, bit 7)
@@ -95,7 +95,7 @@ Live frames batch at 25 Hz, the stream rate. Each ratio is raw bytes over encode
      today (`core/pkg/transport/grpc/framer/handler.go:288`), so gRPC rejects bit 7
      until the Driver RFC adds v2 there.
    - **Older Cores**: A client asks for v2 only when the Core version from its
-     connectivity check includes Phase 4. A newer client with an older minor Core is not
+     connectivity check includes Phase 5. A newer client with an older minor Core is not
      a supported pair (RFC 0092 §3.8), but this rule keeps a patch-level skew working.
 5. **A compressed stream codec only on proof**: An opt-in content type that shuffles and
    then zstd-compresses each frame ships only when Phase 1 data from a real Core shows
@@ -111,19 +111,18 @@ Each phase merges into `main` alone. A client phase follows its Core phase.
 | Phase | Scope                                                 | Touches                                                    | Depends on |
 | ----- | ----------------------------------------------------- | ---------------------------------------------------------- | ---------- |
 | 1     | Report encoded frame sizes in the Core                | `core/pkg/api/framer`, `freighter/go/http`                 | -          |
-| 2     | Serve zstd frame reads when the client accepts it     | `freighter/go/http`, `core/pkg/transport/http`             | -          |
-| 3     | Accept zstd frame reads in the Python client          | `freighter/py`, `client/py`                                | 2          |
-| 4     | Add a constant-step index to the frame codec          | `core/pkg/distribution/framer/codec`, `core/pkg/transport` | -          |
-| 5     | Decode constant-step indexes in the TypeScript client | `client/ts/src/framer`                                     | 4          |
-| 6     | Decode constant-step indexes in the Python client     | `client/py/synnax/framer`                                  | 4          |
-| 7     | Add an opt-in shuffle and zstd stream codec           | `core/pkg/transport`, `client/ts`, `client/py`             | 1, 4       |
+| 2     | Serve zstd frame reads when the client opts in        | `freighter/go/http`, `core/pkg/transport/http`             | -          |
+| 3     | Opt in to zstd frame reads in the TypeScript client   | `freighter/ts`, `client/ts/src/framer`                     | 2          |
+| 4     | Opt in to zstd frame reads in the Python client       | `freighter/py`, `client/py`                                | 2          |
+| 5     | Add a constant-step index to the frame codec          | `core/pkg/distribution/framer/codec`, `core/pkg/transport` | -          |
+| 6     | Decode constant-step indexes in the TypeScript client | `client/ts/src/framer`                                     | 5          |
+| 7     | Decode constant-step indexes in the Python client     | `client/py/synnax/framer`                                  | 5          |
+| 8     | Add an opt-in shuffle and zstd stream codec           | `core/pkg/transport`, `client/ts`, `client/py`             | 1, 5       |
 
 ## 5 Open questions
 
 - **Python before 3.14**: urllib3 decodes zstd natively on Python 3.14. On earlier
-  versions it needs the `zstandard` package. Phase 3 either adds it as a dependency or
+  versions it needs the `zstandard` package. Phase 4 either adds it as a dependency or
   asks for zstd only on 3.14 and later.
-- **The opt-in option**: Phase 2 picks the request option, a header or a query
-  parameter. A custom header makes a browser send a CORS preflight.
 - **Linux Console**: The WebKitGTK version that decodes zstd is not verified. The
   Console falls back to an uncompressed body when the WebView does not ask.
