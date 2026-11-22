@@ -224,7 +224,7 @@ var _ = Describe("Service", func() {
 			),
 			Entry(
 				"unknown connection",
-				func(d *device.Device) { *d = edit(*d, func(b *device.Base) { b.Connection = "LJM_ctWIFI" }) },
+				func(d *device.Device) { *d = edit(*d, func(b *device.Base) { b.Connection = "LJM_ctTCP" }) },
 				"invalid connection",
 			),
 		)
@@ -319,7 +319,7 @@ var _ = Describe("Service", func() {
 				b.Identifier = "dev1"
 				b.Rack = other.Key
 				b.Serial = d.Base().Serial + 1000
-				b.Connection = device.ConnectionTCP
+				b.Connection = device.ConnectionEthernet
 			})
 			Expect(svc.NewWriter(tx).Configure(ctx, next)).To(Succeed())
 			got := retrieve(ctx, d.Base().Key).Base()

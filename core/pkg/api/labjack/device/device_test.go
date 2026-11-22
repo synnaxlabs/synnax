@@ -374,7 +374,7 @@ var _ = Describe("Service", func() {
 				b.Name = "Renamed"
 				b.Identifier = "lj"
 				b.Rack = other.Key
-				b.Connection = device.ConnectionTCP
+				b.Connection = device.ConnectionEthernet
 				b.Serial = 999
 			})
 			Expect(update(
