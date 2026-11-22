@@ -393,11 +393,63 @@ var _ = Describe("Service", func() {
 					},
 				},
 			))).To(Succeed())
-			got := retrieve(ctx, d.Base().Key).Variant.(device.T7Device)
-			Expect(got.AnalogInput).To(Equal(
-				map[device.T7AnalogInputPort]channel.Key{
+			Expect(retrieve(ctx, d.Base().Key).Variant).To(HaveField(
+				"AnalogInput",
+				Equal(map[device.T7AnalogInputPort]channel.Key{
 					device.T7AnalogInputPortAin0: 3,
+				}),
+			))
+		})
+
+		createModel := func(ctx SpecContext, v device.DeviceVariant) device.Device {
+			GinkgoHelper()
+			d := edit(device.Device{Variant: v}, func(b *device.Base) {
+				b.Rack = rackKey
+				b.Name = "LJ"
+				b.Serial = nextSerial()
+				b.Connection = device.ConnectionUSB
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			return d
+		}
+
+		It("Should write the port maps of a T4", func(ctx SpecContext) {
+			d := createModel(ctx, device.T4Device{})
+			ports := device.T4Ports{
+				DigitalOutput: map[device.T4DigitalPort]device.CommandStatePair{
+					device.T4DigitalPortDio4: {Command: 1, State: 2},
 				},
+			}
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Base().Key, configuration(ports))).
+				To(Succeed())
+			Expect(retrieve(ctx, d.Base().Key).Variant).
+				To(HaveField("DigitalOutput", Equal(ports.DigitalOutput)))
+		})
+
+		It("Should write the port maps of a T8", func(ctx SpecContext) {
+			d := createModel(ctx, device.T8Device{})
+			ports := device.T8Ports{
+				AnalogInput: map[device.T8AnalogInputPort]channel.Key{
+					device.T8AnalogInputPortAin7: 3,
+				},
+			}
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Base().Key, configuration(ports))).
+				To(Succeed())
+			Expect(retrieve(ctx, d.Base().Key).Variant).
+				To(HaveField("AnalogInput", Equal(ports.AnalogInput)))
+		})
+
+		It("Should reject a port the model does not have in a configuration", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Base().Key, configuration(
+				device.T7Ports{
+					DigitalInput: map[device.T7DigitalPort]channel.Key{"DIO23": 3},
+				},
+			))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("invalid digital_input key: DIO23")),
 			))
 		})
 
