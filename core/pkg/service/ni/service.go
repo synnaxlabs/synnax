@@ -119,7 +119,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations: []gorp.Migration{
 				v3.AnalogReadMigration,
 				v4.AnalogReadMigration,
-				v3.AnalogReadRangeMigration,
+				v4.AnalogReadRangeMigration,
 			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_analog_read",
@@ -130,7 +130,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			PatchEntry:      (*AnalogReadConfig).Patch,
 			HashEntry:       (*AnalogReadConfig).HashContent,
 			ReconcileEntry: func(_ context.Context, _ gorp.Tx, c *AnalogReadConfig) error {
-				v3.OrderAIRanges(c.Channels)
+				v4.OrderAIRanges(c.Channels)
 				return nil
 			},
 			ValidateEntry: func(c *AnalogReadConfig) error {
@@ -150,7 +150,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations: []gorp.Migration{
 				v3.AnalogWriteMigration,
 				v4.AnalogWriteMigration,
-				v3.AnalogWriteRangeMigration,
+				v4.AnalogWriteRangeMigration,
 			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_analog_write",
@@ -161,7 +161,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			PatchEntry:      (*AnalogWriteConfig).Patch,
 			HashEntry:       (*AnalogWriteConfig).HashContent,
 			ReconcileEntry: func(_ context.Context, _ gorp.Tx, c *AnalogWriteConfig) error {
-				v3.OrderAORanges(c.Channels)
+				v4.OrderAORanges(c.Channels)
 				return nil
 			},
 			ValidateEntry: (*AnalogWriteConfig).Validate,
@@ -176,7 +176,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations: []gorp.Migration{
 				v3.CounterReadMigration,
 				v4.CounterReadMigration,
-				v3.CounterReadRangeMigration,
+				v4.CounterReadRangeMigration,
 			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_counter_read",
@@ -187,7 +187,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			PatchEntry:      (*CounterReadConfig).Patch,
 			HashEntry:       (*CounterReadConfig).HashContent,
 			ReconcileEntry: func(_ context.Context, _ gorp.Tx, c *CounterReadConfig) error {
-				v3.OrderCIRanges(c.Channels)
+				v4.OrderCIRanges(c.Channels)
 				return nil
 			},
 			ValidateEntry: func(c *CounterReadConfig) error {

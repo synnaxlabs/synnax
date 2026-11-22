@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v3
+package v4
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"uuid"
 
@@ -133,4 +134,14 @@ func logOrdered(ins alamos.Instrumentation, config uuid.UUID, channels []int) {
 			zap.Int("channel", i),
 		)
 	}
+}
+
+// as returns v as a T. It panics when v is not a T, which reflection on a variant of
+// a known type rules out.
+func as[T any](v any) T {
+	t, ok := v.(T)
+	if !ok {
+		panic(fmt.Sprintf("%T is not a %T", v, t))
+	}
+	return t
 }
