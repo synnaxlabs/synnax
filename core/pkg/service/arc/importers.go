@@ -59,8 +59,7 @@ func (s *Service) importsOf(a Arc) []string {
 	if !ok {
 		return nil
 	}
-	cfg := parser.Config{AllowDashedNames: s.AllowDashedNames()}
-	prog, diag := parser.Parse(src.Text.Materialize().Raw, cfg)
+	prog, diag := parser.Parse(src.Text.Materialize().Raw)
 	if diag != nil {
 		return nil
 	}

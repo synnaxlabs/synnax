@@ -35,8 +35,6 @@ var _ = Describe("Unique names", Ordered, func() {
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		cfg, groupSvc := serviceConfig(ctx, node, node.DB)
-		// The index applies whatever the old name validation flag says.
-		cfg.ValidateNames = new(false)
 		svc = MustOpen(channel.OpenService(ctx, cfg))
 		folder = MustSucceed(
 			groupSvc.CreateOrRetrieve(ctx, "Names", resource.TypeChannel),

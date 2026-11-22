@@ -190,6 +190,15 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			return CoreConfig{}, errors.Wrapf(err, "invalid --%s", FlagSecretsKey)
 		}
 	}
+	if viper.GetBool(FlagDisableChannelNameValidation) {
+		return CoreConfig{}, errors.Wrapf(
+			validate.ErrValidation,
+			"--%s was removed: channel names follow the name rule, and Arc reads a "+
+				"dashed channel name only in quotes. Remove the flag and "+
+				"SYNNAX_DISABLE_CHANNEL_NAME_VALIDATION to start",
+			FlagDisableChannelNameValidation,
+		)
+	}
 	taskWorkerCount := viper.GetInt(FlagTaskWorkerCount)
 	if taskWorkerCount < 0 || taskWorkerCount > math.MaxUint8 {
 		return CoreConfig{}, errors.Wrapf(
@@ -226,6 +235,5 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		certFactoryConfig:    factoryCfg,
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
 		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),
-		validateChannelNames: new(!viper.GetBool(FlagDisableChannelNameValidation)),
 	}), nil
 }

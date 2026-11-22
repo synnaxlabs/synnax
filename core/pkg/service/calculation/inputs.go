@@ -13,7 +13,6 @@ import (
 	"context"
 	"slices"
 
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -62,10 +61,7 @@ type Unsaved struct {
 
 // newAnalyzer returns an analyzer that resolves channels through snap.
 func (s *Service) newAnalyzer(snap gorp.Snapshot) *compiler.Analyzer {
-	return compiler.NewAnalyzer(
-		resolver.New(s.channels, snap),
-		parser.Config{AllowDashedNames: resolver.AllowDashedNames(s.channels)},
-	)
+	return compiler.NewAnalyzer(resolver.New(s.channels, snap))
 }
 
 // Inputs returns the stored channels that the calculations of outputs and the unsaved

@@ -13,6 +13,7 @@ import (
 	"encoding/base64"
 	"io/fs"
 	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -148,6 +149,29 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		Entry("one above the maximum", 256),
 		Entry("far above the maximum", 300),
 	)
+
+	Describe("Removed channel name validation flag", func() {
+		removed := MatchError(ContainSubstring(
+			"--disable-channel-name-validation was removed",
+		))
+
+		It("Should refuse to start with the flag", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagDisableChannelNameValidation, true)
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(And(MatchError(validate.ErrValidation), removed))
+		})
+
+		It("Should refuse to start with the environment variable", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.SetEnvPrefix("synnax")
+			viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+			viper.AutomaticEnv()
+			GinkgoT().Setenv("SYNNAX_DISABLE_CHANNEL_NAME_VALIDATION", "true")
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(removed)
+		})
+	})
 
 	It("Should accept the largest task worker count that fits a byte", func() {
 		viper.Set(start.FlagInsecure, true)

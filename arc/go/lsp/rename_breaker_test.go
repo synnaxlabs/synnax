@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
@@ -34,7 +35,6 @@ var _ = Describe("Rename breaker", func() {
 
 	openServer := func(
 		ctx context.Context,
-		dashed bool,
 		content string,
 		channels ...string,
 	) *lsp.Server {
@@ -51,8 +51,7 @@ var _ = Describe("Rename breaker", func() {
 		}
 		renamedKinds = nil
 		server := MustSucceed(lsp.New(lsp.Config{
-			NewRoot:          func() *symbol.Symbol { return NewRoot(nil, syms...) },
-			AllowDashedNames: dashed,
+			NewRoot: func() *symbol.Symbol { return NewRoot(nil, syms...) },
 			OnRename: func(_ context.Context, sym *symbol.Symbol, _, _ string) error {
 				renamedKinds = append(renamedKinds, sym.Kind.String())
 				return nil
@@ -94,16 +93,16 @@ var _ = Describe("Rename breaker", func() {
 		}
 		return strings.Join(lines, "\n")
 	}
-	parseErrors := func(content string, dashed bool) string {
-		_, diags := parser.Parse(content, parser.Config{AllowDashedNames: dashed})
+	parseErrors := func(content string) string {
+		_, diags := parser.Parse(content)
 		if diags == nil || diags.Ok() {
 			return ""
 		}
 		return diags.String()
 	}
-	identifiers := func(content string, dashed bool) []string {
+	identifiers := func(content string) []string {
 		var names []string
-		lexer := parser.NewLexer(content, parser.Config{AllowDashedNames: dashed})
+		lexer := parser.NewArcLexer(antlr.NewInputStream(content))
 		for _, t := range lexer.GetAllTokens() {
 			if t.GetTokenType() == parser.ArcLexerIDENTIFIER {
 				names = append(names, t.GetText())
@@ -116,24 +115,24 @@ var _ = Describe("Rename breaker", func() {
 		func(ctx SpecContext) {
 			content := "authority (sensor 100)\nfunc test() {\n" +
 				"    x f32 := sensor + 1.0\n}"
-			Expect(parseErrors(content, false)).To(BeEmpty())
-			server := openServer(ctx, false, content, "sensor")
+			Expect(parseErrors(content)).To(BeEmpty())
+			server := openServer(ctx, content, "sensor")
 			result := rename(ctx, server, 2, 13, "PT-FU 01")
 			Expect(result).ToNot(BeNil())
 			renamed := apply(content, result.Changes[docURI])
-			Expect(parseErrors(renamed, false)).To(BeEmpty(), renamed)
+			Expect(parseErrors(renamed)).To(BeEmpty(), renamed)
 		},
 	)
 
 	It("Should rename again a channel that a first rename quoted",
 		func(ctx SpecContext) {
 			content := "func test() {\n    x f32 := sensor + 1.0\n}"
-			server := openServer(ctx, false, content, "sensor")
+			server := openServer(ctx, content, "sensor")
 			first := rename(ctx, server, 1, 13, "PT-FU 01")
 			Expect(first).ToNot(BeNil())
 			renamed := apply(content, first.Changes[docURI])
 			Expect(renamed).To(ContainSubstring("x f32 := 'PT-FU 01' + 1.0"))
-			server = openServer(ctx, false, renamed, "PT-FU 01")
+			server = openServer(ctx, renamed, "PT-FU 01")
 			Expect(rename(ctx, server, 1, 15, "PT-FU 02")).ToNot(BeNil())
 		},
 	)
@@ -142,7 +141,7 @@ var _ = Describe("Rename breaker", func() {
 		func(ctx SpecContext) {
 			content := "func test() {\n    sensor := 2.0\n" +
 				"    x f32 := 'sensor' + sensor\n}"
-			server := openServer(ctx, false, content, "sensor")
+			server := openServer(ctx, content, "sensor")
 			result := rename(ctx, server, 2, 15, "renamed")
 			Expect(result).ToNot(BeNil())
 			Expect(renamedKinds).To(Equal([]string{symbol.KindChannel.String()}))
@@ -159,7 +158,7 @@ var _ = Describe("Rename breaker", func() {
 			kelvin := string(rune(0x212A)) + "elvin"
 			content := "func test() {\n    x f32 := '" + kelvin + "' + 1.0\n" +
 				"    y := Kelvin * 2.0\n}"
-			server := openServer(ctx, false, content, "Kelvin")
+			server := openServer(ctx, content, "Kelvin")
 			result := rename(ctx, server, 2, 10, "renamed")
 			Expect(result).ToNot(BeNil())
 			edits := result.Changes[docURI]
@@ -175,17 +174,17 @@ var _ = Describe("Rename breaker", func() {
 		},
 	)
 
-	It("Should keep a bare name apart from a dash that follows it in dashed mode",
+	It("Should keep a quoted name apart from a dash that follows it",
 		func(ctx SpecContext) {
 			content := "func test() {\n    x f32 := 'sensor'-1.0\n" +
 				"    y := sensor * 2.0\n}"
-			Expect(parseErrors(content, true)).To(BeEmpty())
-			server := openServer(ctx, true, content, "sensor")
+			Expect(parseErrors(content)).To(BeEmpty())
+			server := openServer(ctx, content, "sensor")
 			result := rename(ctx, server, 2, 10, "renamed_sensor")
 			Expect(result).ToNot(BeNil())
 			renamed := apply(content, result.Changes[docURI])
 			Expect(renamed).To(ContainSubstring("x f32 := 'renamed_sensor'-1.0"))
-			Expect(identifiers(renamed, true)).To(Equal(
+			Expect(identifiers(renamed)).To(Equal(
 				[]string{"test", "x", "y", "renamed_sensor"},
 			), renamed)
 		},
@@ -195,13 +194,13 @@ var _ = Describe("Rename breaker", func() {
 		func(ctx SpecContext) {
 			content := "func test() f32 {\n    y := sensor * 2.0\n" +
 				"    return'sensor'\n}"
-			Expect(parseErrors(content, false)).To(BeEmpty())
-			server := openServer(ctx, false, content, "sensor")
+			Expect(parseErrors(content)).To(BeEmpty())
+			server := openServer(ctx, content, "sensor")
 			result := rename(ctx, server, 1, 10, "renamed_sensor")
 			Expect(result).ToNot(BeNil())
 			renamed := apply(content, result.Changes[docURI])
 			Expect(renamed).To(ContainSubstring("return'renamed_sensor'"))
-			Expect(identifiers(renamed, false)).To(Equal(
+			Expect(identifiers(renamed)).To(Equal(
 				[]string{"test", "y", "renamed_sensor"},
 			), renamed)
 		},
@@ -212,7 +211,7 @@ var _ = Describe("Rename breaker", func() {
 	) {
 		content := "func test() {\n    renamed := 2.0\n" +
 			"    x f32 := sensor + renamed\n}"
-		server := openServer(ctx, false, content, "sensor")
+		server := openServer(ctx, content, "sensor")
 		result := rename(ctx, server, 2, 13, "renamed")
 		Expect(result).ToNot(BeNil())
 		Expect(apply(content, result.Changes[docURI])).To(Equal(
@@ -225,7 +224,7 @@ var _ = Describe("Rename breaker", func() {
 		ctx SpecContext,
 	) {
 		content := "func test() {\n    count := 2.0\n    x := count * 2.0\n}"
-		server := openServer(ctx, false, content)
+		server := openServer(ctx, content)
 		Expect(server.Rename(ctx, &protocol.RenameParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			Position:     protocol.Position{Line: 2, Character: 10},

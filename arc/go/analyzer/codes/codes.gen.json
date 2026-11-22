@@ -17,12 +17,6 @@
     "problem": "A string literal or a format placeholder is not valid.",
     "example": "func f() str {\n    return f\"value {}\"\n}"
   },
-  "E1003": {
-    "severity": "error",
-    "message": "subtraction requires whitespace on both sides of '-'",
-    "problem": "Only possible when the flag for channel names with dashes is on. Then `a-b` is a channel name, so a subtraction needs a space on each side of the `-`.",
-    "example": "func f(a f64, b f64) f64 {\n    return a -b\n}"
-  },
   "E2000": {
     "severity": "error",
     "message": "division by zero",

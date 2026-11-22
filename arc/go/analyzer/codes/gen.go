@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/arc/analyzer/codes"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
@@ -54,7 +53,6 @@ var (
 	}
 	// modules are the modules that an example can import.
 	modules = map[string]string{"valves": "func open() i64 {\n    return 1\n}\n"}
-	cfg     = parser.Config{AllowDashedNames: true}
 )
 
 func channel(name string, t types.Type, id int) symbol.Symbol {
@@ -88,7 +86,7 @@ func newRoot() *symbol.Symbol {
 // report returns each diagnostic that the compiler reports for source as a program or
 // as a module.
 func report(source string, module bool) diagnostics.Diagnostics {
-	parsed, diag := text.Parse(text.Text{Raw: source}, cfg)
+	parsed, diag := text.Parse(text.Text{Raw: source})
 	if diag != nil && !diag.Ok() {
 		return *diag
 	}
@@ -96,7 +94,7 @@ func report(source string, module bool) diagnostics.Diagnostics {
 	if module {
 		analyze = text.AnalyzeModule
 	}
-	_, diag = analyze(context.Background(), parsed, newRoot(), cfg)
+	_, diag = analyze(context.Background(), parsed, newRoot())
 	if diag == nil {
 		return nil
 	}

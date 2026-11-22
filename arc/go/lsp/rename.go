@@ -138,7 +138,6 @@ func (s *Server) renameTextEdits(
 	}
 	var (
 		channel = targetSym.Kind == symbol.KindChannel
-		cfg     = parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
 		lines   = newLineText(doc.Content)
 		edits   []protocol.TextEdit
 	)
@@ -172,7 +171,7 @@ func (s *Server) renameTextEdits(
 		}
 		return parser.ChannelText(newName, taken), true, nil
 	}
-	sites := channelSites(doc.Content, doc.isBlock(), cfg)
+	sites := channelSites(doc.Content, doc.isBlock())
 	for _, t := range tokenizeContent(doc.Content) {
 		switch t.GetTokenType() {
 		case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
@@ -185,7 +184,7 @@ func (s *Server) renameTextEdits(
 					continue
 				}
 				inner, spans := f.innerTokens(seg)
-				innerSites := expressionSites(seg.Text, cfg)
+				innerSites := expressionSites(seg.Text)
 				for i, it := range inner {
 					if channel && !innerSites.Contains(it.GetStart()) {
 						continue
@@ -277,15 +276,15 @@ func (s *Server) taken(
 // channelSites returns the start of each token of content where a channel can be
 // named, in code points. block parses content as the body of a function. A source that
 // does not parse names no channel.
-func channelSites(content string, block bool, cfg parser.Config) set.Set[int] {
+func channelSites(content string, block bool) set.Set[int] {
 	if !block {
-		tree, diags := parser.Parse(content, cfg)
+		tree, diags := parser.Parse(content)
 		if diags != nil {
 			return nil
 		}
 		return sitesOf(tree, 0)
 	}
-	tree, diags := parser.ParseBlock("{"+content+"}", cfg)
+	tree, diags := parser.ParseBlock("{" + content + "}")
 	if diags != nil {
 		return nil
 	}
@@ -294,8 +293,8 @@ func channelSites(content string, block bool, cfg parser.Config) set.Set[int] {
 
 // expressionSites returns the start of each token of the expression source where a
 // channel can be named, in code points. A source that does not parse names no channel.
-func expressionSites(source string, cfg parser.Config) set.Set[int] {
-	tree, diags := parser.ParseExpression(source, cfg)
+func expressionSites(source string) set.Set[int] {
+	tree, diags := parser.ParseExpression(source)
 	if diags != nil {
 		return nil
 	}

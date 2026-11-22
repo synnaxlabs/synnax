@@ -17,7 +17,6 @@ import (
 
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
@@ -33,8 +32,6 @@ type LoaderConfig struct {
 	Channels symbol.Resolver
 	// Ambient returns the prelude symbols for each module's root. May be nil.
 	Ambient func() []*symbol.Symbol
-	// Config is the parser configuration for each module.
-	Config parser.Config
 }
 
 // unit is a loaded module, holding its lowered program and the variable nodes an
@@ -97,7 +94,7 @@ func (l *Loader) load(ctx context.Context, path string) (*unit, error) {
 	}
 	l.stack = append(l.stack, path)
 	defer func() { l.stack = l.stack[:len(l.stack)-1] }()
-	parsed, diag := Parse(t, l.cfg.Config)
+	parsed, diag := Parse(t)
 	if diag != nil && !diag.Ok() {
 		return nil, compileError(path, diag)
 	}
@@ -107,7 +104,7 @@ func (l *Loader) load(ctx context.Context, path string) (*unit, error) {
 	}
 	root := symbol.NewRoot(l.cfg.Channels, ambient, symbol.WithModules(l))
 	root.Name, root.UserDefined = path, true
-	u, diag := analyzeUnit(ctx, parsed, root, true, []parser.Config{l.cfg.Config})
+	u, diag := analyzeUnit(ctx, parsed, root, true)
 	if diag != nil && !diag.Ok() {
 		if slices.Contains(l.cycle, path) {
 			return nil, l.cycleError()

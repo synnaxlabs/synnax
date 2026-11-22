@@ -121,8 +121,6 @@ type Context[AST antlr.ParserRuleContext] struct {
 	TypeHint types.Type
 	// InTypeInferenceMode indicates whether type inference is active.
 	InTypeInferenceMode bool
-	// Config carries per-parse language settings (e.g. dashed channel names).
-	Config parser.Config
 	// Module analyzes the program as a module, under the module rules.
 	Module bool
 }
@@ -165,13 +163,6 @@ func ResolveOwnScope[T IdentifierAST](ctx Context[T]) (*symbol.Symbol, error) {
 // assigned).
 func (c Context[AST]) WithTypeHint(hint types.Type) Context[AST] {
 	c.TypeHint = hint
-	return c
-}
-
-// WithConfig returns a new context carrying the given parse settings. The original
-// context is not mutated.
-func (c Context[AST]) WithConfig(cfg parser.Config) Context[AST] {
-	c.Config = cfg
 	return c
 }
 
@@ -392,7 +383,6 @@ func (ctx Context[P]) Child[N antlr.ParserRuleContext](next N) Context[N] {
 		AST:                 next,
 		TypeHint:            ctx.TypeHint,
 		InTypeInferenceMode: ctx.InTypeInferenceMode,
-		Config:              ctx.Config,
 		Module:              ctx.Module,
 	}
 }

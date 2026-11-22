@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -170,7 +169,7 @@ var _ = Describe("Analyze", func() {
 		)
 
 		It(
-			"resolves a channel name containing dashes when enabled",
+			"resolves a quoted channel name containing dashes",
 			func(ctx SpecContext) {
 				r := StaticResolver{
 					{
@@ -180,11 +179,8 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := compiler.NewAnalyzer(
-					r,
-					parser.Config{AllowDashedNames: true},
-				)
-				ch := formula{Name: "calc", Expression: "return ox-pt-1 * 2.0"}
+				a := compiler.NewAnalyzer(r)
+				ch := formula{Name: "calc", Expression: "return 'ox-pt-1' * 2.0"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Float32T))
 			},

@@ -294,14 +294,6 @@ Compresses old log files on disk.
 
 </Field.Item>
 
-<Field.Item name="--disable-channel-name-validation" env="SYNNAX_DISABLE_CHANNEL_NAME_VALIDATION">
-
-Reads a dashed name in Arc text, such as `pt-01`, as one channel name, as programs
-written before quoted names expect. The flag does not change which channel names the
-Core accepts.
-
-</Field.Item>
-
 </Field.List>
 
 ### Configuration files
@@ -351,8 +343,7 @@ Example files:
   "log-file-max-size": 50,
   "log-file-max-backups": 5,
   "log-file-max-age": 30,
-  "log-file-compress": true,
-  "disable-channel-name-validation": false
+  "log-file-compress": true
 }
 ```
 
@@ -387,7 +378,6 @@ log-file-max-size: 50
 log-file-max-backups: 5
 log-file-max-age: 30
 log-file-compress: true
-disable-channel-name-validation: false
 ```
 
 </Fragment>
@@ -421,7 +411,6 @@ log-file-max-size = 50
 log-file-max-backups = 5
 log-file-max-age = 30
 log-file-compress = true
-disable-channel-name-validation = false
 ```
 
 </Fragment>

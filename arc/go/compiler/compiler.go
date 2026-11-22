@@ -69,7 +69,6 @@ type compiledFunction struct {
 // Parameters:
 //   - ctx_: Go context for cancellation
 //   - program: Arc IR containing functions, stages, symbol table, and type information
-//   - opts: Optional compiler configuration (e.g., DisableHostImport())
 //
 // Returns:
 //   - Output: Contains WASM bytecode and memory base addresses for multi-output stages
@@ -78,16 +77,10 @@ type compiledFunction struct {
 //
 // The compiler maintains type safety by propagating type hints through expression
 // compilation and emitting type conversions when necessary.
-func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error) {
-	o := &options{}
-	for _, opt := range opts {
-		opt(o)
-	}
-
+func Compile(ctx context.Context, program ir.IR) (Output, error) {
 	resolver := resolve.NewResolver()
 
 	compCtx := ccontext.NewRoot(ctx, program.Symbols, program.TypeMap, resolver)
-	compCtx.Config = o.config
 	compCtx.FmtStrings = program.FmtStrings
 
 	for i, f := range program.Functions {
