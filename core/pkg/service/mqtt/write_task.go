@@ -126,8 +126,8 @@ func (t *messageTarget) String() string { return "target " + t.topic }
 // reset implements target.
 func (t *messageTarget) reset() { clear(t.received) }
 
-// publications implements target. It sends one document for each row of fr that holds
-// a good command.
+// publications implements target. It sends one document for each row of fr that holds a
+// good command.
 func (t *messageTarget) publications(
 	fr framer.Frame,
 	skips *driver.Skips,
