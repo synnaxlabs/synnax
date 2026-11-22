@@ -73,13 +73,8 @@ Text::Field::create(const icd::TextField &f, const x::telem::DataType &dt) {
     if (!b.default_.has_value()) return {std::move(field), x::errors::NIL};
     const double d = b.default_->value;
     auto dst = x::telem::Series(dt, 1);
-    const auto err = std::isfinite(d)
-                       ? field.append_float(d, dst)
-                       : x::errors::Error(
-                             x::errors::VALIDATION,
-                             x::json::Number(d).to_string() + " is not finite"
-                         );
-    if (err) return {Field{}, as_config(err, "default")};
+    if (const auto err = field.append_float(d, dst))
+        return {Field{}, as_config(err, "default")};
     field.fallback = std::move(dst);
     return {std::move(field), x::errors::NIL};
 }
