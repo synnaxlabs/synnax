@@ -19,7 +19,7 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Credential } from "@/credential";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 describe("Credential queries", () => {
   const client = createTestClient();

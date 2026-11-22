@@ -15,7 +15,7 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Color } from "@/color";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
@@ -91,5 +91,22 @@ describe("Color.Swatch", () => {
     await openPicker(c);
     fireEvent.click(screen.getByLabelText("Auto"));
     expect(onChange).toHaveBeenCalledExactlyOnceWith(undefined);
+  });
+
+  it("should offer no Auto for a required value", async () => {
+    const named = await createInPalette();
+    const onChange = vi.fn();
+    const c = render(
+      <Color.Swatch value={{ type: "named", key: named.key }} onChange={onChange} />,
+      { wrapper },
+    );
+    await openPicker(c);
+    expect(screen.queryByLabelText("Auto")).toBeNull();
+    fireEvent.click(screen.getByText("Custom"));
+    fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "0000ff" } });
+    expect(onChange).toHaveBeenCalledWith({
+      type: "fixed",
+      value: xcolor.construct("#0000ff"),
+    });
   });
 });

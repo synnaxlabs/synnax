@@ -7,13 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ranger as rangerClient } from "@synnaxlabs/client";
+import { color, type ranger as rangerClient } from "@synnaxlabs/client";
 import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
-import { box, id, scale, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  box,
+  color as xcolor,
+  id,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { Layout } from "@/lineplot/aether/layout";
 import { range } from "@/lineplot/range/aether";
 import { ranger } from "@/ranger/aether";
 import { renderAether } from "@/testutil/renderAether";
@@ -45,13 +53,10 @@ const renderProps = (
   timeRange: TimeRange,
   shown: TimeRange = timeRange,
 ): range.ProviderProps => ({
-  dataToDecimalScale: scale.Scale.scale(
-    Number(shown.start.valueOf()),
-    Number(shown.end.valueOf()),
-  ),
+  layout: new Layout([shown.numericBounds], box.DECIMAL),
   region: REGION,
-  viewport: REGION,
   timeRange,
+  raised: [],
 });
 
 const mount = (recorder = canvasTest.record()): range.Provider => {
@@ -103,7 +108,7 @@ const createRanges = async (start: TimeStamp, spans: [number, number][]) =>
         start.add(TimeSpan.seconds(from)),
         start.add(TimeSpan.seconds(to)),
       ),
-      color: "#7C3AED",
+      color: { type: "fixed" as const, value: "#7C3AED" },
     })),
   );
 
@@ -119,7 +124,7 @@ describe("Provider", () => {
         Array.from({ length: count }, () => ({
           name: `annotation-${id.create()}`,
           timeRange,
-          color: "#7C3AED",
+          color: { type: "fixed" as const, value: "#7C3AED" },
         })),
       );
     await createMany(5);
@@ -141,7 +146,7 @@ describe("Provider", () => {
       {
         name: `open-${id.create()}`,
         timeRange: new TimeRange(start, TimeStamp.MAX),
-        color: "#7C3AED",
+        color: { type: "fixed", value: "#7C3AED" },
       },
     ]);
     // A fresh provider per viewport, since a requery keeps the previous answer until
@@ -207,7 +212,7 @@ describe("Provider", () => {
       renderProps(new TimeRange(shown.start.add(two), shown.end.add(two))),
     );
     expect(provider.state.hovered?.key).toEqual(ranges[0].key);
-    expect(provider.state.hovered?.viewport.lower).toBeCloseTo(-200);
+    expect(provider.state.hovered?.viewport.lower).toBeCloseTo(-0.2);
     provider.setState((s) => ({ ...s, menuOpen: false }));
     provider.render(props);
     expect(provider.state.hovered?.key).toEqual(ranges[1].key);
@@ -225,7 +230,9 @@ describe("Provider", () => {
     }).toEqual(1);
     const names = (): number => {
       recorder.upper2d.calls.length = 0;
-      provider.render(props);
+      const raised: Array<() => void> = [];
+      provider.render({ ...props, raised });
+      raised.forEach((draw) => draw());
       return recorder.upper2d.calls.filter(
         (c) => c.op === "fillText" && c.args[0] === rng.name,
       ).length;
@@ -282,6 +289,63 @@ describe("Provider", () => {
     provider.setState((s) => ({ ...s, cursor: { x: 650, y: -14 } }));
     provider.render(props);
     expect(provider.state.hovered).toBeNull();
+  });
+
+  it("draws a bar for a range with a named color", async () => {
+    const start = createAnchor();
+    const named = await client.colors.create({
+      name: `strip-${id.create()}`,
+      light: "#7C3AED",
+    });
+    onTestFinished(async () => await client.colors.delete(named.key));
+    await create([
+      {
+        name: `named-${id.create()}`,
+        timeRange: new TimeRange(start, start.add(TimeSpan.seconds(4))),
+        color: { type: "named", key: named.key },
+      },
+    ]);
+    const provider = mount();
+    const props = renderProps(new TimeRange(start, start.add(TimeSpan.seconds(10))));
+    await pollDrawn(() => {
+      provider.render(props);
+      return provider.state.count;
+    }).toEqual(1);
+  });
+
+  it("repaints a bar when its named color changes", async () => {
+    const start = createAnchor();
+    const named = await client.colors.create({
+      name: `strip-${id.create()}`,
+      light: "#7C3AED",
+    });
+    onTestFinished(async () => await client.colors.delete(named.key));
+    await create([
+      {
+        name: `repaint-${id.create()}`,
+        timeRange: new TimeRange(start, start.add(TimeSpan.seconds(4))),
+        color: { type: "named", key: named.key },
+      },
+    ]);
+    const recorder = canvasTest.record();
+    const provider = mount(recorder);
+    const props = renderProps(new TimeRange(start, start.add(TimeSpan.seconds(10))));
+    const fills = (): unknown[] => {
+      recorder.upper2d.calls.length = 0;
+      provider.render(props);
+      return recorder.upper2d.calls
+        .filter(({ op }) => op === "set:fillStyle")
+        .map(({ args }) => args[0]);
+    };
+    let before: unknown[] = [];
+    await pollDrawn(() => {
+      before = fills();
+      return provider.state.count;
+    }).toEqual(1);
+    await client.colors.dispatch(named.key, [
+      color.set({ path: ["light"], value: xcolor.construct("#123456") }),
+    ]);
+    await expect.poll(fills).not.toEqual(before);
   });
 
   it("keeps a range below the range that holds it", async () => {
@@ -429,7 +493,7 @@ describe("Provider", () => {
             now.sub(TimeSpan.seconds(90)),
             now.add(TimeSpan.hours(1)),
           ),
-          color: "#7C3AED",
+          color: { type: "fixed", value: "#7C3AED" },
         },
       ]);
       return rng;
@@ -451,7 +515,9 @@ describe("Provider", () => {
       const props = lastMinute(now);
       const texts = (): string[] => {
         recorder.upper2d.calls.length = 0;
-        provider.render(props);
+        const raised: Array<() => void> = [];
+        provider.render({ ...props, raised });
+        raised.forEach((draw) => draw());
         return recorder.upper2d.calls
           .filter((c) => c.op === "fillText")
           .map((c) => c.args[0] as string);
@@ -493,7 +559,7 @@ describe("Provider", () => {
       provider.setState((s) => ({ ...s, cursor: { x: 600, y: -14 } }));
       provider.render(props);
       expect(provider.state.hovered?.key).toEqual(rng.key);
-      expect(provider.state.hovered?.viewport.upper).toBeCloseTo(750);
+      expect(provider.state.hovered?.viewport.upper).toBeCloseTo(0.75);
     });
 
     it("should redraw as the strip changes, and stop when it hides", async () => {
@@ -570,7 +636,7 @@ describe("Provider", () => {
             now.add(TimeSpan.seconds(30)),
             now.add(TimeSpan.minutes(10)),
           ),
-          color: "#7C3AED",
+          color: { type: "fixed", value: "#7C3AED" },
         },
       ]);
       await expectRedrawAt(now, ahead(now), rng.timeRange.start);
@@ -631,6 +697,165 @@ describe("Provider", () => {
       const [x0, y0, x1, y1] = g.args as number[];
       expect([x0, y0, y1]).toEqual([0, 0, 0]);
       expect(x1).toBeCloseTo(375);
+    });
+  });
+
+  describe("breaks", () => {
+    // Props for an x axis with a segment for each [lower, upper] pair, in seconds past
+    // start.
+    const segmentedProps = (
+      start: TimeStamp,
+      segments: [number, number][],
+    ): range.ProviderProps => {
+      const at = (s: number) => Number(start.add(TimeSpan.seconds(s)).valueOf());
+      const b = segments.map(([lower, upper]) => ({
+        lower: at(lower),
+        upper: at(upper),
+      }));
+      return {
+        layout: new Layout(b, box.DECIMAL),
+        region: REGION,
+        timeRange: new TimeRange(b[0].lower, b[b.length - 1].upper),
+        raised: [],
+      };
+    };
+
+    it("should leave its tooltip to a raised draw over the bands", async () => {
+      const start = createAnchor();
+      const [rng] = await createRanges(start, [[0, 10]]);
+      const recorder = canvasTest.record();
+      const provider = mount(recorder);
+      const props = segmentedProps(start, [
+        [0, 10],
+        [3600, 3610],
+      ]);
+      await pollDrawn(() => {
+        provider.render(props);
+        return provider.state.count;
+      }).toEqual(1);
+      const names = (): number =>
+        recorder.upper2d.calls.filter(
+          (c) => c.op === "fillText" && c.args[0] === rng.name,
+        ).length;
+      provider.setState((s) => ({ ...s, cursor: { x: 250, y: -14 } }));
+      recorder.upper2d.calls.length = 0;
+      const raised: Array<() => void> = [];
+      provider.render({ ...props, raised });
+      // The bar label.
+      expect(names()).toEqual(1);
+      raised.forEach((draw) => draw());
+      expect(names()).toEqual(2);
+    });
+
+    it("should cut a bar at each seam that its range crosses", async () => {
+      const start = createAnchor();
+      await createRanges(start, [[5, 25]]);
+      const recorder = canvasTest.record();
+      const provider = mount(recorder);
+      const props = segmentedProps(start, [
+        [0, 10],
+        [20, 30],
+      ]);
+      await pollDrawn(() => {
+        provider.render(props);
+        return provider.state.count;
+      }).toEqual(1);
+      recorder.upper2d.calls.length = 0;
+      provider.render(props);
+      const { calls } = recorder.upper2d;
+      // A fill and a stroke for each of the two bars.
+      expect(calls.filter((c) => c.op === "roundRect")).toHaveLength(4);
+      const gradients = calls.filter((c) => c.op === "createLinearGradient");
+      expect(gradients.length).toBeGreaterThan(0);
+    });
+
+    it("should light every piece of a hovered range that a seam cuts", async () => {
+      const start = createAnchor();
+      const ranges = await createRanges(start, [[5, 25]]);
+      const recorder = canvasTest.record();
+      const provider = mount(recorder);
+      const props = segmentedProps(start, [
+        [0, 10],
+        [20, 30],
+      ]);
+      await pollDrawn(() => {
+        provider.render(props);
+        return provider.state.count;
+      }).toEqual(1);
+      provider.setState((s) => ({ ...s, cursor: { x: 400, y: -14 } }));
+      recorder.upper2d.calls.length = 0;
+      provider.render(props);
+      expect(provider.state.hovered?.key).toEqual(ranges[0].key);
+      const alphas = recorder.upper2d.calls
+        .filter((c) => c.op === "set:globalAlpha")
+        .map((c) => c.args[0]);
+      expect(alphas.length).toBeGreaterThan(1);
+      alphas.forEach((alpha) => expect(alpha).toEqual(1));
+    });
+
+    it("should not pulse a running bar whose head a seam cuts off", async () => {
+      const now = createAnchor();
+      const start = now.sub(TimeSpan.seconds(120));
+      await createRanges(start, [[30, 3720]]);
+      try {
+        const provider = mount();
+        const props = {
+          ...segmentedProps(start, [
+            [0, 40],
+            [60, 100],
+          ]),
+          now,
+        };
+        await pollDrawn(() => {
+          provider.render(props);
+          return provider.state.count;
+        }).toEqual(1);
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        requested.mockImplementation(() => provider.render(props));
+        provider.render(props);
+        requested.mockClear();
+        vi.advanceTimersByTime(1000);
+        // Only the time since its start changes, once a second.
+        expect(requested).toHaveBeenCalledTimes(1);
+      } finally {
+        requested.mockReset();
+        vi.useRealTimers();
+      }
+    });
+
+    it("should draw no bar for a range inside a collapsed gap", async () => {
+      const start = createAnchor();
+      await createRanges(start, [
+        [2, 8],
+        [12, 18],
+      ]);
+      const provider = mount();
+      const props = segmentedProps(start, [
+        [0, 10],
+        [20, 30],
+      ]);
+      await pollDrawn(() => {
+        provider.render(props);
+        return provider.state.count;
+      }).toEqual(1);
+    });
+
+    it("should ask for the ranges of each segment and not of the gaps", () => {
+      const retrieve = vi.spyOn(ranger.listDefinition, "retrieve");
+      try {
+        const provider = mount();
+        const start = TimeStamp.now();
+        provider.render(
+          segmentedProps(start, [
+            [0, 10],
+            [86400, 86410],
+          ]),
+        );
+        const { where } = retrieve.mock.calls[0][0].query;
+        expect(where?.or).toHaveLength(2);
+      } finally {
+        retrieve.mockRestore();
+      }
     });
   });
 });

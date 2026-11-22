@@ -29,15 +29,9 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-namespace driver::codec {
-/// @brief Binding names a field of a message and the data type of the channel it feeds.
-struct Binding {
-    /// @brief field is the key of the message field to read.
-    synnax::icd::FieldKey field;
-    /// @brief data_type is the data type of the channel that the field writes to.
-    x::telem::DataType data_type;
-};
+#include "driver/codec/binding.h"
 
+namespace driver::codec {
 /// @brief JSONMessage is a JSON message and the fields to decode from its documents.
 struct JSONMessage {
     /// @brief name identifies the message in errors.
@@ -130,9 +124,11 @@ class JSON {
         x::telem::Series scratch{x::telem::FLOAT64_T, 1};
         /// @brief sample converts a JSON value to a sample of the channel's data type.
         x::json::Decoder sample;
-        /// @brief fallback is the sample used when a document has no value, or nothing
-        /// when the field requires one.
-        std::optional<x::telem::SampleValue> fallback;
+        /// @brief fallback holds the one sample used when a document has no value, or
+        /// nothing when the field requires one.
+        std::optional<x::telem::Series> fallback;
+        /// @brief generate, when set, appends a new sample in place of fallback.
+        void (*generate)(x::telem::Series &dst) = nullptr;
 
         static std::pair<Field, x::errors::Error>
         create(const synnax::icd::JSONField &f, const x::telem::DataType &dt);

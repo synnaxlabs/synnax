@@ -17,8 +17,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { Color } from "@/color";
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -139,6 +138,82 @@ describe("queries", () => {
     });
   });
 
+  describe("useValues", () => {
+    it("should give undefined for an absent reference and a missing named color", async () => {
+      const named = await createNamed();
+      const { result } = renderHook(
+        () =>
+          Color.useValues([
+            undefined,
+            { type: "named", key: uuid.create() },
+            { type: "named", key: named.key },
+          ]),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current[2]).toEqual(xcolor.construct(named.light)),
+      );
+      expect(result.current.slice(0, 2)).toEqual([undefined, undefined]);
+    });
+
+    it("should give the values in the order of the references, with repeated keys", async () => {
+      const [a, b] = await Promise.all([
+        remote.colors.create({ name: `color-${id.create()}`, light: "#112233" }),
+        remote.colors.create({ name: `color-${id.create()}`, light: "#445566" }),
+      ]);
+      const refs: color.Ref[] = [
+        { type: "named", key: b.key },
+        { type: "fixed", value: xcolor.construct("#FF0000") },
+        { type: "named", key: a.key },
+        { type: "named", key: b.key },
+      ];
+      const { result } = renderHook(() => Color.useValues(refs), { wrapper });
+      await waitFor(() =>
+        expect(result.current).toEqual([
+          xcolor.construct("#445566"),
+          xcolor.construct("#FF0000"),
+          xcolor.construct("#112233"),
+          xcolor.construct("#445566"),
+        ]),
+      );
+    });
+  });
+
+  describe("useResultAmong", () => {
+    it("should give only the named colors among its keys", async () => {
+      const [a, b] = await Promise.all([createNamed(), createNamed(), createNamed()]);
+      const { result } = renderHook(
+        () => Color.useResultAmong({ keys: [a.key, b.key] }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.map((c) => c.key).sort()).toEqual(
+          [a.key, b.key].sort(),
+        ),
+      );
+    });
+
+    it("should not render again for a change to a color outside its keys", async () => {
+      const [inside, outside] = await Promise.all([createNamed(), createNamed()]);
+      let renders = 0;
+      const { result } = renderHook(
+        () => {
+          renders++;
+          return Color.useResultAmong({ keys: [inside.key] });
+        },
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.map((c) => c.key)).toEqual([inside.key]),
+      );
+      const before = renders;
+      await act(async () => await renameRemotely(outside.key, "Outside"));
+      await act(async () => await renameRemotely(inside.key, "Inside"));
+      await waitFor(() => expect(result.current.data?.[0]?.name).toBe("Inside"));
+      expect(renders).toBe(before + 1);
+    });
+  });
+
   describe("useRetrieve", () => {
     it("should show a rename from another client", async () => {
       const named = await createNamed();
@@ -173,7 +248,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Flux.useList((c) => c.colors, {
-            name: "named colors",
+            name: "colors",
             query: { where: { key: { in: [named.key] } } },
           }),
         { wrapper },
@@ -188,7 +263,31 @@ describe("queries", () => {
   });
 
   describe("useCreate", () => {
-    it("should create a named color", async () => {
+    const order = async (palette: group.Group): Promise<color.Named[]> =>
+      (
+        await createTestClient().colors.retrieve({ where: { groups: [palette.key] } })
+      ).sort(color.compare);
+
+    const append = async (
+      palette: group.Group,
+      position?: string,
+    ): Promise<color.Key> => {
+      const { result } = renderHook(Color.useCreate, { wrapper });
+      const key = uuid.create();
+      await act(async () => {
+        await result.current.updateAsync({
+          key,
+          name: `created-${id.create()}`,
+          light: "#FF0000",
+          group: palette.key,
+          position,
+        });
+      });
+      expect(result.current.variant).toEqual("success");
+      return key;
+    };
+
+    it("should create a named color in no palette", async () => {
       const { result } = renderHook(Color.useCreate, { wrapper });
       const name = `created-${id.create()}`;
       await act(async () => {
@@ -196,6 +295,36 @@ describe("queries", () => {
       });
       expect(result.current.variant).toEqual("success");
       expect((await createTestClient().colors.retrieve(name)).name).toBe(name);
+    });
+
+    it("should keep a given position", async () => {
+      const palette = await createPalette();
+      const key = await append(palette, "a0");
+      expect((await createTestClient().colors.retrieve(key)).position).toBe("a0");
+    });
+
+    it("should create a named color after the last one of its palette", async () => {
+      const palette = await createPalette();
+      const last = await remote.colors.create({
+        name: `color-${id.create()}`,
+        light: "#00FF00",
+        group: palette.key,
+        position: "a5",
+      });
+      const key = await append(palette);
+      const stored = await order(palette);
+      expect(stored.map((c) => c.key)).toEqual([last.key, key]);
+      expect(stored[0].position).toBe("a5");
+    });
+
+    it("should write no position to the colors that have none", async () => {
+      const palette = await createPalette();
+      await Promise.all([createInPalette(palette), createInPalette(palette)]);
+      const before = (await order(palette)).map((c) => c.key);
+      const key = await append(palette);
+      const stored = await order(palette);
+      expect(stored.map((c) => c.key)).toEqual([key, ...before]);
+      expect(stored.filter((c) => c.position == null)).toHaveLength(2);
     });
   });
 

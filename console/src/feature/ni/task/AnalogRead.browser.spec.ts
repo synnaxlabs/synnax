@@ -19,7 +19,6 @@ import {
   awaitStatusDescription,
   createHardware,
   createNIDevice,
-  preloadForms,
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
@@ -29,6 +28,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   reportTaskRunning,
   selectFromDropdown,
 } from "@/platform/task/testutil";
@@ -42,7 +42,7 @@ import {
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(NI.Task.FORMS);
 
 type CreateChannelOverrides = Partial<NI.Task.AIChannel>;
 
@@ -513,6 +513,31 @@ describe("AnalogRead", () => {
     expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
   });
 
+  it("should give each device's first channel the device's widest voltage range", async () => {
+    const hardware = (upper: number) => ({
+      ...createHardware(),
+      aiVoltageRanges: [
+        { lower: -0.5, upper: 0.5 },
+        { lower: -upper, upper },
+      ],
+    });
+    const devices = [
+      await createNIDevice(client, { properties: { hardware: hardware(5) } }),
+      await createNIDevice(client, { properties: { hardware: hardware(60) } }),
+    ];
+    const tsk = await createWithHook(
+      NI.Task.useCreateAnalogRead,
+      NI.Task.ANALOG_READ_SCHEMAS,
+      { deviceKeys: devices.map((d) => d.key) },
+    );
+    expect(
+      tsk.config.channels.map((c) => ("minVal" in c ? [c.minVal, c.maxVal] : null)),
+    ).toEqual([
+      [-5, 5],
+      [-60, 60],
+    ]);
+  });
+
   it("should create the task with a channel on each of the given devices", async () => {
     const devices = [await createNIDevice(client), await createNIDevice(client)];
     const keys = devices.map((d) => d.key);
@@ -814,6 +839,20 @@ describe("AnalogRead ports", () => {
     expect(screen.getByLabelText<HTMLInputElement>("Maximum value").value).toBe("0.02");
     expect(fieldInvalid("Minimum value")).toBe(false);
     expect(fieldInvalid("Maximum value")).toBe(false);
+  });
+
+  it("should give a channel switched to thermocouple a range of 0 to 100", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, name: "chan_ranged" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await selectFromDropdown("Voltage", "Thermocouple");
+    const max = await screen.findByLabelText<HTMLInputElement>("Maximum value");
+    await waitFor(() => expect(max.value).toBe("100"));
+    expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("0");
   });
 
   it("should keep the range of a scaled channel switched to current", async () => {

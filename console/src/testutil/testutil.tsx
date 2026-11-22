@@ -28,6 +28,7 @@ import { deep, id, uuid } from "@synnaxlabs/x";
 import { assertDefined } from "@synnaxlabs/x/testutil";
 import {
   act,
+  fireEvent,
   render,
   renderHook,
   type RenderHookOptions,
@@ -36,6 +37,7 @@ import {
   type RenderResult,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import {
   type CSSProperties,
@@ -48,6 +50,8 @@ import { Provider } from "react-redux";
 import { assert } from "vitest";
 
 import { FileBrowser } from "@/platform/file-browser";
+import { Portal } from "@/platform/portal";
+import { createTestPortal } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import {
   createAsyncSynnaxWrapper,
@@ -77,6 +81,37 @@ export const findDialogTrigger = async (): Promise<HTMLElement> =>
     assertDefined(el, "dialog trigger not found");
     return el;
   });
+
+/**
+ * Searches the mounted select for the name, then clicks its option once the search
+ * answers. Until then the list shows its first page, which unmounts a row out of view
+ * once the list measures its height, so a row found there can be gone by the click.
+ *
+ * @param search - The placeholder of the search field, such as "Search devices...".
+ * @param scope - The element that holds the field and the list. Defaults to the dialog
+ * of the only field on screen with the placeholder.
+ */
+export const pickOption = async (
+  name: string,
+  search: string,
+  scope?: HTMLElement,
+): Promise<void> => {
+  const field = await (scope == null ? screen : within(scope)).findByPlaceholderText(
+    search,
+  );
+  const list = scope ?? field.closest<HTMLElement>('[role="dialog"]');
+  if (list == null) throw new Error(`no dialog holds the field "${search}"`);
+  fireEvent.change(field, { target: { value: name } });
+  // A select that creates entries offers to create the name until the search lists it.
+  const option = await waitFor(() => {
+    const options = within(list).queryAllByRole("option");
+    const text = options[0]?.textContent ?? "";
+    if (options.length !== 1 || !text.includes(name) || text.startsWith("Create "))
+      throw new Error(`the search for ${name} has not answered`);
+    return options[0];
+  });
+  fireEvent.click(option);
+};
 
 /** Finds the close button of the rendered pluto tag whose text matches name. */
 export const findTagCloseButton = (name: string): HTMLElement => {
@@ -231,20 +266,23 @@ const WINDOW_STYLE: CSSProperties = {
 const composeConsole = (
   SynnaxWrapper: FC<PropsWithChildren>,
   store: EnhancedStore,
+  portal: Portal.Client = createTestPortal().client,
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <SynnaxWrapper>
-      <Theming.Provider theme={Theming.SYNNAX_LIGHT}>
-        <FileBrowser.Provider>
-          <Triggers.Provider>
-            <Provider store={store}>
-              <Session.Modals.Context>
-                <div style={WINDOW_STYLE}>{children}</div>
-              </Session.Modals.Context>
-            </Provider>
-          </Triggers.Provider>
-        </FileBrowser.Provider>
-      </Theming.Provider>
+      <Portal.Provider client={portal}>
+        <Theming.Provider theme={Theming.SYNNAX_LIGHT}>
+          <FileBrowser.Provider>
+            <Triggers.Provider>
+              <Provider store={store}>
+                <Session.Modals.Context>
+                  <div style={WINDOW_STYLE}>{children}</div>
+                </Session.Modals.Context>
+              </Provider>
+            </Triggers.Provider>
+          </FileBrowser.Provider>
+        </Theming.Provider>
+      </Portal.Provider>
     </SynnaxWrapper>
   );
   return Wrapper;
@@ -269,17 +307,20 @@ export const renderSuspended = async (
 export interface RenderWithConsoleOptions extends RenderOptions {
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
+  /** Defaults to a portal that cannot be reached. */
+  portal?: Portal.Client;
 }
 
 export const renderWithConsole = async (
   ui: ReactElement,
   options: RenderWithConsoleOptions = {},
 ): Promise<RenderResult & { store: TestStore }> => {
-  const { preloadedState, store, ...rest } = options;
+  const { preloadedState, store, portal, ...rest } = options;
   const resolvedStore = store ?? (await createTestStore({ preloadedState }));
   const Wrapper = composeConsole(
     createSynnaxWrapper({ client: null, additionalRegistry: ADDITIONAL_REGISTRY }),
     resolvedStore,
+    portal,
   );
   return {
     ...(await renderSuspended(ui, { wrapper: Wrapper, ...rest })),
@@ -290,17 +331,20 @@ export const renderWithConsole = async (
 export interface RenderLinkHookOptions {
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
+  /** Defaults to a portal that cannot be reached. */
+  portal?: Portal.Client;
 }
 
 export const renderLinkHook = async <H,>(
   useHook: () => H,
   options: RenderLinkHookOptions = {},
 ): Promise<{ handler: H; store: TestStore; modals: Session.Modals.Store }> => {
-  const { client = null, preloadedState } = options;
+  const { client = null, preloadedState, portal } = options;
   const store = await createTestStore({ preloadedState });
   const Wrapper = composeConsole(
     createSynnaxWrapper({ client, additionalRegistry: ADDITIONAL_REGISTRY }),
     store,
+    portal,
   );
   const useHandle = () => ({
     handler: useHook(),
@@ -314,17 +358,20 @@ export interface RenderHookWithConsoleOptions<Props> extends RenderHookOptions<P
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
   client?: Client | null;
+  /** Defaults to a portal that cannot be reached. */
+  portal?: Portal.Client;
 }
 
 export const renderHookWithConsole = async <Result, Props>(
   cb: (props: Props) => Result,
   options: RenderHookWithConsoleOptions<Props> = {},
 ): Promise<RenderHookResult<Result, Props> & { store: TestStore }> => {
-  const { preloadedState, store, client = null, ...rest } = options;
+  const { preloadedState, store, client = null, portal, ...rest } = options;
   const resolvedStore = store ?? (await createTestStore({ preloadedState }));
   const Wrapper = composeConsole(
     createSynnaxWrapper({ client, additionalRegistry: ADDITIONAL_REGISTRY }),
     resolvedStore,
+    portal,
   );
   return { ...renderHook(cb, { wrapper: Wrapper, ...rest }), store: resolvedStore };
 };
@@ -335,6 +382,8 @@ export interface CreateConsoleWrapperParams {
   store?: TestStore;
   /** Extra aether components merged over the default (eraser) test registry. */
   additionalRegistry?: aether.ComponentRegistry;
+  /** Defaults to a portal that cannot be reached. */
+  portal?: Portal.Client;
 }
 
 export const createConsoleWrapper = async ({
@@ -342,6 +391,7 @@ export const createConsoleWrapper = async ({
   preloadedState,
   store,
   additionalRegistry,
+  portal,
 }: CreateConsoleWrapperParams): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
@@ -352,7 +402,7 @@ export const createConsoleWrapper = async ({
     additionalRegistry: { ...ADDITIONAL_REGISTRY, ...additionalRegistry },
   });
   return {
-    wrapper: composeConsole(SynnaxWrapper, resolvedStore),
+    wrapper: composeConsole(SynnaxWrapper, resolvedStore, portal),
     store: resolvedStore,
   };
 };

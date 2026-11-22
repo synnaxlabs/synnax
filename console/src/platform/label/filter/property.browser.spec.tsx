@@ -18,10 +18,10 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Label } from "@/platform/label";
-import { createTestLabel } from "@/platform/label/testutil";
+import { createTestLabel, dotColorBeside } from "@/platform/label/testutil";
 import { View } from "@/platform/view";
 import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
-import { renderSuspended } from "@/testutil";
+import { pickOption, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
 
@@ -76,7 +76,7 @@ const createLabels = async (count: number): Promise<label.Label[]> =>
       async (_, i) =>
         await createTestLabel(client, {
           name: uniqueName(`label-${i}`),
-          color: "#F00000",
+          color: { type: "fixed", value: "#F00000" },
         }),
     ),
   );
@@ -100,6 +100,20 @@ describe("Label.Filter.createProperty", () => {
       await renderFixture({ labels: [only.key] });
       expect(await screen.findByText(only.name)).toBeTruthy();
       expect(screen.getByText("has")).toBeTruthy();
+    });
+
+    it("should paint the dot of a label in its named color", async () => {
+      const named = await client.colors.create({
+        name: uniqueName("color"),
+        light: "#123456",
+      });
+      const lbl = await createTestLabel(client, {
+        name: uniqueName("label"),
+        color: { type: "named", key: named.key },
+      });
+      await renderFixture({ labels: [lbl.key] });
+      const chip = await screen.findByText(lbl.name);
+      await waitFor(() => expect(dotColorBeside(chip)).toBe("#123456"));
     });
 
     it("should name two labels after has any of", async () => {
@@ -172,10 +186,7 @@ describe("Label.Filter.createProperty", () => {
       await renderFixture({ labels: [first.key] });
       fireEvent.click(await screen.findByRole("button", { name: first.name }));
       const picker = await screen.findByRole("dialog", { name: "Labels" });
-      fireEvent.change(within(picker).getByPlaceholderText("Search labels..."), {
-        target: { value: second.name },
-      });
-      fireEvent.click(await within(picker).findByText(second.name));
+      await pickOption(second.name, "Search labels...", picker);
       await expectWhere({ and: [{ labels: [first.key, second.key] }] });
     });
   });
@@ -185,10 +196,7 @@ describe("Label.Filter.createProperty", () => {
       const [only] = await createLabels(1);
       await renderFixture();
       const picker = await openFilterProperty("Labels");
-      fireEvent.change(within(picker).getByPlaceholderText("Search labels..."), {
-        target: { value: only.name },
-      });
-      fireEvent.click(await within(picker).findByText(only.name));
+      await pickOption(only.name, "Search labels...", picker);
       await expectWhere({ and: [{ labels: [only.key] }] });
     });
 
@@ -196,10 +204,7 @@ describe("Label.Filter.createProperty", () => {
       const [only] = await createLabels(1);
       await renderFixture({ labels: [only.key] });
       const picker = await openFilterProperty("Labels");
-      fireEvent.change(within(picker).getByPlaceholderText("Search labels..."), {
-        target: { value: only.name },
-      });
-      fireEvent.click(await within(picker).findByText(only.name));
+      await pickOption(only.name, "Search labels...", picker);
       await expectWhere(undefined);
     });
 

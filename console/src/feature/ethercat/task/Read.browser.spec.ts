@@ -40,7 +40,6 @@ import {
   createSlaveDevice,
   createUnresolvedReadChannel,
   createWarningStatus,
-  preloadForms,
   STATUS_ENTRY,
   STRAIN_ENTRY,
   STRAIN_SAMPLE_ENTRY,
@@ -54,6 +53,7 @@ import {
   deployAndAwaitTask,
   findChannelListItem,
   getChannelItemStatus,
+  preloadForms,
   renderTaskFormTab,
   reportTaskRunning,
 } from "@/platform/task/testutil";
@@ -61,11 +61,12 @@ import {
   createTestClientWithGrants,
   findDialogTriggerByText,
   findIconButton,
+  pickOption,
 } from "@/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(EtherCAT.Task.FORMS);
 
 let testRack: rack.Rack;
 
@@ -383,10 +384,7 @@ describe("Read", () => {
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     fireEvent.click(await findDialogTriggerByText(calibrating.name));
-    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
-      target: { value: plain.name },
-    });
-    fireEvent.click(await screen.findByText(plain.name));
+    await pickOption(plain.name, "Search devices...");
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: draft.key,

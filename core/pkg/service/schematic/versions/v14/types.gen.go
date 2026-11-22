@@ -18,9 +18,10 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	border "github.com/synnaxlabs/x/border/versions/v0"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
@@ -1726,6 +1727,9 @@ type SelectNodeConfig struct {
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
 	Options []StateMapping `json:"options" msgpack:"options"`
+	// Enumeration is the enumeration whose entries the select offers in place of its
+	// options.
+	Enumeration *enumeration.Key `json:"enumeration,omitzero" msgpack:"enumeration,omitempty"`
 	// Disabled indicates whether the select rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// OnClickDelay is the debounce delay applied to clicks.
@@ -1865,6 +1869,9 @@ type StateIndicatorNodeConfig struct {
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
 	Options []StateMapping `json:"options" msgpack:"options"`
+	// Enumeration is the enumeration whose entries the indicator shows in place of its
+	// options.
+	Enumeration *enumeration.Key `json:"enumeration,omitzero" msgpack:"enumeration,omitempty"`
 	// Size is the rendered size preset of the indicator.
 	Size ComponentSize `json:"size" msgpack:"size"`
 }
@@ -3293,9 +3300,9 @@ type CustomActuatorNodeConfig struct {
 	ToggleConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// StateOverrides contains per-instance overrides of the spec's visual states,
-	// matched to the spec's states by key.
-	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
+	// StateOverrides contains per-instance replacements of the spec's region colors,
+	// one for each value that the node draws, in value order: Base, then Active.
+	StateOverrides []symbol.StateOverride `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (CustomActuatorNodeConfig) isNodeConfigVariant() {}
@@ -3319,9 +3326,9 @@ type CustomStaticNodeConfig struct {
 	ScaledConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// StateOverrides contains per-instance overrides of the spec's visual states,
-	// matched to the spec's states by key.
-	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
+	// StateOverrides contains per-instance replacements of the spec's region colors,
+	// one for each value that the node draws, in value order: Base, then Active.
+	StateOverrides []symbol.StateOverride `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (CustomStaticNodeConfig) isNodeConfigVariant() {}

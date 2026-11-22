@@ -15,6 +15,7 @@ import (
 	"math"
 	"slices"
 	"strconv"
+	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/errors"
@@ -37,15 +38,42 @@ type JSONEncoder struct {
 type encodeSlots struct {
 	// fields holds the field of each binding.
 	fields []encodeField
-	// bindings holds the binding of each field of the template, or -1 for a literal.
+	// bindings holds the binding of each field of the template, or -1 for a default.
 	bindings []int
+	// generate holds, for each field of the template, the generator of a default that
+	// takes a new value at each encode, or nil.
+	generate []generator
 	samples  [][]byte
+}
+
+// generator appends a new JSON value to dst.
+type generator func(dst []byte) ([]byte, error)
+
+// fieldDefault is the JSON text of a field's default, or the generator of a default
+// that takes a new value at each encode. The zero value is no default.
+type fieldDefault struct {
+	literal  []byte
+	generate generator
+}
+
+func (d fieldDefault) defined() bool { return d.literal != nil || d.generate != nil }
+
+func (d fieldDefault) append(dst []byte) ([]byte, error) {
+	if d.generate != nil {
+		return d.generate(dst)
+	}
+	if d.literal == nil {
+		return nil, errors.New("no sample and no default")
+	}
+	return append(dst, d.literal...), nil
 }
 
 type encodeField struct {
 	name    string
 	kind    payload.Kind
 	encoder *xjson.Encoder
+	// fallback is the default that a nil sample writes.
+	fallback fieldDefault
 	// scaled is true when the field's scale or offset changes its value.
 	scaled bool
 	// converted is true when the number that encoder writes needs a scale, a rounding,
@@ -62,6 +90,7 @@ type encodeField struct {
 // field, and a boolean field takes only 0 and 1 from one. NewJSONEncoder returns an
 // error wrapping validate.ErrValidation when:
 //   - a field has no binding and no default
+//   - a field's default is not valid, bound or not
 //   - a binding names no field of m, or a field has two bindings
 //   - a binding's data type does not write to its field's kind
 //   - a scaled field's channel is not a float
@@ -116,15 +145,17 @@ func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 			}
 			fields = append(fields, f)
 			e.slots.bindings = append(e.slots.bindings, -1)
+			e.slots.generate = append(e.slots.generate, nil)
 		}
 	}
 	for _, f := range m.Payload.Fields {
-		tf, binding, err := e.templateField(m, f, bound)
+		tf, binding, gen, err := e.templateField(m, f, bound)
 		if err != nil {
 			return nil, errors.Wrapf(err, "field %s", f.Base().Name)
 		}
 		fields = append(fields, tf)
 		e.slots.bindings = append(e.slots.bindings, binding)
+		e.slots.generate = append(e.slots.generate, gen)
 	}
 	if present != nil {
 		if err := checkPresent(present.Pointer, fields); err != nil {
@@ -139,31 +170,40 @@ func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 }
 
 // templateField returns the template field of f and its binding in m, or -1 when f
-// takes its default. It stores the encode field of a bound f in e.
+// takes its default. It returns the generator of a default that takes a new value at
+// each encode. It stores the encode field of a bound f in e.
 func (e *JSONEncoder) templateField(
 	m JSONMessage,
 	f icd.JSONField,
 	bound map[icd.FieldKey]int,
-) (xjson.TemplateField, int, error) {
+) (xjson.TemplateField, int, generator, error) {
 	b := f.Base()
 	pointer, err := memberPointer(b.Pointer)
 	if err != nil {
-		return xjson.TemplateField{}, 0, err
+		return xjson.TemplateField{}, 0, nil, err
 	}
 	tf := xjson.TemplateField{Label: "field " + b.Name, Pointer: pointer}
+	def, err := defaultOf(f)
+	if err != nil {
+		return xjson.TemplateField{}, 0, nil, err
+	}
 	binding, ok := bound[b.Key]
 	if !ok {
-		if tf.Literal, err = defaultLiteral(f); err != nil {
-			return xjson.TemplateField{}, 0, err
+		if !def.defined() {
+			return xjson.TemplateField{}, 0, nil, errors.Wrap(
+				validate.ErrValidation, "no channel and no default",
+			)
 		}
-		return tf, -1, nil
+		tf.Literal = def.literal
+		return tf, -1, def.generate, nil
 	}
 	ef, err := newEncodeField(f, m.Bindings[binding].DataType)
 	if err != nil {
-		return xjson.TemplateField{}, 0, err
+		return xjson.TemplateField{}, 0, nil, err
 	}
+	ef.fallback = def
 	e.slots.fields[binding] = ef
-	return tf, binding, nil
+	return tf, binding, nil, nil
 }
 
 // memberPointer parses text as a pointer that names object members. It returns an error
@@ -351,42 +391,103 @@ func matchLiteral(m icd.JSONMatch) (xjson.TemplateField, error) {
 	return f, nil
 }
 
-// defaultLiteral returns the JSON text of the default of jf.
-func defaultLiteral(jf icd.JSONField) ([]byte, error) {
+// defaultOf returns the default of jf, or the zero fieldDefault when jf has none.
+func defaultOf(jf icd.JSONField) (fieldDefault, error) {
+	var (
+		d   fieldDefault
+		err error
+	)
 	switch v := jf.Variant.(type) {
 	case icd.FloatJSONField:
 		if v.Default != nil {
-			return xjson.AppendFloat(nil, float64(*v.Default))
+			d.literal, err = xjson.AppendFloat(nil, float64(*v.Default))
 		}
 	case icd.IntegerJSONField:
 		if v.Default != nil {
-			return strconv.AppendInt(nil, int64(*v.Default), 10), nil
+			d.literal = strconv.AppendInt(nil, int64(*v.Default), 10)
 		}
 	case icd.UnsignedJSONField:
 		if v.Default != nil {
-			return strconv.AppendUint(nil, uint64(*v.Default), 10), nil
+			d.literal = strconv.AppendUint(nil, uint64(*v.Default), 10)
 		}
 	case icd.StringJSONField:
 		if v.Default != nil {
-			return quote(*v.Default)
+			d.literal, err = quote(*v.Default)
 		}
 	case icd.BooleanJSONField:
 		if v.Default != nil {
-			return strconv.AppendBool(nil, *v.Default), nil
+			d.literal = strconv.AppendBool(nil, *v.Default)
 		}
 	case icd.TimestampJSONField:
 		if v.Default != nil {
-			format, err := xjson.ParseTimeFormat(string(v.TimeFormat))
-			if err != nil {
-				return nil, err
-			}
-			return xjson.AppendTimeStamp(nil, *v.Default, format), nil
+			d.literal, d.generate, err = timestampDefault(v)
 		}
-	case icd.JSONJSONField, icd.UuidJSONField, icd.BytesJSONField:
+	case icd.JSONJSONField:
+		if v.Default != nil {
+			d.literal, err = jsonDefault(*v.Default)
+		}
+	case icd.UuidJSONField:
+		if v.Default != nil {
+			d.literal, d.generate, err = uuidDefault(*v.Default)
+		}
+	case icd.BytesJSONField:
+		if v.Default != nil {
+			d.literal, err = bytesDefault(*v.Default)
+		}
 	case nil:
-		return nil, errors.Wrap(validate.ErrValidation, "type is required")
+		err = errors.Wrap(validate.ErrValidation, "type is required")
 	}
-	return nil, errors.Wrap(validate.ErrValidation, "no channel and no default")
+	if err != nil {
+		return fieldDefault{}, err
+	}
+	return d, nil
+}
+
+func timestampDefault(f icd.TimestampJSONField) ([]byte, generator, error) {
+	format, err := xjson.ParseTimeFormat(string(f.TimeFormat))
+	if err != nil {
+		return nil, nil, err
+	}
+	switch d := f.Default.Variant.(type) {
+	case icd.ConstantTimestampDefault:
+		return xjson.AppendTimeStamp(nil, d.Value, format), nil, nil
+	case icd.NowTimestampDefault:
+		return nil, func(dst []byte) ([]byte, error) {
+			return xjson.AppendTimeStamp(dst, telem.Now(), format), nil
+		}, nil
+	case nil:
+	}
+	return nil, nil, errUntypedDefault
+}
+
+func uuidDefault(d icd.UUIDDefault) ([]byte, generator, error) {
+	switch d := d.Variant.(type) {
+	case icd.ConstantUUIDDefault:
+		text, err := appendUUID(nil, d.Value)
+		return text, nil, err
+	case icd.RandomUUIDDefault:
+		return nil, func(dst []byte) ([]byte, error) {
+			return appendUUID(dst, uuid.NewV4())
+		}, nil
+	case nil:
+	}
+	return nil, nil, errUntypedDefault
+}
+
+// appendUUID appends id to dst as a JSON string.
+func appendUUID(dst []byte, id uuid.UUID) ([]byte, error) {
+	dst, err := id.AppendText(append(dst, '"'))
+	if err != nil {
+		return nil, err
+	}
+	return append(dst, '"'), nil
+}
+
+func bytesDefault(text string) ([]byte, error) {
+	if _, err := xjson.DecodeBase64(text); err != nil {
+		return nil, errors.Wrap(err, "default")
+	}
+	return quote(text)
 }
 
 func quote(s string) ([]byte, error) {
@@ -399,8 +500,9 @@ func quote(s string) ([]byte, error) {
 
 // Encode appends the document of samples to dst. samples holds one sample for each
 // binding, in binding order. A variable-density sample is its data alone, without a
-// length. Encode returns an error wrapping validate.ErrValidation when a field cannot
-// hold its sample.
+// length, and a nil sample writes the default of its field. Encode returns an error
+// wrapping validate.ErrValidation when a field cannot hold its sample, and an error
+// when a nil sample's field has no default.
 func (e *JSONEncoder) Encode(dst []byte, samples [][]byte) ([]byte, error) {
 	e.slots.samples = samples
 	out, err := e.template.Append(dst, &e.slots)
@@ -411,8 +513,17 @@ func (e *JSONEncoder) Encode(dst []byte, samples [][]byte) ([]byte, error) {
 	return out, nil
 }
 
+// HasDefault reports whether the field of binding i has a default, which Encode writes
+// for a nil sample.
+func (e *JSONEncoder) HasDefault(i int) bool {
+	return e.slots.fields[i].fallback.defined()
+}
+
 // AppendSlot implements xjson.Slots.
 func (s *encodeSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
+	if gen := s.generate[field]; gen != nil {
+		return gen(dst)
+	}
 	binding := s.bindings[field]
 	f := &s.fields[binding]
 	out, err := f.encode(dst, s.samples[binding])
@@ -423,6 +534,9 @@ func (s *encodeSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
 }
 
 func (f *encodeField) encode(dst, sample []byte) ([]byte, error) {
+	if sample == nil {
+		return f.fallback.append(dst)
+	}
 	if f.kind == payload.KindJSON {
 		if !jsontext.Value(sample).IsValid() {
 			return nil, errors.Wrap(validate.ErrValidation, "invalid JSON")

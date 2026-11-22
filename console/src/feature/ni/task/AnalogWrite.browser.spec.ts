@@ -18,20 +18,20 @@ import { NI } from "@/feature/ni";
 import {
   createHardware,
   createNIDevice,
-  preloadForms,
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText, isSelectButtonSelected } from "@/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(NI.Task.FORMS);
 
 type CreateChannelOverrides = Partial<NI.Task.AOChannel>;
 

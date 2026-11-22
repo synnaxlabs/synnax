@@ -15,7 +15,7 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Color } from "@/color";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 const other = createTestClient();
@@ -25,6 +25,7 @@ describe("Color.Editor", () => {
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
     await waitForStreamLive(client.connection);
+    await waitForStreamLive(other.connection);
   });
 
   const renderEditor = (key: color.Key, disabled?: boolean) =>

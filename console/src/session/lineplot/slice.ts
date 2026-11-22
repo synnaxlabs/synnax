@@ -53,6 +53,13 @@ const measureZ = z.object({
 
 const annotationsZ = z.object({ visible: z.boolean().default(true) });
 
+// The open breaks are the lower bounds of their gaps. The viewport and the selection
+// hold the times of the layout with them open.
+const breaksZ = z.object({
+  hidden: z.boolean().default(false),
+  open: z.array(z.number()).default([]),
+});
+
 const hiddenZ = z.object({
   lines: z.array(z.string()),
   ranges: z.array(z.string()),
@@ -61,9 +68,9 @@ const hiddenZ = z.object({
 /** The items of a plot that do not show. */
 export interface Hidden extends z.infer<typeof hiddenZ> {}
 
-const soloZ = z.object({ item: z.string(), restore: hiddenZ });
-/** The item the user showed alone, and what was hidden before. */
-export interface Solo extends z.infer<typeof soloZ> {}
+const isolationZ = z.object({ item: z.string(), restore: hiddenZ });
+/** The item the user isolated, and what was hidden before. */
+export interface Isolation extends z.infer<typeof isolationZ> {}
 
 const stateZ = z.object({
   viewport: viewportZ.prefault({}),
@@ -73,14 +80,15 @@ const stateZ = z.object({
   toolbar: toolbarZ.prefault({}),
   measure: measureZ.prefault({}),
   annotations: annotationsZ.prefault({}),
+  breaks: breaksZ.prefault({}),
   selectedRules: z.array(z.string()).default([]),
   hiddenLines: z.array(z.string()).default([]),
   /** The keys of the ranges that do not show on a relative x axis. */
   hiddenRanges: z.array(z.string()).default([]),
   /** The keys of the lines of one range that do not show on a relative x axis. */
   hiddenTraces: z.array(z.string()).default([]),
-  /** The item the user showed alone. A second solo of it restores what was hidden. */
-  solo: soloZ.nullable().default(null),
+  /** The item the user isolated, if any. */
+  isolation: isolationZ.nullable().default(null),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export interface NewState extends z.input<typeof stateZ> {}
@@ -118,6 +126,11 @@ export interface StoreViewportPayload
 
 export interface SetSelectionPayload extends KeyedPayload, SelectionState {}
 
+export interface StoreBreaksPayload extends StoreViewportPayload {
+  open: number[];
+  selection: box.Box;
+}
+
 export interface SetActiveToolbarTabPayload extends KeyedPayload {
   tab: ToolbarTab;
 }
@@ -150,9 +163,13 @@ export interface SetRangeAnnotationsVisiblePayload extends KeyedPayload {
   visible: boolean;
 }
 
+export interface SetBreaksHiddenPayload extends KeyedPayload {
+  hidden: boolean;
+}
+
 export interface SetHiddenPayload extends KeyedPayload {
   hidden: Hidden;
-  solo: Solo | null;
+  isolation: Isolation | null;
 }
 
 export interface RemovePayload {
@@ -162,6 +179,18 @@ export interface RemovePayload {
 const withSelectedState = Window.createWithDocumentHandler(stateZ);
 const initializeDocument = Window.createDocumentInitializer(stateZ);
 
+// resetView moves the plot to its home view with every break closed. It bumps the
+// render trigger, so a mounted plot applies the view.
+const resetView = (state: State, viewport: Partial<ViewportState> = {}): void => {
+  state.viewport = {
+    ...deep.copy(ZERO_STATE.viewport),
+    ...viewport,
+    renderTrigger: state.viewport.renderTrigger + 1,
+  };
+  state.selection = deep.copy(ZERO_STATE.selection);
+  state.breaks.open = [];
+};
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -170,12 +199,7 @@ export const { actions, reducer } = createSlice({
     setViewport: withSelectedState<SetViewportPayload, SliceState>(
       (state, { payload }) => {
         const { key: _key, ...rest } = payload;
-        state.viewport = {
-          ...deep.copy(ZERO_STATE.viewport),
-          ...rest,
-          renderTrigger: state.viewport.renderTrigger + 1,
-        };
-        state.selection = deep.copy(ZERO_STATE.selection);
+        resetView(state, rest);
       },
     ),
     storeViewport: withSelectedState<StoreViewportPayload, SliceState>(
@@ -189,6 +213,13 @@ export const { actions, reducer } = createSlice({
       (state, { payload }) => {
         const { key: _key, ...rest } = payload;
         state.selection = { ...state.selection, ...rest };
+      },
+    ),
+    storeBreaks: withSelectedState<StoreBreaksPayload, SliceState>(
+      (state, { payload: { open, pan, zoom, selection } }) => {
+        state.breaks.open = open;
+        state.viewport = { ...state.viewport, pan, zoom };
+        state.selection = { box: selection };
       },
     ),
     setActiveToolbarTab: withSelectedState<SetActiveToolbarTabPayload, SliceState>(
@@ -235,12 +266,19 @@ export const { actions, reducer } = createSlice({
     >((state, { payload: { visible } }) => {
       state.annotations.visible = visible;
     }),
+    setBreaksHidden: withSelectedState<SetBreaksHiddenPayload, SliceState>(
+      (state, { payload: { hidden } }) => {
+        state.breaks.hidden = hidden;
+        // The breaks change the home view, so the zoom resets to show the whole plot.
+        resetView(state);
+      },
+    ),
     setHidden: withSelectedState<SetHiddenPayload, SliceState>(
-      (state, { payload: { hidden, solo } }) => {
+      (state, { payload: { hidden, isolation } }) => {
         state.hiddenLines = hidden.lines;
         state.hiddenRanges = hidden.ranges;
         state.hiddenTraces = hidden.traces;
-        state.solo = solo;
+        state.isolation = isolation;
       },
     ),
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
@@ -255,6 +293,7 @@ export const {
   setViewport,
   storeViewport,
   setSelection,
+  storeBreaks,
   setActiveToolbarTab,
   setControlHold,
   toggleControlClickMode,
@@ -263,6 +302,7 @@ export const {
   setSelectedRule,
   setMeasureMode,
   setRangeAnnotationsVisible,
+  setBreaksHidden,
   setHidden,
   remove,
 } = actions;
@@ -287,6 +327,7 @@ export const MIDDLEWARE = [
     setViewport,
     storeViewport,
     setSelection,
+    storeBreaks,
     setActiveToolbarTab,
     setControlHold,
     toggleControlClickMode,
@@ -295,6 +336,7 @@ export const MIDDLEWARE = [
     setSelectedRule,
     setMeasureMode,
     setRangeAnnotationsVisible,
+    setBreaksHidden,
     setHidden,
   ]),
 ];

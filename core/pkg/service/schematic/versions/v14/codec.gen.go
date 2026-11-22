@@ -14,9 +14,10 @@ package v14
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	border "github.com/synnaxlabs/x/border/versions/v0"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -608,6 +609,12 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 				}
 			}
 		}
+		if v.Enumeration != nil {
+			w.Bool(true)
+			w.Write((*v.Enumeration)[:])
+		} else {
+			w.Bool(false)
+		}
 		w.Bool(v.Disabled)
 		w.Int64(int64(v.OnClickDelay))
 		if err := v.Control.EncodeOrc(w); err != nil {
@@ -682,6 +689,12 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 					return err
 				}
 			}
+		}
+		if v.Enumeration != nil {
+			w.Bool(true)
+			w.Write((*v.Enumeration)[:])
+		} else {
+			w.Bool(false)
 		}
 		w.String(string(v.Size))
 	case StringDisplayNodeConfig:
@@ -1903,6 +1916,19 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv enumeration.Key
+				if _, err := r.Read(hv[:]); err != nil {
+					return err
+				}
+				v.Enumeration = &hv
+			}
+		}
 		if v.Disabled, err = r.Bool(); err != nil {
 			return err
 		}
@@ -2044,6 +2070,19 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 						return err
 					}
 				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv enumeration.Key
+				if _, err := r.Read(hv[:]); err != nil {
+					return err
+				}
+				v.Enumeration = &hv
 			}
 		}
 		{
@@ -2856,7 +2895,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				if err != nil {
 					return err
 				}
-				v.StateOverrides = make([]symbol.State, n)
+				v.StateOverrides = make([]symbol.StateOverride, n)
 				for i := range v.StateOverrides {
 					if err = v.StateOverrides[i].DecodeOrc(r); err != nil {
 						return err
@@ -2886,7 +2925,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				if err != nil {
 					return err
 				}
-				v.StateOverrides = make([]symbol.State, n)
+				v.StateOverrides = make([]symbol.StateOverride, n)
 				for i := range v.StateOverrides {
 					if err = v.StateOverrides[i].DecodeOrc(r); err != nil {
 						return err

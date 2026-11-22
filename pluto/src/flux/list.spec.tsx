@@ -22,7 +22,7 @@ import { type PropsWithChildren, type ReactElement, useEffect, useState } from "
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
@@ -51,7 +51,7 @@ describe("useList", () => {
   beforeEach(async () => {
     lbl = await client.labels.create({
       name: uuid.create(),
-      color: color.construct("#000000"),
+      color: { type: "fixed", value: color.construct("#000000") },
     });
   });
 
@@ -442,7 +442,9 @@ describe("useList", () => {
       name: "outside",
       timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
     });
-    const reader = createTestClient();
+    // With no change stream, a change from another spec starts no fetch that the
+    // rejection below would fail.
+    const reader = createTestClient({ cache: false });
     const { result } = renderHook(
       () => Flux.useList(ranges, { name: "ranges", query: byName() }),
       { wrapper: createSynnaxWrapper({ client: reader }) },
@@ -528,6 +530,22 @@ describe("useList", () => {
     expect(result.current.complete).toBe(false);
     act(() => result.current.more());
     await waitFor(() => expect(result.current.data).toEqual([a.key, b.key, c.key]));
+  });
+
+  it("should drop a pending search when it unmounts", () => {
+    // No client, so every timer left pending belongs to the list.
+    const { result, unmount } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges" }),
+      { wrapper: createSynnaxWrapper({ client: null }) },
+    );
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      act(() => result.current.search(randomWord()));
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("should start the list on a search", async () => {

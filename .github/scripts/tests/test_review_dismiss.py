@@ -479,6 +479,15 @@ class TestDismiss:
         assert gh.posted() == []
         assert gh.replies == []
 
+    def test_should_name_the_finding_given_in_place_of_a_reply(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("T1")]
+        with pytest.raises(ValueError, match="comment 1 is the finding 'Samples'"):
+            dismiss(TARGET, gh, comment=1, key=KEY)
+        assert gh.posted() == []
+        assert gh.replies == []
+
 
 def by_title(gh: FakeGH, finding: str, *, actor: str = "someone") -> None:
     """Records a dismissal by title, then answers as the next dismiss job does."""

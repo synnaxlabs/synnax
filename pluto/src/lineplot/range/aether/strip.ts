@@ -7,18 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ranger } from "@synnaxlabs/client";
+import type { color as clientColor, ranger } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
-import {
-  type bounds,
-  box,
-  color,
-  location,
-  TimeSpan,
-  TimeStamp,
-  xy,
-} from "@synnaxlabs/x";
+import { bounds, box, color, location, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 
+import { color as aetherColor } from "@/color/aether";
 import type { Draw2D } from "@/vis/draw2d";
 
 /** @returns the color with its OKLCH lightness set, keeping its chroma and hue. */
@@ -44,6 +37,10 @@ export interface Bar {
   enclosing: boolean;
   /** True when the range started and has not ended. */
   running: boolean;
+  /** True when a seam cuts the bar at its start, as the plot edge does. */
+  startCut: boolean;
+  /** True when a seam cuts the bar at its end. */
+  endCut: boolean;
 }
 
 const MIN_WIDTH = 4;
@@ -127,24 +124,30 @@ export interface Layout {
  * Places each range in the first lane that is free at its start and below every range
  * that holds it, so a parent sits above its children. Lanes pack in time, so a zoom
  * never moves a range to another lane. Ranges past the last thin lane share it. Ranges
- * with no color get no bar.
+ * with no color, or a named color not in named, get no bar.
  * @param position - Maps a timestamp in nanoseconds to a canvas x position.
+ * @param named - The named colors by key.
  * @param now - A range runs when now is inside it.
  * @param newest - The newest sample of a live plot. A running range's bar ends there,
  * or at now when it is undefined.
+ * @param extents - The times in nanoseconds of each segment of an axis with breaks. A
+ * range gets a bar in each segment it overlaps, cut at each seam, and no bar when it
+ * overlaps none.
  */
 export const layout = (
   ranges: ranger.Range[],
   region: box.Box,
   position: (value: number) => number,
   t: theme.Theme,
+  named: Map<clientColor.Key, clientColor.Named>,
   now: TimeStamp,
   newest?: TimeStamp,
+  extents: bounds.Bounds[] = [bounds.INFINITE],
 ): Layout => {
   const bars = ranges.flatMap((range): Bar[] => {
-    const parsed = color.colorZ.safeParse(range.color);
-    if (!parsed.success) return [];
-    const c = parsed.data;
+    if (range.color == null) return [];
+    const c = aetherColor.resolve(range.color, named, t);
+    if (c == null) return [];
     const start = position(Number(range.timeRange.start.valueOf()));
     const running =
       !now.before(range.timeRange.start) && now.before(range.timeRange.end);
@@ -167,6 +170,8 @@ export const layout = (
         lane: 0,
         enclosing: false,
         running,
+        startCut: false,
+        endCut: false,
       },
     ];
   });
@@ -187,7 +192,34 @@ export const layout = (
         break;
       }
   });
-  return { bars, lanes: Math.min(last.length, NAMED_LANES + THIN_LANES) };
+  const lanes = Math.min(last.length, NAMED_LANES + THIN_LANES);
+  if (extents.length < 2) return { bars, lanes };
+  return { bars: bars.flatMap((bar) => cut(bar, extents, region, position)), lanes };
+};
+
+// cut returns a bar for each extent that the bar overlaps, cut at the edges of the
+// extent.
+const cut = (
+  bar: Bar,
+  extents: bounds.Bounds[],
+  region: box.Box,
+  position: (value: number) => number,
+): Bar[] => {
+  const lower = Number(bar.range.timeRange.start.valueOf());
+  const upper = Number(bar.range.timeRange.end.valueOf());
+  return extents.flatMap((e) => {
+    if (upper < e.lower || lower > e.upper) return [];
+    const startCut = lower < e.lower;
+    const endCut = upper > e.upper;
+    const start = startCut ? position(e.lower) : bar.start;
+    const end = endCut ? Math.min(position(e.upper), bar.end) : bar.end;
+    if (end < start) return [];
+    const [x0, x1] = widen(
+      Math.max(start, box.left(region)),
+      Math.min(end, box.right(region)),
+    );
+    return [{ ...bar, start, end, x0, x1, startCut, endCut }];
+  });
 };
 
 const barBox = (bar: Bar, region: box.Box, lanes: number): box.Box => {
@@ -219,6 +251,11 @@ export const hitTest = (
   return hit;
 };
 
+// sameRange returns true when bar is a piece of the hovered range. A seam cuts one
+// range into several bars.
+const sameRange = (bar: Bar, hovered: Bar | null): boolean =>
+  hovered != null && bar.range.key === hovered.range.key;
+
 /**
  * Draws each range's edges and fill in the plot. A range that holds another range has
  * no fill. A hovered range is the only one drawn, and it always fills.
@@ -232,14 +269,14 @@ export const drawFills = (
   const { fill } = shades(draw.theme);
   const top = box.top(region);
   const bottom = box.bottom(region);
-  const shown = hovered == null ? bars : [hovered];
+  const shown = hovered == null ? bars : bars.filter((b) => sameRange(b, hovered));
   shown.forEach((bar) => {
-    if (bar !== hovered && bar.enclosing) return;
+    if (hovered == null && bar.enclosing) return;
     draw.container({
       region: box.construct({ x: bar.x0, y: top }, { x: bar.x1, y: bottom }),
       backgroundColor: color.setOpacity(
         bar.display,
-        bar === hovered ? fill * HOVERED_FILL_SCALE : fill,
+        hovered != null ? fill * HOVERED_FILL_SCALE : fill,
       ),
       bordered: false,
       rounded: false,
@@ -248,10 +285,11 @@ export const drawFills = (
   shown.forEach((bar) => {
     const stroke = color.setOpacity(
       bar.display,
-      bar === hovered ? HOVERED_EDGE_ALPHA : EDGE_ALPHA,
+      hovered != null ? HOVERED_EDGE_ALPHA : EDGE_ALPHA,
     );
-    [bar.start, bar.end].forEach((x) => {
-      if (x < box.left(region) || x > box.right(region)) return;
+    const edges = [bar.startCut ? null : bar.start, bar.endCut ? null : bar.end];
+    edges.forEach((x) => {
+      if (x == null || x < box.left(region) || x > box.right(region)) return;
       const crisp = Math.round(x) + 0.5;
       draw.line({
         stroke,
@@ -284,18 +322,19 @@ export const drawBars = (
   const order = [...bars].sort((a, b) => b.x1 - b.x0 - (a.x1 - a.x0));
   order.forEach((bar) => {
     const b = barBox(bar, region, lanes);
-    ctx.globalAlpha = hovered != null && hovered !== bar ? DIMMED_ALPHA : 1;
+    const lit = sameRange(bar, hovered);
+    ctx.globalAlpha = hovered != null && !lit ? DIMMED_ALPHA : 1;
     if (isThin(bar.lane)) {
       ctx.fillStyle = color.hex(bar.display);
       ctx.fillRect(box.left(b), box.top(b), box.width(b), box.height(b));
       return;
     }
-    const cutLeft = bar.start < box.left(region);
-    const cutRight = bar.end > box.right(region);
+    const cutLeft = bar.startCut || bar.start < box.left(region);
+    const cutRight = bar.endCut || bar.end > box.right(region);
     const left = cutLeft ? 0 : radius;
     const right = cutRight ? 0 : radius;
     const radii = [left, right, right, left];
-    const tint = hovered === bar ? s.hoveredBar : s.bar;
+    const tint = lit ? s.hoveredBar : s.bar;
     const fill = color.over(bar.color, t.colors.gray.l0, tint);
     const stroke = color.setOpacity(bar.display, s.stroke);
     const paint = (c: color.Color): string | CanvasGradient =>

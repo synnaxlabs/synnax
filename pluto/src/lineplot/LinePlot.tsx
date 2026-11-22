@@ -33,7 +33,7 @@ import {
   useState,
 } from "react";
 
-import { canDropHaulItem, filterHaulItems } from "@/channel/types";
+import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps } from "@/lineplot/Frame";
@@ -112,9 +112,9 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
 ): Haul.UseDropReturn =>
   Haul.useDrop({
     type: `channel_lineplot_${direction}_axis`,
-    canDrop: canDropHaulItem,
+    canDrop: Channel.canDropHaulItem,
     onDrop: ({ items }) => {
-      const dropped = filterHaulItems(items);
+      const dropped = Channel.filterHaulItems(items);
       const keys = dropped.map(({ key }) => key);
       onDrop?.(axisKey, keys);
       return dropped;
@@ -211,9 +211,9 @@ const createTelemetry = (
 };
 
 // Line draws a stored line as one trace per range the plot shows. On an absolute x axis
-// the traces are styled alike, and only the first has a legend entry, under the stored
-// line's key. On a relative axis each trace takes its range's color and has its own
-// legend entry under the range.
+// the traces are styled alike and split the time between them, and only the first has
+// a legend entry, under the stored line's key. On a relative axis each trace takes its
+// range's color and has its own legend entry under the range.
 const Line = ({
   pKey,
   lineKey,
@@ -233,6 +233,7 @@ const Line = ({
             line={line}
             window={range.window}
             aetherKey={i === 0 ? line.key : `${line.key}/${i}`}
+            group={line.key}
             legend={i === 0}
             legendGroup={line.yAxis.toUpperCase()}
             visible={visible}
@@ -287,6 +288,7 @@ interface TraceProps {
   legendGroup: string;
   visible: boolean;
   zero?: TimeStamp;
+  group?: string;
   tooltipGroup?: string;
   tooltipLabel?: string;
   color?: color.Color;
@@ -302,6 +304,7 @@ const Trace = ({
   legendGroup,
   visible,
   zero,
+  group,
   tooltipGroup,
   tooltipLabel,
   color: traceColor,
@@ -330,6 +333,7 @@ const Trace = ({
       color={traceColor ?? line.color}
       strokeWidth={raised ? strokeWidth * 2 : strokeWidth}
       zero={zero}
+      group={group}
       tooltipGroup={tooltipGroup}
       tooltipLabel={tooltipLabel}
       opacity={opacity}
@@ -366,7 +370,6 @@ interface LegendProps extends Pick<
   | "onRangeColorChange"
   | "onRangeVisibleChange"
   | "onHoverChange"
-  | "footer"
 > {
   pKey: lineplot.Key;
   editable: boolean;
@@ -511,7 +514,7 @@ const YAxis = ({
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
       showGrid={axisKey === "y1"}
-      className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
+      className={CSS.cls(CSS.dropRegion(Channel.canDropHaulItem(dragging)))}
       onLabelChange={handleLabelChange}
     >
       {lineKeys.map((lineKey) => (
@@ -571,7 +574,7 @@ const XAxis = ({
       type={relative ? "relative" : axisConfig.type}
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
-      className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
+      className={CSS.cls(CSS.dropRegion(Channel.canDropHaulItem(dragging)))}
       showGrid={axisKey === "x1"}
       onLabelChange={handleLabelChange}
     >
@@ -588,7 +591,9 @@ const XAxis = ({
         />
       ))}
       <Rules pKey={key} axisKey={axisKey} onSelectRule={onSelectRule} />
-      {!relative && <Range.Provider {...rangeProviderProps} />}
+      {!relative && (
+        <Range.Provider {...rangeProviderProps} breaksDisabled={axisKey !== "x1"} />
+      )}
     </BaseXAxis>
   );
 };
@@ -633,7 +638,6 @@ export interface LinePlotProps extends FrameProps {
   measureMode?: measure.Mode;
   onMeasureModeChange?: (mode: measure.Mode) => void;
   initialViewport?: Viewport.UseProps["initial"];
-  onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
   rangeProviderProps?: Range.ProviderProps;
   onSelectRule?: (key: string) => void;
@@ -650,11 +654,9 @@ export interface LinePlotProps extends FrameProps {
    * Called when the user toggles a legend entry: a stored line on an absolute x axis,
    * or a line of one range (see traceKey) on a relative axis.
    */
-  onLineVisibleChange?: (key: string, visible: boolean, solo: boolean) => void;
-  onRangeVisibleChange?: (key: string, visible: boolean, solo: boolean) => void;
+  onLineVisibleChange?: (key: string, visible: boolean, isolated: boolean) => void;
+  onRangeVisibleChange?: (key: string, visible: boolean, isolated: boolean) => void;
   onRangeColorChange?: (key: string, color: color.Color) => void;
-  /** Shown under the legend. */
-  legendFooter?: BaseLegendProps["footer"];
   /** Called with the line under the pointer on a relative x axis, or null. */
   onHoveredChange?: (hovered: Hovered | null) => void;
   /** Draws a relative x axis as absolute. */
@@ -743,7 +745,6 @@ export const LinePlot = ({
   onLineVisibleChange,
   onRangeVisibleChange,
   onRangeColorChange,
-  legendFooter,
   onHoveredChange,
   relativeDisabled = false,
   children,
@@ -778,6 +779,7 @@ export const LinePlot = ({
       ref={ref}
       viewportRef={viewportRef}
       loadingMessage={fetchingMessage(ranges)}
+      onViewportChange={onViewportChange}
       {...rest}
     >
       <HoverContext value={{ hover, hiddenRanges, hiddenTraces }}>
@@ -804,12 +806,10 @@ export const LinePlot = ({
         onRangeVisibleChange={onRangeVisibleChange}
         onRangeColorChange={onRangeColorChange}
         onHoverChange={setHoverKey}
-        footer={legendFooter}
       />
       <Title pKey={key} editable={editable} />
       <BaseViewport
         initial={initialViewport}
-        onChange={onViewportChange}
         triggers={viewportTriggers}
         ref={viewportRef}
       >

@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from synnax import (
     channel as channel_,
     color as color__,
+    enumeration as enumeration_,
     group as group_,
     project as project_,
 )
@@ -719,6 +720,7 @@ class SelectNodeConfig(LabeledConfig, StalenessConfig):
     fill_color: color__.Ref | None = None
     inline_size: int = Field(default=100, ge=1, le=65535)
     options: list[StateMapping] = Field(default_factory=list)
+    enumeration: enumeration_.Key | None = None
     disabled: bool = False
     on_click_delay: telem.TimeSpan = Field(
         default=telem.TimeSpan(0), ge=0, le=2147483647000000
@@ -765,6 +767,7 @@ class StateIndicatorNodeConfig(LabeledConfig, StalenessConfig):
     stroke_color: color__.Ref | None = None
     inline_size: int = Field(default=100, ge=1, le=65535)
     options: list[StateMapping] = Field(default_factory=list)
+    enumeration: enumeration_.Key | None = None
     size: ComponentSize = "medium"
 
 
@@ -1100,7 +1103,7 @@ class CustomActuatorNodeConfig(ToggleConfig):
 
     variant: Literal["custom_actuator"] = "custom_actuator"
     spec_key: str
-    state_overrides: list[symbol.State] = Field(default_factory=list)
+    state_overrides: list[symbol.StateOverride] = Field(default_factory=list)
 
 
 class CustomStaticNodeConfig(LabeledConfig, ScaledConfig):
@@ -1108,7 +1111,7 @@ class CustomStaticNodeConfig(LabeledConfig, ScaledConfig):
 
     variant: Literal["custom_static"] = "custom_static"
     spec_key: str
-    state_overrides: list[symbol.State] = Field(default_factory=list)
+    state_overrides: list[symbol.StateOverride] = Field(default_factory=list)
 
 
 class GroupBoxNodeConfig(BaseModel):

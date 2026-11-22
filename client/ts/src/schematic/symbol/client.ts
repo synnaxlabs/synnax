@@ -24,6 +24,8 @@ import {
   set,
 } from "@/schematic/symbol/actions.gen";
 import {
+  type Builtin,
+  builtinZ,
   type Key,
   keyZ,
   type New,
@@ -61,10 +63,11 @@ export type RetrieveSingleParams = { key: Key };
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 const createResZ = z.object({ symbols: symbolZ.array() });
-const emptyResZ = z.object({});
+const emptyZ = z.object({});
 const exportGroupReqZ = z.object({ key: group.keyZ, encoding: imex.encodingZ });
 const importGroupResZ = z.object({ group: group.groupZ });
 const deleteGroupReqZ = z.object({ key: group.keyZ });
+const retrieveBuiltinsResZ = z.object({ builtins: builtinZ.array() });
 
 /** A symbol to create. Its group places it; with no group it sits in none. */
 export interface CreateParams extends New {}
@@ -174,7 +177,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
           "/schematic/symbol/delete",
           { keys: keysArr },
           deleteReqZ,
-          emptyResZ,
+          emptyZ,
         ),
     });
     drop();
@@ -237,7 +240,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
           "/schematic/symbol/group/delete",
           { key },
           deleteGroupReqZ,
-          emptyResZ,
+          emptyZ,
         ),
     });
     drop();
@@ -251,5 +254,19 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       retrieveResponseZ,
     );
     return res.symbols;
+  }
+
+  /**
+   * Returns the symbols that the Core ships, with their states and commands. Pluto
+   * holds their drawings.
+   */
+  async retrieveBuiltins(): Promise<Builtin[]> {
+    const res = await this.cfg.unary.send(
+      "/schematic/symbol/retrieve-builtins",
+      {},
+      emptyZ,
+      retrieveBuiltinsResZ,
+    );
+    return res.builtins;
   }
 }

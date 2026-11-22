@@ -166,6 +166,48 @@ TEST(Reader, WritesNoIndexForVirtualChannels) {
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{2}));
 }
 
+/// @brief it should stamp each index channel of a message once, and write no index for
+/// its virtual channels.
+TEST(Reader, StampsEachIndexChannelOnArrival) {
+    auto e = reading();
+    e.bind(float_field("w"), channel(3, x::telem::FLOAT64_T, 4));
+    e.bind(float_field("x"), channel(5, x::telem::FLOAT64_T, 0));
+    e.bind(float_field("y"), channel(6, x::telem::FLOAT64_T, 4));
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(6);
+    ASSERT_NIL(r.read(R"({"v": 1, "w": 2, "x": 3, "y": 4})", RECEIVED, fr));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 4, 2, 3, 5, 6}));
+    ASSERT_EQ(fr.at<std::int64_t>(1, 0), RECEIVED.nanoseconds());
+    ASSERT_EQ(fr.at<std::int64_t>(4, 0), RECEIVED.nanoseconds());
+    ASSERT_EQ(fr.at<double>(5, 0), 3.0);
+}
+
+/// @brief it should stamp only the index channel of the index field with its value.
+TEST(Reader, StampsOtherIndexChannelsOnArrival) {
+    auto e = indexed();
+    e.bind(float_field("w"), channel(3, x::telem::FLOAT64_T, 4));
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(4);
+    ASSERT_NIL(r.read(R"({"v": 2, "t": 5, "w": 3})", RECEIVED, fr));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 4, 2, 3}));
+    ASSERT_EQ(fr.at<std::int64_t>(1, 0), 5);
+    ASSERT_EQ(fr.at<std::int64_t>(4, 0), RECEIVED.nanoseconds());
+    ASSERT_EQ(fr.at<double>(3, 0), 3.0);
+}
+
+/// @brief it should add no index group to the frame when a value of any group does not
+/// convert.
+TEST(Reader, AddsNothingWhenValueOfOneIndexGroupDoesNotConvert) {
+    auto e = reading();
+    e.bind(float_field("w"), channel(3, x::telem::FLOAT64_T, 4));
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(4);
+    const auto err = r.read(R"({"v": 1, "w": "x"})", RECEIVED, fr);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data, R"(field w: unknown enum label "x")");
+    ASSERT_TRUE(fr.empty());
+}
+
 /// @brief it should read a response as the message whose match rule it meets, or else
 /// as the message with no rule.
 TEST(Reader, ReadsMatchedMessage) {
@@ -248,15 +290,6 @@ TEST(Reader, RejectsChannelThatDoesNotExist) {
     ASSERT_EQ(err.data, "message reading: channel 2 does not exist");
 }
 
-/// @brief it should reject channels that do not share one index channel.
-TEST(Reader, RejectsChannelsWithDifferentIndexes) {
-    auto e = reading();
-    e.bind(float_field("w"), channel(3, x::telem::FLOAT64_T, 4));
-    const auto err = e.create().second;
-    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "message reading: every channel must share one index channel");
-}
-
 /// @brief it should reject an index field that does not write to an index channel.
 TEST(Reader, RejectsIndexFieldOnDataChannel) {
     auto e = indexed();
@@ -294,7 +327,8 @@ TEST(Reader, RejectsIndexFieldWithNoChannel) {
 TEST(Reader, RejectsIndexFieldWithDefault) {
     auto e = indexed();
     auto &fields = std::get<icd::JSONPayload>(e.ic.messages[0].payload).fields;
-    std::get<icd::TimestampJSONField>(fields.back()).default_ = x::telem::TimeStamp(5);
+    std::get<icd::TimestampJSONField>(fields.back())
+        .default_ = icd::ConstantTimestampDefault{.value = x::telem::TimeStamp(5)};
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(err.data, "message reading: the index field t cannot take a default");

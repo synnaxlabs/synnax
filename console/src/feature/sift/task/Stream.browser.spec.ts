@@ -15,7 +15,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
-import { createSiftDevice, preloadForms } from "@/feature/sift/testutil";
+import { createSiftDevice } from "@/feature/sift/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { createTestLabel } from "@/platform/label/testutil";
 import {
@@ -23,14 +23,15 @@ import {
   awaitEditableForm,
   createTaskReadOnlyClient,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText } from "@/testutil";
+import { findDialogTriggerByText, pickOption } from "@/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(Sift.Task.FORMS);
 
 const ZERO_DRAFT: task.New<Sift.Task.StreamSchemas> = {
   name: "Sift stream task",
@@ -225,7 +226,7 @@ describe("Sift stream form", () => {
     const [, data] = await newIndexedPair(client);
     const hotfire = await createTestLabel(client, {
       name: uniqueName("hotfire"),
-      color: "#FF0000",
+      color: { type: "fixed", value: "#FF0000" },
     });
     const t = await client.tasks.create(
       {
@@ -241,10 +242,7 @@ describe("Sift stream form", () => {
     );
     const { container } = await renderStream({ taskKey: t.key });
     fireEvent.click(await screen.findByText("Select labels"));
-    fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-      target: { value: hotfire.name },
-    });
-    fireEvent.click(await screen.findByText(hotfire.name));
+    await pickOption(hotfire.name, "Search labels...");
     const deployed = await deployAndAwaitTask(
       client,
       container,

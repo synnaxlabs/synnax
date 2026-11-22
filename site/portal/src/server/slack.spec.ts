@@ -10,7 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Visit } from "@/server/analytics";
-import type { Organization } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import { LICENSE, NOW } from "@/server/license/testutil";
 import {
   active,
@@ -159,7 +159,7 @@ describe("slack", () => {
     });
 
     it("should announce a refused activation with its reason", () => {
-      const acme: Organization = {
+      const acme: schema.Organization = {
         key: LICENSE.organization,
         kind: "team",
         name: "Acme",

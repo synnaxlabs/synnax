@@ -19,7 +19,6 @@ import {
   createAnalogWriteChannel,
   createDigitalWriteChannel,
   createLabJackDevice,
-  preloadForms,
 } from "@/feature/labjack/testutil";
 import {
   awaitEditableForm,
@@ -27,6 +26,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   START_FAILURE,
@@ -35,7 +35,7 @@ import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(LabJack.Task.FORMS);
 
 const typeTriggers = (): HTMLElement[] =>
   screen.getAllByRole("button", { name: /^Channel type/ });

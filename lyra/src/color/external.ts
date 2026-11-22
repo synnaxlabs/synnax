@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/color/Field";
-export { HexText, type HexTextProps } from "@/color/HexText";
+export { HexText, type HexTextProps, parseHexInput } from "@/color/HexText";
 export * from "@/color/Input";
 export type { Library, Named, Palette } from "@/color/named";
+export * from "@/color/PairEditor";
 export * from "@/color/Picker";
 export * from "@/color/Provider";
 export * from "@/color/Swatch";

@@ -19,6 +19,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
+	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -295,18 +296,31 @@ func (d *Decoder) appendBytes(dst []byte, raw jsontext.Value) ([]byte, error) {
 	if err := d.unquote(raw); err != nil {
 		return nil, err
 	}
-	if bytes.ContainsAny(d.text, "\r\n") {
+	start := len(dst)
+	dst, err := appendBase64(append(dst, make([]byte, variablePrefix)...), d.text)
+	if err != nil {
+		return nil, err
+	}
+	return endVariable(dst, start), nil
+}
+
+// DecodeBase64 returns the bytes of text. It returns a validation error unless text is
+// standard, padded base64 with zero padding bits and no line break.
+func DecodeBase64(text string) ([]byte, error) {
+	return appendBase64(nil, []byte(text))
+}
+
+func appendBase64(dst, text []byte) ([]byte, error) {
+	if bytes.ContainsAny(text, "\r\n") {
 		return nil, errors.Wrap(
 			validate.ErrValidation, "base64 must not hold a line break",
 		)
 	}
-	start := len(dst)
-	dst = append(dst, make([]byte, variablePrefix)...)
-	var err error
-	if dst, err = strictBase64.AppendDecode(dst, d.text); err != nil {
-		return nil, errors.Wrap(validate.ErrValidation, err.Error())
+	dst, err := strictBase64.AppendDecode(dst, text)
+	if err != nil {
+		return nil, errors.Wrap(validate.ErrValidation, "not canonical base64")
 	}
-	return endVariable(dst, start), nil
+	return dst, nil
 }
 
 func (d *Decoder) appendNumeric(dst []byte, raw jsontext.Value) ([]byte, error) {
@@ -333,7 +347,7 @@ func (d *Decoder) appendNumeric(dst []byte, raw jsontext.Value) ([]byte, error) 
 // type is not numeric, or v does not convert to it.
 func (d *Decoder) AppendFloat(dst []byte, v float64) ([]byte, error) {
 	n := number{kind: floatNumber, f: v}
-	if math.IsNaN(v) || math.IsInf(v, 0) {
+	if !xmath.Finite(v) {
 		return nil, errors.Wrapf(validate.ErrValidation, "%s is not finite", n)
 	}
 	if dt := d.field.DataType; !numeric(dt) {

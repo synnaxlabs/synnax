@@ -21,13 +21,13 @@ import {
   createScannedDevice,
   createVariableNode,
   dragNode,
-  preloadForms,
 } from "@/feature/opcua/testutil";
 import {
   answerNextCommand,
   awaitEditableForm,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskStopped,
@@ -41,7 +41,7 @@ import {
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(OPCUA.Task.FORMS);
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
@@ -286,8 +286,8 @@ describe("Write structure members", () => {
     });
     fireEvent.click(await screen.findByText(motor.name));
     await members.answered;
-    await dragNode(`${motor.name}.Speed`, held.nodeName);
-    await dragNode(valve.name, held.nodeName);
+    await dragNode(`${motor.name}.Speed`, held);
+    await dragNode(valve.name, held);
     await waitFor(async () => {
       const { config } = await client.tasks.retrieve({
         key: draft.key,

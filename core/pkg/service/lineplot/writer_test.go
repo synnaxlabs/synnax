@@ -1799,7 +1799,7 @@ var _ = Describe("Range compare", func() {
 		})).To(Succeed())
 		return p
 	}
-	createRange := func(ctx SpecContext, c *xcolor.Color) ranger.Ref {
+	createRange := func(ctx SpecContext, c *color.Ref) ranger.Ref {
 		GinkgoHelper()
 		r := ranger.Range{
 			Key:       uuid.New(),
@@ -1852,7 +1852,7 @@ var _ = Describe("Range compare", func() {
 				p := create(ctx, lineplot.LinePlot{
 					Ranges: []ranger.Ref{
 						createRange(ctx, nil),
-						createRange(ctx, &orange),
+						createRange(ctx, fixed(orange)),
 					},
 				})
 				Expect(refColors(p)).To(Equal([]*color.Ref{
@@ -1860,12 +1860,50 @@ var _ = Describe("Range compare", func() {
 				}))
 			})
 
+		It("Should give a range the reference to its own named color",
+			func(ctx SpecContext) {
+				own := color.Named{Name: "Own", Light: orange}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &own)
+				})).To(Succeed())
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{
+						createRange(ctx, nil),
+						createRange(ctx, named(own.Key)),
+					},
+				})
+				Expect(refColors(p)).To(Equal([]*color.Ref{
+					named(series[0]), named(own.Key),
+				}))
+			})
+
+		It("Should give a series color to a range whose named color is near another",
+			func(ctx SpecContext) {
+				// The first series color is 0xDC136C.
+				near := color.Named{
+					Name:  "Near",
+					Light: xcolor.Color{R: 0xDC, G: 0x15, B: 0x6C, A: 255},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &near)
+				})).To(Succeed())
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{
+						colored(createRange(ctx, nil), named(series[0])),
+						createRange(ctx, named(near.Key)),
+					},
+				})
+				Expect(refColors(p)).To(Equal([]*color.Ref{
+					named(series[0]), named(series[1]),
+				}))
+			})
+
 		It("Should give a series color to a range whose own color another range uses",
 			func(ctx SpecContext) {
 				p := create(ctx, lineplot.LinePlot{
 					Ranges: []ranger.Ref{
-						createRange(ctx, &orange),
-						createRange(ctx, &orange),
+						createRange(ctx, fixed(orange)),
+						createRange(ctx, fixed(orange)),
 					},
 				})
 				Expect(refColors(p)).To(Equal([]*color.Ref{
@@ -1881,7 +1919,7 @@ var _ = Describe("Range compare", func() {
 				)
 				// The first series color is 0xDC136C.
 				near := xcolor.Color{R: 0xDC, G: 0x15, B: 0x6C, A: 255}
-				added := createRange(ctx, &near)
+				added := createRange(ctx, fixed(near))
 				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
 					lineplot.NewAddRangeAction(lineplot.AddRangePayload{Range: added}),
 				})).To(Succeed())
@@ -1918,7 +1956,7 @@ var _ = Describe("Range compare", func() {
 				near := xcolor.Color{R: 0xDC, G: 0x15, B: 0x6C, A: 255}
 				p := create(ctx, lineplot.LinePlot{
 					Ranges: []ranger.Ref{
-						createRange(ctx, &near),
+						createRange(ctx, fixed(near)),
 						createRange(ctx, nil),
 					},
 				})
@@ -1964,7 +2002,7 @@ var _ = Describe("Range compare", func() {
 				p := create(ctx, lineplot.LinePlot{
 					Ranges: []ranger.Ref{
 						colored(createRange(ctx, nil), named(dark.Key)),
-						createRange(ctx, &orange),
+						createRange(ctx, fixed(orange)),
 					},
 				})
 				Expect(refColors(p)).To(Equal([]*color.Ref{

@@ -13,10 +13,17 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name = "codec",
     srcs = [
+        "binary.cpp",
+        "bits.cpp",
+        "field.cpp",
+        "field.h",
         "json.cpp",
         "match.cpp",
     ],
     hdrs = [
+        "binary.h",
+        "binding.h",
+        "bits.h",
         "errors.h",
         "json.h",
     ],
@@ -29,12 +36,15 @@ cc_library(
         "//x/cpp/json:read",
         "//x/cpp/payload",
         "//x/cpp/telem",
+        "//x/cpp/uuid",
     ],
 )
 
 cc_test(
     name = "codec_test",
     srcs = [
+        "binary_test.cpp",
+        "bits_test.cpp",
         "decode_fixture_test.cpp",
         "json_test.cpp",
     ],

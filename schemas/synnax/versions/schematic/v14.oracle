@@ -9,10 +9,11 @@
 
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/color/v0"
+import "schemas/synnax/versions/enumeration/v0"
 import "schemas/synnax/versions/group/v1"
 import "schemas/synnax/versions/project/v3"
 import "schemas/synnax/versions/ranger/v1"
-import "schemas/synnax/versions/symbol/v4"
+import "schemas/synnax/versions/symbol/v5"
 import "schemas/x/versions/border/v0"
 import "schemas/x/versions/color/v2"
 import "schemas/x/versions/spatial/v0"
@@ -155,11 +156,34 @@ NodeConfig union on variant extends v13.NodeConfig {
             """
         }
     }
+    custom_actuator {
+        state_overrides symbol.StateOverride[] = [] {
+            @doc value """
+                contains per-instance replacements of the spec's region colors, one for
+                each value that the node draws, in value order: Base, then Active.
+            """
+        }
+    }
+    custom_static {
+        state_overrides symbol.StateOverride[] = [] {
+            @doc value """
+                contains per-instance replacements of the spec's region colors, one for
+                each value that the node draws, in value order: Base, then Active.
+            """
+        }
+    }
     select {
-        fill_color color.Ref? {
+        fill_color  color.Ref?       {
             @doc value """
                 is the fill color of the Set button, which the select border follows, a
                 named color or a fixed color.
+            """
+        }
+        options
+        enumeration enumeration.Key? {
+            @doc value """
+                is the enumeration whose entries the select offers in place of its
+                options.
             """
         }
     }
@@ -172,9 +196,16 @@ NodeConfig union on variant extends v13.NodeConfig {
         }
     }
     state_indicator {
-        stroke_color color.Ref? {
+        stroke_color color.Ref?       {
             @doc value """
                 is the border color of the indicator, a named color or a fixed color.
+            """
+        }
+        options
+        enumeration  enumeration.Key? {
+            @doc value """
+                is the enumeration whose entries the indicator shows in place of its
+                options.
             """
         }
     }

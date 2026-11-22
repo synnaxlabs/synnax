@@ -26,7 +26,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Range } from "@/feature/range";
 import { createSiftDevice } from "@/feature/sift/testutil";
-import { createTestLabel, searchAndClickLabelOption } from "@/platform/label/testutil";
+import { createTestLabel } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createPlannedTestRange, createTestRange } from "@/platform/range/testutil";
@@ -42,6 +42,7 @@ import {
   isPlutoDisabled,
   openContextMenu,
   openSubmenu,
+  pickOption,
   renderLazy,
   resolveFocusedTab,
   selectRange,
@@ -116,7 +117,7 @@ const createLabeled = async (
 }> => {
   const label = await createTestLabel(client, {
     name: uniqueName("label"),
-    color: "#000000",
+    color: { type: "fixed", value: "#000000" },
   });
   const labeled = await createRange(`${token} labeled`, { labels: [label.key] });
   const other = await createRange(`${token} other`);
@@ -189,10 +190,7 @@ describe("range/explorer/Explorer", () => {
       await search(token);
       await findItem(other.name);
       await openFilterProperty("Labels");
-      fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-        target: { value: label.name },
-      });
-      fireEvent.click(await screen.findByRole("option", { name: label.name }));
+      await pickOption(label.name, "Search labels...");
       await waitFor(() => {
         expect(screen.queryByRole("listitem", { name: other.name })).toBeNull();
         expect(itemOf(labeled.name)).toBeTruthy();
@@ -367,10 +365,7 @@ describe("range/explorer/Explorer", () => {
       await search(token);
       await findItem(other.name);
       const picker = await openFilterProperty("Parent");
-      fireEvent.change(within(picker).getByPlaceholderText("Search ranges..."), {
-        target: { value: parent.name },
-      });
-      fireEvent.click(await within(picker).findByRole("option", { name: parent.name }));
+      await pickOption(parent.name, "Search ranges...", picker);
       await waitFor(() => {
         expect(screen.queryByRole("listitem", { name: other.name })).toBeNull();
         expect(itemOf(child.name)).toBeTruthy();
@@ -726,7 +721,7 @@ describe("range/explorer/Explorer", () => {
     it("should add a label that the menu search finds", async () => {
       const lbl = await createTestLabel(client, {
         name: uniqueName("found"),
-        color: "#000000",
+        color: { type: "fixed", value: "#000000" },
       });
       const rng = await createRange(uniqueName("found"));
       await renderExplorer();
@@ -844,7 +839,7 @@ describe("range/explorer/Explorer", () => {
       const token = uniqueToken();
       const label = await createTestLabel(client, {
         name: uniqueName("label"),
-        color: "#000000",
+        color: { type: "fixed", value: "#000000" },
       });
       const rng = await createRange(`${token} labeled`);
       // A list narrower than 80rem hides the labels.
@@ -852,7 +847,7 @@ describe("range/explorer/Explorer", () => {
       await search(token);
       const item = await findSearchedItem(rng.name, token);
       fireEvent.click(within(item).getByRole("button", { name: "Labels" }));
-      await searchAndClickLabelOption(label.name);
+      await pickOption(label.name, "Search labels...");
       await waitFor(async () =>
         expect((await client.ranges.retrieve(rng.key)).labels).toEqual([label.key]),
       );
@@ -871,12 +866,14 @@ describe("range/explorer/Explorer", () => {
       await search(token);
       const item = await findSearchedItem(rng.name, token);
       fireEvent.click(within(item).getByRole("button", { name: "Color" }));
+      // A range with no color opens the picker on its palettes.
+      fireEvent.click(await screen.findByText("Custom"));
       const hex = await screen.findByLabelText("Hex");
       fireEvent.change(hex, { target: { value: "123456" } });
       fireEvent.keyDown(hex, { code: "Escape" });
       await waitFor(async () => {
         const { color: stored } = await client.ranges.retrieve(rng.key);
-        expect(stored == null ? null : color.hex(stored)).toBe("#123456");
+        expect(stored).toEqual({ type: "fixed", value: color.construct("#123456") });
       });
     });
   });

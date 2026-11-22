@@ -34,6 +34,7 @@ import {
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
+import { countDownloadSpans } from "@/platform/framer/testutil";
 import { findButton, getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
@@ -137,11 +138,12 @@ describe("lineplot/toolbar/Toolbar", () => {
       return { data, start };
     };
 
-    // Opens the CSV download of a plot of the channels and returns its Download button
-    // once it is enabled.
+    // Opens the CSV download of a plot of the channels over the windows. Returns its
+    // Download button once it is enabled.
     const openDownload = async (
       channels: channel.Key[],
-      window: Window = dynamicWindow(TimeSpan.seconds(30)),
+      windows: Window[] = [dynamicWindow(TimeSpan.seconds(30))],
+      plotState: Partial<Session.LinePlot.State> = {},
     ): Promise<HTMLElement> => {
       const key = uuid.create();
       const lines = channels.map((yChannel) => {
@@ -154,9 +156,9 @@ describe("lineplot/toolbar/Toolbar", () => {
           name: uniqueName("plot"),
           channels: { y1: channels },
           lines,
-          ranges: [{ variant: "window", window }],
+          ranges: windows.map((window) => ({ variant: "window" as const, window })),
         },
-        preloadedState: (key) => createPreloadedState(key),
+        preloadedState: (key) => createPreloadedState(key, plotState),
       });
       await screen.findByText("Data");
       fireEvent.click(getIconButton(result.container, "csv"));
@@ -183,13 +185,83 @@ describe("lineplot/toolbar/Toolbar", () => {
       const downloads = captureBrowserDownloads();
       const { data, start } = await createStopped(id.create().replace(/-/g, "_"), 200n);
       const range = new TimeRange(start, start.add(TimeSpan.minutes(1)));
-      const download = await openDownload([data.key], staticWindow(range));
+      const download = await openDownload([data.key], [staticWindow(range)]);
       await act(async () => {
         fireEvent.click(download);
       });
       await waitFor(() => expect(downloads.blobs).toHaveLength(1));
       const rows = (await readBlob(downloads.blobs[0])).trim().split("\n").slice(1);
       expect(rows.map((r) => Number(r.split(",").at(-1)))).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    // The hour from 12:00 on the fifth of month in 2020.
+    const hourOf = (month: number) =>
+      new TimeRange(
+        new TimeStamp(new Date(2020, month, 5, 12)),
+        new TimeStamp(new Date(2020, month, 5, 13)),
+      );
+    const at = (month: number) => staticWindow(hourOf(month));
+
+    it("should download one span for each range a plot shows apart", async () => {
+      const { data } = await createStopped(id.create().replace(/-/g, "_"));
+      await openDownload([data.key], [at(6), at(2)]);
+      const text = document.body.textContent;
+      // Each span ends at its range and a margin.
+      expect(text).toMatch(
+        new RegExp(
+          String.raw`Mar 5, 2020\s*12:00.*Mar 5, 2020\s*13:0\d.*` +
+            String.raw`Jul 5, 2020\s*11:5\d.*Jul 5, 2020\s*13:00`,
+        ),
+      );
+    });
+
+    it("should download one span across a break the plot opened", async () => {
+      const { data } = await createStopped(id.create().replace(/-/g, "_"));
+      const { lower, upper } = hourOf(2).numericBounds;
+      // The gap after a range starts at its end and a margin of 5% of its span.
+      const open = [upper + (upper - lower) * 0.05];
+      await openDownload([data.key], [at(6), at(2)], {
+        breaks: { hidden: false, open },
+      });
+      const text = document.body.textContent;
+      expect(text).toMatch(/Mar 5, 2020\s*12:00.*Jul 5, 2020\s*13:00/);
+      expect(text).not.toMatch(/Mar 5, 2020\s*13:0/);
+    });
+
+    it("should download one span over every range while breaks are hidden", async () => {
+      const { data } = await createStopped(id.create().replace(/-/g, "_"));
+      await openDownload([data.key], [at(6), at(2)], {
+        breaks: { hidden: true, open: [] },
+      });
+      const text = document.body.textContent;
+      expect(text).toMatch(/Mar 5, 2020\s*12:00.*Jul 5, 2020\s*13:00/);
+      expect(text).not.toMatch(/Mar 5, 2020\s*13:0/);
+    });
+
+    it("should give a live window no margin after its newest sample", async () => {
+      const suffix = id.create().replace(/-/g, "_");
+      const index = await client.channels.create({
+        name: `toolbar_csv_time_${suffix}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: `toolbar_csv_data_${suffix}`,
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      // The live window ends at the newest sample, 2 minutes from now. A planned range
+      // starts a minute after it. The plot shows the two apart, so the download does
+      // too.
+      const now = TimeStamp.now();
+      const at = (minutes: number) => now.add(TimeSpan.minutes(minutes));
+      await client.write(at(-30), {
+        [index.key]: [at(-30), at(2)],
+        [data.key]: [1, 2],
+      });
+      const planned = staticWindow(new TimeRange(at(3), at(63)));
+      await openDownload([data.key], [dynamicWindow(TimeSpan.minutes(40)), planned]);
+      expect(countDownloadSpans()).toBe(2);
     });
 
     it("should open the download of a plot with a calculation over virtual channels", async () => {

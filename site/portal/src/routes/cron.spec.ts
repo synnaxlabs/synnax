@@ -14,7 +14,7 @@ import { GET as digestRoute } from "@/pages/api/cron/digest";
 import { GET } from "@/pages/api/cron/expiry";
 import { GET as sessionsRoute } from "@/pages/api/cron/sessions";
 import type { Session, Visit } from "@/server/analytics";
-import { event, type License, type Organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE } from "@/server/directory";
 import { NOW } from "@/server/license/testutil";
@@ -36,8 +36,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 describe("GET /api/cron/expiry", () => {
   let store: Memory;
   let h: Harness;
-  let acme: Organization;
-  let lic: License;
+  let acme: schema.Organization;
+  let lic: schema.License;
 
   beforeAll(async () => {
     store = await openMemory();
@@ -87,7 +87,7 @@ describe("GET /api/cron/expiry", () => {
         facts: expect.arrayContaining([{ label: "License", value: "Test rig" }]),
       }),
     ]);
-    expect(await store.query.select().from(event)).toEqual([
+    expect(await store.query.select().from(schema.event)).toEqual([
       expect.objectContaining({
         kind: "expiry_notice",
         actor: "system",
@@ -129,7 +129,7 @@ describe("GET /api/cron/expiry", () => {
     h.directory.members[ADMIN] = [];
     const res = await get(`Bearer ${CRON_SECRET}`);
     expect(await body(res)).toEqual({ sent: [] });
-    expect(await store.query.select().from(event)).toEqual([]);
+    expect(await store.query.select().from(schema.event)).toEqual([]);
   });
 });
 
@@ -170,7 +170,7 @@ describe("GET /api/cron/digest", () => {
       kind: "personal",
       ownerUserID: "user_a",
     });
-    await store.query.insert(event).values({
+    await store.query.insert(schema.event).values({
       kind: "link",
       actor: "user_a",
       organization: ada.key,

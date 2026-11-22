@@ -44,8 +44,7 @@ import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
-import { createAetherProvider } from "@/testutil/Aether";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createAetherProvider, createSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 const Wrapper = createSynnaxWrapper({ client });
@@ -1224,8 +1223,8 @@ describe("use", () => {
     let mounted: ReturnType<typeof render> | undefined;
     try {
       const [first, second] = await client.labels.create([
-        { name: `first-${id.create()}`, color: "#000000" },
-        { name: `second-${id.create()}`, color: "#000000" },
+        { name: `first-${id.create()}`, color: { type: "fixed", value: "#000000" } },
+        { name: `second-${id.create()}`, color: { type: "fixed", value: "#000000" } },
       ]);
       const { use } = Flux.createRetrieve<{ key: string }, string>({
         name: "Label",
@@ -1392,7 +1391,7 @@ describe("useTombstone", () => {
   it("reads a deletion as a value and clears it once the record returns", async () => {
     const lbl = await client.labels.create({
       name: "Tombstone Label",
-      color: color.construct("#000000"),
+      color: { type: "fixed", value: color.construct("#000000") },
     });
     let cached: query.Cached<label.Label> | undefined = lbl;
     let handler: query.ChangeHandler<label.Label> | null = null;
@@ -1943,8 +1942,8 @@ describe("useResult", () => {
 
   it("serves an all-cached keys query on the first render without a fetch", async () => {
     const [first, second] = await client.labels.create([
-      { name: `keys-a-${id.create()}`, color: "#000000" },
-      { name: `keys-b-${id.create()}`, color: "#000000" },
+      { name: `keys-a-${id.create()}`, color: { type: "fixed", value: "#000000" } },
+      { name: `keys-b-${id.create()}`, color: { type: "fixed", value: "#000000" } },
     ]);
     await client.labels.retrieve(first.key);
     await client.labels.retrieve(second.key);
@@ -1972,8 +1971,8 @@ describe("useResult", () => {
 
   it("re-renders a composed keys answer when a member changes", async () => {
     const [first, second] = await client.labels.create([
-      { name: `live-a-${id.create()}`, color: "#000000" },
-      { name: `live-b-${id.create()}`, color: "#000000" },
+      { name: `live-a-${id.create()}`, color: { type: "fixed", value: "#000000" } },
+      { name: `live-b-${id.create()}`, color: { type: "fixed", value: "#000000" } },
     ]);
     await client.labels.retrieve(first.key);
     await client.labels.retrieve(second.key);

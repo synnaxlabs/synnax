@@ -15,12 +15,13 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker, preloadForms } from "@/feature/mqtt/testutil";
+import { createBroker } from "@/feature/mqtt/testutil";
 import {
   clickDeploy,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
@@ -29,11 +30,12 @@ import {
   commitTextEdit,
   findDialogTriggerByText,
   getLabeledInput,
+  pickOption,
 } from "@/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(MQTT.Task.FORMS);
 
 // Drafts carry no key; the created task mints its own.
 const ZERO_DRAFT: task.New<MQTT.Task.EdgeSchemas> = {
@@ -145,10 +147,7 @@ describe("MQTT Edge form", () => {
 
   const selectChannel = async (name: string): Promise<void> => {
     fireEvent.click(await findDialogTriggerByText("Channel"));
-    fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
-      target: { value: name },
-    });
-    fireEvent.click(await screen.findByText(name));
+    await pickOption(name, "Search channels...");
   };
 
   it("should name an unnamed tag after the channel it picks", async () => {

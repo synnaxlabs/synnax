@@ -12,20 +12,19 @@ package v1
 import "slices"
 
 // FieldBases returns the parts every field of p shares, in field order, with a zero
-// BaseField for a text field with no encoding or a JSON field with no type. It returns
-// nil when p has no format.
+// BaseField for a field with no variant. It returns nil when p has no format.
 func (p Payload) FieldBases() []BaseField {
 	switch v := p.Variant.(type) {
 	case BinaryPayload:
 		bases := make([]BaseField, len(v.Fields))
 		for i, f := range v.Fields {
-			bases[i] = f.BaseField
+			bases[i] = f.Base().BaseField
 		}
 		return bases
 	case TextPayload:
 		bases := make([]BaseField, len(v.Fields))
 		for i, f := range v.Fields {
-			bases[i] = f.Base()
+			bases[i] = f.Base().BaseField
 		}
 		return bases
 	case JSONPayload:
@@ -40,15 +39,20 @@ func (p Payload) FieldBases() []BaseField {
 }
 
 // UpdateFieldBases calls update with the shared parts of each field of p, in field
-// order, and keeps what update leaves. It skips text fields with no encoding and JSON
-// fields with no type. It copies the fields first, so values that shared them with p
-// see no change. It does nothing when p has no format.
+// order, and keeps what update leaves. It skips fields with no variant. It copies the
+// fields first, so values that shared them with p see no change. It does nothing when p
+// has no format.
 func (p *Payload) UpdateFieldBases(update func(*BaseField)) {
 	switch v := p.Variant.(type) {
 	case BinaryPayload:
 		v.Fields = slices.Clone(v.Fields)
 		for i := range v.Fields {
-			update(&v.Fields[i].BaseField)
+			if v.Fields[i].Variant == nil {
+				continue
+			}
+			b := v.Fields[i].Base()
+			update(&b.BaseField)
+			v.Fields[i].SetBase(b)
 		}
 		p.Variant = v
 	case TextPayload:
@@ -58,7 +62,7 @@ func (p *Payload) UpdateFieldBases(update func(*BaseField)) {
 				continue
 			}
 			b := v.Fields[i].Base()
-			update(&b)
+			update(&b.BaseField)
 			v.Fields[i].SetBase(b)
 		}
 		p.Variant = v

@@ -19,8 +19,8 @@ import type { ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { EnumValues } from "@/platform/icd/EnumValues";
-import { numberOptionsOf } from "@/platform/icd/number";
-import { Optional, Options, showsDefault } from "@/platform/icd/Options";
+import { binaryOptionsOf, numberOptionsOf } from "@/platform/icd/number";
+import { Optional, Options } from "@/platform/icd/Options";
 
 type Field = icd.BinaryField | icd.TextField | icd.JSONField;
 type Encoding = "binary" | icd.TextFieldType | "json";
@@ -46,7 +46,14 @@ type Cell<F extends Field> = (
 ) => ReactElement;
 
 type Render<F extends Field> =
-  "text" | "number" | "byteOrder" | "type" | "jsonType" | "multiplexor" | Cell<F>;
+  | "text"
+  | "number"
+  | "default"
+  | "byteOrder"
+  | "type"
+  | "jsonType"
+  | "multiplexor"
+  | Cell<F>;
 
 interface Column<F extends Field> {
   name: string;
@@ -113,6 +120,35 @@ const multiplexValues: Column<icd.BinaryField> = {
 
 const conversion = <F extends Field>(): Column<F>[] => [scale(), offset(), units()];
 
+/** @returns the float that text names, or null when it names none. */
+const toFloat = (text: string): number | null => {
+  const value = Number(text);
+  return Number.isNaN(value) && text !== "NaN" ? null : value;
+};
+
+/**
+ * Sets the default that cell text names, or removes it when the text is blank. Text
+ * that is not a number of the field's kind stays as typed: the form holds it, and Check
+ * marks it as not valid.
+ */
+const withDefault = <F extends icd.BinaryField | icd.TextField>(
+  field: F,
+  text: string,
+): F => {
+  if (text === "") return { ...field, default: undefined };
+  const float = !("kind" in field) || field.kind === "float";
+  return { ...field, default: float ? (toFloat(text) ?? text) : text };
+};
+
+/** The default as text, empty when the field has none. */
+const defaultColumn = <F extends icd.BinaryField | icd.TextField>(): Column<F> => ({
+  name: "Default",
+  render: "default",
+  width: 16,
+  get: (f) => (f.default == null ? "" : String(f.default)),
+  set: (f, cell) => withDefault(f, String(cell).trim()),
+});
+
 /** The kinds a binary field can hold. */
 type NumberKind = Extract<payload.Kind, "unsigned" | "integer" | "float">;
 
@@ -151,6 +187,19 @@ const JSON_TYPE_NAMES: Record<JSONType, string> = {
 
 const jsonTypeOf = (field: icd.JSONField): JSONType =>
   field.type === "timestamp" ? field.timeFormat : field.type;
+
+/** A binary field that becomes another kind keeps a default the kind holds exactly. */
+const withBinaryKind = (field: icd.BinaryField, kind: NumberKind): icd.BinaryField => {
+  const options = binaryOptionsOf(field, kind);
+  switch (options.type) {
+    case "float":
+      return { ...field, kind: options.type, default: options.default };
+    case "integer":
+      return { ...field, kind: options.type, default: options.default };
+    case "unsigned":
+      return { ...field, kind: options.type, default: options.default };
+  }
+};
 
 /**
  * Only a number field scales, so a field that stops being one drops its scaling. A
@@ -222,9 +271,10 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       render: "type",
       width: 20,
       get: ({ kind }) => kind,
-      set: (f, cell) => ({ ...f, kind: cell as NumberKind }),
+      set: (f, cell) => withBinaryKind(f, cell as NumberKind),
     },
     ...conversion<icd.BinaryField>(),
+    defaultColumn(),
     multiplexor,
     multiplexValues,
   ],
@@ -238,6 +288,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => ({ ...f, position: Number(cell) }),
     },
     ...conversion<icd.DelimitedTextField>(),
+    defaultColumn<icd.DelimitedTextField>(),
   ],
   tagged: [
     name(),
@@ -249,6 +300,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => ({ ...f, tag: String(cell) }),
     },
     ...conversion<icd.TaggedTextField>(),
+    defaultColumn<icd.TaggedTextField>(),
   ],
   json: [
     name(),
@@ -333,7 +385,7 @@ const fieldsFromRows = (
   );
 
 /** A change to one of these picks a new union member, so it replaces the field. */
-const DISCRIMINATORS = ["encoding", "type"] as const;
+const DISCRIMINATORS = ["encoding", "type", "kind"] as const;
 
 /**
  * Writes each changed property of a field as its own edit, so another client's edit to
@@ -403,6 +455,12 @@ const renderColumn = (
       return <Input.TableColumn key={index} name={name} width={width} />;
     case "text":
       return <Input.TableColumn key={index} name={name} width={width} type="string" />;
+    case "default":
+      return (
+        <Input.TableColumn key={index} name={name} width={width} type="string">
+          {(props) => <Input.Text {...props} placeholder="None" onlyChangeOnBlur />}
+        </Input.TableColumn>
+      );
     case "type":
       return selectColumn(column, index, "type", NUMBER_KIND_NAMES);
     case "jsonType":
@@ -555,7 +613,7 @@ export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
           <Form.TextField path={path.units} label="Units" padHelpText={false} />
         </>
       )}
-      {showsDefault(field) && <Optional path={path} field={field} />}
+      <Optional path={path} field={field} />
       <EnumValues path={path} label="Enum mapping" />
     </Form.Section>
   );

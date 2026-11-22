@@ -20,16 +20,12 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import {
-  createBroker,
-  openAddData,
-  openScanner,
-  preloadForms,
-} from "@/feature/mqtt/testutil";
+import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
 import {
   clickDeploy,
   clickFailedDeploy,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   START_FAILURE,
 } from "@/platform/task/testutil";
@@ -37,7 +33,7 @@ import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(MQTT.Task.FORMS);
 
 const TOPIC = "plant/oven";
 
@@ -552,11 +548,11 @@ describe("MQTT read form", () => {
     const at = TimeStamp.milliseconds(1_700_000_000_000);
     const time = icd.jsonFieldZ.parse({
       ...createTimeField(),
-      default: at,
+      default: { type: "constant", value: at },
     });
     const { draft } = await renderRead({ fields: [time], bound: { [time.key]: 0 } });
     await selectField("time");
-    expect(await screen.findByText(at.toString("preciseDate", "local"))).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /2023/ })).toBeTruthy();
     fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
     const { icd: icdKey } = plainOf((await retrieveEntries(draft.key))[0]);
     await waitFor(async () =>
@@ -564,7 +560,10 @@ describe("MQTT read form", () => {
         "default",
       ),
     );
-    expect(screen.queryByRole("checkbox", { name: "Optional" })).toBeNull();
+    expect(
+      screen.getByRole<HTMLInputElement>("checkbox", { name: "Optional" }).checked,
+    ).toBe(false);
+    expect(screen.queryByRole("button", { name: /2023/ })).toBeNull();
   });
 
   it("should add fields to a topic in the ICD of its entry and read them", async () => {
@@ -804,7 +803,7 @@ describe("MQTT read form", () => {
       pointer: "/started",
       type: "timestamp",
       timeFormat: "unix_ms",
-      default: TimeStamp.milliseconds(1_700_000_000_000),
+      default: { type: "constant", value: TimeStamp.milliseconds(1_700_000_000_000) },
     });
     const time = createTimeField();
     const { draft } = await renderRead({ fields: [started, time] });
@@ -1031,14 +1030,15 @@ describe("MQTT read form", () => {
     /** Picks a message of the named ICD as the message format of the open topic. */
     const pickFormat = async (current: string, next: string, icdName: string) => {
       const dialog = await searchFormats(current, icdName);
-      const name = await waitFor(() => {
+      // waitFor resolves a timer tick after its match. A render in that tick can
+      // replace the option. A click in the callback goes to the option on the page.
+      await waitFor(() => {
         const [match] = dialog
           .getAllByText(next)
           .filter((n) => n.parentElement?.textContent?.includes(icdName));
         if (match == null) throw new Error(`no ${next} of ${icdName}`);
-        return match;
+        fireEvent.click(match);
       });
-      fireEvent.click(name);
     };
 
     const openTopic = async (topic = TOPIC) =>
@@ -1424,13 +1424,22 @@ describe("MQTT read form", () => {
 
     describe("past the first page of ICDs", () => {
       /**
+       * Creates a key that ends in byte and six zero bytes. It lists ahead of every
+       * random key, and after the keys of a lower byte.
+       */
+      const createKeyListedAt = (byte: string): icd.Key => {
+        const key = createKeyEndingIn("0");
+        return `${key.slice(0, 21)}${byte}${key.slice(23)}`;
+      };
+
+      /**
        * Creates one page of ICDs with no messages, ahead of every other ICD in key
        * order, and deletes them when the test finishes.
        */
       const createEmptyPage = async () => {
         const created = await client.icds.create(
           Array.from({ length: PAGE_SIZE }, () => ({
-            key: createKeyEndingIn("0"),
+            key: createKeyListedAt("00"),
             name: uniqueName("empty"),
           })),
         );
@@ -1469,15 +1478,26 @@ describe("MQTT read form", () => {
 
       it("should list the messages of the page after a page with no messages", async () => {
         await createEmptyPage();
+        const icds: icd.Key[] = [];
+        const tasks: string[] = [];
+        // The Core deletes no ICD that a task uses.
+        onTestFinished(async () => {
+          await client.tasks.delete(tasks);
+          await client.icds.delete(icds);
+        });
+        // The dialog opens on the message that the topic reads, and renders only the
+        // rows near it. Its ICD lists right after the one under test.
         const entry = await createEntry({
           fields: [createField("temperature", "float")],
+          icdKey: createKeyListedAt("02"),
         });
-        // The last byte of 1 lists this ICD right after the empty page.
-        const { message } = await createShared(
+        icds.push(entry.icd);
+        const { shared, message } = await createShared(
           [createField("pressure", "float")],
-          `${createKeyEndingIn("0").slice(0, -1)}1`,
+          createKeyListedAt("01"),
         );
-        await renderRead({ entries: [entry] });
+        icds.push(shared.key);
+        tasks.push((await renderRead({ entries: [entry] })).draft.key);
         await openTopic();
         fireEvent.click(await findDialogTriggerByText(TOPIC));
         const dialogs = await screen.findAllByRole("dialog");

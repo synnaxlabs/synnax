@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
-import { createHTTPDevice, preloadForms } from "@/feature/http/testutil";
+import { createHTTPDevice } from "@/feature/http/testutil";
 import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
@@ -24,6 +24,7 @@ import {
   clickDeploy,
   commitFieldInput,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskRunning,
@@ -82,7 +83,7 @@ const createDraft = async (
   config: z.infer<HTTP.Task.ReadSchemas["config"]>,
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.READ_SCHEMAS);
 
-preloadForms();
+preloadForms(HTTP.Task.FORMS);
 
 describe("Read", () => {
   it("should show the empty state and add + select an endpoint", async () => {

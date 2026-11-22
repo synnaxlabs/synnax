@@ -18,6 +18,7 @@ import { type KeyboardEvent, useEffect, useRef, useSyncExternalStore } from "rea
 
 import { Dialog } from "@/dialog";
 import { useDestructors, useInitializerRef, useSyncedRef } from "@/hooks";
+import { menuKeyDown, menuKeyUp } from "@/menu/keyboard";
 import { Triggers } from "@/triggers";
 import { isInputOrContentEditable, moveIndex } from "@/util";
 
@@ -71,6 +72,8 @@ interface BaseProps<K extends record.Key> {
 interface HoverProps<K extends record.Key> extends BaseProps<K> {
   cursor?: "hover";
   order: Order<K>;
+  /** While none is hovered, the first arrow key moves on from the first of these. */
+  selected?: K[];
 }
 
 interface SelectionProps<K extends record.Key> extends BaseProps<K> {
@@ -134,13 +137,11 @@ const isCursorKey = (key: string | null): key is CursorKey =>
 const isX = (key: CursorKey): key is "ArrowLeft" | "ArrowRight" =>
   key === "ArrowLeft" || key === "ArrowRight";
 
-// Shift+F10 opens the context menu on its press, and the Menu key on its release, as
-// on Windows. Both keep the webview from opening its own.
-const menuKey = (e: KeyboardEvent<HTMLElement>): "F10" | "ContextMenu" | null => {
-  if (e.altKey || e.ctrlKey || e.metaKey) return null;
-  const key = Triggers.eventKey(e);
-  if (key === "ContextMenu" || (key === "F10" && e.shiftKey)) return key;
-  return null;
+// A focused control inside an option, such as a view opener, keeps its keys.
+const inOption = (target: EventTarget | null): boolean => {
+  if (!(target instanceof Element)) return false;
+  const option = target.closest("[role='option']");
+  return option != null && option !== target;
 };
 
 const REPEAT_DELAY = TimeSpan.milliseconds(200).milliseconds;
@@ -218,7 +219,7 @@ export const useCursor = <K extends record.Key>(
     // The order reads the DOM, so the server has no target.
     () => undefined,
   );
-  const place = (key: K): void => {
+  const place = (key: K | undefined): void => {
     movedRef.current = key;
     listenersRef.current.forEach((listener) => listener());
   };
@@ -226,6 +227,10 @@ export const useCursor = <K extends record.Key>(
   const enabledRef = useSyncedRef<Triggers.Condition>(
     enableTriggers ?? (hovering ? visible : true),
   );
+  // A hover lasts one open. The first arrow key of the next moves on from the choice.
+  useEffect(() => {
+    if (hovering && !visible && movedRef.current != null) place(undefined);
+  }, [hovering, visible, place]);
 
   const moveTo = (key: K, direction: location.Y): void => {
     if (selection != null) movedFromRef.current = selection.selected;
@@ -236,7 +241,7 @@ export const useCursor = <K extends record.Key>(
   const step = (key: Exclude<CursorKey, "Enter">, held: boolean): void => {
     const order = getOrder();
     if (order.length === 0) return;
-    const from = resolve(order);
+    const from = resolve(order) ?? startOf(order, -1, props.selected);
     const at = from == null ? -1 : order.indexOf(from);
     let to: K | undefined;
     if (isX(key)) {
@@ -288,6 +293,7 @@ export const useCursor = <K extends record.Key>(
     if (e.stage === "end") return release();
     const key = KEYS.find((k) => e.triggers.some((t) => t.includes(k)));
     if (key == null || (CARET_KEYS.has(key) && isInputOrContentEditable(e))) return;
+    if (inOption(e.target)) return;
     press(key);
   };
   Triggers.use({
@@ -305,13 +311,7 @@ export const useCursor = <K extends record.Key>(
     Triggers.resolveCondition(enabledRef.current);
   const keyboard: KeyboardHandlers = {
     onKeyDown: (e) => {
-      if (!answers(e)) return;
-      const menu = menuKey(e);
-      if (menu != null) {
-        e.preventDefault();
-        if (menu === "F10" && !e.repeat) openMenu();
-        return;
-      }
+      if (!answers(e) || menuKeyDown(e, openMenu)) return;
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const key = Triggers.eventKey(e);
       if (!isCursorKey(key) || (isX(key) && moveX == null)) return;
@@ -322,9 +322,7 @@ export const useCursor = <K extends record.Key>(
     },
     onKeyUp: (e) => {
       if (isCursorKey(Triggers.eventKey(e))) return release();
-      if (!answers(e) || menuKey(e) !== "ContextMenu") return;
-      e.preventDefault();
-      openMenu();
+      if (answers(e)) menuKeyUp(e, openMenu);
     },
     onBlur: release,
   };

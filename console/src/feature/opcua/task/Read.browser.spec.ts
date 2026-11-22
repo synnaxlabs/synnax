@@ -22,7 +22,6 @@ import {
   createScannedDevice,
   createVariableNode,
   dragNode,
-  preloadForms,
 } from "@/feature/opcua/testutil";
 import {
   setTestDeviceStatus,
@@ -36,6 +35,7 @@ import {
   awaitTare,
   clickFailedDeploy,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskRunning,
@@ -49,11 +49,12 @@ import {
   findIconButton,
   getLabeledInput,
   interceptFilePicker,
+  pickOption,
 } from "@/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(OPCUA.Task.FORMS);
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
@@ -146,18 +147,6 @@ const renderWithNode = async (
   });
   await root.answered;
   return { scan, draft, statuses, device };
-};
-
-// Moves the task from the device named from to the device named to.
-const selectDevice = async (from: string, to: string) => {
-  fireEvent.click(await findDialogTriggerByText(from));
-  const search = await waitFor(() => {
-    const dialog = screen.getAllByRole("dialog").at(-1);
-    if (dialog == null) throw new Error("the device list did not open");
-    return within(dialog).getByRole("textbox");
-  });
-  fireEvent.change(search, { target: { value: to } });
-  fireEvent.click(await screen.findByText(to));
 };
 
 const importCSV = async (rows: string[]) => {
@@ -573,7 +562,7 @@ describe("Read", () => {
         skipped: [],
       },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     const { args } = await search.answered;
     expect(args).toMatchObject({ device: device.key, nodeId: folder.nodeId });
     expect(args).not.toHaveProperty("connection");
@@ -628,7 +617,7 @@ describe("Read", () => {
         skipped: [],
       },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     fireEvent.click(await screen.findByRole("button", { name: "Add" }));
     await waitFor(async () =>
       expect((await retrieveChannels(draft.key)).map((ch) => ch.nodeName)).toEqual([
@@ -656,7 +645,8 @@ describe("Read", () => {
       type: OPCUA.Task.BROWSE_COMMAND_TYPE,
       data: { channels: [secondNode] },
     });
-    await selectDevice(first.device.name, second.device.name);
+    fireEvent.click(await findDialogTriggerByText(first.device.name));
+    await pickOption(second.device.name, "Search devices...");
     await secondRoot.answered;
     await screen.findByText(secondNode.name);
     expect(screen.queryByText(firstNode.name)).toBeNull();
@@ -682,7 +672,7 @@ describe("Read", () => {
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     let search: task.Command;
     try {
-      await dragNode(folder.name, held.nodeName);
+      await dragNode(folder.name, held);
       search = await awaitCommand(
         streamer,
         first.scan.key,
@@ -695,7 +685,8 @@ describe("Read", () => {
       type: OPCUA.Task.BROWSE_COMMAND_TYPE,
       data: { channels: [] },
     });
-    await selectDevice(first.device.name, second.device.name);
+    fireEvent.click(await findDialogTriggerByText(first.device.name));
+    await pickOption(second.device.name, "Search devices...");
     await secondRoot.answered;
     await answerCommand(client, first.scan, search, {
       data: {
@@ -736,7 +727,7 @@ describe("Read", () => {
       type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
       data: { channels: [], truncated: false, skipped: [] },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     await search.answered;
     await waitFor(() =>
       expect(statuses).toContainEqual(
@@ -763,7 +754,7 @@ describe("Read", () => {
         skipped: [],
       },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     await search.answered;
     await screen.findByText(`Add 1 variable from ${folder.name}?`);
     expect(
@@ -785,7 +776,7 @@ describe("Read", () => {
         skipped: ["ns=1;s=A: Access denied.", "ns=1;s=B: Access denied."],
       },
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     await search.answered;
     await screen.findByText(`Add 1 variable from ${folder.name}?`);
     expect(
@@ -804,7 +795,7 @@ describe("Read", () => {
       variant: "error",
       message: "Failed to browse",
     });
-    await dragNode(folder.name, held.nodeName);
+    await dragNode(folder.name, held);
     await search.answered;
     await waitFor(() =>
       expect(statuses).toContainEqual(
@@ -901,9 +892,9 @@ describe("Read structure members", () => {
     });
     fireEvent.click(await screen.findByText(motor.name));
     await members.answered;
-    await dragNode(`${motor.name}.Speed`, held.nodeName);
-    await dragNode(`${motor.name}.Torque`, held.nodeName);
-    await dragNode(`${motor.name}.Speed`, held.nodeName);
+    await dragNode(`${motor.name}.Speed`, held);
+    await dragNode(`${motor.name}.Torque`, held);
+    await dragNode(`${motor.name}.Speed`, held);
     await waitFor(async () => {
       const { config } = await client.tasks.retrieve({
         key: draft.key,

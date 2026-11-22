@@ -14,6 +14,7 @@ import type { ReactElement } from "react";
 import { Color } from "@/color";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { Options } from "@/schematic/node/common/options";
 import { Stale } from "@/schematic/node/common/stale";
 import { Telem } from "@/schematic/node/common/telem";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
@@ -28,7 +29,8 @@ export const Symbol = ({
   config: {
     label,
     channel,
-    options,
+    options: ownOptions,
+    enumeration,
     strokeColor,
     inlineSize,
     size,
@@ -38,6 +40,7 @@ export const Symbol = ({
 }: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
   const resolve = Color.useResolve();
   const theme = Theming.use();
+  const options = Options.use({ enumeration, options: ownOptions });
   const badged = Staleness.useBadged();
   const source = Telem.numberSource(channel);
   const { key: optKey, stale } = BaseStateIndicator.use({
