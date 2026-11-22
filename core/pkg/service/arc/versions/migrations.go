@@ -18,6 +18,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v5"
 )
 
 // NewMigrations returns the ordered migration chain for stored arcs. root is the
@@ -32,6 +33,7 @@ func NewMigrations(root uuid.UUID) []gorp.Migration {
 			v4.Migration,
 			v4.NewRootMigration(root),
 			v4.NameMigration,
+			v5.Migration,
 		},
 	)
 }

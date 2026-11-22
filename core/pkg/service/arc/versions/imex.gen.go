@@ -38,13 +38,21 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 		if err != nil {
 			return Arc{}, err
 		}
-		return t4, nil
+		t5, err := v5.MigrateArc(ctx, t4)
+		if err != nil {
+			return Arc{}, err
+		}
+		return t5, nil
 	case v4.Version:
 		t4, err := env.Decode[v4.Arc]()
 		if err != nil {
 			return Arc{}, err
 		}
-		return t4, nil
+		t5, err := v5.MigrateArc(ctx, t4)
+		if err != nil {
+			return Arc{}, err
+		}
+		return t5, nil
 	case v5.Version:
 		return env.Decode[Arc]()
 	}
@@ -58,5 +66,9 @@ func liftFirst(ctx context.Context, t3 v3.Arc) (Arc, error) {
 	if err != nil {
 		return Arc{}, err
 	}
-	return t4, nil
+	t5, err := v5.MigrateArc(ctx, t4)
+	if err != nil {
+		return Arc{}, err
+	}
+	return t5, nil
 }

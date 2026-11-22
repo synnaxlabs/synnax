@@ -25,7 +25,33 @@ import (
 	"github.com/synnaxlabs/x/testutil"
 )
 
+var (
+	fullyPopulatedBase = v5.Base{
+		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:      "test_2",
+		Source:    v5.Source{Variant: v5.TextSource{Text: text.Text{Doc: text.Document{}}}},
+		Directory: new(uuid.UUID(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+		Reads:     []channel.Key{channel.Key(8)},
+		Writes:    []channel.Key{channel.Key(9)},
+	}
+)
+
 var _ = Describe("Codec", func() {
+	Describe("Arc", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v5.Arc) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v5.Arc
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("automation variant", v5.Arc{Variant: v5.AutomationArc{Base: fullyPopulatedBase}}),
+			Entry("module variant", v5.Arc{Variant: v5.ModuleArc{Base: fullyPopulatedBase}}),
+		)
+	})
 	Describe("Base", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v5.Base) {
@@ -37,21 +63,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v5.Base{
-				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name: "test_2",
-				Source: v5.Source{Variant: v5.TextSource{
-					Text: text.Text{
-						Doc: text.Document{
-							Inserts: []crdt.Insert{{}},
-							Deletes: []crdt.Delete{{}},
-						},
-					},
-				}},
-				Directory: new(uuid.UUID(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
-				Reads:     []channel.Key{channel.Key(10)},
-				Writes:    []channel.Key{channel.Key(11)},
-			}),
+			Entry("fully populated", fullyPopulatedBase),
 			Entry("zero values", v5.Base{
 				Key:  uuid.Nil(),
 				Name: "",
@@ -80,22 +92,25 @@ var _ = Describe("Codec", func() {
 	})
 })
 
-func BenchmarkEncodeDecodeBase(b *testing.B) {
-	seed := v5.Base{
-		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name: "test_2",
-		Source: v5.Source{Variant: v5.TextSource{
-			Text: text.Text{
-				Doc: text.Document{
-					Inserts: []crdt.Insert{{}},
-					Deletes: []crdt.Delete{{}},
-				},
-			},
-		}},
-		Directory: new(uuid.UUID(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
-		Reads:     []channel.Key{channel.Key(10)},
-		Writes:    []channel.Key{channel.Key(11)},
+func BenchmarkEncodeDecodeArc(b *testing.B) {
+	seed := v5.Arc{Variant: v5.AutomationArc{Base: fullyPopulatedBase}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v5.Arc
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
 	}
+}
+
+func BenchmarkEncodeDecodeBase(b *testing.B) {
+	seed := fullyPopulatedBase
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -111,23 +126,48 @@ func BenchmarkEncodeDecodeBase(b *testing.B) {
 	}
 }
 
+func FuzzDecodeArc(f *testing.F) {
+	{
+		seed := v5.Arc{Variant: v5.AutomationArc{Base: fullyPopulatedBase}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.Arc{Variant: v5.ModuleArc{Base: fullyPopulatedBase}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v5.Arc
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v5.Arc
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeBase(f *testing.F) {
 	{
-		seed := v5.Base{
-			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name: "test_2",
-			Source: v5.Source{Variant: v5.TextSource{
-				Text: text.Text{
-					Doc: text.Document{
-						Inserts: []crdt.Insert{{}},
-						Deletes: []crdt.Delete{{}},
-					},
-				},
-			}},
-			Directory: new(uuid.UUID(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
-			Reads:     []channel.Key{channel.Key(10)},
-			Writes:    []channel.Key{channel.Key(11)},
-		}
+		seed := fullyPopulatedBase
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

@@ -12,10 +12,15 @@
 package v5
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"strconv"
 	"uuid"
 
+	"github.com/synnaxlabs/arc/program"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v2"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -101,17 +106,208 @@ const (
 type Change = v4.Change
 
 // Calculation is a calculated channel that an automation reads, compiled to a module.
-type Calculation = v4.Calculation
+type Calculation struct {
+	// Channel is the key of the calculated channel.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Program is the compiled module that computes the channel.
+	Program program.Program `json:"program" msgpack:"program"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Calculation) Validate() error {
+	v := validate.New("Calculation")
+	v.Exec(func() error { return validate.PathedError(c.Program.Validate(), "program") })
+	return v.Error()
+}
+
+// ArcVariant is implemented by every Arc variant.
+type ArcVariant interface {
+	isArcVariant()
+}
+
+// AutomationArc is an Arc that runs on a rack as a task.
+type AutomationArc struct {
+	Base
+	// Program is the compiled module output including IR and WebAssembly bytecode.
+	Program *program.Program `json:"program,omitzero" msgpack:"program,omitempty"`
+	// Changes is what changed in the automation since its task was deployed.
+	Changes []Change `json:"changes" msgpack:"changes"`
+	// Calculations are the calculated channels that the program reads, nested ones
+	// included. Dependencies come before the channels that read them.
+	Calculations []Calculation `json:"calculations" msgpack:"calculations"`
+}
+
+func (AutomationArc) isArcVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AutomationArc) SetDefaults() {
+	a.Base.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AutomationArc) Validate() error {
+	v := validate.New("AutomationArc")
+	v.Exec(a.Base.Validate)
+	if a.Program != nil {
+		v.Exec(func() error { return validate.PathedError(a.Program.Validate(), "program") })
+	}
+	for i := range a.Changes {
+		v.Exec(func() error { return validate.PathedError(a.Changes[i].Validate(), "changes", strconv.Itoa(i)) })
+	}
+	for i := range a.Calculations {
+		v.Exec(func() error {
+			return validate.PathedError(a.Calculations[i].Validate(), "calculations", strconv.Itoa(i))
+		})
+	}
+	return v.Error()
+}
+
+// ModuleArc is an Arc that holds code for other Arcs to import.
+type ModuleArc struct {
+	Base
+	// Status is the result of the module's last compile on the Core.
+	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
+}
+
+func (ModuleArc) isArcVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (m *ModuleArc) SetDefaults() {
+	m.Base.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (m ModuleArc) Validate() error {
+	v := validate.New("ModuleArc")
+	v.Exec(m.Base.Validate)
+	return v.Error()
+}
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
-type Arc = v4.Arc
+type Arc struct {
+	Variant ArcVariant
+}
 
-// ArcVariant is implemented by every Arc variant.
-type ArcVariant = v4.ArcVariant
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Arc) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case AutomationArc:
+		return json.MarshalEncode(enc, struct {
+			Type Type `json:"type"`
+			AutomationArc
+		}{Type: TypeAutomation, AutomationArc: v})
+	case ModuleArc:
+		return json.MarshalEncode(enc, struct {
+			Type Type `json:"type"`
+			ModuleArc
+		}{Type: TypeModule, ModuleArc: v})
+	default:
+		return errors.Newf("Arc: unknown variant %T", v)
+	}
+}
 
-// AutomationArc is an Arc that runs on a rack as a task.
-type AutomationArc = v4.AutomationArc
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Arc) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type Type `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case TypeAutomation:
+		var v struct {
+			Type Type `json:"type"`
+			AutomationArc
+		}
+		v.AutomationArc.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AutomationArc
+	case TypeModule:
+		var v struct {
+			Type Type `json:"type"`
+			ModuleArc
+		}
+		v.ModuleArc.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ModuleArc
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Arc: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
 
-// ModuleArc is an Arc that holds code for other Arcs to import.
-type ModuleArc = v4.ModuleArc
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Arc) Type() Type {
+	switch u.Variant.(type) {
+	case AutomationArc:
+		return TypeAutomation
+	case ModuleArc:
+		return TypeModule
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Arc) Validate() error {
+	v := validate.New("Arc")
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case AutomationArc:
+		v.Exec(variant.Validate)
+	case ModuleArc:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u Arc) Base() Base {
+	switch variant := u.Variant.(type) {
+	case AutomationArc:
+		return variant.Base
+	case ModuleArc:
+		return variant.Base
+	}
+	return Base{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *Arc) SetBase(base Base) {
+	switch variant := u.Variant.(type) {
+	case AutomationArc:
+		variant.Base = base
+		u.Variant = variant
+	case ModuleArc:
+		variant.Base = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("Arc: cannot set the base of variant %T", variant))
+	}
+}
