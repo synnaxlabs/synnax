@@ -23,8 +23,10 @@ import (
 )
 
 // retiredNames are the internal channels that the Core announced ontology and range
-// alias changes on before v63.
+// alias changes on, and stored calculation statuses in, before v63.
 var retiredNames = set.New(
+	"sy_calculation_state",
+	"sy_calculation_status",
 	"sy_ontology_resource_set",
 	"sy_ontology_resource_delete",
 	"sy_ontology_relationship_set",
