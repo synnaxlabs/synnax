@@ -4708,9 +4708,9 @@ TEST_F(TaskManagerTest, MissedChangesReadControlStateAndRackNameAgain) {
     ASSERT_NIL(writer.close());
 }
 
-/// @brief it should keep the control state mirror and end the run with no error when
-/// the read of control state after a missed marker fails, so the mirror never passes
-/// every writer and the rack starts another run.
+/// @brief it should keep the control state mirror when the read of control state
+/// after a missed marker fails, and end the run with no error when the task sync after
+/// it fails too, so the rack starts another run.
 TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
     auto index_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("missed_fail_idx"),
@@ -4772,8 +4772,8 @@ TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
         end.wait_for((10 * x::telem::SECOND).chrono()),
         std::future_status::ready
     );
-    // The run ends with no error, so the rack starts another run and the Driver
-    // keeps running.
+    // The paused pipe fails the task sync too, which ends the run with no error, so
+    // the rack starts another run and the Driver keeps running.
     ASSERT_NIL(end.get());
     ASSERT_FALSE(states->is_authorized(data_ch.key, other_sub));
     ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
@@ -4790,6 +4790,7 @@ class ScriptedControl final : public synnax::control::RetrieveClient {
     std::condition_variable cv;
     std::vector<std::pair<grpc::control::RetrieveResponse, x::errors::Error>> replies;
     int waiting = 0;
+    int reads = 0;
     bool closed = false;
 
 public:
@@ -4820,6 +4821,14 @@ public:
         });
     }
 
+    /// @returns true once n reads have started.
+    bool wait_for_reads(const int n) {
+        std::unique_lock lock(this->mu);
+        return this->cv.wait_for(lock, std::chrono::seconds(5), [&] {
+            return this->reads >= n;
+        });
+    }
+
     /// @brief fails every read from now on, so no read blocks a stop.
     void close() {
         {
@@ -4835,6 +4844,7 @@ public:
     send(const std::string &, grpc::control::RetrieveRequest &) override {
         std::unique_lock lock(this->mu);
         ++this->waiting;
+        ++this->reads;
         this->cv.notify_all();
         this->cv.wait(lock, [this] { return this->closed || !this->replies.empty(); });
         --this->waiting;
@@ -4984,6 +4994,49 @@ TEST_F(ScriptedControlTest, FailedReadOnAMissReleasesWithTheLastMirror) {
     );
 }
 
+/// @brief it should keep a transfer that the stream applies while the monitor loop's
+/// read is in flight, and ignore that read's older control state.
+TEST_F(ScriptedControlTest, TransferDuringAMonitorReadWins) {
+    const auto control_ch = ASSERT_NIL_P(
+        client->channels.retrieve(synnax::control::CHANNEL_NAME)
+    );
+    start([this] {
+        this->scripted.control->reply(
+            {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+        );
+    });
+    const auto st = this->states();
+    // The read after the miss fails, so the monitor loop reads again.
+    this->scripted.control->reply({}, freighter::UNREACHABLE);
+    miss();
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(3));
+    const x::control::Update<synnax::channel::Key> update{
+        .transfers = {{
+            .from = std::nullopt,
+            .to = x::control::State<synnax::channel::Key>{
+                .subject = OTHER,
+                .resource = BUS_KEY,
+                .authority = 220,
+            },
+        }},
+    };
+    grpc::framer::StreamerResponse transfer;
+    *transfer.mutable_frame() = x::telem::Frame(
+                                    control_ch.key,
+                                    x::telem::Series(update.to_json())
+    )
+                                    .to_proto();
+    this->scripted.stream->push(transfer);
+    ASSERT_EVENTUALLY_EQ_F([&] { return st->is_authorized(BUS_KEY, OTHER); }, true);
+    // The monitor read started before the transfer.
+    this->scripted.control->reply(
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(4));
+    ASSERT_TRUE(st->is_authorized(BUS_KEY, OTHER));
+    ASSERT_FALSE(st->is_authorized(BUS_KEY, OWNER));
+}
+
 /// @brief it should keep the last mirror in force through an outage that spans a run
 /// restart, so local frames of the writer with authority still reach the bus.
 TEST_F(ScriptedControlTest, OutageAcrossARunRestartKeepsTheLastMirror) {
@@ -5010,6 +5063,8 @@ TEST_F(ScriptedControlTest, OutageAcrossARunRestartKeepsTheLastMirror) {
     const std::vector<double> want{1, 3};
     ASSERT_EQ(got(), want);
     pipe->resume();
+    // The monitor loop may wait in a read, which close joins.
+    this->scripted.control->close();
     manager->close();
 }
 

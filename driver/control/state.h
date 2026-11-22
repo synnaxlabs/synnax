@@ -62,7 +62,8 @@ class States {
     std::vector<Held> held;
     /// @brief true once a set has replaced the mirror.
     bool known = false;
-    /// @brief counts holds, so set can ignore a read that started before a hold.
+    /// @brief counts holds and applied updates, so set can ignore a read that started
+    /// before either.
     uint64_t gen = 0;
 
     /// @brief publishes each held frame filtered against the mirror, in order, and
@@ -104,8 +105,11 @@ public:
     States(const States &) = delete;
     States &operator=(const States &) = delete;
 
-    /// @brief applies a control update directly (for testing without a streamer).
+    /// @brief applies a control update directly (for testing without a streamer). A
+    /// read that started before the update cannot replace the mirror after it.
     void apply(const x::control::Update<synnax::channel::Key> &update) {
+        std::lock_guard hold_lock(this->hold_mu);
+        ++this->gen;
         std::unique_lock lock(this->mu);
         for (const auto &transfer: update.transfers) {
             if (transfer.to.has_value()) {
@@ -129,7 +133,8 @@ public:
     /// @brief replaces the mirror with the cluster's complete control state, and opens
     /// the bus. Each frame of a hold is filtered against the new mirror and published
     /// in the order it came, before any frame that route gets after this call. A read
-    /// that started before a later hold is ignored, so it cannot end that hold.
+    /// that started before a later hold or update is ignored, so it cannot end that
+    /// hold or undo that update.
     /// @param generation the generation that the read started at.
     /// @returns false when the read was ignored.
     bool

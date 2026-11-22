@@ -451,6 +451,30 @@ TEST(StatesTest, SetIgnoresAReadThatAHoldOutdated) {
     ASSERT_EQ(published, (std::vector<double>{1}));
 }
 
+/// @brief it should ignore a read that started before an update from the stream, so
+/// the read cannot undo a newer transfer.
+TEST(StatesTest, SetIgnoresAReadThatAnUpdateOutdated) {
+    States states;
+    const auto stale = states.generation();
+    states.apply(
+        x::control::Update<synnax::channel::Key>{
+            .transfers = {{
+                .from = std::nullopt,
+                .to = x::control::State<synnax::channel::Key>{
+                    .subject = OPERATOR,
+                    .resource = 1,
+                    .authority = 200
+                },
+            }}
+        }
+    );
+    ASSERT_FALSE(
+        states.set({{.subject = ARC, .resource = 1, .authority = 200}}, stale)
+    );
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(1, ARC));
+}
+
 /// @brief it should publish nothing while closed at the start of a run, and open once
 /// the first read sets the mirror.
 TEST(StatesTest, ClosedUntilTheFirstSet) {
