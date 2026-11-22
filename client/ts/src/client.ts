@@ -567,6 +567,14 @@ export default class Synnax extends framer.Client {
    * @throws {Error} if the timeout elapses first.
    */
   async connect({ timeout }: ConnectOptions = {}): Promise<connection.Status> {
+    const { status } = this.conn;
+    // a key that failed to load may load now, for example once Synnax Desktop opens
+    if (
+      status.variant === "error" &&
+      status.details.reason === "auth" &&
+      this.auth.apiKeyLoadable
+    )
+      this.conn.notify({ type: "credentials.replaced" });
     return await this.conn.connect(timeout);
   }
 

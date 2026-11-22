@@ -315,8 +315,8 @@ export interface Authority {
   oidc?: OIDCCredentials;
   /**
    * Loads an API key to log in with when the authority gives no other proof. Runs on
-   * each login until one succeeds. A rejection fails the login with a
-   * MissingCredentialsError.
+   * each login until a load succeeds, and again after the Core rejects the key. A
+   * rejection fails the login with a MissingCredentialsError.
    */
   loadAPIKey?: () => Promise<string>;
   /** The token of an earlier login to resume. */
@@ -397,6 +397,11 @@ export class Client {
 
   get authenticated(): boolean {
     return this.authState.authenticated;
+  }
+
+  /** Whether the next login can load an API key, so a failed login may work later. */
+  get apiKeyLoadable(): boolean {
+    return this.loadAPIKey != null;
   }
 
   /** The session the client holds, once logged in. */
@@ -709,7 +714,6 @@ export class Client {
         }
         if (generation !== this.generation) return null;
         this.apiKey = key;
-        this.loadAPIKey = undefined;
       }
       const proof = this.proof();
       if (proof != null) {
@@ -760,6 +764,8 @@ export class Client {
         // the Core spent or refused the code; a Core that was not reached did neither
         this.oidc = undefined;
         this.resumeToken = undefined;
+        // the next login loads a key again
+        if (this.loadAPIKey != null) this.apiKey = undefined;
         this.observer.onFailure?.(parsed);
       }
       return parsed;

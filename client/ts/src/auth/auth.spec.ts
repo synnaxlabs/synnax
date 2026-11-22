@@ -1116,6 +1116,27 @@ describe("auth", () => {
       expect(loadAPIKey).toHaveBeenCalledTimes(2);
     });
 
+    it("should load the key again after the Core rejects it", async () => {
+      const unary: UnaryClient = {
+        use: () => {},
+        send: async () => {
+          throw new InvalidCredentialsError("invalid API key");
+        },
+      };
+      const loadAPIKey = vi
+        .fn<() => Promise<string>>()
+        .mockResolvedValueOnce("syk_old")
+        .mockResolvedValue("syk_new");
+      const mw = new auth.Client(unary, { loadAPIKey }).middleware();
+      await expect(mw(DUMMY_CTX, async () => DUMMY_CTX)).rejects.toThrow(
+        InvalidCredentialsError,
+      );
+      await expect(mw(DUMMY_CTX, async () => DUMMY_CTX)).rejects.toThrow(
+        InvalidCredentialsError,
+      );
+      expect(loadAPIKey).toHaveBeenCalledTimes(2);
+    });
+
     it("should fail the login with the error of a load", async () => {
       const keyed = makeClient({
         loadAPIKey: async () => {

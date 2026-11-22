@@ -305,6 +305,8 @@ export class Client implements Handle {
   /** Folds an outside fact into the connection status. */
   notify(event: FactEvent): void {
     const wasDenied = this.current.details.streamDenied;
+    const prev = this.current;
+    const wasParked = prev.variant === "error" && !isSelfHealing(prev.details.reason);
     this.dispatch(event);
     if (event.type === "stream.denied") {
       this.probeCountdown = this.deniedStreamProbeAfter;
@@ -316,7 +318,11 @@ export class Client implements Handle {
     }
     // a reopened stream may lead to a replaced cluster, and new credentials
     // deserve an immediate verdict: both check right away
-    if (event.type === "stream.live" || event.type === "credentials.replaced")
+    if (
+      event.type === "stream.live" ||
+      event.type === "credentials.replaced" ||
+      (event.type === "auth.success" && wasParked)
+    )
       this.wake();
   }
 

@@ -668,6 +668,18 @@ describe("connection", () => {
       expect(reasonOf(replaced)).toBeUndefined();
     });
 
+    it("should come back up when a login succeeds after an auth failure", () => {
+      const status = apply(
+        createConfig(),
+        { type: "auth.failure", error: new AuthError("no key") },
+        { type: "auth.success", session: "a" },
+      );
+      expect(status.variant).toEqual("loading");
+      expect(reasonOf(status)).toBeUndefined();
+      expect(status.details.error).toBeUndefined();
+      expect(status.details.session).toEqual("a");
+    });
+
     it("should store the session key on auth success", () => {
       const status = apply(createConfig(), { type: "auth.success", session: "a" });
       expect(status.details.authenticated).toBe(true);
