@@ -456,7 +456,16 @@ export class Client extends query.Retriever<
       request: {
         list: { cursor, compare: compareCursors },
         schema: retrieveParamsZ,
-        fetch: async (query) => await this.fetchRequest(query),
+        // A list that checks the internal line decides its records itself once the
+        // built-in keys arrive, so its fetch starts theirs and does not wait for it.
+        fetch: async (query) => {
+          if (
+            serverComputed(lines, query.where) &&
+            !serverComputed(lasting, query.where)
+          )
+            void builtIns.retrieve();
+          return await this.fetchRequest(query);
+        },
         // A channel whose uses the client does not hold fetches the query again, as
         // does one that an internal line checks before the built-in keys arrive.
         matches: (ch, query) =>

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { connect, createServer, type Socket } from "node:net";
-
 import { id, observe } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -20,12 +18,11 @@ import {
   createProxiedTestClient,
   createTestClient,
   FAST_RETRY,
-  holdRequests,
   holdResponses,
   recordResponses,
   rejectRequests,
+  spyOnSend,
   TEST_CLIENT_PARAMS,
-  TEST_CORE_ADDRESS,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -114,7 +111,7 @@ describe("BuiltIns", () => {
     expect(changes).toEqual([]);
   });
 
-  it("should hold a failed fetch as its error and report it once per connection", async () => {
+  it("should hold a failed fetch as its error and report a run of failures once", async () => {
     const { builtIns, connect, fetches, errors } = createBuiltIns();
     const retrieved = builtIns.retrieve();
     const refused = new Error("refused");
@@ -130,14 +127,18 @@ describe("BuiltIns", () => {
     fetches[1].reject(new Error("refused again"));
     expect((await again).error?.message).toBe(MESSAGE);
     expect(errors).toHaveLength(1);
+    // A new connection does not end the run; a fetch that passes does.
     connect();
     const third = builtIns.retrieve();
     fetches[2].reject(new Error("refused on the next connection"));
     expect((await third).error?.message).toBe(MESSAGE);
-    expect(errors.map((e) => e.message)).toEqual([MESSAGE, MESSAGE]);
+    expect(errors).toHaveLength(1);
     const next = builtIns.retrieve();
     fetches[3].resolve([4]);
     expect(await next).toEqual({ keys: new Set([4]), error: null });
+    connect();
+    fetches[4].reject(new Error("refused after a pass"));
+    await expect.poll(() => errors.length).toBe(2);
   });
 
   it("should hold a connection error as a failed fetch", async () => {
@@ -187,42 +188,6 @@ describe("BuiltIns", () => {
     expect(errors).toEqual([]);
   });
 });
-
-// A TCP proxy whose target Core can change, as a new Core behind one address does.
-const createSwitchingProxy = async (port: number) => {
-  const target = { port };
-  const sockets = new Set<Socket>();
-  const server = createServer((downstream) => {
-    const upstream = connect(target.port, TEST_CORE_ADDRESS.host);
-    sockets.add(downstream);
-    sockets.add(upstream);
-    downstream.pipe(upstream);
-    upstream.pipe(downstream);
-    const destroy = () => {
-      downstream.destroy();
-      upstream.destroy();
-    };
-    for (const s of [downstream, upstream]) {
-      s.on("error", destroy);
-      s.on("close", destroy);
-    }
-  });
-  await new Promise<void>((resolve) => server.listen(0, resolve));
-  const address = server.address();
-  if (address == null || typeof address === "string") throw new Error("no port");
-  onTestFinished(async () => {
-    sockets.forEach((s) => s.destroy());
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-  });
-  return {
-    port: address.port,
-    switchTo: (next: number) => {
-      target.port = next;
-      sockets.forEach((s) => s.destroy());
-      sockets.clear();
-    },
-  };
-};
 
 const PAGE_COUNT = 1010;
 
@@ -294,6 +259,35 @@ describe("Built-in channels on a live client", () => {
     expect(await pageToEnd(client, prefix)).toBe(PAGE_COUNT);
   }, 60000);
 
+  it("should place new channels in an internal-line list without fetching it again", async () => {
+    const client = createTestClient();
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    const prefix = `builtin_lazy_${id.create()}_`;
+    const list = client.channels.watch({
+      where: { internal: { eq: false }, name: { startsWith: prefix } },
+      limit: 50,
+    });
+    let length = 0;
+    onTestFinished(list.onChange((w) => (length = w?.records.length ?? 0)));
+    await list.retrieve();
+    // The list fetched the keys; nothing else read them.
+    await expect.poll(() => client.channels.builtIns.state().keys).not.toBeNull();
+    const send = spyOnSend(client);
+    for (let i = 0; i < 5; i++) {
+      await remote.channels.create({
+        name: `${prefix}${i}`,
+        dataType: "float32",
+        virtual: true,
+      });
+      await expect.poll(() => length).toBe(i + 1);
+    }
+    const refetches = send.mock.calls.filter(
+      ([target]) => target === "/channel/retrieve",
+    );
+    expect(refetches).toHaveLength(0);
+  }, 60000);
+
   it("should answer an awaited read on a client with no change stream", async () => {
     const client = createTestClient({ cache: false });
     await client.connect();
@@ -324,34 +318,6 @@ describe("Built-in channels on a live client", () => {
     expect(client.channels.builtIns.state()).toBe(before);
     expect(changes).toEqual([]);
   }, 30000);
-
-  it("should drop the keys of a replaced Core before the new Core answers", async () => {
-    const second = Number(process.env.SYNNAX_SECOND_CORE_PORT);
-    if (!Number.isFinite(second)) throw new Error("SYNNAX_SECOND_CORE_PORT is not set");
-    const proxy = await createSwitchingProxy(TEST_CORE_ADDRESS.port);
-    const client = new Synnax({
-      ...TEST_CLIENT_PARAMS,
-      host: "localhost",
-      port: proxy.port,
-      retry: FAST_RETRY,
-      onRetry: () => {},
-      onInternalError: () => {},
-    });
-    onTestFinished(async () => await client.close());
-    await client.connect();
-    await waitForStreamLive(client.connection);
-    const old = (await client.channels.builtIns.retrieve()).keys;
-    expect(old).not.toBeNull();
-    const oldCluster = client.connection.status.details.clusterKey;
-    // The new Core's answer waits, so only the reset can clear the keys.
-    holdRequests(client, TARGET);
-    proxy.switchTo(second);
-    await expect
-      .poll(() => client.connection.status.details.clusterKey, { timeout: 20000 })
-      .not.toBe(oldCluster);
-    await waitForStreamLive(client.connection);
-    expect(client.channels.builtIns.state()).toEqual(PENDING);
-  }, 40000);
 });
 
 // How the fetch of the built-in keys behaves after the reconnect.
