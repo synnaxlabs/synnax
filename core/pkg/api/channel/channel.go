@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"maps"
 	"slices"
 	"strconv"
 
@@ -384,7 +383,7 @@ func (s *Service) retrieve(
 	req RetrieveRequest,
 ) ([]channel.Channel, error) {
 	if req.Where != nil && hasVirtual(*req.Where) {
-		outputs, err := s.shownOutputs(ctx, snap)
+		outputs, err := s.outputs(ctx, snap)
 		if err != nil {
 			return nil, err
 		}
@@ -411,9 +410,10 @@ func (s *Service) retrieve(
 	return res, nil
 }
 
-// shownOutputs returns the output of every calculation that the subject of snap can
-// read in full. It decodes each record, since the check reads the record's links.
-func (s *Service) shownOutputs(
+// outputs returns the output of every calculation, whether or not the subject of snap
+// can retrieve the calculation. A channel that the subject cannot retrieve stays out of
+// a retrieve through the channel access filter.
+func (s *Service) outputs(
 	ctx context.Context,
 	snap bind.Snapshot,
 ) ([]channel.Key, error) {
@@ -421,12 +421,9 @@ func (s *Service) shownOutputs(
 	if err := s.calculations.NewRetrieve().Entries(&calcs).Exec(ctx, snap); err != nil {
 		return nil, err
 	}
-	byOutput := make(map[channel.Key]calculation.Calculation, len(calcs))
-	for _, c := range calcs {
-		byOutput[c.Output] = c
-	}
-	shown, err := s.shown(byOutput, allowedIn(snap))
-	return slices.Collect(maps.Keys(shown)), err
+	return lo.Map(calcs, func(c calculation.Calculation, _ int) channel.Key {
+		return c.Output
+	}), nil
 }
 
 // hasVirtual reports whether w or a child of w filters on virtual.
