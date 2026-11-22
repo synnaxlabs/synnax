@@ -19,14 +19,17 @@ record binds a color by position, and a node holds no copy of a state color.
 
 ## 1 Motivation
 
+The line citations in this section are to the `core/v0.61.0` tag.
+
 - **State colors are copies**: Each `select`, `state_indicator`, `light`, and custom
-  symbol state keeps its own colors (`schemas/synnax/schematic.oracle:333-349`, `:535`;
-  `schemas/synnax/symbol.oracle:24-63`). A new fault red is an edit to every symbol.
+  symbol state keeps its own colors (`schemas/synnax/schematic.oracle:301-317`,
+  `:475-480`; `schemas/synnax/symbol.oracle:24-63`). A new fault red is an edit to every
+  symbol.
 - **A pick stores paint**: A click on a picker preset stores a literal, also for a theme
   preset (`lyra/src/color/Swatches.tsx:50-56`, `:121`).
 - **Plot colors follow position**: A line with no color takes `palette[index % length]`
   (`pluto/src/lineplot/queries.ts:105-114`), so a removed line repaints the lines after
-  it. Both themes share one 14-color list (`lyra/src/theme/theme.ts:250-265`), and 10 of
+  it. Both themes share one 14-color list (`lyra/src/theme/theme.ts:254-269`), and 10 of
   the 14 are under 3:1 contrast on the light canvas.
 
 ## 2 Vocabulary
@@ -81,7 +84,7 @@ edited when it differs from the value that Synnax ships. A release that ships a 
 value adds a migration (`gorp/migrate.go`) that writes the new value only where the
 stored value equals the old one, so an edit stays. "Restore default" writes the shipped
 values. A built-in cannot be deleted, as a built-in role cannot
-(`core/pkg/service/access/rbac/role/writer.go:101-112`). A built-in is named by what it
+(`core/pkg/service/access/rbac/role/writer.go:101-111`). A built-in is named by what it
 does ("Breaker, red closed"), never by a standard.
 
 The Console's own look keeps the Lyra theme, so an edit to the built-in "Error" never
@@ -95,13 +98,13 @@ color (control, gauge, scale, redline, picker presets) reads the series colors.
 its `value` field), in every field that takes a color. Both live in
 `schemas/synnax/color.oracle`, beside the value type in `schemas/x/color.oracle`.
 `client/py/synnax/color` re-exports each public name of `x.color`, so `sy.color`
-(`client/py/synnax/__init__.py:125`) keeps working. A delete of a named color that is
-not a built-in is never refused. The `named` key declares `@ref on_delete inline` once,
+(`client/py/synnax/__init__.py:50`) keeps working. A delete of a named color that is not
+a built-in is never refused. The `named` key declares `@ref on_delete inline` once,
 inside the union. Before Gorp removes the color, a generated function for each reference
 sets each union that names it to `target.Inline()`, a hand-written method on
 `color.Named` that returns the `fixed` variant. Each holder's service sends the
 rewritten record to open Consoles from its rewrite hook, as line plots do for a detached
-channel (`core/pkg/service/lineplot/service.go:107-113`). "Replace with..." for
+channel (`core/pkg/service/lineplot/service.go:125-129`). "Replace with..." for
 enumerations uses the same hook.
 
 ### 4.2 Enumerations
@@ -118,7 +121,7 @@ each state binding on a node an optional `enumeration` that replaces it. `select
 `enumeration`. Each of these fields uses `@ref on_delete restrict`. A node draws its own
 `enumeration`, then its default: the symbol's default enumeration, or the `options` of a
 `select` or `state_indicator`. The delete dialog lists the users from
-`resource.Dependents` (`core/pkg/service/resource/resource.go:59-74`) and offers
+`resource.Dependents` (`core/pkg/service/resource/resource.go:59-68`) and offers
 "Replace with...", which moves every user to another enumeration and then deletes. A
 built-in enumeration cannot be deleted, so a default enumeration that only a Pluto file
 names always exists.
@@ -204,7 +207,7 @@ The schematic cutover ships in one release:
   21 calls it to give each `select` and `state_indicator` that has no `enumeration` an
   `enumeration` key for its `options`. A node that already has one keeps it. Phase 21
   removes `options` from every node, and an empty list gets no enumeration. The RFC 0114
-  phase 2 node migration, which merges after phase 21, calls the function to give a
+  phase 4 node migration, which merges after phase 21, calls the function to give a
   state binding an `enumeration` key when its node had its own non-empty state list, an
   `on_color`, or `state_overrides` that change the entry colors, and removes those
   fields.
@@ -217,9 +220,8 @@ The schematic cutover ships in one release:
   values sets the entry colors. Each stroke or fill whose colors equal the entries at
   every value where it is set becomes one `entry` look, with a `when` for those values.
   Every other stroke or fill keeps its `color` looks, so no stored symbol changes its
-  look. Every symbol import, alone or in a group, applies the same rewrite to an old
-  symbol file, and makes and reuses enumerations by the rule and access of the schematic
-  import below.
+  look. A symbol import of an old file, alone or in a group, keeps each region color as
+  a `color` look on its value and makes no enumeration.
 - In a node's `state_overrides`, the override of the stroke or fill that sets the
   symbol's entry colors sets the colors of the node's enumeration. When any stroke or
   fill would then show a color other than its override, such as a second `entry` look
@@ -244,7 +246,7 @@ The line plot migration stores the color that each uncolored line and rule shows
 as `fixed`. The old 14 colors are frozen in the migration's version package. Each other
 record that moves to `color.Ref` (phases 23 to 28) mints a version (RFC 0053) that
 stores each old color as `fixed`, and its hand-written client code writes the union
-(`client/py/synnax/ranger/client.py:831`, `client/py/synnax/label/client.py:93`).
+(`client/py/synnax/ranger/client.py:850`, `client/py/synnax/label/client.py:96`).
 
 ### 4.7 Creating and editing in place
 
@@ -269,11 +271,11 @@ PRs #4260 (color v2), #5621 (configs on nodes, group membership as `Node.parent`
 #5625 (WCAG contrast), #5626 (custom strokes through the band), #5627 (table cells in
 rows), and #5632 (`on_delete inline` in Oracle) are merged.
 
-Phases 9, 16, and 20, and the node picker of RFC 0114 phase 2, ship without a flag.
-Phase 21 and RFC 0114 phase 2 come after phases 16 and 20, so the Console never loses a
+Phases 9, 16, and 20, and the node picker of RFC 0114 phase 4, ship without a flag.
+Phase 21 and RFC 0114 phase 4 come after phases 16 and 20, so the Console never loses a
 way to edit states. Phases 10 and 11 ship in one release, and phase 21 in one release
-with RFC 0114 phase 2. RFC 0114 phase 1 needs phases 13 to 15. Besides phase 20, phase
-21 needs RFC 0114 phase 1, which adds the function that it calls. RFC 0114 phase 2 needs
+with RFC 0114 phase 4. RFC 0114 phase 1 needs phases 13 to 15. Besides phase 20, phase
+21 needs RFC 0114 phase 1, which adds the function that it calls. RFC 0114 phase 4 needs
 phase 22.
 
 | Phase | Scope                                                      | Touches                                                                                                                                | Depends on     |
@@ -310,18 +312,18 @@ phase 22.
 
 Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 mints a
 schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
-`staleness_color` and its color path in `pluto/src/vis`. Before RFC 0114 phase 2, only a
+`staleness_color` and its color path in `pluto/src/vis`. Before RFC 0114 phase 4, only a
 `select` or `state_indicator` can match no entry. Phase 19 adds the `enumeration` field
 to `select` and `state_indicator`. Phase 21 fills the field, and RFC 0114 phase 1 adds
 it to symbol states. Phase 20 adds the enumeration picker to the Pluto forms of `select`
 and `state_indicator`, where a user also creates an enumeration and edits the one a
 symbol holds, and Pluto draws each by the order of §4.2. The picker leaves `options` as
-they are, so clearing the picker goes back to them until phase 21. RFC 0114 phase 2 adds
-the picker to node state bindings, and RFC 0114 phase 4 to custom symbol states. RFC
+they are, so clearing the picker goes back to them until phase 21. RFC 0114 phase 4 adds
+the picker to node state bindings, and RFC 0114 phase 6 to custom symbol states. RFC
 0114 phase 1 stores a `color.Ref` in custom symbol looks from the start, and RFC 0114
-phase 2 in the `color` of a `symbol` node, which the schematic multi-edit panel edits
+phase 4 in the `color` of a `symbol` node, which the schematic multi-edit panel edits
 through phase 22. Phase 23 covers the variants that keep their own colors (RFC 0114
-§4.0). In phase 27, the Driver writes range colors (`driver/arc/ranges/ranges.h:46-52`)
+§4.0). In phase 27, the Driver writes range colors (`driver/arc/ranges/ranges.h:49-59`)
 as `fixed`.
 
 ## 7 Resolved decisions
@@ -330,7 +332,7 @@ as `fixed`.
    each enumeration adds a third record and a map that follows every entry edit. The
    trade is real: two conventions for one set of states need two enumerations.
 2. **A required light value and an optional dark value**: The band cannot rotate hue;
-   yellow goes olive when only darkened (`lyra/src/theme/theme.ts:189-190`). The trade
+   yellow goes olive when only darkened (`lyra/src/theme/theme.ts:214-217`). The trade
    is real: a dark value deviates from RFC 0061 rule 4.
 3. **A node stores no look and no state color**: A per-state or per-look override brings
    the copies back.

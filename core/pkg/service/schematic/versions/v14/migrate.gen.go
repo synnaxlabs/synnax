@@ -592,16 +592,14 @@ func autoMigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig,
 		}}, nil
 	case v13.CustomActuatorNodeConfig:
 		return NodeConfig{Variant: CustomActuatorNodeConfig{
-			ToggleConfig:   variant.ToggleConfig,
-			SpecKey:        variant.SpecKey,
-			StateOverrides: variant.StateOverrides,
+			ToggleConfig: variant.ToggleConfig,
+			SpecKey:      variant.SpecKey,
 		}}, nil
 	case v13.CustomStaticNodeConfig:
 		return NodeConfig{Variant: CustomStaticNodeConfig{
-			LabeledConfig:  variant.LabeledConfig,
-			ScaledConfig:   variant.ScaledConfig,
-			SpecKey:        variant.SpecKey,
-			StateOverrides: variant.StateOverrides,
+			LabeledConfig: variant.LabeledConfig,
+			ScaledConfig:  variant.ScaledConfig,
+			SpecKey:       variant.SpecKey,
 		}}, nil
 	case v13.GroupBoxNodeConfig:
 		return NodeConfig{Variant: GroupBoxNodeConfig{

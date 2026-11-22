@@ -132,6 +132,8 @@ export interface RenderModalOpenerOptions extends Pick<RenderOptions, "onCaughtE
   analytics?: Analytics.Sink;
   /** Extra siblings rendered alongside the modal stack, e.g. CaptureStatuses. */
   extra?: ReactNode;
+  /** Wraps the hook but not the modal stack, such as a context that the hook reads. */
+  provider?: FC<PropsWithChildren>;
 }
 
 export interface ModalOpenerHandle<R> {
@@ -163,6 +165,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
     onCaughtError,
     analytics = Analytics.NOOP,
     extra,
+    provider: HookProvider,
   } = options;
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
@@ -174,7 +177,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
     <Console>
       <Analytics.Provider sink={analytics}>
         <Triggers.Provider>
-          {children}
+          {HookProvider == null ? children : <HookProvider>{children}</HookProvider>}
           <Modals.Stack />
           {extra}
         </Triggers.Provider>

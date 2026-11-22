@@ -100,6 +100,8 @@ a color picker has no "+".
   give it the line width (`--line-width`), so the cut ends get round caps.
 - The modifier sits at top right: 9 units wide, centered at (17.5, 6.5), with a 2.5-unit
   stem (2 on a line base). The base scales to 0.9 from its bottom-left corner.
+- An eye modifier is 11 units wide, centered in an 11-unit square at top right. It is
+  wider than it is tall, so at 9 units it reads too small.
 - Cut the base 1.75 units clear of the modifier, with no backing disc. Cut with the
   modifier's box, with a circle on a round base, or with the modifier's outline when a
   box removes a small detail. A cut line keeps its round caps. Remove slivers.
@@ -344,12 +346,14 @@ bound, a log precision, or the line plot X channel.
 ### Overflow
 
 - Cut text fades at its end (`Text` with `overflow="fade"`) everywhere: trees, tabs,
-  selects, tags, toasts, table cells, and titles. No "…" and no cut in the middle. Text
-  with `lineClamp` fades the end of its last line. A cut input value fades until the
-  input takes focus.
+  selects, tags, toasts, table cells, and titles. No "…" and no cut in the middle. A cut
+  input value fades until the input takes focus.
+- Text cut after two or more lines (`lineClamp`) ends with "…" after its last whole
+  word. Browsers cut a clamped line at a word, so a fade at the edge of the box misses
+  the text. A word wider than the box breaks, so it wraps.
 - A cut name shows its full text in a tooltip on hover, only when it is cut.
-  `Tooltip.Overflow`, mounted once, does this for every `overflow="fade"` label. An
-  element's own tooltip wins over it.
+  `Tooltip.Overflow`, mounted once, does this for every `overflow="fade"` or `lineClamp`
+  label. An element's own tooltip wins over it.
 - A name under edit stays inside its box and scrolls to the caret, with no fade.
 - Prose wraps with `overflow-wrap: anywhere` and is never cut: modal text, toasts,
   confirmations, errors, and tooltips.
@@ -460,6 +464,10 @@ bound, a log precision, or the line plot X channel.
   opens its picker as a submenu. A chip opens the same picker below the chip.
 - Values have 4 px corners. A picked value tints, with no checkbox, and picked values
   next to each other join into one highlight.
+- A context menu acts on the item that the user clicked, with no headings. On a plot, a
+  range name has the range actions, and a channel or a line has the channel actions.
+  Rejected: a range group and a channel group under headings in one menu. Each heading
+  style read as an item or as a disabled item.
 - A divider separates groups of actions, never single items. Delete and Reload Console
   are the exception: each one is a group of its own, as in every Console menu.
 - A resource has one context menu on every surface that shows it. Ranges use the same
@@ -755,6 +763,8 @@ bound, a log precision, or the line plot X channel.
 - Create in place when every field you set is a column, such as a label or a secret. The
   create item opens at the top with check and X buttons, and Enter and Esc. It stays
   open and empty after each create, and the new item fades in under it.
+- A record whose next step is to fill in its children, such as an enumeration, closes
+  the create item and opens with its add button focused.
 - Use a modal when the item needs a field the list does not show, such as a user's
   password, or when the create returns a value to copy, such as an API key's token.
 - A record table names its columns in a band above the items. Explorers have no
@@ -842,6 +852,10 @@ bound, a log precision, or the line plot X channel.
 - Esc puts back the value the cell held when it took focus. A second Esc leaves the
   cell. Esc never commits typed text.
 - A cell with an error has a red frame, and its message shows on hover.
+- In a column whose values must differ, a value that another item has stays in its cell,
+  marked and not sent. It saves when the user's own edit frees it. When another user
+  frees it, the cell shows the stored value again. A pasted item with such a value saves
+  with a free value, and its cell shows the value it repeats, marked.
 - Paste keeps the values that parse. A cell whose text does not parse keeps its value
   and shows the error until an edit. A first row in which no number or boolean parses is
   a heading, and paste drops it. A single value pasted into a text cell goes to that
@@ -977,19 +991,35 @@ says why in a sentence, then gives the raw error.
   above and below. A 1 px line with no space was too heavy.
 - In relative time, each range name sits above its channels. The range name is weight
   500 in gray l10, and a channel is weight 400 in gray l9. Only the range has a swatch.
-  Each channel starts with its axis ("Y1") under the swatch, in the style of the axis
-  names of the absolute legend and the Data tab: weight 500 in gray l9. Rejected: a
-  swatch on each channel (one color again and again), a guide or bar in the range color,
-  an axis at the end of the channel, and an axis icon (a small box at text size).
+  When the lines use more than one axis, each channel starts with its axis ("Y1") under
+  the swatch, in the style of the axis names of the absolute legend and the Data tab:
+  weight 500 in gray l9. With one axis, the label adds nothing. Rejected: a swatch on
+  each channel (one color again and again), a guide or bar in the range color, an axis
+  at the end of the channel, and an axis icon (a small box at text size).
+- A range name wraps to a second line, then is cut. A channel name stays on one line and
+  fades. Each name is at most 40rem wide. The swatch, the T0 badge, and the eye stay on
+  the first line, 3 px or more after the name. A wrapped name keeps the full width of
+  its box, because CSS cannot shrink it to its longest line. Rejected: JS that measures
+  the lines (the legend lays out in CSS only), and range names on one line, which hides
+  the end of a long name, where names often differ.
 - The eyes take no room at rest. On hover the legend grows to the right as they fade in,
   so no text moves.
 - Option or Alt click on an eye shows only that item, and a second one restores what was
   hidden before. A channel hidden in all ranges shows again only in the range whose eye
-  the user clicks. When an item is hidden, the legend ends with "Show all (N hidden)". A
-  rolling window is named as its saved range is, such as "Rolling 5min".
+  the user clicks. A rolling window is named as its saved range is, such as "Rolling
+  5min".
+- A range's T0 badge sits at the right edge, before its eye, so the badges of all ranges
+  line up.
+- Show all is a plot menu item, shown when an item is hidden. Rejected: a "Show all (N
+  hidden)" button at the end of the legend, which took a line for an action the menu
+  already has.
 
 ### Plot hover and tooltip
 
+- A name in the plot tooltip stays on one line, at most 40rem wide as in the legend, and
+  fades. A name has the color of its swatch in the legend. Rejected: two lines, which
+  double the height because each range repeats under every channel, a cut in the middle,
+  and 24rem, which cut common channel names after about 20 characters.
 - The pointer on a legend entry draws its lines twice as wide and on top. The other
   lines draw at 25 percent over the background: the other ranges in relative time, and
   the other channels in absolute time. The pointer on a line of the plot only makes its

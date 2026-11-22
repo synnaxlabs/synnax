@@ -23,6 +23,7 @@ import {
   type destructor,
   direction,
   location,
+  sync,
   xy,
   zod,
 } from "@synnaxlabs/x";
@@ -141,11 +142,6 @@ export interface LineSpec {
 /** Ref handle exposed by Frame for imperative access */
 export interface FrameRef {
   /**
-   * Returns the current bounds for all axes. On a relative x axis the x bounds are
-   * spans from zero, not timestamps.
-   */
-  getBounds: () => Promise<lineplot.AxesBounds>;
-  /**
    * Returns, for each x axis, the values that a span of decimal positions across the
    * home view holds. On a relative x axis the values are spans from zero.
    */
@@ -214,7 +210,7 @@ export interface FrameProps
    * Called when the number of open or of closed breaks of x1 changes. It counts them
    * while they are hidden too.
    */
-  onBreaksChange?: (breaks: lineplot.BreakCounts) => void;
+  onBreakCountsChange?: (breaks: lineplot.BreakCounts) => void;
   /** The open breaks of x1 when the plot mounts, as the lower bounds of their gaps. */
   initialOpenBreaks?: number[];
   /** Called after each change of the open breaks. */
@@ -236,7 +232,7 @@ export const Frame = ({
   viewportRef,
   onZoomedChange,
   onViewportChange,
-  onBreaksChange,
+  onBreakCountsChange,
   initialOpenBreaks = [],
   onOpenBreaksChange,
   ...rest
@@ -260,7 +256,7 @@ export const Frame = ({
     methods: lineplot.linePlotMethodsZ,
     onAetherChange: ({ breaks: next }) => {
       const { open, closed } = state.breaks;
-      if (next.open !== open || next.closed !== closed) onBreaksChange?.(next);
+      if (next.open !== open || next.closed !== closed) onBreakCountsChange?.(next);
     },
   });
   const { grid, loading, fetching, breaks, openBreaks } = state;
@@ -312,14 +308,13 @@ export const Frame = ({
 
   const handleError = Status.useErrorHandler();
   const handleAsyncError = Status.useAsyncErrorHandler();
-  // Hidden breaks count for onBreaksChange only, as a click or a drag cannot meet them.
+  // Hidden breaks count only for onBreakCountsChange: no click or drag meets them.
   const shownBreaksRef = useSyncedRef(breaksHidden ? NO_BREAKS : breaks);
   const openBreaksRef = useSyncedRef(openBreaks);
   // The selection the plot last reported, so a break change can map it.
   const selectionRef = useRef<box.Box>(box.ZERO);
   // Break changes run one at a time, so each starts from the open breaks of the last.
-  const breaksQueueRef = useRef<Promise<unknown>>(Promise.resolve());
-  const pendingBreaksRef = useRef(0);
+  const [breaksMu] = useState(() => sync.createMutex({}));
 
   // applyBreaks applies a break action and maps the zoom history and the selection
   // through time, and the view too when moveView is set. It resolves to false when the
@@ -327,14 +322,8 @@ export const Frame = ({
   const applyBreaks = (
     action: lineplot.BreakAction,
     moveView: boolean,
-  ): Promise<boolean> => {
-    pendingBreaksRef.current++;
-    const run = breaksQueueRef.current
-      .then(async () => await changeBreaks(action, moveView))
-      .finally(() => pendingBreaksRef.current--);
-    breaksQueueRef.current = run.catch(() => undefined);
-    return run;
-  };
+  ): Promise<boolean> =>
+    breaksMu.runExclusive(async () => await changeBreaks(action, moveView));
 
   // requestBreaks asks the plot for the change of an action. A view set while the
   // change loads maps again to the same open breaks.
@@ -394,7 +383,7 @@ export const Frame = ({
 
   const closeBreaks = () => {
     // A change in flight can open a break, so the close waits for it.
-    if (openBreaksRef.current.length === 0 && pendingBreaksRef.current === 0) return;
+    if (openBreaksRef.current.length === 0 && !breaksMu.isLocked()) return;
     handleError(async () => {
       await applyBreaks({ variant: "all", open: false }, false);
     }, "Failed to close breaks");
@@ -496,13 +485,12 @@ export const Frame = ({
   useImperativeHandle(
     ref,
     () => ({
-      getBounds: methods.getBounds,
       getXBounds: methods.getXBounds,
       getXPositions: methods.getXPositions,
       toggleZoom: (key, x) => toggleZoomRef.current(key, x),
       setAllBreaks: (open) => setAllBreaksRef.current(open),
     }),
-    [methods.getBounds, methods.getXBounds, methods.getXPositions],
+    [methods.getXBounds, methods.getXPositions],
   );
 
   const id = `line-plot-${aetherKey}`;

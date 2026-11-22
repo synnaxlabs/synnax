@@ -21,11 +21,13 @@ from review import (
     Fix,
     Review,
     Target,
+    authority,
     gh as call_gh,
     outside_findings,
     parse,
     post,
     render,
+    replies,
     reviewed,
 )
 
@@ -128,8 +130,8 @@ class FakeGH:
             return lines(self.runs)
         if path == f"repos/{REPO}/issues/7/comments":
             return lines(self.comments)
-        if path == f"repos/{REPO}/collaborators/member/permission":
-            return "write\n"
+        if path.startswith(f"repos/{REPO}/collaborators/"):
+            return ("write" if path.endswith("/member/permission") else "read") + "\n"
         if path == f"repos/{REPO}/commits/head":
             return MESSAGE + "\n"
         if path == f"repos/{REPO}/pulls/7":
@@ -625,6 +627,33 @@ class TestReviewed:
     def test_should_skip_an_edit_by_another_author(self, gh: FakeGH) -> None:
         gh.edits = [summary_edit("a" * 40, login="pat"), {"editor": None, "diff": None}]
         assert reviewed(TARGET, gh) == []
+
+
+def conversation(id: int, body: str, login: str, kind: str = "User") -> dict[str, Any]:
+    """A comment on the pull request in the shape that `comments` serves."""
+    return {
+        "id": id,
+        "login": login if kind == "User" else f"{login}[bot]",
+        "author": {"__typename": kind, "login": login},
+        "body": body,
+    }
+
+
+class TestReplies:
+    """Tests reading the comments on the pull request that mention the bot."""
+
+    def test_should_keep_those_of_members_and_agents(self, gh: FakeGH) -> None:
+        member = conversation(1, "@sedosaur `b.go:3` checks it.", "member")
+        agent = conversation(2, "@Sedosaur `b.go:3` checks it.", "synnax-codex", "Bot")
+        gh.comments = [
+            member,
+            conversation(3, "@sedosaur it is fine.", "reader"),
+            conversation(4, "@sedosaur it is fine.", "dependabot", "Bot"),
+            conversation(5, "Looks good to me.", "member"),
+            conversation(6, "> @sedosaur review\n\nThanks.", "member"),
+            agent,
+        ]
+        assert replies(TARGET, gh, authority(TARGET, gh)) == [member, agent]
 
 
 class TestGH:

@@ -31,6 +31,10 @@ const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);
 const TOOLTIP_LIST_SPACING: number = 3;
 const TOOLTIP_LIST_ITEM_HEIGHT: number = 14;
 const TOOLTIP_PADDING: xy.XY = xy.construct(6);
+// A label past this width fades at its end. The cap matches the legend's.
+const LABEL_MAX_REM = 40;
+const LABEL_FADE_REM = 2.25;
+const CHAR_WIDTH = 7;
 
 export const tooltipStateZ = z.object({
   position: xy.xyZ.or(z.null()),
@@ -87,7 +91,8 @@ const rows = (results: FindResult[], hovered: Hovered | null): Row[] => {
   ]);
 };
 
-const length = (r: Row): number => r.label.length + (r.value?.length ?? 0);
+const rowWidth = (r: Row, labelMax: number): number =>
+  Math.min(r.label.length * CHAR_WIDTH, labelMax) + (r.value?.length ?? 0) * CHAR_WIDTH;
 
 // fit is how many list items fit in height.
 const fit = (height: number): number =>
@@ -112,6 +117,8 @@ interface InternalState {
   textColor: color.Color;
   ruleColor: color.Color;
   hintColor: color.Color;
+  labelMax: number;
+  labelFade: number;
 }
 
 export interface TooltipProps {
@@ -136,6 +143,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     this.internal.dotColor = theme.colors.text;
     this.internal.dotColorContrast = theme.colors.textInverted;
     this.internal.hintColor = theme.colors.gray.l9;
+    this.internal.labelMax = LABEL_MAX_REM * theme.sizes.base;
+    this.internal.labelFade = LABEL_FADE_REM * theme.sizes.base;
 
     this.internal.render = render.Context.use(ctx);
     this.internal.draw = new Draw2D(this.internal.render.upper2d, theme);
@@ -202,8 +211,12 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     // The time heading takes one item, and "and N more" always fits.
     const maxRows = Math.max(1, fit(box.height(region)) - 1);
     const listed = capped(rows(validValues, this.state.hovered), maxRows);
-    const chars = Math.max(timeValue.length, ...listed.map(length));
-    this.drawList([{ label: "Time", value: timeValue }, ...listed], region, chars);
+    const { labelMax } = this.internal;
+    const width = Math.max(
+      timeValue.length * CHAR_WIDTH,
+      ...listed.map((r) => rowWidth(r, labelMax)),
+    );
+    this.drawList([{ label: "Time", value: timeValue }, ...listed], region, width);
   }
 
   // renderHidden lists the values that a closed break hides.
@@ -217,12 +230,18 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       { label: "To", value: end.toString("dateTime", "local") },
       { label: "Click to show", color: this.internal.hintColor },
     ];
-    this.drawList(listed, region, Math.max(...listed.map(length)));
+    const { labelMax } = this.internal;
+    this.drawList(
+      listed,
+      region,
+      Math.max(...listed.map((r) => rowWidth(r, labelMax))),
+    );
   }
 
-  // drawList draws rows in a list next to the cursor, wide enough for chars characters.
-  private drawList(listed: Row[], region: box.Box, chars: number): void {
-    const { draw } = this.internal;
+  // drawList draws rows in a list next to the cursor, wide enough for width pixels of
+  // text.
+  private drawList(listed: Row[], region: box.Box, width: number): void {
+    const { draw, labelMax, labelFade } = this.internal;
     const { position } = this.state;
     if (position == null) return;
     const relativePosition = scale.XY.scale(region).scale(box.DECIMAL).pos(position);
@@ -236,7 +255,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       padding: TOOLTIP_PADDING,
       itemHeight: TOOLTIP_LIST_ITEM_HEIGHT,
       spacing: TOOLTIP_LIST_SPACING,
-      width: chars * 7 + 48,
+      width: width + 48,
       position,
       bound: region,
       draw: (i, b) => {
@@ -245,6 +264,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
           position: box.topLeft(b),
           text: row.label,
           level: "small",
+          maxWidth: labelMax,
+          fade: labelFade,
           weight: row.bold === true ? 700 : 500,
           color: row.color ?? this.internal.textColor,
         });
