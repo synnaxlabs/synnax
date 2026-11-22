@@ -475,6 +475,18 @@ describe("arc", () => {
       await expect(created).rejects.toThrow(rejection);
     });
 
+    it("should drop the channel lists that a record holds, as the Core sets them", async () => {
+      const name = `listed-arc-${id.create()}`;
+      const created = await client.arcs.create({
+        ...newTextArc(name),
+        reads: [1],
+        writes: [2],
+      });
+      expect(created.name).toEqual(name);
+      expect(created.reads).toEqual([]);
+      expect(created.writes).toEqual([]);
+    });
+
     it("should create an automation whose name is not an identifier", async () => {
       const name = `bad name ${id.create()}`;
       expect((await client.arcs.create(newTextArc(name))).name).toEqual(name);

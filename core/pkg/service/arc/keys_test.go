@@ -11,12 +11,14 @@ package arc_test
 
 import (
 	"context"
-	"time"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -25,7 +27,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -142,6 +146,16 @@ var _ = Describe("Compile keys", Ordered, func() {
 			return statusSvc.NewWriter(tx).Set(ctx, stat)
 		})).To(Succeed())
 	}
+	configHash := func(ctx SpecContext, key task.Key) func() string {
+		return func() string {
+			var tsk task.Task
+			Expect(taskSvc.NewRetrieve().
+				Where(task.MatchKeys(key)).
+				Entry(&tsk).
+				Exec(ctx, db)).To(Succeed())
+			return tsk.ConfigHash
+		}
+	}
 	// deployed returns the deployed lists in the drift record of the task of the Arc
 	// with key.
 	deployed := func(ctx SpecContext, key arc.Key) func() [2][]channel.Key {
@@ -190,8 +204,73 @@ var _ = Describe("Compile keys", Ordered, func() {
 		)
 		want := [2][]channel.Key{keys(in), keys(out)}
 		Eventually(lists(ctx, a.Base().Key)).Should(Equal(want))
+		key := deploy(ctx, a.Base().Key)
+		compiled := configHash(ctx, key)()
 		overwrite(ctx, a.Base().Key, "ck_in * -> ck_out")
-		Consistently(lists(ctx, a.Base().Key), 100*time.Millisecond).Should(Equal(want))
+		// The resync of the edit hashes the text that does not compile.
+		Eventually(configHash(ctx, key)).ShouldNot(Equal(compiled))
+		_, err := svc.CompileProgram(ctx, a.Base().Key)
+		_, failed := errors.AsType[*diagnostics.Diagnostics](err)
+		Expect(failed).To(BeTrue(), "compile error: %v", err)
+		Expect(lists(ctx, a.Base().Key)()).To(Equal(want))
+	})
+
+	It("Should write no Arc at a resync whose lists are equal", func(ctx SpecContext) {
+		a := createArc(
+			ctx,
+			arc.TypeAutomation,
+			textBase("ck_a", "ck_in * 2.0 -> ck_out"),
+		)
+		Eventually(lists(ctx, a.Base().Key)).
+			Should(Equal([2][]channel.Key{keys(in), keys(out)}))
+		key := deploy(ctx, a.Base().Key)
+		compiled := configHash(ctx, key)()
+		var writes atomic.Int32
+		stop := db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
+			for _, ch := range c.Changes {
+				if ch.Record.Table == string(resource.TypeArc) &&
+					ch.Record.Key == a.Base().Key.String() {
+					writes.Add(1)
+				}
+			}
+		})
+		DeferCleanup(stop)
+		overwrite(ctx, a.Base().Key, "ck_in * 3.0 -> ck_out")
+		// A new program with the same channels: the resync writes the task alone, so
+		// the edit is the one write of the Arc.
+		Eventually(configHash(ctx, key)).ShouldNot(Equal(compiled))
+		Expect(writes.Load()).To(BeEquivalentTo(1))
+	})
+
+	It("Should store the channels that the functions of a graph read and write", func(
+		ctx SpecContext,
+	) {
+		g := graph.Graph{
+			Functions: ir.Functions{{
+				Key:     "double",
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+				Body:    ir.Body{Raw: "{\n\treturn ck_in * 2.0\n}"},
+			}},
+			Nodes: graph.Nodes{{Key: "calc"}, {Key: "sink"}},
+			Edges: graph.Edges{{
+				Key:    "edge",
+				Source: ir.Handle{Node: "calc", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
+			}},
+			Inputs: map[string]msgpack.EncodedJSON{
+				"calc": {"type": "double"},
+				"sink": {"type": "write", "channel": float64(out.Key())},
+			},
+		}
+		a := createArc(ctx, arc.TypeAutomation, arc.Base{
+			Name:   "ck_fn",
+			Source: arc.Source{Variant: arc.GraphSource{Graph: g}},
+		})
+		// The node config of sink references ck_out, so only the function's channels
+		// are in the lists.
+		Eventually(lists(ctx, a.Base().Key)).
+			Should(Equal([2][]channel.Key{keys(in), nil}))
+		Expect(uses(ctx, out)).To(ContainElement(arcTarget(a.Base().Key)))
 	})
 
 	It(
@@ -261,7 +340,10 @@ var _ = Describe("Compile keys", Ordered, func() {
 				Path:  []string{"reads"},
 				Value: keys(other),
 			}),
-		})).To(MatchError(ContainSubstring("reads")))
+		})).To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`unknown object member name "reads"`)),
+		))
 	})
 
 	It("Should name the channel of a graph node as used even when the graph does not "+
@@ -312,34 +394,28 @@ var _ = Describe("Compile keys", Ordered, func() {
 		Expect(uses(ctx, ch)).To(ConsistOf(arcTarget(a.Base().Key), drifted))
 	})
 
-	It(
-		"Should keep the deployed lists while edits change the Arc's lists, and hold the "+
-			"new lists after the Driver runs the new config",
-		func(ctx SpecContext) {
-			a := createArc(
-				ctx,
-				arc.TypeAutomation,
-				textBase("ck_a", "ck_in * 2.0 -> ck_out"),
-			)
-			first := [2][]channel.Key{keys(in), keys(out)}
-			Eventually(lists(ctx, a.Base().Key)).Should(Equal(first))
-			key := deploy(ctx, a.Base().Key)
-			run(ctx, key)
-			Eventually(deployed(ctx, a.Base().Key)).Should(Equal(first))
-			overwrite(ctx, a.Base().Key, "ck_other * 2.0 -> ck_out")
-			second := [2][]channel.Key{keys(other), keys(out)}
-			Eventually(lists(ctx, a.Base().Key)).Should(Equal(second))
-			Consistently(
-				deployed(ctx, a.Base().Key),
-				100*time.Millisecond,
-			).Should(Equal(first))
-			Expect(
-				uses(ctx, in),
-			).To(ContainElement(gorp.NewTarget(arc.DriftTable, key)))
-			run(ctx, key)
-			Eventually(deployed(ctx, a.Base().Key)).Should(Equal(second))
-			Eventually(func() []gorp.Target { return uses(ctx, in) }).
-				ShouldNot(ContainElement(gorp.NewTarget(arc.DriftTable, key)))
-		},
-	)
+	It("Should keep the deployed lists while edits change the Arc's lists, and take "+
+		"the new lists at the next deploy", func(ctx SpecContext) {
+		a := createArc(
+			ctx,
+			arc.TypeAutomation,
+			textBase("ck_a", "ck_in * 2.0 -> ck_out"),
+		)
+		first := [2][]channel.Key{keys(in), keys(out)}
+		Eventually(lists(ctx, a.Base().Key)).Should(Equal(first))
+		key := deploy(ctx, a.Base().Key)
+		run(ctx, key)
+		Expect(deployed(ctx, a.Base().Key)()).To(Equal(first))
+		overwrite(ctx, a.Base().Key, "ck_other * 2.0 -> ck_out")
+		second := [2][]channel.Key{keys(other), keys(out)}
+		Eventually(lists(ctx, a.Base().Key)).Should(Equal(second))
+		Expect(deployed(ctx, a.Base().Key)()).To(Equal(first))
+		drifted := gorp.NewTarget(arc.DriftTable, key)
+		Expect(uses(ctx, in)).To(ContainElement(drifted))
+		Expect(uses(ctx, other)).ToNot(ContainElement(drifted))
+		Expect(deploy(ctx, a.Base().Key)).To(Equal(key))
+		Expect(deployed(ctx, a.Base().Key)()).To(Equal(second))
+		Expect(uses(ctx, in)).ToNot(ContainElement(drifted))
+		Expect(uses(ctx, other)).To(ContainElement(drifted))
+	})
 })

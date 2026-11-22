@@ -16,19 +16,17 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
-	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
-	"go.uber.org/zap"
 )
 
 // RetrieveDrift returns the drift record in snap of each automation in keys whose task
 // has one, by automation. A task has a record from its first write by the Core until it
-// is deleted. While the Driver reports running a task's config, its stored hashes read
-// as deployed.
+// is deleted. While the Driver reports running a task's config, its stored hashes and
+// the automation's lists read as deployed.
 func (s *Service) RetrieveDrift(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -62,7 +60,15 @@ func (s *Service) RetrieveDrift(
 			return nil, err
 		}
 		if deployed {
+			var a Arc
+			if err = s.table.NewRetrieve().
+				Where(gorp.MatchKeys[Key, Arc](key)).
+				Entry(&a).
+				Exec(ctx, snap); err != nil {
+				return nil, err
+			}
 			rec.Deployed = rec.Stored
+			rec.Reads, rec.Writes = a.Base().Reads, a.Base().Writes
 		}
 		records[key] = rec
 	}
@@ -131,72 +137,14 @@ func runs(
 	return ok && stat.Details.Running && stat.Details.ConfigHash == tsk.ConfigHash, err
 }
 
-// recordDeploy sets the deployed lists in the drift record of the task with key to the
-// lists of its automation once the Driver reports running the task's config. That
-// report is the deploy, and the write changes no hash. It runs on the deploy-sync
-// debouncer.
-func (s *Service) recordDeploy(ctx context.Context, key task.Key) {
-	err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		var rec drift.Record
-		err := s.drifts.NewRetrieve().
-			Where(gorp.MatchKeys[drift.Key, drift.Record](key)).
-			Entry(&rec).
-			Exec(ctx, tx)
-		// Only the task of an automation has a drift record.
-		if errors.Is(err, query.ErrNotFound) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		var tsk task.Task
-		if err = s.cfg.Task.NewRetrieve().
-			Where(task.MatchKeys(key)).
-			Entry(&tsk).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		deployed, err := runs(ctx, s.cfg.Status, tx, tsk)
-		if err != nil || !deployed {
-			return err
-		}
-		var cfg taskversions.Config
-		if err = tsk.Config.Unmarshal(&cfg); err != nil {
-			return err
-		}
-		var a Arc
-		if err = s.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Arc](cfg.ArcKey)).
-			Entry(&a).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		b := a.Base()
-		if slices.Equal(rec.Reads, b.Reads) && slices.Equal(rec.Writes, b.Writes) {
-			return nil
-		}
-		rec.Reads, rec.Writes = b.Reads, b.Writes
-		return s.drifts.NewCreate().Entry(&rec).Exec(ctx, tx)
-	})
-	if failed(err) {
-		s.cfg.L.Error(
-			"failed to record a deploy",
-			zap.Error(err),
-			zap.Stringer("task", key),
-		)
-	}
-}
-
 // writeRecord stores hashes as the content of rec's automation after a write of its
-// task. tsk is the task and before the automation, each as it was before the write.
-// When the Driver reports running that task, the hashes it held and the lists of before
-// become the deployed ones first.
+// task. tsk is the task as it was before the write. When the Driver reports running
+// that task, the hashes it held become the deployed ones first.
 func (w Writer) writeRecord(
 	ctx context.Context,
 	tsk task.Task,
 	rec drift.Record,
 	hashes drift.Hashes,
-	before Base,
 ) error {
 	deployed, err := runs(ctx, w.status, w.tx, tsk)
 	if err != nil {
@@ -204,7 +152,6 @@ func (w Writer) writeRecord(
 	}
 	if deployed {
 		rec.Deployed = rec.Stored
-		rec.Reads, rec.Writes = before.Reads, before.Writes
 	}
 	rec.Stored = hashes
 	return w.drifts.NewCreate().Entry(&rec).Exec(ctx, w.tx)

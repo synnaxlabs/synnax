@@ -250,9 +250,11 @@ export class Client extends query.Retriever<
     opts: query.WriteOptions<Arc[]> = {},
   ): Promise<Arc | Arc[]> {
     const isMany = Array.isArray(arcs);
+    // The Core sets reads and writes at each compile and refuses them at a create. A
+    // restore creates an Arc from its retrieved record, which holds them.
     const optimistic = array
       .toArray(arcs)
-      .map((a) => zod.parse(arcZ, a, { label: "Arc" }));
+      .map((a) => ({ ...zod.parse(arcZ, a, { label: "Arc" }), reads: [], writes: [] }));
     for (const a of optimistic) if (a.type === "module") validateIdentifier(a.name);
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],

@@ -57,6 +57,10 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 				return resource.ID{}, err
 			}
 		}
+		// A file can hold the channel keys of another Core.
+		if _, err := s.table.DropDangling(ctx, tx, &a); err != nil {
+			return resource.ID{}, err
+		}
 		if err := s.NewWriter(tx).Create(ctx, &a); err != nil {
 			return resource.ID{}, err
 		}

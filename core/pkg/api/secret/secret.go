@@ -43,7 +43,7 @@ type ServiceConfig struct {
 	// task's records hold names the task.
 	//
 	// [REQUIRED]
-	Holders taskconfig.Holders
+	Holders *taskconfig.Holders
 }
 
 var (
@@ -56,7 +56,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
-	c.Holders = override.Zero(c.Holders, other.Holders)
+	c.Holders = override.Nil(c.Holders, other.Holders)
 	return c
 }
 
@@ -65,7 +65,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.secret")
 	v.NotNil("secret", c.Secret)
 	v.NotNil("rbac", c.RBAC)
-	v.Ternary("holders", c.Holders.IsZero(), "must be set")
+	v.NotNil("holders", c.Holders)
 	return v.Error()
 }
 
@@ -74,7 +74,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *secret.Service
-	holders  taskconfig.Holders
+	holders  *taskconfig.Holders
 }
 
 // NewService opens a Service with the given configuration.

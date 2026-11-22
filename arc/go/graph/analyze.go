@@ -175,6 +175,13 @@ func Analyze(
 			if param.Type.Kind == types.KindChan {
 				var k uint32
 				if err = zyn.Uint32().Coerce().Parse(paramValue, &k); err != nil {
+					aCtx.Diagnostics.Add(diagnostics.Errorf(
+						nil,
+						"node '%s' input '%s' must be a channel key, not %v",
+						n.Key,
+						param.Name,
+						paramValue,
+					))
 					return ir.IR{}, aCtx.Diagnostics
 				}
 				channelSym, err := aCtx.Scope.ResolveChannelKey(aCtx, k)

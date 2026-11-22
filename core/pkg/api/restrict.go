@@ -31,7 +31,7 @@ func restrictMiddleware(
 	db *gorp.DB,
 	res *resource.Service,
 	rbacSvc *rbac.Service,
-	holders taskconfig.Holders,
+	holders *taskconfig.Holders,
 ) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
@@ -57,7 +57,7 @@ func describeRestrict(
 	db *gorp.DB,
 	res *resource.Service,
 	rbacSvc *rbac.Service,
-	holders taskconfig.Holders,
+	holders *taskconfig.Holders,
 	err error,
 ) error {
 	if pathErr, ok := errors.AsType[validate.PathError](err); ok {

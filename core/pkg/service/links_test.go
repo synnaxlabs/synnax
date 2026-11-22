@@ -235,7 +235,10 @@ var _ = Describe("ClearUnissuedChannelLinks", Ordered, func() {
 			))
 		})).To(Succeed())
 		Expect(layer.Arc.CompileProgram(ctx, key)).Error().
-			To(MatchError(ContainSubstring("channel")))
+			To(MatchError(ContainSubstring(
+				"[E5004]: invalid flow connection: node 'source' (on) missing " +
+					"required input 'channel'",
+			)))
 	})
 
 	It("Should keep a key leased to another node", func(ctx SpecContext) {

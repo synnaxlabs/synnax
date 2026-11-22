@@ -28,8 +28,8 @@ const clearUnissuedKey = "v63_clear_unissued_channel_links"
 // ClearUnissuedChannelLinks returns the migration that removes, from every stored
 // schematic, table, and Arc graph node input, each channel key that the Core had not
 // issued at its first open. An import in 0.62 kept the raw keys of another Core, which
-// a channel created at start could take. issuedAtFirstOpen answers for a channel key
-// as of that open.
+// a channel created at start could take. issuedAtFirstOpen answers for a channel key as
+// of that open.
 func ClearUnissuedChannelLinks(
 	sch *schematic.Service,
 	tbl *table.Service,

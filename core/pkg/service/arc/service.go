@@ -191,8 +191,6 @@ type Service struct {
 	// names. followCommit then triggers pathSync to resync each Arc with an import.
 	pathChanges *gorp.Attachment[struct{}]
 	pathSync    *debounce.Keyed[struct{}]
-	// deploySync records the deployed lists of a task whose status changed.
-	deploySync *debounce.Keyed[task.Key]
 	// directoryState holds the actions that change directories.
 	directoryState *actions.State[directory.Key, directory.Action]
 }
@@ -445,20 +443,25 @@ func (s *Service) buildIn(
 		b.program, b.err = s.cfg.Compile(ctx, v, root)
 		b.loaded = arctext.LoadedPaths(root)
 		if b.err == nil {
-			b.reads, b.writes = channelKeys(b.program.IR)
+			_, graph := v.Source.Variant.(GraphSource)
+			b.reads, b.writes = channelKeys(b.program.IR, graph)
 		}
 	case ModuleArc:
 		var analysis ir.IR
 		if analysis, b.err = s.analyzeModule(ctx, root, v); b.err == nil {
-			b.reads, b.writes = channelKeys(analysis)
+			b.reads, b.writes = channelKeys(analysis, false)
 		}
 	}
 	return b, nil
 }
 
 // channelKeys returns the channels that the nodes and functions of program read and
-// write, each sorted with no repeats.
-func channelKeys(program ir.IR) (reads, writes []channel.Key) {
+// write, each sorted with no repeats. For a graph, only its functions count: the node
+// configs reference their own channels.
+func channelKeys(program ir.IR, graph bool) (reads, writes []channel.Key) {
+	if graph {
+		program.Nodes = nil
+	}
 	reads = collectKeys(program, func(c types.Channels) map[uint32]string {
 		return c.Read
 	})
@@ -607,6 +610,9 @@ func OpenService(
 		return nil, err
 	}
 	ok(nil, xio.NoFailCloserFunc(cfg.DB.Observe().OnChange(s.followCommit)))
+	if err = s.resyncAll(ctx); !ok(err, nil) {
+		return nil, err
+	}
 	if err = s.registerImEx(ok); !ok(err, nil) {
 		return nil, err
 	}
@@ -660,17 +666,11 @@ func (s *Service) openSyncs(ctx context.Context, ok opener) (err error) {
 	); !ok(err, s.importerSync) {
 		return err
 	}
-	if s.pathSync, err = debounce.NewKeyed(
+	s.pathSync, err = debounce.NewKeyed(
 		ctx,
 		syncConfig(s.cfg.TaskSyncDebounce, s.resyncImporting),
-	); !ok(err, s.pathSync) {
-		return err
-	}
-	s.deploySync, err = debounce.NewKeyed(
-		ctx,
-		syncConfig(s.cfg.TaskSyncDebounce, s.recordDeploy),
 	)
-	ok(err, s.deploySync)
+	ok(err, s.pathSync)
 	return err
 }
 

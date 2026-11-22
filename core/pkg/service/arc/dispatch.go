@@ -11,12 +11,10 @@ package arc
 
 import (
 	"context"
-	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -103,9 +101,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	return nil
 }
 
-// followCommit schedules the resyncs that c asked for and a deploy check of each task
-// whose status c set, then drops the edit time and pending resync of each Arc that c
-// deleted. It runs only for a commit, so a denied or
+// followCommit schedules the resyncs that c asked for, then drops the edit time and
+// pending resync of each Arc that c deleted. It runs only for a commit, so a denied or
 // failed write changes neither.
 func (s *Service) followCommit(_ context.Context, c gorp.Commit) {
 	for _, key := range s.resyncs.Of(c) {
@@ -116,19 +113,6 @@ func (s *Service) followCommit(_ context.Context, c gorp.Commit) {
 	}
 	if len(s.pathChanges.Of(c)) > 0 {
 		s.pathSync.Trigger(struct{}{})
-	}
-	for ch := range s.cfg.Status.Changes(c) {
-		owner := ch.Value.Owner
-		if ch.Kind == gorp.ChangeDelete || owner == nil ||
-			owner.Type != resource.TypeTask {
-			continue
-		}
-		key, err := uuid.Parse(owner.Key)
-		if err != nil {
-			s.cfg.L.Error("task status has an invalid owner", zap.Error(err))
-			continue
-		}
-		s.deploySync.Trigger(key)
 	}
 	for _, key := range s.deletes.Of(c) {
 		s.sweeper.forget(key)
@@ -170,6 +154,18 @@ func (s *Service) resync(ctx context.Context, key Key) {
 			return s.NewWriter(tx).sync(ctx, a, b)
 		})
 	})
+}
+
+// resyncAll schedules a resync of every Arc, as a Core start compiles each one.
+func (s *Service) resyncAll(ctx context.Context) error {
+	var arcs []Arc
+	if err := s.table.NewRetrieve().Entries(&arcs).Exec(ctx, s.cfg.DB); err != nil {
+		return err
+	}
+	for _, a := range arcs {
+		s.taskSync.Trigger(a.Base().Key)
+	}
+	return nil
 }
 
 // resyncImporters schedules a resync of every importer of the module with key. It runs

@@ -127,8 +127,8 @@ var _ = Describe("ServiceConfig", func() {
 			"rbac: must be non-nil"),
 		Entry(
 			"holders",
-			func(c *apisecret.ServiceConfig) { c.Holders = taskconfig.Holders{} },
-			"holders: must be set",
+			func(c *apisecret.ServiceConfig) { c.Holders = nil },
+			"holders: must be non-nil",
 		),
 	)
 	It("Should take the other config's services when set", func() {
@@ -137,7 +137,7 @@ var _ = Describe("ServiceConfig", func() {
 		merged := apisecret.ServiceConfig{}.Override(cfg)
 		Expect(merged.Secret).To(BeIdenticalTo(cfg.Secret))
 		Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
-		Expect(merged.Holders).To(Equal(cfg.Holders))
+		Expect(merged.Holders).To(BeIdenticalTo(cfg.Holders))
 	})
 })
 

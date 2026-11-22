@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"uuid"
 
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -38,8 +39,7 @@ import (
 )
 
 // benchService opens an Arc service over a fresh node with 2n float channels,
-// bench_in_i
-// and bench_out_i for each i below n, and returns it with the keys of the channels.
+// bench_in_i and bench_out_i for each i below n, and returns it with their keys.
 func benchService(b *testing.B, n int) (*arc.Service, *gorp.DB, []channel.Key) {
 	b.Helper()
 	gomega.RegisterTestingT(b)
@@ -193,6 +193,64 @@ func BenchmarkBuild(b *testing.B) {
 				Name:   "bench",
 				Source: arc.Source{Variant: arc.GraphSource{Graph: g}},
 			})
+		})
+	}
+}
+
+// BenchmarkOpenTable opens the Arc table over n stored text automations and waits for
+// its indexes and references to fill, as a Core start does.
+func BenchmarkOpenTable(b *testing.B) {
+	for _, n := range []int{100, 1000} {
+		b.Run(fmt.Sprintf("arcs=%d", n), func(b *testing.B) {
+			gomega.RegisterTestingT(b)
+			ctx := b.Context()
+			node := testutil.OpenNode(ctx)
+			statuses := MustSucceed(
+				status.OpenService(ctx, status.ServiceConfig{DB: node.DB}),
+			)
+			channels := MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{
+				Channel: node.Channel,
+				TS:      node.Storage.TS,
+				DB:      node.DB,
+				HostKey: node.Identity.HostKey,
+				Status:  statuses,
+			}))
+			b.Cleanup(func() {
+				closer := io.MultiCloser{node, statuses, channels}
+				if err := closer.Close(); err != nil {
+					b.Error(err)
+				}
+			})
+			unused := createBenchChannels(b, node.DB, channels, 1)[:1]
+			cfg := arc.TableConfig{DB: node.DB}
+			table := MustSucceed(arc.OpenTable(ctx, cfg))
+			arcs := make([]arc.Arc, n)
+			for i := range arcs {
+				arcs[i] = newArc(arc.TypeAutomation, arc.Base{
+					Key:  uuid.New(),
+					Name: "bench_" + strconv.Itoa(i),
+					Source: arc.Source{Variant: arc.TextSource{
+						Text: text.Text{Raw: "bench_in_0 * 2.0 -> bench_out_0"},
+					}},
+				})
+			}
+			if err := node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return gorp.WrapWriter[arc.Key, arc.Arc](tx).Set(ctx, arcs...)
+			}); err != nil {
+				b.Fatal(err)
+			}
+			if err := table.Close(); err != nil {
+				b.Fatal(err)
+			}
+			b.ReportAllocs()
+			for b.Loop() {
+				t := MustSucceed(arc.OpenTable(ctx, cfg))
+				// A lookup of uses waits for every reference to fill.
+				MustSucceed(channels.Uses(ctx, node.DB, unused))
+				if err := t.Close(); err != nil {
+					b.Fatal(err)
+				}
+			}
 		})
 	}
 }

@@ -68,7 +68,7 @@ type ServiceConfig struct {
 	// task's records hold names the task.
 	//
 	// [REQUIRED]
-	Holders taskconfig.Holders
+	Holders *taskconfig.Holders
 }
 
 var (
@@ -84,7 +84,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Calculation = override.Nil(c.Calculation, other.Calculation)
-	c.Holders = override.Zero(c.Holders, other.Holders)
+	c.Holders = override.Nil(c.Holders, other.Holders)
 	return c
 }
 
@@ -96,7 +96,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("channel", c.Channel)
 	v.NotNil("status", c.Status)
 	v.NotNil("calculation", c.Calculation)
-	v.Ternary("holders", c.Holders.IsZero(), "must be set")
+	v.NotNil("holders", c.Holders)
 	return v.Error()
 }
 
@@ -107,7 +107,7 @@ type Service struct {
 	internal     *channel.Service
 	status       *status.Service
 	calculations *calculation.Service
-	holders      taskconfig.Holders
+	holders      *taskconfig.Holders
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {

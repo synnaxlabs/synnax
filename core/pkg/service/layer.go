@@ -280,7 +280,7 @@ type Layer struct {
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service
 	// TaskHolders names the tables whose records stand for a task.
-	TaskHolders taskconfig.Holders
+	TaskHolders *taskconfig.Holders
 	// Metrics is used for collecting host machine metrics and publishing them over
 	// channels
 	Metrics *metrics.Service

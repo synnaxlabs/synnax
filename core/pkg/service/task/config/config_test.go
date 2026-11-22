@@ -1370,11 +1370,6 @@ var _ = Describe("Holders", func() {
 			resource.ID{Type: resource.TypeSchematic, Key: key.String()},
 		))
 	})
-
-	It("Should be zero with no table beyond the config tables", func() {
-		Expect(config.NewHolders().IsZero()).To(BeTrue())
-		Expect(holders.IsZero()).To(BeFalse())
-	})
 })
 
 // infallible returns a reconcile hook that applies f and never fails.

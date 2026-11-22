@@ -153,8 +153,8 @@ func newNodeReference(
 	})
 }
 
-// newNodeReferences returns the references from each graph Arc to the channels that
-// its nodes read and write.
+// newNodeReferences returns the references from each graph Arc to the channels that its
+// nodes read and write.
 func newNodeReferences(params channelParams) []gorp.Reference[Key, Arc] {
 	return []gorp.Reference[Key, Arc]{
 		newNodeReference(

@@ -319,10 +319,7 @@ func TableName(taskType string) string { return taskType + tableSuffix }
 type Holders struct{ tables []string }
 
 // NewHolders returns the Holders of the config tables and of tables.
-func NewHolders(tables ...string) Holders { return Holders{tables: tables} }
-
-// IsZero reports whether h names no table beyond the config tables.
-func (h Holders) IsZero() bool { return len(h.tables) == 0 }
+func NewHolders(tables ...string) *Holders { return &Holders{tables: tables} }
 
 // TaskOf returns the ID of the task whose record target names, and false when the table
 // of target stores no records that stand for a task.

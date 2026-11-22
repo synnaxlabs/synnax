@@ -73,8 +73,8 @@ var _ = Describe("ServiceConfig", func() {
 			),
 			Entry(
 				"holders",
-				func(c *apichannel.ServiceConfig) { c.Holders = taskconfig.Holders{} },
-				"holders: must be set",
+				func(c *apichannel.ServiceConfig) { c.Holders = nil },
+				"holders: must be non-nil",
 			),
 		)
 	})
@@ -88,7 +88,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.Calculation).To(BeIdenticalTo(cfg.Calculation))
-			Expect(merged.Holders).To(Equal(cfg.Holders))
+			Expect(merged.Holders).To(BeIdenticalTo(cfg.Holders))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {

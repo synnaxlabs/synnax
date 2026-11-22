@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
@@ -163,6 +164,7 @@ var _ = Describe("Compile keys breaker", Ordered, ContinueOnFailure, func() {
 	}
 
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		in = newChannel(ctx, "kb_in")
 		out = newChannel(ctx, "kb_out")
 	})
@@ -262,7 +264,16 @@ var _ = Describe("Compile keys breaker", Ordered, ContinueOnFailure, func() {
 		var body map[string]any
 		Expect(json.Unmarshal(MustSucceed(json.Marshal(env)), &body)).To(Succeed())
 		body["name"] = "kb_g_imported"
-		source := body["source"].(map[string]any)["graph"].(map[string]any)["inputs"].(map[string]any)["source"].(map[string]any)
+		field := func(m map[string]any, name string) map[string]any {
+			GinkgoHelper()
+			v, ok := m[name].(map[string]any)
+			Expect(ok).To(BeTrue(), name)
+			return v
+		}
+		source := field(
+			field(field(field(body, "source"), "graph"), "inputs"),
+			"source",
+		)
 		never := in.Key() + 100000
 		source["channel"] = float64(never)
 		var imported imex.Envelope
@@ -284,8 +295,18 @@ var _ = Describe("Compile keys breaker", Ordered, ContinueOnFailure, func() {
 	It("Should keep the lists when a graph node's channel input is not a key", func(
 		ctx SpecContext,
 	) {
-		key := createArc(ctx, graphBase("kb_gs", in.Key(), out.Key())).Base().Key
-		Eventually(lists(ctx, key)).Should(Equal(want(in, out)))
+		// D-295: a graph's lists hold the channels of its functions only.
+		b := graphBase("kb_gs", in.Key(), out.Key())
+		src, ok := b.Source.Variant.(arc.GraphSource)
+		Expect(ok).To(BeTrue())
+		src.Graph.Functions = ir.Functions{{
+			Key:     "kb_read",
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+			Body:    ir.Body{Raw: "{\n\treturn kb_in\n}"},
+		}}
+		b.Source.Variant = src
+		key := createArc(ctx, b).Base().Key
+		Eventually(lists(ctx, key)).Should(Equal([2][]channel.Key{{in.Key()}, nil}))
 		Expect(dispatch(ctx, key, "kb", []arc.Action{
 			arc.NewSetNodeInputsAction(arc.SetNodeInputsPayload{
 				Key:    "source",
@@ -293,7 +314,7 @@ var _ = Describe("Compile keys breaker", Ordered, ContinueOnFailure, func() {
 			}),
 		})).To(Succeed())
 		Consistently(lists(ctx, key), 200*time.Millisecond).
-			Should(Equal(want(in, out)))
+			Should(Equal([2][]channel.Key{{in.Key()}, nil}))
 	})
 
 	It("Should hold the channels that a module's sequence writes", func(
@@ -365,6 +386,8 @@ sequence s { stage a { 2.0 -> kb_seq_out } }
 			))
 		})
 
+	// D-295 build note 5: the Core refuses the lists at a create, so the client's
+	// create drops them, as this spec does.
 	It("Should create an Arc again from its retrieved record after a delete, as the "+
 		"Console's restore does", func(ctx SpecContext) {
 		a := newAutomation(textBase("kb_restore", "kb_in * 2.0 -> kb_out"))
@@ -373,6 +396,9 @@ sequence s { stage a { 2.0 -> kb_seq_out } }
 		key := a.Base().Key
 		Eventually(lists(ctx, key)).Should(Equal(want(in, out)))
 		corpse := retrieveArc(ctx, key)
+		b := corpse.Base()
+		b.Reads, b.Writes = nil, nil
+		corpse.SetBase(b)
 		Expect(write(ctx, func(w arc.Writer) error { return w.Delete(ctx, key) })).
 			To(Succeed())
 		Expect(write(ctx, func(w arc.Writer) error { return w.Create(ctx, &corpse) })).

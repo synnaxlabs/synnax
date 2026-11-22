@@ -148,6 +148,31 @@ var _ = Describe("Graph", func() {
 			Entry("division by zero", "{\n x := 1 / 0\n}", codes.DivisionByZero.Code),
 		)
 
+		It("Should report a channel input that is not a channel key", func(
+			ctx SpecContext,
+		) {
+			nodes, inputs := buildNodes(
+				nodeSpec{key: "first", typ: "on", cfg: map[string]any{"channel": "pt"}},
+			)
+			g := MustSucceed(graph.Parse(arc.Graph{
+				Functions: []ir.Function{{
+					Key: "on",
+					Inputs: types.Params{
+						{Name: "channel", Type: types.Chan(types.F32())},
+					},
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.F32()},
+					},
+				}},
+				Nodes:  nodes,
+				Inputs: inputs,
+			}))
+			_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+			Expect(*diagnostics).To(HaveLen(1), diagnostics.String())
+			Expect((*diagnostics)[0].Message).
+				To(Equal("node 'first' input 'channel' must be a channel key, not pt"))
+		})
+
 		It("Should correctly analyze a complete program", func(ctx SpecContext) {
 			nodes, inputs := buildNodes(
 				nodeSpec{key: "first", typ: "on", cfg: map[string]any{"channel": 12}},

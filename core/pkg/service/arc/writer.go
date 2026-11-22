@@ -261,8 +261,16 @@ func (w Writer) UpdateTask(
 	if err != nil {
 		return nil, err
 	}
+	// The task's next run is the program of b, so b's lists are the Arc's and the
+	// deployed ones.
+	if err = w.syncKeys(ctx, a.Base(), b); err != nil {
+		return nil, err
+	}
+	if b.err == nil {
+		rec.Reads, rec.Writes = b.reads, b.writes
+	}
 	rec.Task = written.Key
-	if err = w.writeRecord(ctx, tsk, rec, hashes, a.Base()); err != nil {
+	if err = w.writeRecord(ctx, tsk, rec, hashes); err != nil {
 		return nil, err
 	}
 	return written, nil
@@ -506,7 +514,7 @@ func (w Writer) syncTask(ctx context.Context, a Arc, built Build) error {
 	if _, err = w.writeTask(ctx, b, tsk.Rack, existing, cfg); err != nil {
 		return err
 	}
-	return w.writeRecord(ctx, tsk, rec, hashes, b)
+	return w.writeRecord(ctx, tsk, rec, hashes)
 }
 
 func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {
