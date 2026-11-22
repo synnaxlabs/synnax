@@ -123,8 +123,9 @@ The Go codec (`core/pkg/service/icd/codec`) decodes and encodes JSON for MQTT an
 The C++ codec (`driver/codec`) decodes JSON on `x/cpp/json` for HTTP (Phase 24), and
 Phase 27 adds JSON encoding for HTTP writes. Phase 28 adds binary and text payloads in
 both directions and message matching, and Phase 29 adds stream framing (delimiter, fixed
-length, sync, COBS, SLIP) in `driver/codec/framing`. A C++ spec runs the shared fixtures
-for each payload format and direction as it lands.
+length, sync, COBS, SLIP) in `driver/codec/framing`. A C++ spec runs the shared decode
+fixtures for each payload format as it lands. Each encoder spec decodes what it encodes
+and checks that the field values come back.
 
 ### 3.3 The Driver reads ICDs
 
@@ -254,11 +255,8 @@ real adapter (§6.16).
    HTTP then builds the Driver's ICD access and JSON codec, which the bus path reuses.
    The bus path runs in parallel at lower priority (2026-11-18).
 10. **The bus integrations hide behind one flag**: One flag flips them together after
-    their docs and CI land. The `icds` and `bus` flags turn on in Desktop and the
-    Console in the same release, with no Desktop-only stage (2026-11-22). This is an
-    exception to the Desktop-first rule in `CONTRIBUTING.md` that the release owner
-    ruled. A CAN backend with no adapter stays out of the Driver's integration list, so
-    it stays hidden after the flag goes.
+    their docs and CI land. A CAN backend with no adapter stays out of the Driver's
+    integration list, so it stays hidden after the flag goes.
 11. **The Driver asks the Core for ICDs**: It fetches them by key when it configures a
     task, as it does channels (2026-11-18). A copy of each ICD in the task config would
     store the data twice, and the Core would rewrite every task on each ICD edit.
@@ -273,10 +271,12 @@ real adapter (§6.16).
     no units field, and DBC files spell units in many ways (2026-11-18).
 15. **Writes move onto ICDs before 0.63.0**: The ICD field's `default` holds the fixed
     values and generators that RFC 0103 put on typed write fields. A value that one site
-    picks goes on the write binding instead (2026-11-22). #5346, #5363, and #5366 close,
-    and their work moves to Phases 19 to 21 and 25 to 27 (2026-11-18). 0.62.0 shipped
-    with MQTT v2 and ICD v0 only (2026-11-19), so MQTT writes move in v3 with a
-    migration, and Kafka v1 and HTTP v5 take writes before 0.63.0 freezes them.
+    picks goes on the write binding instead (2026-11-22). A channel for each site's
+    constant was rejected: the operator would have to command it each time the task
+    starts. #5346, #5363, and #5366 close, and their work moves to Phases 19 to 21 and
+    25 to 27 (2026-11-18). 0.62.0 shipped with MQTT v2 and ICD v0 only (2026-11-19), so
+    MQTT writes move in v3 with a migration, and Kafka v1 and HTTP v5 take writes before
+    0.63.0 freezes them.
 16. **A CAN backend ships visible only after real hardware**: Its read and write tasks
     must pass on a real adapter. A backend with no adapter stays hidden (2026-11-18).
 17. **A query lives on the task, a cycle time on the ICD**: Principle 1 sorts each
@@ -294,3 +294,8 @@ real adapter (§6.16).
     an Arc stage that sets two fields in one cycle sends one message, not two. A command
     that its field cannot hold, such as NaN, is dropped with a warning, and the field
     keeps its last good command. A timer that publishes every `period` was rejected.
+19. **The flags skip the Desktop stage**: The `icds` and `bus` flags turn on in Desktop
+    and the Console in the same release (2026-11-22). This is an exception to the
+    Desktop-first rule in `CONTRIBUTING.md` that the release owner ruled. A Desktop-only
+    release first was rejected, so ICDs and the bus integrations reach the Console in
+    0.63.0, not 0.64.0.
