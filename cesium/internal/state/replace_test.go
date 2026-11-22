@@ -577,3 +577,83 @@ var _ = Describe("Replace of a put-back record", func() {
 		))
 	})
 })
+
+var _ = Describe("Replace across a switch", func() {
+	seal := &log.Seal{Segment: 3, Length: 12, TailCRC: 3}
+	created := &log.Create{Segment: 9, Key: 6, Clock: 5, Version: 1, DataType: 4}
+	// across seals segment 3 of key 6, applies before, and starts the switch to head 2.
+	// Before the Parted of that switch, it applies r live. It then replays r from head
+	// 2, whose part 7 holds segment 3 when parted is true. It returns the error of
+	// each.
+	across := func(
+		before []log.Record,
+		r *log.Replace,
+		parted bool,
+	) (live, replayed error) {
+		GinkgoHelper()
+		a := &appended{}
+		s := MustSucceed(state.Open(config(a), sample()))
+		Expect(s.Replay(10, append([]log.Record{seal}, before...))).To(Succeed())
+		a.s, a.seq = s, 10
+		run(s)
+		Expect(s.Switch(2)).To(Succeed())
+		Eventually(a.switched).Should(HaveLen(1))
+		snap := a.switched()[0]
+		Expect(a.durable([]log.Record{created, r})).To(Succeed())
+		_, live = s.Snapshot()
+		head := &state.Snapshot{
+			Sequence:   snap.Sequence,
+			Limits:     snap.Limits,
+			Candidates: snap.Candidates,
+		}
+		for _, ch := range snap.Channels {
+			if ch.Key == 6 && parted {
+				ch = &state.Channel{Key: 6, Parts: &state.Parts{
+					Oldest: 7, Newest: 7, Generation: 2,
+				}}
+			}
+			head.Channels = append(head.Channels, ch)
+		}
+		cfg := config(&appended{})
+		cfg.Generation = 2
+		replay := MustSucceed(state.Open(cfg, head))
+		return live, replay.Replay(snap.Sequence+1, []log.Record{created, r})
+	}
+
+	It(
+		"Should refuse, live and in replay, a Replace of a segment that is no candidate, "+
+			"which the switch may part",
+		func() {
+			live, replayed := across(nil, &log.Replace{
+				Old: 3, New: 9, Length: 12, TailCRC: 3,
+				Pointers: []log.Pointer{{
+					Length: 12, Samples: 3, Alignment: uint64(telem.NewAlignment(1, 0)),
+					First: 10, Last: 30,
+				}},
+			}, true)
+			Expect(live).To(MatchError(state.ErrRefused))
+			Expect(replayed).To(MatchError(state.ErrRefused))
+		},
+	)
+
+	It("Should apply, live and in replay, a Replace of a candidate, which the switch "+
+		"keeps in the head", func() {
+		live, replayed := across([]log.Record{&log.Tombstone{
+			Key: 6, Start: 15, End: 25, Left: cutOf(1, 10), Right: cutOf(2, 30),
+		}}, &log.Replace{
+			Old: 3, New: 9, Length: 8, TailCRC: 7,
+			Pointers: []log.Pointer{
+				{
+					Length: 4, Samples: 1, Alignment: uint64(telem.NewAlignment(1, 0)),
+					First: 10, Last: 10,
+				},
+				{
+					Offset: 4, Length: 4, Samples: 1,
+					Alignment: uint64(telem.NewAlignment(1, 2)), First: 30, Last: 30,
+				},
+			},
+		}, false)
+		Expect(live).ToNot(HaveOccurred())
+		Expect(replayed).ToNot(HaveOccurred())
+	})
+})
