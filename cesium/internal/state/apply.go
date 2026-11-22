@@ -337,9 +337,6 @@ func (c *core) replace(r *log.Replace) error {
 	switch {
 	case old == nil || !old.dur.sealed:
 		return refuse("replace of segment %d, which is not sealed", r.Old)
-	case old.vis.Part != 0:
-		return refuse("replace of segment %d, whose record part %d holds", r.Old,
-			old.vis.Part)
 	case s == nil || !s.dur.created || s.dur.length != 0 || s.holder != nil:
 		return refuse("replace of segment %d by %d, which is not a new segment",
 			r.Old, r.New)
@@ -356,6 +353,11 @@ func (c *core) replace(r *log.Replace) error {
 	case end(r.Pointers[len(r.Pointers)-1]) > uint64(r.Length):
 		return refuse("replace of segment %d by %d, whose pointers end past its "+
 			"length %d", r.Old, r.New, r.Length)
+	// A candidate is never in a part, and live and replay name the same candidates,
+	// while a part that a switch writes may still take a segment that is none.
+	case !c.candidates.Contains(r.Old):
+		return refuse("replace of segment %d, which is no candidate of a rewrite",
+			r.Old)
 	}
 	ptrs := make([]Pointer, len(r.Pointers))
 	for i, p := range r.Pointers {
