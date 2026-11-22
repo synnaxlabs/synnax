@@ -75,7 +75,7 @@ type UndefinedSymbolError struct {
 // Error implements the error interface.
 func (e *UndefinedSymbolError) Error() string {
 	if e.channel {
-		return e.Name + " does not exist"
+		return "channel does not exist: " + e.Name
 	}
 	return "undefined symbol: " + e.Name
 }

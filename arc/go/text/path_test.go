@@ -102,7 +102,10 @@ stand.trig -> f()
 		ctx SpecContext,
 	) {
 		_, diagnostics := analyze(ctx, "stand.pt_02 -> stand.valve_cmd")
-		Expect(diagnostics.String()).To(ContainSubstring("stand.pt_02 does not exist"))
+		Expect(*diagnostics).To(ContainElement(HaveField(
+			"Message",
+			"channel does not exist: stand.pt_02",
+		)), diagnostics.String())
 	})
 
 	DescribeTable("Should fail a module member that a channel path matches",

@@ -489,6 +489,14 @@ func f() {
 
 math.inf -> sensor_avg`,
 	}
+	// ChannelUndefined is a channel name that no channel holds.
+	ChannelUndefined = diagnostics.Kind{
+		Code:     "E4011",
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  "channel does not exist",
+		Problem:  "The code names a channel by a path that no channel has.",
+		Example:  `sensor -> stand.valve_cmd`,
+	}
 	// UnusedImport is an imported module that nothing references.
 	UnusedImport = diagnostics.Kind{
 		Code:     "W4000",
@@ -755,6 +763,7 @@ var All = []diagnostics.Kind{
 	ExportOutsideModule,
 	UnnamedExport,
 	PathClash,
+	ChannelUndefined,
 	UnusedImport,
 	DeprecatedSymbol,
 	AuthorityPlacement,

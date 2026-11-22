@@ -895,7 +895,7 @@ func (s *Symbol) findChannel(
 }
 
 func undefinedChannel(ctx context.Context, name string, scope *Symbol) error {
-	return codes.SymbolUndefined.Mark(
+	return codes.ChannelUndefined.Mark(
 		&UndefinedSymbolError{ctx: ctx, Name: name, scope: scope, channel: true},
 	)
 }

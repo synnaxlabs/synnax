@@ -233,6 +233,12 @@
     "problem": "A dotted name is both a member of an imported module and the path of a channel.",
     "example": "import math\n\nmath.inf -> sensor_avg"
   },
+  "E4011": {
+    "severity": "error",
+    "message": "channel does not exist",
+    "problem": "The code names a channel by a path that no channel has.",
+    "example": "sensor -> stand.valve_cmd"
+  },
   "E5000": {
     "severity": "error",
     "message": "misplaced authority declaration",
