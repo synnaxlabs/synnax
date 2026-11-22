@@ -90,6 +90,7 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 		if err := v.Base.EncodeOrc(w); err != nil {
 			return err
 		}
+		w.Bool(v.Mux80Attached)
 	case T8Device:
 		w.String("t8")
 		if err := v.Base.EncodeOrc(w); err != nil {
@@ -117,6 +118,9 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 	case "t7":
 		var v T7Device
 		if err := v.Base.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Mux80Attached, err = r.Bool(); err != nil {
 			return err
 		}
 		d.Variant = v

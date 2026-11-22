@@ -40,6 +40,49 @@ Model = Literal["t4", "t7", "t8"]
 Key: TypeAlias = UUID
 
 
+class Identity(BaseModel):
+    """Holds the device fields that the scanner owns.
+
+    Attributes:
+        rack: Is the key of the rack the device is connected to.
+        serial: Is the serial number of the device.
+        connection: Is the connection the scanner last found the device on.
+        model: Is the model of the device. An update cannot change it.
+    """
+
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    serial: int = Field(gt=0, le=4294967295)
+    connection: Connection
+    model: Model
+
+
+class T4Ports(BaseModel):
+    """Are the ports of a T4."""
+
+    model: Literal["t4"] = "t4"
+
+
+class T7Ports(BaseModel):
+    """Are the ports of a T7."""
+
+    model: Literal["t7"] = "t7"
+    mux80_attached: bool = False
+
+
+class T8Ports(BaseModel):
+    """Are the ports of a T8."""
+
+    model: Literal["t8"] = "t8"
+
+
+# Holds the configuration that depends on the model: the channel maps and the
+# accessories that add ports.
+Ports = Annotated[
+    T4Ports | T7Ports | T8Ports,
+    Field(discriminator="model"),
+]
+
+
 class StatusDetails(BaseModel):
     """Identifies the device and rack that a status pertains to.
 
@@ -52,7 +95,49 @@ class StatusDetails(BaseModel):
     device: Key
 
 
+class Configuration(BaseModel):
+    """Holds the device fields that the user owns.
+
+    Attributes:
+        name: Is a human-readable name for the device.
+        identifier: Is the prefix of the device's channel names. The device is
+            unconfigured while it is empty.
+        read_index: Is the index channel of the channels that the device reads into.
+        write_state_index: Is the index channel of the state channels of the device's
+            outputs.
+        ports: Holds the configuration that depends on the model. Its model must be the
+            model of the stored device.
+    """
+
+    name: str = Field(min_length=1)
+    identifier: str = ""
+    read_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
+    write_state_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
+    ports: Ports
+
+
 Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class IdentityUpdate(Identity):
+    """Writes the fields that the scanner owns."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the fields that the user owns. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a device.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
 
 
 class Base(BaseModel):
@@ -97,6 +182,7 @@ class T7Device(Base):
     """Is a T7."""
 
     model: Literal["t7"] = "t7"
+    mux80_attached: bool = False
 
 
 class T8Device(Base):

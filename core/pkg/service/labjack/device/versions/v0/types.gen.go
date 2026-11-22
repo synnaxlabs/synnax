@@ -140,6 +140,9 @@ func (t T4Device) Validate() error {
 // T7Device is a T7.
 type T7Device struct {
 	Base
+	// Mux80Attached is true when a Mux80 is attached, which adds the analog input ports
+	// AIN48 to AIN127.
+	Mux80Attached bool `json:"mux80_attached" msgpack:"mux80_attached"`
 }
 
 func (T7Device) isDeviceVariant() {}

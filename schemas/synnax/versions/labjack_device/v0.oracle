@@ -103,6 +103,13 @@ Device union on model Model extends Base {
         @doc value "is a T4."
     }
     t7 {
+        mux80_attached bool = false {
+            @doc value """
+                is true when a Mux80 is attached, which adds the analog input ports
+                AIN48 to AIN127.
+            """
+        }
+
         @doc value "is a T7."
     }
     t8 {

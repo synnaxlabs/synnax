@@ -709,6 +709,23 @@ class TestLabJackDeviceResource:
         with pytest.raises(ValidationError):
             TypeAdapter(sy.labjack.device.Device).validate_python(data)
 
+    def test_parses_a_configuration_update(self) -> None:
+        """Should parse a configuration update with the ports of its model."""
+        update = TypeAdapter(sy.labjack.device.Update).validate_python(
+            {"group": "configuration", "name": "T7-0001", "ports": {"model": "t7"}}
+        )
+        assert isinstance(update, sy.labjack.device.ConfigurationUpdate)
+        assert isinstance(update.ports, sy.labjack.device.T7Ports)
+        assert not update.ports.mux80_attached
+
+    def test_parses_an_identity_update(self) -> None:
+        """Should parse an identity update."""
+        update = TypeAdapter(sy.labjack.device.Update).validate_python(
+            {**self.DEVICE, "group": "identity", "connection": "LJM_ctWIFI"}
+        )
+        assert isinstance(update, sy.labjack.device.IdentityUpdate)
+        assert update.connection == "LJM_ctWIFI"
+
     def test_resource_id(self) -> None:
         """Should name the device by its key under the labjack_device type."""
         assert sy.labjack.device.resource_id(self.KEY).type == "labjack_device"

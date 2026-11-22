@@ -26,6 +26,8 @@
 namespace synnax::labjack::device {
 
 struct StatusDetails;
+struct Identity;
+struct Configuration;
 struct Base;
 
 constexpr const char *CONNECTION_USB = "LJM_ctUSB";
@@ -49,7 +51,77 @@ struct StatusDetails {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief T4Ports are the ports of a T4.
+struct T4Ports {
+    std::string model = MODEL_T_4;
+
+    static T4Ports parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief T7Ports are the ports of a T7.
+struct T7Ports {
+    std::string model = MODEL_T_7;
+    /// @brief mux80_attached is true when a Mux80 is attached, which adds the analog
+    /// input ports AIN48 to AIN127.
+    bool mux80_attached = false;
+
+    static T7Ports parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief T8Ports are the ports of a T8.
+struct T8Ports {
+    std::string model = MODEL_T_8;
+
+    static T8Ports parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Ports holds the configuration that depends on the model: the channel maps and
+/// the accessories that add ports.
+using Ports = std::variant<T4Ports, T7Ports, T8Ports>;
+
+Ports parse_ports(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Ports &value);
+
+/// @brief Identity holds the device fields that the scanner owns.
+struct Identity {
+    /// @brief rack is the key of the rack the device is connected to.
+    ::synnax::rack::Key rack = 0;
+    /// @brief serial is the serial number of the device.
+    std::uint32_t serial = 0;
+    /// @brief connection is the connection the scanner last found the device on.
+    std::string connection;
+    /// @brief model is the model of the device. An update cannot change it.
+    std::string model;
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief Configuration holds the device fields that the user owns.
+struct Configuration {
+    /// @brief name is a human-readable name for the device.
+    std::string name;
+    /// @brief identifier is the prefix of the device's channel names. The device is
+    /// unconfigured while it is empty.
+    std::string identifier = "";
+    /// @brief read_index is the index channel of the channels that the device reads
+    /// into.
+    ::synnax::channel::Key read_index = ::synnax::channel::Key(0);
+    /// @brief write_state_index is the index channel of the state channels of the
+    /// device's outputs.
+    ::synnax::channel::Key write_state_index = ::synnax::channel::Key(0);
+    /// @brief ports holds the configuration that depends on the model. Its model must
+    /// be the model of the stored device.
+    Ports ports;
+
+    static Configuration parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Base carries the fields that every LabJack device shares.
 struct Base {
@@ -79,6 +151,29 @@ struct Base {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief IdentityUpdate writes the fields that the scanner owns.
+struct IdentityUpdate : public Identity {
+    std::string group = "identity";
+
+    static IdentityUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConfigurationUpdate replaces the fields that the user owns. A client sends
+/// the whole group, because a field it leaves out is cleared.
+struct ConfigurationUpdate : public Configuration {
+    std::string group = "configuration";
+
+    static ConfigurationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update is a write to one field group of a device.
+using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
+
 /// @brief T4Device is a T4.
 struct T4Device : public Base {
     std::string model = MODEL_T_4;
@@ -90,6 +185,9 @@ struct T4Device : public Base {
 /// @brief T7Device is a T7.
 struct T7Device : public Base {
     std::string model = MODEL_T_7;
+    /// @brief mux80_attached is true when a Mux80 is attached, which adds the analog
+    /// input ports AIN48 to AIN127.
+    bool mux80_attached = false;
 
     static T7Device parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

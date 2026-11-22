@@ -25,8 +25,59 @@ export const MODELS = ["t4", "t7", "t8"] as const;
 export const modelZ = z.enum(MODELS);
 export type Model = z.infer<typeof modelZ>;
 
+/** Identity holds the device fields that the scanner owns. */
+export const identityZ = z.object({
+  /** rack is the key of the rack the device is connected to. */
+  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  /** serial is the serial number of the device. */
+  serial: z.uint32().refine((v) => v !== 0, "serial is required"),
+  /** connection is the connection the scanner last found the device on. */
+  connection: connectionZ,
+  /** model is the model of the device. An update cannot change it. */
+  model: modelZ,
+});
+export interface Identity extends z.infer<typeof identityZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
+
+/** T4Ports are the ports of a T4. */
+export const t4PortsZ = z.object({
+  model: z.literal("t4"),
+});
+export interface T4Ports extends z.infer<typeof t4PortsZ> {}
+
+/** T7Ports are the ports of a T7. */
+export const t7PortsZ = z.object({
+  model: z.literal("t7"),
+  /**
+   * mux80Attached is true when a Mux80 is attached, which adds the analog input ports
+   * AIN48 to AIN127.
+   */
+  mux80Attached: z.boolean().default(false),
+});
+export interface T7Ports extends z.infer<typeof t7PortsZ> {}
+
+/** T8Ports are the ports of a T8. */
+export const t8PortsZ = z.object({
+  model: z.literal("t8"),
+});
+export interface T8Ports extends z.infer<typeof t8PortsZ> {}
+
+/**
+ * Ports holds the configuration that depends on the model: the channel maps and the
+ * accessories that add ports.
+ */
+export const portsZ = z.discriminatedUnion("model", [t4PortsZ, t7PortsZ, t8PortsZ]);
+export type Ports = T4Ports | T7Ports | T8Ports;
+
+export const PORTS_SCHEMAS: {
+  [K in Model]: z.ZodType<Extract<Ports, { model: K }>>;
+} = {
+  t4: t4PortsZ,
+  t7: t7PortsZ,
+  t8: t8PortsZ,
+};
 
 /** StatusDetails identifies the device and rack that a status pertains to. */
 export const statusDetailsZ = z.object({
@@ -37,8 +88,64 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
+/** Configuration holds the device fields that the user owns. */
+export const configurationZ = z.object({
+  /** name is a human-readable name for the device. */
+  name: z.string().min(1, "name is required"),
+  /**
+   * identifier is the prefix of the device's channel names. The device is unconfigured
+   * while it is empty.
+   */
+  identifier: z.string().default(""),
+  /** readIndex is the index channel of the channels that the device reads into. */
+  readIndex: channel.keyZ.default(0),
+  /**
+   * writeStateIndex is the index channel of the state channels of the device's outputs.
+   */
+  writeStateIndex: channel.keyZ.default(0),
+  /**
+   * ports holds the configuration that depends on the model. Its model must be the
+   * model of the stored device.
+   */
+  ports: portsZ,
+});
+export interface Configuration extends z.infer<typeof configurationZ> {}
+
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
+
+/** IdentityUpdate writes the fields that the scanner owns. */
+export const identityUpdateZ = identityZ.extend({
+  group: z.literal("identity"),
+});
+export interface IdentityUpdate extends z.infer<typeof identityUpdateZ> {}
+
+/**
+ * ConfigurationUpdate replaces the fields that the user owns. A client sends the whole
+ * group, because a field it leaves out is cleared.
+ */
+export const configurationUpdateZ = configurationZ.extend({
+  group: z.literal("configuration"),
+});
+export interface ConfigurationUpdate extends z.infer<typeof configurationUpdateZ> {}
+
+export const UPDATE_TYPES = ["identity", "configuration"] as const;
+export const updateTypeZ = z.enum(UPDATE_TYPES);
+export type UpdateType = z.infer<typeof updateTypeZ>;
+
+/** Update is a write to one field group of a device. */
+export const updateZ = z.discriminatedUnion("group", [
+  identityUpdateZ,
+  configurationUpdateZ,
+]);
+export type Update = IdentityUpdate | ConfigurationUpdate;
+
+export const UPDATE_SCHEMAS: {
+  [K in UpdateType]: z.ZodType<Extract<Update, { group: K }>>;
+} = {
+  identity: identityUpdateZ,
+  configuration: configurationUpdateZ,
+};
 
 /** Base carries the fields that every LabJack device shares. */
 export const baseZ = z.object({
@@ -77,6 +184,11 @@ export interface T4Device extends z.infer<typeof t4DeviceZ> {}
 /** T7Device is a T7. */
 export const t7DeviceZ = baseZ.extend({
   model: z.literal("t7"),
+  /**
+   * mux80Attached is true when a Mux80 is attached, which adds the analog input ports
+   * AIN48 to AIN127.
+   */
+  mux80Attached: z.boolean().default(false),
 });
 export interface T7Device extends z.infer<typeof t7DeviceZ> {}
 

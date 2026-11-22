@@ -69,4 +69,22 @@ TEST(Device, RoundTrips) {
     ASSERT_EQ(base(parsed).connection, CONNECTION_ETHERNET);
     ASSERT_EQ(base(parsed).identifier, "lj");
 }
+
+/// @brief it should round trip a configuration update with a T7's ports.
+TEST(Update, RoundTripsConfiguration) {
+    ConfigurationUpdate configuration;
+    configuration.name = "T7-0001";
+    T7Ports ports;
+    ports.mux80_attached = true;
+    configuration.ports = ports;
+    const Update update = configuration;
+    x::json::Parser parser(to_json(update));
+    const auto parsed = parse_update(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_TRUE(std::holds_alternative<ConfigurationUpdate>(parsed));
+    const auto &got = std::get<ConfigurationUpdate>(parsed);
+    ASSERT_EQ(got.name, "T7-0001");
+    ASSERT_TRUE(std::holds_alternative<T7Ports>(got.ports));
+    ASSERT_TRUE(std::get<T7Ports>(got.ports).mux80_attached);
+}
 }

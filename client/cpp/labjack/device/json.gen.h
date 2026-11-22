@@ -71,6 +71,50 @@ inline x::json::json Base::to_json() const {
     return j;
 }
 
+inline Identity Identity::parse(x::json::Parser parser) {
+    return Identity{
+        .rack = parser.required_field<::synnax::rack::Key>("rack"),
+        .serial = parser.required_field<std::uint32_t>("serial"),
+        .connection = parser.field<std::string>("connection"),
+        .model = parser.field<std::string>("model"),
+    };
+}
+
+inline x::json::json Identity::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["rack"] = this->rack;
+    j["serial"] = this->serial;
+    j["connection"] = this->connection;
+    j["model"] = this->model;
+    return j;
+}
+
+inline Configuration Configuration::parse(x::json::Parser parser) {
+    return Configuration{
+        .name = parser.required_field<std::string>("name"),
+        .identifier = parser.field<std::string>("identifier", ""),
+        .read_index = parser.field<::synnax::channel::Key>(
+            "read_index",
+            ::synnax::channel::Key(0)
+        ),
+        .write_state_index = parser.field<::synnax::channel::Key>(
+            "write_state_index",
+            ::synnax::channel::Key(0)
+        ),
+        .ports = parse_ports(parser.child("ports")),
+    };
+}
+
+inline x::json::json Configuration::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["name"] = this->name;
+    j["identifier"] = this->identifier;
+    j["read_index"] = this->read_index;
+    j["write_state_index"] = this->write_state_index;
+    j["ports"] = ::synnax::labjack::device::to_json(this->ports);
+    return j;
+}
+
 inline T4Device T4Device::parse(x::json::Parser parser) {
     T4Device result;
     static_cast<Base &>(result) = Base::parse(parser);
@@ -88,6 +132,7 @@ inline x::json::json T4Device::to_json() const {
 inline T7Device T7Device::parse(x::json::Parser parser) {
     T7Device result;
     static_cast<Base &>(result) = Base::parse(parser);
+    result.mux80_attached = parser.field<bool>("mux80_attached", false);
     result.model = parser.field<std::string>("model");
     return result;
 }
@@ -95,6 +140,7 @@ inline T7Device T7Device::parse(x::json::Parser parser) {
 inline x::json::json T7Device::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
+    j["mux80_attached"] = this->mux80_attached;
     j["model"] = this->model;
     return j;
 }
@@ -113,6 +159,73 @@ inline x::json::json T8Device::to_json() const {
     return j;
 }
 
+inline T4Ports T4Ports::parse(x::json::Parser parser) {
+    T4Ports result;
+    result.model = parser.field<std::string>("model");
+    return result;
+}
+
+inline x::json::json T4Ports::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["model"] = this->model;
+    return j;
+}
+
+inline T7Ports T7Ports::parse(x::json::Parser parser) {
+    T7Ports result;
+    result.mux80_attached = parser.field<bool>("mux80_attached", false);
+    result.model = parser.field<std::string>("model");
+    return result;
+}
+
+inline x::json::json T7Ports::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["mux80_attached"] = this->mux80_attached;
+    j["model"] = this->model;
+    return j;
+}
+
+inline T8Ports T8Ports::parse(x::json::Parser parser) {
+    T8Ports result;
+    result.model = parser.field<std::string>("model");
+    return result;
+}
+
+inline x::json::json T8Ports::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["model"] = this->model;
+    return j;
+}
+
+inline IdentityUpdate IdentityUpdate::parse(x::json::Parser parser) {
+    IdentityUpdate result;
+    static_cast<Identity &>(result) = Identity::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json IdentityUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Identity::to_json(); parent.is_object()) j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
+inline ConfigurationUpdate ConfigurationUpdate::parse(x::json::Parser parser) {
+    ConfigurationUpdate result;
+    static_cast<Configuration &>(result) = Configuration::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json ConfigurationUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Configuration::to_json(); parent.is_object())
+        j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
 inline Device parse_device(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("model");
     if (discriminator == "t4") return T4Device::parse(parser);
@@ -123,6 +236,31 @@ inline Device parse_device(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const Device &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Ports parse_ports(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("model");
+    if (discriminator == "t4") return T4Ports::parse(parser);
+    if (discriminator == "t7") return T7Ports::parse(parser);
+    if (discriminator == "t8") return T8Ports::parse(parser);
+    parser.field_err("model", "unknown Ports model: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Ports &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Update parse_update(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("group");
+    if (discriminator == "identity") return IdentityUpdate::parse(parser);
+    if (discriminator == "configuration") return ConfigurationUpdate::parse(parser);
+    parser.field_err("group", "unknown Update group: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Update &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

@@ -11,7 +11,15 @@
 
 package device
 
-import "github.com/synnaxlabs/synnax/pkg/service/labjack/device/versions"
+import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/labjack/device/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // Key uniquely identifies a LabJack device.
 type Key = versions.Key
@@ -63,3 +71,332 @@ type T7Device = versions.T7Device
 
 // T8Device is a T8.
 type T8Device = versions.T8Device
+
+// Identity holds the device fields that the scanner owns.
+type Identity struct {
+	// Rack is the key of the rack the device is connected to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Serial is the serial number of the device.
+	Serial uint32 `json:"serial" msgpack:"serial"`
+	// Connection is the connection the scanner last found the device on.
+	Connection Connection `json:"connection" msgpack:"connection"`
+	// Model is the model of the device. An update cannot change it.
+	Model Model `json:"model" msgpack:"model"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i Identity) Validate() error {
+	v := validate.New("Identity")
+	v.Ternaryf("connection", !i.Connection.IsValid(), "invalid connection: %v", i.Connection)
+	v.Ternaryf("model", !i.Model.IsValid(), "invalid model: %v", i.Model)
+	v.NonZero("rack", i.Rack)
+	v.NonZero("serial", i.Serial)
+	return v.Error()
+}
+
+// PortsVariant is implemented by every Ports variant.
+type PortsVariant interface {
+	isPortsVariant()
+}
+
+// T4Ports are the ports of a T4.
+type T4Ports struct {
+}
+
+func (T4Ports) isPortsVariant() {}
+
+// T7Ports are the ports of a T7.
+type T7Ports struct {
+	// Mux80Attached is true when a Mux80 is attached, which adds the analog input ports
+	// AIN48 to AIN127.
+	Mux80Attached bool `json:"mux80_attached" msgpack:"mux80_attached"`
+}
+
+func (T7Ports) isPortsVariant() {}
+
+// T8Ports are the ports of a T8.
+type T8Ports struct {
+}
+
+func (T8Ports) isPortsVariant() {}
+
+// Ports holds the configuration that depends on the model: the channel maps and the
+// accessories that add ports.
+type Ports struct {
+	Variant PortsVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "model" tag injected.
+func (u Ports) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case T4Ports:
+		return json.MarshalEncode(enc, struct {
+			Type Model `json:"model"`
+			T4Ports
+		}{Type: ModelT4, T4Ports: v})
+	case T7Ports:
+		return json.MarshalEncode(enc, struct {
+			Type Model `json:"model"`
+			T7Ports
+		}{Type: ModelT7, T7Ports: v})
+	case T8Ports:
+		return json.MarshalEncode(enc, struct {
+			Type Model `json:"model"`
+			T8Ports
+		}{Type: ModelT8, T8Ports: v})
+	default:
+		return errors.Newf("Ports: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "model" field.
+func (u *Ports) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type Model `json:"model"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case ModelT4:
+		var v struct {
+			Type Model `json:"model"`
+			T4Ports
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.T4Ports
+	case ModelT7:
+		var v struct {
+			Type Model `json:"model"`
+			T7Ports
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.T7Ports
+	case ModelT8:
+		var v struct {
+			Type Model `json:"model"`
+			T8Ports
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.T8Ports
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Ports: unknown model %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Model returns the model of the active variant, or an empty model when there is none.
+func (u Ports) Model() Model {
+	switch u.Variant.(type) {
+	case T4Ports:
+		return ModelT4
+	case T7Ports:
+		return ModelT7
+	case T8Ports:
+		return ModelT8
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Ports) Validate() error {
+	v := validate.New("Ports")
+	v.Ternary("model", u.Variant == nil, "required")
+	return v.Error()
+}
+
+// Configuration holds the device fields that the user owns.
+type Configuration struct {
+	// Name is a human-readable name for the device.
+	Name string `json:"name" msgpack:"name"`
+	// Identifier is the prefix of the device's channel names. The device is
+	// unconfigured while it is empty.
+	Identifier string `json:"identifier" msgpack:"identifier"`
+	// ReadIndex is the index channel of the channels that the device reads into.
+	ReadIndex channel.Key `json:"read_index" msgpack:"read_index"`
+	// WriteStateIndex is the index channel of the state channels of the device's
+	// outputs.
+	WriteStateIndex channel.Key `json:"write_state_index" msgpack:"write_state_index"`
+	// Ports holds the configuration that depends on the model. Its model must be the
+	// model of the stored device.
+	Ports Ports `json:"ports" msgpack:"ports"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Configuration) Validate() error {
+	v := validate.New("Configuration")
+	v.NotEmptyString("name", c.Name)
+	v.Exec(func() error { return validate.PathedError(c.Ports.Validate(), "ports") })
+	return v.Error()
+}
+
+// UpdateType is the "group" value that selects a variant of Update.
+type UpdateType string
+
+const (
+	// IdentityUpdateType writes the fields that the scanner owns.
+	IdentityUpdateType UpdateType = "identity"
+	// ConfigurationUpdateType replaces the fields that the user owns. A client sends
+	// the whole group, because a field it leaves out is cleared.
+	ConfigurationUpdateType UpdateType = "configuration"
+)
+
+// UpdateVariant is implemented by every Update variant.
+type UpdateVariant interface {
+	isUpdateVariant()
+}
+
+// IdentityUpdate writes the fields that the scanner owns.
+type IdentityUpdate struct {
+	Identity
+}
+
+func (IdentityUpdate) isUpdateVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i IdentityUpdate) Validate() error {
+	v := validate.New("IdentityUpdate")
+	v.Exec(i.Identity.Validate)
+	return v.Error()
+}
+
+// ConfigurationUpdate replaces the fields that the user owns. A client sends the whole
+// group, because a field it leaves out is cleared.
+type ConfigurationUpdate struct {
+	Configuration
+}
+
+func (ConfigurationUpdate) isUpdateVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c ConfigurationUpdate) Validate() error {
+	v := validate.New("ConfigurationUpdate")
+	v.Exec(c.Configuration.Validate)
+	return v.Error()
+}
+
+// Update is a write to one field group of a device.
+type Update struct {
+	Variant UpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "group" tag injected.
+func (u Update) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case IdentityUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type UpdateType `json:"group"`
+			IdentityUpdate
+		}{Type: IdentityUpdateType, IdentityUpdate: v})
+	case ConfigurationUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type UpdateType `json:"group"`
+			ConfigurationUpdate
+		}{Type: ConfigurationUpdateType, ConfigurationUpdate: v})
+	default:
+		return errors.Newf("Update: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "group" field.
+func (u *Update) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type UpdateType `json:"group"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case IdentityUpdateType:
+		var v struct {
+			Type UpdateType `json:"group"`
+			IdentityUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.IdentityUpdate
+	case ConfigurationUpdateType:
+		var v struct {
+			Type UpdateType `json:"group"`
+			ConfigurationUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ConfigurationUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Update: unknown group %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Group returns the group of the active variant, or an empty group when there is none.
+func (u Update) Group() UpdateType {
+	switch u.Variant.(type) {
+	case IdentityUpdate:
+		return IdentityUpdateType
+	case ConfigurationUpdate:
+		return ConfigurationUpdateType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Update) Validate() error {
+	v := validate.New("Update")
+	v.Ternary("group", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case IdentityUpdate:
+		v.Exec(variant.Validate)
+	case ConfigurationUpdate:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}

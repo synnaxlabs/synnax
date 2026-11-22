@@ -40,3 +40,32 @@ describe("deviceZ", () => {
     );
   });
 });
+
+describe("updateZ", () => {
+  it("should parse a configuration update with the ports of its model", () => {
+    const update = labjack.device.updateZ.parse({
+      group: "configuration",
+      name: "T7-0001",
+      ports: { model: "t7" },
+    });
+    expect(update).toMatchObject({
+      group: "configuration",
+      ports: { model: "t7", mux80Attached: false },
+    });
+  });
+
+  it("should parse an identity update", () => {
+    const update = labjack.device.updateZ.parse({
+      group: "identity",
+      rack: 1,
+      serial: 470010001,
+      connection: "LJM_ctWIFI",
+      model: "t7",
+    });
+    expect(update).toMatchObject({ group: "identity", connection: "LJM_ctWIFI" });
+  });
+
+  it("should reject an unknown group", () => {
+    expect(labjack.device.updateZ.safeParse({ group: "status" }).success).toBe(false);
+  });
+});

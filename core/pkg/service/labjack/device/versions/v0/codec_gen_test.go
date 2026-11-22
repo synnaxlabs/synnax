@@ -74,7 +74,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("t4 variant", v0.Device{Variant: v0.T4Device{Base: fullyPopulatedBase}}),
-			Entry("t7 variant", v0.Device{Variant: v0.T7Device{Base: fullyPopulatedBase}}),
+			Entry("t7 variant", v0.Device{Variant: v0.T7Device{Base: fullyPopulatedBase, Mux80Attached: true}}),
 			Entry("t8 variant", v0.Device{Variant: v0.T8Device{Base: fullyPopulatedBase}}),
 		)
 	})
@@ -172,7 +172,7 @@ func FuzzDecodeDevice(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Device{Variant: v0.T7Device{Base: fullyPopulatedBase}}
+		seed := v0.Device{Variant: v0.T7Device{Base: fullyPopulatedBase, Mux80Attached: true}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
