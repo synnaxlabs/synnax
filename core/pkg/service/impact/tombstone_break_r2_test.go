@@ -239,6 +239,9 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 		deleteChannels(ctx, live.Key())
 		path := parent.Name + "." + child.Name + "." + dead.Name
 		Expect(deleteGroups(ctx, parent.Key, child.Key)).To(Equal(impact.Plan{
+			Change: impact.Change{Variant: impact.DeleteGroupsChange{
+				Keys: []group.Key{parent.Key, child.Key},
+			}},
 			Entries: []impact.Entry{{
 				Record: channel.ResourceID(dead.Key()),
 				Effect: impact.EffectCascade,

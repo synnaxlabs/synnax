@@ -301,9 +301,8 @@ func (s *Service) Apply(
 // no change. Formatting the variant would make every change escape to the heap.
 var errUnknownChange = errors.Wrap(validate.ErrValidation, "unknown change")
 
-// deleteGroups deletes the groups with keys, the groups of c, and the tombstones in
-// them
-// first, as Apply describes.
+// deleteGroups deletes the groups with keys, the groups of c, and first the tombstones
+// in them, as Apply describes.
 func (s *Service) deleteGroups(
 	ctx context.Context,
 	tx gorp.Tx,
