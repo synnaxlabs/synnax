@@ -26,6 +26,14 @@ var _ = Describe("Placeholder v0.62 check", func() {
 		Expect(segments[0].Spec).To(Equal(".1f"))
 	})
 
+	It("Should end a line comment at a carriage return before a quoted name", func() {
+		segments := MustSucceed(literal.FmtStrParse("{0 // note\r+ 'tc:01'}"))
+		Expect(segments).To(HaveLen(1))
+		Expect(segments[0].IsPlaceholder).To(BeTrue())
+		Expect(segments[0].Text).To(Equal("0 // note\r+ 'tc:01'"))
+		Expect(segments[0].Spec).To(BeEmpty())
+	})
+
 	It("Should close a placeholder whose brace in a string a comment balances", func() {
 		segments := MustSucceed(literal.FmtStrParse(`{len("{") + x /* } */}`))
 		Expect(segments).To(HaveLen(1))
