@@ -104,6 +104,32 @@ var _ = Describe("Check: segments that only parts hold", func() {
 		Expect(segmentFiles(fs, data)).To(Equal(2))
 	})
 
+	It("Should keep the file of a parted segment that two deletes empty while an "+
+		"iterator that loaded its record reads", func(ctx SpecContext) {
+		fs := xfs.NewMem()
+		_, data := closeParted(ctx, fs)
+		db := partedDB(ctx, fs)
+		DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
+		DeferCleanup(StartRun(db.Run))
+		iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			Bounds:   telem.TimeRangeMax,
+			Channels: []cesium.ChannelKey{data},
+		}))
+		Expect(iter.SeekFirst()).To(BeTrue())
+		// The first delete cuts the first parted segment, which then stays in the
+		// state, and the second empties it.
+		for _, tr := range []telem.TimeRange{
+			{Start: telem.SecondTS, End: 6 * telem.SecondTS},
+			{Start: 6 * telem.SecondTS, End: 11 * telem.SecondTS},
+		} {
+			Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{data}, tr)).To(Succeed())
+		}
+		Expect(segmentFiles(fs, data)).To(Equal(3), "the iterator pins the segment")
+		Expect(iterated(iter, data)).To(HaveLen(30))
+		Expect(iter.Close()).To(Succeed())
+		Expect(segmentFiles(fs, data)).To(Equal(2))
+	})
+
 	It("Should keep the file of a parted segment that a delete empties after a switch "+
 		"writes its record to a new part, while an iterator that loaded the old part "+
 		"reads", func(ctx SpecContext) {
