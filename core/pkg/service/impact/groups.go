@@ -11,25 +11,68 @@ package impact
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"slices"
 
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/set"
 )
 
-// groupsPlan returns the plan of c, a delete of groups, with no token. It has no
-// entries, so a pick fails as it fails Plan.
-func groupsPlan(c Change, picks map[string]Choice, hidden *Choice) (Plan, error) {
-	if len(picks) > 0 || hidden != nil {
-		chosen, err := newPicks(PlanOptions{Picks: picks, Hidden: hidden})
-		if err != nil {
-			return Plan{}, err
-		}
-		if err = pickWithoutEntry(chosen.named, nil); err != nil {
+// planGroups returns the plan of c, the delete of the groups with keys, as snap sees
+// it, with no token: each tombstone in the groups, as a cascade entry with its path. A
+// pick fails as it fails Plan.
+func (s *Service) planGroups(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	c Change,
+	keys []group.Key,
+	opts PlanOptions,
+) (Plan, error) {
+	var (
+		chosen picks
+		err    error
+	)
+	picked := len(opts.Picks) > 0 || opts.Hidden != nil
+	if picked {
+		if chosen, err = newPicks(opts); err != nil {
 			return Plan{}, err
 		}
 	}
-	return Plan{Change: c}, nil
+	dead, err := s.cfg.Channel.Tombstones(ctx, snap, keys...)
+	if err != nil {
+		return Plan{}, err
+	}
+	p := Plan{Change: c}
+	if len(dead) > 0 {
+		paths, err := s.tombstonePaths(ctx, snap, keys, dead)
+		if err != nil {
+			return Plan{}, err
+		}
+		p.Entries = make([]Entry, len(dead))
+		for i, t := range dead {
+			p.Entries[i] = Entry{
+				Record: channel.ResourceID(t.Key),
+				Effect: EffectCascade,
+				Path:   &paths[i],
+			}
+		}
+		slices.SortFunc(p.Entries, compareEntries)
+	}
+	if !picked {
+		return p, nil
+	}
+	entries := make(set.Set[resource.ID], len(p.Entries))
+	for _, e := range p.Entries {
+		if _, err = chosen.pickOf(e); err != nil {
+			return Plan{}, err
+		}
+		entries.Add(e.Record)
+	}
+	return p, pickWithoutEntry(chosen.named, entries)
 }
 
 // groupsSum returns the plan sum of p, the plan of the delete of the groups with keys,

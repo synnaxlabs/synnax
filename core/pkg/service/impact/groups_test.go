@@ -247,6 +247,57 @@ var _ = Describe("Delete groups", Ordered, func() {
 		Expect(exists(ctx, folder.Key)).To(BeTrue())
 	})
 
+	It("Should plan each tombstone of a group delete as the apply lists it", func(
+		ctx SpecContext,
+	) {
+		folder := createFolder(ctx, "impact-planned-tombstones", nil)
+		ch := tombstone(ctx, folder)
+		p := MustSucceed(plan(ctx, impact.PlanOptions{}, folder.Key))
+		Expect(p.Entries).To(Equal([]impact.Entry{
+			cascade(ch, "impact-planned-tombstones."+ch.Name),
+		}))
+		Expect(exists(ctx, folder.Key)).To(BeTrue())
+		Expect(apply(ctx, impact.ApplyOptions{Token: p.Token}, folder.Key)).
+			To(Equal(p))
+		Expect(exists(ctx, folder.Key)).To(BeFalse())
+	})
+
+	It("Should refuse a token planned before a tombstone joined the folder", func(
+		ctx SpecContext,
+	) {
+		folder := createFolder(ctx, "impact-late-tombstone", nil)
+		stale := MustSucceed(plan(ctx, impact.PlanOptions{}, folder.Key))
+		ch := tombstone(ctx, folder)
+		applied, err := apply(ctx, impact.ApplyOptions{Token: stale.Token}, folder.Key)
+		Expect(applied).To(BeZero())
+		changed := MustBeOk(errors.AsType[impact.PlanChangedError](err))
+		Expect(changed.Plan.Entries).To(Equal([]impact.Entry{
+			cascade(ch, "impact-late-tombstone."+ch.Name),
+		}))
+		Expect(changed.Plan).To(Equal(MustSucceed(
+			plan(ctx, impact.PlanOptions{}, folder.Key),
+		)))
+		Expect(exists(ctx, folder.Key)).To(BeTrue())
+	})
+
+	It("Should refuse a pick on a tombstone entry, which takes none", func(
+		ctx SpecContext,
+	) {
+		folder := createFolder(ctx, "impact-picked-tombstone", nil)
+		ch := tombstone(ctx, folder)
+		record := channel.ResourceID(ch.Key()).String()
+		picks := map[string]impact.Choice{record: impact.ChoiceDelete}
+		refused := And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("entry %s cannot take delete", record)),
+		)
+		Expect(plan(ctx, impact.PlanOptions{Picks: picks}, folder.Key)).
+			Error().To(refused)
+		Expect(apply(ctx, impact.ApplyOptions{Picks: picks}, folder.Key)).
+			Error().To(refused)
+		Expect(exists(ctx, folder.Key)).To(BeTrue())
+	})
+
 	It("Should name the pick with the smallest key among the picks it refuses", func(
 		ctx SpecContext,
 	) {
