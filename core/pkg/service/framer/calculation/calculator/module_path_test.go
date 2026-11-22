@@ -98,6 +98,7 @@ var _ = Describe("Module member names in a calculation", Ordered, func() {
 				To(telem.MatchSeriesDataV(3.0, 5.0))
 		},
 		Entry("by its bare path", "return math.inf * 2.0"),
+		Entry("by its quoted path", "return 'math.inf' * 2.0"),
 	)
 
 	It("Should refuse to save a calculation that reads a module member with no channel",
