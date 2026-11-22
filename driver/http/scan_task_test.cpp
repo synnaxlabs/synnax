@@ -1153,7 +1153,10 @@ TEST(HTTPScanTask, ScanHealthCheckArrayIndexOverflow) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 

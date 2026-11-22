@@ -2439,7 +2439,10 @@ TEST(TestScanTask, ScanWarningIsSentOnceAndClears) {
 /// @brief it should send the data of the scanner with a scan warning, and warn again
 /// when only the data changes.
 TEST(TestScanTask, ScanWarningCarriesTheDataOfTheScanner) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto partial = x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open");
     const x::json::json::object_t first{{"filtered", x::json::json::array({"eth1"})}};
     const x::json::json::object_t second{{"filtered", x::json::json::array()}};
@@ -2467,7 +2470,10 @@ TEST(TestScanTask, ScanWarningCarriesTheDataOfTheScanner) {
 /// @brief it should send the scan warning again after the scanner answers a command
 /// with its own status.
 TEST(TestScanTask, ScanWarningFollowsAnAnswerOfTheScanner) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto task = new_test_task_record();
     const auto partial = x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open");
     const auto scan_task = new_test_task(ctx, task, {partial, partial, partial});
@@ -2494,7 +2500,10 @@ TEST(TestScanTask, ScanWarningFollowsAnAnswerOfTheScanner) {
 /// @brief it should send the running status again after the scanner answers a command
 /// with its own status.
 TEST(TestScanTask, RunningStatusFollowsAnAnswerOfTheScanner) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto task = new_test_task_record();
     const auto scan_task = new_test_task(ctx, task);
     scan_task->start();

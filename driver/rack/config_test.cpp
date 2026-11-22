@@ -199,7 +199,10 @@ TEST_F(RackConfigTest, FileBrowserFollowsIntegration) {
         x::breaker::Breaker cancel;
         cancel.start();
         auto tasks = factory->configure_initial_tasks(
-            std::make_shared<task::MockContext>(client),
+            std::make_shared<task::MockContext>(
+                client,
+                ::driver::outbox::testutil::open(client->statuses)
+            ),
             rack,
             cancel
         );
