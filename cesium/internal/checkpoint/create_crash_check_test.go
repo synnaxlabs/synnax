@@ -11,6 +11,7 @@ package checkpoint_test
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 
@@ -80,18 +81,29 @@ var _ = Describe("Check: switches after a create that writes parts", func() {
 				Live:     1,
 			}))
 			start(c)
+			// The state forgets the records that parts hold, so a part record dies only
+			// by a kill.
 			heads := []struct {
 				s     *state.Snapshot
 				parts []uint64
 				ids   []uint64
 			}{
 				{
-					s:     withSealed(sealed(3, 30), sealed(4, 40), sealed(5, 50)),
+					s:     killed(withSealed(sealed(5, 50)), 1, 1, 2),
 					parts: []uint64{2},
 					ids:   []uint64{3, 4, 5, 100},
 				},
 				{
-					s:     withSealed(sealed(5, 50), sealed(6, 60), sealed(7, 70)),
+					s: killed(
+						withSealed(
+							sealed(5, 50),
+							sealed(6, 60),
+							sealed(7, 70),
+						),
+						2,
+						3,
+						4,
+					),
 					parts: []uint64{3},
 					ids:   []uint64{5, 6, 7, 100},
 				},
@@ -107,12 +119,8 @@ var _ = Describe("Check: switches after a create that writes parts", func() {
 					parts = append(parts, p.ID)
 				}
 				Expect(parts).To(Equal(want.parts), "head %d", g)
-				MustSucceed(checkpoint.LoadParts(fs, db, h)).Merge(got)
-				var ids []uint64
-				for _, seg := range got.Channels[0].Segments {
-					ids = append(ids, seg.ID)
-				}
-				Expect(ids).To(Equal(want.ids), "head %d", g)
+				x := MustSucceed(checkpoint.LoadParts(fs, db, h))
+				Expect(segmentIDs(x, got)).To(Equal(want.ids), "head %d", g)
 			}
 		})
 })
@@ -132,18 +140,27 @@ func created(fs xfs.FS, s *state.Snapshot) ([]uint64, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "head 1")
 	}
-	parts, err := checkpoint.LoadParts(fs, db, h)
+	x, err := checkpoint.LoadParts(fs, db, h)
 	if err != nil {
 		return nil, errors.Wrap(err, "head 1")
 	}
-	parts.Merge(got)
+	return segmentIDs(x, got), nil
+}
+
+// segmentIDs returns the identities of the segments of each channel of s, a head whose
+// parts x loads: the records of the head and the live records of the parts, in rising
+// order for each channel.
+func segmentIDs(x *checkpoint.Index, s *state.Snapshot) []uint64 {
 	var ids []uint64
-	for _, ch := range got.Channels {
+	for _, ch := range s.Channels {
+		at := len(ids)
+		ids = slices.AppendSeq(ids, maps.Keys(x.Live(ch.Key)))
 		for _, seg := range ch.Segments {
 			ids = append(ids, seg.ID)
 		}
+		slices.Sort(ids[at:])
 	}
-	return ids, nil
+	return ids
 }
 
 // createAgain removes head 1 of fs when it exists, and creates s.
