@@ -105,6 +105,16 @@ type DB struct {
 	}
 }
 
+// lockRoot takes db.mu for a call that removes files or directories of the root. On the
+// pointer log, it first waits for the orphan pass of Run, which lists and removes files
+// with no lock.
+func (db *DB) lockRoot() {
+	if db.engine != nil {
+		<-db.engine.ready
+	}
+	db.mu.Lock()
+}
+
 // Write writes the frame to database at the specified start time.
 func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
 	if db.closed.Load() {

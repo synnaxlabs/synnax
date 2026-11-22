@@ -103,6 +103,10 @@ var _ = Describe("Load", func() {
 		Entry("a segment in two keys", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].ID = 2
 		}, state.ErrRefused, "head names segment 2 twice"),
+		Entry("a sealed segment with no pointer", func(h *state.Snapshot) {
+			seg := &h.Channels[1].Segments[0]
+			seg.Sealed, seg.Pointers = true, nil
+		}, state.ErrRefused, "head names segment 3, sealed with no pointer"),
 		Entry("a version this binary does not read", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].Version = 2
 		}, log.ErrUnknown, "segment 3 has format version 2"),
@@ -221,6 +225,18 @@ var _ = Describe("Replay", func() {
 			}
 		}
 	})
+
+	DescribeTable("Should bury a segment that a record seals with no durable pointer",
+		func(sealing log.Record) {
+			Expect(replay(create(7, 9, 5), sealing)).To(Succeed())
+			run(s)
+			Expect(MustSucceed(s.Snapshot()).Channels).To(HaveLen(2))
+			Expect(s.Channel(9).Segments).To(BeEmpty())
+			Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 7, Key: 9}}))
+		},
+		Entry("a Seal", &log.Seal{Segment: 7}),
+		Entry("a Restart", &log.Restart{}),
+	)
 
 	It("Should raise the limits with a reserve", func() {
 		Expect(replay(&log.Reserve{Segments: 40, Alignments: 100})).To(Succeed())
