@@ -128,18 +128,18 @@ func (x *Index) liveRanges() []state.Range {
 	return ranges
 }
 
-// Record returns the live record of segment id of key in the parts of x, and false when
-// no part holds one.
-func (x *Index) Record(key uint32, id uint64) (state.Segment, bool) {
+// Live returns the live records of key in the parts of x, by segment identity.
+func (x *Index) Live(key uint32) map[uint64]state.Segment {
+	live := make(map[uint64]state.Segment)
 	for _, p := range x.parts {
 		i, _ := slices.BinarySearch(p.keys, key)
 		for ; i < len(p.keys) && p.keys[i] == key; i++ {
-			if p.segs[i].ID == id && !p.dead(i) {
-				return p.segs[i], true
+			if !p.dead(i) {
+				live[p.segs[i].ID] = p.segs[i]
 			}
 		}
 	}
-	return state.Segment{}, false
+	return live
 }
 
 // fold marks each record of p dead that a kill of the generation of p or later names.

@@ -517,6 +517,7 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 		return err
 	}
 	removed := false
+	var parted map[uint64]state.Segment
 	for _, info := range infos {
 		name := dir + "/" + info.Name()
 		if !strings.HasSuffix(name, ".seg") && !strings.HasSuffix(name, ".chk") {
@@ -529,7 +530,10 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 				16,
 				64,
 			); err == nil {
-				seg, ok = e.opened.Record(key, id)
+				if parted == nil {
+					parted = e.opened.Live(key)
+				}
+				seg, ok = parted[id]
 			}
 		}
 		if !ok {
