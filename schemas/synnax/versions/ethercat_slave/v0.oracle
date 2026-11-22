@@ -123,8 +123,11 @@ Slave struct {
         @doc value         "is a human-readable name for the slave."
         @validate required
     }
-    serial             uint32 = 0 {
-        @doc value "is the serial number of the slave. 0 when the slave reports none."
+    serial             uint64 = 0 {
+        @doc value    """
+            is the serial number of the slave. 0 when the slave reports none.
+        """
+        @validate max 9007199254740991
     }
     vendor_id          uint32                      {
         @doc value "is the EtherCAT vendor ID of the slave."
@@ -132,7 +135,7 @@ Slave struct {
     product_code       uint32                      {
         @doc value "is the product code of the slave."
     }
-    revision           uint32 = 0 {
+    revision           uint32                      {
         @doc value "is the revision number of the slave."
     }
     master             ethercat_master.Key         {

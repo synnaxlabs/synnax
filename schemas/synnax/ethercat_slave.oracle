@@ -133,12 +133,14 @@ Slave struct {
         @search
         @validate required
     }
-    serial             uint32 = 0 {
+    serial             uint64 = 0 {
         @doc value    """
             is the serial number of the slave. 0 when the slave reports none.
         """
         @filter
         @index lookup
+        @ts type      "number"
+        @validate max 9007199254740991
     }
     vendor_id          uint32                      {
         @doc value "is the EtherCAT vendor ID of the slave."
@@ -148,7 +150,7 @@ Slave struct {
         @doc value "is the product code of the slave."
         @filter
     }
-    revision           uint32 = 0 {
+    revision           uint32                      {
         @doc value "is the revision number of the slave."
     }
     master             ethercat_master.Key         {

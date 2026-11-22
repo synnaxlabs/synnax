@@ -21,6 +21,7 @@ x::json::json valid_slave() {
         {"name", "EL3102"},
         {"vendor_id", 2},
         {"product_code", 0x0C1E3052},
+        {"revision", 0x00110000},
         {"master", "33333333-3333-4333-8333-333333333333"},
     };
 }

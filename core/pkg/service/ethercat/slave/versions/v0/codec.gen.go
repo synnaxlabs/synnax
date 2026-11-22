@@ -166,7 +166,7 @@ func (s Slave) EncodeOrc(w *orc.Writer) error {
 	w.Write(s.Key[:])
 	w.Uint32(uint32(s.Rack))
 	w.String(s.Name)
-	w.Uint32(uint32(s.Serial))
+	w.Uint64(uint64(s.Serial))
 	w.Uint32(uint32(s.VendorID))
 	w.Uint32(uint32(s.ProductCode))
 	w.Uint32(uint32(s.Revision))
@@ -224,7 +224,7 @@ func (s *Slave) DecodeOrc(r *orc.Reader) error {
 	if s.Name, err = r.String(); err != nil {
 		return err
 	}
-	if s.Serial, err = r.Uint32(); err != nil {
+	if s.Serial, err = r.Uint64(); err != nil {
 		return err
 	}
 	if s.VendorID, err = r.Uint32(); err != nil {

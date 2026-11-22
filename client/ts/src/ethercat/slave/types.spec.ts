@@ -17,6 +17,7 @@ const SLAVE = {
   name: "EL3102",
   vendorId: 2,
   productCode: 0x0c1e3052,
+  revision: 0x00110000,
   master: "33333333-3333-4333-8333-333333333333",
 } as const;
 
@@ -56,6 +57,7 @@ describe("slaveZ", () => {
     ["an empty name", { name: "" }],
     ["no master", { master: undefined }],
     ["no vendor ID", { vendorId: undefined }],
+    ["no revision", { revision: undefined }],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {
     expect(ethercat.slave.slaveZ.safeParse({ ...SLAVE, ...change }).success).toBe(

@@ -99,13 +99,13 @@ export const slaveZ = z.object({
   /** name is a human-readable name for the slave. */
   name: z.string().min(1, "name is required"),
   /** serial is the serial number of the slave. 0 when the slave reports none. */
-  serial: z.uint32().default(0),
+  serial: z.number().max(9007199254740991).default(0),
   /** vendorId is the EtherCAT vendor ID of the slave. */
   vendorId: z.uint32(),
   /** productCode is the product code of the slave. */
   productCode: z.uint32(),
   /** revision is the revision number of the slave. */
-  revision: z.uint32().default(0),
+  revision: z.uint32(),
   /** master is the master on whose bus the slave sits. */
   master: ethercatMaster.keyZ,
   /** pdos are the PDO entries that the scan found on the slave. */

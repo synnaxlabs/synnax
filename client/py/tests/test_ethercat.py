@@ -874,6 +874,7 @@ class TestEtherCATSlaveResource:
         "name": "EL3102",
         "vendor_id": 2,
         "product_code": 0x0C1E3052,
+        "revision": 0x00110000,
         "master": "33333333-3333-4333-8333-333333333333",
     }
 
@@ -886,9 +887,9 @@ class TestEtherCATSlaveResource:
         assert slave.pdos.inputs == []
         assert slave.read_bindings == []
 
-    @pytest.mark.parametrize("missing", ["master", "vendor_id", "name"])
+    @pytest.mark.parametrize("missing", ["master", "vendor_id", "revision", "name"])
     def test_requires_a_field(self, missing: str) -> None:
-        """Should reject a slave without a master, a vendor ID, or a name."""
+        """Should reject a slave without a master, vendor ID, revision, or name."""
         data = {k: v for k, v in self.SLAVE.items() if k != missing}
         with pytest.raises(ValidationError):
             sy.ethercat.slave.Slave.model_validate(data)
