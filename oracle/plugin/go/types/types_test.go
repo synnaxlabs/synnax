@@ -2471,6 +2471,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 							"StatusPending Status = 1",
 							"StatusActive Status = 3",
 							"StatusCompleted Status = 5",
+							"case StatusPending, StatusActive, StatusCompleted:",
 						).
 						ToNotContain("iota")
 				},
