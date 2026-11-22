@@ -24,8 +24,8 @@ type Key = versions.Key
 // elements for dynamic coloring.
 type Region = versions.Region
 
-// StateOverride is a node's replacement for the region colors of one of its symbol's
-// states.
+// StateOverride is a node's replacement for the region colors of one value that it
+// draws.
 type StateOverride = versions.StateOverride
 
 // Handle is a connection point on a symbol for linking to other diagram elements.

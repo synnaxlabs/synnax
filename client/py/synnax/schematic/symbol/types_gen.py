@@ -331,11 +331,11 @@ class Cursor(BaseModel):
 
 
 class StateOverride(BaseModel):
-    """Is a node's replacement for the region colors of one of its symbol's states.
+    """Is a node's replacement for the region colors of one value that it draws.
 
     Attributes:
-        key: Is the key of the state that the override replaces.
-        name: Is a human-readable name for the state.
+        key: Is the key of the value that the override colors.
+        name: Is a human-readable name for the value.
         regions: Contains the regions that the override colors.
     """
 

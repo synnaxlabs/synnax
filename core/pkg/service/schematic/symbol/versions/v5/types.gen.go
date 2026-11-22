@@ -35,12 +35,12 @@ type Key = v4.Key
 // elements for dynamic coloring.
 type Region = v4.Region
 
-// StateOverride is a node's replacement for the region colors of one of its symbol's
-// states.
+// StateOverride is a node's replacement for the region colors of one value that it
+// draws.
 type StateOverride struct {
-	// Key is the key of the state that the override replaces.
+	// Key is the key of the value that the override colors.
 	Key string `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the state.
+	// Name is a human-readable name for the value.
 	Name string `json:"name" msgpack:"name"`
 	// Regions contains the regions that the override colors.
 	Regions []Region `json:"regions" msgpack:"regions"`
