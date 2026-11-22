@@ -9,6 +9,7 @@
 
 import type { z } from "zod";
 
+import { encodeBase64 } from "@/binary/base64";
 import { caseconv } from "@/caseconv";
 import { csv } from "@/csv";
 import { narrow } from "@/narrow";
@@ -76,6 +77,7 @@ export class JSONCodec implements Codec {
     const parsed = schema != null ? zod.parse(schema, payload) : payload;
     const caseConverted = caseconv.camelToSnake(parsed ?? {}, { schema });
     return JSON.stringify(caseConverted, (_, v) => {
+      if (v instanceof Uint8Array) return encodeBase64(v);
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
       if (typeof v === "bigint") return v.toString();
       // JSON has no non-finite number, so send the text that a float decodes.
