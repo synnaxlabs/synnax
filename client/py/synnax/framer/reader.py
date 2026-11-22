@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 
 from pydantic import BaseModel
 
@@ -32,7 +32,7 @@ _TRUNCATED = "The Core cut the read short before it finished."
 
 class _Request(BaseModel):
     keys: list[channel.Key]
-    bounds: TimeRange
+    time_ranges: list[TimeRange]
     reduction: Reduction | None = None
     timestamps_included: bool = False
 
@@ -53,7 +53,7 @@ class Reader:
 
     def read(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: channel.Params,
         *,
         reduction: Reduction | None = None,
@@ -61,7 +61,8 @@ class Reader:
     ) -> Frame:
         """Reads every sample the given channels hold within tr.
 
-        :param tr: the time range to read.
+        :param tr: the time range to read, or a sequence of time ranges in any order.
+            The samples of every range arrive in time order.
         :param channels: the channels to read, by key or by name. A frame read by name
             is keyed by name.
         :param reduction: how the Core reduces the samples of each channel. Defaults to
@@ -76,7 +77,9 @@ class Reader:
             timestamps_included=timestamps_included,
         )
         adapter.update(channels)
-        req = _Request(keys=adapter.keys, bounds=tr, reduction=reduction)
+        req = _Request(
+            keys=adapter.keys, time_ranges=_time_ranges(tr), reduction=reduction
+        )
         frame = Frame()
         with self._file.stream(_ENDPOINT, req, accept=_FRAME_CONTENT_TYPE) as body:
             for record in _records(body, self._registry):
@@ -86,7 +89,7 @@ class Reader:
 
     def read_csv(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: channel.Params,
         *,
         dest: FilePath,
@@ -98,7 +101,8 @@ class Reader:
         timestamps them, and each group contributes its index column followed by one
         column per channel. Channels with no index are excluded.
 
-        :param tr: the time range to read.
+        :param tr: the time range to read, or a sequence of time ranges in any order.
+            The CSV has one header, then the rows of every range in time order.
         :param channels: the channels to read, by key or by name.
         :param dest: the path of the CSV file to write. It must end in .csv.
         :param reduction: keeps every factor-th sample of each channel. Defaults to
@@ -108,7 +112,7 @@ class Reader:
 
     def read_tdms(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: channel.Params,
         *,
         dest: FilePath,
@@ -120,7 +124,8 @@ class Reader:
         timestamps them, and each group holds its index channel followed by its other
         channels. Channels with no index are excluded.
 
-        :param tr: the time range to read.
+        :param tr: the time range to read, or a sequence of time ranges in any order.
+            The file holds the samples of every range in time order.
         :param channels: the channels to read, by key or by name.
         :param dest: the path of the TDMS file to write. It must end in .tdms.
         :param reduction: keeps every factor-th sample of each channel. Defaults to
@@ -130,7 +135,7 @@ class Reader:
 
     def _read_file(
         self,
-        tr: TimeRange,
+        tr: TimeRange | Sequence[TimeRange],
         channels: channel.Params,
         dest: FilePath,
         reduction: StrideReduction | None,
@@ -139,11 +144,15 @@ class Reader:
         adapter.update(channels)
         req = _Request(
             keys=adapter.keys,
-            bounds=tr,
+            time_ranges=_time_ranges(tr),
             reduction=reduction,
             timestamps_included=True,
         )
         self._file.download(_ENDPOINT, req, dest=dest)
+
+
+def _time_ranges(tr: TimeRange | Sequence[TimeRange]) -> list[TimeRange]:
+    return [tr] if isinstance(tr, TimeRange) else list(tr)
 
 
 def _records(body: Iterator[bytes], registry: Registry) -> Iterator[bytes]:

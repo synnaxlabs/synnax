@@ -21,10 +21,10 @@ import { Rate, Series, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import {
+  type LogEntry,
   StreamMultiChannelLog,
   type StreamMultiChannelLogProps,
-} from "@/log/aether/telem/sources";
-import type { LogEntry } from "@/log/aether/telem/types";
+} from "@/log/aether";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 

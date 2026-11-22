@@ -17,7 +17,7 @@ import { z } from "zod";
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
 import { Cell } from "@/table/cells";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const valueState = z.object({ stalenessTimeout: z.number().optional() }).loose();
 

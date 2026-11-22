@@ -505,6 +505,15 @@ describe("icd", () => {
           ],
         },
       ],
+      [
+        "JSON",
+        {
+          format: "json",
+          fields: [
+            { type: "float", name: "level", pointer: "/level", default: Infinity },
+          ],
+        },
+      ],
     ])(
       "should return a problem for an infinite default of a %s field",
       async (_, payload) => {

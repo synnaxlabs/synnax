@@ -18,7 +18,7 @@ import { Scale } from "@/schematic/node/general/scale";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay";
 import { Value } from "@/schematic/node/general/value";
 import { Tank } from "@/schematic/node/vessels/tank";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 import { gauge } from "@/vis/gauge/aether";
 import { scale } from "@/vis/scale/aether";
 import { Staleness } from "@/vis/staleness";
