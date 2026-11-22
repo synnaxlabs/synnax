@@ -299,6 +299,36 @@ var _ = Describe("Old API breaker d", func() {
 			},
 		)
 
+		It(
+			"Should tell a subject that cannot retrieve the calculation that the channel is calculated",
+			func(ctx SpecContext) {
+				Expect(ch.Calculated).To(BeTrue())
+				r := reader(ctx, resource.ID{Type: resource.TypeChannel})
+				Expect(retrieveAs(ctx, r).Calculated).To(BeTrue())
+			},
+		)
+
+		It("Should not call a virtual channel that no calculation writes calculated",
+			func(ctx SpecContext) {
+				plain := create(ctx, apichannel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Float32T,
+					Virtual:  true,
+				})
+				Expect(plain.Calculated).To(BeFalse())
+				res := MustSucceed(retrieveChannels(
+					AuthedCtx(ctx, u),
+					apichannel.RetrieveRequest{
+						Where: &channel.Where{
+							Key: &filter.Set[channel.Key]{Eq: &plain.Key},
+						},
+					},
+				))
+				Expect(res.Channels).To(HaveLen(1))
+				Expect(res.Channels[0].Calculated).To(BeFalse())
+			},
+		)
+
 		It("Should hide the expression from a subject that cannot retrieve its input",
 			func(ctx SpecContext) {
 				r := reader(
@@ -474,6 +504,8 @@ var _ = Describe("Old API breaker d", func() {
 				Expression:  req.Expression,
 				Operations:  req.Operations,
 				Group:       stored.Group,
+				// Additive since v0.62, which a v0.62 client ignores.
+				Calculated: req.Expression != "",
 			}
 		}
 		roundTrip := func(ctx SpecContext, req apichannel.Channel) {
