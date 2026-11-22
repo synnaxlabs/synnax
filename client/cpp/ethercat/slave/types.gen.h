@@ -263,7 +263,7 @@ struct Identity {
     /// @brief rack is the key of the rack the slave is connected to.
     ::synnax::rack::Key rack = 0;
     /// @brief serial is the serial number of the slave. 0 when the slave reports none.
-    std::uint32_t serial = 0;
+    std::uint64_t serial = 0;
     /// @brief vendor_id is the EtherCAT vendor ID of the slave.
     std::uint32_t vendor_id = 0;
     /// @brief product_code is the product code of the slave.

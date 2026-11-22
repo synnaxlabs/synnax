@@ -229,10 +229,10 @@ inline x::json::json Where::to_json() const {
 inline Identity Identity::parse(x::json::Parser parser) {
     return Identity{
         .rack = parser.required_field<::synnax::rack::Key>("rack"),
-        .serial = parser.field<std::uint32_t>("serial", 0),
+        .serial = parser.field<std::uint64_t>("serial", 0),
         .vendor_id = parser.field<std::uint32_t>("vendor_id"),
         .product_code = parser.field<std::uint32_t>("product_code"),
-        .revision = parser.field<std::uint32_t>("revision", 0),
+        .revision = parser.field<std::uint32_t>("revision"),
         .master = parser.required_field<::synnax::ethercat::master::Key>("master"),
         .pdos = parser.field<PDOs>("pdos", PDOs{}),
     };

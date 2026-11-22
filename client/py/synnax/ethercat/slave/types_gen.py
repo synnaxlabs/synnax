@@ -232,10 +232,10 @@ class Identity(BaseModel):
     """
 
     rack: rack_.Key = Field(gt=0, le=4294967295)
-    serial: int = Field(default=0, ge=0, le=4294967295)
+    serial: int = Field(default=0, ge=0, le=9007199254740991)
     vendor_id: int = Field(ge=0, le=4294967295)
     product_code: int = Field(ge=0, le=4294967295)
-    revision: int = Field(default=0, ge=0, le=4294967295)
+    revision: int = Field(ge=0, le=4294967295)
     master: master_.Key
     pdos: PDOs = Field(default_factory=lambda: PDOs())
 

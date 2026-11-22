@@ -321,8 +321,12 @@ Identity struct {
         @doc value         "is the key of the rack the slave is connected to."
         @validate required
     }
-    serial       uint32 = 0 {
-        @doc value "is the serial number of the slave. 0 when the slave reports none."
+    serial       uint64 = 0 {
+        @doc value    """
+            is the serial number of the slave. 0 when the slave reports none.
+        """
+        @ts type      "number"
+        @validate max 9007199254740991
     }
     vendor_id    uint32              {
         @doc value "is the EtherCAT vendor ID of the slave."
@@ -330,7 +334,7 @@ Identity struct {
     product_code uint32              {
         @doc value "is the product code of the slave."
     }
-    revision     uint32 = 0 {
+    revision     uint32              {
         @doc value "is the revision number of the slave."
     }
     master       ethercat_master.Key {

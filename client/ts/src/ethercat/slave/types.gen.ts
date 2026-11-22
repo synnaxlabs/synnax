@@ -331,13 +331,13 @@ export const identityZ = z.object({
   /** rack is the key of the rack the slave is connected to. */
   rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
   /** serial is the serial number of the slave. 0 when the slave reports none. */
-  serial: z.uint32().default(0),
+  serial: z.number().max(9007199254740991).default(0),
   /** vendorId is the EtherCAT vendor ID of the slave. */
   vendorId: z.uint32(),
   /** productCode is the product code of the slave. */
   productCode: z.uint32(),
   /** revision is the revision number of the slave. */
-  revision: z.uint32().default(0),
+  revision: z.uint32(),
   /** master is the master on whose bus the slave sits. */
   master: ethercatMaster.keyZ.min(1, "master is required"),
   /** pdos are the PDO entries that the scan found on the slave. */
