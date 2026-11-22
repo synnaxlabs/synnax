@@ -143,6 +143,40 @@ describe("createChannel", () => {
       });
     });
 
+    it("should keep the range of a scaled voltage copy on another device", () => {
+      const customScale: NI.Task.Scale = {
+        type: "linear",
+        slope: 2,
+        yIntercept: 0,
+        preScaledUnits: "Volts",
+        scaledUnits: "psi",
+      };
+      const source = {
+        ...aiChannel("1", 0),
+        device: "a",
+        minVal: 0,
+        maxVal: 30,
+        customScale,
+      };
+      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
+        minVal: 0,
+        maxVal: 30,
+      });
+    });
+
+    it("should keep the range of a current copy on another device", () => {
+      const source = {
+        ...aiChannel("1", 0, "ai_current"),
+        device: "a",
+        minVal: -0.02,
+        maxVal: 0.02,
+      };
+      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
+        minVal: -0.02,
+        maxVal: 0.02,
+      });
+    });
+
     it("should keep the range of the copied channel", () => {
       const source = { ...aiChannel("1", 0), minVal: -1, maxVal: 1 };
       expect(createNextAIChannel([source])).toMatchObject({ minVal: -1, maxVal: 1 });
