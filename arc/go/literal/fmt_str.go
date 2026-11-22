@@ -286,42 +286,47 @@ func findPlaceholderClose(body string, open int) (int, error) {
 	return closing, nil
 }
 
-// walkPlaceholder calls visit with the index of each byte of body from start that
-// counts toward a placeholder's braces and colons, until visit returns false. It skips
-// a channel name or a string whole. Outside one, // starts a comment that ends at a
-// newline and /* one that ends at */. A quote in a comment is text, and its braces and
-// colons count, as v0.62 counts them.
+// walkPlaceholder calls visit with the index of each byte of body from start that no
+// quoted channel name holds, until visit returns false. Strings and comments hide no
+// byte, as on v0.62: they are tracked only so that a quote in one opens no name and //
+// in a string opens no comment. A line comment ends at \r or \n, and /* at */.
 func walkPlaceholder(body string, start int, visit func(i int) bool) {
-	var comment byte
+	var in byte
 	for i := start; i < len(body); i++ {
-		c := body[i]
+		c, pair := body[i], false
+		next := byte(0)
+		if i+1 < len(body) {
+			next = body[i+1]
+		}
 		switch {
-		case comment == '/':
-			if c == '\n' {
-				comment = 0
-			}
-		case comment == '*':
-			if c == '*' && i+1 < len(body) && body[i+1] == '/' {
-				comment = 0
-				i++
-				continue
-			}
-		case c == '\'' || c == '"' || c == '`':
+		case in == 0 && c == '\'':
 			i = quotedEnd(body, i)
 			continue
-		case c == '/' && i+1 < len(body) && (body[i+1] == '/' || body[i+1] == '*'):
-			comment = body[i+1]
-			i++
-			continue
+		case in == 0 && (c == '"' || c == '`'):
+			in = c
+		case in == 0 && c == '/' && (next == '/' || next == '*'):
+			in, pair = next, true
+		case (in == '"' || in == '`') && c == '\\':
+			pair = true
+		case (in == '"' || in == '`') && c == in,
+			in == '/' && (c == '\n' || c == '\r'):
+			in = 0
+		case in == '*' && c == '*' && next == '/':
+			in, pair = 0, true
 		}
 		if !visit(i) {
 			return
 		}
+		if pair && i+1 < len(body) {
+			if i++; !visit(i) {
+				return
+			}
+		}
 	}
 }
 
-// quotedEnd returns the index of the delimiter that closes the channel name or string
-// opening at i, or the last index of body when none closes it.
+// quotedEnd returns the index of the quote that closes the channel name opening at i,
+// or the last index of body when none closes it.
 func quotedEnd(body string, i int) int {
 	delimiter := body[i]
 	for i++; i < len(body); i++ {
@@ -335,28 +340,33 @@ func quotedEnd(body string, i int) int {
 	return len(body) - 1
 }
 
-// splitSpec splits a placeholder body on the last `:` at brace and bracket depth 0,
-// yielding (expr, spec). Colons inside nested `{...}` (struct literals), `[...]`
-// (index/slice expressions), a quoted channel name, or a string are skipped.
+// splitSpec splits a placeholder body on the first `:` that a scan back from its end
+// finds at brace and bracket depth 0, yielding (expr, spec), as v0.62 does. Colons
+// inside nested `{...}` (struct literals), `[...]` (index/slice expressions), or a
+// quoted channel name are skipped.
 func splitSpec(body string) (expr, spec string, err error) {
+	names := nameSpans(body)
 	idx, braceDepth, bracketDepth := -1, 0, 0
-	walkPlaceholder(body, 0, func(i int) bool {
+	for i := len(body) - 1; i >= 0 && idx < 0; i-- {
+		if last := len(names) - 1; last >= 0 && i <= names[last][1] {
+			i, names = names[last][0], names[:last]
+			continue
+		}
 		switch body[i] {
-		case '{':
-			braceDepth++
 		case '}':
+			braceDepth++
+		case '{':
 			braceDepth--
-		case '[':
-			bracketDepth++
 		case ']':
+			bracketDepth++
+		case '[':
 			bracketDepth--
 		case ':':
 			if braceDepth == 0 && bracketDepth == 0 {
 				idx = i
 			}
 		}
-		return true
-	})
+	}
 	if idx < 0 {
 		return body, "", nil
 	}
@@ -369,6 +379,24 @@ func splitSpec(body string) (expr, spec string, err error) {
 		return "", "", errors.New("placeholder format spec after ':' is empty")
 	}
 	return expr, spec, nil
+}
+
+// nameSpans returns the first and last index of each quoted channel name in body, in
+// order.
+func nameSpans(body string) [][2]int {
+	var spans [][2]int
+	next := 0
+	walkPlaceholder(body, 0, func(i int) bool {
+		if i > next {
+			spans = append(spans, [2]int{next, i - 1})
+		}
+		next = i + 1
+		return true
+	})
+	if next < len(body) {
+		spans = append(spans, [2]int{next, len(body) - 1})
+	}
+	return spans
 }
 
 // specShape enforces the canonical anatomy [flags][width][.precision][verb].
