@@ -455,16 +455,20 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Calculation) {
 		return nil, err
 	}
-	// The graph writes the statuses of calculations as it opens, so their records and
-	// statuses move first.
+	// The graph writes the statuses of calculations and compiles them as it opens, so
+	// their records, statuses, and channel names move first.
 	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
 		Instrumentation: cfg.Child("composition"),
 		DB:              cfg.Distribution.DB,
 		Namespace:       "Composition",
-		Migrations: []gorp.Migration{l.Calculation.Migration(
-			l.Status,
-			cfg.Distribution.Channel.IssuedAtFirstOpen,
-		)},
+		Migrations: []gorp.Migration{
+			nameClashMigration,
+			l.Calculation.Migration(
+				l.Status,
+				cfg.Distribution.Channel.IssuedAtFirstOpen,
+			),
+			calculationTextMigration,
+		},
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -969,6 +973,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		},
 	})
 	if !ok(err, arcTable) {
+		return nil, err
+	}
+	// Stored Arc text names channels, so it takes their new names before anything that
+	// compiles it opens.
+	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
+		Instrumentation: cfg.Child("composition"),
+		DB:              cfg.Distribution.DB,
+		Namespace:       "Composition",
+		Migrations:      []gorp.Migration{arcTextMigration, newRenameReport(l.Status)},
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.ArcTask, err = arctask.OpenService(ctx, arctask.ServiceConfig{
