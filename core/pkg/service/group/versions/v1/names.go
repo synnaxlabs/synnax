@@ -18,15 +18,14 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/validate"
 )
 
-// NameRuleMigration renames each stored channel folder whose name breaks the name rule
-// (validate.IsPathSegment), or that an earlier folder by key in the same parent holds
-// after NFC, and stages each rename (resource.StageRename). A new name is
-// validate.SanitizePathSegment of the old one, "folder" when that is empty, and takes
-// the first suffix (_2, _3) that no folder in the same parent holds. It runs after the
-// step that sets each parent.
+// NameRuleMigration renames each stored channel folder whose name breaks the v63 name
+// rule (resource.IsLegalName), or whose legal name an earlier folder in the same parent
+// holds, and stages each rename (resource.StageRename). Folders go by key, which is a
+// random order for v4 UUIDs. A new name is resource.SanitizeName of the old one, or
+// "folder" when that is empty, with the first suffix (_2, _3) that no other folder in
+// the same parent holds. It runs after the step that sets each parent.
 var NameRuleMigration = migrate.New("v63_folder_name_rule", migrateNameRule)
 
 // sibling is a name in a parent, or at the top when parent is zero.
@@ -52,8 +51,12 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		taken   = make(set.Set[sibling], len(groups))
 	)
 	for i, g := range groups {
-		at := sibling{parent: parentOf(g), name: validate.NormalizeName(g.Name)}
-		moves[i] = claimed.Contains(at) || !validate.IsPathSegment(g.Name)
+		if !resource.IsLegalName(g.Name) {
+			moves[i] = true
+			continue
+		}
+		at := sibling{parent: parentOf(g), name: g.Name}
+		moves[i] = claimed.Contains(at)
 		claimed.Add(at)
 		if !moves[i] {
 			taken.Add(at)
@@ -65,7 +68,7 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 			continue
 		}
 		parent := parentOf(g)
-		base := validate.SanitizePathSegment(g.Name)
+		base := resource.SanitizeName(g.Name)
 		if base == "" {
 			base = "folder"
 		}

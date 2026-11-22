@@ -62,60 +62,6 @@ func asciiPathSegment(s string) (ascii, ok bool) {
 // are stored and compared.
 func NormalizeName(s string) string { return norm.NFC.String(s) }
 
-// combiningGraphemeJoiner is U+034F, which NFC puts after 30 combining marks in a row.
-const combiningGraphemeJoiner = '\u034F'
-
-// SanitizePathSegment returns s rewritten to pass IsPathSegment: each invalid byte
-// becomes U+FFFD, each '.' becomes '_', each refused character goes, and a run of more
-// than 30 combining marks loses the rest. It returns "" when only spaces are left.
-func SanitizePathSegment(s string) string {
-	out := sanitize(s)
-	if strings.ContainsRune(out, combiningGraphemeJoiner) {
-		out = sanitize(dropJoinedMarks(out))
-	}
-	if strings.Trim(out, " ") == "" {
-		return ""
-	}
-	return out
-}
-
-// sanitize returns s in NFC, with each invalid byte as U+FFFD, each '.' as '_', and no
-// refused character before NFC.
-func sanitize(s string) string {
-	var b strings.Builder
-	b.Grow(len(s))
-	for _, r := range s {
-		switch {
-		case r == pathSeparator:
-			b.WriteByte('_')
-		case !isInvisible(r):
-			b.WriteRune(r)
-		}
-	}
-	return norm.NFC.String(b.String())
-}
-
-// dropJoinedMarks returns s without each combining grapheme joiner and the combining
-// marks after it.
-func dropJoinedMarks(s string) string {
-	var (
-		b       strings.Builder
-		dropped bool
-	)
-	b.Grow(len(s))
-	for _, r := range s {
-		switch {
-		case r == combiningGraphemeJoiner:
-			dropped = true
-		case dropped && norm.NFC.PropertiesString(string(r)).CCC() != 0:
-		default:
-			dropped = false
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
-
 // brailleBlank is U+2800, a symbol (So) that shows as nothing.
 const brailleBlank = '\u2800'
 

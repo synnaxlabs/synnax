@@ -24,10 +24,10 @@ import (
 // resource ID, and the value is the name before the first rename.
 const renamePrefix = "sy_v63_staged_rename/"
 
-// Rename is a new name that the upgrade gave a stored resource.
+// Rename is a stored resource that the upgrade renamed.
 type Rename struct {
-	// Resource is the renamed resource.
-	Resource ID
+	// ID is the renamed resource.
+	ID ID
 	// From is the name that the resource held before the upgrade.
 	From string
 }
@@ -63,8 +63,8 @@ func StagedRenames(r kv.Reader) (renames []Rename, err error) {
 			return nil, errors.Newf("staged rename has no resource ID: %q", id)
 		}
 		renames = append(renames, Rename{
-			Resource: ID{Type: Type(typ), Key: key},
-			From:     string(iter.Value()),
+			ID:   ID{Type: Type(typ), Key: key},
+			From: string(iter.Value()),
 		})
 	}
 	return renames, iter.Error()
@@ -77,7 +77,7 @@ func ClearRenames(ctx context.Context, tx kv.ReadWriter) error {
 		return err
 	}
 	for _, r := range renames {
-		if err = tx.Delete(ctx, renameKey(r.Resource)); err != nil {
+		if err = tx.Delete(ctx, renameKey(r.ID)); err != nil {
 			return err
 		}
 	}
