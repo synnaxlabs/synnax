@@ -102,8 +102,9 @@ var _ = Describe("Parts", func() {
 	}
 	partedIDs := func(h checkpoint.Header) []uint64 {
 		GinkgoHelper()
-		var out []uint64
-		for _, seg := range parted(h) {
+		segs := parted(h)
+		out := make([]uint64, 0, len(segs))
+		for _, seg := range segs {
 			out = append(out, seg.ID)
 		}
 		return out

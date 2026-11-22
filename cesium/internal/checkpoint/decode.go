@@ -451,8 +451,7 @@ func (f *format) parseSegment(
 	if index+1 < ss.count {
 		end = uint64(binary.LittleEndian.Uint32(b[ss.off+(index+1)*32+20:]))
 	}
-	switch {
-	case first != *nextPtr || end < first || end > ps.count:
+	if first != *nextPtr || end < first || end > ps.count {
 		return seg, f.corrupt("segment %d has pointer records %d to %d", seg.ID, first,
 			end)
 	}
