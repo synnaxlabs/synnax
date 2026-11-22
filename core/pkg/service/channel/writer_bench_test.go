@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -106,6 +107,7 @@ func BenchmarkWriterMove(b *testing.B) {
 // BenchmarkOpenService measures an open of the channel service over a table of 2,001
 // channels, through the populate of its indexes, and its close.
 func BenchmarkOpenService(b *testing.B) {
+	gomega.RegisterTestingT(b)
 	ctx := b.Context()
 	node := testutil.OpenNode(ctx)
 	groupSvc, err := group.OpenService(ctx, group.ServiceConfig{DB: node.DB})
@@ -124,6 +126,7 @@ func BenchmarkOpenService(b *testing.B) {
 	cfg := channel.ServiceConfig{
 		Channel: node.Channel,
 		DB:      node.DB,
+		TS:      node.Storage.TS,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}
