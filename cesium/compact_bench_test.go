@@ -315,8 +315,45 @@ func startRewrite(b *testing.B, db *cesium.DB, dir string, segments int) func() 
 	); err != nil {
 		b.Fatal(err)
 	}
-	const chunks, chunk = 8, 64
-	const per = chunks * chunk
+	writeRewriteSegments(b, db, keys, segments)
+	for seg := range segments {
+		from, to := seg*rewritePer+rewritePer*3/4, (seg+1)*rewritePer
+		tail := rewriteStamp(from).Range(rewriteStamp(to))
+		if err := db.DeleteTimeRange(b.Context(), keys[1:], tail); err != nil {
+			b.Fatal(err)
+		}
+	}
+	// The old segments, the segment of the end frame, and the first new segment.
+	names := awaitSegments(b, dir, keys[1], segments+2)
+	slices.Sort(names)
+	old := names[:segments]
+	return func() bool {
+		return slices.ContainsFunc(old, func(name string) bool {
+			_, err := os.Stat(filepath.Join(dir, strconv.Itoa(int(keys[1])), name))
+			return err == nil
+		})
+	}
+}
+
+// rewritePer is the count of 1 MiB samples in each segment that startRewrite writes.
+const rewritePer = 512
+
+// rewriteStamp returns the stamp of sample i of the segments that startRewrite writes.
+func rewriteStamp(i int) telem.TimeStamp {
+	return telem.TimeStamp(i+1) * telem.SecondTS
+}
+
+// writeRewriteSegments writes segments sealed segments of rewritePer samples of 1 MiB
+// to the text key of keys, timed by its index, from second 1 on. The open of each
+// writer seals the segment of the one before it, and an end frame seals the last.
+func writeRewriteSegments(
+	b *testing.B,
+	db *cesium.DB,
+	keys []cesium.ChannelKey,
+	segments int,
+) {
+	b.Helper()
+	const chunk = 64
 	sample := strings.Repeat("x", 1<<20)
 	strs := make([]string, chunk)
 	for i := range strs {
@@ -324,19 +361,17 @@ func startRewrite(b *testing.B, db *cesium.DB, dir string, segments int) func() 
 	}
 	text := telem.NewSeriesV(strs...)
 	stamps := make([]telem.TimeStamp, chunk)
-	stamp := func(i int) telem.TimeStamp { return telem.TimeStamp(i+1) * telem.SecondTS }
-	// The open of each writer seals the segment of the one before it.
 	for seg := range segments {
 		w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 			Channels: keys,
-			Start:    stamp(seg * per),
+			Start:    rewriteStamp(seg * rewritePer),
 		})
 		if err != nil {
 			b.Fatal(err)
 		}
-		for c := range chunks {
+		for c := range rewritePer / chunk {
 			for i := range stamps {
-				stamps[i] = stamp(seg*per + c*chunk + i)
+				stamps[i] = rewriteStamp(seg*rewritePer + c*chunk + i)
 			}
 			if _, _, err = w.Write(b.Context(), telem.MultiFrame(
 				keys,
@@ -352,7 +387,7 @@ func startRewrite(b *testing.B, db *cesium.DB, dir string, segments int) func() 
 			b.Fatal(err)
 		}
 	}
-	end := stamp(segments * per)
+	end := rewriteStamp(segments * rewritePer)
 	writeCompactFrame(
 		b,
 		db,
@@ -361,22 +396,6 @@ func startRewrite(b *testing.B, db *cesium.DB, dir string, segments int) func() 
 		telem.NewSeries([]telem.TimeStamp{end}),
 		telem.NewSeriesV("end"),
 	)
-	for seg := range segments {
-		tail := stamp(seg*per + per*3/4).Range(stamp((seg + 1) * per))
-		if err := db.DeleteTimeRange(b.Context(), keys[1:], tail); err != nil {
-			b.Fatal(err)
-		}
-	}
-	// The old segments, the segment of the end frame, and the first new segment.
-	names := awaitSegments(b, dir, keys[1], segments+2)
-	slices.Sort(names)
-	old := names[:segments]
-	return func() bool {
-		return slices.ContainsFunc(old, func(name string) bool {
-			_, err := os.Stat(filepath.Join(dir, strconv.Itoa(int(keys[1])), name))
-			return err == nil
-		})
-	}
 }
 
 // awaitSegments returns the names of the segment files of key in dir once there are n.
