@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -221,14 +222,21 @@ func BenchmarkOpenTable(b *testing.B) {
 					b.Error(err)
 				}
 			})
-			unused := createBenchChannels(b, node.DB, channels, 1)[:1]
+			createBenchChannels(b, node.DB, channels, 1)
 			cfg := arc.TableConfig{DB: node.DB}
 			table := MustSucceed(arc.OpenTable(ctx, cfg))
+			var root directory.Directory
+			if err := gorp.NewRetrieve[directory.Key, directory.Directory]().
+				Entry(&root).
+				Exec(ctx, node.DB); err != nil {
+				b.Fatal(err)
+			}
 			arcs := make([]arc.Arc, n)
 			for i := range arcs {
 				arcs[i] = newArc(arc.TypeAutomation, arc.Base{
-					Key:  uuid.New(),
-					Name: "bench_" + strconv.Itoa(i),
+					Key:       uuid.New(),
+					Name:      "bench_" + strconv.Itoa(i),
+					Directory: &root.Key,
 					Source: arc.Source{Variant: arc.TextSource{
 						Text: text.Text{Raw: "bench_in_0 * 2.0 -> bench_out_0"},
 					}},
@@ -243,10 +251,15 @@ func BenchmarkOpenTable(b *testing.B) {
 				b.Fatal(err)
 			}
 			b.ReportAllocs()
+			rewrite := func(tx gorp.Tx) error {
+				return gorp.WrapWriter[arc.Key, arc.Arc](tx).Set(ctx, arcs[0])
+			}
 			for b.Loop() {
 				t := MustSucceed(arc.OpenTable(ctx, cfg))
-				// A lookup of uses waits for every reference to fill.
-				MustSucceed(channels.Uses(ctx, node.DB, unused))
+				// A write waits for the table's indexes and references to fill.
+				if err := node.DB.WithTx(ctx, rewrite); err != nil {
+					b.Fatal(err)
+				}
 				if err := t.Close(); err != nil {
 					b.Fatal(err)
 				}
