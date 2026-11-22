@@ -318,24 +318,26 @@ const useDataReader = <K extends record.Key>(
   };
 };
 
-interface FrameElements extends Elements {
-  /** Returns the key of the mounted item that contains the node, or null. */
-  keyOf: (node: Node) => record.Key | null;
+interface FrameElements extends Omit<Elements, "pin"> {
+  /** Returns the key of the mounted item that holds the focus, or null. */
+  focusedKey: () => record.Key | null;
 }
 
-const useElements = (pin: Elements["pin"]): FrameElements => {
+const useElements = (): FrameElements => {
   const elementsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
   const setElement = (key: record.Key, element: HTMLElement | null) => {
     if (element == null) elementsRef.current.delete(key);
     else elementsRef.current.set(key, element);
   };
   const getElement = (key: record.Key) => elementsRef.current.get(key);
-  const keyOf = (node: Node): record.Key | null => {
+  const focusedKey = (): record.Key | null => {
+    const { activeElement } = document;
+    if (activeElement == null) return null;
     for (const [key, element] of elementsRef.current)
-      if (element.contains(node)) return key;
+      if (element.contains(activeElement)) return key;
     return null;
   };
-  return { setElement, getElement, pin, keyOf };
+  return { setElement, getElement, focusedKey };
 };
 
 // A static frame mounts every item, so nothing needs pinning.
@@ -395,7 +397,7 @@ const VirtualFrame = <
   const pinnedRef = useRef<record.Key | null>(null);
   // The item that holds the focus stays mounted, so rows that land above it cannot
   // push it out of the window before a scroll to it lands, such as during a rename.
-  const focusedRef = useRef<record.Key | null>(null);
+  const { focusedKey, ...elementsBase } = useElements();
   // The indexes of the rows that are mounted only because they are pinned.
   const pinnedOutsideRef = useRef<ReadonlySet<number>>(NO_INDEXES);
   const indexesRef = useRef<number[]>([]);
@@ -410,14 +412,15 @@ const VirtualFrame = <
         outside.add(index);
       };
       if (pinnedRef.current != null) addPinned(pinnedRef.current);
-      if (focusedRef.current != null) addPinned(focusedRef.current);
+      const focused = focusedKey();
+      if (focused != null) addPinned(focused);
       pinned?.forEach(addPinned);
       if (outside != null) indexes = [...indexes, ...outside].sort((a, b) => a - b);
       pinnedOutsideRef.current = outside ?? NO_INDEXES;
       indexesRef.current = indexes;
       return indexes;
     },
-    [],
+    [focusedKey],
   );
   // The virtualizer extracts the range again only when an input changes, so a new
   // extractor mounts a pinned row that is out of view.
@@ -472,25 +475,7 @@ const VirtualFrame = <
     (index: number) => virtualizer.scrollToIndex(index),
     [virtualizer],
   );
-  const elements = useElements(pin);
-  const { keyOf } = elements;
-  useEffect(() => {
-    if (scrollEl == null) return;
-    const handleFocusIn = (e: FocusEvent): void => {
-      focusedRef.current = e.target instanceof Node ? keyOf(e.target) : null;
-    };
-    const handleFocusOut = (e: FocusEvent): void => {
-      const next = e.relatedTarget;
-      if (!(next instanceof Node) || !scrollEl.contains(next))
-        focusedRef.current = null;
-    };
-    scrollEl.addEventListener("focusin", handleFocusIn);
-    scrollEl.addEventListener("focusout", handleFocusOut);
-    return () => {
-      scrollEl.removeEventListener("focusin", handleFocusIn);
-      scrollEl.removeEventListener("focusout", handleFocusOut);
-    };
-  }, [scrollEl, keyOf]);
+  const elements: Elements = { ...elementsBase, pin };
   const { getData, subscribeData } = useDataReader(data);
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
@@ -568,7 +553,8 @@ const StaticFrame = <
     if (child != null)
       child.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   };
-  const elements = useElements(NO_PIN);
+  const { setElement, getElement } = useElements();
+  const elements: Elements = { setElement, getElement, pin: NO_PIN };
   const { getData, subscribeData } = useDataReader(data);
 
   const initialFetchCallback = useFetchMoreRefCallback(onFetchMore, data.length === 0);

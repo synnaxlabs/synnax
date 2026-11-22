@@ -485,19 +485,26 @@ describe("List", () => {
     });
 
     describe("focused", () => {
-      const Focused = ({ data }: { data: string[] }): ReactElement => (
+      interface FocusedProps {
+        data: string[];
+        scrollHidden?: boolean;
+      }
+
+      const Focused = ({ data, scrollHidden = false }: FocusedProps): ReactElement => (
         <>
           <button>outside</button>
           <List.Frame data={data} virtual itemHeight={ITEM_HEIGHT}>
-            <List.Scroll>
-              <List.Items>
-                {({ key, ...rest }: List.ItemProps<string>) => (
-                  <List.Item key={key} {...rest}>
-                    <input aria-label={key} />
-                  </List.Item>
-                )}
-              </List.Items>
-            </List.Scroll>
+            {!scrollHidden && (
+              <List.Scroll>
+                <List.Items>
+                  {({ key, ...rest }: List.ItemProps<string>) => (
+                    <List.Item key={key} {...rest}>
+                      <input aria-label={key} />
+                    </List.Item>
+                  )}
+                </List.Items>
+              </List.Scroll>
+            )}
           </List.Frame>
         </>
       );
@@ -521,6 +528,35 @@ describe("List", () => {
         result.rerender(<Focused data={prepend(5)} />);
         expect(field.isConnected).toBe(true);
         expect(document.activeElement).toBe(field);
+      });
+
+      it("should keep the row pinned when the window loses the focus", () => {
+        const result = render(<Focused data={DATA} />);
+        const field = focusLastRow(result);
+        // A window blur sends a focusout with no related target and leaves the focus.
+        act(() => {
+          fireEvent.focusOut(field, { relatedTarget: null });
+        });
+        result.rerender(<Focused data={prepend(5)} />);
+        expect(field.isConnected).toBe(true);
+      });
+
+      it("should release a focused row whose key leaves the data", () => {
+        const result = render(<Focused data={DATA} />);
+        const field = focusLastRow(result);
+        const key = field.getAttribute("aria-label") ?? "";
+        result.rerender(<Focused data={DATA.filter((k) => k !== key)} />);
+        result.rerender(<Focused data={prepend(5)} />);
+        expect(result.queryByLabelText(key)).toBeNull();
+      });
+
+      it("should release a focused row when the scroll container unmounts", () => {
+        const result = render(<Focused data={DATA} />);
+        const field = focusLastRow(result);
+        const key = field.getAttribute("aria-label") ?? "";
+        result.rerender(<Focused data={DATA} scrollHidden />);
+        result.rerender(<Focused data={prepend(5)} />);
+        expect(result.queryByLabelText(key)).toBeNull();
       });
 
       it("should release the row once the focus leaves the list", () => {
