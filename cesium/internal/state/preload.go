@@ -338,7 +338,7 @@ func (c *core) putBack(key uint32, records []Segment) {
 		seg := c.segments[rec.ID]
 		switch {
 		case seg == nil:
-			seg = &segState{key: key}
+			seg = &segState{key: key, vis: rec}
 			c.segments[rec.ID] = seg
 			ch.insert(seg)
 		case seg.vis.Part == 0:
