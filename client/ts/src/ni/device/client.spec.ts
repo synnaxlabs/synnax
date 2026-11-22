@@ -187,6 +187,37 @@ describe("NI device", async () => {
       expect(devices.map(({ key }) => key)).toContain(d.key);
     });
 
+    it("should include the statuses of a filtered list", async () => {
+      const d = await create();
+      const devices = await client.ni.devices.retrieve({
+        rack: rack.key,
+        includeStatus: true,
+      });
+      const listed = devices.find(({ key }) => key === d.key);
+      expect(listed?.status?.owner).toEqual(ni.device.resourceID(d.key));
+    });
+
+    it("should update the status of a device in a watched list", async () => {
+      const d = await create();
+      const list = client.ni.devices.watch({ rack: rack.key, includeStatus: true });
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      await client.statuses.set({
+        owner: ni.device.resourceID(d.key),
+        name: "",
+        variant: "warning",
+        message: "Listed device degraded",
+        time: TimeStamp.now(),
+        details: { rack: rack.key, device: d.key },
+      });
+      await expect
+        .poll(
+          () =>
+            list.getCached()?.records.find(({ key }) => key === d.key)?.status?.message,
+        )
+        .toBe("Listed device degraded");
+    });
+
     it("should throw a NotFoundError for a missing device", async () => {
       await expect(client.ni.devices.retrieve({ key: uuid.create() })).rejects.toThrow(
         NotFoundError,
