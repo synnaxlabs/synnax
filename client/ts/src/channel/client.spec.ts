@@ -31,6 +31,7 @@ const RENAMED: channel.Payload = {
   internal: false,
   expression: "",
   operations: [],
+  calculated: false,
   concurrency: control.Concurrency.exclusive,
 };
 const OTHER: channel.Payload = { ...RENAMED, key: 2, name: "other" };

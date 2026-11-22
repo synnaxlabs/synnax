@@ -46,6 +46,13 @@ type Writer struct {
 	fill Fill
 }
 
+// Announce attaches acts to the transaction of w for the channel with key without
+// applying them. They carry fields the channel no longer stores to the clients that
+// read them from it.
+func (w Writer) Announce(key Key, acts ...Action) {
+	w.dispatcher.Attach(w.tx, key, acts...)
+}
+
 // WithFill returns a copy of the writer that gives the create action of each channel
 // that a create is given the fill of the calculation in flight that writes it.
 func (w Writer) WithFill(fill Fill) Writer {

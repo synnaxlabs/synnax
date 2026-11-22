@@ -70,6 +70,9 @@ type Channel struct {
 	// retrieve, filled only when a retrieve request asks for them. A task config shows
 	// as its task.
 	Uses []Use `json:"uses,omitzero" msgpack:"uses,omitempty"`
+	// Calculated is true if a calculation writes the channel, whether or not the caller
+	// can retrieve the calculation.
+	Calculated bool `json:"calculated" msgpack:"calculated"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

@@ -53,6 +53,11 @@ type Unsaved struct {
 	Expression string
 	// Operations are the operations of the calculation.
 	Operations []Operation
+	// Compiled is true when a compile in the same transaction found Reads, so Inputs
+	// reads them instead of analyzing the expression again.
+	Compiled bool
+	// Reads are the channels that the expression reads, when Compiled is true.
+	Reads channel.Keys
 }
 
 // newAnalyzer returns an analyzer that resolves channels through snap.
@@ -158,6 +163,9 @@ func calculationReads(
 	analyzer *compiler.Analyzer,
 	u Unsaved,
 ) (channel.Keys, error) {
+	if u.Compiled {
+		return slices.Concat(u.Reads, resets(u.Operations)), nil
+	}
 	result, err := analyzer.AnalyzeExpression(
 		ctx,
 		u.Output,

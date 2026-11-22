@@ -65,14 +65,13 @@ var _ = Describe("Calculation breaker", func() {
 				ctx,
 				svcframer.ResourceIDs(channel.Keys{output.Key(), visible.Key()})...,
 			)
-			_, err := apiSvc.Read(
+			Expect(apiSvc.Read(
 				subjectCtx(ctx, u.ResourceID()),
 				apiframer.ReadRequest{
 					Keys:   channel.Keys{output.Key()},
 					Bounds: telem.TimeRangeMax,
 				},
-			)
-			Expect(err).To(MatchError(access.ErrDenied))
+			)).Error().To(MatchError(access.ErrDenied))
 		},
 	)
 

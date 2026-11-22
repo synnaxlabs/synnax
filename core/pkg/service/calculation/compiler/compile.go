@@ -104,32 +104,45 @@ func preProcess(
 	if err != nil {
 		return arc.Program{}, err
 	}
-	dt := result.ExpressionReturnType
-	if cfg.Channel.DataType != result.ChanDataType {
-		dt = types.FromTelem(cfg.Channel.DataType)
-	}
 	fn := ir.Function{
-		Key:     calculationKey,
-		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
-		Body:    ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Calculation.Expression)},
+		Key: calculationKey,
+		Outputs: types.Params{
+			{Name: ir.DefaultOutputParam, Type: outputType(cfg, result)},
+		},
+		Body: ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Calculation.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
 	return arc.CompileGraph(ctx, g, arc.NewRoot(symbols),
 		arc.WithAllowDashedNames(resolver.AllowDashedNames(cfg.ChannelService)))
 }
 
-// Check compiles the calculation of cfg against snap, as Compile does without its
-// retries, and returns the compile error.
-func Check(ctx context.Context, snap gorp.Snapshot, cfgs ...Config) error {
+// outputType returns the type of the output of the calculation of cfg, which result
+// analyzes: the expression's type, or the output channel's when they differ.
+func outputType(cfg Config, result AnalysisResult) types.Type {
+	if cfg.Channel.DataType != result.ChanDataType {
+		return types.FromTelem(cfg.Channel.DataType)
+	}
+	return result.ExpressionReturnType
+}
+
+// Check compiles the calculation of cfg, which result analyzes, against snap, as
+// Compile does without its retries, and returns the compile error.
+func Check(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	result AnalysisResult,
+	cfgs ...Config,
+) error {
 	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return err
 	}
-	_, err = compile(
+	_, err = compileAnalyzed(
 		ctx,
 		snap,
 		cfg,
 		resolver.NewConsistent(resolver.New(cfg.ChannelService, snap)),
+		result,
 	)
 	return err
 }
@@ -283,17 +296,36 @@ func compile(
 	cfg Config,
 	symbols arc.SymbolResolver,
 ) (Module, error) {
-	preProcessed, err := preProcess(ctx, cfg, symbols)
+	result, err := NewAnalyzer(symbols, parser.Config{
+		AllowDashedNames: resolver.AllowDashedNames(cfg.ChannelService),
+	}).AnalyzeExpression(
+		ctx,
+		cfg.Channel,
+		cfg.Calculation.Expression,
+		HasDerivative(cfg.Calculation.Operations),
+	)
 	if err != nil {
 		return Module{}, err
 	}
-	calcFn := preProcessed.Functions[0]
+	return compileAnalyzed(ctx, snap, cfg, symbols, result)
+}
+
+// compileAnalyzed compiles the calculation of cfg, which result analyzes.
+func compileAnalyzed(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg Config,
+	symbols arc.SymbolResolver,
+	result AnalysisResult,
+) (Module, error) {
 	g := arc.Graph{
 		Functions: ir.Functions{
 			ir.Function{
-				Key:     calculationKey,
-				Outputs: calcFn.Outputs,
-				Body:    calcFn.Body,
+				Key: calculationKey,
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: outputType(cfg, result)},
+				},
+				Body: ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Calculation.Expression)},
 			},
 		},
 		Inputs: map[string]xmsgpack.EncodedJSON{},
@@ -301,7 +333,7 @@ func compile(
 	addNode(&g, calculationKey, calculationKey, nil)
 	addNode(&g, writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
 	addOperations(&g, cfg.Calculation.Operations)
-	if err = addReads(ctx, &g, symbols, calcFn.Channels.Read); err != nil {
+	if err := addReads(ctx, &g, symbols, result.Reads); err != nil {
 		return Module{}, err
 	}
 	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(symbols),

@@ -165,6 +165,27 @@ var _ = Describe("Service", func() {
 					To(ConsistOf(inner.Key(), base.Key()))
 			},
 		)
+		It("Should follow the current expression of a calculation whose input is gone",
+			func(ctx SpecContext) {
+				kept := create(ctx, "")
+				gone := create(ctx, "")
+				calc := create(ctx, "return "+kept.Name+" + "+gone.Name)
+				write(ctx, func(w channel.Writer) error {
+					return w.Delete(ctx, gone.Key(), false)
+				})
+				Expect(inputs(ctx, keys([]channel.Channel{calc}))).
+					To(ConsistOf(kept.Key()))
+			},
+		)
+		It("Should read the reads of a compiled calculation without analysis", func(
+			ctx SpecContext,
+		) {
+			base := create(ctx, "")
+			calc := unsaved("return a_channel_that_does_not_exist")
+			calc.Compiled = true
+			calc.Reads = channel.Keys{base.Key()}
+			Expect(inputs(ctx, nil, calc)).To(ConsistOf(base.Key()))
+		})
 		It("Should return the inputs of a calculation that is not stored", func(
 			ctx SpecContext,
 		) {

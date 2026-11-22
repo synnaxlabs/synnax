@@ -160,10 +160,10 @@ var _ = Describe("Old API breaker d", func() {
 			rec = &Recorder[channel.Key, channel.Action]{}
 			DeferCleanup(channelSvc.Actions().OnChange(rec.Record))
 		})
-		actionsOn := func(key channel.Key) []channel.Action {
+		actionsOn := func(key channel.Key, dispatchKey string) []channel.Action {
 			var out []channel.Action
 			for _, batch := range rec.Snapshot() {
-				if batch.Key == key {
+				if batch.Key == key && batch.DispatchKey == dispatchKey {
 					out = append(out, batch.Actions...)
 				}
 			}
@@ -177,7 +177,7 @@ var _ = Describe("Old API breaker d", func() {
 			req := calculated(input)
 			ch := create(ctx, req)
 			var created *channel.Created
-			for _, a := range actionsOn(ch.Key) {
+			for _, a := range actionsOn(ch.Key, "") {
 				if a.Create != nil {
 					created = &a.Create.Channel
 				}
@@ -185,6 +185,41 @@ var _ = Describe("Old API breaker d", func() {
 			Expect(created).ToNot(BeNil())
 			Expect(created.Expression).To(Equal(req.Expression))
 		})
+
+		It("Should broadcast an old API set of the expression on the channel", func(
+			ctx SpecContext,
+		) {
+			input := createChannel(ctx, telem.Float32T)
+			ch := create(ctx, calculated(input))
+			edit := set("expression", fmt.Sprintf("return %s * 3", input.Name))
+			Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
+				Key:         ch.Key,
+				DispatchKey: "breaker-d",
+				Actions:     []channel.Action{edit},
+			})).Error().To(Succeed())
+			Expect(actionsOn(ch.Key, "breaker-d")).To(ContainElement(edit))
+		})
+
+		It("Should broadcast the operations the calculation holds after an old API set",
+			func(ctx SpecContext) {
+				input := createChannel(ctx, telem.Float32T)
+				ch := create(ctx, calculated(input))
+				avg := channel.Operation{
+					Type:     channel.OperationTypeAvg,
+					Duration: telem.Second,
+				}
+				// The record drops the none operation.
+				sent := []channel.Operation{{Type: channel.OperationTypeNone}, avg}
+				Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
+					Key:         ch.Key,
+					DispatchKey: "breaker-d",
+					Actions:     []channel.Action{set("operations", sent)},
+				})).Error().To(Succeed())
+				Expect(actionsOn(ch.Key, "breaker-d")).To(ContainElement(
+					set("operations", []channel.Operation{avg}),
+				))
+			},
+		)
 	})
 
 	Describe("Access", func() {
@@ -231,6 +266,36 @@ var _ = Describe("Old API breaker d", func() {
 				r := reader(ctx, resource.ID{Type: resource.TypeChannel})
 				got := retrieveAs(ctx, r)
 				Expect(got.Expression).To(BeEmpty())
+			},
+		)
+
+		It(
+			"Should tell a subject that cannot retrieve the calculation that the channel is calculated",
+			func(ctx SpecContext) {
+				Expect(ch.Calculated).To(BeTrue())
+				r := reader(ctx, resource.ID{Type: resource.TypeChannel})
+				Expect(retrieveAs(ctx, r).Calculated).To(BeTrue())
+			},
+		)
+
+		It("Should not call a virtual channel that no calculation writes calculated",
+			func(ctx SpecContext) {
+				plain := create(ctx, apichannel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Float32T,
+					Virtual:  true,
+				})
+				Expect(plain.Calculated).To(BeFalse())
+				res := MustSucceed(retrieveChannels(
+					AuthedCtx(ctx, u),
+					apichannel.RetrieveRequest{
+						Where: &channel.Where{
+							Key: &filter.Set[channel.Key]{Eq: &plain.Key},
+						},
+					},
+				))
+				Expect(res.Channels).To(HaveLen(1))
+				Expect(res.Channels[0].Calculated).To(BeFalse())
 			},
 		)
 
@@ -409,6 +474,8 @@ var _ = Describe("Old API breaker d", func() {
 				Expression:  req.Expression,
 				Operations:  req.Operations,
 				Group:       stored.Group,
+				// Additive since v0.62, which a v0.62 client ignores.
+				Calculated: req.Expression != "",
 			}
 		}
 		roundTrip := func(ctx SpecContext, req apichannel.Channel) {

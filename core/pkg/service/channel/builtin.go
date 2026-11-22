@@ -86,11 +86,10 @@ func (s *Service) BuiltIns() Keys { return s.builtIns.Load().keys() }
 
 // Declare finds the channel named ch.Name or creates ch, and makes its key a built-in
 // channel when the transaction commits. A channel of that name at the root, with the
-// data type and virtual flag of ch, that is not the output of a calculation (one that
-// owns a free index), becomes the built-in. Declare
-// renames any other channel of that name with the first free suffix (_2, _3) and writes
-// a warning status for it. Declare fills ch with the stored channel. It returns an
-// error when another built-in holds the name.
+// data type and virtual flag of ch, becomes the built-in, unless the holder of one of
+// its uses computes it. Declare renames any other channel of that name with the first
+// free suffix (_2, _3) and writes a warning status for it. Declare fills ch with the
+// stored channel. It returns an error when another built-in holds the name.
 func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 	var holders []Channel
 	if err := w.svc.newRetrieve().
@@ -100,11 +99,17 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 		return err
 	}
 	match := slices.IndexFunc(holders, func(h Channel) bool {
-		return h.Group == nil &&
-			h.DataType == ch.DataType &&
-			h.Virtual == ch.Virtual &&
-			!ownsFreeIndex(h)
+		return h.Group == nil && h.DataType == ch.DataType && h.Virtual == ch.Virtual
 	})
+	if match >= 0 {
+		computed, err := w.computed(ctx, holders[match].Key())
+		if err != nil {
+			return err
+		}
+		if computed {
+			match = -1
+		}
+	}
 	for i, h := range holders {
 		if i == match {
 			continue
@@ -129,6 +134,18 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 		return nil
 	})
 	return nil
+}
+
+// computed reports whether the holder of a use of the channel with key computes it.
+func (w Writer) computed(ctx context.Context, key Key) (bool, error) {
+	if w.svc.cfg.Computes == nil {
+		return false, nil
+	}
+	uses, err := w.svc.Uses(ctx, w.tx, []Key{key})
+	if err != nil {
+		return false, err
+	}
+	return slices.ContainsFunc(uses[0], w.svc.cfg.Computes), nil
 }
 
 // rehome renames h, a channel that holds the name of a built-in, with the first free
@@ -173,11 +190,4 @@ func (w Writer) freeName(ctx context.Context, name string) (string, error) {
 			return candidate, err
 		}
 	}
-}
-
-// ownsFreeIndex reports whether ch owns a free index, as the output of a calculation
-// does.
-func ownsFreeIndex(ch Channel) bool {
-	_, ok := freeIndexOf(ch)
-	return ok
 }
