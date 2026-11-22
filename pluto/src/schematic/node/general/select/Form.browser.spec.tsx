@@ -17,7 +17,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { SelectForm } from "@/schematic/node/general/select/Form";
 import { createConfig } from "@/schematic/node/registry";
 import { CreatePromptStub } from "@/schematic/node/testutil";
-import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
+import { createAsyncSynnaxWrapper, pickOption, renderForm } from "@/testutil";
 
 const path = deep.path<schematic.SelectNodeConfig>();
 
@@ -45,7 +45,7 @@ describe("SelectForm", () => {
       name: `select-${id.create()}`,
       entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
     });
-    const { findByRole, findByLabelText, getByPlaceholderText, value } = renderForm(
+    const { findByRole, findByLabelText, value } = renderForm(
       <SelectForm tab="options" onTabChange={vi.fn()} />,
       createConfig({
         variant: "select",
@@ -62,10 +62,7 @@ describe("SelectForm", () => {
     expect(await name()).toBe("Open");
     expect(columns()).toEqual(["Name", "Value"]);
     fireEvent.click(await findByRole("button", { name: "Enumeration" }));
-    fireEvent.change(getByPlaceholderText("Search enumerations..."), {
-      target: { value: created.name },
-    });
-    fireEvent.click(await findByRole("option", { name: created.name }));
+    await pickOption(created.name, "Search enumerations...");
     await waitFor(() => expect(value(path.enumeration)).toBe(created.key));
     await waitFor(async () => expect(await name()).toBe("Primed"));
     expect(columns()).toEqual(["Name", "Value", "Color", "Abnormal"]);
