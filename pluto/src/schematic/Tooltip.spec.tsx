@@ -232,6 +232,48 @@ describe("Schematic.Tooltip", () => {
       expect(value.querySelector(".lyra-icon--calculation")).not.toBeNull();
     });
 
+    it("should show a calculated channel with no virtual icon first", async () => {
+      const calc = await client.calculations.create({
+        name: id.create(),
+        expression: "return 2",
+      });
+      // A viewer whose client never saw the calculation, and whose symbol has already
+      // read the channel.
+      const viewer = createTestClient();
+      await viewer.channels.retrieve(calc.output);
+      const ViewerProviders = await createAsyncSynnaxWrapper({
+        client: viewer,
+        telemFactories: [new StampFactory()],
+        additionalRegistry: latestSample.REGISTRY,
+      });
+      const ViewerWrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <ViewerProviders>
+          <Base.Config delay={DELAY}>{children}</Base.Config>
+        </ViewerProviders>
+      );
+      const seen = new Set<string>();
+      const observer = new MutationObserver(() => {
+        const tooltip = getTooltip();
+        if (tooltip?.querySelector(".lyra-icon--virtual") != null) seen.add("virtual");
+        if (tooltip?.querySelector(".lyra-icon--calculation") != null)
+          seen.add("calculation");
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      try {
+        render(
+          <Tooltip
+            anchor={createAnchor()}
+            config={Node.createConfig({ variant: "value", channel: calc.output })}
+          />,
+          { wrapper: ViewerWrapper },
+        );
+        await waitFor(() => expect(seen.has("calculation")).toBe(true));
+      } finally {
+        observer.disconnect();
+      }
+      expect([...seen]).toEqual(["calculation"]);
+    });
+
     it("should mark a virtual channel with the virtual icon", async () => {
       const virtual = await createVirtual();
       renderTooltip(Node.createConfig({ variant: "value", channel: virtual.key }));

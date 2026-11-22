@@ -42,20 +42,19 @@ describe("queries", () => {
         () => ({
           output: Calculation.useIsOutput(calc.output),
           plain: Calculation.useIsOutput(plain.key),
-          plainAnswer: Calculation.useResultOutput({ channel: plain.key }).data,
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.output).toBe(true));
-      // False reads the same before the answer loads, so the spec waits for it.
+      // The client that creates a calculation holds its answer, so only plain loads.
+      expect(result.current.plain).toBeUndefined();
       await waitFor(() =>
-        expect(result.current.plainAnswer).toEqual({
-          key: plain.key,
-          hidden: false,
-          calculation: null,
-        }),
+        expect(result.current).toEqual({ output: true, plain: false }),
       );
-      expect(result.current.plain).toBe(false);
+    });
+
+    it("should answer false at once for the key 0", () => {
+      const { result } = renderHook(() => Calculation.useIsOutput(0), { wrapper });
+      expect(result.current).toBe(false);
     });
 
     it("should count an output whose calculation the reader cannot retrieve", async () => {

@@ -40,9 +40,11 @@ export const { useResult: useResultOutput } = Flux.createRetrieve<
 
 /**
  * @returns whether a calculation writes the channel, whether or not the reader can
- * retrieve it. False until the answer loads, and for the key 0, which names no channel.
+ * retrieve it, or undefined until the answer loads. False for the key 0, which names
+ * no channel.
  */
-export const useIsOutput = (channel: channel.Key): boolean => {
+export const useIsOutput = (channel: channel.Key): boolean | undefined => {
   const output = useResultOutput(channel === 0 ? null : { channel }).data;
-  return output != null && calculation.isOutput(output);
+  if (channel === 0) return false;
+  return output == null ? undefined : calculation.isOutput(output);
 };
