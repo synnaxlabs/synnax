@@ -340,33 +340,27 @@ func quotedEnd(body string, i int) int {
 	return len(body) - 1
 }
 
-// splitSpec splits a placeholder body on the first `:` that a scan back from its end
-// finds at brace and bracket depth 0, yielding (expr, spec), as v0.62 does. Colons
-// inside nested `{...}` (struct literals), `[...]` (index/slice expressions), or a
-// quoted channel name are skipped.
+// splitSpec splits a placeholder body on the last `:` after which closing braces and
+// brackets match opening ones, yielding (expr, spec), as v0.62's scan back from the end
+// does. Colons inside nested `{...}` (struct literals), `[...]` (index/slice
+// expressions), or a quoted channel name are skipped.
 func splitSpec(body string) (expr, spec string, err error) {
-	names := nameSpans(body)
-	idx, braceDepth, bracketDepth := -1, 0, 0
-	for i := len(body) - 1; i >= 0 && idx < 0; i-- {
-		if last := len(names) - 1; last >= 0 && i <= names[last][1] {
-			i, names = names[last][0], names[:last]
-			continue
+	braces, brackets := 0, 0
+	walkPlaceholder(body, 0, func(i int) bool {
+		b, k := closes(body[i])
+		braces, brackets = braces+b, brackets+k
+		return true
+	})
+	// Each byte comes off the totals, so at a colon they count what follows it.
+	idx := -1
+	walkPlaceholder(body, 0, func(i int) bool {
+		b, k := closes(body[i])
+		braces, brackets = braces-b, brackets-k
+		if body[i] == ':' && braces == 0 && brackets == 0 {
+			idx = i
 		}
-		switch body[i] {
-		case '}':
-			braceDepth++
-		case '{':
-			braceDepth--
-		case ']':
-			bracketDepth++
-		case '[':
-			bracketDepth--
-		case ':':
-			if braceDepth == 0 && bracketDepth == 0 {
-				idx = i
-			}
-		}
-	}
+		return true
+	})
 	if idx < 0 {
 		return body, "", nil
 	}
@@ -381,22 +375,20 @@ func splitSpec(body string) (expr, spec string, err error) {
 	return expr, spec, nil
 }
 
-// nameSpans returns the first and last index of each quoted channel name in body, in
-// order.
-func nameSpans(body string) [][2]int {
-	var spans [][2]int
-	next := 0
-	walkPlaceholder(body, 0, func(i int) bool {
-		if i > next {
-			spans = append(spans, [2]int{next, i - 1})
-		}
-		next = i + 1
-		return true
-	})
-	if next < len(body) {
-		spans = append(spans, [2]int{next, len(body) - 1})
+// closes returns 1 for a closing brace and -1 for an opening one, then the same for
+// brackets.
+func closes(c byte) (braces, brackets int) {
+	switch c {
+	case '}':
+		return 1, 0
+	case '{':
+		return -1, 0
+	case ']':
+		return 0, 1
+	case '[':
+		return 0, -1
 	}
-	return spans
+	return 0, 0
 }
 
 // specShape enforces the canonical anatomy [flags][width][.precision][verb].
