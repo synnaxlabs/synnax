@@ -498,7 +498,16 @@ func (s *State) commit(w *Writer, c *log.Commit) error {
 		seg.vis.Pointers = extend(seg.vis.Pointers, p, extended, false)
 		seg.vis.Length, seg.vis.TailCRC = slot.Length, slot.TailCRC
 		s.core.channels[seg.key].checkViews()
-		s.core.channels[seg.key].publish()
+	}
+	// A reader loads a data key before its clock, so the clock publishes first, and the
+	// reader never sees samples that its clock has no stamps for.
+	for _, clock := range []bool{true, false} {
+		for _, slot := range c.Slots {
+			seg := s.core.segments[slot.Segment]
+			if (seg.key == seg.vis.Clock) == clock {
+				s.core.channels[seg.key].publish()
+			}
+		}
 	}
 	return nil
 }

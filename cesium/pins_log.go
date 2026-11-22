@@ -25,10 +25,11 @@ type pins struct {
 	dead    map[uint64]ChannelKey
 }
 
-// loadView returns the visible Channels of key and of its clock from e, and pins each
-// of their segments under the same lock that release takes, so release never unlinks a
-// segment that a Channel it returned still names, and both come from one state. It
-// unpins held, the segments of an earlier load, and returns the segments it pinned.
+// loadView returns the visible Channels of key and then of its clock from e, and pins
+// each of their segments under the same lock that release takes, so release never
+// unlinks a segment that a Channel it returned still names. A commit publishes its
+// clock before its data, so the clock has stamps for each sample of the key. It unpins
+// held, the segments of an earlier load, and returns the segments it pinned.
 func (e *engine) loadView(
 	key, clock ChannelKey,
 	held []uint64,

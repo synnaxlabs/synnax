@@ -23,8 +23,8 @@ import (
 )
 
 // logView is what one iterator of a key reads: the visible Channels of the key and of
-// its clock, which the engine loads and pins together, so the samples and their stamps
-// come from one state. The data cursor loads the view at each seek. The clock cursors
+// its clock, which the engine loads and pins together, so the clock has stamps for each
+// sample of the key. The data cursor loads the view at each seek. The clock cursors
 // that the index opens read the view and never load the live state. Each lookup of the
 // index closes its clock cursor and reader before it returns, and the calls of an
 // iterator never overlap, so a reload never unpins what a clock cursor still reads.
