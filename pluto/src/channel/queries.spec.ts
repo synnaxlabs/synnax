@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, project } from "@synnaxlabs/client";
+import { channel, DataType, project, type Synnax } from "@synnaxlabs/client";
 import {
   createTestClient,
+  holdRequests,
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
@@ -17,13 +18,61 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Channel } from "@/channel";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const path = Channel.formPath;
+
+const SCROLL_COUNT = 1010;
+
+// Scrolls a channel list of fresh channels to its end, as a channel select does.
+const scrollToEnd = async (client: Synnax) => {
+  const prefix = `scroll_${id.create()}_`;
+  await createTestClient().channels.create(
+    Array.from({ length: SCROLL_COUNT }, (_, i) => ({
+      name: `${prefix}${i}`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    })),
+  );
+  const wrapper = await createAsyncSynnaxWrapper({ client });
+  const { result } = renderHook(
+    () => Channel.useList({ query: { where: { name: { startsWith: prefix } } } }),
+    { wrapper },
+  );
+  for (
+    let i = 0;
+    i < 40 && !(result.current.answered && result.current.complete);
+    i++
+  ) {
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.variant).toBe("success"));
+  }
+  return { length: result.current.data.length, complete: result.current.complete };
+};
+
+describe("useList with the built-in keys", () => {
+  it("should scroll to the end once the built-in keys arrived", async () => {
+    const client = createTestClient();
+    const builtIns = vi.spyOn(client.channels, "retrieveBuiltIns");
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    await expect.poll(() => builtIns.mock.results.length).toBeGreaterThan(0);
+    await builtIns.mock.results[0].value;
+    expect(await scrollToEnd(client)).toEqual({ length: SCROLL_COUNT, complete: true });
+  }, 60000);
+
+  it("should scroll to the end before the built-in keys arrive", async () => {
+    const client = createTestClient();
+    holdRequests(client, "/channel/retrieve-built-ins");
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    expect(await scrollToEnd(client)).toEqual({ length: SCROLL_COUNT, complete: true });
+  }, 60000);
+});
 
 describe("queries", () => {
   let controller: AbortController;

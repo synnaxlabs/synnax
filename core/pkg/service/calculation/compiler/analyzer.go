@@ -111,6 +111,8 @@ type AnalysisResult struct {
 	ExpressionReturnType types.Type
 	// Deps lists the keys of channels read by the expression.
 	Deps channel.Keys
+	// Reads names each channel that the expression reads, by its key.
+	Reads map[uint32]string
 	// Unresolved lists symbol names that could not be resolved during analysis.
 	Unresolved []string
 }
@@ -160,14 +162,15 @@ func (a *Analyzer) AnalyzeExpression(
 		a.resolver.temp.keys[s.ID] = s
 		a.resolver.temp.names[s.Name] = s
 	}
-	deps := reads(aCtx, t)
+	readNames := readsOf(aCtx, t)
 	inferredDataType := dataType.ToTelem()
 	if derivative {
 		inferredDataType = telem.Float64T
 	}
 	return AnalysisResult{
 		ChanDataType:         inferredDataType,
-		Deps:                 deps,
+		Deps:                 keysOf(readNames),
+		Reads:                readNames,
 		ExpressionReturnType: dataType,
 	}, nil
 }
@@ -178,13 +181,27 @@ func reads(
 	aCtx acontext.Context[parser.IBlockContext],
 	t parser.IBlockContext,
 ) channel.Keys {
-	var deps channel.Keys
+	return keysOf(readsOf(aCtx, t))
+}
+
+// readsOf returns the channels that the analysis of block t resolved, by key.
+func readsOf(
+	aCtx acontext.Context[parser.IBlockContext],
+	t parser.IBlockContext,
+) map[uint32]string {
 	funcScope, err := aCtx.Scope.GetChildByParserRule(t)
-	if err == nil {
-		for k := range funcScope.Channels.Read {
-			deps = append(deps, channel.Key(k))
-		}
+	if err != nil {
+		return nil
 	}
-	slices.Sort(deps)
-	return deps
+	return funcScope.Channels.Read
+}
+
+// keysOf returns the keys of names, in order.
+func keysOf(names map[uint32]string) channel.Keys {
+	keys := make(channel.Keys, 0, len(names))
+	for k := range names {
+		keys = append(keys, channel.Key(k))
+	}
+	slices.Sort(keys)
+	return keys
 }
