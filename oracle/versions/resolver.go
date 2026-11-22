@@ -260,8 +260,8 @@ func checkTombstone(f *File, filePath string) error {
 	return nil
 }
 
-// seedSibling seeds the table with the declarations that version k of livePath
-// defines, redirects its aliases to their definers, and registers its pins.
+// seedSibling seeds the table with the declarations that version k of livePath defines,
+// redirects its aliases to their definers, and registers its pins.
 func (b *tableBuilder) seedSibling(livePath string, k int) error {
 	sib, err := b.r.file(livePath, k)
 	if err != nil {

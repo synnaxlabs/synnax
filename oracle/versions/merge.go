@@ -244,8 +244,8 @@ func (m *liveMerger) addReference(version int, name string) {
 	}
 }
 
-// format joins the file domains of lc and the merged declarations under their
-// imports, and returns the formatted source.
+// format joins the file domains of lc and the merged declarations under their imports,
+// and returns the formatted source.
 func (m *liveMerger) format(
 	r *Resolver, lc *liveContent, liveNames set.Set[string],
 ) (string, error) {
@@ -676,8 +676,8 @@ func (x *liveExtractor) liveOwnedAll(
 	}
 }
 
-// field records a field's live-only domain lines under keyPrefix + field name, the
-// same key renderField looks them up by.
+// field records a field's live-only domain lines under keyPrefix + field name, the same
+// key renderField looks them up by.
 func (x *liveExtractor) field(
 	name string, fd parser.IFieldDefContext, ex *declExtras, keyPrefix string,
 ) {
