@@ -57,9 +57,11 @@ export const useResize = <E extends HTMLElement>(
     el: E;
     debouncePeriod: bigint;
     observer: ResizeObserver;
+    report: scheduler.DebouncedFn<[]>;
   } | null>(null);
   const stop = (): void => {
     observation.current?.observer.disconnect();
+    observation.current?.report.cancel();
     observation.current = null;
   };
 
@@ -74,16 +76,15 @@ export const useResize = <E extends HTMLElement>(
     // A new element reports its first box, even one that the last element had.
     if (target !== observed.current) prev.current = box.ZERO;
     observed.current = target;
-    const observer = new ResizeObserver(
-      scheduler.debounce(() => {
-        const next = box.construct(target);
-        if (!shouldResize(triggersRef.current, prev.current, next)) return;
-        prev.current = next;
-        onResizeRef.current(next, target);
-      }, debouncePeriod),
-    );
+    const report = scheduler.debounce(() => {
+      const next = box.construct(target);
+      if (!shouldResize(triggersRef.current, prev.current, next)) return;
+      prev.current = next;
+      onResizeRef.current(next, target);
+    }, debouncePeriod);
+    const observer = new ResizeObserver(() => report());
     observer.observe(target);
-    observation.current = { el: target, debouncePeriod, observer };
+    observation.current = { el: target, debouncePeriod, observer, report };
   };
 
   useEffect(() => watch(ref.current), [watch]);

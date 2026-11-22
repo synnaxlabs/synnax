@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -29,6 +30,19 @@ const Swap = ({ onResize }: { onResize: UseResizeHandler }): ReactElement => {
       ) : (
         <div key="second" ref={ref} style={BOX} />
       )}
+    </>
+  );
+};
+
+/** Moves a debounced ref from one box to another box of the same size. */
+const Move = ({ onResize }: { onResize: UseResizeHandler }): ReactElement => {
+  const [first, setFirst] = useState(true);
+  const ref = useResize(onResize, { debounce: TimeSpan.seconds(1) });
+  return (
+    <>
+      <button onClick={() => setFirst(false)}>Move</button>
+      <div ref={first ? ref : undefined} style={BOX} />
+      <div id="second" ref={first ? undefined : ref} style={BOX} />
     </>
   );
 };
@@ -75,6 +89,17 @@ describe("useResize", () => {
     await expect.poll(() => onResize.mock.calls.length).toBe(1);
     await userEvent.click(page.getByRole("button", { name: "Swap" }));
     await expect.poll(() => onResize.mock.calls.length).toBe(2);
+  });
+
+  it("should drop a pending report when the element changes", async () => {
+    const onResize = vi.fn();
+    await renderThemed(<Move onResize={onResize} />);
+    await userEvent.click(page.getByRole("button", { name: "Move" }));
+    expect(onResize).not.toHaveBeenCalled();
+    await expect.poll(() => onResize.mock.calls.length, { timeout: 3000 }).toBe(1);
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(onResize).toHaveBeenCalledTimes(1);
+    expect(onResize.mock.calls[0][1]).toBe(document.getElementById("second"));
   });
 
   it("should not observe again when a deeper callback renders", async () => {
