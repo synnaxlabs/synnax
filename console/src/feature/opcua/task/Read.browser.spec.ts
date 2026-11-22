@@ -24,7 +24,6 @@ import {
   dragNode,
 } from "@/feature/opcua/testutil";
 import {
-  pickDevice,
   setTestDeviceStatus,
   TEST_DEVICE_STATUS_MESSAGE,
 } from "@/platform/device/testutil";
@@ -50,6 +49,7 @@ import {
   findIconButton,
   getLabeledInput,
   interceptFilePicker,
+  pickOption,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -646,7 +646,7 @@ describe("Read", () => {
       data: { channels: [secondNode] },
     });
     fireEvent.click(await findDialogTriggerByText(first.device.name));
-    await pickDevice(second.device.name, "Search devices...");
+    await pickOption(second.device.name, "Search devices...");
     await secondRoot.answered;
     await screen.findByText(secondNode.name);
     expect(screen.queryByText(firstNode.name)).toBeNull();
@@ -686,7 +686,7 @@ describe("Read", () => {
       data: { channels: [] },
     });
     fireEvent.click(await findDialogTriggerByText(first.device.name));
-    await pickDevice(second.device.name, "Search devices...");
+    await pickOption(second.device.name, "Search devices...");
     await secondRoot.answered;
     await answerCommand(client, first.scan, search, {
       data: {

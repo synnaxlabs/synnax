@@ -13,9 +13,9 @@ import { describe, expect, it } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
 import { createKafkaDevice } from "@/feature/kafka/testutil";
-import { pickDevice, renderWithDeviceForm } from "@/platform/device/testutil";
+import { renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
-import { findDialogTrigger } from "@/testutil";
+import { findDialogTrigger, pickOption } from "@/testutil";
 
 const client = createTestClient();
 
@@ -54,7 +54,7 @@ describe("Kafka.Device.Select", () => {
       { deviceKey: "", client },
     );
     fireEvent.click(await findDialogTrigger());
-    await pickDevice(dev.name, "Search devices...");
+    await pickOption(dev.name, "Search devices...");
     await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
   });
 });

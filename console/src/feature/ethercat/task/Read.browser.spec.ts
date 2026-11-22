@@ -45,7 +45,6 @@ import {
   STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
 import { Device } from "@/platform/device";
-import { pickDevice } from "@/platform/device/testutil";
 import {
   awaitEditableForm,
   awaitTare,
@@ -62,6 +61,7 @@ import {
   createTestClientWithGrants,
   findDialogTriggerByText,
   findIconButton,
+  pickOption,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -384,7 +384,7 @@ describe("Read", () => {
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     fireEvent.click(await findDialogTriggerByText(calibrating.name));
-    await pickDevice(plain.name, "Search devices...");
+    await pickOption(plain.name, "Search devices...");
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: draft.key,

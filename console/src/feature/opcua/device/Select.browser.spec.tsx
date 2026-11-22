@@ -13,9 +13,9 @@ import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
-import { pickDevice, renderWithDeviceForm } from "@/platform/device/testutil";
+import { renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
-import { findDialogTrigger } from "@/testutil";
+import { findDialogTrigger, pickOption } from "@/testutil";
 
 const client = createTestClient();
 
@@ -41,7 +41,7 @@ describe("OPCUA.Device.Select", () => {
       { deviceKey: "", client },
     );
     fireEvent.click(await findDialogTrigger());
-    await pickDevice(dev.name, "Search devices...");
+    await pickOption(dev.name, "Search devices...");
     await screen.findByText("OPC UA server");
     await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
   });
