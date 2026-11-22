@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -455,5 +456,35 @@ var _ = Describe("Name upgrade", func() {
 		Expect(arc.Changes(records[edited.Base().Key])).To(Equal([]arc.Change{
 			{Type: arc.TypeAutomation, Kind: arc.ChangeKindChanged},
 		}))
+	})
+
+	It("Should rename the storage of a renamed channel", func(ctx SpecContext) {
+		n := testutil.NewNode(ctx)
+		storeV062(ctx, n, nil, func([]channelv1.Channel) {})
+		idx := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{{
+			Name:     "stand.time",
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}}))[0]
+		Expect(n.Storage.TS.CreateChannel(
+			ctx,
+			distchannel.ToStorage([]distchannel.Channel{idx})...,
+		)).To(Succeed())
+		Expect(gorp.WrapWriter[channelv1.Key, channelv1.Channel](n.DB).Set(
+			ctx,
+			channelv1.Channel{
+				Name:        idx.Name,
+				Leaseholder: idx.Leaseholder,
+				LocalKey:    idx.LocalKey,
+				LocalIndex:  idx.LocalKey,
+				IsIndex:     true,
+				DataType:    telem.TimestampT,
+			},
+		)).To(Succeed())
+		MustOpen(svctestutil.OpenLayer(ctx, n))
+		stored := MustSucceed(
+			n.Storage.TS.RetrieveChannel(ctx, cesium.ChannelKey(idx.Key())),
+		)
+		Expect(stored.Name).To(Equal("stand_time"))
 	})
 })
