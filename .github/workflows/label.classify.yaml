@@ -63,8 +63,9 @@ jobs:
           sparse-checkout: .github/scripts
           persist-credentials: false
 
-      # A run whose merge failed has no results, so the classifier marks each surface as
-      # an error. A failed request still fails the job.
+      # Picks the merge of the latest attempt. A run whose merge failed has no results,
+      # so the classifier marks each surface as an error. A failed request still fails
+      # the job.
       - name: Find the results
         id: find
         env:
@@ -72,16 +73,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ inputs.run_id }}
         run: |
-          count=$(.github/scripts/gh_api.sh \
-            "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts?name=surfaces" \
-            --jq '[.artifacts[] | select(.expired | not)] | length')
-          echo "count=$count" >> "$GITHUB_OUTPUT"
+          names=$(.github/scripts/gh_api.sh --paginate \
+            "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.expired | not) | .name')
+          name=$(grep -E '^surfaces-[0-9]+$' <<< "$names" |
+            sort -t- -k2 -n | tail -n1 || true)
+          echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - name: Download the results
-        if: steps.find.outputs.count != '0'
+        if: steps.find.outputs.name != ''
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: surfaces
+          name: ${{ steps.find.outputs.name }}
           run-id: ${{ inputs.run_id }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/results
