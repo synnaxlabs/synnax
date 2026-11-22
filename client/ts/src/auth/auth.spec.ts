@@ -20,7 +20,7 @@ import {
   MissingCredentialsError,
   SessionEndedError,
   ValidationError,
-} from "@/errors";
+} from "@/index";
 import {
   createEmptyRole,
   createTestClient,

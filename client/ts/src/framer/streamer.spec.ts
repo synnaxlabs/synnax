@@ -28,9 +28,14 @@ import { type WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { AuthError, ExpiredTokenError, SessionEndedError } from "@/errors";
 import { framer } from "@/framer";
-import { AccessDeniedError, MissingLicenseError } from "@/index";
+import {
+  AccessDeniedError,
+  AuthError,
+  ExpiredTokenError,
+  MissingLicenseError,
+  SessionEndedError,
+} from "@/index";
 import {
   createProxiedTestClient,
   createTestClient,

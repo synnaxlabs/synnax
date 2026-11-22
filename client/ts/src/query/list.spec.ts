@@ -11,7 +11,7 @@ import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { assertDefined } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, vi } from "vitest";
 
-import { ValidationError } from "@/errors";
+import { ValidationError } from "@/index";
 import { query } from "@/query";
 import { Lists, MAX_SEARCH_LIMIT } from "@/query/list";
 import { DEFAULT_DEBOUNCE, type SpaceHooks } from "@/query/query";
