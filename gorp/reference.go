@@ -134,6 +134,9 @@ type referenceSpec struct {
 	detachable bool
 	// inlinable is true when the reference can replace a target in an entry.
 	inlinable bool
+	// emptyHoldersTracked is true when the reference keeps the entries that hold no
+	// target.
+	emptyHoldersTracked bool
 	// tablesField names the config field that holds tables, for validation errors.
 	tablesField string
 	// owner is the name of the table the reference is registered on.
@@ -255,6 +258,9 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	Acyclic bool
 	// Tag is a value that Gorp stores and returns in each Dependent, and never reads.
 	Tag uint8
+	// EmptyHoldersTracked keeps a record of the entries that hold no target, so that
+	// FilterHolding(false) can find them. FilterHolding(false) panics without it.
+	EmptyHoldersTracked bool
 }
 
 // KeyReference is a Reference to the entries of one table, which holds each target as
@@ -269,20 +275,21 @@ func NewKeyReference[K Key, E Entry[K], T Key](
 ) *KeyReference[K, E, T] {
 	table := cfg.Table
 	return &KeyReference[K, E, T]{
-		name:        cfg.Name,
-		tables:      []string{table},
-		tablesField: "table",
-		onDelete:    cfg.OnDelete,
-		kind:        cfg.Kind,
-		unique:      cfg.Unique,
-		acyclic:     cfg.Acyclic,
-		tag:         cfg.Tag,
-		detachable:  cfg.Detach != nil,
-		inlinable:   cfg.Inline != nil,
-		targetsOf:   cfg.Targets,
-		detach:      cfg.Detach,
-		inline:      cfg.Inline,
-		format:      func(t T) Target { return Target{Table: table, Key: key.Format(t)} },
+		name:                cfg.Name,
+		tables:              []string{table},
+		tablesField:         "table",
+		onDelete:            cfg.OnDelete,
+		kind:                cfg.Kind,
+		unique:              cfg.Unique,
+		acyclic:             cfg.Acyclic,
+		tag:                 cfg.Tag,
+		detachable:          cfg.Detach != nil,
+		inlinable:           cfg.Inline != nil,
+		emptyHoldersTracked: cfg.EmptyHoldersTracked,
+		targetsOf:           cfg.Targets,
+		detach:              cfg.Detach,
+		inline:              cfg.Inline,
+		format:              func(t T) Target { return Target{Table: table, Key: key.Format(t)} },
 		parse: func(target Target) (T, bool) {
 			if target.Table != table {
 				var zero T
@@ -291,7 +298,7 @@ func NewKeyReference[K Key, E Entry[K], T Key](
 			t, err := key.Parse[T](target.Key)
 			return t, err == nil
 		},
-		store: index.NewMulti[*txState, K, T](),
+		store: index.NewMulti[*txState, K, T](cfg.EmptyHoldersTracked),
 	}
 }
 
@@ -330,6 +337,9 @@ type TargetReferenceConfig[K Key, E Entry[K]] struct {
 	Acyclic bool
 	// Tag is a value that Gorp stores and returns in each Dependent, and never reads.
 	Tag uint8
+	// EmptyHoldersTracked keeps a record of the entries that hold no target, so that
+	// FilterHolding(false) can find them. FilterHolding(false) panics without it.
+	EmptyHoldersTracked bool
 }
 
 // TargetReference is a Reference to the entries of any of several tables, which holds
@@ -344,21 +354,24 @@ func NewTargetReference[K Key, E Entry[K]](
 	cfg TargetReferenceConfig[K, E],
 ) *TargetReference[K, E] {
 	return &TargetReference[K, E]{
-		name:        cfg.Name,
-		tables:      cfg.Tables,
-		tablesField: "tables",
-		onDelete:    cfg.OnDelete,
-		kind:        cfg.Kind,
-		unique:      cfg.Unique,
-		acyclic:     cfg.Acyclic,
-		tag:         cfg.Tag,
-		textKeys:    true,
-		detachable:  cfg.Detach != nil,
-		targetsOf:   cfg.Targets,
-		detach:      cfg.Detach,
-		format:      func(t Target) Target { return t },
-		parse:       func(t Target) (Target, bool) { return t, true },
-		store:       index.NewMulti[*txState, K, Target](),
+		name:                cfg.Name,
+		tables:              cfg.Tables,
+		tablesField:         "tables",
+		onDelete:            cfg.OnDelete,
+		kind:                cfg.Kind,
+		unique:              cfg.Unique,
+		acyclic:             cfg.Acyclic,
+		tag:                 cfg.Tag,
+		textKeys:            true,
+		detachable:          cfg.Detach != nil,
+		emptyHoldersTracked: cfg.EmptyHoldersTracked,
+		targetsOf:           cfg.Targets,
+		detach:              cfg.Detach,
+		format:              func(t Target) Target { return t },
+		parse:               func(t Target) (Target, bool) { return t, true },
+		store: index.NewMulti[*txState, K, Target](
+			cfg.EmptyHoldersTracked,
+		),
 	}
 }
 
@@ -386,9 +399,9 @@ func (r *reference[K, E, T]) bind(owner string, position int) {
 	r.owner, r.position = owner, position
 }
 
-func (r *reference[K, E, T]) populate() (func(E), func(error)) {
+func (r *reference[K, E, T]) populate() (func(*E), func(error)) {
 	insert, finish := r.store.Populate()
-	return func(entry E) { insert(entry.GorpKey(), r.targetsOf(&entry)) },
+	return func(entry *E) { insert((*entry).GorpKey(), r.targetsOf(entry)) },
 		func(err error) { finish(populateErr(r.name, err)) }
 }
 
@@ -548,6 +561,14 @@ func (r *reference[K, E, T]) Filter(targets ...T) Filter[K, E] {
 // changes staged in the transaction it runs in, and falls back to a scan when the
 // index failed to populate.
 func (r *reference[K, E, T]) FilterHolding(holding bool) Filter[K, E] {
+	if !holding && !r.emptyHoldersTracked {
+		panic(fmt.Sprintf(
+			"[gorp] - FilterHolding(false) on reference %s of %s, which does not set "+
+				"EmptyHoldersTracked",
+			r.name,
+			r.owner,
+		))
+	}
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
 			if err := r.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {

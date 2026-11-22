@@ -25,7 +25,7 @@ var _ = Describe("Multi", func() {
 		txn *scope
 	)
 	BeforeEach(func() {
-		m = index.NewMulti[*scope, int, string]()
+		m = index.NewMulti[*scope, int, string](true)
 		insert, finish := m.Populate()
 		insert(1, []string{"a", "b"})
 		insert(2, []string{"b"})
@@ -111,7 +111,7 @@ var _ = Describe("Multi", func() {
 		})
 
 		It("Should return the load error", func() {
-			failed := index.NewMulti[*scope, int, string]()
+			failed := index.NewMulti[*scope, int, string](true)
 			_, finish := failed.Populate()
 			finish(errLoad)
 			Expect(failed.GetEach(nil, []string{"a"})).Error().To(MatchError(errLoad))
@@ -173,7 +173,7 @@ var _ = Describe("Multi", func() {
 		})
 
 		It("Should return the load error", func() {
-			failed := index.NewMulti[*scope, int, string]()
+			failed := index.NewMulti[*scope, int, string](true)
 			_, finish := failed.Populate()
 			finish(errLoad)
 			Expect(failed.Holding(nil, false)).Error().To(MatchError(errLoad))
@@ -280,7 +280,7 @@ var _ = Describe("Multi", func() {
 		})
 
 		It("Should return the load error", func() {
-			failed := index.NewMulti[*scope, int, string]()
+			failed := index.NewMulti[*scope, int, string](true)
 			_, finish := failed.Populate()
 			finish(errLoad)
 			Expect(
@@ -310,7 +310,7 @@ var _ = Describe("Multi", func() {
 		})
 
 		It("Should not know the values before the load finishes", func() {
-			loading := index.NewMulti[*scope, int, string]()
+			loading := index.NewMulti[*scope, int, string](true)
 			_, finish := loading.Populate()
 			_, known := loading.Held(nil, 1)
 			Expect(known).To(BeFalse())
@@ -347,11 +347,113 @@ var _ = Describe("Multi", func() {
 		})
 
 		It("Should report nothing as current before the load finishes", func() {
-			loading := index.NewMulti[*scope, int, string]()
+			loading := index.NewMulti[*scope, int, string](true)
 			_, finish := loading.Populate()
 			Expect(loading.Current(nil, 1, nil)).To(BeFalse())
 			finish(errLoad)
 			Expect(loading.Current(nil, 1, nil)).To(BeFalse())
 		})
+	})
+})
+
+var _ = Describe("Multi bulk load", func() {
+	// heldOf returns the values that key holds in m, failing when m cannot tell.
+	heldOf := func(m *index.Multi[*scope, int, string], key int) []string {
+		GinkgoHelper()
+		held, ok := m.Held(nil, key)
+		Expect(ok).To(BeTrue())
+		return held
+	}
+	// fill bulk loads keys 1 to n, each holding the values that values returns.
+	fill := func(
+		tracked bool,
+		n int,
+		values func(k int) []string,
+	) *index.Multi[*scope, int, string] {
+		GinkgoHelper()
+		m := index.NewMulti[*scope, int, string](tracked)
+		insert, finish := m.Populate()
+		buf := make([]string, 0, 8)
+		for k := 1; k <= n; k++ {
+			buf = append(buf[:0], values(k)...)
+			insert(k, buf)
+		}
+		finish(nil)
+		return m
+	}
+
+	It("Should answer as an index filled by Set", func() {
+		m := fill(true, 3, func(k int) []string {
+			return [][]string{{"a", "b"}, {"b"}, {}}[k-1]
+		})
+		bySet := index.NewMulti[*scope, int, string](true)
+		_, finish := bySet.Populate()
+		finish(nil)
+		bySet.Set(1, []string{"a", "b"})
+		bySet.Set(2, []string{"b"})
+		bySet.Set(3, nil)
+		all := func(int) bool { return true }
+		for _, idx := range []*index.Multi[*scope, int, string]{m, bySet} {
+			Expect(idx.Get(nil, "a")).To(ConsistOf(1))
+			Expect(idx.Get(nil, "b")).To(ConsistOf(1, 2))
+			Expect(idx.Holding(nil, true)).To(ConsistOf(1, 2))
+			Expect(idx.Holding(nil, false)).To(ConsistOf(3))
+			Expect(idx.HeldValues(nil, []string{"a", "c"}, all)).To(Equal(set.New("a")))
+			Expect(heldOf(idx, 1)).To(Equal([]string{"a", "b"}))
+		}
+	})
+
+	It("Should copy each key's values out of the caller's buffer", func() {
+		m := fill(false, 2, func(k int) []string {
+			return []string{[]string{"a", "b"}[k-1]}
+		})
+		Expect(heldOf(m, 1)).To(Equal([]string{"a"}))
+		Expect(heldOf(m, 2)).To(Equal([]string{"b"}))
+	})
+
+	It("Should keep an append to one key's values from a neighbor's", func() {
+		m := fill(false, 2, func(k int) []string { return []string{"a"} })
+		_ = append(heldOf(m, 1), "z")
+		Expect(heldOf(m, 2)).To(Equal([]string{"a"}))
+	})
+
+	It("Should copy on a write after the load", func() {
+		m := fill(false, 2, func(k int) []string { return []string{"a"} })
+		m.Set(1, []string{"a", "b"})
+		Expect(heldOf(m, 1)).To(Equal([]string{"a", "b"}))
+		Expect(heldOf(m, 2)).To(Equal([]string{"a"}))
+		Expect(m.Get(nil, "b")).To(ConsistOf(1))
+		Expect(m.Get(nil, "a")).To(ConsistOf(1, 2))
+	})
+
+	It("Should hold a value past the size of a holder list", func() {
+		m := fill(false, 100, func(int) []string { return []string{"shared"} })
+		Expect(m.Get(nil, "shared")).To(HaveLen(100))
+		m.Delete(50)
+		Expect(m.Get(nil, "shared")).To(HaveLen(99))
+	})
+
+	It("Should count a value that one key holds twice once", func() {
+		m := fill(false, 1, func(int) []string { return []string{"a", "a"} })
+		Expect(m.Get(nil, "a")).To(Equal([]int{1}))
+		m.Delete(1)
+		Expect(m.Get(nil, "a")).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Multi that keeps no record of empty keys", func() {
+	It("Should stage a key with no value and nothing before with no change", func() {
+		m := index.NewMulti[*scope, int, string](false)
+		insert, finish := m.Populate()
+		insert(1, []string{"a"})
+		finish(nil)
+		txn := &scope{}
+		m.Stage(txn, 2, nil)
+		Expect(m.Current(txn, 2, nil)).To(BeTrue())
+		Expect(m.Holding(txn, true)).To(ConsistOf(1))
+		m.Stage(txn, 1, nil)
+		Expect(m.Holding(txn, true)).To(BeEmpty())
+		txn.end(true)
+		Expect(m.Holding(nil, true)).To(BeEmpty())
 	})
 })

@@ -135,11 +135,12 @@ func newDeviceRefs() deviceRefs {
 		),
 		labels: gorp.NewKeyReference(
 			gorp.KeyReferenceConfig[string, refDevice, string]{
-				Name:     "labels",
-				Table:    "label",
-				OnDelete: gorp.Detach,
-				Kind:     gorp.Use,
-				Targets:  func(d *refDevice) []string { return d.Labels },
+				Name:                "labels",
+				Table:               "label",
+				OnDelete:            gorp.Detach,
+				Kind:                gorp.Use,
+				Targets:             func(d *refDevice) []string { return d.Labels },
+				EmptyHoldersTracked: true,
 				Detach: func(d *refDevice, l string) {
 					d.Labels = slices.DeleteFunc(
 						slices.Clone(d.Labels),
@@ -691,6 +692,16 @@ var _ = Describe("Reference", func() {
 		It("Should find the entries that hold a target or none", func(ctx SpecContext) {
 			Expect(keysOf(ctx, db, true)).To(ConsistOf("a"))
 			Expect(keysOf(ctx, db, false)).To(ConsistOf("b"))
+		})
+
+		It("Should panic for entries that hold none on a reference that does not "+
+			"track them", func() {
+			Expect(func() { deviceRef.rack.FilterHolding(false) }).To(PanicWith(
+				ContainSubstring(
+					"FilterHolding(false) on reference rack of device, which does not " +
+						"set EmptyHoldersTracked",
+				),
+			))
 		})
 
 		It("Should see writes staged in the same transaction", func(ctx SpecContext) {

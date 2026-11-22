@@ -43,11 +43,12 @@ type Index[K Key, E Entry[K]] interface {
 	// populate returns an insert closure and a finish closure for the
 	// populate phase. The caller must invoke insert once for every existing
 	// entry in the table and then invoke finish exactly once with the
-	// terminal scan error (or nil on success). finish is mandatory:
+	// terminal scan error (or nil on success). insert keeps nothing that its
+	// entry points to, so the caller can reuse the entry. finish is mandatory:
 	// implementations hold a write lock across the populate phase and
 	// signal readiness to readers blocked in Filter; skipping finish leaks
 	// the lock and deadlocks every blocked reader.
-	populate() (func(entry E), func(error))
+	populate() (func(entry *E), func(error))
 	// set records entry in committed index state, keyed by entry.GorpKey(),
 	// replacing any prior mapping for the same key.
 	set(entry E)
@@ -204,9 +205,9 @@ func NewLookupIndex[K Key, E Entry[K], V comparable](
 // Name implements Index.
 func (l *LookupIndex[K, E, V]) Name() string { return l.name }
 
-func (l *LookupIndex[K, E, V]) populate() (func(E), func(error)) {
+func (l *LookupIndex[K, E, V]) populate() (func(*E), func(error)) {
 	insert, finish := l.store.Populate()
-	return func(entry E) { insert(entry.GorpKey(), l.extract(&entry)) },
+	return func(entry *E) { insert((*entry).GorpKey(), l.extract(entry)) },
 		func(err error) { finish(populateErr(l.name, err)) }
 }
 
@@ -289,9 +290,9 @@ func NewSortedIndex[K Key, E Entry[K], V cmp.Ordered](
 // Name implements Index.
 func (s *SortedIndex[K, E, V]) Name() string { return s.name }
 
-func (s *SortedIndex[K, E, V]) populate() (func(E), func(error)) {
+func (s *SortedIndex[K, E, V]) populate() (func(*E), func(error)) {
 	insert, finish := s.store.Populate()
-	return func(entry E) { insert(entry.GorpKey(), s.extract(&entry)) },
+	return func(entry *E) { insert((*entry).GorpKey(), s.extract(entry)) },
 		func(err error) { finish(populateErr(s.name, err)) }
 }
 

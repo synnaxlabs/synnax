@@ -35,11 +35,12 @@ var _ = Describe("A create that holds no target", func() {
 			Name: "label",
 		}))
 		labels := gorp.NewKeyReference(gorp.KeyReferenceConfig[string, refNote, string]{
-			Name:     "labels",
-			Table:    "label",
-			OnDelete: gorp.Restrict,
-			Kind:     gorp.Use,
-			Targets:  func(n *refNote) []string { return n.Labels },
+			Name:                "labels",
+			Table:               "label",
+			OnDelete:            gorp.Restrict,
+			Kind:                gorp.Use,
+			Targets:             func(n *refNote) []string { return n.Labels },
+			EmptyHoldersTracked: true,
 		})
 		notes := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refNote]{
 			DB:         db,

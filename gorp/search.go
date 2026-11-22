@@ -48,9 +48,9 @@ func NewSearchIndex[K Key, E Entry[K]](
 // Name implements Index.
 func (s *SearchIndex[K, E]) Name() string { return s.name }
 
-func (s *SearchIndex[K, E]) populate() (func(E), func(error)) {
+func (s *SearchIndex[K, E]) populate() (func(*E), func(error)) {
 	insert, finish := s.store.Populate()
-	return func(entry E) { insert(entry.GorpKey(), s.text(&entry)) },
+	return func(entry *E) { insert((*entry).GorpKey(), s.text(entry)) },
 		func(err error) { finish(populateErr(s.name, err)) }
 }
 

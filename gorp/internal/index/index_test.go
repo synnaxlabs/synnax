@@ -68,7 +68,7 @@ var _ = Describe("Index", func() {
 			return index.NewSorted[*scope, int, string](cmp.Compare[int])
 		},
 		"Multi": func() engine {
-			return singleValue{index.NewMulti[*scope, int, string]()}
+			return singleValue{index.NewMulti[*scope, int, string](true)}
 		},
 	}
 	for name, newEngine := range engines {

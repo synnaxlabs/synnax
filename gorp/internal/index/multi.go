@@ -28,8 +28,12 @@ type Multi[S Scope, K, V comparable] struct {
 	population population
 	forward    map[V]holders[K]
 	reverse    map[K][]V
-	// none holds the keys that hold no value.
+	// none holds the keys that hold no value, when emptyTracked.
 	none set.Set[K]
+	// emptyTracked is true when the index answers which keys hold no value.
+	emptyTracked bool
+	// staged holds the bulk load until it finishes.
+	staged staging[K, V]
 	// fresh holds the keys that a transaction staged with no value and that held
 	// nothing before, so that such a key needs no delta. Transactions write one at a
 	// time, so one list serves them all.
@@ -46,13 +50,16 @@ type Multi[S Scope, K, V comparable] struct {
 // freshRetained is the most keys that fresh keeps room for between transactions.
 const freshRetained = 1024
 
-// NewMulti returns an empty Multi that waits for its bulk load.
-func NewMulti[S Scope, K, V comparable]() *Multi[S, K, V] {
+// NewMulti returns an empty Multi that waits for its bulk load. When emptyTracked is
+// false, the Multi keeps no record of the keys that hold no value, and Holding and
+// CommittingHolding must not be asked for them.
+func NewMulti[S Scope, K, V comparable](emptyTracked bool) *Multi[S, K, V] {
 	m := &Multi[S, K, V]{
-		population: newPopulation(),
-		forward:    make(map[V]holders[K]),
-		reverse:    make(map[K][]V),
-		none:       make(set.Set[K]),
+		population:   newPopulation(),
+		forward:      make(map[V]holders[K]),
+		reverse:      make(map[K][]V),
+		none:         make(set.Set[K]),
+		emptyTracked: emptyTracked,
 	}
 	m.overlay.create, m.overlay.flush = newDelta[K, V], m.flush
 	m.endFresh = m.finishFresh
@@ -60,13 +67,100 @@ func NewMulti[S Scope, K, V comparable]() *Multi[S, K, V] {
 }
 
 // Populate starts the bulk load and locks the index until it finishes. insert adds a
-// committed mapping. finish ends the load and must be called exactly once; a non-nil
-// err makes the index invalid, and every later read returns err.
+// committed mapping for a key that no earlier insert named, and copies values. finish
+// ends the load and must be called exactly once; a non-nil err makes the index invalid,
+// and every later read returns err. Call Populate once, on a Multi that holds nothing.
 func (m *Multi[S, K, V]) Populate() (insert func(K, []V), finish func(err error)) {
 	m.mu.Lock()
-	return m.put, func(err error) {
+	return m.staged.add, func(err error) {
+		if err == nil {
+			m.build()
+		}
+		m.staged = staging[K, V]{}
 		m.population.finish(err)
 		m.mu.Unlock()
+	}
+}
+
+// staging is the bulk load of a Multi, kept flat until it finishes so that the load
+// allocates per batch rather than per key.
+type staging[K, V comparable] struct {
+	// keys holds the keys that hold a value. The values of keys[i] are
+	// values[ends[i-1]:ends[i]].
+	keys   []K
+	ends   []int
+	values []V
+	// empty holds the keys that hold no value.
+	empty []K
+}
+
+func (s *staging[K, V]) add(key K, values []V) {
+	if len(values) == 0 {
+		s.empty = append(s.empty, key)
+		return
+	}
+	s.keys = append(s.keys, key)
+	s.values = append(s.values, values...)
+	s.ends = append(s.ends, len(s.values))
+}
+
+// span is where the holders of one value sit in the key arena of a build.
+type span struct{ start, end int }
+
+// build fills forward, reverse, and none from staged. Each key's values and each
+// value's holders are capped sub-slices of one arena, so an append to any of them
+// reallocates instead of writing into a neighbor.
+func (m *Multi[S, K, V]) build() {
+	s := &m.staged
+	if m.emptyTracked {
+		m.none = make(set.Set[K], len(s.empty))
+		for _, k := range s.empty {
+			m.none.Add(k)
+		}
+	}
+	spans := make(map[V]span)
+	start := 0
+	for _, end := range s.ends {
+		values := s.values[start:end]
+		for i, v := range values {
+			if !slices.Contains(values[:i], v) {
+				sp := spans[v]
+				sp.end++
+				spans[v] = sp
+			}
+		}
+		start = end
+	}
+	offset := 0
+	for v, sp := range spans {
+		spans[v] = span{start: offset, end: offset}
+		offset += sp.end
+	}
+	holderArena := make([]K, offset)
+	m.reverse = make(map[K][]V, len(s.keys))
+	start = 0
+	for i, k := range s.keys {
+		end := s.ends[i]
+		values := s.values[start:end:end]
+		m.reverse[k] = values
+		for j, v := range values {
+			if !slices.Contains(values[:j], v) {
+				sp := spans[v]
+				holderArena[sp.end] = k
+				sp.end++
+				spans[v] = sp
+			}
+		}
+		start = end
+	}
+	m.forward = make(map[V]holders[K], len(spans))
+	for v, sp := range spans {
+		held := holderArena[sp.start:sp.end:sp.end]
+		if len(held) > holdersSetSize {
+			m.forward[v] = holders[K]{many: set.New(held...)}
+		} else {
+			m.forward[v] = holders[K]{few: held}
+		}
 	}
 }
 
@@ -125,6 +219,10 @@ func (m *Multi[S, K, V]) stageFresh(scope S, key K) bool {
 	}
 	if _, held := m.reverse[key]; held {
 		return false
+	}
+	// An index that keeps no record of empty keys needs none of this one.
+	if !m.emptyTracked {
+		return true
 	}
 	if !m.fresh.registered {
 		m.fresh.scope, m.fresh.registered = scope, true
@@ -193,7 +291,8 @@ func (m *Multi[S, K, V]) Current(scope S, key K, values []V) bool {
 	if prev, ok := m.reverse[key]; ok {
 		return slices.Equal(prev, values)
 	}
-	return len(values) == 0 && (m.none.Contains(key) || m.freshOf(scope, key))
+	return len(values) == 0 &&
+		(!m.emptyTracked || m.none.Contains(key) || m.freshOf(scope, key))
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed
@@ -386,7 +485,9 @@ func (m *Multi[S, K, V]) put(key K, values []V) {
 	}
 	m.remove(key)
 	if len(values) == 0 {
-		m.none.Add(key)
+		if m.emptyTracked {
+			m.none.Add(key)
+		}
 		return
 	}
 	values = slices.Clone(values)

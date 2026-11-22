@@ -148,7 +148,7 @@ func OpenTable[K Key, E Entry[K]](
 		return t, nil
 	}
 	var (
-		inserts   []func(E)
+		inserts   []func(*E)
 		finishes  []func(error)
 		locked    = make(chan struct{})
 		closing   = make(chan struct{})
@@ -190,7 +190,7 @@ func (t *Table[K, E]) runPopulate(
 	ctx context.Context,
 	closing <-chan struct{},
 	ins alamos.Instrumentation,
-	inserts []func(E),
+	inserts []func(*E),
 	finishes []func(error),
 ) {
 	var scanErr error
@@ -213,6 +213,9 @@ func (t *Table[K, E]) runPopulate(
 		return
 	}
 	defer func() { scanErr = errors.Combine(scanErr, closer.Close()) }()
+	// One entry serves the whole scan: an insert reads it and keeps nothing it points
+	// to, so the entry escapes once rather than once per index per entry.
+	var entry E
 	for e := range nexter {
 		select {
 		case <-ctx.Done():
@@ -223,8 +226,9 @@ func (t *Table[K, E]) runPopulate(
 			return
 		default:
 		}
+		entry = e
 		for _, insert := range inserts {
-			insert(e)
+			insert(&entry)
 		}
 	}
 }
