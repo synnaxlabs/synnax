@@ -110,8 +110,7 @@ func newStore(ctx SpecContext) *env {
 }
 
 // open opens and runs the certificate service of e, which updates expiry statuses each
-// interval.
-// Each of cfgs overrides the default config.
+// interval. Each of cfgs overrides the default config.
 func (e *env) open(
 	ctx SpecContext,
 	interval telem.TimeSpan,
