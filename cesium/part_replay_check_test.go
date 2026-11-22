@@ -103,6 +103,7 @@ var _ = Describe("Check: replay over parted data", func() {
 			cesium.WithFS(fs),
 			cesium.WithPointerLog(),
 			cesium.WithPartSize(1),
+			cesium.WithIdentity(h.DB),
 		)
 		if err == nil {
 			DeferCleanup(reopened.Close)
