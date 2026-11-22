@@ -105,7 +105,7 @@ T decode_one(
     const std::vector<std::uint8_t> &bytes
 ) {
     auto dec = ASSERT_NIL_P(Binary::create({frame(f, dt)}));
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0U);
     const auto &s = dec.samples(0);
     EXPECT_EQ(s.size(), 1);
     EXPECT_EQ(s[0].size(), 1);
@@ -210,7 +210,7 @@ TEST(Binary, DecodeBindingOrder) {
         }})
     );
     const std::vector<std::uint8_t> bytes = {1, 2, 3};
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0U);
     const auto &s = dec.samples(0);
     ASSERT_EQ(s.size(), 2);
     EXPECT_EQ(s[0].at<std::uint8_t>(0), 3);
@@ -321,11 +321,11 @@ TEST(Binary, DecodeMultiplexed) {
     auto dec = ASSERT_NIL_P(
         Binary::create({multiplexed({mode, a, b}, {a.key, b.key})})
     );
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 16})), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 16})), 0U);
     ASSERT_EQ(dec.samples(0)[0].size(), 1);
     EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 16);
     EXPECT_EQ(dec.samples(0)[1].size(), 0);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{3, 32})), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{3, 32})), 0U);
     EXPECT_EQ(dec.samples(0)[0].size(), 0);
     ASSERT_EQ(dec.samples(0)[1].size(), 1);
     EXPECT_EQ(dec.samples(0)[1].at<std::uint8_t>(0), 32);
@@ -339,7 +339,7 @@ TEST(Binary, DecodeMultiplexedDefault) {
     a.multiplex_values = {1};
     a.default_ = 7;
     auto dec = ASSERT_NIL_P(Binary::create({multiplexed({mode, a}, {a.key})}));
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{2, 16})), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{2, 16})), 0U);
     ASSERT_EQ(dec.samples(0)[0].size(), 1);
     EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 7);
 }
@@ -355,12 +355,12 @@ TEST(Binary, DecodeCascadedMultiplexors) {
     v.multiplexor = inner.key;
     v.multiplex_values = {-1};
     auto dec = ASSERT_NIL_P(Binary::create({multiplexed({outer, inner, v}, {v.key})}));
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 0xFF, 9})), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 0xFF, 9})), 0U);
     ASSERT_EQ(dec.samples(0)[0].size(), 1);
     EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 9);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{0, 0xFF, 9})), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{0, 0xFF, 9})), 0U);
     EXPECT_EQ(dec.samples(0)[0].size(), 0);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 0xFE, 9})), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 0xFE, 9})), 0U);
     EXPECT_EQ(dec.samples(0)[0].size(), 0);
 }
 
@@ -469,10 +469,10 @@ TEST(Binary, DecodeWithoutAllocating) {
     f.scale = 0.1;
     auto dec = ASSERT_NIL_P(Binary::create({frame(f, x::telem::FLOAT64_T)}));
     const std::vector<std::uint8_t> bytes = {0x10, 0x27};
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0U);
     const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
     for (int i = 0; i < 100; i++)
-        ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0);
+        ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0U);
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
     EXPECT_NEAR(dec.samples(0)[0].at<double>(0), 1000, 1e-9);
 }
