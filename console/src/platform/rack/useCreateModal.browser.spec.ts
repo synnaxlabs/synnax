@@ -27,7 +27,7 @@ describe("useCreateModal", () => {
     fireEvent.click(findButton("Create"));
     const shown = await screen.findByText(/^syk_/);
     const created = await client.racks.retrieve({ name });
-    const keys = await client.auth.retrieveKeys([rack.resourceID(created.key)]);
+    const keys = await client.auth.retrieveAPIKeys([rack.resourceID(created.key)]);
     expect(keys).toHaveLength(1);
     expect(shown.textContent?.startsWith("syk_")).toBe(true);
     expect(screen.queryByPlaceholderText("Rack name")).toBeNull();
@@ -37,11 +37,11 @@ describe("useCreateModal", () => {
 
   it("should block closing while the key is being created", async () => {
     const client = createTestClient();
-    const create = client.auth.createKey.bind(client.auth);
+    const create = client.auth.createAPIKey.bind(client.auth);
     let release = (): void => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
     const createKey = vi
-      .spyOn(client.auth, "createKey")
+      .spyOn(client.auth, "createAPIKey")
       .mockImplementation(async (params) => {
         await gate;
         return await create(params);
@@ -64,11 +64,11 @@ describe("useCreateModal", () => {
 
   it("should delete the key when the modal unmounts before showing it", async () => {
     const client = createTestClient();
-    const create = client.auth.createKey.bind(client.auth);
+    const create = client.auth.createAPIKey.bind(client.auth);
     let release = (): void => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
     const createKey = vi
-      .spyOn(client.auth, "createKey")
+      .spyOn(client.auth, "createAPIKey")
       .mockImplementation(async (params) => {
         await gate;
         return await create(params);
@@ -86,7 +86,7 @@ describe("useCreateModal", () => {
     const created = await client.racks.retrieve({ name });
     const subject = rack.resourceID(created.key);
     await expect
-      .poll(async () => await client.auth.retrieveKeys([subject]))
+      .poll(async () => await client.auth.retrieveAPIKeys([subject]))
       .toHaveLength(0);
   });
 

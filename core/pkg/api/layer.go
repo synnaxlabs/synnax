@@ -76,9 +76,9 @@ type Transport struct {
 	AuthSessionRenew    freighter.UnaryServer[struct{}, auth.SessionRenewResponse]
 	AuthSessionRetrieve freighter.UnaryServer[auth.SessionRetrieveRequest, auth.SessionRetrieveResponse]
 	AuthSessionDelete   freighter.UnaryServer[auth.SessionDeleteRequest, struct{}]
-	AuthKeyCreate       freighter.UnaryServer[auth.KeyCreateRequest, auth.KeyCreateResponse]
-	AuthKeyRetrieve     freighter.UnaryServer[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse]
-	AuthKeyDelete       freighter.UnaryServer[auth.KeyDeleteRequest, struct{}]
+	AuthAPIKeyCreate    freighter.UnaryServer[auth.APIKeyCreateRequest, auth.APIKeyCreateResponse]
+	AuthAPIKeyRetrieve  freighter.UnaryServer[auth.APIKeyRetrieveRequest, auth.APIKeyRetrieveResponse]
+	AuthAPIKeyDelete    freighter.UnaryServer[auth.APIKeyDeleteRequest, struct{}]
 	// AuthOIDCLink links a provider account to the caller.
 	AuthOIDCLink freighter.UnaryServer[auth.OIDCLinkRequest, auth.OIDCLinkResponse]
 	// AuthOIDCRetrieve lists provider links.
@@ -422,9 +422,9 @@ func (l *Layer) BindTo(t Transport) {
 
 		// AUTH
 		t.AuthChangePassword,
-		t.AuthKeyCreate,
-		t.AuthKeyRetrieve,
-		t.AuthKeyDelete,
+		t.AuthAPIKeyCreate,
+		t.AuthAPIKeyRetrieve,
+		t.AuthAPIKeyDelete,
 		t.AuthOIDCLink,
 		t.AuthOIDCRetrieve,
 		t.AuthOIDCUnlink,
@@ -668,15 +668,15 @@ func (l *Layer) BindTo(t Transport) {
 		return l.Auth.RetrieveSessions(ctx, snap, req)
 	}))
 	t.AuthSessionDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteSessions))
-	t.AuthKeyCreate.BindHandler(bind.Write(l.binder, l.Auth.CreateKey))
-	t.AuthKeyRetrieve.BindHandler(bind.Read(l.binder, func(
+	t.AuthAPIKeyCreate.BindHandler(bind.Write(l.binder, l.Auth.CreateAPIKey))
+	t.AuthAPIKeyRetrieve.BindHandler(bind.Read(l.binder, func(
 		ctx context.Context,
 		snap bind.Snapshot,
-		req auth.KeyRetrieveRequest,
-	) (auth.KeyRetrieveResponse, error) {
-		return l.Auth.RetrieveKeys(ctx, snap, req)
+		req auth.APIKeyRetrieveRequest,
+	) (auth.APIKeyRetrieveResponse, error) {
+		return l.Auth.RetrieveAPIKeys(ctx, snap, req)
 	}))
-	t.AuthKeyDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteKeys))
+	t.AuthAPIKeyDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteAPIKeys))
 	t.AuthOIDCLink.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.Auth.PrepareLinkOIDC,

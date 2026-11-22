@@ -353,20 +353,23 @@ schema does not change.
 
 ### 4.10 API and clients
 
-| Endpoint                | Token | Purpose                                                           |
-| ----------------------- | ----- | ----------------------------------------------------------------- |
-| `auth/methods`          | No    | Accepted methods, and each provider's login address and client ID |
-| `auth/session/create`   | No    | Log in with a proof                                               |
-| `auth/session/renew`    | Yes   | Report activity                                                   |
-| `auth/session/retrieve` | Yes   | List sessions                                                     |
-| `auth/session/delete`   | Yes   | Log out or revoke                                                 |
-| `auth/password/set`     | Yes   | Set or change a password or username                              |
-| `auth/key/create`       | Yes   | Create an API key, returned once                                  |
-| `auth/key/retrieve`     | Yes   | List API keys                                                     |
-| `auth/key/delete`       | Yes   | Delete API keys                                                   |
-| `auth/oidc/link`        | Yes   | Link a provider account to the caller                             |
-| `auth/oidc/retrieve`    | Yes   | List provider links                                               |
-| `auth/oidc/unlink`      | Yes   | Remove a provider link                                            |
+| Endpoint                 | Token | Purpose                                                           |
+| ------------------------ | ----- | ----------------------------------------------------------------- |
+| `auth/methods`           | No    | Accepted methods, and each provider's login address and client ID |
+| `auth/session/create`    | No    | Log in with a proof                                               |
+| `auth/session/renew`     | Yes   | Report activity                                                   |
+| `auth/session/retrieve`  | Yes   | List sessions                                                     |
+| `auth/session/delete`    | Yes   | Log out or revoke                                                 |
+| `auth/password/create`   | Yes   | Give a user its first password                                    |
+| `auth/password/retrieve` | Yes   | List usernames by user or username                                |
+| `auth/password/rename`   | Yes   | Change a username                                                 |
+| `auth/password/set`      | Yes   | Change a password                                                 |
+| `auth/api-key/create`    | Yes   | Create an API key, returned once                                  |
+| `auth/api-key/retrieve`  | Yes   | List API keys                                                     |
+| `auth/api-key/delete`    | Yes   | Delete API keys                                                   |
+| `auth/oidc/link`         | Yes   | Link a provider account to the caller                             |
+| `auth/oidc/retrieve`     | Yes   | List provider links                                               |
+| `auth/oidc/unlink`       | Yes   | Remove a provider link                                            |
 
 These replace `auth/login`, `auth/change-password`, and `user/change-username`. Changing
 your own password needs the current one. Setting another user's needs permission.

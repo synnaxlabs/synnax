@@ -66,7 +66,7 @@ describe("useModal", () => {
     await createKey(name);
     await screen.findByText(`Copy the key for ${name}`);
     expect(screen.getByText(/^syk_/)).toBeTruthy();
-    const [created] = await client.auth.retrieveKeys([id]);
+    const [created] = await client.auth.retrieveAPIKeys([id]);
     expect(created.name).toEqual(name);
     fireEvent.click(findButton("Done"));
     await waitFor(() => expect(screen.queryByText(/^syk_/)).toBeNull());
@@ -74,7 +74,7 @@ describe("useModal", () => {
     await clickAndSettle("Delete");
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await screen.findByText("No API keys");
-    expect(await client.auth.retrieveKeys([id])).toHaveLength(0);
+    expect(await client.auth.retrieveAPIKeys([id])).toHaveLength(0);
   });
 
   it("should stay open while a key saves", async () => {
@@ -112,7 +112,7 @@ describe("useModal", () => {
     const name = uniqueName("key");
     await createKey(name);
     await screen.findByText(`Copy the key for ${name}`);
-    expect(await client.auth.retrieveKeys([id])).toHaveLength(1);
+    expect(await client.auth.retrieveAPIKeys([id])).toHaveLength(1);
   });
 
   it("should hide key actions the caller has no permission for", async () => {
@@ -120,7 +120,7 @@ describe("useModal", () => {
     const r = await owner.racks.create({ name: uniqueName("rack") });
     const id = rack.resourceID(r.key);
     const name = uniqueName("key");
-    await owner.auth.createKey({ subject: id, name });
+    await owner.auth.createAPIKey({ subject: id, name });
     const viewer = await createTestClientWithRole(owner, "Viewer");
     await openModal(Credential.useModal, { client: viewer, params: { subject: id } });
     await screen.findByText(name);
