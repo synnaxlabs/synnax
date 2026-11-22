@@ -33,6 +33,30 @@ describe("framingZ", () => {
     ],
     ["a max length of 0", { type: "sync", sync: "qg==", maxLength: 0 }, ["maxLength"]],
     [
+      "a max length of 65537",
+      { type: "sync", sync: "qg==", maxLength: 65537 },
+      ["maxLength"],
+    ],
+    [
+      "an unknown byte order",
+      { type: "sync", sync: "qg==", byteOrder: "middle_endian" },
+      ["byteOrder"],
+    ],
+    [
+      "an unknown checksum byte order",
+      {
+        type: "sync",
+        sync: "qg==",
+        checksum: { algorithm: "crc32", byteOrder: "middle_endian" },
+      },
+      ["checksum", "byteOrder"],
+    ],
+    [
+      "a checksum with no algorithm",
+      { type: "sync", sync: "qg==", checksum: {} },
+      ["checksum", "algorithm"],
+    ],
+    [
       "an unknown checksum algorithm",
       { type: "sync", sync: "qg==", checksum: { algorithm: "crc8" } },
       ["checksum", "algorithm"],
@@ -40,6 +64,7 @@ describe("framingZ", () => {
     ["a fixed length of 0", { type: "fixed", length: 0 }, ["length"]],
     ["a fixed length of 65537", { type: "fixed", length: 65537 }, ["length"]],
     ["an empty delimiter", { type: "delimited", delimiter: "" }, ["delimiter"]],
+    ["an unknown type", { type: "bogus" }, ["type"]],
   ])("should refuse %s at its field", (_, value, field) => {
     const { error } = bus.framingZ.safeParse(value);
     expect(error?.issues.map(({ path }) => path)).toEqual([field]);

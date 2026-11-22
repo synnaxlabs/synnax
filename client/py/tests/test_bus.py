@@ -41,12 +41,33 @@ class TestFraming:
             ),
             ({"type": "sync", "sync": "qg==", "max_length": 0}, ("sync", "max_length")),
             (
+                {"type": "sync", "sync": "qg==", "max_length": 65537},
+                ("sync", "max_length"),
+            ),
+            (
+                {"type": "sync", "sync": "qg==", "byte_order": "middle_endian"},
+                ("sync", "byte_order"),
+            ),
+            (
+                {
+                    "type": "sync",
+                    "sync": "qg==",
+                    "checksum": {"algorithm": "crc32", "byte_order": "middle_endian"},
+                },
+                ("sync", "checksum", "byte_order"),
+            ),
+            (
+                {"type": "sync", "sync": "qg==", "checksum": {}},
+                ("sync", "checksum", "algorithm"),
+            ),
+            (
                 {"type": "sync", "sync": "qg==", "checksum": {"algorithm": "crc8"}},
                 ("sync", "checksum", "algorithm"),
             ),
             ({"type": "fixed", "length": 0}, ("fixed", "length")),
             ({"type": "fixed", "length": 65537}, ("fixed", "length")),
             ({"type": "delimited", "delimiter": ""}, ("delimited", "delimiter")),
+            ({"type": "bogus"}, ()),
         ],
     )
     def test_refuse_invalid_field(

@@ -43,6 +43,21 @@ var _ = Describe("Framing", func() {
 		).To(ContainSubstring(`"length_size":4`))
 	})
 
+	It("Should refuse an unknown framing type when it decodes", func() {
+		var f v0.Framing
+		Expect(json.Unmarshal([]byte(`{"type": "bogus"}`), &f)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`Framing: unknown type "bogus"`)),
+		))
+	})
+
+	It("Should refuse a framing with no variant", func() {
+		Expect(v0.Framing{}.Validate()).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("type: required")),
+		))
+	})
+
 	DescribeTable(
 		"Should refuse an invalid framing with the path of its field",
 		func(data, want string) {
@@ -65,6 +80,27 @@ var _ = Describe("Framing", func() {
 			"a max length of 0",
 			`{"type": "sync", "sync": "qg==", "max_length": 0}`,
 			"max_length: must be greater than or equal to 1",
+		),
+		Entry(
+			"a max length of 65537",
+			`{"type": "sync", "sync": "qg==", "max_length": 65537}`,
+			"max_length: must be less than or equal to 65536",
+		),
+		Entry(
+			"an unknown byte order",
+			`{"type": "sync", "sync": "qg==", "byte_order": "middle_endian"}`,
+			"byte_order: invalid byte_order: middle_endian",
+		),
+		Entry(
+			"an unknown checksum byte order",
+			`{"type": "sync", "sync": "qg==", "checksum": `+
+				`{"algorithm": "crc32", "byte_order": "middle_endian"}}`,
+			"checksum.byte_order: invalid byte_order: middle_endian",
+		),
+		Entry(
+			"a checksum with no algorithm",
+			`{"type": "sync", "sync": "qg==", "checksum": {}}`,
+			"checksum.algorithm: invalid algorithm: ",
 		),
 		Entry(
 			"an unknown checksum algorithm",
