@@ -94,12 +94,12 @@ describe("Sift stream form", () => {
     const rack = await createRunningRack(client, "sift");
     const scan = await rack.createTask({
       name: uniqueName("sift_scan"),
-      type: Sift.Task.SCAN_TYPE,
+      type: Sift.Device.SCAN_TYPE,
       config: {},
     });
     const dev = await createSiftDevice(client, { rack: rack.key });
     const { answered } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      type: Sift.Device.LIST_ASSETS_COMMAND_TYPE,
       data: { assets: ["rig", "stand"], last: "stand" },
     });
     await renderStream({
@@ -113,7 +113,7 @@ describe("Sift stream form", () => {
     const rack = await createRunningRack(client, "sift");
     const scan = await rack.createTask({
       name: uniqueName("sift_scan"),
-      type: Sift.Task.SCAN_TYPE,
+      type: Sift.Device.SCAN_TYPE,
       config: {},
     });
     const dev = await createSiftDevice(client, { rack: rack.key });
@@ -125,7 +125,7 @@ describe("Sift stream form", () => {
       Sift.Task.STREAM_SCHEMAS,
     );
     const { answered } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      type: Sift.Device.LIST_ASSETS_COMMAND_TYPE,
       data: { assets: ["rig", "stand"], last: "stand" },
     });
     await renderStream({ taskKey: t.key });
@@ -184,7 +184,7 @@ describe("Sift stream form", () => {
     const rack = await createRunningRack(client, "sift");
     const scan = await rack.createTask({
       name: uniqueName("sift_scan"),
-      type: Sift.Task.SCAN_TYPE,
+      type: Sift.Device.SCAN_TYPE,
       config: {},
     });
     const first = await createSiftDevice(client, { rack: rack.key });
@@ -197,13 +197,13 @@ describe("Sift stream form", () => {
       Sift.Task.STREAM_SCHEMAS,
     );
     const { answered: listedFirst } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      type: Sift.Device.LIST_ASSETS_COMMAND_TYPE,
       data: { assets: ["rig", "stand"], last: "stand" },
     });
     await renderStream({ taskKey: t.key });
     await listedFirst;
     const { answered: listedSecond } = await answerNextCommand(client, scan, {
-      type: Sift.Task.LIST_ASSETS_COMMAND_TYPE,
+      type: Sift.Device.LIST_ASSETS_COMMAND_TYPE,
       data: { assets: ["pad"], last: "pad" },
     });
     const other = createTestClient();
