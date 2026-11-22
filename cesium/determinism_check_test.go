@@ -10,16 +10,20 @@
 package cesium_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"io"
 	"maps"
 	"math/rand/v2"
 	"os"
 	"path"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/log"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -38,6 +42,39 @@ func files(fs xfs.FS, dir string) map[string][]byte {
 		f := MustSucceed(fs.Open(name, os.O_RDONLY))
 		out[name] = MustSucceed(io.ReadAll(f))
 		Expect(f.Close()).To(Succeed())
+	}
+	return out
+}
+
+// logEntries returns the header of the log file b, then its entries in order. The log
+// writes the entries queued during a sync as one frame, so the frames of two runs of
+// one workload differ, but their entries do not.
+func logEntries(b []byte) [][]byte {
+	GinkgoHelper()
+	db := binary.LittleEndian.Uint64(b[16:])
+	generation := binary.LittleEndian.Uint64(b[24:])
+	MustSucceed(log.DecodeHeader(b, db, generation, 0))
+	out := [][]byte{b[:log.FramesStart]}
+	var d log.Decoder
+	for at := int64(log.FramesStart); at+log.FrameHeaderSize <= int64(len(b)); {
+		fr, err := log.DecodeFrame(b[at:], db, generation, uint64(at))
+		if err != nil {
+			// The log writes a mark at the next block boundary.
+			next := (at + log.BlockSize - 1) &^ (log.BlockSize - 1)
+			if next == at {
+				break
+			}
+			at = next
+			fr, err = log.DecodeFrame(b[at:], db, generation, uint64(at))
+			if err != nil {
+				break
+			}
+		}
+		for e := fr.Entries; len(e) > 0; {
+			n := MustSucceed(d.Reset(e))
+			out, e = append(out, e[:n]), e[n:]
+		}
+		at += int64(fr.Size())
 	}
 	return out
 }
@@ -107,9 +144,16 @@ var _ = Describe("Pointer log determinism check", func() {
 		ctx SpecContext,
 	) {
 		first, second := run(ctx), run(ctx)
+		Expect(len(logEntries(first[log.Name(1)]))).To(BeNumerically(">", 1))
 		var differ []string
 		for name, b := range first {
-			if string(second[name]) != string(b) {
+			other, ok := second[name]
+			same := ok && bytes.Equal(other, b)
+			// The workload writes frames to log 1 alone.
+			if ok && name == log.Name(1) {
+				same = slices.EqualFunc(logEntries(b), logEntries(other), bytes.Equal)
+			}
+			if !same {
 				differ = append(differ, name)
 			}
 		}
