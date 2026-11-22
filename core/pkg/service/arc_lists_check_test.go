@@ -36,8 +36,7 @@ var _ = Describe("Arc list check", func() {
 		keys := storeArcs(ctx, n, []string{
 			"func pass() {v f32} f32 { return v }\nlc_in -> pass() -> lc_out",
 		}, nil)
-		l := MustOpen(svctestutil.OpenLayer(ctx, n))
-		MustSucceed(l.Arc.CompileProgram(ctx, keys[0]))
+		MustOpen(svctestutil.OpenLayer(ctx, n))
 		Eventually(func(g Gomega) {
 			var a arc.Arc
 			g.Expect(gorp.NewRetrieve[arc.Key, arc.Arc]().
