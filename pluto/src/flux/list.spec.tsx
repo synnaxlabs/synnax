@@ -19,7 +19,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { color, id, map, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Flux } from "@/flux";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
@@ -257,6 +257,45 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.data).toEqual([a.key]));
   });
 
+  it("should render the changes of one frame once", async () => {
+    const remote = createTestClient();
+    const a = await create("a");
+    let commits = 0;
+    const { result } = renderHook(
+      () => {
+        useEffect(() => {
+          commits++;
+        });
+        return Flux.useList(ranges, { name: "ranges", query: byName() });
+      },
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key]));
+    // The frame of the first read lands before the frames are held.
+    await act(async () => await new Promise(requestAnimationFrame));
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const before = commits;
+    const b = await remote.ranges.create({
+      name: "b",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      labels: [lbl.key],
+    });
+    await remote.ranges.rename(a.key, "c");
+    // getItem reads the window at call time, so it sees both changes before a render.
+    await expect.poll(() => result.current.getItem(a.key)?.name).toBe("c");
+    expect(result.current.getItem(b.key)).toBeDefined();
+    expect(commits).toBe(before);
+    act(() => {
+      vi.advanceTimersToNextFrame();
+    });
+    expect(result.current.data).toEqual([b.key, a.key]);
+    expect(commits).toBe(before + 1);
+  });
+
   it("should read the next page on more", async () => {
     const a = await create("a");
     const b = await create("b");
@@ -485,7 +524,12 @@ describe("useList", () => {
     // A first subscriber fetches each record, so the fetches call no counted reader.
     const fetched = vi.fn();
     const releases = records.map(({ key }) => result.current.subscribe(fetched, key));
-    await waitFor(() => expect(fetched).toHaveBeenCalledTimes(3));
+    await waitFor(() =>
+      records.forEach(({ key }) =>
+        expect(client.ranges.watch(key).getCached()).toBeDefined(),
+      ),
+    );
+    await waitFor(() => expect(fetched).toHaveBeenCalled());
     const many = vi.fn();
     const one = vi.fn();
     releases.push(...records.map(({ key }) => result.current.subscribe(many, key)));
