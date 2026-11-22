@@ -374,7 +374,8 @@ var _ = Describe("Drop of parted records", func() {
 	}
 
 	// passOrphans waits for the orphan pass of db, since the first write of a writer
-	// waits for it. It writes one sample of idx, after the samples of parted.
+	// waits for it. It writes one sample of idx, after the samples of parted, and
+	// closes the writer at cleanup, since that close unlinks dead segments.
 	passOrphans := func(ctx SpecContext, db *cesium.DB, idx cesium.ChannelKey) {
 		GinkgoHelper()
 		start := telem.TimeStamp(1_000_000) * telem.SecondTS
@@ -382,8 +383,8 @@ var _ = Describe("Drop of parted records", func() {
 			Channels: []cesium.ChannelKey{idx},
 			Start:    start,
 		}))
+		DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
 		MustSucceed2(w.Write(ctx, telem.UnaryFrame(idx, telem.NewSeriesV(start)), nil))
-		Expect(w.Close()).To(Succeed())
 	}
 
 	It("Should keep at open the files of the segments that only parts hold", func(
