@@ -48,9 +48,9 @@ export const NETWORK: Network[] = [
     ContextMenuItems: OPCUA.Device.ContextMenuItems,
     RackMenuItems: OPCUA.Device.RackMenuItems,
   },
-  { ...Modbus.Device.NETWORK, ContextMenuItems: Modbus.Device.ContextMenuItems },
-  { ...HTTP.Device.NETWORK, ContextMenuItems: HTTP.Device.ContextMenuItems },
-  { ...Kafka.Device.NETWORK, ContextMenuItems: Kafka.Device.ContextMenuItems },
+  { ...Modbus.Device.NETWORK, ContextMenuItems: Modbus.ContextMenuItems },
+  { ...HTTP.Device.NETWORK, ContextMenuItems: HTTP.ContextMenuItems },
+  { ...Kafka.Device.NETWORK, ContextMenuItems: Kafka.ContextMenuItems },
   { ...MQTT.Device.NETWORK, ContextMenuItems: MQTT.ContextMenuItems },
   { ...Sift.Device.NETWORK, ContextMenuItems: Sift.ContextMenuItems },
 ];
