@@ -105,6 +105,18 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/key/delete",
 		),
+		AuthOIDCLink: unary[auth.OIDCLinkRequest, auth.OIDCLinkResponse](
+			router,
+			"/api/v1/auth/oidc/link",
+		),
+		AuthOIDCRetrieve: unary[auth.OIDCRetrieveRequest, auth.OIDCRetrieveResponse](
+			router,
+			"/api/v1/auth/oidc/retrieve",
+		),
+		AuthOIDCUnlink: unary[auth.OIDCUnlinkRequest, struct{}](
+			router,
+			"/api/v1/auth/oidc/unlink",
+		),
 		AuthPasswordSet: unary[auth.PasswordSetRequest, auth.PasswordSetResponse](
 			router,
 			"/api/v1/auth/password/set",
@@ -354,6 +366,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/schematic/symbol/group/delete",
 		),
+		SchematicSymbolRetrieveBuiltins: unary[
+			struct{},
+			symbol.RetrieveBuiltinsResponse,
+		](router, "/api/v1/schematic/symbol/retrieve-builtins"),
 
 		// LINE PLOT
 		LinePlotCreate: unary[lineplot.CreateRequest, lineplot.CreateResponse](
@@ -517,10 +533,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			struct{},
 			enumeration.RetrieveBuiltinsResponse,
 		](router, "/api/v1/enumeration/retrieve-builtins"),
-		EnumerationRetrieveDependents: unary[
-			enumeration.RetrieveDependentsRequest,
-			enumeration.RetrieveDependentsResponse,
-		](router, "/api/v1/enumeration/retrieve-dependents"),
 
 		// RACK
 		RackCreate: unary[rack.CreateRequest, rack.CreateResponse](

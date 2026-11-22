@@ -81,9 +81,10 @@ ANSWER_END = " -->"
 # The REST fields of a comment, in the shape that GraphQL serves.
 _FIXED = re.compile(r"(?:\*agent reply\.\*\s*)?fixed (?:in|by)\b", re.IGNORECASE)
 _COMMENT = (
-    "{id, login: .user.login, author: {__typename: .user.type, login: .user.login}, "
-    "body}"
+    "{id, login: .user.login, author: {__typename: .user.type, login: (.user.login | "
+    'rtrimstr("[bot]"))}, body}'
 )
+_MENTION = re.compile(r"@sedosaur\b", re.IGNORECASE)
 
 _SUMMARY = re.compile(
     f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.DOTALL
@@ -576,6 +577,16 @@ def comments(t: Target, gh: GH) -> list[dict[str, Any]]:
         f".[] | {_COMMENT} | tojson",
     )
     return [json.loads(s) for s in out.splitlines() if s]
+
+
+def replies(t: Target, gh: GH, can: Authority) -> list[dict[str, Any]]:
+    """Returns each comment on the pull request that mentions the bot outside a quote,
+    from someone with write access or an agent, oldest first."""
+    return [
+        c
+        for c in comments(t, gh)
+        if _MENTION.search(_unquoted(c["body"])) and trusted(c, can)
+    ]
 
 
 def _outside(t: Target, gh: GH) -> dict[str, Any] | None:

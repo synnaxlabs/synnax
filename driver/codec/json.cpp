@@ -31,57 +31,13 @@
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/codec/errors.h"
+#include "driver/codec/field.h"
 #include "driver/codec/json.h"
 
 namespace driver::codec {
 namespace {
 namespace icd = synnax::icd;
 namespace payload = x::payload;
-
-/// @brief returns the payload kind of samples of dt, or nothing when no field kind
-/// writes to dt.
-std::optional<std::string_view> kind_of(const x::telem::DataType &dt) {
-    if (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T)
-        return payload::KIND_FLOAT;
-    if (dt == x::telem::INT8_T || dt == x::telem::INT16_T || dt == x::telem::INT32_T ||
-        dt == x::telem::INT64_T)
-        return payload::KIND_INTEGER;
-    if (dt == x::telem::UINT8_T || dt == x::telem::UINT16_T ||
-        dt == x::telem::UINT32_T || dt == x::telem::UINT64_T)
-        return payload::KIND_UNSIGNED;
-    if (dt == x::telem::BOOLEAN_T) return payload::KIND_BOOLEAN;
-    if (dt == x::telem::STRING_T) return payload::KIND_STRING;
-    if (dt == x::telem::TIMESTAMP_T) return payload::KIND_TIMESTAMP;
-    if (dt == x::telem::JSON_T) return payload::KIND_JSON;
-    if (dt == x::telem::UUID_T) return payload::KIND_UUID;
-    if (dt == x::telem::BYTES_T) return payload::KIND_BYTES;
-    return std::nullopt;
-}
-
-/// @brief reports whether a field of kind k converts to samples of dt. A number or
-/// boolean also converts to a float, and an unsigned number or boolean to any integer.
-bool converts(const std::string_view k, const x::telem::DataType &dt) {
-    const auto dk = kind_of(dt);
-    if (!dk.has_value()) return false;
-    if (*dk == k) return true;
-    if (*dk == payload::KIND_FLOAT)
-        return k == payload::KIND_INTEGER || k == payload::KIND_UNSIGNED ||
-               k == payload::KIND_BOOLEAN;
-    if (*dk == payload::KIND_INTEGER)
-        return k == payload::KIND_UNSIGNED || k == payload::KIND_BOOLEAN;
-    if (*dk == payload::KIND_UNSIGNED) return k == payload::KIND_BOOLEAN;
-    return false;
-}
-
-/// @brief returns the error err with context before its text.
-x::errors::Error wrap(const x::errors::Error &err, const std::string &context) {
-    return {err, context + ": " + err.data};
-}
-
-/// @brief returns err as a CONFIG_ERROR with context before its text.
-x::errors::Error as_config(const x::errors::Error &err, const std::string &context) {
-    return {CONFIG_ERROR, context + ": " + err.data};
-}
 
 /// @brief Variant is what the variant of a JSON field sets: the options of its samples
 /// and its default.

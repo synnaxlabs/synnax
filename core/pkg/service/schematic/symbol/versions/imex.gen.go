@@ -18,11 +18,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 )
 
 // Latest is the portable schema version stamped on exported Symbol envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v4.Version
+const Latest = v5.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Symbol
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -42,7 +43,11 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 		if err != nil {
 			return Symbol{}, err
 		}
-		return t4, nil
+		t5, err := v5.MigrateSymbol(ctx, t4)
+		if err != nil {
+			return Symbol{}, err
+		}
+		return t5, nil
 	case v3.Version:
 		t3, err := env.Decode[v3.Symbol]()
 		if err != nil {
@@ -52,8 +57,22 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 		if err != nil {
 			return Symbol{}, err
 		}
-		return t4, nil
+		t5, err := v5.MigrateSymbol(ctx, t4)
+		if err != nil {
+			return Symbol{}, err
+		}
+		return t5, nil
 	case v4.Version:
+		t4, err := env.Decode[v4.Symbol]()
+		if err != nil {
+			return Symbol{}, err
+		}
+		t5, err := v5.MigrateSymbol(ctx, t4)
+		if err != nil {
+			return Symbol{}, err
+		}
+		return t5, nil
+	case v5.Version:
 		return env.Decode[Symbol]()
 	}
 	return Symbol{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
@@ -70,5 +89,9 @@ func liftFirst(ctx context.Context, t2 v2.Symbol) (Symbol, error) {
 	if err != nil {
 		return Symbol{}, err
 	}
-	return t4, nil
+	t5, err := v5.MigrateSymbol(ctx, t4)
+	if err != nil {
+		return Symbol{}, err
+	}
+	return t5, nil
 }

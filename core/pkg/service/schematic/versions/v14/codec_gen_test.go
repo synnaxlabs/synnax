@@ -22,7 +22,7 @@ import (
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
 	border "github.com/synnaxlabs/x/border/versions/v0"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
@@ -830,7 +830,7 @@ var _ = Describe("Codec", func() {
 			Entry("custom_actuator variant", v14.NodeConfig{Variant: v14.CustomActuatorNodeConfig{
 				ToggleConfig: fullyPopulatedToggleConfig,
 				SpecKey:      "test_1",
-				StateOverrides: []symbol.State{
+				StateOverrides: []symbol.StateOverride{
 					{
 						Key:  "test_3",
 						Name: "test_4",
@@ -850,7 +850,7 @@ var _ = Describe("Codec", func() {
 				LabeledConfig: fullyPopulatedLabeledConfig,
 				ScaledConfig:  fullyPopulatedScaledConfig,
 				SpecKey:       "test_1",
-				StateOverrides: []symbol.State{
+				StateOverrides: []symbol.StateOverride{
 					{
 						Key:  "test_3",
 						Name: "test_4",
@@ -2565,7 +2565,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v14.NodeConfig{Variant: v14.CustomActuatorNodeConfig{
 			ToggleConfig: fullyPopulatedToggleConfig,
 			SpecKey:      "test_1",
-			StateOverrides: []symbol.State{
+			StateOverrides: []symbol.StateOverride{
 				{
 					Key:  "test_3",
 					Name: "test_4",
@@ -2592,7 +2592,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig: fullyPopulatedLabeledConfig,
 			ScaledConfig:  fullyPopulatedScaledConfig,
 			SpecKey:       "test_1",
-			StateOverrides: []symbol.State{
+			StateOverrides: []symbol.StateOverride{
 				{
 					Key:  "test_3",
 					Name: "test_4",

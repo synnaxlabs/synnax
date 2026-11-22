@@ -29,15 +29,9 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-namespace driver::codec {
-/// @brief Binding names a field of a message and the data type of the channel it feeds.
-struct Binding {
-    /// @brief field is the key of the message field to read.
-    synnax::icd::FieldKey field;
-    /// @brief data_type is the data type of the channel that the field writes to.
-    x::telem::DataType data_type;
-};
+#include "driver/codec/binding.h"
 
+namespace driver::codec {
 /// @brief JSONMessage is a JSON message and the fields to decode from its documents.
 struct JSONMessage {
     /// @brief name identifies the message in errors.

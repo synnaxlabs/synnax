@@ -259,6 +259,13 @@ std::pair<Number, errors::Error> Number::parse(const std::string_view text) {
     return {std::move(n), errors::NIL};
 }
 
+std::pair<double, errors::Error> parse_float64(const std::string_view text) {
+    if (!parse_decimal(text, 0).has_value()) return {0, invalid_number(text)};
+    const auto v = parse_double(text);
+    if (!v.has_value()) return {0, invalid_number(text)};
+    return {*v, errors::NIL};
+}
+
 std::optional<std::int64_t> Number::to_int64() const {
     switch (this->kind) {
         case Kind::Int:

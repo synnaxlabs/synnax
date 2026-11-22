@@ -44,8 +44,8 @@ describe("Symbol queries", () => {
         scope: "schematic_symbol",
         name: "test-symbols-parent",
       });
-      const data: schematic.symbol.Symbol["data"] = {
-        svg: "<svg></svg>",
+      const data: schematic.symbol.New["data"] = {
+        drawing: { type: "svg", markup: "<svg></svg>" },
         states: [],
         handles: [],
         variant: "static",
@@ -82,7 +82,7 @@ describe("Symbol queries", () => {
       const symbol = await client.schematics.symbols.create({
         name: "retrieve-test",
         data: {
-          svg: "<svg>test</svg>",
+          drawing: { type: "svg", markup: "<svg>test</svg>" },
           states: [],
           handles: [],
           variant: "static",
@@ -102,7 +102,7 @@ describe("Symbol queries", () => {
       await waitFor(() => {
         expect(result.current).not.toBeNull();
         expect(result.current?.name).toBe("retrieve-test");
-        expect(result.current?.data.svg).toBe("<svg>test</svg>");
+        expect(result.current?.data.drawing.markup).toBe("<svg>test</svg>");
       });
     });
   });
@@ -118,7 +118,7 @@ describe("Symbol queries", () => {
 
       await act(async () => {
         result.current.form.set(path.name, "created-symbol");
-        result.current.form.set(path.data.svg, "<svg>created</svg>");
+        result.current.form.set(path.data.drawing.markup, "<svg>created</svg>");
         result.current.form.set(path.group, parent.key);
         result.current.save();
       });
@@ -132,7 +132,7 @@ describe("Symbol queries", () => {
 
       const retrieved = await client.schematics.symbols.retrieve(key!);
       expect(retrieved.name).toBe("created-symbol");
-      expect(retrieved.data.svg).toBe("<svg>created</svg>");
+      expect(retrieved.data.drawing.markup).toBe("<svg>created</svg>");
       expect(retrieved.group).toBe(parent.key);
     });
 
@@ -144,7 +144,7 @@ describe("Symbol queries", () => {
       const { result } = renderHook(() => Symbol.useForm({ query: null }), { wrapper });
       act(() => {
         result.current.form.set(path.name, "created-symbol");
-        result.current.form.set(path.data.svg, "<svg>created</svg>");
+        result.current.form.set(path.data.drawing.markup, "<svg>created</svg>");
         result.current.form.set(path.group, parent.key);
       });
       await act(async () => expect(await result.current.saveAsync()).toBe(true));
@@ -152,13 +152,16 @@ describe("Symbol queries", () => {
       if (key == null) throw new Error("symbol key is null");
       await createTestClient().schematics.symbols.dispatch(
         key,
-        schematic.symbol.set({ path: ["data", "svg"], value: "<svg>remote</svg>" }),
+        schematic.symbol.set({
+          path: ["data", "drawing", "markup"],
+          value: "<svg>remote</svg>",
+        }),
       );
       act(() => result.current.form.set(path.name, "renamed-symbol"));
       await act(async () => expect(await result.current.saveAsync()).toBe(true));
       const stored = await createTestClient().schematics.symbols.retrieve(key);
       expect(stored.name).toBe("renamed-symbol");
-      expect(stored.data.svg).toBe("<svg>remote</svg>");
+      expect(stored.data.drawing.markup).toBe("<svg>remote</svg>");
     });
 
     it("should keep typed values and show the error on a refused save", async () => {
@@ -169,7 +172,12 @@ describe("Symbol queries", () => {
       const symbol = await client.schematics.symbols.create({
         name: "refused-symbol",
         group: parent.key,
-        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+        data: {
+          drawing: { type: "svg", markup: "<svg></svg>" },
+          states: [],
+          handles: [],
+          variant: "sensor",
+        },
       });
       const viewer = await createTestClientWithRole(client, "Viewer");
       const { result } = await renderHookSuspended(
@@ -191,7 +199,7 @@ describe("Symbol queries", () => {
         name: "warm-symbol",
         group: parent.key,
         data: {
-          svg: "<svg>warm</svg>",
+          drawing: { type: "svg", markup: "<svg>warm</svg>" },
           states: [],
           handles: [],
           variant: "static",
@@ -211,7 +219,9 @@ describe("Symbol queries", () => {
           { wrapper },
         );
         expect(result.current.form.get(path.name).value).toBe("warm-symbol");
-        expect(result.current.form.get(path.data.svg).value).toBe("<svg>warm</svg>");
+        expect(result.current.form.get(path.data.drawing.markup).value).toBe(
+          "<svg>warm</svg>",
+        );
         expect(result.current.form.get(path.group).value).toBe(parent.key);
       } finally {
         stopSymbol();
@@ -227,7 +237,7 @@ describe("Symbol queries", () => {
         name: "original-name",
         group: parent.key,
         data: {
-          svg: "<svg>original</svg>",
+          drawing: { type: "svg", markup: "<svg>original</svg>" },
           states: [],
           handles: [],
           variant: "static",
@@ -248,7 +258,7 @@ describe("Symbol queries", () => {
       await waitFor(() => {
         expect(result.current.form.get(path.name).value).toBe("original-name");
         expect(result.current.form.get(path.group).value).toBe(parent.key);
-        expect(result.current.form.get(path.data.svg).value).toBe(
+        expect(result.current.form.get(path.data.drawing.markup).value).toBe(
           "<svg>original</svg>",
         );
       });
@@ -256,7 +266,7 @@ describe("Symbol queries", () => {
       const previewViewport = { zoom: 2, position: { x: 3, y: 4 } };
       await act(async () => {
         result.current.form.set(path.name, "updated-name");
-        result.current.form.set(path.data.svg, "<svg>updated</svg>");
+        result.current.form.set(path.data.drawing.markup, "<svg>updated</svg>");
         result.current.form.set(path.data.strokeScaled, true);
         result.current.form.set(path.data.previewViewport, previewViewport);
         result.current.save();
@@ -270,7 +280,7 @@ describe("Symbol queries", () => {
         const retrieved = await client.schematics.symbols.retrieve(symbol.key);
         expect(retrieved.name).toBe("updated-name");
         expect(retrieved.group).toBe(parent.key);
-        expect(retrieved.data.svg).toBe("<svg>updated</svg>");
+        expect(retrieved.data.drawing.markup).toBe("<svg>updated</svg>");
         expect(retrieved.data.strokeScaled).toBe(true);
         expect(retrieved.data.previewViewport).toEqual(previewViewport);
       });
@@ -282,7 +292,7 @@ describe("Symbol queries", () => {
       const symbol = await client.schematics.symbols.create({
         name: "original-name",
         data: {
-          svg: "<svg></svg>",
+          drawing: { type: "svg", markup: "<svg></svg>" },
           states: [],
           handles: [],
           variant: "static",
@@ -310,7 +320,7 @@ describe("Symbol queries", () => {
       const symbol = await client.schematics.symbols.create({
         name: "original-name",
         data: {
-          svg: "<svg></svg>",
+          drawing: { type: "svg", markup: "<svg></svg>" },
           states: [],
           handles: [],
           variant: "static",
@@ -334,7 +344,7 @@ describe("Symbol queries", () => {
       const symbol = await client.schematics.symbols.create({
         name: "to-be-deleted",
         data: {
-          svg: "<svg></svg>",
+          drawing: { type: "svg", markup: "<svg></svg>" },
           states: [],
           handles: [],
           variant: "static",
@@ -362,7 +372,7 @@ describe("Symbol queries", () => {
 
   describe("useDeleteGroup", () => {
     const SYMBOL_DATA: schematic.symbol.New["data"] = {
-      svg: "<svg></svg>",
+      drawing: { type: "svg", markup: "<svg></svg>" },
       states: [],
       handles: [],
       variant: "static",

@@ -170,6 +170,26 @@ TEST(OperationJoinTest, JoinWaitsForTheFirstStep) {
     EXPECT_TRUE(op.join({.type = "start", .key = "cmd-3", .pinned = true}, "hash"));
 }
 
+/// @brief it should release the joined starts when the config changes, and take a join
+/// of the newer config only.
+TEST_F(OperationTest, ChangeConfigReleasesJoinedStarts) {
+    op.step(loading("Starting task"), x::telem::MINUTE);
+    ASSERT_TRUE(op.join({.type = "start", .key = "cmd-2"}, "hash"));
+    const auto released = op.change_config("task", "newer");
+    ASSERT_EQ(released.size(), 1);
+    EXPECT_EQ(released[0].key, "cmd-2");
+    EXPECT_FALSE(op.join({.type = "start", .key = "cmd-3"}, "hash"));
+    EXPECT_TRUE(op.join({.type = "start", .key = "cmd-4"}, "newer"));
+    op.check(x::telem::TimeStamp::now());
+    op.answer(final_status("started"));
+    std::vector<std::string> keys;
+    keys.reserve(written.size());
+    for (const auto &s: written)
+        keys.push_back(s.details.cmd);
+    EXPECT_EQ(keys, (std::vector<std::string>{"cmd", "cmd-4", "cmd", "cmd-4"}));
+    EXPECT_EQ(op.task_info().second, "newer");
+}
+
 /// @brief it should return the joined starts that got no final status at close.
 TEST_F(OperationTest, CloseReturnsUnansweredJoins) {
     op.step(loading("Starting task"), x::telem::MINUTE);
