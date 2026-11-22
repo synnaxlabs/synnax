@@ -78,13 +78,11 @@ const ItemsFailure = ({
   const { data } = List.useData();
   if (data.length === 0) return null;
   return (
-    <Status.Summary
-      className={CSS.BE("select", "failure")}
-      variant={status.variant}
-      description={status.description}
-    >
-      {status.message}
-    </Status.Summary>
+    <Flex.Box y className={CSS.BE("select", "failure")}>
+      <Status.Summary variant={status.variant} description={status.description}>
+        {status.message}
+      </Status.Summary>
+    </Flex.Box>
   );
 };
 

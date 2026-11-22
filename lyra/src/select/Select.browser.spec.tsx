@@ -701,16 +701,24 @@ describe("Select", () => {
           status={Status.create({
             variant: "error",
             message: "Failed to load results",
+            description: "The Core refused the request",
           })}
         >
           {({ itemKey }) => <div key={itemKey}>{`item ${itemKey}`}</div>}
         </Select.Single>,
       );
       await expect.element(page.getByText("Failed to load results")).toBeVisible();
-      const failure = document.querySelector(".lyra-select__failure");
-      assert(failure != null);
-      for (const side of ["padding-left", "padding-right", "padding-bottom"])
-        expect(computed(failure, side)).toBe(resolve("1rem", side));
+      const inset = parseFloat(resolve("1rem", "padding-left"));
+      const frame = page.getByRole("dialog").element().getBoundingClientRect();
+      for (const text of ["Failed to load results", "The Core refused the request"]) {
+        const box = page.getByText(text).element().getBoundingClientRect();
+        expect(box.left - frame.left).toBeGreaterThanOrEqual(inset);
+        expect(frame.right - box.right).toBeGreaterThanOrEqual(inset);
+      }
+      const description = page.getByText("The Core refused the request").element();
+      expect(
+        frame.bottom - description.getBoundingClientRect().bottom,
+      ).toBeGreaterThanOrEqual(inset);
     });
   });
 
