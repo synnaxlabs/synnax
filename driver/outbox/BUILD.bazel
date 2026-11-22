@@ -33,6 +33,7 @@ cc_library(
         "//client/cpp/errors",
         "//client/cpp/status",
         "//driver/journal",
+        "//driver/journal:file",
         "//x/cpp/breaker",
         "//x/cpp/errors",
         "//x/cpp/telem",

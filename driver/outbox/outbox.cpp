@@ -17,6 +17,7 @@
 
 #include "client/cpp/errors/errors.h"
 
+#include "driver/journal/file.h"
 #include "driver/outbox/outbox.h"
 
 namespace driver::outbox {
@@ -139,12 +140,20 @@ x::errors::Error Outbox::load(const std::uint64_t key, const std::uint64_t pos) 
             .end = reader->pos(),
         });
     }
-    if (reader->cut() > 0) {
-        this->cut_bytes += reader->cut();
-        LOG(WARNING) << "[outbox] lost " << reader->cut() << " bytes at the end of "
+    const auto end = reader->pos();
+    const auto cut = reader->cut();
+    reader.reset();
+    // A crash of an earlier process can leave the writes of the segment only in the
+    // OS cache, and a saved offset must never pass bytes that are not on the disk.
+    auto [file, file_err] = journal::File::open(this->segment_path(key));
+    if (file_err) return file_err;
+    if (cut > 0) {
+        if (const auto err = file->truncate(end)) return err;
+        this->cut_bytes += cut;
+        LOG(WARNING) << "[outbox] lost " << cut << " bytes at the end of "
                      << this->segment_path(key).string();
     }
-    return x::errors::NIL;
+    return file->sync();
 }
 
 Outbox::~Outbox() {

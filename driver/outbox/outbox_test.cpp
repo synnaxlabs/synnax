@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -296,6 +297,28 @@ TEST_F(OutboxTest, KeepsCallsBeforeCutOffTail) {
     ASSERT_GT(outbox->cut(), 0);
     ASSERT_NIL(outbox->set_status(set_of("third"), nullptr));
     ASSERT_EQ(outbox->size(), 2);
+}
+
+/// @brief it should cut lost bytes from their segment, so a later open does not count
+/// them again.
+TEST_F(OutboxTest, CountsCutBytesOnce) {
+    {
+        const auto outbox = this->open_unreachable();
+        for (const auto *msg: {"first", "second"})
+            ASSERT_NIL(outbox->set_status(set_of(msg), nullptr));
+    }
+    const auto size = std::filesystem::file_size(this->segment());
+    std::filesystem::resize_file(this->segment(), size - 3);
+    std::uint64_t cut = 0;
+    {
+        const auto outbox = this->open_unreachable();
+        cut = outbox->cut();
+        ASSERT_GT(cut, 0);
+    }
+    ASSERT_EQ(std::filesystem::file_size(this->segment()), size - 3 - cut);
+    const auto outbox = this->open_unreachable();
+    ASSERT_EQ(outbox->size(), 1);
+    ASSERT_EQ(outbox->cut(), 0);
 }
 
 /// @brief it should cut and count a tail that a power loss left zero-filled.
