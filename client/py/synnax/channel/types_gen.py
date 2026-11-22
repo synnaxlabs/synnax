@@ -223,6 +223,8 @@ class Payload(BaseModel):
         uses: Are the records that read or write the channel and that the caller can
             retrieve, filled only when a retrieve request asks for them. A task config
             shows as its task.
+        calculated: Is true if a calculation writes the channel, whether or not the
+            caller can retrieve the calculation.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
@@ -239,6 +241,7 @@ class Payload(BaseModel):
     status: Status | None = None
     group: group_.Key | None = None
     uses: list[Use] | None = None
+    calculated: bool = False
 
     @_override
     def __hash__(self) -> int:

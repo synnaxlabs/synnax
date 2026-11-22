@@ -267,7 +267,7 @@ func (w Writer) compile(
 		}
 		output.DataType = result.ChanDataType
 	}
-	if err = validate.PathedError(compiler.Check(ctx, w.tx, compiler.Config{
+	if err = validate.PathedError(compiler.Check(ctx, w.tx, result, compiler.Config{
 		ChannelService: w.channels,
 		Channel:        output,
 		Calculation:    *c,

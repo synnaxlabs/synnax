@@ -64,6 +64,9 @@ message Channel {
   optional .service.status.pb.Status status = 12;
   // group is the group the channel sits in, if any.
   optional string group = 13;
+  // calculated is true if a calculation writes the channel, whether or not the caller
+  // can retrieve the calculation.
+  bool calculated = 15;
 }
 
 // Cursor is a position in an order of channels: the sort value and the key of a

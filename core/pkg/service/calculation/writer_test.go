@@ -182,6 +182,36 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Apply", func() {
+		It("Should put no edit on the channel stream of the output", func(
+			ctx SpecContext,
+		) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			rec := &acttestutil.Recorder[channel.Key, channel.Action]{}
+			DeferCleanup(channels.Actions().OnChange(rec.Record))
+			window := calculation.Window{Duration: telem.Second}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.NewWriter(tx).WithDispatchKey("calculation-api").Apply(
+					ctx,
+					c.Key,
+					calculation.NewSetAction(calculation.SetPayload{
+						Path:  []string{"expression"},
+						Value: "return 4",
+					}),
+					calculation.NewSetAction(calculation.SetPayload{
+						Path: []string{"operations"},
+						Value: []calculation.Operation{
+							{Variant: calculation.AvgOperation{Window: window}},
+						},
+					}),
+				)
+				return err
+			})).To(Succeed())
+			Expect(retrieve(ctx, out.Key())[0].Expression).To(Equal("return 4"))
+			Expect(rec.Snapshot()).To(BeEmpty())
+		})
+
 		It("Should set the expression of a calculation", func(ctx SpecContext) {
 			out := createVirtual(ctx, "doubled")
 			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
