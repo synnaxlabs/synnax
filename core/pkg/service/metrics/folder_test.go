@@ -47,6 +47,7 @@ var _ = Describe("Stored records", func() {
 		statuses = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: node.DB}))
 		channels = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.Storage.TS,
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  statuses,
