@@ -21,6 +21,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	icdv1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/x/errors"
@@ -34,10 +35,11 @@ import (
 // JSON message for each staged endpoint, named after its method and path, and reads
 // each endpoint from its message. It returns the ICD, which the caller must create, and
 // false when cfg holds no inline fields. A field takes the kind of its channel, read
-// through snap with channels, and binds no channel when that channel does not exist. A
-// disabled field gets no binding, and a fill value becomes the default of its field.
-// note receives the path and each change of a field. ResolveReadConfig returns an error
-// when a staged endpoint is not an endpoint of cfg.
+// through snap with channels. A field binds no channel when it is disabled, when its
+// channel does not exist, or when an earlier field writes that channel. The index of a
+// read is the field that writes an index channel, and it takes no fill value. Any other
+// fill value becomes the default of its field. note receives the path and each change.
+// ResolveReadConfig returns an error when a staged endpoint is not an endpoint of cfg.
 func ResolveReadConfig(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -66,7 +68,9 @@ func ResolveReadConfig(
 		Messages: make([]icdv0.Message, len(staged)),
 	}
 	paths := make([]string, len(staged))
+	indexes := make([]string, len(staged))
 	names := make(set.Set[string])
+	claimed := make(map[channel.Key]string)
 	for i, e := range staged {
 		at := slices.IndexFunc(cfg.Endpoints, func(ep ReadEndpoint) bool {
 			return ep.Key == e.Key
@@ -79,9 +83,9 @@ func ResolveReadConfig(
 		}
 		ep := &cfg.Endpoints[at]
 		paths[i] = "endpoints." + strconv.Itoa(at)
-		msg, read := icdv0.LiftMessage(
-			lo.Map(e.Fields, toInline), e.Index, found, paths[i], note,
-		)
+		fields, index := readFields(e, found, claimed, paths[i], note)
+		indexes[i] = index
+		msg, read := icdv0.LiftMessage(fields, index, found, paths[i], note)
 		msg.Name = icdv0.UniqueName(
 			names,
 			strings.TrimSpace(string(ep.Method)+" "+ep.Path),
@@ -94,18 +98,63 @@ func ResolveReadConfig(
 	if err != nil {
 		return icdv1.ICD{}, false, err
 	}
-	liftFills(ic, staged, paths, note)
+	liftFills(ic, staged, paths, indexes, note)
 	cfg.Inline = nil
 	return ic, true, nil
 }
 
+// readFields returns the fields of e to lift and the key of its index field: the field
+// that writes an index channel in found, preferring the field that e names. A field
+// binds no channel when claimed holds an earlier field that writes it. readFields adds
+// each field it binds to claimed, and note receives each change at path.
+func readFields(
+	e InlineEndpoint,
+	found map[channel.Key]icdv0.Channel,
+	claimed map[channel.Key]string,
+	path string,
+	note func(path, change string),
+) ([]icdv0.InlineField, string) {
+	fields := lo.Map(e.Fields, toInline)
+	index := ""
+	for j := range fields {
+		f := &fields[j]
+		ch, exists := found[f.Channel]
+		if f.Disabled || !exists {
+			continue
+		}
+		at := path + ".fields." + strconv.Itoa(j)
+		if other, ok := claimed[f.Channel]; ok {
+			f.Disabled = true
+			note(at, "binds no channel, because "+other+" also writes channel "+
+				strconv.FormatUint(uint64(f.Channel), 10))
+			continue
+		}
+		claimed[f.Channel] = at
+		if ch.Index && (index == "" || f.Key == e.Index) {
+			index = f.Key
+		}
+	}
+	switch index {
+	case e.Index:
+	case "":
+		note(path+".index", "index field "+e.Index+
+			" was dropped, because it writes no index channel")
+	default:
+		note(path+".index", "field "+index+
+			" became the index, because it writes an index channel")
+	}
+	return fields, index
+}
+
 // liftFills turns the fill value of each field of staged into the default of its field
-// in ic, whose messages hold the endpoints of staged in order, at paths. note receives
-// the path of each fill value that does not convert.
+// in ic, whose messages hold the endpoints of staged in order, at paths. It drops the
+// fill value of the field that indexes names for each endpoint. note receives the path
+// of each fill value that it drops.
 func liftFills(
 	ic icdv1.ICD,
 	staged []InlineEndpoint,
 	paths []string,
+	indexes []string,
 	note func(path, change string),
 ) {
 	for i, e := range staged {
@@ -117,11 +166,13 @@ func liftFills(
 			if f.FillValue == nil {
 				continue
 			}
-			if err := liftFill(&p.Fields[j], f, *f.FillValue); err != nil {
-				note(
-					paths[i]+".fields."+strconv.Itoa(j),
-					"fill value was dropped: "+err.Error(),
-				)
+			at := paths[i] + ".fields." + strconv.Itoa(j)
+			if indexes[i] != "" && f.Key == indexes[i] {
+				note(at, "fill value was dropped, because the index takes no default")
+				continue
+			}
+			if err := liftFill(&p.Fields[j], *f.FillValue); err != nil {
+				note(at, "fill value was dropped: "+err.Error())
 			}
 		}
 	}
@@ -140,14 +191,11 @@ func toInline(f ReadField, _ int) icdv0.InlineField {
 	}
 }
 
-// liftFill sets the default of field to fill, read as a response value of old: through
-// the enum labels of old and the time format of field. It returns an error when fill
-// does not convert to the kind of field.
-func liftFill(field *icdv1.JSONField, old ReadField, fill any) error {
-	enums := lo.Map(old.EnumValues, func(e payload.EnumEntry, _ int) xjson.Enum {
-		return xjson.NewEnum(e.Label, e.Value)
-	})
-	f, err := fillField(*field, enums)
+// liftFill sets the default of field to fill, read as a response value through the enum
+// labels and the time format of field. It returns an error when fill does not convert
+// to the kind of field.
+func liftFill(field *icdv1.JSONField, fill any) error {
+	f, err := fillField(*field)
 	if err != nil {
 		return err
 	}
@@ -168,16 +216,39 @@ func liftFill(field *icdv1.JSONField, old ReadField, fill any) error {
 }
 
 // fillField returns the decoder field that reads a fill value into the kind of field.
-func fillField(field icdv1.JSONField, enums []xjson.Enum) (xjson.Field, error) {
+func fillField(field icdv1.JSONField) (xjson.Field, error) {
 	switch v := field.Variant.(type) {
 	case icdv1.FloatJSONField:
-		return xjson.Field{DataType: telem.Float64T, Enums: enums}, nil
+		return xjson.Field{
+			DataType: telem.Float64T,
+			Enums: lo.Map(v.EnumValues, func(e payload.FloatEntry, _ int) xjson.Enum {
+				return xjson.NewEnum(e.Label, float64(e.Value))
+			}),
+		}, nil
 	case icdv1.IntegerJSONField:
-		return xjson.Field{DataType: telem.Int64T, Enums: enums}, nil
+		return xjson.Field{
+			DataType: telem.Int64T,
+			Enums: lo.Map(v.EnumValues, func(e payload.IntegerEntry, _ int) xjson.Enum {
+				return xjson.NewEnum(e.Label, int64(e.Value))
+			}),
+		}, nil
 	case icdv1.UnsignedJSONField:
-		return xjson.Field{DataType: telem.Uint64T, Enums: enums}, nil
+		return xjson.Field{
+			DataType: telem.Uint64T,
+			Enums: lo.Map(
+				v.EnumValues,
+				func(e payload.UnsignedEntry, _ int) xjson.Enum {
+					return xjson.NewEnum(e.Label, uint64(e.Value))
+				},
+			),
+		}, nil
 	case icdv1.BooleanJSONField:
-		return xjson.Field{DataType: telem.BooleanT, Enums: enums}, nil
+		return xjson.Field{
+			DataType: telem.BooleanT,
+			Enums: lo.Map(v.EnumValues, func(e payload.BooleanEntry, _ int) xjson.Enum {
+				return xjson.NewEnum(e.Label, boolSample(e.Value))
+			}),
+		}, nil
 	case icdv1.StringJSONField:
 		return xjson.Field{DataType: telem.StringT}, nil
 	case icdv1.TimestampJSONField:
@@ -234,6 +305,14 @@ func withDefault(field icdv1.JSONField, sample []byte) icdv1.JSONFieldVariant {
 	default:
 		panic("no default for JSON field " + field.Base().Name)
 	}
+}
+
+// boolSample returns v as a numeric sample, 1 for true.
+func boolSample(v bool) uint8 {
+	if v {
+		return 1
+	}
+	return 0
 }
 
 // fixed returns the 8-byte sample s as a uint64.

@@ -11,15 +11,18 @@ package v5_test
 
 import (
 	"context"
+	"strconv"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	icdv1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
@@ -61,12 +64,10 @@ func staged(ctx context.Context, endpoints ...v4.ReadEndpoint) v5.ReadConfig {
 	return MustSucceed(v5.MigrateReadConfig(ctx, v4.ReadConfig{Endpoints: endpoints}))
 }
 
-// jsonFields returns the fields of the JSON message at i of ic.
-func jsonFields(ic icdv1.ICD, i int) []icdv1.JSONField {
+// jsonFields returns the fields of the first message of ic, which must be JSON.
+func jsonFields(ic icdv1.ICD) []icdv1.JSONField {
 	GinkgoHelper()
-	p, ok := ic.Messages[i].Payload.Variant.(icdv1.JSONPayload)
-	Expect(ok).To(BeTrue())
-	return p.Fields
+	return as[icdv1.JSONPayload](ic.Messages[0].Payload.Variant).Fields
 }
 
 // as returns v as a T, and fails the spec when v is not a T.
@@ -75,6 +76,23 @@ func as[T any](v any) T {
 	t, ok := v.(T)
 	Expect(ok).To(BeTrue())
 	return t
+}
+
+// check runs each read of cfg through the read check, against ic and found.
+func check(ic icdv1.ICD, cfg v5.ReadConfig, found map[channel.Key]icdv0.Channel) error {
+	c := read.NewChecker(lo.MapValues(
+		found,
+		func(ch icdv0.Channel, _ channel.Key) read.Channel { return read.Channel(ch) },
+	))
+	for i, ep := range cfg.Endpoints {
+		for j, rm := range ep.Messages {
+			path := []string{"endpoints", strconv.Itoa(i), "messages", strconv.Itoa(j)}
+			if err := c.Message(rm, ic, path); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 var _ = Describe("ResolveReadConfig", func() {
@@ -119,7 +137,7 @@ var _ = Describe("ResolveReadConfig", func() {
 				6: {DataType: telem.TimestampT, Index: true},
 				7: {DataType: telem.Float32T},
 			})
-			fields := jsonFields(ic, 0)
+			fields := jsonFields(ic)
 			Expect(fields).To(HaveLen(3))
 			read := cfg.Endpoints[0].Messages[0]
 			Expect(*read.Index).To(Equal(fields[0].Base().Key))
@@ -144,7 +162,7 @@ var _ = Describe("ResolveReadConfig", func() {
 				Fields: []v4.ReadField{f},
 			}), nil)
 			Expect(notes).To(BeEmpty())
-			Expect(fallback(jsonFields(ic, 0)[0].Variant)).To(Equal(expected))
+			Expect(fallback(jsonFields(ic)[0].Variant)).To(Equal(expected))
 		},
 		Entry(
 			"a float",
@@ -236,6 +254,28 @@ var _ = Describe("ResolveReadConfig", func() {
 		),
 	)
 
+	It("Should keep a fill value when the lift drops an enum entry", func(
+		ctx SpecContext,
+	) {
+		ic, _, _ := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+			Key: "ep",
+			Fields: []v4.ReadField{{
+				Key:      "f",
+				Pointer:  "/f",
+				Optional: true,
+				DataType: telem.Int32T,
+				EnumValues: []payload.EnumEntry{
+					{Label: "half", Value: 0.5},
+					{Label: "on", Value: 1},
+				},
+				FillValue: new(any("on")),
+			}},
+		}), nil)
+		f := as[icdv1.IntegerJSONField](jsonFields(ic)[0].Variant)
+		Expect(f.EnumValues).To(HaveLen(1))
+		Expect(f.Default).To(HaveValue(Equal(payload.Integer(1))))
+	})
+
 	It("Should drop a fill value that does not convert", func(ctx SpecContext) {
 		ic, _, notes := resolve(ctx, staged(ctx, v4.ReadEndpoint{
 			Key: "ep",
@@ -247,8 +287,124 @@ var _ = Describe("ResolveReadConfig", func() {
 			}},
 		}), nil)
 		Expect(notes).To(Equal([]string{"endpoints.0.fields.0"}))
-		Expect(as[icdv1.FloatJSONField](jsonFields(ic, 0)[0].Variant).Default).
+		Expect(as[icdv1.FloatJSONField](jsonFields(ic)[0].Variant).Default).
 			To(BeNil())
+	})
+
+	Describe("Read check", func() {
+		found := map[channel.Key]icdv0.Channel{
+			6: {Name: "time", DataType: telem.TimestampT, Index: true},
+			7: {Name: "pressure", DataType: telem.Float32T},
+			9: {Name: "time_b", DataType: telem.TimestampT, Index: true},
+		}
+		timeField := func(key string, ch channel.Key) v4.ReadField {
+			return v4.ReadField{
+				Key:        key,
+				Channel:    ch,
+				Pointer:    "/" + key,
+				DataType:   telem.TimestampT,
+				TimeFormat: new(payload.TimeFormatUnixSec),
+			}
+		}
+		pressure := func(key string) v4.ReadField {
+			return v4.ReadField{
+				Key:      key,
+				Channel:  7,
+				Pointer:  "/" + key,
+				DataType: telem.Float32T,
+			}
+		}
+		// lift resolves endpoints and expects each read to pass the read check.
+		lift := func(
+			ctx context.Context,
+			endpoints ...v4.ReadEndpoint,
+		) (icdv1.ICD, v5.ReadConfig, []string) {
+			GinkgoHelper()
+			ic, cfg, notes := resolve(ctx, staged(ctx, endpoints...), found)
+			Expect(check(ic, cfg, found)).To(Succeed())
+			return ic, cfg, notes
+		}
+
+		It("Should drop an index that names a disabled field", func(ctx SpecContext) {
+			t := timeField("t", 6)
+			t.Disabled = true
+			_, cfg, notes := lift(ctx, v4.ReadEndpoint{
+				Key:    "ep",
+				Index:  "t",
+				Fields: []v4.ReadField{t, pressure("p")},
+			})
+			Expect(cfg.Endpoints[0].Messages[0].Index).To(BeNil())
+			Expect(notes).To(ContainElement("endpoints.0.index"))
+		})
+
+		It("Should drop an index whose field writes no index channel",
+			func(ctx SpecContext) {
+				_, cfg, notes := lift(ctx, v4.ReadEndpoint{
+					Key:    "ep",
+					Index:  "p",
+					Fields: []v4.ReadField{pressure("p")},
+				})
+				Expect(cfg.Endpoints[0].Messages[0].Index).To(BeNil())
+				Expect(notes).To(ContainElement("endpoints.0.index"))
+			},
+		)
+
+		It("Should take the index from the field that writes an index channel",
+			func(ctx SpecContext) {
+				ic, cfg, notes := lift(ctx, v4.ReadEndpoint{
+					Key:    "ep",
+					Fields: []v4.ReadField{timeField("t", 6), pressure("p")},
+				})
+				Expect(cfg.Endpoints[0].Messages[0].Index).
+					To(HaveValue(Equal(jsonFields(ic)[0].Base().Key)))
+				Expect(notes).To(ContainElement("endpoints.0.index"))
+			},
+		)
+
+		It(
+			"Should prefer the index field that the endpoint names",
+			func(ctx SpecContext) {
+				ic, cfg, _ := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+					Key:    "ep",
+					Index:  "u",
+					Fields: []v4.ReadField{timeField("t", 6), timeField("u", 9)},
+				}), found)
+				Expect(cfg.Endpoints[0].Messages[0].Index).
+					To(HaveValue(Equal(jsonFields(ic)[1].Base().Key)))
+			},
+		)
+
+		It("Should drop the fill value of the index field", func(ctx SpecContext) {
+			t := timeField("t", 6)
+			t.Optional, t.FillValue = true, new(any(3))
+			ic, _, notes := lift(ctx, v4.ReadEndpoint{
+				Key:    "ep",
+				Index:  "t",
+				Fields: []v4.ReadField{t, pressure("p")},
+			})
+			Expect(as[icdv1.TimestampJSONField](jsonFields(ic)[0].Variant).Default).
+				To(BeNil())
+			Expect(notes).To(ContainElement("endpoints.0.fields.0"))
+		})
+
+		It("Should bind a channel only from the first field that writes it",
+			func(ctx SpecContext) {
+				_, cfg, notes := lift(
+					ctx,
+					v4.ReadEndpoint{
+						Key:    "a",
+						Fields: []v4.ReadField{pressure("p"), pressure("q")},
+					},
+					v4.ReadEndpoint{Key: "b", Fields: []v4.ReadField{pressure("p")}},
+				)
+				Expect(cfg.Endpoints[0].Messages[0].Bindings).To(HaveLen(1))
+				Expect(cfg.Endpoints[1].Messages[0].Bindings).To(BeEmpty())
+				Expect(notes).To(ContainElements(
+					"endpoints.0.fields.1",
+					"endpoints.1.fields.0",
+				))
+			},
+		)
 	})
 
 	It("Should fail when a staged endpoint is not an endpoint of the config",
