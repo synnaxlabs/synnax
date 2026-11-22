@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  act,
   render,
   type RenderOptions,
   type RenderResult,
@@ -22,8 +23,6 @@ import {
   useLayoutEffect,
   useState,
 } from "react";
-
-import { disableActEnvironment } from "@/testutil/Synnax";
 
 // A cold module load can outlast the default query wait, so the wait ends only short
 // of the test timeout.
@@ -55,16 +54,15 @@ const Gate = ({ onMount, children }: GateProps): ReactElement | null => {
  * fallback, so queries run against loaded lazy components. Rejects when the boundary
  * does not load, with the first caught error as the cause.
  *
- * The boundary mounts outside act and turns the act environment off for the rest of the
- * spec file. An async act returns only once the page has no work left, which a tree
- * wired to a busy Core can fail to reach before the test times out.
+ * A tree wired to a live Core turns the act environment off, and its boundary mounts
+ * outside act. An async act returns only once the page has no work left, which such a
+ * tree can fail to reach before the test times out.
  */
 export const renderLazy = async (
   ui: ReactElement,
   options: RenderOptions = {},
 ): Promise<RenderResult> => {
   const { onCaughtError } = options;
-  disableActEnvironment();
   let loaded = false;
   let loadError: unknown;
   const gate: { show?: () => void } = {};
@@ -95,7 +93,9 @@ export const renderLazy = async (
   );
   if (gate.show == null)
     throw new Error("The wrapper of the lazy component did not mount");
-  gate.show();
+  const { show } = gate;
+  if (globalThis.IS_REACT_ACT_ENVIRONMENT === true) await act(async () => show());
+  else show();
   await waitFor(() => {
     if (loaded) return;
     throw new Error("The lazy component did not load", { cause: loadError });
