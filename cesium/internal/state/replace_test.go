@@ -53,6 +53,22 @@ var _ = Describe("Rewrites", func() {
 					To(Equal([]uint64{3}))
 			})
 
+		It("Should name a segment that the replay creates, seals, and cuts", func() {
+			Expect(candidates(open(
+				config(&appended{}),
+				&log.Create{Segment: 9, Key: 6, Clock: 5, Version: 1, DataType: 4},
+				commit(1, 3, 0, 60, 60, slot(9, 4)),
+				commit(1, 3, 1, 70, 70, slot(9, 8)),
+				&log.Seal{Segment: 9, Length: 8, TailCRC: 24},
+				&log.Tombstone{Key: 6, Start: 60, End: 61, Right: &log.Cut{
+					Segment:   9,
+					Offset:    4,
+					Alignment: uint64(telem.NewAlignment(3, 1)),
+					Stamp:     70,
+				}},
+			))).To(Equal([]uint64{9}))
+		})
+
 		It("Should not name a segment whose dead share is at most the threshold",
 			func() {
 				cfg := config(&appended{})
