@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // pins counts the readers of each segment, and holds the key of each dead segment that
@@ -24,24 +25,57 @@ type pins struct {
 	dead    map[uint64]ChannelKey
 }
 
-// load returns the visible Channel of key from e, and pins each of its segments under
-// the same lock that release takes, so release never unlinks a segment that a Channel
-// it returned still names. It unpins held, the segments of an earlier load, and returns
-// the segments it pinned.
-func (e *engine) load(key ChannelKey, held []uint64) (*state.Channel, []uint64, error) {
-	e.pins.mu.Lock()
-	ch := e.state.Channel(key)
-	var ids []uint64
-	if ch != nil {
-		ids = make([]uint64, len(ch.Segments))
-		for i, seg := range ch.Segments {
-			ids[i] = seg.ID
+// loadView returns the visible Channels of key and of its clock from one step of the
+// state, and pins each of their segments under the same lock that release takes, so
+// release never unlinks a segment that a Channel it returned still names. It unpins
+// held, the segments of an earlier load, and returns the segments it pinned, in buf
+// when it has room. buf must not share an array with held.
+func (e *engine) loadView(
+	key, clock ChannelKey,
+	held, buf []uint64,
+) (ch, clocks *state.Channel, ids []uint64, err error) {
+	for {
+		var count uint64
+		ch, clocks, count = e.state.Pair(key, clock)
+		e.pins.mu.Lock()
+		// A segment leaves the state only on a step that publishes, so with the count
+		// unchanged, release has unlinked no segment of ch or clocks.
+		if e.state.Unchanged(count) {
+			break
 		}
+		e.pins.mu.Unlock()
+	}
+	if clock == key {
+		clocks = nil
+	}
+	n := 0
+	if ch != nil {
+		n += len(ch.Segments)
+	}
+	if clocks != nil {
+		n += len(clocks.Segments)
+	}
+	ids = buf[:0]
+	if cap(ids) < n {
+		ids = make([]uint64, 0, n)
+	}
+	if ch != nil {
+		for _, seg := range ch.Segments {
+			ids = append(ids, seg.ID)
+		}
+	}
+	if clocks != nil {
+		for _, seg := range clocks.Segments {
+			ids = append(ids, seg.ID)
+		}
+	}
+	if clock == key {
+		clocks = ch
 	}
 	e.pins.pin(ids)
 	free := e.pins.unpin(held)
 	e.pins.mu.Unlock()
-	return ch, ids, e.unlink(free)
+	return ch, clocks, ids, e.unlink(free)
 }
 
 // pin pins segment id for a reader.
@@ -74,6 +108,20 @@ func (e *engine) release(dead []state.Dead) error {
 	}
 	e.pins.mu.Unlock()
 	return e.unlink(free)
+}
+
+// pinnedDead returns the file names of the dead segments of key that wait for their
+// last reader.
+func (e *engine) pinnedDead(key ChannelKey) set.Set[string] {
+	e.pins.mu.Lock()
+	defer e.pins.mu.Unlock()
+	names := set.New[string]()
+	for id, k := range e.pins.dead {
+		if k == key {
+			names.Add(segmentName(k, id))
+		}
+	}
+	return names
 }
 
 // unlink removes the file of each segment of dead, and tries every removal.

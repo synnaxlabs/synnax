@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -64,11 +65,12 @@ func breakWrite(ctx context.Context, db *cesium.DB, seconds ...telem.TimeStamp) 
 	Expect(w.Close()).To(Succeed())
 }
 
-func breakValues(ctx context.Context, db *cesium.DB, key cesium.ChannelKey) []int64 {
+func breakValues(ctx context.Context, db *cesium.DB) []int64 {
 	GinkgoHelper()
-	var out []int64
-	for _, s := range MustSucceed(db.Read(ctx, telem.TimeRangeMax, key)).
-		Get(key).Series {
+	series := MustSucceed(db.Read(ctx, telem.TimeRangeMax, breakData)).
+		Get(breakData).Series
+	out := make([]int64, 0, len(series))
+	for _, s := range series {
 		out = append(out, s.Unmarshal[int64]()...)
 	}
 	return out
@@ -77,7 +79,7 @@ func breakValues(ctx context.Context, db *cesium.DB, key cesium.ChannelKey) []in
 func breakSegments(fs xfs.FS, key cesium.ChannelKey) []string {
 	GinkgoHelper()
 	var out []string
-	for _, e := range MustSucceed(fs.List(fmt.Sprint(uint64(key)))) {
+	for _, e := range MustSucceed(fs.List(strconv.FormatUint(uint64(key), 10))) {
 		if strings.HasSuffix(e.Name(), ".seg") {
 			out = append(out, e.Name())
 		}
@@ -122,13 +124,14 @@ var _ = Describe("Delete on the pointer log, broken by a crash", func() {
 			}))
 			closeDB()
 			re, closeRe := breakOpen(ctx, image)
-			Expect(breakValues(ctx, re, breakData)).To(Equal([]int64{20, 21, 22}))
+			Expect(breakValues(ctx, re)).To(Equal([]int64{20, 21, 22}))
+			// Run returns only after the orphan pass, and a read does not wait for it.
+			closeRe()
 			if segs := breakSegments(image, breakData); len(segs) != 1 {
 				failures = append(failures, fmt.Sprintf(
 					"run key %d: segment files %v after the orphan pass", runKey, segs,
 				))
 			}
-			closeRe()
 		}
 		Expect(failures).To(BeEmpty())
 	})
