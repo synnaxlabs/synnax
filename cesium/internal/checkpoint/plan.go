@@ -12,7 +12,6 @@ package checkpoint
 import (
 	"cmp"
 	"slices"
-	"sort"
 
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
@@ -141,12 +140,6 @@ func flatten(s *state.Snapshot) *flat {
 	}
 	f.parted = make([]bool, f.first[len(s.Channels)])
 	return f
-}
-
-// segment returns segment number j.
-func (f *flat) segment(j int) state.Segment {
-	i := sort.SearchInts(f.first, j+1) - 1
-	return f.s.Channels[i].Segments[j-f.first[i]]
 }
 
 // match returns the number of the segment of each live record of p, or -1 for a dead
