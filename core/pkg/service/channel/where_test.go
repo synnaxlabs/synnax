@@ -39,6 +39,7 @@ type record struct {
 	Virtual     bool           `json:"virtual"`
 	Internal    bool           `json:"internal"`
 	Expression  string         `json:"expression"`
+	Calculated  bool           `json:"calculated"`
 }
 
 // usesVirtual reports whether w or a child of w filters on virtual.
