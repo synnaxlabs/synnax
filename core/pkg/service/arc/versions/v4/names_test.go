@@ -10,17 +10,26 @@
 package v4_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 	"github.com/synnaxlabs/x/set"
 )
 
-var _ = Describe("QuoteDashedNames", func() {
+// dashed returns a rename that quotes each dashed name that held reports true for.
+func dashed(held func(string) bool) func(string) (string, bool) {
+	return func(name string) (string, bool) {
+		return name, strings.Contains(name, "-") && held(name)
+	}
+}
+
+var _ = Describe("RenameChannels", func() {
 	held := set.New("pt-01", "valve-cmd", "a-", "a--b", "pressure").Contains
 	DescribeTable("Should quote each dashed name that a channel holds",
 		func(text, expected string) {
-			Expect(v4.QuoteDashedNames(text, held)).To(Equal(expected))
+			Expect(v4.RenameChannels(text, dashed(held))).To(Equal(expected))
 		},
 		Entry("a flow node", "pt-01 -> out{}", "'pt-01' -> out{}"),
 		Entry("an expression", "return pt-01 * 2", "return 'pt-01' * 2"),
@@ -51,13 +60,15 @@ var _ = Describe("QuoteDashedNames", func() {
 		Entry("a name after a not-equal", "x!=pt-01", "x!='pt-01'"),
 		Entry("a name after a stateful declaration", "x $= pt-01", "x $= 'pt-01'"),
 		Entry("a name after an empty quoted token", "'' pt-01'", "'' 'pt-01''"),
+		Entry("an escape inside a placeholder name", `f"{pt\u002d01}"`,
+			`f"{'pt-01'}"`),
 		Entry("a name on the line after an unclosed quote", "\"x\npt-01",
 			"\"x\n'pt-01'"),
 	)
 
 	DescribeTable("Should leave text as it is",
 		func(text string) {
-			Expect(v4.QuoteDashedNames(text, held)).To(Equal(text))
+			Expect(v4.RenameChannels(text, dashed(held))).To(Equal(text))
 		},
 		Entry("a dashed name that no channel holds", "return pt-02 * 2"),
 		Entry("a longer dashed name", "return pt-01-b"),
@@ -71,10 +82,37 @@ var _ = Describe("QuoteDashedNames", func() {
 		Entry("a quoted token", "return 'pt-01'"),
 		Entry("escaped braces", `f"{{pt-01}}"`),
 		Entry("a placeholder in a string with no f prefix", `"{pt-01}"`),
-		Entry("an escape inside the name", `f"{pt\u002d01}"`),
 		Entry("an unclosed placeholder", `f"{pt-01"`),
 		Entry("a placeholder with an empty spec", `f"{pt-01:}"`),
 		Entry("a name after an unclosed quote on its line", `"pt-01`),
 		Entry("a name right after a lone '!'", "!pt-01"),
+	)
+
+	DescribeTable("Should write each renamed name as a quoted token",
+		func(text, expected string) {
+			names := map[string]string{
+				"Metrics": "Metrics_2",
+				"a":       "it's",
+				"b":       `c\d`,
+				"q":       `x"y`,
+				"t":       "x`y",
+			}
+			rename := func(name string) (string, bool) {
+				to, ok := names[name]
+				return to, ok
+			}
+			Expect(v4.RenameChannels(text, rename)).To(Equal(expected))
+		},
+		Entry("a bare name", "return Metrics + 1", "return 'Metrics_2' + 1"),
+		Entry("a name with a quote", "x := a", `x := 'it\'s'`),
+		Entry("a name with a backslash", "x := b", `x := 'c\\d'`),
+		Entry("a quote in a placeholder", `f"{a}"`, `f"{'it\\'s'}"`),
+		Entry("a double quote in a placeholder", `f"{q}"`, `f"{'x\"y'}"`),
+		Entry("a backtick in a multi-line placeholder", "f`{t}`", "f`{'x\\`y'}`"),
+		Entry("a backslash in a raw placeholder", `rf"{b}"`, `rf"{'c\\d'}"`),
+		Entry("a double quote that a raw placeholder cannot hold", `rf"{q}"`,
+			`rf"{q}"`),
+		Entry("a placeholder in a placeholder", `f"{f\"{a}\"}"`,
+			`f"{f\"{'it\\\\'s'}\"}"`),
 	)
 })
