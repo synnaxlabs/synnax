@@ -605,3 +605,48 @@ var _ = Describe("ValidateSpec", func() {
 			To(MatchError(ContainSubstring("cannot format type")))
 	})
 })
+
+var _ = Describe("Placeholders that hold a comment", func() {
+	placeholder := func(body string) literal.FmtStrSegment {
+		GinkgoHelper()
+		segments := MustSucceed(literal.FmtStrParse(body))
+		Expect(segments).To(HaveLen(1))
+		Expect(segments[0].IsPlaceholder).To(BeTrue())
+		return segments[0]
+	}
+
+	DescribeTable("reads each placeholder as v0.62 does",
+		func(body, text, spec string) {
+			segment := placeholder(body)
+			Expect(segment.Text).To(Equal(text))
+			Expect(segment.Spec).To(Equal(spec))
+		},
+		Entry("a quote in a line comment", "{x // it's\n}", "x // it's\n", ""),
+		Entry(
+			"a line comment that the closing brace ends",
+			"{x // note}",
+			"x // note",
+			"",
+		),
+		Entry("a colon in a line comment", "{x // a:%d}", "x // a", "%d"),
+		Entry(
+			"a quote and a colon in a line comment",
+			"{x // it's:%d}",
+			"x // it's",
+			"%d",
+		),
+		Entry("a quote in a block comment", "{x /* it's */}", "x /* it's */", ""),
+		Entry(
+			"a block comment before the spec",
+			"{x /* it's */:%d}",
+			"x /* it's */",
+			"%d",
+		),
+		Entry(
+			"a string after a block comment",
+			`{x /* a */ + "}"}`,
+			`x /* a */ + "}"`,
+			"",
+		),
+	)
+})
