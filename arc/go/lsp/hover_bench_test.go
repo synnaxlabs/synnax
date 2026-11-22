@@ -35,18 +35,16 @@ func hoverSource(first string, lines int) string {
 	return b.String()
 }
 
-// benchHover opens source and hovers the position on line 1 at char.
-func benchHover(b *testing.B, source string, char uint32) {
+// benchHover opens source with channels in scope and hovers the position on line 1 at
+// char.
+func benchHover(b *testing.B, source string, char uint32, channels ...symbol.Symbol) {
 	b.Helper()
 	ctx := b.Context()
 	server, err := lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
 		root := symbol.NewRoot(nil, stl.NewSymbols())
-		root.Parent.AddChild(&symbol.Symbol{
-			Name: "stand.sensor",
-			Kind: symbol.KindChannel,
-			Type: types.Chan(types.F64()),
-			ID:   1,
-		})
+		for i := range channels {
+			root.Parent.AddChild(&channels[i])
+		}
 		return root
 	}})
 	if err != nil {
@@ -100,7 +98,12 @@ func BenchmarkHover(b *testing.B) {
 			benchHover(b, hoverSource("s := 'sensor value'", lines), 10)
 		})
 		b.Run(n+"/path", func(b *testing.B) {
-			benchHover(b, hoverSource("s := stand.sensor", lines), 16)
+			benchHover(b, hoverSource("s := stand.sensor", lines), 16, symbol.Symbol{
+				Name: "stand.sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			})
 		})
 	}
 }
