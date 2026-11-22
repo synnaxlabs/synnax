@@ -24,12 +24,12 @@ import (
 )
 
 // hoverSource returns a function that declares lines variables after its first
-// statement.
+// statement. It passes analysis when its first statement does.
 func hoverSource(first string, lines int) string {
 	var b strings.Builder
 	b.WriteString("func f() i32 {\n    " + first + "\n")
 	for i := range lines {
-		b.WriteString("    a" + strconv.Itoa(i) + " := 1\n")
+		b.WriteString("    a" + strconv.Itoa(i) + " i32 := 1\n")
 	}
 	b.WriteString("    return a0\n}\n")
 	return b.String()
@@ -86,24 +86,30 @@ func benchHover(b *testing.B, source string, char uint32, channels ...symbol.Sym
 	}
 }
 
-// BenchmarkHover hovers a variable, a quoted channel name, and a bare channel path near
-// the top of documents of growing length. Each hover costs the same at any length.
+// BenchmarkHover hovers a variable, a quoted channel name, a bare channel path, and a
+// quoted name that no channel holds, near the top of documents of growing length. Only
+// the last fails analysis, so its hover builds a root of its own. Each hover costs the
+// same at any length.
 func BenchmarkHover(b *testing.B) {
+	sensor := symbol.Symbol{
+		Name: "stand.sensor",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F64()),
+		ID:   1,
+	}
 	for _, lines := range []int{10, 1000, 10000} {
 		n := "lines=" + strconv.Itoa(lines)
 		b.Run(n+"/word", func(b *testing.B) {
 			benchHover(b, hoverSource("x := 1", lines), 5)
 		})
 		b.Run(n+"/channel", func(b *testing.B) {
-			benchHover(b, hoverSource("s := 'sensor value'", lines), 10)
+			benchHover(b, hoverSource("s := 'stand.sensor'", lines), 10, sensor)
 		})
 		b.Run(n+"/path", func(b *testing.B) {
-			benchHover(b, hoverSource("s := stand.sensor", lines), 16, symbol.Symbol{
-				Name: "stand.sensor",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.F64()),
-				ID:   1,
-			})
+			benchHover(b, hoverSource("s := stand.sensor", lines), 16, sensor)
+		})
+		b.Run(n+"/missing", func(b *testing.B) {
+			benchHover(b, hoverSource("s := 'sensor value'", lines), 10)
 		})
 	}
 }
