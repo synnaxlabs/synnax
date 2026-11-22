@@ -68,6 +68,7 @@ authorityBlock
 authorityEntry
     : INTEGER_LITERAL
     | IDENTIFIER INTEGER_LITERAL
+    | qualifiedIdentifier INTEGER_LITERAL
     ;
 
 // =============================================================================
@@ -218,7 +219,7 @@ function
 // member name (stable.for). Without these alternatives the lexer
 // tokenizes them as keywords and the IDENTIFIER-only rule rejects them.
 qualifiedIdentifier
-    : IDENTIFIER DOT IDENTIFIER
+    : IDENTIFIER (DOT IDENTIFIER)+
     | IDENTIFIER DOT FOR
     | AUTHORITY DOT IDENTIFIER
     ;
@@ -284,6 +285,8 @@ assignment
     | IDENTIFIER indexOrSlice ASSIGN expression
     | IDENTIFIER compoundOp expression
     | IDENTIFIER indexOrSlice compoundOp expression
+    | qualifiedIdentifier ASSIGN expression
+    | qualifiedIdentifier compoundOp expression
     ;
 
 compoundOp

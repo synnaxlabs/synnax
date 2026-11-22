@@ -362,12 +362,15 @@ func isFloatType(t ITypeContext) bool {
 	return primitive.NumericType().FloatType() != nil
 }
 
-// QualifiedNameParts returns the head and tail of a qualified identifier
-// (e.g., "math" and "avg" for `math.avg`). Reads the terminal children
-// directly so it works when either side is a lexer keyword (AUTHORITY on
-// the left, FOR on the right) and not just an IDENTIFIER.
+// QualifiedNameParts returns the first segment of a qualified identifier and the rest,
+// joined by dots: "math" and "avg" for `math.avg`, and "a" and "b.c" for `a.b.c`. It
+// reads the terminal children, so a lexer keyword (AUTHORITY first, FOR last) works.
 func QualifiedNameParts(qid IQualifiedIdentifierContext) (head, tail string) {
-	return terminalText(qid, 0), terminalText(qid, 2)
+	head = terminalText(qid, 0)
+	if qid.GetChildCount() == 3 {
+		return head, terminalText(qid, 2)
+	}
+	return head, qid.GetText()[len(head)+1:]
 }
 
 func terminalText(qid IQualifiedIdentifierContext, i int) string {
@@ -403,25 +406,45 @@ func FunctionName(fn IFunctionContext) string {
 type Name struct {
 	// Head is the first segment.
 	Head string
-	// Tail is the second segment of a qualified name, and empty otherwise.
+	// Tail is every segment of a qualified name after the first, joined by dots, and
+	// empty otherwise.
 	Tail string
+	// Callee is true for a qualified name that a call follows. It names a module
+	// member, never a channel.
+	Callee bool
+	// text is the source of a qualified name that holds no space, which Head and Tail
+	// slice. String returns it without joining them.
+	text string
 }
 
 // String returns the joined name: head and tail with a dot between. It returns "" for
 // the zero Name.
 func (n Name) String() string {
+	if n.text != "" {
+		return n.text
+	}
 	if n.Tail == "" {
 		return n.Head
 	}
 	return n.Head + "." + n.Tail
 }
 
+func qualifiedName(qid IQualifiedIdentifierContext) Name {
+	start, stop := qid.GetStart(), qid.GetStop()
+	text := start.GetInputStream().GetText(start.GetStart(), stop.GetStop())
+	if strings.ContainsAny(text, " \t\r\n/") {
+		head, tail := QualifiedNameParts(qid)
+		return Name{Head: head, Tail: tail}
+	}
+	dot := strings.IndexByte(text, '.')
+	return Name{Head: text[:dot], Tail: text[dot+1:], text: text}
+}
+
 // IdentifierName returns the name of a flow identifier. A bare identifier returns its
 // name as the head; a qualified one (m.f) returns the head and the tail.
 func IdentifierName(id IIdentifierContext) Name {
 	if qid := id.QualifiedIdentifier(); qid != nil {
-		head, tail := QualifiedNameParts(qid)
-		return Name{Head: head, Tail: tail}
+		return qualifiedName(qid)
 	}
 	return Name{Head: id.IDENTIFIER().GetText()}
 }
@@ -431,8 +454,9 @@ func IdentifierName(id IIdentifierContext) Name {
 // Name when the primary is not a name.
 func PrimaryName(primary IPrimaryExpressionContext) Name {
 	if qid := primary.QualifiedIdentifier(); qid != nil {
-		head, tail := QualifiedNameParts(qid)
-		return Name{Head: head, Tail: tail}
+		n := qualifiedName(qid)
+		n.Callee = isCallee(primary)
+		return n
 	}
 	if id := primary.IDENTIFIER(); id != nil {
 		return Name{Head: id.GetText()}
@@ -440,14 +464,30 @@ func PrimaryName(primary IPrimaryExpressionContext) Name {
 	return Name{}
 }
 
+// isCallee reports whether a call follows primary.
+func isCallee(primary IPrimaryExpressionContext) bool {
+	postfix, ok := primary.GetParent().(IPostfixExpressionContext)
+	if !ok || postfix.GetChildCount() < 2 {
+		return false
+	}
+	_, ok = postfix.GetChild(1).(IFunctionCallSuffixContext)
+	return ok
+}
+
 // AssignmentName returns the name of an assignment's target.
 func AssignmentName(a IAssignmentContext) Name {
+	if qid := a.QualifiedIdentifier(); qid != nil {
+		return qualifiedName(qid)
+	}
 	return Name{Head: a.IDENTIFIER().GetText()}
 }
 
 // AuthorityEntryName returns the channel that an authority entry names, and the zero
 // Name for the default entry.
 func AuthorityEntryName(e IAuthorityEntryContext) Name {
+	if qid := e.QualifiedIdentifier(); qid != nil {
+		return qualifiedName(qid)
+	}
 	if id := e.IDENTIFIER(); id != nil {
 		return Name{Head: id.GetText()}
 	}

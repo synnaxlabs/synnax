@@ -10,6 +10,8 @@
 package parser_test
 
 import (
+	"testing"
+
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +22,18 @@ import (
 var _ = Describe("AST Utilities", func() {
 	parseExpr := func(code string) parser.IExpressionContext {
 		return MustSucceed(parser.ParseExpression(code))
+	}
+
+	// holdText stores the text of each token under t in the token, so a read of the
+	// text does not allocate.
+	var holdText func(t antlr.Tree)
+	holdText = func(t antlr.Tree) {
+		if term, ok := t.(antlr.TerminalNode); ok {
+			term.GetSymbol().SetText(term.GetText())
+		}
+		for i := range t.GetChildCount() {
+			holdText(t.GetChild(i))
+		}
 	}
 
 	Describe("SoleOperand", func() {
@@ -316,7 +330,7 @@ var _ = Describe("AST Utilities", func() {
 		DescribeTable("returns the name of a lone name",
 			func(code, head, tail string) {
 				Expect(parser.ExpressionName(parseExpr(code))).
-					To(Equal(parser.Name{Head: head, Tail: tail}))
+					To(And(HaveField("Head", head), HaveField("Tail", tail)))
 			},
 			Entry("bare name", "x", "x", ""),
 			Entry("qualified name", "m.doubled", "m", "doubled"),
@@ -328,6 +342,21 @@ var _ = Describe("AST Utilities", func() {
 			Entry("parenthesized", "(x)", "", ""),
 			Entry("literal", "42", "", ""),
 			Entry("negation", "-x", "", ""),
+		)
+
+		DescribeTable("Should allocate only what GetPrimaryExpression allocates",
+			func(code string, text float64) {
+				expr := parseExpr(code)
+				holdText(expr)
+				descent := testing.AllocsPerRun(100, func() {
+					parser.GetPrimaryExpression(expr)
+				})
+				Expect(testing.AllocsPerRun(100, func() {
+					parser.ExpressionName(expr)
+				})).To(Equal(descent + text))
+			},
+			Entry("bare name", "x", 0.0),
+			Entry("qualified name, plus its text", "m.doubled", 1.0),
 		)
 	})
 
@@ -466,7 +495,7 @@ var _ = Describe("AST Utilities", func() {
 
 		It("Should split a qualified identifier", func() {
 			Expect(parser.IdentifierName(identifierOf("trig -> m.f"))).
-				To(Equal(parser.Name{Head: "m", Tail: "f"}))
+				To(And(HaveField("Head", "m"), HaveField("Tail", "f")))
 		})
 	})
 
@@ -483,12 +512,25 @@ var _ = Describe("AST Utilities", func() {
 
 		It("Should split a qualified identifier", func() {
 			Expect(parser.PrimaryName(primaryOf("math.avg"))).
-				To(Equal(parser.Name{Head: "math", Tail: "avg"}))
+				To(And(HaveField("Head", "math"), HaveField("Tail", "avg")))
 		})
 
 		It("Should return the zero Name for a primary that is not a name", func() {
 			Expect(parser.PrimaryName(primaryOf("42"))).To(BeZero())
 		})
+
+		DescribeTable("Should allocate at most the text of a qualified name",
+			func(code string, allocs float64) {
+				primary := primaryOf(code)
+				holdText(primary)
+				Expect(testing.AllocsPerRun(100, func() {
+					parser.PrimaryName(primary)
+				})).To(Equal(allocs))
+			},
+			Entry("bare name", "x", 0.0),
+			Entry("qualified name", "math.avg", 1.0),
+			Entry("path of three segments", "stand.sensors.pt_01", 1.0),
+		)
 	})
 
 	Describe("AssignmentName", func() {
