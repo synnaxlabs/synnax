@@ -22,11 +22,24 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// expectDiagnostics expects err to hold the diagnostics of an expression that reads the
+// missing channel, at the path of the expression.
+func expectDiagnostics(err error) {
+	GinkgoHelper()
+	Expect(err).To(MatchError(ContainSubstring("missing")))
+	_, ok := errors.AsType[*diagnostics.Diagnostics](err)
+	Expect(ok).To(BeTrue(), "%v holds diagnostics", err)
+	pathErr := MustBeOk(errors.AsType[validate.PathError](err))
+	Expect(pathErr.Path).To(Equal([]string{"expression"}))
+}
 
 var _ = Describe("Writer", func() {
 	var (
@@ -414,6 +427,13 @@ var _ = Describe("Writer", func() {
 			).To(MatchError(validate.ErrValidation))
 		})
 
+		It("Should keep the diagnostics of a made output that does not compile", func(
+			ctx SpecContext,
+		) {
+			c := calculation.Calculation{Expression: "return missing * 2"}
+			expectDiagnostics(createOutput(ctx, &c, "doubled"))
+		})
+
 		It("Should make no output for an expression that does not compile", func(
 			ctx SpecContext,
 		) {
@@ -436,6 +456,28 @@ var _ = Describe("Writer", func() {
 				return err
 			})
 		}
+
+		It("Should keep the diagnostics of a create that does not compile", func(
+			ctx SpecContext,
+		) {
+			out := createVirtual(ctx, "doubled")
+			expectDiagnostics(create(ctx, &calculation.Calculation{
+				Output:     out.Key(),
+				Expression: "return missing * 2",
+			}))
+		})
+
+		It("Should keep the diagnostics of a new expression that cannot compile", func(
+			ctx SpecContext,
+		) {
+			read, out := createVirtual(ctx, "read"), createVirtual(ctx, "doubled")
+			c := calculation.Calculation{
+				Output:     out.Key(),
+				Expression: "return " + read.Name + " * 2",
+			}
+			Expect(create(ctx, &c)).To(Succeed())
+			expectDiagnostics(apply(ctx, c.Key, "expression", "return missing * 2"))
+		})
 
 		It("Should fail on an expression that does not compile", func(ctx SpecContext) {
 			out := createVirtual(ctx, "doubled")
