@@ -349,7 +349,13 @@ func startRewrite(b *testing.B, db *cesium.DB, dir string) {
 	if err = db.DeleteTimeRange(b.Context(), keys[1:], half.Range(end)); err != nil {
 		b.Fatal(err)
 	}
-	segments := filepath.Join(dir, strconv.Itoa(int(keys[1])))
+	awaitSegments(b, dir, keys[1], 3)
+}
+
+// awaitSegments returns once the directory of key in dir holds n segment files.
+func awaitSegments(b *testing.B, dir string, key cesium.ChannelKey, n int) {
+	b.Helper()
+	segments := filepath.Join(dir, strconv.Itoa(int(key)))
 	for {
 		entries, err := os.ReadDir(segments)
 		if err != nil {
@@ -357,7 +363,7 @@ func startRewrite(b *testing.B, db *cesium.DB, dir string) {
 		}
 		if len(slices.DeleteFunc(entries, func(e os.DirEntry) bool {
 			return !strings.HasSuffix(e.Name(), ".seg")
-		})) == 3 {
+		})) == n {
 			return
 		}
 		time.Sleep(time.Millisecond)

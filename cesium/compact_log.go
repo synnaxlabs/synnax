@@ -147,7 +147,7 @@ func (c *compactor) close() {
 // it. It removes the new file when the copy or the Replace fails, and logs the failure.
 // It returns only an error of ctx, of close, or of a failed state.
 func (c *compactor) rewrite(ctx context.Context, cand state.Candidate) error {
-	key := ChannelKey(cand.Key)
+	key := cand.Key
 	old, ok := c.e.pinSegment(key, cand.Segment)
 	if !ok {
 		return nil

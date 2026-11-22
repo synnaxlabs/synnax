@@ -265,8 +265,9 @@ var _ = Describe("Compaction on the pointer log", func() {
 			done := rewritten(text, old)
 			deleteRange(ctx, text, 100, 300)
 			Eventually(done).Should(BeTrue())
-			var want [][]byte
-			for _, s := range append(strs[:100:100], strs[300:]...) {
+			kept := append(strs[:100:100], strs[300:]...)
+			want := make([][]byte, 0, len(kept)+1)
+			for _, s := range kept {
 				want = append(want, []byte(s))
 			}
 			want = append(want, []byte("end"))
