@@ -12,6 +12,8 @@ package signals
 import (
 	"context"
 	"encoding/json/v2"
+	"slices"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -19,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -47,6 +50,14 @@ type ActionConfig[K gorp.Key, A any] struct {
 	//
 	// [OPTIONAL] - Defaults to no table.
 	Table string
+	// BatchCheck returns the check of a batch from the commit that attached it and the
+	// key of the entry that it edits. It runs once for each batch. A streamer sends the
+	// batch only to a subject that passes it, in place of a check of Resource, and
+	// sends
+	// no batch whose check it no longer holds.
+	//
+	// [OPTIONAL] - Defaults to a check of Resource.
+	BatchCheck func(c gorp.Commit, key K) (Check, error)
 }
 
 // Validate checks that the required fields of c are set.
@@ -68,18 +79,20 @@ func (p *Provider) PublishActions[K gorp.Key, A any](
 		return err
 	}
 	f := &actionFeed[K, A]{
-		cfg: cfg,
-		L:   p.cfg.L,
-		ch:  channel.Channel{Name: cfg.Name, DataType: telem.JSONT},
+		cfg:    cfg,
+		L:      p.cfg.L,
+		ch:     channel.Channel{Name: cfg.Name, DataType: telem.JSONT},
+		checks: &batchChecks[K]{},
 	}
 	return p.add(ctx, f, &f.ch)
 }
 
 // actionFeed writes the samples of one action channel.
 type actionFeed[K gorp.Key, A any] struct {
-	cfg ActionConfig[K, A]
-	L   *alamos.Logger
-	ch  channel.Channel
+	cfg    ActionConfig[K, A]
+	L      *alamos.Logger
+	ch     channel.Channel
+	checks *batchChecks[K]
 }
 
 func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
@@ -88,7 +101,24 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 		f.check(c, batches)
 	}
 	samples := telem.Series{DataType: telem.JSONT}
+	var checks map[batchID[K]]Check
+	if f.cfg.BatchCheck != nil && len(batches) > 0 {
+		checks = make(map[batchID[K]]Check, len(batches))
+		defer func() { f.checks.add(checks) }()
+	}
 	for _, batch := range batches {
+		if checks != nil {
+			check, err := f.cfg.BatchCheck(c, batch.Key)
+			if err != nil {
+				f.L.Error(
+					"failed to check an action batch",
+					zap.String("channel", f.ch.Name),
+					zap.Error(err),
+				)
+				continue
+			}
+			checks[batchID[K]{key: batch.Key, seq: batch.Seq}] = check
+		}
 		b, err := json.Marshal(batch)
 		if err != nil {
 			f.L.Error(
@@ -107,10 +137,67 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 }
 
 func (f *actionFeed[K, A]) records() map[channel.Key]Record {
-	return map[channel.Key]Record{
-		f.ch.Key(): {Of: recordOf(unmarshalKey[K], f.cfg.Resource)},
+	r := Record{Of: recordOf(unmarshalKey[K], f.cfg.Resource)}
+	if f.cfg.BatchCheck != nil {
+		r.Check = f.checks.of
 	}
+	return map[channel.Key]Record{f.ch.Key(): r}
 }
+
+// batchChecksCommits is how many commits of batch checks an action channel holds. A
+// streamer that falls further behind sends none of their batches.
+const batchChecksCommits = 64
+
+// batchID names one batch of an action channel.
+type batchID[K gorp.Key] struct {
+	key K
+	seq uint64
+}
+
+// batchChecks holds the check of each batch of the recent commits of an action channel,
+// so that each streamer reads it rather than the entry. It holds the last
+// batchChecksCommits commits with batches. It is safe for concurrent use.
+type batchChecks[K gorp.Key] struct {
+	mu sync.Mutex
+	// commits holds the checks of each commit, oldest first.
+	commits []map[batchID[K]]Check
+}
+
+func (b *batchChecks[K]) add(checks map[batchID[K]]Check) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if len(b.commits) == batchChecksCommits {
+		copy(b.commits, b.commits[1:])
+		b.commits = b.commits[:len(b.commits)-1]
+	}
+	b.commits = append(b.commits, checks)
+}
+
+// of returns the check of the batch that sample holds, or a check that refuses every
+// subject when the check is gone.
+func (b *batchChecks[K]) of(sample []byte) (Check, error) {
+	var v struct {
+		Key *K     `json:"key"`
+		Seq uint64 `json:"seq"`
+	}
+	if err := json.Unmarshal(sample, &v); err != nil {
+		return nil, err
+	}
+	if v.Key == nil {
+		return nil, errors.New("[signals] - batch has no key")
+	}
+	id := batchID[K]{key: *v.Key, seq: v.Seq}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for _, checks := range slices.Backward(b.commits) {
+		if check, ok := checks[id]; ok {
+			return check, nil
+		}
+	}
+	return refuse, nil
+}
+
+func refuse(func(resource.ID) bool) bool { return false }
 
 // check reports each create or update in c of a record of the table of f that has no
 // batch for its key.

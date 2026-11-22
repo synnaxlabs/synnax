@@ -187,16 +187,20 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	named := req.Named()
-	if err = q.Where(calculation.And(
-		bind.Filter(snap, calculation.Match),
-		calculation.Match(func(
-			_ gorp.Context,
-			_ calculation.Retrieve,
-			c *calculation.Calculation,
-		) (bool, error) {
-			return s.channelsAllowed(snap, named, *c)
-		}),
-	)).Exec(ctx, snap); err != nil {
+	if err = q.Where(calculation.Match(func(
+		_ gorp.Context,
+		_ calculation.Retrieve,
+		c *calculation.Calculation,
+	) (bool, error) {
+		id, denied := s.internal.Denied(*c, snap.Allowed)
+		if !denied {
+			return true, nil
+		}
+		if slices.Contains(named, calculation.ResourceID(c.Key)) {
+			return false, snap.Enforce(id)
+		}
+		return false, nil
+	})).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if req.IncludeStatus {
@@ -205,25 +209,6 @@ func (s *Service) Retrieve(
 		}
 	}
 	return res, nil
-}
-
-// channelsAllowed reports whether the subject of snap can retrieve each channel that c
-// links. It returns the denial when the request names c.
-func (s *Service) channelsAllowed(
-	snap bind.Snapshot,
-	named []resource.ID,
-	c calculation.Calculation,
-) (bool, error) {
-	for _, id := range s.internal.Channels(c) {
-		if snap.Allowed(id) {
-			continue
-		}
-		if slices.Contains(named, calculation.ResourceID(c.Key)) {
-			return false, snap.Enforce(id)
-		}
-		return false, nil
-	}
-	return true, nil
 }
 
 func (s *Service) attachStatuses(
