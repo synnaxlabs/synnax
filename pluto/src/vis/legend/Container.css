@@ -10,6 +10,8 @@
  */
 
 .pluto-legend {
+    --legend-name-width: 40rem;
+
     position: absolute;
     cursor: grabbing;
     z-index: 4;
@@ -49,6 +51,14 @@
         height: round(3.25rem, 1px);
         flex-shrink: 0;
         cursor: pointer;
+    }
+
+    .pluto-legend-entry__body {
+        min-width: 0;
+    }
+
+    .pluto-legend-entry__label {
+        max-width: var(--legend-name-width);
     }
 
     .pluto-legend-entry__start {

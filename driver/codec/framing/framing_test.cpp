@@ -373,6 +373,13 @@ TEST(Cobs, AcceptMaxSize) {
     EXPECT_EQ(Bytes(got.value().begin(), got.value().end()), frame);
 }
 
+/// @brief it should drop an empty frame with no error.
+TEST(Cobs, DropEmptyFrame) {
+    const auto f = cobs();
+    f->write(Bytes{0x01, 0x00, 0x03, 'o', 'k', 0x00});
+    EXPECT_EQ(frames(*f, ""), (Frames{"ok"}));
+}
+
 /// @brief it should encode frames that a COBS framer reads back.
 TEST(Cobs, RoundTrip) {
     const auto f = cobs();
@@ -432,6 +439,11 @@ TEST(Slip, RoundTrip) {
     for (std::size_t i = 0; i < frames.size(); i += 2)
         std::ranges::replace(frames[i], std::uint8_t{0xC0}, std::uint8_t{0xDB});
     assert_round_trips(*f, frames);
+}
+
+/// @brief it should refuse to encode an empty frame.
+TEST(Slip, RefuseEmptyFrame) {
+    assert_refuses(*slip(), "", "the frame is empty");
 }
 
 namespace {

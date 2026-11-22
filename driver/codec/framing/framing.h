@@ -78,11 +78,12 @@ delimited(std::vector<std::uint8_t> delimiter);
 std::pair<std::unique_ptr<Framer>, x::errors::Error> fixed(std::size_t length);
 
 /// @brief creates a framer that stuffs each frame with consistent overhead byte
-/// stuffing (COBS) and ends it with a zero byte.
+/// stuffing (COBS) and ends it with a zero byte. It drops an empty frame with no error.
 std::unique_ptr<Framer> cobs();
 
 /// @brief creates a framer that escapes each frame with the serial line internet
-/// protocol (SLIP, RFC 1055) and ends it with an END byte.
+/// protocol (SLIP, RFC 1055) and ends it with an END byte. It drops an empty frame with
+/// no error.
 std::unique_ptr<Framer> slip();
 
 /// @brief ChecksumAlgorithm is a CRC that ends a sync frame.
