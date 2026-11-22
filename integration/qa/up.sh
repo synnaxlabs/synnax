@@ -9,9 +9,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Starts an in-memory Core with the web Console embedded, writes live data, and opens a
-# headless Chromium logged in to the Console with the sample project open. An agent
-# drives that browser through the Chrome DevTools Protocol.
+# Starts a Core with the web Console embedded on new data, writes live data, and opens
+# a headless Chromium logged in to the Console with the sample project open. An agent
+# drives that browser through the Chrome DevTools Protocol. core.sh restarts the Core.
 #
 # Environment: SYNNAX_LICENSE_KEY (required), QA_DIR (default /tmp/console-qa),
 # QA_PORT for the Core (default 9090), QA_CDP_PORT for Chromium (default 9222).
@@ -32,15 +32,23 @@ if [ ! -O "$QA_DIR" ]; then
 fi
 chmod 700 "$QA_DIR"
 mkdir -p "$QA_DIR/images"
-# Stops the processes of an earlier run, skipping PIDs the OS has since reused.
+# Stops the processes of an earlier run, skipping PIDs the OS has since reused. They
+# must exit before their files go, or Chromium writes into the profile as it is deleted.
 if [ -f "$QA_DIR/pids" ]; then
     while read -r pid; do
         case $(ps -p "$pid" -o command= 2> /dev/null) in
-            *"$QA_DIR"* | *qa/live.py*) kill "$pid" ;;
+            *"$QA_DIR"* | *qa/live.py*)
+                kill "$pid" 2> /dev/null || continue
+                for _ in $(seq 20); do
+                    kill -0 "$pid" 2> /dev/null || continue 2
+                    sleep 0.5
+                done
+                kill -9 "$pid" 2> /dev/null || true
+                ;;
         esac
     done < "$QA_DIR/pids"
 fi
-rm -rf "$QA_DIR/pids" "$QA_DIR/chromium"
+rm -rf "$QA_DIR"/{pids,chromium,data,core.pid,live.pid,core.log,live.log}
 touch "$QA_DIR/pids"
 trap 'xargs kill < "$QA_DIR/pids" 2> /dev/null' ERR
 
@@ -65,9 +73,7 @@ for port in "$QA_PORT" "$QA_CDP_PORT"; do
     fi
 done
 
-"$QA_DIR/synnax" start -mi -l "localhost:$QA_PORT" > "$QA_DIR/core.log" 2>&1 &
-echo $! >> "$QA_DIR/pids"
-wait_port "$QA_PORT"
+QA_DIR=$QA_DIR QA_PORT=$QA_PORT integration/qa/core.sh
 (cd console && node scripts/create_sample.ts "$QA_PORT")
 
 cd integration
@@ -76,15 +82,14 @@ if [ "$(uname)" = Linux ]; then
 else
     uv run playwright install chromium
 fi
-nohup uv run python qa/live.py "$QA_PORT" > "$QA_DIR/live.log" 2>&1 &
-echo $! >> "$QA_DIR/pids"
-
 chromium=$(uv run python -c "from playwright.sync_api import sync_playwright as p
 with p() as pw: print(pw.chromium.executable_path)")
-nohup "$chromium" --headless=new --remote-debugging-port="$QA_CDP_PORT" \
-    --user-data-dir="$QA_DIR/chromium" --window-size=1440,900 \
-    --enable-unsafe-swiftshader --no-first-run --no-default-browser-check \
-    > "$QA_DIR/chromium.log" 2>&1 &
+flags=(--headless=new --remote-debugging-port="$QA_CDP_PORT"
+    --user-data-dir="$QA_DIR/chromium" "--window-size=1440,900"
+    --enable-unsafe-swiftshader --no-first-run --no-default-browser-check)
+# Chromium refuses to start its sandbox as root.
+if [ "$(id -u)" = 0 ]; then flags+=(--no-sandbox); fi
+nohup "$chromium" "${flags[@]}" > "$QA_DIR/chromium.log" 2>&1 &
 echo $! >> "$QA_DIR/pids"
 wait_port "$QA_CDP_PORT"
 

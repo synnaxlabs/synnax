@@ -9,10 +9,10 @@
 
 """Writes an hour of history and then live data to `qa_*` channels until killed.
 
-Usage: uv run python qa/live.py PORT
+Usage: uv run python qa/live.py PORT [--no-history]
 """
 
-import sys
+import argparse
 
 import numpy as np
 
@@ -20,9 +20,17 @@ import synnax as sy
 
 RATE = 50
 HISTORY = sy.TimeSpan.HOUR
+STEP = int(sy.TimeSpan.SECOND) // RATE
 
 
-def frame(stamps: np.ndarray, t: np.ndarray) -> dict[str, np.ndarray]:
+def stamps(start: sy.TimeStamp, count: int) -> np.ndarray:
+    """Returns count exact stamps from start, RATE per second."""
+    return int(start) + np.arange(count, dtype=np.int64) * STEP
+
+
+def frame(stamps: np.ndarray) -> dict[str, np.ndarray]:
+    # The phase comes from the stamp, so the signals stay smooth across a restart.
+    t = stamps / int(sy.TimeSpan.SECOND)
     rng = np.random.default_rng()
     return {
         "qa_time": stamps,
@@ -32,7 +40,7 @@ def frame(stamps: np.ndarray, t: np.ndarray) -> dict[str, np.ndarray]:
     }
 
 
-def main(port: int) -> None:
+def main(port: int, history: bool) -> None:
     client = sy.Synnax(
         host="localhost", port=port, username="synnax", password="seldon"
     )
@@ -42,7 +50,7 @@ def main(port: int) -> None:
         data_type=sy.DataType.TIMESTAMP,
         retrieve_if_name_exists=True,
     )
-    first = frame(np.zeros(1, dtype=np.int64), np.zeros(1))
+    first = frame(np.zeros(1, dtype=np.int64))
     for name, data in list(first.items())[1:]:
         client.channels.create(
             name=name,
@@ -51,20 +59,24 @@ def main(port: int) -> None:
             retrieve_if_name_exists=True,
         )
     end = sy.TimeStamp.now()
-    start = end - HISTORY
-    count = int(HISTORY.seconds * RATE)
-    stamps = np.linspace(int(start), int(end), count, endpoint=False, dtype=np.int64)
-    t = np.arange(count) / RATE
-    client.write(start, frame(stamps, t))
-    client.ranges.create(name="QA history", time_range=sy.TimeRange(start, end))
+    if history:
+        start = end - HISTORY
+        count = int(HISTORY.seconds * RATE)
+        client.write(start, frame(stamps(start, count)))
+        client.ranges.create(name="QA history", time_range=sy.TimeRange(start, end))
     loop = sy.Loop(sy.Rate.HZ * RATE)
     with client.open_writer(end, list(first)) as writer:
-        i = count
         while loop.wait():
-            now = np.array([int(sy.TimeStamp.now())], dtype=np.int64)
-            writer.write(frame(now, np.array([i / RATE])))
-            i += 1
+            writer.write(frame(np.array([int(sy.TimeStamp.now())], dtype=np.int64)))
 
 
 if __name__ == "__main__":
-    main(int(sys.argv[1]))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("port", type=int)
+    parser.add_argument(
+        "--no-history",
+        action="store_true",
+        help="Write only live data, as after a Core restart.",
+    )
+    args = parser.parse_args()
+    main(args.port, not args.no_history)
