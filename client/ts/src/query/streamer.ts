@@ -67,8 +67,8 @@ export interface StreamerParams {
    */
   onReopen?: () => void;
   /**
-   * Called whenever the stream goes live: after the initial open and before every
-   * onReopen, so reconciliation fetches never race a stale liveness verdict.
+   * Called whenever the stream goes live, before onOpen and every onReopen, so
+   * reconciliation fetches never race a stale liveness verdict.
    */
   onLive?: () => void;
   /** Called when the underlying stream fails and reconnection begins. */
@@ -140,8 +140,6 @@ export const createStreamer = ({
       { channels },
       {
         breaker: breakerConfig,
-        // onLive first: onReopen's reconcile fetches must not hit a stale liveness
-        // short circuit
         onReopen: () => {
           onLive?.();
           onReopen?.();
@@ -155,8 +153,8 @@ export const createStreamer = ({
     hardened = h;
     await h.start();
     // ObservableStreamer construction below starts reads, so onOpen precedes any frame.
-    onOpen?.();
     onLive?.();
+    onOpen?.();
     // A listener can await, so each frame waits for the one before it to apply.
     let applied: Promise<void> = Promise.resolve();
     const handleChange = (frame: framer.Frame) => {

@@ -484,6 +484,26 @@ describe("Cache", () => {
       await cache.close();
     });
 
+    it("refetches the keys of a fetch in flight when the stream opens", async () => {
+      let name = "stale";
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const fetch = vi.fn(async (keys: string[]) => {
+        const fetched = keys.map((key) => ({ key, name }));
+        if (fetch.mock.calls.length === 1) await released;
+        return fetched;
+      });
+      const cache = makeEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      const retrieved = table.retrieve(["k1"]);
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      name = "fresh";
+      await cache.ensureStreaming();
+      release();
+      await retrieved;
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "fresh" });
+      await cache.close();
+    });
+
     it("routes streamed changes into the table via a declared set listener", async () => {
       const schema = z.object({ key: z.string(), name: z.string() });
       const opener = async () =>
@@ -946,6 +966,37 @@ describe("Cache", () => {
         .poll(async () => (await space.retrieve("k1")).name)
         .toEqual("second");
       detach();
+      await cache.close();
+    });
+
+    it("bumps the epoch and reconciles when a later demand reopens it", async () => {
+      let opens = 0;
+      const cache = makeEngine(
+        async (): Promise<framer.Streamer> => {
+          opens++;
+          if (opens === 1) return failingStreamer();
+          if (opens === 2) throw new Error("unreachable");
+          return new MockStreamer();
+        },
+        { maxRetries: 1 },
+      );
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((key) => ({ key, name: "b" })),
+      );
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      const epochs: number[] = [];
+      cache.onEpoch((epoch) => epochs.push(epoch));
+      await cache.ensureStreaming();
+      table.set("k1", { key: "k1", name: "a" });
+      await expect
+        .poll(async () => {
+          await cache.ensureStreaming();
+          return opens;
+        })
+        .toBe(3);
+      expect(epochs).toEqual([1, 2]);
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "b" });
+      expect(fetch).toHaveBeenCalledWith(["k1"]);
       await cache.close();
     });
   });

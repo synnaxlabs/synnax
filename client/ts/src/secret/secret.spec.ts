@@ -449,6 +449,7 @@ describe("Secret", () => {
 
     it("should page a list that reads uses with a cursor", async () => {
       const client = createTestClient();
+      await waitForStreamLive(client.connection);
       const prefix = id.create();
       for (const i of [0, 1])
         await client.secrets.set({

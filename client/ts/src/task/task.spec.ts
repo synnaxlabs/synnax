@@ -271,7 +271,7 @@ describe("Task", async () => {
         }),
       ];
       const local = createTestClient();
-      await local.connect();
+      await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
       const res = await Promise.all(
         created.map(async ({ key }) => await local.tasks.retrieve(key)),
