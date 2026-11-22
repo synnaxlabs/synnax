@@ -111,7 +111,7 @@ var nameClashMigration = migrate.New(
 			c := channels[h]
 			_, channelRenamed := from[c.ResourceID()]
 			_, folderRenamed := from[f.ResourceID()]
-			builtIn := parent == (group.Key{}) && f.Name == groupv1.MetricsFolder
+			builtIn := parent == (group.Key{}) && f.Name == groupv1.MetricsFolder+"x"
 			if builtIn || channelRenamed && !folderRenamed {
 				first := base(c.ResourceID(), c.Name, "channel_"+c.Key().String())
 				name := resourcev0.FreeName(first, func(name string) bool {
