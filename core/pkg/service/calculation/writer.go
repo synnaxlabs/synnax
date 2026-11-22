@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
@@ -114,7 +113,7 @@ func (w Writer) CreateOutput(
 		compiler.HasDerivative(c.Operations),
 	)
 	if err != nil {
-		return nil, expressionError(err)
+		return nil, validate.PathedError(err, "expression")
 	}
 	output.DataType = result.ChanDataType
 	created := []channel.Channel{output}
@@ -248,7 +247,7 @@ func (w Writer) compile(
 		compiler.HasDerivative(c.Operations),
 	)
 	if err != nil {
-		return expressionError(err)
+		return validate.PathedError(err, "expression")
 	}
 	if c.Primary != nil && !slices.Contains(result.Deps, *c.Primary) {
 		return validate.PathedError(errors.Wrapf(
@@ -353,15 +352,6 @@ func (w Writer) cycleError(ctx context.Context, path channel.Keys) error {
 }
 
 func (w Writer) newAnalyzer() *compiler.Analyzer { return w.svc.newAnalyzer(w.tx) }
-
-// expressionError returns err at the path of the expression. Diagnostics stay whole, so
-// errors.As still finds them: a path splits any other error with many causes.
-func expressionError(err error) error {
-	if _, ok := errors.AsType[*diagnostics.Diagnostics](err); ok {
-		return validate.PathError{Path: []string{"expression"}, Err: err}
-	}
-	return validate.PathedError(err, "expression")
-}
 
 // SetReads stores reads, in order and each once, as the reads of c, and broadcasts a
 // set
