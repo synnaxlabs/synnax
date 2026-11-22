@@ -41,6 +41,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	apiimpact "github.com/synnaxlabs/synnax/pkg/api/impact"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
@@ -61,6 +62,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -93,6 +95,10 @@ type Transport struct {
 	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
 	ChannelRetrieve freighter.UnaryServer[channel.RetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
+	// ImpactPlan returns what a change to channels would do.
+	ImpactPlan freighter.UnaryServer[apiimpact.PlanRequest, impact.Plan]
+	// ImpactApply carries out a change to channels with the caller's picks.
+	ImpactApply freighter.UnaryServer[apiimpact.ApplyRequest, impact.Plan]
 	// ChannelCountLimited returns how many channels count against the license channel
 	// limit.
 	ChannelCountLimited freighter.UnaryServer[
@@ -339,6 +345,7 @@ type Layer struct {
 	User         *user.Service
 	Framer       *framer.Service
 	Channel      *channel.Service
+	Impact       *apiimpact.Service
 	Control      *control.Service
 	Connectivity *connectivity.Service
 	License      *license.Service
@@ -440,6 +447,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.ChannelCreate,
 		t.ChannelRetrieve,
 		t.ChannelDelete,
+		t.ImpactPlan,
+		t.ImpactApply,
 		t.ChannelCountLimited,
 		t.ChannelRetrieveBuiltIns,
 		t.ChannelDispatch,
@@ -702,6 +711,8 @@ func (l *Layer) BindTo(t Transport) {
 	t.ChannelRetrieve.BindHandler(bind.Read(l.binder, l.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
+	t.ImpactPlan.BindHandler(bind.Read(l.binder, l.Impact.Plan))
+	t.ImpactApply.BindHandler(l.Impact.ApplyHandler(l.binder))
 	t.ChannelCountLimited.BindHandler(bind.Read(l.binder, l.Channel.CountLimited))
 	t.ChannelRetrieveBuiltIns.BindHandler(
 		bind.Read(l.binder, l.Channel.RetrieveBuiltIns),
@@ -995,6 +1006,13 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Channel:     cfg.Service.Channel,
 		Status:      cfg.Service.Status,
 		Calculation: cfg.Service.Calculation,
+		Impact:      cfg.Service.Impact,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Impact, err = apiimpact.NewService(apiimpact.ServiceConfig{
+		RBAC:   cfg.Service.RBAC,
+		Impact: cfg.Service.Impact,
 	}); err != nil {
 		return nil, err
 	}

@@ -96,6 +96,12 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 // unless res is nil. It returns the error that the response holds.
 func post(path string, req, res any) error {
 	GinkgoHelper()
+	return postAs(rootToken, path, req, res)
+}
+
+// postAs sends req to path as post does, as the user whose session token is token.
+func postAs(token, path string, req, res any) error {
+	GinkgoHelper()
 	httpReq := httptest.NewRequest(
 		http.MethodPost,
 		path,
@@ -103,7 +109,7 @@ func post(path string, req, res any) error {
 	)
 	httpReq.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 	httpReq.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
-	httpReq.Header.Set(fiber.HeaderAuthorization, "Bearer "+rootToken)
+	httpReq.Header.Set(fiber.HeaderAuthorization, "Bearer "+token)
 	httpRes := send(httpReq)
 	defer func() { Expect(httpRes.Body.Close()).To(Succeed()) }()
 	body := MustSucceed(io.ReadAll(httpRes.Body))

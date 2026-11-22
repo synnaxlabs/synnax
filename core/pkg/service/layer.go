@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"time"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/parser"
@@ -46,6 +47,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
@@ -305,6 +307,8 @@ type Layer struct {
 	Certificate *certificate.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
+	// Impact plans each change to channels and applies it with the caller's picks.
+	Impact *impact.Service
 	// Node serves the host node of the Core as a resource.
 	Node *node.Service
 	// Resource searches and names records of every type.
@@ -1266,6 +1270,28 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		},
 		HostKey: cfg.Distribution.Identity.HostKey,
 	}); !ok(err, l.Driver) {
+		return nil, err
+	}
+	if l.Impact, err = impact.OpenService(impact.ServiceConfig{
+		Channel:  l.Channel,
+		RecordOf: taskconfig.RecordOf,
+		Delete: func(ctx context.Context, tx gorp.Tx, records []resource.ID) error {
+			w := l.Task.NewWriter(tx)
+			for _, r := range records {
+				if r.Type != resource.TypeTask {
+					return errors.Newf("impact cannot delete %s", r)
+				}
+				k, err := uuid.Parse(r.Key)
+				if err != nil {
+					return err
+				}
+				if err = w.Delete(ctx, k, false); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}); err != nil {
 		return nil, err
 	}
 	return l, nil

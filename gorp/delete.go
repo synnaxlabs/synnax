@@ -26,6 +26,9 @@ type Delete[K Key, E Entry[K]] struct {
 	guards guards[K, E]
 	// table is the Table the query deletes from. Nil for a query that no Table built.
 	table *Table[K, E]
+	// planned is what PlanDelete returned for the delete, or nil for a delete that
+	// walks the references itself.
+	planned *DeleteEffects
 }
 
 // NewDelete opens a new Delete query.
@@ -59,6 +62,15 @@ func (d Delete[K, E]) Guard(filter GuardFunc[K, E]) Delete[K, E] {
 	return d
 }
 
+// Planned makes the delete apply effects, which Table.PlanDelete returned for its
+// entries in the same transaction, instead of walking the references again. The caller
+// must remove each holder in effects.Restricts first: Exec fails with the RestrictError
+// of one that still exists. A Delete that no Table built ignores effects.
+func (d Delete[K, E]) Planned(effects DeleteEffects) Delete[K, E] {
+	d.planned = &effects
+	return d
+}
+
 // Exec executes the query against the provided transaction. If the resolved filter is
 // bounded by primary keys and any of those keys do not exist, Delete will assume the
 // missing keys do not need to be deleted and continue with the keys that do exist.
@@ -85,7 +97,7 @@ func (d Delete[K, E]) exec(ctx context.Context, tx Tx) error {
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
 	if d.table != nil {
-		return d.table.delete(ctx, tx, keys)
+		return d.table.delete(ctx, tx, keys, d.planned)
 	}
 	w := wrapWriter[K, E](tx, "", d.retrieve.keyPrefix, nil)
 	return w.Delete(ctx, keys...)
