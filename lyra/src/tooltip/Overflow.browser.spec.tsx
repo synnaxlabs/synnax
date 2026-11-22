@@ -85,6 +85,28 @@ describe("Tooltip.Overflow", () => {
     expect(tips[0].textContent).toBe(LONG_NAME);
   });
 
+  it("should show the full text of a label cut by its line clamp", () => {
+    const c = render(<Text.Text lineClamp={2}>{LONG_NAME}</Text.Text>, {
+      wrapper: Wrapper,
+    });
+    const label = c.getByText(LONG_NAME);
+    mockWidth(label, 100);
+    Object.defineProperty(label, "scrollHeight", { configurable: true, value: 60 });
+    Object.defineProperty(label, "clientHeight", { configurable: true, value: 32 });
+    fireEvent.pointerOver(label);
+    advance(PAST_DELAY);
+    expect(getTooltips().map((t) => t.textContent)).toEqual([LONG_NAME]);
+  });
+
+  it("should not show a tooltip for a fade label that is only taller than its box", () => {
+    const label = renderLabel(100);
+    Object.defineProperty(label, "scrollHeight", { configurable: true, value: 60 });
+    Object.defineProperty(label, "clientHeight", { configurable: true, value: 20 });
+    fireEvent.pointerOver(label);
+    advance(PAST_DELAY);
+    expect(getTooltips()).toHaveLength(0);
+  });
+
   it("should not show a tooltip for a label that fits", () => {
     const label = renderLabel(100);
     fireEvent.pointerOver(label);

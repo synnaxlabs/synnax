@@ -25,10 +25,10 @@ export interface Scope {
   lines: string[];
 }
 
-/** What a plot hides, and the item a solo showed alone. */
+/** What a plot hides, and the item that it isolates. */
 export interface Visibility {
   hidden: Hidden;
-  solo: Session.LinePlot.Solo | null;
+  isolation: Session.LinePlot.Isolation | null;
 }
 
 export const NONE_HIDDEN: Hidden = { lines: [], ranges: [], traces: [] };
@@ -143,22 +143,26 @@ export const setItemVisible = (
 };
 
 /**
- * @returns state that shows only item. It keeps what was hidden before the first solo,
- * so that a second solo of the same item restores it.
+ * @returns state that shows only item. It keeps what was hidden before the first
+ * isolation, so that toggleIsolation of the same item restores it.
  */
-export const showOnly = (state: Visibility, item: Item, scope: Scope): Visibility => ({
+export const isolate = (state: Visibility, item: Item, scope: Scope): Visibility => ({
   hidden: only(item, scope),
-  solo: { item: itemKey(item), restore: state.solo?.restore ?? state.hidden },
+  isolation: { item: itemKey(item), restore: state.isolation?.restore ?? state.hidden },
 });
 
 /**
- * @returns state that shows only item, or the state from before the solo when item is
- * the one the solo showed alone.
+ * @returns state that isolates item, or the state from before the isolation when item
+ * is the one already isolated.
  */
-export const toggleSolo = (state: Visibility, item: Item, scope: Scope): Visibility =>
-  state.solo?.item === itemKey(item)
-    ? { hidden: inScope(state.solo.restore, scope), solo: null }
-    : showOnly(state, item, scope);
+export const toggleIsolation = (
+  state: Visibility,
+  item: Item,
+  scope: Scope,
+): Visibility =>
+  state.isolation?.item === itemKey(item)
+    ? { hidden: inScope(state.isolation.restore, scope), isolation: null }
+    : isolate(state, item, scope);
 
 /** @returns whether line is hidden in every range of scope. */
 export const isLineHidden = (

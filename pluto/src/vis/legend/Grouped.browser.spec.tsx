@@ -95,6 +95,37 @@ describe("Legend.Grouped", () => {
     expect(badge.right).toBeGreaterThanOrEqual(label.right);
   });
 
+  it("should wrap a long range name with its badge on the first line", async () => {
+    const name =
+      "Hot fire 3 LOX tank pressurization with the new regulator, second try";
+    await renderThemed(
+      <div style={{ position: "relative", width: 1000, height: 400 }}>
+        <Legend.Grouped
+          nested
+          data={[
+            {
+              key: "r",
+              name,
+              color: "#ff0000",
+              badge: { label: "T0", tooltip: "Custom T0" },
+              data: [{ key: "a", label: "a" }],
+            },
+          ]}
+        />
+      </div>,
+    );
+    const text = screen.getByText(name);
+    const lineHeight = parseFloat(getComputedStyle(text).lineHeight);
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const lines = text.clientHeight - parseFloat(getComputedStyle(text).paddingTop) * 2;
+    expect(lines).toBeCloseTo(2 * lineHeight, 0);
+    expect(text.getBoundingClientRect().width).toBeLessThanOrEqual(40 * rem);
+    const badge = screen.getByText("T0").getBoundingClientRect();
+    expect(badge.bottom).toBeLessThan(
+      text.getBoundingClientRect().top + lineHeight + 4,
+    );
+  });
+
   it("should leave space between the divider and the groups on each side", async () => {
     const { divider, above, below } = await renderGrouped();
     const line = divider.getBoundingClientRect();

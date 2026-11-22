@@ -45,10 +45,10 @@ export interface EntriesProps {
   onColorChange?: (key: string, color: color.Color) => void;
   onLabelChange?: (key: string, label: string) => void;
   /**
-   * Called when the user toggles the visibility of an entry. solo is true when the user
-   * holds Alt to show only that entry.
+   * Called when the user toggles the visibility of an entry. isolated is true when the
+   * user holds Alt to show only that entry.
    */
-  onVisibleChange?: (key: string, visible: boolean, solo: boolean) => void;
+  onVisibleChange?: (key: string, visible: boolean, isolated: boolean) => void;
   /** Called with the key of the entry the pointer enters, and null when it leaves. */
   onHoverChange?: (key: string | null) => void;
   /** Sorts the entries by label. Otherwise they keep the order of data. */
@@ -157,7 +157,7 @@ const Entry = ({
       {...hover}
       {...rest}
     >
-      <Flex.Box align="center" gap="small" x>
+      <Flex.Box align="center" gap="small" x className={CSS.BE("legend-entry", "body")}>
         {color != null && (
           <Color.Swatch
             draggable={false}
@@ -177,7 +177,7 @@ const Entry = ({
           level="small"
           onChange={onLabelChange == null ? undefined : (l) => onLabelChange(key, l)}
           onDoubleClick={stopPropagation}
-          overflow="nowrap"
+          overflow="fade"
           value={label}
         />
       </Flex.Box>
