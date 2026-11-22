@@ -756,7 +756,7 @@ func (s *Service) Dispatch(
 ) (DispatchResponse, error) {
 	computed, err := s.applyChannel(ctx, tx, req.DispatchKey, req.Key, req.Actions)
 	if err != nil {
-		return DispatchResponse{}, err
+		return DispatchResponse{}, s.describe(ctx, tx, err)
 	}
 	if !slices.ContainsFunc(req.Actions, editsCalculation) {
 		return DispatchResponse{Actions: computed}, nil
