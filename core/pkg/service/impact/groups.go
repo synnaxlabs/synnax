@@ -62,17 +62,25 @@ func (s *Service) planGroups(
 		}
 		slices.SortFunc(p.Entries, compareEntries)
 	}
-	if !picked {
-		return p, nil
-	}
-	entries := make(set.Set[resource.ID], len(p.Entries))
-	for _, e := range p.Entries {
-		if _, err = chosen.pickOf(e); err != nil {
+	if picked {
+		if err = refusePicks(chosen, p.Entries); err != nil {
 			return Plan{}, err
 		}
-		entries.Add(e.Record)
 	}
-	return p, pickWithoutEntry(chosen.named, entries)
+	return p, nil
+}
+
+// refusePicks returns the validation error of the first pick of chosen that its entry
+// among entries does not allow, or then of the smallest pick that names no entry.
+func refusePicks(chosen picks, entries []Entry) error {
+	named := make(set.Set[resource.ID], len(entries))
+	for _, e := range entries {
+		if _, err := chosen.pickOf(e); err != nil {
+			return err
+		}
+		named.Add(e.Record)
+	}
+	return pickWithoutEntry(chosen.named, named)
 }
 
 // groupsSum returns the plan sum of p, the plan of the delete of the groups with keys,
