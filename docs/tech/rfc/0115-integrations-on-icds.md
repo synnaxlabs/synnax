@@ -216,7 +216,7 @@ real adapter (§6.16).
 | 29    | Add framing and transports to the Driver          | `driver/transport`, `driver/bus`                                                                                             | 28         |
 | 30    | Add serial, TCP, and UDP tasks                    | `driver/serial`, `driver/tcp`, `driver/udp`, `core/pkg/service/serial`, `console/src/feature/serial`                         | 6, 29      |
 | 31    | Add CAN tasks                                     | `driver/can`, `core/pkg/service/can`, `console/src/feature/can`                                                              | 6, 29      |
-| 32    | Document the bus integrations and remove the flag | `site/docs`, `console/src/flags.ts`, `.github/workflows`                                                                     | 30, 31     |
+| 32    | Document the bus integrations and remove the flag | `site/docs`, `console/src/flags/flags.ts`, `.github/workflows`                                                               | 30, 31     |
 
 ## 6 Resolved decisions
 
@@ -243,7 +243,10 @@ real adapter (§6.16).
    HTTP then builds the Driver's ICD access and JSON codec, which the bus path reuses.
    The bus path runs in parallel at lower priority (2026-11-18).
 10. **The bus integrations hide behind one flag**: One flag flips them together after
-    their docs and CI land.
+    their docs and CI land. The `icds` and `bus` flags turn on in Desktop and the
+    Console in the same release, with no Desktop-only stage (2026-11-22). A CAN backend
+    with no adapter stays out of the Driver's integration list, so it stays hidden after
+    the flag goes.
 11. **The Driver asks the Core for ICDs**: It fetches them by key when it configures a
     task, as it does channels (2026-11-18). A copy of each ICD in the task config would
     store the data twice, and the Core would rewrite every task on each ICD edit.
