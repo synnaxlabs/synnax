@@ -60,11 +60,12 @@ type TableConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	//
 	// [OPTIONAL] - Defaults to the key field of the JSON sample.
 	SetKey func(sample []byte) (K, error)
-	// SetCheck returns the check of one sample of the set channel. A streamer sends the
-	// sample only to a subject that passes it, in place of a check of Resource.
+	// SetCheck returns the check of the set of an entry. It runs once for each set. A
+	// streamer sends the set only to a subject that passes it, in place of a check of
+	// Resource, and sends no set whose check it no longer holds.
 	//
 	// [OPTIONAL] - Defaults to a check of Resource.
-	SetCheck func(sample []byte) (Check, error)
+	SetCheck func(E) Check
 	// SetDisabled is true when an action channel describes the sets of the table, so
 	// the table has no set channel.
 	//
@@ -132,9 +133,10 @@ func (p *Provider) PublishTable[K gorp.Key, E gorp.Entry[K]](
 		return err
 	}
 	f := &tableFeed[K, E]{
-		cfg: cfg,
-		L:   p.cfg.L,
-		del: channel.Channel{Name: cfg.DeleteName, DataType: keyDataType[K]()},
+		cfg:    cfg,
+		L:      p.cfg.L,
+		del:    channel.Channel{Name: cfg.DeleteName, DataType: keyDataType[K]()},
+		checks: &commitChecks[string]{},
 	}
 	channels := []*channel.Channel{&f.del}
 	if !*cfg.SetDisabled {
@@ -151,12 +153,15 @@ type tableFeed[K gorp.Key, E gorp.Entry[K]] struct {
 	// set is nil when the table has no set channel.
 	set *channel.Channel
 	del channel.Channel
+	// checks holds the check of each set, by the bytes of its sample.
+	checks *commitChecks[string]
 }
 
 func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 	var (
 		sets    = telem.Series{DataType: telem.JSONT}
 		deletes = telem.Series{DataType: f.del.DataType}
+		checks  map[string]Check
 	)
 	for ch := range f.cfg.Changes(c) {
 		if ch.Kind == gorp.ChangeDelete {
@@ -176,6 +181,14 @@ func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 			continue
 		}
 		sets.Data = append(sets.Data, b...)
+		if f.cfg.SetCheck != nil {
+			if checks == nil {
+				checks = make(map[string]Check)
+				defer func() { f.checks.add(checks) }()
+			}
+			sample, _ := telem.UnmarshalVariableSample(b)
+			checks[string(sample)] = f.cfg.SetCheck(ch.Value)
+		}
 	}
 	if len(sets.Data) > 0 {
 		fr = fr.Append(f.set.Key(), sets)
@@ -194,24 +207,15 @@ func (f *tableFeed[K, E]) records() map[channel.Key]Record {
 		},
 	}
 	if f.set != nil {
-		records[f.set.Key()] = Record{
-			Of:    recordOf(f.cfg.SetKey, f.cfg.Resource),
-			Check: f.cfg.SetCheck,
+		r := Record{Of: recordOf(f.cfg.SetKey, f.cfg.Resource)}
+		if f.cfg.SetCheck != nil {
+			r.Check = func(sample []byte) (Check, error) {
+				return getSample(f.checks, sample), nil
+			}
 		}
+		records[f.set.Key()] = r
 	}
 	return records
-}
-
-// CheckJSON returns a SetCheck that decodes each sample as the JSON of an E and checks
-// it with check.
-func CheckJSON[E any](check func(E) Check) func(sample []byte) (Check, error) {
-	return func(sample []byte) (Check, error) {
-		var e E
-		if err := json.Unmarshal(sample, &e); err != nil {
-			return nil, err
-		}
-		return check(e), nil
-	}
 }
 
 // MarshalJSON encodes e as one variable JSON sample.
