@@ -997,7 +997,7 @@ describe("MultiplexedStreamer", () => {
       hooks[0].onMissed();
       await vi.advanceTimersByTimeAsync(10);
       expect(invalidate.mock.calls).toEqual([
-        [1, new TimeRange(open?.range.start ?? TimeStamp.MIN, TimeStamp.MAX)],
+        [1, new TimeRange(open?.range.start ?? TimeStamp.MIN, TimeStamp.MAX), true],
       ]);
       expect(restart).toHaveBeenCalledTimes(1);
       hooks[0].onMissed();
@@ -1041,7 +1041,7 @@ describe("MultiplexedStreamer", () => {
       expect(store.open(1)).toBeNull();
       await vi.advanceTimersByTimeAsync(10);
       expect(invalidate.mock.calls).toEqual([
-        [1, new TimeRange(open?.range.start ?? TimeStamp.MIN, TimeStamp.MAX)],
+        [1, new TimeRange(open?.range.start ?? TimeStamp.MIN, TimeStamp.MAX), true],
       ]);
       expect(restart).toHaveBeenCalledTimes(1);
       expect(sub.status(1).variant).toEqual("success");

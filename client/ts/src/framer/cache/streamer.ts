@@ -72,7 +72,10 @@ export interface Demand {
   status: (key: channel.Key) => status.Status;
   /** Registers a handler for status transitions on the demand's keys. */
   onStatusChange: (handler: StatusHandler) => destructor.Destructor;
-  /** Registers a handler that runs when the stream drops, since frames may be lost. */
+  /**
+   * Registers a handler that runs when frames may be lost: when the stream drops, or
+   * when the Core misses frames of a stored channel of the demand.
+   */
   onDrop: (handler: () => void) => destructor.Destructor;
 }
 
@@ -431,7 +434,7 @@ export class MultiplexedStreamer {
     const missed = this.missedFrom;
     this.missedFrom = new Map();
     for (const [key, start] of missed)
-      onWait(joins.invalidate(key, new TimeRange(start, TimeStamp.MAX)));
+      onWait(joins.invalidate(key, new TimeRange(start, TimeStamp.MAX), true));
     // A latest reader reads the samples after its newest one again on a drop, which
     // also reaches a stored channel that has no open block.
     this.entries.forEach((e) => {

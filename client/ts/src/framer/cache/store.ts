@@ -111,7 +111,15 @@ export interface Floor {
  * Receives a span of a channel's history that changed, or of every channel's when the
  * channel is null.
  */
-export type InvalidateHandler = (ch: channel.Key | null, tr: TimeRange) => void;
+/**
+ * Receives a changed span of history. missed is true when the change is a miss of the
+ * stream, not a history change.
+ */
+export type InvalidateHandler = (
+  ch: channel.Key | null,
+  tr: TimeRange,
+  missed: boolean,
+) => void;
 
 /**
  * @returns true when a calculation writes the channel's samples. It writes a calculated
@@ -351,14 +359,18 @@ export class Store {
    * Drops the cached samples of the channel over the time range, or of every channel
    * when the channel is null.
    */
-  invalidate(ch: channel.Key | null = null, tr: TimeRange = TimeRange.MAX): void {
+  invalidate(
+    ch: channel.Key | null = null,
+    tr: TimeRange = TimeRange.MAX,
+    missed = false,
+  ): void {
     const touched = [...this.entries]
       .map(([key, { block }]) => [key, block] as const)
       .filter(([, b]) => (ch == null || b.channel === ch) && b.range.overlapsWith(tr));
     for (const [key, block] of touched)
       if (!(block instanceof RawBlock)) this.delete(key);
       else if (block.expire()) this.set(key, block);
-    this.invalidateHandlers.forEach((h) => h(ch, tr));
+    this.invalidateHandlers.forEach((h) => h(ch, tr, missed));
   }
 
   /** @returns the data type of the channel's cached samples. */
