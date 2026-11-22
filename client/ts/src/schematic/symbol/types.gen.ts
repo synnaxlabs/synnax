@@ -521,6 +521,17 @@ export const retrieveRequestZ = z.strictObject({
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
+/** Builtin is a symbol that the Core ships. Pluto holds its drawing. */
+export const builtinZ = z.object({
+  /** name is the shipped name of the built-in, which never changes. */
+  name: z.string(),
+  /** states are what the built-in shows. */
+  states: stateZ.array().default(() => []),
+  /** commands are the requests that the built-in sends. */
+  commands: commandZ.array().default(() => []),
+});
+export interface Builtin extends z.infer<typeof builtinZ> {}
+
 /**
  * Spec is the complete symbol definition: its drawing, parts, states, commands, looks,
  * interactions, and handles.
