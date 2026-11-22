@@ -10,7 +10,7 @@
 import { arc } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
-import { edgeChangesToActions, nodeChangesToActions } from "@/arc/graph/Diagram";
+import { gesture } from "@/arc/graph/gesture";
 
 const handle = (node: string, param: string): arc.ir.Handle => ({ node, param });
 
@@ -18,19 +18,19 @@ describe("arc gesture converters", () => {
   describe("nodeChangesToActions", () => {
     it("maps a position change to set_node_position", () => {
       expect(
-        nodeChangesToActions([
+        gesture.nodeChangesToActions([
           { type: "position", key: "n1", position: { x: 5, y: 6 }, dragging: false },
         ]),
       ).toEqual([arc.setNodePosition({ key: "n1", position: { x: 5, y: 6 } })]);
     });
     it("maps a remove change to remove_node", () => {
-      expect(nodeChangesToActions([{ type: "remove", key: "n1" }])).toEqual([
+      expect(gesture.nodeChangesToActions([{ type: "remove", key: "n1" }])).toEqual([
         arc.removeNode({ key: "n1" }),
       ]);
     });
     it("drops a select change", () => {
       expect(
-        nodeChangesToActions([
+        gesture.nodeChangesToActions([
           { type: "select", key: "n1", selected: true },
           { type: "remove", key: "n2" },
         ]),
@@ -43,14 +43,14 @@ describe("arc gesture converters", () => {
       const source = handle("a", "out");
       const target = handle("b", "in");
       const edge = { key: "e1", source, target };
-      expect(edgeChangesToActions([{ type: "add", edge }])).toEqual([
+      expect(gesture.edgeChangesToActions([{ type: "add", edge }])).toEqual([
         arc.addEdge({
           edge: { key: "e1", source, target, kind: arc.ir.EdgeKind.continuous },
         }),
       ]);
     });
     it("maps a remove change to remove_edge by key", () => {
-      expect(edgeChangesToActions([{ type: "remove", key: "e1" }])).toEqual([
+      expect(gesture.edgeChangesToActions([{ type: "remove", key: "e1" }])).toEqual([
         arc.removeEdge({ key: "e1" }),
       ]);
     });
@@ -58,7 +58,9 @@ describe("arc gesture converters", () => {
       const source = handle("a", "out");
       const target = handle("c", "in");
       expect(
-        edgeChangesToActions([{ type: "reconnect", key: "e1", source, target }]),
+        gesture.edgeChangesToActions([
+          { type: "reconnect", key: "e1", source, target },
+        ]),
       ).toEqual([arc.reconnectEdge({ key: "e1", source, target })]);
     });
   });

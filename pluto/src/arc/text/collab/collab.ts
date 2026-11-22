@@ -24,10 +24,10 @@ const randomReplica = (): number =>
 
 const codePoints = (s: string): string[] => Array.from(s);
 
-/** TextChange is the subset of an editor content change the binding consumes: a UTF-16
+/** Change is the subset of an editor content change the binding consumes: a UTF-16
  * offset and length into the previous value, plus the inserted text. It matches
  * Monaco's IModelContentChange. */
-export interface TextChange {
+export interface Change {
   rangeOffset: number;
   rangeLength: number;
   text: string;
@@ -37,7 +37,7 @@ export interface TextChange {
  * code-point Diffs, ordered highest-offset-first so that applying each change in turn
  * does not shift the offsets of the changes not yet applied. prev must be the document
  * value the offsets are relative to (the value before the change batch). */
-export const changesToDiffs = (prev: string, changes: readonly TextChange[]): Diff[] =>
+export const changesToDiffs = (prev: string, changes: readonly Change[]): Diff[] =>
   [...changes]
     .sort((a, b) => b.rangeOffset - a.rangeOffset)
     .map((c) => ({
@@ -52,12 +52,12 @@ const toActions = (inserts: crdt.Insert[], deletes: crdt.Delete[]): arc.Action[]
   ...inserts.map((op) => arc.insertChar(op)),
 ];
 
-/** CollabText binds a replicated text document to a plain-string editing surface. It
+/** Text binds a replicated text document to a plain-string editing surface. It
  * bootstraps from a server snapshot so it shares the server's id space, translates
  * whole-value edits into CRDT operations to broadcast, applies remote operations, and
  * always exposes the materialized string. It does not know about the transport or the
  * editor: callers feed it new values and remote operations and read back the value. */
-export class CollabText {
+export class Text {
   private readonly doc: crdt.Text;
 
   private constructor(doc: crdt.Text) {
@@ -66,13 +66,10 @@ export class CollabText {
 
   /** bootstrap creates a document from a server snapshot so the client's edits compose
    * with every other editor's in the same id space. */
-  static bootstrap(snapshot: {
-    inserts: crdt.Insert[];
-    deletes: crdt.Delete[];
-  }): CollabText {
+  static bootstrap(snapshot: { inserts: crdt.Insert[]; deletes: crdt.Delete[] }): Text {
     const doc = new crdt.Text(randomReplica());
     doc.load(snapshot);
-    return new CollabText(doc);
+    return new Text(doc);
   }
 
   /** value returns the current materialized text. */

@@ -15,9 +15,9 @@ import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Arc } from "@/arc";
-import { useClipboard } from "@/arc/graph/clipboard";
+import { Clipboard } from "@/arc/graph/clipboard";
 import { Errors } from "@/errors";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 import type { Diagram } from "@/vis/diagram";
 
 const client = createTestClient();
@@ -108,7 +108,7 @@ describe("arc graph clipboard", () => {
       () => ({
         nodes: Arc.useAllNodes({ key }),
         edges: Arc.useAllEdges({ key }),
-        clipboard: useClipboard({ key, selected, onPaste, onCut }),
+        clipboard: Clipboard.use({ key, selected, onPaste, onCut }),
       }),
       { wrapper },
     );
