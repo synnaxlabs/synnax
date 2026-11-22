@@ -33,6 +33,8 @@ var _ = Describe("Loader", func() {
 	var (
 		sources map[string]string
 		loads   map[string]int
+		// ambient is the standard library that the loader and every root share.
+		ambient = stl.NewSymbols()
 		chans   = StaticResolver{
 			{
 				Name: "trig",
@@ -85,9 +87,9 @@ var _ = Describe("Loader", func() {
 				return text.Text{Raw: src}, nil
 			},
 			Channels: chans,
-			Ambient:  stl.NewSymbols(),
+			Ambient:  ambient,
 		})
-		return symbol.NewRoot(chans, stl.NewSymbols(), symbol.WithModules(loader))
+		return symbol.NewRoot(chans, ambient, symbol.WithModules(loader))
 	}
 	parse := func(source string) text.Text {
 		GinkgoHelper()

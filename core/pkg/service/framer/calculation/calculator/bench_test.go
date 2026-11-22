@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -111,11 +110,9 @@ func (e *benchEnv) openCalculator(
 	if err != nil {
 		b.Fatalf("failed to retrieve calculation: %v", err)
 	}
-	mod, err := compiler.Compile(e.ctx, e.node.DB, compiler.Config{
-		ChannelService: e.channelSvc,
-		Channel:        out,
-		Calculation:    record,
-		STL:            stl.NewSymbols(),
+	mod, err := e.creator.Calculation.Compile(e.ctx, e.node.DB, compiler.Config{
+		Channel:     out,
+		Calculation: record,
 	})
 	if err != nil {
 		b.Fatalf("failed to compile calculator: %v", err)

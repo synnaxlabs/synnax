@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -25,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -102,11 +100,9 @@ var _ = Describe("Calculator", Ordered, func() {
 			})).To(Succeed())
 		}
 		out := MustSucceed(creator.Create(ctx, calc))
-		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
-			ChannelService: channelSvc,
-			Channel:        out,
-			Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
-			STL:            stl.NewSymbols(),
+		mod := MustSucceed(creator.Calculation.Compile(ctx, db, compiler.Config{
+			Channel:     out,
+			Calculation: MustSucceed(creator.CalculationOf(ctx, out.Key())),
 		}))
 		return MustOpen(calculator.Open(
 			ctx,
@@ -1014,11 +1010,9 @@ var _ = Describe("Calculator", Ordered, func() {
 					return channelSvc.NewWriter(tx).
 						ChangeDataType(ctx, reset.Key(), telem.Uint8T)
 				})).To(Succeed())
-				Expect(compiler.Compile(ctx, db, compiler.Config{
-					ChannelService: channelSvc,
-					Channel:        calc,
-					Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
-					STL:            stl.NewSymbols(),
+				Expect(creator.Calculation.Compile(ctx, db, compiler.Config{
+					Channel:     calc,
+					Calculation: MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 				})).Error().To(MatchError(ContainSubstring("type mismatch")))
 			},
 		)
@@ -1421,7 +1415,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
 			})).To(Succeed())
 			res := MustSucceed(
-				compiler.NewAnalyzer(resolver.New(channelSvc, db), stl.NewSymbols()).
+				creator.Calculation.NewAnalyzer(db).
 					AnalyzeExpression(
 						ctx,
 						channel.Channel{Name: calc.Name, Virtual: true},
@@ -1431,11 +1425,9 @@ var _ = Describe("Calculator", Ordered, func() {
 			)
 			calc.DataType = res.ChanDataType
 			out := MustSucceed(creator.Create(ctx, calc))
-			mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
-				ChannelService: channelSvc,
-				Channel:        out,
-				Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
-				STL:            stl.NewSymbols(),
+			mod := MustSucceed(creator.Calculation.Compile(ctx, db, compiler.Config{
+				Channel:     out,
+				Calculation: MustSucceed(creator.CalculationOf(ctx, out.Key())),
 			}))
 			return MustOpen(calculator.Open(ctx, calculator.Config{Module: mod})), out
 		}
@@ -1531,11 +1523,9 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType:   telem.Float32T,
 					Expression: "return 2.0 * " + base[0].Name,
 				}))
-				mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
-					ChannelService: channelSvc,
-					Channel:        calc,
-					Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
-					STL:            stl.NewSymbols(),
+				mod := MustSucceed(creator.Calculation.Compile(ctx, db, compiler.Config{
+					Channel:     calc,
+					Calculation: MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 				}))
 				c := MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
 				fr := frame.NewUnary(

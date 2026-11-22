@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
@@ -30,10 +31,13 @@ var (
 	db         *gorp.DB
 	channelSvc *channel.Service
 	creator    calctestutil.Creator
+	// symbols are the standard library symbols that every compile of the suite shares.
+	symbols []*symbol.Symbol
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
+	symbols = stl.NewSymbols()
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
@@ -74,7 +78,7 @@ var _ = Describe("Compile", func() {
 			ChannelService: channelSvc,
 			Channel:        calc,
 			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
-			STL:            stl.NewSymbols(),
+			STL:            symbols,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
@@ -98,7 +102,7 @@ var _ = Describe("Compile", func() {
 			ChannelService: channelSvc,
 			Channel:        calc,
 			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
-			STL:            stl.NewSymbols(),
+			STL:            symbols,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
@@ -121,7 +125,7 @@ var _ = Describe("Compile", func() {
 			ChannelService: channelSvc,
 			Channel:        calc,
 			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
-			STL:            stl.NewSymbols(),
+			STL:            symbols,
 		}))
 		Expect(
 			mod.Dependencies.Reads.Slice(),
@@ -150,7 +154,7 @@ var _ = Describe("Compile", func() {
 			ChannelService: channelSvc,
 			Channel:        calc,
 			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
-			STL:            stl.NewSymbols(),
+			STL:            symbols,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
@@ -168,7 +172,7 @@ var _ = Describe("Compile", func() {
 			ChannelService: channelSvc,
 			Channel:        calc,
 			Calculation:    c,
-			STL:            stl.NewSymbols(),
+			STL:            symbols,
 		})).Error().To(ContainSubstring("extraneous input '{'"))
 	})
 })

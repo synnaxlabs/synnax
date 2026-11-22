@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -574,7 +573,7 @@ func disappearingEntries() []TableEntry {
 	return entries
 }
 
-// newAnalyzer returns an analyzer with its own standard library symbols.
+// newAnalyzer returns an analyzer over the suite's standard library symbols.
 func newAnalyzer(r arc.SymbolResolver, cfgs ...parser.Config) *compiler.Analyzer {
-	return compiler.NewAnalyzer(r, stl.NewSymbols(), cfgs...)
+	return compiler.NewAnalyzer(r, symbols, cfgs...)
 }
