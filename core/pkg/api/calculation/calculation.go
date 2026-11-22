@@ -175,7 +175,9 @@ func (r RetrieveRequest) Named() []resource.ID {
 }
 
 // Retrieve returns the calculations that req selects and that the subject can
-// retrieve, with the output and each primary and reset channel they read.
+// retrieve, with the output and each primary and reset channel they read. For each
+// other calculation that req selects, it lists the output in HiddenOutputs when the
+// subject can retrieve the output.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -187,16 +189,20 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	named := req.Named()
-	if err = q.Where(calculation.And(
-		bind.Filter(snap, calculation.Match),
-		calculation.Match(func(
-			_ gorp.Context,
-			_ calculation.Retrieve,
-			c *calculation.Calculation,
-		) (bool, error) {
-			return s.channelsAllowed(snap, named, *c)
-		}),
-	)).Exec(ctx, snap); err != nil {
+	// The filter of req runs first, so only the calculations it selects reach here.
+	if err = q.Where(calculation.Match(func(
+		_ gorp.Context,
+		_ calculation.Retrieve,
+		c *calculation.Calculation,
+	) (bool, error) {
+		if ok, err := s.allowed(snap, named, *c); err != nil || ok {
+			return ok, err
+		}
+		if snap.Allowed(channel.ResourceID(c.Output)) {
+			res.HiddenOutputs = append(res.HiddenOutputs, c.Output)
+		}
+		return false, nil
+	})).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if req.IncludeStatus {
@@ -207,13 +213,16 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
-// channelsAllowed reports whether the subject of snap can retrieve each channel that c
-// links. It returns the denial when the request names c.
-func (s *Service) channelsAllowed(
+// allowed reports whether the subject of snap can retrieve c and each channel that c
+// links. It returns the denial of a channel when the request names c.
+func (s *Service) allowed(
 	snap bind.Snapshot,
 	named []resource.ID,
 	c calculation.Calculation,
 ) (bool, error) {
+	if !snap.Allowed(c.ResourceID()) {
+		return false, nil
+	}
 	for _, id := range s.internal.Channels(c) {
 		if snap.Allowed(id) {
 			continue

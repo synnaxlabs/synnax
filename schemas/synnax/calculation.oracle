@@ -139,10 +139,25 @@ Calculation struct {
     @retrieve
 }
 
+Hidden struct {
+    hidden_outputs channel.Key[] = [] {
+        @doc value """
+            are the outputs of the calculations that the request matches and the subject
+            cannot retrieve, each one a channel that the subject can retrieve.
+        """
+    }
+
+    @doc value "holds what a retrieve tells of the calculations that it hides."
+    @go omit
+    @py omit
+    @ts omit
+}
+
 Where filter Calculation {
     key
     output
 
     @doc value         "is a filter that selects calculations."
     @go request_output "core/pkg/api/calculation"
+    @response mixin    Hidden
 }
