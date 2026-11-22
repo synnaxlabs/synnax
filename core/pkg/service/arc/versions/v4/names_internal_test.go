@@ -61,7 +61,7 @@ func FuzzScanIdentifiers(f *testing.F) {
 			}
 		}
 		var got []span
-		scanCode(src, offsets{}, func(s span, _ string) {
+		scanCode(src, place{}, func(s span, _ string, _ []literal) {
 			if !slices.ContainsFunc(strs, func(str span) bool {
 				return str.start <= s.start && s.end <= str.end
 			}) {

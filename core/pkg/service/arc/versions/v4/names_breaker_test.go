@@ -21,21 +21,21 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("QuoteDashedNames breaker", func() {
+var _ = Describe("RenameChannels breaker", func() {
 	held := set.New("pt-01").Contains
 
 	It("Should scan a program of line comments in linear time", func() {
 		// v0.62 lexes 1 MiB of these in about 0.3 s.
 		text := strings.Repeat("//\n", (1<<19)/3)
 		start := time.Now()
-		Expect(v4.QuoteDashedNames(text, held)).To(Equal(text))
+		Expect(v4.RenameChannels(text, dashed(held))).To(Equal(text))
 		Expect(time.Since(start)).To(BeNumerically("<", time.Second))
 	})
 
 	It("Should quote a dashed name that a placeholder writes with an escape", func() {
 		// v0.62 unescapes the body before it lexes the placeholder, so this reads
 		// the channel pt-01.
-		out := v4.QuoteDashedNames(`f"{p\u0074-01}"`, held)
+		out := v4.RenameChannels(`f"{p\u0074-01}"`, dashed(held))
 		body, flags, ok := literal.StripQuotes(out)
 		Expect(ok).To(BeTrue())
 		segments := MustSucceed(literal.FmtStrSplit(body, flags))

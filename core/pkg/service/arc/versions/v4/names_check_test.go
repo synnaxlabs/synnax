@@ -17,11 +17,11 @@ import (
 )
 
 // Forms that only the fuzz spec reaches today, pinned so they outlive it.
-var _ = Describe("QuoteDashedNames check", func() {
+var _ = Describe("RenameChannels check", func() {
 	held := set.New("pt-01", "flow-1", "rpm-2").Contains
 	DescribeTable("Should quote a dashed name in a form the fuzz alone reaches",
 		func(text, expected string) {
-			Expect(v4.QuoteDashedNames(text, held)).To(Equal(expected))
+			Expect(v4.RenameChannels(text, dashed(held))).To(Equal(expected))
 		},
 		Entry("a name that starts with f", "return flow-1", "return 'flow-1'"),
 		Entry("a name that starts with r", "return rpm-2 * 2", "return 'rpm-2' * 2"),
