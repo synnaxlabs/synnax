@@ -110,7 +110,8 @@ var _ = Describe("Undo of a conversion", func() {
 		Expect(w.Close()).To(Succeed())
 	}
 	// open opens fs on the pointer log with the identity id held and the random source
-	// of seed, and runs the DB until the returned close.
+	// of seed, and runs the DB until the returned close. Each sealed record goes to a
+	// part, so an undo moves parts aside too.
 	open := func(
 		ctx context.Context,
 		fs xfs.FS,
@@ -123,6 +124,7 @@ var _ = Describe("Undo of a conversion", func() {
 			cesium.WithPointerLog(),
 			cesium.WithIdentity(id),
 			cesium.WithRandom(rand.NewPCG(seed, seed)),
+			cesium.WithPartSize(1),
 		)
 		if err != nil {
 			return nil, nil, err
@@ -196,7 +198,10 @@ var _ = Describe("Undo of a conversion", func() {
 		write(ctx, db, 5000)
 		Expect(closeDB()).To(Succeed())
 		layout := MustSucceed(filesOf(disk, layoutName.MatchString))
-		Expect(layout).To(ContainElement(MatchRegexp(`^\d+/[0-9a-f]{16}\.seg$`)))
+		Expect(layout).To(ContainElements(
+			MatchRegexp(`^\d+/[0-9a-f]{16}\.seg$`),
+			MatchRegexp(`^[0-9a-f]{16}\.part$`),
+		))
 		// The undo of the old binary puts back each meta.json and changes no other
 		// file, so the old binary writes on from the files that the conversion left.
 		old := MustSucceed(cesium.Open(ctx, "", cesium.WithFS(disk)))
