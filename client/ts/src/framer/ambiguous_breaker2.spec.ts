@@ -21,11 +21,10 @@ import {
 
 const client = createTestClient();
 
-const virtual = (name: string, group?: number): channel.New => ({
+const virtual = (name: string): channel.New => ({
   name,
   dataType: DataType.FLOAT64,
   virtual: true,
-  group,
 });
 
 const quiet = (): void => {};
