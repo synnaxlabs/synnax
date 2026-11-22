@@ -221,17 +221,3 @@ export const compareCursors = (a: Cursor, b: Cursor, order?: Order): number => {
   const c = compareValues(order.field, a, b) || compareNumbers(a.key, b.key);
   return order.descending ? -c : c;
 };
-
-/**
- * shortcutZ reads a key, a name, or a list of either into a request whose where holds
- * it. A list reads as keys only when every member is a key.
- */
-export const shortcutZ = z.union([
-  keyZ.transform((key) => ({ where: { key: { eq: key } } })),
-  z.string().transform((name) => ({ where: { name: { eq: name } } })),
-  keyZ.array().transform((keys) => ({ where: { key: { in: keys } } })),
-  z
-    .string()
-    .array()
-    .transform((names) => ({ where: { name: { in: names } } })),
-]);
