@@ -701,6 +701,21 @@ describe("range/Toolbar", () => {
       expect((await reader.ranges.retrieve(first.key)).name).toBe(first.name);
     });
 
+    it("should count only the favorites that show and clear the rest too", async () => {
+      const span = TimeStamp.now().spanRange(TimeSpan.seconds(10));
+      const kept = await createRange(uniqueName("unfavorite"), span);
+      const deleted = await createRange(uniqueName("unfavorite"), span);
+      await client.ranges.delete(deleted.key);
+      const { store } = await renderToolbar({ favorites: [kept, deleted] });
+      await findLine("Favorites", kept.name);
+      fireEvent.click(screen.getByRole("button", { name: "Unfavorite all ranges" }));
+      await screen.findByText("Are you sure you want to unfavorite 1 range?");
+      fireEvent.click(screen.getByRole("button", { name: "Unfavorite" }));
+      await waitFor(() =>
+        expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]),
+      );
+    });
+
     it("should keep the favorites when the confirmation is cancelled", async () => {
       const rng = await createRange(
         uniqueName("unfavorite"),

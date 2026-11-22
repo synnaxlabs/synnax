@@ -395,6 +395,7 @@ const Group = ({
   partial = false,
   children,
   icon,
+  actions,
 }: {
   id: Session.Range.Group;
   title: string;
@@ -403,6 +404,7 @@ const Group = ({
   partial?: boolean;
   children: ReactNode;
   icon?: ReactNode;
+  actions?: ReactNode;
 }): ReactElement => {
   const collapsed = Session.Range.useSelectGroupCollapsed(id);
   const dispatch = Session.useDispatch();
@@ -414,6 +416,7 @@ const Group = ({
         size="medium"
         open={!collapsed}
         onOpenChange={handleOpenChange}
+        actions={actions}
         className={CSS.BE(B, "group-header")}
       >
         <span className={CSS.BE(B, "group-icon")}>{icon}</span>
@@ -623,6 +626,39 @@ const FavoriteLines = ({ favorites }: { favorites: ranger.Range[] }): ReactEleme
   );
 };
 
+const UnfavoriteAll = ({ favorites }: { favorites: ranger.Range[] }) => {
+  const dispatch = Session.useDispatch();
+  // Holds the keys of deleted ranges too, so a click clears them with the rest.
+  const keys = Session.Range.useSelectFavoriteKeys();
+  const confirm = Modals.useConfirm();
+  const handleError = Status.useErrorHandler();
+  const handleClick = () =>
+    handleError(async () => {
+      const confirmed = await confirm({
+        message: `Are you sure you want to unfavorite ${pluralize("range", favorites.length, true)}?`,
+        description: "The ranges stay on the Core.",
+        confirm: { variant: "error", label: "Unfavorite" },
+        cancel: { label: "Cancel" },
+        title: "Range.Unfavorite all",
+        icon: <Icon.StarOutlined />,
+      });
+      if (confirmed !== true) return;
+      dispatch(Session.Range.remove({ keys }));
+    }, "Failed to unfavorite ranges");
+  return (
+    <Button.Button
+      variant="text"
+      size="small"
+      textColor={9}
+      tooltip="Unfavorite all ranges"
+      aria-label="Unfavorite all ranges"
+      onClick={handleClick}
+    >
+      <Icon.StarOutlined />
+    </Button.Button>
+  );
+};
+
 const Body = ({ groups }: { groups: Groups }): ReactElement => {
   const { draft } = useDraftContext("Range.Body");
   const { onNext, onStartChild } = useActionsContext("Range.Body");
@@ -675,6 +711,11 @@ const Body = ({ groups }: { groups: Groups }): ReactElement => {
             title="Favorites"
             count={groups.favorites.length}
             icon={<Icon.StarFilled color="goldenrod" />}
+            actions={
+              groups.favorites.length > 0 ? (
+                <UnfavoriteAll favorites={groups.favorites} />
+              ) : undefined
+            }
           >
             <FavoriteLines favorites={groups.favorites} />
           </Group>
@@ -691,32 +732,6 @@ const Body = ({ groups }: { groups: Groups }): ReactElement => {
         </div>
       </div>
     </List.Frame>
-  );
-};
-
-const UnfavoriteAllAction = (): ReactElement | null => {
-  const dispatch = Session.useDispatch();
-  const keys = Session.Range.useSelectFavoriteKeys();
-  const confirm = Modals.useConfirm();
-  const handleError = Status.useErrorHandler();
-  if (keys.length === 0) return null;
-  const handleClick = () =>
-    handleError(async () => {
-      const confirmed = await confirm({
-        message: `Are you sure you want to unfavorite ${pluralize("range", keys.length, true)}?`,
-        description: "The ranges stay on the Core.",
-        confirm: { variant: "error", label: "Unfavorite" },
-        cancel: { label: "Cancel" },
-        title: "Range.Unfavorite all",
-        icon: <Icon.StarOutlined />,
-      });
-      if (confirmed !== true) return;
-      dispatch(Session.Range.remove({ keys }));
-    }, "Failed to unfavorite ranges");
-  return (
-    <Toolbar.Action tooltip="Unfavorite all ranges" onClick={handleClick}>
-      <Icon.StarOutlined />
-    </Toolbar.Action>
   );
 };
 
@@ -813,7 +828,6 @@ export const Content = (): ReactElement => {
           Ranges
         </Toolbar.Title>
         <Toolbar.Actions>
-          <UnfavoriteAllAction />
           {canRetrieve && (
             <Toolbar.Action
               className={CSS.BE(B, "explore")}
