@@ -137,7 +137,7 @@ func storeArcs(ctx context.Context, n testutil.Node, texts, bodies []string) []a
 		Where(gorp.Match(isRoot)).
 		Entry(&root).
 		Exec(ctx, n.DB)).To(Succeed())
-	var arcs []arc.Arc
+	arcs := make([]arc.Arc, 0, len(texts)+len(bodies))
 	for _, raw := range texts {
 		arcs = append(arcs, arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
 			Key:       uuid.New(),
