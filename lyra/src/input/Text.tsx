@@ -18,7 +18,7 @@ import {
 } from "react";
 
 import { Button } from "@/button";
-import { SIZE_TEXT_LEVELS } from "@/component/text";
+import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
@@ -295,7 +295,7 @@ export const Text = ({
             CSS.BE("input", "placeholder"),
             centerPlaceholder && CSS.M("centered"),
           )}
-          level={level ?? SIZE_TEXT_LEVELS[size]}
+          level={level ?? Component.SIZE_TEXT_LEVELS[size]}
         >
           {placeholder}
         </BaseText.Text>
@@ -304,7 +304,7 @@ export const Text = ({
         <BaseText.Text
           el="div"
           className={CSS.BE("input", "start-content")}
-          level={level ?? SIZE_TEXT_LEVELS[size]}
+          level={level ?? Component.SIZE_TEXT_LEVELS[size]}
         >
           {startContent}
         </BaseText.Text>
@@ -312,7 +312,7 @@ export const Text = ({
       {staticPreview ? (
         <BaseText.Text
           className={CSS.BE("input", "preview-value")}
-          level={level ?? SIZE_TEXT_LEVELS[size]}
+          level={level ?? Component.SIZE_TEXT_LEVELS[size]}
           overflow={area ? undefined : "nowrap"}
         >
           {value}
@@ -346,7 +346,7 @@ export const Text = ({
         <BaseText.Text
           el="div"
           className={CSS.BE("input", "end-content")}
-          level={level ?? SIZE_TEXT_LEVELS[size]}
+          level={level ?? Component.SIZE_TEXT_LEVELS[size]}
         >
           {endContent}
         </BaseText.Text>

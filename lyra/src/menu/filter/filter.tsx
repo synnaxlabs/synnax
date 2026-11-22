@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/menu/filter.css";
+import "@/menu/filter/filter.css";
 
 import {
   Children,
@@ -29,7 +29,7 @@ import { context } from "@/context";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 // The input imports the menu, so the menu imports the search directly.
-import { Search, type SearchProps } from "@/input/Search";
+import { Input } from "@/input";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { ACTIVATION_KEYS, isMoveKey, moveIndex } from "@/util";
@@ -154,7 +154,7 @@ export interface Filter {
   /** Handles the filter and move keys. Pass it to the menu surface. */
   onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
   /** Props for the search. */
-  search: Required<Pick<SearchProps, "ref" | "onChange" | "onKeyDown">>;
+  search: Required<Pick<Input.SearchProps, "ref" | "onChange" | "onKeyDown">>;
 }
 
 /**
@@ -280,7 +280,7 @@ export const Filtered = ({
 }: FilteredProps): ReactElement => (
   <FilterContext value={term ?? ""}>
     {term != null && (
-      <Search
+      <Input.Search
         {...search}
         value={term}
         className={CSS.B("menu-filter")}

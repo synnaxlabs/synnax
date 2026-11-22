@@ -9,6 +9,7 @@
 
 export { Body, type BodyProps } from "@/select/Body";
 export * from "@/select/Buttons";
+export * from "@/select/component";
 export * from "@/select/Context";
 export * from "@/select/Dialog";
 export * from "@/select/flex";
