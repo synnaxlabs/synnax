@@ -301,6 +301,7 @@ TEST(StrModule, FromF64FormatsShortestRoundTrip) {
     EXPECT_EQ(call_from<double>(f, "call_from_f64", std::copysign(0.0, -1.0)), "-0");
 }
 
+/// @brief it should write an f64 in exponent notation below 1e-6 and from 1e21.
 TEST(StrModule, FromF64UsesExponentNotationOutsideFixedRange) {
     StrModuleFixture f;
     EXPECT_EQ(call_from<double>(f, "call_from_f64", 1e10), "10000000000");
@@ -316,6 +317,7 @@ TEST(StrModule, FromF64UsesExponentNotationOutsideFixedRange) {
     EXPECT_EQ(call_from<float>(f, "call_from_f32", 1e30f), "1e+30");
 }
 
+/// @brief it should keep only the shortest digits of a float in fixed notation.
 TEST(StrModule, FromFloatKeepsOnlyTheShortestDigitsInFixedNotation) {
     StrModuleFixture f;
     EXPECT_EQ(call_from<float>(f, "call_from_f32", 1e20f), "100000000000000000000");
@@ -335,6 +337,7 @@ TEST(StrModule, FromBoolFormatsTrueFalse) {
     EXPECT_EQ(call_from<int32_t>(f, "call_from_bool", 42), "true");
 }
 
+/// @brief it should write an f64 NaN as NaN and the infinities as Infinity.
 TEST(StrModule, FromF64HandlesNaNAndInfinity) {
     StrModuleFixture f;
     EXPECT_EQ(
@@ -351,6 +354,7 @@ TEST(StrModule, FromF64HandlesNaNAndInfinity) {
     );
 }
 
+/// @brief it should write an f32 NaN as NaN and the infinities as Infinity.
 TEST(StrModule, FromF32HandlesNaNAndInfinity) {
     StrModuleFixture f;
     EXPECT_EQ(
@@ -522,6 +526,7 @@ TEST(StrModule, FormatF64MatchesGoFmtSprintf) {
     );
 }
 
+/// @brief it should format an f64 NaN and the infinities under a spec.
 TEST(StrModule, FormatF64HandlesNaNAndInfinity) {
     StrModuleFixture f;
     const double nan = std::numeric_limits<double>::quiet_NaN();
