@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -44,49 +43,14 @@ func (s *Service) planUngroup(
 	keys []group.Key,
 	opts PlanOptions,
 ) (ungrouping, error) {
-	var (
-		chosen picks
-		err    error
-	)
-	picked := len(opts.Picks) > 0 || opts.Hidden != nil
-	if picked {
-		if chosen, err = newPicks(opts); err != nil {
-			return ungrouping{}, err
-		}
-	}
-	u := ungrouping{plan: Plan{Change: c}}
-	if err = s.cfg.Group.NewRetrieve().
-		Where(group.MatchKeys(keys...)).
-		Entries(&u.groups).
-		Exec(ctx, snap); err != nil {
+	chosen, picked, err := groupPicks(opts)
+	if err != nil {
 		return ungrouping{}, err
 	}
-	slices.SortFunc(u.groups, func(a, b group.Group) int {
-		return compareGroups(a.Key, b.Key)
-	})
-	u.moves = make(map[group.Key]*group.Key, len(u.groups))
-	names := make(map[group.Key]string, len(u.groups))
-	for _, g := range u.groups {
-		u.moves[g.Key] = nil
-		names[g.Key] = g.Name
-	}
-	for _, g := range u.groups {
-		if g.Parent == nil || g.Parent.Type != resource.TypeGroup {
-			continue
-		}
-		parent, err := group.KeyFromResourceID(*g.Parent)
-		if err != nil {
-			return ungrouping{}, err
-		}
-		if _, ok := names[parent]; ok {
-			return ungrouping{}, errors.Wrapf(
-				validate.ErrValidation,
-				"cannot ungroup %s and %s, which holds it, in one change",
-				g.Name,
-				names[parent],
-			)
-		}
-		u.moves[g.Key] = &parent
+	u := ungrouping{plan: Plan{Change: c}}
+	names, err := s.ungrouped(ctx, snap, keys, &u)
+	if err != nil {
+		return ungrouping{}, err
 	}
 	dropped, err := s.cfg.Channel.DroppedTombstones(ctx, snap, u.moves)
 	if err != nil {
@@ -110,6 +74,51 @@ func (s *Service) planUngroup(
 		}
 	}
 	return u, nil
+}
+
+// ungrouped sets the groups and moves of u for the ungroup of the groups with keys, as
+// snap sees them, and returns the name of each group by key. A group whose parent is
+// among keys fails with a validation error.
+func (s *Service) ungrouped(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	keys []group.Key,
+	u *ungrouping,
+) (map[group.Key]string, error) {
+	if err := s.cfg.Group.NewRetrieve().
+		Where(group.MatchKeys(keys...)).
+		Entries(&u.groups).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(u.groups, func(a, b group.Group) int {
+		return compareGroups(a.Key, b.Key)
+	})
+	u.moves = make(map[group.Key]*group.Key, len(u.groups))
+	names := make(map[group.Key]string, len(u.groups))
+	for _, g := range u.groups {
+		u.moves[g.Key] = nil
+		names[g.Key] = g.Name
+	}
+	for _, g := range u.groups {
+		if g.Parent == nil || g.Parent.Type != resource.TypeGroup {
+			continue
+		}
+		parent, err := group.KeyFromResourceID(*g.Parent)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := names[parent]; ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"cannot ungroup %s and %s, which holds it, in one change",
+				g.Name,
+				names[parent],
+			)
+		}
+		u.moves[g.Key] = &parent
+	}
+	return names, nil
 }
 
 // ungroupGroups moves the members, child groups, and tombstones of the groups with
@@ -139,43 +148,57 @@ func (s *Service) ungroupGroups(
 		}
 		u.plan.Token = opts.Token
 	}
-	groups := s.cfg.Group.NewWriter(tx)
-	tombstones := set.New(channel.TombstoneTable)
 	for _, g := range u.groups {
-		children, err := s.cfg.Group.Children(ctx, tx, g.Key)
-		if err != nil {
+		if err = s.moveChildren(ctx, tx, g, u.moves[g.Key]); err != nil {
 			return Plan{}, err
-		}
-		var subgroups []group.Key
-		var members []resource.ID
-		for _, id := range children {
-			switch {
-			case id.Type == resource.TypeGroup:
-				k, err := group.KeyFromResourceID(id)
-				if err != nil {
-					return Plan{}, err
-				}
-				subgroups = append(subgroups, k)
-			case !tombstones.Contains(string(id.Type)):
-				members = append(members, id)
-			}
-		}
-		if len(subgroups) > 0 {
-			if err = groups.SetParent(ctx, g.Parent, subgroups...); err != nil {
-				return Plan{}, err
-			}
-		}
-		if len(members) > 0 {
-			if err = s.cfg.Move(ctx, tx, members, u.moves[g.Key]); err != nil {
-				return Plan{}, err
-			}
 		}
 	}
 	if _, err = s.cfg.Channel.NewWriter(tx).MoveTombstones(ctx, u.moves); err != nil {
 		return Plan{}, err
 	}
-	if err = groups.Delete(ctx, keys...); err != nil {
+	if err = s.cfg.Group.NewWriter(tx).Delete(ctx, keys...); err != nil {
 		return Plan{}, err
 	}
 	return u.plan, nil
+}
+
+// moveChildren moves each group in g to the parent of g, and each other member of g
+// except its tombstones into the group to, or out of any group for nil.
+func (s *Service) moveChildren(
+	ctx context.Context,
+	tx gorp.Tx,
+	g group.Group,
+	to *group.Key,
+) error {
+	children, err := s.cfg.Group.Children(ctx, tx, g.Key)
+	if err != nil {
+		return err
+	}
+	var (
+		subgroups []group.Key
+		members   []resource.ID
+	)
+	for _, id := range children {
+		switch id.Type {
+		case resource.TypeGroup:
+			k, err := group.KeyFromResourceID(id)
+			if err != nil {
+				return err
+			}
+			subgroups = append(subgroups, k)
+		case resource.Type(channel.TombstoneTable):
+		default:
+			members = append(members, id)
+		}
+	}
+	if len(subgroups) > 0 {
+		w := s.cfg.Group.NewWriter(tx)
+		if err = w.SetParent(ctx, g.Parent, subgroups...); err != nil {
+			return err
+		}
+	}
+	if len(members) == 0 {
+		return nil
+	}
+	return s.cfg.Move(ctx, tx, members, to)
 }

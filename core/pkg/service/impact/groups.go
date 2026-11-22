@@ -32,15 +32,9 @@ func (s *Service) planGroups(
 	keys []group.Key,
 	opts PlanOptions,
 ) (Plan, error) {
-	var (
-		chosen picks
-		err    error
-	)
-	picked := len(opts.Picks) > 0 || opts.Hidden != nil
-	if picked {
-		if chosen, err = newPicks(opts); err != nil {
-			return Plan{}, err
-		}
+	chosen, picked, err := groupPicks(opts)
+	if err != nil {
+		return Plan{}, err
 	}
 	dead, err := s.cfg.Channel.Tombstones(ctx, snap, keys...)
 	if err != nil {
@@ -68,6 +62,16 @@ func (s *Service) planGroups(
 		}
 	}
 	return p, nil
+}
+
+// groupPicks parses the picks of opts for a change of groups, and reports whether opts
+// holds a pick.
+func groupPicks(opts PlanOptions) (picks, bool, error) {
+	if len(opts.Picks) == 0 && opts.Hidden == nil {
+		return picks{}, false, nil
+	}
+	chosen, err := newPicks(opts)
+	return chosen, true, err
 }
 
 // refusePicks returns the validation error of the first pick of chosen that its entry
