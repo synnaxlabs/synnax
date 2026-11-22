@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -88,31 +89,30 @@ func (w *linkWriter) path(k Key) (string, error) {
 	return p, nil
 }
 
-// prefix returns the path text of folder with a trailing separator. It reads each
-// folder once and builds on the prefix of its parent, so sibling folders share their
-// ancestors' reads. A path stops at a parent that is not a folder, as group.Paths does.
+// prefix returns the path text of folder with a trailing separator. It builds on the
+// prefix of the folder's parent, so sibling folders share their ancestors' lookups.
 func (w *linkWriter) prefix(folder group.Key) (string, error) {
 	if prefix, ok := w.prefixes[folder]; ok {
 		return prefix, nil
 	}
-	var g group.Group
-	if err := gorp.NewRetrieve[group.Key, group.Group]().
-		Where(gorp.MatchKeys[group.Key, group.Group](folder)).
-		Entry(&g).
-		Exec(w.ctx, w.snap); err != nil {
+	sibling, ok, err := w.svc.indexes.sibling.ValueOf(
+		w.ctx,
+		w.snap,
+		gorp.NewTarget(string(resource.TypeGroup), folder),
+	)
+	if err != nil {
 		return "", err
 	}
+	if !ok {
+		return "", errors.Wrapf(query.ErrNotFound, "folder %s", folder)
+	}
 	var parent string
-	if g.Parent != nil && g.Parent.Type == resource.TypeGroup {
-		key, err := group.KeyFromResourceID(*g.Parent)
-		if err != nil {
-			return "", err
-		}
-		if parent, err = w.prefix(key); err != nil {
+	if sibling.Parent != (group.Key{}) {
+		if parent, err = w.prefix(sibling.Parent); err != nil {
 			return "", err
 		}
 	}
-	prefix := parent + g.Name + string(validate.PathSeparator)
+	prefix := parent + sibling.Name + string(validate.PathSeparator)
 	w.prefixes[folder] = prefix
 	return prefix, nil
 }

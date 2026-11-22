@@ -409,6 +409,30 @@ var _ = Describe("UniqueIndex", func() {
 			Expect(held).To(BeFalse())
 		})
 
+		It("Should return the value of an entry of any table of the space", func(
+			ctx SpecContext,
+		) {
+			Expect(
+				createFolder(ctx, db, uniqueFolder{Key: "d", Parent: "c", Name: "d"}),
+			).To(Succeed())
+			Expect(createItem(ctx, db, uniqueItem{Key: 6, Folder: "d", Name: "pt"})).
+				To(Succeed())
+			valueOf := func(t gorp.Target) (uniqueSibling, bool) {
+				GinkgoHelper()
+				return MustSucceed2(itemIndex.ValueOf(ctx, db, t))
+			}
+			v, held := valueOf(gorp.NewTarget("folder", "d"))
+			Expect(held).To(BeTrue())
+			Expect(v).To(Equal(uniqueSibling{Parent: "c", Name: "d"}))
+			v, held = valueOf(itemTarget(6))
+			Expect(held).To(BeTrue())
+			Expect(v).To(Equal(uniqueSibling{Parent: "d", Name: "pt"}))
+			_, held = valueOf(gorp.NewTarget("folder", "z"))
+			Expect(held).To(BeFalse())
+			_, held = valueOf(gorp.NewTarget("other", "d"))
+			Expect(held).To(BeFalse())
+		})
+
 		It("Should see a value staged in the snapshot", func(ctx SpecContext) {
 			tx := db.OpenTx()
 			defer func() { Expect(tx.Close()).To(Succeed()) }()
