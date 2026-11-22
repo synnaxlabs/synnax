@@ -46,7 +46,10 @@ TEST(Server, RoundTrips) {
     ASSERT_NIL(parser.error());
     const auto key = x::uuid::create();
     server.auth = APIKeyAuth{.key = key, .send_as = SEND_AS_QUERY_PARAM, .name = "k"};
-    server.read_channels["/weather"] = ReadChannels{.index = 1, .channels = {{"/t", 2}}};
+    server.read_channels["/weather"] = ReadChannels{
+        .index = 1,
+        .channels = {{"/t", 2}}
+    };
     server.write_channels["/valve"] = 3;
     x::json::Parser round(server.to_json());
     const auto parsed = Server::parse(round);
@@ -56,5 +59,21 @@ TEST(Server, RoundTrips) {
     ASSERT_EQ(auth.send_as, SEND_AS_QUERY_PARAM);
     ASSERT_EQ(parsed.read_channels.at("/weather").channels.at("/t"), 2);
     ASSERT_EQ(parsed.write_channels.at("/valve"), 3);
+}
+
+/// @brief it should reject an auth that names no secret.
+TEST(Server, RequiresAuthSecret) {
+    for (const auto &[auth, field]: std::vector<std::pair<x::json::json, std::string>>{
+             {{{"type", "bearer"}}, "token"},
+             {{{"type", "basic"}, {"username", "admin"}}, "password"},
+             {{{"type", "api_key"}, {"name", "X-Key"}}, "key"},
+         }) {
+        auto j = valid_server();
+        j["auth"] = auth;
+        x::json::Parser parser(j);
+        Server::parse(parser);
+        ASSERT_EQ(parser.errors->size(), 1);
+        ASSERT_EQ(parser.errors->at(0)["path"], "auth." + field);
+    }
 }
 }
