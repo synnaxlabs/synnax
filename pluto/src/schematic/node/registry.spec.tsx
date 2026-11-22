@@ -37,9 +37,9 @@ describe("Schematic.Node.REGISTRY", () => {
   // The node cutover adds the drawing of normally_open_solenoid_valve.
   it("should draw every symbol that the Core ships", async () => {
     const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
-    expect(builtins.map((b) => b.name).filter((name) => !(name in REGISTRY))).toEqual([
-      "normally_open_solenoid_valve",
-    ]);
+    expect(
+      builtins.map((b) => b.name).filter((name) => !(name in Node.REGISTRY)),
+    ).toEqual(["normally_open_solenoid_valve"]);
   });
 });
 
