@@ -430,8 +430,8 @@ export const writeBindingZ = z.object({
   channel: channel.keyZ.default(0),
   /**
    * dataType is the data type of the command channel that a client creates for the
-   * field. Empty takes the default of the field's kind. The Core ignores it once the
-   * channel exists.
+   * field. Empty takes float64 for a scaled field and the default of the field's kind
+   * for any other. The Core ignores it once the channel exists.
    */
   dataType: z.string().default(""),
   /**

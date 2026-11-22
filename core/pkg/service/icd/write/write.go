@@ -28,7 +28,7 @@ import (
 )
 
 // defaultDataTypes holds the data type of the command channel that a client creates for
-// a field of each kind, when the binding of the field names none.
+// an unscaled field of each kind, when the binding of the field names none.
 var defaultDataTypes = map[payload.Kind]telem.DataType{
 	payload.KindFloat:     telem.Float64T,
 	payload.KindInteger:   telem.Int64T,
@@ -45,9 +45,10 @@ var defaultDataTypes = map[payload.Kind]telem.DataType{
 // encoder takes one sample for each binding of wm with no value, in binding order. A
 // binding with a value sends that value as its field. dataTypes holds the data type of
 // each channel that exists. A binding to another channel takes its own data type, or
-// else the default of its field's kind. Encoder returns a validation error when ic
-// lacks the message, the message is not JSON, wm binds no channels, a value does not
-// suit its binding, or the encoder refuses the bindings.
+// else float64 for a scaled field and the default of its field's kind for any other.
+// Encoder returns a validation error when ic lacks the message, the message is not
+// JSON, wm binds no channels, a value does not suit its binding, or the encoder refuses
+// the bindings.
 func Encoder(
 	wm icd.WriteMessage,
 	ic icd.ICD,
@@ -85,10 +86,7 @@ func Encoder(
 		if b.Value == nil {
 			dt, ok := dataTypes[b.Channel]
 			if !ok && exists {
-				dt = lo.CoalesceOrEmpty(
-					b.DataType,
-					defaultDataTypes[jp.Fields[f].Type()],
-				)
+				dt = lo.CoalesceOrEmpty(b.DataType, defaultDataType(jp.Fields[f]))
 			}
 			bindings = append(bindings, codec.Binding{Field: b.Field, DataType: dt})
 			continue
@@ -102,6 +100,16 @@ func Encoder(
 		Payload:  jp,
 		Bindings: bindings,
 	})
+}
+
+// defaultDataType returns the data type of the command channel that a client creates
+// for f when its binding names none. A scaled field takes float64, because the codec
+// writes a scaled field only from a float channel.
+func defaultDataType(f icd.JSONField) telem.DataType {
+	if b := f.Base(); b.Scale != 1 || b.Offset != 0 {
+		return telem.Float64T
+	}
+	return defaultDataTypes[f.Type()]
 }
 
 // fill makes the value of b the default of its field in jp, where at holds the index of

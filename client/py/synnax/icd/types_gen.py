@@ -340,8 +340,8 @@ class WriteBinding(BaseModel):
         field: Is the key of the message field to send.
         channel: Is the command channel whose values the field sends.
         data_type: Is the data type of the command channel that a client creates for the
-            field. Empty takes the default of the field's kind. The Core ignores it once
-            the channel exists.
+            field. Empty takes float64 for a scaled field and the default of the field's
+            kind for any other. The Core ignores it once the channel exists.
         value: Is the fixed value that the field sends. A binding with a value has
             channel 0 and no data type.
     """

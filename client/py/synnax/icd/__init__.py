@@ -79,6 +79,8 @@ from synnax.icd.types_gen import (
 )
 
 __all__ = [
+    "ICD",
+    "TYPE_RESOURCE_ID",
     "BaseField",
     "BinaryBaseField",
     "BinaryField",
@@ -100,7 +102,6 @@ __all__ = [
     "FloatJSONField",
     "FloatJSONMatch",
     "FloatWriteValue",
-    "ICD",
     "Identifier",
     "ImportFormat",
     "IntegerBinaryField",
@@ -126,7 +127,6 @@ __all__ = [
     "StringJSONField",
     "StringJSONMatch",
     "StringWriteValue",
-    "TYPE_RESOURCE_ID",
     "TaggedTextField",
     "TextBaseField",
     "TextField",

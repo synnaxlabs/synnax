@@ -557,8 +557,8 @@ struct WriteBinding {
     /// @brief channel is the command channel whose values the field sends.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief data_type is the data type of the command channel that a client creates
-    /// for the field. Empty takes the default of the field's kind. The Core ignores it
-    /// once the channel exists.
+    /// for the field. Empty takes float64 for a scaled field and the default of the
+    /// field's kind for any other. The Core ignores it once the channel exists.
     ::x::telem::DataType data_type = ::x::telem::DataType("");
     /// @brief value is the fixed value that the field sends. A binding with a value has
     /// channel 0 and no data type.
