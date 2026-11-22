@@ -59,7 +59,8 @@ public:
     /// @brief appends the stream bytes of frame to out. Writing them to a framer of the
     /// same framing gives frame again.
     /// @returns VALIDATION when the framing cannot hold frame: it is empty, larger than
-    /// MAX_SIZE, holds a delimiter, or is not the fixed length.
+    /// MAX_SIZE, holds a delimiter, is not the fixed length, or does not fit a sync
+    /// header and length.
     virtual x::errors::Error encode(
         std::span<const std::uint8_t> frame,
         std::vector<std::uint8_t> &out
@@ -83,4 +84,48 @@ std::unique_ptr<Framer> cobs();
 /// @brief creates a framer that escapes each frame with the serial line internet
 /// protocol (SLIP, RFC 1055) and ends it with an END byte.
 std::unique_ptr<Framer> slip();
+
+/// @brief ChecksumAlgorithm is a CRC that ends a sync frame.
+enum class ChecksumAlgorithm : std::uint8_t {
+    /// @brief CRC16_CCITT_FALSE has polynomial 0x1021 and initial value 0xFFFF, with no
+    /// reflection.
+    CRC16_CCITT_FALSE,
+    /// @brief CRC16_MODBUS has polynomial 0x8005 and initial value 0xFFFF, reflected.
+    CRC16_MODBUS,
+    /// @brief CRC32 is the CRC of Ethernet and zlib.
+    CRC32,
+};
+
+/// @brief Checksum is the CRC that ends a sync frame.
+struct Checksum {
+    ChecksumAlgorithm algorithm = ChecksumAlgorithm::CRC32;
+    bool big_endian = false;
+};
+
+/// @brief SyncConfig describes frames that start with a sync sequence and a length
+/// field. The length plus length_adjustment is the number of bytes after the length
+/// field, checksum included. The checksum covers every byte before it.
+struct SyncConfig {
+    std::vector<std::uint8_t> sync;
+    /// @brief length_offset is the offset of the length field from the frame start.
+    std::size_t length_offset = 0;
+    /// @brief length_size is the number of bytes in the length field: 1, 2, or 4.
+    std::size_t length_size = 1;
+    bool big_endian = false;
+    std::int64_t length_adjustment = 0;
+    std::optional<Checksum> checksum;
+    /// @brief max_length is the most bytes in a frame, sync and checksum included. A
+    /// length field that gives a larger frame marks a corrupt frame.
+    std::size_t max_length = MAX_SIZE;
+};
+
+/// @brief creates a framer for frames that start with a sync sequence and a length
+/// field. A frame that it reads starts at the sync sequence and has no checksum, so a
+/// message layout can hold the header fields. It finds the next sync sequence after
+/// bytes that are not a frame. Its encode writes the sync sequence and the length into
+/// the header of the frame, and appends the checksum.
+/// @returns CONFIG_ERROR when the sync sequence is empty, the length field is not 1, 2,
+/// or 4 bytes or overlaps the sync sequence, or max_length is zero, larger than
+/// MAX_SIZE, or too small for the header and checksum.
+std::pair<std::unique_ptr<Framer>, x::errors::Error> sync(SyncConfig config);
 }
