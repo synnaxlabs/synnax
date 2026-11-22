@@ -315,7 +315,8 @@ export interface Authority {
   oidc?: OIDCCredentials;
   /**
    * Loads an API key to log in with when the authority gives no other proof. Runs on
-   * each login until one succeeds.
+   * each login until one succeeds. A rejection fails the login with a
+   * MissingCredentialsError.
    */
   loadAPIKey?: () => Promise<string>;
   /** The token of an earlier login to resume. */
@@ -699,7 +700,13 @@ export class Client {
       let u: user.User | undefined;
       let spentCode = false;
       if (this.loadAPIKey != null && this.proof() == null) {
-        const key = await this.loadAPIKey();
+        let key: string;
+        try {
+          key = await this.loadAPIKey();
+        } catch (e) {
+          const err = errors.fromUnknown(e);
+          throw new MissingCredentialsError(err.message, { cause: err });
+        }
         if (generation !== this.generation) return null;
         this.apiKey = key;
         this.loadAPIKey = undefined;

@@ -11,7 +11,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { Unreachable } from "@synnaxlabs/freighter";
+import { TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { env } from "@/env";
@@ -199,7 +199,7 @@ describe("resolveParams with Synnax Desktop", () => {
       secure: true,
     });
     expect(await resolved.loadAPIKey?.()).toEqual("syk_desktop");
-    expect(system.run).toHaveBeenCalledWith("/app/synnax-desktop-key");
+    expect(system.run).toHaveBeenCalledWith("/app/synnax-desktop-key", undefined);
   });
 
   it("should not run the key helper until the key is loaded", () => {
@@ -317,15 +317,14 @@ describe("resolveParams with Synnax Desktop", () => {
     expect(error).toHaveProperty("cause", cause);
   });
 
-  it("should reject with Unreachable when Synnax Desktop is not running", async () => {
+  it("should reject when Synnax Desktop is not running", async () => {
     const error = await rejected(desktop(DESKTOP_FILE, null));
-    if (!(error instanceof Unreachable)) throw new Error("expected Unreachable");
-    expect(error.message).toEqual(
+    expect(error).toBeInstanceOf(ValidationError);
+    expect(error).toHaveProperty(
+      "message",
       "Synnax Desktop is not running. Open it and try again. To connect to another " +
         "Core, give a host and a port.",
     );
-    expect(error.url.host).toEqual("localhost");
-    expect(error.url.port).toEqual(9095);
   });
 
   it.each<[string, env.System, string]>([
@@ -366,10 +365,11 @@ describe("resolveParams with Synnax Desktop", () => {
   describe.skipIf(process.platform === "win32")("with a real key helper", () => {
     const withDir = async (
       f: (dir: string, system: env.System) => Promise<void>,
+      helperTimeout?: TimeSpan,
     ): Promise<void> => {
       const dir = mkdtempSync(join(tmpdir(), "synnax-desktop-"));
       try {
-        const system = env.nodeSystem();
+        const system = env.nodeSystem(helperTimeout);
         if (system == null) throw new Error("no system");
         await f(dir, system);
       } finally {
@@ -377,9 +377,13 @@ describe("resolveParams with Synnax Desktop", () => {
       }
     };
 
-    const writeHelper = (dir: string, mode: number): string => {
+    const writeHelper = (
+      dir: string,
+      mode: number,
+      script = "echo syk_real",
+    ): string => {
       const helper = join(dir, "synnax-desktop-key");
-      writeFileSync(helper, "#!/bin/sh\necho syk_real\n");
+      writeFileSync(helper, `#!/bin/sh\n${script}\n`);
       chmodSync(helper, mode);
       return helper;
     };
@@ -398,6 +402,25 @@ describe("resolveParams with Synnax Desktop", () => {
       await withDir(async (dir, real) => {
         expect(await real.run(join(dir, "missing"))).toBeNull();
       }));
+
+    it("should stop the helper when the signal aborts", async () =>
+      await withDir(async (dir, real) => {
+        const helper = writeHelper(dir, 0o755, "sleep 10");
+        const controller = new AbortController();
+        const run = real.run(helper, controller.signal);
+        const start = performance.now();
+        controller.abort();
+        await expect(run).rejects.toThrow(ValidationError);
+        expect(performance.now() - start).toBeLessThan(1000);
+      }));
+
+    it("should name the timeout of a helper that runs too long", async () =>
+      await withDir(async (dir, real) => {
+        const helper = writeHelper(dir, 0o755, "sleep 10");
+        await expect(real.run(helper)).rejects.toThrow(
+          `The key helper of Synnax Desktop at ${helper} did not finish in`,
+        );
+      }, TimeSpan.milliseconds(100)));
 
     it("should name a helper that exists but cannot start", async () =>
       await withDir(async (dir, real) => {

@@ -293,6 +293,8 @@ export default class Synnax extends framer.Client {
   private readonly cache: query.Cache;
   private readonly transport: Transport;
   private readonly conn: connection.Client;
+  // stops the key helper of Synnax Desktop when the client closes
+  private readonly closing = new AbortController();
 
   /** The version of the client. */
   readonly clientVersion: string = __VERSION__;
@@ -326,8 +328,9 @@ export default class Synnax extends framer.Client {
    * certificate. Turns on props.secure when it is not given. When props.secure and
    * props.caCert are both left out, defaults to the text of the file at SYNNAX_CA_CERT,
    * except in Deno, where TLS trusts the store that --cert or DENO_CERT fills.
-   * The key helper of Synnax Desktop runs before the first login. If it fails, that
-   * login rejects with a ValidationError, or with Unreachable if the helper is gone.
+   * The key helper of Synnax Desktop runs before the first login. If it is gone or
+   * fails, that login rejects with a MissingCredentialsError, and the connection status
+   * gives the reason "auth".
    * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
    * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
    * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
@@ -414,7 +417,13 @@ export default class Synnax extends framer.Client {
     const identity = new observe.Observer<user.User | undefined>();
     // The auth client fails fast: login retries belong to the request that triggered
     // them (the breaker-wrapped unary or the check loop), never stacked beneath it.
-    const authority = { ...authorityOf(parsedParams), loadAPIKey };
+    const authority = {
+      ...authorityOf(parsedParams),
+      loadAPIKey:
+        loadAPIKey == null
+          ? undefined
+          : async () => await loadAPIKey(this.closing.signal),
+    };
     this.auth = new auth.Client(transport.unaryNoRetry, authority, {
       onUser: (u) => identity.notify(u),
       onSuccess: (session) => this.conn.notify({ type: "auth.success", session }),
@@ -576,6 +585,7 @@ export default class Synnax extends framer.Client {
    * @throws {AggregateError} carrying every underlying close failure.
    */
   async close(): Promise<void> {
+    this.closing.abort();
     const results = await Promise.allSettled([this.conn.close(), this.cache.close()]);
     const failures: unknown[] = results
       .filter((r) => r.status === "rejected")

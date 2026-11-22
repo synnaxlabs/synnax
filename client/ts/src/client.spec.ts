@@ -43,6 +43,7 @@ import type { connection } from "@/connection";
 import {
   DisconnectedError,
   InvalidCredentialsError,
+  MissingCredentialsError,
   Synnax,
   ValidationError,
 } from "@/index";
@@ -51,6 +52,7 @@ import {
   createTestClient,
   createTestClientWithPolicy,
   TEST_CREDENTIALS,
+  testCoreAddress,
 } from "@/testutil";
 import { Transport } from "@/transport";
 
@@ -128,26 +130,30 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
     rmSync(home, { recursive: true });
   });
 
-  it("should run the key helper without blocking other tasks", async () => {
-    const started = join(home, "started");
+  // Saves a desktop.json for the Core at the address, with a helper that runs script.
+  const writeDesktop = (
+    script: string | null,
+    { host, port }: { host: string; port: number } = { host: "127.0.0.1", port: 1 },
+  ): void => {
     const helper = join(home, "synnax-desktop-key");
-    writeFileSync(helper, `#!/bin/sh\ntouch ${started}\nsleep 1\necho syk_slow\n`);
-    chmodSync(helper, 0o755);
+    if (script != null) {
+      writeFileSync(helper, `#!/bin/sh\n${script}\n`);
+      chmodSync(helper, 0o755);
+    }
     writeFileSync(
       join(home, ".synnax", "desktop.json"),
-      JSON.stringify({
-        host: "127.0.0.1",
-        port: 1,
-        secure: false,
-        api_key_helper: helper,
-      }),
+      JSON.stringify({ host, port, secure: false, api_key_helper: helper }),
     );
+  };
+
+  const createClient = (): Synnax =>
+    new Synnax({ retry: FAST_RETRY, onRetry: () => {}, onInternalError: () => {} });
+
+  it("should run the key helper without blocking other tasks", async () => {
+    const started = join(home, "started");
+    writeDesktop(`touch ${started}\nsleep 1\necho syk_slow`);
     const start = performance.now();
-    const client = new Synnax({
-      retry: FAST_RETRY,
-      onRetry: () => {},
-      onInternalError: () => {},
-    });
+    const client = createClient();
     expect(performance.now() - start).toBeLessThan(500);
     let ticks = 0;
     const timer = setInterval(() => (ticks += 1), 10);
@@ -159,6 +165,38 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
     expect(ticks).toBeGreaterThan(before);
     await request;
     await client.close();
+  });
+
+  it("should reject the first request with the error of the helper", async () => {
+    writeDesktop("echo 'no keychain' >&2\nexit 1", testCoreAddress());
+    const client = createClient();
+    await expect(client.channels.retrieve("ch")).rejects.toThrow(
+      new MissingCredentialsError("no keychain"),
+    );
+    await expect.poll(() => reasonOf(client.connection.status)).toEqual("auth");
+    await client.close();
+  });
+
+  it("should tell the user to open Synnax Desktop when its helper is gone", async () => {
+    writeDesktop(null);
+    const client = createClient();
+    await expect(client.channels.retrieve("ch")).rejects.toThrow(
+      "Synnax Desktop is not running. Open it and try again.",
+    );
+    await client.close();
+  });
+
+  it("should stop the helper when the client closes", async () => {
+    const started = join(home, "started");
+    writeDesktop(`touch ${started}\nsleep 10\necho syk_slow`);
+    const client = createClient();
+    const request = client.channels.retrieve("ch").catch(() => {});
+    await expect.poll(() => existsSync(started)).toBe(true);
+    const start = performance.now();
+    await client.close();
+    await request;
+    expect(performance.now() - start).toBeLessThan(1000);
+    expect(client.auth.session).toBeUndefined();
   });
 });
 

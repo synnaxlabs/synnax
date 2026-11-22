@@ -1116,6 +1116,17 @@ describe("auth", () => {
       expect(loadAPIKey).toHaveBeenCalledTimes(2);
     });
 
+    it("should fail the login with the error of a load", async () => {
+      const keyed = makeClient({
+        loadAPIKey: async () => {
+          throw new Error("no keychain");
+        },
+      });
+      await expect(keyed.retrieveSessions()).rejects.toThrow(
+        new MissingCredentialsError("no keychain"),
+      );
+    });
+
     it("should reject a key the Core never issued", async () => {
       const keyed = makeClient({ apiKey: `syk_${id.create()}secret` });
       await expect(keyed.retrieveSessions()).rejects.toThrow(InvalidCredentialsError);
