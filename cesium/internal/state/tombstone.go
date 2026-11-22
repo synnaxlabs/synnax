@@ -119,11 +119,12 @@ func (c *core) tombstone(t *log.Tombstone) error {
 	}
 	ch := c.channels[t.Key]
 	for _, s := range slices.Clone(ch.segs) {
-		before := s.vis.Pointers
+		before := s.dur.pointers
 		s.vis.Pointers = cut(s.vis.Pointers, t)
 		s.dur.pointers = cut(s.dur.pointers, t)
-		// A part may hold the record of a sealed segment before the cut.
-		if !slices.Equal(before, s.vis.Pointers) {
+		// A part may hold the record of a sealed segment before the cut. Replay keeps
+		// only the durable pointers.
+		if !slices.Equal(before, s.dur.pointers) {
 			s.vis.Part = 0
 			if s.dur.sealed {
 				ch.kills = append(ch.kills, Kill{
