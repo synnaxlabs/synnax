@@ -699,7 +699,7 @@ class TestLabJackDeviceResource:
         "change",
         [
             {"model": "t9"},
-            {"connection": "LJM_ctWIFI"},
+            {"connection": "LJM_ctTCP"},
             {"serial": None},
         ],
     )

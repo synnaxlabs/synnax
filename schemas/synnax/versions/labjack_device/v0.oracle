@@ -30,11 +30,14 @@ Model enum {
 }
 
 Connection enum {
-    usb = "LJM_ctUSB" {
+    usb      = "LJM_ctUSB" {
         @doc value "is a USB connection."
     }
-    tcp = "LJM_ctTCP" {
-        @doc value "is a TCP connection over Ethernet or Wi-Fi."
+    ethernet = "LJM_ctETHERNET" {
+        @doc value "is an Ethernet connection."
+    }
+    wifi     = "LJM_ctWIFI" {
+        @doc value "is a Wi-Fi connection."
     }
 
     @doc value """

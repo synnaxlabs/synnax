@@ -58,7 +58,7 @@ TEST(Device, RoundTrips) {
     t4.rack = 1;
     t4.name = "T4-0002";
     t4.serial = 440010002;
-    t4.connection = CONNECTION_TCP;
+    t4.connection = CONNECTION_ETHERNET;
     t4.identifier = "lj";
     const Device device = t4;
     x::json::Parser parser(to_json(device));
@@ -66,7 +66,7 @@ TEST(Device, RoundTrips) {
     ASSERT_NIL(parser.error());
     ASSERT_TRUE(std::holds_alternative<T4Device>(parsed));
     ASSERT_EQ(base(parsed).key, t4.key);
-    ASSERT_EQ(base(parsed).connection, CONNECTION_TCP);
+    ASSERT_EQ(base(parsed).connection, CONNECTION_ETHERNET);
     ASSERT_EQ(base(parsed).identifier, "lj");
 }
 }

@@ -8,8 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.labjack.device.types_gen import (
-    CONNECTION_TCP,
+    CONNECTION_ETHERNET,
     CONNECTION_USB,
+    CONNECTION_WIFI,
     MODEL_T4,
     MODEL_T7,
     MODEL_T8,
@@ -28,8 +29,9 @@ from synnax.labjack.device.types_gen import (
 )
 
 __all__ = [
-    "CONNECTION_TCP",
+    "CONNECTION_ETHERNET",
     "CONNECTION_USB",
+    "CONNECTION_WIFI",
     "MODEL_T4",
     "MODEL_T7",
     "MODEL_T8",

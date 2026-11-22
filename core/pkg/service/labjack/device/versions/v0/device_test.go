@@ -62,7 +62,7 @@ var _ = Describe("Device", func() {
 		Entry("no serial", func(b *v0.Base) { b.Serial = 0 }, "serial"),
 		Entry(
 			"an unknown connection",
-			func(b *v0.Base) { b.Connection = "LJM_ctWIFI" },
+			func(b *v0.Base) { b.Connection = "LJM_ctTCP" },
 			"invalid connection",
 		),
 	)

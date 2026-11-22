@@ -17,7 +17,7 @@ import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
-export const CONNECTIONS = ["LJM_ctUSB", "LJM_ctTCP"] as const;
+export const CONNECTIONS = ["LJM_ctUSB", "LJM_ctETHERNET", "LJM_ctWIFI"] as const;
 export const connectionZ = z.enum(CONNECTIONS);
 export type Connection = z.infer<typeof connectionZ>;
 

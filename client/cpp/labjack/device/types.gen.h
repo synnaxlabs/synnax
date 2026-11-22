@@ -29,7 +29,8 @@ struct StatusDetails;
 struct Base;
 
 constexpr const char *CONNECTION_USB = "LJM_ctUSB";
-constexpr const char *CONNECTION_TCP = "LJM_ctTCP";
+constexpr const char *CONNECTION_ETHERNET = "LJM_ctETHERNET";
+constexpr const char *CONNECTION_WIFI = "LJM_ctWIFI";
 
 constexpr const char *MODEL_T_4 = "t4";
 constexpr const char *MODEL_T_7 = "t7";

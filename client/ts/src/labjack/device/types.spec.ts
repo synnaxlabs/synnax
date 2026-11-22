@@ -32,7 +32,7 @@ describe("deviceZ", () => {
     ["an empty name", { name: "" }],
     ["a zero serial", { serial: 0 }],
     ["an unknown model", { model: "t9" }],
-    ["an unknown connection", { connection: "LJM_ctWIFI" }],
+    ["an unknown connection", { connection: "LJM_ctTCP" }],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {
     expect(labjack.device.deviceZ.safeParse({ ...DEVICE, ...change }).success).toBe(

@@ -21,10 +21,12 @@ from synnax.resource import ID
 
 CONNECTION_USB: Literal["LJM_ctUSB"] = "LJM_ctUSB"
 
-CONNECTION_TCP: Literal["LJM_ctTCP"] = "LJM_ctTCP"
+CONNECTION_ETHERNET: Literal["LJM_ctETHERNET"] = "LJM_ctETHERNET"
+
+CONNECTION_WIFI: Literal["LJM_ctWIFI"] = "LJM_ctWIFI"
 
 
-Connection = Literal["LJM_ctUSB", "LJM_ctTCP"]
+Connection = Literal["LJM_ctUSB", "LJM_ctETHERNET", "LJM_ctWIFI"]
 
 MODEL_T4: Literal["t4"] = "t4"
 

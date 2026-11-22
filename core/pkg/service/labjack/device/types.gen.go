@@ -34,8 +34,10 @@ type Connection = versions.Connection
 const (
 	// ConnectionUSB is a USB connection.
 	ConnectionUSB Connection = versions.ConnectionUSB
-	// ConnectionTCP is a TCP connection over Ethernet or Wi-Fi.
-	ConnectionTCP Connection = versions.ConnectionTCP
+	// ConnectionEthernet is an Ethernet connection.
+	ConnectionEthernet Connection = versions.ConnectionEthernet
+	// ConnectionWifi is a Wi-Fi connection.
+	ConnectionWifi Connection = versions.ConnectionWifi
 )
 
 // StatusDetails identifies the device and rack that a status pertains to.

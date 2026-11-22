@@ -55,15 +55,17 @@ type Connection string
 const (
 	// ConnectionUSB is a USB connection.
 	ConnectionUSB Connection = "LJM_ctUSB"
-	// ConnectionTCP is a TCP connection over Ethernet or Wi-Fi.
-	ConnectionTCP Connection = "LJM_ctTCP"
+	// ConnectionEthernet is an Ethernet connection.
+	ConnectionEthernet Connection = "LJM_ctETHERNET"
+	// ConnectionWifi is a Wi-Fi connection.
+	ConnectionWifi Connection = "LJM_ctWIFI"
 )
 
 // IsValid reports whether c is one of the defined Connection
 // values.
 func (c Connection) IsValid() bool {
 	switch c {
-	case ConnectionUSB, ConnectionTCP:
+	case ConnectionUSB, ConnectionEthernet, ConnectionWifi:
 		return true
 	default:
 		return false
