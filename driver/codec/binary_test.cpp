@@ -95,7 +95,7 @@ T decode_one(
     const std::vector<std::uint8_t> &bytes
 ) {
     auto dec = ASSERT_NIL_P(Binary::create({frame(f, dt)}));
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(bytes)), std::size_t{0});
     const auto &s = dec.samples(0);
     EXPECT_EQ(s.size(), 1);
     EXPECT_EQ(s[0].size(), 1);
@@ -200,7 +200,7 @@ TEST(Binary, DecodeBindingOrder) {
         }})
     );
     const std::vector<std::uint8_t> bytes = {1, 2, 3};
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), std::size_t{0});
     const auto &s = dec.samples(0);
     ASSERT_EQ(s.size(), 2);
     EXPECT_EQ(s[0].at<std::uint8_t>(0), 3);
@@ -459,10 +459,10 @@ TEST(Binary, DecodeWithoutAllocating) {
     f.scale = 0.1;
     auto dec = ASSERT_NIL_P(Binary::create({frame(f, x::telem::FLOAT64_T)}));
     const std::vector<std::uint8_t> bytes = {0x10, 0x27};
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), std::size_t{0});
     const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
     for (int i = 0; i < 100; i++)
-        ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0);
+        ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), std::size_t{0});
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
     EXPECT_NEAR(dec.samples(0)[0].at<double>(0), 1000, 1e-9);
 }
