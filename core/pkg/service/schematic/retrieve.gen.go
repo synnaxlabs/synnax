@@ -87,151 +87,259 @@ func newIndexes() indexes {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *Schematic) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Nodes))
+				var targets []channel.Key
 				for _, v1 := range e.Nodes {
 					switch v2 := v1.Config.Variant.(type) {
 					case ThrusterNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case InputNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case SelectNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case SetpointNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case SwitchNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case AgitatorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case CrossBeamAgitatorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case FlatBladeAgitatorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case HelicalAgitatorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case PaddleAgitatorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case PropellerAgitatorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case RotaryMixerNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case CavityPumpNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case CentrifugalCompressorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case CompressorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case DiaphragmPumpNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case EjectionPumpNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case EjectorCompressorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case LiquidRingCompressorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case PistonPumpNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case PumpNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case RollerVaneCompressorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case ScrewPumpNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case TurboCompressorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case VacuumPumpNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case AngledValveNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case BallValveNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case ButterflyValveOneNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case ButterflyValveTwoNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case FourWayValveNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case GateValveNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case SolenoidValveNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case ThreeWayValveNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case ThreeWayBallValveNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case ValveNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case CustomActuatorNodeConfig:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					}
@@ -432,155 +540,266 @@ func newIndexes() indexes {
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *Schematic) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Nodes))
+				var targets []channel.Key
 				for _, v1 := range e.Nodes {
 					switch v2 := v1.Config.Variant.(type) {
 					case ThrusterNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case ButtonNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case InputNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case SelectNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case SetpointNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case SwitchNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case AgitatorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case CrossBeamAgitatorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case FlatBladeAgitatorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case HelicalAgitatorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case PaddleAgitatorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case PropellerAgitatorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case RotaryMixerNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case CavityPumpNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case CentrifugalCompressorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case CompressorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case DiaphragmPumpNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case EjectionPumpNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case EjectorCompressorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case LiquidRingCompressorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case PistonPumpNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case PumpNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case RollerVaneCompressorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case ScrewPumpNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case TurboCompressorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case VacuumPumpNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case AngledValveNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case BallValveNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case ButterflyValveOneNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case ButterflyValveTwoNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case FourWayValveNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case GateValveNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case SolenoidValveNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case ThreeWayValveNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case ThreeWayBallValveNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case ValveNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					case CustomActuatorNodeConfig:
 						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.CommandChannel)
 						}
 					}
@@ -786,35 +1005,56 @@ func newIndexes() indexes {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *Schematic) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Nodes))
+				var targets []channel.Key
 				for _, v1 := range e.Nodes {
 					switch v2 := v1.Config.Variant.(type) {
 					case GaugeNodeConfig:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case LightNodeConfig:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case ScaleNodeConfig:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case StateIndicatorNodeConfig:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case StringDisplayNodeConfig:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case ValueNodeConfig:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case TankNodeConfig:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					}

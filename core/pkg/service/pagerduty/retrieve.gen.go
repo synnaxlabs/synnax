@@ -46,9 +46,12 @@ func taskConfigReferences() []gorp.Reference[uuid.UUID, TaskConfig] {
 			OnDelete: gorp.Detach,
 			Kind:     gorp.Use,
 			Targets: func(e *TaskConfig) []status.Key {
-				targets := make([]status.Key, 0, len(e.Alerts))
+				var targets []status.Key
 				for _, v1 := range e.Alerts {
 					if v1.Status != "" {
+						if targets == nil {
+							targets = make([]status.Key, 0, len(e.Alerts))
+						}
 						targets = append(targets, v1.Status)
 					}
 				}

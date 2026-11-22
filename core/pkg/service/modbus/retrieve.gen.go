@@ -47,39 +47,63 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *ReadConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Channels))
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case CoilReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case DiscreteInputReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case HoldingRegisterReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case InputRegisterReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case HoldingRegisterStringReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case InputRegisterStringReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case HoldingRegisterBitReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case InputRegisterBitReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					}
@@ -164,19 +188,28 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *WriteConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Channels))
+				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case CoilWriteChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case HoldingRegisterWriteChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case HoldingRegisterBitWriteChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					}

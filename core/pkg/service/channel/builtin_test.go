@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -82,6 +84,43 @@ var _ = Describe("Built-in channels", func() {
 		Expect(svc.IsBuiltIn(ch.Key())).To(BeTrue())
 		Expect(svc.BuiltIns()).To(ContainElement(ch.Key()))
 		Expect(retrieve(ctx, ch.Name)).To(HaveLen(1))
+	})
+
+	It("Should tell built-in keys from the free and leased keys around them", func(
+		ctx SpecContext,
+	) {
+		index := func() channel.Channel {
+			return channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+		}
+		freeCommand := func() channel.Channel {
+			ch := command()
+			ch.Leaseholder = node.KeyFree
+			return ch
+		}
+		before, beforeIndex := freeCommand(), index()
+		create(ctx, &before)
+		create(ctx, &beforeIndex)
+		free, leased := freeCommand(), index()
+		Expect(declare(ctx, &free)).To(Succeed())
+		Expect(declare(ctx, &leased)).To(Succeed())
+		after, afterIndex := freeCommand(), index()
+		create(ctx, &after)
+		create(ctx, &afterIndex)
+		Expect(free.Free()).To(BeTrue())
+		Expect(leased.Free()).To(BeFalse())
+		for _, ch := range []channel.Channel{free, leased} {
+			Expect(svc.IsBuiltIn(ch.Key())).To(BeTrue())
+		}
+		for _, ch := range []channel.Channel{before, beforeIndex, after, afterIndex} {
+			Expect(svc.IsBuiltIn(ch.Key())).To(BeFalse())
+		}
+		builtIns := svc.BuiltIns()
+		Expect(builtIns).To(ContainElements(free.Key(), leased.Key()))
+		Expect(slices.IsSorted(builtIns)).To(BeTrue())
 	})
 
 	It("Should adopt a channel of the same data type and virtual flag", func(
