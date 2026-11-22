@@ -10,6 +10,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Problem } from "@/components/problem";
+import { Releases } from "@/components/releases";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -168,19 +169,21 @@ import { Synnax } from "@synnaxlabs/client";
 
   <Fragment slot="python">
 
-```
-The Synnax Core version 0.61.0 is too old for client version 0.62.0. This may cause compatibility issues. We recommend updating the Core. For more information, see https://docs.synnaxlabs.com/reference/client/troubleshooting#old-core-version
-```
+<Releases.Code
+  lang="text"
+  code={({ current, previous }) => `The Synnax Core version ${previous.version} is too old for client version ${current.version}. This may cause compatibility issues. We recommend updating the Core. For more information, see https://docs.synnaxlabs.com/reference/client/troubleshooting#old-core-version`}
+/>
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-```
-The Synnax Core version 0.61.0 is too old for client version 0.62.0.
+<Releases.Code
+  lang="text"
+  code={({ current, previous }) => `The Synnax Core version ${previous.version} is too old for client version ${current.version}.
   This may cause compatibility issues. We recommend updating the Core. For more information, see
-  https://docs.synnaxlabs.com/reference/client/troubleshooting#old-core-version
-```
+  https://docs.synnaxlabs.com/reference/client/troubleshooting#old-core-version`}
+/>
 
   </Fragment>
 
@@ -201,17 +204,19 @@ matches the Core:
 
   <Fragment slot="python">
 
-```bash
-pip install "synnax==0.61.*"
-```
+<Releases.Code
+  lang="bash"
+  code={({ previous }) => `pip install "synnax==${previous.train}.*"`}
+/>
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-```bash
-npm install @synnaxlabs/client@0.61
-```
+<Releases.Code
+  lang="bash"
+  code={({ previous }) => `npm install @synnaxlabs/client@${previous.train}`}
+/>
 
   </Fragment>
 
@@ -228,19 +233,21 @@ npm install @synnaxlabs/client@0.61
 
   <Fragment slot="python">
 
-```
-The Synnax Core version 0.62.0 is too new for client version 0.61.0. This may cause compatibility issues. We recommend updating the client. For more information, see https://docs.synnaxlabs.com/reference/client/troubleshooting#old-client-version
-```
+<Releases.Code
+  lang="text"
+  code={({ current, previous }) => `The Synnax Core version ${current.version} is too new for client version ${previous.version}. This may cause compatibility issues. We recommend updating the client. For more information, see https://docs.synnaxlabs.com/reference/client/troubleshooting#old-client-version`}
+/>
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-```
-The Synnax Core version 0.62.0 is too new for client version 0.61.0.
+<Releases.Code
+  lang="text"
+  code={({ current, previous }) => `The Synnax Core version ${current.version} is too new for client version ${previous.version}.
   This may cause compatibility issues. We recommend updating the client. For more information, see
-  https://docs.synnaxlabs.com/reference/client/troubleshooting#old-client-version
-```
+  https://docs.synnaxlabs.com/reference/client/troubleshooting#old-client-version`}
+/>
 
   </Fragment>
 
@@ -260,17 +267,19 @@ Install the client version that matches the Core:
 
   <Fragment slot="python">
 
-```bash
-pip install "synnax==0.62.*"
-```
+<Releases.Code
+  lang="bash"
+  code={({ current }) => `pip install "synnax==${current.train}.*"`}
+/>
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-```bash
-npm install @synnaxlabs/client@0.62
-```
+<Releases.Code
+  lang="bash"
+  code={({ current }) => `npm install @synnaxlabs/client@${current.train}`}
+/>
 
   </Fragment>
 
@@ -286,9 +295,10 @@ Python 3.13 or newer.
 
 ## Core version not supported
 
-```
-Client 0.62.0 cannot work with Core 0.61.0.
-```
+<Releases.Code
+  lang="text"
+  code={({ current, previous }) => `Client ${current.version} cannot work with Core ${previous.version}.`}
+/>
 
 <Problem.Body>
 <Problem.Cause>
@@ -305,9 +315,10 @@ the Core changes. If you set a finite `retry.maxRetries`, call
 
 Install the client version that matches the Core:
 
-```bash
-npm install @synnaxlabs/client@0.61
-```
+<Releases.Code
+  lang="bash"
+  code={({ previous }) => `npm install @synnaxlabs/client@${previous.train}`}
+/>
 
 You can also [upgrade the Core](/reference/enterprise/upgrade).
 
@@ -318,9 +329,10 @@ You can also [upgrade the Core](/reference/enterprise/upgrade).
 
 ## Synnax Desktop runs Core version
 
-```
-Synnax Desktop runs Core version 0.61.4, which does not match client version 0.62.0. Update Synnax Desktop, or run pip install "synnax~=0.61.0".
-```
+<Releases.Code
+  lang="text"
+  code={({ current, previous }) => `Synnax Desktop runs Core version ${previous.version}, which does not match client version ${current.version}. Update Synnax Desktop, or run pip install "synnax~=${previous.train}.0".`}
+/>
 
 <Problem.Body>
 <Problem.Cause>
