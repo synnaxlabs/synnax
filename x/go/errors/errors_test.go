@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -315,6 +316,15 @@ var _ = Describe("Is", func() {
 			Expect(errors.UnwrapMulti(decoded)).To(HaveLen(2))
 		})
 
+		It("Should keep diagnostics whole after transport", func() {
+			var diag diagnostics.Diagnostics
+			diag.Add(diagnostics.Error(errors.New("undefined symbol: a"), nil))
+			diag.Add(diagnostics.Error(errors.New("undefined symbol: b"), nil))
+			codec := errors.NewCodec()
+			decoded := codec.Decode(codec.Encode(&diag, true))
+			Expect(errors.UnwrapMulti(decoded)).To(BeNil())
+		})
+
 		DescribeTable("Should format a join rewrapped in a loop in polynomial time",
 			func(format func(error) string, wrap func(error) error) {
 				var err error
@@ -375,6 +385,19 @@ var _ = Describe("Is", func() {
 
 		It("Should return nil for a nil error", func() {
 			Expect(errors.UnwrapMulti(nil)).To(BeNil())
+		})
+
+		It("Should return the causes of a standard library join", func() {
+			joined := stderrors.Join(errors.New("err1"), errors.New("err2"))
+			Expect(errors.UnwrapMulti(errors.Wrap(joined, "context"))).To(HaveLen(2))
+		})
+
+		It("Should keep a multi-cause error that is not a join whole", func() {
+			whole := &aggregateError{
+				errs: []error{errors.New("err1"), errors.New("err2")},
+			}
+			Expect(errors.UnwrapMulti(whole)).To(BeNil())
+			Expect(errors.UnwrapMulti(errors.Wrap(whole, "context"))).To(BeNil())
 		})
 	})
 
