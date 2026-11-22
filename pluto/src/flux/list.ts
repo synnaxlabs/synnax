@@ -326,7 +326,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     if (live.getCached() === undefined)
       live.retrieve().then(
         () => {
-          if (!released) callback();
+          if (!released) frame.current.queue(callback);
         },
         (error: unknown) => {
           // The subscriber reads a missing record from getItem, and a released one
