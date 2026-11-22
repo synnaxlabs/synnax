@@ -133,6 +133,7 @@ var _ = Describe("Service", func() {
 		pw             *password.Service
 		clock          *timetestutil.Clock
 		idleTimeout    time.Duration
+		holdCheck      time.Duration
 		alice          resource.ID
 		username       string
 	)
@@ -144,6 +145,7 @@ var _ = Describe("Service", func() {
 		pw = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		clock = timetestutil.NewClock(time.Unix(1_700_000_000, 0))
 		idleTimeout = idle
+		holdCheck = 30 * time.Second
 		authenticators = map[auth.Method]auth.Authenticator{auth.MethodPassword: pw}
 		alice = subject()
 		username = uuid.New().String()
@@ -153,10 +155,11 @@ var _ = Describe("Service", func() {
 	})
 	JustBeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-			DB:             db,
-			Authenticators: authenticators,
-			IdleTimeout:    idleTimeout,
-			Clock:          clock,
+			DB:                db,
+			Authenticators:    authenticators,
+			IdleTimeout:       idleTimeout,
+			HoldCheckInterval: holdCheck,
+			Clock:             clock,
 		}))
 	})
 	Describe("OpenService", func() {
@@ -571,7 +574,10 @@ var _ = Describe("Service", func() {
 		)
 	})
 	Describe("Run", func() {
-		BeforeEach(func() { idleTimeout = 40 * time.Millisecond })
+		BeforeEach(func() {
+			idleTimeout = 40 * time.Millisecond
+			holdCheck = 10 * time.Millisecond
+		})
 		It("Should sweep idle sessions until its context ends", func(ctx SpecContext) {
 			session, _ := login(ctx)
 			clock.Advance(time.Hour)
@@ -581,6 +587,18 @@ var _ = Describe("Service", func() {
 					Where(auth.MatchKeys(session.Key)).
 					Exists(ctx, db)).To(BeFalse())
 			}).Should(Succeed())
+		})
+		It("Should end a held session whose password changed", func(ctx SpecContext) {
+			session, _ := login(ctx)
+			ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+			defer release()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				changed := password.NewSetHashAction(hash(pw, "changed"))
+				return pw.NewWriter(tx).Apply(ctx, alice, changed)
+			})).To(Succeed())
+			Consistently(ended).ShouldNot(BeClosed())
+			StartRun(svc.Run)
+			Eventually(ended).Should(BeClosed())
 		})
 		It("Should return an error when called twice", func(ctx SpecContext) {
 			StartRun(svc.Run)
