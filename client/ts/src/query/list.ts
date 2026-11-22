@@ -633,6 +633,8 @@ export class Lists<
     return () => {
       entry.handlers.delete(handler);
       if (entry.handlers.size > 0) return;
+      // The window stays stale, so a subscriber in the grace window refetches it.
+      this.clearRefetch(entry);
       if (this.grace.isZero) return this.teardown(entry);
       entry.idleSince = this.clock();
       this.armSweep();

@@ -941,6 +941,20 @@ describe("Lists", () => {
       lists.close();
     });
 
+    it("should not refetch a search after its last subscriber leaves", async () => {
+      const { lists, table, fetch } = setup([rec("1", "ab")], {
+        teardownGrace: TimeSpan.minutes(1),
+      });
+      const list = lists.list({ searchTerm: "a" });
+      const release = list.onChange(vi.fn());
+      await list.retrieve();
+      table.set("2", rec("2", "ac"));
+      release();
+      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      expect(fetch).toHaveBeenCalledTimes(1);
+      lists.close();
+    });
+
     it("should not fetch again on subscribe after an unmaintained fetch", async () => {
       const { lists, fetch } = setup([rec("1", "a")]);
       const list = lists.list({ order: byName });
