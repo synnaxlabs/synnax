@@ -175,13 +175,12 @@ export class WriteAdapter {
 
   /**
    * @returns the channel that a key of a record frame names. A record keys its columns
-   * by string, so a string of digits names the writer's channel of that key when no
-   * channel of the writer holds it as a name.
+   * by string, so a string of digits is a channel key unless a channel of the writer
+   * holds it as a name.
    */
   private recordKey(k: string): channel.Key | channel.Name {
-    if (this.byName?.has(k)) return k;
-    const key = Number(k);
-    return Number.isInteger(key) && this.byKey.has(key) ? key : k;
+    if (this.byName?.has(k) || !/^\d+$/.test(k)) return k;
+    return Number(k);
   }
 
   private async adaptToKey(k: channel.Key | channel.Name): Promise<channel.Key> {
