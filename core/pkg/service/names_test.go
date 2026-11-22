@@ -351,7 +351,14 @@ var _ = Describe("Name upgrade", func() {
 				To(ContainSubstring(`"Metrics" to "Metrics_2"`))
 		}
 		first := MustSucceed(svctestutil.OpenLayer(ctx, n))
+		firstOpen := true
+		DeferCleanup(func() {
+			if firstOpen {
+				Expect(first.Close()).To(Succeed())
+			}
+		})
 		check(first)
+		firstOpen = false
 		Expect(first.Close()).To(Succeed())
 		check(MustOpen(svctestutil.OpenLayer(ctx, n)))
 	})
@@ -361,6 +368,12 @@ var _ = Describe("Name upgrade", func() {
 	) {
 		n := testutil.NewNode(ctx)
 		first := MustSucceed(svctestutil.OpenLayer(ctx, n))
+		firstOpen := true
+		DeferCleanup(func() {
+			if firstOpen {
+				Expect(first.Close()).To(Succeed())
+			}
+		})
 		pt := channel.Channel{
 			Name:        "pt-01",
 			DataType:    telem.Float32T,
@@ -404,6 +417,7 @@ var _ = Describe("Name upgrade", func() {
 			editedTask, err = w.UpdateTask(ctx, edited.Base().Key, update)
 			return err
 		})).To(Succeed())
+		firstOpen = false
 		Expect(first.Close()).To(Succeed())
 		// The Driver ran each deploy, and the edited Arc then saved an edit.
 		deployed := drift.Hashes{Text: "deployed"}

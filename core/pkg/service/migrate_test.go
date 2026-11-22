@@ -209,6 +209,12 @@ var _ = Describe("Retired channels", func() {
 				cs[1].Internal = true
 			})
 			l := MustSucceed(svctestutil.OpenLayer(ctx, n))
+			lOpen := true
+			DeferCleanup(func() {
+				if lOpen {
+					Expect(l.Close()).To(Succeed())
+				}
+			})
 			Expect(namesOf(ctx, n, stored)).To(Equal(map[channel.Key]string{
 				stored[2].Key(): "sy_range_alias_delete",
 			}))
@@ -221,6 +227,7 @@ var _ = Describe("Retired channels", func() {
 			Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return l.Channel.NewWriter(tx).Create(ctx, &later)
 			})).To(Succeed())
+			lOpen = false
 			Expect(l.Close()).To(Succeed())
 			By("Opening again with a user channel made with a retired name")
 			MustOpen(svctestutil.OpenLayer(ctx, n))
