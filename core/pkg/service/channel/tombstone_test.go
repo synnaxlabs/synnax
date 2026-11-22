@@ -257,6 +257,20 @@ var _ = Describe("Tombstone", Ordered, func() {
 		Expect(svc.Tombstones(ctx, db, createFolder(ctx).Key)).To(BeEmpty())
 	})
 
+	It("Should name a tombstone among the records that sit in a folder", func(
+		ctx SpecContext,
+	) {
+		g := createFolder(ctx)
+		dead := deleteHeld(ctx, channel.Channel{Group: &g.Key})
+		live := create(ctx, channel.Channel{Group: &g.Key})
+		children := MustSucceed(groupSvc.Children(ctx, db, g.Key))
+		Expect(children).To(HaveLen(2))
+		for _, id := range children {
+			Expect(channel.IsTombstone(id)).To(Equal(id.Key == dead.Key().String()))
+		}
+		Expect(channel.IsTombstone(channel.ResourceID(live.Key()))).To(BeFalse())
+	})
+
 	Describe("MoveTombstones", func() {
 		keysOf := func(ts []channel.Tombstone) channel.Keys {
 			keys := make(channel.Keys, len(ts))

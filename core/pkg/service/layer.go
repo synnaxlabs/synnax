@@ -11,7 +11,6 @@ package service
 
 import (
 	"context"
-	"maps"
 	"slices"
 	"time"
 	"uuid"
@@ -1202,11 +1201,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	uuidKey := func(id resource.ID) (uuid.UUID, error) { return uuid.Parse(id.Key) }
+	channelKey := func(id resource.ID) (channel.Key, error) {
+		return channel.ParseKey(id.Key)
+	}
 	// moves sets the group of the records of each type that sits in a group.
-	moves := map[resource.Type]memberMove{
+	moves := map[resource.Type]impact.Move{
 		resource.TypeChannel: moveBy(
-			func(id resource.ID) (channel.Key, error) { return channel.ParseKey(id.Key) },
-			func(ctx context.Context, tx gorp.Tx, to *group.Key, k ...channel.Key) error {
+			channelKey,
+			func(
+				ctx context.Context,
+				tx gorp.Tx,
+				to *group.Key,
+				k ...channel.Key,
+			) error {
 				return l.Channel.NewWriter(tx).SetGroup(ctx, to, k...)
 			},
 		),
@@ -1289,27 +1296,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		RecordOf: taskconfig.RecordOf,
 		DB:       cfg.Distribution.DB,
 		Policies: policies,
-		Move: func(
-			ctx context.Context,
-			tx gorp.Tx,
-			members []resource.ID,
-			to *group.Key,
-		) error {
-			byType := make(map[resource.Type][]resource.ID)
-			for _, id := range members {
-				byType[id.Type] = append(byType[id.Type], id)
-			}
-			for _, t := range slices.Sorted(maps.Keys(byType)) {
-				move, ok := moves[t]
-				if !ok {
-					return errors.Newf("impact cannot move a %s", t)
-				}
-				if err := move(ctx, tx, byType[t], to); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
+		Moves:    moves,
 		Delete: func(ctx context.Context, tx gorp.Tx, records []resource.ID) error {
 			w := l.Task.NewWriter(tx)
 			for _, r := range records {
@@ -1338,47 +1325,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 // channelPolicies returns what a heal does with each reference to the channel table:
 // displays move onto the channel that takes the path, and task configs, the index, and
 // path histories keep the dead key.
-// memberMove moves, in tx, the records with ids, all of one type, into the group to, or
-// out of their groups for nil.
-type memberMove func(ctx context.Context, tx gorp.Tx, ids []resource.ID, to *group.Key) error
-
-// moveBy returns a memberMove that parses the key of each record with parse and moves
-// the records through set.
-func moveBy[K any](
-	parse func(resource.ID) (K, error),
-	set func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error,
-) memberMove {
-	return func(ctx context.Context, tx gorp.Tx, ids []resource.ID, to *group.Key) error {
-		keys := make([]K, len(ids))
-		for i, id := range ids {
-			var err error
-			if keys[i], err = parse(id); err != nil {
-				return err
-			}
-		}
-		return set(ctx, tx, to, keys...)
-	}
-}
-
-// applyGroup returns a set for moveBy that moves each record through apply, which sets
-// its group to value: the key of the group, or nil for no group.
-func applyGroup[K any](
-	apply func(ctx context.Context, tx gorp.Tx, key K, value any) error,
-) func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error {
-	return func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error {
-		var value any
-		if to != nil {
-			value = *to
-		}
-		for _, k := range keys {
-			if err := apply(ctx, tx, k, value); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-}
-
 func channelPolicies() impact.Policies {
 	retarget, keep := impact.PolicyRetarget, impact.PolicyKeep
 	return impact.Policies{
@@ -1398,5 +1344,48 @@ func channelPolicies() impact.Policies {
 			_, ok := taskconfig.TaskOf(gorp.Target{Table: table})
 			return ok
 		},
+	}
+}
+
+// moveBy returns an impact.Move that parses the key of each record with parse and
+// moves the records through set.
+func moveBy[K any](
+	parse func(resource.ID) (K, error),
+	set func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error,
+) impact.Move {
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		ids []resource.ID,
+		to *group.Key,
+	) error {
+		keys := make([]K, len(ids))
+		for i, id := range ids {
+			var err error
+			if keys[i], err = parse(id); err != nil {
+				return err
+			}
+		}
+		return set(ctx, tx, to, keys...)
+	}
+}
+
+// applyGroup returns a set for moveBy that moves each record through apply, which sets
+// its group to value: the key of the group, or nil for no group.
+func applyGroup[K any](
+	apply func(ctx context.Context, tx gorp.Tx, key K, value any) error,
+) func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error {
+	return func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error {
+		// A typed nil would set the zero key, not no group (SY-6716).
+		var value any
+		if to != nil {
+			value = *to
+		}
+		for _, k := range keys {
+			if err := apply(ctx, tx, k, value); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 }

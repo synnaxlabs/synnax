@@ -52,10 +52,8 @@ var _ = Describe("Policies break", Ordered, func() {
 				Delete: func(context.Context, gorp.Tx, []resource.ID) error {
 					return nil
 				},
-				Move: func(context.Context, gorp.Tx, []resource.ID, *group.Key) error {
-					return nil
-				},
-				DB: db,
+				Moves: noMoves(),
+				DB:    db,
 				Policies: impact.Policies{Links: map[gorp.ReferenceID]impact.Policy{
 					{Table: "display", Name: "channel"}: p,
 				}},

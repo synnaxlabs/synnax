@@ -11,6 +11,7 @@ package impact
 
 import (
 	"context"
+	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
@@ -27,15 +28,12 @@ type ungrouping struct {
 	plan Plan
 	// groups are the groups that the ungroup deletes, sorted by key.
 	groups []group.Group
-	// moves maps the key of each of groups to the key of its parent, or to nil when its
-	// parent is not a group.
+	// moves maps each of groups to its parent group, or to nil.
 	moves map[group.Key]*group.Key
 }
 
-// planUngroup returns the plan of c, the ungroup of the groups with keys, as snap sees
-// it, with no token: each tombstone that drops because its new path is taken, as a
-// cascade entry with its path from its group. A group whose parent is among keys fails
-// with a validation error, and a pick fails as it fails Plan.
+// planUngroup returns the plan of c, the ungroup of the groups with keys, as Plan
+// describes, with no token.
 func (s *Service) planUngroup(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -59,7 +57,7 @@ func (s *Service) planUngroup(
 	if len(dropped) > 0 {
 		u.plan.Entries = make([]Entry, len(dropped))
 		for i, t := range dropped {
-			path := names[*t.Group] + "." + t.Name
+			path := entryPath(names[*t.Group], t.Name)
 			u.plan.Entries[i] = Entry{
 				Record: channel.ResourceID(t.Key),
 				Effect: EffectCascade,
@@ -73,12 +71,12 @@ func (s *Service) planUngroup(
 			return ungrouping{}, err
 		}
 	}
+	u.plan = withHidden(u.plan, opts.Visible)
 	return u, nil
 }
 
-// ungrouped sets the groups and moves of u for the ungroup of the groups with keys, as
-// snap sees them, and returns the name of each group by key. A group whose parent is
-// among keys fails with a validation error.
+// ungrouped fills the groups and moves of u and returns each group's name by key. A
+// group whose parent is among keys fails with a validation error.
 func (s *Service) ungrouped(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -121,9 +119,7 @@ func (s *Service) ungrouped(
 	return names, nil
 }
 
-// ungroupGroups moves the members, child groups, and tombstones of the groups with
-// keys, the groups of c, to the parent of each, and then deletes the groups, as Apply
-// describes.
+// ungroupGroups applies c, the ungroup of the groups with keys, as Apply describes.
 func (s *Service) ungroupGroups(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -132,8 +128,9 @@ func (s *Service) ungroupGroups(
 	opts ApplyOptions,
 ) (Plan, error) {
 	u, err := s.planUngroup(ctx, tx, c, keys, PlanOptions{
-		Picks:  opts.Picks,
-		Hidden: opts.Hidden,
+		Picks:   opts.Picks,
+		Hidden:  opts.Hidden,
+		Visible: opts.Visible,
 	})
 	if err != nil {
 		return Plan{}, err
@@ -162,8 +159,8 @@ func (s *Service) ungroupGroups(
 	return u.plan, nil
 }
 
-// moveChildren moves each group in g to the parent of g, and each other member of g
-// except its tombstones into the group to, or out of any group for nil.
+// moveChildren moves the groups in g to the parent of g, and its other members except
+// tombstones into the group to, or out of any group for nil.
 func (s *Service) moveChildren(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -176,7 +173,7 @@ func (s *Service) moveChildren(
 	}
 	var (
 		subgroups []group.Key
-		members   []resource.ID
+		members   = make(map[resource.Type][]resource.ID)
 	)
 	for _, id := range children {
 		if id.Type == resource.TypeGroup {
@@ -185,8 +182,8 @@ func (s *Service) moveChildren(
 				return err
 			}
 			subgroups = append(subgroups, k)
-		} else if id.Type != resource.Type(channel.TombstoneTable) {
-			members = append(members, id)
+		} else if !channel.IsTombstone(id) {
+			members[id.Type] = append(members[id.Type], id)
 		}
 	}
 	if len(subgroups) > 0 {
@@ -195,8 +192,14 @@ func (s *Service) moveChildren(
 			return err
 		}
 	}
-	if len(members) == 0 {
-		return nil
+	for _, t := range slices.Sorted(maps.Keys(members)) {
+		move, ok := s.cfg.Moves[t]
+		if !ok {
+			return errors.Newf("[impact] - no move for a %s", t)
+		}
+		if err = move(ctx, tx, members[t], to); err != nil {
+			return err
+		}
 	}
-	return s.cfg.Move(ctx, tx, members, to)
+	return nil
 }

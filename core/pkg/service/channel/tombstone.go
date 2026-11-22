@@ -18,13 +18,10 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
-
-// TombstoneTable is the name of the table of tombstones, which a tombstone's link to
-// its group names as the holder's table.
-const TombstoneTable = tombstoneTableName
 
 const (
 	// tombstoneTableName is the name of the table of tombstones.
@@ -35,6 +32,10 @@ const (
 	// a tombstone.
 	rewiresReference = "rewires.from"
 )
+
+// IsTombstone reports whether id, as group.Service.Children lists a record, names a
+// tombstone.
+func IsTombstone(id resource.ID) bool { return id.Type == tombstoneTableName }
 
 // MirrorTables returns the tables of the records that a channel change writes beside
 // the channel: its tombstones. Pass them as bind.ServiceConfig.Mirrors.

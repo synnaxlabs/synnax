@@ -21,6 +21,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
+// noMoves returns moves that do nothing, one for each type that can sit in a group.
+func noMoves() map[resource.Type]impact.Move {
+	moves := make(map[resource.Type]impact.Move)
+	for _, t := range group.MemberTypes() {
+		moves[t] = func(context.Context, gorp.Tx, []resource.ID, *group.Key) error {
+			return nil
+		}
+	}
+	return moves
+}
+
 var _ = Describe("ServiceConfig", func() {
 	full := func() impact.ServiceConfig {
 		return impact.ServiceConfig{
@@ -28,9 +39,7 @@ var _ = Describe("ServiceConfig", func() {
 			Group:    &group.Service{},
 			RecordOf: func(gorp.Target) resource.ID { return resource.ID{} },
 			Delete:   func(context.Context, gorp.Tx, []resource.ID) error { return nil },
-			Move: func(context.Context, gorp.Tx, []resource.ID, *group.Key) error {
-				return nil
-			},
+			Moves:    noMoves(),
 			DB:       &gorp.DB{},
 			Policies: impact.Policies{Links: make(map[gorp.ReferenceID]impact.Policy)},
 		}
@@ -68,9 +77,14 @@ var _ = Describe("ServiceConfig", func() {
 			"delete: must be non-nil",
 		),
 		Entry(
-			"move",
-			func(c *impact.ServiceConfig) { c.Move = nil },
-			"move: must be non-nil",
+			"moves",
+			func(c *impact.ServiceConfig) { c.Moves = nil },
+			"moves: must be non-nil",
+		),
+		Entry(
+			"the move of one type that can sit in a group",
+			func(c *impact.ServiceConfig) { delete(c.Moves, resource.TypeChannel) },
+			"moves: has no move for a channel",
 		),
 		Entry(
 			"db",

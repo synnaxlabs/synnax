@@ -138,9 +138,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Delete: func(context.Context, gorp.Tx, []resource.ID) error {
 			return errors.New("[symbol suite] - no record to delete")
 		},
-		Move: func(context.Context, gorp.Tx, []resource.ID, *group.Key) error {
-			return errors.New("[symbol suite] - no record to move")
-		},
+		Moves: suiteMoves(),
 	}))
 	Expect(channelSvc.Heal(ctx)).To(Succeed())
 	apiSvc = MustSucceed(apisymbol.NewService(apisymbol.ServiceConfig{
@@ -263,4 +261,17 @@ func suitePolicies() impact.Policies {
 		{Table: "schematic", Name: "nodes.config.command_channel"}: retarget,
 		{Table: "schematic", Name: "nodes.config.state_channel"}:   retarget,
 	}}
+}
+
+// suiteMoves returns moves that refuse every record, one for each type that can sit in
+// a
+// group.
+func suiteMoves() map[resource.Type]impact.Move {
+	moves := make(map[resource.Type]impact.Move)
+	for _, t := range group.MemberTypes() {
+		moves[t] = func(context.Context, gorp.Tx, []resource.ID, *group.Key) error {
+			return errors.New("[symbol suite] - no record to move")
+		}
+	}
+	return moves
 }

@@ -47,12 +47,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Delete func(ctx context.Context, tx gorp.Tx, records []resource.ID) error
-	// Move moves, in tx, the records other than groups that an ungroup takes out of
-	// a group into the group to, or out of their groups for nil. It fails on a record
-	// that it cannot move.
+	// Moves holds the Move of each type of record that can sit in a group. An ungroup
+	// moves the members of each group through it.
 	//
 	// [REQUIRED]
-	Move func(ctx context.Context, tx gorp.Tx, records []resource.ID, to *group.Key) error
+	Moves map[resource.Type]Move
 	// DB is the database whose references to channels Policies maps.
 	//
 	// [REQUIRED]
@@ -65,6 +64,10 @@ type ServiceConfig struct {
 	Policies Policies
 }
 
+// Move moves, in tx, the records with ids, all of one type, into the group to, or out
+// of their groups for nil.
+type Move func(ctx context.Context, tx gorp.Tx, ids []resource.ID, to *group.Key) error
+
 var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
@@ -73,7 +76,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.RecordOf = override.Nil(c.RecordOf, other.RecordOf)
 	c.Delete = override.Nil(c.Delete, other.Delete)
-	c.Move = override.Nil(c.Move, other.Move)
+	c.Moves = override.Nil(c.Moves, other.Moves)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Policies.Links = override.Nil(c.Policies.Links, other.Policies.Links)
 	c.Policies.KeptTables = override.Nil(
@@ -90,7 +93,12 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("group", c.Group)
 	v.NotNil("record_of", c.RecordOf)
 	v.NotNil("delete", c.Delete)
-	v.NotNil("move", c.Move)
+	if v.NotNil("moves", c.Moves) {
+		for _, t := range group.MemberTypes() {
+			_, ok := c.Moves[t]
+			v.Ternaryf("moves", !ok, "has no move for a %s", t)
+		}
+	}
 	v.NotNil("db", c.DB)
 	v.NotNil("policies.links", c.Policies.Links)
 	return v.Error()
@@ -290,7 +298,7 @@ func (p picks) pickOf(e Entry) (Choice, error) {
 // tombstones in them after the token check, then the groups as group.Writer.Delete
 // does, and returns a plan of c that lists each tombstone as a cascade entry with its
 // path. An ungroup of groups moves the child groups of each group to its parent, its
-// other members through ServiceConfig.Move, and its tombstones, then deletes the
+// other members through ServiceConfig.Moves, and its tombstones, then deletes the
 // groups, after the token check. It returns its plan. Picks fail as they fail Plan.
 // Given a gorp.DB, Apply runs in a transaction of its own.
 func (s *Service) Apply(
@@ -396,10 +404,13 @@ func (s *Service) tombstonePaths(
 			g, ok = deleted[parent]
 		}
 		slices.Reverse(segments)
-		paths[i] = strings.Join(segments, ".")
+		paths[i] = entryPath(segments...)
 	}
 	return paths, nil
 }
+
+// entryPath joins the segments of the path of a tombstone entry.
+func entryPath(segments ...string) string { return strings.Join(segments, ".") }
 
 // checkToken returns nil when t is the token of a plan whose sum is sum. Otherwise it
 // returns a PlanChangedError that carries now, the plan as it is now, with its token.
