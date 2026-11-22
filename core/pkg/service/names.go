@@ -17,7 +17,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
@@ -342,7 +341,7 @@ var arcTextMigration = migrate.New(
 		var changed []arc.Arc
 		for _, a := range arcs {
 			b := a.Base()
-			if renameSource(&b.Source, rename) {
+			if arc.RenameChannels(&b.Source, rename) {
 				a.SetBase(b)
 				changed = append(changed, a)
 			}
@@ -350,29 +349,6 @@ var arcTextMigration = migrate.New(
 		return gorp.WrapWriter[arc.Key, arc.Arc](tx).Set(ctx, changed...)
 	},
 )
-
-// renameSource applies rename to each channel name in src, and reports whether it
-// changed src.
-func renameSource(src *arc.Source, rename func(string) (string, bool)) bool {
-	changed := false
-	switch v := src.Variant.(type) {
-	case arc.TextSource:
-		raw := v.Text.Materialize().Raw
-		if renamed := arcv4.RenameChannels(raw, rename); renamed != raw {
-			v.Text = text.Text{Doc: text.Create(renamed)}
-			src.Variant, changed = v, true
-		}
-	case arc.GraphSource:
-		for i, f := range v.Graph.Functions {
-			renamed := arcv4.RenameChannels(f.Body.Raw, rename)
-			if renamed != f.Body.Raw {
-				v.Graph.Functions[i].Body.Raw = renamed
-				src.Variant, changed = v, true
-			}
-		}
-	}
-	return changed
-}
 
 // newRenameReport returns the migration that writes a warning status for each rename
 // that the name and clash passes staged, renames the storage of each renamed channel in

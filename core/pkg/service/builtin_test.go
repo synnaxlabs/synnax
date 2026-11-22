@@ -22,6 +22,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -79,6 +81,50 @@ var _ = Describe("Built-in channel named like a calculation's output", func() {
 		})).To(Succeed())
 		expectRehomed(ctx, n, l, output.Key(), builtIn)
 		Expect(calculationOf(ctx, n, l.Calculation, output.Key()).Key).To(Equal(c.Key))
+	})
+
+	It("Should keep a channel that a schematic writes as the built-in", func(
+		ctx SpecContext,
+	) {
+		n := testutil.NewNode(ctx)
+		l := MustOpen(svctestutil.OpenLayer(ctx, n))
+		held := channel.Channel{Name: "written", DataType: telem.Uint8T, Virtual: true}
+		proj := project.Project{Name: "Writers"}
+		Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := l.Channel.NewWriter(tx).Create(ctx, &held); err != nil {
+				return err
+			}
+			return l.Project.NewWriter(tx).Create(ctx, &proj)
+		})).To(Succeed())
+		var valve schematic.ValveNodeConfig
+		valve.SetDefaults()
+		valve.CommandChannel = held.Key()
+		sch := schematic.Schematic{
+			Name:    "pid",
+			Project: &proj.Key,
+			Nodes: []schematic.Node{{
+				Key:    "valve",
+				Config: schematic.NodeConfig{Variant: valve},
+			}},
+		}
+		Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Schematic.NewWriter(tx).Create(ctx, &sch)
+		})).To(Succeed())
+		builtIn := channel.Channel{
+			Name:     held.Name,
+			DataType: held.DataType,
+			Virtual:  true,
+		}
+		Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return l.Channel.NewWriter(tx).Declare(ctx, &builtIn)
+		})).To(Succeed())
+		Expect(builtIn.Key()).To(Equal(held.Key()))
+		var warnings []status.Status[any]
+		Expect(l.Status.NewRetrieve[any]().
+			Where(status.MatchNames[any](held.Name+"_2")).
+			Entries(&warnings).
+			Exec(ctx, n.DB)).To(Succeed())
+		Expect(warnings).To(BeEmpty())
 	})
 
 	It("Should rename a v0.62 output that holds a built-in's name at upgrade", func(

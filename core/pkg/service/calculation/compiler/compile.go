@@ -13,10 +13,13 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
@@ -260,30 +263,78 @@ func addOperations(g *arc.Graph, ops []calculation.Operation) {
 }
 
 // addReads adds an input to the calculation function of g for each channel in reads,
-// fed by a node that reads the channel.
+// fed by a node that reads the channel. A channel that the expression names in quoted
+// form, at one of quoted, also gets an input named in that form, fed by the same node.
 func addReads(
 	ctx context.Context,
 	g *arc.Graph,
 	symbols arc.SymbolResolver,
 	reads map[uint32]string,
+	quoted []string,
 ) error {
+	nodes := make(map[uint32]string, len(reads))
 	for k, v := range reads {
 		sym, err := symbols.Resolve(ctx, v)
 		if err != nil {
 			return err
 		}
-		g.Functions[0].Inputs = append(
-			g.Functions[0].Inputs,
-			types.Param{Name: sym.Name, Type: *sym.Type.Elem},
-		)
 		addNode(g, sym.Name, "on", xmsgpack.EncodedJSON{"channel": k})
-		addEdge(
-			g,
-			ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
-			ir.Handle{Node: calculationKey, Param: sym.Name},
-		)
+		addInput(g, sym.Name, sym.Name, *sym.Type.Elem)
+		nodes[k] = sym.Name
+	}
+	for _, path := range quoted {
+		sym, err := symbols.Resolve(ctx, path)
+		if err != nil {
+			return err
+		}
+		if node, ok := nodes[uint32(sym.ID)]; ok {
+			addInput(g, node, parser.QuoteChannelName(path), *sym.Type.Elem)
+		}
 	}
 	return nil
+}
+
+// addInput adds an input named name to the calculation function of g, fed by the
+// output of node.
+func addInput(g *arc.Graph, node, name string, t types.Type) {
+	g.Functions[0].Inputs = append(
+		g.Functions[0].Inputs,
+		types.Param{Name: name, Type: t},
+	)
+	addEdge(
+		g,
+		ir.Handle{Node: node, Param: ir.DefaultOutputParam},
+		ir.Handle{Node: calculationKey, Param: name},
+	)
+}
+
+// quotedPaths returns each channel path that the parsed expression body names in
+// quoted form, once, in the order of the expression. expression is its source.
+func quotedPaths(expression string, body antlr.Tree) []string {
+	if body == nil || !strings.ContainsRune(expression, '\'') {
+		return nil
+	}
+	var (
+		paths []string
+		walk  func(t antlr.Tree)
+	)
+	walk = func(t antlr.Tree) {
+		if term, ok := t.(antlr.TerminalNode); ok {
+			token := term.GetSymbol()
+			if token.GetTokenType() != parser.ArcLexerCHANNEL_NAME {
+				return
+			}
+			if path := parser.TokenName(token).Head; !slices.Contains(paths, path) {
+				paths = append(paths, path)
+			}
+			return
+		}
+		for i := range t.GetChildCount() {
+			walk(t.GetChild(i))
+		}
+	}
+	walk(body)
+	return paths
 }
 
 func compile(
@@ -327,7 +378,7 @@ func compileAnalyzed(
 	addNode(&g, calculationKey, calculationKey, nil)
 	addNode(&g, writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
 	addOperations(&g, cfg.Calculation.Operations)
-	if err := addReads(ctx, &g, symbols, result.Reads); err != nil {
+	if err := addReads(ctx, &g, symbols, result.Reads, result.Quoted); err != nil {
 		return Module{}, err
 	}
 	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(symbols))

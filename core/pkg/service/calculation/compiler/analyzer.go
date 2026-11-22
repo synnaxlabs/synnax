@@ -108,6 +108,8 @@ type AnalysisResult struct {
 	Deps channel.Keys
 	// Reads names each channel that the expression reads, by its key.
 	Reads map[uint32]string
+	// Quoted lists each channel path that the expression names in quoted form, once.
+	Quoted []string
 	// Unresolved lists symbol names that could not be resolved during analysis.
 	Unresolved []string
 }
@@ -166,6 +168,7 @@ func (a *Analyzer) AnalyzeExpression(
 		ChanDataType:         inferredDataType,
 		Deps:                 keysOf(readNames),
 		Reads:                readNames,
+		Quoted:               quotedPaths(expression, t),
 		ExpressionReturnType: dataType,
 	}, nil
 }
