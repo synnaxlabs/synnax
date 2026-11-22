@@ -16,7 +16,7 @@ import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { render } from "vitest-browser-react";
 
 import { Ranger } from "@/ranger";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 

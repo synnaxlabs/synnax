@@ -14,7 +14,7 @@ import type { ComponentType } from "react";
 import { Settings } from "@/app/settings";
 import { Secret } from "@/feature/secret";
 import { Tree } from "@/platform/tree";
-import { createConsoleWrapper, preload, renderLazy } from "@/testutil";
+import { createConsoleWrapper, renderLazy } from "@/testutil";
 
 /** Renders the Settings tab with the Console providers, as the given client. */
 export const renderSettings = async (
@@ -30,10 +30,3 @@ export const renderSettings = async (
   );
   return { wrapper };
 };
-
-/**
- * Loads the module of the lazy Settings page before the specs of a file run, for specs
- * where a user action mounts it.
- */
-export const preloadSettings = (): void =>
-  preload(async () => await import("@/app/settings/Settings"));

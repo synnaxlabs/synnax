@@ -9,21 +9,12 @@
 
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, location, xy } from "@synnaxlabs/x";
+import { type bounds, box, location, xy } from "@synnaxlabs/x";
 import { act, fireEvent, renderHook } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement, RefObject } from "react";
 import { afterEach, assert, describe, expect, it, type Mock, vi } from "vitest";
 
-import {
-  PAN_DEFAULT_TRIGGERS,
-  SELECT_DEFAULT_TRIGGERS,
-  use,
-  type UseEvent,
-  type UseHandler,
-  type UseProps,
-  type UseRefValue,
-  type UseReturn,
-} from "@/viewport/use";
+import { Viewport } from "@/viewport";
 
 const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
   <Triggers.Provider>{children}</Triggers.Provider>
@@ -44,10 +35,10 @@ const RIGHT = { button: Triggers.MOUSE_RIGHT_NUMBER };
 interface Handle {
   canvas: HTMLDivElement;
   measure: Mock<typeof HTMLElement.prototype.getBoundingClientRect>;
-  onChange: Mock<UseHandler>;
-  result: { current: UseReturn };
-  rerender: (props: UseProps) => void;
-  ref: RefObject<UseRefValue | undefined>;
+  onChange: Mock<Viewport.UseHandler>;
+  result: { current: Viewport.UseReturn };
+  rerender: (props: Viewport.UseProps) => void;
+  ref: RefObject<Viewport.UseRefValue | undefined>;
 }
 
 const canvases: HTMLElement[] = [];
@@ -57,9 +48,9 @@ afterEach(() => {
   canvases.length = 0;
 });
 
-const setup = (props: UseProps = {}, canvasBox: box.Box = CANVAS): Handle => {
-  const onChange = vi.fn<UseHandler>();
-  const ref: RefObject<UseRefValue | undefined> = { current: undefined };
+const setup = (props: Viewport.UseProps = {}, canvasBox: box.Box = CANVAS): Handle => {
+  const onChange = vi.fn<Viewport.UseHandler>();
+  const ref: RefObject<Viewport.UseRefValue | undefined> = { current: undefined };
   const canvas = document.createElement("div");
   const measure = mockBoundingClientRect(
     box.top(canvasBox),
@@ -71,14 +62,14 @@ const setup = (props: UseProps = {}, canvasBox: box.Box = CANVAS): Handle => {
   document.body.appendChild(canvas);
   canvases.push(canvas);
   const { result, rerender } = renderHook(
-    (p: UseProps) => use({ onChange, ref, ...p }),
+    (p: Viewport.UseProps) => Viewport.use({ onChange, ref, ...p }),
     { wrapper: Wrapper, initialProps: props },
   );
   result.current.ref.current = canvas;
   return { canvas, measure, onChange, result, rerender, ref };
 };
 
-const lastEvent = (onChange: Mock<UseHandler>): UseEvent => {
+const lastEvent = (onChange: Mock<Viewport.UseHandler>): Viewport.UseEvent => {
   const call = onChange.mock.lastCall;
   assert(call != null, "expected onChange to have been called");
   return call[0];
@@ -175,13 +166,13 @@ describe("viewport/use", () => {
     });
 
     it("should use the default mode when no trigger matches", () => {
-      const h = setup({ triggers: PAN_DEFAULT_TRIGGERS });
+      const h = setup({ triggers: Viewport.PAN_DEFAULT_TRIGGERS });
       drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 });
       expect(lastEvent(h.onChange).mode).toEqual("pan");
     });
 
     it("should honor a select default trigger set", () => {
-      const h = setup({ triggers: SELECT_DEFAULT_TRIGGERS });
+      const h = setup({ triggers: Viewport.SELECT_DEFAULT_TRIGGERS });
       drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 });
       expect(lastEvent(h.onChange).mode).toEqual("select");
     });
@@ -437,6 +428,150 @@ describe("viewport/use", () => {
     });
   });
 
+  describe("bounded select", () => {
+    const BOUND = { lower: 0.3, upper: 0.6 };
+    // Bounds each select drag to BOUND, and resolves only when settle is called.
+    const bounded = () => {
+      const starts: number[] = [];
+      let resolve = (): void => {};
+      const h = setup({
+        selectBound: async (x) => {
+          starts.push(x);
+          await new Promise<void>((r) => (resolve = r));
+          return BOUND;
+        },
+      });
+      const settle = async () => {
+        await act(async () => resolve());
+      };
+      return { h, starts, settle };
+    };
+
+    it("should report the x where a select drag starts", () => {
+      const { h, starts } = bounded();
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(starts).toHaveLength(1);
+      expect(starts[0]).toBeCloseTo(0.4);
+    });
+
+    it("should commit a select drag only once its bound arrives", async () => {
+      const { h, settle } = bounded();
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(h.onChange).not.toHaveBeenCalled();
+      await settle();
+      const b = lastEvent(h.onChange).box;
+      expect(box.left(b)).toBeCloseTo(0.4);
+      expect(box.right(b)).toBeCloseTo(0.6);
+      expect(box.right(h.result.current.maskBox)).toBeCloseTo(60);
+    });
+
+    it("should end a select drag exactly at its bound", async () => {
+      // Rounds up past the bound to six places.
+      const upper = 0.6000006;
+      const h = setup({ selectBound: async () => ({ lower: 0, upper }) });
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      await act(async () => {});
+      expect(box.right(lastEvent(h.onChange).box)).toBe(upper);
+    });
+
+    it("should stop the mask at the bound during the drag", async () => {
+      const { h, settle } = bounded();
+      fireEvent.keyDown(document.body, { code: ALT });
+      press(h.canvas, { x: 50, y: 20 });
+      await settle();
+      move({ x: 5, y: 80 });
+      expect(box.left(h.result.current.maskBox)).toBeCloseTo(30);
+      expect(box.right(h.result.current.maskBox)).toBeCloseTo(50);
+      release(h.canvas, { x: 5, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+    });
+
+    it("should commit each select drag with its own bound", async () => {
+      const resolvers: Array<(b: bounds.Bounds) => void> = [];
+      const h = setup({
+        selectBound: async () => await new Promise((r) => resolvers.push(r)),
+      });
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      fireEvent.keyDown(document.body, { code: ALT });
+      press(h.canvas, { x: 10, y: 20 });
+      await act(async () => resolvers[1]({ lower: 0, upper: 0.2 }));
+      await act(async () => resolvers[0](BOUND));
+      expect(box.right(lastEvent(h.onChange).box)).toBeCloseTo(0.6);
+      move({ x: 80, y: 80 });
+      release(h.canvas, { x: 80, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+      await act(async () => {});
+      expect(box.right(lastEvent(h.onChange).box)).toBeCloseTo(0.2);
+    });
+
+    it("should bound a drag that ends as a select from where it started", async () => {
+      const { h, starts, settle } = bounded();
+      press(h.canvas, { x: 40, y: 20 });
+      move({ x: 50, y: 40 });
+      fireEvent.keyDown(document.body, { code: ALT });
+      move({ x: 80, y: 80 });
+      release(h.canvas, { x: 80, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+      expect(starts).toHaveLength(1);
+      expect(starts[0]).toBeCloseTo(0.4);
+      await settle();
+      const b = lastEvent(h.onChange).box;
+      expect(lastEvent(h.onChange).mode).toEqual("select");
+      expect(box.right(b)).toBeCloseTo(0.6);
+    });
+
+    it("should not keep the bound of a select drag that a cancel ended", () => {
+      const { h, starts } = bounded();
+      fireEvent.keyDown(document.body, { code: ALT });
+      press(h.canvas, { x: 40, y: 20 });
+      fireEvent.keyDown(document.body, { code: "Escape" });
+      fireEvent.keyUp(document.body, { code: "Escape" });
+      release(h.canvas, { x: 80, y: 80 });
+      press(h.canvas, { x: 10, y: 20 });
+      move({ x: 30, y: 80 });
+      release(h.canvas, { x: 30, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+      expect(starts).toHaveLength(2);
+      expect(starts[1]).toBeCloseTo(0.1);
+    });
+
+    it("should not keep the bound of a select drag that a zoom reset ended", () => {
+      const { h, starts } = bounded();
+      fireEvent.keyDown(document.body, { code: ALT });
+      press(h.canvas, { x: 40, y: 20 });
+      move({ x: 60, y: 60 });
+      fireEvent.keyDown(document.body, { code: CONTROL });
+      release(h.canvas, { x: 80, y: 80 });
+      fireEvent.keyUp(document.body, { code: CONTROL });
+      press(h.canvas, { x: 10, y: 20 });
+      move({ x: 30, y: 80 });
+      release(h.canvas, { x: 30, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+      expect(starts).toHaveLength(2);
+      expect(starts[1]).toBeCloseTo(0.1);
+    });
+
+    it("should not bound a zoom", () => {
+      const { h, starts } = bounded();
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 });
+      expect(starts).toHaveLength(0);
+      expect(box.right(lastEvent(h.onChange).box)).toBeCloseTo(0.8);
+    });
+  });
+
+  describe("wheel", () => {
+    it("should clear the mask", () => {
+      const h = setup();
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
+      act(() => {
+        fireEvent.wheel(h.canvas, { deltaY: -100, ...client({ x: 50, y: 50 }) });
+      });
+      expect(lastEvent(h.onChange).mode).toEqual("zoom");
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+    });
+  });
+
   describe("sync", () => {
     const VIEW = box.construct(0.2, 0, 0.4, 1, location.TOP_LEFT);
 
@@ -445,6 +580,23 @@ describe("viewport/use", () => {
       act(() => h.ref.current?.sync(VIEW));
       expect(h.onChange).not.toHaveBeenCalled();
       expect(readViewport(h)).toEqual(VIEW);
+    });
+
+    it("should mask a selection at its place in the synced view", () => {
+      const h = setup();
+      const selection = box.construct(0.3, 0, 0.1, 1, location.TOP_LEFT);
+      act(() => h.ref.current?.sync(VIEW, selection));
+      const m = h.result.current.maskBox;
+      expect(box.left(m)).toBeCloseTo(25);
+      expect(box.width(m)).toBeCloseTo(25);
+      expect(box.height(m)).toBeCloseTo(100);
+    });
+
+    it("should clear the mask for a sync with no selection", () => {
+      const h = setup();
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      act(() => h.ref.current?.sync(VIEW));
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
     });
 
     it("should start the next zoom from the synced view", () => {
@@ -633,9 +785,9 @@ describe("viewport/use", () => {
   describe("mode preview", () => {
     it("should report the default mode at rest", () => {
       expect(setup().result.current.mode).toEqual("zoom");
-      expect(setup({ triggers: PAN_DEFAULT_TRIGGERS }).result.current.mode).toEqual(
-        "pan",
-      );
+      expect(
+        setup({ triggers: Viewport.PAN_DEFAULT_TRIGGERS }).result.current.mode,
+      ).toEqual("pan");
     });
 
     it.each([
@@ -679,6 +831,38 @@ describe("viewport/use", () => {
       h.rerender({ initial: INITIAL });
       expect(readViewport(h)).toEqual(INITIAL);
     });
+
+    it("should clear the mask when the initial box changes", () => {
+      const h = setup();
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
+      h.rerender({ initial: INITIAL });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+    });
+
+    it("should clear the mask when a new initial box holds the same view", () => {
+      const h = setup({ initial: INITIAL });
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
+      h.rerender({ initial: box.copy(INITIAL) });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+    });
+
+    it("should keep the mask when a render keeps the initial box", () => {
+      const h = setup({ initial: INITIAL });
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      h.rerender({ initial: INITIAL });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
+    });
+
+    it("should clear the mask when the same initial box moves the view back", () => {
+      const h = setup({ initial: INITIAL });
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 });
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      h.rerender({ initial: box.copy(INITIAL) });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+      expect(readViewport(h)).toEqual(INITIAL);
+    });
   });
 
   describe("truncation", () => {
@@ -705,12 +889,12 @@ describe("viewport/use", () => {
   });
 
   it("should not emit before the canvas element is attached", () => {
-    const onChange = vi.fn<UseHandler>();
+    const onChange = vi.fn<Viewport.UseHandler>();
     const detached = document.createElement("div");
     detached.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
     document.body.appendChild(detached);
     canvases.push(detached);
-    renderHook(() => use({ onChange }), { wrapper: Wrapper });
+    renderHook(() => Viewport.use({ onChange }), { wrapper: Wrapper });
     drag(detached, { x: 20, y: 20 }, { x: 80, y: 80 });
     expect(onChange).not.toHaveBeenCalled();
   });

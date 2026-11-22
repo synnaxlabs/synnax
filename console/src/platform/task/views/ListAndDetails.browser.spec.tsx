@@ -15,10 +15,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import type { Channel } from "@/platform/task/types";
 import { getIconButton } from "@/testutil";
 
-const path = deep.path<{ config: { channels: Channel[]; endpoints: Channel[] } }>();
+const path = deep.path<{
+  config: { channels: Task.Channel[]; endpoints: Task.Channel[] };
+}>();
 
 const ListItem = ({ itemKey, ...p }: Task.ChannelListItemProps) => (
   <Select.Item itemKey={itemKey} {...p}>
@@ -28,7 +29,7 @@ const ListItem = ({ itemKey, ...p }: Task.ChannelListItemProps) => (
 
 const listItem = Component.renderProp(ListItem);
 
-const Details = ({ path }: Task.Views.DetailsProps<Channel>) => (
+const Details = ({ path }: Task.Views.DetailsProps<Task.Channel>) => (
   <span>details-for-{String(path)}</span>
 );
 
@@ -37,7 +38,7 @@ const details = Component.renderProp(Details);
 const resolve = () => null;
 
 // Picks channel b, and names the channels it shows as selected.
-const Ports = ({ selected, onSelect }: Task.Views.PortsProps<Channel>) => (
+const Ports = ({ selected, onSelect }: Task.Views.PortsProps<Task.Channel>) => (
   <button type="button" onClick={() => onSelect(["b"])}>
     ports-{selected.join(",")}
   </button>
@@ -46,12 +47,12 @@ const Ports = ({ selected, onSelect }: Task.Views.PortsProps<Channel>) => (
 const ports = Component.renderProp(Ports);
 
 const renderListAndDetails = (
-  channels: Channel[],
-  createChannel: Task.Views.CreateChannel<Channel> = () => null,
+  channels: Task.Channel[],
+  createChannel: Task.Views.CreateChannel<Task.Channel> = () => null,
   portsView?: typeof ports,
 ) =>
   renderInTaskForm(
-    <Task.Views.ListAndDetails<Channel>
+    <Task.Views.ListAndDetails<Task.Channel>
       path={path.config.channels}
       createChannel={createChannel}
       listItem={listItem}
@@ -99,7 +100,7 @@ describe("layouts.ListAndDetails", () => {
 
   it("should read the channels at the path it gets", async () => {
     await renderInTaskForm(
-      <Task.Views.ListAndDetails<Channel>
+      <Task.Views.ListAndDetails<Task.Channel>
         path={path.config.endpoints}
         createChannel={() => null}
         listItem={listItem}
@@ -114,7 +115,7 @@ describe("layouts.ListAndDetails", () => {
   });
 
   it("should hand the channel path to the ports view", async () => {
-    const PathPorts = ({ path }: Task.Views.PortsProps<Channel>) => (
+    const PathPorts = ({ path }: Task.Views.PortsProps<Task.Channel>) => (
       <span>ports-at-{String(path)}</span>
     );
     await renderListAndDetails(
@@ -154,10 +155,12 @@ describe("layouts.ListAndDetails", () => {
   });
 
   it("should create a channel with the selected key as the copy source when Add is pressed", async () => {
-    const createChannel = vi.fn((_channels: Channel[], copyFrom?: string): Channel => ({
-      key: `new_${copyFrom ?? "none"}`,
-      disabled: false,
-    }));
+    const createChannel = vi.fn(
+      (_channels: Task.Channel[], copyFrom?: string): Task.Channel => ({
+        key: `new_${copyFrom ?? "none"}`,
+        disabled: false,
+      }),
+    );
     const { container, form } = await renderListAndDetails(
       [{ key: "a", disabled: false }],
       createChannel,
@@ -173,7 +176,7 @@ describe("layouts.ListAndDetails", () => {
   });
 
   it("should add and select a channel from the empty details panel", async () => {
-    const createChannel = (): Channel => ({ key: "new", disabled: false });
+    const createChannel = (): Task.Channel => ({ key: "new", disabled: false });
     const { form } = await renderListAndDetails([], createChannel);
     const empty = await screen.findByText("No channel selected");
     fireEvent.click(within(empty).getByText("Add channel"));
@@ -185,7 +188,10 @@ describe("layouts.ListAndDetails", () => {
 
   it("should duplicate the selected channels through the context menu and select the copies", async () => {
     let counter = 0;
-    const createChannel = (_channels: Channel[], copyFrom?: string): Channel => ({
+    const createChannel = (
+      _channels: Task.Channel[],
+      copyFrom?: string,
+    ): Task.Channel => ({
       key: `dup_${copyFrom}_${counter++}`,
       disabled: false,
     });

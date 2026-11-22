@@ -323,54 +323,17 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 	g.L.Info("hydrating calculated channel graph", zap.Int("count", len(channels)))
 	repairs := make([]channel.Channel, 0)
 	var (
-		pass           int
-		invalidCount   int
-		nextNodes      map[channel.Key]node
-		nextDependents map[channel.Key]set.Set[channel.Key]
-		nextUnresolved map[string]set.Set[channel.Key]
+		pass int
+		h    hydration
 	)
 	analyzer := g.newAnalyzer(tx)
 	statuses := make(map[channel.Key]*calculation.Status)
 	for {
-		changed := false
-		nextNodes = make(map[channel.Key]node)
-		nextDependents = make(map[channel.Key]set.Set[channel.Key])
-		nextUnresolved = make(map[string]set.Set[channel.Key])
-		invalidCount = 0
-		for i, ch := range channels {
-			nd, err := g.inspectNode(ctx, tx, ch, analyzer)
-			if err != nil {
-				statuses[ch.Key()] = calculation.StatusFromError(
-					ch.Key(),
-					ch.Name,
-					err,
-				)
-				invalidCount++
-				g.L.Debug(
-					"channel expression invalid",
-					zap.Stringer("channel", ch.Key()),
-					zap.String("name", ch.Name),
-					zap.Error(err),
-				)
-			} else {
-				statuses[ch.Key()] = nil
-			}
-			upsertNode(nextNodes, nextDependents, nextUnresolved, nd)
-			if !nd.invalid && ch.DataType != nd.DataType {
-				g.L.Info(
-					"repairing channel DataType",
-					zap.Stringer("channel", ch.Key()),
-					zap.String("name", ch.Name),
-					zap.String("old", string(ch.DataType)),
-					zap.String("new", string(nd.DataType)),
-				)
-				channels[i].DataType = nd.DataType
-				repairs = append(repairs, channels[i])
-				changed = true
-			}
-		}
+		var passRepairs []channel.Channel
+		h, passRepairs = g.hydratePass(ctx, tx, channels, analyzer, statuses)
+		repairs = append(repairs, passRepairs...)
 		pass++
-		if !changed {
+		if len(passRepairs) == 0 {
 			break
 		}
 		if pass > len(channels)+1 {
@@ -395,29 +358,96 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 		}
 	}
 	g.mu.Lock()
-	g.mu.nodes = nextNodes
-	g.mu.dependents = nextDependents
-	g.mu.unresolvedByName = nextUnresolved
+	g.mu.nodes = h.nodes
+	g.mu.dependents = h.dependents
+	g.mu.unresolvedByName = h.unresolved
 	g.mu.Unlock()
-	if len(repairs) > 0 {
-		g.L.Info(
-			"persisting DataType repairs from hydration",
-			zap.Int("count", len(repairs)),
-		)
-		w := g.svc.NewWriter(tx)
-		for _, ch := range repairs {
-			if err := w.ChangeDataType(ctx, ch.Key(), ch.DataType); err != nil {
-				return err
-			}
-		}
+	if err := g.persistRepairs(ctx, tx, repairs); err != nil {
+		return err
 	}
 	g.L.Info(
 		"hydration complete",
 		zap.Int("channels", len(channels)),
-		zap.Int("invalid", invalidCount),
+		zap.Int("invalid", h.invalid),
 		zap.Int("repairs", len(repairs)),
 		zap.Int("passes", pass),
 	)
+	return nil
+}
+
+// hydration is the graph that one hydration pass builds.
+type hydration struct {
+	nodes      map[channel.Key]node
+	dependents map[channel.Key]set.Set[channel.Key]
+	unresolved map[string]set.Set[channel.Key]
+	// invalid is the number of channels with an invalid expression.
+	invalid int
+}
+
+// hydratePass inspects each channel, records its status in statuses, and repairs the
+// data type of each valid channel in place. It returns the graph it built and the
+// channels it repaired.
+func (g *Graph) hydratePass(
+	ctx context.Context,
+	tx gorp.Tx,
+	channels []channel.Channel,
+	analyzer *channel.CalculationAnalyzer,
+	statuses map[channel.Key]*calculation.Status,
+) (hydration, []channel.Channel) {
+	h := hydration{
+		nodes:      make(map[channel.Key]node),
+		dependents: make(map[channel.Key]set.Set[channel.Key]),
+		unresolved: make(map[string]set.Set[channel.Key]),
+	}
+	var repairs []channel.Channel
+	for i, ch := range channels {
+		nd, err := g.inspectNode(ctx, tx, ch, analyzer)
+		if err != nil {
+			statuses[ch.Key()] = calculation.StatusFromError(ch.Key(), ch.Name, err)
+			h.invalid++
+			g.L.Debug(
+				"channel expression invalid",
+				zap.Stringer("channel", ch.Key()),
+				zap.String("name", ch.Name),
+				zap.Error(err),
+			)
+		} else {
+			statuses[ch.Key()] = nil
+		}
+		upsertNode(h.nodes, h.dependents, h.unresolved, nd)
+		if !nd.invalid && ch.DataType != nd.DataType {
+			g.L.Info(
+				"repairing channel DataType",
+				zap.Stringer("channel", ch.Key()),
+				zap.String("name", ch.Name),
+				zap.String("old", string(ch.DataType)),
+				zap.String("new", string(nd.DataType)),
+			)
+			channels[i].DataType = nd.DataType
+			repairs = append(repairs, channels[i])
+		}
+	}
+	return h, repairs
+}
+
+func (g *Graph) persistRepairs(
+	ctx context.Context,
+	tx gorp.Tx,
+	repairs []channel.Channel,
+) error {
+	if len(repairs) == 0 {
+		return nil
+	}
+	g.L.Info(
+		"persisting DataType repairs from hydration",
+		zap.Int("count", len(repairs)),
+	)
+	w := g.svc.NewWriter(tx)
+	for _, ch := range repairs {
+		if err := w.ChangeDataType(ctx, ch.Key(), ch.DataType); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -440,61 +470,18 @@ func (g *Graph) handleChanges(
 			batch = append(batch, chg)
 			ch := chg.Value
 			if chg.Kind == gorp.ChangeDelete {
-				g.L.Debug(
-					"channel deleted, removing node and re-inspecting dependents",
-					zap.Stringer("channel", chg.Key),
-				)
-				if _, tracked := g.mu.nodes[chg.Key]; tracked {
-					g.clearNodeStatus(ctx, tx, chg.Key)
-				}
-				g.removeNode(chg.Key)
+				g.applyDelete(ctx, tx, chg, queued)
 				if ch.Name != "" {
 					unresolvedNames = append(unresolvedNames, ch.Name)
 				}
-				g.enqueueDependents(chg.Key, queued)
-				g.mu.rejected.Remove(chg.Key)
 				continue
 			}
 			unresolvedNames = append(unresolvedNames, ch.Name)
 			if ch.IsCalculated() {
-				nd, err := g.inspectNode(ctx, tx, ch, analyzer)
-				if err != nil {
-					g.L.Info("calculated channel has invalid expression",
-						zap.Stringer("channel", ch.Key()),
-						zap.String("name", ch.Name),
-						zap.Error(err),
-					)
-					g.setNodeStatus(
-						ctx,
-						tx,
-						calculation.StatusFromError(ch.Key(), ch.Name, err),
-					)
-				} else {
-					g.L.Debug("calculated channel inspected",
-						zap.Stringer("channel", ch.Key()),
-						zap.String("name", ch.Name),
-						zap.Stringers("deps", nd.deps),
-					)
-					// An update to an untracked node holds a coalesced create, so the
-					// expression a runtime status describes may be gone.
-					prev, ok := g.mu.nodes[ch.Key()]
-					if (!ok && chg.Kind == gorp.ChangeUpdate) ||
-						(ok && (prev.invalid || prev.Expression != ch.Expression)) {
-						g.clearNodeStatus(ctx, tx, ch.Key())
-					}
+				update, changed := g.applyCalculated(ctx, tx, chg, analyzer)
+				if changed {
+					updates = append(updates, update)
 				}
-				if !nd.invalid && nd.DataType != ch.DataType {
-					g.L.Debug(
-						"calculated channel DataType changed",
-						zap.Stringer("channel", ch.Key()),
-						zap.String("old", string(ch.DataType)),
-						zap.String("new", string(nd.DataType)),
-					)
-					updates = append(updates, nd.Channel)
-				}
-				g.upsertNode(nd)
-				g.enqueueDependents(ch.Key(), queued)
-				continue
 			}
 			g.enqueueDependents(ch.Key(), queued)
 		}
@@ -518,18 +505,93 @@ func (g *Graph) handleChanges(
 		})
 	}
 	g.obs.Notify(ctx, slices.Values(batch))
-	if len(updates) > 0 {
-		g.L.Info("updating channel data types", zap.Int("count", len(updates)))
-		for _, ch := range updates {
-			if err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
-				return g.svc.NewWriter(tx).ChangeDataType(ctx, ch.Key(), ch.DataType)
-			}); err != nil {
-				g.L.Error(
-					"failed to update channel data type",
-					zap.Stringer("channel", ch.Key()),
-					zap.Error(err),
-				)
-			}
+	g.changeDataTypes(ctx, updates)
+}
+
+// applyDelete removes the node of the channel that chg deletes and enqueues its
+// dependents into queued.
+func (g *Graph) applyDelete(
+	ctx context.Context,
+	tx gorp.Tx,
+	chg channelChange,
+	queued set.Set[channel.Key],
+) {
+	g.L.Debug(
+		"channel deleted, removing node and re-inspecting dependents",
+		zap.Stringer("channel", chg.Key),
+	)
+	if _, tracked := g.mu.nodes[chg.Key]; tracked {
+		g.clearNodeStatus(ctx, tx, chg.Key)
+	}
+	g.removeNode(chg.Key)
+	g.enqueueDependents(chg.Key, queued)
+	g.mu.rejected.Remove(chg.Key)
+}
+
+// applyCalculated inspects the calculated channel that chg sets and stores its node. It
+// returns the channel with its new data type, and reports whether the data type
+// changed.
+func (g *Graph) applyCalculated(
+	ctx context.Context,
+	tx gorp.Tx,
+	chg channelChange,
+	analyzer *channel.CalculationAnalyzer,
+) (channel.Channel, bool) {
+	ch := chg.Value
+	nd, err := g.inspectNode(ctx, tx, ch, analyzer)
+	if err != nil {
+		g.L.Info("calculated channel has invalid expression",
+			zap.Stringer("channel", ch.Key()),
+			zap.String("name", ch.Name),
+			zap.Error(err),
+		)
+		g.setNodeStatus(ctx, tx, calculation.StatusFromError(ch.Key(), ch.Name, err))
+	} else {
+		g.L.Debug("calculated channel inspected",
+			zap.Stringer("channel", ch.Key()),
+			zap.String("name", ch.Name),
+			zap.Stringers("deps", nd.deps),
+		)
+		// An update to an untracked node holds a coalesced create, so the expression a
+		// runtime status describes may be gone.
+		prev, ok := g.mu.nodes[ch.Key()]
+		if (!ok && chg.Kind == gorp.ChangeUpdate) ||
+			(ok && (prev.invalid || prev.Expression != ch.Expression)) {
+			g.clearNodeStatus(ctx, tx, ch.Key())
+		}
+	}
+	changed := !nd.invalid && nd.DataType != ch.DataType
+	if changed {
+		g.L.Debug(
+			"calculated channel DataType changed",
+			zap.Stringer("channel", ch.Key()),
+			zap.String("old", string(ch.DataType)),
+			zap.String("new", string(nd.DataType)),
+		)
+	}
+	g.upsertNode(nd)
+	if !changed {
+		return channel.Channel{}, false
+	}
+	return nd.Channel, true
+}
+
+// changeDataTypes writes the data type of each channel in updates, each in its own
+// transaction. It logs each write that fails.
+func (g *Graph) changeDataTypes(ctx context.Context, updates []channel.Channel) {
+	if len(updates) == 0 {
+		return
+	}
+	g.L.Info("updating channel data types", zap.Int("count", len(updates)))
+	for _, ch := range updates {
+		if err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
+			return g.svc.NewWriter(tx).ChangeDataType(ctx, ch.Key(), ch.DataType)
+		}); err != nil {
+			g.L.Error(
+				"failed to update channel data type",
+				zap.Stringer("channel", ch.Key()),
+				zap.Error(err),
+			)
 		}
 	}
 }
@@ -607,16 +669,8 @@ func (g *Graph) reconcileQueued(
 			if !ok {
 				continue
 			}
-			refetched := nd.Channel
-			if err := g.svc.NewRetrieve().
-				Where(channel.MatchKeys(key)).
-				Entry(&refetched).
-				Exec(ctx, tx); err != nil {
-				g.L.Warn(
-					"failed to refetch channel during reconciliation",
-					zap.Stringer("channel", key),
-					zap.Error(err),
-				)
+			refetched, ok := g.refetch(ctx, tx, nd.Channel)
+			if !ok {
 				continue
 			}
 			newNode, err := g.inspectNode(ctx, tx, refetched, analyzer)
@@ -624,17 +678,7 @@ func (g *Graph) reconcileQueued(
 			oldType := nd.DataType
 			g.upsertNode(newNode)
 			if err != nil {
-				g.L.Info(
-					"dependent channel became invalid after reconciliation",
-					zap.Stringer("channel", key),
-					zap.String("name", refetched.Name),
-					zap.Error(err),
-				)
-				g.setNodeStatus(
-					ctx,
-					tx,
-					calculation.StatusFromError(key, refetched.Name, err),
-				)
+				g.setInvalidDependent(ctx, tx, refetched, err)
 				continue
 			}
 			valid = append(valid, refetched)
@@ -658,6 +702,43 @@ func (g *Graph) reconcileQueued(
 		queued = next
 	}
 	return updates, valid
+}
+
+func (g *Graph) setInvalidDependent(
+	ctx context.Context,
+	tx gorp.Tx,
+	ch channel.Channel,
+	err error,
+) {
+	g.L.Info(
+		"dependent channel became invalid after reconciliation",
+		zap.Stringer("channel", ch.Key()),
+		zap.String("name", ch.Name),
+		zap.Error(err),
+	)
+	g.setNodeStatus(ctx, tx, calculation.StatusFromError(ch.Key(), ch.Name, err))
+}
+
+// refetch retrieves the stored copy of ch. It logs a failed retrieve and reports
+// whether the retrieve succeeded.
+func (g *Graph) refetch(
+	ctx context.Context,
+	tx gorp.Tx,
+	ch channel.Channel,
+) (channel.Channel, bool) {
+	key := ch.Key()
+	if err := g.svc.NewRetrieve().
+		Where(channel.MatchKeys(key)).
+		Entry(&ch).
+		Exec(ctx, tx); err != nil {
+		g.L.Warn(
+			"failed to refetch channel during reconciliation",
+			zap.Stringer("channel", key),
+			zap.Error(err),
+		)
+		return channel.Channel{}, false
+	}
+	return ch, true
 }
 
 func (g *Graph) removeNode(key channel.Key) {

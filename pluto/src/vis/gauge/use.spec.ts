@@ -12,7 +12,7 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { aether } from "@/aether/aether";
-import { renderHook } from "@/testutil/render";
+import { renderHook } from "@/testutil";
 import { Gauge } from "@/vis/gauge";
 import { gauge } from "@/vis/gauge/aether";
 

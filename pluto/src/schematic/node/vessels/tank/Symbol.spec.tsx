@@ -26,7 +26,7 @@ import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
 import { Border } from "@/schematic/node/common/border";
 import { Tank } from "@/schematic/node/vessels/tank";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const state = z.object({ cornerRadii: z.unknown() }).loose();
 

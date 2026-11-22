@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
 
 import { traceResizeLoops } from "@/testutil";
 
@@ -23,9 +23,6 @@ const box = (parent: Element, className: string, height: number): HTMLDivElement
   parent.append(element);
   return element;
 };
-
-const isLoopError = (value: unknown): boolean =>
-  value instanceof Error && value.message.startsWith("ResizeObserver loop");
 
 const observe = (element: Element, callback: () => void): void => {
   const observer = new ResizeObserver(callback);
@@ -44,14 +41,6 @@ describe("traceResizeLoops", () => {
   let root: HTMLDivElement;
 
   beforeEach(() => {
-    // Vitest logs each loop error that these specs make on purpose.
-    const record = console.error;
-    const error = vi
-      .spyOn(console, "error")
-      .mockImplementation((...args: unknown[]) => {
-        if (!isLoopError(args[0])) record(...args);
-      });
-    onTestFinished(() => error.mockRestore());
     reports = [];
     onTestFinished(traceResizeLoops((report) => reports.push(report)));
     root = box(document.body, "root", 100);
@@ -67,6 +56,20 @@ describe("traceResizeLoops", () => {
     expect(reports[0]).toContain('div.grower in [data-testid="grower-box"]');
     expect(reports[0]).toContain("inside the callback for div.grower");
     expect(reports[0]).toContain("resizeLoop.browser.spec");
+  });
+
+  it("should name an element that a callback resized by under a pixel", async () => {
+    // Chromium writes the computed height of a tall element to six digits.
+    const element = box(root, "shrinker", 12000.25);
+    element.style.width = "10px";
+    observe(element, () => {
+      element.style.height = `${element.getBoundingClientRect().height - 0.125}px`;
+    });
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain(
+      "div.shrinker changed from 10x12000.25 to 10x12000.125",
+    );
   });
 
   it("should report nothing for a resize outside a callback", async () => {

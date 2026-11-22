@@ -24,7 +24,7 @@ import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
-import { createAetherProvider } from "@/testutil/Aether";
+import { createAetherProvider } from "@/testutil";
 
 const PROBE_TYPE = "SynnaxProbe";
 

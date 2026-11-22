@@ -15,10 +15,9 @@ import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import type { Channel } from "@/platform/task/types";
 import { getIconButton } from "@/testutil";
 
-const path = deep.path<{ config: { channels: Channel[] } }>();
+const path = deep.path<{ config: { channels: Task.Channel[] } }>();
 
 const COLUMNS: List.Column[] = [{ name: "Port", width: "10rem" }];
 

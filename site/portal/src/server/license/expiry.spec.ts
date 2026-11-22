@@ -10,7 +10,7 @@
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { type Event, event, license, type Organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { dueNotice, sweep } from "@/server/license/expiry";
 import { expiring } from "@/server/license/notice";
@@ -23,7 +23,7 @@ const expiringIn = (days: number) => ({
   ...LICENSE,
   expiresAt: new Date(NOW.getTime() + days * DAY),
 });
-const notice = (days: number, at = NOW): Event => ({
+const notice = (days: number, at = NOW): schema.Event => ({
   key: days,
   at,
   kind: "expiry_notice",
@@ -68,7 +68,7 @@ describe("expiry.dueNotice", () => {
 
 describe("expiry.sweep", () => {
   let store: Memory;
-  let org: Organization;
+  let org: schema.Organization;
   let mail: Mailer & { sent: Message[] };
   let asked: string[];
   const TO = ["admin@acme.com"];
@@ -90,7 +90,7 @@ describe("expiry.sweep", () => {
     asked = [];
   });
 
-  const events = async () => await store.query.select().from(event);
+  const events = async () => await store.query.select().from(schema.event);
   const createExpiring = async (days: number, values = {}) =>
     await createLicense(store, {
       organization: org.key,
@@ -149,9 +149,9 @@ describe("expiry.sweep", () => {
     for (const now of [NOW, at(23), at(29)])
       await sweep({ store, mail, recipients, now });
     await store.query
-      .update(license)
+      .update(schema.license)
       .set({ expiresAt: at(29.5 + 365) })
-      .where(eq(license.key, lic.key));
+      .where(eq(schema.license.key, lic.key));
     const sent = await sweep({ store, mail, recipients, now: at(365) });
     expect(sent).toEqual([{ license: lic.key, days: 30, to: TO }]);
   });

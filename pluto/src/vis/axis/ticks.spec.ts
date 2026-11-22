@@ -11,7 +11,7 @@ import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
 import { scale, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { newTickFactory, type Tick, type TickType } from "@/vis/axis/ticks";
+import { axis } from "@/vis/axis";
 
 const renderParams = (start: Date, end: Date, size: number) => ({
   decimalToDataScale: scale.Scale.scale<number>(0, 1).scale(
@@ -21,14 +21,14 @@ const renderParams = (start: Date, end: Date, size: number) => ({
   size,
 });
 
-const create = (start: Date, end: Date, size: number): Tick[] =>
-  newTickFactory({ type: "time" }).create(renderParams(start, end, size));
+const create = (start: Date, end: Date, size: number): axis.Tick[] =>
+  axis.newTickFactory({ type: "time" }).create(renderParams(start, end, size));
 
 const labels = (start: Date, end: Date, size: number): string[] =>
   create(start, end, size).map((t) => t.label);
 
 // Maps a tick position back to milliseconds within the domain.
-const tickMS = (tick: Tick, start: Date, end: Date, size: number): number =>
+const tickMS = (tick: axis.Tick, start: Date, end: Date, size: number): number =>
   start.getTime() + (tick.position / size) * (end.getTime() - start.getTime());
 
 const DAY_MS = TimeSpan.DAY.milliseconds;
@@ -168,8 +168,8 @@ describe("TimeTickFactory", () => {
   });
 
   describe("sub-5ms domains", () => {
-    const preciseTicks = (spanNS: number, size: number): Tick[] =>
-      newTickFactory({ type: "time" }).create({
+    const preciseTicks = (spanNS: number, size: number): axis.Tick[] =>
+      axis.newTickFactory({ type: "time" }).create({
         decimalToDataScale: scale.Scale.scale<number>(0, 1).scale(0, spanNS),
         size,
       });
@@ -211,13 +211,13 @@ describe("TimeTickFactory", () => {
 
   describe("caching", () => {
     it("should return the cached array for an unchanged domain and size", () => {
-      const factory = newTickFactory({ type: "time" });
+      const factory = axis.newTickFactory({ type: "time" });
       const params = renderParams(new Date(2026, 7, 24), new Date(2026, 8, 5), 500);
       expect(factory.create(params)).toBe(factory.create(params));
     });
 
     it("should recompute when the size changes", () => {
-      const factory = newTickFactory({ type: "time" });
+      const factory = axis.newTickFactory({ type: "time" });
       const start = new Date(2026, 7, 24, 12, 0);
       const end = new Date(2026, 7, 24, 13, 0);
       const narrow = factory.create(renderParams(start, end, 300));
@@ -244,20 +244,20 @@ describe("TimeTickFactory", () => {
     it("should produce fewer ticks with a larger spacing", () => {
       const start = new Date(2026, 7, 24, 12, 0);
       const end = new Date(2026, 7, 24, 13, 0);
-      const dense = newTickFactory({ type: "time", tickSpacing: 50 }).create(
-        renderParams(start, end, 600),
-      );
-      const sparse = newTickFactory({ type: "time", tickSpacing: 200 }).create(
-        renderParams(start, end, 600),
-      );
+      const dense = axis
+        .newTickFactory({ type: "time", tickSpacing: 50 })
+        .create(renderParams(start, end, 600));
+      const sparse = axis
+        .newTickFactory({ type: "time", tickSpacing: 200 })
+        .create(renderParams(start, end, 600));
       expect(sparse.length).toBeLessThan(dense.length);
     });
   });
 });
 
 describe("LinearTickFactory", () => {
-  const linear = (lower: number, upper: number, size: number): Tick[] =>
-    newTickFactory({}).create({
+  const linear = (lower: number, upper: number, size: number): axis.Tick[] =>
+    axis.newTickFactory({}).create({
       decimalToDataScale: scale.Scale.scale<number>(0, 1).scale(lower, upper),
       size,
     });
@@ -313,7 +313,7 @@ describe("LinearTickFactory", () => {
   });
 
   it("should return the cached array for an unchanged domain and size", () => {
-    const factory = newTickFactory({});
+    const factory = axis.newTickFactory({});
     const params = {
       decimalToDataScale: scale.Scale.scale<number>(0, 1).scale(0, 100),
       size: 750,
@@ -322,7 +322,7 @@ describe("LinearTickFactory", () => {
   });
 
   it("should recompute when the domain changes", () => {
-    const factory = newTickFactory({});
+    const factory = axis.newTickFactory({});
     const first = factory.create({
       decimalToDataScale: scale.Scale.scale<number>(0, 1).scale(0, 100),
       size: 750,
@@ -337,7 +337,7 @@ describe("LinearTickFactory", () => {
 
 describe("newTickFactory", () => {
   it("should reject an unknown tick type", () => {
-    expect(() => newTickFactory({ type: "bogus" as TickType })).toThrow();
+    expect(() => axis.newTickFactory({ type: "bogus" as axis.TickType })).toThrow();
   });
 });
 
@@ -358,7 +358,7 @@ describe("against a live Core", () => {
     const series = frame.get(index.key);
     expect(series.length).toBe(timestamps.length);
 
-    const ticks = newTickFactory({ type: "time" }).create({
+    const ticks = axis.newTickFactory({ type: "time" }).create({
       decimalToDataScale: scale.Scale.scale<number>(0, 1).scale(
         Number(series.at(0, true)),
         Number(series.at(-1, true)),
@@ -378,8 +378,8 @@ describe("against a live Core", () => {
 
 describe("RelativeTickFactory", () => {
   const S = TimeSpan.SECOND.nanoseconds;
-  const relative = (lower: number, upper: number, size: number): Tick[] =>
-    newTickFactory({ type: "relative" }).create({
+  const relative = (lower: number, upper: number, size: number): axis.Tick[] =>
+    axis.newTickFactory({ type: "relative" }).create({
       decimalToDataScale: scale.Scale.scale<number>(0, 1).scale(lower, upper),
       size,
     });
@@ -412,5 +412,63 @@ describe("RelativeTickFactory", () => {
 
   it("should return no ticks for an empty span", () => {
     expect(relative(S, S, 500)).toEqual([]);
+  });
+});
+
+describe("TimeTickFactory segments", () => {
+  const ns = (d: Date): number => Number(new TimeStamp(d).valueOf());
+  const A = [new Date(2026, 10, 17, 10, 0), new Date(2026, 10, 17, 10, 6)];
+  const B = [new Date(2026, 10, 18, 14, 30), new Date(2026, 10, 18, 14, 36)];
+  // Two segments of six minutes that each fill half of the axis.
+  const segments = (seam = 0.5) => [
+    {
+      position: { lower: -Infinity, upper: seam },
+      decimalToDataScale: scale.Scale.scale<number>(0, seam).scale(ns(A[0]), ns(A[1])),
+    },
+    {
+      position: { lower: seam, upper: Infinity },
+      decimalToDataScale: scale.Scale.scale<number>(seam, 1).scale(ns(B[0]), ns(B[1])),
+    },
+  ];
+  const create = (seam = 0.5, size = 800): axis.Tick[] =>
+    axis.newTickFactory({ type: "time" }).create({
+      decimalToDataScale: segments(seam)[0].decimalToDataScale,
+      size,
+      segments: segments(seam),
+    });
+
+  it("should place the ticks of every segment at one interval", () => {
+    const ticks = create();
+    const first = ticks.filter((t) => t.position < 400);
+    const second = ticks.filter((t) => t.position >= 400);
+    expect(first.length).toBeGreaterThan(1);
+    expect(second.length).toBeGreaterThan(1);
+    const step = (t: axis.Tick[]) => t[1].position - t[0].position;
+    expect(step(first)).toBeCloseTo(step(second));
+  });
+
+  it("should give each tick its date and time as an anchor label", () => {
+    const firsts = [0, 1].map((i) => create().find((t) => t.segment === i));
+    expect(firsts.map((t) => t?.anchorLabel)).toEqual(["Nov 17 10:00", "Nov 18 14:30"]);
+  });
+
+  it("should label the ticks in the short form", () => {
+    create().forEach((t) => expect(t.label).toMatch(/^\d+(:\d\d|\.\d+)?s?$/));
+  });
+
+  it("should return the ticks it made last for the same segments and size", () => {
+    const factory = axis.newTickFactory({ type: "time" });
+    const params = { decimalToDataScale: segments()[0].decimalToDataScale, size: 800 };
+    const first = factory.create({ ...params, segments: segments() });
+    expect(factory.create({ ...params, segments: segments() })).toBe(first);
+    expect(factory.create({ ...params, segments: segments(0.4) })).not.toBe(first);
+  });
+
+  it("should tick as one axis when one segment is in view", () => {
+    const factory = axis.newTickFactory({ type: "time" });
+    const [a] = segments(1.5);
+    expect(create(1.5)).toEqual(
+      factory.create({ decimalToDataScale: a.decimalToDataScale, size: 800 }),
+    );
   });
 });
