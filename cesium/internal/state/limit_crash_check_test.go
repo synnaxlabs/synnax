@@ -59,21 +59,29 @@ func (f imageFile) Sync() error {
 // and returns the first refusal.
 func replay(image *fault.FS, h *state.Snapshot) error {
 	GinkgoHelper()
+	_, err := replayInto(MustSucceed(state.Open(config(&appended{}), h)), image, 1)
+	return err
+}
+
+// replayInto replays the valid frames of log 1 in image into s, whose next entry is
+// next. It returns the sequence of the entry after the last that it replayed, and the
+// first refusal.
+func replayInto(s *state.State, image *fault.FS, next uint64) (uint64, error) {
+	GinkgoHelper()
 	f := MustSucceed(image.Open(log.Name(1), os.O_RDONLY))
 	b := MustSucceed(io.ReadAll(f))
 	Expect(f.Close()).To(Succeed())
-	s := MustSucceed(state.Open(config(&appended{}), h))
 	at := int64(log.FramesStart)
 	for at+log.FrameHeaderSize <= int64(len(b)) {
 		fr, err := log.DecodeFrame(b[at:], 7, 1, uint64(at))
 		if err != nil {
 			aligned := (at + log.BlockSize - 1) &^ (log.BlockSize - 1)
 			if aligned == at || aligned+log.FrameHeaderSize > int64(len(b)) {
-				return nil
+				return next, nil
 			}
 			at = aligned
 			if fr, err = log.DecodeFrame(b[at:], 7, 1, uint64(at)); err != nil {
-				return nil
+				return next, nil
 			}
 		}
 		seq := fr.Sequence
@@ -89,13 +97,13 @@ func replay(image *fault.FS, h *state.Snapshot) error {
 				records = append(records, r)
 			}
 			if err := s.Replay(seq, records); err != nil {
-				return err
+				return next, err
 			}
-			off += n
+			off, next = off+n, seq+1
 		}
 		at += int64(fr.Size())
 	}
-	return nil
+	return next, nil
 }
 
 var _ = Describe("Check: a Reserve at each crash point", func() {
