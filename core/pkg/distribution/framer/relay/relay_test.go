@@ -550,7 +550,7 @@ var _ = Describe("Relay", func() {
 					FreeWrites:         freeWrites,
 					StreamerBufferSize: 4,
 				}))
-				DeferCleanup(r.Close)
+				StartRun(r.Run)
 				key := channel.NewKey(node.KeyFree, 1)
 				openStreamer := func(
 					buffer int,
@@ -648,7 +648,7 @@ var _ = Describe("Relay", func() {
 					FreeWrites:         freeWrites,
 					StreamerBufferSize: 4,
 				}))
-				DeferCleanup(r.Close)
+				StartRun(r.Run)
 				var (
 					ranged   = channel.NewKey(node.KeyFree, 1)
 					unranged = channel.NewKey(node.KeyFree, 2)
@@ -726,6 +726,45 @@ var _ = Describe("Relay", func() {
 						unranged: {Start: 150, End: 180},
 					},
 				))
+			},
+		)
+
+		It(
+			"Should fail a stalled streamer that asked for missed markers when Run returns",
+			func(ctx SpecContext) {
+				store := storagetestutil.OpenLayer(ctx)
+				DeferCleanup(store.Close)
+				freeWrites := confluence.NewStream[relay.Response](10)
+				r := MustSucceed(relay.Open(relay.Config{
+					TS:                 store.TS,
+					FreeWrites:         freeWrites,
+					StreamerBufferSize: 4,
+				}))
+				stop := StartRun(r.Run)
+				key := channel.NewKey(node.KeyFree, 1)
+				reader := MustSucceed(r.NewStreamer(relay.StreamerConfig{
+					Keys:            channel.Keys{key},
+					SendOpenAck:     new(true),
+					MissedRequested: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				req, res := confluence.Attach(reader, 0)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				DeferCleanup(func() {
+					req.Close()
+					cancel()
+					confluence.Drain(res)
+				})
+				Eventually(res.Outlet()).Should(Receive())
+				for v := range int64(8) {
+					freeWrites.Inlet() <- relay.Response{
+						Frame: frame.NewUnary(key, telem.NewSeriesV(v)),
+					}
+				}
+				stop()
+				confluence.Drain(res)
+				Expect(sCtx.Wait()).
+					To(MatchError(ContainSubstring("relay dropped the streamer")))
 			},
 		)
 	})
