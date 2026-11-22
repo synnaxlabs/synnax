@@ -11,24 +11,24 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { asyncEdit, edit, Editable, MaybeEditable } from "@/text/Editable";
+import { Text } from "@/text";
 
 describe("Editable", () => {
   describe("rendering", () => {
     it("should render the value as text", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       expect(c.getByText("Hello")).toBeDefined();
     });
 
     it("should not be in edit mode initially", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       expect(text.getAttribute("contenteditable")).toBe("false");
     });
 
     it("should render markup in the value as literal text", () => {
       const value = "<img src=x onerror=alert(1)>";
-      const c = render(<Editable value={value} onChange={vi.fn()} />);
+      const c = render(<Text.Editable value={value} onChange={vi.fn()} />);
       const text = c.getByText(value);
       expect(text.textContent).toBe(value);
       expect(text.querySelector("img")).toBeNull();
@@ -36,29 +36,29 @@ describe("Editable", () => {
 
     it("should render committed markup as literal text", () => {
       const value = "<img src=x onerror=alert(1)>";
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = value;
       fireEvent.keyDown(text, { key: "Enter" });
-      c.rerender(<Editable value="Hello" onChange={vi.fn()} />);
+      c.rerender(<Text.Editable value="Hello" onChange={vi.fn()} />);
       expect(text.textContent).toBe(value);
       expect(text.querySelector("img")).toBeNull();
     });
 
     it("should not render a one-character value as a square", () => {
-      const c = render(<Editable value="a" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="a" onChange={vi.fn()} />);
       expect(c.getByText("a").className).not.toContain("lyra--square");
     });
 
     it("should not render a read-only one-character value as a square", () => {
-      const c = render(<MaybeEditable value="a" />);
+      const c = render(<Text.MaybeEditable value="a" />);
       expect(c.getByText("a").className).not.toContain("lyra--square");
     });
 
     it("should forward refs to the underlying element", () => {
       const ref = createRef<HTMLParagraphElement>();
-      const c = render(<Editable ref={ref} value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable ref={ref} value="Hello" onChange={vi.fn()} />);
       expect(ref.current).not.toBeNull();
       expect(ref.current).toBe(c.getByText("Hello"));
     });
@@ -67,7 +67,7 @@ describe("Editable", () => {
   describe("maxLength", () => {
     const renderField = (maxLength?: number): HTMLElement => {
       const c = render(
-        <Editable value="abc" onChange={vi.fn()} maxLength={maxLength} />,
+        <Text.Editable value="abc" onChange={vi.fn()} maxLength={maxLength} />,
       );
       const text = c.getByText("abc");
       fireEvent.dblClick(text);
@@ -125,7 +125,7 @@ describe("Editable", () => {
 
   describe("entering edit mode", () => {
     it("should enter edit mode on double-click", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       expect(text.getAttribute("contenteditable")).toBe("true");
@@ -133,7 +133,7 @@ describe("Editable", () => {
 
     it("should not enter edit mode on double-click when allowDoubleClick is false", () => {
       const c = render(
-        <Editable value="Hello" onChange={vi.fn()} allowDoubleClick={false} />,
+        <Text.Editable value="Hello" onChange={vi.fn()} allowDoubleClick={false} />,
       );
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
@@ -143,7 +143,7 @@ describe("Editable", () => {
     it("should still invoke onDoubleClick when allowDoubleClick is false", () => {
       const onDoubleClick = vi.fn();
       const c = render(
-        <Editable
+        <Text.Editable
           value="Hello"
           onChange={vi.fn()}
           allowDoubleClick={false}
@@ -158,7 +158,7 @@ describe("Editable", () => {
   describe("committing", () => {
     it("should call onChange with the new value when Enter is pressed", () => {
       const onChange = vi.fn();
-      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const c = render(<Text.Editable value="Hello" onChange={onChange} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
@@ -169,7 +169,7 @@ describe("Editable", () => {
 
     it("should call onChange with the new value when the element is blurred", () => {
       const onChange = vi.fn();
-      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const c = render(<Text.Editable value="Hello" onChange={onChange} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "Goodbye";
@@ -179,7 +179,7 @@ describe("Editable", () => {
 
     it("should not call onChange when committing the same value", () => {
       const onChange = vi.fn();
-      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const c = render(<Text.Editable value="Hello" onChange={onChange} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "Hello";
@@ -188,7 +188,7 @@ describe("Editable", () => {
     });
 
     it("should exit edit mode after Enter is pressed", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       expect(text.getAttribute("contenteditable")).toBe("true");
@@ -200,50 +200,50 @@ describe("Editable", () => {
 
   describe("repainting after a commit", () => {
     it("should keep the committed text while the value prop is stale", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
       fireEvent.keyDown(text, { key: "Enter" });
       expect(text.innerHTML).toBe("World");
-      c.rerender(<Editable value="Hello" onChange={vi.fn()} />);
+      c.rerender(<Text.Editable value="Hello" onChange={vi.fn()} />);
       expect(text.innerHTML).toBe("World");
     });
 
     it("should adopt the value once the write lands", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
       fireEvent.keyDown(text, { key: "Enter" });
-      c.rerender(<Editable value="World" onChange={vi.fn()} />);
+      c.rerender(<Text.Editable value="World" onChange={vi.fn()} />);
       expect(text.innerHTML).toBe("World");
     });
 
     it("should show the value again when the write rolls back", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
       fireEvent.keyDown(text, { key: "Enter" });
-      c.rerender(<Editable value="World" onChange={vi.fn()} />);
-      c.rerender(<Editable value="Hello" onChange={vi.fn()} />);
+      c.rerender(<Text.Editable value="World" onChange={vi.fn()} />);
+      c.rerender(<Text.Editable value="Hello" onChange={vi.fn()} />);
       expect(text.innerHTML).toBe("Hello");
     });
 
     it("should repaint a remote rename that beats the commit", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
       fireEvent.keyDown(text, { key: "Enter" });
-      c.rerender(<Editable value="Elsewhere" onChange={vi.fn()} />);
+      c.rerender(<Text.Editable value="Elsewhere" onChange={vi.fn()} />);
       expect(text.innerHTML).toBe("Elsewhere");
     });
 
     it("should commit a rename back to the value while the write is pending", () => {
       const onChange = vi.fn();
-      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const c = render(<Text.Editable value="Hello" onChange={onChange} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
@@ -256,7 +256,7 @@ describe("Editable", () => {
     });
 
     it("should hold a rename back to the value while the earlier write lands", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
@@ -264,29 +264,29 @@ describe("Editable", () => {
       fireEvent.dblClick(text);
       text.innerText = "Hello";
       fireEvent.keyDown(text, { key: "Enter" });
-      c.rerender(<Editable value="World" onChange={vi.fn()} />);
+      c.rerender(<Text.Editable value="World" onChange={vi.fn()} />);
       expect(text.innerHTML).toBe("Hello");
-      c.rerender(<Editable value="Hello" onChange={vi.fn()} />);
+      c.rerender(<Text.Editable value="Hello" onChange={vi.fn()} />);
       expect(text.innerHTML).toBe("Hello");
-      c.rerender(<Editable value="Elsewhere" onChange={vi.fn()} />);
+      c.rerender(<Text.Editable value="Elsewhere" onChange={vi.fn()} />);
       expect(text.innerHTML).toBe("Elsewhere");
     });
 
     it("should revert when the handler rejects the committed text", () => {
       const onChange = vi.fn<(value: string) => boolean>(() => false);
-      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const c = render(<Text.Editable value="Hello" onChange={onChange} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "Taken";
       fireEvent.keyDown(text, { key: "Enter" });
       expect(onChange).toHaveBeenCalledWith("Taken");
       expect(text.innerText).toBe("Hello");
-      c.rerender(<Editable value="Hello" onChange={onChange} />);
+      c.rerender(<Text.Editable value="Hello" onChange={onChange} />);
       expect(text.innerHTML).toBe("Hello");
     });
 
     it("should show the pending text when Escape is pressed", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
@@ -298,7 +298,7 @@ describe("Editable", () => {
     });
 
     it("should show the pending text when an empty commit is refused", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
@@ -311,7 +311,7 @@ describe("Editable", () => {
 
     it("should show the first commit when the handler rejects a second", () => {
       const onChange = vi.fn<(value: string) => boolean>((v) => v !== "Taken");
-      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const c = render(<Text.Editable value="Hello" onChange={onChange} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
@@ -324,11 +324,13 @@ describe("Editable", () => {
     });
 
     it("should resolve asyncEdit as a cancel when the handler rejects", async () => {
-      const c = render(<Editable id="rejected" value="Hello" onChange={() => false} />);
+      const c = render(
+        <Text.Editable id="rejected" value="Hello" onChange={() => false} />,
+      );
       const text = c.getByText("Hello");
       let promise!: Promise<[string, boolean]>;
       act(() => {
-        promise = asyncEdit("rejected");
+        promise = Text.asyncEdit("rejected");
       });
       text.innerText = "Taken";
       fireEvent.keyDown(text, { key: "Enter" });
@@ -339,7 +341,7 @@ describe("Editable", () => {
   describe("escaping", () => {
     it("should not call onChange when Escape is pressed", () => {
       const onChange = vi.fn();
-      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const c = render(<Text.Editable value="Hello" onChange={onChange} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
@@ -348,7 +350,7 @@ describe("Editable", () => {
     });
 
     it("should revert the text when Escape is pressed", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
@@ -361,7 +363,7 @@ describe("Editable", () => {
     const renderWithList = () => {
       const c = render(
         <div tabIndex={0} data-testid="list">
-          <Editable value="Hello" onChange={vi.fn()} />
+          <Text.Editable value="Hello" onChange={vi.fn()} />
         </div>,
       );
       const list = c.getByTestId("list");
@@ -387,7 +389,7 @@ describe("Editable", () => {
     });
 
     it("should blur when nothing held the focus before the edit", () => {
-      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const c = render(<Text.Editable value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "World";
@@ -400,7 +402,7 @@ describe("Editable", () => {
     it("rejects asyncEdit when the element never appears", async () => {
       vi.useFakeTimers();
       try {
-        const promise = asyncEdit("does-not-exist");
+        const promise = Text.asyncEdit("does-not-exist");
         const expectation = expect(promise).rejects.toThrow("Could not find element");
         await vi.advanceTimersByTimeAsync(1100);
         await expectation;
@@ -413,7 +415,7 @@ describe("Editable", () => {
       vi.useFakeTimers();
       const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
       try {
-        edit("does-not-exist");
+        Text.edit("does-not-exist");
         await vi.advanceTimersByTimeAsync(1100);
         expect(consoleError).toHaveBeenCalledTimes(1);
       } finally {
@@ -423,11 +425,13 @@ describe("Editable", () => {
     });
 
     it("resolves asyncEdit with the committed value", async () => {
-      const c = render(<Editable id="rename-me" value="Hello" onChange={vi.fn()} />);
+      const c = render(
+        <Text.Editable id="rename-me" value="Hello" onChange={vi.fn()} />,
+      );
       const text = c.getByText("Hello");
       let promise!: Promise<[string, boolean]>;
       act(() => {
-        promise = asyncEdit("rename-me");
+        promise = Text.asyncEdit("rename-me");
       });
       expect(text.getAttribute("contenteditable")).toBe("true");
       text.innerText = "World";
@@ -439,14 +443,14 @@ describe("Editable", () => {
       const c = render(
         <>
           <div>
-            <Editable id="shared" value="First" onChange={vi.fn()} />
+            <Text.Editable id="shared" value="First" onChange={vi.fn()} />
           </div>
           <div data-testid="second">
-            <Editable id="shared" value="Second" onChange={vi.fn()} />
+            <Text.Editable id="shared" value="Second" onChange={vi.fn()} />
           </div>
         </>,
       );
-      act(() => edit("shared", c.getByTestId("second")));
+      act(() => Text.edit("shared", c.getByTestId("second")));
       expect(c.getByText("Second").getAttribute("contenteditable")).toBe("true");
       expect(c.getByText("First").getAttribute("contenteditable")).not.toBe("true");
     });
@@ -455,15 +459,15 @@ describe("Editable", () => {
       const c = render(
         <>
           <div>
-            <Editable id="shared" value="First" onChange={vi.fn()} />
+            <Text.Editable id="shared" value="First" onChange={vi.fn()} />
           </div>
           <div>
-            <Editable id="shared" value="Second" onChange={vi.fn()} />
+            <Text.Editable id="shared" value="Second" onChange={vi.fn()} />
             <div data-testid="item">Item</div>
           </div>
         </>,
       );
-      act(() => edit("shared", c.getByTestId("item")));
+      act(() => Text.edit("shared", c.getByTestId("item")));
       expect(c.getByText("Second").getAttribute("contenteditable")).toBe("true");
       expect(c.getByText("First").getAttribute("contenteditable")).not.toBe("true");
     });
@@ -472,14 +476,14 @@ describe("Editable", () => {
       const c = render(
         <>
           <div>
-            <Editable id="shared" value="Editable" onChange={vi.fn()} />
+            <Text.Editable id="shared" value="Editable" onChange={vi.fn()} />
           </div>
           <div data-testid="item">
-            <MaybeEditable id="shared" value="Read only" />
+            <Text.MaybeEditable id="shared" value="Read only" />
           </div>
         </>,
       );
-      await expect(asyncEdit("shared", c.getByTestId("item"))).rejects.toThrow(
+      await expect(Text.asyncEdit("shared", c.getByTestId("item"))).rejects.toThrow(
         "The nearest element with id shared is read-only",
       );
       expect(c.getByText("Editable").getAttribute("contenteditable")).not.toBe("true");
@@ -488,16 +492,16 @@ describe("Editable", () => {
     it("should start an edit after a level change renders a new element", async () => {
       const onChange = vi.fn();
       const c = render(
-        <Editable id="relevel" level="p" value="Hello" onChange={onChange} />,
+        <Text.Editable id="relevel" level="p" value="Hello" onChange={onChange} />,
       );
       c.rerender(
-        <Editable id="relevel" level="h3" value="Hello" onChange={onChange} />,
+        <Text.Editable id="relevel" level="h3" value="Hello" onChange={onChange} />,
       );
       const text = c.getByText("Hello");
       expect(text.tagName).toBe("H3");
       let promise!: Promise<[string, boolean]>;
       act(() => {
-        promise = asyncEdit("relevel");
+        promise = Text.asyncEdit("relevel");
       });
       text.innerText = "World";
       fireEvent.keyDown(text, { key: "Enter" });
@@ -506,11 +510,13 @@ describe("Editable", () => {
     });
 
     it("resolves asyncEdit with renamed=false when the value is unchanged", async () => {
-      const c = render(<Editable id="same-name" value="Hello" onChange={vi.fn()} />);
+      const c = render(
+        <Text.Editable id="same-name" value="Hello" onChange={vi.fn()} />,
+      );
       const text = c.getByText("Hello");
       let promise!: Promise<[string, boolean]>;
       act(() => {
-        promise = asyncEdit("same-name");
+        promise = Text.asyncEdit("same-name");
       });
       text.innerText = "Hello";
       fireEvent.keyDown(text, { key: "Enter" });
@@ -518,11 +524,13 @@ describe("Editable", () => {
     });
 
     it("resolves asyncEdit with renamed=false on escape", async () => {
-      const c = render(<Editable id="escape-me" value="Hello" onChange={vi.fn()} />);
+      const c = render(
+        <Text.Editable id="escape-me" value="Hello" onChange={vi.fn()} />,
+      );
       const text = c.getByText("Hello");
       let promise!: Promise<[string, boolean]>;
       act(() => {
-        promise = asyncEdit("escape-me");
+        promise = Text.asyncEdit("escape-me");
       });
       text.innerText = "World";
       fireEvent.keyDown(text, { key: "Escape" });
@@ -530,24 +538,26 @@ describe("Editable", () => {
     });
 
     it("should put the element with the given id into edit mode", () => {
-      const c = render(<Editable id="tab-name" value="Hello" onChange={vi.fn()} />);
-      act(() => edit("tab-name"));
+      const c = render(
+        <Text.Editable id="tab-name" value="Hello" onChange={vi.fn()} />,
+      );
+      act(() => Text.edit("tab-name"));
       expect(c.getByText("Hello").getAttribute("contenteditable")).toBe("true");
     });
 
     it("should edit the editable copy when a read-only copy shares its id", () => {
       const c = render(
         <>
-          <MaybeEditable
+          <Text.MaybeEditable
             id="tab-name"
             value="Hello"
             onChange={vi.fn<(value: string) => void>()}
             disabled
           />
-          <Editable id="tab-name" value="Hello" onChange={vi.fn()} />
+          <Text.Editable id="tab-name" value="Hello" onChange={vi.fn()} />
         </>,
       );
-      act(() => edit("tab-name"));
+      act(() => Text.edit("tab-name"));
       const [readOnly, editable] = c.getAllByText("Hello");
       expect(editable.getAttribute("contenteditable")).toBe("true");
       expect(readOnly.getAttribute("contenteditable")).toBeNull();
@@ -557,7 +567,7 @@ describe("Editable", () => {
   describe("empty values", () => {
     it("should reject empty values by default", () => {
       const onChange = vi.fn();
-      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const c = render(<Text.Editable value="Hello" onChange={onChange} />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "";
@@ -568,7 +578,7 @@ describe("Editable", () => {
 
     it("should accept empty values when allowEmpty is true", () => {
       const onChange = vi.fn();
-      const c = render(<Editable value="Hello" onChange={onChange} allowEmpty />);
+      const c = render(<Text.Editable value="Hello" onChange={onChange} allowEmpty />);
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       text.innerText = "";
