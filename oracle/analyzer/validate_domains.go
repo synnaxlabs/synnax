@@ -173,8 +173,8 @@ func validateNoVersionTag(c *analysisCtx, types []resolution.Type) {
 }
 
 // validateImex errors on malformed @go imex declarations: the marker is per-type and
-// takes no argument or `body`. The Go imex plugin rejects a marked type whose version
-// chain leaves it unversioned.
+// takes no argument, `body`, or `prepare`. The Go imex plugin rejects a marked type
+// whose version chain leaves it unversioned.
 func validateImex(c *analysisCtx, types []resolution.Type) {
 	if dom, ok := c.fileDomains["go"]; ok {
 		if _, has := dom.Expressions.Find("imex"); has {
@@ -191,12 +191,14 @@ func validateImex(c *analysisCtx, types []resolution.Type) {
 			continue
 		}
 		expr, ok := dom.Expressions.Find("imex")
-		if !ok || len(expr.Values) == 0 ||
-			len(expr.Values) == 1 && expr.Values[0].IdentValue == "body" {
+		if !ok || len(expr.Values) == 0 || len(expr.Values) == 1 &&
+			(expr.Values[0].IdentValue == "body" ||
+				expr.Values[0].IdentValue == "prepare") {
 			continue
 		}
 		c.report(diagnostics.Errorf(nil,
-			"%s has a malformed @go imex; the marker takes no argument or body",
+			"%s has a malformed @go imex; the marker takes no argument, body, or "+
+				"prepare",
 			t.QualifiedName,
 		))
 	}

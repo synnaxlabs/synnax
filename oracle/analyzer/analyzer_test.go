@@ -628,6 +628,18 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
+		It("Should accept @go imex prepare", func() {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go imex prepare
+				}
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
 		It("Should error when @go imex carries an unknown argument", func() {
 			source := `
 				@go output "out"
@@ -639,7 +651,7 @@ Node union on variant {
 			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring(
-				"malformed @go imex; the marker takes no argument or body",
+				"malformed @go imex; the marker takes no argument, body, or prepare",
 			))
 		})
 

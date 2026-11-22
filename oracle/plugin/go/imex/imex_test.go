@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -187,9 +188,23 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"Where(MatchKeys(key))",
 					"Version: versions.Latest, Type: string(s.Type()), Name: v.Name,",
 					"env.Encode(v)",
-				).ToBeValidGoSource()
+				).ToNotContain("prepareExport").ToBeValidGoSource()
 			},
 		)
+
+		It("Should call the service's prepareExport under the prepare marker", func() {
+			live := strings.Replace(liveLog, "@go imex", "@go imex prepare", 1)
+			req := chainRequest(
+				GinkgoT().TempDir(), live, map[int]string{3: logChain(true)},
+			)
+			resp := MustSucceed(p.Generate(req))
+			ExpectContent(resp, "core/pkg/service/log/imex.gen.go").ToPreserveOrder(
+				"Exec(ctx, snap)",
+				"if err = s.prepareExport(ctx, snap, &v); err != nil {\n"+
+					"\t\treturn imex.Envelope{}, err\n\t}",
+				"env.Encode(v)",
+			).ToBeValidGoSource()
+		})
 
 		It(
 			"Should leave the reference fields out of the export",

@@ -19,7 +19,8 @@
 // shapes older than the first export builds the first exported shape and calls
 // liftFirst, so a version bump never edits it. A type another resource exports declares
 // `@go imex body` and gets an exported <Type>Ladder over body blobs instead of the
-// envelope ladder, liftFirst, and Export.
+// envelope ladder, liftFirst, and Export. `@go imex prepare` makes Export call the
+// service's prepareExport on the entry before it encodes it.
 package imex
 
 import (
@@ -99,7 +100,8 @@ func (*Plugin) Requires() []string { return []string{"go/types"} }
 //
 // The emitted Export calls the service's NewRetrieve, MatchKeys, and Type, and parses
 // id.Key as a UUID. A resource missing any of them, or keyed by something else, fails
-// to compile.
+// to compile. Under `@go imex prepare`, Export also calls
+// prepareExport(ctx, snap, *<Type>) error.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// The templates qualify against these import paths; emitting without them
 	// would produce files that do not compile.
@@ -192,7 +194,9 @@ type target struct {
 	typ    resolution.Type
 	goName string
 	// body is true for `@go imex body`: another resource exports the type.
-	body     bool
+	body bool
+	// prepare is true for `@go imex prepare`: Export calls the service's prepareExport.
+	prepare  bool
 	livePath string
 	current  int
 	floor    int
@@ -231,6 +235,7 @@ func newTarget(
 	if err != nil {
 		return target{}, err
 	}
+	marker := domain.GetStringFromType(typ, "go", "imex")
 	exported := exportedVersions(req, livePath, floor, current)
 	steps, err := migrateSteps(req, typ, livePath, exported)
 	if err != nil {
@@ -240,7 +245,8 @@ func newTarget(
 		typ:        typ,
 		goName:     naming.GetGoName(typ),
 		references: referenceNames(typ, req.Resolutions),
-		body:       domain.GetStringFromType(typ, "go", "imex") == bodyMarker,
+		body:       marker == bodyMarker,
+		prepare:    marker == prepareMarker,
 		livePath:   livePath,
 		current:    current,
 		floor:      floor,
@@ -261,8 +267,12 @@ func referenceNames(typ resolution.Type, table *resolution.Table) []string {
 	return names
 }
 
-// bodyMarker is the @go imex argument that marks a type another resource exports.
-const bodyMarker = "body"
+const (
+	// bodyMarker is the @go imex argument that marks a type another resource exports.
+	bodyMarker = "body"
+	// prepareMarker is the @go imex argument that makes Export call prepareExport.
+	prepareMarker = "prepare"
+)
 
 func (p *Plugin) generatePackage(
 	req *plugin.Request,
@@ -344,6 +354,7 @@ func (p *Plugin) generatePackage(
 		Runtime:    p.options.RuntimeImportPath,
 		Resource:   p.options.ResourceImportPath,
 		References: targets[0].references,
+		Prepare:    targets[0].prepare,
 	}); err != nil {
 		return err
 	}
@@ -440,6 +451,8 @@ type exportData struct {
 	Runtime    string
 	Resource   string
 	References []string
+	// Prepare makes Export call the service's prepareExport before it encodes.
+	Prepare bool
 }
 
 var exportTemplate = template.Must(
@@ -475,6 +488,11 @@ func (s *Service) Export(
 		Exec(ctx, snap); err != nil {
 		return imex.Envelope{}, err
 	}
+{{- if .Prepare}}
+	if err = s.prepareExport(ctx, snap, &v); err != nil {
+		return imex.Envelope{}, err
+	}
+{{- end}}
 	env := imex.Envelope{
 		Version: versions.Latest, Type: string(s.Type()), Name: {{.Name}},
 	}
