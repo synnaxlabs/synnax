@@ -271,6 +271,18 @@ var _ = Describe("Calculation", func() {
 			Expect(res.HiddenOutputs).To(Equal([]channel.Key{out.Key()}))
 		})
 
+		It("Should list a hidden output to a reader of every channel", func(
+			ctx SpecContext,
+		) {
+			u := createUser(ctx)
+			out := createVirtual(ctx)
+			createCalculation(ctx, out)
+			grant(ctx, retrieves, u.ResourceID(), anyChannel)
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), byOutputs(out)))
+			Expect(res.Calculations).To(BeEmpty())
+			Expect(res.HiddenOutputs).To(Equal([]channel.Key{out.Key()}))
+		})
+
 		It("Should list the output of a calculation that reads a hidden channel", func(
 			ctx SpecContext,
 		) {

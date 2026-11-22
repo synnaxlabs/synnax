@@ -189,6 +189,7 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	named := req.Named()
+	hidden := hiddenOutputs{snap: snap, size: outputCount(req.Where)}
 	// The filter of req runs first, so only the calculations it selects reach here.
 	if err = q.Where(calculation.Match(func(
 		_ gorp.Context,
@@ -198,19 +199,50 @@ func (s *Service) Retrieve(
 		if ok, err := s.allowed(snap, named, *c); err != nil || ok {
 			return ok, err
 		}
-		if snap.Allowed(channel.ResourceID(c.Output)) {
-			res.HiddenOutputs = append(res.HiddenOutputs, c.Output)
-		}
+		hidden.add(c.Output)
 		return false, nil
 	})).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
+	res.HiddenOutputs = hidden.keys
 	if req.IncludeStatus {
 		if err = s.attachStatuses(ctx, snap, res.Calculations); err != nil {
 			return RetrieveResponse{}, err
 		}
 	}
 	return res, nil
+}
+
+// hiddenOutputs collects the outputs of the calculations that a retrieve hides, each
+// one a channel that the subject can retrieve.
+type hiddenOutputs struct {
+	snap bind.Snapshot
+	// size is how many outputs the request names, which bounds the list.
+	size int
+	// allChannels is whether the subject can retrieve every channel, once known.
+	allChannels *bool
+	keys        []channel.Key
+}
+
+func (h *hiddenOutputs) add(output channel.Key) {
+	if h.allChannels == nil {
+		h.allChannels = new(h.snap.Allowed(resource.ID{Type: resource.TypeChannel}))
+	}
+	if !*h.allChannels && !h.snap.Allowed(channel.ResourceID(output)) {
+		return
+	}
+	if h.keys == nil {
+		h.keys = make([]channel.Key, 0, h.size)
+	}
+	h.keys = append(h.keys, output)
+}
+
+// outputCount returns how many outputs where names, or 0 when it names none.
+func outputCount(where *calculation.Where) int {
+	if where == nil || where.Output == nil {
+		return 0
+	}
+	return len(where.Output.In)
 }
 
 // allowed reports whether the subject of snap can retrieve c and each channel that c

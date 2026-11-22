@@ -68,6 +68,24 @@ export const EmptyContent = ({
   );
 };
 
+// A status shows in place of an empty list, so beside items a failure shows under the
+// list. It stays outside the list, so a failure never changes the list's structure.
+const ItemsFailure = ({
+  status,
+}: {
+  status: Status.Status<z.ZodNever>;
+}): ReactElement | null => {
+  const { data } = List.useData();
+  if (data.length === 0) return null;
+  return (
+    <Flex.Box y className={CSS.BE("select", "failure")}>
+      <Status.Summary variant={status.variant} description={status.description}>
+        {status.message}
+      </Status.Summary>
+    </Flex.Box>
+  );
+};
+
 /** Props for {@link BorderedList}. */
 export interface BorderedListProps {
   /** Pinned below the list, inside its border. */
@@ -139,9 +157,10 @@ export const Body = <K extends record.Key>({
   const loading = status?.variant === "loading";
   const hasSearch = onSearch != null;
   if (inline) return <InlineBody<K> onSearch={onSearch}>{children}</InlineBody>;
+  const failed = !loading && status != null && status.variant !== "success";
   let empty: ReactNode;
   if (loading) empty = hasSearch ? null : <Status.Loading />;
-  else if (status != null && status.variant !== "success")
+  else if (failed)
     empty = (
       <Status.Summary center variant={status.variant} description={status.description}>
         {status.message}
@@ -162,6 +181,7 @@ export const Body = <K extends record.Key>({
         {fixedItems}
         <Items<K> emptyContent={empty}>{children}</Items>
       </BorderedList>
+      {failed && <ItemsFailure status={status} />}
     </>
   );
 };

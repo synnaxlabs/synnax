@@ -41,6 +41,55 @@ describe("Select.Single dialog body", () => {
     expect(c.getByText("Error")).toBeTruthy();
   });
 
+  it("should render a failure once, under the items, when the list holds items", () => {
+    const c = render(
+      <Select.Single
+        visible
+        data={["a", "b"]}
+        virtual={false}
+        onChange={vi.fn()}
+        resourceName="result"
+        status={Status.create({ variant: "error", message: "Error" })}
+      >
+        {({ itemKey }) => <div key={itemKey}>{`item ${itemKey}`}</div>}
+      </Select.Single>,
+    );
+    expect(c.getByText("item a")).toBeTruthy();
+    expect(c.getAllByText("Error")).toHaveLength(1);
+  });
+
+  it("should render a failure once when the list has no data", () => {
+    const c = render(
+      <Select.Single
+        visible
+        data={[]}
+        onChange={vi.fn()}
+        resourceName="result"
+        status={Status.create({ variant: "error", message: "Error" })}
+      >
+        {() => <div>Hello</div>}
+      </Select.Single>,
+    );
+    expect(c.getAllByText("Error")).toHaveLength(1);
+  });
+
+  it("should render no loading status under the items", () => {
+    const c = render(
+      <Select.Single
+        visible
+        data={["a"]}
+        virtual={false}
+        onChange={vi.fn()}
+        resourceName="result"
+        status={Status.create({ variant: "loading", message: "Loading" })}
+      >
+        {({ itemKey }) => <div key={itemKey}>{`item ${itemKey}`}</div>}
+      </Select.Single>,
+    );
+    expect(c.getByText("item a")).toBeTruthy();
+    expect(c.queryByText("Loading")).toBeNull();
+  });
+
   it("should accept a custom empty content", () => {
     const onChange = vi.fn();
     const c = render(

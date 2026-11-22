@@ -22,6 +22,7 @@ import { List } from "@/list";
 import { Menu } from "@/menu";
 import { type position } from "@/position";
 import { Select } from "@/select";
+import { Status } from "@/status";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
@@ -684,6 +685,40 @@ describe("Select", () => {
       expect(computed(dialog, "background-color")).toBe(
         resolve("color-mix(in srgb, var(--pluto-gray-l0) 94%, transparent)"),
       );
+    });
+  });
+
+  describe("failure beside items", () => {
+    it("should inset a failure under the items as the options are", async () => {
+      await renderThemed(
+        <Select.Single<string>
+          resourceName="result"
+          data={["a", "b"]}
+          value={undefined}
+          onChange={vi.fn()}
+          initialVisible
+          virtual={false}
+          status={Status.create({
+            variant: "error",
+            message: "Failed to load results",
+            description: "The Core refused the request",
+          })}
+        >
+          {({ itemKey }) => <div key={itemKey}>{`item ${itemKey}`}</div>}
+        </Select.Single>,
+      );
+      await expect.element(page.getByText("Failed to load results")).toBeVisible();
+      const inset = parseFloat(resolve("1rem", "padding-left"));
+      const frame = page.getByRole("dialog").element().getBoundingClientRect();
+      for (const text of ["Failed to load results", "The Core refused the request"]) {
+        const box = page.getByText(text).element().getBoundingClientRect();
+        expect(box.left - frame.left).toBeGreaterThanOrEqual(inset);
+        expect(frame.right - box.right).toBeGreaterThanOrEqual(inset);
+      }
+      const description = page.getByText("The Core refused the request").element();
+      expect(
+        frame.bottom - description.getBoundingClientRect().bottom,
+      ).toBeGreaterThanOrEqual(inset);
     });
   });
 

@@ -1779,6 +1779,9 @@ describe("StreamMultiChannelLog with a Core", () => {
     const seen = await reader.channels.retrieve(output.key);
     expect(seen.expression).toBe("");
     expect(seen.isCalculated).toBe(true);
+    expect(await reader.calculations.outputs.retrieve([output.key])).toEqual([
+      { key: output.key, hidden: true },
+    ]);
     const log = open(reader, [output.key]);
     await expect
       .poll(() => log.timeRange?.start.valueOf(), { timeout: 10_000, interval: 20 })
