@@ -31,12 +31,13 @@ var _ = Describe("Writer Commit with a skip", func() {
 			for round := range 4 {
 				index := GenerateChannelKey()
 				data := make([]cesium.ChannelKey, 8)
-				channels := []cesium.Channel{{
+				channels := make([]cesium.Channel, 0, 1+len(data))
+				channels = append(channels, cesium.Channel{
 					Key:      index,
 					Name:     fmt.Sprintf("index-%d", round),
 					IsIndex:  true,
 					DataType: telem.TimestampT,
-				}}
+				})
 				for i := range data {
 					data[i] = GenerateChannelKey()
 					channels = append(channels, cesium.Channel{
@@ -51,7 +52,8 @@ var _ = Describe("Writer Commit with a skip", func() {
 					Channels: append([]cesium.ChannelKey{index}, data...),
 					Start:    10 * telem.SecondTS,
 				}))
-				series := []telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12, 13)}
+				series := make([]telem.Series, 0, 1+len(data))
+				series = append(series, telem.NewSeriesSecondsTSV(10, 11, 12, 13))
 				for range data {
 					series = append(series, telem.NewSeriesV[int64](1, 2, 3, 4))
 				}
