@@ -15,6 +15,7 @@ package impact
 import (
 	"context"
 	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -145,7 +146,8 @@ func (s *Service) Apply(
 }
 
 // deleteGroups deletes the groups with keys and the tombstones in them first. Its plan
-// lists the channel of each tombstone as a cascade entry, which takes no pick.
+// lists the channel of each tombstone as a cascade entry, which takes no pick, with the
+// tombstone's path.
 func (s *Service) deleteGroups(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -163,18 +165,66 @@ func (s *Service) deleteGroups(
 	if err != nil {
 		return Plan{}, err
 	}
+	var paths []string
+	if len(dead) > 0 {
+		if paths, err = s.tombstonePaths(ctx, tx, keys, dead); err != nil {
+			return Plan{}, err
+		}
+	}
 	if err = s.cfg.Group.NewWriter(tx).Delete(ctx, keys...); err != nil {
 		return Plan{}, err
 	}
 	var p Plan
-	for _, k := range dead {
+	for i, t := range dead {
 		p.Entries = append(p.Entries, Entry{
-			Record: channel.ResourceID(k),
+			Record: channel.ResourceID(t.Key),
 			Effect: EffectCascade,
+			Path:   &paths[i],
 		})
 	}
 	slices.SortFunc(p.Entries, compareEntries)
 	return p, nil
+}
+
+// tombstonePaths returns the path of each of dead from the deleted group that holds it.
+// A group inside a deleted one is deleted too, so each walk ends at a deleted group.
+func (s *Service) tombstonePaths(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys []group.Key,
+	dead []channel.Tombstone,
+) ([]string, error) {
+	groups := make([]group.Group, 0, len(keys))
+	if err := s.cfg.Group.NewRetrieve().
+		Where(group.MatchKeys(keys...)).
+		Entries(&groups).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	deleted := make(map[group.Key]group.Group, len(groups))
+	for _, g := range groups {
+		deleted[g.Key] = g
+	}
+	paths := make([]string, len(dead))
+	var segments []string
+	for i, t := range dead {
+		segments = append(segments[:0], t.Name)
+		g, ok := deleted[*t.Group]
+		for ok {
+			segments = append(segments, g.Name)
+			if g.Parent == nil || g.Parent.Type != resource.TypeGroup {
+				break
+			}
+			parent, err := group.KeyFromResourceID(*g.Parent)
+			if err != nil {
+				return nil, err
+			}
+			g, ok = deleted[parent]
+		}
+		slices.Reverse(segments)
+		paths[i] = strings.Join(segments, ".")
+	}
+	return paths, nil
 }
 
 // pickWithoutEntry returns a validation error that names the smallest pick of picks

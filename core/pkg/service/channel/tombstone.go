@@ -303,18 +303,24 @@ func (w Writer) tombstoneAt(
 	return w.svc.tombstones.paths.Holder(ctx, w.tx, p)
 }
 
-// DeleteTombstones deletes the tombstones in the groups with keys and returns the keys
-// of their deleted channels. A tombstone refuses the delete of its group, so a group
-// delete calls it first.
+// DeleteTombstones deletes the tombstones in the groups with keys and returns them. A
+// tombstone refuses the delete of its group, so a group delete calls it first.
 func (w Writer) DeleteTombstones(
 	ctx context.Context,
 	groups ...group.Key,
-) (Keys, error) {
+) ([]Tombstone, error) {
 	keys, err := w.svc.tombstones.groups.Get(ctx, w.tx, groups...)
 	if err != nil || len(keys) == 0 {
 		return nil, err
 	}
-	return keys, w.svc.tombstones.table.NewDelete().
+	dead := make([]Tombstone, 0, len(keys))
+	if err = w.svc.tombstones.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Tombstone](keys...)).
+		Entries(&dead).
+		Exec(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	return dead, w.svc.tombstones.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Tombstone](keys...)).
 		Exec(ctx, w.tx)
 }
