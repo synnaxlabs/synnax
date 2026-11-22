@@ -105,6 +105,15 @@ class TestFile:
         assert File(config_dir=tmp_path / ".synnax").config == {}
         assert list(tmp_path.iterdir()) == []
 
+    def test_unreadable_file(self, tmp_path: Path) -> None:
+        """Should name the file and the reason when the file cannot be read."""
+        # A directory at the path cannot be read as a file, on any platform or user.
+        (tmp_path / "config.json").mkdir()
+        with pytest.raises(ConfigurationError, match="Cannot read") as e:
+            File(config_dir=tmp_path)
+        assert str(tmp_path / "config.json") in str(e.value)
+        assert isinstance(e.value.__cause__, OSError)
+
     @pytest.mark.parametrize("content", [b"{", b"\xff"])
     def test_corrupt_file(self, content: bytes, tmp_path: Path) -> None:
         """Should name the file when it is not valid JSON."""

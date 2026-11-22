@@ -48,8 +48,7 @@ class File:
             return
         except OSError as e:
             raise ConfigurationError(
-                f"Cannot read {self.config_file}: {e.strerror}. Set SYNNAX_HOST to "
-                "connect without it."
+                f"Cannot read {self.config_file}: {e.strerror}."
             ) from e
         try:
             self.config = json.loads(data.decode("utf-8"))

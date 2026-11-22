@@ -43,8 +43,8 @@ __all__ = [
 ]
 
 NO_HOME_MSG = (
-    "Cannot find the home directory that holds the saved logins. Set SYNNAX_HOST, or "
-    "set HOME."
+    "Cannot find the home directory that holds the saved logins. Set HOME "
+    "(USERPROFILE on Windows), or set SYNNAX_HOST to connect without a saved login."
 )
 
 
