@@ -11,3 +11,4 @@ export * from "@/code/Editor";
 export * from "@/code/language";
 export * from "@/code/lsp";
 export * from "@/code/Provider";
+export * from "@/code/text";

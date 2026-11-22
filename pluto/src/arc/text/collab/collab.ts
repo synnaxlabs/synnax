@@ -10,7 +10,7 @@
 import { arc } from "@synnaxlabs/client";
 import { crdt } from "@synnaxlabs/x";
 
-import { type Diff, diff } from "@/code/text";
+import { text } from "@/code/text";
 
 // SEED_REPLICA is the replica the server uses to seed a document from persisted text.
 // Clients bootstrap from the server snapshot and must never author with this id, so a
@@ -37,7 +37,7 @@ export interface Change {
  * code-point Diffs, ordered highest-offset-first so that applying each change in turn
  * does not shift the offsets of the changes not yet applied. prev must be the document
  * value the offsets are relative to (the value before the change batch). */
-export const changesToDiffs = (prev: string, changes: readonly Change[]): Diff[] =>
+export const changesToDiffs = (prev: string, changes: readonly Change[]): text.Diff[] =>
   [...changes]
     .sort((a, b) => b.rangeOffset - a.rangeOffset)
     .map((c) => ({
@@ -81,7 +81,7 @@ export class Text {
    * operations to broadcast. The changes must be ordered highest-index-first (as
    * changesToDiffs produces) so each applies against indices the others have not
    * shifted. Returns an empty array when the batch is a no-op. */
-  applyChanges(changes: Diff[]): arc.Action[] {
+  applyChanges(changes: text.Diff[]): arc.Action[] {
     const inserts: crdt.Insert[] = [];
     const deletes: crdt.Delete[] = [];
     for (const { index, deleteCount, insert } of changes) {
@@ -95,7 +95,7 @@ export class Text {
    * operations that describe the change. Prefer applyChanges with precise editor
    * changes; this is a convenience for callers that only have the new value. */
   edit(next: string): arc.Action[] {
-    const d = diff(this.value(), next);
+    const d = text.diff(this.value(), next);
     if (d.deleteCount === 0 && d.insert.length === 0) return [];
     return this.applyChanges([d]);
   }

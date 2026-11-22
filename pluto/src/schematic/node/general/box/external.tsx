@@ -11,14 +11,14 @@ import type { schematic } from "@synnaxlabs/client";
 
 import { Preview, Symbol } from "@/schematic/node/general/box/Symbol";
 import type { Spec } from "@/schematic/node/spec";
-import { TankForm } from "@/schematic/node/vessels/tank/Form";
+import { Tank } from "@/schematic/node/vessels/tank";
 
 const NAME = "Box";
 
 export const spec: Spec<"box", schematic.BoxNodeConfig> = {
   key: "box",
   name: NAME,
-  Form: (props) => <TankForm {...props} showBorderRadius showStrokeWidth />,
+  Form: (props) => <Tank.Form {...props} showBorderRadius showStrokeWidth />,
   Node: Symbol,
   Preview,
   zIndex: 2,

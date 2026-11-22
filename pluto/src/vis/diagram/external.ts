@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/vis/diagram/aether/types";
+import type { diagram } from "@/vis/diagram/aether";
+
 export * from "@/vis/diagram/align";
 export * from "@/vis/diagram/Background";
 export * from "@/vis/diagram/clipboard";
@@ -17,3 +18,14 @@ export * from "@/vis/diagram/Diagram";
 export * from "@/vis/diagram/menu";
 export * from "@/vis/diagram/useTriggers";
 export * from "@/vis/diagram/util";
+
+export type ConnectionLineProps = diagram.ConnectionLineProps;
+export type Edge = diagram.Edge;
+export type EdgeChange = diagram.EdgeChange;
+export type EdgeEndpoint = diagram.EdgeEndpoint;
+export type EdgeProps = diagram.EdgeProps;
+export type FitViewOptions = diagram.FitViewOptions;
+export type Handle = diagram.Handle;
+export type Node = diagram.Node;
+export type NodeChange = diagram.NodeChange;
+export type Viewport = diagram.Viewport;

@@ -14,14 +14,14 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { Toggle } from "@/schematic/node/common/toggle";
+import { Form } from "@/schematic/node/common/form";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
 const path = deep.path<schematic.ValveNodeConfig>();
 
 const client = createTestClient();
 
-describe("Toggle.ChannelForm", () => {
+describe("Form.ToggleChannelForm", () => {
   let wrapper: FC<PropsWithChildren>;
   let state: channel.Channel;
   let command: channel.Channel;
@@ -35,7 +35,7 @@ describe("Toggle.ChannelForm", () => {
 
   const renderChannels = () =>
     renderForm(
-      <Toggle.ChannelForm />,
+      <Form.ToggleChannelForm />,
       schematic.valveNodeConfigZ.parse({
         variant: "valve",
         stateChannel: state.key,

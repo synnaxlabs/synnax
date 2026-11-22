@@ -8,5 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/schematic/node/common/toggle/Button";
-export * from "@/schematic/node/common/toggle/Form";
 export * from "@/schematic/node/common/toggle/toggle";

@@ -25,7 +25,7 @@ import {
   type TickFactory,
   type TickSegment,
 } from "@/vis/axis/ticks";
-import type { FillTextOptions } from "@/vis/draw2d/canvas";
+import type { FillTextOptions } from "@/vis/draw2d";
 import type { render } from "@/vis/render";
 
 const TICK_LINE_SIZE = 5;

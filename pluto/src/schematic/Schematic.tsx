@@ -67,7 +67,7 @@ interface Hovered {
 }
 
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
-const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
+const DRAG_HANDLE_SELECTOR = `.${Node.Grid.DRAG_HANDLE_CLASS}`;
 const CONTROL_STATE_SELECTOR = `.${Node.Control.STATE_CLASS}`;
 const STALE_BADGE_SELECTOR = `.${Staleness.BADGE_CLASS}`;
 

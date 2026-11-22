@@ -14,7 +14,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { color as aetherColor } from "@/color/aether";
 import { flux } from "@/flux/aether";
-import type { Layout } from "@/lineplot/aether/layout";
+import type { lineplot } from "@/lineplot/aether";
 import {
   type Bar,
   drawBars,
@@ -66,7 +66,7 @@ interface InternalState {
 
 export interface ProviderProps {
   /** The layout of the x axis. */
-  layout: Layout;
+  layout: lineplot.Layout;
   region: box.Box;
   timeRange: TimeRange;
   /** The newest sample, when the x axis ends at it. */

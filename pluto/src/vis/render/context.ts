@@ -24,10 +24,9 @@ import { alamos } from "@/alamos/aether";
 import { CSS } from "@/css";
 import { status } from "@/status/aether";
 import { text } from "@/text/aether";
-import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
+import { applyOverScan, SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d";
 import { clear } from "@/vis/render/clear";
 import { Loop } from "@/vis/render/loop";
-import { applyOverScan } from "@/vis/render/util";
 
 export type Canvas2DVariant = "upper2d" | "lower2d";
 export type CanvasGLVariant = "gl";

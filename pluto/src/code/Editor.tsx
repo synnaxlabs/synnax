@@ -30,7 +30,7 @@ import {
 
 import { BASE_THEMES, type EditorExtension } from "@/code/language";
 import { type Monaco, useLanguage, useMonaco } from "@/code/Provider";
-import { diff, utf16Offset } from "@/code/text";
+import { text } from "@/code/text";
 import { CSS } from "@/css";
 import { Errors } from "@/errors";
 
@@ -112,9 +112,9 @@ const forwardGlobalTriggers = (
 const applyMinimalEdit = (model: Monaco.editor.ITextModel, next: string): void => {
   const old = model.getValue();
   if (old === next) return;
-  const d = diff(old, next);
-  const start = model.getPositionAt(utf16Offset(old, d.index));
-  const end = model.getPositionAt(utf16Offset(old, d.index + d.deleteCount));
+  const d = text.diff(old, next);
+  const start = model.getPositionAt(text.utf16Offset(old, d.index));
+  const end = model.getPositionAt(text.utf16Offset(old, d.index + d.deleteCount));
   model.applyEdits([
     {
       range: {
