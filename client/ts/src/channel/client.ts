@@ -446,6 +446,9 @@ export class Client extends query.Retriever<
         });
     });
     const lines = createLines(() => builtIns);
+    // A query ranks as a search only for a line that stays the Core's. The internal
+    // line waits for the built-in keys instead, so its list pages by key.
+    const lasting = createLines(() => new Set());
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
       table: composed,
@@ -463,12 +466,14 @@ export class Client extends query.Retriever<
         list: { cursor, compare: compareCursors },
         schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
-        // A channel whose uses the client does not hold fetches the query again.
+        // A channel whose uses the client does not hold fetches the query again, as
+        // does one that an internal line checks before the built-in keys arrive.
         matches: (ch, query) =>
-          query.includeUses === true && usesStore.get(ch.key) == null
+          (query.includeUses === true && usesStore.get(ch.key) == null) ||
+          serverComputed(lines, query.where)
             ? null
             : matches(lines, ch, query.where),
-        serverComputed: (query) => serverComputed(lines, query.where),
+        serverComputed: (query) => serverComputed(lasting, query.where),
         triggers: [
           query.trigger(
             statusStore,
