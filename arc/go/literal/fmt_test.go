@@ -672,11 +672,14 @@ var _ = Describe("Placeholders that hold a comment", func() {
 			"x /* it's */",
 			"%d",
 		),
-		Entry(
-			"a string after a block comment",
-			`{x /* a */ + "}"}`,
-			`x /* a */ + "}"`,
-			"",
-		),
 	)
+
+	It("Should close a placeholder at a brace in a string, as v0.62 does", func() {
+		segments := MustSucceed(literal.FmtStrParse(`{x /* a */ + "}"}`))
+		Expect(segments).To(HaveLen(2))
+		Expect(segments[0].IsPlaceholder).To(BeTrue())
+		Expect(segments[0].Text).To(Equal(`x /* a */ + "`))
+		Expect(segments[1].IsPlaceholder).To(BeFalse())
+		Expect(segments[1].Text).To(Equal(`"}`))
+	})
 })

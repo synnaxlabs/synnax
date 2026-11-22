@@ -308,42 +308,47 @@ func findPlaceholderClose(body string, open int) (int, error) {
 	return closing, nil
 }
 
-// walkPlaceholder calls visit with the index of each byte of body from start that
-// counts toward a placeholder's braces and colons, until visit returns false. It skips
-// a channel name or a string whole. Outside one, // starts a comment that ends at a
-// newline and /* one that ends at */. A quote in a comment is text, and its braces and
-// colons count, as v0.62 counts them.
+// walkPlaceholder calls visit with the index of each byte of body from start that no
+// quoted channel name holds, until visit returns false. Strings and comments hide no
+// byte, as on v0.62: they are tracked only so that a quote in one opens no name and //
+// in a string opens no comment. A line comment ends at \r or \n, and /* at */.
 func walkPlaceholder(body string, start int, visit func(i int) bool) {
-	var comment byte
+	var in byte
 	for i := start; i < len(body); i++ {
-		c := body[i]
+		c, pair := body[i], false
+		next := byte(0)
+		if i+1 < len(body) {
+			next = body[i+1]
+		}
 		switch {
-		case comment == '/':
-			if c == '\n' {
-				comment = 0
-			}
-		case comment == '*':
-			if c == '*' && i+1 < len(body) && body[i+1] == '/' {
-				comment = 0
-				i++
-				continue
-			}
-		case c == '\'' || c == '"' || c == '`':
+		case in == 0 && c == '\'':
 			i = quotedEnd(body, i)
 			continue
-		case c == '/' && i+1 < len(body) && (body[i+1] == '/' || body[i+1] == '*'):
-			comment = body[i+1]
-			i++
-			continue
+		case in == 0 && (c == '"' || c == '`'):
+			in = c
+		case in == 0 && c == '/' && (next == '/' || next == '*'):
+			in, pair = next, true
+		case (in == '"' || in == '`') && c == '\\':
+			pair = true
+		case (in == '"' || in == '`') && c == in,
+			in == '/' && (c == '\n' || c == '\r'):
+			in = 0
+		case in == '*' && c == '*' && next == '/':
+			in, pair = 0, true
 		}
 		if !visit(i) {
 			return
 		}
+		if pair && i+1 < len(body) {
+			if i++; !visit(i) {
+				return
+			}
+		}
 	}
 }
 
-// quotedEnd returns the index of the delimiter that closes the channel name or string
-// opening at i, or the last index of body when none closes it.
+// quotedEnd returns the index of the quote that closes the channel name opening at i,
+// or the last index of body when none closes it.
 func quotedEnd(body string, i int) int {
 	delimiter := body[i]
 	for i++; i < len(body); i++ {
@@ -357,25 +362,24 @@ func quotedEnd(body string, i int) int {
 	return len(body) - 1
 }
 
-// splitSpec splits a placeholder body on the last `:` at brace and bracket depth 0,
-// yielding (expr, spec). Colons inside nested `{...}` (struct literals), `[...]`
-// (index/slice expressions), a quoted channel name, or a string are skipped.
+// splitSpec splits a placeholder body on the last `:` after which closing braces and
+// brackets match opening ones, yielding (expr, spec), as v0.62's scan back from the end
+// does. Colons inside nested `{...}` (struct literals), `[...]` (index/slice
+// expressions), or a quoted channel name are skipped.
 func splitSpec(body string) (expr, spec string, err error) {
-	idx, braceDepth, bracketDepth := -1, 0, 0
+	braces, brackets := 0, 0
 	walkPlaceholder(body, 0, func(i int) bool {
-		switch body[i] {
-		case '{':
-			braceDepth++
-		case '}':
-			braceDepth--
-		case '[':
-			bracketDepth++
-		case ']':
-			bracketDepth--
-		case ':':
-			if braceDepth == 0 && bracketDepth == 0 {
-				idx = i
-			}
+		b, k := closes(body[i])
+		braces, brackets = braces+b, brackets+k
+		return true
+	})
+	// Each byte comes off the totals, so at a colon they count what follows it.
+	idx := -1
+	walkPlaceholder(body, 0, func(i int) bool {
+		b, k := closes(body[i])
+		braces, brackets = braces-b, brackets-k
+		if body[i] == ':' && braces == 0 && brackets == 0 {
+			idx = i
 		}
 		return true
 	})
@@ -391,6 +395,22 @@ func splitSpec(body string) (expr, spec string, err error) {
 		return "", "", errors.New("placeholder format spec after ':' is empty")
 	}
 	return expr, spec, nil
+}
+
+// closes returns 1 for a closing brace and -1 for an opening one, then the same for
+// brackets.
+func closes(c byte) (braces, brackets int) {
+	switch c {
+	case '}':
+		return 1, 0
+	case '{':
+		return -1, 0
+	case ']':
+		return 0, 1
+	case '[':
+		return 0, -1
+	}
+	return 0, 0
 }
 
 // specShape enforces the canonical anatomy [flags][width][.precision][verb].
