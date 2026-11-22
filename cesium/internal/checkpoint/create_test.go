@@ -10,7 +10,9 @@
 package checkpoint_test
 
 import (
+	"cmp"
 	"os"
+	"slices"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,11 +38,21 @@ var _ = Describe("Create", func() {
 		}
 		return names
 	}
-	// reopen reads head 1 and merges the parts it names into its state.
+	// reopen reads head 1, and gives each of its channels the live records of the parts
+	// that it names in place of its part range, in rising order of identity.
 	reopen := func() (checkpoint.Header, *state.Snapshot) {
 		GinkgoHelper()
 		h, s := MustSucceed2(checkpoint.Read(fs, 1))
-		MustSucceed(checkpoint.LoadParts(fs, db, h)).Merge(s)
+		x := MustSucceed(checkpoint.LoadParts(fs, db, h))
+		for _, ch := range s.Channels {
+			for _, seg := range x.Live(ch.Key) {
+				ch.Segments = append(ch.Segments, seg)
+			}
+			slices.SortFunc(ch.Segments, func(a, b state.Segment) int {
+				return cmp.Compare(a.ID, b.ID)
+			})
+			ch.Parts = nil
+		}
 		return h, s
 	}
 	// segOf is the size in a head of a segment record with one pointer.

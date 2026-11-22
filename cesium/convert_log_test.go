@@ -195,8 +195,8 @@ var _ = Describe("Conversion on the pointer log", func() {
 		Expect(closeDB()).To(Succeed())
 	})
 
-	It("Should read each converted sample once when head 1 holds parts, across a "+
-		"switch and a reopen", func(ctx SpecContext) {
+	It("Should read each converted sample once when head 1 holds parts, across "+
+		"reopens and a switch", func(ctx SpecContext) {
 		// parted opens disk with a part size that sends every sealed record to a part.
 		parted := func() (*cesium.DB, func() error) {
 			GinkgoHelper()
@@ -213,6 +213,10 @@ var _ = Describe("Conversion on the pointer log", func() {
 		db, closeDB := parted()
 		h, _ := MustSucceed2(checkpoint.Read(disk, 1))
 		Expect(h.Parts).ToNot(BeEmpty())
+		Expect(read(ctx, db).data).To(Equal(held.data))
+		Expect(closeDB()).To(Succeed())
+		// The reopen reads the parts through the ranges of head 1.
+		db, closeDB = parted()
 		Expect(read(ctx, db).data).To(Equal(held.data))
 		Expect(switchLog(db, disk, 2)).To(Succeed())
 		waitHead(disk, 2)
