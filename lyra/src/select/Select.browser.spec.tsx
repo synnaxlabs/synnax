@@ -23,8 +23,7 @@ import {
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
-import type { Component } from "@/component";
-import { renderProp } from "@/component/renderProp";
+import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
@@ -676,7 +675,7 @@ const MENU_ENTRIES: MenuEntry[] = [
   { key: "2", name: "Second" },
 ];
 
-const renderMenuEntry = renderProp((props: List.ItemProps<string>) => (
+const renderMenuEntry = Component.renderProp((props: List.ItemProps<string>) => (
   <Select.Item {...props}>
     <Text.Text>{MENU_ENTRIES.find((e) => e.key === props.itemKey)?.name}</Text.Text>
   </Select.Item>
