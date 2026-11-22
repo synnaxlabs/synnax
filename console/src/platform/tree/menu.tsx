@@ -27,7 +27,7 @@ import type {
   TreeState,
 } from "@/platform/tree/types";
 import { useResources } from "@/platform/tree/useResource";
-import type { Action, State } from "@/session/store";
+import type { Session } from "@/session";
 
 /** A menu that holds only the reload of the Console. */
 export const FallbackContextMenu = (): ReactElement => (
@@ -87,7 +87,7 @@ export const useMenu = ({
   handleError,
 }: UseMenuProps): ((props: Menu.ContextMenuMenuProps) => ReactElement) => {
   const openTab = Panel.useOpenTab();
-  const session = useStore<State, Action>();
+  const session = useStore<Session.State, Session.Action>();
 
   const render = ({ keys: targets }: Menu.ContextMenuMenuProps): ReactElement => {
     // The node that loads more names no resource, so it opens the root menu.

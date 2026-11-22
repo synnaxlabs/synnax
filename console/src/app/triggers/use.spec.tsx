@@ -24,6 +24,8 @@ import {
 import type { PropsWithChildren, ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Vis } from "@/app/vis";
+
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
 vi.mock("@/session/runtime", async (importOriginal) => {
@@ -32,7 +34,6 @@ vi.mock("@/session/runtime", async (importOriginal) => {
 });
 
 import { Triggers } from "@/app/triggers";
-import { useSelectorVisible } from "@/app/vis/useSelectorVisible";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import {
   createPanelWrapper,
@@ -130,7 +131,7 @@ const renderLiveTriggers = async (panelKey: panel.Key, as: Client = client) => {
     () => {
       Triggers.use();
       return {
-        canCreateTab: useSelectorVisible(),
+        canCreateTab: Vis.useSelectorVisible(),
         canEditPanel: PlatformPanel.useCanEditActive(),
       };
     },
