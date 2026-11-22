@@ -434,6 +434,7 @@ describe("Enumeration.Settings", () => {
     }
     await openContextMenu(checked[1].name);
     expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: /Used by/ })).toBeNull();
     await clickAndSettle("Delete");
     fireEvent.click(findButton("Delete"));
     for (const { key } of checked) await waitForDeleted(key);
