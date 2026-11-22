@@ -160,6 +160,15 @@ export const SERVER_TRUST_SCHEMAS: {
   validation_disabled: validationDisabledServerTrustZ,
 };
 
+/** Configuration holds the server fields that the task forms own. */
+export const configurationZ = z.object({
+  /** reads bind the nodes that read tasks sample to channels. */
+  reads: readZ.array().default(() => []),
+  /** writes bind the nodes that write tasks command to channels. */
+  writes: writeZ.array().default(() => []),
+});
+export interface Configuration extends z.infer<typeof configurationZ> {}
+
 /** StatusDetails identifies the server and rack that a status pertains to. */
 export const statusDetailsZ = z.object({
   /** rack is the key of the rack the server belongs to. */
@@ -321,6 +330,20 @@ export const serverZ = z.object({
   status: statusZ.optional(),
 });
 export interface Server extends z.infer<typeof serverZ> {}
+
+/**
+ * Identity holds the server fields that the connect form and the scanner's certificate
+ * pin own.
+ */
+export const identityZ = z.object({
+  /** rack is the key of the rack whose Driver connects to the server. */
+  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  /** name is a human-readable name for the server. */
+  name: z.string().min(1, "name is required"),
+  /** connection holds the settings that the Driver connects with. */
+  connection: connectionZ,
+});
+export interface Identity extends z.infer<typeof identityZ> {}
 export interface New extends z.input<typeof serverZ> {}
 
 /** RetrieveResponse holds the servers a RetrieveRequest selects. */
@@ -329,6 +352,39 @@ export const retrieveResponseZ = z.object({
   servers: serverZ.array().default(() => []),
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
+
+/** IdentityUpdate writes the rack, name, and connection of the server. */
+export const identityUpdateZ = identityZ.extend({
+  group: z.literal("identity"),
+});
+export interface IdentityUpdate extends z.infer<typeof identityUpdateZ> {}
+
+/**
+ * ConfigurationUpdate replaces the bindings of the server. A client sends the whole
+ * group, because a field it leaves out is cleared.
+ */
+export const configurationUpdateZ = configurationZ.extend({
+  group: z.literal("configuration"),
+});
+export interface ConfigurationUpdate extends z.infer<typeof configurationUpdateZ> {}
+
+export const UPDATE_TYPES = ["identity", "configuration"] as const;
+export const updateTypeZ = z.enum(UPDATE_TYPES);
+export type UpdateType = z.infer<typeof updateTypeZ>;
+
+/** Update is a write to one field group of a server. */
+export const updateZ = z.discriminatedUnion("group", [
+  identityUpdateZ,
+  configurationUpdateZ,
+]);
+export type Update = IdentityUpdate | ConfigurationUpdate;
+
+export const UPDATE_SCHEMAS: {
+  [K in UpdateType]: z.ZodType<Extract<Update, { group: K }>>;
+} = {
+  identity: identityUpdateZ,
+  configuration: configurationUpdateZ,
+};
 
 export const resourceID = resource.createIDFactory<Key>("opcua_server");
 export const TYPE_RESOURCE_ID = resourceID("");

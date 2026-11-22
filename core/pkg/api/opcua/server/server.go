@@ -14,6 +14,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -63,6 +64,69 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{cfg: cfg}, nil
+}
+
+type (
+	// CreateRequest carries the servers to create.
+	CreateRequest struct {
+		// Servers are the servers to store. A nil key mints a new one.
+		Servers []server.Server `json:"servers" msgpack:"servers"`
+	}
+	// CreateResponse carries the created servers with their keys.
+	CreateResponse struct {
+		// Servers are the stored servers, without their statuses.
+		Servers []server.Server `json:"servers" msgpack:"servers"`
+	}
+)
+
+// Create stores the given servers.
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	w := s.cfg.Server.NewWriter(tx)
+	for i := range req.Servers {
+		req.Servers[i].Status = nil
+		if err := w.Create(ctx, &req.Servers[i]); err != nil {
+			return CreateResponse{}, err
+		}
+	}
+	return CreateResponse(req), nil
+}
+
+// UpdateRequest carries one field group to write to a stored server.
+type UpdateRequest struct {
+	// Update is the field group to write.
+	Update server.Update `json:"update" msgpack:"update"`
+	// Key selects the server to update.
+	Key server.Key `json:"key" msgpack:"key"`
+}
+
+// Update writes the field group of req to the server stored under req.Key, as
+// server.Writer.Apply does. It returns a validation error when the request carries no
+// group.
+func (s *Service) Update(
+	ctx context.Context,
+	tx gorp.Tx,
+	req UpdateRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Server.NewWriter(tx).Apply(ctx, req.Key, req.Update)
+}
+
+// DeleteRequest carries the keys of the servers to delete.
+type DeleteRequest struct {
+	// Keys selects the servers to delete.
+	Keys []server.Key `json:"keys" msgpack:"keys"`
+}
+
+// Delete removes the given servers with their statuses.
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Server.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 var _ bind.Named = RetrieveRequest{}
