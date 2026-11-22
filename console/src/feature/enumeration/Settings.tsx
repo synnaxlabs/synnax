@@ -197,7 +197,10 @@ const CreateForm = ({ onCreated }: CreateFormProps): ReactElement => {
   );
 };
 
-/** The menu of the selected enumerations. Built-ins are never deleted. */
+/**
+ * The menu of the selected enumerations. Built-ins are never deleted, and several
+ * delete together only when none is in use.
+ */
 const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
   const { getItem } = List.useUtilContext<enumeration.Key, enumeration.Enumeration>();
   const enumerations = getItem?.(keys) ?? [];
@@ -205,19 +208,23 @@ const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
   const canUpdate = Access.useUpdateGranted(ids);
   const canDelete = Access.useDeleteGranted(ids);
   const shipped = use(ShippedContext);
-  const deletable = enumerations.filter((e) => shipped.get(e.key) == null);
+  const single = enumerations.length === 1 ? enumerations[0] : undefined;
+  const builtin = single == null ? undefined : shipped.get(single.key);
+  // Only the dialog of one enumeration can replace its uses.
+  const deletable =
+    enumerations.length > 0 &&
+    enumerations.every(
+      (e) => shipped.get(e.key) == null && (single != null || !e.uses?.length),
+    );
   const openDelete = useDeleteModal();
   const confirm = Modals.useConfirmDelete({ type: "Enumeration" });
   const { update: remove } = Enumeration.useDelete({
-    beforeUpdate: async () => await confirm(deletable),
+    beforeUpdate: async () => await confirm(enumerations),
   });
   const { update: restore } = Enumeration.useRestore();
-  const single = enumerations.length === 1 ? enumerations[0] : undefined;
-  const builtin = single == null ? undefined : shipped.get(single.key);
-  // One enumeration gets the dialog that can replace it where it is in use.
   const handleDelete = (): void => {
-    if (deletable.length === 1) openDelete({ enumeration: deletable[0] });
-    else remove(deletable.map((e) => e.key));
+    if (single != null) openDelete({ enumeration: single });
+    else remove(enumerations.map((e) => e.key));
   };
   return (
     <ContextMenu.Menu>
@@ -243,9 +250,7 @@ const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
         </Menu.Item>
       )}
       <Menu.Divider />
-      {deletable.length > 0 && canDelete && (
-        <ContextMenu.DeleteItem onClick={handleDelete} />
-      )}
+      {deletable && canDelete && <ContextMenu.DeleteItem onClick={handleDelete} />}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
@@ -303,7 +308,12 @@ export const Settings = (): ReactElement => {
   return (
     <ShippedContext value={shipped}>
       <PlatformSettings.Table<enumeration.Key, enumeration.Enumeration>
-        list={{ ...list, search: handleSearch, data: sorted.map((e) => e.key) }}
+        list={{
+          ...list,
+          search: handleSearch,
+          data: sorted.map((e) => e.key),
+          answered: list.answered && records.variant === "success",
+        }}
         columns={COLUMNS}
         noun="enumerations"
         menu={menu}
