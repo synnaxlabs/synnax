@@ -18,14 +18,15 @@ import (
 )
 
 var _ = Describe("One clock crash check", func() {
+	// Cesium on the old layout syncs nothing, so each crash image is empty. A profile
+	// whose faults need a sync or a file to read fires none here, so the list holds no
+	// such profile.
 	for _, p := range []struct {
 		name    string
 		profile crash.Profile
 	}{
 		{"Strict", crash.Strict},
-		{"SyncErrors", crash.SyncErrors},
 		{"FullDisk", crash.FullDisk},
-		{"OneTimeReadFaults", crash.OneTimeReadFaults},
 	} {
 		for key := range uint64(32) {
 			It(fmt.Sprintf("Should hold Visible, %s, run key %d", p.name, key),
