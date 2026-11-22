@@ -152,12 +152,6 @@ jobs:
           REF: ${{ github.event.repository.default_branch }}
           SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          # GitHub makes no CodeQL check for a pull request that closed first.
-          STATE=$(.github/scripts/gh_api.sh "repos/$GH_REPO/pulls/$PR" --jq .state)
-          if [ "$STATE" != open ]; then
-            echo "Pull request #$PR is $STATE, so it gets no CodeQL check."
-            exit 0
-          fi
           CHECKS="repos/$GH_REPO/commits/$SHA/check-runs?check_name=CodeQL"
           for _ in {1..30}; do
             CHECK=$(.github/scripts/gh_api.sh "$CHECKS" \
@@ -167,7 +161,13 @@ jobs:
             sleep 10
           done
           echo "CodeQL check: $STATUS $CONCLUSION"
-          [ "$STATUS" = completed ] || exit 1
+          # GitHub makes no CodeQL check for a pull request that closed first.
+          if [ "$STATUS" != completed ]; then
+            STATE=$(.github/scripts/gh_api.sh "repos/$GH_REPO/pulls/$PR" --jq .state)
+            [ "$STATE" = open ] && exit 1
+            echo "Pull request #$PR is $STATE, so it gets no CodeQL check."
+            exit 0
+          fi
           [ "$CONCLUSION" = failure ] || exit 0
           .github/scripts/gh_api.sh \
             "repos/$GH_REPO/actions/workflows/agent.shepherd.yaml/dispatches" \
