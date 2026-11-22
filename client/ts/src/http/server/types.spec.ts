@@ -71,8 +71,6 @@ describe("serverZ", () => {
     ["an API key with no name", { auth: { type: "api_key", key: SECRET } }],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {
-    expect(http.server.serverZ.safeParse({ ...SERVER, ...change }).success).toBe(
-      false,
-    );
+    expect(http.server.serverZ.safeParse({ ...SERVER, ...change }).success).toBe(false);
   });
 });
