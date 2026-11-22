@@ -188,6 +188,21 @@ describe("Tooltip", () => {
     expect(fontOf(recorder, "far")).not.toContain("700");
   });
 
+  it("should stop growing at a label wider than its cap", () => {
+    const widthOf = (label: string): number => {
+      const { recorder, component } = mount();
+      component.render({
+        findByXDecimal: () => [{ ...found(label, 2) }],
+        region: box.construct(0, 0, 4000, 200),
+      });
+      const call = recorder.upper2d.calls.find((c) => c.op === "roundRect");
+      if (call == null) throw new Error("the tooltip drew no container");
+      return Number(call.args[2]);
+    };
+    expect(widthOf("x".repeat(100))).toBe(widthOf("x".repeat(200)));
+    expect(widthOf("x".repeat(10))).toBeLessThan(widthOf("x".repeat(100)));
+  });
+
   it("should leave out a line with no sample under the cursor", () => {
     const { recorder, component } = mount();
     const missing = { ...found("missing", NaN), value: { x: NaN, y: NaN } };

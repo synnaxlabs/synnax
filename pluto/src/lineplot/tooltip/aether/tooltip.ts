@@ -30,6 +30,11 @@ const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);
 const TOOLTIP_LIST_SPACING: number = 3;
 const TOOLTIP_LIST_ITEM_HEIGHT: number = 14;
 const TOOLTIP_PADDING: xy.XY = xy.construct(6);
+// A label past this width fades at its end. The tooltip covers the data, so the cap is
+// below the legend's.
+const LABEL_MAX_REM = 24;
+const LABEL_FADE_REM = 2.25;
+const CHAR_WIDTH = 7;
 
 export const tooltipStateZ = z.object({
   position: xy.xyZ.or(z.null()),
@@ -108,6 +113,8 @@ interface InternalState {
   dotColorContrast: color.Color;
   textColor: color.Color;
   ruleColor: color.Color;
+  labelMax: number;
+  labelFade: number;
 }
 
 export interface TooltipProps {
@@ -126,6 +133,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     this.internal.ruleColor = ruleColor ?? theme.colors.gray.l7;
     this.internal.dotColor = theme.colors.text;
     this.internal.dotColorContrast = theme.colors.textInverted;
+    this.internal.labelMax = LABEL_MAX_REM * theme.sizes.base;
+    this.internal.labelFade = LABEL_FADE_REM * theme.sizes.base;
 
     this.internal.render = render.Context.use(ctx);
     this.internal.draw = new Draw2D(this.internal.render.upper2d, theme);
@@ -192,9 +201,14 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     // The time heading takes one item, and "and N more" always fits.
     const maxRows = Math.max(1, fit(box.height(region)) - 1);
     const listed = capped(rows(validValues, this.state.hovered), maxRows);
-    const maxLabelLength = Math.max(
-      timeValue.length,
-      ...listed.map((r) => r.label.length + (r.value?.length ?? 0)),
+    const { labelMax, labelFade } = this.internal;
+    const width = Math.max(
+      timeValue.length * CHAR_WIDTH,
+      ...listed.map(
+        (r) =>
+          Math.min(r.label.length * CHAR_WIDTH, labelMax) +
+          (r.value?.length ?? 0) * CHAR_WIDTH,
+      ),
     );
 
     draw.list({
@@ -204,7 +218,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       padding: TOOLTIP_PADDING,
       itemHeight: TOOLTIP_LIST_ITEM_HEIGHT,
       spacing: TOOLTIP_LIST_SPACING,
-      width: maxLabelLength * 7 + 48,
+      width: width + 48,
       position: this.state.position,
       bound: region,
       draw: (i, b) => {
@@ -213,6 +227,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
           position: box.topLeft(b),
           text: row.label,
           level: "small",
+          maxWidth: labelMax,
+          fade: labelFade,
           weight: row.bold === true ? 700 : 500,
           color: row.color ?? this.internal.textColor,
         });

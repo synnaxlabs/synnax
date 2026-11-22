@@ -121,8 +121,9 @@ interface CompareMenuItemsProps {
   editable: boolean;
 }
 
-// CompareMenuItems lists the actions on a range heading or a line of one range in the
-// legend, or on the line under the pointer. Off any range, it lists only Show all.
+// CompareMenuItems lists the actions on what the user clicked: a range name or a
+// channel in the legend, or the line under the pointer. Off any range, it lists only
+// Show all.
 const CompareMenuItems = ({
   menuKey,
   compare: {
@@ -145,7 +146,8 @@ const CompareMenuItems = ({
   const handleError = Status.useErrorHandler();
   const heading = ranges.find((r) => r.key === menuKey);
   const trace = heading == null ? Base.parseTraceKey(menuKey, ranges) : null;
-  const target = hovered ?? trace;
+  const pointed = heading == null && trace == null ? hovered : null;
+  const target = trace ?? pointed;
   const range = heading ?? ranges.find((r) => r.key === target?.range);
   const showAll =
     countHidden(hidden) > 0 ? (
@@ -195,32 +197,51 @@ const CompareMenuItems = ({
     }, "Failed to zoom to range");
   return (
     <>
-      {hovered != null && editable && isKey && (
-        <Menu.Item itemKey="setT0Here" onClick={() => applyT0(hovered.time)}>
-          <Icon.Time /> Set T0 here
-        </Menu.Item>
-      )}
-      <Menu.Item
-        itemKey="showOnlyRange"
-        onClick={() => onShowOnly({ variant: "range", range: range.key })}
-      >
-        <Ranger.VisibleIcon /> Show only this range
-      </Menu.Item>
-      {target != null && (
+      {target == null ? (
         <>
+          <Menu.Item
+            itemKey="showOnlyRange"
+            onClick={() => onShowOnly({ variant: "range", range: range.key })}
+          >
+            <Ranger.VisibleIcon /> Isolate
+          </Menu.Item>
+          {zoomable && (
+            <Menu.Item itemKey="zoomToRange" onClick={handleZoom}>
+              {zoomed === range.key ? <Icon.Expand /> : <Icon.Zoom />}
+              {zoomed === range.key ? "Zoom out" : "Zoom to range"}
+            </Menu.Item>
+          )}
+          {t0Editable && (
+            <Menu.Item itemKey="setT0" onClick={handleSetT0}>
+              <Icon.Time /> Set T0...
+            </Menu.Item>
+          )}
+          {t0Editable && range.customZero === true && (
+            <Menu.Item itemKey="resetT0" onClick={() => applyT0(undefined)}>
+              <Icon.Reset /> Reset T0
+            </Menu.Item>
+          )}
+        </>
+      ) : (
+        <>
+          {pointed != null && t0Editable && (
+            <Menu.Item itemKey="setT0Here" onClick={() => applyT0(pointed.time)}>
+              <Icon.Time /> Set T0 here
+            </Menu.Item>
+          )}
           <Menu.Item
             itemKey="showOnlyTrace"
             onClick={() =>
               onShowOnly({ variant: "trace", line: target.line, range: target.range })
             }
           >
-            <Channel.VisibleIcon /> Show only this channel in this range
+            <Channel.VisibleIcon /> Isolate in this range
           </Menu.Item>
           <Menu.Item
             itemKey="showOnlyLine"
             onClick={() => onShowOnly({ variant: "line", line: target.line })}
           >
-            <Channel.VisibleIcon /> Show only this channel in all ranges
+            <Channel.VisibleIcon /> Isolate in all ranges
           </Menu.Item>
           {lineHidden ? (
             <Menu.Item
@@ -229,7 +250,7 @@ const CompareMenuItems = ({
                 onItemVisibleChange({ variant: "line", line: target.line }, true)
               }
             >
-              <Channel.VisibleIcon /> Show this channel in all ranges
+              <Channel.VisibleIcon /> Show in all ranges
             </Menu.Item>
           ) : (
             <Menu.Item
@@ -238,33 +259,15 @@ const CompareMenuItems = ({
                 onItemVisibleChange({ variant: "line", line: target.line }, false)
               }
             >
-              <Channel.HiddenIcon /> Hide this channel in all ranges
+              <Channel.HiddenIcon /> Hide in all ranges
             </Menu.Item>
           )}
         </>
       )}
-      {showAll}
-      {heading != null && (zoomable || t0Editable) && (
+      {showAll != null && (
         <>
           <Menu.Divider />
-          {zoomable && (
-            <Menu.Item itemKey="zoomToRange" onClick={handleZoom}>
-              {zoomed === range.key ? <Icon.Expand /> : <Icon.Zoom />}
-              {zoomed === range.key ? "Zoom out" : "Zoom to range"}
-            </Menu.Item>
-          )}
-          {t0Editable && (
-            <>
-              <Menu.Item itemKey="setT0" onClick={handleSetT0}>
-                <Icon.Time /> Set T0...
-              </Menu.Item>
-              {range.customZero === true && (
-                <Menu.Item itemKey="resetT0" onClick={() => applyT0(undefined)}>
-                  <Icon.Reset /> Reset T0
-                </Menu.Item>
-              )}
-            </>
-          )}
+          {showAll}
         </>
       )}
       <Menu.Divider />

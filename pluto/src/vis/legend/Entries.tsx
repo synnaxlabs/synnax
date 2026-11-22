@@ -157,7 +157,7 @@ const Entry = ({
       {...hover}
       {...rest}
     >
-      <Flex.Box align="center" gap="small" x>
+      <Flex.Box align="center" gap="small" x className={CSS.BE("legend-entry", "body")}>
         {color != null && (
           <Color.Swatch
             draggable={false}
@@ -177,7 +177,7 @@ const Entry = ({
           level="small"
           onChange={onLabelChange == null ? undefined : (l) => onLabelChange(key, l)}
           onDoubleClick={stopPropagation}
-          overflow="nowrap"
+          overflow="fade"
           value={label}
         />
       </Flex.Box>

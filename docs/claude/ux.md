@@ -344,12 +344,14 @@ bound, a log precision, or the line plot X channel.
 ### Overflow
 
 - Cut text fades at its end (`Text` with `overflow="fade"`) everywhere: trees, tabs,
-  selects, tags, toasts, table cells, and titles. No "…" and no cut in the middle. Text
-  with `lineClamp` fades the end of its last line. A cut input value fades until the
-  input takes focus.
+  selects, tags, toasts, table cells, and titles. No "…" and no cut in the middle. A cut
+  input value fades until the input takes focus.
+- Text cut after two or more lines (`lineClamp`) ends with "…" after its last whole
+  word. Browsers cut a clamped line at a word, so a fade at the edge of the box misses
+  the text. A word wider than the box breaks, so it wraps.
 - A cut name shows its full text in a tooltip on hover, only when it is cut.
-  `Tooltip.Overflow`, mounted once, does this for every `overflow="fade"` label. An
-  element's own tooltip wins over it.
+  `Tooltip.Overflow`, mounted once, does this for every `overflow="fade"` or `lineClamp`
+  label. An element's own tooltip wins over it.
 - A name under edit stays inside its box and scrolls to the caret, with no fade.
 - Prose wraps with `overflow-wrap: anywhere` and is never cut: modal text, toasts,
   confirmations, errors, and tooltips.
@@ -460,6 +462,10 @@ bound, a log precision, or the line plot X channel.
   opens its picker as a submenu. A chip opens the same picker below the chip.
 - Values have 4 px corners. A picked value tints, with no checkbox, and picked values
   next to each other join into one highlight.
+- A context menu acts on the item that the user clicked, with no headings. On a plot, a
+  range name has the range actions, and a channel or a line has the channel actions.
+  Rejected: a range group and a channel group under headings in one menu. Each heading
+  style read as an item or as a disabled item.
 - A divider separates groups of actions, never single items. Delete and Reload Console
   are the exception: each one is a group of its own, as in every Console menu.
 - A resource has one context menu on every surface that shows it. Ranges use the same
@@ -940,6 +946,12 @@ says why in a sentence, then gives the raw error.
   weight 500 in gray l9. With one axis, the label adds nothing. Rejected: a swatch on
   each channel (one color again and again), a guide or bar in the range color, an axis
   at the end of the channel, and an axis icon (a small box at text size).
+- A range name wraps to a second line, then is cut. A channel name stays on one line and
+  fades. Each name is at most 40rem wide. The swatch, the T0 badge, and the eye stay on
+  the first line, 3 px or more after the name. A wrapped name keeps the full width of
+  its box, because CSS cannot shrink it to its longest line. Rejected: JS that measures
+  the lines (the legend lays out in CSS only), and range names on one line, which hides
+  the end of a long name, where names often differ.
 - The eyes take no room at rest. On hover the legend grows to the right as they fade in,
   so no text moves.
 - Option or Alt click on an eye shows only that item, and a second one restores what was
@@ -954,6 +966,10 @@ says why in a sentence, then gives the raw error.
 
 ### Plot hover and tooltip
 
+- A name in the plot tooltip stays on one line, at most 24rem wide, and fades. The
+  tooltip covers the data, and a name has the color of its swatch in the legend, which
+  shows the full name. Rejected: two lines, which double the height because each range
+  repeats under every channel, and a cut in the middle.
 - The pointer on a legend entry draws its lines twice as wide and on top. The other
   lines draw at 25 percent over the background: the other ranges in relative time, and
   the other channels in absolute time. The pointer on a line of the plot only makes its

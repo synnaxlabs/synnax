@@ -182,12 +182,12 @@ const GroupName = ({
     <Flex.Box
       x
       align="center"
-      gap="small"
+      gap="tiny"
       className={CSS.cls(CSS.B("legend-name"), Menu.CONTEXT_TARGET)}
       data-menu-key={key}
       {...hover}
     >
-      <Flex.Box x align="center" gap="small">
+      <Flex.Box x align="center" gap="small" className={CSS.BE("legend-name", "label")}>
         {color != null && (
           <Color.Swatch
             draggable={false}
@@ -202,12 +202,18 @@ const GroupName = ({
           level="small"
           color={visible === false ? 7 : 10}
           weight={500}
-          overflow="nowrap"
+          lineClamp={2}
+          className={CSS.BE("legend-name", "text")}
         >
           {name}
         </Text.Text>
       </Flex.Box>
-      <Flex.Box x align="center" gap="small">
+      <Flex.Box
+        x
+        align="center"
+        gap="small"
+        className={CSS.BE("legend-name", "actions")}
+      >
         {badge != null && (
           <Tooltip.Dialog location={{ x: "center", y: "top" }}>
             {badge.tooltip}
