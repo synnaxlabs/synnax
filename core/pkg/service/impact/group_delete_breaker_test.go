@@ -97,12 +97,10 @@ var _ = Describe("Group delete breaker", Ordered, ContinueOnFailure, func() {
 	) (impact.Plan, error) {
 		return layer.Impact.Apply(ctx, db, c, opts)
 	}
-	planChanged := func(err error) impact.PlanChangedError {
+	planChanged := func(err error) impact.Plan {
 		GinkgoHelper()
 		Expect(err).To(MatchError("the records that the change touches changed"))
-		changed, ok := errors.AsType[impact.PlanChangedError](err)
-		Expect(ok).To(BeTrue())
-		return changed
+		return MustBeOk(errors.AsType[impact.PlanChangedError](err)).Plan
 	}
 	errOf := func(_ impact.Plan, err error) error { return err }
 
@@ -124,14 +122,14 @@ var _ = Describe("Group delete breaker", Ordered, ContinueOnFailure, func() {
 		a := createFolder(ctx)
 		b := createFolder(ctx)
 		subset := MustSucceed(plan(ctx, groupsOf(a.Key), impact.PlanOptions{}))
-		changed := planChanged(errOf(
+		now := planChanged(errOf(
 			apply(
 				ctx,
 				groupsOf(a.Key, b.Key),
 				impact.ApplyOptions{Token: subset.Token},
 			),
 		))
-		Expect(changed.Plan).To(Equal(
+		Expect(now).To(Equal(
 			MustSucceed(plan(ctx, groupsOf(a.Key, b.Key), impact.PlanOptions{})),
 		))
 		superset := MustSucceed(plan(ctx, groupsOf(a.Key, b.Key), impact.PlanOptions{}))
