@@ -303,7 +303,12 @@ export const Settings = (): ReactElement => {
   return (
     <ShippedContext value={shipped}>
       <PlatformSettings.Table<enumeration.Key, enumeration.Enumeration>
-        list={{ ...list, search: handleSearch, data: sorted.map((e) => e.key) }}
+        list={{
+          ...list,
+          search: handleSearch,
+          data: sorted.map((e) => e.key),
+          answered: list.answered && records.variant === "success",
+        }}
         columns={COLUMNS}
         noun="enumerations"
         menu={menu}
