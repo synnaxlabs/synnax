@@ -284,6 +284,12 @@ export const nodeSystem = (
         child.on("error", (err) => {
           if (isNotFound(err)) return resolve(null);
           if (isNotCapable(err)) return reject(err);
+          if (signal?.aborted === true)
+            return reject(
+              new Error(`Stopped the key helper of Synnax Desktop at ${path}`, {
+                cause: err,
+              }),
+            );
           if (timeout.aborted)
             return reject(
               new ValidationError(

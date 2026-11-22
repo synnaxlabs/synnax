@@ -410,7 +410,9 @@ describe("resolveParams with Synnax Desktop", () => {
         const run = real.run(helper, controller.signal);
         const start = performance.now();
         controller.abort();
-        await expect(run).rejects.toThrow(ValidationError);
+        await expect(run).rejects.toThrow(
+          new Error(`Stopped the key helper of Synnax Desktop at ${helper}`),
+        );
         expect(performance.now() - start).toBeLessThan(1000);
       }));
 
