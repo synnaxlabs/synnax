@@ -42,13 +42,14 @@ func (s *Service) Compile(
 }
 
 // PreProcess analyzes a calculation as compiler.PreProcess does, with the channel
-// service and the standard library symbols of s in place of those of cfg.
+// service and the standard library symbols of s, so cfgs need not set them.
 func (s *Service) PreProcess(
 	ctx context.Context,
 	snap gorp.Snapshot,
-	cfg compiler.Config,
+	cfgs ...compiler.Config,
 ) (arc.Program, error) {
-	cfg.ChannelService = s.channels
-	cfg.STL = s.stl
-	return compiler.PreProcess(ctx, snap, cfg)
+	return compiler.PreProcess(ctx, snap, append(
+		[]compiler.Config{{ChannelService: s.channels, STL: s.stl}},
+		cfgs...,
+	)...)
 }

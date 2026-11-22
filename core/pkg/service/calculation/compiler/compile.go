@@ -83,11 +83,16 @@ const (
 
 // PreProcess compiles the channel's expression to discover channel references and infer
 // output types without building the full execution graph. It looks up channels in snap.
+// It returns a validation error when cfgs are not a valid Config.
 func PreProcess(
 	ctx context.Context,
 	snap gorp.Snapshot,
-	cfg Config,
+	cfgs ...Config,
 ) (arc.Program, error) {
+	cfg, err := config.New(Config{}, cfgs...)
+	if err != nil {
+		return arc.Program{}, err
+	}
 	return preProcess(
 		ctx,
 		cfg,
