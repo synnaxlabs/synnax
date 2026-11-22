@@ -11,6 +11,8 @@ package service_test
 
 import (
 	"encoding/json/v2"
+	"slices"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,15 +22,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/defaults"
 	xjson "github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -75,6 +81,7 @@ var _ = Describe("Channel paths in files", Ordered, func() {
 		proj project.Project
 		key  channel.Key
 		path string
+		tsk  task.Task
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -140,17 +147,56 @@ var _ = Describe("Channel paths in files", Ordered, func() {
 				Channel:  key,
 				Notation: notation.NotationStandard,
 			})}
-			return l.Log.NewWriter(tx).Create(ctx, &lg)
+			if err := l.Log.NewWriter(tx).Create(ctx, &lg); err != nil {
+				return err
+			}
+			dev := device.Device{
+				Key:      UniqueChannelName(),
+				Rack:     l.Rack.EmbeddedKey,
+				Name:     "plc",
+				Make:     "modbus",
+				Model:    "modbus",
+				Location: "127.0.0.1:502",
+			}
+			if err := l.Device.NewWriter(tx).Create(ctx, &dev); err != nil {
+				return err
+			}
+			tsk = task.Task{
+				Name: "Read",
+				Type: "modbus_read",
+				Config: msgpack.EncodedJSON{
+					"device": dev.Key,
+					"channels": []any{map[string]any{
+						"type":    "coil",
+						"key":     "coil-1",
+						"channel": key,
+					}},
+				},
+			}
+			if err := l.Task.NewWriter(tx).Create(ctx, &tsk); err != nil {
+				return err
+			}
+			pn := panel.Panel{
+				Name:    "Panel",
+				Project: &proj.Key,
+				Root: panel.Node{Variant: panel.LeafNode{Tabs: []panel.Tab{{
+					Variant: panel.ResourceTab{
+						Key:      uuid.New(),
+						Resource: tsk.ResourceID(),
+					},
+				}}}},
+			}
+			return l.Panel.NewWriter(tx).Create(ctx, &pn)
 		})).To(Succeed())
 	})
 
 	It("Should name the channel by its path in every member", func(ctx SpecContext) {
 		files, _ := MustSucceed2(l.Bundle.Export(ctx, db, proj.Key, xjson.Codec))
-		Expect(files).To(HaveLen(5))
+		Expect(files).To(HaveLen(7))
 		for p, data := range files {
 			var body map[string]any
 			Expect(json.Unmarshal(data, &body)).To(Succeed())
-			if body["type"] == "project" {
+			if body["type"] == "project" || body["type"] == "panel" {
 				continue
 			}
 			By(p)
@@ -197,5 +243,18 @@ var _ = Describe("Channel paths in files", Ordered, func() {
 		Expect(inProject(lgs, func(lg log.Log) *project.Key {
 			return lg.Project
 		}, imported).Channels[0].Channel).To(Equal(key))
+
+		var tasks []task.Task
+		Expect(l.Task.NewRetrieve().
+			Where(task.MatchTypes("modbus_read")).
+			Entries(&tasks).
+			Exec(ctx, tx)).To(Succeed())
+		tasks = slices.DeleteFunc(tasks, func(t task.Task) bool {
+			return t.Key == tsk.Key
+		})
+		Expect(tasks).To(HaveLen(1))
+		Expect(tasks[0].Config["channels"]).To(ConsistOf(
+			HaveKeyWithValue("channel", BeNumerically("==", key)),
+		))
 	})
 })
