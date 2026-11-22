@@ -410,9 +410,8 @@ const VirtualFrame = <
         outside.add(index);
       };
       if (pinnedRef.current != null) addPinned(pinnedRef.current);
-      // The item that holds the focus stays mounted, so rows that land above it
-      // cannot push it out of the window before a scroll to it lands, such as during
-      // a rename.
+      // The item that holds the focus stays mounted, so rows that land above it cannot
+      // push it out of the window before a scroll to it lands, such as during a rename.
       const focused = focusedKey(elementsRef.current);
       if (focused != null) addPinned(focused);
       pinned?.forEach(addPinned);
