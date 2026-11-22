@@ -274,6 +274,35 @@ var _ = Describe("Undo of a conversion", func() {
 			))
 		})
 
+	It("Should keep the undone files of a key when a channel that reuses the key "+
+		"drops", func(ctx SpecContext) {
+		fs := xfs.NewMem()
+		db, closeDB := MustSucceed2(open(ctx, fs, 0, 1))
+		id := db.Identity()
+		Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
+		write(ctx, db, 1)
+		Expect(closeDB()).To(Succeed())
+		db, closeDB = MustSucceed2(open(ctx, fs, 0, 2))
+		undone := MustSucceed(filesOf(fs, isUndone))
+		Expect(undone).To(ContainElement("1/channel" + undoneSuffix(id)))
+		// The restored channel table no longer holds the keys, so new channels take
+		// them.
+		Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
+		write(ctx, db, 100)
+		own := func(name string) bool {
+			return !isUndone(name) &&
+				(strings.HasPrefix(name, "1/") || strings.HasPrefix(name, "2/"))
+		}
+		Expect(filesOf(fs, own)).
+			To(ContainElement(MatchRegexp(`^1/[0-9a-f]{16}\.seg$`)))
+		Expect(db.Drop(keys)).To(Succeed())
+		Expect(closeDB()).To(Succeed())
+		Expect(filesOf(fs, own)).To(BeEmpty())
+		Expect(filesOf(fs, isUndone)).To(Equal(undone))
+		Expect(fs.Exists("1")).To(BeTrue())
+		Expect(fs.Exists("2")).To(BeTrue())
+	})
+
 	It("Should finish the undo and lose no file after a crash at each of its steps",
 		func(ctx SpecContext) {
 			db, closeDB := MustSucceed2(open(ctx, disk, 0, 1))

@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"slices"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -103,13 +104,33 @@ func (db *DB) dropLog(keys []ChannelKey) error {
 	return err
 }
 
-// removeLogDir removes the channel file and the directory of key, when they exist.
+// removeLogDir removes every file in the directory of a dropped key but the files that
+// an undo moved aside, which are the telemetry of another channel, and then the
+// directory once it is empty.
 func (db *DB) removeLogDir(key ChannelKey) error {
 	dir := keyToDirName(key)
-	for _, name := range []string{path.Join(dir, channelFile), dir} {
-		if err := db.fs.Remove(name); err != nil && !errors.Is(err, os.ErrNotExist) {
+	infos, err := db.fs.List(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	undone := false
+	for _, info := range infos {
+		if strings.HasSuffix(info.Name(), ".undone") {
+			undone = true
+			continue
+		}
+		if err = db.fs.Remove(path.Join(dir, info.Name())); err != nil {
 			return err
 		}
+	}
+	if undone {
+		return db.fs.SyncDir(dir)
+	}
+	if err = db.fs.Remove(dir); err != nil {
+		return err
 	}
 	return db.fs.SyncDir("")
 }
