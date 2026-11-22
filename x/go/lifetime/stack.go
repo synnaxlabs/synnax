@@ -33,10 +33,12 @@ type Stack struct {
 }
 
 type layer struct {
-	name   string
-	cancel context.CancelFunc
-	done   chan struct{}
-	err    error
+	name     string
+	cancel   context.CancelFunc
+	done     chan struct{}
+	err      error
+	closer   func() error
+	closeErr error
 }
 
 // NewStack returns an empty Stack.
@@ -44,7 +46,8 @@ func NewStack() *Stack { return &Stack{failed: make(chan struct{})} }
 
 // Go starts run in a goroutine with a child of ctx, and returns that child for the
 // next Go. It labels the goroutine with name for profiles and tracebacks. The child
-// ends when Stop reaches run, or when ctx ends.
+// ends when Stop reaches run, or when ctx ends. Stop calls closer after run returns and
+// before it ends the next older lifetime. closer may be nil.
 //
 // A run that returns before Stop does not end its context, so the runs inside it keep
 // running. When it returns an error, Failed closes. Go must not be called after Stop.
@@ -52,9 +55,10 @@ func (s *Stack) Go(
 	ctx context.Context,
 	name string,
 	run func(ctx context.Context) error,
+	closer func() error,
 ) context.Context {
 	ctx, cancel := context.WithCancel(ctx)
-	l := &layer{name: name, cancel: cancel, done: make(chan struct{})}
+	l := &layer{name: name, cancel: cancel, done: make(chan struct{}), closer: closer}
 	s.layers = append(s.layers, l)
 	go pprof.Do(ctx, pprof.Labels("routine", name), func(ctx context.Context) {
 		defer close(l.done)
@@ -69,29 +73,32 @@ func (s *Stack) Go(
 // it to start shutdown, then calls Stop to get the error.
 func (s *Stack) Failed() <-chan struct{} { return s.failed }
 
-// Stop ends the newest lifetime and waits for its run to return, then does the same
-// for each older one. It returns the errors of the runs joined. No goroutine that Go
-// started runs after Stop returns, unless ctx ends first.
+// Stop ends the newest lifetime, waits for its run to return, and calls its closer. It
+// then does the same for each older one. It returns the errors of the runs and closers
+// joined. No goroutine that Go started runs after Stop returns, unless ctx ends first.
 //
-// When ctx ends first, Stop ends every lifetime that is left and returns at once. The
-// runs that have not returned keep running until they see their context end. The
-// error then wraps ctx.Err() and names those runs. Call Stop once.
+// When ctx ends first, Stop ends every lifetime that is left and returns at once
+// without calling their closers. The runs that have not returned keep running until
+// they see their context end. The error then wraps ctx.Err() and names those runs.
+// Call Stop once.
 func (s *Stack) Stop(ctx context.Context) error {
 	for _, l := range slices.Backward(s.layers) {
 		l.cancel()
 		// A run that already returned wins over a ctx that already ended.
 		select {
 		case <-l.done:
-			continue
 		default:
-		}
-		select {
-		case <-l.done:
-		case <-ctx.Done():
-			for _, l := range s.layers {
-				l.cancel()
+			select {
+			case <-l.done:
+			case <-ctx.Done():
+				for _, l := range s.layers {
+					l.cancel()
+				}
+				return s.result(ctx)
 			}
-			return s.result(ctx)
+		}
+		if l.closer != nil {
+			l.closeErr = l.closer()
 		}
 	}
 	return s.result(ctx)
@@ -107,6 +114,9 @@ func (s *Stack) result(ctx context.Context) error {
 		case <-l.done:
 			if l.err != nil {
 				errs = append(errs, errors.Wrapf(l.err, "%s", l.name))
+			}
+			if l.closeErr != nil {
+				errs = append(errs, errors.Wrapf(l.closeErr, "%s close", l.name))
 			}
 		default:
 			running = append(running, l.name)

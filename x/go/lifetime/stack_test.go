@@ -48,9 +48,9 @@ var _ = Describe("Stack", func() {
 	It("stops the newest lifetime first and waits for each run", func(ctx SpecContext) {
 		var r recorder
 		s := lifetime.NewStack()
-		storage := s.Go(ctx, "storage", r.run("storage"))
-		service := s.Go(storage, "service", r.run("service"))
-		s.Go(service, "server", r.run("server"))
+		storage := s.Go(ctx, "storage", r.run("storage"), nil)
+		service := s.Go(storage, "service", r.run("service"), nil)
+		s.Go(service, "server", r.run("server"), nil)
 		Expect(s.Stop(ctx)).To(Succeed())
 		Expect(r.order()).To(Equal([]string{"server", "service", "storage"}))
 	})
@@ -60,13 +60,13 @@ var _ = Describe("Stack", func() {
 	) {
 		var r recorder
 		s := lifetime.NewStack()
-		outer := s.Go(ctx, "outer", r.run("outer"))
+		outer := s.Go(ctx, "outer", r.run("outer"), nil)
 		var outerErr error
 		s.Go(outer, "inner", func(ctx context.Context) error {
 			<-ctx.Done()
 			outerErr = outer.Err()
 			return nil
-		})
+		}, nil)
 		Expect(s.Stop(ctx)).To(Succeed())
 		Expect(outerErr).ToNot(HaveOccurred())
 		Expect(r.order()).To(Equal([]string{"outer"}))
@@ -76,8 +76,8 @@ var _ = Describe("Stack", func() {
 		parent, cancel := context.WithCancel(ctx)
 		var r recorder
 		s := lifetime.NewStack()
-		outer := s.Go(parent, "outer", r.run("outer"))
-		s.Go(outer, "inner", r.run("inner"))
+		outer := s.Go(parent, "outer", r.run("outer"), nil)
+		s.Go(outer, "inner", r.run("inner"), nil)
 		cancel()
 		Eventually(r.order).Should(ConsistOf("outer", "inner"))
 		Expect(s.Stop(ctx)).To(Succeed())
@@ -91,19 +91,117 @@ var _ = Describe("Stack", func() {
 			label <- v
 			<-ctx.Done()
 			return nil
-		})
+		}, nil)
 		Eventually(label).Should(Receive(Equal("storage")))
 		Expect(s.Stop(ctx)).To(Succeed())
+	})
+
+	Describe("Close", func() {
+		It(
+			"closes each lifetime after its run and before the next older run ends",
+			func(
+				ctx SpecContext,
+			) {
+				var r recorder
+				closeFn := func(name string) func() error {
+					return func() error {
+						r.mu.Lock()
+						defer r.mu.Unlock()
+						r.stopped = append(r.stopped, name+" close")
+						return nil
+					}
+				}
+				s := lifetime.NewStack()
+				storage := s.Go(ctx, "storage", r.run("storage"), closeFn("storage"))
+				s.Go(storage, "service", r.run("service"), closeFn("service"))
+				Expect(s.Stop(ctx)).To(Succeed())
+				Expect(r.order()).To(Equal([]string{
+					"service", "service close", "storage", "storage close",
+				}))
+			},
+		)
+
+		It("closes a lifetime whose run failed", func(ctx SpecContext) {
+			closed := false
+			s := lifetime.NewStack()
+			s.Go(ctx, "service", func(context.Context) error {
+				return errors.New("disk full")
+			}, func() error {
+				closed = true
+				return nil
+			})
+			Eventually(s.Failed()).Should(BeClosed())
+			Expect(s.Stop(ctx)).To(MatchError(ContainSubstring("service: disk full")))
+			Expect(closed).To(BeTrue())
+		})
+
+		It("joins the close errors and closes the older lifetimes", func(
+			ctx SpecContext,
+		) {
+			var r recorder
+			s := lifetime.NewStack()
+			storage := s.Go(ctx, "storage", r.run("storage"), func() error {
+				return errors.New("flush failed")
+			})
+			s.Go(storage, "service", r.run("service"), func() error {
+				return errors.New("table busy")
+			})
+			err := s.Stop(ctx)
+			Expect(err).To(MatchError(ContainSubstring("service close: table busy")))
+			Expect(err).To(MatchError(ContainSubstring("storage close: flush failed")))
+			Expect(r.order()).To(Equal([]string{"service", "storage"}))
+		})
+
+		It("does not close a lifetime whose run did not return", func(
+			ctx SpecContext,
+		) {
+			var (
+				release = make(chan struct{})
+				stuck   = make(chan struct{})
+				closed  []string
+			)
+			DeferCleanup(func() {
+				close(release)
+				Eventually(stuck).Should(BeClosed())
+			})
+			s := lifetime.NewStack()
+			storage := s.Go(ctx, "storage", func(ctx context.Context) error {
+				<-ctx.Done()
+				return nil
+			}, func() error {
+				closed = append(closed, "storage")
+				return nil
+			})
+			service := s.Go(storage, "service", func(context.Context) error {
+				defer close(stuck)
+				<-release
+				return nil
+			}, func() error {
+				closed = append(closed, "service")
+				return nil
+			})
+			s.Go(service, "server", func(ctx context.Context) error {
+				<-ctx.Done()
+				return nil
+			}, func() error {
+				closed = append(closed, "server")
+				return nil
+			})
+			stopCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+			defer cancel()
+			Expect(s.Stop(stopCtx)).To(MatchError(context.DeadlineExceeded))
+			Expect(closed).To(Equal([]string{"server"}))
+		})
 	})
 
 	Describe("Failed", func() {
 		It("closes when a run returns an error", func(ctx SpecContext) {
 			var r recorder
 			s := lifetime.NewStack()
-			storage := s.Go(ctx, "storage", r.run("storage"))
+			storage := s.Go(ctx, "storage", r.run("storage"), nil)
 			s.Go(storage, "service", func(context.Context) error {
 				return errors.New("disk full")
-			})
+			}, nil)
 			Eventually(s.Failed()).Should(BeClosed())
 			Expect(s.Stop(ctx)).To(MatchError(ContainSubstring("service: disk full")))
 			Expect(r.order()).To(Equal([]string{"storage"}))
@@ -118,8 +216,8 @@ var _ = Describe("Stack", func() {
 			storage := s.Go(ctx, "storage", func(context.Context) error {
 				close(returned)
 				return nil
-			})
-			s.Go(storage, "service", r.run("service"))
+			}, nil)
+			s.Go(storage, "service", r.run("service"), nil)
 			Eventually(returned).Should(BeClosed())
 			Consistently(s.Failed()).ShouldNot(BeClosed())
 			Expect(r.order()).To(BeEmpty())
@@ -142,13 +240,13 @@ var _ = Describe("Stack", func() {
 				Eventually(stuck).Should(BeClosed())
 			})
 			s := lifetime.NewStack()
-			storage := s.Go(ctx, "storage", r.run("storage"))
+			storage := s.Go(ctx, "storage", r.run("storage"), nil)
 			service := s.Go(storage, "service", func(context.Context) error {
 				defer close(stuck)
 				<-release
 				return nil
-			})
-			s.Go(service, "server", r.run("server"))
+			}, nil)
+			s.Go(service, "server", r.run("server"), nil)
 			stopCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 			defer cancel()
 			err := s.Stop(stopCtx)
@@ -171,11 +269,11 @@ var _ = Describe("Stack", func() {
 				defer close(stuck)
 				<-release
 				return nil
-			})
+			}, nil)
 			s.Go(storage, "server", func(ctx context.Context) error {
 				<-ctx.Done()
 				return errors.New("drain failed")
-			})
+			}, nil)
 			stopCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 			defer cancel()
 			err := s.Stop(stopCtx)
