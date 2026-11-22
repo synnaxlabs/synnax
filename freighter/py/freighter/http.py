@@ -16,12 +16,13 @@ from contextlib import contextmanager
 from typing import IO, Any
 from urllib.parse import urlencode
 
-from urllib3 import PoolManager, Retry
+from urllib3 import PoolManager, ProxyManager, Retry
 from urllib3.exceptions import MaxRetryError, ProtocolError, ReadTimeoutError
 from urllib3.response import BaseHTTPResponse
 
 from freighter.context import Context
 from freighter.exceptions import Timeout, Unreachable
+from freighter.proxy import resolve
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.url import URL
 from x.codec import Codec
@@ -93,6 +94,9 @@ class HTTPClient(MiddlewareCollector):
         :param registry: Decodes the errors that the server returns.
         :param ssl_context: The TLS context that verifies the server. The client uses
             HTTPS when set and plain HTTP when None.
+
+        The client connects through the proxy that HTTPS_PROXY or HTTP_PROXY names,
+        unless NO_PROXY matches url.
         """
         super().__init__()
         self._endpoint = url.replace(
@@ -100,7 +104,12 @@ class HTTPClient(MiddlewareCollector):
         )
         self._codec = codec
         self._registry = registry
-        self._pool = PoolManager(ssl_context=ssl_context, **kwargs)
+        proxy = resolve(url, secure=ssl_context is not None)
+        self._pool = (
+            PoolManager(ssl_context=ssl_context, **kwargs)
+            if proxy is None
+            else ProxyManager(proxy, ssl_context=ssl_context, **kwargs)
+        )
 
     def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
         """Implements the UnaryClient protocol — typed request, typed response."""
