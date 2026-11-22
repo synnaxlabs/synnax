@@ -54,11 +54,11 @@ type Config struct {
 // Read builds the state of a root of the old layout. Each old data file that a pointer
 // names is a sealed version 0 segment, and each old index pointer takes one alignment
 // number. Read also returns the channel of each directory whose meta.json names a
-// channel with storage. It skips a virtual channel, and a
-// directory with no meta.json, whose key it logs. It cuts, and logs, a pointer that
-// ends past its file, the newest pointer of an index after its last stamp inside its
-// time range, and data samples with no stamps. It returns an error that names the file
-// when an old file has no two agreeing reads in three.
+// channel with storage. It skips a virtual channel, and a directory with no meta.json,
+// whose key it logs. It cuts, and logs, a pointer that ends past its file, the newest
+// pointer of an index after its last stamp inside its time range, and data samples
+// with no stamps. It returns an error that names the file when an old file has no two
+// agreeing reads in three.
 func Read(cfg Config) (*Plan, error) {
 	r := &reader{
 		Config: cfg,

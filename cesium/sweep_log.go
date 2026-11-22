@@ -122,10 +122,18 @@ func (db *DB) removeLogDir(key ChannelKey) error {
 		return err
 	}
 	pinned := db.engine.pinnedFiles(key)
+	listed := set.New[string]()
+	for _, info := range infos {
+		listed.Add(info.Name())
+	}
 	kept := false
 	for _, info := range infos {
 		name := path.Join(dir, info.Name())
-		if strings.HasSuffix(name, ".undone") || pinned(name) {
+		// A reader reads the compaction file of an old file only while the old file is
+		// missing.
+		old, temp := strings.CutSuffix(info.Name(), tempSuffix)
+		if strings.HasSuffix(name, ".undone") || pinned(name) ||
+			temp && !listed.Contains(old) && pinned(path.Join(dir, old)) {
 			kept = true
 			continue
 		}
