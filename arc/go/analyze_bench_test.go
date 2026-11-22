@@ -33,8 +33,8 @@ func BenchmarkAnalyze(b *testing.B) {
 	}
 	parsedGraph, err := graph.Parse(arc.Graph{Functions: ir.Functions{{
 		Key:     "calculation",
-		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
-		Body:    ir.Body{Raw: "{ return math.sqrt(ox_pt_1) + ox_pt_2 }"},
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		Body:    ir.Body{Raw: sharedGraphBody},
 	}}}, parser.Config{})
 	if err != nil {
 		b.Fatalf("failed to parse the graph: %v", err)

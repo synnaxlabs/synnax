@@ -461,6 +461,10 @@ func applyTypeSubstitutionsToSymbols[T antlr.ParserRuleContext](
 		scope.Type = ctx.Constraints.ApplySubstitutions(scope.Type)
 	}
 	for _, child := range scope.Children() {
+		// An alias lists its module's members, which other roots share.
+		if child.Kind == symbol.KindModuleAlias {
+			continue
+		}
 		applyTypeSubstitutionsToSymbols(ctx, child)
 	}
 }

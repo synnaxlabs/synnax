@@ -64,9 +64,15 @@ func shape(syms []*symbol.Symbol) []string {
 	return lines
 }
 
-// sharedLSPSource is a program whose analysis resolves module members, a polymorphic
-// call, and a local that the spec renames.
-const sharedLSPSource = "func g(x f64) f64 {\n    return math.sqrt(x) + x\n}\n"
+// sharedLSPSource is a program whose analysis resolves an imported module's member
+// through a polymorphic call, with a parameter that the spec renames.
+const sharedLSPSource = "import math\n\nfunc g(x f64) u8 {\n    if math.is_nan(x) {\n" +
+	"        return 1\n    }\n    return 0\n}\n"
+
+// sharedGraphBody is a graph function body that calls an auto-imported module's
+// polymorphic member.
+const sharedGraphBody = "{\n    if math.is_nan(ox_pt_1) {\n        return 1\n    }\n" +
+	"    return 0\n}"
 
 // useThroughLSP opens sharedLSPSource on a server whose roots share ambient, then asks
 // for a hover, a completion, and a rename.
@@ -85,18 +91,18 @@ func useThroughLSP(ctx context.Context, ambient []*symbol.Symbol, id int) {
 		}
 	}
 	hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-		TextDocumentPositionParams: at(1, 17),
+		TextDocumentPositionParams: at(3, 13),
 	}))
-	Expect(lsptestutil.HoverContents(hover)).To(ContainSubstring("sqrt"))
-	completions := lsptestutil.Completion(server, ctx, doc, 1, 16)
+	Expect(lsptestutil.HoverContents(hover)).To(ContainSubstring("is_nan"))
+	completions := lsptestutil.Completion(server, ctx, doc, 3, 12)
 	Expect(lo.Map(completions.Items, func(item protocol.CompletionItem, _ int) string {
 		return item.Label
-	})).To(ContainElement("sqrt"))
+	})).To(ContainElement("is_nan"))
 	edit := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-		TextDocumentPositionParams: at(0, 7),
+		TextDocumentPositionParams: at(2, 7),
 		NewName:                    "y",
 	}))
-	Expect(edit.Changes[doc]).To(HaveLen(3))
+	Expect(edit.Changes[doc]).To(HaveLen(2))
 	Expect(server.Shutdown(ctx)).To(Succeed())
 }
 
@@ -113,8 +119,8 @@ var _ = Describe("A shared standard library", func() {
 		)
 		g := arc.Graph{Functions: ir.Functions{{
 			Key:     "calculation",
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
-			Body:    ir.Body{Raw: "{ return math.sqrt(ox_pt_1) + ox_pt_2 }"},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+			Body:    ir.Body{Raw: sharedGraphBody},
 		}}}
 		var wg sync.WaitGroup
 		for i := range 16 {
