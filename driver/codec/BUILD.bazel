@@ -14,10 +14,13 @@ cc_library(
     name = "codec",
     srcs = [
         "bits.cpp",
+        "field.cpp",
+        "field.h",
         "json.cpp",
         "match.cpp",
     ],
     hdrs = [
+        "binding.h",
         "bits.h",
         "errors.h",
         "json.h",
