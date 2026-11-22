@@ -316,40 +316,6 @@ struct Where {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief T4Ports are the ports of a T4.
-struct T4Ports {
-    std::string model = MODEL_T_4;
-
-    static T4Ports parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief T7Ports are the ports of a T7.
-struct T7Ports {
-    std::string model = MODEL_T_7;
-    /// @brief mux80_attached is true when a Mux80 is attached, which adds the analog
-    /// input ports AIN48 to AIN127.
-    bool mux80_attached = false;
-
-    static T7Ports parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief T8Ports are the ports of a T8.
-struct T8Ports {
-    std::string model = MODEL_T_8;
-
-    static T8Ports parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Ports holds the configuration that depends on the model: the channel maps and
-/// the accessories that add ports.
-using Ports = std::variant<T4Ports, T7Ports, T8Ports>;
-
-Ports parse_ports(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const Ports &value);
-
 /// @brief Identity holds the device fields that the scanner owns.
 struct Identity {
     /// @brief rack is the key of the rack the device is connected to.
@@ -364,6 +330,70 @@ struct Identity {
     static Identity parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief T4Ports are the ports of a T4.
+struct T4Ports {
+    std::string model = MODEL_T_4;
+    /// @brief analog_input maps an analog input port to the channel that holds its
+    /// samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> analog_input = {};
+    /// @brief analog_output maps an analog output port to the channels that write to
+    /// it.
+    std::unordered_map<std::string, CommandStatePair> analog_output = {};
+    /// @brief digital_input maps a digital port to the channel that holds its samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> digital_input = {};
+    /// @brief digital_output maps a digital port to the channels that write to it.
+    std::unordered_map<std::string, CommandStatePair> digital_output = {};
+
+    static T4Ports parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief T7Ports are the ports of a T7.
+struct T7Ports {
+    std::string model = MODEL_T_7;
+    /// @brief mux80_attached is true when a Mux80 is attached, which adds the analog
+    /// input ports AIN48 to AIN127.
+    bool mux80_attached = false;
+    /// @brief analog_input maps an analog input port to the channel that holds its
+    /// samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> analog_input = {};
+    /// @brief analog_output maps an analog output port to the channels that write to
+    /// it.
+    std::unordered_map<std::string, CommandStatePair> analog_output = {};
+    /// @brief digital_input maps a digital port to the channel that holds its samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> digital_input = {};
+    /// @brief digital_output maps a digital port to the channels that write to it.
+    std::unordered_map<std::string, CommandStatePair> digital_output = {};
+
+    static T7Ports parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief T8Ports are the ports of a T8.
+struct T8Ports {
+    std::string model = MODEL_T_8;
+    /// @brief analog_input maps an analog input port to the channel that holds its
+    /// samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> analog_input = {};
+    /// @brief analog_output maps an analog output port to the channels that write to
+    /// it.
+    std::unordered_map<std::string, CommandStatePair> analog_output = {};
+    /// @brief digital_input maps a digital port to the channel that holds its samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> digital_input = {};
+    /// @brief digital_output maps a digital port to the channels that write to it.
+    std::unordered_map<std::string, CommandStatePair> digital_output = {};
+
+    static T8Ports parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Ports holds the configuration that depends on the model: the channel maps and
+/// the accessories that add ports.
+using Ports = std::variant<T4Ports, T7Ports, T8Ports>;
+
+Ports parse_ports(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Ports &value);
 
 using Status = ::synnax::status::Status<StatusDetails>;
 

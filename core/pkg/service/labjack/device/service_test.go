@@ -137,6 +137,7 @@ var _ = Describe("Service", func() {
 					Serial:     nextSerial(),
 					Connection: device.ConnectionUSB,
 				},
+				Mux80Attached: true,
 				AnalogInput: map[device.T7AnalogInputPort]channel.Key{
 					device.T7AnalogInputPortAin0:  1,
 					device.T7AnalogInputPortAin48: 2,
@@ -171,6 +172,32 @@ var _ = Describe("Service", func() {
 				MatchError(ContainSubstring("invalid digital_input key: DIO0")),
 			))
 		})
+
+		DescribeTable("Should allow a Mux80 port only with a Mux80 attached",
+			func(ctx SpecContext, attached bool, matcher OmegaMatcher) {
+				d := device.Device{Variant: device.T7Device{
+					Base: device.Base{
+						Rack:       rackKey,
+						Name:       "T7-0002",
+						Serial:     nextSerial(),
+						Connection: device.ConnectionUSB,
+					},
+					Mux80Attached: attached,
+					AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+						device.T7AnalogInputPortAin13: 4,
+						device.T7AnalogInputPortAin48: 5,
+					},
+				}}
+				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(matcher)
+			},
+			Entry("attached", true, Succeed()),
+			Entry("not attached", false, SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("analog_input: AIN48 needs mux80_attached"),
+				),
+			)),
+		)
 
 		It("Should keep a key the caller sets", func(ctx SpecContext) {
 			key := uuid.New()
@@ -355,6 +382,36 @@ var _ = Describe("Service", func() {
 			Expect(got.Rack).To(Equal(d.Rack))
 			Expect(got.Serial).To(Equal(d.Serial))
 			Expect(got.Connection).To(Equal(d.Connection))
+		})
+
+		It("Should write the port maps of the configuration", func(ctx SpecContext) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Base().Key, configuration(
+				device.T7Ports{
+					AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+						device.T7AnalogInputPortAin0: 3,
+					},
+				},
+			))).To(Succeed())
+			got := retrieve(ctx, d.Base().Key).Variant.(device.T7Device)
+			Expect(got.AnalogInput).To(Equal(
+				map[device.T7AnalogInputPort]channel.Key{
+					device.T7AnalogInputPortAin0: 3,
+				},
+			))
+		})
+
+		It("Should refuse a Mux80 port in a configuration without a Mux80", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Base().Key, configuration(
+				device.T7Ports{
+					AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+						device.T7AnalogInputPortAin127: 3,
+					},
+				},
+			))).To(MatchError(ContainSubstring("AIN127 needs mux80_attached")))
 		})
 
 		It("Should write the identity and keep the configuration", func(

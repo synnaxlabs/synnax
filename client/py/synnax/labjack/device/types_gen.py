@@ -621,33 +621,6 @@ class Identity(BaseModel):
     model: Model
 
 
-class T4Ports(BaseModel):
-    """Are the ports of a T4."""
-
-    model: Literal["t4"] = "t4"
-
-
-class T7Ports(BaseModel):
-    """Are the ports of a T7."""
-
-    model: Literal["t7"] = "t7"
-    mux80_attached: bool = False
-
-
-class T8Ports(BaseModel):
-    """Are the ports of a T8."""
-
-    model: Literal["t8"] = "t8"
-
-
-# Holds the configuration that depends on the model: the channel maps and the
-# accessories that add ports.
-Ports = Annotated[
-    T4Ports | T7Ports | T8Ports,
-    Field(discriminator="model"),
-]
-
-
 class StatusDetails(BaseModel):
     """Identifies the device and rack that a status pertains to.
 
@@ -714,26 +687,61 @@ class Cursor(BaseModel):
     key: Key
 
 
-class Configuration(BaseModel):
-    """Holds the device fields that the user owns.
+class T4Ports(BaseModel):
+    """Are the ports of a T4."""
 
-    Attributes:
-        name: Is a human-readable name for the device.
-        identifier: Is the prefix of the device's channel names. The device is
-            unconfigured while it is empty.
-        read_index: Is the index channel of the channels that the device reads into.
-        write_state_index: Is the index channel of the state channels of the device's
-            outputs.
-        ports: Holds the configuration that depends on the model. Its model must be the
-            model of the stored device.
-    """
+    model: Literal["t4"] = "t4"
+    analog_input: dict[
+        T4AnalogInputPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
+    ] = Field(default_factory=dict)
+    analog_output: dict[AnalogOutputPort, CommandStatePair] = Field(
+        default_factory=dict
+    )
+    digital_input: dict[
+        T4DigitalPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
+    ] = Field(default_factory=dict)
+    digital_output: dict[T4DigitalPort, CommandStatePair] = Field(default_factory=dict)
 
-    name: str = Field(min_length=1)
-    identifier: str = ""
-    read_index: channel.Key | None = Field(default=None, ge=0, le=4294967295)
-    write_state_index: channel.Key | None = Field(default=None, ge=0, le=4294967295)
-    ports: Ports
 
+class T7Ports(BaseModel):
+    """Are the ports of a T7."""
+
+    model: Literal["t7"] = "t7"
+    mux80_attached: bool = False
+    analog_input: dict[
+        T7AnalogInputPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
+    ] = Field(default_factory=dict)
+    analog_output: dict[AnalogOutputPort, CommandStatePair] = Field(
+        default_factory=dict
+    )
+    digital_input: dict[
+        T7DigitalPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
+    ] = Field(default_factory=dict)
+    digital_output: dict[T7DigitalPort, CommandStatePair] = Field(default_factory=dict)
+
+
+class T8Ports(BaseModel):
+    """Are the ports of a T8."""
+
+    model: Literal["t8"] = "t8"
+    analog_input: dict[
+        T8AnalogInputPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
+    ] = Field(default_factory=dict)
+    analog_output: dict[AnalogOutputPort, CommandStatePair] = Field(
+        default_factory=dict
+    )
+    digital_input: dict[
+        T8DigitalPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
+    ] = Field(default_factory=dict)
+    digital_output: dict[T8DigitalPort, CommandStatePair] = Field(default_factory=dict)
+
+
+# Holds the configuration that depends on the model: the channel maps and the
+# accessories that add ports.
+Ports = Annotated[
+    T4Ports | T7Ports | T8Ports,
+    Field(discriminator="model"),
+]
 
 Status: TypeAlias = status_.Status[StatusDetails]
 
@@ -758,25 +766,25 @@ class RetrieveRequest(BaseModel):
     include_status: bool = False
 
 
-class IdentityUpdate(Identity):
-    """Writes the fields that the scanner owns."""
+class Configuration(BaseModel):
+    """Holds the device fields that the user owns.
 
-    group: Literal["identity"] = "identity"
-
-
-class ConfigurationUpdate(Configuration):
-    """Replaces the fields that the user owns. A client sends the whole group, because a
-    field it leaves out is cleared.
+    Attributes:
+        name: Is a human-readable name for the device.
+        identifier: Is the prefix of the device's channel names. The device is
+            unconfigured while it is empty.
+        read_index: Is the index channel of the channels that the device reads into.
+        write_state_index: Is the index channel of the state channels of the device's
+            outputs.
+        ports: Holds the configuration that depends on the model. Its model must be the
+            model of the stored device.
     """
 
-    group: Literal["configuration"] = "configuration"
-
-
-# Is a write to one field group of a device.
-Update = Annotated[
-    IdentityUpdate | ConfigurationUpdate,
-    Field(discriminator="group"),
-]
+    name: str = Field(min_length=1)
+    identifier: str = ""
+    read_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
+    write_state_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
+    ports: Ports
 
 
 class Base(BaseModel):
@@ -802,13 +810,34 @@ class Base(BaseModel):
     serial: int = Field(gt=0, le=4294967295)
     connection: Connection
     identifier: str = ""
-    read_index: channel.Key | None = Field(default=None, ge=0, le=4294967295)
-    write_state_index: channel.Key | None = Field(default=None, ge=0, le=4294967295)
+    read_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
+    write_state_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
     status: Status | None = None
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class IdentityUpdate(Identity):
+    """Writes the fields that the scanner owns."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the fields that the user owns. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a device.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
 
 
 class T4Device(Base):

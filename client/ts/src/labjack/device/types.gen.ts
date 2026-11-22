@@ -263,6 +263,16 @@ export type Key = z.infer<typeof keyZ>;
 /** T4Ports are the ports of a T4. */
 export const t4PortsZ = z.object({
   model: z.literal("t4"),
+  /** analogInput maps an analog input port to the channel that holds its samples. */
+  analogInput: z.partialRecord(t4AnalogInputPortZ, channel.keyZ).default(() => ({})),
+  /** analogOutput maps an analog output port to the channels that write to it. */
+  analogOutput: z
+    .partialRecord(analogOutputPortZ, commandStatePairZ)
+    .default(() => ({})),
+  /** digitalInput maps a digital port to the channel that holds its samples. */
+  digitalInput: z.partialRecord(t4DigitalPortZ, channel.keyZ).default(() => ({})),
+  /** digitalOutput maps a digital port to the channels that write to it. */
+  digitalOutput: z.partialRecord(t4DigitalPortZ, commandStatePairZ).default(() => ({})),
 });
 export interface T4Ports extends z.infer<typeof t4PortsZ> {}
 
@@ -274,12 +284,32 @@ export const t7PortsZ = z.object({
    * AIN48 to AIN127.
    */
   mux80Attached: z.boolean().default(false),
+  /** analogInput maps an analog input port to the channel that holds its samples. */
+  analogInput: z.partialRecord(t7AnalogInputPortZ, channel.keyZ).default(() => ({})),
+  /** analogOutput maps an analog output port to the channels that write to it. */
+  analogOutput: z
+    .partialRecord(analogOutputPortZ, commandStatePairZ)
+    .default(() => ({})),
+  /** digitalInput maps a digital port to the channel that holds its samples. */
+  digitalInput: z.partialRecord(t7DigitalPortZ, channel.keyZ).default(() => ({})),
+  /** digitalOutput maps a digital port to the channels that write to it. */
+  digitalOutput: z.partialRecord(t7DigitalPortZ, commandStatePairZ).default(() => ({})),
 });
 export interface T7Ports extends z.infer<typeof t7PortsZ> {}
 
 /** T8Ports are the ports of a T8. */
 export const t8PortsZ = z.object({
   model: z.literal("t8"),
+  /** analogInput maps an analog input port to the channel that holds its samples. */
+  analogInput: z.partialRecord(t8AnalogInputPortZ, channel.keyZ).default(() => ({})),
+  /** analogOutput maps an analog output port to the channels that write to it. */
+  analogOutput: z
+    .partialRecord(analogOutputPortZ, commandStatePairZ)
+    .default(() => ({})),
+  /** digitalInput maps a digital port to the channel that holds its samples. */
+  digitalInput: z.partialRecord(t8DigitalPortZ, channel.keyZ).default(() => ({})),
+  /** digitalOutput maps a digital port to the channels that write to it. */
+  digitalOutput: z.partialRecord(t8DigitalPortZ, commandStatePairZ).default(() => ({})),
 });
 export interface T8Ports extends z.infer<typeof t8PortsZ> {}
 

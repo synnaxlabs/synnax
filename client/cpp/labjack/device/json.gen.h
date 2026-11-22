@@ -370,12 +370,48 @@ inline x::json::json T8Device::to_json() const {
 
 inline T4Ports T4Ports::parse(x::json::Parser parser) {
     T4Ports result;
+    result.analog_input = parser.field<
+        std::unordered_map<std::string, ::synnax::channel::Key>>(
+        "analog_input",
+        std::unordered_map<std::string, ::synnax::channel::Key>{}
+    );
+    result
+        .analog_output = parser
+                             .field<std::unordered_map<std::string, CommandStatePair>>(
+                                 "analog_output",
+                                 std::unordered_map<std::string, CommandStatePair>{}
+                             );
+    result.digital_input = parser.field<
+        std::unordered_map<std::string, ::synnax::channel::Key>>(
+        "digital_input",
+        std::unordered_map<std::string, ::synnax::channel::Key>{}
+    );
+    result
+        .digital_output = parser
+                              .field<std::unordered_map<std::string, CommandStatePair>>(
+                                  "digital_output",
+                                  std::unordered_map<std::string, CommandStatePair>{}
+                              );
     result.model = parser.field<std::string>("model");
     return result;
 }
 
 inline x::json::json T4Ports::to_json() const {
     x::json::json j = x::json::json::object();
+    j["analog_input"] = this->analog_input;
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->analog_output)
+            obj[key] = item.to_json();
+        j["analog_output"] = obj;
+    }
+    j["digital_input"] = this->digital_input;
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->digital_output)
+            obj[key] = item.to_json();
+        j["digital_output"] = obj;
+    }
     j["model"] = this->model;
     return j;
 }
@@ -383,6 +419,28 @@ inline x::json::json T4Ports::to_json() const {
 inline T7Ports T7Ports::parse(x::json::Parser parser) {
     T7Ports result;
     result.mux80_attached = parser.field<bool>("mux80_attached", false);
+    result.analog_input = parser.field<
+        std::unordered_map<std::string, ::synnax::channel::Key>>(
+        "analog_input",
+        std::unordered_map<std::string, ::synnax::channel::Key>{}
+    );
+    result
+        .analog_output = parser
+                             .field<std::unordered_map<std::string, CommandStatePair>>(
+                                 "analog_output",
+                                 std::unordered_map<std::string, CommandStatePair>{}
+                             );
+    result.digital_input = parser.field<
+        std::unordered_map<std::string, ::synnax::channel::Key>>(
+        "digital_input",
+        std::unordered_map<std::string, ::synnax::channel::Key>{}
+    );
+    result
+        .digital_output = parser
+                              .field<std::unordered_map<std::string, CommandStatePair>>(
+                                  "digital_output",
+                                  std::unordered_map<std::string, CommandStatePair>{}
+                              );
     result.model = parser.field<std::string>("model");
     return result;
 }
@@ -390,18 +448,68 @@ inline T7Ports T7Ports::parse(x::json::Parser parser) {
 inline x::json::json T7Ports::to_json() const {
     x::json::json j = x::json::json::object();
     j["mux80_attached"] = this->mux80_attached;
+    j["analog_input"] = this->analog_input;
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->analog_output)
+            obj[key] = item.to_json();
+        j["analog_output"] = obj;
+    }
+    j["digital_input"] = this->digital_input;
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->digital_output)
+            obj[key] = item.to_json();
+        j["digital_output"] = obj;
+    }
     j["model"] = this->model;
     return j;
 }
 
 inline T8Ports T8Ports::parse(x::json::Parser parser) {
     T8Ports result;
+    result.analog_input = parser.field<
+        std::unordered_map<std::string, ::synnax::channel::Key>>(
+        "analog_input",
+        std::unordered_map<std::string, ::synnax::channel::Key>{}
+    );
+    result
+        .analog_output = parser
+                             .field<std::unordered_map<std::string, CommandStatePair>>(
+                                 "analog_output",
+                                 std::unordered_map<std::string, CommandStatePair>{}
+                             );
+    result.digital_input = parser.field<
+        std::unordered_map<std::string, ::synnax::channel::Key>>(
+        "digital_input",
+        std::unordered_map<std::string, ::synnax::channel::Key>{}
+    );
+    result
+        .digital_output = parser
+                              .field<std::unordered_map<std::string, CommandStatePair>>(
+                                  "digital_output",
+                                  std::unordered_map<std::string, CommandStatePair>{}
+                              );
     result.model = parser.field<std::string>("model");
     return result;
 }
 
 inline x::json::json T8Ports::to_json() const {
     x::json::json j = x::json::json::object();
+    j["analog_input"] = this->analog_input;
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->analog_output)
+            obj[key] = item.to_json();
+        j["analog_output"] = obj;
+    }
+    j["digital_input"] = this->digital_input;
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->digital_output)
+            obj[key] = item.to_json();
+        j["digital_output"] = obj;
+    }
     j["model"] = this->model;
     return j;
 }

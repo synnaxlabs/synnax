@@ -329,24 +329,105 @@ type PortsVariant interface {
 
 // T4Ports are the ports of a T4.
 type T4Ports struct {
+	// AnalogInput maps an analog input port to the channel that holds its samples.
+	AnalogInput map[T4AnalogInputPort]channel.Key `json:"analog_input" msgpack:"analog_input"`
+	// AnalogOutput maps an analog output port to the channels that write to it.
+	AnalogOutput map[AnalogOutputPort]CommandStatePair `json:"analog_output" msgpack:"analog_output"`
+	// DigitalInput maps a digital port to the channel that holds its samples.
+	DigitalInput map[T4DigitalPort]channel.Key `json:"digital_input" msgpack:"digital_input"`
+	// DigitalOutput maps a digital port to the channels that write to it.
+	DigitalOutput map[T4DigitalPort]CommandStatePair `json:"digital_output" msgpack:"digital_output"`
 }
 
 func (T4Ports) isPortsVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t T4Ports) Validate() error {
+	v := validate.New("T4Ports")
+	for key := range t.AnalogInput {
+		v.Ternaryf("analog_input", !key.IsValid(), "invalid analog_input key: %v", key)
+	}
+	for key := range t.AnalogOutput {
+		v.Ternaryf("analog_output", !key.IsValid(), "invalid analog_output key: %v", key)
+	}
+	for key := range t.DigitalInput {
+		v.Ternaryf("digital_input", !key.IsValid(), "invalid digital_input key: %v", key)
+	}
+	for key := range t.DigitalOutput {
+		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
+	}
+	return v.Error()
+}
 
 // T7Ports are the ports of a T7.
 type T7Ports struct {
 	// Mux80Attached is true when a Mux80 is attached, which adds the analog input ports
 	// AIN48 to AIN127.
 	Mux80Attached bool `json:"mux80_attached" msgpack:"mux80_attached"`
+	// AnalogInput maps an analog input port to the channel that holds its samples.
+	AnalogInput map[T7AnalogInputPort]channel.Key `json:"analog_input" msgpack:"analog_input"`
+	// AnalogOutput maps an analog output port to the channels that write to it.
+	AnalogOutput map[AnalogOutputPort]CommandStatePair `json:"analog_output" msgpack:"analog_output"`
+	// DigitalInput maps a digital port to the channel that holds its samples.
+	DigitalInput map[T7DigitalPort]channel.Key `json:"digital_input" msgpack:"digital_input"`
+	// DigitalOutput maps a digital port to the channels that write to it.
+	DigitalOutput map[T7DigitalPort]CommandStatePair `json:"digital_output" msgpack:"digital_output"`
 }
 
 func (T7Ports) isPortsVariant() {}
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t T7Ports) Validate() error {
+	v := validate.New("T7Ports")
+	for key := range t.AnalogInput {
+		v.Ternaryf("analog_input", !key.IsValid(), "invalid analog_input key: %v", key)
+	}
+	for key := range t.AnalogOutput {
+		v.Ternaryf("analog_output", !key.IsValid(), "invalid analog_output key: %v", key)
+	}
+	for key := range t.DigitalInput {
+		v.Ternaryf("digital_input", !key.IsValid(), "invalid digital_input key: %v", key)
+	}
+	for key := range t.DigitalOutput {
+		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
+	}
+	return v.Error()
+}
+
 // T8Ports are the ports of a T8.
 type T8Ports struct {
+	// AnalogInput maps an analog input port to the channel that holds its samples.
+	AnalogInput map[T8AnalogInputPort]channel.Key `json:"analog_input" msgpack:"analog_input"`
+	// AnalogOutput maps an analog output port to the channels that write to it.
+	AnalogOutput map[AnalogOutputPort]CommandStatePair `json:"analog_output" msgpack:"analog_output"`
+	// DigitalInput maps a digital port to the channel that holds its samples.
+	DigitalInput map[T8DigitalPort]channel.Key `json:"digital_input" msgpack:"digital_input"`
+	// DigitalOutput maps a digital port to the channels that write to it.
+	DigitalOutput map[T8DigitalPort]CommandStatePair `json:"digital_output" msgpack:"digital_output"`
 }
 
 func (T8Ports) isPortsVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t T8Ports) Validate() error {
+	v := validate.New("T8Ports")
+	for key := range t.AnalogInput {
+		v.Ternaryf("analog_input", !key.IsValid(), "invalid analog_input key: %v", key)
+	}
+	for key := range t.AnalogOutput {
+		v.Ternaryf("analog_output", !key.IsValid(), "invalid analog_output key: %v", key)
+	}
+	for key := range t.DigitalInput {
+		v.Ternaryf("digital_input", !key.IsValid(), "invalid digital_input key: %v", key)
+	}
+	for key := range t.DigitalOutput {
+		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
+	}
+	return v.Error()
+}
 
 // Ports holds the configuration that depends on the model: the channel maps and the
 // accessories that add ports.
@@ -454,6 +535,14 @@ func (u Ports) Model() Model {
 func (u Ports) Validate() error {
 	v := validate.New("Ports")
 	v.Ternary("model", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case T4Ports:
+		v.Exec(variant.Validate)
+	case T7Ports:
+		v.Exec(variant.Validate)
+	case T8Ports:
+		v.Exec(variant.Validate)
+	}
 	return v.Error()
 }
 

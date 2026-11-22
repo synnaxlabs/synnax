@@ -34,9 +34,23 @@ var _ = Describe("Update", func() {
 		Configuration: device.Configuration{
 			Name:            "T7",
 			Identifier:      "lj",
-			ReadIndex:       new(channel.Key(1)),
-			WriteStateIndex: new(channel.Key(2)),
-			Ports:           device.Ports{Variant: device.T7Ports{Mux80Attached: true}},
+			ReadIndex:       1,
+			WriteStateIndex: 2,
+			Ports: device.Ports{Variant: device.T7Ports{
+				Mux80Attached: true,
+				AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+					device.T7AnalogInputPortAin48: 3,
+				},
+				AnalogOutput: map[device.AnalogOutputPort]device.CommandStatePair{
+					device.AnalogOutputPortDac0: {Command: 4, State: 5},
+				},
+				DigitalInput: map[device.T7DigitalPort]channel.Key{
+					device.T7DigitalPortDio0: 6,
+				},
+				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
+					device.T7DigitalPortDio1: {Command: 7, State: 8},
+				},
+			}},
 		},
 	}}
 

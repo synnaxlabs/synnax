@@ -431,6 +431,21 @@ Identity struct {
 
 Ports union on model Model {
     t4 {
+        analog_input   map<T4AnalogInputPort, channel.Key> = {} {
+            @doc value """
+                maps an analog input port to the channel that holds its samples.
+            """
+        }
+        analog_output  map<AnalogOutputPort, CommandStatePair> = {} {
+            @doc value "maps an analog output port to the channels that write to it."
+        }
+        digital_input  map<T4DigitalPort, channel.Key> = {} {
+            @doc value "maps a digital port to the channel that holds its samples."
+        }
+        digital_output map<T4DigitalPort, CommandStatePair> = {} {
+            @doc value "maps a digital port to the channels that write to it."
+        }
+
         @doc value "are the ports of a T4."
     }
     t7 {
@@ -440,10 +455,39 @@ Ports union on model Model {
                 AIN48 to AIN127.
             """
         }
+        analog_input   map<T7AnalogInputPort, channel.Key> = {} {
+            @doc value """
+                maps an analog input port to the channel that holds its samples.
+            """
+        }
+        analog_output  map<AnalogOutputPort, CommandStatePair> = {} {
+            @doc value "maps an analog output port to the channels that write to it."
+        }
+        digital_input  map<T7DigitalPort, channel.Key> = {} {
+            @doc value "maps a digital port to the channel that holds its samples."
+        }
+        digital_output map<T7DigitalPort, CommandStatePair> = {} {
+            @doc value "maps a digital port to the channels that write to it."
+        }
 
         @doc value "are the ports of a T7."
     }
     t8 {
+        analog_input   map<T8AnalogInputPort, channel.Key> = {} {
+            @doc value """
+                maps an analog input port to the channel that holds its samples.
+            """
+        }
+        analog_output  map<AnalogOutputPort, CommandStatePair> = {} {
+            @doc value "maps an analog output port to the channels that write to it."
+        }
+        digital_input  map<T8DigitalPort, channel.Key> = {} {
+            @doc value "maps a digital port to the channel that holds its samples."
+        }
+        digital_output map<T8DigitalPort, CommandStatePair> = {} {
+            @doc value "maps a digital port to the channels that write to it."
+        }
+
         @doc value "are the ports of a T8."
     }
 
