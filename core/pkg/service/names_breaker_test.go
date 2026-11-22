@@ -28,14 +28,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 // storedChannel is a channel that a v0.62 Core stored, in group when group is set.
 type storedChannel struct {
-	name  string
-	group *uuid.UUID
+	name     string
+	group    *uuid.UUID
+	internal bool
 }
 
 // createNamedV062Store writes folders and channels as a v0.62 Core left them, and
@@ -74,6 +76,7 @@ func createNamedV062Store(
 			DataType:    telem.Float32T,
 			Virtual:     true,
 			Group:       channels[i].group,
+			Internal:    channels[i].internal,
 		}
 		keys[i] = k.Key()
 	}
@@ -168,13 +171,13 @@ var _ = Describe("Name upgrade breaker", func() {
 			})).
 			Entries(&top).
 			Exec(ctx, n.DB)).To(Succeed())
-		held := make(map[string]bool, len(top))
+		held := make(set.Set[string], len(top))
 		for _, c := range top {
-			held[c.Name] = true
+			held.Add(c.Name)
 		}
 		var clashes []string
 		for _, f := range folders {
-			if held[f.Name] {
+			if held.Contains(f.Name) {
 				clashes = append(clashes, f.Name)
 			}
 		}
