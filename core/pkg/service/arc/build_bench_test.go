@@ -198,9 +198,24 @@ func BenchmarkBuild(b *testing.B) {
 	}
 }
 
-// storeBenchArcs stores n text automations in the root directory of a fresh node, with
-// the Arc table closed, and returns the node's database and the first Arc.
-func storeBenchArcs(b *testing.B, n int) (*gorp.DB, arc.Arc) {
+// benchGraph returns a graph with a source node for each channel of reads and a sink
+// node for each channel of writes.
+func benchGraph(reads, writes []channel.Key) graph.Graph {
+	g := graph.Graph{Inputs: map[string]msgpack.EncodedJSON{}}
+	for i := range reads {
+		source, sink := "source_"+strconv.Itoa(i), "sink_"+strconv.Itoa(i)
+		g.Nodes = append(g.Nodes, graph.Node{Key: source}, graph.Node{Key: sink})
+		g.Inputs[source] = msgpack.EncodedJSON{"type": "on", "channel": reads[i]}
+		g.Inputs[sink] = msgpack.EncodedJSON{"type": "write", "channel": writes[i]}
+	}
+	return g
+}
+
+// storeBenchArcs stores n automations that each use 2m channels in the root directory
+// of a fresh node, with the Arc table closed, and returns the node's database and the
+// first Arc. Half are text, each with the lists of a compile that reads m channels and
+// writes m, and half are graphs whose m sources and m sinks use the same channels.
+func storeBenchArcs(b *testing.B, n, m int) (*gorp.DB, arc.Arc) {
 	b.Helper()
 	gomega.RegisterTestingT(b)
 	ctx := b.Context()
@@ -218,7 +233,11 @@ func storeBenchArcs(b *testing.B, n int) (*gorp.DB, arc.Arc) {
 			b.Error(err)
 		}
 	})
-	createBenchChannels(b, node.DB, channels, 1)
+	keys := createBenchChannels(b, node.DB, channels, m)
+	reads, writes := make([]channel.Key, m), make([]channel.Key, m)
+	for i := range m {
+		reads[i], writes[i] = keys[2*i], keys[2*i+1]
+	}
 	table := MustSucceed(arc.OpenTable(ctx, arc.TableConfig{DB: node.DB}))
 	var root directory.Directory
 	if err := gorp.NewRetrieve[directory.Key, directory.Directory]().
@@ -226,16 +245,25 @@ func storeBenchArcs(b *testing.B, n int) (*gorp.DB, arc.Arc) {
 		Exec(ctx, node.DB); err != nil {
 		b.Fatal(err)
 	}
+	textSource := arc.Source{Variant: arc.TextSource{
+		Text: text.Text{Raw: "bench_in_0 * 2.0 -> bench_out_0"},
+	}}
+	graphSource := arc.Source{
+		Variant: arc.GraphSource{Graph: benchGraph(reads, writes)},
+	}
 	arcs := make([]arc.Arc, n)
 	for i := range arcs {
-		arcs[i] = newArc(arc.TypeAutomation, arc.Base{
+		base := arc.Base{
 			Key:       uuid.New(),
 			Name:      "bench_" + strconv.Itoa(i),
 			Directory: &root.Key,
-			Source: arc.Source{Variant: arc.TextSource{
-				Text: text.Text{Raw: "bench_in_0 * 2.0 -> bench_out_0"},
-			}},
-		})
+			Source:    graphSource,
+		}
+		if i%2 == 0 {
+			base.Source = textSource
+			withLists(&base, reads, writes)
+		}
+		arcs[i] = newArc(arc.TypeAutomation, base)
 	}
 	if err := node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return gorp.WrapWriter[arc.Key, arc.Arc](tx).Set(ctx, arcs...)
@@ -248,12 +276,13 @@ func storeBenchArcs(b *testing.B, n int) (*gorp.DB, arc.Arc) {
 	return node.DB, arcs[0]
 }
 
-// BenchmarkOpenTable opens the Arc table over n stored text automations and waits for
-// its indexes and references to fill, as a Core start does.
+// BenchmarkOpenTable opens the Arc table over n stored automations that each use 2m
+// channels, as storeBenchArcs stores them, and waits for its indexes and references to
+// fill, as a Core start does.
 func BenchmarkOpenTable(b *testing.B) {
-	for _, n := range []int{100, 1000} {
-		b.Run(fmt.Sprintf("arcs=%d", n), func(b *testing.B) {
-			db, first := storeBenchArcs(b, n)
+	for _, c := range []struct{ n, m int }{{100, 1}, {1000, 1}, {1000, 10}} {
+		b.Run(fmt.Sprintf("arcs=%d/channels=%d", c.n, 2*c.m), func(b *testing.B) {
+			db, first := storeBenchArcs(b, c.n, c.m)
 			ctx := b.Context()
 			rewrite := func(tx gorp.Tx) error {
 				return gorp.WrapWriter[arc.Key, arc.Arc](tx).Set(ctx, first)

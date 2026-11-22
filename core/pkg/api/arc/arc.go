@@ -344,7 +344,9 @@ func (s *Service) Retrieve(
 
 // Compiled returns a handler that runs retrieve and then, when the request includes
 // programs, compiles each automation that retrieve returns and each calculated channel
-// that the automation reads. Compilation runs after retrieve releases its snapshot.
+// that the automation reads. Compilation runs after retrieve releases its snapshot. A
+// rack's request is its Driver taking the programs to run, so it records each
+// program's channels for the task that the rack holds.
 func (s *Service) Compiled(
 	retrieve freighter.UnaryHandler[RetrieveRequest, RetrieveResponse],
 ) freighter.UnaryHandler[RetrieveRequest, RetrieveResponse] {
@@ -472,28 +474,14 @@ func materialize(a Arc) Arc {
 
 // compile compiles the source of an automation into its program and the calculated
 // channels that the program reads, as resolver.RetryChanged does, and leaves a module
-// as
-// is. Returns an error if parsing, analysis, or compilation fails.
+// as is. A rack's compile records the program's channels for the rack's task. Returns
+// an error if parsing, analysis, or compilation fails.
 func (s *Service) compile(ctx context.Context, a *Arc) error {
 	automation, ok := a.Variant.(arc.AutomationArc)
 	if !ok {
 		return nil
 	}
-	prog, err := resolver.RetryChanged(ctx, func() (arclang.Program, error) {
-		return resolver.CompileConsistent(ctx, s.db, func(
-			snap gorp.Snapshot,
-			lookups *resolver.Lookups,
-		) (arclang.Program, error) {
-			root := s.internal.NewRoot(snap, lookups)
-			switch src := automation.Source.Variant.(type) {
-			case arc.TextSource:
-				return s.compileText(ctx, src.Text, root)
-			case arc.GraphSource:
-				return arclang.CompileGraph(ctx, src.Graph, root)
-			}
-			return arclang.Program{}, nil
-		})
-	})
+	prog, err := s.program(ctx, automation)
 	if err != nil {
 		return err
 	}
@@ -506,11 +494,45 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	automation.Program = &prog
 	automation.Calculations = calculations
 	a.Variant = automation
-	// A rack's fetch is a Driver taking the program to run.
-	if auth.GetSubject(ctx).Type == resource.TypeRack {
-		return s.internal.RecordDeploy(ctx, automation)
-	}
 	return nil
+}
+
+// program compiles the program of automation. A rack's fetch is its Driver taking the
+// program to run, which records the program's channels for the rack's task.
+func (s *Service) program(
+	ctx context.Context,
+	automation arc.AutomationArc,
+) (arclang.Program, error) {
+	subject := auth.GetSubject(ctx)
+	if subject.Type != resource.TypeRack {
+		return resolver.RetryChanged(ctx, func() (arclang.Program, error) {
+			return resolver.CompileConsistent(ctx, s.db, func(
+				snap gorp.Snapshot,
+				lookups *resolver.Lookups,
+			) (arclang.Program, error) {
+				root := s.internal.NewRoot(snap, lookups)
+				switch src := automation.Source.Variant.(type) {
+				case arc.TextSource:
+					return s.compileText(ctx, src.Text, root)
+				case arc.GraphSource:
+					return arclang.CompileGraph(ctx, src.Graph, root)
+				}
+				return arclang.Program{}, nil
+			})
+		})
+	}
+	driver, err := rack.KeyFromResourceID(subject)
+	if err != nil {
+		return arclang.Program{}, err
+	}
+	taken, err := s.internal.CompileRackProgram(ctx, automation.Key, driver)
+	if diag, ok := errors.AsType[*diagnostics.Diagnostics](err); ok {
+		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
+	}
+	if err != nil {
+		return arclang.Program{}, err
+	}
+	return *taken.Program, nil
 }
 
 // compileCalculations compiles the calculated channels that prog reads and the ones

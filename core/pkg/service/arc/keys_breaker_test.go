@@ -298,7 +298,7 @@ var _ = Describe("Compile keys breaker", Ordered, ContinueOnFailure, func() {
 	It("Should keep the lists when a graph node's channel input is not a key", func(
 		ctx SpecContext,
 	) {
-		// D-295: a graph's lists hold the channels of its functions only.
+		// A graph's lists hold the channels of its functions only.
 		b := graphBase("kb_gs", in.Key(), out.Key())
 		src, ok := b.Source.Variant.(arc.GraphSource)
 		Expect(ok).To(BeTrue())
@@ -389,8 +389,8 @@ sequence s { stage a { 2.0 -> kb_seq_out } }
 			))
 		})
 
-	// D-295 build note 5: the Core refuses the lists at a create, so the client's
-	// create drops them, as this spec does.
+	// The Core refuses the lists at a create, so a client's create drops them, as this
+	// spec does.
 	It("Should create an Arc again from its retrieved record after a delete, as the "+
 		"Console's restore does", func(ctx SpecContext) {
 		a := newAutomation(textBase("kb_restore", "kb_in * 2.0 -> kb_out"))

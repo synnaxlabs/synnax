@@ -10,7 +10,10 @@
 package arc
 
 import (
+	"math"
+	"reflect"
 	"slices"
+	"strconv"
 
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
@@ -21,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/zyn"
 )
 
 // channelParams maps the name of each flow function to the channel params that a graph
@@ -60,17 +62,53 @@ func channelInputs(inputs types.Params) types.Params {
 	})
 }
 
-// nodeKeys appends to keys the channel that each node of g sets on a channel param in
-// direction.
+// nodeKeys returns list and the channel that each node of g sets on a channel param in
+// direction, sorted with no repeats, in one allocation.
 func (c channelParams) nodeKeys(
-	keys []channel.Key,
+	list []channel.Key,
 	g graph.Graph,
 	direction types.ChanDirection,
 ) []channel.Key {
+	keys := make([]channel.Key, len(list), len(list)+len(g.Nodes))
+	copy(keys, list)
 	c.eachNodeKey(g, direction, func(_ msgpack.EncodedJSON, _ string, k channel.Key) {
 		keys = append(keys, k)
 	})
-	return keys
+	slices.Sort(keys)
+	return slices.Compact(keys)
+}
+
+// channelKey returns the channel key that v, a graph node's input, holds as a number
+// or as digits. ok is false for a value that is no channel key.
+func channelKey(v any) (k channel.Key, ok bool) {
+	var n uint64
+	switch rv := reflect.ValueOf(v); rv.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if rv.Int() < 0 {
+			return 0, false
+		}
+		n = uint64(rv.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		n = rv.Uint()
+	case reflect.Float32, reflect.Float64:
+		f := rv.Float()
+		if f < 0 || f != math.Trunc(f) || f > math.MaxUint32 {
+			return 0, false
+		}
+		n = uint64(f)
+	case reflect.String:
+		parsed, err := strconv.ParseUint(rv.String(), 10, 32)
+		if err != nil {
+			return 0, false
+		}
+		n = parsed
+	default:
+		return 0, false
+	}
+	if n == 0 || n > math.MaxUint32 {
+		return 0, false
+	}
+	return channel.Key(n), true
 }
 
 // eachNodeKey calls f with the inputs, param name, and channel of each channel param in
@@ -103,9 +141,8 @@ func (c channelParams) eachNodeKey(
 			if !set || p.Type.Kind != types.KindChan || d&direction == 0 {
 				continue
 			}
-			var k uint32
-			if zyn.Uint32().Coerce().Parse(v, &k) == nil && k != 0 {
-				f(inputs, p.Name, channel.Key(k))
+			if k, ok := channelKey(v); ok {
+				f(inputs, p.Name, k)
 			}
 		}
 	}
@@ -136,9 +173,7 @@ func newChannelReference(
 			if !ok {
 				return read(b)
 			}
-			keys := params().nodeKeys(slices.Clone(read(b)), src.Graph, direction)
-			slices.Sort(keys)
-			return slices.Compact(keys)
+			return params().nodeKeys(read(b), src.Graph, direction)
 		},
 		Detach: func(a *Arc, t channel.Key) {
 			b := a.Base()

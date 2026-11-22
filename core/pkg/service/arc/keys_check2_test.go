@@ -71,6 +71,7 @@ var _ = Describe("Compile keys check 2", Ordered, func() {
 	}
 
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		in = newChannel(ctx, "kc2_in")
 		out = newChannel(ctx, "kc2_out")
 	})

@@ -741,8 +741,15 @@ var _ = Describe("Build", func() {
 		Expect(dispatch(ctx, a.Base().Key, "", insert("func f() { return x }"))).
 			To(Succeed())
 		b := MustSucceed(s.Build(ctx, a.Base().Key))
+		// Every Arc resyncs after an edit, so the count holds still before the deploy.
+		var settled int32
+		Eventually(func(g Gomega) {
+			settled = compiles.Load()
+			g.Consistently(compiles.Load, 50*time.Millisecond, 5*time.Millisecond).
+				Should(Equal(settled))
+		}).Should(Succeed())
 		deploy(ctx, s, a, b)
-		Expect(compiles.Load()).To(BeEquivalentTo(1))
+		Expect(compiles.Load()).To(Equal(settled))
 	})
 
 	It("Should hold no lock of the DB while a resync compiles", func(ctx SpecContext) {

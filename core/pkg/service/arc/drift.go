@@ -25,8 +25,8 @@ import (
 
 // RetrieveDrift returns the drift record in snap of each automation in keys whose task
 // has one, by automation. A task has a record from its first write by the Core until it
-// is deleted. While the Driver reports running a task's config, its stored hashes and
-// the automation's lists read as deployed.
+// is deleted. While the Driver reports running a task's config, its stored hashes read
+// as deployed.
 func (s *Service) RetrieveDrift(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -60,15 +60,7 @@ func (s *Service) RetrieveDrift(
 			return nil, err
 		}
 		if deployed {
-			var a Arc
-			if err = s.table.NewRetrieve().
-				Where(gorp.MatchKeys[Key, Arc](key)).
-				Entry(&a).
-				Exec(ctx, snap); err != nil {
-				return nil, err
-			}
 			rec.Deployed = rec.Stored
-			rec.Reads, rec.Writes = a.Base().Reads, a.Base().Writes
 		}
 		records[key] = rec
 	}

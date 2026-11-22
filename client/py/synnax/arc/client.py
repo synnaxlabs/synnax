@@ -170,6 +170,11 @@ class Client:
             to_create = [arc]
         else:
             to_create = [_PAYLOADS[type](name=name, source=_source(mode, text, graph))]
+        # The Core sets reads and writes at each compile and refuses them at a
+        # create, so a retrieved Arc can be created again.
+        to_create = [
+            a.model_copy(update={"reads": [], "writes": []}) for a in to_create
+        ]
 
         res = self._client.send(
             "/arc/create", _CreateRequest(arcs=to_create), _CreateResponse

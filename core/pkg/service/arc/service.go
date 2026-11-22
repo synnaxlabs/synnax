@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -351,84 +352,115 @@ func (s *Service) NewDirectoryRetrieve() directory.Retrieve {
 	return s.directories.NewRetrieve()
 }
 
-// CompileProgram retrieves the automation with key and compiles its program. A module
-// is a validation error. CompileProgram returns resolver.ErrLookupsChanged when writes
-// changed what each of its compiles read, and the caller must try again.
+// CompileProgram compiles the program of the automation with key for the embedded
+// Driver, which takes it to run the automation's task. It stores the program's
+// channels as the automation's lists and as the deployed lists of its task, compiling
+// again when a write changed what the compile read. A module is a validation error,
+// and a source that does not compile returns its diagnostics.
 func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, error) {
-	var entry Arc
-	err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, snap)
+	return resolver.RetryChanged(ctx, func() (AutomationArc, error) {
+		return s.takeProgram(ctx, key, nil)
 	})
+}
+
+// CompileRackProgram is CompileProgram for the Driver of driver, a rack. The deployed
+// lists change only when driver holds the automation's task.
+func (s *Service) CompileRackProgram(
+	ctx context.Context,
+	key Key,
+	driver rack.Key,
+) (AutomationArc, error) {
+	return resolver.RetryChanged(ctx, func() (AutomationArc, error) {
+		return s.takeProgram(ctx, key, &driver)
+	})
+}
+
+// takeProgram compiles the automation with key and, in one transaction that checks
+// the compile's reads, records its program's channels. driver is the rack of the
+// Driver that takes the program, or nil for the embedded Driver; a driver that does not
+// hold the task records nothing.
+func (s *Service) takeProgram(
+	ctx context.Context,
+	key Key,
+	driver *rack.Key,
+) (AutomationArc, error) {
+	b, err := s.Build(ctx, key)
 	if err != nil {
 		return AutomationArc{}, err
 	}
-	automation, ok := entry.Variant.(AutomationArc)
+	automation, ok := b.entry.Variant.(AutomationArc)
 	if !ok {
 		return AutomationArc{}, errors.Wrapf(
 			validate.ErrValidation,
 			"modules cannot be deployed independently. Import %q from an "+
 				"automation instead",
-			entry.Base().Name,
+			b.entry.Base().Name,
 		)
 	}
-	prog, err := resolver.CompileConsistent(ctx, s.cfg.DB, func(
-		snap gorp.Snapshot,
-		lookups *resolver.Lookups,
-	) (arc.Program, error) {
-		return s.cfg.Compile(ctx, automation, s.NewRoot(snap, lookups))
-	})
-	if err != nil {
-		return AutomationArc{}, err
+	if b.err != nil {
+		return AutomationArc{}, b.err
 	}
-	automation.Program = &prog
-	if err = s.RecordDeploy(ctx, automation); err != nil {
+	automation.Program = &b.program
+	if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		same, err := b.lookups.Unchanged(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if !same {
+			return resolver.ErrLookupsChanged
+		}
+		return s.recordDeploy(ctx, tx, b, driver)
+	}); err != nil {
 		return AutomationArc{}, err
 	}
 	return automation, nil
 }
 
-// RecordDeploy stores the channels of automation's program, which a Driver now takes
-// to run, as the lists of the automation and the deployed lists of its task's drift
-// record. Equal lists write nothing.
-func (s *Service) RecordDeploy(ctx context.Context, automation AutomationArc) error {
-	_, graph := automation.Source.Variant.(GraphSource)
-	b := Build{}
-	b.reads, b.writes = channelKeys(automation.Program.IR, graph)
-	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		var a Arc
-		if err := s.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Arc](automation.Key)).
-			Entry(&a).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		if err := s.NewWriter(tx).syncKeys(ctx, a.Base(), b); err != nil {
-			return err
-		}
-		tasks, err := retrieveTaskKeys(
-			ctx,
-			s.cfg.Task,
-			tx,
-			s.cfg.MatchTasks(automation.Key),
-		)
-		if err != nil || len(tasks) == 0 {
-			return err
-		}
-		var rec drift.Record
-		err = s.drifts.NewRetrieve().
-			Where(gorp.MatchKeys[drift.Key, drift.Record](tasks[0])).
-			Entry(&rec).
-			Exec(ctx, tx)
-		if errors.Is(err, query.ErrNotFound) {
-			return nil
-		}
-		if err != nil ||
-			slices.Equal(rec.Reads, b.reads) && slices.Equal(rec.Writes, b.writes) {
-			return err
-		}
-		rec.Reads, rec.Writes = b.reads, b.writes
-		return s.drifts.NewCreate().Entry(&rec).Exec(ctx, tx)
-	})
+// recordDeploy stores the channels of b, a build that a Driver takes to run, as the
+// lists of its automation and the deployed lists of the automation's task. The
+// deployed lists hold a graph's node channels too, since the drift record holds no
+// node configs. A driver that does not hold the task records nothing, and equal lists
+// write nothing.
+func (s *Service) recordDeploy(
+	ctx context.Context,
+	tx gorp.Tx,
+	b Build,
+	driver *rack.Key,
+) error {
+	key := b.entry.Base().Key
+	var tasks []task.Task
+	if err := s.cfg.Task.NewRetrieve().
+		Where(s.cfg.MatchTasks(key)).
+		Entries(&tasks).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	if driver != nil && (len(tasks) == 0 || tasks[0].Rack != *driver) {
+		return nil
+	}
+	var a Arc
+	if err := s.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Arc](key)).
+		Entry(&a).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	if err := s.NewWriter(tx).syncKeys(ctx, a.Base(), b); err != nil {
+		return err
+	}
+	if len(tasks) == 0 {
+		return nil
+	}
+	rec, err := s.NewWriter(tx).record(ctx, tasks[0].Key)
+	if err != nil {
+		return err
+	}
+	reads, writes := channelKeys(b.program.IR, false)
+	if slices.Equal(rec.Reads, reads) && slices.Equal(rec.Writes, writes) {
+		return nil
+	}
+	rec.Reads, rec.Writes = reads, writes
+	return s.drifts.NewCreate().Entry(&rec).Exec(ctx, tx)
 }
 
 // DanglingMigration returns the migration identified by key that clears, from each
@@ -447,6 +479,8 @@ type Build struct {
 	err error
 	// reads and writes hold the channels that a compile that passed found, sorted.
 	reads, writes []channel.Key
+	// entry is the Arc that the build compiled.
+	entry Arc
 	// lookups holds each read that the compile made, the read of the Arc included.
 	lookups *resolver.Lookups
 }
@@ -483,7 +517,7 @@ func (s *Service) buildIn(
 		}
 		return again == hash, err
 	})
-	b := Build{lookups: lookups}
+	b := Build{lookups: lookups, entry: a}
 	root := s.NewRoot(snap, lookups)
 	switch v := a.Variant.(type) {
 	case AutomationArc:

@@ -37,6 +37,10 @@ describe("Arc.TABS restore", () => {
     await waitFor(() =>
       expect(query.Deleted.matches(client.arcs.watch(a.key).getCached())).toBe(true),
     );
+    // The restore creates the Arc from this record, which holds the lists the Core set.
+    const corpse = query.requireCorpse(client.arcs.watch(a.key).getCached());
+    expect(corpse.reads).toEqual([input.key]);
+    expect(corpse.writes).toEqual([output.key]);
     const proj = await client.projects.create({ name: uniqueName("restore") });
     await restore({ client, project: proj.key, resource: arc.resourceID(a.key) });
     const restored = await createTestClient().arcs.retrieve(a.key);
