@@ -28,9 +28,9 @@ place until then.
 - **Message**: One payload layout in an ICD: binary, text, or JSON, with its fields.
 - **Field**: One value in a message, with its location, kind (`payload.Kind`), enum
   values, default, scale, offset, and units.
-- **Binding**: A task's link from one field to one channel, with the data type of a new
-  channel. A write binding is a channel binding or a value binding. A value binding
-  holds a fixed value instead of a channel.
+- **Binding**: A task's link from one field to the source of its value. A read binding,
+  or a write channel binding, names a channel and the data type of a new channel. A
+  write value binding holds a fixed value instead.
 - **Codec**: The code that turns payload bytes into field values and back.
 
 ## 2 Principles
@@ -82,25 +82,25 @@ This RFC changes the ICD in these ways:
 ### 3.1 Tasks
 
 A task entry names one ICD and lists messages. Each message lists bindings (`field`,
-`channel`, and `data_type`) and an optional index field. A write binding is a union: a
-channel binding holds these keys, and a value binding holds `field` and `value`. An
-unbound field is not read. The ICD key sits on each entry, because one entry is one
-publishing device. The task holds all timing, because the rig chooses it: the poll rate
-of a queried message, and the `period` of a message a bus write task sends on a cycle.
-The form fills `period` from the message's `cycle_time` when a write task first binds
-it. An MQTT write target has no period: it publishes one message for each command on any
-bound channel, with the last value of each other bound channel. Commands that arrive in
-one frame share one message. A polled serial, TCP, or UDP entry holds its `query`, the
-request the device must receive before it answers, as an HTTP endpoint holds its
-request.
+`channel`, and `data_type`) and an optional index field. A write binding is a union on
+`type`: the `channel` variant holds these keys, and the `value` variant holds `field`
+and `value`. An unbound field is not read. The ICD key sits on each entry, because one
+entry is one publishing device. The task holds all timing, because the rig chooses it:
+the poll rate of a queried message, and the `period` of a message a bus write task sends
+on a cycle. The form fills `period` from the message's `cycle_time` when a write task
+first binds it. An MQTT write target has no period: it publishes one message for each
+command on any bound channel, with the last value of each other bound channel. Commands
+that arrive in one frame share one message. A polled serial, TCP, or UDP entry holds its
+`query`, the request the device must receive before it answers, as an HTTP endpoint
+holds its request.
 
 A write task binds each field to a channel or to a fixed `value` that the task picks,
 such as a unit ID. Two tasks on one ICD can then send different values. A field with no
 binding takes its ICD `default` (a constant or a generator). The Core refuses to save a
-write task that leaves a field with no binding and no default, or a value that does not
-fit its field's kind or enum values. When a write task is configured, the form creates a
-command channel for each channel binding with no channel, from its `data_type`, as read
-forms do.
+write task that leaves a field with no binding and no default, that binds one field more
+than once in a message, or that holds a value that does not fit its field's kind or enum
+values. When a write task is configured, the form creates a command channel for each
+channel binding with no channel, from its `data_type`, as read forms do.
 
 An ICD edit can break a saved write task: a field with no binding and no default, a
 value that no longer fits its field, a binding to a deleted field, or a target whose
@@ -274,13 +274,14 @@ real adapter (§6.16).
     values and generators that RFC 0103 put on typed write fields. A value that one site
     picks goes on the write binding instead (2026-11-22). A channel for each site's
     constant was rejected: the operator would have to command it each time the task
-    starts. The write binding is a union of a channel binding and a value binding, as
-    `Binding` is in RFC 0103 §1 (2026-11-22). An optional `value` with a save rule that
-    refuses it next to a channel was rejected: a new client forgets a rule, but cannot
-    forget a shape. #5346, #5363, and #5366 close, and their work moves to Phases 19 to
-    21 and 25 to 27 (2026-11-18). 0.62.0 shipped with MQTT v2 and ICD v0 only
-    (2026-11-19), so MQTT writes move in v3 with a migration, and Kafka v1 and HTTP v5
-    take writes before 0.63.0 freezes them.
+    starts. The write binding is a union of a channel binding and a value binding
+    (2026-11-22), as RFC 0103 §1 splits `Binding` by what each case holds. Its channel
+    variant keeps `channel` and `data_type` together, as the read binding does. An
+    optional `value` with a save rule that refuses it next to a channel was rejected: a
+    new client forgets a rule, but cannot forget a shape. #5346, #5363, and #5366 close,
+    and their work moves to Phases 19 to 21 and 25 to 27 (2026-11-18). 0.62.0 shipped
+    with MQTT v2 and ICD v0 only (2026-11-19), so MQTT writes move in v3 with a
+    migration, and Kafka v1 and HTTP v5 take writes before 0.63.0 freezes them.
 16. **A CAN backend ships visible only after real hardware**: Its read and write tasks
     must pass on a real adapter. A backend with no adapter stays hidden (2026-11-18).
 17. **A query lives on the task, a cycle time on the ICD**: Principle 1 sorts each
