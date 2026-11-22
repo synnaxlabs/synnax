@@ -20,6 +20,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -34,6 +35,9 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
+	// Status stores the status of each server.
+	// [REQUIRED]
+	Status *status.Service
 	// Signals publishes server changes.
 	//
 	// [OPTIONAL]
@@ -46,6 +50,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
@@ -55,6 +60,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("modbus.service")
 	v.NotNil("db", c.DB)
+	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
@@ -85,6 +91,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Servers, err = server.OpenService(ctx, server.ServiceConfig{
 		DB:              cfg.DB,
+		Status:          cfg.Status,
 		Signals:         cfg.Signals,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.Servers) {

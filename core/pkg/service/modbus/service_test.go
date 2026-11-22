@@ -65,7 +65,8 @@ var _ = Describe("Service", func() {
 			Status:  statusSvc,
 		}))
 		svc = MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{
-			DB: db,
+			DB:     db,
+			Status: statusSvc,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
@@ -75,10 +76,14 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("OpenService", func() {
-		It("Should reject a config missing the DB", func(ctx SpecContext) {
-			Expect(modbus.OpenService(ctx, modbus.ServiceConfig{})).Error().
-				To(MatchError(ContainSubstring("db: must be non-nil")))
-		})
+		DescribeTable("Should reject a config missing a required field",
+			func(ctx SpecContext, field string) {
+				Expect(modbus.OpenService(ctx, modbus.ServiceConfig{})).Error().
+					To(MatchError(ContainSubstring(field + ": must be non-nil")))
+			},
+			Entry("db", "db"),
+			Entry("status", "status"),
+		)
 	})
 
 	Describe("Stores", func() {
@@ -364,9 +369,10 @@ var _ = Describe("Service", func() {
 			old.SetKey(key)
 			Expect(gorp.NewCreate[uuid.UUID, v1.ReadConfig]().
 				Entry(&old).Exec(ctx, stored)).To(Succeed())
-			migrated := MustOpen(modbus.OpenService(
-				ctx, modbus.ServiceConfig{DB: stored},
-			))
+			migrated := MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{
+				DB:     stored,
+				Status: MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: stored})),
+			}))
 			data := MustSucceed(migrated.Read.Read(ctx, stored, key))
 			chs, ok := data["channels"].([]any)
 			Expect(ok).To(BeTrue())
@@ -483,7 +489,10 @@ var _ = Describe("Service", func() {
 				Expect(gorp.NewCreate[uuid.UUID, modbus.WriteConfig]().
 					Entry(&write).Exec(ctx, stored.DB)).To(Succeed())
 				opened := MustOpen(
-					modbus.OpenService(ctx, modbus.ServiceConfig{DB: stored.DB}),
+					modbus.OpenService(ctx, modbus.ServiceConfig{
+						DB:     stored.DB,
+						Status: statusSvc,
+					}),
 				)
 				data := MustSucceed(opened.Read.Read(ctx, stored.DB, key))
 				Expect(data).To(HaveKeyWithValue("device", ""))

@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/modbus/server"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -42,6 +43,9 @@ var (
 	svc    *service.Layer
 	apiSvc *apiserver.Service
 	// These handlers run their routes as the API layer binds them.
+	create   freighter.UnaryHandler[apiserver.CreateRequest, apiserver.CreateResponse]
+	update   freighter.UnaryHandler[apiserver.UpdateRequest, struct{}]
+	del      freighter.UnaryHandler[apiserver.DeleteRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apiserver.RetrieveRequest,
 		apiserver.RetrieveResponse,
@@ -62,6 +66,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: svc.RBAC,
 		Held: apiauth.HeldTables(),
 	}))
+	create = bind.Write(binder, apiSvc.Create)
+	update = bind.Write(binder, apiSvc.Update)
+	del = bind.Write(binder, apiSvc.Delete)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 
@@ -84,4 +91,15 @@ func grant(
 	MustSucceed(
 		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, u.Key, actions, objects...),
 	)
+}
+
+// tcp returns a TCP connection to host on the Modbus port.
+func tcp(host string) server.Connection {
+	return server.Connection{Variant: server.TcpConnection{
+		TimeoutMs: 1000,
+		Retries:   1,
+		Host:      host,
+		Port:      502,
+		UnitID:    255,
+	}}
 }

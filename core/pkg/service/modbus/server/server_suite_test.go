@@ -46,3 +46,25 @@ func tcp(host string) server.Connection {
 		UnitID:  255,
 	}}
 }
+
+// rtu returns an RTU connection to a unit on /dev/ttyUSB0 at the baud rate.
+func rtu(baud uint32) server.Connection {
+	return server.Connection{Variant: server.RtuConnection{
+		TimeoutMs:  1000,
+		Retries:    1,
+		SerialPort: "/dev/ttyUSB0",
+		BaudRate:   baud,
+		Parity:     server.ParityEven,
+		StopBits:   1,
+		UnitID:     1,
+	}}
+}
+
+// requests returns the schema defaults of the requests of a server.
+func requests() server.Requests {
+	return server.Requests{
+		MaxRegisters: 125,
+		MaxGap:       125,
+		WriteCodes:   server.WriteCodesMultiple,
+	}
+}

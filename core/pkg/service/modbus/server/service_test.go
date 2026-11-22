@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/server"
@@ -32,6 +33,7 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
+		stat    *status.Service
 		rackSvc *rack.Service
 		svc     *server.Service
 		tx      gorp.Tx
@@ -39,7 +41,7 @@ var _ = Describe("Service", func() {
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
-		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
@@ -47,86 +49,270 @@ var _ = Describe("Service", func() {
 			Status:     stat,
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
-		svc = MustOpen(server.OpenService(ctx, server.ServiceConfig{DB: db}))
+		svc = MustOpen(server.OpenService(ctx, server.ServiceConfig{
+			DB:     db,
+			Status: stat,
+		}))
 		tx = DeferClose(db.OpenTx())
 	})
 
-	create := func(ctx context.Context, name string) server.Server {
-		GinkgoHelper()
-		s := server.Server{
-			Key:        uuid.New(),
+	newServer := func() server.Server {
+		return server.Server{
 			Rack:       rackSvc.EmbeddedKey,
-			Name:       name,
-			Connection: tcp("plc"),
+			Name:       "Boiler PLC",
+			Connection: tcp("boiler"),
+			Requests:   requests(),
 		}
-		Expect(gorp.NewCreate[server.Key, server.Server]().
+	}
+	create := func(ctx context.Context) server.Server {
+		GinkgoHelper()
+		s := newServer()
+		Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+		return s
+	}
+	retrieve := func(ctx context.Context, key server.Key) server.Server {
+		GinkgoHelper()
+		var s server.Server
+		Expect(svc.NewRetrieve().
+			Where(server.MatchKeys(key)).
 			Entry(&s).
 			Exec(ctx, tx)).To(Succeed())
 		return s
 	}
+	retrieveStatus := func(ctx context.Context, key server.Key) server.Status {
+		GinkgoHelper()
+		var s server.Status
+		Expect(stat.NewRetrieve[server.StatusDetails]().
+			Where(status.MatchOwners[server.StatusDetails](server.ResourceID(key))).
+			Entry(&s).
+			Exec(ctx, tx)).To(Succeed())
+		return s
+	}
+	identity := func(s server.Server) server.Identity {
+		return server.Identity{
+			Rack:       s.Rack,
+			Name:       s.Name,
+			Connection: s.Connection,
+			Requests:   s.Requests,
+		}
+	}
 
 	Describe("OpenService", func() {
-		It("Should reject a config without a database", func(ctx SpecContext) {
-			Expect(server.OpenService(ctx, server.ServiceConfig{})).Error().
-				To(MatchError(ContainSubstring("db: must be non-nil")))
-		})
+		DescribeTable("Should reject a config missing a required field",
+			func(ctx SpecContext, field string, unset func(*server.ServiceConfig)) {
+				cfg := server.ServiceConfig{DB: db, Status: stat}
+				unset(&cfg)
+				Expect(server.OpenService(ctx, cfg)).Error().
+					To(MatchError(ContainSubstring(field + ": must be non-nil")))
+			},
+			Entry("db", "db", func(c *server.ServiceConfig) { c.DB = nil }),
+			Entry("status", "status", func(c *server.ServiceConfig) { c.Status = nil }),
+		)
 
 		It("Should let a later config override an earlier one", func() {
-			cfg := server.ServiceConfig{}.Override(server.ServiceConfig{DB: db})
+			cfg := server.ServiceConfig{DB: db}.Override(server.ServiceConfig{
+				Status: stat,
+			})
 			Expect(cfg.DB).To(BeIdenticalTo(db))
+			Expect(cfg.Status).To(BeIdenticalTo(stat))
 			Expect(cfg.Validate()).To(Succeed())
 		})
 	})
 
-	Describe("NewRetrieve", func() {
-		It("Should retrieve a stored server by its key", func(ctx SpecContext) {
-			s := create(ctx, "Boiler PLC")
-			var res server.Server
-			Expect(svc.NewRetrieve().
-				Where(server.MatchKeys(s.Key)).
-				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(Equal(s))
+	Describe("Create", func() {
+		It("Should mint a key, store the server, and write an unknown status", func(
+			ctx SpecContext,
+		) {
+			s := create(ctx)
+			Expect(s.Key).ToNot(Equal(uuid.Nil()))
+			Expect(retrieve(ctx, s.Key)).To(Equal(s))
+			st := retrieveStatus(ctx, s.Key)
+			Expect(st.Variant).To(Equal(status.VariantWarning))
+			Expect(st.Message).To(Equal("Status unknown"))
+			Expect(st.Name).To(Equal(s.Name))
+			Expect(st.Details.Server).To(Equal(s.Key))
+			Expect(st.Details.Rack).To(Equal(s.Rack))
 		})
 
-		It("Should return not found for a missing key", func(ctx SpecContext) {
-			var res server.Server
+		It("Should keep a caller-set key", func(ctx SpecContext) {
+			s := newServer()
+			s.Key = uuid.New()
+			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+			Expect(retrieve(ctx, s.Key).Key).To(Equal(s.Key))
+		})
+
+		It("Should give an existing status the name and rack of a replaced server",
+			func(ctx SpecContext) {
+				s := create(ctx)
+				other := rack.Rack{Name: "Other"}
+				Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+				s.Name = "Pump PLC"
+				s.Rack = other.Key
+				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+				st := retrieveStatus(ctx, s.Key)
+				Expect(st.Name).To(Equal("Pump PLC"))
+				Expect(st.Details.Rack).To(Equal(other.Key))
+			},
+		)
+
+		DescribeTable("Should reject an invalid server",
+			func(ctx SpecContext, change func(*server.Server)) {
+				s := newServer()
+				change(&s)
+				Expect(svc.NewWriter(tx).Create(ctx, &s)).
+					To(MatchError(validate.ErrValidation))
+			},
+			Entry("no name", func(s *server.Server) { s.Name = "" }),
+			Entry("no transport", func(s *server.Server) {
+				s.Connection = server.Connection{}
+			}),
+			Entry("a baud rate the Driver cannot set", func(s *server.Server) {
+				s.Connection = rtu(14400)
+			}),
+			Entry("a missing rack", func(s *server.Server) { s.Rack = 999 }),
+		)
+	})
+
+	Describe("Apply", func() {
+		It("Should write the identity group and keep the channel maps", func(
+			ctx SpecContext,
+		) {
+			s := newServer()
+			s.ReadIndex = 4
+			s.ReadChannels = map[string]channel.Key{"holding-register-5-float32": 5}
+			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+			update := identity(s)
+			update.Name = "Renamed"
+			update.Connection = rtu(9600)
+			update.Requests.DelayMs = 10
+			Expect(svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
+				Variant: server.IdentityUpdate{Identity: update},
+			})).To(Succeed())
+			got := retrieve(ctx, s.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Connection).To(Equal(rtu(9600)))
+			Expect(got.Requests.DelayMs).To(BeEquivalentTo(10))
+			Expect(got.ReadIndex).To(Equal(s.ReadIndex))
+			Expect(got.ReadChannels).To(Equal(s.ReadChannels))
+			Expect(retrieveStatus(ctx, s.Key).Name).To(Equal("Renamed"))
+		})
+
+		It("Should write the configuration group and keep the connection", func(
+			ctx SpecContext,
+		) {
+			s := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
+				Variant: server.ConfigurationUpdate{Configuration: server.Configuration{
+					ReadIndex:     1,
+					ReadChannels:  map[string]channel.Key{"coil-1": 2},
+					WriteChannels: map[string]channel.Key{"coil-2": 3},
+				}},
+			})).To(Succeed())
+			got := retrieve(ctx, s.Key)
+			Expect(got.Name).To(Equal(s.Name))
+			Expect(got.Connection).To(Equal(s.Connection))
+			Expect(got.Requests).To(Equal(s.Requests))
+			Expect(got.ReadIndex).To(Equal(channel.Key(1)))
+			Expect(got.WriteChannels).To(HaveKeyWithValue("coil-2", channel.Key(3)))
+		})
+
+		It("Should move the status with the rack", func(ctx SpecContext) {
+			s := create(ctx)
+			other := rack.Rack{Name: "Other"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			update := identity(s)
+			update.Rack = other.Key
+			Expect(svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
+				Variant: server.IdentityUpdate{Identity: update},
+			})).To(Succeed())
+			Expect(retrieveStatus(ctx, s.Key).Details.Rack).To(Equal(other.Key))
+		})
+
+		It("Should write an unknown status when the status is missing", func(
+			ctx SpecContext,
+		) {
+			s := create(ctx)
+			Expect(stat.NewWriter(tx).Delete(ctx, retrieveStatus(ctx, s.Key).Key)).
+				To(Succeed())
+			update := identity(s)
+			update.Name = "Renamed"
+			Expect(svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
+				Variant: server.IdentityUpdate{Identity: update},
+			})).To(Succeed())
+			st := retrieveStatus(ctx, s.Key)
+			Expect(st.Message).To(Equal("Status unknown"))
+			Expect(st.Name).To(Equal("Renamed"))
+		})
+
+		DescribeTable("Should reject an invalid update",
+			func(ctx SpecContext, update func(server.Server) server.Update) {
+				s := create(ctx)
+				Expect(svc.NewWriter(tx).Apply(ctx, s.Key, update(s))).
+					To(MatchError(validate.ErrValidation))
+				Expect(retrieve(ctx, s.Key)).To(Equal(s))
+			},
+			Entry("no group", func(server.Server) server.Update {
+				return server.Update{}
+			}),
+			Entry("an identity without a name", func(s server.Server) server.Update {
+				i := identity(s)
+				i.Name = ""
+				return server.Update{Variant: server.IdentityUpdate{Identity: i}}
+			}),
+			Entry("a baud rate the Driver cannot set", func(s server.Server) server.Update {
+				i := identity(s)
+				i.Connection = rtu(14400)
+				return server.Update{Variant: server.IdentityUpdate{Identity: i}}
+			}),
+		)
+
+		It("Should return not found for a missing server", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Apply(ctx, uuid.New(), server.Update{
+				Variant: server.ConfigurationUpdate{},
+			})).To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("Should remove the server and its status", func(ctx SpecContext) {
+			s := create(ctx)
+			Expect(svc.NewWriter(tx).Delete(ctx, s.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().
-				Where(server.MatchKeys(uuid.New())).
-				Entry(&res).
+				Where(server.MatchKeys(s.Key)).
+				Exists(ctx, tx)).To(BeFalse())
+			var st server.Status
+			Expect(stat.NewRetrieve[server.StatusDetails]().
+				Where(status.MatchOwners[server.StatusDetails](server.ResourceID(s.Key))).
+				Entry(&st).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should be idempotent", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Delete(ctx, uuid.New())).To(Succeed())
 		})
 	})
 
 	It("Should refuse to delete a rack that holds a server", func(ctx SpecContext) {
 		other := rack.Rack{Name: "Other"}
 		Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-		s := server.Server{
-			Key:        uuid.New(),
-			Rack:       other.Key,
-			Name:       "Gateway",
-			Connection: tcp("gateway"),
-		}
-		Expect(gorp.NewCreate[server.Key, server.Server]().
-			Entry(&s).
-			Exec(ctx, tx)).To(Succeed())
+		s := newServer()
+		s.Rack = other.Key
+		Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		Expect(rackSvc.NewWriter(tx).Delete(ctx, nil, other.Key)).To(MatchError(
 			ContainSubstring("because modbus_server %s references it", s.Key),
 		))
-		Expect(svc.NewRetrieve().
-			Where(server.MatchKeys(s.Key)).
-			Exists(ctx, tx)).To(BeTrue())
+		Expect(retrieve(ctx, s.Key).Rack).To(Equal(other.Key))
 	})
 
 	Describe("Resources", func() {
 		It("Should name a server by its resource ID", func(ctx SpecContext) {
-			s := create(ctx, "Boiler PLC")
+			s := create(ctx)
 			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{s.ResourceID()})).
 				To(Equal([]resource.Resource{{ID: s.ResourceID(), Name: s.Name}}))
 		})
 
 		It("Should find a server by its name", func(ctx SpecContext) {
-			s := create(ctx, "Boiler PLC")
+			s := create(ctx)
 			res := MustSucceed(svc.Resources().Search(
 				ctx,
 				tx,
