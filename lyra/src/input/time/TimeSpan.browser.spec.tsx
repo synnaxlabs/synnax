@@ -9,13 +9,13 @@
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
 import { Input } from "@/input";
-import { loadLanguage } from "@/input/time/suggest";
 import { renderThemed } from "@/styletest";
+import { preloadTimeLanguage } from "@/testutil";
 import { Triggers } from "@/triggers";
 
 const HINT = "Try 2h 30min, 1:30:00, 90, or an hour and a half";
@@ -59,7 +59,7 @@ describe("Input.TimeSpan", () => {
     return screen.getByRole<HTMLInputElement>("textbox");
   };
 
-  beforeAll(loadLanguage);
+  preloadTimeLanguage();
 
   it("should not commit an unedited value finer than a microsecond", () => {
     const onChange = vi.fn();

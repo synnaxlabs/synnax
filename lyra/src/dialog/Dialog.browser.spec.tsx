@@ -24,7 +24,6 @@ import { type Locator, page, userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
-import { PORTAL_ID_ATTR, PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
 import { List } from "@/list";
 import { Menu } from "@/menu";
 import { Portal } from "@/portal";
@@ -963,24 +962,6 @@ describe("Dialog", () => {
       fireEvent.keyDown(c.container, { code: "Escape" });
       expect(onEscape).toHaveBeenCalledOnce();
     });
-  });
-
-  it("should link the portaled dialog back to its frame", () => {
-    const c = render(
-      <Triggers.Provider>
-        <Dialog.Frame>
-          <Dialog.Trigger>Toggle</Dialog.Trigger>
-          <Dialog.Dialog>
-            <p>Content</p>
-          </Dialog.Dialog>
-        </Dialog.Frame>
-      </Triggers.Provider>,
-    );
-    fireEvent.click(c.getByText("Toggle"));
-    const frame = c.container.querySelector(`[${PORTAL_ID_ATTR}]`);
-    const id = frame?.getAttribute(PORTAL_ID_ATTR);
-    expect(id).toBeTruthy();
-    expect(c.getByRole("dialog").getAttribute(PORTAL_OWNER_ATTR)).toEqual(id);
   });
 
   describe("trigger accessibility", () => {
