@@ -83,7 +83,7 @@ var _ = Describe("storage", func() {
 				InMemory: new(true),
 			}))
 			StartRun(l.Gorp.Run)
-			Expect(l.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
+			Expect(l.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
 		})
 
 		It("Should stop the Gorp DB when the time-series engine fails", func(
