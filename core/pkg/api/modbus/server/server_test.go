@@ -334,7 +334,9 @@ var _ = Describe("Service", func() {
 			Expect(create(
 				testutil.AuthedCtx(ctx, u),
 				apiserver.CreateRequest{Servers: []server.Server{
-					newServer(func(s *server.Server) { s.Connection = server.Connection{} }),
+					newServer(
+						func(s *server.Server) { s.Connection = server.Connection{} },
+					),
 				}},
 			)).Error().To(MatchError(validate.ErrValidation))
 		})
@@ -400,10 +402,17 @@ var _ = Describe("Service", func() {
 				})).To(Succeed())
 			})
 			s := createServer(ctx)
-			move := rename(s)
-			identity := move.Update.Variant.(server.IdentityUpdate)
-			identity.Rack = other.Key
-			move.Update.Variant = identity
+			move := apiserver.UpdateRequest{
+				Key: s.Key,
+				Update: server.Update{Variant: server.IdentityUpdate{
+					Identity: server.Identity{
+						Rack:       other.Key,
+						Name:       s.Name,
+						Connection: s.Connection,
+						Requests:   s.Requests,
+					},
+				}},
+			}
 			grantWrites(ctx, s.Rack)
 			Expect(update(testutil.AuthedCtx(ctx, u), move)).
 				Error().To(MatchError(access.ErrDenied))

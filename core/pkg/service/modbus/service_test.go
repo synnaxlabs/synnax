@@ -370,8 +370,10 @@ var _ = Describe("Service", func() {
 			Expect(gorp.NewCreate[uuid.UUID, v1.ReadConfig]().
 				Entry(&old).Exec(ctx, stored)).To(Succeed())
 			migrated := MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{
-				DB:     stored,
-				Status: MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: stored})),
+				DB: stored,
+				Status: MustOpen(
+					status.OpenService(ctx, status.ServiceConfig{DB: stored}),
+				),
 			}))
 			data := MustSucceed(migrated.Read.Read(ctx, stored, key))
 			chs, ok := data["channels"].([]any)

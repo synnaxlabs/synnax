@@ -244,7 +244,8 @@ var _ = Describe("Service", func() {
 			Expect(st.Name).To(Equal("Renamed"))
 		})
 
-		DescribeTable("Should reject an invalid update",
+		DescribeTable(
+			"Should reject an invalid update",
 			func(ctx SpecContext, update func(server.Server) server.Update) {
 				s := create(ctx)
 				Expect(svc.NewWriter(tx).Apply(ctx, s.Key, update(s))).
@@ -259,11 +260,14 @@ var _ = Describe("Service", func() {
 				i.Name = ""
 				return server.Update{Variant: server.IdentityUpdate{Identity: i}}
 			}),
-			Entry("a baud rate the Driver cannot set", func(s server.Server) server.Update {
-				i := identity(s)
-				i.Connection = rtu(14400)
-				return server.Update{Variant: server.IdentityUpdate{Identity: i}}
-			}),
+			Entry(
+				"a baud rate the Driver cannot set",
+				func(s server.Server) server.Update {
+					i := identity(s)
+					i.Connection = rtu(14400)
+					return server.Update{Variant: server.IdentityUpdate{Identity: i}}
+				},
+			),
 		)
 
 		It("Should return not found for a missing server", func(ctx SpecContext) {
