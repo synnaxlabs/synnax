@@ -104,7 +104,8 @@ You deliver the work yourself, as your GitHub App.
 5. Comment on the pull request with `gh pr comment`. Start the comment with the line
    `<!-- agent:outside-diff -->`, since it answers the findings outside the diff: name
    each one with its fix or the reason you left it. When one is wrong, give the evidence
-   and mention `@sedosaur`, so the next review weighs it. Keep it short: what you
+   and mention `@sedosaur`. The review of your push may have read the comments already,
+   so ask a person in the comment to run a `repeat=true` review. Keep it short: what you
    merged, fixed, and answered, and the decisions a person must make.
 
 Your last message is the run report. Keep it to a few lines.
