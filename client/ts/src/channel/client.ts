@@ -326,7 +326,7 @@ export class Client extends query.Retriever<
   private readonly usesStore: query.Table<Key, Uses>;
   private readonly usesChanges: { count: number };
   private readonly refetchUses: () => void;
-  /** The keys of the built-in channels, fetched once per connection to the Core. */
+  /** The keys of the built-in channels, fetched on the first awaited read. */
   readonly builtIns: BuiltIns;
 
   constructor(cfg: ClientConfig) {
@@ -436,7 +436,7 @@ export class Client extends query.Retriever<
       onEpoch: (callback) => cache.onEpoch(callback),
       onError: (error) => cache.onError(error),
     });
-    const lines = createLines(() => builtIns.get());
+    const lines = createLines(() => builtIns.state().keys);
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
       table: composed,

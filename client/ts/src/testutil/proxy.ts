@@ -10,6 +10,7 @@
 import { connect, createServer, type Socket } from "node:net";
 
 import { type breaker, TimeSpan } from "@synnaxlabs/x";
+import { onTestFinished } from "vitest";
 
 import { TEST_CORE_ADDRESS } from "@/testutil/address";
 
@@ -155,5 +156,73 @@ export const createSeverableProxy = async (
       await listen(boundPort);
     },
     close: sever,
+  };
+};
+
+export interface CuttingProxy {
+  /** Port the proxy accepts connections on. Point the client here. */
+  port: number;
+  /**
+   * Cuts the next response to a request for target after its headers, as a link that
+   * drops mid-response does. Every other request and the change stream pass through.
+   */
+  cutNext: (target: string) => void;
+  /** Returns how many responses the proxy cut. */
+  cuts: () => number;
+}
+
+/**
+ * Creates a TCP proxy in front of the live test cluster that cuts one response on
+ * request. Call it inside a test: the proxy closes when that test finishes.
+ */
+export const createCuttingProxy = async (): Promise<CuttingProxy> => {
+  const { host, port } = TEST_CORE_ADDRESS;
+  const sockets = new Set<Socket>();
+  let route: string | null = null;
+  let cuts = 0;
+  const server = createServer((downstream) => {
+    const upstream = connect(port, host);
+    sockets.add(downstream);
+    sockets.add(upstream);
+    let cutting = false;
+    downstream.on("data", (chunk: Buffer) => {
+      if (route != null && chunk.toString("latin1").includes(route)) {
+        route = null;
+        cutting = true;
+      }
+      upstream.write(chunk);
+    });
+    upstream.on("data", (chunk: Buffer) => {
+      if (!cutting) return void downstream.write(chunk);
+      const end = chunk.indexOf("\r\n\r\n");
+      downstream.write(chunk.subarray(0, end + 4), () => {
+        cuts++;
+        downstream.destroy();
+        upstream.destroy();
+      });
+    });
+    const destroy = (): void => {
+      downstream.destroy();
+      upstream.destroy();
+    };
+    for (const socket of [downstream, upstream]) {
+      socket.on("error", destroy);
+      socket.on("close", destroy);
+    }
+  });
+  await new Promise<void>((resolve) => server.listen(0, resolve));
+  const address = server.address();
+  if (address == null || typeof address === "string")
+    throw new Error("proxy failed to bind a port");
+  onTestFinished(async () => {
+    sockets.forEach((socket) => socket.destroy());
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+  return {
+    port: address.port,
+    cutNext: (target) => {
+      route = `POST /api/v1${target}`;
+    },
+    cuts: () => cuts,
   };
 };

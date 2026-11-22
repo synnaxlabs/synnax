@@ -127,18 +127,24 @@ const { useResult: useResultBuiltInsQuery } = Flux.createRetrieve<
   channel.BuiltInsState
 >({
   name: "built-in channels",
-  retrieve: async ({ client }) => client.channels.builtIns.state(),
+  retrieve: async ({ client }) => await client.channels.builtIns.retrieve(),
   getCached: ({ client }) => client.channels.builtIns.state(),
   onChange: ({ client }, handler) => client.channels.builtIns.onChange(handler),
 });
 
 /**
  * @returns the built-in keys of the client: the keys of the built-in channels, which
- * Core services declare for their own work, and the error of a failed fetch. It reads
- * what the client fetches and fetches nothing itself.
+ * Core services declare for their own work, or the error of a failed fetch. The client
+ * fetches them once per connection, and the first mount starts that fetch.
  */
-export const useResultBuiltIns = (): Flux.Result<channel.BuiltInsState> =>
-  useResultBuiltInsQuery({});
+export const useResultBuiltIns = (): Flux.Result<channel.BuiltInsState> => {
+  const client = Synnax.use();
+  // A read of the state starts no fetch, so the awaited read starts it after commit.
+  useEffect(() => {
+    if (client != null) void client.channels.builtIns.retrieve();
+  }, [client]);
+  return useResultBuiltInsQuery({});
+};
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,

@@ -7,17 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { connect, createServer, type Socket } from "node:net";
+
 import { id, observe } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { channel } from "@/channel";
+import Synnax from "@/client";
 import { DisconnectedError } from "@/errors";
 import {
+  createCuttingProxy,
   createProxiedTestClient,
   createTestClient,
   FAST_RETRY,
+  holdRequests,
   holdResponses,
+  recordResponses,
   rejectRequests,
+  TEST_CLIENT_PARAMS,
+  TEST_CORE_ADDRESS,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -25,9 +33,13 @@ const remote = createTestClient();
 
 const TARGET = "/channel/retrieve-built-ins";
 
+const PENDING = { keys: null, error: null };
+
+const MESSAGE = "failed to fetch built-in channels";
+
 // Builds the built-in keys over a fetch whose answers the spec gives by hand.
 const createBuiltIns = () => {
-  const epochs = new observe.Observer<void>();
+  const epochs = new observe.Observer<number>();
   const fetches: Array<PromiseWithResolvers<channel.Key[]>> = [];
   const errors: Error[] = [];
   const builtIns = new channel.BuiltIns({
@@ -39,106 +51,307 @@ const createBuiltIns = () => {
     onEpoch: (callback) => epochs.onChange(callback),
     onError: (error) => errors.push(error),
   });
-  return { builtIns, connect: () => epochs.notify(), fetches, errors };
+  let epoch = 0;
+  return {
+    builtIns,
+    connect: () => epochs.notify(++epoch),
+    replace: () => {
+      epoch = 0;
+      epochs.notify(0);
+    },
+    fetches,
+    errors,
+  };
 };
 
 describe("BuiltIns", () => {
-  it("should fetch nothing until a reader asks", () => {
+  it("should start no fetch on a read of the state or a connection", () => {
     const { builtIns, connect, fetches } = createBuiltIns();
+    expect(builtIns.state()).toEqual(PENDING);
     connect();
+    expect(builtIns.state()).toEqual(PENDING);
     expect(fetches).toHaveLength(0);
-    expect(builtIns.get()).toBeNull();
-    expect(fetches).toHaveLength(1);
   });
 
-  it("should hold no keys until the fetch of a connection answers", async () => {
-    const { builtIns, connect, fetches } = createBuiltIns();
+  it("should fetch on the first awaited read with no connection", async () => {
+    const { builtIns, fetches } = createBuiltIns();
     const retrieved = builtIns.retrieve();
-    expect(fetches).toHaveLength(0);
-    connect();
+    expect(fetches).toHaveLength(1);
     fetches[0].resolve([1, 2]);
-    expect(await retrieved).toEqual(new Set([1, 2]));
-    expect(builtIns.get()).toBe(await retrieved);
+    const state = await retrieved;
+    expect(state).toEqual({ keys: new Set([1, 2]), error: null });
+    expect(builtIns.state()).toBe(state);
   });
 
-  it("should keep the last keys while a reconnect fetches them again", async () => {
+  it("should fetch again on each later connection and keep the last keys", async () => {
     const { builtIns, connect, fetches } = createBuiltIns();
     const changes: Array<Set<channel.Key> | null> = [];
     builtIns.onChange(({ keys }) => changes.push(keys));
-    connect();
+    const retrieved = builtIns.retrieve();
     fetches[0].resolve([1]);
-    const first = await builtIns.retrieve();
+    const first = await retrieved;
     connect();
-    expect(builtIns.get()).toBe(first);
+    expect(fetches).toHaveLength(2);
+    expect(builtIns.state()).toBe(first);
     expect(await builtIns.retrieve()).toBe(first);
     fetches[1].resolve([1, 3]);
-    await expect.poll(() => builtIns.get()).toEqual(new Set([1, 3]));
+    await expect.poll(() => builtIns.state().keys).toEqual(new Set([1, 3]));
     expect(changes).toEqual([new Set([1]), new Set([1, 3])]);
   });
 
-  it("should report a failed fetch once and throw it to each reader", async () => {
-    const { builtIns, connect, fetches, errors } = createBuiltIns();
-    builtIns.get();
+  it("should keep the state when a later connection fetches the same keys", async () => {
+    const { builtIns, connect, fetches } = createBuiltIns();
+    const retrieved = builtIns.retrieve();
+    fetches[0].resolve([1, 2]);
+    const first = await retrieved;
+    const changes: channel.BuiltInsState[] = [];
+    builtIns.onChange((state) => changes.push(state));
     connect();
+    fetches[1].resolve([2, 1]);
+    await fetches[1].promise;
+    await builtIns.retrieve();
+    expect(builtIns.state()).toBe(first);
+    expect(changes).toEqual([]);
+  });
+
+  it("should hold a failed fetch as its error and report it once per connection", async () => {
+    const { builtIns, connect, fetches, errors } = createBuiltIns();
+    const retrieved = builtIns.retrieve();
     const refused = new Error("refused");
     fetches[0].reject(refused);
-    const message = "failed to fetch built-in channels";
-    await expect(builtIns.retrieve()).rejects.toThrow(message);
-    await expect(builtIns.retrieve()).rejects.toThrow(message);
-    expect(errors.map((e) => [e.message, e.cause])).toEqual([[message, refused]]);
+    const failed = await retrieved;
+    expect(failed.keys).toBeNull();
+    expect(failed.error?.message).toBe(MESSAGE);
+    expect(failed.error?.cause).toBe(refused);
+    // An awaited read fetches again, and a second failure in one connection is quiet.
+    const again = builtIns.retrieve();
+    expect(fetches).toHaveLength(2);
+    expect(builtIns.state()).toBe(failed);
+    fetches[1].reject(new Error("refused again"));
+    expect((await again).error?.message).toBe(MESSAGE);
+    expect(errors).toHaveLength(1);
+    connect();
+    const third = builtIns.retrieve();
+    fetches[2].reject(new Error("refused on the next connection"));
+    expect((await third).error?.message).toBe(MESSAGE);
+    expect(errors.map((e) => e.message)).toEqual([MESSAGE, MESSAGE]);
+    const next = builtIns.retrieve();
+    fetches[3].resolve([4]);
+    expect(await next).toEqual({ keys: new Set([4]), error: null });
+  });
+
+  it("should hold a connection error as a failed fetch", async () => {
+    const { builtIns, fetches, errors } = createBuiltIns();
+    const retrieved = builtIns.retrieve();
+    const dropped = new DisconnectedError();
+    fetches[0].reject(dropped);
+    expect((await retrieved).error?.cause).toBe(dropped);
+    expect(errors).toHaveLength(1);
+  });
+
+  it("should fail a fetch with no answer in 10 seconds", async () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const { builtIns, fetches } = createBuiltIns();
+    const retrieved = builtIns.retrieve();
+    expect(fetches).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(10_000);
+    const state = await retrieved;
+    expect(state.error?.message).toBe(MESSAGE);
+    expect((state.error?.cause as Error).message).toBe("no answer in 10s");
+  });
+
+  it("should clear the keys when a new Core comes up behind the address", async () => {
+    const { builtIns, connect, replace, fetches } = createBuiltIns();
+    const retrieved = builtIns.retrieve();
+    fetches[0].resolve([1]);
+    await retrieved;
+    replace();
+    expect(builtIns.state()).toEqual(PENDING);
     expect(fetches).toHaveLength(1);
     connect();
-    const retrieved = builtIns.retrieve();
-    fetches[1].resolve([4]);
-    expect(await retrieved).toEqual(new Set([4]));
-  });
-
-  it("should hold a failed fetch in its state until the next connection", async () => {
-    const { builtIns, connect, fetches } = createBuiltIns();
-    const states: channel.BuiltInsState[] = [];
-    builtIns.onChange((state) => states.push(state));
-    expect(builtIns.state()).toEqual({ keys: null, error: null });
-    connect();
-    fetches[0].reject(new Error("refused"));
-    await expect
-      .poll(() => builtIns.state().error?.message)
-      .toBe("failed to fetch built-in channels");
-    const failed = builtIns.state();
-    expect(builtIns.state()).toBe(failed);
-    connect();
-    expect(builtIns.state()).toEqual({ keys: null, error: null });
-    fetches[1].resolve([8]);
-    await expect.poll(() => builtIns.get()).toEqual(new Set([8]));
-    expect(states.map(({ keys, error }) => [keys, error?.message ?? null])).toEqual([
-      [null, "failed to fetch built-in channels"],
-      [null, null],
-      [new Set([8]), null],
-    ]);
-  });
-
-  it("should leave a connection error unreported and wait for the next connection", async () => {
-    const { builtIns, connect, fetches, errors } = createBuiltIns();
-    const retrieved = builtIns.retrieve();
-    connect();
-    fetches[0].reject(new DisconnectedError());
-    connect();
-    fetches[1].resolve([5]);
-    expect(await retrieved).toEqual(new Set([5]));
-    expect(errors).toEqual([]);
+    fetches[1].resolve([9]);
+    await expect.poll(() => builtIns.state().keys).toEqual(new Set([9]));
   });
 
   it("should drop the answer of an earlier connection", async () => {
     const { builtIns, connect, fetches, errors } = createBuiltIns();
     const retrieved = builtIns.retrieve();
     connect();
-    connect();
-    fetches[1].resolve([6]);
-    expect(await retrieved).toEqual(new Set([6]));
     fetches[0].reject(new Error("late"));
-    fetches[0].resolve([7]);
-    await expect.poll(() => builtIns.get()).toEqual(new Set([6]));
+    await expect.poll(() => fetches.length).toBe(2);
+    fetches[1].resolve([6]);
+    expect(await retrieved).toEqual({ keys: new Set([6]), error: null });
     expect(errors).toEqual([]);
   });
+});
+
+// A TCP proxy whose target Core can change, as a new Core behind one address does.
+const createSwitchingProxy = async (port: number) => {
+  const target = { port };
+  const sockets = new Set<Socket>();
+  const server = createServer((downstream) => {
+    const upstream = connect(target.port, TEST_CORE_ADDRESS.host);
+    sockets.add(downstream);
+    sockets.add(upstream);
+    downstream.pipe(upstream);
+    upstream.pipe(downstream);
+    const destroy = () => {
+      downstream.destroy();
+      upstream.destroy();
+    };
+    for (const s of [downstream, upstream]) {
+      s.on("error", destroy);
+      s.on("close", destroy);
+    }
+  });
+  await new Promise<void>((resolve) => server.listen(0, resolve));
+  const address = server.address();
+  if (address == null || typeof address === "string") throw new Error("no port");
+  onTestFinished(async () => {
+    sockets.forEach((s) => s.destroy());
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+  return {
+    port: address.port,
+    switchTo: (next: number) => {
+      target.port = next;
+      sockets.forEach((s) => s.destroy());
+      sockets.clear();
+    },
+  };
+};
+
+const PAGE_COUNT = 1010;
+
+const createPagedChannels = async (): Promise<string> => {
+  const prefix = `builtin_page_${id.create()}_`;
+  await remote.channels.create(
+    Array.from({ length: PAGE_COUNT }, (_, i) => ({
+      name: `${prefix}${i}`,
+      dataType: "float32",
+      virtual: true,
+    })),
+  );
+  return prefix;
+};
+
+// Pages through a watched list of non-internal channels, as a channel select does.
+const pageToEnd = async (client: Synnax, prefix: string): Promise<number> => {
+  const list = client.channels.watch({
+    where: { internal: { eq: false }, name: { startsWith: prefix } },
+    limit: 50,
+  });
+  const off = list.onChange(() => {});
+  onTestFinished(off);
+  let window = await list.retrieve();
+  for (let i = 0; i < 40 && window.end != null; i++) window = await list.more(100);
+  return window.records.length;
+};
+
+describe("Built-in channels on a live client", () => {
+  it("should settle the keys after one response is cut while the stream stays live", async () => {
+    const proxy = await createCuttingProxy();
+    const internal: Error[] = [];
+    const client = new Synnax({
+      ...TEST_CLIENT_PARAMS,
+      host: "localhost",
+      port: proxy.port,
+      retry: FAST_RETRY,
+      onRetry: () => {},
+      onInternalError: (e) => internal.push(e),
+    });
+    onTestFinished(async () => await client.close());
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    const epoch = client.connection.status.details.epoch;
+    proxy.cutNext(TARGET);
+    const state = await client.channels.builtIns.retrieve();
+    expect(proxy.cuts()).toBe(1);
+    expect(state.error?.message).toBe(MESSAGE);
+    expect(internal.map((e) => e.message)).toEqual([MESSAGE]);
+    expect(client.connection.status.details.epoch).toBe(epoch);
+    // The link is healthy again, so the next awaited read gets the keys.
+    expect((await client.channels.builtIns.retrieve()).keys).not.toBeNull();
+  }, 30000);
+
+  it("should page a non-internal list to the end when the keys already arrived", async () => {
+    const prefix = await createPagedChannels();
+    const client = createTestClient();
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    await client.channels.builtIns.retrieve();
+    expect(await pageToEnd(client, prefix)).toBe(PAGE_COUNT);
+  }, 60000);
+
+  it("should page a non-internal list to the end before any read of the keys", async () => {
+    const prefix = await createPagedChannels();
+    const client = createTestClient();
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    expect(await pageToEnd(client, prefix)).toBe(PAGE_COUNT);
+  }, 60000);
+
+  it("should answer an awaited read on a client with no change stream", async () => {
+    const client = createTestClient({ cache: false });
+    await client.connect();
+    const { keys } = await client.channels.builtIns.retrieve();
+    expect(keys?.size).toBeGreaterThan(0);
+  }, 15000);
+
+  it("should keep the state across a reconnect that fetches the same keys", async () => {
+    const { proxy, client } = await createProxiedTestClient({
+      retry: FAST_RETRY,
+      onRetry: () => {},
+    });
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    const before = await client.channels.builtIns.retrieve();
+    const changes: channel.BuiltInsState[] = [];
+    client.channels.builtIns.onChange((s) => changes.push(s));
+    const responses = recordResponses(client, TARGET);
+    const epoch = client.connection.status.details.epoch;
+    await proxy.sever();
+    await proxy.restore();
+    await expect
+      .poll(() => client.connection.status.details.epoch, { timeout: 15000 })
+      .toBeGreaterThan(epoch);
+    await expect.poll(() => responses.length, { timeout: 8000 }).toBe(1);
+    await responses[0];
+    await client.channels.builtIns.retrieve();
+    expect(client.channels.builtIns.state()).toBe(before);
+    expect(changes).toEqual([]);
+  }, 30000);
+
+  it("should drop the keys of a replaced Core before the new Core answers", async () => {
+    const second = Number(process.env.SYNNAX_SECOND_CORE_PORT);
+    if (!Number.isFinite(second)) throw new Error("SYNNAX_SECOND_CORE_PORT is not set");
+    const proxy = await createSwitchingProxy(TEST_CORE_ADDRESS.port);
+    const client = new Synnax({
+      ...TEST_CLIENT_PARAMS,
+      host: "localhost",
+      port: proxy.port,
+      retry: FAST_RETRY,
+      onRetry: () => {},
+      onInternalError: () => {},
+    });
+    onTestFinished(async () => await client.close());
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    const old = (await client.channels.builtIns.retrieve()).keys;
+    expect(old).not.toBeNull();
+    const oldCluster = client.connection.status.details.clusterKey;
+    // The new Core's answer waits, so only the reset can clear the keys.
+    holdRequests(client, TARGET);
+    proxy.switchTo(second);
+    await expect
+      .poll(() => client.connection.status.details.clusterKey, { timeout: 20000 })
+      .not.toBe(oldCluster);
+    await waitForStreamLive(client.connection);
+    expect(client.channels.builtIns.state()).toEqual(PENDING);
+  }, 40000);
 });
 
 // How the fetch of the built-in keys behaves after the reconnect.

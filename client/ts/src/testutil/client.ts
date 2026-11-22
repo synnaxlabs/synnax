@@ -144,6 +144,29 @@ export const rejectRequests = (
 };
 
 /**
+ * Answers each request to target with answer, so the Core does not get it. An Error
+ * fails the request, a function answers each request with what it returns or throws,
+ * and any other value is the response, parsed by the request's schema. Call it inside a
+ * test: the answers end when that test finishes.
+ */
+export const answerRequests = (
+  client: Synnax,
+  target: string,
+  answer: unknown,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (args[0] !== target) return await send(...args);
+    if (answer instanceof Error) throw answer;
+    const response = typeof answer === "function" ? await answer() : answer;
+    return args[3].parse(response);
+  });
+  onTestFinished(() => spy.mockRestore());
+};
+
+/**
  * Fails each request to target with the error, so the Core does not get it. Call it
  * inside a test: the failures end when that test finishes.
  */
@@ -152,35 +175,7 @@ export const failRequests = (
   target: string,
   error: Error,
   field: "transport" = "transport",
-) => {
-  const { unary } = client[field];
-  const send = unary.send.bind(unary);
-  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
-    if (args[0] === target) throw error;
-    return await send(...args);
-  });
-  onTestFinished(() => spy.mockRestore());
-};
-
-/**
- * Answers each request to target with what answer returns, or fails it with what answer
- * throws, so the Core does not get it. The response schema of the request parses the
- * answer. Call it inside a test: the answers end when that test finishes.
- */
-export const answerRequests = (
-  client: Synnax,
-  target: string,
-  answer: () => Promise<unknown>,
-  field: "transport" = "transport",
-) => {
-  const { unary } = client[field];
-  const send = unary.send.bind(unary);
-  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
-    if (args[0] !== target) return await send(...args);
-    return args[3].parse(await answer());
-  });
-  onTestFinished(() => spy.mockRestore());
-};
+) => answerRequests(client, target, error, field);
 
 /**
  * Holds each response to target, or to each request that target matches, until release

@@ -39,12 +39,12 @@ const reconnect = async (
 };
 
 describe("useResultBuiltIns across a reconnect", () => {
-  it("should take the keys of the next connection with no new render", async () => {
+  it("should hold a dropped fetch as failed and take the keys of the next connection", async () => {
     const { proxy, client } = await createProxiedTestClient({
       retry: FAST_RETRY,
       onRetry: () => {},
     });
-    // The fetch of the first connection fails as a dropped link does.
+    // The first fetch fails as a dropped link does.
     let dropped = false;
     const rejected = rejectRequests(
       client,
@@ -58,8 +58,9 @@ describe("useResultBuiltIns across a reconnect", () => {
     const wrapper = await createAsyncSynnaxWrapper({ client });
     await waitForStreamLive(client.connection);
     const { result } = renderHook(() => Channel.useResultBuiltIns(), { wrapper });
-    await waitFor(() => expect(dropped).toBe(true));
-    expect(result.current.data).toEqual({ keys: null, error: null });
+    await waitFor(() => expect(result.current.data?.error).not.toBeNull());
+    expect(dropped).toBe(true);
+    expect(result.current.data?.keys).toBeNull();
     await reconnect(client, proxy);
     await waitFor(() => expect(result.current.data?.keys).not.toBeNull(), {
       timeout: 8000,
@@ -83,14 +84,14 @@ describe("useResultBuiltIns across a reconnect", () => {
       dataType: DataType.FLOAT32,
       virtual: true,
     });
-    const before = await client.channels.builtIns.retrieve();
+    const before = (await client.channels.builtIns.retrieve()).keys ?? [];
     answerRequests(client, TARGET, async () => ({ keys: [...before, adopted.key] }));
     await reconnect(client, proxy);
     await waitFor(
       () => expect(result.current.data?.keys?.has(adopted.key)).toBe(true),
       { timeout: 8000 },
     );
-    expect(client.channels.builtIns.get()?.has(adopted.key)).toBe(true);
+    expect(client.channels.builtIns.state().keys?.has(adopted.key)).toBe(true);
   }, 60000);
 
   it("should settle a failed fetch that a reconnect overtook", async () => {
