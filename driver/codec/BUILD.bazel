@@ -18,12 +18,14 @@ cc_library(
         "field.h",
         "json.cpp",
         "match.cpp",
+        "text.cpp",
     ],
     hdrs = [
         "binding.h",
         "bits.h",
         "errors.h",
         "json.h",
+        "text.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -44,6 +46,7 @@ cc_test(
         "bits_test.cpp",
         "decode_fixture_test.cpp",
         "json_test.cpp",
+        "text_test.cpp",
     ],
     data = ["//core/pkg/service/icd:decode_fixtures"],
     deps = [
