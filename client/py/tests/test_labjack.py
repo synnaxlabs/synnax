@@ -15,7 +15,6 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 import synnax as sy
-import synnax.labjack.device
 from tests.json_value import obj
 from tests.task_targets import TaskTargets
 from x.strings import random_name
