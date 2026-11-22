@@ -25,6 +25,7 @@ import (
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
@@ -116,7 +117,7 @@ var _ = Describe("Codec", func() {
 					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"),
 				}}),
 				Units:            "test_17",
-				StalenessTimeout: 18.5,
+				StalenessTimeout: telem.TimeSpan(19),
 				StalenessColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"),
 				}}),
@@ -470,7 +471,7 @@ func FuzzDecodeCellConfig(f *testing.F) {
 				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"),
 			}}),
 			Units:            "test_17",
-			StalenessTimeout: 18.5,
+			StalenessTimeout: telem.TimeSpan(19),
 			StalenessColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"),
 			}}),

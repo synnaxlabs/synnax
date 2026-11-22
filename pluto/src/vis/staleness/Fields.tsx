@@ -14,11 +14,6 @@ import type { ReactElement } from "react";
 
 const path = deep.path<{ stalenessTimeout?: number }>();
 
-export interface TimeoutFieldProps {
-  /** The unit of the stored timeout. Defaults to nanoseconds. */
-  unit?: TimeSpan;
-}
-
 // The Core stores the timeout as int64 nanoseconds, and a client holds it as a float64,
 // so the Core and the client bound it at 2^53 - 1 ns.
 const MAX_TIMEOUT = new TimeSpan(Number.MAX_SAFE_INTEGER);
@@ -35,9 +30,7 @@ export const checkTimeout = (span: TimeSpan): string | null => {
  * Edits the delay after which a component reads stale once its source stops sending. A
  * number typed alone is seconds.
  */
-export const TimeoutField = ({
-  unit = TimeSpan.NANOSECOND,
-}: TimeoutFieldProps): ReactElement => (
+export const TimeoutField = (): ReactElement => (
   <Form.Field<number | undefined>
     path={path.stalenessTimeout}
     label="Timeout"
@@ -48,8 +41,8 @@ export const TimeoutField = ({
         {...p}
         {...INPUT_PROPS}
         inline
-        value={value == null ? undefined : Number(unit.mult(value).valueOf())}
-        onChange={(ns) => onChange(ns / Number(unit.valueOf()))}
+        value={value}
+        onChange={onChange}
         check={checkTimeout}
       />
     )}
