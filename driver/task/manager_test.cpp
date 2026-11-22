@@ -5236,11 +5236,13 @@ TEST_F(ScriptedControlTest, MonitorReadFromAnEarlierRunIsIgnored) {
         {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
     );
     ASSERT_EVENTUALLY_EQ_F([&] { return st->is_authorized(BUS_KEY, OWNER); }, true);
+    // The thread of the old read holds a reference to the mirror until it ends.
+    const auto refs = st.use_count();
     this->scripted.control->reply_to(
         2,
         {{.subject = OTHER, .resource = BUS_KEY, .authority = 200}}
     );
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    ASSERT_EVENTUALLY_EQ_F([&] { return st.use_count(); }, refs - 1);
     ASSERT_TRUE(st->is_authorized(BUS_KEY, OWNER));
     ASSERT_FALSE(st->is_authorized(BUS_KEY, OTHER));
 }
