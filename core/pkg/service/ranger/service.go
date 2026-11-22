@@ -104,18 +104,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Group:           cfg.Group,
 			Instrumentation: cfg.Instrumentation,
 		}),
-		// A label delete detaches the label from each range that holds it, and a named
-		// color delete puts its color in each range that uses it. No range write does
-		// either, so the service sets the labels and the color that the range keeps.
-		OnDetach: func(_ context.Context, tx gorp.Tx, r Range) error {
-			acts := []Action{labelsAction(r.Labels)}
-			if r.Color != nil {
-				acts = append(acts, NewSetAction(SetPayload{
-					Path:  []string{"color"},
-					Value: r.Color,
-				}))
-			}
-			s.state.Dispatcher().Attach(tx, r.Key, acts...)
+		// A label or named color delete, or a retarget, rewrites the range outside any
+		// range write, so the service sends it as a create. Clients keep their own
+		// labels on a create, so the labels follow as a set.
+		OnRewrite: func(_ context.Context, tx gorp.Tx, r Range) error {
+			s.state.Dispatcher().Attach(
+				tx,
+				r.Key,
+				NewCreateAction(CreatePayload{Range: r}),
+				labelsAction(r.Labels),
+			)
 			return nil
 		},
 		Instrumentation: cfg.Instrumentation,

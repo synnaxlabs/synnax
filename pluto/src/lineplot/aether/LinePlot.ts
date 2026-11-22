@@ -28,7 +28,7 @@ import { rule } from "@/lineplot/rule/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { status } from "@/status/aether";
 import { grid } from "@/vis/grid";
-import type { FindResult } from "@/vis/line/aether/line";
+import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 
 export type AxesBounds = Record<string, bounds.Bounds>;
@@ -140,19 +140,19 @@ export class LinePlot
     this.requestRender("high", "layout");
   }
 
-  findByXDecimal(x: number): FindResult[] {
+  findByXDecimal(x: number): line.FindResult[] {
     const props = { ...this.state, plot: this.calculatePlot() };
     return this.axes
       .flatMap((xAxis) => xAxis.findByXDecimal(axisProps(xAxis, props), x))
       .flat();
   }
 
-  private findDrawnByXDecimal(x: number): FindResult[] {
+  private findDrawnByXDecimal(x: number): line.FindResult[] {
     const props = { ...this.state, plot: this.calculatePlot() };
     return this.axes.flatMap((a) => a.findDrawnByXDecimal(axisProps(a, props), x));
   }
 
-  findByXValue(x: number): FindResult[] {
+  findByXValue(x: number): line.FindResult[] {
     const props = { ...this.state, plot: this.calculatePlot() };
     return this.axes.flatMap((a) => a.findByXValue(axisProps(a, props), x)).flat();
   }

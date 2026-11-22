@@ -68,6 +68,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *LinePlot, _ group.Key) { e.Group = nil },
+			Retarget: func(e *LinePlot, from, to group.Key) {
+				if e.Group != nil && *e.Group == from {
+					*e.Group = to
+				}
+			},
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, LinePlot, project.Key]{
 			Name:     "project",
@@ -79,6 +84,11 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []project.Key{*e.Project}
+			},
+			Retarget: func(e *LinePlot, from, to project.Key) {
+				if e.Project != nil && *e.Project == from {
+					*e.Project = to
+				}
 			},
 		}),
 		rangesColorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, LinePlot, color.Key]{
@@ -125,6 +135,34 @@ func newIndexes() indexes {
 							}
 						}
 						e.Ranges[i9].Variant = v10
+					}
+				}
+			},
+			Retarget: func(e *LinePlot, from, to color.Key) {
+				for i13 := range e.Ranges {
+					switch v14 := e.Ranges[i13].Variant.(type) {
+					case ranger.KeyRef:
+						if v14.Color != nil {
+							switch v15 := v14.Color.Variant.(type) {
+							case color.NamedRef:
+								if v15.Key == from {
+									v15.Key = to
+								}
+								v14.Color.Variant = v15
+							}
+						}
+						e.Ranges[i13].Variant = v14
+					case ranger.WindowRef:
+						if v14.Color != nil {
+							switch v16 := v14.Color.Variant.(type) {
+							case color.NamedRef:
+								if v16.Key == from {
+									v16.Key = to
+								}
+								v14.Color.Variant = v16
+							}
+						}
+						e.Ranges[i13].Variant = v14
 					}
 				}
 			},
@@ -188,6 +226,19 @@ func newIndexes() indexes {
 					}
 				}
 			},
+			Retarget: func(e *LinePlot, from, to color.Key) {
+				for i7 := range e.Lines {
+					if e.Lines[i7].Color != nil {
+						switch v8 := e.Lines[i7].Color.Variant.(type) {
+						case color.NamedRef:
+							if v8.Key == from {
+								v8.Key = to
+							}
+							e.Lines[i7].Color.Variant = v8
+						}
+					}
+				}
+			},
 			Inline: func(
 				ctx context.Context,
 				tx gorp.Tx,
@@ -233,6 +284,19 @@ func newIndexes() indexes {
 					if e.Rules[i5].Color != nil {
 						if v6, ok := e.Rules[i5].Color.Variant.(color.NamedRef); ok && v6.Key == t {
 							e.Rules[i5].Color = nil
+						}
+					}
+				}
+			},
+			Retarget: func(e *LinePlot, from, to color.Key) {
+				for i7 := range e.Rules {
+					if e.Rules[i7].Color != nil {
+						switch v8 := e.Rules[i7].Color.Variant.(type) {
+						case color.NamedRef:
+							if v8.Key == from {
+								v8.Key = to
+							}
+							e.Rules[i7].Color.Variant = v8
 						}
 					}
 				}

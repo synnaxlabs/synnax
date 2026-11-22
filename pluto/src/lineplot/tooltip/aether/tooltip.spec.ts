@@ -16,7 +16,7 @@ import { aether } from "@/aether/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { renderAether } from "@/testutil/renderAether";
 import { theming } from "@/theming/aether";
-import type { FindResult } from "@/vis/line/aether/line";
+import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -37,7 +37,7 @@ class Requestor extends aether.Composite<typeof Requestor.stateZ> {
   }
 }
 
-const FOUND: FindResult = {
+const FOUND: line.FindResult = {
   key: "line",
   position: { x: 0.5, y: 0.5 },
   value: { x: 1, y: 2 },
@@ -81,7 +81,7 @@ const mount = (
 // noBreak finds no closed break under the cursor.
 const noBreak = () => null;
 
-const found = (key: string, y: number): FindResult => ({
+const found = (key: string, y: number): line.FindResult => ({
   ...FOUND,
   key,
   label: key,
@@ -160,7 +160,7 @@ describe("Tooltip", () => {
 
   it("should list each range under its channel, from the highest value", () => {
     const { recorder, component } = mount({ relative: true });
-    const entry = (channel: string, range: string, y: number): FindResult => ({
+    const entry = (channel: string, range: string, y: number): line.FindResult => ({
       ...found(`${channel}/${range}`, y),
       label: channel,
       tooltipGroup: channel,
@@ -189,7 +189,7 @@ describe("Tooltip", () => {
 
   it("should keep two lines that share a label under their own headings", () => {
     const { recorder, component } = mount({ relative: true });
-    const entry = (line: string, range: string, y: number): FindResult => ({
+    const entry = (line: string, range: string, y: number): line.FindResult => ({
       ...found(`${line}/${range}`, y),
       label: "pressure",
       tooltipGroup: line,

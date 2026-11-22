@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { shouldTriggerSuggestion } from "@/arc/text/placeholderSuggest";
+import { Text } from "@/arc/text";
 
 interface TestCase {
   name: string;
@@ -140,7 +140,7 @@ const TEST_CASES: TestCase[] = [
 describe("shouldTriggerSuggestion", () => {
   TEST_CASES.forEach(({ name, buffer, typed, expected }) =>
     it(name, () => {
-      expect(shouldTriggerSuggestion(buffer, typed)).toBe(expected);
+      expect(Text.shouldTriggerSuggestion(buffer, typed)).toBe(expected);
     }),
   );
 });

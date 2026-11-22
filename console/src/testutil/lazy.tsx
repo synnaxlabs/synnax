@@ -8,14 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import {
+  act,
+  render,
   type RenderOptions,
   type RenderResult,
   waitFor,
   type waitForOptions,
 } from "@testing-library/react";
-import { type ReactElement, Suspense, useEffect } from "react";
-
-import { renderSuspended } from "@/testutil/testutil";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 
 // A cold module load can outlast the default query wait, so the wait ends only short
 // of the test timeout.
@@ -31,10 +38,25 @@ const LoadProbe = ({ onLoad }: LoadProbeProps): null => {
   return null;
 };
 
+interface GateProps extends PropsWithChildren {
+  onMount: (show: () => void) => void;
+}
+
+// Shows its children once the show function it hands out is called.
+const Gate = ({ onMount, children }: GateProps): ReactElement | null => {
+  const [shown, setShown] = useState(false);
+  useLayoutEffect(() => onMount(() => setShown(true)), [onMount]);
+  return shown ? <>{children}</> : null;
+};
+
 /**
  * Renders ui inside a Suspense boundary and resolves once the boundary leaves its
  * fallback, so queries run against loaded lazy components. Rejects when the boundary
  * does not load, with the first caught error as the cause.
+ *
+ * A tree wired to a live Core turns the act environment off, and its boundary mounts
+ * outside act. An async act returns only once the page has no work left, which such a
+ * tree can fail to reach before the test times out.
  */
 export const renderLazy = async (
   ui: ReactElement,
@@ -43,15 +65,22 @@ export const renderLazy = async (
   const { onCaughtError } = options;
   let loaded = false;
   let loadError: unknown;
-  const result = await renderSuspended(
-    <Suspense fallback={null}>
-      {ui}
-      <LoadProbe
-        onLoad={() => {
-          loaded = true;
-        }}
-      />
-    </Suspense>,
+  const gate: { show?: () => void } = {};
+  const result = render(
+    <Gate
+      onMount={(show) => {
+        gate.show = show;
+      }}
+    >
+      <Suspense fallback={null}>
+        {ui}
+        <LoadProbe
+          onLoad={() => {
+            loaded = true;
+          }}
+        />
+      </Suspense>
+    </Gate>,
     {
       ...options,
       onCaughtError: (error, info) => {
@@ -62,7 +91,11 @@ export const renderLazy = async (
       },
     },
   );
-  // waitFor runs outside act, since act holds React's retry until its callback returns.
+  if (gate.show == null)
+    throw new Error("The wrapper of the lazy component did not mount");
+  const { show } = gate;
+  if (globalThis.IS_REACT_ACT_ENVIRONMENT === true) await act(async () => show());
+  else show();
   await waitFor(() => {
     if (loaded) return;
     throw new Error("The lazy component did not load", { cause: loadError });

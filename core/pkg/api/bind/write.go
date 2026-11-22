@@ -23,9 +23,10 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// Copy is a request that reads records and copies them into what it writes.
+// Copy is a request that reads records to make what it writes, as a copy or a replace
+// does.
 type Copy interface {
-	// Sources returns the records that the request copies.
+	// Sources returns the records that the request reads.
 	Sources() []resource.ID
 }
 

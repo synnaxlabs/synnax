@@ -16,8 +16,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { Enumeration } from "@/enumeration";
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -198,6 +197,20 @@ describe("queries", () => {
       await expect(
         createTestClient().enumerations.retrieve(created.key),
       ).rejects.toThrow();
+    });
+  });
+
+  describe("useReplace", () => {
+    it("should delete the replaced enumeration and keep the other", async () => {
+      const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+      const { result } = renderHook(Enumeration.useReplace, { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ from: from.key, to: to.key });
+      });
+      expect(result.current.variant).toEqual("success");
+      const other = createTestClient();
+      await expect(other.enumerations.retrieve(from.key)).rejects.toThrow();
+      expect((await other.enumerations.retrieve(to.key)).key).toEqual(to.key);
     });
   });
 

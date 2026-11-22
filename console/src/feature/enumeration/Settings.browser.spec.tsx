@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, enumeration } from "@synnaxlabs/client";
+import { type color, enumeration, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color as xcolor } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -25,6 +25,7 @@ import { server } from "vitest/browser";
 
 import { Enumeration } from "@/feature/enumeration";
 import { Modals } from "@/platform/modals";
+import { Tree } from "@/platform/tree";
 import {
   awaitGranted,
   awaitTextEditingElement,
@@ -38,6 +39,9 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+// Reads what the Core broadcasts, without the edits that the cache of client shows at
+// once. Its cache hears a change a moment after the write that made it returns.
+const core = createTestClient();
 
 const createEnumeration = async (
   entries: enumeration.Entry[] = [
@@ -51,6 +55,23 @@ const createEnumeration = async (
 // Chromium and WebKit can run at once against one Core, so each edits its own built-in.
 const EDITED_FROM_END = server.browser === "webkit" ? 4 : 2;
 
+/** Creates a schematic whose one select draws the enumeration. */
+const createSelectUser = async (e: enumeration.Key): Promise<schematic.Schematic> => {
+  const project = await client.projects.create({ name: uniqueName("project") });
+  return await client.schematics.create({
+    project: project.key,
+    name: uniqueName("schematic"),
+    nodes: [
+      {
+        key: "select",
+        position: { x: 0, y: 0 },
+        zIndex: 0,
+        config: schematic.nodeConfigZ.parse({ variant: "select", enumeration: e }),
+      },
+    ],
+  });
+};
+
 /** Returns the nth built-in from the end, which no other spec edits. */
 const builtinFromEnd = async (n: number): Promise<enumeration.Enumeration> => {
   const shipped = (await client.enumerations.retrieveBuiltins()).at(-n);
@@ -62,8 +83,10 @@ const renderEnumerations = async (onStatuses = vi.fn()): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      <HaulProvider>{children}</HaulProvider>
-      <Modals.Stack />
+      <Tree.Provider items={{}}>
+        <HaulProvider>{children}</HaulProvider>
+        <Modals.Stack />
+      </Tree.Provider>
       <CaptureStatuses onStatuses={onStatuses} />
     </Console>
   );
@@ -76,10 +99,51 @@ const findEntry = async (name: string): Promise<HTMLElement> =>
   await screen.findByRole("option", { name });
 
 const stored = async (key: enumeration.Key): Promise<enumeration.Entry[]> =>
-  (await client.enumerations.retrieve(key)).entries;
+  (await core.enumerations.retrieve(key)).entries;
 
 const storedNames = async (key: enumeration.Key): Promise<string[]> =>
   (await stored(key)).map((e) => e.name);
+
+type Queries = ReturnType<typeof within>;
+
+/**
+ * Returns the queries of the dialog that holds the element. They stay fast while the
+ * page shows each enumeration on the Core.
+ */
+const dialogOf = (el: HTMLElement): Queries => {
+  const dialog = screen.getAllByRole("dialog").find((d) => d.contains(el));
+  if (dialog == null) throw new Error("expected a dialog");
+  return within(dialog);
+};
+
+const openDelete = async (name: string): Promise<Queries> => {
+  await openContextMenu(name);
+  await clickAndSettle("Delete");
+  return dialogOf(await screen.findByText(/Are you sure you want to delete/));
+};
+
+const pickReplacement = async (dialog: Queries, name: string): Promise<void> => {
+  fireEvent.click(await dialog.findByRole("button", { name: /Replace with/ }));
+  const search = await screen.findByPlaceholderText("Search enumerations...");
+  fireEvent.change(search, { target: { value: name } });
+  const dropdown = dialogOf(search);
+  fireEvent.click(await dropdown.findByRole("option", { name: new RegExp(name) }));
+};
+
+// The delete dialog enables its button once it knows what uses the enumeration.
+const clickWhenEnabled = async (dialog: Queries, name: string): Promise<void> => {
+  const button = await dialog.findByRole("button", { name });
+  await waitFor(() => expect(button.getAttribute("aria-disabled")).toBeNull());
+  await act(async () => {
+    fireEvent.click(button);
+  });
+};
+
+/** Waits for the delete dialog to close, which it does once the Core commits. */
+const waitForDialogToClose = async (): Promise<void> =>
+  await waitFor(() =>
+    expect(screen.queryByText(/Are you sure you want to delete/)).toBeNull(),
+  );
 
 const OWN_VALUE = "Each entry needs its own value.";
 
@@ -426,18 +490,69 @@ describe("Enumeration.Settings", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  it("should delete an enumeration after confirming", async () => {
+  it("should move a select to the enumeration picked on delete", async () => {
+    const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+    const user = await createSelectUser(from.key);
+    await renderEnumerations();
+    const dialog = await openDelete(from.name);
+    expect(
+      await within(await dialog.findByLabelText("Users")).findByText(user.name),
+    ).toBeTruthy();
+    await pickReplacement(dialog, to.name);
+    await clickWhenEnabled(dialog, "Replace");
+    await waitForDialogToClose();
+    await expect
+      .poll(async () => (await core.schematics.retrieve(user.key)).nodes[0].config)
+      .toMatchObject({ variant: "select", enumeration: to.key });
+  });
+
+  it("should show a missing replacement at its field and keep the dialog open", async () => {
+    const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+    await createSelectUser(from.key);
+    await renderEnumerations();
+    const dialog = await openDelete(from.name);
+    expect(await dialog.findByLabelText("Users")).toBeTruthy();
+    await clickWhenEnabled(dialog, "Replace");
+    expect(await dialog.findByText("Replacement is required")).toBeTruthy();
+    expect(screen.getByText(/Are you sure you want to delete/)).toBeTruthy();
+    await pickReplacement(dialog, to.name);
+    expect(dialog.queryByText("Replacement is required")).toBeNull();
+    expect((await core.enumerations.retrieve(from.key)).key).toEqual(from.key);
+  });
+
+  it("should delete an unused enumeration with no replace field", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    await openContextMenu(e.name);
+    const item = await screen.findByText("Delete");
+    // A synchronous act renders the dialog before the Core can say what uses it.
+    act(() => {
+      fireEvent.click(item);
+    });
+    const dialog = dialogOf(screen.getByText(/This action cannot be undone/));
+    expect(dialog.queryByText(/Nothing uses it/)).toBeNull();
+    expect(await dialog.findByText(/Nothing uses it/)).toBeTruthy();
+    expect(dialog.queryByRole("button", { name: /Replace with/ })).toBeNull();
+    await clickWhenEnabled(dialog, "Delete");
+    await waitForDialogToClose();
+    await expect(client.enumerations.retrieve(e.key)).rejects.toThrow(
+      "enumeration was deleted",
+    );
+  });
+
+  it("should disable Cancel and Delete while the delete runs", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
     await openContextMenu(e.name);
     await clickAndSettle("Delete");
-    const confirm = await screen.findByRole("button", { name: "Delete" });
-    await act(async () => {
-      fireEvent.click(confirm);
+    const remove = await screen.findByRole("button", { name: "Delete" });
+    await waitFor(() => expect(remove.getAttribute("aria-disabled")).toBeNull());
+    act(() => {
+      fireEvent.click(remove);
     });
-    await waitFor(() => expect(screen.queryByText(e.name)).toBeNull());
-    await expect(client.enumerations.retrieve(e.key)).rejects.toThrow(
-      "enumeration was deleted",
-    );
+    expect(remove.getAttribute("aria-disabled")).toBe("true");
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    expect(cancel.getAttribute("aria-disabled")).toBe("true");
+    await waitForDialogToClose();
   });
 });

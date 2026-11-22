@@ -9,6 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/synnax/color"
+import "schemas/synnax/enumeration"
 import "schemas/synnax/group"
 import "schemas/synnax/project"
 import "schemas/synnax/symbol"
@@ -651,6 +652,14 @@ NodeConfig union on variant {
         options         StateMapping[] = [] {
             @doc value "is the set of selectable states."
         }
+        enumeration     enumeration.Key?   {
+            @doc value     """
+                is the enumeration whose entries the select offers in place of its
+                options.
+            """
+            @ref kind      use
+            @ref on_delete restrict
+        }
         disabled        bool = false {
             @doc value "indicates whether the select rejects interaction."
         }
@@ -744,7 +753,7 @@ NodeConfig union on variant {
                 does.
             """
         }
-        stroke_color color.Ref?     {
+        stroke_color color.Ref?       {
             @doc value """
                 is the border color of the indicator, a named color or a fixed color.
             """
@@ -755,6 +764,14 @@ NodeConfig union on variant {
         }
         options      StateMapping[] = [] {
             @doc value "is the set of displayable states."
+        }
+        enumeration  enumeration.Key? {
+            @doc value     """
+                is the enumeration whose entries the indicator shows in place of its
+                options.
+            """
+            @ref kind      use
+            @ref on_delete restrict
         }
         size         ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the indicator."

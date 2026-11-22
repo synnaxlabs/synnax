@@ -41,6 +41,11 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					e.Device = ""
 				}
 			},
+			Retarget: func(e *ReadConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, icd.Key]{
 			Name:     "topics.records.icd",
@@ -64,6 +69,15 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 						}
 						return false
 					})
+				}
+			},
+			Retarget: func(e *ReadConfig, from, to icd.Key) {
+				for i5 := range e.Topics {
+					for i6 := range e.Topics[i5].Records {
+						if e.Topics[i5].Records[i6].ICD == from {
+							e.Topics[i5].Records[i6].ICD = to
+						}
+					}
 				}
 			},
 		}),
@@ -100,6 +114,19 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
+			Retarget: func(e *ReadConfig, from, to channel.Key) {
+				for i9 := range e.Topics {
+					for i10 := range e.Topics[i9].Records {
+						for i11 := range e.Topics[i9].Records[i10].Messages {
+							for i12 := range e.Topics[i9].Records[i10].Messages[i11].Bindings {
+								if e.Topics[i9].Records[i10].Messages[i11].Bindings[i12].Channel == from {
+									e.Topics[i9].Records[i10].Messages[i11].Bindings[i12].Channel = to
+								}
+							}
+						}
+					}
+				}
+			},
 		}),
 	}
 }
@@ -124,6 +151,11 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					e.Device = ""
 				}
 			},
+			Retarget: func(e *WriteConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
 			Name:     "channels.channel",
@@ -143,6 +175,13 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				for i2 := range e.Channels {
 					if e.Channels[i2].Channel == t {
 						e.Channels[i2].Channel = 0
+					}
+				}
+			},
+			Retarget: func(e *WriteConfig, from, to channel.Key) {
+				for i3 := range e.Channels {
+					if e.Channels[i3].Channel == from {
+						e.Channels[i3].Channel = to
 					}
 				}
 			},

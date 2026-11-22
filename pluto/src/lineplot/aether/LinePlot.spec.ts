@@ -25,9 +25,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/testutil";
-import { LinePlot } from "@/lineplot/aether/LinePlot";
-import { XAxis } from "@/lineplot/aether/XAxis";
-import { YAxis } from "@/lineplot/aether/YAxis";
+import { lineplot } from "@/lineplot/aether";
 import { measure } from "@/lineplot/measure/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { telem } from "@/telem/aether";
@@ -57,7 +55,7 @@ class StubLine extends aether.Leaf<typeof stubLineStateZ> {
 }
 
 interface Mount {
-  plot: LinePlot;
+  plot: lineplot.LinePlot;
   recorder: canvasTest.Recorder;
   setLineLoading: (loading: boolean) => void;
   setLineFetching: (fetching: boolean) => void;
@@ -77,28 +75,30 @@ describe("LinePlot", () => {
     const recorder = new canvasTest.Recorder();
     const stack = buildStack({
       registry: {
-        [LinePlot.TYPE]: LinePlot,
-        [XAxis.TYPE]: XAxis,
-        [YAxis.TYPE]: YAxis,
+        [lineplot.LinePlot.TYPE]: lineplot.LinePlot,
+        [lineplot.XAxis.TYPE]: lineplot.XAxis,
+        [lineplot.YAxis.TYPE]: lineplot.YAxis,
         [StubLine.TYPE]: StubLine,
       },
       render: recorder,
     });
     const base = [...stack.basePath, "plot"];
-    stack.driver.update(base, LinePlot.TYPE, {
+    stack.driver.update(base, lineplot.LinePlot.TYPE, {
       container: box.DECIMAL,
       viewport: box.DECIMAL,
       grid: {},
     });
-    stack.driver.update([...base, "x1"], XAxis.TYPE, { location: "bottom" });
-    stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
+    stack.driver.update([...base, "x1"], lineplot.XAxis.TYPE, { location: "bottom" });
+    stack.driver.update([...base, "x1", "y1"], lineplot.YAxis.TYPE, {
+      location: "left",
+    });
     if (lineLoading != null)
       stack.driver.update([...base, "x1", "y1", "l1"], StubLine.TYPE, {
         loading: lineLoading,
       });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
     return {
-      plot: stack.driver.find<LinePlot>(base),
+      plot: stack.driver.find<lineplot.LinePlot>(base),
       recorder,
       setLineLoading: (loading) =>
         stack.driver.update([...base, "x1", "y1", "l1"], StubLine.TYPE, { loading }),
@@ -107,9 +107,9 @@ describe("LinePlot", () => {
           loading: false,
           fetching,
         }),
-      pump: () => recorder.renderLast(LinePlot.TYPE),
+      pump: () => recorder.renderLast(lineplot.LinePlot.TYPE),
       hide: () =>
-        stack.driver.update(base, LinePlot.TYPE, {
+        stack.driver.update(base, lineplot.LinePlot.TYPE, {
           container: box.DECIMAL,
           viewport: box.DECIMAL,
           grid: {},
@@ -169,7 +169,7 @@ describe("LinePlot", () => {
       m.recorder.restore();
       expect(m.recorder.loopCalls.map((c) => c.args[0])).toEqual([
         expect.objectContaining({
-          key: `${LinePlot.TYPE}-plot`,
+          key: `${lineplot.LinePlot.TYPE}-plot`,
           priority: "high",
           canvases: ["upper2d", "lower2d", "gl"],
         }),
@@ -202,7 +202,7 @@ const DAY = Number(TimeSpan.DAY.valueOf());
 type State = Record<string, unknown>;
 
 interface GLPlot {
-  plot: LinePlot;
+  plot: lineplot.LinePlot;
   glCalls: canvasTest.RecordingGL["calls"];
   /** Sets the state of the plot over PLOT_STATE. */
   setPlot: (state?: State) => void;
@@ -212,7 +212,7 @@ interface GLPlot {
   setAxes: (key: string, state?: State) => void;
   /** Sets a line at path, from the plot down, with x and y data. */
   setLine: (path: string[], x: number[], y: number[], state?: State) => void;
-  xAxis: (key: string) => XAxis;
+  xAxis: (key: string) => lineplot.XAxis;
   /** Renders the plot, and drops the 2D calls of earlier renders. */
   render: () => void;
   /** @returns the text that the last render drew. */
@@ -229,9 +229,9 @@ const mountGLPlot = (teardowns: (() => void)[]): GLPlot => {
   const stack = buildStack({
     registry: {
       [lineTest.Host.TYPE]: lineTest.Host,
-      [LinePlot.TYPE]: LinePlot,
-      [XAxis.TYPE]: XAxis,
-      [YAxis.TYPE]: YAxis,
+      [lineplot.LinePlot.TYPE]: lineplot.LinePlot,
+      [lineplot.XAxis.TYPE]: lineplot.XAxis,
+      [lineplot.YAxis.TYPE]: lineplot.YAxis,
       [line.Line.TYPE]: line.Line,
       [tooltip.Tooltip.TYPE]: tooltip.Tooltip,
       [measure.Measure.TYPE]: measure.Measure,
@@ -244,16 +244,17 @@ const mountGLPlot = (teardowns: (() => void)[]): GLPlot => {
   const base = [...host, "plot"];
   const set = (path: string[], type: string, state: State): void =>
     stack.driver.update([...base, ...path], type, state);
-  set([], LinePlot.TYPE, PLOT_STATE);
+  set([], lineplot.LinePlot.TYPE, PLOT_STATE);
   return {
-    plot: stack.driver.find<LinePlot>(base),
+    plot: stack.driver.find<lineplot.LinePlot>(base),
     glCalls: calls,
-    setPlot: (state = {}) => set([], LinePlot.TYPE, { ...PLOT_STATE, ...state }),
+    setPlot: (state = {}) =>
+      set([], lineplot.LinePlot.TYPE, { ...PLOT_STATE, ...state }),
     set,
     setAxes: (key, state = {}) => {
       const location = key === "x1" ? "bottom" : "top";
-      set([key], XAxis.TYPE, { axisKey: key, location, ...state });
-      set([key, "y1"], YAxis.TYPE, { location: "left" });
+      set([key], lineplot.XAxis.TYPE, { axisKey: key, location, ...state });
+      set([key, "y1"], lineplot.YAxis.TYPE, { location: "left" });
     },
     setLine: (path, x, y, state = {}) =>
       set(path, line.Line.TYPE, {
@@ -262,10 +263,10 @@ const mountGLPlot = (teardowns: (() => void)[]): GLPlot => {
         color: "#ff0000",
         ...state,
       }),
-    xAxis: (key) => stack.driver.find<XAxis>([...base, key]),
+    xAxis: (key) => stack.driver.find<lineplot.XAxis>([...base, key]),
     render: () => {
       recorder.upper2d.calls.length = 0;
-      recorder.renderLast(LinePlot.TYPE);
+      recorder.renderLast(lineplot.LinePlot.TYPE);
     },
     texts: () =>
       recorder.upper2d.calls
@@ -375,7 +376,7 @@ describe("LinePlot breaks", () => {
       throw new Error("x source failed");
     });
     teardowns.push(() => failed.mockRestore());
-    p.set([], LinePlot.TYPE, { ...p.plot.state });
+    p.set([], lineplot.LinePlot.TYPE, { ...p.plot.state });
     p.render();
     expect(p.plot.state.breaks).toEqual({ open: 0, closed: 0 });
   });
@@ -474,7 +475,7 @@ describe("LinePlot trace spans", () => {
   });
 
   // mount mounts two lines of one group on x1, with samples from 0 to 10 and 20 to 30.
-  const mount = (type: "time" | "relative"): XAxis => {
+  const mount = (type: "time" | "relative"): lineplot.XAxis => {
     const p = mountGLPlot(teardowns);
     p.setAxes("x1", { type, autoBoundPadding: 0 });
     [0, 20].forEach((start, i) =>
@@ -556,9 +557,9 @@ describe("LinePlot against a Core", () => {
       registry: {
         [telem.PROVIDER_TYPE]: telem.Provider,
         [lineTest.Host.TYPE]: lineTest.Host,
-        [LinePlot.TYPE]: LinePlot,
-        [XAxis.TYPE]: XAxis,
-        [YAxis.TYPE]: YAxis,
+        [lineplot.LinePlot.TYPE]: lineplot.LinePlot,
+        [lineplot.XAxis.TYPE]: lineplot.XAxis,
+        [lineplot.YAxis.TYPE]: lineplot.YAxis,
         [line.Line.TYPE]: line.Line,
       },
       synnax: { props: testClientParams() },
@@ -568,14 +569,16 @@ describe("LinePlot against a Core", () => {
     stack.driver.update(gl, lineTest.Host.TYPE, {});
     const base = [...gl, "plot"];
     const setViewport = (viewport: box.Box): void =>
-      stack.driver.update(base, LinePlot.TYPE, {
+      stack.driver.update(base, lineplot.LinePlot.TYPE, {
         container: box.construct(0, 0, 1000, 500),
         viewport,
         grid: {},
       });
     setViewport(box.DECIMAL);
-    stack.driver.update([...base, "x1"], XAxis.TYPE, { location: "bottom" });
-    stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
+    stack.driver.update([...base, "x1"], lineplot.XAxis.TYPE, { location: "bottom" });
+    stack.driver.update([...base, "x1", "y1"], lineplot.YAxis.TYPE, {
+      location: "left",
+    });
     stack.driver.update([...base, "x1", "y1", "l1"], line.Line.TYPE, {
       x: telem.channelData({ ...props, useIndexOfChannel: true }),
       y: telem.channelData(props),
@@ -586,15 +589,15 @@ describe("LinePlot against a Core", () => {
     if (recorder == null) throw new Error("the stack has no render recorder");
     const l1 = stack.driver.find<line.Line>([...base, "x1", "y1", "l1"]);
     return {
-      plot: stack.driver.find<LinePlot>(base),
+      plot: stack.driver.find<lineplot.LinePlot>(base),
       xBounds: () => l1.xBounds().bounds,
       setViewport,
-      render: () => recorder.renderLast(LinePlot.TYPE),
+      render: () => recorder.renderLast(lineplot.LinePlot.TYPE),
     };
   };
 
   // The distance from each target to the first drawn sample at or after it.
-  const gaps = (plot: LinePlot, targets: number[]): number[] =>
+  const gaps = (plot: lineplot.LinePlot, targets: number[]): number[] =>
     targets.map((t) => {
       const [found] = plot.findByXValue(t);
       const x = found?.value.x ?? NaN;
@@ -698,7 +701,7 @@ describe("LinePlot with lines on two y axes", () => {
     const RAISED = "#00ff00";
     const p = mountGLPlot(teardowns);
     p.setAxes("x1");
-    p.set(["x1", "y2"], YAxis.TYPE, { location: "right" });
+    p.set(["x1", "y2"], lineplot.YAxis.TYPE, { location: "right" });
     p.setLine(["x1", "y1", "raised"], [0, 10], [1, 2], { color: RAISED, raised: true });
     p.setLine(["x1", "y2", "plain"], [0, 10], [3, 4]);
     p.render();

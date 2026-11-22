@@ -14,13 +14,9 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
-import {
-  createTestDevice,
-  pickDevice,
-  renderWithDeviceForm,
-} from "@/platform/device/testutil";
+import { createTestDevice, renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
-import { findDialogTrigger } from "@/testutil";
+import { findDialogTrigger, pickOption } from "@/testutil";
 
 const renderSelect = async (client: Synnax | null) =>
   await renderWithDeviceForm(
@@ -51,7 +47,7 @@ describe("HTTP Device.Select", () => {
     });
     await renderSelect(client);
     fireEvent.click(await findDialogTrigger());
-    await pickDevice(dev.name, "Search devices...");
+    await pickOption(dev.name, "Search devices...");
     await screen.findByText("HTTP server");
     const nameInput = await screen.findByDisplayValue(dev.name);
     expect(nameInput).toBeTruthy();

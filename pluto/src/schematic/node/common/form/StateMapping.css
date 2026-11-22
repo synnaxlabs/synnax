@@ -10,18 +10,25 @@
  */
 
 .pluto-state-mapping-list {
-    padding: 1rem 0;
+    /* The list fills the form's control column, as wide as the widest control. */
+    --pluto-control-width: 100%;
 
-    & > .lyra-btn {
-        margin-left: 1rem;
+    /* The first row lines up with the field label, and each row with the controls. */
+    .pluto-state-mapping-list__scroll {
+        padding: 0;
     }
 
-    .lyra-list__item {
+    .pluto-state-mapping-list__item {
         min-height: unset;
-        padding: 1rem 2rem;
+        padding: 0 0 1rem;
     }
 
     .pluto-state-mapping-list__value {
         width: 80px;
     }
+}
+
+/* An empty list holds only its add button, centered on the field label's line. */
+.pluto-state-mapping-list--empty {
+    height: var(--pluto-height-medium);
 }
