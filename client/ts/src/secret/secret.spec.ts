@@ -495,6 +495,37 @@ describe("Secret", () => {
       }
     });
 
+    it("should list a secret that the client creates with no fetch", async () => {
+      const prefix = id.create();
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const list = client.secrets.watch({
+        name: { startsWith: prefix },
+        includeUses: true,
+      });
+      const off = list.onChange(() => {});
+      try {
+        await list.retrieve();
+        const send = spyOnSend(client);
+        const created = await client.secrets.set({
+          name: `${prefix}-0`,
+          source: "stored",
+          value: "abc",
+        });
+        expect(
+          list.getCached()?.records.map(({ key, uses }) => ({ key, uses })),
+        ).toEqual([{ key: created.key, uses: [] }]);
+        // Past the debounce of a refetch that the echo of the set could start.
+        await sleep.sleep(TimeSpan.milliseconds(500));
+        const retrieves = send.mock.calls.filter(
+          ([target]) => target === "/secret/retrieve",
+        );
+        expect(retrieves).toHaveLength(0);
+      } finally {
+        off();
+      }
+    });
+
     it("should refetch the uses of a secret for a new subscriber", async () => {
       const client = createTestClient({ clock });
       await waitForStreamLive(client.connection);
