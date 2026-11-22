@@ -13,6 +13,7 @@ import (
 	"iter"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/errors"
@@ -190,14 +191,23 @@ func newCommandTarget(
 }
 
 // publications implements target.
-func (t commandTarget) publications(fr framer.Frame) iter.Seq2[publication, error] {
-	return func(yield func(publication, error) bool) {
+func (t commandTarget) publications(
+	fr framer.Frame,
+	skips *driver.Skips,
+) iter.Seq[publication] {
+	return func(yield func(publication) bool) {
 		for key, series := range fr.Entries() {
 			if key != t.channel {
 				continue
 			}
 			for i := range int(series.Len()) {
-				if !yield(t.publication(series, i)) {
+				skips.Read()
+				pub, err := t.publication(series, i)
+				if err != nil {
+					skip(skips, t, err)
+					continue
+				}
+				if !yield(pub) {
 					return
 				}
 			}

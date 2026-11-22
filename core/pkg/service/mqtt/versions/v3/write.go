@@ -200,14 +200,23 @@ func migrateStored(
 	note func(path, change string),
 ) (WriteConfig, error) {
 	cfg, err := MigrateWriteConfig(ctx, old)
-	if err != nil || t.Snapshot {
-		return cfg, err
+	if err != nil {
+		return WriteConfig{}, err
+	}
+	if t.Snapshot {
+		return cfg, nil
 	}
 	ic, ok, err := ResolveWriteConfig(ctx, tx, channels, t.Name, &cfg, note)
-	if err != nil || !ok {
-		return cfg, err
+	if err != nil {
+		return WriteConfig{}, err
 	}
-	return cfg, create(ctx, tx, ic)
+	if !ok {
+		return cfg, nil
+	}
+	if err = create(ctx, tx, ic); err != nil {
+		return WriteConfig{}, err
+	}
+	return cfg, nil
 }
 
 // retrieveTasks returns the task of each config of cfgs by key, read through tx.
@@ -264,8 +273,9 @@ func liftTarget(
 		binding = icd.WriteBinding{Field: key, DataType: dataType}
 		if t.Channel.Name != "" {
 			note(path+".channel", fmt.Sprintf(
-				"channel name %q was dropped, so a client names the new channel",
-				t.Channel.Name,
+				"channel name %q of field %s on topic %s was dropped, so a client "+
+					"names the new channel",
+				t.Channel.Name, field.Base().Name, t.Topic,
 			))
 		}
 	}
@@ -339,10 +349,13 @@ func liftChannel(
 		base,
 		note,
 	))
+	if err != nil {
+		return icd.JSONField{}, "", err
+	}
 	if !known {
 		dt = ""
 	}
-	return field, dt, err
+	return field, dt, nil
 }
 
 // numeric reports whether k holds numbers or booleans.

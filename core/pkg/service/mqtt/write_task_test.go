@@ -12,6 +12,7 @@ package mqtt_test
 import (
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"math"
 	"time"
 	"uuid"
@@ -554,6 +555,27 @@ var _ = Describe("Write task", func() {
 					func(g Gomega) {
 						g.Expect(payloads("plant/point")).
 							To(ContainElement(`{"x":1,"y":4}`))
+					},
+				)
+			},
+		)
+
+		It("Should count each command of a frame, the dropped ones too",
+			func(ctx SpecContext) {
+				t, _ := start(
+					ctx, writeConfig(dev, pointTarget(ctx, icd.FloatJSONField{})),
+				)
+				send(ctx, channel.Keys{x.Key(), y.Key()},
+					both(telem.NewSeriesV(math.NaN()), telem.NewSeriesV(4.0)),
+					func(g Gomega) {
+						var skipped, read int
+						g.Expect(fmt.Sscanf(
+							taskStatus(ctx, t).Message,
+							"Skipped %d of %d commands",
+							&skipped,
+							&read,
+						)).To(Equal(2))
+						g.Expect(read).To(Equal(2 * skipped))
 					},
 				)
 			},

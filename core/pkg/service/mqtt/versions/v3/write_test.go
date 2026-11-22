@@ -281,6 +281,31 @@ var _ = Describe("NewWriteMigration", func() {
 		},
 	)
 
+	It("Should bind no channel to a target with no channel and log its dropped name",
+		func(ctx SpecContext) {
+			ch := valueField()
+			ch.Channel = 0
+			old := config(plainTarget("plant/valve/set", ch))
+			store(ctx, "Valves", old, false)
+			ins, logs := observe()
+			Expect(migrate(ctx, ins)).To(Succeed())
+			f := fields(made[0].Messages[0])
+			Expect(plainWrite(read(ctx, old.Key).Targets[0]).Message.Bindings).
+				To(Equal([]icd.WriteBinding{{
+					Field:    f[0].Base().Key,
+					DataType: telem.Float64T,
+				}}))
+			const change = `channel name "valve_cmd" of field value on topic ` +
+				`plant/valve/set was dropped, so a client names the new channel`
+			logged := logs.FilterField(zap.String("field", "targets.0.channel")).All()
+			Expect(logged).To(HaveLen(1))
+			Expect(logged[0].ContextMap()).To(SatisfyAll(
+				HaveKeyWithValue("config", old.Key.String()),
+				HaveKeyWithValue("change", change),
+			))
+		},
+	)
+
 	DescribeTable(
 		"Should pick the kind that writes the channel as its JSON type",
 		func(
@@ -569,5 +594,136 @@ var _ = Describe("MigrateWriteConfig", func() {
 	It("Should stage nothing without plain targets", func(ctx SpecContext) {
 		cfg := MustSucceed(v3.MigrateWriteConfig(ctx, v1.WriteConfig{}))
 		Expect(cfg.Inline).To(BeNil())
+	})
+})
+
+var _ = Describe("MigrateWriteTarget", func() {
+	It("Should keep the topic settings of a plain target and give it no message",
+		func(ctx SpecContext) {
+			old := plainTarget("plant/cmd", valueField())
+			Expect(v3.MigrateWriteTarget(ctx, old)).To(Equal(v3.WriteTarget{
+				Variant: v3.PlainWriteTarget{
+					BaseWriteTarget: v3.BaseWriteTarget{Key: "plant/cmd"},
+					Topic:           "plant/cmd",
+					Qos:             v3.QoSAtLeastOnce,
+				},
+			}))
+		},
+	)
+
+	It("Should keep a Sparkplug target", func(ctx SpecContext) {
+		old := v1.WriteTarget{Variant: v1.SparkplugWriteTarget{
+			BaseWriteTarget: v1.BaseWriteTarget{Key: "t1"},
+			Tag:             "speed",
+			TagType:         v1.SparkplugDataTypeDouble,
+			Channel:         4,
+		}}
+		Expect(v3.MigrateWriteTarget(ctx, old)).To(Equal(v3.WriteTarget{
+			Variant: v3.SparkplugWriteTarget{
+				Key:     "t1",
+				Tag:     "speed",
+				TagType: v3.SparkplugDataTypeDouble,
+				Channel: 4,
+			},
+		}))
+	})
+})
+
+var _ = Describe("ResolveWriteConfig", func() {
+	var (
+		db       *gorp.DB
+		channels icdv0.Channels
+	)
+	BeforeEach(func() {
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		channels = func(
+			context.Context,
+			gorp.Snapshot,
+			[]channel.Key,
+		) (map[channel.Key]icdv0.Channel, error) {
+			return map[channel.Key]icdv0.Channel{
+				7: {Name: "valve_cmd", DataType: telem.Float64T},
+			}, nil
+		}
+	})
+	ignore := func(string, string) {}
+	tag := func(key string) v3.WriteTarget {
+		return v3.WriteTarget{Variant: v3.SparkplugWriteTarget{Key: key, Tag: key}}
+	}
+	staged := func(at uint32, topic string) v3.InlineTarget {
+		return v3.InlineTarget{Key: topic, At: at, Topic: topic, Channel: valueField()}
+	}
+
+	It("Should return false and keep a config with no inline targets",
+		func(ctx SpecContext) {
+			cfg := v3.WriteConfig{Targets: []v3.WriteTarget{tag("speed")}}
+			_, ok := MustSucceed2(
+				v3.ResolveWriteConfig(ctx, db, channels, "Valves", &cfg, ignore),
+			)
+			Expect(ok).To(BeFalse())
+			Expect(cfg.Targets).To(Equal([]v3.WriteTarget{tag("speed")}))
+		},
+	)
+
+	It("Should insert each inline target at its index and clear the inline targets",
+		func(ctx SpecContext) {
+			cfg := v3.WriteConfig{
+				Targets: []v3.WriteTarget{tag("a"), tag("b")},
+				Inline: &v3.InlineWrite{Targets: []v3.InlineTarget{
+					staged(1, "plant/one"),
+					staged(3, "plant/three"),
+				}},
+			}
+			ic, ok := MustSucceed2(
+				v3.ResolveWriteConfig(ctx, db, channels, "Valves", &cfg, ignore),
+			)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.Inline).To(BeNil())
+			Expect(ic.Name).To(Equal("Valves"))
+			Expect(ic.Messages).To(HaveLen(2))
+			Expect(cfg.Targets).To(HaveLen(4))
+			Expect(cfg.Targets[0]).To(Equal(tag("a")))
+			Expect(cfg.Targets[2]).To(Equal(tag("b")))
+			for i, at := range []int{1, 3} {
+				t := plainWrite(cfg.Targets[at])
+				Expect(t.ICD).To(Equal(ic.Key))
+				Expect(t.Message.Message).To(Equal(ic.Messages[i].Key))
+				Expect(ic.Messages[i].Name).To(Equal(t.Topic))
+				Expect(t.Message.Bindings).To(HaveLen(1))
+				Expect(t.Message.Bindings[0].Channel).To(BeEquivalentTo(7))
+			}
+		},
+	)
+
+	It("Should append an inline target whose index is past the last target",
+		func(ctx SpecContext) {
+			cfg := v3.WriteConfig{
+				Targets: []v3.WriteTarget{tag("a")},
+				Inline: &v3.InlineWrite{
+					Targets: []v3.InlineTarget{staged(5, "plant/one")},
+				},
+			}
+			MustSucceed2(
+				v3.ResolveWriteConfig(ctx, db, channels, "Valves", &cfg, ignore),
+			)
+			Expect(cfg.Targets).To(HaveLen(2))
+			Expect(plainWrite(cfg.Targets[1]).Topic).To(Equal("plant/one"))
+		},
+	)
+})
+
+var _ = Describe("NoteLift", func() {
+	It("Should log each change with the config key and the path of its field", func() {
+		ins, logs := observe()
+		key := uuid.New()
+		v3.NoteLift(ins, key)("targets.0.channel", "a change")
+		Expect(logs.All()).To(HaveLen(1))
+		logged := logs.All()[0]
+		Expect(logged.Message).To(Equal("changed an MQTT write field to v3"))
+		Expect(logged.ContextMap()).To(Equal(map[string]any{
+			"config": key.String(),
+			"field":  "targets.0.channel",
+			"change": "a change",
+		}))
 	})
 })

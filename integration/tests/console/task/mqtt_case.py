@@ -67,7 +67,7 @@ class MQTTCase(ConsoleTaskCase):
             if isinstance(source, mqtt.PlainReadEntry):
                 keys.extend(b.channel for m in source.messages for b in m.bindings)
             elif isinstance(source, mqtt.PlainWriteTarget):
-                keys.append(source.channel.channel)
+                keys.extend(b.channel for b in source.message.bindings)
             else:
                 keys.append(source.channel)
         return [k for k in keys if k != 0]

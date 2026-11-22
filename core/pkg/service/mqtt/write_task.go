@@ -39,8 +39,9 @@ type publication struct {
 
 // target turns the commands of a frame into messages.
 type target interface {
-	// publications returns the message, or the error, of each command in fr.
-	publications(fr framer.Frame) iter.Seq2[publication, error]
+	// publications returns the messages that the commands in fr send. It counts each
+	// command in skips as read, and each command that it drops as skipped.
+	publications(fr framer.Frame, skips *driver.Skips) iter.Seq[publication]
 	// reset forgets the commands of an earlier run.
 	reset()
 	// String names the target in an error.
@@ -125,20 +126,22 @@ func (t *messageTarget) String() string { return "target " + t.topic }
 // reset implements target.
 func (t *messageTarget) reset() { clear(t.received) }
 
-// publications implements target. It yields the error of each command that its field
-// cannot hold, then the document of the row.
-func (t *messageTarget) publications(fr framer.Frame) iter.Seq2[publication, error] {
-	return func(yield func(publication, error) bool) {
+// publications implements target. It sends one document for each row of fr that holds
+// a good command.
+func (t *messageTarget) publications(
+	fr framer.Frame,
+	skips *driver.Skips,
+) iter.Seq[publication] {
+	return func(yield func(publication) bool) {
 		for row := range t.gather(fr) {
 			good := false
 			for b, rows := range t.rows {
 				if row >= len(rows) {
 					continue
 				}
+				skips.Read()
 				if err := t.encoder.Check(b, rows[row]); err != nil {
-					if !yield(publication{}, err) {
-						return
-					}
+					skip(skips, t, err)
 					continue
 				}
 				t.last[b] = append(t.last[b][:0], rows[row]...)
@@ -148,14 +151,22 @@ func (t *messageTarget) publications(fr framer.Frame) iter.Seq2[publication, err
 				continue
 			}
 			payload, err := t.encoder.Encode(nil, t.next)
-			pub := publication{
-				topic: t.topic, payload: payload, qos: t.qos, retained: t.retained,
+			if err != nil {
+				skip(skips, t, err)
+				continue
 			}
-			if !yield(pub, err) {
+			if !yield(publication{
+				topic: t.topic, payload: payload, qos: t.qos, retained: t.retained,
+			}) {
 				return
 			}
 		}
 	}
+}
+
+// skip counts in skips a command for t that err dropped.
+func skip(skips *driver.Skips, t target, err error) {
+	skips.Skip(time.Now(), fmt.Sprintf("Command for %s: %s", t, err))
 }
 
 // gather fills rows with the commands of each binding in fr, and returns the count of
@@ -281,13 +292,8 @@ func (w *writer) Write(ctx context.Context, fr framer.Frame) error {
 	var first error
 	for _, i := range w.fed {
 		t := w.targets[i]
-		for pub, err := range t.publications(fr) {
-			w.skips.Read()
-			if err != nil {
-				w.skips.Skip(time.Now(), fmt.Sprintf("Command for %s: %s", t, err))
-				continue
-			}
-			err = w.attachment.publish(
+		for pub := range t.publications(fr, w.skips) {
+			err := w.attachment.publish(
 				ctx, pub.topic, pub.qos, pub.retained, pub.payload,
 			)
 			if err != nil &&
