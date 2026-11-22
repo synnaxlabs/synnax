@@ -240,8 +240,8 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 	return nil
 }
 
-// NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by numeric
-// key, path, or name, for analyzing and compiling Arc expressions such as calculated
+// NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by path,
+// name, or key, for analyzing and compiling Arc expressions such as calculated
 // channels. The resolver looks up channels in snap.
 func (s *Service) NewArcSymbolResolver(snap gorp.Snapshot) arc.SymbolResolver {
 	return &symbolResolver{svc: s, snap: snap}

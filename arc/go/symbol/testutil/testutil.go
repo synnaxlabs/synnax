@@ -114,6 +114,21 @@ func (r StaticResolver) Resolve(
 	return nil, errors.Wrapf(query.ErrNotFound, "symbol %s not found", name)
 }
 
+// ResolveKey looks up the entry whose ID is key by scanning the slice. It returns
+// query.ErrNotFound (wrapped) when no entry has the key.
+func (r StaticResolver) ResolveKey(
+	_ context.Context,
+	key uint32,
+) (*symbol.Symbol, error) {
+	for i := range r {
+		if uint32(r[i].ID) == key {
+			sym := r[i]
+			return &sym, nil
+		}
+	}
+	return nil, errors.Wrapf(query.ErrNotFound, "symbol with key %d not found", key)
+}
+
 // Search returns entries whose name has the given prefix or is within a
 // Levenshtein distance of 2 from the term.
 func (r StaticResolver) Search(

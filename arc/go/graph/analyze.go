@@ -11,7 +11,6 @@ package graph
 
 import (
 	"context"
-	"strconv"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -284,7 +283,7 @@ func bindChannelParam(
 		), nil))
 		return false
 	}
-	channelSym, err := aCtx.Scope.Resolve(aCtx, strconv.Itoa(int(k)))
+	channelSym, err := aCtx.Scope.ResolveChannelKey(aCtx, k)
 	if err != nil || channelSym.Type.Kind != types.KindChan {
 		return true
 	}

@@ -311,6 +311,14 @@ func (r *recordingResolver) Resolve(
 	return nil, errors.Wrap(query.ErrNotFound, "not found")
 }
 
+func (r *recordingResolver) ResolveKey(
+	_ context.Context,
+	_ uint32,
+) (*symbol.Symbol, error) {
+	r.resolveCalls++
+	return nil, errors.Wrap(query.ErrNotFound, "not found")
+}
+
 func (r *recordingResolver) Search(
 	_ context.Context,
 	_ string,

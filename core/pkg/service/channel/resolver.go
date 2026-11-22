@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -27,7 +26,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// symbolResolver resolves cluster channels into Arc symbols by name or numeric key. It
+// symbolResolver resolves cluster channels into Arc symbols by path, name, or key. It
 // is the dynamic resolver attached to a program root's GlobalResolver: cluster channels
 // can appear or disappear at runtime, so they cannot be snapshotted into the ambient
 // prelude at analysis time.
@@ -70,11 +69,11 @@ func (r *symbolResolver) retrieve(ctx context.Context) (Retrieve, error) {
 	})), nil
 }
 
-// Resolve resolves a single cluster channel by numeric key, by path when name holds
-// validate.PathSeparator, or else by name in NFC. A resolved path is the name of its
-// symbol. A name that several channels hold returns an AmbiguousNameError, described
-// for the subject of r. Every holder of a bare name counts, and the one holder binds
-// only when the subject can retrieve it.
+// Resolve resolves a single cluster channel by path when name holds
+// validate.PathSeparator, or else by name in NFC. Digits are a name, never a key. A
+// resolved path is the name of its symbol. A name that several channels hold returns an
+// AmbiguousNameError, described for the subject of r. Every holder of a bare name
+// counts, and the one holder binds only when the subject can retrieve it.
 func (r *symbolResolver) Resolve(
 	ctx context.Context,
 	name string,
@@ -82,13 +81,6 @@ func (r *symbolResolver) Resolve(
 	q, err := r.retrieve(ctx)
 	if err != nil {
 		return nil, err
-	}
-	if key, err := strconv.ParseUint(name, 10, 32); err == nil {
-		var ch Channel
-		if err = q.Where(MatchKeys(Key(key))).Entry(&ch).Exec(ctx, r.snap); err != nil {
-			return nil, err
-		}
-		return toSymbol(ch), nil
 	}
 	path := strings.IndexByte(name, validate.PathSeparator) >= 0
 	match := MatchPaths(name)
@@ -122,6 +114,22 @@ func (r *symbolResolver) Resolve(
 		}
 		return nil, r.svc.DescribeAmbiguity(ctx, r.snap, ambiguous, r.access)
 	}
+}
+
+// ResolveKey resolves the cluster channel with key.
+func (r *symbolResolver) ResolveKey(
+	ctx context.Context,
+	key uint32,
+) (*symbol.Symbol, error) {
+	q, err := r.retrieve(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ch Channel
+	if err = q.Where(MatchKeys(Key(key))).Entry(&ch).Exec(ctx, r.snap); err != nil {
+		return nil, err
+	}
+	return toSymbol(ch), nil
 }
 
 // visible returns the channels of chs that the subject of r can retrieve.
@@ -162,32 +170,46 @@ func (r *symbolResolver) Search(
 	}), nil
 }
 
-// NewConsistentResolver returns a resolver that answers each name the way r first
-// answered it. Arc resolves a name several times in one analysis or compile, and a
-// rename that commits part way through would otherwise give that pass both answers.
+// NewConsistentResolver returns a resolver that answers each name and key the way r
+// first answered it. Arc resolves a name several times in one analysis or compile, and
+// a rename that commits part way through would otherwise give that pass both answers.
 // Use one per analysis or compile. It is safe for concurrent use.
 func NewConsistentResolver(r arc.SymbolResolver) arc.SymbolResolver {
 	return &consistentResolver{
 		SymbolResolver: r,
-		resolved:       make(map[string]resolution),
+		resolved:       make(map[lookup]resolution),
 	}
 }
 
 // NewCheckedResolver returns a consistent resolver that looks up channels in snap and
-// records each name it looks up in lookups, for CompileConsistent.
+// records each name and key it looks up in lookups, for CompileConsistent.
 func (s *Service) NewCheckedResolver(
 	snap gorp.Snapshot,
 	lookups *Lookups,
 ) arc.SymbolResolver {
 	return &consistentResolver{
 		SymbolResolver: s.NewArcSymbolResolver(snap),
-		resolved:       make(map[string]resolution),
-		record: func(name string, first resolution) {
+		resolved:       make(map[lookup]resolution),
+		record: func(l lookup, first resolution) {
 			lookups.Record(func(ctx context.Context, snap gorp.Snapshot) (bool, error) {
-				return first.same(s.NewArcSymbolResolver(snap).Resolve(ctx, name))
+				return first.same(l.run(ctx, s.NewArcSymbolResolver(snap)))
 			})
 		},
 	}
+}
+
+// lookup is one lookup of a consistent resolver: by key, or else by name.
+type lookup struct {
+	name  string
+	key   uint32
+	byKey bool
+}
+
+func (l lookup) run(ctx context.Context, r arc.SymbolResolver) (*symbol.Symbol, error) {
+	if l.byKey {
+		return r.ResolveKey(ctx, l.key)
+	}
+	return r.Resolve(ctx, l.name)
 }
 
 type resolution struct {
@@ -221,24 +243,38 @@ func (res resolution) same(sym *symbol.Symbol, err error) (bool, error) {
 
 type consistentResolver struct {
 	arc.SymbolResolver
-	// record is called once for each name that the resolver looks up. It is nil when
-	// the resolver records nothing.
-	record   func(name string, first resolution)
+	// record is called once for each name and key that the resolver looks up. It is
+	// nil when the resolver records nothing.
+	record   func(l lookup, first resolution)
 	mu       sync.Mutex
-	resolved map[string]resolution
+	resolved map[lookup]resolution
 }
 
 func (r *consistentResolver) Resolve(
 	ctx context.Context,
 	name string,
 ) (*symbol.Symbol, error) {
+	return r.resolve(ctx, lookup{name: name})
+}
+
+func (r *consistentResolver) ResolveKey(
+	ctx context.Context,
+	key uint32,
+) (*symbol.Symbol, error) {
+	return r.resolve(ctx, lookup{key: key, byKey: true})
+}
+
+func (r *consistentResolver) resolve(
+	ctx context.Context,
+	l lookup,
+) (*symbol.Symbol, error) {
 	r.mu.Lock()
-	res, ok := r.resolved[name]
+	res, ok := r.resolved[l]
 	if !ok {
-		res.sym, res.err = r.SymbolResolver.Resolve(ctx, name)
-		r.resolved[name] = res
+		res.sym, res.err = l.run(ctx, r.SymbolResolver)
+		r.resolved[l] = res
 		if r.record != nil {
-			r.record(name, res)
+			r.record(l, res)
 		}
 	}
 	r.mu.Unlock()

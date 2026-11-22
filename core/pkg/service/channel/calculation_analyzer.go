@@ -12,7 +12,6 @@ package channel
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
@@ -32,7 +31,6 @@ type resolver struct {
 	arc.SymbolResolver
 	temp struct {
 		names map[string]*symbol.Symbol
-		keys  map[int]*symbol.Symbol
 		// unstored holds analyzed channels that are not stored yet. A stored channel
 		// with the same name resolves first.
 		unstored map[string]*symbol.Symbol
@@ -62,7 +60,6 @@ func NewCalculationAnalyzer(
 	cfgs ...parser.Config,
 ) *CalculationAnalyzer {
 	r := &resolver{}
-	r.temp.keys = make(map[int]*symbol.Symbol)
 	r.temp.names = make(map[string]*symbol.Symbol)
 	r.temp.unstored = make(map[string]*symbol.Symbol)
 	return &CalculationAnalyzer{
@@ -73,15 +70,8 @@ func NewCalculationAnalyzer(
 }
 
 func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
-	i, err := strconv.Atoi(name)
-	if err == nil {
-		if s, ok := r.temp.keys[i]; ok {
-			return s, nil
-		}
-	} else {
-		if s, ok := r.temp.names[name]; ok {
-			return s, nil
-		}
+	if s, ok := r.temp.names[name]; ok {
+		return s, nil
 	}
 	sym, resolveErr := r.SymbolResolver.Resolve(ctx, name)
 	// The analysis reports an ambiguous name as a diagnostic, like an unknown one.
@@ -115,7 +105,7 @@ type CalculationAnalysisResult struct {
 
 // Analyze parses the channel's expression, infers its return type, and extracts the set
 // of channel dependencies. The analyzed channel is cached so that subsequent calls can
-// reference it by name or key. An expression that fails analysis returns
+// reference it by name. An expression that fails analysis returns
 // *diagnostics.Diagnostics. A channel read that fails returns its error.
 func (a *CalculationAnalyzer) Analyze(
 	ctx context.Context,
@@ -151,7 +141,6 @@ func (a *CalculationAnalyzer) Analyze(
 		a.resolver.temp.unstored[s.Name] = s
 	} else {
 		s.ID = int(ch.Key())
-		a.resolver.temp.keys[s.ID] = s
 		a.resolver.temp.names[s.Name] = s
 	}
 	var deps Keys

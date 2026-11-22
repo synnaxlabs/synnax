@@ -64,7 +64,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		Expect(sym.Renameable).To(BeFalse())
 	})
 
-	It("Should resolve a channel by numeric key", func(ctx SpecContext) {
+	It("Should resolve a channel by key", func(ctx SpecContext) {
 		ch := &channel.Channel{
 			Name:     "resolver_key_test_ch",
 			Virtual:  true,
@@ -75,11 +75,25 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		})).To(Succeed())
 
 		sym := MustSucceed(
-			svc.NewArcSymbolResolver(db).Resolve(ctx, strconv.Itoa(int(ch.Key()))),
+			svc.NewArcSymbolResolver(db).ResolveKey(ctx, uint32(ch.Key())),
 		)
 		Expect(sym.Name).To(Equal("resolver_key_test_ch"))
 		Expect(sym.Kind).To(Equal(symbol.KindChannel))
 		Expect(sym.Type).To(Equal(types.Chan(types.I64())))
+	})
+
+	It("Should not resolve digits as a key", func(ctx SpecContext) {
+		keyed := &channel.Channel{
+			Name:     "resolver_digits_keyed",
+			Virtual:  true,
+			DataType: telem.Int64T,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, keyed)
+		})).To(Succeed())
+		digits := strconv.Itoa(int(keyed.Key()))
+		Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, digits)).Error().
+			To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should return an error for a nonexistent symbol", func(ctx SpecContext) {
@@ -131,11 +145,11 @@ var _ = Describe("NewArcSymbolResolver", func() {
 				To(HaveField("ID", int(visible.Key())))
 		})
 
-		It("Should not resolve a hidden channel by numeric key", func(ctx SpecContext) {
+		It("Should not resolve a hidden channel by key", func(ctx SpecContext) {
 			r := svc.NewSubjectResolver(db, hide())
-			Expect(r.Resolve(ctx, strconv.Itoa(int(hidden.Key())))).Error().
+			Expect(r.ResolveKey(ctx, uint32(hidden.Key()))).Error().
 				To(MatchError(query.ErrNotFound))
-			Expect(r.Resolve(ctx, strconv.Itoa(int(visible.Key())))).
+			Expect(r.ResolveKey(ctx, uint32(visible.Key()))).
 				To(HaveField("ID", int(visible.Key())))
 		})
 
@@ -216,6 +230,24 @@ var _ = Describe("NewConsistentResolver", func() {
 				To(HaveField("ID", int(later.Key())))
 		},
 	)
+
+	It("Should resolve a renamed channel by key the way it first did", func(
+		ctx SpecContext,
+	) {
+		r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(db))
+		Expect(r.ResolveKey(ctx, uint32(ch.Key()))).
+			To(HaveField("Name", "consistent_resolver_ch"))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Rename(
+				ctx, ch.Key(), "consistent_resolver_ch_by_key", false,
+			)
+		})).To(Succeed())
+		Expect(r.ResolveKey(ctx, uint32(ch.Key()))).
+			To(HaveField("Name", "consistent_resolver_ch"))
+		Expect(channel.NewConsistentResolver(svc.NewArcSymbolResolver(db)).
+			ResolveKey(ctx, uint32(ch.Key()))).
+			To(HaveField("Name", "consistent_resolver_ch_by_key"))
+	})
 
 	It("Should return a separate symbol for each lookup", func(ctx SpecContext) {
 		r := channel.NewConsistentResolver(svc.NewArcSymbolResolver(db))

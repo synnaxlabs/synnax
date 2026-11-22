@@ -248,8 +248,8 @@ var _ = Describe("Ambiguous names", func() {
 		) {
 			r := svc.NewArcSymbolResolver(db)
 			Expect(MustSucceed(r.Resolve(ctx, "solo")).ID).To(Equal(int(solo.Key())))
-			key := solo.Key().String()
-			Expect(MustSucceed(r.Resolve(ctx, key)).ID).To(Equal(int(solo.Key())))
+			Expect(MustSucceed(r.ResolveKey(ctx, uint32(solo.Key()))).ID).
+				To(Equal(int(solo.Key())))
 		})
 
 		It("Should find nothing at a path that no channel is at", func(

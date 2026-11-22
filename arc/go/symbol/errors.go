@@ -37,6 +37,29 @@ func (e *notExportedError) Error() string {
 	return fmt.Sprintf("not exported: '%s' in module %q", e.Name, e.Module)
 }
 
+// pathClashError is returned for a dotted name that is both a member of an imported
+// module and the path of a channel.
+type pathClashError struct {
+	// Path is the dotted name.
+	Path string
+	// Module is the name of the module that holds the member.
+	Module string
+}
+
+// Error implements the error interface.
+func (e *pathClashError) Error() string {
+	return fmt.Sprintf(
+		"%s is both a member of module %s and a channel",
+		e.Path,
+		e.Module,
+	)
+}
+
+// GetHint implements the hint interface of diagnostics.
+func (e *pathClashError) GetHint() string {
+	return "import the module with `as`, or rename the channel"
+}
+
 // UndefinedSymbolError is returned when a symbol cannot be resolved. It lazily
 // computes "did you mean" suggestions only when GetHint() is called, avoiding
 // expensive search operations on the common path where the error is discarded
@@ -45,10 +68,15 @@ type UndefinedSymbolError struct {
 	ctx   context.Context
 	Name  string
 	scope *Symbol
+	// channel is true when only a channel could have matched Name.
+	channel bool
 }
 
 // Error implements the error interface.
 func (e *UndefinedSymbolError) Error() string {
+	if e.channel {
+		return e.Name + " does not exist"
+	}
 	return "undefined symbol: " + e.Name
 }
 
@@ -67,14 +95,18 @@ func (e *UndefinedSymbolError) GetHint() string {
 	if dot := strings.IndexByte(head, '.'); dot > 0 {
 		head = head[:dot]
 	}
-	if e.scope.IsAmbientModule(head) {
+	if !e.channel && e.scope.IsAmbientModule(head) {
 		return fmt.Sprintf(
 			"module %q is not imported. add `import %s` at the top of the file",
 			head,
 			head,
 		)
 	}
-	suggestions := e.scope.SuggestSimilar(e.ctx, e.Name, 2)
+	keep := keepAll
+	if e.channel {
+		keep = func(s *Symbol) bool { return s.Kind == KindChannel }
+	}
+	suggestions := e.scope.suggestSimilar(e.ctx, e.Name, 2, keep)
 	if len(suggestions) > 0 {
 		return fmt.Sprintf("did you mean: %s?", strings.Join(suggestions, ", "))
 	}
