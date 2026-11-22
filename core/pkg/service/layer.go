@@ -602,6 +602,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DeleteName: "sy_calculation_delete",
 			Changes:    l.Calculation.Changes,
 			Resource:   calculation.ResourceID,
+			SetCheck: signals.CheckJSON(func(c calculation.Calculation) signals.Check {
+				return l.Calculation.Readable(c)
+			}),
 		},
 	); !ok(err, nil) {
 		return nil, err
@@ -612,6 +615,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Name:     "sy_calculation_action_set",
 			Actions:  l.Calculation.Actions(),
 			Resource: calculation.ResourceID,
+			BatchCheck: func(c gorp.Commit, k calculation.Key) (signals.Check, error) {
+				return l.Calculation.ReadableIn(c, k), nil
+			},
 		},
 	); !ok(err, nil) {
 		return nil, err

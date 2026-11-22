@@ -162,6 +162,58 @@ func (s *Service) Channels(c Calculation) []resource.ID {
 	return ids
 }
 
+// required returns the resources that a subject must retrieve to read c: c and each
+// channel that it links. The retrieve and the change channels of calculations both
+// decide by it.
+func (s *Service) required(c Calculation) []resource.ID {
+	return append([]resource.ID{ResourceID(c.Key)}, s.Channels(c)...)
+}
+
+// Denied returns the first resource that a subject must retrieve to read c and that
+// allowed refuses, and false when allowed admits them all.
+func (s *Service) Denied(
+	c Calculation,
+	allowed func(resource.ID) bool,
+) (resource.ID, bool) {
+	return firstRefused(s.required(c), allowed)
+}
+
+// Readable returns whether a subject reads c, given whether it can retrieve each
+// resource. It finds the resources once, so a check of many subjects reads c once.
+func (s *Service) Readable(c Calculation) func(allowed func(resource.ID) bool) bool {
+	required := s.required(c)
+	return func(allowed func(resource.ID) bool) bool {
+		_, refused := firstRefused(required, allowed)
+		return !refused
+	}
+}
+
+func firstRefused(
+	ids []resource.ID,
+	allowed func(resource.ID) bool,
+) (resource.ID, bool) {
+	for _, id := range ids {
+		if !allowed(id) {
+			return id, true
+		}
+	}
+	return resource.ID{}, false
+}
+
+// ReadableIn returns Readable of the calculation with key as commit c left it. It
+// refuses every subject when c deleted the calculation or did not change it.
+func (s *Service) ReadableIn(
+	c gorp.Commit,
+	key Key,
+) func(allowed func(resource.ID) bool) bool {
+	for ch := range s.Changes(c) {
+		if ch.Key == key && ch.Kind != gorp.ChangeDelete {
+			return s.Readable(ch.Value)
+		}
+	}
+	return func(func(resource.ID) bool) bool { return false }
+}
+
 // NewWriter opens a Writer that changes calculations in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
