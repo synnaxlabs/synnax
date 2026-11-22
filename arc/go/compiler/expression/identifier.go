@@ -105,21 +105,47 @@ func compileChannelRead[ASTNode antlr.ParserRuleContext](
 // form, which no declared input can have. It returns nil for any other name or a read
 // that was not lifted.
 func liftedInput(scope *symbol.Symbol, n parser.Name) *symbol.Symbol {
-	name := n.String()
-	switch {
-	case n.Quoted:
-		name = parser.QuoteChannelName(n.Head)
-	case n.Tail == "":
+	if !n.Quoted && n.Tail == "" {
 		return nil
 	}
-	fn, err := scope.ClosestAncestorOfKind(symbol.KindFunction)
-	if err != nil {
+	fn := scope
+	for fn != nil && fn.Kind != symbol.KindFunction {
+		fn = fn.Parent
+	}
+	if fn == nil {
 		return nil
 	}
-	if in := fn.FindChild(name); in != nil && in.Kind == symbol.KindInput {
-		return in
+	var joined string
+	if !n.Quoted {
+		joined = n.String()
+	}
+	for _, in := range fn.Children() {
+		if in.Kind != symbol.KindInput {
+			continue
+		}
+		if n.Quoted && quotedForm(in.Name, n.Head) || !n.Quoted && in.Name == joined {
+			return in
+		}
 	}
 	return nil
+}
+
+// quotedForm reports whether name is path as parser.QuoteChannelName writes it.
+func quotedForm(name, path string) bool {
+	if len(name) < 2 || name[0] != '\'' || name[len(name)-1] != '\'' {
+		return false
+	}
+	j := 0
+	for i := 1; i < len(name)-1; i++ {
+		if name[i] == '\\' && i+1 < len(name)-1 {
+			i++
+		}
+		if j == len(path) || path[j] != name[i] {
+			return false
+		}
+		j++
+	}
+	return j == len(path)
 }
 
 // EmitChannelKey pushes the key of the channel that sym names. A param or variable of

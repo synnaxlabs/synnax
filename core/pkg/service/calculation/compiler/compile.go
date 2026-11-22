@@ -13,7 +13,9 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
@@ -236,18 +238,32 @@ func addInput(g *arc.Graph, node, name string, t types.Type) {
 	)
 }
 
-// quotedPaths returns each channel path that expression names in quoted form, once, in
-// the order of the expression.
-func quotedPaths(expression string, cfg parser.Config) []string {
-	var paths []string
-	for _, t := range parser.NewLexer(expression, cfg).GetAllTokens() {
-		if t.GetTokenType() != parser.ArcLexerCHANNEL_NAME {
-			continue
+// quotedPaths returns each channel path that the parsed expression body names in
+// quoted form, once, in the order of the expression. expression is its source.
+func quotedPaths(expression string, body antlr.Tree) []string {
+	if body == nil || !strings.ContainsRune(expression, '\'') {
+		return nil
+	}
+	var (
+		paths []string
+		walk  func(t antlr.Tree)
+	)
+	walk = func(t antlr.Tree) {
+		if term, ok := t.(antlr.TerminalNode); ok {
+			token := term.GetSymbol()
+			if token.GetTokenType() != parser.ArcLexerCHANNEL_NAME {
+				return
+			}
+			if path := parser.TokenName(token).Head; !slices.Contains(paths, path) {
+				paths = append(paths, path)
+			}
+			return
 		}
-		if path := parser.TokenName(t).Head; !slices.Contains(paths, path) {
-			paths = append(paths, path)
+		for i := range t.GetChildCount() {
+			walk(t.GetChild(i))
 		}
 	}
+	walk(body)
 	return paths
 }
 
@@ -281,9 +297,7 @@ func compile(
 		},
 	)
 	addOperations(&g, cfg.Channel.Operations)
-	quoted := quotedPaths(cfg.Channel.Expression, parser.Config{
-		AllowDashedNames: !cfg.ChannelService.ShouldValidateNames(),
-	})
+	quoted := quotedPaths(cfg.Channel.Expression, calcFn.Body.AST)
 	if err = addReads(ctx, &g, resolver, calcFn.Channels.Read, quoted); err != nil {
 		return Module{}, err
 	}
