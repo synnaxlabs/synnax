@@ -159,7 +159,14 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 			viper.Set(start.FlagInsecure, true)
 			viper.Set(start.FlagDisableChannelNameValidation, true)
 			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
-				To(And(MatchError(validate.ErrValidation), removed))
+				To(And(MatchError(validate.ErrValidation), MatchError(
+					"--disable-channel-name-validation was removed: channel "+
+						"names follow the name rule, and Arc reads a dashed channel "+
+						"name only in quotes. Remove the flag, the "+
+						"SYNNAX_DISABLE_CHANNEL_NAME_VALIDATION environment "+
+						"variable, and the disable-channel-name-validation key of "+
+						"the config file to start",
+				)))
 		})
 
 		It("Should refuse to start with the environment variable", func() {

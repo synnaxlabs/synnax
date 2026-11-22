@@ -50,6 +50,15 @@ func NewCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error { return start(cmd) },
 	}
 	AddFlags(cmd)
+	// Only start takes the removed flag, so that a start with it fails with the reason.
+	cmd.Flags().Bool(
+		FlagDisableChannelNameValidation,
+		false,
+		"Removed: a start with this flag fails",
+	)
+	if err := cmd.Flags().MarkHidden(FlagDisableChannelNameValidation); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
@@ -191,12 +200,15 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		}
 	}
 	if viper.GetBool(FlagDisableChannelNameValidation) {
-		return CoreConfig{}, errors.Wrapf(
+		return CoreConfig{}, errors.Mark(
+			errors.Newf(
+				"--%[1]s was removed: channel names follow the name rule, and Arc "+
+					"reads a dashed channel name only in quotes. Remove the flag, the "+
+					"SYNNAX_DISABLE_CHANNEL_NAME_VALIDATION environment variable, and "+
+					"the %[1]s key of the config file to start",
+				FlagDisableChannelNameValidation,
+			),
 			validate.ErrValidation,
-			"--%s was removed: channel names follow the name rule, and Arc reads a "+
-				"dashed channel name only in quotes. Remove the flag and "+
-				"SYNNAX_DISABLE_CHANNEL_NAME_VALIDATION to start",
-			FlagDisableChannelNameValidation,
 		)
 	}
 	taskWorkerCount := viper.GetInt(FlagTaskWorkerCount)

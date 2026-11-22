@@ -118,14 +118,6 @@ func AddFlags(cmd *cobra.Command) {
 		4,
 		"Number of worker threads for task operations in the embedded Driver (1-64)",
 	)
-	cmd.Flags().Bool(
-		FlagDisableChannelNameValidation,
-		false,
-		"Removed: a start with this flag fails",
-	)
-	if err := cmd.Flags().MarkHidden(FlagDisableChannelNameValidation); err != nil {
-		panic(err)
-	}
 	cmd.Flags().String(
 		FlagSecretsKey,
 		"",
