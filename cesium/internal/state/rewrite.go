@@ -135,9 +135,9 @@ func (s *State) checkReplace(old *segState, r *log.Replace) error {
 			"in flight", r.Old, s.rep.old)
 	case old == nil || !copied(old.dur.pointers, r.Pointers):
 		return errors.Wrapf(ErrStale, "segment %d changed after its copy", r.Old)
-	case old.vis.Part != 0:
-		return errors.Newf("replace of segment %d, whose record part %d holds", r.Old,
-			old.vis.Part)
+	case !s.core.candidates.Contains(r.Old):
+		return errors.Newf("replace of segment %d, which is no candidate of a rewrite",
+			r.Old)
 	}
 	for _, key := range [2]uint32{old.key, old.vis.Clock} {
 		if _, ok := s.core.dropUsers[key]; ok {

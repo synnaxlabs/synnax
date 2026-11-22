@@ -557,7 +557,7 @@ var _ = Describe("Replace of a put-back record", func() {
 			Key: 6, Generation: 5, Segments: []state.Segment{record},
 		}))
 	})
-	message := "replace of segment 3, whose record part 7 holds"
+	message := "replace of segment 3, which is no candidate of a rewrite"
 
 	It("Should refuse the old segment while a part holds its record", func() {
 		Expect(s.Durable(10, []log.Record{
