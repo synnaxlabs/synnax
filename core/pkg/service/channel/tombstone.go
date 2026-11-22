@@ -10,13 +10,21 @@
 package channel
 
 import (
+	"bytes"
 	"context"
+	"maps"
 	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
+
+// TombstoneTable is the name of the table of tombstones, which a tombstone's link to
+// its group names as the holder's table.
+const TombstoneTable = tombstoneTableName
 
 const (
 	// tombstoneTableName is the name of the table of tombstones.
@@ -347,6 +355,133 @@ func (w Writer) DeleteTombstones(
 	return dead, w.svc.tombstones.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Tombstone](keys...)).
 		Exec(ctx, w.tx)
+}
+
+// MoveTombstones moves the tombstones in each group that moves maps to the group that
+// it maps to, or to no group for nil, and returns the tombstones that drop instead. A
+// tombstone drops when its new path holds a channel or a tombstone, or a tombstone that
+// moved before it. A channel in a group that moves maps counts at the group it maps to.
+// Tombstones move in order of group key, then name. No group that moves maps to may be
+// a key of moves.
+func (w Writer) MoveTombstones(
+	ctx context.Context,
+	moves map[group.Key]*group.Key,
+) ([]Tombstone, error) {
+	moved, dropped, err := w.svc.tombstoneMoves(ctx, w.tx, moves)
+	if err != nil {
+		return nil, err
+	}
+	if len(dropped) > 0 {
+		keys := make([]Key, len(dropped))
+		for i, t := range dropped {
+			keys[i] = t.Key
+		}
+		if err = w.svc.tombstones.table.NewDelete().
+			Where(gorp.MatchKeys[Key, Tombstone](keys...)).
+			Exec(ctx, w.tx); err != nil {
+			return nil, err
+		}
+	}
+	if len(moved) > 0 {
+		if err = w.svc.tombstones.table.NewCreate().
+			Entries(&moved).
+			Exec(ctx, w.tx); err != nil {
+			return nil, err
+		}
+	}
+	return dropped, nil
+}
+
+// DroppedTombstones returns the tombstones that MoveTombstones with moves would drop,
+// as snap sees them.
+func (s *Service) DroppedTombstones(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	moves map[group.Key]*group.Key,
+) ([]Tombstone, error) {
+	_, dropped, err := s.tombstoneMoves(ctx, snap, moves)
+	return dropped, err
+}
+
+// tombstoneMoves returns the tombstones that MoveTombstones with moves moves, at their
+// new groups, and the ones that it drops, as snap sees them.
+func (s *Service) tombstoneMoves(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	moves map[group.Key]*group.Key,
+) (moved, dropped []Tombstone, err error) {
+	_, dead, err := s.tombstonesIn(ctx, snap, slices.Collect(maps.Keys(moves)))
+	if err != nil || len(dead) == 0 {
+		return nil, nil, err
+	}
+	slices.SortFunc(dead, func(a, b Tombstone) int {
+		if c := bytes.Compare(a.Group[:], b.Group[:]); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Name, b.Name)
+	})
+	targets := make(set.Set[path], len(dead))
+	names := make([]Name, len(dead))
+	for i, t := range dead {
+		targets.Add(path{group: movedGroup(t.Group, moves), name: t.Name})
+		names[i] = t.Name
+	}
+	var live []Channel
+	if err = s.NewRetrieve().
+		Where(MatchNames(names...)).
+		Entries(&live).
+		Exec(ctx, snap); err != nil {
+		return nil, nil, err
+	}
+	taken := make(set.Set[path], len(live))
+	for _, c := range live {
+		taken.Add(path{group: movedGroup(c.Group, moves), name: c.Name})
+	}
+	var held []Tombstone
+	if err = s.tombstones.table.NewRetrieve().
+		Where(gorp.Match(func(_ gorp.Context, t *Tombstone) (bool, error) {
+			p, _ := tombstonePath(*t)
+			return targets.Contains(p), nil
+		})).
+		Entries(&held).
+		Exec(ctx, snap); err != nil {
+		return nil, nil, err
+	}
+	for _, t := range held {
+		p, _ := tombstonePath(t)
+		taken.Add(p)
+	}
+	for _, t := range dead {
+		p := path{group: movedGroup(t.Group, moves), name: t.Name}
+		if taken.Contains(p) {
+			dropped = append(dropped, t)
+			continue
+		}
+		taken.Add(p)
+		to := moves[*t.Group]
+		t.Group = nil
+		if to != nil {
+			t.Group = new(*to)
+		}
+		moved = append(moved, t)
+	}
+	return moved, dropped, nil
+}
+
+// movedGroup returns the key of the group that g maps to in moves, or of g itself when
+// moves does not hold it. No group is the zero key.
+func movedGroup(g *group.Key, moves map[group.Key]*group.Key) group.Key {
+	if g == nil {
+		return group.Key{}
+	}
+	to, ok := moves[*g]
+	if !ok {
+		return *g
+	}
+	if to == nil {
+		return group.Key{}
+	}
+	return *to
 }
 
 // writeHeld writes, in tx, the tombstone of c, which a delete removes, when a link
