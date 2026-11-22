@@ -448,15 +448,17 @@ describe("Secret", () => {
     });
 
     it("should page a list that reads uses with a cursor", async () => {
-      const client = createTestClient();
-      await waitForStreamLive(client.connection);
       const prefix = id.create();
+      const writer = createTestClient();
       for (const i of [0, 1])
-        await client.secrets.set({
+        await writer.secrets.set({
           name: `${prefix}-${i}`,
           source: "stored",
           value: "abc",
         });
+      // A stream that opens after the writes delivers no late change to the list.
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
       const send = spyOnSend(client);
       const list = client.secrets.watch({
         name: { startsWith: prefix },
