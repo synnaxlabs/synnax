@@ -148,10 +148,6 @@
       "lyra-tabs__tab"
     ],
     "pluto/src/schematic/Tooltip.css": ["lyra-icon"],
-    "pluto/src/schematic/node/common/form/StateMapping.css": [
-      "lyra-btn",
-      "lyra-list__item"
-    ],
     "pluto/src/schematic/node/common/orientation/select.css": [
       "lyra-btn",
       "lyra-form-section__body",

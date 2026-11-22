@@ -614,6 +614,23 @@ describe("Schematic toolbar Properties", () => {
         .toBe(BLUE);
     });
 
+    it("lists no option colors of an indicator that names an enumeration", async () => {
+      const e = await client.enumerations.create({ name: uuid.create() });
+      await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: (key) =>
+          key === "n1"
+            ? {
+                ...PSchematic.Node.createConfig({ variant: "state_indicator" }),
+                enumeration: e.key,
+                options: [{ key: "a", name: "A", value: 0, color: RED }],
+              }
+            : { ...createBoxConfig(), strokeColor: fixed(GREEN) },
+      });
+      await screen.findByText("Selection");
+      expect(getSwatches("Selection")).toHaveLength(1);
+    });
+
     it("sets a staleness color only on the symbols that have staleness", async () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2"],

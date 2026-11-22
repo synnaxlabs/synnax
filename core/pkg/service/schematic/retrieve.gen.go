@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/compare"
@@ -42,6 +43,7 @@ type indexes struct {
 	project                   *gorp.KeyReference[Key, Schematic, project.Key]
 	nodesConfigStrokeColorKey *gorp.KeyReference[Key, Schematic, color.Key]
 	nodesConfigFillColorKey   *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigEnumeration    *gorp.KeyReference[Key, Schematic, enumeration.Key]
 	nodesConfigLevelColorKey  *gorp.KeyReference[Key, Schematic, color.Key]
 	nodesConfigAxisColorKey   *gorp.KeyReference[Key, Schematic, color.Key]
 	nodesConfigTextColorKey   *gorp.KeyReference[Key, Schematic, color.Key]
@@ -855,6 +857,60 @@ func newIndexes() indexes {
 				return nil
 			},
 		}),
+		nodesConfigEnumeration: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, enumeration.Key]{
+			Name:     "nodes.config.enumeration",
+			Table:    "enumeration",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Schematic) []enumeration.Key {
+				var targets []enumeration.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case SelectNodeConfig:
+						if v2.Enumeration != nil {
+							targets = append(targets, *v2.Enumeration)
+						}
+					case StateIndicatorNodeConfig:
+						if v2.Enumeration != nil {
+							targets = append(targets, *v2.Enumeration)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t enumeration.Key) {
+				for i3 := range e.Nodes {
+					switch v4 := e.Nodes[i3].Config.Variant.(type) {
+					case SelectNodeConfig:
+						if v4.Enumeration != nil && *v4.Enumeration == t {
+							v4.Enumeration = nil
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case StateIndicatorNodeConfig:
+						if v4.Enumeration != nil && *v4.Enumeration == t {
+							v4.Enumeration = nil
+						}
+						e.Nodes[i3].Config.Variant = v4
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to enumeration.Key) {
+				for i5 := range e.Nodes {
+					switch v6 := e.Nodes[i5].Config.Variant.(type) {
+					case SelectNodeConfig:
+						if v6.Enumeration != nil && *v6.Enumeration == from {
+							*v6.Enumeration = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case StateIndicatorNodeConfig:
+						if v6.Enumeration != nil && *v6.Enumeration == from {
+							*v6.Enumeration = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					}
+				}
+			},
+		}),
 		nodesConfigLevelColorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, color.Key]{
 			Name:     "nodes.config.level_color.key",
 			Table:    "color",
@@ -1573,6 +1629,7 @@ func (i indexes) references() []gorp.Reference[Key, Schematic] {
 		i.project,
 		i.nodesConfigStrokeColorKey,
 		i.nodesConfigFillColorKey,
+		i.nodesConfigEnumeration,
 		i.nodesConfigLevelColorKey,
 		i.nodesConfigAxisColorKey,
 		i.nodesConfigTextColorKey,
