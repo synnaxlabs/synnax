@@ -9,27 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-enumeration-settings__section {
-    margin-top: 1rem;
-}
-
-.console-enumeration-settings__section--closed
-    + .console-enumeration-settings__section {
-    margin-top: 0.5rem;
-}
-
-/* The list's own top padding sets the space under its header. */
-.console-enumeration-settings__section--first {
-    margin-top: 0;
-}
-
-/* Lights the heading while its context menu is open, as a hover does. */
-.console-enumeration-settings__heading[data-context-menu-open]
-    > .console-enumeration-settings__bar {
-    --pluto-bg: var(--pluto-fill-hover);
-}
-
-/* Lines the entries up under the heading's title. */
+/* Lines the entries up under the name, past the checkbox and the caret. */
 .console-enumeration-settings__entries {
-    padding: 0.5rem 2rem 1rem 3rem;
+    padding: 0.5rem 2rem 1.5rem 6rem;
 }

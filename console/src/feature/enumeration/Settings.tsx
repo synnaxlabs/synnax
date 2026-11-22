@@ -11,25 +11,32 @@ import "@/feature/enumeration/Settings.css";
 
 import { enumeration } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
+import { Caret } from "@synnaxlabs/lyra/caret";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Enumeration, Flux } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
-import { createContext, type ReactElement, use, useState } from "react";
+import {
+  createContext,
+  type KeyboardEvent,
+  type ReactElement,
+  use,
+  useState,
+} from "react";
 
 import { useDeleteModal } from "@/feature/enumeration/Delete";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
+import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
-
-const headingNameID = (key: enumeration.Key): string => List.itemNameID(key);
 
 /** @returns whether a stored built-in differs from its shipped name or entries. */
 const edited = (
@@ -44,97 +51,132 @@ const ShippedContext = createContext<Map<enumeration.Key, enumeration.Enumeratio
 );
 ShippedContext.displayName = "Enumeration.Shipped";
 
-const HeadingTitle = ({ enumeration: e }: { enumeration: enumeration.Enumeration }) => {
-  const canUpdate = Access.useUpdateGranted(enumeration.resourceID(e.key));
-  const { update } = Enumeration.useRename();
-  return (
-    // A span takes the size and weight of the heading's label.
-    <Text.MaybeEditable
-      id={headingNameID(e.key)}
-      defaultEl="span"
-      value={e.name}
-      onChange={canUpdate && ((name) => update({ key: e.key, name }))}
-      allowDoubleClick={false}
-      overflow="fade"
-    />
-  );
-};
+const COLUMNS: List.Column[] = [
+  { name: "Name", width: "minmax(24rem, 1fr)" },
+  { name: "Entries", width: "12rem" },
+  { name: "Used by", width: "14rem" },
+];
 
-interface SectionProps {
+/** Every enumeration with its uses, read in one request. */
+const QUERY: Enumeration.ListQuery = { includeUses: true };
+
+interface ItemProps extends List.ItemProps<enumeration.Key> {
   enumeration: enumeration.Enumeration;
-  first: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Focuses the entries when they first show. */
+  autoFocus: boolean;
+  onEntriesFocus: () => void;
 }
 
-/** An enumeration's heading, and its entries under it while it is open. */
-const Section = ({
+/** An enumeration in the table, with its entries under it while it is open. */
+const Item = ({
   enumeration: e,
-  first,
   open,
   onOpenChange,
-}: SectionProps): ReactElement => {
+  autoFocus,
+  onEntriesFocus,
+  ...props
+}: ItemProps): ReactElement => {
   const builtin = use(ShippedContext).get(e.key);
+  const canUpdate = Access.useUpdateGranted(enumeration.resourceID(e.key));
+  const { update: rename } = Enumeration.useRename();
+  const itemClass = PlatformSettings.useItemClass(e.key);
+  const [element, setElement] = useState<HTMLElement | null>(null);
+  const handleKeyDown = (ev: KeyboardEvent<HTMLElement>): void => {
+    if (ev.target !== ev.currentTarget) return;
+    if (ev.key === "ArrowRight") onOpenChange(true);
+    else if (ev.key === "ArrowLeft") onOpenChange(false);
+    else return;
+    ev.preventDefault();
+  };
+  // No wrapper, so the checked items share the parent that the context menu searches.
   return (
-    <section
-      aria-labelledby={headingNameID(e.key)}
-      className={CSS.cls(
-        CSS.BE("enumeration-settings", "section"),
-        first && CSS.BEM("enumeration-settings", "section", "first"),
-        !open && CSS.BEM("enumeration-settings", "section", "closed"),
-      )}
-    >
-      <div
-        className={CSS.cls(
-          CSS.BE("enumeration-settings", "heading"),
-          Menu.CONTEXT_TARGET,
-        )}
-        data-menu-key={e.key}
+    <>
+      <Select.Item<enumeration.Key>
+        {...props}
+        ref={setElement}
+        checkable
+        align="center"
+        aria-label={e.name}
+        aria-expanded={open}
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        onActivate={() => onOpenChange(!open)}
+        className={CSS.cls(CSS.BE("enumeration-settings", "item"), itemClass)}
       >
-        <Header.Group
-          size="large"
-          open={open}
-          onOpenChange={onOpenChange}
-          className={CSS.BE("enumeration-settings", "bar")}
-        >
-          <HeadingTitle enumeration={e} />
-          <Text.Text level="tiny" color={9}>
-            {e.entries.length}
-          </Text.Text>
-          {builtin != null && <Badge.Badge>Built-in</Badge.Badge>}
-          {builtin != null && edited(e, builtin) && (
-            <Tooltip.Dialog location="bottom">
-              <Text.Text level="small">
-                This built-in enumeration differs from the one that Synnax ships.
-              </Text.Text>
-              <Badge.Badge status="warning">Edited</Badge.Badge>
-            </Tooltip.Dialog>
-          )}
-        </Header.Group>
-      </div>
+        <List.Cells>
+          <List.Cell>
+            <Flex.Box x align="center" gap="small">
+              <Caret.Animated enabled={open} enabledLoc="bottom" disabledLoc="right" />
+              <Text.MaybeEditable
+                id={List.itemNameID(e.key)}
+                value={e.name}
+                onChange={canUpdate && ((name) => rename({ key: e.key, name }))}
+                allowDoubleClick={false}
+                overflow="fade"
+              />
+              {builtin != null && <Badge.Badge>Built-in</Badge.Badge>}
+              {builtin != null && edited(e, builtin) && (
+                <Tooltip.Dialog location="bottom">
+                  <Text.Text level="small">
+                    This built-in enumeration differs from the one that Synnax ships.
+                  </Text.Text>
+                  <Badge.Badge status="warning">Edited</Badge.Badge>
+                </Tooltip.Dialog>
+              )}
+            </Flex.Box>
+          </List.Cell>
+          <List.Cell>
+            <Text.Text level="small" color={9}>
+              {e.entries.length}
+            </Text.Text>
+          </List.Cell>
+          <List.Cell>
+            <PlatformSettings.UsedBy
+              itemKey={e.key}
+              kind="enumeration"
+              uses={e.uses}
+              anchor={element}
+            />
+          </List.Cell>
+        </List.Cells>
+      </Select.Item>
       {open && (
         // A right click in the grid keeps the browser's menu, not the settings menu.
         <div
+          role="region"
+          aria-label={`${e.name} entries`}
           className={CSS.BE("enumeration-settings", "entries")}
+          onFocus={onEntriesFocus}
           onContextMenu={(ev) => ev.stopPropagation()}
         >
-          <Enumeration.Entries enumeration={e.key} />
+          <Enumeration.Entries enumeration={e.key} autoFocus={autoFocus} />
         </div>
       )}
-    </section>
+    </>
   );
 };
 
-const CreateForm = (): ReactElement => {
-  const { close } = PlatformSettings.useCreate();
+interface CreateFormProps {
+  onCreated: (key: enumeration.Key) => void;
+}
+
+const CreateForm = ({ onCreated }: CreateFormProps): ReactElement => {
+  const { close, creating, created } = PlatformSettings.useCreate();
   const { updateAsync, variant } = Enumeration.useCreate();
   const [name, setName] = useState("");
   const handleSave = (): void => {
     const trimmed = name.trim();
     if (trimmed === "" || variant === "loading") return;
+    const key = uuid.create();
+    creating(key);
     void (async () => {
-      const created = await updateAsync({ key: uuid.create(), name: trimmed });
-      if (created !== false) close();
+      if ((await updateAsync({ key, name: trimmed })) === false) return;
+      // The new enumeration lists at the top, so its entries show to take focus.
+      created(key);
+      close();
+      onCreated(key);
     })();
   };
   const onKeyDown = PlatformSettings.useCreateKeyDown(handleSave);
@@ -156,60 +198,85 @@ const CreateForm = (): ReactElement => {
   );
 };
 
-interface SectionMenuProps {
-  enumeration: enumeration.Enumeration;
-}
-
-const SectionMenu = ({ enumeration: e }: SectionMenuProps): ReactElement => {
-  const id = enumeration.resourceID(e.key);
-  const canUpdate = Access.useUpdateGranted(id);
-  const canDelete = Access.useDeleteGranted(id);
-  const builtin = use(ShippedContext).get(e.key);
+/**
+ * The menu of the selected enumerations. Built-ins are never deleted, and several
+ * delete together only when none is in use.
+ */
+const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+  const { getItem } = List.useUtilContext<enumeration.Key, enumeration.Enumeration>();
+  const enumerations = getItem?.(keys) ?? [];
+  const ids = enumeration.resourceID(keys);
+  const canUpdate = Access.useUpdateGranted(ids);
+  const canDelete = Access.useDeleteGranted(ids);
+  const shipped = use(ShippedContext);
+  const single = enumerations.length === 1 ? enumerations[0] : undefined;
+  const builtin = single == null ? undefined : shipped.get(single.key);
+  // Only the dialog of one enumeration can replace its uses.
+  const deletable =
+    enumerations.length > 0 &&
+    enumerations.every(
+      (e) => shipped.get(e.key) == null && (single != null || !e.uses?.length),
+    );
   const openDelete = useDeleteModal();
+  const confirm = Modals.useConfirmDelete({ type: "Enumeration" });
+  const { update: remove } = Enumeration.useDelete({
+    beforeUpdate: async () => await confirm(enumerations),
+  });
   const { update: restore } = Enumeration.useRestore();
+  const handleDelete = (): void => {
+    if (single != null) openDelete({ enumeration: single });
+    else remove(enumerations.map((e) => e.key));
+  };
   return (
     <ContextMenu.Menu>
-      {canUpdate && (
-        <ContextMenu.RenameItem onClick={() => Text.edit(headingNameID(e.key))} />
+      {single != null && (
+        <Menu.Item
+          itemKey="usedBy"
+          onClick={() => Dialog.open(PlatformSettings.usedByDialogID(single.key))}
+        >
+          <Icon.Link />
+          Used by
+        </Menu.Item>
       )}
-      {builtin != null && edited(e, builtin) && canUpdate && (
+      <Menu.Divider />
+      {single != null && canUpdate && (
+        <ContextMenu.RenameItem
+          onClick={() => Text.edit(List.itemNameID(single.key))}
+        />
+      )}
+      {single != null && builtin != null && edited(single, builtin) && canUpdate && (
         <Menu.Item itemKey="restore" onClick={() => restore(builtin)}>
           <Icon.Reset />
           Restore default
         </Menu.Item>
       )}
       <Menu.Divider />
-      {builtin == null && canDelete && (
-        <ContextMenu.DeleteItem onClick={() => openDelete({ enumeration: e })} />
-      )}
+      {deletable && canDelete && <ContextMenu.DeleteItem onClick={handleDelete} />}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
 };
 
-const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
-  const { getItem } = List.useUtilContext<enumeration.Key, enumeration.Enumeration>();
-  const e = keys[0] == null ? undefined : getItem?.(keys[0]);
-  return e == null ? null : <SectionMenu enumeration={e} />;
-};
-
 const menu = Component.renderProp(SettingsMenu);
 
 /**
- * Every enumeration, by name, with its entries under it. The entries edit in place, and
- * the menu renames, restores built-ins, or deletes other enumerations.
+ * Every enumeration, by name, with its entry count and uses. A click shows its entries
+ * under it to edit in place. The menu renames, restores built-ins, or deletes the rest.
  */
 export const Settings = (): ReactElement => {
   const list = Flux.useList((client) => client.enumerations, {
     name: "enumerations",
-    query: {},
+    query: QUERY,
     pageSize: 1000,
   });
-  const records = Enumeration.useResultList({});
+  const records = Enumeration.useResultList(QUERY);
   const builtins = Enumeration.useResultBuiltins({});
   const canCreate = Access.useCreateGranted(enumeration.TYPE_RESOURCE_ID);
-  const [closed, setClosed] = useState<ReadonlySet<enumeration.Key>>(() => new Set());
+  const [opened, setOpened] = useState<ReadonlySet<enumeration.Key>>(() => new Set());
+  // The enumeration just created here, whose entries take focus when they first show.
+  // Focus in any entries or a search clears it, so a later mount takes no focus.
+  const [created, setCreated] = useState<enumeration.Key>();
   const byKey = new Map(
     (records.variant === "success" ? records.data : []).map((e) => [e.key, e]),
   );
@@ -222,33 +289,50 @@ export const Settings = (): ReactElement => {
       return e == null ? [] : [e];
     })
     .sort((a, b) => a.name.localeCompare(b.name));
-  const first = sorted[0]?.key;
-  const setOpen = (key: enumeration.Key, open: boolean): void =>
-    setClosed((prev) => {
+  const setOpen = (key: enumeration.Key, open: boolean): void => {
+    setCreated(undefined);
+    setOpened((prev) => {
       const next = new Set(prev);
-      if (open) next.delete(key);
-      else next.add(key);
+      if (open) next.add(key);
+      else next.delete(key);
       return next;
     });
+  };
+  const handleCreated = (key: enumeration.Key): void => {
+    setOpen(key, true);
+    setCreated(key);
+  };
+  const handleSearch = (term: string): void => {
+    setCreated(undefined);
+    list.search(term);
+  };
   return (
     <ShippedContext value={shipped}>
       <PlatformSettings.Table<enumeration.Key, enumeration.Enumeration>
-        list={{ ...list, data: sorted.map((e) => e.key) }}
+        list={{
+          ...list,
+          search: handleSearch,
+          data: sorted.map((e) => e.key),
+          answered: list.answered && records.variant === "success",
+        }}
+        columns={COLUMNS}
         noun="enumerations"
         menu={menu}
         createLabel={canCreate ? "Create enumeration" : undefined}
-        create={<CreateForm />}
+        create={<CreateForm onCreated={handleCreated} />}
       >
-        {({ key, itemKey }) => {
-          const e = byKey.get(itemKey);
+        {({ key, ...p }) => {
+          const e = byKey.get(p.itemKey);
           if (e == null) return null;
           return (
-            <Section
+            <Item
               key={key}
+              {...p}
               enumeration={e}
-              first={itemKey === first}
-              open={!closed.has(itemKey)}
-              onOpenChange={(open) => setOpen(itemKey, open)}
+              open={opened.has(p.itemKey)}
+              onOpenChange={(open) => setOpen(p.itemKey, open)}
+              autoFocus={created === p.itemKey}
+              onEntriesFocus={() => setCreated(undefined)}
             />
           );
         }}
