@@ -11,7 +11,7 @@ import { control, DataType, id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { NotFoundError, PathError, ValidationError } from "@/index";
+import { MultipleFoundError, NotFoundError, PathError, ValidationError } from "@/index";
 import { query } from "@/query";
 import {
   createProxiedTestClient,
@@ -399,6 +399,40 @@ describe("Channel", () => {
       expect((await client.channels.retrieve({ where })).map((ch) => ch.key)).toEqual([
         virtual.key,
       ]);
+    });
+
+    describe("lookups", () => {
+      it("should look up a name of digits as a name", async () => {
+        const name = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+        const ch = await client.channels.create({
+          name,
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+        expect((await client.channels.retrieve(name)).key).toEqual(ch.key);
+      });
+
+      it("should look up keys, names, and paths in one list", async () => {
+        const g = await client.groups.create({ name: id.create(), scope: "channel" });
+        const [byKey, byName, byPath] = await client.channels.create([
+          { name: id.create(), dataType: DataType.FLOAT32, virtual: true },
+          { name: id.create(), dataType: DataType.FLOAT32, virtual: true },
+          {
+            name: id.create(),
+            dataType: DataType.FLOAT32,
+            virtual: true,
+            group: g.key,
+          },
+        ]);
+        const res = await client.channels.retrieve([
+          byKey.key,
+          byName.name,
+          `${g.name}.${byPath.name}`,
+        ]);
+        expect(res.map((ch) => ch.key).sort()).toEqual(
+          [byKey.key, byName.key, byPath.key].sort(),
+        );
+      });
     });
   });
 
