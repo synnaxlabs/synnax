@@ -517,10 +517,13 @@ describe("Secret", () => {
         ).toEqual([{ key: created.key, uses: [] }]);
         // Past the debounce of a refetch that the echo of the set could start.
         await sleep.sleep(TimeSpan.milliseconds(500));
-        const retrieves = send.mock.calls.filter(
-          ([target]) => target === "/secret/retrieve",
+        // A refetch of uses selects by key, and a fetch of the list by name.
+        const listFetches = send.mock.calls.filter(
+          ([target, req]) =>
+            target === "/secret/retrieve" &&
+            (req as { where: { name?: unknown } }).where.name != null,
         );
-        expect(retrieves).toHaveLength(0);
+        expect(listFetches).toHaveLength(0);
       } finally {
         off();
       }
