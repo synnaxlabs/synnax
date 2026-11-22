@@ -166,6 +166,29 @@ var _ = Describe("Undo of a conversion", func() {
 		Expect(filesOf(disk, isUndone)).To(BeEmpty())
 	})
 
+	It("Should refuse a root that holds a database when the caller gives no identity",
+		func(ctx SpecContext) {
+			db, closeDB := MustSucceed2(open(ctx, disk, 0, 1))
+			id := db.Identity()
+			Expect(closeDB()).To(Succeed())
+			layout := MustSucceed(filesOf(disk, layoutName.MatchString))
+			Expect(cesium.Open(ctx, "", cesium.WithFS(disk), cesium.WithPointerLog())).
+				Error().To(MatchError(ContainSubstring(fmt.Sprintf(
+				"the root holds database %016x, and the caller gave no identity",
+				id,
+			))))
+			Expect(filesOf(disk, layoutName.MatchString)).To(Equal(layout))
+			Expect(filesOf(disk, isUndone)).To(BeEmpty())
+			fresh := MustSucceed(cesium.Open(
+				ctx,
+				"",
+				cesium.WithFS(xfs.NewMem()),
+				cesium.WithPointerLog(),
+			))
+			Expect(GoRun(ctx, fresh.Run)()).To(Succeed())
+			Expect(fresh.Close()).To(Succeed())
+		})
+
 	It("Should move the new layout aside and convert the files of the old binary "+
 		"again after an undo", func(ctx SpecContext) {
 		db, closeDB := MustSucceed2(open(ctx, disk, 0, 1))

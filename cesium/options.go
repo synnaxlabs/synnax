@@ -132,7 +132,7 @@ func WithPointerLog() Option { return func(o *options) { o.pointerLog = true } }
 // when it holds none. On the pointer log, Open takes heads of another identity as a
 // conversion that an undo rolled back: it moves the files of the pointer log layout
 // aside with the suffix .undone and converts the old layout again. Without it, Open
-// checks no identity.
+// refuses a root that holds a database.
 func WithIdentity(id uint64) Option {
 	return func(o *options) { o.identity, o.identified = id, true }
 }

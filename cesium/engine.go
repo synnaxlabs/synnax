@@ -86,7 +86,7 @@ func openEngine(o *options) (*engine, error) {
 	}
 	// An undo that a crash cut short can have moved the parts already, so the check
 	// comes before they load.
-	if snapshot, err = undoUnheld(o, r, snapshot); err != nil {
+	if snapshot, err = checkIdentity(o, r, snapshot); err != nil {
 		return nil, err
 	}
 	if snapshot != nil {

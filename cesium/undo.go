@@ -15,18 +15,30 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 )
 
-// undoUnheld undoes the database of r when snapshot holds its state and the caller
-// holds another identity. It returns the snapshot that the open goes on from, which is
-// nil after an undo.
-func undoUnheld(
+// checkIdentity compares the identity that the caller holds with the database of r,
+// when snapshot holds its state. It refuses when the caller gives no identity, and
+// undoes the database when the caller holds another. It returns the snapshot that the
+// open goes on from, which is nil after an undo.
+func checkIdentity(
 	o *options,
 	r *recovery,
 	snapshot *state.Snapshot,
 ) (*state.Snapshot, error) {
-	if snapshot == nil || !o.identified || r.db == o.identity {
+	if snapshot == nil {
+		return nil, nil
+	}
+	if !o.identified {
+		return nil, errors.Newf(
+			"the root holds database %016x, and the caller gave no identity: pass the "+
+				"identity from DB.Identity, or 0 when none is held",
+			r.db,
+		)
+	}
+	if r.db == o.identity {
 		return snapshot, nil
 	}
 	return nil, undo(o, r)
