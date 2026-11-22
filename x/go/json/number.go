@@ -16,6 +16,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/x/errors"
+	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -411,7 +412,7 @@ func appendJSONNumber(dst []byte, n number) ([]byte, error) {
 	if n.kind != floatNumber {
 		return n.appendText(dst), nil
 	}
-	if math.IsNaN(n.f) || math.IsInf(n.f, 0) {
+	if !xmath.Finite(n.f) {
 		return nil, errors.Wrapf(validate.ErrValidation, "%s is not a JSON number", n)
 	}
 	format := byte('f')
