@@ -1,0 +1,298 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package write_test
+
+import (
+	"uuid"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
+	"github.com/synnaxlabs/x/content"
+	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
+)
+
+func jsonField(name string, v icd.JSONFieldVariant) icd.JSONField {
+	f := icd.JSONField{Variant: v}
+	f.SetBase(
+		icd.JSONBaseField{Key: uuid.New(), Name: name, Scale: 1, Pointer: "/" + name},
+	)
+	return f
+}
+
+func jsonMessage(name string, fields ...icd.JSONField) icd.Message {
+	return icd.Message{
+		Key:     uuid.New(),
+		Name:    name,
+		Payload: icd.Payload{Variant: icd.JSONPayload{Fields: fields}},
+	}
+}
+
+var (
+	temp     = jsonField("temp", icd.FloatJSONField{})
+	limit    = jsonField("limit", icd.FloatJSONField{Default: new(payload.Float(1))})
+	mode     = jsonField("mode", icd.StringJSONField{Default: new("auto")})
+	id       = jsonField("id", icd.UuidJSONField{})
+	setpoint = jsonMessage("Setpoint", temp, mode, limit)
+	tagged   = jsonMessage("Tagged", id)
+	frame    = icd.Message{
+		Key:     uuid.New(),
+		Name:    "Frame",
+		Payload: icd.Payload{Variant: icd.BinaryPayload{}},
+	}
+	plant = icd.ICD{Name: "Plant", Messages: []icd.Message{setpoint, tagged, frame}}
+)
+
+const valueKey channel.Key = 2
+
+func bind(f icd.JSONField) icd.WriteBinding {
+	return icd.WriteBinding{Field: f.Base().Key, Channel: valueKey}
+}
+
+func fixed(f icd.JSONField, v icd.WriteValueVariant) icd.WriteBinding {
+	return icd.WriteBinding{Field: f.Base().Key, Value: &icd.WriteValue{Variant: v}}
+}
+
+func writeOf(m icd.Message, bindings ...icd.WriteBinding) icd.WriteMessage {
+	return icd.WriteMessage{Message: m.Key, Bindings: bindings}
+}
+
+var _ = Describe("Write", func() {
+	dataTypes := map[channel.Key]telem.DataType{valueKey: telem.Float64T}
+
+	Describe("Encoder", func() {
+		It("Should encode a document with the default of each unbound field", func() {
+			enc := MustSucceed(
+				write.Encoder(
+					writeOf(setpoint, bind(temp)),
+					plant,
+					dataTypes,
+				),
+			)
+			Expect(enc.Encode(nil, [][]byte{telem.NewSeriesV(20.0).Data})).
+				To(MatchJSON(`{"temp":20,"mode":"auto","limit":1}`))
+		})
+
+		DescribeTable("Should send the fixed value of a binding",
+			func(f icd.JSONField, v icd.WriteValueVariant, expected string) {
+				m := jsonMessage("Fixed", temp, f)
+				ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m}}
+				enc := MustSucceed(
+					write.Encoder(writeOf(m, bind(temp), fixed(f, v)), ic, dataTypes),
+				)
+				Expect(enc.Encode(nil, [][]byte{telem.NewSeriesV(20.0).Data})).
+					To(MatchJSON(`{"temp":20,"v":` + expected + `}`))
+			},
+			Entry("a float",
+				jsonField("v", icd.FloatJSONField{}),
+				icd.FloatWriteValue{Value: 2.5},
+				`2.5`,
+			),
+			Entry("an integer",
+				jsonField("v", icd.IntegerJSONField{}),
+				icd.IntegerWriteValue{Value: -3},
+				`-3`,
+			),
+			Entry("an unsigned integer",
+				jsonField("v", icd.UnsignedJSONField{}),
+				icd.UnsignedWriteValue{Value: 7},
+				`7`,
+			),
+			Entry("a string in place of the field's default",
+				jsonField("v", icd.StringJSONField{Default: new("auto")}),
+				icd.StringWriteValue{Value: "manual"},
+				`"manual"`,
+			),
+			Entry("a boolean",
+				jsonField("v", icd.BooleanJSONField{}),
+				icd.BooleanWriteValue{Value: true},
+				`true`,
+			),
+			Entry(
+				"a timestamp",
+				jsonField(
+					"v",
+					icd.TimestampJSONField{TimeFormat: payload.TimeFormatUnixMs},
+				),
+				icd.TimestampWriteValue{Value: telem.TimeStamp(5 * telem.Millisecond)},
+				`5`,
+			),
+			Entry("a JSON value",
+				jsonField("v", icd.JSONJSONField{}),
+				icd.JSONWriteValue{Value: `{"max":10}`},
+				`{"max":10}`,
+			),
+			Entry("a UUID",
+				jsonField("v", icd.UuidJSONField{}),
+				icd.UuidWriteValue{Value: uuid.MustParse(
+					"6f1c3a52-9a4e-4c1b-8d2e-0b7a1f3c5d90",
+				)},
+				`"6f1c3a52-9a4e-4c1b-8d2e-0b7a1f3c5d90"`,
+			),
+			Entry("bytes",
+				jsonField("v", icd.BytesJSONField{}),
+				icd.BytesWriteValue{Value: "AQI="},
+				`"AQI="`,
+			),
+		)
+
+		It("Should refuse a fixed value that its field cannot send", func() {
+			v := jsonField("v", icd.JSONJSONField{})
+			m := jsonMessage("Fixed", temp, v)
+			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m}}
+			wm := writeOf(m, bind(temp), fixed(v, icd.JSONWriteValue{Value: "{"}))
+			Expect(write.Encoder(wm, ic, dataTypes)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring(
+						"message Fixed: field v: default is not valid JSON",
+					),
+				),
+			))
+		})
+
+		It("Should accept a fixed value for a field that has no default", func() {
+			wm := writeOf(
+				setpoint,
+				bind(limit),
+				fixed(temp, icd.FloatWriteValue{Value: 5}),
+			)
+			enc := MustSucceed(write.Encoder(wm, plant, dataTypes))
+			Expect(enc.Encode(nil, [][]byte{telem.NewSeriesV(20.0).Data})).
+				To(MatchJSON(`{"temp":5,"mode":"auto","limit":20}`))
+		})
+
+		It(
+			"Should take the data type of a binding whose channel does not exist",
+			func() {
+				wm := writeOf(setpoint, icd.WriteBinding{
+					Field:    temp.Base().Key,
+					DataType: telem.Int32T,
+				})
+				enc := MustSucceed(write.Encoder(wm, plant, nil))
+				Expect(enc.Encode(nil, [][]byte{telem.NewSeriesV[int32](7).Data})).
+					To(MatchJSON(`{"temp":7,"mode":"auto","limit":1}`))
+			},
+		)
+
+		It("Should take the default data type of the field's kind", func() {
+			wm := writeOf(tagged, icd.WriteBinding{Field: id.Base().Key})
+			Expect(write.Encoder(wm, plant, nil)).ToNot(BeNil())
+		})
+
+		DescribeTable("Should refuse a write the message cannot send",
+			func(wm icd.WriteMessage, expected string) {
+				Expect(write.Encoder(wm, plant, dataTypes)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(expected)),
+				))
+			},
+			Entry("a message the ICD lacks",
+				icd.WriteMessage{Message: uuid.New()},
+				"does not exist in ICD Plant",
+			),
+			Entry("a message that is not JSON",
+				writeOf(frame, icd.WriteBinding{}),
+				"message Frame is not a JSON message",
+			),
+			Entry("a message with no bindings",
+				writeOf(setpoint),
+				"message Setpoint binds no channels",
+			),
+			Entry("a message whose bindings all have values",
+				writeOf(
+					setpoint,
+					fixed(temp, icd.FloatWriteValue{Value: 5}),
+					fixed(limit, icd.FloatWriteValue{Value: 9}),
+				),
+				"message Setpoint binds no channels",
+			),
+			Entry("a field with no binding and no default",
+				writeOf(setpoint, bind(limit)),
+				"field temp: needs a channel or a default",
+			),
+			Entry("a value with a channel",
+				writeOf(setpoint, bind(limit), icd.WriteBinding{
+					Field:   temp.Base().Key,
+					Channel: valueKey,
+					Value:   &icd.WriteValue{Variant: icd.FloatWriteValue{Value: 5}},
+				}),
+				"bindings.1.channel: a binding with a value cannot have a channel",
+			),
+			Entry("a value with a data type",
+				writeOf(setpoint, bind(limit), icd.WriteBinding{
+					Field:    temp.Base().Key,
+					DataType: telem.Float32T,
+					Value:    &icd.WriteValue{Variant: icd.FloatWriteValue{Value: 5}},
+				}),
+				"bindings.1.data_type: a binding with a value cannot have a data type",
+			),
+			Entry("a value of another kind than its field",
+				writeOf(setpoint, bind(limit), fixed(temp, icd.StringWriteValue{})),
+				"bindings.1.value: field temp of kind float needs a value of its kind",
+			),
+			Entry(
+				"a value for a field that does not exist",
+				writeOf(setpoint, bind(limit), icd.WriteBinding{
+					Field: uuid.Nil(),
+					Value: &icd.WriteValue{Variant: icd.FloatWriteValue{Value: 5}},
+				}),
+				"bindings.1.field: field 00000000-0000-0000-0000-000000000000 does not exist",
+			),
+			Entry("a value for a field that a channel fills",
+				writeOf(
+					setpoint,
+					bind(temp),
+					bind(limit),
+					fixed(temp, icd.FloatWriteValue{Value: 5}),
+				),
+				"bindings.2.field: field temp has more than one binding",
+			),
+		)
+	})
+
+	Describe("Hash", func() {
+		sum := func(ic icd.ICD, wm icd.WriteMessage) string {
+			GinkgoHelper()
+			h := content.NewHash()
+			Expect(write.Hash(&h, ic, wm)).To(Succeed())
+			return h.Sum()
+		}
+
+		It("Should give the same sum for the same payload", func() {
+			wm := writeOf(setpoint, bind(temp))
+			Expect(sum(plant, wm)).To(Equal(sum(plant, wm)))
+		})
+
+		It("Should change when the payload of the message changes", func() {
+			wm := writeOf(setpoint, bind(temp))
+			edited := plant
+			edited.Messages = []icd.Message{{
+				Key:  setpoint.Key,
+				Name: setpoint.Name,
+				Payload: icd.Payload{Variant: icd.JSONPayload{
+					Fields: []icd.JSONField{temp},
+				}},
+			}}
+			Expect(sum(edited, wm)).ToNot(Equal(sum(plant, wm)))
+		})
+
+		It("Should change when the ICD loses the message", func() {
+			wm := writeOf(setpoint, bind(temp))
+			lost := icd.ICD{Name: plant.Name, Messages: []icd.Message{tagged}}
+			Expect(sum(lost, wm)).ToNot(Equal(sum(plant, wm)))
+		})
+	})
+})

@@ -191,7 +191,7 @@ func (e *JSONEncoder) templateField(
 	if !ok {
 		if !def.defined() {
 			return xjson.TemplateField{}, 0, nil, errors.Wrap(
-				validate.ErrValidation, "no channel and no default",
+				validate.ErrValidation, "needs a channel or a default",
 			)
 		}
 		tf.Literal = def.literal

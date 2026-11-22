@@ -580,9 +580,10 @@ var _ = Describe("JSONEncoder", func() {
 				MatchError(expected),
 			))
 		},
-		Entry("a field with no binding and no default",
+		Entry(
+			"a field with no binding and no default",
 			message([]icd.JSONField{floatField("temp", uuid.New(), 1, 0)}),
-			"message command: field temp: no channel and no default: validation error",
+			"message command: field temp: needs a channel or a default: validation error",
 		),
 		Entry(
 			"a bytes default that is not base64",
