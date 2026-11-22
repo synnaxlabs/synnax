@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 
 import {
+  type FetchResponse,
   HTTPClient,
   Timeout,
   unaryWithBreaker,
@@ -145,21 +146,81 @@ describe("http", () => {
     });
   });
 
-  test("browser fetch failures name a possible certificate problem", async () => {
-    const send = new HTTPClient({
+  describe("browser fetch failures", () => {
+    const browserFailure = (): TypeError => new TypeError("Failed to fetch");
+
+    const sendWith = (
+      fetch: () => Promise<FetchResponse>,
+      secure: boolean,
+    ): Promise<unknown> =>
+      new HTTPClient({
+        endpoint: ENDPOINT,
+        codec: new binary.JSONCodec(),
+        secure,
+        connector: {
+          fetch,
+          dial: async () => {
+            throw new Error("unused");
+          },
+        },
+      })
+        .send("/echo", {}, messageZ, messageZ)
+        .catch((e: unknown) => e);
+
+    test("name a possible certificate problem with TLS", async () => {
+      const err = await sendWith(async () => {
+        throw browserFailure();
+      }, true);
+      expect(Unreachable.matches(err)).toBe(true);
+      expect(err).toHaveProperty("message", expect.stringContaining("certificate"));
+    });
+
+    test("do not name a certificate without TLS", async () => {
+      const err = await sendWith(async () => {
+        throw browserFailure();
+      }, false);
+      expect(Unreachable.matches(err)).toBe(true);
+      expect(err).toHaveProperty("message", "Unreachable");
+    });
+
+    test("do not name a certificate while the body is read", async () => {
+      const err = await sendWith(
+        async () => ({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          body: null,
+          arrayBuffer: async () => {
+            throw browserFailure();
+          },
+        }),
+        true,
+      );
+      expect(Unreachable.matches(err)).toBe(true);
+      expect(err).toHaveProperty("message", "Unreachable");
+    });
+  });
+
+  test("keeps the runtime error for an expired certificate", async () => {
+    const cause = Object.assign(new Error("certificate has expired"), {
+      code: "CERT_HAS_EXPIRED",
+    });
+    const err = await new HTTPClient({
       endpoint: ENDPOINT,
       codec: new binary.JSONCodec(),
       connector: {
         fetch: async () => {
-          throw new TypeError("Failed to fetch");
+          throw new TypeError("fetch failed", { cause });
         },
         dial: async () => {
           throw new Error("unused");
         },
       },
-    }).send("/echo", {}, messageZ, messageZ);
-    await expect(send).rejects.toThrow(Unreachable);
-    await expect(send).rejects.toThrow("certificate");
+    })
+      .send("/echo", {}, messageZ, messageZ)
+      .catch((e: unknown) => e);
+    expect(UntrustedCertificate.matches(err)).toBe(false);
+    expect(err).toBeInstanceOf(TypeError);
   });
 
   describe("timeout", () => {

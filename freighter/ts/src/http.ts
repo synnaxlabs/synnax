@@ -74,11 +74,13 @@ const shouldCastToUnreachable = (
 
   // Deno's fetch error has no code, so its cause message is the only signal. The text
   // stops at "tcp connect error" so that TLS and DNS failures do not match.
-  return (
+  if (
     err.name === "TypeError" &&
     err.cause instanceof Error &&
     err.cause.message.includes(DENO_TCP_CONNECT_ERROR)
-  );
+  )
+    return true;
+  return isBrowserFetchFailure(err);
 };
 
 // Browsers hide the cause of a failed fetch, so a certificate failure looks like this.
@@ -87,8 +89,8 @@ const BROWSER_FETCH_FAILURE = /load failed|failed to fetch|networkerror|network 
 const isBrowserFetchFailure = (err: Error): boolean =>
   err.name === "TypeError" && BROWSER_FETCH_FAILURE.test(err.message);
 
-const BROWSER_UNREACHABLE =
-  "Unreachable. The server may be down, or the browser may not trust its certificate.";
+const BROWSER_CERTIFICATE_HINT =
+  "The server may be down, or the browser may not trust its certificate";
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 
@@ -364,16 +366,13 @@ export class HTTPClient
       const err = errors.fromUnknown(e);
       const untrusted = asUntrustedCertificate(err, url);
       if (untrusted != null) return untrusted;
-      if (isBrowserFetchFailure(err))
-        return new Unreachable({
-          url,
-          cause: err,
-          delivered,
-          message: BROWSER_UNREACHABLE,
-        });
-      return shouldCastToUnreachable(err)
-        ? new Unreachable({ url, cause: err, delivered })
-        : err;
+      if (!shouldCastToUnreachable(err)) return err;
+      // A body read failure comes after the TLS handshake.
+      const hint =
+        url.protocol === "https" && !delivered && isBrowserFetchFailure(err)
+          ? BROWSER_CERTIFICATE_HINT
+          : undefined;
+      return new Unreachable({ url, cause: err, delivered, hint });
     };
     let res: FetchResponse;
     try {

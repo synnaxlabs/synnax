@@ -261,8 +261,11 @@ const eventError = (ev: object): Error =>
 const ANSWERED_CODE = /CERT|SIGNATURE|^ERR_TLS_|^ERR_SSL_/;
 const ANSWERED_MESSAGE = /TLS handshake|invalid peer certificate|status code/;
 
-const UNREACHABLE =
-  "Unreachable. The server may be down, or the runtime may not trust its certificate.";
+const CERTIFICATE_HINT =
+  "The server may be down, or the runtime may not trust its certificate";
+
+// Node and browsers hide the cause of a failed dial, so it may be a certificate.
+const hidesDialCause = (): boolean => !("Bun" in globalThis) && !("Deno" in globalThis);
 
 const isAnswered = (cause: unknown): boolean => {
   if (typeof cause !== "object" || cause === null) return false;
@@ -383,8 +386,10 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   ): Promise<WebSocketStream<RQ, RS>> {
     return await new Promise((resolve, reject) => {
       const endpoint = this.baseUrl.child(target);
+      const hint =
+        endpoint.protocol === "wss" && hidesDialCause() ? CERTIFICATE_HINT : undefined;
       const unreachable = (cause: unknown) =>
-        reject(new Unreachable({ url: endpoint, cause, message: UNREACHABLE }));
+        reject(new Unreachable({ url: endpoint, cause, hint }));
       ws.onclose = unreachable;
       ws.onerror = (ev: object) => {
         const cause = eventCause(ev);

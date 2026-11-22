@@ -41,6 +41,8 @@ export interface UnreachableParams {
   cause?: unknown;
   /** True when the target received the request, so a resend could repeat it. */
   delivered?: boolean;
+  /** A possible cause and what to do, which the message ends with. */
+  hint?: string;
 }
 
 /** Thrown when a network target is unreachable. */
@@ -48,6 +50,8 @@ export class Unreachable extends FreighterError.sub("unreachable") {
   url: url.URL;
   /** True when the target received the request, so a resend could repeat it. */
   readonly delivered: boolean;
+  /** A possible cause and what to do, which the message ends with. */
+  readonly hint?: string;
 
   constructor(params: UnreachableParams = {}) {
     const {
@@ -55,10 +59,15 @@ export class Unreachable extends FreighterError.sub("unreachable") {
       url: endpoint = url.URL.UNKNOWN,
       cause,
       delivered = false,
+      hint,
     } = params;
-    super(message, cause !== undefined ? { cause } : undefined);
+    super(
+      hint == null ? message : `${message}. ${hint}`,
+      cause !== undefined ? { cause } : undefined,
+    );
     this.url = endpoint;
     this.delivered = delivered;
+    this.hint = hint;
   }
 }
 
