@@ -22,6 +22,9 @@ type StatusDetails = v0.StatusDetails
 // Status is the operational status of a slave.
 type Status = v0.Status
 
+// StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP.
+type StartupParameter = v0.StartupParameter
+
 // PDOEntry is a PDO entry that a scan found on a slave.
 type PDOEntry = v0.PDOEntry
 

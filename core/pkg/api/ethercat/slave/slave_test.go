@@ -30,7 +30,15 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var slaveType = resource.ID{Type: resource.TypeEthercatSlave}
+var (
+	slaveType  = resource.ID{Type: resource.TypeEthercatSlave}
+	statusType = resource.ID{Type: resource.TypeStatus}
+	allWrites  = []access.Action{
+		access.ActionCreate,
+		access.ActionUpdate,
+		access.ActionDelete,
+	}
+)
 
 var _ = Describe("Service", func() {
 	var (
@@ -47,13 +55,11 @@ var _ = Describe("Service", func() {
 			Interface: "eth0",
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return gorp.NewCreate[master.Key, master.Master]().Entry(&m).Exec(ctx, tx)
+			return svc.EtherCAT.Masters.NewWriter(tx).Create(ctx, &m)
 		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return gorp.NewDelete[master.Key, master.Master]().
-					Where(gorp.MatchKeys[master.Key, master.Master](m.Key)).
-					Exec(ctx, tx)
+				return svc.EtherCAT.Masters.NewWriter(tx).Delete(ctx, m.Key)
 			})).To(Succeed())
 		})
 	})
@@ -73,6 +79,49 @@ var _ = Describe("Service", func() {
 			override(&s)
 		}
 		return s
+	}
+	// grantWrites lets u write any slave and its status, and update the rack and
+	// master that the slave sits under.
+	grantWrites := func(ctx SpecContext) {
+		GinkgoHelper()
+		grant(ctx, u, allWrites, slaveType, statusType)
+		grant(
+			ctx,
+			u,
+			[]access.Action{access.ActionUpdate},
+			m.Rack.ResourceID(),
+			m.ResourceID(),
+		)
+	}
+	retrieveSlave := func(ctx SpecContext, key slave.Key) slave.Slave {
+		GinkgoHelper()
+		var s slave.Slave
+		Expect(svc.EtherCAT.Slaves.NewRetrieve().
+			Where(slave.MatchKeys(key)).
+			Entry(&s).
+			Exec(ctx, db)).To(Succeed())
+		return s
+	}
+	writeSlave := func(ctx SpecContext) slave.Slave {
+		GinkgoHelper()
+		s := newSlave()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.EtherCAT.Slaves.NewWriter(tx).Create(ctx, &s)
+		})).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.EtherCAT.Slaves.NewWriter(tx).Delete(ctx, s.Key)
+			})).To(Succeed())
+		})
+		return s
+	}
+	rename := func(key slave.Key, name string) apislave.UpdateRequest {
+		return apislave.UpdateRequest{
+			Key: key,
+			Update: slave.Update{Variant: slave.ConfigurationUpdate{
+				Configuration: slave.Configuration{Name: name, Identifier: "inlet"},
+			}},
+		}
 	}
 	grantRetrieve := func(ctx SpecContext) {
 		GinkgoHelper()
@@ -118,6 +167,54 @@ var _ = Describe("Service", func() {
 			Expect(apislave.NewService(base, apislave.ServiceConfig{
 				Status: svc.Status,
 			})).ToNot(BeNil())
+		})
+	})
+
+	Describe("Create", func() {
+		It("Should mint a key when writes are granted", func(ctx SpecContext) {
+			grantWrites(ctx)
+			s := newSlave()
+			s.Key = uuid.Nil()
+			res := MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apislave.CreateRequest{Slaves: []slave.Slave{s}},
+			))
+			Expect(res.Slaves[0].Key).ToNot(Equal(uuid.Nil()))
+			Expect(retrieveSlave(ctx, res.Slaves[0].Key).Master).To(Equal(m.Key))
+		})
+
+		It("Should not echo a status the client sent", func(ctx SpecContext) {
+			grantWrites(ctx)
+			s := newSlave(func(s *slave.Slave) {
+				s.Status = &slave.Status{Message: "Connected"}
+			})
+			res := MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apislave.CreateRequest{Slaves: []slave.Slave{s}},
+			))
+			Expect(res.Slaves[0].Status).To(BeNil())
+		})
+
+		It("Should not create a slave without update access on its rack", func(
+			ctx SpecContext,
+		) {
+			grant(ctx, u, allWrites, slaveType, statusType)
+			grant(ctx, u, []access.Action{access.ActionUpdate}, m.ResourceID())
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apislave.CreateRequest{Slaves: []slave.Slave{newSlave()}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should not create a slave without update access on its master", func(
+			ctx SpecContext,
+		) {
+			grant(ctx, u, allWrites, slaveType, statusType)
+			grant(ctx, u, []access.Action{access.ActionUpdate}, m.Rack.ResourceID())
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apislave.CreateRequest{Slaves: []slave.Slave{newSlave()}},
+			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})
 
@@ -267,6 +364,77 @@ var _ = Describe("Service", func() {
 				},
 			))
 			Expect(res.Slaves).To(BeEmpty())
+		})
+	})
+
+	Describe("Update", func() {
+		It("Should write the configuration and keep the identity", func(
+			ctx SpecContext,
+		) {
+			s := writeSlave(ctx)
+			grantWrites(ctx)
+			Expect(update(testutil.AuthedCtx(ctx, u), rename(s.Key, "Inlet"))).
+				Error().ToNot(HaveOccurred())
+			got := retrieveSlave(ctx, s.Key)
+			Expect(got.Name).To(Equal("Inlet"))
+			Expect(got.Identifier).To(Equal("inlet"))
+			Expect(got.Serial).To(Equal(s.Serial))
+		})
+
+		It("Should write the identity and keep the configuration", func(
+			ctx SpecContext,
+		) {
+			s := writeSlave(ctx)
+			grantWrites(ctx)
+			Expect(update(testutil.AuthedCtx(ctx, u), apislave.UpdateRequest{
+				Key: s.Key,
+				Update: slave.Update{Variant: slave.IdentityUpdate{
+					Identity: slave.Identity{
+						Rack:        s.Rack,
+						Serial:      9999,
+						VendorID:    s.VendorID,
+						ProductCode: s.ProductCode,
+						Master:      s.Master,
+					},
+				}},
+			})).Error().ToNot(HaveOccurred())
+			got := retrieveSlave(ctx, s.Key)
+			Expect(got.Serial).To(Equal(uint32(9999)))
+			Expect(got.Name).To(Equal(s.Name))
+		})
+
+		It("Should reject the request when update is not granted", func(
+			ctx SpecContext,
+		) {
+			s := writeSlave(ctx)
+			Expect(update(testutil.AuthedCtx(ctx, u), rename(s.Key, "Inlet"))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveSlave(ctx, s.Key).Name).To(Equal(s.Name))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("Should remove the slave when delete is granted", func(ctx SpecContext) {
+			s := writeSlave(ctx)
+			grantWrites(ctx)
+			Expect(del(
+				testutil.AuthedCtx(ctx, u),
+				apislave.DeleteRequest{Keys: []slave.Key{s.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(svc.EtherCAT.Slaves.NewRetrieve().
+				Where(slave.MatchKeys(s.Key)).
+				Exists(ctx, db)).To(BeFalse())
+		})
+
+		It("Should reject the request when delete is not granted", func(
+			ctx SpecContext,
+		) {
+			s := writeSlave(ctx)
+			Expect(del(
+				testutil.AuthedCtx(ctx, u),
+				apislave.DeleteRequest{Keys: []slave.Key{s.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveSlave(ctx, s.Key).Key).To(Equal(s.Key))
 		})
 	})
 })

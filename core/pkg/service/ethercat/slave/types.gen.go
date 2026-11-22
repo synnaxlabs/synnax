@@ -12,10 +12,15 @@
 package slave
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/master"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/slave/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key uniquely identifies an EtherCAT slave.
@@ -26,6 +31,9 @@ type StatusDetails = versions.StatusDetails
 
 // Status is the operational status of a slave.
 type Status = versions.Status
+
+// StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP.
+type StartupParameter = versions.StartupParameter
 
 // PDOEntry is a PDO entry that a scan found on a slave.
 type PDOEntry = versions.PDOEntry
@@ -132,4 +140,206 @@ type Where struct {
 	Master *filter.Set[master.Key] `json:"master,omitzero" msgpack:"master,omitempty"`
 	// Rack selects by rack.
 	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+}
+
+// Identity holds the slave fields that the scanner owns.
+type Identity struct {
+	// Rack is the key of the rack the slave is connected to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Serial is the serial number of the slave. 0 when the slave reports none.
+	Serial uint32 `json:"serial" msgpack:"serial"`
+	// VendorID is the EtherCAT vendor ID of the slave.
+	VendorID uint32 `json:"vendor_id" msgpack:"vendor_id"`
+	// ProductCode is the product code of the slave.
+	ProductCode uint32 `json:"product_code" msgpack:"product_code"`
+	// Revision is the revision number of the slave.
+	Revision uint32 `json:"revision" msgpack:"revision"`
+	// Master is the master on whose bus the slave sits.
+	Master master.Key `json:"master" msgpack:"master"`
+	// Pdos are the PDO entries that the scan found on the slave.
+	Pdos PDOs `json:"pdos" msgpack:"pdos"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i Identity) Validate() error {
+	v := validate.New("Identity")
+	v.NonZero("rack", i.Rack)
+	v.NonZero("master", i.Master)
+	return v.Error()
+}
+
+// Configuration holds the slave fields that the user owns.
+type Configuration struct {
+	// Name is a human-readable name for the slave.
+	Name string `json:"name" msgpack:"name"`
+	// Identifier is the prefix of the slave's channel names. The slave is unconfigured
+	// while it is empty.
+	Identifier string `json:"identifier" msgpack:"identifier"`
+	// Disabled is whether the Driver leaves the slave out of the tasks it runs.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// StartupParameters are the CoE objects the Driver writes to the slave in PRE-OP.
+	StartupParameters []StartupParameter `json:"startup_parameters" msgpack:"startup_parameters"`
+	// ReadIndex is the index channel of the channels that the slave reads into.
+	ReadIndex channel.Key `json:"read_index" msgpack:"read_index"`
+	// WriteStateIndex is the index channel of the state channels of the slave's
+	// outputs.
+	WriteStateIndex channel.Key `json:"write_state_index" msgpack:"write_state_index"`
+	// ReadBindings are the channels of the input entries.
+	ReadBindings []ReadBinding `json:"read_bindings" msgpack:"read_bindings"`
+	// WriteBindings are the channels of the output entries.
+	WriteBindings []WriteBinding `json:"write_bindings" msgpack:"write_bindings"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Configuration) Validate() error {
+	v := validate.New("Configuration")
+	v.NotEmptyString("name", c.Name)
+	return v.Error()
+}
+
+// UpdateType is the "group" value that selects a variant of Update.
+type UpdateType string
+
+const (
+	// IdentityUpdateType writes the fields that the scanner owns.
+	IdentityUpdateType UpdateType = "identity"
+	// ConfigurationUpdateType replaces the fields that the user owns. A client sends
+	// the whole group, because a field it leaves out is cleared.
+	ConfigurationUpdateType UpdateType = "configuration"
+)
+
+// UpdateVariant is implemented by every Update variant.
+type UpdateVariant interface {
+	isUpdateVariant()
+}
+
+// IdentityUpdate writes the fields that the scanner owns.
+type IdentityUpdate struct {
+	Identity
+}
+
+func (IdentityUpdate) isUpdateVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i IdentityUpdate) Validate() error {
+	v := validate.New("IdentityUpdate")
+	v.Exec(i.Identity.Validate)
+	return v.Error()
+}
+
+// ConfigurationUpdate replaces the fields that the user owns. A client sends the whole
+// group, because a field it leaves out is cleared.
+type ConfigurationUpdate struct {
+	Configuration
+}
+
+func (ConfigurationUpdate) isUpdateVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c ConfigurationUpdate) Validate() error {
+	v := validate.New("ConfigurationUpdate")
+	v.Exec(c.Configuration.Validate)
+	return v.Error()
+}
+
+// Update is a write to one field group of a slave.
+type Update struct {
+	Variant UpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "group" tag injected.
+func (u Update) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case IdentityUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type UpdateType `json:"group"`
+			IdentityUpdate
+		}{Type: IdentityUpdateType, IdentityUpdate: v})
+	case ConfigurationUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type UpdateType `json:"group"`
+			ConfigurationUpdate
+		}{Type: ConfigurationUpdateType, ConfigurationUpdate: v})
+	default:
+		return errors.Newf("Update: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "group" field.
+func (u *Update) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type UpdateType `json:"group"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case IdentityUpdateType:
+		var v struct {
+			Type UpdateType `json:"group"`
+			IdentityUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.IdentityUpdate
+	case ConfigurationUpdateType:
+		var v struct {
+			Type UpdateType `json:"group"`
+			ConfigurationUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ConfigurationUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Update: unknown group %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Group returns the group of the active variant, or an empty group when there is none.
+func (u Update) Group() UpdateType {
+	switch u.Variant.(type) {
+	case IdentityUpdate:
+		return IdentityUpdateType
+	case ConfigurationUpdate:
+		return ConfigurationUpdateType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Update) Validate() error {
+	v := validate.New("Update")
+	v.Ternary("group", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case IdentityUpdate:
+		v.Exec(variant.Validate)
+	case ConfigurationUpdate:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
 }

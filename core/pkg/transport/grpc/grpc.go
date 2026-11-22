@@ -183,6 +183,12 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	]{}
 
 	// ETHERCAT SLAVE
+	t.EtherCATSlaveCreate = noop.UnaryServer[
+		ethercatslave.CreateRequest,
+		ethercatslave.CreateResponse,
+	]{}
+	t.EtherCATSlaveUpdate = noop.UnaryServer[ethercatslave.UpdateRequest, struct{}]{}
+	t.EtherCATSlaveDelete = noop.UnaryServer[ethercatslave.DeleteRequest, struct{}]{}
 	t.EtherCATSlaveRetrieve = noop.UnaryServer[
 		ethercatslave.RetrieveRequest,
 		ethercatslave.RetrieveResponse,

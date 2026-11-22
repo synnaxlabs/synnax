@@ -53,7 +53,10 @@ var _ = Describe("Writer", func() {
 			DB:     db,
 			Status: stat,
 		}))
-		slaves = MustOpen(slave.OpenService(ctx, slave.ServiceConfig{DB: db}))
+		slaves = MustOpen(slave.OpenService(ctx, slave.ServiceConfig{
+			DB:     db,
+			Status: stat,
+		}))
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
 	})

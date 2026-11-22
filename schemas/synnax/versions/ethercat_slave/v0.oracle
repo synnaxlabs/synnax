@@ -32,6 +32,10 @@ Status = status.Status<StatusDetails> {
     @doc value "is the operational status of a slave."
 }
 
+StartupParameter = ethercat.StartupParameter {
+    @doc value "is a CoE object that the Driver writes to a slave in PRE-OP."
+}
+
 PDOEntry struct {
     name       string         {
         @doc value "is the name of the entry, such as Input."

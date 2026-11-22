@@ -79,6 +79,9 @@ export interface WriteBinding extends z.infer<typeof writeBindingZ> {}
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+export const startupParameterZ = ethercat.startupParameterZ;
+export type StartupParameter = z.infer<typeof startupParameterZ>;
+
 /** PDOs holds the PDO entries of a slave. */
 export const pdOsZ = z.object({
   /** inputs are the entries that the slave sends. */
@@ -297,6 +300,51 @@ export const cursorZ = z.object({
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
+/** Configuration holds the slave fields that the user owns. */
+export const configurationZ = z.object({
+  /** name is a human-readable name for the slave. */
+  name: z.string().min(1, "name is required"),
+  /**
+   * identifier is the prefix of the slave's channel names. The slave is unconfigured
+   * while it is empty.
+   */
+  identifier: z.string().default(""),
+  /** disabled is whether the Driver leaves the slave out of the tasks it runs. */
+  disabled: z.boolean().default(false),
+  /** startupParameters are the CoE objects the Driver writes to the slave in PRE-OP. */
+  startupParameters: startupParameterZ.array().default(() => []),
+  /** readIndex is the index channel of the channels that the slave reads into. */
+  readIndex: channel.keyZ.default(0),
+  /**
+   * writeStateIndex is the index channel of the state channels of the slave's outputs.
+   */
+  writeStateIndex: channel.keyZ.default(0),
+  /** readBindings are the channels of the input entries. */
+  readBindings: readBindingZ.array().default(() => []),
+  /** writeBindings are the channels of the output entries. */
+  writeBindings: writeBindingZ.array().default(() => []),
+});
+export interface Configuration extends z.infer<typeof configurationZ> {}
+
+/** Identity holds the slave fields that the scanner owns. */
+export const identityZ = z.object({
+  /** rack is the key of the rack the slave is connected to. */
+  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  /** serial is the serial number of the slave. 0 when the slave reports none. */
+  serial: z.uint32().default(0),
+  /** vendorId is the EtherCAT vendor ID of the slave. */
+  vendorId: z.uint32(),
+  /** productCode is the product code of the slave. */
+  productCode: z.uint32(),
+  /** revision is the revision number of the slave. */
+  revision: z.uint32().default(0),
+  /** master is the master on whose bus the slave sits. */
+  master: ethercatMaster.keyZ.min(1, "master is required"),
+  /** pdos are the PDO entries that the scan found on the slave. */
+  pdos: pdOsZ.prefault({}),
+});
+export interface Identity extends z.infer<typeof identityZ> {}
+
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
@@ -314,6 +362,39 @@ export const retrieveRequestZ = z.strictObject({
   includeStatus: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+
+/** IdentityUpdate writes the fields that the scanner owns. */
+export const identityUpdateZ = identityZ.extend({
+  group: z.literal("identity"),
+});
+export interface IdentityUpdate extends z.infer<typeof identityUpdateZ> {}
+
+/**
+ * ConfigurationUpdate replaces the fields that the user owns. A client sends the whole
+ * group, because a field it leaves out is cleared.
+ */
+export const configurationUpdateZ = configurationZ.extend({
+  group: z.literal("configuration"),
+});
+export interface ConfigurationUpdate extends z.infer<typeof configurationUpdateZ> {}
+
+export const UPDATE_TYPES = ["identity", "configuration"] as const;
+export const updateTypeZ = z.enum(UPDATE_TYPES);
+export type UpdateType = z.infer<typeof updateTypeZ>;
+
+/** Update is a write to one field group of a slave. */
+export const updateZ = z.discriminatedUnion("group", [
+  identityUpdateZ,
+  configurationUpdateZ,
+]);
+export type Update = IdentityUpdate | ConfigurationUpdate;
+
+export const UPDATE_SCHEMAS: {
+  [K in UpdateType]: z.ZodType<Extract<Update, { group: K }>>;
+} = {
+  identity: identityUpdateZ,
+  configuration: configurationUpdateZ,
+};
 
 /** Slave is an EtherCAT slave: one module on the bus of a master. */
 export const slaveZ = z.object({

@@ -14,6 +14,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/slave"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -65,6 +66,35 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg}, nil
 }
 
+type (
+	// CreateRequest carries the slaves to create or replace.
+	CreateRequest struct {
+		// Slaves are the slaves to store. A nil key mints a new one.
+		Slaves []slave.Slave `json:"slaves" msgpack:"slaves"`
+	}
+	// CreateResponse carries the created slaves with their keys.
+	CreateResponse struct {
+		// Slaves are the stored slaves, without their statuses.
+		Slaves []slave.Slave `json:"slaves" msgpack:"slaves"`
+	}
+)
+
+// Create stores the given slaves.
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	w := s.cfg.Slave.NewWriter(tx)
+	for i := range req.Slaves {
+		req.Slaves[i].Status = nil
+		if err := w.Create(ctx, &req.Slaves[i]); err != nil {
+			return CreateResponse{}, err
+		}
+	}
+	return CreateResponse(req), nil
+}
+
 var _ bind.Named = RetrieveRequest{}
 
 // Named implements bind.Named. It returns the slaves that the top level of Where
@@ -104,4 +134,38 @@ func (s *Service) Retrieve(
 		res.Slaves[i].Status = st
 	}
 	return res, nil
+}
+
+// UpdateRequest names a slave and the one field group to write to it.
+type UpdateRequest struct {
+	// Update is the field group to write.
+	Update slave.Update `json:"update" msgpack:"update"`
+	// Key selects the slave to update.
+	Key slave.Key `json:"key" msgpack:"key"`
+}
+
+// Update writes one field group to a slave and keeps the other as stored. It returns a
+// validation error when the request carries no group.
+func (s *Service) Update(
+	ctx context.Context,
+	tx gorp.Tx,
+	req UpdateRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Slave.NewWriter(tx).Apply(ctx, req.Key, req.Update)
+}
+
+// DeleteRequest carries the keys of the slaves to delete.
+type DeleteRequest struct {
+	// Keys selects the slaves to delete.
+	Keys []slave.Key `json:"keys" msgpack:"keys"`
+}
+
+// Delete removes the given slaves with their statuses. Each master keeps the keys in
+// its bus order until the next scan rewrites it.
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Slave.NewWriter(tx).Delete(ctx, req.Keys...)
 }

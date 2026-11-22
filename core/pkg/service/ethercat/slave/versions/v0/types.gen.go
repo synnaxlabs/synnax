@@ -43,6 +43,9 @@ type StatusDetails struct {
 // Status is the operational status of a slave.
 type Status = status.Status[StatusDetails]
 
+// StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP.
+type StartupParameter = ethercat.StartupParameter
+
 // PDOEntry is a PDO entry that a scan found on a slave.
 type PDOEntry struct {
 	// Name is the name of the entry, such as Input.

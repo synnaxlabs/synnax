@@ -672,9 +672,21 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// ETHERCAT SLAVE
+		EtherCATSlaveCreate: unary[ethercatslave.CreateRequest, ethercatslave.CreateResponse](
+			router,
+			"/api/v1/ethercat/slave/create",
+		),
 		EtherCATSlaveRetrieve: unary[ethercatslave.RetrieveRequest, ethercatslave.RetrieveResponse](
 			router,
 			"/api/v1/ethercat/slave/retrieve",
+		),
+		EtherCATSlaveUpdate: unary[ethercatslave.UpdateRequest, struct{}](
+			router,
+			"/api/v1/ethercat/slave/update",
+		),
+		EtherCATSlaveDelete: unary[ethercatslave.DeleteRequest, struct{}](
+			router,
+			"/api/v1/ethercat/slave/delete",
 		),
 
 		// ACCESS

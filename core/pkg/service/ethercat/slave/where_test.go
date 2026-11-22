@@ -65,7 +65,10 @@ var _ = Describe("Where", Ordered, func() {
 			DB:     whereDB,
 			Status: stat,
 		}))
-		svc = MustOpen(slave.OpenService(ctx, slave.ServiceConfig{DB: whereDB}))
+		svc = MustOpen(slave.OpenService(ctx, slave.ServiceConfig{
+			DB:     whereDB,
+			Status: stat,
+		}))
 		rackKeys := lo.Uniq(lo.MapToSlice(v.Records, func(
 			_ string,
 			c slave.Slave,
