@@ -122,14 +122,19 @@ func (f durableFile) Sync() error {
 	return f.File.Sync()
 }
 
-// images takes a crash image of disk at each call of take while taking holds, under one
-// lock, since the owners of a DB take them from their own goroutines.
+// images opens a crash image of disk at each call of take while taking holds, then lets
+// it go, so one image is alive at a time. The owners of a DB take them from their own
+// goroutines, so one lock orders the takes.
 type images struct {
 	mu     sync.Mutex
+	ctx    context.Context
 	disk   *fault.FS
 	runKey uint64
 	taking atomic.Bool
-	list   []*fault.FS
+	// taken counts the images, and failed holds a line for each image that does not
+	// open and close.
+	taken  int
+	failed []string
 }
 
 func (im *images) take() {
@@ -138,30 +143,29 @@ func (im *images) take() {
 	}
 	im.mu.Lock()
 	defer im.mu.Unlock()
-	im.list = append(im.list, MustSucceed(im.disk.Crash(fault.CrashConfig{
-		RunKey:            im.runKey*1_000 + uint64(len(im.list)),
+	image := MustSucceed(im.disk.Crash(fault.CrashConfig{
+		RunKey:            im.runKey*1_000 + uint64(im.taken),
 		EntrySurvivalRate: 0.5,
 		DataSurvivalRate:  0.5,
-	})))
+	}))
+	_, closeImage, err := openLog(im.ctx, image)
+	if err == nil {
+		err = closeImage()
+	}
+	if err != nil {
+		im.failed = append(
+			im.failed,
+			fmt.Sprintf("run key %d, image %d: %v", im.runKey, im.taken, err),
+		)
+	}
+	im.taken++
 }
 
-// failures opens each image and returns a line for each open that fails.
-func (im *images) failures(ctx context.Context) []string {
-	GinkgoHelper()
+// failures returns the number of images, and a line for each image that failed.
+func (im *images) failures() (int, []string) {
 	im.mu.Lock()
 	defer im.mu.Unlock()
-	var out []string
-	for i, image := range im.list {
-		_, closeImage, err := openLog(ctx, image)
-		if err != nil {
-			out = append(out, fmt.Sprintf(
-				"run key %d, image %d of %d: %v", im.runKey, i, len(im.list), err,
-			))
-			continue
-		}
-		Expect(closeImage()).To(Succeed())
-	}
-	return out
+	return im.taken, im.failed
 }
 
 // plainChannel prints each field of a channel, which the String of cesium.Channel does
@@ -174,15 +178,20 @@ var _ = Describe("Pointer log open check", func() {
 	) {
 		failures := make([]string, 0, 4)
 		for runKey := range uint64(4) {
-			im := &images{disk: MustSucceed(fault.New(fault.Config{})), runKey: runKey}
+			im := &images{
+				ctx:    ctx,
+				disk:   MustSucceed(fault.New(fault.Config{})),
+				runKey: runKey,
+			}
 			im.taking.Store(true)
 			_, closeDB := MustSucceed2(
 				openLog(ctx, durableFS{FS: im.disk, onEvent: im.take}),
 			)
 			Expect(closeDB()).To(Succeed())
 			im.taking.Store(false)
-			Expect(im.list).ToNot(BeEmpty())
-			failures = append(failures, im.failures(ctx)...)
+			taken, failed := im.failures()
+			Expect(taken).To(BeNumerically(">", 0))
+			failures = append(failures, failed...)
 		}
 		Expect(failures).To(BeEmpty())
 	})
@@ -190,7 +199,11 @@ var _ = Describe("Pointer log open check", func() {
 	It("Should open each crash image of a channel create", func(ctx SpecContext) {
 		failures := make([]string, 0, 4)
 		for runKey := range uint64(4) {
-			im := &images{disk: MustSucceed(fault.New(fault.Config{})), runKey: runKey}
+			im := &images{
+				ctx:    ctx,
+				disk:   MustSucceed(fault.New(fault.Config{})),
+				runKey: runKey,
+			}
 			db, closeDB := MustSucceed2(openLog(ctx, durableFS{
 				FS:      im.disk,
 				onEvent: im.take,
@@ -202,8 +215,9 @@ var _ = Describe("Pointer log open check", func() {
 			})).To(Succeed())
 			im.taking.Store(false)
 			Expect(closeDB()).To(Succeed())
-			Expect(im.list).ToNot(BeEmpty())
-			failures = append(failures, im.failures(ctx)...)
+			taken, failed := im.failures()
+			Expect(taken).To(BeNumerically(">", 0))
+			failures = append(failures, failed...)
 		}
 		Expect(failures).To(BeEmpty())
 	})
