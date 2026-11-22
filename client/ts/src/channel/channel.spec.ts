@@ -11,7 +11,7 @@ import { control, DataType, id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { MultipleFoundError, NotFoundError, PathError, ValidationError } from "@/index";
+import { NotFoundError, PathError, ValidationError } from "@/index";
 import { query } from "@/query";
 import {
   createProxiedTestClient,
@@ -447,6 +447,31 @@ describe("Channel", () => {
         }
       });
 
+      it("should look up the keys of a writer with no strict retrieve", async () => {
+        const ch = await client.channels.create({
+          name: id.create(),
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+        const fresh = createTestClient();
+        const send = spyOnSend(fresh);
+        try {
+          const writer = await fresh.openWriter({
+            start: TimeStamp.now(),
+            channels: [ch.key],
+          });
+          await writer.close();
+          const strict = send.mock.calls.filter(
+            ([target, req]) =>
+              target === "/channel/retrieve" &&
+              (req as { strict?: boolean }).strict === true,
+          );
+          expect(strict).toHaveLength(0);
+        } finally {
+          send.mockRestore();
+        }
+      });
+
       it("should look up keys, names, and paths in one list", async () => {
         const g = await client.groups.create({ name: id.create(), scope: "channel" });
         const [byKey, byName, byPath] = await client.channels.create([
@@ -485,6 +510,16 @@ describe("Channel", () => {
   });
 
   describe("delete", async () => {
+    it("should delete the channel whose name starts with digits", async () => {
+      const ch = await client.channels.create({
+        name: `${10_000_000_000 + Math.floor(Math.random() * 1_000_000_000)}_${id.create()}`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      await client.channels.delete(ch.name);
+      await expect(client.channels.retrieve(ch.key)).rejects.toThrow(NotFoundError);
+    });
+
     it("should delete the channels named by digit text and no channel by key", async () => {
       const keep = await client.channels.create({
         name: id.create(),
@@ -916,15 +951,21 @@ describe("cached reads", () => {
       expect(res.map((c) => c.key)).toEqual([ch.key]);
     }, 30000);
 
-    it("serves a single literal name from the record store", async () => {
-      const { proxy, client: local } = await createProxiedTestClient({
-        retry: FAST_RETRY,
-        onRetry: quiet,
-      });
-      const ch = await createVirtual(local);
-      await proxy.sever();
-      expect((await local.channels.retrieve(ch.name)).key).toEqual(ch.key);
-    }, 30000);
+    it("should send a single name to the Core, which refuses an ambiguous one", async () => {
+      const ch = await createVirtual();
+      const send = spyOnSend(client);
+      try {
+        expect((await client.channels.retrieve(ch.name)).key).toEqual(ch.key);
+        const strict = send.mock.calls.filter(
+          ([target, req]) =>
+            target === "/channel/retrieve" &&
+            (req as { strict?: boolean }).strict === true,
+        );
+        expect(strict).toHaveLength(1);
+      } finally {
+        send.mockRestore();
+      }
+    });
 
     it("fetches only the names the store cannot resolve", async () => {
       // Created before the local client exists, so neither its cache nor its change

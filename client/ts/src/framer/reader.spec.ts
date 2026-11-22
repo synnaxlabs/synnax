@@ -44,6 +44,32 @@ const streamToRecords = async (
 
 describe("Reader", () => {
   describe("CSV", () => {
+    it("should read a CSV of channels given as payloads", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels: [index.key, data.key],
+      });
+      await writer.write({ [index.key]: secondsLinspace(1, 3), [data.key]: [1, 2, 3] });
+      await writer.commit();
+      await writer.close();
+      const stream = await client.readCSV(
+        { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        [index.payload, data.payload],
+      );
+      const records = await streamToRecords(stream);
+      expect(records.map((r) => r[1])).toEqual([data.name, "1", "2", "3"]);
+    });
+
     it("should export channels with the same index", async () => {
       const index = await client.channels.create({
         name: id.create(),

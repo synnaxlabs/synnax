@@ -60,6 +60,27 @@ describe("Writer", () => {
       await writeByName(`${Date.now()}${rand()}`);
     });
 
+    it("should write a record column to the channel the writer holds by its digit name", async () => {
+      const [index, data] = await newIndexedPair(client);
+      const name = `${Date.now()}${rand()}`;
+      await client.channels.rename(data.key, name);
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels: [index.key, data.key],
+      });
+      try {
+        await writer.write({
+          [index.key]: secondsLinspace(1, 3),
+          [name]: new Series({ data: [1, 2, 3], dataType: data.dataType }),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const fr = await client.read(TimeRange.MAX, [data.key]);
+      expect(Array.from(fr.get(data.key).series[0])).toEqual([1, 2, 3]);
+    });
+
     it("should write to a channel whose name starts with digits", async () => {
       await writeByName(`${rand()}-tank`);
     });
