@@ -361,41 +361,61 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Update", func() {
-		It("Should write the user's fields and keep the scanner's", func(
-			ctx SpecContext,
-		) {
+		configure := func(key device.Key, ports device.PortsVariant) apidevice.UpdateRequest {
+			return apidevice.UpdateRequest{
+				Key: key,
+				Update: device.Update{Variant: device.ConfigurationUpdate{
+					Configuration: device.Configuration{
+						Name:       "Renamed",
+						Identifier: "lj",
+						Ports:      device.Ports{Variant: ports},
+					},
+				}},
+			}
+		}
+
+		It("Should write only the configuration group", func(ctx SpecContext) {
 			d := createDevice(ctx)
 			grantWrites(ctx, d.Base().Rack)
-			other := rack.Rack{Name: "Other"}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Rack.NewWriter(tx).Create(ctx, &other)
-			})).To(Succeed())
-			next := edit(d, func(b *device.Base) {
-				b.Name = "Renamed"
-				b.Identifier = "lj"
-				b.Rack = other.Key
-				b.Connection = device.ConnectionEthernet
-				b.Serial = 999
-			})
 			Expect(update(
 				testutil.AuthedCtx(ctx, u),
-				apidevice.UpdateRequest{Device: next},
+				configure(d.Base().Key, device.T7Ports{}),
 			)).Error().ToNot(HaveOccurred())
 			got := retrieveDevice(ctx, d.Base().Key).Base()
 			Expect(got.Name).To(Equal("Renamed"))
 			Expect(got.Identifier).To(Equal("lj"))
-			Expect(got.Rack).To(Equal(d.Base().Rack))
-			Expect(got.Connection).To(Equal(d.Base().Connection))
 			Expect(got.Serial).To(Equal(d.Base().Serial))
+		})
+
+		It("Should write only the identity group", func(ctx SpecContext) {
+			d := createDevice(ctx)
+			grantWrites(ctx, d.Base().Rack)
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.UpdateRequest{
+					Key: d.Base().Key,
+					Update: device.Update{Variant: device.IdentityUpdate{
+						Identity: device.Identity{
+							Rack:       d.Base().Rack,
+							Serial:     999,
+							Connection: device.ConnectionEthernet,
+							Model:      device.ModelT7,
+						},
+					}},
+				},
+			)).Error().ToNot(HaveOccurred())
+			got := retrieveDevice(ctx, d.Base().Key).Base()
+			Expect(got.Serial).To(Equal(uint32(999)))
+			Expect(got.Connection).To(Equal(device.ConnectionEthernet))
+			Expect(got.Name).To(Equal(d.Base().Name))
 		})
 
 		It("Should refuse a different model", func(ctx SpecContext) {
 			d := createDevice(ctx)
 			grantWrites(ctx, d.Base().Rack)
-			next := device.Device{Variant: device.T4Device{Base: d.Base()}}
 			Expect(update(
 				testutil.AuthedCtx(ctx, u),
-				apidevice.UpdateRequest{Device: next},
+				configure(d.Base().Key, device.T4Ports{}),
 			)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("model: cannot change from t7 to t4")),
@@ -403,23 +423,20 @@ var _ = Describe("Service", func() {
 			Expect(retrieveDevice(ctx, d.Base().Key).Model()).To(Equal(device.ModelT7))
 		})
 
-		It("Should reject a device with no model", func(ctx SpecContext) {
-			grantWrites(ctx, svc.Rack.EmbeddedKey)
+		It("Should reject a request with no group", func(ctx SpecContext) {
+			d := createDevice(ctx)
+			grantWrites(ctx, d.Base().Rack)
 			Expect(update(
 				testutil.AuthedCtx(ctx, u),
-				apidevice.UpdateRequest{},
-			)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("model: required")),
-			))
+				apidevice.UpdateRequest{Key: d.Base().Key},
+			)).Error().To(MatchError(validate.ErrValidation))
 		})
 
 		It("Should return not found for a missing device", func(ctx SpecContext) {
 			grantWrites(ctx, svc.Rack.EmbeddedKey)
-			d := edit(newDevice(), func(b *device.Base) { b.Key = uuid.New() })
 			Expect(update(
 				testutil.AuthedCtx(ctx, u),
-				apidevice.UpdateRequest{Device: d},
+				configure(uuid.New(), device.T7Ports{}),
 			)).Error().To(MatchError(query.ErrNotFound))
 		})
 
@@ -427,10 +444,9 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			d := createDevice(ctx)
-			next := edit(d, func(b *device.Base) { b.Name = "Renamed" })
 			Expect(update(
 				testutil.AuthedCtx(ctx, u),
-				apidevice.UpdateRequest{Device: next},
+				configure(d.Base().Key, device.T7Ports{}),
 			)).Error().To(MatchError(access.ErrDenied))
 			Expect(
 				retrieveDevice(ctx, d.Base().Key).Base().Name,
