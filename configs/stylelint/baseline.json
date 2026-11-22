@@ -13,7 +13,10 @@
       "lyra-icon",
       "lyra-select__dialog"
     ],
-    "console/src/feature/arc/editor/TaskControls.css": ["lyra-btn", "pluto-editor"],
+    "console/src/feature/arc/editor/controls/TaskControls.css": [
+      "lyra-btn",
+      "pluto-editor"
+    ],
     "console/src/feature/arc/editor/toolbar/graph/Toolbar.css": [
       "lyra-input",
       "lyra-list__item",
