@@ -17,29 +17,35 @@ import (
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/testutil"
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 )
 
 // hoverSource returns a function that declares lines variables after its first
-// statement.
+// statement. It passes analysis when its first statement does.
 func hoverSource(first string, lines int) string {
 	var b strings.Builder
 	b.WriteString("func f() i32 {\n    " + first + "\n")
 	for i := range lines {
-		b.WriteString("    a" + strconv.Itoa(i) + " := 1\n")
+		b.WriteString("    a" + strconv.Itoa(i) + " i32 := 1\n")
 	}
 	b.WriteString("    return a0\n}\n")
 	return b.String()
 }
 
-// benchHover opens source and hovers the position on line 1 at char.
-func benchHover(b *testing.B, source string, char uint32) {
+// benchHover opens source with channels in scope and hovers the position on line 1 at
+// char.
+func benchHover(b *testing.B, source string, char uint32, channels ...symbol.Symbol) {
 	b.Helper()
 	ctx := b.Context()
 	server, err := lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-		return symbol.NewRoot(nil, stl.NewSymbols())
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		for i := range channels {
+			root.Parent.AddChild(&channels[i])
+		}
+		return root
 	}})
 	if err != nil {
 		b.Fatal(err)
@@ -80,15 +86,26 @@ func benchHover(b *testing.B, source string, char uint32) {
 	}
 }
 
-// BenchmarkHover hovers a variable and a quoted channel name near the top of documents
-// of growing length. Each hover costs the same at any length.
+// BenchmarkHover hovers a variable, a quoted channel name, a bare channel path, and a
+// quoted name that no channel holds, near the top of documents of growing length. Only
+// the last fails analysis, so its hover builds a root of its own. Each hover costs the
+// same at any length.
 func BenchmarkHover(b *testing.B) {
+	sensor := symbol.Symbol{
+		Name: "stand.sensor",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F64()),
+		ID:   1,
+	}
 	for _, lines := range []int{10, 1000, 10000} {
 		n := "lines=" + strconv.Itoa(lines)
 		b.Run(n+"/word", func(b *testing.B) {
 			benchHover(b, hoverSource("x := 1", lines), 5)
 		})
 		b.Run(n+"/channel", func(b *testing.B) {
+			benchHover(b, hoverSource("s := 'stand.sensor'", lines), 10, sensor)
+		})
+		b.Run(n+"/missing", func(b *testing.B) {
 			benchHover(b, hoverSource("s := 'sensor value'", lines), 10)
 		})
 	}
