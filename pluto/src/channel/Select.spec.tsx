@@ -207,10 +207,22 @@ describe("Channel select", () => {
       const c = render(<Picker keys={[plain.key]} />, { wrapper });
       toggle(c);
       expect(await c.findByText(FAILED)).toBeTruthy();
-      expect(
-        c.getByText(/Check the connection to the Core, then open the picker again/),
-      ).toBeTruthy();
+      expect(c.getByText(/Open the picker again to retry/)).toBeTruthy();
       await waitFor(() => expect(reported.current).toEqual([FAILED]));
+    });
+
+    it("should show a failed lookup while the selection holds a channel without an answer", async () => {
+      const selected = await createPlain();
+      failLookups();
+      const c = render(<Picker keys={[selected.key]} value={[selected.key]} />, {
+        wrapper,
+      });
+      toggle(c);
+      expect(await c.findByText(FAILED)).toBeTruthy();
+      toggle(c);
+      await waitFor(() => expect(c.queryByText(FAILED)).toBeNull());
+      toggle(c);
+      expect(await c.findByText(FAILED)).toBeTruthy();
     });
 
     it("should not send lookups in a loop while the Core fails them", async () => {

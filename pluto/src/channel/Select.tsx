@@ -106,6 +106,17 @@ export const SelectMultiple = ({
   });
   const { data, getItem, subscribe, more, search, status } = useList({ query, filter });
   const hidden = useCalculatedHidden(data, visible, calculatedHidden);
+  // A hidden channel is not read either, so the selection never lists it first.
+  const { keeps } = hidden;
+  const getShown =
+    keeps == null
+      ? getItem
+      : (((keys: channel.Key | channel.Key[]) =>
+          Array.isArray(keys)
+            ? getItem(keys.filter(keeps))
+            : keeps(keys)
+              ? getItem(keys)
+              : undefined) as typeof getItem);
   return (
     <Select.Multiple<channel.Key, channel.Channel | undefined>
       haulType={HAUL_TYPE}
@@ -119,7 +130,7 @@ export const SelectMultiple = ({
       {...rest}
       resourceName="channel"
       data={hidden.data}
-      getItem={getItem}
+      getItem={getShown}
       subscribe={subscribe}
     >
       {listItemRenderProp}

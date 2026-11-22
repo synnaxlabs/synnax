@@ -19,8 +19,8 @@ type Outputs = calculation.Client["outputs"];
 const LOOKUP_FAILED = "Failed to load channels";
 
 const LOOKUP_FAILED_REASON =
-  "Synnax could not check which channels a calculation writes. Check the connection " +
-  "to the Core, then open the picker again.";
+  "Synnax could not check which channels a calculation writes. Open the picker again " +
+  "to retry.";
 
 const LOOKING_UP = status.create({
   variant: "loading",
@@ -94,18 +94,27 @@ const createLookups = (): Lookups => {
 };
 
 // version is the version of outputs that the read sees, so a new answer reads again.
-const answersOf = (outputs: Outputs, keys: channel.Key[], _version: number) => ({
-  unanswered: keys.filter((key) => outputs.get(key) == null),
-  kept: keys.filter((key) => {
+const answersOf = (outputs: Outputs, keys: channel.Key[], _version: number) => {
+  const keeps = (key: channel.Key): boolean => {
     const output = outputs.get(key);
     return output != null && !calculation.isOutput(output);
-  }),
-});
+  };
+  return {
+    unanswered: keys.filter((key) => outputs.get(key) == null),
+    kept: keys.filter(keeps),
+    keeps,
+  };
+};
 
 /** The return value of {@link useCalculatedHidden}. */
 export interface CalculatedHidden {
   /** The keys that no calculation writes, once each has an answer. */
   data: channel.Key[];
+  /**
+   * Whether no calculation writes the channel with key, once it has an answer.
+   * Undefined when nothing is hidden.
+   */
+  keeps?: (key: channel.Key) => boolean;
   /**
    * Loading while a lookup runs, and the failure of the last lookup if it failed, while
    * a key has no answer. Undefined once every key has one.
@@ -139,15 +148,18 @@ export const useCalculatedHidden = (
     lookups.setOpen(open, report);
     return () => lookups.setOpen(false);
   }, [lookups, open, report]);
+  const answers = outputs == null ? undefined : answersOf(outputs, keys, version);
+  // Keyed on the keys without an answer, so an answer for another channel does not
+  // look a failed channel up again.
+  const pending = answers?.unanswered.join(",") ?? "";
   useEffect(() => {
-    if (outputs == null) return;
-    const { unanswered } = answersOf(outputs, keys, version);
-    if (unanswered.length > 0) lookups.run(outputs, unanswered);
-  }, [lookups, outputs, keys, version, open]);
-  if (outputs == null) return { data: keys };
-  const { unanswered, kept } = answersOf(outputs, keys, version);
+    if (outputs != null && answers != null && answers.unanswered.length > 0)
+      lookups.run(outputs, answers.unanswered);
+  }, [lookups, outputs, pending, open]);
+  if (answers == null) return { data: keys };
   return {
-    data: kept,
-    status: unanswered.length === 0 ? undefined : (lookupStatus ?? LOOKING_UP),
+    data: answers.kept,
+    keeps: answers.keeps,
+    status: answers.unanswered.length === 0 ? undefined : (lookupStatus ?? LOOKING_UP),
   };
 };
