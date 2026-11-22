@@ -16,12 +16,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Table } from "@/table";
-import {
-  DefaultContextMenu,
-  type DefaultContextMenuProps,
-  ERASE_TRIGGER,
-} from "@/table/ContextMenu";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { ContextMenu } from "@/table/contextMenu";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
@@ -53,7 +49,7 @@ const textCell = (key: string) => ({
   config: { variant: "text" as const, value: key },
 });
 
-describe("table DefaultContextMenu", () => {
+describe("table ContextMenu.Default", () => {
   let wrapper: React.FC<PropsWithChildren>;
   let key: table.Key;
 
@@ -77,9 +73,9 @@ describe("table DefaultContextMenu", () => {
     await loadTable(wrapper, key);
   });
 
-  const renderMenu = (props: Partial<DefaultContextMenuProps> = {}) =>
+  const renderMenu = (props: Partial<ContextMenu.DefaultProps> = {}) =>
     render(
-      <DefaultContextMenu
+      <ContextMenu.Default
         resourceKey={key}
         targetID={null}
         selected={[]}
@@ -121,7 +117,9 @@ describe("table DefaultContextMenu", () => {
     // The item never binds the key itself, so a hint that drifted from the trigger
     // Table registers would advertise a key that does nothing. Keycaps follow the host
     // platform's casing, so the comparison ignores it.
-    expect(hint?.textContent?.toLowerCase()).toContain(ERASE_TRIGGER[0].toLowerCase());
+    expect(hint?.textContent?.toLowerCase()).toContain(
+      ContextMenu.ERASE_TRIGGER[0].toLowerCase(),
+    );
   });
 
   it("omits the centering item when onCenteredChange is not provided", () => {

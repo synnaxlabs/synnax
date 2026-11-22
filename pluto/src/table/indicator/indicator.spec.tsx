@@ -11,14 +11,14 @@ import { scheduler } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { getCellColumn, Indicator } from "@/table/Indicator";
+import { Indicator } from "@/table/indicator";
 
-const renderIndicator = (props: Partial<React.ComponentProps<typeof Indicator>>) =>
+const renderIndicator = (props: Partial<React.ComponentProps<typeof Indicator.Item>>) =>
   render(
     <table>
       <tbody>
         <tr>
-          <Indicator
+          <Indicator.Item
             direction="x"
             index={0}
             itemKey="c0"
@@ -33,7 +33,7 @@ const renderIndicator = (props: Partial<React.ComponentProps<typeof Indicator>>)
     </table>,
   );
 
-describe("Indicator", () => {
+describe("Indicator.Item", () => {
   it("renders the resize button when editable", () => {
     const { container } = renderIndicator({ editable: true });
     expect(container.querySelector("button")).not.toBeNull();
@@ -64,7 +64,7 @@ describe("Indicator", () => {
   });
 });
 
-describe("Indicator resize", () => {
+describe("Indicator.Item resize", () => {
   const at = (x: number) => ({ pointerId: 1, button: 0, isPrimary: true, clientX: x });
 
   it("reports the new size with the key of its row or column", async () => {
@@ -79,7 +79,7 @@ describe("Indicator resize", () => {
   });
 });
 
-describe("getCellColumn", () => {
+describe("Indicator.getCellColumn", () => {
   it.each([
     [0, "A"],
     [25, "Z"],
@@ -90,7 +90,7 @@ describe("getCellColumn", () => {
     [701, "ZZ"],
     [702, "AAA"],
   ])("labels index %i as %s", (index, label) => {
-    expect(getCellColumn(index)).toEqual(label);
+    expect(Indicator.getCellColumn(index)).toEqual(label);
   });
 
   it("renders the label on a column indicator past the alphabet", () => {

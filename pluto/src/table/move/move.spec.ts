@@ -10,7 +10,7 @@
 import { table } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
-import { type Move, steps } from "@/table/move";
+import { Move } from "@/table/move";
 
 const N = 5;
 const RANGE = [...Array(N).keys()];
@@ -31,22 +31,22 @@ const createTable = (): table.Table => ({
 });
 
 // Every selection of the five, at every slot it can land in.
-const MOVES: Move[] = [...Array(2 ** N).keys()].slice(1).flatMap((mask) => {
+const MOVES: Move.Plan[] = [...Array(2 ** N).keys()].slice(1).flatMap((mask) => {
   const indices = RANGE.filter((i) => (mask >> i) & 1);
   return RANGE.slice(0, N - indices.length + 1).map((to) => ({ indices, to }));
 });
 
-const orderOf = ({ indices, to }: Move): number[] => {
+const orderOf = ({ indices, to }: Move.Plan): number[] => {
   const rest = RANGE.filter((i) => !indices.includes(i));
   return [...rest.slice(0, to), ...indices, ...rest.slice(to)];
 };
 
-describe("steps", () => {
+describe("Move.steps", () => {
   it.for(MOVES)("should land rows $indices at $to, and undo", (move) => {
     const state = createTable();
     const { next, inverse } = table.reduceAll(
       state,
-      steps(move).map(({ from, to }) =>
+      Move.steps(move).map(({ from, to }) =>
         table.moveRow({ key: state.rows[from].key, to }),
       ),
     );
@@ -58,7 +58,7 @@ describe("steps", () => {
     const state = createTable();
     const { next, inverse } = table.reduceAll(
       state,
-      steps(move).map(({ from, to }) =>
+      Move.steps(move).map(({ from, to }) =>
         table.moveCol({ key: state.columns[from].key, to }),
       ),
     );
@@ -70,7 +70,7 @@ describe("steps", () => {
     expect(table.reduceAll(next, inverse).next).toEqual(state);
   });
 
-  it("should return no steps for a block already in place", () => {
-    expect(steps({ indices: [1, 2], to: 1 })).toEqual([]);
+  it("should return no Move.steps for a block already in place", () => {
+    expect(Move.steps({ indices: [1, 2], to: 1 })).toEqual([]);
   });
 });

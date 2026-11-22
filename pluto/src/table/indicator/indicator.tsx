@@ -25,7 +25,7 @@ import { transform } from "@/table/shift";
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 /** Pixel size of an indicator strip, mirroring --pluto-table-indicator-size. */
-export const INDICATOR_SIZE = 4.5 * 6;
+export const SIZE = 4.5 * 6;
 
 // getCellColumn maps a 0-based column index to a spreadsheet-style label ("A", "B",
 // ... "Z", "AA", "AB", ...). Exported so consumers labeling cells outside the table
@@ -37,7 +37,7 @@ export const getCellColumn = (index: number): string => {
   return label;
 };
 
-export interface ColumnIndicatorsProps extends Pick<IndicatorProps, "onMovePress"> {
+export interface ColumnsProps extends Pick<ItemProps, "onMovePress"> {
   columns: table.Column[];
   rows: RowLayout[];
   selected: string[];
@@ -49,7 +49,7 @@ export interface ColumnIndicatorsProps extends Pick<IndicatorProps, "onMovePress
   shifts?: number[];
 }
 
-export const ColumnIndicators = ({
+export const Columns = ({
   columns,
   rows,
   selected,
@@ -59,7 +59,7 @@ export const ColumnIndicators = ({
   onResize,
   onMovePress,
   shifts,
-}: ColumnIndicatorsProps): ReactElement => {
+}: ColumnsProps): ReactElement => {
   // cellToCol indexes the rows once per layout change so selectedCols can
   // resolve each selected cell to its column in O(1).
   const map = new Map<string, number>();
@@ -81,7 +81,7 @@ export const ColumnIndicators = ({
         onContextMenu={onSelectAll}
       />
       {columns.map((col, i) => (
-        <Indicator
+        <Item
           key={col.key}
           direction="x"
           index={i}
@@ -98,9 +98,9 @@ export const ColumnIndicators = ({
     </tr>
   );
 };
-ColumnIndicators.displayName = "ColumnIndicators";
+Columns.displayName = "ColumnIndicators";
 
-export interface IndicatorProps {
+export interface ItemProps {
   direction: direction.Direction;
   index: number;
   /** Key of the row or column. */
@@ -119,7 +119,7 @@ export interface IndicatorProps {
   shift?: number;
 }
 
-export const Indicator = ({
+export const Item = ({
   direction: dir,
   index,
   itemKey,
@@ -130,7 +130,7 @@ export const Indicator = ({
   onSelect,
   onMovePress,
   shift = 0,
-}: IndicatorProps): ReactElement => {
+}: ItemProps): ReactElement => {
   const valueRef = useSyncedRef(value);
   const sizeRef = useRef(value);
   const onDragStart = Cursor.useDrag({

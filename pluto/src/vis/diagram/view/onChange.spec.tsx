@@ -20,7 +20,7 @@ import {
 import type { ReactElement } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { useOnViewportChange } from "@/vis/diagram/useOnViewportChange";
+import { View } from "@/vis/diagram/view";
 
 const MOUNTED: Viewport = { x: 10, y: 20, zoom: 0.75 };
 
@@ -35,7 +35,7 @@ interface ProbeProps {
 }
 
 const Probe = ({ onChange, api }: ProbeProps): null => {
-  useOnViewportChange(onChange);
+  View.useOnChange(onChange);
   api.current = { flow: useReactFlow(), store: useReactFlowStoreApi().viewportStore };
   return null;
 };
@@ -68,7 +68,7 @@ const renderTree = () => {
   };
 };
 
-describe("Diagram.useOnViewportChange", () => {
+describe("View.useOnChange", () => {
   // jsdom lays nothing out; React Flow sizes its container from these.
   beforeAll(() => {
     vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(1000);
@@ -102,7 +102,7 @@ describe("Diagram.useOnViewportChange", () => {
   });
 
   // React Flow resets its store when it unmounts, which wipes the callbacks React
-  // Flow's own useOnViewportChange registers once.
+  // Flow's own View.useOnChange registers once.
   it("keeps reporting after React Flow unmounts and remounts", () => {
     const { onChange, api, mount } = renderTree();
     mount(false);

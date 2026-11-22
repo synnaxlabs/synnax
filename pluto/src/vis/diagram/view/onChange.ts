@@ -15,7 +15,7 @@ import { useEffect } from "react";
  * at, and with nothing while React Flow is unmounted. Reads the store transform rather
  * than `useOnViewportChange`, whose callbacks React Flow drops when it unmounts.
  */
-export const useOnViewportChange = (onChange: (viewport: Viewport) => void): void => {
+export const useOnChange = (onChange: (viewport: Viewport) => void): void => {
   const { optionsStore, viewportStore } = useReactFlowStoreApi();
   useEffect(() => {
     const sync = ({ transform: [x, y, zoom] }: ViewportStore): void => {

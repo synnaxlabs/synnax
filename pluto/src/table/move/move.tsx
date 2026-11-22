@@ -21,11 +21,11 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { INDICATOR_SIZE } from "@/table/Indicator";
+import { Indicator } from "@/table/indicator";
 import { transform } from "@/table/shift";
 
 /** A move of rows or columns in progress. */
-export interface Move {
+export interface Plan {
   /** Indices of the rows or columns being moved, ascending. */
   indices: number[];
   /** Where the moved ones start once they land, counted among the rest. */
@@ -38,7 +38,7 @@ export interface Item {
   size: number;
 }
 
-export interface UseMoveProps {
+export interface UseProps {
   /** x moves columns, y moves rows. */
   direction: direction.Direction;
   /** The rows or columns in display order. */
@@ -51,12 +51,12 @@ export interface UseMoveProps {
    * Called on release with the finished move, resolved against the latest items. A
    * cancelled pointer drops the move.
    */
-  onMove: (move: Move) => void;
+  onMove: (move: Plan) => void;
 }
 
-export interface UseMoveReturn {
+export interface UseReturn {
   /** The move in progress against the latest items, or null between moves. */
-  move: Move | null;
+  move: Plan | null;
   /** Handles a press on the indicator of the row or column with the given key. */
   press: (key: string, e: ReactPointerEvent) => void;
   /** Reports, once, whether the latest press became a move. */
@@ -77,7 +77,7 @@ const indicesOf = (items: Item[], keys: string[]): number[] =>
   items.flatMap((item, i) => (keys.includes(item.key) ? [i] : []));
 
 // resolve returns where the held items sit in items, or null when none are left.
-const resolve = (items: Item[], { keys, to }: Held): Move | null => {
+const resolve = (items: Item[], { keys, to }: Held): Plan | null => {
   const indices = indicesOf(items, keys);
   if (indices.length === 0) return null;
   return { indices, to: Math.min(to, items.length - indices.length) };
@@ -101,7 +101,7 @@ const landing = (sizes: number[], indices: number[], pos: number): number => {
 // every event, so a scroll during the drag keeps the edges in place. The pressed
 // indicator slides with the preview, so it is no fixed reference.
 const originOf = (el: HTMLElement, dir: direction.Direction): number =>
-  box.topLeft(box.construct(el))[dir] + INDICATOR_SIZE;
+  box.topLeft(box.construct(el))[dir] + Indicator.SIZE;
 
 /**
  * Drives moving rows or columns by dragging an indicator. A press on a selected row or
@@ -110,13 +110,13 @@ const originOf = (el: HTMLElement, dir: direction.Direction): number =>
  * rows or columns by key, so another session changing the table during the drag never
  * moves the wrong ones.
  */
-export const useMove = ({
+export const use = ({
   direction: dir,
   items,
   selected,
   ref,
   onMove,
-}: UseMoveProps): UseMoveReturn => {
+}: UseProps): UseReturn => {
   const [held, setHeld] = useState<Held | null>(null);
   const itemsRef = useSyncedRef(items);
   const selectedRef = useSyncedRef(selected);
@@ -186,7 +186,7 @@ export const useMove = ({
  */
 export const shifts = (
   items: Array<{ size: number }>,
-  { indices, to }: Move,
+  { indices, to }: Plan,
 ): number[] => {
   const sizes = items.map(({ size }) => size);
   const rest = [...sizes.keys()].filter((i) => !indices.includes(i));
@@ -205,7 +205,7 @@ export const shifts = (
  * one block at their landing. Forward moves go last to first and backward moves first
  * to last, so no step shifts an index that a later step names.
  */
-export const steps = ({ indices, to }: Move): Array<{ from: number; to: number }> => {
+export const steps = ({ indices, to }: Plan): Array<{ from: number; to: number }> => {
   const all = indices.map((from, k) => ({ from, to: to + k }));
   return [
     ...all.filter((s) => s.from < s.to).reverse(),
@@ -215,7 +215,7 @@ export const steps = ({ indices, to }: Move): Array<{ from: number; to: number }
 
 export interface OverlayProps {
   direction: direction.Direction;
-  move: Move;
+  move: Plan;
   sizes: number[];
   /** The shifts of the rows or columns, from {@link shifts}. */
   shifts: number[];
@@ -234,11 +234,11 @@ export const Overlay = ({
   shifts,
   span,
 }: OverlayProps): ReactElement => {
-  const length = INDICATOR_SIZE + span;
+  const length = Indicator.SIZE + span;
   return (
     <>
       {indices.map((i) => {
-        const pos = INDICATOR_SIZE + offsetOf(sizes, i);
+        const pos = Indicator.SIZE + offsetOf(sizes, i);
         const style: CSSProperties = {
           ...(dir === "y"
             ? { top: pos, left: 0, height: sizes[i], width: length }

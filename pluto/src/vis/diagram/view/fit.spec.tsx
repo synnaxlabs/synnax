@@ -21,7 +21,7 @@ import {
 import type { PropsWithChildren, ReactElement } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { useFitView, useInitialFitView } from "@/vis/diagram/useFitView";
+import { View } from "@/vis/diagram/view";
 
 const CONTAINER = { width: 1000, height: 500 };
 
@@ -68,7 +68,7 @@ const createWrapper = (props: ReactFlowProps = {}) => {
 };
 
 const renderFitView = (props?: ReactFlowProps) =>
-  renderHook(() => ({ fitView: useFitView(), flow: useReactFlow() }), {
+  renderHook(() => ({ fitView: View.useFit(), flow: useReactFlow() }), {
     wrapper: createWrapper(props),
   });
 
@@ -81,7 +81,7 @@ const layoutNode = (): void => {
   rect(node.querySelector('[data-testid="label"]')!, 20, 110, 70, 20);
 };
 
-describe("Diagram.useFitView", () => {
+describe("View.useFit", () => {
   // jsdom lays nothing out; React Flow sizes its container from these.
   beforeAll(() => {
     vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(
@@ -128,7 +128,7 @@ describe("Diagram.useFitView", () => {
 const FITTED = { x: 415, y: 125, zoom: 1 };
 const PADDING_NONE = { padding: 0 };
 
-describe("Diagram.useInitialFitView", () => {
+describe("View.useInitialFit", () => {
   // The fit fires on measurement, so rects must resolve before rendering. React
   // Flow's measurement also needs DOMMatrixReadOnly, which jsdom lacks.
   beforeAll(() => {
@@ -162,7 +162,7 @@ describe("Diagram.useInitialFitView", () => {
   const renderInitialFit = (enabled: boolean) =>
     renderHook(
       (props: { enabled: boolean }) => {
-        useInitialFitView(props.enabled, PADDING_NONE);
+        View.useInitialFit(props.enabled, PADDING_NONE);
         return {
           flow: useReactFlow(),
           measure: useUpdateNodeInternals(),

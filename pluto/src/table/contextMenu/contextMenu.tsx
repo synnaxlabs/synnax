@@ -13,7 +13,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import type { ReactElement, ReactNode } from "react";
 
-import { getCellColumn } from "@/table/Indicator";
+import { Indicator } from "@/table/indicator";
 import {
   useCellPosition,
   useColumns,
@@ -25,7 +25,7 @@ import {
 /** Erases the selected cells. Registered by {@link Table}; shown on the erase item. */
 export const ERASE_TRIGGER: Triggers.Trigger = ["Delete"];
 
-export interface DefaultContextMenuProps {
+export interface DefaultProps {
   resourceKey: table.Key;
   targetID: string | null;
   selected: string[];
@@ -104,7 +104,7 @@ const targetIndices = (index: number | null, fullySelected: number[]): number[] 
   return fullySelected.includes(index) ? fullySelected : [index];
 };
 
-export const DefaultContextMenu = ({
+export const Default = ({
   resourceKey,
   targetID,
   selected,
@@ -120,7 +120,7 @@ export const DefaultContextMenu = ({
   onRemoveCol,
   onEraseCells,
   extra,
-}: DefaultContextMenuProps): ReactElement => {
+}: DefaultProps): ReactElement => {
   const resizer = targetID != null ? parseResizer(targetID) : null;
   const cellKey = resizer == null ? targetID : null;
   const cellPos = useCellPosition({ key: resourceKey, cellKey: cellKey ?? "" });
@@ -213,7 +213,7 @@ export const DefaultContextMenu = ({
           <Icon.Delete.Col />
           {targetColIndices.length > 1
             ? `Delete ${targetColIndices.length} columns`
-            : `Delete column ${getCellColumn(colIdx)}`}
+            : `Delete column ${Indicator.getCellColumn(colIdx)}`}
         </Menu.Item>
       )}
       {editable && selected.length > 0 && (
