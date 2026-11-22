@@ -69,10 +69,16 @@ func shape(syms []*symbol.Symbol) []string {
 const sharedLSPSource = "import math\n\nfunc g(x f64) u8 {\n    if math.is_nan(x) {\n" +
 	"        return 1\n    }\n    return 0\n}\n"
 
-// sharedGraphBody is a graph function body that calls an auto-imported module's
-// polymorphic member.
-const sharedGraphBody = "{\n    if math.is_nan(ox_pt_1) {\n        return 1\n    }\n" +
-	"    return 0\n}"
+// sharedGraph returns a graph whose one function calls an auto-imported module's
+// polymorphic member. Parsing writes into the graph, so each call returns a new one.
+func sharedGraph() arc.Graph {
+	return arc.Graph{Functions: ir.Functions{{
+		Key:     "calculation",
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		Body: ir.Body{Raw: "{\n    if math.is_nan(ox_pt_1) {\n        return 1\n" +
+			"    }\n    return 0\n}"},
+	}}}
+}
 
 // useThroughLSP opens sharedLSPSource on a server whose roots share ambient, then asks
 // for a hover, a completion, and a rename.
@@ -117,11 +123,6 @@ var _ = Describe("A shared standard library", func() {
 				return string(MustSucceed(fs.ReadFile(repository, path)))
 			},
 		)
-		g := arc.Graph{Functions: ir.Functions{{
-			Key:     "calculation",
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Body:    ir.Body{Raw: sharedGraphBody},
-		}}}
 		var wg sync.WaitGroup
 		for i := range 16 {
 			wg.Go(func() {
@@ -133,7 +134,11 @@ var _ = Describe("A shared standard library", func() {
 						newRepositoryRoot(shared),
 					))
 				}
-				MustSucceed(arc.CompileGraph(ctx, g, newRepositoryRoot(shared)))
+				MustSucceed(arc.CompileGraph(
+					ctx,
+					sharedGraph(),
+					newRepositoryRoot(shared),
+				))
 				useThroughLSP(ctx, shared, i)
 			})
 		}

@@ -14,12 +14,10 @@ import (
 
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/arc/types"
 )
 
 // BenchmarkAnalyze measures the analysis of one text program and one graph, each from a
@@ -31,11 +29,7 @@ func BenchmarkAnalyze(b *testing.B) {
 	if diag != nil && !diag.Ok() {
 		b.Fatalf("failed to parse the text program: %s", diag)
 	}
-	parsedGraph, err := graph.Parse(arc.Graph{Functions: ir.Functions{{
-		Key:     "calculation",
-		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-		Body:    ir.Body{Raw: sharedGraphBody},
-	}}}, parser.Config{})
+	parsedGraph, err := graph.Parse(sharedGraph(), parser.Config{})
 	if err != nil {
 		b.Fatalf("failed to parse the graph: %v", err)
 	}
