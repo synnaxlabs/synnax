@@ -150,7 +150,7 @@ const setup = async (
 
 const mountCount = (key: panel.Key): number => mounts.filter((k) => k === key).length;
 
-describe("PlatformPanel.Mosaic keep-alive", () => {
+describe("Panel.Mosaic keep-alive", () => {
   beforeEach(() => {
     mounts.length = 0;
     unmounts.length = 0;
@@ -292,7 +292,7 @@ describe("PlatformPanel.Mosaic keep-alive", () => {
   });
 });
 
-describe("PlatformPanel.Mosaic not found", () => {
+describe("Panel.Mosaic not found", () => {
   it("should load the panel when retry is clicked after it exists again", async () => {
     const key = uuid.create();
     const { wrapper, store } = await setup();
@@ -324,7 +324,7 @@ describe("PlatformPanel.Mosaic not found", () => {
   });
 });
 
-describe("PlatformPanel.Mosaic overlay", () => {
+describe("Panel.Mosaic overlay", () => {
   beforeEach(() => {
     tabMounts.length = 0;
     tabUnmounts.length = 0;
@@ -482,7 +482,7 @@ describe("PlatformPanel.Mosaic overlay", () => {
   });
 });
 
-describe("PlatformPanel.Mosaic trigger scope", () => {
+describe("Panel.Mosaic trigger scope", () => {
   beforeEach(() => {
     triggerFires.length = 0;
   });
@@ -532,7 +532,7 @@ describe("PlatformPanel.Mosaic trigger scope", () => {
   });
 });
 
-describe("PlatformPanel.Mosaic empty state permissions", () => {
+describe("Panel.Mosaic empty state permissions", () => {
   const renderEmpty = async (as: Client) => {
     const { wrapper } = await setup(undefined, as);
     render(<Panel.Mosaic onCreateTab={createTab} />, { wrapper });

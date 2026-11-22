@@ -178,7 +178,7 @@ const fireDrop = (el: Element): void => fireDragEvent(el, "drop", CURSOR);
 
 const fireDragOver = (el: Element): void => fireDragEvent(el, "dragOver", CURSOR);
 
-describe("PlatformPanel.Selector", () => {
+describe("Panel.Selector", () => {
   beforeEach(() => {
     mocks.engine = "web";
   });
