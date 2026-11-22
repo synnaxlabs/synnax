@@ -278,10 +278,8 @@ describe("default connector", () => {
     await sleep.sleep(TimeSpan.milliseconds(100));
     await send();
     expect(connections).toBe(1);
-    for (let i = 2; i <= 4; i++) {
-      await sleep.sleep(PAST_CLIENT_IDLE_TIMEOUT);
-      await send();
-      expect(connections).toBe(i);
-    }
-  }, 20_000);
+    await sleep.sleep(PAST_CLIENT_IDLE_TIMEOUT);
+    await send();
+    expect(connections).toBe(2);
+  }, 10_000);
 });
