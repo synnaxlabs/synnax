@@ -170,36 +170,34 @@ func (s *Service) Denied(
 	c Calculation,
 	allowed func(resource.ID) bool,
 ) (resource.ID, bool) {
-	return denied(
-		ResourceID(c.Key),
-		func() []resource.ID { return s.Channels(c) },
-		allowed,
-	)
+	return s.denied(c, nil, allowed)
 }
 
 // Readable returns whether a subject reads c, given whether it can retrieve each
 // resource. It finds the channels of c once, so a check of many subjects reads them
 // once.
 func (s *Service) Readable(c Calculation) func(allowed func(resource.ID) bool) bool {
-	calc, channels := ResourceID(c.Key), s.Channels(c)
-	linked := func() []resource.ID { return channels }
+	channels := s.Channels(c)
 	return func(allowed func(resource.ID) bool) bool {
-		_, refused := denied(calc, linked, allowed)
+		_, refused := s.denied(c, channels, allowed)
 		return !refused
 	}
 }
 
-// denied returns the first that allowed refuses of calc and the channels that linked
-// returns. It calls linked only when allowed admits calc.
-func denied(
-	calc resource.ID,
-	linked func() []resource.ID,
+// denied implements Denied. channels holds the channels that c links when known, and
+// nil makes denied find them only when allowed admits c.
+func (s *Service) denied(
+	c Calculation,
+	channels []resource.ID,
 	allowed func(resource.ID) bool,
 ) (resource.ID, bool) {
-	if !allowed(calc) {
-		return calc, true
+	if id := ResourceID(c.Key); !allowed(id) {
+		return id, true
 	}
-	for _, id := range linked() {
+	if channels == nil {
+		channels = s.Channels(c)
+	}
+	for _, id := range channels {
 		if !allowed(id) {
 			return id, true
 		}

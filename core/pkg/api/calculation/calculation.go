@@ -189,6 +189,7 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	named := req.Named()
+	allowed := snap.Allowed
 	hidden := hiddenOutputs{snap: snap, size: outputCount(req.Where)}
 	// The filter of req runs first, so only the calculations it selects reach here.
 	if err = q.Where(calculation.Match(func(
@@ -196,11 +197,11 @@ func (s *Service) Retrieve(
 		_ calculation.Retrieve,
 		c *calculation.Calculation,
 	) (bool, error) {
-		id, denied := s.internal.Denied(*c, snap.Allowed)
+		id, denied := s.internal.Denied(*c, allowed)
 		if !denied {
 			return true, nil
 		}
-		if slices.Contains(named, calculation.ResourceID(c.Key)) {
+		if len(named) > 0 && slices.Contains(named, calculation.ResourceID(c.Key)) {
 			return false, snap.Enforce(id)
 		}
 		hidden.add(c.Output)
