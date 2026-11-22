@@ -11,6 +11,7 @@ package arc
 
 import (
 	"context"
+	"sync"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -94,7 +95,10 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 		Indexes: t.indexes.all(),
 		References: append(
 			[]gorp.Reference[Key, Arc]{newDirectoryReference()},
-			newChannelReferences(newChannelParams(standardSymbols()))...,
+			// Only a graph Arc reads the params, so text Arcs never build them.
+			newChannelReferences(sync.OnceValue(func() channelParams {
+				return newChannelParams(standardSymbols())
+			}))...,
 		),
 		Migrations:      versions.NewMigrations(t.root),
 		Instrumentation: cfg.Instrumentation,

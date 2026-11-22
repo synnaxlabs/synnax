@@ -112,15 +112,17 @@ func (c channelParams) eachNodeKey(
 }
 
 // newChannelReference returns the reference from each Arc to the channels it uses in
-// direction: the keys that list returns from its Base, and the channels that its graph
+// direction: the keys that read returns from its Base, and the channels that its graph
 // nodes set on channel params in direction. A deleted channel stays in the Arc, and a
-// detach removes the target from the list and clears each node input that holds it.
+// detach removes the target from the list that field names and clears each node input
+// that holds it.
 func newChannelReference(
 	name string,
 	direction types.ChanDirection,
 	tag uint8,
-	list func(*Base) *[]channel.Key,
-	params channelParams,
+	read func(Base) []channel.Key,
+	field func(*Base) *[]channel.Key,
+	params func() channelParams,
 ) *gorp.KeyReference[Key, Arc, channel.Key] {
 	return gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Arc, channel.Key]{
 		Name:     name,
@@ -132,22 +134,22 @@ func newChannelReference(
 			b := a.Base()
 			src, ok := b.Source.Variant.(GraphSource)
 			if !ok {
-				return *list(&b)
+				return read(b)
 			}
-			keys := params.nodeKeys(slices.Clone(*list(&b)), src.Graph, direction)
+			keys := params().nodeKeys(slices.Clone(read(b)), src.Graph, direction)
 			slices.Sort(keys)
 			return slices.Compact(keys)
 		},
 		Detach: func(a *Arc, t channel.Key) {
 			b := a.Base()
-			held := list(&b)
+			held := field(&b)
 			*held = slices.DeleteFunc(*held, func(k channel.Key) bool { return k == t })
 			a.SetBase(b)
 			src, ok := b.Source.Variant.(GraphSource)
 			if !ok {
 				return
 			}
-			params.eachNodeKey(src.Graph, direction, func(
+			params().eachNodeKey(src.Graph, direction, func(
 				inputs msgpack.EncodedJSON,
 				param string,
 				k channel.Key,
@@ -161,13 +163,15 @@ func newChannelReference(
 }
 
 // newChannelReferences returns the references from each Arc to the channels it reads
-// and writes.
-func newChannelReferences(params channelParams) []gorp.Reference[Key, Arc] {
+// and writes. params returns the channel params of the flow functions that a graph node
+// can be.
+func newChannelReferences(params func() channelParams) []gorp.Reference[Key, Arc] {
 	return []gorp.Reference[Key, Arc]{
 		newChannelReference(
 			"reads",
 			types.ChanDirectionRead,
 			channel.ReadTag,
+			func(b Base) []channel.Key { return b.Reads },
 			func(b *Base) *[]channel.Key { return &b.Reads },
 			params,
 		),
@@ -175,6 +179,7 @@ func newChannelReferences(params channelParams) []gorp.Reference[Key, Arc] {
 			"writes",
 			types.ChanDirectionWrite,
 			channel.WriteTag,
+			func(b Base) []channel.Key { return b.Writes },
 			func(b *Base) *[]channel.Key { return &b.Writes },
 			params,
 		),
