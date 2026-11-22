@@ -31,8 +31,8 @@ import {
   createPreloadedState,
   renderTable,
   ROW_KEY,
+  TabToolbar,
 } from "@/feature/table/testutil";
-import { Toolbar } from "@/feature/table/Toolbar";
 import { getHexInput, getSwatches } from "@/platform/multiedit/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
@@ -61,7 +61,7 @@ const renderToolbar = async ({
   as,
 }: RenderToolbarOptions = {}) => {
   const name = uniqueName("table");
-  const handle = await renderTable(Toolbar, {
+  const handle = await renderTable(TabToolbar, {
     table: { name, ...(withCells ? createCellGrid() : {}) },
     preloadedState: (key) => createPreloadedState(key, tableState),
     as,
@@ -196,7 +196,7 @@ describe("table/Toolbar", () => {
   });
 
   it("keeps the selected form tab when another value cell is selected", async () => {
-    const { key, store } = await renderTable(Toolbar, {
+    const { key, store } = await renderTable(TabToolbar, {
       table: {
         name: uniqueName("table"),
         ...createCellRow({ a: { variant: "value" }, b: { variant: "value" } }),
@@ -218,7 +218,7 @@ describe("table/Toolbar", () => {
   });
 
   it("sets a fill on every selected cell whose fill is auto", async () => {
-    const { key } = await renderTable(Toolbar, {
+    const { key } = await renderTable(TabToolbar, {
       table: { name: uniqueName("table"), ...createUncoloredGrid() },
       preloadedState: (key) =>
         createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
@@ -237,7 +237,7 @@ describe("table/Toolbar", () => {
   });
 
   it("sends only the field that the edit changes", async () => {
-    await renderTable(Toolbar, {
+    await renderTable(TabToolbar, {
       table: { name: uniqueName("table"), ...createUncoloredGrid() },
       preloadedState: (key) =>
         createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
@@ -312,7 +312,7 @@ describe("table/Toolbar", () => {
   });
 
   it("writes a number format only to the value cells", async () => {
-    const { key, result } = await renderTable(Toolbar, {
+    const { key, result } = await renderTable(TabToolbar, {
       table: {
         name: uniqueName("table"),
         ...createCellRow({
@@ -337,7 +337,7 @@ describe("table/Toolbar", () => {
   });
 
   it("stores a multi-cell staleness timeout in seconds", async () => {
-    const { key } = await renderTable(Toolbar, {
+    const { key } = await renderTable(TabToolbar, {
       table: {
         name: uniqueName("table"),
         ...createCellRow({ a: { variant: "value" }, b: { variant: "value" } }),
