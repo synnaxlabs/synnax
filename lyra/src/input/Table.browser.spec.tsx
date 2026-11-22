@@ -289,6 +289,26 @@ describe("Input.Table", () => {
     });
   });
 
+  it("should fill the height of a cell whose control starts with no text", async () => {
+    const { container } = await renderThemed(
+      <Input.Table value={[[""]]} onChange={() => {}}>
+        <Input.TableColumn name="Color" type="string">
+          {({ value, onChange, variant }) => (
+            <Input.Text
+              value={value}
+              onChange={onChange}
+              variant={variant}
+              startContent={<div style={{ width: "4rem", height: "4rem" }} />}
+            />
+          )}
+        </Input.TableColumn>
+      </Input.Table>,
+    );
+    const frame = container.querySelector(`tbody .${CSS.B("input")}`)!;
+    const cell = frame.closest("td")!;
+    expect(frame.getBoundingClientRect().height).toBeCloseTo(cell.clientHeight);
+  });
+
   describe("wrapped cell controls", () => {
     /** @returns the shadow control in every cell, each inside a wrapper, by row. */
     const renderWrapped = async (
@@ -1943,6 +1963,33 @@ describe("Input.Table", () => {
     };
 
     const point = (): HTMLElement => screen.getByRole("button", { name: "Point 1" });
+
+    it("should give a custom cell the index of its row", () => {
+      render(
+        <Input.Table value={[["a"], ["b"]]} onChange={vi.fn()}>
+          <Input.TableColumn<string> name="Name" type="custom" empty="">
+            {({ value, row }) => <span>{`${value} at ${row}`}</span>}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      expect(screen.getByText("b at 1")).toBeTruthy();
+    });
+
+    it("should leave the row off the default inputs", () => {
+      renderPoints();
+      expect(cell("Name", "1").hasAttribute("row")).toBe(false);
+    });
+
+    it("should leave the row off an input that a typed column's renderer spreads", () => {
+      render(
+        <Input.Table value={[["a"]]} onChange={vi.fn()}>
+          <Input.TableColumn name="Name" type="string">
+            {(p) => <Input.Text {...p} />}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      expect(cell("Name", "1").hasAttribute("row")).toBe(false);
+    });
 
     it("should render the cell a custom column builds from the cell's value", () => {
       renderPoints();
