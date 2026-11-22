@@ -15,8 +15,7 @@ import { page } from "vitest/browser";
 import { Dialog } from "@/dialog";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { mockGeometry } from "@/testutil/dom";
-import { createRenderCounter } from "@/testutil/renders";
+import { createRenderCounter, mockGeometry } from "@/testutil";
 import { Triggers } from "@/triggers";
 
 interface RenderOptions {

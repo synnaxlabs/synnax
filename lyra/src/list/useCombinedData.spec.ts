@@ -11,8 +11,7 @@ import { map } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { FrameProps, GetItem } from "@/list/Frame";
-import { useCombinedData } from "@/list/useCombinedData";
+import { List } from "@/list";
 
 interface TestItem {
   key: string;
@@ -24,38 +23,38 @@ describe("useCombinedData", () => {
   describe("data combination", () => {
     it("should combine data arrays from both sources", () => {
       const first: Pick<
-        FrameProps<string, TestItem>,
+        List.FrameProps<string, TestItem>,
         "data" | "getItem" | "subscribe"
       > = {
         data: ["1", "2"],
       };
 
       const second: Pick<
-        FrameProps<string, TestItem>,
+        List.FrameProps<string, TestItem>,
         "data" | "getItem" | "subscribe"
       > = {
         data: ["3", "4"],
       };
 
       const { result } = renderHook(() =>
-        useCombinedData<string, TestItem>({ first, second }),
+        List.useCombinedData<string, TestItem>({ first, second }),
       );
 
       expect(result.current.data).toEqual(["1", "2", "3", "4"]);
     });
 
     it("should handle empty data arrays", () => {
-      const first: Pick<FrameProps<string>, "data"> = { data: [] };
-      const second: Pick<FrameProps<string>, "data"> = { data: [] };
+      const first: Pick<List.FrameProps<string>, "data"> = { data: [] };
+      const second: Pick<List.FrameProps<string>, "data"> = { data: [] };
 
-      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const { result } = renderHook(() => List.useCombinedData({ first, second }));
 
       expect(result.current.data).toEqual([]);
     });
 
     it("should update when source data changes", () => {
       const { result, rerender } = renderHook(
-        ({ first, second }) => useCombinedData({ first, second }),
+        ({ first, second }) => List.useCombinedData({ first, second }),
         {
           initialProps: {
             first: { data: ["1"] },
@@ -80,26 +79,26 @@ describe("useCombinedData", () => {
       const item1: TestItem = { key: "1", name: "First", value: 100 };
       const item2: TestItem = { key: "2", name: "Second", value: 200 };
 
-      const first: Pick<FrameProps<string, TestItem>, "data" | "getItem"> = {
+      const first: Pick<List.FrameProps<string, TestItem>, "data" | "getItem"> = {
         data: ["1"],
         getItem: vi.fn((key: string | string[]) => {
           if (Array.isArray(key) && key.includes("1")) return [item1];
           if (key === "1") return item1;
           return undefined;
-        }) as GetItem<string, TestItem>,
+        }) as List.GetItem<string, TestItem>,
       };
 
-      const second: Pick<FrameProps<string, TestItem>, "data" | "getItem"> = {
+      const second: Pick<List.FrameProps<string, TestItem>, "data" | "getItem"> = {
         data: ["2"],
         getItem: vi.fn((key: string | string[]) => {
           if (Array.isArray(key) && key.includes("2")) return [item2];
           if (key === "2") return item2;
           return undefined;
-        }) as GetItem<string, TestItem>,
+        }) as List.GetItem<string, TestItem>,
       };
 
       const { result } = renderHook(() =>
-        useCombinedData<string, TestItem>({ first, second }),
+        List.useCombinedData<string, TestItem>({ first, second }),
       );
 
       expect(result.current.getItem?.("1")).toEqual(item1);
@@ -114,24 +113,24 @@ describe("useCombinedData", () => {
       const firstItem: TestItem = { key: "1", name: "From First", value: 100 };
       const secondItem: TestItem = { key: "1", name: "From Second", value: 200 };
 
-      const first: Pick<FrameProps<string, TestItem>, "data" | "getItem"> = {
+      const first: Pick<List.FrameProps<string, TestItem>, "data" | "getItem"> = {
         data: ["1"],
         getItem: vi.fn((key: string | string[]) => {
           if (Array.isArray(key)) return [firstItem];
           return firstItem;
-        }) as GetItem<string, TestItem>,
+        }) as List.GetItem<string, TestItem>,
       };
 
-      const second: Pick<FrameProps<string, TestItem>, "data" | "getItem"> = {
+      const second: Pick<List.FrameProps<string, TestItem>, "data" | "getItem"> = {
         data: ["1"],
         getItem: vi.fn((key: string | string[]) => {
           if (Array.isArray(key)) return [secondItem];
           return secondItem;
-        }) as GetItem<string, TestItem>,
+        }) as List.GetItem<string, TestItem>,
       };
 
       const { result } = renderHook(() =>
-        useCombinedData<string, TestItem>({ first, second }),
+        List.useCombinedData<string, TestItem>({ first, second }),
       );
 
       const item = result.current.getItem?.("1");
@@ -141,10 +140,10 @@ describe("useCombinedData", () => {
     });
 
     it("should handle missing getItem functions", () => {
-      const first: Pick<FrameProps<string>, "data"> = { data: ["1"] };
-      const second: Pick<FrameProps<string>, "data"> = { data: ["2"] };
+      const first: Pick<List.FrameProps<string>, "data"> = { data: ["1"] };
+      const second: Pick<List.FrameProps<string>, "data"> = { data: ["2"] };
 
-      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const { result } = renderHook(() => List.useCombinedData({ first, second }));
 
       expect(result.current.getItem?.("1")).toBeUndefined();
     });
@@ -155,15 +154,15 @@ describe("useCombinedData", () => {
       const callback = vi.fn();
       const firstUnsub = vi.fn();
       const secondUnsub = vi.fn();
-      const first: Pick<FrameProps<string>, "data" | "subscribe"> = {
+      const first: Pick<List.FrameProps<string>, "data" | "subscribe"> = {
         data: ["1"],
         subscribe: vi.fn(() => firstUnsub),
       };
-      const second: Pick<FrameProps<string>, "data" | "subscribe"> = {
+      const second: Pick<List.FrameProps<string>, "data" | "subscribe"> = {
         data: ["2"],
         subscribe: vi.fn(() => secondUnsub),
       };
-      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const { result } = renderHook(() => List.useCombinedData({ first, second }));
       result.current.subscribe?.(callback, "1")();
       expect(first.subscribe).toHaveBeenCalledWith(callback, "1");
       expect(firstUnsub).toHaveBeenCalled();
@@ -175,15 +174,15 @@ describe("useCombinedData", () => {
     });
 
     it("should subscribe the second source to a key neither lists", () => {
-      const first: Pick<FrameProps<string>, "data" | "subscribe"> = {
+      const first: Pick<List.FrameProps<string>, "data" | "subscribe"> = {
         data: ["1"],
         subscribe: vi.fn(() => () => {}),
       };
-      const second: Pick<FrameProps<string>, "data" | "subscribe"> = {
+      const second: Pick<List.FrameProps<string>, "data" | "subscribe"> = {
         data: [],
         subscribe: vi.fn(() => () => {}),
       };
-      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const { result } = renderHook(() => List.useCombinedData({ first, second }));
       const callback = vi.fn();
       result.current.subscribe?.(callback, "3");
       expect(second.subscribe).toHaveBeenCalledWith(callback, "3");
@@ -194,16 +193,16 @@ describe("useCombinedData", () => {
       const callback = vi.fn();
       const firstUnsub = vi.fn();
 
-      const first: Pick<FrameProps<string>, "data" | "subscribe"> = {
+      const first: Pick<List.FrameProps<string>, "data" | "subscribe"> = {
         data: ["1"],
         subscribe: vi.fn(() => firstUnsub),
       };
 
-      const second: Pick<FrameProps<string>, "data"> = {
+      const second: Pick<List.FrameProps<string>, "data"> = {
         data: ["2"],
       };
 
-      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const { result } = renderHook(() => List.useCombinedData({ first, second }));
 
       const unsubscribe = result.current.subscribe?.(callback, "1");
 
@@ -215,10 +214,10 @@ describe("useCombinedData", () => {
     });
 
     it("should handle missing subscribe functions", () => {
-      const first: Pick<FrameProps<string>, "data"> = { data: ["1"] };
-      const second: Pick<FrameProps<string>, "data"> = { data: ["2"] };
+      const first: Pick<List.FrameProps<string>, "data"> = { data: ["1"] };
+      const second: Pick<List.FrameProps<string>, "data"> = { data: ["2"] };
 
-      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const { result } = renderHook(() => List.useCombinedData({ first, second }));
 
       const callback = vi.fn();
       const unsubscribe = result.current.subscribe?.(callback, "1");
@@ -230,18 +229,18 @@ describe("useCombinedData", () => {
 
   describe("memoization", () => {
     it("should memoize getItem callback", () => {
-      const first: Pick<FrameProps<string>, "data" | "getItem"> = {
+      const first: Pick<List.FrameProps<string>, "data" | "getItem"> = {
         data: ["1"],
         getItem: vi.fn(),
       };
 
-      const second: Pick<FrameProps<string>, "data" | "getItem"> = {
+      const second: Pick<List.FrameProps<string>, "data" | "getItem"> = {
         data: ["2"],
         getItem: vi.fn(),
       };
 
       const { result, rerender } = renderHook(
-        ({ first, second }) => useCombinedData({ first, second }),
+        ({ first, second }) => List.useCombinedData({ first, second }),
         { initialProps: { first, second } },
       );
 
@@ -253,18 +252,18 @@ describe("useCombinedData", () => {
     });
 
     it("should memoize subscribe callback", () => {
-      const first: Pick<FrameProps<string>, "data" | "subscribe"> = {
+      const first: Pick<List.FrameProps<string>, "data" | "subscribe"> = {
         data: ["1"],
         subscribe: vi.fn(),
       };
 
-      const second: Pick<FrameProps<string>, "data" | "subscribe"> = {
+      const second: Pick<List.FrameProps<string>, "data" | "subscribe"> = {
         data: ["2"],
         subscribe: vi.fn(),
       };
 
       const { result, rerender } = renderHook(
-        ({ first, second }) => useCombinedData({ first, second }),
+        ({ first, second }) => List.useCombinedData({ first, second }),
         { initialProps: { first, second } },
       );
 
@@ -288,13 +287,13 @@ describe("useCombinedData", () => {
 
       const createFrameProps = (
         keys: string[],
-      ): Pick<FrameProps<string, TestItem>, "data" | "getItem" | "subscribe"> => ({
+      ): Pick<List.FrameProps<string, TestItem>, "data" | "getItem" | "subscribe"> => ({
         data: keys,
         getItem: ((key: string | string[]) => {
           if (Array.isArray(key))
             return key.map((k) => items.get(k)).filter((i) => i != null);
           return items.get(key);
-        }) as GetItem<string, TestItem>,
+        }) as List.GetItem<string, TestItem>,
         subscribe: (callback, key) => {
           map.getOrInsert(subscribers, key, () => new Set()).add(callback);
           return () => subscribers.get(key)?.delete(callback);
@@ -305,7 +304,7 @@ describe("useCombinedData", () => {
       const second = createFrameProps(["3"]);
 
       const { result } = renderHook(() =>
-        useCombinedData<string, TestItem>({ first, second }),
+        List.useCombinedData<string, TestItem>({ first, second }),
       );
 
       expect(result.current.data).toEqual(["1", "2", "3"]);
