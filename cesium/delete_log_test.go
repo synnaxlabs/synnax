@@ -89,8 +89,10 @@ func (f *holdFile) WriteAt(p []byte, off int64) (int, error) {
 
 var _ = Describe("Delete on the pointer log", func() {
 	var (
-		fs        *holdFS
-		db        *cesium.DB
+		fs *holdFS
+		db *cesium.DB
+		// id is the identity of the database in fs, from the open that made it.
+		id        uint64
 		stop      func()
 		idx, data cesium.ChannelKey
 		keys      []cesium.ChannelKey
@@ -104,14 +106,16 @@ var _ = Describe("Delete on the pointer log", func() {
 			cesium.WithFS(fs),
 			cesium.WithPointerLog(),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
+			cesium.WithIdentity(id),
 		))
+		id = db.Identity()
 		stop = StartRun(db.Run)
 		db.OnHistoryChange(func(_ context.Context, c cesium.HistoryChange) {
 			changes = append(changes, c)
 		})
 	}
 	BeforeEach(func(ctx SpecContext) {
-		fs, changes = &holdFS{FS: xfs.NewMem()}, nil
+		fs, changes, id = &holdFS{FS: xfs.NewMem()}, nil, 0
 		open(ctx)
 		idx, data = GenerateChannelKey(), GenerateChannelKey()
 		keys = []cesium.ChannelKey{idx, data}

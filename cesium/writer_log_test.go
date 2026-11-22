@@ -28,8 +28,10 @@ import (
 
 var _ = Describe("Writer on the pointer log", func() {
 	var (
-		fs        xfs.FS
-		db        *cesium.DB
+		fs xfs.FS
+		db *cesium.DB
+		// id is the identity of the database in fs, from the open that made it.
+		id        uint64
 		stop      func()
 		idx, data cesium.ChannelKey
 		keys      []cesium.ChannelKey
@@ -42,7 +44,9 @@ var _ = Describe("Writer on the pointer log", func() {
 			cesium.WithFS(fs),
 			cesium.WithPointerLog(),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
+			cesium.WithIdentity(id),
 		))
+		id = db.Identity()
 		stop = StartRun(db.Run)
 	}
 	reopen := func(ctx context.Context) {
@@ -52,7 +56,7 @@ var _ = Describe("Writer on the pointer log", func() {
 		open(ctx)
 	}
 	BeforeEach(func(ctx SpecContext) {
-		fs = xfs.NewMem()
+		fs, id = xfs.NewMem(), 0
 		open(ctx)
 		idx, data = GenerateChannelKey(), GenerateChannelKey()
 		keys = []cesium.ChannelKey{idx, data}

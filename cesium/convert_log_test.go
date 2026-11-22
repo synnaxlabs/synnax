@@ -15,6 +15,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"maps"
+	"math/rand/v2"
 	"os"
 	"path"
 	"strings"
@@ -69,6 +70,25 @@ func (c *crashes) take() {
 		c.failures = append(c.failures, fmt.Sprintf("image %d: %v", c.images, err))
 	}
 	c.images++
+}
+
+// openSeeded opens fs on the pointer log with the random source of openLog, runs the DB
+// until the returned close, and states the identity of each database that this source
+// makes: its first draw.
+func openSeeded(ctx context.Context, fs xfs.FS) (*cesium.DB, func() error, error) {
+	db, err := cesium.Open(
+		ctx,
+		"",
+		cesium.WithFS(fs),
+		cesium.WithPointerLog(),
+		cesium.WithRandom(rand.NewPCG(1, 2)),
+		cesium.WithIdentity(rand.NewPCG(1, 2).Uint64()),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	stop := GoRun(ctx, db.Run)
+	return db, func() error { return errors.Join(stop(), db.Close()) }, nil
 }
 
 // dataOf returns the bytes of each of keys that a read of db returns.
@@ -168,7 +188,7 @@ var _ = Describe("Conversion on the pointer log", func() {
 	})
 
 	It("Should read every sample that the old layout held", func(ctx SpecContext) {
-		db, closeDB := MustSucceed2(openLog(ctx, disk))
+		db, closeDB := MustSucceed2(openSeeded(ctx, disk))
 		got := read(ctx, db)
 		Expect(got.data).To(Equal(held.data))
 		Expect(got.series[i32]).To(BeNumerically(">", 2), "data pointers are split")
@@ -190,13 +210,13 @@ var _ = Describe("Conversion on the pointer log", func() {
 			}
 		}
 		Expect(closeDB()).To(Succeed())
-		db, closeDB = MustSucceed2(openLog(ctx, disk))
+		db, closeDB = MustSucceed2(openSeeded(ctx, disk))
 		Expect(read(ctx, db).data).To(Equal(held.data))
 		Expect(closeDB()).To(Succeed())
 	})
 
 	It("Should write after the converted samples", func(ctx SpecContext) {
-		db, closeDB := MustSucceed2(openLog(ctx, disk))
+		db, closeDB := MustSucceed2(openSeeded(ctx, disk))
 		write(ctx, db, 5000)
 		got := read(ctx, db)
 		for _, key := range keys {
@@ -239,7 +259,7 @@ var _ = Describe("Conversion on the pointer log", func() {
 			binary.LittleEndian.PutUint32(e[22:], 24)
 		}
 		put("1/index.domain", ptrs)
-		Expect(openLog(ctx, fs)).Error().To(SatisfyAll(
+		Expect(openSeeded(ctx, fs)).Error().To(SatisfyAll(
 			MatchError(state.ErrRefused),
 			MatchError(ContainSubstring("key 1 has pointers that overlap")),
 		))
@@ -274,13 +294,15 @@ var _ = Describe("Conversion on the pointer log", func() {
 			if err = same(old, old.Close); err != nil {
 				return errors.Wrap(err, "old binary")
 			}
-			db, closeDB, err := openLog(ctx, image)
+			db, closeDB, err := openSeeded(ctx, image)
 			if err != nil {
 				return errors.Wrap(err, "pointer log")
 			}
 			return errors.Wrap(same(db, closeDB), "pointer log")
 		}}
-		_, closeDB := MustSucceed2(openLog(ctx, durableFS{FS: disk, onEvent: c.take}))
+		_, closeDB := MustSucceed2(
+			openSeeded(ctx, durableFS{FS: disk, onEvent: c.take}),
+		)
 		c.mu.Lock()
 		c.taking = false
 		c.mu.Unlock()

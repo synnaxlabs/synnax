@@ -27,16 +27,25 @@ import (
 )
 
 var _ = Describe("Recovery", func() {
-	var fs xfs.FS
-	BeforeEach(func() { fs = xfs.NewMem() })
+	var (
+		fs xfs.FS
+		// id is the identity of the database in fs, from the open that made it.
+		id uint64
+	)
+	BeforeEach(func() { fs, id = xfs.NewMem(), 0 })
 	open := func(ctx context.Context) (*cesium.DB, error) {
-		return cesium.Open(
+		db, err := cesium.Open(
 			ctx,
 			"",
 			cesium.WithFS(fs),
 			cesium.WithPointerLog(),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
+			cesium.WithIdentity(id),
 		)
+		if err == nil {
+			id = db.Identity()
+		}
+		return db, err
 	}
 	// cycle opens the database, runs it, and closes it.
 	cycle := func(ctx context.Context) {
