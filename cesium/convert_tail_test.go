@@ -157,8 +157,8 @@ func zero(fs xfs.FS, name string, off, n int64) {
 const (
 	pastFileCut = "cut a pointer that ends past its file to the whole samples inside it"
 	noStampsCut = "cut the samples of a data pointer that its index has no stamps for"
-	newestCut   = "cut the newest pointer of an index after its last stamp inside its " +
-		"time range"
+	indexCut    = "cut a pointer of an index after its last stamp inside its time " +
+		"range"
 )
 
 // The keys and the sample count of the root that writeOld writes.
@@ -309,7 +309,7 @@ var _ = Describe("Conversion of damaged tails", func() {
 			zero(disk, name, p.offset+p.size-2*8, 2*8)
 		},
 			map[cesium.ChannelKey]int{idx: 2, i32: 2, str: 2},
-			map[string]int{newestCut: 1, noStampsCut: 2},
+			map[string]int{indexCut: 1, noStampsCut: 2},
 		),
 		Entry("the end of the newest index file", func() {
 			name, p := file(idx)

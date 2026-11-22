@@ -25,12 +25,15 @@ import (
 const stampSize = 8
 
 // clock is an old index: its pointers in time order, with the alignment number and the
-// first and last stamp of each.
+// first and last stamp of each. cut is true for a pointer that lost stamps to the bound
+// check. A pointer that lost them all stays as a mark with no stamps over its time
+// range, so that data samples never take the stamps of a later pointer.
 type clock struct {
 	key         uint32
 	ptrs        []pointer
 	nums        []uint32
 	first, last []telem.TimeStamp
+	cut         []bool
 }
 
 // count returns the number of stamps of pointer k.
@@ -61,6 +64,10 @@ func (r *reader) indexes() error {
 	}
 	for _, c := range clocks {
 		for k, p := range c.ptrs {
+			if p.size == 0 {
+				c.nums = append(c.nums, 0)
+				continue
+			}
 			c.nums = append(c.nums, uint32(r.next))
 			r.add(c.key, p.file, state.Pointer{
 				First:     c.first[k],
@@ -77,7 +84,7 @@ func (r *reader) indexes() error {
 }
 
 // bounds reads the first and last stamp of each pointer of c, in file-offset order
-// within each old file, then checks the newest pointers.
+// within each old file, then checks them.
 func (h *handle) bounds(c *clock) error {
 	order := make([]int, len(c.ptrs))
 	for k := range order {
@@ -98,31 +105,32 @@ func (h *handle) bounds(c *clock) error {
 			return err
 		}
 	}
-	return h.newest(c)
+	return h.check(c)
 }
 
-// newest cuts the newest pointer of c after its last stamp inside its time range, by a
-// binary search. A crash can leave zeros inside an old file, and a zero stamp is never
-// inside the range. A pointer whose first stamp is outside goes, and newest then checks
-// the pointer before it.
-func (h *handle) newest(c *clock) error {
-	for k := len(c.ptrs) - 1; k >= 0; k-- {
-		p := c.ptrs[k]
+// check checks the first and last stamp of each pointer of c against its time range.
+// A crash can leave zeros inside an old file, and a zero stamp is never inside the
+// range. A pointer whose last stamp is outside is cut after its last stamp inside, by a
+// binary search. A pointer whose first stamp is outside loses every stamp.
+func (h *handle) check(c *clock) error {
+	c.cut = make([]bool, len(c.ptrs))
+	for k, p := range c.ptrs {
 		inside := func(s telem.TimeStamp) bool { return s >= p.start && s < p.end }
-		if inside(c.last[k]) {
-			return nil
+		if inside(c.first[k]) && inside(c.last[k]) {
+			continue
 		}
 		name := p.name(c.key)
+		c.cut[k] = true
 		if !inside(c.first[k]) {
 			h.l.Warn(
-				"dropped the newest pointer of an index, whose first stamp is outside "+
-					"its time range",
+				"dropped a pointer of an index, whose first stamp is outside its time "+
+					"range",
 				zap.Uint32("key", c.key),
 				zap.String("file", name),
 				zap.Uint32("offset", p.offset),
 				zap.Uint32("stamps", c.count(k)),
 			)
-			c.ptrs, c.first, c.last = c.ptrs[:k], c.first[:k], c.last[:k]
+			c.ptrs[k].size, c.first[k], c.last[k] = 0, p.start, p.end-1
 			continue
 		}
 		lo, hi, last := uint32(0), c.count(k)-1, c.first[k]
@@ -139,8 +147,7 @@ func (h *handle) newest(c *clock) error {
 			}
 		}
 		h.l.Warn(
-			"cut the newest pointer of an index after its last stamp inside its time "+
-				"range",
+			"cut a pointer of an index after its last stamp inside its time range",
 			zap.Uint32("key", c.key),
 			zap.String("file", name),
 			zap.Uint32("offset", p.offset),
@@ -148,7 +155,6 @@ func (h *handle) newest(c *clock) error {
 			zap.Uint32("kept", lo+1),
 		)
 		c.ptrs[k].size, c.last[k] = (lo+1)*stampSize, last
-		return nil
 	}
 	return nil
 }
@@ -260,7 +266,7 @@ func (h *handle) split(
 		return err
 	}
 	for off < end {
-		if k == len(c.ptrs) {
+		if k == len(c.ptrs) || c.count(k) == 0 {
 			h.cut(key, name, off, end, c.key)
 			return nil
 		}
@@ -287,10 +293,17 @@ func (h *handle) split(
 				return nil
 			}
 		}
-		last := c.last[k]
-		if pos+n < c.count(k) {
-			if last, err = h.stamp(c, k, pos+n-1); err != nil {
-				return err
+		last, timed, err := h.lastOf(c, k, pos, n, first)
+		if err != nil {
+			return err
+		}
+		short := timed < n
+		if short {
+			n, length = timed, timed*uint32(density)
+			if density == 0 {
+				if _, length, err = h.walk(name, off, end, n); err != nil {
+					return err
+				}
 			}
 		}
 		pieces[d.file] = append(pieces[d.file], state.Pointer{
@@ -302,11 +315,49 @@ func (h *handle) split(
 			Samples:   n,
 		})
 		off += length
+		// The samples after a piece whose stamps the bound checks cut have none.
+		if (short || c.cut[k]) && off < end {
+			h.cut(key, name, off, end, c.key)
+			return nil
+		}
 		if k++; k < len(c.ptrs) {
 			pos, first = 0, c.first[k]
 		}
 	}
 	return nil
+}
+
+// lastOf returns the stamp of the last of the n samples from position pos of pointer k
+// of c, a piece whose first stamp is first, and how many of the n samples are timed. A
+// stamp outside first to the last stamp of k, from a lost block, ends the piece at the
+// last stamp inside before it, by a binary search.
+func (h *handle) lastOf(
+	c *clock,
+	k int,
+	pos, n uint32,
+	first telem.TimeStamp,
+) (telem.TimeStamp, uint32, error) {
+	if pos+n == c.count(k) {
+		return c.last[k], n, nil
+	}
+	inside := func(s telem.TimeStamp) bool { return s >= first && s <= c.last[k] }
+	s, err := h.stamp(c, k, pos+n-1)
+	if err != nil || inside(s) {
+		return s, n, err
+	}
+	lo, hi, last := pos, pos+n-1, first
+	for hi-lo > 1 {
+		mid := lo + (hi-lo)/2
+		if s, err = h.stamp(c, k, mid); err != nil {
+			return 0, 0, err
+		}
+		if inside(s) {
+			lo, last = mid, s
+		} else {
+			hi = mid
+		}
+	}
+	return last, lo - pos + 1, nil
 }
 
 // take returns how many stamps of pointer k of c, from position pos, time the samples
@@ -351,11 +402,12 @@ func (h *handle) below(
 }
 
 // start returns the pointer k of c and the position in it of the first stamp at or
-// after the start of d, and that stamp. k is len(c.ptrs) when c holds no such stamp.
+// after the start of d, and that stamp. k is len(c.ptrs) when c holds no such stamp, or
+// a mark when d starts in the range of a pointer that lost every stamp.
 func (h *handle) start(c *clock, d pointer) (int, uint32, telem.TimeStamp, error) {
 	k, _ := slices.BinarySearch(c.last, d.start)
 	switch {
-	case k == len(c.ptrs):
+	case k == len(c.ptrs) || c.count(k) == 0:
 		return k, 0, 0, nil
 	case c.first[k] >= d.start:
 		return k, 0, c.first[k], nil

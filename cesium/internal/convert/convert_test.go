@@ -433,10 +433,10 @@ var _ = Describe("Read", func() {
 				"inside it"
 			noStamps = "cut the samples of a data pointer that its index has no " +
 				"stamps for"
-			newest = "cut the newest pointer of an index after its last stamp " +
-				"inside its time range"
-			dropped = "dropped the newest pointer of an index, whose first stamp is " +
-				"outside its time range"
+			indexCut = "cut a pointer of an index after its last stamp inside its " +
+				"time range"
+			dropped = "dropped a pointer of an index, whose first stamp is outside " +
+				"its time range"
 		)
 
 		It("Should cut a pointer that ends past its file to its whole stamps", func() {
@@ -587,8 +587,8 @@ var _ = Describe("Read", func() {
 			).To(ConsistOf(HaveKeyWithValue("offset", uint32(24))))
 		})
 
-		It("Should cut the newest pointer of an index after its last stamp inside its "+
-			"time range", func() {
+		It("Should cut a pointer of an index after its last stamp inside its time "+
+			"range", func() {
 			root.channel(idx(1))
 			root.file(1, 1, stamps(10, 20, 30, 0, 0))
 			root.pointers(1, old{10, 51, 1, 0, 40})
@@ -596,7 +596,7 @@ var _ = Describe("Read", func() {
 			Expect(s.Channels[0].Segments[0].Pointers).To(Equal(
 				[]state.Pointer{ptr(10, 30, 1, 0, 0, 24, 3)},
 			))
-			Expect(warned(newest)).To(Equal([]map[string]any{{
+			Expect(warned(indexCut)).To(Equal([]map[string]any{{
 				"key":    uint32(1),
 				"file":   "1/1.domain",
 				"offset": uint32(0),
@@ -605,8 +605,8 @@ var _ = Describe("Read", func() {
 			}}))
 		})
 
-		It("Should drop the newest pointer of an index whose first stamp is outside "+
-			"its range, then check the pointer before it", func() {
+		It("Should drop a pointer of an index whose first stamp is outside its range, "+
+			"and cut one whose last stamp is outside", func() {
 			root.channel(idx(1))
 			root.file(1, 1, stamps(1, 2, 0, 0, 0, 0))
 			root.pointers(1, old{1, 4, 1, 0, 24}, old{4, 7, 1, 24, 24})
@@ -618,19 +618,99 @@ var _ = Describe("Read", func() {
 			Expect(
 				warned(dropped),
 			).To(ConsistOf(HaveKeyWithValue("offset", uint32(24))))
-			Expect(warned(newest)).To(ConsistOf(HaveKeyWithValue("kept", uint32(2))))
+			Expect(warned(indexCut)).To(ConsistOf(HaveKeyWithValue("kept", uint32(2))))
 		})
 
-		It("Should not check an index pointer that is not the newest", func() {
+		It("Should cut an older index pointer whose last stamp is outside its range, "+
+			"and stop the data that crosses it there", func() {
 			root.channel(idx(1))
-			root.file(1, 1, stamps(1, 0, 3, 4))
-			root.pointers(1, old{1, 3, 1, 0, 16}, old{3, 5, 1, 16, 16})
+			root.file(1, 1, stamps(1, 2, 0, 4, 5, 6))
+			root.pointers(1, old{1, 4, 1, 0, 24}, old{4, 7, 1, 24, 24})
+			root.channel(data(telem.Int64T))
+			root.file(2, 1, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6).Data)
+			root.pointers(2, old{1, 7, 1, 0, 48})
 			s, _ := read()
 			Expect(s.Channels[0].Segments[0].Pointers).To(Equal([]state.Pointer{
-				ptr(1, 0, 1, 0, 0, 16, 2),
-				ptr(3, 4, 2, 0, 16, 16, 2),
+				ptr(1, 2, 1, 0, 0, 16, 2),
+				ptr(4, 6, 2, 0, 24, 24, 3),
 			}))
-			Expect(logs.Len()).To(BeZero())
+			Expect(s.Channels[1].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 2, 1, 0, 0, 16, 2)},
+			))
+			Expect(warned(noStamps)).To(ConsistOf(SatisfyAll(
+				HaveKeyWithValue("offset", uint32(16)),
+				HaveKeyWithValue("bytes", uint32(32)),
+			)))
+		})
+
+		It("Should stop the data at a dropped index pointer, and never give it the "+
+			"stamps of a later pointer", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 2, 3, 0, 0, 0, 7, 8, 9))
+			root.pointers(
+				1,
+				old{1, 4, 1, 0, 24},
+				old{4, 7, 1, 24, 24},
+				old{7, 10, 1, 48, 24},
+			)
+			root.channel(data(telem.Int64T))
+			root.file(2, 1, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8, 9).Data)
+			root.pointers(2, old{1, 10, 1, 0, 72})
+			s, _ := read()
+			Expect(s.Limits.Alignments).To(BeEquivalentTo(3))
+			Expect(s.Channels[0].Segments[0].Pointers).To(Equal([]state.Pointer{
+				ptr(1, 3, 1, 0, 0, 24, 3),
+				ptr(7, 9, 2, 0, 48, 24, 3),
+			}))
+			Expect(s.Channels[1].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 3, 1, 0, 0, 24, 3)},
+			))
+			Expect(
+				warned(noStamps),
+			).To(ConsistOf(HaveKeyWithValue("offset", uint32(24))))
+		})
+
+		It("Should cut a data pointer that starts in the range of a dropped index "+
+			"pointer", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 2, 3, 0, 0, 0, 7, 8, 9))
+			root.pointers(
+				1,
+				old{1, 4, 1, 0, 24},
+				old{4, 7, 1, 24, 24},
+				old{7, 10, 1, 48, 24},
+			)
+			root.channel(data(telem.Int64T))
+			root.file(2, 1, telem.NewSeriesV[int64](5, 6, 7, 8, 9).Data)
+			root.pointers(2, old{5, 10, 1, 0, 40})
+			s, chs := read()
+			Expect(chs).To(HaveLen(2))
+			Expect(s.Channels).To(HaveLen(1))
+			Expect(warned(noStamps)).To(ConsistOf(SatisfyAll(
+				HaveKeyWithValue("offset", uint32(0)),
+				HaveKeyWithValue("bytes", uint32(40)),
+			)))
+		})
+
+		It("Should end a data piece at its last stamp inside its index pointer, and "+
+			"keep the zero inside the index pointer for the check pass", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 2, 0, 4, 5, 6))
+			root.pointers(1, old{1, 7, 1, 0, 48})
+			root.channel(data(telem.Int64T))
+			root.file(2, 1, telem.NewSeriesV[int64](1, 2, 3).Data)
+			root.pointers(2, old{1, 4, 1, 0, 24})
+			s, _ := read()
+			Expect(s.Channels[0].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 6, 1, 0, 0, 48, 6)},
+			))
+			Expect(s.Channels[1].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 2, 1, 0, 0, 16, 2)},
+			))
+			Expect(warned(noStamps)).To(ConsistOf(SatisfyAll(
+				HaveKeyWithValue("offset", uint32(16)),
+				HaveKeyWithValue("bytes", uint32(8)),
+			)))
 		})
 	})
 
