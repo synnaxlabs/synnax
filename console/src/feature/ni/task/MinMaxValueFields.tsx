@@ -58,7 +58,12 @@ export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => {
   useEffect(() => {
     if (!holding) return;
     ctx.setStatus(path.minVal, { variant: "error", message: MESSAGE });
-    return () => ctx.clearStatus(path.minVal);
+    // A check can replace the hold's error once the range saves, so only the hold's
+    // own error is cleared.
+    return () => {
+      if (ctx.get(path.minVal, { optional: true })?.status.message === MESSAGE)
+        ctx.clearStatus(path.minVal);
+    };
   }, [ctx, holding, path.minVal]);
 
   const handleChange = (key: keyof Range) => (value: number) => {

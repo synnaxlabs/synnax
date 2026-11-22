@@ -722,6 +722,27 @@ describe("AnalogRead ports", () => {
     expect(fieldInvalid("Minimum value")).toBe(false);
   });
 
+  it("should keep a device range error on the minimum when a hold ends", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 5,
+      }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    commitFieldInput(screen.getByLabelText("Minimum value"), "8");
+    await waitFor(() => expect(fieldInvalid("Minimum value")).toBe(true));
+    commitFieldInput(screen.getByLabelText("Minimum value"), "-20");
+    fireEvent.pointerEnter(screen.getByLabelText("Minimum value"));
+    expect(
+      await screen.findByText("The device has no range from -20 to 5 V"),
+    ).toBeTruthy();
+    expect(fieldInvalid("Minimum value")).toBe(true);
+  });
+
   it("should not deploy while it holds a reversed range", async () => {
     const dev = await createDevice();
     const { container } = await renderWith([
