@@ -12,6 +12,7 @@ package cesium_test
 import (
 	"context"
 	"encoding/binary"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -52,16 +53,23 @@ func closeParted(ctx context.Context, fs xfs.FS) (idx, data cesium.ChannelKey) {
 	return idx, data
 }
 
+// segmentNames returns the names of the segment files of key in fs, in rising order.
+func segmentNames(fs xfs.FS, key cesium.ChannelKey) []string {
+	GinkgoHelper()
+	var names []string
+	for _, info := range MustSucceed(fs.List(strconv.FormatUint(uint64(key), 10))) {
+		if strings.HasSuffix(info.Name(), ".seg") {
+			names = append(names, info.Name())
+		}
+	}
+	slices.Sort(names)
+	return names
+}
+
 // segmentFiles returns the number of segment files of key in fs.
 func segmentFiles(fs xfs.FS, key cesium.ChannelKey) int {
 	GinkgoHelper()
-	n := 0
-	for _, info := range MustSucceed(fs.List(strconv.FormatUint(uint64(key), 10))) {
-		if strings.HasSuffix(info.Name(), ".seg") {
-			n++
-		}
-	}
-	return n
+	return len(segmentNames(fs, key))
 }
 
 // iterated returns the values of key that iter reads from its position on.
@@ -116,18 +124,24 @@ var _ = Describe("Check: segments that only parts hold", func() {
 			Channels: []cesium.ChannelKey{data},
 		}))
 		Expect(iter.SeekFirst()).To(BeTrue())
+		// The first parted segment has the lowest identity.
+		first := segmentNames(fs, data)[0]
 		// The first delete cuts the first parted segment, which then stays in the
-		// state, and the second empties it.
+		// state, and the second empties it. The cut can make the segment a candidate,
+		// whose rewrite adds a file until the iterator closes or the copy goes stale,
+		// so the check names the file that the iterator pins.
 		for _, tr := range []telem.TimeRange{
 			{Start: telem.SecondTS, End: 6 * telem.SecondTS},
 			{Start: 6 * telem.SecondTS, End: 11 * telem.SecondTS},
 		} {
 			Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{data}, tr)).To(Succeed())
 		}
-		Expect(segmentFiles(fs, data)).To(Equal(3), "the iterator pins the segment")
+		Expect(segmentNames(fs, data)).
+			To(ContainElement(first), "the iterator pins the segment")
 		Expect(iterated(iter, data)).To(HaveLen(30))
 		Expect(iter.Close()).To(Succeed())
-		Expect(segmentFiles(fs, data)).To(Equal(2))
+		Eventually(func() []string { return segmentNames(fs, data) }).
+			Should(SatisfyAll(HaveLen(2), Not(ContainElement(first))))
 	})
 
 	It("Should keep the file of a parted segment that a delete empties after a switch "+
