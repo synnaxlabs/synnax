@@ -720,7 +720,7 @@ describe("Provider", () => {
       };
     };
 
-    it("should leave its tooltip to a raised draw, so it covers the bands", async () => {
+    it("should leave its tooltip to a raised draw over the bands", async () => {
       const start = createAnchor();
       const [rng] = await createRanges(start, [[0, 10]]);
       const recorder = canvasTest.record();

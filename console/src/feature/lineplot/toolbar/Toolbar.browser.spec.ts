@@ -34,6 +34,7 @@ import {
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
+import { countDownloadSpans } from "@/platform/framer/testutil";
 import { findButton, getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
@@ -248,7 +249,7 @@ describe("lineplot/toolbar/Toolbar", () => {
       });
       const planned = staticWindow(new TimeRange(at(3), at(63)));
       await openDownload([data.key], [dynamicWindow(TimeSpan.minutes(40)), planned]);
-      expect(document.querySelectorAll(".console-download-csv__arrow")).toHaveLength(2);
+      expect(countDownloadSpans()).toBe(2);
     });
 
     it("should open the download of a plot with a calculation over virtual channels", async () => {

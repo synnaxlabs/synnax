@@ -398,11 +398,10 @@ class Plot(ConsolePage):
         box = self.pane_locator.bounding_box()
         if box is None:
             raise RuntimeError("Could not get plot bounding box")
-        self.pane_locator.click(
-            button="right",
+        self.layout.ctx_menu.open_on(
+            self.pane_locator,
             position={"x": box["width"] * 0.25, "y": box["height"] * 0.6},
         )
-        self.page.get_by_role("menu").first.wait_for(state="visible", timeout=5000)
 
     def expect_menu_option(
         self, option: str, *, offered: bool = True, timeout: int = 5000

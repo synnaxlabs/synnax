@@ -486,8 +486,8 @@ export class Context {
     };
   }
 
-  // applyGLScissor rounds each edge to a device pixel, so two boxes that meet share
-  // an edge. GL truncates each argument, which leaves a gap between them.
+  // applyGLScissor rounds each edge to a device pixel, so two boxes that meet share an
+  // edge. GL truncates each argument, which leaves a gap between them.
   private applyGLScissor(region: box.Box): void {
     this.gl.enable(this.gl.SCISSOR_TEST);
     const px = (v: number): number => Math.round(v * this.dpr);

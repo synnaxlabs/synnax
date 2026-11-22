@@ -158,12 +158,13 @@ export class Base {
       const half = canvas.textDimensions(label, FILL_TEXT_OPTIONS).width / 2;
       return { lower: position - half, upper: position + half };
     };
-    const taken = [
-      { lower: -Infinity, upper: ends.lower - LABEL_GAP },
-      ...seams.map((s) => ({ lower: s - BREAK_WIDTH / 2, upper: s + BREAK_WIDTH / 2 })),
-      { lower: ends.upper + LABEL_GAP, upper: Infinity },
-    ];
+    const taken = seams.map((s) => ({
+      lower: s - BREAK_WIDTH / 2,
+      upper: s + BREAK_WIDTH / 2,
+    }));
     const clear = (e: bounds.Bounds): boolean =>
+      e.lower >= ends.lower &&
+      e.upper <= ends.upper &&
       taken.every(
         (o) => e.upper + LABEL_GAP <= o.lower || e.lower >= o.upper + LABEL_GAP,
       );

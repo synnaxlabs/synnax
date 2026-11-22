@@ -76,8 +76,13 @@ describe("line", () => {
       dataToDecimalScale: scale.XY.IDENTITY,
     };
 
-    const mount = (x: Series[], y: Series[], state: Partial<State> = {}) => {
-      const { gl, calls } = canvasTest.createGL();
+    const mount = (
+      x: Series[],
+      y: Series[],
+      state: Partial<State> = {},
+      glReturns: Record<string, () => unknown> = {},
+    ) => {
+      const { gl, calls } = canvasTest.createGL(glReturns);
       const xSource = createSource(x);
       const ySource = createSource(y);
       const recorder = canvasTest.record();
@@ -184,6 +189,25 @@ describe("line", () => {
           },
         ]);
         expect(m.draws().length).toBeGreaterThan(0);
+      });
+
+      it("should clear its clip when a draw throws", () => {
+        const m = mount(
+          [X1],
+          [Y1],
+          {},
+          {
+            drawArraysInstanced: () => {
+              throw new Error("draw failed");
+            },
+          },
+        );
+        const clear = vi.fn();
+        vi.spyOn(m.recorder, "scissor").mockReturnValue(clear);
+        expect(() => m.line.render(spanned({ lower: -Infinity, upper: 1 }))).toThrow(
+          "draw failed",
+        );
+        expect(clear).toHaveBeenCalledOnce();
       });
 
       it("should not clip a line that spans every value", () => {

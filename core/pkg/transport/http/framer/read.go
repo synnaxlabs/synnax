@@ -146,16 +146,9 @@ func (r *rangeIterator) Next(span telem.TimeSpan) bool {
 	return true
 }
 
-// Prev reads the previous span of samples, moving back to the previous range that holds
-// samples when the current one runs out. It reports whether it read any.
-func (r *rangeIterator) Prev(span telem.TimeSpan) bool {
-	for !r.iter.Prev(span) {
-		if !r.seek(r.current-1, -1) {
-			return false
-		}
-	}
-	return true
-}
+// Prev reads the previous span of samples in the current range. It reports whether it
+// read any.
+func (r *rangeIterator) Prev(span telem.TimeSpan) bool { return r.iter.Prev(span) }
 
 // Value returns the frame of the last read.
 func (r *rangeIterator) Value() Frame { return r.iter.Value() }
@@ -164,9 +157,9 @@ func (r *rangeIterator) Value() Frame { return r.iter.Value() }
 func (r *rangeIterator) Close() error { return r.iter.Close() }
 
 // seek seeks to the nearest sample of the first range, from the i-th on in the
-// direction of step, that holds one, and reports whether one does. A step of 1 seeks
-// to the first sample of a range, and -1 to the last. It stops at the error that
-// stopped the iterator, and leaves it for Close to return.
+// direction of step, that holds one, and reports whether one does. A step of 1 seeks to
+// the first sample of a range, and -1 to the last. It stops at the error that stopped
+// the iterator, and leaves it for Close to return.
 func (r *rangeIterator) seek(i, step int) bool {
 	for ; i >= 0 && i < len(r.ranges); i += step {
 		if i != r.current {
