@@ -257,59 +257,12 @@ type ReadResponse struct {
 // channels when req sets TimestampsIncluded, and returns the response an encoder
 // reads them through.
 func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, error) {
-	if req.Latest > 0 && req.Earliest > 0 {
-		return ReadResponse{}, errors.Wrap(
-			validate.ErrValidation,
-			"a read cannot take both latest and earliest",
-		)
-	}
-	if (req.Latest > 0 || req.Earliest > 0) && req.Reduction.Variant != nil {
-		return ReadResponse{}, errors.Wrap(
-			validate.ErrValidation,
-			"a read cannot take latest or earliest with a reduction",
-		)
-	}
-	ranges, err := mergeTimeRanges(req.TimeRanges)
+	ranges, err := validateRead(req)
 	if err != nil {
 		return ReadResponse{}, err
 	}
-	if len(ranges) > 1 && (req.Latest > 0 || req.Earliest > 0) {
-		return ReadResponse{}, errors.Wrap(
-			validate.ErrValidation,
-			"a read cannot take latest or earliest over more than one time range",
-		)
-	}
-	if _, ok := req.Reduction.Variant.(telem.LimitReduction); ok && len(ranges) > 1 {
-		return ReadResponse{}, errors.Wrap(
-			validate.ErrValidation,
-			"a read cannot take a limit reduction over more than one time range",
-		)
-	}
-	subject := auth.GetSubject(ctx)
-	var channels, indexes []channel.Channel
-	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		if err = s.enforceRetrieve(ctx, snap, subject, req.Keys); err != nil {
-			return err
-		}
-		if err = s.channel.NewRetrieve().
-			Entries(&channels).
-			Where(channel.MatchKeys(req.Keys...)).
-			Exec(ctx, snap); err != nil {
-			return err
-		}
-		if !req.TimestampsIncluded {
-			return nil
-		}
-		if indexes, err = s.retrieveMissingIndexes(ctx, snap, channels); err != nil {
-			return err
-		}
-		// An encoder writes every index it receives, so an index the caller never named
-		// still needs its own check.
-		if indexKeys := channel.KeysFromChannels(indexes); len(indexKeys) > 0 {
-			return s.enforceRetrieve(ctx, snap, subject, indexKeys)
-		}
-		return nil
-	}); err != nil {
+	channels, indexes, err := s.retrieveReadChannels(ctx, req)
+	if err != nil {
 		return ReadResponse{}, err
 	}
 	return ReadResponse{
@@ -332,6 +285,76 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 			})
 		},
 	}, nil
+}
+
+// validateRead checks the options in req against each other and returns its merged
+// time ranges.
+func validateRead(req ReadRequest) ([]telem.TimeRange, error) {
+	if req.Latest > 0 && req.Earliest > 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take both latest and earliest",
+		)
+	}
+	if (req.Latest > 0 || req.Earliest > 0) && req.Reduction.Variant != nil {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take latest or earliest with a reduction",
+		)
+	}
+	ranges, err := mergeTimeRanges(req.TimeRanges)
+	if err != nil {
+		return nil, err
+	}
+	if len(ranges) > 1 && (req.Latest > 0 || req.Earliest > 0) {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take latest or earliest over more than one time range",
+		)
+	}
+	if _, ok := req.Reduction.Variant.(telem.LimitReduction); ok && len(ranges) > 1 {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a read cannot take a limit reduction over more than one time range",
+		)
+	}
+	return ranges, nil
+}
+
+// retrieveReadChannels checks that the caller may read the channels in req and returns
+// them, along with their missing index channels when req sets TimestampsIncluded.
+func (s *Service) retrieveReadChannels(
+	ctx context.Context,
+	req ReadRequest,
+) ([]channel.Channel, []channel.Channel, error) {
+	subject := auth.GetSubject(ctx)
+	var channels, indexes []channel.Channel
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if err = s.enforceRetrieve(ctx, snap, subject, req.Keys); err != nil {
+			return err
+		}
+		if err = s.channel.NewRetrieve().
+			Entries(&channels).
+			Where(channel.MatchKeys(req.Keys...)).
+			Exec(ctx, snap); err != nil {
+			return err
+		}
+		if !req.TimestampsIncluded {
+			return nil
+		}
+		if indexes, err = s.retrieveMissingIndexes(ctx, snap, channels); err != nil {
+			return err
+		}
+		// An encoder writes every index it receives, so an index the caller never named
+		// still needs its own check.
+		if indexKeys := channel.KeysFromChannels(indexes); len(indexKeys) > 0 {
+			return s.enforceRetrieve(ctx, snap, subject, indexKeys)
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, err
+	}
+	return channels, indexes, nil
 }
 
 // mergeTimeRanges returns ranges sorted by start, with each run of ranges that overlap
@@ -734,39 +757,12 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 	}
 
 	receiver := &freightfluence.TransformReceiver[framer.WriterRequest, WriterRequest]{
-		Receiver: stream,
-		Transform: func(
-			_ context.Context,
-			req WriterRequest,
-		) (framer.WriterRequest, bool, error) {
-			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
-			if r.Command == framer.WriterCommandSetAuthority {
-				// We decode like this because MessagePack has a tough time decoding
-				// slices of uint8.
-				r.Config.Authorities = make(
-					[]control.Authority, len(req.Config.Authorities),
-				)
-				for i, a := range req.Config.Authorities {
-					r.Config.Authorities[i] = control.Authority(a)
-				}
-				r.Config.Keys = req.Config.Keys
-			}
-			return r, true, nil
-		},
+		Receiver:  stream,
+		Transform: translateWriterRequest,
 	}
 	sender := &freightfluence.TransformSender[framer.WriterResponse, WriterResponse]{
-		Sender: freighter.SenderNopCloser[WriterResponse]{StreamSender: stream},
-		Transform: func(
-			ctx context.Context,
-			i framer.WriterResponse,
-		) (WriterResponse, bool, error) {
-			return WriterResponse{
-				Command:    i.Command,
-				Authorized: i.Authorized,
-				Err:        s.errs.Encode(i.Err, false),
-				End:        i.End,
-			}, true, nil
-		},
+		Sender:    freighter.SenderNopCloser[WriterResponse]{StreamSender: stream},
+		Transform: s.translateWriterResponse,
 	}
 
 	pipe := plumber.New()
@@ -788,6 +784,35 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	err = sCtx.Wait()
 	return err
+}
+
+func translateWriterRequest(
+	_ context.Context,
+	req WriterRequest,
+) (framer.WriterRequest, bool, error) {
+	r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
+	if r.Command == framer.WriterCommandSetAuthority {
+		// We decode like this because MessagePack has a tough time decoding slices of
+		// uint8.
+		r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
+		for i, a := range req.Config.Authorities {
+			r.Config.Authorities[i] = control.Authority(a)
+		}
+		r.Config.Keys = req.Config.Keys
+	}
+	return r, true, nil
+}
+
+func (s *Service) translateWriterResponse(
+	_ context.Context,
+	res framer.WriterResponse,
+) (WriterResponse, bool, error) {
+	return WriterResponse{
+		Command:    res.Command,
+		Authorized: res.Authorized,
+		Err:        s.errs.Encode(res.Err, false),
+		End:        res.End,
+	}, true, nil
 }
 
 func (s *Service) openWriter(

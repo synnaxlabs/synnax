@@ -71,41 +71,8 @@ func parseTDMS(b []byte) []tdmsSegment {
 		n := le.Uint32(meta)
 		meta = meta[4:]
 		for range n {
-			size := le.Uint32(meta)
-			o := tdmsObject{path: string(meta[4 : 4+size])}
-			meta = meta[4+size:]
-			index := le.Uint32(meta)
-			meta = meta[4:]
-			if index != 0xFFFFFFFF {
-				o.dataType = le.Uint32(meta)
-				Expect(le.Uint32(meta[4:])).To(Equal(uint32(1)))
-				o.count = le.Uint64(meta[8:])
-				meta = meta[16:]
-				var size uint64
-				if o.dataType == 0x20 {
-					Expect(index).To(Equal(uint32(28)))
-					size = le.Uint64(meta)
-					meta = meta[8:]
-				} else {
-					Expect(index).To(Equal(uint32(20)))
-					size = o.count * tdmsSampleSizes[o.dataType]
-				}
-				o.data, raw = raw[:size], raw[size:]
-			}
-			properties := le.Uint32(meta)
-			meta = meta[4:]
-			for range properties {
-				if o.properties == nil {
-					o.properties = map[string]string{}
-				}
-				size := le.Uint32(meta)
-				name := string(meta[4 : 4+size])
-				meta = meta[4+size:]
-				Expect(le.Uint32(meta)).To(Equal(uint32(0x20)))
-				size = le.Uint32(meta[4:])
-				o.properties[name] = string(meta[8 : 8+size])
-				meta = meta[8+size:]
-			}
+			var o tdmsObject
+			o, meta, raw = parseTDMSObject(meta, raw)
 			seg.objects = append(seg.objects, o)
 		}
 		Expect(meta).To(BeEmpty())
@@ -113,6 +80,59 @@ func parseTDMS(b []byte) []tdmsSegment {
 		segments = append(segments, seg)
 	}
 	return segments
+}
+
+// parseTDMSObject parses the object at the start of meta, taking its data from the
+// start of raw. It returns the rest of meta and raw.
+func parseTDMSObject(meta, raw []byte) (tdmsObject, []byte, []byte) {
+	GinkgoHelper()
+	le := telem.ByteOrder
+	size := le.Uint32(meta)
+	o := tdmsObject{path: string(meta[4 : 4+size])}
+	meta = meta[4+size:]
+	index := le.Uint32(meta)
+	meta = meta[4:]
+	if index != 0xFFFFFFFF {
+		o.dataType = le.Uint32(meta)
+		Expect(le.Uint32(meta[4:])).To(Equal(uint32(1)))
+		o.count = le.Uint64(meta[8:])
+		meta = meta[16:]
+		var size uint64
+		if o.dataType == 0x20 {
+			Expect(index).To(Equal(uint32(28)))
+			size = le.Uint64(meta)
+			meta = meta[8:]
+		} else {
+			Expect(index).To(Equal(uint32(20)))
+			size = o.count * tdmsSampleSizes[o.dataType]
+		}
+		o.data, raw = raw[:size], raw[size:]
+	}
+	o.properties, meta = parseTDMSProperties(meta)
+	return o, meta, raw
+}
+
+// parseTDMSProperties parses the string properties at the start of meta. It returns
+// nil properties when there are none, and the rest of meta.
+func parseTDMSProperties(meta []byte) (map[string]string, []byte) {
+	GinkgoHelper()
+	le := telem.ByteOrder
+	n := le.Uint32(meta)
+	meta = meta[4:]
+	var properties map[string]string
+	for range n {
+		if properties == nil {
+			properties = map[string]string{}
+		}
+		size := le.Uint32(meta)
+		name := string(meta[4 : 4+size])
+		meta = meta[4+size:]
+		Expect(le.Uint32(meta)).To(Equal(uint32(0x20)))
+		size = le.Uint32(meta[4:])
+		properties[name] = string(meta[8 : 8+size])
+		meta = meta[8+size:]
+	}
+	return properties, meta
 }
 
 // tdmsStrings decodes the raw data of a string object.
