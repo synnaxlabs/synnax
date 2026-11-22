@@ -28,7 +28,7 @@ import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Calculation, Channel, Device, Synnax } from "@synnaxlabs/pluto";
+import { Channel, Device, Synnax } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, deep } from "@synnaxlabs/x";
 import { useState } from "react";
 import { z } from "zod";
@@ -66,7 +66,8 @@ export interface UploadModalParams {
   source: ranger.Key | CrudeTimeRange;
 }
 
-// Sift stores only persisted data channels. The Core sends each index on its own.
+// Sift stores only persisted data channels. The query keeps calculated channels, so the
+// select hides them. The Core sends each index on its own.
 const CHANNEL_QUERY: Channel.ListQuery = {
   where: { virtual: false, isIndex: { eq: false }, internal: { eq: false } },
 };
@@ -152,9 +153,6 @@ const UploadForm = ({ name, source, close, device }: UploadFormProps) => {
     values: { rack: 0, config: { device, asset: "", channels: [] } },
   });
   const [rejection, setRejection] = useState<status.Status | null>(null);
-  // The query keeps calculated channels, which the Core does not store.
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const stored = Calculation.useNonOutputFilter({ open: pickerOpen });
   return (
     <Form.Form<typeof formSchema> {...form}>
       <Modal.Frame className={CSS.B("sift-upload")}>
@@ -183,10 +181,7 @@ const UploadForm = ({ name, source, close, device }: UploadFormProps) => {
                 value={value}
                 onChange={onChange}
                 query={CHANNEL_QUERY}
-                filter={stored.filter}
-                status={stored.status}
-                visible={pickerOpen}
-                onVisibleChange={setPickerOpen}
+                calculatedHidden
                 triggerProps={CHANNEL_TRIGGER_PROPS}
                 full="x"
               />

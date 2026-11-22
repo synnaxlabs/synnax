@@ -14,12 +14,14 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { state } from "@synnaxlabs/lyra/state";
 import { type ReactElement, type ReactNode } from "react";
 
 import { getCachedPreviewProps, HaulPreview } from "@/channel/HaulPreview";
 import { KindIcon } from "@/channel/KindIcon";
 import { type ListQuery, useList } from "@/channel/queries";
 import { HAUL_TYPE } from "@/channel/types";
+import { useCalculatedHidden } from "@/channel/useCalculatedHidden";
 import { CSS } from "@/css";
 import { type Flux } from "@/flux";
 import { Synnax } from "@/synnax";
@@ -47,10 +49,11 @@ export interface SelectMultipleProps
     >,
     Omit<Flux.UseListParams<ListQuery, channel.Channel>, "name"> {
   /**
-   * Shown in place of the list's status while set and the list holds records, such as
-   * the status of the lookups a filter makes.
+   * Leaves out each channel that a calculation writes, and each channel until its
+   * answer loads. The list shows the status of the lookups while a channel has no
+   * answer, and reports a failed lookup once while it is open.
    */
-  status?: Select.MultipleProps<channel.Key, channel.Channel | undefined>["status"];
+  calculatedHidden?: boolean;
 }
 
 const isChannel = (entry: unknown): entry is channel.Channel =>
@@ -89,23 +92,33 @@ export const SelectMultiple = ({
   query,
   filter,
   triggerProps,
-  status,
+  calculatedHidden = false,
+  initialVisible = false,
+  visible: propsVisible,
+  onVisibleChange,
   ...rest
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
-  const list = useList({ query, filter });
-  const { data, getItem, subscribe, more, search } = list;
+  const [visible, setVisible] = state.usePassthrough({
+    initial: initialVisible,
+    value: propsVisible,
+    onChange: onVisibleChange,
+  });
+  const { data, getItem, subscribe, more, search, status } = useList({ query, filter });
+  const hidden = useCalculatedHidden(data, visible, calculatedHidden);
   return (
     <Select.Multiple<channel.Key, channel.Channel | undefined>
       haulType={HAUL_TYPE}
       onFetchMore={more}
       onSearch={search}
-      status={status != null && list.total > 0 ? status : list.status}
+      status={hidden.status ?? status}
       icon={<Icon.Channel />}
       triggerProps={withDefaults(client, triggerProps)}
+      visible={visible}
+      onVisibleChange={setVisible}
       {...rest}
       resourceName="channel"
-      data={data}
+      data={hidden.data}
       getItem={getItem}
       subscribe={subscribe}
     >
