@@ -11,12 +11,12 @@ import { schematic } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { Edge } from "@/schematic/edge";
-import { gesture } from "@/schematic/gesture";
+import { Gesture } from "@/schematic/gesture";
 import type { Diagram as Base } from "@/vis/diagram";
 
 describe("nodeChangesToActions", () => {
   it("returns an empty array for empty input", () => {
-    expect(gesture.nodeChangesToActions([])).toEqual([]);
+    expect(Gesture.nodeChangesToActions([])).toEqual([]);
   });
 
   it("translates a position change to a setNodePosition action", () => {
@@ -26,14 +26,14 @@ describe("nodeChangesToActions", () => {
       position: { x: 10, y: 20 },
       dragging: true,
     };
-    expect(gesture.nodeChangesToActions([change])).toEqual([
+    expect(Gesture.nodeChangesToActions([change])).toEqual([
       schematic.setNodePosition({ key: "n1", position: { x: 10, y: 20 } }),
     ]);
   });
 
   it("translates a remove change to a removeNode action", () => {
     const change: Base.NodeChange = { type: "remove", key: "n1" };
-    expect(gesture.nodeChangesToActions([change])).toEqual([
+    expect(Gesture.nodeChangesToActions([change])).toEqual([
       schematic.removeNode({ key: "n1" }),
     ]);
   });
@@ -43,7 +43,7 @@ describe("nodeChangesToActions", () => {
       { type: "select", key: "n1", selected: true },
       { type: "select", key: "n2", selected: false },
     ];
-    expect(gesture.nodeChangesToActions(changes)).toEqual([]);
+    expect(Gesture.nodeChangesToActions(changes)).toEqual([]);
   });
 
   it("preserves input order across a mixed batch of change types", () => {
@@ -52,7 +52,7 @@ describe("nodeChangesToActions", () => {
       { type: "select", key: "n3", selected: true },
       { type: "remove", key: "n2" },
     ];
-    expect(gesture.nodeChangesToActions(changes)).toEqual([
+    expect(Gesture.nodeChangesToActions(changes)).toEqual([
       schematic.setNodePosition({ key: "n1", position: { x: 1, y: 2 } }),
       schematic.removeNode({ key: "n2" }),
     ]);
@@ -68,18 +68,18 @@ describe("edgeChangesToActions", () => {
   const pipeDefault = Edge.REGISTRY.pipe.defaultConfig();
 
   it("returns an empty array for empty input", () => {
-    expect(gesture.edgeChangesToActions([])).toEqual([]);
+    expect(Gesture.edgeChangesToActions([])).toEqual([]);
   });
 
   it("translates an add change into an addEdge with the pipe variant's default", () => {
     const edge = newEdge("e1");
-    expect(gesture.edgeChangesToActions([{ type: "add", edge }])).toEqual([
+    expect(Gesture.edgeChangesToActions([{ type: "add", edge }])).toEqual([
       schematic.addEdge({ edge: { ...edge, config: pipeDefault } }),
     ]);
   });
 
   it("translates a remove change to a removeEdge action", () => {
-    expect(gesture.edgeChangesToActions([{ type: "remove", key: "e1" }])).toEqual([
+    expect(Gesture.edgeChangesToActions([{ type: "remove", key: "e1" }])).toEqual([
       schematic.removeEdge({ key: "e1" }),
     ]);
   });
@@ -89,7 +89,7 @@ describe("edgeChangesToActions", () => {
       { type: "select", key: "e1", selected: true },
       { type: "select", key: "e2", selected: false },
     ];
-    expect(gesture.edgeChangesToActions(changes)).toEqual([]);
+    expect(Gesture.edgeChangesToActions(changes)).toEqual([]);
   });
 
   it("preserves input order and emits one addEdge for each add", () => {
@@ -101,7 +101,7 @@ describe("edgeChangesToActions", () => {
       { type: "remove", key: "e2" },
       { type: "add", edge: e3 },
     ];
-    expect(gesture.edgeChangesToActions(changes)).toEqual([
+    expect(Gesture.edgeChangesToActions(changes)).toEqual([
       schematic.addEdge({ edge: { ...e1, config: pipeDefault } }),
       schematic.removeEdge({ key: "e2" }),
       schematic.addEdge({ edge: { ...e3, config: pipeDefault } }),

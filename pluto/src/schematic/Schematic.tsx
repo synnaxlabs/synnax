@@ -22,7 +22,7 @@ import { CSS } from "@/css";
 import { useClipboard } from "@/schematic/clipboard";
 import { Diagram } from "@/schematic/Diagram";
 import { useAddNode } from "@/schematic/editor";
-import { gesture } from "@/schematic/gesture";
+import { Gesture } from "@/schematic/gesture";
 import { Group } from "@/schematic/group";
 import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
@@ -96,10 +96,10 @@ export const Schematic = ({
   const lockedNodes = Group.lockMembers(nodes, parentOf, configs);
   const dispatch = useSingleDispatch();
   const handleNodesChange = (changes: BaseDiagram.NodeChange[]) =>
-    dispatch(gesture.nodeChangesToActions(changes));
+    dispatch(Gesture.nodeChangesToActions(changes));
 
   const handleEdgesChange = (changes: BaseDiagram.EdgeChange[]) =>
-    dispatch(gesture.edgeChangesToActions(changes));
+    dispatch(Gesture.edgeChangesToActions(changes));
 
   const handleAddNode = useAddNode();
   const ref = useRef<HTMLDivElement>(null);
