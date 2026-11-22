@@ -20,6 +20,7 @@ import {
   expectLive,
   FAST_RETRY,
   spyOnSend,
+  waitForStreamLive,
 } from "@/testutil";
 
 const quiet = (): void => {};
