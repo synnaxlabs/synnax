@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	"github.com/synnaxlabs/x/errors"
+	"go.uber.org/zap"
 )
 
 // MigrateReadConfig lifts a v4 read config to v5, with the fields of each endpoint
@@ -48,6 +49,19 @@ func MigrateReadEndpoint(
 	old v4.ReadEndpoint,
 ) (ReadEndpoint, error) {
 	return autoMigrateReadEndpoint(ctx, old)
+}
+
+// NoteLift returns the note for ResolveReadConfig that logs each change to a field of
+// the config with key through ins.
+func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change string) {
+	return func(path, change string) {
+		ins.L.Warn(
+			"changed an HTTP read field to v5",
+			zap.Stringer("config", key),
+			zap.String("field", path),
+			zap.String("change", change),
+		)
+	}
 }
 
 // StagedFieldsKVPrefix is the KV key prefix under which ReadMigration stages the fields
