@@ -39,11 +39,6 @@ var _ = Describe("Errors", func() {
 			"sy.query.invalid_parameters",
 		),
 		Entry("unsupported", query.ErrUnsupported, "sy.query.unsupported"),
-		Entry(
-			"multiple results",
-			query.ErrMultipleResults,
-			"sy.query.multiple_results",
-		),
 		Entry("query", query.ErrQuery, "sy.query"),
 	)
 
@@ -51,11 +46,14 @@ var _ = Describe("Errors", func() {
 		cause := errors.New("cause")
 		err := query.MultipleResults(cause, "%d channels are named %q", 2, "pt")
 		Expect(err).To(MatchError(`2 channels are named "pt"`))
-		Expect(errors.Is(err, query.ErrMultipleResults)).To(BeTrue())
 		Expect(errors.Is(err, query.ErrQuery)).To(BeTrue())
 		Expect(errors.Is(err, cause)).To(BeTrue())
-		encoded := errors.NewCodec(query.ErrorProvider()).Encode(err, false)
+		codec := errors.NewCodec(query.ErrorProvider())
+		encoded := codec.Encode(err, false)
 		Expect(encoded.Type).To(Equal("sy.query.multiple_results"))
 		Expect(encoded.Data).To(Equal(`2 channels are named "pt"`))
+		decoded := codec.Decode(encoded)
+		Expect(decoded).To(MatchError(ContainSubstring(`2 channels are named "pt"`)))
+		Expect(codec.Encode(decoded, false).Type).To(Equal("sy.query.multiple_results"))
 	})
 })

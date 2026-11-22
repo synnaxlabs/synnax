@@ -102,7 +102,7 @@ var _ = Describe("Strict retrieve", func() {
 	It("Should refuse a name that several channels hold, naming only the paths the "+
 		"subject can see", func(ctx SpecContext) {
 		Expect(retrieve(ctx, byName(name), true)).Error().To(SatisfyAll(
-			MatchError(query.ErrMultipleResults),
+			MatchError(query.ErrQuery),
 			MatchError(ContainSubstring(fmt.Sprintf(
 				"2 channels are named '%s': '%s.%s', and 1 more you cannot see",
 				name,

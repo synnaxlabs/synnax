@@ -82,7 +82,7 @@ var _ = Describe("Ambiguous names", func() {
 	}
 	matchAmbiguousPT := func() OmegaMatcher {
 		return SatisfyAll(
-			MatchError(query.ErrMultipleResults),
+			MatchError(query.ErrQuery),
 			WithTransform(func(err error) channel.Keys {
 				ambiguous, _ := errors.AsType[channel.AmbiguousNameError](err)
 				return ambiguous.Holders

@@ -86,7 +86,7 @@ var _ = Describe("Ambiguity breaker", func() {
 	// shown and counts the holder in hidden.
 	matchShownOnly := func() OmegaMatcher {
 		return SatisfyAll(
-			MatchError(query.ErrMultipleResults),
+			MatchError(query.ErrQuery),
 			MatchError(ContainSubstring(fmt.Sprintf(
 				"2 channels are named '%s': '%s.%s', and 1 more you cannot see",
 				name,

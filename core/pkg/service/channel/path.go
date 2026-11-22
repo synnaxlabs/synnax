@@ -224,7 +224,7 @@ func QuotePath(path string) string {
 	return b.String()
 }
 
-// AmbiguousName returns the query.ErrMultipleResults error that holds the
+// AmbiguousName returns the query.MultipleResults error that holds the
 // AmbiguousNameError of name and holders.
 func AmbiguousName(name string, holders Keys) error {
 	err := AmbiguousNameError{Name: name, Holders: holders}
@@ -261,7 +261,7 @@ func (s *Service) KeysByNames(
 
 // DescribeAmbiguity returns err as a subject sees it when err is an AmbiguousNameError,
 // and returns err unchanged otherwise. access returns whether the subject can retrieve
-// a record. The result is a query.ErrMultipleResults error that quotes the path of each
+// a record. The result is a query.MultipleResults error that quotes the path of each
 // holder that the subject can retrieve along with every folder on its path, then counts
 // the other holders. errors.As still finds the AmbiguousNameError in it. Paths are as
 // snap holds them.

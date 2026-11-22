@@ -27,12 +27,13 @@ var (
 	ErrInvalidParameters = errors.Wrap(ErrQuery, "invalid parameters")
 	// ErrUnsupported is returned when a query targets an entity that cannot answer it.
 	ErrUnsupported = errors.Wrap(ErrQuery, "unsupported")
-	// ErrMultipleResults is returned when a lookup of one entity matches several.
-	ErrMultipleResults = errors.Wrap(ErrQuery, "multiple results")
+	// errMultipleResults marks a lookup of one entity that matched several.
+	errMultipleResults = errors.Wrap(ErrQuery, "multiple results")
 )
 
-// MultipleResults returns an ErrMultipleResults error whose message is the formatted
-// text alone, and whose chain holds cause, so errors.As finds it.
+// MultipleResults returns the query error of a lookup of one entity that matched
+// several, sent as sy.query.multiple_results. Its message is the formatted text alone,
+// and its chain holds cause, so errors.As finds it.
 func MultipleResults(cause error, format string, args ...any) error {
 	return multipleResultsError{msg: fmt.Sprintf(format, args...), cause: cause}
 }
@@ -47,7 +48,7 @@ func (e multipleResultsError) Error() string { return e.msg }
 func (e multipleResultsError) Unwrap() error { return e.cause }
 
 func (multipleResultsError) Is(target error) bool {
-	return target == ErrMultipleResults || target == ErrQuery
+	return target == errMultipleResults || target == ErrQuery
 }
 
 const (
@@ -72,7 +73,7 @@ func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrUnsupported) {
 		return errors.Payload{Type: unsupported, Data: err.Error()}, true
 	}
-	if errors.CheapIs(err, ErrMultipleResults) {
+	if errors.CheapIs(err, errMultipleResults) {
 		return errors.Payload{Type: multipleResults, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrQuery) {
@@ -92,7 +93,7 @@ func decode(_ *errors.Codec, pld errors.Payload) (error, bool) {
 	case unsupported:
 		return errors.Wrap(ErrUnsupported, pld.Data), true
 	case multipleResults:
-		return errors.Wrap(ErrMultipleResults, pld.Data), true
+		return errors.Wrap(errMultipleResults, pld.Data), true
 	}
 	if strings.HasPrefix(pld.Type, typePrefix) {
 		return errors.Wrap(ErrQuery, pld.Data), true

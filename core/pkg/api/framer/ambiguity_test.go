@@ -60,7 +60,7 @@ var _ = Describe("Delete by an ambiguous name", func() {
 			Names:  []string{name},
 			Bounds: telem.TimeRangeMax,
 		})).Error().To(SatisfyAll(
-			MatchError(query.ErrMultipleResults),
+			MatchError(query.ErrQuery),
 			MatchError(ContainSubstring("2 channels are named '"+name+"': '")),
 		))
 	})
