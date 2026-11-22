@@ -11,9 +11,9 @@ import { DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { calculation } from "@/calculation";
-import { type channel } from "@/channel";
+import { channel } from "@/channel";
 import { PathError } from "@/errors";
-import { createTestClient, spyOnSend } from "@/testutil";
+import { createTestClient, createTestClientWithPolicy, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -91,8 +91,8 @@ describe("Calculation", () => {
         local.calculations.outputs.retrieve([c.output]),
         local.calculations.outputs.retrieve([plain.key]),
       ]);
-      expect(written).toEqual({ key: c.output, calculation: c.key });
-      expect(unwritten).toEqual({ key: plain.key, calculation: null });
+      expect(written).toEqual({ key: c.output, hidden: false, calculation: c.key });
+      expect(unwritten).toEqual({ key: plain.key, hidden: false, calculation: null });
       expect(
         send.mock.calls.filter(([target]) => target === "/calculation/retrieve"),
       ).toHaveLength(1);
@@ -108,8 +108,23 @@ describe("Calculation", () => {
         expression: "return 2",
       });
       await expect
-        .poll(() => local.calculations.outputs.get(plain.key)?.calculation)
-        .toEqual(c.key);
+        .poll(() => local.calculations.outputs.get(plain.key))
+        .toMatchObject({ hidden: false, calculation: c.key });
+    });
+
+    it("should answer hidden for an output whose calculation the reader cannot retrieve", async () => {
+      const c = await client.calculations.create({
+        name: `calc_output_${id.create()}`,
+        expression: "return 2",
+      });
+      const reader = await createTestClientWithPolicy(client, {
+        name: id.create(),
+        objects: [channel.resourceID(c.output)],
+        actions: ["retrieve"],
+      });
+      expect(await reader.calculations.outputs.retrieve([c.output])).toEqual([
+        { key: c.output, hidden: true },
+      ]);
     });
 
     it("should map an output to none when its calculation is deleted", async () => {
@@ -122,8 +137,23 @@ describe("Calculation", () => {
       await local.calculations.outputs.retrieve([c.output]);
       await client.calculations.delete(c.key);
       await expect
-        .poll(() => local.calculations.outputs.get(c.output)?.calculation)
-        .toBeNull();
+        .poll(() => local.calculations.outputs.get(c.output))
+        .toMatchObject({ hidden: false, calculation: null });
+    });
+  });
+
+  describe("isOutput", () => {
+    const key = "2a7d9c1e-5b3f-4e60-9a8b-0c1d2e3f4a5b";
+    it.each<[string, calculation.Output, boolean]>([
+      ["a hidden output", { key: 1, hidden: true }, true],
+      ["an output", { key: 1, hidden: false, calculation: key }, true],
+      [
+        "a channel that no calculation writes",
+        { key: 1, hidden: false, calculation: null },
+        false,
+      ],
+    ])("should answer for %s", (_, output, expected) => {
+      expect(calculation.isOutput(output)).toBe(expected);
     });
   });
 

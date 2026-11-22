@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { channel, DataType } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -48,10 +51,27 @@ describe("queries", () => {
       await waitFor(() =>
         expect(result.current.plainAnswer).toEqual({
           key: plain.key,
+          hidden: false,
           calculation: null,
         }),
       );
       expect(result.current.plain).toBe(false);
+    });
+
+    it("should count an output whose calculation the reader cannot retrieve", async () => {
+      const calc = await client.calculations.create({
+        name: id.create(),
+        expression: "return 2",
+      });
+      const reader = await createTestClientWithPolicy(client, {
+        name: id.create(),
+        objects: [channel.resourceID(calc.output)],
+        actions: ["retrieve"],
+      });
+      const { result } = renderHook(() => Calculation.useIsOutput(calc.output), {
+        wrapper: await createAsyncSynnaxWrapper({ client: reader }),
+      });
+      await waitFor(() => expect(result.current).toBe(true));
     });
 
     it("should follow a calculation that is deleted", async () => {

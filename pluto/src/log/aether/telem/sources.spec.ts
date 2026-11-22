@@ -1668,7 +1668,7 @@ describe("StreamMultiChannelLog", () => {
       name: "calculation.outputs",
       fetch: async (keys) => {
         if (++lookups === 1) await answered;
-        return keys.map((key) => ({ key, calculation: null }));
+        return keys.map((key) => ({ key, hidden: false, calculation: null }));
       },
     });
     const statuses: cstatus.Crude[] = [];

@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, query, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  calculation,
+  type channel,
+  query,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { DataType } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
@@ -72,5 +77,5 @@ export const getCachedIsOutput = (
   ch: channel.Payload,
 ): boolean | undefined => {
   const output = client?.calculations.outputs.get(ch.key);
-  return output == null ? undefined : output.calculation != null;
+  return output == null ? undefined : calculation.isOutput(output);
 };

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type calculation, type channel } from "@synnaxlabs/client";
+import { calculation, type channel } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
@@ -39,8 +39,10 @@ export const { useResult: useResultOutput } = Flux.createRetrieve<
 });
 
 /**
- * @returns whether a calculation writes the channel. False until the answer loads, and
- * for the key 0, which names no channel.
+ * @returns whether a calculation writes the channel, whether or not the reader can
+ * retrieve it. False until the answer loads, and for the key 0, which names no channel.
  */
-export const useIsOutput = (channel: channel.Key): boolean =>
-  useResultOutput(channel === 0 ? null : { channel }).data?.calculation != null;
+export const useIsOutput = (channel: channel.Key): boolean => {
+  const output = useResultOutput(channel === 0 ? null : { channel }).data;
+  return output != null && calculation.isOutput(output);
+};

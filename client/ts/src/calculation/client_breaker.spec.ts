@@ -153,10 +153,10 @@ describe("calculation.Client breaker", () => {
       // The Core answers the lookup after the create and before the delete.
       core.heldOutputs[0].read();
       await calcs.delete(A);
-      expect(calcs.outputs.get(X)?.calculation).toBeNull();
+      expect(calcs.outputs.get(X)).toMatchObject({ hidden: false, calculation: null });
       core.heldOutputs[0].release();
       await lookup;
-      expect(calcs.outputs.get(X)?.calculation).toBeNull();
+      expect(calcs.outputs.get(X)).toMatchObject({ hidden: false, calculation: null });
       await expect(calcs.retrieve(A)).rejects.toThrow();
     });
 
@@ -193,7 +193,9 @@ describe("calculation.Client breaker", () => {
         reads: [],
       });
       stream.push(createdFrame(A, X, 1));
-      await expect.poll(() => calcs.outputs.get(X)?.calculation).toBe(A);
+      await expect
+        .poll(() => calcs.outputs.get(X))
+        .toMatchObject({ hidden: false, calculation: A });
       // The Core answers the lookup, then the expression changes.
       core.heldOutputs[0].read();
       core.calcs.set(A, { ...core.calcs.get(A)!, expression: "return 2" });
@@ -222,14 +224,16 @@ describe("calculation.Client breaker", () => {
       await calcs.create({ key: A, output: X, expression: "return 1" });
       await calcs.delete(A);
       await calcs.create({ key: B, output: X, expression: "return 2" });
-      expect(calcs.outputs.get(X)?.calculation).toBe(B);
+      expect(calcs.outputs.get(X)).toMatchObject({ hidden: false, calculation: B });
       // The echo of our delete lands after the create's reply.
       stream.push(deletedFrame(A));
       stream.push(createdFrame(B, X, 1, { expression: "return 2" }));
       // A later frame fences the two above.
       stream.push(createdFrame(C, Y, 1));
-      await expect.poll(() => calcs.outputs.get(Y)?.calculation).toBe(C);
-      expect(calcs.outputs.get(X)?.calculation).toBe(B);
+      await expect
+        .poll(() => calcs.outputs.get(Y))
+        .toMatchObject({ hidden: false, calculation: C });
+      expect(calcs.outputs.get(X)).toMatchObject({ hidden: false, calculation: B });
     });
 
     it("should keep a remote calculation's output when our delete's reply lands after it", async () => {
@@ -242,10 +246,12 @@ describe("calculation.Client breaker", () => {
       // stream before our reply.
       stream.push(deletedFrame(A));
       stream.push(createdFrame(B, X, 1));
-      await expect.poll(() => calcs.outputs.get(X)?.calculation).toBe(B);
+      await expect
+        .poll(() => calcs.outputs.get(X))
+        .toMatchObject({ hidden: false, calculation: B });
       core.heldDeletes[0]();
       await deleting;
-      expect(calcs.outputs.get(X)?.calculation).toBe(B);
+      expect(calcs.outputs.get(X)).toMatchObject({ hidden: false, calculation: B });
     });
 
     it("should map a watched output to none when its trimmed calculation is deleted", async () => {
@@ -255,17 +261,23 @@ describe("calculation.Client breaker", () => {
       onTestFinished(() => off());
       const keys = [A, B, C];
       keys.forEach((key, i) => stream.push(createdFrame(key, X + i, 1)));
-      await expect.poll(() => calcs.outputs.get(X + 2)?.calculation).toBe(C);
+      await expect
+        .poll(() => calcs.outputs.get(X + 2))
+        .toMatchObject({ hidden: false, calculation: C });
       // A fourth calculation trims the three before it from the calculation table.
       const D = "3d0a6f5b-9c4e-4f80-8b1c-4d5e6f7a8b92";
       stream.push(createdFrame(D, X + 3, 1));
-      await expect.poll(() => calcs.outputs.get(X + 3)?.calculation).toBe(D);
-      expect(calcs.outputs.get(X)?.calculation).toBe(A);
+      await expect
+        .poll(() => calcs.outputs.get(X + 3))
+        .toMatchObject({ hidden: false, calculation: D });
+      expect(calcs.outputs.get(X)).toMatchObject({ hidden: false, calculation: A });
       stream.push(deletedFrame(A));
       const E = "4e1b7a6c-0d5f-4a91-9c2d-5e6f7a8b9ca3";
       stream.push(createdFrame(E, X + 4, 1));
-      await expect.poll(() => calcs.outputs.get(X + 4)?.calculation).toBe(E);
-      expect(calcs.outputs.get(X)?.calculation).toBeNull();
+      await expect
+        .poll(() => calcs.outputs.get(X + 4))
+        .toMatchObject({ hidden: false, calculation: E });
+      expect(calcs.outputs.get(X)).toMatchObject({ hidden: false, calculation: null });
     });
   });
 
@@ -287,7 +299,9 @@ describe("calculation.Client breaker", () => {
           },
         }),
       );
-      await expect.poll(() => calcs.outputs.get(X)?.calculation).toBe(A);
+      await expect
+        .poll(() => calcs.outputs.get(X))
+        .toMatchObject({ hidden: false, calculation: A });
       const [bare] = await calcs.retrieve({ where: { key: { in: [A] } } });
       expect(bare.status).toBeUndefined();
     });
