@@ -15,13 +15,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
@@ -74,5 +77,48 @@ var _ = Describe("Calculation status checks", func() {
 			HaveField("Expression", BeEmpty()),
 			HaveField("Calculated", BeTrue()),
 		)))
+	})
+
+	It("Should join no status of a calculation onto its output", func(
+		ctx SpecContext,
+	) {
+		owner := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc,
+			user.User{Name: "own-status-" + uuid.New().String()}))
+		grantOn(ctx, owner.ResourceID(), access.AllActions,
+			resource.ID{Type: resource.TypeChannel},
+			resource.ID{Type: resource.TypeCalculation},
+			resource.ID{Type: resource.TypeFramer},
+			resource.ID{Type: resource.TypeGroup},
+		)
+		input := createChannel(ctx, telem.Float32T)
+		ch := MustSucceed(createChannels(
+			AuthedCtx(ctx, owner),
+			apichannel.CreateRequest{Channels: []apichannel.Channel{{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: fmt.Sprintf("return %s * 2", input.Name),
+			}}},
+		)).Channels[0]
+		calcs := MustSucceed(layer.Calculation.Outputs(ctx, db, ch.Key))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewWriter(tx).Set(ctx, &apichannel.Status{
+				Owner:   new(calculation.ResourceID(calcs[ch.Key].Key)),
+				Name:    ch.Name,
+				Variant: status.VariantError,
+				Message: "Failed to run calculation",
+				Time:    telem.Now(),
+			})
+		})).To(Succeed())
+		res := MustSucceed(retrieveChannels(AuthedCtx(ctx, owner),
+			apichannel.RetrieveRequest{
+				Where: &channel.Where{
+					Key: &filter.Set[channel.Key]{Eq: &ch.Key},
+				},
+				IncludeStatus: true,
+			}))
+		Expect(res.Channels).To(HaveLen(1))
+		Expect(res.Channels[0].Expression).ToNot(BeEmpty())
+		Expect(res.Channels[0].Status).To(BeNil())
 	})
 })
