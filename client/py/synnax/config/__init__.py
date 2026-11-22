@@ -92,6 +92,8 @@ def _read_desktop_file(path: Path) -> dict[str, Any] | None:
         return None
     except OSError as e:
         raise ConfigurationError(f"Cannot read {path}: {e.strerror}.") from e
+    except UnicodeDecodeError as e:
+        raise ConfigurationError(f"{path} is not valid JSON: {e}.") from e
     try:
         raw: dict[str, Any] = json.loads(text)
     except json.JSONDecodeError as e:

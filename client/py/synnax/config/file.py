@@ -11,6 +11,7 @@ import copy
 import json
 import os
 import pathlib
+import shutil
 import tempfile
 from typing import Any
 
@@ -44,7 +45,7 @@ class File:
         with open(self.config_file, encoding="utf-8") as f:
             try:
                 self.config = json.load(f)
-            except json.JSONDecodeError as e:
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
                 raise ConfigurationError(
                     f"{self.config_file} is not valid JSON: {e}. Delete it, then log "
                     "in again with `sy login`."
@@ -55,21 +56,24 @@ class File:
         self._write(self.config)
 
     def _write(self, config: dict[str, Any]) -> None:
-        self.config_file.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+        # Resolving first writes through a symlink instead of replacing it.
+        path = self.config_file.resolve()
+        path.parent.mkdir(parents=True, exist_ok=True)
         # Replacing the file whole keeps a failed write from leaving a partial file.
         with tempfile.NamedTemporaryFile(
             "w",
             encoding="utf-8",
-            dir=self.config_file.parent,
-            prefix=f".{self.config_file.name}.",
+            dir=path.parent,
+            prefix=f".{path.name}.",
             delete_on_close=False,
         ) as f:
             json.dump(config, f)
+            f.flush()
+            os.fsync(f.fileno())
             f.close()
-            os.replace(f.name, self.config_file)
+            if path.exists():
+                shutil.copymode(path, f.name)
+            os.replace(f.name, path)
 
     def get(self, key: str) -> Any:
         """Gets a value from the config file."""

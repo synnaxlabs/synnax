@@ -99,9 +99,10 @@ def desktop_file(tmp_path: Path) -> Path:
 
 
 class TestFile:
-    def test_corrupt_file(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize("content", [b"{", b"\xff"])
+    def test_corrupt_file(self, content: bytes, tmp_path: Path) -> None:
         """Should name the file when it is not valid JSON."""
-        (tmp_path / "config.json").write_text("{", encoding="utf-8")
+        (tmp_path / "config.json").write_bytes(content)
         with pytest.raises(ConfigurationError, match="not valid JSON") as e:
             File(config_dir=tmp_path)
         assert str(tmp_path / "config.json") in str(e.value)
@@ -116,6 +117,26 @@ class TestFile:
             config.set("b", {"c": 2, "d": object()})
         assert File(config_dir=tmp_path).config == {"a": 1}
         assert [p.name for p in tmp_path.iterdir()] == ["config.json"]
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
+    def test_write_keeps_the_mode(self, tmp_path: Path) -> None:
+        """Should keep the mode of the saved file."""
+        config = File(config_dir=tmp_path)
+        config.set("a", 1)
+        (tmp_path / "config.json").chmod(0o644)
+        config.set("a", 2)
+        assert (tmp_path / "config.json").stat().st_mode & 0o777 == 0o644
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="symlinks need a privilege")
+    def test_write_through_a_symlink(self, tmp_path: Path) -> None:
+        """Should write to the target of a symlinked file and keep the link."""
+        target = tmp_path / "dotfiles" / "config.json"
+        target.parent.mkdir()
+        target.write_text("{}", encoding="utf-8")
+        (tmp_path / "config.json").symlink_to(target)
+        File(config_dir=tmp_path).set("a", 1)
+        assert (tmp_path / "config.json").is_symlink()
+        assert json.loads(target.read_text(encoding="utf-8")) == {"a": 1}
 
 
 class TestLoadDesktopOptions:
@@ -172,9 +193,10 @@ class TestLoadDesktopOptions:
         assert str(desktop_file) in str(e.value)
         assert isinstance(e.value.__cause__, OSError)
 
-    def test_corrupt_file(self, desktop_file: Path) -> None:
+    @pytest.mark.parametrize("content", [b"{", b"\xff"])
+    def test_corrupt_file(self, content: bytes, desktop_file: Path) -> None:
         """Should name the file when it is not valid JSON."""
-        desktop_file.write_text("{", encoding="utf-8")
+        desktop_file.write_bytes(content)
         with pytest.raises(ConfigurationError, match="not valid JSON") as e:
             load_desktop_options(desktop_file, FakeHelper())
         assert str(desktop_file) in str(e.value)
@@ -573,8 +595,12 @@ class TestLoadOptions:
     @pytest.mark.parametrize(
         "break_file",
         # A directory at the path cannot be read as a file, on any platform or user.
-        [lambda path: path.write_text("not json"), Path.mkdir],
-        ids=["malformed", "unreadable"],
+        [
+            lambda path: path.write_text("not json"),
+            lambda path: path.write_bytes(b"\xff"),
+            Path.mkdir,
+        ],
+        ids=["malformed", "not_utf8", "unreadable"],
     )
     def test_given_options_with_a_broken_desktop_file(
         self,
