@@ -185,7 +185,7 @@ const std::string KEY_B = "7f1b3a52-8c1d-4f0e-9d5a-1a2b3c4d5ea2";
 
 x::json::json with_match(const x::json::json &match) {
     auto j = FULL_ICD;
-    j["messages"] = {JSON_MESSAGE};
+    j["messages"] = x::json::json::array({JSON_MESSAGE});
     j["messages"][0]["payload"]["match"] = match;
     return j;
 }
@@ -233,7 +233,7 @@ TEST(JSONMatch, RoundTripsPresentProto) {
 /// @brief it should round trip a field identifier through protobuf.
 TEST(Identifier, RoundTripsFieldVariantProto) {
     auto j = FULL_ICD;
-    j["messages"] = {BINARY_MESSAGE};
+    j["messages"] = x::json::json::array({BINARY_MESSAGE});
     j["messages"][0]["payload"]["identifier"] = {
         {"type", "field"},
         {"field", "7f1b3a52-8c1d-4f0e-9d5a-1a2b3c4d5e02"},
