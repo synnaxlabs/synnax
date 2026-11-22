@@ -16,9 +16,9 @@ import { test } from "vitest";
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { join } from "@/framer/cache/join";
-import { Latest, type LatestProps } from "@/framer/cache/latest";
+import { latest as cacheLatest } from "@/framer/cache/latest";
 import { store as cacheStore } from "@/framer/cache/store";
-import { MultiplexedStreamer } from "@/framer/cache/streamer";
+import { streamer as cacheStreamer } from "@/framer/cache/streamer";
 import { SyntheticCore } from "@/testutil";
 
 const START = TimeStamp.seconds(1_000_000);
@@ -38,14 +38,14 @@ const createCore = () => {
     derived: true,
   });
   const store = new cacheStore.Store({ now: core.now });
-  const streamer = new MultiplexedStreamer({
+  const streamer = new cacheStreamer.Multiplexed({
     store,
     joins: new join.Joins(store),
     onWait: () => {},
     openStreamer: async (config) => core.openStreamer(config),
     removalDelay: TimeSpan.ZERO,
   });
-  const props: LatestProps = {
+  const props: cacheLatest.Props = {
     store,
     streamer,
     retrieveChannels: async (keys) => await core.retrieveChannels(keys),
@@ -80,7 +80,7 @@ const openStream = async (count: number) => {
   const { core, props, close } = createCore();
   const key = core.virtual!.key;
   let taken: () => void = () => {};
-  const latest = new Latest(props, key, undefined, count, () => taken());
+  const latest = new cacheLatest.Latest(props, key, undefined, count, () => taken());
   await waitFor(() => latest.value().status.variant === "success" && core.streams(key));
   let frame = new framer.Frame();
   let next = 0;
@@ -116,7 +116,7 @@ test("stream", async ({ bench }) => {
 
 // Returns the bytes each open latest holds once loaded, with the typed array storage
 // the heap leaves out.
-const retained = async (open: () => Latest, n = 100): Promise<number> => {
+const retained = async (open: () => cacheLatest.Latest, n = 100): Promise<number> => {
   const used = (): number => {
     gc();
     gc();
@@ -142,7 +142,7 @@ test("retained", async () => {
       rows.push({
         case: `${name}, count ${count}`,
         "bytes/latest": await retained(
-          () => new Latest(props, key, undefined, count, () => {}),
+          () => new cacheLatest.Latest(props, key, undefined, count, () => {}),
         ),
       });
   console.table(rows);

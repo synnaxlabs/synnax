@@ -25,7 +25,7 @@ import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { block as cacheBlock } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
-import { Reader, type ReaderProps } from "@/framer/cache/reader";
+import { reader as cacheReader } from "@/framer/cache/reader";
 import { store as cacheStore } from "@/framer/cache/store";
 import { NotFoundError, UnexpectedError } from "@/index";
 import { createTestClient, SyntheticCore } from "@/testutil";
@@ -48,7 +48,7 @@ interface Fetch {
 
 interface Setup {
   core: SyntheticCore;
-  reader: Reader;
+  reader: cacheReader.Reader;
   store: cacheStore.Store;
   fetches: Fetch[];
   /** Fills the channel's blocks over tr, and returns their samples that overlap it. */
@@ -56,7 +56,7 @@ interface Setup {
 }
 
 const readBlocks = async (
-  reader: Reader,
+  reader: cacheReader.Reader,
   store: cacheStore.Store,
   tr: TimeRange,
   ch: channel.Key,
@@ -69,7 +69,7 @@ const readBlocks = async (
   );
 };
 
-interface SetupProps extends Partial<ReaderProps> {
+interface SetupProps extends Partial<cacheReader.Props> {
   /** Seconds after START on the Core's clock. */
   elapsed?: number;
   /** Runs before each fetch is answered. A rejection fails the fetch. */
@@ -100,7 +100,7 @@ const createReader = ({
   });
   const fetches: Fetch[] = [];
   const store = props.store ?? new cacheStore.Store({ staleThreshold, now: core.now });
-  const reader = new Reader({
+  const reader = new cacheReader.Reader({
     readRemote: async (tr, keys) => {
       const fetch = { tr, keys };
       fetches.push(fetch);
@@ -717,7 +717,7 @@ describe("Reader", () => {
       await client.write(start, { [time.key]: [start], [data.key]: [1] });
       const fetched: framer.Frame[] = [];
       const store = new cacheStore.Store();
-      const reader = new Reader({
+      const reader = new cacheReader.Reader({
         readRemote: async (tr, keys) => {
           const frame = await client.read(tr, keys);
           fetched.push(frame);
@@ -756,7 +756,7 @@ describe("Reader", () => {
         [data.key]: times.map((_, i) => i),
       });
       const store = new cacheStore.Store();
-      const reader = new Reader({
+      const reader = new cacheReader.Reader({
         readRemote: async (tr, keys) => await client.read(tr, keys),
         retrieveChannels: async (keys) =>
           (await client.channels.retrieve(keys as channel.Key[])).map((c) => c.payload),

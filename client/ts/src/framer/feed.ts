@@ -19,19 +19,11 @@ import {
 import type { channel } from "@/channel";
 import { isConnectionError, UnexpectedError } from "@/errors";
 import { join } from "@/framer/cache/join";
-import {
-  DEFAULT_BATCH_DEBOUNCE,
-  Reader,
-  type ReaderProps,
-} from "@/framer/cache/reader";
+import { reader } from "@/framer/cache/reader";
 import { store } from "@/framer/cache/store";
-import {
-  type Demand,
-  MultiplexedStreamer,
-  type MultiplexedStreamerProps,
-} from "@/framer/cache/streamer";
+import { streamer as cacheStreamer } from "@/framer/cache/streamer";
 import { Handle } from "@/framer/cache/subscription";
-import { TileReader } from "@/framer/cache/tile";
+import { tile } from "@/framer/cache/tile";
 import type { Frame } from "@/framer/frame";
 import { HardenedStreamer } from "@/framer/hardened";
 import type { StreamOpener } from "@/framer/streamer";
@@ -58,8 +50,11 @@ type LatestEntry = scheduler.BatcherEntry<LatestQuery, Frame>;
 export interface FeedProps
   extends
     Pick<store.Props, "instrumentation">,
-    Omit<ReaderProps, "store">,
-    Omit<MultiplexedStreamerProps, "store" | "joins" | "onWait" | "openStreamer"> {
+    Omit<reader.Props, "store">,
+    Omit<
+      cacheStreamer.MultiplexedProps,
+      "store" | "joins" | "onWait" | "openStreamer"
+    > {
   openStreamer: StreamOpener;
   readLatest: RemoteLatestReader;
   /** Reads the first stored sample of each channel. */
@@ -103,9 +98,9 @@ export class Feed {
     disposable.implementAsync(this);
   }
 
-  private readonly reader: Reader;
-  private readonly streamer: MultiplexedStreamer;
-  private readonly tiles: TileReader;
+  private readonly reader: reader.Reader;
+  private readonly streamer: cacheStreamer.Multiplexed;
+  private readonly tiles: tile.Reader;
   private readonly store: store.Store;
   private readonly joins: join.Joins;
   private readonly joiner: join.Joiner;
@@ -115,7 +110,7 @@ export class Feed {
   // listening is true once a subscription asked for the history changes, and signals
   // carries them once their channel is found.
   private listening = false;
-  private signals: Demand | null = null;
+  private signals: cacheStreamer.Demand | null = null;
   private closed = false;
 
   constructor(props: FeedProps) {
@@ -141,7 +136,7 @@ export class Feed {
       node,
     });
     this.joins = new join.Joins(this.store);
-    this.reader = new Reader({
+    this.reader = new reader.Reader({
       readRemote,
       retrieveChannels,
       store: this.store,
@@ -149,14 +144,14 @@ export class Feed {
       fetchTimeout,
       now,
     });
-    this.tiles = new TileReader({
+    this.tiles = new tile.Reader({
       readRemote,
       store: this.store,
       batchDebounce,
       fetchTimeout,
       now,
     });
-    this.streamer = new MultiplexedStreamer({
+    this.streamer = new cacheStreamer.Multiplexed({
       store: this.store,
       joins: this.joins,
       onWait: (indexes) => this.joiner.wake(indexes),
@@ -187,7 +182,7 @@ export class Feed {
       breaker,
     });
     this.latest = new scheduler.Batcher({
-      interval: batchDebounce ?? DEFAULT_BATCH_DEBOUNCE,
+      interval: batchDebounce ?? reader.DEFAULT_BATCH_DEBOUNCE,
       exec: async (entries) => {
         // Requests of one count and range share one read.
         const groups = Map.groupBy(

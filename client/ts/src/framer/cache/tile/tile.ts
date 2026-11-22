@@ -25,19 +25,19 @@ import type { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import type { block } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
-import { DEFAULT_BATCH_DEBOUNCE, type RemoteReader } from "@/framer/cache/reader";
+import { reader } from "@/framer/cache/reader";
 import type { store as cacheStore } from "@/framer/cache/store";
 
 /** Identifies one tile of one channel, reduced under a point limit. */
-export interface TileSpec extends grid.Bounds {
+export interface Spec extends grid.Bounds {
   key: channel.Key;
   pointLimit: number;
   aggregation: Aggregation;
 }
 
-export interface TileReaderProps {
+export interface ReaderProps {
   /** Reads reduced tiles from the Core. */
-  readRemote: RemoteReader;
+  readRemote: reader.Remote;
   /** Caches finished tiles. */
   store: cacheStore.Store;
   /**
@@ -79,25 +79,24 @@ class Tile implements block.Block {
 }
 
 /** @returns true when the tile is cut short at either end, which keeps it uncached. */
-export const isCut = ({ start, end }: TileSpec): boolean =>
-  start != null || end != null;
+export const isCut = ({ start, end }: Spec): boolean => start != null || end != null;
 
 /**
  * @returns the store key of the tile. A tile cut short at either end is never cached.
  */
-export const tileKey = ({
+export const storeKey = ({
   key,
   level,
   index,
   pointLimit,
   aggregation,
-}: TileSpec): string => `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
+}: Spec): string => `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
 
 /**
  * @returns a key for the time range and reduction of the tile's read. Specs with equal
  * keys differ at most in channel, so their reads share one request.
  */
-export const tileRequestKey = (spec: TileSpec): string => {
+export const requestKey = (spec: Spec): string => {
   const { level, index, pointLimit, aggregation, start, end } = spec;
   return [level, index, pointLimit, aggregation, start?.valueOf(), end?.valueOf()].join(
     "/",
@@ -105,18 +104,18 @@ export const tileRequestKey = (spec: TileSpec): string => {
 };
 
 /** Reads reduced tiles of channel data, caching each finished tile in the store. */
-export class TileReader {
-  private readonly props: Required<Omit<TileReaderProps, "batchDebounce">>;
-  private readonly batcher: scheduler.Batcher<TileSpec, MultiSeries>;
+export class Reader {
+  private readonly props: Required<Omit<ReaderProps, "batchDebounce">>;
+  private readonly batcher: scheduler.Batcher<Spec, MultiSeries>;
   // pending holds each tile's fetching reads by channel, keyed by tile request key.
   private readonly pending = new Map<string, Map<channel.Key, Promise<MultiSeries>>>();
   private closed = false;
 
-  constructor(props: TileReaderProps) {
+  constructor(props: ReaderProps) {
     const {
       readRemote,
       store,
-      batchDebounce = DEFAULT_BATCH_DEBOUNCE,
+      batchDebounce = reader.DEFAULT_BATCH_DEBOUNCE,
       fetchTimeout = TimeSpan.seconds(30),
       now = () => TimeStamp.now(),
     } = props;
@@ -136,12 +135,12 @@ export class TileReader {
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
    * @throws {Unreachable} if the fetch serving the read exceeds the fetch timeout.
    */
-  async read(spec: TileSpec, dataType?: DataType): Promise<MultiSeries> {
+  async read(spec: Spec, dataType?: DataType): Promise<MultiSeries> {
     if (this.closed) throw new UnexpectedError("tile reader is closed");
     if (isCut(spec)) return await this.readFresh(spec);
     const { store } = this.props;
-    const key = tileKey(spec);
-    const tile = tileRequestKey(spec);
+    const key = storeKey(spec);
+    const tile = requestKey(spec);
     const cached = store.get(key);
     if (cached != null && !(cached instanceof Tile))
       throw new UnexpectedError(`block ${key} is not a tile`);
@@ -184,7 +183,7 @@ export class TileReader {
 
   // Fetches the tile again while a history change over its span lands during the fetch,
   // since the fetch can hold samples from before the change.
-  private async readFresh(spec: TileSpec): Promise<MultiSeries> {
+  private async readFresh(spec: Spec): Promise<MultiSeries> {
     const span = grid.tileRange(spec);
     for (;;) {
       let changed = false;
@@ -201,15 +200,15 @@ export class TileReader {
   }
 
   private async batchRead(
-    entries: Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>,
+    entries: Array<scheduler.BatcherEntry<Spec, MultiSeries>>,
   ): Promise<void> {
-    const groups = Map.groupBy(entries, (entry) => tileRequestKey(entry.req));
+    const groups = Map.groupBy(entries, (entry) => requestKey(entry.req));
     await Promise.all([...groups.values()].map(async (g) => await this.fetch(g)));
   }
 
   // Never throws: every outcome settles the group's entries.
   private async fetch(
-    group: Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>,
+    group: Array<scheduler.BatcherEntry<Spec, MultiSeries>>,
   ): Promise<void> {
     const { readRemote, fetchTimeout } = this.props;
     const spec = group[0].req;

@@ -28,11 +28,11 @@ import type { framer } from "@/framer";
 import { block as cacheBlock } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
 import { join } from "@/framer/cache/join";
-import { Points, type PointsProps } from "@/framer/cache/points";
-import { Reader, type RemoteReader } from "@/framer/cache/reader";
+import { points as cachePoints } from "@/framer/cache/points";
+import { reader as cacheReader } from "@/framer/cache/reader";
 import { store as cacheStore } from "@/framer/cache/store";
-import { MultiplexedStreamer } from "@/framer/cache/streamer";
-import { tileKey, TileReader } from "@/framer/cache/tile";
+import { streamer as cacheStreamer } from "@/framer/cache/streamer";
+import { tile as cacheTile } from "@/framer/cache/tile";
 import { AccessDeniedError, UnsupportedError, ValidationError } from "@/index";
 import { SyntheticCore } from "@/testutil";
 
@@ -80,25 +80,30 @@ const createCore = (): SyntheticCore =>
 // as a consumer does.
 const createPoints = (
   core: SyntheticCore,
-  readRemote: RemoteReader = async (tr, keys, reduction) =>
+  readRemote: cacheReader.Remote = async (tr, keys, reduction) =>
     core.read(tr, keys, reduction),
   storeProps: cacheStore.Props = {},
   pointsBreaker: breaker.Config = BREAKER,
-  readLatest: PointsProps["readLatest"] = async (keys, count, tr) =>
+  readLatest: cachePoints.Props["readLatest"] = async (keys, count, tr) =>
     core.readLatest(keys, count, tr),
 ) => {
   const store = new cacheStore.Store({ now: core.now, ...storeProps });
   const joins = new join.Joins(store);
   const { retrieveChannels, now } = core;
-  const reader = new Reader({
+  const reader = new cacheReader.Reader({
     readRemote,
     retrieveChannels,
     store,
     batchDebounce: DEBOUNCE,
     now,
   });
-  const tiles = new TileReader({ readRemote, store, batchDebounce: DEBOUNCE, now });
-  const streamer = new MultiplexedStreamer({
+  const tiles = new cacheTile.Reader({
+    readRemote,
+    store,
+    batchDebounce: DEBOUNCE,
+    now,
+  });
+  const streamer = new cacheStreamer.Multiplexed({
     store,
     joins,
     onWait: (indexes) => joiner.wake(indexes),
@@ -107,7 +112,7 @@ const createPoints = (
     breaker: BREAKER,
   });
   const joiner = new join.Joiner({ joins, reader, streamer, now, breaker: BREAKER });
-  const props: PointsProps = {
+  const props: cachePoints.Props = {
     store,
     joins,
     reader,
@@ -119,22 +124,27 @@ const createPoints = (
     now,
     breaker: pointsBreaker,
   };
-  const open = new Set<Points>();
+  const open = new Set<cachePoints.Points>();
   const subscribe = (
     key: channel.Key,
     window: Window,
     limit: framer.PointsLimit,
-  ): Points => {
-    const points: Points = new Points(props, key, window, limit, () =>
-      setTimeout(() => {
-        if (open.has(points)) points.value();
-      }, 0),
+  ): cachePoints.Points => {
+    const points: cachePoints.Points = new cachePoints.Points(
+      props,
+      key,
+      window,
+      limit,
+      () =>
+        setTimeout(() => {
+          if (open.has(points)) points.value();
+        }, 0),
     );
     open.add(points);
     points.value();
     return points;
   };
-  const unsubscribe = (points: Points): void => {
+  const unsubscribe = (points: cachePoints.Points): void => {
     open.delete(points);
     points.close();
   };
@@ -779,7 +789,7 @@ describe("Points", () => {
     };
 
     // Returns the largest span inside the snapshot that no series draws.
-    const largestGap = (points: Points): bigint => {
+    const largestGap = (points: cachePoints.Points): bigint => {
       const sorted = points
         .value()
         .series.series.map((s) => s.timeRange)
@@ -1243,7 +1253,7 @@ describe("Points", () => {
       drawn: TILED.aggregation,
       aggregation: TILED.aggregation,
     });
-    const tile = tileKey({
+    const tile = cacheTile.storeKey({
       key,
       level,
       index,
@@ -1330,7 +1340,7 @@ describe("Points", () => {
       drawn: TILED.aggregation,
       aggregation: TILED.aggregation,
     });
-    const uncut = tileKey({
+    const uncut = cacheTile.storeKey({
       key,
       level,
       index,

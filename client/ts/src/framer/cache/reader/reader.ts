@@ -30,7 +30,7 @@ import type { store as cacheStore } from "@/framer/cache/store";
 import type { Frame } from "@/framer/frame";
 
 /** Reads a telemetry frame from the Core, reduced when a reduction is given. */
-export interface RemoteReader {
+export interface Remote {
   (tr: TimeRange, keys: channel.Key[], reduction?: Reduction): Promise<Frame>;
 }
 
@@ -65,9 +65,9 @@ interface Group {
   entries: Array<scheduler.BatcherEntry<Request>>;
 }
 
-export interface ReaderProps {
+export interface Props {
   /** Function used to read remote data from the server. */
-  readRemote: RemoteReader;
+  readRemote: Remote;
   /** Looks up the index of each channel a fetch reads. */
   retrieveChannels: ChannelRetriever;
   /** Caches fetched blocks, and holds the blocks the stream writes into. */
@@ -99,11 +99,11 @@ export interface ReaderProps {
  * alignment. A fetch failure rejects only the reads that wait on it.
  */
 export class Reader {
-  private readonly props: Required<Omit<ReaderProps, "batchDebounce">>;
+  private readonly props: Required<Omit<Props, "batchDebounce">>;
   private readonly batcher: scheduler.Batcher<Request>;
   private closed = false;
 
-  constructor(props: ReaderProps) {
+  constructor(props: Props) {
     const {
       readRemote,
       retrieveChannels,

@@ -94,7 +94,7 @@ interface AckWaiter {
   reject: (e: Error) => void;
 }
 
-export interface MultiplexedStreamerProps {
+export interface MultiplexedProps {
   store: cacheStore.Store;
   /** Joins the stream's frames to the raw blocks of joined channels. */
   joins: join.Joins;
@@ -130,9 +130,9 @@ const RECONNECTING: status.Crude = { variant: "warning", message: "reconnecting"
  * is synchronous and cannot fail per key; all convergence work surfaces as per-key
  * statuses instead of thrown errors.
  */
-export class MultiplexedStreamer {
+export class Multiplexed {
   private readonly props: Required<
-    Omit<MultiplexedStreamerProps, "removalDelay" | "breaker">
+    Omit<MultiplexedProps, "removalDelay" | "breaker">
   > & {
     removalDelay: TimeSpan;
   };
@@ -175,7 +175,7 @@ export class MultiplexedStreamer {
   private acked = new Set<channel.Key>();
   private readonly ackWaiters = new Set<AckWaiter>();
 
-  constructor(props: MultiplexedStreamerProps) {
+  constructor(props: MultiplexedProps) {
     const {
       store,
       joins,

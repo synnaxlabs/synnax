@@ -25,7 +25,7 @@ import { UnexpectedError } from "@/errors";
 import { block as cacheBlock } from "@/framer/cache/block";
 import { dynamic } from "@/framer/cache/dynamic";
 import { grid } from "@/framer/cache/grid";
-import { COMMIT_MARGIN } from "@/framer/cache/reader";
+import { reader } from "@/framer/cache/reader";
 
 export interface Props extends Partial<
   Pick<dynamic.Props, "dynamicBufferSize" | "now">
@@ -556,7 +556,7 @@ export class Store {
   private trim(index: channel.Key, open: cacheBlock.Raw): void {
     const prev = this.floors.get(index);
     const keep = this.liveSamples / 4;
-    const committed = this.now().sub(COMMIT_MARGIN);
+    const committed = this.now().sub(reader.COMMIT_MARGIN);
     let since = 0;
     let next: Mark | null = null;
     walk: for (let i = open.index; ; i--) {

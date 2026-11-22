@@ -31,7 +31,7 @@ import { dynamic } from "@/framer/cache/dynamic";
 import { stamps as cacheStamps } from "@/framer/cache/stamps";
 import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { store } from "@/framer/cache/store";
-import type { Demand, MultiplexedStreamer } from "@/framer/cache/streamer";
+import type { streamer as cacheStreamer } from "@/framer/cache/streamer";
 import type { Frame } from "@/framer/frame";
 import { createBreaker, isDefinitive } from "@/framer/retry";
 import type { Snapshot } from "@/framer/subscription";
@@ -45,10 +45,10 @@ const realign = (times: MultiSeries, alignment: bigint, tr: TimeRange): Series =
   return new Series({ data, dataType: DataType.TIMESTAMP, alignment, timeRange: tr });
 };
 
-export interface LatestProps {
+export interface Props {
   /** Reports the history changes that make the samples read go out of date. */
   store: store.Store;
-  streamer: MultiplexedStreamer;
+  streamer: cacheStreamer.Multiplexed;
   /** Reads the newest count stored samples of each channel in the time range. */
   readLatest: (keys: channel.Key[], count: number, tr: TimeRange) => Promise<Frame>;
   retrieveChannels: ChannelRetriever;
@@ -111,7 +111,7 @@ export class Latest {
   // request landed, or a value served streamed samples under an error or warning.
   private taken = false;
   private running: Load | null;
-  private readonly demand: Demand;
+  private readonly demand: cacheStreamer.Demand;
   private readonly stopInvalidations: () => void;
   // timeSource is null until the channel is found.
   private timeSource: { index: channel.Key } | "self" | "stamps" | null = null;
@@ -120,7 +120,7 @@ export class Latest {
   private indexStamps: cacheStamps.Index | null = null;
   // timed is true from the first timeAt, so reads fetch the index with the samples.
   private timed = false;
-  private indexDemand: Demand | null = null;
+  private indexDemand: cacheStreamer.Demand | null = null;
   // indexReads holds the index reads in flight and the ones that wait to run again.
   private indexReads: IndexRead[] = [];
   // indexRefused is true once the Core refuses a read of the index, which it then
@@ -152,7 +152,7 @@ export class Latest {
   private shown = false;
 
   constructor(
-    private readonly props: LatestProps,
+    private readonly props: Props,
     readonly key: channel.Key,
     private window: Window | undefined,
     private count: number,

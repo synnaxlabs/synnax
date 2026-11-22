@@ -24,12 +24,7 @@ import { framer } from "@/framer";
 import { block as cacheBlock } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
 import { store as cacheStore } from "@/framer/cache/store";
-import {
-  tileKey,
-  TileReader,
-  type TileReaderProps,
-  type TileSpec,
-} from "@/framer/cache/tile";
+import { tile as cacheTile } from "@/framer/cache/tile";
 import { UnexpectedError } from "@/index";
 import { ManualClock } from "@/testutil";
 
@@ -49,12 +44,12 @@ const createReader = (
     staleThreshold,
     now,
     ...props
-  }: Partial<TileReaderProps> & cacheStore.Props = {},
+  }: Partial<cacheTile.ReaderProps> & cacheStore.Props = {},
   samples: number = SAMPLES,
-): { reader: TileReader; calls: Call[]; store: cacheStore.Store } => {
+): { reader: cacheTile.Reader; calls: Call[]; store: cacheStore.Store } => {
   const calls: Call[] = [];
   const store = new cacheStore.Store({ budget, staleThreshold, now });
-  const reader = new TileReader({
+  const reader = new cacheTile.Reader({
     store,
     now,
     batchDebounce: TimeSpan.milliseconds(5),
@@ -81,7 +76,7 @@ const createReader = (
 const LARGE_SAMPLES = 1024;
 const LARGE_BYTES = LARGE_SAMPLES * DataType.FLOAT64.density.valueOf();
 
-const createSpec = (overrides: Partial<TileSpec> = {}): TileSpec => ({
+const createSpec = (overrides: Partial<cacheTile.Spec> = {}): cacheTile.Spec => ({
   key: 1,
   level: 10,
   index: 3,
@@ -91,7 +86,7 @@ const createSpec = (overrides: Partial<TileSpec> = {}): TileSpec => ({
 });
 
 describe("tile", () => {
-  describe("TileReader", () => {
+  describe("Reader", () => {
     it("should read the tile range with the spec's options", async () => {
       const { reader, calls } = createReader();
       const s = createSpec();
@@ -156,7 +151,7 @@ describe("tile", () => {
         const calls: channel.Key[][] = [];
         // The groups the Core picks follow the samples written into the tile.
         let multiple = 2n;
-        const reader = new TileReader({
+        const reader = new cacheTile.Reader({
           store: new cacheStore.Store(),
           batchDebounce: TimeSpan.milliseconds(5),
           readRemote: async (tr, keys) => {
@@ -294,7 +289,7 @@ describe("tile", () => {
       );
       const spec = createSpec({ index: 1 });
       await reader.read(spec);
-      const tile = store.get(tileKey(spec))!;
+      const tile = store.get(cacheTile.storeKey(spec))!;
       tile.pins++;
       await reader.read(createSpec({ index: 2 }));
       await reader.read(createSpec({ index: 1 }));
