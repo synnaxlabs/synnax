@@ -33,7 +33,7 @@ import { measure } from "@/lineplot/measure/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
-import { buildStack } from "@/testutil/providers";
+import { buildStack } from "@/testutil/internal";
 import { line } from "@/vis/line/aether";
 import { lineTest } from "@/vis/line/aether/testutil";
 import type { render } from "@/vis/render";

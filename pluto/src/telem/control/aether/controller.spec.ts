@@ -22,7 +22,7 @@ import type { z } from "zod";
 import type { aether } from "@/aether/aether";
 import type { status } from "@/status/aether";
 import { control } from "@/telem/control/aether";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 
 const client = createTestClient();
 
