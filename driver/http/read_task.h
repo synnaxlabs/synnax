@@ -25,6 +25,7 @@
 #include "driver/common/sample_clock.h"
 #include "driver/http/device/device.h"
 #include "driver/http/http.h"
+#include "driver/http/message/message.h"
 #include "driver/http/processor/processor.h"
 #include "driver/http/types/types.h"
 #include "driver/task/task.h"
@@ -130,6 +131,17 @@ public:
 /// never reaches the wire or sets a content type.
 [[nodiscard]] std::vector<Request> build_requests(
     const device::ConnectionConfig &conn,
+    const std::vector<::synnax::http::ReadEndpoint> &endpoints
+);
+
+/// @brief builds the message reader of each read endpoint from the messages of its ICD.
+/// @param client the client that retrieves the ICDs and the channels of the endpoints.
+/// @param endpoints the endpoints to build readers for.
+/// @returns one reader per endpoint, in order. Returns CONFIGURATION_ERROR that names
+/// the endpoint when it reads no messages, when its ICD does not exist, or when
+/// message::Reader rejects its messages, and the error of a failed retrieve as is.
+[[nodiscard]] std::pair<std::vector<message::Reader>, x::errors::Error> build_readers(
+    const synnax::Synnax &client,
     const std::vector<::synnax::http::ReadEndpoint> &endpoints
 );
 

@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <limits>
+#include <map>
 #include <set>
 #include <utility>
 
 #include "client/cpp/http/json.gen.h"
 #include "x/cpp/strings/strings.h"
 
+#include "driver/errors/errors.h"
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/read_task.h"
@@ -216,6 +219,60 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     if (!parser.ok()) return {std::move(cfg), parser.error()};
 
     return {std::move(cfg), x::errors::NIL};
+}
+
+std::pair<std::vector<message::Reader>, x::errors::Error> build_readers(
+    const synnax::Synnax &client,
+    const std::vector<::synnax::http::ReadEndpoint> &endpoints
+) {
+    std::set<synnax::icd::Key> icd_keys;
+    std::set<synnax::channel::Key> channel_keys;
+    for (const auto &ep: endpoints) {
+        if (ep.icd.has_value()) icd_keys.insert(*ep.icd);
+        for (const auto &rm: ep.messages)
+            for (const auto &b: rm.bindings)
+                if (b.channel != 0) channel_keys.insert(b.channel);
+    }
+    auto [icds, icd_err] = client.icds.retrieve(
+        std::vector(icd_keys.begin(), icd_keys.end())
+    );
+    if (icd_err) return {{}, icd_err};
+    std::map<synnax::channel::Key, synnax::channel::Channel> channels;
+    if (!channel_keys.empty()) {
+        auto [found, ch_err] = client.channels.retrieve(
+            std::vector(channel_keys.begin(), channel_keys.end())
+        );
+        if (ch_err) return {{}, ch_err};
+        for (auto &ch: found)
+            channels.emplace(ch.key, std::move(ch));
+    }
+    std::vector<message::Reader> readers;
+    readers.reserve(endpoints.size());
+    for (const auto &ep: endpoints) {
+        const auto name = "endpoint " + ep.method + " " + ep.path;
+        if (!ep.icd.has_value() || ep.messages.empty())
+            return {
+                {},
+                x::errors::Error(
+                    driver::errors::CONFIGURATION_ERROR,
+                    name +
+                        " reads no messages. Open the task and pick a message for it."
+                ),
+            };
+        const auto ic = std::ranges::find(icds, *ep.icd, &synnax::icd::ICD::key);
+        if (ic == icds.end())
+            return {
+                {},
+                x::errors::Error(
+                    driver::errors::CONFIGURATION_ERROR,
+                    name + ": ICD " + ep.icd->to_string() + " does not exist"
+                ),
+            };
+        auto [reader, err] = message::Reader::create(ep.messages, *ic, channels);
+        if (err) return {{}, x::errors::Error(err, name + ": " + err.data)};
+        readers.push_back(std::move(reader));
+    }
+    return {std::move(readers), x::errors::NIL};
 }
 
 ReadTaskSource::ReadTaskSource(
