@@ -302,7 +302,9 @@ export default class Synnax extends framer.Client {
    * @param props.password - Password for authentication, with props.username.
    * @param props.apiKey - API key for authentication, in place of a username and
    * password. Defaults to SYNNAX_API_KEY, then the key of Synnax Desktop when it gives
-   * the host. Used only when no credentials or token are given.
+   * the host. Used only when no credentials, token, or OpenID Connect code are given.
+   * @param props.oidc - An OpenID Connect authorization code to log in with once. Later
+   * logins resume the session it opened.
    * @param props.token - The token of an earlier login to resume instead.
    * @param props.sessionCookie - Whether the Core keeps the token in a cookie the page
    * never sees, for a browser client the Core serves.
