@@ -113,10 +113,10 @@ func layout(pointerLog bool) []cesium.Option {
 	return nil
 }
 
-// writeBenchData writes n timestamps one millisecond apart to the index keys[0], and n
-// -
-// late zeros to each data key of keys from the stamp at late, and returns the stamps.
-// On the pointer log, where each frame holds its clock, one writer writes them.
+// writeBenchData writes n timestamps one millisecond apart to the index keys[0], and
+// n-late zeros to each data key of keys from the stamp at late, and returns the stamps.
+// On the pointer log, where a frame holds every key of its writer, a writer of the
+// index alone writes the stamps before late.
 func writeBenchData(
 	b *testing.B,
 	db *cesium.DB,
@@ -139,18 +139,15 @@ func writeBenchData(
 	for i := range stamps {
 		stamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
 	}
+	if late > 0 {
+		writeBenchStamps(b, db, keys[0], late)
+	}
 	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 		Channels: keys,
-		Start:    stamps[0],
+		Start:    stamps[late],
 	})
 	if err != nil {
 		b.Fatal(err)
-	}
-	if late > 0 {
-		frame := telem.UnaryFrame(keys[0], telem.NewSeriesV(stamps[:late]...))
-		if _, _, err = w.Write(b.Context(), frame, nil); err != nil {
-			b.Fatal(err)
-		}
 	}
 	series := []telem.Series{telem.NewSeriesV(stamps[late:]...)}
 	data := telem.NewSeriesV(make([]float32, n-late)...)
@@ -202,8 +199,8 @@ func writeBenchStamps(
 // the index.
 func BenchmarkReadSamples(b *testing.B) { readSamples(b, false) }
 
-// BenchmarkReadSamplesPointerLog is BenchmarkReadSamples on the pointer log, where
-// each read checks its blocks.
+// BenchmarkReadSamplesPointerLog is BenchmarkReadSamples on the pointer log, where each
+// read checks its blocks.
 func BenchmarkReadSamplesPointerLog(b *testing.B) { readSamples(b, true) }
 
 func readSamples(b *testing.B, pointerLog bool) {
