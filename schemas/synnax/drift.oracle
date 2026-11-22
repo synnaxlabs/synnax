@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/channel"
+
 @go output "core/pkg/service/arc/drift"
 
 Key = uuid {
@@ -27,7 +29,7 @@ Hashes struct {
 }
 
 Record struct {
-    task     Key    {
+    task     Key           {
         @doc value "is the key of the automation's task."
         @key
     }
@@ -36,6 +38,12 @@ Record struct {
     }
     deployed Hashes = {} {
         @doc value "is the content the Driver last ran, as far as the Core has seen."
+    }
+    reads    channel.Key[] = [] {
+        @doc value "are the channels that the program the Driver last ran reads."
+    }
+    writes   channel.Key[] = [] {
+        @doc value "are the channels that the program the Driver last ran writes."
     }
 
     @doc value  "records what changed in an automation since its task was deployed."

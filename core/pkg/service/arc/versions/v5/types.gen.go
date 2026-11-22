@@ -11,7 +11,13 @@
 
 package v5
 
-import v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
+import (
+	"uuid"
+
+	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v2"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // Key is a unique identifier for an Arc module.
 type Key = v4.Key
@@ -48,7 +54,37 @@ type TextSource = v4.TextSource
 type GraphSource = v4.GraphSource
 
 // Base carries the fields that every Arc shares.
-type Base = v4.Base
+type Base struct {
+	// Key is the unique identifier for this module.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the module.
+	Name string `json:"name" msgpack:"name"`
+	// Source is the Arc's source code, written as text or drawn as a graph.
+	Source Source `json:"source" msgpack:"source"`
+	// Directory is the key of the directory that holds the Arc.
+	Directory *uuid.UUID `json:"directory,omitzero" msgpack:"directory,omitempty"`
+	// Reads are the channels that the Arc reads, as the last compile of its source that
+	// succeeded found them.
+	Reads []channel.Key `json:"reads" msgpack:"reads"`
+	// Writes are the channels that the Arc writes, as the last compile of its source
+	// that succeeded found them.
+	Writes []channel.Key `json:"writes" msgpack:"writes"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (b *Base) SetDefaults() {
+	b.Source.Variant = TextSource{}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b Base) Validate() error {
+	v := validate.New("Base")
+	v.NotEmptyString("name", b.Name)
+	v.Exec(func() error { return validate.PathedError(b.Source.Validate(), "source") })
+	return v.Error()
+}
+
 type Status = v4.Status
 
 // ChangeKind is how a piece of an automation's content differs from what its task last

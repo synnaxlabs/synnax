@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v2"
+
 Key = v0.Key
 
 Mode = v0.Mode
@@ -15,7 +17,20 @@ Type = v4.Type
 
 Source = v4.Source
 
-Base = v4.Base
+Base struct extends v4.Base {
+    reads  channel.Key[] = [] {
+        @doc value """
+            are the channels that the Arc reads, as the last compile of its source that
+            succeeded found them.
+        """
+    }
+    writes channel.Key[] = [] {
+        @doc value """
+            are the channels that the Arc writes, as the last compile of its source that
+            succeeded found them.
+        """
+    }
+}
 
 Status = v4.Status
 

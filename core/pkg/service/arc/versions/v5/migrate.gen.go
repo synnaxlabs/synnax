@@ -18,19 +18,36 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func autoMigrateArc(_ context.Context, old v4.Arc) (Arc, error) {
+func autoMigrateArc(ctx context.Context, old v4.Arc) (Arc, error) {
 	switch variant := old.Variant.(type) {
 	case nil:
 		return Arc{}, nil
 	case v4.AutomationArc:
+		base, err := MigrateBase(ctx, variant.Base)
+		if err != nil {
+			return Arc{}, err
+		}
 		return Arc{Variant: AutomationArc{
-			Base: variant.Base,
+			Base: base,
 		}}, nil
 	case v4.ModuleArc:
+		base, err := MigrateBase(ctx, variant.Base)
+		if err != nil {
+			return Arc{}, err
+		}
 		return Arc{Variant: ModuleArc{
-			Base: variant.Base,
+			Base: base,
 		}}, nil
 	default:
 		return Arc{}, errors.Newf("unknown Arc variant %T", variant)
 	}
+}
+
+func autoMigrateBase(_ context.Context, old v4.Base) (Base, error) {
+	return Base{
+		Key:       old.Key,
+		Name:      old.Name,
+		Source:    old.Source,
+		Directory: old.Directory,
+	}, nil
 }

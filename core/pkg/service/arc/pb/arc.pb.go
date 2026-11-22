@@ -193,7 +193,13 @@ type Base struct {
 	// source is the Arc's source code, written as text or drawn as a graph.
 	Source *Source `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
 	// directory is the key of the directory that holds the Arc.
-	Directory     *string `protobuf:"bytes,4,opt,name=directory,proto3,oneof" json:"directory,omitempty"`
+	Directory *string `protobuf:"bytes,4,opt,name=directory,proto3,oneof" json:"directory,omitempty"`
+	// reads are the channels that the Arc reads, as the last compile of its source that
+	// succeeded found them.
+	Reads []uint32 `protobuf:"varint,5,rep,packed,name=reads,proto3" json:"reads,omitempty"`
+	// writes are the channels that the Arc writes, as the last compile of its source that
+	// succeeded found them.
+	Writes        []uint32 `protobuf:"varint,6,rep,packed,name=writes,proto3" json:"writes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -254,6 +260,20 @@ func (x *Base) GetDirectory() string {
 		return *x.Directory
 	}
 	return ""
+}
+
+func (x *Base) GetReads() []uint32 {
+	if x != nil {
+		return x.Reads
+	}
+	return nil
+}
+
+func (x *Base) GetWrites() []uint32 {
+	if x != nil {
+		return x.Writes
+	}
+	return nil
 }
 
 // Change is one difference between an automation's content and what its task last ran.
@@ -988,12 +1008,14 @@ var File_core_pkg_service_arc_pb_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bx/go/filter/pb/filter.proto\"\x8d\x01\n" +
+	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bx/go/filter/pb/filter.proto\"\xbb\x01\n" +
 	"\x04Base\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12.\n" +
 	"\x06source\x18\x03 \x01(\v2\x16.service.arc.pb.SourceR\x06source\x12!\n" +
-	"\tdirectory\x18\x04 \x01(\tH\x00R\tdirectory\x88\x01\x01B\f\n" +
+	"\tdirectory\x18\x04 \x01(\tH\x00R\tdirectory\x88\x01\x01\x12\x14\n" +
+	"\x05reads\x18\x05 \x03(\rR\x05reads\x12\x16\n" +
+	"\x06writes\x18\x06 \x03(\rR\x06writesB\f\n" +
 	"\n" +
 	"_directory\"v\n" +
 	"\x06Change\x12(\n" +

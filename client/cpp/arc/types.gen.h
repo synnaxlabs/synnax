@@ -234,6 +234,12 @@ struct Base {
     Source source = TextSource{};
     /// @brief directory is the key of the directory that holds the Arc.
     std::optional<x::uuid::UUID> directory;
+    /// @brief reads are the channels that the Arc reads, as the last compile of its
+    /// source that succeeded found them.
+    std::vector<::synnax::channel::Key> reads = {};
+    /// @brief writes are the channels that the Arc writes, as the last compile of its
+    /// source that succeeded found them.
+    std::vector<::synnax::channel::Key> writes = {};
 
     static Base parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
