@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { device } from "@/device";
+import { icd } from "@/icd";
 import { task } from "@/task";
 
 export const METHODS = [
@@ -137,6 +138,13 @@ export const readEndpointZ = z.object({
   queryParams: queryParamZ.array().default(() => []),
   /** body is a static body sent with each request. Empty sends no body. */
   body: z.string().default(""),
+  /**
+   * icd is the key of the ICD that holds the messages of the endpoint. Absent when the
+   * endpoint reads no messages.
+   */
+  icd: icd.keyZ.optional(),
+  /** messages are the messages that the response body is read as. */
+  messages: icd.readMessageZ.array().default(() => []),
   /** fields contains the values to extract from the response. */
   fields: readFieldZ.array().default(() => []),
   /**
