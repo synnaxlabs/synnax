@@ -14,8 +14,9 @@
 #   preview up <pr> <image> [human|none <time>]
 #                             Starts or replaces the Core for a pull request, and
 #                             marks it as mark does. At the cap, it first removes a
-#                             preview: unmarked ones before marked ones, and within
-#                             each, the one deployed or viewed longest ago.
+#                             preview: ones not marked human before ones marked
+#                             human, and within each, the one deployed or viewed
+#                             longest ago.
 #   preview mark <pr> human|none <time>
 #                             Sets whether a pull request waits on a human review, as
 #                             its labels showed at <time> (Unix seconds). A mark older

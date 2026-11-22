@@ -74,7 +74,7 @@ variable "instance_type" {
 }
 
 variable "ttl_days" {
-  description = "Days with no deploy or view before an unmarked preview is removed."
+  description = "Days with no deploy or view before a preview marked none is removed."
   type        = number
   default     = 2
 }
@@ -85,7 +85,7 @@ variable "ttl_days" {
 # sample simulator stores about 16 MiB a day in memory. GOMEMLIMIT makes the Go GC hold
 # the heap under the container limit, so a Core keeps about 8 days of it.
 variable "max_previews" {
-  description = "Previews the host runs at once. A new one removes the oldest."
+  description = "Previews the host runs at once. At the cap, a new one evicts one."
   type        = number
   default     = 25
 }
