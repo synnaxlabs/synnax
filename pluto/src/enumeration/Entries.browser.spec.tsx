@@ -13,7 +13,7 @@ import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Enumeration } from "@/enumeration";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 /** @returns whether a pointer at the element's center lands on it. */
 const takesPointer = (el: Element): boolean => {

@@ -21,7 +21,7 @@ import { type FC, type PropsWithChildren, type ReactElement, useState } from "re
 import { beforeAll, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Enumeration } from "@/enumeration";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
