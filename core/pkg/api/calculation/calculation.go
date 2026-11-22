@@ -187,16 +187,17 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	named := req.Named()
+	allowed := snap.Allowed
 	if err = q.Where(calculation.Match(func(
 		_ gorp.Context,
 		_ calculation.Retrieve,
 		c *calculation.Calculation,
 	) (bool, error) {
-		id, denied := s.internal.Denied(*c, snap.Allowed)
+		id, denied := s.internal.Denied(*c, allowed)
 		if !denied {
 			return true, nil
 		}
-		if slices.Contains(named, calculation.ResourceID(c.Key)) {
+		if len(named) > 0 && slices.Contains(named, calculation.ResourceID(c.Key)) {
 			return false, snap.Enforce(id)
 		}
 		return false, nil
