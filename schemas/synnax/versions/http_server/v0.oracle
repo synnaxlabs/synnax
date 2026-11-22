@@ -1,0 +1,232 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v1"
+import "schemas/synnax/versions/http/v4"
+import "schemas/synnax/versions/rack/v3"
+import "schemas/synnax/versions/secret/v1"
+import "schemas/synnax/versions/status/v2"
+
+Key = uuid {
+    @doc value "uniquely identifies an HTTP server."
+}
+
+Scheme enum {
+    https = "https" {
+        @doc value "sends requests over TLS."
+    }
+    http  = "http" {
+        @doc value "sends requests in plain text."
+    }
+
+    @doc value "is the URL scheme that the Driver reaches a server with."
+}
+
+SendAs enum {
+    header      = "header" {
+        @doc value "sends the key in a request header."
+    }
+    query_param = "query_param" {
+        @doc value "sends the key in a URL query parameter."
+    }
+
+    @doc value "selects where a request carries an API key."
+}
+
+Auth union on type {
+    none {
+        @doc value "sends no credentials."
+    }
+    bearer {
+        token secret.Key {
+            @doc value "is the secret that holds the bearer token."
+        }
+
+        @doc value "sends a bearer token in the Authorization header."
+    }
+    basic {
+        username string     {
+            @doc value "is the user name to authenticate with."
+        }
+        password secret.Key {
+            @doc value "is the secret that holds the password."
+        }
+
+        @doc value "sends a user name and password with HTTP basic authentication."
+    }
+    api_key {
+        key     secret.Key {
+            @doc value "is the secret that holds the API key."
+        }
+        send_as SendAs = header {
+            @doc value "selects where requests carry the key."
+        }
+        name    string     {
+            @doc value """
+                is the name of the header or query parameter that carries the key.
+            """
+        }
+
+        @doc value "sends an API key in a header or a query parameter."
+    }
+
+    @doc value  "holds the credentials that the Driver sends with each request."
+    @go marshal
+}
+
+BaseResponse struct {
+    pointer string {
+        @doc value "is the JSON Pointer to the value in the response body."
+    }
+
+    @doc value  "carries the fields that every expected response shares."
+    @go marshal
+}
+
+Response union on expected_value_type extends BaseResponse {
+    string {
+        expected_value string {
+            @doc value "is the string that the value must equal."
+        }
+
+        @doc value "expects a string."
+    }
+    number {
+        expected_value float64 {
+            @doc value "is the number that the value must equal."
+        }
+
+        @doc value "expects a number."
+    }
+    boolean {
+        expected_value bool {
+            @doc value "is the boolean that the value must equal."
+        }
+
+        @doc value "expects a boolean."
+    }
+    null {
+        @doc value "expects null."
+    }
+
+    @doc value  "is the value that a health check expects at a point in the response."
+    @go marshal
+}
+
+HealthCheck struct {
+    method       http.Method = get {
+        @doc value "is the method of the health check request."
+    }
+    path         string = "" {
+        @doc value "is the path appended to the base URL. Empty requests the base URL."
+    }
+    headers      http.Header[] = [] {
+        @doc value "are the headers sent with the request."
+    }
+    query_params http.QueryParam[] = [] {
+        @doc value "are the query parameters sent with the request."
+    }
+    body         string = "" {
+        @doc value "is the body sent with the request. Empty sends no body."
+    }
+    response     Response?         {
+        @doc value """
+            is the value that the response must hold. Absent accepts any successful
+            response.
+        """
+    }
+
+    @doc value  "is the request that the Driver sends to check that a server answers."
+    @go marshal
+}
+
+ReadChannels struct {
+    index    channel.Key = 0 {
+        @doc value "is the index channel of the channels that read the path."
+    }
+    channels map<string, channel.Key> = {} {
+        @doc value "maps a JSON Pointer to the channel that holds its samples."
+    }
+
+    @doc value  "holds the channels that read tasks write the responses of one path to."
+    @go marshal
+}
+
+StatusDetails struct {
+    rack      rack.Key {
+        @doc value "is the key of the rack the server belongs to."
+    }
+    server    Key      {
+        @doc value "is the key of the server."
+    }
+    connected bool = false {
+        @doc value "is true when the server passed the last health check."
+    }
+
+    @doc value "identifies the server and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the connection status of a server."
+}
+
+Server struct {
+    key                             Key = create {
+        @doc value "uniquely identifies the server."
+        @key
+    }
+    rack                            rack.Key                  {
+        @doc value "is the key of the rack whose Driver connects to the server."
+    }
+    name                            string                    {
+        @doc value "is a human-readable name for the server."
+    }
+    scheme                          Scheme = https {
+        @doc value "is the URL scheme that the Driver reaches the server with."
+    }
+    host                            string                    {
+        @doc value """
+            is the host of the server, with an optional port and base path, such as
+            192.168.1.10:8080/api.
+        """
+    }
+    certificate_validation_disabled bool = false {
+        @doc value "is true when the Driver accepts any server certificate."
+    }
+    timeout_ms                      uint32 = 100 {
+        @doc value "is the timeout of each request, in milliseconds."
+    }
+    max_concurrent_requests         uint32 = 6 {
+        @doc value "is the largest number of requests in flight to the server."
+    }
+    auth                            Auth = none {
+        @doc value "holds the credentials that the Driver sends with each request."
+    }
+    health_check                    HealthCheck = {} {
+        @doc value "is the request that the Driver checks the server with."
+    }
+    read_channels                   map<string, ReadChannels> = {} {
+        @doc value """
+            maps a path to the channels that read tasks write its responses to.
+        """
+    }
+    write_channels                  map<string, channel.Key> = {} {
+        @doc value """
+            maps a path to the channel whose commands write tasks send to it.
+        """
+    }
+    status                          Status?                   {
+        @doc value  "is the current connection status of the server."
+        @go marshal omit
+    }
+
+    @doc value  "is an HTTP server that a rack's Driver connects to."
+    @go marshal
+    @go migrate
+}

@@ -7,10 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Any, ClassVar
+from uuid import UUID, uuid4
+
 import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+import synnax.http.server
 from tests.json_value import arr, obj
 from tests.task_targets import TaskTargets
 from x import http
@@ -737,3 +741,58 @@ class TestHTTPRequestRows:
         assert check.headers is not None
         assert [h.name for h in check.headers] == ["Accept"]
         assert check.query_params == []
+
+
+@pytest.mark.http
+class TestHTTPServerResource:
+    """Tests for the typed HTTP server resource."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+    SERVER: ClassVar[dict[str, Any]] = {
+        "rack": 1,
+        "name": "Weather API",
+        "host": "api.example.com",
+    }
+
+    def test_applies_the_defaults(self) -> None:
+        """Should parse a server and fill in its defaults."""
+        server = sy.http.server.Server.model_validate(self.SERVER)
+        assert server.scheme == sy.http.server.SCHEME_HTTPS
+        assert server.certificate_validation_disabled is False
+        assert server.timeout_ms == 100
+        assert server.max_concurrent_requests == 6
+        assert isinstance(server.auth, sy.http.server.NoneAuth)
+        assert server.health_check.method == "GET"
+        assert server.health_check.response is None
+        assert server.read_channels == {}
+
+    def test_parses_secret_credentials(self) -> None:
+        """Should parse an API key auth that names its key by secret."""
+        key = uuid4()
+        server = sy.http.server.Server.model_validate(
+            {**self.SERVER, "auth": {"type": "api_key", "key": key, "name": "X-Key"}}
+        )
+        assert isinstance(server.auth, sy.http.server.APIKeyAuth)
+        assert server.auth.key == key
+        assert server.auth.send_as == sy.http.server.SEND_AS_HEADER
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"scheme": "ftp"},
+            {"timeout_ms": 0},
+            {"max_concurrent_requests": 0},
+            {"auth": {"type": "bearer", "token": "plaintext"}},
+            {"auth": {"type": "oauth"}},
+        ],
+    )
+    def test_rejects_an_invalid_server(self, change: dict[str, Any]) -> None:
+        """Should reject an unknown scheme, a zero timeout or request cap, a plaintext
+        token, and an unknown auth type."""
+        with pytest.raises(ValidationError):
+            sy.http.server.Server.model_validate({**self.SERVER, **change})
+
+    def test_resource_id(self) -> None:
+        """Should name the server by its key under the http_server type."""
+        assert sy.http.server.resource_id(self.KEY).type == "http_server"
+        assert sy.http.server.resource_id(self.KEY).key == str(self.KEY)

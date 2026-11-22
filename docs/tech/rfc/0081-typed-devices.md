@@ -225,11 +225,15 @@ Field groups per make:
   namespace by URI.
 - **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
   channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
-- **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
-  union), `max_concurrent_requests`, `health_check`, per-path read and write channel
-  maps (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver
-  injects from `location` (`driver/http/device/device.cpp:100-106`) is derived from
-  `host` and `secure` in generated code.
+- **HTTP server**: identity `rack`, `name`, `scheme` (`https` or `http`), `host`,
+  `certificate_validation_disabled`, `timeout_ms`, `max_concurrent_requests`, `auth`,
+  and `health_check` (the connect form); configuration the per-path channel maps
+  `read_channels` and `write_channels` (the task forms). `scheme` and
+  `certificate_validation_disabled` replace `secure` and `verify_ssl`, so no boolean
+  defaults to true. The `base_url` the Driver injects from `location`
+  (`driver/http/device/device.cpp:100-106`) is `scheme` and `host`. The bearer token,
+  basic password, and API key are `secret.Key` references, as the OPC UA password is.
+  The Phase 21 migration moves each stored plaintext credential into the secret store.
 
 A connected resource has no scanned identity: the connect form writes its identity
 group, `rack` included. The OPC UA certificate pin is a narrow write that only moves
