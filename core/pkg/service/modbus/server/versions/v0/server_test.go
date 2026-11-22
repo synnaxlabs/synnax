@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Server", func() {
@@ -294,4 +295,57 @@ var _ = Describe("Server", func() {
 			s.Writes = []v0.Write{{Location: writeCoil(0)}}
 		}, "writes.0.channel"),
 	)
+})
+
+var _ = Describe("Connection", func() {
+	DescribeTable("Should round trip through msgpack",
+		func(c v0.Connection) {
+			var decoded v0.Connection
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(c)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(c))
+		},
+		Entry("TCP", v0.Connection{Variant: v0.TcpConnection{
+			BytesSwapped: true,
+			TimeoutMs:    500,
+			Host:         "plc",
+			Port:         502,
+			UnitID:       3,
+		}}),
+		Entry("RTU", v0.Connection{Variant: v0.RtuConnection{
+			TimeoutMs:  1000,
+			Retries:    2,
+			SerialPort: "COM3",
+			BaudRate:   9600,
+			Parity:     v0.ParityNone,
+			StopBits:   2,
+			UnitID:     7,
+		}}),
+		Entry("no variant", v0.Connection{}),
+	)
+
+	It("Should apply the defaults of an omitted field", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{
+			"transport":   "rtu",
+			"serial_port": "COM3",
+		}))
+		var decoded v0.Connection
+		Expect(msgpack.Unmarshal(raw, &decoded)).To(Succeed())
+		Expect(decoded.Variant).To(Equal(v0.RtuConnection{
+			TimeoutMs:  1000,
+			Retries:    1,
+			SerialPort: "COM3",
+			BaudRate:   19200,
+			Parity:     v0.ParityEven,
+			StopBits:   1,
+			UnitID:     1,
+		}))
+	})
+
+	It("Should reject an unknown transport", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{"transport": "udp"}))
+		var decoded v0.Connection
+		Expect(msgpack.Unmarshal(raw, &decoded)).
+			To(MatchError(validate.ErrValidation))
+	})
 })

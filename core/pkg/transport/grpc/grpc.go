@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	modbusserver "github.com/synnaxlabs/synnax/pkg/api/modbus/server"
 	"github.com/synnaxlabs/synnax/pkg/api/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
@@ -170,6 +171,11 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.OPCUAServerRetrieve = noop.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]{}
 	t.OPCUAServerUpdate = noop.UnaryServer[server.UpdateRequest, struct{}]{}
 	t.OPCUAServerDelete = noop.UnaryServer[server.DeleteRequest, struct{}]{}
+	// MODBUS SERVER
+	t.ModbusServerRetrieve = noop.UnaryServer[
+		modbusserver.RetrieveRequest,
+		modbusserver.RetrieveResponse,
+	]{}
 
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}

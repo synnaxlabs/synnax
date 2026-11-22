@@ -11,7 +11,11 @@
 
 package server
 
-import "github.com/synnaxlabs/synnax/pkg/service/modbus/server/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/modbus/server/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key uniquely identifies a Modbus server.
 type Key = versions.Key
@@ -231,3 +235,19 @@ type Status = versions.Status
 
 // Server is a Modbus server that a rack's Driver connects to.
 type Server = versions.Server
+
+// Where is a filter that selects Modbus servers.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Rack selects by rack.
+	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+}

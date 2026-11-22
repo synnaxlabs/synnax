@@ -13,7 +13,6 @@ package status
 
 import (
 	"slices"
-	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -53,14 +52,6 @@ func newIndexes() indexes {
 			Targets: func(e *Status[any]) []label.Key {
 				return e.Labels
 			},
-			Locate: func(e *Status[any], t label.Key) []string {
-				for i, v := range e.Labels {
-					if v == t {
-						return []string{"labels", strconv.Itoa(i)}
-					}
-				}
-				return nil
-			},
 			Detach: func(e *Status[any], t label.Key) {
 				e.Labels = slices.DeleteFunc(e.Labels, func(v label.Key) bool {
 					return v == t
@@ -84,7 +75,7 @@ func newIndexes() indexes {
 		}),
 		owner: gorp.NewTargetReference(gorp.TargetReferenceConfig[Key, Status[any]]{
 			Name:     "owner",
-			Tables:   []string{"rack", "task", "device", "channel", "arc", "ni_device", "ni_chassis", "opcua_server", "labjack_device", "certificate"},
+			Tables:   []string{"rack", "task", "device", "channel", "arc", "ni_device", "ni_chassis", "modbus_server", "certificate"},
 			OnDelete: gorp.Cascade,
 			Kind:     gorp.Place,
 			Unique:   true,
