@@ -21,10 +21,12 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arcv4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -41,79 +43,86 @@ type sibling struct {
 	name   string
 }
 
-// nameClashMigration renames one side of each channel and channel folder that hold the
-// same name in one folder, after NFC. The channel takes the first free suffix when a
-// name pass renamed it and not the folder, or when the folder is the top-level metrics
-// folder (groupv1.MetricsFolder); else the folder does. It stages each rename, so it
-// runs after the name passes and before the text passes.
-var nameClashMigration = migrate.New(
-	"v63_name_clashes",
-	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-		staged, err := resourcev0.StagedRenames(tx)
-		if err != nil {
-			return err
-		}
-		from := make(map[resource.ID]string, len(staged))
-		for _, r := range staged {
-			from[r.ID] = r.From
-		}
-		// base returns the name that the suffix of a renamed item starts from: the
-		// rewrite of its old name when a name pass renamed it, or else its name.
-		base := func(id resource.ID, name, empty string) string {
-			old, ok := from[id]
-			if !ok {
-				return name
+// newNameClash returns the migration that renames one side of each channel and channel
+// folder that hold one name in one folder, after NFC, with the first free suffix. Of
+// several top-level metrics folders (groupv1.MetricsFolder), the one with the metrics
+// index channel of host keeps the name, or else the first by key. The channel yields
+// when it is top-level and holds that name, or when a name pass renamed it and not the
+// folder. It runs after the name passes and before the text passes.
+func newNameClash(host node.Key) gorp.Migration {
+	return migrate.New(
+		"v63_name_clashes",
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			staged, err := resourcev0.StagedRenames(tx)
+			if err != nil {
+				return err
 			}
-			if rewritten := resourcev0.SanitizeName(old); rewritten != "" {
-				return rewritten
+			from := make(map[resource.ID]string, len(staged))
+			for _, r := range staged {
+				from[r.ID] = r.From
 			}
-			return empty
-		}
-		var channels []channel.Channel
-		if err = gorp.NewRetrieve[channel.Key, channel.Channel]().
-			Entries(&channels).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		folders, err := channelFolders(ctx, tx)
-		if err != nil {
-			return err
-		}
-		var (
-			names    = make(set.Set[string], len(channels))
-			siblings = make(set.Set[sibling], len(channels)+len(folders))
-			holders  = make(map[sibling]int, len(channels))
-		)
-		for i, c := range channels {
-			at := sibling{name: resourcev0.NormalizeName(c.Name)}
-			if c.Group != nil {
-				at.parent = *c.Group
+			// base returns the name that the suffix of a renamed item starts from: the
+			// rewrite of its old name when a name pass renamed it, or else its name.
+			base := func(id resource.ID, name, empty string) string {
+				old, ok := from[id]
+				if !ok {
+					return name
+				}
+				if rewritten := resourcev0.SanitizeName(old); rewritten != "" {
+					return rewritten
+				}
+				return empty
 			}
-			names.Add(c.Name)
-			siblings.Add(at)
-			holders[at] = i
-		}
-		at := make([]sibling, len(folders))
-		for i, f := range folders {
-			at[i].name = resourcev0.NormalizeName(f.Name)
-			if f.Parent != nil {
-				if at[i].parent, err = group.KeyFromResourceID(*f.Parent); err != nil {
-					return err
+			var channels []channel.Channel
+			if err = gorp.NewRetrieve[channel.Key, channel.Channel]().
+				Entries(&channels).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
+			folders, err := channelFolders(ctx, tx)
+			if err != nil {
+				return err
+			}
+			var (
+				names    = make(set.Set[string], len(channels))
+				siblings = make(set.Set[sibling], len(channels)+len(folders))
+				holders  = make(map[sibling]int, len(channels))
+				// A v0.62 Core made its metrics index channel in its metrics folder.
+				index   = fmt.Sprintf("sy_node_%s_metrics_time", host)
+				indexIn *group.Key
+			)
+			for i, c := range channels {
+				at := sibling{name: resourcev0.NormalizeName(c.Name)}
+				if c.Group != nil {
+					at.parent = *c.Group
+				}
+				names.Add(c.Name)
+				siblings.Add(at)
+				holders[at] = i
+				if c.Name == index {
+					indexIn = c.Group
 				}
 			}
-			siblings.Add(at[i])
-		}
-		for i, f := range folders {
-			parent := at[i].parent
-			h, ok := holders[at[i]]
-			if !ok {
-				continue
+			var (
+				at      = make([]sibling, len(folders))
+				metrics = sibling{name: groupv1.MetricsFolder}
+				kept    = -1
+			)
+			for i, f := range folders {
+				at[i].name = resourcev0.NormalizeName(f.Name)
+				if f.Parent != nil {
+					at[i].parent, err = group.KeyFromResourceID(*f.Parent)
+					if err != nil {
+						return err
+					}
+				}
+				siblings.Add(at[i])
+				if at[i] == metrics &&
+					(kept < 0 || indexIn != nil && *indexIn == f.Key) {
+					kept = i
+				}
 			}
-			c := channels[h]
-			_, channelRenamed := from[c.ResourceID()]
-			_, folderRenamed := from[f.ResourceID()]
-			builtIn := parent == (group.Key{}) && f.Name == groupv1.MetricsFolder
-			if builtIn || channelRenamed && !folderRenamed {
+			moveChannel := func(c channel.Channel, parent group.Key) error {
 				first := base(c.ResourceID(), c.Name, "channel_"+c.Key().String())
 				name := resourcev0.FreeName(first, func(name string) bool {
 					return names.Contains(name) ||
@@ -121,7 +130,7 @@ var nameClashMigration = migrate.New(
 				})
 				names.Add(name)
 				siblings.Add(sibling{parent: parent, name: name})
-				if err = resourcev0.StageRename(
+				if err := resourcev0.StageRename(
 					ctx,
 					tx,
 					c.ResourceID(),
@@ -130,35 +139,61 @@ var nameClashMigration = migrate.New(
 					return err
 				}
 				c.Name = name
-				if err = gorp.WrapWriter[channel.Key, channel.Channel](tx).
-					Set(ctx, c); err != nil {
+				return gorp.WrapWriter[channel.Key, channel.Channel](tx).Set(ctx, c)
+			}
+			moveFolder := func(i int) error {
+				f, parent := folders[i], at[i].parent
+				name := resourcev0.FreeName(
+					base(f.ResourceID(), f.Name, "folder"),
+					func(name string) bool {
+						return siblings.Contains(sibling{parent: parent, name: name})
+					},
+				)
+				siblings.Add(sibling{parent: parent, name: name})
+				at[i].name = name
+				if err := resourcev0.StageRename(
+					ctx,
+					tx,
+					f.ResourceID(),
+					f.Name,
+				); err != nil {
 					return err
 				}
-				continue
+				f.Name = name
+				return gorp.WrapWriter[group.Key, group.Group](tx).Set(ctx, f)
 			}
-			first := base(f.ResourceID(), f.Name, "folder")
-			name := resourcev0.FreeName(first, func(name string) bool {
-				return siblings.Contains(sibling{parent: parent, name: name})
-			})
-			siblings.Add(sibling{parent: parent, name: name})
-			if err = resourcev0.StageRename(
-				ctx,
-				tx,
-				f.ResourceID(),
-				f.Name,
-			); err != nil {
-				return err
+			for i := range folders {
+				if i != kept && at[i] == metrics {
+					if err = moveFolder(i); err != nil {
+						return err
+					}
+				}
 			}
-			f.Name = name
-			if err = gorp.WrapWriter[group.Key, group.Group](
-				tx,
-			).Set(ctx, f); err != nil {
-				return err
+			for i, f := range folders {
+				h, ok := holders[at[i]]
+				if !ok {
+					continue
+				}
+				c := channels[h]
+				_, channelRenamed := from[c.ResourceID()]
+				_, folderRenamed := from[f.ResourceID()]
+				if i == kept || channelRenamed && !folderRenamed {
+					err = moveChannel(c, at[i].parent)
+				} else {
+					err = moveFolder(i)
+				}
+				if err != nil {
+					return err
+				}
 			}
-		}
-		return nil
-	},
-)
+			// The metrics service makes the folder later when the store holds none.
+			if h, ok := holders[metrics]; ok && kept < 0 {
+				return moveChannel(channels[h], group.Key{})
+			}
+			return nil
+		},
+	)
+}
 
 // channelFolders returns every channel folder, by key.
 func channelFolders(ctx context.Context, tx gorp.Tx) ([]group.Group, error) {
@@ -178,10 +213,18 @@ func channelFolders(ctx context.Context, tx gorp.Tx) ([]group.Group, error) {
 // textRename returns the rename that the text passes apply to each channel name in
 // stored text. A dashed name that a channel holds becomes quoted. A name that a renamed
 // channel held, and that no channel holds now, becomes the new name of that channel,
-// unless several renamed channels held it.
+// unless several renamed channels held it. A retired channel (channelv1.RetiredKeys)
+// holds no name.
 func textRename(ctx context.Context, tx gorp.Tx) (func(string) (string, bool), error) {
+	retired, err := channelv1.RetiredKeys(tx)
+	if err != nil {
+		return nil, err
+	}
 	var channels []channel.Channel
-	if err := gorp.NewRetrieve[channel.Key, channel.Channel]().
+	if err = gorp.NewRetrieve[channel.Key, channel.Channel]().
+		Where(gorp.Match(func(_ gorp.Context, c *channel.Channel) (bool, error) {
+			return !slices.Contains(retired, channelv1.Key(c.Key())), nil
+		})).
 		Entries(&channels).
 		Exec(ctx, tx); err != nil {
 		return nil, err
@@ -368,22 +411,23 @@ func newRenameReport(statuses *status.Service, ts *cesium.DB) gorp.Migration {
 
 // renameReason returns why the name passes renamed a noun that held the name from.
 func renameReason(from, noun string) string {
-	rewritten := resourcev0.SanitizeName(from)
 	switch {
 	case !utf8.ValidString(from):
 		return "the old name held bytes that are not valid text"
 	case strings.Contains(from, "."):
 		return "a '.' now separates the folders of a path, so a name cannot hold one"
-	case rewritten == "":
+	case resourcev0.SanitizeName(from) == "":
 		return "the old name showed no visible character"
-	case rewritten != resourcev0.NormalizeName(from):
+	case strings.ContainsFunc(from, resourcev0.IsInvisible):
 		return "the old name held a character that shows as nothing or as a space " +
 			"other than a plain space"
 	case from != resourcev0.NormalizeName(from):
 		return "names are now stored in Unicode normal form C (NFC), and the old " +
 			"name was not"
+	case noun == "folder":
+		return "another folder or a channel beside it held the same name"
 	}
-	return "another " + noun + " or a folder beside it held the same name"
+	return "another channel or a folder beside it held the same name"
 }
 
 // resourceNames returns the name of each channel and channel folder by resource ID.

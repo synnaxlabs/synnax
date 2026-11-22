@@ -26,7 +26,7 @@ func IsLegalName(s string) bool {
 	}
 	return !strings.ContainsFunc(
 		s,
-		func(r rune) bool { return r == '.' || isInvisible(r) },
+		func(r rune) bool { return r == '.' || IsInvisible(r) },
 	)
 }
 
@@ -68,17 +68,17 @@ func sanitize(s string) string {
 		switch {
 		case r == '.':
 			b.WriteByte('_')
-		case !isInvisible(r):
+		case !IsInvisible(r):
 			b.WriteRune(r)
 		}
 	}
 	return NormalizeName(b.String())
 }
 
-// isInvisible reports whether r shows as nothing or as a space other than U+0020: the
+// IsInvisible reports whether r shows as nothing or as a space other than U+0020: the
 // categories Cc, Cf, Zl, Zp, and Zs, the default ignorable code points, the variation
 // selectors, and U+2800.
-func isInvisible(r rune) bool {
+func IsInvisible(r rune) bool {
 	return r != ' ' && (r == '\u2800' || unicode.In(
 		r,
 		unicode.Cc,

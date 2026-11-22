@@ -29,7 +29,9 @@ const MetricsFolder = "Metrics"
 // holds, and stages each rename (resource.StageRename). Folders go by key, which is a
 // random order for v4 UUIDs. A new name is resource.SanitizeName of the old one, or
 // "folder" when that is empty, with the first suffix (_2, _3) that no other folder in
-// the same parent holds. It runs after the step that sets each parent.
+// the same parent holds. It leaves each top-level MetricsFolder to the clash pass of
+// the service layer, which knows the one that the Core uses. It runs after the step
+// that sets each parent.
 var NameRuleMigration = migrate.New("v63_folder_name_rule", migrateNameRule)
 
 // sibling is a name in a parent, or at the top when parent is zero.
@@ -54,12 +56,17 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		moves   = make([]bool, len(groups))
 		taken   = make(set.Set[sibling], len(groups))
 	)
+	metrics := sibling{name: MetricsFolder}
 	for i, g := range groups {
 		if !resource.IsLegalName(g.Name) {
 			moves[i] = true
 			continue
 		}
 		at := sibling{parent: parentOf(g), name: g.Name}
+		if at == metrics {
+			taken.Add(at)
+			continue
+		}
 		moves[i] = claimed.Contains(at)
 		claimed.Add(at)
 		if !moves[i] {
