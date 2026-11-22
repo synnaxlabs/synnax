@@ -156,6 +156,14 @@ TEST(Text, RouteByPrefix) {
     EXPECT_EQ(ASSERT_NIL_P(dec.decode("$HC,3")), 0);
 }
 
+/// @brief it should match no message for a blank line, even with a message that has no
+/// prefix.
+TEST(Text, MatchNoneForBlankLine) {
+    auto dec = ASSERT_NIL_P(Text::create({message("any", {at("a", 0)})}));
+    EXPECT_FALSE(ASSERT_NIL_P(dec.decode("")).has_value());
+    EXPECT_FALSE(ASSERT_NIL_P(dec.decode(" \t\r")).has_value());
+}
+
 /// @brief it should match no message for a line that no prefix starts.
 TEST(Text, MatchNone) {
     auto dec = ASSERT_NIL_P(Text::create({message("gga", {at("a", 1)}, "$GPGGA")}));
@@ -201,6 +209,14 @@ TEST(Text, RejectFloat32Overflow) {
         Text::create({message("line", {at("a", 0)}, "", x::telem::FLOAT32_T)})
     );
     assert_rejects(dec, "1e39", "field a: 1e+39 overflows float32");
+}
+
+/// @brief it should reject a value that its scale makes infinite.
+TEST(Text, RejectInfiniteScaledValue) {
+    auto f = at("a", 0);
+    f.scale = 1e10;
+    auto dec = ASSERT_NIL_P(Text::create({message("line", {f})}));
+    assert_rejects(dec, "1e300", "field a: Infinity is not finite");
 }
 
 /// @brief it should name the message in a decode error when it holds more than one.
@@ -277,8 +293,8 @@ TEST(Text, DecodeWithoutAllocating) {
             message("any", {at("a", 0), at("b", 3)}),
         })
     );
-    constexpr std::string_view gga = "$GPGGA,-12.375,T=1e3";
-    constexpr std::string_view any = "1,2,3,4.25";
+    constexpr std::string_view gga = "$GPGGA,-122.41941550000,T=1e3";
+    constexpr std::string_view any = "1,2,3,0.000123456789012";
     ASSERT_EQ(ASSERT_NIL_P(dec.decode(gga)), 0);
     ASSERT_EQ(ASSERT_NIL_P(dec.decode(any)), 1);
     const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);

@@ -86,11 +86,16 @@ Text::Field::create(const icd::TextField &f, const x::telem::DataType &dt) {
 
 x::errors::Error Text::Field::append_float(double v, x::telem::Series &dst) const {
     if (this->scaled) v = v * this->scale + this->offset;
+    if (!std::isfinite(v))
+        return x::errors::Error(
+            x::errors::VALIDATION,
+            x::json::Number(v).to_string() + " is not finite"
+        );
     if (!this->narrow) {
         dst.write(v);
         return x::errors::NIL;
     }
-    if (std::isfinite(v) && std::abs(v) > std::numeric_limits<float>::max())
+    if (std::abs(v) > std::numeric_limits<float>::max())
         return x::errors::Error(
             x::errors::VALIDATION,
             x::json::Number(v).to_string() + " overflows float32"
@@ -123,9 +128,9 @@ x::errors::Error Text::Field::decode(
                          : "no value at position " + std::to_string(this->position)
         );
     }
-    const auto [n, err] = x::json::Number::parse(value);
+    const auto [v, err] = x::json::parse_float64(value);
     if (err) return err;
-    return this->append_float(n.to_float64(), dst);
+    return this->append_float(v, dst);
 }
 
 std::pair<Text, x::errors::Error>
@@ -198,6 +203,7 @@ Text::route(const std::string &name, const std::string &prefix, const std::size_
 
 std::pair<std::optional<std::size_t>, x::errors::Error>
 Text::decode(const std::string_view line) {
+    if (trim(line).empty()) return {std::nullopt, x::errors::NIL};
     std::optional<std::size_t> found = this->fallback;
     for (const auto &p: this->prefixed)
         if (line.starts_with(p.prefix)) {

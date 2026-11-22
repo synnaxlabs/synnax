@@ -109,10 +109,12 @@ public:
     /// decimal number, with any spaces, tabs, or carriage returns around it. An empty
     /// or missing item has no value.
     /// @returns the index of the message in create order, or nothing when line belongs
-    /// to no message.
+    /// to no message. A line of only spaces, tabs, and carriage returns belongs to
+    /// none.
     /// @returns VALIDATION when a field with no default has no value in line, a value
-    /// is not a number, or a value does not fit its channel. The error names the field,
-    /// and also the message when the decoder holds more than one.
+    /// is not a number, or a scaled value is not finite or does not fit its channel.
+    /// The error names the field, and also the message when the decoder holds more than
+    /// one.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::string_view line);
 
