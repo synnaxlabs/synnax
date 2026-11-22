@@ -29,6 +29,7 @@ import {
   type ReactElement,
   Suspense,
 } from "react";
+import { beforeAll } from "vitest";
 
 import { Project } from "@/feature/project";
 import { Schematic } from "@/feature/schematic";
@@ -41,10 +42,15 @@ import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 export const client = createTestClient();
 
 const TAB = Schematic.TABS[schematic.TYPE_RESOURCE_ID.type];
-assertDefined(TAB.Toolbar);
 
 /** The lazily loaded toolbar of a schematic tab. */
 export const TabToolbar = TAB.Toolbar;
+
+/** Loads the lazy tab content and toolbar before the specs of a file run. */
+export const preloadTab = (): void =>
+  beforeAll(async () => {
+    await Promise.all([TAB.Content.preload(), TAB.Toolbar.preload()]);
+  });
 
 let projectKey: string | undefined;
 

@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   client,
   createSymbolPayload,
+  preloadTab,
   renderSchematic,
   TabToolbar,
 } from "@/feature/schematic/testutil";
@@ -66,6 +67,8 @@ const retrieveConfigs = async (key: string) =>
 afterEach(() => {
   vi.restoreAllMocks();
 });
+
+preloadTab();
 
 describe("Toolbar", () => {
   describe("when the schematic is not editable", () => {

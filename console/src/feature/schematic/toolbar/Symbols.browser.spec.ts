@@ -30,6 +30,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   client,
   createSymbolPayload,
+  preloadTab,
   renderSchematic,
   SYMBOL_FILE_DROP_PROMPT,
   TabToolbar,
@@ -77,6 +78,8 @@ const createRemoteSymbolGroup = async (
     );
   return { grp, symbols };
 };
+
+preloadTab();
 
 describe("Schematic toolbar Symbols", () => {
   it("adds a static symbol node to the schematic on click", async () => {

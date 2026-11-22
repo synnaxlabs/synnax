@@ -21,7 +21,12 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { client, renderSchematic, TabToolbar } from "@/feature/schematic/testutil";
+import {
+  client,
+  preloadTab,
+  renderSchematic,
+  TabToolbar,
+} from "@/feature/schematic/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { getHexInput, getSwatches } from "@/platform/multiedit/testutil";
 import { Session } from "@/session";
@@ -135,6 +140,8 @@ const pollBothOrientations = async (key: string, rotated: string): Promise<void>
     })
     .toEqual({ n1: rotated, n2: rotated });
 };
+
+preloadTab();
 
 describe("Schematic toolbar Properties", () => {
   describe("single selection", () => {

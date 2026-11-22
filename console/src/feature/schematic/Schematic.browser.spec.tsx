@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Schematic } from "@/feature/schematic";
-import { client, renderSchematic } from "@/feature/schematic/testutil";
+import { client, preloadTab, renderSchematic } from "@/feature/schematic/testutil";
 import { Vis } from "@/platform/vis";
 import { createTestClientWithGrants, type Grants, installMissingGPU } from "@/testutil";
 
@@ -65,6 +65,8 @@ const openMenu = async (grants: Grants): Promise<void> => {
   // Both items resolve a permission query, so the edit item proves the menu settled.
   await screen.findByText("Enable editing");
 };
+
+preloadTab();
 
 describe("Schematic tab content", () => {
   describe("when the canvas has no GPU", () => {
