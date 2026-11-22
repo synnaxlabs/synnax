@@ -458,6 +458,24 @@ describe("cached reads", () => {
     }
   });
 
+  test("should keep a subscribed user unchanged on a remote username change", async () => {
+    const u = await createUser();
+    const off = client.users.watch(u.key).onChange(() => {});
+    try {
+      const before = await client.users.retrieve(u.key);
+      await remote.users.changeUsername(u.key, id.create());
+      // A later rename of the same user arrives after the username change.
+      const name = `renamed-${id.create()}`;
+      await remote.users.rename(u.key, name);
+      await expect
+        .poll(() => expectLive(client.users.watch(u.key).getCached()).name)
+        .toBe(name);
+      expect(client.users.watch(u.key).getCached()).toEqual({ ...before, name });
+    } finally {
+      off();
+    }
+  });
+
   test("should deliver a remote role change to a subscribed user", async () => {
     const r = await createEmptyRole(client);
     const u = await createUser();
