@@ -88,15 +88,18 @@ const all = (c: aether.Component): aether.Component[] => [
 
 interface SourceProps {
   items: Haul.Item[];
+  onSuccessfulDrop: (props: Haul.OnSuccessfulDropProps) => void;
 }
 
-const Source = ({ items }: SourceProps): ReactElement => {
+const Source = ({ items, onSuccessfulDrop }: SourceProps): ReactElement => {
   const { startDrag, onDragEnd } = Haul.useDrag({ type: "test-source" });
   return (
     <div
       draggable
       data-testid="source"
-      onDragStart={(event) => startDrag({ event, items, preview: null })}
+      onDragStart={(event) =>
+        startDrag({ event, items, preview: null, onSuccessfulDrop })
+      }
       onDragEnd={onDragEnd}
     />
   );
@@ -1134,6 +1137,7 @@ describe("LinePlot", () => {
     });
 
     const renderPlot = async (items: Haul.Item[], editable = true) => {
+      const onSuccessfulDrop = vi.fn();
       const plot = await client.lineplots.create({
         project: projectKey,
         name: id.create(),
@@ -1142,7 +1146,7 @@ describe("LinePlot", () => {
       await act(async () => {
         result = render(
           <Haul.Provider>
-            <Source items={items} />
+            <Source items={items} onSuccessfulDrop={onSuccessfulDrop} />
             <Suspense fallback={null}>
               <LinePlot.Suspended linePlotKey={plot.key}>
                 <LinePlot.LinePlot aetherKey="plot" editable={editable} />
@@ -1165,19 +1169,24 @@ describe("LinePlot", () => {
           fireEvent.drop(viewport);
         });
       };
-      return { ...result, drop };
+      const lastDropped = (): Haul.Item["key"][] =>
+        onSuccessfulDrop.mock.lastCall?.[0].dropped.map(({ key }: Haul.Item) => key);
+      return { ...result, drop, lastDropped };
     };
 
     it("should add a dropped channel to the first Y axis", async () => {
       const keys = channels.map(({ key }) => key);
-      const { drop, getByTestId } = await renderPlot(keys.map(Channel.createHaulItem));
+      const { drop, getByTestId, lastDropped } = await renderPlot(
+        keys.map(Channel.createHaulItem),
+      );
       await drop();
       await waitFor(() => expect(getByTestId("y1").textContent).toBe(keys.join(",")));
+      expect(lastDropped()).toEqual(keys);
     });
 
     it("should not add a channel the first Y axis already has", async () => {
       const [first] = channels;
-      const { drop, getByTestId } = await renderPlot([
+      const { drop, getByTestId, lastDropped } = await renderPlot([
         Channel.createHaulItem(first.key),
       ]);
       await drop();
@@ -1185,6 +1194,7 @@ describe("LinePlot", () => {
         expect(getByTestId("y1").textContent).toBe(String(first.key)),
       );
       await drop();
+      expect(lastDropped()).toEqual([]);
       await expect(
         waitFor(
           () => expect(getByTestId("y1").textContent).not.toBe(String(first.key)),
@@ -1195,11 +1205,12 @@ describe("LinePlot", () => {
 
     it("should not add a channel when the plot is not editable", async () => {
       const [first] = channels;
-      const { drop, getByTestId } = await renderPlot(
+      const { drop, getByTestId, lastDropped } = await renderPlot(
         [Channel.createHaulItem(first.key)],
         false,
       );
       await drop();
+      expect(lastDropped()).toEqual([]);
       await expect(
         waitFor(() => expect(getByTestId("y1").textContent).not.toBe(""), {
           timeout: 300,

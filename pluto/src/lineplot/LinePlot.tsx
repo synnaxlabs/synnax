@@ -108,16 +108,18 @@ const useUndoRedoTriggers = ({ key, enabled }: UseUndoRedoTriggersProps) => {
 const useAxisDrop = <K extends lineplot.AxisKey>(
   axisKey: K,
   direction: direction.Direction,
-  onDrop?: (key: K, keys: channel.Key[]) => void,
+  onDrop: (key: K, keys: channel.Key[]) => channel.Key[],
 ): Haul.UseDropReturn =>
   Haul.useDrop({
     type: `channel_lineplot_${direction}_axis`,
     canDrop: Channel.canDropHaulItem,
     onDrop: ({ items }) => {
       const dropped = Channel.filterHaulItems(items);
-      const keys = dropped.map(({ key }) => key);
-      onDrop?.(axisKey, keys);
-      return dropped;
+      const added = onDrop(
+        axisKey,
+        dropped.map(({ key }) => key),
+      );
+      return dropped.filter(({ key }) => added.includes(key));
     },
   });
 
@@ -125,14 +127,20 @@ const useAddChannels = (
   key: lineplot.Key,
   axisKey: lineplot.YAxisKey,
   editable: boolean,
-): ((channels: channel.Key[]) => void) => {
+): ((channels: channel.Key[]) => channel.Key[]) => {
   const { dispatch } = useDispatch();
-  return (channels: channel.Key[]): void => {
-    if (editable && channels.length > 0)
+  const { channels: existing } = useYAxis({ key, axisKey });
+  // A drag source removes the items it reports as dropped, so report only the channels
+  // that the axis did not have.
+  return (channels: channel.Key[]): channel.Key[] => {
+    if (!editable) return [];
+    const added = [...new Set(channels)].filter((c) => !existing.includes(c));
+    if (added.length > 0)
       dispatch({
         key,
-        actions: channels.map((channel) => lineplot.addChannel({ axisKey, channel })),
+        actions: added.map((channel) => lineplot.addChannel({ axisKey, channel })),
       });
+    return added;
   };
 };
 
@@ -505,7 +513,7 @@ const YAxis = ({
   const { dispatch } = useDispatch();
   const { axis, lineKeys } = useYAxis({ key, axisKey });
   const addChannels = useAddChannels(key, axisKey, editable);
-  const handleDrop = (_: lineplot.YAxisKey, dropped: channel.Key[]): void =>
+  const handleDrop = (_: lineplot.YAxisKey, dropped: channel.Key[]): channel.Key[] =>
     addChannels(dropped);
   const handleLabelChange = (label: string) =>
     editable &&
@@ -558,12 +566,13 @@ const XAxis = ({
   relativeDisabled,
 }: XAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
-  const handleDrop = (axisKey: lineplot.XAxisKey, [channel]: channel.Key[]): void => {
-    if (editable && channel != null)
-      dispatch({
-        key,
-        actions: [lineplot.setXChannel({ axisKey, channel })],
-      });
+  const handleDrop = (
+    axisKey: lineplot.XAxisKey,
+    [channel]: channel.Key[],
+  ): channel.Key[] => {
+    if (!editable || channel == null) return [];
+    dispatch({ key, actions: [lineplot.setXChannel({ axisKey, channel })] });
+    return [channel];
   };
   const dropProps = useAxisDrop(axisKey, "x", handleDrop);
   const dragging = Haul.useDraggingState();
@@ -617,8 +626,8 @@ const usePlotDrop = (key: lineplot.Key, editable: boolean): Haul.UseDropReturn =
     canDrop: Channel.canDropHaulItem,
     onDrop: ({ items }) => {
       const dropped = Channel.filterHaulItems(items);
-      addChannels(dropped.map(({ key }) => key));
-      return dropped;
+      const added = addChannels(dropped.map(({ key }) => key));
+      return dropped.filter(({ key }) => added.includes(key));
     },
   });
 };
