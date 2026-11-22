@@ -9,14 +9,11 @@
 
 import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
 import {
-  type bounds,
   box,
   color,
   DataType,
   dynamicWindow,
   id,
-  MultiSeries,
-  Series,
   sleep,
   staticWindow,
   TimeRange,
@@ -36,7 +33,6 @@ import { telemTest } from "@/telem/aether/testutil";
 import { buildStack } from "@/testutil/providers";
 import { line } from "@/vis/line/aether";
 import { lineTest } from "@/vis/line/aether/testutil";
-import type { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const stubLineStateZ = z.object({
@@ -57,20 +53,6 @@ class StubLine extends aether.Leaf<typeof stubLineStateZ> {
     return this.state.fetching;
   }
 }
-
-interface LoopEntry {
-  key?: string;
-  render?: () => render.Cleanup | undefined;
-}
-
-// Runs the render that the plot requested last.
-const renderPlot = (recorder: canvasTest.Recorder): void => {
-  const entry = recorder.loopCalls
-    .map((call) => call.args[0] as LoopEntry)
-    .reverse()
-    .find((e) => e.key?.startsWith(lineplot.LinePlot.TYPE) ?? false);
-  entry?.render?.();
-};
 
 interface Mount {
   plot: lineplot.LinePlot;
@@ -125,7 +107,7 @@ describe("LinePlot", () => {
           loading: false,
           fetching,
         }),
-      pump: () => renderPlot(recorder),
+      pump: () => recorder.renderLast(lineplot.LinePlot.TYPE),
       hide: () =>
         stack.driver.update(base, lineplot.LinePlot.TYPE, {
           container: box.DECIMAL,
@@ -208,23 +190,6 @@ describe("LinePlot", () => {
   });
 });
 
-const seriesSpec = (data: number[]): telem.SeriesSourceSpec => {
-  const s = new Series({
-    data: new Float32Array(data),
-    timeRange: new TimeRange(0, 1),
-  });
-  const source = telemTest.source<[bounds.Bounds, MultiSeries]>([
-    s.bounds,
-    new MultiSeries([s]),
-  ]);
-  return {
-    type: telemTest.TestSource.TYPE,
-    props: { testId: source.id },
-    variant: "source",
-    valueType: "series",
-  };
-};
-
 const PLOT_STATE = {
   container: box.construct(0, 0, 1000, 500),
   viewport: box.DECIMAL,
@@ -293,15 +258,15 @@ const mountGLPlot = (teardowns: (() => void)[]): GLPlot => {
     },
     setLine: (path, x, y, state = {}) =>
       set(path, line.Line.TYPE, {
-        x: seriesSpec(x),
-        y: seriesSpec(y),
+        x: telemTest.seriesSpec(x),
+        y: telemTest.seriesSpec(y),
         color: "#ff0000",
         ...state,
       }),
     xAxis: (key) => stack.driver.find<lineplot.XAxis>([...base, key]),
     render: () => {
       recorder.upper2d.calls.length = 0;
-      renderPlot(recorder);
+      recorder.renderLast(lineplot.LinePlot.TYPE);
     },
     texts: () =>
       recorder.upper2d.calls
@@ -627,7 +592,7 @@ describe("LinePlot against a Core", () => {
       plot: stack.driver.find<lineplot.LinePlot>(base),
       xBounds: () => l1.xBounds().bounds,
       setViewport,
-      render: () => renderPlot(recorder),
+      render: () => recorder.renderLast(lineplot.LinePlot.TYPE),
     };
   };
 
