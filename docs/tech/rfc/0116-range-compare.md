@@ -89,7 +89,7 @@ mode keeps the color by channel.
   channel. Inside a channel, each range shows its color, name, and value, sorted by
   value from high to low. The hovered line's entry is bold. The tooltip lists as many
   entries as fit inside the plot, and the last one then reads "and N more".
-- **Hide and solo**: An eye on a range heading hides the range. An eye on a channel
+- **Hide and isolate**: An eye on a range heading hides the range. An eye on a channel
   under a range hides that pair. Option or Alt click on an eye shows only that item, and
   a second Option or Alt click restores the earlier set. The menu acts on what was
   clicked. A range name has Isolate. A channel in the legend, or a line, has Isolate in

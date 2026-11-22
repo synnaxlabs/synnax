@@ -649,8 +649,8 @@ export interface LinePlotProps extends FrameProps {
    * Called when the user toggles a legend entry: a stored line on an absolute x axis,
    * or a line of one range (see traceKey) on a relative axis.
    */
-  onLineVisibleChange?: (key: string, visible: boolean, solo: boolean) => void;
-  onRangeVisibleChange?: (key: string, visible: boolean, solo: boolean) => void;
+  onLineVisibleChange?: (key: string, visible: boolean, isolated: boolean) => void;
+  onRangeVisibleChange?: (key: string, visible: boolean, isolated: boolean) => void;
   onRangeColorChange?: (key: string, color: color.Color) => void;
   /** Called with the line under the pointer on a relative x axis, or null. */
   onHoveredChange?: (hovered: Hovered | null) => void;

@@ -47,12 +47,12 @@ import {
   countHidden,
   inScope,
   isLineHidden,
+  isolate,
   type Item,
   NONE_HIDDEN,
   type Scope,
   setItemVisible,
-  showOnly,
-  toggleSolo,
+  toggleIsolation,
   type Visibility,
 } from "@/feature/lineplot/visibility";
 import { Sift } from "@/feature/sift";
@@ -106,7 +106,7 @@ interface Compare {
   ranges: Base.RangeSpec[];
   hovered: Base.Hovered | null;
   onItemVisibleChange: (item: Item, visible: boolean) => void;
-  onShowOnly: (item: Item) => void;
+  onIsolate: (item: Item) => void;
   hidden: Session.LinePlot.Hidden;
   scope: Scope;
   /** The key of the range the plot is zoomed to, if any. */
@@ -131,7 +131,7 @@ const CompareMenuItems = ({
     ranges,
     hovered,
     onItemVisibleChange,
-    onShowOnly,
+    onIsolate,
     hidden,
     scope,
     zoomed,
@@ -200,8 +200,8 @@ const CompareMenuItems = ({
       {target == null ? (
         <>
           <Menu.Item
-            itemKey="showOnlyRange"
-            onClick={() => onShowOnly({ variant: "range", range: range.key })}
+            itemKey="isolateRange"
+            onClick={() => onIsolate({ variant: "range", range: range.key })}
           >
             <Ranger.VisibleIcon /> Isolate
           </Menu.Item>
@@ -231,16 +231,16 @@ const CompareMenuItems = ({
             </Menu.Item>
           )}
           <Menu.Item
-            itemKey="showOnlyTrace"
+            itemKey="isolateTrace"
             onClick={() =>
-              onShowOnly({ variant: "trace", line: target.line, range: target.range })
+              onIsolate({ variant: "trace", line: target.line, range: target.range })
             }
           >
             <Channel.VisibleIcon /> Isolate in this range
           </Menu.Item>
           <Menu.Item
-            itemKey="showOnlyLine"
-            onClick={() => onShowOnly({ variant: "line", line: target.line })}
+            itemKey="isolateLine"
+            onClick={() => onIsolate({ variant: "line", line: target.line })}
           >
             <Channel.VisibleIcon /> Isolate in all ranges
           </Menu.Item>
@@ -398,28 +398,28 @@ const Internal = (): ReactElement => {
     lines: derived.map((d) => d.key),
   };
   const hidden = inScope(Session.LinePlot.useSelectHidden(), scope);
-  const solo = Session.LinePlot.useSelectSolo();
+  const isolation = Session.LinePlot.useSelectIsolation();
   const { dispatch: dispatchPlot } = Base.useDispatch();
   const hoveredRef = useRef<Base.Hovered | null>(null);
   const setVisibility = (next: Visibility) =>
     dispatch(Session.LinePlot.setHidden({ key, ...next }));
   const handleItemVisibleChange = (item: Item, itemVisible: boolean) =>
-    setVisibility(setItemVisible({ hidden, solo }, item, itemVisible, scope));
-  const handleShowOnly = (item: Item) =>
-    setVisibility(showOnly({ hidden, solo }, item, scope));
-  const handleLegendChange = (item: Item, itemVisible: boolean, isSolo: boolean) =>
-    isSolo
-      ? setVisibility(toggleSolo({ hidden, solo }, item, scope))
+    setVisibility(setItemVisible({ hidden, isolation }, item, itemVisible, scope));
+  const handleIsolate = (item: Item) =>
+    setVisibility(isolate({ hidden, isolation }, item, scope));
+  const handleLegendChange = (item: Item, itemVisible: boolean, isolated: boolean) =>
+    isolated
+      ? setVisibility(toggleIsolation({ hidden, isolation }, item, scope))
       : handleItemVisibleChange(item, itemVisible);
-  const handleShowAll = () => setVisibility({ hidden: NONE_HIDDEN, solo: null });
-  const handleLineVisibleChange = (lineKey: string, v: boolean, isSolo: boolean) => {
+  const handleShowAll = () => setVisibility({ hidden: NONE_HIDDEN, isolation: null });
+  const handleLineVisibleChange = (lineKey: string, v: boolean, isolated: boolean) => {
     const trace = relative ? Base.parseTraceKey(lineKey, ranges) : null;
-    if (!relative) handleLegendChange({ variant: "line", line: lineKey }, v, isSolo);
+    if (!relative) handleLegendChange({ variant: "line", line: lineKey }, v, isolated);
     else if (trace != null)
-      handleLegendChange({ variant: "trace", ...trace }, v, isSolo);
+      handleLegendChange({ variant: "trace", ...trace }, v, isolated);
   };
-  const handleRangeVisibleChange = (range: string, v: boolean, isSolo: boolean) =>
-    handleLegendChange({ variant: "range", range }, v, isSolo);
+  const handleRangeVisibleChange = (range: string, v: boolean, isolated: boolean) =>
+    handleLegendChange({ variant: "range", range }, v, isolated);
   const handleRangeColorChange = (rangeKey: string, c: color.Color) => {
     const ref = refs.find((r) => Session.Range.keyOf(r) === rangeKey);
     if (ref == null) return;
@@ -511,7 +511,7 @@ const Internal = (): ReactElement => {
               ranges,
               hovered: keys.length === 0 ? menuHovered : null,
               onItemVisibleChange: handleItemVisibleChange,
-              onShowOnly: handleShowOnly,
+              onIsolate: handleIsolate,
               hidden,
               scope,
               zoomed,

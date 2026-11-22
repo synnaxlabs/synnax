@@ -61,9 +61,9 @@ const hiddenZ = z.object({
 /** The items of a plot that do not show. */
 export interface Hidden extends z.infer<typeof hiddenZ> {}
 
-const soloZ = z.object({ item: z.string(), restore: hiddenZ });
-/** The item the user showed alone, and what was hidden before. */
-export interface Solo extends z.infer<typeof soloZ> {}
+const isolationZ = z.object({ item: z.string(), restore: hiddenZ });
+/** The item the user isolated, and what was hidden before. */
+export interface Isolation extends z.infer<typeof isolationZ> {}
 
 const stateZ = z.object({
   viewport: viewportZ.prefault({}),
@@ -79,8 +79,8 @@ const stateZ = z.object({
   hiddenRanges: z.array(z.string()).default([]),
   /** The keys of the lines of one range that do not show on a relative x axis. */
   hiddenTraces: z.array(z.string()).default([]),
-  /** The item the user showed alone. A second solo of it restores what was hidden. */
-  solo: soloZ.nullable().default(null),
+  /** The item the user isolated, if any. */
+  isolation: isolationZ.nullable().default(null),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export interface NewState extends z.input<typeof stateZ> {}
@@ -152,7 +152,7 @@ export interface SetRangeAnnotationsVisiblePayload extends KeyedPayload {
 
 export interface SetHiddenPayload extends KeyedPayload {
   hidden: Hidden;
-  solo: Solo | null;
+  isolation: Isolation | null;
 }
 
 export interface RemovePayload {
@@ -236,11 +236,11 @@ export const { actions, reducer } = createSlice({
       state.annotations.visible = visible;
     }),
     setHidden: withSelectedState<SetHiddenPayload, SliceState>(
-      (state, { payload: { hidden, solo } }) => {
+      (state, { payload: { hidden, isolation } }) => {
         state.hiddenLines = hidden.lines;
         state.hiddenRanges = hidden.ranges;
         state.hiddenTraces = hidden.traces;
-        state.solo = solo;
+        state.isolation = isolation;
       },
     ),
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {

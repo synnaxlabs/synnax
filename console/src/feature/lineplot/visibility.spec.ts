@@ -13,18 +13,18 @@ import {
   countHidden,
   inScope,
   isLineHidden,
+  isolate,
   type Item,
   NONE_HIDDEN,
   type Scope,
   setItemVisible,
-  showOnly,
-  toggleSolo,
+  toggleIsolation,
   type Visibility,
 } from "@/feature/lineplot/visibility";
 
 const SCOPE: Scope = { ranges: ["a", "b", "c"], lines: ["l1", "l2"] };
 
-const NOTHING: Visibility = { hidden: NONE_HIDDEN, solo: null };
+const NOTHING: Visibility = { hidden: NONE_HIDDEN, isolation: null };
 
 const RANGE_A: Item = { variant: "range", range: "a" };
 const RANGE_B: Item = { variant: "range", range: "b" };
@@ -37,8 +37,8 @@ const hide = (state: Visibility, item: Item): Visibility =>
 const show = (state: Visibility, item: Item): Visibility =>
   setItemVisible(state, item, true, SCOPE);
 
-const solo = (state: Visibility, item: Item): Visibility =>
-  toggleSolo(state, item, SCOPE);
+const toggle = (state: Visibility, item: Item): Visibility =>
+  toggleIsolation(state, item, SCOPE);
 
 describe("lineplot visibility", () => {
   describe("setItemVisible", () => {
@@ -83,26 +83,26 @@ describe("lineplot visibility", () => {
       expect(hide(hide(NOTHING, RANGE_A), RANGE_A).hidden.ranges).toEqual(["a"]);
     });
 
-    it("should keep the solo when an item changes after it", () => {
-      const soloed = solo(NOTHING, RANGE_A);
-      expect(show(soloed, RANGE_B)).toEqual({
+    it("should keep the isolation when an item changes after it", () => {
+      const isolated = toggle(NOTHING, RANGE_A);
+      expect(show(isolated, RANGE_B)).toEqual({
         hidden: { ...NONE_HIDDEN, ranges: ["c"] },
-        solo: soloed.solo,
+        isolation: isolated.isolation,
       });
     });
   });
 
-  describe("showOnly", () => {
+  describe("isolate", () => {
     it("should show only a range and keep what was hidden to restore", () => {
       const before = hide(NOTHING, LINE_1);
-      expect(showOnly(before, RANGE_A, SCOPE)).toEqual({
+      expect(isolate(before, RANGE_A, SCOPE)).toEqual({
         hidden: { ...NONE_HIDDEN, ranges: ["b", "c"] },
-        solo: { item: "range:a", restore: before.hidden },
+        isolation: { item: "range:a", restore: before.hidden },
       });
     });
 
     it("should show only one line of one range", () => {
-      expect(showOnly(NOTHING, TRACE_1A, SCOPE).hidden).toEqual({
+      expect(isolate(NOTHING, TRACE_1A, SCOPE).hidden).toEqual({
         ...NONE_HIDDEN,
         ranges: ["b", "c"],
         traces: ["l2/a"],
@@ -110,38 +110,38 @@ describe("lineplot visibility", () => {
     });
 
     it("should show only a line in every range", () => {
-      expect(showOnly(NOTHING, LINE_1, SCOPE).hidden).toEqual({
+      expect(isolate(NOTHING, LINE_1, SCOPE).hidden).toEqual({
         ...NONE_HIDDEN,
         lines: ["l2"],
       });
     });
 
     it("should show only the item again when it is the one already shown alone", () => {
-      const soloed = showOnly(NOTHING, RANGE_A, SCOPE);
-      expect(showOnly(soloed, RANGE_A, SCOPE)).toEqual(soloed);
+      const isolated = isolate(NOTHING, RANGE_A, SCOPE);
+      expect(isolate(isolated, RANGE_A, SCOPE)).toEqual(isolated);
     });
   });
 
-  describe("toggleSolo", () => {
-    it("should restore what was hidden on a second solo of the same item", () => {
+  describe("toggleIsolation", () => {
+    it("should restore what was hidden on a second toggle of the same item", () => {
       const before = hide(NOTHING, LINE_1);
-      expect(solo(solo(before, RANGE_A), RANGE_A)).toEqual(before);
+      expect(toggle(toggle(before, RANGE_A), RANGE_A)).toEqual(before);
     });
 
     it("should show only another item and keep the first restore point", () => {
       const before = hide(NOTHING, LINE_1);
-      const next = solo(solo(before, RANGE_A), RANGE_B);
+      const next = toggle(toggle(before, RANGE_A), RANGE_B);
       expect(next).toEqual({
         hidden: { ...NONE_HIDDEN, ranges: ["a", "c"] },
-        solo: { item: "range:b", restore: before.hidden },
+        isolation: { item: "range:b", restore: before.hidden },
       });
-      expect(solo(next, RANGE_B)).toEqual(before);
+      expect(toggle(next, RANGE_B)).toEqual(before);
     });
 
     it("should restore only the items still in scope", () => {
-      const soloed = solo(hide(NOTHING, RANGE_A), LINE_1);
+      const isolated = toggle(hide(NOTHING, RANGE_A), LINE_1);
       const smaller: Scope = { ranges: ["b", "c"], lines: SCOPE.lines };
-      expect(toggleSolo(soloed, LINE_1, smaller)).toEqual(NOTHING);
+      expect(toggleIsolation(isolated, LINE_1, smaller)).toEqual(NOTHING);
     });
   });
 
