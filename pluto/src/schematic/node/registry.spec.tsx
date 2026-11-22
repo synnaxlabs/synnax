@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep, TimeSpan } from "@synnaxlabs/x";
 import { fireEvent } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -16,14 +17,10 @@ import { Node } from "@/schematic/node";
 import { GroupBox } from "@/schematic/node/groupBox";
 import { createSynnaxWrapper, renderForm } from "@/testutil";
 
-const createSymbol = (variant: string, stateKeys: string[]): schematic.symbol.Symbol =>
+const createSymbol = (variant: string): schematic.symbol.Symbol =>
   schematic.symbol.symbolZ.parse({
     name: "Pump",
-    data: {
-      svg: "<svg></svg>",
-      variant,
-      states: stateKeys.map((key) => ({ key, name: key })),
-    },
+    data: { drawing: { type: "svg", markup: "<svg></svg>" }, variant },
   });
 
 describe("Schematic.Node.resolveSpec", () => {
@@ -33,6 +30,16 @@ describe("Schematic.Node.resolveSpec", () => {
 
   it("should throw NotFoundError for an unknown variant", () => {
     expect(() => Node.resolveSpec("not-a-symbol")).toThrow(NotFoundError);
+  });
+});
+
+describe("Schematic.Node.REGISTRY", () => {
+  // The node cutover adds the drawing of normally_open_solenoid_valve.
+  it("should draw every symbol that the Core ships", async () => {
+    const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
+    expect(
+      builtins.map((b) => b.name).filter((name) => !(name in Node.REGISTRY)),
+    ).toEqual(["normally_open_solenoid_valve"]);
   });
 });
 
@@ -155,18 +162,11 @@ describe("Schematic.Node.createConfig", () => {
 
 describe("Schematic.Node.customVariant", () => {
   it("should draw a static symbol as a custom static node", () => {
-    expect(Node.customVariant(createSymbol("static", ["base"]))).toBe("custom_static");
+    expect(Node.customVariant(createSymbol("static"))).toBe("custom_static");
   });
 
-  it("should draw an actuator with several states as a custom actuator", () => {
-    const symbol = createSymbol("actuator", ["base", "active"]);
-    expect(Node.customVariant(symbol)).toBe("custom_actuator");
-  });
-
-  it("should draw an actuator with a single state as a custom static node", () => {
-    expect(Node.customVariant(createSymbol("actuator", ["base"]))).toBe(
-      "custom_static",
-    );
+  it("should draw an actuator as a custom actuator", () => {
+    expect(Node.customVariant(createSymbol("actuator"))).toBe("custom_actuator");
   });
 });
 

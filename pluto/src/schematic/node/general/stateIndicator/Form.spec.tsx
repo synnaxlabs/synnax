@@ -16,6 +16,7 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
+import { CreatePromptStub } from "@/schematic/node/testutil";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
 const path = deep.path<schematic.StateIndicatorNodeConfig>();
@@ -28,7 +29,12 @@ describe("StateIndicator form", () => {
   let wrapper: FC<PropsWithChildren>;
   let ch: channel.Channel;
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({ client });
+    const Base = await createAsyncSynnaxWrapper({ client });
+    wrapper = ({ children }) => (
+      <Base>
+        <CreatePromptStub>{children}</CreatePromptStub>
+      </Base>
+    );
     ch = await client.channels.create({
       name: id.create(),
       dataType: DataType.FLOAT32,

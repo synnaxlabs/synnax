@@ -19,6 +19,7 @@ import { Staleness } from "@/vis/staleness";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 
 const COLOR_VAR = "--pluto-symbol-color";
+const ON_COLOR_VAR = "--pluto-light-on-color";
 const STROKE = "0, 255, 0, 1";
 const ON = "255, 0, 0, 1";
 
@@ -48,14 +49,14 @@ const renderStale = (badged: boolean) => {
       </Staleness.Provider>
     </Wrapper>,
   );
-  const color = (selector: string): string =>
+  const color = (selector: string, variable: string): string =>
     result.container
       .querySelector<HTMLElement | SVGElement>(selector)
-      ?.style.getPropertyValue(COLOR_VAR) ?? "";
+      ?.style.getPropertyValue(variable) ?? "";
   return {
     ...result,
-    strokeColor: () => color(".pluto-light svg"),
-    lampColor: () => color(".pluto-light__lamp"),
+    strokeColor: () => color(".pluto-light svg", COLOR_VAR),
+    lampColor: () => color(".pluto-light", ON_COLOR_VAR),
   };
 };
 

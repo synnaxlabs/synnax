@@ -24,29 +24,25 @@ import { Toggle } from "@/schematic/node/common/toggle";
 const STROKE = color.construct("#cfd1d4");
 const FILL = color.construct("#ffffff");
 
-const SPEC: schematic.symbol.Spec = {
-  svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect class="main" width="10" height="10" stroke="red" fill="blue"/></svg>',
-  states: [
-    {
-      key: "base",
-      name: "Base",
-      regions: [
-        {
-          key: "main",
-          name: "Main",
-          selectors: [".main"],
-          strokeColor: STROKE,
-          fillColor: FILL,
-        },
-      ],
-    },
-  ],
-  variant: "static",
+const createSpec = (svg: string): schematic.symbol.Spec => ({
+  drawing: { type: "svg", markup: svg },
+  parts: [],
   handles: [],
+  states: [],
+  commands: [],
+  looks: [],
+  interactions: [],
+  variant: "static",
   scale: 1,
   strokeScaled: false,
   previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-};
+});
+
+const SPEC = createSpec(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect class="main" width="10" height="10" stroke="red" fill="blue"/></svg>',
+);
+
+const PAINTS: Custom.Paint[] = [{ selectors: [".main"], stroke: STROKE, fill: FILL }];
 
 interface Paint {
   stroke: string;
@@ -57,7 +53,7 @@ const renderCustom = async (theme: Theming.ThemeSpec): Promise<Paint> => {
   const { container } = await render(
     <Theming.Provider theme={theme}>
       <Primitive.Div>
-        <Custom.Drawing spec={SPEC} />
+        <Custom.Drawing spec={SPEC} paints={PAINTS} />
       </Primitive.Div>
     </Theming.Provider>,
   );
@@ -107,10 +103,8 @@ const SHOWN = [".stroked", ".unset", ".loose"];
 // outside the drawn tree.
 const HIDDEN = [".unstroked", ".bare", ".template"];
 
-const COLORED_SPEC: schematic.symbol.Spec = {
-  ...SPEC,
-  svg:
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+const COLORED_SPEC = createSpec(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
     '<rect class="stroked" width="10" height="10" stroke="red"/>' +
     '<rect class="unstroked" width="5" height="5" stroke="none" fill="blue"/>' +
     '<rect class="unset" width="4" height="4" stroke="red"/>' +
@@ -118,29 +112,13 @@ const COLORED_SPEC: schematic.symbol.Spec = {
     '<rect class="bare" width="2" height="2" fill="blue"/>' +
     '<defs><rect class="template" width="1" height="1" stroke="red"/></defs>' +
     "</svg>",
-  states: [
-    {
-      key: "base",
-      name: "Base",
-      regions: [
-        {
-          key: "stroked",
-          name: "Stroked",
-          selectors: [".stroked"],
-          strokeColor: STROKE,
-        },
-        {
-          key: "unstroked",
-          name: "Unstroked",
-          selectors: [".unstroked"],
-          strokeColor: color.TRANSPARENT,
-          fillColor: FILL,
-        },
-        { key: "unset", name: "Unset", selectors: [".unset"] },
-      ],
-    },
-  ],
-};
+);
+
+const COLORED_PAINTS: Custom.Paint[] = [
+  { selectors: [".stroked"], stroke: STROKE },
+  { selectors: [".unstroked"], stroke: color.TRANSPARENT, fill: FILL },
+  { selectors: [".unset"] },
+];
 
 const DISPLAY = "--pluto-symbol-display";
 
@@ -151,7 +129,11 @@ const ColoredDrawing = ({
 }): ReactElement => (
   <Theming.Provider theme={Theming.SYNNAX_DARK}>
     <Primitive.Div>
-      <Custom.Drawing spec={COLORED_SPEC} strokeColor={strokeColor} />
+      <Custom.Drawing
+        spec={COLORED_SPEC}
+        paints={COLORED_PAINTS}
+        strokeColor={strokeColor}
+      />
     </Primitive.Div>
   </Theming.Provider>
 );
@@ -223,13 +205,10 @@ describe("Custom.Drawing symbol color", () => {
   });
 });
 
-const ROOT_PAINT_SPEC: schematic.symbol.Spec = {
-  ...SPEC,
-  svg:
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" fill="red" stroke="blue">' +
+const ROOT_PAINT_SPEC = createSpec(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" fill="red" stroke="blue">' +
     '<rect class="bare" width="10" height="10"/></svg>',
-  states: [],
-};
+);
 
 const ROOT_PAINT_SYMBOLS: [string, ReactElement][] = [
   [
@@ -241,7 +220,7 @@ const ROOT_PAINT_SYMBOLS: [string, ReactElement][] = [
   [
     "enabled actuator",
     <Toggle.Button key="actuator" enabled>
-      <Custom.Drawing spec={ROOT_PAINT_SPEC} enabled />
+      <Custom.Drawing spec={ROOT_PAINT_SPEC} />
     </Toggle.Button>,
   ],
 ];
@@ -290,29 +269,16 @@ const renderHeld = async (symbol: ReactElement): Promise<Element> => {
 };
 
 // The selector matches any first rect, so it would reach a fill beside the shapes.
-const HOLD_SPEC: schematic.symbol.Spec = {
-  ...SPEC,
-  svg: HOLD_SVG,
-  states: [
-    {
-      key: "base",
-      name: "Base",
-      regions: [
-        {
-          key: "main",
-          name: "Main",
-          selectors: ["rect:nth-of-type(1)"],
-          strokeColor: STROKE,
-        },
-      ],
-    },
-  ],
-};
+const HOLD_SPEC = createSpec(HOLD_SVG);
+
+const HOLD_PAINTS: Custom.Paint[] = [
+  { selectors: ["rect:nth-of-type(1)"], stroke: STROKE },
+];
 
 const renderCustomHeld = async (): Promise<Element> =>
   await renderHeld(
     <Toggle.Button className={CSS.BM("symbol", "custom")} onClickDelay={HOLD_DELAY}>
-      <Custom.Drawing spec={HOLD_SPEC} strokeColor={STALE} />
+      <Custom.Drawing spec={HOLD_SPEC} paints={HOLD_PAINTS} strokeColor={STALE} />
     </Toggle.Button>,
   );
 
@@ -426,7 +392,7 @@ describe("Custom.Drawing built-in toggle", () => {
     async (_, enabled, interact) => {
       const jsx = await renderToggleShape(JSX_TOGGLE_DRAWING, enabled, interact);
       const builtIn = await renderToggleShape(
-        <Custom.Drawing spec={BUILT_IN_TOGGLE_SPEC} builtIn enabled={enabled} />,
+        <Custom.Drawing spec={BUILT_IN_TOGGLE_SPEC} builtIn />,
         enabled,
         interact,
       );
@@ -450,11 +416,10 @@ const DRAWINGS: [string, string][] = [
   ],
 ];
 
-const createOrientedSpec = (drawing: string): schematic.symbol.Spec => ({
-  ...SPEC,
-  svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20">${drawing}</svg>`,
-  states: [],
-});
+const createOrientedSpec = (drawing: string): schematic.symbol.Spec =>
+  createSpec(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20">${drawing}</svg>`,
+  );
 
 // Where the marker's center lands as a fraction of the symbol's box, turned as a
 // built-in symbol turns.

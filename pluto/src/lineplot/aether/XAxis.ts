@@ -82,13 +82,14 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   /**
    * Draws the axis, its y axes, and its ranges. Each y axis adds a draw of each of its
    * raised lines to raised, and each range strip adds the draw of its tooltip.
-   * @returns the layout of the draw and the first error it met, or null for a deleted
-   * axis. An error does not stop the draw, so the axis still shows.
+   * @returns the layout of the draw, its gaps or the gaps that hidden breaks hide, and
+   * the first error it met, or null for a deleted axis. An error does not stop the
+   * draw, so the axis still shows.
    */
   render(
     props: AxisRenderProps,
     raised: Array<() => void>,
-  ): [Layout, Error | null] | null {
+  ): [Layout, readonly Gap[], Error | null] | null {
     if (this.deleted) return null;
     const [layout, traces, err] = this.iLayout(props);
     const segments = layout.segments.map(({ position, scale }) => ({
@@ -105,7 +106,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     }
     this.renderRanges(props, layout, traces, raised);
     this.renderBreaks(props, layout);
-    return [layout, err ?? yErr];
+    return [layout, this.gaps(layout, traces, props), err ?? yErr];
   }
 
   findByXDecimal(
@@ -214,10 +215,14 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return bound;
   }
 
-  /** @returns the gaps of layout, or the gaps that the breaks hide while hidden. */
-  gaps(layout: Layout, { breaksHidden, openBreaks }: LayoutProps): readonly Gap[] {
+  // gaps returns the gaps of layout, or the gaps that the breaks hide while hidden.
+  private gaps(
+    layout: Layout,
+    traces: Trace[],
+    { breaksHidden, openBreaks }: LayoutProps,
+  ): readonly Gap[] {
     if (!breaksHidden || this.state.type !== "time") return layout.gaps;
-    return join(this.segments(this.iTraces()[0], true), openBreaks).gaps;
+    return join(this.segments(traces, true), openBreaks).gaps;
   }
 
   /** @returns the layout of the axis for the viewport. */

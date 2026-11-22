@@ -755,6 +755,8 @@ bound, a log precision, or the line plot X channel.
 - Create in place when every field you set is a column, such as a label or a secret. The
   create item opens at the top with check and X buttons, and Enter and Esc. It stays
   open and empty after each create, and the new item fades in under it.
+- A record whose next step is to fill in its children, such as an enumeration, closes
+  the create item and opens with its add button focused.
 - Use a modal when the item needs a field the list does not show, such as a user's
   password, or when the create returns a value to copy, such as an API key's token.
 - A record table names its columns in a band above the items. Explorers have no
@@ -842,6 +844,10 @@ bound, a log precision, or the line plot X channel.
 - Esc puts back the value the cell held when it took focus. A second Esc leaves the
   cell. Esc never commits typed text.
 - A cell with an error has a red frame, and its message shows on hover.
+- In a column whose values must differ, a value that another item has stays in its cell,
+  marked and not sent. It saves when the user's own edit frees it. When another user
+  frees it, the cell shows the stored value again. A pasted item with such a value saves
+  with a free value, and its cell shows the value it repeats, marked.
 - Paste keeps the values that parse. A cell whose text does not parse keeps its value
   and shows the error until an edit. A first row in which no number or boolean parses is
   a heading, and paste drops it. A single value pasted into a text cell goes to that
