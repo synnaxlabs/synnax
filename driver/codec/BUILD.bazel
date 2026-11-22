@@ -20,6 +20,7 @@ cc_library(
         "match.cpp",
     ],
     hdrs = [
+        "binding.h",
         "bits.h",
         "errors.h",
         "json.h",
