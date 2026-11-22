@@ -907,6 +907,9 @@ describe("cached reads", () => {
 describe("old API edits of a calculated channel", () => {
   it("should reach a client that holds the channel in its cache", async () => {
     const local = createTestClient();
+    // The local client must stream before the edit, or it misses the edit's broadcast.
+    await local.connect();
+    await waitForStreamLive(local.connection);
     const source = await local.channels.create({
       name: id.create(),
       dataType: DataType.FLOAT32,
