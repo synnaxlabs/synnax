@@ -99,6 +99,7 @@ var _ = Describe("Pointer log replay breaker", func() {
 				cesium.WithFS(fs),
 				cesium.WithPointerLog(),
 				cesium.WithRandom(rand.NewPCG(9, 9)),
+				pcgIdentity(9, 9),
 				cesium.WithExecutor(serial.run),
 			))
 		}

@@ -107,6 +107,7 @@ var _ = Describe("Pointer log recovery breaker", func() {
 			cesium.WithFS(fs),
 			cesium.WithPointerLog(),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
+			pcgIdentity(1, 2),
 		)
 	}
 	cycle := func(ctx context.Context, fs xfs.FS, work func(db *cesium.DB)) {

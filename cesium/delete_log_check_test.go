@@ -41,6 +41,7 @@ var _ = Describe("Pointer log delete check", func() {
 			cesium.WithFS(fs),
 			cesium.WithPointerLog(),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
+			pcgIdentity(1, 2),
 		))
 		stop = StartRun(db.Run)
 	}
