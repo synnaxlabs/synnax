@@ -27,17 +27,19 @@ var _ = Describe("Orphan pass", func() {
 	It("Should end before a Sweep removes the directory of a torn key", func(
 		ctx SpecContext,
 	) {
-		open := func(fs xfs.FS) *cesium.DB {
+		// open opens fs stating identity id, 0 for a new root.
+		open := func(fs xfs.FS, id uint64) *cesium.DB {
 			GinkgoHelper()
 			return MustSucceed(cesium.Open(
 				ctx,
 				"",
 				cesium.WithFS(fs),
 				cesium.WithPointerLog(),
+				cesium.WithIdentity(id),
 			))
 		}
 		disk := xfs.NewMem()
-		db := open(disk)
+		db := open(disk, 0)
 		stop := GoRun(ctx, db.Run)
 		Expect(db.CreateChannel(ctx, cesium.Channel{
 			Key:      1,
@@ -45,6 +47,7 @@ var _ = Describe("Orphan pass", func() {
 			IsIndex:  true,
 			DataType: telem.TimestampT,
 		})).To(Succeed())
+		id := db.Identity()
 		Expect(stop()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 		// A channel file that fails its check leaves key 1, with no segment, torn.
@@ -59,7 +62,7 @@ var _ = Describe("Orphan pass", func() {
 		}
 		release := sync.OnceFunc(func() { close(gate.release) })
 		DeferCleanup(release)
-		db = open(gate)
+		db = open(gate, id)
 		gate.armed.Store(true)
 		stop = GoRun(ctx, db.Run)
 		Eventually(gate.held).WithTimeout(10 * time.Second).Should(BeClosed())

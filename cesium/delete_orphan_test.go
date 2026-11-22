@@ -26,13 +26,15 @@ import (
 var _ = Describe("Orphan pass before a delete", func() {
 	It("Should end before a DeleteTimeRange unlinks the file of a segment that it "+
 		"buries", func(ctx SpecContext) {
-		open := func(fs xfs.FS) *cesium.DB {
+		// open opens fs stating identity id, 0 for a new root.
+		open := func(fs xfs.FS, id uint64) *cesium.DB {
 			GinkgoHelper()
 			return MustSucceed(cesium.Open(
 				ctx,
 				"",
 				cesium.WithFS(fs),
 				cesium.WithPointerLog(),
+				cesium.WithIdentity(id),
 			))
 		}
 		keys := []cesium.ChannelKey{1, 2}
@@ -58,7 +60,7 @@ var _ = Describe("Orphan pass before a delete", func() {
 			Expect(w.Close()).To(Succeed())
 		}
 		disk := xfs.NewMem()
-		db := open(disk)
+		db := open(disk, 0)
 		stop := GoRun(ctx, db.Run)
 		Expect(db.CreateChannel(
 			ctx,
@@ -72,6 +74,7 @@ var _ = Describe("Orphan pass before a delete", func() {
 		)).To(Succeed())
 		write(ctx, db, 1)
 		write(ctx, db, 10)
+		id := db.Identity()
 		Expect(stop()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 		gate := orphanGateFS{
@@ -82,7 +85,7 @@ var _ = Describe("Orphan pass before a delete", func() {
 		}
 		release := sync.OnceFunc(func() { close(gate.release) })
 		DeferCleanup(release)
-		db = open(gate)
+		db = open(gate, id)
 		gate.armed.Store(true)
 		stop = GoRun(ctx, db.Run)
 		Eventually(gate.held).WithTimeout(10 * time.Second).Should(BeClosed())
