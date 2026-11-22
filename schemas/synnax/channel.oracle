@@ -304,6 +304,13 @@ APIChannel struct {
         @include
         @pb omit
     }
+    calculated  bool = false {
+        @cpp omit
+        @doc value """
+            is true if a calculation writes the channel, whether or not the caller can
+            retrieve the calculation.
+        """
+    }
 
     @cpp name      "Channel"
     @create

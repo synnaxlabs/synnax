@@ -254,7 +254,7 @@ func (s *Service) Create(
 	if err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse{Channels: s.translateForward(stored, shown)}, nil
+	return CreateResponse{Channels: s.translateForward(stored, calcs, shown)}, nil
 }
 
 // statusOwners returns the owner of the status of each of channels: the calculation
@@ -311,7 +311,7 @@ func (s *Service) Retrieve(
 			return RetrieveResponse{}, err
 		}
 	}
-	res := RetrieveResponse{Channels: s.translateForward(resChannels, shown)}
+	res := RetrieveResponse{Channels: s.translateForward(resChannels, calcs, shown)}
 	if req.IncludeStatus {
 		// A hidden calculation shows no status: its status names what it reads.
 		owners := statusOwners(resChannels, shown)
@@ -482,14 +482,17 @@ func namesByName(where *channel.Where) bool {
 		(where.Name.Eq != nil || len(where.Name.In) > 0)
 }
 
-// translateForward returns the old API form of channels, with the expression and
-// operations of the calculation in shown that writes each one.
+// translateForward returns the old API form of channels. Each channel that a
+// calculation in calcs writes is calculated, and has the expression and operations of
+// that calculation when shown holds it.
 func (s *Service) translateForward(
 	channels []channel.Channel,
+	calcs map[channel.Key]calculation.Calculation,
 	shown map[channel.Key]calculation.Calculation,
 ) []Channel {
 	translated := translateChannelsForward(channels, s.internal.IsBuiltIn)
 	for i := range translated {
+		_, translated[i].Calculated = calcs[translated[i].Key]
 		c, ok := shown[translated[i].Key]
 		if !ok {
 			continue
@@ -672,8 +675,6 @@ type DispatchRequest = actions.DispatchRequest[channel.Key, channel.Action]
 // of the data type that an expression edit infers.
 type DispatchResponse = actions.DispatchResponse[channel.Action]
 
-// Dispatch applies the action sequence to the target channel atomically. Subscribers to
-// the channel action channel receive the sequence after the transaction commits.
 // editedInputs returns the inputs of the calculation that writes the channel with key,
 // which an edit compiled in tx, so its stored reads are current.
 func (s *Service) editedInputs(
@@ -695,6 +696,8 @@ func (s *Service) editedInputs(
 	}})
 }
 
+// Dispatch applies the action sequence to the target channel atomically. Subscribers to
+// the channel action channel receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
