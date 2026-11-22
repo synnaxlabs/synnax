@@ -24,6 +24,7 @@ package storage
 
 import (
 	"context"
+	"encoding/binary"
 	"io"
 	"io/fs"
 	"math/rand/v2"
@@ -47,6 +48,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	xtime "github.com/synnaxlabs/x/time"
@@ -320,7 +322,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	)
 
 	// Open the time-series engine.
-	if l.TS, err = openTS(ctx, cfg, tsFS); !ok(err, l.TS) {
+	if l.TS, err = openTS(ctx, cfg, tsFS, l.KV); !ok(err, l.TS) {
 		return nil, err
 	}
 	l.Update = update
@@ -561,7 +563,19 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	return pebblekv.Wrap(db, logger), nil
 }
 
-func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*cesium.DB, error) {
+// tsIdentityKey is the key in the key-value store of the identity of the Cesium
+// database. Every undo of an update rolls the store back, so the key ties the Cesium
+// files to the metadata of the same update.
+var tsIdentityKey = []byte("cesium.identity")
+
+// openTS opens Cesium. On the pointer log, it passes the identity that meta holds and
+// stores the identity of the opened database in meta.
+func openTS(
+	ctx context.Context,
+	cfg LayerConfig,
+	fs xfs.FS,
+	meta kv.DB,
+) (*cesium.DB, error) {
 	if cfg.TSEngine != TSEngineCesium {
 		return nil, errors.Newf(
 			"[storage] - unsupported time-series engine: %s",
@@ -581,8 +595,43 @@ func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*cesium.DB, error)
 	if cfg.Executor != nil {
 		opts = append(opts, cesium.WithExecutor(cfg.Executor))
 	}
-	if *cfg.PointerLogEnabled {
-		opts = append(opts, cesium.WithPointerLog())
+	dir := filepath.Join(cfg.Dirname, cesiumDir)
+	if !*cfg.PointerLogEnabled {
+		return cesium.Open(ctx, dir, opts...)
 	}
-	return cesium.Open(ctx, filepath.Join(cfg.Dirname, cesiumDir), opts...)
+	held, err := readTSIdentity(meta)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, cesium.WithPointerLog(), cesium.WithIdentity(held))
+	db, err := cesium.Open(ctx, dir, opts...)
+	if err != nil || db.Identity() == held {
+		return db, err
+	}
+	// The next open moves aside the files of an identity that meta does not hold, so
+	// the write is durable before the Core serves.
+	id := binary.LittleEndian.AppendUint64(nil, db.Identity())
+	if err = meta.Set(ctx, tsIdentityKey, id); err != nil {
+		return nil, errors.Combine(err, db.Close())
+	}
+	return db, nil
+}
+
+// readTSIdentity returns the identity of the Cesium database that meta holds, or 0 when
+// it holds none.
+func readTSIdentity(meta kv.DB) (uint64, error) {
+	b, closer, err := meta.Get(tsIdentityKey)
+	if errors.Is(err, query.ErrNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	var id uint64
+	if len(b) == 8 {
+		id = binary.LittleEndian.Uint64(b)
+	} else {
+		err = errors.Newf("the stored Cesium identity has %d bytes, not 8", len(b))
+	}
+	return id, errors.Combine(err, closer.Close())
 }

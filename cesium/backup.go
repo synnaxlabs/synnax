@@ -20,24 +20,34 @@ import (
 
 // MetaFiles returns the paths in fs of the metadata files of every channel of the
 // database in fs. A copy of these files is a backup of the database without telemetry.
-// No DB may be open on fs.
-func MetaFiles(fs xfs.FS) ([]string, error) {
+// It returns false for a database on the pointer log layout, which has no such backup:
+// an undo of a later update keeps its live files. No DB may be open on fs.
+func MetaFiles(fs xfs.FS) ([]string, bool, error) {
+	infos, err := fs.List("")
+	if err != nil {
+		return nil, false, err
+	}
+	for _, info := range infos {
+		if _, ok := generationOf(info.Name(), ".head"); ok {
+			return nil, false, nil
+		}
+	}
 	keys, err := channelKeys(fs)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	files := make([]string, 0, len(keys))
 	for _, key := range keys {
 		file := path.Join(keyToDirName(key), meta.File)
 		exists, err := fs.Exists(file)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if exists {
 			files = append(files, file)
 		}
 	}
-	return files, nil
+	return files, true, nil
 }
 
 // RestoreMeta puts the metadata files in backup, at the paths that MetaFiles returns,

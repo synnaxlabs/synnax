@@ -182,9 +182,10 @@ var _ = Describe("Restore", func() {
 		Entry("unfinished", "0000000001-0.59.0.partial"),
 	)
 
-	DescribeTable(
-		"Should not change the data when the backup lacks a directory",
-		func(ctx SpecContext, missing string) {
+	It(
+		"Should not change the data when the backup lacks the key-value store",
+		func(ctx SpecContext) {
+			const missing = "kv"
 			openAt(ctx, dir, "0.59.0")
 			l := openLayer(ctx, dir, "0.60.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
@@ -205,8 +206,6 @@ var _ = Describe("Restore", func() {
 				To(Equal("time"))
 			Expect(l.Close()).To(Succeed())
 		},
-		Entry("key-value store", "kv"),
-		Entry("channel metadata", "cesium"),
 	)
 
 	It("Should not restore an archive entry outside the backup", func(ctx SpecContext) {

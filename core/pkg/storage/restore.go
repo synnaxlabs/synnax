@@ -41,10 +41,11 @@ type Restored struct {
 }
 
 // Restore puts the named backup back in the data directory and records the backup's
-// version, which is the version of the Core to run on the data. It moves the Cesium
-// directory of each channel that the backup has no metadata for to
-// Restored.OrphanedDir, and keeps the telemetry of every other channel. It also ends an
-// update that did not commit.
+// version, which is the version of the Core to run on the data. When the backup holds
+// Cesium metadata, it moves the Cesium directory of each channel that the backup has no
+// metadata for to Restored.OrphanedDir, and keeps the telemetry of every other channel.
+// A backup with no Cesium directory leaves every Cesium file. It also ends an update
+// that did not commit.
 //
 // Restore holds the lock on the data directory, so it fails while a Core runs on it. It
 // returns query.ErrNotFound when there is no complete backup with the name, and an
@@ -83,19 +84,23 @@ func (b *Backups) restore(name string) (res Restored, err error) {
 	if err != nil {
 		return Restored{}, err
 	}
-	for _, dir := range []string{kvDir, cesiumDir} {
-		if exists, err := src.Exists(dir); err != nil {
-			return Restored{}, err
-		} else if !exists {
-			return Restored{}, errors.Newf("backup %s has no %s directory", name, dir)
-		}
+	if exists, err := src.Exists(kvDir); err != nil {
+		return Restored{}, err
+	} else if !exists {
+		return Restored{}, errors.Newf("backup %s has no %s directory", name, kvDir)
+	}
+	tsBackedUp, err := src.Exists(cesiumDir)
+	if err != nil {
+		return Restored{}, err
 	}
 	if err = xfs.WriteFile(b.fs, restoreMarkerFile, []byte(name)); err != nil {
 		return Restored{}, err
 	}
-	orphaned, err := b.restoreTS(src)
-	if err != nil {
-		return Restored{}, err
+	var orphaned string
+	if tsBackedUp {
+		if orphaned, err = b.restoreTS(src); err != nil {
+			return Restored{}, err
+		}
 	}
 	if err = b.replaceKV(src); err != nil {
 		return Restored{}, err

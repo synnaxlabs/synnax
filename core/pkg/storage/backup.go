@@ -39,8 +39,8 @@ const (
 // padded so that names sort by time, and the version of the data.
 var backupFile = regexp.MustCompile(`^((\d{10})-(.+))\.tar$`)
 
-// Backup is a copy of the metadata in a data directory: the key-value store and the
-// metadata of each Cesium channel. It holds no telemetry.
+// Backup is a copy of the metadata in a data directory: the key-value store and, for
+// Cesium on the old layout, the metadata of each Cesium channel. It holds no telemetry.
 type Backup struct {
 	// Name names the backup. Its archive in the backups directory is Name with a .tar
 	// extension.
@@ -172,7 +172,7 @@ func (b *Backups) create(v string) (Backup, error) {
 	if err != nil {
 		return Backup{}, err
 	}
-	metaFiles, err := cesium.MetaFiles(ts)
+	metaFiles, tsBackedUp, err := cesium.MetaFiles(ts)
 	if err != nil {
 		return Backup{}, err
 	}
@@ -180,20 +180,19 @@ func (b *Backups) create(v string) (Backup, error) {
 	if err != nil {
 		return Backup{}, err
 	}
-	for _, file := range metaFiles {
-		files = append(files, path.Join(cesiumDir, file))
+	dirs := []string{kvDir}
+	if tsBackedUp {
+		dirs = append(dirs, cesiumDir)
+		for _, file := range metaFiles {
+			files = append(files, path.Join(cesiumDir, file))
+		}
 	}
 	if _, err = b.fs.Sub(backupsDir); err != nil {
 		return Backup{}, err
 	}
 	archive := path.Join(backupsDir, backup.Name+archiveExt)
 	partial := archive + partialSuffix
-	if err = writeArchive(
-		b.fs,
-		partial,
-		[]string{kvDir, cesiumDir},
-		files,
-	); err != nil {
+	if err = writeArchive(b.fs, partial, dirs, files); err != nil {
 		return Backup{}, err
 	}
 	if err = b.fs.Rename(partial, archive); err != nil {

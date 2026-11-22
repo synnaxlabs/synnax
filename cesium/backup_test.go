@@ -75,7 +75,9 @@ func entryNames(fs xfs.FS, dir string) []string {
 // backUpMeta copies the metadata files of the database in fs to backup.
 func backUpMeta(fs, backup xfs.FS) {
 	GinkgoHelper()
-	for _, file := range MustSucceed(cesium.MetaFiles(fs)) {
+	files, ok := MustSucceed2(cesium.MetaFiles(fs))
+	Expect(ok).To(BeTrue())
+	for _, file := range files {
 		MustSucceed(backup.Sub(path.Dir(file)))
 		Expect(xfs.CopyFile(fs, backup, file)).To(Succeed())
 	}
@@ -99,7 +101,31 @@ var _ = Describe("Meta backup", func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(entryNames(fs, "2")).To(ContainElement(Not(Equal("meta.json"))))
 
-				Expect(cesium.MetaFiles(fs)).To(ConsistOf("1/meta.json", "2/meta.json"))
+				files, ok := MustSucceed2(cesium.MetaFiles(fs))
+				Expect(ok).To(BeTrue())
+				Expect(files).To(ConsistOf("1/meta.json", "2/meta.json"))
+			},
+		)
+
+		It(
+			"Should report a database on the pointer log, which has no metadata backup",
+			func(ctx SpecContext) {
+				db := openDBOnFS(ctx, fs)
+				Expect(db.CreateChannel(ctx, metaIndexCh, metaDataCh)).To(Succeed())
+				writeSamples(ctx, db, 1, metaIndexCh.Key, metaDataCh.Key)
+				Expect(db.Close()).To(Succeed())
+				db = openDBOnFS(
+					ctx,
+					fs,
+					cesium.WithPointerLog(),
+					cesium.WithIdentity(0),
+				)
+				Expect(GoRun(ctx, db.Run)()).To(Succeed())
+				Expect(db.Close()).To(Succeed())
+				Expect(fs.Exists("1/meta.json")).To(BeTrue())
+				files, ok := MustSucceed2(cesium.MetaFiles(fs))
+				Expect(ok).To(BeFalse())
+				Expect(files).To(BeEmpty())
 			},
 		)
 
@@ -115,7 +141,9 @@ var _ = Describe("Meta backup", func() {
 				MustSucceed(fs.Sub("notes"))
 				Expect(MustSucceed(fs.Open("5", os.O_CREATE)).Close()).To(Succeed())
 
-				Expect(cesium.MetaFiles(fs)).To(ConsistOf("1/meta.json"))
+				files, ok := MustSucceed2(cesium.MetaFiles(fs))
+				Expect(ok).To(BeTrue())
+				Expect(files).To(ConsistOf("1/meta.json"))
 			},
 		)
 	})
