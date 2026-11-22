@@ -22,10 +22,14 @@ import {
 } from "@synnaxlabs/x";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
-import { type framer } from "@/framer";
+import { channel } from "@/channel";
+import { framer } from "@/framer";
 import { UnexpectedError, UnsupportedError } from "@/index";
-import { createTestClient, SyntheticCore } from "@/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  SyntheticCore,
+} from "@/testutil";
 
 // More points than any window here holds samples, so every sample draws.
 const EXACT = 2 ** 20;
@@ -331,6 +335,44 @@ describe("Feed", () => {
       expect(bounds(calc.key)).toEqual(bounds(calc.index));
     } finally {
       sub.close();
+    }
+  });
+
+  it("should draw an output for a reader who cannot see its calculation", async () => {
+    const time = await client.channels.create({
+      name: id.create(),
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const data = await client.channels.create({
+      name: id.create(),
+      dataType: "float64",
+      index: time.key,
+    });
+    const calc = await client.calculations.create({
+      name: id.create(),
+      expression: `return ${data.name} * 2`,
+    });
+    const start = TimeStamp.now().sub(TimeSpan.seconds(10));
+    const stamps = [0, 1, 2].map((i) => start.add(TimeSpan.milliseconds(i)));
+    await client.write(start, { [time.key]: stamps, [data.key]: [1, 2, 3] });
+    const reader = await createTestClientWithPolicy(client, {
+      name: id.create(),
+      objects: [channel.TYPE_RESOURCE_ID, framer.TYPE_RESOURCE_ID],
+      actions: ["retrieve"],
+    });
+    const readerFeed = reader.openFeed();
+    const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
+    const sub = readerFeed.subscribe(raw([calc.output], staticWindow(tr)));
+    try {
+      expect(await reader.calculations.outputs.retrieve([calc.output])).toEqual([
+        { key: calc.output, hidden: true },
+      ]);
+      expect(await loaded(sub, calc.output)).toEqual([2, 4, 6]);
+    } finally {
+      sub.close();
+      await readerFeed.close();
+      await reader.close();
     }
   });
 

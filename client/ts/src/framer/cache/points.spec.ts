@@ -21,6 +21,7 @@ import {
   TimeStamp,
   type Window,
 } from "@synnaxlabs/x";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
@@ -330,6 +331,81 @@ describe("Points", () => {
         core.advance(TimeSpan.seconds(4));
         await expect.poll(() => store.open(key)?.tile, POLL).toBe(block + 1);
         expect(servesBuffer()).toBe(true);
+      } finally {
+        await close();
+      }
+    });
+  });
+
+  describe("calculation outputs", () => {
+    const range = new TimeRange(START, START.add(TimeSpan.minutes(8)));
+    const createDerived = (): SyntheticCore =>
+      new SyntheticCore({
+        rate: Rate.hz(100),
+        start: START,
+        now: START.add(TimeSpan.minutes(10)),
+        derived: true,
+      });
+
+    it("should refuse a virtual channel that no calculation writes", async () => {
+      const core = createDerived();
+      assertDefined(core.calculated);
+      core.setOutput(core.calculated.key, false);
+      const { subscribe, close } = createPoints(core);
+      const points = subscribe(core.calculated.key, staticWindow(range), TILED);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("error");
+        expect(points.value().status.description).toContain("has no samples to draw");
+      } finally {
+        await close();
+      }
+    });
+
+    it("should draw a channel once a calculation starts writing it", async () => {
+      const core = createDerived();
+      assertDefined(core.calculated);
+      core.setOutput(core.calculated.key, false);
+      const { subscribe, close } = createPoints(core);
+      const points = subscribe(core.calculated.key, staticWindow(range), TILED);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("error");
+        core.setOutput(core.calculated.key, true);
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().series.length).toBeGreaterThan(0);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should stop drawing a channel once its calculation stops writing it", async () => {
+      const core = createDerived();
+      assertDefined(core.calculated);
+      const { subscribe, close } = createPoints(core);
+      const points = subscribe(core.calculated.key, staticWindow(range), TILED);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        core.setOutput(core.calculated.key, false);
+        await expect.poll(() => points.value().status.variant, POLL).toBe("error");
+        expect(points.value().status.description).toContain("has no samples to draw");
+      } finally {
+        await close();
+      }
+    });
+
+    it("should fail the start when the outputs cannot be read", async () => {
+      const core = createDerived();
+      assertDefined(core.calculated);
+      core.outputs = {
+        ...core.outputs,
+        retrieve: async () => {
+          throw new Error("outputs unavailable");
+        },
+      };
+      const { subscribe, close } = createPoints(core);
+      const points = subscribe(core.calculated.key, staticWindow(range), TILED);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("error");
+        expect(points.value().status.description).toContain("outputs unavailable");
       } finally {
         await close();
       }

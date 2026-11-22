@@ -392,6 +392,44 @@ describe("Latest", () => {
     }
   });
 
+  it("should read again when a calculation stops writing the channel", async () => {
+    const core = createCore(true);
+    let retrieves = 0;
+    const { open, close } = createLatest(core, undefined, undefined, () => {
+      retrieves++;
+    });
+    const key = core.calculated!.key;
+    const latest = open(100, undefined, key);
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      expect(retrieves).toBe(1);
+      core.setOutput(key, false);
+      await expect.poll(() => retrieves, POLL).toBe(2);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should not read again when the outputs repeat their answer", async () => {
+    const core = createCore(true);
+    let retrieves = 0;
+    const { open, close } = createLatest(core, undefined, undefined, () => {
+      retrieves++;
+    });
+    const key = core.calculated!.key;
+    const latest = open(100, undefined, key);
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      core.setOutput(key, true);
+      await sleep.sleep(TimeSpan.milliseconds(50));
+      expect(retrieves).toBe(1);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
   it("should keep serving a buffer it served after the buffer closes", async () => {
     const core = createCore(true);
     const { open, close } = createLatest(core);

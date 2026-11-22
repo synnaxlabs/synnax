@@ -138,6 +138,22 @@ describe("Reader", () => {
       expect(res.length).toBe(66);
     });
 
+    it("should mark a channel calculated only when a calculation writes it", async () => {
+      const { core, store, read } = createReader({
+        outputs: {
+          ...NO_OUTPUTS,
+          retrieve: async (keys) => new Set(keys.filter((k) => k === 3)),
+        },
+      });
+      const tr = new TimeRange(at(10), at(20));
+      await read(tr, 2);
+      await read(tr, 3);
+      expect(core.data.map(({ key }) => store.isCalculated(key))).toEqual([
+        false,
+        true,
+      ]);
+    });
+
     it("should serve a covered read from the cache", async () => {
       const { fetches, read } = createReader();
       const tr = new TimeRange(at(10), at(20));
