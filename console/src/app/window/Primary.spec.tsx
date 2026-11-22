@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { Drift } from "@synnaxlabs/drift";
+import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
 
 // The full-width top bar is macOS only, so the engine stays the sole variable
@@ -24,9 +25,13 @@ vi.mock("@/session/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
-import { Primary } from "@/app/window/Primary";
+import { Window } from "@/app/window";
 import { Session } from "@/session";
-import { type ConsolePreloadedState, renderWithConsole } from "@/testutil";
+import {
+  type ConsolePreloadedState,
+  installPortalRoot,
+  renderWithConsole,
+} from "@/testutil";
 
 const PROJECT_KEY = "f5d0a5c8-5a1e-4b1f-9c0e-0b0c1d2e3f40";
 const [CORE_KEY] = Object.keys(Session.Core.ZERO_SLICE_STATE.cores);
@@ -50,10 +55,11 @@ const renderPrimary = async (engine: "web" | "tauri"): Promise<HTMLElement> => {
   mocks.engine = engine;
   if (engine === "tauri") {
     // A dev build version skips the update check.
+    mockWindows(Drift.MAIN_WINDOW);
     mockIPC((cmd) => (cmd === "plugin:app|version" ? "0.0.0" : undefined));
     onTestFinished(clearMocks);
   }
-  const { container } = await renderWithConsole(<Primary />, {
+  const { container } = await renderWithConsole(<Window.Window />, {
     preloadedState: withWorkspace(),
     // No Core is connected, so the panel boundary catches the disconnect.
     onCaughtError: () => {},
@@ -63,7 +69,9 @@ const renderPrimary = async (engine: "web" | "tauri"): Promise<HTMLElement> => {
   return workspace;
 };
 
-describe("app/window/Primary", () => {
+describe("Window in the main window", () => {
+  installPortalRoot();
+
   // A rail placed outside the grid silently loses its inset.
   it.each(["web", "tauri"] as const)(
     "should mount the top bar and the rail as workspace grid items on %s",

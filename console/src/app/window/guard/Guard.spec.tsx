@@ -11,7 +11,7 @@ import type { connection } from "@synnaxlabs/client";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Guard } from "@/app/window/Guard";
+import { Guard } from "@/app/window/guard";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   createStatusConsoleWrapper,
@@ -22,9 +22,9 @@ import {
 
 const renderGuard = async (): Promise<void> => {
   await renderWithConsole(
-    <Guard>
+    <Guard.Guard>
       <span>workspace</span>
-    </Guard>,
+    </Guard.Guard>,
   );
 };
 
@@ -36,14 +36,14 @@ const renderCoreGuard = async (status: connection.Status): Promise<void> => {
     preloadedState: createCoreState([core], core.key),
   });
   render(
-    <Guard>
+    <Guard.Guard>
       <span>workspace</span>
-    </Guard>,
+    </Guard.Guard>,
     { wrapper },
   );
 };
 
-describe("app/window/Guard", () => {
+describe("Guard", () => {
   it("should ask for a login when no Core is selected", async () => {
     await renderGuard();
     expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);
