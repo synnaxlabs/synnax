@@ -11,13 +11,13 @@ import { fireEvent, render, type RenderResult } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { renderProp } from "@/component/renderProp";
+import { Component } from "@/component";
 import { Haul } from "@/haul";
 import { Input } from "@/input";
 import { List } from "@/list";
 import type { Menu } from "@/menu";
 import { Select } from "@/select";
-import { mockGeometry } from "@/testutil/dom";
+import { mockGeometry } from "@/testutil";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
@@ -32,7 +32,7 @@ describe("Select.Multiple", () => {
     { key: "2", name: "Second Item" },
     { key: "3", name: "Third Item" },
   ];
-  const listItemRenderProp = renderProp((props: List.ItemProps<string>) => {
+  const listItemRenderProp = Component.renderProp((props: List.ItemProps<string>) => {
     const { itemKey } = props;
     const item = testData.find((i) => i.key === itemKey);
     return (
@@ -240,12 +240,12 @@ describe("Select.Multiple", () => {
       key: `${i}`,
       name: `Item ${i}`,
     }));
-    const renderItem = renderProp((props: List.ItemProps<string>) => (
+    const renderItem = Component.renderProp((props: List.ItemProps<string>) => (
       <Select.Item {...props}>
         <Text.Text>Row {props.itemKey}</Text.Text>
       </Select.Item>
     ));
-    const Component = () => {
+    const Harness = () => {
       const { data: keys, getItem } = List.useStaticData<string, TestEntry>({ data });
       const [value, setValue] = useState<string[]>([]);
       return (
@@ -265,7 +265,7 @@ describe("Select.Multiple", () => {
         </Triggers.Provider>
       );
     };
-    const c = render(<Component />);
+    const c = render(<Harness />);
     fireEvent.click(c.getByText("Rows"));
     fireEvent.click(c.getByText("Row 0"));
     // Far enough down that the anchor row has unmounted by the time the range closes.

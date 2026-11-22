@@ -525,47 +525,63 @@ func (rd *renderer) targetsBody(ref *walkedRef) string {
 // detachBody returns the code that removes the target t from e, or nothing when the
 // sites of ref hold no array to remove a required field's element from.
 func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
-	var b strings.Builder
 	mode := ref.sites[0].mode
 	if mode != leafRequired {
-		rd.walk(&b, ref.tree(), "e", true, func(b *strings.Builder, expr string) {
-			switch mode {
-			case leafZero:
-				fmt.Fprintf(
-					b,
-					"if %s == t {\n%s = %s\n}\n",
-					rd.target(expr),
-					expr,
-					rd.info.Zero,
-				)
-			case leafOptional:
-				fmt.Fprintf(
-					b,
-					"if %s != nil && %s == t {\n%s = nil\n}\n",
-					expr,
-					rd.target("*"+expr),
-					expr,
-				)
-			case leafSlice:
-				rd.usesSlices = true
-				k := rd.nextVar("k")
-				fmt.Fprintf(
-					b,
-					"%s = slices.DeleteFunc(%s, func(%s %s) bool {\nreturn %s == t\n})\n",
-					expr,
-					expr,
-					k,
-					rd.info.ElemGoType,
-					rd.target(k),
-				)
-			case leafRequired:
-				panic("detach walk reached a required leaf")
-			}
-		})
-		return b.String(), nil
+		return rd.detachLeafBody(ref, mode), nil
 	}
-	// A required field drops with the element of the nearest array that holds it, so
-	// every site needs an array and the same path to it.
+	prefix, suffixes, ok, err := arrayPaths(ref)
+	if err != nil || !ok {
+		return "", err
+	}
+	return rd.detachElemBody(ref, prefix, suffixes), nil
+}
+
+// detachLeafBody returns the code that clears or removes the target t at each leaf of
+// ref, whose sites hold no required field.
+func (rd *renderer) detachLeafBody(ref *walkedRef, mode leafMode) string {
+	var b strings.Builder
+	rd.walk(&b, ref.tree(), "e", true, func(b *strings.Builder, expr string) {
+		switch mode {
+		case leafZero:
+			fmt.Fprintf(
+				b,
+				"if %s == t {\n%s = %s\n}\n",
+				rd.target(expr),
+				expr,
+				rd.info.Zero,
+			)
+		case leafOptional:
+			fmt.Fprintf(
+				b,
+				"if %s != nil && %s == t {\n%s = nil\n}\n",
+				expr,
+				rd.target("*"+expr),
+				expr,
+			)
+		case leafSlice:
+			rd.usesSlices = true
+			k := rd.nextVar("k")
+			fmt.Fprintf(
+				b,
+				"%s = slices.DeleteFunc(%s, func(%s %s) bool {\nreturn %s == t\n})\n",
+				expr,
+				expr,
+				k,
+				rd.info.ElemGoType,
+				rd.target(k),
+			)
+		case leafRequired:
+			panic("detach walk reached a required leaf")
+		}
+	})
+	return b.String()
+}
+
+// arrayPaths splits the sites of ref at the nearest array that holds a required field,
+// which drops with that array's element. It returns the shared path to the array and
+// the path from each element to the field. It returns false when a site holds no array,
+// and an error when the sites reach their arrays through different paths.
+func arrayPaths(ref *walkedRef) ([]refStep, [][]refStep, bool, error) {
 	var (
 		prefix   []refStep
 		suffixes [][]refStep
@@ -578,7 +594,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 			}
 		}
 		if at < 0 {
-			return "", nil
+			return nil, nil, false, nil
 		}
 		head := s.steps[:at]
 		if i == 0 {
@@ -586,7 +602,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 		} else if !slices.EqualFunc(prefix, head, func(a, b refStep) bool {
 			return a.id() == b.id()
 		}) {
-			return "", errors.Newf(
+			return nil, nil, false, errors.Newf(
 				"@ref field %s reaches its arrays through different paths, so it "+
 					"cannot detach",
 				ref.path,
@@ -594,6 +610,15 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 		}
 		suffixes = append(suffixes, s.steps[at+1:])
 	}
+	return prefix, suffixes, true, nil
+}
+
+// detachElemBody returns the code that removes each element that holds the target t
+// from the array at prefix.
+func (rd *renderer) detachElemBody(
+	ref *walkedRef, prefix []refStep, suffixes [][]refStep,
+) string {
+	var b strings.Builder
 	elem := rd.r.ResolveTypeRef(ref.sites[0].steps[len(prefix)].elem, rd.ctx)
 	end := refStep{kind: stepLeaf}
 	head := append(slices.Clone(prefix[:len(prefix)-1]), end)
@@ -626,7 +651,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 			b.WriteString("return false\n})\n")
 		},
 	)
-	return b.String(), nil
+	return b.String()
 }
 
 // retargetBody returns the code that moves e from the target from to the target to
@@ -845,41 +870,10 @@ func renderNestedRefs(
 ) ([]nestedRef, error) {
 	out := make([]nestedRef, 0, len(walked))
 	for _, ref := range walked {
-		field := ref.sites[0].field
 		mode := ref.sites[0].mode
-		for _, s := range ref.sites[1:] {
-			if s.mode != mode {
-				return nil, errors.Newf(
-					"%s: @ref field %s holds targets in different shapes",
-					typ.QualifiedName,
-					ref.path,
-				)
-			}
-		}
-		named := field
-		named.Name = ref.path
-		inArray := mode == leafRequired && !slices.ContainsFunc(
-			ref.sites,
-			func(s refSite) bool { return !s.inArray() },
-		)
-		info, err := extractRef(typ, named, ownTable, inArray, rt, table, r, ctx)
+		info, err := walkedRefInfo(typ, ref, ownTable, rt, table, r, ctx)
 		if err != nil {
 			return nil, err
-		}
-		for _, s := range ref.sites[1:] {
-			other := s.field
-			other.Name = ref.path
-			o, err := extractRef(typ, other, ownTable, inArray, rt, table, r, ctx)
-			if err != nil {
-				return nil, err
-			}
-			if !sameReference(info, o) {
-				return nil, errors.Newf(
-					"%s: @ref field %s declares different references in its variants",
-					typ.QualifiedName,
-					ref.path,
-				)
-			}
 		}
 		var structField strings.Builder
 		for seg := range strings.SplitSeq(ref.path, ".") {
@@ -909,6 +903,55 @@ func renderNestedRefs(
 		out = append(out, nr)
 	}
 	return out, nil
+}
+
+// walkedRefInfo returns the reference that every site of ref holds. It returns an error
+// when the sites differ in shape or reference.
+func walkedRefInfo(
+	typ resolution.Type,
+	ref *walkedRef,
+	ownTable string,
+	rt resourceTypes,
+	table *resolution.Table,
+	r *resolver.Resolver,
+	ctx *resolver.Context,
+) (refInfo, error) {
+	mode := ref.sites[0].mode
+	for _, s := range ref.sites[1:] {
+		if s.mode != mode {
+			return refInfo{}, errors.Newf(
+				"%s: @ref field %s holds targets in different shapes",
+				typ.QualifiedName,
+				ref.path,
+			)
+		}
+	}
+	named := ref.sites[0].field
+	named.Name = ref.path
+	inArray := mode == leafRequired && !slices.ContainsFunc(
+		ref.sites,
+		func(s refSite) bool { return !s.inArray() },
+	)
+	info, err := extractRef(typ, named, ownTable, inArray, rt, table, r, ctx)
+	if err != nil {
+		return refInfo{}, err
+	}
+	for _, s := range ref.sites[1:] {
+		other := s.field
+		other.Name = ref.path
+		o, err := extractRef(typ, other, ownTable, inArray, rt, table, r, ctx)
+		if err != nil {
+			return refInfo{}, err
+		}
+		if !sameReference(info, o) {
+			return refInfo{}, errors.Newf(
+				"%s: @ref field %s declares different references in its variants",
+				typ.QualifiedName,
+				ref.path,
+			)
+		}
+	}
+	return info, nil
 }
 
 // referencesInfo holds extracted data about a @retrieve references type, which a

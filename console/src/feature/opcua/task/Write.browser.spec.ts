@@ -286,8 +286,8 @@ describe("Write structure members", () => {
     });
     fireEvent.click(await screen.findByText(motor.name));
     await members.answered;
-    await dragNode(`${motor.name}.Speed`, held.nodeName);
-    await dragNode(valve.name, held.nodeName);
+    await dragNode(`${motor.name}.Speed`, held);
+    await dragNode(valve.name, held);
     await waitFor(async () => {
       const { config } = await client.tasks.retrieve({
         key: draft.key,

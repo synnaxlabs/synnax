@@ -294,21 +294,9 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 	if err != nil {
 		return BinaryField{}, err
 	}
-	kind := UnsignedBinaryFieldType
-	switch k := payload.Kind(strings.ToLower(t.cell(cells, columnKind))); k {
-	case "":
-	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned:
-		kind = BinaryFieldType(k)
-	case payload.KindString, payload.KindBoolean, payload.KindTimestamp,
-		payload.KindJSON, payload.KindUUID, payload.KindBytes:
-		fallthrough
-	default:
-		return BinaryField{}, rowErrorf(
-			row,
-			columnKind,
-			"invalid kind %q, not float, integer, or unsigned",
-			k,
-		)
+	kind, err := t.readKind(row, cells)
+	if err != nil {
+		return BinaryField{}, err
 	}
 	scale, err := t.number(row, cells, columnScale)
 	if err != nil {
@@ -340,6 +328,26 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 		field.Variant = UnsignedBinaryField{BinaryBaseField: f}
 	}
 	return field, nil
+}
+
+// readKind returns the binary field type in a row, unsigned when the row names none.
+func (t *table) readKind(row int, cells []string) (BinaryFieldType, error) {
+	switch k := payload.Kind(strings.ToLower(t.cell(cells, columnKind))); k {
+	case "":
+		return UnsignedBinaryFieldType, nil
+	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned:
+		return BinaryFieldType(k), nil
+	case payload.KindString, payload.KindBoolean, payload.KindTimestamp,
+		payload.KindJSON, payload.KindUUID, payload.KindBytes:
+		fallthrough
+	default:
+		return "", rowErrorf(
+			row,
+			columnKind,
+			"invalid kind %q, not float, integer, or unsigned",
+			k,
+		)
+	}
 }
 
 // readLayout returns the start bit, the bit length, and the byte order of the field

@@ -17,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import type { color } from "@synnaxlabs/x";
-import { Fragment, type ReactElement, type ReactNode, useState } from "react";
+import { Fragment, type ReactElement, useState } from "react";
 
 import { CSS } from "@/css";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
@@ -66,8 +66,6 @@ export interface GroupedProps
   onGroupColorChange?: (key: string, color: color.Color) => void;
   /** Called like onVisibleChange, with the key of a group. */
   onGroupVisibleChange?: EntriesProps["onVisibleChange"];
-  /** Shown under the groups. */
-  footer?: ReactNode;
   /** Lists the entries of each group under its name instead of beside it. */
   nested?: boolean;
 }
@@ -83,7 +81,6 @@ export const Grouped = ({
   onGroupColorChange,
   onGroupVisibleChange,
   sorted,
-  footer,
   position,
   onPositionChange,
   nested = false,
@@ -125,6 +122,7 @@ export const Grouped = ({
               background={background}
               entryProps={entryProps}
               shade={nested ? 9 : 10}
+              indented={nested}
             />
           </Flex.Box>
         );
@@ -154,7 +152,6 @@ export const Grouped = ({
           </Fragment>
         );
       })}
-      {footer != null && <div className={CSS.B("legend-footer")}>{footer}</div>}
     </Container>
   );
 };
@@ -185,12 +182,12 @@ const GroupName = ({
     <Flex.Box
       x
       align="center"
-      gap="small"
+      gap="tiny"
       className={CSS.cls(CSS.B("legend-name"), Menu.CONTEXT_TARGET)}
       data-menu-key={key}
       {...hover}
     >
-      <Flex.Box x align="center" gap="small">
+      <Flex.Box x align="center" gap="small" className={CSS.BE("legend-name", "label")}>
         {color != null && (
           <Color.Swatch
             draggable={false}
@@ -205,20 +202,28 @@ const GroupName = ({
           level="small"
           color={visible === false ? 7 : 10}
           weight={500}
-          overflow="nowrap"
+          lineClamp={2}
+          className={CSS.BE("legend-name", "text")}
         >
           {name}
         </Text.Text>
+      </Flex.Box>
+      <Flex.Box
+        x
+        align="center"
+        gap="small"
+        className={CSS.BE("legend-name", "actions")}
+      >
         {badge != null && (
           <Tooltip.Dialog location={{ x: "center", y: "top" }}>
             {badge.tooltip}
             <Badge.Badge>{badge.label}</Badge.Badge>
           </Tooltip.Dialog>
         )}
+        {visible != null && onVisibleChange != null && (
+          <VisibleButton itemKey={key} visible={visible} onChange={onVisibleChange} />
+        )}
       </Flex.Box>
-      {visible != null && onVisibleChange != null && (
-        <VisibleButton itemKey={key} visible={visible} onChange={onVisibleChange} />
-      )}
     </Flex.Box>
   );
 };
