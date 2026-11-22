@@ -18,6 +18,8 @@ import type { label } from "@/label";
 import { spyOnSend, waitForStreamLive } from "@/testutil";
 
 const FETCH_TIMEOUT = TimeSpan.seconds(5);
+// Five times the 100 ms debounce of a list's refetch.
+const QUIET = TimeSpan.milliseconds(500);
 
 const VECTORS_URL = new URL(
   "../../../../../core/testdata/filter/vectors.json",
@@ -152,9 +154,8 @@ export const itFiltersLive = <R, W, K>(
     );
     const send = spyOnSend(store.client);
     try {
-      await store.write(records);
-      const record = () => {
-        fetched = send.mock.calls.flatMap(([target, req]) =>
+      const sent = (): unknown[] =>
+        send.mock.calls.flatMap(([target, req]) =>
           target === store.target &&
           typeof req === "object" &&
           req != null &&
@@ -162,20 +163,35 @@ export const itFiltersLive = <R, W, K>(
             ? [req.where]
             : [],
         );
+      // Waits until no list has fetched for a quiet window, longer than the debounce
+      // of a list's refetch, or until the deadline.
+      const settle = async (done: () => boolean = () => true): Promise<void> => {
+        const deadline = TimeStamp.now().add(FETCH_TIMEOUT);
+        let count = sent().length;
+        let since = TimeStamp.now();
+        while (TimeStamp.now().before(deadline)) {
+          await sleep.sleep(TimeSpan.milliseconds(20));
+          const next = sent().length;
+          if (next !== count) [count, since] = [next, TimeStamp.now()];
+          else if (done() && TimeStamp.since(since).greaterThan(QUIET)) return;
+        }
       };
-      // The spy stops at the end of the setup, so the setup waits for every fetch a
-      // server-computed case owes.
+      // The refetches that the prepared writes started end first, so every fetch the
+      // spec counts starts after the write.
+      await settle();
+      const before = sent().length;
+      await store.write(records);
       const owed = (): boolean => {
-        record();
+        fetched = sent().slice(before);
         return cases.some(({ name, serverComputed }) => {
           const where = opened.get(name)?.where;
           return serverComputed === true && (where == null || !fetchedAgain(where));
         });
       };
-      const deadline = TimeStamp.now().add(FETCH_TIMEOUT);
-      while (owed() && TimeStamp.now().before(deadline))
-        await sleep.sleep(TimeSpan.milliseconds(20));
-      record();
+      // A list that the client cannot decide refetches after a debounce, so the spy
+      // stays until the lists are quiet as well as until each owed fetch arrives.
+      await settle(() => !owed());
+      fetched = sent().slice(before);
     } finally {
       send.mockRestore();
     }
