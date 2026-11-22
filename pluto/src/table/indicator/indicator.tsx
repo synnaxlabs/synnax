@@ -98,7 +98,7 @@ export const Columns = ({
     </tr>
   );
 };
-Columns.displayName = "ColumnIndicators";
+Columns.displayName = "Indicator.Columns";
 
 export interface ItemProps {
   direction: direction.Direction;

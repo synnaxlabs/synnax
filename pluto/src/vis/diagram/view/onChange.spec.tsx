@@ -102,7 +102,7 @@ describe("View.useOnChange", () => {
   });
 
   // React Flow resets its store when it unmounts, which wipes the callbacks React
-  // Flow's own View.useOnChange registers once.
+  // Flow's own useOnViewportChange registers once.
   it("keeps reporting after React Flow unmounts and remounts", () => {
     const { onChange, api, mount } = renderTree();
     mount(false);
