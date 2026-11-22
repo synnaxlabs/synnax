@@ -452,6 +452,33 @@ TEST(StatesTest, SetIgnoresAReadThatAHoldOutdated) {
     ASSERT_EQ(published, (std::vector<double>{1}));
 }
 
+/// @brief it should mark the mirror stale when a failed read follows a set, until the
+/// next set.
+TEST(StatesTest, ReleaseAfterASetMarksTheMirrorStale) {
+    States states;
+    ASSERT_TRUE(states.set({}, states.begin_read()));
+    ASSERT_FALSE(states.stale());
+    states.hold();
+    states.abandon(states.begin_read());
+    states.release();
+    ASSERT_TRUE(states.stale());
+    states.set({});
+    ASSERT_FALSE(states.stale());
+}
+
+/// @brief it should keep the mirror stale when a read that a hold outdated lands after
+/// the release of that hold.
+TEST(StatesTest, OutdatedSetKeepsTheMirrorStale) {
+    States states;
+    states.set({});
+    const auto outdated = states.begin_read();
+    states.hold();
+    states.abandon(states.begin_read());
+    states.release();
+    ASSERT_FALSE(states.set({}, outdated));
+    ASSERT_TRUE(states.stale());
+}
+
 /// @brief it should apply the updates that land while a read is open on top of its
 /// snapshot, so a read is never ignored for a transfer and a transfer is never undone.
 TEST(StatesTest, SetAppliesUpdatesThatLandDuringTheRead) {

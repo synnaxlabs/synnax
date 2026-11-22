@@ -548,13 +548,11 @@ private:
     std::unique_ptr<synnax::framer::Streamer> streamer;
     /// @brief signals early shutdown before streamer is opened.
     std::atomic<bool> exit_early{false};
+    /// @brief notified by stop, under mu, to end a wait between runs.
+    std::condition_variable stopped;
     /// @brief set by the streamer when the Core dropped task changes. Read and written
     /// only on the thread that runs the streamer.
     bool missed = false;
-    /// @brief true while a read of the control state has failed and none has
-    /// succeeded since. Shared with the monitor loop's read thread.
-    std::shared_ptr<std::atomic<bool>>
-        control_unread = std::make_shared<std::atomic<bool>>(false);
     /// @brief true while the monitor loop's read of the control state runs.
     std::shared_ptr<std::atomic<bool>>
         control_reading = std::make_shared<std::atomic<bool>>(false);

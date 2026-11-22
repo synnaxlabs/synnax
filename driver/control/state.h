@@ -54,14 +54,17 @@ class States {
     /// @brief read without hold_mu on the fast path of route, and changed only under
     /// hold_mu.
     std::atomic<Mode> mode{Mode::OPEN};
-    /// @brief guards held, known, generation, and every change of mode. It is held
-    /// while the held frames publish, so a frame that route gets meanwhile comes after
-    /// them.
+    /// @brief guards held, known, mirror_stale, gen, and every change of mode. It is
+    /// held while the held frames publish, so a frame that route gets meanwhile comes
+    /// after them.
     std::mutex hold_mu;
     /// @brief the frames that route held, in the order they came.
     std::vector<Held> held;
     /// @brief true once a set has replaced the mirror.
     bool known = false;
+    /// @brief true from a release until the next set, since the mirror can miss changes
+    /// in that time.
+    bool mirror_stale = false;
     /// @brief counts holds, stream restarts, and full logs, so set can ignore a read
     /// that began before one of them.
     uint64_t gen = 0;
@@ -206,6 +209,7 @@ public:
         this->end_read_locked();
         if (!current) return false;
         this->known = true;
+        this->mirror_stale = false;
         this->release_locked();
         this->mode = Mode::OPEN;
         return true;
@@ -227,15 +231,22 @@ public:
 
     /// @brief ends a hold whose read failed: publishes the held frames filtered against
     /// the last mirror, and opens the bus with it. A bus that was never opened stays
-    /// closed, and its held frames are dropped.
+    /// closed, and its held frames are dropped. The mirror is stale until the next set.
     void release() {
         std::lock_guard lock(this->hold_mu);
+        this->mirror_stale = true;
         if (!this->known) {
             this->held.clear();
             return;
         }
         this->release_locked();
         this->mode = Mode::OPEN;
+    }
+
+    /// @returns true from a release until the next set.
+    [[nodiscard]] bool stale() {
+        std::lock_guard lock(this->hold_mu);
+        return this->mirror_stale;
     }
 
     /// @brief closes the bus until the first set. Call it before the first read.

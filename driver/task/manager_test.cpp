@@ -4542,6 +4542,18 @@ public:
         }
         this->cv.notify_all();
     }
+
+    /// @returns true once the stream was closed.
+    bool is_closed() {
+        std::lock_guard lock(this->mu);
+        return this->closed;
+    }
+
+    /// @brief opens a closed stream again, for the next run.
+    void reopen() {
+        std::lock_guard lock(this->mu);
+        this->closed = false;
+    }
 };
 
 /// @brief opens the one scripted stream.
@@ -4793,18 +4805,18 @@ namespace {
 /// @brief answers control state reads with the replies a spec gives it, one per read,
 /// and blocks a read until its reply comes.
 class ScriptedControl final : public synnax::control::RetrieveClient {
+    using Reply = std::pair<grpc::control::RetrieveResponse, x::errors::Error>;
     std::mutex mu;
     std::condition_variable cv;
-    std::vector<std::pair<grpc::control::RetrieveResponse, x::errors::Error>> replies;
+    std::vector<Reply> replies;
+    std::unordered_map<int, Reply> targeted;
     int waiting = 0;
     int reads = 0;
     bool closed = false;
 
-public:
-    /// @brief answers the next read with states, or with err when it is set.
-    void reply(
+    static Reply encode(
         const std::vector<synnax::control::State> &states,
-        const x::errors::Error &err = x::errors::NIL
+        const x::errors::Error &err
     ) {
         grpc::control::RetrieveResponse res;
         for (const auto &st: states) {
@@ -4813,9 +4825,31 @@ public:
             pb->set_resource(st.resource);
             pb->set_authority(st.authority);
         }
+        return {std::move(res), err};
+    }
+
+public:
+    /// @brief answers the next read with states, or with err when it is set.
+    void reply(
+        const std::vector<synnax::control::State> &states,
+        const x::errors::Error &err = x::errors::NIL
+    ) {
         {
             std::lock_guard lock(this->mu);
-            this->replies.emplace_back(std::move(res), err);
+            this->replies.push_back(encode(states, err));
+        }
+        this->cv.notify_all();
+    }
+
+    /// @brief answers read n, counted from 1, with states, or with err when it is set.
+    void reply_to(
+        const int n,
+        const std::vector<synnax::control::State> &states,
+        const x::errors::Error &err = x::errors::NIL
+    ) {
+        {
+            std::lock_guard lock(this->mu);
+            this->targeted[n] = encode(states, err);
         }
         this->cv.notify_all();
     }
@@ -4857,10 +4891,17 @@ public:
     send(const std::string &, grpc::control::RetrieveRequest &) override {
         std::unique_lock lock(this->mu);
         ++this->waiting;
-        ++this->reads;
+        const int n = ++this->reads;
         this->cv.notify_all();
-        this->cv.wait(lock, [this] { return this->closed || !this->replies.empty(); });
+        this->cv.wait(lock, [&] {
+            return this->closed || this->targeted.contains(n) || !this->replies.empty();
+        });
         --this->waiting;
+        if (const auto it = this->targeted.find(n); it != this->targeted.end()) {
+            auto r = std::move(it->second);
+            this->targeted.erase(it);
+            return r;
+        }
         if (this->replies.empty()) return {{}, freighter::UNREACHABLE};
         auto r = std::move(this->replies.front());
         this->replies.erase(this->replies.begin());
@@ -4901,7 +4942,11 @@ protected:
 
     /// @brief starts a manager whose first control read gets first. With piped set,
     /// the manager reaches the Core through pipe.
-    void start(const std::function<void()> &first, const bool piped = false) {
+    void start(
+        const std::function<void()> &first,
+        const bool piped = false,
+        const x::telem::TimeSpan poll_interval = 50 * x::telem::MILLISECOND
+    ) {
         auto conn = test_client_config();
         if (piped) {
             pipe = std::make_unique<CorePipe>(conn.port);
@@ -4925,7 +4970,7 @@ protected:
             managed_rack,
             managed,
             std::move(factory),
-            ManagerConfig{.poll_interval = 50 * x::telem::MILLISECOND}
+            ManagerConfig{.poll_interval = poll_interval}
         );
         std::promise<void> started;
         thread = std::thread([&] {
@@ -5149,5 +5194,82 @@ TEST_F(ScriptedControlTest, FailedFirstReadKeepsTheRunAndOpensLater) {
     );
     for (const auto v: got())
         EXPECT_EQ(v, 2);
+}
+
+/// @brief it should read again from the monitor loop when a read after a miss fails
+/// just after a monitor read applied.
+TEST_F(ScriptedControlTest, FailedReadAfterAMonitorReadIsRetried) {
+    start([this] { this->scripted.control->reply({}, freighter::UNREACHABLE); });
+    const auto st = this->states();
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(2));
+    this->scripted.control->reply_to(
+        2,
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    ASSERT_EVENTUALLY_EQ_F([&] { return !st->stale(); }, true);
+    miss();
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(3));
+    this->scripted.control->reply_to(3, {}, freighter::UNREACHABLE);
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(4));
+    this->scripted.control->reply_to(
+        4,
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    ASSERT_EVENTUALLY_EQ_F([&] { return !st->stale(); }, true);
+}
+
+/// @brief it should ignore a monitor read that began before a run restart, since it
+/// can miss the transfers made while no stream ran.
+TEST_F(ScriptedControlTest, MonitorReadFromAnEarlierRunIsIgnored) {
+    start([this] { this->scripted.control->reply({}, freighter::UNREACHABLE); });
+    const auto st = this->states();
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(2));
+    this->scripted.stream->close_send();
+    thread.join();
+    this->scripted.stream->reopen();
+    // The open ack.
+    this->scripted.stream->push({});
+    thread = std::thread([this] { ASSERT_NIL(manager->run()); });
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(3));
+    this->scripted.control->reply_to(
+        3,
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    ASSERT_EVENTUALLY_EQ_F([&] { return st->is_authorized(BUS_KEY, OWNER); }, true);
+    this->scripted.control->reply_to(
+        2,
+        {{.subject = OTHER, .resource = BUS_KEY, .authority = 200}}
+    );
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    ASSERT_TRUE(st->is_authorized(BUS_KEY, OWNER));
+    ASSERT_FALSE(st->is_authorized(BUS_KEY, OTHER));
+}
+
+/// @brief it should stop promptly during the wait that follows a failed task sync.
+TEST_F(ScriptedControlTest, StopIsPromptAfterAFailedSync) {
+    start(
+        [this] {
+            this->scripted.control->reply(
+                {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+            );
+        },
+        true,
+        30 * x::telem::SECOND
+    );
+    pipe->pause();
+    this->scripted.control->reply({}, freighter::UNREACHABLE);
+    miss();
+    // The run closes the stream just before the wait.
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] { return this->scripted.stream->is_closed(); },
+        true,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(10)
+    );
+    const auto began = std::chrono::steady_clock::now();
+    manager->stop();
+    thread.join();
+    ASSERT_LT(std::chrono::steady_clock::now() - began, std::chrono::seconds(5));
+    pipe->resume();
 }
 }

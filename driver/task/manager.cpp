@@ -206,6 +206,7 @@ void Manager::stop() {
     // Very important that we do NOT set the streamer to a nullptr here, as the run()
     // method still needs access before shutting down.
     if (this->streamer != nullptr) this->streamer->close_send();
+    this->stopped.notify_all();
 }
 
 x::errors::Error Manager::run(const std::function<void()> &on_started) {
@@ -297,7 +298,12 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
         this->streamer = nullptr;
     }
     // The rack starts the next run at once, so a sync that keeps failing would spin.
-    if (sync_failed) this->breaker.wait_for(this->poll_interval);
+    if (sync_failed) {
+        std::unique_lock lock{this->mu};
+        this->stopped.wait_for(lock, this->poll_interval.chrono(), [this] {
+            return this->exit_early.load();
+        });
+    }
     return c_err;
 }
 
@@ -318,20 +324,13 @@ read_control(const synnax::Synnax &client, control::States &states) {
 }
 
 void Manager::read_control_states_or_retry() {
-    const auto [applied, err] = read_control(*this->ctx->client, *this->control_states);
-    if (applied) {
-        this->control_unread->store(false);
-        return;
-    }
+    // Only this thread outdates reads, so a read here fails or applies.
+    const auto err = read_control(*this->ctx->client, *this->control_states).second;
+    if (!err) return;
     this->control_states->release();
-    this->control_unread->store(true);
-    if (err)
-        LOG(WARNING) << "failed to read control state, so the local bus uses the last "
-                        "one read until a read succeeds: "
-                     << err;
-    else
-        LOG(WARNING) << "a read of control state was outdated, so the local bus uses "
-                        "the last one read until a read succeeds";
+    LOG(WARNING) << "failed to read control state, so the local bus uses the last "
+                    "one read until a read succeeds: "
+                 << err;
 }
 
 void Manager::retrieve_rack_name() {
@@ -672,16 +671,12 @@ void Manager::monitor_loop() {
         if (!this->breaker.running()) break;
         // The read runs on its own thread, so a hung Core never delays the checks
         // below or a close. It holds what it uses, so it can outlive the manager.
-        if (this->control_unread->load() && !this->control_reading->exchange(true))
+        if (this->control_states->stale() && !this->control_reading->exchange(true))
             std::thread([client = this->ctx->client,
                          states = this->control_states,
-                         unread = this->control_unread,
                          reading = this->control_reading] {
-                const auto [applied, err] = read_control(*client, *states);
-                if (!err && applied) {
-                    unread->store(false);
+                if (read_control(*client, *states).first)
                     LOG(INFO) << "read control state again for the local bus";
-                }
                 reading->store(false);
             }).detach();
         // Checked after the lock is released: a warning blocks on the network, and a
