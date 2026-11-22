@@ -233,6 +233,18 @@ var _ = Describe("Compaction on the pointer log", func() {
 		Expect(values(ctx)).To(Equal(want))
 	})
 
+	It("Should rewrite a segment that a delete cut while open once a write seals it",
+		func(ctx SpecContext) {
+			write(ctx, data, telem.NewSeries(count(10)), 0)
+			deleteRange(ctx, data, 2, 6)
+			names := slices.Sorted(maps.Keys(segments(data)))
+			Expect(names).To(HaveLen(1))
+			Consistently(files(data)).Should(HaveKey(names[0]))
+			write(ctx, data, end, 1<<22)
+			Eventually(files(data)).ShouldNot(HaveKey(names[0]))
+			Expect(values(ctx)).To(Equal([]int64{0, 1, 6, 7, 8, 9, -1}))
+		})
+
 	It("Should copy a segment over many jobs, with a whole sample past a job",
 		func(ctx SpecContext) {
 			text := GenerateChannelKey()
