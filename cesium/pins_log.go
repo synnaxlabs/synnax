@@ -11,12 +11,16 @@ package cesium
 
 import (
 	"maps"
+	"path"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // pins counts the readers of each segment, and holds each dead segment that waits for
@@ -102,6 +106,40 @@ func (e *engine) release(dead []state.Dead) error {
 	}
 	e.pins.mu.Unlock()
 	return e.unlink(free)
+}
+
+// pinnedFiles reports which files of the directory of key a reader may still read: the
+// file of each dead segment of key that waits for its last reader, and every segment
+// file of key while a load of key pins parts, since that load may read any segment of
+// key that a part held a record of.
+func (e *engine) pinnedFiles(key ChannelKey) func(name string) bool {
+	e.pins.mu.Lock()
+	defer e.pins.mu.Unlock()
+	if e.pins.keys[key] > 0 {
+		return isSegmentFile
+	}
+	names := set.New[string]()
+	for _, d := range e.pins.dead {
+		if ChannelKey(d.Key) == key {
+			names.Add(segmentName(key, d.Segment, d.File))
+		}
+	}
+	return names.Contains
+}
+
+// isSegmentFile reports whether name, a path in a channel directory, names the file of
+// a segment: a version 1 segment file, or an old file of a version 0 segment.
+func isSegmentFile(name string) bool {
+	base := path.Base(name)
+	if strings.HasSuffix(base, ".seg") {
+		return true
+	}
+	n, ok := strings.CutSuffix(base, ".domain")
+	if !ok {
+		return false
+	}
+	_, err := strconv.ParseUint(n, 10, 16)
+	return err == nil
 }
 
 // unlink removes the file of each segment of dead, and tries every removal.

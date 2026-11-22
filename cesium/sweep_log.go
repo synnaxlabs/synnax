@@ -103,13 +103,38 @@ func (db *DB) dropLog(keys []ChannelKey) error {
 	return err
 }
 
-// removeLogDir removes the channel file and the directory of key, when they exist.
+// removeLogDir removes the files in the directory of a dropped key that no reader may
+// still read, and the directory once it is empty. The Drop gave the segments of the key
+// that the state holds to the engine, which unlinks each file once no reader pins it.
+// While a load of the key pins parts, its segment files stay: the next open's orphan
+// pass removes the version 1 ones, and the old files of version 0 segments stay. A
+// directory that a reader keeps goes at a later Sweep, as the directory of a torn key.
 func (db *DB) removeLogDir(key ChannelKey) error {
 	dir := keyToDirName(key)
-	for _, name := range []string{path.Join(dir, channelFile), dir} {
-		if err := db.fs.Remove(name); err != nil && !errors.Is(err, os.ErrNotExist) {
+	infos, err := db.fs.List(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	pinned := db.engine.pinnedFiles(key)
+	kept := false
+	for _, info := range infos {
+		name := path.Join(dir, info.Name())
+		if pinned(name) {
+			kept = true
+			continue
+		}
+		if err = db.fs.Remove(name); err != nil {
 			return err
 		}
+	}
+	if kept {
+		return db.fs.SyncDir(dir)
+	}
+	if err = db.fs.Remove(dir); err != nil {
+		return err
 	}
 	return db.fs.SyncDir("")
 }
