@@ -556,6 +556,48 @@ export const useDragAndDrop = ({
   return { ...dragProps, ...dropProps };
 };
 
+/** Return value of {@link useDragOver}. */
+export interface UseDragOverReturn {
+  /** Whether a drag is over the element or one of its children. */
+  over: boolean;
+  onDragEnter: DragEventHandler;
+  onDragLeave: DragEventHandler;
+}
+
+/**
+ * Tracks whether a drag is over an element. CSS `:hover` does not apply during a
+ * native drag. Spread the handlers onto the element.
+ */
+export const useDragOver = (): UseDragOverReturn => {
+  // Entering a child fires dragenter on it before dragleave on the parent.
+  const depth = useRef(0);
+  const [over, setOver] = useState(false);
+  const ref = useDraggingRef();
+  const dragging = useDraggingState().items.length > 0;
+  useEffect(() => {
+    if (dragging) return;
+    depth.current = 0;
+    setOver(false);
+  }, [dragging]);
+  // An untracked drag, such as an external file, never resets the state when it ends.
+  const tracked = () => ref.current.items.length > 0;
+  const onDragEnter = () => {
+    if (!tracked()) return;
+    depth.current += 1;
+    setOver(true);
+  };
+  const onDragLeave: DragEventHandler = (e) => {
+    if (!tracked()) return;
+    // A child that unmounts under the drag never gets its dragleave, so a leave to a
+    // known place outside the element clears the count.
+    const to = e.relatedTarget;
+    const outside = to instanceof Node && !e.currentTarget.contains(to);
+    depth.current = outside ? 0 : Math.max(0, depth.current - 1);
+    if (depth.current === 0) setOver(false);
+  };
+  return { over, onDragEnter, onDragLeave };
+};
+
 /** {@link CanDrop} matching any drag containing at least one item of `type`. */
 export const canDropOfType =
   <I extends Item = Item>(type: I["type"]): CanDrop =>
