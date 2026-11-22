@@ -137,6 +137,7 @@ type Server struct {
 	cancelRepublish          context.CancelFunc
 	externalChangeDisconnect observe.Disconnect
 	republishWG              sync.WaitGroup
+	comments                 commentTokens
 }
 
 var _ protocol.Server = (*Server)(nil)
@@ -306,6 +307,7 @@ func (s *Server) DidOpen(
 		Version:  params.TextDocument.Version,
 		Content:  params.TextDocument.Text,
 		metadata: metadata,
+		names:    &nameTokens{},
 	}
 	// ctx ends when DidOpen returns, but analysis runs until the document closes.
 	deb, err := debounce.New(context.WithoutCancel(ctx), debounce.Config{

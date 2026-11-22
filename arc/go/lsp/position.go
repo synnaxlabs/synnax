@@ -68,7 +68,8 @@ func isPositionInTokenRange(line, col int, start, stop antlr.Token) bool {
 	startLine := start.GetLine()
 	startCol := start.GetColumn()
 	stopLine := stop.GetLine()
-	stopCol := stop.GetColumn() + len(stop.GetText())
+	// Columns count runes, as the token's indexes do.
+	stopCol := stop.GetColumn() + stop.GetStop() - stop.GetStart() + 1
 
 	if line > startLine && line < stopLine {
 		return true
@@ -96,21 +97,24 @@ func newLineText(content string) lineText {
 // toUTF16 returns pos, whose column counts code points, with a column in UTF-16 units.
 func (l lineText) toUTF16(pos protocol.Position) protocol.Position {
 	if int(pos.Line) < len(l) {
-		line := l[pos.Line]
-		pos.Character = lsp.UTF16Column(line, runeOffset(line, int(pos.Character)))
+		return toUTF16In(l[pos.Line], pos)
 	}
 	return pos
 }
 
-// fromUTF16 returns pos, whose column counts UTF-16 units, with a column in code
-// points.
-func (l lineText) fromUTF16(pos protocol.Position) protocol.Position {
-	if int(pos.Line) < len(l) {
-		line := l[pos.Line]
-		pos.Character = uint32(
-			utf8.RuneCountInString(line[:lsp.ByteOffset(line, pos.Character)]),
-		)
-	}
+// toUTF16In returns pos, whose column counts code points of line, the text of its
+// line, with a column in UTF-16 units.
+func toUTF16In(line string, pos protocol.Position) protocol.Position {
+	pos.Character = lsp.UTF16Column(line, runeOffset(line, int(pos.Character)))
+	return pos
+}
+
+// fromUTF16In returns pos, whose column counts UTF-16 units of line, the text of its
+// line, with a column in code points.
+func fromUTF16In(line string, pos protocol.Position) protocol.Position {
+	pos.Character = uint32(
+		utf8.RuneCountInString(line[:lsp.ByteOffset(line, pos.Character)]),
+	)
 	return pos
 }
 
