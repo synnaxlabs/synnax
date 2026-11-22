@@ -21,8 +21,7 @@ import type { z } from "zod";
 import { Enumeration } from "@/enumeration";
 import { Form } from "@/schematic/node/common/form";
 import { CreatePromptStub } from "@/schematic/node/testutil";
-import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper, renderForm } from "@/testutil";
 
 const path = deep.path<schematic.StateIndicatorNodeConfig>();
 
