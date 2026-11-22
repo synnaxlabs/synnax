@@ -10,10 +10,9 @@
 package checkpoint_test
 
 import (
-	"context"
 	"encoding/binary"
+	"io"
 	"os"
-	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,12 +28,9 @@ import (
 
 // owners runs the log, the state, and the checkpointer of fs on exec, as the engine
 // wires them, and returns the log and the state.
-func owners(
-	ctx context.Context,
-	fs xfs.FS,
-	exec func(func()),
-) (*log.Log, *state.State) {
+func owners(fs xfs.FS, exec func(func())) (*log.Log, *state.State) {
 	GinkgoHelper()
+	errs := &ownerErrs{}
 	Expect(log.Prepare(fs, 1, logSize)).To(Succeed())
 	Expect(checkpoint.Write(fs, 1, checkpoint.Encode(db, 1, &state.Snapshot{
 		Limits: state.Limits{Segments: 1, Alignments: 1},
@@ -67,27 +63,19 @@ func owners(
 		FS:       fs,
 		Executor: exec,
 		OnDurable: func(sequence uint64, records []log.Record) {
-			_ = st.Durable(sequence, records)
+			errs.add(st.Durable(sequence, records))
 		},
 		Prepare: cp.Prepare,
 		OnRefused: func(records []log.Record, err error) {
-			_ = st.Refused(records, err)
+			errs.add(st.Refused(records, err))
 		},
-		Switched:   func(g uint64) { _ = st.Switch(g) },
+		Switched:   func(g uint64) { errs.add(st.Switch(g)) },
 		DB:         db,
 		Generation: 1,
 		Sequence:   1,
 	}))
 	// The owners stop, and the spec waits for them, before the leak check.
-	ctx, cancel := context.WithCancel(ctx)
-	var wg sync.WaitGroup
-	for _, run := range []func(context.Context) error{st.Run, l.Run, cp.Run} {
-		wg.Go(func() { _ = run(ctx) })
-	}
-	DeferCleanup(func() {
-		cancel()
-		wg.Wait()
-	})
+	runOwners(errs, st.Run, l.Run, cp.Run)
 	// The log switches only once the next log is prepared.
 	Eventually(ready).WithTimeout(10 * time.Second).Should(Receive(Equal(uint64(2))))
 	return l, st
@@ -153,17 +141,13 @@ func sealSequence(b []byte) uint64 {
 
 var _ = Describe("Switch check", func() {
 	It("Should switch logs when the executor runs one job at a time", func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		DeferCleanup(cancel)
-		l, _ := owners(ctx, xfs.NewMem(), executor(true))
+		l, _ := owners(xfs.NewMem(), executor(true))
 		Eventually(fill(l)).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 	})
 
 	It("Should write a head that covers exactly the entries before the switch", func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		DeferCleanup(cancel)
 		fs := xfs.NewMem()
-		l, _ := owners(ctx, fs, func(f func()) { go f() })
+		l, _ := owners(fs, func(f func()) { go f() })
 		Eventually(fill(l)).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 		var h checkpoint.Header
 		Eventually(func() error {
@@ -182,10 +166,8 @@ var _ = Describe("Switch check", func() {
 
 	It("Should write a head at a switch that covers no entry of the next log, when "+
 		"the next log holds a Seals entry", func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		DeferCleanup(cancel)
 		fs := xfs.NewMem()
-		l, st := owners(ctx, fs, func(f func()) { go f() })
+		l, st := owners(fs, func(f func()) { go f() })
 		// An open segment that no writer holds gets a Seal in the next log.
 		w := MustSucceed(st.OpenWriter(state.WriterConfig{
 			Keys: []state.WriterKey{{Key: 5, DataType: 4}}, Clock: 5, Start: 10,
@@ -204,7 +186,8 @@ var _ = Describe("Switch check", func() {
 		}).WithTimeout(10 * time.Second).Should(Succeed())
 		f := MustSucceed(fs.Open(log.Name(2), os.O_RDONLY))
 		b := make([]byte, log.FramesStart+log.MaxFrame)
-		n, _ := f.ReadAt(b, 0)
+		n, err := f.ReadAt(b, 0)
+		Expect(err).To(Or(Not(HaveOccurred()), MatchError(io.EOF)))
 		Expect(f.Close()).To(Succeed())
 		b = b[:n]
 		lh := MustSucceed(log.DecodeHeader(b, db, 2, 0))
