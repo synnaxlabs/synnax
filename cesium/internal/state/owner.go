@@ -12,6 +12,7 @@ package state
 import (
 	"context"
 	"maps"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -39,6 +40,8 @@ type Config struct {
 	// OnHead gets the durable snapshot that the head of the log of generation holds, on
 	// a step of the owner. It must return at once.
 	OnHead func(generation uint64, s *Snapshot)
+	// Generation is the generation of the head that Open loads, from 1.
+	Generation uint64
 }
 
 // Validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -49,6 +52,7 @@ func (c Config) Validate() error {
 	v.NotNil("append", c.Append)
 	v.NotNil("executor", c.Executor)
 	v.NotNil("on_head", c.OnHead)
+	v.Ternary("generation", c.Generation == 0, "must be at least 1")
 	return v.Error()
 }
 
@@ -104,19 +108,31 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 		exit:    make(chan struct{}),
 		stepped: make(chan bool, 1),
 	}
-	if err := s.core.load(head); err != nil {
+	if err := s.core.load(head, cfg.Generation); err != nil {
 		return nil, err
 	}
+	s.core.generation, s.core.head = cfg.Generation, cfg.Generation
 	s.step = s.run
 	s.nextID, s.nextAlign = max(head.Limits.Segments, 1), max(head.Limits.Alignments, 1)
 	return s, nil
 }
 
 // Replay applies the records of the durable entry of sequence, in replay mode, before
-// Run. It returns an error that wraps ErrRefused for a record that breaks a rule, or
+// Run. pre holds, in rising order of key, the part records that the records reach. It
+// returns an error that wraps ErrRefused for a record that breaks a rule, or
 // log.ErrUnknown for one this binary does not apply.
-func (s *State) Replay(sequence uint64, records []log.Record) error {
-	return s.core.apply(sequence, records)
+func (s *State) Replay(sequence uint64, records []log.Record, pre ...Preload) error {
+	return s.core.apply(sequence, records, pre)
+}
+
+// KeyOf returns the key of segment, and false when the state does not hold it. Call it
+// in replay mode, before Run.
+func (s *State) KeyOf(segment uint64) (uint32, bool) {
+	seg, ok := s.core.segments[segment]
+	if !ok {
+		return 0, false
+	}
+	return seg.key, true
 }
 
 // Run ends replay mode, publishes the visible state of every key, and runs one step of
@@ -271,7 +287,7 @@ type durableRequest struct {
 func (*durableRequest) fail(error) {}
 
 func (r *durableRequest) run(s *State) {
-	if err := s.core.apply(r.sequence, r.records); err != nil {
+	if err := s.core.apply(r.sequence, r.records, nil); err != nil {
 		s.fail(err)
 		return
 	}
@@ -281,6 +297,107 @@ func (r *durableRequest) run(s *State) {
 	if len(s.parked) > 0 {
 		s.unpark()
 	}
+}
+
+// Tag names the part that holds a segment record, as the part holds it.
+type Tag struct {
+	Part    uint64
+	Segment Segment
+}
+
+type partedRequest struct {
+	generation uint64
+	tags       []Tag
+	ranges     []Range
+	swap       func()
+}
+
+// fail drops the request: the state failed, and later calls return its error.
+func (*partedRequest) fail(error) {}
+
+func (r *partedRequest) run(s *State) {
+	r.swap()
+	s.core.head = r.generation
+	changed := set.New[uint32]()
+	var (
+		steps  carried
+		tagged int
+	)
+	for _, t := range r.tags {
+		seg, ok := s.core.segments[t.Segment.ID]
+		if !ok || !sameRecord(seg.vis, t.Segment) {
+			continue
+		}
+		seg.vis.Part = t.Part
+		if !steps.found || steps.key != seg.key || steps.clock != seg.vis.Clock {
+			steps.find(s.core, seg.key, seg.vis.Clock)
+		}
+		if steps.busy {
+			steps.carry(s.core, seg)
+		}
+		changed.Add(seg.key)
+		tagged++
+	}
+	s.core.forget(changed, tagged)
+	folded := func(k Kill) bool { return k.Generation < r.generation }
+	s.core.dropped = slices.DeleteFunc(s.core.dropped, folded)
+	ranges := make(map[uint32]Range, len(r.ranges))
+	for _, rg := range r.ranges {
+		ranges[rg.Key] = rg
+	}
+	// A key that a Drop took out after the snapshot of the head is a new key, and the
+	// range of the head belongs to the dropped one.
+	for _, k := range s.core.dropped {
+		delete(ranges, k.Key)
+	}
+	for key, ch := range s.core.channels {
+		rg := ranges[key]
+		// A range names parts of the new head, even when its bounds stay.
+		repart := ch.oldest != 0 || rg.Oldest != 0
+		if repart {
+			ch.oldest, ch.newest, ch.generation = rg.Oldest, rg.Newest, r.generation
+		}
+		if slices.ContainsFunc(ch.kills, folded) {
+			// A published Channel holds the old slice, so the kills left go to a new
+			// one.
+			ch.kills = slices.DeleteFunc(slices.Clone(ch.kills), folded)
+			repart = true
+		}
+		if repart {
+			ch.repart()
+			changed.Add(key)
+		}
+	}
+	for key := range changed {
+		s.core.channels[key].publish()
+	}
+}
+
+// sameRecord reports whether a and b are the same sealed segment record.
+func sameRecord(a, b Segment) bool {
+	return a.Sealed && b.Sealed && a.Length == b.Length && a.TailCRC == b.TailCRC &&
+		slices.Equal(a.Pointers, b.Pointers)
+}
+
+// Parted queues what the head of generation holds once it commits: the tags of the
+// records that its switch wrote to parts, and the part range of each key that parts
+// hold. The owner first calls swap, which makes the parts of the head readable. swap
+// runs on a step of the owner, so it must return at once and not wait on the state.
+// The owner then tags each sealed segment whose record is still the one that its part
+// holds, gives each key its range in the head or none, and drops the kills from before
+// generation, which the head holds as dead marks. Parted does not wait for the owner.
+func (s *State) Parted(
+	generation uint64,
+	tags []Tag,
+	ranges []Range,
+	swap func(),
+) error {
+	return s.enqueue(&partedRequest{
+		generation: generation,
+		tags:       tags,
+		ranges:     ranges,
+		swap:       swap,
+	})
 }
 
 // Durable queues the records of the durable entry of sequence, which the log owner

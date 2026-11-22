@@ -48,6 +48,17 @@ type Config struct {
 	// crash left is gone before a switch writes a part of its identity. Zero means no
 	// such clean.
 	Live uint64
+	// Cache is the part cache that a rewrite reads through. Nil means a cache of its
+	// own of 64 MiB.
+	Cache *Cache
+	// Parted, when set, gets the generation of each new head once it commits, the
+	// parts that it names, the tags of the records that its switch wrote to parts, and
+	// the part range of each key. It runs on the executor and must not wait for
+	// another of its jobs.
+	Parted func(generation uint64, parts []Part, tags []state.Tag, ranges []state.Range)
+	// Pinned, when set, returns the parts that readers pin, which a switch keeps until
+	// a later switch finds them unpinned. It must not wait for the executor.
+	Pinned func() []uint64
 }
 
 // Validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -102,6 +113,9 @@ func New(cfg Config) (*Checkpointer, error) {
 	if c.cfg.PartSize == 0 {
 		c.cfg.PartSize = defaultPartSize
 	}
+	if c.cfg.Cache == nil {
+		c.cfg.Cache = NewCache(cfg.FS, cfg.DB, defaultCacheSize)
+	}
 	c.step = c.run
 	return c, nil
 }
@@ -139,7 +153,8 @@ func (c *Checkpointer) Head(generation uint64, s *state.Snapshot) {
 	c.signal()
 }
 
-// Err returns the error of the last head, or nil once a later head succeeds.
+// Err returns the error of the last head, or of a part that its switch could not read
+// to write again, or nil once a later switch succeeds.
 func (c *Checkpointer) Err() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -210,12 +225,14 @@ func (c *Checkpointer) write(h head) error {
 	for i, p := range pl.index.parts {
 		refs[i] = p.Part
 	}
+	ranges := pl.index.rangesAfter(c.index)
+	pl.index.ranges = ranges
 	s := *h.snapshot
 	s.Channels, s.Limits.Parts = pl.head, pl.index.limit
 	if gone, err := writeFile(
 		c.cfg.FS,
 		Name(h.generation),
-		encodeHead(c.cfg.DB, h.generation, &s, refs),
+		encodeHead(c.cfg.DB, h.generation, &s, refs, ranges),
 	); err != nil {
 		// A head that may stay names the parts.
 		if !gone {
@@ -224,7 +241,14 @@ func (c *Checkpointer) write(h head) error {
 		return c.undo(written, err)
 	}
 	c.index = pl.index
-	return clean(c.cfg.FS, h.generation, c.index.ids())
+	if c.cfg.Parted != nil {
+		c.cfg.Parted(h.generation, refs, pl.tags(), ranges)
+	}
+	keep := c.index.ids()
+	if c.cfg.Pinned != nil {
+		keep.Add(c.cfg.Pinned()...)
+	}
+	return errors.Join(pl.err, clean(c.cfg.FS, h.generation, keep))
 }
 
 // undo removes the parts of a failed switch, then syncs the root.

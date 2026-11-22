@@ -58,6 +58,9 @@ type logWriter struct {
 	excluded    []ChannelKey
 	sealed      []*segment.Handle
 	keySegments []log.Slot
+	// committed holds the keys of the commit in progress, and pre their preloads.
+	committed []ChannelKey
+	pre       []state.Preload
 }
 
 // logKey is the open segment of one key of a logWriter.
@@ -130,11 +133,23 @@ func (w *logWriter) openState(db *DB, cfg WriterConfig, keys []state.WriterKey) 
 	if start.IsZero() {
 		start = telem.NewTimeStamp(db.clock.Now())
 	}
-	st, err := db.engine.state.OpenWriter(state.WriterConfig{
+	stateCfg := state.WriterConfig{
 		Keys:    keys,
 		Clock:   w.clock,
 		Start:   start,
 		Bounded: cfg.Mode == WriterModePersistOnly,
+	}
+	stateKeys := make([]ChannelKey, len(keys))
+	for i, k := range keys {
+		stateKeys[i] = k.Key
+	}
+	slices.Sort(stateKeys)
+	var st *state.Writer
+	_, err := db.engine.withPreloads(nil, stateKeys, start, start, false, func(
+		pre []state.Preload,
+	) (err error) {
+		st, err = db.engine.state.OpenWriter(stateCfg, pre...)
+		return err
 	})
 	if err != nil {
 		return err
@@ -391,11 +406,12 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 			First:     int64(w.first),
 			Last:      int64(w.end),
 		}
-		w.keySegments = w.keySegments[:0]
+		w.keySegments, w.committed = w.keySegments[:0], w.committed[:0]
 		for _, lk := range w.keys {
 			if lk.w == nil || lk.w.Len() == lk.committed {
 				continue
 			}
+			w.committed = append(w.committed, lk.ch.Key)
 			length, crc := lk.w.Pending()
 			w.keySegments = append(w.keySegments, log.Slot{
 				Segment: lk.id,
@@ -407,7 +423,14 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 			return cmp.Compare(a.Segment, b.Segment)
 		})
 		c.Slots = slices.Clone(w.keySegments)
-		if err := w.st.Commit(c); err != nil {
+		slices.Sort(w.committed)
+		var err error
+		w.pre, err = w.e.withPreloads(w.pre, w.committed, w.first, w.end, false, func(
+			pre []state.Preload,
+		) error {
+			return w.st.Commit(c, pre...)
+		})
+		if err != nil {
 			w.putBack()
 			return 0, false, err
 		}

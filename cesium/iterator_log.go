@@ -15,6 +15,7 @@ import (
 	"io"
 	"slices"
 
+	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/cesium/internal/state"
@@ -60,26 +61,51 @@ type logCursor struct {
 	// cur is the range of the last valid move, which a move that fails keeps, as on the
 	// old layout.
 	cur logRange
-	// pinned holds the segments of the last load, which the cursor pins until the next
-	// load or Close.
-	pinned []uint64
-	// err holds the error of an unlink after an unpin of a load, which Close returns.
-	err error
+	// pinned holds the segments and parts of the last load, which the cursor pins until
+	// the next load or Close.
+	pinned held
+	// err holds the errors of the loads, an unlink after an unpin or a part read, which
+	// Close returns. broken is true once a load failed to read a part, which ends the
+	// cursor.
+	err    error
+	broken bool
 }
 
 var _ domain.Ranges = (*logCursor)(nil)
 
-// load loads the visible pointers of the key in time order.
+// load loads the visible pointers of the key in time order: the live records of the
+// parts of its range, through the part cache, then the segments of the state that no
+// part holds.
 func (c *logCursor) load() {
 	c.ranges = c.ranges[:0]
-	ch, pinned, err := c.e.load(c.key, c.pinned)
-	c.pinned, c.err = pinned, errors.Join(c.err, err)
+	ch, pinned, err, unlinkErr := c.e.load(c.key, c.pinned)
+	c.pinned, c.err = pinned, errors.Join(c.err, err, unlinkErr)
+	if err != nil {
+		c.broken = true
+		return
+	}
 	if ch == nil {
 		return
 	}
-	for _, seg := range ch.Segments {
-		for _, ptr := range seg.Pointers {
-			c.ranges = append(c.ranges, logRange{seg: seg, ptr: ptr, start: ptr.First})
+	for _, p := range pinned.parts {
+		r, err := c.e.cache.Records(p, c.key)
+		if err != nil {
+			c.err, c.broken = errors.Join(c.err, err), true
+			c.ranges = c.ranges[:0]
+			return
+		}
+		c.ranges = slices.Grow(c.ranges, len(r.Segments))
+		for i := range r.Segments {
+			if seg := &r.Segments[i]; p.Live(r.First+i) &&
+				!killed(ch.Parts.Kills, p, seg.ID) {
+				c.add(seg)
+			}
+		}
+	}
+	c.ranges = slices.Grow(c.ranges, len(ch.Segments))
+	for i := range ch.Segments {
+		if seg := &ch.Segments[i]; seg.Part == 0 {
+			c.add(seg)
 		}
 	}
 	slices.SortFunc(c.ranges, func(a, b logRange) int {
@@ -93,10 +119,24 @@ func (c *logCursor) load() {
 	}
 }
 
+// add adds the pointers of seg to the ranges of c.
+func (c *logCursor) add(seg *state.Segment) {
+	for _, ptr := range seg.Pointers {
+		c.ranges = append(c.ranges, logRange{seg: *seg, ptr: ptr, start: ptr.First})
+	}
+}
+
+// killed reports whether a kill in kills marks the record of segment id in p dead.
+func killed(kills []state.Kill, p checkpoint.Part, id uint64) bool {
+	return slices.ContainsFunc(kills, func(k state.Kill) bool {
+		return k.Segment == id && k.Generation >= p.Generation
+	})
+}
+
 // at moves the cursor to position pos, which is valid when it holds a range that
-// overlaps the bounds.
+// overlaps the bounds. A cursor that failed to read a part is never valid.
 func (c *logCursor) at(pos int) bool {
-	c.valid = pos >= 0 && pos < len(c.ranges) &&
+	c.valid = !c.broken && pos >= 0 && pos < len(c.ranges) &&
 		c.ranges[pos].timeRange().OverlapsWith(c.bounds)
 	if c.valid {
 		c.pos, c.cur = pos, c.ranges[pos]
@@ -184,7 +224,7 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 func (c *logCursor) Close() error {
 	c.valid = false
 	err := errors.Join(c.err, c.e.unpin(c.pinned))
-	c.pinned, c.err = nil, nil
+	c.pinned, c.err = held{}, nil
 	return err
 }
 
@@ -222,5 +262,5 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
-	return errors.Join(r.h.Close(), r.e.unpin([]uint64{r.id}))
+	return errors.Join(r.h.Close(), r.e.unpin(held{segments: []uint64{r.id}}))
 }

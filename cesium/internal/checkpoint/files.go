@@ -167,7 +167,7 @@ func (f *format) read(
 		bd, err = f.parse(b, h)
 		return h, bd, err
 	}
-	secs, err := f.sectionsOf(b, h)
+	secs, err := f.sectionsOf(b[h.table:h.chunks], h)
 	if err == nil {
 		bd.parts, err = f.parseParts(b, secs)
 	}

@@ -164,6 +164,8 @@ GROUPS: tuple[Group, ...] = (
         "cesium",
         "^Benchmark(ReadDomains|ReadSamples|StreamFixedSpan)$",
     ),
+    go("cesium/read-parts", "cpu", "cesium", "^BenchmarkReadParts$"),
+    go("cesium/delete-parts", "cpu", "cesium", "^BenchmarkDeleteParts$"),
     go("cesium/switch", "cpu", "cesium/internal/checkpoint", "^BenchmarkSwitch$"),
     go(
         "framer/writer",

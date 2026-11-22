@@ -112,14 +112,14 @@ var _ = Describe("Check: a crash in a switch that writes parts", func() {
 				PartSize: 1,
 			}))
 			start(c)
-			// Head 2 writes part 1. Head 3 writes part 1 again as part 2, since two of
-			// its three segments are dead. Head 4 removes head 2 and part 1.
+			// Head 2 writes part 1. Head 3 writes part 1 again as part 2, since kills
+			// mark two of its three segments dead. Head 4 removes head 2 and part 1.
 			want := map[uint64][]uint64{
 				1: {100}, 2: {1, 2, 3, 100}, 3: {1, 100}, 4: {1, 100},
 			}
 			snapshots := map[uint64]*state.Snapshot{
 				2: withSealed(sealed(1, 10), sealed(2, 20), sealed(3, 30)),
-				3: withSealed(sealed(1, 10)),
+				3: killed(withSealed(sealed(1, 10)), 2, 2, 3),
 				4: withSealed(sealed(1, 10)),
 			}
 			for g := uint64(2); g <= 4; g++ {
@@ -148,6 +148,30 @@ var _ = Describe("Check: a crash in a switch that writes parts", func() {
 	}
 })
 
+// liveRecords returns the live records of key in the parts that h, a head of database
+// db in fs, names.
+func liveRecords(
+	fs xfs.FS,
+	db uint64,
+	h checkpoint.Header,
+	key uint32,
+) ([]state.Segment, error) {
+	cache := checkpoint.NewCache(fs, db, 1<<20)
+	var live []state.Segment
+	for _, p := range h.Parts {
+		r, err := cache.Records(p, key)
+		if err != nil {
+			return nil, err
+		}
+		for i, seg := range r.Segments {
+			if p.Live(r.First + i) {
+				live = append(live, seg)
+			}
+		}
+	}
+	return live, nil
+}
+
 type opened struct {
 	generation uint64
 	ids        []uint64
@@ -166,17 +190,23 @@ func newestState(fs xfs.FS) (opened, error) {
 		if err != nil {
 			return opened{}, errors.Wrapf(err, "head %d", g)
 		}
-		parts, err := checkpoint.LoadParts(fs, db, h)
-		if err != nil {
+		if _, err = checkpoint.LoadParts(fs, db, h); err != nil {
 			return opened{}, errors.Wrapf(err, "head %d", g)
 		}
-		parts.Merge(s)
 		out := opened{generation: g}
 		for _, ch := range s.Channels {
 			for _, seg := range ch.Segments {
 				out.ids = append(out.ids, seg.ID)
 			}
+			live, err := liveRecords(fs, db, h, ch.Key)
+			if err != nil {
+				return opened{}, errors.Wrapf(err, "head %d", g)
+			}
+			for _, seg := range live {
+				out.ids = append(out.ids, seg.ID)
+			}
 		}
+		slices.Sort(out.ids)
 		return out, nil
 	}
 	return opened{}, errors.New("no head passes")

@@ -42,7 +42,7 @@ func table(b []byte) uint64                { return binary.LittleEndian.Uint64(b
 // at returns the file offset of field of record of section kind of head b.
 func at(b []byte, kind int, record, field uint64) uint64 {
 	off, _ := section(b, kind)
-	size := []uint64{0, 48, 1, 24, 20, 32, 36, 96, 4, 4}[kind]
+	size := []uint64{0, 48, 1, 24, 16, 32, 36, 0, 4, 4}[kind]
 	return off + record*size + field
 }
 
@@ -91,7 +91,7 @@ var headRefusals = []headRefusal{
 		return b
 	}, place.ErrCorrupt, "out of place"},
 	{"a count that wraps to the table", func(b []byte) []byte {
-		put64(b, table(b)+24*8+16, 1<<62+2)
+		put64(b, table(b)+24*7+16, 1<<62+2)
 		return b
 	}, place.ErrCorrupt, "section 9 at"},
 	{"a part", func(b []byte) []byte {
@@ -107,14 +107,14 @@ var headRefusals = []headRefusal{
 		put32(b, at(b, 4, 0, 4), 1)
 		return b
 	}, place.ErrCorrupt, "key 5 has segment records 1 to 2"},
-	{"a tombstone index", func(b []byte) []byte {
-		put32(b, at(b, 4, 0, 8), 1)
+	{"a part index past the parts", func(b []byte) []byte {
+		put32(b, at(b, 4, 2, 8), 0)
 		return b
-	}, place.ErrCorrupt, "names tombstones or parts"},
-	{"a part index", func(b []byte) []byte {
-		put32(b, at(b, 4, 2, 16), 0)
+	}, place.ErrCorrupt, "key 9 names parts 0 to 4294967295 of 0"},
+	{"a key with no segment record and no part", func(b []byte) []byte {
+		put32(b, at(b, 4, 1, 4), 0)
 		return b
-	}, place.ErrCorrupt, "names tombstones or parts"},
+	}, place.ErrCorrupt, "key 5 has no segment record and no part"},
 	{"segment flag", func(b []byte) []byte {
 		b[at(b, 5, 2, 27)] = 2
 		return b

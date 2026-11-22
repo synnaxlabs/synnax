@@ -41,11 +41,12 @@ func owners(fs xfs.FS, exec func(func())) (*log.Log, *state.State) {
 		ready = make(chan uint64, 64)
 	)
 	st := MustSucceed(state.Open(state.Config{
-		Versions: set.New[uint16](1),
-		Version:  1,
-		Append:   func(e *log.Entry) { l.Append(e) },
-		Executor: exec,
-		OnHead:   func(g uint64, s *state.Snapshot) { cp.Head(g, s) },
+		Versions:   set.New[uint16](1),
+		Version:    1,
+		Append:     func(e *log.Entry) { l.Append(e) },
+		Executor:   exec,
+		OnHead:     func(g uint64, s *state.Snapshot) { cp.Head(g, s) },
+		Generation: 1,
 	}, &state.Snapshot{Limits: state.Limits{Segments: 1, Alignments: 1}}))
 	cp = MustSucceed(checkpoint.New(checkpoint.Config{
 		FS:      fs,
@@ -199,25 +200,28 @@ var _ = Describe("Switch check", func() {
 
 	It("Should refuse a head whose chunk table offset wraps past 2^64, with no panic",
 		func() {
-			b := make([]byte, 4320)
-			copy(b, "CSCHKPT\x00")
-			binary.LittleEndian.PutUint16(b[8:], 1)
-			b[10] = 4
-			binary.LittleEndian.PutUint64(b[16:], 7)
-			binary.LittleEndian.PutUint64(b[24:], 3)
+			fs := xfs.NewMem()
+			Expect(checkpoint.Write(fs, 3, checkpoint.Encode(7, 3, &state.Snapshot{}))).
+				To(Succeed())
+			f := MustSucceed(fs.Open(checkpoint.Name(3), os.O_RDWR))
+			b := make([]byte, checkpoint.SectorSize)
+			MustSucceed(f.ReadAt(b, 0))
+			// The section table of 24 byte entries ends where the chunk table starts.
+			sections := uint64(binary.LittleEndian.Uint32(b[80:]))
 			chunks := uint64(18445618242517995996)
-			binary.LittleEndian.PutUint64(b[64:], 4320)
-			binary.LittleEndian.PutUint64(b[72:], chunks-216)
-			binary.LittleEndian.PutUint32(b[80:], 9)
+			binary.LittleEndian.PutUint64(b[72:], chunks-24*sections)
 			binary.LittleEndian.PutUint64(b[88:], chunks)
 			binary.LittleEndian.PutUint32(b[508:], place.Head(7, 3, 0).Sum(b[:508]))
-			fs := xfs.NewMem()
-			f := MustSucceed(fs.Open(checkpoint.Name(3), os.O_CREATE|os.O_RDWR))
-			MustSucceed(f.Write(b))
+			MustSucceed(f.WriteAt(b, 0))
 			Expect(f.Close()).To(Succeed())
 			var err error
 			Expect(func() { _, _, err = checkpoint.Read(fs, 3) }).ToNot(Panic())
 			Expect(err).To(MatchError(place.ErrCorrupt))
+			Expect(err).To(MatchError(ContainSubstring(
+				"section table at %d and chunk table at %d do not fit",
+				chunks-24*sections,
+				chunks,
+			)))
 		},
 	)
 })

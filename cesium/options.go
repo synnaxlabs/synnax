@@ -45,6 +45,9 @@ type options struct {
 	executor  func(f func())
 	// pointerLog opens the database on the pointer log layout.
 	pointerLog bool
+	// partSize is the size of the sealed segment records in a head at which a switch
+	// moves them to a part, or zero for 8 MiB.
+	partSize int
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
@@ -123,6 +126,10 @@ func WithExecutor(exec func(f func())) Option {
 // WithPointerLog opens the DB on the pointer log layout, which commits writes through
 // one log and syncs them, in place of the old layout.
 func WithPointerLog() Option { return func(o *options) { o.pointerLog = true } }
+
+// WithPartSize sets the size of the sealed segment records in a head at which a switch
+// of the pointer log layout moves them to a part. Zero means 8 MiB.
+func WithPartSize(size int) Option { return func(o *options) { o.partSize = size } }
 
 // WithGCConfig sets the garbage collection configuration for the DB. See the GCConfig
 // struct for more details.

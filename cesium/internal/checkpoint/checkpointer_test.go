@@ -210,11 +210,12 @@ var _ = Describe("Checkpointer", func() {
 					ready = make(chan uint64, 4)
 				)
 				st := MustSucceed(state.Open(state.Config{
-					Versions: set.New[uint16](1),
-					Version:  1,
-					Append:   func(e *log.Entry) { l.Append(e) },
-					Executor: goExec,
-					OnHead:   func(g uint64, s *state.Snapshot) { cp.Head(g, s) },
+					Versions:   set.New[uint16](1),
+					Version:    1,
+					Append:     func(e *log.Entry) { l.Append(e) },
+					Executor:   goExec,
+					OnHead:     func(g uint64, s *state.Snapshot) { cp.Head(g, s) },
+					Generation: 1,
 				}, &state.Snapshot{Limits: state.Limits{Segments: 1, Alignments: 1}}))
 				cp = MustSucceed(checkpoint.New(checkpoint.Config{
 					FS:      fs,
