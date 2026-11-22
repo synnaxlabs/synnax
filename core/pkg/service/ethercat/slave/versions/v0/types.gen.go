@@ -144,7 +144,7 @@ type Slave struct {
 	// Name is a human-readable name for the slave.
 	Name string `json:"name" msgpack:"name"`
 	// Serial is the serial number of the slave. 0 when the slave reports none.
-	Serial uint32 `json:"serial" msgpack:"serial"`
+	Serial uint64 `json:"serial" msgpack:"serial"`
 	// VendorID is the EtherCAT vendor ID of the slave.
 	VendorID uint32 `json:"vendor_id" msgpack:"vendor_id"`
 	// ProductCode is the product code of the slave.
@@ -188,6 +188,7 @@ type Slave struct {
 func (s Slave) Validate() error {
 	v := validate.New("Slave")
 	v.NotEmptyString("name", s.Name)
+	v.LessThanEq("serial", s.Serial, 9007199254740991)
 	if s.OpMode != nil {
 		v.Exec(func() error { return validate.PathedError(s.OpMode.Validate(), "op_mode") })
 	}
