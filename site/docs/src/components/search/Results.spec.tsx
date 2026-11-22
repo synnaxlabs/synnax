@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Results } from "@/components/search/Results";
+import { Search } from "@/components/search";
 
 const hit = (title: string) => ({
   objectID: title,
@@ -41,14 +41,17 @@ describe("Results", () => {
           ),
       ),
     );
-    const { container } = render(<Results />);
-    const input = container.querySelector("input")!;
+    render(<Search.Search />);
+    fireEvent.click(screen.getByRole("button", { name: /Search/ }));
+    const input = document.querySelector<HTMLInputElement>(
+      ".search-results__content input",
+    )!;
     fireEvent.change(input, { target: { value: "c" } });
     fireEvent.change(input, { target: { value: "channels" } });
     expect(pending).toHaveLength(2);
     await act(async () => pending[1](["newest"]));
     await act(async () => pending[0](["stale"]));
-    const titles = [...container.querySelectorAll(".search-result__title")].map(
+    const titles = [...document.querySelectorAll(".search-result__title")].map(
       (el) => el.textContent,
     );
     expect(titles).toEqual(["newest"]);

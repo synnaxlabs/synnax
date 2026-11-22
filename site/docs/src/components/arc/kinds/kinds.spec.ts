@@ -9,7 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { start } from "@/components/arc/kinds";
+import { kinds } from "@/components/arc/kinds";
 
 const kind = (id: string): HTMLDetailsElement => {
   const found = document.getElementById(id);
@@ -42,20 +42,20 @@ describe("Arc kinds", () => {
 
   it("should open the kind that the URL hash names", () => {
     window.history.replaceState(null, "", "#e4004");
-    stop = start();
+    stop = kinds.start();
     expect(kind("e4004").open).toBe(true);
     expect(kind("e4005").open).toBe(false);
   });
 
   it("should open the kind after a page swap", () => {
-    stop = start();
+    stop = kinds.start();
     window.history.replaceState(null, "", "#e4005");
     document.dispatchEvent(new Event("astro:page-load"));
     expect(kind("e4005").open).toBe(true);
   });
 
   it("should open the kind when the hash changes", () => {
-    stop = start();
+    stop = kinds.start();
     window.history.replaceState(null, "", "#e4005");
     window.dispatchEvent(new Event("hashchange"));
     expect(kind("e4005").open).toBe(true);
@@ -63,12 +63,12 @@ describe("Arc kinds", () => {
 
   it("should leave other details closed", () => {
     window.history.replaceState(null, "", "#other");
-    stop = start();
+    stop = kinds.start();
     expect(kind("other").open).toBe(false);
   });
 
   it("should open and close a kind when the reader clicks its title", () => {
-    stop = start();
+    stop = kinds.start();
     const title = kind("e4004").querySelector("a") as HTMLAnchorElement;
     expect(click(title).defaultPrevented).toBe(true);
     expect(kind("e4004").open).toBe(true);
@@ -77,21 +77,21 @@ describe("Arc kinds", () => {
   });
 
   it("should leave a click with a modifier key to the browser", () => {
-    stop = start();
+    stop = kinds.start();
     const title = kind("e4004").querySelector("a") as HTMLAnchorElement;
     expect(click(title, { metaKey: true }).defaultPrevented).toBe(false);
     expect(kind("e4004").open).toBe(false);
   });
 
   it("should leave the title of other details alone", () => {
-    stop = start();
+    stop = kinds.start();
     const title = kind("other").querySelector("a") as HTMLAnchorElement;
     expect(click(title).defaultPrevented).toBe(false);
     expect(kind("other").open).toBe(false);
   });
 
   it("should write the kind that opens to the URL", () => {
-    stop = start();
+    stop = kinds.start();
     kind("e4005").open = true;
     kind("e4005").dispatchEvent(new Event("toggle"));
     expect(window.location.hash).toEqual("#e4005");
@@ -99,7 +99,7 @@ describe("Arc kinds", () => {
 
   it("should keep the URL when a kind closes", () => {
     window.history.replaceState(null, "", "#e4004");
-    stop = start();
+    stop = kinds.start();
     kind("e4004").open = false;
     kind("e4004").dispatchEvent(new Event("toggle"));
     expect(window.location.hash).toEqual("#e4004");

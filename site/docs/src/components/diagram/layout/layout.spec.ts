@@ -9,9 +9,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { layout, type Node } from "@/components/diagram/layout";
+import { layout } from "@/components/diagram/layout";
 
-const NODES: Node[] = [
+const NODES: layout.Node[] = [
   { key: "task", label: "Read task", column: 0 },
   { key: "script", label: "Script", column: 0 },
   { key: "button", label: "Schematic button", column: 0 },
@@ -21,12 +21,12 @@ const NODES: Node[] = [
 const EDGES = NODES.slice(0, 3).map(({ key }) => ({ from: key, to: "channel" }));
 
 const byKey = (key: string) => {
-  const node = layout(NODES, EDGES).nodes.find((n) => n.key === key);
+  const node = layout.place(NODES, EDGES).nodes.find((n) => n.key === key);
   if (node == null) throw new Error(`no node ${key}`);
   return node;
 };
 
-describe("layout", () => {
+describe("place", () => {
   it("should stack the nodes of a column in the given order", () => {
     expect(byKey("task").y).toBeLessThan(byKey("script").y);
     expect(byKey("script").y).toBeLessThan(byKey("button").y);
@@ -48,7 +48,7 @@ describe("layout", () => {
   });
 
   it("should make a node with a caption taller", () => {
-    const { nodes } = layout(
+    const { nodes } = layout.place(
       [
         { key: "a", label: "A", column: 0 },
         { key: "b", label: "B", caption: "second line", column: 0 },
@@ -59,23 +59,23 @@ describe("layout", () => {
   });
 
   it("should draw a straight line between nodes at the same height", () => {
-    const { edges } = layout(NODES, EDGES);
+    const { edges } = layout.place(NODES, EDGES);
     expect(edges.find(({ from }) => from === "script")?.path).not.toContain("Q");
   });
 
   it("should bend a line between nodes at different heights", () => {
-    const { edges } = layout(NODES, EDGES);
+    const { edges } = layout.place(NODES, EDGES);
     expect(edges.find(({ from }) => from === "task")?.path).toContain("Q");
   });
 
   it("should record which nodes have lines leaving and entering them", () => {
-    const { sources, targets } = layout(NODES, EDGES);
+    const { sources, targets } = layout.place(NODES, EDGES);
     expect([...sources].sort()).toEqual(["button", "script", "task"]);
     expect([...targets]).toEqual(["channel"]);
   });
 
   it("should fit the size to the content", () => {
-    const { width, height, nodes } = layout(NODES, EDGES);
+    const { width, height, nodes } = layout.place(NODES, EDGES);
     for (const node of nodes) {
       expect(node.x + node.width).toBeLessThan(width);
       expect(node.y + node.height).toBeLessThan(height);
@@ -84,7 +84,7 @@ describe("layout", () => {
 
   describe("down", () => {
     const placed = (key: string) => {
-      const node = layout(NODES, EDGES, "down").nodes.find((n) => n.key === key);
+      const node = layout.place(NODES, EDGES, "down").nodes.find((n) => n.key === key);
       if (node == null) throw new Error(`no node ${key}`);
       return node;
     };
@@ -103,7 +103,7 @@ describe("layout", () => {
 
     it("should center a narrow rank under a wide one", () => {
       const channel = placed("channel");
-      const { width } = layout(NODES, EDGES, "down");
+      const { width } = layout.place(NODES, EDGES, "down");
       expect(channel.x + channel.width / 2).toEqual(width / 2);
     });
 
@@ -111,13 +111,13 @@ describe("layout", () => {
       const wide = ["Arc automation", "Python script", "Schematic button"].map(
         (label, i) => ({ key: `n${i}`, label, column: 0 }),
       );
-      const { nodes } = layout(wide, [], "down");
+      const { nodes } = layout.place(wide, [], "down");
       expect(nodes.map(({ label }) => label)).toEqual([
         "Arc\nautomation",
         "Python\nscript",
         "Schematic\nbutton",
       ]);
-      expect(nodes[0].height).toBeGreaterThan(layout(wide, []).nodes[0].height);
+      expect(nodes[0].height).toBeGreaterThan(layout.place(wide, []).nodes[0].height);
     });
 
     it("should break a list after a comma", () => {
@@ -127,17 +127,17 @@ describe("layout", () => {
         caption: i === 0 ? "USB, PCIe" : "PLCs, OPC UA, HTTP",
         column: 0,
       }));
-      const { nodes } = layout(wide, [], "down");
+      const { nodes } = layout.place(wide, [], "down");
       expect(nodes[1].caption).toEqual("PLCs,\nOPC UA, HTTP");
     });
 
     it("should keep the text of a rank that fits on one line", () => {
-      const { nodes } = layout(NODES.slice(0, 2), [], "down");
+      const { nodes } = layout.place(NODES.slice(0, 2), [], "down");
       expect(nodes[0].label).toEqual("Read task");
     });
 
     it("should draw a straight line between nodes above one another", () => {
-      const { edges } = layout(
+      const { edges } = layout.place(
         [
           { key: "a", label: "A", column: 0 },
           { key: "b", label: "B", column: 1 },
@@ -149,13 +149,13 @@ describe("layout", () => {
     });
 
     it("should bend a line between nodes that are not above one another", () => {
-      const { edges } = layout(NODES, EDGES, "down");
+      const { edges } = layout.place(NODES, EDGES, "down");
       expect(edges.find(({ from }) => from === "task")?.path).toContain("Q");
     });
   });
 
   it("should throw when an edge refers to an unknown node", () => {
-    expect(() => layout(NODES, [{ from: "task", to: "nope" }])).toThrow(
+    expect(() => layout.place(NODES, [{ from: "task", to: "nope" }])).toThrow(
       'diagram edge refers to unknown node "nope"',
     );
   });
