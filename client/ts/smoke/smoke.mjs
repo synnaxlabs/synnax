@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax } from "@synnaxlabs/client";
+import { Synnax, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 // Browsers have no process, so browser.mjs sets smokeEnv.
 const env = globalThis.process?.env ?? globalThis.smokeEnv;
@@ -16,11 +16,36 @@ const client = new Synnax({
   port: Number(env.SYNNAX_TEST_PORT ?? 9090),
   username: "synnax",
   password: "seldon",
-  secure: false,
+  secure: env.SYNNAX_TEST_SECURE === "true",
+  caCert: env.SYNNAX_TEST_CA_CERT,
 });
 const channels = await client.channels.retrieve({ limit: 3 });
 if (channels.length === 0) throw new Error("The Core has no channels");
 const streamer = await client.openStreamer(channels.map((ch) => ch.key));
 streamer.close();
+
+const name = `smoke_${Math.random().toString(36).slice(2)}`;
+const index = await client.channels.create({
+  name: `${name}_time`,
+  dataType: "timestamp",
+  isIndex: true,
+});
+const data = await client.channels.create({
+  name: `${name}_data`,
+  dataType: "float64",
+  index: index.key,
+});
+const start = TimeStamp.now();
+const end = start.add(TimeSpan.SECOND);
+await client.write(start, { [index.key]: [start, end], [data.key]: [1, 2] });
+const read = await client.read(start.range(end.add(TimeSpan.SECOND)), data.key);
+if (read.length !== 2) throw new Error(`Read ${read.length} samples, not 2`);
+
+const project = await client.projects.create({ name });
+const download = await client.projects.export(project.key, { encoding: "JSON" });
+const bundle = new Uint8Array(await new Response(download).arrayBuffer());
+const upload = await client.projects.import(bundle, { fileName: `${name}.zip` });
+if (upload.name !== name) throw new Error(`Uploaded ${upload.name}, not ${name}`);
+
 await client.close();
 globalThis.smoked = true;
