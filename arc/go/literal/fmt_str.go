@@ -288,21 +288,58 @@ func scanText(body string, pos int) (int, string) {
 }
 
 func findPlaceholderClose(body string, open int) (int, error) {
-	depth := 1
-	for i := open + 1; i < len(body); i++ {
+	depth, closing := 1, -1
+	walkPlaceholder(body, open+1, func(i int) bool {
 		switch body[i] {
-		case '\'', '"', '`':
-			i = quotedEnd(body, i)
 		case '{':
 			depth++
 		case '}':
 			depth--
 			if depth == 0 {
-				return i, nil
+				closing = i
+				return false
 			}
 		}
+		return true
+	})
+	if closing < 0 {
+		return 0, errors.New("unmatched '{'")
 	}
-	return 0, errors.New("unmatched '{'")
+	return closing, nil
+}
+
+// walkPlaceholder calls visit with the index of each byte of body from start that
+// counts toward a placeholder's braces and colons, until visit returns false. It skips
+// a channel name or a string whole. Outside one, // starts a comment that ends at a
+// newline and /* one that ends at */. A quote in a comment is text, and its braces and
+// colons count, as v0.62 counts them.
+func walkPlaceholder(body string, start int, visit func(i int) bool) {
+	var comment byte
+	for i := start; i < len(body); i++ {
+		c := body[i]
+		switch {
+		case comment == '/':
+			if c == '\n' {
+				comment = 0
+			}
+		case comment == '*':
+			if c == '*' && i+1 < len(body) && body[i+1] == '/' {
+				comment = 0
+				i++
+				continue
+			}
+		case c == '\'' || c == '"' || c == '`':
+			i = quotedEnd(body, i)
+			continue
+		case c == '/' && i+1 < len(body) && (body[i+1] == '/' || body[i+1] == '*'):
+			comment = body[i+1]
+			i++
+			continue
+		}
+		if !visit(i) {
+			return
+		}
+	}
 }
 
 // quotedEnd returns the index of the delimiter that closes the channel name or string
@@ -324,13 +361,9 @@ func quotedEnd(body string, i int) int {
 // yielding (expr, spec). Colons inside nested `{...}` (struct literals), `[...]`
 // (index/slice expressions), a quoted channel name, or a string are skipped.
 func splitSpec(body string) (expr, spec string, err error) {
-	idx := -1
-	braceDepth := 0
-	bracketDepth := 0
-	for i := 0; i < len(body); i++ {
+	idx, braceDepth, bracketDepth := -1, 0, 0
+	walkPlaceholder(body, 0, func(i int) bool {
 		switch body[i] {
-		case '\'', '"', '`':
-			i = quotedEnd(body, i)
 		case '{':
 			braceDepth++
 		case '}':
@@ -344,7 +377,8 @@ func splitSpec(body string) (expr, spec string, err error) {
 				idx = i
 			}
 		}
-	}
+		return true
+	})
 	if idx < 0 {
 		return body, "", nil
 	}

@@ -61,7 +61,6 @@ func ApplyIncrementalChange(
 	}
 }
 
-// splitLines normalizes \r\n to \n and splits the content into lines.
 // GetLine returns the line at the given 0-indexed line number, without its line ending.
 // It allocates nothing.
 func GetLine(content string, line uint32) (string, bool) {
