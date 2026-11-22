@@ -44,9 +44,6 @@ std::string_view trim(const std::string_view s) {
     return s.substr(first, s.find_last_not_of(SPACE) - first + 1);
 }
 
-x::errors::Error config_error(const std::string &text) {
-    return x::errors::Error(CONFIG_ERROR, text);
-}
 }
 
 std::pair<Text::Field, x::errors::Error>
@@ -60,7 +57,8 @@ Text::Field::create(const icd::TextField &f, const x::telem::DataType &dt) {
         .narrow = dt == x::telem::FLOAT32_T,
     };
     if (const auto *tagged = std::get_if<icd::TaggedTextField>(&f)) {
-        if (tagged->tag.empty()) return {Field{}, config_error("the tag is empty")};
+        if (tagged->tag.empty())
+            return {Field{}, x::errors::Error(CONFIG_ERROR, "the tag is empty")};
         field.tagged = true;
         field.tag = tagged->tag;
     } else
@@ -68,7 +66,10 @@ Text::Field::create(const icd::TextField &f, const x::telem::DataType &dt) {
     if (!converts(x::payload::KIND_FLOAT, dt))
         return {
             Field{},
-            config_error("cannot write float values to " + dt.name() + " channels"),
+            x::errors::Error(
+                CONFIG_ERROR,
+                "cannot write float values to " + dt.name() + " channels"
+            ),
         };
     if (!b.default_.has_value()) return {std::move(field), x::errors::NIL};
     const double d = b.default_->value;
@@ -137,7 +138,10 @@ Text::create(const std::vector<TextMessage> &messages) {
         if (m.payload.delimiter.empty())
             return {
                 Text{},
-                config_error("message " + m.name + ": the delimiter is empty")
+                x::errors::Error(
+                    CONFIG_ERROR,
+                    "message " + m.name + ": the delimiter is empty"
+                )
             };
         Message msg{.name = m.name, .delimiter = m.payload.delimiter};
         std::map<icd::FieldKey, const icd::TextField *> by_key;
@@ -148,9 +152,10 @@ Text::create(const std::vector<TextMessage> &messages) {
             if (found == by_key.end())
                 return {
                     Text{},
-                    config_error(
+                    x::errors::Error(
+                        CONFIG_ERROR,
                         "message " + m.name + ": field " + b.field.to_string() +
-                        " does not exist"
+                            " does not exist"
                     ),
                 };
             const auto &f = *found->second;
@@ -179,18 +184,20 @@ x::errors::Error
 Text::route(const std::string &name, const std::string &prefix, const std::size_t i) {
     if (prefix.empty()) {
         if (this->fallback.has_value())
-            return config_error(
+            return x::errors::Error(
+                CONFIG_ERROR,
                 "messages " + this->messages[*this->fallback].name + " and " + name +
-                " both have no prefix"
+                    " both have no prefix"
             );
         this->fallback = i;
         return x::errors::NIL;
     }
     const auto same = std::ranges::find(this->prefixed, prefix, &Prefixed::prefix);
     if (same != this->prefixed.end())
-        return config_error(
+        return x::errors::Error(
+            CONFIG_ERROR,
             "messages " + this->messages[same->message].name + " and " + name +
-            " have the same prefix " + x::json::quote(prefix)
+                " have the same prefix " + x::json::quote(prefix)
         );
     this->prefixed.push_back({.prefix = prefix, .message = i});
     return x::errors::NIL;
