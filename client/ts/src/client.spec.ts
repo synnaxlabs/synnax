@@ -9,6 +9,7 @@
 
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer as createHTTPServer } from "node:http";
 import { createServer, type Server } from "node:https";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -153,9 +154,36 @@ describe("constructor with caCert", () => {
 
   it("should not fill SYNNAX_API_KEY in next to an OpenID Connect code", async () => {
     vi.stubEnv("SYNNAX_API_KEY", "syk_env");
-    const client = new Synnax({ host: "localhost", port: 9090, oidc: CODE });
-    expect(client.params.apiKey).toBeUndefined();
+    const logins: string[] = [];
+    const server = createHTTPServer((req, res) => {
+      let body = "";
+      req.on("data", (chunk: Buffer) => (body += chunk.toString()));
+      req.on("end", () => {
+        if (req.url === "/api/v1/auth/session/create") logins.push(body);
+        res.statusCode = 500;
+        res.end();
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (address == null || typeof address === "string") throw new Error("no port");
+    const client = new Synnax({
+      host: "127.0.0.1",
+      port: address.port,
+      oidc: CODE,
+      retry: FAST_RETRY,
+      onRetry: () => {},
+      onInternalError: () => {},
+    });
+    await client.channels.retrieve(["ch"]).catch(() => {});
     await client.close();
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    expect(logins.length).toBeGreaterThan(0);
+    logins.forEach((login) => {
+      expect(login).toContain('"oidc"');
+      expect(login).not.toContain("syk_env");
+    });
   });
 
   it("should use TLS for a CA certificate with SYNNAX_SECURE false", async () => {
