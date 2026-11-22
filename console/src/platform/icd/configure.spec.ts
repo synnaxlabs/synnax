@@ -22,19 +22,19 @@ const client = createTestClient();
  * @returns a message of fields of one type, as a source reads it. Each field is named
  * by a key of channels and bound to its value.
  * @param index - The name of a timestamp field to read as the index.
- * @param type - The type of each field but the index.
+ * @param field - The settings of each field but the index, such as its type.
  */
 const createBound = (
   channels: Record<string, number>,
   index?: string,
-  type: "float" | "string" = "float",
+  field: Record<string, unknown> = { type: "float" },
 ) => {
   const fields = Object.keys(channels).map((name) =>
     icd.jsonFieldZ.parse({
       key: uuid.create(),
       name,
       pointer: `/${name}`,
-      ...(name === index ? { type: "timestamp", timeFormat: "unix_ms" } : { type }),
+      ...(name === index ? { type: "timestamp", timeFormat: "unix_ms" } : field),
     }),
   );
   const message: icd.Message = {
@@ -85,6 +85,13 @@ describe("planMessage", () => {
     const key = bound.source.messages[0].bindings[0].channel;
     expect(key).not.toBe(old.key);
     expect((await client.channels.retrieve(key)).name).toBe(`${prefix}_temp`);
+  });
+
+  it("should plan a float64 channel for a scaled integer field", async () => {
+    const bound = createBound({ count: 0 }, undefined, { type: "integer", scale: 0.5 });
+    const namer = Task.createNamer(client);
+    const plan = await ICD.planMessage(client, namer, bound, uniqueName("src"));
+    expect(plan.fields[0].dataType).toBe("float64");
   });
 
   it("should plan a new channel when the stored channel was deleted", async () => {
@@ -194,7 +201,9 @@ describe("planMessage", () => {
       });
     const own = await createVirtual("mode");
     const shared = await createVirtual("state");
-    const bound = createBound({ mode: own.key, state: 0 }, undefined, "string");
+    const bound = createBound({ mode: own.key, state: 0 }, undefined, {
+      type: "string",
+    });
     const plan = await ICD.planMessage(
       client,
       Task.createNamer(client),

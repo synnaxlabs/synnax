@@ -10,7 +10,7 @@
 import { channel, type icd, type Synnax, ValidationError } from "@synnaxlabs/client";
 import { DataType, primitive } from "@synnaxlabs/x";
 
-import { bindingDataType, converts, DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
+import { bindingDataType, converts, defaultDataType } from "@/platform/icd/dataType";
 import {
   isIndexable,
   type Messages,
@@ -168,7 +168,7 @@ export const planMessage = async (
       const ch = live.get(reused[i]);
       if (ch != null && !ch.virtual) return true;
       if (ch != null && converts(f.type, ch.dataType.toString())) return false;
-      return !new DataType(DEFAULT_DATA_TYPES[f.type]).isVariable;
+      return !new DataType(defaultDataType(f)).isVariable;
     });
   // An edit of the field's kind or index role since the last deploy, or a streamed
   // field that the message now stores, needs a new channel.
@@ -193,7 +193,7 @@ export const planMessage = async (
       name: `${prefix}_${channel.escapeInvalidName(f.name)}`,
       dataType: isIndex
         ? DataType.TIMESTAMP.toString()
-        : bindingDataType({ dataType }, f.type),
+        : bindingDataType({ dataType }, f),
       channel: replaced ? 0 : binding.channel,
       replaces: replaced && ch != null ? ch.key : 0,
       binding: { ...binding, dataType },

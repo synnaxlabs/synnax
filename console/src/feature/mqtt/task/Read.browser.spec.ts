@@ -544,6 +544,16 @@ describe("MQTT read form", () => {
     );
   });
 
+  it("should show float64 as the default data type of a scaled field", async () => {
+    await renderRead({ fields: [createField("count", "integer")] });
+    await selectField("count");
+    await screen.findByText("int64");
+    const scale = await screen.findByLabelText("Scale");
+    fireEvent.change(scale, { target: { value: "0.5" } });
+    fireEvent.blur(scale);
+    await screen.findByText("float64");
+  });
+
   it("should remove the default of a timestamp field in its details", async () => {
     const at = TimeStamp.milliseconds(1_700_000_000_000);
     const time = icd.jsonFieldZ.parse({
