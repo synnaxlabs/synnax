@@ -995,13 +995,19 @@ describe("LinePlot", () => {
     });
 
     it("should start each break change from the open breaks of the last", async () => {
-      const { ref, onOpenBreaksChange, reported } = await renderFrame();
+      const { ref, onOpenBreaksChange } = await renderFrame();
       act(() => {
         ref.current?.setAllBreaks(true);
         ref.current?.setAllBreaks(false);
       });
-      await waitFor(() => expect(onOpenBreaksChange).toHaveBeenCalledTimes(2));
-      expect(reported()?.openBreaks).toEqual([]);
+      // A close from the open breaks before the first change would change nothing and
+      // report nothing.
+      await waitFor(() =>
+        expect(onOpenBreaksChange.mock.calls.map(([c]) => c.openBreaks)).toEqual([
+          [GAP],
+          [],
+        ]),
+      );
     });
 
     it("should toggle the break under a click on the x axis", async () => {
