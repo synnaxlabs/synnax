@@ -282,16 +282,14 @@ const Form = PlatformDevice.wrapTaskForm({
 });
 
 /**
- * Gives each binding of target that has no channel a command channel: the one the
- * device stores for its field, or a new one. A new channel takes the data type of the
- * binding, or the default of its field's kind when the binding names none.
- *
- * @param write - The write properties of the device. Updated in place.
+ * Gives each binding of target with no channel and no value a command channel: the one
+ * that dev stores for its field, or a new one. A new channel takes the data type of the
+ * binding, or the default of its field's kind when the binding names none. Updates the
+ * write properties of dev in place.
  */
 const configureBindings = async (
   client: Synnax,
   dev: Device,
-  write: Record<string, channel.Key>,
   target: PlainWriteTarget,
 ): Promise<void> => {
   const unbound = target.message.bindings.filter(
@@ -307,7 +305,7 @@ const configureBindings = async (
     const field = fields.find(({ key }) => key === binding.field);
     // The Core rejects a binding to a field that the message lacks.
     if (field == null) continue;
-    binding.channel = await Task.configureCommandChannel(client, write, {
+    binding.channel = await Task.configureCommandChannel(client, dev.properties.write, {
       propertiesKey: `${target.topic}#${binding.field}`,
       channel: binding.channel,
       name: `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`,
@@ -326,7 +324,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     for (const target of config.targets) {
       if (target.disabled) continue;
       if (target.type === "plain") {
-        await configureBindings(client, dev, dev.properties.write, target);
+        await configureBindings(client, dev, target);
         continue;
       }
       target.channel = await Task.configureCommandChannel(

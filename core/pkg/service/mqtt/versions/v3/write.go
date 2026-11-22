@@ -96,11 +96,10 @@ func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change strin
 // ResolveWriteConfig moves the payloads of the inline targets of cfg into a new ICD
 // named name, with one JSON message for each target, named after its topic, and adds
 // each target back to the targets of cfg, sending its message. It returns the ICD,
-// which
-// the caller must create, and false when cfg holds no inline targets. The channel field
-// of a target takes the kind of its channel, read through snap with channels. When that
-// channel does not exist, its binding holds no channel and the data type of a new one.
-// note receives the path and each change of a field.
+// which the caller must create, and false when cfg holds no inline targets. The channel
+// field of a target takes the kind of its channel, read through snap with channels.
+// When that channel does not exist, its binding holds no channel and the data type of a
+// new one. note receives the path and each change of a field.
 func ResolveWriteConfig(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -295,8 +294,7 @@ func liftTarget(
 // liftChannel returns the JSON field of base that sends old the way v1 sent it, and the
 // data type of a new channel for it. The data type of ch, when old's channel exists,
 // picks the kind. Otherwise the stored data type picks it, and is the data type of a
-// new
-// channel. note receives each change to what the field sends.
+// new channel. note receives each change to what the field sends.
 func liftChannel(
 	ctx context.Context,
 	old v1.ChannelField,
