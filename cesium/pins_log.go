@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // pins counts the readers of each segment, and holds the key of each dead segment that
@@ -74,6 +75,20 @@ func (e *engine) release(dead []state.Dead) error {
 	}
 	e.pins.mu.Unlock()
 	return e.unlink(free)
+}
+
+// pinnedDead returns the file names of the dead segments of key that wait for their
+// last reader.
+func (e *engine) pinnedDead(key ChannelKey) set.Set[string] {
+	e.pins.mu.Lock()
+	defer e.pins.mu.Unlock()
+	names := set.New[string]()
+	for id, k := range e.pins.dead {
+		if k == key {
+			names.Add(segmentName(k, id))
+		}
+	}
+	return names
 }
 
 // unlink removes the file of each segment of dead, and tries every removal.

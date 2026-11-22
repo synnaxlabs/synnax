@@ -272,8 +272,10 @@ func (c *core) drop(key uint32) error {
 		}
 	}
 	if ch, ok := c.channels[key]; ok {
+		// The database unlinks the file of each segment once no reader pins it.
 		for _, s := range ch.segs {
 			delete(c.segments, s.vis.ID)
+			c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: key})
 		}
 		delete(c.channels, key)
 		ch.pub.Store(nil)
