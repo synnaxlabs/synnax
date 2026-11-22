@@ -77,8 +77,8 @@ func (s *Stack) Failed() <-chan struct{} { return s.failed }
 
 // Stop ends the newest lifetime, waits for its run to return, and waits for its closer
 // to return. It then does the same for each older one. It returns the errors of the
-// runs and closers joined. No goroutine that Go or Stop started runs after Stop
-// returns, unless ctx ends first.
+// runs and closers joined, with a closer panic as an error. No goroutine that Go or
+// Stop started runs after Stop returns, unless ctx ends first.
 //
 // ctx bounds the whole of Stop. When ctx ends first, Stop ends every lifetime that is
 // left, calls no more closers, and returns at once. A run that has not returned keeps
@@ -97,6 +97,12 @@ func (s *Stack) Stop(ctx context.Context) error {
 		l.closed = make(chan struct{})
 		go func() {
 			defer close(l.closed)
+			// %v, not a wrap, so a context.Canceled panic is not a clean stop.
+			defer func() {
+				if r := recover(); r != nil {
+					l.closeErr = errors.Newf("panic: %v", r)
+				}
+			}()
 			l.closeErr = l.closer()
 		}()
 		if !wait(ctx, l.closed) {

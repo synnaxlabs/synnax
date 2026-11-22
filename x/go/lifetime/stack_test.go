@@ -194,6 +194,30 @@ var _ = Describe("Stack", func() {
 		})
 	})
 
+	It("returns a closer panic as an error and closes the older lifetimes", func(
+		ctx SpecContext,
+	) {
+		storageClosed := make(chan struct{})
+		s := lifetime.NewStack()
+		storage := s.Go(ctx, "storage", func(ctx context.Context) error {
+			<-ctx.Done()
+			return nil
+		}, func() error {
+			close(storageClosed)
+			return nil
+		})
+		s.Go(storage, "service", func(ctx context.Context) error {
+			<-ctx.Done()
+			return nil
+		}, func() error { panic(context.Canceled) })
+		err := s.Stop(ctx)
+		Expect(
+			err,
+		).To(MatchError(ContainSubstring("service close: panic: context canceled")))
+		Expect(err).ToNot(MatchError(context.Canceled))
+		Expect(storageClosed).To(BeClosed())
+	})
+
 	Describe("Close deadline", func() {
 		It("returns at the deadline and names a closer that did not return", func(
 			ctx SpecContext,
