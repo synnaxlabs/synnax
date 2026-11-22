@@ -21,11 +21,11 @@
 #include <type_traits>
 #include <utility>
 
-#include "x/cpp/errors/errors.h"
-#include "x/cpp/telem/telem.h"
-
 #include "asio/error.hpp"
 #include "asio/io_context.hpp"
+
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/telem.h"
 
 namespace driver::transport {
 /// @brief BUFFER_SIZE is the most bytes that one read returns. It holds any UDP
@@ -116,8 +116,10 @@ Completion run_for(
 
 /// @brief runs call, which blocks and cannot be cancelled, such as getaddrinfo, on its
 /// own thread, and stops waiting for it after timeout. A call that it stops waiting for
-/// finishes in the background, and its result is dropped.
-/// @param call returns a pair of a value and an std::error_code.
+/// keeps its thread until it returns, and its result is dropped.
+/// @param call returns a pair of a value and an std::error_code. It can outlive the
+/// caller, so it must own everything that it uses, such as a host string, and must not
+/// capture a reference or this.
 /// @returns the result of call, or a default value and std::errc::timed_out when
 /// timeout elapses first.
 template<typename Call>

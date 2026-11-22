@@ -15,16 +15,16 @@
 #include <system_error>
 #include <utility>
 
+#include "asio/error.hpp"
+#include "asio/io_context.hpp"
+#include "asio/post.hpp"
+#include "asio/steady_timer.hpp"
 #include "gtest/gtest.h"
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 
-#include "asio/error.hpp"
-#include "asio/io_context.hpp"
-#include "asio/post.hpp"
-#include "asio/steady_timer.hpp"
 #include "driver/transport/errors.h"
 #include "driver/transport/transport.h"
 
