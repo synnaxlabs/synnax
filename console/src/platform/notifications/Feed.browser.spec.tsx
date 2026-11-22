@@ -10,10 +10,12 @@
 import type { status } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { usePopover } from "@synnaxlabs/lyra/hooks";
+import { Portal } from "@synnaxlabs/lyra/portal";
 import { Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useRef, useState } from "react";
 import { describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { Notifications } from "@/platform/notifications";
 import { installPortalRoot, renderWithConsole } from "@/testutil";
@@ -267,6 +269,81 @@ describe("Notifications", () => {
       const notification = await screen.findByRole("button", { name: "Hello" });
       expect(notification.closest("[popover]")?.matches(":popover-open")).toBe(true);
       expect(onTop(notification)).toBe(true);
+    });
+  });
+
+  describe("a card tooltip", () => {
+    const TooltipHarness = (): ReactElement => {
+      const add = Status.useAdder();
+      return (
+        <>
+          <button onClick={() => add({ key: "n1", variant: "info", message: "First" })}>
+            first
+          </button>
+          <button
+            onClick={() => add({ key: "n2", variant: "info", message: "Second" })}
+          >
+            second
+          </button>
+          <Dialog.Frame variant="modal">
+            <Dialog.Trigger>Open</Dialog.Trigger>
+            <Dialog.Dialog>Modal</Dialog.Dialog>
+          </Dialog.Frame>
+          <Notifications.Feed notifications={[]} />
+        </>
+      );
+    };
+    TooltipHarness.displayName = "TooltipHarness";
+
+    /**
+     * Hovers the Silence button of the lowest card until its tooltip shows, where a
+     * card above it can draw over the tooltip.
+     */
+    const openTooltip = async (statuses: string[]): Promise<HTMLElement> => {
+      await renderWithConsole(<TooltipHarness />);
+      for (const name of statuses)
+        fireEvent.click(screen.getByRole("button", { name }));
+      await waitFor(() =>
+        expect(screen.getAllByRole("button", { name: "Silence" })).toHaveLength(
+          statuses.length,
+        ),
+      );
+      const lowest = screen
+        .getAllByRole("button", { name: "Silence" })
+        .sort(
+          (a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top,
+        )[0];
+      await userEvent.hover(lowest);
+      const tooltip = await screen.findByRole("tooltip");
+      await waitFor(() => expect(tooltip.matches(":popover-open")).toBe(true));
+      return tooltip;
+    };
+
+    /** @returns true when the tooltip draws over everything at its center. */
+    const tooltipOnTop = (tooltip: HTMLElement): boolean => {
+      // The tooltip lets the pointer through, so a hit test needs it to take it.
+      tooltip.style.pointerEvents = "auto";
+      const { left, top, width, height } = tooltip.getBoundingClientRect();
+      const hit = document.elementFromPoint(left + width / 2, top + height / 2);
+      tooltip.style.pointerEvents = "";
+      return hit != null && tooltip.contains(hit);
+    };
+
+    it("stays over the feed when a status arrives", async () => {
+      const tooltip = await openTooltip(["first"]);
+      fireEvent.click(screen.getByRole("button", { name: "second" }));
+      await screen.findByText("Second");
+      await new Promise(requestAnimationFrame);
+      expect(tooltipOnTop(tooltip)).toBe(true);
+    });
+
+    it("stays over the feed when a modal opens", async () => {
+      const tooltip = await openTooltip(["first", "second"]);
+      await act(async () => {
+        document.dispatchEvent(new Event(Portal.MODAL_CHANGE_EVENT));
+        await new Promise(requestAnimationFrame);
+      });
+      expect(tooltipOnTop(tooltip)).toBe(true);
     });
   });
 });
