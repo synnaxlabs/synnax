@@ -55,6 +55,36 @@ func (e *engine) load(
 	prev held,
 ) (ch *state.Channel, h held, err, unlinkErr error) {
 	e.pins.mu.Lock()
+	ch, h, err = e.pinLocked(key)
+	free := e.pins.unpin(prev)
+	e.pins.mu.Unlock()
+	return ch, h, err, e.unlink(free)
+}
+
+// loadView loads key and its clock as load does, both under one lock, so the samples of
+// key and their stamps come from one state. For an index, clock is key, and the clock
+// half of the view is the same Channel with no pins of its own.
+func (e *engine) loadView(
+	key, clock ChannelKey,
+	prev [2]held,
+) (chs [2]*state.Channel, hs [2]held, err, unlinkErr error) {
+	e.pins.mu.Lock()
+	chs[0], hs[0], err = e.pinLocked(key)
+	if clock == key {
+		chs[1] = chs[0]
+	} else {
+		var clockErr error
+		chs[1], hs[1], clockErr = e.pinLocked(clock)
+		err = errors.Join(err, clockErr)
+	}
+	free := append(e.pins.unpin(prev[0]), e.pins.unpin(prev[1])...)
+	e.pins.mu.Unlock()
+	return chs, hs, err, e.unlink(free)
+}
+
+// pinLocked returns the visible Channel of key and the parts of its range, and pins
+// each of its segments and parts. The caller holds e.pins.mu.
+func (e *engine) pinLocked(key ChannelKey) (ch *state.Channel, h held, err error) {
 	h.key = key
 	if ch = e.state.Channel(key); ch != nil {
 		h.segments = make([]uint64, len(ch.Segments))
@@ -64,9 +94,7 @@ func (e *engine) load(
 		h.parts, err = e.partsOf(key, ch.Parts)
 	}
 	e.pins.pin(h)
-	free := e.pins.unpin(prev)
-	e.pins.mu.Unlock()
-	return ch, h, err, e.unlink(free)
+	return ch, h, err
 }
 
 // pinned returns the parts that readers pin.
