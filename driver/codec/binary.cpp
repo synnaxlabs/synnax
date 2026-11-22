@@ -79,7 +79,7 @@ void (*put_for(const x::telem::DataType &dt))(x::telem::Series &, std::uint64_t)
     return put<std::uint64_t, Signed>;
 }
 
-x::errors::Error config(const std::string &text) {
+x::errors::Error config_error(const std::string &text) {
     return x::errors::Error(CONFIG_ERROR, text);
 }
 }
@@ -88,7 +88,7 @@ std::pair<Binary::Field, x::errors::Error>
 Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
     const auto &b = icd::base(f);
     if (b.multiplexor.has_value())
-        return {Field{}, config("multiplexed fields are not supported yet")};
+        return {Field{}, config_error("multiplexed fields are not supported yet")};
     auto [bits, bits_err] = BitRange::create(b);
     if (bits_err) return {Field{}, bits_err};
     Field field{
@@ -105,7 +105,7 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
         if (b.bit_length != 32 && b.bit_length != 64)
             return {
                 Field{},
-                config(
+                config_error(
                     "a float field must be 32 or 64 bits, not " +
                     std::to_string(b.bit_length)
                 ),
@@ -121,7 +121,7 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
     if (!converts(kind, dt))
         return {
             Field{},
-            config(
+            config_error(
                 "cannot write " + std::string(kind) + " values to " + dt.name() +
                 " channels"
             ),
@@ -129,7 +129,7 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
     if (field.scaled && dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)
         return {
             Field{},
-            config("a scaled field requires a float channel, not " + dt.name()),
+            config_error("a scaled field requires a float channel, not " + dt.name()),
         };
     if (const auto w = width_of(dt); w.has_value()) {
         const bool is_signed = field.type == Type::SIGNED;
@@ -137,7 +137,7 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
         if (needed > w->bits)
             return {
                 Field{},
-                config(
+                config_error(
                     "cannot write " + std::to_string(b.bit_length) + "-bit " +
                     std::string(kind) + " values to " + dt.name() + " channels"
                 ),
@@ -152,10 +152,12 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
             if constexpr (std::is_same_v<F, icd::FloatBinaryField>) {
                 double d = v.default_->value;
                 if (!std::isfinite(d))
-                    return config(x::json::Number(d).to_string() + " is not finite");
+                    return config_error(
+                        x::json::Number(d).to_string() + " is not finite"
+                    );
                 if (n == 32) {
                     if (std::abs(d) > std::numeric_limits<float>::max())
-                        return config(
+                        return config_error(
                             x::json::Number(d).to_string() + " overflows float32"
                         );
                     d = static_cast<float>(d);
@@ -165,7 +167,7 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
                 const auto i = v.default_->value;
                 const auto shift = 64 - n;
                 if ((i << shift) >> shift != i)
-                    return config(
+                    return config_error(
                         std::to_string(i) + " is out of range for " +
                         std::to_string(n) + " bits"
                     );
@@ -173,7 +175,7 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
             } else {
                 const auto u = v.default_->value;
                 if (n < 64 && u >> n != 0)
-                    return config(
+                    return config_error(
                         std::to_string(u) + " is out of range for " +
                         std::to_string(n) + " bits"
                     );
@@ -266,12 +268,14 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
         if (m.payload.identifier.has_value())
             return {
                 Binary{},
-                config("message " + m.name + ": identifiers are not supported yet"),
+                config_error(
+                    "message " + m.name + ": identifiers are not supported yet"
+                ),
             };
         if (bin.fallback.has_value())
             return {
                 Binary{},
-                config(
+                config_error(
                     "messages " + messages[*bin.fallback].name + " and " + m.name +
                     " both have no identifier"
                 ),
@@ -286,7 +290,7 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
             if (found == by_key.end())
                 return {
                     Binary{},
-                    config(
+                    config_error(
                         "message " + m.name + ": field " + b.field.to_string() +
                         " does not exist"
                     ),
@@ -299,7 +303,7 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
                 length.has_value() && field.bits.end() > *length)
                 return {
                     Binary{},
-                    config(
+                    config_error(
                         context + ": the field ends past the " +
                         std::to_string(*length) + "-byte payload"
                     ),

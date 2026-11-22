@@ -99,6 +99,22 @@ TEST(Binary, DecodeUnsigned) {
     EXPECT_EQ(decode_one<std::uint16_t>(f, x::telem::UINT16_T, {0xB0, 0xCA}), 0xCAB);
 }
 
+/// @brief it should write 64-bit integers exactly, past the precision of a float64.
+TEST(Binary, Decode64BitExact) {
+    const std::vector<std::uint8_t> ones(8, 0xFF);
+    const auto u = field<icd::UnsignedBinaryField>("u", 0, 64);
+    EXPECT_EQ(
+        decode_one<std::uint64_t>(u, x::telem::UINT64_T, ones),
+        std::numeric_limits<std::uint64_t>::max()
+    );
+    const std::vector<std::uint8_t> big = {0x01, 0, 0, 0, 0, 0, 0x20, 0x80};
+    const auto i = field<icd::IntegerBinaryField>("i", 0, 64);
+    EXPECT_EQ(
+        decode_one<std::int64_t>(i, x::telem::INT64_T, big),
+        std::numeric_limits<std::int64_t>::min() + (std::int64_t{1} << 53) + 1
+    );
+}
+
 /// @brief it should write a big-endian signed field to a signed channel.
 TEST(Binary, DecodeBigEndianSigned) {
     auto f = field<icd::IntegerBinaryField>("temp", 7, 16);
