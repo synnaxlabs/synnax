@@ -132,11 +132,10 @@ jobs:
           for entry in $EVICTED; do
             pr=${entry%@*}
             evicted=${entry#*@}
-            checks="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$pr/checks"
             body=$(printf '%s\n\n%s\n%s\n%s\n%s' "### Preview" \
               "Evicted to make room for the preview of #$PR, so the link no longer" \
-              "works. To bring it back, re-run the **Preview** workflow from the" \
-              "[checks]($checks), or push a commit." "$marker")
+              "works. To bring it back, remove and add the \`preview\` label, or push a" \
+              "commit." "$marker")
             comment=$(gh api --paginate "$issues/$pr/comments" --jq \
               ".[] | select(.body | contains(\"$marker\")) | \"\(.id) \(.updated_at)\"")
             read -r id updated <<< "$comment"

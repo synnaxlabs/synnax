@@ -396,6 +396,14 @@ class TestSweep:
         assert not host.site(12).exists()
         assert host.site(13).exists()
 
+    def test_should_keep_an_old_preview_viewed_within_the_ttl(self, host: Host) -> None:
+        now = int(time.time())
+        host.containers((12, now - 8 * 86400))
+        host.viewed(12, now - 3600)
+        result = host.run("sweep")
+        assert result.returncode == 0, result.stderr
+        assert not [c for c in host.docker() if c.startswith("docker rm")]
+
     def test_prunes_images_without_expired(self, host: Host) -> None:
         host.containers((13, int(time.time())))
         result = host.run("sweep")

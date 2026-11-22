@@ -25,7 +25,7 @@
 #                             mount, and applies the CPU and memory limits to the
 #                             running previews.
 #   preview down <pr>         Removes the Core for a pull request.
-#   preview sweep             Removes every Core deployed more than the TTL ago.
+#   preview sweep             Removes every Core not deployed or viewed for the TTL.
 
 set -euo pipefail
 
@@ -54,22 +54,27 @@ previews() {
 
 mark_file() { echo "$PREVIEW_SITES/pr-$1.human"; }
 
+# Prints the later of deployed time $2 and the last view of pull request $1. A
+# preview's access log changes on each request, so its time is the last view.
+active() {
+    local log="$PREVIEW_LOGS/pr-$1.log"
+    if [[ -f $log ]] && (($(date -r "$log" +%s) > $2)); then
+        date -r "$log" +%s
+    else
+        echo "$2"
+    fi
+}
+
 # Prints the pull requests of the previews other than $1, in the order up evicts them.
-# A preview's access log changes on each request, so its time is the last view.
 eviction_order() {
-    local pr deployed human active log
+    local pr deployed human
     previews | while read -r pr deployed; do
         if [[ $pr == "$1" ]]; then continue; fi
         human=0
         if [[ $(cut -d' ' -f2 "$(mark_file "$pr")" 2> /dev/null) == human ]]; then
             human=1
         fi
-        active=$deployed
-        log="$PREVIEW_LOGS/pr-$pr.log"
-        if [[ -f $log ]] && (($(date -r "$log" +%s) > active)); then
-            active=$(date -r "$log" +%s)
-        fi
-        echo "$pr $human $active"
+        echo "$pr $human $(active "$pr" "$deployed")"
     done | sort -k2,2n -k3,3n | cut -d' ' -f1
 }
 
@@ -111,9 +116,10 @@ up() {
         while read -r other; do others+=("$other"); done <<< "$order"
     fi
     for ((i = 0; i <= ${#others[@]} - PREVIEW_MAX; i++)); do
+        # Printed first, so a failed removal still gets a notice.
+        echo "evicted ${others[i]} $(date -u +%Y-%m-%dT%H:%M:%SZ)"
         # No prune here: it would delete the image pulled above.
         remove "${others[i]}"
-        echo "evicted ${others[i]} $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     done
     docker rm --force "$name" > /dev/null
     # In-memory storage: each deploy starts from an empty Core.
@@ -184,7 +190,7 @@ sweep() {
     local cutoff pr deployed
     cutoff=$(($(date +%s) - PREVIEW_TTL_DAYS * 86400))
     previews | while read -r pr deployed _; do
-        if ((deployed < cutoff)); then down "$pr"; fi
+        if (($(active "$pr" "$deployed") < cutoff)); then down "$pr"; fi
     done
     # A failed deploy can leave a pulled image that no container uses.
     prune_images
