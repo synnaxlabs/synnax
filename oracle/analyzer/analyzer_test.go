@@ -1265,6 +1265,35 @@ Node union on variant {
 					min float64 { @go validate lt min }
 				}
 			`, "test.Range.min is less than min, but a field cannot be less than itself"),
+			Entry("in a child that omits the compared field", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64
+				}
+				Holder struct extends Range {
+					-max
+				}
+			`, "test.Holder.min is less than max, but test.Holder has no field max"),
+			Entry("in a child that retypes the compared field", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64
+				}
+				Holder struct extends Range {
+					max int32
+				}
+			`, "test.Holder.min is less than max, but the two have different types"),
+			Entry("in a variant that omits the compared field", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64
+				}
+				Shape union on kind {
+					ranged extends Range {
+						-max
+					}
+				}
+			`, "min is less than max, but"),
 			Entry("that is not lt", `
 				Range struct {
 					min float64 { @go validate max 3 }

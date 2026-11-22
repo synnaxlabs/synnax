@@ -832,13 +832,14 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		return structData{}, err
 	}
 	siblings := resolution.UnifiedFields(entry, data.table)
+	parents := resolution.InheritedFields(form.Extends, data.table)
 	for _, field := range fields {
 		if !defaultOnly.Contains(field.Name) {
 			sd.Fields = append(sd.Fields, processField(field, data))
 		}
 		if genMethods {
 			addFieldMethods(
-				&sd, field, siblings, defaultOnly.Contains(field.Name), data,
+				&sd, field, siblings, restated(field, defaultOnly, parents), data,
 			)
 		}
 	}
@@ -949,15 +950,16 @@ func embedExtends(
 }
 
 // addFieldMethods adds the default fills and validation checks of field. siblings are
-// the fields of field's struct. defaultOnly marks a field that only restates an
-// inherited default.
+// the fields of field's struct. parent is the inherited field that field only restates
+// a default of, or nil.
 func addFieldMethods(
 	sd *structData,
 	field resolution.Field,
 	siblings []resolution.Field,
-	defaultOnly bool,
+	parent *resolution.Field,
 	data *templateData,
 ) {
+	defaultOnly := parent != nil
 	fd := data.forField(field)
 	if defaultGroupName(field) == "" {
 		fills := goDefaultFills(field, fd)
@@ -976,7 +978,7 @@ func addFieldMethods(
 		sd.ConstraintChecks,
 		goConstraintChecks(field, defaultOnly, fd)...,
 	)
-	if chk, ok := goLessThanCheck(field, siblings, defaultOnly); ok {
+	if chk, ok := goLessThanCheck(field, siblings, parent); ok {
 		sd.ConstraintChecks = append(sd.ConstraintChecks, chk)
 	}
 	if step, ok := goRecurseStep(field, fd, validateRule); ok {
@@ -2046,3 +2048,18 @@ func ({{$r}} *{{.Name}}) SetDefaults() {
 {{- end}}
 `),
 )
+
+// restated returns the inherited field that field only restates a default of, or nil.
+func restated(
+	field resolution.Field,
+	defaultOnly set.Set[string],
+	parents map[string]resolution.Field,
+) *resolution.Field {
+	if !defaultOnly.Contains(field.Name) {
+		return nil
+	}
+	if parent, ok := parents[field.Name]; ok {
+		return &parent
+	}
+	return nil
+}

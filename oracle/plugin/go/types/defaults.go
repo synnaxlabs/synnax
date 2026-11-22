@@ -781,16 +781,23 @@ func goConstraintChecks(
 }
 
 // goLessThanCheck returns the check of the lt rule that field sets for Go. siblings are
-// the fields of field's struct, which hold the compared field. An inherited field has
-// none, since the embedded parent's Validate checks it.
+// the fields of field's struct, which hold the compared field. parent is the field
+// that field restates a default of, or nil. A restated field that keeps its parent's
+// rule has no check, since the embedded parent's Validate checks it.
 func goLessThanCheck(
 	field resolution.Field,
 	siblings []resolution.Field,
-	inherited bool,
+	parent *resolution.Field,
 ) (constraintCheckData, bool) {
 	lt := validation.LessThan(field.Domains, "go")
-	if lt == nil || inherited {
+	if lt == nil {
 		return constraintCheckData{}, false
+	}
+	if parent != nil {
+		if inherited := validation.LessThan(parent.Domains, "go"); inherited != nil &&
+			*inherited == *lt {
+			return constraintCheckData{}, false
+		}
 	}
 	other := lo.Must(lo.Find(siblings, func(f resolution.Field) bool {
 		return f.Name == lt.Field

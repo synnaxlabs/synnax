@@ -528,9 +528,6 @@ func structComparisonProblems(
 			))
 			continue
 		}
-		if !declared {
-			continue
-		}
 		prefix := name + " is less than " + lt.Field + ", but "
 		other, ok := lo.Find(fields, func(o resolution.Field) bool {
 			return o.Name == lt.Field

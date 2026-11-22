@@ -335,6 +335,7 @@ func processInlineVariant(
 	// A field that only restates an inherited default keeps the embedded parent's
 	// declaration and contributes a fill alone.
 	defaultOnly := resolver.DefaultOnlyOverrides(inherited, pform.Fields, data.table)
+	parents := resolution.InheritedFields(inherited, data.table)
 	siblings := slices.Clone(inlineFields)
 	for _, ref := range inherited {
 		if base, _, ok := resolution.Dealias(ref, data.table); ok {
@@ -366,7 +367,11 @@ func processInlineVariant(
 			vd.ConstraintChecks,
 			goConstraintChecks(f, defaultOnly.Contains(f.Name), fd)...,
 		)
-		if chk, ok := goLessThanCheck(f, siblings, defaultOnly.Contains(f.Name)); ok {
+		if chk, ok := goLessThanCheck(
+			f,
+			siblings,
+			restated(f, defaultOnly, parents),
+		); ok {
 			vd.ConstraintChecks = append(vd.ConstraintChecks, chk)
 		}
 	}

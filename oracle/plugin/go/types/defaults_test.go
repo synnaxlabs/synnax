@@ -887,6 +887,31 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			},
 		)
 
+		It("Should check a restated field's own lt rule", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Range struct {
+					min float64 {
+						@go validate lt max
+					}
+					max float64
+				}
+
+				Child struct extends Range {
+					min float64 {
+						@go validate lt limit
+					}
+					limit float64
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`v.Ternary("min", !(c.Min < c.Limit), "must be less than limit")`,
+				`v.Exec(c.Range.Validate)`,
+			)
+		})
+
 		It(
 			"Should merge a field's rules with its type's rules",
 			func() {
