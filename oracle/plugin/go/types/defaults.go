@@ -612,9 +612,8 @@ func goLiteral(
 }
 
 // scalarFill returns the fill assigning the scalar or enum default d to the Go selector
-// goName of type typeRef. It returns ok=false when d equals the type's zero value
-// (nothing to fill) or is an integer-enum default (whose zeroth member is the zero
-// value).
+// goName of type typeRef. It returns ok=false when d equals the type's zero value, so
+// there is nothing to fill.
 func scalarFill(
 	goName string,
 	typeRef resolution.TypeRef,
@@ -665,9 +664,7 @@ func scalarFill(
 			return defaultFillData{}, false
 		}
 		form, _ := ev.Type.Form.(resolution.EnumForm)
-		if form.IsIntEnum {
-			// A valid integer-enum default is the zeroth member (the zero value), so
-			// there is nothing to fill; a non-zeroth default is an invariant violation.
+		if form.IsIntEnum && ev.Variant.IntValue() == 0 {
 			return defaultFillData{}, false
 		}
 		return defaultFillData{
@@ -862,7 +859,7 @@ func numberLiteral(n *validation.Number) string {
 // present.
 func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, bool) {
 	ref, mapKey := field.Type, false
-	m := unaliasContainer(field.Type, data)
+	m := underlyingContainer(field.Type, data)
 	if m.Name == "Map" && len(m.TypeArgs) == 2 {
 		ref, mapKey = m.TypeArgs[0], true
 	}
@@ -870,15 +867,7 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 	if !ok {
 		return enumCheckData{}, false
 	}
-	form, ok := resolved.Form.(resolution.EnumForm)
-	if !ok {
-		return enumCheckData{}, false
-	}
-	// Int enums do not generate an IsValid method (they rely on stringer, and their
-	// zero value is a valid first member), so emitting a membership check would
-	// reference a method that does not exist. Only string enums, whose zero value
-	// (the empty string) is never a valid member, carry a check.
-	if form.IsIntEnum {
+	if _, ok := resolved.Form.(resolution.EnumForm); !ok {
 		return enumCheckData{}, false
 	}
 	return enumCheckData{
@@ -1035,7 +1024,11 @@ func typeNeedsMethod(
 	case resolution.AliasForm:
 		return typeNeedsMethod(form.Target, data, visited, rule)
 	case resolution.DistinctForm:
-		return typeNeedsMethod(form.Base, data, visited, rule)
+		// A distinct struct has none of its base's methods, so only a distinct slice or
+		// map takes part.
+		base := underlyingContainer(ref, data)
+		return (base.Name == "Array" || base.Name == "Map") &&
+			typeNeedsMethod(base, data, visited, rule)
 	}
 	return false
 }
@@ -1096,23 +1089,31 @@ func hasSliceRecurse(steps []recurseStepData) bool {
 	return false
 }
 
-// unaliasContainer returns the Array or Map that ref names through aliases, or ref
-// itself when it names neither.
-func unaliasContainer(ref resolution.TypeRef, data *templateData) resolution.TypeRef {
-	for visited := set.New[string](); !visited.Contains(ref.Name); {
-		visited.Add(ref.Name)
-		resolved, ok := ref.Resolve(data.table)
+// underlyingContainer returns the Array or Map that ref names through aliases and
+// distinct types, or ref itself when it names neither. Go ranges over a distinct slice
+// or map as it does over the container.
+func underlyingContainer(
+	ref resolution.TypeRef,
+	data *templateData,
+) resolution.TypeRef {
+	cur := ref
+	for visited := set.New[string](); !visited.Contains(cur.Name); {
+		visited.Add(cur.Name)
+		resolved, ok := cur.Resolve(data.table)
 		if !ok {
 			return ref
 		}
-		alias, ok := resolved.Form.(resolution.AliasForm)
-		if !ok {
+		switch form := resolved.Form.(type) {
+		case resolution.AliasForm:
+			cur = form.Target
+		case resolution.DistinctForm:
+			cur = form.Base
+		default:
 			return ref
 		}
-		if alias.Target.Name == "Array" || alias.Target.Name == "Map" {
-			return alias.Target
+		if cur.Name == "Array" || cur.Name == "Map" {
+			return cur
 		}
-		ref = alias.Target
 	}
 	return ref
 }
@@ -1133,13 +1134,13 @@ func goRecurseStep(
 		return resolvesToMethodType(r, data) &&
 			typeNeedsMethod(r, data, set.New[string](), rule)
 	}
-	ref = unaliasContainer(ref, data)
+	ref = underlyingContainer(ref, data)
 	switch ref.Name {
 	case "Array":
 		if len(ref.TypeArgs) != 1 {
 			return recurseStepData{}, false
 		}
-		elem := unaliasContainer(ref.TypeArgs[0], data)
+		elem := underlyingContainer(ref.TypeArgs[0], data)
 		if elem.Name == "Array" && len(elem.TypeArgs) == 1 &&
 			needs(elem.TypeArgs[0]) {
 			step.Kind = recurseNestedSlice

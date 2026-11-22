@@ -80,6 +80,68 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 		)
 	})
 
+	It("Should generate Validate asserting int enum membership", func() {
+		source := `
+			@go output "core/pkg/service/x"
+
+			Size enum {
+				one = 1
+				four = 4
+			}
+
+			Cfg struct {
+				size Size = one
+			}
+
+			Shape union on type {
+				first { size Size? }
+			}
+		`
+		resp := MustGenerate(source, "x", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").ToBeValidGoSource().ToContain(
+			`v.Ternaryf("size", !c.Size.IsValid(), "invalid size: %v", c.Size)`,
+			"func (f FirstShape) Validate() error {",
+			`v.Ternaryf("size", !f.Size.IsValid(), "invalid size: %v", *f.Size)`,
+		)
+	})
+
+	It("Should fill an int enum default whose value is not 0", func() {
+		source := `
+			@go output "core/pkg/service/x"
+
+			Size enum {
+				one = 1
+				four = 4
+			}
+
+			Cfg struct {
+				size Size = one
+			}
+		`
+		resp := MustGenerate(source, "x", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").ToContain(
+			"func (c *Cfg) SetDefaults() {",
+			"c.Size = SizeOne",
+		)
+	})
+
+	It("Should not fill an int enum default whose value is 0", func() {
+		source := `
+			@go output "core/pkg/service/x"
+
+			Priority enum {
+				high = 1
+				low = 0
+			}
+
+			Cfg struct {
+				priority Priority = low
+			}
+		`
+		resp := MustGenerate(source, "x", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").ToNotContain("SetDefaults")
+	})
+
 	It(
 		"Should not generate SetDefaults when every default equals the zero value",
 		func() {
@@ -673,6 +735,61 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 					ToNotContain("n.Child.SetDefaults()")
 			},
 		)
+
+		It("Should recurse into the elements of a distinct slice", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Level enum {
+					h1 = "h1"
+				}
+
+				Param struct {
+					level Level
+				}
+
+				Params Param[]
+
+				Props struct {
+					inputs Params
+				}
+
+				Node struct extends Props {
+					name string
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (p Props) Validate() error {",
+				"for i := range p.Inputs {",
+				"p.Inputs[i].Validate()",
+				"v.Exec(n.Props.Validate)",
+			)
+		})
+
+		It("Should not recurse into a distinct struct, which has no methods", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Level enum {
+					h1 = "h1"
+				}
+
+				Param struct {
+					level Level
+				}
+
+				Wrapped Param
+
+				Holder struct {
+					wrapped Wrapped
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("type Wrapped Param").
+				ToNotContain("Wrapped.Validate", "func (h Holder) Validate")
+		})
 	})
 
 	Describe("@validate constraints", func() {

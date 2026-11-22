@@ -12,6 +12,7 @@ package analyzer
 import (
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -397,6 +398,7 @@ func analyze(c *analysisCtx) {
 		validateActionAliases(c, typ)
 		validateTypeParams(c, typ)
 		validateUnion(c, typ)
+		validateIntEnum(c, typ)
 		validateFieldOverrides(c, typ)
 	}
 
@@ -2501,6 +2503,36 @@ func validateUnionEnum(c *analysisCtx, typ resolution.Type, form resolution.Unio
 // Generic variant/base types are permitted but not yet type-checked: an open question
 // for a follow-up that introduces unions parameterized by a type argument applied to
 // every variant.
+// validateIntEnum reports an integer enum member that Go and C++ cannot hold in a
+// uint8, and two members that share a value.
+func validateIntEnum(c *analysisCtx, typ resolution.Type) {
+	form, ok := typ.Form.(resolution.EnumForm)
+	if !ok || !form.IsIntEnum {
+		return
+	}
+	byValue := make(map[int64]string, len(form.Values))
+	for _, v := range form.Values {
+		n := v.IntValue()
+		if n < 0 || n > math.MaxUint8 {
+			c.report(diagnostics.Errorf(
+				ruleCtx(typ.AST),
+				"enum %s member %s has value %d, which is not from 0 to 255",
+				typ.Name, v.Name, n,
+			))
+			continue
+		}
+		if other, dup := byValue[n]; dup {
+			c.report(diagnostics.Errorf(
+				ruleCtx(typ.AST),
+				"enum %s members %s and %s have the same value %d",
+				typ.Name, other, v.Name, n,
+			))
+			continue
+		}
+		byValue[n] = v.Name
+	}
+}
+
 func validateUnion(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.UnionForm)
 	if !ok {
