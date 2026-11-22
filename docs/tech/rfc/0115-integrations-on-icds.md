@@ -91,11 +91,13 @@ value of each other bound channel. Commands that arrive in one frame share one m
 A polled serial, TCP, or UDP entry holds its `query`, the request the device must
 receive before it answers, as an HTTP endpoint holds its request.
 
-A write task binds channels to fields. A field with no channel takes its `default` (a
-constant or a generator). The Core refuses to save a write task that leaves a field with
-no channel and no default. When a write task is configured, the form creates a command
-channel for each binding that has none, from the binding's `data_type`, as read forms
-do.
+A write task binds each field to a channel or to a fixed `value` that the task picks,
+such as a unit ID. Two tasks on one ICD can then send different values. A field with
+neither takes its ICD `default` (a constant or a generator). The Core refuses to save a
+write task that leaves a field with no channel, no value, and no default, or a binding
+with a value and a channel or `data_type`. When a write task is configured, the form
+creates a command channel for each binding with no channel and no value, from the
+binding's `data_type`, as read forms do.
 
 An ICD edit can break a saved write task: a field with no channel and no default, a
 binding to a deleted field, or a target whose message was deleted. The task keeps the
