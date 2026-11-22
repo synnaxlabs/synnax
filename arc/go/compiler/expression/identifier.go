@@ -100,17 +100,23 @@ func compileChannelRead[ASTNode antlr.ParserRuleContext](
 	return scope.Type.Unwrap()
 }
 
-// liftedInput returns the input of the enclosing function that carries a read of the
-// module member n, nil for any other name or a read that was not lifted.
+// liftedInput returns the input of the enclosing function that carries a read of n: of
+// a module member under its joined name, or of a quoted channel name under its quoted
+// form, which no declared input can have. It returns nil for any other name or a read
+// that was not lifted.
 func liftedInput(scope *symbol.Symbol, n parser.Name) *symbol.Symbol {
-	if n.Quoted || n.Tail == "" {
+	name := n.String()
+	switch {
+	case n.Quoted:
+		name = parser.QuoteChannelName(n.Head)
+	case n.Tail == "":
 		return nil
 	}
 	fn, err := scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if err != nil {
 		return nil
 	}
-	if in := fn.FindChild(n.String()); in != nil && in.Kind == symbol.KindInput {
+	if in := fn.FindChild(name); in != nil && in.Kind == symbol.KindInput {
 		return in
 	}
 	return nil
