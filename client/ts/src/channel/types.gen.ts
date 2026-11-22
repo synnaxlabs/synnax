@@ -270,6 +270,11 @@ export const retrieveRequestZ = z.strictObject({
   includeUses: z.boolean().optional(),
   /** includePath includes the path of each record. */
   includePath: z.boolean().optional(),
+  /**
+   * strict refuses each name or path that several channels hold. A strict where holds
+   * only key, name, and path matches, at the top level or as the branches of one or.
+   */
+  strict: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export interface New extends z.input<typeof payloadZ> {}

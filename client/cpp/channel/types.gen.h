@@ -252,6 +252,10 @@ struct RetrieveOptions {
     bool include_status = false;
     /// @brief include_path includes the path of each record.
     bool include_path = false;
+    /// @brief strict refuses each name or path that several channels hold. A strict
+    /// where holds only key, name, and path matches, at the top level or as the
+    /// branches of one or.
+    bool strict = false;
 };
 
 /// @brief RetrieveRequest is a request to retrieve channels.
@@ -271,6 +275,10 @@ struct RetrieveRequest {
     bool include_status = false;
     /// @brief include_path includes the path of each record.
     bool include_path = false;
+    /// @brief strict refuses each name or path that several channels hold. A strict
+    /// where holds only key, name, and path matches, at the top level or as the
+    /// branches of one or.
+    bool strict = false;
 
     /// @brief returns a request for the records that where selects.
     static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
@@ -282,6 +290,7 @@ struct RetrieveRequest {
             .limit = options.limit,
             .include_status = options.include_status,
             .include_path = options.include_path,
+            .strict = options.strict,
         };
     }
 
