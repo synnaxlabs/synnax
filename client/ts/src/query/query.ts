@@ -447,7 +447,9 @@ export class Space<
     }
     const fetches: Promise<void>[] = [];
     this.queries.forEach((query) => {
-      if (query.teardown == null) return;
+      // An unmaintained answer can miss a record the table never held, so its next
+      // subscriber fetches again.
+      if (query.teardown == null) return this.markStale(query);
       if (query.state.variant === "loading") query.reconnected = true;
       else fetches.push(this.refetch(query));
     });
