@@ -341,12 +341,9 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
       { target, protocol: "websocket", params: {}, role: "client" },
       async (ctx: Context): Promise<Context> => {
         const { [AUTHORIZATION_HEADER_KEY]: authorization, ...params } = ctx.params;
-        const ws =
-          authorization == null || this.connector.sendsHeaders !== true
-            ? await this.connector.dial(this.buildURL(target, ctx.params), {})
-            : await this.connector.dial(this.buildURL(target, params), {
-                [AUTHORIZATION_HEADER_KEY]: authorization,
-              });
+        const headers: Record<string, string> =
+          authorization == null ? {} : { [AUTHORIZATION_HEADER_KEY]: authorization };
+        const ws = await this.connector.dial(this.buildURL(target, params), headers);
         const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
         stream = await this.wrapSocket(ws, target, reqSchema, resSchema);
