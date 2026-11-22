@@ -196,7 +196,7 @@ sequence main {
 		_, diagnostics := analyze(ctx,
 			"func outx() {\n\t'out' = 1.0\n}\n'pt_01' -> 'outy'")
 		Expect(diagnostics.String()).
-			To(ContainSubstring("channel does not exist: outy"))
+			To(ContainSubstring("outy does not exist"))
 		Expect(diagnostics.String()).ToNot(ContainSubstring("outx"))
 	})
 })

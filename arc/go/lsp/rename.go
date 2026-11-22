@@ -127,8 +127,14 @@ func (s *Server) renameTextEdits(
 	// channels) have no AST and instead match by kind + name, since every
 	// in-scope reference to the same name resolves to the same global symbol.
 	matchByAST := targetSym.AST != nil
+	tokens := tokenizeContent(doc.Content)
+	channels := pathChannelIdents(ctx, tokens, importContextIdents(tokens), doc.IR)
 	var edits []protocol.TextEdit
-	for _, t := range tokenizeContent(doc.Content) {
+	for i, t := range tokens {
+		// A segment of a dotted name that names a channel is part of that name.
+		if channels.Contains(i) {
+			continue
+		}
 		n := parser.TokenName(t)
 		if n.Head == "" || n.Head != targetSym.Name {
 			continue

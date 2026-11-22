@@ -495,8 +495,12 @@ var _ = Describe("AST Utilities", func() {
 		})
 
 		It("Should split a qualified identifier", func() {
-			Expect(parser.IdentifierName(identifierOf("trig -> m.f"))).
-				To(And(HaveField("Head", "m"), HaveField("Tail", "f")))
+			Expect(parser.IdentifierName(identifierOf("trig -> m.f"))).To(And(
+				HaveField("Head", "m"),
+				HaveField("Tail", "f"),
+				HaveField("Quoted", false),
+				HaveField("Callee", false),
+			))
 		})
 
 		It("Should return the whole path of a quoted channel name", func() {
@@ -592,8 +596,18 @@ var _ = Describe("AST Utilities", func() {
 		})
 
 		It("Should split a qualified identifier", func() {
-			Expect(parser.PrimaryName(primaryOf("math.avg"))).
-				To(And(HaveField("Head", "math"), HaveField("Tail", "avg")))
+			Expect(parser.PrimaryName(primaryOf("math.avg"))).To(And(
+				HaveField("Head", "math"),
+				HaveField("Tail", "avg"),
+				HaveField("Quoted", false),
+				HaveField("Callee", false),
+			))
+		})
+
+		It("Should join a qualified name with no allocation", func() {
+			n := parser.PrimaryName(primaryOf("stand.sensors.pt_01"))
+			Expect(testing.AllocsPerRun(100, func() { _ = n.String() })).To(BeZero())
+			Expect(n.String()).To(Equal("stand.sensors.pt_01"))
 		})
 
 		It("Should return the path of a quoted channel name", func() {

@@ -103,9 +103,7 @@ var _ = Describe("Paths", func() {
 		ctx SpecContext,
 	) {
 		_, err := resolve(ctx, parser.Name{Head: "valves", Tail: "open"})
-		Expect(err).To(MatchError(
-			"valves.open is both a member of module valves and a channel",
-		))
+		Expect(err).To(MatchError("valves.open (module valves)"))
 		d := diagnostics.Error(err, nil)
 		Expect(d.Code).To(Equal(codes.PathClash.Code))
 		Expect(d.Notes).To(ContainElement(HaveField(
@@ -141,7 +139,7 @@ var _ = Describe("Paths", func() {
 		ctx SpecContext,
 	) {
 		Expect(resolve(ctx, parser.Name{Head: "stand", Tail: "pt_02"})).Error().
-			To(MatchError("channel does not exist: stand.pt_02"))
+			To(MatchError("stand.pt_02 does not exist"))
 	})
 
 	It("Should keep the import hint for a module that is not imported", func(

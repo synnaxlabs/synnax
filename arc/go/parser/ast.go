@@ -420,6 +420,13 @@ type Name struct {
 	text string
 }
 
+// KeywordSegment reports whether n is a dotted name with a keyword segment, which
+// only a module member can be: a channel path with one needs quotes.
+func (n Name) KeywordSegment() bool {
+	return !n.Quoted && n.Tail != "" &&
+		(n.Head == LiteralAUTHORITY || n.Tail == LiteralFOR)
+}
+
 // String returns the joined name: head and tail with a dot between, or the path of a
 // channel name. It returns "" for the zero Name.
 func (n Name) String() string {

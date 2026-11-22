@@ -221,22 +221,29 @@ func (d *document) resolveSymbolAtPosition(
 	ctx context.Context,
 	pos protocol.Position,
 ) (*symbol.Symbol, error) {
-	n, _, quoted := d.channelNameAt(pos)
-	if !quoted {
-		n = parser.Name{Head: d.getWordAtPosition(pos)}
-	}
-	if n.Head == "" {
-		return nil, nil
-	}
 	scope := d.findScopeAtPosition(pos)
 	if scope == nil {
 		return nil, nil
 	}
-	return scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
+	if n, _, ok := d.channelNameAt(pos); ok {
+		return scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
+	}
+	// A dotted name that names a channel is one symbol, whichever segment holds pos.
+	if n, ok := d.pathAt(pos); ok {
+		sym, err := scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
+		if err == nil && sym.Kind == symbol.KindChannel {
+			return sym, nil
+		}
+	}
+	word := d.getWordAtPosition(pos)
+	if word == "" {
+		return nil, nil
+	}
+	return scope.ResolveName(ctx, parser.Name{Head: word}, symbol.WithoutUsageTracking)
 }
 
-// channelNameAt returns the quoted channel name whose token holds pos, and the range
-// of the token.
+// channelNameAt returns the quoted channel name whose token holds pos, or the dotted
+// name in a placeholder that holds pos, and its range.
 func (d *document) channelNameAt(
 	pos protocol.Position,
 ) (parser.Name, protocol.Range, bool) {
@@ -254,6 +261,20 @@ func (d *document) channelNameAt(
 		}
 	}
 	return parser.Name{}, protocol.Range{}, false
+}
+
+// importsModule reports whether name is an import alias in the scope at pos.
+func (d *document) importsModule(
+	ctx context.Context,
+	name string,
+	pos protocol.Position,
+) bool {
+	scope := d.findScopeAtPosition(pos)
+	if scope == nil {
+		return false
+	}
+	sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking)
+	return err == nil && sym.Kind == symbol.KindModuleAlias
 }
 
 // pathAt returns the dotted name whose text holds pos.
@@ -286,8 +307,8 @@ func channelNameIn(
 	return parser.Name{}, protocol.Range{}, false
 }
 
-// placeholderChannelNameAt returns the quoted channel name at pos inside a placeholder
-// of the format string t, and its range.
+// placeholderChannelNameAt returns the quoted channel name or the dotted name at pos
+// inside a placeholder of the format string t, and its range.
 func placeholderChannelNameAt(
 	t antlr.Token,
 	pos protocol.Position,
@@ -308,6 +329,13 @@ func placeholderChannelNameAt(
 			r := protocol.Range{Start: f.at[spans[i][0]], End: f.at[spans[i][1]]}
 			if holds(r, pos) {
 				return parser.TokenName(it), r, true
+			}
+		}
+		for _, p := range barePaths(inner, nil) {
+			first, last := p.idents[0], p.idents[len(p.idents)-1]
+			r := protocol.Range{Start: f.at[spans[first][0]], End: f.at[spans[last][1]]}
+			if holds(r, pos) {
+				return p.name, r, true
 			}
 		}
 	}

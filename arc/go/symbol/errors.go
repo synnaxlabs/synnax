@@ -49,11 +49,7 @@ type pathClashError struct {
 
 // Error implements the error interface.
 func (e *pathClashError) Error() string {
-	return fmt.Sprintf(
-		"%s is both a member of module %s and a channel",
-		e.Path,
-		e.Module,
-	)
+	return fmt.Sprintf("%s (module %s)", e.Path, e.Module)
 }
 
 // GetHint implements the hint interface of diagnostics.
@@ -74,12 +70,15 @@ type UndefinedSymbolError struct {
 	scope *Symbol
 	// channel is true when only a channel could have matched Name.
 	channel bool
+	// keyword is true for a dotted name with a keyword segment, which names a channel
+	// only in quoted form.
+	keyword bool
 }
 
 // Error implements the error interface.
 func (e *UndefinedSymbolError) Error() string {
 	if e.channel {
-		return "channel does not exist: " + e.Name
+		return e.Name + " does not exist"
 	}
 	return "undefined symbol: " + e.Name
 }
@@ -98,6 +97,10 @@ func (e *UndefinedSymbolError) GetHint() string {
 	head := e.Name
 	if dot := strings.IndexByte(head, '.'); dot > 0 {
 		head = head[:dot]
+	}
+	if e.keyword {
+		return "a path with a keyword segment needs quotes: " +
+			parser.QuoteChannelName(e.Name)
 	}
 	if !e.channel && e.scope.IsAmbientModule(head) {
 		return fmt.Sprintf(

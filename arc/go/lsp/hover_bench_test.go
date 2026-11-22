@@ -88,8 +88,7 @@ func benchHover(b *testing.B, source string, char uint32, channels ...symbol.Sym
 
 // BenchmarkHover hovers a variable, a quoted channel name, a bare channel path, and a
 // quoted name that no channel holds, near the top of documents of growing length. Only
-// the last fails analysis, so its hover builds a root of its own. Each hover costs the
-// same at any length.
+// the last fails analysis. Each hover costs the same at any length.
 func BenchmarkHover(b *testing.B) {
 	sensor := symbol.Symbol{
 		Name: "stand.sensor",

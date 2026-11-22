@@ -88,6 +88,19 @@ func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, er
 	return sym, resolveErr
 }
 
+// NewCalculationRoot returns the root that a calculation's expression resolves in: the
+// channels that resolver gives and the standard library with no module that a program
+// can import, since a calculation imports none.
+func NewCalculationRoot(resolver arc.SymbolResolver) *symbol.Symbol {
+	return symbol.NewRoot(resolver, calculationSymbols())
+}
+
+func calculationSymbols() []*symbol.Symbol {
+	return lo.Reject(stl.NewSymbols(), func(s *symbol.Symbol, _ int) bool {
+		return s.Kind == symbol.KindModule && !s.Internal
+	})
+}
+
 // CalculationAnalysisResult holds the output of a calculation analysis. On error,
 // Unresolved may be populated even though ChanDataType and Deps are zero-valued.
 type CalculationAnalysisResult struct {
@@ -119,7 +132,7 @@ func (a *CalculationAnalyzer) Analyze(
 		return CalculationAnalysisResult{}, err
 	}
 	if a.stl == nil {
-		a.stl = stl.NewSymbols()
+		a.stl = calculationSymbols()
 	}
 	root := symbol.NewRoot(a.resolver, a.stl)
 	aCtx := acontext.NewRoot(ctx, t, root).WithConfig(a.cfg)
