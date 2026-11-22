@@ -77,6 +77,43 @@ describe("Device", async () => {
       expect(retrieved.status?.description).toBe("Device is connected");
       expect(retrieved.status?.owner).toEqual(device.resourceID(d.key));
     });
+    it("should cache a device that another client creates without its status", async () => {
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const key = id.create();
+      await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key,
+        name: "device-created-remotely",
+        make: "ni",
+        model: "dog",
+        properties: { cat: "dog" },
+        status: {
+          key: "",
+          name: "",
+          variant: "success",
+          message: "Remote device status",
+          description: "Device is connected",
+          time: TimeStamp.now(),
+          labels: [],
+          details: { rack: 0, connected: true },
+        },
+      });
+      await expect
+        .poll(() => query.isLive(local.devices.watch(key).getCached()))
+        .toBe(true);
+      const cached = expectLive(local.devices.watch(key).getCached());
+      expect(cached.name).toBe("device-created-remotely");
+      // A status-free list answers with the stored record as it is.
+      const [listed] = expectLive(local.devices.watch([key]).getCached());
+      expect(listed.name).toBe("device-created-remotely");
+      expect("status" in listed).toBe(false);
+      await expect
+        .poll(() => local.devices.watch({ key, includeStatus: true }).getCached())
+        .toMatchObject({ status: { message: "Remote device status" } });
+    });
     it("should answer a cached status query for new devices", async () => {
       const local = createTestClient();
       await local.connect();
