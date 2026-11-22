@@ -259,8 +259,10 @@ var _ = Describe("Writer", func() {
 				durable(create(clk, 5, 5))
 				Expect(w.TakeBack()).To(Equal([]log.Seal{{Segment: clk}}))
 				Expect(s.Channel(6).Segments).To(BeEmpty())
-				Expect(s.TakeDead()).To(Equal([]uint64{data}))
+				Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: data, Key: 6}}))
 				durable(&log.Seal{Segment: clk})
+				Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: clk, Key: 5}}),
+					"sealed with no durable pointer")
 			})
 
 		It("Should seal the held segment of a key at its committed length", func() {
@@ -498,7 +500,7 @@ var _ = Describe("Writer", func() {
 			Eventually(a.switched).Should(HaveLen(1))
 			Expect(a.seals()).To(BeEmpty())
 			Expect(s.Channel(5).Segments).To(BeEmpty())
-			Expect(s.TakeDead()).To(Equal([]uint64{id}))
+			Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: id, Key: 5}}))
 			Expect(s.TakeDead()).To(BeEmpty())
 		})
 
