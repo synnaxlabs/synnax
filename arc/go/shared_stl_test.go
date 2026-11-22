@@ -11,6 +11,7 @@ package arc_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"sync"
@@ -31,8 +32,10 @@ import (
 )
 
 // shape returns each field of syms and their descendants that analysis could write,
-// one line per symbol, depth first.
+// one line per symbol, depth first. A type shows in full, with its parameters, their
+// defaults, and its nested types.
 func shape(syms []*symbol.Symbol) []string {
+	GinkgoHelper()
 	var (
 		lines []string
 		walk  func(path string, s *symbol.Symbol)
@@ -50,9 +53,23 @@ func shape(syms []*symbol.Symbol) []string {
 			"%s kind=%d type=%s id=%d source=%v exec=%d internal=%t exported=%t "+
 				"user=%t reassigned=%t renameable=%t used=%t trigger=%v channels=%v "+
 				"default=%v parent=%s deprecated=%s",
-			path, s.Kind, s.Type, s.ID, s.SourceID, s.Exec, s.Internal, s.Exported,
-			s.UserDefined, s.Reassigned, s.Renameable, s.Used, s.Trigger, s.Channels,
-			s.DefaultValue, parent, deprecated,
+			path,
+			s.Kind,
+			MustSucceed(json.Marshal(s.Type)),
+			s.ID,
+			s.SourceID,
+			s.Exec,
+			s.Internal,
+			s.Exported,
+			s.UserDefined,
+			s.Reassigned,
+			s.Renameable,
+			s.Used,
+			s.Trigger,
+			s.Channels,
+			s.DefaultValue,
+			parent,
+			deprecated,
 		))
 		for _, child := range s.Children() {
 			walk(path, child)
