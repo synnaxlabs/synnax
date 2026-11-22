@@ -9,13 +9,14 @@
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 
-import { ADAPTER } from "@/feature/ni/device/hardware";
-import { suggestIdentifiers } from "@/feature/ni/device/identifier";
-import { ZERO_PROPERTIES } from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { Task } from "@/feature/ni/task";
 import { Device as PlatformDevice } from "@/platform/device";
 
-const CONFIGURE_MANY = { zeroProperties: ZERO_PROPERTIES, suggestIdentifiers };
+const CONFIGURE_MANY = {
+  zeroProperties: Device.ZERO_PROPERTIES,
+  suggestIdentifiers: Device.suggestIdentifiers,
+};
 
 const TASK_CONTEXT_MENU_ITEMS = [
   PlatformDevice.createTaskContextMenuItem({
@@ -47,10 +48,10 @@ const TASK_CONTEXT_MENU_ITEMS = [
   }),
 ];
 
-const ConfigureMenuItem = PlatformDevice.createConfigureMenuItem(ADAPTER);
+const ConfigureMenuItem = PlatformDevice.createConfigureMenuItem(Device.ADAPTER);
 
 const ChangeIdentifierMenuItem = PlatformDevice.createChangeIdentifierMenuItem({
-  adapter: ADAPTER,
+  adapter: Device.ADAPTER,
   icon: "Logo.NI",
 });
 

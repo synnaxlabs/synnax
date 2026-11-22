@@ -10,7 +10,7 @@
 import type { ni } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 
-import type { Device } from "@/feature/ni/device/types";
+import type { Device } from "@/feature/ni/device";
 import {
   ANALOG_INPUT,
   ANALOG_OUTPUT,
@@ -51,7 +51,7 @@ export interface Placement {
 const template = <C extends Task.Channel>(channels: C[], zero: C, copy?: string): C =>
   deep.copy(Task.channelToCopy(channels, copy) ?? zero);
 
-const hardwareOf = (devices: Device[], key: string): ni.Hardware | undefined =>
+const hardwareOf = (devices: Device.Device[], key: string): ni.Hardware | undefined =>
   devices.find((d) => d.key === key)?.properties.hardware;
 
 /**
@@ -60,10 +60,10 @@ const hardwareOf = (devices: Device[], key: string): ni.Hardware | undefined =>
  * differential. An unscaled voltage channel that copies no channel on its own device
  * takes the widest voltage range of that device.
  */
-export const createNextAIChannel = (
+export const createNextAI = (
   channels: AIChannel[],
   { copy, device, port }: Placement = {},
-  devices: Device[] = [],
+  devices: Device.Device[] = [],
 ): AIChannel => {
   const source = Task.channelToCopy(channels, copy);
   const next: AIChannel = {
@@ -91,10 +91,10 @@ export const createNextAIChannel = (
 };
 
 /** Creates an analog output channel on the lowest free port, or on the given one. */
-export const createNextAOChannel = (
+export const createNextAO = (
   channels: AOChannel[],
   { copy, port }: Omit<Placement, "device"> = {},
-  device?: Device,
+  device?: Device.Device,
 ): AOChannel => {
   const hardware = device?.properties.hardware;
   const base = template(channels, createAOChannel(), copy);
@@ -112,10 +112,10 @@ export const createNextAOChannel = (
 };
 
 /** Creates a counter channel on the lowest free counter of its device. */
-export const createNextCIChannel = (
+export const createNextCI = (
   channels: CIChannel[],
   { copy, device, port }: Placement = {},
-  devices: Device[] = [],
+  devices: Device.Device[] = [],
 ): CIChannel => {
   const next: CIChannel = {
     ...template(channels, createCIChannel(), copy),
@@ -148,7 +148,7 @@ const createDigitalChannel = <C extends DigitalChannel>(
   zero: C,
   direction: "input" | "output",
   placement: LinePlacement,
-  device?: Device,
+  device?: Device.Device,
 ): C => {
   const next = { ...zero, key: id.create() };
   if (placement.port != null && placement.line != null)
@@ -172,17 +172,17 @@ const createDigitalChannel = <C extends DigitalChannel>(
  * Creates a digital input channel on the lowest free line of the device. Without port
  * data, it takes the lowest free line of the copied channel's port.
  */
-export const createNextDIChannel = (
+export const createNextDI = (
   channels: DIChannel[],
   placement: LinePlacement = {},
-  device?: Device,
+  device?: Device.Device,
 ): DIChannel =>
   createDigitalChannel(channels, createDIChannel(), "input", placement, device);
 
-/** Creates a digital output channel, as createNextDIChannel does. */
-export const createNextDOChannel = (
+/** Creates a digital output channel, as createNextDI does. */
+export const createNextDO = (
   channels: DOChannel[],
   placement: LinePlacement = {},
-  device?: Device,
+  device?: Device.Device,
 ): DOChannel =>
   createDigitalChannel(channels, createDOChannel(), "output", placement, device);
