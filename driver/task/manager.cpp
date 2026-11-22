@@ -303,8 +303,8 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
 
 namespace {
 /// @brief reads the cluster's control state into states.
-/// @returns whether the read replaced the mirror, which it does not when a later hold
-/// began during it, and the error of a failed read.
+/// @returns whether the read replaced the mirror, which it does not when a hold, a
+/// stream restart, or a full log outdated it, and the error of a failed read.
 std::pair<bool, x::errors::Error>
 read_control(const synnax::Synnax &client, control::States &states) {
     const auto read = states.begin_read();
