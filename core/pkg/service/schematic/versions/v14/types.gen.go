@@ -3300,8 +3300,8 @@ type CustomActuatorNodeConfig struct {
 	ToggleConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// StateOverrides contains per-instance overrides of the spec's visual states,
-	// matched to the spec's states by key.
+	// StateOverrides contains per-instance replacements of the spec's region colors,
+	// one for each value that the node draws, in value order: Base, then Active.
 	StateOverrides []symbol.StateOverride `json:"state_overrides" msgpack:"state_overrides"`
 }
 
@@ -3326,8 +3326,8 @@ type CustomStaticNodeConfig struct {
 	ScaledConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// StateOverrides contains per-instance overrides of the spec's visual states,
-	// matched to the spec's states by key.
+	// StateOverrides contains per-instance replacements of the spec's region colors,
+	// one for each value that the node draws, in value order: Base, then Active.
 	StateOverrides []symbol.StateOverride `json:"state_overrides" msgpack:"state_overrides"`
 }
 

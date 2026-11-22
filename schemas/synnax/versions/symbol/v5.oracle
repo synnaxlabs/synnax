@@ -19,17 +19,17 @@ Region = v4.Region
 
 StateOverride struct {
     key     string   {
-        @doc value "is the key of the state that the override replaces."
+        @doc value "is the key of the value that the override colors."
     }
     name    string   {
-        @doc value "is a human-readable name for the state."
+        @doc value "is a human-readable name for the value."
     }
     regions Region[] {
         @doc value "contains the regions that the override colors."
     }
 
     @doc value  """
-        is a node's replacement for the region colors of one of its symbol's states.
+        is a node's replacement for the region colors of one value that it draws.
     """
     @go marshal
 }

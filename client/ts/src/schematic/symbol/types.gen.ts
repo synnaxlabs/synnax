@@ -340,13 +340,13 @@ export const MOTION_SCHEMAS: {
 };
 
 /**
- * StateOverride is a node's replacement for the region colors of one of its symbol's
- * states.
+ * StateOverride is a node's replacement for the region colors of one value that it
+ * draws.
  */
 export const stateOverrideZ = z.object({
-  /** key is the key of the state that the override replaces. */
+  /** key is the key of the value that the override colors. */
   key: z.string(),
-  /** name is a human-readable name for the state. */
+  /** name is a human-readable name for the value. */
   name: z.string(),
   /** regions contains the regions that the override colors. */
   regions: regionZ.array().default(() => []),
