@@ -10,6 +10,9 @@
 package state_test
 
 import (
+	"fmt"
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -159,29 +162,139 @@ var _ = Describe("Rewrites", func() {
 		})
 
 		DescribeTable(
-			"Should refuse a Replace whose new segment differs from the old one",
-			func(create *log.Create, edit func(r *log.Replace), message string) {
-				Expect(s.Replay(11, []log.Record{create, replace(edit)})).To(SatisfyAll(
+			"Should refuse a Replace that breaks a rule of the copy",
+			func(before []log.Record, edit func(r *log.Replace), message string) {
+				records := append(slices.Clone(before), replace(edit))
+				Expect(s.Replay(11, records)).To(SatisfyAll(
 					MatchError(state.ErrRefused),
 					MatchError(ContainSubstring(message)),
 				))
 			},
-			Entry("in key",
-				&log.Create{Segment: 9, Key: 5, Clock: 5, Version: 1, DataType: 4}, nil,
+			Entry("by a new segment of another key",
+				[]log.Record{
+					&log.Create{Segment: 9, Key: 5, Clock: 5, Version: 1, DataType: 4},
+				}, nil,
 				"replace of segment 3 by 9, which differs in key, clock, or type"),
-			Entry("in data type",
-				&log.Create{Segment: 9, Key: 6, Clock: 5, Version: 1, DataType: 7}, nil,
+			Entry("by a new segment of another clock",
+				[]log.Record{
+					&log.Create{Segment: 9, Key: 6, Clock: 8, Version: 1, DataType: 4},
+				}, nil,
 				"replace of segment 3 by 9, which differs in key, clock, or type"),
-			Entry("in the samples of a pointer", created,
+			Entry("by a new segment of another data type",
+				[]log.Record{
+					&log.Create{Segment: 9, Key: 6, Clock: 5, Version: 1, DataType: 7},
+				}, nil,
+				"replace of segment 3 by 9, which differs in key, clock, or type"),
+			Entry("by a segment that no Create made", nil, nil,
+				"replace of segment 3 by 9, which is not a new segment"),
+			Entry("by a new segment that holds bytes",
+				[]log.Record{created, commit(1, 3, 0, 60, 60, slot(9, 4))}, nil,
+				"replace of segment 3 by 9, which is not a new segment"),
+			Entry("of an unknown old segment", []log.Record{created},
+				func(r *log.Replace) { r.Old = 99 },
+				"replace of segment 99, which is not sealed"),
+			Entry("of an open old segment", []log.Record{created},
+				func(r *log.Replace) { r.Old = 4 },
+				"replace of segment 4, which is not sealed"),
+			Entry("by other samples in a pointer", []log.Record{created},
 				func(r *log.Replace) { r.Pointers[1].Samples = 2 },
 				"replace of segment 3, whose pointers differ from the copy"),
-			Entry("in the stamps of a pointer", created,
+			Entry("by other stamps in a pointer", []log.Record{created},
 				func(r *log.Replace) { r.Pointers[0].Last = 11 },
 				"replace of segment 3, whose pointers differ from the copy"),
-			Entry("in its count of pointers", created,
+			Entry("by another count of pointers", []log.Record{created},
 				func(r *log.Replace) { r.Pointers = r.Pointers[:1] },
 				"replace of segment 3, whose pointers differ from the copy"),
+			Entry("by pointers that overlap", []log.Record{created},
+				func(r *log.Replace) { r.Pointers[1].Offset = 2 },
+				"replace of segment 3 by 9, whose pointers overlap or fall out of "+
+					"stream order"),
+			Entry("by pointers out of stream order", []log.Record{created},
+				func(r *log.Replace) {
+					r.Pointers[0].Offset, r.Pointers[1].Offset = 4, 0
+				},
+				"replace of segment 3 by 9, whose pointers overlap or fall out of "+
+					"stream order"),
+			Entry("by pointers that end past its length", []log.Record{created},
+				func(r *log.Replace) { r.Length = 7 },
+				"replace of segment 3 by 9, whose pointers end past its length 7"),
 		)
+
+		DescribeTable("Should refuse a Replace by a segment that a writer made",
+			func(closed bool) {
+				a := &appended{}
+				s := MustSucceed(state.Open(config(a), sample()))
+				Expect(s.Replay(10, []log.Record{seal, cut})).To(Succeed())
+				a.s, a.seq = s, 10
+				run(s)
+				w := MustSucceed(s.OpenWriter(state.WriterConfig{
+					Clock: 5,
+					Start: 100,
+					Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
+				}))
+				id := MustSucceed(w.NewSegment(6))
+				records := []log.Record{
+					&log.Create{Segment: id, Key: 6, Clock: 5, Version: 1, DataType: 4},
+				}
+				if closed {
+					Expect(w.Close()).To(Succeed())
+					records = nil
+				}
+				records = append(records, replace(func(r *log.Replace) { r.New = id }))
+				Expect(a.durable(records)).To(Succeed())
+				Eventually(s.Err).Should(SatisfyAll(
+					MatchError(state.ErrRefused),
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"replace of segment 3 by %d, which is not a new segment",
+						id,
+					))),
+				))
+			},
+			Entry("that holds it", false),
+			Entry("that closed with no Create of it", true),
+		)
+	})
+})
+
+var _ = Describe("Parted candidates", func() {
+	It("Should name a parted segment that a Tombstone puts back in the head, and "+
+		"name it to the next switch", func() {
+		head := sample()
+		head.Channels[1] = &state.Channel{
+			Key:   6,
+			Parts: &state.Parts{Oldest: 7, Newest: 7},
+		}
+		a := &appended{}
+		cfg := config(a)
+		cfg.Generation = 5
+		s := MustSucceed(state.Open(cfg, head))
+		a.s, a.seq = s, head.Sequence
+		run(s)
+		d := MustSucceed(s.BeginDelete(6, 15, 25, state.Preload{
+			Key:        6,
+			Generation: 5,
+			Segments: []state.Segment{{
+				ID: 3, Clock: 5, Version: 1, DataType: 4, Sealed: true, Length: 12,
+				TailCRC: 3, Part: 7,
+				Pointers: []state.Pointer{pointer(1, 0, 10, 30, 0, 12, 3)},
+			}},
+		}))
+		t := &log.Tombstone{
+			Key: 6, Start: 15, End: 25, Left: cutOf(1, 10), Right: cutOf(2, 30),
+		}
+		Expect(d.Check(t)).To(Succeed())
+		Expect(a.durable([]log.Record{t})).To(Succeed())
+		Expect(d.Release()).To(Succeed())
+		snap := MustSucceed(s.Snapshot())
+		Expect(snap.Candidates).To(Equal([]uint64{3}))
+		Expect(snap.Kills).To(ContainElement(state.Kill{
+			Key: 6, Segment: 3, Generation: 5,
+		}))
+		Expect(s.Channel(6).Segments).To(HaveLen(1))
+		Expect(s.Channel(6).Segments[0].Part).To(BeZero())
+		Expect(s.Switch(6)).To(Succeed())
+		Eventually(a.switched).Should(HaveLen(1))
+		Expect(a.switched()[0].Candidates).To(Equal([]uint64{3}))
 	})
 })
 
