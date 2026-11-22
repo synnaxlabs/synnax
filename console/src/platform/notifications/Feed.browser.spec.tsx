@@ -10,9 +10,8 @@
 import type { status } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { usePopover } from "@synnaxlabs/lyra/hooks";
-import { Portal } from "@synnaxlabs/lyra/portal";
 import { Status } from "@synnaxlabs/lyra/status";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useRef, useState } from "react";
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
@@ -337,13 +336,12 @@ describe("Notifications", () => {
       expect(tooltipOnTop(tooltip)).toBe(true);
     });
 
-    it("stays over the feed when a modal opens", async () => {
-      const tooltip = await openTooltip(["first", "second"]);
-      await act(async () => {
-        document.dispatchEvent(new Event(Portal.MODAL_CHANGE_EVENT));
-        await new Promise(requestAnimationFrame);
-      });
-      expect(tooltipOnTop(tooltip)).toBe(true);
+    it("leaves the feed showing when a card opens a modal", async () => {
+      await openTooltip(["first"]);
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      await screen.findByText("Modal");
+      const feed = document.querySelector(".console-notifications");
+      await waitFor(() => expect(feed?.matches(":popover-open")).toBe(true));
     });
   });
 });

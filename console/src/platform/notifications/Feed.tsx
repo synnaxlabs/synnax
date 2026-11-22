@@ -63,14 +63,16 @@ export const Feed = ({ notifications }: FeedProps): ReactElement => {
   const visible = showAll ? rendered : rendered.slice(0, VISIBLE_CAP);
   const ref = useRef<HTMLDivElement>(null);
   // The feed shows again, last in the top layer, when Portal.Above moves it, when its
-  // statuses change, and when another overlay shows. It stays put while the pointer or
-  // the focus is on it, so an overlay opened from a card, such as a tooltip, stays over
-  // it.
+  // statuses change, and when another overlay shows. A showing feed stays put while the
+  // pointer or the focus is on it, so an overlay opened from a card, such as a tooltip,
+  // stays over it.
   const [raises, setRaises] = useState(0);
   // A move clears :hover until the pointer moves again, so the pointer is tracked.
   const hovered = useRef(false);
   const raise = (): void => {
-    if (hovered.current || ref.current?.matches(":focus-within") === true) return;
+    const feed = ref.current;
+    const inUse = hovered.current || feed?.matches(":focus-within") === true;
+    if (inUse && feed?.matches(":popover-open") === true) return;
     setRaises((r) => r + 1);
   };
   const raiseRef = useSyncedRef(raise);
