@@ -10,9 +10,11 @@
 import {
   access,
   AccessDeniedError,
+  type calculation,
   channel,
   DataType,
   framer,
+  query,
   type status as cstatus,
   type Synnax,
   UnsupportedError,
@@ -1654,6 +1656,35 @@ describe("StreamMultiChannelLog", () => {
       message: "Failed to read channel data",
       description: "channel 999 not found",
     });
+  });
+
+  it("should show a channel after the cache resets during its output lookup", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const cache = new query.Cache({ openStreamer: null, onError: () => {} });
+    const { promise: answered, resolve: answer } = Promise.withResolvers<void>();
+    let lookups = 0;
+    const outputs = cache.createTable<channel.Key, calculation.Output>({
+      name: "calculation.outputs",
+      fetch: async (keys) => {
+        if (++lookups === 1) await answered;
+        return keys.map((key) => ({ key, calculation: null }));
+      },
+    });
+    const statuses: cstatus.Crude[] = [];
+    const log = open(
+      core,
+      { ...connect(core), calculations: { outputs } },
+      { channels: [a] },
+      { onStatusChange: (s) => statuses.push(s) },
+    );
+    log.value();
+    await expect.poll(() => lookups, POLL).toBe(1);
+    // The Core behind the connection changes while the lookup is in flight.
+    await cache.reset();
+    answer();
+    await settle(log, HISTORY);
+    expect(statuses.filter(({ variant }) => variant === "error")).toEqual([]);
   });
 
   it("should report the worst status of its channels", async () => {
