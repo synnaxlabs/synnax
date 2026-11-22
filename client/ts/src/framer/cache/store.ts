@@ -301,7 +301,8 @@ export class Store {
   /**
    * Restarts the time from which history signals count as delivered, after the stream
    * dropped frames that could hold them. A sealed block fetched before now then stays
-   * valid only until it is older than the stale threshold.
+   * valid only until it is older than the stale threshold, and a held block until it
+   * is released.
    */
   restartSignals(): void {
     if (this.signalsSince != null) this.signalsSince = this.now();

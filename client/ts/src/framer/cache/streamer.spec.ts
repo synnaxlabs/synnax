@@ -13,6 +13,7 @@ import {
   disposable,
   Series,
   sleep,
+  TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -995,13 +996,54 @@ describe("MultiplexedStreamer", () => {
       hooks[0].onMissed();
       hooks[0].onMissed();
       await vi.advanceTimersByTimeAsync(10);
-      expect(invalidate.mock.calls).toEqual([[1, open?.range]]);
+      expect(invalidate.mock.calls).toEqual([
+        [1, new TimeRange(open?.range.start ?? TimeStamp.MIN, TimeStamp.MAX)],
+      ]);
       expect(restart).toHaveBeenCalledTimes(1);
       hooks[0].onMissed();
       await vi.advanceTimersByTimeAsync(500);
       expect(restart).toHaveBeenCalledTimes(1);
       await vi.advanceTimersByTimeAsync(600);
       expect(restart).toHaveBeenCalledTimes(2);
+      expect(sub.status(1).variant).toEqual("success");
+      sub.close();
+      await streamer.close();
+    });
+
+    it("should outdate from the block a marker found after the block closes", async () => {
+      const cache = createJoined(1);
+      const { store, joins } = cache;
+      store.setChannel(
+        new channel.Channel({
+          key: 1,
+          name: "time",
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        }).payload,
+      );
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        ...cache,
+        openStreamer: createStreamOpener(
+          [oneFrameStreamer([1], new framer.Frame({ 1: createTimestamps() }))],
+          hooks,
+        ),
+      });
+      const sub = streamer.demand([1], () => {});
+      await vi.advanceTimersByTimeAsync(200);
+      const open = store.open(1);
+      expect(open).not.toBeNull();
+      const invalidate = vi.spyOn(joins, "invalidate");
+      const restart = vi.spyOn(store, "restartSignals");
+      hooks[0].onMissed();
+      // The stream moves past the block before the throttled outdate runs.
+      store.flush(1);
+      expect(store.open(1)).toBeNull();
+      await vi.advanceTimersByTimeAsync(10);
+      expect(invalidate.mock.calls).toEqual([
+        [1, new TimeRange(open?.range.start ?? TimeStamp.MIN, TimeStamp.MAX)],
+      ]);
+      expect(restart).toHaveBeenCalledTimes(1);
       expect(sub.status(1).variant).toEqual("success");
       sub.close();
       await streamer.close();
