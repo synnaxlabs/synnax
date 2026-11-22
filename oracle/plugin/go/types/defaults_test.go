@@ -818,6 +818,100 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			)
 		})
 
+		It("Should check that a field is less than another field", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Range struct {
+					min float64 {
+						@go validate lt max
+					}
+					max float64
+					low int32 {
+						@go validate lt high "low must be below high"
+					}
+					high int32
+					lower uint32 {
+						@go validate lt upper
+					}
+					upper uint32 {
+						@go name "UpperBound"
+					}
+				}
+
+				Holder struct extends Range {
+					name string
+				}
+
+				Shape union on kind {
+					ranged extends Range {
+						label string
+					}
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`v.Ternary("min", !(r.Min < r.Max), "must be less than max")`,
+				`v.Ternary("low", !(r.Low < r.High), "low must be below high")`,
+				`v.Ternary("lower", !(r.Lower < r.UpperBound), "must be less than upper")`,
+				`v.Exec(h.Range.Validate)`,
+				`v.Exec(r.Range.Validate)`,
+			)
+		})
+
+		It("Should leave the lt check of a restated default to the embedded struct",
+			func() {
+				source := `
+					@go output "core/pkg/service/x"
+
+					Range struct {
+						min float64 {
+							@go validate lt max
+						}
+						max float64
+					}
+
+					Shape union on kind {
+						tuned extends Range {
+							min float64 = 2
+						}
+					}
+				`
+				resp := MustGenerate(source, "x", loader, goPlugin)
+				content := string(resp.Files[0].Content)
+				Expect(strings.Count(content, `v.Ternary("min"`)).To(Equal(1))
+				ExpectContent(
+					resp,
+					"types.gen.go",
+				).ToContain(`v.Exec(t.Range.Validate)`)
+			},
+		)
+
+		It("Should check a restated field's own lt rule", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Range struct {
+					min float64 {
+						@go validate lt max
+					}
+					max float64
+				}
+
+				Child struct extends Range {
+					min float64 {
+						@go validate lt limit
+					}
+					limit float64
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`v.Ternary("min", !(c.Min < c.Limit), "must be less than limit")`,
+				`v.Exec(c.Range.Validate)`,
+			)
+		})
+
 		It(
 			"Should merge a field's rules with its type's rules",
 			func() {

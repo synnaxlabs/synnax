@@ -831,12 +831,16 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	if err := checkHeld(entry.Name, sd.IsGeneric, embeds, fields, data); err != nil {
 		return structData{}, err
 	}
+	siblings := resolution.UnifiedFields(entry, data.table)
+	parents := resolution.InheritedFields(form.Extends, data.table)
 	for _, field := range fields {
 		if !defaultOnly.Contains(field.Name) {
 			sd.Fields = append(sd.Fields, processField(field, data))
 		}
 		if genMethods {
-			addFieldMethods(&sd, field, defaultOnly.Contains(field.Name), data)
+			addFieldMethods(
+				&sd, field, siblings, restated(field, defaultOnly, parents), data,
+			)
 		}
 	}
 	if genMethods {
@@ -945,14 +949,17 @@ func embedExtends(
 	return embeds
 }
 
-// addFieldMethods adds the default fills and validation checks of field. defaultOnly
-// marks a field that only restates an inherited default.
+// addFieldMethods adds the default fills and validation checks of field. siblings are
+// the fields of field's struct. parent is the inherited field that field only restates
+// a default of, or nil.
 func addFieldMethods(
 	sd *structData,
 	field resolution.Field,
-	defaultOnly bool,
+	siblings []resolution.Field,
+	parent *resolution.Field,
 	data *templateData,
 ) {
+	defaultOnly := parent != nil
 	fd := data.forField(field)
 	if defaultGroupName(field) == "" {
 		fills := goDefaultFills(field, fd)
@@ -971,6 +978,9 @@ func addFieldMethods(
 		sd.ConstraintChecks,
 		goConstraintChecks(field, defaultOnly, fd)...,
 	)
+	if chk, ok := goLessThanCheck(field, siblings, parent); ok {
+		sd.ConstraintChecks = append(sd.ConstraintChecks, chk)
+	}
 	if step, ok := goRecurseStep(field, fd, validateRule); ok {
 		sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 	}
@@ -1663,6 +1673,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "finite"}}
 	v.Finite("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "lt"}}
+	v.Ternary("{{.FieldName}}", !({{$val}} < {{$s.Receiver}}.{{.Arg}}), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -1799,6 +1811,8 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "finite"}}
 	v.Finite("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "lt"}}
+	v.Ternary("{{.FieldName}}", !({{$val}} < {{$vt.Receiver}}.{{.Arg}}), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -2034,3 +2048,18 @@ func ({{$r}} *{{.Name}}) SetDefaults() {
 {{- end}}
 `),
 )
+
+// restated returns the inherited field that field only restates a default of, or nil.
+func restated(
+	field resolution.Field,
+	defaultOnly set.Set[string],
+	parents map[string]resolution.Field,
+) *resolution.Field {
+	if !defaultOnly.Contains(field.Name) {
+		return nil
+	}
+	if parent, ok := parents[field.Name]; ok {
+		return &parent
+	}
+	return nil
+}
