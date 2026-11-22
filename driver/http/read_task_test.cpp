@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <cmath>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -4184,9 +4183,8 @@ TEST(HTTPReadTask, InvalidIntegerSkipsGroupWhenFilled) {
 }
 
 namespace {
-/// @brief creates an ICD with one JSON message whose field v at /v the GET endpoint at
-/// path reads into ch.
-/// @returns the endpoint.
+/// @brief creates an ICD whose message Status holds a float field v at /v.
+/// @returns a GET endpoint at path that reads v into ch.
 ::synnax::http::ReadEndpoint create_icd_endpoint(
     const synnax::Synnax &client,
     const std::string &path,
@@ -4283,9 +4281,10 @@ TEST(HTTPReadTask, BuildReadersNamesEndpointOfMessageError) {
 TEST(HTTPReadTask, BuildReadersReturnsChannelRetrieveError) {
     const auto client = new_test_client();
     synnax::channel::Channel missing;
-    missing.key = std::numeric_limits<synnax::channel::Key>::max() >> 1;
-    const auto err = build_readers(client, {create_icd_endpoint(client, "/a", missing)})
-                         .second;
-    ASSERT_OCCURRED_AS(err, x::errors::NOT_FOUND);
+    missing.key = 1;
+    ASSERT_OCCURRED_AS_P(
+        build_readers(client, {create_icd_endpoint(client, "/a", missing)}),
+        x::errors::NOT_FOUND
+    );
 }
 }
