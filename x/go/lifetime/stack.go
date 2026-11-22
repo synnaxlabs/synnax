@@ -79,8 +79,8 @@ func (s *Stack) Failed() <-chan struct{} { return s.failed }
 //
 // When ctx ends first, Stop ends every lifetime that is left and returns at once
 // without calling their closers. The runs that have not returned keep running until
-// they see their context end. The error then wraps ctx.Err() and names those runs.
-// Call Stop once.
+// they see their context end. The error then wraps ctx.Err() and names those runs. Call
+// Stop once.
 func (s *Stack) Stop(ctx context.Context) error {
 	for _, l := range slices.Backward(s.layers) {
 		l.cancel()
