@@ -399,7 +399,7 @@ var _ = Describe("Service", func() {
 				}},
 			})).Error().ToNot(HaveOccurred())
 			got := retrieveSlave(ctx, s.Key)
-			Expect(got.Serial).To(Equal(uint32(9999)))
+			Expect(got.Serial).To(Equal(uint64(9999)))
 			Expect(got.Name).To(Equal(s.Name))
 		})
 

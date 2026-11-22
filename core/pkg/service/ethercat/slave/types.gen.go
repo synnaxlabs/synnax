@@ -147,7 +147,7 @@ type Identity struct {
 	// Rack is the key of the rack the slave is connected to.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Serial is the serial number of the slave. 0 when the slave reports none.
-	Serial uint32 `json:"serial" msgpack:"serial"`
+	Serial uint64 `json:"serial" msgpack:"serial"`
 	// VendorID is the EtherCAT vendor ID of the slave.
 	VendorID uint32 `json:"vendor_id" msgpack:"vendor_id"`
 	// ProductCode is the product code of the slave.
@@ -165,6 +165,7 @@ type Identity struct {
 func (i Identity) Validate() error {
 	v := validate.New("Identity")
 	v.NonZero("rack", i.Rack)
+	v.LessThanEq("serial", i.Serial, 9007199254740991)
 	v.NonZero("master", i.Master)
 	return v.Error()
 }
