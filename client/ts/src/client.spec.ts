@@ -74,7 +74,6 @@ describe("constructor", () => {
     expect(client.params).toMatchObject({
       host: "core.env",
       port: 9091,
-      apiKey: "syk_env",
       secure: true,
     });
     await client.close();
@@ -85,7 +84,6 @@ describe("constructor", () => {
     expect(client.params).toMatchObject({
       host: "rig",
       port: 1,
-      apiKey: "syk_env",
       secure: true,
     });
     await client.close();
@@ -413,6 +411,19 @@ describe("short circuit", () => {
       virtual: true,
     });
     expect(ch.key).not.toBe(0);
+    await client.close();
+  });
+});
+
+describe("logout", () => {
+  it.each([
+    ["a password", { username: "synnax", password: "secret" }],
+    ["an API key", { apiKey: "secret" }],
+    ["a token", { token: "secret" }],
+  ])("should keep no copy of %s on the client", async (_, given) => {
+    const client = new Synnax({ host: "localhost", port: 9090, ...given });
+    await client.auth.logout();
+    expect(Object.values(client.params)).not.toContain("secret");
     await client.close();
   });
 });
