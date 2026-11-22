@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/crdt"
@@ -79,7 +80,7 @@ var _ = Describe("Ambiguous names", func() {
 		Expect(svc.Build(ctx, a.Base().Key)).Error().ToNot(HaveOccurred())
 		Expect(svc.CompileProgram(ctx, a.Base().Key)).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("2 channels are named 'ambiguity_pt'")),
-			Not(MatchError(channel.ErrLookupsChanged)),
+			Not(MatchError(resolver.ErrLookupsChanged)),
 		))
 	})
 })

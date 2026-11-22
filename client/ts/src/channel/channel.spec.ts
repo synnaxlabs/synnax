@@ -597,7 +597,7 @@ describe("Channel", () => {
           ch.key,
           channel.set({ path: ["expression"], value: "" }),
         ),
-      ).rejects.toThrow("its expression cannot be empty");
+      ).rejects.toThrow("expression: required");
       expect(client.channels.store.get(ch.key)).toBe(before);
     });
   });
@@ -1193,17 +1193,27 @@ describe("cached reads", () => {
     };
 
     it("composes statuses only for a request that includes them", async () => {
-      const ch = await createCalculated();
+      const source = await createVirtual();
+      const ch = await client.channels.create({
+        name: `qry_${id.create()}`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: `return ${source.name} * 2`,
+      });
+      // The Core writes an error status to the calculation once its input is gone.
+      await client.channels.delete(source.key);
       const local = createTestClient();
       await local.connect();
       const where = { key: { in: [ch.key] } };
       const [bare] = await local.channels.retrieve({ where });
       expect(bare.status).toBeUndefined();
-      const [withStatus] = await local.channels.retrieve({
-        where,
-        includeStatus: true,
-      });
-      expect(withStatus.status?.message).toEqual("calculating");
+      await expect
+        .poll(
+          async () =>
+            (await local.channels.retrieve({ where, includeStatus: true }))[0].status
+              ?.variant,
+        )
+        .toEqual("error");
     });
 
     it("delivers a remote status change to a request that includes them", async () => {
@@ -1222,5 +1232,44 @@ describe("cached reads", () => {
         off();
       }
     });
+  });
+});
+
+describe("old API edits of a calculated channel", () => {
+  it("should reach a client that holds the channel in its cache", async () => {
+    const local = createTestClient();
+    // The local client must stream before the edit, or it misses the edit's broadcast.
+    await local.connect();
+    await waitForStreamLive(local.connection);
+    const source = await local.channels.create({
+      name: id.create(),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const ch = await local.channels.create({
+      name: id.create(),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+      expression: `return ${source.name} * 2`,
+    });
+    // A status makes the cache hold the calculated channel.
+    await local.statuses.set({
+      owner: channel.resourceID(ch.key),
+      name: "Calculation Status",
+      variant: "info",
+      message: "ok",
+      time: TimeStamp.now(),
+    });
+    expect((await local.channels.retrieve(ch.key)).status?.message).toEqual("ok");
+    const operations: channel.Operation[] = [
+      { type: "avg", resetChannel: 0, duration: TimeSpan.seconds(5) },
+    ];
+    await remote.channels.dispatch(
+      ch.key,
+      channel.set({ path: ["operations"], value: operations }),
+    );
+    await expect
+      .poll(async () => (await local.channels.retrieve(ch.key)).operations)
+      .toEqual(operations);
   });
 });

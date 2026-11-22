@@ -11,6 +11,8 @@ package calculation
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/samber/lo"
@@ -21,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
@@ -36,10 +39,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
-
-// legacyStatusChannels are channels used in previous versions to store calculation
-// status updates before the status service was introduced.
-var legacyStatusChannels = []string{"sy_calculation_status", "sy_calculation_state"}
 
 // Status is an alias for the calculation status type.
 type Status = calculation.Status
@@ -64,6 +63,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Calculation holds the calculation of each calculated channel.
+	//
+	// [REQUIRED]
+	Calculation *calculation.Service
 	// ChannelGraph reconciles calculated channel definitions. The service subscribes to
 	// it for channel changes and reports calculation statuses through it.
 	//
@@ -93,6 +96,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("framer", c.Framer)
 	v.NotNil("writer", c.Writer)
 	v.NotNil("channel", c.Channel)
+	v.NotNil("calculation", c.Calculation)
 	v.NotNil("channel_graph", c.ChannelGraph)
 	v.Positive("retry_delay", c.RetryDelay)
 	return v.Error()
@@ -105,6 +109,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Writer = override.Nil(c.Writer, other.Writer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.ChannelGraph = override.Nil(c.ChannelGraph, other.ChannelGraph)
 	c.RetryDelay = override.Numeric(c.RetryDelay, other.RetryDelay)
 	c.Compile = override.Nil(c.Compile, other.Compile)
@@ -139,6 +144,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	g, err := graph.New(graph.Config{
 		Instrumentation: cfg.Child("calculation.graph"),
 		Channel:         cfg.Channel,
+		Calculation:     cfg.Calculation,
 		DB:              cfg.DB,
 		Compile:         cfg.Compile,
 	})
@@ -163,25 +169,26 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s.mu.pending = make(map[channel.Key]int)
 	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
 
-	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return cfg.Channel.NewWriter(tx).DeleteManyByNames(
-			ctx,
-			legacyStatusChannels,
-			true,
-		)
-	}); err != nil {
-		cfg.L.Debug("failed to delete legacy status channels", zap.Error(err))
-	}
-
 	s.cfg.L.Info("calculation service initialized")
 
 	return s, nil
 }
 
-// report saves a status a calculator reports for the channel with the given key.
-func (s *Service) report(ctx context.Context, key channel.Key, st Status) bool {
+// report saves a status that a calculator, which ran expression, reports for the
+// channel with the given key.
+func (s *Service) report(
+	ctx context.Context,
+	key channel.Key,
+	expression string,
+	st Status,
+) bool {
 	st.Time = telem.Now()
-	if err := s.cfg.ChannelGraph.SetRuntimeStatus(ctx, key, &st); err != nil {
+	if err := s.cfg.ChannelGraph.SetRuntimeStatus(
+		ctx,
+		key,
+		expression,
+		&st,
+	); err != nil {
 		s.cfg.L.Error(
 			"failed to set status",
 			zap.Error(err),
@@ -237,34 +244,74 @@ func (s *Service) acceptDefinition(ctx context.Context, key channel.Key) {
 }
 
 func (s *Service) handleChange(ctx context.Context, reader calcgraph.Changes) {
+	// Don't stop calculating if the channel is deleted. The calculation will be
+	// automatically shut down when it is no longer needed.
+	var changed []channel.Channel
 	for cg := range reader {
-		// Don't stop calculating if the channel is deleted. The calculation will be
-		// automatically shut down when it is no longer needed.
-		if cg.Kind == gorp.ChangeDelete || !cg.Value.IsCalculated() {
-			continue
+		if cg.Kind != gorp.ChangeDelete {
+			changed = append(changed, cg.Value)
 		}
-		s.update(ctx, cg.Value)
+	}
+	calcs, err := s.cfg.Calculation.Outputs(
+		ctx,
+		s.cfg.DB,
+		channel.KeysFromChannels(changed)...,
+	)
+	if err != nil {
+		s.cfg.L.Error("failed to retrieve changed calculations", zap.Error(err))
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	running := s.mu.graph.CalculatedKeys()
+	rebuild := false
+	for _, ch := range changed {
+		c, calculated := calcs[ch.Key()]
+		switch {
+		case calculated && s.mu.graph.Contains(ch.Key()):
+			s.updateLocked(ctx, ch, c)
+		case calculated && s.mu.pending[ch.Key()] > 0:
+			// A calculation now writes a channel that requests wait on.
+			n := s.mu.pending[ch.Key()]
+			delete(s.mu.pending, ch.Key())
+			for range n {
+				s.request(ctx, ch, c)
+			}
+			rebuild = true
+		case !calculated && s.mu.graph.Contains(ch.Key()):
+			// The calculation was deleted, so its requests wait for a new one.
+			n := s.mu.graph.Requests(ch.Key())
+			for range n {
+				if _, err := s.mu.graph.Remove(ch.Key()); err != nil {
+					s.cfg.L.Error("failed to remove a deleted calculation",
+						zap.Error(err), zap.Stringer("channel", ch.Key()))
+				}
+			}
+			s.mu.pending[ch.Key()] += n
+			rebuild = true
+		}
+	}
+	if !rebuild {
+		return
+	}
+	if err = s.start(ctx, running); err != nil {
+		s.cfg.L.Error("failed to start calculations", zap.Error(err))
 	}
 }
 
-// update compiles ch again when the service calculates it. When the channels that ch
-// reads changed during each compile, update keeps the running calculation and
-// schedules a retry.
-func (s *Service) update(ctx context.Context, ch channel.Channel) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.updateLocked(ctx, ch)
-}
-
-func (s *Service) updateLocked(ctx context.Context, ch channel.Channel) {
+func (s *Service) updateLocked(
+	ctx context.Context,
+	ch channel.Channel,
+	c calculation.Calculation,
+) {
 	if !s.mu.graph.Contains(ch.Key()) {
 		return
 	}
-	err := s.updateCalculation(ctx, ch)
+	err := s.updateCalculation(ctx, ch, c)
 	switch {
 	case err == nil:
 		s.acceptDefinition(ctx, ch.Key())
-	case errors.Is(err, channel.ErrLookupsChanged):
+	case errors.Is(err, resolver.ErrLookupsChanged):
 		s.retries.Trigger(ch.Key())
 	// A cancelled compile says nothing about the definition of ch.
 	case ctx.Err() == nil:
@@ -274,9 +321,13 @@ func (s *Service) updateLocked(ctx context.Context, ch channel.Channel) {
 
 // request adds a request for ch to the graph. When the channels that ch reads changed
 // during each compile, request holds the request as pending and schedules a retry.
-func (s *Service) request(ctx context.Context, ch channel.Channel) {
-	err := s.mu.graph.Add(ctx, ch)
-	if errors.Is(err, channel.ErrLookupsChanged) {
+func (s *Service) request(
+	ctx context.Context,
+	ch channel.Channel,
+	c calculation.Calculation,
+) {
+	err := s.mu.graph.Add(ctx, ch, c)
+	if errors.Is(err, resolver.ErrLookupsChanged) {
 		s.mu.pending[ch.Key()]++
 		s.retries.Trigger(ch.Key())
 		return
@@ -320,12 +371,22 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 		}
 		return
 	}
-	if !ch.IsCalculated() {
+	calcs, err := s.cfg.Calculation.Outputs(ctx, s.cfg.DB, key)
+	if err != nil {
+		if ctx.Err() == nil {
+			s.cfg.L.Error("failed to retry calculation",
+				zap.Error(err), zap.Stringer("channel", key))
+			s.retries.Trigger(key)
+		}
+		return
+	}
+	c, ok := calcs[key]
+	if !ok {
 		return
 	}
 	// Another request can add the channel while its own request is pending, so the
 	// retry can be for an update and a request at once.
-	s.updateLocked(ctx, ch)
+	s.updateLocked(ctx, ch, c)
 	pending := s.mu.pending[key]
 	if pending == 0 {
 		return
@@ -333,7 +394,7 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 	delete(s.mu.pending, key)
 	running := s.mu.graph.CalculatedKeys()
 	for range pending {
-		s.request(ctx, ch)
+		s.request(ctx, ch, c)
 	}
 	if err := s.start(ctx, running); err != nil {
 		s.cfg.L.Error("failed to start calculation",
@@ -341,12 +402,16 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 	}
 }
 
-func (s *Service) updateCalculation(ctx context.Context, ch channel.Channel) error {
+func (s *Service) updateCalculation(
+	ctx context.Context,
+	ch channel.Channel,
+	c calculation.Calculation,
+) error {
 	s.cfg.L.Debug("updating calculation",
 		zap.String("channel", ch.Key().String()),
 		zap.String("reason", "channel definition changed"),
 	)
-	if err := s.mu.graph.Update(ctx, ch); err != nil {
+	if err := s.mu.graph.Update(ctx, ch, c); err != nil {
 		return err
 	}
 	return s.rebuildGroups(ctx)
@@ -377,11 +442,49 @@ func groupEquals(mods []compiler.Module, g *group) bool {
 		return false
 	}
 	for i, m := range mods {
-		if !m.Channel.Equals(g.Calculators[i].Channel(), "Name") {
+		if !m.Channel.Equals(g.Calculators[i].Channel(), "Name") ||
+			!sameCalculation(m.Calculation, g.Calculators[i].Calculation()) {
 			return false
 		}
 	}
 	return true
+}
+
+// sameCalculation reports whether a and b compute the same samples into the same
+// output.
+func sameCalculation(a, b calculation.Calculation) bool {
+	return a.Key == b.Key &&
+		a.Output == b.Output &&
+		a.Expression == b.Expression &&
+		samePointee(a.Primary, b.Primary) &&
+		slices.EqualFunc(a.Operations, b.Operations, sameOperation)
+}
+
+func sameOperation(a, b calculation.Operation) bool {
+	switch av := a.Variant.(type) {
+	case calculation.MinOperation:
+		bv, ok := b.Variant.(calculation.MinOperation)
+		return ok && sameWindow(av.Window, bv.Window)
+	case calculation.MaxOperation:
+		bv, ok := b.Variant.(calculation.MaxOperation)
+		return ok && sameWindow(av.Window, bv.Window)
+	case calculation.AvgOperation:
+		bv, ok := b.Variant.(calculation.AvgOperation)
+		return ok && sameWindow(av.Window, bv.Window)
+	case calculation.DerivativeOperation:
+		_, ok := b.Variant.(calculation.DerivativeOperation)
+		return ok
+	default:
+		panic(fmt.Sprintf("operation of unknown type %T", a.Variant))
+	}
+}
+
+func sameWindow(a, b calculation.Window) bool {
+	return a.Duration == b.Duration && samePointee(a.Reset, b.Reset)
+}
+
+func samePointee[T comparable](a, b *T) bool {
+	return a == b || (a != nil && b != nil && *a == *b)
 }
 
 func (s *Service) updateGroup(
@@ -483,12 +586,19 @@ func (s *Service) Close() error {
 func (s *Service) updateRequests(
 	ctx context.Context, added, removed []channel.Key,
 ) error {
-	var channels []channel.Channel
-	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.cfg.Channel.NewRetrieve().
+	var (
+		channels []channel.Channel
+		calcs    map[channel.Key]calculation.Calculation
+	)
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if err = s.cfg.Channel.NewRetrieve().
 			Where(channel.MatchKeys(added...)).
 			Entries(&channels).
-			Exec(ctx, snap)
+			Exec(ctx, snap); err != nil {
+			return err
+		}
+		calcs, err = s.cfg.Calculation.Outputs(ctx, snap, added...)
+		return err
 	}); err != nil {
 		return err
 	}
@@ -508,8 +618,11 @@ func (s *Service) updateRequests(
 		}
 	}
 	for _, ch := range channels {
-		if ch.IsCalculated() {
-			s.request(ctx, ch)
+		if c, ok := calcs[ch.Key()]; ok {
+			s.request(ctx, ch, c)
+		} else {
+			// The request waits for a calculation to write the channel.
+			s.mu.pending[ch.Key()]++
 		}
 	}
 	if err := s.start(ctx, running); err != nil {

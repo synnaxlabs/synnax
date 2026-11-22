@@ -11,6 +11,7 @@ package channel_test
 
 import (
 	"encoding/json/v2"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,6 +39,15 @@ type record struct {
 	Virtual     bool           `json:"virtual"`
 	Internal    bool           `json:"internal"`
 	Expression  string         `json:"expression"`
+	Calculated  bool           `json:"calculated"`
+}
+
+// usesVirtual reports whether w or a child of w filters on virtual.
+func usesVirtual(w channel.Where) bool {
+	return w.Virtual != nil ||
+		slices.ContainsFunc(w.And, usesVirtual) ||
+		slices.ContainsFunc(w.Or, usesVirtual) ||
+		(w.Not != nil && usesVirtual(*w.Not))
 }
 
 var _ = Describe("Where", Ordered, func() {
@@ -65,7 +75,6 @@ var _ = Describe("Where", Ordered, func() {
 				LocalKey:    r.Key.LocalKey(),
 				LocalIndex:  r.Index.LocalKey(),
 				Virtual:     r.Virtual,
-				Expression:  r.Expression,
 			})
 		}
 		// The writer assigns its own keys, so the records go straight to the table
@@ -104,9 +113,15 @@ var _ = Describe("Where", Ordered, func() {
 				return byName[ch.Name]
 			})).To(ConsistOf(c.Expected))
 		},
-		lo.Map(v.Cases, func(c vectors.Case[channel.Where], _ int) TableEntry {
-			return Entry(c.Name, c)
-		}),
+		lo.FilterMap(
+			v.Cases,
+			func(c vectors.Case[channel.Where], _ int) (TableEntry, bool) {
+				// These cases hold the channel API's meaning of virtual, in which the
+				// output of a calculation is not virtual. The service counts every
+				// virtual channel.
+				return Entry(c.Name, c), !usesVirtual(c.Where)
+			},
+		),
 	)
 
 	It("Should return a path error for an invalid regex", func() {

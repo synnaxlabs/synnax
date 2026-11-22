@@ -119,12 +119,15 @@ type Channel struct {
 	Status *pb2.Status `protobuf:"bytes,12,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	// group is the group the channel sits in, if any.
 	Group *string `protobuf:"bytes,13,opt,name=group,proto3,oneof" json:"group,omitempty"`
-	// description is free text that says what the channel holds.
-	Description string `protobuf:"bytes,14,opt,name=description,proto3" json:"description,omitempty"`
+	// calculated is true if a calculation writes the channel, whether or not the caller
+	// can retrieve the calculation.
+	Calculated bool `protobuf:"varint,15,opt,name=calculated,proto3" json:"calculated,omitempty"`
 	// path is the names of the channel's folders from the top, then its name, joined by
 	// '.'. It is filled only when a retrieve request asks for it, and only when the
 	// caller can retrieve every folder on it.
-	Path          *string `protobuf:"bytes,16,opt,name=path,proto3,oneof" json:"path,omitempty"`
+	Path *string `protobuf:"bytes,16,opt,name=path,proto3,oneof" json:"path,omitempty"`
+	// description is free text that says what the channel holds.
+	Description   string `protobuf:"bytes,17,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -250,16 +253,23 @@ func (x *Channel) GetGroup() string {
 	return ""
 }
 
-func (x *Channel) GetDescription() string {
+func (x *Channel) GetCalculated() bool {
 	if x != nil {
-		return x.Description
+		return x.Calculated
 	}
-	return ""
+	return false
 }
 
 func (x *Channel) GetPath() string {
 	if x != nil && x.Path != nil {
 		return *x.Path
+	}
+	return ""
+}
+
+func (x *Channel) GetDescription() string {
+	if x != nil {
+		return x.Description
 	}
 	return ""
 }
@@ -535,7 +545,7 @@ var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xa3\x04\n" +
+	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xc3\x04\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -554,12 +564,15 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"operations\x12;\n" +
 	"\vconcurrency\x18\v \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x126\n" +
 	"\x06status\x18\f \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\x19\n" +
-	"\x05group\x18\r \x01(\tH\x01R\x05group\x88\x01\x01\x12 \n" +
-	"\vdescription\x18\x0e \x01(\tR\vdescription\x12\x17\n" +
-	"\x04path\x18\x10 \x01(\tH\x02R\x04path\x88\x01\x01B\t\n" +
+	"\x05group\x18\r \x01(\tH\x01R\x05group\x88\x01\x01\x12\x1e\n" +
+	"\n" +
+	"calculated\x18\x0f \x01(\bR\n" +
+	"calculated\x12\x17\n" +
+	"\x04path\x18\x10 \x01(\tH\x02R\x04path\x88\x01\x01\x12 \n" +
+	"\vdescription\x18\x11 \x01(\tR\vdescriptionB\t\n" +
 	"\a_statusB\b\n" +
 	"\x06_groupB\a\n" +
-	"\x05_pathJ\x04\b\x0f\x10\x10\"<\n" +
+	"\x05_pathJ\x04\b\x0e\x10\x0f\"<\n" +
 	"\x06Cursor\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01B\a\n" +

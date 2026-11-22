@@ -29,16 +29,6 @@ func (c Channel) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(c.LocalIndex))
 	w.Bool(c.Virtual)
 	w.Int64(int64(c.Concurrency))
-	w.Bool(c.Operations != nil)
-	if c.Operations != nil {
-		w.Uint32(uint32(len(c.Operations)))
-		for i := range c.Operations {
-			if err := c.Operations[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
-	w.String(c.Expression)
 	if c.Group != nil {
 		w.Bool(true)
 		w.Write((*c.Group)[:])
@@ -95,27 +85,6 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		c.Concurrency = control.Concurrency(rawV)
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			c.Operations = make([]Operation, n)
-			for i := range c.Operations {
-				if err = c.Operations[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	if c.Expression, err = r.String(); err != nil {
-		return err
 	}
 	{
 		present, err := r.Bool()

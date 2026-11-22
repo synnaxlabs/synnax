@@ -253,8 +253,8 @@ Channel::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_status() = v;
     }
-    pb.set_description(this->description);
     if (this->path.has_value()) pb.set_path(*this->path);
+    pb.set_description(this->description);
     return {pb, x::errors::NIL};
 }
 
@@ -281,8 +281,8 @@ Channel::from_proto(const ::api::channel::pb::Channel &pb) {
         if (err) return {{}, err};
         cpp.status = v;
     }
-    cpp.description = pb.description();
     if (pb.has_path()) cpp.path = pb.path();
+    cpp.description = pb.description();
     return {cpp, x::errors::NIL};
 }
 

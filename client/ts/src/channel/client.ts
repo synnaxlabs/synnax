@@ -130,6 +130,10 @@ export class Channel {
    */
   readonly expression: string;
   readonly operations: Operation[];
+  /**
+   * Whether a calculation writes the channel, even one the caller cannot retrieve.
+   */
+  readonly calculated: boolean;
   readonly concurrency: control.Concurrency;
   /** The status of the channel. */
   readonly status?: status.Status;
@@ -156,6 +160,7 @@ export class Channel {
     status: argsStatus,
     expression = "",
     operations = [],
+    calculated = false,
     concurrency = control.Concurrency.exclusive,
     group: groupKey,
     uses,
@@ -173,6 +178,7 @@ export class Channel {
     this.operations = zod.parse(operationZ.array(), operations, {
       label: "channel operations",
     });
+    this.calculated = calculated;
     this.concurrency = concurrency;
     this.group = groupKey;
     this.uses = uses;
@@ -208,6 +214,7 @@ export class Channel {
         expression: this.expression,
         status: this.status,
         operations: this.operations,
+        calculated: this.calculated,
         concurrency: this.concurrency,
         group: this.group,
         uses: this.uses,
@@ -218,7 +225,7 @@ export class Channel {
   }
 
   get isCalculated(): boolean {
-    return isCalculated(this.payload);
+    return this.calculated;
   }
 
   /** @returns the resource ID of the channel */

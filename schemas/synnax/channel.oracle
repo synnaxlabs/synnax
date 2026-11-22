@@ -96,13 +96,12 @@ Operation struct {
         """
     }
 
-    @doc value  """
+    @doc value """
         defines an aggregation operation applied to channel data. Operations calculate
         min, max, average, or derivative values over a time duration or triggered by a
         reset channel.
     """
-    @go marshal
-    @go output  "core/pkg/service/channel"
+    @go output "core/pkg/service/channel"
     @pb
 }
 
@@ -146,15 +145,6 @@ Channel struct {
             channels can have a policy of shared concurrency.
         """
     }
-    operations  Operation[]         {
-        @doc value "contains aggregation operations applied to this channel's data."
-    }
-    expression  string              {
-        @doc value """
-            is an Arc expression for calculated channels. If set, the channel is
-            automatically configured as virtual.
-        """
-    }
     group       group.Key?          {
         @doc value        "is the group the channel sits in, if any."
         @group namespaced
@@ -169,7 +159,7 @@ Channel struct {
     }
 
     action Create {
-        channel Channel
+        channel Created
 
         @doc value """
             replaces the channel with the given created state. Emitted by the Core when
@@ -209,6 +199,28 @@ Channel struct {
     @retrieve custom
     @retrieve key    "Key"
     @ts hand
+}
+
+Created struct extends Channel {
+    expression string      {
+        @doc value """
+            is the expression of the calculation that writes the channel, or empty when
+            none writes it.
+        """
+    }
+    operations Operation[] {
+        @doc value "are the operations of the calculation that writes the channel."
+    }
+
+    @cpp omit
+    @doc value """
+        is a channel that a create action carries, with the expression and operations of
+        the calculation that writes it for clients that read them from the channel.
+    """
+    @go output "core/pkg/service/channel"
+    @pb omit
+    @py omit
+    @ts omit
 }
 
 Status = status.Status<nil> {
@@ -288,10 +300,6 @@ APIChannel struct {
         @cpp omit
         @doc value "is the group the channel sits in, if any."
     }
-    description string = "" {
-        @doc value           "is free text that says what the channel holds."
-        @validate max_length 1024
-    }
     uses        Use[]?              {
         @cpp omit
         @doc value """
@@ -302,6 +310,13 @@ APIChannel struct {
         @include
         @pb omit
     }
+    calculated  bool = false {
+        @cpp omit
+        @doc value """
+            is true if a calculation writes the channel, whether or not the caller can
+            retrieve the calculation.
+        """
+    }
     path        string?             {
         @doc value """
             is the names of the channel's folders from the top, then its name, joined by
@@ -309,6 +324,10 @@ APIChannel struct {
             the caller can retrieve every folder on it.
         """
         @include
+    }
+    description string = "" {
+        @doc value           "is free text that says what the channel holds."
+        @validate max_length 1024
     }
 
     @cpp name      "Channel"
@@ -392,8 +411,8 @@ Where filter Channel {
     }
     virtual     bool               {
         @doc value """
-            matches virtual channels that are not calculated, or every other channel
-            when false.
+            matches virtual channels, or every other channel when false. The channel API
+            counts the output of a calculation as not virtual.
         """
     }
     path        filter.Set<string> {

@@ -28,6 +28,7 @@ const STORED: Payload = {
   operations: [],
   concurrency: control.Concurrency.exclusive,
   description: "Inlet pressure",
+  calculated: false,
 };
 
 describe("description breaker", () => {

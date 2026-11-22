@@ -94,10 +94,6 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 	if err != nil {
 		return nil, err
 	}
-	operationsVal, err := OperationsToPB(r.Operations)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Channel{
 		Name:        r.Name,
 		Leaseholder: uint32(r.Leaseholder),
@@ -106,10 +102,8 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		LocalKey:    uint32(r.LocalKey),
 		LocalIndex:  uint32(r.LocalIndex),
 		Virtual:     r.Virtual,
-		Expression:  r.Expression,
 		Description: r.Description,
 		Concurrency: concurrencyVal,
-		Operations:  operationsVal,
 	}
 	if r.Group != nil {
 		v := r.Group.String()
@@ -133,10 +127,6 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	if err != nil {
 		return channel.Channel{}, err
 	}
-	r.Operations, err = OperationsFromPB(pb.Operations)
-	if err != nil {
-		return channel.Channel{}, err
-	}
 	r.Name = pb.Name
 	r.Leaseholder = node.Key(pb.Leaseholder)
 	r.DataType = telem.DataType(pb.DataType)
@@ -144,7 +134,6 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	r.LocalKey = channel.LocalKey(pb.LocalKey)
 	r.LocalIndex = channel.LocalKey(pb.LocalIndex)
 	r.Virtual = pb.Virtual
-	r.Expression = pb.Expression
 	r.Description = pb.Description
 	if pb.Group != nil {
 		v, err := uuid.Parse(*pb.Group)

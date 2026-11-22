@@ -118,8 +118,8 @@ class Where(BaseModel):
         data_type: Selects by data_type.
         is_index: Selects by is_index.
         internal: Matches the built-in channels, or every other channel when false.
-        virtual: Matches virtual channels that are not calculated, or every other
-            channel when false.
+        virtual: Matches virtual channels, or every other channel when false. The
+            channel API counts the output of a calculation as not virtual.
         path: Matches the channels at full paths: the names of the folders from the top,
             then the channel's name, joined by '.'.
         groups: Matches the channels in any of the given groups.
@@ -224,13 +224,15 @@ class Payload(BaseModel):
             virtual channels can have a policy of shared concurrency.
         status: Is the current operational status of the channel.
         group: Is the group the channel sits in, if any.
-        description: Is free text that says what the channel holds.
         uses: Are the records that read or write the channel and that the caller can
             retrieve, filled only when a retrieve request asks for them. A task config
             shows as its task.
+        calculated: Is true if a calculation writes the channel, whether or not the
+            caller can retrieve the calculation.
         path: Is the names of the channel's folders from the top, then its name, joined
             by '.'. It is filled only when a retrieve request asks for it, and only when
             the caller can retrieve every folder on it.
+        description: Is free text that says what the channel holds.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
@@ -246,9 +248,10 @@ class Payload(BaseModel):
     concurrency: control.Concurrency = control.Concurrency.exclusive
     status: Status | None = None
     group: group_.Key | None = None
-    description: str = Field(max_length=1024, default="")
     uses: list[Use] | None = None
+    calculated: bool = False
     path: str | None = None
+    description: str = Field(max_length=1024, default="")
 
     @_override
     def __hash__(self) -> int:

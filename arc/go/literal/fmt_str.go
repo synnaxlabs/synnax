@@ -95,6 +95,28 @@ func UnescapeString(body string, multi bool) (string, error) {
 	return value, err
 }
 
+// Escape returns text as the body of a string literal with flags holds it, so that
+// the literal reads back text. It returns false when the literal is raw and text holds
+// its delimiter, which a raw literal cannot hold.
+func Escape(text string, flags StringFlags) (string, bool) {
+	delimiter := byte('"')
+	if flags.Multi {
+		delimiter = '`'
+	}
+	if flags.Raw {
+		return text, strings.IndexByte(text, delimiter) < 0
+	}
+	var b strings.Builder
+	b.Grow(len(text))
+	for i := range len(text) {
+		if text[i] == '\\' || text[i] == delimiter {
+			b.WriteByte('\\')
+		}
+		b.WriteByte(text[i])
+	}
+	return b.String(), true
+}
+
 // unescape applies the escape table to body. It also returns, for each byte of the
 // result and one past its end, the offset in body that byte came from.
 func unescape(body string, multi bool) (string, []int, error) {

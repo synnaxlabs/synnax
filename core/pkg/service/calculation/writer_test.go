@@ -1,0 +1,542 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package calculation_test
+
+import (
+	"context"
+	"slices"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	dnode "github.com/synnaxlabs/synnax/pkg/distribution/node"
+	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	acttestutil "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
+)
+
+var _ = Describe("Writer", func() {
+	var (
+		node     disttestutil.Node
+		channels *channel.Service
+		svc      *calculation.Service
+	)
+	BeforeEach(func(ctx SpecContext) {
+		node = disttestutil.OpenNode(ctx)
+		DeferCleanup(func() { Expect(node.Close()).To(Succeed()) })
+		statuses := MustSucceed(
+			status.OpenService(ctx, status.ServiceConfig{DB: node.DB}),
+		)
+		DeferCleanup(func() { Expect(statuses.Close()).To(Succeed()) })
+		channels = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			TS:      node.Storage.TS,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  statuses,
+			Fills: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				keys ...channel.Key,
+			) (map[channel.Key]channel.Fill, error) {
+				return svc.Fills(ctx, tx, keys...)
+			},
+		}))
+		DeferCleanup(func() { Expect(channels.Close()).To(Succeed()) })
+		svc = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:      node.DB,
+			Channel: channels,
+		}))
+		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
+	})
+
+	createChannel := func(ctx SpecContext, ch channel.Channel) channel.Channel {
+		GinkgoHelper()
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channels.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		return ch
+	}
+	createVirtual := func(ctx SpecContext, name string) channel.Channel {
+		GinkgoHelper()
+		return createChannel(ctx, channel.Channel{
+			Name:     name,
+			DataType: telem.Float32T,
+			Virtual:  true,
+		})
+	}
+	create := func(ctx SpecContext, c *calculation.Calculation) error {
+		return node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, c)
+		})
+	}
+	createdOf := func(
+		rec *acttestutil.Recorder[channel.Key, channel.Action],
+	) map[channel.Key]channel.Created {
+		created := make(map[channel.Key]channel.Created)
+		for _, batch := range rec.Snapshot() {
+			for _, a := range batch.Actions {
+				if a.Create != nil {
+					created[batch.Key] = a.Create.Channel
+				}
+			}
+		}
+		return created
+	}
+	retrieve := func(ctx SpecContext, output channel.Key) []calculation.Calculation {
+		GinkgoHelper()
+		var out []calculation.Calculation
+		Expect(svc.NewRetrieve().
+			Where(calculation.MatchOutputs(output)).
+			Entries(&out).
+			Exec(ctx, node.DB)).To(Succeed())
+		return out
+	}
+
+	Describe("Create", func() {
+		It("Should create a calculation on a virtual channel", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(retrieve(ctx, out.Key())).To(ConsistOf(c))
+		})
+
+		It(
+			"Should store the channels that the expression reads",
+			func(ctx SpecContext) {
+				a, b := createVirtual(ctx, "a"), createVirtual(ctx, "b")
+				out := createVirtual(ctx, "sum")
+				c := calculation.Calculation{
+					Output:     out.Key(),
+					Expression: "return b + a + b",
+					Reads:      []channel.Key{out.Key()},
+				}
+				Expect(create(ctx, &c)).To(Succeed())
+				want := []channel.Key{a.Key(), b.Key()}
+				slices.Sort(want)
+				Expect(c.Reads).To(Equal(want))
+				Expect(retrieve(ctx, out.Key())[0].Reads).To(Equal(want))
+			},
+		)
+
+		It("Should fail on an output that stores its samples", func(ctx SpecContext) {
+			index := createChannel(ctx, channel.Channel{
+				Name:     "time",
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			})
+			stored := createChannel(ctx, channel.Channel{
+				Name:       "pressure",
+				DataType:   telem.Float32T,
+				LocalIndex: index.LocalKey,
+			})
+			c := calculation.Calculation{Output: stored.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"channel pressure stores its samples, so no calculation writes it",
+				)),
+			))
+		})
+
+		It("Should fail on an output that another calculation writes", func(
+			ctx SpecContext,
+		) {
+			out := createVirtual(ctx, "doubled")
+			first := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &first)).To(Succeed())
+			second := calculation.Calculation{Output: out.Key(), Expression: "return 3"}
+			Expect(create(ctx, &second)).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("another record already writes channel doubled"),
+				),
+			))
+			Expect(retrieve(ctx, out.Key())).To(ConsistOf(first))
+		})
+
+		It("Should fail on an output that does not exist", func(ctx SpecContext) {
+			c := calculation.Calculation{Output: 1 << 20, Expression: "return 2"}
+			Expect(create(ctx, &c)).To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should fail on an empty expression", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key()}
+			Expect(create(ctx, &c)).To(MatchError(validate.ErrValidation))
+			Expect(retrieve(ctx, out.Key())).To(BeEmpty())
+		})
+	})
+
+	Describe("Apply", func() {
+		It("Should put no edit on the channel stream of the output", func(
+			ctx SpecContext,
+		) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			rec := &acttestutil.Recorder[channel.Key, channel.Action]{}
+			DeferCleanup(channels.Actions().OnChange(rec.Record))
+			window := calculation.Window{Duration: telem.Second}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.NewWriter(tx).WithDispatchKey("calculation-api").Apply(
+					ctx,
+					c.Key,
+					calculation.NewSetAction(calculation.SetPayload{
+						Path:  []string{"expression"},
+						Value: "return 4",
+					}),
+					calculation.NewSetAction(calculation.SetPayload{
+						Path: []string{"operations"},
+						Value: []calculation.Operation{
+							{Variant: calculation.AvgOperation{Window: window}},
+						},
+					}),
+				)
+				return err
+			})).To(Succeed())
+			Expect(retrieve(ctx, out.Key())[0].Expression).To(Equal("return 4"))
+			Expect(rec.Snapshot()).To(BeEmpty())
+		})
+
+		It("Should set the expression of a calculation", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
+					calculation.SetPayload{
+						Path:  []string{"expression"},
+						Value: "return 4",
+					},
+				))
+				return err
+			})).To(Succeed())
+			Expect(retrieve(ctx, out.Key())[0].Expression).To(Equal("return 4"))
+		})
+
+		It("Should store the reads of a new expression", func(ctx SpecContext) {
+			createVirtual(ctx, "first")
+			second := createVirtual(ctx, "second")
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{
+				Output:     out.Key(),
+				Expression: "return first * 2",
+			}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
+					calculation.SetPayload{
+						Path:  []string{"expression"},
+						Value: "return second * 2",
+					},
+				))
+				return err
+			})).To(Succeed())
+			Expect(retrieve(ctx, out.Key())[0].Reads).
+				To(Equal([]channel.Key{second.Key()}))
+		})
+
+		It("Should keep a calculation whose new expression is empty", func(
+			ctx SpecContext,
+		) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
+					calculation.SetPayload{Path: []string{"expression"}, Value: ""},
+				))
+				return err
+			})).To(MatchError(validate.ErrValidation))
+			Expect(retrieve(ctx, out.Key())).To(ConsistOf(c))
+		})
+	})
+
+	Describe("Fills", func() {
+		It(
+			"Should fill the create of a stored output that a create links to an index",
+			func(
+				ctx SpecContext,
+			) {
+				createVirtual(ctx, "wide")
+				stored := createChannel(ctx, channel.Channel{
+					Name:        "stored",
+					DataType:    telem.Float32T,
+					Virtual:     true,
+					Leaseholder: dnode.KeyFree,
+				})
+				Expect(stored.LocalIndex).To(BeZero())
+				c := calculation.Calculation{
+					Output:     stored.Key(),
+					Expression: "return wide * 2",
+				}
+				Expect(create(ctx, &c)).To(Succeed())
+				rec := &acttestutil.Recorder[channel.Key, channel.Action]{}
+				DeferCleanup(channels.Actions().OnChange(rec.Record))
+				again := channel.Channel{
+					Name:        "stored",
+					DataType:    telem.Float32T,
+					Virtual:     true,
+					Leaseholder: dnode.KeyFree,
+				}
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channels.NewWriter(tx).Create(
+						ctx,
+						&again,
+						channel.RetrieveIfNameExists(),
+						channel.FreeIndex(),
+					)
+				})).To(Succeed())
+				Expect(again.Key()).To(Equal(stored.Key()))
+				Expect(again.LocalIndex).ToNot(BeZero())
+				Expect(
+					createdOf(rec)[stored.Key()].Expression,
+				).To(Equal("return wide * 2"))
+			},
+		)
+
+		It("Should fill nothing for a channel that no calculation writes", func(
+			ctx SpecContext,
+		) {
+			rec := &acttestutil.Recorder[channel.Key, channel.Action]{}
+			DeferCleanup(channels.Actions().OnChange(rec.Record))
+			plain := createVirtual(ctx, "plain")
+			Expect(
+				createdOf(rec)[plain.Key()],
+			).To(Equal(channel.Created{Channel: plain}))
+		})
+	})
+
+	Describe("CreateOutput", func() {
+		createOutput := func(ctx SpecContext, c *calculation.Calculation, name string) error {
+			return node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.NewWriter(tx).CreateOutput(ctx, c, name, nil)
+				return err
+			})
+		}
+
+		It(
+			"Should make a virtual output typed by the expression, with a free index",
+			func(
+				ctx SpecContext,
+			) {
+				createChannel(ctx, channel.Channel{
+					Name:     "wide",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				})
+				c := calculation.Calculation{Expression: "return wide * 2"}
+				Expect(createOutput(ctx, &c, "doubled")).To(Succeed())
+				Expect(retrieve(ctx, c.Output)).To(ConsistOf(c))
+				var output, index channel.Channel
+				Expect(channels.NewRetrieve().
+					Where(channel.MatchKeys(c.Output)).
+					Entry(&output).
+					Exec(ctx, node.DB)).To(Succeed())
+				Expect(output.Name).To(Equal("doubled"))
+				Expect(output.Virtual).To(BeTrue())
+				Expect(output.DataType).To(Equal(telem.Int64T))
+				Expect(channels.NewRetrieve().
+					Where(channel.MatchKeys(output.Index())).
+					Entry(&index).
+					Exec(ctx, node.DB)).To(Succeed())
+				Expect(index.Name).To(Equal("doubled_time"))
+				Expect(index.IsIndex).To(BeTrue())
+				Expect(index.Virtual).To(BeTrue())
+			},
+		)
+
+		It(
+			"Should fill the create of the output, and not the create of its index",
+			func(
+				ctx SpecContext,
+			) {
+				createVirtual(ctx, "wide")
+				rec := &acttestutil.Recorder[channel.Key, channel.Action]{}
+				DeferCleanup(channels.Actions().OnChange(rec.Record))
+				window := calculation.Window{Duration: telem.Second}
+				c := calculation.Calculation{
+					Expression: "return wide * 2",
+					Operations: []calculation.Operation{
+						{Variant: calculation.AvgOperation{Window: window}},
+					},
+				}
+				Expect(createOutput(ctx, &c, "doubled")).To(Succeed())
+				created := createdOf(rec)
+				Expect(created).To(HaveLen(2))
+				output := created[c.Output]
+				Expect(output.Expression).To(Equal("return wide * 2"))
+				Expect(output.Operations).To(Equal([]channel.Operation{
+					{Type: channel.OperationTypeAvg, Duration: telem.Second},
+				}))
+				index := created[output.Index()]
+				Expect(index.IsIndex).To(BeTrue())
+				Expect(index.Expression).To(BeEmpty())
+				Expect(index.Operations).To(BeEmpty())
+			},
+		)
+
+		It("Should fail an operation of no type before it makes an output", func(
+			ctx SpecContext,
+		) {
+			createVirtual(ctx, "wide")
+			c := calculation.Calculation{
+				Expression: "return wide * 2",
+				Operations: []calculation.Operation{{}},
+			}
+			Expect(
+				createOutput(ctx, &c, "doubled"),
+			).To(MatchError(validate.ErrValidation))
+			Expect(channels.NewRetrieve().
+				Where(channel.MatchNames("doubled")).
+				Exists(ctx, node.DB)).To(BeFalse())
+		})
+
+		It("Should fail on a calculation that names its output", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(
+				createOutput(ctx, &c, "other"),
+			).To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should make no output for an expression that does not compile", func(
+			ctx SpecContext,
+		) {
+			c := calculation.Calculation{Expression: "return missing * 2"}
+			Expect(
+				createOutput(ctx, &c, "doubled"),
+			).To(MatchError(ContainSubstring("missing")))
+			Expect(channels.NewRetrieve().
+				Where(channel.MatchNames("doubled")).
+				Exists(ctx, node.DB)).To(BeFalse())
+		})
+	})
+
+	Describe("Compile", func() {
+		apply := func(ctx SpecContext, key calculation.Key, path string, value any) error {
+			return node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.NewWriter(tx).Apply(ctx, key, calculation.NewSetAction(
+					calculation.SetPayload{Path: []string{path}, Value: value},
+				))
+				return err
+			})
+		}
+
+		It("Should fail on an expression that does not compile", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{
+				Output:     out.Key(),
+				Expression: "return missing * 2",
+			}
+			Expect(create(ctx, &c)).To(MatchError(ContainSubstring("missing")))
+			Expect(retrieve(ctx, out.Key())).To(BeEmpty())
+		})
+
+		It("Should fail on a primary that the expression does not read", func(
+			ctx SpecContext,
+		) {
+			read, other := createVirtual(ctx, "read"), createVirtual(ctx, "other")
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{
+				Output:     out.Key(),
+				Expression: "return read * 2",
+				Primary:    new(other.Key()),
+			}
+			Expect(create(ctx, &c)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("not a channel that the expression reads")),
+			))
+			c.Primary = new(read.Key())
+			Expect(create(ctx, &c)).To(Succeed())
+		})
+
+		It("Should give the output the data type of the expression", func(
+			ctx SpecContext,
+		) {
+			createChannel(ctx, channel.Channel{
+				Name:     "wide",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			})
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{
+				Output:     out.Key(),
+				Expression: "return wide * 2",
+			}
+			Expect(create(ctx, &c)).To(Succeed())
+			var stored channel.Channel
+			Expect(channels.NewRetrieve().
+				Where(channel.MatchKeys(out.Key())).
+				Entry(&stored).
+				Exec(ctx, node.DB)).To(Succeed())
+			Expect(stored.DataType).To(Equal(telem.Int64T))
+		})
+
+		It("Should fail on an edit after which calculations read each other", func(
+			ctx SpecContext,
+		) {
+			createVirtual(ctx, "base")
+			first := calculation.Calculation{
+				Output:     createVirtual(ctx, "first").Key(),
+				Expression: "return base * 2",
+			}
+			Expect(create(ctx, &first)).To(Succeed())
+			second := calculation.Calculation{
+				Output:     createVirtual(ctx, "second").Key(),
+				Expression: "return first + 1",
+			}
+			Expect(create(ctx, &second)).To(Succeed())
+			Expect(
+				apply(ctx, first.Key, "expression", "return second * 2"),
+			).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("first -> second -> first")),
+			))
+			Expect(
+				retrieve(ctx, first.Output)[0].Expression,
+			).To(Equal("return base * 2"))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("Should keep the output of a deleted calculation", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, c.Key)
+			})).To(Succeed())
+			Expect(retrieve(ctx, out.Key())).To(BeEmpty())
+			Expect(channels.NewRetrieve().
+				Where(channel.MatchKeys(out.Key())).
+				Exists(ctx, node.DB)).To(BeTrue())
+		})
+
+		It("Should delete the calculation of a deleted output", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channels.NewWriter(tx).Delete(ctx, out.Key(), false)
+			})).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(calculation.MatchKeys(c.Key)).
+				Exists(ctx, node.DB)).To(BeFalse())
+		})
+	})
+})

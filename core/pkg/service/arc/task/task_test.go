@@ -36,8 +36,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -132,15 +134,21 @@ var _ = Describe("Task", Ordered, func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		calcSvc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:      node.DB,
 			Channel: channelSvc,
-			Status:  statusSvc,
+		}))
+		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+			DB:          node.DB,
+			Calculation: calcSvc,
+			Channel:     channelSvc,
+			Status:      statusSvc,
 		}))
 		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 			DB:           node.DB,
 			Framer:       node.Framer,
 			Channel:      channelSvc,
+			Calculation:  calcSvc,
 			ChannelGraph: channelGraph,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
@@ -206,8 +214,8 @@ var _ = Describe("Task", Ordered, func() {
 		GinkgoHelper()
 		return newFactoryWith(
 			func(ctx context.Context, key uuid.UUID) (svcarc.AutomationArc, error) {
-				resolver := channelSvc.NewArcSymbolResolver(db)
-				root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
+				symbols := resolver.New(channelSvc, db)
+				root := arc.NewRoot(symbols, arcstatus.NewSymbols()...)
 				module, err := arc.CompileGraph(ctx, g, root)
 				if err != nil {
 					return svcarc.AutomationArc{}, err
@@ -231,8 +239,8 @@ var _ = Describe("Task", Ordered, func() {
 		GinkgoHelper()
 		return newFactoryWith(
 			func(_ context.Context, _ uuid.UUID) (svcarc.AutomationArc, error) {
-				resolver := channelSvc.NewArcSymbolResolver(db)
-				root := arc.NewRoot(resolver, slices.Concat(
+				symbols := resolver.New(channelSvc, db)
+				root := arc.NewRoot(symbols, slices.Concat(
 					arcstatus.NewSymbols(), ranges.NewSymbols(),
 				)...)
 				module, err := arc.CompileText(ctx, prof, root)
@@ -561,8 +569,8 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
-		Describe("channel.ErrLookupsChanged", func() {
-			// changingGetter returns channel.ErrLookupsChanged for the first changes
+		Describe("resolver.ErrLookupsChanged", func() {
+			// changingGetter returns resolver.ErrLookupsChanged for the first changes
 			// calls, and counts each call in calls.
 			changingGetter := func(changes int, calls *int) arctask.GetProgramFunc {
 				return func(
@@ -571,7 +579,7 @@ var _ = Describe("Task", Ordered, func() {
 				) (svcarc.AutomationArc, error) {
 					*calls++
 					if *calls <= changes {
-						return svcarc.AutomationArc{}, channel.ErrLookupsChanged
+						return svcarc.AutomationArc{}, resolver.ErrLookupsChanged
 					}
 					return svcarc.AutomationArc{Key: key}, nil
 				}
@@ -599,7 +607,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
-					To(MatchError(channel.ErrLookupsChanged))
+					To(MatchError(resolver.ErrLookupsChanged))
 				Expect(calls).To(Equal(3))
 			})
 		})

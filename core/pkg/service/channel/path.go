@@ -223,9 +223,9 @@ func QuotePath(path string) string {
 	return b.String()
 }
 
-// ambiguousName returns the validation error that holds the AmbiguousNameError of name
+// AmbiguousName returns the validation error that holds the AmbiguousNameError of name
 // and holders.
-func ambiguousName(name string, holders Keys) error {
+func AmbiguousName(name string, holders Keys) error {
 	err := AmbiguousNameError{Name: name, Holders: holders}
 	return validate.WithCause(err, "%s", err.Error())
 }
@@ -238,7 +238,7 @@ func (s *Service) KeysByNames(
 	snap gorp.Snapshot,
 	names []string,
 ) (Keys, error) {
-	normal := normalizeNames(names)
+	normal := NormalizeNames(names)
 	var holders []Channel
 	if err := s.newRetrieve().
 		Where(MatchNames(normal...)).
@@ -252,7 +252,7 @@ func (s *Service) KeysByNames(
 	}
 	for i, n := range normal {
 		if keys := byName[n]; len(keys) > 1 {
-			return nil, ambiguousName(names[i], keys)
+			return nil, AmbiguousName(names[i], keys)
 		}
 	}
 	return KeysFromChannels(holders), nil

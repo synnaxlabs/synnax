@@ -23,9 +23,6 @@ import (
 
 var _ gorp.Entry[Key] = Channel{}
 
-// IsCalculated returns true if the channel is a calculated channel, false otherwise.
-func (c Channel) IsCalculated() bool { return c.Expression != "" }
-
 // Key returns the key for the Channel.
 func (c Channel) Key() Key { return channel.NewKey(c.Leaseholder, c.LocalKey) }
 
@@ -75,15 +72,9 @@ func (c Channel) Equals(other Channel, exclude ...string) bool {
 		{"LocalIndex", c.LocalIndex == other.LocalIndex},
 		{"Virtual", c.Virtual == other.Virtual},
 		{"Concurrency", c.Concurrency == other.Concurrency},
-		{"Expression", c.Expression == other.Expression},
 	}
 	for _, comp := range comparisons {
 		if !comp.equal && !slices.Contains(exclude, comp.field) {
-			return false
-		}
-	}
-	if !slices.Contains(exclude, "Operations") {
-		if !slices.Equal(c.Operations, other.Operations) {
 			return false
 		}
 	}
@@ -129,11 +120,11 @@ func (c Channel) ResourceID() resource.ID {
 
 // payloadSize is the most keys a payload holds: the fields of ToPayload and the
 // internal flag that signals add.
-const payloadSize = 12
+const payloadSize = 10
 
 // ToPayload returns a map representation of the channel for use in ontology resources
-// and signal marshaling. The "operations" and "group" keys are omitted when the channel
-// has no operations or no group. The map has room for one more key.
+// and signal marshaling. The "group" key is omitted when the channel has no group. The
+// map has room for one more key.
 func (c Channel) ToPayload() map[string]any {
 	p := make(map[string]any, payloadSize)
 	p["key"] = c.Key()
@@ -143,11 +134,7 @@ func (c Channel) ToPayload() map[string]any {
 	p["index"] = c.Index()
 	p["data_type"] = c.DataType
 	p["virtual"] = c.Virtual
-	p["expression"] = c.Expression
 	p["description"] = c.Description
-	if len(c.Operations) > 0 {
-		p["operations"] = c.Operations
-	}
 	if c.Group != nil {
 		p["group"] = *c.Group
 	}

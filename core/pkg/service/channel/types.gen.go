@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a channel in the Synnax database. Composed of a node
@@ -33,32 +35,82 @@ type LocalKey = versions.LocalKey
 // unique across channels.
 type Name = versions.Name
 
-// OperationType is the type of aggregation operation to apply to channel data over
-// time.
-type OperationType = versions.OperationType
-
-const (
-	// OperationTypeMin keeps the lowest sample since the last reset.
-	OperationTypeMin OperationType = versions.OperationTypeMin
-	// OperationTypeMax keeps the highest sample since the last reset.
-	OperationTypeMax OperationType = versions.OperationTypeMax
-	// OperationTypeAvg keeps the mean of the samples since the last reset.
-	OperationTypeAvg OperationType = versions.OperationTypeAvg
-	// OperationTypeNone applies no aggregation.
-	OperationTypeNone OperationType = versions.OperationTypeNone
-	// OperationTypeDerivative computes the rate of change of the samples.
-	OperationTypeDerivative OperationType = versions.OperationTypeDerivative
-)
-
-// Operation defines an aggregation operation applied to channel data. Operations
-// calculate min, max, average, or derivative values over a time duration or triggered
-// by a reset channel.
-type Operation = versions.Operation
-
 // Channel is an internal representation of a channel containing all storage and
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
 type Channel = versions.Channel
+
+// OperationType is the type of aggregation operation to apply to channel data over
+// time.
+type OperationType string
+
+const (
+	// OperationTypeMin keeps the lowest sample since the last reset.
+	OperationTypeMin OperationType = "min"
+	// OperationTypeMax keeps the highest sample since the last reset.
+	OperationTypeMax OperationType = "max"
+	// OperationTypeAvg keeps the mean of the samples since the last reset.
+	OperationTypeAvg OperationType = "avg"
+	// OperationTypeNone applies no aggregation.
+	OperationTypeNone OperationType = "none"
+	// OperationTypeDerivative computes the rate of change of the samples.
+	OperationTypeDerivative OperationType = "derivative"
+)
+
+// IsValid reports whether o is one of the defined OperationType
+// values.
+func (o OperationType) IsValid() bool {
+	switch o {
+	case OperationTypeMin, OperationTypeMax, OperationTypeAvg, OperationTypeNone, OperationTypeDerivative:
+		return true
+	default:
+		return false
+	}
+}
+
+// Operation defines an aggregation operation applied to channel data. Operations
+// calculate min, max, average, or derivative values over a time duration or triggered
+// by a reset channel.
+type Operation struct {
+	// Type is the aggregation operation type: min, max, avg, derivative, or none.
+	Type OperationType `json:"type" msgpack:"type"`
+	// ResetChannel is the key of a channel that resets the aggregation when it receives
+	// a sample. If 0, no reset channel is used.
+	ResetChannel Key `json:"reset_channel" msgpack:"reset_channel"`
+	// Duration is the interval at which the aggregation resets. If 0, the aggregation
+	// is not reset on a timer.
+	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o Operation) Validate() error {
+	v := validate.New("Operation")
+	v.Ternaryf("type", !o.Type.IsValid(), "invalid type: %v", o.Type)
+	return v.Error()
+}
+
+// Created is a channel that a create action carries, with the expression and operations
+// of the calculation that writes it for clients that read them from the channel.
+type Created struct {
+	Channel
+	// Expression is the expression of the calculation that writes the channel, or empty
+	// when none writes it.
+	Expression string `json:"expression" msgpack:"expression"`
+	// Operations are the operations of the calculation that writes the channel.
+	Operations []Operation `json:"operations" msgpack:"operations"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Created) Validate() error {
+	v := validate.New("Created")
+	v.Exec(c.Channel.Validate)
+	for i := range c.Operations {
+		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // Direction is how a record uses a channel.
 type Direction string
@@ -101,8 +153,8 @@ type Where struct {
 	IsIndex *filter.Bool `json:"is_index,omitzero" msgpack:"is_index,omitempty"`
 	// Internal matches the built-in channels, or every other channel when false.
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
-	// Virtual matches virtual channels that are not calculated, or every other channel
-	// when false.
+	// Virtual matches virtual channels, or every other channel when false. The channel
+	// API counts the output of a calculation as not virtual.
 	Virtual *bool `json:"virtual,omitzero" msgpack:"virtual,omitempty"`
 	// Path matches the channels at full paths: the names of the folders from the top,
 	// then the channel's name, joined by '.'.

@@ -45,7 +45,7 @@ var _ = Describe("Description breaker", func() {
 		Description: "Druck am Einlass é\U0001F600",
 	}
 
-	It("Should keep the description through a proto round trip on field 14", func() {
+	It("Should keep the description through a proto round trip on field 17", func() {
 		pb := MustSucceed(channelpb.ChannelToPB(ch))
 		b := MustSucceed(proto.Marshal(pb))
 		var found bool
@@ -53,7 +53,7 @@ var _ = Describe("Description breaker", func() {
 			num, typ, n := protowire.ConsumeTag(b)
 			Expect(n).To(BeNumerically(">", 0))
 			b = b[n:]
-			if num == 14 {
+			if num == 17 {
 				Expect(typ).To(Equal(protowire.BytesType))
 				v, m := protowire.ConsumeBytes(b)
 				Expect(string(v)).To(Equal(ch.Description))

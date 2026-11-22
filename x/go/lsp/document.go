@@ -83,14 +83,49 @@ func IsWordChar(c byte) bool {
 		(c >= '0' && c <= '9') || c == '_'
 }
 
+// ByteOffset returns the byte offset in line of the UTF-16 column col, the unit of a
+// protocol.Position. A column past the end of line returns len(line).
+func ByteOffset(line string, col uint32) int {
+	var units uint32
+	for i, r := range line {
+		if units >= col {
+			return i
+		}
+		units += utf16Units(r)
+	}
+	return len(line)
+}
+
+// UTF16Column returns the UTF-16 column of the byte offset in line.
+func UTF16Column(line string, offset int) uint32 {
+	var units uint32
+	for i, r := range line {
+		if i >= offset {
+			break
+		}
+		units += utf16Units(r)
+	}
+	return units
+}
+
+func utf16Units(r rune) uint32 {
+	if r >= 0x10000 {
+		return 2
+	}
+	return 1
+}
+
 // GetWordAtPosition extracts the word at the given position in the content.
 func GetWordAtPosition(content string, pos protocol.Position) string {
 	line, ok := GetLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
+	if !ok {
 		return ""
 	}
-	start := int(pos.Character)
-	end := int(pos.Character)
+	start := ByteOffset(line, pos.Character)
+	if start >= len(line) {
+		return ""
+	}
+	end := start
 	for start > 0 && IsWordChar(line[start-1]) {
 		start--
 	}
@@ -114,11 +149,14 @@ func GetQualifiedPrefixWordAtPosition(
 	pos protocol.Position,
 ) string {
 	line, ok := GetLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
+	if !ok {
 		return ""
 	}
-	start := int(pos.Character)
-	end := int(pos.Character)
+	start := ByteOffset(line, pos.Character)
+	if start >= len(line) {
+		return ""
+	}
+	end := start
 	for start > 0 && isQualifiedWordChar(line[start-1]) {
 		start--
 	}
@@ -138,16 +176,14 @@ func GetWordRangeAtPosition(
 	if word == "" {
 		return nil
 	}
-	line, ok := GetLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
-		return nil
-	}
-	start := int(pos.Character)
+	line, _ := GetLine(content, pos.Line)
+	start := ByteOffset(line, pos.Character)
 	for start > 0 && IsWordChar(line[start-1]) {
 		start--
 	}
+	col := UTF16Column(line, start)
 	return &protocol.Range{
-		Start: protocol.Position{Line: pos.Line, Character: uint32(start)},
-		End:   protocol.Position{Line: pos.Line, Character: uint32(start + len(word))},
+		Start: protocol.Position{Line: pos.Line, Character: col},
+		End:   protocol.Position{Line: pos.Line, Character: col + uint32(len(word))},
 	}
 }

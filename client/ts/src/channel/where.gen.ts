@@ -111,8 +111,8 @@ const inputs = {
   /** internal matches the built-in channels, or every other channel when false. */
   internal: filter.boolInputZ.exactOptional(),
   /**
-   * virtual matches virtual channels that are not calculated, or every other channel
-   * when false.
+   * virtual matches virtual channels, or every other channel when false. The channel
+   * API counts the output of a calculation as not virtual.
    */
   virtual: z.boolean().exactOptional(),
   /**

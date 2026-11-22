@@ -294,12 +294,6 @@ func (p *Plugin) generateProto(
 		processedEnums:   make(set.Set[string]),
 		instances:        make(set.Set[string]),
 	}
-	if len(structs) > 0 {
-		data.pbNamespace = naming.PBNamespace(
-			output.GetPBPath(structs[0]),
-			structs[0].Namespace,
-		)
-	}
 	data.AddSystem("utility")
 	data.AddInternal(outputPath + "/types.gen.h")
 	data.AddInternal(data.jsonInclude(outputPath))
@@ -471,6 +465,7 @@ func (p *Plugin) processUnionForTranslation(
 ) unionTranslatorData {
 	cppName := domain.GetName(u, "cpp")
 	pbNamespace := naming.PBNamespace(output.GetPBPath(u), u.Namespace)
+	data.pbNamespace = pbNamespace
 	ut := unionTranslatorData{
 		CppName:   cppName,
 		SnakeName: casing.FieldSnake(cppName),
@@ -595,6 +590,8 @@ func (p *Plugin) processStructForTranslation(
 	pbName := naming.PBName(s)
 	pbOutputPath := output.GetPBPath(s)
 	pbNamespace := naming.PBNamespace(pbOutputPath, s.Namespace)
+	// The proto file of s holds the message of each generic use in its fields.
+	data.pbNamespace = pbNamespace
 
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
