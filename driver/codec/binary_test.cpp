@@ -264,6 +264,14 @@ TEST(Binary, RefuseDefaultNotFinite) {
     assert_refuses(f, x::telem::FLOAT64_T, "default: NaN is not finite");
 }
 
+/// @brief it should refuse a multiplexed field.
+TEST(Binary, RefuseMultiplexed) {
+    auto f = field<icd::UnsignedBinaryField>("v", 8, 8);
+    f.multiplexor = x::uuid::create();
+    f.multiplex_values = {1};
+    assert_refuses(f, x::telem::UINT8_T, "multiplexed fields are not supported yet");
+}
+
 /// @brief it should refuse a field that ends past the length of its payload.
 TEST(Binary, RefuseFieldPastLength) {
     const auto f = field<icd::UnsignedBinaryField>("v", 4, 8);

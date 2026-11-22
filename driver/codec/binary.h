@@ -87,8 +87,9 @@ class Binary {
 public:
     /// @brief creates a Binary decoder for messages that share one source of frames.
     /// @returns CONFIG_ERROR when a message has an identifier, two messages have none,
-    /// a binding names no field of its message, a field's layout or default is invalid,
-    /// or a field does not convert to the data type of its binding.
+    /// a binding names no field of its message, a field is multiplexed, a field's
+    /// layout or default is invalid, or a field does not convert to the data type of
+    /// its binding.
     static std::pair<Binary, x::errors::Error>
     create(const std::vector<BinaryMessage> &messages);
 

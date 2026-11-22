@@ -87,6 +87,8 @@ x::errors::Error config(const std::string &text) {
 std::pair<Binary::Field, x::errors::Error>
 Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
     const auto &b = icd::base(f);
+    if (b.multiplexor.has_value())
+        return {Field{}, config("multiplexed fields are not supported yet")};
     auto [bits, bits_err] = BitRange::create(b);
     if (bits_err) return {Field{}, bits_err};
     Field field{
