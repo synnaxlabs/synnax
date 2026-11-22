@@ -26,7 +26,7 @@ const Owner = ({ onClickOutside, dialog }: OwnerProps): ReactElement => {
     <div ref={ref}>
       <span>Inside</span>
       {dialog && (
-        <Dialog.Frame visible variant="modal">
+        <Dialog.Frame visible>
           <Dialog.Dialog>
             <span>Portaled</span>
           </Dialog.Dialog>
