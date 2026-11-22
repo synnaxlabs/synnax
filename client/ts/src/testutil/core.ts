@@ -211,6 +211,7 @@ export class SyntheticCore {
         index: this.calculatedIndex.key,
         virtual: true,
         expression: "return data_0 * 2",
+        calculated: true,
       });
       this.virtual = new channel.Channel({
         key: INDEX_KEY + 2 + channels,

@@ -60,9 +60,8 @@ export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false)
   return result;
 };
 
-/** @returns whether the channel computes its samples from an expression. */
-export const isCalculated = ({ virtual, expression }: Payload): boolean =>
-  virtual && expression !== "";
+/** @returns whether a calculation writes the channel. */
+export const isCalculated = ({ calculated }: Payload): boolean => calculated;
 
 /**
  * Resolves channel params into a normalized array, reporting whether the caller named

@@ -8,17 +8,68 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
+import type Synnax from "@/client";
 import { DisconnectedError } from "@/errors";
 import {
   createProxiedTestClient,
   createTestClient,
   FAST_RETRY,
+  holdRequests,
   waitForStreamLive,
 } from "@/testutil";
 
 const remote = createTestClient();
+
+const PAGE_COUNT = 1010;
+
+const createPagedChannels = async (): Promise<string> => {
+  const prefix = `builtin_page_${id.create()}_`;
+  await remote.channels.create(
+    Array.from({ length: PAGE_COUNT }, (_, i) => ({
+      name: `${prefix}${i}`,
+      dataType: "float32",
+      virtual: true,
+    })),
+  );
+  return prefix;
+};
+
+// Pages through a watched list of non-internal channels, as a channel select does.
+const pageToEnd = async (client: Synnax, prefix: string): Promise<number> => {
+  const list = client.channels.watch({
+    where: { internal: { eq: false }, name: { startsWith: prefix } },
+    limit: 50,
+  });
+  const off = list.onChange(() => {});
+  onTestFinished(off);
+  let window = await list.retrieve();
+  for (let i = 0; i < 40 && window.end != null; i++) window = await list.more(100);
+  return window.records.length;
+};
+
+describe("Lists with an internal line", () => {
+  it("should page to the end once the built-in keys arrived", async () => {
+    const prefix = await createPagedChannels();
+    const client = createTestClient();
+    const builtIns = vi.spyOn(client.channels, "retrieveBuiltIns");
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    await expect.poll(() => builtIns.mock.results.length).toBeGreaterThan(0);
+    await builtIns.mock.results[0].value;
+    expect(await pageToEnd(client, prefix)).toBe(PAGE_COUNT);
+  }, 60000);
+
+  it("should page to the end before the built-in keys arrive", async () => {
+    const prefix = await createPagedChannels();
+    const client = createTestClient();
+    holdRequests(client, "/channel/retrieve-built-ins");
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    expect(await pageToEnd(client, prefix)).toBe(PAGE_COUNT);
+  }, 60000);
+});
 
 // How the fetch of the built-in keys behaves after the reconnect.
 type AfterReconnect = "answers" | "answers-late" | "fails-once";
