@@ -185,7 +185,7 @@ const pairsOf = (xs: Series[], ys: Series[]): Pair[] => {
 
 const byIndex = (a: Pair, b: Pair): number => a.x - b.x || a.y - b.y;
 
-// The all-pairs rule that forEachPair replaces.
+// The all-pairs rule that pair.forEach replaces.
 const referencePairs = (xs: Series[], ys: Series[]): Pair[] => {
   const pairs: Pair[] = [];
   xs.forEach((x, xi) =>
@@ -210,7 +210,7 @@ const referencePairs = (xs: Series[], ys: Series[]): Pair[] => {
   return pairs;
 };
 
-// The all-pairs windowBounds that forEachPair replaces.
+// The all-pairs windowBounds that pair.forEach replaces.
 const referenceWindowBounds = (
   xs: Series[],
   ys: Series[],
