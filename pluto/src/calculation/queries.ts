@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { calculation, type channel, type Synnax as Client } from "@synnaxlabs/client";
+import { calculation, type channel } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
@@ -52,18 +52,6 @@ export const useIsOutput = (channel: channel.Key): boolean | undefined => {
 
 // The status of the calculation that writes the channel, null when no calculation
 // writes it or the calculation has none, and undefined until the cache can tell.
-const cachedStatusOf = (
-  client: Client,
-  channel: channel.Key,
-): calculation.Status | null | undefined => {
-  const output = client.calculations.outputs.get(channel);
-  if (output == null) return undefined;
-  if (output.hidden || output.calculation == null) return null;
-  const st = client.statuses.ownedBy(calculation.resourceID(output.calculation));
-  if (st == null) return undefined;
-  return calculation.statusZ.parse(st);
-};
-
 /**
  * Answers with the status of the calculation that writes the channel of the query, or
  * null when no calculation writes it or the calculation has no status. The lookups of
@@ -76,15 +64,10 @@ export const { useResult: useResultStatus } = Flux.createRetrieve<
   calculation.Status | null
 >({
   name: "calculation status",
-  retrieve: async ({ client, query: { channel } }) => {
-    const [output] = await client.calculations.outputs.retrieve([channel]);
-    if (output.hidden || output.calculation == null) return null;
-    const owner = calculation.resourceID(output.calculation);
-    const [st] = await client.statuses.retrieveOwned([owner]);
-    return st == null ? null : calculation.statusZ.parse(st);
-  },
+  retrieve: async ({ client, query: { channel } }) =>
+    await client.calculations.retrieveStatus(channel),
   onChange: ({ client, query: { channel } }, handler) => {
-    const notify = () => handler(cachedStatusOf(client, channel) ?? null);
+    const notify = () => handler(client.calculations.getCachedStatus(channel) ?? null);
     const unsubscribeOutputs = client.calculations.outputs.subscribe(notify, channel);
     const unsubscribeStatuses = client.statuses.store.subscribe((event) => {
       const output = client.calculations.outputs.get(channel);
@@ -100,7 +83,8 @@ export const { useResult: useResultStatus } = Flux.createRetrieve<
       unsubscribeStatuses();
     };
   },
-  getCached: ({ client, query: { channel } }) => cachedStatusOf(client, channel),
+  getCached: ({ client, query: { channel } }) =>
+    client.calculations.getCachedStatus(channel),
   equal: (a, b) =>
     a?.variant === b?.variant &&
     a?.message === b?.message &&

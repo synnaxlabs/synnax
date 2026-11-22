@@ -170,6 +170,46 @@ describe("Calculation", () => {
       });
     };
 
+    describe("of an output", () => {
+      it("should retrieve the status of the calculation that writes a channel", async () => {
+        const c = await client.calculations.create({
+          name: `calc_status_${id.create()}`,
+          expression: "return 2",
+        });
+        await setStatus(c.key, "calculating");
+        const local = createTestClient();
+        expect(local.calculations.getCachedStatus(c.output)).toBeUndefined();
+        expect(await local.calculations.retrieveStatus(c.output)).toMatchObject({
+          message: "calculating",
+        });
+        expect(local.calculations.getCachedStatus(c.output)).toMatchObject({
+          message: "calculating",
+        });
+      });
+
+      it("should retrieve null for a channel that no calculation writes", async () => {
+        const plain = await createVirtual();
+        const local = createTestClient();
+        expect(await local.calculations.retrieveStatus(plain.key)).toBeNull();
+        expect(local.calculations.getCachedStatus(plain.key)).toBeNull();
+      });
+
+      it("should retrieve null for a calculation the reader cannot retrieve", async () => {
+        const c = await client.calculations.create({
+          name: `calc_status_${id.create()}`,
+          expression: "return 2",
+        });
+        await setStatus(c.key, "calculating");
+        const reader = await createTestClientWithPolicy(client, {
+          name: id.create(),
+          objects: [channel.resourceID(c.output)],
+          actions: ["retrieve"],
+        });
+        expect(await reader.calculations.retrieveStatus(c.output)).toBeNull();
+        expect(reader.calculations.getCachedStatus(c.output)).toBeNull();
+      });
+    });
+
     it("should compose the status only for a request that includes it", async () => {
       const c = await client.calculations.create({
         name: `calc_status_${id.create()}`,

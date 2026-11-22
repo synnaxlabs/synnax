@@ -92,16 +92,115 @@ describe("queries", () => {
       calc: calculation.Calculation,
       message: string,
       description: string = "",
-    ): Promise<void> => {
+      variant: "error" | "warning" = "error",
+    ) =>
       await client.statuses.set({
         owner: calculation.resourceID(calc.key),
         name: "Calculation Status",
-        variant: "error",
+        variant,
         message,
         description,
         time: TimeStamp.now(),
       });
-    };
+
+    const createCalc = async () =>
+      await client.calculations.create({ name: id.create(), expression: "return 2" });
+
+    const createPlain = async () =>
+      await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+
+    it("should follow a change of the variant alone", async () => {
+      const calc = await createCalc();
+      await setStatus(calc, "Failed to run calculation", "cannot read a");
+      const { result } = renderHook(
+        () => Calculation.useResultStatus({ channel: calc.output }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.data?.variant).toEqual("error"));
+      await act(
+        async () =>
+          await setStatus(
+            calc,
+            "Failed to run calculation",
+            "cannot read a",
+            "warning",
+          ),
+      );
+      await waitFor(() => expect(result.current.data?.variant).toEqual("warning"));
+    });
+
+    it("should answer with null once the status is deleted", async () => {
+      const calc = await createCalc();
+      const st = await setStatus(calc, "invalid expression");
+      const { result } = renderHook(
+        () => Calculation.useResultStatus({ channel: calc.output }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.message).toEqual("invalid expression"),
+      );
+      await act(async () => await client.statuses.delete(st.key));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toBeNull();
+      });
+    });
+
+    it("should answer with null once the calculation is deleted", async () => {
+      const calc = await createCalc();
+      await setStatus(calc, "invalid expression");
+      const { result } = renderHook(
+        () => Calculation.useResultStatus({ channel: calc.output }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.message).toEqual("invalid expression"),
+      );
+      await act(async () => await client.calculations.delete(calc.key));
+      await waitFor(() => expect(result.current.data ?? null).toBeNull());
+    });
+
+    it("should follow a channel that a calculation writes after the answer", async () => {
+      const plain = await createPlain();
+      const { result } = renderHook(
+        () => Calculation.useResultStatus({ channel: plain.key }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toBeNull();
+      const calc = await act(
+        async () =>
+          await client.calculations.create({
+            output: plain.key,
+            expression: "return 2",
+          }),
+      );
+      await act(async () => await setStatus(calc, "late status"));
+      await waitFor(() => expect(result.current.data?.message).toEqual("late status"));
+    });
+
+    it("should show a status set before its calculation reaches the outputs", async () => {
+      const plain = await createPlain();
+      const viewer = createTestClient();
+      const viewerWrapper = await createAsyncSynnaxWrapper({ client: viewer });
+      const { result } = renderHook(
+        () => Calculation.useResultStatus({ channel: plain.key }),
+        { wrapper: viewerWrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const calc = await client.calculations.create({
+        output: plain.key,
+        expression: "return 2",
+      });
+      await setStatus(calc, "streamed status");
+      await waitFor(() =>
+        expect(result.current.data?.message).toEqual("streamed status"),
+      );
+    });
 
     it("should answer with the status of the calculation that writes a channel", async () => {
       const calc = await client.calculations.create({

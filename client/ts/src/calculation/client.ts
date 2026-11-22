@@ -30,6 +30,7 @@ import {
   retrieveRequestZ,
   type RetrieveResponse,
   retrieveResponseZ,
+  type Status,
   statusZ,
 } from "@/calculation/types.gen";
 import {
@@ -269,6 +270,32 @@ export class Client extends query.Retriever<
     return this.dispatcher.transaction(key);
   }
 
+  /**
+   * Retrieves the status of the calculation that writes the channel with key output.
+   * Lookups made in the same few milliseconds share one request for the outputs and one
+   * for the statuses.
+   * @returns the status, or null when no calculation that the reader can retrieve
+   * writes the channel, or the calculation has no status.
+   */
+  async retrieveStatus(output: channel.Key): Promise<Status | null> {
+    const [writer] = await this.outputs.retrieve([output]);
+    if (writer.hidden || writer.calculation == null) return null;
+    await this.statuses.retrieveOwned([resourceID(writer.calculation)]);
+    return this.statusOf(writer.calculation) ?? null;
+  }
+
+  /**
+   * Returns the cached status of the calculation that writes the channel with key
+   * output, or null when no calculation that the reader can retrieve writes it. Returns
+   * undefined when the cache cannot tell.
+   */
+  getCachedStatus(output: channel.Key): Status | null | undefined {
+    const writer = this.outputs.get(output);
+    if (writer == null) return undefined;
+    if (writer.hidden || writer.calculation == null) return null;
+    return this.statusOf(writer.calculation);
+  }
+
   /** Deletes the calculations with keys. Their outputs stay as channels. */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
@@ -290,8 +317,14 @@ export class Client extends query.Retriever<
   /** Returns cached with its cached status when includeStatus is true. */
   private compose(cached: Stored, includeStatus: boolean): Calculation {
     if (!includeStatus) return cached;
-    const parsed = statusZ.safeParse(this.statuses.ownedBy(resourceID(cached.key)));
-    return parsed.success ? { ...cached, status: parsed.data } : cached;
+    const status = this.statusOf(cached.key);
+    return status == null ? cached : { ...cached, status };
+  }
+
+  // A cached status that does not parse as a calculation status is left out.
+  private statusOf(key: Key): Status | undefined {
+    const parsed = statusZ.safeParse(this.statuses.ownedBy(resourceID(key)));
+    return parsed.success ? parsed.data : undefined;
   }
 
   /** Fetches calculations and saves the statuses the Core returns. */
