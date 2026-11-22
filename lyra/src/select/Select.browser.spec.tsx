@@ -1424,6 +1424,28 @@ describe("Select", () => {
     });
   });
 
+  describe("list under a search field", () => {
+    it("should square its top corners and join the field", async () => {
+      const trigger = await renderChoice(listSelect(false, ["a", "b"], () => {}));
+      const dialog = await openDialog(trigger);
+      const scroll = dialog.querySelector(".lyra-list__scroll") as HTMLElement;
+      const frame = scroll.parentElement as Element;
+      const field = frame.previousElementSibling as Element;
+      expect(computed(scroll, "border-top-left-radius")).toBe("0px");
+      expect(computed(scroll, "border-top-right-radius")).toBe("0px");
+      const radius = computed(
+        frame.parentElement as Element,
+        "border-bottom-left-radius",
+      );
+      expect(radius).not.toBe("0px");
+      expect(computed(scroll, "border-bottom-left-radius")).toBe(radius);
+      expect(computed(scroll, "border-bottom-right-radius")).toBe(radius);
+      expect(
+        field.getBoundingClientRect().bottom - scroll.getBoundingClientRect().top,
+      ).toBe(scroll.clientTop);
+    });
+  });
+
   describe("fixed item label", () => {
     it("should fill the trigger up to the caret", async () => {
       const { label, fixed, caret } = await renderFixedLabel();
