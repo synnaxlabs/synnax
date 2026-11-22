@@ -34,6 +34,11 @@ export const entryZ = z.object({
   choices: choiceZ.array().default(() => []),
   /** default is the pick that applies when the caller makes none. */
   default: choiceZ.optional(),
+  /**
+   * path is set only for the entry of a tombstone: its name under its folders, from the
+   * deleted folder that holds it, with `.` between segments.
+   */
+  path: z.string().optional(),
 });
 export interface Entry extends z.infer<typeof entryZ> {}
 
