@@ -173,6 +173,17 @@ export class WriteAdapter {
     return res[0];
   }
 
+  /**
+   * @returns the channel that a key of a record frame names. A record keys its columns
+   * by string, so a string of digits names the writer's channel of that key when no
+   * channel of the writer holds it as a name.
+   */
+  private recordKey(k: string): channel.Key | channel.Name {
+    if (this.byName?.has(k)) return k;
+    const key = Number(k);
+    return Number.isInteger(key) && this.byKey.has(key) ? key : k;
+  }
+
   private async adaptToKey(k: channel.Key | channel.Name): Promise<channel.Key> {
     if (typeof k === "number") return k;
     const res = await this.fetchChannel(k);
@@ -251,7 +262,7 @@ export class WriteAdapter {
     const kvs = Object.entries(columnsOrData);
     for (let i = 0; i < kvs.length; i++) {
       const [k, v] = kvs[i];
-      const pld = await this.fetchChannel(k);
+      const pld = await this.fetchChannel(this.recordKey(k));
       const s = new Series({ data: v, dataType: pld.dataType });
       cols.push(pld.key);
       data.push(s);
