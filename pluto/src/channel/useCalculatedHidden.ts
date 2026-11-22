@@ -33,7 +33,10 @@ const failureOf = (error: unknown): status.Status => {
 };
 
 interface Lookups {
-  /** Looks up each of keys that no lookup in flight holds. */
+  /**
+   * Looks up each of keys that no lookup in flight holds, and that no lookup failed for
+   * since the picker last opened.
+   */
   run: (outputs: Outputs, keys: channel.Key[]) => void;
   /**
    * Sets whether the picker is open, and how a failure is reported. A failure is
@@ -50,6 +53,7 @@ type Report = (failure: status.Status) => void;
 // A failure episode, which a lookup that answers ends, is reported once.
 const createLookups = (): Lookups => {
   const looking = new Set<channel.Key>();
+  const failed = new Set<channel.Key>();
   const listeners = new Set<() => void>();
   let running = 0;
   let failure: status.Status | undefined;
@@ -63,9 +67,11 @@ const createLookups = (): Lookups => {
     notify();
     try {
       await outputs.retrieve(keys);
+      keys.forEach((key) => failed.delete(key));
       failure = undefined;
       reported = false;
     } catch (e) {
+      keys.forEach((key) => failed.add(key));
       failure = failureOf(e);
       if (!reported && open && report != null) {
         report(failure);
@@ -78,10 +84,12 @@ const createLookups = (): Lookups => {
   };
   return {
     run: (outputs, keys) => {
-      const fresh = keys.filter((key) => !looking.has(key));
+      const fresh = keys.filter((key) => !looking.has(key) && !failed.has(key));
       if (fresh.length > 0) void run(outputs, fresh);
     },
     setOpen: (next, nextReport) => {
+      // Each open looks the failed channels up again.
+      if (next && !open) failed.clear();
       open = next;
       report = nextReport;
     },
@@ -94,27 +102,18 @@ const createLookups = (): Lookups => {
 };
 
 // version is the version of outputs that the read sees, so a new answer reads again.
-const answersOf = (outputs: Outputs, keys: channel.Key[], _version: number) => {
-  const keeps = (key: channel.Key): boolean => {
+const answersOf = (outputs: Outputs, keys: channel.Key[], _version: number) => ({
+  unanswered: keys.filter((key) => outputs.get(key) == null),
+  kept: keys.filter((key) => {
     const output = outputs.get(key);
     return output != null && !calculation.isOutput(output);
-  };
-  return {
-    unanswered: keys.filter((key) => outputs.get(key) == null),
-    kept: keys.filter(keeps),
-    keeps,
-  };
-};
+  }),
+});
 
 /** The return value of {@link useCalculatedHidden}. */
 export interface CalculatedHidden {
   /** The keys that no calculation writes, once each has an answer. */
   data: channel.Key[];
-  /**
-   * Whether no calculation writes the channel with key, once it has an answer.
-   * Undefined when nothing is hidden.
-   */
-  keeps?: (key: channel.Key) => boolean;
   /**
    * Loading while a lookup runs, and the failure of the last lookup if it failed, while
    * a key has no answer. Undefined once every key has one.
@@ -149,8 +148,8 @@ export const useCalculatedHidden = (
     return () => lookups.setOpen(false);
   }, [lookups, open, report]);
   const answers = outputs == null ? undefined : answersOf(outputs, keys, version);
-  // Keyed on the keys without an answer, so an answer for another channel does not
-  // look a failed channel up again.
+  // Keyed on the keys without an answer, so an answer for another channel runs no
+  // lookup.
   const pending = answers?.unanswered.join(",") ?? "";
   useEffect(() => {
     if (outputs != null && answers != null && answers.unanswered.length > 0)
@@ -159,7 +158,6 @@ export const useCalculatedHidden = (
   if (answers == null) return { data: keys };
   return {
     data: answers.kept,
-    keeps: answers.keeps,
     status: answers.unanswered.length === 0 ? undefined : (lookupStatus ?? LOOKING_UP),
   };
 };

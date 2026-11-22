@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType } from "@synnaxlabs/client";
+import { type calculation, type channel, DataType } from "@synnaxlabs/client";
 import {
   createTestClient,
   failRequests,
@@ -164,12 +164,19 @@ describe("Channel select", () => {
 
     const toggle = (c: RenderResult) => fireEvent.click(c.getAllByRole("button")[0]);
 
-    // Counts the lookups and fails each one.
-    const failLookups = () => {
+    // Fails each lookup, and counts the lookups of counted. A spec before this one can
+    // still look its own channels up.
+    const failLookups = (counted?: channel.Key) => {
       let lookups = 0;
       const spy = rejectRequests(
         client,
-        (target) => target === LOOKUP && ++lookups > 0,
+        (target, req) => {
+          if (target !== LOOKUP) return false;
+          const { where } = req as calculation.RetrieveRequest;
+          if (counted != null && where?.output?.in?.includes(counted) === true)
+            lookups++;
+          return true;
+        },
         new Error("calculations unavailable"),
       );
       onTestFinished(() => spy.mockRestore());
@@ -225,9 +232,22 @@ describe("Channel select", () => {
       expect(await c.findByText(FAILED)).toBeTruthy();
     });
 
+    it("should name a selected channel without an answer in its tag", async () => {
+      const selected = await createPlain();
+      failLookups();
+      const c = render(<Picker keys={[selected.key]} value={[selected.key]} />, {
+        wrapper,
+      });
+      expect(await c.findByText(selected.name)).toBeTruthy();
+      expect(c.queryByText(String(selected.key))).toBeNull();
+      toggle(c);
+      expect(await c.findByText(FAILED)).toBeTruthy();
+      expect(c.queryByText(String(selected.key))).toBeNull();
+    });
+
     it("should not send lookups in a loop while the Core fails them", async () => {
       const plain = await createPlain();
-      const { lookups } = failLookups();
+      const { lookups } = failLookups(plain.key);
       const c = render(<Picker keys={[plain.key]} />, { wrapper });
       toggle(c);
       expect(await c.findByText(FAILED)).toBeTruthy();
