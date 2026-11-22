@@ -63,6 +63,7 @@ var _ = Describe("Check: a Drop during the orphan pass", func() {
 					cesium.WithFS(fs),
 					cesium.WithPointerLog(),
 					cesium.WithRandom(rand.NewPCG(1, 2)),
+					pcgIdentity(1, 2),
 				))
 			}
 			disk := MustSucceed(fault.New(fault.Config{}))
