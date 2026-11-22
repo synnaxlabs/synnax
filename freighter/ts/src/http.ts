@@ -61,6 +61,9 @@ const UNREACHABLE_CODES = new Set([
 
 const DENO_TCP_CONNECT_ERROR = "client error (Connect): tcp connect error";
 
+// Undici's ProxyAgent fails with this when the proxy cannot reach the target.
+const PROXY_TUNNEL_FAILURE = /^Proxy response \(\d+\) !== 200 when HTTP Tunneling$/;
+
 const shouldCastToUnreachable = (
   err: Error & { code?: unknown; errno?: unknown },
 ): boolean => {
@@ -80,8 +83,13 @@ const shouldCastToUnreachable = (
     err.cause.message.includes(DENO_TCP_CONNECT_ERROR)
   )
     return true;
+  if (isProxyTunnelFailure(err.cause)) return true;
   return isBrowserFetchFailure(err);
 };
+
+const isProxyTunnelFailure = (err: unknown): boolean =>
+  err instanceof Error &&
+  (PROXY_TUNNEL_FAILURE.test(err.message) || isProxyTunnelFailure(err.cause));
 
 // Browsers hide the cause of a failed fetch, so a certificate failure looks like this.
 const BROWSER_FETCH_FAILURE = /load failed|failed to fetch|networkerror|network error/i;

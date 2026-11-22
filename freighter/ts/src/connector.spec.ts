@@ -376,7 +376,7 @@ describe("proxies", () => {
         socket.pipe(upstream);
       });
       sockets.push(upstream);
-      upstream.on("error", () => socket.destroy());
+      upstream.on("error", () => socket.end("HTTP/1.1 502 Bad Gateway\r\n\r\n"));
       socket.on("error", () => upstream.destroy());
     });
     for (const server of [plain, tls, proxy])
@@ -386,6 +386,9 @@ describe("proxies", () => {
     const proxyURL = `http://127.0.0.1:${await listen(proxy)}`;
     vi.stubEnv("HTTP_PROXY", proxyURL);
     vi.stubEnv("HTTPS_PROXY", proxyURL);
+    // Undici reads the lowercase variables first.
+    for (const name of ["http_proxy", "https_proxy", "no_proxy"])
+      vi.stubEnv(name, undefined);
   });
 
   afterAll(async () => {
@@ -430,6 +433,21 @@ describe("proxies", () => {
     await sendAndStream(true, ca);
     const port = tlsEndpoint.port.toString();
     expect(tunnels).toEqual([port, port]);
+  });
+
+  it("should throw Unreachable when the proxy cannot reach the target", async () => {
+    const closed = createTCPServer();
+    const port = await listen(closed);
+    await new Promise((resolve) => closed.close(resolve));
+    const client = new HTTPClient({
+      endpoint: new url.URL({ host: "127.0.0.1", port }),
+      codec: binary.JSON_CODEC,
+    });
+    const err = await client.send("/", { message: "hi" }, messageZ, messageZ).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(Unreachable.matches(err)).toBe(true);
   });
 
   it("should connect directly to a host in NO_PROXY", async () => {

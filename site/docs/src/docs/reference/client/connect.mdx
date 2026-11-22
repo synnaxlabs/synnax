@@ -496,8 +496,10 @@ export NO_PROXY=localhost,core.internal.example.com
 node my_script.js
 ```
 
-The TypeScript client uses the proxy in Node.js. `caCert` works through the proxy. Bun
-and Deno use their own proxy support, and a browser uses the proxy of the browser.
+The TypeScript client uses the proxy in Node.js. When `HTTPS_PROXY` is not set, TLS
+connections also use `HTTP_PROXY`. The client reads the lowercase name of each variable
+first. `caCert` works through the proxy. Bun and Deno use their own proxy support, and a
+browser uses the proxy of the browser.
 
   </Fragment>
 
