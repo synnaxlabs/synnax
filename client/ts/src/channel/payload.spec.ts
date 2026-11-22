@@ -114,16 +114,35 @@ describe("escapeInvalidName", () => {
   });
 });
 
-describe("singleWhere", () => {
-  it("should select a key by key", () => {
-    expect(channel.singleWhere(12)).toEqual({ key: { eq: 12 } });
+describe("lookupWhere", () => {
+  it("should look up a number as a key", () => {
+    expect(channel.lookupWhere([12])).toEqual({ key: { eq: 12 } });
   });
 
-  it("should select a name by name", () => {
-    expect(channel.singleWhere("sensor")).toEqual({ name: { eq: "sensor" } });
+  it("should look up a string as a name", () => {
+    expect(channel.lookupWhere(["sensor"])).toEqual({ name: { eq: "sensor" } });
   });
 
-  it("should read a string with leading digits as a key, as the retrieve does", () => {
-    expect(channel.singleWhere("12abc")).toEqual({ key: { eq: 12 } });
+  it("should look up a string of digits as a name", () => {
+    expect(channel.lookupWhere(["12"])).toEqual({ name: { eq: "12" } });
+    expect(channel.lookupWhere(["12abc"])).toEqual({ name: { eq: "12abc" } });
+  });
+
+  it("should look up a string that holds a '.' as a path", () => {
+    expect(channel.lookupWhere(["stand.pt"])).toEqual({ path: { eq: "stand.pt" } });
+  });
+
+  it("should look up several of one kind in one list", () => {
+    expect(channel.lookupWhere([1, 2])).toEqual({ key: { in: [1, 2] } });
+  });
+
+  it("should join lookups of several kinds in an or", () => {
+    expect(channel.lookupWhere([1, "pt", "stand.pt", 2])).toEqual({
+      or: [
+        { key: { in: [1, 2] } },
+        { name: { eq: "pt" } },
+        { path: { eq: "stand.pt" } },
+      ],
+    });
   });
 });
