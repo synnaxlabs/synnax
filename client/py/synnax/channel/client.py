@@ -78,6 +78,7 @@ class Channel(Payload):
         status: Status | None = None,
         group: group_.Key | None = None,
         uses: list[Use] | None = None,
+        calculated: bool = False,
         path: str | None = None,
         description: str = "",
         _frame_client: framer.Client | None = None,
@@ -108,6 +109,7 @@ class Channel(Payload):
         :param group: The group the channel sits in, if any.
         :param uses: The records that read or write the channel, set only when a
             retrieve asks for them.
+        :param calculated: Whether a calculation writes the channel. The Core sets it.
         :param path: The names of the channel's folders from the top, then its name,
             joined by '.', set only when a retrieve asks for it.
         :param description: Free text that says what the channel holds, at most 1,024
@@ -136,6 +138,7 @@ class Channel(Payload):
             status=status,
             group=group,
             uses=uses,
+            calculated=calculated,
             path=path,
             description=description,
         )
@@ -227,6 +230,7 @@ class Channel(Payload):
             expression=self.expression,
             operations=self.operations,
             group=self.group,
+            calculated=self.calculated,
             description=self.description,
         )
 
