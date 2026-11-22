@@ -1103,7 +1103,7 @@ var _ = Describe("Writer", func() {
 				func(ctx SpecContext) {
 					names := []string{UniqueChannelName(), UniqueChannelName()}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).DeleteManyByNames(ctx, names, false)
+						return svc.NewWriter(tx).DeleteManyByNames(ctx, names)
 					})).To(Succeed())
 				},
 			)
@@ -1124,7 +1124,6 @@ var _ = Describe("Writer", func() {
 						return svc.NewWriter(tx).DeleteManyByNames(
 							ctx,
 							[]string{prefix + "_a", prefix + "_.*"},
-							false,
 						)
 					})).To(Succeed())
 					var remaining []channel.Channel
@@ -1168,7 +1167,6 @@ var _ = Describe("Writer", func() {
 						return svc.NewWriter(tx).DeleteManyByNames(
 							ctx,
 							[]string{internalCh.Name},
-							false,
 						)
 					})).
 						To(MatchError(ContainSubstring("can't delete built-in channel")))

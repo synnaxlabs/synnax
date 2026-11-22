@@ -454,7 +454,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Namespace:       "Composition",
 		Migrations: []gorp.Migration{
-			nameClashMigration,
+			newNameClash(cfg.Distribution.Identity.HostKey),
 			l.Calculation.Migration(
 				l.Status,
 				cfg.Distribution.Channel.IssuedAtFirstOpen,

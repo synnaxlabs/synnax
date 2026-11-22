@@ -149,7 +149,7 @@ var _ = Describe("Group", Ordered, func() {
 			calc := createFree(ctx, UniqueChannelName(), &g.Key)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).
-					DeleteManyByNames(ctx, []string{calc.Name}, false)
+					DeleteManyByNames(ctx, []string{calc.Name})
 			})).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(channel.MatchKeys(calc.Key(), calc.Index())).
@@ -197,7 +197,7 @@ var _ = Describe("Group", Ordered, func() {
 		Entry(
 			"by name",
 			func(ctx context.Context, w channel.Writer, c channel.Channel) error {
-				return w.DeleteManyByNames(ctx, []string{c.Name}, false)
+				return w.DeleteManyByNames(ctx, []string{c.Name})
 			},
 		),
 	)

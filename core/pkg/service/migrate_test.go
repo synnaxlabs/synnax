@@ -203,10 +203,13 @@ var _ = Describe("Retired channels", func() {
 			stored := storeV062(ctx, n, []string{
 				"sy_range_alias_set",
 				"sy_ontology_resource_set",
+				"sy_calculation_status",
 				"sy_range_alias_delete",
+				"sy_calculation_state",
 			}, func(cs []channelv1.Channel) {
 				cs[0].Internal = true
 				cs[1].Internal = true
+				cs[2].Internal = true
 			})
 			l := MustSucceed(svctestutil.OpenLayer(ctx, n))
 			lOpen := true
@@ -215,22 +218,26 @@ var _ = Describe("Retired channels", func() {
 					Expect(l.Close()).To(Succeed())
 				}
 			})
-			for _, retired := range stored[:2] {
+			for _, retired := range stored[:3] {
 				Expect(gorp.NewRetrieve[channel.Key, channel.Channel]().
 					Where(gorp.MatchKeys[channel.Key, channel.Channel](retired.Key())).
 					Exists(ctx, n.DB)).To(BeFalse())
 			}
-			Expect(namesOf(ctx, n, stored[2:])).To(Equal(map[channel.Key]string{
-				stored[2].Key(): "sy_range_alias_delete",
+			Expect(namesOf(ctx, n, stored[3:])).To(Equal(map[channel.Key]string{
+				stored[3].Key(): "sy_range_alias_delete",
+				stored[4].Key(): "sy_calculation_state",
 			}))
-			later := channel.Channel{
-				Name:        "sy_ontology_resource_set",
-				DataType:    telem.StringT,
-				Virtual:     true,
-				Leaseholder: node.KeyFree,
+			later := []channel.Channel{
+				{Name: "sy_ontology_resource_set"},
+				{Name: "sy_calculation_status"},
+			}
+			for i := range later {
+				later[i].DataType = telem.StringT
+				later[i].Virtual = true
+				later[i].Leaseholder = node.KeyFree
 			}
 			Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return l.Channel.NewWriter(tx).Create(ctx, &later)
+				return l.Channel.NewWriter(tx).CreateMany(ctx, &later)
 			})).To(Succeed())
 			lOpen = false
 			Expect(l.Close()).To(Succeed())
@@ -239,12 +246,14 @@ var _ = Describe("Retired channels", func() {
 			var kept []channel.Channel
 			Expect(gorp.NewRetrieve[channel.Key, channel.Channel]().
 				Where(gorp.MatchKeys[channel.Key, channel.Channel](
-					stored[2].Key(),
-					later.Key(),
+					stored[3].Key(),
+					stored[4].Key(),
+					later[0].Key(),
+					later[1].Key(),
 				)).
 				Entries(&kept).
 				Exec(ctx, n.DB)).To(Succeed())
-			Expect(kept).To(HaveLen(2))
+			Expect(kept).To(HaveLen(4))
 		},
 	)
 })

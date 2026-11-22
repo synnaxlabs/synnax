@@ -64,4 +64,18 @@ var _ = Describe("Retired channel check", func() {
 		Expect(left).To(HaveLen(1))
 		Expect(left[0].Key()).To(Equal(keys[1]))
 	})
+
+	It("Should keep an internal channel of a v0.62 Core that holds no retired name",
+		func(ctx SpecContext) {
+			n := testutil.NewNode(ctx)
+			keys := createNamedV062Store(
+				ctx,
+				n,
+				nil,
+				storedChannel{name: "sy_check_internal", internal: true},
+			)
+			MustOpen(svctestutil.OpenLayer(ctx, n))
+			Expect(retrieveChannel(ctx, n.DB, keys[0]).Name).
+				To(Equal("sy_check_internal"))
+		})
 })

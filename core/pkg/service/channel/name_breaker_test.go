@@ -157,7 +157,7 @@ var _ = Describe("Name breaker", Ordered, ContinueOnFailure, func() {
 		Expect(create(ctx, &ch)).To(Succeed())
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return bsvc.NewWriter(tx).
-				DeleteManyByNames(ctx, []string{"n\u0303_brk_delete"}, false)
+				DeleteManyByNames(ctx, []string{"n\u0303_brk_delete"})
 		})).To(Succeed())
 		Expect(bsvc.NewRetrieve().
 			Where(channel.MatchKeys(ch.Key())).

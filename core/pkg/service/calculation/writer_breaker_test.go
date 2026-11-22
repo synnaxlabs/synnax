@@ -146,7 +146,6 @@ var _ = Describe("Writer breaker", func() {
 				return channels.NewWriter(tx).DeleteManyByNames(
 					ctx,
 					[]string{"dep"},
-					false,
 				)
 			})).To(Succeed())
 			c := calculation.Calculation{
