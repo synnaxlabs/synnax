@@ -1,0 +1,268 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/ni_chassis/v0"
+import "schemas/synnax/versions/rack/v2"
+import "schemas/synnax/versions/status/v2"
+import "schemas/x/versions/spatial/v0"
+import "schemas/x/versions/telem/v0"
+
+Key = v0.Key
+
+CommandStatePair = v0.CommandStatePair
+
+AnalogInputPorts = v1.AnalogInputPorts
+
+AnalogOutputChannels = v1.AnalogOutputChannels
+
+CounterInputChannels = v1.CounterInputChannels
+
+DigitalInputChannels = v1.DigitalInputChannels
+
+DigitalOutputChannels = v1.DigitalOutputChannels
+
+StatusDetails struct {
+    rack   rack.Key {
+        @doc value "is the key of the rack the device belongs to."
+    }
+    device Key      {
+        @doc value "is the key of the device."
+    }
+
+    @doc value "identifies the device and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the operational status of a device."
+}
+
+TerminalConfig enum {
+    cfg_default = "Cfg_Default" {
+        @doc value "uses the default terminal configuration of the port."
+    }
+    rse         = "RSE" {
+        @doc value "is referenced single ended."
+    }
+    nrse        = "NRSE" {
+        @doc value "is non-referenced single ended."
+    }
+    diff        = "Diff" {
+        @doc value "is differential."
+    }
+    pseudo_diff = "PseudoDiff" {
+        @doc value "is pseudo-differential."
+    }
+
+    @doc value "selects the terminal configuration for an analog input channel."
+}
+
+AnalogInputPort struct {
+    port                    uint16           {
+        @doc value "is the number in the DAQmx name of the port, such as 3 for ai3."
+    }
+    terminal_configs        TerminalConfig[] = [] {
+        @doc value "are the terminal configurations that the port accepts."
+    }
+    default_terminal_config TerminalConfig = cfg_default {
+        @doc value """
+            is the terminal configuration that Cfg_Default gives on the port. The value
+            Cfg_Default means that the Driver did not read it. DAQmx always reads back a
+            real configuration.
+        """
+    }
+    types                   string[] = [] {
+        @doc value "are the channel types that the port accepts, such as ai_voltage."
+    }
+    negative                uint16 = 0 {
+        @doc value """
+            is the port that a differential channel on this port uses as its negative
+            input. 0 means that the port has no pair. Port 0 is never a negative port.
+        """
+    }
+
+    @doc value  "is an analog input port of an NI device."
+    @go marshal
+}
+
+AnalogOutputPort struct {
+    port             uint16           {
+        @doc value "is the number in the DAQmx name of the port, such as 1 for ao1."
+    }
+    terminal_configs TerminalConfig[] = [] {
+        @doc value "are the terminal configurations that the port accepts."
+    }
+    types            string[] = [] {
+        @doc value "are the channel types that the port accepts, such as ao_voltage."
+    }
+
+    @doc value  "is an analog output port of an NI device."
+    @go marshal
+}
+
+CounterPort struct {
+    port  uint16   {
+        @doc value "is the number in the DAQmx name of the counter, such as 0 for ctr0."
+    }
+    types string[] = [] {
+        @doc value """
+            are the channel types that the counter accepts, such as ci_frequency.
+        """
+    }
+
+    @doc value  "is a counter of an NI device."
+    @go marshal
+}
+
+DigitalPort struct {
+    port   uint16 {
+        @doc value "is the number in the DAQmx name of the port, such as 0 for port0."
+    }
+    lines  uint8  {
+        @doc value "is the number of lines in the port."
+    }
+    input  bool = false {
+        @doc value "is true when the port reads digital input."
+    }
+    output bool = false {
+        @doc value "is true when the port writes digital output."
+    }
+
+    @doc value  "is a digital port of an NI device."
+    @go marshal
+}
+
+Hardware struct {
+    analog_inputs              AnalogInputPort[] = [] {
+        @doc value "are the analog input ports of the device."
+    }
+    analog_outputs             AnalogOutputPort[] = [] {
+        @doc value "are the analog output ports of the device."
+    }
+    counter_inputs             CounterPort[] = [] {
+        @doc value "are the counters of the device that read input."
+    }
+    counter_outputs            CounterPort[] = [] {
+        @doc value "are the counters of the device that write output."
+    }
+    digital_ports              DigitalPort[] = [] {
+        @doc value "are the digital ports of the device."
+    }
+    terminals                  string[] = [] {
+        @doc value """
+            are the terminals of the device, such as PFI0, without the device name.
+        """
+    }
+    ai_min_rate                telem.Rate = 0 {
+        @doc value """
+            is the lowest analog input sample rate, in Hz. 0 means that the device does
+            not support the attribute.
+        """
+    }
+    ai_max_single_channel_rate telem.Rate = 0 {
+        @doc value """
+            is the highest analog input sample rate of one channel, in Hz. 0 means that
+            the device does not support the attribute.
+        """
+    }
+    ai_max_multi_channel_rate  telem.Rate = 0 {
+        @doc value """
+            is the highest analog input sample rate of the device, in Hz. A task with
+            several channels divides it by the channel count. 0 means that the device
+            does not support the attribute.
+        """
+    }
+    ao_max_rate                telem.Rate = 0 {
+        @doc value """
+            is the highest analog output sample rate, in Hz. 0 means that the device
+            does not support the attribute.
+        """
+    }
+    ai_voltage_ranges          spatial.Bounds[] = [] {
+        @doc value "are the analog input voltage ranges of the device, ends included."
+    }
+    ai_current_ranges          spatial.Bounds[] = [] {
+        @doc value "are the analog input current ranges of the device, ends included."
+    }
+    ao_voltage_ranges          spatial.Bounds[] = [] {
+        @doc value "are the analog output voltage ranges of the device, ends included."
+    }
+    ao_current_ranges          spatial.Bounds[] = [] {
+        @doc value "are the analog output current ranges of the device, ends included."
+    }
+
+    @doc value  """
+        is what the Driver reads from DAQmx about the ports, rates, and ranges of an NI
+        device.
+    """
+    @go marshal
+}
+
+Device struct {
+    key            Key = create {
+        @doc value "uniquely identifies the device."
+        @key
+    }
+    rack           rack.Key                           {
+        @doc value "is the key of the rack the device is connected to."
+    }
+    name           string                             {
+        @doc value "is a human-readable name for the device."
+    }
+    serial         string = "" {
+        @doc value "is the serial number of the device. Empty on simulated hardware."
+    }
+    resource_name  string                             {
+        @doc value """
+            is the NI-MAX resource name of the device, a GUID that survives renames.
+        """
+    }
+    model          string                             {
+        @doc value "is the product name of the device."
+    }
+    chassis        ni_chassis.Key?                    {
+        @doc value """
+            is the chassis that holds the device. Absent for a standalone device.
+        """
+    }
+    hardware       Hardware?                          {
+        @doc value """
+            is what the Driver read from DAQmx about the device. Absent until the Driver
+            reads it.
+        """
+    }
+    identifier     string = "" {
+        @doc value """
+            is the prefix of the device's channel names. The device is unconfigured
+            while it is empty.
+        """
+    }
+    analog_input   AnalogInputPorts = {} {
+        @doc value "are the channels of the analog input ports."
+    }
+    analog_output  map<uint16, AnalogOutputChannels> = {} {
+        @doc value "maps an analog output port number to its channels."
+    }
+    counter_input  map<uint16, CounterInputChannels> = {} {
+        @doc value "maps a counter number to its channels."
+    }
+    digital_input  map<uint16, DigitalInputChannels> = {} {
+        @doc value "maps a digital port number to its input channels."
+    }
+    digital_output map<uint16, DigitalOutputChannels> = {} {
+        @doc value "maps a digital port number to its output channels."
+    }
+    status         Status?                            {
+        @doc value  "is the current operational status of the device."
+        @go marshal omit
+    }
+
+    @doc value  "is an NI module in a chassis, or a standalone USB or PCIe device."
+    @go marshal
+    @go migrate
+}

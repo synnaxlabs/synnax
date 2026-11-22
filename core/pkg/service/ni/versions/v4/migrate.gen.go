@@ -15,7 +15,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	device "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
+	device "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 )

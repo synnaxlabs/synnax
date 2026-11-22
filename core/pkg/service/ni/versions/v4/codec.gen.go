@@ -13,7 +13,7 @@ package v4
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	device "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
+	device "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"

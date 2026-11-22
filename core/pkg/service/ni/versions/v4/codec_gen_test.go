@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	device "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
+	device "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/v4"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"

@@ -19,7 +19,7 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	legacydevice "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	nidevice "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
+	nidevice "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"

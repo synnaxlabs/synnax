@@ -12,7 +12,12 @@ package versions
 import (
 	"github.com/synnaxlabs/gorp"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v2"
 )
 
 // Migrations is the ordered migration chain for stored NI devices.
-var Migrations = []gorp.Migration{v1.Migration, v1.IdentifierMigration}
+var Migrations = []gorp.Migration{
+	v1.Migration,
+	v1.IdentifierMigration,
+	v2.Migration,
+}

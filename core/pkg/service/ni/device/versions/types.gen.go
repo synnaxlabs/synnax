@@ -11,66 +11,66 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v2"
 
 // Device is an NI module in a chassis, or a standalone USB or PCIe device.
-type Device = v1.Device
+type Device = v2.Device
 
 // Key uniquely identifies an NI device.
-type Key = v1.Key
+type Key = v2.Key
 
 // CommandStatePair is the pair of channels that writes to one port.
-type CommandStatePair = v1.CommandStatePair
+type CommandStatePair = v2.CommandStatePair
 
 // AnalogInputPorts holds the channels that a device reads analog input into.
-type AnalogInputPorts = v1.AnalogInputPorts
+type AnalogInputPorts = v2.AnalogInputPorts
 
 // AnalogOutputChannels holds the channels of one analog output port.
-type AnalogOutputChannels = v1.AnalogOutputChannels
+type AnalogOutputChannels = v2.AnalogOutputChannels
 
 // CounterInputChannels holds the channels of one counter input.
-type CounterInputChannels = v1.CounterInputChannels
+type CounterInputChannels = v2.CounterInputChannels
 
 // DigitalInputChannels holds the channels of one digital input port.
-type DigitalInputChannels = v1.DigitalInputChannels
+type DigitalInputChannels = v2.DigitalInputChannels
 
 // DigitalOutputChannels holds the channels of one digital output port.
-type DigitalOutputChannels = v1.DigitalOutputChannels
+type DigitalOutputChannels = v2.DigitalOutputChannels
 
 // StatusDetails identifies the device and rack that a status pertains to.
-type StatusDetails = v1.StatusDetails
+type StatusDetails = v2.StatusDetails
 
 // Status is the operational status of a device.
-type Status = v1.Status
+type Status = v2.Status
 
 // TerminalConfig selects the terminal configuration for an analog input channel.
-type TerminalConfig = v1.TerminalConfig
+type TerminalConfig = v2.TerminalConfig
 
 const (
 	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
-	TerminalConfigCfgDefault TerminalConfig = v1.TerminalConfigCfgDefault
+	TerminalConfigCfgDefault TerminalConfig = v2.TerminalConfigCfgDefault
 	// TerminalConfigRse is referenced single ended.
-	TerminalConfigRse TerminalConfig = v1.TerminalConfigRse
+	TerminalConfigRse TerminalConfig = v2.TerminalConfigRse
 	// TerminalConfigNrse is non-referenced single ended.
-	TerminalConfigNrse TerminalConfig = v1.TerminalConfigNrse
+	TerminalConfigNrse TerminalConfig = v2.TerminalConfigNrse
 	// TerminalConfigDiff is differential.
-	TerminalConfigDiff TerminalConfig = v1.TerminalConfigDiff
+	TerminalConfigDiff TerminalConfig = v2.TerminalConfigDiff
 	// TerminalConfigPseudoDiff is pseudo-differential.
-	TerminalConfigPseudoDiff TerminalConfig = v1.TerminalConfigPseudoDiff
+	TerminalConfigPseudoDiff TerminalConfig = v2.TerminalConfigPseudoDiff
 )
 
 // AnalogInputPort is an analog input port of an NI device.
-type AnalogInputPort = v1.AnalogInputPort
+type AnalogInputPort = v2.AnalogInputPort
 
 // AnalogOutputPort is an analog output port of an NI device.
-type AnalogOutputPort = v1.AnalogOutputPort
+type AnalogOutputPort = v2.AnalogOutputPort
 
 // CounterPort is a counter of an NI device.
-type CounterPort = v1.CounterPort
+type CounterPort = v2.CounterPort
 
 // DigitalPort is a digital port of an NI device.
-type DigitalPort = v1.DigitalPort
+type DigitalPort = v2.DigitalPort
 
 // Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
 // NI device.
-type Hardware = v1.Hardware
+type Hardware = v2.Hardware
