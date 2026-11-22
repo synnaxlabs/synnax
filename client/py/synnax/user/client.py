@@ -131,21 +131,6 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
-        username: str,
-        roles: role_.Key | list[role_.Key] = ...,
-        and_: list[WhereInput] = ...,
-        or_: list[WhereInput] = ...,
-        not_: WhereInput = ...,
-        where: Where | None = ...,
-        search_term: str = ...,
-        one: bool = ...,
-    ) -> User: ...
-
-    @overload
-    def retrieve(
-        self,
-        *,
-        key: filter.SetInput[Key] = ...,
         roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,

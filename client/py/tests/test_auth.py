@@ -425,7 +425,9 @@ class TestPasswords:
     def test_rename_own(
         self, login_info: tuple[str, int, str, str], empty_role: sy.Role
     ) -> None:
-        """Should let a user rename its own password and keep its session."""
+        """Should let a user rename its own password, keep its session, and log in
+        again with the new username.
+        """
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         old_username = str(uuid4())
@@ -436,6 +438,14 @@ class TestPasswords:
         assert client.auth.retrieve_passwords() == [
             Password(subject=user.resource_id, username=new_username)
         ]
+        session = client.auth.session
+        assert session is not None
+        client.auth.delete_sessions(session.key)
+        assert client.auth.retrieve_passwords() == [
+            Password(subject=user.resource_id, username=new_username)
+        ]
+        assert client.auth.session is not None
+        assert client.auth.session.key != session.key
         client.close()
         admin.close()
 

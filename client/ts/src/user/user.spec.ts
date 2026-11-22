@@ -184,6 +184,7 @@ describe("User", () => {
       const local = createTestClient();
       await local.connect();
       await waitForStreamLive(local.connection);
+      await local.users.retrieve(u.key);
       const cachedName = () => {
         const cached = local.users.watch(u.key).getCached();
         return query.isLive(cached) ? cached.name : undefined;
