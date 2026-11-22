@@ -61,7 +61,7 @@ var _ = Describe("Service", func() {
 			To(Succeed())
 	})
 
-	create := func(ctx context.Context, serial uint32) slave.Slave {
+	create := func(ctx context.Context, serial uint64) slave.Slave {
 		GinkgoHelper()
 		s := slave.Slave{
 			Key:         uuid.New(),

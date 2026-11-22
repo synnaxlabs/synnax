@@ -122,8 +122,6 @@ struct Where {
     ::x::filter::Field<::x::filter::Set<Key>> key;
     /// @brief name selects by name.
     ::x::filter::Field<::x::filter::String> name;
-    /// @brief serial selects by serial.
-    ::x::filter::Field<::x::filter::Ordered<std::uint64_t>> serial;
     /// @brief vendor_id selects by vendor_id.
     ::x::filter::Field<::x::filter::Ordered<std::uint32_t>> vendor_id;
     /// @brief product_code selects by product_code.

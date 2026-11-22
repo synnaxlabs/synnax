@@ -36,7 +36,7 @@ var _ = Describe("Service", func() {
 	var (
 		u      user.User
 		m      master.Master
-		serial uint32
+		serial uint64
 	)
 	BeforeEach(func(ctx SpecContext) {
 		u = createUser(ctx)
@@ -134,7 +134,7 @@ var _ = Describe("Service", func() {
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 
-		It("Should filter by serial and attach the status", func(ctx SpecContext) {
+		It("Should filter by key and attach the status", func(ctx SpecContext) {
 			s := createSlave(ctx)
 			createSlave(ctx)
 			st := slave.Status{
@@ -153,7 +153,7 @@ var _ = Describe("Service", func() {
 				testutil.AuthedCtx(ctx, u),
 				apislave.RetrieveRequest{
 					Where: &slave.Where{
-						Serial: &filter.Ordered[uint32]{Eq: &s.Serial},
+						Key: &filter.Set[slave.Key]{Eq: &s.Key},
 					},
 					IncludeStatus: true,
 				},
@@ -166,11 +166,11 @@ var _ = Describe("Service", func() {
 		It("Should leave out the slaves the subject cannot retrieve", func(
 			ctx SpecContext,
 		) {
-			serial := createSlave(ctx).Serial
+			createSlave(ctx)
 			res := MustSucceed(retrieve(
 				testutil.AuthedCtx(ctx, u),
 				apislave.RetrieveRequest{
-					Where: &slave.Where{Serial: &filter.Ordered[uint32]{Eq: &serial}},
+					Where: &slave.Where{Master: &filter.Set[master.Key]{Eq: &m.Key}},
 				},
 			))
 			Expect(res.Slaves).To(BeEmpty())

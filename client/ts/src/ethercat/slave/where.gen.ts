@@ -26,8 +26,6 @@ export const matches = (record: Slave, where?: Where): boolean => {
   if (where.key != null && !filter.matchesSet(where.key, record.key)) return false;
   if (where.name != null && !filter.matchesString(where.name, record.name))
     return false;
-  if (where.serial != null && !filter.matchesOrdered(where.serial, record.serial))
-    return false;
   if (where.vendorId != null && !filter.matchesOrdered(where.vendorId, record.vendorId))
     return false;
   if (
@@ -57,8 +55,6 @@ const inputs = {
   key: filter.setInputZ(keyZ).exactOptional(),
   /** name selects by name. */
   name: filter.stringInputZ.exactOptional(),
-  /** serial selects by serial. */
-  serial: filter.orderedInputZ(z.uint64()).exactOptional(),
   /** vendorId selects by vendor_id. */
   vendorId: filter.orderedInputZ(z.uint32()).exactOptional(),
   /** productCode selects by product_code. */
@@ -110,7 +106,6 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "not",
         "key",
         "name",
-        "serial",
         "vendorId",
         "productCode",
         "master",
