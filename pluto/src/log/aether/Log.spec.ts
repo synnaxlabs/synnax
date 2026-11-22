@@ -60,7 +60,7 @@ const baseInput = (
   scrolling: false,
   empty: true,
   visible: true,
-  telem: logTest.mockLogSourceSpec(testId),
+  telem: logTest.mockSourceSpec(testId),
   ...overrides,
 });
 
@@ -74,8 +74,8 @@ const setup = (
   theme: theme.Theme = THEME,
 ) => {
   const testId = `log-test-${++testIdCounter}`;
-  const source = new logTest.MockLogSource();
-  logTest.registerMockLogSource(testId, source);
+  const source = new logTest.MockSource();
+  logTest.registerMockSource(testId, source);
   const recorder = canvasTest.record();
   const input = baseInput(testId, region, stateOverrides);
   const h = renderAether(log.Log, {
@@ -959,9 +959,9 @@ describe("log/aether/Log", () => {
       updateState({ empty: false, wheelPos: 0 });
       updateState({ empty: false, wheelPos: 0, scrolling: true });
       const testId = `log-test-${++testIdCounter}`;
-      const source = new logTest.MockLogSource();
+      const source = new logTest.MockSource();
       source.push(makeEntry(0), makeEntry(1));
-      logTest.registerMockLogSource(testId, source);
+      logTest.registerMockSource(testId, source);
       h.setState(() =>
         log.logStateZ.parse(
           baseInput(testId, REGION_500, { empty: false, wheelPos: 0, scrolling: true }),
