@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/select/Body.css";
+
 import type { record } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 import type { z } from "zod";
@@ -85,19 +87,13 @@ export const BorderedList = ({ footer, children }: BorderedListProps): ReactElem
       y
       empty
       grow
-      className={hasFooter ? CSS.BE("select", "body") : undefined}
+      className={CSS.BE("select", hasFooter ? "body" : "frame")}
       bordered={hasFooter}
       borderColor={6}
-      rounded={hasFooter}
+      rounded
       full="x"
     >
-      <SelectList
-        bordered={!hasFooter}
-        borderColor={6}
-        grow
-        rounded={!hasFooter}
-        full="x"
-      >
+      <SelectList bordered={!hasFooter} borderColor={6} grow full="x">
         {children}
       </SelectList>
       {footer}
