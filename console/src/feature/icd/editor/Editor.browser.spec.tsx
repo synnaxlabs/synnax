@@ -17,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { ICD } from "@/feature/icd";
 import { client, createICD, ENGINE_CSV } from "@/feature/icd/testutil";
@@ -31,6 +31,8 @@ import {
 } from "@/testutil";
 
 const { Content } = ICD.TABS[icd.TYPE_RESOURCE_ID.type];
+
+beforeAll(Content.preload);
 
 const renderEditor = async (
   ic: icd.ICD,

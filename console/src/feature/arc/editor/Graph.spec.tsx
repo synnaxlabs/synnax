@@ -14,7 +14,7 @@ import { canvas } from "@synnaxlabs/pluto/ether";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { screen } from "@testing-library/react";
 import { Suspense } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Editor } from "@/feature/arc/editor";
 import { createResourceTab } from "@/platform/panel/testutil";
@@ -29,6 +29,8 @@ import {
 const client = createTestClient();
 
 const { Content } = Editor.TABS[arc.TYPE_RESOURCE_ID.type];
+
+beforeAll(Content.preload);
 
 describe("Arc editor graph", () => {
   describe("when the canvas has no GPU", () => {

@@ -11,10 +11,10 @@ import { arc } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Editor } from "@/feature/arc/editor";
 import { createResourceTab } from "@/platform/panel/testutil";
@@ -30,7 +30,8 @@ import {
 const client = createTestClient();
 
 const { Toolbar } = Editor.TABS[arc.TYPE_RESOURCE_ID.type];
-assertDefined(Toolbar);
+
+beforeAll(Toolbar.preload);
 
 const createGraphArc = async (graph: Partial<arc.graph.Graph> = {}) =>
   await client.arcs.create({
