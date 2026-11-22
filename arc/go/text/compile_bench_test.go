@@ -33,10 +33,12 @@ type benchResolver map[string]symbol.Symbol
 var errBenchNotFound = errors.Wrap(query.ErrNotFound, "channel")
 
 func (r benchResolver) Resolve(_ context.Context, name string) (*symbol.Symbol, error) {
-	if sym, ok := r[name]; ok {
-		return &sym, nil
+	// The copy escapes, so it is made only once the name is known to be there.
+	if _, ok := r[name]; !ok {
+		return nil, errBenchNotFound
 	}
-	return nil, errBenchNotFound
+	sym := r[name]
+	return &sym, nil
 }
 
 func (r benchResolver) ResolveKey(context.Context, uint32) (*symbol.Symbol, error) {
