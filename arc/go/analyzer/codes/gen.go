@@ -51,6 +51,7 @@ var (
 		channel("count", types.I64(), 3),
 		channel("label", types.String(), 4),
 		channel("sensor_avg", types.F64(), 5),
+		channel("math.inf", types.F64(), 6),
 	}
 	// modules are the modules that an example can import.
 	modules = map[string]string{"valves": "func open() i64 {\n    return 1\n}\n"}

@@ -33,6 +33,10 @@ func (failingResolver) Resolve(context.Context, string) (*symbol.Symbol, error) 
 	return nil, context.Canceled
 }
 
+func (failingResolver) ResolveKey(context.Context, uint32) (*symbol.Symbol, error) {
+	return nil, context.Canceled
+}
+
 func (failingResolver) Search(context.Context, string) ([]*symbol.Symbol, error) {
 	return nil, context.Canceled
 }
@@ -517,6 +521,13 @@ func (r *disappearingResolver) Resolve(
 		Type: types.Chan(types.I64()),
 		ID:   10,
 	}, nil
+}
+
+func (r *disappearingResolver) ResolveKey(
+	context.Context,
+	uint32,
+) (*symbol.Symbol, error) {
+	return nil, query.ErrNotFound
 }
 
 func (r *disappearingResolver) Search(

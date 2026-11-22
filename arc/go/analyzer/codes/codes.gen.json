@@ -227,6 +227,12 @@
     "problem": "An exported declaration has no name.",
     "example": "export sequence {\n    stage s {\n    }\n}"
   },
+  "E4010": {
+    "severity": "error",
+    "message": "module member and channel share a name",
+    "problem": "A dotted name is both a member of an imported module and the path of a channel.",
+    "example": "import math\n\nmath.inf -> sensor_avg"
+  },
   "E5000": {
     "severity": "error",
     "message": "misplaced authority declaration",

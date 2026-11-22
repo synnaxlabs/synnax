@@ -477,6 +477,18 @@ func f() {
     }
 }`,
 	}
+	// PathClash is a dotted name that is both a member of an imported module and the
+	// path of a channel.
+	PathClash = diagnostics.Kind{
+		Code:     "E4010",
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  "module member and channel share a name",
+		Problem: "A dotted name is both a member of an imported module and the path " +
+			"of a channel.",
+		Example: `import math
+
+math.inf -> sensor_avg`,
+	}
 	// UnusedImport is an imported module that nothing references.
 	UnusedImport = diagnostics.Kind{
 		Code:     "W4000",
@@ -742,6 +754,7 @@ var All = []diagnostics.Kind{
 	ModuleFlow,
 	ExportOutsideModule,
 	UnnamedExport,
+	PathClash,
 	UnusedImport,
 	DeprecatedSymbol,
 	AuthorityPlacement,

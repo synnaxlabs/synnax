@@ -57,7 +57,7 @@ type Loader struct {
 	cycle []string
 }
 
-var _ symbol.Resolver = (*Loader)(nil)
+var _ symbol.ModuleResolver = (*Loader)(nil)
 
 // NewLoader returns a Loader that reads modules through cfg.
 func NewLoader(cfg LoaderConfig) *Loader {

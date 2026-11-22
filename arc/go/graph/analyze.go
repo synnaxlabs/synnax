@@ -11,7 +11,6 @@ package graph
 
 import (
 	"context"
-	"strconv"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -182,7 +181,7 @@ func Analyze(
 				if err = zyn.Uint32().Coerce().Parse(paramValue, &k); err != nil {
 					return ir.IR{}, aCtx.Diagnostics
 				}
-				channelSym, err := aCtx.Scope.Resolve(aCtx, strconv.Itoa(int(k)))
+				channelSym, err := aCtx.Scope.ResolveChannelKey(aCtx, k)
 				if err == nil && channelSym.Type.Kind == types.KindChan {
 					if err := param.Type.ChanDirection.CheckCompatibility(
 						channelSym.Type.ChanDirection,

@@ -18,7 +18,9 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -129,6 +131,11 @@ func analyzeChannelEntry(
 	}
 	sym, err := ctx.ResolveName(n)
 	if err != nil {
+		_, undefined := errors.AsType[*symbol.UndefinedSymbolError](err)
+		if !undefined {
+			ctx.Diagnostics.Add(diagnostics.Error(err, entry))
+			return
+		}
 		ctx.Diagnostics.Add(codes.SymbolUndefined.Atf(
 			entry,
 			"channel '%s' not found",
