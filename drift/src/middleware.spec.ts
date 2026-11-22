@@ -11,6 +11,7 @@ import type { Middleware, Reducer, UnknownAction } from "@reduxjs/toolkit";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createWindow,
   MAIN_WINDOW,
   reducer,
   setWindowTitle,
@@ -128,6 +129,18 @@ describe("middleware", () => {
       const store = await configureMockStore();
       store.dispatch(setWindowTitle({ title: "a" }));
       expect(store.getState().drift.windows[MAIN_WINDOW].title).toEqual("a");
+    });
+
+    it("should keep the label of a drift action another window emitted", async () => {
+      const runtime = main();
+      const store = await configureMockStore(runtime);
+      store.dispatch(createWindow({ key: "other", label: "other" }));
+      runtime.subscribeCallback({
+        action: { type: setWindowTitle.type, payload: { title: "a", label: "other" } },
+        emitter: "b",
+      });
+      expect(store.getState().drift.windows.other.title).toEqual("a");
+      expect(store.getState().drift.windows[MAIN_WINDOW].title).toBeUndefined();
     });
   });
 
