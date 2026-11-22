@@ -53,11 +53,15 @@ interface RetrieveRequest {
  * Creates a secret client on a fake transport and a pushed change stream. Each secret
  * that the transport returns has the uses of `core.usesOf`. A retrieve that asks for
  * uses waits in `core.held` while `core.holding` is set.
+ * With `closed`, the stream opens only once `open` is called.
  * @returns the client, the fake Core, the keys of each retrieve that asks for uses, and
- * functions that push a frame, send one change on the channel of uses, and drop the
- * stream and wait for the reconnect.
+ * functions that push a frame, send one change on the channel of uses, drop the stream
+ * and wait for the reconnect, and open a closed stream.
  */
-const createFakeSecrets = async ({ recordCap }: { recordCap?: number } = {}) => {
+const createFakeSecrets = async ({
+  recordCap,
+  closed = false,
+}: { recordCap?: number; closed?: boolean } = {}) => {
   const usesRequests: secret.Key[][] = [];
   const core = { usesOf, holding: false, held: [] as Array<() => void> };
   const send = async (
@@ -85,8 +89,13 @@ const createFakeSecrets = async ({ recordCap }: { recordCap?: number } = {}) => 
   };
   const unary = { use: () => {}, send } as unknown as UnaryClient;
   const streams = { current: new PushStreamer() };
+  const gate = Promise.withResolvers<void>();
+  if (!closed) gate.resolve();
   const cache = new query.Cache({
-    openStreamer: async () => streams.current,
+    openStreamer: async () => {
+      await gate.promise;
+      return streams.current;
+    },
     breaker: { baseInterval: TimeSpan.milliseconds(1) },
     onError: () => {},
     recordCap,
@@ -94,7 +103,11 @@ const createFakeSecrets = async ({ recordCap }: { recordCap?: number } = {}) => 
   });
   onTestFinished(async () => await cache.close());
   const secrets = new secret.Client({ unary, cache, usesChannels: [USES_CHANNEL] });
-  await cache.ensureStreaming();
+  if (!closed) await cache.ensureStreaming();
+  const open = async (): Promise<void> => {
+    gate.resolve();
+    await cache.ensureStreaming();
+  };
   const push = (frame: framer.Frame): void => streams.current.push(frame);
   const change = (): void =>
     push(new framer.Frame({ [USES_CHANNEL]: new Series(["changed"]) }));
@@ -105,7 +118,7 @@ const createFakeSecrets = async ({ recordCap }: { recordCap?: number } = {}) => 
     dropped.drop();
     await expect.poll(() => cache.epoch).toBe(epoch + 1);
   };
-  return { secrets, core, usesRequests, push, change, reconnect };
+  return { secrets, core, usesRequests, push, change, reconnect, open };
 };
 
 type Fake = Awaited<ReturnType<typeof createFakeSecrets>>;
@@ -448,14 +461,17 @@ describe("Secret", () => {
     });
 
     it("should page a list that reads uses with a cursor", async () => {
-      const client = createTestClient();
       const prefix = id.create();
+      const writer = createTestClient();
       for (const i of [0, 1])
-        await client.secrets.set({
+        await writer.secrets.set({
           name: `${prefix}-${i}`,
           source: "stored",
           value: "abc",
         });
+      // A stream that opens after the writes delivers no late change to the list.
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
       const send = spyOnSend(client);
       const list = client.secrets.watch({
         name: { startsWith: prefix },
@@ -1145,6 +1161,19 @@ describe("Secret", () => {
       off();
       await vi.advanceTimersByTimeAsync(PAST_GRACE);
       await drop(fake);
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(fake.secrets.watch(q).getCached()).toBeUndefined();
+    });
+
+    it("should not serve a closed query whose uses the first open dropped", async () => {
+      useFakeTimers();
+      const fake = await createFakeSecrets({ closed: true });
+      const q = { key: uuid.create(), includeUses: true };
+      const off = fake.secrets.watch(q).onChange(() => {});
+      await fake.secrets.retrieve(q);
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      await fake.open();
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(fake.secrets.watch(q).getCached()).toBeUndefined();
     });
