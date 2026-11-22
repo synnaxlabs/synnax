@@ -365,7 +365,9 @@ func covers(
 		return true
 	}
 	for _, p := range policies {
-		if action == access.ActionRetrieve && obj == p.ResourceID() {
+		// The type comes first, so a check of any other object builds no policy ID.
+		if action == access.ActionRetrieve && obj.Type == resource.TypePolicy &&
+			obj == p.ResourceID() {
 			return true
 		}
 		if !lo.Contains(p.Actions, action) {
