@@ -379,7 +379,7 @@ describe("Device", async () => {
       expect(stored.properties).toEqual(properties);
     });
 
-    it("should move a device to another rack and out of its group", async () => {
+    it("should move a device under a parent on another rack and out of its group", async () => {
       const other = await client.racks.create({ name: "other" });
       const g = await client.groups.create({
         name: `group-${id.create()}`,
@@ -394,14 +394,28 @@ describe("Device", async () => {
         model: "dog",
         properties: {},
       });
+      const parent = await client.devices.create({
+        rack: other.key,
+        location: "Dev0",
+        key: id.create(),
+        name: "device-dispatch-parent",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
       await client.batch.send(client.devices.setGroupRequest(d.key, g.key));
       expect((await client.devices.retrieve(d.key)).group).toEqual(g.key);
-      await client.devices.dispatch(d.key, device.setRack({ rack: other.key }));
+      await client.devices.dispatch(
+        d.key,
+        device.setRack({ rack: other.key, parent: parent.key }),
+      );
       const cached = expectLive(client.devices.watch(d.key).getCached());
       expect(cached.rack).toEqual(other.key);
+      expect(cached.parent).toEqual(parent.key);
       expect(cached.group).toBeUndefined();
       const stored = await createTestClient().devices.retrieve(d.key);
       expect(stored.rack).toEqual(other.key);
+      expect(stored.parent).toEqual(parent.key);
       expect(stored.group).toBeUndefined();
     });
   });
