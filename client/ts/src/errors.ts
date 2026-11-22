@@ -166,6 +166,8 @@ const decode = (payload: errors.Payload): Error | null => {
       return new InvalidCredentialsError(payload.data);
     if (payload.type.startsWith(MissingCredentialsError.TYPE))
       return new MissingCredentialsError(payload.data);
+    if (payload.type.startsWith(APIKeyUnavailableError.TYPE))
+      return new APIKeyUnavailableError(payload.data);
     if (payload.type.startsWith(InvalidTokenError.TYPE))
       return new InvalidTokenError(payload.data);
     if (payload.type.startsWith(ExpiredTokenError.TYPE))
