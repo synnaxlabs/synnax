@@ -22,8 +22,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// BenchmarkDeleteGroups measures a group delete through group.Writer.Delete ("today")
-// and through Apply ("impact"). Each run rolls back, so the group stays.
+// BenchmarkDeleteGroups measures a group delete through group.Writer.Delete ("today"),
+// through Apply ("impact"), and through an ungroup ("ungroup"). Each run rolls back, so
+// the group stays.
 func BenchmarkDeleteGroups(b *testing.B) {
 	gomega.RegisterTestingT(b)
 	ctx := b.Context()
@@ -66,6 +67,17 @@ func BenchmarkDeleteGroups(b *testing.B) {
 				ctx,
 				tx,
 				impact.Change{Variant: impact.DeleteGroupsChange{Keys: keys}},
+				impact.ApplyOptions{},
+			)
+			return err
+		})
+	})
+	b.Run("ungroup", func(b *testing.B) {
+		run(b, func(tx gorp.Tx) error {
+			_, err := layer.Impact.Apply(
+				ctx,
+				tx,
+				impact.Change{Variant: impact.UngroupGroupsChange{Keys: keys}},
 				impact.ApplyOptions{},
 			)
 			return err
