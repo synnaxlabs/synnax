@@ -13,7 +13,7 @@
       "project": ["src/**/*.ts!"]
     },
     "client/ts": {
-      "entry": ["src/index.ts!", "src/testutil/index.ts"],
+      "entry": ["src/index.ts!", "src/testutil/index.ts", "smoke/browser.mjs"],
       "project": ["src/**/*.ts!"],
       "ignoreIssues": { "src/**/where.gen.ts": ["exports"] },
       "ignoreBinaries": ["openssl"]
