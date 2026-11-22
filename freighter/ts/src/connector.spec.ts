@@ -12,15 +12,31 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import {
   createServer as createHTTPServer,
   type IncomingMessage,
+  type RequestListener,
   type Server as HTTPServer,
 } from "node:http";
 import { createServer, type Server } from "node:https";
-import { type AddressInfo, createServer as createTCPServer } from "node:net";
+import {
+  type AddressInfo,
+  connect,
+  createServer as createTCPServer,
+  type Server as TCPServer,
+  type Socket,
+} from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { binary, sleep, TimeSpan, url } from "@synnaxlabs/x";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { WebSocketServer } from "ws";
 import { z } from "zod";
 
@@ -299,4 +315,126 @@ describe("default connector", () => {
     await send();
     expect(connections).toBe(2);
   }, 10_000);
+});
+
+const echo: RequestListener = (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  req.pipe(res);
+};
+
+const serveStreams = (server: HTTPServer | Server): WebSocketServer => {
+  const wss = new WebSocketServer({ server });
+  wss.on("connection", (ws) => {
+    ws.send(Buffer.from(JSON.stringify({ type: "open" })));
+    ws.send(Buffer.from(JSON.stringify({ type: "data", payload: { message: "hi" } })));
+  });
+  return wss;
+};
+
+const listen = async (server: HTTPServer | Server | TCPServer): Promise<number> => {
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (address == null || typeof address === "string")
+    throw new Error("server has no port");
+  return address.port;
+};
+
+describe("proxies", () => {
+  let dir: string;
+  let ca: string;
+  let plain: HTTPServer;
+  let tls: Server;
+  let proxy: HTTPServer;
+  let plainEndpoint: url.URL;
+  let tlsEndpoint: url.URL;
+  let tunnels: string[];
+  // Servers do not close upgraded or tunneled sockets.
+  const sockets: Socket[] = [];
+
+  beforeAll(async () => {
+    dir = mkdtempSync(join(tmpdir(), "freighter-proxy-"));
+    createCertificates(dir);
+    ca = readFileSync(join(dir, "ca.crt"), "utf8");
+    plain = createHTTPServer(echo);
+    serveStreams(plain);
+    tls = createServer(
+      {
+        key: readFileSync(join(dir, "server.key")),
+        cert: readFileSync(join(dir, "server.crt")),
+      },
+      echo,
+    );
+    serveStreams(tls);
+    proxy = createHTTPServer((_, res) => res.writeHead(502).end());
+    proxy.on("connect", (req: IncomingMessage, socket, head) => {
+      const target = new URL(`http://${req.url}`);
+      tunnels.push(target.port);
+      const upstream = connect(Number(target.port), target.hostname, () => {
+        socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+        upstream.write(head);
+        upstream.pipe(socket);
+        socket.pipe(upstream);
+      });
+      sockets.push(upstream);
+      upstream.on("error", () => socket.destroy());
+      socket.on("error", () => upstream.destroy());
+    });
+    for (const server of [plain, tls, proxy])
+      server.on("connection", (socket: Socket) => sockets.push(socket));
+    plainEndpoint = new url.URL({ host: "127.0.0.1", port: await listen(plain) });
+    tlsEndpoint = new url.URL({ host: "127.0.0.1", port: await listen(tls) });
+    const proxyURL = `http://127.0.0.1:${await listen(proxy)}`;
+    vi.stubEnv("HTTP_PROXY", proxyURL);
+    vi.stubEnv("HTTPS_PROXY", proxyURL);
+  });
+
+  afterAll(async () => {
+    vi.unstubAllEnvs();
+    sockets.forEach((socket) => socket.destroy());
+    await Promise.all(
+      [plain, tls, proxy].map(
+        async (server) => await new Promise((resolve) => server.close(resolve)),
+      ),
+    );
+    rmSync(dir, { recursive: true });
+  });
+
+  beforeEach(() => {
+    tunnels = [];
+    vi.stubEnv("NO_PROXY", "");
+  });
+
+  const sendAndStream = async (secure: boolean, caCert?: string): Promise<void> => {
+    const endpoint = secure ? tlsEndpoint : plainEndpoint;
+    const connector = caCert == null ? undefined : trustCA(caCert);
+    const config = { endpoint, codec: binary.JSON_CODEC, secure, connector };
+    const res = await new HTTPClient(config).send(
+      "/",
+      { message: "hi" },
+      messageZ,
+      messageZ,
+    );
+    expect(res).toEqual({ message: "hi" });
+    const stream = await new WebSocketClient(config).stream("/", messageZ, messageZ);
+    expect(await stream.receive()).toEqual({ message: "hi" });
+    stream.closeSend();
+  };
+
+  it("should send requests and streams through the proxy", async () => {
+    await sendAndStream(false);
+    const port = plainEndpoint.port.toString();
+    expect(tunnels).toEqual([port, port]);
+  });
+
+  it("should send requests and streams through the proxy with a CA", async () => {
+    await sendAndStream(true, ca);
+    const port = tlsEndpoint.port.toString();
+    expect(tunnels).toEqual([port, port]);
+  });
+
+  it("should connect directly to a host in NO_PROXY", async () => {
+    vi.stubEnv("NO_PROXY", "127.0.0.1");
+    await sendAndStream(true, ca);
+    expect(tunnels).toEqual([]);
+  });
 });

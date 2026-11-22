@@ -19,7 +19,7 @@ import type { z } from "zod";
 
 import {
   type Connector,
-  DEFAULT_CONNECTOR,
+  defaultConnector,
   type FetchInit,
   type FetchResponse,
 } from "@/connector";
@@ -176,7 +176,7 @@ export interface HTTPClientConfig {
    * sets no limit. File transfers have no limit, since their bodies can take longer.
    */
   timeout?: CrudeTimeSpan;
-  /** Sends the requests. Defaults to the global fetch. */
+  /** Sends the requests. Defaults to {@link defaultConnector}. */
   connector?: Connector;
 }
 
@@ -195,7 +195,7 @@ export class HTTPClient
     codec,
     secure = false,
     timeout = DEFAULT_TIMEOUT,
-    connector = DEFAULT_CONNECTOR,
+    connector = defaultConnector(),
   }: HTTPClientConfig) {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });

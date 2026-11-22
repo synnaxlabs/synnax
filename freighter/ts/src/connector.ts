@@ -84,11 +84,9 @@ export const subprotocols = (authorization?: string): string[] => {
   return [SUBPROTOCOL, `${TOKEN_SUBPROTOCOL_PREFIX}${token}`];
 };
 
-/**
- * Opens connections with the runtime's global fetch and WebSocket. A DOM WebSocket
- * cannot send headers, so it sends only the Authorization header, as a subprotocol.
- */
-export const DEFAULT_CONNECTOR: Connector = {
+// A DOM WebSocket cannot send headers, so it sends only the Authorization header, as a
+// subprotocol.
+const GLOBAL_CONNECTOR: Connector = {
   fetch: async (target, init) => await fetch(target, init),
   // An Electron renderer or jsdom page sets process.versions.node but has a DOM
   // WebSocket.
@@ -115,13 +113,15 @@ const withDefaultCAs = async (ca: string): Promise<string[]> => {
     : [...rootCertificates, extraCAs, ca];
 };
 
-const loadUndici = async (ca: string) => {
-  const { Agent, fetch, WebSocket } = await import("undici");
-  const connect = { ca: await withDefaultCAs(ca) };
-  return { fetch, WebSocket, dispatcher: new Agent({ connect }) };
+const loadUndici = async (ca?: string) => {
+  const { EnvHttpProxyAgent, fetch, WebSocket } = await import("undici");
+  // The agent uses connect for a direct connection and requestTls through a proxy.
+  const tls = ca == null ? undefined : { ca: await withDefaultCAs(ca) };
+  const dispatcher = new EnvHttpProxyAgent({ connect: tls, requestTls: tls });
+  return { fetch, WebSocket, dispatcher };
 };
 
-const nodeConnector = (ca: string): Connector => {
+const nodeConnector = (ca?: string): Connector => {
   // Node's built-in fetch and WebSocket reject an Agent from the undici package, so
   // the connections use the package's own fetch and WebSocket. The import waits for
   // the first connection, so a client that never connects never loads undici.
@@ -182,9 +182,28 @@ const denoConnector = (deno: object, ca: string): Connector => {
   };
 };
 
+const PROXY_VARIABLES = ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"];
+
+// Bun and Deno read the proxy variables themselves. Node's global fetch does not.
+const usesNodeProxy = (): boolean =>
+  runtime.RUNTIME === "node" &&
+  typeof document === "undefined" &&
+  !("Bun" in globalThis) &&
+  !("Deno" in globalThis) &&
+  PROXY_VARIABLES.some((name) => (process.env[name] ?? "") !== "");
+
+/**
+ * Returns the connector a client uses when it is given none: the runtime's global
+ * fetch and WebSocket. In Node, when HTTP_PROXY or HTTPS_PROXY is set, the connector
+ * sends connections through that proxy, except to the hosts in NO_PROXY.
+ */
+export const defaultConnector = (): Connector =>
+  usesNodeProxy() ? nodeConnector() : GLOBAL_CONNECTOR;
+
 /**
  * Returns a connector that trusts the CA certificate and the runtime's default
- * certificates. In Deno, the connector's dial throws, because a Deno WebSocket cannot
+ * certificates. In Node, the connector uses the proxy that HTTP_PROXY, HTTPS_PROXY, and
+ * NO_PROXY name. In Deno, the connector's dial throws, because a Deno WebSocket cannot
  * trust a CA certificate of its own.
  * @param caCert - The PEM text of the CA certificate.
  * @throws {Error} in a browser, which trusts only the operating system or browser
