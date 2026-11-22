@@ -610,16 +610,10 @@ def posted(f: Finding) -> dict[str, Any]:
     return th
 
 
-def summary_edit(
-    commit: str, login: str = "sedosaur", at: str = "2026-11-08T05:00:00Z"
-) -> dict[str, Any]:
+def summary_edit(commit: str, login: str = "sedosaur") -> dict[str, Any]:
     block = f"[c](https://github.com/{REPO}/commit/{commit})"
     body = f"Fixes A.\n<!-- sedosaur_comment -->\n{block}\n<!-- /sedosaur_comment -->"
-    return {
-        "editor": {"__typename": "Bot", "login": login},
-        "diff": body,
-        "editedAt": at,
-    }
+    return {"editor": {"__typename": "Bot", "login": login}, "diff": body}
 
 
 class TestReviewed:
@@ -635,35 +629,31 @@ class TestReviewed:
         assert reviewed(TARGET, gh) == []
 
 
-def conversation(id: int, body: str, at: str, login: str = "member") -> dict[str, Any]:
+def conversation(id: int, body: str, login: str, kind: str = "User") -> dict[str, Any]:
     """A comment on the pull request in the shape that `comments` serves."""
-    who = {"__typename": "User", "login": login}
-    return {"id": id, "login": login, "author": who, "body": body, "created_at": at}
+    return {
+        "id": id,
+        "login": login if kind == "User" else f"{login}[bot]",
+        "author": {"__typename": kind, "login": login},
+        "body": body,
+    }
 
 
 class TestReplies:
-    """Tests reading the comments to the bot since its last review."""
+    """Tests reading the comments on the pull request that mention the bot."""
 
-    LAST = "2026-11-08T05:00:00Z"
-    AFTER = "2026-11-08T06:00:00Z"
-
-    def test_should_keep_a_member_mention_after_the_last_review(
-        self, gh: FakeGH
-    ) -> None:
-        gh.edits = [summary_edit("b" * 40, at=self.LAST), summary_edit("a" * 40)]
-        kept = conversation(1, "@sedosaur `b.go:3` checks it.", self.AFTER)
+    def test_should_keep_those_of_members_and_agents(self, gh: FakeGH) -> None:
+        member = conversation(1, "@sedosaur `b.go:3` checks it.", "member")
+        agent = conversation(2, "@Sedosaur `b.go:3` checks it.", "synnax-codex", "Bot")
         gh.comments = [
-            conversation(2, "@sedosaur It is meant.", "2026-11-08T04:00:00Z"),
-            kept,
-            conversation(3, "@Sedosaur it is fine.", self.AFTER, login="reader"),
-            conversation(4, "Looks good to me.", self.AFTER),
-            conversation(5, "> @sedosaur review\n\nThanks.", self.AFTER),
+            member,
+            conversation(3, "@sedosaur it is fine.", "reader"),
+            conversation(4, "@sedosaur it is fine.", "dependabot", "Bot"),
+            conversation(5, "Looks good to me.", "member"),
+            conversation(6, "> @sedosaur review\n\nThanks.", "member"),
+            agent,
         ]
-        assert replies(TARGET, gh, authority(TARGET, gh)) == [kept]
-
-    def test_should_keep_none_before_the_first_review(self, gh: FakeGH) -> None:
-        gh.comments = [conversation(1, "@sedosaur It is meant.", self.AFTER)]
-        assert replies(TARGET, gh, authority(TARGET, gh)) == []
+        assert replies(TARGET, gh, authority(TARGET, gh)) == [member, agent]
 
 
 class TestGH:

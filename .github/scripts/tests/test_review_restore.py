@@ -39,11 +39,7 @@ def block(commit: str, score: int) -> str:
 
 
 def edit(login: str, body: str) -> dict[str, Any]:
-    return {
-        "editor": {"__typename": "Bot", "login": login},
-        "diff": body,
-        "editedAt": "2026-11-08T05:00:00Z",
-    }
+    return {"editor": {"__typename": "Bot", "login": login}, "diff": body}
 
 
 def lines(items: list[dict[str, Any]]) -> str:
