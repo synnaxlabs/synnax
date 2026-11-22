@@ -128,6 +128,12 @@ var _ = Describe("DecodeBlob", func() {
 			To(Equal(payload{Name: "n"}))
 	})
 
+	It("Should decode the blob with the options", func() {
+		blob := msgpack.EncodedJSON{"name": "n", "tag": "tag-3"}
+		Expect(imex.DecodeBlob[tagged](blob, "test data", 1, tagReader)).
+			To(Equal(tagged{Name: "n", Tag: 3}))
+	})
+
 	It("Should error on a shape mismatch, naming the version and resource", func() {
 		blob := msgpack.EncodedJSON{"name": 42}
 		Expect(imex.DecodeBlob[payload](blob, "test data", 2)).Error().

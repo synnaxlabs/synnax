@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -24,10 +25,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/notation"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // recordingImporter captures the ImportOptions the API layer hands to the registry so
@@ -263,18 +268,8 @@ var _ = Describe("Import", func() {
 			return importEnvelope(fctx, env)
 		}
 		symbolType := resource.ID{Type: resource.TypeSchematicSymbol}
-		importLog := func(ctx SpecContext) (resource.ID, error) {
-			var env imex.Envelope
-			Expect(json.Unmarshal(fmt.Appendf(nil,
-				`{"version":2,"type":"log","name":"Pressures",`+
-					`"channels":[{"channel":%d}]}`,
-				ch,
-			), &env)).To(Succeed())
-			fctx := subjectCtx(ctx, u)
-			fctx.Set("params", fmt.Sprintf(
-				`{"file_name":"Pressures.json","parent":"project:%s"}`, proj.Key,
-			))
-			return importEnvelope(fctx, env)
+		importLog := func(ctx SpecContext, link string) (resource.ID, error) {
+			return importLogAs(subjectCtx(ctx, u), link)
 		}
 		grantLogImport := func(ctx SpecContext) {
 			GinkgoHelper()
@@ -322,21 +317,113 @@ var _ = Describe("Import", func() {
 		) {
 			grantLogImport(ctx)
 			grant(ctx, access.ActionRetrieve, channel.ResourceID(ch))
-			Expect(MustSucceed(importLog(ctx)).Type).To(Equal(resource.TypeLog))
+			Expect(MustSucceed(importLog(ctx, fmt.Sprint(ch))).Type).
+				To(Equal(resource.TypeLog))
 		})
-		It("Should reject a log without retrieve on the channel it uses", func(
-			ctx SpecContext,
-		) {
-			grantLogImport(ctx)
-			Expect(importLog(ctx)).Error().To(SatisfyAll(
-				MatchError(access.ErrDenied),
-				MatchError(ContainSubstring(
-					"%s cannot retrieve %s",
-					u.ResourceID(),
-					channel.ResourceID(ch),
-				)),
-			))
+		DescribeTable(
+			"Should reject a log without retrieve on the channel it uses",
+			func(
+				ctx SpecContext,
+				link func() string,
+			) {
+				grantLogImport(ctx)
+				Expect(importLog(ctx, link())).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"%s cannot retrieve %s",
+						u.ResourceID(),
+						channel.ResourceID(ch),
+					)),
+				))
+			},
+			Entry("by key", func() string { return fmt.Sprint(ch) }),
+			Entry("by path", func() string { return fmt.Sprintf("%q", chName) }),
+		)
+	})
+})
+
+// importLogAs imports a log in proj whose one entry holds link, the JSON value of its
+// channel field, with fctx as the request.
+func importLogAs(fctx freighter.Context, link string) (resource.ID, error) {
+	GinkgoHelper()
+	var env imex.Envelope
+	Expect(json.Unmarshal(fmt.Appendf(nil,
+		`{"version":2,"type":"log","name":"Pressures","channels":[{"channel":%s}]}`,
+		link,
+	), &env)).To(Succeed())
+	fctx.Set("params", fmt.Sprintf(
+		`{"file_name":"Pressures.json","parent":"project:%s"}`, proj.Key,
+	))
+	return importEnvelope(fctx, env)
+}
+
+// logChannels returns the channels of the entries of the log at id.
+func logChannels(ctx SpecContext, id resource.ID) []channel.Key {
+	GinkgoHelper()
+	var l log.Log
+	Expect(logSvc.NewRetrieve().
+		Where(log.MatchKeys(uuid.MustParse(id.Key))).
+		Entry(&l).
+		Exec(ctx, db)).To(Succeed())
+	keys := make([]channel.Key, len(l.Channels))
+	for i, e := range l.Channels {
+		keys[i] = e.Channel
+	}
+	return keys
+}
+
+var _ = Describe("Channel links", func() {
+	It("Should export each channel of a log as its path", func(ctx SpecContext) {
+		l := defaults.Fill(log.Log{
+			Name:    "Links",
+			Project: new(proj.Key),
+			Channels: []log.ChannelEntry{defaults.Fill(log.ChannelEntry{
+				Channel:  ch,
+				Notation: notation.NotationStandard,
+			})},
 		})
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return logSvc.NewWriter(tx).Create(ctx, &l)
+		})).To(Succeed())
+		env := MustSucceed(
+			export(rootCtx(ctx), apiimex.ExportRequest(log.ResourceID(l.Key))),
+		)
+		var body struct {
+			Channels []struct {
+				Channel any `json:"channel"`
+			} `json:"channels"`
+		}
+		Expect(json.Unmarshal(MustSucceed(json.Marshal(env)), &body)).To(Succeed())
+		Expect(body.Channels).To(HaveLen(1))
+		Expect(body.Channels[0].Channel).To(Equal(chName))
+	})
+
+	It("Should import a log that names its channel by path", func(ctx SpecContext) {
+		id := MustSucceed(importLogAs(rootCtx(ctx), fmt.Sprintf("%q", chName)))
+		Expect(logChannels(ctx, id)).To(Equal([]channel.Key{ch}))
+	})
+
+	It("Should import a log that holds a raw key", func(ctx SpecContext) {
+		id := MustSucceed(importLogAs(rootCtx(ctx), fmt.Sprint(ch)))
+		Expect(logChannels(ctx, id)).To(Equal([]channel.Key{ch}))
+	})
+
+	It("Should list each missing path and write nothing", func(ctx SpecContext) {
+		count := func() int {
+			GinkgoHelper()
+			var logs []log.Log
+			Expect(logSvc.NewRetrieve().Entries(&logs).Exec(ctx, db)).To(Succeed())
+			return len(logs)
+		}
+		before := count()
+		Expect(importLogAs(
+			rootCtx(ctx),
+			`"plant.b"},{"channel":"plant.a"`,
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("no channel is at plant.a, plant.b")),
+		))
+		Expect(count()).To(Equal(before))
 	})
 })
 

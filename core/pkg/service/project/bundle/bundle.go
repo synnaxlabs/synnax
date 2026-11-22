@@ -470,7 +470,6 @@ func (s *Service) Decode(
 ) (Bundle, error) {
 	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
 	manifestData, ok := files[manifestFileName]
-	links := s.cfg.Channel.NewLinkReader(ctx, s.cfg.DB)
 	if !ok {
 		layout, ok := files[legacy.LayoutFileName]
 		if !ok {
@@ -488,11 +487,7 @@ func (s *Service) Decode(
 			legacyMembers: make([]legacyMember, len(members)),
 		}
 		for i, m := range members {
-			write, err := s.cfg.ImEx.Decode(
-				ctx,
-				m.Env.WithDecodeOptions(links.Options()),
-				m.Path,
-			)
+			write, err := s.cfg.ImEx.Decode(ctx, m.Env, m.Path)
 			if err != nil {
 				return Bundle{}, errors.Wrap(err, m.Path)
 			}
@@ -502,11 +497,9 @@ func (s *Service) Decode(
 				write:     write,
 			}
 		}
-		if err = links.Err(); err != nil {
-			return Bundle{}, err
-		}
 		return b, nil
 	}
+	links := s.cfg.Channel.NewLinkReader(ctx, s.cfg.DB)
 	manifest, err := decodeManifest(manifestData, manifestFileName)
 	if err != nil {
 		return Bundle{}, err
