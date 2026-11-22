@@ -97,7 +97,12 @@ export const synthesize = (tl: Timeline): CursorTrack => {
     const nextDown = downs.find((d) => d.tick >= f);
     const untilClickS = nextDown == null ? Infinity : nextDown.tick / fps - tSec;
 
-    const params = untilClickS <= CLICK_STIFFEN_S ? CLICK_SPRING : CURSOR_SPRING;
+    const lastDown = [...downs].reverse().find((d) => d.tick <= f);
+    const lastUp = [...ups].reverse().find((u) => u.tick <= f);
+    const pressed = lastDown != null && (lastUp == null || lastUp.tick < lastDown.tick);
+    // A drag draws on the page at the real pointer, so the cursor holds to the path.
+    const params =
+      pressed || untilClickS <= CLICK_STIFFEN_S ? CLICK_SPRING : CURSOR_SPRING;
     const lead = settleLag(params);
 
     let target: Point;
@@ -107,10 +112,6 @@ export const synthesize = (tl: Timeline): CursorTrack => {
 
     const prev = state;
     state = step2D(state, target, params, dt);
-
-    const lastDown = [...downs].reverse().find((d) => d.tick <= f);
-    const lastUp = [...ups].reverse().find((u) => u.tick <= f);
-    const pressed = lastDown != null && (lastUp == null || lastUp.tick < lastDown.tick);
 
     const shrinkPerFrame = (1 - CLICK_SHRINK_SCALE) / (CLICK_SHRINK_S * fps);
     if (pressed) scale = Math.max(CLICK_SHRINK_SCALE, scale - shrinkPerFrame);

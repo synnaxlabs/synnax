@@ -9,20 +9,19 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type CanvasVariant } from "@/vis/render/context";
-import { type Cleanup, Loop, type Request } from "@/vis/render/loop";
+import { render } from "@/vis/render";
 
 const create = () => {
   const afterRender = vi.fn();
-  const loop = new Loop({ afterRender, handleError: vi.fn() });
+  const loop = new render.Loop({ afterRender, handleError: vi.fn() });
   return { loop, afterRender };
 };
 
 const request = (
   key: string,
-  canvases: CanvasVariant[],
-  cleanup?: Cleanup,
-): Request & { render: ReturnType<typeof vi.fn> } => ({
+  canvases: render.CanvasVariant[],
+  cleanup?: render.Cleanup,
+): render.Request & { render: ReturnType<typeof vi.fn> } => ({
   key,
   priority: "high",
   canvases,
@@ -101,14 +100,14 @@ describe("Loop", () => {
 
     it("should clean each canvas with the cleanup of the render that drew on it", () => {
       const { loop } = create();
-      const first = vi.fn<Cleanup>();
+      const first = vi.fn<render.Cleanup>();
       loop.set(request("plot", ["upper2d", "lower2d", "gl"], first));
       vi.advanceTimersToNextFrame();
       loop.glLost = true;
       const held = request("plot", ["upper2d", "lower2d", "gl"]);
       loop.set(held);
       vi.advanceTimersToNextFrame();
-      const tool = vi.fn<Cleanup>();
+      const tool = vi.fn<render.Cleanup>();
       loop.set({ ...request("plot", ["upper2d"], tool), priority: "low" });
       vi.advanceTimersToNextFrame();
       loop.glLost = false;

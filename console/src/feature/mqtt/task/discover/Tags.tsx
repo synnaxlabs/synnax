@@ -8,13 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type Tree } from "@synnaxlabs/lyra/tree";
-import { id } from "@synnaxlabs/x";
+import type { Tree } from "@synnaxlabs/lyra/tree";
+import { id, map } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useEffect, useState } from "react";
 
@@ -23,7 +20,7 @@ import {
   browseSparkplug,
   LISTENING,
 } from "@/feature/mqtt/device/browse";
-import { type Device } from "@/feature/mqtt/device/types";
+import type { Device } from "@/feature/mqtt/device/types";
 import {
   type BrowsedSparkplugNode,
   type BrowsedSparkplugTag,
@@ -32,8 +29,6 @@ import {
   type SparkplugTag,
   tagKey,
 } from "@/feature/mqtt/task/types";
-import { CSS } from "@/platform/css";
-import { Empty } from "@/platform/empty";
 import { ICD } from "@/platform/icd";
 
 export type TagPicks = Map<string, SparkplugTag>;
@@ -180,8 +175,7 @@ export const TagPicker = ({
       .map((t) => toTag(node, t))
       .filter((t) => !taken.has(tagKey(t)));
   const byKey = new Map(nodes.map((n) => [nodeKey(n), n]));
-  const groups = new Map<string, BrowsedSparkplugNode[]>();
-  for (const n of nodes) groups.set(n.group, [...(groups.get(n.group) ?? []), n]);
+  const groups = Map.groupBy(nodes, (n) => n.group);
   const treeNodes: Tree.Node[] = [...groups].map(([group, members]) => ({
     key: group,
     children: members.map((n) => ({ key: nodeKey(n) })),
@@ -246,10 +240,7 @@ export const TagPicker = ({
         onActivate={handleActivate}
         onPick={(key) => void handlePick(key)}
         emptyContent={
-          <Empty.Action
-            message="No Sparkplug B edge node published while Synnax listened."
-            className={CSS.BE("mqtt-discover", "notice")}
-          />
+          <ICD.Picker.Notice message="No Sparkplug B edge node published while Synnax listened." />
         }
       />
     );
@@ -262,10 +253,7 @@ export const TagPicker = ({
       listing == null && loading ? (
         <ICD.Picker.PaneSkeleton noun="Tag" />
       ) : (
-        <Empty.Action
-          message="Select an edge node to see its tags."
-          className={CSS.BE("mqtt-discover", "notice")}
-        />
+        <ICD.Picker.Notice message="Select an edge node to see its tags." />
       );
   else if (activeTags == null || activeTags.loading)
     pane = (
@@ -285,17 +273,19 @@ export const TagPicker = ({
     const byDevice = new Map<string, ICD.Picker.Value[]>();
     for (const t of list) {
       const key = tagKey(toTag(node, t));
-      byDevice.set(t.device, [
-        ...(byDevice.get(t.device) ?? []),
-        {
+      map
+        .getOrInsert(byDevice, t.device, () => [])
+        .push({
           key,
           name: t.name,
           sample: t.value,
           dataType: t.dataType,
-          taken: taken.has(key),
-          unsupported: !t.supported,
-        },
-      ]);
+          lock: taken.has(key)
+            ? ICD.Picker.TAKEN
+            : t.supported
+              ? undefined
+              : { checked: false, label: "Not supported" },
+        });
     }
     const free = freeTags(node, list);
     const picked = pickedIn(value, node).map(tagKey);
@@ -341,18 +331,10 @@ export const TagPicker = ({
         onListen={listen}
       />
       <ICD.Picker.Side>
-        <Flex.Box y empty className={CSS.BE("mqtt-discover", "tree")}>
-          {tree}
-        </Flex.Box>
-        <Button.Button
-          variant="text"
-          size="small"
-          className={CSS.BE("mqtt-discover", "add")}
-          onClick={onAddByName}
-        >
-          <Icon.Add />
+        <ICD.Picker.SideList>{tree}</ICD.Picker.SideList>
+        <ICD.Picker.SideAction onClick={onAddByName}>
           Add a tag by name
-        </Button.Button>
+        </ICD.Picker.SideAction>
       </ICD.Picker.Side>
       <ICD.Picker.Pane>{pane}</ICD.Picker.Pane>
     </>

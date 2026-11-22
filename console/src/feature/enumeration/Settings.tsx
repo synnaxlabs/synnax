@@ -40,16 +40,16 @@ import {
 } from "react";
 
 import { check, type ResolveColor } from "@/feature/enumeration/check";
+import { useDeleteModal } from "@/feature/enumeration/Delete";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
 const COLUMNS: List.Column[] = [
-  { name: "Value", width: "1fr" },
-  { name: "Name", width: "2fr" },
-  { name: "Color", width: "1fr" },
-  { name: "Abnormal", width: "1fr" },
+  { name: "Value", width: "minmax(12rem, 1fr)" },
+  { name: "Name", width: "minmax(24rem, 2fr)" },
+  { name: "Color", width: "minmax(12rem, 1fr)" },
+  { name: "Abnormal", width: "minmax(12rem, 1fr)" },
 ];
 
 const HEADING_PREFIX = "enumeration:";
@@ -524,10 +524,7 @@ const HeadingMenu = ({ enumeration: e }: HeadingMenuProps): ReactElement => {
   const canUpdate = Access.useUpdateGranted(id);
   const canDelete = Access.useDeleteGranted(id);
   const builtin = shipped.get(e.key);
-  const confirm = Modals.useConfirmDelete({ type: "Enumeration", icon: "Enumeration" });
-  const { update: remove } = Enumeration.useDelete({
-    beforeUpdate: async () => await confirm({ name: e.name }),
-  });
+  const openDelete = useDeleteModal();
   const { update: restore } = Enumeration.useRestore();
   return (
     <ContextMenu.Menu>
@@ -542,7 +539,7 @@ const HeadingMenu = ({ enumeration: e }: HeadingMenuProps): ReactElement => {
       )}
       <Menu.Divider />
       {builtin == null && canDelete && (
-        <ContextMenu.DeleteItem onClick={() => remove(e.key)} />
+        <ContextMenu.DeleteItem onClick={() => openDelete({ enumeration: e })} />
       )}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />

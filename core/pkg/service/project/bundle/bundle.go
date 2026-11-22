@@ -550,6 +550,9 @@ func (s *Service) Import(
 		if p.Name == "" {
 			p.Name = filename.Stem(m.path)
 		}
+		if err = s.cfg.Panel.DropDangling(ctx, tx, &p); err != nil {
+			return project.Project{}, errors.Wrap(err, m.path)
+		}
 		p.Project = &proj.Key
 		p.Group = groups[path.Dir(m.path)]
 		if err = panelWriter.Create(ctx, &p); err != nil {

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Mode } from "@/vis/button/use";
+import type { Mode } from "@/vis/button/use";
 
 interface SelectButtonModeProps extends Select.ButtonsProps<Mode> {}
 

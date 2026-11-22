@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type kv } from "@synnaxlabs/x";
 import { appLocalDataDir, join } from "@tauri-apps/api/path";
 import { LazyStore } from "@tauri-apps/plugin-store";
 
@@ -22,7 +21,13 @@ export interface Entry {
  * A SugaredKV is a spiced up key-value store that provides a few extra goodies needed
  * for efficient persistence.
  */
-export interface SugaredKV extends kv.Async {
+export interface SugaredKV {
+  /** @returns the value for the key, or null if the store does not hold the key. */
+  get(key: string): Promise<unknown>;
+  /** Sets a key-value pair in the store. The value must be serializable. */
+  set(key: string, value: unknown): Promise<void>;
+  /** Deletes a key-value pair from the store. */
+  delete(key: string): Promise<void>;
   /**
    * Write every entry as one unit. A partition commits its state slot and the pointer
    * naming it together, so a reader never sees the pointer moved onto a slot whose

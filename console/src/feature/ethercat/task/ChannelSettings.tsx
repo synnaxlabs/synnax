@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ethercat } from "@synnaxlabs/client";
+import type { ethercat } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
-import { caseconv, deep, primitive } from "@synnaxlabs/x";
+import { deep, primitive, strings } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
@@ -27,8 +27,8 @@ import {
   visibleFields,
 } from "@/feature/ethercat/device/settings";
 import { setUpBy } from "@/feature/ethercat/device/setup";
-import { type EntryReadChannel, type ReadSchemas } from "@/feature/ethercat/task/types";
-import { type Task } from "@/platform/task";
+import type { EntryReadChannel, ReadSchemas } from "@/feature/ethercat/task/types";
+import type { Task } from "@/platform/task";
 
 const PARAMETERS_PATH = deep.path<Task.Values<ReadSchemas>>().config.startupParameters;
 
@@ -74,7 +74,7 @@ export const ChannelSettings = ({
     <PForm.Section title="Settings">
       {reader != null && (
         <Text.Text level="small" color={9}>
-          {caseconv.capitalize(reader)} sets these values. Synnax does not change them.
+          {strings.capitalize(reader)} sets these values. Synnax does not change them.
         </Text.Text>
       )}
       {visibleFields(fields, values).map((field) => (

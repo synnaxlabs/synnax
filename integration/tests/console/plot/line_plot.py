@@ -73,6 +73,7 @@ class LinePlot(ConsoleCase):
         self.test_create_range_from_selection(plot, suffix=suffix)
         self._annotation = self._create_annotation_range(suffix)
         self.test_toggle_range_annotation_visibility(plot)
+        self.test_range_zoom_keeps_selection(plot)
         self.test_click_range_to_zoom(plot)
         self.test_zoom_range_from_menu(plot)
         self.test_open_range(plot, range_name=self._annotation.name)
@@ -263,6 +264,19 @@ class LinePlot(ConsoleCase):
 
         plot.toggle_annotation_visibility()
         plot.expect_annotations_visible(visible=True)
+
+    def test_range_zoom_keeps_selection(self, plot: Plot) -> None:
+        """Test that a zoom to a range keeps the selection, which marks the same times
+        in the new view."""
+        self.log("Testing a range zoom keeps the selection")
+
+        plot.select_region()
+        plot.expect_menu_option("Create range from selection")
+        plot.click_range()
+        plot.expect_paused()
+        plot.expect_menu_option("Create range from selection")
+        plot.click_range()
+        plot.expect_paused(paused=False)
 
     def test_click_range_to_zoom(self, plot: Plot) -> None:
         """Test that a click on a range pauses the plot and a second click resumes."""

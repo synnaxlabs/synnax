@@ -17,7 +17,7 @@ import {
 import {
   createSeverableProxy,
   createTestClient,
-  TEST_CLIENT_PARAMS,
+  testClientParams,
 } from "@synnaxlabs/client/testutil";
 import { array, color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
@@ -44,8 +44,7 @@ import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
-import { createAetherProvider } from "@/testutil/Aether";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createAetherProvider, createSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 const Wrapper = createSynnaxWrapper({ client });
@@ -66,7 +65,7 @@ const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
     ...status.REGISTRY,
   });
   const connParams = {
-    ...TEST_CLIENT_PARAMS,
+    ...testClientParams(),
     // The proxy listens on this machine, even when the Core runs on another.
     host: "localhost",
     port,
@@ -624,23 +623,23 @@ describe("use", () => {
 
     it("hands back the previous answer when the next one compares equal", async () => {
       const { utils, seen, push } = await renderProjection("equal-hold");
-      const before = seen[seen.length - 1];
+      const before = seen.at(-1);
       const renders = seen.length;
 
       await push([1, 2]);
 
       expect(utils.queryByTestId("error")).toBeNull();
       expect(seen.length).toEqual(renders);
-      expect(seen[seen.length - 1]).toBe(before);
+      expect(seen.at(-1)).toBe(before);
     });
 
     it("hands back the next answer when it compares unequal", async () => {
       const { utils, seen, push } = await renderProjection("equal-change");
-      const before = seen[seen.length - 1];
+      const before = seen.at(-1);
 
       await push([1, 2, 3]);
 
-      expect(seen[seen.length - 1]).not.toBe(before);
+      expect(seen.at(-1)).not.toBe(before);
       expect(utils.queryByTestId("value")?.textContent).toEqual("1,2,3");
     });
 
@@ -753,7 +752,7 @@ describe("use", () => {
       });
 
       expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
-      expect(seen[seen.length - 1]).toBe(cached);
+      expect(seen.at(-1)).toBe(cached);
     });
 
     it("settles a composed answer when no comparator is given", async () => {
@@ -785,7 +784,7 @@ describe("use", () => {
 
       expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
       expect(seen.length).toBeLessThan(10);
-      expect(seen[seen.length - 1]).toBe(seen[0]);
+      expect(seen.at(-1)).toBe(seen[0]);
     });
   });
 
@@ -837,7 +836,7 @@ describe("use", () => {
     };
 
     it("resolves once a retry reaches the Core", async () => {
-      vi.useFakeTimers();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
         const { utils, retrieve } = await renderUnreachable("retry-reached", 2);
         expect(utils.queryByText("waiting")).toBeTruthy();
@@ -854,7 +853,7 @@ describe("use", () => {
     });
 
     it("settles the failure once the attempts run out", async () => {
-      vi.useFakeTimers();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
         const { utils, retrieve } = await renderUnreachable("retry-exhausted", 10);
 
@@ -961,7 +960,7 @@ describe("use", () => {
     });
 
     it("rejects with the not-found error after the wait expires, without refetching", async () => {
-      vi.useFakeTimers();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
         const { utils, retrieve } = await renderNotFound("nf-timeout");
         expect(utils.queryByText("waiting")).toBeTruthy();
@@ -1013,7 +1012,7 @@ describe("use", () => {
         );
       };
       let utils!: ReturnType<typeof render>;
-      vi.useFakeTimers();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
         await act(async () => {
           utils = render(
@@ -1048,7 +1047,7 @@ describe("use", () => {
     });
 
     it("stays on the settled not-found when the boundary resets without invalidating", async () => {
-      vi.useFakeTimers();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       let utils!: ReturnType<typeof render>;
       let retrieve!: ReturnType<typeof vi.fn>;
       try {
@@ -1224,8 +1223,8 @@ describe("use", () => {
     let mounted: ReturnType<typeof render> | undefined;
     try {
       const [first, second] = await client.labels.create([
-        { name: `first-${id.create()}`, color: "#000000" },
-        { name: `second-${id.create()}`, color: "#000000" },
+        { name: `first-${id.create()}`, color: { type: "fixed", value: "#000000" } },
+        { name: `second-${id.create()}`, color: { type: "fixed", value: "#000000" } },
       ]);
       const { use } = Flux.createRetrieve<{ key: string }, string>({
         name: "Label",
@@ -1392,7 +1391,7 @@ describe("useTombstone", () => {
   it("reads a deletion as a value and clears it once the record returns", async () => {
     const lbl = await client.labels.create({
       name: "Tombstone Label",
-      color: color.construct("#000000"),
+      color: { type: "fixed", value: color.construct("#000000") },
     });
     let cached: query.Cached<label.Label> | undefined = lbl;
     let handler: query.ChangeHandler<label.Label> | null = null;
@@ -1943,8 +1942,8 @@ describe("useResult", () => {
 
   it("serves an all-cached keys query on the first render without a fetch", async () => {
     const [first, second] = await client.labels.create([
-      { name: `keys-a-${id.create()}`, color: "#000000" },
-      { name: `keys-b-${id.create()}`, color: "#000000" },
+      { name: `keys-a-${id.create()}`, color: { type: "fixed", value: "#000000" } },
+      { name: `keys-b-${id.create()}`, color: { type: "fixed", value: "#000000" } },
     ]);
     await client.labels.retrieve(first.key);
     await client.labels.retrieve(second.key);
@@ -1972,8 +1971,8 @@ describe("useResult", () => {
 
   it("re-renders a composed keys answer when a member changes", async () => {
     const [first, second] = await client.labels.create([
-      { name: `live-a-${id.create()}`, color: "#000000" },
-      { name: `live-b-${id.create()}`, color: "#000000" },
+      { name: `live-a-${id.create()}`, color: { type: "fixed", value: "#000000" } },
+      { name: `live-b-${id.create()}`, color: { type: "fixed", value: "#000000" } },
     ]);
     await client.labels.retrieve(first.key);
     await client.labels.retrieve(second.key);

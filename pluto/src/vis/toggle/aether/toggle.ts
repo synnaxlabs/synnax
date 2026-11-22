@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
-import { type diagram } from "@/vis/diagram/aether";
+import type { diagram } from "@/vis/diagram/aether";
 import { staleness } from "@/vis/staleness/aether";
 
 export const toggleStateZ = staleness.stateZ.extend({
@@ -46,10 +46,10 @@ export class Toggle
   static readonly METHODS = toggleMethodsZ;
   static readonly z = toggleStateZ;
 
-  schema = toggleStateZ;
-  methods = toggleMethodsZ;
+  override schema = toggleStateZ;
+  override methods = toggleMethodsZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.internal.addStatus = status.useOptionalAdder(ctx);
     const { sink: sinkProps, source: sourceProps } = this.state;
     const { internal: i } = this;
@@ -76,7 +76,7 @@ export class Toggle
       this.setState((p) => ({ ...p, enabled: nextEnabled }));
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.internal.stopListening?.();
     this.internal.staleness?.cleanup();
     this.internal.source.cleanup?.();

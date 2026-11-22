@@ -39,27 +39,20 @@ export interface FallbackProps extends PropsWithChildren {
   extraInfo?: record.Unknown;
 }
 
-/** Longest chain of causes a report walks, in case one links back to itself. */
+/** Longest chain of causes a report walks. */
 const MAX_CAUSE_DEPTH = 10;
 
 /**
  * @returns one line per `cause` beneath err, outermost first. A wrapper carries only
  * its own message, so the reason the report is about is the last line.
  */
-const causeChain = (err: Error): string[] => {
-  const lines: string[] = [];
-  let cause = err.cause;
-  while (cause != null && lines.length < MAX_CAUSE_DEPTH) {
+const causeChain = (err: Error): string[] =>
+  Array.from(errors.causes(err, MAX_CAUSE_DEPTH), (cause) => {
     const asError = errors.fromUnknown(cause);
-    lines.push(
-      asError instanceof z.core.$ZodError
-        ? z.prettifyError(asError)
-        : `${asError.name}: ${asError.message}`,
-    );
-    cause = cause instanceof Error ? cause.cause : null;
-  }
-  return lines;
-};
+    return asError instanceof z.core.$ZodError
+      ? z.prettifyError(asError)
+      : `${asError.name}: ${asError.message}`;
+  });
 
 /**
  * Default error fallback component. Can be used standalone or with ErrorBoundary.

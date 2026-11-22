@@ -11,7 +11,6 @@ import "@/feature/range/toolbar/Content.css";
 
 import { ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Color } from "@synnaxlabs/lyra/color";
 import { context } from "@synnaxlabs/lyra/context";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header } from "@synnaxlabs/lyra/header";
@@ -23,7 +22,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Access, Ranger, Synnax } from "@synnaxlabs/pluto";
+import { Access, Color, Ranger, Synnax } from "@synnaxlabs/pluto";
 import { color, location, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type CSSProperties,
@@ -111,10 +110,10 @@ interface LineProps {
   actions?: ReactNode;
 }
 
-const rangeStyle = (r: ranger.Range, depth: number): CSSProperties =>
+const rangeStyle = (depth: number, c?: color.Color): CSSProperties =>
   ({
     "--console-range-depth": depth,
-    ...(r.color == null ? {} : { "--console-range-color": color.hex(r.color) }),
+    ...(c == null ? {} : { "--console-range-color": color.hex(c) }),
   }) as CSSProperties;
 
 const Line = ({
@@ -132,6 +131,7 @@ const Line = ({
   const canEdit = Access.useUpdateGranted(ranger.resourceID(range.key));
   const { startDrag, onDragEnd } = Haul.useDrag({ type: HAUL_SOURCE });
   const [dragging, setDragging] = useState(false);
+  const resolve = Color.useResolve();
   return (
     <Tooltip.Dialog location={CARD_LOCATION} hide={dragging}>
       <Card range={range} />
@@ -143,7 +143,9 @@ const Line = ({
           startDrag({
             event,
             items: [Ranger.createHaulItem(range.payload)],
-            preview: <Ranger.HaulPreview range={range.payload} />,
+            preview: (
+              <Ranger.HaulPreview range={range.payload} color={resolve(range.color)} />
+            ),
           });
         }}
         onDragEnd={(e) => {
@@ -159,7 +161,7 @@ const Line = ({
           live && CSS.BEM(B, "line", "live"),
           ending && CSS.BEM(B, "line", "ending"),
         )}
-        style={rangeStyle(range, depth)}
+        style={rangeStyle(depth, resolve(range.color))}
         onClick={() => open(range.key)}
       >
         <span className={CSS.BE(B, "indent")} />
@@ -664,7 +666,6 @@ const Body = ({ groups }: { groups: Groups }): ReactElement => {
                   size="small"
                   textColor={9}
                   className={CSS.BE(B, "show-more")}
-                  disabled={groups.reading}
                   onClick={groups.moreRunning}
                 >
                   Show more

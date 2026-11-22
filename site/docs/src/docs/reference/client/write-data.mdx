@@ -1,0 +1,632 @@
+---
+title: "Write data"
+description:
+  "Write samples to channels with the Python and TypeScript clients: one-call writes,
+  writers, auto-commit, writer modes, auto-index, and the rules of writes."
+clients: ["python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Diagram } from "@/components/diagram";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Write samples that you already have in one call. To write samples as they arrive, open a
+writer. Every write must obey [the rules of writes](#the-rules-of-writes).
+
+The examples on this page use an index channel `time` and a data channel `temperature`
+that `time` indexes. To create channels like these, see
+[Create channels](/reference/channels/create).
+
+<Divider.Divider x />
+
+## Write samples in one call
+
+`write` stores samples that you already have, such as data from a file:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+start = sy.TimeStamp.now()
+client.write(
+    start,
+    {
+        "time": [start + sy.TimeSpan.SECOND * i for i in range(5)],
+        "temperature": [22.5, 22.6, 22.8, 23.1, 23.0],
+    },
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
+
+const start = TimeStamp.now();
+await client.write(start, {
+  time: [0, 1, 2, 3, 4].map((i) => start.add(TimeSpan.seconds(i))),
+  temperature: [22.5, 22.6, 22.8, 23.1, 23.0],
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+`start` is the timestamp of the first sample. The write fails when any of the channels
+already has data in the time range of the samples, or when another writer, such as a
+running task, holds that time.
+
+Each call opens a writer, writes, and closes the writer. Streamers do not get these
+samples. Do not call `write` in a loop to send live data: each call is a full round trip
+to the Core. Use a writer instead.
+
+<Divider.Divider x />
+
+## Write with a writer
+
+A writer stays open and writes many frames to its channels. Open it with the channels it
+writes to. Each index starts at the first timestamp written to it:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_writer(
+    channels=["time", "temperature"],
+) as writer:
+    for i in range(100):
+        writer.write({"time": sy.TimeStamp.now(), "temperature": 20 + i * 0.1})
+        sy.sleep(0.1)
+```
+
+The `with` block closes the writer, also when the code raises an error.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await using writer = await client.openWriter({
+  channels: ["time", "temperature"],
+});
+for (let i = 0; i < 100; i++) {
+  await writer.write({ time: TimeStamp.now(), temperature: 20 + i * 0.1 });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+}
+```
+
+`await using` closes the writer when the block ends, also when the code throws an error.
+It needs Node.js 24, Chrome 134, Firefox 141, Safari 27.3, or later, unless your build
+tool compiles it to older JavaScript. Elsewhere, call `close` in a `finally` block.
+
+  </Fragment>
+
+</Client.Tabs>
+
+This writer sends one sample to each channel every 100 milliseconds. A writer can stay
+open for days.
+
+The writer sends samples to the Core, which stores them and sends them to streamers. The
+writer mode sets which of the two the Core does:
+
+<Diagram.Block
+  title="A writer sends samples to the Core. In persist mode, the Core stores them for reads. In stream mode, the Core sends them to streamers. The default mode does both."
+  nodes={[
+    {
+      key: "writer",
+      label: "Writer",
+      caption: "your code",
+      icon: Icon.Edit,
+      column: 0,
+    },
+    { key: "core", label: "Core", icon: Icon.Core, column: 1 },
+    {
+      key: "stored",
+      label: "Stored data",
+      caption: "persist",
+      icon: Icon.Range,
+      column: 2,
+    },
+    {
+      key: "streamers",
+      label: "Streamers",
+      caption: "stream",
+      icon: Icon.LinePlot,
+      column: 2,
+    },
+  ]}
+  edges={[
+    { from: "writer", to: "core" },
+    { from: "core", to: "stored" },
+    { from: "core", to: "streamers" },
+  ]}
+/>
+
+### Write formats
+
+`write` takes the samples in several shapes. When a write holds samples for one channel
+of an index, it must hold samples for all the channels of the writer that share that
+index, as [Rule 1](#rule-1) says.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+import numpy as np
+import pandas as pd
+
+now = sy.TimeStamp.now()
+
+# One sample for each channel.
+writer.write({"time": now, "temperature": 22.5})
+
+# Many samples, as lists or NumPy arrays.
+writer.write({
+    "time": [now, now + sy.TimeSpan.SECOND],
+    "temperature": np.array([22.5, 22.6], dtype=np.float32),
+})
+
+# A list of channels and a list of samples.
+writer.write(["time", "temperature"], [[now], [22.5]])
+
+# A DataFrame, with one column for each channel.
+writer.write(pd.DataFrame({"time": [now], "temperature": [22.5]}))
+
+# A frame.
+writer.write(sy.Frame({"time": [now], "temperature": [22.5]}))
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { Frame, Series } from "@synnaxlabs/client";
+
+const now = TimeStamp.now();
+
+// One sample for each channel.
+await writer.write({ time: now, temperature: 22.5 });
+
+// Many samples.
+await writer.write({
+  time: [now, now.add(TimeSpan.SECOND)],
+  temperature: [22.5, 22.6],
+});
+
+// A list of channels and a list of samples.
+await writer.write(["time", "temperature"], [[now], [22.5]]);
+
+// A frame. Typed arrays are the fastest way to write many samples. Their type
+// must match the data type of the channel.
+await writer.write(
+  new Frame({
+    time: new Series({
+      data: new BigInt64Array([now.valueOf()]),
+      dataType: "timestamp",
+    }),
+    temperature: new Series(new Float32Array([22.5])),
+  }),
+);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+Channels with the `string` or `json` data type take strings and objects in the same
+writes. For more about frames, see
+[Series and frames](/reference/client/series-and-frames).
+
+### Errors
+
+`write` does not wait for the Core. When the Core rejects a write, the next call to
+`write`, `commit`, or `close` raises the error. After an error, the writer accepts no
+more writes: close it, and open a new writer.
+
+After you close the writer, `write` and `commit` raise `sy.WriterClosed` in Python and
+`framer.WriterClosedError` in TypeScript. When the Core ends the stream first, Python
+raises `EOF`, and in TypeScript the next `write` returns with no error.
+
+<Divider.Divider x />
+
+## Auto-commit
+
+A commit makes written samples available to reads. By default, a writer commits after
+each write.
+
+To make a group of writes available together, turn auto-commit off and call `commit`
+after the group. `commit` waits for the Core and returns the end of the committed time
+range. Samples that you did not commit are lost when the writer closes.
+
+The <Client.Var py="commit_result" ts="commitResult" /> method commits in the same way,
+and also tells you if the writer had control. It returns `end` and `authorized`. When
+`authorized` is false, another writer controls one or more of the channels, and `end` is
+not valid. The writer stays open, so it can write again when it gets control back. See
+[control authority](/reference/control/authority).
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_writer(
+    channels=["time", "temperature"],
+    enable_auto_commit=False,
+) as writer:
+    for path in files:
+        for frame in read_chunks(path):
+            writer.write(frame)
+        writer.commit()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await using writer = await client.openWriter({
+  channels: ["time", "temperature"],
+  enableAutoCommit: false,
+});
+for (const path of files) {
+  for await (const frame of readChunks(path)) await writer.write(frame);
+  await writer.commit();
+}
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+Here, `files` and <Client.Var py="read_chunks" ts="readChunks" /> stand for your own
+code. Each file becomes available to reads when its commit returns.
+
+Do not commit after each small write: each `commit` waits for a round trip to the Core.
+Commit every few seconds, or keep auto-commit on.
+
+With auto-commit on, the Core saves its index of the samples to disk at most once per
+interval. The <Client.Var py="auto_index_persist_interval" ts="autoIndexPersistInterval"
+/> option sets the interval, which is one second by default. When the Core stops without
+warning, it can lose the samples of the last interval.
+
+<Divider.Divider x />
+
+## Writer modes
+
+Set <Client.Var py="mode" ts="mode" /> when you open the writer:
+
+- `persist` -> the Core stores the samples, but does not send them to streamers. Use it
+  for historical data. A `persist` writer can fill a gap before a live writer's session
+  while that writer runs: set <Client.Var py="start" ts="start" /> to the first
+  timestamp of the gap. It fails to open when another writer holds that time, and it
+  never takes control from another writer.
+- `stream` -> the Core sends the samples to streamers, but does not store them. `commit`
+  has no effect. Use it for data that you need only live.
+- <Client.Var py="persist_stream" ts="persistStream" /> -> the Core stores the samples
+and sends them to streamers. This is the default.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+writer = client.open_writer(
+    channels=["time", "temperature"],
+    mode="persist",
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  channels: ["time", "temperature"],
+  mode: "persist",
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Write without timestamps
+
+With <Client.Var py="auto_index" ts="autoIndex" /> on, the Core makes the timestamps.
+Each write that leaves out the index channel gets the time at which the Core receives
+it. The samples in one write are 1 nanosecond apart. When the writer is also open on the
+index channel, a write that includes it uses your timestamps.
+
+These timestamps always increase and never repeat. Do not use this for a write that
+holds many samples taken over time.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_writer(
+    channels=["temperature"],
+    auto_index=True,
+) as writer:
+    writer.write({"temperature": 22.5})
+```
+
+With no `start`, the Core uses the current time.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await using writer = await client.openWriter({
+  channels: ["temperature"],
+  autoIndex: true,
+});
+await writer.write("temperature", 22.5);
+```
+
+With no `start`, the Core uses the current time.
+
+  </Fragment>
+
+</Client.Tabs>
+
+The writer adds the index channel of `temperature` by itself. The timestamps include the
+time that a sample takes to reach the Core. For sensor data, send the time at which you
+read each sample.
+
+<Divider.Divider x />
+
+## Writer options
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+<Field.List>
+
+<Field.Item name="start" id="python-start" type="TimeStamp">
+  The time from which the writer controls its channels. Defaults to the time the writer
+  opens on the Core. When you give a start that stored data holds, the writer fails to
+  open. With no start, the first write fails instead. A writer on data channels without
+  their index needs a start, and it must be a sample of that index.
+</Field.Item>
+
+<Field.Item name="channels" id="python-channels" type="list[str] | list[int]">
+  The names or keys of the channels to write to.
+</Field.Item>
+
+<Field.Item name="mode" id="python-mode" type="str" default="persist_stream">
+  `persist`, `stream`, or `persist_stream`. See [writer modes](#writer-modes).
+</Field.Item>
+
+<Field.Item
+  name="enable_auto_commit"
+  id="python-enable-auto-commit"
+  type="bool"
+  default="True"
+>
+  Commit after each write. See [auto-commit](#auto-commit).
+</Field.Item>
+
+<Field.Item
+  name="auto_index_persist_interval"
+  id="python-auto-index-persist-interval"
+  type="TimeSpan"
+  default="1 s"
+>
+  With auto-commit on, how often the Core saves its index of the samples to disk.
+</Field.Item>
+
+<Field.Item name="auto_index" id="python-auto-index" type="bool" default="False">
+  The Core makes the timestamps. See [write without
+  timestamps](#write-without-timestamps).
+</Field.Item>
+
+<Field.Item
+  name="authorities"
+  id="python-authorities"
+  type="int | list[int]"
+  default="255"
+>
+  The [control authority](/reference/control/authority) of the writer, for all channels
+  or one value for each channel.
+</Field.Item>
+
+<Field.Item name="name" id="python-name" type="str">
+  The name of the writer in the control state of its channels. The Console shows it.
+</Field.Item>
+
+<Field.Item
+  name="err_on_unauthorized"
+  id="python-err-on-unauthorized"
+  type="bool"
+  default="False"
+>
+  Fail to open when another writer controls one of the channels. When false, the writer
+  opens, and the Core drops its writes to channels that it does not control, with no
+  error. To check for control, see [auto-commit](#auto-commit).
+</Field.Item>
+
+<Field.Item name="strict" id="python-strict" type="bool" default="False">
+  Fail when the data type of the samples does not match the channel. When false, the
+  writer converts the samples.
+</Field.Item>
+
+<Field.Item
+  name="suppress_warnings"
+  id="python-suppress-warnings"
+  type="bool"
+  default="True"
+>
+  When false, the writer prints a warning each time it converts samples to the data type
+  of the channel.
+</Field.Item>
+
+<Field.Item
+  name="err_on_extra_chans"
+  id="python-err-on-extra-chans"
+  type="bool"
+  default="True"
+>
+  Raise a `ValidationError` when a write holds a channel that the writer is not open on.
+  When false, a write of a `Frame` or a DataFrame leaves out a channel name that the
+  writer is not open on. Other writes still raise.
+</Field.Item>
+
+</Field.List>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+<Field.List>
+
+<Field.Item name="start" id="typescript-start" type="TimeStamp">
+  The time from which the writer controls its channels. Defaults to the time the writer
+  opens on the Core. When you give a start that stored data holds, the writer fails to
+  open. With no start, the first write fails instead. A writer on data channels without
+  their index needs a start, and it must be a sample of that index.
+</Field.Item>
+
+<Field.Item name="channels" id="typescript-channels" type="string[] | number[]">
+  The names or keys of the channels to write to.
+</Field.Item>
+
+<Field.Item name="mode" id="typescript-mode" type="string" default="persistStream">
+  `persist`, `stream`, or `persistStream`. See [writer modes](#writer-modes).
+</Field.Item>
+
+<Field.Item
+  name="enableAutoCommit"
+  id="typescript-enable-auto-commit"
+  type="boolean"
+  default="true"
+>
+  Commit after each write. See [auto-commit](#auto-commit).
+</Field.Item>
+
+<Field.Item
+  name="autoIndexPersistInterval"
+  id="typescript-auto-index-persist-interval"
+  type="TimeSpan"
+  default="1 s"
+>
+  With auto-commit on, how often the Core saves its index of the samples to disk.
+</Field.Item>
+
+<Field.Item name="autoIndex" id="typescript-auto-index" type="boolean" default="false">
+  The Core makes the timestamps. See [write without
+  timestamps](#write-without-timestamps).
+</Field.Item>
+
+<Field.Item
+  name="authorities"
+  id="typescript-authorities"
+  type="number | number[]"
+  default="255"
+>
+  The [control authority](/reference/control/authority) of the writer, for all channels
+  or one value for each channel.
+</Field.Item>
+
+<Field.Item name="controlSubject" id="typescript-control-subject" type="object">
+  The `name` and `key` of the writer in the control state of its channels. The Console
+  shows the name.
+</Field.Item>
+
+<Field.Item
+  name="errOnUnauthorized"
+  id="typescript-err-on-unauthorized"
+  type="boolean"
+  default="false"
+>
+  Fail to open when another writer controls one of the channels. When false, the writer
+  opens, and the Core drops its writes to channels that it does not control, with no
+  error. To check for control, see [auto-commit](#auto-commit).
+</Field.Item>
+
+</Field.List>
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## The rules of writes
+
+The Core rejects a write that breaks one of these rules. Rules 1 and 2 do not apply to
+[virtual channels](/reference/channels#virtual-channels), which store no data.
+
+### Rule 1
+
+In one write, an index channel and each of its data channels must have the same number
+of samples, and each channel of the writer that shares the index must be in the write.
+
+Here, `temperature` and `pressure` are data channels that `time` indexes, and a writer
+is open on all three. This write is valid:
+
+```jsonc
+{
+  "time": [1791028800000000000, 1791028800100000000, 1791028800200000000],
+  "temperature": [19.17, 19.18, 19.19],
+  "pressure": [16.22, 17.22, 18.22],
+}
+```
+
+These writes are not valid:
+
+```jsonc
+{
+  "time": [1791028800000000000, 1791028800100000000, 1791028800200000000],
+  "temperature": [19.17, 19.18, 19.19],
+  // One sample is missing.
+  "pressure": [16.22, 17.22],
+}
+```
+
+```jsonc
+{
+  "time": [1791028800000000000, 1791028800100000000, 1791028800200000000],
+  "temperature": [19.17, 19.18, 19.19],
+  // The pressure channel is missing.
+}
+```
+
+### Rule 2
+
+Write to an index channel before or together with its data channels.
+
+A writer that is open on `time` and `temperature` must write `time` in each write,
+unless auto-index is on. To write only `temperature`, open a writer on `temperature`
+alone after the timestamps are in `time`, with `start` at the first of those timestamps.
+Use this to calculate a new channel from stored data with the same index.
+
+### What the rules mean for your channels
+
+All data channels that share an index must have samples at the same times, so they must
+have the same sample rate. Give a channel with a different rate its own index.
+
+[Command channels](/reference/hardware/tasks#command-channels) usually need their own
+index too. You often write one command at a time, such as to open one valve, wait, and
+open a second valve. Commands that do not have the same timestamps cannot share an
+index.

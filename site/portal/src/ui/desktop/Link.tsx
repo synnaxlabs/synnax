@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Mode } from "@synnaxlabs/site-common/consent";
+import type { Mode } from "@synnaxlabs/site-common/consent";
 import { type ReactElement, useId, useState } from "react";
 
 import { post, save } from "@/ui/api";

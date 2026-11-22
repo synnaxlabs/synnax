@@ -162,3 +162,19 @@ class TestEnumerationClient:
     def test_delete_missing(self, client: sy.Synnax) -> None:
         """Should not fail on a key with no enumeration."""
         client.enumerations.delete(uuid4())
+
+    def test_replace(self, client: sy.Synnax) -> None:
+        """Should delete the replaced enumeration and keep the replacement."""
+        old = client.enumerations.create(name=str(uuid4()))
+        new = client.enumerations.create(name=str(uuid4()))
+        client.enumerations.replace(old.key, new.key)
+        with pytest.raises(sy.NotFoundError):
+            client.enumerations.retrieve(key=old.key)
+        assert client.enumerations.retrieve(key=new.key).key == new.key
+
+    def test_replace_builtin(self, client: sy.Synnax) -> None:
+        """Should refuse to replace a built-in enumeration."""
+        valve = client.enumerations.retrieve(name="Valve")
+        new = client.enumerations.create(name=str(uuid4()))
+        with pytest.raises(sy.ValidationError, match="built-in enumeration Valve"):
+            client.enumerations.replace(valve.key, new.key)

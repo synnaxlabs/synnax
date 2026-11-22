@@ -11,7 +11,6 @@ package codec
 
 import (
 	"encoding/json/jsontext"
-	"encoding/json/v2"
 	"fmt"
 	"math"
 	"slices"
@@ -84,17 +83,19 @@ type encodeField struct {
 }
 
 // NewJSONEncoder returns an encoder of the documents of m. A document holds the value
-// of m's match rule, the sample of each bound field, and the default of each other
-// field. A scaled field writes its sample before the scale and offset, and an integer
-// field rounds it to the nearest integer. A number channel writes to any number or
-// boolean field, and a boolean field takes only 0 and 1 from one. NewJSONEncoder
-// returns an error wrapping validate.ErrValidation when:
+// of m's value rule, the sample of each bound field, and the default of each other
+// field. The fields at or inside the pointer of a present rule give it its value. A
+// scaled field writes its sample before the scale and offset, and an integer field
+// rounds it to the nearest integer. A number channel writes to any number or boolean
+// field, and a boolean field takes only 0 and 1 from one. NewJSONEncoder returns an
+// error wrapping validate.ErrValidation when:
 //   - a field has no binding and no default
 //   - a binding names no field of m, or a field has two bindings
 //   - a binding's data type does not write to its field's kind
 //   - a scaled field's channel is not a float
 //   - two pointers are equal, or one holds the other
 //   - a pointer holds an array index, which a document cannot place
+//   - no field is at or inside the pointer of a present rule
 func NewJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 	e, err := newJSONEncoder(m)
 	if err != nil {
@@ -129,15 +130,22 @@ func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 		name:  m.Name,
 		slots: encodeSlots{fields: make([]encodeField, len(m.Bindings))},
 	}
-	var fields []xjson.TemplateField
-	if m.Payload.Match != nil {
-		f, err := matchLiteral(*m.Payload.Match)
-		if err != nil {
-			return nil, errors.Wrap(err, "match")
+	var (
+		fields  []xjson.TemplateField
+		present *icd.PresentJSONMatch
+	)
+	if match := m.Payload.Match; match != nil {
+		if p, ok := match.Variant.(icd.PresentJSONMatch); ok {
+			present = &p
+		} else {
+			f, err := matchLiteral(*match)
+			if err != nil {
+				return nil, errors.Wrap(err, "match")
+			}
+			fields = append(fields, f)
+			e.slots.bindings = append(e.slots.bindings, -1)
+			e.slots.generate = append(e.slots.generate, nil)
 		}
-		fields = append(fields, f)
-		e.slots.bindings = append(e.slots.bindings, -1)
-		e.slots.generate = append(e.slots.generate, nil)
 	}
 	for _, f := range m.Payload.Fields {
 		tf, binding, gen, err := e.templateField(m, f, bound)
@@ -147,6 +155,11 @@ func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 		fields = append(fields, tf)
 		e.slots.bindings = append(e.slots.bindings, binding)
 		e.slots.generate = append(e.slots.generate, gen)
+	}
+	if present != nil {
+		if err := checkPresent(present.Pointer, fields); err != nil {
+			return nil, errors.Wrap(err, "match")
+		}
 	}
 	var err error
 	if e.template, err = xjson.NewTemplate(fields); err != nil {
@@ -332,6 +345,21 @@ func converted(k payload.Kind, dt telem.DataType, scaled bool) bool {
 	return false
 }
 
+// checkPresent returns an error when no field in fields is at or inside pointer, the
+// pointer of a present rule.
+func checkPresent(pointer string, fields []xjson.TemplateField) error {
+	at, err := xjson.ParsePointer(pointer)
+	if err != nil {
+		return err
+	}
+	if slices.ContainsFunc(fields, func(f xjson.TemplateField) bool {
+		return within(f.Pointer, at)
+	}) {
+		return nil
+	}
+	return errors.Wrapf(validate.ErrValidation, "no field is at or inside %q", pointer)
+}
+
 // matchLiteral returns the template field that writes the value of m.
 func matchLiteral(m icd.JSONMatch) (xjson.TemplateField, error) {
 	pointer, err := memberPointer(m.Base().Pointer)
@@ -395,9 +423,7 @@ func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 		}
 	case icd.JSONJSONField:
 		if v.Default != nil {
-			if d.literal, err = json.Marshal(*v.Default); err != nil {
-				err = errors.Wrap(validate.ErrValidation, err.Error())
-			}
+			d.literal, err = jsonDefault(*v.Default)
 		}
 	case icd.UuidJSONField:
 		if v.Default != nil {

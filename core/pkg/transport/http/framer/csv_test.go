@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"uuid"
 
@@ -711,6 +712,61 @@ var _ = Describe("CSV", func() {
 			).To(Succeed())
 			Expect(len(w)).To(BeNumerically(">", 2))
 			Expect(w).To(HaveEach(BeNumerically("<", 70<<10)))
+		})
+
+		It("Should write one header and the rows of each time range in order", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
+				channels,
+				telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
+			)
+			res := read(ctx, index, channels...)
+			res.TimeRanges = splitRanges
+			b := MustSucceed(framer.NewCSVEncoder(ctx).Encode(res))
+			Expect(string(b)).To(Equal(fmt.Sprintf(
+				"%s,%s\n1000000000,1\n2000000000,2\n6000000000,6\n7000000000,7\n",
+				index.Name,
+				channels[0].Name,
+			)))
+		})
+
+		It("Should merge the rows of two indexes across time ranges", func(
+			ctx SpecContext,
+		) {
+			fastIndex, fast := createIndexed(ctx, telem.Int64T)
+			slowIndex, slow := createIndexed(ctx, telem.Int64T)
+			write(
+				ctx,
+				fastIndex,
+				telem.NewSeriesSecondsTSV(1, 2, 6, 7),
+				fast,
+				telem.NewSeriesV[int64](1, 2, 6, 7),
+			)
+			write(
+				ctx,
+				slowIndex,
+				telem.NewSeriesSecondsTSV(2, 7),
+				slow,
+				telem.NewSeriesV[int64](20, 70),
+			)
+			res := response(
+				slices.Concat(fast, slow),
+				[]svcchannel.Channel{fastIndex, slowIndex},
+				svcframer.IteratorConfig{},
+			)
+			res.TimeRanges = splitRanges
+			Expect(csvRows(MustSucceed(framer.NewCSVEncoder(ctx).Encode(res)))).
+				To(Equal([]string{
+					"1000000000,1,,",
+					"2000000000,2,2000000000,20",
+					"6000000000,6,,",
+					"7000000000,7,7000000000,70",
+				}))
 		})
 
 		It("Should write only a header for a read with no data", func(ctx SpecContext) {

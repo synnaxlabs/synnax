@@ -10,7 +10,7 @@
 import { color as xcolor, id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type color } from "@/color";
+import type { color } from "@/color";
 import { enumeration } from "@/enumeration";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
@@ -175,6 +175,26 @@ describe("enumeration.Client", () => {
       await expect(
         createTestClient().enumerations.retrieve(created.key),
       ).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe("replace", () => {
+    it("should delete the replaced enumeration and keep the other", async () => {
+      const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+      await client.enumerations.replace(from.key, to.key);
+      const other = createTestClient();
+      await expect(other.enumerations.retrieve(from.key)).rejects.toThrow(
+        NotFoundError,
+      );
+      expect((await other.enumerations.retrieve(to.key)).name).toEqual(to.name);
+    });
+
+    it("should refuse to replace a built-in enumeration", async () => {
+      const [valve] = await client.enumerations.retrieveBuiltins();
+      const to = await createEnumeration();
+      await expect(client.enumerations.replace(valve.key, to.key)).rejects.toThrow(
+        "cannot delete built-in enumeration Valve",
+      );
     });
   });
 

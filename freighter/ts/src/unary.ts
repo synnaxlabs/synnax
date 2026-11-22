@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { breaker, errors } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Unreachable } from "@/errors";
-import { type Middleware } from "@/middleware";
-import { type Transport } from "@/transport";
+import type { Middleware } from "@/middleware";
+import type { Transport } from "@/transport";
 
 /**
  * An interface for an entity that implements a simple request-response transport

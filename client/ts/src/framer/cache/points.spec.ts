@@ -10,6 +10,7 @@
 import {
   type breaker,
   dynamicWindow,
+  math,
   Rate,
   type Series,
   Size,
@@ -22,8 +23,8 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
-import { type framer } from "@/framer";
+import type { channel } from "@/channel";
+import type { framer } from "@/framer";
 import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import {
   index as tileIndex,
@@ -362,8 +363,7 @@ describe("Points", () => {
 
     it("should report loading until the newest stored sample is read", async () => {
       const core = createIdle();
-      let release = (): void => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       const { subscribe, close } = createPoints(
         core,
         undefined,
@@ -656,8 +656,7 @@ describe("Points", () => {
 
     it("should clear the failure once a retried read lands", async () => {
       const core = createIdle();
-      let release = (): void => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       let reads = 0;
       const { subscribe, close } = createPoints(
         core,
@@ -960,10 +959,12 @@ describe("Points", () => {
           await sleep.sleep(TimeSpan.milliseconds(5));
         }
         const kept = store.floor(key)!.kept!;
-        const before = points
-          .value()
-          .series.series.filter((s) => s.timeRange.start.before(kept))
-          .reduce((sum, s) => sum + s.length, 0);
+        const before = math.sum(
+          points
+            .value()
+            .series.series.filter((s) => s.timeRange.start.before(kept))
+            .map((s) => s.length),
+        );
         expect(before).toBeLessThan(LIVE_SAMPLES);
         expect(largestGap(points)).toBeLessThanOrEqual(
           TimeSpan.milliseconds(10).valueOf(),
@@ -1174,6 +1175,57 @@ describe("Points", () => {
     } finally {
       await close();
     }
+  });
+
+  describe("bound", () => {
+    const range = new TimeRange(
+      START.add(TimeSpan.minutes(4)),
+      START.add(TimeSpan.minutes(6)),
+    );
+    const view = new TimeRange(START, START.add(TimeSpan.minutes(10)));
+    const bound = new TimeRange(START, START.add(TimeSpan.minutes(1)));
+
+    it("should draw only the tiles that overlap its bound, each whole", async () => {
+      const core = createCore();
+      const { subscribe, close } = createPoints(core);
+      const points = subscribe(core.index.key, staticWindow(range), {
+        ...TILED,
+        view,
+        bound,
+      });
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        const level = tileLevel(view);
+        const last = tileRange({ level, index: tileIndex(bound.end, level) });
+        const { upper } = points.value().series.bounds;
+        expect(upper).toBeGreaterThan(Number(bound.end.valueOf()));
+        expect(upper).toBeLessThan(Number(last.end.valueOf()));
+      } finally {
+        await close();
+      }
+    });
+
+    it("should read no tile again when its bound moves inside a tile", async () => {
+      const core = createCore();
+      let reads = 0;
+      const { subscribe, close } = createPoints(core, async (tr, keys, reduction) => {
+        reads++;
+        return core.read(tr, keys, reduction);
+      });
+      const window = staticWindow(range);
+      const points = subscribe(core.index.key, window, { ...TILED, view, bound });
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        const settled = reads;
+        const moved = new TimeRange(bound.start, bound.end.add(TimeSpan.seconds(1)));
+        points.update(window, { ...TILED, view, bound: moved });
+        expect(points.value().status.variant).toBe("success");
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        expect(reads).toBe(settled);
+      } finally {
+        await close();
+      }
+    });
   });
 
   it("should evict the tiles it unpins past the budget", async () => {

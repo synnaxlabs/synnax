@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
   onOpenUrl: vi.fn(async () => () => {}),
 }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
@@ -61,7 +61,7 @@ describe("Account.Guard in the tauri engine", () => {
     mocks.label = "some-child-window";
     await renderGuard();
     // Async effects start after a task queue flush, so wait one out before asserting.
-    await act(async () => await scheduler.flushTaskQueue());
+    await act(async () => await scheduler.nextTask());
     expect(screen.getByText("licensed content")).toBeTruthy();
     expect(mocks.onOpenUrl).not.toHaveBeenCalled();
   });

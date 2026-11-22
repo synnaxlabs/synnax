@@ -9,9 +9,10 @@
 
 import { Drift } from "@synnaxlabs/drift";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { useAsyncEffect, useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Status } from "@synnaxlabs/lyra/status";
 import { box, runtime, xy } from "@synnaxlabs/x";
-import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect } from "react";
 import { useStore } from "react-redux";
 
@@ -40,8 +41,7 @@ const useWindowsContain = (): ((cursor: xy.XY) => boolean) => {
     );
 };
 
-// A drag that started in another window never called start() on this window's haul
-// provider, so its local dragging ref is empty. Only the source window acts.
+// The drag's source window tears it out, so callers pass the drag this window started.
 const useResolve = ({ canDrop, onDrop }: UseDropOutsideProps) => {
   const windowsContain = useWindowsContain();
   const propsRef = useSyncedRef({ canDrop, onDrop });
@@ -54,23 +54,30 @@ const useResolve = ({ canDrop, onDrop }: UseDropOutsideProps) => {
   };
 };
 
-// macOS swallows the dragend of a drag released outside the window, so the drop is
-// resolved from a native mouse_up event carrying screen coordinates instead. The event
-// reaches every window; the empty-ref check above keeps the others out of it.
+// macOS swallows the dragend of a drag released outside the window, so each drag asks
+// the native side for the cursor position at release. The native side polls only while
+// the button is down.
 const useMacOS = (props: UseDropOutsideProps): void => {
   const ctx = Haul.useContext();
-  const dragging = Haul.useDraggingRef();
-  const resolve = useResolve(props);
-  useAsyncEffect(async () => {
+  const resolveRef = useSyncedRef(useResolve(props));
+  const handleError = Status.useErrorHandler();
+  useEffect(() => {
     if (Session.Runtime.ENGINE !== "tauri" || ctx == null) return;
-    return await listen(
-      "mouse_up",
-      ({ payload: [x, y] }: { payload: [number, number] }) => {
-        const dropped = resolve(dragging.current, xy.construct(x, y));
+    const controller = new AbortController();
+    const handleDragStart = () =>
+      handleError(async () => {
+        const [x, y] = await invoke<[number, number]>("mouse_release");
+        if (controller.signal.aborted) return;
+        const cursor = xy.construct(x, y);
+        const dropped = resolveRef.current(ctx.startedRef.current, cursor);
         if (dropped != null) ctx.drop(dropped);
-      },
-    );
-  }, [ctx, resolve]);
+      }, "Failed to drop outside the window");
+    window.addEventListener("dragstart", handleDragStart, {
+      capture: true,
+      signal: controller.signal,
+    });
+    return () => controller.abort();
+  }, [ctx]);
 };
 
 // The browser has no desktop to release content over. Its runtime reports no window
