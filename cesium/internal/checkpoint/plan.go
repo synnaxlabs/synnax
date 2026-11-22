@@ -12,7 +12,6 @@ package checkpoint
 import (
 	"cmp"
 	"slices"
-	"sort"
 
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
@@ -157,12 +156,6 @@ func flatten(s *state.Snapshot) *flat {
 // no part, and no candidate of a rewrite.
 func (f *flat) partable(j int, seg state.Segment) bool {
 	return seg.Sealed && !f.parted[j] && (f.candidate == nil || !f.candidate[j])
-}
-
-// segment returns segment number j.
-func (f *flat) segment(j int) state.Segment {
-	i := sort.SearchInts(f.first, j+1) - 1
-	return f.s.Channels[i].Segments[j-f.first[i]]
 }
 
 // match returns the number of the segment of each live record of p, or -1 for a dead
