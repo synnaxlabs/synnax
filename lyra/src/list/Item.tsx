@@ -20,7 +20,7 @@ import {
 } from "react";
 
 import { Button } from "@/button";
-import type { RenderProp } from "@/component/renderProp";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { useItemsContext } from "@/list/scope";
@@ -65,7 +65,9 @@ export type ItemProps<
     onHover?: () => void;
   };
 
-export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
+export type ItemRenderProp<K extends record.Key> = Component.RenderProp<
+  ItemRenderProps<K>
+>;
 
 /**
  * itemNameID returns the DOM id for editable name text rendered inside the list item
