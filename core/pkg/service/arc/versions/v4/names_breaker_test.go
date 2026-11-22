@@ -42,4 +42,15 @@ var _ = Describe("RenameChannels breaker", func() {
 		Expect(segments).To(HaveLen(1))
 		Expect(segments[0].Text).To(Equal(`'pt-01'`))
 	})
+
+	It("Should leave a placeholder that v0.62 compiled splittable by the new Core",
+		func() {
+			out := v4.RenameChannels("f`{pt-01 // it's\n}`", dashed(held))
+			Expect(out).To(Equal("f`{'pt-01' // it's\n}`"))
+			body, flags, ok := literal.StripQuotes(out)
+			Expect(ok).To(BeTrue())
+			segments := MustSucceed(literal.FmtStrSplit(body, flags))
+			Expect(segments[0].Text).To(Equal("'pt-01' // it's\n"))
+		},
+	)
 })
