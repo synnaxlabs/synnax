@@ -619,6 +619,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				DB:      db,
 				Channel: channelSvc,
 				ICD:     icdSvc,
+				Status:  statusSvc,
+				Secret:  secretSvc,
 			})).Stores(),
 			MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
 				DB:      db,

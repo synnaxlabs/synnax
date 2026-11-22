@@ -28,6 +28,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
@@ -81,7 +83,13 @@ var _ = Describe("Signals", Ordered, func() {
 			Framer:  node.Framer,
 		}))
 		MustOpen(server.OpenService(ctx, server.ServiceConfig{
-			DB:      node.DB,
+			DB:     node.DB,
+			Status: stat,
+			Secret: secrettestutil.OpenService(
+				ctx,
+				node.DB,
+				secret.ServiceConfig{EncryptionKey: secretsKey},
+			),
 			Signals: sigs,
 		}))
 		MustOpen(sigs.Start(ctx))

@@ -1015,6 +1015,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		ICD:             l.ICD,
+		Status:          l.Status,
+		Secret:          l.Secret,
 		Signals:         l.Signals,
 	}); !ok(err, l.HTTP) {
 		return nil, err

@@ -664,10 +664,22 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/opcua/server/delete",
 		),
 		// HTTP SERVER
+		HTTPServerCreate: unary[
+			httpserver.CreateRequest,
+			httpserver.CreateResponse,
+		](router, "/api/v1/http/server/create"),
 		HTTPServerRetrieve: unary[
 			httpserver.RetrieveRequest,
 			httpserver.RetrieveResponse,
 		](router, "/api/v1/http/server/retrieve"),
+		HTTPServerUpdate: unary[httpserver.UpdateRequest, struct{}](
+			router,
+			"/api/v1/http/server/update",
+		),
+		HTTPServerDelete: unary[httpserver.DeleteRequest, struct{}](
+			router,
+			"/api/v1/http/server/delete",
+		),
 
 		// ACCESS
 		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](

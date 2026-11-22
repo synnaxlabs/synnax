@@ -22,6 +22,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
 	"github.com/synnaxlabs/x/filter"
@@ -60,7 +62,15 @@ var _ = Describe("Where", Ordered, func() {
 				racktestutil.CreateDriverRole(ctx, whereDB, roleSvc),
 			),
 		}))
-		svc = MustOpen(server.OpenService(ctx, server.ServiceConfig{DB: whereDB}))
+		svc = MustOpen(server.OpenService(ctx, server.ServiceConfig{
+			DB:     whereDB,
+			Status: stat,
+			Secret: secrettestutil.OpenService(
+				ctx,
+				whereDB,
+				secret.ServiceConfig{EncryptionKey: secretsKey},
+			),
+		}))
 		rackKeys := lo.Uniq(lo.MapToSlice(v.Records, func(
 			_ string,
 			d server.Server,

@@ -215,9 +215,24 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/opcua/server/delete",
 			),
 			Entry(
+				"unary HTTP server create",
+				http.MethodPost,
+				"/api/v1/http/server/create",
+			),
+			Entry(
 				"unary HTTP server retrieve",
 				http.MethodPost,
 				"/api/v1/http/server/retrieve",
+			),
+			Entry(
+				"unary HTTP server update",
+				http.MethodPost,
+				"/api/v1/http/server/update",
+			),
+			Entry(
+				"unary HTTP server delete",
+				http.MethodPost,
+				"/api/v1/http/server/delete",
 			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
