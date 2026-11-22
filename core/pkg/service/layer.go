@@ -15,6 +15,7 @@ import (
 	"io/fs"
 	"os"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/samber/lo"
@@ -92,6 +93,7 @@ import (
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // LayerConfig is the configuration for opening the service layer. See fields for
@@ -336,10 +338,54 @@ type Layer struct {
 	Signals *signals.Provider
 	// closer is for properly shutting down the service layer.
 	closer io.MultiCloser
+	// lifecycle orders Run against Close.
+	lifecycle struct {
+		sync.Mutex
+		running bool
+		ran     bool
+		closed  bool
+	}
 }
 
-// Close shuts down the service layer, returning any error encountered.
-func (l *Layer) Close() error { return l.closer.Close() }
+// Run runs the goroutines of the services in the Layer until ctx ends or one of them
+// fails, then waits for all of them to stop and returns the first error. A second Run,
+// or a Run after Close, returns an error.
+func (l *Layer) Run(ctx context.Context) error {
+	l.lifecycle.Lock()
+	if l.lifecycle.closed {
+		l.lifecycle.Unlock()
+		return errors.New("run called after close")
+	}
+	if l.lifecycle.ran {
+		l.lifecycle.Unlock()
+		return errors.New("run called twice")
+	}
+	l.lifecycle.ran, l.lifecycle.running = true, true
+	l.lifecycle.Unlock()
+	defer func() {
+		l.lifecycle.Lock()
+		l.lifecycle.running = false
+		l.lifecycle.Unlock()
+	}()
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return l.Auth.Run(ctx) })
+	return g.Wait()
+}
+
+// Close shuts down the service layer, returning any error encountered. Call it after
+// Run returns: while Run runs, Close returns an error and closes nothing.
+func (l *Layer) Close() error {
+	l.lifecycle.Lock()
+	defer l.lifecycle.Unlock()
+	if l.lifecycle.running {
+		return errors.New("close called while Run runs")
+	}
+	if l.lifecycle.closed {
+		return nil
+	}
+	l.lifecycle.closed = true
+	return l.closer.Close()
+}
 
 func revokePasswordSessions(
 	ctx context.Context,

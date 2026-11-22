@@ -316,6 +316,32 @@ var _ = Describe("Layer", func() {
 		),
 	)
 
+	Describe("Run", func() {
+		It("Should run until its context ends", func(ctx SpecContext) {
+			layer := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+			StartRun(layer.Run)
+		})
+		It("Should return an error when called twice", func(ctx SpecContext) {
+			layer := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+			StartRun(layer.Run)
+			Expect(layer.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+		})
+		It("Should not close while Run runs", func(ctx SpecContext) {
+			layer := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+			stop := StartRun(layer.Run)
+			Expect(layer.Close()).
+				To(MatchError(ContainSubstring("close called while Run runs")))
+			stop()
+			Expect(layer.Close()).To(Succeed())
+		})
+		It("Should return an error when called after Close", func(ctx SpecContext) {
+			layer := MustSucceed(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+			Expect(layer.Close()).To(Succeed())
+			Expect(layer.Run(ctx)).
+				To(MatchError(ContainSubstring("run called after close")))
+		})
+	})
+
 	It("Should refuse a framer writer on a change channel", func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
 		layer := MustOpen(svctestutil.OpenLayer(ctx, node))
