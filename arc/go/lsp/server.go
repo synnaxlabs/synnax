@@ -526,40 +526,51 @@ func (s *Server) analyze(
 	})
 	s.cfg.L.Debug("analyzing program")
 	cfg := s.parserConfig()
-
 	if meta.isFunctionBlock {
-		wrappedContent := fmt.Sprintf("{%s}", content)
-		t, err := parser.ParseBlock(wrappedContent, cfg)
-		if err != nil {
-			pDiagnostics = lsp.TranslateDiagnostics(
-				unwrapDiagnostics(*err),
-				translateSource,
-			)
-		} else {
-			aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot()).WithConfig(cfg)
-			statement.AnalyzeFunctionBody(aCtx)
-			docIR = ir.IR{Symbols: aCtx.Scope}
-			docDiag = unwrapDiagnostics(*aCtx.Diagnostics)
-			pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
-		}
-	} else {
-		t, diag := text.Parse(text.Text{Raw: content}, cfg)
-		if diag != nil {
-			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateSource)
-		} else {
-			analyze := text.Analyze
-			if meta.isModule {
-				analyze = text.AnalyzeModule
-			}
-			analyzedIR, analysisDiag := analyze(ctx, t, s.cfg.NewRoot(), cfg)
-			docIR = analyzedIR
-			if analysisDiag != nil {
-				docDiag = *analysisDiag
-				pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
-			}
-		}
+		return s.analyzeFunctionBlock(ctx, content, cfg)
 	}
-	return pDiagnostics, docIR, docDiag
+	return s.analyzeProgram(ctx, content, meta.isModule, cfg)
+}
+
+// analyzeFunctionBlock analyzes content as the body of a function block.
+func (s *Server) analyzeFunctionBlock(
+	ctx context.Context,
+	content string,
+	cfg parser.Config,
+) ([]protocol.Diagnostic, ir.IR, diagnostics.Diagnostics) {
+	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", content), cfg)
+	if err != nil {
+		docDiag := unwrapDiagnostics(*err)
+		return lsp.TranslateDiagnostics(docDiag, translateSource), ir.IR{}, nil
+	}
+	aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot()).WithConfig(cfg)
+	statement.AnalyzeFunctionBody(aCtx)
+	docDiag := unwrapDiagnostics(*aCtx.Diagnostics)
+	pDiagnostics := lsp.TranslateDiagnostics(docDiag, translateSource)
+	return pDiagnostics, ir.IR{Symbols: aCtx.Scope}, docDiag
+}
+
+// analyzeProgram analyzes content as a program, or as a module when module is true.
+func (s *Server) analyzeProgram(
+	ctx context.Context,
+	content string,
+	module bool,
+	cfg parser.Config,
+) ([]protocol.Diagnostic, ir.IR, diagnostics.Diagnostics) {
+	t, diag := text.Parse(text.Text{Raw: content}, cfg)
+	if diag != nil {
+		return lsp.TranslateDiagnostics(*diag, translateSource), ir.IR{}, nil
+	}
+	analyze := text.Analyze
+	if module {
+		analyze = text.AnalyzeModule
+	}
+	docIR, analysisDiag := analyze(ctx, t, s.cfg.NewRoot(), cfg)
+	if analysisDiag == nil {
+		return nil, docIR, nil
+	}
+	pDiagnostics := lsp.TranslateDiagnostics(*analysisDiag, translateSource)
+	return pDiagnostics, docIR, *analysisDiag
 }
 
 // publishDiagnostics synchronously parses and publishes diagnostics. Used for DidOpen,
