@@ -170,6 +170,25 @@ var _ = Describe("ResolveReadConfig", func() {
 			payload.Unsigned(2),
 		),
 		Entry(
+			"a boolean",
+			v4.ReadField{DataType: telem.BooleanT, FillValue: fill(true)},
+			func(v icdv1.JSONFieldVariant) any {
+				return *v.(icdv1.BooleanJSONField).Default
+			},
+			true,
+		),
+		Entry(
+			"a JSON value",
+			v4.ReadField{
+				DataType:  telem.JSONT,
+				FillValue: fill(map[string]any{"a": 1}),
+			},
+			func(v icdv1.JSONFieldVariant) any {
+				return *v.(icdv1.JSONJSONField).Default
+			},
+			`{"a":1}`,
+		),
+		Entry(
 			"a string",
 			v4.ReadField{DataType: telem.StringT, FillValue: fill("idle")},
 			func(v icdv1.JSONFieldVariant) any {

@@ -657,6 +657,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			}
 		}
 		name := func(key any) string {
+			GinkgoHelper()
 			n, ok := names[key.(string)]
 			Expect(ok).To(BeTrue(), "key %v is not in ICD %s", key, ic.Name)
 			return n
