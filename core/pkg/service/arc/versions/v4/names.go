@@ -126,6 +126,8 @@ func (p place) sub(i int) place {
 // it. at places src in the enclosing text. It follows the v0.62 lexer with dashed names
 // on, and the quoted channel token of v63.
 func scanCode(src string, at place, found func(span, string, []literal)) {
+	// No "/*" after one that finds no "*/" can find one.
+	unclosed := false
 	for i := 0; i < len(src); {
 		c := src[i]
 		switch {
@@ -136,7 +138,12 @@ func scanCode(src string, at place, found func(span, string, []literal)) {
 				i = len(src)
 			}
 		case strings.HasPrefix(src[i:], "/*"):
-			if end := strings.Index(src[i+2:], "*/"); end >= 0 {
+			end := -1
+			if !unclosed {
+				end = strings.Index(src[i+2:], "*/")
+				unclosed = end < 0
+			}
+			if end >= 0 {
 				i += end + 4
 			} else {
 				i++
