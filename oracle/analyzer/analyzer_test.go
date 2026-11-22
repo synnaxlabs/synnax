@@ -1298,7 +1298,43 @@ Node union on variant {
 				Range struct {
 					min float64 { @go validate max 3 }
 				}
-			`, "test.Range.min has a @go validate rule, but only lt <field> is supported"),
+			`, "test.Range.min has a @go validate rule, but only lt <field> and"),
+			Entry("with a pattern on a number", `
+				Range struct {
+					min float64 { @go validate pattern "^a$" }
+				}
+			`, "test.Range.min has a pattern rule, but only a required string can"),
+			Entry("with a pattern on an optional string", `
+				Device struct {
+					name string? { @go validate pattern "^a$" }
+				}
+			`, "test.Device.name has a pattern rule, but only a required string can"),
+			Entry("with a pattern that is not a regex", `
+				Device struct {
+					name string { @go validate pattern "^(a$" }
+				}
+			`, "test.Device.name has a pattern rule that is not valid"),
+			Entry("with a pattern that is not a string", `
+				Device struct {
+					name string { @go validate pattern foo }
+				}
+			`, "test.Device.name has a pattern rule, but it takes a"),
+			Entry("with an empty pattern", `
+				Device struct {
+					name string { @go validate pattern "" }
+				}
+			`, "test.Device.name has a pattern rule, but it takes a"),
+			Entry("with a message that is not a string", `
+				Device struct {
+					name string { @go validate pattern "^a$" 5 }
+				}
+			`, "test.Device.name has a pattern rule, but it takes a"),
+			Entry("with a pattern in a generic struct", `
+				Device struct<T> {
+					name string { @go validate pattern "^a$" }
+					value T
+				}
+			`, "test.Device.name has a pattern rule, but test.Device is generic"),
 		)
 
 		DescribeTable(
@@ -1311,6 +1347,11 @@ Node union on variant {
 				Range struct {
 					min float64 { @go validate lt max "min must be below max" }
 					max float64
+				}
+			`),
+			Entry("with a pattern on a string", `
+				Device struct {
+					name string { @go validate pattern "^$|^[a-z]+$" "lowercase only" }
 				}
 			`),
 			Entry("naming an inherited field", `

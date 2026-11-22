@@ -29,6 +29,7 @@ import (
 const (
 	validateImportPath = "github.com/synnaxlabs/x/validate"
 	strconvImportPath  = "strconv"
+	regexpImportPath   = "regexp"
 	msgpackImportPath  = "github.com/vmihailenco/msgpack/v5"
 )
 
@@ -717,12 +718,12 @@ type constraintCheckData struct {
 	GoName    string
 	FieldName string
 	// Kind selects the assertion form: non_empty_string, min_len, max_len (string),
-	// non_zero (numeric or uuid), or ge, le, lt (numeric).
+	// non_zero (numeric or uuid), ge, le, lt (numeric), or pattern (string).
 	Kind string
-	// Arg is the length or numeric threshold literal for the kinds that take one, or
-	// the Go name of the compared field for lt.
+	// Arg is the length or numeric threshold literal for the kinds that take one, the
+	// Go name of the compared field for lt, or the regex var for pattern.
 	Arg string
-	// Message is the quoted error message of an lt check.
+	// Message is the quoted error message of an lt or pattern check.
 	Message string
 	// Opens and Closes mark the first and last checks of an optional field, which the
 	// template wraps in one nil guard.
@@ -811,6 +812,38 @@ func goLessThanCheck(
 		FieldName: casing.FieldSnake(field.Name),
 		Kind:      "lt",
 		Arg:       naming.GetFieldName(other),
+		Message:   strconv.Quote(message),
+	}, true
+}
+
+// goPatternCheck returns the check of the pattern rule that field sets for Go. parent
+// is the field that field restates a default of, or nil. A restated field that keeps
+// its parent's rule has no check, since the embedded parent's Validate checks it.
+func goPatternCheck(
+	field resolution.Field,
+	parent *resolution.Field,
+	data *templateData,
+) (constraintCheckData, bool) {
+	m := validation.Matches(field.Domains, "go")
+	if m == nil {
+		return constraintCheckData{}, false
+	}
+	if parent != nil {
+		if inherited := validation.Matches(parent.Domains, "go"); inherited != nil &&
+			*inherited == *m {
+			return constraintCheckData{}, false
+		}
+	}
+	message := m.Message
+	if message == "" {
+		message = "must match " + m.Pattern
+	}
+	data.AddExternal(regexpImportPath)
+	return constraintCheckData{
+		GoName:    naming.GetFieldName(field),
+		FieldName: casing.FieldSnake(field.Name),
+		Kind:      "pattern",
+		Arg:       data.patternVar(m.Pattern),
 		Message:   strconv.Quote(message),
 	}, true
 }
@@ -951,7 +984,8 @@ func validateHasOwn(f resolution.Field, data *templateData) bool {
 		return true
 	}
 	return len(goConstraintChecks(f, false, probe)) > 0 ||
-		validation.LessThan(f.Domains, "go") != nil
+		validation.LessThan(f.Domains, "go") != nil ||
+		validation.Matches(f.Domains, "go") != nil
 }
 
 // methodRule selects the types that emit a recursive method.

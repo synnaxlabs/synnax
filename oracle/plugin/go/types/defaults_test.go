@@ -887,6 +887,72 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			},
 		)
 
+		It("Should check that a string matches a pattern", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Device struct {
+					identifier string {
+						@go validate pattern "^$|^[a-z]+$" "lowercase only"
+					}
+					name string {
+						@go validate pattern "^[A-Z]"
+					}
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`"regexp"`,
+				"var validatePattern0 = regexp.MustCompile(\"^$|^[a-z]+$\")",
+				"var validatePattern1 = regexp.MustCompile(\"^[A-Z]\")",
+				"v.Ternary(\"identifier\", "+
+					"!validatePattern0.MatchString(string(d.Identifier)), "+
+					"\"lowercase only\")",
+				"v.Ternary(\"name\", "+
+					"!validatePattern1.MatchString(string(d.Name)), "+
+					"\"must match ^[A-Z]\")",
+			)
+		})
+
+		It("Should check a pattern in an inline variant once per regex", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Base struct {
+					name string {
+						@go validate pattern "^[a-z]+$"
+					}
+				}
+
+				Restated struct extends Base {
+					name string = "a"
+				}
+
+				Own struct extends Base {
+					name string = "a" {
+						@go validate pattern "^[A-Z]+$"
+					}
+				}
+
+				Shape union on kind {
+					labeled {
+						label string {
+							@go validate pattern "^[a-z]+$"
+						}
+					}
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			content := string(resp.Files[0].Content)
+			Expect(strings.Count(content, "regexp.MustCompile(")).To(Equal(2))
+			Expect(strings.Count(content, `v.Ternary("name"`)).To(Equal(2))
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"!validatePattern1.MatchString(string(o.Name))",
+				"!validatePattern0.MatchString(string(l.Label))",
+				"v.Exec(r.Base.Validate)",
+			)
+		})
+
 		It("Should check a restated field's own lt rule", func() {
 			source := `
 				@go output "core/pkg/service/x"

@@ -45,6 +45,14 @@ type Comparison struct {
 	Message string
 }
 
+// Match is a rule that a string field must match a regular expression.
+type Match struct {
+	// Pattern is the regular expression, in Go syntax.
+	Pattern string
+	// Message replaces the generated error message when it is not empty.
+	Message string
+}
+
 // Number represents a numeric constraint value that can be int or float.
 type Number struct {
 	Int   int64
@@ -110,6 +118,20 @@ func LessThan(domains map[string]resolution.Domain, lang string) *Comparison {
 		lt.Message = expr.Values[2].StringValue
 	}
 	return lt
+}
+
+// Matches returns the rule that domains set with `@<lang> validate pattern "<regex>"
+// ["message"]`, or nil when they set none.
+func Matches(domains map[string]resolution.Domain, lang string) *Match {
+	expr, ok := domains[lang].Expressions.Find("validate")
+	if !ok || len(expr.Values) < 2 || expr.Values[0].IdentValue != "pattern" {
+		return nil
+	}
+	m := &Match{Pattern: expr.Values[1].StringValue}
+	if len(expr.Values) > 2 {
+		m.Message = expr.Values[2].StringValue
+	}
+	return m
 }
 
 // FieldRules returns the rules that apply to field: its own rules merged with the

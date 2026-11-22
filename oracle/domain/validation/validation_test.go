@@ -251,6 +251,36 @@ var _ = Describe("LessThan", func() {
 	})
 })
 
+var _ = Describe("Matches", func() {
+	str := func(v string) resolution.ExpressionValue {
+		return resolution.ExpressionValue{
+			Kind:        resolution.ValueKindString,
+			StringValue: v,
+		}
+	}
+	pattern := resolution.ExpressionValue{
+		Kind:       resolution.ValueKindIdent,
+		IdentValue: "pattern",
+	}
+
+	It("should read the pattern and the message", func() {
+		domains := map[string]resolution.Domain{
+			"go": rule("validate", pattern, str("^[a-z]+$"), str("lowercase only")),
+		}
+		Expect(validation.Matches(domains, "go")).To(Equal(&validation.Match{
+			Pattern: "^[a-z]+$",
+			Message: "lowercase only",
+		}))
+	})
+
+	It("should only read the rule of the given language", func() {
+		domains := map[string]resolution.Domain{
+			"go": rule("validate", pattern, str("^[a-z]+$")),
+		}
+		Expect(validation.Matches(domains, "ts")).To(BeNil())
+	})
+})
+
 var _ = Describe("IsEmpty", func() {
 	It("should return true for nil", func() {
 		Expect(validation.IsEmpty(nil)).To(BeTrue())

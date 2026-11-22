@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -582,6 +583,7 @@ func (f *goFile) templateData(aliasOverrides map[string]string) *templateData {
 		AliasOverrides: aliasOverrides,
 	}
 	return &templateData{
+		patterns:   &[]patternVar{},
 		Package:    pkg,
 		OutputPath: f.outputPath,
 		Namespace:  namespace,
@@ -981,6 +983,9 @@ func addFieldMethods(
 	if chk, ok := goLessThanCheck(field, siblings, parent); ok {
 		sd.ConstraintChecks = append(sd.ConstraintChecks, chk)
 	}
+	if chk, ok := goPatternCheck(field, parent, data); ok {
+		sd.ConstraintChecks = append(sd.ConstraintChecks, chk)
+	}
 	if step, ok := goRecurseStep(field, fd, validateRule); ok {
 		sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 	}
@@ -1215,6 +1220,34 @@ type templateData struct {
 	Namespace  string
 	repoRoot   string
 	Decls      []declData
+	// patterns holds one compiled regex for each distinct regex of the pattern checks.
+	// Copies of the data share it, since any of them can add a check.
+	patterns *[]patternVar
+}
+
+// Patterns returns the regex vars the file declares.
+func (d *templateData) Patterns() []patternVar { return *d.patterns }
+
+// patternVar is a package-level regex that pattern checks match against.
+type patternVar struct {
+	// Name is the Go name of the var.
+	Name string
+	// Literal is the quoted regex.
+	Literal string
+}
+
+// patternVar returns the name of the var that holds pattern, adding the var when the
+// file has none for it.
+func (d *templateData) patternVar(pattern string) string {
+	literal := strconv.Quote(pattern)
+	for _, p := range *d.patterns {
+		if p.Literal == literal {
+			return p.Name
+		}
+	}
+	name := "validatePattern" + strconv.Itoa(len(*d.patterns))
+	*d.patterns = append(*d.patterns, patternVar{Name: name, Literal: literal})
+	return name
 }
 
 // importAlias returns the import alias for a cross-package reference,
@@ -1423,6 +1456,10 @@ import (
 {{- end}}
 {{- end}}
 )
+{{- end}}
+{{- range .Patterns}}
+
+var {{.Name}} = regexp.MustCompile({{.Literal}})
 {{- end}}
 {{- range .Decls}}
 {{- with .Alias}}
@@ -1675,6 +1712,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.Finite("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "lt"}}
 	v.Ternary("{{.FieldName}}", !({{$val}} < {{$s.Receiver}}.{{.Arg}}), {{.Message}})
+{{- else if eq .Kind "pattern"}}
+	v.Ternary("{{.FieldName}}", !{{.Arg}}.MatchString(string({{$val}})), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -1813,6 +1852,8 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.Finite("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "lt"}}
 	v.Ternary("{{.FieldName}}", !({{$val}} < {{$vt.Receiver}}.{{.Arg}}), {{.Message}})
+{{- else if eq .Kind "pattern"}}
+	v.Ternary("{{.FieldName}}", !{{.Arg}}.MatchString(string({{$val}})), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}
