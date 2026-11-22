@@ -442,34 +442,33 @@ describe("useList", () => {
       name: "outside",
       timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
     });
-    const reader = createTestClient();
+    // With no change stream, a change from another spec starts no fetch that the
+    // rejection below would fail.
+    const reader = createTestClient({ cache: false });
     const { result } = renderHook(
       () => Flux.useList(ranges, { name: "ranges", query: byName() }),
       { wrapper: createSynnaxWrapper({ client: reader }) },
     );
     act(() => result.current.more());
     await waitFor(() => expect(result.current.answered).toBe(true));
-    const keysOf = (target: string, req: unknown) =>
-      target === "/range/retrieve"
-        ? ranger.retrieveRequestZ.parse(req).where?.key?.in
-        : null;
-    const readsOutside = (target: string, req: unknown): boolean =>
-      keysOf(target, req)?.includes(outside.key) === true;
-    // A frame from another spec makes the reader fetch the range it names, at times in
-    // the same batch. Only a read of the outside range alone fails, so that fetch never
-    // does.
     const reads = rejectRequests(
       reader,
-      (target, req) => keysOf(target, req)?.length === 1 && readsOutside(target, req),
+      (target, req) =>
+        target === "/range/retrieve" &&
+        ranger.retrieveRequestZ.parse(req).order == null,
       new Error("boom"),
     );
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const callback = vi.fn();
     result.current.subscribe(callback, outside.key)();
     await waitFor(() =>
-      expect(reads.mock.calls.some(([target, req]) => readsOutside(target, req))).toBe(
-        true,
-      ),
+      expect(
+        reads.mock.calls.some(
+          ([target, req]) =>
+            target === "/range/retrieve" &&
+            ranger.retrieveRequestZ.parse(req).order == null,
+        ),
+      ).toBe(true),
     );
     await act(async () => {});
     expect(error).not.toHaveBeenCalled();
