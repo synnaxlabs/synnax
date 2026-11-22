@@ -11,7 +11,13 @@ import { type binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Connector, DEFAULT_CONNECTOR, type Socket } from "@/connector";
-import { EOF, ReceiveOverflow, StreamClosed, Unreachable } from "@/errors";
+import {
+  asUntrustedCertificate,
+  EOF,
+  ReceiveOverflow,
+  StreamClosed,
+  Unreachable,
+} from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY, FREIGHTER_METADATA_PREFIX } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import type { Stream, StreamClient } from "@/stream";
@@ -255,6 +261,9 @@ const eventError = (ev: object): Error =>
 const ANSWERED_CODE = /CERT|SIGNATURE|^ERR_TLS_|^ERR_SSL_/;
 const ANSWERED_MESSAGE = /TLS handshake|invalid peer certificate|status code/;
 
+const UNREACHABLE =
+  "Unreachable. The server may be down, or the runtime may not trust its certificate.";
+
 const isAnswered = (cause: unknown): boolean => {
   if (typeof cause !== "object" || cause === null) return false;
   if (
@@ -327,9 +336,11 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
 
   /**
    * Implements the StreamClient interface.
-   * @throws {Unreachable} if the socket fails or closes before it opens. A TLS failure
-   * or a refused upgrade that the runtime names (Bun and Deno) throws the runtime
-   * error instead.
+   * @throws {UntrustedCertificate} if the runtime names a certificate it does not trust
+   * (Bun and Deno).
+   * @throws {Unreachable} if the socket fails or closes before it opens. Another TLS
+   * failure or a refused upgrade that the runtime names (Bun and Deno) throws the
+   * runtime error instead.
    */
   async stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
@@ -371,12 +382,14 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     resSchema: RS,
   ): Promise<WebSocketStream<RQ, RS>> {
     return await new Promise((resolve, reject) => {
+      const endpoint = this.baseUrl.child(target);
       const unreachable = (cause: unknown) =>
-        reject(new Unreachable({ url: this.baseUrl.child(target), cause }));
+        reject(new Unreachable({ url: endpoint, cause, message: UNREACHABLE }));
       ws.onclose = unreachable;
       ws.onerror = (ev: object) => {
         const cause = eventCause(ev);
-        if (isAnswered(cause)) reject(eventError(ev));
+        if (isAnswered(cause))
+          reject(asUntrustedCertificate(cause, endpoint) ?? eventError(ev));
         else unreachable(cause);
       };
       // Node fails a blocked port, such as 1, before the dial returns the socket.

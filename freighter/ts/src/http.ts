@@ -23,7 +23,7 @@ import {
   type FetchInit,
   type FetchResponse,
 } from "@/connector";
-import { Timeout, Unreachable } from "@/errors";
+import { asUntrustedCertificate, Timeout, Unreachable } from "@/errors";
 import type { FileEncoding, FileOptions, FileTransport, UploadBody } from "@/file";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import type { UnaryClient } from "@/unary";
@@ -74,29 +74,21 @@ const shouldCastToUnreachable = (
 
   // Deno's fetch error has no code, so its cause message is the only signal. The text
   // stops at "tcp connect error" so that TLS and DNS failures do not match.
-  if (
+  return (
     err.name === "TypeError" &&
     err.cause instanceof Error &&
     err.cause.message.includes(DENO_TCP_CONNECT_ERROR)
-  )
-    return true;
-
-  // Browser/Safari fallback: detect canonical network-failure TypeError messages
-  if (err.name === "TypeError") {
-    const msg = String(err.message || "").toLowerCase();
-    if (/load failed|failed to fetch|networkerror|network error/.test(msg)) {
-      if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
-      // If you want to be conservative, return false here and treat generically. If you
-      // want parity with Node for user messaging, you can return true.
-      return true;
-    }
-  }
-
-  // Abort should not be "unreachable"
-  if (err.name === "AbortError" || err.code === "ABORT_ERR") return false;
-
-  return false;
+  );
 };
+
+// Browsers hide the cause of a failed fetch, so a certificate failure looks like this.
+const BROWSER_FETCH_FAILURE = /load failed|failed to fetch|networkerror|network error/i;
+
+const isBrowserFetchFailure = (err: Error): boolean =>
+  err.name === "TypeError" && BROWSER_FETCH_FAILURE.test(err.message);
+
+const BROWSER_UNREACHABLE =
+  "Unreachable. The server may be down, or the browser may not trust its certificate.";
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 
@@ -228,6 +220,8 @@ export class HTTPClient
    * Sends a request to the target and waits for its response.
    * @throws {Timeout} if no response arrives within the timeout.
    * @throws {Unreachable} if the target cannot be reached.
+   * @throws {UntrustedCertificate} if the runtime does not trust the certificate of
+   * the target.
    */
   async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
@@ -368,6 +362,15 @@ export class HTTPClient
   ): Promise<FetchResponse> {
     const cast = (e: unknown, delivered: boolean): Error => {
       const err = errors.fromUnknown(e);
+      const untrusted = asUntrustedCertificate(err, url);
+      if (untrusted != null) return untrusted;
+      if (isBrowserFetchFailure(err))
+        return new Unreachable({
+          url,
+          cause: err,
+          delivered,
+          message: BROWSER_UNREACHABLE,
+        });
       return shouldCastToUnreachable(err)
         ? new Unreachable({ url, cause: err, delivered })
         : err;

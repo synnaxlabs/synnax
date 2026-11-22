@@ -14,7 +14,13 @@ import { binary, type CrudeTimeSpan, TimeSpan, url, zod } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 
-import { HTTPClient, Timeout, unaryWithBreaker, Unreachable } from "@/index";
+import {
+  HTTPClient,
+  Timeout,
+  unaryWithBreaker,
+  Unreachable,
+  UntrustedCertificate,
+} from "@/index";
 
 const ENDPOINT = new url.URL({
   host: "127.0.0.1",
@@ -120,6 +126,15 @@ describe("http", () => {
       ).rejects.toThrow(Unreachable);
     });
 
+    test("throws an untrusted certificate for an unknown issuer", async () => {
+      await expect(
+        failWith(
+          "error sending request for url (https://127.0.0.1:9312/x): client error " +
+            "(Connect): invalid peer certificate: UnknownIssuer",
+        ),
+      ).rejects.toThrow(UntrustedCertificate);
+    });
+
     test("does not throw unreachable for a TLS failure", async () => {
       const err = await failWith(
         "error sending request for url (https://127.0.0.1:9312/x): client error " +
@@ -128,6 +143,23 @@ describe("http", () => {
       expect(Unreachable.matches(err)).toBe(false);
       expect(err).toBeInstanceOf(TypeError);
     });
+  });
+
+  test("browser fetch failures name a possible certificate problem", async () => {
+    const send = new HTTPClient({
+      endpoint: ENDPOINT,
+      codec: new binary.JSONCodec(),
+      connector: {
+        fetch: async () => {
+          throw new TypeError("Failed to fetch");
+        },
+        dial: async () => {
+          throw new Error("unused");
+        },
+      },
+    }).send("/echo", {}, messageZ, messageZ);
+    await expect(send).rejects.toThrow(Unreachable);
+    await expect(send).rejects.toThrow("certificate");
   });
 
   describe("timeout", () => {
