@@ -61,7 +61,6 @@ export const linePlotStateZ = z.object({
 const axesBoundsZ = z.record(z.string(), numericBoundsZ);
 
 export const linePlotMethodsZ = {
-  getBounds: z.function({ input: z.tuple([]), output: axesBoundsZ }),
   /**
    * Returns, for each x axis, the values that a span of decimal positions across the
    * home view holds.
@@ -97,11 +96,13 @@ type Children = XAxis | tooltip.Tooltip | measure.Measure;
 const RENDER_CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"] as const;
 const TOOL_RENDER_CANVASES: render.CanvasVariant[] = ["upper2d"];
 
-// axisProps returns the props that the x axis at index i lays out with. Only the first
-// x axis collapses its gaps: the x axes share one viewport, and a break change maps it
-// through one layout.
-const axisProps = <P extends LayoutProps>(i: number, props: P): P =>
-  i === 0 ? props : { ...props, breaksHidden: true };
+// Only the x axis keyed x1 collapses its gaps: the x axes share one viewport, and a
+// break change maps it through one layout.
+const isX1 = (a: XAxis): boolean => (a.state.axisKey ?? a.key) === "x1";
+
+// axisProps returns the props that the x axis a lays out with.
+const axisProps = <P extends LayoutProps>(a: XAxis, props: P): P =>
+  isX1(a) ? props : { ...props, breaksHidden: true };
 
 export class LinePlot
   extends aether.Composite<
@@ -142,18 +143,18 @@ export class LinePlot
   findByXDecimal(x: number): FindResult[] {
     const props = { ...this.state, plot: this.calculatePlot() };
     return this.axes
-      .flatMap((xAxis, i) => xAxis.findByXDecimal(axisProps(i, props), x))
+      .flatMap((xAxis) => xAxis.findByXDecimal(axisProps(xAxis, props), x))
       .flat();
   }
 
   private findDrawnByXDecimal(x: number): FindResult[] {
     const props = { ...this.state, plot: this.calculatePlot() };
-    return this.axes.flatMap((a, i) => a.findDrawnByXDecimal(axisProps(i, props), x));
+    return this.axes.flatMap((a) => a.findDrawnByXDecimal(axisProps(a, props), x));
   }
 
   findByXValue(x: number): FindResult[] {
     const props = { ...this.state, plot: this.calculatePlot() };
-    return this.axes.flatMap((a, i) => a.findByXValue(axisProps(i, props), x)).flat();
+    return this.axes.flatMap((a) => a.findByXValue(axisProps(a, props), x)).flat();
   }
 
   private get axes(): readonly XAxis[] {
@@ -197,10 +198,11 @@ export class LinePlot
     // Raised lines draw after the lines of every axis, so they draw over all of them.
     const raised: Array<() => void> = [];
     try {
-      const drawn = this.axes.map((xAxis, i) => xAxis.render(axisProps(i, p), raised));
-      const x1 = drawn[0]?.[0] ?? null;
-      this.syncBreaks(x1 == null ? [] : this.axes[0].gaps(x1, p));
-      const err = drawn.find((d) => d?.[1] != null)?.[1];
+      const drawn = this.axes.map((xAxis) => xAxis.render(axisProps(xAxis, p), raised));
+      const i = this.axes.findIndex(isX1);
+      const [x1, gaps] = (i < 0 ? null : drawn[i]) ?? [null, []];
+      this.syncBreaks(gaps);
+      const err = drawn.find((d) => d?.[2] != null)?.[2];
       if (err != null) throw err;
       return x1;
     } finally {
@@ -209,11 +211,11 @@ export class LinePlot
   }
 
   getSeams(): number[] {
-    return this.axes.at(0)?.layout(this.state).seams ?? [];
+    return this.axes.find(isX1)?.layout(this.state).seams ?? [];
   }
 
   getBreakChange(req: BreaksRequest): BreaksChange | null {
-    const x1 = this.axes.at(0);
+    const x1 = this.axes.find(isX1);
     if (x1 == null) return null;
     return x1.breaks(this.state, req, this.calculatePlot());
   }
@@ -230,33 +232,19 @@ export class LinePlot
     this.tooltips.forEach((t) => t.render(p));
   }
 
-  getBounds(): AxesBounds {
-    const bounds: AxesBounds = {};
-    this.axes.forEach((v, i) => {
-      const axisKey = v.state.axisKey ?? v.key;
-      const layout = v.layout(axisProps(i, this.state));
-      bounds[axisKey] = layout.bounds;
-      v.yAxes.forEach((y) => {
-        const yAxisKey = y.state.axisKey ?? y.key;
-        bounds[yAxisKey] = y.bounds(this.state.hold, layout);
-      });
-    });
-    return bounds;
-  }
-
   getXBounds(positions: bounds.Bounds): AxesBounds {
     return Object.fromEntries(
-      this.axes.map((a, i) => [
+      this.axes.map((a) => [
         a.state.axisKey ?? a.key,
-        a.layout(axisProps(i, this.state)).reverseHomeBounds(positions),
+        a.layout(axisProps(a, this.state)).reverseHomeBounds(positions),
       ]),
     );
   }
 
   getXPositions(values: bounds.Bounds): AxesBounds {
     return Object.fromEntries(
-      this.axes.map((a, i) => {
-        const layout = a.layout(axisProps(i, this.state));
+      this.axes.map((a) => {
+        const layout = a.layout(axisProps(a, this.state));
         const positions = {
           lower: layout.home(values.lower),
           upper: layout.home(values.upper),
