@@ -306,18 +306,39 @@ var _ = Describe("ImEx", func() {
 		})
 
 		Describe("WithEncodeOptions", func() {
-			It("Should write the body with the options", func() {
+			It("Should marshal the body with the options", func() {
 				env := imex.Envelope{Version: 1, Type: "log"}
 				Expect(env.Encode(tagged{Name: "n", Tag: 7})).To(Succeed())
-				env = MustSucceed(env.WithEncodeOptions(tagWriter))
+				Expect(json.Marshal(env.WithEncodeOptions(tagWriter))).To(MatchJSON(
+					`{"version":1,"type":"log","name":"n","tag":"tag-7"}`,
+				))
+			})
+		})
+
+		Describe("Freeze", func() {
+			It("Should write the body with its encode options once", func() {
+				env := imex.Envelope{Version: 1, Type: "log"}
+				Expect(env.Encode(tagged{Name: "n", Tag: 7})).To(Succeed())
+				calls := 0
+				counting := json.WithMarshalers(json.MarshalToFunc(
+					func(enc *jsontext.Encoder, t tag) error {
+						calls++
+						return enc.WriteToken(jsontext.String(fmt.Sprintf("tag-%d", t)))
+					},
+				))
+				env = MustSucceed(env.WithEncodeOptions(counting).Freeze())
 				Expect(json.Marshal(env)).To(MatchJSON(
 					`{"version":1,"type":"log","name":"n","tag":"tag-7"}`,
 				))
+				Expect(json.Marshal(env)).To(MatchJSON(
+					`{"version":1,"type":"log","name":"n","tag":"tag-7"}`,
+				))
+				Expect(calls).To(Equal(1))
 			})
 
 			It("Should error on an envelope with no body", func() {
 				env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
-				Expect(env.WithEncodeOptions(tagWriter)).Error().
+				Expect(env.WithEncodeOptions(tagWriter).Freeze()).Error().
 					To(MatchError(ContainSubstring("envelope has no body")))
 			})
 		})
