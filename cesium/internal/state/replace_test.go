@@ -638,7 +638,7 @@ var _ = Describe("Replace across a switch", func() {
 
 	It("Should apply, live and in replay, a Replace of a candidate, which the switch "+
 		"keeps in the head", func() {
-		live, replayed := across([]log.Record{&log.Tombstone{
+		Expect(across([]log.Record{&log.Tombstone{
 			Key: 6, Start: 15, End: 25, Left: cutOf(1, 10), Right: cutOf(2, 30),
 		}}, &log.Replace{
 			Old: 3, New: 9, Length: 8, TailCRC: 7,
@@ -652,8 +652,6 @@ var _ = Describe("Replace across a switch", func() {
 					Alignment: uint64(telem.NewAlignment(1, 2)), First: 30, Last: 30,
 				},
 			},
-		}, false)
-		Expect(live).ToNot(HaveOccurred())
-		Expect(replayed).ToNot(HaveOccurred())
+		}, false)).To(Succeed())
 	})
 })
