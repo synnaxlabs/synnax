@@ -344,8 +344,7 @@ func (c *core) drop(key uint32, pre []Preload) error {
 			Kill{Key: key, All: true, Generation: c.generation},
 		)
 		// The database unlinks the file of each segment once no reader pins it. A
-		// record
-		// whose segment the state holds goes with that segment.
+		// record whose segment the state holds goes with that segment.
 		for _, rec := range records {
 			if _, held := c.segments[rec.ID]; !held {
 				c.dead = append(c.dead, Dead{Segment: rec.ID, Key: key})
