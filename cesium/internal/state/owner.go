@@ -40,9 +40,6 @@ type Config struct {
 	// OnHead gets the durable snapshot that the head of the log of generation holds, on
 	// a step of the owner. It must return at once.
 	OnHead func(generation uint64, s *Snapshot)
-	// BetweenLoads, when set, runs in Pair between the loads of its two Channels, so a
-	// spec can publish there.
-	BetweenLoads func()
 }
 
 // Validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -82,6 +79,9 @@ type State struct {
 	}
 	step    func()
 	stepped chan bool
+	// betweenLoads, when set, runs in Pair between the loads of its two Channels. Only
+	// a spec of this package sets it.
+	betweenLoads func()
 	// The fields below belong to the owner.
 	nextID, nextAlign uint64
 	idBlocks          int
@@ -283,8 +283,8 @@ func (s *State) Pair(key, clock uint32) (ch, clocks *Channel, count uint64) {
 			continue
 		}
 		ch = s.Channel(key)
-		if s.cfg.BetweenLoads != nil {
-			s.cfg.BetweenLoads()
+		if s.betweenLoads != nil {
+			s.betweenLoads()
 		}
 		clocks = s.Channel(clock)
 		if s.core.count.n.Load() == count {
