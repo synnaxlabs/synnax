@@ -98,7 +98,10 @@ no channel and no default.
 The task service hashes each record a task references (`HashReferences` and
 `HashedTables` in `core/pkg/service/task/config/config.go`). An ICD write changes the
 hash in the same transaction, and the Driver configures a task again only when the hash
-changed.
+changed. The Driver fetches ICDs after it reads the hash, so after it configures a task
+it reads the hash again (`driver/task/manager.cpp`). If the hash changed, it stops the
+new instance: a pinned start is refused, and an unpinned deploy configures again, up to
+three times, then reports an error status.
 
 ### 3.2 Codecs
 
@@ -125,9 +128,11 @@ emits C++ and protobuf types for `icd.oracle`.
 | CAN              | Driver  | New on ICDs      | New on ICDs   | v0, new        |
 
 MQTT Sparkplug and Edge entries keep their own shapes, because the protocol defines the
-payload. HTTP v5 migrates each v4 endpoint's fields into one ICD message, with
-`fill_value` as the ICD `default`. Kafka v1 migrates each v0 task into one ICD. MQTT v3
-migrates each v1 and v2 write target into an ICD message.
+payload. MQTT v3 migrates each v1 and v2 write target into an ICD message. Kafka v1
+migrates each v0 task into one ICD. HTTP v5 migrates each v4 endpoint's fields into one
+ICD message, with `fill_value` as the ICD `default`. A v4 endpoint can hold fields on
+several index channels, so the Driver writes each index group of a message on its own.
+The Console still makes a new message on one index.
 
 The bus integrations come from the SY-4971 branch. They drop that branch's own ICD
 stack, its `library` toolkit, and its `icd_hash` stamping, and use the ICD on `main`.
