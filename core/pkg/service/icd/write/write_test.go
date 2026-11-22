@@ -10,6 +10,7 @@
 package write_test
 
 import (
+	"math"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -148,20 +149,32 @@ var _ = Describe("Write", func() {
 			),
 		)
 
-		It("Should refuse a fixed value that its field cannot send", func() {
-			v := jsonField("v", icd.JSONJSONField{})
-			m := jsonMessage("Fixed", temp, v)
-			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m}}
-			wm := writeOf(m, bind(temp), fixed(v, icd.JSONWriteValue{Value: "{"}))
-			Expect(write.Encoder(wm, ic, dataTypes)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(
-					ContainSubstring(
-						"message Fixed: field v: default is not valid JSON",
-					),
-				),
-			))
-		})
+		DescribeTable("Should refuse a fixed value that its field cannot send",
+			func(v icd.JSONField, value icd.WriteValueVariant, expected string) {
+				m := jsonMessage("Fixed", temp, v)
+				ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m}}
+				wm := writeOf(m, bind(temp), fixed(v, value))
+				Expect(write.Encoder(wm, ic, dataTypes)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(expected)),
+				))
+			},
+			Entry("JSON text that is not valid",
+				jsonField("v", icd.JSONJSONField{}),
+				icd.JSONWriteValue{Value: "{"},
+				"bindings.1.value: field v: not valid JSON",
+			),
+			Entry("text that is not base64",
+				jsonField("v", icd.BytesJSONField{}),
+				icd.BytesWriteValue{Value: "AQI"},
+				"bindings.1.value: field v: not canonical base64",
+			),
+			Entry("a float that is not finite",
+				jsonField("v", icd.FloatJSONField{}),
+				icd.FloatWriteValue{Value: payload.Float(math.Inf(1))},
+				"bindings.1.value: field v: Infinity is not a JSON number",
+			),
+		)
 
 		It("Should accept a fixed value for a field that has no default", func() {
 			wm := writeOf(

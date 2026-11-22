@@ -199,7 +199,7 @@ TEST(JSON, RejectsJSONDefaultThatIsNotJSON) {
     std::get<icd::JSONJSONField>(m.payload.fields[0]).default_ = "{";
     const auto err = JSON::create({m}).second;
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    ASSERT_EQ(err.data, "message reading: field v: default is not valid JSON");
+    ASSERT_EQ(err.data, "message reading: field v: default: not valid JSON");
 }
 
 /// @brief it should decode a document without allocating when a string match rule

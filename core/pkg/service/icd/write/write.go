@@ -140,6 +140,11 @@ func fill(
 			f.Base().Name, f.Type(),
 		), "value")
 	}
+	if err := codec.CheckDefault(f); err != nil {
+		return validate.PathedError(
+			errors.Wrapf(err, "field %s", f.Base().Name), "value",
+		)
+	}
 	jp.Fields[i] = f
 	return nil
 }

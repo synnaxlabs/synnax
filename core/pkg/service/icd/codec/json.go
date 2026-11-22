@@ -258,8 +258,8 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 	case icd.JSONJSONField:
 		f.kind = payload.KindJSON
 		if v.Default != nil {
-			if out.fallback, err = jsonDefault(*v.Default); err != nil {
-				return jsonVariant{}, err
+			if out.fallback, err = jsonText(*v.Default); err != nil {
+				return jsonVariant{}, errors.Wrap(err, "default")
 			}
 		}
 	case icd.UuidJSONField:
@@ -287,7 +287,10 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 	return out, nil
 }
 
-var errUntypedDefault = errors.Wrap(validate.ErrValidation, "default: type is required")
+var (
+	errUntyped        = errors.Wrap(validate.ErrValidation, "type is required")
+	errUntypedDefault = errors.Wrap(errUntyped, "default")
+)
 
 func appendNow(dst []byte) []byte {
 	return telem.ByteOrder.AppendUint64(dst, uint64(telem.Now()))
@@ -462,11 +465,11 @@ func (m *jsonMessage) decode(samples [][]byte) error {
 	return nil
 }
 
-// jsonDefault returns the exact bytes of the JSON text of a default. It returns a
-// validation error when the text is not valid JSON.
-func jsonDefault(text string) ([]byte, error) {
+// jsonText returns the exact bytes of text. It returns a validation error when text is
+// not valid JSON.
+func jsonText(text string) ([]byte, error) {
 	if !jsontext.Value(text).IsValid() {
-		return nil, errors.Wrap(validate.ErrValidation, "default is not valid JSON")
+		return nil, errors.Wrap(validate.ErrValidation, "not valid JSON")
 	}
 	return []byte(text), nil
 }
