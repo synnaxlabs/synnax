@@ -26,7 +26,7 @@ describe("errors", () => {
       expect(encoded.data).toEqual(error.message);
       const decoded = errors.decode(encoded);
       expect(error.matches(decoded)).toBeTruthy();
-      expect(decoded.message).toEqual(error.message);
+      expect(decoded?.message).toEqual(error.message);
     });
   });
 
