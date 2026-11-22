@@ -11,9 +11,14 @@ package lsp
 
 import (
 	"context"
+	"sort"
 	"strings"
+	"sync"
+	"unicode/utf8"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -45,6 +50,42 @@ type document struct {
 	analyzed  string
 	Version   int32
 	debouncer *debounce.Debouncer
+	// names is shared by every snapshot of the document.
+	names *nameTokens
+}
+
+// nameTokens holds the tokens of one content that can hold a quoted channel name: the
+// quoted names and the string literals, whose placeholders can hold them. It lexes the
+// content on first use and keeps the tokens until the content changes, so a lookup by
+// position costs the same at any document length.
+type nameTokens struct {
+	mu      sync.Mutex
+	content string
+	lexed   bool
+	tokens  []antlr.Token
+}
+
+// of returns the name tokens of content in order. Callers must not change them.
+func (n *nameTokens) of(content string) []antlr.Token {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if !n.lexed || n.content != content {
+		n.content, n.lexed, n.tokens = content, true, lexNameTokens(content)
+	}
+	return n.tokens
+}
+
+func lexNameTokens(content string) []antlr.Token {
+	var kept []antlr.Token
+	for _, t := range tokenizeContent(content) {
+		switch t.GetTokenType() {
+		case parser.ArcLexerCHANNEL_NAME,
+			parser.ArcLexerSTR_LITERAL,
+			parser.ArcLexerSTR_LITERAL_MULTI:
+			kept = append(kept, t)
+		}
+	}
+	return kept
 }
 
 func (d *document) isBlock() bool {
@@ -164,13 +205,97 @@ func (d *document) resolveSymbolAtPosition(
 	ctx context.Context,
 	pos protocol.Position,
 ) (*symbol.Symbol, error) {
-	word := d.getWordAtPosition(pos)
-	if word == "" {
+	n, _, quoted := d.channelNameAt(pos)
+	if !quoted {
+		n = parser.Name{Head: d.getWordAtPosition(pos)}
+	}
+	if n.Head == "" {
 		return nil, nil
 	}
 	scope := d.findScopeAtPosition(pos)
 	if scope == nil {
 		return nil, nil
 	}
-	return scope.Resolve(ctx, word, symbol.WithoutUsageTracking)
+	return scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
+}
+
+// channelNameAt returns the quoted channel name whose token holds pos, and the range
+// of the token.
+func (d *document) channelNameAt(
+	pos protocol.Position,
+) (parser.Name, protocol.Range, bool) {
+	ts := d.names.of(d.displayContent())
+	line := int(pos.Line) + 1
+	// Tokens do not overlap, so of the tokens that start before line, only the last can
+	// reach it.
+	i := sort.Search(len(ts), func(i int) bool { return ts[i].GetLine() > line })
+	for j := i - 1; j >= 0; j-- {
+		if n, r, ok := channelNameIn(ts[j], pos); ok {
+			return n, r, true
+		}
+		if ts[j].GetLine() < line {
+			break
+		}
+	}
+	return parser.Name{}, protocol.Range{}, false
+}
+
+// channelNameIn returns the quoted channel name at pos in the name token t, and its
+// range.
+func channelNameIn(
+	t antlr.Token,
+	pos protocol.Position,
+) (parser.Name, protocol.Range, bool) {
+	if t.GetTokenType() != parser.ArcLexerCHANNEL_NAME {
+		return placeholderChannelNameAt(t, pos)
+	}
+	if r := tokenRange(t); holds(r, pos) {
+		return parser.TokenName(t), r, true
+	}
+	return parser.Name{}, protocol.Range{}, false
+}
+
+// placeholderChannelNameAt returns the quoted channel name at pos inside a placeholder
+// of the format string t, and its range.
+func placeholderChannelNameAt(
+	t antlr.Token,
+	pos protocol.Position,
+) (parser.Name, protocol.Range, bool) {
+	f, ok := parseFormatString(t)
+	if !ok {
+		return parser.Name{}, protocol.Range{}, false
+	}
+	for _, seg := range f.segs {
+		if !seg.IsPlaceholder {
+			continue
+		}
+		inner, spans := f.innerTokens(seg)
+		for i, it := range inner {
+			if it.GetTokenType() != parser.ArcLexerCHANNEL_NAME {
+				continue
+			}
+			r := protocol.Range{Start: f.at[spans[i][0]], End: f.at[spans[i][1]]}
+			if holds(r, pos) {
+				return parser.TokenName(it), r, true
+			}
+		}
+	}
+	return parser.Name{}, protocol.Range{}, false
+}
+
+// holds reports whether the one-line range r holds pos.
+func holds(r protocol.Range, pos protocol.Position) bool {
+	return pos.Line == r.Start.Line && pos.Character >= r.Start.Character &&
+		pos.Character < r.End.Character
+}
+
+// tokenRange returns the range of a token that spans one line.
+func tokenRange(t antlr.Token) protocol.Range {
+	start := protocol.Position{
+		Line:      uint32(t.GetLine() - 1),
+		Character: uint32(t.GetColumn()),
+	}
+	end := start
+	end.Character += uint32(utf8.RuneCountInString(t.GetText()))
+	return protocol.Range{Start: start, End: end}
 }

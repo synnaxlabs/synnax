@@ -31,13 +31,13 @@ func RejectReactiveAssignment(
 	d *diagnostics.Diagnostics,
 	assign parser.IAssignmentContext,
 ) {
-	name := parser.AssignmentName(assign).String()
+	n := parser.AssignmentName(assign)
 	d.Add(
 		codes.AssignmentTarget.Atf(
 			assign,
 			"use '<value> -> %s' to write to '%s'",
-			name,
-			name,
+			n.Text(),
+			n.String(),
 		),
 	)
 }
@@ -113,7 +113,7 @@ func channelRebindTarget[T antlr.ParserRuleContext](
 	if expr == nil {
 		return nil, false
 	}
-	n := parser.ExpressionNameParts(expr)
+	n := parser.ExpressionName(expr)
 	if n.Head == "" {
 		return nil, false
 	}

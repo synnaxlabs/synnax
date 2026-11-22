@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	distnode "github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -47,6 +47,7 @@ var _ = Describe("Stored records", func() {
 		statuses = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: node.DB}))
 		channels = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.Storage.TS,
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  statuses,

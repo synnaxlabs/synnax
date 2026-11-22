@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -47,6 +47,7 @@ var _ = Describe("Ambiguity breaker", func() {
 		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: n.DB}))
 		channels = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: n.Channel,
+			TS:      n.Storage.TS,
 			DB:      n.DB,
 			HostKey: n.Identity.HostKey,
 			Status:  statuses,

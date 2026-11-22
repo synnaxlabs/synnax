@@ -56,7 +56,6 @@ var _ = Describe("Issued with two concurrent Allocates", func() {
 			return MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
 				HostKey: host,
 				KV:      slow,
-				TS:      store.TS,
 			}))
 		}
 		ch := channel.Channel{

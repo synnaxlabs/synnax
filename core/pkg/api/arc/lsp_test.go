@@ -175,7 +175,7 @@ var _ = Describe("LSP", func() {
 				Entry(&stored).
 				Exec(ctx, db)).To(Succeed())
 			return stored.Name, MustSucceed(
-				node.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+				node.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key())),
 			).Name
 		}
 
