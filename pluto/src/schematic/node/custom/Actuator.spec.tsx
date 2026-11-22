@@ -18,8 +18,15 @@ import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const Actuator = Node.REGISTRY.custom_actuator.Preview;
 
-const config = (c: object) =>
-  schematic.customActuatorNodeConfigZ.parse({ variant: "custom_actuator", ...c });
+// The preview renders the symbol from its props, so props the schema does not
+// carry, such as a stroke color, pass through as they are.
+const config = (props: { specKey: string } & Record<string, unknown>) => ({
+  ...schematic.customActuatorNodeConfigZ.parse({
+    variant: "custom_actuator",
+    specKey: props.specKey,
+  }),
+  ...props,
+});
 
 const VALID_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" /></svg>';
