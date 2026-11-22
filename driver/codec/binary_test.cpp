@@ -311,11 +311,11 @@ TEST(Binary, DecodeMultiplexed) {
     auto dec = ASSERT_NIL_P(
         Binary::create({multiplexed({mode, a, b}, {a.key, b.key})})
     );
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 16})), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 16})), 0U);
     ASSERT_EQ(dec.samples(0)[0].size(), 1);
     EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 16);
     EXPECT_EQ(dec.samples(0)[1].size(), 0);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{3, 32})), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{3, 32})), 0U);
     EXPECT_EQ(dec.samples(0)[0].size(), 0);
     ASSERT_EQ(dec.samples(0)[1].size(), 1);
     EXPECT_EQ(dec.samples(0)[1].at<std::uint8_t>(0), 32);
@@ -329,7 +329,7 @@ TEST(Binary, DecodeMultiplexedDefault) {
     a.multiplex_values = {1};
     a.default_ = 7;
     auto dec = ASSERT_NIL_P(Binary::create({multiplexed({mode, a}, {a.key})}));
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{2, 16})), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{2, 16})), 0U);
     ASSERT_EQ(dec.samples(0)[0].size(), 1);
     EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 7);
 }
@@ -345,12 +345,12 @@ TEST(Binary, DecodeCascadedMultiplexors) {
     v.multiplexor = inner.key;
     v.multiplex_values = {-1};
     auto dec = ASSERT_NIL_P(Binary::create({multiplexed({outer, inner, v}, {v.key})}));
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 0xFF, 9})), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 0xFF, 9})), 0U);
     ASSERT_EQ(dec.samples(0)[0].size(), 1);
     EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 9);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{0, 0xFF, 9})), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{0, 0xFF, 9})), 0U);
     EXPECT_EQ(dec.samples(0)[0].size(), 0);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 0xFE, 9})), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 0xFE, 9})), 0U);
     EXPECT_EQ(dec.samples(0)[0].size(), 0);
 }
 
