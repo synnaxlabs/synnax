@@ -206,8 +206,46 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 			},
 		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, icd.Key]{
+			Name:     "targets.icd",
+			Table:    "icd",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *WriteConfig) []icd.Key {
+				var targets []icd.Key
+				for _, v1 := range e.Targets {
+					switch v2 := v1.Variant.(type) {
+					case PlainWriteTarget:
+						targets = append(targets, v2.ICD)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *WriteConfig, t icd.Key) {
+				e.Targets = slices.DeleteFunc(e.Targets, func(v3 WriteTarget) bool {
+					switch v4 := v3.Variant.(type) {
+					case PlainWriteTarget:
+						if v4.ICD == t {
+							return true
+						}
+					}
+					return false
+				})
+			},
+			Retarget: func(e *WriteConfig, from, to icd.Key) {
+				for i5 := range e.Targets {
+					switch v6 := e.Targets[i5].Variant.(type) {
+					case PlainWriteTarget:
+						if v6.ICD == from {
+							v6.ICD = to
+						}
+						e.Targets[i5].Variant = v6
+					}
+				}
+			},
+		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
-			Name:     "targets.channel.channel",
+			Name:     "targets.message.bindings.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
@@ -216,32 +254,38 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				for _, v1 := range e.Targets {
 					switch v2 := v1.Variant.(type) {
 					case PlainWriteTarget:
-						if v2.Channel.Channel != 0 {
-							targets = append(targets, v2.Channel.Channel)
+						for _, v3 := range v2.Message.Bindings {
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
 						}
 					}
 				}
 				return targets
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
-				for i3 := range e.Targets {
-					switch v4 := e.Targets[i3].Variant.(type) {
+				for i4 := range e.Targets {
+					switch v5 := e.Targets[i4].Variant.(type) {
 					case PlainWriteTarget:
-						if v4.Channel.Channel == t {
-							v4.Channel.Channel = 0
+						for i6 := range v5.Message.Bindings {
+							if v5.Message.Bindings[i6].Channel == t {
+								v5.Message.Bindings[i6].Channel = 0
+							}
 						}
-						e.Targets[i3].Variant = v4
+						e.Targets[i4].Variant = v5
 					}
 				}
 			},
 			Retarget: func(e *WriteConfig, from, to channel.Key) {
-				for i5 := range e.Targets {
-					switch v6 := e.Targets[i5].Variant.(type) {
+				for i7 := range e.Targets {
+					switch v8 := e.Targets[i7].Variant.(type) {
 					case PlainWriteTarget:
-						if v6.Channel.Channel == from {
-							v6.Channel.Channel = to
+						for i9 := range v8.Message.Bindings {
+							if v8.Message.Bindings[i9].Channel == from {
+								v8.Message.Bindings[i9].Channel = to
+							}
 						}
-						e.Targets[i5].Variant = v6
+						e.Targets[i7].Variant = v8
 					}
 				}
 			},
