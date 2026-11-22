@@ -14,10 +14,7 @@ import type { Spec } from "@/schematic/node/spec";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
 import { Preview, Symbol } from "@/schematic/node/vessels/tank/Symbol";
 
-export {
-  TankForm as Form,
-  type TankFormProps as FormProps,
-} from "@/schematic/node/vessels/tank/Form";
+export { TankForm as Form } from "@/schematic/node/vessels/tank/Form";
 export { Tank as Primitive } from "@/schematic/node/vessels/tank/Primitive";
 
 export const spec: Spec<"tank", schematic.TankNodeConfig> = {
