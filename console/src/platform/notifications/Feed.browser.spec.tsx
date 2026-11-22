@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import type { status } from "@synnaxlabs/client";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -137,6 +138,49 @@ describe("Notifications", () => {
       fireEvent.click(screen.getByText("Clear all"));
       expect(screen.queryByText(/Message n/)).toBeNull();
       expect(screen.queryByText("Clear all")).toBeNull();
+    });
+  });
+
+  describe("in a modal", () => {
+    const Dismissable: Notifications.Notification = ({ status, silence }) => (
+      <button onClick={() => silence(status.key)}>{status.message}</button>
+    );
+    Dismissable.match = () => true;
+
+    const ModalHarness = (): ReactElement => {
+      const add = Status.useAdder();
+      return (
+        <>
+          <button onClick={() => add({ key: "n1", variant: "info", message: "Hello" })}>
+            add
+          </button>
+          <Dialog.Frame variant="modal">
+            <Dialog.Trigger>Open</Dialog.Trigger>
+            <Dialog.Dialog>Modal</Dialog.Dialog>
+          </Dialog.Frame>
+          <Notifications.Feed notifications={[Dismissable]} />
+        </>
+      );
+    };
+    ModalHarness.displayName = "ModalHarness";
+
+    /** @returns true when the element is the topmost one at its own center. */
+    const onTop = (el: Element): boolean => {
+      const { left, top, width, height } = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(left + width / 2, top + height / 2);
+      return hit != null && el.contains(hit);
+    };
+
+    it("shows above an open modal and stays usable there", async () => {
+      await renderWithConsole(<ModalHarness />);
+      fireEvent.click(screen.getByRole("button", { name: "add" }));
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      const notification = await screen.findByRole("button", { name: "Hello" });
+      expect(screen.getByRole("dialog").contains(notification)).toBe(true);
+      expect(onTop(notification)).toBe(true);
+      fireEvent.click(notification);
+      await waitFor(() => expect(screen.queryByText("Hello")).toBeNull());
+      expect(screen.queryByText("Modal")).not.toBeNull();
     });
   });
 });

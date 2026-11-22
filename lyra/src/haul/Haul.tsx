@@ -22,12 +22,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal, flushSync } from "react-dom";
+import { flushSync } from "react-dom";
 import { z } from "zod";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks/ref";
+import { Portal } from "@/portal";
 import { state } from "@/state";
 
 /** Zod schema for a draggable/droppable {@link Item}. */
@@ -346,12 +347,11 @@ export const Provider = memo(
     return (
       <Context value={controls}>
         <StateContext value={dragging}>{children}</StateContext>
-        {createPortal(
+        <Portal.Above element={document.body}>
           <div ref={layerRef} className={CSS.BE("haul", "layer")} aria-hidden>
             {preview}
-          </div>,
-          document.body,
-        )}
+          </div>
+        </Portal.Above>
       </Context>
     );
   },
