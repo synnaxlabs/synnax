@@ -48,8 +48,8 @@ class TestVersion:
     def test_connect_without_package_metadata(
         self, login_info: tuple[str, int, str, str]
     ) -> None:
-        """Should import the client and connect when the package metadata is
-        missing, as in a PyInstaller app."""
+        """Should import the client and connect when the package metadata is missing,
+        as in a PyInstaller app."""
         host, port, username, password = login_info
         res = subprocess.run(
             [

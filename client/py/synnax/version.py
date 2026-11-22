@@ -7,6 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# The build writes the version from pyproject.toml here, so frozen apps without
-# package metadata still know it.
+# The build writes the version from pyproject.toml here, so frozen apps without package
+# metadata still know it.
 VERSION = "0.0.0"
