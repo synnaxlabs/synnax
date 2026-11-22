@@ -27,12 +27,11 @@ const x::errors::Error CONFIG_ERROR = driver::errors::CONFIGURATION_ERROR.sub(
     "framing"
 );
 
-/// @brief MAX_SIZE is the largest frame in bytes, without what the framing adds.
+/// @brief MAX_SIZE is the largest frame in bytes.
 constexpr std::size_t MAX_SIZE = std::size_t{64} * 1024;
 
 /// @brief Framer splits a byte stream into frames, and puts frames on the stream. A
-/// frame holds no bytes that the framing adds, such as a delimiter. It is not safe for
-/// concurrent use.
+/// frame holds no delimiter, stuffing, or checksum. It is not safe for concurrent use.
 class Framer {
 public:
     virtual ~Framer() = default;
@@ -48,8 +47,9 @@ public:
     virtual std::pair<std::optional<std::span<const std::uint8_t>>, x::errors::Error>
     next() = 0;
 
-    /// @brief tells the framer that the stream went quiet. A framing with no boundary
-    /// of its own drops a partial frame here, so that the next frame starts in step.
+    /// @brief tells the framer that the stream went quiet. A framer that waits on a
+    /// partial frame drops it here, so that the next frame starts in step. Call next
+    /// again to read the frames after the dropped bytes.
     /// @returns VALIDATION when it drops bytes.
     virtual x::errors::Error idle() = 0;
 
@@ -98,24 +98,33 @@ enum class ChecksumAlgorithm : std::uint8_t {
 
 /// @brief Checksum is the CRC that ends a sync frame.
 struct Checksum {
+    /// @brief algorithm is the CRC that the checksum holds.
     ChecksumAlgorithm algorithm = ChecksumAlgorithm::CRC32;
+    /// @brief big_endian is true when the checksum puts its most significant byte
+    /// first.
     bool big_endian = false;
 };
 
 /// @brief SyncConfig describes frames that start with a sync sequence and a length
-/// field. The length plus length_adjustment is the number of bytes after the length
-/// field, checksum included. The checksum covers every byte before it.
+/// field.
 struct SyncConfig {
+    /// @brief sync is the byte sequence that starts each frame.
     std::vector<std::uint8_t> sync;
     /// @brief length_offset is the offset of the length field from the frame start.
     std::size_t length_offset = 0;
     /// @brief length_size is the number of bytes in the length field: 1, 2, or 4.
     std::size_t length_size = 1;
+    /// @brief big_endian is true when the length field puts its most significant byte
+    /// first.
     bool big_endian = false;
+    /// @brief length_adjustment is added to the length field to give the number of
+    /// bytes after the length field, checksum included.
     std::int64_t length_adjustment = 0;
+    /// @brief checksum is the CRC that ends each frame and covers every byte before it,
+    /// or nothing when frames have no checksum.
     std::optional<Checksum> checksum;
-    /// @brief max_length is the most bytes in a frame, sync and checksum included. A
-    /// length field that gives a larger frame marks a corrupt frame.
+    /// @brief max_length is the most bytes in a frame, sync included. A length field
+    /// that gives a larger frame marks a corrupt frame.
     std::size_t max_length = MAX_SIZE;
 };
 
@@ -123,9 +132,10 @@ struct SyncConfig {
 /// field. A frame that it reads starts at the sync sequence and has no checksum, so a
 /// message layout can hold the header fields. It finds the next sync sequence after
 /// bytes that are not a frame. Its encode writes the sync sequence and the length into
-/// the header of the frame, and appends the checksum.
+/// the header of the frame, and appends the checksum. Its idle drops a partial frame,
+/// which a corrupt length can leave waiting on bytes that never arrive.
 /// @returns CONFIG_ERROR when the sync sequence is empty, the length field is not 1, 2,
-/// or 4 bytes or overlaps the sync sequence, or max_length is zero, larger than
-/// MAX_SIZE, or too small for the header and checksum.
+/// or 4 bytes or overlaps the sync sequence, or max_length is larger than MAX_SIZE or
+/// too small for the header.
 std::pair<std::unique_ptr<Framer>, x::errors::Error> sync(SyncConfig config);
 }

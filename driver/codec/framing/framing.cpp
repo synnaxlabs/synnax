@@ -515,7 +515,8 @@ public:
         const auto after = static_cast<std::int64_t>(length) +
                            this->cfg.length_adjustment;
         if (std::cmp_less(after, this->width) ||
-            this->header + static_cast<std::size_t>(after) > this->cfg.max_length) {
+            this->header + static_cast<std::size_t>(after) - this->width >
+                this->cfg.max_length) {
             this->buf.head++;
             return {
                 std::nullopt,
@@ -539,7 +540,21 @@ public:
         return {frame, x::errors::NIL};
     }
 
-    x::errors::Error idle() override { return x::errors::NIL; }
+    x::errors::Error idle() override {
+        const auto pending = this->buf.pending();
+        if (pending == 0) return x::errors::NIL;
+        auto &bytes = this->buf.bytes;
+        const auto &s = this->cfg.sync;
+        const auto from = bytes.begin() + static_cast<std::ptrdiff_t>(this->buf.head) +
+                          1;
+        const auto found = std::search(from, bytes.end(), s.begin(), s.end());
+        const auto start = static_cast<std::size_t>(found - bytes.begin());
+        const auto dropped = start - this->buf.head;
+        this->buf.head = start;
+        return invalid(
+            "dropped " + std::to_string(dropped) + " bytes of a partial frame"
+        );
+    }
 
     void clear() override { this->buf.clear(); }
 
@@ -551,13 +566,13 @@ public:
                 " bytes, fewer than the " + std::to_string(this->header) +
                 " bytes of its header"
             );
-        const auto total = frame.size() + this->width;
-        if (total > this->cfg.max_length)
+        if (frame.size() > this->cfg.max_length)
             return invalid(
-                "the frame needs " + std::to_string(total) +
+                "the frame has " + std::to_string(frame.size()) +
                 " bytes, more than the maximum length of " +
                 std::to_string(this->cfg.max_length)
             );
+        const auto total = frame.size() + this->width;
         const auto length = static_cast<std::int64_t>(total - this->header) -
                             this->cfg.length_adjustment;
         const auto bits = 8 * this->cfg.length_size;
@@ -606,21 +621,20 @@ std::pair<std::unique_ptr<Framer>, x::errors::Error> sync(SyncConfig config) {
         );
     if (config.length_offset < config.sync.size())
         return fail("the length field overlaps the sync sequence");
-    if (config.max_length == 0 || config.max_length > MAX_SIZE)
+    if (config.max_length > MAX_SIZE)
         return fail(
-            "the maximum length must be from 1 to " + std::to_string(MAX_SIZE) +
+            "the maximum length must be at most " + std::to_string(MAX_SIZE) +
             ", not " + std::to_string(config.max_length)
+        );
+    const auto header = config.length_offset + size;
+    if (config.max_length < header)
+        return fail(
+            "the maximum length of " + std::to_string(config.max_length) +
+            " is less than the " + std::to_string(header) + " bytes of the header"
         );
     const auto width = config.checksum.has_value()
                          ? width_of(config.checksum->algorithm)
                          : 0;
-    const auto least = config.length_offset + size + width;
-    if (config.max_length < least)
-        return fail(
-            "the maximum length of " + std::to_string(config.max_length) +
-            " is less than the " + std::to_string(least) +
-            " bytes of the header and checksum"
-        );
     return {std::make_unique<Sync>(std::move(config), width), x::errors::NIL};
 }
 

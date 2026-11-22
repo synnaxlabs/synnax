@@ -14,6 +14,7 @@
 #include <memory>
 #include <optional>
 #include <random>
+#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>
@@ -532,8 +533,8 @@ TEST(Sync, DropInvalidLength) {
     auto config = sync_config(Checksum{});
     config.max_length = 16;
     const auto f = ASSERT_NIL_P(sync(config));
-    f->write(Bytes{0xAA, 0x55, 14, 0xAA, 0x55, 3});
-    assert_next_drops(*f, "dropped a frame with an invalid length of 14");
+    f->write(Bytes{0xAA, 0x55, 20, 0xAA, 0x55, 3});
+    assert_next_drops(*f, "dropped a frame with an invalid length of 20");
     assert_next_drops(*f, "dropped 2 bytes that are not a frame");
     assert_next_drops(*f, "dropped a frame with an invalid length of 3");
     Bytes wire;
@@ -541,6 +542,32 @@ TEST(Sync, DropInvalidLength) {
     f->write(wire);
     assert_next_drops(*f, "dropped 2 bytes that are not a frame");
     assert_frames(*f, {{0xAA, 0x55, 5, 7}});
+}
+
+/// @brief it should drop a partial frame on idle, and read the frame after it.
+TEST(Sync, IdleDropsPartialFrame) {
+    const auto f = ASSERT_NIL_P(sync(sync_config()));
+    f->write(Bytes{0xAA, 0x55, 200, 1, 2, 0xAA, 0x55, 1, 9});
+    assert_frames(*f, {});
+    const auto err = f->idle();
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "dropped 5 bytes of a partial frame");
+    assert_frames(*f, {{0xAA, 0x55, 1, 9}});
+    ASSERT_NIL(f->idle());
+}
+
+/// @brief it should read a frame of max_length bytes, which its checksum follows.
+TEST(Sync, AcceptMaxLength) {
+    auto config = sync_config(Checksum{});
+    config.length_size = 4;
+    const auto f = ASSERT_NIL_P(sync(config));
+    Bytes frame(MAX_SIZE, 0x11);
+    Bytes wire;
+    ASSERT_NIL(f->encode(frame, wire));
+    EXPECT_EQ(wire.size(), MAX_SIZE + 4);
+    std::ranges::copy(wire | std::views::take(6), frame.begin());
+    f->write(wire);
+    assert_frames(*f, {frame});
 }
 
 /// @brief it should encode frames that a framer of the same config reads back.
@@ -584,7 +611,7 @@ TEST(Sync, RefuseEncode) {
     assert_refuses(
         *ASSERT_NIL_P(sync(config)),
         "abcde",
-        "the frame needs 5 bytes, more than the maximum length of 4"
+        "the frame has 5 bytes, more than the maximum length of 4"
     );
 }
 
@@ -606,13 +633,10 @@ TEST(Sync, RefuseConfig) {
     refuse(c, "the length field overlaps the sync sequence");
     c = sync_config();
     c.max_length = 0;
-    refuse(c, "the maximum length must be from 1 to 65536, not 0");
-    c = sync_config(Checksum{});
-    c.max_length = 6;
-    refuse(
-        c,
-        "the maximum length of 6 is less than the 7 bytes of the header and checksum"
-    );
+    refuse(c, "the maximum length of 0 is less than the 3 bytes of the header");
+    c = sync_config();
+    c.max_length = MAX_SIZE + 1;
+    refuse(c, "the maximum length must be at most 65536, not 65537");
 }
 
 /// @brief it should split a stream without allocating once its buffer has grown.
