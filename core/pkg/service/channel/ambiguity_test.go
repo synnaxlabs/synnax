@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -232,10 +233,13 @@ var _ = Describe("Ambiguous names", func() {
 				Channel: svc,
 			}))
 			c := calculation.Calculation{Expression: "return pt"}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			err := db.WithTx(ctx, func(tx gorp.Tx) error {
 				_, err := calcs.NewWriter(tx).CreateOutput(ctx, &c, "calc", nil)
 				return err
-			})).To(MatchError(ContainSubstring("2 channels are named 'pt'")))
+			})
+			diags, ok := errors.AsType[*diagnostics.Diagnostics](err)
+			Expect(ok).To(BeTrue(), "expected diagnostics, got %v", err)
+			Expect(diags.Error()).To(ContainSubstring("2 channels are named 'pt'"))
 		})
 	})
 
