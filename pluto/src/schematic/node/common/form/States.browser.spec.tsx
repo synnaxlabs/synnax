@@ -162,8 +162,18 @@ describe("Form.States", () => {
       const { value } = renderStates();
       const name = await findInput("Name 1");
       fireEvent.focus(name);
-      fireEvent.paste(name, {
-        clipboardData: { getData: () => "Closed\t5\nOpen\t6" },
+      const clipboardData = new DataTransfer();
+      clipboardData.setData("text/plain", "Closed\t5\nOpen\t6");
+      // Testing Library's paste drops clipboardData in a browser, so the event is built
+      // here.
+      act(() => {
+        name.dispatchEvent(
+          new ClipboardEvent("paste", {
+            clipboardData,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
       });
       await waitFor(() =>
         expect(
