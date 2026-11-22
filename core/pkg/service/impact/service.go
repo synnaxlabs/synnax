@@ -311,8 +311,9 @@ func (s *Service) deleteGroups(
 	opts ApplyOptions,
 ) (Plan, error) {
 	p, err := s.planGroups(ctx, tx, c, keys, PlanOptions{
-		Picks:  opts.Picks,
-		Hidden: opts.Hidden,
+		Picks:   opts.Picks,
+		Hidden:  opts.Hidden,
+		Visible: opts.Visible,
 	})
 	if err != nil {
 		return Plan{}, err
@@ -326,7 +327,7 @@ func (s *Service) deleteGroups(
 		}
 		p.Token = opts.Token
 	}
-	if len(p.Entries) > 0 {
+	if len(p.Entries) > 0 || p.Hidden > 0 {
 		w := s.cfg.Channel.NewWriter(tx)
 		if _, err = w.DeleteTombstones(ctx, keys...); err != nil {
 			return Plan{}, err
@@ -458,6 +459,12 @@ func (s *Service) deleteChannels(
 // records visible hides counted in Hidden instead.
 func seen(p Plan, keys []channel.Key, visible func(resource.ID) bool) Plan {
 	p.Change = Change{Variant: DeleteChannelsChange{Keys: keys}}
+	return withHidden(p, visible)
+}
+
+// withHidden returns p with each entry whose record visible hides counted in Hidden
+// instead. A nil visible hides nothing.
+func withHidden(p Plan, visible func(resource.ID) bool) Plan {
 	if visible == nil {
 		return p
 	}

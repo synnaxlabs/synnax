@@ -23,8 +23,8 @@ import (
 )
 
 // planGroups returns the plan of c, the delete of the groups with keys, as snap sees
-// it, with no token: each tombstone in the groups, as a cascade entry with its path. A
-// pick fails as it fails Plan.
+// it, with no token: each tombstone in the groups, as a cascade entry with its path,
+// with those that opts.Visible hides counted in Hidden. A pick fails as it fails Plan.
 func (s *Service) planGroups(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -67,20 +67,23 @@ func (s *Service) planGroups(
 			return Plan{}, err
 		}
 	}
-	return p, nil
+	return withHidden(p, opts.Visible), nil
 }
 
 // refusePicks returns the validation error of the first pick of chosen that its entry
-// among entries does not allow, or then of the smallest pick that names no entry.
+// among entries does not allow, or then of the smallest pick that names no visible
+// entry.
 func refusePicks(chosen picks, entries []Entry) error {
-	named := make(set.Set[resource.ID], len(entries))
+	visible := make(set.Set[resource.ID], len(entries))
 	for _, e := range entries {
 		if _, err := chosen.pickOf(e); err != nil {
 			return err
 		}
-		named.Add(e.Record)
+		if chosen.sees(e.Record) {
+			visible.Add(e.Record)
+		}
 	}
-	return pickWithoutEntry(chosen.named, named)
+	return pickWithoutEntry(chosen.named, visible)
 }
 
 // groupsSum returns the plan sum of p, the plan of the delete of the groups with keys,

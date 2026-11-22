@@ -137,15 +137,22 @@ func channelsSum(keys []channel.Key, p Plan) uint64 {
 }
 
 // planSum returns an xxHash-64 of change, the bytes of a change, followed by p as the
-// caller sees it: each visible entry's record and effect, and the hidden count. Each
-// field holds its length, so no two plans hash the same bytes. The token detects a
-// stale view, not a forged one, so it needs no cryptographic hash.
+// caller sees it: every field of each visible entry, and the hidden count. Each field
+// holds its length, and each optional field a mark of whether it is set, so no two
+// plans hash the same bytes. The token detects a stale view, not a forged one, so it
+// needs no cryptographic hash.
 func planSum(change []byte, p Plan) uint64 {
 	buf := binary.BigEndian.AppendUint32(change, uint32(len(p.Entries)))
 	for _, e := range p.Entries {
 		buf = appendField(buf, string(e.Record.Type))
 		buf = appendField(buf, e.Record.Key)
 		buf = appendField(buf, string(e.Effect))
+		buf = binary.BigEndian.AppendUint32(buf, uint32(len(e.Choices)))
+		for _, c := range e.Choices {
+			buf = appendField(buf, string(c))
+		}
+		buf = appendOptional(buf, (*string)(e.Default))
+		buf = appendOptional(buf, e.Path)
 	}
 	buf = binary.BigEndian.AppendUint32(buf, p.Hidden)
 	return xxhash.Sum64(buf)
@@ -179,4 +186,12 @@ func matches(t string, sum uint64) bool {
 func appendField(buf []byte, s string) []byte {
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s)))
 	return append(buf, s...)
+}
+
+// appendOptional appends a mark of whether s is set to buf, then s as appendField does.
+func appendOptional(buf []byte, s *string) []byte {
+	if s == nil {
+		return append(buf, 0)
+	}
+	return appendField(append(buf, 1), *s)
 }
