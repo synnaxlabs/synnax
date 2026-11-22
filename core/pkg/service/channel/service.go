@@ -84,6 +84,12 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to filling nothing.
 	Fills Filler
+	// Computes reports whether the holder of a use computes the channel, as a
+	// calculation computes the channel it writes. Declare never adopts a computed
+	// channel as a built-in.
+	//
+	// [OPTIONAL] - Defaults to no holder computing a channel.
+	Computes func(Use) bool
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -110,6 +116,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Fills = override.Nil(c.Fills, other.Fills)
+	c.Computes = override.Nil(c.Computes, other.Computes)
 	return c
 }
 

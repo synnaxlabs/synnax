@@ -433,6 +433,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		) (map[channel.Key]channel.Fill, error) {
 			return l.Calculation.Fills(ctx, tx, keys...)
 		},
+		Computes: func(u channel.Use) bool {
+			return u.Holder.Table == string(resource.TypeCalculation) &&
+				u.Direction == channel.DirectionWrite
+		},
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}
@@ -966,7 +970,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("composition"),
 		DB:              cfg.Distribution.DB,
 		Namespace:       "Composition",
-		Migrations:      []gorp.Migration{arcTextMigration, newRenameReport(l.Status)},
+		Migrations: []gorp.Migration{
+			arcTextMigration,
+			newRenameReport(l.Status, cfg.Storage.TS),
+		},
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -1140,15 +1147,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 				l.Table,
 				cfg.Distribution.Channel.IssuedAtFirstOpen,
 			),
+			newRetiredChannelDelete(l.Channel),
 		),
 	}); !ok(err, nil) {
-		return nil, err
-	}
-	if err = deleteRetiredChannels(
-		ctx,
-		cfg.Distribution.DB,
-		l.Channel,
-	); !ok(err, nil) {
 		return nil, err
 	}
 	// Metrics writes calculations, so it opens after the migrations that build them.
