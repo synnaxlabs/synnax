@@ -11,33 +11,41 @@ import type { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
-import type { location } from "@synnaxlabs/x";
-import type { ReactElement } from "react";
+import type { MouseEventHandler, ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Custom } from "@/schematic/node/common/custom";
-import { Primitive } from "@/schematic/node/common/primitive";
+import { Drawing } from "@/schematic/node/common/custom/Drawing";
+import { usePaints } from "@/schematic/node/common/custom/paint";
+import { isValidSVG } from "@/schematic/node/common/custom/render";
+import type { Primitive } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
 import { Symbol } from "@/schematic/symbol";
 
-export interface StaticProps {
+export interface ActuatorProps
+  extends
+    Omit<Toggle.ButtonProps, "onClick">,
+    Pick<Primitive.SVGBasedProps, "strokeColor"> {
   specKey: string;
-  orientation?: location.Outer;
+  onClick?: MouseEventHandler<HTMLElement>;
   scale?: number;
-  className?: string;
   stateOverrides?: schematic.symbol.StateOverride[];
 }
 
-export const Static = ({
+export const Actuator = ({
   specKey,
+  enabled = false,
+  triggered = false,
   orientation = "left",
   scale = 1,
   className,
   stateOverrides,
-}: StaticProps): ReactElement => {
+  strokeColor,
+  ...rest
+}: ActuatorProps): ReactElement => {
   const { symbol, missing } = Symbol.useResolved(specKey);
   const spec = symbol?.data;
-  const paints = Custom.usePaints(spec, 0, stateOverrides);
-  const invalid = spec != null && !Custom.isValidSVG(spec.drawing.markup);
+  const paints = usePaints(spec, enabled ? 1 : 0, stateOverrides, strokeColor);
+  const invalid = spec != null && !isValidSVG(spec.drawing.markup);
   if (missing || invalid)
     return (
       <Note.Note variant="warning" className={className}>
@@ -48,18 +56,29 @@ export const Static = ({
       </Note.Note>
     );
   return (
-    <Primitive.Div
+    <Toggle.Button
+      className={CSS.cls(
+        CSS.BM("symbol", "custom"),
+        CSS.B("custom-actuator"),
+        orientation != null && CSS.loc(orientation),
+        enabled && CSS.M("enabled"),
+        triggered && CSS.M("triggered"),
+        className,
+      )}
+      enabled={enabled}
+      triggered={triggered}
       orientation={orientation}
-      className={CSS.cls(CSS.BM("symbol", "custom"), CSS.B("custom-static"), className)}
+      {...rest}
     >
       {spec != null && (
-        <Custom.Drawing
+        <Drawing
           spec={spec}
           orientation={orientation}
           scale={scale}
+          strokeColor={strokeColor}
           paints={paints}
         />
       )}
-    </Primitive.Div>
+    </Toggle.Button>
   );
 };

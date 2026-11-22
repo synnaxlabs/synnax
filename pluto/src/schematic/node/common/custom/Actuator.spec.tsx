@@ -13,20 +13,8 @@ import { act, render, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { Node } from "@/schematic/node";
+import { Custom } from "@/schematic/node/common/custom";
 import { createAsyncSynnaxWrapper } from "@/testutil";
-
-const Actuator = Node.REGISTRY.custom_actuator.Preview;
-
-// The preview renders the symbol from its props, so props the schema does not carry,
-// such as a stroke color, pass through as they are.
-const config = (props: { specKey: string } & Record<string, unknown>) => ({
-  ...schematic.customActuatorNodeConfigZ.parse({
-    variant: "custom_actuator",
-    specKey: props.specKey,
-  }),
-  ...props,
-});
 
 const VALID_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" /></svg>';
@@ -45,7 +33,7 @@ const createData = (svg: string): schematic.symbol.Spec => ({
   previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
 });
 
-describe("Actuator", () => {
+describe("Custom.Actuator", () => {
   const client = createTestClient();
   let wrapper: FC<PropsWithChildren>;
 
@@ -58,12 +46,9 @@ describe("Actuator", () => {
 
   it("should warn when the symbol markup does not parse", async () => {
     const symbol = await createSymbol("<svg><rect></svg>");
-    const { findByText, container } = render(
-      <Actuator {...config({ specKey: symbol.key })} />,
-      {
-        wrapper,
-      },
-    );
+    const { findByText, container } = render(<Custom.Actuator specKey={symbol.key} />, {
+      wrapper,
+    });
     await findByText("Invalid custom symbol");
     expect(container.querySelector("svg rect")).toBeNull();
   });
@@ -71,7 +56,7 @@ describe("Actuator", () => {
   it("should paint its stroke color on the drawing", async () => {
     const symbol = await createSymbol(VALID_SVG);
     const { container } = render(
-      <Actuator {...config({ specKey: symbol.key, strokeColor: [255, 0, 0, 255] })} />,
+      <Custom.Actuator specKey={symbol.key} strokeColor={[255, 0, 0, 255]} />,
       { wrapper },
     );
     await waitFor(() => {
@@ -83,7 +68,7 @@ describe("Actuator", () => {
   it("should fill its drawing while held when its click is delayed", async () => {
     const symbol = await createSymbol(VALID_SVG);
     const { container } = render(
-      <Actuator {...config({ specKey: symbol.key, onClickDelay: 1000 })} />,
+      <Custom.Actuator specKey={symbol.key} onClickDelay={1000} />,
       { wrapper },
     );
     await waitFor(() => {
@@ -94,7 +79,7 @@ describe("Actuator", () => {
   it("should mount the symbol once valid markup replaces it", async () => {
     const symbol = await createSymbol("<svg><rect></svg>");
     const { findByText, queryByText, container } = render(
-      <Actuator {...config({ specKey: symbol.key })} />,
+      <Custom.Actuator specKey={symbol.key} />,
       { wrapper },
     );
     await findByText("Invalid custom symbol");
