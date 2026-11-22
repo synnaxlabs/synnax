@@ -381,7 +381,7 @@ describe("LinePlot breaks", () => {
     return p;
   };
 
-  it("should count the open and closed breaks of its first x axis", () => {
+  it("should count the open and closed breaks of x1", () => {
     const p = mount();
     expect(p.plot.state.breaks).toEqual({ open: 0, closed: 1 });
     const change = p.plot.getBreakChange({
@@ -395,7 +395,7 @@ describe("LinePlot breaks", () => {
     expect(p.plot.state.breaks).toEqual({ open: 1, closed: 0 });
   });
 
-  it("should count the breaks of its first x axis while they are hidden", () => {
+  it("should count the breaks of x1 while they are hidden", () => {
     const p = mount();
     p.setPlot({ breaksHidden: true });
     p.render();
@@ -429,7 +429,7 @@ describe("LinePlot breaks", () => {
     expect(p.plot.state.breaks).toEqual({ open: 0, closed: 0 });
   });
 
-  it("should give the seams of its first x axis across the home view", () => {
+  it("should give the seams of x1 across the home view", () => {
     const seams = mount().plot.getSeams();
     expect(seams).toHaveLength(1);
     expect(seams[0]).toBeCloseTo(0.5, 2);
@@ -460,7 +460,7 @@ describe("LinePlot breaks", () => {
     expect(measureAt(900)).toEqual(measureAt(400) - 1);
   });
 
-  it("should join two measured points of an x axis after the first", () => {
+  it("should join two measured points of an x axis other than x1", () => {
     const p = mountGLPlot(teardowns);
     // x1 collapses the day between its two lines. The flat line of x2 spans that day,
     // so the measure finds its points at the middle of the plot.
@@ -492,14 +492,14 @@ describe("LinePlot breaks", () => {
     expect(p.plot.state.breaks).toEqual({ open: 0, closed: 0 });
   });
 
-  it("should lay out every x axis after the first in true time", () => {
-    const { x1, x2 } = mount(["x1", "x2"]).plot.getXBounds({
-      lower: 0.25,
-      upper: 0.25,
-    });
-    expect(x1.lower).toBeLessThan(MINUTE);
-    expect(x2.lower).toBeCloseTo((DAY + MINUTE) / 4, -6);
-  });
+  it.each([[["x1", "x2"]], [["x2", "x1"]]])(
+    "should lay out every x axis other than x1 in true time, in the order %j",
+    (keys) => {
+      const { x1, x2 } = mount(keys).plot.getXBounds({ lower: 0.25, upper: 0.25 });
+      expect(x1.lower).toBeLessThan(MINUTE);
+      expect(x2.lower).toBeCloseTo((DAY + MINUTE) / 4, -6);
+    },
+  );
 });
 
 describe("LinePlot trace spans", () => {

@@ -201,7 +201,7 @@ describe("YAxis", () => {
         breaksHidden: false,
         openBreaks: [],
       };
-      expect(m.xAxis.render(props, [])?.[1]?.message).toBe("x source failed");
+      expect(m.xAxis.render(props, [])?.[2]?.message).toBe("x source failed");
       expect(m.lower2d.calls.length).toBeGreaterThan(0);
     });
   });

@@ -687,7 +687,7 @@ describe("LinePlot", () => {
         .mockReturnValue(change);
       const onViewport = vi.fn();
       const onViewportChange = vi.fn();
-      const onBreaksChange = vi.fn();
+      const onBreakCountsChange = vi.fn();
       const onOpenBreaksChange = vi.fn();
       const sync = vi.fn();
       const viewportRef = { current: { reset: vi.fn(), sync } };
@@ -699,7 +699,7 @@ describe("LinePlot", () => {
             ref={ref}
             viewportRef={viewportRef}
             onViewportChange={onViewportChange}
-            onBreaksChange={onBreaksChange}
+            onBreakCountsChange={onBreakCountsChange}
             breaksHidden={breaksHidden}
             initialOpenBreaks={[2]}
             onOpenBreaksChange={onOpenBreaksChange}
@@ -724,7 +724,7 @@ describe("LinePlot", () => {
         return found;
       });
       act(() => plot.setState((p) => ({ ...p, breaks: COUNTS })));
-      await waitFor(() => expect(onBreaksChange).toHaveBeenCalledWith(COUNTS));
+      await waitFor(() => expect(onBreakCountsChange).toHaveBeenCalledWith(COUNTS));
       const view = (): box.Box => onViewport.mock.calls.at(-1)?.[0].box;
       const selected = (): box.Box | undefined =>
         onOpenBreaksChange.mock.calls.at(-1)?.[0].selection;
@@ -735,7 +735,7 @@ describe("LinePlot", () => {
         plot,
         getBreakChange,
         onViewportChange,
-        onBreaksChange,
+        onBreakCountsChange,
         onOpenBreaksChange,
         sync,
         view,
@@ -1061,6 +1061,33 @@ describe("LinePlot", () => {
       );
     });
 
+    it("should close the breaks that a change in flight opens", async () => {
+      const { result, ref, plot, getBreakChange } = await renderFrame({
+        ...CHANGE,
+        openBreaks: [],
+      });
+      act(() => ref.current?.setAllBreaks(false));
+      await waitFor(() => expect(plot.state.openBreaks).toEqual([]));
+      await act(async () => {});
+      getBreakChange.mockClear();
+      getBreakChange.mockImplementationOnce(() => {
+        result.current.setViewport({
+          box: box.DECIMAL,
+          mode: "zoomReset",
+          stage: "start",
+          cursor: xy.ZERO,
+        });
+        return CHANGE;
+      });
+      act(() => result.current.toggleBreak(120, "axis"));
+      await waitFor(() =>
+        expect(getBreakChange.mock.calls.map(([req]) => req.action)).toContainEqual({
+          variant: "all",
+          open: false,
+        }),
+      );
+    });
+
     describe("select bound", () => {
       it("should bound a select drag by the seams around its start", async () => {
         vi.spyOn(lineplot.LinePlot.prototype, "getSeams").mockReturnValue([0.3, 0.6]);
@@ -1074,10 +1101,12 @@ describe("LinePlot", () => {
 
       it("should not bound a select drag when no break is closed", async () => {
         const getSeams = vi.spyOn(lineplot.LinePlot.prototype, "getSeams");
-        const { result, plot, onBreaksChange } = await renderFrame();
+        const { result, plot, onBreakCountsChange } = await renderFrame();
         const counts = { open: 1, closed: 0 };
         act(() => plot.setState((p) => ({ ...p, breaks: counts })));
-        await waitFor(() => expect(onBreaksChange).toHaveBeenLastCalledWith(counts));
+        await waitFor(() =>
+          expect(onBreakCountsChange).toHaveBeenLastCalledWith(counts),
+        );
         expect(await result.current.selectBound(0.45)).toEqual(bounds.INFINITE);
         expect(getSeams).not.toHaveBeenCalled();
       });
