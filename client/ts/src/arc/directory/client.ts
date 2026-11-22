@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor } from "@synnaxlabs/x";
 import z from "zod";
 
@@ -40,11 +40,11 @@ import {
   shortcutZ,
 } from "@/arc/directory/where.gen";
 import { validateIdentifier } from "@/arc/identifier";
-import { type Arc, type Key as ArcKey } from "@/arc/types.gen";
-import { type batch } from "@/batch";
+import type { Arc, Key as ArcKey } from "@/arc/types.gen";
+import type { batch } from "@/batch";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 
 export const ACTION_CHANNEL_NAME = "sy_arc_directory_action_set";
 export const DELETE_CHANNEL_NAME = "sy_arc_directory_delete";

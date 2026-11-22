@@ -9,13 +9,15 @@
 
 import { type channel, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { mockGeometry } from "@synnaxlabs/lyra/testutil";
 import { deep, id } from "@synnaxlabs/x";
-import { fireEvent, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { SelectForm } from "@/schematic/node/general/select/Form";
 import { createConfig } from "@/schematic/node/registry";
+import { CreatePromptStub } from "@/schematic/node/testutil";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
 const path = deep.path<schematic.SelectNodeConfig>();
@@ -23,15 +25,57 @@ const path = deep.path<schematic.SelectNodeConfig>();
 const client = createTestClient();
 
 describe("SelectForm", () => {
+  // Without a box, the dropdown's virtual list shows no items.
+  beforeAll(() => mockGeometry(100, 100));
   let wrapper: FC<PropsWithChildren>;
   let ch: channel.Channel;
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({ client });
+    const Base = await createAsyncSynnaxWrapper({ client });
+    wrapper = ({ children }) => (
+      <Base>
+        <CreatePromptStub>{children}</CreatePromptStub>
+      </Base>
+    );
     ch = await client.channels.create({
       name: id.create(),
       dataType: DataType.UINT8,
       virtual: true,
     });
+  });
+
+  it("should show a Color column only once an enumeration is picked", async () => {
+    const created = await client.enumerations.create({
+      name: `select-${id.create()}`,
+      entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
+    });
+    const { findByRole, findByLabelText, getByPlaceholderText, value } = renderForm(
+      <SelectForm tab="options" onTabChange={vi.fn()} />,
+      createConfig({
+        variant: "select",
+        options: [{ key: "open", name: "Open", value: 0 }],
+      }),
+      schematic.selectNodeConfigZ,
+      wrapper,
+    );
+    const input = async (label: string): Promise<HTMLInputElement> =>
+      await screen.findByLabelText<HTMLInputElement>(label);
+    const name = async (): Promise<string> => (await input("Name 1")).value;
+    const columns = (): string[] =>
+      screen.getAllByRole("columnheader").flatMap((h) => h.textContent || []);
+    expect(await name()).toBe("Open");
+    expect(columns()).toEqual(["Name", "Value"]);
+    fireEvent.click(await findByRole("button", { name: "Enumeration" }));
+    fireEvent.change(getByPlaceholderText("Search enumerations..."), {
+      target: { value: created.name },
+    });
+    fireEvent.click(await findByRole("option", { name: created.name }));
+    await waitFor(() => expect(value(path.enumeration)).toBe(created.key));
+    await waitFor(async () => expect(await name()).toBe("Primed"));
+    expect(columns()).toEqual(["Name", "Value", "Color", "Abnormal"]);
+    fireEvent.click(await findByLabelText(`Clear ${created.name}`));
+    await waitFor(() => expect(value(path.enumeration)).toBeUndefined());
+    await waitFor(async () => expect(await name()).toBe("Open"));
+    expect(columns()).toEqual(["Name", "Value"]);
   });
 
   it("should unbind and disable the command channel when it is cleared", async () => {

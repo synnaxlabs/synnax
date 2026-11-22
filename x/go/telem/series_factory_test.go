@@ -113,6 +113,13 @@ var _ = Describe("SeriesFactory", func() {
 					telem.UUIDT,
 				),
 			)
+			Specify("uuid as its 16 bytes in order", func() {
+				id := uuid.MustParse("01020304-0506-0708-090a-0b0c0d0e0f10")
+				Expect(telem.NewSeriesV(id).Data).To(Equal([]byte{
+					0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+					0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+				}))
+			})
 			Specify(
 				"bool",
 				newFixedSeriesRoundtripTest([]bool{true, false, true}, telem.BooleanT),

@@ -9,7 +9,7 @@
 
 import { capture, fixtures } from "@/index";
 
-import { openOperator, startColdflow } from "./common/coldflow";
+import { openOperator } from "./common/coldflow";
 
 export const viewport = { width: 1280, height: 800 };
 
@@ -23,7 +23,6 @@ const VISIBLE = { right: 981, bottom: 593 };
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const world = await fixtures.testStand({ now: () => session.now() });
-  const client = fixtures.connect();
   try {
     const { page } = session;
     await capture.login(session, world.project);
@@ -34,9 +33,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await openOperator(session);
 
-    await startColdflow(session, world, client);
-    // The OX main valve closes seconds after it opens, so the rest spends little
-    // virtual time.
+    // The stand runs on wall time and the OX main valve closes seconds after it opens,
+    // so the view is set up before the coldflow starts.
     const others = page
       .locator(".console-mosaic .lyra-tabs__tab:visible")
       .filter({ hasNotText: "Operator" });
@@ -46,11 +44,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await tab.locator(".lyra-tabs__close").first().click();
       await session.settle(100);
     }
-    // Released, the schematic's controls fade out instead of staying pinned.
-    const held = diagram.locator(
-      '.console-controls button[aria-pressed="true"]:has(.lyra-icon--circle)',
-    );
-    if ((await held.count()) > 0) await held.first().click();
 
     // With the bottom toolbar open, the panel is as tall as the part the hero shows, so
     // the fit sizes the schematic to it. Closing the toolbar keeps that viewport.
@@ -74,6 +67,18 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.drag(from, to, { zoom: false });
     await page.keyboard.up("Shift");
 
+    await session.click(capture.control(diagram, "circle"));
+    await session.settle(800);
+    await session.click(
+      diagram.getByRole("button", { name: "Start Sequence" }).first(),
+    );
+    await session.waitFor(() => world.logged.includes("OX MPV open"), 3600);
+    // Released, the schematic's controls fade out instead of staying pinned.
+    const held = diagram.locator(
+      '.console-controls button[aria-pressed="true"]:has(.lyra-icon--circle)',
+    );
+    if ((await held.count()) > 0) await held.first().click();
+
     // On the empty part of the main nav, so nothing on screen shows its hover state.
     await session.moveTo({ x: 26, y: 600 });
     await session.settle(600);
@@ -89,7 +94,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.settleWall(1500);
     await session.still("window");
   } finally {
-    await client.close();
     await world.stop();
   }
 };

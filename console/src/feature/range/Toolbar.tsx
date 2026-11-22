@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Content } from "@/feature/range/toolbar/Content";
-import { type Nav } from "@/platform/nav";
+import type { Nav } from "@/platform/nav";
 
 export const TOOLBAR: Nav.Toolbar = {
   key: "range",

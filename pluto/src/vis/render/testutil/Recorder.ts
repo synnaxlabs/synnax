@@ -16,7 +16,7 @@ import {
   xy,
 } from "@synnaxlabs/x";
 
-import { type render } from "@/vis/render";
+import type { render } from "@/vis/render";
 
 /** A single recorded canvas method call or property assignment. */
 export interface Call {
@@ -179,6 +179,11 @@ export class Recorder {
       this.loopCalls.push({ args: [req] });
     },
   };
+
+  /** The recorder as a render context, for code that runs outside an Aether tree. */
+  get context(): render.Context {
+    return this as unknown as render.Context;
+  }
 
   constructor() {
     this.upper2d = buildCanvas();

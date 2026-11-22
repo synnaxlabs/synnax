@@ -81,12 +81,8 @@ describe("LazyVideo", () => {
       expect(fallback.className).toBe("demo-video");
     });
 
-    it("should hide the lazy video from inside the noscript", () => {
-      const style = doc.querySelector("noscript style")!;
-      expect(style.textContent).toMatch(
-        /video\[data-lazy-video\]\s*{\s*display: none !important;\s*}/,
-      );
-      expect(doc.querySelectorAll("style:not(noscript style)")).toHaveLength(0);
+    it("should render no inline style, which the CSP would block", () => {
+      expect(doc.querySelectorAll("style")).toHaveLength(0);
     });
   });
 });

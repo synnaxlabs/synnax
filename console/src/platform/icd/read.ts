@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type icd, type Synnax } from "@synnaxlabs/client";
+import type { channel, icd, Synnax } from "@synnaxlabs/client";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { DataType, deep, type payload, unique } from "@synnaxlabs/x";
 
-import { converts, DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
+import { converts } from "@/platform/icd/dataType";
 
 /** A source of a read task, such as a topic or a record, that reads ICD messages. */
 export interface ReadSource {
@@ -19,6 +19,23 @@ export interface ReadSource {
   disabled: boolean;
   messages: icd.ReadMessage[];
 }
+
+/**
+ * @returns the ICD that takes the messages of new sources: the one that the most
+ * sources read, or the first of those. Undefined when no source reads one.
+ */
+export const mostRead = (sources: Pick<ReadSource, "icd">[]): icd.Key | undefined => {
+  const counts = new Map<icd.Key, number>();
+  for (const { icd: key } of sources) counts.set(key, (counts.get(key) ?? 0) + 1);
+  let most: icd.Key | undefined;
+  let count = 0;
+  for (const [key, n] of counts)
+    if (n > count) {
+      most = key;
+      count = n;
+    }
+  return most;
+};
 
 /** The messages of each ICD, by ICD key. */
 export type Messages = Map<icd.Key, icd.Message[]>;
@@ -47,21 +64,26 @@ export const readFields = (
     ({ key }) => key === index || bindings.some(({ field }) => field === key),
   );
 
-const isVariable = ({ type }: icd.JSONField): boolean =>
-  new DataType(DEFAULT_DATA_TYPES[type]).isVariable;
-
 /**
- * The fields of a message share one index, which a variable-length channel cannot have.
- * @returns the variable-length fields among fields that also hold fixed ones.
+ * What a read tree shows of a field. It holds only JSON values, so a tree can compare
+ * its structure as a string, and an edit to the rest of the field keeps the structure.
  */
-export const variableAmongFixed = (fields: icd.JSONField[]): icd.JSONField[] =>
-  fields.every(isVariable) ? [] : fields.filter(isVariable);
+export type TreeField = Pick<icd.JSONField, "key" | "name" | "type" | "pointer">;
 
-export const mixMessage = (fields: icd.JSONField[]): string =>
-  `${fields.map(({ name }) => name).join(", ")}: a string, JSON, or bytes field cannot share a message with number, boolean, or timestamp fields.`;
+export const treeFieldOf = ({
+  key,
+  name,
+  type,
+  pointer,
+}: icd.JSONField): TreeField => ({
+  key,
+  name,
+  type,
+  pointer,
+});
 
 /** @returns whether the Core can read the field: a bytes field needs a pointer. */
-export const isReadable = ({ type, pointer }: icd.JSONField): boolean =>
+export const isReadable = ({ type, pointer }: TreeField): boolean =>
   type !== "bytes" || pointer !== "";
 
 export const isIndexable = (field?: icd.JSONField): boolean =>

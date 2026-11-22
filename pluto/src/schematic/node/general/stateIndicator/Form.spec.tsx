@@ -9,12 +9,14 @@
 
 import { type channel, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { mockGeometry } from "@synnaxlabs/lyra/testutil";
 import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
+import { CreatePromptStub } from "@/schematic/node/testutil";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
 const path = deep.path<schematic.StateIndicatorNodeConfig>();
@@ -22,15 +24,41 @@ const path = deep.path<schematic.StateIndicatorNodeConfig>();
 const client = createTestClient();
 
 describe("StateIndicator form", () => {
+  // Without a box, the dropdown's virtual list shows no items.
+  beforeAll(() => mockGeometry(100, 100));
   let wrapper: FC<PropsWithChildren>;
   let ch: channel.Channel;
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({ client });
+    const Base = await createAsyncSynnaxWrapper({ client });
+    wrapper = ({ children }) => (
+      <Base>
+        <CreatePromptStub>{children}</CreatePromptStub>
+      </Base>
+    );
     ch = await client.channels.create({
       name: id.create(),
       dataType: DataType.FLOAT32,
       virtual: true,
     });
+  });
+
+  it("should store a picked enumeration", async () => {
+    const created = await client.enumerations.create({
+      name: `indicator-${id.create()}`,
+      entries: [],
+    });
+    const { findByRole, getByPlaceholderText, value } = renderForm(
+      <StateIndicator.spec.Form tab="options" onTabChange={vi.fn()} />,
+      schematic.stateIndicatorNodeConfigZ.parse({ variant: "state_indicator" }),
+      schematic.stateIndicatorNodeConfigZ,
+      wrapper,
+    );
+    fireEvent.click(await findByRole("button", { name: "Enumeration" }));
+    fireEvent.change(getByPlaceholderText("Search enumerations..."), {
+      target: { value: created.name },
+    });
+    fireEvent.click(await findByRole("option", { name: created.name }));
+    await waitFor(() => expect(value(path.enumeration)).toBe(created.key));
   });
 
   it("should store 0 when the channel is cleared", async () => {

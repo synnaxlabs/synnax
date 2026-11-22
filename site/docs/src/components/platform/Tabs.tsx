@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Platform } from "@/components/platform/choice";
+import type { Platform } from "@/components/platform/choice";
 import { INFO } from "@/components/platform/Platform";
 import { Tabs as Base } from "@/components/tabs";
 

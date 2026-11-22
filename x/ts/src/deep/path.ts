@@ -35,11 +35,14 @@ export const transformPath = (
   return result.join(separator);
 };
 
-/** @returns one part of a path. A negative index counts back from the end. */
+/**
+ * @returns one part of a path. A negative index counts back from the end.
+ * @throws if the path has no part at the index.
+ */
 export const element = (path: string, index: number): string => {
-  const parts = path.split(SEPARATOR);
-  if (index < 0) return parts[parts.length + index];
-  return parts[index];
+  const part = path.split(SEPARATOR).at(index);
+  if (part == null) throw new Error(`[deep] - no part at index ${index} of ${path}`);
+  return part;
 };
 
 /**
