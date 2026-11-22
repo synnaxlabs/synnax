@@ -19,7 +19,7 @@ import {
   convertPortTypeToReadChannelType,
   convertReadChannelTypeToPortType,
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
-import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
+import { Port } from "@/feature/labjack/task/port";
 import { PortField } from "@/feature/labjack/task/PortField";
 import { maxTerminalChars, terminalOf } from "@/feature/labjack/task/ports";
 import { PortsView } from "@/feature/labjack/task/PortsView";
@@ -132,7 +132,7 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
                 ({ key }) => key !== prevParent.key,
               );
               nextPort = (
-                getOpenPort(others, model, [nextPortType]) ??
+                Port.getOpen(others, model, [nextPortType]) ??
                 Device.PORTS[model][nextPortType][0]
               ).key;
             }
@@ -210,7 +210,7 @@ const createNextChannel = (
       : convertReadChannelTypeToPortType(template.type);
   const backup =
     preferred === Device.DI_PORT_TYPE ? Device.AI_PORT_TYPE : Device.DI_PORT_TYPE;
-  const port = getOpenPort(channels, model, [preferred, backup]);
+  const port = Port.getOpen(channels, model, [preferred, backup]);
   return port == null ? null : createChannelOn(port, template);
 };
 

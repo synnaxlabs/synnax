@@ -13,7 +13,7 @@ import type { Channel } from "@/feature/labjack/task/types";
 
 // This is a bit of a confusing type, but basically it maps the port type (AI, AO, DI,
 // DO) to the actual port object (AIPort, AOPort, DIPort, DOPort).
-export type Port<T extends Device.PortType> = T extends Device.AIPortType
+export type Of<T extends Device.PortType> = T extends Device.AIPortType
   ? Device.AIPort
   : T extends Device.DIPortType
     ? Device.DIPort
@@ -23,15 +23,15 @@ export type Port<T extends Device.PortType> = T extends Device.AIPortType
         ? Device.AOPort
         : never;
 
-export const getOpenPort = <T extends Device.PortType>(
+export const getOpen = <T extends Device.PortType>(
   channels: Channel[],
   model: Device.Model,
   types: T[],
-): Port<T> | null => {
+): Of<T> | null => {
   const taken = claims(channels, model);
   for (const type of types) {
     const port = Device.PORTS[model][type].find((p) => !taken.has(terminal(p)));
-    if (port != null) return port as Port<T>;
+    if (port != null) return port as Of<T>;
   }
   return null;
 };

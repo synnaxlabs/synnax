@@ -21,7 +21,7 @@ import {
   convertPortTypeToWriteChannelType,
   convertWriteChannelTypeToPortType,
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
-import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
+import { Port } from "@/feature/labjack/task/port";
 import { PortPicker } from "@/feature/labjack/task/PortPicker";
 import { PortsView } from "@/feature/labjack/task/PortsView";
 import { SelectWriteChannelType } from "@/feature/labjack/task/SelectWriteChannelType";
@@ -102,7 +102,8 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
               ({ key }) => key !== item.key,
             );
             const port = (
-              getOpenPort(others, model, [portType]) ?? Device.PORTS[model][portType][0]
+              Port.getOpen(others, model, [portType]) ??
+              Device.PORTS[model][portType][0]
             ).key;
             set(entry, { ...item, type: value, port });
           }}
@@ -163,7 +164,7 @@ const createNextChannel = (
       : convertWriteChannelTypeToPortType(template.type);
   const backup =
     preferred === Device.DO_PORT_TYPE ? Device.AO_PORT_TYPE : Device.DO_PORT_TYPE;
-  const port = getOpenPort(channels, model, [preferred, backup]);
+  const port = Port.getOpen(channels, model, [preferred, backup]);
   if (port == null) return null;
   if (template == null) return createChannelOn(port);
   return {
