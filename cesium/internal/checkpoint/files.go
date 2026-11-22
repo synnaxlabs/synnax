@@ -152,7 +152,28 @@ func (f *format) read(
 	if err != nil {
 		return h, bd, err
 	}
-	err = again(f.checkChunkTable(b, h), func() error {
+	if err = f.checkChunks(b, h, reread); err != nil {
+		return h, bd, err
+	}
+	if whole {
+		bd, err = f.parse(b, h)
+		return h, bd, err
+	}
+	secs, err := f.sectionsOf(b[h.table:h.chunks], h)
+	if err == nil {
+		bd.parts, err = f.parseParts(b, secs)
+	}
+	return h, bd, err
+}
+
+// checkChunks checks the chunk table and each chunk of b, the file of h. It reads a
+// range that fails its check again with reread, and checks it once more.
+func (f *format) checkChunks(
+	b []byte,
+	h Header,
+	reread func(lo, hi uint64) error,
+) error {
+	err := again(f.checkChunkTable(b, h), func() error {
 		if err := reread(h.chunks, h.Length); err != nil {
 			return err
 		}
@@ -167,18 +188,7 @@ func (f *format) read(
 			return f.checkChunk(b, h, i)
 		})
 	}
-	if err != nil {
-		return h, bd, err
-	}
-	if whole {
-		bd, err = f.parse(b, h)
-		return h, bd, err
-	}
-	secs, err := f.sectionsOf(b[h.table:h.chunks], h)
-	if err == nil {
-		bd.parts, err = f.parseParts(b, secs)
-	}
-	return h, bd, err
+	return err
 }
 
 // readParts reads and checks the head of generation in the root fs, as Read does, and
