@@ -14,7 +14,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Card } from "@/feature/range/toolbar/Card";
+import { Card } from "@/feature/range/toolbar/card";
 import { createTestLabel, dotColorBeside } from "@/platform/label/testutil";
 import { createTestRange, rangeColorBeside } from "@/platform/range/testutil";
 import { createConsoleWrapper } from "@/testutil";
@@ -23,7 +23,7 @@ const client = createTestClient();
 
 const renderCard = async (range: ranger.Range): Promise<HTMLElement> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  return render(<Card range={range} />, { wrapper }).container;
+  return render(<Card.Card range={range} />, { wrapper }).container;
 };
 
 /** Creates a range from `start` ago to `end` ago, or with no end when `end` is null. */
@@ -62,7 +62,7 @@ const createChildren = async (
   );
 };
 
-describe("range/toolbar/Card", () => {
+describe("Card", () => {
   it("should show the path from the root to the parent", async () => {
     const root = await createAgo(uniqueName("root"), TimeSpan.hours(3), null);
     const mid = await createAgo(uniqueName("mid"), TimeSpan.hours(2), null, root.key);

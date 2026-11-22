@@ -13,7 +13,7 @@ import { color, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, vi } from "vitest";
 
-import { suggest } from "@/feature/range/toolbar/suggest";
+import { Suggestion } from "@/feature/range/toolbar/suggestion";
 import { createTestRange } from "@/platform/range/testutil";
 
 const client = createTestClient();
@@ -48,10 +48,10 @@ const createCampaign = async () => {
   return { campaign, chill, ignition, second };
 };
 
-describe("suggest", () => {
+describe("Suggestion.suggest", () => {
   it("should start a run with the first phase of the run before it", async () => {
     const { chill, second } = await createCampaign();
-    expect(await suggest(client, second.key)).toEqual({
+    expect(await Suggestion.suggest(client, second.key)).toEqual({
       name: "Chill",
       color: chill.color,
     });
@@ -60,7 +60,7 @@ describe("suggest", () => {
   it("should follow a phase with the next phase of the run before it", async () => {
     const { ignition, second } = await createCampaign();
     const chill = await createAt("Chill", 11, second.key);
-    expect(await suggest(client, second.key, chill.key)).toEqual({
+    expect(await Suggestion.suggest(client, second.key, chill.key)).toEqual({
       name: "Ignition",
       color: ignition.color,
     });
@@ -69,7 +69,7 @@ describe("suggest", () => {
   it("should add one to a trailing number and keep its width and color", async () => {
     const parent = await createAt(uniqueName("parent"), 0);
     const last = await createAt("HF-09", 1, parent.key, "#3774D0");
-    expect(await suggest(client, parent.key)).toEqual({
+    expect(await Suggestion.suggest(client, parent.key)).toEqual({
       name: "HF-10",
       color: last.color,
     });
@@ -78,12 +78,12 @@ describe("suggest", () => {
   it("should suggest no name for a last child with no trailing number", async () => {
     const parent = await createAt(uniqueName("parent"), 0);
     await createAt("Hotfire", 1, parent.key);
-    expect(await suggest(client, parent.key)).toEqual({ name: "" });
+    expect(await Suggestion.suggest(client, parent.key)).toEqual({ name: "" });
   });
 
   it("should suggest no name and log the error when the read fails", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(await suggest(client, uuid.create())).toEqual({ name: "" });
+    expect(await Suggestion.suggest(client, uuid.create())).toEqual({ name: "" });
     expect(NotFoundError.matches(error.mock.calls[0][0])).toBe(true);
   });
 });
