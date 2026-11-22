@@ -30,9 +30,8 @@ const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);
 const TOOLTIP_LIST_SPACING: number = 3;
 const TOOLTIP_LIST_ITEM_HEIGHT: number = 14;
 const TOOLTIP_PADDING: xy.XY = xy.construct(6);
-// A label past this width fades at its end. The tooltip covers the data, so the cap is
-// below the legend's.
-const LABEL_MAX_REM = 24;
+// A label past this width fades at its end. The cap matches the legend's.
+const LABEL_MAX_REM = 40;
 const LABEL_FADE_REM = 2.25;
 const CHAR_WIDTH = 7;
 

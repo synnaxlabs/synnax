@@ -966,10 +966,10 @@ says why in a sentence, then gives the raw error.
 
 ### Plot hover and tooltip
 
-- A name in the plot tooltip stays on one line, at most 24rem wide, and fades. The
-  tooltip covers the data, and a name has the color of its swatch in the legend, which
-  shows the full name. Rejected: two lines, which double the height because each range
-  repeats under every channel, and a cut in the middle.
+- A name in the plot tooltip stays on one line, at most 40rem wide as in the legend, and
+  fades. A name has the color of its swatch in the legend. Rejected: two lines, which
+  double the height because each range repeats under every channel, a cut in the middle,
+  and 24rem, which cut common channel names after about 20 characters.
 - The pointer on a legend entry draws its lines twice as wide and on top. The other
   lines draw at 25 percent over the background: the other ranges in relative time, and
   the other channels in absolute time. The pointer on a line of the plot only makes its
