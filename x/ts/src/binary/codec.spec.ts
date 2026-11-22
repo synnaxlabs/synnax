@@ -135,7 +135,7 @@ describe("Codec", () => {
         (wire) => {
           expect(() =>
             binary.JSON_CODEC.decodeString(`{"data":${wire}}`, schema),
-          ).toThrow();
+          ).toThrow(zod.ParseError);
         },
       );
     });
