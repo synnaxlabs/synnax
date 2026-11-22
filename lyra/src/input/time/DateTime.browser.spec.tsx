@@ -9,10 +9,10 @@
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
-import { loadLanguage } from "@/input/time/suggest";
+import { preloadTimeLanguage } from "@/testutil";
 import { Triggers } from "@/triggers";
 
 const local = (...args: [number, number, number, number, number]): number =>
@@ -33,7 +33,7 @@ const type = (field: HTMLInputElement, text: string): void => {
 };
 
 describe("Input.DateTime", () => {
-  beforeAll(loadLanguage);
+  preloadTimeLanguage();
 
   it("should open the editor on the value in a fixed local layout", () => {
     const { container } = render(<Input.DateTime value={VALUE} onChange={vi.fn()} />);

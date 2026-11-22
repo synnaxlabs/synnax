@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Form } from "@/form";
-import { createLocalStore } from "@/form/store";
+import { createLocalStore } from "@/form/testutil";
 
 const schema = z.object({
   name: z.string(),
