@@ -123,7 +123,7 @@ type Where struct {
 	// Name selects by name.
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
 	// Serial selects by serial.
-	Serial *filter.Ordered[uint32] `json:"serial,omitzero" msgpack:"serial,omitempty"`
+	Serial *filter.Ordered[uint64] `json:"serial,omitzero" msgpack:"serial,omitempty"`
 	// VendorID selects by vendor_id.
 	VendorID *filter.Ordered[uint32] `json:"vendor_id,omitzero" msgpack:"vendor_id,omitempty"`
 	// ProductCode selects by product_code.
