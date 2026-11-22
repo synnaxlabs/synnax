@@ -34,8 +34,9 @@ import (
 
 // storedChannel is a channel that a v0.62 Core stored, in group when group is set.
 type storedChannel struct {
-	name  string
-	group *uuid.UUID
+	name     string
+	group    *uuid.UUID
+	internal bool
 }
 
 // createNamedV062Store writes folders and channels as a v0.62 Core left them, and
@@ -74,6 +75,7 @@ func createNamedV062Store(
 			DataType:    telem.Float32T,
 			Virtual:     true,
 			Group:       channels[i].group,
+			Internal:    channels[i].internal,
 		}
 		keys[i] = k.Key()
 	}
