@@ -102,47 +102,23 @@ jobs:
           echo "mark=$mark" >> "$GITHUB_OUTPUT"
 
       - name: Deploy the preview
-        id: deploy
-        shell: bash
         env:
           # A preview waiting on a human review is evicted after the others.
           COMMAND: >-
             /usr/local/bin/preview up ${{ env.PR }} ${{ steps.tag.outputs.image }} ${{
             steps.mark.outputs.mark }}
           INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
-        # Records the removed previews even when the deploy fails after removing them.
-        run: |
-          status=0
-          .github/scripts/run_preview_command.sh | tee deploy.log || status=$?
-          evicted=$(sed -n 's/^evicted \([0-9]*\) /\1@/p' deploy.log | xargs)
-          echo "evicted=$evicted" >> "$GITHUB_OUTPUT"
-          exit "$status"
+        run: .github/scripts/run_preview_command.sh
 
-      # The host runs a fixed number of previews, so a deploy can remove the oldest.
-      - name: Note the removed previews
-        if: ${{ !cancelled() && steps.deploy.outputs.evicted != '' }}
+      # The host records each preview that a deploy or the TTL removes. This posts the
+      # notices of every earlier run too, so a cancelled or failed run loses none.
+      - name: Post the notices of removed previews
+        if: ${{ !cancelled() }}
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          EVICTED: ${{ steps.deploy.outputs.evicted }}
-        # Each entry is <pr>@<eviction time>. A comment updated after the eviction is
-        # from a newer deploy of that preview, so the notice leaves it.
-        run: |
-          marker="<!-- Sticky Pull Request Commentpreview -->"
-          issues="repos/$GITHUB_REPOSITORY/issues"
-          for entry in $EVICTED; do
-            pr=${entry%@*}
-            evicted=${entry#*@}
-            body=$(printf '%s\n\n%s\n%s\n%s\n%s' "### Preview" \
-              "Evicted to make room for the preview of #$PR, so the link no longer" \
-              "works. To bring it back, remove and add the \`preview\` label, or push a" \
-              "commit." "$marker")
-            comment=$(gh api --paginate "$issues/$pr/comments" --jq \
-              ".[] | select(.body | contains(\"$marker\")) | \"\(.id) \(.updated_at)\"")
-            read -r id updated <<< "$comment"
-            if [[ -n $id && $updated < $evicted ]]; then
-              gh api -X PATCH "$issues/comments/$id" -f body="$body"
-            fi
-          done
+          INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
+        run: .github/scripts/post_preview_notices.sh
 
       # Caddy gets the certificate for a new preview name on its first request, so the
       # URL can fail TLS for a short time after the deploy.

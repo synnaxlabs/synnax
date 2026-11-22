@@ -14,9 +14,8 @@
 #   preview up <pr> <image> [human|none <time>]
 #                             Starts or replaces the Core for a pull request, and
 #                             marks it as mark does. At the cap, it first removes a
-#                             preview and prints "evicted <pr> <UTC time>": unmarked
-#                             ones before marked ones, and within each, the one
-#                             deployed or viewed longest ago.
+#                             preview: unmarked ones before marked ones, and within
+#                             each, the one deployed or viewed longest ago.
 #   preview mark <pr> human|none <time>
 #                             Sets whether a pull request waits on a human review, as
 #                             its labels showed at <time> (Unix seconds). A mark older
@@ -25,7 +24,13 @@
 #                             mount, and applies the CPU and memory limits to the
 #                             running previews.
 #   preview down <pr>         Removes the Core for a pull request.
-#   preview sweep             Removes every Core not deployed or viewed for the TTL.
+#   preview sweep             Removes every Core not marked human and not deployed
+#                             or viewed for the TTL.
+#   preview notices           Prints the notices of removed previews, one per line:
+#                             "<pr> <UTC time> evicted <pr that took its place>" or
+#                             "<pr> <UTC time> expired".
+#   preview ack [<pr> <UTC time>]...
+#                             Deletes the notices that the pairs name.
 
 set -euo pipefail
 
@@ -54,6 +59,15 @@ previews() {
 
 mark_file() { echo "$PREVIEW_SITES/pr-$1.human"; }
 
+marked_human() { [[ $(cut -d' ' -f2 "$(mark_file "$1")" 2> /dev/null) == human ]]; }
+
+# Notices stay on the host until a deploy job posts them and sends ack, so a run that
+# is cancelled or fails before it posts them loses none.
+NOTICES=$PREVIEW_SITES/notices
+TIME='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
+
+notice() { echo "$1 $(date -u +%Y-%m-%dT%H:%M:%SZ) $2" >> "$NOTICES"; }
+
 # Prints the later of deployed time $2 and the last view of pull request $1. A
 # preview's access log changes on each request, so its time is the last view.
 active() {
@@ -71,9 +85,7 @@ eviction_order() {
     previews | while read -r pr deployed; do
         if [[ $pr == "$1" ]]; then continue; fi
         human=0
-        if [[ $(cut -d' ' -f2 "$(mark_file "$pr")" 2> /dev/null) == human ]]; then
-            human=1
-        fi
+        if marked_human "$pr"; then human=1; fi
         echo "$pr $human $(active "$pr" "$deployed")"
     done | sort -k2,2n -k3,3n | cut -d' ' -f1
 }
@@ -116,8 +128,8 @@ up() {
         while read -r other; do others+=("$other"); done <<< "$order"
     fi
     for ((i = 0; i <= ${#others[@]} - PREVIEW_MAX; i++)); do
-        # Printed first, so a failed removal still gets a notice.
-        echo "evicted ${others[i]} $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        # Written first, so a failed removal still gets a notice.
+        notice "${others[i]}" "evicted $pr"
         # No prune here: it would delete the image pulled above.
         remove "${others[i]}"
     done
@@ -190,10 +202,36 @@ sweep() {
     local cutoff pr deployed
     cutoff=$(($(date +%s) - PREVIEW_TTL_DAYS * 86400))
     previews | while read -r pr deployed _; do
-        if (($(active "$pr" "$deployed") < cutoff)); then down "$pr"; fi
+        if marked_human "$pr" || (($(active "$pr" "$deployed") >= cutoff)); then
+            continue
+        fi
+        notice "$pr" expired
+        down "$pr"
     done
     # A failed deploy can leave a pulled image that no container uses.
     prune_images
+}
+
+notices() { if [[ -f $NOTICES ]]; then cat "$NOTICES"; fi; }
+
+ack() {
+    local rest
+    if (($# % 2)); then
+        echo "usage: preview ack [<pr> <UTC time>]..." >&2
+        exit 2
+    fi
+    while (($#)); do
+        check_pr "$1"
+        if [[ ! $2 =~ $TIME ]]; then
+            echo "invalid notice time: $2" >&2
+            exit 1
+        fi
+        if [[ -f $NOTICES ]]; then
+            rest=$(awk -v pr="$1" -v at="$2" '!($1 == pr && $2 == at)' "$NOTICES")
+            if [[ -n $rest ]]; then echo "$rest" > "$NOTICES"; else rm "$NOTICES"; fi
+        fi
+        shift 2
+    done
 }
 
 case "${1:-}" in
@@ -202,9 +240,12 @@ case "${1:-}" in
     upgrade) upgrade ;;
     down) down "$2" ;;
     sweep) sweep ;;
+    notices) notices ;;
+    ack) ack "${@:2}" ;;
     *)
         echo "usage: preview up <pr> <image> [human|none <time>]" \
-            "| mark <pr> human|none <time> | upgrade | down <pr> | sweep" >&2
+            "| mark <pr> human|none <time> | upgrade | down <pr> | sweep" \
+            "| notices | ack [<pr> <UTC time>]..." >&2
         exit 2
         ;;
 esac

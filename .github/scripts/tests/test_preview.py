@@ -17,6 +17,9 @@ import pytest
 
 SCRIPT = Path(__file__).resolve().parents[3] / "deploy" / "preview" / "preview.sh"
 
+# A notice time, as the host writes it.
+AT = "2026-11-22T10:00:00Z"
+
 # Logs each call with the license it sees. A Core answers its readiness check only once
 # the file "ready" exists, and ps lists the file "containers".
 FAKE_DOCKER = """#!/usr/bin/env bash
@@ -87,6 +90,16 @@ class Host:
             "FAKE_DIR": str(path),
             "PREVIEW_ENV": str(env_file),
         }
+
+    def notices(self) -> list[str]:
+        path = self.sites / "notices"
+        lines = path.read_text().splitlines() if path.exists() else []
+        for ln in lines:
+            assert re.fullmatch(
+                r"\d+ \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ (evicted \d+|expired)", ln
+            )
+        # The time varies, so it is left out.
+        return [" ".join([ln.split()[0], *ln.split()[2:]]) for ln in lines]
 
     def run(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -194,11 +207,8 @@ class TestUp:
 class TestCap:
     """Tests for the limit on previews the host runs at once."""
 
-    def evicted(self, result: subprocess.CompletedProcess[str]) -> list[str]:
-        lines = [ln for ln in result.stdout.splitlines() if ln.startswith("evicted")]
-        for ln in lines:
-            assert re.fullmatch(r"evicted \d+ \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", ln)
-        return [ln.rsplit(" ", 1)[0] for ln in lines]
+    def evicted(self, host: Host) -> list[str]:
+        return [f"evicted {n.split()[0]}" for n in host.notices() if " evicted " in n]
 
     def test_should_remove_the_oldest_preview_at_the_cap(self, host: Host) -> None:
         host.ready()
@@ -206,7 +216,7 @@ class TestCap:
         host.site(12).write_text("route")
         result = host.run("up", "14", "image")
         assert result.returncode == 0, result.stderr
-        assert self.evicted(result) == ["evicted 12"]
+        assert self.evicted(host) == ["evicted 12"]
         assert not host.site(12).exists()
         removed = [c for c in host.docker() if c.startswith("docker rm")]
         assert removed == [
@@ -234,7 +244,7 @@ class TestCap:
         host.mark(12).write_text("50 human\n")
         result = host.run("up", "14", "image")
         assert result.returncode == 0, result.stderr
-        assert self.evicted(result) == ["evicted 13"]
+        assert self.evicted(host) == ["evicted 13"]
 
     def test_should_keep_a_recently_viewed_preview(self, host: Host) -> None:
         host.ready()
@@ -244,7 +254,7 @@ class TestCap:
         host.viewed(13, 150)
         result = host.run("up", "14", "image")
         assert result.returncode == 0, result.stderr
-        assert self.evicted(result) == ["evicted 13"]
+        assert self.evicted(host) == ["evicted 13"]
         assert not (host.logs / "pr-13.log").exists()
 
     def test_should_mark_a_human_review(self, host: Host) -> None:
@@ -263,7 +273,7 @@ class TestCap:
         host.containers((12, 100), (13, 200))
         result = host.run("up", "14", "image")
         assert result.returncode != 0
-        assert self.evicted(result) == []
+        assert self.evicted(host) == []
         assert not [c for c in host.docker() if c.startswith("docker rm")]
 
     def test_should_start_nothing_when_listing_previews_fails(self, host: Host) -> None:
@@ -272,7 +282,7 @@ class TestCap:
         (host.path / "ps_fails").touch()
         result = host.run("up", "14", "image")
         assert result.returncode != 0
-        assert self.evicted(result) == []
+        assert self.evicted(host) == []
         docker = host.docker()
         assert not [c for c in docker if c.startswith(("docker rm", "docker run"))]
 
@@ -281,21 +291,21 @@ class TestCap:
         host.containers((12, 100), (13, 200))
         result = host.run("up", "12", "image")
         assert result.returncode == 0, result.stderr
-        assert self.evicted(result) == []
+        assert self.evicted(host) == []
 
     def test_should_remove_nothing_below_the_cap(self, host: Host) -> None:
         host.ready()
         host.containers((12, 100))
         result = host.run("up", "14", "image")
         assert result.returncode == 0, result.stderr
-        assert self.evicted(result) == []
+        assert self.evicted(host) == []
 
     def test_should_remove_enough_to_make_room_over_the_cap(self, host: Host) -> None:
         host.ready()
         host.containers((12, 300), (13, 100), (14, 200))
         result = host.run("up", "15", "image")
         assert result.returncode == 0, result.stderr
-        assert self.evicted(result) == ["evicted 13", "evicted 14"]
+        assert self.evicted(host) == ["evicted 13", "evicted 14"]
 
 
 class TestMark:
@@ -404,11 +414,181 @@ class TestSweep:
         assert result.returncode == 0, result.stderr
         assert not [c for c in host.docker() if c.startswith("docker rm")]
 
+    def test_should_keep_an_expired_preview_marked_human(self, host: Host) -> None:
+        host.containers((12, int(time.time()) - 8 * 86400))
+        host.mark(12).write_text("50 human\n")
+        result = host.run("sweep")
+        assert result.returncode == 0, result.stderr
+        assert not [c for c in host.docker() if c.startswith("docker rm")]
+        assert host.notices() == []
+
+    def test_should_write_a_notice_for_each_removed_preview(self, host: Host) -> None:
+        now = int(time.time())
+        host.containers((12, now - 8 * 86400), (13, now - 86400))
+        result = host.run("sweep")
+        assert result.returncode == 0, result.stderr
+        assert host.notices() == ["12 expired"]
+
     def test_prunes_images_without_expired(self, host: Host) -> None:
         host.containers((13, int(time.time())))
         result = host.run("sweep")
         assert result.returncode == 0, result.stderr
         assert host.docker()[-1] == "docker image prune --all --force"
+
+
+class TestNotices:
+    """Tests for reading and deleting the notices of removed previews."""
+
+    def write(self, host: Host, *lines: str) -> None:
+        (host.sites / "notices").write_text("".join(f"{ln}\n" for ln in lines))
+
+    def test_should_print_nothing_without_notices(self, host: Host) -> None:
+        result = host.run("notices")
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == ""
+
+    def test_should_print_each_notice(self, host: Host) -> None:
+        self.write(host, f"12 {AT} evicted 14", f"13 {AT} expired")
+        result = host.run("notices")
+        assert result.stdout.splitlines() == [f"12 {AT} evicted 14", f"13 {AT} expired"]
+
+    def test_should_delete_only_the_acknowledged_notices(self, host: Host) -> None:
+        later = "2026-11-22T11:00:00Z"
+        self.write(
+            host, f"12 {AT} evicted 14", f"12 {later} expired", f"13 {AT} expired"
+        )
+        result = host.run("ack", "12", AT, "13", AT)
+        assert result.returncode == 0, result.stderr
+        assert host.notices() == ["12 expired"]
+
+    def test_should_delete_the_file_with_the_last_notice(self, host: Host) -> None:
+        self.write(host, f"12 {AT} expired")
+        assert host.run("ack", "12", AT).returncode == 0
+        assert not (host.sites / "notices").exists()
+
+    @pytest.mark.parametrize("args", [("12",), ("12", "yesterday"), ("12;rm", AT)])
+    def test_should_reject_an_invalid_ack(
+        self, host: Host, args: tuple[str, ...]
+    ) -> None:
+        self.write(host, f"12 {AT} expired")
+        assert host.run("ack", *args).returncode != 0
+        assert host.notices() == ["12 expired"]
+
+
+POST = Path(__file__).resolve().parents[1] / "post_preview_notices.sh"
+
+# Prints the notices in the file "notices" the way SSM does, with a tab before standard
+# error, and logs every command.
+FAKE_RUN = """#!/usr/bin/env bash
+echo "run $COMMAND" >> "$FAKE_DIR/calls"
+if [[ $COMMAND == *" notices" ]]; then
+    cat "$FAKE_DIR/notices" 2> /dev/null || true
+    printf '\\t\\n'
+fi
+echo "Status: Success"
+"""
+
+# Lists the preview comment of pull request N from the file "comment-N" as
+# "<id> <updated_at>", and fails a PATCH when the file "patch_fails" exists. Each call
+# is logged on one line.
+FAKE_GH = """#!/usr/bin/env bash
+args=$*
+echo "gh ${args//$'\\n'/ }" >> "$FAKE_DIR/calls"
+if [[ $* == *PATCH* ]]; then
+    [[ ! -f "$FAKE_DIR/patch_fails" ]] || exit 1
+    exit 0
+fi
+pr=$(sed -n 's|.*/issues/\\([0-9]*\\)/comments.*|\\1|p' <<< "$*")
+cat "$FAKE_DIR/comment-$pr" 2> /dev/null || true
+"""
+
+
+class Poster:
+    """The notice poster with fake gh and SSM commands."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        scripts = path / "scripts"
+        scripts.mkdir()
+        (scripts / POST.name).write_text(POST.read_text())
+        bin_dir = path / "bin"
+        bin_dir.mkdir()
+        for fake, body in (
+            (scripts / "run_preview_command.sh", FAKE_RUN),
+            (bin_dir / "gh", FAKE_GH),
+        ):
+            fake.write_text(body)
+        for fake in (*scripts.iterdir(), bin_dir / "gh"):
+            fake.chmod(0o755)
+        (path / "calls").touch()
+        self.script = scripts / POST.name
+        self.env = {
+            **os.environ,
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "FAKE_DIR": str(path),
+            "INSTANCE": "i-1",
+            "GITHUB_REPOSITORY": "synnaxlabs/synnax",
+        }
+
+    def run(self) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [str(self.script)], env=self.env, capture_output=True, text=True
+        )
+
+    def calls(self) -> list[str]:
+        return (self.path / "calls").read_text().splitlines()
+
+    def patches(self) -> list[str]:
+        return [c for c in self.calls() if c.startswith("gh api -X PATCH")]
+
+    def acks(self) -> list[str]:
+        return [
+            c for c in self.calls() if c.startswith("run /usr/local/bin/preview ack")
+        ]
+
+
+@pytest.fixture
+def poster(tmp_path: Path) -> Poster:
+    return Poster(tmp_path)
+
+
+class TestPostNotices:
+    """Tests for posting the notices of removed previews to their comments."""
+
+    def test_should_post_an_eviction_and_acknowledge_it(self, poster: Poster) -> None:
+        (poster.path / "notices").write_text(f"12 {AT} evicted 14\n")
+        (poster.path / "comment-12").write_text("900 2026-11-22T09:00:00Z\n")
+        result = poster.run()
+        assert result.returncode == 0, result.stderr
+        [patch] = poster.patches()
+        assert "issues/comments/900" in patch
+        assert "preview of #14" in patch
+        assert poster.acks() == [f"run /usr/local/bin/preview ack 12 {AT}"]
+
+    def test_should_post_an_expiry(self, poster: Poster) -> None:
+        (poster.path / "notices").write_text(f"13 {AT} expired\n")
+        (poster.path / "comment-13").write_text("901 2026-11-22T09:00:00Z\n")
+        assert poster.run().returncode == 0
+        [patch] = poster.patches()
+        assert "no deploy or view" in patch
+
+    def test_should_keep_a_newer_comment_and_acknowledge(self, poster: Poster) -> None:
+        (poster.path / "notices").write_text(f"12 {AT} expired\n")
+        (poster.path / "comment-12").write_text("900 2026-11-22T11:00:00Z\n")
+        assert poster.run().returncode == 0
+        assert poster.patches() == []
+        assert poster.acks() == [f"run /usr/local/bin/preview ack 12 {AT}"]
+
+    def test_should_acknowledge_nothing_when_a_post_fails(self, poster: Poster) -> None:
+        (poster.path / "notices").write_text(f"12 {AT} expired\n")
+        (poster.path / "comment-12").write_text("900 2026-11-22T09:00:00Z\n")
+        (poster.path / "patch_fails").touch()
+        assert poster.run().returncode != 0
+        assert poster.acks() == []
+
+    def test_should_acknowledge_nothing_without_notices(self, poster: Poster) -> None:
+        assert poster.run().returncode == 0
+        assert poster.acks() == []
 
 
 class TestArguments:
