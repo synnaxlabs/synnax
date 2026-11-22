@@ -145,6 +145,15 @@ var _ = Describe("NameRuleMigration", func() {
 		Expect(names[1]).To(Equal("sy_node_1_metrics_2"))
 	})
 
+	It("Should keep the name of a built-in, even one that breaks the rule",
+		func(ctx SpecContext) {
+			builtIn := channel(9, "sy.metrics", nil)
+			builtIn.Internal = true
+			names := migrate(ctx, channel(1, "sy.metrics", nil), builtIn)
+			Expect(names[9]).To(Equal("sy.metrics"))
+			Expect(names[1]).To(Equal("sy_metrics"))
+		})
+
 	It("Should give a new name the first suffix that no channel in any group holds",
 		func(ctx SpecContext) {
 			g := uuid.New()
