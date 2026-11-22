@@ -152,7 +152,9 @@ var _ = Describe("Name upgrade breaker round 2", func() {
 		Expect(retrieveFolder(ctx, n.DB, rigs.Key).Name).To(Equal("Rigs_2"))
 		statuses := renameStatuses(ctx, n)
 		Expect(statuses).To(HaveKey("Rigs_2"))
-		Expect(statuses["Rigs_2"].Description).To(ContainSubstring("channel"))
+		Expect(statuses["Rigs_2"].Description).To(ContainSubstring(
+			"another folder or a channel beside it held the same name",
+		))
 	})
 
 	It("Should say that a name was not in NFC when NFC broke its long run of "+
