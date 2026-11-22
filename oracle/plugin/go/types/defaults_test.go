@@ -119,7 +119,7 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			}
 		`
 		resp := MustGenerate(source, "x", loader, goPlugin)
-		ExpectContent(resp, "types.gen.go").ToContain(
+		ExpectContent(resp, "types.gen.go").ToBeValidGoSource().ToContain(
 			"func (c *Cfg) SetDefaults() {",
 			"c.Size = SizeOne",
 		)
@@ -764,6 +764,40 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 				"for i := range p.Inputs {",
 				"p.Inputs[i].Validate()",
 				"v.Exec(n.Props.Validate)",
+			)
+		})
+
+		It("Should check the keys and values of a distinct map", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Port enum {
+					ain0 = "AIN0"
+				}
+
+				Level enum {
+					h1 = "h1"
+				}
+
+				Param struct {
+					level Level
+				}
+
+				Ports map<Port, uint32>
+
+				ParamsByName map<string, Param>
+
+				Holder struct {
+					ports  Ports
+					params ParamsByName
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToBeValidGoSource().ToContain(
+				"func (h Holder) Validate() error {",
+				"for key := range h.Ports {",
+				`v.Ternaryf("ports", !key.IsValid(), "invalid ports key: %v", key)`,
+				`validate.PathedError(value.Validate(), "params", key)`,
 			)
 		})
 
