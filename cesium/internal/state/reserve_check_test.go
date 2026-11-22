@@ -36,6 +36,8 @@ var _ = Describe("Check: a Reserve on a full log", func() {
 			room  atomic.Bool
 			made  atomic.Int32
 			goExe = func(f func()) { go f() }
+			// failed gathers the errors of the callbacks, the runs, and the closes.
+			failed errs
 		)
 		st := MustSucceed(state.Open(state.Config{
 			Versions:   set.New[uint16](1),
@@ -50,7 +52,7 @@ var _ = Describe("Check: a Reserve on a full log", func() {
 			FS:       fs,
 			Executor: goExe,
 			OnDurable: func(seq uint64, records []log.Record) {
-				_ = st.Durable(seq, records)
+				failed.add(st.Durable(seq, records))
 			},
 			// The disk has no room for the next log until room is set.
 			Prepare: func(next uint64) {
@@ -64,22 +66,23 @@ var _ = Describe("Check: a Reserve on a full log", func() {
 				}()
 			},
 			OnRefused: func(records []log.Record, err error) {
-				_ = st.Refused(records, err)
+				failed.add(st.Refused(records, err))
 			},
-			Switched:   func(g uint64) { _ = st.Switch(g) },
+			Switched:   func(g uint64) { failed.add(st.Switch(g)) },
 			DB:         7,
 			Generation: 1,
 			Sequence:   1,
 		}))
 		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
-		wg.Go(func() { _ = st.Run(ctx) })
-		wg.Go(func() { _ = l.Run(ctx) })
+		wg.Go(func() { failed.add(st.Run(ctx)) })
+		wg.Go(func() { failed.add(l.Run(ctx)) })
 		DeferCleanup(func() {
-			_ = l.Close()
-			_ = st.Close()
+			failed.add(l.Close())
+			failed.add(st.Close())
 			cancel()
 			wg.Wait()
+			Expect(failed.get()).ToNot(HaveOccurred())
 		})
 
 		// Fill log 1 until not even an entry of one record fits.

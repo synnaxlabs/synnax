@@ -59,6 +59,7 @@ type chanState struct {
 	parts *Parts
 	// pending holds the segments of c with visible commits that are not durable yet.
 	pending []*segState
+	count   *pubCount
 }
 
 // partsGeneration returns the generation of the head whose parts the range of c names,
@@ -80,6 +81,30 @@ func (c *chanState) repart() {
 			Generation: c.generation,
 			Kills:      c.kills,
 		}
+	}
+}
+
+// pubCount counts the publishes of the owner, for a reader that loads more than one
+// Channel: it is odd while a step of the owner publishes, and grows by two with each
+// step that publishes. Only the owner writes it.
+type pubCount struct {
+	n    atomic.Uint64
+	open bool
+}
+
+// begin makes the count odd before the first publish of a step.
+func (p *pubCount) begin() {
+	if !p.open {
+		p.open = true
+		p.n.Add(1)
+	}
+}
+
+// end makes the count even again at the end of a step that published.
+func (p *pubCount) end() {
+	if p.open {
+		p.open = false
+		p.n.Add(1)
 	}
 }
 
@@ -146,6 +171,7 @@ func (c *chanState) publish() {
 	for _, s := range c.segs {
 		ch.Segments = append(ch.Segments, s.vis)
 	}
+	c.count.begin()
 	c.pub.Store(ch)
 }
 

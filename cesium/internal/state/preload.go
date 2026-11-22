@@ -115,13 +115,14 @@ func (r *beginDropRequest) run(s *State) {
 		return
 	}
 	s.core.dropUsers[r.key] = usersOf(r.pre, r.key)
+	s.core.dropRecords[r.key] = recordsOf(r.pre, r.key)
 	r.done <- nil
 }
 
-// BeginDrop holds the part records that name key as their clock, from the preload of
-// key in pre, for the durable apply of the Drop of key that the caller logs next. It
-// returns ErrStale when the preload is stale. It waits for a Replace in flight of a
-// segment of key or one that key times.
+// BeginDrop holds the part records of key and the part records that name key as their
+// clock, from the preload of key in pre, for the durable apply of the Drop of key that
+// the caller logs next. It returns ErrStale when the preload is stale. It waits for a
+// Replace in flight of a segment of key or one that key times.
 func (s *State) BeginDrop(key uint32, pre ...Preload) error {
 	r := &beginDropRequest{key: key, pre: pre, done: make(chan error, 1)}
 	if err := s.enqueue(r); err != nil {
@@ -162,8 +163,9 @@ type carried struct {
 	pending []pendingSeg
 	// deletes are the delete claims on the clock.
 	deletes []*claim
-	// dropping is true when BeginDrop took the clock.
-	dropping bool
+	// dropping is true when BeginDrop took the clock, and keyDropping when it took the
+	// key.
+	dropping, keyDropping bool
 	// busy is true when a step of the key or its clock is in progress.
 	busy bool
 }
@@ -176,7 +178,8 @@ func (st *carried) find(c *core, key, clock uint32) {
 		found:   true,
 		pending: c.channels[key].pendingSegs(),
 	}
-	st.busy = len(st.pending) > 0
+	_, st.keyDropping = c.dropRecords[key]
+	st.busy = len(st.pending) > 0 || st.keyDropping
 	if clock == key {
 		return
 	}
@@ -188,13 +191,13 @@ func (st *carried) find(c *core, key, clock uint32) {
 		}
 	}
 	_, st.dropping = c.dropUsers[clock]
-	st.busy = len(st.deletes) > 0 || st.dropping || len(st.pending) > 0
+	st.busy = st.busy || len(st.deletes) > 0 || st.dropping
 }
 
 // carry hands seg, which a part now holds, to each step in progress that took its part
-// records before seg was tagged: a delete or a Drop of the clock of seg, and the
-// durable apply of the commits of the key of seg that are not durable. Each would miss
-// seg otherwise, since its checks skip tagged segments.
+// records before seg was tagged: a delete or a Drop of the clock of seg, a Drop of the
+// key of seg, and the durable apply of the commits of the key of seg that are not
+// durable. Each would miss seg otherwise, since its checks skip tagged segments.
 func (st *carried) carry(c *core, seg *segState) {
 	user := User{Key: seg.key, Segment: seg.vis}
 	for _, cl := range st.deletes {
@@ -204,6 +207,9 @@ func (st *carried) carry(c *core, seg *segState) {
 	}
 	if st.dropping {
 		c.dropUsers[st.clock] = append(c.dropUsers[st.clock], user)
+	}
+	if st.keyDropping {
+		c.dropRecords[st.key] = append(c.dropRecords[st.key], seg.vis)
 	}
 	for _, p := range st.pending {
 		if p.seg != seg && overlaps(seg.vis.Pointers, p.first, p.last) {
