@@ -141,8 +141,7 @@ var _ = Describe("Channel links", func() {
 	})
 
 	It("Should bind a channel input named by path on import", func(ctx SpecContext) {
-		res, err := importFile(ctx, exportFile(ctx, createGraphArc(ctx)))
-		Expect(err).ToNot(HaveOccurred())
+		res := MustSucceed(importFile(ctx, exportFile(ctx, createGraphArc(ctx))))
 		g := graphOf(res.Base())
 		Expect(g.Inputs["source"]["channel"]).To(BeNumerically("==", key))
 		Expect(g.Inputs["sink"]["channel"]).To(BeNumerically("==", key))
@@ -152,8 +151,7 @@ var _ = Describe("Channel links", func() {
 	It("Should bind a channel input that holds a raw key", func(ctx SpecContext) {
 		a := createGraphArc(ctx)
 		env := MustSucceed(svc.Export(ctx, db, arc.ResourceID(a.Base().Key)))
-		res, err := importFile(ctx, MustSucceed(json.Marshal(env)))
-		Expect(err).ToNot(HaveOccurred())
+		res := MustSucceed(importFile(ctx, MustSucceed(json.Marshal(env))))
 		Expect(graphOf(res.Base()).Inputs["source"]["channel"]).
 			To(BeNumerically("==", key))
 	})
