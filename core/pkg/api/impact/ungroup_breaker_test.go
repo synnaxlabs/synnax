@@ -243,4 +243,38 @@ var _ = Describe("Ungroup routes breaker", Ordered, ContinueOnFailure, func() {
 			Change: ungroupOf(seen.Key, hidden.Key),
 		})).Error().To(MatchError(access.ErrDenied))
 	})
+
+	It("Should hide a dropped tombstone in the plan that an ungroup applies", func(
+		ctx SpecContext,
+	) {
+		parent := createFolder(ctx, nil)
+		folder := createFolder(ctx, &parent)
+		name := UniqueChannelName()
+		tombstone(ctx, name, &folder)
+		createChannel(ctx, name, &parent)
+		u := createUser(ctx)
+		grant(
+			ctx,
+			u,
+			[]access.Action{access.ActionRetrieve, access.ActionDelete},
+			folder.ResourceID(),
+		)
+		grant(
+			ctx,
+			u,
+			[]access.Action{access.ActionRetrieve, access.ActionUpdate},
+			parent.ResourceID(),
+		)
+		authed := AuthedCtx(ctx, u)
+		p := MustSucceed(plan(authed, apiimpact.PlanRequest{
+			Change: ungroupOf(folder.Key),
+		}))
+		Expect(p.Entries).To(BeEmpty())
+		Expect(p.Hidden).To(Equal(uint32(1)))
+		Expect(apply(authed, apiimpact.ApplyRequest{
+			Change: ungroupOf(folder.Key),
+			Token:  p.Token,
+		})).To(Equal(p))
+		Expect(exists(ctx, folder.Key)).To(BeFalse())
+	})
 })
