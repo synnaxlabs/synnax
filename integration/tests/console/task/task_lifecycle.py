@@ -192,8 +192,14 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.log(f"Testing: Export task '{t.name}'")
         exported = self.console.tasks.export(t.name)
         assert_envelope(exported, envelope_type=t.type, min_version=1, name=t.name)
-        config = sy.opcua.ReadConfig.model_validate(exported)
-        assert len(config.channels) > 0, "Exported channels should not be empty"
+        channels = exported.get("channels")
+        assert isinstance(channels, list) and len(channels) > 0, (
+            "Exported channels should not be empty"
+        )
+        paths = {c.get("channel") for c in channels if isinstance(c, dict)}
+        assert paths <= set(EXAMPLE_CHANNELS[0]), (
+            f"Exported channels should name paths, got {paths}"
+        )
 
     def test_open_task_config(self) -> None:
         """Open each task config via context menu and verify contents."""

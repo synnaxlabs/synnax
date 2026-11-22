@@ -317,11 +317,11 @@ class LinePlot(ConsoleCase):
         assert_envelope(
             exported, envelope_type="lineplot", min_version=1, name=plot.page_name
         )
-        channels = sy.lineplot.Channels.model_validate(exported.get("channels"))
-
-        data_channel = self.client.channels.retrieve(data_name)
-        assert data_channel.key in channels.y1, (
-            f"Y1 should contain channel key {data_channel.key}"
+        channels = exported.get("channels")
+        assert isinstance(channels, dict), "Exported plot should hold its channels"
+        y1 = channels.get("y1")
+        assert isinstance(y1, list) and data_name in y1, (
+            f"Y1 should name channel {data_name} by its path, got {y1}"
         )
 
     def test_open_plot_from_resources(
