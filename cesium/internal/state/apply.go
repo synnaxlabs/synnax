@@ -297,8 +297,7 @@ func (c *core) seal(r *log.Seal) error {
 
 // bury takes s out of the state when it is sealed in the durable view and no durable
 // pointer is left in it, and gives it to TakeDead: its file holds no live byte. It
-// reads
-// only the durable view, so replay and the owner bury the same segments.
+// reads only the durable view, so replay and the owner bury the same segments.
 func (c *core) bury(s *segState) {
 	if !s.dur.sealed || len(s.dur.pointers) > 0 {
 		return
