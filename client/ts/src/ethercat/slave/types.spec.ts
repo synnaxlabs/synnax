@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { ethercat } from "@/ethercat";
@@ -29,6 +30,9 @@ describe("slaveZ", () => {
     expect(slave.disabled).toBe(false);
     expect(slave.pdos).toEqual({ inputs: [], outputs: [] });
     expect(slave.readBindings).toEqual([]);
+    expect(slave.opModes).toEqual([]);
+    expect(slave.opMode).toBeUndefined();
+    expect(slave.switchedAt.equals(TimeStamp.ZERO)).toBe(true);
   });
 
   it("should parse the PDO entries and channel bindings", () => {

@@ -93,6 +93,7 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 		return w.update(ctx, key, func(m Master) (Master, error) {
 			m.Rack = v.Rack
 			m.Interface = v.Interface
+			m.NetworkName = v.NetworkName
 			m.Slaves = v.Slaves
 			return m, nil
 		})

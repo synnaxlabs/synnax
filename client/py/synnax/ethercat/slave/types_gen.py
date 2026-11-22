@@ -17,30 +17,71 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import channel as channel_, rack as rack_, status as status_
-from synnax.ethercat import master as master_
+from synnax.ethercat import master as master_, types_gen
 from synnax.resource import ID
 from x import filter, telem
 
-SAMPLES_RAW: Literal["raw"] = "raw"
-
-SAMPLES_CALIBRATED: Literal["calibrated"] = "calibrated"
-
-SAMPLES_SCALED: Literal["scaled"] = "scaled"
-
-SAMPLES_CALIBRATED_SCALED: Literal["calibrated_scaled"] = "calibrated_scaled"
-
-
-Samples = Literal["raw", "calibrated", "scaled", "calibrated_scaled"]
-
 Key: TypeAlias = UUID
+
+StartupParameter: TypeAlias = types_gen.StartupParameter
+
+
+class OpMode(BaseModel):
+    """Is a synchronization mode that a slave lists in its SII.
+
+    Attributes:
+        name: Is the name of the mode, such as DC-Synchron. Empty when the slave gives
+            none.
+        assign_activate: Is the value of the DC activation registers 0x0980 and 0x0981.
+        sync0_cycle: Is the SYNC0 cycle in nanoseconds. 0 when sync0_factor sets the
+            cycle.
+        sync0_factor: Is the SYNC0 cycle as a multiple of the bus cycle when positive,
+            or as a fraction of it when negative.
+        sync0_shift: Is the SYNC0 shift in nanoseconds.
+        sync1_factor: Is the SYNC1 cycle as a multiple of the SYNC0 cycle when positive,
+            or of the bus cycle when negative.
+        sync1_shift: Is the SYNC1 shift in nanoseconds after SYNC0.
+    """
+
+    name: str = ""
+    assign_activate: int = Field(default=0, ge=0, le=65535)
+    sync0_cycle: int = Field(default=0, ge=0, le=4294967295)
+    sync0_factor: int = Field(default=0, ge=-32768, le=32767)
+    sync0_shift: int = Field(default=0, ge=-2147483648, le=2147483647)
+    sync1_factor: int = Field(default=0, ge=-32768, le=32767)
+    sync1_shift: int = Field(default=0, ge=-2147483648, le=2147483647)
+
+
+class OpModeChoice(BaseModel):
+    """Is the synchronization mode that the user chose for a slave.
+
+    Attributes:
+        index: Is the index of the mode in the op_modes of the slave.
+        assign_activate: Is the AssignActivate of the mode, which shows that index is
+            stale when the slave lists other modes.
+        sync0_cycle: Replaces the SYNC0 cycle of the mode. 0 keeps the cycle of the
+            mode.
+        sync1_cycle: Replaces the SYNC1 cycle of the mode. 0 keeps the cycle of the
+            mode.
+    """
+
+    index: int = Field(ge=0, le=65535)
+    assign_activate: int = Field(ge=0, le=65535)
+    sync0_cycle: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+    )
+    sync1_cycle: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+    )
 
 
 class PDOEntry(BaseModel):
-    """Holds the fields of a PDO entry that a scan found on a slave.
+    """Is a PDO entry that a scan found on a slave.
 
     Attributes:
         name: Is the name of the entry, such as Input.
         pdo_name: Is the name of the PDO that holds the entry, such as Channel 1.
+        pdo_index: Is the index of the PDO that holds the entry, such as 0x1A00.
         index: Is the CoE object dictionary index of the entry.
         sub_index: Is the CoE object dictionary sub-index of the entry.
         bit_length: Is the size of the entry in bits.
@@ -48,10 +89,11 @@ class PDOEntry(BaseModel):
     """
 
     name: str
-    pdo_name: str | None = None
+    pdo_name: str = ""
+    pdo_index: int = Field(default=0, ge=0, le=65535)
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
-    bit_length: int = Field(ge=1, le=255)
+    bit_length: int = Field(ge=0, le=255)
     data_type: telem.DataType
 
 
@@ -61,28 +103,16 @@ class ReadBinding(BaseModel):
     Attributes:
         index: Is the CoE object dictionary index of the input entry.
         sub_index: Is the CoE object dictionary sub-index of the input entry.
-        samples: Is which samples of the entry the channel holds.
+        scaled: Is whether the channel holds the scaled samples of the entry.
+        calibrated: Is whether the channel holds the calibrated samples of the entry.
         channel: Is the channel that holds the samples of the entry.
     """
 
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
-    samples: Samples = "raw"
-    channel: channel_.Key = Field(gt=0, le=4294967295)
-
-
-class StartupParameterBase(BaseModel):
-    """Carries the fields that every startup parameter shares.
-
-    Attributes:
-        index: Is the CoE object dictionary index of the object.
-        sub_index: Is the CoE object dictionary sub-index of the object.
-        name: Is what the parameter sets, for display.
-    """
-
-    index: int = Field(ge=0, le=65535)
-    sub_index: int = Field(ge=0, le=255)
-    name: str = ""
+    scaled: bool = False
+    calibrated: bool = False
+    channel: channel_.Key = Field(ge=0, le=4294967295)
 
 
 class WriteBinding(BaseModel):
@@ -91,14 +121,14 @@ class WriteBinding(BaseModel):
     Attributes:
         index: Is the CoE object dictionary index of the output entry.
         sub_index: Is the CoE object dictionary sub-index of the output entry.
-        command: Is the channel that commands the entry.
-        state: Is the channel that holds the state of the entry.
+        command: Is the channel that commands the entry. 0 is no channel.
+        state: Is the channel that holds the state of the entry. 0 is no channel.
     """
 
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
-    command: channel_.Key = Field(gt=0, le=4294967295)
-    state: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    command: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
 
 
 class StatusDetails(BaseModel):
@@ -173,112 +203,49 @@ class Cursor(BaseModel):
     key: Key
 
 
-class InputEntry(PDOEntry):
-    """Is an entry that the slave sends.
+class PDOs(BaseModel):
+    """Holds the PDO entries of a slave.
 
     Attributes:
-        pdo_index: Is the index of the TxPDO that holds the entry, 0x1A00 to 0x1BFF.
+        inputs: Are the entries that the slave sends.
+        outputs: Are the entries that the slave receives.
     """
 
-    pdo_index: int = Field(ge=6656, le=7167)
+    inputs: list[PDOEntry] = Field(default_factory=list)
+    outputs: list[PDOEntry] = Field(default_factory=list)
 
 
-class OutputEntry(PDOEntry):
-    """Is an entry that the slave receives.
+class Configuration(BaseModel):
+    """Holds the slave fields that the user owns.
 
     Attributes:
-        pdo_index: Is the index of the RxPDO that holds the entry, 0x1600 to 0x17FF.
+        name: Is a human-readable name for the slave.
+        identifier: Is the prefix of the slave's channel names. The slave is
+            unconfigured while it is empty.
+        disabled: Is whether the Driver leaves the slave out of the tasks it runs.
+        op_mode: Is the synchronization mode the Driver sets up. Absent lets the Driver
+            pick it.
+        startup_parameters: Are the CoE objects the Driver writes to the slave in
+            PRE-OP.
+        read_index: Is the index channel of the channels that the slave reads into.
+        write_state_index: Is the index channel of the state channels of the slave's
+            outputs.
+        read_bindings: Are the channels of the input entries.
+        write_bindings: Are the channels of the output entries.
     """
 
-    pdo_index: int = Field(ge=5632, le=6143)
+    name: str = Field(min_length=1)
+    identifier: str = ""
+    disabled: bool = False
+    op_mode: OpModeChoice | None = None
+    startup_parameters: list[StartupParameter] = Field(default_factory=list)
+    read_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    write_state_index: channel_.Key = Field(
+        default=channel_.Key(0), ge=0, le=4294967295
+    )
+    read_bindings: list[ReadBinding] = Field(default_factory=list)
+    write_bindings: list[WriteBinding] = Field(default_factory=list)
 
-
-class Int8StartupParameter(StartupParameterBase):
-    """Writes a int8 value."""
-
-    data_type: Literal["int8"] = "int8"
-    value: int = Field(ge=-128, le=127)
-
-
-class Int16StartupParameter(StartupParameterBase):
-    """Writes a int16 value."""
-
-    data_type: Literal["int16"] = "int16"
-    value: int = Field(ge=-32768, le=32767)
-
-
-class Int32StartupParameter(StartupParameterBase):
-    """Writes a int32 value."""
-
-    data_type: Literal["int32"] = "int32"
-    value: int = Field(ge=-2147483648, le=2147483647)
-
-
-class Int64StartupParameter(StartupParameterBase):
-    """Writes a int64 value."""
-
-    data_type: Literal["int64"] = "int64"
-    value: int = Field(ge=-9223372036854775808, le=9223372036854775807)
-
-
-class Uint8StartupParameter(StartupParameterBase):
-    """Writes a uint8 value."""
-
-    data_type: Literal["uint8"] = "uint8"
-    value: int = Field(ge=0, le=255)
-
-
-class Uint16StartupParameter(StartupParameterBase):
-    """Writes a uint16 value."""
-
-    data_type: Literal["uint16"] = "uint16"
-    value: int = Field(ge=0, le=65535)
-
-
-class Uint32StartupParameter(StartupParameterBase):
-    """Writes a uint32 value."""
-
-    data_type: Literal["uint32"] = "uint32"
-    value: int = Field(ge=0, le=4294967295)
-
-
-class Uint64StartupParameter(StartupParameterBase):
-    """Writes a uint64 value."""
-
-    data_type: Literal["uint64"] = "uint64"
-    value: int = Field(ge=0, le=18446744073709551615)
-
-
-class Float32StartupParameter(StartupParameterBase):
-    """Writes a float32 value."""
-
-    data_type: Literal["float32"] = "float32"
-    value: float
-
-
-class Float64StartupParameter(StartupParameterBase):
-    """Writes a float64 value."""
-
-    data_type: Literal["float64"] = "float64"
-    value: float
-
-
-# Is a CoE object that the Driver writes to a slave in PRE-OP, before the slave
-# moves to SAFE-OP. Its data type sets the size of the write and the type of its
-# value.
-StartupParameter = Annotated[
-    Int8StartupParameter
-    | Int16StartupParameter
-    | Int32StartupParameter
-    | Int64StartupParameter
-    | Uint8StartupParameter
-    | Uint16StartupParameter
-    | Uint32StartupParameter
-    | Uint64StartupParameter
-    | Float32StartupParameter
-    | Float64StartupParameter,
-    Field(discriminator="data_type"),
-]
 
 Status: TypeAlias = status_.Status[StatusDetails]
 
@@ -303,43 +270,33 @@ class RetrieveRequest(BaseModel):
     include_status: bool = False
 
 
-class PDOs(BaseModel):
-    """Holds the PDO entries of a slave.
+class Identity(BaseModel):
+    """Holds the slave fields that the scanner owns.
 
     Attributes:
-        inputs: Are the entries that the slave sends.
-        outputs: Are the entries that the slave receives.
+        rack: Is the key of the rack the slave is connected to.
+        serial: Is the serial number of the slave. 0 when the slave reports none.
+        vendor_id: Is the EtherCAT vendor ID of the slave.
+        product_code: Is the product code of the slave.
+        revision: Is the revision number of the slave.
+        master: Is the master on whose bus the slave sits.
+        pdos: Are the PDO entries that the scan found on the slave.
+        op_modes: Are the synchronization modes that the slave lists in its SII.
+        switched_at: Is when the Driver last switched the slave to Synnax only. 0 when
+            it never has.
     """
 
-    inputs: list[InputEntry] = Field(default_factory=list)
-    outputs: list[OutputEntry] = Field(default_factory=list)
-
-
-class Configuration(BaseModel):
-    """Holds the slave fields that the user owns.
-
-    Attributes:
-        name: Is a human-readable name for the slave.
-        identifier: Is the prefix of the slave's channel names. The slave is
-            unconfigured while it is empty.
-        disabled: Is whether the Driver leaves the slave out of the tasks it runs.
-        startup_parameters: Are the CoE objects the Driver writes to the slave in
-            PRE-OP.
-        read_index: Is the index channel of the channels that the slave reads into.
-        write_state_index: Is the index channel of the state channels of the slave's
-            outputs.
-        read_bindings: Are the channels of the input entries.
-        write_bindings: Are the channels of the output entries.
-    """
-
-    name: str = Field(min_length=1)
-    identifier: str = ""
-    disabled: bool = False
-    startup_parameters: list[StartupParameter] = Field(default_factory=list)
-    read_index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
-    write_state_index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
-    read_bindings: list[ReadBinding] = Field(default_factory=list)
-    write_bindings: list[WriteBinding] = Field(default_factory=list)
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    serial: int = Field(default=0, ge=0, le=9007199254740991)
+    vendor_id: int = Field(ge=0, le=4294967295)
+    product_code: int = Field(ge=0, le=4294967295)
+    revision: int = Field(ge=0, le=4294967295)
+    master: master_.Key
+    pdos: PDOs = Field(default_factory=lambda: PDOs())
+    op_modes: list[OpMode] = Field(default_factory=list)
+    switched_at: telem.TimeStamp = Field(
+        default=telem.TimeStamp(0), ge=-9223372036854775808, le=9223372036854775807
+    )
 
 
 class Slave(BaseModel):
@@ -355,9 +312,14 @@ class Slave(BaseModel):
         revision: Is the revision number of the slave.
         master: Is the master on whose bus the slave sits.
         pdos: Are the PDO entries that the scan found on the slave.
+        op_modes: Are the synchronization modes that the slave lists in its SII.
+        switched_at: Is when the Driver last switched the slave to Synnax only. 0 when
+            it never has.
         identifier: Is the prefix of the slave's channel names. The slave is
             unconfigured while it is empty.
         disabled: Is whether the Driver leaves the slave out of the tasks it runs.
+        op_mode: Is the synchronization mode the Driver sets up. Absent lets the Driver
+            pick it.
         startup_parameters: Are the CoE objects the Driver writes to the slave in
             PRE-OP.
         read_index: Is the index channel of the channels that the slave reads into.
@@ -371,17 +333,24 @@ class Slave(BaseModel):
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str = Field(min_length=1)
-    serial: int = Field(default=0, ge=0, le=4294967295)
+    serial: int = Field(default=0, ge=0, le=9007199254740991)
     vendor_id: int = Field(ge=0, le=4294967295)
     product_code: int = Field(ge=0, le=4294967295)
     revision: int = Field(ge=0, le=4294967295)
     master: master_.Key
     pdos: PDOs = Field(default_factory=lambda: PDOs())
+    op_modes: list[OpMode] = Field(default_factory=list)
+    switched_at: telem.TimeStamp = Field(
+        default=telem.TimeStamp(0), ge=-9223372036854775808, le=9223372036854775807
+    )
     identifier: str = ""
     disabled: bool = False
+    op_mode: OpModeChoice | None = None
     startup_parameters: list[StartupParameter] = Field(default_factory=list)
-    read_index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
-    write_state_index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    read_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    write_state_index: channel_.Key = Field(
+        default=channel_.Key(0), ge=0, le=4294967295
+    )
     read_bindings: list[ReadBinding] = Field(default_factory=list)
     write_bindings: list[WriteBinding] = Field(default_factory=list)
     status: Status | None = None
@@ -389,38 +358,6 @@ class Slave(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class Identity(BaseModel):
-    """Holds the slave fields that the scanner owns.
-
-    Attributes:
-        rack: Is the key of the rack the slave is connected to.
-        serial: Is the serial number of the slave. 0 when the slave reports none.
-        vendor_id: Is the EtherCAT vendor ID of the slave.
-        product_code: Is the product code of the slave.
-        revision: Is the revision number of the slave.
-        master: Is the master on whose bus the slave sits.
-        pdos: Are the PDO entries that the scan found on the slave.
-    """
-
-    rack: rack_.Key = Field(gt=0, le=4294967295)
-    serial: int = Field(default=0, ge=0, le=4294967295)
-    vendor_id: int = Field(ge=0, le=4294967295)
-    product_code: int = Field(ge=0, le=4294967295)
-    revision: int = Field(ge=0, le=4294967295)
-    master: master_.Key
-    pdos: PDOs = Field(default_factory=lambda: PDOs())
-
-
-class RetrieveResponse(BaseModel):
-    """Holds the slaves a RetrieveRequest selects.
-
-    Attributes:
-        slaves: Are the slaves the request selects.
-    """
-
-    slaves: list[Slave] = Field(default_factory=list)
 
 
 class IdentityUpdate(Identity):
@@ -442,6 +379,16 @@ Update = Annotated[
     IdentityUpdate | ConfigurationUpdate,
     Field(discriminator="group"),
 ]
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the slaves a RetrieveRequest selects.
+
+    Attributes:
+        slaves: Are the slaves the request selects.
+    """
+
+    slaves: list[Slave] = Field(default_factory=list)
 
 
 Where.model_rebuild()

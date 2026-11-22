@@ -23,6 +23,7 @@ func (mv Master) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(mv.Rack))
 	w.String(mv.Name)
 	w.String(mv.Interface)
+	w.String(mv.NetworkName)
 	w.Bool(mv.Slaves != nil)
 	if mv.Slaves != nil {
 		w.Uint32(uint32(len(mv.Slaves)))
@@ -50,6 +51,9 @@ func (mv *Master) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if mv.Interface, err = r.String(); err != nil {
+		return err
+	}
+	if mv.NetworkName, err = r.String(); err != nil {
 		return err
 	}
 	{

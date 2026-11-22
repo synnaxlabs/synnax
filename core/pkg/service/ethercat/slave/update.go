@@ -97,6 +97,8 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 			s.Revision = v.Revision
 			s.Master = v.Master
 			s.Pdos = v.Pdos
+			s.OpModes = v.OpModes
+			s.SwitchedAt = v.SwitchedAt
 			return s, nil
 		})
 	case ConfigurationUpdate:
@@ -107,6 +109,7 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 			s.Name = v.Name
 			s.Identifier = v.Identifier
 			s.Disabled = v.Disabled
+			s.OpMode = v.OpMode
 			s.StartupParameters = v.StartupParameters
 			s.ReadIndex = v.ReadIndex
 			s.WriteStateIndex = v.WriteStateIndex

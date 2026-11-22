@@ -19,80 +19,67 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/slave/versions/v0"
+	ethercat "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
-var (
-	fullyPopulatedStartupParameterBase = v0.StartupParameterBase{
-		Index:    2,
-		SubIndex: 3,
-		Name:     "test_3",
-	}
-)
-
 var _ = Describe("Codec", func() {
-	Describe("InputEntry", func() {
+	Describe("OpMode", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.InputEntry) {
+			func(original v0.OpMode) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.InputEntry
+				var decoded v0.OpMode
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.InputEntry{
-				Name:      "test_1",
-				PdoName:   new(string("test_2")),
-				Index:     4,
-				SubIndex:  5,
-				BitLength: 6,
-				DataType:  telem.DataType("test_6"),
-				PdoIndex:  8,
+			Entry("fully populated", v0.OpMode{
+				Name:           "test_1",
+				AssignActivate: 3,
+				Sync0Cycle:     4,
+				Sync0Factor:    5,
+				Sync0Shift:     6,
+				Sync1Factor:    7,
+				Sync1Shift:     8,
 			}),
-			Entry("zero values", v0.InputEntry{
-				Name:      "",
-				PdoName:   nil,
-				Index:     0,
-				SubIndex:  0,
-				BitLength: 0,
-				DataType:  telem.DataType(""),
-				PdoIndex:  0,
+			Entry("zero values", v0.OpMode{
+				Name:           "",
+				AssignActivate: 0,
+				Sync0Cycle:     0,
+				Sync0Factor:    0,
+				Sync0Shift:     0,
+				Sync1Factor:    0,
+				Sync1Shift:     0,
 			}),
 		)
 	})
-	Describe("OutputEntry", func() {
+	Describe("OpModeChoice", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.OutputEntry) {
+			func(original v0.OpModeChoice) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.OutputEntry
+				var decoded v0.OpModeChoice
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.OutputEntry{
-				Name:      "test_1",
-				PdoName:   new(string("test_2")),
-				Index:     4,
-				SubIndex:  5,
-				BitLength: 6,
-				DataType:  telem.DataType("test_6"),
-				PdoIndex:  8,
+			Entry("fully populated", v0.OpModeChoice{
+				Index:          2,
+				AssignActivate: 3,
+				Sync0Cycle:     telem.TimeSpan(4),
+				Sync1Cycle:     telem.TimeSpan(5),
 			}),
-			Entry("zero values", v0.OutputEntry{
-				Name:      "",
-				PdoName:   nil,
-				Index:     0,
-				SubIndex:  0,
-				BitLength: 0,
-				DataType:  telem.DataType(""),
-				PdoIndex:  0,
+			Entry("zero values", v0.OpModeChoice{
+				Index:          0,
+				AssignActivate: 0,
+				Sync0Cycle:     telem.TimeSpan(0),
+				Sync1Cycle:     telem.TimeSpan(0),
 			}),
 		)
 	})
@@ -109,15 +96,17 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v0.PDOEntry{
 				Name:      "test_1",
-				PdoName:   new(string("test_2")),
-				Index:     4,
-				SubIndex:  5,
-				BitLength: 6,
-				DataType:  telem.DataType("test_6"),
+				PdoName:   "test_2",
+				PdoIndex:  4,
+				Index:     5,
+				SubIndex:  6,
+				BitLength: 7,
+				DataType:  telem.DataType("test_7"),
 			}),
 			Entry("zero values", v0.PDOEntry{
 				Name:      "",
-				PdoName:   nil,
+				PdoName:   "",
+				PdoIndex:  0,
 				Index:     0,
 				SubIndex:  0,
 				BitLength: 0,
@@ -137,31 +126,31 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.PDOs{
-				Inputs: []v0.InputEntry{
+				Inputs: []v0.PDOEntry{
 					{
 						Name:      "test_2",
-						PdoName:   new(string("test_3")),
-						Index:     5,
-						SubIndex:  6,
-						BitLength: 7,
-						DataType:  telem.DataType("test_7"),
-						PdoIndex:  9,
+						PdoName:   "test_3",
+						PdoIndex:  5,
+						Index:     6,
+						SubIndex:  7,
+						BitLength: 8,
+						DataType:  telem.DataType("test_8"),
 					},
 				},
-				Outputs: []v0.OutputEntry{
+				Outputs: []v0.PDOEntry{
 					{
 						Name:      "test_10",
-						PdoName:   new(string("test_11")),
-						Index:     13,
-						SubIndex:  14,
-						BitLength: 15,
-						DataType:  telem.DataType("test_15"),
-						PdoIndex:  17,
+						PdoName:   "test_11",
+						PdoIndex:  13,
+						Index:     14,
+						SubIndex:  15,
+						BitLength: 16,
+						DataType:  telem.DataType("test_16"),
 					},
 				},
 			}),
-			Entry("zero values", v0.PDOs{Inputs: []v0.InputEntry{}, Outputs: []v0.OutputEntry{}}),
-			Entry("empty collections", v0.PDOs{Inputs: []v0.InputEntry{}, Outputs: []v0.OutputEntry{}}),
+			Entry("zero values", v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}}),
+			Entry("empty collections", v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}}),
 		)
 	})
 	Describe("ReadBinding", func() {
@@ -176,16 +165,18 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.ReadBinding{
-				Index:    2,
-				SubIndex: 3,
-				Samples:  v0.Samples("raw"),
-				Channel:  channel.Key(5),
+				Index:      2,
+				SubIndex:   3,
+				Scaled:     true,
+				Calibrated: false,
+				Channel:    channel.Key(6),
 			}),
 			Entry("zero values", v0.ReadBinding{
-				Index:    0,
-				SubIndex: 0,
-				Samples:  v0.Samples(""),
-				Channel:  channel.Key(0),
+				Index:      0,
+				SubIndex:   0,
+				Scaled:     false,
+				Calibrated: false,
+				Channel:    channel.Key(0),
 			}),
 		)
 	})
@@ -210,53 +201,75 @@ var _ = Describe("Codec", func() {
 				Revision:    8,
 				Master:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
 				Pdos: v0.PDOs{
-					Inputs: []v0.InputEntry{
+					Inputs: []v0.PDOEntry{
 						{
 							Name:      "test_11",
-							PdoName:   new(string("test_12")),
-							Index:     14,
-							SubIndex:  15,
-							BitLength: 16,
-							DataType:  telem.DataType("test_16"),
-							PdoIndex:  18,
+							PdoName:   "test_12",
+							PdoIndex:  14,
+							Index:     15,
+							SubIndex:  16,
+							BitLength: 17,
+							DataType:  telem.DataType("test_17"),
 						},
 					},
-					Outputs: []v0.OutputEntry{
+					Outputs: []v0.PDOEntry{
 						{
 							Name:      "test_19",
-							PdoName:   new(string("test_20")),
-							Index:     22,
-							SubIndex:  23,
-							BitLength: 24,
-							DataType:  telem.DataType("test_24"),
-							PdoIndex:  26,
+							PdoName:   "test_20",
+							PdoIndex:  22,
+							Index:     23,
+							SubIndex:  24,
+							BitLength: 25,
+							DataType:  telem.DataType("test_25"),
 						},
 					},
 				},
-				Identifier: "test_26",
-				Disabled:   true,
-				StartupParameters: []v0.StartupParameter{
-					{Variant: v0.Int8StartupParameter{
-						StartupParameterBase: fullyPopulatedStartupParameterBase,
-						Value:                30,
-					}},
+				OpModes: []v0.OpMode{
+					{
+						Name:           "test_27",
+						AssignActivate: 29,
+						Sync0Cycle:     30,
+						Sync0Factor:    31,
+						Sync0Shift:     32,
+						Sync1Factor:    33,
+						Sync1Shift:     34,
+					},
 				},
-				ReadIndex:       new(channel.Key(31)),
-				WriteStateIndex: new(channel.Key(32)),
+				SwitchedAt: telem.TimeStamp(35),
+				Identifier: "test_35",
+				Disabled:   false,
+				OpMode: new(v0.OpModeChoice{
+					Index:          39,
+					AssignActivate: 40,
+					Sync0Cycle:     telem.TimeSpan(41),
+					Sync1Cycle:     telem.TimeSpan(42),
+				}),
+				StartupParameters: []ethercat.StartupParameter{
+					{
+						Index:    44,
+						SubIndex: 45,
+						DataType: telem.DataType("test_45"),
+						Value:    46.5,
+						Name:     "test_47",
+					},
+				},
+				ReadIndex:       channel.Key(49),
+				WriteStateIndex: channel.Key(50),
 				ReadBindings: []v0.ReadBinding{
 					{
-						Index:    34,
-						SubIndex: 35,
-						Samples:  v0.Samples("raw"),
-						Channel:  channel.Key(37),
+						Index:      52,
+						SubIndex:   53,
+						Scaled:     true,
+						Calibrated: false,
+						Channel:    channel.Key(56),
 					},
 				},
 				WriteBindings: []v0.WriteBinding{
 					{
-						Index:    39,
-						SubIndex: 40,
-						Command:  channel.Key(41),
-						State:    new(channel.Key(42)),
+						Index:    58,
+						SubIndex: 59,
+						Command:  channel.Key(60),
+						State:    channel.Key(61),
 					},
 				},
 			}),
@@ -269,104 +282,43 @@ var _ = Describe("Codec", func() {
 				ProductCode:       0,
 				Revision:          0,
 				Master:            uuid.Nil(),
-				Pdos:              v0.PDOs{Inputs: []v0.InputEntry{}, Outputs: []v0.OutputEntry{}},
+				Pdos:              v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}},
+				OpModes:           []v0.OpMode{},
+				SwitchedAt:        telem.TimeStamp(0),
 				Identifier:        "",
 				Disabled:          false,
-				StartupParameters: []v0.StartupParameter{},
-				ReadIndex:         nil,
-				WriteStateIndex:   nil,
+				OpMode:            nil,
+				StartupParameters: []ethercat.StartupParameter{},
+				ReadIndex:         channel.Key(0),
+				WriteStateIndex:   channel.Key(0),
 				ReadBindings:      []v0.ReadBinding{},
 				WriteBindings:     []v0.WriteBinding{},
 			}),
 			Entry("empty collections", v0.Slave{
-				Key:               uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Rack:              rack.Key(3),
-				Name:              "test_3",
-				Serial:            5,
-				VendorID:          6,
-				ProductCode:       7,
-				Revision:          8,
-				Master:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-				Pdos:              v0.PDOs{Inputs: []v0.InputEntry{}, Outputs: []v0.OutputEntry{}},
-				Identifier:        "test_12",
-				Disabled:          true,
-				StartupParameters: []v0.StartupParameter{},
-				ReadIndex:         new(channel.Key(16)),
-				WriteStateIndex:   new(channel.Key(17)),
+				Key:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Rack:        rack.Key(3),
+				Name:        "test_3",
+				Serial:      5,
+				VendorID:    6,
+				ProductCode: 7,
+				Revision:    8,
+				Master:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+				Pdos:        v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}},
+				OpModes:     []v0.OpMode{},
+				SwitchedAt:  telem.TimeStamp(14),
+				Identifier:  "test_14",
+				Disabled:    true,
+				OpMode: new(v0.OpModeChoice{
+					Index:          18,
+					AssignActivate: 19,
+					Sync0Cycle:     telem.TimeSpan(20),
+					Sync1Cycle:     telem.TimeSpan(21),
+				}),
+				StartupParameters: []ethercat.StartupParameter{},
+				ReadIndex:         channel.Key(23),
+				WriteStateIndex:   channel.Key(24),
 				ReadBindings:      []v0.ReadBinding{},
 				WriteBindings:     []v0.WriteBinding{},
-			}),
-		)
-	})
-	Describe("StartupParameter", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v0.StartupParameter) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.StartupParameter
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("int8 variant", v0.StartupParameter{Variant: v0.Int8StartupParameter{
-				StartupParameterBase: fullyPopulatedStartupParameterBase,
-				Value:                2,
-			}}),
-			Entry("int16 variant", v0.StartupParameter{Variant: v0.Int16StartupParameter{
-				StartupParameterBase: fullyPopulatedStartupParameterBase,
-				Value:                2,
-			}}),
-			Entry("int32 variant", v0.StartupParameter{Variant: v0.Int32StartupParameter{
-				StartupParameterBase: fullyPopulatedStartupParameterBase,
-				Value:                2,
-			}}),
-			Entry("int64 variant", v0.StartupParameter{Variant: v0.Int64StartupParameter{
-				StartupParameterBase: fullyPopulatedStartupParameterBase,
-				Value:                2,
-			}}),
-			Entry("uint8 variant", v0.StartupParameter{Variant: v0.Uint8StartupParameter{
-				StartupParameterBase: fullyPopulatedStartupParameterBase,
-				Value:                2,
-			}}),
-			Entry("uint16 variant", v0.StartupParameter{Variant: v0.Uint16StartupParameter{
-				StartupParameterBase: fullyPopulatedStartupParameterBase,
-				Value:                2,
-			}}),
-			Entry("uint32 variant", v0.StartupParameter{Variant: v0.Uint32StartupParameter{
-				StartupParameterBase: fullyPopulatedStartupParameterBase,
-				Value:                2,
-			}}),
-			Entry("uint64 variant", v0.StartupParameter{Variant: v0.Uint64StartupParameter{
-				StartupParameterBase: fullyPopulatedStartupParameterBase,
-				Value:                2,
-			}}),
-			Entry("float32 variant", v0.StartupParameter{Variant: v0.Float32StartupParameter{
-				StartupParameterBase: fullyPopulatedStartupParameterBase,
-				Value:                1.5,
-			}}),
-			Entry("float64 variant", v0.StartupParameter{Variant: v0.Float64StartupParameter{
-				StartupParameterBase: fullyPopulatedStartupParameterBase,
-				Value:                1.5,
-			}}),
-		)
-	})
-	Describe("StartupParameterBase", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v0.StartupParameterBase) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.StartupParameterBase
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedStartupParameterBase),
-			Entry("zero values", v0.StartupParameterBase{
-				Index:    0,
-				SubIndex: 0,
-				Name:     "",
 			}),
 		)
 	})
@@ -385,27 +337,27 @@ var _ = Describe("Codec", func() {
 				Index:    2,
 				SubIndex: 3,
 				Command:  channel.Key(4),
-				State:    new(channel.Key(5)),
+				State:    channel.Key(5),
 			}),
 			Entry("zero values", v0.WriteBinding{
 				Index:    0,
 				SubIndex: 0,
 				Command:  channel.Key(0),
-				State:    nil,
+				State:    channel.Key(0),
 			}),
 		)
 	})
 })
 
-func BenchmarkEncodeDecodeInputEntry(b *testing.B) {
-	seed := v0.InputEntry{
-		Name:      "test_1",
-		PdoName:   new(string("test_2")),
-		Index:     4,
-		SubIndex:  5,
-		BitLength: 6,
-		DataType:  telem.DataType("test_6"),
-		PdoIndex:  8,
+func BenchmarkEncodeDecodeOpMode(b *testing.B) {
+	seed := v0.OpMode{
+		Name:           "test_1",
+		AssignActivate: 3,
+		Sync0Cycle:     4,
+		Sync0Factor:    5,
+		Sync0Shift:     6,
+		Sync1Factor:    7,
+		Sync1Shift:     8,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -414,7 +366,7 @@ func BenchmarkEncodeDecodeInputEntry(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.InputEntry
+		var decoded v0.OpMode
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -422,15 +374,12 @@ func BenchmarkEncodeDecodeInputEntry(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeOutputEntry(b *testing.B) {
-	seed := v0.OutputEntry{
-		Name:      "test_1",
-		PdoName:   new(string("test_2")),
-		Index:     4,
-		SubIndex:  5,
-		BitLength: 6,
-		DataType:  telem.DataType("test_6"),
-		PdoIndex:  8,
+func BenchmarkEncodeDecodeOpModeChoice(b *testing.B) {
+	seed := v0.OpModeChoice{
+		Index:          2,
+		AssignActivate: 3,
+		Sync0Cycle:     telem.TimeSpan(4),
+		Sync1Cycle:     telem.TimeSpan(5),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -439,7 +388,7 @@ func BenchmarkEncodeDecodeOutputEntry(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.OutputEntry
+		var decoded v0.OpModeChoice
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -450,11 +399,12 @@ func BenchmarkEncodeDecodeOutputEntry(b *testing.B) {
 func BenchmarkEncodeDecodePDOEntry(b *testing.B) {
 	seed := v0.PDOEntry{
 		Name:      "test_1",
-		PdoName:   new(string("test_2")),
-		Index:     4,
-		SubIndex:  5,
-		BitLength: 6,
-		DataType:  telem.DataType("test_6"),
+		PdoName:   "test_2",
+		PdoIndex:  4,
+		Index:     5,
+		SubIndex:  6,
+		BitLength: 7,
+		DataType:  telem.DataType("test_7"),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -473,26 +423,26 @@ func BenchmarkEncodeDecodePDOEntry(b *testing.B) {
 
 func BenchmarkEncodeDecodePDOs(b *testing.B) {
 	seed := v0.PDOs{
-		Inputs: []v0.InputEntry{
+		Inputs: []v0.PDOEntry{
 			{
 				Name:      "test_2",
-				PdoName:   new(string("test_3")),
-				Index:     5,
-				SubIndex:  6,
-				BitLength: 7,
-				DataType:  telem.DataType("test_7"),
-				PdoIndex:  9,
+				PdoName:   "test_3",
+				PdoIndex:  5,
+				Index:     6,
+				SubIndex:  7,
+				BitLength: 8,
+				DataType:  telem.DataType("test_8"),
 			},
 		},
-		Outputs: []v0.OutputEntry{
+		Outputs: []v0.PDOEntry{
 			{
 				Name:      "test_10",
-				PdoName:   new(string("test_11")),
-				Index:     13,
-				SubIndex:  14,
-				BitLength: 15,
-				DataType:  telem.DataType("test_15"),
-				PdoIndex:  17,
+				PdoName:   "test_11",
+				PdoIndex:  13,
+				Index:     14,
+				SubIndex:  15,
+				BitLength: 16,
+				DataType:  telem.DataType("test_16"),
 			},
 		},
 	}
@@ -513,10 +463,11 @@ func BenchmarkEncodeDecodePDOs(b *testing.B) {
 
 func BenchmarkEncodeDecodeReadBinding(b *testing.B) {
 	seed := v0.ReadBinding{
-		Index:    2,
-		SubIndex: 3,
-		Samples:  v0.Samples("raw"),
-		Channel:  channel.Key(5),
+		Index:      2,
+		SubIndex:   3,
+		Scaled:     true,
+		Calibrated: false,
+		Channel:    channel.Key(6),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -544,53 +495,75 @@ func BenchmarkEncodeDecodeSlave(b *testing.B) {
 		Revision:    8,
 		Master:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
 		Pdos: v0.PDOs{
-			Inputs: []v0.InputEntry{
+			Inputs: []v0.PDOEntry{
 				{
 					Name:      "test_11",
-					PdoName:   new(string("test_12")),
-					Index:     14,
-					SubIndex:  15,
-					BitLength: 16,
-					DataType:  telem.DataType("test_16"),
-					PdoIndex:  18,
+					PdoName:   "test_12",
+					PdoIndex:  14,
+					Index:     15,
+					SubIndex:  16,
+					BitLength: 17,
+					DataType:  telem.DataType("test_17"),
 				},
 			},
-			Outputs: []v0.OutputEntry{
+			Outputs: []v0.PDOEntry{
 				{
 					Name:      "test_19",
-					PdoName:   new(string("test_20")),
-					Index:     22,
-					SubIndex:  23,
-					BitLength: 24,
-					DataType:  telem.DataType("test_24"),
-					PdoIndex:  26,
+					PdoName:   "test_20",
+					PdoIndex:  22,
+					Index:     23,
+					SubIndex:  24,
+					BitLength: 25,
+					DataType:  telem.DataType("test_25"),
 				},
 			},
 		},
-		Identifier: "test_26",
-		Disabled:   true,
-		StartupParameters: []v0.StartupParameter{
-			{Variant: v0.Int8StartupParameter{
-				StartupParameterBase: fullyPopulatedStartupParameterBase,
-				Value:                30,
-			}},
+		OpModes: []v0.OpMode{
+			{
+				Name:           "test_27",
+				AssignActivate: 29,
+				Sync0Cycle:     30,
+				Sync0Factor:    31,
+				Sync0Shift:     32,
+				Sync1Factor:    33,
+				Sync1Shift:     34,
+			},
 		},
-		ReadIndex:       new(channel.Key(31)),
-		WriteStateIndex: new(channel.Key(32)),
+		SwitchedAt: telem.TimeStamp(35),
+		Identifier: "test_35",
+		Disabled:   false,
+		OpMode: new(v0.OpModeChoice{
+			Index:          39,
+			AssignActivate: 40,
+			Sync0Cycle:     telem.TimeSpan(41),
+			Sync1Cycle:     telem.TimeSpan(42),
+		}),
+		StartupParameters: []ethercat.StartupParameter{
+			{
+				Index:    44,
+				SubIndex: 45,
+				DataType: telem.DataType("test_45"),
+				Value:    46.5,
+				Name:     "test_47",
+			},
+		},
+		ReadIndex:       channel.Key(49),
+		WriteStateIndex: channel.Key(50),
 		ReadBindings: []v0.ReadBinding{
 			{
-				Index:    34,
-				SubIndex: 35,
-				Samples:  v0.Samples("raw"),
-				Channel:  channel.Key(37),
+				Index:      52,
+				SubIndex:   53,
+				Scaled:     true,
+				Calibrated: false,
+				Channel:    channel.Key(56),
 			},
 		},
 		WriteBindings: []v0.WriteBinding{
 			{
-				Index:    39,
-				SubIndex: 40,
-				Command:  channel.Key(41),
-				State:    new(channel.Key(42)),
+				Index:    58,
+				SubIndex: 59,
+				Command:  channel.Key(60),
+				State:    channel.Key(61),
 			},
 		},
 	}
@@ -609,49 +582,12 @@ func BenchmarkEncodeDecodeSlave(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeStartupParameter(b *testing.B) {
-	seed := v0.StartupParameter{Variant: v0.Int8StartupParameter{
-		StartupParameterBase: fullyPopulatedStartupParameterBase,
-		Value:                2,
-	}}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v0.StartupParameter
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeStartupParameterBase(b *testing.B) {
-	seed := fullyPopulatedStartupParameterBase
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v0.StartupParameterBase
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeWriteBinding(b *testing.B) {
 	seed := v0.WriteBinding{
 		Index:    2,
 		SubIndex: 3,
 		Command:  channel.Key(4),
-		State:    new(channel.Key(5)),
+		State:    channel.Key(5),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -668,16 +604,16 @@ func BenchmarkEncodeDecodeWriteBinding(b *testing.B) {
 	}
 }
 
-func FuzzDecodeInputEntry(f *testing.F) {
+func FuzzDecodeOpMode(f *testing.F) {
 	{
-		seed := v0.InputEntry{
-			Name:      "test_1",
-			PdoName:   new(string("test_2")),
-			Index:     4,
-			SubIndex:  5,
-			BitLength: 6,
-			DataType:  telem.DataType("test_6"),
-			PdoIndex:  8,
+		seed := v0.OpMode{
+			Name:           "test_1",
+			AssignActivate: 3,
+			Sync0Cycle:     4,
+			Sync0Factor:    5,
+			Sync0Shift:     6,
+			Sync1Factor:    7,
+			Sync1Shift:     8,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -686,14 +622,14 @@ func FuzzDecodeInputEntry(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.InputEntry{
-			Name:      "",
-			PdoName:   nil,
-			Index:     0,
-			SubIndex:  0,
-			BitLength: 0,
-			DataType:  telem.DataType(""),
-			PdoIndex:  0,
+		seed := v0.OpMode{
+			Name:           "",
+			AssignActivate: 0,
+			Sync0Cycle:     0,
+			Sync0Factor:    0,
+			Sync0Shift:     0,
+			Sync1Factor:    0,
+			Sync1Shift:     0,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -702,7 +638,7 @@ func FuzzDecodeInputEntry(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.InputEntry
+		var decoded v0.OpMode
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -712,7 +648,7 @@ func FuzzDecodeInputEntry(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.InputEntry
+		var redecoded v0.OpMode
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -723,16 +659,13 @@ func FuzzDecodeInputEntry(f *testing.F) {
 	})
 }
 
-func FuzzDecodeOutputEntry(f *testing.F) {
+func FuzzDecodeOpModeChoice(f *testing.F) {
 	{
-		seed := v0.OutputEntry{
-			Name:      "test_1",
-			PdoName:   new(string("test_2")),
-			Index:     4,
-			SubIndex:  5,
-			BitLength: 6,
-			DataType:  telem.DataType("test_6"),
-			PdoIndex:  8,
+		seed := v0.OpModeChoice{
+			Index:          2,
+			AssignActivate: 3,
+			Sync0Cycle:     telem.TimeSpan(4),
+			Sync1Cycle:     telem.TimeSpan(5),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -741,14 +674,11 @@ func FuzzDecodeOutputEntry(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.OutputEntry{
-			Name:      "",
-			PdoName:   nil,
-			Index:     0,
-			SubIndex:  0,
-			BitLength: 0,
-			DataType:  telem.DataType(""),
-			PdoIndex:  0,
+		seed := v0.OpModeChoice{
+			Index:          0,
+			AssignActivate: 0,
+			Sync0Cycle:     telem.TimeSpan(0),
+			Sync1Cycle:     telem.TimeSpan(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -757,7 +687,7 @@ func FuzzDecodeOutputEntry(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.OutputEntry
+		var decoded v0.OpModeChoice
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -767,7 +697,7 @@ func FuzzDecodeOutputEntry(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.OutputEntry
+		var redecoded v0.OpModeChoice
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -782,11 +712,12 @@ func FuzzDecodePDOEntry(f *testing.F) {
 	{
 		seed := v0.PDOEntry{
 			Name:      "test_1",
-			PdoName:   new(string("test_2")),
-			Index:     4,
-			SubIndex:  5,
-			BitLength: 6,
-			DataType:  telem.DataType("test_6"),
+			PdoName:   "test_2",
+			PdoIndex:  4,
+			Index:     5,
+			SubIndex:  6,
+			BitLength: 7,
+			DataType:  telem.DataType("test_7"),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -797,7 +728,8 @@ func FuzzDecodePDOEntry(f *testing.F) {
 	{
 		seed := v0.PDOEntry{
 			Name:      "",
-			PdoName:   nil,
+			PdoName:   "",
+			PdoIndex:  0,
 			Index:     0,
 			SubIndex:  0,
 			BitLength: 0,
@@ -834,26 +766,26 @@ func FuzzDecodePDOEntry(f *testing.F) {
 func FuzzDecodePDOs(f *testing.F) {
 	{
 		seed := v0.PDOs{
-			Inputs: []v0.InputEntry{
+			Inputs: []v0.PDOEntry{
 				{
 					Name:      "test_2",
-					PdoName:   new(string("test_3")),
-					Index:     5,
-					SubIndex:  6,
-					BitLength: 7,
-					DataType:  telem.DataType("test_7"),
-					PdoIndex:  9,
+					PdoName:   "test_3",
+					PdoIndex:  5,
+					Index:     6,
+					SubIndex:  7,
+					BitLength: 8,
+					DataType:  telem.DataType("test_8"),
 				},
 			},
-			Outputs: []v0.OutputEntry{
+			Outputs: []v0.PDOEntry{
 				{
 					Name:      "test_10",
-					PdoName:   new(string("test_11")),
-					Index:     13,
-					SubIndex:  14,
-					BitLength: 15,
-					DataType:  telem.DataType("test_15"),
-					PdoIndex:  17,
+					PdoName:   "test_11",
+					PdoIndex:  13,
+					Index:     14,
+					SubIndex:  15,
+					BitLength: 16,
+					DataType:  telem.DataType("test_16"),
 				},
 			},
 		}
@@ -864,7 +796,7 @@ func FuzzDecodePDOs(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.PDOs{Inputs: []v0.InputEntry{}, Outputs: []v0.OutputEntry{}}
+		seed := v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -872,7 +804,7 @@ func FuzzDecodePDOs(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.PDOs{Inputs: []v0.InputEntry{}, Outputs: []v0.OutputEntry{}}
+		seed := v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -904,10 +836,11 @@ func FuzzDecodePDOs(f *testing.F) {
 func FuzzDecodeReadBinding(f *testing.F) {
 	{
 		seed := v0.ReadBinding{
-			Index:    2,
-			SubIndex: 3,
-			Samples:  v0.Samples("raw"),
-			Channel:  channel.Key(5),
+			Index:      2,
+			SubIndex:   3,
+			Scaled:     true,
+			Calibrated: false,
+			Channel:    channel.Key(6),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -917,10 +850,11 @@ func FuzzDecodeReadBinding(f *testing.F) {
 	}
 	{
 		seed := v0.ReadBinding{
-			Index:    0,
-			SubIndex: 0,
-			Samples:  v0.Samples(""),
-			Channel:  channel.Key(0),
+			Index:      0,
+			SubIndex:   0,
+			Scaled:     false,
+			Calibrated: false,
+			Channel:    channel.Key(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -962,53 +896,75 @@ func FuzzDecodeSlave(f *testing.F) {
 			Revision:    8,
 			Master:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
 			Pdos: v0.PDOs{
-				Inputs: []v0.InputEntry{
+				Inputs: []v0.PDOEntry{
 					{
 						Name:      "test_11",
-						PdoName:   new(string("test_12")),
-						Index:     14,
-						SubIndex:  15,
-						BitLength: 16,
-						DataType:  telem.DataType("test_16"),
-						PdoIndex:  18,
+						PdoName:   "test_12",
+						PdoIndex:  14,
+						Index:     15,
+						SubIndex:  16,
+						BitLength: 17,
+						DataType:  telem.DataType("test_17"),
 					},
 				},
-				Outputs: []v0.OutputEntry{
+				Outputs: []v0.PDOEntry{
 					{
 						Name:      "test_19",
-						PdoName:   new(string("test_20")),
-						Index:     22,
-						SubIndex:  23,
-						BitLength: 24,
-						DataType:  telem.DataType("test_24"),
-						PdoIndex:  26,
+						PdoName:   "test_20",
+						PdoIndex:  22,
+						Index:     23,
+						SubIndex:  24,
+						BitLength: 25,
+						DataType:  telem.DataType("test_25"),
 					},
 				},
 			},
-			Identifier: "test_26",
-			Disabled:   true,
-			StartupParameters: []v0.StartupParameter{
-				{Variant: v0.Int8StartupParameter{
-					StartupParameterBase: fullyPopulatedStartupParameterBase,
-					Value:                30,
-				}},
+			OpModes: []v0.OpMode{
+				{
+					Name:           "test_27",
+					AssignActivate: 29,
+					Sync0Cycle:     30,
+					Sync0Factor:    31,
+					Sync0Shift:     32,
+					Sync1Factor:    33,
+					Sync1Shift:     34,
+				},
 			},
-			ReadIndex:       new(channel.Key(31)),
-			WriteStateIndex: new(channel.Key(32)),
+			SwitchedAt: telem.TimeStamp(35),
+			Identifier: "test_35",
+			Disabled:   false,
+			OpMode: new(v0.OpModeChoice{
+				Index:          39,
+				AssignActivate: 40,
+				Sync0Cycle:     telem.TimeSpan(41),
+				Sync1Cycle:     telem.TimeSpan(42),
+			}),
+			StartupParameters: []ethercat.StartupParameter{
+				{
+					Index:    44,
+					SubIndex: 45,
+					DataType: telem.DataType("test_45"),
+					Value:    46.5,
+					Name:     "test_47",
+				},
+			},
+			ReadIndex:       channel.Key(49),
+			WriteStateIndex: channel.Key(50),
 			ReadBindings: []v0.ReadBinding{
 				{
-					Index:    34,
-					SubIndex: 35,
-					Samples:  v0.Samples("raw"),
-					Channel:  channel.Key(37),
+					Index:      52,
+					SubIndex:   53,
+					Scaled:     true,
+					Calibrated: false,
+					Channel:    channel.Key(56),
 				},
 			},
 			WriteBindings: []v0.WriteBinding{
 				{
-					Index:    39,
-					SubIndex: 40,
-					Command:  channel.Key(41),
-					State:    new(channel.Key(42)),
+					Index:    58,
+					SubIndex: 59,
+					Command:  channel.Key(60),
+					State:    channel.Key(61),
 				},
 			},
 		}
@@ -1028,12 +984,15 @@ func FuzzDecodeSlave(f *testing.F) {
 			ProductCode:       0,
 			Revision:          0,
 			Master:            uuid.Nil(),
-			Pdos:              v0.PDOs{Inputs: []v0.InputEntry{}, Outputs: []v0.OutputEntry{}},
+			Pdos:              v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}},
+			OpModes:           []v0.OpMode{},
+			SwitchedAt:        telem.TimeStamp(0),
 			Identifier:        "",
 			Disabled:          false,
-			StartupParameters: []v0.StartupParameter{},
-			ReadIndex:         nil,
-			WriteStateIndex:   nil,
+			OpMode:            nil,
+			StartupParameters: []ethercat.StartupParameter{},
+			ReadIndex:         channel.Key(0),
+			WriteStateIndex:   channel.Key(0),
 			ReadBindings:      []v0.ReadBinding{},
 			WriteBindings:     []v0.WriteBinding{},
 		}
@@ -1045,20 +1004,28 @@ func FuzzDecodeSlave(f *testing.F) {
 	}
 	{
 		seed := v0.Slave{
-			Key:               uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Rack:              rack.Key(3),
-			Name:              "test_3",
-			Serial:            5,
-			VendorID:          6,
-			ProductCode:       7,
-			Revision:          8,
-			Master:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-			Pdos:              v0.PDOs{Inputs: []v0.InputEntry{}, Outputs: []v0.OutputEntry{}},
-			Identifier:        "test_12",
-			Disabled:          true,
-			StartupParameters: []v0.StartupParameter{},
-			ReadIndex:         new(channel.Key(16)),
-			WriteStateIndex:   new(channel.Key(17)),
+			Key:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Rack:        rack.Key(3),
+			Name:        "test_3",
+			Serial:      5,
+			VendorID:    6,
+			ProductCode: 7,
+			Revision:    8,
+			Master:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+			Pdos:        v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}},
+			OpModes:     []v0.OpMode{},
+			SwitchedAt:  telem.TimeStamp(14),
+			Identifier:  "test_14",
+			Disabled:    true,
+			OpMode: new(v0.OpModeChoice{
+				Index:          18,
+				AssignActivate: 19,
+				Sync0Cycle:     telem.TimeSpan(20),
+				Sync1Cycle:     telem.TimeSpan(21),
+			}),
+			StartupParameters: []ethercat.StartupParameter{},
+			ReadIndex:         channel.Key(23),
+			WriteStateIndex:   channel.Key(24),
 			ReadBindings:      []v0.ReadBinding{},
 			WriteBindings:     []v0.WriteBinding{},
 		}
@@ -1090,189 +1057,13 @@ func FuzzDecodeSlave(f *testing.F) {
 	})
 }
 
-func FuzzDecodeStartupParameter(f *testing.F) {
-	{
-		seed := v0.StartupParameter{Variant: v0.Int8StartupParameter{
-			StartupParameterBase: fullyPopulatedStartupParameterBase,
-			Value:                2,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.StartupParameter{Variant: v0.Int16StartupParameter{
-			StartupParameterBase: fullyPopulatedStartupParameterBase,
-			Value:                2,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.StartupParameter{Variant: v0.Int32StartupParameter{
-			StartupParameterBase: fullyPopulatedStartupParameterBase,
-			Value:                2,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.StartupParameter{Variant: v0.Int64StartupParameter{
-			StartupParameterBase: fullyPopulatedStartupParameterBase,
-			Value:                2,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.StartupParameter{Variant: v0.Uint8StartupParameter{
-			StartupParameterBase: fullyPopulatedStartupParameterBase,
-			Value:                2,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.StartupParameter{Variant: v0.Uint16StartupParameter{
-			StartupParameterBase: fullyPopulatedStartupParameterBase,
-			Value:                2,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.StartupParameter{Variant: v0.Uint32StartupParameter{
-			StartupParameterBase: fullyPopulatedStartupParameterBase,
-			Value:                2,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.StartupParameter{Variant: v0.Uint64StartupParameter{
-			StartupParameterBase: fullyPopulatedStartupParameterBase,
-			Value:                2,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.StartupParameter{Variant: v0.Float32StartupParameter{
-			StartupParameterBase: fullyPopulatedStartupParameterBase,
-			Value:                1.5,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.StartupParameter{Variant: v0.Float64StartupParameter{
-			StartupParameterBase: fullyPopulatedStartupParameterBase,
-			Value:                1.5,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.StartupParameter
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v0.StartupParameter
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeStartupParameterBase(f *testing.F) {
-	{
-		seed := fullyPopulatedStartupParameterBase
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.StartupParameterBase{
-			Index:    0,
-			SubIndex: 0,
-			Name:     "",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.StartupParameterBase
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v0.StartupParameterBase
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeWriteBinding(f *testing.F) {
 	{
 		seed := v0.WriteBinding{
 			Index:    2,
 			SubIndex: 3,
 			Command:  channel.Key(4),
-			State:    new(channel.Key(5)),
+			State:    channel.Key(5),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1285,7 +1076,7 @@ func FuzzDecodeWriteBinding(f *testing.F) {
 			Index:    0,
 			SubIndex: 0,
 			Command:  channel.Key(0),
-			State:    nil,
+			State:    channel.Key(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

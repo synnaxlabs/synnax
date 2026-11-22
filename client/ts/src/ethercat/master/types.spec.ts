@@ -23,6 +23,7 @@ describe("masterZ", () => {
     const master = ethercat.master.masterZ.parse(MASTER);
     expect(master.interface).toEqual("eth0");
     expect(master.slaves).toEqual([]);
+    expect(master.networkName).toEqual("");
   });
 
   const INVALID: [string, Record<string, unknown>][] = [

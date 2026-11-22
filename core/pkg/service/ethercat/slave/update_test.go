@@ -33,6 +33,7 @@ var _ = Describe("Update", func() {
 				Inputs:  []slave.InputEntry{},
 				Outputs: []slave.OutputEntry{},
 			},
+			OpModes: []slave.OpMode{},
 		},
 	}}
 	configuration := slave.Update{Variant: slave.ConfigurationUpdate{

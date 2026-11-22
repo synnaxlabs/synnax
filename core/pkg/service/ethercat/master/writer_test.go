@@ -189,14 +189,16 @@ var _ = Describe("Writer", func() {
 			order := []uuid.UUID{uuid.New(), uuid.New()}
 			Expect(w.Apply(ctx, m.Key, master.Update{Variant: master.IdentityUpdate{
 				Identity: master.Identity{
-					Rack:      m.Rack,
-					Interface: "eth1",
-					Slaves:    order,
+					Rack:        m.Rack,
+					Interface:   "eth1",
+					NetworkName: "Ethernet 2",
+					Slaves:      order,
 				},
 			}})).To(Succeed())
 			got := retrieve(ctx, m.Key)
 			Expect(got.Interface).To(Equal("eth1"))
 			Expect(got.Slaves).To(Equal(order))
+			Expect(got.NetworkName).To(Equal("Ethernet 2"))
 			Expect(got.Name).To(Equal(m.Name))
 		})
 
