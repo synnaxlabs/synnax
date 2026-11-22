@@ -83,6 +83,16 @@ void (*put_for(const x::telem::DataType &dt))(x::telem::Series &, std::uint64_t)
 x::errors::Error config_error(const std::string &text) {
     return x::errors::Error(CONFIG_ERROR, text);
 }
+
+/// @brief returns the error for a payload of size bytes that is shorter than the end
+/// of a field.
+x::errors::Error too_short(const std::size_t size, const std::size_t end) {
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        "the payload has " + std::to_string(size) + " bytes and the field needs " +
+            std::to_string(end)
+    );
+}
 }
 
 std::pair<Binary::Field, x::errors::Error>
@@ -236,11 +246,7 @@ x::errors::Error Binary::Field::decode(
             dst.write(*this->fallback);
             return x::errors::NIL;
         }
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            "the payload has " + std::to_string(payload.size()) +
-                " bytes and the field needs " + std::to_string(this->bits.end())
-        );
+        return too_short(payload.size(), this->bits.end());
     }
     const auto *p = payload.data();
     if (this->type == Type::SIGNED)
@@ -304,12 +310,12 @@ bool Binary::Message::selected(const Condition &c) const {
 }
 
 x::errors::Error Binary::Message::decode(const std::span<const std::uint8_t> payload) {
-    if (payload.size() < this->mux_end)
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            "the payload has " + std::to_string(payload.size()) +
-                " bytes and its multiplexors need " + std::to_string(this->mux_end)
-        );
+    if (payload.size() < this->mux_end) {
+        const auto &m = *std::ranges::find_if(this->muxes, [&](const Mux &mux) {
+            return mux.bits.end() > payload.size();
+        });
+        return wrap(too_short(payload.size(), m.bits.end()), "field " + m.name);
+    }
     for (std::size_t i = 0; i < this->muxes.size(); i++) {
         const auto &m = this->muxes[i];
         this->raw[i] = m.is_signed
