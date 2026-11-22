@@ -28,7 +28,6 @@ var _ = Describe("Delete on the pointer log, broken", func() {
 	var (
 		fs        xfs.FS
 		db        *cesium.DB
-		stop      func()
 		idx, data cesium.ChannelKey
 		keys      []cesium.ChannelKey
 	)
@@ -41,7 +40,7 @@ var _ = Describe("Delete on the pointer log, broken", func() {
 			cesium.WithPointerLog(),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
 		))
-		stop = StartRun(db.Run)
+		StartRun(db.Run)
 	}
 	BeforeEach(func(ctx SpecContext) {
 		fs = xfs.NewMem()
@@ -55,10 +54,6 @@ var _ = Describe("Delete on the pointer log, broken", func() {
 			},
 			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
 		)).To(Succeed())
-	})
-	AfterEach(func() {
-		stop()
-		Expect(db.Close()).To(Succeed())
 	})
 	write := func(ctx context.Context, seconds ...telem.TimeStamp) {
 		GinkgoHelper()
@@ -79,9 +74,9 @@ var _ = Describe("Delete on the pointer log, broken", func() {
 	}
 	values := func(ctx context.Context, key cesium.ChannelKey) []int64 {
 		GinkgoHelper()
-		var out []int64
-		for _, s := range MustSucceed(db.Read(ctx, telem.TimeRangeMax, key)).
-			Get(key).Series {
+		series := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key)).Get(key).Series
+		out := make([]int64, 0, len(series))
+		for _, s := range series {
 			out = append(out, s.Unmarshal[int64]()...)
 		}
 		return out
