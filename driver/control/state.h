@@ -113,12 +113,25 @@ class States {
         this->held.clear();
     }
 
+    /// @brief returns true when subject may write every channel of frame. Requires mu.
+    [[nodiscard]] bool all_authorized_locked(
+        const x::telem::Frame &frame,
+        const x::control::Subject &subject
+    ) const {
+        for (auto [key, _]: frame) {
+            auto it = this->states.find(key);
+            if (it != this->states.end() && it->second.subject != subject) return false;
+        }
+        return true;
+    }
+
     /// @brief returns the channels of frame that subject may write. Requires mu.
     [[nodiscard]] x::telem::Frame filter_locked(
         const x::telem::Frame &frame,
         const x::control::Subject &subject
     ) const {
         x::telem::Frame out;
+        out.reserve(frame.size());
         for (auto [key, series]: frame) {
             auto it = this->states.find(key);
             if (it == this->states.end() || it->second.subject == subject)
@@ -274,6 +287,7 @@ public:
             }
             if (this->mode == Mode::HOLDING) {
                 x::telem::Frame copy;
+                copy.reserve(frame.size());
                 for (auto [key, series]: frame)
                     copy.emplace(key, series.shallow_copy());
                 this->held.push_back({std::move(copy), subject, publish});
@@ -286,8 +300,16 @@ public:
                 return;
             }
         }
-        std::shared_lock lock(this->mu);
-        auto filtered = this->filter_locked(frame, subject);
+        x::telem::Frame filtered;
+        {
+            std::shared_lock lock(this->mu);
+            if (this->all_authorized_locked(frame, subject)) {
+                lock.unlock();
+                publish(frame);
+                return;
+            }
+            filtered = this->filter_locked(frame, subject);
+        }
         if (filtered.size() < frame.size())
             LOG_FIRST_N(WARNING, 10)
                 << "[bus.writer] dropped " << frame.size() - filtered.size() << " of "
@@ -337,13 +359,7 @@ public:
     x::telem::Frame
     filter(const x::telem::Frame &frame, const x::control::Subject &subject) const {
         std::shared_lock lock(this->mu);
-        x::telem::Frame out;
-        for (auto [key, series]: frame) {
-            auto it = this->states.find(key);
-            if (it == this->states.end() || it->second.subject == subject)
-                out.emplace(key, series.shallow_copy());
-        }
-        return out;
+        return this->filter_locked(frame, subject);
     }
 
     /// @brief filters a frame by move, keeping only channels where subject holds
@@ -380,11 +396,7 @@ public:
         const x::control::Subject &subject
     ) const {
         std::shared_lock lock(this->mu);
-        for (auto [key, _]: frame) {
-            auto it = this->states.find(key);
-            if (it != this->states.end() && it->second.subject != subject) return false;
-        }
-        return true;
+        return this->all_authorized_locked(frame, subject);
     }
 
     /// @brief checks if subject holds authority on a specific channel.

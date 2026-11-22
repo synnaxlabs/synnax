@@ -27,6 +27,9 @@ class Writer final : public ::driver::pipeline::Writer {
     std::shared_ptr<Bus> bus;
     std::shared_ptr<control::States> states;
     synnax::framer::WriterConfig cfg;
+    /// @brief publishes to the bus. It owns the bus, since a held frame publishes after
+    /// write returns.
+    control::Publish publish;
 
 public:
     Writer(
@@ -38,15 +41,11 @@ public:
         server(std::move(server)),
         bus(std::move(bus)),
         states(std::move(states)),
-        cfg(std::move(cfg)) {}
+        cfg(std::move(cfg)),
+        publish([bus = this->bus](const x::telem::Frame &f) { bus->publish(f); }) {}
 
     [[nodiscard]] x::errors::Error write(const x::telem::Frame &fr) override {
-        // A held frame publishes after this call, so the callback owns what it uses.
-        this->states->route(
-            fr,
-            this->cfg.subject,
-            [bus = this->bus](const x::telem::Frame &f) { bus->publish(f); }
-        );
+        this->states->route(fr, this->cfg.subject, this->publish);
         return this->server->write(fr);
     }
 
