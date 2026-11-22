@@ -29,6 +29,8 @@ export interface ViewportProps
     PropsWithChildren,
     Base.UseProps,
     Pick<Base.MaskProps, "onDragOver" | "onDrop" | "onDragEnter" | "onDragLeave"> {
+  /** Set while a drag that the plot area can take is in progress. */
+  "data-droppable"?: true;
   /** Set while a drag that the plot area can take is over it. */
   "data-drag-over"?: true;
 }
@@ -41,6 +43,7 @@ export const Viewport = ({
   children,
   initial = box.DECIMAL,
   onChange,
+  "data-droppable": droppable,
   "data-drag-over": dragOver,
   onDragOver,
   onDrop,
@@ -83,6 +86,7 @@ export const Viewport = ({
   return (
     <Base.Mask
       className={CSS.BE("line-plot", "viewport")}
+      data-droppable={droppable}
       data-drag-over={dragOver}
       onDragOver={onDragOver}
       onDrop={onDrop}

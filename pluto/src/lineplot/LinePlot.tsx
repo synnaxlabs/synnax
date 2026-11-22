@@ -33,7 +33,6 @@ import {
 } from "react";
 
 import { Channel } from "@/channel";
-import { CSS } from "@/css";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps } from "@/lineplot/Frame";
 import {
@@ -152,34 +151,25 @@ const addChannels = (
 const addRanges = (items: Ranger.HaulItem[]): lineplot.Action[] =>
   items.map(({ key }) => lineplot.addRange({ range: { variant: "key", key } }));
 
-interface DragOverProps extends Omit<Haul.UseDragOverReturn, "over"> {
+interface DropHighlight extends Omit<Haul.UseDragOverReturn, "over"> {
+  /** Set while a drag that the element can take is in progress. */
+  "data-droppable"?: true;
   /** Set while a drag that the element can take is over it. */
   "data-drag-over"?: true;
 }
 
-interface DropHighlight extends DragOverProps {
-  className?: string;
-}
-
-const useDragOverProps = (
-  canDrop: Haul.CanDrop,
-): DragOverProps & { droppable: boolean } => {
+/**
+ * @returns props that mark a drop target while it can take the dragged items, and more
+ * strongly while the drag is over it.
+ */
+const useDropHighlight = (canDrop: Haul.CanDrop): DropHighlight => {
   const { over, ...dragOverProps } = Haul.useDragOver();
   const droppable = canDrop(Haul.useDraggingState());
   return {
     ...dragOverProps,
-    droppable,
+    "data-droppable": droppable ? true : undefined,
     "data-drag-over": droppable && over ? true : undefined,
   };
-};
-
-/**
- * @returns props that mark an axis while it can take the dragged items, and more
- * strongly while the drag is over it.
- */
-const useDropHighlight = (canDrop: Haul.CanDrop): DropHighlight => {
-  const { droppable, ...dragOverProps } = useDragOverProps(canDrop);
-  return { className: CSS.cls(CSS.dropRegion(droppable)), ...dragOverProps };
 };
 
 const canDropChannelOrRange: Haul.CanDrop = (state) =>
@@ -671,17 +661,18 @@ const XAxis = ({
 
 const FIRST_Y_AXIS: lineplot.YAxisKey = "y1";
 
-interface PlotDrop extends Haul.UseDropReturn, DragOverProps {}
+interface PlotDrop extends Haul.UseDropReturn, DropHighlight {}
 
 /**
  * Adds a channel dropped on the plot area to the first Y axis, and a range to the plot.
- * Marks the plot area while a drag it can take is over it.
+ * Marks the plot area while it can take the dragged items, and more strongly while the
+ * drag is over it.
  */
 const usePlotDrop = (key: lineplot.Key, editable: boolean): PlotDrop => {
   const edit = useEdit(key, editable);
   const { channels: existing } = useYAxis({ key, axisKey: FIRST_Y_AXIS });
   const plotRanges = useRanges({ key });
-  const { droppable: _, ...dragOverProps } = useDragOverProps(canDropChannelOrRange);
+  const highlight = useDropHighlight(canDropChannelOrRange);
   const dropProps = Haul.useDrop({
     type: "lineplot_plot",
     canDrop: canDropChannelOrRange,
@@ -692,7 +683,7 @@ const usePlotDrop = (key: lineplot.Key, editable: boolean): PlotDrop => {
       return edit(actions) ? [...channels, ...ranges] : [];
     },
   });
-  return { ...dropProps, ...dragOverProps };
+  return { ...dropProps, ...highlight };
 };
 
 interface UseViewportResetParams {
