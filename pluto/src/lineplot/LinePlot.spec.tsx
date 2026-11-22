@@ -1253,8 +1253,49 @@ describe("LinePlot", () => {
       };
       const lastDropped = (): Haul.Item["key"][] =>
         onSuccessfulDrop.mock.lastCall?.[0].dropped.map(({ key }: Haul.Item) => key);
-      return { ...result, drop, xAxis, yAxis, lastDropped };
+      return { ...result, drop, xAxis, yAxis, viewport, lastDropped };
     };
+
+    describe("drag over", () => {
+      const startDrag = async (target: Element): Promise<void> => {
+        await act(async () => {
+          fireEvent.dragStart(screen.getByTestId("source"));
+          fireEvent.dragEnter(target);
+        });
+      };
+      const dragOver = (el: Element): boolean => el.hasAttribute("data-drag-over");
+
+      it("should mark an X axis while a range drag is over it", async () => {
+        const { xAxis } = await renderPlot([Ranger.createHaulItem(rng.payload)]);
+        expect(dragOver(xAxis)).toBe(false);
+        await startDrag(xAxis);
+        expect(dragOver(xAxis)).toBe(true);
+        fireEvent.dragLeave(xAxis);
+        expect(dragOver(xAxis)).toBe(false);
+      });
+
+      it("should mark a Y axis for a channel drag but not a range drag", async () => {
+        const [first] = channels;
+        const channelPlot = await renderPlot([Channel.createHaulItem(first.key)]);
+        await startDrag(channelPlot.yAxis);
+        expect(dragOver(channelPlot.yAxis)).toBe(true);
+        channelPlot.unmount();
+        const rangePlot = await renderPlot([Ranger.createHaulItem(rng.payload)]);
+        await startDrag(rangePlot.yAxis);
+        expect(dragOver(rangePlot.yAxis)).toBe(false);
+      });
+
+      it("should mark the plot area until the drag ends", async () => {
+        const [first] = channels;
+        const { viewport } = await renderPlot([Channel.createHaulItem(first.key)]);
+        await startDrag(viewport);
+        expect(dragOver(viewport)).toBe(true);
+        await act(async () => {
+          fireEvent.drop(viewport);
+        });
+        expect(dragOver(viewport)).toBe(false);
+      });
+    });
 
     describe("range", () => {
       it("should add a range dropped on the plot area to the plot", async () => {
