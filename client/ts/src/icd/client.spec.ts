@@ -286,6 +286,31 @@ describe("icd", () => {
       expect(retrieved.messages[0].payload).toMatchObject({ format: "json", fields });
     });
 
+    it("should keep the non-finite enum values of a float field", async () => {
+      const enumValues = [
+        { label: "UNKNOWN", value: NaN },
+        { label: "HIGH", value: Infinity },
+        { label: "LOW", value: -Infinity },
+      ];
+      const ic = await client.icds.create({
+        name: "Non-finite",
+        messages: [
+          {
+            name: "Reading",
+            payload: {
+              format: "json",
+              fields: [{ type: "float", name: "level", pointer: "/level", enumValues }],
+            },
+          },
+        ],
+      });
+      const retrieved = await client.icds.retrieve(ic.key);
+      expect(retrieved.messages[0].payload).toMatchObject({
+        format: "json",
+        fields: [{ enumValues }],
+      });
+    });
+
     it("should keep every digit of large binary defaults and of JSON text", async () => {
       const text = '{"id": 9007199254740993}';
       const ic = await client.icds.create({
@@ -461,6 +486,40 @@ describe("icd", () => {
         },
       ]);
     });
+
+    it.each<[string, z.input<typeof icd.payloadZ>]>([
+      [
+        "binary",
+        {
+          format: "binary",
+          length: 8,
+          fields: [{ kind: "float", name: "level", bitLength: 64, default: Infinity }],
+        },
+      ],
+      [
+        "text",
+        {
+          format: "text",
+          fields: [
+            { encoding: "delimited", name: "level", position: 1, default: Infinity },
+          ],
+        },
+      ],
+    ])(
+      "should return a problem for an infinite default of a %s field",
+      async (_, payload) => {
+        const problems = await client.icds.check({
+          name: "ICD",
+          messages: [{ name: "Reading", payload }],
+        });
+        expect(problemsOf(problems)).toEqual([
+          {
+            path: "messages.0.payload.fields.0.default",
+            message: "default must be finite",
+          },
+        ]);
+      },
+    );
 
     it("should return the problems with a rule of the schema", async () => {
       const problems = await client.icds.check({

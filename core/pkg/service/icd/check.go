@@ -204,6 +204,11 @@ func (c *checker) checkJSONFields(
 		}
 		c.checkEnumLabels(fieldPath, f)
 		switch v := f.Variant.(type) {
+		case FloatJSONField:
+			if d := v.Default; d != nil &&
+				(math.IsNaN(float64(*d)) || math.IsInf(float64(*d), 0)) {
+				c.addf(pathOf(fieldPath, "default"), "default must be finite")
+			}
 		case BytesJSONField:
 			if v.Default != nil {
 				if _, err := xjson.DecodeBase64(*v.Default); err != nil {
