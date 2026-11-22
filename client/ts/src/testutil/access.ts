@@ -17,6 +17,9 @@ import { AccessDeniedError, NotFoundError } from "@/errors";
 import { createFileTestClient, createTestClient } from "@/testutil/client";
 import { user } from "@/user";
 
+/** The password of every user that the access helpers create. */
+export const TEST_USER_PASSWORD = "test";
+
 /** Reports whether the error, or any error in its cause chain, is an access denial. */
 const isDenial = (err: unknown): boolean =>
   AccessDeniedError.matches(err) ||
@@ -44,7 +47,7 @@ const connectAs = async (
   onInternalError: (err: Error) => void = logAllButDenials,
   create = createTestClient,
 ) => {
-  const client = create({ username, password: "test", onInternalError });
+  const client = create({ username, password: TEST_USER_PASSWORD, onInternalError });
   await client.access.policies.retrieve({ subjects: [user.resourceID(key)] });
   return client;
 };
@@ -53,7 +56,7 @@ const createUser = async (client: Synnax, role: role.Key) => {
   const username = id.create();
   const u = await client.users.create({
     username,
-    password: "test",
+    password: TEST_USER_PASSWORD,
     name: "test",
     role,
   });

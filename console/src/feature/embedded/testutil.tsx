@@ -11,6 +11,7 @@ import { Synnax as Client } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
+  TEST_USER_PASSWORD,
   testClientParams,
 } from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
@@ -61,13 +62,13 @@ export interface DesktopUser {
  */
 export const createDesktopUser = async (): Promise<DesktopUser> => {
   const client = await createTestClientWithRole(createTestClient(), "Owner");
-  const { username = "", password = "" } = client.params;
+  const { username = "" } = client.params;
   const { host, port } = testClientParams();
   return {
     client,
     live: {
       state: "running",
-      connection: { host, port: Number(port), username, password },
+      connection: { host, port: Number(port), username, password: TEST_USER_PASSWORD },
     },
   };
 };
