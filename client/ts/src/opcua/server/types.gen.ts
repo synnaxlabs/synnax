@@ -62,11 +62,11 @@ export const connectionZ = z.object({
    */
   certificateValidationDisabled: z.boolean().default(false),
   /** clientTimeoutMs is the timeout of each request and connection, in milliseconds. */
-  clientTimeoutMs: z.uint32().min(1).default(5000),
+  clientTimeoutMs: z.uint32().min(100).default(5000),
   /** secureChannelLifetimeMs is the lifetime of the secure channel, in milliseconds. */
-  secureChannelLifetimeMs: z.uint32().min(1).default(600000),
+  secureChannelLifetimeMs: z.uint32().min(1000).default(600000),
   /** sessionTimeoutMs is the timeout of the session, in milliseconds. */
-  sessionTimeoutMs: z.uint32().min(1).default(1200000),
+  sessionTimeoutMs: z.uint32().min(1000).default(1200000),
 });
 export interface Connection extends z.infer<typeof connectionZ> {}
 

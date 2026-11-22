@@ -225,7 +225,8 @@ Field groups per make:
   the node channel maps `read_channels`, `read_fields`, and `write_channels`
   (`console/src/feature/opcua/device/types/versions/v2.ts`). The connect form and the scanner's
   server certificate pin write the identity group; the task forms write the
-  configuration group.
+  configuration group. Mode `None` pairs only with policy `None`, the timeouts have
+  minimums of 100 ms and 1 s, and the endpoint is an `opc.tcp` URL.
 - **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
   channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
@@ -379,7 +380,12 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    bus order in `position` (`console/src/feature/ethercat/device/types.ts:50-51`). Slave
    rows grouped by `rack` and `network` yield one `ethercat.Master` per group, `rack`
    and `interface` from the group, `slaves` ordered by `position`, and each slave's
-   `master` set to the new key.
+   `master` set to the new key. An OPC UA row is fixed so it passes the typed rules: a
+   timeout of 0 takes its default and a smaller one rises to its minimum. Mode `None`
+   with a real policy becomes `Sign`, and a secured mode with policy `None` takes
+   `Basic256Sha256`, so the migration never lowers security. An endpoint without a
+   scheme gains `opc.tcp://`; any other endpoint that is not an `opc.tcp` URL is
+   quarantined.
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
    map.

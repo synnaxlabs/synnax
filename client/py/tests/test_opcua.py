@@ -488,11 +488,12 @@ class TestOPCServerResource:
         "connection",
         [
             {"endpoint": "opc.tcp://plc:4840", "security_policy": "Basic512"},
-            {"endpoint": "opc.tcp://plc:4840", "client_timeout_ms": 0},
+            {"endpoint": "opc.tcp://plc:4840", "client_timeout_ms": 99},
+            {"endpoint": "opc.tcp://plc:4840", "session_timeout_ms": 999},
         ],
     )
     def test_rejects_an_invalid_connection(self, connection: dict[str, Any]) -> None:
-        """Should reject an unknown security policy and a zero timeout."""
+        """Should reject an unknown security policy and a timeout under its minimum."""
         with pytest.raises(ValidationError):
             sy.opcua.server.Server.model_validate(
                 {**self.SERVER, "connection": connection}

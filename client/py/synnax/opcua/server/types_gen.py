@@ -93,9 +93,9 @@ class Connection(BaseModel):
     client_certificate: certificate.Key | None = None
     server_certificate: certificate.Key | None = None
     certificate_validation_disabled: bool = False
-    client_timeout_ms: int = Field(default=5000, ge=1, le=4294967295)
-    secure_channel_lifetime_ms: int = Field(default=600000, ge=1, le=4294967295)
-    session_timeout_ms: int = Field(default=1200000, ge=1, le=4294967295)
+    client_timeout_ms: int = Field(default=5000, ge=100, le=4294967295)
+    secure_channel_lifetime_ms: int = Field(default=600000, ge=1000, le=4294967295)
+    session_timeout_ms: int = Field(default=1200000, ge=1000, le=4294967295)
 
 
 class ReadField(BaseModel):

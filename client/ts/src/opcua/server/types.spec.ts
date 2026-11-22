@@ -49,7 +49,14 @@ describe("serverZ", () => {
       "an unknown security policy",
       { connection: { ...SERVER.connection, securityPolicy: "Basic512" } },
     ],
-    ["a zero timeout", { connection: { ...SERVER.connection, clientTimeoutMs: 0 } }],
+    [
+      "a request timeout under 100 ms",
+      { connection: { ...SERVER.connection, clientTimeoutMs: 99 } },
+    ],
+    [
+      "a session timeout under 1 s",
+      { connection: { ...SERVER.connection, sessionTimeoutMs: 999 } },
+    ],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {
     expect(opcua.server.serverZ.safeParse({ ...SERVER, ...change }).success).toBe(

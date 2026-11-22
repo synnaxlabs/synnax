@@ -146,9 +146,9 @@ func (c Connection) Validate() error {
 	v.Ternaryf("security_mode", !c.SecurityMode.IsValid(), "invalid security_mode: %v", c.SecurityMode)
 	v.Ternaryf("security_policy", !c.SecurityPolicy.IsValid(), "invalid security_policy: %v", c.SecurityPolicy)
 	v.NotEmptyString("endpoint", c.Endpoint)
-	v.GreaterThanEq("client_timeout_ms", c.ClientTimeoutMs, 1)
-	v.GreaterThanEq("secure_channel_lifetime_ms", c.SecureChannelLifetimeMs, 1)
-	v.GreaterThanEq("session_timeout_ms", c.SessionTimeoutMs, 1)
+	v.GreaterThanEq("client_timeout_ms", c.ClientTimeoutMs, 100)
+	v.GreaterThanEq("secure_channel_lifetime_ms", c.SecureChannelLifetimeMs, 1000)
+	v.GreaterThanEq("session_timeout_ms", c.SessionTimeoutMs, 1000)
 	return v.Error()
 }
 

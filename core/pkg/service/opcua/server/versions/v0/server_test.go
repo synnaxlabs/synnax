@@ -75,9 +75,19 @@ var _ = Describe("Server", func() {
 			"security_policy",
 		),
 		Entry(
-			"a zero timeout",
-			func(s *v0.Server) { s.Connection.ClientTimeoutMs = 0 },
+			"a request timeout under 100 ms",
+			func(s *v0.Server) { s.Connection.ClientTimeoutMs = 99 },
 			"client_timeout_ms",
+		),
+		Entry(
+			"a channel lifetime under 1 s",
+			func(s *v0.Server) { s.Connection.SecureChannelLifetimeMs = 999 },
+			"secure_channel_lifetime_ms",
+		),
+		Entry(
+			"a session timeout under 1 s",
+			func(s *v0.Server) { s.Connection.SessionTimeoutMs = 999 },
+			"session_timeout_ms",
 		),
 		Entry(
 			"a field with no node",

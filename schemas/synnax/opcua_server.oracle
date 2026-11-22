@@ -93,15 +93,15 @@ Connection struct {
     }
     client_timeout_ms               uint32 = 5000 {
         @doc value    "is the timeout of each request and connection, in milliseconds."
-        @validate min 1
+        @validate min 100
     }
     secure_channel_lifetime_ms      uint32 = 600000 {
         @doc value    "is the lifetime of the secure channel, in milliseconds."
-        @validate min 1
+        @validate min 1000
     }
     session_timeout_ms              uint32 = 1200000 {
         @doc value    "is the timeout of the session, in milliseconds."
-        @validate min 1
+        @validate min 1000
     }
 
     @doc value  "holds the settings that the Driver connects to a server with."
