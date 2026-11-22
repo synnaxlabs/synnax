@@ -22,6 +22,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
@@ -412,44 +413,55 @@ var _ = Describe("Replace", func() {
 	})
 })
 
-var _ = Describe("RetrieveDependents", func() {
+var _ = Describe("Retrieve uses", func() {
 	var e enumeration.Enumeration
 	BeforeEach(func(ctx SpecContext) {
 		e = createEnumeration(ctx, "Breaker")
 		createHolders(ctx, e.Key, "a", "b")
 	})
 
-	It("Should return the users that the subject can retrieve", func(
+	// retrieveUses returns the enumeration with key as u sees it, with its uses.
+	retrieveUses := func(
 		ctx SpecContext,
-	) {
+		u user.User,
+		key enumeration.Key,
+	) enumeration.Enumeration {
+		GinkgoHelper()
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apienumeration.RetrieveRequest{
+			Where: &enumeration.Where{
+				Key: &filter.Set[enumeration.Key]{Eq: &key},
+			},
+			IncludeUses: true,
+		}))
+		Expect(res.Enumerations).To(HaveLen(1))
+		return res.Enumerations[0]
+	}
+
+	It("Should return the uses that the subject can retrieve", func(ctx SpecContext) {
 		u := createUser(ctx)
 		a := holderID("a")
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), e.ResourceID(), a)
-		res := MustSucceed(dependents(
-			AuthedCtx(ctx, u),
-			apienumeration.RetrieveDependentsRequest{Key: e.Key},
-		))
-		Expect(res.Dependents).To(Equal([]resource.ID{a}))
+		Expect(retrieveUses(ctx, u, e.Key).Uses).To(Equal([]resource.ID{a}))
 	})
 
-	It("Should return no users of an unused enumeration", func(ctx SpecContext) {
-		u := createUser(ctx)
-		unused := createEnumeration(ctx, "Damper")
-		grant(ctx, access.ActionRetrieve, u.ResourceID(), unused.ResourceID())
-		res := MustSucceed(dependents(
-			AuthedCtx(ctx, u),
-			apienumeration.RetrieveDependentsRequest{Key: unused.Key},
-		))
-		Expect(res.Dependents).To(BeEmpty())
-	})
-
-	It("Should refuse an enumeration that the subject cannot retrieve", func(
+	It("Should return empty uses for an enumeration that nothing uses", func(
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		Expect(dependents(
-			AuthedCtx(ctx, u),
-			apienumeration.RetrieveDependentsRequest{Key: e.Key},
-		)).Error().To(denied(u, access.ActionRetrieve, e.ResourceID()))
+		unused := createEnumeration(ctx, "Damper")
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), unused.ResourceID())
+		Expect(retrieveUses(ctx, u, unused.Key).Uses).To(Equal([]resource.ID{}))
+	})
+
+	It("Should leave out uses that the request does not ask for", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), e.ResourceID(), holderID("a"))
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apienumeration.RetrieveRequest{
+			Where: &enumeration.Where{Key: &filter.Set[enumeration.Key]{Eq: &e.Key}},
+		}))
+		Expect(res.Enumerations).To(HaveLen(1))
+		Expect(res.Enumerations[0].Uses).To(BeNil())
 	})
 })
