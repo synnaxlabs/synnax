@@ -397,6 +397,12 @@ export const createConsoleWrapper = async ({
   store: TestStore;
 }> => {
   const resolvedStore = store ?? (await createTestStore({ preloadedState }));
+  // The Console renders nothing before the permissions load, so no item that a
+  // permission gates mounts after the first render.
+  if (client != null) {
+    const { role } = await client.users.current.retrieve();
+    await client.access.policies.watch({ roles: [role] }).retrieve();
+  }
   const SynnaxWrapper = await createAsyncSynnaxWrapper({
     client,
     additionalRegistry: { ...ADDITIONAL_REGISTRY, ...additionalRegistry },
