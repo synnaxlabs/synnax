@@ -484,6 +484,54 @@ describe("List", () => {
       });
     });
 
+    describe("focused", () => {
+      const Focused = ({ data }: { data: string[] }): ReactElement => (
+        <>
+          <button>outside</button>
+          <List.Frame data={data} virtual itemHeight={ITEM_HEIGHT}>
+            <List.Scroll>
+              <List.Items>
+                {({ key, ...rest }: List.ItemProps<string>) => (
+                  <List.Item key={key} {...rest}>
+                    <input aria-label={key} />
+                  </List.Item>
+                )}
+              </List.Items>
+            </List.Scroll>
+          </List.Frame>
+        </>
+      );
+
+      // Focuses a field in the last mounted row, as a rename focuses the row's name.
+      const focusLastRow = (result: ReturnType<typeof render>): HTMLElement => {
+        const field = rows(result).at(-1)?.querySelector("input");
+        if (field == null) throw new Error("no rows rendered");
+        act(() => field.focus());
+        return field;
+      };
+
+      const prepend = (count: number): string[] => [
+        ...Array.from({ length: count }, (_, i) => `new-${i}`),
+        ...DATA,
+      ];
+
+      it("should keep the focused row mounted when rows land above it", () => {
+        const result = render(<Focused data={DATA} />);
+        const field = focusLastRow(result);
+        result.rerender(<Focused data={prepend(5)} />);
+        expect(field.isConnected).toBe(true);
+        expect(document.activeElement).toBe(field);
+      });
+
+      it("should release the row once the focus leaves the list", () => {
+        const result = render(<Focused data={DATA} />);
+        const field = focusLastRow(result);
+        act(() => result.getByText("outside").focus());
+        result.rerender(<Focused data={prepend(5)} />);
+        expect(field.isConnected).toBe(false);
+      });
+    });
+
     it("should keep the container tall enough to scroll the whole data set", () => {
       const result = renderWindowed();
       const virtualizer = result.container.querySelector<HTMLElement>(

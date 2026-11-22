@@ -318,14 +318,24 @@ const useDataReader = <K extends record.Key>(
   };
 };
 
-const useElements = (pin: Elements["pin"]): Elements => {
+interface FrameElements extends Elements {
+  /** Returns the key of the mounted item that contains the node, or null. */
+  keyOf: (node: Node) => record.Key | null;
+}
+
+const useElements = (pin: Elements["pin"]): FrameElements => {
   const elementsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
   const setElement = (key: record.Key, element: HTMLElement | null) => {
     if (element == null) elementsRef.current.delete(key);
     else elementsRef.current.set(key, element);
   };
   const getElement = (key: record.Key) => elementsRef.current.get(key);
-  return { setElement, getElement, pin };
+  const keyOf = (node: Node): record.Key | null => {
+    for (const [key, element] of elementsRef.current)
+      if (element.contains(node)) return key;
+    return null;
+  };
+  return { setElement, getElement, pin, keyOf };
 };
 
 // A static frame mounts every item, so nothing needs pinning.
@@ -383,6 +393,9 @@ const VirtualFrame = <
   const refCallback = useCombinedRefs<HTMLDivElement>(fetchMoreRef, setScrollEl);
   const dataRef = useSyncedRef(data);
   const pinnedRef = useRef<record.Key | null>(null);
+  // The item that holds the focus stays mounted, so rows that land above it cannot
+  // push it out of the window before a scroll to it lands, such as during a rename.
+  const focusedRef = useRef<record.Key | null>(null);
   // The indexes of the rows that are mounted only because they are pinned.
   const pinnedOutsideRef = useRef<ReadonlySet<number>>(NO_INDEXES);
   const indexesRef = useRef<number[]>([]);
@@ -397,6 +410,7 @@ const VirtualFrame = <
         outside.add(index);
       };
       if (pinnedRef.current != null) addPinned(pinnedRef.current);
+      if (focusedRef.current != null) addPinned(focusedRef.current);
       pinned?.forEach(addPinned);
       if (outside != null) indexes = [...indexes, ...outside].sort((a, b) => a - b);
       pinnedOutsideRef.current = outside ?? NO_INDEXES;
@@ -459,6 +473,24 @@ const VirtualFrame = <
     [virtualizer],
   );
   const elements = useElements(pin);
+  const { keyOf } = elements;
+  useEffect(() => {
+    if (scrollEl == null) return;
+    const handleFocusIn = (e: FocusEvent): void => {
+      focusedRef.current = e.target instanceof Node ? keyOf(e.target) : null;
+    };
+    const handleFocusOut = (e: FocusEvent): void => {
+      const next = e.relatedTarget;
+      if (!(next instanceof Node) || !scrollEl.contains(next))
+        focusedRef.current = null;
+    };
+    scrollEl.addEventListener("focusin", handleFocusIn);
+    scrollEl.addEventListener("focusout", handleFocusOut);
+    return () => {
+      scrollEl.removeEventListener("focusin", handleFocusIn);
+      scrollEl.removeEventListener("focusout", handleFocusOut);
+    };
+  }, [scrollEl, keyOf]);
   const { getData, subscribeData } = useDataReader(data);
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
