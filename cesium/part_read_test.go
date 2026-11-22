@@ -286,7 +286,7 @@ var _ = Describe("Reads through parts", func() {
 			},
 			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
 		)).To(Succeed())
-		writeParted(ctx, db, gate, idx, data, 3, 10)
+		writeParted(ctx, db, gate, idx, data, 2, 15)
 		part := partFile(gate)
 		stop()
 		Expect(db.Close()).To(Succeed())
