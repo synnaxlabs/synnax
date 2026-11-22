@@ -34,7 +34,7 @@ import { createRunningRack } from "@/platform/device/testutil";
 import { renderModalOpener } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
-import { CaptureStatuses, findDialogTriggerByText } from "@/testutil";
+import { CaptureStatuses, findDialogTriggerByText, pickOption } from "@/testutil";
 
 const client = createTestClient();
 
@@ -47,10 +47,7 @@ const createRange = async () =>
 // The device list pages, so a search finds the device however many the Core holds.
 const selectDevice = async (name: string) => {
   fireEvent.click(await findDialogTriggerByText("Select connection"));
-  fireEvent.change(await screen.findByPlaceholderText("Search connections..."), {
-    target: { value: name },
-  });
-  fireEvent.click(await screen.findByText(name));
+  await pickOption(name, "Search connections...");
 };
 
 const clickUpload = () =>
@@ -81,10 +78,7 @@ const fillAndUpload = async (
   await listed;
   expect(await screen.findByText("stand")).toBeTruthy();
   fireEvent.click(screen.getByText("Select channels to upload"));
-  fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
-    target: { value: ch.name },
-  });
-  fireEvent.click(await screen.findByText(ch.name));
+  await pickOption(ch.name, "Search channels...");
   const { answered } = await answerNextCommand(client, scan, {
     type: Sift.Task.UPLOAD_COMMAND_TYPE,
     ...answer,
@@ -184,10 +178,7 @@ describe("Sift.Range.useUploadModal", () => {
       data: { assets: ["pad"], last: "pad" },
     });
     fireEvent.click(await findDialogTriggerByText(first.name));
-    fireEvent.change(await screen.findByPlaceholderText("Search connections..."), {
-      target: { value: second.name },
-    });
-    fireEvent.click(await screen.findByText(second.name));
+    await pickOption(second.name, "Search connections...");
     await listedSecond;
     expect(await findDialogTriggerByText("pad")).toBeTruthy();
     expect(screen.queryByText("stand")).toBeNull();
@@ -220,10 +211,7 @@ describe("Sift.Range.useUploadModal", () => {
       message: "Sift is unreachable",
     });
     fireEvent.click(await findDialogTriggerByText(first.name));
-    fireEvent.change(await screen.findByPlaceholderText("Search connections..."), {
-      target: { value: second.name },
-    });
-    fireEvent.click(await screen.findByText(second.name));
+    await pickOption(second.name, "Search connections...");
     await listedSecond;
     await waitFor(() =>
       expect(statuses.map((s) => s.message)).toContain("Failed to list Sift assets"),
@@ -346,10 +334,7 @@ describe("Sift.Range.useUploadModal", () => {
     await listed;
     expect(await screen.findByText("stand")).toBeTruthy();
     fireEvent.click(screen.getByText("Select channels to upload"));
-    fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
-      target: { value: data.name },
-    });
-    fireEvent.click(await screen.findByText(data.name));
+    await pickOption(data.name, "Search channels...");
     const { answered } = await answerNextCommand(client, scan, {
       type: Sift.Task.UPLOAD_COMMAND_TYPE,
     });

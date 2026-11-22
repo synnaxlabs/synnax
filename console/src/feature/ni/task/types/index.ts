@@ -160,6 +160,16 @@ export const defaultAIRange = (
   return TEMPERATURE_RANGES[channel.units];
 };
 
+// Most NI voltage inputs have a ±10 V range.
+const VOLTAGE_RANGE: bounds.Bounds = { lower: -10, upper: 10 };
+
+/**
+ * The range a new voltage input takes: the widest voltage range of the device, or ±10
+ * V when the device reports none.
+ */
+export const defaultAIVoltageRange = (hardware?: ni.Hardware): bounds.Bounds =>
+  widest(hardware?.aiVoltageRanges ?? []) ?? VOLTAGE_RANGE;
+
 export const createAIChannel = (type: AIChannelType = "ai_voltage"): AIChannel =>
   ni.AI_CHANNEL_SCHEMAS[type].parse({ type });
 

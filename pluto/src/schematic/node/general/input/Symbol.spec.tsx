@@ -18,7 +18,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CSS } from "@/css";
 import { Input } from "@/schematic/node/general/input";
 import { telemTest } from "@/telem/aether/testutil";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 import { input } from "@/vis/input/aether";
 import { canvasTest } from "@/vis/render/testutil";
 import { Staleness } from "@/vis/staleness";

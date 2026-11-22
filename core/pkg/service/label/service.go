@@ -86,7 +86,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Migrations: versions.Migrations,
 		// A named color delete puts its color in each label that uses it. No label
 		// write does that, so the service sets the color that the label keeps.
-		OnDetach: func(_ context.Context, tx gorp.Tx, l Label) error {
+		OnRewrite: func(_ context.Context, tx gorp.Tx, l Label) error {
 			s.state.Dispatcher().Attach(
 				tx,
 				l.Key,

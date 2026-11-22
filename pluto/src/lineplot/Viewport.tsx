@@ -13,7 +13,12 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { box, xy } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useLayoutEffect } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useLayoutEffect,
+  useRef,
+} from "react";
 
 import { CSS } from "@/css";
 import { useContext, useFetchContext } from "@/lineplot/Frame";
@@ -31,10 +36,16 @@ export const Viewport = ({
   onChange,
   ...rest
 }: ViewportProps): ReactElement => {
-  const { setViewport, setViewportElement } = useContext("LinePlot.Viewport");
+  const { setViewport, setViewportElement, closeBreaks, selectBound } =
+    useContext("LinePlot.Viewport");
   const { loading, fetching, loadingMessage } = useFetchContext("LinePlot.Viewport");
 
+  // A new initial view is a reset, which closes every break. The first one holds the
+  // open breaks the plot mounts with.
+  const initialRef = useRef(initial);
   useLayoutEffect(() => {
+    if (initialRef.current !== initial) closeBreaks();
+    initialRef.current = initial;
     setViewport({ box: initial, mode: "zoom", cursor: xy.ZERO, stage: "start" });
   }, [setViewport, initial]);
 
@@ -43,7 +54,13 @@ export const Viewport = ({
     onChange?.(e);
   };
 
-  const maskProps = Base.use({ onChange: handleChange, initial, ref, ...rest });
+  const maskProps = Base.use({
+    onChange: handleChange,
+    selectBound,
+    initial,
+    ref,
+    ...rest,
+  });
 
   const { ref: maskRef } = maskProps;
   useLayoutEffect(() => {

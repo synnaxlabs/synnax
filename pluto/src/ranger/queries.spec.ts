@@ -25,8 +25,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
 import { Ranger } from "@/ranger";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = Ranger.formPath;
 const created = Ranger.createFormPath;

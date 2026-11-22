@@ -30,6 +30,7 @@ import {
   commitTextEdit,
   findDialogTriggerByText,
   getLabeledInput,
+  pickOption,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -146,10 +147,7 @@ describe("MQTT Edge form", () => {
 
   const selectChannel = async (name: string): Promise<void> => {
     fireEvent.click(await findDialogTriggerByText("Channel"));
-    fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
-      target: { value: name },
-    });
-    fireEvent.click(await screen.findByText(name));
+    await pickOption(name, "Search channels...");
   };
 
   it("should name an unnamed tag after the channel it picks", async () => {

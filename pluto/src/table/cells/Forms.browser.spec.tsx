@@ -15,8 +15,8 @@ import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { ValueForm } from "@/table/cells/Forms";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { Cell } from "@/table/cells";
+import { createSynnaxWrapper } from "@/testutil";
 
 const path = deep.path<table.ValueCellConfig>();
 
@@ -40,7 +40,7 @@ describe("ValueForm telemetry tab", () => {
   it("should write the staleness timeout to the cell config in seconds", async () => {
     await renderThemed(
       <FormWrapper>
-        <ValueForm />
+        <Cell.ValueForm />
       </FormWrapper>,
     );
     await page.getByText("Telemetry", { exact: true }).click();

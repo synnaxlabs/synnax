@@ -27,7 +27,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText } from "@/testutil";
+import { findDialogTriggerByText, pickOption } from "@/testutil";
 
 const client = createTestClient();
 
@@ -242,10 +242,7 @@ describe("Sift stream form", () => {
     );
     const { container } = await renderStream({ taskKey: t.key });
     fireEvent.click(await screen.findByText("Select labels"));
-    fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-      target: { value: hotfire.name },
-    });
-    fireEvent.click(await screen.findByText(hotfire.name));
+    await pickOption(hotfire.name, "Search labels...");
     const deployed = await deployAndAwaitTask(
       client,
       container,

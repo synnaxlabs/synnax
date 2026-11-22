@@ -11,7 +11,7 @@ import { createServer, type RequestListener, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import { binary, type CrudeTimeSpan, TimeSpan, url, zod } from "@synnaxlabs/x";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 
 import { HTTPClient, Timeout, unaryWithBreaker, Unreachable } from "@/index";
@@ -371,6 +371,38 @@ describe("http", () => {
       await expect(
         c.upload("/echo", encodeJSON({}), { encoding: "JSON" }, messageZ),
       ).rejects.toThrow(Unreachable);
+    });
+
+    describe("in a Node runtime with a document", () => {
+      beforeEach(() => {
+        vi.stubGlobal("document", {});
+        vi.resetModules();
+      });
+      afterEach(() => vi.unstubAllGlobals());
+
+      test("should buffer a readable stream body to a blob", async () => {
+        const { HTTPClient: RendererClient } = await import("@/index");
+        let sent: unknown = null;
+        const c = new RendererClient({
+          endpoint: ENDPOINT,
+          codec: new binary.JSONCodec(),
+          connector: {
+            fetch: async (_, init) => {
+              sent = init.body;
+              return new Response(encodeJSON({ id: 2 }));
+            },
+            dial: async () => await Promise.reject(new Error("not used")),
+          },
+        });
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encodeJSON({ id: 1 }));
+            controller.close();
+          },
+        });
+        await c.upload("/echo", body, { encoding: "JSON" }, messageZ);
+        expect(sent).toBeInstanceOf(Blob);
+      });
     });
   });
 

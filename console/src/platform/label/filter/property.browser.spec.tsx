@@ -21,7 +21,7 @@ import { Label } from "@/platform/label";
 import { createTestLabel, dotColorBeside } from "@/platform/label/testutil";
 import { View } from "@/platform/view";
 import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
-import { renderSuspended } from "@/testutil";
+import { pickOption, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
 
@@ -186,10 +186,7 @@ describe("Label.Filter.createProperty", () => {
       await renderFixture({ labels: [first.key] });
       fireEvent.click(await screen.findByRole("button", { name: first.name }));
       const picker = await screen.findByRole("dialog", { name: "Labels" });
-      fireEvent.change(within(picker).getByPlaceholderText("Search labels..."), {
-        target: { value: second.name },
-      });
-      fireEvent.click(await within(picker).findByText(second.name));
+      await pickOption(second.name, "Search labels...", picker);
       await expectWhere({ and: [{ labels: [first.key, second.key] }] });
     });
   });
@@ -199,10 +196,7 @@ describe("Label.Filter.createProperty", () => {
       const [only] = await createLabels(1);
       await renderFixture();
       const picker = await openFilterProperty("Labels");
-      fireEvent.change(within(picker).getByPlaceholderText("Search labels..."), {
-        target: { value: only.name },
-      });
-      fireEvent.click(await within(picker).findByText(only.name));
+      await pickOption(only.name, "Search labels...", picker);
       await expectWhere({ and: [{ labels: [only.key] }] });
     });
 
@@ -210,10 +204,7 @@ describe("Label.Filter.createProperty", () => {
       const [only] = await createLabels(1);
       await renderFixture({ labels: [only.key] });
       const picker = await openFilterProperty("Labels");
-      fireEvent.change(within(picker).getByPlaceholderText("Search labels..."), {
-        target: { value: only.name },
-      });
-      fireEvent.click(await within(picker).findByText(only.name));
+      await pickOption(only.name, "Search labels...", picker);
       await expectWhere(undefined);
     });
 

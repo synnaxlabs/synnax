@@ -56,6 +56,15 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Retarget: func(e *Label, from, to color.Key) {
+				switch v3 := e.Color.Variant.(type) {
+				case color.NamedRef:
+					if v3.Key == from {
+						v3.Key = to
+					}
+					e.Color.Variant = v3
+				}
+			},
 			Inline: func(
 				ctx context.Context,
 				tx gorp.Tx,

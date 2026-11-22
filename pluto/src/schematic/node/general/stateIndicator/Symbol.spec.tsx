@@ -17,7 +17,7 @@ import { z } from "zod";
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 import { Staleness } from "@/vis/staleness";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { stateIndicator } from "@/vis/stateIndicator/aether";

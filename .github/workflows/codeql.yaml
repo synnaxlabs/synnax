@@ -133,6 +133,7 @@ jobs:
       actions: write
       checks: read
       contents: read
+      pull-requests: read
     timeout-minutes: 10
     steps:
       - name: Checkout the default branch scripts
@@ -160,7 +161,13 @@ jobs:
             sleep 10
           done
           echo "CodeQL check: $STATUS $CONCLUSION"
-          [ "$STATUS" = completed ] || exit 1
+          # GitHub makes no CodeQL check for a pull request that closed first.
+          if [ "$STATUS" != completed ]; then
+            STATE=$(.github/scripts/gh_api.sh "repos/$GH_REPO/pulls/$PR" --jq .state)
+            [ "$STATE" = open ] && exit 1
+            echo "Pull request #$PR is $STATE, so it gets no CodeQL check."
+            exit 0
+          fi
           [ "$CONCLUSION" = failure ] || exit 0
           .github/scripts/gh_api.sh \
             "repos/$GH_REPO/actions/workflows/agent.shepherd.yaml/dispatches" \

@@ -76,6 +76,15 @@ func newIndexes() indexes {
 					e.Variant = v2
 				}
 			},
+			Retarget: func(e *Certificate, from, to secret.Key) {
+				switch v3 := e.Variant.(type) {
+				case StoredCertificate:
+					if v3.PrivateKey != nil && *v3.PrivateKey == from {
+						*v3.PrivateKey = to
+					}
+					e.Variant = v3
+				}
+			},
 		}),
 		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Certificate, rack.Key]{
 			Name:     "rack",
@@ -89,6 +98,15 @@ func newIndexes() indexes {
 					targets = append(targets, v1.Rack)
 				}
 				return targets
+			},
+			Retarget: func(e *Certificate, from, to rack.Key) {
+				switch v2 := e.Variant.(type) {
+				case FileCertificate:
+					if v2.Rack == from {
+						v2.Rack = to
+					}
+					e.Variant = v2
+				}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Certificate](
