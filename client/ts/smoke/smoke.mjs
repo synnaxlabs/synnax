@@ -9,8 +9,9 @@
 
 import { Synnax, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
-// Browsers have no process, so browser.mjs sets smokeEnv.
-const env = globalThis.process?.env ?? globalThis.smokeEnv;
+// A browser bundle can hold a process shim with no variables, so browser.mjs sets
+// smokeEnv.
+const env = globalThis.smokeEnv ?? process.env;
 const client = new Synnax({
   host: env.SYNNAX_TEST_HOST ?? "localhost",
   port: Number(env.SYNNAX_TEST_PORT ?? 9090),
