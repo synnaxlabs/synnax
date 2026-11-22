@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as v0 from "@/feature/opcua/device/types/v0";
-export * as v1 from "@/feature/opcua/device/types/v1";
-export * as v2 from "@/feature/opcua/device/types/v2";
+export * as v0 from "@/feature/opcua/device/types/versions/v0";
+export * as v1 from "@/feature/opcua/device/types/versions/v1";
+export * as v2 from "@/feature/opcua/device/types/versions/v2";

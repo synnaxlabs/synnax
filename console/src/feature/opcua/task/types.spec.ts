@@ -11,29 +11,6 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
-import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
-
-describe("OPC UA Scan Task Types", () => {
-  it("should parse null scan config as empty object", () => {
-    const result = OPCUA.Task.SCAN_SCHEMAS.config.safeParse(null);
-    expect(result.success).toBe(true);
-    expect(result.data).toEqual({});
-  });
-
-  it("should parse undefined scan config as empty object", () => {
-    const result = OPCUA.Task.SCAN_SCHEMAS.config.safeParse(undefined);
-    expect(result.success).toBe(true);
-    expect(result.data).toEqual({});
-  });
-
-  it("should accept null statusData", () => {
-    expect(z.validate(OPCUA.Task.SCAN_SCHEMAS.statusData, null)).toBe(true);
-  });
-
-  it("should accept undefined statusData", () => {
-    expect(z.validate(OPCUA.Task.SCAN_SCHEMAS.statusData, undefined)).toBe(true);
-  });
-});
 
 describe("OPC UA Write Task Types", () => {
   it("should validate the write config", () => {
@@ -231,35 +208,6 @@ describe("OPC UA Write Task Config Validation", () => {
         message.includes("used for multiple channels"),
       ),
     ).toBe(true);
-  });
-});
-
-describe("Scanned Nodes", () => {
-  it("should default a scanned node's key to its node ID", () => {
-    const result = OPCUA.Task.browseResponseZ.parse({
-      channels: [
-        {
-          dataType: "float32",
-          isArray: false,
-          name: "Node A",
-          nodeClass: "Variable",
-          nodeId: "ns=2;s=A",
-        },
-      ],
-    });
-    expect(result).toMatchObject({ channels: [{ key: "ns=2;s=A", field: "" }] });
-  });
-});
-
-describe("Scan command replies", () => {
-  it("should parse a certificate reply", () => {
-    const reply = { current: SERVER_CERTIFICATE, next: SERVER_CERTIFICATE };
-    expect(OPCUA.Task.certificatesResponseZ.parse(reply)).toEqual(reply);
-  });
-
-  it("should parse a failed test connection reply with the server certificate", () => {
-    const reply = { serverCertificate: SERVER_CERTIFICATE };
-    expect(OPCUA.Task.testConnectionResponseZ.parse(reply)).toEqual(reply);
   });
 });
 

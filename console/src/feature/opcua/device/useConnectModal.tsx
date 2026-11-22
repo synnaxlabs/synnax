@@ -34,6 +34,11 @@ import {
 } from "@/feature/opcua/device/Certificate";
 import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
 import { Endpoints } from "@/feature/opcua/device/Endpoints";
+import {
+  type CertificateInfo,
+  TEST_CONNECTION_COMMAND_TYPE,
+  testConnectionResponseZ,
+} from "@/feature/opcua/device/scan";
 import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
 import {
   SelectSecurityMode,
@@ -54,11 +59,6 @@ import {
   type SecurityPolicy,
   ZERO_PROPERTIES,
 } from "@/feature/opcua/device/types";
-import {
-  type CertificateInfo,
-  TEST_CONNECTION_COMMAND_TYPE,
-  testConnectionResponseZ,
-} from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
 import { Certificate } from "@/platform/certificate";
 import { CSS } from "@/platform/css";
