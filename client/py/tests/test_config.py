@@ -98,6 +98,26 @@ def desktop_file(tmp_path: Path) -> Path:
     return tmp_path / "desktop.json"
 
 
+class TestFile:
+    def test_corrupt_file(self, tmp_path: Path) -> None:
+        """Should name the file when it is not valid JSON."""
+        (tmp_path / "config.json").write_text("{", encoding="utf-8")
+        with pytest.raises(ConfigurationError, match="not valid JSON") as e:
+            File(config_dir=tmp_path)
+        assert str(tmp_path / "config.json") in str(e.value)
+
+    def test_failed_write_keeps_the_file(self, tmp_path: Path) -> None:
+        """Should leave the saved config whole, and no other file, when a write
+        fails.
+        """
+        File(config_dir=tmp_path).set("a", 1)
+        config = File(config_dir=tmp_path)
+        with pytest.raises(TypeError):
+            config.set("b", {"c": 2, "d": object()})
+        assert File(config_dir=tmp_path).config == {"a": 1}
+        assert [p.name for p in tmp_path.iterdir()] == ["config.json"]
+
+
 class TestLoadDesktopOptions:
     def test_reads_the_file_and_the_helper(self, desktop_file: Path) -> None:
         """Should read the address from the file and the API key from the helper that
@@ -151,6 +171,13 @@ class TestLoadDesktopOptions:
             load_desktop_options(desktop_file, FakeHelper())
         assert str(desktop_file) in str(e.value)
         assert isinstance(e.value.__cause__, OSError)
+
+    def test_corrupt_file(self, desktop_file: Path) -> None:
+        """Should name the file when it is not valid JSON."""
+        desktop_file.write_text("{", encoding="utf-8")
+        with pytest.raises(ConfigurationError, match="not valid JSON") as e:
+            load_desktop_options(desktop_file, FakeHelper())
+        assert str(desktop_file) in str(e.value)
 
     def test_older_file_with_a_key(self, desktop_file: Path) -> None:
         """Should ask for a newer Synnax Desktop, and not read a key from the file."""

@@ -9,8 +9,12 @@
 
 import copy
 import json
+import os
 import pathlib
+import tempfile
 from typing import Any
+
+from synnax.exceptions import ConfigurationError
 
 
 class File:
@@ -32,11 +36,19 @@ class File:
     def load(self) -> None:
         """Loads the config file from disk. If the file does not exist, it will
         be created.
+
+        :raises ConfigurationError: If the file is not valid JSON.
         """
         if not self.config_file.exists():
             self.save()
         with open(self.config_file, encoding="utf-8") as f:
-            self.config = json.load(f)
+            try:
+                self.config = json.load(f)
+            except json.JSONDecodeError as e:
+                raise ConfigurationError(
+                    f"{self.config_file} is not valid JSON: {e}. Delete it, then log "
+                    "in again with `sy login`."
+                ) from e
 
     def save(self) -> None:
         """Saves the config file to disk."""
@@ -47,8 +59,17 @@ class File:
             parents=True,
             exist_ok=True,
         )
-        with open(self.config_file, "w", encoding="utf-8") as f:
+        # Replacing the file whole keeps a failed write from leaving a partial file.
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=self.config_file.parent,
+            prefix=f".{self.config_file.name}.",
+            delete_on_close=False,
+        ) as f:
             json.dump(config, f)
+            f.close()
+            os.replace(f.name, self.config_file)
 
     def get(self, key: str) -> Any:
         """Gets a value from the config file."""
