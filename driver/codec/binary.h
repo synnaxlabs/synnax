@@ -134,8 +134,8 @@ public:
     static std::pair<Binary, x::errors::Error>
     create(const std::vector<BinaryMessage> &messages);
 
-    /// @brief finds the message that payload belongs to and decodes one sample for each
-    /// of its bindings into its samples.
+    /// @brief finds the message that payload belongs to and decodes its bindings into
+    /// its samples.
     /// @returns the index of the message in create order, or nothing when payload
     /// belongs to no message.
     /// @returns VALIDATION when payload is too short for its multiplexors or for a
