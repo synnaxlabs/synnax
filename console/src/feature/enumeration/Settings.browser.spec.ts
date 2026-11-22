@@ -9,6 +9,7 @@
 
 import { enumeration, schematic } from "@synnaxlabs/client";
 import { createTestClientWithPolicy, holdResponses } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it, onTestFinished } from "vitest";
@@ -135,7 +136,8 @@ describe("Enumeration.Settings", () => {
     await waitFor(() => expect(document.activeElement).toBe(add));
     const search = screen.getByPlaceholderText("Search enumerations");
     act(() => search.focus());
-    fireEvent.change(search, { target: { value: uniqueName("zzz") } });
+    // One word: the Core lists the partial matches of a term with several words.
+    fireEvent.change(search, { target: { value: id.create() } });
     await waitFor(() =>
       expect(screen.queryByRole("region", { name: `${name} entries` })).toBeNull(),
     );
@@ -148,7 +150,8 @@ describe("Enumeration.Settings", () => {
   it("should not focus a hidden new enumeration that a search shows", async () => {
     await renderEnumerations();
     const search = screen.getByPlaceholderText("Search enumerations");
-    fireEvent.change(search, { target: { value: uniqueName("zzz") } });
+    // One word: the Core lists the partial matches of a term with several words.
+    fireEvent.change(search, { target: { value: id.create() } });
     // A create before the debounced search lands would show the new enumeration.
     await screen.findByText("No enumerations");
     const name = uniqueName("enumeration");
