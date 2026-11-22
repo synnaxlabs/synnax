@@ -39,5 +39,9 @@ describe("ICD data types", () => {
     it("should use the default data type of the kind for a binding that names none", () => {
       expect(ICD.bindingDataType({ dataType: "" }, "unsigned")).toBe("uint64");
     });
+
+    it("should use the default data type of the kind for a binding with no data type", () => {
+      expect(ICD.bindingDataType({}, "integer")).toBe("int64");
+    });
   });
 });

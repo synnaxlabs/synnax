@@ -42,8 +42,11 @@ export const converts = (kind: payload.Kind, dataType: string): boolean => {
   }
 };
 
-/** @returns the data type of the channel that deploying creates for a binding. */
+/**
+ * @returns the data type of the channel that deploying creates for a binding. A binding
+ * with an empty or absent data type takes the default of kind.
+ */
 export const bindingDataType = (
-  { dataType }: { dataType: string },
+  { dataType = "" }: { dataType?: string },
   kind: payload.Kind,
 ): string => (dataType === "" ? DEFAULT_DATA_TYPES[kind] : dataType);

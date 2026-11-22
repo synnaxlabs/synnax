@@ -282,8 +282,12 @@ var _ = Describe("NewWriteMigration", func() {
 			ch.Channel, ch.DataType = 0, ""
 			f, msg := lift(ctx, ch)
 			Expect(f[0].Type()).To(Equal(payload.KindFloat))
-			Expect(msg.Bindings[0].Variant).
-				To(HaveField("DataType", HaveValue(Equal(telem.Float64T))))
+			Expect(msg.Bindings).To(Equal([]icd.WriteBinding{{
+				Variant: icd.ChannelWriteBinding{
+					Field:    f[0].Base().Key,
+					DataType: new(telem.Float64T),
+				},
+			}}))
 		},
 	)
 

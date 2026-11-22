@@ -310,7 +310,7 @@ const configureBindings = async (
       propertiesKey: `${target.topic}#${binding.field}`,
       channel: binding.channel,
       name: `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`,
-      dataType: ICD.bindingDataType({ dataType: binding.dataType ?? "" }, field.type),
+      dataType: ICD.bindingDataType(binding, field.type),
     });
   }
 };

@@ -574,15 +574,15 @@ describe("MQTT Write form", () => {
       );
       const [target] = created.config.targets;
       if (target.type !== "plain") throw new Error("expected a plain target");
-      const [valueBinding, openBinding, unitBinding] = target.message.bindings;
-      expect(unitBinding).toEqual({
+      const [valueCmd, openCmd, unitFixed] = target.message.bindings;
+      expect(unitFixed).toEqual({
         type: "value",
         field: unit.key,
         value: { type: "string", value: "degC" },
       });
-      if (valueBinding.type !== "channel" || openBinding.type !== "channel")
+      if (valueCmd.type !== "channel" || openCmd.type !== "channel")
         throw new Error("expected channel bindings");
-      const keys = [valueBinding.channel, openBinding.channel];
+      const keys = [valueCmd.channel, openCmd.channel];
       const channels = await client.channels.retrieve(keys);
       expect(channels.map((ch) => ch.dataType.toString())).toEqual(["int32", "uint8"]);
       const prefix = `${dev.name}_plant_valve_set`;
