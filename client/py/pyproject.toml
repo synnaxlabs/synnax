@@ -56,6 +56,10 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["synnax"]
 
+[tool.hatch.build.hooks.version]
+path = "synnax/version.py"
+pattern = true
+
 [tool.hatch.build.targets.sdist]
 exclude = ["examples"]
 
