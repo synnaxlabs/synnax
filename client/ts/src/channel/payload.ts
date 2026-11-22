@@ -79,13 +79,28 @@ export const analyzeParams = (
   });
 };
 
+/** A '.' joins the folders of a channel's path and its name, and no name holds one. */
+const PATH_SEPARATOR = ".";
+
+const oneOrIn = <T>(values: T[]): { eq: T } | { in: T[] } =>
+  values.length === 1 ? { eq: values[0] } : { in: values };
+
 /**
- * @returns the filter that a retrieve of one channel sends. A string that analyzeParams
- * reads as a number is a key.
+ * @returns the filter that looks up each channel in lookups, which must not be empty.
+ * A number is a key, a string that holds a '.' is a path, and any other string is a
+ * name, digits included. Lookups of several kinds join in an or.
  */
-export const singleWhere = (channel: Key | Name): Where => {
-  const { variant, normalized } = analyzeParams(channel);
-  return variant === "keys"
-    ? { key: { eq: normalized[0] } }
-    : { name: { eq: normalized[0] } };
+export const lookupWhere = (lookups: Array<Key | Name>): Where => {
+  const keys: Key[] = [];
+  const names: Name[] = [];
+  const paths: string[] = [];
+  for (const lookup of lookups)
+    if (typeof lookup === "number") keys.push(lookup);
+    else if (lookup.includes(PATH_SEPARATOR)) paths.push(lookup);
+    else names.push(lookup);
+  const branches: Where[] = [];
+  if (keys.length > 0) branches.push({ key: oneOrIn(keys) });
+  if (names.length > 0) branches.push({ name: oneOrIn(names) });
+  if (paths.length > 0) branches.push({ path: oneOrIn(paths) });
+  return branches.length === 1 ? branches[0] : { or: branches };
 };

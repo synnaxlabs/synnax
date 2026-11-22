@@ -326,9 +326,14 @@ export default class Synnax extends framer.Client {
     tokenless.use(errorsMiddleware);
     // The arrow reads this.channels only when called, after construction completes.
     const retrieveChannels: framer.ChannelRetriever = async (toRetrieve) => {
-      const result = await this.channels.retrieve(
-        array.toArray(toRetrieve) as channel.Key[] | channel.Name[],
-      );
+      const lookups = array.toArray(toRetrieve) as Array<channel.Key | channel.Name>;
+      if (lookups.length === 0) return [];
+      // A writer, streamer, iterator, or reader names each channel once, so the Core
+      // refuses an ambiguous name.
+      const result = await this.channels.retrieve({
+        where: channel.lookupWhere(lookups),
+        strict: true,
+      });
       return result.map((ch) => ch.payload);
     };
     super({

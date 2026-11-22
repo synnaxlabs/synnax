@@ -35,9 +35,9 @@ import {
 import {
   analyzeParams,
   isCalculated,
+  lookupWhere,
   type Params,
   type PrimitiveParams,
-  singleWhere,
 } from "@/channel/payload";
 import { createOf, reduceAll } from "@/channel/reduce";
 import {
@@ -65,7 +65,6 @@ import {
   matches,
   retrieveInputZ,
   serverComputed,
-  shortcutZ,
 } from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
 import { isConnectionError, ValidationError } from "@/errors";
@@ -588,12 +587,14 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Retrieves a channel from the database using the given key, name, or query.
-   * @param params - The key, the name, or a query that selects one channel.
+   * Retrieves a channel from the database using the given key, name, path, or query.
+   * @param params - The key, the name, the path, or a query that selects one channel. A
+   * number is a key, a string that holds a '.' is a path, and any other string is a
+   * name.
    * @returns The retrieved channel.
    * @throws {NotFoundError} if the channel does not exist in the cluster.
-   * @throws {MultipleFoundError} is only thrown if the channel is retrieved by name,
-   * and multiple channels with the same name exist in the cluster.
+   * @throws {MultipleFoundError} if several channels hold the name. Its message, from
+   * the Core, quotes the paths that the caller can see and counts the others.
    *
    * @example
    *
@@ -607,20 +608,26 @@ export class Client extends query.Retriever<
   ): Promise<Channel>;
 
   /**
-   * Retrieves multiple channels from the database using the provided keys, the
-   * provided names, or a request that selects them.
-   * @param params - The keys or the names of the channels to retrieve, or a request.
-   * Note that this method does not support mixing keys and names in the same call. A
-   * name matches exactly. To match a pattern, pass `{ where: { name: { regex } } }`.
-   * An empty array retrieves no channels. To retrieve every channel, pass `{}`.
+   * Retrieves multiple channels from the database using the provided keys, names, or
+   * paths, or a request that selects them.
+   * @param params - The keys, names, or paths of the channels to retrieve, in any mix,
+   * or a request. A number is a key, a string that holds a '.' is a path, and any other
+   * string is a name. A name or path matches exactly, and a name can match several
+   * channels. To match a pattern, pass `{ where: { name: { regex } } }`. An empty array
+   * retrieves no channels. To retrieve every channel, pass `{}`.
    */
   async retrieve(
-    params: PrimitiveParams | Payload[] | query.RequestInput<typeof retrieveParamsZ>,
+    params:
+      | PrimitiveParams
+      | Array<Key | Name>
+      | Payload[]
+      | query.RequestInput<typeof retrieveParamsZ>,
   ): Promise<Channel[]>;
 
   async retrieve(
     params:
       | PrimitiveParams
+      | Array<Key | Name>
       | Payload[]
       | RetrieveSingleParams
       | OneParams
@@ -632,25 +639,20 @@ export class Client extends query.Retriever<
       return await super.retrieve(params);
     }
     const isSingle = !Array.isArray(params);
-    const { variant, normalized: rawNormalized } = analyzeParams(params);
-    const normalized =
-      variant === "keys" ? rawNormalized.filter((k) => k !== 0) : rawNormalized;
-    if (normalized.length === 0) {
+    const raw = array
+      .toArray<Key | Name | Payload>(params)
+      .map((p) => (typeof p === "object" ? p.key : p));
+    const lookups = raw.filter((p) => p !== 0);
+    if (lookups.length === 0) {
       if (isSingle)
-        checkForMultipleOrNoResults(
-          "channel",
-          { where: singleWhere(rawNormalized[0]) },
-          [],
-          true,
-        );
+        checkForMultipleOrNoResults("channel", { where: lookupWhere(raw) }, [], true);
       return [];
     }
-    if (isSingle && variant === "keys")
-      return await super.retrieve({ key: normalized[0] as Key });
-    const where = isSingle
-      ? singleWhere(normalized[0])
-      : shortcutZ.parse(normalized).where;
-    const res = await super.retrieve({ where });
+    if (isSingle && typeof lookups[0] === "number")
+      return await super.retrieve({ key: lookups[0] });
+    const where = lookupWhere(lookups);
+    // One lookup needs exactly one channel, so the Core refuses an ambiguous name.
+    const res = await super.retrieve({ where, strict: isSingle });
     checkForMultipleOrNoResults("channel", { where }, res, isSingle);
     return isSingle ? res[0] : res;
   }
