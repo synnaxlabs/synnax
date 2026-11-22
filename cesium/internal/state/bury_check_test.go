@@ -68,13 +68,9 @@ var _ = Describe("Check: a sealed segment with no pointer", func() {
 					DataSurvivalRate:  0.5,
 				})))
 			}
-			st := MustSucceed(state.Open(state.Config{
-				Versions: config(&appended{}).Versions,
-				Version:  1,
-				Append:   func(e *log.Entry) { l.Append(e) },
-				Executor: goExe,
-				OnHead:   func(uint64, *state.Snapshot) {},
-			}, head(1, 1)))
+			cfg := config(&appended{})
+			cfg.Append = func(e *log.Entry) { l.Append(e) }
+			st := MustSucceed(state.Open(cfg, head(1, 1)))
 			l = MustSucceed(log.Start(log.Config{
 				FS:       imageFS{FS: disk, take: take},
 				Executor: goExe,
@@ -119,10 +115,26 @@ var _ = Describe("Check: a sealed segment with no pointer", func() {
 					event,
 				)
 			}
+			// deleteRange deletes the stamps of the writer that started at start, and
+			// covers its pointers whole, so the Tombstone has no cut.
+			deleteRange := func(start telem.TimeStamp) {
+				GinkgoHelper()
+				end := start + telem.TimeStamp(1000)
+				d := MustSucceed(st.BeginDelete(5, start, end))
+				Expect(d.Left).To(BeNil())
+				Expect(d.Right).To(BeNil())
+				if !d.Empty {
+					t := &log.Tombstone{Key: 5, Start: int64(start), End: int64(end)}
+					Expect(d.Check(t)).To(Succeed())
+					MustSucceed(add(t).Wait())
+				}
+				Expect(d.Release()).To(Succeed())
+			}
 			// Each writer creates a segment and commits zero to two samples, of which
 			// the last may not be durable. It then seals the segment, leaves it open
 			// with no writer for the next writer or switch to seal, or holds it through
-			// the crash, for the Restart of the replay to seal.
+			// the crash, for the Restart of the replay to seal. A delete may then take
+			// the samples of a writer that let go of its segment.
 			generation := uint64(1)
 			for i := range 6 {
 				start := telem.TimeStamp(1000 * (i + 1))
@@ -151,7 +163,8 @@ var _ = Describe("Check: a sealed segment with no pointer", func() {
 					pending = append(pending, add(cm))
 				}
 				expectNone("the commits")
-				switch rnd.IntN(3) {
+				mode := rnd.IntN(3)
+				switch mode {
 				case 0:
 					seal := MustSucceed(w.Seal(5))
 					pending = append(pending, add(&seal))
@@ -162,6 +175,10 @@ var _ = Describe("Check: a sealed segment with no pointer", func() {
 					settle()
 					Expect(w.Close()).To(Succeed())
 					expectNone("a close")
+				}
+				if mode != 2 && rnd.IntN(2) == 0 {
+					deleteRange(start)
+					expectNone("a delete")
 				}
 				if rnd.IntN(2) == 0 {
 					settle()
