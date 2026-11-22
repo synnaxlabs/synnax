@@ -53,6 +53,8 @@ type engine struct {
 	log    *log.Log
 	ckpt   *checkpoint.Checkpointer
 	budget *segment.Budget
+	// compact rewrites the segments that pass the candidate test of the state.
+	compact *compactor
 	// head is the generation of the head that recovery used.
 	head uint64
 	// switched is the generation of a log that recovery made live, whose head the
@@ -163,6 +165,7 @@ func openEngine(o *options) (*engine, error) {
 	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
 		return nil, err
 	}
+	e.compact = newCompactor(e, o.clock, int64(o.gcCfg.Rate))
 	return e, nil
 }
 
@@ -319,8 +322,9 @@ func compareParts(p checkpoint.Part, id uint64) int { return cmp.Compare(p.ID, i
 
 func (e *engine) append(entry *log.Entry) { e.log.Append(entry) }
 
-// durable hands a durable entry to the state. A refusal fails the state, whose later
-// calls return the error, so the hook only logs it.
+// durable hands a durable entry to the state, and signals the compactor for a record
+// that may make a candidate. A refusal fails the state, whose later calls return the
+// error, so the hook only logs it.
 func (e *engine) durable(sequence uint64, records []log.Record) {
 	if err := e.state.Durable(sequence, records); err != nil {
 		e.ins.L.Error(
@@ -328,6 +332,13 @@ func (e *engine) durable(sequence uint64, records []log.Record) {
 			zap.Uint64("sequence", sequence),
 			zap.Error(err),
 		)
+	}
+	for _, r := range records {
+		switch r.(type) {
+		case *log.Tombstone, *log.Seal, *log.Restart:
+			e.compact.signal()
+			return
+		}
 	}
 }
 
@@ -369,15 +380,16 @@ func (e *engine) reap() error {
 	return e.release(dead)
 }
 
-// run runs the owners until ctx is done, then closes them in order: the log, so that
-// its queued entries and a clean mark reach the file, then the checkpointer, then the
-// state. It runs the orphan pass first.
+// run runs the owners until ctx is done, then closes them in order: the compactor, the
+// log, so that its queued entries and a clean mark reach the file, then the
+// checkpointer, then the state. It runs the orphan pass first.
 func (e *engine) run(ctx context.Context) error {
 	owners, cancel := signal.Isolated()
 	defer cancel()
 	owners.Go(e.state.Run, signal.CancelOnFail())
 	owners.Go(e.log.Run, signal.CancelOnFail())
 	owners.Go(e.ckpt.Run, signal.CancelOnFail())
+	owners.Go(e.compact.run, signal.CancelOnFail())
 	if e.switched != 0 {
 		e.switchedTo(e.switched)
 	}
@@ -389,6 +401,9 @@ func (e *engine) run(ctx context.Context) error {
 		e.opened = nil
 	}
 	close(e.ready)
+	if err == nil {
+		e.compact.start()
+	}
 	if err == nil {
 		select {
 		case <-ctx.Done():
@@ -472,6 +487,7 @@ func (e *engine) replay(sequence uint64, records []log.Record) error {
 // close closes the owners once.
 func (e *engine) close() error {
 	e.shutdown.Do(func() {
+		e.compact.close()
 		e.closeErr = errors.Join(e.log.Close(), e.ckpt.Close(), e.state.Close())
 	})
 	return e.closeErr

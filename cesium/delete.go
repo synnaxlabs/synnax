@@ -43,6 +43,11 @@ type GCConfig struct {
 	//
 	// [OPTIONAL] Default: 0.2
 	Threshold float32
+	// Rate is the most bytes a second that the pointer log layout reads to rewrite the
+	// segments that pass Threshold.
+	//
+	// [OPTIONAL] Default: 64 MiB
+	Rate telem.Size
 }
 
 var _ config.Config[GCConfig] = GCConfig{}
@@ -52,6 +57,7 @@ func (cfg GCConfig) Override(other GCConfig) GCConfig {
 	cfg.TryInterval = override.Numeric(cfg.TryInterval, other.TryInterval)
 	cfg.Threshold = override.Numeric(cfg.Threshold, other.Threshold)
 	cfg.MaxGoroutine = override.Numeric(cfg.MaxGoroutine, other.MaxGoroutine)
+	cfg.Rate = override.Numeric(cfg.Rate, other.Rate)
 	return cfg
 }
 
@@ -61,6 +67,7 @@ func (cfg GCConfig) Validate() error {
 	v.Positive("gc_try_interval", cfg.TryInterval)
 	v.Positive("gc_threshold", cfg.Threshold)
 	v.Positive("max_goroutine", cfg.MaxGoroutine)
+	v.Positive("gc_rate", cfg.Rate)
 	return v.Error()
 }
 
