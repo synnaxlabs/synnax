@@ -483,19 +483,26 @@ import multiprocessing
 import synnax as sy
 
 
-def read_latest(name: str) -> float:
+client: sy.Synnax | None = None
+
+
+def connect() -> None:
+    global client
     client = sy.Synnax()
-    try:
-        return float(client.read_latest(name)[-1])
-    finally:
-        client.close()
+
+
+def read_latest(name: str) -> sy.MultiSeries:
+    assert client is not None
+    return client.read_latest(name, n=10)
 
 
 if __name__ == "__main__":
     ctx = multiprocessing.get_context("spawn")
-    with ctx.Pool(4) as pool:
+    with ctx.Pool(4, initializer=connect) as pool:
         print(pool.map(read_latest, ["temp_1", "temp_2"]))
 ```
+
+The pool runs `connect` once in each worker, so each worker logs in once.
 
 Use the `spawn` or `forkserver` start method. Python uses `spawn` on Windows and macOS,
 and `forkserver` on Linux from Python 3.14. On Linux, Python 3.13 uses `fork`. With

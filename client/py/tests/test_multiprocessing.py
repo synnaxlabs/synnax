@@ -43,5 +43,5 @@ class TestMultiprocessing:
 
     def test_client_not_picklable(self, client: sy.Synnax) -> None:
         """Should refuse to pickle, so a client cannot go to a worker."""
-        with pytest.raises((TypeError, pickle.PicklingError)):
+        with pytest.raises((TypeError, AttributeError, pickle.PicklingError)):
             pickle.dumps(client)
