@@ -138,6 +138,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Delete: func(context.Context, gorp.Tx, []resource.ID) error {
 			return errors.New("[symbol suite] - no record to delete")
 		},
+		Move: func(context.Context, gorp.Tx, []resource.ID, *group.Key) error {
+			return errors.New("[symbol suite] - no record to move")
+		},
 	}))
 	Expect(channelSvc.Heal(ctx)).To(Succeed())
 	apiSvc = MustSucceed(apisymbol.NewService(apisymbol.ServiceConfig{
