@@ -141,7 +141,7 @@ var _ = Describe("Paths", func() {
 		ctx SpecContext,
 	) {
 		Expect(resolve(ctx, parser.Name{Head: "stand", Tail: "pt_02"})).Error().
-			To(MatchError("stand.pt_02 does not exist"))
+			To(MatchError("channel does not exist: stand.pt_02"))
 	})
 
 	It("Should keep the import hint for a module that is not imported", func(

@@ -109,7 +109,9 @@ var _ = Describe("Arc paths", Ordered, func() {
 				Expression: "return " + missing + " * 2",
 			},
 		)
-		Expect(err).To(MatchError(ContainSubstring(missing + " does not exist")))
+		Expect(
+			err,
+		).To(MatchError(ContainSubstring("channel does not exist: " + missing)))
 		Expect(res.Unresolved).To(ConsistOf(missing))
 	})
 })

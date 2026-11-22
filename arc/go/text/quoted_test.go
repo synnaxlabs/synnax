@@ -129,7 +129,8 @@ func f() {
 
 	It("Should fail when no channel has the name", func(ctx SpecContext) {
 		_, diagnostics := analyze(ctx, `'pt-02' -> 'valve-cmd'`)
-		Expect(diagnostics.String()).To(ContainSubstring("pt-02 does not exist"))
+		Expect(diagnostics.String()).
+			To(ContainSubstring("channel does not exist: pt-02"))
 	})
 
 	It("Should not bind a function to a quoted name", func(ctx SpecContext) {
@@ -139,6 +140,6 @@ func f() {
 }
 'trig' -> 'f'
 `)
-		Expect(diagnostics.String()).To(ContainSubstring("f does not exist"))
+		Expect(diagnostics.String()).To(ContainSubstring("channel does not exist: f"))
 	})
 })
