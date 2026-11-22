@@ -77,14 +77,15 @@ func benchService(b *testing.B, n int) (*arc.Service, *gorp.DB, []channel.Key) {
 		ImExExcluded: []string{arctask.Type},
 	}))
 	svc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
-		DB:               node.DB,
-		Table:            table,
-		Channel:          channels,
-		Task:             tasks,
-		MatchTasks:       arcTasks.MatchArcs,
-		Status:           statuses,
-		ImEx:             imexSvc,
-		TaskSyncDebounce: telem.Second,
+		DB:         node.DB,
+		Table:      table,
+		Channel:    channels,
+		Task:       tasks,
+		MatchTasks: arcTasks.MatchArcs,
+		Status:     statuses,
+		ImEx:       imexSvc,
+		// No resync runs while a bench measures.
+		TaskSyncDebounce: telem.Hour,
 	}))
 	b.Cleanup(func() {
 		if err := (io.MultiCloser{
