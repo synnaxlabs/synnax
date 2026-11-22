@@ -9,16 +9,19 @@
 
 import type { status } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { ClockProvider, usePopover } from "@synnaxlabs/lyra/hooks";
+import { usePopover } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useRef, useState } from "react";
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
 import { Notifications } from "@/platform/notifications";
-import { installPortalRoot, renderWithConsole } from "@/testutil";
+import {
+  disableActEnvironment,
+  installPortalRoot,
+  renderWithConsole,
+} from "@/testutil";
 
 const Harness = ({
   crude,
@@ -49,6 +52,10 @@ const Content: Notifications.Notification = ({ status }) => (
   <span>Custom content for {status.message}</span>
 );
 Content.match = (status) => status.key === "special";
+
+// The tooltip specs hover for real, and the feed and the tooltip then update on the
+// browser's schedule, which no act can wrap.
+disableActEnvironment();
 
 describe("Notifications", () => {
   installPortalRoot();
@@ -273,11 +280,6 @@ describe("Notifications", () => {
   });
 
   describe("a card tooltip", () => {
-    // The feed re-renders each second to drop old notifications, outside any act. A
-    // stopped clock keeps the slow hover of these specs from catching a tick.
-    const STOPPED_AT = TimeStamp.now();
-    const FROZEN = (): TimeStamp => STOPPED_AT;
-
     const TooltipHarness = (): ReactElement => {
       const add = Status.useAdder();
       return (
@@ -294,9 +296,7 @@ describe("Notifications", () => {
             <Dialog.Trigger>Open</Dialog.Trigger>
             <Dialog.Dialog>Modal</Dialog.Dialog>
           </Dialog.Frame>
-          <ClockProvider value={FROZEN}>
-            <Notifications.Feed notifications={[]} />
-          </ClockProvider>
+          <Notifications.Feed notifications={[]} />
         </>
       );
     };
