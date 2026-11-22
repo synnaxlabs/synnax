@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -144,13 +143,16 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("Update", func() {
+	rename := func(ctx context.Context, key master.Key, name string) error {
+		return w.Apply(ctx, key, master.Update{Variant: master.ConfigurationUpdate{
+			Configuration: master.Configuration{Name: name},
+		}})
+	}
+
+	Describe("Status", func() {
 		It("Should rename the status with the master", func(ctx SpecContext) {
 			m := create(ctx)
-			Expect(w.Update(ctx, m.Key, func(m master.Master) (master.Master, error) {
-				m.Name = "Renamed"
-				return m, nil
-			})).To(Succeed())
+			Expect(rename(ctx, m.Key, "Renamed")).To(Succeed())
 			Expect(statusOf(ctx, m).Name).To(Equal("Renamed"))
 		})
 
@@ -158,10 +160,9 @@ var _ = Describe("Writer", func() {
 			m := create(ctx)
 			other := rack.Rack{Name: "Other"}
 			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-			Expect(w.Update(ctx, m.Key, func(m master.Master) (master.Master, error) {
-				m.Rack = other.Key
-				return m, nil
-			})).To(Succeed())
+			Expect(w.Apply(ctx, m.Key, master.Update{Variant: master.IdentityUpdate{
+				Identity: master.Identity{Rack: other.Key, Interface: m.Interface},
+			}})).To(Succeed())
 			Expect(statusOf(ctx, m).Details.Rack).To(Equal(other.Key))
 		})
 
@@ -170,29 +171,10 @@ var _ = Describe("Writer", func() {
 		) {
 			m := create(ctx)
 			Expect(stat.NewWriter(tx).DeleteOwned(ctx, m.ResourceID())).To(Succeed())
-			Expect(w.Update(ctx, m.Key, func(m master.Master) (master.Master, error) {
-				m.Name = "Renamed"
-				return m, nil
-			})).To(Succeed())
+			Expect(rename(ctx, m.Key, "Renamed")).To(Succeed())
 			s := statusOf(ctx, m)
 			Expect(s.Message).To(Equal("Status unknown"))
 			Expect(s.Name).To(Equal("Renamed"))
-		})
-
-		It("Should return the error change returns", func(ctx SpecContext) {
-			m := create(ctx)
-			err := errors.New("change failed")
-			Expect(w.Update(ctx, m.Key, func(master.Master) (master.Master, error) {
-				return master.Master{}, err
-			})).To(MatchError(err))
-		})
-
-		It("Should return not found for a missing master", func(ctx SpecContext) {
-			Expect(
-				w.Update(ctx, uuid.New(), func(m master.Master) (master.Master, error) {
-					return m, nil
-				}),
-			).To(MatchError(query.ErrNotFound))
 		})
 	})
 
