@@ -245,10 +245,11 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
             LOG(WARNING) << "failed to send task statuses again: " << err;
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
-    this->read_control_states_or_retry(this->control_states->generation());
+    this->read_control_states_or_retry();
     this->retrieve_rack_name();
     LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
+    bool sync_failed = false;
     do {
         auto [frame, read_err] = this->streamer->read();
         if (read_err) break;
@@ -277,33 +278,51 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
             // and leaves the read to the monitor loop. A failed sync ends the run with
             // no error, so the rack starts the next run and never stops the Driver.
             // Transfers that the stream delivers after a read apply on top.
-            this->read_control_states_or_retry(this->control_states->hold());
+            this->control_states->hold();
+            this->read_control_states_or_retry();
             this->retrieve_rack_name();
             if (const auto err = this->sync_tasks(true)) {
                 LOG(WARNING) << "failed to sync tasks after a miss: " << err;
+                sync_failed = true;
                 break;
             }
         }
     } while (true);
-    std::lock_guard<std::mutex> lock{this->mu};
-    const auto c_err = this->streamer->close();
-    this->streamer = nullptr;
+    x::errors::Error c_err;
+    {
+        std::lock_guard<std::mutex> lock{this->mu};
+        c_err = this->streamer->close();
+        this->streamer = nullptr;
+    }
+    // The rack starts the next run at once, so a sync that keeps failing would spin.
+    if (sync_failed) this->breaker.wait_for(this->poll_interval);
     return c_err;
 }
 
-x::errors::Error Manager::read_control_states(const uint64_t generation) {
-    auto [states, err] = this->ctx->client->control.retrieve();
-    if (err) return err;
-    // A read that a later hold outdated is not used, and that hold reads again.
-    if (this->control_states->set(states, generation)) this->control_unread = false;
-    return x::errors::NIL;
+namespace {
+/// @brief reads the cluster's control state into states.
+/// @returns whether the read replaced the mirror, which it does not when a later hold
+/// began during it, and the error of a failed read.
+std::pair<bool, x::errors::Error>
+read_control(const synnax::Synnax &client, control::States &states) {
+    const auto read = states.begin_read();
+    auto [next, err] = client.control.retrieve();
+    if (err) {
+        states.abandon(read);
+        return {false, err};
+    }
+    return {states.set(next, read), x::errors::NIL};
+}
 }
 
-void Manager::read_control_states_or_retry(const uint64_t generation) {
-    const auto err = this->read_control_states(generation);
-    if (!err) return;
+void Manager::read_control_states_or_retry() {
+    const auto [applied, err] = read_control(*this->ctx->client, *this->control_states);
+    if (!err) {
+        if (applied) this->control_unread->store(false);
+        return;
+    }
     this->control_states->release();
-    this->control_unread = true;
+    this->control_unread->store(true);
     LOG(WARNING) << "failed to read control state, so the local bus uses the last one "
                     "read until a read succeeds: "
                  << err;
@@ -645,10 +664,20 @@ void Manager::monitor_loop() {
     while (this->breaker.running()) {
         this->breaker.wait_for(this->poll_interval);
         if (!this->breaker.running()) break;
-        if (this->control_unread &&
-            !this->read_control_states(this->control_states->generation()) &&
-            !this->control_unread)
-            LOG(INFO) << "read control state again for the local bus";
+        // The read runs on its own thread, so a hung Core never delays the checks
+        // below or a close. It holds what it uses, so it can outlive the manager.
+        if (this->control_unread->load() && !this->control_reading->exchange(true))
+            std::thread([client = this->ctx->client,
+                         states = this->control_states,
+                         unread = this->control_unread,
+                         reading = this->control_reading] {
+                const auto [applied, err] = read_control(*client, *states);
+                if (!err && applied) {
+                    unread->store(false);
+                    LOG(INFO) << "read control state again for the local bus";
+                }
+                reading->store(false);
+            }).detach();
         // Checked after the lock is released: a warning blocks on the network, and a
         // stuck Core is exactly when steps run late.
         std::vector<std::shared_ptr<Operation>> running;

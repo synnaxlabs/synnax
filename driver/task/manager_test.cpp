@@ -4829,6 +4829,12 @@ public:
         });
     }
 
+    /// @returns the number of reads that have started.
+    int read_count() {
+        std::lock_guard lock(this->mu);
+        return this->reads;
+    }
+
     /// @brief fails every read from now on, so no read blocks a stop.
     void close() {
         {
@@ -4994,9 +5000,28 @@ TEST_F(ScriptedControlTest, FailedReadOnAMissReleasesWithTheLastMirror) {
     );
 }
 
-/// @brief it should keep a transfer that the stream applies while the monitor loop's
-/// read is in flight, and ignore that read's older control state.
-TEST_F(ScriptedControlTest, TransferDuringAMonitorReadWins) {
+/// @returns a frame on the control channel that gives key to subject.
+x::telem::Frame transfer_frame(
+    const synnax::channel::Key control_ch,
+    const synnax::channel::Key key,
+    const x::control::Subject &subject
+) {
+    const x::control::Update<synnax::channel::Key> update{
+        .transfers = {{
+            .from = std::nullopt,
+            .to = x::control::State<synnax::channel::Key>{
+                .subject = subject,
+                .resource = key,
+                .authority = 220,
+            },
+        }},
+    };
+    return x::telem::Frame(control_ch, x::telem::Series(update.to_json()));
+}
+
+/// @brief it should apply the monitor loop's read and keep a transfer that the stream
+/// applied while the read was in flight.
+TEST_F(ScriptedControlTest, TransferDuringAMonitorReadIsKept) {
     const auto control_ch = ASSERT_NIL_P(
         client->channels.retrieve(synnax::control::CHANNEL_NAME)
     );
@@ -5010,21 +5035,8 @@ TEST_F(ScriptedControlTest, TransferDuringAMonitorReadWins) {
     this->scripted.control->reply({}, freighter::UNREACHABLE);
     miss();
     ASSERT_TRUE(this->scripted.control->wait_for_reads(3));
-    const x::control::Update<synnax::channel::Key> update{
-        .transfers = {{
-            .from = std::nullopt,
-            .to = x::control::State<synnax::channel::Key>{
-                .subject = OTHER,
-                .resource = BUS_KEY,
-                .authority = 220,
-            },
-        }},
-    };
     grpc::framer::StreamerResponse transfer;
-    *transfer.mutable_frame() = x::telem::Frame(
-                                    control_ch.key,
-                                    x::telem::Series(update.to_json())
-    )
+    *transfer.mutable_frame() = transfer_frame(control_ch.key, BUS_KEY, OTHER)
                                     .to_proto();
     this->scripted.stream->push(transfer);
     ASSERT_EVENTUALLY_EQ_F([&] { return st->is_authorized(BUS_KEY, OTHER); }, true);
@@ -5032,9 +5044,51 @@ TEST_F(ScriptedControlTest, TransferDuringAMonitorReadWins) {
     this->scripted.control->reply(
         {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
     );
-    ASSERT_TRUE(this->scripted.control->wait_for_reads(4));
+    // The read applied, so the monitor loop reads no more.
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    ASSERT_EQ(this->scripted.control->read_count(), 3);
     ASSERT_TRUE(st->is_authorized(BUS_KEY, OTHER));
     ASSERT_FALSE(st->is_authorized(BUS_KEY, OWNER));
+}
+
+/// @brief it should open a bus that the first read left closed once the monitor
+/// loop's read lands, even with transfers landing all through that read.
+TEST_F(ScriptedControlTest, SteadyTransfersDuringARetryLetItApply) {
+    const auto control_ch = ASSERT_NIL_P(
+        client->channels.retrieve(synnax::control::CHANNEL_NAME)
+    );
+    start([this] { this->scripted.control->reply({}, freighter::UNREACHABLE); });
+    const auto st = this->states();
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(2));
+    for (synnax::channel::Key key = 1; key <= 5; key++) {
+        grpc::framer::StreamerResponse transfer;
+        *transfer.mutable_frame() = transfer_frame(control_ch.key, key, OTHER)
+                                        .to_proto();
+        this->scripted.stream->push(transfer);
+    }
+    ASSERT_EVENTUALLY_EQ_F([&] { return st->is_authorized(5, OTHER); }, true);
+    this->scripted.control->reply(
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] {
+            st->route(bus_frame(1), OWNER, this->publish);
+            return !got().empty();
+        },
+        true
+    );
+    ASSERT_TRUE(st->is_authorized(5, OTHER));
+}
+
+/// @brief it should stop promptly while the monitor loop's read waits on a Core that
+/// does not answer.
+TEST_F(ScriptedControlTest, StopIsPromptWhileAReadWaits) {
+    start([this] { this->scripted.control->reply({}, freighter::UNREACHABLE); });
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(2));
+    const auto began = std::chrono::steady_clock::now();
+    manager->stop();
+    thread.join();
+    ASSERT_LT(std::chrono::steady_clock::now() - began, std::chrono::seconds(5));
 }
 
 /// @brief it should keep the last mirror in force through an outage that spans a run

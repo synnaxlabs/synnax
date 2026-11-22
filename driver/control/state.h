@@ -62,9 +62,38 @@ class States {
     std::vector<Held> held;
     /// @brief true once a set has replaced the mirror.
     bool known = false;
-    /// @brief counts holds and applied updates, so set can ignore a read that started
-    /// before either.
+    /// @brief counts holds, so set can ignore a read that started before a hold.
     uint64_t gen = 0;
+    /// @brief the number of reads that began and have not ended.
+    size_t open_reads = 0;
+    /// @brief the updates applied while a read was open, oldest first. set applies
+    /// the ones after its read began on top of the snapshot, since the snapshot can be
+    /// older than they are.
+    std::vector<x::control::Update<synnax::channel::Key>> log;
+    /// @brief the number of updates dropped from the front of log.
+    uint64_t log_base = 0;
+
+    /// @brief applies update to the mirror. Requires mu.
+    void apply_locked(const x::control::Update<synnax::channel::Key> &update) {
+        for (const auto &transfer: update.transfers) {
+            if (transfer.to.has_value()) {
+                VLOG(1) << "[bus.authority] channel " << transfer.to->resource
+                        << " now held by " << transfer.to->subject.name;
+                this->states[transfer.to->resource] = *transfer.to;
+            } else if (transfer.from.has_value()) {
+                VLOG(1) << "[bus.authority] channel " << transfer.from->resource
+                        << " released by " << transfer.from->subject.name;
+                this->states.erase(transfer.from->resource);
+            }
+        }
+    }
+
+    /// @brief ends a read. Requires hold_mu.
+    void end_read_locked() {
+        if (--this->open_reads > 0) return;
+        this->log_base += this->log.size();
+        this->log.clear();
+    }
 
     /// @brief publishes each held frame filtered against the mirror, in order, and
     /// clears them. Requires hold_mu, and not mu.
@@ -95,6 +124,12 @@ class States {
     }
 
 public:
+    /// @brief marks a read of the cluster's control state that began, for set.
+    struct Read {
+        uint64_t gen;
+        uint64_t log_pos;
+    };
+
     /// @brief the most frames a hold keeps. A hold that would keep more publishes its
     /// frames filtered against the last mirror and opens the bus, and the read it waits
     /// for still replaces the mirror when it lands.
@@ -105,70 +140,68 @@ public:
     States(const States &) = delete;
     States &operator=(const States &) = delete;
 
-    /// @brief applies a control update directly (for testing without a streamer). A
-    /// read that started before the update cannot replace the mirror after it.
+    /// @brief applies a control update from the stream. A read that is open when it
+    /// lands applies it again on top of its snapshot.
     void apply(const x::control::Update<synnax::channel::Key> &update) {
         std::lock_guard hold_lock(this->hold_mu);
-        ++this->gen;
+        if (this->open_reads > 0) this->log.push_back(update);
         std::unique_lock lock(this->mu);
-        for (const auto &transfer: update.transfers) {
-            if (transfer.to.has_value()) {
-                VLOG(1) << "[bus.authority] channel " << transfer.to->resource
-                        << " now held by " << transfer.to->subject.name;
-                this->states[transfer.to->resource] = *transfer.to;
-            } else if (transfer.from.has_value()) {
-                VLOG(1) << "[bus.authority] channel " << transfer.from->resource
-                        << " released by " << transfer.from->subject.name;
-                this->states.erase(transfer.from->resource);
-            }
-        }
+        this->apply_locked(update);
     }
 
-    /// @returns the generation to pass to set for a read that starts now.
-    [[nodiscard]] uint64_t generation() {
+    /// @brief begins a read of the cluster's control state. End it with set, or with
+    /// abandon when the read fails.
+    [[nodiscard]] Read begin_read() {
         std::lock_guard lock(this->hold_mu);
-        return this->gen;
+        ++this->open_reads;
+        return {.gen = this->gen, .log_pos = this->log_base + this->log.size()};
     }
 
-    /// @brief replaces the mirror with the cluster's complete control state, and opens
-    /// the bus. Each frame of a hold is filtered against the new mirror and published
-    /// in the order it came, before any frame that route gets after this call. A read
-    /// that started before a later hold or update is ignored, so it cannot end that
-    /// hold or undo that update.
-    /// @param generation the generation that the read started at.
+    /// @brief ends a read that failed.
+    void abandon(const Read &) {
+        std::lock_guard lock(this->hold_mu);
+        this->end_read_locked();
+    }
+
+    /// @brief replaces the mirror with the snapshot of a read, applies the updates
+    /// that landed while the read was open on top, and opens the bus. Each frame of a
+    /// hold is filtered against the new mirror and published in the order it came,
+    /// before any frame that route gets after this call. A read that began before a
+    /// later hold is ignored, since it can miss the changes that the hold waits for.
     /// @returns false when the read was ignored.
     bool
     set(const std::vector<x::control::State<synnax::channel::Key>> &next,
-        const uint64_t generation) {
+        const Read &read) {
         std::lock_guard hold_lock(this->hold_mu);
-        if (generation != this->gen) return false;
-        {
+        const bool current = read.gen == this->gen;
+        if (current) {
             std::unique_lock lock(this->mu);
             this->states.clear();
             for (const auto &state: next)
                 this->states[state.resource] = state;
+            for (auto i = read.log_pos - this->log_base; i < this->log.size(); i++)
+                this->apply_locked(this->log[i]);
         }
+        this->end_read_locked();
+        if (!current) return false;
         this->known = true;
         this->release_locked();
         this->mode = Mode::OPEN;
         return true;
     }
 
-    /// @brief replaces the mirror and opens the bus, for a read that no hold can
-    /// outdate.
+    /// @brief replaces the mirror and opens the bus, for a snapshot that is current.
     void set(const std::vector<x::control::State<synnax::channel::Key>> &next) {
-        this->set(next, this->generation());
+        this->set(next, this->begin_read());
     }
 
-    /// @brief keeps every frame that route gets until the read that starts now lands,
-    /// because the mirror may be out of date. The frames still go to the Core. A bus
-    /// that was never opened stays closed.
-    /// @returns the generation to pass to set for that read.
-    uint64_t hold() {
+    /// @brief keeps every frame that route gets until a read that begins after this
+    /// call lands, because the mirror may be out of date. The frames still go to the
+    /// Core. A bus that was never opened stays closed.
+    void hold() {
         std::lock_guard lock(this->hold_mu);
         ++this->gen;
         if (this->mode == Mode::OPEN) this->mode = Mode::HOLDING;
-        return this->gen;
     }
 
     /// @brief ends a hold whose read failed: publishes the held frames filtered against

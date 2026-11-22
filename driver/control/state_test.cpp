@@ -442,8 +442,9 @@ TEST(StatesTest, SetIgnoresAReadThatAHoldOutdated) {
         published.push_back(fr.at<double>(1, 0));
     };
     states.set({});
-    const auto stale = states.generation();
-    const auto current = states.hold();
+    const auto stale = states.begin_read();
+    states.hold();
+    const auto current = states.begin_read();
     states.route(sample(1), ARC, publish);
     ASSERT_FALSE(states.set({}, stale));
     ASSERT_TRUE(published.empty());
@@ -451,11 +452,11 @@ TEST(StatesTest, SetIgnoresAReadThatAHoldOutdated) {
     ASSERT_EQ(published, (std::vector<double>{1}));
 }
 
-/// @brief it should ignore a read that started before an update from the stream, so
-/// the read cannot undo a newer transfer.
-TEST(StatesTest, SetIgnoresAReadThatAnUpdateOutdated) {
+/// @brief it should apply the updates that land while a read is open on top of its
+/// snapshot, so a read is never ignored for a transfer and a transfer is never undone.
+TEST(StatesTest, SetAppliesUpdatesThatLandDuringTheRead) {
     States states;
-    const auto stale = states.generation();
+    const auto read = states.begin_read();
     states.apply(
         x::control::Update<synnax::channel::Key>{
             .transfers = {{
@@ -468,11 +469,14 @@ TEST(StatesTest, SetIgnoresAReadThatAnUpdateOutdated) {
             }}
         }
     );
-    ASSERT_FALSE(
-        states.set({{.subject = ARC, .resource = 1, .authority = 200}}, stale)
-    );
+    ASSERT_TRUE(states.set(
+        {{.subject = ARC, .resource = 1, .authority = 200},
+         {.subject = ARC, .resource = 2, .authority = 200}},
+        read
+    ));
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
     ASSERT_FALSE(states.is_authorized(1, ARC));
+    ASSERT_TRUE(states.is_authorized(2, ARC));
 }
 
 /// @brief it should publish nothing while closed at the start of a run, and open once
@@ -503,7 +507,8 @@ TEST(StatesTest, HoldReleasesAtTheCapWithTheLastMirror) {
         published.push_back(fr.at<double>(1, 0));
     };
     states.set({{.subject = ARC, .resource = 1, .authority = 200}});
-    const auto gen = states.hold();
+    states.hold();
+    const auto read = states.begin_read();
     for (size_t i = 0; i < States::MAX_HELD; i++)
         states.route(sample(static_cast<double>(i)), ARC, publish);
     ASSERT_TRUE(published.empty());
@@ -516,7 +521,7 @@ TEST(StatesTest, HoldReleasesAtTheCapWithTheLastMirror) {
         ASSERT_EQ(published[i], static_cast<double>(i));
     ASSERT_EQ(published.back(), -2);
     ASSERT_TRUE(
-        states.set({{.subject = OPERATOR, .resource = 1, .authority = 200}}, gen)
+        states.set({{.subject = OPERATOR, .resource = 1, .authority = 200}}, read)
     );
     states.route(sample(-3), OPERATOR, publish);
     ASSERT_EQ(published.back(), -3);
