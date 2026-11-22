@@ -23,7 +23,6 @@ import { aether } from "@/aether/aether";
 import { collapse } from "@/lineplot/aether/layout";
 import { theming } from "@/theming/aether";
 import { axis } from "@/vis/axis";
-import type { TickSegment, TickType } from "@/vis/axis/ticks";
 import { Draw2D } from "@/vis/draw2d";
 import { grid } from "@/vis/grid";
 import type { line } from "@/vis/line/aether";
@@ -62,7 +61,7 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
 const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 
 // Computed per call so an empty time axis tracks the present instead of app start.
-const emptyBounds = (type: TickType): bounds.Bounds => {
+const emptyBounds = (type: axis.TickType): bounds.Bounds => {
   if (type === "linear") return EMPTY_LINEAR_BOUNDS;
   if (type === "relative")
     return { lower: 0, upper: Number(TimeSpan.MINUTE.valueOf()) };
@@ -113,7 +112,7 @@ export const align = <B extends line.DataBounds>(b: B[]): B[] => {
 const autoBounds = (
   b: line.DataBounds[],
   padding: number = 0.1,
-  type: TickType,
+  type: axis.TickType,
 ): bounds.Bounds => {
   const m = bounds.union(
     align(b)
@@ -176,7 +175,7 @@ export abstract class BaseAxis<
   renderAxis(
     props: AxisRenderProps,
     decimalToDataScale: scale.Scale,
-    segments?: TickSegment[],
+    segments?: axis.TickSegment[],
     openBreaks?: number[],
   ): void {
     if (!props.canvases.includes("lower2d")) return;

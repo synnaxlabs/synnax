@@ -15,7 +15,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { measure } from "@/lineplot/measure/aether";
 import { renderAether } from "@/testutil/renderAether";
-import type { FindResult } from "@/vis/line/aether/line";
+import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -32,7 +32,7 @@ class Requestor extends aether.Composite<typeof Requestor.stateZ> {
   }
 }
 
-const point = (position: xy.XY, value: xy.XY): FindResult => ({
+const point = (position: xy.XY, value: xy.XY): line.FindResult => ({
   key: "line",
   position,
   value,
