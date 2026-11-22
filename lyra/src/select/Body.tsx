@@ -76,28 +76,34 @@ export interface BorderedListProps {
 }
 
 /** The option list of a select, with the footer pinned under it. */
-export const BorderedList = ({ footer, children }: BorderedListProps): ReactElement =>
-  footer == null || footer === false ? (
-    <SelectList bordered borderColor={6} grow rounded full="x">
-      {children}
-    </SelectList>
-  ) : (
+export const BorderedList = ({ footer, children }: BorderedListProps): ReactElement => {
+  const hasFooter = footer != null && footer !== false;
+  // One element tree with or without a footer, so a footer that appears late never
+  // remounts the options.
+  return (
     <Flex.Box
       y
       empty
       grow
-      className={CSS.BE("select", "body")}
-      bordered
+      className={hasFooter ? CSS.BE("select", "body") : undefined}
+      bordered={hasFooter}
       borderColor={6}
-      rounded
+      rounded={hasFooter}
       full="x"
     >
-      <SelectList grow full="x">
+      <SelectList
+        bordered={!hasFooter}
+        borderColor={6}
+        grow
+        rounded={!hasFooter}
+        full="x"
+      >
         {children}
       </SelectList>
       {footer}
     </Flex.Box>
   );
+};
 
 // In the menu, only the matching options show: no field, footer, or empty content.
 const InlineBody = <K extends record.Key>({
