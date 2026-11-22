@@ -29,6 +29,7 @@ import {
   createCellGrid,
   createCellRow,
   createPreloadedState,
+  preloadTab,
   renderTable,
   ROW_KEY,
   TabToolbar,
@@ -68,6 +69,8 @@ const renderToolbar = async ({
   });
   return { name, ...handle };
 };
+
+preloadTab();
 
 describe("table/Toolbar", () => {
   it("displays the table name in the header", async () => {

@@ -13,11 +13,13 @@ import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Table } from "@/feature/table";
-import { renderTable } from "@/feature/table/testutil";
+import { preloadTab, renderTable } from "@/feature/table/testutil";
 import { Vis } from "@/platform/vis";
 import { installMissingGPU } from "@/testutil";
 
 const { Content } = Table.TABS[table.TYPE_RESOURCE_ID.type];
+
+preloadTab();
 
 describe("Table tab content", () => {
   describe("when the canvas has no GPU", () => {
