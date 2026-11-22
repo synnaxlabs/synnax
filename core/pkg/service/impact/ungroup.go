@@ -179,15 +179,13 @@ func (s *Service) moveChildren(
 		members   []resource.ID
 	)
 	for _, id := range children {
-		switch id.Type {
-		case resource.TypeGroup:
+		if id.Type == resource.TypeGroup {
 			k, err := group.KeyFromResourceID(id)
 			if err != nil {
 				return err
 			}
 			subgroups = append(subgroups, k)
-		case resource.Type(channel.TombstoneTable):
-		default:
+		} else if id.Type != resource.Type(channel.TombstoneTable) {
 			members = append(members, id)
 		}
 	}
