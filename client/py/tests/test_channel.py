@@ -252,6 +252,21 @@ class TestChannel:
         res = client.channels.retrieve(channel.key)
         assert res.expression == "return 1 + 1"
 
+    def test_retrieve_calculated(self, client: sy.Synnax) -> None:
+        """Should read a channel that a calculation writes as calculated, and a plain
+        virtual channel as not calculated."""
+        calculated = client.channels.create(
+            name=channel_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression="return 1 + 1",
+        )
+        plain = client.channels.create(
+            name=channel_name(), data_type=sy.DataType.FLOAT32, virtual=True
+        )
+        assert client.channels.retrieve(calculated.key).calculated is True
+        assert client.channels.retrieve(plain.key).calculated is False
+        assert calculated.to_payload().calculated is True
+
     def test_set_expression(self, client: sy.Synnax) -> None:
         """Should set the expression of a calculated channel and infer its new data
         type."""
