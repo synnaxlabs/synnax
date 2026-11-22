@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -426,7 +427,7 @@ var _ = Describe("NewRoot", func() {
 	})
 
 	It("Should resolve a channel by the name it first had", func(ctx SpecContext) {
-		root := svc.NewRoot(db, &channel.Lookups{})
+		root := svc.NewRoot(db, &resolver.Lookups{})
 		Expect(root.Resolve(ctx, "new_root_ch")).To(HaveField("ID", int(ch.Key())))
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).
@@ -442,7 +443,7 @@ var _ = Describe("NewRoot", func() {
 				Rename(ctx, ch.Key(), "new_root_ch_3", false)
 		})).
 			To(Succeed())
-		root := svc.NewRoot(db, &channel.Lookups{})
+		root := svc.NewRoot(db, &resolver.Lookups{})
 		Expect(root.Resolve(ctx, "new_root_ch_3")).To(HaveField("ID", int(ch.Key())))
 		_, err := root.Resolve(ctx, "new_root_ch")
 		Expect(MustBeOk(errors.AsType[*symbol.UndefinedSymbolError](err)).Name).

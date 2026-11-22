@@ -64,10 +64,13 @@ message Channel {
   optional .service.status.pb.Status status = 12;
   // group is the group the channel sits in, if any.
   optional string group = 13;
+  // calculated is true if a calculation writes the channel, whether or not the caller
+  // can retrieve the calculation.
+  bool calculated = 15;
   // path is the names of the channel's folders from the top, then its name, joined by
   // '.'. It is filled only when a retrieve request asks for it, and only when the
   // caller can retrieve every folder on it.
-  optional string path = 15;
+  optional string path = 16;
 }
 
 // Cursor is a position in an order of channels: the sort value and the key of a

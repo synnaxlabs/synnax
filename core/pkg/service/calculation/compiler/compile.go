@@ -12,8 +12,8 @@ package compiler
 import (
 	"context"
 	"fmt"
+	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
@@ -21,7 +21,9 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	calculation "github.com/synnaxlabs/synnax/pkg/service/calculation/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/x/config"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/override"
@@ -35,16 +37,21 @@ type Config struct {
 	//
 	// [REQUIRED]
 	ChannelService *channel.Service
-	// Channel is the calculated channel whose expression will be compiled.
+	// Channel is the output channel of Calculation.
 	//
 	// [REQUIRED]
 	Channel channel.Channel
+	// Calculation is the calculation to compile.
+	//
+	// [REQUIRED]
+	Calculation calculation.Calculation
 }
 
 var _ config.Config[Config] = Config{}
 
 func (c Config) Override(other Config) Config {
 	c.Channel = other.Channel
+	c.Calculation = other.Calculation
 	c.ChannelService = override.Nil(c.ChannelService, other.ChannelService)
 	return c
 }
@@ -52,6 +59,11 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
 	v.NonZero("channel.key", c.Channel.Key())
+	v.Ternaryf(
+		"calculation.output",
+		c.Calculation.Output != c.Channel.Key(),
+		"must be the key of the channel",
+	)
 	v.NotNil("channel_service", c.ChannelService)
 	return v.Error()
 }
@@ -71,34 +83,68 @@ func PreProcess(
 	return preProcess(
 		ctx,
 		cfg,
-		channel.NewConsistentResolver(cfg.ChannelService.NewArcSymbolResolver(snap)),
+		resolver.NewConsistent(resolver.New(cfg.ChannelService, snap)),
 	)
 }
 
 func preProcess(
 	ctx context.Context,
 	cfg Config,
-	resolver arc.SymbolResolver,
+	symbols arc.SymbolResolver,
 ) (arc.Program, error) {
-	ana := channel.NewCalculationAnalyzer(resolver, parser.Config{
-		AllowDashedNames: !cfg.ChannelService.ShouldValidateNames(),
+	ana := NewAnalyzer(symbols, parser.Config{
+		AllowDashedNames: resolver.AllowDashedNames(cfg.ChannelService),
 	})
-	result, err := ana.Analyze(ctx, cfg.Channel)
+	result, err := ana.AnalyzeExpression(
+		ctx,
+		cfg.Channel,
+		cfg.Calculation.Expression,
+		HasDerivative(cfg.Calculation.Operations),
+	)
 	if err != nil {
 		return arc.Program{}, err
 	}
-	dt := result.ExpressionReturnType
-	if cfg.Channel.DataType != result.ChanDataType {
-		dt = types.FromTelem(cfg.Channel.DataType)
-	}
 	fn := ir.Function{
-		Key:     calculationKey,
-		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
-		Body:    ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
+		Key: calculationKey,
+		Outputs: types.Params{
+			{Name: ir.DefaultOutputParam, Type: outputType(cfg, result)},
+		},
+		Body: ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Calculation.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
-	return arc.CompileGraph(ctx, g, arc.NewRoot(resolver),
-		arc.WithAllowDashedNames(!cfg.ChannelService.ShouldValidateNames()))
+	return arc.CompileGraph(ctx, g, arc.NewRoot(symbols),
+		arc.WithAllowDashedNames(resolver.AllowDashedNames(cfg.ChannelService)))
+}
+
+// outputType returns the type of the output of the calculation of cfg, which result
+// analyzes: the expression's type, or the output channel's when they differ.
+func outputType(cfg Config, result AnalysisResult) types.Type {
+	if cfg.Channel.DataType != result.ChanDataType {
+		return types.FromTelem(cfg.Channel.DataType)
+	}
+	return result.ExpressionReturnType
+}
+
+// Check compiles the calculation of cfg, which result analyzes, against snap, as
+// Compile does without its retries, and returns the compile error.
+func Check(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	result AnalysisResult,
+	cfgs ...Config,
+) error {
+	cfg, err := config.New(Config{}, cfgs...)
+	if err != nil {
+		return err
+	}
+	_, err = compileAnalyzed(
+		ctx,
+		snap,
+		cfg,
+		resolver.NewConsistent(resolver.New(cfg.ChannelService, snap)),
+		result,
+	)
+	return err
 }
 
 // Module is the compiled output for a single calculated channel, ready for
@@ -110,26 +156,28 @@ type Module struct {
 	arc.Program
 	// Channel is the calculated channel this module was compiled for.
 	Channel channel.Channel
+	// Calculation is the calculation this module was compiled from.
+	Calculation calculation.Calculation
 }
 
 // Compile builds a full execution Module for the given calculated channel. The module
 // includes WASM bytecode, an execution graph with operation nodes, and the channel
 // dependencies the calculation reads from and writes to. It reads db as
-// channel.CompileConsistent describes.
+// resolver.CompileConsistent describes.
 func Compile(ctx context.Context, db *gorp.DB, cfgs ...Config) (Module, error) {
 	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return Module{}, err
 	}
-	return channel.CompileConsistent(ctx, db, func(
+	return resolver.CompileConsistent(ctx, db, func(
 		snap gorp.Snapshot,
-		lookups *channel.Lookups,
+		lookups *resolver.Lookups,
 	) (Module, error) {
 		return compile(
 			ctx,
 			snap,
 			cfg,
-			cfg.ChannelService.NewCheckedResolver(snap, lookups),
+			resolver.NewChecked(cfg.ChannelService, snap, lookups),
 		)
 	})
 }
@@ -147,9 +195,34 @@ func addEdge(g *arc.Graph, source, target ir.Handle) {
 	g.Edges = append(g.Edges, graph.Edge{Source: source, Target: target})
 }
 
+// HasDerivative reports whether ops holds a derivative.
+func HasDerivative(ops []calculation.Operation) bool {
+	return slices.ContainsFunc(ops, func(op calculation.Operation) bool {
+		_, ok := op.Variant.(calculation.DerivativeOperation)
+		return ok
+	})
+}
+
+// operationNode returns the node type of op and its window, which is zero for an
+// operation with none.
+func operationNode(op calculation.Operation) (string, calculation.Window) {
+	switch v := op.Variant.(type) {
+	case calculation.MinOperation:
+		return string(calculation.MinOperationType), v.Window
+	case calculation.MaxOperation:
+		return string(calculation.MaxOperationType), v.Window
+	case calculation.AvgOperation:
+		return string(calculation.AvgOperationType), v.Window
+	case calculation.DerivativeOperation:
+		return string(calculation.DerivativeOperationType), calculation.Window{}
+	default:
+		panic(fmt.Sprintf("operation of unknown variant %T", op.Variant))
+	}
+}
+
 // addOperations chains ops between the calculation and write nodes of g, or connects
 // the two nodes directly when ops is empty.
-func addOperations(g *arc.Graph, ops []channel.Operation) {
+func addOperations(g *arc.Graph, ops []calculation.Operation) {
 	if len(ops) == 0 {
 		addEdge(
 			g,
@@ -160,10 +233,11 @@ func addOperations(g *arc.Graph, ops []channel.Operation) {
 	}
 	for i, o := range ops {
 		key := fmt.Sprintf("op_%d", i)
-		addNode(g, key, string(o.Type), xmsgpack.EncodedJSON{"duration": o.Duration})
-		if o.ResetChannel != 0 {
-			resetKey := fmt.Sprintf("on_reset_%d", o.ResetChannel)
-			addNode(g, resetKey, "on", xmsgpack.EncodedJSON{"channel": o.ResetChannel})
+		typ, w := operationNode(o)
+		addNode(g, key, typ, xmsgpack.EncodedJSON{"duration": w.Duration})
+		if w.Reset != nil {
+			resetKey := fmt.Sprintf("on_reset_%d", *w.Reset)
+			addNode(g, resetKey, "on", xmsgpack.EncodedJSON{"channel": *w.Reset})
 			addEdge(
 				g,
 				ir.Handle{Node: resetKey, Param: ir.DefaultOutputParam},
@@ -194,11 +268,11 @@ func addOperations(g *arc.Graph, ops []channel.Operation) {
 func addReads(
 	ctx context.Context,
 	g *arc.Graph,
-	resolver arc.SymbolResolver,
+	symbols arc.SymbolResolver,
 	reads map[uint32]string,
 ) error {
 	for k, v := range reads {
-		sym, err := resolver.Resolve(ctx, v)
+		sym, err := symbols.Resolve(ctx, v)
 		if err != nil {
 			return err
 		}
@@ -220,37 +294,50 @@ func compile(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	cfg Config,
-	resolver arc.SymbolResolver,
+	symbols arc.SymbolResolver,
 ) (Module, error) {
-	preProcessed, err := preProcess(ctx, cfg, resolver)
+	result, err := NewAnalyzer(symbols, parser.Config{
+		AllowDashedNames: resolver.AllowDashedNames(cfg.ChannelService),
+	}).AnalyzeExpression(
+		ctx,
+		cfg.Channel,
+		cfg.Calculation.Expression,
+		HasDerivative(cfg.Calculation.Operations),
+	)
 	if err != nil {
 		return Module{}, err
 	}
-	calcFn := preProcessed.Functions[0]
+	return compileAnalyzed(ctx, snap, cfg, symbols, result)
+}
+
+// compileAnalyzed compiles the calculation of cfg, which result analyzes.
+func compileAnalyzed(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg Config,
+	symbols arc.SymbolResolver,
+	result AnalysisResult,
+) (Module, error) {
 	g := arc.Graph{
 		Functions: ir.Functions{
 			ir.Function{
-				Key:     calculationKey,
-				Outputs: calcFn.Outputs,
-				Body:    calcFn.Body,
+				Key: calculationKey,
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: outputType(cfg, result)},
+				},
+				Body: ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Calculation.Expression)},
 			},
 		},
 		Inputs: map[string]xmsgpack.EncodedJSON{},
 	}
 	addNode(&g, calculationKey, calculationKey, nil)
 	addNode(&g, writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
-	cfg.Channel.Operations = lo.Filter(
-		cfg.Channel.Operations,
-		func(item channel.Operation, _ int) bool {
-			return item.Type != "none"
-		},
-	)
-	addOperations(&g, cfg.Channel.Operations)
-	if err = addReads(ctx, &g, resolver, calcFn.Channels.Read); err != nil {
+	addOperations(&g, cfg.Calculation.Operations)
+	if err := addReads(ctx, &g, symbols, result.Reads); err != nil {
 		return Module{}, err
 	}
-	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(resolver),
-		arc.WithAllowDashedNames(!cfg.ChannelService.ShouldValidateNames()))
+	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(symbols),
+		arc.WithAllowDashedNames(resolver.AllowDashedNames(cfg.ChannelService)))
 	if err != nil {
 		return Module{}, err
 	}
@@ -258,5 +345,10 @@ func compile(
 	if err != nil {
 		return Module{}, err
 	}
-	return Module{Channel: cfg.Channel, Dependencies: deps, Program: program}, nil
+	return Module{
+		Channel:      cfg.Channel,
+		Calculation:  cfg.Calculation,
+		Dependencies: deps,
+		Program:      program,
+	}, nil
 }

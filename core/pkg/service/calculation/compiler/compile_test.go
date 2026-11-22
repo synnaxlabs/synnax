@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -47,7 +48,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
-	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
+	creator = calctestutil.Creator{
+		DB:      db,
+		Channel: channelSvc,
+		Calculation: MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:      db,
+			Channel: channelSvc,
+		})),
+	}
 })
 
 var _ = Describe("Compile", func() {
@@ -64,6 +72,7 @@ var _ = Describe("Compile", func() {
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
+			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
@@ -79,11 +88,14 @@ var _ = Describe("Compile", func() {
 			Name:       "calc2",
 			DataType:   telem.Int64T,
 			Expression: "return base2 + 1",
-			Operations: []channel.Operation{{Type: "avg", Duration: 5 * telem.Second}},
+			Operations: []calculation.Operation{{Variant: calculation.AvgOperation{
+				Window: calculation.Window{Duration: 5 * telem.Second},
+			}}},
 		}))
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
+			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
@@ -105,6 +117,7 @@ var _ = Describe("Compile", func() {
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
+			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 		}))
 		Expect(
 			mod.Dependencies.Reads.Slice(),
@@ -125,11 +138,14 @@ var _ = Describe("Compile", func() {
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float64T,
 			Expression: "return " + base.Name,
-			Operations: []channel.Operation{{Type: "derivative"}},
+			Operations: []calculation.Operation{
+				{Variant: calculation.DerivativeOperation{}},
+			},
 		}))
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
+			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
@@ -141,10 +157,12 @@ var _ = Describe("Compile", func() {
 			DataType:   telem.Int64T,
 			Expression: "return 1",
 		}))
-		calc.Expression = "return invalid_syntax {{"
+		c := MustSucceed(creator.CalculationOf(ctx, calc.Key()))
+		c.Expression = "return invalid_syntax {{"
 		Expect(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
+			Calculation:    c,
 		})).Error().To(ContainSubstring("extraneous input '{'"))
 	})
 })

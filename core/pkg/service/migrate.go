@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
@@ -129,27 +130,21 @@ func taskNames(svc *task.Service) pagerduty.TaskNames {
 	}
 }
 
-// retiredChannelNames are the internal channels the Core announced ontology and range
-// alias changes on.
-var retiredChannelNames = []string{
-	"sy_ontology_resource_set",
-	"sy_ontology_resource_delete",
-	"sy_ontology_relationship_set",
-	"sy_ontology_relationship_delete",
-	"sy_range_alias_set",
-	"sy_range_alias_delete",
-	"sy_range_alias_action_set",
-}
-
-// deleteRetiredChannels deletes the retired channels an upgraded store still holds. It
-// does nothing when none exist.
-func deleteRetiredChannels(
-	ctx context.Context,
-	db *gorp.DB,
-	ch *channel.Service,
-) error {
-	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		return ch.NewWriter(tx).
-			DeleteManyByNames(ctx, retiredChannelNames, true)
-	})
+// newRetiredChannelDelete returns the migration that deletes, with their data, the
+// retired channels that the channel chain staged (channelv1.RetiredKeys), and then the
+// staged keys.
+func newRetiredChannelDelete(channels *channel.Service) gorp.Migration {
+	return migrate.New(
+		"v63_delete_retired_channels",
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			keys, err := channelv1.RetiredKeys(tx)
+			if err != nil || len(keys) == 0 {
+				return err
+			}
+			if err = channels.NewWriter(tx).DeleteMany(ctx, keys, true); err != nil {
+				return err
+			}
+			return channelv1.ClearRetired(ctx, tx)
+		},
+	)
 }

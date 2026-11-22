@@ -27,28 +27,6 @@ type LocalKey = v2.LocalKey
 // unique across channels.
 type Name = v2.Name
 
-// OperationType is the type of aggregation operation to apply to channel data over
-// time.
-type OperationType = v2.OperationType
-
-const (
-	// OperationTypeMin keeps the lowest sample since the last reset.
-	OperationTypeMin OperationType = v2.OperationTypeMin
-	// OperationTypeMax keeps the highest sample since the last reset.
-	OperationTypeMax OperationType = v2.OperationTypeMax
-	// OperationTypeAvg keeps the mean of the samples since the last reset.
-	OperationTypeAvg OperationType = v2.OperationTypeAvg
-	// OperationTypeNone applies no aggregation.
-	OperationTypeNone OperationType = v2.OperationTypeNone
-	// OperationTypeDerivative computes the rate of change of the samples.
-	OperationTypeDerivative OperationType = v2.OperationTypeDerivative
-)
-
-// Operation defines an aggregation operation applied to channel data. Operations
-// calculate min, max, average, or derivative values over a time duration or triggered
-// by a reset channel.
-type Operation = v2.Operation
-
 // Channel is an internal representation of a channel containing all storage and
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.

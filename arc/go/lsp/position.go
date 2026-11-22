@@ -10,8 +10,12 @@
 package lsp
 
 import (
+	"strings"
+	"unicode/utf8"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/symbol"
+	lsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 )
 
@@ -80,4 +84,51 @@ func isPositionInTokenRange(line, col int, start, stop antlr.Token) bool {
 		return col <= stopCol
 	}
 	return false
+}
+
+// lineText is the lines of a document. Token positions count code points, and protocol
+// positions count UTF-16 units, so lineText converts between the two.
+type lineText []string
+
+func newLineText(content string) lineText {
+	return strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
+}
+
+// toUTF16 returns pos, whose column counts code points, with a column in UTF-16 units.
+func (l lineText) toUTF16(pos protocol.Position) protocol.Position {
+	if int(pos.Line) < len(l) {
+		return toUTF16In(l[pos.Line], pos)
+	}
+	return pos
+}
+
+// toUTF16In returns pos, whose column counts code points of line, the text of its
+// line, with a column in UTF-16 units.
+func toUTF16In(line string, pos protocol.Position) protocol.Position {
+	pos.Character = lsp.UTF16Column(line, runeOffset(line, int(pos.Character)))
+	return pos
+}
+
+// fromUTF16In returns pos, whose column counts UTF-16 units of line, the text of its
+// line, with a column in code points.
+func fromUTF16In(line string, pos protocol.Position) protocol.Position {
+	pos.Character = uint32(
+		utf8.RuneCountInString(line[:lsp.ByteOffset(line, pos.Character)]),
+	)
+	return pos
+}
+
+func (l lineText) rangeToUTF16(r protocol.Range) protocol.Range {
+	return protocol.Range{Start: l.toUTF16(r.Start), End: l.toUTF16(r.End)}
+}
+
+// runeOffset returns the byte offset in line of the code point column col.
+func runeOffset(line string, col int) int {
+	for i := range line {
+		if col == 0 {
+			return i
+		}
+		col--
+	}
+	return len(line)
 }

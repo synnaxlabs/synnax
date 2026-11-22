@@ -606,6 +606,36 @@ var _ = Describe("ValidateSpec", func() {
 	})
 })
 
+var _ = Describe("Escape", func() {
+	texts := []string{`'PT\\01'`, `'say "hi"'`, "'a`b'", `'it\'s'`, "'a}b'"}
+	DescribeTable("Should give a body that reads back the text in a placeholder",
+		func(flags literal.StringFlags) {
+			for _, text := range texts {
+				escaped, ok := literal.Escape(text, flags)
+				Expect(ok).To(BeTrue(), text)
+				segs := MustSucceed(literal.FmtStrSplit("{"+escaped+"}", flags))
+				Expect(segs).To(HaveLen(1), text)
+				Expect(segs[0].Text).To(Equal(text))
+			}
+		},
+		Entry("a single-line string", literal.StringFlags{Format: true}),
+		Entry("a multi-line string", literal.StringFlags{Format: true, Multi: true}),
+	)
+
+	It("Should keep the text of a raw string as written", func() {
+		escaped, ok := literal.Escape(`'PT\\01'`, literal.StringFlags{Raw: true})
+		Expect(ok).To(BeTrue())
+		Expect(escaped).To(Equal(`'PT\\01'`))
+	})
+
+	It("Should refuse a delimiter in a raw string", func() {
+		_, ok := literal.Escape(`'say "hi"'`, literal.StringFlags{Raw: true})
+		Expect(ok).To(BeFalse())
+		_, ok = literal.Escape("'a`b'", literal.StringFlags{Raw: true, Multi: true})
+		Expect(ok).To(BeFalse())
+	})
+})
+
 var _ = Describe("Placeholders that hold a comment", func() {
 	placeholder := func(body string) literal.FmtStrSegment {
 		GinkgoHelper()

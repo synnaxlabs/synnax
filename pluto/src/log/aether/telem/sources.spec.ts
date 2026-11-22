@@ -8,16 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import {
+  access,
   AccessDeniedError,
-  type channel,
+  channel,
   DataType,
   framer,
   type status as cstatus,
+  type Synnax,
   UnsupportedError,
+  user,
 } from "@synnaxlabs/client";
-import { SyntheticCore, type SyntheticCoreProps } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  SyntheticCore,
+  type SyntheticCoreProps,
+} from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
-import { Rate, Series, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id, Rate, Series, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import {
@@ -1676,5 +1684,68 @@ describe("StreamMultiChannelLog", () => {
     expect(entriesOf(log)).toEqual([]);
     expect(entriesOf(log)).toEqual([]);
     expect(statuses).toEqual([telem.DISCONNECTED_STATUS]);
+  });
+});
+
+describe("StreamMultiChannelLog with a Core", () => {
+  const admin = createTestClient();
+  const closers: Array<() => Promise<void> | void> = [];
+  afterEach(async () => {
+    for (const close of closers.splice(0).reverse()) await close();
+  });
+
+  const open = (c: Synnax, keys: channel.Key[]): StreamMultiChannelLog => {
+    const feed = c.openFeed();
+    closers.push(async () => await feed.close());
+    const log = new StreamMultiChannelLog(
+      { feed, channels: c.channels, now: () => TimeStamp.now() },
+      { channels: keys },
+    );
+    closers.push(() => log.cleanup());
+    log.value();
+    return log;
+  };
+
+  it("should show the history of a calculated channel to a reader that cannot read its calculation", async () => {
+    const time = await admin.channels.create({
+      name: id.create(),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const data = await admin.channels.create({
+      name: id.create(),
+      dataType: DataType.FLOAT64,
+      index: time.key,
+    });
+    const output = await admin.channels.create({
+      name: id.create(),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+      expression: `return ${data.name} * 2`,
+    });
+    const start = TimeStamp.now().sub(TimeSpan.seconds(10));
+    const stamps = [0, 1, 2].map((i) => start.add(TimeSpan.milliseconds(i)));
+    await admin.write(start, { [time.key]: stamps, [data.key]: [1, 2, 3] });
+    const reader = await createTestClientWithPolicy(admin, {
+      name: id.create(),
+      objects: [
+        channel.resourceID(time.key),
+        channel.resourceID(data.key),
+        channel.resourceID(output.key),
+        channel.resourceID(output.index),
+        framer.TYPE_RESOURCE_ID,
+        user.TYPE_RESOURCE_ID,
+        access.role.TYPE_RESOURCE_ID,
+        access.policy.TYPE_RESOURCE_ID,
+      ],
+      actions: ["retrieve"],
+    });
+    const seen = await reader.channels.retrieve(output.key);
+    expect(seen.expression).toBe("");
+    expect(seen.isCalculated).toBe(true);
+    const log = open(reader, [output.key]);
+    await expect
+      .poll(() => log.timeRange?.start.valueOf(), { timeout: 10_000, interval: 20 })
+      .toBe(start.valueOf());
   });
 });

@@ -27,6 +27,7 @@ from synnax import (
     access as access_,
     arc,
     auth,
+    calculation,
     certificate,
     channel,
     color,
@@ -363,6 +364,10 @@ class Synnax(framer.Client):
     @_Lazy
     def enumerations(self) -> enumeration.Client:
         return enumeration.Client(self._transport.unary)
+
+    @_Lazy
+    def calculations(self) -> calculation.Client:
+        return calculation.Client(self._transport.unary)
 
     @_Lazy
     def views(self) -> view.Client:

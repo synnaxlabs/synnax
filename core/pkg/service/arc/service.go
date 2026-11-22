@@ -30,6 +30,7 @@ import (
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -198,9 +199,12 @@ type Service struct {
 // Core channel resolver, and the user modules below Arcs. The root looks up channels
 // and modules in snap and records each lookup in lookups. A root resolves each channel
 // name and module the same way for its lifetime, so build one per compile.
-func (s *Service) NewRoot(snap gorp.Snapshot, lookups *channel.Lookups) *symbol.Symbol {
+func (s *Service) NewRoot(
+	snap gorp.Snapshot,
+	lookups *resolver.Lookups,
+) *symbol.Symbol {
 	return s.newRoot(
-		s.cfg.Channel.NewCheckedResolver(snap, lookups),
+		resolver.NewChecked(s.cfg.Channel, snap, lookups),
 		s.checkedModuleSource(snap, lookups),
 		nil,
 	)
@@ -312,7 +316,8 @@ func (s *Service) newLSPRoot(
 		return access.allows(ctx, a.ResourceID())
 	})
 	return s.newRoot(
-		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(
+		resolver.NewConsistent(resolver.New(
+			s.cfg.Channel,
 			s.cfg.DB,
 			channel.Match(func(
 				ctx gorp.Context,
@@ -352,10 +357,12 @@ func (s *Service) NewDirectoryRetrieve() directory.Retrieve {
 
 // AllowDashedNames reports whether Arc may treat '-' as an identifier character, which
 // is permitted exactly when channel-name validation is disabled.
-func (s *Service) AllowDashedNames() bool { return !s.cfg.Channel.ShouldValidateNames() }
+func (s *Service) AllowDashedNames() bool {
+	return resolver.AllowDashedNames(s.cfg.Channel)
+}
 
 // CompileProgram retrieves the automation with key and compiles its program. A module
-// is a validation error. CompileProgram returns channel.ErrLookupsChanged when writes
+// is a validation error. CompileProgram returns resolver.ErrLookupsChanged when writes
 // changed what each of its compiles read, and the caller must try again.
 func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, error) {
 	var entry Arc
@@ -374,9 +381,9 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 			entry.Base().Name,
 		)
 	}
-	prog, err := channel.CompileConsistent(ctx, s.cfg.DB, func(
+	prog, err := resolver.CompileConsistent(ctx, s.cfg.DB, func(
 		snap gorp.Snapshot,
-		lookups *channel.Lookups,
+		lookups *resolver.Lookups,
 	) (arc.Program, error) {
 		return s.compileWith(ctx, s.NewRoot(snap, lookups), automation)
 	})
@@ -396,17 +403,17 @@ type Build struct {
 	// err is the reason that the Arc does not compile.
 	err error
 	// lookups holds each read that the compile made, the read of the Arc included.
-	lookups *channel.Lookups
+	lookups *resolver.Lookups
 }
 
 // Build compiles the automation with key, or analyzes the module with key, as
-// channel.CompileConsistent does, for TaskUpdate.Build. A source that does not compile
+// resolver.CompileConsistent does, for TaskUpdate.Build. A source that does not compile
 // is not an error, since the Build holds the failure. Build returns query.ErrNotFound
-// when no Arc has key, and channel.ErrLookupsChanged as CompileConsistent does.
+// when no Arc has key, and resolver.ErrLookupsChanged as CompileConsistent does.
 func (s *Service) Build(ctx context.Context, key Key) (Build, error) {
-	return channel.CompileConsistent(ctx, s.cfg.DB, func(
+	return resolver.CompileConsistent(ctx, s.cfg.DB, func(
 		snap gorp.Snapshot,
-		lookups *channel.Lookups,
+		lookups *resolver.Lookups,
 	) (Build, error) {
 		return s.buildIn(ctx, snap, lookups, key)
 	})
@@ -417,7 +424,7 @@ func (s *Service) Build(ctx context.Context, key Key) (Build, error) {
 func (s *Service) buildIn(
 	ctx context.Context,
 	snap gorp.Snapshot,
-	lookups *channel.Lookups,
+	lookups *resolver.Lookups,
 	key Key,
 ) (Build, error) {
 	a, hash, err := s.retrieveHashed(ctx, snap, key)

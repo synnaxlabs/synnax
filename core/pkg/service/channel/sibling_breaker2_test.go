@@ -11,6 +11,7 @@ package channel_test
 
 import (
 	"context"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -70,11 +71,20 @@ var _ = Describe("Sibling breaker 2", Ordered, ContinueOnFailure, func() {
 			return nil
 		})
 	}
+	// pathOf returns the position of a batch error, when err is one, and then the path
+	// of its error.
 	pathOf := func(err error) []string {
 		GinkgoHelper()
+		b, batched := errors.AsType[channel.BatchError](err)
+		if batched {
+			err = b.Err
+		}
 		pe, ok := errors.AsType[validate.PathError](err)
 		Expect(ok).To(BeTrue(), "not a path error: %v", err)
-		return pe.Path
+		if !batched {
+			return pe.Path
+		}
+		return append([]string{strconv.Itoa(b.At)}, pe.Path...)
 	}
 	stored := func(ctx context.Context, key channel.Key) channel.Channel {
 		var ch channel.Channel
@@ -101,19 +111,24 @@ var _ = Describe("Sibling breaker 2", Ordered, ContinueOnFailure, func() {
 	}
 
 	It("Should name a position in the request when a folder refuses the name of a "+
-		"calculated channel's index", func(ctx SpecContext) {
+		"channel's free index", func(ctx SpecContext) {
 		parent := folder(ctx, UniqueChannelName(), nil)
 		name := UniqueChannelName()
 		folder(ctx, name+"_time", &parent.Key)
-		calc := channel.Channel{
-			Name:       name,
-			DataType:   telem.Float64T,
-			Expression: "return 1.0",
-			Group:      &parent.Key,
-		}
-		err := create(ctx, &calc)
+		chs := []channel.Channel{{
+			Name:        name,
+			DataType:    telem.Float64T,
+			Virtual:     true,
+			Leaseholder: node.KeyFree,
+			Group:       &parent.Key,
+		}}
+		err := db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).CreateMany(ctx, &chs, channel.FreeIndex())
+		})
 		Expect(err).To(MatchError(validate.ErrValidation))
-		Expect(pathOf(err)[0]).To(Equal("0"), err.Error())
+		b, ok := errors.AsType[channel.BatchError](err)
+		Expect(ok).To(BeTrue(), err.Error())
+		Expect(b.At).To(Equal(0))
 	})
 
 	It("Should name the holder and the place of a clash in the error", func(
@@ -255,18 +270,22 @@ var _ = Describe("Sibling breaker 2", Ordered, ContinueOnFailure, func() {
 		ctx SpecContext,
 	) {
 		name := UniqueChannelName()
-		calc := channel.Channel{
-			Name:       name,
-			DataType:   telem.Float64T,
-			Expression: "return 1.0",
-		}
-		Expect(create(ctx, &calc)).To(Succeed())
+		chs := []channel.Channel{{
+			Name:        name,
+			DataType:    telem.Float64T,
+			Virtual:     true,
+			Leaseholder: node.KeyFree,
+		}}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).CreateMany(ctx, &chs, channel.FreeIndex())
+		})).To(Succeed())
+		free := chs[0]
 		dest := folder(ctx, UniqueChannelName(), nil)
 		folder(ctx, name+"_time", &dest.Key)
 		renamed := UniqueChannelName()
-		Expect(apply(ctx, calc.Key(), renameTo(renamed), moveTo(&dest.Key))).
+		Expect(apply(ctx, free.Key(), renameTo(renamed), moveTo(&dest.Key))).
 			To(MatchError(ContainSubstring("already exists in the same group")))
-		got := stored(ctx, calc.Key())
+		got := stored(ctx, free.Key())
 		Expect(got.Name).To(Equal(name))
 		Expect(got.Group).To(BeNil())
 		Expect(svc.NewRetrieve().
