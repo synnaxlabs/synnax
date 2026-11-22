@@ -605,7 +605,7 @@ synnax cert node synnax.example.com
 The `update` command updates the Core to a new version. Run it as an administrator:
 
 ```bash
-sudo synnax update 0.61.0
+sudo synnax update 0.62.0
 ```
 
 The command downloads the Core for the computer from the Synnax releases and checks its
@@ -613,7 +613,7 @@ signature. It does not install a file that fails the check. To update without in
 access, download the binary on another computer and pass it with `--file`:
 
 ```bash
-sudo synnax update --file ./synnax-v0.61.0-linux
+sudo synnax update --file ./synnax-v0.62.0-linux
 ```
 
 The command checks that the new Core is for the computer and not older than the
@@ -643,7 +643,7 @@ to run on the data:
 
 ```bash
 synnax update undo
-synnax update undo 1793000000-0.60.1
+synnax update undo 1793000000-0.61.4
 ```
 
 When the `.old` binary from `synnax update` is that version, the command also puts it

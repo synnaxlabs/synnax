@@ -111,12 +111,14 @@ Core again and stops with an error. The service keeps its settings in
 
 <Fragment slot="Docker">
 
-1. Pull the new image. Use a version tag, such as `synnaxlabs/synnax:0.61.0`, so you can
-   go back to the old image:
+1. Pull the new image. Use a version tag, such as `synnaxlabs/synnax:0.62.0`:
 
    ```bash
    docker pull synnaxlabs/synnax:<version>
    ```
+
+   Keep the tag of the old image. The old image cannot open the data after the upgrade.
+   To run it again, first [undo the update](#go-back-to-an-earlier-version).
 
 2. Remove the old container. The data and the certificates stay in their volumes:
 
@@ -157,8 +159,8 @@ no client writes to the data before the commit. If the new Core fails before the
 it puts the backup back and stops with a message such as:
 
 ```
-Update to Core 0.61.0 failed: no space left on device. The data is back at Core 0.60.1.
-Run Core 0.60.1, or fix the cause and run `synnax update retry`.
+Update to Core 0.62.0 failed: no space left on device. The data is back at Core 0.61.4.
+Run Core 0.61.4, or fix the cause and run `synnax update retry`.
 ```
 
 The update also fails when the license covered the old version but does not cover the
@@ -225,7 +227,7 @@ again, and you configure them again. Until then, tasks on that network do not st
 
 Synnax does not support a downgrade. A Core does not open data that a newer Core opened,
 and stops with a message such as
-`Data was last opened by Core 0.61.0. Run Core 0.61.0 or newer, or undo the update with synnax update undo.`
+`Data was last opened by Core 0.62.0. Run Core 0.62.0 or newer, or undo the update with synnax update undo.`
 To go back, undo the update:
 
 1. Stop the Core.
@@ -258,11 +260,11 @@ the update does not come back. The undo cannot run while a Core runs on the data
 If an undo stops before it finishes, the Core does not start until you run the undo
 again.
 
-In Docker, run the undo with the image of the new version, such as `0.61.0`:
+In Docker, run the undo with the image of the new version, such as `0.62.0`:
 
 ```bash
 docker run --rm -v synnax-data:/synnax/synnax-data --entrypoint /synnax/synnax \
-  synnaxlabs/synnax:0.61.0 update undo
+  synnaxlabs/synnax:0.62.0 update undo
 ```
 
 To go back to the exact state before the upgrade, replace the data folder with the copy
