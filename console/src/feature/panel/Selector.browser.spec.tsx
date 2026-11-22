@@ -30,6 +30,8 @@ import {
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Panel } from "@/feature/panel";
+
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
 vi.mock("@/session/runtime", async (importOriginal) => {
@@ -37,9 +39,8 @@ vi.mock("@/session/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
-import { Selector } from "@/feature/panel/Selector";
 import { Modals } from "@/platform/modals";
-import { Panel } from "@/platform/panel";
+import { Panel as PlatformPanel } from "@/platform/panel";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { findModalButton } from "@/platform/tree/testutil";
 import { Session } from "@/session";
@@ -117,7 +118,7 @@ const renderStrip = async (
   await act(async () => {
     render(
       <>
-        <Selector />
+        <Panel.Selector />
         <Modals.Stack />
       </>,
       { wrapper },
@@ -185,7 +186,7 @@ describe("Panel.Selector", () => {
   it("should select a newly created panel", async () => {
     const { wrapper, store } = await createPanelWrapper({ client });
     await act(async () => {
-      render(<Selector />, { wrapper });
+      render(<Panel.Selector />, { wrapper });
     });
     // The strip suspends on the project's panel list, so nothing renders until it
     // resolves.
@@ -223,7 +224,7 @@ describe("Panel.Selector", () => {
       store.dispatch(Session.Panel.reorder({ key: bravo.key, index: 0 }));
     });
     await act(async () => {
-      render(<Selector />, { wrapper });
+      render(<Panel.Selector />, { wrapper });
     });
     await screen.findByText(alpha.name);
     await screen.findByText(bravo.name);
@@ -256,7 +257,7 @@ describe("Panel.Selector", () => {
       );
     });
     await act(async () => {
-      render(<Selector />, { wrapper });
+      render(<Panel.Selector />, { wrapper });
     });
     await screen.findByText(pending.name);
     await screen.findByText(known.name);
@@ -286,7 +287,7 @@ describe("Panel.Selector", () => {
       );
     });
     await act(async () => {
-      render(<Selector />, { wrapper: withHaul(wrapper) });
+      render(<Panel.Selector />, { wrapper: withHaul(wrapper) });
     });
     await screen.findByText(alpha.name);
     await screen.findByText(bravo.name);
@@ -307,7 +308,7 @@ describe("Panel.Selector", () => {
   // The strip is the only destination a tab can reach without opening a second
   // window, so a pill has to accept a tab and the create button has to mint one.
   describe("tab drop", () => {
-    const TABS: Panel.Tabs = {
+    const TABS: PlatformPanel.Tabs = {
       t: { Content: () => null, Name: () => null, Icon: () => null, iconKey: "valve" },
     };
 
@@ -334,12 +335,12 @@ describe("Panel.Selector", () => {
       store.dispatch(Session.Panel.select({ key: source.key }));
       await act(async () => {
         render(
-          <Panel.RendererContext value={TABS}>
+          <PlatformPanel.RendererContext value={TABS}>
             <Haul.Provider>
               <TabDragSource source={source.key} tab={tab} />
-              <Selector />
+              <Panel.Selector />
             </Haul.Provider>
-          </Panel.RendererContext>,
+          </PlatformPanel.RendererContext>,
           { wrapper },
         );
       });
@@ -431,7 +432,7 @@ describe("Panel.Selector", () => {
         render(
           <Haul.Provider>
             <TabDragSource source={source.key} tab={tab} />
-            <Selector />
+            <Panel.Selector />
             <PPanel.Suspended panelKey={destination.key}>
               <PPanel.Mosaic>{() => <div />}</PPanel.Mosaic>
             </PPanel.Suspended>
@@ -576,7 +577,7 @@ describe("Panel.Selector", () => {
         project: proj.key,
       });
       await act(async () => {
-        render(<Selector />, { wrapper });
+        render(<Panel.Selector />, { wrapper });
       });
       await waitFor(() => expect(screen.getByText(pan.name)).toBeTruthy());
       expect(screen.queryByRole("button")).toBeNull();
@@ -762,7 +763,7 @@ describe("Panel.Selector", () => {
         project: proj.key,
       });
       await act(async () => {
-        render(<Selector />, { wrapper });
+        render(<Panel.Selector />, { wrapper });
       });
       fireEvent.contextMenu(await screen.findByText(pan.name));
       await screen.findByText("Reload Console");
@@ -793,7 +794,7 @@ describe("Panel.Selector", () => {
         project: proj.key,
       });
       await act(async () => {
-        render(<Selector />, { wrapper });
+        render(<Panel.Selector />, { wrapper });
       });
       fireEvent.contextMenu(await screen.findByText(draft.name));
       expect(await screen.findByText("Change icon")).toBeTruthy();

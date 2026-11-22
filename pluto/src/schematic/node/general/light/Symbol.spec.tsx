@@ -13,7 +13,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it } from "vitest";
 
 import { Light } from "@/schematic/node/general/light";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 import { light } from "@/vis/light/aether";
 import { Staleness } from "@/vis/staleness";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";

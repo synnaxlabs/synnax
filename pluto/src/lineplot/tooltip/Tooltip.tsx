@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
-import { box, xy } from "@synnaxlabs/x";
+import { xy } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
 import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
+import { Canvas } from "@/vis/canvas";
 
 export interface TooltipProps
   extends
@@ -57,9 +58,8 @@ export const Tooltip = ({
   const ref = useRef<HTMLSpanElement>(null);
 
   const handleMove = (e: MouseEvent): void => {
-    const canvas = document.querySelector(".pluto-canvas-container");
-    if (canvas == null) return;
-    const topLeft = box.topLeft(canvas);
+    const topLeft = Canvas.topLeft();
+    if (topLeft == null) return;
     setState((p) => ({ ...p, position: xy.sub(xy.construct(e), topLeft) }));
   };
 

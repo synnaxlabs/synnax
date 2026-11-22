@@ -1177,6 +1177,57 @@ describe("Points", () => {
     }
   });
 
+  describe("bound", () => {
+    const range = new TimeRange(
+      START.add(TimeSpan.minutes(4)),
+      START.add(TimeSpan.minutes(6)),
+    );
+    const view = new TimeRange(START, START.add(TimeSpan.minutes(10)));
+    const bound = new TimeRange(START, START.add(TimeSpan.minutes(1)));
+
+    it("should draw only the tiles that overlap its bound, each whole", async () => {
+      const core = createCore();
+      const { subscribe, close } = createPoints(core);
+      const points = subscribe(core.index.key, staticWindow(range), {
+        ...TILED,
+        view,
+        bound,
+      });
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        const level = tileLevel(view);
+        const last = tileRange({ level, index: tileIndex(bound.end, level) });
+        const { upper } = points.value().series.bounds;
+        expect(upper).toBeGreaterThan(Number(bound.end.valueOf()));
+        expect(upper).toBeLessThan(Number(last.end.valueOf()));
+      } finally {
+        await close();
+      }
+    });
+
+    it("should read no tile again when its bound moves inside a tile", async () => {
+      const core = createCore();
+      let reads = 0;
+      const { subscribe, close } = createPoints(core, async (tr, keys, reduction) => {
+        reads++;
+        return core.read(tr, keys, reduction);
+      });
+      const window = staticWindow(range);
+      const points = subscribe(core.index.key, window, { ...TILED, view, bound });
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        const settled = reads;
+        const moved = new TimeRange(bound.start, bound.end.add(TimeSpan.seconds(1)));
+        points.update(window, { ...TILED, view, bound: moved });
+        expect(points.value().status.variant).toBe("success");
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        expect(reads).toBe(settled);
+      } finally {
+        await close();
+      }
+    });
+  });
+
   it("should evict the tiles it unpins past the budget", async () => {
     const core = createCore();
     const { store, subscribe, unsubscribe, close } = createPoints(core, undefined, {

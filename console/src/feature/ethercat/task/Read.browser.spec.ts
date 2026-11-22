@@ -61,6 +61,7 @@ import {
   createTestClientWithGrants,
   findDialogTriggerByText,
   findIconButton,
+  pickOption,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -383,10 +384,7 @@ describe("Read", () => {
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     fireEvent.click(await findDialogTriggerByText(calibrating.name));
-    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
-      target: { value: plain.name },
-    });
-    fireEvent.click(await screen.findByText(plain.name));
+    await pickOption(plain.name, "Search devices...");
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: draft.key,
