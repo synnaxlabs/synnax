@@ -62,18 +62,20 @@ func ApplyIncrementalChange(
 }
 
 // splitLines normalizes \r\n to \n and splits the content into lines.
-func splitLines(content string) []string {
-	content = strings.ReplaceAll(content, "\r\n", "\n")
-	return strings.Split(content, "\n")
-}
-
-// GetLine returns the line at the given 0-indexed line number.
+// GetLine returns the line at the given 0-indexed line number, without its line ending.
+// It allocates nothing.
 func GetLine(content string, line uint32) (string, bool) {
-	lines := splitLines(content)
-	if int(line) >= len(lines) {
-		return "", false
+	for range line {
+		i := strings.IndexByte(content, '\n')
+		if i < 0 {
+			return "", false
+		}
+		content = content[i+1:]
 	}
-	return lines[line], true
+	if i := strings.IndexByte(content, '\n'); i >= 0 {
+		content = content[:i]
+	}
+	return strings.TrimSuffix(content, "\r"), true
 }
 
 // IsWordChar reports whether a byte is a word character ([a-zA-Z0-9_]).

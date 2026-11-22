@@ -13,7 +13,9 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
@@ -59,7 +61,7 @@ func (s *Server) Hover(
 
 	displayContent := d.displayContent()
 
-	if n, _, quoted := channelNameAt(displayContent, params.Position); quoted {
+	if n, _, quoted := d.channelNameAt(params.Position); quoted {
 		return s.channelHover(ctx, d, n, params.Position), nil
 	}
 
@@ -450,6 +452,24 @@ func (s *Server) getHoverContents(word string) string {
 	return keywordDocs[word]
 }
 
+// commentTokens holds the tokens, comments included, of the last text a doc comment
+// came from, so the hovers of one analysis lex its text once.
+type commentTokens struct {
+	mu     sync.Mutex
+	source antlr.CharStream
+	tokens []antlr.Token
+}
+
+func (c *commentTokens) of(source antlr.CharStream) []antlr.Token {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.source != source {
+		c.source = source
+		c.tokens = tokenizeContentWithComments(source.GetText(0, source.Size()-1))
+	}
+	return c.tokens
+}
+
 // extractDocComment returns the comments directly above the definition of sym, read
 // from the text sym is defined in.
 func (s *Server) extractDocComment(sym *symbol.Symbol) string {
@@ -462,21 +482,15 @@ func (s *Server) extractDocComment(sym *symbol.Symbol) string {
 	}
 
 	symLine := start.GetLine()
-	source := start.GetInputStream()
-	tokens := tokenizeContentWithComments(source.GetText(0, source.Size()-1))
-	if len(tokens) == 0 {
-		return ""
-	}
+	tokens := s.comments.of(start.GetInputStream())
+	// The tokens sit in order, so the ones on or after the line of sym come last.
+	end := sort.Search(len(tokens), func(i int) bool {
+		return tokens[i].GetLine() >= symLine
+	})
 
 	var commentTokens []string
-	for i, t := range slices.Backward(tokens) {
+	for i, t := range slices.Backward(tokens[:end]) {
 		tokenType := t.GetTokenType()
-		tokenLine := t.GetLine()
-
-		if tokenLine >= symLine {
-			continue
-		}
-
 		if tokenType == parser.ArcLexerSINGLE_LINE_COMMENT ||
 			tokenType == parser.ArcLexerMULTI_LINE_COMMENT {
 			if hasCodeBetween(tokens, i, symLine) {
