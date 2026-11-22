@@ -11,16 +11,16 @@ import type { schematic } from "@synnaxlabs/client";
 
 import { Form } from "@/schematic/node/common/form";
 import { Toggle } from "@/schematic/node/common/toggle";
-import { Switch } from "@/schematic/node/general/switch/Primitive";
+import { Primitive } from "@/schematic/node/general/switch/primitive";
 import type { Spec } from "@/schematic/node/spec";
 
 export const spec: Spec<"switch", schematic.SwitchNodeConfig> = {
   key: "switch",
-  name: "Switch",
+  name: "Primitive.Switch",
   Form: (props) => <Form.ToggleForm {...props} hideInnerOrientation />,
-  Node: Toggle.createToggle<schematic.SwitchNodeConfig>(Switch),
-  Preview: Switch,
+  Node: Toggle.createToggle<schematic.SwitchNodeConfig>(Primitive.Switch),
+  Preview: Primitive.Switch,
   zIndex: 4,
 };
 
-export { SYMBOL } from "@/schematic/node/general/switch/Primitive";
+export const SYMBOL = Primitive.SYMBOL;

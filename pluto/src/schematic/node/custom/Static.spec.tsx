@@ -13,8 +13,13 @@ import { act, render, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { Static } from "@/schematic/node/custom/Static";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { Node } from "@/schematic/node";
+import { createAsyncSynnaxWrapper } from "@/testutil";
+
+const Static = Node.REGISTRY.custom_static.Preview;
+
+const config = (c: object) =>
+  schematic.customStaticNodeConfigZ.parse({ variant: "custom_static", ...c });
 
 const VALID_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" /></svg>';
@@ -46,9 +51,12 @@ describe("Static", () => {
 
   it("should warn when the symbol markup does not parse", async () => {
     const symbol = await createSymbol("<svg><rect></svg>");
-    const { findByText, container } = render(<Static specKey={symbol.key} />, {
-      wrapper,
-    });
+    const { findByText, container } = render(
+      <Static {...config({ specKey: symbol.key })} />,
+      {
+        wrapper,
+      },
+    );
     await findByText("Invalid custom symbol");
     expect(container.querySelector("svg rect")).toBeNull();
   });
@@ -56,7 +64,7 @@ describe("Static", () => {
   it("should mount the symbol once valid markup replaces it", async () => {
     const symbol = await createSymbol("<svg><rect></svg>");
     const { findByText, queryByText, container } = render(
-      <Static specKey={symbol.key} />,
+      <Static {...config({ specKey: symbol.key })} />,
       { wrapper },
     );
     await findByText("Invalid custom symbol");
