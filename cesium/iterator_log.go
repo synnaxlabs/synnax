@@ -34,9 +34,11 @@ type logView struct {
 	e          *engine
 	key, clock ChannelKey
 	// chs and pinned hold the Channels of the key and the clock of the last load, and
-	// what it pins until the next load or the Close of the data cursor.
+	// what it pins until the next load or the Close of the data cursor. spare holds the
+	// segment arrays that the next load fills.
 	chs    [2]*state.Channel
 	pinned [2]held
+	spare  [2][]uint64
 	loaded bool
 	// failed is true when the last load failed to read the parts of a range.
 	failed bool
@@ -46,7 +48,8 @@ type logView struct {
 }
 
 func (v *logView) load() {
-	chs, pinned, err, unlinkErr := v.e.loadView(v.key, v.clock, v.pinned)
+	chs, pinned, err, unlinkErr := v.e.loadView(v.key, v.clock, v.pinned, v.spare)
+	v.spare = [2][]uint64{v.pinned[0].segments[:0], v.pinned[1].segments[:0]}
 	v.chs, v.pinned, v.loaded, v.failed = chs, pinned, true, err != nil
 	v.err = errors.Join(v.err, err, unlinkErr)
 }
