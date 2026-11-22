@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -49,7 +50,14 @@ var _ = Describe("Quoted channel names in a calculation", Ordered, func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		creator = calctestutil.Creator{DB: db, Channel: channelSvc}
+		creator = calctestutil.Creator{
+			DB:      db,
+			Channel: channelSvc,
+			Calculation: MustOpen(calculation.OpenService(
+				ctx,
+				calculation.ServiceConfig{DB: db, Channel: channelSvc},
+			)),
+		}
 	})
 
 	// doubled computes the calculation expression over base, which takes the samples
@@ -65,6 +73,7 @@ var _ = Describe("Quoted channel names in a calculation", Ordered, func() {
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        out,
+			Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
 		}))
 		r := wazero.NewRuntime(ctx)
 		DeferCleanup(r.Close)
