@@ -18,6 +18,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type RefCallback,
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -318,26 +319,25 @@ const useDataReader = <K extends record.Key>(
   };
 };
 
-interface FrameElements extends Omit<Elements, "pin"> {
-  /** Returns the key of the mounted item that holds the focus, or null. */
-  focusedKey: () => record.Key | null;
-}
+// Returns the key of the mounted item that holds the focus, or null.
+const focusedKey = (elements: Map<record.Key, HTMLElement>): record.Key | null => {
+  const { activeElement } = document;
+  if (activeElement == null) return null;
+  for (const [key, element] of elements)
+    if (element.contains(activeElement)) return key;
+  return null;
+};
 
-const useElements = (): FrameElements => {
-  const elementsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
+const useElements = (
+  elementsRef: RefObject<Map<record.Key, HTMLElement>>,
+  pin: Elements["pin"],
+): Elements => {
   const setElement = (key: record.Key, element: HTMLElement | null) => {
     if (element == null) elementsRef.current.delete(key);
     else elementsRef.current.set(key, element);
   };
   const getElement = (key: record.Key) => elementsRef.current.get(key);
-  const focusedKey = (): record.Key | null => {
-    const { activeElement } = document;
-    if (activeElement == null) return null;
-    for (const [key, element] of elementsRef.current)
-      if (element.contains(activeElement)) return key;
-    return null;
-  };
-  return { setElement, getElement, focusedKey };
+  return { setElement, getElement, pin };
 };
 
 // A static frame mounts every item, so nothing needs pinning.
@@ -395,9 +395,7 @@ const VirtualFrame = <
   const refCallback = useCombinedRefs<HTMLDivElement>(fetchMoreRef, setScrollEl);
   const dataRef = useSyncedRef(data);
   const pinnedRef = useRef<record.Key | null>(null);
-  // The item that holds the focus stays mounted, so rows that land above it cannot
-  // push it out of the window before a scroll to it lands, such as during a rename.
-  const { focusedKey, ...elementsBase } = useElements();
+  const elementsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
   // The indexes of the rows that are mounted only because they are pinned.
   const pinnedOutsideRef = useRef<ReadonlySet<number>>(NO_INDEXES);
   const indexesRef = useRef<number[]>([]);
@@ -412,7 +410,10 @@ const VirtualFrame = <
         outside.add(index);
       };
       if (pinnedRef.current != null) addPinned(pinnedRef.current);
-      const focused = focusedKey();
+      // The item that holds the focus stays mounted, so rows that land above it
+      // cannot push it out of the window before a scroll to it lands, such as during
+      // a rename.
+      const focused = focusedKey(elementsRef.current);
       if (focused != null) addPinned(focused);
       pinned?.forEach(addPinned);
       if (outside != null) indexes = [...indexes, ...outside].sort((a, b) => a - b);
@@ -420,7 +421,7 @@ const VirtualFrame = <
       indexesRef.current = indexes;
       return indexes;
     },
-    [focusedKey],
+    [elementsRef],
   );
   // The virtualizer extracts the range again only when an input changes, so a new
   // extractor mounts a pinned row that is out of view.
@@ -475,7 +476,7 @@ const VirtualFrame = <
     (index: number) => virtualizer.scrollToIndex(index),
     [virtualizer],
   );
-  const elements: Elements = { ...elementsBase, pin };
+  const elements = useElements(elementsRef, pin);
   const { getData, subscribeData } = useDataReader(data);
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
@@ -553,8 +554,8 @@ const StaticFrame = <
     if (child != null)
       child.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   };
-  const { setElement, getElement } = useElements();
-  const elements: Elements = { setElement, getElement, pin: NO_PIN };
+  const elementsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
+  const elements = useElements(elementsRef, NO_PIN);
   const { getData, subscribeData } = useDataReader(data);
 
   const initialFetchCallback = useFetchMoreRefCallback(onFetchMore, data.length === 0);

@@ -559,6 +559,40 @@ describe("List", () => {
         expect(result.queryByLabelText(key)).toBeNull();
       });
 
+      it("should not re-render an elements context reader when the list scrolls", () => {
+        const renders = vi.fn();
+        const Reader = (): null => {
+          List.useGetElement();
+          renders();
+          return null;
+        };
+        const result = render(
+          <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT}>
+            <Reader />
+            <List.Scroll>
+              <List.Items>
+                {({ key, ...rest }: List.ItemProps<string>) => (
+                  <List.Item key={key} {...rest}>
+                    {key}
+                  </List.Item>
+                )}
+              </List.Items>
+            </List.Scroll>
+          </List.Frame>,
+        );
+        const scroller =
+          result.container.querySelector<HTMLElement>(".lyra-list__scroll");
+        if (scroller == null) throw new Error("scroll container not found");
+        renders.mockClear();
+        for (let i = 1; i <= 5; i++)
+          act(() => {
+            scroller.scrollTop = i * 10 * ITEM_HEIGHT;
+            fireEvent.scroll(scroller);
+          });
+        expect(rows(result)[0].textContent).not.toBe("0");
+        expect(renders).not.toHaveBeenCalled();
+      });
+
       it("should release the row once the focus leaves the list", () => {
         const result = render(<Focused data={DATA} />);
         const field = focusLastRow(result);
