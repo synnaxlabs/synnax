@@ -236,14 +236,14 @@ func (n number) float() float64 {
 
 // appendText appends n as text: NaN, Infinity, or -Infinity when it is not finite.
 func (n number) appendText(dst []byte) []byte {
-	switch {
-	case n.kind == intNumber:
+	switch n.kind {
+	case intNumber:
 		return strconv.AppendInt(dst, n.i, 10)
-	case n.kind == uintNumber:
+	case uintNumber:
 		return strconv.AppendUint(dst, n.u, 10)
-	default:
-		return xstrconv.AppendFloat(dst, n.f, 64)
+	case floatNumber:
 	}
+	return xstrconv.AppendFloat(dst, n.f, 64)
 }
 
 func (n number) String() string {
