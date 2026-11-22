@@ -122,6 +122,14 @@ describe("Codec", () => {
         expect(JSON.parse(encoded)).toEqual({ data: "+/8AYXNt/w==" });
       });
 
+      it("should encode a Node Buffer as base64 text", () => {
+        const encoded = binary.JSON_CODEC.encodeString(
+          { data: Buffer.from(data) },
+          schema,
+        );
+        expect(JSON.parse(encoded)).toEqual({ data: "+/8AYXNt/w==" });
+      });
+
       it("should decode base64 text to bytes", () => {
         const decoded = binary.JSON_CODEC.decodeString(
           '{"data":"+/8AYXNt/w=="}',

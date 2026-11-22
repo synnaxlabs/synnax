@@ -76,8 +76,10 @@ export class JSONCodec implements Codec {
   encodeString(payload: unknown, schema?: z.ZodType): string {
     const parsed = schema != null ? zod.parse(schema, payload) : payload;
     const caseConverted = caseconv.camelToSnake(parsed ?? {}, { schema });
-    return JSON.stringify(caseConverted, (_, v) => {
-      if (v instanceof Uint8Array) return encodeBase64(v);
+    return JSON.stringify(caseConverted, function (this: unknown, key: string, v) {
+      // A Node Buffer's toJSON runs before the replacer, so read the raw value.
+      const raw = (this as Record<string, unknown>)[key];
+      if (raw instanceof Uint8Array) return encodeBase64(raw);
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
       if (typeof v === "bigint") return v.toString();
       // JSON has no non-finite number, so send the text that a float decodes.

@@ -1943,20 +1943,20 @@ const std::vector<std::uint8_t> BYTES = {0xFB, 0xFF, 0x00, 0x61, 0x73, 0x6D, 0xF
 }
 
 /// @brief it should parse bytes from standard, padded base64.
-TEST(Bytes, Parse) {
+TEST(testBytes, testParse) {
     Parser parser(json{{"data", "+/8AYXNt/w=="}});
     EXPECT_EQ(parser.field<std::vector<std::uint8_t>>("data"), BYTES);
     EXPECT_TRUE(parser.ok());
 }
 
 /// @brief it should write bytes as standard, padded base64.
-TEST(Bytes, ToJSON) {
+TEST(testBytes, testToJSON) {
     EXPECT_EQ(to_json(BYTES), "+/8AYXNt/w==");
 }
 
 /// @brief it should reject bytes that are not canonical, padded base64 text in the
 /// standard alphabet.
-TEST(Bytes, RejectInvalid) {
+TEST(testBytes, testRejectInvalid) {
     const auto reject = [](const json &data, const std::string &message) {
         Parser parser(json{{"data", data}});
         parser.field<std::vector<std::uint8_t>>("data");
