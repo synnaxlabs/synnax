@@ -47,9 +47,10 @@ public:
     virtual std::pair<std::optional<std::span<const std::uint8_t>>, x::errors::Error>
     next() = 0;
 
-    /// @brief tells the framer that the stream went quiet. A framer that waits on a
-    /// partial frame drops it here, so that the next frame starts in step. Call next
-    /// again to read the frames after the dropped bytes.
+    /// @brief tells the framer that the stream went quiet. A fixed or sync framer drops
+    /// a partial frame here, so that the next frame starts in step. A delimited, COBS,
+    /// or SLIP framer keeps it until its delimiter. Call next again to read the frames
+    /// after the dropped bytes.
     /// @returns VALIDATION when it drops bytes.
     virtual x::errors::Error idle() = 0;
 
@@ -57,7 +58,7 @@ public:
     virtual void clear() = 0;
 
     /// @brief appends the stream bytes of frame to out. Writing them to a framer of the
-    /// same framing gives frame again.
+    /// same framing gives frame again, with any sync header filled in.
     /// @returns VALIDATION when the framing cannot hold frame: it is empty, larger than
     /// MAX_SIZE, holds a delimiter, is not the fixed length, or does not fit a sync
     /// header and length.
