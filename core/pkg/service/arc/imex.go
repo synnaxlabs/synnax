@@ -42,6 +42,9 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 	if err != nil {
 		return nil, err
 	}
+	if err = s.readChannelInputs(ctx, &a, env.DecodeOptions()); err != nil {
+		return nil, err
+	}
 	return func(
 		ctx context.Context,
 		tx gorp.Tx,

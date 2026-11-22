@@ -144,7 +144,7 @@ var _ = Describe("Channel links", func() {
 		))
 	})
 
-	It("Should import path-named files beside a graph Arc that holds raw keys", func(
+	It("Should name a graph Arc's channel inputs by path beside the other files", func(
 		ctx SpecContext,
 	) {
 		folder, name := "links_"+uuid.New().String()[:8], "pt_02"
@@ -173,6 +173,10 @@ var _ = Describe("Channel links", func() {
 		Expect(memberOfType(files, "log")["channels"]).To(ConsistOf(
 			HaveKeyWithValue("channel", folder+"."+name),
 		))
+		node := HaveKeyWithValue("n1", HaveKeyWithValue("channel", folder+"."+name))
+		Expect(memberOfType(files, "arc-automation")["source"]).To(
+			HaveKeyWithValue("graph", HaveKeyWithValue("inputs", node)),
+		)
 		// The import lands beside the original, where the name is taken.
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return arcSvc.NewWriter(tx).Apply(

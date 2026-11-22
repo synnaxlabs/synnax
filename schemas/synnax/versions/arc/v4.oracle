@@ -136,7 +136,7 @@ Arc union on type Type extends Base {
         @doc value "is an Arc that holds code for other Arcs to import."
     }
 
-    @go imex
+    @go imex    prepare
     @go marshal
     @go migrate
 }
