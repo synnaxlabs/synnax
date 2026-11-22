@@ -1211,9 +1211,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			},
 		),
 		resource.TypeColor: moveBy(uuidKey, applyGroup(
-			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, to *group.Key) error {
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, value any) error {
 				return l.Color.NewWriter(tx).Apply(ctx, k, color.NewSetAction(
-					color.SetPayload{Path: []string{"group"}, Value: to},
+					color.SetPayload{Path: []string{"group"}, Value: value},
 				))
 			},
 		)),
@@ -1224,25 +1224,25 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			},
 		),
 		resource.TypeLineplot: moveBy(uuidKey, applyGroup(
-			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, to *group.Key) error {
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, value any) error {
 				_, err := l.LinePlot.NewWriter(tx).Apply(ctx, k, lineplot.NewSetAction(
-					lineplot.SetPayload{Path: []string{"group"}, Value: to},
+					lineplot.SetPayload{Path: []string{"group"}, Value: value},
 				))
 				return err
 			},
 		)),
 		resource.TypeLog: moveBy(uuidKey, applyGroup(
-			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, to *group.Key) error {
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, value any) error {
 				_, err := l.Log.NewWriter(tx).Apply(ctx, k, log.NewSetAction(
-					log.SetPayload{Path: []string{"group"}, Value: to},
+					log.SetPayload{Path: []string{"group"}, Value: value},
 				))
 				return err
 			},
 		)),
 		resource.TypePanel: moveBy(uuidKey, applyGroup(
-			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, to *group.Key) error {
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, value any) error {
 				_, err := l.Panel.NewWriter(tx).Apply(ctx, k, panel.NewSetAction(
-					panel.SetPayload{Path: []string{"group"}, Value: to},
+					panel.SetPayload{Path: []string{"group"}, Value: value},
 				))
 				return err
 			},
@@ -1260,10 +1260,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			},
 		),
 		resource.TypeSchematic: moveBy(uuidKey, applyGroup(
-			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, to *group.Key) error {
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, value any) error {
 				_, err := l.Schematic.NewWriter(tx).
 					Apply(ctx, k, schematic.NewSetAction(
-						schematic.SetPayload{Path: []string{"group"}, Value: to},
+						schematic.SetPayload{Path: []string{"group"}, Value: value},
 					))
 				return err
 			},
@@ -1275,9 +1275,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			},
 		),
 		resource.TypeTable: moveBy(uuidKey, applyGroup(
-			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, to *group.Key) error {
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, value any) error {
 				_, err := l.Table.NewWriter(tx).Apply(ctx, k, table.NewSetAction(
-					table.SetPayload{Path: []string{"group"}, Value: to},
+					table.SetPayload{Path: []string{"group"}, Value: value},
 				))
 				return err
 			},
@@ -1360,13 +1360,18 @@ func moveBy[K any](
 	}
 }
 
-// applyGroup returns a set for moveBy that moves each record through apply.
+// applyGroup returns a set for moveBy that moves each record through apply, which sets
+// its group to value: the key of the group, or nil for no group.
 func applyGroup[K any](
-	apply func(ctx context.Context, tx gorp.Tx, key K, to *group.Key) error,
+	apply func(ctx context.Context, tx gorp.Tx, key K, value any) error,
 ) func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error {
 	return func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error {
+		var value any
+		if to != nil {
+			value = *to
+		}
 		for _, k := range keys {
-			if err := apply(ctx, tx, k, to); err != nil {
+			if err := apply(ctx, tx, k, value); err != nil {
 				return err
 			}
 		}

@@ -28,6 +28,9 @@ var _ = Describe("ServiceConfig", func() {
 			Group:    &group.Service{},
 			RecordOf: func(gorp.Target) resource.ID { return resource.ID{} },
 			Delete:   func(context.Context, gorp.Tx, []resource.ID) error { return nil },
+			Move: func(context.Context, gorp.Tx, []resource.ID, *group.Key) error {
+				return nil
+			},
 			DB:       &gorp.DB{},
 			Policies: impact.Policies{Links: make(map[gorp.ReferenceID]impact.Policy)},
 		}
@@ -63,6 +66,11 @@ var _ = Describe("ServiceConfig", func() {
 			"delete",
 			func(c *impact.ServiceConfig) { c.Delete = nil },
 			"delete: must be non-nil",
+		),
+		Entry(
+			"move",
+			func(c *impact.ServiceConfig) { c.Move = nil },
+			"move: must be non-nil",
 		),
 		Entry(
 			"db",
