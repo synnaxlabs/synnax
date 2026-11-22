@@ -1424,13 +1424,22 @@ describe("MQTT read form", () => {
 
     describe("past the first page of ICDs", () => {
       /**
+       * Creates a key that ends in byte and six zero bytes. It lists ahead of every
+       * random key, and after the keys of a lower byte.
+       */
+      const createKeyListedAt = (byte: string): icd.Key => {
+        const key = createKeyEndingIn("0");
+        return `${key.slice(0, 21)}${byte}${key.slice(23)}`;
+      };
+
+      /**
        * Creates one page of ICDs with no messages, ahead of every other ICD in key
        * order, and deletes them when the test finishes.
        */
       const createEmptyPage = async () => {
         const created = await client.icds.create(
           Array.from({ length: PAGE_SIZE }, () => ({
-            key: createKeyEndingIn("0"),
+            key: createKeyListedAt("00"),
             name: uniqueName("empty"),
           })),
         );
@@ -1472,11 +1481,11 @@ describe("MQTT read form", () => {
         const entry = await createEntry({
           fields: [createField("temperature", "float")],
         });
-        // The last byte of 1 lists this ICD right after the empty page.
-        const { message } = await createShared(
+        const { shared, message } = await createShared(
           [createField("pressure", "float")],
-          `${createKeyEndingIn("0").slice(0, -1)}1`,
+          createKeyListedAt("01"),
         );
+        onTestFinished(async () => await client.icds.delete(shared.key));
         await renderRead({ entries: [entry] });
         await openTopic();
         fireEvent.click(await findDialogTriggerByText(TOPIC));
