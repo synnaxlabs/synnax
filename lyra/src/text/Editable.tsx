@@ -18,11 +18,11 @@ import {
 } from "react";
 
 import { CSS as PCSS } from "@/css";
-import { useCombinedRefs } from "@/hooks/ref";
+import { useCombinedRefs } from "@/hooks";
 import type { Input } from "@/input";
 import { paintHighlight } from "@/text/highlight";
 import { Text, type TextProps } from "@/text/Text";
-import { triggerReflow } from "@/util/reflow";
+import { triggerReflow } from "@/util";
 
 /** Props for {@link Editable}. */
 export type EditableProps = Omit<TextProps<"p">, "children" | "onChange"> &

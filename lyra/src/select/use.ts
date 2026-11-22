@@ -17,7 +17,7 @@ import {
 import { type KeyboardEvent, useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
-import { useSyncedRef } from "@/hooks/ref";
+import { useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { openContextMenu } from "@/menu/keyboard";
 import { useRegistryContext, useSearching } from "@/select/registry";

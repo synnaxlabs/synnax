@@ -23,7 +23,7 @@ import { CSS } from "@/css";
 import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
 import { Portal } from "@/portal";
 import { position } from "@/position";
-import { getRootElement } from "@/util/rootElement";
+import { getRootElement } from "@/util";
 
 export interface FrameProps {
   /** The element the frame sits beside. */

@@ -21,7 +21,7 @@ import { useFocusTrap } from "@/dialog/useFocusTrap";
 import { Flex } from "@/flex";
 import { useCombinedRefs } from "@/hooks";
 import { Portal } from "@/portal";
-import { getRootElement } from "@/util/rootElement";
+import { getRootElement } from "@/util";
 
 /** Props for {@link Dialog}. */
 export interface DialogProps extends Flex.BoxProps<"div"> {}

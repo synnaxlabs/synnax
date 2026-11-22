@@ -24,7 +24,7 @@ import {
 } from "react";
 
 import { Button } from "@/button";
-import type { RenderProp } from "@/component/renderProp";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
@@ -33,7 +33,7 @@ import { Text as InputText } from "@/input/Text";
 import type { Control, Variant } from "@/input/types";
 import type { Status } from "@/status";
 import { Text } from "@/text";
-import { reactElementToArray } from "@/util/children";
+import { reactElementToArray } from "@/util";
 
 /** The value one {@link Table} cell holds. */
 export type TableCell = string | number;
@@ -70,14 +70,14 @@ export type TableColumnProps =
       /** Reads pasted text, or returns null to refuse it. Defaults to `Number`. */
       parse?: (text: string) => number | null;
       /** Renders the cell. Defaults to a numeric input. */
-      children?: RenderProp<TableCellProps<number>>;
+      children?: Component.RenderProp<TableCellProps<number>>;
     })
   | (BaseTableColumnProps & {
       type: "string";
       /** Reads pasted text, or returns null to refuse it. Defaults to the text. */
       parse?: (text: string) => string | null;
       /** Renders the cell. Defaults to a text input. */
-      children?: RenderProp<TableCellProps<string>>;
+      children?: Component.RenderProp<TableCellProps<string>>;
     });
 
 /**
