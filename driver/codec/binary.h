@@ -169,8 +169,8 @@ public:
     create(const std::vector<BinaryMessage> &messages);
 
     /// @brief finds the message that payload, a frame from a byte stream or a datagram,
-    /// belongs to by its field identifiers, and decodes one sample for each of its
-    /// bindings into its samples. A message with a CAN identifier never matches.
+    /// belongs to by its field identifiers, and decodes its bindings into its samples.
+    /// A message with a CAN identifier never matches.
     /// @returns the index of the message in create order, or nothing when payload
     /// belongs to no message.
     /// @returns VALIDATION when payload meets the identifiers of two messages, it is
