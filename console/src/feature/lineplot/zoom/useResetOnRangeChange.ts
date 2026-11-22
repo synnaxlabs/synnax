@@ -13,7 +13,7 @@ import { useEffect, useRef } from "react";
 
 import { Session } from "@/session";
 
-export interface UseResetZoomOnRangeChangeProps {
+export interface UseResetOnRangeChangeProps {
   key: lineplot.Key;
 }
 
@@ -24,9 +24,7 @@ const sameRanges = (a: ranger.Ref[], b: ranger.Ref[]): boolean =>
  * Resets the plot's zoom in this window when the plot shows other ranges. A change to
  * the T0 or color of a range keeps the zoom.
  */
-export const useResetZoomOnRangeChange = ({
-  key,
-}: UseResetZoomOnRangeChangeProps): void => {
+export const useResetOnRangeChange = ({ key }: UseResetOnRangeChangeProps): void => {
   const ranges = LinePlot.useRanges({ key });
   const dispatch = Session.useDispatch();
   const shown = useRef(ranges);

@@ -11,12 +11,12 @@ import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useDownloadAsCSV } from "@/feature/lineplot/useDownloadAsCSV";
+import { CSV } from "@/feature/lineplot/csv";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 
-describe("useDownloadAsCSV", () => {
+describe("CSV.useDownload", () => {
   it("should open the CSV dialog on each time range", async () => {
-    await renderModalOpener(useDownloadAsCSV, [
+    await renderModalOpener(CSV.useDownload, [
       {
         timeRanges: [
           new TimeRange(

@@ -13,8 +13,8 @@ import { fireEvent, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
+import { Hold } from "@/feature/lineplot/hold";
 import { client, project } from "@/feature/lineplot/testutil";
-import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
 import { Session } from "@/session";
 import { createConsoleWrapper } from "@/testutil";
 
@@ -31,7 +31,7 @@ const renderTriggerHold = async (enabled: boolean) => {
   );
   const { result } = renderHook(
     () => {
-      useTriggerHold({ key: plot.key, enabled: () => enabled });
+      Hold.useTrigger({ key: plot.key, enabled: () => enabled });
       return Session.LinePlot.useSelectControlState({ key: plot.key }).hold;
     },
     { wrapper: Wrapper },
@@ -44,7 +44,7 @@ const pressHold = () => {
   fireEvent.keyUp(window, { code: "KeyH", key: "h" });
 };
 
-describe("lineplot useTriggerHold", () => {
+describe("Hold.useTrigger", () => {
   it("should toggle the plot's hold when enabled", async () => {
     const hold = await renderTriggerHold(true);
     expect(hold.current).toBe(false);

@@ -18,7 +18,7 @@ import {
   createLinePlotWrapper,
   createPreloadedState,
 } from "@/feature/lineplot/testutil";
-import { useResetZoomOnRangeChange } from "@/feature/lineplot/useResetZoomOnRangeChange";
+import { Zoom } from "@/feature/lineplot/zoom";
 import { Session } from "@/session";
 
 const rolling = (span: TimeSpan): ranger.Ref => ({
@@ -39,7 +39,7 @@ const renderResetZoom = async () => {
   });
   const { result } = renderHook(
     () => {
-      useResetZoomOnRangeChange({ key });
+      Zoom.useResetOnRangeChange({ key });
       return {
         viewport: Session.LinePlot.useSelect({ key }).viewport,
         name: LinePlot.useName({ key }),
@@ -51,7 +51,7 @@ const renderResetZoom = async () => {
   return { key, result };
 };
 
-describe("lineplot useResetZoomOnRangeChange", () => {
+describe("Zoom.useResetOnRangeChange", () => {
   it("should keep the zoom when the plot mounts", async () => {
     const { result } = await renderResetZoom();
     await act(async () => {});

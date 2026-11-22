@@ -19,7 +19,7 @@ import { useState } from "react";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-export interface SetT0Params {
+export interface SetParams {
   /** The name of the range. */
   name: string;
   /** The time range of the range: the T that an offset like "T+12.5s" counts from. */
@@ -33,7 +33,7 @@ const SetT0 = ({
   timeRange,
   value: initial,
   close,
-}: Modals.ContentProps<SetT0Params, number>) => {
+}: Modals.ContentProps<SetParams, number>) => {
   const [value, setValue] = useState(initial);
   return (
     <Modal.Frame>
@@ -75,4 +75,4 @@ const SetT0 = ({
 };
 
 /** Opens a modal that asks for the T0 of a range on a line plot. */
-export const useSetT0Modal = Modals.createPrompt<number, SetT0Params>(SetT0);
+export const useSetModal = Modals.createPrompt<number, SetParams>(SetT0);
