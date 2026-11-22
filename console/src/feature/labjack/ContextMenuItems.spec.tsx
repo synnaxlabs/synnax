@@ -45,7 +45,7 @@ const renderItems = async () => {
   await renderSuspended(
     <PMenu.Menu>
       <Errors.SuspenseBoundary loading={null}>
-        <LabJack.Device.ContextMenuItems {...props} />
+        <LabJack.ContextMenuItems {...props} />
       </Errors.SuspenseBoundary>
     </PMenu.Menu>,
     { wrapper },

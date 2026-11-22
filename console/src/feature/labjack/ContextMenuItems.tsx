@@ -9,7 +9,7 @@
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 
-import { ADAPTER } from "@/feature/labjack/device/hardware";
+import { Device } from "@/feature/labjack/device";
 import { Task } from "@/feature/labjack/task";
 import { Device as PlatformDevice } from "@/platform/device";
 
@@ -26,10 +26,10 @@ const TASK_CONTEXT_MENU_ITEMS = [
   }),
 ];
 
-const ConfigureMenuItem = PlatformDevice.createConfigureMenuItem(ADAPTER);
+const ConfigureMenuItem = PlatformDevice.createConfigureMenuItem(Device.ADAPTER);
 
 const ChangeIdentifierMenuItem = PlatformDevice.createChangeIdentifierMenuItem({
-  adapter: ADAPTER,
+  adapter: Device.ADAPTER,
   icon: "Logo.LabJack",
 });
 
