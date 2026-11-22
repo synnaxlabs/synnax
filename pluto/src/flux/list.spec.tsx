@@ -442,7 +442,9 @@ describe("useList", () => {
       name: "outside",
       timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
     });
-    const reader = createTestClient();
+    // With no change stream, a change from another spec starts no fetch that the
+    // rejection below would fail.
+    const reader = createTestClient({ cache: false });
     const { result } = renderHook(
       () => Flux.useList(ranges, { name: "ranges", query: byName() }),
       { wrapper: createSynnaxWrapper({ client: reader }) },
