@@ -112,10 +112,14 @@ var _ = Describe("Strict retrieve", func() {
 		))
 	})
 
-	It("Should deny a named holder the subject cannot see when the retrieve is not "+
-		"strict, as before", func(ctx SpecContext) {
-		Expect(retrieve(ctx, byName(name), false)).Error().
-			To(MatchError(access.ErrDenied))
+	It("Should return every holder of a name when the retrieve is not strict", func(
+		ctx SpecContext,
+	) {
+		res := MustSucceed(retrieve(ctx, byName(name), false))
+		Expect(res.Channels).To(ConsistOf(
+			HaveField("Key", inShown.Key()),
+			HaveField("Key", inHidden.Key()),
+		))
 	})
 
 	It("Should return the one channel of a name", func(ctx SpecContext) {
