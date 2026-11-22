@@ -208,7 +208,7 @@ var _ = Describe("Service", func() {
 				Expect(ic.Messages).To(HaveLen(1))
 				m := ic.Messages[0]
 				Expect(m.Name).To(Equal("POST /values"))
-				fields := m.Payload.Variant.(icd.JSONPayload).Fields
+				fields := as[icd.JSONPayload](m.Payload.Variant).Fields
 				index := fields[0].Base().Key
 				Expect(ep.Messages).To(Equal([]icd.ReadMessage{{
 					Message: m.Key,

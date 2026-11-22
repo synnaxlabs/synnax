@@ -646,36 +646,36 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		GinkgoHelper()
 		var ic icd.ICD
 		Expect(icdSvc.NewRetrieve().
-			Where(icd.MatchKeys(uuid.MustParse(ep["icd"].(string)))).
+			Where(icd.MatchKeys(uuid.MustParse(as[string](ep["icd"])))).
 			Entry(&ic).
 			Exec(ctx, db)).To(Succeed())
 		names := make(map[string]string)
 		for _, m := range ic.Messages {
 			names[m.Key.String()] = m.Name
-			for _, f := range m.Payload.Variant.(icd.JSONPayload).Fields {
+			for _, f := range as[icd.JSONPayload](m.Payload.Variant).Fields {
 				names[f.Base().Key.String()] = f.Base().Name
 			}
 		}
 		name := func(key any) string {
 			GinkgoHelper()
-			n, ok := names[key.(string)]
+			n, ok := names[as[string](key)]
 			Expect(ok).To(BeTrue(), "key %v is not in ICD %s", key, ic.Name)
 			return n
 		}
 		revealed := maps.Clone(ep)
 		revealed["icd"] = ic.Name
-		reads := ep["messages"].([]any)
+		reads := as[[]any](ep["messages"])
 		revealedReads := make([]any, len(reads))
 		for i, r := range reads {
-			read := maps.Clone(r.(map[string]any))
+			read := maps.Clone(as[map[string]any](r))
 			read["message"] = name(read["message"])
 			if index, ok := read["index"]; ok {
 				read["index"] = name(index)
 			}
-			bindings := read["bindings"].([]any)
+			bindings := as[[]any](read["bindings"])
 			revealedBindings := make([]any, len(bindings))
 			for j, b := range bindings {
-				binding := maps.Clone(b.(map[string]any))
+				binding := maps.Clone(as[map[string]any](b))
 				binding["field"] = name(binding["field"])
 				revealedBindings[j] = binding
 			}
@@ -693,10 +693,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		GinkgoHelper()
 		config := maps.Clone(map[string]any(imported.Config))
 		if legacyICDs.Contains(imported.Type) {
-			endpoints := config["endpoints"].([]any)
+			endpoints := as[[]any](config["endpoints"])
 			revealed := make([]any, len(endpoints))
 			for i, ep := range endpoints {
-				revealed[i] = revealICD(ctx, ep.(map[string]any))
+				revealed[i] = revealICD(ctx, as[map[string]any](ep))
 			}
 			config["endpoints"] = revealed
 		}
@@ -745,8 +745,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			// The write moves the staged fields into an ICD and fills in each read.
 			if legacyICDs.Contains(env.Type) {
 				delete(expected, "inline")
-				for _, ep := range expected["endpoints"].([]any) {
-					delete(ep.(map[string]any), "messages")
+				for _, ep := range as[[]any](expected["endpoints"]) {
+					delete(as[map[string]any](ep), "messages")
 				}
 			}
 			revealed := reveal(ctx, imported)
@@ -882,3 +882,11 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		Entry(nil, "v0.59.2", "pagerduty_alert"),
 	)
 })
+
+// as returns v as a T, and fails the spec when v is not a T.
+func as[T any](v any) T {
+	GinkgoHelper()
+	t, ok := v.(T)
+	Expect(ok).To(BeTrue())
+	return t
+}

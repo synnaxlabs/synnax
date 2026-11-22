@@ -95,7 +95,11 @@ func ResolveReadConfig(
 		return icdv1.ICD{}, false, err
 	}
 	for i, e := range staged {
-		fields := ic.Messages[i].Payload.Variant.(icdv1.JSONPayload).Fields
+		p, ok := ic.Messages[i].Payload.Variant.(icdv1.JSONPayload)
+		if !ok {
+			panic("lifted message " + ic.Messages[i].Name + " is not a JSON message")
+		}
+		fields := p.Fields
 		for j, f := range e.Fields {
 			if f.FillValue == nil {
 				continue
