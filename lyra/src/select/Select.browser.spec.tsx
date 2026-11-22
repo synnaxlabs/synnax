@@ -688,10 +688,10 @@ describe("Select", () => {
     });
   });
 
-  describe("failure beside items", () => {
-    it("should inset a failure under the items as the options are", async () => {
+  describe("status beside items", () => {
+    it("should inset a status under the items as the options are", async () => {
       await renderThemed(
-        <Select.Single<string>
+        <Select.Single
           resourceName="result"
           data={["a", "b"]}
           value={undefined}

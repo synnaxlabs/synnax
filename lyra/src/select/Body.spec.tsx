@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, type RenderResult } from "@testing-library/react";
-import { type ReactNode } from "react";
+import { type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Select } from "@/select";
@@ -41,7 +41,7 @@ describe("Select.Single dialog body", () => {
     expect(c.getByText("Error")).toBeTruthy();
   });
 
-  it("should render a failure once, under the items, when the list holds items", () => {
+  it("should render a status once, under the items, when the list holds items", () => {
     const c = render(
       <Select.Single
         visible
@@ -58,19 +58,28 @@ describe("Select.Single dialog body", () => {
     expect(c.getAllByText("Error")).toHaveLength(1);
   });
 
-  it("should render a failure once when the list has no data", () => {
-    const c = render(
+  it("should keep the list mounted, with the status outside it, as the status changes", () => {
+    const select = (status?: Status.Status): ReactElement => (
       <Select.Single
         visible
-        data={[]}
+        data={["a", "b"]}
+        virtual={false}
         onChange={vi.fn()}
         resourceName="result"
-        status={Status.create({ variant: "error", message: "Error" })}
+        status={status}
       >
-        {() => <div>Hello</div>}
-      </Select.Single>,
+        {({ itemKey }) => <div key={itemKey}>{`item ${itemKey}`}</div>}
+      </Select.Single>
     );
-    expect(c.getAllByText("Error")).toHaveLength(1);
+    const c = render(select());
+    const list = c.getByRole("listbox");
+    c.rerender(select(Status.create({ variant: "error", message: "Error" })));
+    expect(c.getByRole("listbox")).toBe(list);
+    expect(list.contains(c.getByText("Error"))).toBe(false);
+    c.rerender(select(Status.create({ variant: "loading", message: "Loading" })));
+    expect(c.getByRole("listbox")).toBe(list);
+    c.rerender(select(Status.create({ variant: "error", message: "Error" })));
+    expect(c.getByRole("listbox")).toBe(list);
   });
 
   it("should render no loading status under the items", () => {

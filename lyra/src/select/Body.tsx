@@ -18,7 +18,7 @@ import { Items, type ItemsProps } from "@/select/Items";
 import { List as SelectList } from "@/select/List";
 import { plural, searchPlaceholder } from "@/select/placeholder";
 import { useTerm, useVisibleCount } from "@/select/registry";
-import { ShownContext, useInline } from "@/select/scope";
+import { ShownContext, useClosed, useInline } from "@/select/scope";
 import { Search, type SearchProps } from "@/select/Search";
 import { Status } from "@/status";
 
@@ -68,20 +68,19 @@ export const EmptyContent = ({
   );
 };
 
-// A status shows in place of an empty list, so beside items a failure shows under the
-// list. It stays outside the list, so a failure never changes the list's structure.
-const ItemsFailure = ({
+// A status shows in place of an empty list, so beside items it shows under the list.
+// It stays outside the list, so a status never changes the list's structure.
+const ItemsStatus = ({
   status,
 }: {
   status: Status.Status<z.ZodNever>;
 }): ReactElement | null => {
+  const closed = useClosed();
   const { data } = List.useData();
-  if (data.length === 0) return null;
+  if (closed || data.length === 0) return null;
   return (
-    <Flex.Box y className={CSS.BE("select", "failure")}>
-      <Status.Summary variant={status.variant} description={status.description}>
-        {status.message}
-      </Status.Summary>
+    <Flex.Box y className={CSS.BE("select", "status")}>
+      <Status.Summary status={status} />
     </Flex.Box>
   );
 };
@@ -157,15 +156,10 @@ export const Body = <K extends record.Key>({
   const loading = status?.variant === "loading";
   const hasSearch = onSearch != null;
   if (inline) return <InlineBody<K> onSearch={onSearch}>{children}</InlineBody>;
-  const failed = !loading && status != null && status.variant !== "success";
+  const reported = !loading && status != null && status.variant !== "success";
   let empty: ReactNode;
   if (loading) empty = hasSearch ? null : <Status.Loading />;
-  else if (failed)
-    empty = (
-      <Status.Summary center variant={status.variant} description={status.description}>
-        {status.message}
-      </Status.Summary>
-    );
+  else if (reported) empty = <Status.Summary center status={status} />;
   else empty = <EmptyContent resourceName={resourceName} emptyContent={emptyContent} />;
   return (
     <>
@@ -181,7 +175,7 @@ export const Body = <K extends record.Key>({
         {fixedItems}
         <Items<K> emptyContent={empty}>{children}</Items>
       </BorderedList>
-      {failed && <ItemsFailure status={status} />}
+      {reported && <ItemsStatus status={status} />}
     </>
   );
 };
