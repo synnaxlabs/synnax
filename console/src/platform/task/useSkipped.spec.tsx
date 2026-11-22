@@ -13,9 +13,8 @@ import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import type { Channel } from "@/platform/task/types";
 
-interface PortChannel extends Channel {
+interface PortChannel extends Task.Channel {
   port: string;
   commanded: boolean;
 }
