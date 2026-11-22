@@ -1653,7 +1653,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						changed <- struct{}{}
 						return compiler.Module{}, resolver.ErrLookupsChanged
 					}
-					return compiler.Compile(ctx, db, cfgs...)
+					return calcSvc.Compile(ctx, db, cfgs...)
 				},
 			}))
 			previous := c

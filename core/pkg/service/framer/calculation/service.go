@@ -83,7 +83,7 @@ type ServiceConfig struct {
 	RetryDelay telem.TimeSpan
 	// Compile compiles a calculated channel. It is injectable for testing.
 	//
-	// [OPTIONAL] - Defaults to compiler.Compile.
+	// [OPTIONAL] - Defaults to Calculation.Compile.
 	Compile func(context.Context, *gorp.DB, ...compiler.Config) (compiler.Module, error)
 	// Instrumentation is used for logging, tracing, and metrics.
 	//

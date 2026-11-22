@@ -352,7 +352,7 @@ func (w Writer) cycleError(ctx context.Context, path channel.Keys) error {
 	), "expression")
 }
 
-func (w Writer) newAnalyzer() *compiler.Analyzer { return w.svc.newAnalyzer(w.tx) }
+func (w Writer) newAnalyzer() *compiler.Analyzer { return w.svc.NewAnalyzer(w.tx) }
 
 // SetReads stores reads, in order and each once, as the reads of c, and broadcasts a
 // set

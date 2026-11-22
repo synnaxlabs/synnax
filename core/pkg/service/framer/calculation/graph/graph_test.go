@@ -1350,7 +1350,7 @@ var _ = Describe("Graph", func() {
 						if cfgs[0].Channel.Key() == failing {
 							return compiler.Module{}, resolver.ErrLookupsChanged
 						}
-						return compiler.Compile(ctx, db, cfgs...)
+						return creator.Calculation.Compile(ctx, db, cfgs...)
 					},
 				}))
 				raw := channel.Channel{
@@ -1434,7 +1434,7 @@ var _ = Describe("Graph", func() {
 						if cfgs[0].Channel.Key() == failing {
 							return compiler.Module{}, resolver.ErrLookupsChanged
 						}
-						return compiler.Compile(ctx, db, cfgs...)
+						return creator.Calculation.Compile(ctx, db, cfgs...)
 					},
 				}))
 				raw := channel.Channel{

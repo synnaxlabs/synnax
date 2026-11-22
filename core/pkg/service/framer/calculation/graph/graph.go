@@ -17,8 +17,6 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
@@ -50,7 +48,7 @@ type Config struct {
 	DB *gorp.DB
 	// Compile compiles a calculated channel. It is injectable for testing.
 	//
-	// [OPTIONAL] - defaults to compiler.Compile.
+	// [OPTIONAL] - defaults to Calculation.Compile.
 	Compile func(context.Context, *gorp.DB, ...compiler.Config) (compiler.Module, error)
 	// Instrumentation is for logging, tracing, and metrics.
 	//
@@ -99,9 +97,7 @@ type groupInfo struct {
 }
 
 type Graph struct {
-	cfg Config
-	// stl holds the Arc standard library symbols, which every compile shares.
-	stl      []*symbol.Symbol
+	cfg      Config
 	channels map[channel.Key]*channelInfo
 	groups   map[int]*groupInfo
 	alamos.Instrumentation
@@ -110,14 +106,16 @@ type Graph struct {
 
 // New creates a new Graph with the provided configuration.
 func New(cfgs ...Config) (*Graph, error) {
-	cfg, err := config.New(Config{Compile: compiler.Compile}, cfgs...)
+	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.Compile == nil {
+		cfg.Compile = cfg.Calculation.Compile
 	}
 	return &Graph{
 		Instrumentation: cfg.Instrumentation,
 		cfg:             cfg,
-		stl:             stl.NewSymbols(),
 		channels:        make(map[channel.Key]*channelInfo),
 		groups:          make(map[int]*groupInfo),
 		nextGroupID:     0,
@@ -736,12 +734,7 @@ func (g *Graph) compile(
 	ch channel.Channel,
 	c calculation.Calculation,
 ) (compiler.Module, error) {
-	return g.cfg.Compile(ctx, g.cfg.DB, compiler.Config{
-		ChannelService: g.cfg.Channel,
-		Channel:        ch,
-		Calculation:    c,
-		STL:            g.stl,
-	})
+	return g.cfg.Compile(ctx, g.cfg.DB, compiler.Config{Channel: ch, Calculation: c})
 }
 
 // resolveBaseDependencies recursively resolves all dependencies to find the concrete
@@ -1189,11 +1182,9 @@ func (g *Graph) fetchDependencyDiagnostics(
 	c calculation.Calculation,
 ) ([]channel.Channel, map[channel.Key]calculation.Calculation) {
 	// Try preProcess to discover channel references from the expression
-	prog, preErr := compiler.PreProcess(ctx, g.cfg.DB, compiler.Config{
-		ChannelService: g.cfg.Channel,
-		Channel:        ch,
-		Calculation:    c,
-		STL:            g.stl,
+	prog, preErr := g.cfg.Calculation.PreProcess(ctx, g.cfg.DB, compiler.Config{
+		Channel:     ch,
+		Calculation: c,
 	})
 	if preErr != nil || len(prog.Functions) == 0 {
 		return nil, nil

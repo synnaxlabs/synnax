@@ -16,14 +16,10 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/coalesce"
 	"github.com/synnaxlabs/x/config"
@@ -62,10 +58,8 @@ type Graph struct {
 	svc          *channel.Service
 	calculations *calculation.Service
 	status       *status.Service
-	// stl holds the Arc standard library symbols, which every analysis shares.
-	stl        []*symbol.Symbol
-	obs        observe.Observer[Changes]
-	disconnect observe.Disconnect
+	obs          observe.Observer[Changes]
+	disconnect   observe.Disconnect
 	// disconnectCalculations stops the observation of the calculation table.
 	disconnectCalculations observe.Disconnect
 	// outputs maps the key of each calculation to the key of its output, so a delete of
@@ -153,7 +147,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 		svc:             cfg.Channel,
 		calculations:    cfg.Calculation,
 		status:          cfg.Status,
-		stl:             stl.NewSymbols(),
 		obs:             observe.New[Changes](),
 	}
 	g.mu.nodes = make(map[channel.Key]node)
@@ -480,7 +473,7 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 		nextDependents map[channel.Key]set.Set[channel.Key]
 		nextUnresolved map[string]set.Set[channel.Key]
 	)
-	analyzer := g.newAnalyzer(tx)
+	analyzer := g.calculations.NewAnalyzer(tx)
 	statuses := make(map[channel.Key]*calculation.Status)
 	for {
 		changed := false
@@ -592,7 +585,7 @@ func (g *Graph) handleChanges(
 	)
 	g.mu.Lock()
 	err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
-		analyzer := g.newAnalyzer(tx)
+		analyzer := g.calculations.NewAnalyzer(tx)
 		queued := make(set.Set[channel.Key])
 		var unresolvedNames []string
 		calcs, err := g.calculations.Outputs(
@@ -766,12 +759,6 @@ func (g *Graph) clearNodeStatus(
 	}
 }
 
-func (g *Graph) newAnalyzer(tx gorp.Tx) *compiler.Analyzer {
-	return compiler.NewAnalyzer(resolver.New(g.svc, tx), g.stl, parser.Config{
-		AllowDashedNames: resolver.AllowDashedNames(g.svc),
-	})
-}
-
 func (g *Graph) inspectNode(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -780,7 +767,7 @@ func (g *Graph) inspectNode(
 	analyzer *compiler.Analyzer,
 ) (node, error) {
 	if analyzer == nil {
-		analyzer = g.newAnalyzer(tx)
+		analyzer = g.calculations.NewAnalyzer(tx)
 	}
 	if ch.Key() == 0 {
 		return node{}, errors.Newf("channel %q has no key, cannot inspect", ch.Name)
