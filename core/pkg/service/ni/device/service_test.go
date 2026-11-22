@@ -514,6 +514,15 @@ var _ = Describe("Service", func() {
 			Entry("a hyphen", "dev-1"),
 		)
 
+		It("Should refuse to create a device with an invalid identifier", func(
+			ctx SpecContext,
+		) {
+			d := newDevice()
+			d.Identifier = "1dev"
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).
+				To(MatchError(ContainSubstring(identifierMessage)))
+		})
+
 		DescribeTable("Should accept a valid identifier",
 			func(ctx SpecContext, identifier string) {
 				d := create(ctx)
