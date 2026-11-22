@@ -68,10 +68,10 @@ class OpModeChoice(BaseModel):
     index: int = Field(ge=0, le=65535)
     assign_activate: int = Field(ge=0, le=65535)
     sync0_cycle: telem.TimeSpan = Field(
-        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+        default=telem.TimeSpan(0), ge=0, le=9223372036854775807
     )
     sync1_cycle: telem.TimeSpan = Field(
-        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+        default=telem.TimeSpan(0), ge=0, le=9223372036854775807
     )
 
 

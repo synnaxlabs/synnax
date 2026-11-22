@@ -87,14 +87,16 @@ OpModeChoice struct {
         """
     }
     sync0_cycle     telem.TimeSpan = 0 {
-        @doc value """
+        @doc value    """
             replaces the SYNC0 cycle of the mode. 0 keeps the cycle of the mode.
         """
+        @validate min 0
     }
     sync1_cycle     telem.TimeSpan = 0 {
-        @doc value """
+        @doc value    """
             replaces the SYNC1 cycle of the mode. 0 keeps the cycle of the mode.
         """
+        @validate min 0
     }
 
     @doc value  "is the synchronization mode that the user chose for a slave."

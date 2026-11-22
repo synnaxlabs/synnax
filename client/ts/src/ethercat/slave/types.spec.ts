@@ -55,6 +55,7 @@ describe("slaveZ", () => {
       startupParameters: [
         { index: 0x8000, subIndex: 1, dataType: "uint16", value: 500 },
       ],
+      opMode: { index: 0, assignActivate: 0x300, sync0Cycle: 1000 },
     });
     expect(slave.pdos.inputs[0].pdoName).toBeUndefined();
     expect(slave.readBindings[0].samples).toEqual("raw");
@@ -63,6 +64,7 @@ describe("slaveZ", () => {
       dataType: "uint16",
       value: 500,
     });
+    expect(slave.opMode?.sync0Cycle.nanoseconds).toEqual(1000);
   });
 
   const ENTRY = { name: "Value", index: 0x6000, subIndex: 1, dataType: "int16" };
@@ -95,6 +97,10 @@ describe("slaveZ", () => {
           { index: 0x8000, subIndex: 1, dataType: "uint8", value: 256 },
         ],
       },
+    ],
+    [
+      "a negative SYNC0 cycle",
+      { opMode: { index: 0, assignActivate: 0x300, sync0Cycle: -1 } },
     ],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {
