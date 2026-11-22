@@ -16,31 +16,42 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Split breaker", func() {
-	It("Should keep a name with a brace in a nested backtick format string", func() {
-		segments := MustSucceed(literal.FmtStrSplit(
-			"{f`{'a}b'}`}",
-			literal.StringFlags{Format: true},
-		))
-		Expect(segments).To(HaveLen(1))
-		Expect(segments[0].IsPlaceholder).To(BeTrue())
-		Expect(segments[0].Text).To(Equal("f`{'a}b'}`"))
-	})
+// A format string nested in a placeholder is a string to the outer split, so a quote in
+// it opens no name and each brace in it counts. A name that holds a brace is not
+// supported there.
+var _ = Describe("Nested format string names", func() {
+	It(
+		"Should close the outer placeholder at a brace in a nested backtick name",
+		func() {
+			segments := MustSucceed(literal.FmtStrSplit(
+				"{f`{'a}b'}`}",
+				literal.StringFlags{Format: true},
+			))
+			Expect(segments).To(HaveLen(2))
+			Expect(segments[0].IsPlaceholder).To(BeTrue())
+			Expect(segments[0].Text).To(Equal("f`{'a}b'"))
+			Expect(segments[1].IsPlaceholder).To(BeFalse())
+			Expect(segments[1].Text).To(Equal("`}"))
+		},
+	)
 
-	It("Should keep a name with a brace in a nested escaped format string", func() {
-		segments := MustSucceed(literal.FmtStrSplit(
-			`{f\"{'a}b'}\"}`,
-			literal.StringFlags{Format: true},
-		))
-		Expect(segments).To(HaveLen(1))
-		Expect(segments[0].IsPlaceholder).To(BeTrue())
-		Expect(segments[0].Text).To(Equal(`f"{'a}b'}"`))
-	})
+	It(
+		"Should close the outer placeholder at a brace in a nested escaped name",
+		func() {
+			segments := MustSucceed(literal.FmtStrSplit(
+				`{f\"{'a}b'}\"}`,
+				literal.StringFlags{Format: true},
+			))
+			Expect(segments).To(HaveLen(2))
+			Expect(segments[0].IsPlaceholder).To(BeTrue())
+			Expect(segments[0].Text).To(Equal(`f"{'a}b'`))
+			Expect(segments[1].IsPlaceholder).To(BeFalse())
+			Expect(segments[1].Text).To(Equal(`"}`))
+		},
+	)
 
-	It("Should close a placeholder whose nested format string names 'a{b'", func() {
-		segments := MustSucceed(literal.FmtStrParse("{f`{'a{b'}`} and {x}"))
-		Expect(segments).To(HaveLen(3))
-		Expect(segments[0].Text).To(Equal("f`{'a{b'}`"))
-		Expect(segments[2].Text).To(Equal("x"))
+	It("Should reject a nested name that opens a brace", func() {
+		Expect(literal.FmtStrParse("{f`{'a{b'}`} and {x}")).Error().
+			To(MatchError(ContainSubstring("unmatched '{'")))
 	})
 })
