@@ -11,7 +11,7 @@ import { DataType, log } from "@synnaxlabs/client";
 import { aether, canvas } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Log } from "@/feature/log";
@@ -30,6 +30,8 @@ class WorkerStub extends aether.Leaf<typeof stateZ> {
 const REGISTRY = { [WorkerStub.TYPE]: WorkerStub };
 
 const { Content } = Log.TABS[log.TYPE_RESOURCE_ID.type];
+
+beforeAll(Content.preload);
 
 describe("Log tab content", () => {
   it("asks for channels when the log has none", async () => {
