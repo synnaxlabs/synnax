@@ -112,7 +112,7 @@ func (h *handle) newest(c *clock) error {
 		if inside(c.last[k]) {
 			return nil
 		}
-		name := fileName(c.key, p.file)
+		name := p.name(c.key)
 		if !inside(c.first[k]) {
 			h.l.Warn(
 				"dropped the newest pointer of an index, whose first stamp is outside "+
@@ -157,7 +157,7 @@ func (h *handle) newest(c *clock) error {
 func (h *handle) stamp(c *clock, k int, pos uint32) (telem.TimeStamp, error) {
 	p := c.ptrs[k]
 	b, err := h.agreed(
-		fileName(c.key, p.file),
+		p.name(c.key),
 		int64(p.offset)+int64(pos)*stampSize,
 		stampSize,
 	)
@@ -254,7 +254,7 @@ func (h *handle) split(
 	c *clock,
 	d pointer,
 ) error {
-	name, off, end := fileName(key, d.file), d.offset, d.offset+d.size
+	name, off, end := d.name(key), d.offset, d.offset+d.size
 	k, pos, first, err := h.start(c, d)
 	if err != nil {
 		return err

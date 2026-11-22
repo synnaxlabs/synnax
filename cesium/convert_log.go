@@ -56,7 +56,12 @@ func (e *engine) convert(o *options, db uint64) (*state.Snapshot, error) {
 			olds = append(olds, segmentName(ch.Key, seg.ID, seg.File))
 		}
 	}
-	return snapshot, e.budget.SyncFiles(o.fs, slices.Concat(names, olds), dirs)
+	// The channel files exist, so oldFS opens them as o.fs does.
+	return snapshot, e.budget.SyncFiles(
+		oldFS{FS: o.fs},
+		slices.Concat(names, olds),
+		dirs,
+	)
 }
 
 // liveIntents returns the keys of the live delete intents in the intents file of the

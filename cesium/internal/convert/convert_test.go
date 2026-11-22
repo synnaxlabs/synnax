@@ -369,6 +369,47 @@ var _ = Describe("Read", func() {
 		Expect(p.Snapshot.Intents).To(Equal([]uint32{2, 4, 9}))
 	})
 
+	Describe("Files of an old compaction", func() {
+		It("Should read a missing old file from the file that an old compaction "+
+			"renamed it to", func() {
+			root.channel(idx(1))
+			root.write("1/1.domain_temp", stamps(1, 2, 3))
+			root.pointers(1, old{1, 4, 1, 0, 24})
+			s, _ := read()
+			Expect(s.Channels[0].Segments[0]).To(SatisfyAll(
+				HaveField("File", BeEquivalentTo(1)),
+				HaveField(
+					"Pointers",
+					Equal([]state.Pointer{ptr(1, 3, 1, 0, 0, 24, 3)}),
+				),
+			))
+		})
+
+		It("Should read an old file that exists, and not the files of an old "+
+			"compaction", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 2, 3))
+			root.write("1/1.domain_temp", stamps(7, 8, 9))
+			root.write("1/1.domain_gc", stamps(4, 5, 6))
+			root.pointers(1, old{1, 4, 1, 0, 24})
+			s, _ := read()
+			Expect(s.Channels[0].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 3, 1, 0, 0, 24, 3)},
+			))
+		})
+
+		It("Should cut a pointer past the end of the file that an old compaction "+
+			"renamed its file to", func() {
+			root.channel(idx(1))
+			root.write("1/1.domain_temp", stamps(1, 2))
+			root.pointers(1, old{1, 4, 1, 0, 24})
+			s, _ := read()
+			Expect(s.Channels[0].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 2, 1, 0, 0, 16, 2)},
+			))
+		})
+	})
+
 	Describe("Cuts", func() {
 		var logs *observer.ObservedLogs
 		BeforeEach(func() {
@@ -380,8 +421,9 @@ var _ = Describe("Read", func() {
 		})
 		// warned returns the fields of each warning with the message msg.
 		warned := func(msg string) []map[string]any {
-			var fields []map[string]any
-			for _, e := range logs.FilterMessage(msg).All() {
+			entries := logs.FilterMessage(msg).All()
+			fields := make([]map[string]any, 0, len(entries))
+			for _, e := range entries {
 				fields = append(fields, e.ContextMap())
 			}
 			return fields

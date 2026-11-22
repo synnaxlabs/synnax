@@ -11,6 +11,7 @@ package cesium_test
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -36,30 +38,44 @@ import (
 
 // oldPointer is a pointer of an old index.domain file.
 type oldPointer struct {
+	start, end   telem.TimeStamp
 	file         uint16
 	offset, size int64
+}
+
+// oldPointers returns the pointers of the index.domain file of key, in rising order of
+// start.
+func oldPointers(fs xfs.FS, key cesium.ChannelKey) []oldPointer {
+	GinkgoHelper()
+	b := fileBytes(fs, fmt.Sprintf("%d/index.domain", key))
+	ptrs := make([]oldPointer, 0, len(b)/26)
+	for i := 0; i+26 <= len(b); i += 26 {
+		ptrs = append(ptrs, oldPointer{
+			start:  telem.TimeStamp(binary.LittleEndian.Uint64(b[i:])),
+			end:    telem.TimeStamp(binary.LittleEndian.Uint64(b[i+8:])),
+			file:   binary.LittleEndian.Uint16(b[i+16:]),
+			offset: int64(binary.LittleEndian.Uint32(b[i+18:])),
+			size:   int64(binary.LittleEndian.Uint32(b[i+22:])),
+		})
+	}
+	slices.SortFunc(
+		ptrs,
+		func(a, b oldPointer) int { return cmp.Compare(a.start, b.start) },
+	)
+	return ptrs
 }
 
 // newestPointer returns the pointer with the latest start in the index.domain file of
 // key.
 func newestPointer(fs xfs.FS, key cesium.ChannelKey) oldPointer {
 	GinkgoHelper()
-	b := fileBytes(fs, fmt.Sprintf("%d/index.domain", key))
-	var (
-		p     oldPointer
-		start uint64
-	)
-	for i := 0; i+26 <= len(b); i += 26 {
-		if s := binary.LittleEndian.Uint64(b[i:]); i == 0 || s > start {
-			start = s
-			p = oldPointer{
-				file:   binary.LittleEndian.Uint16(b[i+16:]),
-				offset: int64(binary.LittleEndian.Uint32(b[i+18:])),
-				size:   int64(binary.LittleEndian.Uint32(b[i+22:])),
-			}
-		}
-	}
-	return p
+	ptrs := oldPointers(fs, key)
+	return ptrs[len(ptrs)-1]
+}
+
+// oldName returns the name of the old file of p in the directory of key.
+func oldName(key cesium.ChannelKey, p oldPointer) string {
+	return fmt.Sprintf("%d/%d.domain", key, p.file)
 }
 
 // fileBytes returns the bytes of the file name of fs.
@@ -145,96 +161,126 @@ const (
 		"time range"
 )
 
+// The keys and the sample count of the root that writeOld writes.
+const (
+	oldIdx cesium.ChannelKey = 1
+	oldI32 cesium.ChannelKey = 2
+	oldStr cesium.ChannelKey = 3
+	oldN                     = 40
+)
+
+// oldSamples are the samples of each key that writeOld writes.
+type oldSamples struct {
+	stamps []telem.TimeStamp
+	ints   []int32
+	strs   []string
+}
+
+// writeOld writes oldN samples of an index, an int32 key, and a string key timed by it
+// to fs on the old layout, in small files so that each key rolls over at its own
+// commits, and makes them durable.
+func writeOld(ctx context.Context, disk *fault.FS) oldSamples {
+	GinkgoHelper()
+	db := openDBOnFS(ctx, disk, cesium.WithFileSizeCap(48*telem.Byte))
+	Expect(db.CreateChannel(
+		ctx,
+		cesium.Channel{
+			Key:      oldIdx,
+			Name:     "time",
+			IsIndex:  true,
+			DataType: telem.TimestampT,
+		},
+		cesium.Channel{Key: oldI32, Name: "i32", Index: oldIdx, DataType: telem.Int32T},
+		cesium.Channel{
+			Key:      oldStr,
+			Name:     "str",
+			Index:    oldIdx,
+			DataType: telem.StringT,
+		},
+	)).To(Succeed())
+	o := oldSamples{
+		stamps: make([]telem.TimeStamp, oldN),
+		ints:   make([]int32, oldN),
+		strs:   make([]string, oldN),
+	}
+	for i := range oldN {
+		o.stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+		o.ints[i] = int32(i + 1)
+		o.strs[i] = strings.Repeat("x", i%7+1)
+	}
+	keys := []cesium.ChannelKey{oldIdx, oldI32, oldStr}
+	w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+		Channels: keys,
+		Start:    o.stamps[0],
+	}))
+	for c := 0; c < oldN; c += 5 {
+		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+			telem.NewSeries(o.stamps[c : c+5]),
+			telem.NewSeries(o.ints[c : c+5]),
+			telem.NewSeries(o.strs[c : c+5]),
+		}), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+	}
+	Expect(w.Close()).To(Succeed())
+	Expect(db.Close()).To(Succeed())
+	disk.Writeback()
+	return o
+}
+
+// bytes returns the bytes of each key that a read returns when it lost the last
+// lost[key] samples of the key.
+func (o oldSamples) bytes(lost map[cesium.ChannelKey]int) map[cesium.ChannelKey][]byte {
+	return map[cesium.ChannelKey][]byte{
+		oldIdx: telem.NewSeries(o.stamps[:oldN-lost[oldIdx]]).Data,
+		oldI32: telem.NewSeries(o.ints[:oldN-lost[oldI32]]).Data,
+		oldStr: telem.NewSeries(o.strs[:oldN-lost[oldStr]]).Data,
+	}
+}
+
+// openConverted opens fs on the pointer log as openSeeded does, with ins, and runs the
+// DB until the returned close.
+func openConverted(
+	ctx context.Context,
+	fs xfs.FS,
+	ins alamos.Instrumentation,
+) (*cesium.DB, func() error) {
+	GinkgoHelper()
+	db := MustSucceed(cesium.Open(
+		ctx,
+		"",
+		cesium.WithFS(fs),
+		cesium.WithPointerLog(),
+		cesium.WithRandom(rand.NewPCG(1, 2)),
+		cesium.WithIdentity(rand.NewPCG(1, 2).Uint64()),
+		cesium.WithInstrumentation(ins),
+	))
+	stop := GoRun(ctx, db.Run)
+	return db, func() error { return errors.Join(stop(), db.Close()) }
+}
+
 var _ = Describe("Conversion of damaged tails", func() {
 	const (
-		idx cesium.ChannelKey = 1
-		i32 cesium.ChannelKey = 2
-		str cesium.ChannelKey = 3
-		n                     = 40
+		idx = oldIdx
+		i32 = oldI32
+		str = oldStr
 	)
 	var (
-		keys   = []cesium.ChannelKey{idx, i32, str}
-		disk   *fault.FS
-		stamps []telem.TimeStamp
-		ints   []int32
-		strs   []string
+		keys = []cesium.ChannelKey{idx, i32, str}
+		disk *fault.FS
+		old  oldSamples
 	)
 	BeforeEach(func(ctx SpecContext) {
 		disk = MustSucceed(fault.New(fault.Config{}))
-		// Small files roll each key over at its own commits.
-		db := openDBOnFS(ctx, disk, cesium.WithFileSizeCap(48*telem.Byte))
-		Expect(db.CreateChannel(
-			ctx,
-			cesium.Channel{
-				Key:      idx,
-				Name:     "time",
-				IsIndex:  true,
-				DataType: telem.TimestampT,
-			},
-			cesium.Channel{Key: i32, Name: "i32", Index: idx, DataType: telem.Int32T},
-			cesium.Channel{Key: str, Name: "str", Index: idx, DataType: telem.StringT},
-		)).To(Succeed())
-		stamps, ints, strs = make([]telem.TimeStamp, n), make([]int32, n), make(
-			[]string,
-			n,
-		)
-		for i := range n {
-			stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
-			ints[i] = int32(i + 1)
-			strs[i] = strings.Repeat("x", i%7+1)
-		}
-		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-			Channels: keys,
-			Start:    stamps[0],
-		}))
-		for c := 0; c < n; c += 5 {
-			MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
-				telem.NewSeries(stamps[c : c+5]),
-				telem.NewSeries(ints[c : c+5]),
-				telem.NewSeries(strs[c : c+5]),
-			}), nil))
-			MustSucceed2(w.Commit(ctx, nil))
-		}
-		Expect(w.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
+		old = writeOld(ctx, disk)
 		// The cuts below need more stamps and samples in each newest pointer than they
 		// cut.
 		Expect(newestPointer(disk, idx).size / 8).To(BeNumerically(">", 2))
 		Expect(newestPointer(disk, i32).size / 4).To(BeNumerically(">", 3))
 	})
-
-	// expected returns the bytes of each key that a read returns when it lost the last
-	// lost[key] samples.
-	expected := func(lost map[cesium.ChannelKey]int) map[cesium.ChannelKey][]byte {
-		return map[cesium.ChannelKey][]byte{
-			idx: telem.NewSeries(stamps[:n-lost[idx]]).Data,
-			i32: telem.NewSeries(ints[:n-lost[i32]]).Data,
-			str: telem.NewSeries(strs[:n-lost[str]]).Data,
-		}
-	}
-	// openConverted opens fs on the pointer log as openSeeded does, with ins.
-	openConverted := func(
-		ctx context.Context,
-		fs xfs.FS,
-		ins alamos.Instrumentation,
-	) (*cesium.DB, func() error) {
-		GinkgoHelper()
-		db := MustSucceed(cesium.Open(
-			ctx,
-			"",
-			cesium.WithFS(fs),
-			cesium.WithPointerLog(),
-			cesium.WithRandom(rand.NewPCG(1, 2)),
-			cesium.WithIdentity(rand.NewPCG(1, 2).Uint64()),
-			cesium.WithInstrumentation(ins),
-		))
-		stop := GoRun(ctx, db.Run)
-		return db, func() error { return errors.Join(stop(), db.Close()) }
-	}
 	// file returns the name of the old file of the newest pointer of key.
 	file := func(key cesium.ChannelKey) (string, oldPointer) {
 		p := newestPointer(disk, key)
-		return fmt.Sprintf("%d/%d.domain", key, p.file), p
+		return oldName(key, p), p
 	}
 
 	DescribeTable("Should read the whole samples that a damaged tail keeps, and log "+
@@ -248,7 +294,7 @@ var _ = Describe("Conversion of damaged tails", func() {
 		disk.Writeback()
 		ins, logs := ObservedInstrumentation(zapcore.WarnLevel)
 		db, closeDB := openConverted(ctx, disk, ins)
-		Expect(dataOf(ctx, db, keys)).To(Equal(expected(lost)))
+		Expect(dataOf(ctx, db, keys)).To(Equal(old.bytes(lost)))
 		Expect(closeDB()).To(Succeed())
 		for msg, count := range cuts {
 			Expect(logs.FilterMessage(msg).Len()).To(Equal(count), msg)
@@ -285,7 +331,7 @@ var _ = Describe("Conversion of damaged tails", func() {
 		name, p = file(idx)
 		zero(disk, name, p.offset+p.size-2*8, 2*8)
 		disk.Writeback()
-		want := expected(map[cesium.ChannelKey]int{idx: 2, i32: 3, str: 2})
+		want := old.bytes(map[cesium.ChannelKey]int{idx: 2, i32: 3, str: 2})
 		before := MustSucceed(oldFiles(disk))
 		c := &crashes{disk: disk, taking: true, check: func(image *fault.FS) error {
 			if err := sameOldFiles(image, before); err != nil {

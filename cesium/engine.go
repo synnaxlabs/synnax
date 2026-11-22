@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -69,7 +70,11 @@ type engine struct {
 	failure error
 	failing sync.Once
 	// stored holds the keys that held a segment when recovery ended.
-	stored   set.Set[ChannelKey]
+	stored set.Set[ChannelKey]
+	// loaded is true when open loaded a head. With the identity check, the caller then
+	// stored the identity of the head, and the orphan pass removes the leftovers of the
+	// old layout.
+	loaded   bool
 	shutdown sync.Once
 	closeErr error
 	pins     pins
@@ -127,6 +132,7 @@ func openEngine(o *options) (*engine, error) {
 		failed:   make(chan struct{}),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 		partSize: o.partSize,
+		loaded:   snapshot != nil,
 	}
 	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]state.Dead)
 	e.pins.parts, e.pins.keys = make(map[uint64]int), make(map[ChannelKey]int)
@@ -521,9 +527,74 @@ func segmentName(key ChannelKey, id uint64, n uint16) string {
 	return fmt.Sprintf("%d/%016x.seg", key, id)
 }
 
+// openSegment returns the handle of the file of segment seg of key.
+func (e *engine) openSegment(key ChannelKey, seg state.Segment) *segment.Handle {
+	return e.budget.Open(e.segmentFS(seg.File), segmentName(key, seg.ID, seg.File))
+}
+
+// segmentFS returns the file system that opens the file of a segment whose old file is
+// n: e.fs, or for a version 0 segment, oldFS of e.fs.
+func (e *engine) segmentFS(n uint16) xfs.FS {
+	if n == 0 {
+		return e.fs
+	}
+	return oldFS{FS: e.fs}
+}
+
+// oldFS opens an old file N.domain that is missing from the file that an old
+// compaction renamed it to, N.domain_temp. The first open that loads a head renames
+// that file to N.domain at any time, so an open tries N.domain, then N.domain_temp,
+// then N.domain once more, and one of them finds a file that exists under either name.
+type oldFS struct{ xfs.FS }
+
+func (f oldFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if !errors.Is(err, os.ErrNotExist) {
+		return file, err
+	}
+	if file, err = f.FS.Open(name+tempSuffix, flag); !errors.Is(err, os.ErrNotExist) {
+		return file, err
+	}
+	return f.FS.Open(name, flag)
+}
+
+// removeSegment removes the file of segment id of key, whose old file is n. For a
+// version 0 segment, it tries the names in the order of oldFS, and removes
+// N.domain_temp only when N.domain is missing.
+func (e *engine) removeSegment(key ChannelKey, id uint64, n uint16) error {
+	name := segmentName(key, id, n)
+	if n == 0 {
+		return e.fs.Remove(name)
+	}
+	ok, err := e.fs.Exists(name)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return e.fs.Remove(name)
+	}
+	if err = e.fs.Remove(name + tempSuffix); err != nil {
+		return err
+	}
+	return e.fs.Remove(name)
+}
+
+// The leftovers of the old layout in a channel directory. An old compaction of file N
+// copies its live bytes to N.domain_gc, renames N.domain to N.domain_temp, and renames
+// the copy to N.domain, with no sync, so either file can hold the only bytes of N that
+// the old pointers match. An old truncate copies the bytes that it cuts to a file with
+// the suffix .truncated.tmp, which it renames once whole.
+const (
+	tempSuffix         = "_temp"
+	gcSuffix           = "_gc"
+	truncatedTmpSuffix = ".truncated.tmp"
+)
+
 // orphans removes each segment and check file of a channel directory that snapshot does
-// not name, and cuts each named segment file to its committed length. The checkpointer
-// cleans the root.
+// not name, and cuts each named segment file to its committed length. On an open that
+// loaded a head, it also removes the leftovers of the old layout that hold no data, and
+// moves each old file that the conversion read from its compaction file into place.
+// The checkpointer cleans the root.
 func (e *engine) orphans(snapshot *state.Snapshot) error {
 	named := make(map[string]state.Segment)
 	for _, ch := range snapshot.Channels {
@@ -535,7 +606,15 @@ func (e *engine) orphans(snapshot *state.Snapshot) error {
 	if err != nil {
 		return err
 	}
+	removed := false
 	for _, info := range infos {
+		if e.loaded && info.IsDir() && strings.Contains(info.Name(), deletedDirSuffix) {
+			if err = e.fs.Remove(info.Name()); err != nil {
+				return err
+			}
+			removed = true
+			continue
+		}
 		key, err := strconv.ParseUint(info.Name(), 10, 32)
 		if err != nil || !info.IsDir() {
 			continue
@@ -543,6 +622,9 @@ func (e *engine) orphans(snapshot *state.Snapshot) error {
 		if err = e.orphansOf(ChannelKey(key), named); err != nil {
 			return err
 		}
+	}
+	if removed {
+		return e.fs.SyncDir("")
 	}
 	return nil
 }
@@ -553,31 +635,25 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 	if err != nil {
 		return err
 	}
-	removed := false
-	var parted map[uint64]state.Segment
+	d := &orphanDir{e: e, key: key, named: named}
+	changed := false
 	for _, info := range infos {
 		name := dir + "/" + info.Name()
-		if !strings.HasSuffix(name, ".seg") && !strings.HasSuffix(name, ".chk") {
+		left, moved, err := e.leftover(d, name, infos)
+		if err != nil {
+			return err
+		}
+		changed = changed || moved
+		if left ||
+			!strings.HasSuffix(name, ".seg") && !strings.HasSuffix(name, ".chk") {
 			continue
 		}
-		seg, ok := named[name]
-		if !ok && e.opened != nil && strings.HasSuffix(name, ".seg") {
-			if id, err := strconv.ParseUint(
-				strings.TrimSuffix(info.Name(), ".seg"),
-				16,
-				64,
-			); err == nil {
-				if parted == nil {
-					parted = e.opened.Live(key)
-				}
-				seg, ok = parted[id]
-			}
-		}
+		seg, ok := d.segment(name, info)
 		if !ok {
 			if err = e.fs.Remove(name); err != nil {
 				return err
 			}
-			removed = true
+			changed = true
 			continue
 		}
 		if end := e.segmentConfig(seg).
@@ -587,10 +663,121 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 			}
 		}
 	}
-	if removed {
+	if changed {
 		return e.fs.SyncDir(dir)
 	}
 	return nil
+}
+
+// orphanDir is the channel directory of key in the orphan pass, with the segments of
+// key that the head names.
+type orphanDir struct {
+	e      *engine
+	key    ChannelKey
+	named  map[string]state.Segment
+	parted map[uint64]state.Segment
+}
+
+// live returns the segments of the key that the parts of the head that open loaded
+// hold, or nil.
+func (d *orphanDir) live() map[uint64]state.Segment {
+	if d.parted == nil && d.e.opened != nil {
+		d.parted = d.e.opened.Live(d.key)
+	}
+	return d.parted
+}
+
+// segment returns the segment whose file is name, a file of the directory with info.
+func (d *orphanDir) segment(name string, info xfs.FileInfo) (state.Segment, bool) {
+	if seg, ok := d.named[name]; ok {
+		return seg, true
+	}
+	hex, ok := strings.CutSuffix(info.Name(), ".seg")
+	if !ok {
+		return state.Segment{}, false
+	}
+	id, err := strconv.ParseUint(hex, 16, 64)
+	if err != nil {
+		return state.Segment{}, false
+	}
+	seg, ok := d.live()[id]
+	return seg, ok
+}
+
+// namesOld reports whether the head names a version 0 segment whose old file is old.
+func (d *orphanDir) namesOld(old string) bool {
+	if _, ok := d.named[old]; ok {
+		return true
+	}
+	n, err := strconv.ParseUint(strings.TrimSuffix(path.Base(old), ".domain"), 10, 16)
+	if err != nil {
+		return false
+	}
+	for _, seg := range d.live() {
+		if seg.File == uint16(n) {
+			return true
+		}
+	}
+	return false
+}
+
+// leftover handles name when it is a leftover of the old layout among infos, the files
+// of its directory. It reports whether name is one, and whether it changed the
+// directory. On an open that loaded a head, it removes a truncate copy.
+func (e *engine) leftover(
+	d *orphanDir,
+	name string,
+	infos []xfs.FileInfo,
+) (bool, bool, error) {
+	switch {
+	case strings.HasSuffix(name, truncatedTmpSuffix):
+		if !e.loaded {
+			return true, false, nil
+		}
+		return true, true, e.fs.Remove(name)
+	case strings.HasSuffix(name, tempSuffix), strings.HasSuffix(name, gcSuffix):
+		return true, e.oldCompaction(d, name, infos), nil
+	}
+	return false, false, nil
+}
+
+// oldCompaction handles name, a file of an old compaction among infos, the files of its
+// directory d. On the open that converts, it logs the file, which it keeps. On an open
+// that loaded a head, it renames N.domain_temp to N.domain when N.domain is missing and
+// the head names N, and reports whether it did. It never removes such a file.
+func (e *engine) oldCompaction(d *orphanDir, name string, infos []xfs.FileInfo) bool {
+	old, temp := strings.CutSuffix(name, tempSuffix)
+	missing := temp && !slices.ContainsFunc(infos, func(info xfs.FileInfo) bool {
+		return info.Name() == path.Base(old)
+	})
+	if !e.loaded {
+		e.ins.L.Warn(
+			"kept a file of an old compaction, which can hold the bytes of an old file",
+			zap.String("file", name),
+			zap.Bool("read", missing),
+		)
+		return false
+	}
+	if !missing || !d.namesOld(old) {
+		return false
+	}
+	// A reader can hold the file open, and Windows then refuses the rename. The next
+	// open tries again, and oldFS finds the file under either name meanwhile.
+	if err := e.fs.Rename(name, old); err != nil {
+		e.ins.L.Warn(
+			"failed to move the file that the conversion read for a missing old file "+
+				"into place",
+			zap.String("file", name),
+			zap.Error(err),
+		)
+		return false
+	}
+	e.ins.L.Info(
+		"moved the file that the conversion read for a missing old file into place",
+		zap.String("file", name),
+		zap.String("to", old),
+	)
+	return true
 }
 
 // cut cuts the file name to size. The bytes past the committed length of a segment are

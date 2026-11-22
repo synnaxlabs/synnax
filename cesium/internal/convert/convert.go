@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package convert reads a root of the old layout and builds the state of its first
-// head. It reads only numbered .domain files and the metadata files, writes nothing,
-// and uses the bytes of an old file only when two reads of them agree.
+// head. It reads only numbered .domain files, the file that an old compaction renamed a
+// missing one to, and the metadata files. It writes nothing, and uses the bytes of an
+// old file only when two reads of them agree.
 package convert
 
 import (
@@ -251,12 +252,25 @@ const pointerSize = 26
 // pointer is a pointer of an old index.domain file. Its time range does not hold
 // stamps: end is exclusive, and the old writer can start or end a range between
 // samples. cut is true when the pointer ended past its file, so it can hold fewer
-// samples than its range has stamps.
+// samples than its range has stamps. temp is true when its old file is missing, so it
+// reads the file that an old compaction renamed aside.
 type pointer struct {
 	start, end   telem.TimeStamp
 	file         uint16
 	offset, size uint32
-	cut          bool
+	cut, temp    bool
+}
+
+// tempSuffix ends the name that an old compaction gives a data file while it moves the
+// compacted copy into place.
+const tempSuffix = "_temp"
+
+// name returns the name of the file that p reads in the directory of key.
+func (p pointer) name(key uint32) string {
+	if p.temp {
+		return fileName(key, p.file) + tempSuffix
+	}
+	return fileName(key, p.file)
 }
 
 // pointers reads the pointers of key, in rising order of start. A pointer that ends
@@ -275,7 +289,7 @@ func (r *reader) pointers(key uint32, density telem.Density) (_ []pointer, err e
 	h := &handle{fs: r.FS, l: r.L}
 	defer func() { err = errors.Join(err, h.close()) }()
 	ptrs := make([]pointer, 0, len(b)/pointerSize)
-	sizes := make(map[uint16]int64)
+	files := make(map[uint16]oldFile)
 	for i := 0; i+pointerSize <= len(b); i += pointerSize {
 		p := pointer{
 			start:  telem.TimeStamp(binary.LittleEndian.Uint64(b[i:])),
@@ -287,14 +301,15 @@ func (r *reader) pointers(key uint32, density telem.Density) (_ []pointer, err e
 		if p.size == 0 {
 			continue
 		}
-		file := fileName(key, p.file)
-		size, ok := sizes[p.file]
+		f, ok := files[p.file]
 		if !ok {
-			if size, err = r.fileSize(file); err != nil {
+			if f, err = r.oldFile(key, p.file); err != nil {
 				return nil, err
 			}
-			sizes[p.file] = size
+			files[p.file] = f
 		}
+		p.temp = f.temp
+		file, size := p.name(key), f.size
 		if density != 0 && int64(p.size)%int64(density) != 0 {
 			return nil, errors.Newf(
 				"a pointer of key %d at %d of %s holds %d bytes, not whole samples",
@@ -304,23 +319,13 @@ func (r *reader) pointers(key uint32, density telem.Density) (_ []pointer, err e
 				p.size,
 			)
 		}
-		if end := int64(p.offset) + int64(p.size); end > size {
-			kept, err := h.inside(file, int64(p.offset), size, density)
-			if err != nil {
+		if int64(p.offset)+int64(p.size) > size {
+			if p, err = h.cutPastFile(key, p, size, density); err != nil {
 				return nil, err
 			}
-			r.L.Warn(
-				"cut a pointer that ends past its file to the whole samples inside it",
-				zap.Uint32("key", key),
-				zap.String("file", file),
-				zap.Int64("end", end),
-				zap.Int64("length", size),
-				zap.Int64("kept", kept),
-			)
-			if kept == 0 {
+			if p.size == 0 {
 				continue
 			}
-			p.size, p.cut = uint32(kept), true
 		}
 		ptrs = append(ptrs, p)
 	}
@@ -331,16 +336,33 @@ func (r *reader) pointers(key uint32, density telem.Density) (_ []pointer, err e
 	return ptrs, nil
 }
 
-// fileSize returns the length of name, or zero when it does not exist.
-func (r *reader) fileSize(name string) (int64, error) {
+// oldFile is an old data file that pointers name.
+type oldFile struct {
+	size int64
+	temp bool
+}
+
+// oldFile returns old data file n of key. When the file is missing and the file that
+// an old compaction renamed it to exists, that file holds the bytes of n. The old
+// compaction renames n aside before it moves the compacted copy into place, and never
+// syncs. A missing file has length zero.
+func (r *reader) oldFile(key uint32, n uint16) (oldFile, error) {
+	name := fileName(key, n)
 	info, err := r.FS.Stat(name)
+	if err == nil {
+		return oldFile{size: info.Size()}, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return oldFile{}, err
+	}
+	info, err = r.FS.Stat(name + tempSuffix)
 	if errors.Is(err, os.ErrNotExist) {
-		return 0, nil
+		return oldFile{}, nil
 	}
 	if err != nil {
-		return 0, err
+		return oldFile{}, err
 	}
-	return info.Size(), nil
+	return oldFile{size: info.Size(), temp: true}, nil
 }
 
 // clockOf returns the key of the index that times the samples of ch.
@@ -381,6 +403,32 @@ type handle struct {
 	l    *alamos.Logger
 	f    xfs.File
 	name string
+}
+
+// cutPastFile cuts p, a pointer of key that ends past size, the length of its file, to
+// the whole samples of density inside the file, and logs the cut. A cut to no sample
+// leaves p.size zero.
+func (h *handle) cutPastFile(
+	key uint32,
+	p pointer,
+	size int64,
+	density telem.Density,
+) (pointer, error) {
+	file := p.name(key)
+	kept, err := h.inside(file, int64(p.offset), size, density)
+	if err != nil {
+		return p, err
+	}
+	h.l.Warn(
+		"cut a pointer that ends past its file to the whole samples inside it",
+		zap.Uint32("key", key),
+		zap.String("file", file),
+		zap.Int64("end", int64(p.offset)+int64(p.size)),
+		zap.Int64("length", size),
+		zap.Int64("kept", kept),
+	)
+	p.size, p.cut = uint32(kept), true
+	return p, nil
 }
 
 // inside returns the bytes of the whole samples of density from off of the file name

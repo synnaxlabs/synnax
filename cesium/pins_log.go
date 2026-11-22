@@ -170,17 +170,22 @@ func (e *engine) pinnedFiles(key ChannelKey) func(name string) bool {
 	}
 	names := set.New[string]()
 	for _, d := range e.pins.dead {
-		if ChannelKey(d.Key) == key {
-			names.Add(segmentName(key, d.Segment, d.File))
+		if d.Key == key {
+			name := segmentName(key, d.Segment, d.File)
+			names.Add(name)
+			if d.File != 0 {
+				names.Add(name + tempSuffix)
+			}
 		}
 	}
 	return names.Contains
 }
 
 // isSegmentFile reports whether name, a path in a channel directory, names the file of
-// a segment: a version 1 segment file, or an old file of a version 0 segment.
+// a segment: a version 1 segment file, or an old file of a version 0 segment under
+// either name of oldFS.
 func isSegmentFile(name string) bool {
-	base := path.Base(name)
+	base := strings.TrimSuffix(path.Base(name), tempSuffix)
 	if strings.HasSuffix(base, ".seg") {
 		return true
 	}
@@ -196,7 +201,7 @@ func isSegmentFile(name string) bool {
 func (e *engine) unlink(dead []state.Dead) error {
 	errs := make([]error, 0, len(dead))
 	for _, d := range dead {
-		errs = append(errs, e.fs.Remove(segmentName(d.Key, d.Segment, d.File)))
+		errs = append(errs, e.removeSegment(d.Key, d.Segment, d.File))
 	}
 	return errors.Join(errs...)
 }

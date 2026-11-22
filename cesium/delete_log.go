@@ -265,6 +265,6 @@ func (e *engine) readSegment(
 	b []byte,
 	off int64,
 ) error {
-	h := e.budget.Open(e.fs, segmentName(key, seg.ID, seg.File))
+	h := e.openSegment(key, seg)
 	return errors.Join(e.segmentConfig(seg).ReadAt(h, b, off), h.Close())
 }
