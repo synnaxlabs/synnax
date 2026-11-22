@@ -1491,7 +1491,6 @@ describe("MQTT read form", () => {
           topic,
           icdKey: createKeyListedAt("02"),
         });
-        onTestFinished(async () => await client.icds.delete(entry.icd));
         await renderRead({ entries: [entry] });
         await openTopic(topic);
         fireEvent.click(await findDialogTriggerByText(topic));
