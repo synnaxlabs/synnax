@@ -22,6 +22,7 @@ import { List } from "@/list";
 import { Menu } from "@/menu";
 import { type position } from "@/position";
 import { Select } from "@/select";
+import { Status } from "@/status";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
@@ -684,6 +685,32 @@ describe("Select", () => {
       expect(computed(dialog, "background-color")).toBe(
         resolve("color-mix(in srgb, var(--pluto-gray-l0) 94%, transparent)"),
       );
+    });
+  });
+
+  describe("failure beside items", () => {
+    it("should inset a failure under the items as the options are", async () => {
+      await renderThemed(
+        <Select.Single<string>
+          resourceName="result"
+          data={["a", "b"]}
+          value={undefined}
+          onChange={vi.fn()}
+          initialVisible
+          virtual={false}
+          status={Status.create({
+            variant: "error",
+            message: "Failed to load results",
+          })}
+        >
+          {({ itemKey }) => <div key={itemKey}>{`item ${itemKey}`}</div>}
+        </Select.Single>,
+      );
+      await expect.element(page.getByText("Failed to load results")).toBeVisible();
+      const failure = document.querySelector(".lyra-select__failure");
+      assert(failure != null);
+      for (const side of ["padding-left", "padding-right", "padding-bottom"])
+        expect(computed(failure, side)).toBe(resolve("1rem", side));
     });
   });
 

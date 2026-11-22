@@ -68,8 +68,8 @@ export const EmptyContent = ({
   );
 };
 
-// A status shows in place of an empty list, so beside items a failure shows under
-// them.
+// A status shows in place of an empty list, so beside items a failure shows under the
+// list. It stays outside the list, so a failure never changes the list's structure.
 const ItemsFailure = ({
   status,
 }: {
@@ -78,7 +78,11 @@ const ItemsFailure = ({
   const { data } = List.useData();
   if (data.length === 0) return null;
   return (
-    <Status.Summary variant={status.variant} description={status.description}>
+    <Status.Summary
+      className={CSS.BE("select", "failure")}
+      variant={status.variant}
+      description={status.description}
+    >
       {status.message}
     </Status.Summary>
   );
@@ -175,21 +179,11 @@ export const Body = <K extends record.Key>({
           loading={loading}
         />
       )}
-      <BorderedList
-        footer={
-          failed ? (
-            <>
-              <ItemsFailure status={status} />
-              {footer}
-            </>
-          ) : (
-            footer
-          )
-        }
-      >
+      <BorderedList footer={footer}>
         {fixedItems}
         <Items<K> emptyContent={empty}>{children}</Items>
       </BorderedList>
+      {failed && <ItemsFailure status={status} />}
     </>
   );
 };
