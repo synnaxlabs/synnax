@@ -109,11 +109,8 @@ export interface Floor {
 
 /**
  * Receives a span of a channel's history that changed, or of every channel's when the
- * channel is null.
- */
-/**
- * Receives a changed span of history. missed is true when the change is a miss of the
- * stream, not a history change.
+ * channel is null. missed is true when the stream missed frames, not when history
+ * changed.
  */
 export type InvalidateHandler = (
   ch: channel.Key | null,
@@ -357,7 +354,8 @@ export class Store {
 
   /**
    * Drops the cached samples of the channel over the time range, or of every channel
-   * when the channel is null.
+   * when the channel is null. Set missed when the stream missed frames, not when
+   * history changed.
    */
   invalidate(
     ch: channel.Key | null = null,
