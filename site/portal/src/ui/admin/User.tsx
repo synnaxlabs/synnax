@@ -16,7 +16,7 @@ import type { ReactElement } from "react";
 
 import type { Activity } from "@/page";
 import { personURL } from "@/server/analytics";
-import type { Organization } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import { type Account, roleName } from "@/server/directory";
 import type { Machine } from "@/server/license/desktop";
 import { channels, desktopCap } from "@/server/license/limits";
@@ -49,7 +49,7 @@ const TEAM_COLUMNS = "minmax(0, 2fr) 14rem 3rem";
 const moment = (t: Date | null, clock: Clock): string =>
   t == null ? "Never" : clock.dateTime(t);
 
-const describeCap = (personal: Organization | null): string => {
+const describeCap = (personal: schema.Organization | null): string => {
   const cap = channels(
     desktopCap({ desktopChannels: personal?.desktopChannels ?? null }),
   );

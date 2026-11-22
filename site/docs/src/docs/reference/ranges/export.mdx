@@ -31,6 +31,9 @@ data to Sift instead, see [Send data to Sift](/reference/ranges/sift).
 The dialog uses the start and end of the range. It has no channels selected, because a
 range does not hold a list of channels.
 
+To export several ranges, select them, right-click one, and select **Download as CSV**.
+The file holds only the data in those ranges, in time order.
+
 <Divider.Divider x />
 
 ## Export from a line plot
@@ -64,7 +67,9 @@ The download dialog has these fields:
 - **From** and **To**: The start and end of the data to export. Change them to export a
   shorter or longer period. A range that still runs shows **To** as now. If you keep
   that value, the file holds every sample up to the time you click **Download**. A range
-  that has not started shows **From** as now.
+  that has not started shows **From** as now. An export of several spans of time lists
+  each span in time order, and you cannot change them. To export another span, select a
+  region of a line plot.
 - **Channels**: The channels to export. Virtual channels are not in the list.
 - **Downsample factor**: Keeps one sample of every N samples. It is a whole number, 1 or
   more. The default is 1, which keeps all samples.

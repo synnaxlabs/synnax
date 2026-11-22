@@ -9,27 +9,7 @@
 
 import type { label, Synnax } from "@synnaxlabs/client";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { onTestFinished } from "vitest";
-
-import { findDialogTrigger } from "@/testutil";
-
-/**
- * Opens the mounted label select dialog, narrows the paginated list down to name via
- * the dialog's search input, and clicks the matching label option.
- */
-export const searchAndClickLabel = async (name: string): Promise<void> => {
-  fireEvent.click(await findDialogTrigger());
-  await searchAndClickLabelOption(name);
-};
-
-/** Narrows the open label select dialog down to name and clicks the matching option. */
-export const searchAndClickLabelOption = async (name: string): Promise<void> => {
-  const search = await waitFor(() => screen.getByPlaceholderText("Search labels..."));
-  fireEvent.change(search, { target: { value: name } });
-  const option = await waitFor(() => screen.getByText(name));
-  fireEvent.click(option);
-};
 
 /**
  * Returns the color of the dot beside the element, such as the dot of a label tag,

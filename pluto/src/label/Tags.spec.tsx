@@ -15,7 +15,7 @@ import { type FC, Profiler, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Label } from "@/label";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 

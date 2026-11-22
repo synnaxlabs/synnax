@@ -16,7 +16,7 @@ import { z } from "zod";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 const schema = z.object({
   label: Label.configZ,

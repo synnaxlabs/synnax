@@ -11,12 +11,11 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { Profiler } from "react";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { LinePlot } from "@/lineplot";
 import { lineplot } from "@/lineplot/aether";
-import { Frame } from "@/lineplot/Frame";
+import { Tooltip } from "@/lineplot/tooltip";
 import { tooltip } from "@/lineplot/tooltip/aether";
-import { Tooltip } from "@/lineplot/tooltip/Tooltip";
-import { Viewport } from "@/lineplot/Viewport";
-import { render } from "@/testutil/render";
+import { render } from "@/testutil";
 
 const TOOLTIP_PATH = [
   "alamos",
@@ -44,13 +43,13 @@ describe("Tooltip", () => {
   it("should not re-render when the cursor moves", async () => {
     let renders = 0;
     const { container, root } = render(
-      <Frame aetherKey="plot">
-        <Viewport>
+      <LinePlot.Frame aetherKey="plot">
+        <LinePlot.Viewport>
           <Profiler id="tooltip" onRender={() => renders++}>
-            <Tooltip aetherKey="tooltip" />
+            <Tooltip.Tooltip aetherKey="tooltip" />
           </Profiler>
-        </Viewport>
-      </Frame>,
+        </LinePlot.Viewport>
+      </LinePlot.Frame>,
       { render: true, registry: lineplot.REGISTRY },
     );
     const leaf = await waitFor(() => {
@@ -69,11 +68,11 @@ describe("Tooltip", () => {
   it("should report the hovered line, and no line once the cursor leaves", async () => {
     const onHoveredChange = vi.fn();
     const { container, root } = render(
-      <Frame aetherKey="plot">
-        <Viewport>
-          <Tooltip aetherKey="tooltip" onHoveredChange={onHoveredChange} />
-        </Viewport>
-      </Frame>,
+      <LinePlot.Frame aetherKey="plot">
+        <LinePlot.Viewport>
+          <Tooltip.Tooltip aetherKey="tooltip" onHoveredChange={onHoveredChange} />
+        </LinePlot.Viewport>
+      </LinePlot.Frame>,
       { render: true, registry: lineplot.REGISTRY },
     );
     const leaf = await waitFor(() => {
