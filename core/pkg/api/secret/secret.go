@@ -39,6 +39,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
+	// Holders maps the holder of each use to the record it stands for, so a use that a
+	// task's records hold names the task.
+	//
+	// [REQUIRED]
+	Holders taskconfig.Holders
 }
 
 var (
@@ -51,6 +56,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Holders = override.Zero(c.Holders, other.Holders)
 	return c
 }
 
@@ -59,6 +65,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.secret")
 	v.NotNil("secret", c.Secret)
 	v.NotNil("rbac", c.RBAC)
+	v.Ternary("holders", c.Holders.IsZero(), "must be set")
 	return v.Error()
 }
 
@@ -67,6 +74,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *secret.Service
+	holders  taskconfig.Holders
 }
 
 // NewService opens a Service with the given configuration.
@@ -78,6 +86,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		access:   cfg.RBAC,
 		internal: cfg.Secret,
+		holders:  cfg.Holders,
 	}, nil
 }
 
@@ -205,7 +214,7 @@ func (s *Service) fillUses(
 			return err
 		}
 		base.Uses = lo.FilterMap(uses, func(id resource.ID, _ int) (resource.ID, bool) {
-			id = taskconfig.RecordOf(gorp.Target{Table: string(id.Type), Key: id.Key})
+			id = s.holders.RecordOf(gorp.Target{Table: string(id.Type), Key: id.Key})
 			return id, snap.Allowed(id)
 		})
 		secrets[i].SetBase(base)

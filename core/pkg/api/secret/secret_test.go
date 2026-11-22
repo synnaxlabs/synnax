@@ -29,12 +29,14 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/filter"
@@ -108,8 +110,9 @@ func createCertificate(ctx SpecContext) certificate.Certificate {
 var _ = Describe("ServiceConfig", func() {
 	full := func() apisecret.ServiceConfig {
 		return apisecret.ServiceConfig{
-			Secret: &secret.Service{},
-			RBAC:   &rbac.Service{},
+			Secret:  &secret.Service{},
+			RBAC:    &rbac.Service{},
+			Holders: taskconfig.NewHolders(arc.DriftTable),
 		}
 	}
 	DescribeTable("Should fail when a service is missing",
@@ -122,6 +125,11 @@ var _ = Describe("ServiceConfig", func() {
 			"secret: must be non-nil"),
 		Entry("rbac", func(c *apisecret.ServiceConfig) { c.RBAC = nil },
 			"rbac: must be non-nil"),
+		Entry(
+			"holders",
+			func(c *apisecret.ServiceConfig) { c.Holders = taskconfig.Holders{} },
+			"holders: must be set",
+		),
 	)
 	It("Should take the other config's services when set", func() {
 		cfg := full()
@@ -129,6 +137,7 @@ var _ = Describe("ServiceConfig", func() {
 		merged := apisecret.ServiceConfig{}.Override(cfg)
 		Expect(merged.Secret).To(BeIdenticalTo(cfg.Secret))
 		Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+		Expect(merged.Holders).To(Equal(cfg.Holders))
 	})
 })
 

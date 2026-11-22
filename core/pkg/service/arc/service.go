@@ -17,10 +17,12 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
@@ -189,6 +191,8 @@ type Service struct {
 	// names. followCommit then triggers pathSync to resync each Arc with an import.
 	pathChanges *gorp.Attachment[struct{}]
 	pathSync    *debounce.Keyed[struct{}]
+	// deploySync records the deployed lists of a task whose status changed.
+	deploySync *debounce.Keyed[task.Key]
 	// directoryState holds the actions that change directories.
 	directoryState *actions.State[directory.Key, directory.Action]
 }
@@ -384,6 +388,12 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 	return automation, nil
 }
 
+// DanglingMigration returns the migration identified by key that clears, from each
+// stored Arc, every channel whose key issued reports the Core never issued.
+func (s *Service) DanglingMigration(key string, issued gorp.IssuedFunc) gorp.Migration {
+	return s.table.IssuedDanglingMigration(key, issued)
+}
+
 // Build is a compile of an Arc that Service.Build makes outside any transaction. The
 // zero Build holds no compile.
 type Build struct {
@@ -392,6 +402,8 @@ type Build struct {
 	loaded []string
 	// err is the reason that the Arc does not compile.
 	err error
+	// reads and writes hold the channels that a compile that passed found, sorted.
+	reads, writes []channel.Key
 	// lookups holds each read that the compile made, the read of the Arc included.
 	lookups *resolver.Lookups
 }
@@ -434,10 +446,59 @@ func (s *Service) buildIn(
 	case AutomationArc:
 		b.program, b.err = s.cfg.Compile(ctx, v, root)
 		b.loaded = arctext.LoadedPaths(root)
+		if b.err == nil {
+			b.reads, b.writes = channelKeys(b.program.IR)
+		}
 	case ModuleArc:
-		b.err = s.analyzeModule(ctx, root, v)
+		var analysis ir.IR
+		if analysis, b.err = s.analyzeModule(ctx, root, v); b.err == nil {
+			b.reads, b.writes = channelKeys(analysis)
+		}
 	}
 	return b, nil
+}
+
+// channelKeys returns the channels that the nodes and functions of program read and
+// write, each sorted with no repeats.
+func channelKeys(program ir.IR) (reads, writes []channel.Key) {
+	reads = collectKeys(program, func(c types.Channels) map[uint32]string {
+		return c.Read
+	})
+	writes = collectKeys(program, func(c types.Channels) map[uint32]string {
+		return c.Write
+	})
+	return reads, writes
+}
+
+// collectKeys returns the keys of the map that held picks from the channels of each
+// node and function of program, sorted with no repeats, in one allocation.
+func collectKeys(
+	program ir.IR,
+	held func(types.Channels) map[uint32]string,
+) []channel.Key {
+	n := 0
+	for i := range program.Nodes {
+		n += len(held(program.Nodes[i].Channels))
+	}
+	for i := range program.Functions {
+		n += len(held(program.Functions[i].Channels))
+	}
+	if n == 0 {
+		return nil
+	}
+	keys := make([]channel.Key, 0, n)
+	for i := range program.Nodes {
+		for k := range held(program.Nodes[i].Channels) {
+			keys = append(keys, channel.Key(k))
+		}
+	}
+	for i := range program.Functions {
+		for k := range held(program.Functions[i].Channels) {
+			keys = append(keys, channel.Key(k))
+		}
+	}
+	slices.Sort(keys)
+	return slices.Compact(keys)
 }
 
 // retrieveHashed returns the Arc with key in snap and the hash of its content.
@@ -500,25 +561,27 @@ func (s *Service) hashModules(
 	return hashes, nil
 }
 
-// analyzeModule checks the module's source under the module rules against root. A
-// module links no code of its own, so analysis is its whole compile.
+// analyzeModule checks the module's source under the module rules against root and
+// returns its analysis. A module links no code of its own, so analysis is its whole
+// compile.
 func (s *Service) analyzeModule(
 	ctx context.Context,
 	root *symbol.Symbol,
 	module ModuleArc,
-) error {
+) (ir.IR, error) {
 	src, ok := module.Source.Variant.(TextSource)
 	if !ok {
-		return errors.New("a module must be written as text")
+		return ir.IR{}, errors.New("a module must be written as text")
 	}
 	parsed, diag := arctext.Parse(src.Text.Materialize())
 	if diag != nil && !diag.Ok() {
-		return diag
+		return ir.IR{}, diag
 	}
-	if _, diag = arctext.AnalyzeModule(ctx, parsed, root); diag != nil && !diag.Ok() {
-		return diag
+	analysis, diag := arctext.AnalyzeModule(ctx, parsed, root)
+	if diag != nil && !diag.Ok() {
+		return ir.IR{}, diag
 	}
-	return nil
+	return analysis, nil
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each
@@ -599,11 +662,17 @@ func (s *Service) openSyncs(ctx context.Context, ok opener) (err error) {
 	); !ok(err, s.importerSync) {
 		return err
 	}
-	s.pathSync, err = debounce.NewKeyed(
+	if s.pathSync, err = debounce.NewKeyed(
 		ctx,
 		syncConfig(s.cfg.TaskSyncDebounce, s.resyncImporting),
+	); !ok(err, s.pathSync) {
+		return err
+	}
+	s.deploySync, err = debounce.NewKeyed(
+		ctx,
+		syncConfig(s.cfg.TaskSyncDebounce, s.recordDeploy),
 	)
-	ok(err, s.pathSync)
+	ok(err, s.deploySync)
 	return err
 }
 

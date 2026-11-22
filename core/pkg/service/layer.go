@@ -279,6 +279,8 @@ type Layer struct {
 	License *license.Service
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service
+	// TaskHolders names the tables whose records stand for a task.
+	TaskHolders taskconfig.Holders
 	// Metrics is used for collecting host machine metrics and publishing them over
 	// channels
 	Metrics *metrics.Service
@@ -1015,6 +1017,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.Kafka.Stores(), l.ArcTask.Stores(),
 		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(), l.Sift.Stores(),
 	)
+	l.TaskHolders = taskconfig.NewHolders(arc.DriftTable)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
 		return nil, err
@@ -1145,6 +1148,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			ClearUnissuedChannelLinks(
 				l.Schematic,
 				l.Table,
+				l.Arc,
 				cfg.Distribution.Channel.IssuedAtFirstOpen,
 			),
 			newRetiredChannelDelete(l.Channel),

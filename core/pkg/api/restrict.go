@@ -31,6 +31,7 @@ func restrictMiddleware(
 	db *gorp.DB,
 	res *resource.Service,
 	rbacSvc *rbac.Service,
+	holders taskconfig.Holders,
 ) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
@@ -40,7 +41,8 @@ func restrictMiddleware(
 		if err == nil {
 			return oCtx, nil
 		}
-		if described := describeRestrict(ctx, db, res, rbacSvc, err); described != nil {
+		described := describeRestrict(ctx, db, res, rbacSvc, holders, err)
+		if described != nil {
 			return oCtx, described
 		}
 		return oCtx, err
@@ -55,10 +57,11 @@ func describeRestrict(
 	db *gorp.DB,
 	res *resource.Service,
 	rbacSvc *rbac.Service,
+	holders taskconfig.Holders,
 	err error,
 ) error {
 	if pathErr, ok := errors.AsType[validate.PathError](err); ok {
-		described := describeRestrict(ctx, db, res, rbacSvc, pathErr.Err)
+		described := describeRestrict(ctx, db, res, rbacSvc, holders, pathErr.Err)
 		if described == nil {
 			return nil
 		}
@@ -73,7 +76,7 @@ func describeRestrict(
 		Type: resource.Type(restrict.Target.Table),
 		Key:  restrict.Target.Key,
 	}
-	holder, ofTask := taskconfig.TaskOf(restrict.Holder)
+	holder, ofTask := holders.TaskOf(restrict.Holder)
 	if !ofTask {
 		holder = resource.ID{
 			Type: resource.Type(restrict.Holder.Table),

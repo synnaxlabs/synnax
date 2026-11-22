@@ -15,9 +15,11 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 )
 
 var _ = Describe("ServiceConfig", func() {
@@ -28,6 +30,7 @@ var _ = Describe("ServiceConfig", func() {
 			Channel:     &channel.Service{},
 			Status:      &status.Service{},
 			Calculation: &calculation.Service{},
+			Holders:     taskconfig.NewHolders(arc.DriftTable),
 		}
 	}
 
@@ -68,6 +71,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apichannel.ServiceConfig) { c.Calculation = nil },
 				"calculation: must be non-nil",
 			),
+			Entry(
+				"holders",
+				func(c *apichannel.ServiceConfig) { c.Holders = taskconfig.Holders{} },
+				"holders: must be set",
+			),
 		)
 	})
 
@@ -80,6 +88,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.Calculation).To(BeIdenticalTo(cfg.Calculation))
+			Expect(merged.Holders).To(Equal(cfg.Holders))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {

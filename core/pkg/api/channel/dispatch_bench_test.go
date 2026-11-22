@@ -25,8 +25,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/telem"
@@ -63,6 +65,7 @@ func openBenchLayer(b *testing.B) (*gorp.DB, *service.Layer) {
 func openBenchWriter(b *testing.B, db *gorp.DB, layer *service.Layer) benchWriter {
 	b.Helper()
 	svc, err := apichannel.NewService(apichannel.ServiceConfig{
+		Holders:     taskconfig.NewHolders(arc.DriftTable),
 		DB:          db,
 		RBAC:        layer.RBAC,
 		Channel:     layer.Channel,

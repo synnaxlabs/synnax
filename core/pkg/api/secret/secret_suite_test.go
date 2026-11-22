@@ -24,7 +24,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -61,8 +63,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc := MustSucceed(apisecret.NewService(apisecret.ServiceConfig{
-		Secret: svc.Secret,
-		RBAC:   svc.RBAC,
+		Holders: taskconfig.NewHolders(arc.DriftTable),
+		Secret:  svc.Secret,
+		RBAC:    svc.RBAC,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,

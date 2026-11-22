@@ -390,6 +390,7 @@ func (l *Layer) BindTo(t Transport) {
 			l.config.Distribution.DB,
 			l.config.Service.Resource,
 			l.config.Service.RBAC,
+			l.config.Service.TaskHolders,
 		)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
 		secureMiddleware   = append(slices.Clone(insecureMiddleware), tk)
@@ -995,6 +996,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Channel:     cfg.Service.Channel,
 		Status:      cfg.Service.Status,
 		Calculation: cfg.Service.Calculation,
+		Holders:     cfg.Service.TaskHolders,
 	}); err != nil {
 		return nil, err
 	}
@@ -1161,8 +1163,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Secret, err = secret.NewService(secret.ServiceConfig{
-		Secret: cfg.Service.Secret,
-		RBAC:   cfg.Service.RBAC,
+		Secret:  cfg.Service.Secret,
+		RBAC:    cfg.Service.RBAC,
+		Holders: cfg.Service.TaskHolders,
 	}); err != nil {
 		return nil, err
 	}

@@ -11,12 +11,14 @@ package arc
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
+	driftv1 "github.com/synnaxlabs/synnax/pkg/service/arc/drift/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -27,6 +29,10 @@ import (
 
 // rootName is the name of the directory that holds every Arc.
 const rootName = "Arcs"
+
+// DriftTable is the name of the table of drift records. A record holds the channels of
+// its task's deployed program, so a reference it holds stands for the task.
+const DriftTable = "arc_drift"
 
 // TableConfig is the configuration for opening the Arc table.
 type TableConfig struct {
@@ -84,18 +90,27 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 		return nil, errors.Combine(err, t.directories.Close())
 	}
 	if t.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
-		DB:              cfg.DB,
-		Name:            tableName,
-		Indexes:         t.indexes.all(),
-		References:      []gorp.Reference[Key, Arc]{newDirectoryReference()},
+		DB:      cfg.DB,
+		Name:    tableName,
+		Indexes: t.indexes.all(),
+		References: slices.Concat(
+			[]gorp.Reference[Key, Arc]{newDirectoryReference()},
+			t.indexes.references(),
+			newNodeReferences(newChannelParams(standardSymbols())),
+		),
 		Migrations:      versions.NewMigrations(t.root),
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, errors.Combine(err, t.directories.Close())
 	}
 	if t.drifts, err = gorp.OpenTable(ctx, gorp.TableConfig[drift.Key, drift.Record]{
-		DB:              cfg.DB,
-		References:      []gorp.Reference[drift.Key, drift.Record]{newTaskReference()},
+		DB:   cfg.DB,
+		Name: DriftTable,
+		References: append(
+			[]gorp.Reference[drift.Key, drift.Record]{newTaskReference()},
+			newDeployedReferences()...,
+		),
+		Migrations:      []gorp.Migration{driftv1.Migration},
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, errors.Combine(

@@ -15,11 +15,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -27,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -119,6 +123,7 @@ var _ = Describe("ClearUnissuedChannelLinks", Ordered, func() {
 				service.ClearUnissuedChannelLinks(
 					layer.Schematic,
 					layer.Table,
+					layer.Arc,
 					dist.Channel.Issued,
 				),
 			},
@@ -161,6 +166,7 @@ var _ = Describe("ClearUnissuedChannelLinks", Ordered, func() {
 		step := service.ClearUnissuedChannelLinks(
 			layer.Schematic,
 			layer.Table,
+			layer.Arc,
 			dist.Channel.Issued,
 		)
 		Expect(step.Key()).To(Equal("v63_clear_unissued_channel_links"))
@@ -183,6 +189,53 @@ var _ = Describe("ClearUnissuedChannelLinks", Ordered, func() {
 		Expect(tableKeys(ctx, tbl.Key)).To(Equal(
 			[]channel.Key{0, dead.Key(), live.Key()},
 		))
+	})
+
+	It("Should clear a never-issued key from an Arc graph node, after which the Arc "+
+		"saves and its compile names the input", func(ctx SpecContext) {
+		live := createChannel(ctx)
+		never := distchannel.NewKey(live.Leaseholder, live.LocalKey+1000)
+		g := graph.Graph{
+			Nodes: graph.Nodes{{Key: "source"}, {Key: "sink"}},
+			Edges: graph.Edges{{
+				Key:    "edge",
+				Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
+			}},
+			Inputs: map[string]msgpack.EncodedJSON{
+				"source": {"type": "on", "channel": float64(never)},
+				"sink":   {"type": "write", "channel": float64(live.Key())},
+			},
+		}
+		a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+			Key:    uuid.New(),
+			Name:   "imported",
+			Source: arc.Source{Variant: arc.GraphSource{Graph: g}},
+		}}}
+		key := a.Base().Key
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return gorp.WrapWriter[arc.Key, arc.Arc](tx).Set(ctx, a)
+		})).To(Succeed())
+		clearLinks(ctx)
+		var stored arc.Arc
+		Expect(layer.Arc.NewRetrieve().
+			Where(arc.MatchKeys(key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		src, ok := stored.Base().Source.Variant.(arc.GraphSource)
+		Expect(ok).To(BeTrue())
+		Expect(src.Graph.Inputs["source"]).ToNot(HaveKey("channel"))
+		Expect(src.Graph.Inputs["sink"]).To(HaveKeyWithValue("channel", BeNumerically(
+			"==",
+			live.Key(),
+		)))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Arc.NewWriter(tx).Apply(ctx, key, arc.NewSetAction(
+				arc.SetPayload{Path: []string{"name"}, Value: "renamed"},
+			))
+		})).To(Succeed())
+		Expect(layer.Arc.CompileProgram(ctx, key)).Error().
+			To(MatchError(ContainSubstring("channel")))
 	})
 
 	It("Should keep a key leased to another node", func(ctx SpecContext) {
