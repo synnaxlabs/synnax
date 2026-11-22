@@ -322,7 +322,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       assertDefined(circle);
       fireEvent.click(circle);
-      await screen.findByText("1 elements");
+      await screen.findByText("1 element");
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);
