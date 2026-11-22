@@ -14,7 +14,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useHandleNodeClickAction } from "@/feature/schematic/navigate";
+import { Navigate } from "@/feature/schematic/navigate";
 import {
   client,
   createPreloadedState,
@@ -42,7 +42,7 @@ const renderNavigateHook = async ({
   });
   const hook = await renderHookWithConsole(
     () => ({
-      handler: useHandleNodeClickAction(source.key),
+      handler: Navigate.useHandleNodeClick(source.key),
       notifications: Status.useNotifications(),
     }),
     { client, preloadedState: createPreloadedState(source.key, { editable }) },
@@ -85,7 +85,7 @@ const expectNotOpened = async (store: TestStore, key: string): Promise<void> => 
   expect(panel.findTabByResource(doc.root, schematic.resourceID(key))).toBeUndefined();
 };
 
-describe("Schematic.useHandleNodeClickAction", () => {
+describe("Navigate.useHandleNodeClick", () => {
   it("navigates to the referenced schematic on double click", async () => {
     const target = await createSchematic({ name: uniqueName("target") });
     const { result, store } = await renderNavigateHook({

@@ -40,6 +40,12 @@ import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
 export const client = createTestClient();
 
+const TAB = Schematic.TABS[schematic.TYPE_RESOURCE_ID.type];
+assertDefined(TAB.Toolbar);
+
+/** The lazily loaded toolbar of a schematic tab. */
+export const TabToolbar = TAB.Toolbar;
+
 let projectKey: string | undefined;
 
 /** Returns the key of the shared test project every created schematic lives under. */
