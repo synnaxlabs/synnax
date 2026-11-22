@@ -409,8 +409,8 @@ func bareLineOperator(
 	)
 }
 
-// missingFieldOperator returns the operator type for a bare line that names no field
-// of target, which only the retrieve key has.
+// missingFieldOperator returns the operator type for a bare line that names no field of
+// target, which only the retrieve key has.
 func missingFieldOperator(
 	target resolution.Type,
 	name string,
@@ -800,8 +800,8 @@ func cursorFields(
 	return cursor, values
 }
 
-// orderingKey returns the type of the key that orders ties in a retrieve of target,
-// and false when target has no key.
+// orderingKey returns the type of the key that orders ties in a retrieve of target, and
+// false when target has no key.
 func orderingKey(
 	target resolution.Type, fields []resolution.Field,
 ) (resolution.TypeRef, bool) {
