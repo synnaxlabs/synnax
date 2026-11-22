@@ -91,9 +91,9 @@ mode keeps the color by channel.
   entries as fit inside the plot, and the last one then reads "and N more".
 - **Hide and solo**: An eye on a range heading hides the range. An eye on a channel
   under a range hides that pair. Option or Alt click on an eye shows only that item, and
-  a second Option or Alt click restores the earlier set. The menu of a legend entry has
-  Show only this range, Show only this channel in this range, Show only this channel in
-  all ranges, and Hide this channel in all ranges, which reads Show this channel in all
+  a second Option or Alt click restores the earlier set. The menu acts on what was
+  clicked. A range name has Isolate. A channel in the legend, or a line, has Isolate in
+  this range, Isolate in all ranges, and Hide in all ranges, which reads Show in all
   ranges when the channel is hidden in each range. When an item is hidden, the plot menu
   has Show all. Hidden state stays session state for each window, as hidden lines are
   today (`console/src/session/lineplot/slice.ts:77`), and is never saved with the plot.

@@ -205,6 +205,7 @@ const CompareMenuItems = ({
           >
             <Ranger.VisibleIcon /> Isolate
           </Menu.Item>
+          {showAll}
           {zoomable && (
             <Menu.Item itemKey="zoomToRange" onClick={handleZoom}>
               {zoomed === range.key ? <Icon.Expand /> : <Icon.Zoom />}
@@ -262,11 +263,6 @@ const CompareMenuItems = ({
               <Channel.HiddenIcon /> Hide in all ranges
             </Menu.Item>
           )}
-        </>
-      )}
-      {showAll != null && (
-        <>
-          <Menu.Divider />
           {showAll}
         </>
       )}
