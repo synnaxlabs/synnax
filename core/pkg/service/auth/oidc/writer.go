@@ -19,31 +19,33 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// writer creates links in one transaction. It makes no identity check.
-type writer struct {
+// Writer creates and deletes links in one transaction. It makes no identity check and
+// ends no sessions: the caller authorizes the change and revokes the sessions of
+// deleted links.
+type Writer struct {
 	svc *Service
 	tx  gorp.Tx
 }
 
-// create links acc to u and returns the link. It returns a validation error when the
-// account is already linked or u already has a link for the account's issuer.
-func (w writer) create(
+// Create links account to u and returns the link. It returns a validation error when
+// the account is already linked or u already has a link for the account's issuer.
+func (w Writer) Create(
 	ctx context.Context,
 	u user.Key,
-	acc account,
+	account Account,
 ) (Link, error) {
 	l := Link{
 		Key:     uuid.New(),
 		User:    u,
-		Issuer:  acc.Issuer,
-		Account: acc.ID,
+		Issuer:  account.Issuer,
+		Account: account.ID,
 	}
 	if err := l.Validate(); err != nil {
 		return Link{}, err
 	}
-	linked, err := w.svc.newRetrieve().
-		Where(MatchIssuers(acc.Issuer)).
-		Where(Or(MatchAccounts(acc.ID), MatchUsers(u))).
+	linked, err := w.svc.NewRetrieve().
+		Where(MatchIssuers(account.Issuer)).
+		Where(Or(MatchAccounts(account.ID), MatchUsers(u))).
 		Exists(ctx, w.tx)
 	if err != nil {
 		return Link{}, err
@@ -52,11 +54,18 @@ func (w writer) create(
 		return Link{}, errors.Wrapf(
 			validate.ErrValidation,
 			"an account of %s is already linked to this user, or this account to another",
-			acc.Issuer,
+			account.Issuer,
 		)
 	}
 	if err = w.svc.table.NewCreate().Entry(&l).Exec(ctx, w.tx); err != nil {
 		return Link{}, err
 	}
 	return l, nil
+}
+
+// Delete removes the links with the given keys. Unknown keys are ignored.
+func (w Writer) Delete(ctx context.Context, keys ...LinkKey) error {
+	return w.svc.table.NewDelete().
+		Where(gorp.MatchKeys[LinkKey, Link](keys...)).
+		Exec(ctx, w.tx)
 }

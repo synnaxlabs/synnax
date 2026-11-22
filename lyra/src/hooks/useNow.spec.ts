@@ -12,8 +12,7 @@ import { act, renderHook } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ClockProvider } from "@/hooks/clock";
-import { useNow } from "@/hooks/useNow";
+import { ClockProvider, useNow } from "@/hooks";
 
 describe("useNow", () => {
   beforeEach(() => {
