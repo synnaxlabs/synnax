@@ -14,7 +14,6 @@ import { TimeSpan, url } from "@synnaxlabs/x";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { errorsMiddleware } from "@/errors";
 import { Transport } from "@/transport";
 
 describe("Transport", () => {
@@ -43,7 +42,6 @@ describe("Transport", () => {
       url: new url.URL({ host: "127.0.0.1", port: address.port }),
       retry: { maxRetries: 2, baseInterval: TimeSpan.milliseconds(1) },
     });
-    transport.use(errorsMiddleware);
     const err = await transport.unary
       .send("/reset", {}, z.object({}), z.object({}))
       .catch((e: unknown) => e);
