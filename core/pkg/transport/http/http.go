@@ -354,6 +354,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/schematic/symbol/group/delete",
 		),
+		SchematicSymbolRetrieveBuiltins: unary[
+			struct{},
+			symbol.RetrieveBuiltinsResponse,
+		](router, "/api/v1/schematic/symbol/retrieve-builtins"),
 
 		// LINE PLOT
 		LinePlotCreate: unary[lineplot.CreateRequest, lineplot.CreateResponse](
@@ -517,10 +521,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			struct{},
 			enumeration.RetrieveBuiltinsResponse,
 		](router, "/api/v1/enumeration/retrieve-builtins"),
-		EnumerationRetrieveDependents: unary[
-			enumeration.RetrieveDependentsRequest,
-			enumeration.RetrieveDependentsResponse,
-		](router, "/api/v1/enumeration/retrieve-dependents"),
 
 		// RACK
 		RackCreate: unary[rack.CreateRequest, rack.CreateResponse](

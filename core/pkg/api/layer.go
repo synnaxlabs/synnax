@@ -157,6 +157,11 @@ type Transport struct {
 	SchematicSymbolExportGroup freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
 	SchematicSymbolImportGroup freighter.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]
 	SchematicSymbolDeleteGroup freighter.UnaryServer[symbol.DeleteGroupRequest, struct{}]
+	// SchematicSymbolRetrieveBuiltins returns the symbols that the Core ships.
+	SchematicSymbolRetrieveBuiltins freighter.UnaryServer[
+		struct{},
+		symbol.RetrieveBuiltinsResponse,
+	]
 	// LOG
 	LogCreate   freighter.UnaryServer[log.CreateRequest, log.CreateResponse]
 	LogRetrieve freighter.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]
@@ -219,11 +224,6 @@ type Transport struct {
 	EnumerationRetrieveBuiltins freighter.UnaryServer[
 		struct{},
 		enumeration.RetrieveBuiltinsResponse,
-	]
-	// EnumerationRetrieveDependents returns the records that use an enumeration.
-	EnumerationRetrieveDependents freighter.UnaryServer[
-		enumeration.RetrieveDependentsRequest,
-		enumeration.RetrieveDependentsResponse,
 	]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
@@ -483,6 +483,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicSymbolExportGroup,
 		t.SchematicSymbolImportGroup,
 		t.SchematicSymbolDeleteGroup,
+		t.SchematicSymbolRetrieveBuiltins,
 
 		// LINE PLOT
 		t.LinePlotCreate,
@@ -538,7 +539,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.EnumerationReplace,
 		t.EnumerationDispatch,
 		t.EnumerationRetrieveBuiltins,
-		t.EnumerationRetrieveDependents,
 
 		// RACK
 		t.RackCreate,
@@ -753,6 +753,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicSymbolDeleteGroup.BindHandler(
 		bind.Write(l.binder, l.Symbol.DeleteGroup),
 	)
+	t.SchematicSymbolRetrieveBuiltins.BindHandler(l.Symbol.RetrieveBuiltins)
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(bind.Write(l.binder, l.LinePlot.Create))
@@ -808,9 +809,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.EnumerationReplace.BindHandler(bind.Write(l.binder, l.Enumeration.Replace))
 	t.EnumerationDispatch.BindHandler(bind.Write(l.binder, l.Enumeration.Dispatch))
 	t.EnumerationRetrieveBuiltins.BindHandler(l.Enumeration.RetrieveBuiltins)
-	t.EnumerationRetrieveDependents.BindHandler(
-		bind.Read(l.binder, l.Enumeration.RetrieveDependents),
-	)
 
 	// RACK
 	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))

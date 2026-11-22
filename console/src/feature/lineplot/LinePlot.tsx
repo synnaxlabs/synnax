@@ -590,7 +590,7 @@ const Internal = (): ReactElement => {
           clearOverScan={CLEAR_OVERSCAN}
           visible={visible}
           breaksHidden={breaksHidden}
-          onBreaksChange={setBreaks}
+          onBreakCountsChange={setBreaks}
           initialOpenBreaks={vis.breaks.open}
           onOpenBreaksChange={handleOpenBreaksChange}
         >

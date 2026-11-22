@@ -103,7 +103,11 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
       const timeRanges =
         !FLAGS.breaks || breaksHidden
           ? [TimeRange.merge(...windows.map((w) => resolveWindow(w, end)))]
-          : LinePlot.shownSpans(windows, TimeStamp.now(), end, openBreaks);
+          : LinePlot.shownSpans(windows, {
+              now: TimeStamp.now(),
+              newest: end,
+              open: openBreaks,
+            });
       downloadAsCSV({ timeRanges, lines, name });
     }, "Failed to download plot as CSV");
 };

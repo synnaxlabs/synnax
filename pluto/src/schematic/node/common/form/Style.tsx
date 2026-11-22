@@ -27,7 +27,7 @@ export interface StyleValues extends schematic.LabeledConfig {
   strokeColor?: color.Color;
   scale: number;
   normallyOpen?: boolean;
-  stateOverrides?: schematic.symbol.State[];
+  stateOverrides?: schematic.symbol.StateOverride[];
 }
 
 export interface StyleFormProps extends FormProps {
