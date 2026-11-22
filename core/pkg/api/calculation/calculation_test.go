@@ -248,6 +248,78 @@ var _ = Describe("Calculation", func() {
 			retrieve(AuthedCtx(ctx, u), apicalculation.RetrieveRequest{}),
 		)
 		Expect(res.Calculations).To(Equal([]calculation.Calculation{shown}))
+		Expect(res.HiddenOutputs).To(BeEmpty())
+	})
+
+	Describe("Hidden outputs", func() {
+		retrieves := []access.Action{access.ActionRetrieve}
+		byOutputs := func(outs ...channel.Channel) apicalculation.RetrieveRequest {
+			return apicalculation.RetrieveRequest{Where: &calculation.Where{
+				Output: &filter.Set[channel.Key]{In: channel.KeysFromChannels(outs)},
+			}}
+		}
+
+		It("Should list the output of a calculation the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			u := createUser(ctx)
+			out := createVirtual(ctx)
+			createCalculation(ctx, out)
+			grant(ctx, retrieves, u.ResourceID(), channel.ResourceID(out.Key()))
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), byOutputs(out)))
+			Expect(res.Calculations).To(BeEmpty())
+			Expect(res.HiddenOutputs).To(Equal([]channel.Key{out.Key()}))
+		})
+
+		It("Should list the output of a calculation that reads a hidden channel", func(
+			ctx SpecContext,
+		) {
+			u := createUser(ctx)
+			out, read := createVirtual(ctx), createVirtual(ctx)
+			c := calculation.Calculation{
+				Output:     out.Key(),
+				Expression: "return " + read.Name,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Calculation.NewWriter(tx).Create(ctx, &c)
+			})).To(Succeed())
+			grant(ctx, retrieves, u.ResourceID(), anyCalculation)
+			grant(ctx, retrieves, u.ResourceID(), channel.ResourceID(out.Key()))
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), byOutputs(out)))
+			Expect(res.Calculations).To(BeEmpty())
+			Expect(res.HiddenOutputs).To(Equal([]channel.Key{out.Key()}))
+		})
+
+		It("Should list no output of a calculation the request does not select", func(
+			ctx SpecContext,
+		) {
+			u := createUser(ctx)
+			out, other := createVirtual(ctx), createVirtual(ctx)
+			createCalculation(ctx, out)
+			createCalculation(ctx, other)
+			grant(
+				ctx,
+				retrieves,
+				u.ResourceID(),
+				channel.ResourceID(out.Key()),
+				channel.ResourceID(other.Key()),
+			)
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), byOutputs(out)))
+			Expect(res.HiddenOutputs).To(Equal([]channel.Key{out.Key()}))
+		})
+
+		It("Should list no output of a calculation that the subject can retrieve", func(
+			ctx SpecContext,
+		) {
+			u := createUser(ctx)
+			out := createVirtual(ctx)
+			c := createCalculation(ctx, out)
+			grant(ctx, retrieves, u.ResourceID(), anyCalculation)
+			grant(ctx, retrieves, u.ResourceID(), channel.ResourceID(out.Key()))
+			res := MustSucceed(retrieve(AuthedCtx(ctx, u), byOutputs(out)))
+			Expect(res.Calculations).To(Equal([]calculation.Calculation{c}))
+			Expect(res.HiddenOutputs).To(BeEmpty())
+		})
 	})
 
 	It("Should set the expression of a calculation", func(ctx SpecContext) {

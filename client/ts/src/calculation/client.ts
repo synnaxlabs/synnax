@@ -28,6 +28,7 @@ import {
   resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
+  type RetrieveResponse,
   retrieveResponseZ,
   statusZ,
 } from "@/calculation/types.gen";
@@ -83,11 +84,18 @@ export interface CreateInput extends Omit<New, "output"> {
 /** A calculation as the cache holds it. The status table is the home of its status. */
 type Stored = Omit<Calculation, "status">;
 
-/** The calculation that writes the channel with key, or null when none does. */
-export interface Output {
-  key: channel.Key;
-  calculation: Key | null;
-}
+/**
+ * Whether a calculation writes the channel with key. A hidden output has a calculation
+ * that the reader cannot retrieve. Otherwise calculation is the one that writes the
+ * channel, or null when none does.
+ */
+export type Output =
+  | { key: channel.Key; hidden: true }
+  | { key: channel.Key; hidden: false; calculation: Key | null };
+
+/** @returns whether a calculation writes the channel of output, hidden or not. */
+export const isOutput = (output: Output): boolean =>
+  output.hidden || output.calculation != null;
 
 const stripStatus = ({ status: _, ...calc }: Calculation): Stored => calc;
 
@@ -123,7 +131,9 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Stored>({
       name: "calculations",
       fetch: async (keys) =>
-        (await this.execRetrieve(query.keysRequest(keys))).map(stripStatus),
+        (await this.execRetrieve(query.keysRequest(keys))).calculations.map(
+          stripStatus,
+        ),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Stored, Action>({
@@ -144,17 +154,21 @@ export class Client extends query.Retriever<
         // A reply older than a delete, a reset, or a newer write leaves the record as
         // the table holds it, and maps no channel to a record the table dropped.
         await store.track(async (since) => {
-          const calcs = await this.execRetrieve({
+          const { calculations, hiddenOutputs } = await this.execRetrieve({
             where: { output: { in: channels } },
           });
-          store.ingest(calcs.map(stripStatus), { since });
+          store.ingest(calculations.map(stripStatus), { since });
           const writers = new Map(
-            calcs.flatMap(({ key, output }) => (store.has(key) ? [[output, key]] : [])),
+            calculations.flatMap(({ key, output }) =>
+              store.has(key) ? [[output, key]] : [],
+            ),
           );
-          return channels.map((key) => ({
-            key,
-            calculation: writers.get(key) ?? null,
-          }));
+          const hidden = new Set(hiddenOutputs);
+          return channels.map((key): Output =>
+            hidden.has(key)
+              ? { key, hidden: true }
+              : { key, hidden: false, calculation: writers.get(key) ?? null },
+          );
         }),
     });
     // The output of a calculation never changes, so a set or a delete is all that moves
@@ -162,12 +176,16 @@ export class Client extends query.Retriever<
     // still name the deleted calculation.
     store.subscribe((event) => {
       if (event.variant === "set") {
-        outputs.set({ key: event.value.output, calculation: event.key });
+        outputs.set({ key: event.value.output, hidden: false, calculation: event.key });
         return;
       }
-      const named = outputs.get((output) => output.calculation === event.key);
+      const named = outputs.get(
+        (output) => !output.hidden && output.calculation === event.key,
+      );
       if (named.length > 0)
-        outputs.set(named.map(({ key }) => ({ key, calculation: null })));
+        outputs.set(
+          named.map(({ key }) => ({ key, hidden: false, calculation: null })),
+        );
     });
     statuses.holdOwned(store, resourceID);
     super(cache, {
@@ -176,7 +194,8 @@ export class Client extends query.Retriever<
       request: {
         list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => (await this.execRetrieve(req)).map(stripStatus),
+        fetch: async (req) =>
+          (await this.execRetrieve(req)).calculations.map(stripStatus),
         matches: (calc, req) => matches(calc, req.where),
         serverComputed: (req) => serverComputed(req.where),
         triggers: [
@@ -276,7 +295,7 @@ export class Client extends query.Retriever<
   }
 
   /** Fetches calculations and saves the statuses the Core returns. */
-  private async execRetrieve(params: RetrieveRequest): Promise<Calculation[]> {
+  private async execRetrieve(params: RetrieveRequest): Promise<RetrieveResponse> {
     const { store } = this.statuses;
     // A status that streams in during the fetch is newer than the fetched one.
     return await store.track(async (since) => {
@@ -289,7 +308,7 @@ export class Client extends query.Retriever<
       res.calculations.forEach(({ status }) => {
         if (status != null) store.ingest(status, { since });
       });
-      return res.calculations;
+      return res;
     });
   }
 }

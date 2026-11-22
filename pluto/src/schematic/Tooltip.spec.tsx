@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, connection, DataType } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
 import { id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { render, waitFor, within } from "@testing-library/react";
@@ -147,6 +147,33 @@ describe("Schematic.Tooltip", () => {
       await findTooltip();
     });
 
+    it("should fire no output lookup while a mouse sweeps over a symbol", async () => {
+      const ch = await createVirtual();
+      // The symbol under the cursor has already read its channel.
+      await client.channels.retrieve(ch.key);
+      const SlowWrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Providers>
+          <Base.Config delay={TimeSpan.seconds(10)}>{children}</Base.Config>
+        </Providers>
+      );
+      const send = spyOnSend(client);
+      const { unmount } = render(
+        <Tooltip
+          anchor={createAnchor()}
+          config={Node.createConfig({ variant: "value", channel: ch.key })}
+        />,
+        { wrapper: SlowWrapper },
+      );
+      await sleep.sleep(TimeSpan.milliseconds(300));
+      unmount();
+      await sleep.sleep(TimeSpan.milliseconds(100));
+      expect(getTooltip()).toBeNull();
+      expect(
+        send.mock.calls.filter(([target]) => target === "/calculation/retrieve"),
+      ).toEqual([]);
+      send.mockRestore();
+    });
+
     it("should reopen instantly within the warm window", async () => {
       const config = Node.createConfig({ variant: "valve" });
       const { rerender } = renderTooltip(config);
@@ -230,6 +257,48 @@ describe("Schematic.Tooltip", () => {
       const tooltip = await findTooltip();
       const value = valueOf(labelOf(tooltip, calc.name));
       expect(value.querySelector(".lyra-icon--calculation")).not.toBeNull();
+    });
+
+    it("should show a calculated channel with no virtual icon first", async () => {
+      const calc = await client.calculations.create({
+        name: id.create(),
+        expression: "return 2",
+      });
+      // A viewer whose client never saw the calculation, and whose symbol has already
+      // read the channel.
+      const viewer = createTestClient();
+      await viewer.channels.retrieve(calc.output);
+      const ViewerProviders = await createAsyncSynnaxWrapper({
+        client: viewer,
+        telemFactories: [new StampFactory()],
+        additionalRegistry: latestSample.REGISTRY,
+      });
+      const ViewerWrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <ViewerProviders>
+          <Base.Config delay={DELAY}>{children}</Base.Config>
+        </ViewerProviders>
+      );
+      const seen = new Set<string>();
+      const observer = new MutationObserver(() => {
+        const tooltip = getTooltip();
+        if (tooltip?.querySelector(".lyra-icon--virtual") != null) seen.add("virtual");
+        if (tooltip?.querySelector(".lyra-icon--calculation") != null)
+          seen.add("calculation");
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      try {
+        render(
+          <Tooltip
+            anchor={createAnchor()}
+            config={Node.createConfig({ variant: "value", channel: calc.output })}
+          />,
+          { wrapper: ViewerWrapper },
+        );
+        await waitFor(() => expect(seen.has("calculation")).toBe(true));
+      } finally {
+        observer.disconnect();
+      }
+      expect([...seen]).toEqual(["calculation"]);
     });
 
     it("should mark a virtual channel with the virtual icon", async () => {

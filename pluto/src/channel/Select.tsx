@@ -16,7 +16,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement, type ReactNode } from "react";
 
-import { getCachedIndex, getCachedIsOutput, HaulPreview } from "@/channel/HaulPreview";
+import { getCachedPreviewProps, HaulPreview } from "@/channel/HaulPreview";
 import { KindIcon } from "@/channel/KindIcon";
 import { type ListQuery, useList } from "@/channel/queries";
 import { HAUL_TYPE } from "@/channel/types";
@@ -68,8 +68,7 @@ const createHaulPreviewRenderer =
     isChannel(entry) ? (
       <HaulPreview
         channel={entry.payload}
-        index={getCachedIndex(client, entry.payload)}
-        calculated={getCachedIsOutput(client, entry.payload)}
+        {...getCachedPreviewProps(client, entry.payload)}
       />
     ) : undefined;
 

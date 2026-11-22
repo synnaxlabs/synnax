@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { calculation, DataType } from "@synnaxlabs/client";
+import { calculation, channel, DataType } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientWithPolicy,
   holdFailures,
   holdResponses,
   rejectRequests,
@@ -45,19 +46,35 @@ describe("queries", () => {
         () => ({
           output: Calculation.useIsOutput(calc.output),
           plain: Calculation.useIsOutput(plain.key),
-          plainAnswer: Calculation.useResultOutput({ channel: plain.key }).data,
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.output).toBe(true));
-      // False reads the same before the answer loads, so the spec waits for it.
+      // The client that creates a calculation holds its answer, so only plain loads.
+      expect(result.current.plain).toBeUndefined();
       await waitFor(() =>
-        expect(result.current.plainAnswer).toEqual({
-          key: plain.key,
-          calculation: null,
-        }),
+        expect(result.current).toEqual({ output: true, plain: false }),
       );
-      expect(result.current.plain).toBe(false);
+    });
+
+    it("should answer false at once for the key 0", () => {
+      const { result } = renderHook(() => Calculation.useIsOutput(0), { wrapper });
+      expect(result.current).toBe(false);
+    });
+
+    it("should count an output whose calculation the reader cannot retrieve", async () => {
+      const calc = await client.calculations.create({
+        name: id.create(),
+        expression: "return 2",
+      });
+      const reader = await createTestClientWithPolicy(client, {
+        name: id.create(),
+        objects: [channel.resourceID(calc.output)],
+        actions: ["retrieve"],
+      });
+      const { result } = renderHook(() => Calculation.useIsOutput(calc.output), {
+        wrapper: await createAsyncSynnaxWrapper({ client: reader }),
+      });
+      await waitFor(() => expect(result.current).toBe(true));
     });
 
     it("should follow a calculation that is deleted", async () => {

@@ -82,7 +82,7 @@ describe("Channel.HaulPreview", () => {
   });
 });
 
-describe("Channel.getCachedIndex", () => {
+describe("Channel.getCachedPreviewProps", () => {
   const client = createTestClient();
 
   it("should return the index of a channel from the cache", async () => {
@@ -96,20 +96,14 @@ describe("Channel.getCachedIndex", () => {
       dataType: DataType.FLOAT64,
       index: index.key,
     });
-    expect(Channel.getCachedIndex(client, data.payload)?.key).toBe(index.key);
+    expect(Channel.getCachedPreviewProps(client, data.payload).index?.key).toBe(
+      index.key,
+    );
   });
 
-  it("should return nothing for a channel with no index", () => {
-    expect(Channel.getCachedIndex(client, TIME)).toBeUndefined();
+  it("should return no index for a channel with no index", () => {
+    expect(Channel.getCachedPreviewProps(client, TIME).index).toBeUndefined();
   });
-
-  it("should return nothing without a client", () => {
-    expect(Channel.getCachedIndex(null, createPayload({ index: 1 }))).toBeUndefined();
-  });
-});
-
-describe("Channel.getCachedIsOutput", () => {
-  const client = createTestClient();
 
   it("should tell an output from a plain channel once the cache holds the answers", async () => {
     const calc = await client.calculations.create({
@@ -122,13 +116,18 @@ describe("Channel.getCachedIsOutput", () => {
       virtual: true,
     });
     const [output] = await client.channels.retrieve([calc.output]);
-    expect(Channel.getCachedIsOutput(client, plain.payload)).toBeUndefined();
+    const calculated = (ch: channel.Channel): boolean | undefined =>
+      Channel.getCachedPreviewProps(client, ch.payload).calculated;
+    expect(calculated(plain)).toBeUndefined();
     await client.calculations.outputs.retrieve([plain.key, calc.output]);
-    expect(Channel.getCachedIsOutput(client, output.payload)).toBe(true);
-    expect(Channel.getCachedIsOutput(client, plain.payload)).toBe(false);
+    expect(calculated(output)).toBe(true);
+    expect(calculated(plain)).toBe(false);
   });
 
   it("should return nothing without a client", () => {
-    expect(Channel.getCachedIsOutput(null, createPayload({}))).toBeUndefined();
+    expect(Channel.getCachedPreviewProps(null, createPayload({ index: 1 }))).toEqual({
+      index: undefined,
+      calculated: undefined,
+    });
   });
 });

@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	servicecalculation "github.com/synnaxlabs/synnax/pkg/service/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -41,6 +42,9 @@ type RetrieveRequest struct {
 type RetrieveResponse struct {
 	// Calculations are the calculations the request selects.
 	Calculations []servicecalculation.Calculation `json:"calculations" msgpack:"calculations"`
+	// HiddenOutputs are the outputs of the calculations that the request matches and
+	// the subject cannot retrieve, each one a channel that the subject can retrieve.
+	HiddenOutputs []channel.Key `json:"hidden_outputs" msgpack:"hidden_outputs"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

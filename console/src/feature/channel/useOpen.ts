@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  calculation,
   type channel,
   lineplot,
   log,
@@ -32,7 +33,7 @@ const isPlainVirtual = async (client: Client, key: channel.Key): Promise<boolean
     client.channels.retrieve(key),
     client.calculations.outputs.retrieve([key]),
   ]);
-  return ch.virtual && output.calculation == null;
+  return ch.virtual && !calculation.isOutput(output);
 };
 
 // useOpen returns a handler that opens a channel resource in a visualization:

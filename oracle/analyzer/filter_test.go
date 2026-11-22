@@ -1022,6 +1022,120 @@ var _ = Describe("Filter definitions", func() {
 			}))
 		})
 
+		It("Should append the fields of the @response mixin after the records", func() {
+			table, diag := Analyze(`
+				import "schemas/x/filter"
+
+				Thing struct {
+					key uuid { @key }
+				}
+				Hidden struct {
+					hidden_keys uuid[] = [] {
+						@doc value "are the keys the subject cannot retrieve."
+					}
+
+					@go omit
+				}
+				Where filter Thing {
+					key
+
+					@response mixin Hidden
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			res, ok := table.MustGet("test.RetrieveResponse").
+				Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			Expect(fieldNames(res)).To(Equal([]string{"things", "hidden_keys"}))
+			Expect(fieldTypes(res)["hidden_keys"]).To(Equal(resolution.TypeRef{
+				Name:     "Array",
+				TypeArgs: []resolution.TypeRef{{Name: "uuid"}},
+			}))
+			hidden := res.Fields[1]
+			Expect(hidden.Domains["doc"].Expressions[0].Values[0].StringValue).
+				To(Equal("are the keys the subject cannot retrieve."))
+		})
+
+		It("Should take a @response type and a @response mixin together", func() {
+			table, diag := Analyze(`
+				import "schemas/x/filter"
+
+				Thing struct {
+					key uuid { @key }
+				}
+				Wire struct {
+					key uuid
+				}
+				Hidden struct {
+					hidden_keys uuid[] = []
+
+					@go omit
+				}
+				Where filter Thing {
+					key
+
+					@response {
+						type  Wire
+						mixin Hidden
+					}
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			res, ok := table.MustGet("test.RetrieveResponse").
+				Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			Expect(fieldTypes(res)).To(Equal(map[string]resolution.TypeRef{
+				"things": {
+					Name:     "Array",
+					TypeArgs: []resolution.TypeRef{{Name: "test.Wire"}},
+				},
+				"hidden_keys": {
+					Name:     "Array",
+					TypeArgs: []resolution.TypeRef{{Name: "uuid"}},
+				},
+			}))
+		})
+
+		DescribeTable("Should reject an invalid @response mixin",
+			func(mixin, message string) {
+				_, diag := Analyze(`
+					import "schemas/x/filter"
+
+					Kind enum {
+						a = "a"
+					}
+					Thing struct {
+						key uuid { @key }
+					}
+					Clash struct {
+						things uuid[] = []
+					}
+					Shape union on variant {
+						a {}
+						b {}
+					}
+					Where filter Thing {
+						key
+
+						`+mixin+`
+					}
+				`, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(message))
+			},
+			Entry("without a type", "@response mixin",
+				"filter Where: @response takes `mixin <Type>`"),
+			Entry("with an unknown type", "@response mixin Missing",
+				"filter Where: unknown response mixin Missing"),
+			Entry("with an enum", "@response mixin Kind",
+				"filter Where: the response mixin test.Kind must be a struct"),
+			Entry("with a union", "@response mixin Shape",
+				"filter Where: the response mixin test.Shape must be a struct"),
+			Entry("with a field named as the records", "@response mixin Clash",
+				"filter Where: the response mixin test.Clash holds a field named "+
+					"things, as the records do"),
+		)
+
 		It("Should reject a @response type without fields", func() {
 			_, diag := Analyze(`
 				import "schemas/x/filter"
@@ -1060,8 +1174,8 @@ var _ = Describe("Filter definitions", func() {
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(message))
 			},
-			Entry("without a type", "@response",
-				"filter Where: @response takes `type <Type>`"),
+			Entry("without a type or a mixin", "@response",
+				"filter Where: @response takes `type <Type>` or `mixin <Type>`"),
 			Entry("with an unknown type", "@response type Missing",
 				"filter Where: unknown response type Missing"),
 		)

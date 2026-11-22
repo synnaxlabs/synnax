@@ -168,6 +168,11 @@ export interface New extends z.input<typeof calculationZ> {}
 export const retrieveResponseZ = z.object({
   /** calculations are the calculations the request selects. */
   calculations: calculationZ.array().default(() => []),
+  /**
+   * hiddenOutputs are the outputs of the calculations that the request matches and the
+   * subject cannot retrieve, each one a channel that the subject can retrieve.
+   */
+  hiddenOutputs: channel.keyZ.array().default(() => []),
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 

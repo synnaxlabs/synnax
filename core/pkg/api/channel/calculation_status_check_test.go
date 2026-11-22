@@ -29,9 +29,9 @@ import (
 )
 
 var _ = Describe("Calculation status checks", func() {
-	// A8: the old API shows the output of a hidden calculation as a plain virtual
-	// channel, so its virtual filter must match that output for the same subject.
-	It("Should match the output of a hidden calculation as virtual", func(
+	// The old API calls the output of a hidden calculation calculated, so its virtual
+	// filter must leave that output out for the same subject.
+	It("Should leave a hidden calculation's output out of a virtual retrieve", func(
 		ctx SpecContext,
 	) {
 		owner := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc,
@@ -62,9 +62,17 @@ var _ = Describe("Calculation status checks", func() {
 				Key:     &filter.Set[channel.Key]{Eq: &ch.Key},
 				Virtual: &virtual,
 			}}))
+		Expect(res.Channels).To(BeEmpty())
+		virtual = false
+		res = MustSucceed(retrieveChannels(AuthedCtx(ctx, reader),
+			apichannel.RetrieveRequest{Where: &channel.Where{
+				Key:     &filter.Set[channel.Key]{Eq: &ch.Key},
+				Virtual: &virtual,
+			}}))
 		Expect(res.Channels).To(ConsistOf(SatisfyAll(
 			HaveField("Key", ch.Key),
 			HaveField("Expression", BeEmpty()),
+			HaveField("Calculated", BeTrue()),
 		)))
 	})
 })

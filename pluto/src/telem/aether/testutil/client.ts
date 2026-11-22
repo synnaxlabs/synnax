@@ -25,7 +25,8 @@ export const createClient = (
   channels: core.channels,
   calculations: {
     outputs: {
-      retrieve: async (keys) => keys.map((key) => ({ key, calculation: null })),
+      retrieve: async (keys) =>
+        keys.map((key) => ({ key, hidden: false, calculation: null })),
     },
   },
   now: core.now,

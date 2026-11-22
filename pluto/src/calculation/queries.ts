@@ -20,7 +20,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
 
-export type RetrieveOutputQuery = {
+type RetrieveOutputQuery = {
   /** The key of the channel. */
   channel: channel.Key;
 };
@@ -29,7 +29,7 @@ export type RetrieveOutputQuery = {
  * Answers with the calculation that writes the channel of the query, or with none. The
  * lookups of a tick share one request.
  */
-export const { useResult: useResultOutput } = Flux.createRetrieve<
+const { useResult: useResultOutput } = Flux.createRetrieve<
   RetrieveOutputQuery,
   calculation.Output
 >({
@@ -49,11 +49,15 @@ export const { useResult: useResultOutput } = Flux.createRetrieve<
 });
 
 /**
- * @returns whether a calculation writes the channel. False until the answer loads, and
- * for the key 0, which names no channel.
+ * @returns whether a calculation writes the channel, whether or not the reader can
+ * retrieve it, or undefined until the answer loads. False for the key 0, which names
+ * no channel.
  */
-export const useIsOutput = (channel: channel.Key): boolean =>
-  useResultOutput(channel === 0 ? null : { channel }).data?.calculation != null;
+export const useIsOutput = (channel: channel.Key): boolean | undefined => {
+  const output = useResultOutput(channel === 0 ? null : { channel }).data;
+  if (channel === 0) return false;
+  return output == null ? undefined : calculation.isOutput(output);
+};
 
 // The status of the calculation that writes the channel, null when no calculation
 // writes it or the calculation has none, and undefined until the cache can tell.
@@ -63,7 +67,7 @@ const cachedStatusOf = (
 ): calculation.Status | null | undefined => {
   const output = client.calculations.outputs.get(channel);
   if (output == null) return undefined;
-  if (output.calculation == null) return null;
+  if (output.hidden || output.calculation == null) return null;
   const st = client.statuses.ownedBy(calculation.resourceID(output.calculation));
   if (st == null) return undefined;
   return calculation.statusZ.parse(st);
@@ -83,7 +87,7 @@ export const { useResult: useResultStatus } = Flux.createRetrieve<
   name: "calculation status",
   retrieve: async ({ client, query: { channel } }) => {
     const [output] = await client.calculations.outputs.retrieve([channel]);
-    if (output.calculation == null) return null;
+    if (output.hidden || output.calculation == null) return null;
     const owner = calculation.resourceID(output.calculation);
     const [st] = await client.statuses.retrieveOwned([owner]);
     return st == null ? null : calculation.statusZ.parse(st);
@@ -92,7 +96,8 @@ export const { useResult: useResultStatus } = Flux.createRetrieve<
     const notify = () => handler(cachedStatusOf(client, channel) ?? null);
     const unsubscribeOutputs = client.calculations.outputs.subscribe(notify, channel);
     const unsubscribeStatuses = client.statuses.store.subscribe((event) => {
-      const calc = client.calculations.outputs.get(channel)?.calculation;
+      const output = client.calculations.outputs.get(channel);
+      const calc = output == null || output.hidden ? null : output.calculation;
       if (
         calc != null &&
         client.statuses.ownerKeys(event, "calculation")?.includes(calc)
@@ -224,7 +229,7 @@ const createNonOutputFilter =
   (ch: channel.Channel): boolean => {
     const output = outputs?.get(ch.key);
     read(ch.key, output != null);
-    return output != null && output.calculation == null;
+    return output != null && !calculation.isOutput(output);
   };
 
 /** The return value of {@link useNonOutputFilter}. */

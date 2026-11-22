@@ -57,8 +57,14 @@ const FIELD_ROWS: { field: Field; label?: string }[] = [
 
 const SPAN_FIELDS = new Set<Field>(["onClickDelay", "stalenessTimeout"]);
 
-const kindIcon = (ch: channel.Channel, calculated: boolean): Icon.FC | null => {
+// A channel whose output answer has not loaded shows no kind icon, so it never shows a
+// wrong one first.
+const kindIcon = (
+  ch: channel.Channel,
+  calculated: boolean | undefined,
+): Icon.FC | null => {
   if (ch.isIndex) return Icon.Time;
+  if (calculated == null) return null;
   if (calculated) return Icon.Calculation;
   if (ch.virtual) return Icon.Virtual;
   return null;
@@ -147,7 +153,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   // A zero key and a null query hold the fetches until the delay passes, so mouse
   // sweeps fire nothing.
   const outputKeyOf = (field: Field): number => (visible ? keyOf(field) : 0);
-  const calculated: Partial<Record<Field, boolean>> = {
+  const calculated: Partial<Record<Field, boolean | undefined>> = {
     stateChannel: Calculation.useIsOutput(outputKeyOf("stateChannel")),
     channel: Calculation.useIsOutput(outputKeyOf("channel")),
     commandChannel: Calculation.useIsOutput(outputKeyOf("commandChannel")),
@@ -155,7 +161,15 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   const { data } = Channel.useResultMultiple(
     visible && keys.length > 0 ? { where: { key: { in: keys } } } : null,
   );
-  if (!visible || (keys.length > 0 && data == null)) return null;
+  // The first show waits for the output answers too, so its kind icons show at once. A
+  // later change of channel keeps the tooltip open.
+  const loaded = visible && (keys.length === 0 || data != null);
+  const answered = Object.values(calculated).every((c) => c != null);
+  const [opened, setOpened] = useState(false);
+  useEffect(() => {
+    if (loaded && answered) setOpened(true);
+  }, [loaded, answered]);
+  if (!loaded || (!opened && !answered)) return null;
   const channels = CHANNEL_ROWS.flatMap(({ field, icon: RoleIcon }) => {
     const key = values[field];
     if (typeof key !== "number" || primitive.isZero(key)) return [];
@@ -177,7 +191,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
         />
       );
     }
-    const KindIcon = kindIcon(ch, calculated[field] === true);
+    const KindIcon = kindIcon(ch, calculated[field]);
     return (
       <Row
         key={field}

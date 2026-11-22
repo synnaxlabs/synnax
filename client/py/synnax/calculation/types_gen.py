@@ -171,9 +171,13 @@ class RetrieveResponse(BaseModel):
 
     Attributes:
         calculations: Are the calculations the request selects.
+        hidden_outputs: Are the outputs of the calculations that the request matches and
+            the subject cannot retrieve, each one a channel that the subject can
+            retrieve.
     """
 
     calculations: list[Calculation] = Field(default_factory=list)
+    hidden_outputs: list[channel.Key] = Field(default_factory=list)
 
 
 Where.model_rebuild()

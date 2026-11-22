@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  calculation,
   channel,
   framer,
   status as cstatus,
@@ -568,7 +569,8 @@ export class StreamMultiChannelLog
             client.channels.retrieve(k),
             client.calculations.outputs.retrieve([k]),
           ]);
-          return toMeta(ch, output.calculation != null);
+          // A table that drops the key, as a cache reset does, has not answered yet.
+          return output == null ? null : toMeta(ch, calculation.isOutput(output));
         }),
       );
       if (generation !== this.generation) return;
@@ -576,6 +578,10 @@ export class StreamMultiChannelLog
       results.forEach((r, i) => {
         const key = missing[i];
         if (r.status === "fulfilled") {
+          if (r.value == null) {
+            retried = true;
+            return;
+          }
           this.metas.set(key, r.value);
           this.unresolved.delete(key);
           return;
