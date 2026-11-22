@@ -346,6 +346,17 @@ var _ = Describe("Writer", func() {
 			Expect(st.Name).To(Equal("Inlet"))
 		})
 
+		It("Should reject a negative SYNC0 cycle", func(ctx SpecContext) {
+			s := create(ctx)
+			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
+				Name: "Inlet",
+				OpMode: &slave.OpModeChoice{
+					AssignActivate: 0x300,
+					Sync0Cycle:     telem.TimeSpan(-1),
+				},
+			}))).To(MatchError(validate.ErrValidation))
+		})
+
 		It("Should reject a configuration without a name", func(ctx SpecContext) {
 			s := create(ctx)
 			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{}))).

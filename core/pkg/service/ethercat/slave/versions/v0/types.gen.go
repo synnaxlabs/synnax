@@ -12,22 +12,16 @@
 package v0
 
 import (
-	"encoding/json/jsontext"
-	"encoding/json/v2"
-	"regexp"
-	"strconv"
 	"uuid"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	master "github.com/synnaxlabs/synnax/pkg/service/ethercat/master/versions/v0"
+	ethercat "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
-	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
-
-var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
 
 // Key uniquely identifies an EtherCAT slave.
 type Key = uuid.UUID
@@ -80,6 +74,15 @@ type OpModeChoice struct {
 	Sync1Cycle telem.TimeSpan `json:"sync1_cycle" msgpack:"sync1_cycle"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o OpModeChoice) Validate() error {
+	v := validate.New("OpModeChoice")
+	v.GreaterThanEq("sync0_cycle", o.Sync0Cycle, 0)
+	v.GreaterThanEq("sync1_cycle", o.Sync1Cycle, 0)
+	return v.Error()
+}
+
 // PDOEntry is a PDO entry that a scan found on a slave.
 type PDOEntry struct {
 	// Name is the name of the entry, such as Input.
@@ -120,452 +123,16 @@ type ReadBinding struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r ReadBinding) Validate() error {
-	v := validate.New("ReadBinding")
-	v.NonZero("channel", r.Channel)
-	return v.Error()
-}
-
-// StartupParameterBase carries the fields that every startup parameter shares.
-type StartupParameterBase struct {
-	// Index is the CoE object dictionary index of the object.
-	Index uint16 `json:"index" msgpack:"index"`
-	// SubIndex is the CoE object dictionary sub-index of the object.
-	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
-	// Name is what the parameter sets, for display.
-	Name string `json:"name" msgpack:"name"`
-}
-
-// StartupParameterType is the "data_type" value that selects a variant of
-// StartupParameter.
-type StartupParameterType string
-
-const (
-	// Int8StartupParameterType writes a int8 value.
-	Int8StartupParameterType StartupParameterType = "int8"
-	// Int16StartupParameterType writes a int16 value.
-	Int16StartupParameterType StartupParameterType = "int16"
-	// Int32StartupParameterType writes a int32 value.
-	Int32StartupParameterType StartupParameterType = "int32"
-	// Int64StartupParameterType writes a int64 value.
-	Int64StartupParameterType StartupParameterType = "int64"
-	// Uint8StartupParameterType writes a uint8 value.
-	Uint8StartupParameterType StartupParameterType = "uint8"
-	// Uint16StartupParameterType writes a uint16 value.
-	Uint16StartupParameterType StartupParameterType = "uint16"
-	// Uint32StartupParameterType writes a uint32 value.
-	Uint32StartupParameterType StartupParameterType = "uint32"
-	// Uint64StartupParameterType writes a uint64 value.
-	Uint64StartupParameterType StartupParameterType = "uint64"
-	// Float32StartupParameterType writes a float32 value.
-	Float32StartupParameterType StartupParameterType = "float32"
-	// Float64StartupParameterType writes a float64 value.
-	Float64StartupParameterType StartupParameterType = "float64"
-)
-
-// StartupParameterVariant is implemented by every StartupParameter variant.
-type StartupParameterVariant interface {
-	isStartupParameterVariant()
-}
-
-// Int8StartupParameter writes a int8 value.
-type Int8StartupParameter struct {
-	StartupParameterBase
-	// Value is the value written to the object.
-	Value int8 `json:"value" msgpack:"value"`
-}
-
-func (Int8StartupParameter) isStartupParameterVariant() {}
-
-// Int16StartupParameter writes a int16 value.
-type Int16StartupParameter struct {
-	StartupParameterBase
-	// Value is the value written to the object.
-	Value int16 `json:"value" msgpack:"value"`
-}
-
-func (Int16StartupParameter) isStartupParameterVariant() {}
-
-// Int32StartupParameter writes a int32 value.
-type Int32StartupParameter struct {
-	StartupParameterBase
-	// Value is the value written to the object.
-	Value int32 `json:"value" msgpack:"value"`
-}
-
-func (Int32StartupParameter) isStartupParameterVariant() {}
-
-// Int64StartupParameter writes a int64 value.
-type Int64StartupParameter struct {
-	StartupParameterBase
-	// Value is the value written to the object.
-	Value int64 `json:"value" msgpack:"value"`
-}
-
-func (Int64StartupParameter) isStartupParameterVariant() {}
-
-// Uint8StartupParameter writes a uint8 value.
-type Uint8StartupParameter struct {
-	StartupParameterBase
-	// Value is the value written to the object.
-	Value uint8 `json:"value" msgpack:"value"`
-}
-
-func (Uint8StartupParameter) isStartupParameterVariant() {}
-
-// Uint16StartupParameter writes a uint16 value.
-type Uint16StartupParameter struct {
-	StartupParameterBase
-	// Value is the value written to the object.
-	Value uint16 `json:"value" msgpack:"value"`
-}
-
-func (Uint16StartupParameter) isStartupParameterVariant() {}
-
-// Uint32StartupParameter writes a uint32 value.
-type Uint32StartupParameter struct {
-	StartupParameterBase
-	// Value is the value written to the object.
-	Value uint32 `json:"value" msgpack:"value"`
-}
-
-func (Uint32StartupParameter) isStartupParameterVariant() {}
-
-// Uint64StartupParameter writes a uint64 value.
-type Uint64StartupParameter struct {
-	StartupParameterBase
-	// Value is the value written to the object.
-	Value uint64 `json:"value" msgpack:"value"`
-}
-
-func (Uint64StartupParameter) isStartupParameterVariant() {}
-
-// Float32StartupParameter writes a float32 value.
-type Float32StartupParameter struct {
-	StartupParameterBase
-	// Value is the value written to the object.
-	Value float32 `json:"value" msgpack:"value"`
-}
-
-func (Float32StartupParameter) isStartupParameterVariant() {}
-
-// Float64StartupParameter writes a float64 value.
-type Float64StartupParameter struct {
-	StartupParameterBase
-	// Value is the value written to the object.
-	Value float64 `json:"value" msgpack:"value"`
-}
-
-func (Float64StartupParameter) isStartupParameterVariant() {}
-
-// StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP, before
-// the slave moves to SAFE-OP. Its data type sets the size of the write and the type of
-// its value.
-type StartupParameter struct {
-	Variant StartupParameterVariant
-}
-
-// MarshalJSONTo encodes the active variant with its "data_type" tag injected.
-func (u StartupParameter) MarshalJSONTo(enc *jsontext.Encoder) error {
-	switch v := u.Variant.(type) {
-	case nil:
-		return enc.WriteToken(jsontext.Null)
-	case Int8StartupParameter:
-		return json.MarshalEncode(enc, struct {
-			Type StartupParameterType `json:"data_type"`
-			Int8StartupParameter
-		}{Type: Int8StartupParameterType, Int8StartupParameter: v})
-	case Int16StartupParameter:
-		return json.MarshalEncode(enc, struct {
-			Type StartupParameterType `json:"data_type"`
-			Int16StartupParameter
-		}{Type: Int16StartupParameterType, Int16StartupParameter: v})
-	case Int32StartupParameter:
-		return json.MarshalEncode(enc, struct {
-			Type StartupParameterType `json:"data_type"`
-			Int32StartupParameter
-		}{Type: Int32StartupParameterType, Int32StartupParameter: v})
-	case Int64StartupParameter:
-		return json.MarshalEncode(enc, struct {
-			Type StartupParameterType `json:"data_type"`
-			Int64StartupParameter
-		}{Type: Int64StartupParameterType, Int64StartupParameter: v})
-	case Uint8StartupParameter:
-		return json.MarshalEncode(enc, struct {
-			Type StartupParameterType `json:"data_type"`
-			Uint8StartupParameter
-		}{Type: Uint8StartupParameterType, Uint8StartupParameter: v})
-	case Uint16StartupParameter:
-		return json.MarshalEncode(enc, struct {
-			Type StartupParameterType `json:"data_type"`
-			Uint16StartupParameter
-		}{Type: Uint16StartupParameterType, Uint16StartupParameter: v})
-	case Uint32StartupParameter:
-		return json.MarshalEncode(enc, struct {
-			Type StartupParameterType `json:"data_type"`
-			Uint32StartupParameter
-		}{Type: Uint32StartupParameterType, Uint32StartupParameter: v})
-	case Uint64StartupParameter:
-		return json.MarshalEncode(enc, struct {
-			Type StartupParameterType `json:"data_type"`
-			Uint64StartupParameter
-		}{Type: Uint64StartupParameterType, Uint64StartupParameter: v})
-	case Float32StartupParameter:
-		return json.MarshalEncode(enc, struct {
-			Type StartupParameterType `json:"data_type"`
-			Float32StartupParameter
-		}{Type: Float32StartupParameterType, Float32StartupParameter: v})
-	case Float64StartupParameter:
-		return json.MarshalEncode(enc, struct {
-			Type StartupParameterType `json:"data_type"`
-			Float64StartupParameter
-		}{Type: Float64StartupParameterType, Float64StartupParameter: v})
-	default:
-		return errors.Newf("StartupParameter: unknown variant %T", v)
-	}
-}
-
-// UnmarshalJSONFrom decodes the variant selected by the "data_type" field.
-func (u *StartupParameter) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	data, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if data.Kind() == 'n' {
-		u.Variant = nil
-		return nil
-	}
-	opts := dec.Options()
-	var disc struct {
-		Type StartupParameterType `json:"data_type"`
-	}
-	if err := json.Unmarshal(
-		data, &disc, opts, json.RejectUnknownMembers(false),
-	); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case Int8StartupParameterType:
-		var v struct {
-			Type StartupParameterType `json:"data_type"`
-			Int8StartupParameter
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.Int8StartupParameter
-	case Int16StartupParameterType:
-		var v struct {
-			Type StartupParameterType `json:"data_type"`
-			Int16StartupParameter
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.Int16StartupParameter
-	case Int32StartupParameterType:
-		var v struct {
-			Type StartupParameterType `json:"data_type"`
-			Int32StartupParameter
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.Int32StartupParameter
-	case Int64StartupParameterType:
-		var v struct {
-			Type StartupParameterType `json:"data_type"`
-			Int64StartupParameter
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.Int64StartupParameter
-	case Uint8StartupParameterType:
-		var v struct {
-			Type StartupParameterType `json:"data_type"`
-			Uint8StartupParameter
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.Uint8StartupParameter
-	case Uint16StartupParameterType:
-		var v struct {
-			Type StartupParameterType `json:"data_type"`
-			Uint16StartupParameter
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.Uint16StartupParameter
-	case Uint32StartupParameterType:
-		var v struct {
-			Type StartupParameterType `json:"data_type"`
-			Uint32StartupParameter
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.Uint32StartupParameter
-	case Uint64StartupParameterType:
-		var v struct {
-			Type StartupParameterType `json:"data_type"`
-			Uint64StartupParameter
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.Uint64StartupParameter
-	case Float32StartupParameterType:
-		var v struct {
-			Type StartupParameterType `json:"data_type"`
-			Float32StartupParameter
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.Float32StartupParameter
-	case Float64StartupParameterType:
-		var v struct {
-			Type StartupParameterType `json:"data_type"`
-			Float64StartupParameter
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.Float64StartupParameter
-	default:
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"StartupParameter: unknown data_type %q",
-			disc.Type,
-		)
-	}
-	return nil
-}
-
-// DataType returns the data_type of the active variant, or an empty data_type when
-// there is none.
-func (u StartupParameter) DataType() StartupParameterType {
-	switch u.Variant.(type) {
-	case Int8StartupParameter:
-		return Int8StartupParameterType
-	case Int16StartupParameter:
-		return Int16StartupParameterType
-	case Int32StartupParameter:
-		return Int32StartupParameterType
-	case Int64StartupParameter:
-		return Int64StartupParameterType
-	case Uint8StartupParameter:
-		return Uint8StartupParameterType
-	case Uint16StartupParameter:
-		return Uint16StartupParameterType
-	case Uint32StartupParameter:
-		return Uint32StartupParameterType
-	case Uint64StartupParameter:
-		return Uint64StartupParameterType
-	case Float32StartupParameter:
-		return Float32StartupParameterType
-	case Float64StartupParameter:
-		return Float64StartupParameterType
-	}
-	return ""
-}
-
-// Validate returns an error wrapping validate.ErrValidation if no variant is active or
-// the active variant violates its schema constraints.
-func (u StartupParameter) Validate() error {
-	v := validate.New("StartupParameter")
-	v.Ternary("data_type", u.Variant == nil, "required")
-	return v.Error()
-}
-
-// Base returns the fields every variant shares, or the zero value if Variant is nil.
-func (u StartupParameter) Base() StartupParameterBase {
-	switch variant := u.Variant.(type) {
-	case Int8StartupParameter:
-		return variant.StartupParameterBase
-	case Int16StartupParameter:
-		return variant.StartupParameterBase
-	case Int32StartupParameter:
-		return variant.StartupParameterBase
-	case Int64StartupParameter:
-		return variant.StartupParameterBase
-	case Uint8StartupParameter:
-		return variant.StartupParameterBase
-	case Uint16StartupParameter:
-		return variant.StartupParameterBase
-	case Uint32StartupParameter:
-		return variant.StartupParameterBase
-	case Uint64StartupParameter:
-		return variant.StartupParameterBase
-	case Float32StartupParameter:
-		return variant.StartupParameterBase
-	case Float64StartupParameter:
-		return variant.StartupParameterBase
-	}
-	return StartupParameterBase{}
-}
-
-// SetBase replaces the fields every variant shares. It panics if Variant is nil.
-func (u *StartupParameter) SetBase(base StartupParameterBase) {
-	switch variant := u.Variant.(type) {
-	case Int8StartupParameter:
-		variant.StartupParameterBase = base
-		u.Variant = variant
-	case Int16StartupParameter:
-		variant.StartupParameterBase = base
-		u.Variant = variant
-	case Int32StartupParameter:
-		variant.StartupParameterBase = base
-		u.Variant = variant
-	case Int64StartupParameter:
-		variant.StartupParameterBase = base
-		u.Variant = variant
-	case Uint8StartupParameter:
-		variant.StartupParameterBase = base
-		u.Variant = variant
-	case Uint16StartupParameter:
-		variant.StartupParameterBase = base
-		u.Variant = variant
-	case Uint32StartupParameter:
-		variant.StartupParameterBase = base
-		u.Variant = variant
-	case Uint64StartupParameter:
-		variant.StartupParameterBase = base
-		u.Variant = variant
-	case Float32StartupParameter:
-		variant.StartupParameterBase = base
-		u.Variant = variant
-	case Float64StartupParameter:
-		variant.StartupParameterBase = base
-		u.Variant = variant
-	default:
-		panic(errors.Newf("StartupParameter: cannot set the base of variant %T", variant))
-	}
-}
-
 // WriteBinding is the pair of channels that a slave maps for one output entry.
 type WriteBinding struct {
 	// Index is the CoE object dictionary index of the output entry.
 	Index uint16 `json:"index" msgpack:"index"`
 	// SubIndex is the CoE object dictionary sub-index of the output entry.
 	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
-	// Command is the channel that commands the entry.
+	// Command is the channel that commands the entry. 0 is no channel.
 	Command channel.Key `json:"command" msgpack:"command"`
 	// State is the channel that holds the state of the entry. 0 is no channel.
 	State channel.Key `json:"state" msgpack:"state"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (w WriteBinding) Validate() error {
-	v := validate.New("WriteBinding")
-	v.NonZero("command", w.Command)
-	return v.Error()
 }
 
 // Slave is an EtherCAT slave: one module on the bus of a master.
@@ -577,7 +144,7 @@ type Slave struct {
 	// Name is a human-readable name for the slave.
 	Name string `json:"name" msgpack:"name"`
 	// Serial is the serial number of the slave. 0 when the slave reports none.
-	Serial uint64 `json:"serial" msgpack:"serial"`
+	Serial uint32 `json:"serial" msgpack:"serial"`
 	// VendorID is the EtherCAT vendor ID of the slave.
 	VendorID uint32 `json:"vendor_id" msgpack:"vendor_id"`
 	// ProductCode is the product code of the slave.
@@ -621,22 +188,8 @@ type Slave struct {
 func (s Slave) Validate() error {
 	v := validate.New("Slave")
 	v.NotEmptyString("name", s.Name)
-	v.LessThanEq("serial", s.Serial, 9007199254740991)
-	v.Ternary("identifier", !validatePattern0.MatchString(string(s.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
-	for i := range s.StartupParameters {
-		v.Exec(func() error {
-			return validate.PathedError(s.StartupParameters[i].Validate(), "startup_parameters", strconv.Itoa(i))
-		})
-	}
-	for i := range s.ReadBindings {
-		v.Exec(func() error {
-			return validate.PathedError(s.ReadBindings[i].Validate(), "read_bindings", strconv.Itoa(i))
-		})
-	}
-	for i := range s.WriteBindings {
-		v.Exec(func() error {
-			return validate.PathedError(s.WriteBindings[i].Validate(), "write_bindings", strconv.Itoa(i))
-		})
+	if s.OpMode != nil {
+		v.Exec(func() error { return validate.PathedError(s.OpMode.Validate(), "op_mode") })
 	}
 	return v.Error()
 }

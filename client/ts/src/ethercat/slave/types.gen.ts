@@ -57,9 +57,9 @@ export const opModeChoiceZ = z.object({
    */
   assignActivate: zod.uint16,
   /** sync0Cycle replaces the SYNC0 cycle of the mode. 0 keeps the cycle of the mode. */
-  sync0Cycle: telem.timeSpanZ.default(TimeSpan.ZERO),
+  sync0Cycle: telem.timeSpanZ.check(z.gte(0)).default(TimeSpan.ZERO),
   /** sync1Cycle replaces the SYNC1 cycle of the mode. 0 keeps the cycle of the mode. */
-  sync1Cycle: telem.timeSpanZ.default(TimeSpan.ZERO),
+  sync1Cycle: telem.timeSpanZ.check(z.gte(0)).default(TimeSpan.ZERO),
 });
 export interface OpModeChoice extends z.infer<typeof opModeChoiceZ> {}
 

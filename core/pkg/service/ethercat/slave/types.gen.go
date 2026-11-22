@@ -212,6 +212,9 @@ type Configuration struct {
 func (c Configuration) Validate() error {
 	v := validate.New("Configuration")
 	v.NotEmptyString("name", c.Name)
+	if c.OpMode != nil {
+		v.Exec(func() error { return validate.PathedError(c.OpMode.Validate(), "op_mode") })
+	}
 	return v.Error()
 }
 
