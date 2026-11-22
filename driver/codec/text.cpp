@@ -24,6 +24,7 @@
 #include "x/cpp/json/number.h"
 #include "x/cpp/json/text.h"
 #include "x/cpp/payload/types.gen.h"
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
@@ -34,16 +35,6 @@
 namespace driver::codec {
 namespace {
 namespace icd = synnax::icd;
-
-/// @brief SPACE is the text that a decode trims from around a value.
-constexpr std::string_view SPACE = " \t\r";
-
-std::string_view trim(const std::string_view s) {
-    const auto first = s.find_first_not_of(SPACE);
-    if (first == std::string_view::npos) return {};
-    return s.substr(first, s.find_last_not_of(SPACE) - first + 1);
-}
-
 }
 
 std::pair<Text::Field, x::errors::Error> Text::Field::create(
@@ -70,7 +61,7 @@ std::pair<Text::Field, x::errors::Error> Text::Field::create(
                     "the tag contains the delimiter " + x::json::quote(delimiter)
                 ),
             };
-        if (SPACE.contains(tagged->tag.front()))
+        if (x::strings::TRIMMED.contains(tagged->tag.front()))
             return {
                 Field{},
                 x::errors::Error(CONFIG_ERROR, "the tag starts with whitespace")
@@ -123,12 +114,12 @@ x::errors::Error Text::Field::decode(
     std::string_view value;
     if (this->tagged) {
         for (const auto item: items)
-            if (const auto t = trim(item); t.starts_with(this->tag)) {
-                value = trim(t.substr(this->tag.size()));
+            if (const auto t = x::strings::trim(item); t.starts_with(this->tag)) {
+                value = x::strings::trim(t.substr(this->tag.size()));
                 break;
             }
     } else if (this->position < items.size())
-        value = trim(items[this->position]);
+        value = x::strings::trim(items[this->position]);
     if (value.empty()) {
         if (this->fallback.has_value()) {
             dst.write(*this->fallback);
@@ -221,7 +212,7 @@ Text::route(const std::string &name, const std::string &prefix, const std::size_
 
 std::pair<std::optional<std::size_t>, x::errors::Error>
 Text::decode(const std::string_view line) {
-    if (trim(line).empty()) return {std::nullopt, x::errors::NIL};
+    if (x::strings::trim(line).empty()) return {std::nullopt, x::errors::NIL};
     std::optional<std::size_t> found = this->fallback;
     for (const auto &p: this->prefixed)
         if (line.starts_with(p.prefix)) {
