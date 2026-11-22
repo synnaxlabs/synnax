@@ -60,10 +60,7 @@ InlineRead struct {
 
 ReadConfig struct extends v4.ReadConfig {
     inline InlineRead? {
-        @doc value  """
-            holds the fields of a config from before ICDs. A write moves them into a new
-            ICD, reads each endpoint from its message, and clears it.
-        """
+        @doc value  "holds the fields of each endpoint of a config from before ICDs."
         @go marshal omit
     }
 }

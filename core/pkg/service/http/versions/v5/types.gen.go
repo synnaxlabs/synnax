@@ -171,8 +171,7 @@ type ReadConfig struct {
 	// written as NaN. When false, the task skips every field that shares the endpoint
 	// and index channel with it.
 	NanFillEnabled bool `json:"nan_fill_enabled" msgpack:"nan_fill_enabled"`
-	// Inline holds the fields of a config from before ICDs. A write moves them into a
-	// new ICD, reads each endpoint from its message, and clears it.
+	// Inline holds the fields of each endpoint of a config from before ICDs.
 	Inline *InlineRead `json:"inline,omitzero" msgpack:"inline,omitempty"`
 }
 
