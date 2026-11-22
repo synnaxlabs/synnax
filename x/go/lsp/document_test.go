@@ -10,6 +10,9 @@
 package lsp_test
 
 import (
+	"strings"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/lsp"
@@ -154,6 +157,27 @@ var _ = Describe("Document", func() {
 		It("Should return false for out-of-bounds line", func() {
 			_, ok := lsp.GetLine("hello", 5)
 			Expect(ok).To(BeFalse())
+		})
+
+		It("Should return the empty line after a trailing line ending", func() {
+			line, ok := lsp.GetLine("a\n", 1)
+			Expect(ok).To(BeTrue())
+			Expect(line).To(BeEmpty())
+			_, ok = lsp.GetLine("a\n", 2)
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should keep a carriage return that ends no line", func() {
+			line, ok := lsp.GetLine("a\rb\nc", 0)
+			Expect(ok).To(BeTrue())
+			Expect(line).To(Equal("a\rb"))
+		})
+
+		It("Should allocate nothing", func() {
+			content := strings.Repeat("line\r\n", 1000)
+			Expect(testing.AllocsPerRun(100, func() {
+				_, _ = lsp.GetLine(content, 999)
+			})).To(BeZero())
 		})
 	})
 
