@@ -1478,22 +1478,26 @@ describe("MQTT read form", () => {
 
       it("should list the messages of the page after a page with no messages", async () => {
         await createEmptyPage();
+        const icds: icd.Key[] = [];
+        const tasks: string[] = [];
+        // The Core deletes no ICD that a task uses.
+        onTestFinished(async () => {
+          await client.tasks.delete(tasks);
+          await client.icds.delete(icds);
+        });
         // The dialog opens on the message that the topic reads, and renders only the
         // rows near it. Its ICD lists right after the one under test.
         const entry = await createEntry({
           fields: [createField("temperature", "float")],
           icdKey: createKeyListedAt("02"),
         });
+        icds.push(entry.icd);
         const { shared, message } = await createShared(
           [createField("pressure", "float")],
           createKeyListedAt("01"),
         );
-        const { draft } = await renderRead({ entries: [entry] });
-        // The Core deletes no ICD that a task uses.
-        onTestFinished(async () => {
-          await client.tasks.delete(draft.key);
-          await client.icds.delete([shared.key, entry.icd]);
-        });
+        icds.push(shared.key);
+        tasks.push((await renderRead({ entries: [entry] })).draft.key);
         await openTopic();
         fireEvent.click(await findDialogTriggerByText(TOPIC));
         const dialogs = await screen.findAllByRole("dialog");
