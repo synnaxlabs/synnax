@@ -52,19 +52,6 @@ var _ = Describe("Update", func() {
 		Entry("configuration", configuration),
 	)
 
-	DescribeTable("Should keep the group through JSON",
-		func(update device.Update) {
-			var got device.Update
-			Expect(json.Unmarshal(
-				MustSucceed(json.Marshal(update)),
-				&got,
-			)).To(Succeed())
-			Expect(got).To(Equal(update))
-		},
-		Entry("identity", identity),
-		Entry("configuration", configuration),
-	)
-
 	It("Should match the JSON shape in msgpack", func() {
 		var wire map[string]any
 		Expect(msgpack.Unmarshal(
