@@ -63,7 +63,7 @@ describe("slaveZ", () => {
       dataType: "uint16",
       value: 500,
     });
-    expect(slave.opMode?.sync0Cycle.nanoseconds).toEqual(1000);
+    expect(slave.opMode?.sync0Cycle).toEqual(1000);
   });
 
   const INVALID: [string, Record<string, unknown>][] = [
