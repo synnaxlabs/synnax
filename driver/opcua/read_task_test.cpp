@@ -1702,8 +1702,8 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
 }
 
-/// @brief it should stamp array samples in order, no more than one sample period
-/// apart within a block, and never ahead of the clock.
+/// @brief it should stamp array samples in order, no more than one sample period apart
+/// within a block, and never ahead of the clock.
 TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
     auto p = x::json::Parser(create_array_cfg());
     auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
@@ -1781,9 +1781,9 @@ TEST_F(TestReadTask, testLateArrayBlockKeepsSamplePeriod) {
         this->index_channel.key,
         static_cast<int>(testutil::DOUBLE_ARRAY_SIZE - 1)
     );
-    // Holding the loop for a full block makes the next read late.
+    // Holding the loop for more than a full block makes the next read late.
     std::this_thread::sleep_for(
-        (ARRAY_SAMPLE_RATE.period() * testutil::DOUBLE_ARRAY_SIZE).chrono()
+        (ARRAY_SAMPLE_RATE.period() * (testutil::DOUBLE_ARRAY_SIZE + 1)).chrono()
     );
     ASSERT_NIL(source.read(breaker, fr).error);
     ASSERT_NIL(source.stop());

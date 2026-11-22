@@ -548,8 +548,8 @@ class ArrayReadTaskSource final : public BaseReadTaskSource {
     const std::size_t array_size;
     /// @brief regulates the rate blocks of samples are read at.
     x::loop::Timer timer;
-    /// @brief where the next block may start at the earliest: the end of the
-    /// previous block, or the start of the run.
+    /// @brief where the next block may start at the earliest: the end of the previous
+    /// block, or the start of the run.
     x::telem::TimeStamp prev_end = x::telem::TimeStamp(0);
 
 public:
@@ -568,8 +568,8 @@ public:
         array_size(std::get<::synnax::opcua::ArraySampling>(this->cfg.sampling).size),
         timer(this->cfg.sample_rate / this->array_size) {}
 
-    /// @brief re-arms the block timer, so the first read after a restart waits a
-    /// full block.
+    /// @brief re-arms the block timer, so the first read after a restart waits a full
+    /// block.
     x::errors::Error
     start(const std::string &cmd_key, x::breaker::Breaker &cancel) override {
         this->timer = x::loop::Timer(this->cfg.sample_rate / this->array_size);
