@@ -61,7 +61,25 @@ export const deleteGroupsChangeZ = z.object({
 });
 export interface DeleteGroupsChange extends z.infer<typeof deleteGroupsChangeZ> {}
 
-export const CHANGE_TYPES = ["delete_channels", "delete_groups"] as const;
+/**
+ * UngroupGroupsChange moves the members and tombstones of each group to its parent,
+ * then deletes the group.
+ */
+export const ungroupGroupsChangeZ = z.object({
+  type: z.literal("ungroup_groups"),
+  /**
+   * keys are the keys of the groups to ungroup. The parent of each must not be one of
+   * them.
+   */
+  keys: group.keyZ.array().default(() => []),
+});
+export interface UngroupGroupsChange extends z.infer<typeof ungroupGroupsChangeZ> {}
+
+export const CHANGE_TYPES = [
+  "delete_channels",
+  "delete_groups",
+  "ungroup_groups",
+] as const;
 export const changeTypeZ = z.enum(CHANGE_TYPES);
 export type ChangeType = z.infer<typeof changeTypeZ>;
 
@@ -69,14 +87,16 @@ export type ChangeType = z.infer<typeof changeTypeZ>;
 export const changeZ = z.discriminatedUnion("type", [
   deleteChannelsChangeZ,
   deleteGroupsChangeZ,
+  ungroupGroupsChangeZ,
 ]);
-export type Change = DeleteChannelsChange | DeleteGroupsChange;
+export type Change = DeleteChannelsChange | DeleteGroupsChange | UngroupGroupsChange;
 
 export const CHANGE_SCHEMAS: {
   [K in ChangeType]: z.ZodType<Extract<Change, { type: K }>>;
 } = {
   delete_channels: deleteChannelsChangeZ,
   delete_groups: deleteGroupsChangeZ,
+  ungroup_groups: ungroupGroupsChangeZ,
 };
 
 /** Plan is every record that a change touches, with the picks for each. */
