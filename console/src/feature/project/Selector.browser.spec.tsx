@@ -22,6 +22,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   getBySelector,
+  pickOption,
   renderWithConsole,
 } from "@/testutil";
 
@@ -77,9 +78,7 @@ describe("Project.Selector", () => {
 
     const trigger = await waitFor(() => getBySelector(container, TRIGGER));
     fireEvent.click(trigger);
-    const search = await screen.findByPlaceholderText("Search projects...");
-    fireEvent.change(search, { target: { value: target.name } });
-    fireEvent.click(await screen.findByText(target.name));
+    await pickOption(target.name, "Search projects...");
 
     await waitFor(() =>
       expect(Session.Project.selectSelected(store.getState())).toBe(target.key),

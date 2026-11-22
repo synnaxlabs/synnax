@@ -10,11 +10,13 @@
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { describe, expect, it, vi } from "vitest";
 
-import { ChangeVariant } from "@/table/cells/ChangeVariant";
+import { Cell } from "@/table/cells";
 
 describe("ChangeVariant", () => {
   it("should list every variant when opened", async () => {
-    const c = await renderThemed(<ChangeVariant value="text" onChange={vi.fn()} />);
+    const c = await renderThemed(
+      <Cell.ChangeVariant value="text" onChange={vi.fn()} />,
+    );
     await c.getByLabelText("Change cell type").click();
     await expect.element(c.getByRole("option", { name: "Text" })).toBeInTheDocument();
     await expect.element(c.getByRole("option", { name: "Value" })).toBeInTheDocument();
@@ -22,7 +24,9 @@ describe("ChangeVariant", () => {
 
   it("should call onChange with the picked variant", async () => {
     const onChange = vi.fn();
-    const c = await renderThemed(<ChangeVariant value="text" onChange={onChange} />);
+    const c = await renderThemed(
+      <Cell.ChangeVariant value="text" onChange={onChange} />,
+    );
     await c.getByLabelText("Change cell type").click();
     await c.getByText("Value").click();
     expect(onChange).toHaveBeenCalledWith("value", expect.anything());

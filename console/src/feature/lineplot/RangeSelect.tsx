@@ -27,6 +27,7 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux, LinePlot, Ranger } from "@synnaxlabs/pluto";
 import {
+  destructor,
   type DynamicWindow,
   dynamicWindow,
   resolveWindow,
@@ -361,6 +362,12 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
         : (Session.Range.findKey(ref, states) ?? windowKey(ref)),
   });
   const entries = refs.map(entryOf);
+  // A window is not a range on the Core, so it has nothing to watch.
+  const windowKeys = new Set(
+    entries.filter(({ ref }) => ref.variant !== "key").map(({ key }) => key),
+  );
+  const subscribeRange = (onChange: () => void, key: string): destructor.Destructor =>
+    windowKeys.has(key) ? destructor.NOOP : subscribe(onChange, key);
   const typedWindow = readWindow(term, language, typedAt);
   const typed =
     typedWindow == null
@@ -443,7 +450,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
           onChange={handleChange}
           data={data}
           getItem={getItem}
-          subscribe={subscribe}
+          subscribe={subscribeRange}
           onFetchMore={more}
           initialHover={0}
           virtual

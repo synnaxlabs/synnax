@@ -11,7 +11,12 @@
 
 import time
 
-from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import (
+    Locator,
+    Page,
+    Position,
+    TimeoutError as PlaywrightTimeoutError,
+)
 
 # Menu items may carry a keyboard-trigger badge whose letters join the label in
 # textContent ("Rename" renders as "RenameE"), so label matching must strip it.
@@ -38,13 +43,17 @@ class ContextMenu:
         """
         self.page = page
 
-    def open_on(self, element: Locator) -> "ContextMenu":
+    def open_on(
+        self, element: Locator, *, position: Position | None = None
+    ) -> "ContextMenu":
         """Right-click to open context menu.
 
         :param element: The Playwright Locator to right-click on.
+        :param position: Where to click, relative to the top left of element. Defaults
+            to its center.
         :returns: Self for method chaining.
         """
-        element.click(button="right")
+        element.click(button="right", position=position)
         menu = self.page.get_by_role("menu").first
         menu.wait_for(state="visible", timeout=5000)
         menu.get_by_role("menuitem").first.wait_for(state="visible", timeout=2000)

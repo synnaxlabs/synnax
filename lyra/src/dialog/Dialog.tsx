@@ -51,7 +51,7 @@ export const Dialog = ({
     modalPosition,
     trigger,
   } = useInternalContext("Dialog.Dialog");
-  const { visible, variant, close } = useContext();
+  const { visible, placed, variant, close } = useContext();
   const modal = variant === "modal";
   const surfaceRef = useRef<HTMLDivElement>(null);
   const portalTarget = Portal.useTarget();
@@ -64,7 +64,6 @@ export const Dialog = ({
   };
   const dialogStyle = { ...ctxStyle, ...style };
   if (!visible) return null;
-  const actuallyVisible = modal || Object.keys(ctxStyle).length > 0;
   let dialog = (
     <Flex.Box
       pack
@@ -76,7 +75,7 @@ export const Dialog = ({
         CSS.loc(targetCorner.y),
         CSS.BEM("dialog", "dialog", dialogCorner.x),
         CSS.BEM("dialog", "dialog", dialogCorner.y),
-        CSS.visible(actuallyVisible),
+        CSS.visible(placed),
         CSS.M(variant),
         modal && CSS.BM("dialog", "modal", "position", modalPosition.toString()),
         className,

@@ -18,7 +18,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useModal } from "@/platform/credential/useModal";
+import { Credential } from "@/platform/credential";
 import { findButton, openModal, pressEscape } from "@/platform/modals/testutil";
 import {
   clickAndSettle,
@@ -63,7 +63,7 @@ describe("useModal", () => {
       role,
     });
     const id = user.resourceID(subject.key);
-    await openModal(useModal, { client, params: { subject: id } });
+    await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     const name = uniqueName("key");
     await createKey(name);
@@ -89,7 +89,7 @@ describe("useModal", () => {
       role,
     });
     const id = user.resourceID(subject.key);
-    await openModal(useModal, { client, params: { subject: id } });
+    await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     const name = uniqueName("key");
     await createKey(name);
@@ -104,7 +104,7 @@ describe("useModal", () => {
     const client = createTestClient();
     const r = await client.racks.create({ name: uniqueName("rack") });
     const id = rack.resourceID(r.key);
-    await openModal(useModal, { client, params: { subject: id } });
+    await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     expect(screen.queryByPlaceholderText("New password")).toBeNull();
     const name = uniqueName("key");
@@ -120,7 +120,7 @@ describe("useModal", () => {
     const name = uniqueName("key");
     await owner.auth.createKey({ subject: id, name });
     const viewer = await createTestClientWithRole(owner, "Viewer");
-    await openModal(useModal, { client: viewer, params: { subject: id } });
+    await openModal(Credential.useModal, { client: viewer, params: { subject: id } });
     await screen.findByText(name);
     expect(screen.queryByText("Create key")).toBeNull();
     await openContextMenu(name);
@@ -135,7 +135,7 @@ describe("useModal", () => {
       retrieve: [rack.TYPE_RESOURCE_ID],
       update: [rack.TYPE_RESOURCE_ID],
     });
-    await openModal(useModal, { client: changer, params: { subject: id } });
+    await openModal(Credential.useModal, { client: changer, params: { subject: id } });
     expect(await screen.findByText("Create key")).toBeTruthy();
   });
 
@@ -145,7 +145,7 @@ describe("useModal", () => {
     await self.auth.retrieveSessions();
     const { subject } = self.auth;
     if (subject == null || username == null) throw new Error("not logged in");
-    await openModal(useModal, { client: self, params: { subject } });
+    await openModal(Credential.useModal, { client: self, params: { subject } });
     await type("Current password", "test");
     await type("New password", "changed123");
     fireEvent.click(findButton("Set password"));
@@ -160,7 +160,7 @@ describe("useModal", () => {
       password: "password123",
       role,
     });
-    await openModal(useModal, {
+    await openModal(Credential.useModal, {
       client,
       params: { subject: user.resourceID(subject.key) },
     });
@@ -179,7 +179,7 @@ describe("useModal", () => {
       password: "password123",
       role,
     });
-    await openModal(useModal, {
+    await openModal(Credential.useModal, {
       client,
       params: { subject: user.resourceID(subject.key) },
     });

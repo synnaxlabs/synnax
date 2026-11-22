@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { Aether } from "@/aether";
 import { aetherTest } from "@/aether/testutil";
 import { alamos } from "@/alamos/aether";
-import { render, renderHook } from "@/testutil/render";
+import { render, renderHook } from "@/testutil";
 import { theming } from "@/theming/aether";
 
 const CONSUMER_PATH = [
