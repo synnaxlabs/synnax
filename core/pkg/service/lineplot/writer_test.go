@@ -2229,30 +2229,36 @@ var _ = Describe("Range compare", func() {
 				Expect(x1.TimeMode).To(BeNil())
 				Expect(x1.ManualBounds).To(Equal(lineplot.ManualBounds{}))
 			}
+			expectRelative := func(ctx SpecContext, key lineplot.Key) {
+				GinkgoHelper()
+				x1 := retrieve(ctx, key).Axes.X1
+				Expect(x1.TimeMode).To(HaveValue(Equal(relative)))
+				Expect(x1.ManualBounds).To(Equal(
+					lineplot.ManualBounds{Lower: true, Upper: true},
+				))
+			}
 
-			It("Should return x1 to absolute time when RemoveRange drops the last one",
-				func(ctx SpecContext) {
+			removeRange := func(r ranger.Ref) lineplot.Action {
+				return lineplot.NewRemoveRangeAction(
+					lineplot.RemoveRangePayload{Range: r},
+				)
+			}
+			setRolling := func(ranger.Ref) lineplot.Action {
+				return lineplot.NewSetRangesAction(
+					lineplot.SetRangesPayload{Ranges: []ranger.Ref{rolling}},
+				)
+			}
+
+			DescribeTable("Should return x1 to absolute time when the last zero leaves",
+				func(ctx SpecContext, edit func(saved ranger.Ref) lineplot.Action) {
 					saved := createRange(ctx, nil)
 					p := relativeOver(ctx, rolling, saved)
-					Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
-						lineplot.NewRemoveRangeAction(
-							lineplot.RemoveRangePayload{Range: saved},
-						),
-					})).To(Succeed())
+					Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{edit(saved)})).
+						To(Succeed())
 					expectAbsolute(ctx, p.Key)
 				},
-			)
-
-			It("Should return x1 to absolute time on a SetRanges of rolling windows",
-				func(ctx SpecContext) {
-					p := relativeOver(ctx, rolling, createRange(ctx, nil))
-					Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
-						lineplot.NewSetRangesAction(
-							lineplot.SetRangesPayload{Ranges: []ranger.Ref{rolling}},
-						),
-					})).To(Succeed())
-					expectAbsolute(ctx, p.Key)
-				},
+				Entry("on a RemoveRange of the saved range", removeRange),
+				Entry("on a SetRanges of rolling windows", setRolling),
 			)
 
 			It("Should keep relative time while a range with a zero remains",
@@ -2264,9 +2270,21 @@ var _ = Describe("Range compare", func() {
 							lineplot.RemoveRangePayload{Range: saved},
 						),
 					})).To(Succeed())
-					Expect(retrieve(ctx, p.Key).Axes.X1.TimeMode).
-						To(HaveValue(Equal(relative)))
+					expectRelative(ctx, p.Key)
 				},
+			)
+
+			DescribeTable(
+				"Should leave the time mode alone on an edit that changes nothing",
+				func(ctx SpecContext, edit func(absent ranger.Ref) lineplot.Action) {
+					absent := createRange(ctx, nil)
+					p := relativeOver(ctx, rolling)
+					Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{edit(absent)})).
+						To(Succeed())
+					expectRelative(ctx, p.Key)
+				},
+				Entry("a RemoveRange of a range the plot does not show", removeRange),
+				Entry("a SetRanges of the ranges the plot shows", setRolling),
 			)
 		})
 

@@ -10,6 +10,7 @@
 package lineplot
 
 import (
+	"reflect"
 	"slices"
 
 	"github.com/samber/lo"
@@ -197,18 +198,22 @@ func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
 // ranges. No-op when there is none. Relative x axes return to absolute time when no
 // range left has a zero.
 func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Ranges = slices.DeleteFunc(
+	next := slices.DeleteFunc(
 		slices.Clone(state.Ranges),
 		func(r ranger.Ref) bool { return v11.SameRange(r, p.Range) },
 	)
+	if len(next) == len(state.Ranges) {
+		return state, nil
+	}
+	state.Ranges = next
 	return absoluteWithoutZero(state), nil
 }
 
 // Handle replaces the plot's range references, dropping each reference to a range or
 // window that an earlier one names. A reference to a range or window the plot already
 // shows keeps its T0 and color unless the new reference sets them. Lines style
-// channels, so they are unaffected. Relative x axes return to absolute time when no
-// range left has a zero.
+// channels, so they are unaffected. No-op when no reference is added, removed, or
+// changed. Relative x axes return to absolute time when no range left has a zero.
 func (p SetRangesPayload) Handle(state LinePlot) (LinePlot, error) {
 	next := v11.UniqueRanges(p.Ranges)
 	for i, r := range next {
@@ -219,8 +224,31 @@ func (p SetRangesPayload) Handle(state LinePlot) (LinePlot, error) {
 			next[i] = keepSettings(state.Ranges[idx], r)
 		}
 	}
+	if containsEach(state.Ranges, next) && containsEach(next, state.Ranges) {
+		return state, nil
+	}
 	state.Ranges = next
 	return absoluteWithoutZero(state), nil
+}
+
+// containsEach returns true if refs has a reference to each range or window of want,
+// with the same T0 and color.
+func containsEach(refs, want []ranger.Ref) bool {
+	for _, w := range want {
+		if !slices.ContainsFunc(refs, func(r ranger.Ref) bool {
+			return v11.SameRange(r, w) && sameSettings(r, w)
+		}) {
+			return false
+		}
+	}
+	return true
+}
+
+// sameSettings returns true if a and b have the same T0 and color.
+func sameSettings(a, b ranger.Ref) bool {
+	aT0, aColor := settings(a)
+	bT0, bColor := settings(b)
+	return reflect.DeepEqual(aT0, bT0) && reflect.DeepEqual(aColor, bColor)
 }
 
 // hasZero returns true if a relative x axis draws r: a saved range and a fixed window
