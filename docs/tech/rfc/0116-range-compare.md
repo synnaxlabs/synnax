@@ -89,13 +89,14 @@ keeps the color by channel.
   channel. Inside a channel, each range shows its color, name, and value, sorted by
   value from high to low. The hovered line's entry is bold. The tooltip lists as many
   entries as fit inside the plot, and the last one then reads "and N more".
-- **Hide and solo**: An eye on a range heading hides the range. An eye on a channel
+- **Hide and isolate**: An eye on a range heading hides the range. An eye on a channel
   under a range hides that pair. Option or Alt click on an eye shows only that item, and
-  a second Option or Alt click restores the earlier set. The menu of a legend entry has
-  Show only this range, Show only this channel, Hide this channel in all ranges, and
-  Show all. When an item is hidden, the legend ends with "Show all (N hidden)". Hidden
-  state stays session state for each window, as hidden lines are today
-  (`console/src/session/lineplot/slice.ts:77`), and is never saved with the plot.
+  a second Option or Alt click restores the earlier set. The menu acts on what was
+  clicked. A range name has Isolate. A channel in the legend, or a line, has Isolate in
+  this range, Isolate in all ranges, and Hide in all ranges, which reads Show in all
+  ranges when the channel is hidden in each range. When an item is hidden, the plot menu
+  has Show all. Hidden state stays session state for each window, as hidden lines are
+  today (`console/src/session/lineplot/slice.ts:77`), and is never saved with the plot.
 - **Scale**: Colors stay distinct for 8 ranges (`docs/claude/ux.md:64`). Past 8, colors
   repeat, and hover, the tooltip, and hide tell the ranges apart.
 
