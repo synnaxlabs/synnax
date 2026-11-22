@@ -846,7 +846,7 @@ describe("auth", () => {
       await client.middleware()(DUMMY_CTX, async (ctx) => ctx);
       await client.logout();
       answerCode?.();
-      await stale;
+      await expect(stale).rejects.toThrow("no credentials, API key, token, or cookie");
       await expect(client.middleware()(DUMMY_CTX, async (ctx) => ctx)).rejects.toThrow(
         "no credentials, API key, token, or cookie",
       );
