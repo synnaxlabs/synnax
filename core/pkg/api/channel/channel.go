@@ -668,8 +668,6 @@ type DispatchRequest = actions.DispatchRequest[channel.Key, channel.Action]
 // of the data type that an expression edit infers.
 type DispatchResponse = actions.DispatchResponse[channel.Action]
 
-// Dispatch applies the action sequence to the target channel atomically. Subscribers to
-// the channel action channel receive the sequence after the transaction commits.
 // editedInputs returns the inputs of the calculation that writes the channel with key,
 // which an edit compiled in tx, so its stored reads are current.
 func (s *Service) editedInputs(
@@ -691,6 +689,8 @@ func (s *Service) editedInputs(
 	}})
 }
 
+// Dispatch applies the action sequence to the target channel atomically. Subscribers to
+// the channel action channel receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
