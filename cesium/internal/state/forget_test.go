@@ -129,3 +129,30 @@ var _ = Describe("Snapshot of parts", func() {
 		}))
 	})
 })
+
+var _ = Describe("Dead put-back records", func() {
+	It("Should name the part of a put-back record that a Tombstone buries", func() {
+		head := sample()
+		head.Channels[1] = &state.Channel{
+			Key:   6,
+			Parts: &state.Parts{Oldest: 7, Newest: 7},
+		}
+		cfg := config(&appended{})
+		cfg.Generation = 5
+		s := MustSucceed(state.Open(cfg, head))
+		run(s)
+		record := state.Segment{
+			ID: 3, Clock: 5, Version: 1, DataType: 4, Sealed: true, Length: 12,
+			TailCRC: 3, Part: 7,
+			Pointers: []state.Pointer{pointer(1, 0, 10, 30, 0, 12, 3)},
+		}
+		d := MustSucceed(s.BeginDelete(6, 5, 35, state.Preload{
+			Key: 6, Generation: 5, Segments: []state.Segment{record},
+		}))
+		Expect(s.Durable(10, []log.Record{
+			&log.Tombstone{Key: 6, Start: 5, End: 35},
+		})).To(Succeed())
+		Expect(d.Release()).To(Succeed())
+		Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 3, Key: 6, Part: 7}}))
+	})
+})
