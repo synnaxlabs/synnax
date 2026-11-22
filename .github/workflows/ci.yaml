@@ -464,6 +464,8 @@ jobs:
       directory: console
       package: console
       shards: 3
+      # Three runs hold each WebKit page under 2.3 GB, from 4.1 GB with one.
+      webkit_runs: 3
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
