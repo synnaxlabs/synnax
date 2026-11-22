@@ -22,6 +22,8 @@ const PROVIDED_CORE_SPECS = "src/**/*.provided.spec.ts";
 
 // Spec files that need a Node API, so only the Node project runs them.
 const NODE_SPECS = [
+  // Set the Cookie header, which a browser forbids.
+  "src/auth/auth.cookie.spec.ts",
   // Start HTTP, HTTPS, or WebSocket servers, or use the file system.
   "src/client.spec.ts",
   "src/env.spec.ts",
