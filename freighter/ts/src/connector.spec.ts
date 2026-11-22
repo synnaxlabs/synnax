@@ -205,6 +205,12 @@ describe("trustCA", () => {
       const res = await client.send("/", { message: "hi" }, messageZ, messageZ);
       expect(res).toEqual({ message: "hi" });
     });
+
+    it("should skip a NODE_EXTRA_CA_CERTS file that does not exist", async () => {
+      vi.stubEnv("NODE_EXTRA_CA_CERTS", join(dir, "missing.crt"));
+      const res = await httpClient().send("/", { message: "hi" }, messageZ, messageZ);
+      expect(res).toEqual({ message: "hi" });
+    });
   });
 
   describe("in runtimes without a CA option for WebSockets", () => {

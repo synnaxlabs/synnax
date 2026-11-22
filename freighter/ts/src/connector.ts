@@ -105,7 +105,11 @@ const withDefaultCAs = async (ca: string): Promise<string[]> => {
   const extra = process.env.NODE_EXTRA_CA_CERTS;
   if (extra == null || extra === "") return [...rootCertificates, ca];
   const { readFile } = await import("node:fs/promises");
-  return [...rootCertificates, await readFile(extra, "utf8"), ca];
+  // Node warns and skips an unreadable NODE_EXTRA_CA_CERTS file, so this skips it too.
+  const extraCAs = await readFile(extra, "utf8").catch(() => null);
+  return extraCAs == null
+    ? [...rootCertificates, ca]
+    : [...rootCertificates, extraCAs, ca];
 };
 
 const loadUndici = async (ca: string) => {
