@@ -10,7 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { sleep } from "@/sleep";
-import { withTimeout } from "@/sync/timeout";
+import { sync } from "@/sync";
 import { TimeSpan } from "@/telem";
 
 describe("withTimeout", () => {
@@ -23,7 +23,7 @@ describe("withTimeout", () => {
   });
 
   it("should return the value of a promise that settles in time", async () => {
-    const result = withTimeout(
+    const result = sync.withTimeout(
       Promise.resolve(1),
       TimeSpan.seconds(1),
       () => new Error("late"),
@@ -33,7 +33,7 @@ describe("withTimeout", () => {
   });
 
   it("should throw the error of a promise that fails in time", async () => {
-    const failed = withTimeout(
+    const failed = sync.withTimeout(
       Promise.reject(new Error("fetch exploded")),
       TimeSpan.seconds(1),
       () => new Error("late"),
@@ -44,7 +44,7 @@ describe("withTimeout", () => {
 
   it("should throw the error of the factory when the timeout passes first", async () => {
     const request = Promise.withResolvers<number>();
-    const late = withTimeout(
+    const late = sync.withTimeout(
       request.promise,
       TimeSpan.seconds(1),
       () => new RangeError("too slow"),
@@ -56,7 +56,7 @@ describe("withTimeout", () => {
 
   it("should throw the error that an async factory resolves", async () => {
     const request = Promise.withResolvers<number>();
-    const late = withTimeout(
+    const late = sync.withTimeout(
       request.promise,
       TimeSpan.seconds(1),
       async () => await Promise.resolve(new Error("names resolved")),
@@ -69,9 +69,9 @@ describe("withTimeout", () => {
   it("should not settle before the timeout passes", async () => {
     const request = Promise.withResolvers<number>();
     let settled = false;
-    withTimeout(request.promise, TimeSpan.seconds(1), () => new Error("late")).catch(
-      () => (settled = true),
-    );
+    sync
+      .withTimeout(request.promise, TimeSpan.seconds(1), () => new Error("late"))
+      .catch(() => (settled = true));
     await vi.advanceTimersByTimeAsync(999);
     expect(settled).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
@@ -84,7 +84,7 @@ describe("withTimeout", () => {
     process.on("unhandledRejection", onRejection);
     try {
       const request = Promise.withResolvers<number>();
-      const late = withTimeout(
+      const late = sync.withTimeout(
         request.promise,
         TimeSpan.seconds(1),
         () => new Error("too slow"),
