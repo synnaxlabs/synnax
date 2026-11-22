@@ -12,7 +12,6 @@ from uuid import uuid4 as uuid
 import pytest
 
 import synnax as sy
-from tests.user import create_user
 from x import filter
 from x.testutil import untyped
 
@@ -76,23 +75,11 @@ class TestUserClient:
         for i in range(len(repeated_user_list)):
             compare_users(repeated_user_list[i], new_user_list[i])
 
-    def test_change_username(self, client: sy.Synnax, empty_role: sy.Role) -> None:
-        user = create_user(client, str(uuid()), "password", empty_role.key)
-        username = str(uuid())
-        client.users.change_username(user.key, username)
-        assert client.users.retrieve(username=username).key == user.key
-
     def test_change_name(self, client: sy.Synnax, new_user: sy.user.New) -> None:
         user = client.users.create(user=new_user)
         client.users.change_name(user.key, name="Thomas Jefferson")
         retrieved = client.users.retrieve(key=user.key)
         assert retrieved.name == "Thomas Jefferson"
-
-    def test_retrieve_by_username(self, client: sy.Synnax, empty_role: sy.Role) -> None:
-        """Should retrieve one user by username."""
-        username = str(uuid())
-        user = create_user(client, username, "password", empty_role.key)
-        assert client.users.retrieve(username=username).key == user.key
 
     def test_retrieve_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError for a single user that does not exist."""
@@ -112,48 +99,30 @@ class TestUserClient:
         """Should return no users for an empty key list."""
         assert client.users.retrieve(keys=[]) == []
 
-    def test_retrieve_where(self, client: sy.Synnax, empty_role: sy.Role) -> None:
-        """Should keep users that match a filter tree and the given usernames."""
-        usernames = [str(uuid()), str(uuid())]
-        users = [create_user(client, u, "password", empty_role.key) for u in usernames]
+    def test_retrieve_where(
+        self, client: sy.Synnax, new_user_list: list[sy.user.New]
+    ) -> None:
+        """Should keep users that match a filter tree and the given keys."""
+        users = client.users.create(users=new_user_list)
         where = sy.user.Where(
             not_=sy.user.Where(key=filter.Set[sy.user.Key](eq=users[0].key))
         )
-        retrieved = client.users.retrieve(where=where, usernames=usernames)
+        retrieved = client.users.retrieve(where=where, keys=[u.key for u in users])
         assert [u.key for u in retrieved] == [users[1].key]
 
-    def test_retrieve_usernames_value(
-        self, client: sy.Synnax, empty_role: sy.Role
+    def test_retrieve_one(
+        self, client: sy.Synnax, new_user_list: list[sy.user.New]
     ) -> None:
-        """Should return a list for usernames given as a plain value."""
-        username = str(uuid())
-        user = create_user(client, username, "password", empty_role.key)
-        users = client.users.retrieve(usernames=username)
-        assert [u.key for u in users] == [user.key]
-
-    def test_retrieve_username_beside_fields(
-        self, client: sy.Synnax, empty_role: sy.Role
-    ) -> None:
-        """Should return one user for a username beside other fields."""
-        username = str(uuid())
-        user = create_user(client, username, "password", empty_role.key)
-        found = client.users.retrieve(username=username, key=[user.key])
-        assert found.key == user.key
-        with pytest.raises(sy.NotFoundError):
-            client.users.retrieve(username=username, key=[uuid()])
-
-    def test_retrieve_one(self, client: sy.Synnax, empty_role: sy.Role) -> None:
         """Should return one user for any filter when one is set."""
-        usernames = [str(uuid()), str(uuid())]
-        users = [create_user(client, u, "password", empty_role.key) for u in usernames]
+        users = client.users.create(users=new_user_list)
         found = client.users.retrieve(
-            usernames=usernames,
+            keys=[u.key for u in users],
             not_={"key": users[0].key},
             one=True,
         )
         assert found.key == users[1].key
 
-    def test_retrieve_none_username(self, client: sy.Synnax) -> None:
-        """Should reject a username set to None, since it would select every user."""
-        with pytest.raises(sy.ValidationError, match="username is None"):
-            untyped(client.users.retrieve)(username=None)
+    def test_retrieve_none_roles(self, client: sy.Synnax) -> None:
+        """Should reject roles set to None, since it would select every user."""
+        with pytest.raises(sy.ValidationError, match="roles is None"):
+            untyped(client.users.retrieve)(roles=None)

@@ -13,7 +13,6 @@ from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax.access import role as role_
-from synnax.exceptions import ValidationError
 from synnax.transport import send_batch
 from synnax.user import actions_gen
 from synnax.user.payload import New, User
@@ -90,14 +89,6 @@ class Client:
             return res[0]
         return res
 
-    def change_username(self, key: Key, username: str) -> None:
-        action = actions_gen.set_username(
-            actions_gen.SetUsernamePayload(username=username)
-        )
-        self.client.send(
-            "/user/dispatch", _DispatchRequest(key=key, actions=[action]), Empty
-        )
-
     def change_name(self, key: Key, *, name: str) -> None:
         action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
         self.client.send(
@@ -126,7 +117,6 @@ class Client:
         self,
         *,
         key: Key,
-        usernames: str | list[str] = ...,
         roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -142,7 +132,6 @@ class Client:
         *,
         key: filter.SetInput[Key] = ...,
         username: str,
-        usernames: str | list[str] = ...,
         roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -157,7 +146,6 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
-        usernames: str | list[str] = ...,
         roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -173,7 +161,6 @@ class Client:
         self,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
-        usernames: str | list[str] = ...,
         roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -187,7 +174,7 @@ class Client:
         one: Literal[False] = ...,
     ) -> list[User]: ...
 
-    @require_named_params(example_params=("username", "synnax"))
+    @require_named_params(example_params=("key", "UUID('...')"))
     def retrieve(
         self,
         *,
@@ -203,11 +190,9 @@ class Client:
         """Retrieves users from the Core. With no arguments, retrieves every user.
 
         Each filter field takes a value, a list of values, or an operator, and a user
-        must match every field. A plain ``key`` or a ``username`` returns one user.
+        must match every field. A plain ``key`` returns one user.
 
         :param key: Keeps users with this key.
-        :param username: Keeps the user with this username.
-        :param usernames: Keeps users with this username, or any username in the list.
         :param roles: Keeps the users that hold any of these roles.
         :param and_: Keeps users that match every filter in the list.
         :param or_: Keeps users that match any filter in the list.
@@ -220,22 +205,13 @@ class Client:
         :param after: Retrieves the users past this position in the order: the key of
             the last user of the page before, and its value of the order field.
         :param one: Returns one user for any filter.
-        :returns: One user for a plain ``key``, a ``username``, or when ``one`` is
-            set, otherwise a list of users. The list leaves out keys that do not
-            exist.
+        :returns: One user for a plain ``key`` or when ``one`` is set, otherwise a
+            list of users. The list leaves out keys that do not exist.
         :raises NotFoundError: If one user is wanted and none matches.
         :raises MultipleFoundError: If one user is wanted and more than one matches.
-        :raises ValidationError: If a filter field or ``username`` is None, or if one
-            user is wanted beside a limit or a cursor.
+        :raises ValidationError: If a filter field is None, or if one user is wanted
+            beside a limit or a cursor.
         """
-        if "username" in fields:
-            username = fields.pop("username")
-            if username is None:
-                raise ValidationError(
-                    "username is None. Leave a field out to match every record."
-                )
-            where = filter.merge(where, Where(usernames=[username]))
-            one = True
         single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(

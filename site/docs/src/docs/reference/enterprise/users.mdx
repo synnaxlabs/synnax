@@ -142,9 +142,10 @@ await client.auth.createPassword({
 A user cannot log in until it has a password, an API key, or a provider link. To give
 users a different role, call `client.users.set_role(keys, role)` in Python or
 `client.users.setRole(keys, role)` in TypeScript. The new role replaces the role of each
-user. To change a username, call `client.users.change_username(key, username)` in Python
-or `client.users.changeUsername(key, username)` in TypeScript. To delete users, call
-`client.users.delete` with their keys.
+user. To change a username, call `client.auth.rename_password(username, subject)` in
+Python or `client.auth.renamePassword({ subject, username })` in TypeScript. Leave out
+`subject` to change your own. To delete users, call `client.users.delete` with their
+keys.
 
 To set a password in TypeScript, call `client.auth.setPassword({ subject, password })`.
 Leave out `subject` and add `currentPassword` to set your own. To create an API key,

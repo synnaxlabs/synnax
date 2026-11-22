@@ -108,7 +108,10 @@ describe("User queries", () => {
     });
 
     it("should report an error when the Core refuses the change", async () => {
-      const root = await client.users.retrieve({ username: TEST_CREDENTIALS.username });
+      const [p] = await client.auth.retrievePasswords({
+        usernames: [TEST_CREDENTIALS.username],
+      });
+      const root = await client.users.retrieve(p.subject.key);
       const { result } = renderHook(() => User.useSetRole(), { wrapper });
       await act(async () => {
         await result.current.updateAsync({ key: root.key, role: role.key });
@@ -190,8 +193,8 @@ describe("User queries", () => {
 
       expect(result.current).not.toBeNull();
       const { username } = TEST_CREDENTIALS;
-      const signedIn = await client.users.retrieve({ username });
-      expect(result.current?.key).toEqual(signedIn.key);
+      const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+      expect(result.current?.key).toEqual(p.subject.key);
     });
 
     it("should update the current user on a rename from another client", async () => {
@@ -267,7 +270,8 @@ describe("User queries", () => {
         });
 
         await waitFor(async () => {
-          const created = await client.users.retrieve({ username });
+          const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+          const created = await client.users.retrieve(p.subject.key);
           expect(created.name).toEqual("Form Test");
           expect(created.role).toEqual(role.key);
         });

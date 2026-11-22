@@ -89,6 +89,13 @@ type Transport struct {
 	AuthOIDCUnlink freighter.UnaryServer[auth.OIDCUnlinkRequest, struct{}]
 	// AuthPasswordCreate gives the caller or another user its first password.
 	AuthPasswordCreate freighter.UnaryServer[auth.PasswordCreateRequest, struct{}]
+	// AuthPasswordRetrieve lists passwords by subject or username, without hashes.
+	AuthPasswordRetrieve freighter.UnaryServer[
+		auth.PasswordRetrieveRequest,
+		auth.PasswordRetrieveResponse,
+	]
+	// AuthPasswordRename changes the username of the caller's password or another's.
+	AuthPasswordRename freighter.UnaryServer[auth.PasswordRenameRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
 	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, auth.PasswordSetResponse]
 	// USER
@@ -424,6 +431,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthOIDCRetrieve,
 		t.AuthOIDCUnlink,
 		t.AuthPasswordCreate,
+		t.AuthPasswordRetrieve,
+		t.AuthPasswordRename,
 		t.AuthPasswordSet,
 
 		// USER
@@ -688,6 +697,14 @@ func (l *Layer) BindTo(t Transport) {
 		l.Auth.PrepareCreatePassword,
 		l.Auth.CreatePassword,
 	))
+	t.AuthPasswordRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req auth.PasswordRetrieveRequest,
+	) (auth.PasswordRetrieveResponse, error) {
+		return l.Auth.RetrievePasswords(ctx, snap, snap.Allowed, req)
+	}))
+	t.AuthPasswordRename.BindHandler(bind.Write(l.binder, l.Auth.RenamePassword))
 	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.Auth.PrepareSetPassword,

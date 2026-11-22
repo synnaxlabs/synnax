@@ -15,7 +15,6 @@ import type { role } from "@/access/role";
 import { actions } from "@/actions";
 import type { batch } from "@/batch";
 import type { connection } from "@/connection";
-import { MultipleFoundError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { createOf, reduceAll } from "@/user/actions";
@@ -25,7 +24,6 @@ import {
   dispatchResZ,
   scopedActionZ,
   set,
-  setUsername,
 } from "@/user/actions.gen";
 import { Current } from "@/user/current";
 import {
@@ -61,48 +59,23 @@ const keyRetrieveRequestZ = z
   .object({ key: keyZ })
   .transform(({ key }): RetrieveRequest => ({ where: { key: { eq: key } } }));
 
-const usernameRetrieveRequestZ = z
-  .object({ username: z.string() })
-  .transform(({ username }): RetrieveRequest => ({
-    where: { usernames: [username] },
-  }));
-
 export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
-export type UsernameRetrieveRequest = z.input<typeof usernameRetrieveRequestZ>;
 
-const retrieveParamsZ = z.union([
-  keyRetrieveRequestZ,
-  usernameRetrieveRequestZ,
-  retrieveRequestZ,
-]);
+const retrieveParamsZ = z.union([keyRetrieveRequestZ, retrieveRequestZ]);
 
-export type RetrieveParams =
-  KeyRetrieveRequest | UsernameRetrieveRequest | RetrieveRequest;
+export type RetrieveParams = KeyRetrieveRequest | RetrieveRequest;
 
 const createReqZ = z.object({ users: newZ.array() });
 const createResZ = z.object({ users: userZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-// The username lives on the user's password, so only the Core can match it.
 const LINES: Lines = {
-  usernames: null,
   roles: (u, roles) => roles.includes(u.role),
 };
 
 export const ACTION_CHANNEL_NAME = "sy_user_action_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
-
-type SingleParams = KeyRetrieveRequest | UsernameRetrieveRequest;
-
-const singleParamsZ = z.union([
-  z.strictObject({ key: keyZ }),
-  z.strictObject({ username: z.string() }),
-  keyZ.transform((key) => ({ key })),
-]);
-
-const singleIdentifier = (params: SingleParams): string =>
-  "key" in params ? `key ${params.key}` : `username ${params.username}`;
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -113,14 +86,7 @@ export interface ClientConfig {
   identity: observe.Observable<User | undefined>;
 }
 
-export class Client extends query.Retriever<
-  typeof retrieveMultiParamsZ,
-  Key,
-  User,
-  User,
-  SingleParams,
-  SingleParams
-> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, User> {
   /** The signed-in user. */
   readonly current: Current;
   /** The users that the client holds, by key. */
@@ -147,21 +113,6 @@ export class Client extends query.Retriever<
       createOf,
     });
     cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
-    const single = cache.queries<SingleParams, User, Key, User>({
-      name: "user",
-      table: store,
-      // A user written after since keeps that write, since the fetch predates it.
-      fetch: async (params) =>
-        await store.track(async (since) => {
-          const users = await this.execRetrieve(params);
-          checkSingle(params, users);
-          store.ingest(users, { since });
-          return users.map((u) => u.key);
-        }),
-      compose: (records) => records[0],
-      keyOf: (params) => ("key" in params ? params.key : null),
-      single: true,
-    });
     super(cache, {
       name: "user",
       table: store,
@@ -172,7 +123,6 @@ export class Client extends query.Retriever<
         matches: (u, req) => matches(LINES, u, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
       },
-      single: { schema: singleParamsZ, space: single },
     });
     this.cfg = cfg;
     this.store = store;
@@ -197,10 +147,6 @@ export class Client extends query.Retriever<
     );
     this.store.set(res.users);
     return isMany ? res.users : res.users[0];
-  }
-
-  async changeUsername(key: Key, newUsername: string): Promise<void> {
-    await this.dispatch(key, setUsername({ username: newUsername }));
   }
 
   async rename(key: Key, name: string): Promise<void> {
@@ -268,15 +214,6 @@ export class Client extends query.Retriever<
     return res.users;
   }
 }
-
-const checkSingle = (params: SingleParams, users: User[]): void => {
-  if (users.length === 0)
-    throw new NotFoundError(`No user with ${singleIdentifier(params)} found`);
-  if (users.length > 1)
-    throw new MultipleFoundError(
-      `Multiple users found with ${singleIdentifier(params)}`,
-    );
-};
 
 export const resourceID = resource.createIDFactory<Key>("user");
 export const TYPE_RESOURCE_ID = resourceID("");

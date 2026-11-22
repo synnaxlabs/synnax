@@ -16,16 +16,12 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// A Writer creates, updates, and deletes users in one transaction. Of the credentials
-// of a user, it changes only the username of the password, through a set username
-// action.
+// A Writer creates, updates, and deletes users in one transaction.
 type Writer struct {
-	svc        *Service
 	tx         gorp.Tx
 	table      *gorp.Table[Key, User]
 	dispatcher actions.Dispatcher[Key, Action]
@@ -67,11 +63,10 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 }
 
 // Apply applies the actions to the user with the given key and attaches them to the
-// transaction of w, so its commit broadcasts them with the dispatch key of w. A set
-// username action renames the user's password. Apply returns a validation error when an
-// action is a create, changes the role of a root user, or leaves the user invalid, the
-// errors of password.Writer.Apply for a set username action, and an error wrapping
-// query.ErrNotFound when no user has the key.
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns a validation error when an action is a create, changes the role of a root
+// user, or leaves the user invalid, and an error wrapping query.ErrNotFound when no
+// user has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, User](key)).
@@ -94,19 +89,6 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
-	}
-	passwords := w.svc.cfg.Password.NewWriter(w.tx)
-	for _, a := range acts {
-		if a.Type != ActionTypeSetUsername {
-			continue
-		}
-		if err := passwords.Apply(
-			ctx,
-			ResourceID(key),
-			password.NewSetUsernameAction(a.SetUsername.Username),
-		); err != nil {
-			return err
-		}
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
 	return nil

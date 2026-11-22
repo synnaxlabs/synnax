@@ -97,6 +97,11 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.AuthOIDCRetrieve = noop.UnaryServer[apiauth.OIDCRetrieveRequest, apiauth.OIDCRetrieveResponse]{}
 	t.AuthOIDCUnlink = noop.UnaryServer[apiauth.OIDCUnlinkRequest, struct{}]{}
 	t.AuthPasswordCreate = noop.UnaryServer[apiauth.PasswordCreateRequest, struct{}]{}
+	t.AuthPasswordRetrieve = noop.UnaryServer[
+		apiauth.PasswordRetrieveRequest,
+		apiauth.PasswordRetrieveResponse,
+	]{}
+	t.AuthPasswordRename = noop.UnaryServer[apiauth.PasswordRenameRequest, struct{}]{}
 	t.AuthPasswordSet = noop.UnaryServer[
 		apiauth.PasswordSetRequest,
 		apiauth.PasswordSetResponse,
