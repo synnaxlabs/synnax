@@ -78,7 +78,7 @@ export interface List<D extends Data, C> {
 }
 
 /** The fields of a query that a list reads. */
-export interface ListQuery<O, C> {
+export interface Query<O, C> {
   limit?: number;
   order?: O;
   after?: C;
@@ -90,8 +90,8 @@ export interface ListQuery<O, C> {
  * a search: any change in the table fetches its window again. Every other list keeps
  * its window from changes, with no network.
  */
-export interface ListsConfig<
-  Q extends ListQuery<O, C> & { readonly [key: string]: Params },
+export interface Config<
+  Q extends Query<O, C> & { readonly [key: string]: Params },
   D extends Data,
   K extends record.Key,
   V extends Keyed<K>,
@@ -195,7 +195,7 @@ interface Entry<Q, K extends record.Key, D extends Data, V, C> {
  * keys and its content cannot diverge from the record cache.
  */
 export class Lists<
-  Q extends ListQuery<O, C> & { readonly [key: string]: Params },
+  Q extends Query<O, C> & { readonly [key: string]: Params },
   D extends Data,
   K extends record.Key,
   V extends Keyed<K>,
@@ -203,7 +203,7 @@ export class Lists<
   O,
 > {
   private readonly entries = new Map<string, Entry<Q, K, D, V, C>>();
-  private readonly config: ListsConfig<Q, D, K, V, C, O>;
+  private readonly config: Config<Q, D, K, V, C, O>;
   private readonly hooks: space.Hooks & { onError: (error: Error) => void };
   private readonly detachEpoch?: destructor.Destructor;
   private readonly detachMissed?: destructor.Destructor;
@@ -212,7 +212,7 @@ export class Lists<
   private readonly clock: () => TimeStamp;
   private sweepTimer?: ReturnType<typeof setTimeout>;
 
-  constructor(config: ListsConfig<Q, D, K, V, C, O>, hooks: space.Hooks = {}) {
+  constructor(config: Config<Q, D, K, V, C, O>, hooks: space.Hooks = {}) {
     this.config = config;
     this.hooks = { ...hooks, onError: hooks.onError ?? console.error };
     this.grace = hooks.teardownGrace ?? space.DEFAULT_TEARDOWN_GRACE;
