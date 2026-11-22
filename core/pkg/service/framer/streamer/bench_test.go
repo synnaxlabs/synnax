@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	calcsvc "github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -72,6 +73,11 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Status:  statusSvc,
 	})
 	channelSvc = mustOpen(b, "channel service", channelSvc, err)
+	calcSvc, err := calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
+		DB:      node.DB,
+		Channel: channelSvc,
+	})
+	calcSvc = mustOpen(b, "calculation record service", calcSvc, err)
 	writerSvc, err := writer.NewService(writer.ServiceConfig{
 		DB:      node.DB,
 		Framer:  node.Framer,
@@ -79,9 +85,10 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	})
 	writerSvc = mustOpen(b, "writer service", writerSvc, err)
 	channelGraph, err := calcgraph.Open(ctx, calcgraph.Config{
-		DB:      node.DB,
-		Channel: channelSvc,
-		Status:  statusSvc,
+		DB:          node.DB,
+		Calculation: calcSvc,
+		Channel:     channelSvc,
+		Status:      statusSvc,
 	})
 	channelGraph = mustOpen(b, "channel calculation graph", channelGraph, err)
 	calc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
@@ -89,6 +96,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Framer:       node.Framer,
 		Writer:       writerSvc,
 		Channel:      channelSvc,
+		Calculation:  calcSvc,
 		ChannelGraph: channelGraph,
 	})
 	calc = mustOpen(b, "calculation service", calc, err)
@@ -102,10 +110,14 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		ctx:  ctx,
 		node: node,
 		closer: io.MultiCloser{
-			calc, channelSvc, statusSvc, labelSvc, groupSvc, node,
+			calc, calcSvc, channelSvc, statusSvc, labelSvc, groupSvc, node,
 		},
-		channelSvc:  channelSvc,
-		creator:     calctestutil.Creator{DB: node.DB, Channel: channelSvc},
+		channelSvc: channelSvc,
+		creator: calctestutil.Creator{
+			DB:          node.DB,
+			Channel:     channelSvc,
+			Calculation: calcSvc,
+		},
 		streamerSvc: streamerSvc,
 	}
 }

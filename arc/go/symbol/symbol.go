@@ -403,7 +403,7 @@ const maxProgramLocalChannelKey = 1 << 20
 func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	if sym.Name != "" && !sym.Internal {
 		existing, err := s.Resolve(ctx, sym.Name)
-		if err != nil && !isUndefined(err) {
+		if err != nil && !IsUndefined(err) {
 			return nil, err
 		}
 		if err == nil && existing.AST != nil {
@@ -783,12 +783,12 @@ func (s *Symbol) resolveChannel(
 			// A lexical lookup reads digits as an ID and marks the aliases it finds as
 			// used, so the walk goes on through the scope of the resolver.
 			sym, err := r.scope.resolveChannel(ctx, matches, name, opts, origin)
-			if !isUndefined(err) {
+			if !IsUndefined(err) {
 				return sym, err
 			}
 		default:
 			sym, err := r.Resolve(ctx, name)
-			if err != nil && !isUndefined(err) {
+			if err != nil && !IsUndefined(err) {
 				return nil, err
 			}
 			// A resolver reads digits as a channel key, so it can give a channel that
@@ -823,7 +823,7 @@ func (s *Symbol) resolveLexical(
 	}
 	if s.globalResolver != nil {
 		sym, err := s.globalResolver.Resolve(ctx, name)
-		if err != nil && !isUndefined(err) {
+		if err != nil && !IsUndefined(err) {
 			return nil, err
 		}
 		if err == nil && (opts.includeInternal || !sym.Internal) {

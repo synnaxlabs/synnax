@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -250,7 +251,7 @@ var _ = Describe("References across holders", Ordered, func() {
 			}
 			return w.Create(ctx, &user)
 		})).To(Succeed())
-		r := layer.Channel.NewArcSymbolResolver(db)
+		r := resolver.New(layer.Channel, db)
 		Eventually(func(g Gomega) {
 			g.Expect(r.Search(ctx, prefix)).
 				To(ContainElement(HaveField("ID", int(user.Key()))))

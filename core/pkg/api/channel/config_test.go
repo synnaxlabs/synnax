@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
@@ -22,10 +23,11 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() apichannel.ServiceConfig {
 		return apichannel.ServiceConfig{
-			DB:      &gorp.DB{},
-			RBAC:    &rbac.Service{},
-			Channel: &channel.Service{},
-			Status:  &status.Service{},
+			DB:          &gorp.DB{},
+			RBAC:        &rbac.Service{},
+			Channel:     &channel.Service{},
+			Status:      &status.Service{},
+			Calculation: &calculation.Service{},
 		}
 	}
 
@@ -61,6 +63,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apichannel.ServiceConfig) { c.Status = nil },
 				"status: must be non-nil",
 			),
+			Entry(
+				"calculation",
+				func(c *apichannel.ServiceConfig) { c.Calculation = nil },
+				"calculation: must be non-nil",
+			),
 		)
 	})
 
@@ -72,6 +79,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
+			Expect(merged.Calculation).To(BeIdenticalTo(cfg.Calculation))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
@@ -81,6 +89,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
+			Expect(merged.Calculation).To(BeIdenticalTo(cfg.Calculation))
 		})
 	})
 })

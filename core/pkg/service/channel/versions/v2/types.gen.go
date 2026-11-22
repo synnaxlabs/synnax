@@ -12,8 +12,6 @@
 package v2
 
 import (
-	"strconv"
-
 	v1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	node "github.com/synnaxlabs/synnax/pkg/service/node/versions/v0"
@@ -35,28 +33,6 @@ type LocalKey = v1.LocalKey
 // and contain only letters, digits, and underscores. Names are not guaranteed to be
 // unique across channels.
 type Name = v1.Name
-
-// OperationType is the type of aggregation operation to apply to channel data over
-// time.
-type OperationType = v1.OperationType
-
-const (
-	// OperationTypeMin keeps the lowest sample since the last reset.
-	OperationTypeMin OperationType = v1.OperationTypeMin
-	// OperationTypeMax keeps the highest sample since the last reset.
-	OperationTypeMax OperationType = v1.OperationTypeMax
-	// OperationTypeAvg keeps the mean of the samples since the last reset.
-	OperationTypeAvg OperationType = v1.OperationTypeAvg
-	// OperationTypeNone applies no aggregation.
-	OperationTypeNone OperationType = v1.OperationTypeNone
-	// OperationTypeDerivative computes the rate of change of the samples.
-	OperationTypeDerivative OperationType = v1.OperationTypeDerivative
-)
-
-// Operation defines an aggregation operation applied to channel data. Operations
-// calculate min, max, average, or derivative values over a time duration or triggered
-// by a reset channel.
-type Operation = v1.Operation
 
 // Channel is an internal representation of a channel containing all storage and
 // cluster-routing metadata. This type is used internally by the server; clients should
@@ -83,11 +59,6 @@ type Channel struct {
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
-	// Operations contains aggregation operations applied to this channel's data.
-	Operations []Operation `json:"operations" msgpack:"operations"`
-	// Expression is an Arc expression for calculated channels. If set, the channel is
-	// automatically configured as virtual.
-	Expression string `json:"expression" msgpack:"expression"`
 	// Group is the group the channel sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
@@ -97,8 +68,5 @@ type Channel struct {
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
 	v.NotEmptyString("name", c.Name)
-	for i := range c.Operations {
-		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
-	}
 	return v.Error()
 }

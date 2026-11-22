@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -59,8 +60,8 @@ type FactoryConfig struct {
 	// [REQUIRED]
 	Status *status.Service
 	// GetProgram retrieves an automation with its compiled Program by key. A configure
-	// calls it again, as channel.RetryChanged does, when it returns
-	// channel.ErrLookupsChanged.
+	// calls it again, as resolver.RetryChanged does, when it returns
+	// resolver.ErrLookupsChanged.
 	//
 	// [REQUIRED]
 	GetProgram GetProgramFunc
@@ -149,7 +150,7 @@ func (f *factory) ConfigureTask(
 		f.reporter.Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
-	prog, err := channel.RetryChanged(ctx, func() (arc.AutomationArc, error) {
+	prog, err := resolver.RetryChanged(ctx, func() (arc.AutomationArc, error) {
 		return f.cfg.GetProgram(ctx, cfg.ArcKey)
 	})
 	if err != nil {

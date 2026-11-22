@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/x/crdt"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -53,7 +54,7 @@ var _ = Describe("Modules", func() {
 		return arc.Source{Variant: arc.TextSource{Text: text.Text{Raw: raw}}}
 	}
 	resolveModule := func(ctx SpecContext, path string) (*symbol.Symbol, error) {
-		return svc.NewRoot(tx, &channel.Lookups{}).ResolveModule(ctx, path)
+		return svc.NewRoot(tx, &resolver.Lookups{}).ResolveModule(ctx, path)
 	}
 	Context("ResolveModule", func() {
 		BeforeEach(func(ctx SpecContext) {
@@ -152,9 +153,9 @@ var _ = Describe("Modules", func() {
 			})).To(Succeed())
 		})
 		var compiles int
-		mod := MustSucceed(channel.CompileConsistent(ctx, db, func(
+		mod := MustSucceed(resolver.CompileConsistent(ctx, db, func(
 			snap gorp.Snapshot,
-			lookups *channel.Lookups,
+			lookups *resolver.Lookups,
 		) (*symbol.Symbol, error) {
 			compiles++
 			mod, err := svc.NewRoot(snap, lookups).ResolveModule(ctx, "checked_module")

@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	distnode "github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -42,7 +43,7 @@ import (
 // openServices opens the iterator service and the services it depends on over node.
 func openServices(
 	ctx context.Context, node testutil.Node,
-) (*iterator.Service, *channel.Service) {
+) (*iterator.Service, *channel.Service, *calculation.Service) {
 	GinkgoHelper()
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: node.DB,
@@ -57,12 +58,17 @@ func openServices(
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
-	iteratorSvc := MustSucceed(iterator.NewService(iterator.ServiceConfig{
+	calcSvc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:      node.DB,
-		Framer:  node.Framer,
 		Channel: channelSvc,
 	}))
-	return iteratorSvc, channelSvc
+	iteratorSvc := MustSucceed(iterator.NewService(iterator.ServiceConfig{
+		DB:          node.DB,
+		Framer:      node.Framer,
+		Channel:     channelSvc,
+		Calculation: calcSvc,
+	}))
+	return iteratorSvc, channelSvc, calcSvc
 }
 
 // merged concatenates every series into one.
@@ -81,8 +87,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node = testutil.NewNode(ctx)
-		iteratorSvc, channelSvc = openServices(ctx, node)
-		creator = calctestutil.Creator{DB: node.DB, Channel: channelSvc}
+		var calcSvc *calculation.Service
+		iteratorSvc, channelSvc, calcSvc = openServices(ctx, node)
+		creator = calctestutil.Creator{
+			DB:          node.DB,
+			Channel:     channelSvc,
+			Calculation: calcSvc,
+		}
 	})
 	Describe("Basic Iteration", func() {
 		It("Should read written frames correctly", func(ctx SpecContext) {
@@ -511,30 +522,38 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					// This test verifies that circular dependencies are caught by the
 					// topological sort.
 
-					// Create a simple 2-node cycle: A -> B -> A
+					// Create a simple 2-node cycle: A -> B -> A. A save refuses a
+					// cycle,
+					// so renames close it.
+					base := channel.Channel{
+						Name:     "calc_circ_base",
+						DataType: telem.Float32T,
+						Virtual:  true,
+					}
+					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &base)
+					})).To(Succeed())
 					calcA := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "calc_circ_a",
 						DataType:   telem.Float32T,
-						Expression: "return 1",
+						Expression: "return calc_circ_base + 1",
 					}))
-
-					MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					calcB := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 						Name:       "calc_circ_b",
 						DataType:   telem.Float32T,
 						Expression: "return calc_circ_a + 1",
 					}))
-
-					calcA.Expression = "return calc_circ_b + 1"
 					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						_, err := channelSvc.NewWriter(tx).Apply(
+						w := channelSvc.NewWriter(tx)
+						if err := w.Rename(
 							ctx,
-							calcA.Key(),
-							channel.NewSetAction(channel.SetPayload{
-								Path:  []string{"expression"},
-								Value: calcA.Expression,
-							}),
-						)
-						return err
+							base.Key(),
+							"calc_circ_old",
+							false,
+						); err != nil {
+							return err
+						}
+						return w.Rename(ctx, calcB.Key(), "calc_circ_base", false)
 					})).To(Succeed())
 
 					// Opening an iterator over the now-cyclic channel should fail.
@@ -2718,8 +2737,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				}
 				StartRun(store.Run)
 				node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
-				iteratorSvc, channelSvc = openServices(ctx, node)
-				creator = calctestutil.Creator{DB: node.DB, Channel: channelSvc}
+				var calcSvc *calculation.Service
+				iteratorSvc, channelSvc, calcSvc = openServices(ctx, node)
+				creator = calctestutil.Creator{
+					DB:          node.DB,
+					Channel:     channelSvc,
+					Calculation: calcSvc,
+				}
 				createSensor(ctx, node, channelSvc)
 			})
 			// values returns the samples of every series in m, in order.
@@ -2929,7 +2953,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 var _ = Describe("Close", func() {
 	It("Should reject every call after Close", func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
-		iteratorSvc, channelSvc := openServices(ctx, node)
+		iteratorSvc, channelSvc, _ := openServices(ctx, node)
 		ch := &channel.Channel{
 			Name:     "Scott",
 			DataType: telem.TimestampT,
@@ -2969,8 +2993,13 @@ var _ = Describe("Read failure", func() {
 		}
 		StartRun(store.Run)
 		node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
-		iteratorSvc, channelSvc = openServices(ctx, node)
-		creator = calctestutil.Creator{DB: node.DB, Channel: channelSvc}
+		var calcSvc *calculation.Service
+		iteratorSvc, channelSvc, calcSvc = openServices(ctx, node)
+		creator = calctestutil.Creator{
+			DB:          node.DB,
+			Channel:     channelSvc,
+			Calculation: calcSvc,
+		}
 	})
 
 	It("Should return the read error from Close", func(ctx SpecContext) {

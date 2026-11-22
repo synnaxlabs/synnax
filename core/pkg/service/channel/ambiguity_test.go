@@ -18,7 +18,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -166,7 +168,7 @@ var _ = Describe("Ambiguous names", func() {
 	Describe("DeleteManyByNames", func() {
 		It("Should delete every channel that holds a name", func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).DeleteManyByNames(ctx, []string{"pt"}, false)
+				return svc.NewWriter(tx).DeleteManyByNames(ctx, []string{"pt"})
 			})).To(Succeed())
 			Expect(exists(ctx, inStand.Key())).To(BeFalse())
 			Expect(exists(ctx, inRig.Key())).To(BeFalse())
@@ -223,18 +225,18 @@ var _ = Describe("Ambiguous names", func() {
 		})
 	})
 
-	Describe("A calculated channel", func() {
+	Describe("A calculation", func() {
 		It("Should report a name that several channels hold as a diagnostic", func(
 			ctx SpecContext,
 		) {
-			calc := channel.Channel{
-				Name:       "calc",
-				DataType:   telem.Float32T,
-				Virtual:    true,
-				Expression: "return pt",
-			}
+			calcs := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+				DB:      db,
+				Channel: svc,
+			}))
+			c := calculation.Calculation{Expression: "return pt"}
 			err := db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Create(ctx, &calc)
+				_, err := calcs.NewWriter(tx).CreateOutput(ctx, &c, "calc", nil)
+				return err
 			})
 			diags, ok := errors.AsType[*diagnostics.Diagnostics](err)
 			Expect(ok).To(BeTrue(), "expected diagnostics, got %v", err)
@@ -244,14 +246,14 @@ var _ = Describe("Ambiguous names", func() {
 
 	Describe("The Arc resolver", func() {
 		It("Should refuse a name that several channels hold", func(ctx SpecContext) {
-			Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, "pt")).Error().
+			Expect(resolver.New(svc, db).Resolve(ctx, "pt")).Error().
 				To(matchAmbiguousPT())
 		})
 
 		It("Should resolve a path to its channel, with the path as the name", func(
 			ctx SpecContext,
 		) {
-			sym := MustSucceed(svc.NewArcSymbolResolver(db).Resolve(ctx, "stand.pt"))
+			sym := MustSucceed(resolver.New(svc, db).Resolve(ctx, "stand.pt"))
 			Expect(sym.ID).To(Equal(int(inStand.Key())))
 			Expect(sym.Name).To(Equal("stand.pt"))
 		})
@@ -259,7 +261,7 @@ var _ = Describe("Ambiguous names", func() {
 		It("Should resolve a name that one channel holds, and a key", func(
 			ctx SpecContext,
 		) {
-			r := svc.NewArcSymbolResolver(db)
+			r := resolver.New(svc, db)
 			Expect(MustSucceed(r.Resolve(ctx, "solo")).ID).To(Equal(int(solo.Key())))
 			key := solo.Key().String()
 			Expect(MustSucceed(r.Resolve(ctx, key)).ID).To(Equal(int(solo.Key())))
@@ -268,7 +270,7 @@ var _ = Describe("Ambiguous names", func() {
 		It("Should find nothing at a path that no channel is at", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, "stand.missing")).Error().
+			Expect(resolver.New(svc, db).Resolve(ctx, "stand.missing")).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 	})
@@ -279,7 +281,7 @@ var _ = Describe("Ambiguous names", func() {
 			func(
 				ctx SpecContext,
 			) {
-				r := svc.NewSubjectResolver(db, access(rig.ResourceID()))
+				r := resolver.NewSubject(svc, db, access(rig.ResourceID()))
 				Expect(
 					r.Resolve(ctx, "rig.pt"),
 				).Error().
@@ -292,7 +294,7 @@ var _ = Describe("Ambiguous names", func() {
 		It("Should name only the paths that the subject can see", func(
 			ctx SpecContext,
 		) {
-			r := svc.NewSubjectResolver(db, access(rig.ResourceID()))
+			r := resolver.NewSubject(svc, db, access(rig.ResourceID()))
 			Expect(r.Resolve(ctx, "pt")).Error().To(SatisfyAll(
 				MatchError(
 					"2 channels are named 'pt': 'stand.pt', and 1 more you cannot see",
@@ -304,7 +306,7 @@ var _ = Describe("Ambiguous names", func() {
 		It("Should count a holder that the subject cannot retrieve", func(
 			ctx SpecContext,
 		) {
-			r := svc.NewSubjectResolver(db, access(inRig.ResourceID()))
+			r := resolver.NewSubject(svc, db, access(inRig.ResourceID()))
 			Expect(r.Resolve(ctx, "pt")).Error().To(SatisfyAll(
 				MatchError(
 					"2 channels are named 'pt': 'stand.pt', and 1 more you cannot see",
@@ -315,7 +317,7 @@ var _ = Describe("Ambiguous names", func() {
 
 		It("Should resolve nothing for the one holder of a name that the subject "+
 			"cannot retrieve", func(ctx SpecContext) {
-			r := svc.NewSubjectResolver(db, access(solo.ResourceID()))
+			r := resolver.NewSubject(svc, db, access(solo.ResourceID()))
 			Expect(r.Resolve(ctx, "solo")).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
