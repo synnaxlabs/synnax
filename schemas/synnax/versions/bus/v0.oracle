@@ -129,8 +129,10 @@ Framing union on type {
 Poll struct {
     query bytes      {
         @doc value           """
-            is the frame that the task sends, which the framing of the task encodes.
+            is the frame that the task sends, from 1 to 65536 bytes, which the framing
+            of the task encodes.
         """
+        @validate max_length 65536
         @validate min_length 1
     }
     rate  telem.Rate = 1 {

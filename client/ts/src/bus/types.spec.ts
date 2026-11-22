@@ -47,7 +47,14 @@ describe("framingZ", () => {
 });
 
 describe("pollZ", () => {
+  it("should accept a query of 65536 bytes", () => {
+    expect(bus.pollZ.safeParse({ query: new Uint8Array(65536), rate: 1 }).success).toBe(
+      true,
+    );
+  });
+
   it.each([
+    ["a query of 65537 bytes", { query: new Uint8Array(65537), rate: 1 }, ["query"]],
     ["an empty query", { query: "", rate: 1 }, ["query"]],
     ["a rate of 0", { query: "qg==", rate: 0 }, ["rate"]],
   ])("should refuse %s at its field", (_, value, field) => {

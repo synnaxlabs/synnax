@@ -10,7 +10,9 @@
 package v0_test
 
 import (
+	"encoding/base64"
 	"encoding/json/v2"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -87,7 +89,17 @@ var _ = Describe("Framing", func() {
 	)
 })
 
+// pollOf returns the JSON of a poll whose query holds size bytes.
+func pollOf(size int) string {
+	query := base64.StdEncoding.EncodeToString(make([]byte, size))
+	return fmt.Sprintf(`{"query": %q, "rate": 1}`, query)
+}
+
 var _ = Describe("Poll", func() {
+	It("Should accept a query of 65536 bytes", func() {
+		Expect(decodeValidate[v0.Poll](pollOf(65536))).To(Succeed())
+	})
+
 	DescribeTable(
 		"Should refuse an invalid poll with the path of its field",
 		func(data, want string) {
@@ -100,6 +112,11 @@ var _ = Describe("Poll", func() {
 			"an empty query",
 			`{"query": "", "rate": 1}`,
 			"query: must be at least 1 bytes long",
+		),
+		Entry(
+			"a query of 65537 bytes",
+			pollOf(65537),
+			"query: must be at most 65536 bytes long",
 		),
 		Entry(
 			"a rate of 0",
