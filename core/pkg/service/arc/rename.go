@@ -20,7 +20,11 @@ func RenameChannels(src *Source, rename func(string) (string, bool)) bool {
 	changed := false
 	switch v := src.Variant.(type) {
 	case TextSource:
-		raw := v.Text.Materialize().Raw
+		// An imported Arc carries its text as raw, with no document yet.
+		raw := v.Text.Raw
+		if len(v.Text.Doc.Inserts) > 0 {
+			raw = v.Text.Materialize().Raw
+		}
 		if renamed := arcv4.RenameChannels(raw, rename); renamed != raw {
 			v.Text = text.Text{Doc: text.Create(renamed)}
 			src.Variant, changed = v, true
