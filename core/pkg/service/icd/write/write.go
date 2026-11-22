@@ -42,13 +42,12 @@ var defaultDataTypes = map[payload.Kind]telem.DataType{
 }
 
 // Encoder returns the encoder of the documents that wm sends of its message in ic. The
-// encoder takes one sample for each binding of wm with no value, in binding order. A
-// binding with a value sends that value as its field. dataTypes holds the data type of
-// each channel that exists. A binding to another channel takes its own data type, or
-// else float64 for a scaled field and the default of its field's kind for any other.
-// Encoder returns a validation error when ic lacks the message, the message is not
-// JSON, wm binds no channels, a value does not suit its binding, or the encoder refuses
-// the bindings.
+// encoder takes one sample for each channel binding of wm, in binding order. A value
+// binding sends its value as its field. dataTypes holds the data type of each channel
+// that exists. A binding to another channel takes its own data type, or else float64
+// for a scaled field and the default of its field's kind for any other. Encoder returns
+// a validation error when ic lacks the message, the message is not JSON, wm binds no
+// channels, a value does not suit its field, or the encoder refuses the bindings.
 func Encoder(
 	wm icd.WriteMessage,
 	ic icd.ICD,
@@ -68,7 +67,7 @@ func Encoder(
 		return nil, validate.Errorf("message %s is not a JSON message", msg.Name)
 	}
 	if !slices.ContainsFunc(wm.Bindings, func(b icd.WriteBinding) bool {
-		return b.Value == nil
+		return b.Type() == icd.ChannelWriteBindingType
 	}) {
 		return nil, validate.Errorf("message %s binds no channels", msg.Name)
 	}
@@ -78,21 +77,23 @@ func Encoder(
 		at[f.Base().Key] = k
 	}
 	bound := lo.CountValuesBy(wm.Bindings, func(b icd.WriteBinding) icd.FieldKey {
-		return b.Field
+		return b.Base().Field
 	})
 	var bindings []codec.Binding
 	for j, b := range wm.Bindings {
-		f, exists := at[b.Field]
-		if b.Value == nil {
-			dt, ok := dataTypes[b.Channel]
-			if !ok && exists {
-				dt = lo.CoalesceOrEmpty(b.DataType, defaultDataType(jp.Fields[f]))
+		switch v := b.Variant.(type) {
+		case icd.ChannelWriteBinding:
+			dt, ok := dataTypes[v.Channel]
+			if f, exists := at[v.Field]; !ok && exists {
+				dt = lo.FromPtrOr(v.DataType, defaultDataType(jp.Fields[f]))
 			}
-			bindings = append(bindings, codec.Binding{Field: b.Field, DataType: dt})
-			continue
-		}
-		if err := fill(&jp, at, b, bound[b.Field]); err != nil {
-			return nil, validate.PathedError(err, "bindings", strconv.Itoa(j))
+			bindings = append(bindings, codec.Binding{Field: v.Field, DataType: dt})
+		case icd.ValueWriteBinding:
+			if err := fill(&jp, at, v, bound[v.Field]); err != nil {
+				return nil, validate.PathedError(err, "bindings", strconv.Itoa(j))
+			}
+		default:
+			panic(errors.Newf("write: unknown write binding variant %T", v))
 		}
 	}
 	return codec.NewJSONEncoder(codec.JSONMessage{
@@ -118,7 +119,7 @@ func defaultDataType(f icd.JSONField) telem.DataType {
 func fill(
 	jp *icd.JSONPayload,
 	at map[icd.FieldKey]int,
-	b icd.WriteBinding,
+	b icd.ValueWriteBinding,
 	count int,
 ) error {
 	i, exists := at[b.Field]
@@ -131,17 +132,8 @@ func fill(
 		return validate.PathedError(validate.Errorf(
 			"field %s has more than one binding", jp.Fields[i].Base().Name,
 		), "field")
-	case b.Channel != 0:
-		return validate.PathedError(
-			validate.Errorf("a binding with a value cannot have a channel"), "channel",
-		)
-	case b.DataType != "":
-		return validate.PathedError(
-			validate.Errorf("a binding with a value cannot have a data type"),
-			"data_type",
-		)
 	}
-	f, ok := withValue(jp.Fields[i], *b.Value)
+	f, ok := withValue(jp.Fields[i], b.Value)
 	if !ok {
 		return validate.PathedError(validate.Errorf(
 			"field %s of kind %s needs a value of its kind",

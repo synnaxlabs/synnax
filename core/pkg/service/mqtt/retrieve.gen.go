@@ -255,8 +255,11 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					switch v2 := v1.Variant.(type) {
 					case PlainWriteTarget:
 						for _, v3 := range v2.Message.Bindings {
-							if v3.Channel != 0 {
-								targets = append(targets, v3.Channel)
+							switch v4 := v3.Variant.(type) {
+							case icd.ChannelWriteBinding:
+								if v4.Channel != 0 {
+									targets = append(targets, v4.Channel)
+								}
 							}
 						}
 					}
@@ -264,28 +267,36 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				return targets
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
-				for i4 := range e.Targets {
-					switch v5 := e.Targets[i4].Variant.(type) {
+				for i5 := range e.Targets {
+					switch v6 := e.Targets[i5].Variant.(type) {
 					case PlainWriteTarget:
-						for i6 := range v5.Message.Bindings {
-							if v5.Message.Bindings[i6].Channel == t {
-								v5.Message.Bindings[i6].Channel = 0
+						for i7 := range v6.Message.Bindings {
+							switch v8 := v6.Message.Bindings[i7].Variant.(type) {
+							case icd.ChannelWriteBinding:
+								if v8.Channel == t {
+									v8.Channel = 0
+								}
+								v6.Message.Bindings[i7].Variant = v8
 							}
 						}
-						e.Targets[i4].Variant = v5
+						e.Targets[i5].Variant = v6
 					}
 				}
 			},
 			Retarget: func(e *WriteConfig, from, to channel.Key) {
-				for i7 := range e.Targets {
-					switch v8 := e.Targets[i7].Variant.(type) {
+				for i9 := range e.Targets {
+					switch v10 := e.Targets[i9].Variant.(type) {
 					case PlainWriteTarget:
-						for i9 := range v8.Message.Bindings {
-							if v8.Message.Bindings[i9].Channel == from {
-								v8.Message.Bindings[i9].Channel = to
+						for i11 := range v10.Message.Bindings {
+							switch v12 := v10.Message.Bindings[i11].Variant.(type) {
+							case icd.ChannelWriteBinding:
+								if v12.Channel == from {
+									v12.Channel = to
+								}
+								v10.Message.Bindings[i11].Variant = v12
 							}
 						}
-						e.Targets[i7].Variant = v8
+						e.Targets[i9].Variant = v10
 					}
 				}
 			},

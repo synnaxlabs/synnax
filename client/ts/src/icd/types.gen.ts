@@ -375,6 +375,13 @@ export const readBindingZ = z.object({
 });
 export interface ReadBinding extends z.infer<typeof readBindingZ> {}
 
+/** WriteBaseBinding carries the parts every write binding shares. */
+export const writeBaseBindingZ = z.object({
+  /** field is the key of the message field to fill. */
+  field: fieldKeyZ,
+});
+export interface WriteBaseBinding extends z.infer<typeof writeBaseBindingZ> {}
+
 /** CanIdentifier matches a CAN frame by arbitration identifier. */
 export const canIdentifierZ = z.object({
   type: z.literal("can"),
@@ -421,26 +428,6 @@ export const IDENTIFIER_SCHEMAS: {
   can: canIdentifierZ,
   field: fieldIdentifierZ,
 };
-
-/** WriteBinding fills one message field with a command channel or a fixed value. */
-export const writeBindingZ = z.object({
-  /** field is the key of the message field to send. */
-  field: fieldKeyZ,
-  /** channel is the command channel whose values the field sends. */
-  channel: channel.keyZ.default(0),
-  /**
-   * dataType is the data type of the command channel that a client creates for the
-   * field. Empty takes float64 for a scaled field and the default of the field's kind
-   * for any other. The Core ignores it once the channel exists.
-   */
-  dataType: z.string().default(""),
-  /**
-   * value is the fixed value that the field sends. A binding with a value has channel 0
-   * and no data type.
-   */
-  value: zod.nullToUndefined(writeValueZ),
-});
-export interface WriteBinding extends z.infer<typeof writeBindingZ> {}
 
 /** RetrieveRequest is a request to retrieve icds. */
 export const retrieveRequestZ = z.strictObject({
@@ -491,17 +478,48 @@ export const readMessageZ = z.object({
 });
 export interface ReadMessage extends z.infer<typeof readMessageZ> {}
 
-/** WriteMessage sends one message of an ICD. */
-export const writeMessageZ = z.object({
-  /** message is the key of the ICD message to send. */
-  message: messageKeyZ,
+/** ChannelWriteBinding fills a field with the values of a command channel. */
+export const channelWriteBindingZ = writeBaseBindingZ.extend({
+  type: z.literal("channel"),
   /**
-   * bindings are the fields that command channels or fixed values fill. Each other
-   * field sends its default.
+   * channel is the command channel whose values the field sends. 0 means that a client
+   * creates the channel on configure.
    */
-  bindings: writeBindingZ.array().default(() => []),
+  channel: channel.keyZ.default(0),
+  /**
+   * dataType is the data type of the command channel that a client creates for the
+   * field. Absent takes float64 for a scaled field and the default of the field's kind
+   * for any other. The Core ignores it once the channel exists.
+   */
+  dataType: z.string().optional(),
 });
-export interface WriteMessage extends z.infer<typeof writeMessageZ> {}
+export interface ChannelWriteBinding extends z.infer<typeof channelWriteBindingZ> {}
+
+/** ValueWriteBinding fills a field with a fixed value. */
+export const valueWriteBindingZ = writeBaseBindingZ.extend({
+  type: z.literal("value"),
+  /** value is the fixed value that the field sends. */
+  value: writeValueZ,
+});
+export interface ValueWriteBinding extends z.infer<typeof valueWriteBindingZ> {}
+
+export const WRITE_BINDING_TYPES = ["channel", "value"] as const;
+export const writeBindingTypeZ = z.enum(WRITE_BINDING_TYPES);
+export type WriteBindingType = z.infer<typeof writeBindingTypeZ>;
+
+/** WriteBinding fills one message field with a command channel or a fixed value. */
+export const writeBindingZ = z.discriminatedUnion("type", [
+  channelWriteBindingZ,
+  valueWriteBindingZ,
+]);
+export type WriteBinding = ChannelWriteBinding | ValueWriteBinding;
+
+export const WRITE_BINDING_SCHEMAS: {
+  [K in WriteBindingType]: z.ZodType<Extract<WriteBinding, { type: K }>>;
+} = {
+  channel: channelWriteBindingZ,
+  value: valueWriteBindingZ,
+};
 
 /** DelimitedTextField is a field read from one item of a delimited text line. */
 export const delimitedTextFieldZ = textBaseFieldZ.extend({
@@ -735,6 +753,18 @@ export const BINARY_FIELD_SCHEMAS: {
   integer: integerBinaryFieldZ,
   unsigned: unsignedBinaryFieldZ,
 };
+
+/** WriteMessage sends one message of an ICD. */
+export const writeMessageZ = z.object({
+  /** message is the key of the ICD message to send. */
+  message: messageKeyZ,
+  /**
+   * bindings are the fields that command channels or fixed values fill. Each other
+   * field sends its default.
+   */
+  bindings: writeBindingZ.array().default(() => []),
+});
+export interface WriteMessage extends z.infer<typeof writeMessageZ> {}
 
 /** BinaryPayload is a payload of raw bytes. */
 export const binaryPayloadZ = z.object({

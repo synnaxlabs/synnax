@@ -299,8 +299,30 @@ type UuidWriteValue = v1.UuidWriteValue
 // BytesWriteValue is fixed bytes.
 type BytesWriteValue = v1.BytesWriteValue
 
+// WriteBaseBinding carries the parts every write binding shares.
+type WriteBaseBinding = v1.WriteBaseBinding
+
 // WriteBinding fills one message field with a command channel or a fixed value.
 type WriteBinding = v1.WriteBinding
+
+// WriteBindingVariant is implemented by every WriteBinding variant.
+type WriteBindingVariant = v1.WriteBindingVariant
+
+// WriteBindingType is the "type" value that selects a variant of WriteBinding.
+type WriteBindingType = v1.WriteBindingType
+
+const (
+	// ChannelWriteBindingType fills a field with the values of a command channel.
+	ChannelWriteBindingType WriteBindingType = v1.ChannelWriteBindingType
+	// ValueWriteBindingType fills a field with a fixed value.
+	ValueWriteBindingType WriteBindingType = v1.ValueWriteBindingType
+)
+
+// ChannelWriteBinding fills a field with the values of a command channel.
+type ChannelWriteBinding = v1.ChannelWriteBinding
+
+// ValueWriteBinding fills a field with a fixed value.
+type ValueWriteBinding = v1.ValueWriteBinding
 
 // WriteMessage sends one message of an ICD.
 type WriteMessage = v1.WriteMessage

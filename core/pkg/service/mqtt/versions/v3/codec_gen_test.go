@@ -55,12 +55,13 @@ var _ = Describe("Codec", func() {
 						Message: icd.WriteMessage{
 							Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
 							Bindings: []icd.WriteBinding{
-								{
-									Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+								{Variant: icd.ChannelWriteBinding{
+									WriteBaseBinding: icd.WriteBaseBinding{
+										Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+									},
 									Channel:  channel.Key(14),
-									DataType: telem.DataType("test_14"),
-									Value:    new(icd.WriteValue{Variant: icd.FloatWriteValue{}}),
-								},
+									DataType: new(telem.DataType("test_14")),
+								}},
 							},
 						},
 					}},
@@ -100,12 +101,13 @@ var _ = Describe("Codec", func() {
 				Message: icd.WriteMessage{
 					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
 					Bindings: []icd.WriteBinding{
-						{
-							Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+						{Variant: icd.ChannelWriteBinding{
+							WriteBaseBinding: icd.WriteBaseBinding{
+								Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+							},
 							Channel:  channel.Key(10),
-							DataType: telem.DataType("test_10"),
-							Value:    new(icd.WriteValue{Variant: icd.FloatWriteValue{}}),
-						},
+							DataType: new(telem.DataType("test_10")),
+						}},
 					},
 				},
 			}}),
@@ -138,12 +140,13 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 				Message: icd.WriteMessage{
 					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
 					Bindings: []icd.WriteBinding{
-						{
-							Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+						{Variant: icd.ChannelWriteBinding{
+							WriteBaseBinding: icd.WriteBaseBinding{
+								Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+							},
 							Channel:  channel.Key(14),
-							DataType: telem.DataType("test_14"),
-							Value:    new(icd.WriteValue{Variant: icd.FloatWriteValue{}}),
-						},
+							DataType: new(telem.DataType("test_14")),
+						}},
 					},
 				},
 			}},
@@ -174,12 +177,13 @@ func BenchmarkEncodeDecodeWriteTarget(b *testing.B) {
 		Message: icd.WriteMessage{
 			Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
 			Bindings: []icd.WriteBinding{
-				{
-					Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+				{Variant: icd.ChannelWriteBinding{
+					WriteBaseBinding: icd.WriteBaseBinding{
+						Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+					},
 					Channel:  channel.Key(10),
-					DataType: telem.DataType("test_10"),
-					Value:    new(icd.WriteValue{Variant: icd.FloatWriteValue{}}),
-				},
+					DataType: new(telem.DataType("test_10")),
+				}},
 			},
 		},
 	}}
@@ -214,12 +218,13 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 					Message: icd.WriteMessage{
 						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
 						Bindings: []icd.WriteBinding{
-							{
-								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+							{Variant: icd.ChannelWriteBinding{
+								WriteBaseBinding: icd.WriteBaseBinding{
+									Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
+								},
 								Channel:  channel.Key(14),
-								DataType: telem.DataType("test_14"),
-								Value:    new(icd.WriteValue{Variant: icd.FloatWriteValue{}}),
-							},
+								DataType: new(telem.DataType("test_14")),
+							}},
 						},
 					},
 				}},
@@ -290,12 +295,13 @@ func FuzzDecodeWriteTarget(f *testing.F) {
 			Message: icd.WriteMessage{
 				Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
 				Bindings: []icd.WriteBinding{
-					{
-						Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+					{Variant: icd.ChannelWriteBinding{
+						WriteBaseBinding: icd.WriteBaseBinding{
+							Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+						},
 						Channel:  channel.Key(10),
-						DataType: telem.DataType("test_10"),
-						Value:    new(icd.WriteValue{Variant: icd.FloatWriteValue{}}),
-					},
+						DataType: new(telem.DataType("test_10")),
+					}},
 				},
 			},
 		}}

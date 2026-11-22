@@ -187,46 +187,41 @@ inline x::json::json ReadMessage::to_json() const {
     return j;
 }
 
-inline WriteBinding WriteBinding::parse(x::json::Parser parser) {
-    return WriteBinding{
+inline WriteBaseBinding WriteBaseBinding::parse(x::json::Parser parser) {
+    return WriteBaseBinding{
         .field = parser.field<FieldKey>("field"),
-        .channel = parser.field<::synnax::channel::Key>(
-            "channel",
-            ::synnax::channel::Key(0)
-        ),
-        .data_type = parser.field<::x::telem::DataType>(
-            "data_type",
-            ::x::telem::DataType("")
-        ),
-        .value = parser.has("value")
-                   ? std::optional<WriteValue>(parse_write_value(parser.child("value")))
-                   : std::nullopt,
     };
 }
 
-inline x::json::json WriteBinding::to_json() const {
+inline x::json::json WriteBaseBinding::to_json() const {
     x::json::json j = x::json::json::object();
     j["field"] = this->field.to_json();
-    j["channel"] = this->channel;
-    j["data_type"] = this->data_type;
-    if (this->value.has_value()) j["value"] = ::synnax::icd::to_json(*this->value);
     return j;
 }
 
 inline WriteMessage WriteMessage::parse(x::json::Parser parser) {
     return WriteMessage{
         .message = parser.field<MessageKey>("message"),
-        .bindings = parser.field<std::vector<WriteBinding>>(
-            "bindings",
-            std::vector<WriteBinding>{}
-        ),
+        .bindings = [&] {
+            std::vector<WriteBinding> result;
+            if (parser.has("bindings"))
+                parser.iter("bindings", [&result](x::json::Parser &p) {
+                    result.push_back(parse_write_binding(p));
+                });
+            return result;
+        }(),
     };
 }
 
 inline x::json::json WriteMessage::to_json() const {
     x::json::json j = x::json::json::object();
     j["message"] = this->message.to_json();
-    j["bindings"] = x::json::to_array(this->bindings);
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->bindings)
+            arr.push_back(::synnax::icd::to_json(item));
+        j["bindings"] = arr;
+    }
     return j;
 }
 
@@ -984,6 +979,45 @@ inline x::json::json BytesWriteValue::to_json() const {
     return j;
 }
 
+inline ChannelWriteBinding ChannelWriteBinding::parse(x::json::Parser parser) {
+    ChannelWriteBinding result;
+    static_cast<WriteBaseBinding &>(result) = WriteBaseBinding::parse(parser);
+    result.channel = parser.field<::synnax::channel::Key>(
+        "channel",
+        ::synnax::channel::Key(0)
+    );
+    result.data_type = parser.field<std::optional<::x::telem::DataType>>("data_type");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ChannelWriteBinding::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = WriteBaseBinding::to_json(); parent.is_object())
+        j.update(parent);
+    j["channel"] = this->channel;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
+    j["type"] = this->type;
+    return j;
+}
+
+inline ValueWriteBinding ValueWriteBinding::parse(x::json::Parser parser) {
+    ValueWriteBinding result;
+    static_cast<WriteBaseBinding &>(result) = WriteBaseBinding::parse(parser);
+    result.value = parse_write_value(parser.child("value"));
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json ValueWriteBinding::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = WriteBaseBinding::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = ::synnax::icd::to_json(this->value);
+    j["type"] = this->type;
+    return j;
+}
+
 inline Identifier parse_identifier(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "can") return CanIdentifier::parse(parser);
@@ -1109,6 +1143,18 @@ inline WriteValue parse_write_value(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const WriteValue &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline WriteBinding parse_write_binding(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "channel") return ChannelWriteBinding::parse(parser);
+    if (discriminator == "value") return ValueWriteBinding::parse(parser);
+    parser.field_err("type", "unknown WriteBinding type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const WriteBinding &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

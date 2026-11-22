@@ -16,19 +16,6 @@ import (
 	"github.com/synnaxlabs/x/patch"
 )
 
-// HashContent writes the content of the value to h, without its keys.
-func (wb *WriteBinding) HashContent(h *content.Hash) {
-	h.Bytes(wb.Field[:])
-	h.Uint(uint64(wb.Channel))
-	h.String(string(wb.DataType))
-	if wb.Value == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		wb.Value.HashContent(h)
-	}
-}
-
 // Patch applies the path action at c, which is not done, to the value.
 func (wm *WriteMessage) Patch(c patch.Cursor) error {
 	switch c.Segment() {
@@ -48,6 +35,38 @@ func (wm *WriteMessage) HashContent(h *content.Hash) {
 	for i0 := range wm.Bindings {
 		wm.Bindings[i0].HashContent(h)
 	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (wb *WriteBinding) HashContent(h *content.Hash) {
+	switch v := wb.Variant.(type) {
+	case ChannelWriteBinding:
+		h.String("channel")
+		v.HashContent(h)
+	case ValueWriteBinding:
+		h.String("value")
+		v.HashContent(h)
+	default:
+		h.String("")
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (cwb *ChannelWriteBinding) HashContent(h *content.Hash) {
+	h.Bytes(cwb.WriteBaseBinding.Field[:])
+	h.Uint(uint64(cwb.Channel))
+	if cwb.DataType == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*cwb.DataType))
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (vwb *ValueWriteBinding) HashContent(h *content.Hash) {
+	h.Bytes(vwb.WriteBaseBinding.Field[:])
+	vwb.Value.HashContent(h)
 }
 
 // HashContent writes the content of the value to h, without its keys.

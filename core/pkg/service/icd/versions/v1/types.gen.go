@@ -2128,29 +2128,177 @@ func (u WriteValue) Validate() error {
 	return v.Error()
 }
 
-// WriteBinding fills one message field with a command channel or a fixed value.
-type WriteBinding struct {
-	// Field is the key of the message field to send.
+// WriteBaseBinding carries the parts every write binding shares.
+type WriteBaseBinding struct {
+	// Field is the key of the message field to fill.
 	Field FieldKey `json:"field" msgpack:"field"`
-	// Channel is the command channel whose values the field sends.
+}
+
+// WriteBindingType is the "type" value that selects a variant of WriteBinding.
+type WriteBindingType string
+
+const (
+	// ChannelWriteBindingType fills a field with the values of a command channel.
+	ChannelWriteBindingType WriteBindingType = "channel"
+	// ValueWriteBindingType fills a field with a fixed value.
+	ValueWriteBindingType WriteBindingType = "value"
+)
+
+// WriteBindingVariant is implemented by every WriteBinding variant.
+type WriteBindingVariant interface {
+	isWriteBindingVariant()
+}
+
+// ChannelWriteBinding fills a field with the values of a command channel.
+type ChannelWriteBinding struct {
+	WriteBaseBinding
+	// Channel is the command channel whose values the field sends. 0 means that a
+	// client creates the channel on configure.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// DataType is the data type of the command channel that a client creates for the
-	// field. Empty takes float64 for a scaled field and the default of the field's kind
-	// for any other. The Core ignores it once the channel exists.
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// Value is the fixed value that the field sends. A binding with a value has channel
-	// 0 and no data type.
-	Value *WriteValue `json:"value,omitzero" msgpack:"value,omitempty"`
+	// field. Absent takes float64 for a scaled field and the default of the field's
+	// kind for any other. The Core ignores it once the channel exists.
+	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
 }
+
+func (ChannelWriteBinding) isWriteBindingVariant() {}
+
+// ValueWriteBinding fills a field with a fixed value.
+type ValueWriteBinding struct {
+	WriteBaseBinding
+	// Value is the fixed value that the field sends.
+	Value WriteValue `json:"value" msgpack:"value"`
+}
+
+func (ValueWriteBinding) isWriteBindingVariant() {}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (w WriteBinding) Validate() error {
+func (va ValueWriteBinding) Validate() error {
+	v := validate.New("ValueWriteBinding")
+	v.Exec(func() error { return validate.PathedError(va.Value.Validate(), "value") })
+	return v.Error()
+}
+
+// WriteBinding fills one message field with a command channel or a fixed value.
+type WriteBinding struct {
+	Variant WriteBindingVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteBinding) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case ChannelWriteBinding:
+		return json.MarshalEncode(enc, struct {
+			Type WriteBindingType `json:"type"`
+			ChannelWriteBinding
+		}{Type: ChannelWriteBindingType, ChannelWriteBinding: v})
+	case ValueWriteBinding:
+		return json.MarshalEncode(enc, struct {
+			Type WriteBindingType `json:"type"`
+			ValueWriteBinding
+		}{Type: ValueWriteBindingType, ValueWriteBinding: v})
+	default:
+		return errors.Newf("WriteBinding: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteBinding) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteBindingType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case ChannelWriteBindingType:
+		var v struct {
+			Type WriteBindingType `json:"type"`
+			ChannelWriteBinding
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ChannelWriteBinding
+	case ValueWriteBindingType:
+		var v struct {
+			Type WriteBindingType `json:"type"`
+			ValueWriteBinding
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ValueWriteBinding
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteBinding: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteBinding) Type() WriteBindingType {
+	switch u.Variant.(type) {
+	case ChannelWriteBinding:
+		return ChannelWriteBindingType
+	case ValueWriteBinding:
+		return ValueWriteBindingType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteBinding) Validate() error {
 	v := validate.New("WriteBinding")
-	if w.Value != nil {
-		v.Exec(func() error { return validate.PathedError(w.Value.Validate(), "value") })
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case ValueWriteBinding:
+		v.Exec(variant.Validate)
 	}
 	return v.Error()
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteBinding) Base() WriteBaseBinding {
+	switch variant := u.Variant.(type) {
+	case ChannelWriteBinding:
+		return variant.WriteBaseBinding
+	case ValueWriteBinding:
+		return variant.WriteBaseBinding
+	}
+	return WriteBaseBinding{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteBinding) SetBase(base WriteBaseBinding) {
+	switch variant := u.Variant.(type) {
+	case ChannelWriteBinding:
+		variant.WriteBaseBinding = base
+		u.Variant = variant
+	case ValueWriteBinding:
+		variant.WriteBaseBinding = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteBinding: cannot set the base of variant %T", variant))
+	}
 }
 
 // WriteMessage sends one message of an ICD.
