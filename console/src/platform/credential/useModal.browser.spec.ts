@@ -173,9 +173,18 @@ describe("useModal", () => {
       client,
       params: { subject: user.resourceID(subject.key) },
     });
+    // A real key press takes longer than the save, so the save waits for it.
+    const { promise: pressed, resolve: release } = Promise.withResolvers<void>();
+    const save = client.auth.setPassword.bind(client.auth);
+    vi.spyOn(client.auth, "setPassword").mockImplementation(async (props) => {
+      await pressed;
+      return await save(props);
+    });
     await type("New password", "changed123");
     fireEvent.click(findButton("Set password"));
     await pressEscape();
+    expect(screen.queryByPlaceholderText("New password")).not.toBeNull();
+    release();
     expect(await screen.findByText("Successfully changed password")).toBeTruthy();
   });
 
