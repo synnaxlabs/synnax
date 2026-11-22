@@ -412,6 +412,31 @@ describe("Channel", () => {
         expect((await client.channels.retrieve(name)).key).toEqual(ch.key);
       });
 
+      it("should look up the channels of a writer strictly", async () => {
+        const ch = await client.channels.create({
+          name: id.create(),
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+        const fresh = createTestClient();
+        const send = spyOnSend(fresh);
+        try {
+          const writer = await fresh.openWriter({
+            start: TimeStamp.now(),
+            channels: [ch.name],
+          });
+          await writer.close();
+          const strict = send.mock.calls.filter(
+            ([target, req]) =>
+              target === "/channel/retrieve" &&
+              (req as { strict?: boolean }).strict === true,
+          );
+          expect(strict).not.toHaveLength(0);
+        } finally {
+          send.mockRestore();
+        }
+      });
+
       it("should look up keys, names, and paths in one list", async () => {
         const g = await client.groups.create({ name: id.create(), scope: "channel" });
         const [byKey, byName, byPath] = await client.channels.create([
