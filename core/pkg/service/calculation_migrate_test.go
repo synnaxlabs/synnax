@@ -243,15 +243,20 @@ func calculationOf(
 	return c
 }
 
-// openUpgraded runs create on a node, then returns a node over the same storage, so
-// that each key create allocates counts as issued when the Core opens, as on a store
-// that an older Core wrote.
+// openUpgraded runs create on a node, then returns a node over the same storage with no
+// first-open records of the key counters, as a v0.62 Core left it. Each key that create
+// allocates then counts as issued at the first open.
 func openUpgraded(ctx context.Context, create func(n testutil.Node)) testutil.Node {
 	GinkgoHelper()
 	store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
 	first := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: store.Layer})
 	create(first)
+	host := first.Identity.HostKey.String()
 	Expect(first.Close()).To(Succeed())
+	for _, counter := range []string{"leasedCounter", "counter.free"} {
+		record := host + ".distribution.channel." + counter + ".firstOpen"
+		Expect(store.KV.Delete(ctx, []byte(record))).To(Succeed())
+	}
 	return testutil.NewNode(ctx, distribution.LayerConfig{Storage: store.Layer})
 }
 
