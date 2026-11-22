@@ -25,12 +25,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout repository
+      - &checkout
+        name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
-      - name: Install uv
+      - &install_uv
+        name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
@@ -61,3 +63,44 @@ jobs:
             echo "::error::The synnax sdist ships examples."
             exit 1
           fi
+
+  alpine:
+    name: Check the client on Alpine Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - *checkout
+      - *install_uv
+
+      - name: Build the packages
+        run: .github/scripts/build_py.sh "$RUNNER_TEMP/dist"
+
+      # --only-binary fails when a dependency has no musllinux wheel. Nothing listens on
+      # the port, so the client must fail as unreachable. The fail backend makes any
+      # keyring read raise.
+      - name: Check the client
+        env:
+          IMAGE: python:3.13-alpine@sha256:9ef1a599f863231c3d91e941389bfdc4a2d6070557243d54df1a4e57015b960e
+        run: |
+          cat > "$RUNNER_TEMP/dist/check.py" << 'EOF'
+          from freighter.exceptions import Unreachable
+
+          import synnax as sy
+
+          try:
+              sy.Synnax()
+          except Unreachable:
+              pass
+          else:
+              raise SystemExit("The client connected to a Core that does not exist.")
+          EOF
+          docker run --rm --volume "$RUNNER_TEMP/dist:/dist:ro" \
+            --env SYNNAX_HOST=localhost --env SYNNAX_PORT=9090 \
+            --env SYNNAX_API_KEY=key \
+            --env PYTHON_KEYRING_BACKEND=keyring.backends.fail.Keyring \
+            "$IMAGE" sh -euc '
+              pip install --quiet --root-user-action=ignore \
+                --disable-pip-version-check --only-binary :all: /dist/*.whl
+              python -I -c "import synnax"
+              python -I /dist/check.py
+            '

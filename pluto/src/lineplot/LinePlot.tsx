@@ -370,7 +370,6 @@ interface LegendProps extends Pick<
   | "onRangeColorChange"
   | "onRangeVisibleChange"
   | "onHoverChange"
-  | "footer"
 > {
   pKey: lineplot.Key;
   editable: boolean;
@@ -655,11 +654,9 @@ export interface LinePlotProps extends FrameProps {
    * Called when the user toggles a legend entry: a stored line on an absolute x axis,
    * or a line of one range (see traceKey) on a relative axis.
    */
-  onLineVisibleChange?: (key: string, visible: boolean, solo: boolean) => void;
-  onRangeVisibleChange?: (key: string, visible: boolean, solo: boolean) => void;
+  onLineVisibleChange?: (key: string, visible: boolean, isolated: boolean) => void;
+  onRangeVisibleChange?: (key: string, visible: boolean, isolated: boolean) => void;
   onRangeColorChange?: (key: string, color: color.Color) => void;
-  /** Shown under the legend. */
-  legendFooter?: BaseLegendProps["footer"];
   /** Called with the line under the pointer on a relative x axis, or null. */
   onHoveredChange?: (hovered: Hovered | null) => void;
   /** Draws a relative x axis as absolute. */
@@ -748,7 +745,6 @@ export const LinePlot = ({
   onLineVisibleChange,
   onRangeVisibleChange,
   onRangeColorChange,
-  legendFooter,
   onHoveredChange,
   relativeDisabled = false,
   children,
@@ -810,7 +806,6 @@ export const LinePlot = ({
         onRangeVisibleChange={onRangeVisibleChange}
         onRangeColorChange={onRangeColorChange}
         onHoverChange={setHoverKey}
-        footer={legendFooter}
       />
       <Title pKey={key} editable={editable} />
       <BaseViewport

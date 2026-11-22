@@ -406,6 +406,8 @@ jobs:
       free_threaded: true
       macos: *full
       type_check_dir: ./synnax ./examples ./tests
+      # Not Windows on ARM: cryptography, which asyncua needs, has no wheel for it.
+      ubuntu_arm: *full
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -444,7 +446,9 @@ jobs:
       package: client
       packed: true
       runtimes: true
+      ubuntu_arm: *full
       windows: *full
+      windows_arm: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
