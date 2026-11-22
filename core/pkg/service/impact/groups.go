@@ -83,11 +83,11 @@ func refusePicks(chosen picks, entries []Entry) error {
 	return pickWithoutEntry(chosen.named, named)
 }
 
-// groupsSum returns the plan sum of p, the plan of the delete of the groups with keys,
-// with the keys in sorted order.
-func groupsSum(keys []group.Key, p Plan) uint64 {
+// groupsSum returns the plan sum of p, the plan of the change of type t to the groups
+// with keys, with the keys in sorted order.
+func groupsSum(t ChangeType, keys []group.Key, p Plan) uint64 {
 	sorted := slices.Compact(slices.SortedFunc(slices.Values(keys), compareGroups))
-	buf := appendField(nil, string(DeleteGroupsChangeType))
+	buf := appendField(nil, string(t))
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(sorted)))
 	for _, k := range sorted {
 		buf = append(buf, k[:]...)

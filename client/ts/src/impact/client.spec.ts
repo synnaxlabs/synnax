@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
 import { NotFoundError, PlanChangedError } from "@/errors";
+import { group } from "@/group";
 import { impact } from "@/impact";
 import { lineplot } from "@/lineplot";
 import { resource } from "@/resource";
@@ -157,6 +158,40 @@ describe("impact", () => {
     });
     expect(plan.token).toHaveLength(16);
     expect(await client.impact.apply(change, { token: plan.token })).toEqual(plan);
+    await expect
+      .poll(
+        async () =>
+          await isGone(async () => await client.groups.retrieve({ key: g.key })),
+      )
+      .toBe(true);
+  });
+
+  it("should plan an ungroup and apply it, moving channels to the parent", async () => {
+    const parent = await client.groups.create({ name: id.create(), scope: "channel" });
+    const g = await client.groups.create({
+      name: id.create(),
+      parent: group.resourceID(parent.key),
+    });
+    const ch = await client.channels.create({
+      name: id.create(),
+      leaseholder: 1,
+      virtual: true,
+      dataType: DataType.FLOAT32,
+      group: g.key,
+    });
+    const change: impact.Change = { type: "ungroup_groups", keys: [g.key] };
+    const plan = await client.impact.plan(change);
+    expect(plan).toEqual({
+      entries: [],
+      kept: 0,
+      hidden: 0,
+      token: plan.token,
+      change,
+    });
+    expect(await client.impact.apply(change, { token: plan.token })).toEqual(plan);
+    await expect
+      .poll(async () => (await client.channels.retrieve(ch.key)).group)
+      .toEqual(parent.key);
     await expect
       .poll(
         async () =>

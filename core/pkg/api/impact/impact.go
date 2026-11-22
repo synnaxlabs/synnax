@@ -82,6 +82,8 @@ func named(c impact.Change) []resource.ID {
 		return channel.ResourceIDsFromKeys(v.Keys)
 	case impact.DeleteGroupsChange:
 		return group.ResourceIDs(v.Keys)
+	case impact.UngroupGroupsChange:
+		return group.ResourceIDs(v.Keys)
 	}
 	// A variant that this switch misses would plan with no access check.
 	panic("[api.impact] - named covers no such change")

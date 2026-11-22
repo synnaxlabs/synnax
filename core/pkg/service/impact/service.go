@@ -47,6 +47,12 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Delete func(ctx context.Context, tx gorp.Tx, records []resource.ID) error
+	// Move moves, in tx, the records other than groups that an ungroup takes out of
+	// a group into the group to, or out of their groups for nil. It fails on a record
+	// that it cannot move.
+	//
+	// [REQUIRED]
+	Move func(ctx context.Context, tx gorp.Tx, records []resource.ID, to *group.Key) error
 	// DB is the database whose references to channels Policies maps.
 	//
 	// [REQUIRED]
@@ -67,6 +73,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.RecordOf = override.Nil(c.RecordOf, other.RecordOf)
 	c.Delete = override.Nil(c.Delete, other.Delete)
+	c.Move = override.Nil(c.Move, other.Move)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Policies.Links = override.Nil(c.Policies.Links, other.Policies.Links)
 	c.Policies.KeptTables = override.Nil(
@@ -83,6 +90,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("group", c.Group)
 	v.NotNil("record_of", c.RecordOf)
 	v.NotNil("delete", c.Delete)
+	v.NotNil("move", c.Move)
 	v.NotNil("db", c.DB)
 	v.NotNil("policies.links", c.Policies.Links)
 	return v.Error()
@@ -131,8 +139,9 @@ type PlanOptions struct {
 // Plan returns every record that c touches with the picks of opts, as seen by snap, and
 // the token that Apply checks. A delete pick on a channel adds its holders, as Apply
 // does. A delete of groups lists each tombstone in the groups as a cascade entry with
-// its path. It writes nothing. A pick that is not a choice, that names no visible
-// entry, or that its entry does not allow fails with a validation error.
+// its path. An ungroup of groups lists each tombstone that drops because its new path
+// is taken, the same way. It writes nothing. A pick that is not a choice, that names no
+// visible entry, or that its entry does not allow fails with a validation error.
 func (s *Service) Plan(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -156,8 +165,15 @@ func (s *Service) Plan(
 		if err != nil {
 			return Plan{}, err
 		}
-		p.Token = token(groupsSum(v.Keys, p))
+		p.Token = token(groupsSum(DeleteGroupsChangeType, v.Keys, p))
 		return p, nil
+	case UngroupGroupsChange:
+		u, err := s.planUngroup(ctx, snap, c, v.Keys, opts)
+		if err != nil {
+			return Plan{}, err
+		}
+		u.plan.Token = token(groupsSum(UngroupGroupsChangeType, v.Keys, u.plan))
+		return u.plan, nil
 	}
 	return Plan{}, errUnknownChange
 }
@@ -273,8 +289,10 @@ func (p picks) pickOf(e Entry) (Choice, error) {
 // ServiceConfig.Delete before the channels go. A delete of groups deletes the
 // tombstones in them after the token check, then the groups as group.Writer.Delete
 // does, and returns a plan of c that lists each tombstone as a cascade entry with its
-// path. Picks fail as they fail Plan. Given a gorp.DB, Apply runs in a transaction of
-// its own.
+// path. An ungroup of groups moves the child groups of each group to its parent, its
+// other members through ServiceConfig.Move, and its tombstones, then deletes the
+// groups, after the token check. It returns its plan. Picks fail as they fail Plan.
+// Given a gorp.DB, Apply runs in a transaction of its own.
 func (s *Service) Apply(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -293,6 +311,8 @@ func (s *Service) Apply(
 		return s.deleteChannels(ctx, tx, c, v.Keys, opts)
 	case DeleteGroupsChange:
 		return s.deleteGroups(ctx, tx, c, v.Keys, opts)
+	case UngroupGroupsChange:
+		return s.ungroupGroups(ctx, tx, c, v.Keys, opts)
 	}
 	return Plan{}, errUnknownChange
 }
@@ -321,7 +341,8 @@ func (s *Service) deleteGroups(
 		// A change of its own keeps c off the heap when no token comes.
 		now := p
 		now.Change = Change{Variant: DeleteGroupsChange{Keys: keys}}
-		if err = checkToken(opts.Token, groupsSum(keys, now), now); err != nil {
+		sum := groupsSum(DeleteGroupsChangeType, keys, now)
+		if err = checkToken(opts.Token, sum, now); err != nil {
 			return Plan{}, err
 		}
 		p.Token = opts.Token
