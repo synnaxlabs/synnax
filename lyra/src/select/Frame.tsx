@@ -17,7 +17,7 @@ import {
 } from "react";
 
 import { Dialog } from "@/dialog";
-import { useSyncedRef } from "@/hooks/ref";
+import { useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Context } from "@/select/Context";
 import { onFirstInput } from "@/select/firstInput";
