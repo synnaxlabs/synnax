@@ -11,6 +11,8 @@ package certificate
 
 import (
 	"context"
+	"runtime/pprof"
+	"sync"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -25,10 +27,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -141,12 +143,18 @@ type Service struct {
 	indexes indexes
 	closer  xio.MultiCloser
 	cfg     ServiceConfig
+	// lifecycle orders Run against Close.
+	lifecycle struct {
+		sync.Mutex
+		running bool
+		ran     bool
+		closed  bool
+	}
 }
 
-// OpenService opens a Service with the given configuration. The Service updates the
-// expiry status of every certificate, and of each certificate that the node presents,
-// when it opens and on each ExpiryCheckInterval. If the error is nil, the Service must
-// be closed with Close after use.
+// OpenService opens a Service with the given configuration. While Run runs, the Service
+// updates the expiry status of every certificate, and of each certificate that the node
+// presents. If the error is nil, the Service must be closed with Close after use.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	s = &Service{indexes: newIndexes()}
 	if s.cfg, err = config.New(DefaultServiceConfig, cfgs...); err != nil {
@@ -180,22 +188,41 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			return nil, err
 		}
 	}
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
-	if !ok(nil, signal.NewHardShutdown(sCtx, cancel)) {
-		return nil, ctx.Err()
-	}
-	sCtx.Go(s.checkExpiry, signal.WithKey("expiry"))
 	return s, nil
 }
 
-func (s *Service) checkExpiry(ctx context.Context) error {
+// Run updates the expiry statuses when it starts and on each ExpiryCheckInterval until
+// ctx ends, then returns nil. A second Run, or a Run after Close, returns an error.
+func (s *Service) Run(ctx context.Context) error {
+	s.lifecycle.Lock()
+	if s.lifecycle.closed {
+		s.lifecycle.Unlock()
+		return errors.New("run called after close")
+	}
+	if s.lifecycle.ran {
+		s.lifecycle.Unlock()
+		return errors.New("run called twice")
+	}
+	s.lifecycle.ran, s.lifecycle.running = true, true
+	s.lifecycle.Unlock()
+	defer func() {
+		s.lifecycle.Lock()
+		s.lifecycle.running = false
+		s.lifecycle.Unlock()
+	}()
+	pprof.Do(ctx, pprof.Labels("routine", "expiry"), s.checkExpiry)
+	return nil
+}
+
+func (s *Service) checkExpiry(ctx context.Context) {
 	ticker := time.NewTicker(s.cfg.ExpiryCheckInterval.Duration())
 	defer ticker.Stop()
 	for {
-		if err := s.writeExpiry(ctx); err != nil {
+		// An error from a stop in the middle of a check is not a failure.
+		if err := s.writeExpiry(ctx); err != nil && ctx.Err() == nil {
 			s.cfg.L.Error("failed to update certificate expiry", zap.Error(err))
 		}
-		if err := s.writeOwnExpiry(ctx); err != nil {
+		if err := s.writeOwnExpiry(ctx); err != nil && ctx.Err() == nil {
 			s.cfg.L.Error(
 				"failed to update the expiry of the Core's certificates",
 				zap.Error(err),
@@ -203,15 +230,26 @@ func (s *Service) checkExpiry(ctx context.Context) error {
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return
 		case <-ticker.C:
 		}
 	}
 }
 
-// Close stops the expiry checks and releases the resources of the Service. Close is not
-// safe to call concurrently with any other method of the Service.
-func (s *Service) Close() error { return s.closer.Close() }
+// Close releases the resources of the Service. Call it after Run returns: while Run
+// runs, Close returns an error and closes nothing.
+func (s *Service) Close() error {
+	s.lifecycle.Lock()
+	defer s.lifecycle.Unlock()
+	if s.lifecycle.running {
+		return errors.New("close called while Run runs")
+	}
+	if s.lifecycle.closed {
+		return nil
+	}
+	s.lifecycle.closed = true
+	return s.closer.Close()
+}
 
 // Changes returns the changes that the commit c made to certificates.
 func (s *Service) Changes(c gorp.Commit) gorp.TxReader[Key, Certificate] {

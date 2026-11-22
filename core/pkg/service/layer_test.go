@@ -143,6 +143,7 @@ var _ = Describe("Layer", func() {
 					),
 				}},
 			}))
+			StartRun(layer.Run)
 			prefix := svcnode.ResourceID(n.Identity.HostKey).String() + ":certificate:"
 			Eventually(func(g Gomega) {
 				var found []status.Status[any]

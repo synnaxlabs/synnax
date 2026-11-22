@@ -352,6 +352,8 @@ func (l *Layer) Run(ctx context.Context) error {
 	defer l.guard.End()
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error { return l.Auth.Run(ctx) })
+	g.Go(func() error { return l.License.Run(ctx) })
+	g.Go(func() error { return l.Certificate.Run(ctx) })
 	return g.Wait()
 }
 

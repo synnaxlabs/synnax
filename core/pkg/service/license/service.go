@@ -15,6 +15,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -158,8 +158,14 @@ func entryKey(jti uuid.UUID) []byte {
 type Service struct {
 	cfg         ServiceConfig
 	fingerprint Fingerprint
-	shutdown    io.Closer
 	changes     observe.Observer[string]
+	// lifecycle orders Run against Close.
+	lifecycle struct {
+		sync.Mutex
+		running bool
+		ran     bool
+		closed  bool
+	}
 	// clockBehind is set while the clock is more than Rollback behind the recorded
 	// mark.
 	clockBehind atomic.Bool
@@ -204,20 +210,44 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	s.shutdown = signal.NewHardShutdown(sCtx, cancel)
-	sCtx.Go(
-		s.monitor,
-		signal.WithRetryOnPanic(),
-		signal.WithBaseRetryInterval(2*time.Second),
-		signal.WithRetryScale(1.1),
-		signal.WithKey("license"),
-	)
 	return s, nil
 }
 
-// Close should be called when the service is no longer needed.
-func (s *Service) Close() error { return s.shutdown.Close() }
+// Run checks the clock and the license on each CheckInterval until ctx ends, then
+// returns nil. A clock that was behind and catches up reloads the license only while
+// Run runs. A second Run, or a Run after Close, returns an error.
+func (s *Service) Run(ctx context.Context) error {
+	s.lifecycle.Lock()
+	if s.lifecycle.closed {
+		s.lifecycle.Unlock()
+		return errors.New("run called after close")
+	}
+	if s.lifecycle.ran {
+		s.lifecycle.Unlock()
+		return errors.New("run called twice")
+	}
+	s.lifecycle.ran, s.lifecycle.running = true, true
+	s.lifecycle.Unlock()
+	defer func() {
+		s.lifecycle.Lock()
+		s.lifecycle.running = false
+		s.lifecycle.Unlock()
+	}()
+	pprof.Do(ctx, pprof.Labels("routine", "license"), s.monitor)
+	return nil
+}
+
+// Close marks the Service closed. Call it after Run returns: while Run runs, Close
+// returns an error.
+func (s *Service) Close() error {
+	s.lifecycle.Lock()
+	defer s.lifecycle.Unlock()
+	if s.lifecycle.running {
+		return errors.New("close called while Run runs")
+	}
+	s.lifecycle.closed = true
+	return nil
+}
 
 // OnChange calls handler with ResourceKey each time the value Retrieve returns may have
 // changed.
@@ -601,7 +631,7 @@ func (s *Service) logState() {
 // monitor checks the clock and repeats the warning on every check interval. The state
 // changes here only when a clock that was behind catches up: a Core that opened covered
 // stays covered until it restarts.
-func (s *Service) monitor(ctx context.Context) error {
+func (s *Service) monitor(ctx context.Context) {
 	for {
 		interval := s.cfg.CheckInterval
 		if s.clockBehind.Load() {
@@ -609,7 +639,7 @@ func (s *Service) monitor(ctx context.Context) error {
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return
 		case <-time.After(interval):
 		}
 		wasBehind := s.clockBehind.Load()

@@ -65,6 +65,7 @@ type env struct {
 	secrets *secret.Service
 	status  *status.Service
 	svc     *certificate.Service
+	stop    func()
 	now     atomic.Int64
 }
 
@@ -108,7 +109,8 @@ func newStore(ctx SpecContext) *env {
 	return e
 }
 
-// open opens the certificate service of e, which updates expiry statuses each interval.
+// open opens and runs the certificate service of e, which updates expiry statuses each
+// interval.
 // Each of cfgs overrides the default config.
 func (e *env) open(
 	ctx SpecContext,
@@ -125,6 +127,7 @@ func (e *env) open(
 		ExpiryCheckInterval: interval,
 		Rack:                coreRack,
 	}}, cfgs...)...))
+	e.stop = StartRun(e.svc.Run)
 }
 
 func (e *env) clock() telem.TimeStamp { return telem.TimeStamp(e.now.Load()) }
@@ -412,6 +415,25 @@ var _ = Describe("Service", func() {
 				Rack:            coreRack,
 			},
 		}))
+	})
+
+	Describe("Run", func() {
+		It("Should return an error when called twice", func(ctx SpecContext) {
+			e := newEnv(ctx, telem.Hour)
+			Expect(e.svc.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+		})
+		It("Should not close while Run runs", func(ctx SpecContext) {
+			e := newEnv(ctx, telem.Hour)
+			Expect(e.svc.Close()).
+				To(MatchError(ContainSubstring("close called while Run runs")))
+		})
+		It("Should return an error when called after Close", func(ctx SpecContext) {
+			e := newEnv(ctx, telem.Hour)
+			e.stop()
+			Expect(e.svc.Close()).To(Succeed())
+			Expect(e.svc.Run(ctx)).
+				To(MatchError(ContainSubstring("run called after close")))
+		})
 	})
 
 	Describe("NewRetrieve", func() {
