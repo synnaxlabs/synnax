@@ -10,10 +10,13 @@
 package state_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -32,6 +35,26 @@ var _ = Describe("Rewrites", func() {
 	candidates := func(s *state.State) []uint64 {
 		GinkgoHelper()
 		return MustSucceed(s.Snapshot()).Candidates
+	}
+	created := &log.Create{Segment: 9, Key: 6, Clock: 5, Version: 1, DataType: 4}
+	// replace returns a Replace of segment 3 by segment 9 that packs its two live
+	// samples, changed by edit.
+	replace := func(edit func(r *log.Replace)) *log.Replace {
+		r := &log.Replace{Old: 3, New: 9, Length: 8, TailCRC: 7}
+		r.Pointers = []log.Pointer{
+			{
+				Length: 4, Samples: 1, Alignment: uint64(telem.NewAlignment(1, 0)),
+				First: 10, Last: 10,
+			},
+			{
+				Offset: 4, Length: 4, Samples: 1,
+				Alignment: uint64(telem.NewAlignment(1, 2)), First: 30, Last: 30,
+			},
+		}
+		if edit != nil {
+			edit(r)
+		}
+		return r
 	}
 
 	Describe("Candidates", func() {
@@ -109,26 +132,6 @@ var _ = Describe("Rewrites", func() {
 			s = MustSucceed(state.Open(config(&appended{}), sample()))
 			Expect(s.Replay(10, []log.Record{seal, cut})).To(Succeed())
 		})
-		created := &log.Create{Segment: 9, Key: 6, Clock: 5, Version: 1, DataType: 4}
-		// replace returns a Replace of segment 3 by segment 9 that packs its two live
-		// samples, changed by edit.
-		replace := func(edit func(r *log.Replace)) *log.Replace {
-			r := &log.Replace{Old: 3, New: 9, Length: 8, TailCRC: 7}
-			r.Pointers = []log.Pointer{
-				{
-					Length: 4, Samples: 1, Alignment: uint64(telem.NewAlignment(1, 0)),
-					First: 10, Last: 10,
-				},
-				{
-					Offset: 4, Length: 4, Samples: 1,
-					Alignment: uint64(telem.NewAlignment(1, 2)), First: 30, Last: 30,
-				},
-			}
-			if edit != nil {
-				edit(r)
-			}
-			return r
-		}
 		// expectReplaced expects segment 9 in place of segment 3.
 		expectReplaced := func() {
 			GinkgoHelper()
@@ -183,10 +186,231 @@ var _ = Describe("Rewrites", func() {
 				"replace of segment 3, whose pointers differ from the copy"),
 		)
 	})
+
+	Describe("Replace in flight", func() {
+		var (
+			a *appended
+			s *state.State
+		)
+		BeforeEach(func() {
+			a = &appended{}
+			s = MustSucceed(state.Open(config(a), sample()))
+			Expect(s.Replay(10, []log.Record{seal, cut})).To(Succeed())
+			a.s, a.seq = s, 10
+			run(s)
+		})
+		// count returns the number of entries that s appended.
+		count := func() int {
+			a.mu.Lock()
+			defer a.mu.Unlock()
+			return len(a.entries)
+		}
+		// begin calls Replace with r, and returns the channel of its error once s
+		// appended the entry.
+		begin := func(r *log.Replace) chan error {
+			GinkgoHelper()
+			n := count()
+			done := make(chan error, 1)
+			go func() { done <- s.Replace(r) }()
+			Eventually(count).Should(Equal(n + 1))
+			return done
+		}
+		// last returns the records of the last entry that s appended.
+		last := func() []log.Record {
+			GinkgoHelper()
+			a.mu.Lock()
+			defer a.mu.Unlock()
+			var (
+				d   log.Decoder
+				out []log.Record
+			)
+			MustSucceed(d.Reset(a.entries[len(a.entries)-1]))
+			for {
+				r, ok := MustSucceed2(d.Next())
+				if !ok {
+					return out
+				}
+				if rep, ok := r.(*log.Replace); ok {
+					copied := *rep
+					copied.Pointers = slices.Clone(rep.Pointers)
+					r = &copied
+				}
+				out = append(out, r)
+			}
+		}
+		// later calls f, and returns the channel of its error.
+		later := func(f func() error) chan error {
+			called := make(chan error, 1)
+			go func() { called <- f() }()
+			return called
+		}
+
+		It("Should list each candidate with its key", func() {
+			Expect(s.Candidates()).To(Equal([]state.Candidate{{Key: 6, Segment: 3}}))
+		})
+
+		It("Should give out the identity of a new segment under a durable Reserve",
+			func() {
+				Expect(s.NewID()).To(Equal(uint64(20)))
+				Expect(s.NewID()).To(Equal(uint64(21)))
+				a.refuse(errors.New("log failed"))
+				for range 200 {
+					if _, err := s.NewID(); err != nil {
+						Expect(err).To(MatchError("log failed"))
+						return
+					}
+				}
+				Fail("no identity waited for a refused Reserve")
+			})
+
+		It("Should append a Create of the new segment and the Replace in one entry, "+
+			"and return once the entry applies", func() {
+			done := begin(replace(nil))
+			Expect(last()).To(Equal([]log.Record{created, replace(nil)}))
+			Consistently(done).ShouldNot(Receive())
+			Expect(a.durable(last())).To(Succeed())
+			Eventually(done).Should(Receive(BeNil()))
+			Expect(s.Candidates()).To(BeEmpty())
+			Expect(s.Channel(6).Segments[0].ID).To(Equal(uint64(9)))
+		})
+
+		It("Should return the error of a refused entry and keep the old segment",
+			func() {
+				done := begin(replace(nil))
+				Expect(s.Refused(last(), errors.New("log failed"))).To(Succeed())
+				Eventually(done).Should(Receive(MatchError("log failed")))
+				Expect(s.Candidates()).
+					To(Equal([]state.Candidate{{Key: 6, Segment: 3}}))
+			})
+
+		DescribeTable("Should refuse a Replace as stale when its segment may change",
+			func(change func(), r *log.Replace, message string) {
+				change()
+				Expect(s.Replace(r)).To(SatisfyAll(
+					MatchError(state.ErrStale),
+					MatchError(ContainSubstring(message)),
+				))
+			},
+			Entry("by pointers that differ from the copy", func() {},
+				replace(func(r *log.Replace) { r.Pointers = r.Pointers[:1] }),
+				"segment 3 changed after its copy"),
+			Entry("by leaving the state", func() {
+				Expect(a.durable([]log.Record{&log.Tombstone{Key: 6, End: 100}})).
+					To(Succeed())
+			}, replace(nil), "segment 3 changed after its copy"),
+			Entry("by a delete of its key",
+				func() { MustSucceed(s.BeginDelete(6, 25, 35)) },
+				replace(nil), "delete of key 6 from 25 reads segment 3"),
+			Entry("by a delete of its clock",
+				func() { MustSucceed(s.BeginDelete(5, 25, 35)) },
+				replace(nil), "delete of key 5 from 25 reads segment 3"),
+			Entry("by a Drop of its key",
+				func() { Expect(s.BeginDrop(6)).To(Succeed()) },
+				replace(nil), "drop of key 6 reads segment 3"),
+			Entry("by a Drop of its clock",
+				func() { Expect(s.BeginDrop(5)).To(Succeed()) },
+				replace(nil), "drop of key 5 reads segment 3"),
+		)
+
+		It("Should refuse a second Replace while one is in flight", func() {
+			begin(replace(nil))
+			Expect(s.Replace(replace(nil))).To(SatisfyAll(
+				Not(MatchError(state.ErrStale)),
+				MatchError(ContainSubstring("replace of segment 3 while the "+
+					"replace of segment 3 is in flight")),
+			))
+		})
+
+		DescribeTable("Should defer a request whose check reads the old segment until "+
+			"the Replace applies",
+			func(request func() error) {
+				done := begin(replace(nil))
+				called := later(request)
+				Consistently(called).ShouldNot(Receive())
+				Expect(a.durable(last())).To(Succeed())
+				Eventually(done).Should(Receive(BeNil()))
+				Eventually(called).Should(Receive(BeNil()))
+			},
+			Entry("a delete of its key", func() error {
+				_, err := s.BeginDelete(6, 5, 15)
+				return err
+			}),
+			Entry("a delete of its clock", func() error {
+				_, err := s.BeginDelete(5, 40, 45)
+				return err
+			}),
+			Entry("a Drop of its key", func() error { return s.BeginDrop(6) }),
+			Entry("a Drop of its clock", func() error { return s.BeginDrop(5) }),
+		)
+
+		It("Should not defer a delete of a key that the old segment does not use",
+			func() {
+				begin(replace(nil))
+				called := later(func() error {
+					_, err := s.BeginDelete(8, 0, 10)
+					return err
+				})
+				Eventually(called).Should(Receive(BeNil()))
+			})
+
+		It("Should run a deferred request once the log refuses the Replace", func() {
+			done := begin(replace(nil))
+			called := later(func() error { return s.BeginDrop(6) })
+			Consistently(called).ShouldNot(Receive())
+			Expect(s.Refused(last(), errors.New("log failed"))).To(Succeed())
+			Eventually(done).Should(Receive(HaveOccurred()))
+			Eventually(called).Should(Receive(BeNil()))
+		})
+
+		It("Should fail the Replace in flight and the requests it deferred at close",
+			func() {
+				done := begin(replace(nil))
+				called := later(func() error { return s.BeginDrop(6) })
+				Consistently(called).ShouldNot(Receive())
+				Expect(s.Close()).To(Succeed())
+				Eventually(done).Should(Receive(MatchError(state.ErrClosed)))
+				Eventually(called).Should(Receive(MatchError(state.ErrClosed)))
+			})
+
+		DescribeTable("Should replay a request between the check and the apply as it "+
+			"ran live",
+			func(request func() error, after log.Record) {
+				done := begin(replace(nil))
+				replaced := last()
+				called := later(request)
+				Consistently(called).ShouldNot(Receive())
+				Expect(a.durable(replaced)).To(Succeed())
+				Eventually(done).Should(Receive(BeNil()))
+				Eventually(called).Should(Receive(BeNil()))
+				Expect(a.durable([]log.Record{after})).To(Succeed())
+				live := MustSucceed(s.Snapshot())
+				r := MustSucceed(state.Open(config(&appended{}), sample()))
+				Expect(r.Replay(10, []log.Record{seal, cut})).To(Succeed())
+				Expect(r.Replay(11, replaced)).To(Succeed())
+				Expect(r.Replay(12, []log.Record{after})).To(Succeed())
+				run(r)
+				Expect(r.Snapshot()).To(Equal(live))
+			},
+			Entry("a delete", func() error {
+				_, err := s.BeginDelete(6, 5, 15)
+				return err
+			}, &log.Tombstone{Key: 6, Start: 5, End: 15}),
+			Entry("a Drop", func() error { return s.BeginDrop(6) }, &log.Drop{Key: 6}),
+		)
+	})
 })
 
 var _ = Describe("Replace of a put-back record", func() {
-	It("Should refuse the old segment while a part holds its record", func() {
+	var s *state.State
+	// replace replaces segment 3 by segment 9 with the same samples.
+	replace := &log.Replace{
+		Old: 3, New: 9, Length: 12, TailCRC: 3,
+		Pointers: []log.Pointer{{
+			Length: 12, Samples: 3, Alignment: uint64(telem.NewAlignment(1, 0)),
+			First: 10, Last: 30,
+		}},
+	}
+	BeforeEach(func() {
 		head := sample()
 		head.Channels[1] = &state.Channel{
 			Key:   6,
@@ -194,7 +418,7 @@ var _ = Describe("Replace of a put-back record", func() {
 		}
 		cfg := config(&appended{})
 		cfg.Generation = 5
-		s := MustSucceed(state.Open(cfg, head))
+		s = MustSucceed(state.Open(cfg, head))
 		run(s)
 		record := state.Segment{
 			ID: 3, Clock: 5, Version: 1, DataType: 4, Sealed: true, Length: 12,
@@ -204,20 +428,24 @@ var _ = Describe("Replace of a put-back record", func() {
 		MustSucceed(s.BeginDelete(6, 15, 25, state.Preload{
 			Key: 6, Generation: 5, Segments: []state.Segment{record},
 		}))
+	})
+	message := "replace of segment 3, whose record part 7 holds"
+
+	It("Should refuse the old segment while a part holds its record", func() {
 		Expect(s.Durable(10, []log.Record{
 			&log.Create{Segment: 9, Key: 6, Clock: 5, Version: 1, DataType: 4},
-			&log.Replace{
-				Old: 3, New: 9, Length: 12, TailCRC: 3,
-				Pointers: []log.Pointer{{
-					Length: 12, Samples: 3, Alignment: uint64(telem.NewAlignment(1, 0)),
-					First: 10, Last: 30,
-				}},
-			},
+			replace,
 		})).To(Succeed())
 		Eventually(s.Err).Should(SatisfyAll(
 			MatchError(state.ErrRefused),
-			MatchError(ContainSubstring("replace of segment 3, whose record part 7 "+
-				"holds")),
+			MatchError(ContainSubstring(message)),
+		))
+	})
+
+	It("Should refuse the check of a Replace of the record as a defect", func() {
+		Expect(s.Replace(replace)).To(SatisfyAll(
+			Not(MatchError(state.ErrStale)),
+			MatchError(ContainSubstring(message)),
 		))
 	})
 })

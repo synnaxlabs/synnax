@@ -253,6 +253,9 @@ type beginDeleteRequest struct {
 func (r *beginDeleteRequest) fail(err error) { r.d.done <- err }
 
 func (r *beginDeleteRequest) run(s *State) {
+	if s.deferred(r, r.d.key) {
+		return
+	}
 	ch := s.core.channels[r.d.key]
 	if ch == nil {
 		r.d.Empty = true
@@ -318,7 +321,7 @@ func (r *beginDeleteRequest) edges(seg *Segment, ptrs []Pointer, last telem.Time
 // writer start that reaches the range gets an error that wraps ErrConflict, so the
 // durable view of the range does not change. It returns an error that wraps ErrConflict
 // when the claim of a writer or another delete reaches the range, and ErrStale when pre
-// is stale.
+// is stale. It waits for a Replace in flight of a segment of key or one that key times.
 func (s *State) BeginDelete(
 	key uint32,
 	start, end telem.TimeStamp,

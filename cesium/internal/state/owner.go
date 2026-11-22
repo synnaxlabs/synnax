@@ -96,6 +96,8 @@ type State struct {
 	entry         log.Entry
 	// parked holds the requests that wait for a durable Reserve.
 	parked []request
+	// rep is the Replace in flight, or nil.
+	rep *replacing
 }
 
 // Open returns the state of the durable state head, in replay mode. It returns an error
@@ -180,7 +182,7 @@ func (s *State) drain() {
 	for _, r := range queue {
 		r.fail(err)
 	}
-	s.failParked(err)
+	s.failWaiting(err)
 }
 
 // run is one step of the owner: it runs every queued request.
@@ -197,9 +199,9 @@ func (s *State) run() {
 		r.run(s)
 	}
 	if err := s.Err(); err != nil {
-		s.failParked(err)
+		s.failWaiting(err)
 	} else if closed {
-		s.failParked(ErrClosed)
+		s.failWaiting(ErrClosed)
 	}
 	s.stepped <- closed
 }
@@ -297,6 +299,9 @@ func (r *durableRequest) run(s *State) {
 	}
 	if invariants.Enabled {
 		s.checkCommits(r.records)
+	}
+	if s.rep != nil {
+		s.replaced(r.records)
 	}
 	if len(s.parked) > 0 {
 		s.unpark()
