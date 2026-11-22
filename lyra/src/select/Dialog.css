@@ -57,8 +57,9 @@
     }
 }
 
-/* A failure beside the list's items sits under the list, inset as its options are. */
-.lyra-select__failure {
+/* A status beside the list's items sits under the list, inset as its options are. The
+   menu panel pads it itself. */
+.lyra-select__dialog:not(.lyra-menu-dialog) .lyra-select__status {
     padding: 1rem;
 }
 
