@@ -11,6 +11,7 @@ package service
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"time"
 	"uuid"
@@ -1200,12 +1201,115 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Driver) {
 		return nil, err
 	}
+	uuidKey := func(id resource.ID) (uuid.UUID, error) { return uuid.Parse(id.Key) }
+	// moves sets the group of the records of each type that sits in a group.
+	moves := map[resource.Type]memberMove{
+		resource.TypeChannel: moveBy(
+			func(id resource.ID) (channel.Key, error) { return channel.ParseKey(id.Key) },
+			func(ctx context.Context, tx gorp.Tx, to *group.Key, k ...channel.Key) error {
+				return l.Channel.NewWriter(tx).SetGroup(ctx, to, k...)
+			},
+		),
+		resource.TypeColor: moveBy(uuidKey, applyGroup(
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, to *group.Key) error {
+				return l.Color.NewWriter(tx).Apply(ctx, k, color.NewSetAction(
+					color.SetPayload{Path: []string{"group"}, Value: to},
+				))
+			},
+		)),
+		resource.TypeDevice: moveBy(
+			func(id resource.ID) (string, error) { return id.Key, nil },
+			func(ctx context.Context, tx gorp.Tx, to *group.Key, k ...string) error {
+				return l.Device.NewWriter(tx).SetGroup(ctx, to, k...)
+			},
+		),
+		resource.TypeLineplot: moveBy(uuidKey, applyGroup(
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, to *group.Key) error {
+				_, err := l.LinePlot.NewWriter(tx).Apply(ctx, k, lineplot.NewSetAction(
+					lineplot.SetPayload{Path: []string{"group"}, Value: to},
+				))
+				return err
+			},
+		)),
+		resource.TypeLog: moveBy(uuidKey, applyGroup(
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, to *group.Key) error {
+				_, err := l.Log.NewWriter(tx).Apply(ctx, k, log.NewSetAction(
+					log.SetPayload{Path: []string{"group"}, Value: to},
+				))
+				return err
+			},
+		)),
+		resource.TypePanel: moveBy(uuidKey, applyGroup(
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, to *group.Key) error {
+				_, err := l.Panel.NewWriter(tx).Apply(ctx, k, panel.NewSetAction(
+					panel.SetPayload{Path: []string{"group"}, Value: to},
+				))
+				return err
+			},
+		)),
+		resource.TypeProject: moveBy(
+			project.KeyFromResourceID,
+			func(ctx context.Context, tx gorp.Tx, to *group.Key, k ...uuid.UUID) error {
+				return l.Project.NewWriter(tx).SetGroup(ctx, to, k...)
+			},
+		),
+		resource.TypeRack: moveBy(
+			rack.KeyFromResourceID,
+			func(ctx context.Context, tx gorp.Tx, to *group.Key, k ...rack.Key) error {
+				return l.Rack.NewWriter(tx).SetGroup(ctx, to, k...)
+			},
+		),
+		resource.TypeSchematic: moveBy(uuidKey, applyGroup(
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, to *group.Key) error {
+				_, err := l.Schematic.NewWriter(tx).
+					Apply(ctx, k, schematic.NewSetAction(
+						schematic.SetPayload{Path: []string{"group"}, Value: to},
+					))
+				return err
+			},
+		)),
+		resource.TypeSchematicSymbol: moveBy(
+			uuidKey,
+			func(ctx context.Context, tx gorp.Tx, to *group.Key, k ...uuid.UUID) error {
+				return l.Schematic.Symbol.NewWriter(tx).SetGroup(ctx, to, k...)
+			},
+		),
+		resource.TypeTable: moveBy(uuidKey, applyGroup(
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, to *group.Key) error {
+				_, err := l.Table.NewWriter(tx).Apply(ctx, k, table.NewSetAction(
+					table.SetPayload{Path: []string{"group"}, Value: to},
+				))
+				return err
+			},
+		)),
+	}
 	if l.Impact, err = impact.OpenService(impact.ServiceConfig{
 		Channel:  l.Channel,
 		Group:    l.Group,
 		RecordOf: taskconfig.RecordOf,
 		DB:       cfg.Distribution.DB,
 		Policies: policies,
+		Move: func(
+			ctx context.Context,
+			tx gorp.Tx,
+			members []resource.ID,
+			to *group.Key,
+		) error {
+			byType := make(map[resource.Type][]resource.ID)
+			for _, id := range members {
+				byType[id.Type] = append(byType[id.Type], id)
+			}
+			for _, t := range slices.Sorted(maps.Keys(byType)) {
+				move, ok := moves[t]
+				if !ok {
+					return errors.Newf("impact cannot move a %s", t)
+				}
+				if err := move(ctx, tx, byType[t], to); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
 		Delete: func(ctx context.Context, tx gorp.Tx, records []resource.ID) error {
 			w := l.Task.NewWriter(tx)
 			for _, r := range records {
@@ -1234,6 +1338,42 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 // channelPolicies returns what a heal does with each reference to the channel table:
 // displays move onto the channel that takes the path, and task configs, the index, and
 // path histories keep the dead key.
+// memberMove moves, in tx, the records with ids, all of one type, into the group to, or
+// out of their groups for nil.
+type memberMove func(ctx context.Context, tx gorp.Tx, ids []resource.ID, to *group.Key) error
+
+// moveBy returns a memberMove that parses the key of each record with parse and moves
+// the records through set.
+func moveBy[K any](
+	parse func(resource.ID) (K, error),
+	set func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error,
+) memberMove {
+	return func(ctx context.Context, tx gorp.Tx, ids []resource.ID, to *group.Key) error {
+		keys := make([]K, len(ids))
+		for i, id := range ids {
+			var err error
+			if keys[i], err = parse(id); err != nil {
+				return err
+			}
+		}
+		return set(ctx, tx, to, keys...)
+	}
+}
+
+// applyGroup returns a set for moveBy that moves each record through apply.
+func applyGroup[K any](
+	apply func(ctx context.Context, tx gorp.Tx, key K, to *group.Key) error,
+) func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error {
+	return func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error {
+		for _, k := range keys {
+			if err := apply(ctx, tx, k, to); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
 func channelPolicies() impact.Policies {
 	retarget, keep := impact.PolicyRetarget, impact.PolicyKeep
 	return impact.Policies{
