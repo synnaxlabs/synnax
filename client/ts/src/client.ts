@@ -68,6 +68,11 @@ export const synnaxParamsZ = z.object({
   password: z.string().min(1, "Password is required").optional(),
   /** An API key to log in with, in place of a username and password. */
   apiKey: z.string().min(1, "API key is required").optional(),
+  /**
+   * An OpenID Connect authorization code to log in with once, in place of a username
+   * and password.
+   */
+  oidc: auth.oidcCredentialsZ.optional(),
   /** The token of an earlier login to resume, in place of a username and password. */
   token: z.string().min(1).optional(),
   /**
@@ -125,10 +130,19 @@ export const synnaxParamsZ = z.object({
 
 // a refinement would stop callers from picking fields off synnaxParamsZ
 const constructorParamsZ = synnaxParamsZ
-  .refine((p) => p.apiKey == null || (p.username == null && p.password == null), {
-    message: "Give either an API key or a username and password, not both",
-    path: ["apiKey"],
-  })
+  .refine(
+    (p) =>
+      [
+        p.username != null || p.password != null,
+        p.apiKey != null,
+        p.oidc != null,
+      ].filter(Boolean).length <= 1,
+    {
+      message:
+        "Give one of a username and password, an API key, or an OpenID Connect code",
+      path: ["apiKey"],
+    },
+  )
   .refine((p) => p.caCert == null || p.secure, {
     message: "caCert requires secure; leave secure out or set it to true",
     path: ["secure"],
@@ -149,14 +163,15 @@ export interface ConstructorParams extends Omit<SynnaxParams, "host" | "port"> {
 }
 
 /**
- * The authority a client logs in with: its credentials when both are given or its API
- * key, else the token or cookie. A client with none fails its first request with an
- * AuthError.
+ * The authority a client logs in with: its credentials when both are given, its API
+ * key, or its OpenID Connect code, else the token or cookie. A client with none fails
+ * its first request with an AuthError.
  */
 const authorityOf = ({
   username,
   password,
   apiKey,
+  oidc,
   token,
   sessionCookie,
   sessionPersistent,
@@ -164,6 +179,7 @@ const authorityOf = ({
   credentials:
     username != null && password != null ? { username, password } : undefined,
   apiKey,
+  oidc,
   token,
   cookie: sessionCookie,
   persistent: sessionPersistent,
@@ -286,7 +302,9 @@ export default class Synnax extends framer.Client {
    * @param props.password - Password for authentication, with props.username.
    * @param props.apiKey - API key for authentication, in place of a username and
    * password. Defaults to SYNNAX_API_KEY, then the key of Synnax Desktop when it gives
-   * the host. Used only when no credentials or token are given.
+   * the host. Used only when no credentials, token, or OpenID Connect code are given.
+   * @param props.oidc - An OpenID Connect authorization code to log in with once. Later
+   * logins resume the session it opened.
    * @param props.token - The token of an earlier login to resume instead.
    * @param props.sessionCookie - Whether the Core keeps the token in a cookie the page
    * never sees, for a browser client the Core serves.
