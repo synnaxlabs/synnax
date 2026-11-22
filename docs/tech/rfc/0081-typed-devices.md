@@ -223,8 +223,11 @@ Field groups per make:
 - **OPC UA server**: identity `rack`, `name`, and `connection` (`auth`, `security`, and
   nested `server_trust` unions); configuration `reads` and `writes`. Node IDs name their
   namespace by URI.
-- **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
-  channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
+- **Modbus server**: identity `rack`, `name`, `connection` (a union on `transport`, TCP
+  or RTU), and `requests` (RFC 0091 §2.0); configuration `read_index` and the register
+  channel maps `read_channels` and `write_channels`. The connect form writes the
+  identity group; the task forms write the configuration group. Its `StatusDetails` hold
+  `connected` and the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
   union), `max_concurrent_requests`, `health_check`, per-path read and write channel
   maps (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver

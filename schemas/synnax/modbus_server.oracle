@@ -1,0 +1,234 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/rack"
+import "schemas/synnax/status"
+import "schemas/x/telem"
+
+@cpp output "client/cpp/modbus/server"
+@go output  "core/pkg/service/modbus/server"
+@py output  "client/py/synnax/modbus/server"
+@ts output  "client/ts/src/modbus/server"
+
+Key = uuid {
+    @doc value "uniquely identifies a Modbus server."
+}
+
+Parity enum {
+    none = "none" {
+        @doc value "sends no parity bit."
+    }
+    even = "even" {
+        @doc value "sends an even parity bit."
+    }
+    odd  = "odd" {
+        @doc value "sends an odd parity bit."
+    }
+
+    @doc value "is the parity of a serial line."
+}
+
+WriteCodes enum {
+    multiple = "multiple" {
+        @doc value "writes with function codes 15 and 16."
+    }
+    single   = "single" {
+        @doc value "writes with function codes 5 and 6."
+    }
+
+    @doc value "selects the function codes that write tasks use."
+}
+
+BaseConnection struct {
+    bytes_swapped bool = false {
+        @doc value "is true when the bytes of each 16-bit register are swapped."
+    }
+    words_swapped bool = false {
+        @doc value "is true when the low word of a multi-register value comes last."
+    }
+    timeout_ms    uint32 = 1000 {
+        @doc value    "is the connect and response timeout, in milliseconds."
+        @validate max 60000
+        @validate min 1
+    }
+    retries       uint8 = 1 {
+        @doc value    "is the number of immediate retries after a temporary error."
+        @validate max 10
+    }
+
+    @doc value  "carries the fields that every Modbus connection shares."
+    @go marshal
+}
+
+Connection union on transport extends BaseConnection {
+    tcp {
+        host    string {
+            @doc value         "is the hostname, IPv4, or IPv6 address of the server."
+            @validate required
+        }
+        port    uint16 {
+            @doc value         "is the TCP port of the server."
+            @validate required
+        }
+        unit_id uint8 = 255 {
+            @doc value "is the unit that requests address."
+        }
+
+        @doc value "connects to a server over Modbus TCP."
+    }
+    rtu {
+        serial_port string {
+            @doc value         """
+                is the serial port of the line, such as /dev/ttyUSB0 or COM3.
+            """
+            @validate required
+        }
+        baud_rate   uint32 = 19200 {
+            @doc value    "is the baud rate of the line."
+            @validate max 230400
+            @validate min 1200
+        }
+        parity      Parity = even {
+            @doc value "is the parity of the line."
+        }
+        stop_bits   uint8 = 1 {
+            @doc value    "is the number of stop bits of the line."
+            @validate max 2
+            @validate min 1
+        }
+        unit_id     uint8 = 1 {
+            @doc value    "is the unit that requests address."
+            @validate max 247
+            @validate min 1
+        }
+
+        @doc value "connects to a unit on a serial line over Modbus RTU."
+    }
+
+    @doc value  "holds the settings that the Driver connects to a server with."
+    @go marshal
+}
+
+Requests struct {
+    max_registers        uint16 = 125 {
+        @doc value    "is the largest number of registers that one read requests."
+        @validate max 125
+        @validate min 1
+    }
+    max_gap              uint16 = 125 {
+        @doc value "is the widest gap between two channels that one read spans."
+    }
+    write_codes          WriteCodes = multiple {
+        @doc value "selects the function codes that write tasks use."
+    }
+    mask_write_supported bool = false {
+        @doc value "is true when bit writes use function code 22."
+    }
+    delay_ms             uint16 = 0 {
+        @doc value    "is the wait between two requests, in milliseconds."
+        @validate max 5000
+    }
+
+    @doc value  "shapes the requests that the Driver sends to a server."
+    @go marshal
+}
+
+Stats struct {
+    requests      uint64 = 0 {
+        @doc value "is the number of requests tried, retries included."
+    }
+    retries       uint64 = 0 {
+        @doc value "is the number of requests tried again after a temporary error."
+    }
+    timeouts      uint64 = 0 {
+        @doc value "is the number of requests that the unit did not answer in time."
+    }
+    exceptions    uint64 = 0 {
+        @doc value "is the number of requests answered with an exception."
+    }
+    last_response telem.TimeSpan = 0 {
+        @doc value "is the time from sending the last answered request to its reply."
+    }
+    max_response  telem.TimeSpan = 0 {
+        @doc value "is the longest time from sending a request to its reply."
+    }
+
+    @doc value "holds the request counters of a server."
+}
+
+StatusDetails struct {
+    rack      rack.Key {
+        @doc value "is the key of the rack the server belongs to."
+    }
+    server    Key      {
+        @doc value "is the key of the server."
+    }
+    connected bool = false {
+        @doc value "is true when the server answered the last probe."
+    }
+    stats     Stats?   {
+        @doc value """
+            holds the request counters. Absent until the first scan counts them.
+        """
+    }
+
+    @doc value "identifies the server and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the connection status of a server."
+}
+
+Server struct {
+    key            Key = create {
+        @doc value "uniquely identifies the server."
+        @key
+    }
+    rack           rack.Key                 {
+        @doc value     "is the key of the rack whose Driver connects to the server."
+        @ref kind      place
+        @ref on_delete restrict
+    }
+    name           string                   {
+        @doc value         "is a human-readable name for the server."
+        @filter
+        @search
+        @validate required
+    }
+    connection     Connection               {
+        @doc value "holds the settings that the Driver connects with."
+    }
+    requests       Requests = {} {
+        @doc value "shapes the requests that the Driver sends."
+    }
+    read_index     channel.Key = 0 {
+        @doc value "is the index channel of the channels that read tasks write to."
+    }
+    read_channels  map<string, channel.Key> = {} {
+        @doc value        "maps a register to the channel that holds its samples."
+        @ts preserve_keys
+    }
+    write_channels map<string, channel.Key> = {} {
+        @doc value        "maps a register to the channel that commands it."
+        @ts preserve_keys
+    }
+    status         Status?                  {
+        @doc value  "is the current connection status of the server."
+        @go marshal omit
+        @include
+    }
+
+    @create
+    @doc value     "is a Modbus server that a rack's Driver connects to."
+    @go marshal
+    @go migrate
+    @resource type "modbus_server"
+    @retrieve
+}

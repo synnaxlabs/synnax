@@ -7,12 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
+from typing import Any, ClassVar
+from uuid import UUID
 
 import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+import synnax.modbus.server
 from synnax.exceptions import PathError
 from synnax.modbus.types import _READ_NAME_TYPES, _WRITE_NAME_TYPES
 from tests.json_value import arr, obj
@@ -1076,3 +1078,57 @@ class TestModbusDevicePropertyUpdates:
         read_channels = obj(updated.properties, "read", "channels")
         assert read_channels["holding-register-input-4-string"] == chs[0].key
         assert read_channels["register-input-8-string"] == chs[1].key
+
+
+@pytest.mark.modbus
+class TestModbusServerResource:
+    """Tests for the typed Modbus server resource."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+    SERVER: ClassVar[dict[str, Any]] = {
+        "rack": 1,
+        "name": "PLC",
+        "connection": {"transport": "tcp", "host": "plc", "port": 502},
+    }
+
+    def test_applies_the_tcp_defaults(self) -> None:
+        """Should parse a TCP server and fill in its defaults."""
+        server = sy.modbus.server.Server.model_validate(self.SERVER)
+        assert isinstance(server.connection, sy.modbus.server.TcpConnection)
+        assert server.connection.unit_id == 255
+        assert server.connection.timeout_ms == 1000
+        assert server.requests.max_registers == 125
+        assert server.requests.write_codes == sy.modbus.server.WRITE_CODES_MULTIPLE
+        assert server.read_channels == {}
+
+    def test_applies_the_rtu_defaults(self) -> None:
+        """Should parse an RTU server and fill in its line defaults."""
+        server = sy.modbus.server.Server.model_validate(
+            {**self.SERVER, "connection": {"transport": "rtu", "serial_port": "COM3"}}
+        )
+        assert isinstance(server.connection, sy.modbus.server.RtuConnection)
+        assert server.connection.baud_rate == 19200
+        assert server.connection.parity == sy.modbus.server.PARITY_EVEN
+        assert server.connection.unit_id == 1
+
+    @pytest.mark.parametrize(
+        "connection",
+        [
+            {"host": "plc", "port": 502},
+            {"transport": "tcp", "host": "plc", "port": 502, "timeout_ms": 0},
+            {"transport": "rtu", "serial_port": "COM3", "parity": "mark"},
+            {"transport": "rtu", "serial_port": "COM3", "unit_id": 248},
+        ],
+    )
+    def test_rejects_an_invalid_connection(self, connection: dict[str, Any]) -> None:
+        """Should reject a missing transport, a zero timeout, an unknown parity, and
+        an RTU unit above 247."""
+        with pytest.raises(ValidationError):
+            sy.modbus.server.Server.model_validate(
+                {**self.SERVER, "connection": connection}
+            )
+
+    def test_resource_id(self) -> None:
+        """Should name the server by its key under the modbus_server type."""
+        assert sy.modbus.server.resource_id(self.KEY).type == "modbus_server"
+        assert sy.modbus.server.resource_id(self.KEY).key == str(self.KEY)
