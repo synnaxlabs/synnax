@@ -47,7 +47,7 @@ export {
   Retriever,
   type RetrieverParams,
 } from "@/query/retriever";
-export { space } from "@/query/space";
+export type { space } from "@/query/space";
 export type { Listener } from "@/query/streamer";
 export {
   createDeleteListener,
