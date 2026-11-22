@@ -161,6 +161,8 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     searchDebounce,
     [],
   );
+  // The debounced call outlives an unmount, so a late search would set state after it.
+  useEffect(() => () => debouncedSearch.cancel(), [debouncedSearch]);
   // Q is left open so it can match each client's overloaded request input.
   const base = q as { order?: unknown } | null;
   let next: Q | null = null;
