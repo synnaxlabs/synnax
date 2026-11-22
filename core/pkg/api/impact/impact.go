@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package impact serves the plan and apply routes of changes to channels.
+// Package impact serves the plan and apply routes of changes to channels and groups.
 package impact
 
 import (
@@ -35,7 +35,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Impact plans and applies changes to channels.
+	// Impact plans and applies changes to channels and groups.
 	//
 	// [REQUIRED]
 	Impact *impact.Service
@@ -71,17 +71,20 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 // Named implements bind.Named: the subject needs retrieve on each channel or group it
-// names.
+// names. A request with no change names nothing, and the plan refuses it.
 func (r PlanRequest) Named() []resource.ID { return named(r.Change) }
 
 func named(c impact.Change) []resource.ID {
 	switch v := c.Variant.(type) {
+	case nil:
+		return nil
 	case impact.DeleteChannelsChange:
 		return channel.ResourceIDsFromKeys(v.Keys)
 	case impact.DeleteGroupsChange:
 		return group.ResourceIDs(v.Keys)
 	}
-	return nil
+	// A variant that this switch misses would plan with no access check.
+	panic("[api.impact] - named covers no such change")
 }
 
 // Plan returns every record that the change touches with the subject's picks, with an

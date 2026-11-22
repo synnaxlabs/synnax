@@ -159,17 +159,23 @@ type picks struct {
 	visible func(resource.ID) bool
 }
 
-// newPicks parses the picks of opts. A pick that is not a choice, or that names no
-// record, fails with a validation error.
+// newPicks parses the picks of opts. A pick that is not a choice fails with a
+// validation error, as does a pick that names no record; that error names the smallest
+// such pick.
 func newPicks(opts PlanOptions) (picks, error) {
-	if err := checkHidden(opts.Hidden); err != nil {
-		return picks{}, err
+	if opts.Hidden != nil && !opts.Hidden.IsValid() {
+		return picks{}, errors.Wrapf(
+			validate.ErrValidation,
+			"%s is not a choice",
+			*opts.Hidden,
+		)
 	}
 	p := picks{
 		named:   make(map[resource.ID]Choice, len(opts.Picks)),
 		hidden:  opts.Hidden,
 		visible: opts.Visible,
 	}
+	var unparsed []string
 	for text, pick := range opts.Picks {
 		if !pick.IsValid() {
 			return picks{}, errors.Wrapf(
@@ -180,19 +186,19 @@ func newPicks(opts PlanOptions) (picks, error) {
 		}
 		id, err := resource.ParseID(text)
 		if err != nil {
-			return picks{}, errors.Wrapf(validate.ErrValidation, "no entry is %s", text)
+			unparsed = append(unparsed, text)
+			continue
 		}
 		p.named[id] = pick
 	}
-	return p, nil
-}
-
-// checkHidden returns a validation error when hidden is not a choice.
-func checkHidden(hidden *Choice) error {
-	if hidden == nil || hidden.IsValid() {
-		return nil
+	if len(unparsed) > 0 {
+		return picks{}, errors.Wrapf(
+			validate.ErrValidation,
+			"no entry is %s",
+			slices.Min(unparsed),
+		)
 	}
-	return errors.Wrapf(validate.ErrValidation, "%s is not a choice", *hidden)
+	return p, nil
 }
 
 // sees reports whether the caller may see r.
@@ -264,9 +270,9 @@ func (s *Service) Apply(
 	return Plan{}, errUnknownChange
 }
 
-// errUnknownChange is the error of a change of no known variant. Formatting the variant
-// would make every change escape to the heap.
-var errUnknownChange = errors.New("[impact] - unknown change")
+// errUnknownChange is the error of a change of no known variant, such as a request with
+// no change. Formatting the variant would make every change escape to the heap.
+var errUnknownChange = errors.Wrap(validate.ErrValidation, "unknown change")
 
 // deleteGroups deletes the groups with keys, the groups of c, as Apply describes.
 func (s *Service) deleteGroups(
@@ -281,9 +287,10 @@ func (s *Service) deleteGroups(
 		return Plan{}, err
 	}
 	if opts.Token != "" {
-		if sum := groupsSum(keys, p); !matches(opts.Token, sum) {
-			p.Token = token(sum)
-			return Plan{}, PlanChangedError{Plan: p}
+		// A change of its own keeps c off the heap when no token comes.
+		now := Plan{Change: Change{Variant: DeleteGroupsChange{Keys: keys}}}
+		if err = checkToken(opts.Token, groupsSum(keys, now), now); err != nil {
+			return Plan{}, err
 		}
 		p.Token = opts.Token
 	}
@@ -293,13 +300,26 @@ func (s *Service) deleteGroups(
 	return p, nil
 }
 
-// pickWithoutEntry returns a validation error that names the smallest pick of picks
-// whose record no entry has, or nil when each has one.
-func pickWithoutEntry(picks map[string]Choice, entries set.Set[string]) error {
+// checkToken returns nil when t is the token of a plan whose sum is sum. Otherwise it
+// returns a PlanChangedError that carries now, the plan as it is now, with its token.
+func checkToken(t string, sum uint64, now Plan) error {
+	if matches(t, sum) {
+		return nil
+	}
+	now.Token = token(sum)
+	return PlanChangedError{Plan: now}
+}
+
+// pickWithoutEntry returns a validation error that names the smallest pick of named, in
+// text form, whose record entries does not hold, or nil when each has one.
+func pickWithoutEntry(
+	named map[resource.ID]Choice,
+	entries set.Set[resource.ID],
+) error {
 	var missing []string
-	for id := range picks {
+	for id := range named {
 		if !entries.Contains(id) {
-			missing = append(missing, id)
+			missing = append(missing, id.String())
 		}
 	}
 	if len(missing) == 0 {
@@ -336,9 +356,8 @@ func (s *Service) deleteChannels(
 		return Plan{}, err
 	}
 	if opts.Token != "" {
-		if sum := channelsSum(keys, r.plan); !matches(opts.Token, sum) {
-			r.plan.Token = token(sum)
-			return Plan{}, PlanChangedError{Plan: r.plan}
+		if err = checkToken(opts.Token, channelsSum(keys, r.plan), r.plan); err != nil {
+			return Plan{}, err
 		}
 		r.plan.Token = opts.Token
 	}
@@ -442,14 +461,8 @@ func (s *Service) resolve(
 		earlier = append(earlier, p.Entries...)
 		all = append(slices.Clip(all), more...)
 	}
-	for id := range chosen.named {
-		if !visible.Contains(id) {
-			return resolution{}, errors.Wrapf(
-				validate.ErrValidation,
-				"no entry is %s",
-				id,
-			)
-		}
+	if err := pickWithoutEntry(chosen.named, visible); err != nil {
+		return resolution{}, err
 	}
 	applied := Plan{Entries: r.last.Entries, Kept: r.last.Kept}
 	if len(earlier) > 0 {

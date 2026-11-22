@@ -107,11 +107,15 @@ var _ = Describe("Delete groups", Ordered, func() {
 		Expect(exists(ctx, folder.Key)).To(BeTrue())
 	})
 
-	It("Should fail on a change of no known variant", func(ctx SpecContext) {
+	It("Should refuse a change of no known variant as invalid", func(ctx SpecContext) {
+		unknown := And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("unknown change")),
+		)
 		Expect(layer.Impact.Apply(ctx, db, impact.Change{}, impact.ApplyOptions{})).
-			Error().To(MatchError("[impact] - unknown change"))
+			Error().To(unknown)
 		Expect(layer.Impact.Plan(ctx, db, impact.Change{}, impact.PlanOptions{})).
-			Error().To(MatchError("[impact] - unknown change"))
+			Error().To(unknown)
 	})
 
 	It("Should plan a group delete with no entries and a token of its keys", func(
@@ -151,8 +155,7 @@ var _ = Describe("Delete groups", Ordered, func() {
 		applied, err := apply(ctx, impact.ApplyOptions{Token: stale.Token}, folder.Key)
 		Expect(applied).To(BeZero())
 		Expect(err).To(MatchError("the records that the change touches changed"))
-		changed, ok := errors.AsType[impact.PlanChangedError](err)
-		Expect(ok).To(BeTrue())
+		changed := MustBeOk(errors.AsType[impact.PlanChangedError](err))
 		Expect(changed.Plan).To(Equal(MustSucceed(
 			plan(ctx, impact.PlanOptions{}, folder.Key),
 		)))
