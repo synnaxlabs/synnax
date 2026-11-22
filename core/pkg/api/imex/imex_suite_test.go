@@ -113,7 +113,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		return projectSvc.NewWriter(tx).Create(ctx, &proj)
 	})).To(Succeed())
 	MustOpen(log.OpenService(ctx, log.ServiceConfig{DB: db, ImEx: imexSvc}))
-	apiSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{ImEx: imexSvc}))
+	apiSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{
+		ImEx:    imexSvc,
+		Channel: channelSvc,
+	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   db,
 		RBAC: rbacSvc,

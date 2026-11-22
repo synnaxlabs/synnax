@@ -23,6 +23,8 @@ var _ = Describe("Config", func() {
 			Group:    groupSvc,
 			Panel:    panelSvc,
 			ImEx:     imexSvc,
+			Channel:  channelSvc,
+			DB:       db,
 		}
 	}
 
@@ -58,6 +60,12 @@ var _ = Describe("Config", func() {
 			"panel: must be non-nil",
 		),
 		Entry("imex", func(c *bundle.Config) { c.ImEx = nil }, "imex: must be non-nil"),
+		Entry(
+			"channel",
+			func(c *bundle.Config) { c.Channel = nil },
+			"channel: must be non-nil",
+		),
+		Entry("db", func(c *bundle.Config) { c.DB = nil }, "db: must be non-nil"),
 	)
 
 	It("Should take each field set on the override", func() {

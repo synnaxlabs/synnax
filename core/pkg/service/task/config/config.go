@@ -68,6 +68,10 @@ type Store interface {
 		snap gorp.Snapshot,
 		key uuid.UUID,
 	) (msgpack.EncodedJSON, error)
+	// Export returns the record stored under key as the body of an exported file, or
+	// an error wrapping query.ErrNotFound when no record exists. The body keeps the
+	// Go types of the record, so the encoder options of an export apply to its fields.
+	Export(ctx context.Context, snap gorp.Snapshot, key uuid.UUID) (any, error)
 	// Hash returns the hash of the record stored under key, as Record.Hash does, and of
 	// the referenced records that ServiceConfig.HashReferences reads through snap. It
 	// returns an error wrapping query.ErrNotFound when no record exists.
@@ -481,6 +485,15 @@ func (s *Service[E]) Read(
 		return nil, err
 	}
 	return encode(e)
+}
+
+// Export implements Store.
+func (s *Service[E]) Export(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key uuid.UUID,
+) (any, error) {
+	return s.retrieve(ctx, snap, key)
 }
 
 // Hash implements Store.

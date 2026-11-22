@@ -53,6 +53,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db          *gorp.DB
+	channelSvc  *channel.Service
 	resourceSvc *resource.Service
 	svc         *bundle.Service
 	groupSvc    *group.Service
@@ -133,7 +134,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return rackSvc.NewWriter(tx).Create(ctx, &testRack)
 	})).To(Succeed())
-	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
 		TS:      node.Storage.TS,
 		DB:      db,
@@ -173,6 +174,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Panel:    panelSvc,
 		ImEx:     imexSvc,
+		Channel:  channelSvc,
+		DB:       db,
 	}))
 })
 

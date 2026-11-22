@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -58,6 +59,15 @@ type Config struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
+	// Channel writes the channel links of exported members as paths and resolves the
+	// paths of imported members.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
+	// DB holds the channels that Decode resolves paths against, as committed.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 }
 
 var _ config.Config[Config] = Config{}
@@ -69,6 +79,8 @@ func (c Config) Override(other Config) Config {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Panel = override.Nil(c.Panel, other.Panel)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
 
@@ -80,6 +92,8 @@ func (c Config) Validate() error {
 	v.NotNil("group", c.Group)
 	v.NotNil("panel", c.Panel)
 	v.NotNil("imex", c.ImEx)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("db", c.DB)
 	return v.Error()
 }
 
@@ -154,9 +168,13 @@ func (s *Service) Export(
 		return nil, nil, err
 	}
 	files := make(zip.Files, len(w.refs)+len(w.panels)+1)
+	links := s.cfg.Channel.LinkWriter(ctx, snap)
 	for id, path := range w.refs {
 		env, err := s.cfg.ImEx.Export(ctx, snap, id)
 		if err != nil {
+			return nil, nil, err
+		}
+		if env, err = env.WithEncodeOptions(links); err != nil {
 			return nil, nil, err
 		}
 		if files[path], err = encoder.Encode(env); err != nil {
@@ -452,6 +470,7 @@ func (s *Service) Decode(
 ) (Bundle, error) {
 	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
 	manifestData, ok := files[manifestFileName]
+	links := s.cfg.Channel.NewLinkReader(ctx, s.cfg.DB)
 	if !ok {
 		layout, ok := files[legacy.LayoutFileName]
 		if !ok {
@@ -469,7 +488,11 @@ func (s *Service) Decode(
 			legacyMembers: make([]legacyMember, len(members)),
 		}
 		for i, m := range members {
-			write, err := s.cfg.ImEx.Decode(ctx, m.Env, m.Path)
+			write, err := s.cfg.ImEx.Decode(
+				ctx,
+				m.Env.WithDecodeOptions(links.Options()),
+				m.Path,
+			)
 			if err != nil {
 				return Bundle{}, errors.Wrap(err, m.Path)
 			}
@@ -478,6 +501,9 @@ func (s *Service) Decode(
 				layoutKey: m.LayoutKey,
 				write:     write,
 			}
+		}
+		if err = links.Err(); err != nil {
+			return Bundle{}, err
 		}
 		return b, nil
 	}
@@ -497,9 +523,16 @@ func (s *Service) Decode(
 		if m.env.Type == string(resource.TypePanel) {
 			continue
 		}
-		if members[i].write, err = s.cfg.ImEx.Decode(ctx, m.env, m.path); err != nil {
+		if members[i].write, err = s.cfg.ImEx.Decode(
+			ctx,
+			m.env.WithDecodeOptions(links.Options()),
+			m.path,
+		); err != nil {
 			return Bundle{}, errors.Wrap(err, m.path)
 		}
+	}
+	if err = links.Err(); err != nil {
+		return Bundle{}, err
 	}
 	return Bundle{name: name, members: members}, nil
 }

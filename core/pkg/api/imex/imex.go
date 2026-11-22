@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -65,6 +66,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
+	// Channel writes the channel links of an export as paths and resolves the paths of
+	// an import.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
 }
 
 var (
@@ -77,6 +83,7 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 
@@ -84,12 +91,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.imex")
 	v.NotNil("imex", c.ImEx)
+	v.NotNil("channel", c.Channel)
 	return v.Error()
 }
 
 // Service implements the ImEx API.
 type Service struct {
 	internal *imex.Service
+	channel  *channel.Service
 }
 
 // NewService creates a new ImEx API service.
@@ -98,7 +107,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.ImEx}, nil
+	return &Service{internal: cfg.ImEx, channel: cfg.Channel}, nil
 }
 
 type (
@@ -119,7 +128,19 @@ func (s *Service) Import(
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	return s.internal.Import(ctx, tx, req, opts)
+	links := s.channel.NewLinkReader(ctx, tx)
+	write, err := s.internal.Decode(
+		ctx,
+		req.WithDecodeOptions(links.Options()),
+		opts.FileName,
+	)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	if err = links.Err(); err != nil {
+		return ImportResponse{}, err
+	}
+	return write(ctx, tx, opts)
 }
 
 type importParams struct {
@@ -197,5 +218,5 @@ func (s *Service) Export(
 	if err != nil {
 		return ExportResponse{}, err
 	}
-	return env, nil
+	return env.WithEncodeOptions(s.channel.LinkWriter(ctx, snap))
 }

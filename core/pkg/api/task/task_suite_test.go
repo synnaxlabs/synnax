@@ -78,7 +78,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	copyTask = bind.Write(binder, apiSvc.Copy)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
-	imexSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{ImEx: svc.ImEx}))
+	imexSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{
+		ImEx:    svc.ImEx,
+		Channel: svc.Channel,
+	}))
 	importFile = bind.Write(binder, imexSvc.Import)
 	projectSvc := MustSucceed(apiproject.NewService(apiproject.ServiceConfig{
 		Project: svc.Project,

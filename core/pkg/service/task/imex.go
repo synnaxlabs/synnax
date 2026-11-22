@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -63,13 +64,14 @@ func (s *Service) Export(
 			"no config store registered for task type %q", t.Type,
 		)
 	}
-	body := map[string]any(t.Config)
-	if body == nil {
-		body = make(map[string]any)
+	body, err := store.Export(ctx, snap, t.Key)
+	if errors.Is(err, query.ErrNotFound) {
+		body, err = map[string]any{}, nil
 	}
-	body["type"] = t.Type
-	body["name"] = t.Name
-	env := imex.Envelope{Version: store.Version()}
+	if err != nil {
+		return imex.Envelope{}, err
+	}
+	env := imex.Envelope{Version: store.Version(), Type: t.Type, Name: t.Name}
 	if err = env.Encode(body); err != nil {
 		return imex.Envelope{}, err
 	}

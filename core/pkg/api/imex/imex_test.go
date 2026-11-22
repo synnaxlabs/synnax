@@ -71,7 +71,11 @@ func (namingExporter) Export(
 	_ gorp.Snapshot,
 	id resource.ID,
 ) (imex.Envelope, error) {
-	return imex.Envelope{Version: 1, Type: string(id.Type), Name: id.Key}, nil
+	env := imex.Envelope{Version: 1, Type: string(id.Type), Name: id.Key}
+	if err := env.Encode(map[string]any{}); err != nil {
+		return imex.Envelope{}, err
+	}
+	return env, nil
 }
 
 func testEnvelope(name string) apiimex.ImportRequest {
