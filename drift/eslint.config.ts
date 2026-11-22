@@ -10,10 +10,4 @@
 import cfg, { reactCompiled } from "@synnaxlabs/eslint-config";
 import type { Linter } from "eslint";
 
-// Off until the deep imports in this package are fixed.
-export default [
-  ...cfg,
-  reactCompiled,
-  { ignores: ["examples"] },
-  { rules: { "synnax/barrel-imports": "off" } },
-] as Linter.Config[];
+export default [...cfg, reactCompiled, { ignores: ["examples"] }] as Linter.Config[];
