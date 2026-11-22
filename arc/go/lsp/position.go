@@ -64,7 +64,8 @@ func isPositionInTokenRange(line, col int, start, stop antlr.Token) bool {
 	startLine := start.GetLine()
 	startCol := start.GetColumn()
 	stopLine := stop.GetLine()
-	stopCol := stop.GetColumn() + len(stop.GetText())
+	// Columns count runes, as the token's indexes do.
+	stopCol := stop.GetColumn() + stop.GetStop() - stop.GetStart() + 1
 
 	if line > startLine && line < stopLine {
 		return true
