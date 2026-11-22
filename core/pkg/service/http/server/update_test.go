@@ -133,6 +133,24 @@ var _ = Describe("Update", func() {
 		)).To(MatchError(ContainSubstring("msgpack")))
 	})
 
+	It("Should apply the identity defaults that msgpack leaves out", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{
+			"group": "identity",
+			"rack":  1,
+			"name":  "Weather API",
+			"host":  "weather.example.com",
+		}))
+		var got server.Update
+		Expect(msgpack.Unmarshal(raw, &got)).To(Succeed())
+		var expected server.Identity
+		expected.SetDefaults()
+		expected.Rack = 1
+		expected.Name = "Weather API"
+		expected.Host = "weather.example.com"
+		Expect(got.Variant).To(Equal(server.IdentityUpdate{Identity: expected}))
+		Expect(expected.Validate()).To(Succeed())
+	})
+
 	It("Should reject an unknown group", func() {
 		raw := MustSucceed(msgpack.Marshal(map[string]any{"group": "other"}))
 		var got server.Update

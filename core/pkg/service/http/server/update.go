@@ -43,8 +43,9 @@ func (u Update) EncodeMsgpack(enc *msgpack.Encoder) error {
 	}
 }
 
-// DecodeMsgpack implements msgpack.CustomDecoder. It returns a validation error for a
-// group no variant has.
+// DecodeMsgpack implements msgpack.CustomDecoder. An omitted identity field takes its
+// default, as in the JSON encoding. It returns a validation error for a group no
+// variant has.
 func (u *Update) DecodeMsgpack(dec *msgpack.Decoder) error {
 	raw, err := dec.DecodeRaw()
 	if err != nil {
@@ -59,6 +60,7 @@ func (u *Update) DecodeMsgpack(dec *msgpack.Decoder) error {
 	switch disc.Group {
 	case IdentityUpdateType:
 		var identity Identity
+		identity.SetDefaults()
 		if err = msgpack.Unmarshal(raw, &identity); err != nil {
 			return err
 		}
