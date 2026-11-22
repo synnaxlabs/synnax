@@ -201,8 +201,7 @@ var _ = Describe("Switch check", func() {
 	It("Should refuse a head whose chunk table offset wraps past 2^64, with no panic",
 		func() {
 			fs := xfs.NewMem()
-			Expect(checkpoint.Write(fs, 3, checkpoint.Encode(7, 3, &state.Snapshot{}))).
-				To(Succeed())
+			MustSucceed(checkpoint.Create(fs, 7, 3, &state.Snapshot{}, 0))
 			f := MustSucceed(fs.Open(checkpoint.Name(3), os.O_RDWR))
 			b := make([]byte, checkpoint.SectorSize)
 			MustSucceed(f.ReadAt(b, 0))
