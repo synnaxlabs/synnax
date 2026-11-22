@@ -526,10 +526,10 @@ TEST(Binary, MatchCANExact) {
             identified("c", can(0x100, true)),
         })
     );
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x100, false, PAYLOAD)), 0);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x100, false, PAYLOAD)), 0U);
     EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 42);
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x200, false, PAYLOAD)), 1);
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x100, true, PAYLOAD)), 2);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x200, false, PAYLOAD)), 1U);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x100, true, PAYLOAD)), 2U);
     EXPECT_FALSE(ASSERT_NIL_P(dec.decode(0x300, false, PAYLOAD)).has_value());
 }
 
@@ -542,17 +542,17 @@ TEST(Binary, MatchCANMasked) {
             identified("other", std::nullopt),
         })
     );
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x1CFEF1AB, true, PAYLOAD)), 0);
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x18FEF2AB, true, PAYLOAD)), 1);
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x0F1, false, PAYLOAD)), 1);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x1CFEF1AB, true, PAYLOAD)), 0U);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x18FEF2AB, true, PAYLOAD)), 1U);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x0F1, false, PAYLOAD)), 1U);
 }
 
 /// @brief it should match a frame by the value of its identifier field.
 TEST(Binary, MatchFieldValue) {
     auto dec = ASSERT_NIL_P(Binary::create({tagged("a", 1), tagged("b", 2)}));
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(PAYLOAD)), 0);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(PAYLOAD)), 0U);
     EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 42);
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{2, 7})), 1);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{2, 7})), 1U);
     EXPECT_FALSE(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{3, 7})).has_value());
     EXPECT_FALSE(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{})).has_value());
 }
@@ -561,7 +561,7 @@ TEST(Binary, MatchFieldValue) {
 TEST(Binary, MatchSignedFieldValue) {
     const auto kind = field<icd::IntegerBinaryField>("kind", 0, 8);
     auto dec = ASSERT_NIL_P(Binary::create({tagged("a", -1, kind)}));
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{0xFF, 7})), 0);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{0xFF, 7})), 0U);
 }
 
 /// @brief it should match a CAN identifier only on a CAN frame, and a field identifier
@@ -573,8 +573,8 @@ TEST(Binary, MatchBySource) {
             tagged("field", 1),
         })
     );
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(PAYLOAD)), 1);
-    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x001, false, PAYLOAD)), 0);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(PAYLOAD)), 1U);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x001, false, PAYLOAD)), 0U);
     EXPECT_FALSE(ASSERT_NIL_P(dec.decode(0x002, false, PAYLOAD)).has_value());
 }
 
@@ -588,14 +588,14 @@ TEST(Binary, MatchWithoutAllocating) {
             tagged("field", 1),
         })
     );
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(0x100, false, PAYLOAD)), 0);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(0x2AB, false, PAYLOAD)), 1);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(PAYLOAD)), 2);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(0x100, false, PAYLOAD)), 0U);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(0x2AB, false, PAYLOAD)), 1U);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(PAYLOAD)), 2U);
     const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
     for (int i = 0; i < 100; i++) {
-        ASSERT_EQ(ASSERT_NIL_P(dec.decode(0x100, false, PAYLOAD)), 0);
-        ASSERT_EQ(ASSERT_NIL_P(dec.decode(0x2AB, false, PAYLOAD)), 1);
-        ASSERT_EQ(ASSERT_NIL_P(dec.decode(PAYLOAD)), 2);
+        ASSERT_EQ(ASSERT_NIL_P(dec.decode(0x100, false, PAYLOAD)), 0U);
+        ASSERT_EQ(ASSERT_NIL_P(dec.decode(0x2AB, false, PAYLOAD)), 1U);
+        ASSERT_EQ(ASSERT_NIL_P(dec.decode(PAYLOAD)), 2U);
     }
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
 }
