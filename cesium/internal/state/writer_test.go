@@ -22,6 +22,17 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+func clockWriter(start int64, bounded bool, keys ...uint32) state.WriterConfig {
+	cfg := state.WriterConfig{
+		Clock: keys[0], Start: telem.TimeStamp(start),
+		Bounded: bounded,
+	}
+	for _, k := range keys {
+		cfg.Keys = append(cfg.Keys, state.WriterKey{Key: k, DataType: 4})
+	}
+	return cfg
+}
+
 var _ = Describe("Writer", func() {
 	var (
 		a *appended
@@ -49,17 +60,6 @@ var _ = Describe("Writer", func() {
 	open := func(cfg state.WriterConfig) *state.Writer {
 		GinkgoHelper()
 		return MustSucceed(s.OpenWriter(cfg))
-	}
-
-	clockWriter := func(start int64, bounded bool, keys ...uint32) state.WriterConfig {
-		cfg := state.WriterConfig{
-			Clock: keys[0], Start: telem.TimeStamp(start),
-			Bounded: bounded,
-		}
-		for _, k := range keys {
-			cfg.Keys = append(cfg.Keys, state.WriterKey{Key: k, DataType: 4})
-		}
-		return cfg
 	}
 
 	It("Should give out segment identities from the durable limit, after a Reserve of "+
