@@ -32,6 +32,7 @@ import (
 var _ = Describe("Writer", func() {
 	var (
 		masters *master.Service
+		rackSvc *rack.Service
 		svc     *slave.Service
 		stat    *status.Service
 		tx      gorp.Tx
@@ -43,7 +44,7 @@ var _ = Describe("Writer", func() {
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
-		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
 			HostKey:    1,
 			Status:     stat,
@@ -117,6 +118,22 @@ var _ = Describe("Writer", func() {
 			).To(Equal(slave.StatusDetails{Rack: s.Rack, Slave: s.Key}))
 		})
 
+		It("Should give an existing status the name of a replaced slave", func(
+			ctx SpecContext,
+		) {
+			s := create(ctx)
+			running := statusOf(ctx, s)
+			running.Variant = status.VariantSuccess
+			running.Message = "Running"
+			Expect(stat.NewWriter(tx).Set(ctx, &running)).To(Succeed())
+			s.Name = "Replaced"
+			Expect(w.Create(ctx, &s)).To(Succeed())
+			st := statusOf(ctx, s)
+			Expect(st.Message).To(Equal("Running"))
+			Expect(st.Name).To(Equal("Replaced"))
+			Expect(st.Details.Rack).To(Equal(s.Rack))
+		})
+
 		It("Should refuse a slave whose master does not exist", func(ctx SpecContext) {
 			s := newSlave()
 			s.Master = uuid.New()
@@ -177,6 +194,41 @@ var _ = Describe("Writer", func() {
 			Expect(got.Serial).To(Equal(s.Serial))
 			Expect(got.Master).To(Equal(s.Master))
 			Expect(statusOf(ctx, s).Name).To(Equal("Inlet"))
+		})
+
+		It("Should move the status with the rack", func(ctx SpecContext) {
+			s := create(ctx)
+			other := rack.Rack{Name: "Other"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			Expect(w.Apply(ctx, s.Key, slave.Update{Variant: slave.IdentityUpdate{
+				Identity: slave.Identity{
+					Rack:        other.Key,
+					VendorID:    s.VendorID,
+					ProductCode: s.ProductCode,
+					Master:      s.Master,
+				},
+			}})).To(Succeed())
+			Expect(statusOf(ctx, s).Details.Rack).To(Equal(other.Key))
+		})
+
+		It("Should write an unknown status when the status is missing", func(
+			ctx SpecContext,
+		) {
+			s := create(ctx)
+			Expect(stat.NewWriter(tx).DeleteOwned(ctx, s.ResourceID())).To(Succeed())
+			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
+				Name: "Inlet",
+			}))).To(Succeed())
+			st := statusOf(ctx, s)
+			Expect(st.Message).To(Equal("Status unknown"))
+			Expect(st.Name).To(Equal("Inlet"))
+		})
+
+		It("Should reject a configuration without a name", func(ctx SpecContext) {
+			s := create(ctx)
+			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{}))).
+				To(MatchError(validate.ErrValidation))
+			Expect(retrieve(ctx, s.Key).Name).To(Equal(s.Name))
 		})
 
 		It("Should reject an identity without a master", func(ctx SpecContext) {
