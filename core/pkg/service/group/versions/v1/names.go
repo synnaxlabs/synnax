@@ -20,6 +20,10 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
+// MetricsFolder is the name of the top-level channel folder that holds the metrics of
+// the Core. A top-level channel that holds the same name gives way to it.
+const MetricsFolder = "Metrics"
+
 // NameRuleMigration renames each stored channel folder whose name breaks the v63 name
 // rule (resource.IsLegalName), or whose legal name an earlier folder in the same parent
 // holds, and stages each rename (resource.StageRename). Folders go by key, which is a

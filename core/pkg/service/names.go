@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/text"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	resourcev0 "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -38,8 +40,9 @@ type sibling struct {
 
 // nameClashMigration renames one side of each channel and channel folder that hold the
 // same name in one folder, after NFC. The channel takes the first free suffix when a
-// name pass renamed it and not the folder; else the folder does. It stages each rename,
-// so it runs after the name passes and before the text passes.
+// name pass renamed it and not the folder, or when the folder is the top-level metrics
+// folder (groupv1.MetricsFolder); else the folder does. It stages each rename, so it
+// runs after the name passes and before the text passes.
 var nameClashMigration = migrate.New(
 	"v63_name_clashes",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
@@ -92,7 +95,9 @@ var nameClashMigration = migrate.New(
 				continue
 			}
 			c := channels[h]
-			if renamed.Contains(c.ResourceID()) && !renamed.Contains(f.ResourceID()) {
+			builtIn := parent == (group.Key{}) && f.Name == groupv1.MetricsFolder
+			if builtIn ||
+				renamed.Contains(c.ResourceID()) && !renamed.Contains(f.ResourceID()) {
 				name := resourcev0.FreeName(c.Name, func(name string) bool {
 					return names.Contains(name) ||
 						siblings.Contains(sibling{parent: parent, name: name})
@@ -152,28 +157,60 @@ func channelFolders(ctx context.Context, tx gorp.Tx) ([]group.Group, error) {
 	return folders, nil
 }
 
-// channelNames returns the name of every channel.
-func channelNames(ctx context.Context, tx gorp.Tx) (set.Set[string], error) {
+// textRename returns the rename that the text passes apply to each channel name in
+// stored text. A dashed name that a channel holds becomes quoted. A name that a renamed
+// channel held, and that no channel holds now, becomes the new name of that channel,
+// unless several renamed channels held it.
+func textRename(ctx context.Context, tx gorp.Tx) (func(string) (string, bool), error) {
 	var channels []channel.Channel
 	if err := gorp.NewRetrieve[channel.Key, channel.Channel]().
 		Entries(&channels).
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	names := make(set.Set[string], len(channels))
-	for _, c := range channels {
-		names.Add(c.Name)
+	renames, err := resourcev0.StagedRenames(tx)
+	if err != nil {
+		return nil, err
 	}
-	return names, nil
+	var (
+		held      = make(set.Set[string], len(channels))
+		current   = make(map[resource.ID]string, len(channels))
+		moved     = make(map[string]string, len(renames))
+		ambiguous = make(set.Set[string])
+	)
+	for _, c := range channels {
+		held.Add(c.Name)
+		current[c.ResourceID()] = c.Name
+	}
+	for _, r := range renames {
+		if r.ID.Type != resource.TypeChannel || held.Contains(r.From) {
+			continue
+		}
+		to := current[r.ID]
+		if prev, ok := moved[r.From]; ok && prev != to {
+			ambiguous.Add(r.From)
+		}
+		moved[r.From] = to
+	}
+	return func(name string) (string, bool) {
+		if held.Contains(name) {
+			return name, strings.IndexByte(name, '-') >= 0
+		}
+		if ambiguous.Contains(name) {
+			return "", false
+		}
+		to, ok := moved[name]
+		return to, ok
+	}, nil
 }
 
-// calculationTextMigration quotes each dashed channel name in the expression of each
-// calculation (arcv4.QuoteDashedNames). It runs after the calculations move to their
-// own records and before anything compiles them.
+// calculationTextMigration writes each channel name in the expression of each
+// calculation in its new form (textRename). It runs after the calculations move to
+// their own records and before anything compiles them.
 var calculationTextMigration = migrate.New(
-	"v63_quote_calculation_names",
+	"v63_rename_calculation_channels",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-		held, err := channelNames(ctx, tx)
+		rename, err := textRename(ctx, tx)
 		if err != nil {
 			return err
 		}
@@ -185,10 +222,7 @@ var calculationTextMigration = migrate.New(
 		}
 		var changed []calculation.Calculation
 		for _, c := range calcs {
-			if e := arcv4.QuoteDashedNames(
-				c.Expression,
-				held.Contains,
-			); e != c.Expression {
+			if e := arcv4.RenameChannels(c.Expression, rename); e != c.Expression {
 				c.Expression = e
 				changed = append(changed, c)
 			}
@@ -198,13 +232,13 @@ var calculationTextMigration = migrate.New(
 	},
 )
 
-// arcTextMigration quotes each dashed channel name in the text of each Arc and in the
-// function bodies of each graph (arcv4.QuoteDashedNames). It runs before anything
-// compiles an Arc.
+// arcTextMigration writes each channel name in the text of each Arc and in the function
+// bodies of each graph in its new form (textRename). It runs before anything compiles
+// an Arc.
 var arcTextMigration = migrate.New(
-	"v63_quote_arc_names",
+	"v63_rename_arc_channels",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-		held, err := channelNames(ctx, tx)
+		rename, err := textRename(ctx, tx)
 		if err != nil {
 			return err
 		}
@@ -217,7 +251,7 @@ var arcTextMigration = migrate.New(
 		var changed []arc.Arc
 		for _, a := range arcs {
 			b := a.Base()
-			if quoteSource(&b.Source, held.Contains) {
+			if renameSource(&b.Source, rename) {
 				a.SetBase(b)
 				changed = append(changed, a)
 			}
@@ -226,22 +260,22 @@ var arcTextMigration = migrate.New(
 	},
 )
 
-// quoteSource quotes each dashed name that held reports true for in src, and reports
-// whether it changed src.
-func quoteSource(src *arc.Source, held func(string) bool) bool {
+// renameSource applies rename to each channel name in src, and reports whether it
+// changed src.
+func renameSource(src *arc.Source, rename func(string) (string, bool)) bool {
 	changed := false
 	switch v := src.Variant.(type) {
 	case arc.TextSource:
 		raw := v.Text.Materialize().Raw
-		if quoted := arcv4.QuoteDashedNames(raw, held); quoted != raw {
-			v.Text = text.Text{Doc: text.Create(quoted)}
+		if renamed := arcv4.RenameChannels(raw, rename); renamed != raw {
+			v.Text = text.Text{Doc: text.Create(renamed)}
 			src.Variant, changed = v, true
 		}
 	case arc.GraphSource:
 		for i, f := range v.Graph.Functions {
-			quoted := arcv4.QuoteDashedNames(f.Body.Raw, held)
-			if quoted != f.Body.Raw {
-				v.Graph.Functions[i].Body.Raw = quoted
+			renamed := arcv4.RenameChannels(f.Body.Raw, rename)
+			if renamed != f.Body.Raw {
+				v.Graph.Functions[i].Body.Raw = renamed
 				src.Variant, changed = v, true
 			}
 		}

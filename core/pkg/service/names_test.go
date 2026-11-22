@@ -25,9 +25,9 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
-	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelversions "github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
@@ -71,26 +71,171 @@ func markApplied(
 	})).To(Succeed())
 }
 
+// storeV062 makes n hold a store as a v0.62 Core left it: the chain steps before the
+// name passes applied, a channel v1 record for each name, and the folders. edit changes
+// the records before they are stored. It returns the records.
+func storeV062(
+	ctx context.Context,
+	n testutil.Node,
+	names []string,
+	edit func([]channelv1.Channel),
+	folders ...groupv1.Group,
+) []channelv1.Channel {
+	GinkgoHelper()
+	markApplied(
+		ctx,
+		n.DB,
+		"Channel",
+		channelversions.Migrations,
+		"v63_channel_name_rule",
+	)
+	markApplied(ctx, n.DB, "Group", groupversions.Migrations, "v63_folder_name_rule")
+	alloc := make([]distchannel.Channel, len(names))
+	for i, name := range names {
+		alloc[i] = distchannel.Channel{
+			Name:        name,
+			Leaseholder: node.KeyFree,
+			Virtual:     true,
+		}
+	}
+	keys := MustSucceed(n.Channel.Allocate(ctx, alloc))
+	stored := make([]channelv1.Channel, len(keys))
+	for i, k := range keys {
+		stored[i] = channelv1.Channel{
+			Name:        k.Name,
+			Leaseholder: node.KeyFree,
+			LocalKey:    k.LocalKey,
+			DataType:    telem.Float32T,
+			Virtual:     true,
+		}
+	}
+	edit(stored)
+	Expect(gorp.WrapWriter[channelv1.Key, channelv1.Channel](n.DB).
+		Set(ctx, stored...)).To(Succeed())
+	Expect(gorp.WrapWriter[groupv1.Key, groupv1.Group](n.DB).Set(ctx, folders...)).
+		To(Succeed())
+	return stored
+}
+
+// folder returns a top-level channel folder named name.
+func folder(name string) groupv1.Group {
+	return groupv1.Group{Key: uuid.New(), Name: name, Scope: resource.TypeChannel}
+}
+
+// storeArcs opens the Arc table of n once, as v0.62 did, and stores an Arc with each
+// text source and one with a graph function of each body, in its root directory. It
+// returns the keys of the Arcs.
+func storeArcs(ctx context.Context, n testutil.Node, texts, bodies []string) []arc.Key {
+	GinkgoHelper()
+	Expect(MustSucceed(arc.OpenTable(ctx, arc.TableConfig{DB: n.DB})).Close()).
+		To(Succeed())
+	isRoot := func(_ gorp.Context, d *directory.Directory) (bool, error) {
+		return d.Parent == nil, nil
+	}
+	var root directory.Directory
+	Expect(gorp.NewRetrieve[directory.Key, directory.Directory]().
+		Where(gorp.Match(isRoot)).
+		Entry(&root).
+		Exec(ctx, n.DB)).To(Succeed())
+	var arcs []arc.Arc
+	for _, raw := range texts {
+		arcs = append(arcs, arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+			Key:       uuid.New(),
+			Name:      "text",
+			Directory: &root.Key,
+			Source: arc.Source{Variant: arc.TextSource{
+				Text: text.Text{Doc: text.Create(raw)},
+			}},
+		}}})
+	}
+	for _, body := range bodies {
+		arcs = append(arcs, arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+			Key:       uuid.New(),
+			Name:      "graph",
+			Directory: &root.Key,
+			Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
+				Functions: ir.Functions{{Key: "f", Body: ir.Body{Raw: body}}},
+			}}},
+		}}})
+	}
+	Expect(gorp.WrapWriter[arc.Key, arc.Arc](n.DB).Set(ctx, arcs...)).To(Succeed())
+	keys := make([]arc.Key, len(arcs))
+	for i, a := range arcs {
+		keys[i] = a.Base().Key
+	}
+	return keys
+}
+
+// sourceOf returns the text of the Arc with key, or the body of its graph function.
+func sourceOf(ctx context.Context, n testutil.Node, key arc.Key) string {
+	GinkgoHelper()
+	var a arc.Arc
+	Expect(gorp.NewRetrieve[arc.Key, arc.Arc]().
+		Where(gorp.MatchKeys[arc.Key, arc.Arc](key)).
+		Entry(&a).
+		Exec(ctx, n.DB)).To(Succeed())
+	switch src := a.Base().Source.Variant.(type) {
+	case arc.TextSource:
+		return src.Text.Materialize().Raw
+	case arc.GraphSource:
+		return src.Graph.Functions[0].Body.Raw
+	}
+	Fail("unexpected source")
+	return ""
+}
+
+// namesOf returns the name of each stored channel by key.
+func namesOf(
+	ctx context.Context,
+	n testutil.Node,
+	stored []channelv1.Channel,
+) map[channel.Key]string {
+	GinkgoHelper()
+	keys := make([]channel.Key, len(stored))
+	for i, c := range stored {
+		keys[i] = c.Key()
+	}
+	var chs []channel.Channel
+	Expect(gorp.NewRetrieve[channel.Key, channel.Channel]().
+		Where(gorp.MatchKeys[channel.Key, channel.Channel](keys...)).
+		Entries(&chs).
+		Exec(ctx, n.DB)).To(Succeed())
+	names := make(map[channel.Key]string, len(chs))
+	for _, c := range chs {
+		names[c.Key()] = c.Name
+	}
+	return names
+}
+
+// renameStatuses returns each rename status by the name it reports.
+func renameStatuses(
+	ctx context.Context,
+	n testutil.Node,
+) map[string]status.Status[any] {
+	GinkgoHelper()
+	isRename := func(_ gorp.Context, s *status.Status[any]) (bool, error) {
+		return s.Message == "Renamed channel" || s.Message == "Renamed folder", nil
+	}
+	var statuses []status.Status[any]
+	Expect(gorp.NewRetrieve[status.Key, status.Status[any]]().
+		Where(gorp.Match(isRename)).
+		Entries(&statuses).
+		Exec(ctx, n.DB)).To(Succeed())
+	byName := make(map[string]status.Status[any], len(statuses))
+	for _, s := range statuses {
+		Expect(s.Variant).To(Equal(status.VariantWarning))
+		byName[s.Name] = s
+	}
+	return byName
+}
+
 var _ = Describe("Name upgrade", func() {
 	It("Should rename, quote, and report the names of a v0.62 store", func(
 		ctx SpecContext,
 	) {
 		n := testutil.NewNode(ctx)
-		markApplied(
-			ctx,
-			n.DB,
-			"Channel",
-			channelversions.Migrations,
-			"v63_channel_name_rule",
-		)
-		markApplied(
-			ctx,
-			n.DB,
-			"Group",
-			groupversions.Migrations,
-			"v63_folder_name_rule",
-		)
-		names := []string{
+		rigs, ab, xy := folder("Rigs"), folder("a_b"), folder("x.y")
+		stored := storeV062(ctx, n, []string{
 			"pt-01",
 			"stand.pt",
 			"pressure",
@@ -100,98 +245,34 @@ var _ = Describe("Name upgrade", func() {
 			"doubled",
 			"x.y",
 			"a_b_2",
-		}
-		alloc := make([]distchannel.Channel, len(names))
-		for i, name := range names {
-			alloc[i] = distchannel.Channel{
-				Name:        name,
-				Leaseholder: node.KeyFree,
-				Virtual:     true,
-			}
-		}
-		keys := MustSucceed(n.Channel.Allocate(ctx, alloc))
-		stored := make([]channelv1.Channel, len(keys))
-		for i, k := range keys {
-			stored[i] = channelv1.Channel{
-				Name:        k.Name,
-				Leaseholder: node.KeyFree,
-				LocalKey:    k.LocalKey,
-				DataType:    telem.Float32T,
-				Virtual:     true,
-			}
-		}
-		stored[6].Expression = "return pt-01 * 2"
-		rigs := groupv1.Group{
-			Key:   uuid.New(),
-			Name:  "Rigs",
-			Scope: resource.TypeChannel,
-		}
-		// A channel in another folder holds the first suffix of a moved channel.
-		stored[8].Group = &rigs.Key
-		Expect(gorp.WrapWriter[channelv1.Key, channelv1.Channel](n.DB).
-			Set(ctx, stored...)).To(Succeed())
-		ab := groupv1.Group{Key: uuid.New(), Name: "a_b", Scope: resource.TypeChannel}
-		xy := groupv1.Group{Key: uuid.New(), Name: "x.y", Scope: resource.TypeChannel}
-		Expect(
-			gorp.WrapWriter[groupv1.Key, groupv1.Group](n.DB).Set(ctx, rigs, ab, xy),
-		).
-			To(Succeed())
-		Expect(MustSucceed(arc.OpenTable(ctx, arc.TableConfig{DB: n.DB})).Close()).
-			To(Succeed())
-		isRoot := func(_ gorp.Context, d *directory.Directory) (bool, error) {
-			return d.Parent == nil, nil
-		}
-		var root directory.Directory
-		Expect(gorp.NewRetrieve[directory.Key, directory.Directory]().
-			Where(gorp.Match(isRoot)).
-			Entry(&root).
-			Exec(ctx, n.DB)).To(Succeed())
-		textArc := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
-			Key:       uuid.New(),
-			Name:      "text",
-			Directory: &root.Key,
-			Source: arc.Source{Variant: arc.TextSource{
-				Text: text.Text{Doc: text.Create("x := pt-01 * 2 // pt-01")},
-			}},
-		}}}
-		graphArc := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
-			Key:       uuid.New(),
-			Name:      "graph",
-			Directory: &root.Key,
-			Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
-				Functions: ir.Functions{
-					{Key: "f", Body: ir.Body{Raw: "{ return pt-01 }"}},
-				},
-			}}},
-		}}}
-		Expect(gorp.WrapWriter[arc.Key, arc.Arc](n.DB).Set(ctx, textArc, graphArc)).
-			To(Succeed())
+			"tripled",
+		}, func(cs []channelv1.Channel) {
+			cs[6].Expression = "return pt-01 * 2"
+			// A channel in another folder holds the first suffix of a moved channel.
+			cs[8].Group = &rigs.Key
+			// The lower key keeps the name, so the text keeps naming it.
+			cs[9].Expression = "return pressure * 3"
+		}, rigs, ab, xy)
+		arcs := storeArcs(
+			ctx,
+			n,
+			[]string{"x := pt-01 * 2 // pt-01"},
+			[]string{"{ return pt-01 }"},
+		)
 
-		MustOpen(svctestutil.OpenLayer(ctx, n))
+		l := MustOpen(svctestutil.OpenLayer(ctx, n))
 
-		chKeys := make([]channel.Key, len(keys))
-		for i, k := range keys {
-			chKeys[i] = k.Key()
-		}
-		var chs []channel.Channel
-		Expect(gorp.NewRetrieve[channel.Key, channel.Channel]().
-			Where(gorp.MatchKeys[channel.Key, channel.Channel](chKeys...)).
-			Entries(&chs).
-			Exec(ctx, n.DB)).To(Succeed())
-		byKey := make(map[channel.Key]string, len(chs))
-		for _, c := range chs {
-			byKey[c.Key()] = c.Name
-		}
-		Expect(byKey).To(Equal(map[channel.Key]string{
-			keys[0].Key(): "pt-01",
-			keys[1].Key(): "stand_pt",
-			keys[2].Key(): "pressure",
-			keys[3].Key(): "pressure_2",
-			keys[4].Key(): "Rigs",
-			keys[5].Key(): "a_b_3",
-			keys[6].Key(): "doubled",
-			keys[7].Key(): "x_y",
-			keys[8].Key(): "a_b_2",
+		Expect(namesOf(ctx, n, stored)).To(Equal(map[channel.Key]string{
+			stored[0].Key(): "pt-01",
+			stored[1].Key(): "stand_pt",
+			stored[2].Key(): "pressure",
+			stored[3].Key(): "pressure_2",
+			stored[4].Key(): "Rigs",
+			stored[5].Key(): "a_b_3",
+			stored[6].Key(): "doubled",
+			stored[7].Key(): "x_y",
+			stored[8].Key(): "a_b_2",
+			stored[9].Key(): "tripled",
 		}))
 		var folders []group.Group
 		Expect(gorp.NewRetrieve[group.Key, group.Group]().
@@ -203,55 +284,17 @@ var _ = Describe("Name upgrade", func() {
 			HaveField("Name", "a_b"),
 			HaveField("Name", "x_y_2"),
 		))
-
-		ofDoubled := func(_ gorp.Context, c *calculation.Calculation) (bool, error) {
-			return c.Output == keys[6].Key(), nil
-		}
-		var calc calculation.Calculation
-		Expect(gorp.NewRetrieve[calculation.Key, calculation.Calculation]().
-			Where(gorp.Match(ofDoubled)).
-			Entry(&calc).
-			Exec(ctx, n.DB)).To(Succeed())
-		Expect(calc.Expression).To(Equal("return 'pt-01' * 2"))
-		Expect(calc.Reads).To(Equal([]channel.Key{keys[0].Key()}))
-
-		var arcs []arc.Arc
-		Expect(gorp.NewRetrieve[arc.Key, arc.Arc]().
-			Where(gorp.MatchKeys[arc.Key, arc.Arc](
-				textArc.Base().Key,
-				graphArc.Base().Key,
-			)).
-			Entries(&arcs).
-			Exec(ctx, n.DB)).To(Succeed())
-		Expect(arcs).To(HaveLen(2))
-		for _, a := range arcs {
-			switch src := a.Base().Source.Variant.(type) {
-			case arc.TextSource:
-				Expect(
-					src.Text.Materialize().Raw,
-				).To(Equal("x := 'pt-01' * 2 // pt-01"))
-			case arc.GraphSource:
-				Expect(src.Graph.Functions[0].Body.Raw).To(Equal("{ return 'pt-01' }"))
-			default:
-				Fail("unexpected source")
-			}
-		}
-
-		var statuses []status.Status[any]
-		Expect(gorp.NewRetrieve[status.Key, status.Status[any]]().
-			Where(gorp.Match(func(_ gorp.Context, s *status.Status[any]) (bool, error) {
-				return s.Message == "Renamed channel" ||
-					s.Message == "Renamed folder", nil
-			})).
-			Entries(&statuses).
-			Exec(ctx, n.DB)).To(Succeed())
+		doubled := calculationOf(ctx, n, l.Calculation, stored[6].Key())
+		Expect(doubled.Expression).To(Equal("return 'pt-01' * 2"))
+		Expect(doubled.Reads).To(Equal([]channel.Key{stored[0].Key()}))
+		Expect(calculationOf(ctx, n, l.Calculation, stored[9].Key()).Expression).
+			To(Equal("return pressure * 3"))
+		Expect(sourceOf(ctx, n, arcs[0])).To(Equal("x := 'pt-01' * 2 // pt-01"))
+		Expect(sourceOf(ctx, n, arcs[1])).To(Equal("{ return 'pt-01' }"))
+		statuses := renameStatuses(ctx, n)
 		reported := make(map[string]string, len(statuses))
-		for _, s := range statuses {
-			Expect(s.Variant).To(Equal(status.VariantWarning))
-			reported[s.Name] = s.Message
-			if s.Name == "a_b_3" {
-				Expect(s.Description).To(ContainSubstring(`"a.b" to "a_b_3"`))
-			}
+		for name, s := range statuses {
+			reported[name] = s.Message
 		}
 		Expect(reported).To(Equal(map[string]string{
 			"stand_pt":   "Renamed channel",
@@ -261,6 +304,40 @@ var _ = Describe("Name upgrade", func() {
 			"Rigs_2":     "Renamed folder",
 			"x_y_2":      "Renamed folder",
 		}))
+		Expect(statuses["a_b_3"].Description).To(ContainSubstring(`"a.b" to "a_b_3"`))
 		Expect(MustSucceed(resourcev0.StagedRenames(n.DB))).To(BeEmpty())
+	})
+
+	It("Should move a top-level channel off the name of the Metrics folder and write "+
+		"its new name into text", func(ctx SpecContext) {
+		n := testutil.NewNode(ctx)
+		metrics := folder(groupv1.MetricsFolder)
+		stored := storeV062(ctx, n, []string{"Metrics", "doubled"}, func(
+			cs []channelv1.Channel,
+		) {
+			cs[1].Expression = "return Metrics * 2"
+		}, metrics)
+		arcs := storeArcs(ctx, n, []string{"x := Metrics * 2"}, nil)
+		check := func(l *service.Layer) {
+			GinkgoHelper()
+			Expect(namesOf(ctx, n, stored)[stored[0].Key()]).To(Equal("Metrics_2"))
+			var f group.Group
+			Expect(gorp.NewRetrieve[group.Key, group.Group]().
+				Where(gorp.MatchKeys[group.Key, group.Group](metrics.Key)).
+				Entry(&f).
+				Exec(ctx, n.DB)).To(Succeed())
+			Expect(f.Name).To(Equal(groupv1.MetricsFolder))
+			Expect(calculationOf(ctx, n, l.Calculation, stored[1].Key()).Expression).
+				To(Equal("return 'Metrics_2' * 2"))
+			Expect(sourceOf(ctx, n, arcs[0])).To(Equal("x := 'Metrics_2' * 2"))
+			statuses := renameStatuses(ctx, n)
+			Expect(statuses).To(HaveLen(1))
+			Expect(statuses["Metrics_2"].Description).
+				To(ContainSubstring(`"Metrics" to "Metrics_2"`))
+		}
+		first := MustSucceed(svctestutil.OpenLayer(ctx, n))
+		check(first)
+		Expect(first.Close()).To(Succeed())
+		check(MustOpen(svctestutil.OpenLayer(ctx, n)))
 	})
 })

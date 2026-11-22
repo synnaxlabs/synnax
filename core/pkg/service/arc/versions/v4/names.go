@@ -14,51 +14,127 @@ import (
 	"strings"
 )
 
-// QuoteDashedNames returns text, an Arc program or calculation expression that a v0.62
-// Core stored, with each dashed name that held reports true for written as a quoted
-// channel token. A dashed name is an identifier that holds '-', as v0.62 lexed it with
-// dashed names on. QuoteDashedNames reads code and the placeholders of format strings,
-// and leaves comments, the rest of strings, quoted tokens, and names that a placeholder
-// writes with an escape as they are.
-func QuoteDashedNames(text string, held func(string) bool) string {
-	var edits []span
-	scanCode(text, nil, func(s span) {
-		name := text[s.start:s.end]
-		if strings.IndexByte(name, '-') >= 0 && held(name) {
-			edits = append(edits, s)
+// RenameChannels returns text, an Arc program or calculation expression that a v0.62
+// Core stored, with each identifier that rename maps to a channel name written as the
+// quoted channel token of that name. An identifier is one that v0.62 lexed with dashed
+// names on, in code or in a placeholder of a format string, where rename gets the name
+// that the placeholder reads. Comments, the rest of strings, and quoted tokens stay as
+// they are, and so does an identifier whose token a raw string cannot hold.
+func RenameChannels(text string, rename func(name string) (string, bool)) string {
+	type edit struct {
+		span
+		text string
+	}
+	var edits []edit
+	scanCode(text, place{}, func(s span, name string, in []literal) {
+		if to, ok := rename(name); ok {
+			if token, ok := writeIn(quote(to), in); ok {
+				edits = append(edits, edit{span: s, text: token})
+			}
 		}
 	})
 	if len(edits) == 0 {
 		return text
 	}
 	var b strings.Builder
-	b.Grow(len(text) + 2*len(edits))
 	last := 0
 	for _, e := range edits {
-		// A dashed name holds no quote or backslash, so it needs no escape.
 		b.WriteString(text[last:e.start])
-		b.WriteByte('\'')
-		b.WriteString(text[e.start:e.end])
-		b.WriteByte('\'')
+		b.WriteString(e.text)
 		last = e.end
 	}
 	b.WriteString(text[last:])
 	return b.String()
 }
 
+// quote returns the quoted channel token of name, with each '\” and '\\' escaped.
+func quote(name string) string {
+	var b strings.Builder
+	b.Grow(len(name) + 2)
+	b.WriteByte('\'')
+	for i := range len(name) {
+		if name[i] == '\'' || name[i] == '\\' {
+			b.WriteByte('\\')
+		}
+		b.WriteByte(name[i])
+	}
+	b.WriteByte('\'')
+	return b.String()
+}
+
+// literal is a string literal that holds a placeholder: whether it is raw, and the
+// quote that closes it.
+type literal struct {
+	raw   bool
+	quote byte
+}
+
+// writeIn returns token as source text inside the literals in, innermost first, and
+// false when a raw literal cannot hold it. Outside a raw literal, each '\\' and closing
+// quote is escaped, since the literal removes those escapes before its placeholder
+// lexes.
+func writeIn(token string, in []literal) (string, bool) {
+	for _, l := range in {
+		if l.raw {
+			if strings.IndexByte(token, l.quote) >= 0 {
+				return "", false
+			}
+			continue
+		}
+		var b strings.Builder
+		b.Grow(len(token) + 2)
+		for i := range len(token) {
+			if token[i] == '\\' || token[i] == l.quote {
+				b.WriteByte('\\')
+			}
+			b.WriteByte(token[i])
+		}
+		token = b.String()
+	}
+	return token, true
+}
+
 // span is the byte range [start, end) of an identifier.
 type span struct{ start, end int }
 
-// scanCode calls found with the span of each identifier in the code src, in order. When
-// at is not nil, src is a placeholder of a format string, at holds the offset in the
-// enclosing text of each byte of src and of its end, and each span is in the enclosing
-// text. It follows the v0.62 lexer with dashed names on.
-func scanCode(src string, at []int, found func(span)) {
+// place maps a source into the enclosing text. A nil at maps byte j to base + j.
+// Otherwise at holds the offset of each byte and of the end. in holds the string
+// literals whose placeholders hold the source, innermost first.
+type place struct {
+	at   []int
+	base int
+	in   []literal
+}
+
+func (p place) pos(j int) int {
+	if p.at != nil {
+		return p.at[j]
+	}
+	return p.base + j
+}
+
+// sub returns the place of the source that starts at i in the source of p.
+func (p place) sub(i int) place {
+	if p.at != nil {
+		return place{at: p.at[i:], in: p.in}
+	}
+	return place{base: p.base + i, in: p.in}
+}
+
+// scanCode calls found with the span in the enclosing text of each identifier in the
+// code src, in order, the name that the identifier reads, and the literals that hold
+// it. at places src in the enclosing text. It follows the v0.62 lexer with dashed names
+// on, and the quoted channel token of v63.
+func scanCode(src string, at place, found func(span, string, []literal)) {
 	for i := 0; i < len(src); {
 		c := src[i]
 		switch {
 		case strings.HasPrefix(src[i:], "//"):
-			i += strings.IndexAny(src[i:]+"\n", "\r\n")
+			if end := strings.IndexAny(src[i:], "\r\n"); end >= 0 {
+				i += end
+			} else {
+				i = len(src)
+			}
 		case strings.HasPrefix(src[i:], "/*"):
 			if end := strings.Index(src[i+2:], "*/"); end >= 0 {
 				i += end + 4
@@ -75,7 +151,7 @@ func scanCode(src string, at []int, found func(span)) {
 			n, ok := stringLen(src[i:])
 			switch {
 			case ok:
-				scanFormatString(src[i:i+n], offsetsFrom(at, i, n), found)
+				scanFormatString(src[i:i+n], at.sub(i), found)
 				i += n
 			case c == 'r' || c == 'f':
 				i = scanIdentifier(src, i, at, found)
@@ -96,7 +172,12 @@ func scanCode(src string, at []int, found func(span)) {
 
 // scanIdentifier calls found with the identifier that starts at src[i], and returns its
 // end. A '-' joins an identifier unless '>' or '=' comes after it.
-func scanIdentifier(src string, i int, at []int, found func(span)) int {
+func scanIdentifier(
+	src string,
+	i int,
+	at place,
+	found func(span, string, []literal),
+) int {
 	end := i + 1
 	for end < len(src) {
 		c := src[end]
@@ -109,11 +190,7 @@ func scanIdentifier(src string, i int, at []int, found func(span)) int {
 		}
 		end++
 	}
-	if at == nil {
-		found(span{start: i, end: end})
-	} else {
-		found(span{start: at[i], end: at[end]})
-	}
+	found(span{start: at.pos(i), end: at.pos(end)}, src[i:end], at.in)
 	return end
 }
 
@@ -155,9 +232,6 @@ func stringLen(src string) (int, bool) {
 	case strings.HasPrefix(src, "r"), strings.HasPrefix(src, "f"):
 		prefix = 1
 	}
-	if prefix == 2 && !isQuote(src, 2) {
-		prefix = 1
-	}
 	if !isQuote(src, prefix) {
 		return prefix, false
 	}
@@ -183,24 +257,10 @@ func isQuote(src string, i int) bool {
 	return i < len(src) && (src[i] == '"' || src[i] == '`')
 }
 
-// offsetsFrom returns the offsets in the enclosing text of the n bytes of src that
-// start at i, and of their end. A nil at means src is the enclosing text.
-func offsetsFrom(at []int, i, n int) []int {
-	if at != nil {
-		return at[i : i+n+1]
-	}
-	out := make([]int, n+1)
-	for j := range out {
-		out[j] = i + j
-	}
-	return out
-}
-
 // scanFormatString calls found with each identifier in the placeholders of the string
-// literal lit, when lit is a format string. at holds the offset in the enclosing text
-// of each byte of lit and of its end. A string that v0.62 could not split holds no
-// identifiers.
-func scanFormatString(lit string, at []int, found func(span)) {
+// literal lit, when lit is a format string. at places lit in the enclosing text. A
+// string that v0.62 could not split holds no identifiers.
+func scanFormatString(lit string, at place, found func(span, string, []literal)) {
 	prefix := strings.IndexAny(lit, "\"`")
 	if strings.IndexByte(lit[:prefix], 'f') < 0 {
 		return
@@ -215,7 +275,8 @@ func scanFormatString(lit string, at []int, found func(span)) {
 	for i := range from {
 		from[i] = i
 	}
-	if strings.IndexByte(lit[:prefix], 'r') < 0 {
+	raw := strings.IndexByte(lit[:prefix], 'r') >= 0
+	if !raw {
 		var ok bool
 		if value, from, ok = unescape(body, multi); !ok {
 			return
@@ -225,12 +286,13 @@ func scanFormatString(lit string, at []int, found func(span)) {
 	if !ok {
 		return
 	}
+	in := append([]literal{{raw: raw, quote: lit[prefix]}}, at.in...)
 	for _, p := range placeholders {
 		offsets := make([]int, p.end-p.start+1)
 		for i := range offsets {
-			offsets[i] = at[start+from[p.start+i]]
+			offsets[i] = at.pos(start + from[p.start+i])
 		}
-		scanCode(value[p.start:p.end], offsets, found)
+		scanCode(value[p.start:p.end], place{at: offsets, in: in}, found)
 	}
 }
 
