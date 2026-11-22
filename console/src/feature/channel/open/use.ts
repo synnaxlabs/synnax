@@ -22,10 +22,10 @@ import { Session } from "@/session";
 const isPlainVirtual = ({ virtual, expression }: channel.Channel): boolean =>
   virtual && expression === "";
 
-// useOpen returns a handler that opens a channel resource in a visualization:
+// use returns a handler that opens a channel resource in a visualization:
 // plottable channels go to the focused line plot or a new one, plain virtual
 // channels to the focused log or a new one.
-export const useOpen = (): ((resource: resource.Resource) => void) => {
+export const use = (): ((resource: resource.Resource) => void) => {
   const client = Synnax.use();
   const openTab = Panel.useOpenTab();
   const getFocusedTab = Session.Panel.useGetFocusedTab();

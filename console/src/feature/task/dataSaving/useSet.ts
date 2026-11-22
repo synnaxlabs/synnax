@@ -11,12 +11,12 @@ import { task } from "@synnaxlabs/client";
 import { Flux, Task } from "@synnaxlabs/pluto";
 import { verbs } from "@synnaxlabs/x";
 
-export interface SetDataSavingParams {
+export interface SetParams {
   key: task.Key;
   dataSaving: boolean;
 }
 
-export const { useUpdate: useSetDataSaving } = Flux.createUpdate<SetDataSavingParams>({
+export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
   name: Task.RESOURCE_NAME,
   verbs: verbs.UPDATE,
   update: async ({ client, data }) => {

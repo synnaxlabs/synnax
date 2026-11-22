@@ -16,13 +16,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { PagerDuty } from "@/feature/pagerduty";
-import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
+import { DataSaving } from "@/feature/task/dataSaving";
 import { awaitCommand, createTaskStatus } from "@/platform/task/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
-describe("useSetDataSaving", () => {
+describe("DataSaving.useSet", () => {
   let wrapper: React.FC<PropsWithChildren>;
   let rack: { key: number; createTask: (...args: any[]) => Promise<any> };
 
@@ -38,7 +38,7 @@ describe("useSetDataSaving", () => {
       config: { dataSavingDisabled: true, sampleRate: 100 },
     });
 
-    const { result } = renderHook(() => useSetDataSaving(), { wrapper });
+    const { result } = renderHook(() => DataSaving.useSet(), { wrapper });
 
     await act(async () => {
       await result.current.updateAsync({ key: t.key, dataSaving: true });
@@ -60,7 +60,7 @@ describe("useSetDataSaving", () => {
       config: { dataSavingDisabled: false, sampleRate: 100 },
     });
 
-    const { result } = renderHook(() => useSetDataSaving(), { wrapper });
+    const { result } = renderHook(() => DataSaving.useSet(), { wrapper });
 
     await act(async () => {
       await result.current.updateAsync({ key: t.key, dataSaving: false });
@@ -89,7 +89,7 @@ describe("useSetDataSaving", () => {
     );
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     try {
-      const { result } = renderHook(() => useSetDataSaving(), { wrapper });
+      const { result } = renderHook(() => DataSaving.useSet(), { wrapper });
       await act(async () => {
         await result.current.updateAsync({ key: t.key, dataSaving: true });
       });
@@ -109,7 +109,7 @@ describe("useSetDataSaving", () => {
       config: {},
     });
 
-    const { result } = renderHook(() => useSetDataSaving(), { wrapper });
+    const { result } = renderHook(() => DataSaving.useSet(), { wrapper });
 
     await act(async () => {
       await result.current.updateAsync({ key: alertTask.key, dataSaving: true });
@@ -128,7 +128,7 @@ describe("useSetDataSaving", () => {
       config: { dataSavingDisabled: false },
     });
 
-    const { result } = renderHook(() => useSetDataSaving(), { wrapper });
+    const { result } = renderHook(() => DataSaving.useSet(), { wrapper });
 
     await act(async () => {
       await result.current.updateAsync({ key: t.key, dataSaving: true });

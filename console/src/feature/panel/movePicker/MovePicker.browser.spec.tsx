@@ -22,7 +22,7 @@ import {
 import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { useMovePicker } from "@/feature/panel/MovePicker";
+import { MovePicker } from "@/feature/panel/movePicker";
 import { Modals } from "@/platform/modals";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { Session } from "@/session";
@@ -83,9 +83,9 @@ const createHarness = async (): Promise<Harness> => {
       <Modals.Stack />
     </Panels>
   );
-  let rendered!: RenderHookResult<ReturnType<typeof useMovePicker>, unknown>;
+  let rendered!: RenderHookResult<ReturnType<typeof MovePicker.use>, unknown>;
   await act(async () => {
-    rendered = renderHook(useMovePicker, { wrapper: pickerWrapper });
+    rendered = renderHook(MovePicker.use, { wrapper: pickerWrapper });
   });
   await act(async () => {
     rendered.result.current({ origin: { panel: source.key, tab } });
@@ -94,7 +94,7 @@ const createHarness = async (): Promise<Harness> => {
   return { store, source, tab, destination, other };
 };
 
-describe("Panel.MovePicker", () => {
+describe("MovePicker.use", () => {
   it("should move the tab into the panel the user picks", async () => {
     const { store, source, tab, destination } = await createHarness();
     const target = await screen.findByText(destination.name);

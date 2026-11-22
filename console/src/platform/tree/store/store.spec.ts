@@ -11,12 +11,7 @@ import { resource } from "@synnaxlabs/client";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Tree } from "@/platform/tree";
-import {
-  isMoreKey,
-  type Results,
-  Store,
-  type StoreConfig,
-} from "@/platform/tree/store";
+import { Store } from "@/platform/tree/store";
 
 const ROOT: resource.ID = { type: "builtin", key: "root" };
 const ROOT_KEY = resource.idToString(ROOT);
@@ -72,9 +67,9 @@ const listed = (...resources: Tree.Resource[]): Tree.Window => ({
 
 const createStore = (
   sources: Record<string, Tree.Source[]>,
-  config: Partial<StoreConfig> = {},
-): Store =>
-  new Store({
+  config: Partial<Store.Config> = {},
+): Store.Store =>
+  new Store.Store({
     root: ROOT,
     list: (id) => sources[resource.idToString(id)] ?? [],
     hasChildren: (type) => type === "group",
@@ -83,18 +78,18 @@ const createStore = (
     ...config,
   });
 
-const keysOf = (store: Store, key = ROOT_KEY): string[] | undefined =>
+const keysOf = (store: Store.Store, key = ROOT_KEY): string[] | undefined =>
   store.getChildren(key);
 
 // Names the show more node, so specs need not know how its key is built.
 const MORE = "more";
 
 const markMore = (keys: string[] | undefined): string[] | undefined =>
-  keys?.map((key) => (isMoreKey(key) ? MORE : key));
+  keys?.map((key) => (Store.isMoreKey(key) ? MORE : key));
 
-const findMore = async (store: Store): Promise<string> => {
-  await expect.poll(() => keysOf(store)?.some(isMoreKey)).toBe(true);
-  const key = keysOf(store)?.find(isMoreKey);
+const findMore = async (store: Store.Store): Promise<string> => {
+  await expect.poll(() => keysOf(store)?.some(Store.isMoreKey)).toBe(true);
+  const key = keysOf(store)?.find(Store.isMoreKey);
   if (key == null) throw new Error("no show more node");
   return key;
 };
@@ -102,7 +97,7 @@ const findMore = async (store: Store): Promise<string> => {
 const GROUP_A = res("group", "a", "a");
 const GROUP_B = res("group", "b", "B");
 
-describe("tree store", () => {
+describe("Store", () => {
   describe("lists", () => {
     it("should show the folders of a node first, then its other children, by name", async () => {
       const store = createStore({
@@ -426,7 +421,7 @@ describe("tree store", () => {
   });
 
   describe("results", () => {
-    const results: Results = {
+    const results: Store.Results = {
       nodes: [{ key: "group:a", children: [{ key: "channel:1" }] }],
       fixed: new Set(["group:a"]),
       expanded: [],
@@ -495,7 +490,7 @@ describe("tree store", () => {
     });
 
     it("should find the keys inside another key in the tree or above a match", () => {
-      const flat: Results = {
+      const flat: Store.Results = {
         ...results,
         nodes: [{ key: "group:a", children: [] }, { key: "channel:1" }],
         fixed: new Set(),

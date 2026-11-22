@@ -48,7 +48,7 @@ export interface Results {
   ancestors: Map<string, Set<string>>;
 }
 
-export interface StoreConfig {
+export interface Config {
   root: resource.ID;
   /** Lists the children of a node. */
   list: (id: resource.ID) => Source[];
@@ -148,7 +148,7 @@ const mapsEqual = (a: Map<string, string[]>, b: Map<string, string[]>): boolean 
  * name, and the drafts. Nodes open as they expand and close as they hide.
  */
 export class Store {
-  private readonly config: StoreConfig;
+  private readonly config: Config;
   private readonly rootKey: string;
   private readonly folders = new Map<string, Folder>();
   private readonly drafts = new Map<string, HeldDraft>();
@@ -169,7 +169,7 @@ export class Store {
   private stale = false;
 
   /** Reads the cached child lists of the root. Nothing is fetched until start. */
-  constructor(config: StoreConfig) {
+  constructor(config: Config) {
     this.config = config;
     this.rootKey = resource.idToString(config.root);
     this.indexResults(config.results);
