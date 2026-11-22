@@ -121,6 +121,21 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
     },
   });
 
+const useAddChannels = (
+  key: lineplot.Key,
+  axisKey: lineplot.YAxisKey,
+  editable: boolean,
+): ((channels: channel.Key[]) => void) => {
+  const { dispatch } = useDispatch();
+  return (channels: channel.Key[]): void => {
+    if (editable && channels.length > 0)
+      dispatch({
+        key,
+        actions: channels.map((channel) => lineplot.addChannel({ axisKey, channel })),
+      });
+  };
+};
+
 /** @returns whether an x axis draws each range from its zero. */
 export const isRelative = ({ type, timeMode }: lineplot.Axis): boolean =>
   type === "time" && timeMode === "relative";
@@ -488,17 +503,10 @@ const YAxis = ({
   onSelectRule,
 }: YAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
-  const { axis, lineKeys, channels } = useYAxis({ key, axisKey });
-  const handleDrop = (axisKey: lineplot.YAxisKey, dropped: channel.Key[]): void => {
-    if (!editable) return;
-    const existing = new Set(channels);
-    const additions = dropped.filter((channel) => !existing.has(channel));
-    if (additions.length > 0)
-      dispatch({
-        key,
-        actions: additions.map((channel) => lineplot.addChannel({ axisKey, channel })),
-      });
-  };
+  const { axis, lineKeys } = useYAxis({ key, axisKey });
+  const addChannels = useAddChannels(key, axisKey, editable);
+  const handleDrop = (_: lineplot.YAxisKey, dropped: channel.Key[]): void =>
+    addChannels(dropped);
   const handleLabelChange = (label: string) =>
     editable &&
     dispatch({
@@ -597,6 +605,22 @@ const XAxis = ({
       )}
     </BaseXAxis>
   );
+};
+
+const FIRST_Y_AXIS: lineplot.YAxisKey = "y1";
+
+/** Adds a channel dropped on the plot area to the first Y axis. */
+const usePlotDrop = (key: lineplot.Key, editable: boolean): Haul.UseDropReturn => {
+  const addChannels = useAddChannels(key, FIRST_Y_AXIS, editable);
+  return Haul.useDrop({
+    type: "channel_lineplot_plot",
+    canDrop: Channel.canDropHaulItem,
+    onDrop: ({ items }) => {
+      const dropped = Channel.filterHaulItems(items);
+      addChannels(dropped.map(({ key }) => key));
+      return dropped;
+    },
+  });
 };
 
 interface UseViewportResetParams {
@@ -778,6 +802,7 @@ export const LinePlot = ({
     hiddenRanges,
     hiddenTraces,
   });
+  const plotDropProps = usePlotDrop(key, editable);
   return (
     <Frame
       ref={ref}
@@ -817,6 +842,7 @@ export const LinePlot = ({
         initial={initialViewport}
         triggers={viewportTriggers}
         ref={viewportRef}
+        {...plotDropProps}
       >
         {enableTooltip && (
           <Tooltip.Tooltip
