@@ -223,6 +223,21 @@ var _ = Describe("Conversion on the pointer log", func() {
 		Expect(closeDB()).To(Succeed())
 	})
 
+	It("Should keep a channel directory with no meta.json through the first Sweep",
+		func(ctx SpecContext) {
+			// The conversion skips such a directory, which a power loss can leave, and
+			// leaves it in place.
+			sub := MustSucceed(disk.Sub("7"))
+			f := MustSucceed(sub.Open("1.domain", os.O_CREATE|os.O_RDWR))
+			MustSucceed(f.Write([]byte{1, 2, 3, 4}))
+			Expect(f.Close()).To(Succeed())
+			disk.Writeback()
+			db, closeDB := MustSucceed2(openLog(ctx, disk))
+			MustSucceed2(db.Sweep(ctx, nil))
+			Expect(closeDB()).To(Succeed())
+			Expect(disk.Exists("7/1.domain")).To(BeTrue())
+		})
+
 	It("Should write after the converted samples", func(ctx SpecContext) {
 		db, closeDB := MustSucceed2(openLog(ctx, disk))
 		write(ctx, db, 5000)

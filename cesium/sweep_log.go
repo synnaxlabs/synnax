@@ -226,14 +226,28 @@ func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error
 	return kept, db.dropLog(drop)
 }
 
-// removeTorn removes the directory of each torn key outside records. The caller holds
-// db.mu.
+// removeTorn removes the channel file of each torn key outside records, and its
+// directory once that is empty. The directory may hold files that an undo moved aside,
+// or old files that the conversion left in place. The caller holds db.mu.
 func (db *DB) removeTorn(records set.Set[ChannelKey]) error {
 	for k := range db.mu.torn {
 		if records.Contains(k) {
 			continue
 		}
-		if err := db.removeLogDir(k); err != nil {
+		dir := keyToDirName(k)
+		if err := db.fs.Remove(path.Join(dir, channelFile)); err != nil {
+			return err
+		}
+		left, err := db.fs.List(dir)
+		if err != nil {
+			return err
+		}
+		if len(left) == 0 {
+			if err = db.fs.Remove(dir); err != nil {
+				return err
+			}
+		}
+		if err = db.fs.SyncDir(""); err != nil {
 			return err
 		}
 		db.mu.torn.Remove(k)
