@@ -330,12 +330,14 @@ export default class Synnax extends framer.Client {
         .toArray<channel.Key | channel.Name | channel.Payload>(toRetrieve)
         .map((c) => (typeof c === "object" ? c.key : c));
       if (lookups.length === 0) return [];
+      const where = channel.lookupWhere(lookups);
       // A writer, streamer, iterator, or reader names each channel once, so the Core
-      // refuses an ambiguous name or path.
-      const result = await this.channels.retrieve({
-        where: channel.lookupWhere(lookups),
-        strict: lookups.some((l) => typeof l === "string"),
-      });
+      // refuses an ambiguous name or path. Any field beside where skips the record
+      // store, so keys alone send no strict field.
+      const named = lookups.some((l) => typeof l === "string");
+      const result = await this.channels.retrieve(
+        named ? { where, strict: true } : { where },
+      );
       return result.map((ch) => ch.payload);
     };
     super({

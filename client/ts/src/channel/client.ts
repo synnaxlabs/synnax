@@ -651,8 +651,9 @@ export class Client extends query.Retriever<
     if (isSingle && typeof lookups[0] === "number")
       return await super.retrieve({ key: lookups[0] });
     const where = lookupWhere(lookups);
-    // One lookup needs exactly one channel, so the Core refuses an ambiguous name.
-    const res = await super.retrieve({ where, strict: isSingle });
+    // One lookup needs exactly one channel, so the Core refuses an ambiguous name. Any
+    // field beside where skips the record store, so a list sends no strict field.
+    const res = await super.retrieve(isSingle ? { where, strict: true } : { where });
     checkForMultipleOrNoResults("channel", { where }, res, isSingle);
     return isSingle ? res[0] : res;
   }

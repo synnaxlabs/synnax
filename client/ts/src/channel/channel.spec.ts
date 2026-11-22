@@ -25,6 +25,20 @@ import {
 
 const quiet = (): void => {};
 
+/** @returns the strict channel retrieves in send that hold the key or name of ch. */
+const strictRetrieves = (
+  send: ReturnType<typeof spyOnSend>,
+  ch: channel.Channel,
+): unknown[] => {
+  const mention = new RegExp(`\\b${ch.key}\\b|"${ch.name}"`);
+  return send.mock.calls.filter(
+    ([target, req]) =>
+      target === "/channel/retrieve" &&
+      (req as { strict?: boolean }).strict === true &&
+      mention.test(JSON.stringify(req)),
+  );
+};
+
 const client = createTestClient();
 const remote = createTestClient();
 
@@ -436,11 +450,7 @@ describe("Channel", () => {
             channels: [ch.name],
           });
           await writer.close();
-          const strict = send.mock.calls.filter(
-            ([target, req]) =>
-              target === "/channel/retrieve" &&
-              (req as { strict?: boolean }).strict === true,
-          );
+          const strict = strictRetrieves(send, ch);
           expect(strict).not.toHaveLength(0);
         } finally {
           send.mockRestore();
@@ -461,11 +471,7 @@ describe("Channel", () => {
             channels: [ch.key],
           });
           await writer.close();
-          const strict = send.mock.calls.filter(
-            ([target, req]) =>
-              target === "/channel/retrieve" &&
-              (req as { strict?: boolean }).strict === true,
-          );
+          const strict = strictRetrieves(send, ch);
           expect(strict).toHaveLength(0);
         } finally {
           send.mockRestore();
@@ -956,11 +962,7 @@ describe("cached reads", () => {
       const send = spyOnSend(client);
       try {
         expect((await client.channels.retrieve(ch.name)).key).toEqual(ch.key);
-        const strict = send.mock.calls.filter(
-          ([target, req]) =>
-            target === "/channel/retrieve" &&
-            (req as { strict?: boolean }).strict === true,
-        );
+        const strict = strictRetrieves(send, ch);
         expect(strict).toHaveLength(1);
       } finally {
         send.mockRestore();
