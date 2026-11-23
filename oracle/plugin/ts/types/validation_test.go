@@ -409,6 +409,26 @@ var _ = Describe("Validation Rules", func() {
 		ExpectContent(resp, "types.gen.ts").ToContain(`.check(zod.minLength(2))`)
 	})
 
+	It("Should check the decoded byte count of a bytes field", func() {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				data bytes {
+					@validate {
+						min_length 1
+						max_length 64
+					}
+				}
+			}
+		`
+		resp := MustGenerate(source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`data: binary.bytesZ.check(zod.minBytes(1)).check(zod.maxBytes(64))`,
+			`import { binary, zod } from "@synnaxlabs/x"`,
+		)
+	})
+
 	It("Should keep a length check chainable with a default", func() {
 		source := `
 			@ts output "out"

@@ -11,9 +11,10 @@ import { EOF } from "@synnaxlabs/freighter";
 import { type breaker, caseconv, DataType, errors, zod } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { isConnectionError, NotFoundError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import type { framer } from "@/framer";
 import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
+import { isOffline } from "@/query/offline";
 
 /**
  * A raw channel reaction: parses each sample from the channel with the schema and
@@ -73,6 +74,11 @@ export interface StreamerParams {
   onLive?: () => void;
   /** Called when the underlying stream fails and reconnection begins. */
   onDrop?: (error: Error) => void;
+  /**
+   * Called when the Core drops changes because the stream fell behind. The stream
+   * stays open, and the dropped changes never arrive.
+   */
+  onMissed?: () => void;
   /** Receives each failed reconnect attempt. Defaults to console.warn. */
   onRetry?: (error: Error) => void;
   /**
@@ -111,6 +117,7 @@ export const createStreamer = ({
   onReopen,
   onLive,
   onDrop,
+  onMissed,
   onRetry,
   onDead,
 }: StreamerParams): Streamer => {
@@ -119,9 +126,7 @@ export const createStreamer = ({
   let closed = false;
   const report = (exc: unknown, message: string) => {
     if (NotFoundError.matches(exc)) return;
-    // A connectivity failure mid-change is repaired by the reconcile that
-    // follows the stream's reopen, so it is churn, not a defect.
-    if (isConnectionError(exc)) return;
+    if (isOffline(exc)) return;
     onError(new Error(message, { cause: exc }));
   };
   const deliver = async (fn: () => unknown, message: string) => {
@@ -137,7 +142,7 @@ export const createStreamer = ({
     const channels = Array.from(listenersForChannels.keys());
     const h = new HardenedStreamer(
       openStreamer,
-      { channels },
+      { channels, onMissed },
       {
         breaker: breakerConfig,
         onReopen: () => {

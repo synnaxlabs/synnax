@@ -13,9 +13,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { access } from "@/access";
 import { arc } from "@/arc";
-import type Synnax from "@/client";
 import { device } from "@/device";
 import { group } from "@/group";
+import type { Synnax } from "@/index";
 import { project } from "@/project";
 import { query } from "@/query";
 import { rack } from "@/rack";
