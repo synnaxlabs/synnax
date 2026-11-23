@@ -48,10 +48,12 @@ inline bool is_temporarily_unavailable(const x::errors::Error &err) {
 
 /// @brief how a caller handles an error from the Core.
 enum class Kind {
-    /// @brief the Core or the path to it fails for now. Wait, then retry.
+    /// @brief the Core or the path to it fails for now. Wait, then retry. A timeout or
+    /// a broken stream can follow a request that took effect.
     TRANSIENT,
-    /// @brief the Core stopped while it handled the request, so the request may have
-    /// taken effect. Wait, then retry only a request that is safe to send twice.
+    /// @brief the Core reports that it stopped while it handled the request, so the
+    /// request may have taken effect. Wait, then resend only a request that is safe to
+    /// send twice.
     INTERRUPTED,
     /// @brief the Core refused the request. The same request fails again.
     REJECTED,
