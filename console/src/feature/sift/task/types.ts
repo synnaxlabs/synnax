@@ -8,28 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { channel, sift, type task } from "@synnaxlabs/client";
-import { record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
 
 export const PREFIX = "sift";
-
-export const SCAN_TYPE = `${PREFIX}_scan`;
-
-export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
-
-export const LIST_ASSETS_COMMAND_TYPE = "list_assets";
-
-export const UPLOAD_COMMAND_TYPE = "upload";
-
-export const LIST_UPLOADS_COMMAND_TYPE = "list_uploads";
-
-export const SCAN_SCHEMAS = {
-  type: z.literal(SCAN_TYPE),
-  config: record.nullishToEmpty(),
-  statusData: z.unknown().optional(),
-} as const satisfies task.Schemas;
 
 export const STREAM_TYPE = `${PREFIX}_stream`;
 

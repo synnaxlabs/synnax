@@ -13,7 +13,7 @@ import type { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement, useId } from "react";
 
 import { Content, Item } from "@/components/diagram/Block";
-import { nodeHeight, nodeWidth, ROW_GAP, span } from "@/components/diagram/layout";
+import { layout } from "@/components/diagram/layout";
 
 /** A box in a nested diagram. A box with children draws as a group around them. */
 export interface NestNode {
@@ -35,7 +35,7 @@ export interface NestProps {
 }
 
 const PADDING = 12;
-const GAP = ROW_GAP;
+const GAP = layout.ROW_GAP;
 const HATCH_SPACING = 6;
 // Keeps the hatch clear of the border, which is 0.5 wide and centered on the box edge.
 const HATCH_INSET = 1;
@@ -59,7 +59,9 @@ const groupDepth = (node: NestNode): number =>
 
 // Every leaf gets the width of the widest leaf, so the boxes line up across groups.
 const leafWidth = (node: NestNode): number =>
-  node.children == null ? nodeWidth(node) : Math.max(...node.children.map(leafWidth));
+  node.children == null
+    ? layout.nodeWidth(node)
+    : Math.max(...node.children.map(leafWidth));
 
 const place = (
   node: NestNode,
@@ -69,9 +71,9 @@ const place = (
   columns: Columns,
 ): Placed => {
   if (node.children == null)
-    return { node, x, y, width: leaf, height: nodeHeight(node), children: [] };
+    return { node, x, y, width: leaf, height: layout.nodeHeight(node), children: [] };
   const count = columns(node);
-  const header = nodeHeight(node);
+  const header = layout.nodeHeight(node);
   // Place each child at the origin first to learn its size.
   const sizes = node.children.map((c) => place(c, 0, 0, leaf, columns));
   const colWidths = Array.from({ length: count }, (_, c) =>
@@ -83,16 +85,18 @@ const place = (
   const children = node.children.map((child, i) => {
     const c = i % count;
     const r = Math.floor(i / count);
-    const cx = x + PADDING + span(colWidths.slice(0, c), GAP) + (c > 0 ? GAP : 0);
-    const cy = y + header + span(rowHeights.slice(0, r), GAP) + (r > 0 ? GAP : 0);
+    const cx =
+      x + PADDING + layout.span(colWidths.slice(0, c), GAP) + (c > 0 ? GAP : 0);
+    const cy =
+      y + header + layout.span(rowHeights.slice(0, r), GAP) + (r > 0 ? GAP : 0);
     return place(child, cx, cy, leaf, columns);
   });
   return {
     node,
     x,
     y,
-    width: span(colWidths, GAP) + 2 * PADDING,
-    height: header + span(rowHeights, GAP) + PADDING,
+    width: layout.span(colWidths, GAP) + 2 * PADDING,
+    height: header + layout.span(rowHeights, GAP) + PADDING,
     children,
   };
 };
@@ -119,7 +123,7 @@ const Group = ({ placed, depth, hatch }: GroupProps): ReactElement => {
       />
       <rect {...box} className="block-diagram__border" />
       <g className="block-diagram__header">
-        <Content node={{ ...node, x, y, width, height: nodeHeight(node) }} />
+        <Content node={{ ...node, x, y, width, height: layout.nodeHeight(node) }} />
       </g>
       {children.map((c) =>
         c.node.children != null ? (

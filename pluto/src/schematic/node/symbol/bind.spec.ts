@@ -10,7 +10,15 @@
 import type { schematic } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
-import { bindSpec, dataMissing, sources, values } from "@/schematic/node/symbol/bind";
+import { Telem } from "@/schematic/node/common/telem";
+import {
+  bindSpec,
+  dataMissing,
+  sources,
+  stale,
+  stateChannels,
+  values,
+} from "@/schematic/node/symbol/bind";
 
 const SPEC: schematic.symbol.Spec = {
   drawing: { type: "svg", markup: "<svg></svg>" },
@@ -53,28 +61,36 @@ describe("bindSpec", () => {
   });
 });
 
-describe("sources", () => {
-  it("should read only the states bound to a channel", () => {
+describe("stateChannels", () => {
+  it("should list each channel that a state reads once", () => {
     expect(
-      Object.keys(
-        sources([
-          { key: "active", source: { type: "channel", key: 1 } },
-          { key: "level", source: { type: "local", value: 3 } },
-          { key: "other", source: { type: "channel" } },
-        ]),
-      ),
-    ).toEqual(["active"]);
+      stateChannels([
+        { key: "active", source: { type: "channel", key: 1 } },
+        { key: "level", source: { type: "local", value: 3 } },
+        { key: "other", source: { type: "channel" } },
+        { key: "again", source: { type: "channel", key: 1, command: 2 } },
+      ]),
+    ).toEqual([1]);
+  });
+});
+
+describe("sources", () => {
+  it("should build a number source for each channel, by its key", () => {
+    expect(sources([1, 2])).toEqual({
+      1: Telem.numberSource(1),
+      2: Telem.numberSource(2),
+    });
   });
 });
 
 describe("values", () => {
-  it("should give a local value and the value of a channel reading", () => {
+  it("should give a local value and the reading of a state's channel", () => {
     const got = values(
       [
         { key: "active", source: { type: "channel", key: 1 } },
         { key: "level", source: { type: "local", value: 3 } },
       ],
-      { active: { value: 1, stale: false } },
+      { 1: { value: 1, stale: false } },
     );
     expect(got).toEqual(
       new Map([
@@ -89,9 +105,24 @@ describe("values", () => {
       { key: "active", source: { type: "channel", key: 1 } },
       { key: "level", source: { type: "channel", key: 2 } },
     ];
-    expect(values(bindings, { active: { value: null, stale: false } })).toEqual(
-      new Map(),
-    );
+    expect(values(bindings, { 1: { value: null, stale: false } })).toEqual(new Map());
+  });
+});
+
+describe("stale", () => {
+  const bindings: Pick<schematic.StateBinding, "key" | "source">[] = [
+    { key: "active", source: { type: "channel", key: 1 } },
+    { key: "level", source: { type: "local", value: 3 } },
+  ];
+
+  it("should be true while a state's channel reads stale", () => {
+    expect(stale(bindings, { 1: { value: 1, stale: true } })).toBe(true);
+  });
+
+  it("should be false for a stale channel that no state reads", () => {
+    expect(
+      stale(bindings, { 1: { value: 1, stale: false }, 9: { value: 1, stale: true } }),
+    ).toBe(false);
   });
 });
 
@@ -100,13 +131,13 @@ describe("dataMissing", () => {
 
   it.each([
     ["no reading", {}],
-    ["a reading with no value", { active: { value: null, stale: false } }],
+    ["a reading with no value", { 1: { value: null, stale: false } }],
   ])("should be true for a channel with %s", (_, readings) => {
     expect(dataMissing([CHANNEL], readings)).toBe(true);
   });
 
   it("should be false for a channel with a value", () => {
-    expect(dataMissing([CHANNEL], { active: { value: 0, stale: true } })).toBe(false);
+    expect(dataMissing([CHANNEL], { 1: { value: 0, stale: true } })).toBe(false);
   });
 
   it.each([

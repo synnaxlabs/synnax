@@ -21,8 +21,12 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { client, renderSchematic } from "@/feature/schematic/testutil";
-import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
+import {
+  client,
+  preloadTab,
+  renderSchematic,
+  TabToolbar,
+} from "@/feature/schematic/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { getHexInput, getSwatches } from "@/platform/multiedit/testutil";
 import { Session } from "@/session";
@@ -54,7 +58,7 @@ const renderProperties = async ({
 }: RenderPropertiesParams) => {
   const Harness = (): ReactElement => (
     <>
-      <Toolbar />
+      <TabToolbar />
       <CaptureStatuses onStatuses={onStatuses} />
     </>
   );
@@ -136,6 +140,8 @@ const pollBothOrientations = async (key: string, rotated: string): Promise<void>
     })
     .toEqual({ n1: rotated, n2: rotated });
 };
+
+preloadTab();
 
 describe("Schematic toolbar Properties", () => {
   describe("single selection", () => {
@@ -702,7 +708,7 @@ describe("Schematic toolbar Properties", () => {
 
   describe("edges", () => {
     const renderWithEdge = async () => {
-      const Harness = (): ReactElement => <Toolbar />;
+      const Harness = (): ReactElement => <TabToolbar />;
       return await renderSchematic(Harness, {
         schematic: {
           nodes: ["n1", "n2"].map((key) => ({

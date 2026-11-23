@@ -21,7 +21,14 @@ import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
-import { bindSpec, dataMissing, sources, values } from "@/schematic/node/symbol/bind";
+import {
+  bindSpec,
+  dataMissing,
+  sources,
+  stale,
+  stateChannels,
+  values,
+} from "@/schematic/node/symbol/bind";
 import { type Resolved, useResolved } from "@/schematic/node/symbol/resolve";
 import { SymbolNode } from "@/vis/symbolNode";
 
@@ -82,7 +89,7 @@ export const Node = ({
   const { label, orientation, scale, color, states, stalenessTimeout } = config;
   const { readings } = SymbolNode.use({
     aetherKey: nodeKey,
-    sources: sources(states),
+    sources: sources(stateChannels(states)),
     sinks: {},
     stalenessTimeout,
   });
@@ -100,7 +107,7 @@ export const Node = ({
     >
       <Label.Label config={label} onChange={onConfigChange} />
       <Indicator.Slot
-        stale={Object.values(readings).some((r) => r.stale)}
+        stale={stale(states, readings)}
         unknown={dataMissing(states, readings) || unmatched}
       />
       <Drawn
