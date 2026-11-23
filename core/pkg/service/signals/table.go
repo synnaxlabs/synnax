@@ -193,7 +193,15 @@ func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 				continue
 			}
 			if f.del.DataType.IsVariable() {
-				sample, _ = telem.UnmarshalVariableSample(sample)
+				key, n := telem.UnmarshalVariableSample(sample)
+				if n != len(sample) {
+					f.L.DPanic(
+						"a delete is not one sample",
+						zap.String("channel", f.del.Name),
+					)
+					continue
+				}
+				sample = key
 			}
 			deleteChecks[string(sample)] = check
 			continue

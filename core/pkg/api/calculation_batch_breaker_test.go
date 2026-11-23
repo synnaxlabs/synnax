@@ -135,5 +135,6 @@ var _ = Describe("Calculation batch breaker", func() {
 				Expect(s).ToNot(ContainSubstring(secret.Name))
 			}
 		},
+		SpecTimeout(30*time.Second),
 	)
 })
