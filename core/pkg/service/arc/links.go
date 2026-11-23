@@ -12,6 +12,7 @@ package arc
 import (
 	"context"
 	"encoding/json/v2"
+	"reflect"
 
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
@@ -21,16 +22,32 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// prepareExport replaces each channel input of a graph Arc's nodes with its channel
-// key, so that the channel link options of an export write it as a path.
+// prepareExport replaces each channel input of a graph Arc's nodes that holds a number
+// with its channel key, so that the channel link options of an export write it as a
+// path. An input that holds no number, such as text or null, exports as stored.
 func (s *Service) prepareExport(_ context.Context, _ gorp.Snapshot, a *Arc) error {
 	return s.mapChannelInputs(a, func(v any) (any, error) {
+		if !isNumber(v) {
+			return v, nil
+		}
 		var k uint32
 		if err := zyn.Uint32().Coerce().Parse(v, &k); err != nil {
 			return nil, err
 		}
 		return channel.Key(k), nil
 	})
+}
+
+// isNumber reports whether v is a Go number.
+func isNumber(v any) bool {
+	switch reflect.ValueOf(v).Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return true
+	default:
+		return false
+	}
 }
 
 // readChannelInputs decodes each channel input of a graph Arc's nodes with opts, so
