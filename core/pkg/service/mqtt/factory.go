@@ -281,7 +281,7 @@ func (f *Factory) ConfigureTask(
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.
 	if autoStart {
-		if err = configured.Start(ctx, driver.NoCommand); err != nil {
+		if err = configured.Start(ctx, cmdKey); err != nil {
 			return nil, err
 		}
 	}
