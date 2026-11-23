@@ -870,6 +870,33 @@ describe("MQTT read form", () => {
       expect(selectedIn(store, entry.icd)).toEqual([entry.messages[0].message]);
     });
 
+    it("should open the editor at a later message that is not JSON", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const status = await addMessage(
+        entry,
+        "status",
+        [createField("mode", "string")],
+        KIND_MATCH,
+      );
+      const { store } = await renderRead({
+        entries: [entry],
+        beforeRender: async () =>
+          await client.icds.dispatch(
+            entry.icd,
+            icd.set({
+              path: ["messages", status.key, "payload"],
+              value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+            }),
+          ),
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: "status" }));
+      await screen.findByText(NOT_JSON_NOTE);
+      fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
+      expect(selectedIn(store, entry.icd)).toEqual([status.key]);
+    });
+
     it("should open the editor at the message of the selected field", async () => {
       const entry = await createEntry({
         fields: [createField("temperature", "float")],

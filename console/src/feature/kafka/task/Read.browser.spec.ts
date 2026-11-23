@@ -894,6 +894,36 @@ describe("Kafka read form", () => {
       expect(records[1].messages[0].message).toBe(messages[1].key);
     });
 
+    it("should add a later record to the ICD that the most records read", async () => {
+      const messages: icd.Message[] = ["pump", "fan"].map((name) => ({
+        key: uuid.create(),
+        name,
+        payload: { format: "json", fields: [createField(name, "float")] },
+      }));
+      const home = await client.icds.create({ name: uniqueName("home"), messages });
+      const { draft, dev } = await renderRead({
+        fields: [createField("temperature", "float")],
+        records: messages.map(({ key, name }) =>
+          kafka.readRecordZ.parse({
+            icd: home.key,
+            recordKey: name,
+            messages: [{ message: key, bindings: [] }],
+          }),
+        ),
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const dialog = await openAddData(dev, { data: sampleOf() });
+      fireEvent.click(dialog.getByRole("button", { name: "Add an empty record" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(4);
+        return next;
+      });
+      expect(records[3].icd).toBe(home.key);
+      const { messages: held } = await client.icds.retrieve(home.key);
+      expect(held.map(({ key }) => key)).toContain(records[3].messages[0].message);
+    });
+
     it("should open one Add data dialog for a double click", async () => {
       await renderRead();
       const button = await screen.findByRole("button", { name: "Add data" });

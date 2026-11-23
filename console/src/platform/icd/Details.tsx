@@ -275,6 +275,8 @@ export const MessageSections: FC<MessageSectionsProps> = ({
 }) => {
   const { path, read } = rest;
   const plan = usePlan(path, read);
+  const icdKey = PForm.useFieldValue(path.icd);
+  const several = PForm.useFieldValue(path.messages).length > 1;
   const readMessage = PForm.useFieldValue(path.messages[read]);
   const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {
     optional: true,
@@ -294,7 +296,11 @@ export const MessageSections: FC<MessageSectionsProps> = ({
         </PForm.Section>
       )}
       {message != null && message.payload.format !== "json" && (
-        <PForm.Section title="Message">
+        <PForm.Section
+          title="Message"
+          // A source that reads one message opens the editor from its format picker.
+          actions={several && <OpenInEditor icdKey={icdKey} message={message.key} />}
+        >
           <Text.Text color={9}>
             The format of this message is not JSON.
             {FLAGS.icds && " Open it in the editor to change its format."}

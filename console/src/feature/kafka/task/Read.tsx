@@ -503,8 +503,8 @@ const Records: FC<RecordsProps> = ({
   };
 
   /**
-   * Puts messages in the ICD of the first record, or in a new ICD for a task with no
-   * record, then adds the records that read them to their topics.
+   * Puts messages in the ICD that the most records read, or in a new ICD for a task
+   * with no record, then adds the records that read them to their topics.
    * @param recordsOf - Returns the records to add to each topic, by topic name.
    */
   const addRecords = async (
@@ -512,13 +512,11 @@ const Records: FC<RecordsProps> = ({
     recordsOf: (icdKey: icd.Key) => Map<string, ReadRecord[]>,
   ) => {
     if (client == null) throw new DisconnectedError();
-    const first = records.at(0);
-    let icdKey: icd.Key;
-    if (first == null) {
+    let icdKey = ICD.mostRead(records);
+    if (icdKey == null) {
       const name = icdName(ctx.get(root.name).value);
       icdKey = (await client.icds.create({ name, messages })).key;
     } else {
-      icdKey = first.icd;
       const format = ICD.formatOf(formats, icdKey);
       let after = format.value().messages.at(-1)?.key;
       format.batch(() => {
@@ -535,10 +533,10 @@ const Records: FC<RecordsProps> = ({
     onExpand((prev) => unique.unique([...prev, ...keys, shown]));
   };
 
-  /** @returns the messages of the ICD of the first record. */
+  /** @returns the messages of the ICD that the most records read. */
   const heldMessages = (): icd.Message[] => {
-    const first = records.at(0);
-    return first == null ? [] : ICD.formatOf(formats, first.icd).value().messages;
+    const home = ICD.mostRead(records);
+    return home == null ? [] : ICD.formatOf(formats, home).value().messages;
   };
 
   /** @returns the name of the topic of the selected item, or of the only topic. */
