@@ -105,10 +105,9 @@ public:
     }
 
     /// @brief closes the writer, returning any error that occurred during normal
-    /// operation. If the Core is unreachable, the acquisition pipeline backs off and
-    /// retries with no retry limit. If the Core has no valid license, it retries up to
-    /// the breaker limit. Any other error will be considered permanent and the pipeline
-    /// will exit.
+    /// operation. After a transient error (synnax::errors::classify), the acquisition
+    /// pipeline backs off and retries with no retry limit. Any other error is
+    /// permanent, and the pipeline exits.
     [[nodiscard]] virtual x::errors::Error close() = 0;
 
     virtual ~Writer() = default;
@@ -119,10 +118,9 @@ public:
 class WriterFactory {
 public:
     /// @brief opens the writer with the given configuration. If the writer cannot be
-    /// opened, the method should return an error. If the Core is unreachable, the
-    /// acquisition pipeline backs off and retries with no retry limit. If the Core has
-    /// no valid license, it retries up to the breaker limit. Any other error will be
-    /// considered permanent and the pipeline will exit.
+    /// opened, the method should return an error. After a transient error
+    /// (synnax::errors::classify), the acquisition pipeline backs off and retries with
+    /// no retry limit. Any other error is permanent, and the pipeline exits.
     virtual std::pair<std::unique_ptr<Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) = 0;
 

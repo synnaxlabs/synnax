@@ -39,7 +39,7 @@ public:
 
     /// @brief called on the pipeline thread each time the streamer opens. Frames
     /// written to the Core after it is called reach write(), unless the streamer opens
-    /// before its Core half, as the bypass streamer does while the Core is unreachable.
+    /// before its Core half, as the bypass streamer does after a transient Core error.
     virtual void opened() {}
 
     /// @brief called when the Core dropped commands because the pipeline fell behind.
@@ -63,10 +63,9 @@ public:
     virtual std::pair<x::telem::Frame, x::errors::Error> read() = 0;
 
     /// @brief closes the streamer, returning any error that occurred during normal
-    /// operation. If the Core is unreachable, the control pipeline backs off and
-    /// retries with no retry limit. If the Core has no valid license, it retries up to
-    /// the breaker limit. Any other error will be considered permanent and the pipeline
-    /// will exit.
+    /// operation. After a transient error (synnax::errors::classify), the control
+    /// pipeline backs off and retries with no retry limit. Any other error is
+    /// permanent, and the pipeline exits.
     virtual x::errors::Error close() = 0;
 
     /// @brief signals the streamer that the caller is done sending requests, and that
@@ -83,10 +82,9 @@ public:
 class StreamerFactory {
 public:
     /// @brief opens a streamer with the given configuration, returning the streamer and
-    /// an error if one occurs. If the Core is unreachable, the control pipeline backs
-    /// off and retries with no retry limit. If the Core has no valid license, it
-    /// retries up to the breaker limit. Any other error is considered permanent and the
-    /// pipeline will exit.
+    /// an error if one occurs. After a transient error (synnax::errors::classify), the
+    /// control pipeline backs off and retries with no retry limit. Any other error is
+    /// permanent, and the pipeline exits.
     virtual std::pair<std::unique_ptr<Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) = 0;
 

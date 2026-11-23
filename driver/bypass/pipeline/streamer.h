@@ -57,8 +57,8 @@ class Streamer final : public ::driver::pipeline::Streamer {
     std::condition_variable notify_cv;
 
 public:
-    /// @param core the Core streamer, or nullptr if its first open failed because the
-    /// Core is unreachable.
+    /// @param core the Core streamer, or nullptr if its first open failed with a
+    /// transient error.
     /// @param open_err the error of the first open, or NIL.
     Streamer(
         std::shared_ptr<::driver::pipeline::StreamerFactory> factory,
