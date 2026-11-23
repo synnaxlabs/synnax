@@ -48,6 +48,15 @@ export const key = (source: string, message: icd.MessageKey): string =>
   `${source}#${message}`;
 
 /**
+ * @returns whether at is the key of a message of the source with key source. A source
+ * key may hold "#", and a message key never does.
+ */
+const inSource = (at: string, source: string): boolean => {
+  const message = at.slice(source.length + 1);
+  return at.startsWith(`${source}#`) && message !== "" && !message.includes("#");
+};
+
+/**
  * @returns the channels that stored holds for read r of source. The channels under the
  * legacy key belong to the message that binds one of them, or else to the first one.
  */
@@ -83,10 +92,7 @@ export const channels = (
   );
   const merged: Record<string, channel.Key> = {};
   for (const [at, props] of Object.entries(stored))
-    if (
-      (at === source.legacy || at.startsWith(`${source.key}#`)) &&
-      !claimed.has(props)
-    )
+    if ((at === source.legacy || inSource(at, source.key)) && !claimed.has(props))
       Object.assign(merged, props.channels);
   return { ...merged, ...stored[key(source.key, message)]?.channels };
 };
