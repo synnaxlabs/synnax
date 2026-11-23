@@ -213,11 +213,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(await screen.findByText("Actuator"));
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
-      const fill = screen.getAllByText("By state")[0].closest("button");
-      assertDefined(fill);
-      expect(fill.getAttribute("aria-pressed")).toBe("false");
-      fireEvent.click(fill);
-      expect(fill.getAttribute("aria-pressed")).toBe("true");
+      const toggle = findButton("By state");
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("aria-pressed")).toBe("true");
       fireEvent.click(await screen.findByLabelText("Fill while Active"));
       fireEvent.click(screen.getByText("Node color"));
       fireEvent.change(findNameInput(), {
@@ -615,8 +614,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("shows the paint that the whole drawing gives a part with none", async () => {
       await openPainted({ looks: [{ key: "node", fill: { type: "node" } }] });
-      const fill = screen.getByLabelText("Fill");
-      expect(fill.querySelector(".lyra-icon--node")).not.toBeNull();
+      expect(queryIcon(screen.getByLabelText("Fill"), "node")).not.toBeNull();
     });
 
     // byState presses By state on the property with the label.
@@ -711,8 +709,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         states: [createState()],
         looks: [{ key: "node", when: atBase, fill: { type: "node" } }],
       });
-      const fill = screen.getByLabelText("Fill");
-      expect(fill.querySelector(".lyra-icon--node")).not.toBeNull();
+      expect(queryIcon(screen.getByLabelText("Fill"), "node")).not.toBeNull();
     });
 
     it("starts a picked color from the color of the drawing", async () => {

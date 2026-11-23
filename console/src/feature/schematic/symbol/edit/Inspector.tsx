@@ -53,6 +53,8 @@ const [FieldContext, useFieldContext] = context.create<FieldContextValue>({
 });
 
 interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContextValue {
+  /** shown is the value whose looks the control shows. */
+  shown: number;
   value: Look[F] | undefined;
   /** inherited is what a look on the whole drawing gives the part. */
   inherited: Look[F] | undefined;
@@ -75,6 +77,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   return {
     ...inspector,
     ...field,
+    shown,
     value: Spec.effective({ looks }, part, f, shown),
     inherited:
       part == null ? undefined : Spec.effective({ looks }, undefined, f, shown),
@@ -115,10 +118,15 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
   if (split && !several) setSplit(false);
   const varies = several && (split || Spec.variesByValue({ looks }, part, field));
   const handleVariesChange = (next: boolean) => {
-    const keys = values.values.map((v) => v.value);
     set(
       path.data,
-      Spec.setVariesByValue(get(path.data).value, part, field, keys, next),
+      Spec.setVariesByValue(
+        get(path.data).value,
+        part,
+        field,
+        values.values.map((v) => v.value),
+        next,
+      ),
     );
     setSplit(next);
   };
@@ -176,7 +184,7 @@ interface PaintControlProps {
 }
 
 const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
-  const { value, inherited, own, onChange, label, at, preview, values } = useScope<
+  const { value, inherited, own, onChange, label, shown, values } = useScope<
     "fill" | "stroke"
   >("PaintControl");
   return (
@@ -188,7 +196,7 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
-      entryColor={values.entryColor(at ?? preview)}
+      entryColor={values.entryColor(shown)}
     />
   );
 };
