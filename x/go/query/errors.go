@@ -36,35 +36,52 @@ const (
 	unsupported       = typePrefix + ".unsupported"
 )
 
+// data returns the message of err without ref. A bare sentinel keeps its own message
+// so that clients in other languages receive text.
+func data(err, ref error) string {
+	if msg := errors.MessageWithout(err, ref); msg != "" {
+		return msg
+	}
+	return err.Error()
+}
+
+// wrap decodes data into ref. Data equal to the message of ref is the bare sentinel.
+func wrap(ref error, data string) error {
+	if data == ref.Error() {
+		return ref
+	}
+	return errors.Wrap(ref, data)
+}
+
 func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrNotFound) {
 		return errors.Payload{
 			Type: notFound,
-			Data: errors.MessageWithout(err, ErrNotFound),
+			Data: data(err, ErrNotFound),
 		}, true
 	}
 	if errors.CheapIs(err, ErrUniqueViolation) {
 		return errors.Payload{
 			Type: uniqueViolation,
-			Data: errors.MessageWithout(err, ErrUniqueViolation),
+			Data: data(err, ErrUniqueViolation),
 		}, true
 	}
 	if errors.CheapIs(err, ErrInvalidParameters) {
 		return errors.Payload{
 			Type: invalidParameters,
-			Data: errors.MessageWithout(err, ErrInvalidParameters),
+			Data: data(err, ErrInvalidParameters),
 		}, true
 	}
 	if errors.CheapIs(err, ErrUnsupported) {
 		return errors.Payload{
 			Type: unsupported,
-			Data: errors.MessageWithout(err, ErrUnsupported),
+			Data: data(err, ErrUnsupported),
 		}, true
 	}
 	if errors.CheapIs(err, ErrQuery) {
 		return errors.Payload{
 			Type: typePrefix,
-			Data: errors.MessageWithout(err, ErrQuery),
+			Data: data(err, ErrQuery),
 		}, true
 	}
 	return errors.Payload{}, false
@@ -73,16 +90,16 @@ func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 func decode(_ *errors.Codec, pld errors.Payload) (error, bool) {
 	switch pld.Type {
 	case notFound:
-		return errors.Wrap(ErrNotFound, pld.Data), true
+		return wrap(ErrNotFound, pld.Data), true
 	case uniqueViolation:
-		return errors.Wrap(ErrUniqueViolation, pld.Data), true
+		return wrap(ErrUniqueViolation, pld.Data), true
 	case invalidParameters:
-		return errors.Wrap(ErrInvalidParameters, pld.Data), true
+		return wrap(ErrInvalidParameters, pld.Data), true
 	case unsupported:
-		return errors.Wrap(ErrUnsupported, pld.Data), true
+		return wrap(ErrUnsupported, pld.Data), true
 	}
 	if strings.HasPrefix(pld.Type, typePrefix) {
-		return errors.Wrap(ErrQuery, pld.Data), true
+		return wrap(ErrQuery, pld.Data), true
 	}
 	return nil, false
 }

@@ -33,10 +33,12 @@ var (
 
 func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrUnauthorized) {
-		return errors.Payload{
-			Type: unauthorized,
-			Data: errors.MessageWithout(err, ErrUnauthorized),
-		}, true
+		msg := errors.MessageWithout(err, ErrUnauthorized)
+		// The bare sentinel has no message but its own.
+		if msg == "" {
+			msg = err.Error()
+		}
+		return errors.Payload{Type: unauthorized, Data: msg}, true
 	}
 	return errors.Payload{}, false
 }
@@ -46,6 +48,9 @@ func decode(_ *errors.Codec, p errors.Payload) (error, bool) {
 		return nil, false
 	}
 	if p.Type == unauthorized {
+		if p.Data == ErrUnauthorized.Error() {
+			return ErrUnauthorized, true
+		}
 		return errors.Wrap(ErrUnauthorized, p.Data), true
 	}
 	return errors.Wrap(ErrControl, p.Data), true

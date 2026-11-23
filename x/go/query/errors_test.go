@@ -51,7 +51,10 @@ var _ = Describe("Errors", func() {
 				codec.Encode(codec.Decode(codec.Encode(err, false)), false),
 			)
 			Expect(hopped).To(MatchError(err.Error()))
-			bare := codec.Decode(codec.Encode(base, false))
+			pld := codec.Encode(base, false)
+			Expect(pld.Data).To(Equal(base.Error()))
+			bare := codec.Decode(pld)
+			Expect(bare).To(Equal(base))
 			Expect(bare).To(MatchError(base.Error()))
 		},
 		Entry("not found", query.ErrNotFound),
