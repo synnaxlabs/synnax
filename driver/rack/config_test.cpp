@@ -628,6 +628,62 @@ TEST_F(RackConfigTest, LoadManagerConfigFromFile) {
     ASSERT_EQ(cfg.manager.op_timeout, 15 * x::telem::SECOND);
 }
 
+/// @brief it should use the outbox defaults when no source sets them.
+TEST_F(RackConfigTest, OutboxConfigDefaults) {
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    const outbox::Config def;
+    ASSERT_EQ(cfg.outbox.cap, def.cap);
+    ASSERT_EQ(cfg.outbox.retry.base_interval, def.retry.base_interval);
+    ASSERT_EQ(cfg.outbox.retry.max_interval, def.retry.max_interval);
+}
+
+/// @brief it should load the outbox settings from the outage section of the config
+/// file.
+TEST_F(RackConfigTest, LoadOutboxConfigFromFile) {
+    const std::string config_path = "/tmp/rack-config-test/outbox-config.json";
+    std::ofstream config_file(config_path);
+    config_file << R"({"outage": {
+        "outbox_calls": 500,
+        "outbox_retry_interval": 0.5,
+        "outbox_max_retry_interval": 30
+    }})";
+    config_file.close();
+    x::defer::defer cleanup([&] { std::remove(config_path.c_str()); });
+    x::args::Parser config_args(
+        std::vector<
+            std::string>{"program", "--state-file", STATE_PATH, "--config", config_path}
+    );
+    const auto cfg = ASSERT_NIL_P(Config::resolve(config_args, brk));
+    ASSERT_EQ(cfg.outbox.cap, 500);
+    ASSERT_EQ(cfg.outbox.retry.base_interval, 500 * x::telem::MILLISECOND);
+    ASSERT_EQ(cfg.outbox.retry.max_interval, 30 * x::telem::SECOND);
+}
+
+/// @brief it should load the outbox settings from environment variables.
+TEST_F(RackConfigTest, LoadOutboxConfigFromEnvironmentVariables) {
+    x::env::set("SYNNAX_DRIVER_OUTBOX_CALLS", "20");
+    x::env::set("SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL", "2");
+    x::env::set("SYNNAX_DRIVER_OUTBOX_MAX_RETRY_INTERVAL", "120");
+    x::defer::defer unset_env([] {
+        x::env::unset("SYNNAX_DRIVER_OUTBOX_CALLS");
+        x::env::unset("SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL");
+        x::env::unset("SYNNAX_DRIVER_OUTBOX_MAX_RETRY_INTERVAL");
+    });
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.outbox.cap, 20);
+    ASSERT_EQ(cfg.outbox.retry.base_interval, 2 * x::telem::SECOND);
+    ASSERT_EQ(cfg.outbox.retry.max_interval, 2 * x::telem::MINUTE);
+}
+
+/// @brief it should refuse an outbox setting that is not greater than 0.
+TEST_F(RackConfigTest, RefuseNonPositiveOutboxSetting) {
+    x::env::set("SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL", "0");
+    x::defer::defer unset_env([] {
+        x::env::unset("SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL");
+    });
+    ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
+}
+
 /// @brief it should load the secrets folder from the config file as an absolute path.
 TEST_F(RackConfigTest, LoadSecretsDirFromFile) {
     const std::string config_path = "/tmp/rack-config-test/secrets-config.json";

@@ -171,7 +171,7 @@ TEST(stateTests, Nominal) {
     auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
         std::make_shared<driver::task::StatusCache>(client->statuses),
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     auto task = synnax::task::Task{
         .name = "state",
@@ -217,7 +217,7 @@ TEST(stateTests, RenamedRack) {
     auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
         std::make_shared<driver::task::StatusCache>(client->statuses),
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     ctx->set_rack_name(rack.name);
     auto task = synnax::task::Task{
@@ -269,7 +269,7 @@ TEST(stateTests, TaskRunningTransitions) {
     auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
         std::make_shared<driver::task::StatusCache>(client->statuses),
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     auto task = synnax::task::Task{
         .name = "state",
@@ -327,7 +327,7 @@ TEST(stateTests, StartedBeforeConfigureReturns) {
     auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
         statuses,
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     auto task = synnax::task::Task{
         .name = "state",
@@ -357,7 +357,7 @@ TEST(stateTests, ResendsTaskStatusesUntilTheyReachTheCore) {
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
         std::make_shared<driver::task::StatusCache>(client->statuses),
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     Task hb(
         rack,
@@ -388,7 +388,7 @@ TEST(stateTests, ResendsTaskStatusesAfterALateHeartbeat) {
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
         std::make_shared<driver::task::StatusCache>(client->statuses),
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     Task hb(
         rack,
@@ -419,7 +419,7 @@ TEST(stateTests, ResendsTaskStatusesAfterAFailedWrite) {
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
         std::make_shared<driver::task::StatusCache>(client->statuses),
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     Task hb(
         rack,
@@ -451,7 +451,7 @@ TEST(stateTests, RetriesAFailedResend) {
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
         std::make_shared<driver::task::StatusCache>(client->statuses),
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     Task hb(
         rack,
@@ -482,7 +482,7 @@ TEST(stateTests, ReportsHealth) {
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
         std::make_shared<driver::task::StatusCache>(client->statuses),
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     Task hb(
         rack,
@@ -531,7 +531,7 @@ TEST(stateTests, WarnsOnClockSkew) {
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
         std::make_shared<driver::task::StatusCache>(client->statuses),
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     Task hb(
         rack,

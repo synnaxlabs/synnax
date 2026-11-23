@@ -68,6 +68,7 @@ cc_library(
         "//driver/labjack:names",
         "//driver/modbus:names",
         "//driver/ni:names",
+        "//driver/journal",
         "//driver/opcua",
         "//driver/outbox",
         "//driver/rack/status",
@@ -166,6 +167,19 @@ cc_test(
         "//x/cpp/defer",
         "//x/cpp/env",
         "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "outbox_test",
+    srcs = ["outbox_test.cpp"],
+    deps = [
+        ":rack",
+        "//driver/journal",
+        "//driver/outbox",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )

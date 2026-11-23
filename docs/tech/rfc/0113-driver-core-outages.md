@@ -131,7 +131,11 @@ with a count of the frames it knows were unsent, a lower bound.
 request proto records in the journal format (§3.3) and sent in order by one thread. It
 holds 10,000 calls. Unlike `task::StatusCache` (`driver/task/status_cache.cpp:32-69`),
 which keeps the latest status per task, it keeps every call, so the Core sees what
-happened.
+happened. It lives in `data/outbox` in the state directory. The Linux unit lists
+`synnax-driver/data` in `StateDirectory`, so the service user owns it and root keeps
+`/var/lib/synnax-driver`. When the outbox fails to open, the Driver runs without it: the
+rack status shows the cause and the fix, and Arc tasks that set statuses fail to start.
+The Driver config sets its limits in `outage`.
 
 - **`status.set`**: The node stamps the time, queues the call, and never blocks. It
   returns the key of the last resolved set of that name, or an empty string before the

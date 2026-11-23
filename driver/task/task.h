@@ -83,8 +83,10 @@ public:
     /// @brief returns the shared control authority states.
     virtual std::shared_ptr<control::States> control_states() { return nullptr; }
 
-    /// @brief returns the Driver's queue of Core calls.
-    virtual std::shared_ptr<::driver::outbox::Outbox> outbox() = 0;
+    /// @brief returns the Driver's queue of Core calls, or null and the error that kept
+    /// it from opening, whose data tells the user what to do.
+    virtual std::pair<std::shared_ptr<::driver::outbox::Outbox>, x::errors::Error>
+    outbox() = 0;
 
     /// @brief returns the rack key for this driver, used as the group identity for
     /// Core-side deduplication filtering.
@@ -126,6 +128,7 @@ public:
 class MockContext final : public Context {
     std::mutex mu;
     std::shared_ptr<::driver::outbox::Outbox> calls;
+    x::errors::Error calls_err;
 
 public:
     std::vector<synnax::task::Status> statuses;
@@ -136,7 +139,17 @@ public:
     ):
         Context(client), calls(std::move(outbox)) {}
 
-    std::shared_ptr<::driver::outbox::Outbox> outbox() override { return this->calls; }
+    /// @brief creates a context whose outbox failed to open with outbox_err.
+    MockContext(
+        const std::shared_ptr<synnax::Synnax> &client,
+        x::errors::Error outbox_err
+    ):
+        Context(client), calls_err(std::move(outbox_err)) {}
+
+    std::pair<std::shared_ptr<::driver::outbox::Outbox>, x::errors::Error>
+    outbox() override {
+        return {this->calls, this->calls_err};
+    }
 
     void set_status(synnax::task::Status &status) override {
         mu.lock();
@@ -162,7 +175,7 @@ class SynnaxContext final : public Context {
     std::shared_ptr<control::States> states;
     synnax::rack::Key rack;
     std::shared_ptr<StatusCache> statuses;
-    std::shared_ptr<::driver::outbox::Outbox> calls;
+    std::pair<std::shared_ptr<::driver::outbox::Outbox>, x::errors::Error> calls;
     /// @brief guards operations and cancelled.
     std::mutex operations_mu;
     /// @brief the open operations and the cancelled ones, by the key of their command.
@@ -190,7 +203,7 @@ public:
     SynnaxContext(
         const std::shared_ptr<synnax::Synnax> &client,
         std::shared_ptr<StatusCache> statuses,
-        std::shared_ptr<::driver::outbox::Outbox> outbox,
+        std::pair<std::shared_ptr<::driver::outbox::Outbox>, x::errors::Error> outbox,
         const std::shared_ptr<bypass::Bus> &bus = nullptr,
         const std::shared_ptr<control::States> &control_states = nullptr,
         const synnax::rack::Key rack_key = 0
@@ -208,7 +221,10 @@ public:
 
     synnax::rack::Key rack_key() override { return this->rack; }
 
-    std::shared_ptr<::driver::outbox::Outbox> outbox() override { return this->calls; }
+    std::pair<std::shared_ptr<::driver::outbox::Outbox>, x::errors::Error>
+    outbox() override {
+        return this->calls;
+    }
 
     void set_status(synnax::task::Status &status) override {
         if (const auto op = this->operation(status); op != nullptr)
@@ -426,7 +442,7 @@ public:
         synnax::rack::Rack rack,
         const std::shared_ptr<synnax::Synnax> &client,
         std::unique_ptr<Factory> factory,
-        std::shared_ptr<::driver::outbox::Outbox> outbox,
+        std::pair<std::shared_ptr<::driver::outbox::Outbox>, x::errors::Error> outbox,
         const ManagerConfig &cfg = {}
     ):
         rack(std::move(rack)),

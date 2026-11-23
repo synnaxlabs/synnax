@@ -14,11 +14,39 @@
 #include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/thread/thread.h"
 
+#include "driver/journal/journal.h"
 #include "driver/outbox/outbox.h"
-#include "driver/rack/state.h"
 #include "rack.h"
 
 namespace driver::rack {
+x::errors::Error
+outbox_failure(const std::filesystem::path &dir, const x::errors::Error &err) {
+    const auto path = dir.string();
+    std::string fix;
+    if (err.matches(outbox::UNKNOWN_VERSION) || err.matches(journal::UNKNOWN_VERSION) ||
+        err.matches(journal::UNKNOWN_TYPE))
+        fix = "A newer Driver wrote it. Update the Driver, or move " + path +
+              " aside to discard the changes it holds for the Core.";
+    else if (
+        err.matches(outbox::CORRUPT) || err.matches(journal::CORRUPT) ||
+        err.matches(journal::UNKNOWN_MAGIC)
+    )
+        fix = "Its files are damaged. Move " + path +
+              " aside to discard the changes it holds for the Core.";
+    else if (err.matches(journal::LOCKED))
+        fix = "Another Driver uses it. Stop the other Driver, or give each Driver its "
+              "own state directory.";
+    else
+        fix = "Make sure that the Driver can write to " + path +
+              " and that the disk has free space. On Linux, run 'sudo synnax-driver "
+              "install' to update the service.";
+    return {
+        err,
+        "The Driver cannot open its outbox in " + path + ": " + err.data + ". " + fix +
+            " Then restart the Driver."
+    };
+}
+
 bool Rack::should_exit(
     const x::errors::Error &err,
     const std::function<void()> &on_shutdown,
@@ -62,18 +90,14 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
     VLOG(1) << "loaded config. starting task manager";
     const auto rt_manager = std::make_shared<x::thread::rt::Manager>();
     const auto client = cfg.new_client();
-    auto [data, data_err] = state::data_dir(cfg.state_dir);
-    if (data_err) {
-        this->should_exit(data_err, on_shutdown);
-        return;
-    }
-    auto [outbox, outbox_err] = outbox::Outbox::open({
-        .dir = data / OUTBOX_DIR,
-        .statuses = client->statuses,
-    });
+    auto outbox_cfg = cfg.outbox;
+    outbox_cfg.dir = cfg.state_dir / DATA_DIR / OUTBOX_DIR;
+    outbox_cfg.statuses = client->statuses;
+    // The outbox serves only Arc status sets, so the rack runs without it.
+    auto [outbox, outbox_err] = outbox::Outbox::open(outbox_cfg);
     if (outbox_err) {
-        this->should_exit(outbox_err, on_shutdown);
-        return;
+        cfg.outbox_err = outbox_failure(outbox_cfg.dir, outbox_err);
+        LOG(ERROR) << OUTBOX_FAILURE_MSG << ". " << cfg.outbox_err.data;
     }
     {
         std::lock_guard lock{this->mu};
@@ -85,7 +109,10 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             cfg.rack,
             client,
             cfg.new_factory(client, rt_manager),
-            std::move(outbox),
+            std::pair<std::shared_ptr<outbox::Outbox>, x::errors::Error>{
+                std::move(outbox),
+                cfg.outbox_err
+            },
             cfg.manager
         );
     }

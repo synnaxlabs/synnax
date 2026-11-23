@@ -56,8 +56,20 @@ const x::errors::Error CORE_CHANGED = x::errors::SY.sub("driver").sub("core_chan
 /// Linux service user owns it.
 const std::string OPCUA_STATE_DIR = "opcua";
 
+/// @brief the directory in the state directory that holds the files the Driver writes
+/// as it runs. The Linux service user owns it.
+const std::string DATA_DIR = "data";
+
 /// @brief the directory in the data directory that holds the outbox.
 const std::string OUTBOX_DIR = "outbox";
+
+/// @brief the message of the rack status when the outbox cannot open.
+const std::string OUTBOX_FAILURE_MSG = "Failed to open outbox";
+
+/// @brief returns the error that tells the user why the outbox in dir cannot open and
+/// what to do. It matches err.
+x::errors::Error
+outbox_failure(const std::filesystem::path &dir, const x::errors::Error &err);
 
 /// @brief the flag that selects the state of the computer, which the Driver service
 /// reads, over the state of the user.
@@ -133,6 +145,8 @@ struct Config {
     task::ManagerConfig manager;
     /// @brief connection parameters to the Synnax cluster.
     synnax::Config connection;
+    /// @brief the settings of the outbox. The rack sets its directory and client.
+    outbox::Config outbox;
     /// @brief the list of integrations enabled for the driver.
     std::vector<std::string> integrations;
     /// @brief the directory that holds the persisted state file. Integrations keep
@@ -144,6 +158,9 @@ struct Config {
     /// @brief the version of the Core when it runs another minor than this Driver. The
     /// Driver then starts no tasks. Set by load_remote.
     std::optional<std::string> incompatible_core_version;
+    /// @brief the error that kept the outbox from opening, from outbox_failure. The
+    /// rack status reports it. Set by Rack::run.
+    x::errors::Error outbox_err;
 
     /// @brief returns a new task factory to use for creating tasks in the task manager.
     /// Give it the same client as the task manager. With an incompatible Core, the
@@ -167,6 +184,12 @@ struct Config {
            << cfg.connection << "\n"
            << cfg.timing << "\n"
            << cfg.manager << "\n"
+           << "  " << x::log::SHALE() << "outbox calls" << x::log::RESET() << ": "
+           << cfg.outbox.cap << "\n"
+           << "  " << x::log::SHALE() << "outbox retry interval" << x::log::RESET()
+           << ": " << cfg.outbox.retry.base_interval.seconds() << "s\n"
+           << "  " << x::log::SHALE() << "outbox max retry interval" << x::log::RESET()
+           << ": " << cfg.outbox.retry.max_interval.seconds() << "s\n"
            << "  " << x::log::SHALE() << "enabled integrations" << x::log::RESET()
            << ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
@@ -291,6 +314,31 @@ struct Config {
     load_config_file(x::args::Parser &args, x::breaker::Breaker &breaker);
 
     [[nodiscard]] x::errors::Error load_env();
+
+    /// @brief reads the settings of the outage section, or of the environment, from
+    /// p.
+    template<typename Parser>
+    void override_outage(Parser &p) {
+        const auto span = [&p](const std::string &name, const x::telem::TimeSpan &def) {
+            const auto s = p.field(name, def.seconds());
+            if (s <= 0) p.field_err(name, "must be greater than 0");
+            return x::telem::TimeSpan(static_cast<int64_t>(s * 1e9));
+        };
+        const auto count = [&p](const std::string &name, const std::size_t def) {
+            const auto n = p.field(name, static_cast<int64_t>(def));
+            if (n <= 0) p.field_err(name, "must be greater than 0");
+            return static_cast<std::size_t>(n);
+        };
+        this->outbox.cap = count("outbox_calls", this->outbox.cap);
+        this->outbox.retry.base_interval = span(
+            "outbox_retry_interval",
+            this->outbox.retry.base_interval
+        );
+        this->outbox.retry.max_interval = span(
+            "outbox_max_retry_interval",
+            this->outbox.retry.max_interval
+        );
+    }
 
     [[nodiscard]] x::errors::Error load_args(x::args::Parser &args);
 

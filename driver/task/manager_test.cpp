@@ -650,7 +650,10 @@ protected:
             piped_rack,
             piped,
             std::move(factory),
-            ::driver::outbox::testutil::open(piped->statuses),
+            std::pair{
+                ::driver::outbox::testutil::open(piped->statuses),
+                x::errors::NIL
+            },
             cfg
         );
     }
@@ -700,7 +703,10 @@ protected:
             rack,
             client,
             std::move(factory),
-            ::driver::outbox::testutil::open(client->statuses),
+            std::pair{
+                ::driver::outbox::testutil::open(client->statuses),
+                x::errors::NIL
+            },
             cfg
         );
         std::promise<void> started;
@@ -3874,7 +3880,7 @@ TEST_F(ShutdownTest, DuringConfiguration) {
         rack,
         client,
         std::move(factory),
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
 
     std::promise<void> started;
@@ -3908,7 +3914,7 @@ TEST_F(ShutdownTest, WithPendingOps) {
         rack,
         client,
         std::move(factory),
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
 
     std::promise<void> started;
@@ -3999,7 +4005,7 @@ TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
         rack,
         client,
         std::move(factory),
-        ::driver::outbox::testutil::open(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL},
         ManagerConfig{
             .op_timeout = 60 * x::telem::SECOND,
             .poll_interval = 1 * x::telem::SECOND,
@@ -4090,7 +4096,7 @@ TEST_F(ShutdownTest, ParallelTaskStop) {
         rack,
         client,
         std::move(factory),
-        ::driver::outbox::testutil::open(client->statuses)
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
 
     std::promise<void> started;
@@ -4159,7 +4165,7 @@ TEST_F(ShutdownTest, StuckWorkerDetach) {
         rack,
         client,
         std::move(factory),
-        ::driver::outbox::testutil::open(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL},
         ManagerConfig{
             .op_timeout = 60 * x::telem::SECOND,
             .poll_interval = 1 * x::telem::SECOND,
@@ -4355,9 +4361,26 @@ TEST_F(SynnaxContextTest, ReturnsInjectedOutbox) {
     const auto ctx = std::make_shared<SynnaxContext>(
         client,
         std::make_shared<StatusCache>(client->statuses),
-        outbox
+        std::pair{outbox, x::errors::NIL}
     );
-    ASSERT_EQ(ctx->outbox(), outbox);
+    const auto [got, err] = ctx->outbox();
+    ASSERT_NIL(err);
+    ASSERT_EQ(got, outbox);
+}
+
+/// @brief it should give tasks the error that kept the outbox from opening.
+TEST_F(SynnaxContextTest, ReturnsOutboxError) {
+    const auto ctx = std::make_shared<SynnaxContext>(
+        client,
+        std::make_shared<StatusCache>(client->statuses),
+        std::pair<std::shared_ptr<::driver::outbox::Outbox>, x::errors::Error>{
+            nullptr,
+            ::driver::outbox::CORRUPT
+        }
+    );
+    const auto [got, err] = ctx->outbox();
+    ASSERT_OCCURRED_AS(err, ::driver::outbox::CORRUPT);
+    ASSERT_EQ(got, nullptr);
 }
 
 /// @brief it should send the latest status of each task again, with no command key.
@@ -4365,7 +4388,7 @@ TEST_F(SynnaxContextTest, ResendsLatestStatuses) {
     const auto ctx = std::make_shared<SynnaxContext>(
         client,
         std::make_shared<StatusCache>(client->statuses),
-        ::driver::outbox::testutil::open(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL},
         nullptr,
         nullptr,
         rack.key
@@ -4660,7 +4683,7 @@ TEST_F(TaskManagerTest, MissedTaskChangesSyncTasksInPlace) {
         managed_rack,
         managed,
         std::move(factory),
-        ::driver::outbox::testutil::open(managed->statuses)
+        std::pair{::driver::outbox::testutil::open(managed->statuses), x::errors::NIL}
     );
     std::promise<void> started;
     thread = std::thread([&] {
@@ -4735,7 +4758,7 @@ TEST_F(TaskManagerTest, MissedChangesReadControlStateAndRackNameAgain) {
         managed_rack,
         managed,
         std::move(factory),
-        ::driver::outbox::testutil::open(managed->statuses)
+        std::pair{::driver::outbox::testutil::open(managed->statuses), x::errors::NIL}
     );
     std::promise<void> started;
     thread = std::thread([&] {
@@ -4819,7 +4842,7 @@ TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
         managed_rack,
         managed,
         std::move(factory),
-        ::driver::outbox::testutil::open(managed->statuses)
+        std::pair{::driver::outbox::testutil::open(managed->statuses), x::errors::NIL}
     );
     std::promise<void> started;
     std::promise<x::errors::Error> ended;
@@ -5027,7 +5050,10 @@ protected:
             managed_rack,
             managed,
             std::move(factory),
-            ::driver::outbox::testutil::open(managed->statuses),
+            std::pair{
+                ::driver::outbox::testutil::open(managed->statuses),
+                x::errors::NIL
+            },
             ManagerConfig{.poll_interval = poll_interval}
         );
         std::promise<void> started;

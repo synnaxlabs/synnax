@@ -1122,7 +1122,10 @@ public:
     ):
         Context(client), calls(std::move(outbox)) {}
 
-    std::shared_ptr<::driver::outbox::Outbox> outbox() override { return this->calls; }
+    std::pair<std::shared_ptr<::driver::outbox::Outbox>, x::errors::Error>
+    outbox() override {
+        return {this->calls, x::errors::NIL};
+    }
 
     void set_status(synnax::task::Status &status) override {
         std::lock_guard lock(this->mu);
