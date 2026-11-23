@@ -16,10 +16,10 @@ import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
-import { SCHEMAS } from "@/feature/http/device/types";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
   awaitEditableForm,
+  clickDeploy,
   deployAndAwaitTask,
   preloadForms,
   renderTaskFormTab,
@@ -99,6 +99,36 @@ const createEndpoint = async ({
     icd: format.key,
     messages: [icd.readMessageZ.parse({ message: message.key, bindings })],
   };
+};
+
+/** Adds a message of fields to the ICD of ep, and reads it after the others. */
+const addMessage = async (
+  ep: HTTP.Task.ReadEndpoint,
+  name: string,
+  fields: icd.JSONField[],
+): Promise<icd.Message> => {
+  const icdKey = ep.icd;
+  assertDefined(icdKey, "the endpoint reads no ICD");
+  const message: icd.Message = {
+    key: uuid.create(),
+    name,
+    payload: {
+      format: "json",
+      match: { type: "string", pointer: "/kind", value: name },
+      fields,
+    },
+  };
+  await client.icds.dispatch(
+    icdKey,
+    icd.insert({
+      path: ["messages"],
+      value: message,
+      after: ep.messages.at(-1)?.message,
+    }),
+  );
+  const bindings = fields.map(({ key }) => icd.readBindingZ.parse({ field: key }));
+  ep.messages.push(icd.readMessageZ.parse({ message: message.key, bindings }));
+  return message;
 };
 
 // The form body renders against a device only.
@@ -190,6 +220,54 @@ describe("Read", () => {
         (await client.icds.retrieve(icdKey)).messages.map(({ name }) => name),
       ).toEqual(["GET", "GET 2"]),
     );
+  });
+
+  it("should add a message to an endpoint from its details", async () => {
+    const ep = await createEndpoint({ key: "ep1", path: "/a" });
+    const icdKey = ep.icd;
+    assertDefined(icdKey, "the endpoint reads no ICD");
+    const { draft } = await renderWithDevice([ep]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/a/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
+    await waitFor(async () => {
+      const { messages } = await client.icds.retrieve(icdKey);
+      expect(messages.map(({ name }) => name)).toEqual(["GET /a", "GET /a 2"]);
+      const [{ messages: reads }] = await retrieveEndpoints(draft.key);
+      expect(reads.map(({ message }) => message)).toEqual(
+        messages.map(({ key }) => key),
+      );
+    });
+  });
+
+  it("should add a message from the context menu of an endpoint", async () => {
+    const { draft } = await renderWithDevice([
+      await createEndpoint({ key: "ep1", path: "/a" }),
+    ]);
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/a/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
+    await screen.findByRole("treeitem", { name: "GET /a 2" });
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key))[0].messages).toHaveLength(2),
+    );
+  });
+
+  it("should read a new message in a new ICD for an endpoint that reads none", async () => {
+    const { draft } = await renderWithDevice([
+      http.readEndpointZ.parse({ key: "ep1", path: "/a" }),
+    ]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/a/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
+    const [ep] = await waitFor(async () => {
+      const endpoints = await retrieveEndpoints(draft.key);
+      expect(endpoints[0].icd).toBeDefined();
+      return endpoints;
+    });
+    const icdKey = ep.icd;
+    assertDefined(icdKey, "the endpoint reads no ICD");
+    const format = await client.icds.retrieve(icdKey);
+    expect(format.name).toBe("HTTP read task");
+    expect(format.messages.map(({ name }) => name)).toEqual(["GET /a"]);
+    expect(ep.messages).toEqual([{ message: format.messages[0].key, bindings: [] }]);
   });
 
   it("should add a field to the message of an endpoint and read it", async () => {
@@ -415,10 +493,70 @@ describe("Read", () => {
     expect(binding.channel).not.toBe(0);
     const ch = await client.channels.retrieve(binding.channel);
     expect(ch.name).toBe(`${channel.escapeInvalidName(dev.name)}_data_v`);
-    const stored = await client.devices.retrieve({ key: dev.key, schemas: SCHEMAS });
+    const stored = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
     expect(Object.keys(stored.properties.read)).toEqual([
       `/data#${messages[0].message}`,
     ]);
+  });
+
+  it("should name and store the channels of a later message by that message", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    const status = await addMessage(ep, "status", [createField("w")]);
+    const { container, draft, dev } = await renderWithDevice([ep]);
+    await screen.findAllByRole("treeitem", { name: /\/data/ });
+    const created = await deploy(container, draft.key);
+    const [, later] = created.config.endpoints[0].messages;
+    const ch = await client.channels.retrieve(later.bindings[0].channel);
+    expect(ch.name).toBe(`${channel.escapeInvalidName(dev.name)}_data_status_w`);
+    const stored = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(stored.properties.read[`/data#${status.key}`].channels).toEqual({
+      "/w": ch.key,
+    });
+  });
+
+  it("should keep the channels of an earlier message when a later one fails", async () => {
+    const time = await client.channels.create({
+      name: uniqueName("time"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const notIndex = await client.channels.create({
+      name: uniqueName("not_index"),
+      dataType: DataType.FLOAT64,
+      index: time.key,
+    });
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    const failing = await addMessage(ep, "failing", [createField("w")]);
+    const { container, dev } = await renderWithDevice([ep], {
+      read: { [`/data#${failing.key}`]: { index: notIndex.key, channels: {} } },
+    });
+    await screen.findAllByRole("treeitem", { name: /\/data/ });
+    await clickDeploy(container);
+    const kept = await waitFor(async () => {
+      const { properties } = await client.devices.retrieve({
+        key: dev.key,
+        schemas: HTTP.Device.SCHEMAS,
+      });
+      const channels = properties.read[`/data#${ep.messages[0].message}`]?.channels;
+      expect(channels?.["/v"]).toBeGreaterThan(0);
+      return channels["/v"];
+    });
+    const ch = await client.channels.retrieve(kept);
+    expect(ch.name).toBe(`${channel.escapeInvalidName(dev.name)}_data_v`);
   });
 
   it("should skip a disabled endpoint on deploy", async () => {
