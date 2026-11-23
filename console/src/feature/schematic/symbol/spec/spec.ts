@@ -210,9 +210,15 @@ export const levelIssues = (
   const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
   for (const p of spec.parts) {
     if (!levels.has(p.key)) continue;
-    const shapes = new Set(p.selectors.flatMap((s) => [...doc.querySelectorAll(s)]));
-    if (shapes.size > 1) issues.set(p.key, "shapes");
-    else if ([...shapes].some(clipped)) issues.set(p.key, "clip");
+    const matched = [
+      ...new Set(p.selectors.flatMap((s) => [...doc.querySelectorAll(s)])),
+    ];
+    // The renderer moves only the outermost elements of a part.
+    const shapes = matched.filter(
+      (el) => !matched.some((o) => o !== el && o.contains(el)),
+    );
+    if (shapes.length > 1) issues.set(p.key, "shapes");
+    else if (shapes.some(clipped)) issues.set(p.key, "clip");
   }
   return issues;
 };
