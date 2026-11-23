@@ -82,10 +82,6 @@ void (*put_for(const x::telem::DataType &dt))(x::telem::Series &, std::uint64_t)
     return put<std::uint64_t, Signed>;
 }
 
-x::errors::Error config_error(const std::string &text) {
-    return x::errors::Error(CONFIG_ERROR, text);
-}
-
 constexpr std::uint32_t MAX_STANDARD_CAN_ID = 0x7FF;
 constexpr std::uint32_t MAX_EXTENDED_CAN_ID = 0x1FFFFFFF;
 /// @brief EXTENDED_BIT marks an extended identifier in the keys of Binary::exact.
@@ -132,9 +128,10 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
         if (b.bit_length != 32 && b.bit_length != 64)
             return {
                 Field{},
-                config_error(
+                x::errors::Error(
+                    CONFIG_ERROR,
                     "a float field must be 32 or 64 bits, not " +
-                    std::to_string(b.bit_length)
+                        std::to_string(b.bit_length)
                 ),
             };
         field.type = b.bit_length == 32 ? Type::FLOAT32 : Type::FLOAT64;
@@ -148,15 +145,19 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
     if (!converts(kind, dt))
         return {
             Field{},
-            config_error(
+            x::errors::Error(
+                CONFIG_ERROR,
                 "cannot write " + std::string(kind) + " values to " + dt.name() +
-                " channels"
+                    " channels"
             ),
         };
     if (field.scaled && dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)
         return {
             Field{},
-            config_error("a scaled field requires a float channel, not " + dt.name()),
+            x::errors::Error(
+                CONFIG_ERROR,
+                "a scaled field requires a float channel, not " + dt.name()
+            ),
         };
     if (const auto w = width_of(dt); w.has_value()) {
         const bool is_signed = field.type == Type::SIGNED;
@@ -164,9 +165,10 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
         if (needed > w->bits)
             return {
                 Field{},
-                config_error(
+                x::errors::Error(
+                    CONFIG_ERROR,
                     "cannot write " + std::to_string(b.bit_length) + "-bit " +
-                    std::string(kind) + " values to " + dt.name() + " channels"
+                        std::string(kind) + " values to " + dt.name() + " channels"
                 ),
             };
         field.put = is_signed ? put_for<true>(dt) : put_for<false>(dt);
@@ -179,12 +181,14 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
             if constexpr (std::is_same_v<F, icd::FloatBinaryField>) {
                 double d = v.default_->value;
                 if (!std::isfinite(d))
-                    return config_error(
+                    return x::errors::Error(
+                        CONFIG_ERROR,
                         x::json::Number(d).to_string() + " is not finite"
                     );
                 if (n == 32) {
                     if (std::abs(d) > std::numeric_limits<float>::max())
-                        return config_error(
+                        return x::errors::Error(
+                            CONFIG_ERROR,
                             x::json::Number(d).to_string() + " overflows float32"
                         );
                     d = static_cast<float>(d);
@@ -194,17 +198,19 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
                 const auto i = v.default_->value;
                 const auto shift = 64 - n;
                 if ((i << shift) >> shift != i)
-                    return config_error(
+                    return x::errors::Error(
+                        CONFIG_ERROR,
                         std::to_string(i) + " is out of range for " +
-                        std::to_string(n) + " bits"
+                            std::to_string(n) + " bits"
                     );
                 return field.append(static_cast<std::uint64_t>(i), dst);
             } else {
                 const auto u = v.default_->value;
                 if (n < 64 && u >> n != 0)
-                    return config_error(
+                    return x::errors::Error(
+                        CONFIG_ERROR,
                         std::to_string(u) + " is out of range for " +
-                        std::to_string(n) + " bits"
+                            std::to_string(n) + " bits"
                     );
                 return field.append(u, dst);
             }
@@ -280,7 +286,10 @@ std::pair<Binary::Condition, x::errors::Error> Binary::Message::resolve(
 ) {
     if (!f.multiplexor.has_value()) return {Condition{}, x::errors::NIL};
     if (f.multiplex_values.empty())
-        return {Condition{}, config_error("multiplex values are empty")};
+        return {
+            Condition{},
+            x::errors::Error(CONFIG_ERROR, "multiplex values are empty")
+        };
     Condition c{.values = {f.multiplex_values.begin(), f.multiplex_values.end()}};
     const auto &key = *f.multiplexor;
     if (const auto it = index.find(key); it != index.end()) {
@@ -291,19 +300,28 @@ std::pair<Binary::Condition, x::errors::Error> Binary::Message::resolve(
     if (found == fields.end())
         return {
             Condition{},
-            config_error("multiplexor " + key.to_string() + " does not exist"),
+            x::errors::Error(
+                CONFIG_ERROR,
+                "multiplexor " + key.to_string() + " does not exist"
+            ),
         };
     const auto &mux = *found->second;
     const auto &mb = icd::base(mux);
     if (std::holds_alternative<icd::FloatBinaryField>(mux))
         return {
             Condition{},
-            config_error("multiplexor " + mb.name + " is a float field"),
+            x::errors::Error(
+                CONFIG_ERROR,
+                "multiplexor " + mb.name + " is a float field"
+            ),
         };
     // A multiplexor joins index only after the ones above it, so a cycle never ends in
     // index. A chain longer than the fields is a cycle.
     if (depth >= fields.size())
-        return {Condition{}, config_error("multiplexors form a cycle")};
+        return {
+            Condition{},
+            x::errors::Error(CONFIG_ERROR, "multiplexors form a cycle")
+        };
     auto [bits, bits_err] = BitRange::create(mb);
     if (bits_err) return {Condition{}, as_config(bits_err, "multiplexor " + mb.name)};
     auto [above, err] = this->resolve(mb, fields, index, depth + 1);
@@ -370,9 +388,10 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
             if (found == by_key.end())
                 return {
                     Binary{},
-                    config_error(
+                    x::errors::Error(
+                        CONFIG_ERROR,
                         "message " + m.name + ": field " + b.field.to_string() +
-                        " does not exist"
+                            " does not exist"
                     ),
                 };
             const auto &base = icd::base(*found->second);
@@ -386,9 +405,10 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
                 length.has_value() && field.bits.end() > *length)
                 return {
                     Binary{},
-                    config_error(
+                    x::errors::Error(
+                        CONFIG_ERROR,
                         context + ": the field ends past the " +
-                        std::to_string(*length) + "-byte payload"
+                            std::to_string(*length) + "-byte payload"
                     ),
                 };
             msg.fields.push_back(std::move(field));
@@ -405,9 +425,10 @@ x::errors::Error
 Binary::route(const BinaryMessage &m, const std::size_t i, const Layout &fields) {
     if (!m.payload.identifier.has_value()) {
         if (this->fallback.has_value())
-            return config_error(
+            return x::errors::Error(
+                CONFIG_ERROR,
                 "messages " + this->messages[*this->fallback].name + " and " + m.name +
-                " both have no identifier"
+                    " both have no identifier"
             );
         this->fallback = i;
         return x::errors::NIL;
@@ -419,20 +440,25 @@ Binary::route(const BinaryMessage &m, const std::size_t i, const Layout &fields)
     const auto context = "message " + m.name + ": identifier";
     const auto found = fields.find(id.field);
     if (found == fields.end())
-        return config_error(
+        return x::errors::Error(
+            CONFIG_ERROR,
             context + ": field " + id.field.to_string() + " does not exist"
         );
     const auto &f = *found->second;
     const auto &b = icd::base(f);
     if (std::holds_alternative<icd::FloatBinaryField>(f))
-        return config_error(context + ": field " + b.name + " is a float field");
+        return x::errors::Error(
+            CONFIG_ERROR,
+            context + ": field " + b.name + " is a float field"
+        );
     auto [bits, err] = BitRange::create(b);
     if (err) return as_config(err, context + ": field " + b.name);
     if (const auto length = m.payload.length;
         length.has_value() && bits.end() > *length)
-        return config_error(
+        return x::errors::Error(
+            CONFIG_ERROR,
             context + ": field " + b.name + ": the field ends past the " +
-            std::to_string(*length) + "-byte payload"
+                std::to_string(*length) + "-byte payload"
         );
     const bool is_signed = std::holds_alternative<icd::IntegerBinaryField>(f);
     const std::int64_t v = id.value;
@@ -441,7 +467,8 @@ Binary::route(const BinaryMessage &m, const std::size_t i, const Layout &fields)
                                               v < (std::int64_t{1} << (n - 1)))
                                 : v >= 0 && (n >= 63 || v < (std::int64_t{1} << n));
     if (!fits)
-        return config_error(
+        return x::errors::Error(
+            CONFIG_ERROR,
             context + ": " + std::to_string(v) + " is out of range for field " + b.name
         );
     auto h = std::ranges::find(this->headers, bits, &Header::bits);
@@ -454,9 +481,10 @@ Binary::route(const BinaryMessage &m, const std::size_t i, const Layout &fields)
                        : static_cast<std::uint64_t>(v) & ((std::uint64_t{1} << n) - 1);
     const auto [it, inserted] = h->messages.try_emplace(raw, i);
     if (!inserted)
-        return config_error(
+        return x::errors::Error(
+            CONFIG_ERROR,
             "messages " + this->messages[it->second].name + " and " + m.name +
-            " match the same identifier value " + std::to_string(v)
+                " match the same identifier value " + std::to_string(v)
         );
     return x::errors::NIL;
 }
@@ -465,9 +493,10 @@ x::errors::Error Binary::route_can(const icd::CanIdentifier &id, const std::size
     const std::uint32_t width = id.extended ? MAX_EXTENDED_CAN_ID : MAX_STANDARD_CAN_ID;
     const auto &name = this->messages[i].name;
     if (id.id > width)
-        return config_error(
+        return x::errors::Error(
+            CONFIG_ERROR,
             "message " + name + ": identifier: id " + hex(id.id) +
-            " exceeds the maximum " + hex(width)
+                " exceeds the maximum " + hex(width)
         );
     const std::uint32_t mask = id.mask.value_or(width) & width;
     const Masked rule{
@@ -494,10 +523,11 @@ x::errors::Error Binary::route_can(const icd::CanIdentifier &id, const std::size
     for (const auto &other: this->masked)
         check(other);
     if (clash.has_value())
-        return config_error(
+        return x::errors::Error(
+            CONFIG_ERROR,
             "messages " + this->messages[clash->message].name + " and " + name +
-            " both match " + (id.extended ? "extended " : "") + "CAN identifier " +
-            hex((clash->id & clash->mask) | (rule.id & rule.mask))
+                " both match " + (id.extended ? "extended " : "") + "CAN identifier " +
+                hex((clash->id & clash->mask) | (rule.id & rule.mask))
         );
     if (mask == width)
         this->exact[rule.id | (id.extended ? EXTENDED_BIT : 0)] = i;
