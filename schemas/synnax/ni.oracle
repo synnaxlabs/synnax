@@ -1227,15 +1227,15 @@ CIChannel union on type extends BaseCIChannel {
             @validate max 9007199254740991
             @validate min 1
         }
+        range       spatial.ClosedBounds = { lower = 2, upper = 100 } {
+            @doc value "is the expected frequency range."
+        }
         divisor     uint32 = 4 {
             @doc value    "is the counter divisor for large-range measurement."
             @validate min 1
         }
         terminal    string = "" {
             @doc value "is the terminal the counter signal is wired to."
-        }
-        range       spatial.ClosedBounds = { lower = 2, upper = 100 } {
-            @doc value "is the expected frequency range."
         }
 
         @doc value "measures signal frequency."
@@ -1272,15 +1272,15 @@ CIChannel union on type extends BaseCIChannel {
             @validate max 9007199254740991
             @validate min 1
         }
+        range         spatial.ClosedBounds = { lower = 0.000001, upper = 0.1 } {
+            @doc value "is the expected period range, in the selected units."
+        }
         divisor       uint32 = 4 {
             @doc value    "is the counter divisor for large-range measurement."
             @validate min 1
         }
         terminal      string = "" {
             @doc value "is the terminal the counter signal is wired to."
-        }
-        range         spatial.ClosedBounds = { lower = 0.000001, upper = 0.1 } {
-            @doc value "is the expected period range, in the selected units."
         }
 
         @doc value "measures signal period."

@@ -1773,12 +1773,12 @@ inline CIFrequencyChannel CIFrequencyChannel::parse(x::json::Parser parser) {
         "meas_time",
         ::x::telem::TimeSpan(6000)
     );
-    result.divisor = parser.field<std::uint32_t>("divisor", 4);
-    result.terminal = parser.field<std::string>("terminal", "");
     result.range = parser.field<::x::spatial::ClosedBounds>(
         "range",
         ::x::spatial::ClosedBounds{.lower = 2, .upper = 100}
     );
+    result.divisor = parser.field<std::uint32_t>("divisor", 4);
+    result.terminal = parser.field<std::string>("terminal", "");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1794,9 +1794,9 @@ inline x::json::json CIFrequencyChannel::to_json() const {
     j["edge"] = this->edge;
     j["meas_method"] = this->meas_method;
     j["meas_time"] = this->meas_time.nanoseconds();
+    j["range"] = this->range.to_json();
     j["divisor"] = this->divisor;
     j["terminal"] = this->terminal;
-    j["range"] = this->range.to_json();
     j["type"] = this->type;
     return j;
 }
@@ -1836,12 +1836,12 @@ inline CIPeriodChannel CIPeriodChannel::parse(x::json::Parser parser) {
         "meas_time",
         ::x::telem::TimeSpan(1000000)
     );
-    result.divisor = parser.field<std::uint32_t>("divisor", 4);
-    result.terminal = parser.field<std::string>("terminal", "");
     result.range = parser.field<::x::spatial::ClosedBounds>(
         "range",
         ::x::spatial::ClosedBounds{.lower = 0.000001, .upper = 0.100000}
     );
+    result.divisor = parser.field<std::uint32_t>("divisor", 4);
+    result.terminal = parser.field<std::string>("terminal", "");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1857,9 +1857,9 @@ inline x::json::json CIPeriodChannel::to_json() const {
     j["starting_edge"] = this->starting_edge;
     j["meas_method"] = this->meas_method;
     j["meas_time"] = this->meas_time.nanoseconds();
+    j["range"] = this->range.to_json();
     j["divisor"] = this->divisor;
     j["terminal"] = this->terminal;
-    j["range"] = this->range.to_json();
     j["type"] = this->type;
     return j;
 }

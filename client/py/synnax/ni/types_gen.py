@@ -1302,11 +1302,11 @@ class CIFrequencyChannel(BaseCIChannel, CustomScale, MinMaxVal):
     meas_time: telem.TimeSpan = Field(
         default=telem.TimeSpan(6000), ge=1, le=9007199254740991
     )
-    divisor: int = Field(default=4, ge=1, le=4294967295)
-    terminal: str = ""
     range: spatial.ClosedBounds = Field(
         default_factory=lambda: spatial.ClosedBounds(lower=2, upper=100)
     )
+    divisor: int = Field(default=4, ge=1, le=4294967295)
+    terminal: str = ""
 
 
 class CIEdgeCountChannel(BaseCIChannel):
@@ -1329,11 +1329,11 @@ class CIPeriodChannel(BaseCIChannel, CustomScale, MinMaxVal):
     meas_time: telem.TimeSpan = Field(
         default=telem.TimeSpan(1000000), ge=1, le=9007199254740991
     )
-    divisor: int = Field(default=4, ge=1, le=4294967295)
-    terminal: str = ""
     range: spatial.ClosedBounds = Field(
         default_factory=lambda: spatial.ClosedBounds(lower=0.000001, upper=0.100000)
     )
+    divisor: int = Field(default=4, ge=1, le=4294967295)
+    terminal: str = ""
 
 
 class CIPulseWidthChannel(BaseCIChannel, CustomScale, MinMaxVal):

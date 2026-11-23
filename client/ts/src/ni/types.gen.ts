@@ -1407,12 +1407,12 @@ export const ciFrequencyChannelZ = baseCIChannelZ
     measTime: telem.numericTimeSpanZ
       .check(z.gte(1), z.lte(9007199254740991))
       .default(6000),
+    /** range is the expected frequency range. */
+    range: spatial.closedBoundsZ().prefault({ lower: 2, upper: 100 }),
     /** divisor is the counter divisor for large-range measurement. */
     divisor: z.uint32().min(1).default(4),
     /** terminal is the terminal the counter signal is wired to. */
     terminal: z.string().default(""),
-    /** range is the expected frequency range. */
-    range: spatial.closedBoundsZ().prefault({ lower: 2, upper: 100 }),
   });
 export interface CIFrequencyChannel extends z.infer<typeof ciFrequencyChannelZ> {}
 
@@ -1446,12 +1446,12 @@ export const ciPeriodChannelZ = baseCIChannelZ
     measTime: telem.numericTimeSpanZ
       .check(z.gte(1), z.lte(9007199254740991))
       .default(1000000),
+    /** range is the expected period range, in the selected units. */
+    range: spatial.closedBoundsZ().prefault({ lower: 0.000001, upper: 0.1 }),
     /** divisor is the counter divisor for large-range measurement. */
     divisor: z.uint32().min(1).default(4),
     /** terminal is the terminal the counter signal is wired to. */
     terminal: z.string().default(""),
-    /** range is the expected period range, in the selected units. */
-    range: spatial.closedBoundsZ().prefault({ lower: 0.000001, upper: 0.1 }),
   });
 export interface CIPeriodChannel extends z.infer<typeof ciPeriodChannelZ> {}
 
