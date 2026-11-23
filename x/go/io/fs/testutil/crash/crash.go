@@ -42,6 +42,9 @@ type Record struct {
 }
 
 // Engine is the store under test. An adapter maps each record to the data of the store.
+// When the engine also has the method Audit(ctx context.Context) error, Run calls it
+// after each recovery that returned its records, and an error breaks R5. Audit checks
+// only what Recovered read, and reads no disk, so a read fault reaches only Recovered.
 type Engine interface {
 	// Commit stores r and asks for the ack want. It returns the ack that the engine
 	// gives, which can be the other level.
@@ -122,10 +125,7 @@ const (
 	R5 Rule = "R5"
 )
 
-// Auditor is an Engine that checks its own invariants. Run calls Audit after each
-// recovery that returned its records, and an error breaks R5. Audit checks only what
-// Recovered read, and reads no disk, so a read fault reaches only Recovered.
-type Auditor interface {
+type auditor interface {
 	Engine
 	Audit(ctx context.Context) error
 }

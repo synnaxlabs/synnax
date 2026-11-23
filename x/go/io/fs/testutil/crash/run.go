@@ -537,8 +537,8 @@ func (r *run) recover(
 	if records, err = engine.Recovered(r.ctx); err != nil {
 		return nil, nil, nil, err
 	}
-	if auditor, ok := engine.(Auditor); ok {
-		audit = auditor.Audit(r.ctx)
+	if a, ok := engine.(auditor); ok {
+		audit = a.Audit(r.ctx)
 	}
 	return records, nil, audit, nil
 }
