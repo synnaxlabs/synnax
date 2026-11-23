@@ -224,6 +224,17 @@ describe("Input", () => {
     expect(onRender).not.toHaveBeenCalled();
   });
 
+  it("should keep the fade of a cut value through a render", async () => {
+    const props = { value: "A long value", onChange: () => {} };
+    const { getByRole, rerender } = await renderThemed(<Input.Text {...props} />);
+    const input = getByRole("textbox").element();
+    assert(input instanceof HTMLElement);
+    input.style.width = "4rem";
+    await expect.poll(() => computed(input, "mask-image")).toContain("gradient");
+    await rerender(<Input.Text {...props} className="other" />);
+    expect(computed(input, "mask-image")).toContain("gradient");
+  });
+
   it("should stack above the packed button beside it", async () => {
     const { getByRole } = await renderThemed(
       <Input.Text value="" onChange={() => {}} placeholder="Name">
