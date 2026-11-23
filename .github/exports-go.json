@@ -29,6 +29,13 @@
       "receiver": "JSONEncoder",
       "name": "HasDefault",
       "caller": "https://github.com/synnaxlabs/synnax/pull/6668"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "receiver": "Table",
+      "name": "RetargetHolders",
+      "caller": "sy-6526-heal-display-links-when-a-channel-takes-a-tombstone-path"
     }
   ]
 }

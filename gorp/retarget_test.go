@@ -289,6 +289,23 @@ var _ = Describe("RetargetHolders", func() {
 		Expect(retrievePlot(ctx, "a").Ys).To(Equal([]uint32{2}))
 	})
 
+	DescribeTable("Should refuse a map that names the zero key and write no holder",
+		func(ctx SpecContext, to map[uint32]uint32) {
+			createPlot(ctx, rtPlot{Key: "a", X: 1, Ys: []uint32{1, 2}})
+			Expect(retarget(ctx, to, dependents(ctx, 1))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"cannot retarget channel to or from the zero key",
+				)),
+			))
+			p := retrievePlot(ctx, "a")
+			Expect(p.X).To(Equal(uint32(1)))
+			Expect(p.Ys).To(Equal([]uint32{1, 2}))
+		},
+		Entry("from the zero key", map[uint32]uint32{0: 3, 1: 3}),
+		Entry("onto the zero key", map[uint32]uint32{1: 0}),
+	)
+
 	It("Should write nothing for an empty map", func(ctx SpecContext) {
 		createPlot(ctx, rtPlot{Key: "a", Ys: []uint32{1}})
 		Expect(retarget(ctx, nil, dependents(ctx, 1))).To(Succeed())
