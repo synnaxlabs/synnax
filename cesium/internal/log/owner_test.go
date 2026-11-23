@@ -537,8 +537,9 @@ var _ = Describe("Log", func() {
 				open(logSize)
 				closeLog()
 				Expect(l.Append(of(&log.Drop{Key: 3})).Wait()).Error().
-					To(MatchError(log.ErrClosed))
-				Expect(hook.refusals()).To(HaveExactElements(MatchError(log.ErrClosed)))
+					To(MatchError("log is closed"))
+				Expect(hook.refusals()).
+					To(HaveExactElements(MatchError("log is closed")))
 			})
 
 			It("Should stop an entry with no Commit two blocks before the end, so "+

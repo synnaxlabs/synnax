@@ -23,9 +23,9 @@ var (
 	// ErrIncomplete is the error of a head whose header sector is zero: its switch
 	// never reached its commit point.
 	ErrIncomplete = errors.New("head is not complete")
-	// ErrUnknown is the error of a head format that this binary does not know. A newer
+	// errUnknown is the error of a head format that this binary does not know. A newer
 	// binary wrote it.
-	ErrUnknown = errors.New("unknown head format")
+	errUnknown = errors.New("unknown head format")
 )
 
 // Header is the header sector of a head.
@@ -73,13 +73,13 @@ func decodeSector(b []byte) (Header, error) {
 		return h, corrupt("header sector fails its check")
 	}
 	if v := binary.LittleEndian.Uint16(s[8:]); v != formatVersion {
-		return h, errors.Wrapf(ErrUnknown, "head format version %d", v)
+		return h, errors.Wrapf(errUnknown, "head format version %d", v)
 	}
 	if s[10] != kindHead {
 		return h, corrupt("header sector has kind %d, not a head", s[10])
 	}
 	if n := binary.LittleEndian.Uint32(s[80:]); n != sectionCount {
-		return h, errors.Wrapf(ErrUnknown, "head with %d sections", n)
+		return h, errors.Wrapf(errUnknown, "head with %d sections", n)
 	}
 	if !allZero(s[11:16]) || !allZero(s[84:88]) || !allZero(s[100:sectorCRC]) {
 		return h, corrupt("header sector has a set reserved byte")
@@ -143,7 +143,7 @@ func sections(b []byte, h Header) ([sectionCount + 1]section, error) {
 		}
 		if v := binary.LittleEndian.Uint16(e[2:]); v != recordVersion {
 			return out, errors.Wrapf(
-				ErrUnknown,
+				errUnknown,
 				"head section %d version %d",
 				kind,
 				v,
@@ -179,7 +179,7 @@ func sections(b []byte, h Header) ([sectionCount + 1]section, error) {
 	}
 	for _, kind := range []int{sectionParts, sectionDead, sectionKills, sectionTombs} {
 		if out[kind].count != 0 {
-			return out, errors.Wrapf(ErrUnknown, "head with parts or tombstones "+
+			return out, errors.Wrapf(errUnknown, "head with parts or tombstones "+
 				"(section %d)", kind)
 		}
 	}

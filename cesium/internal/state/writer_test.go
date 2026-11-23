@@ -106,7 +106,8 @@ var _ = Describe("Writer", func() {
 		start(head(5, 1<<31-1))
 		w := open(clockWriter(0, false, 1))
 		Expect(w.NewAlignment()).To(Equal(uint32(1<<31 - 1)))
-		Expect(w.NewAlignment()).Error().To(MatchError(state.ErrExhausted))
+		Expect(w.NewAlignment()).Error().
+			To(MatchError("alignment numbers are exhausted"))
 	})
 
 	It("Should fail the requests that wait for a Reserve that the log refuses for "+

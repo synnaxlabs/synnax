@@ -54,14 +54,10 @@ var _ = Describe("Config", func() {
 		func(change func(*state.Config), field string) {
 			cfg := config(&appended{})
 			change(&cfg)
-			Expect(cfg.Validate()).To(SatisfyAll(
+			Expect(state.Open(cfg, head(1, 1))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(field)),
 			))
-			Expect(
-				state.Open(cfg, head(1, 1)),
-			).Error().
-				To(MatchError(validate.ErrValidation))
 		},
 		Entry("a version it does not read", func(c *state.Config) { c.Version = 2 },
 			"versions"),

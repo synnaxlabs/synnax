@@ -26,9 +26,9 @@ var (
 	// ErrConflict is the error of a writer open or a commit that reaches stored data or
 	// another writer's claim.
 	ErrConflict = errors.Wrap(validate.ErrValidation, "write conflict")
-	// ErrExhausted is the error of a new stretch when every stored alignment number is
+	// errExhausted is the error of a new stretch when every stored alignment number is
 	// given out.
-	ErrExhausted = errors.New("alignment numbers are exhausted")
+	errExhausted = errors.New("alignment numbers are exhausted")
 )
 
 const (
@@ -260,7 +260,7 @@ func (r *alignmentRequest) run(s *State) {
 		s.reserveAhead()
 		r.w.done <- nil
 	case s.core.limits.Alignments >= uint64(alignment.ZeroLeading):
-		r.w.done <- ErrExhausted
+		r.w.done <- errExhausted
 	default:
 		s.park(r)
 	}
@@ -401,7 +401,7 @@ func (s *State) Refused(records []log.Record, err error) error {
 	return s.enqueue(&refusedRequest{records: records, err: err})
 }
 
-// NewAlignment gives out the alignment number of a new stretch. It returns ErrExhausted
+// NewAlignment gives out the alignment number of a new stretch. It returns an error
 // when every number below the numbers of unstored data is given out.
 func (w *Writer) NewAlignment() (uint32, error) {
 	r := &alignmentRequest{w: w}

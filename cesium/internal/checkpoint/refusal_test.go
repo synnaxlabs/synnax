@@ -13,13 +13,12 @@ import (
 	"encoding/binary"
 
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/place"
 )
 
 // headRefusal changes a head of sample(2) before its checksums are set again, so that
-// the decoder refuses it with an error that wraps wraps and holds msg. The specs check
-// each refusal, and the fuzz targets start from them.
+// the decoder refuses it with an error that holds msg and, when wraps is not nil, wraps
+// wraps. The specs check each refusal, and the fuzz targets start from them.
 type headRefusal struct {
 	name   string
 	mutate func(b []byte) []byte
@@ -50,7 +49,7 @@ var headRefusals = []headRefusal{
 	{"format version", func(b []byte) []byte {
 		b[8] = 2
 		return b
-	}, checkpoint.ErrUnknown, "head format version 2"},
+	}, nil, "head format version 2: unknown head format"},
 	{"file kind", func(b []byte) []byte {
 		b[10] = 5
 		return b
@@ -58,7 +57,7 @@ var headRefusals = []headRefusal{
 	{"section count", func(b []byte) []byte {
 		put32(b, 80, 10)
 		return b
-	}, checkpoint.ErrUnknown, "head with 10 sections"},
+	}, nil, "head with 10 sections: unknown head format"},
 	{"reserved byte", func(b []byte) []byte {
 		b[200] = 1
 		return b
@@ -77,7 +76,7 @@ var headRefusals = []headRefusal{
 	{"record version", func(b []byte) []byte {
 		binary.LittleEndian.PutUint16(b[table(b)+24*4+2:], 2)
 		return b
-	}, checkpoint.ErrUnknown, "section 5 version 2"},
+	}, nil, "section 5 version 2: unknown head format"},
 	{"record size", func(b []byte) []byte {
 		put32(b, table(b)+24*5+4, 40)
 		return b

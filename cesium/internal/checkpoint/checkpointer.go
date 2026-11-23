@@ -40,9 +40,9 @@ type Config struct {
 	Executor func(f func())
 }
 
-// Validate returns an error that wraps validate.ErrValidation when a field of c is not
+// validate returns an error that wraps validate.ErrValidation when a field of c is not
 // set.
-func (c Config) Validate() error {
+func (c Config) validate() error {
 	v := validate.New("checkpoint.Config")
 	v.NotNil("fs", c.FS)
 	v.Positive("log_size", c.LogSize)
@@ -72,7 +72,7 @@ type Checkpointer struct {
 
 // New returns a checkpointer of cfg.
 func New(cfg Config) (*Checkpointer, error) {
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 	c := &Checkpointer{
