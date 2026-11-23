@@ -17,6 +17,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -36,6 +37,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	name         *gorp.SortedIndex[Key, Chassis, string]
 	serial       *gorp.LookupIndex[Key, Chassis, string]
 	resourceName *gorp.LookupIndex[Key, Chassis, string]
 	rack         *gorp.KeyReference[Key, Chassis, rack.Key]
@@ -47,6 +49,10 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, Chassis, string](
+			"name",
+			func(e *Chassis) string { return compare.TextKey(string(e.Name)) },
+		),
 		serial: gorp.NewLookupIndex[Key, Chassis, string](
 			"serial",
 			func(e *Chassis) string { return e.Serial },
@@ -82,6 +88,7 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Chassis] {
 	return []gorp.Index[Key, Chassis]{
+		i.name,
 		i.serial,
 		i.resourceName,
 		i.search,
@@ -101,6 +108,37 @@ func (i indexes) references() []gorp.Reference[Key, Chassis] {
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Chassis] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Chassis]
+
+// OrderBy walks the chassis in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Chassis] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Chassis] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -169,11 +207,18 @@ func MatchRacks(vals ...rack.Key) Filter {
 // chassis whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(Retrieve) gorp.Filter[Key, Chassis] {
+	return func(r Retrieve) gorp.Filter[Key, Chassis] {
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
 		want := set.New(vals...)
-		return gorp.Match(func(_ gorp.Context, e *Chassis) (bool, error) {
-			return want.Contains(e.Name), nil
-		})
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Chassis) (bool, error) {
+				return want.Contains(e.Name), nil
+			}),
+		)
 	}
 }
 

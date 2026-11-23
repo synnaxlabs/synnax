@@ -20,11 +20,7 @@ import { beforeEach, onTestFailed } from "vitest";
 
 import { traceResizeLoops } from "@/testutil/resizeLoop";
 
-// A browser reports a ResizeObserver whose callback resizes what it observes, and
-// Vitest logs that report. The browser delivers the rest in the next frame.
-failOnConsoleOutput({
-  ignore: [/^Error: ResizeObserver loop completed with undelivered notifications\.$/],
-});
+failOnConsoleOutput();
 // Vitest prints the console output of passed tests, so only a failed test prints the
 // loop reports.
 const loopReports: string[] = [];

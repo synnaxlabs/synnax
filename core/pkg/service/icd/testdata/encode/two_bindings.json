@@ -1,0 +1,31 @@
+{
+  "description": "A field cannot have two bindings.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "temp",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/temp",
+          "type": "float"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float32"
+      }
+    ]
+  },
+  "error": "message command: field temp has more than one binding: validation error"
+}

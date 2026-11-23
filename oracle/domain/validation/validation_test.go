@@ -212,6 +212,75 @@ var _ = Describe("Parse", func() {
 	})
 })
 
+var _ = Describe("LessThan", func() {
+	ident := func(name string) resolution.ExpressionValue {
+		return resolution.ExpressionValue{
+			Kind:       resolution.ValueKindIdent,
+			IdentValue: name,
+		}
+	}
+
+	It("should read the field to compare against", func() {
+		domains := map[string]resolution.Domain{
+			"go": rule("validate", ident("lt"), ident("max_val")),
+		}
+		Expect(validation.LessThan(domains, "go")).To(Equal(
+			&validation.Comparison{Field: "max_val"},
+		))
+	})
+
+	It("should read a message", func() {
+		message := resolution.ExpressionValue{
+			Kind:        resolution.ValueKindString,
+			StringValue: "Minimum must be less than maximum",
+		}
+		domains := map[string]resolution.Domain{
+			"go": rule("validate", ident("lt"), ident("max_val"), message),
+		}
+		Expect(validation.LessThan(domains, "go")).To(Equal(&validation.Comparison{
+			Field:   "max_val",
+			Message: "Minimum must be less than maximum",
+		}))
+	})
+
+	It("should only read the rule of the given language", func() {
+		domains := map[string]resolution.Domain{
+			"go": rule("validate", ident("lt"), ident("max_val")),
+		}
+		Expect(validation.LessThan(domains, "ts")).To(BeNil())
+	})
+})
+
+var _ = Describe("Matches", func() {
+	str := func(v string) resolution.ExpressionValue {
+		return resolution.ExpressionValue{
+			Kind:        resolution.ValueKindString,
+			StringValue: v,
+		}
+	}
+	pattern := resolution.ExpressionValue{
+		Kind:       resolution.ValueKindIdent,
+		IdentValue: "pattern",
+	}
+
+	It("should read the pattern and the message", func() {
+		domains := map[string]resolution.Domain{
+			"go": rule("validate", pattern, str("^[a-z]+$"), str("lowercase only")),
+		}
+		Expect(validation.Matches(domains, "go")).To(Equal(&validation.Match{
+			Pattern: "^[a-z]+$",
+			Message: "lowercase only",
+		}))
+	})
+
+	It("should only read the rule of the given language", func() {
+		domains := map[string]resolution.Domain{
+			"go": rule("validate", pattern, str("^[a-z]+$")),
+		}
+		Expect(validation.Matches(domains, "ts")).To(BeNil())
+	})
+})
+
 var _ = Describe("IsEmpty", func() {
 	It("should return true for nil", func() {
 		Expect(validation.IsEmpty(nil)).To(BeTrue())

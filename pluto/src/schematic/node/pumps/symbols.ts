@@ -7,20 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { schematic } from "@synnaxlabs/client";
+
 import { createToggle } from "@/schematic/node/common/create";
-import { Cavity } from "@/schematic/node/pumps/Cavity";
-import { Centrifugal } from "@/schematic/node/pumps/Centrifugal";
-import { Compressor } from "@/schematic/node/pumps/Compressor";
-import { Diaphragm } from "@/schematic/node/pumps/Diaphragm";
-import { Ejection } from "@/schematic/node/pumps/Ejection";
-import { Ejector } from "@/schematic/node/pumps/Ejector";
-import { LiquidRing } from "@/schematic/node/pumps/LiquidRing";
-import { Piston } from "@/schematic/node/pumps/Piston";
-import { Pump } from "@/schematic/node/pumps/Pump";
-import { RollerVane } from "@/schematic/node/pumps/RollerVane";
-import { Screw } from "@/schematic/node/pumps/Screw";
-import { Turbo } from "@/schematic/node/pumps/Turbo";
-import { Vacuum } from "@/schematic/node/pumps/Vacuum";
+import { Cavity, SYMBOL as CAVITY } from "@/schematic/node/pumps/Cavity";
+import { Centrifugal, SYMBOL as CENTRIFUGAL } from "@/schematic/node/pumps/Centrifugal";
+import { Compressor, SYMBOL as COMPRESSOR } from "@/schematic/node/pumps/Compressor";
+import { Diaphragm, SYMBOL as DIAPHRAGM } from "@/schematic/node/pumps/Diaphragm";
+import { Ejection, SYMBOL as EJECTION } from "@/schematic/node/pumps/Ejection";
+import { Ejector, SYMBOL as EJECTOR } from "@/schematic/node/pumps/Ejector";
+import { LiquidRing, SYMBOL as LIQUID_RING } from "@/schematic/node/pumps/LiquidRing";
+import { Piston, SYMBOL as PISTON } from "@/schematic/node/pumps/Piston";
+import { Pump, SYMBOL as PUMP } from "@/schematic/node/pumps/Pump";
+import { RollerVane, SYMBOL as ROLLER_VANE } from "@/schematic/node/pumps/RollerVane";
+import { Screw, SYMBOL as SCREW } from "@/schematic/node/pumps/Screw";
+import { SYMBOL as TURBO, Turbo } from "@/schematic/node/pumps/Turbo";
+import { SYMBOL as VACUUM, Vacuum } from "@/schematic/node/pumps/Vacuum";
 
 const cavity = createToggle({
   variant: "cavity_pump",
@@ -104,3 +106,20 @@ export const REGISTRY = {
   turbo_compressor: turbo.spec,
   vacuum_pump: vacuum.spec,
 } as const;
+
+/** BUILT_INS maps the name of each built-in symbol to its spec. */
+export const BUILT_INS = {
+  cavity_pump: CAVITY,
+  centrifugal_compressor: CENTRIFUGAL,
+  compressor: COMPRESSOR,
+  diaphragm_pump: DIAPHRAGM,
+  ejection_pump: EJECTION,
+  ejector_compressor: EJECTOR,
+  liquid_ring_compressor: LIQUID_RING,
+  piston_pump: PISTON,
+  pump: PUMP,
+  roller_vane_compressor: ROLLER_VANE,
+  screw_pump: SCREW,
+  turbo_compressor: TURBO,
+  vacuum_pump: VACUUM,
+} as const satisfies Record<string, schematic.symbol.Spec>;

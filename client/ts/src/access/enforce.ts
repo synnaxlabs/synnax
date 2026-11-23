@@ -9,8 +9,8 @@
 
 import { array } from "@synnaxlabs/x";
 
-import type { Action } from "@/access/action/types.gen";
-import { type Policy, resourceID } from "@/access/policy/types.gen";
+import type { access } from "@/access/action";
+import { policy } from "@/access/policy";
 import type { resource } from "@/resource";
 
 /**
@@ -21,7 +21,7 @@ export interface Request {
   /** The subject making the request (typically a user) */
   subject: resource.ID;
   /** The action being requested */
-  action: Action;
+  action: access.Action;
   /** The objects being accessed */
   objects: resource.ID | resource.ID[];
 }
@@ -32,9 +32,10 @@ const sameID = (a: resource.ID, b: resource.ID): boolean =>
 const retrievesOwn = (
   subject: resource.ID,
   obj: resource.ID,
-  policies: Policy[],
+  policies: policy.Policy[],
 ): boolean =>
-  sameID(obj, subject) || policies.some(({ key }) => sameID(obj, resourceID(key)));
+  sameID(obj, subject) ||
+  policies.some(({ key }) => sameID(obj, policy.resourceID(key)));
 
 /**
  * Checks if a request is allowed based on the provided policies.
@@ -55,7 +56,7 @@ const retrievesOwn = (
  *      - Instance-level match: policy object has matching type and key
  * - ALL requested objects must be allowed for the request to succeed
  */
-export const allowRequest = (req: Request, policies: Policy[]): boolean => {
+export const allowRequest = (req: Request, policies: policy.Policy[]): boolean => {
   const objs = array.toArray(req.objects);
   const { action } = req;
   for (const requestedObj of objs) {

@@ -144,14 +144,28 @@ type UpdateRequest struct {
 	Key chassis.Key `json:"key" msgpack:"key"`
 }
 
+// UpdateResponse carries the chassis as stored after an update.
+type UpdateResponse struct {
+	// Chassis is the stored chassis, without its status.
+	Chassis chassis.Chassis `json:"chassis" msgpack:"chassis"`
+}
+
 // Update writes one field group to a chassis and keeps the other as stored. It returns
-// a validation error when the request carries no group.
+// the stored chassis, or a validation error when the request carries no group.
 func (s *Service) Update(
 	ctx context.Context,
 	tx gorp.Tx,
 	req UpdateRequest,
-) (struct{}, error) {
-	return struct{}{}, s.cfg.Chassis.NewWriter(tx).Apply(ctx, req.Key, req.Update)
+) (UpdateResponse, error) {
+	if err := s.cfg.Chassis.NewWriter(tx).Apply(ctx, req.Key, req.Update); err != nil {
+		return UpdateResponse{}, err
+	}
+	var res UpdateResponse
+	err := s.cfg.Chassis.NewRetrieve().
+		Where(chassis.MatchKeys(req.Key)).
+		Entry(&res.Chassis).
+		Exec(ctx, tx)
+	return res, err
 }
 
 // DeleteRequest carries the keys of the chassis to delete.

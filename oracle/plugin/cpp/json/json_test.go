@@ -499,6 +499,19 @@ var _ = Describe("C++ JSON Plugin", func() {
 					`parser.field<Ports>("ports", Ports{.index = 1, .rate = 2})`,
 				)
 			})
+			It("Should keep a small float fallback exact", func() {
+				source := `
+					@cpp output "out"
+
+					Task struct {
+						tolerance float64 = 0.0000001
+					}
+				`
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").ToContain(
+					`parser.field<double>("tolerance", 1e-07)`,
+				)
+			})
 			It("Should fall back to an int enum variant", func() {
 				source := `
 					@cpp output "client/cpp/task"
@@ -1362,6 +1375,28 @@ var _ = Describe("C++ JSON Plugin", func() {
 						)
 				},
 			)
+		})
+
+		Context("bytes", func() {
+			It("Should write each bytes value through x::json::to_json", func() {
+				source := `
+					@cpp output "client/cpp/types"
+
+					Entity struct {
+						data     bytes
+						maybe    bytes?
+						list     bytes[]
+						by_name  map<string, bytes>
+					}
+				`
+				resp := MustGenerate(source, "types", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").ToContain(
+					`j["data"] = x::json::to_json(this->data);`,
+					`if (this->maybe.has_value()) j["maybe"] = x::json::to_json(*this->maybe);`,
+					`j["list"] = x::json::to_array(this->list);`,
+					`obj[key] = x::json::to_json(item);`,
+				)
+			})
 		})
 
 		Context("uuid detection through distinct and alias chains", func() {
