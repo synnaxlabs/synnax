@@ -125,11 +125,40 @@ const DEFAULT_PAGE_SIZE = 50;
 const DEFAULT_SEARCH_DEBOUNCE = TimeSpan.milliseconds(100);
 const keyItem = <I>(key: record.Key): I => key as I;
 
+interface Frame {
+  /** Calls the callback at the next animation frame, once however often it queues. */
+  queue: (callback: () => void) => void;
+  /** Takes back a queued callback. */
+  drop: (callback: () => void) => void;
+}
+
+const createFrame = (): Frame => {
+  const queued = new Set<() => void>();
+  let requested = false;
+  const flush = () => {
+    requested = false;
+    const run = [...queued];
+    queued.clear();
+    run.forEach((callback) => callback());
+  };
+  return {
+    queue: (callback) => {
+      queued.add(callback);
+      if (requested) return;
+      requested = true;
+      requestAnimationFrame(flush);
+    },
+    drop: (callback) => queued.delete(callback),
+  };
+};
+
 /**
  * Reads a live list of the records of a domain client: a filter, the client's declared
  * order, and a window that grows by pages. The client cache keeps the window current,
  * so the hook holds no records of its own. The list reads nothing until the first call
  * to `more` or `search`, so a closed select costs no fetch, unless it is eager.
+ * Changes reach the list and its readers at the next animation frame, so a burst of
+ * them, such as many writes from another client, renders once.
  *
  * @param source - Selects the domain client, e.g. `(client) => client.ranges`.
  */
@@ -175,8 +204,16 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   const retriever = client == null ? null : source(client);
   const list =
     retriever == null || listQuery == null ? null : retriever.watch(listQuery);
+  const frame = useInitializerRef(createFrame);
   const current = useSyncExternalStore(
-    (callback) => (list == null ? destructor.NOOP : list.onChange(callback)),
+    (callback) => {
+      if (list == null) return destructor.NOOP;
+      const release = list.onChange(() => frame.current.queue(callback));
+      return () => {
+        release();
+        frame.current.drop(callback);
+      };
+    },
     () => list?.getCached(),
   );
   // A new query, such as a new search term, shows the last answer until its own lands.
@@ -249,7 +286,9 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   const notifyReaders = () => readers.current.forEach((_, read) => read());
   useEffect(() => {
     if (list == null) return;
-    return list.onChange(notifyReaders);
+    return list.onChange(() =>
+      readers.current.forEach((_, read) => frame.current.queue(read)),
+    );
   }, [list]);
   // Readers read the values of the last commit, so a new value makes them read again.
   useLayoutEffect(notifyReaders, [list, shown, retriever, filter, itemQuery]);
@@ -284,12 +323,12 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     if (retriever == null || primitive.isZero(key)) return destructor.NOOP;
     readers.current.set(callback, (readers.current.get(callback) ?? 0) + 1);
     const live = retriever.watch(itemQuery(key));
-    const release = live.onChange(() => callback());
+    const release = live.onChange(() => frame.current.queue(callback));
     let released = false;
     if (live.getCached() === undefined)
       live.retrieve().then(
         () => {
-          if (!released) callback();
+          if (!released) frame.current.queue(callback);
         },
         (error: unknown) => {
           // The subscriber reads a missing record from getItem, and a released one
@@ -300,8 +339,10 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     return () => {
       released = true;
       const count = readers.current.get(callback) ?? 0;
-      if (count <= 1) readers.current.delete(callback);
-      else readers.current.set(callback, count - 1);
+      if (count <= 1) {
+        readers.current.delete(callback);
+        frame.current.drop(callback);
+      } else readers.current.set(callback, count - 1);
       release();
     };
   };
