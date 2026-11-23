@@ -9,13 +9,14 @@
 
 import { createEmptyRole, createTestClientAs } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { client, renderBar, withActiveProject } from "@/app/nav/bar/testutil";
 import { Drawer } from "@/app/nav/drawer";
 import { Session } from "@/session";
-import { type ConsolePreloadedState, uniqueName } from "@/testutil";
+import type { ConsolePreloadedState } from "@/testutil";
 
 // A user whose role holds no policies, so they may open no toolbar.
 const createUnprivilegedClient = async () => {

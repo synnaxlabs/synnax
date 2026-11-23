@@ -10,8 +10,8 @@
 import "@/components/keys/Keys.css";
 
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type text } from "@synnaxlabs/x";
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import type { text } from "@synnaxlabs/x";
+import type { ComponentPropsWithoutRef, ReactElement } from "react";
 
 export interface KeysProps extends ComponentPropsWithoutRef<"span"> {
   trigger: Triggers.Trigger;

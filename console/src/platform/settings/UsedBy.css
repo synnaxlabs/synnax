@@ -1,0 +1,35 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-settings-used-by__popover {
+    min-width: 30rem;
+    max-width: 50rem;
+    padding: 1rem;
+    overscroll-behavior: contain;
+}
+
+.console-settings-used-by__label {
+    padding: 0.5rem 1rem 0.75rem;
+}
+
+.console-settings-used-by__unused {
+    padding: 0 1rem 0.5rem;
+}
+
+/* The popover has a max height, so a long list of uses scrolls below its label. */
+.console-settings-used-by__resources {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.console-settings-used-by__resource {
+    min-width: 0;
+}

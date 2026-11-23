@@ -22,9 +22,9 @@ const vectors = JSON.parse(readFileSync(VECTORS_URL, "utf-8")) as {
 
 describe("text", () => {
   it("should order each vector before the next", () => {
-    for (let i = 1; i < vectors.ordered.length; i++) {
+    for (const [i, b] of vectors.ordered.entries()) {
       const a = vectors.ordered[i - 1];
-      const b = vectors.ordered[i];
+      if (a == null) continue;
       expect(compare.text(a, b), `${a} before ${b}`).toBe(-1);
       expect(compare.text(b, a), `${b} after ${a}`).toBe(1);
     }
@@ -32,7 +32,7 @@ describe("text", () => {
 
   it("should order every member of an equal group the same", () => {
     for (const group of vectors.equal)
-      for (const s of group.slice(1)) expect(compare.text(s, group[0])).toBe(0);
+      for (const s of group) for (const t of group) expect(compare.text(s, t)).toBe(0);
   });
 });
 

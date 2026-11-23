@@ -94,6 +94,13 @@ describe("csv", () => {
       ]);
     });
 
+    it("should split only on the delimiter it is given", () => {
+      expect(csv.parseBlock("1,\t10\n2,20", ",")).toEqual([
+        ["1", "10"],
+        ["2", "20"],
+      ]);
+    });
+
     it("should keep commas inside a tab delimited field", () => {
       expect(csv.parseBlock("1,000\t2,000")).toEqual([["1,000", "2,000"]]);
     });

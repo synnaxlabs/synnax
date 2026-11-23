@@ -7,27 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
-import {
-  type $ZodFunction,
-  type $ZodFunctionIn,
-  type $ZodFunctionOut,
-  type $ZodType,
-  type $ZodTypeDef,
-  getDiscriminatedOption,
-} from "zod/v4/core";
+import type { z } from "zod";
+import { type $ZodType, type $ZodTypeDef, getDiscriminatedOption } from "zod/v4/core";
 
 import { deep } from "@/deep";
 import { getIndex, step } from "@/deep/resolve";
 import { narrow } from "@/narrow";
-
-export const functionOutput = <
-  In extends $ZodFunctionIn,
-  Out extends $ZodFunctionOut,
-  Func extends $ZodFunction<In, Out>,
->(
-  schema: $ZodFunction<In, Out>,
-): Func["_zod"]["def"]["output"] => schema._zod.def.output;
 
 /** Options for {@link getFieldSchema}. */
 export interface GetFieldSchemaOptions<
@@ -113,10 +98,10 @@ const walk = (
   values: unknown,
   found: Discriminator[],
 ): $ZodType | NotFound => {
-  if (index >= parts.length) return schema;
+  const part = parts[index];
+  if (part == null) return schema;
   schema = unwrap(schema);
   const def = schema._zod.def as $ZodTypeDef & Record<string, unknown>;
-  const part = parts[index];
   switch (def.type) {
     case "unknown":
     case "any":

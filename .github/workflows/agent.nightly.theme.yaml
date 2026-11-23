@@ -59,6 +59,7 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     permissions: {}
+    timeout-minutes: 10
     steps:
       - name: Write the report
         env:

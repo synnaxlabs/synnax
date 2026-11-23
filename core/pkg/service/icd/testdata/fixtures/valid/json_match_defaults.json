@@ -74,7 +74,10 @@
               "pointer": "/ts",
               "type": "timestamp",
               "time_format": "unix_ms",
-              "default": "0"
+              "default": {
+                "type": "constant",
+                "value": "0"
+              }
             }
           ]
         }

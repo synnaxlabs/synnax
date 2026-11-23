@@ -10,11 +10,12 @@
 import { ni } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 

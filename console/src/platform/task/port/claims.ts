@@ -9,8 +9,8 @@
 
 import { unique } from "@synnaxlabs/x";
 
-import { type ReportIssue } from "@/platform/task/check";
-import { type Cell, type State } from "@/platform/task/port/Grid";
+import type { ReportIssue } from "@/platform/task/check";
+import type { Cell, State } from "@/platform/task/port/Grid";
 
 /** A channel's hold on a port. */
 export interface Claim {
@@ -25,15 +25,8 @@ export interface Claim {
 export type Claims<C extends Claim = Claim> = Map<string, C[]>;
 
 /** Groups the claims by the port each holds. */
-export const group = <C extends Claim>(claims: C[]): Claims<C> => {
-  const result: Claims<C> = new Map();
-  claims.forEach((c) => {
-    const list = result.get(c.port);
-    if (list == null) result.set(c.port, [c]);
-    else list.push(c);
-  });
-  return result;
-};
+export const group = <C extends Claim>(claims: C[]): Claims<C> =>
+  Map.groupBy(claims, (c) => c.port);
 
 const conflicts = (claims: Claim[]): boolean =>
   claims.filter(({ disabled }) => !disabled).length > 1;

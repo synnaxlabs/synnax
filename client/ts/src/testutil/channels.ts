@@ -9,7 +9,7 @@
 
 import { DataType, id } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import type Synnax from "@/client";
 
 export const newIndexedPair = async (

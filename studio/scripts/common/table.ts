@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Locator, type Page } from "playwright";
+import type { Locator, Page } from "playwright";
 
 import { capture } from "@/index";
 
@@ -89,14 +89,13 @@ export const cells = (session: capture.CaptureSession, columns: number): Cells =
 };
 
 /**
- * stageStill turns off editing and the indicators, aligns the table to the top left,
- * and parks the cursor off the panel so the controls fade.
+ * stageStill turns off editing and the indicators and parks the cursor off the panel
+ * so the controls fade. A new table sits at the top left.
  */
 export const stageStill = async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
   await session.click(capture.control(page, "edit-off"), { zoom: false });
   await session.click(capture.control(page, "invisible"), { zoom: false });
-  await session.click(capture.control(page, "align-box-top-left"), { zoom: false });
   await capture.hideBottomToolbar(session);
   await session.settleWall(2000);
   await session.settle(500);

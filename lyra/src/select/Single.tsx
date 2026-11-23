@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type record, strings } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Dialog } from "@/dialog";
-import { type List } from "@/list";
+import type { List } from "@/list";
 import { Body, type BodyProps } from "@/select/Body";
-import { Dialog as SelectDialog } from "@/select/Dialog";
+import { Dialog as SelectDialog, type DialogProps } from "@/select/Dialog";
 import { Frame, type SingleFrameProps } from "@/select/Frame";
 import { usePlaceholder } from "@/select/placeholder";
 import { SingleTrigger, type SingleTriggerProps } from "@/select/SingleTrigger";
@@ -23,13 +23,14 @@ export interface SingleProps<
   E extends record.Keyed<K> | undefined,
 >
   extends
-    Omit<SingleFrameProps<K, E>, "multiple" | "children">,
+    Omit<SingleFrameProps<K, E>, "multiple" | "children" | "selectedFirst">,
     Pick<
       BodyProps<K>,
       "emptyContent" | "status" | "onSearch" | "actions" | "footer" | "fixedItems"
     >,
     Omit<Dialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,
+    Pick<DialogProps, "menu" | "hasMenu">,
     Pick<List.ItemsProps<K>, "children"> {
   /** Singular name of the thing being selected. It builds the placeholder and the
    * empty and error content. */
@@ -72,6 +73,8 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   fixedItems,
   dialogProps,
   triggerProps,
+  menu,
+  hasMenu,
   virtual = true,
   closeDialogOnSelect = true,
   autoSelectOnNone,
@@ -96,6 +99,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         onFetchMore={onFetchMore}
         itemHeight={itemHeight}
         virtual={virtual}
+        selectedFirst
         closeDialogOnSelect={closeDialogOnSelect}
         autoSelectOnNone={autoSelectOnNone}
         initialHover={initialHover}
@@ -110,12 +114,12 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
           icon={icon}
           clearable={allowNone}
           placeholder={placeholder}
-          aria-label={caseconv.capitalize(resourceName)}
+          aria-label={strings.capitalize(resourceName)}
           disabled={disabled}
           preview={preview}
           {...triggerProps}
         />
-        <SelectDialog {...dialogProps}>
+        <SelectDialog {...dialogProps} menu={menu} hasMenu={hasMenu}>
           <Body<K>
             onSearch={onSearch}
             resourceName={resourceName}

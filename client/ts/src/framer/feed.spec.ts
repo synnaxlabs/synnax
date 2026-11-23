@@ -20,10 +20,10 @@ import {
   TimeStamp,
   type Window,
 } from "@synnaxlabs/x";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
-import { type channel } from "@/channel";
-import { type framer } from "@/framer";
+import type { channel } from "@/channel";
+import type { framer } from "@/framer";
 import { UnexpectedError, UnsupportedError } from "@/index";
 import { createTestClient, SyntheticCore } from "@/testutil";
 
@@ -385,6 +385,30 @@ describe("Feed", () => {
     expect(() => closed.subscribe(latest([1]))).toThrow(
       new UnexpectedError("telemetry feed is closed"),
     );
+  });
+
+  describe("dispose", () => {
+    it("should close the feed at the end of an await using block", async () => {
+      const core = createCore();
+      const disposed = core.openFeed(OPTIONS);
+      {
+        await using _ = disposed;
+      }
+      expect(() => disposed.subscribe(latest([core.index.key]))).toThrow(
+        new UnexpectedError("telemetry feed is closed"),
+      );
+    });
+
+    it("should dispose a feed that was closed explicitly", async () => {
+      const core = createCore();
+      const disposed = core.openFeed(OPTIONS);
+      const close = vi.spyOn(disposed, "close");
+      {
+        await using f = disposed;
+        await f.close();
+      }
+      expect(close).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("should forward fetchTimeout to the reader", async () => {

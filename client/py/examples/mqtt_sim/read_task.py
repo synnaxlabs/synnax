@@ -85,16 +85,16 @@ tsk = mqtt.ReadTask(
             topic="plant/sensors",
             icd=plant.key,
             messages=[
-                mqtt.ReadMessage(
+                sy.icd.ReadMessage(
                     message=sensors.key,
                     bindings=[
-                        mqtt.ReadBinding(
+                        sy.icd.ReadBinding(
                             field=temperature_field.key, channel=temperature.key
                         ),
-                        mqtt.ReadBinding(
+                        sy.icd.ReadBinding(
                             field=pressure_field.key, channel=pressure.key
                         ),
-                        mqtt.ReadBinding(field=state_field.key, channel=running.key),
+                        sy.icd.ReadBinding(field=state_field.key, channel=running.key),
                     ],
                 ),
             ],

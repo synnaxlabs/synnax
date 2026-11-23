@@ -22,7 +22,7 @@ export const setup = async (session: capture.CaptureSession): Promise<void> => {
   await session.waitFor(page.locator(".pluto-diagram").first());
   await capture.selectToolbarTab(session, "Symbols");
 
-  await session.click(capture.toolbarButton(page, "group", "add"), { zoom: false });
+  await session.click(capture.toolbarButton(page, "group-create"), { zoom: false });
   const groupName = page.locator(capture.MODAL).getByPlaceholder("Name").first();
   await session.waitFor(groupName);
   await groupName.fill("Test stand");

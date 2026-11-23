@@ -1,0 +1,93 @@
+{
+  "version": 13,
+  "name": "Test Schematic V13",
+  "nodes": [
+    {
+      "key": "box",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "box",
+        "label": {
+          "label": "",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "stroke_color": "#011d1d",
+        "dimensions": {
+          "width": 125,
+          "height": 200
+        }
+      }
+    },
+    {
+      "key": "value",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "value",
+        "label": {
+          "label": "",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "channel": 0,
+        "rolling_average": 1,
+        "notation": "standard",
+        "staleness_timeout": "5000000000",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "stroke_color": "#021d1d",
+        "text_color": "#031d1d",
+        "tooltip": [],
+        "redline": {
+          "bands": [],
+          "smooth": false
+        },
+        "units": "",
+        "inline_size": 70,
+        "level": "h4",
+        "location": {
+          "x": "left",
+          "y": "center"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "key": "pipe",
+      "source": {
+        "node": "box",
+        "param": "top"
+      },
+      "target": {
+        "node": "value",
+        "param": "bottom"
+      },
+      "config": {
+        "variant": "pipe",
+        "stroke_color": "#051d1d",
+        "segments": [],
+        "stroke_width": 2
+      }
+    }
+  ],
+  "type": "schematic"
+}

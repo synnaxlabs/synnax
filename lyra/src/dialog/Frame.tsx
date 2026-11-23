@@ -19,7 +19,7 @@ import {
   useState,
 } from "react";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS, inTopModal } from "@/dialog/Background";
@@ -98,6 +98,8 @@ export interface ContextValue {
    */
   toggleAt: (target: HTMLElement) => void;
   visible: boolean;
+  /** Whether the dialog is open and placed, at the height it shows at. */
+  placed: boolean;
   variant: Variant;
   /** The corner of the trigger the dialog opens from. */
   location: location.XY;
@@ -117,6 +119,7 @@ const [Context, useContext] = context.create<ContextValue>({
     toggleAt: () => {},
     variant: "floating",
     visible: false,
+    placed: false,
     triggerRef: () => {},
   },
   displayName: "Dialog.Context",
@@ -396,6 +399,15 @@ export const Frame = ({
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
   };
 
+  // A closed dialog drops its placement, so it opens again hidden until it is placed.
+  // An update that changes nothing can still render the dialog, so none is queued.
+  const hasPlacement = Object.keys(style).length > 0;
+  useEffect(() => {
+    if (visible) return;
+    prevBox.current = undefined;
+    if (hasPlacement) setState((prev) => ({ ...prev, style: {} }));
+  }, [visible, hasPlacement]);
+
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
@@ -476,7 +488,10 @@ export const Frame = ({
         contains(frame, target) ||
         anchor?.contains(target) === true ||
         // A context menu opened over the dialog acts on it, and so do its submenus.
-        inContextMenu(target)
+        inContextMenu(target) ||
+        // A dialog in a context menu closes with the menu, since a chosen item gives
+        // the focus back before it acts.
+        inContextMenu(frame)
       )
         return;
       close();
@@ -508,6 +523,7 @@ export const Frame = ({
     toggle,
     toggleAt,
     visible,
+    placed: visible && (variant === "modal" || hasPlacement),
     onPointerEnter,
     variant,
     location: targetCorner,

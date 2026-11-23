@@ -8,46 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { deep } from "@synnaxlabs/x";
-import { act, fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { useState } from "react";
-import {
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  type MockInstance,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-
-// The global observer fires once at a fixed size; these specs change the width.
-const notifiers = new Set<() => void>();
-
-class WidthResizeObserver {
-  private readonly notify: () => void;
-  constructor(callback: ResizeObserverCallback) {
-    this.notify = () => callback([], this);
-  }
-  observe(): void {
-    notifiers.add(this.notify);
-    this.notify();
-  }
-  unobserve(): void {}
-  disconnect(): void {
-    notifiers.delete(this.notify);
-  }
-}
-
-let width = 1000;
-
-const resize = (next: number): void => {
-  width = next;
-  act(() => notifiers.forEach((notify) => notify()));
-};
+import { stubWidth, type Width } from "@/testutil";
 
 const path = deep.path<{ config: { a: object; b: object } }>();
 
@@ -83,26 +50,13 @@ const listOpen = (panes: HTMLElement): boolean =>
   panes.classList.contains("console--list-open");
 
 describe("Task.Views.Panes", () => {
-  beforeAll(() => {
-    vi.stubGlobal("ResizeObserver", WidthResizeObserver);
-  });
-
-  let measure: MockInstance<() => DOMRect>;
+  let width: Width;
 
   beforeEach(() => {
-    width = 1000;
-    measure = vi
-      .spyOn(Element.prototype, "getBoundingClientRect")
-      .mockImplementation(function (this: Element) {
-        const w = this.classList.contains("console-panes") ? width : 100;
-        return new DOMRect(0, 0, w, 100);
-      });
+    width = stubWidth("console-panes", 1000);
   });
 
-  afterEach(() => {
-    measure.mockRestore();
-    notifiers.clear();
-  });
+  afterEach(() => width.restore());
 
   it("should hide and show the list in a wide layout", async () => {
     const panes = await renderPanes();
@@ -115,7 +69,7 @@ describe("Task.Views.Panes", () => {
 
   it("should open the list as a drawer in a narrow layout", async () => {
     const panes = await renderPanes();
-    resize(400);
+    width.set(400);
     expect(panes.classList).toContain("console--narrow");
     expect(listOpen(panes)).toBe(false);
     toggle(panes);
@@ -124,7 +78,7 @@ describe("Task.Views.Panes", () => {
 
   it("should close the drawer when the selection changes", async () => {
     const panes = await renderPanes();
-    resize(400);
+    width.set(400);
     toggle(panes);
     fireEvent.click(screen.getByText("Select b"));
     expect(listOpen(panes)).toBe(false);
@@ -132,7 +86,7 @@ describe("Task.Views.Panes", () => {
 
   it("should close the drawer on a click in the details", async () => {
     const panes = await renderPanes();
-    resize(400);
+    width.set(400);
     toggle(panes);
     fireEvent.click(screen.getByText("Details body"));
     expect(listOpen(panes)).toBe(false);
@@ -140,12 +94,12 @@ describe("Task.Views.Panes", () => {
 
   it("should forget an open drawer when the layout widens", async () => {
     const panes = await renderPanes();
-    resize(400);
+    width.set(400);
     toggle(panes);
-    resize(1000);
+    width.set(1000);
     toggle(panes);
     expect(listOpen(panes)).toBe(false);
-    resize(400);
+    width.set(400);
     expect(listOpen(panes)).toBe(false);
   });
 });

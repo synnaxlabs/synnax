@@ -12,7 +12,7 @@ import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Size, TimeSpan } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
+import type { DownloadEvent, Update } from "@tauri-apps/plugin-updater";
 import {
   createContext,
   type PropsWithChildren,

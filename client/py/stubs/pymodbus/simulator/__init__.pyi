@@ -11,7 +11,7 @@ import enum
 from dataclasses import dataclass
 from typing import TypeAlias
 
-from ..pdu.device import ModbusDeviceIdentification
+from pymodbus.pdu.device import ModbusDeviceIdentification
 
 SimValueType: TypeAlias = (
     int

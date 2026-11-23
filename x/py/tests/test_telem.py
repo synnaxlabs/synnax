@@ -13,11 +13,10 @@ import pathlib
 import time
 import uuid
 from collections.abc import Callable, Iterator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from fractions import Fraction
 from typing import Any
 
-import dateutil
 import numpy as np
 import pandas as pd
 import pytest
@@ -30,7 +29,7 @@ from x.testutil import untyped
 
 _now = sy.TimeStamp.now()
 
-EST = dateutil.tz.gettz("EST")
+EST = timezone(timedelta(hours=-5), "EST")
 
 _COMPARISONS = (
     operator.eq,
@@ -153,7 +152,7 @@ class TestTimeStamp:
     def test_nat_datetime64(self) -> None:
         """Should raise a ValueError for a NaT np.datetime64"""
         with pytest.raises(ValueError, match="NaT"):
-            sy.TimeStamp(np.datetime64("NaT"))
+            sy.TimeStamp(np.datetime64("NaT", "ns"))
 
     def test_aware_datetime_microseconds(self) -> None:
         """Should convert an aware datetime with exact microseconds"""

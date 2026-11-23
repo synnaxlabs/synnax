@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@synnaxlabs/lyra/context";
-import { type Theming } from "@synnaxlabs/lyra/theming";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 
 /**
  * The background of the Settings nav and cards. Settings on an l1 page sets it to 0, so
