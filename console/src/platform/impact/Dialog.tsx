@@ -79,8 +79,9 @@ const descriptionOf = (names: string[], empty: boolean): string => {
   const text = one
     ? "Deletes the channel and its data."
     : "Deletes the channels and their data.";
-  if (!empty) return text;
-  return `${text} Nothing else uses ${one ? "it" : "them"}.`;
+  const permanence = "This action cannot be undone.";
+  if (!empty) return `${text} ${permanence}`;
+  return `${text} Nothing else uses ${one ? "it" : "them"}. ${permanence}`;
 };
 
 const failureOf = (names: string[]): string =>
@@ -212,7 +213,7 @@ interface EntryProps {
   picked: boolean;
   unpicked: boolean;
   autoFocus: boolean;
-  onPick: (key: string, picked: boolean) => void;
+  onPick: (keys: string[], picked: boolean) => void;
 }
 
 const Entry = ({
@@ -260,7 +261,7 @@ const Entry = ({
             aria-labelledby={`${id}-name ${id}-label`}
             aria-describedby={unpicked ? `${id}-error` : undefined}
             value={picked}
-            onChange={(v) => onPick(key, v)}
+            onChange={(v) => onPick([key], v)}
             autoFocus={autoFocus}
           />
           <Text.Text el="label" id={`${id}-label`} htmlFor={id} level="small">
@@ -279,7 +280,9 @@ interface GroupProps {
   unpicked: Set<string>;
   focusFirst: boolean;
   initiallyOpen: boolean;
-  onPick: (key: string, picked: boolean) => void;
+  /** pickable is true for the records that block the delete, which the user picks. */
+  pickable: boolean;
+  onPick: (keys: string[], picked: boolean) => void;
 }
 
 const Group = ({
@@ -289,14 +292,39 @@ const Group = ({
   unpicked,
   focusFirst,
   initiallyOpen,
+  pickable,
   onPick,
 }: GroupProps): ReactElement => {
+  const allID = useId();
   const [open, setOpen] = useState(initiallyOpen);
   const byKey = new Map(rows.map((r) => [r.key, r]));
   const { data, getItem } = List.useStaticData<string, Row>({ data: rows });
+  const allPicked = rows.every((r) => picks[r.key] === "delete");
+  const pickAll = pickable && rows.length > 1 && (
+    <Flex.Box x align="center" gap="small" className={CSS.BE("impact", "pick")}>
+      <Input.Checkbox
+        id={allID}
+        value={allPicked}
+        onChange={(v) =>
+          onPick(
+            rows.map((r) => r.key),
+            v,
+          )
+        }
+      />
+      <Text.Text el="label" htmlFor={allID} level="small">
+        Delete all too
+      </Text.Text>
+    </Flex.Box>
+  );
   return (
     <section className={CSS.BE("impact", "group")} aria-label={title}>
-      <Header.Group size="medium" open={open} onOpenChange={setOpen}>
+      <Header.Group
+        size="medium"
+        open={open}
+        onOpenChange={setOpen}
+        actions={pickAll === false ? undefined : pickAll}
+      >
         {title}
         <Text.Text level="tiny" color={9}>
           {rows.length}
@@ -370,6 +398,7 @@ const Entries = ({ view, plural, ...rest }: EntriesProps): ReactElement => {
             title={title}
             rows={rows}
             focusFirst={effect === "restrict"}
+            pickable={effect === "restrict"}
             initiallyOpen={initiallyOpen}
             {...rest}
           />
@@ -438,18 +467,19 @@ const Dialog = ({
   };
 
   // A pick plans again, so Delete waits for that plan.
-  const handlePick = (key: string, picked: boolean) => {
+  const handlePick = (keys: string[], picked: boolean) => {
     setPlanning(true);
     setUnpicked((prev) => {
       const next = new Set(prev);
-      next.delete(key);
+      for (const key of keys) next.delete(key);
       return next;
     });
     setFooter(null);
     setPicks((prev) => {
       const next = { ...prev };
-      if (picked) next[key] = "delete";
-      else delete next[key];
+      for (const key of keys)
+        if (picked) next[key] = "delete";
+        else delete next[key];
       return next;
     });
   };

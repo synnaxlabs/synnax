@@ -287,7 +287,8 @@ describe("channel/tree", () => {
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText(`Delete channel ${ch.name}`);
       await screen.findByText(
-        "Deletes the channel and its data. Nothing else uses it.",
+        "Deletes the channel and its data. Nothing else uses it. " +
+          "This action cannot be undone.",
       );
       await clickDelete();
       await expectGone(async () => await client.channels.retrieve(ch.key));
@@ -314,6 +315,30 @@ describe("channel/tree", () => {
       await expectGone(async () => await client.tasks.retrieve({ key: task.key }));
     });
 
+    it("deletes every task that blocks the delete with one check", async () => {
+      const ch = await createChannel();
+      const first = await createReadTask(ch.key);
+      const second = await createReadTask(ch.key);
+      await renderChannelTree(hostChannels(ch));
+      await openTreeRowContextMenu(ch.name);
+      fireEvent.click(await screen.findByText("Delete"));
+      await screen.findByText(first.name);
+      await screen.findByText(second.name);
+      fireEvent.click(await screen.findByRole("checkbox", { name: "Delete all too" }));
+      await waitFor(() =>
+        expect(
+          screen.getByRole("checkbox", { name: `${second.name} Delete too` }),
+        ).toBeChecked(),
+      );
+      expect(
+        screen.getByRole("checkbox", { name: `${first.name} Delete too` }),
+      ).toBeChecked();
+      await clickDelete();
+      await expectGone(async () => await client.channels.retrieve(ch.key));
+      await expectGone(async () => await client.tasks.retrieve({ key: first.key }));
+      await expectGone(async () => await client.tasks.retrieve({ key: second.key }));
+    });
+
     it("shows the new plan when a holder appears before the delete", async () => {
       const ch = await createChannel({
         dataType: DataType.FLOAT32,
@@ -324,7 +349,8 @@ describe("channel/tree", () => {
       await openTreeRowContextMenu(ch.name);
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText(
-        "Deletes the channel and its data. Nothing else uses it.",
+        "Deletes the channel and its data. Nothing else uses it. " +
+          "This action cannot be undone.",
       );
       const proj = await client.projects.create({ name: uniqueName("proj") });
       const plot = await client.lineplots.create({
@@ -402,7 +428,8 @@ describe("channel/tree", () => {
       await grant("retrieve");
       fireEvent.click(findLastButton("Try again"));
       await screen.findByText(
-        "Deletes the channel and its data. Nothing else uses it.",
+        "Deletes the channel and its data. Nothing else uses it. " +
+          "This action cannot be undone.",
       );
       expect(screen.queryByText(failed)).toBeNull();
       await clickDelete();
