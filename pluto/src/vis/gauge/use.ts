@@ -40,9 +40,7 @@ export const use = ({
   units,
   bounds,
   barWidth,
-  stalenessColor,
   stalenessTimeout,
-  staleColorHidden,
 }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({
     box,
@@ -56,9 +54,7 @@ export const use = ({
     units,
     bounds,
     barWidth,
-    stalenessColor,
     stalenessTimeout,
-    staleColorHidden,
   });
   const { setState, subscribe, getSnapshot } = Aether.useLifecycle({
     aetherKey,

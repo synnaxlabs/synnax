@@ -22,7 +22,7 @@ const TypeIcon: Panel.TabIcon = (props) => {
   return <Glyph {...props} />;
 };
 
-const TAB: Panel.Tab = {
+const TAB = {
   Content: Panel.lazyComponent(() => import("@/feature/arc/editor/Editor"), "Editor"),
   Toolbar: Panel.lazyComponent(
     () => import("@/feature/arc/editor/toolbar/Toolbar"),
@@ -41,8 +41,8 @@ const TAB: Panel.Tab = {
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Arc.useTombstone }),
-};
+} satisfies Panel.Tab;
 
-export const TABS: Panel.Tabs = {
+export const TABS = {
   [arc.TYPE_RESOURCE_ID.type]: TAB,
-};
+} satisfies Panel.Tabs;

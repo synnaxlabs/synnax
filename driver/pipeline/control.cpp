@@ -9,6 +9,8 @@
 
 #include <utility>
 
+#include "absl/log/log.h"
+
 #include "driver/errors/errors.h"
 #include "driver/pipeline/control.h"
 
@@ -38,7 +40,13 @@ Control::Control(
     Base(breaker_config, std::move(thread_name)),
     factory(std::move(streamer_factory)),
     config(std::move(streamer_config)),
-    sink(std::move(sink)) {}
+    sink(std::move(sink)) {
+    this->config.on_missed = [this] {
+        LOG(WARNING) << "[control] the Core dropped commands because the pipeline "
+                        "fell behind";
+        this->sink->missed();
+    };
+}
 
 void Control::interrupt() {
     std::lock_guard lock{this->streamer_mu};

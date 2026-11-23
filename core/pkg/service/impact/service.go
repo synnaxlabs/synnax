@@ -121,6 +121,9 @@ func (s *Service) Plan(
 	if err != nil {
 		return Plan{}, err
 	}
+	if r.unknown != nil {
+		return Plan{}, r.unknown
+	}
 	r.plan.Token = token(keys, r.plan)
 	return r.plan, nil
 }
@@ -264,6 +267,9 @@ func (s *Service) Apply(
 		}
 		r.plan.Token = opts.Token
 	}
+	if r.unknown != nil {
+		return Plan{}, r.unknown
+	}
 	if r.cancel != nil {
 		return Plan{}, *r.cancel
 	}
@@ -315,6 +321,9 @@ type resolution struct {
 	records []resource.ID
 	// cancel is the error of the first entry that takes cancel, or nil.
 	cancel *gorp.RestrictError
+	// unknown is the error of a pick that names no entry, or nil. Apply reads the token
+	// first, so a picked entry that another change removed reads as a changed plan.
+	unknown error
 }
 
 // resolve plans the delete of the channels with keys in snap with chosen, then plans
@@ -366,11 +375,8 @@ func (s *Service) resolve(
 	}
 	for id := range chosen.named {
 		if !visible.Contains(id) {
-			return resolution{}, errors.Wrapf(
-				validate.ErrValidation,
-				"no entry is %s",
-				id,
-			)
+			r.unknown = errors.Wrapf(validate.ErrValidation, "no entry is %s", id)
+			break
 		}
 	}
 	applied := Plan{Entries: r.last.Entries, Kept: r.last.Kept}

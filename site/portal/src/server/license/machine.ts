@@ -9,8 +9,7 @@
 
 import { eq } from "drizzle-orm";
 
-import { schema } from "@/server/db";
-import type { Store } from "@/server/db/db";
+import { schema, type Store } from "@/server/db";
 import { badRequest, notFound } from "@/server/errors";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 

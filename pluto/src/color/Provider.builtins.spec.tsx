@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Color as Base } from "@synnaxlabs/lyra/color";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { box, color as xcolor, id } from "@synnaxlabs/x";
@@ -33,7 +33,6 @@ describe("Color.Provider", () => {
         <Color.Provider>{children}</Color.Provider>
       </Synnax>
     );
-    await waitForStreamLive(client.connection);
   });
 
   it("should offer a new series color in every picker", async () => {

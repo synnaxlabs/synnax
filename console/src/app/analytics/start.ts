@@ -11,7 +11,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { v7 } from "uuid";
 
 import { watchAccount } from "@/app/analytics/account";
-import { follow } from "@/app/analytics/core";
+import { Core } from "@/app/analytics/core";
 import { type Install, retrieveInstall } from "@/app/analytics/install";
 import { create, type Params, type SharedSession } from "@/app/analytics/posthog";
 import { Analytics } from "@/platform/analytics";
@@ -33,7 +33,7 @@ export const start = (store: Session.Store): Analytics.Sink => {
   // and runs one embedded Core.
   if (Session.Runtime.isMainWindow()) {
     void open(sink, install);
-    void follow(sink);
+    void Core.follow(sink);
   }
   return sink;
 };

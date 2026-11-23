@@ -13,20 +13,20 @@ import { deep } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 import { z } from "zod";
 
-import type { Activation } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { post, reload } from "@/ui/api";
 import { machineName } from "@/ui/format";
 import { Modal } from "@/ui/modal";
 
-const path = deep.path<z.infer<typeof schema>>();
+const path = deep.path<z.infer<typeof nameSchema>>();
 
-const schema = z.object({
+const nameSchema = z.object({
   name: z.string().trim().min(1, "Name the machine").max(MAX_NAME_LENGTH, "Too long"),
 });
 
 export interface RenameDialogProps {
-  activation: Activation;
+  activation: schema.Activation;
   visible?: boolean;
   onVisibleChange?: Modal.FrameProps["onVisibleChange"];
   /** trigger opens the dialog. Leave it out to drive it from `visible`. */
@@ -51,8 +51,11 @@ export const RenameDialog = ({
   </Modal.Frame>
 );
 
-const Content = ({ activation }: { activation: Activation }): ReactElement => {
-  const methods = Form.use({ values: { name: machineName(activation) }, schema });
+const Content = ({ activation }: { activation: schema.Activation }): ReactElement => {
+  const methods = Form.use({
+    values: { name: machineName(activation) },
+    schema: nameSchema,
+  });
   return (
     <Modal.Form
       methods={methods}

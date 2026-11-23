@@ -95,6 +95,50 @@ type SparkplugReadEntry = versions.SparkplugReadEntry
 // tags on a broker device and writes their values to Synnax channels.
 type ReadConfig = versions.ReadConfig
 
+// BaseWriteTarget carries the fields every write target shares.
+type BaseWriteTarget = versions.BaseWriteTarget
+
+// WriteTarget is a single destination of an MQTT write task. The type field selects a
+// plain topic that publishes an ICD message or a Sparkplug B tag command.
+type WriteTarget = versions.WriteTarget
+
+// WriteTargetVariant is implemented by every WriteTarget variant.
+type WriteTargetVariant = versions.WriteTargetVariant
+
+// WriteTargetType is the "type" value that selects a variant of WriteTarget.
+type WriteTargetType = versions.WriteTargetType
+
+const (
+	// PlainWriteTargetType publishes the JSON documents of one ICD message to one
+	// topic.
+	PlainWriteTargetType WriteTargetType = versions.PlainWriteTargetType
+	// SparkplugWriteTargetType sends a Sparkplug B command for one tag.
+	SparkplugWriteTargetType WriteTargetType = versions.SparkplugWriteTargetType
+)
+
+// PlainWriteTarget publishes the JSON documents of one ICD message to one topic.
+type PlainWriteTarget = versions.PlainWriteTarget
+
+// SparkplugWriteTarget sends a Sparkplug B command for one tag.
+type SparkplugWriteTarget = versions.SparkplugWriteTarget
+
+// WriteConfig configures an MQTT write task, which publishes a message whenever a value
+// is written to the command channel of a target.
+type WriteConfig = versions.WriteConfig
+
+// ScanConfig configures an MQTT scan task.
+type ScanConfig = versions.ScanConfig
+
+// EdgeTag is a single tag published by a Sparkplug B edge node task.
+type EdgeTag = versions.EdgeTag
+
+// EdgeConfig configures a Sparkplug B edge node task, which publishes Synnax channels
+// as the tags of one edge node and writes inbound tag commands to Synnax channels.
+type EdgeConfig = versions.EdgeConfig
+
+// ReadField is a single value extracted from the JSON payload of a topic.
+type ReadField = versions.ReadField
+
 // ChannelField is the command channel value placed into the payload of a target.
 type ChannelField = versions.ChannelField
 
@@ -125,45 +169,8 @@ type StaticWriteField = versions.StaticWriteField
 // GeneratedWriteField places a freshly generated UUID or timestamp in the payload.
 type GeneratedWriteField = versions.GeneratedWriteField
 
-// BaseWriteTarget carries the fields every write target shares.
-type BaseWriteTarget = versions.BaseWriteTarget
+// InlineTarget is a plain target from before ICDs, which held its payload inline.
+type InlineTarget = versions.InlineTarget
 
-// WriteTarget is a single destination of an MQTT write task. The type field selects a
-// plain topic with a JSON payload or a Sparkplug B tag command.
-type WriteTarget = versions.WriteTarget
-
-// WriteTargetVariant is implemented by every WriteTarget variant.
-type WriteTargetVariant = versions.WriteTargetVariant
-
-// WriteTargetType is the "type" value that selects a variant of WriteTarget.
-type WriteTargetType = versions.WriteTargetType
-
-const (
-	// PlainWriteTargetType publishes a JSON payload to one topic.
-	PlainWriteTargetType WriteTargetType = versions.PlainWriteTargetType
-	// SparkplugWriteTargetType sends a Sparkplug B command for one tag.
-	SparkplugWriteTargetType WriteTargetType = versions.SparkplugWriteTargetType
-)
-
-// PlainWriteTarget publishes a JSON payload to one topic.
-type PlainWriteTarget = versions.PlainWriteTarget
-
-// SparkplugWriteTarget sends a Sparkplug B command for one tag.
-type SparkplugWriteTarget = versions.SparkplugWriteTarget
-
-// WriteConfig configures an MQTT write task, which publishes a message whenever a value
-// is written to the command channel of a target.
-type WriteConfig = versions.WriteConfig
-
-// ScanConfig configures an MQTT scan task.
-type ScanConfig = versions.ScanConfig
-
-// EdgeTag is a single tag published by a Sparkplug B edge node task.
-type EdgeTag = versions.EdgeTag
-
-// EdgeConfig configures a Sparkplug B edge node task, which publishes Synnax channels
-// as the tags of one edge node and writes inbound tag commands to Synnax channels.
-type EdgeConfig = versions.EdgeConfig
-
-// ReadField is a single value extracted from the JSON payload of a topic.
-type ReadField = versions.ReadField
+// InlineWrite holds the plain targets of a write config from before ICDs.
+type InlineWrite = versions.InlineWrite
