@@ -809,11 +809,12 @@ var _ = Describe("Framer", func() {
 				Names:  []string{name},
 				Bounds: telem.TimeRangeMax,
 			})).Error().ToNot(HaveOccurred())
-			iter := MustOpen(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+			iter := MustSucceed(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
 				Keys:   keys,
 				Bounds: telem.TimeRangeMax,
 			}))
 			Expect(iter.SeekFirst()).To(BeFalse())
+			Expect(iter.Close()).To(Succeed())
 		})
 	})
 
