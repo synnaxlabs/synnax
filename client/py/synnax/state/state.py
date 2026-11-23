@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import unicodedata
+from collections.abc import Mapping
+
 from synnax import channel
 from synnax.framer import Frame
 from synnax.telem import MultiSeries, SampleValue
@@ -16,19 +19,33 @@ class State:
     value: dict[channel.Key, MultiSeries]
     _keys: dict[str, channel.Key]
 
-    def __init__(self, channels: list[channel.Payload]):
+    def __init__(
+        self,
+        channels: list[channel.Payload],
+        texts: Mapping[str, channel.Key] | None = None,
+    ):
         """
         :param channels: The channels whose values the state holds.
+        :param texts: The key of each other name or path that reads a channel, such as
+            the path that a handler registered.
         """
         self._keys = {ch.name: ch.key for ch in channels}
+        if texts is not None:
+            for text, key in texts.items():
+                self._keys[unicodedata.normalize("NFC", text)] = key
         self.value = {}
+
+    def _key(self, ch: channel.Key | str) -> channel.Key:
+        if isinstance(ch, str):
+            return self._keys[unicodedata.normalize("NFC", ch)]
+        return ch
 
     def update(self, frame: Frame) -> None:
         for ch in frame.channels:
-            self.value[self._keys[ch] if isinstance(ch, str) else ch] = frame[ch]
+            self.value[self._key(ch)] = frame[ch]
 
     def __getitem__(self, ch: channel.Key | str) -> MultiSeries:
-        return self.value[self._keys[ch] if isinstance(ch, str) else ch]
+        return self.value[self._key(ch)]
 
     def __getattr__(self, name: str) -> MultiSeries:
         try:

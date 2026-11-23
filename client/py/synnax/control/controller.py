@@ -17,8 +17,6 @@ from typing import Any, Protocol, TypeAlias, overload, override
 import numpy as np
 
 from synnax import channel as channel_, framer
-from synnax.channel.payload import to_lookups
-from synnax.channel.retrieve import resolve
 from synnax.exceptions import UnexpectedError, ValidationError
 from synnax.telem import CrudeSample, CrudeTimeSpan, TimeSpan, TimeStamp
 from synnax.timing import sleep
@@ -130,8 +128,9 @@ class Controller:
         self._retriever = retriever
         self._channels = {}
         if write is not None and channel_.has_params(write):
-            write_channels = resolve(self._retriever, write)
-            self._index(write_channels)
+            resolved = channel_.resolve_open(self._retriever, write)
+            self._index(resolved)
+            write_channels = resolved.channels
             write_keys = [ch.index for ch in write_channels if ch.index != 0]
             write_keys.extend([ch.key for ch in write_channels])
             self._writer_opt = frame_client.open_writer(
@@ -140,25 +139,42 @@ class Controller:
                 authorities=write_authorities,
             )
         if read is not None and channel_.has_params(read):
-            self._receiver_opt = _Receiver(frame_client, read, retriever, self)
-            self._index(self._receiver.channels)
+            resolved = channel_.resolve_open(self._retriever, read)
+            self._index(resolved)
+            self._receiver_opt = _Receiver(frame_client, resolved.channels, self)
             self._receiver.start()
             self._receiver.startup_ack.wait()
             if self._receiver.error is not None:
                 self.release()
                 raise self._receiver.error
 
-    def _index(self, channels: list[channel_.Payload]) -> None:
-        for ch in channels:
+    def _index(self, resolved: channel_.Resolved) -> None:
+        for ch in resolved.channels:
             self._channels[ch.key] = ch
             self._channels[ch.name] = ch
+        for lookup, ch in zip(resolved.lookups, resolved.each, strict=True):
+            if isinstance(lookup, str):
+                self._channels[channel_.nfc(lookup)] = ch
 
     def _resolve(self, ch: channel_.Key | str | channel_.Payload) -> channel_.Payload:
-        """Resolves an acquired channel locally, and any other channel from the Core."""
+        """Resolves an acquired channel locally, by key, NFC name, or the NFC text that
+        acquired it, and any other channel from the Core.
+        """
         if isinstance(ch, channel_.Payload):
             return ch
-        pld = self._channels.get(ch)
+        pld = self._channels.get(channel_.nfc(ch))
         return pld if pld is not None else self._retriever.retrieve_one(ch)
+
+    def _resolve_record(self, record: dict[Any, Any]) -> list[channel_.Payload]:
+        """Resolves the channel of each key of record.
+
+        :raises ValidationError: If two keys name one channel.
+        """
+        channels = [self._resolve(k) for k in record]
+        channel_.refuse_shared(
+            channel_.to_lookups(list(record)), [ch.key for ch in channels]
+        )
+        return channels
 
     @property
     def _writer(self) -> framer.Writer:
@@ -212,15 +228,12 @@ class Controller:
         ... })
         """
         if isinstance(channel, dict):
-            values = list(channel.values())
-            channels = [self._resolve(ch) for ch in channel]
+            channels = self._resolve_record(channel)
             now = TimeStamp.now()
-            updated = {channels[i].key: values[i] for i in range(len(channels))}
-            updated_idx = {
-                channels[i].index: now
-                for i in range(len(channels))
-                if not channels[i].virtual
+            updated = {
+                ch.key: v for ch, v in zip(channels, channel.values(), strict=True)
             }
+            updated_idx = {ch.index: now for ch in channels if not ch.virtual}
             self._writer.write({**updated, **updated_idx})
             return
         ch = self._resolve(channel)
@@ -278,8 +291,7 @@ class Controller:
     ) -> None:
         if isinstance(value, dict):
             resolved: dict[channel_.Key | str | channel_.Payload, CrudeAuthority] = {}
-            for k, a in value.items():
-                ch = self._resolve(k)
+            for ch, a in zip(self._resolve_record(value), value.values(), strict=True):
                 resolved[ch.key] = a
                 resolved[ch.index] = a
             self._writer.set_authority(resolved)
@@ -401,7 +413,7 @@ class Controller:
         >>> controller.wait_until_defined("my_channel")
         >>> controller.wait_until_defined(["channel_1", "channel_2"])
         """
-        res = [self._resolve(ch) for ch in to_lookups(channels)]
+        res = [self._resolve(ch) for ch in channel_.to_lookups(channels)]
         return self.wait_until(
             lambda c: all(v.key in c.state for v in res), timeout=timeout
         )
@@ -553,7 +565,6 @@ class _Receiver(AsyncThread):
     streamer: framer.AsyncStreamer
     processors: set[_Processor]
     lock: RLock
-    retriever: channel_.Retriever
     controller: Controller
     startup_ack: Event
     shutdown_future: Future[None]
@@ -563,12 +574,11 @@ class _Receiver(AsyncThread):
     def __init__(
         self,
         client: framer.Client,
-        channels: channel_.Params,
-        retriever: channel_.Retriever,
+        channels: list[channel_.Payload],
         controller: Controller,
     ) -> None:
         super().__init__()
-        self.channels = retriever.retrieve(channels)
+        self.channels = channels
         self.client = client
         self.state = {}
         self.controller = controller

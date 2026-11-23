@@ -13,8 +13,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from synnax import channel, framer
-from synnax.channel.payload import split_lookups, to_lookups
-from synnax.channel.retrieve import resolve
 from synnax.state import Latest, State
 from x.params import deprecate_positional
 
@@ -29,12 +27,14 @@ class _Handler:
 class Registry:
     _handlers: list[_Handler]
     _channels: list[channel.Key]
+    _texts: dict[str, channel.Key]
     _frame_client: framer.Client
     _channel_retriever: channel.Retriever
 
     def __init__(self, *, frame_client: framer.Client, channels: channel.Retriever):
         self._handlers = []
         self._channels = []
+        self._texts = {}
         self._frame_client = frame_client
         self._channel_retriever = channels
 
@@ -54,10 +54,14 @@ class Registry:
         :param filter_f: Returns true when the handler should run.
         :returns: A decorator that returns the function unchanged.
         """
-        split = split_lookups(to_lookups(channels))
-        texts = split.names + split.paths
-        keys = set(split.keys)
-        keys |= {ch.key for ch in resolve(self._channel_retriever, texts)}
+        lookups = channel.to_lookups(channels)
+        texts = [lk for lk in lookups if isinstance(lk, str)]
+        keys = {lk for lk in lookups if not isinstance(lk, str)}
+        for text, ch in zip(
+            texts, channel.resolve(self._channel_retriever, texts), strict=True
+        ):
+            self._texts[text] = ch.key
+            keys.add(ch.key)
         self._channels.extend(keys)
 
         def decorator(
@@ -72,7 +76,7 @@ class Registry:
         """Streams the registered channels and runs handlers until cancelled. Closes the
         streamer on exit.
         """
-        state = State(self._channel_retriever.retrieve(self._channels))
+        state = State(self._channel_retriever.retrieve(self._channels), self._texts)
         async with await self._frame_client.open_async_streamer(
             self._channels
         ) as streamer:
