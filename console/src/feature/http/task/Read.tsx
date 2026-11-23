@@ -25,9 +25,7 @@ import {
   useContext,
 } from "react";
 
-import { useFromConfig } from "@/feature/http/device/queries";
-import { Select as SelectDevice } from "@/feature/http/device/Select";
-import { type Properties, SCHEMAS } from "@/feature/http/device/types";
+import { Device } from "@/feature/http/device";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployReadConfigZ,
@@ -37,7 +35,7 @@ import {
   type ReadSchemas,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
-import { Device } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Form as PlatformForm } from "@/platform/form";
 import { Task } from "@/platform/task";
 
@@ -50,7 +48,7 @@ const RATE_INPUT_PROPS = {
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <Flex.Box x grow wrap>
       <PForm.NumericField
         path={root.config.rate}
@@ -80,7 +78,7 @@ const endpointChannels = (deviceName: string, ep: ReadEndpoint) => ({
 const planEndpoint = async (
   client: Synnax,
   namer: Task.Namer,
-  dev: { name: string; properties: Properties },
+  dev: { name: string; properties: Device.Properties },
   ep: ReadEndpoint,
 ): Promise<Task.ReadChannelPlan> =>
   await Task.planReadChannels({
@@ -122,7 +120,7 @@ const sharedPlan = (
  */
 const planEndpoints = async (
   client: Synnax,
-  dev: { name: string; properties: Properties },
+  dev: { name: string; properties: Device.Properties },
   endpoints: ReadEndpoint[],
   signal?: AbortSignal,
 ): Promise<Task.ReadChannelPlan[]> => {
@@ -151,7 +149,7 @@ PlansContext.displayName = "HTTP.PlansContext";
 /** Plans the channels of every endpoint together, as deploying does, for the panes. */
 const Plans = ({ children }: PropsWithChildren): ReactElement => {
   const endpoints = PForm.useFieldValue(root.config.endpoints);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const sources = endpoints.map((ep) => ({
     ep,
     name: dev?.name,
@@ -170,7 +168,7 @@ const Plans = ({ children }: PropsWithChildren): ReactElement => {
  */
 const useChannelNames = (endpoint: deep.Path<ReadEndpoint>, field: ReadField) => {
   const ep = PForm.useFieldValue(endpoint);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const plan = useContext(PlansContext).get(ep.key);
   const plannedName = plan == null ? undefined : Task.newChannelName(plan, field.key);
   const fallback =
@@ -446,7 +444,7 @@ const fieldDetails = Component.renderProp(FieldDetails);
 
 const Form: FC = () => {
   const endpoints = PForm.useFieldValue(root.config.endpoints);
-  const read = useFromConfig()?.properties.read ?? null;
+  const read = Device.useFromConfig()?.properties.read ?? null;
   return (
     <Plans>
       <Task.Views.GroupTree<ReadEndpoint, ReadField>
@@ -477,7 +475,7 @@ const Form: FC = () => {
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const before = deep.copy(dev.properties);
   try {
@@ -492,7 +490,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    await Device.setProperties(client, dev, before, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };

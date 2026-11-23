@@ -465,6 +465,27 @@ const renderMarkerCenter = async (
   };
 };
 
+describe("Custom.Drawing inline styles", () => {
+  it("should move an inline opacity and dash offset onto attributes", async () => {
+    const spec = createSpec(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+        '<g style="opacity:0.5"><path d="M0 5H10" ' +
+        'style="stroke-dashoffset:2;stroke-width:3"/></g></svg>',
+    );
+    const { container } = await render(
+      <Primitive.Div>
+        <Custom.Drawing spec={spec} />
+      </Primitive.Div>,
+    );
+    const group = container.querySelector("path")?.parentElement;
+    const path = container.querySelector("path");
+    expect(group?.getAttribute("opacity")).toBe("0.5");
+    expect(group?.style.getPropertyValue("opacity")).toBe("");
+    expect(path?.getAttribute("stroke-dashoffset")).toBe("2");
+    expect(path?.style.getPropertyValue("stroke-width")).toBe("3");
+  });
+});
+
 describe("Custom.Drawing orientation", () => {
   describe.each(DRAWINGS)("%s", (_, drawing) => {
     const spec = createOrientedSpec(drawing);
