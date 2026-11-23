@@ -438,7 +438,8 @@ const Dialog = ({
   const [hidden, setHidden] = useState(false);
   const [view, setView] = useState<View | null>(null);
   const [planning, setPlanning] = useState(true);
-  const [planError, setPlanError] = useState<FooterStatus | null>(null);
+  /** planError is why the last plan failed. */
+  const [planError, setPlanError] = useState<string | null>(null);
   const [changed, setChanged] = useState(false);
   const [unpicked, setUnpicked] = useState<Set<string>>(() => new Set());
   const [applying, setApplying] = useState(false);
@@ -467,11 +468,7 @@ const Dialog = ({
       if (signal.aborted) return;
       setPlanning(false);
       if (next == null) {
-        setPlanError({
-          variant: "error",
-          message: "Failed to list the records that this delete touches",
-          description: reasonOf(failure, "plan"),
-        });
+        setPlanError(reasonOf(failure, "plan"));
         return;
       }
       const planned = next;
@@ -587,10 +584,12 @@ const Dialog = ({
     );
   };
 
-  // A held spinner hides a failure until it ends, so the two never show together.
+  // A held spinner hides a failure until it ends, so the two never show together. A
+  // failure shows where its spinner showed: the first plan's in the body, in place of
+  // the list, and a later plan's in the footer, under the list it would update.
   const failure = listing || updating ? null : planError;
-  // A failed plan leaves the records unknown, so its failure takes the list's place.
-  const shown = listing || failure != null ? null : view;
+  const listFailed = failure != null && view == null;
+  const shown = listing || listFailed ? null : view;
   const plan = shown?.plan;
   const status = updating ? UPDATING : footer;
   const empty =
@@ -619,7 +618,7 @@ const Dialog = ({
             message="Listing the records that this delete touches"
           />
         )}
-        {failure != null && (
+        {listFailed && (
           <Flex.Box
             y
             align="start"
@@ -629,8 +628,8 @@ const Dialog = ({
           >
             <Status.Summary
               variant="error"
-              message={failure.message}
-              description={failure.description}
+              message="Failed to list the records that this delete touches"
+              description={failure}
               center={false}
             />
             <Button.Button variant="outlined" onClick={handleRetry}>
@@ -692,13 +691,27 @@ const Dialog = ({
       <Modal.Footer>
         {/* A live region stays mounted, so a screen reader reads each status. */}
         <Nav.Bar.Start role="status" className={CSS.BE("impact", "status")}>
-          {status != null && (
-            <Status.Summary
-              variant={status.variant}
-              message={status.message}
-              description={status.description}
-              center={false}
-            />
+          {failure != null && !listFailed ? (
+            <Status.Summary variant="error" description={failure} center={false}>
+              Failed to update the records
+              <Button.Button
+                variant="text"
+                size="tiny"
+                className={CSS.BE("impact", "retry")}
+                onClick={handleRetry}
+              >
+                Try again
+              </Button.Button>
+            </Status.Summary>
+          ) : (
+            status != null && (
+              <Status.Summary
+                variant={status.variant}
+                message={status.message}
+                description={status.description}
+                center={false}
+              />
+            )
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End x align="center">
@@ -713,7 +726,7 @@ const Dialog = ({
           <Button.Button
             variant="filled"
             status={applying ? "loading" : "error"}
-            disabled={shown == null || planning || updating}
+            disabled={shown == null || failure != null || planning || updating}
             trigger={Triggers.SAVE}
             triggerIndicator
             onClick={() => void handleDelete()}

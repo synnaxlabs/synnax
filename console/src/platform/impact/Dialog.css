@@ -33,6 +33,11 @@
     );
 }
 
+/* keeps the message line's height, so the band does not grow */
+.console-impact__retry {
+    margin-block: calc((var(--pluto-p-line-height) - var(--pluto-height-tiny)) / 2);
+}
+
 .console-impact__entries,
 .console-impact__failure {
     margin-top: 1rem;

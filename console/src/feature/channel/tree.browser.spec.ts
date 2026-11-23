@@ -441,6 +441,52 @@ describe("channel/tree", () => {
       await expectGone(async () => await client.channels.retrieve(ch.key));
     });
 
+    it("keeps the records listed when a plan after a pick fails", async () => {
+      const ch = await createChannel();
+      await createReadTask(ch.key);
+      const role = await createEmptyRole(client);
+      const grant = async (action: "retrieve" | "delete") =>
+        await client.access.policies.create({
+          name: uniqueName("impact"),
+          role: role.key,
+          objects: [channelClient.resourceID(ch.key)],
+          actions: [action],
+        });
+      await grant("delete");
+      const retrieve = await grant("retrieve");
+      const username = uniqueName("user");
+      await client.users.create({
+        username,
+        password: "test",
+        name: "test",
+        role: role.key,
+      });
+      assertDefined(Item.ContextMenu);
+      await renderTreeContextMenu(Item.ContextMenu, {
+        client: createTestClientAs(username, "test"),
+        resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
+      });
+      fireEvent.click(await screen.findByText("Delete"));
+      const hidden = await screen.findByRole("checkbox", {
+        name: "1 record you cannot see. Delete it too",
+      });
+      // The plan needs retrieve on the channel, so losing it fails the next plan.
+      await client.access.policies.delete(retrieve.key);
+      hidden.focus();
+      fireEvent.click(hidden);
+      const failed = "Failed to update the records";
+      await screen.findByText(failed);
+      expect(hidden).toHaveFocus();
+      expect(findLastButton("Delete")).toHaveAttribute("aria-disabled", "true");
+      await grant("retrieve");
+      fireEvent.click(findLastButton("Try again"));
+      await waitFor(() => expect(screen.queryByText(failed)).toBeNull());
+      await waitFor(() =>
+        expect(findLastButton("Delete").getAttribute("aria-disabled")).toBeNull(),
+      );
+      expect(hidden).toBeChecked();
+    });
+
     it("opens the calculation editor for a calculated channel", async () => {
       const calc = await createChannel({
         isIndex: false,
