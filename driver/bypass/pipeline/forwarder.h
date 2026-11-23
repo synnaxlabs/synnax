@@ -532,8 +532,8 @@ class Forwarder {
                 std::lock_guard lock(this->mu);
                 this->current = writer.get();
             }
-            // The writer opens with the authorities sent so far, so it is current
-            // only once it sends the changes queued before the open.
+            // The writer opens with the authorities sent so far, so it is current only
+            // once it sends the changes queued before the open.
             size_t stale = this->queued_authorities();
             if (stale == 0 && this->on_open) this->on_open();
             this->settle();
