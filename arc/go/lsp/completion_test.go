@@ -1037,6 +1037,26 @@ var _ = Describe("Completion", func() {
 					}))
 				},
 			)
+			It("should complete an unclosed quoted name in a placeholder", func(
+				ctx SpecContext,
+			) {
+				OpenArcDocument(
+					server,
+					ctx,
+					docURI,
+					"func f() {\n    x := f\"{'ox-p}\"\n}",
+				)
+				completions := Completion(server, ctx, docURI, 1, 17)
+				Expect(HasCompletion(completions.Items, "pt-2")).To(BeFalse())
+				item := MustBeOk(FindCompletion(completions.Items, "ox-pt-1"))
+				Expect(item.TextEdit).To(Equal(&protocol.TextEdit{
+					Range: protocol.Range{
+						Start: protocol.Position{Line: 1, Character: 12},
+						End:   protocol.Position{Line: 1, Character: 17},
+					},
+					NewText: "'ox-pt-1'",
+				}))
+			})
 
 			It("should complete code in a placeholder as outside a string", func(
 				ctx SpecContext,
