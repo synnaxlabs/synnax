@@ -370,8 +370,9 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
 
 - **`output`**: At most one calculation per channel. A delete of the channel deletes the
   calculation, then its status. Code finds a calculation with one probe of the `output`
-  reverse index, never with `MatchCalculated`
-  (`core/pkg/service/channel/retrieve.go:25-29`) or key bits.
+  reverse index, never with key bits. The channel `calculated` line reads the keys of
+  that index through a source that the channel service takes at the wiring site, so
+  `MatchCalculated` is a filter of the service.
 - **Output life**: A create makes a channel with `virtual` true, or takes a virtual
   channel that holds no calculation. It fails when another holder links that channel
   with direction `write`, and the framer refuses an outside writer on an output. A
