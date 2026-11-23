@@ -293,9 +293,10 @@ var _ = Describe("ResolveReadConfig", func() {
 
 	Describe("Read check", func() {
 		found := map[channel.Key]icdv0.Channel{
-			6: {Name: "time", DataType: telem.TimestampT, Index: true},
-			7: {Name: "pressure", DataType: telem.Float32T},
-			9: {Name: "time_b", DataType: telem.TimestampT, Index: true},
+			6:  {Name: "time", DataType: telem.TimestampT, Index: true},
+			7:  {Name: "pressure", DataType: telem.Float32T},
+			9:  {Name: "time_b", DataType: telem.TimestampT, Index: true},
+			10: {Name: "stamp", DataType: telem.TimestampT},
 		}
 		timeField := func(key string, ch channel.Key) v4.ReadField {
 			return v4.ReadField{
@@ -358,6 +359,24 @@ var _ = Describe("ResolveReadConfig", func() {
 				Expect(cfg.Endpoints[0].Messages[0].Index).
 					To(HaveValue(Equal(jsonFields(ic)[0].Base().Key)))
 				Expect(notes).To(ContainElement("endpoints.0.index"))
+			},
+		)
+
+		It("Should keep a timestamp field on a data channel as a data field",
+			func(ctx SpecContext) {
+				ic, cfg, notes := lift(ctx, v4.ReadEndpoint{
+					Key:    "ep",
+					Fields: []v4.ReadField{timeField("s", 10), timeField("t", 6)},
+				})
+				Expect(cfg.Endpoints[0].Messages[0].Index).
+					To(HaveValue(Equal(jsonFields(ic)[1].Base().Key)))
+				Expect(cfg.Endpoints[0].Messages[0].Bindings).To(ContainElement(
+					SatisfyAll(
+						HaveField("Field", jsonFields(ic)[0].Base().Key),
+						HaveField("Channel", channel.Key(10)),
+					),
+				))
+				Expect(notes).To(Equal([]string{"endpoints.0.index"}))
 			},
 		)
 
