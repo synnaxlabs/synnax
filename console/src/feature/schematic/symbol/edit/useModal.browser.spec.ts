@@ -781,6 +781,27 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("keeps a motion that follows a value", async () => {
+      const level: schematic.symbol.Look = {
+        key: "level",
+        part: "body",
+        motion: { type: "level", state: "tank", side: "bottom" },
+      };
+      const symbol = await openPainted({
+        states: [
+          { type: "number", key: "tank", name: "Tank", bounds: { lower: 0, upper: 1 } },
+        ],
+        looks: [level],
+      });
+      expect(findButton("Fill").classList.contains("lyra--selected")).toBe(true);
+      expect(findButton("Spin").getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(findButton("Spin"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([level]),
+      );
+    });
+
     it("edits the paint at Base of a static symbol with one control", async () => {
       const symbol = await openPainted({
         states: [createState()],

@@ -257,13 +257,18 @@ const MOTIONS: MotionGroup[] = [
 
 const isLoop = (kind: MotionKind): kind is Loop => kind === "spin" || kind === "flow";
 
+const FOLLOWS = "The motion follows a value, which the editor cannot change.";
+
 const MotionControl = (): ReactElement => {
   const { value, inherited, own, onChange, label } =
     useScope<"motion">("MotionControl");
   const locked = inherited != null && own == null;
   const moving = value?.type === "spin" || value?.type === "flow" ? value : undefined;
-  const handleKindChange = (kind: Loop | "none") => {
+  // The picker sets only loops, so it shows a motion that follows a value and keeps it.
+  const follows = value != null && moving == null;
+  const handleKindChange = (kind: MotionKind | "none") => {
     if (kind === "none") return onChange(undefined);
+    if (!isLoop(kind)) throw new Error(`the motion picker cannot set ${kind}`);
     onChange(
       moving == null
         ? schematic.symbol.motionZ.parse({ type: kind })
@@ -272,8 +277,8 @@ const MotionControl = (): ReactElement => {
   };
   return (
     <Flex.Box y align="end" gap="small">
-      <Select.Buttons<Loop | "none">
-        value={value == null ? "none" : moving?.type}
+      <Select.Buttons<MotionKind | "none">
+        value={value?.type ?? "none"}
         onChange={handleKindChange}
         size="small"
         align="center"
@@ -281,17 +286,19 @@ const MotionControl = (): ReactElement => {
         <Select.Item
           itemKey="none"
           size="small"
-          disabled={locked}
+          disabled={locked || follows}
           tooltip={
-            locked ? "The whole drawing moves, and this part with it." : undefined
+            follows
+              ? FOLLOWS
+              : locked
+                ? "The whole drawing moves, and this part with it."
+                : undefined
           }
         >
           None
         </Select.Item>
         {MOTIONS.map(({ name, kinds }) => {
-          const offered = kinds.filter((k): k is { kind: Loop; name: string } =>
-            isLoop(k.kind),
-          );
+          const offered = kinds.filter((k) => isLoop(k.kind) || k.kind === value?.type);
           if (offered.length === 0) return null;
           return (
             <Fragment key={name}>
@@ -300,7 +307,13 @@ const MotionControl = (): ReactElement => {
                 {name}
               </Text.Text>
               {offered.map((k) => (
-                <Select.Item key={k.kind} itemKey={k.kind} size="small">
+                <Select.Item
+                  key={k.kind}
+                  itemKey={k.kind}
+                  size="small"
+                  disabled={follows}
+                  tooltip={follows ? FOLLOWS : undefined}
+                >
                   {k.name}
                 </Select.Item>
               ))}
