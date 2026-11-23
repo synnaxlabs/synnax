@@ -48,19 +48,13 @@ const (
 	accessDeniedType       = errorType + ".access_denied"
 )
 
-// data returns the message of err without ref. A bare sentinel keeps its own message
-// so that clients in other languages receive text.
-func data(err, ref error) string {
-	if msg := errors.MessageWithout(err, ref); msg != "" {
-		return msg
-	}
-	return err.Error()
-}
-
-// wrap decodes data into ref. Data equal to the message of ref is the bare sentinel.
+// wrap decodes data into ref. The sentinel text that data ends with is not repeated.
 func wrap(ref error, data string) error {
 	if data == ref.Error() {
 		return ref
+	}
+	if detail, ok := strings.CutSuffix(data, ": "+ref.Error()); ok {
+		return errors.Wrap(ref, detail)
 	}
 	return errors.Wrap(ref, data)
 }
@@ -69,47 +63,47 @@ func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrSessionEnded) {
 		return errors.Payload{
 			Type: sessionEndedType,
-			Data: data(err, ErrSessionEnded),
+			Data: err.Error(),
 		}, true
 	}
 	if errors.CheapIs(err, ErrInvalidToken) {
 		return errors.Payload{
 			Type: invalidTokenType,
-			Data: data(err, ErrInvalidToken),
+			Data: err.Error(),
 		}, true
 	}
 	if errors.CheapIs(err, ErrInvalidCredentials) {
 		return errors.Payload{
 			Type: invalidCredentialsType,
-			Data: data(err, ErrInvalidCredentials),
+			Data: err.Error(),
 		}, true
 	}
 	if errors.CheapIs(err, ErrMissingCredentials) {
 		return errors.Payload{
 			Type: missingCredentialsType,
-			Data: data(err, ErrMissingCredentials),
+			Data: err.Error(),
 		}, true
 	}
 	if errors.CheapIs(err, ErrExpiredToken) {
 		return errors.Payload{
 			Type: expiredTokenType,
-			Data: data(err, ErrExpiredToken),
+			Data: err.Error(),
 		}, true
 	}
 	if errors.CheapIs(err, ErrRepeatedUsername) {
 		return errors.Payload{
 			Type: repeatedUsernameType,
-			Data: data(err, ErrRepeatedUsername),
+			Data: err.Error(),
 		}, true
 	}
 	if errors.CheapIs(err, ErrAccessDenied) {
 		return errors.Payload{
 			Type: accessDeniedType,
-			Data: data(err, ErrAccessDenied),
+			Data: err.Error(),
 		}, true
 	}
 	if errors.CheapIs(err, ErrAuth) {
-		return errors.Payload{Type: errorType, Data: data(err, ErrAuth)}, true
+		return errors.Payload{Type: errorType, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false
 }

@@ -36,19 +36,13 @@ const (
 	unsupported       = typePrefix + ".unsupported"
 )
 
-// data returns the message of err without ref. A bare sentinel keeps its own message
-// so that clients in other languages receive text.
-func data(err, ref error) string {
-	if msg := errors.MessageWithout(err, ref); msg != "" {
-		return msg
-	}
-	return err.Error()
-}
-
-// wrap decodes data into ref. Data equal to the message of ref is the bare sentinel.
+// wrap decodes data into ref. The sentinel text that data ends with is not repeated.
 func wrap(ref error, data string) error {
 	if data == ref.Error() {
 		return ref
+	}
+	if detail, ok := strings.CutSuffix(data, ": "+ref.Error()); ok {
+		return errors.Wrap(ref, detail)
 	}
 	return errors.Wrap(ref, data)
 }
@@ -57,31 +51,31 @@ func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrNotFound) {
 		return errors.Payload{
 			Type: notFound,
-			Data: data(err, ErrNotFound),
+			Data: err.Error(),
 		}, true
 	}
 	if errors.CheapIs(err, ErrUniqueViolation) {
 		return errors.Payload{
 			Type: uniqueViolation,
-			Data: data(err, ErrUniqueViolation),
+			Data: err.Error(),
 		}, true
 	}
 	if errors.CheapIs(err, ErrInvalidParameters) {
 		return errors.Payload{
 			Type: invalidParameters,
-			Data: data(err, ErrInvalidParameters),
+			Data: err.Error(),
 		}, true
 	}
 	if errors.CheapIs(err, ErrUnsupported) {
 		return errors.Payload{
 			Type: unsupported,
-			Data: data(err, ErrUnsupported),
+			Data: err.Error(),
 		}, true
 	}
 	if errors.CheapIs(err, ErrQuery) {
 		return errors.Payload{
 			Type: typePrefix,
-			Data: data(err, ErrQuery),
+			Data: err.Error(),
 		}, true
 	}
 	return errors.Payload{}, false
