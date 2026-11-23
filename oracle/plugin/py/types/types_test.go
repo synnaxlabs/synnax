@@ -2783,6 +2783,22 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("a deprecated v1 method", "validate"),
 				Entry("a model attribute", "model_config"),
 			)
+
+			It("Should clear the protected namespaces of a model_dump field", func() {
+				source := `
+					@py output "out"
+
+					Example struct {
+						model_dump string
+					}
+				`
+				resp := MustGenerate(source, "example", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`model_dump_: str = Field(alias="model_dump")`,
+						`model_config = ConfigDict(populate_by_name=True, protected_namespaces=())`,
+					)
+			})
 		})
 
 		Context("field name casing", func() {

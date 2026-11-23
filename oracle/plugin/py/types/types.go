@@ -339,7 +339,14 @@ func processStructDecl(
 		data.imports.addTyping("override as _override")
 	}
 	hasAlias := lo.SomeBy(sd.Fields, func(f fieldData) bool { return f.Alias != "" })
-	sd.ModelConfig = modelConfig(hasAlias, resolution.InFilterRequest(typ, table))
+	protected := lo.SomeBy(sd.Fields, func(f fieldData) bool {
+		return keywords.Protected(f.Name)
+	})
+	sd.ModelConfig = modelConfig(
+		hasAlias,
+		resolution.InFilterRequest(typ, table),
+		protected,
+	)
 	if sd.ModelConfig != "" {
 		data.imports.addPydantic("ConfigDict")
 	}
@@ -2317,15 +2324,18 @@ type structData struct {
 	After string
 }
 
-// modelConfig returns the model_config of a class whose fields have keyword aliases and
-// that decodes strictly.
-func modelConfig(hasAlias, strict bool) string {
+// modelConfig returns the model_config of a class whose fields have keyword aliases,
+// that decodes strictly, or that has a field in a namespace Pydantic protects.
+func modelConfig(hasAlias, strict, protected bool) string {
 	var opts []string
 	if hasAlias {
 		opts = append(opts, "populate_by_name=True")
 	}
 	if strict {
 		opts = append(opts, `extra="forbid"`)
+	}
+	if protected {
+		opts = append(opts, "protected_namespaces=()")
 	}
 	if len(opts) == 0 {
 		return ""

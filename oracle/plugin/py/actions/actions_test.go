@@ -284,6 +284,45 @@ var _ = Describe("Python Actions Plugin", func() {
 			)
 		})
 
+		It("Should give an action named for a BaseModel attribute an aliased field", func() {
+			resp := MustGenerate(`
+				@py output "client/py/synnax/counter"
+
+				Counter struct {
+					key uuid
+
+					action Copy {
+						register string
+					}
+				}
+			`, "counter", loader, p)
+			ExpectContent(resp, "actions_gen.py").ToContain(
+				`register_: str = Field(alias="register")`,
+				`copy_: CopyPayload = Field(alias="copy")`,
+				`type: Literal["copy"] = "copy"`,
+				"def copy_(payload: CopyPayload) -> CopyAction:",
+			)
+		})
+
+		It("Should clear the protected namespaces of a model_dump action", func() {
+			resp := MustGenerate(`
+				@py output "client/py/synnax/counter"
+
+				Counter struct {
+					key uuid
+
+					action ModelDump {
+						model_validate_flag string
+					}
+				}
+			`, "counter", loader, p)
+			ExpectContent(resp, "actions_gen.py").ToContain(
+				"model_config = ConfigDict(protected_namespaces=())",
+				"model_config = ConfigDict(populate_by_name=True, protected_namespaces=())",
+				`model_dump_: ModelDumpPayload = Field(alias="model_dump")`,
+			)
+		})
+
 		It("Should leave an omitted field out of a payload", func() {
 			resp := MustGenerate(`
 				@py output "client/py/synnax/counter"

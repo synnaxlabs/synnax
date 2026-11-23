@@ -22,12 +22,16 @@ ATTRIBUTES = (
 )
 
 
-def test_oracle_escapes_every_base_model_attribute() -> None:
-    """Should list in Oracle every public BaseModel attribute a field could shadow."""
-    meta = type(BaseModel)
-    public = {
-        name
-        for name in set(dir(BaseModel)) | set(dir(meta))
-        if not name.startswith("_") and hasattr(BaseModel, name)
-    }
-    assert set(ATTRIBUTES.read_text().split()) == public
+class TestModelAttributes:
+    """Tests for the BaseModel attributes that Oracle escapes in field names."""
+
+    def test_should_list_every_base_model_attribute(self) -> None:
+        """Should list in Oracle every public BaseModel attribute a field could
+        shadow."""
+        meta = type(BaseModel)
+        public = {
+            name
+            for name in set(dir(BaseModel)) | set(dir(meta))
+            if not name.startswith("_") and hasattr(BaseModel, name)
+        }
+        assert set(ATTRIBUTES.read_text().split()) == public
