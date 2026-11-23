@@ -67,22 +67,24 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const field = useFieldContext(name);
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
-  const { part } = inspector;
+  const { part, preview } = inspector;
   const { at } = field;
+  // A control for every value shows what the canvas draws at the preview value.
+  const shown = at ?? preview;
   return {
     ...inspector,
     ...field,
-    value: Spec.effective({ looks }, part, field.field, at) as Look[F] | undefined,
+    value: Spec.effective({ looks }, part, field.field, shown) as Look[F] | undefined,
     inherited:
       part == null
         ? undefined
-        : (Spec.effective({ looks }, undefined, field.field, at) as
+        : (Spec.effective({ looks }, undefined, field.field, shown) as
             Look[F] | undefined),
     own: Spec.effective(
       { looks: looks.filter((l) => l.part === part) },
       part,
       field.field,
-      at,
+      shown,
     ) as Look[F] | undefined,
     onChange: (v) =>
       set(path.data, Spec.setOwn(get(path.data).value, part, field.field, v, at)),
@@ -101,9 +103,9 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
   const { part, values } = useInspectorContext("Property");
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
-  const [split, setSplit] = useState(false);
+  const [split, setSplit] = useState(() => Spec.variesByValue({ looks }, part, field));
   const several = values.values.length > 1;
-  const varies = split || Spec.variesByValue({ looks }, part, field);
+  const varies = (several && split) || Spec.variesByValue({ looks }, part, field);
   const handleVariesChange = (next: boolean) => {
     const keys = values.values.map((v) => v.value);
     set(
