@@ -255,7 +255,7 @@ const placeDown = (columns: Node[][]): Placement => {
  *
  * @throws Error if an edge refers to a key that no node has.
  */
-export const layout = (
+export const place = (
   nodes: Node[],
   edges: Edge[],
   direction: Direction = "right",

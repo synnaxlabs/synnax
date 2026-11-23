@@ -15,5 +15,4 @@ export {
   type HandoffProps,
   type HandoffWriter,
 } from "@/components/diagram/Handoff";
-export type { Edge, Node } from "@/components/diagram/layout";
 export { Nest, type NestNode, type NestProps } from "@/components/diagram/Nest";
