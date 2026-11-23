@@ -62,8 +62,9 @@ const banded = (
 ): boolean => field === "stroke" || (builtIn && (type === "entry" || type === "node"));
 
 /**
- * @returns the value of state after its match. A number state with no value reads its
- * lower bound, and an enumeration state with no value reads its default entry.
+ * @returns the value of the state after its match. A number state with no value reads
+ * its lower bound. An enumeration state with no value reads its default entry, which
+ * needs no match.
  */
 export const matched = (state: schematic.symbol.State, value: StateValue): number => {
   const v = typeof value === "number" ? value : value.get(state.key);
