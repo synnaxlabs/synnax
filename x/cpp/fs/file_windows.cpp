@@ -127,6 +127,18 @@ std::pair<std::uint64_t, x::errors::Error> File::size() const {
     return {static_cast<std::uint64_t>(size.QuadPart), x::errors::NIL};
 }
 
+std::pair<bool, x::errors::Error> File::removed() const {
+    FILE_STANDARD_INFO info{};
+    if (!GetFileInformationByHandleEx(
+            to_handle(this->handle),
+            FileStandardInfo,
+            &info,
+            sizeof(info)
+        ))
+        return {false, last_error("failed to stat")};
+    return {info.NumberOfLinks == 0 || info.DeletePending != FALSE, x::errors::NIL};
+}
+
 x::errors::Error File::write(std::string_view data) const {
     while (!data.empty()) {
         DWORD n = 0;

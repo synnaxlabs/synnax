@@ -185,6 +185,16 @@ TEST_F(FileTest, CreatesOnlyNewFile) {
     );
 }
 
+/// @brief it should report a file that a replace took the name of.
+TEST_F(FileTest, ReportsReplacedFile) {
+    const auto path = this->dir / "a";
+    ASSERT_NIL(create(path, "old"));
+    const auto file = ASSERT_NIL_P(File::open_read(path));
+    EXPECT_FALSE(ASSERT_NIL_P(file->removed()));
+    ASSERT_NIL(create(path, "new"));
+    EXPECT_TRUE(ASSERT_NIL_P(file->removed()));
+}
+
 /// @brief it should remove only the temp files of the path.
 TEST_F(FileTest, RemovesTempFiles) {
     const auto path = this->dir / "a";

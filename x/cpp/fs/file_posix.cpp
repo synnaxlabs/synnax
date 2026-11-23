@@ -88,6 +88,13 @@ std::pair<std::uint64_t, x::errors::Error> File::size() const {
     return {static_cast<std::uint64_t>(st.st_size), x::errors::NIL};
 }
 
+std::pair<bool, x::errors::Error> File::removed() const {
+    struct stat st{};
+    if (fstat(static_cast<int>(this->handle), &st) != 0)
+        return {false, errno_error("failed to stat")};
+    return {st.st_nlink == 0, x::errors::NIL};
+}
+
 x::errors::Error File::write(std::string_view data) const {
     while (!data.empty()) {
         const auto n = ::write(

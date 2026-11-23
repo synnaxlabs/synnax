@@ -113,10 +113,18 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
         if (err && !err.matches(EXISTS)) return {nullptr, err};
         created = !err;
     }
-    auto [file, err] = File::open(cfg.path);
-    if (err) return {nullptr, err};
-    if (err = file->lock(); err) return {nullptr, err};
-    // A crash during a create can leave its temp file, or a link to the file.
+    std::unique_ptr<File> file;
+    while (file == nullptr) {
+        auto [f, err] = File::open(cfg.path);
+        if (err) return {nullptr, err};
+        if (err = f->lock(); err) return {nullptr, err};
+        auto [removed, removed_err] = f->removed();
+        if (removed_err) return {nullptr, removed_err};
+        // A create on a volume with no exclusive rename replaced the locked file.
+        if (!removed) file = std::move(f);
+    }
+    auto err = x::errors::NIL;
+    // A crash during a create can leave its temp file.
     if (err = remove_temps(cfg.path); err) return {nullptr, err};
     auto [start, size_err] = file->size();
     if (size_err) return {nullptr, size_err};

@@ -53,6 +53,10 @@ public:
     /// @returns the byte size of the file.
     [[nodiscard]] std::pair<std::uint64_t, x::errors::Error> size() const;
 
+    /// @returns whether the file has no name, because a removal or a replace took
+    /// it.
+    [[nodiscard]] std::pair<bool, x::errors::Error> removed() const;
+
     /// @brief writes all of data at the end of the file.
     [[nodiscard]] x::errors::Error write(std::string_view data) const;
 
