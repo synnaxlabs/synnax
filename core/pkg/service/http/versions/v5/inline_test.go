@@ -501,7 +501,7 @@ var _ = Describe("ResolveReadConfig", func() {
 		})
 
 		It(
-			"Should disable an endpoint whose fields bind nothing",
+			"Should disable an endpoint whose fields are all disabled",
 			func(ctx SpecContext) {
 				p := pressure("p")
 				p.Disabled = true
@@ -513,6 +513,33 @@ var _ = Describe("ResolveReadConfig", func() {
 				Expect(cfg.Endpoints[0].Messages).To(HaveLen(1))
 				Expect(cfg.Endpoints[0].Messages[0].Bindings).To(BeEmpty())
 				Expect(notes).To(Equal([]string{"endpoints.0"}))
+			},
+		)
+
+		It("Should keep an endpoint enabled when its only field has no channel",
+			func(ctx SpecContext) {
+				p := pressure("p")
+				p.Channel = 99
+				_, cfg, _ := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+					Key:    "ep",
+					Fields: []v4.ReadField{p},
+				}), found)
+				Expect(cfg.Endpoints[0].Disabled).To(BeFalse())
+				Expect(cfg.Endpoints[0].Messages[0].Bindings).
+					To(HaveExactElements(HaveField("Channel", channel.Key(0))))
+			},
+		)
+
+		It(
+			"Should keep an endpoint enabled when an earlier field writes its only channel",
+			func(ctx SpecContext) {
+				_, cfg, _ := lift(
+					ctx,
+					v4.ReadEndpoint{Key: "a", Fields: []v4.ReadField{pressure("p")}},
+					v4.ReadEndpoint{Key: "b", Fields: []v4.ReadField{pressure("p")}},
+				)
+				Expect(cfg.Endpoints[1].Disabled).To(BeFalse())
+				Expect(cfg.Endpoints[1].Messages[0].Bindings).To(BeEmpty())
 			},
 		)
 

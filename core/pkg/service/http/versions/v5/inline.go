@@ -39,7 +39,7 @@ import (
 // channel does not exist, or when an earlier field writes that channel. An endpoint
 // reads its message once for each field that writes an index channel, with that field
 // as the index, and an index field takes no fill value. Any other fill value becomes
-// the default of its field. An endpoint whose fields bind nothing becomes disabled.
+// the default of its field. An endpoint whose fields are all disabled becomes disabled.
 // note receives the path and each change. ResolveReadConfig returns an error when a
 // staged endpoint is not an endpoint of cfg.
 func ResolveReadConfig(
@@ -95,9 +95,10 @@ func ResolveReadConfig(
 		lifted.Messages[i] = msg
 		ep.ICD = new(lifted.Key)
 		ep.Messages = groupReads(read, found)
-		if !ep.Disabled && len(ep.Messages[0].Bindings) == 0 {
+		if !ep.Disabled && len(e.Fields) > 0 &&
+			lo.EveryBy(e.Fields, func(f ReadField) bool { return f.Disabled }) {
 			ep.Disabled = true
-			note(paths[i], "was disabled, because it binds no fields")
+			note(paths[i], "was disabled, because each of its fields is disabled")
 		}
 	}
 	ic, err := icdv1.MigrateICD(ctx, lifted)
