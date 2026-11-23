@@ -486,6 +486,42 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.data).toEqual([z.key]));
   });
 
+  it("should read on when a shown record leaves during a read past a hidden page", async () => {
+    const a = await create("a");
+    await create("h1");
+    await create("h2");
+    const z = await create("z");
+    const local = createTestClient();
+    await waitForStreamLive(local.connection);
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          filter: (r) => !r.name.startsWith("h"),
+          pageSize: 1,
+        }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key]));
+    let reads = 0;
+    // Holds the second page read past a, which fetches h2.
+    const { responded, release } = holdResponses(
+      local,
+      (target, req) =>
+        target === "/range/retrieve" &&
+        ranger.retrieveRequestZ.parse(req).order != null &&
+        ++reads === 2,
+    );
+    act(() => result.current.more());
+    await responded;
+    await client.ranges.delete(a.key);
+    await waitFor(() => expect(result.current.data).toEqual([]));
+    release();
+    await waitFor(() => expect(result.current.data).toEqual([z.key]));
+  });
+
   it("should stop at the end of a list that the filter hides whole", async () => {
     await create("h1");
     await create("h2");

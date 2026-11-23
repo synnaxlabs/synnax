@@ -16,6 +16,7 @@ import {
 import { useMemoArray, useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import {
   type CrudeTimeSpan,
+  deep,
   destructor,
   primitive,
   type record,
@@ -69,7 +70,7 @@ export interface UseListParams<Q, E extends record.Keyed<record.Key>, I = E["key
    * a filter that hides most records belongs in the query.
    */
   filter?: (item: E) => boolean;
-  /** How many records each call to `more` reads. */
+  /** How many records each fetch of a page reads. */
   pageSize?: number;
   /** How many records the list reads at first. Defaults to `pageSize`. */
   initialSize?: number;
@@ -105,8 +106,9 @@ export type UseListReturn<K extends record.Key, E extends record.Keyed<K>> = Omi
    */
   subscribe: (callback: () => void, key: K) => destructor.Destructor;
   /**
-   * Reads the first page, then the next one on each later call. Does nothing while a
-   * read runs or once the list holds every record.
+   * Reads the first page, then the next one on each later call. With a filter, a call
+   * reads on past the pages that the filter hides whole. Does nothing while a read runs
+   * or once the list holds every record.
    */
   more: () => void;
   /** Lists the records that match the term. An empty term ends the search. */
@@ -250,33 +252,30 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     setStatus(next);
   };
 
-  const countShown = (records: E[]): number =>
-    filter == null ? records.length : records.filter(filter).length;
-
   // A page that the filter hides whole shows nothing new, so the read goes on to the
-  // next page until a record shows, the list ends, or a newer read starts.
+  // next page until a new record shows, the list ends, or a newer read starts.
   const readShown = async (
     l: query.List<E, unknown>,
-    shown: number,
     first: Promise<query.Window<E, unknown>>,
+    before: E[] = [],
   ): Promise<void> => {
     const token = reading.current;
     let w = await first;
-    while (
-      filter != null &&
-      w.end != null &&
-      reading.current === token &&
-      countShown(w.records) === shown
-    ) {
-      const size = w.records.length;
+    if (filter == null) return;
+    const old = new Set(before.filter(filter).map(({ key }) => key));
+    const showsNew = ({ records }: query.Window<E, unknown>): boolean =>
+      records.some((r) => filter(r) && !old.has(r.key));
+    while (w.end != null && reading.current === token && !showsNew(w)) {
+      const { end } = w;
       w = await l.more(pageSize);
-      if (w.records.length === size) return;
+      // A search at its size cap fetches nothing and leaves the end in place.
+      if (deep.equal(w.end, end)) return;
     }
   };
 
   useEffect(() => {
     if (list == null || !started) return;
-    void read(op, async () => await readShown(list, 0, list.retrieve()));
+    void read(op, async () => await readShown(list, list.retrieve()));
     return () => {
       reading.current = null;
     };
@@ -287,12 +286,12 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     if (list == null || reading.current != null) return;
     // A failed first read leaves no window, so the first page reads again.
     if (current == null)
-      return void read(op, async () => await readShown(list, 0, list.retrieve()));
+      return void read(op, async () => await readShown(list, list.retrieve()));
     if (current.end == null) return;
-    const shown = countShown(current.records);
+    const { records } = current;
     void read(
       `retrieve more ${name}`,
-      async () => await readShown(list, shown, list.more(pageSize)),
+      async () => await readShown(list, list.more(pageSize), records),
     );
   };
 
