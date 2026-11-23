@@ -1234,6 +1234,33 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			)
 		})
 
+		It("Should leave a restated nested default to the embedded struct", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Bounds struct {
+					lower float64 {
+						@go validate lt upper
+					}
+					upper float64
+				}
+
+				Range struct {
+					bounds Bounds = { lower = 0, upper = 1 }
+				}
+
+				Shape union on kind {
+					tuned extends Range {
+						bounds = { lower = 2, upper = 3 }
+					}
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			content := string(resp.Files[0].Content)
+			Expect(strings.Count(content, "Bounds.Validate()")).To(Equal(1))
+			ExpectContent(resp, "types.gen.go").ToContain(`v.Exec(t.Range.Validate)`)
+		})
+
 		It("Should check a restated field's own lt rule", func() {
 			source := `
 				@go output "core/pkg/service/x"

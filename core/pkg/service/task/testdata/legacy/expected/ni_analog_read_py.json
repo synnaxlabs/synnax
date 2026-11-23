@@ -9,10 +9,12 @@
       "device": "fixture-ni-py-dev",
       "disabled": false,
       "key": "ch-py-ai-charge",
-      "max_val": 0.000001,
-      "min_val": -0.000001,
       "name": "",
       "port": 0,
+      "range": {
+        "lower": -1e-6,
+        "upper": 1e-6
+      },
       "terminal_config": "Diff",
       "type": "ai_charge",
       "units": "PicoCoulombs"
@@ -26,10 +28,12 @@
       "disabled": false,
       "hysteresis": 0.125,
       "key": "ch-py-ai-freq-voltage",
-      "max_val": 65.5,
-      "min_val": 45.5,
       "name": "",
       "port": 1,
+      "range": {
+        "lower": 45.5,
+        "upper": 65.5
+      },
       "threshold_level": 0.5,
       "type": "ai_freq_voltage"
     },
@@ -43,10 +47,12 @@
       "device": "fixture-ni-py-dev",
       "disabled": true,
       "key": "ch-py-ai-thermistor-iex",
-      "max_val": 150.5,
-      "min_val": -40.5,
       "name": "",
       "port": 2,
+      "range": {
+        "lower": -40.5,
+        "upper": 150.5
+      },
       "resistance_config": "4Wire",
       "type": "ai_thermistor_iex",
       "units": "DegC"
@@ -59,11 +65,13 @@
       "device": "fixture-ni-py-dev",
       "disabled": false,
       "key": "ch-py-ai-thermistor-vex",
-      "max_val": 423.5,
-      "min_val": 233.5,
       "name": "",
       "port": 3,
       "r1": 0,
+      "range": {
+        "lower": 233.5,
+        "upper": 423.5
+      },
       "resistance_config": "2Wire",
       "type": "ai_thermistor_vex",
       "units": "Kelvins",
@@ -82,10 +90,12 @@
       "device": "fixture-ni-py-dev",
       "disabled": false,
       "key": "ch-py-ai-voltage-rms",
-      "max_val": 7.5,
-      "min_val": -7.5,
       "name": "",
       "port": 4,
+      "range": {
+        "lower": -7.5,
+        "upper": 7.5
+      },
       "terminal_config": "RSE",
       "type": "ai_voltage_rms"
     }

@@ -66,7 +66,7 @@ export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => {
   }, [ctx, holding, lowerPath]);
 
   const handleChange = (key: keyof Range) => (value: number) => {
-    const next = { ...shown, [key]: value };
+    const next: Range = { lower: shown.lower, upper: shown.upper, [key]: value };
     if (next.lower >= next.upper) {
       setHeld({ ...next, at, stored: { lower, upper } });
       return;

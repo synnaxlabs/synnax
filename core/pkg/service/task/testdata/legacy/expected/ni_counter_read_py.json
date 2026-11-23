@@ -11,12 +11,14 @@
       "divisor": 8,
       "edge": "Falling",
       "key": "ch-py-ci-frequency",
-      "max_val": 95.5,
       "meas_method": "DynamicAvg",
       "meas_time": "2000000",
-      "min_val": 2.5,
       "name": "",
       "port": 0,
+      "range": {
+        "lower": 2.5,
+        "upper": 95.5
+      },
       "terminal": "/Dev1/PFI0",
       "type": "ci_frequency",
       "units": "Hz"
@@ -30,12 +32,14 @@
       "disabled": true,
       "divisor": 16,
       "key": "ch-py-ci-period",
-      "max_val": 0.85,
       "meas_method": "DynamicAvg",
       "meas_time": "4000000",
-      "min_val": 0.0005,
       "name": "",
       "port": 1,
+      "range": {
+        "lower": 0.0005,
+        "upper": 0.85
+      },
       "starting_edge": "Rising",
       "terminal": "/Dev1/PFI1",
       "type": "ci_period",

@@ -11,10 +11,12 @@
       "disabled": false,
       "dist_per_pulse": 0.04,
       "key": "ch-py-ci-velocity-linear",
-      "max_val": 40,
-      "min_val": 0,
       "name": "",
       "port": 0,
+      "range": {
+        "lower": 0,
+        "upper": 40
+      },
       "terminal_a": "/Dev1/PFI0",
       "terminal_b": "/Dev1/PFI1",
       "type": "ci_velocity_linear",
@@ -29,11 +31,13 @@
       "device": "fixture-ni-py-ctr-dev",
       "disabled": false,
       "key": "ch-py-ci-velocity-angular",
-      "max_val": 3600,
-      "min_val": 0,
       "name": "",
       "port": 1,
       "pulses_per_rev": 1024,
+      "range": {
+        "lower": 0,
+        "upper": 3600
+      },
       "terminal_a": "/Dev1/PFI2",
       "terminal_b": "/Dev1/PFI3",
       "type": "ci_velocity_angular",

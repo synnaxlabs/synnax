@@ -13,10 +13,12 @@
       "device": "fixture-ni-config-device",
       "disabled": false,
       "key": "ch-v0-ai-voltage",
-      "max_val": 10.5,
-      "min_val": -10.5,
       "name": "fixture_v0_ai_voltage",
       "port": 1,
+      "range": {
+        "lower": -10.5,
+        "upper": 10.5
+      },
       "terminal_config": "RSE",
       "type": "ai_voltage"
     },
@@ -29,10 +31,12 @@
       "disabled": true,
       "hysteresis": 0.125,
       "key": "ch-v0-ai-freq",
-      "max_val": 10000.5,
-      "min_val": 1.5,
       "name": "fixture_v0_ai_frequency_voltage",
       "port": 2,
+      "range": {
+        "lower": 1.5,
+        "upper": 10000.5
+      },
       "threshold_level": 2.25,
       "type": "ai_freq_voltage"
     },
@@ -45,10 +49,12 @@
       "device": "fixture-ni-config-device",
       "disabled": false,
       "key": "ch-v0-ai-tc-chan",
-      "max_val": 900.5,
-      "min_val": -100.5,
       "name": "fixture_v0_ai_thermocouple_chan",
       "port": 3,
+      "range": {
+        "lower": -100.5,
+        "upper": 900.5
+      },
       "thermocouple_type": "K",
       "type": "ai_thermocouple",
       "units": "DegC"
@@ -64,12 +70,14 @@
       "initial_bridge_voltage": 0.021,
       "key": "ch-v0-ai-strain-kebab",
       "lead_wire_resistance": 0.45,
-      "max_val": 0.002,
-      "min_val": -0.002,
       "name": "fixture_v0_ai_strain_kebab",
       "nominal_gage_resistance": 120.75,
       "poisson_ratio": 0.31,
       "port": 5,
+      "range": {
+        "lower": -0.002,
+        "upper": 0.002
+      },
       "strain_config": "HalfBridgeII",
       "type": "ai_strain_gauge",
       "voltage_excit_source": "Internal",
@@ -83,10 +91,12 @@
       "device": "fixture-ni-channel-device",
       "disabled": false,
       "key": "ch-v0-ai-tc-builtin",
-      "max_val": 1500.5,
-      "min_val": 0.5,
       "name": "fixture_v0_ai_thermocouple_builtin",
       "port": 4,
+      "range": {
+        "lower": 0.5,
+        "upper": 1500.5
+      },
       "thermocouple_type": "J",
       "type": "ai_thermocouple",
       "units": "Kelvins"
