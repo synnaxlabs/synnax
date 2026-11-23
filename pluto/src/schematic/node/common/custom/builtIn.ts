@@ -52,7 +52,10 @@ export const STROKE_LOOK: schematic.symbol.Look = { key: "stroke", stroke: ENTRY
  * @returns a look that fills part, or the whole drawing when part is absent, with the
  * color of the active entry while the active state is value.
  */
-export const createFillLook = (value: number, part?: string): schematic.symbol.Look => ({
+export const createFillLook = (
+  value: number,
+  part?: string,
+): schematic.symbol.Look => ({
   key: part ?? "fill",
   part,
   when: { type: "equals", state: ACTIVE, values: [value] },
@@ -60,6 +63,23 @@ export const createFillLook = (value: number, part?: string): schematic.symbol.L
 });
 
 const ACTIVE_LOOKS = [STROKE_LOOK, createFillLook(1)];
+
+/**
+ * DETAIL_LINES gives the `.pluto--detail` lines of a drawing the black or white that
+ * reads on its fill while active.
+ */
+export const DETAIL_LINES: Pick<schematic.symbol.Spec, "parts" | "looks"> = {
+  parts: [{ key: "detail", name: "Detail", selectors: [".pluto--detail"] }],
+  looks: [
+    ...ACTIVE_LOOKS,
+    {
+      key: "detail",
+      part: "detail",
+      when: { type: "equals", state: ACTIVE, values: [1] },
+      stroke: { type: "contrast", state: ACTIVE },
+    },
+  ],
+};
 
 type Behavior = Pick<
   schematic.symbol.Spec,
@@ -86,8 +106,7 @@ const createBehavior = (key: FamilyKey): Behavior => {
       default: 0,
     },
   ];
-  if (family.commands == null)
-    return { ...STATIC, states, looks: ACTIVE_LOOKS };
+  if (family.commands == null) return { ...STATIC, states, looks: ACTIVE_LOOKS };
   const [deactivate, activate] = family.commands;
   return {
     states,
@@ -98,10 +117,17 @@ const createBehavior = (key: FamilyKey): Behavior => {
         state: ACTIVE,
         value: { type: "fixed", value: 0 },
       },
-      { key: "activate", name: activate, state: ACTIVE, value: { type: "fixed", value: 1 } },
+      {
+        key: "activate",
+        name: activate,
+        state: ACTIVE,
+        value: { type: "fixed", value: 1 },
+      },
     ],
     looks: ACTIVE_LOOKS,
-    interactions: [{ type: "next", key: "click", commands: ["deactivate", "activate"] }],
+    interactions: [
+      { type: "next", key: "click", commands: ["deactivate", "activate"] },
+    ],
     variant: "actuator",
   };
 };

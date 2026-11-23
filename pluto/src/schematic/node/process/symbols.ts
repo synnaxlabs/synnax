@@ -11,16 +11,46 @@ import type { schematic } from "@synnaxlabs/client";
 
 import { createStatic, createToggle } from "@/schematic/node/common/create";
 import { Agitator, SYMBOL as AGITATOR } from "@/schematic/node/process/Agitator";
-import { CrossBeamAgitator, SYMBOL as CROSS_BEAM_AGITATOR } from "@/schematic/node/process/CrossBeamAgitator";
-import { FlatBladeAgitator, SYMBOL as FLAT_BLADE_AGITATOR } from "@/schematic/node/process/FlatBladeAgitator";
-import { HeatExchangerGeneral, SYMBOL as HEAT_EXCHANGER_GENERAL } from "@/schematic/node/process/HeatExchangerGeneral";
-import { HeatExchangerM, SYMBOL as HEAT_EXCHANGER_M } from "@/schematic/node/process/HeatExchangerM";
-import { HeatExchangerStraightTube, SYMBOL as HEAT_EXCHANGER_STRAIGHT_TUBE } from "@/schematic/node/process/HeatExchangerStraightTube";
-import { HelicalAgitator, SYMBOL as HELICAL_AGITATOR } from "@/schematic/node/process/HelicalAgitator";
-import { PaddleAgitator, SYMBOL as PADDLE_AGITATOR } from "@/schematic/node/process/PaddleAgitator";
-import { PropellerAgitator, SYMBOL as PROPELLER_AGITATOR } from "@/schematic/node/process/PropellerAgitator";
-import { RotaryMixer, SYMBOL as ROTARY_MIXER } from "@/schematic/node/process/RotaryMixer";
-import { StaticMixer, SYMBOL as STATIC_MIXER } from "@/schematic/node/process/StaticMixer";
+import {
+  CrossBeamAgitator,
+  SYMBOL as CROSS_BEAM_AGITATOR,
+} from "@/schematic/node/process/CrossBeamAgitator";
+import {
+  FlatBladeAgitator,
+  SYMBOL as FLAT_BLADE_AGITATOR,
+} from "@/schematic/node/process/FlatBladeAgitator";
+import {
+  HeatExchangerGeneral,
+  SYMBOL as HEAT_EXCHANGER_GENERAL,
+} from "@/schematic/node/process/HeatExchangerGeneral";
+import {
+  HeatExchangerM,
+  SYMBOL as HEAT_EXCHANGER_M,
+} from "@/schematic/node/process/HeatExchangerM";
+import {
+  HeatExchangerStraightTube,
+  SYMBOL as HEAT_EXCHANGER_STRAIGHT_TUBE,
+} from "@/schematic/node/process/HeatExchangerStraightTube";
+import {
+  HelicalAgitator,
+  SYMBOL as HELICAL_AGITATOR,
+} from "@/schematic/node/process/HelicalAgitator";
+import {
+  PaddleAgitator,
+  SYMBOL as PADDLE_AGITATOR,
+} from "@/schematic/node/process/PaddleAgitator";
+import {
+  PropellerAgitator,
+  SYMBOL as PROPELLER_AGITATOR,
+} from "@/schematic/node/process/PropellerAgitator";
+import {
+  RotaryMixer,
+  SYMBOL as ROTARY_MIXER,
+} from "@/schematic/node/process/RotaryMixer";
+import {
+  StaticMixer,
+  SYMBOL as STATIC_MIXER,
+} from "@/schematic/node/process/StaticMixer";
 
 const agitator = createToggle({
   variant: "agitator",

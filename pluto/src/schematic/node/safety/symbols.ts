@@ -11,12 +11,30 @@ import type { schematic } from "@synnaxlabs/client";
 
 import { createStatic } from "@/schematic/node/common/create";
 import { BurstDisc, SYMBOL as BURST_DISC } from "@/schematic/node/safety/BurstDisc";
-import { FlameArrestor, SYMBOL as FLAME_ARRESTOR } from "@/schematic/node/safety/FlameArrestor";
-import { FlameArrestorDetonation, SYMBOL as FLAME_ARRESTOR_DETONATION } from "@/schematic/node/safety/FlameArrestorDetonation";
-import { FlameArrestorExplosion, SYMBOL as FLAME_ARRESTOR_EXPLOSION } from "@/schematic/node/safety/FlameArrestorExplosion";
-import { FlameArrestorFireRes, SYMBOL as FLAME_ARRESTOR_FIRE_RES } from "@/schematic/node/safety/FlameArrestorFireRes";
-import { FlameArrestorFireResDetonation, SYMBOL as FLAME_ARRESTOR_FIRE_RES_DETONATION } from "@/schematic/node/safety/FlameArrestorFireResDetonation";
-import { IsoBurstDisc, SYMBOL as ISO_BURST_DISC } from "@/schematic/node/safety/IsoBurstDisc";
+import {
+  FlameArrestor,
+  SYMBOL as FLAME_ARRESTOR,
+} from "@/schematic/node/safety/FlameArrestor";
+import {
+  FlameArrestorDetonation,
+  SYMBOL as FLAME_ARRESTOR_DETONATION,
+} from "@/schematic/node/safety/FlameArrestorDetonation";
+import {
+  FlameArrestorExplosion,
+  SYMBOL as FLAME_ARRESTOR_EXPLOSION,
+} from "@/schematic/node/safety/FlameArrestorExplosion";
+import {
+  FlameArrestorFireRes,
+  SYMBOL as FLAME_ARRESTOR_FIRE_RES,
+} from "@/schematic/node/safety/FlameArrestorFireRes";
+import {
+  FlameArrestorFireResDetonation,
+  SYMBOL as FLAME_ARRESTOR_FIRE_RES_DETONATION,
+} from "@/schematic/node/safety/FlameArrestorFireResDetonation";
+import {
+  IsoBurstDisc,
+  SYMBOL as ISO_BURST_DISC,
+} from "@/schematic/node/safety/IsoBurstDisc";
 
 const burstDisc = createStatic({
   variant: "burst_disc",

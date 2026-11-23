@@ -21,8 +21,8 @@ import { Piston, SYMBOL as PISTON } from "@/schematic/node/pumps/Piston";
 import { Pump, SYMBOL as PUMP } from "@/schematic/node/pumps/Pump";
 import { RollerVane, SYMBOL as ROLLER_VANE } from "@/schematic/node/pumps/RollerVane";
 import { Screw, SYMBOL as SCREW } from "@/schematic/node/pumps/Screw";
-import { Turbo, SYMBOL as TURBO } from "@/schematic/node/pumps/Turbo";
-import { Vacuum, SYMBOL as VACUUM } from "@/schematic/node/pumps/Vacuum";
+import { SYMBOL as TURBO, Turbo } from "@/schematic/node/pumps/Turbo";
+import { SYMBOL as VACUUM, Vacuum } from "@/schematic/node/pumps/Vacuum";
 
 const cavity = createToggle({
   variant: "cavity_pump",

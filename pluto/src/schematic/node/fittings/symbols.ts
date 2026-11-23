@@ -12,17 +12,29 @@ import type { schematic } from "@synnaxlabs/client";
 import { createStatic, createToggle } from "@/schematic/node/common/create";
 import { Cap, SYMBOL as CAP } from "@/schematic/node/fittings/Cap";
 import { Filter, SYMBOL as FILTER } from "@/schematic/node/fittings/Filter";
-import { FlowStraightener, SYMBOL as FLOW_STRAIGHTENER } from "@/schematic/node/fittings/FlowStraightener";
-import { HeaterElement, SYMBOL as HEATER_ELEMENT } from "@/schematic/node/fittings/HeaterElement";
+import {
+  FlowStraightener,
+  SYMBOL as FLOW_STRAIGHTENER,
+} from "@/schematic/node/fittings/FlowStraightener";
+import {
+  HeaterElement,
+  SYMBOL as HEATER_ELEMENT,
+} from "@/schematic/node/fittings/HeaterElement";
 import { ISOCap, SYMBOL as ISO_CAP } from "@/schematic/node/fittings/ISOCap";
 import { ISOFilter, SYMBOL as ISO_FILTER } from "@/schematic/node/fittings/ISOFilter";
 import { Nozzle, SYMBOL as NOZZLE } from "@/schematic/node/fittings/Nozzle";
 import { Orifice, SYMBOL as ORIFICE } from "@/schematic/node/fittings/Orifice";
-import { OrificePlate, SYMBOL as ORIFICE_PLATE } from "@/schematic/node/fittings/OrificePlate";
+import {
+  OrificePlate,
+  SYMBOL as ORIFICE_PLATE,
+} from "@/schematic/node/fittings/OrificePlate";
 import { Strainer, SYMBOL as STRAINER } from "@/schematic/node/fittings/Strainer";
-import { StrainerCone, SYMBOL as STRAINER_CONE } from "@/schematic/node/fittings/StrainerCone";
-import { Thruster, SYMBOL as THRUSTER } from "@/schematic/node/fittings/Thruster";
-import { Vent, SYMBOL as VENT } from "@/schematic/node/fittings/Vent";
+import {
+  StrainerCone,
+  SYMBOL as STRAINER_CONE,
+} from "@/schematic/node/fittings/StrainerCone";
+import { SYMBOL as THRUSTER, Thruster } from "@/schematic/node/fittings/Thruster";
+import { SYMBOL as VENT, Vent } from "@/schematic/node/fittings/Vent";
 
 const cap = createStatic({ variant: "cap", name: "Cap", Primitive: Cap });
 const filter = createStatic({ variant: "filter", name: "Filter", Primitive: Filter });

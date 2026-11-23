@@ -62,7 +62,9 @@ describe("Schematic.Node.BUILT_INS", () => {
   it("should give each symbol a spec that the Core accepts", async () => {
     const client = createTestClient();
     const symbols = await client.schematics.symbols.create({
-      symbols: Object.entries(Node.BUILT_INS).map(([name, data]) => ({ name, data })),
+      symbols: Object.entries(Node.BUILT_INS).flatMap(([name, data]) =>
+        data == null ? [] : [{ name, data }],
+      ),
     });
     await client.schematics.symbols.delete(symbols.map((s) => s.key));
   });

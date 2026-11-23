@@ -11,17 +11,32 @@ import type { schematic } from "@synnaxlabs/client";
 
 import { createStatic } from "@/schematic/node/common/create";
 import { Coriolis, SYMBOL as CORIOLIS } from "@/schematic/node/flowmeters/Coriolis";
-import { Electromagnetic, SYMBOL as ELECTROMAGNETIC } from "@/schematic/node/flowmeters/Electromagnetic";
-import { FloatSensor, SYMBOL as FLOAT_SENSOR } from "@/schematic/node/flowmeters/FloatSensor";
+import {
+  Electromagnetic,
+  SYMBOL as ELECTROMAGNETIC,
+} from "@/schematic/node/flowmeters/Electromagnetic";
+import {
+  FloatSensor,
+  SYMBOL as FLOAT_SENSOR,
+} from "@/schematic/node/flowmeters/FloatSensor";
 import { General, SYMBOL as GENERAL } from "@/schematic/node/flowmeters/General";
 import { Nozzle, SYMBOL as NOZZLE } from "@/schematic/node/flowmeters/Nozzle";
 import { Orifice, SYMBOL as ORIFICE } from "@/schematic/node/flowmeters/Orifice";
-import { PositiveDisplacement, SYMBOL as POSITIVE_DISPLACEMENT } from "@/schematic/node/flowmeters/PositiveDisplacement";
+import {
+  PositiveDisplacement,
+  SYMBOL as POSITIVE_DISPLACEMENT,
+} from "@/schematic/node/flowmeters/PositiveDisplacement";
 import { Pulse, SYMBOL as PULSE } from "@/schematic/node/flowmeters/Pulse";
-import { RingPiston, SYMBOL as RING_PISTON } from "@/schematic/node/flowmeters/RingPiston";
-import { Turbine, SYMBOL as TURBINE } from "@/schematic/node/flowmeters/Turbine";
-import { VariableArea, SYMBOL as VARIABLE_AREA } from "@/schematic/node/flowmeters/VariableArea";
-import { Venturi, SYMBOL as VENTURI } from "@/schematic/node/flowmeters/Venturi";
+import {
+  RingPiston,
+  SYMBOL as RING_PISTON,
+} from "@/schematic/node/flowmeters/RingPiston";
+import { SYMBOL as TURBINE, Turbine } from "@/schematic/node/flowmeters/Turbine";
+import {
+  SYMBOL as VARIABLE_AREA,
+  VariableArea,
+} from "@/schematic/node/flowmeters/VariableArea";
+import { SYMBOL as VENTURI, Venturi } from "@/schematic/node/flowmeters/Venturi";
 
 const general = createStatic({
   variant: "flowmeter_general",

@@ -18,30 +18,64 @@ import {
 import { Toggle } from "@/schematic/node/common/toggle";
 import type { Spec } from "@/schematic/node/spec";
 import { Angled, SYMBOL as ANGLED } from "@/schematic/node/valves/Angled";
-import { AngledRelief, SYMBOL as ANGLED_RELIEF } from "@/schematic/node/valves/AngledRelief";
-import { AngledSpringLoadedRelief, SYMBOL as ANGLED_SPRING_LOADED_RELIEF } from "@/schematic/node/valves/AngledSpringLoadedRelief";
+import {
+  AngledRelief,
+  SYMBOL as ANGLED_RELIEF,
+} from "@/schematic/node/valves/AngledRelief";
+import {
+  AngledSpringLoadedRelief,
+  SYMBOL as ANGLED_SPRING_LOADED_RELIEF,
+} from "@/schematic/node/valves/AngledSpringLoadedRelief";
 import { Ball, SYMBOL as BALL } from "@/schematic/node/valves/Ball";
 import { Breather, SYMBOL as BREATHER } from "@/schematic/node/valves/Breather";
-import { ButterflyOne, SYMBOL as BUTTERFLY_ONE } from "@/schematic/node/valves/ButterflyOne";
-import { ButterflyTwo, SYMBOL as BUTTERFLY_TWO } from "@/schematic/node/valves/ButterflyTwo";
+import {
+  ButterflyOne,
+  SYMBOL as BUTTERFLY_ONE,
+} from "@/schematic/node/valves/ButterflyOne";
+import {
+  ButterflyTwo,
+  SYMBOL as BUTTERFLY_TWO,
+} from "@/schematic/node/valves/ButterflyTwo";
 import { Check, SYMBOL as CHECK } from "@/schematic/node/valves/Check";
-import { CheckWithArrow, SYMBOL as CHECK_WITH_ARROW } from "@/schematic/node/valves/CheckWithArrow";
-import { ElectricRegulator, SYMBOL as ELECTRIC_REGULATOR } from "@/schematic/node/valves/ElectricRegulator";
-import { ElectricRegulatorMotorized, SYMBOL as ELECTRIC_REGULATOR_MOTORIZED } from "@/schematic/node/valves/ElectricRegulatorMotorized";
+import {
+  CheckWithArrow,
+  SYMBOL as CHECK_WITH_ARROW,
+} from "@/schematic/node/valves/CheckWithArrow";
+import {
+  ElectricRegulator,
+  SYMBOL as ELECTRIC_REGULATOR,
+} from "@/schematic/node/valves/ElectricRegulator";
+import {
+  ElectricRegulatorMotorized,
+  SYMBOL as ELECTRIC_REGULATOR_MOTORIZED,
+} from "@/schematic/node/valves/ElectricRegulatorMotorized";
 import { FourWay, SYMBOL as FOUR_WAY } from "@/schematic/node/valves/FourWay";
 import { Gate, SYMBOL as GATE } from "@/schematic/node/valves/Gate";
 import { IsoCheck, SYMBOL as ISO_CHECK } from "@/schematic/node/valves/IsoCheck";
 import { Manual, SYMBOL as MANUAL } from "@/schematic/node/valves/Manual";
 import { Needle, SYMBOL as NEEDLE } from "@/schematic/node/valves/Needle";
 import { Regulator, SYMBOL as REGULATOR } from "@/schematic/node/valves/Regulator";
-import { RegulatorManual, SYMBOL as REGULATOR_MANUAL } from "@/schematic/node/valves/RegulatorManual";
+import {
+  RegulatorManual,
+  SYMBOL as REGULATOR_MANUAL,
+} from "@/schematic/node/valves/RegulatorManual";
 import { Relief, SYMBOL as RELIEF } from "@/schematic/node/valves/Relief";
-import { NORMALLY_OPEN_SYMBOL, Solenoid, SYMBOL as SOLENOID } from "@/schematic/node/valves/Solenoid";
+import {
+  NORMALLY_OPEN_SYMBOL,
+  Solenoid,
+  SYMBOL as SOLENOID,
+} from "@/schematic/node/valves/Solenoid";
 import { SolenoidForm } from "@/schematic/node/valves/SolenoidForm";
-import { SpringLoadedRelief, SYMBOL as SPRING_LOADED_RELIEF } from "@/schematic/node/valves/SpringLoadedRelief";
-import { ThreeWay, SYMBOL as THREE_WAY } from "@/schematic/node/valves/ThreeWay";
-import { ThreeWayBall, SYMBOL as THREE_WAY_BALL } from "@/schematic/node/valves/ThreeWayBall";
-import { Valve, SYMBOL as VALVE } from "@/schematic/node/valves/Valve";
+import {
+  SpringLoadedRelief,
+  SYMBOL as SPRING_LOADED_RELIEF,
+} from "@/schematic/node/valves/SpringLoadedRelief";
+import { SYMBOL as THREE_WAY, ThreeWay } from "@/schematic/node/valves/ThreeWay";
+import {
+  SYMBOL as THREE_WAY_BALL,
+  ThreeWayBall,
+} from "@/schematic/node/valves/ThreeWayBall";
+import { SYMBOL as VALVE, Valve } from "@/schematic/node/valves/Valve";
 
 const angled = createToggle({
   variant: "angled_valve",

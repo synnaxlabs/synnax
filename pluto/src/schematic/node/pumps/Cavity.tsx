@@ -26,6 +26,7 @@ export const SYMBOL = Custom.createBuiltIn({
     { key: "3", position: { x: 0.5, y: 0.03125 }, orientation: "top" },
     { key: "4", position: { x: 0.5, y: 0.96875 }, orientation: "bottom" },
   ],
+  ...Custom.DETAIL_LINES,
 });
 
 export const Cavity = ({

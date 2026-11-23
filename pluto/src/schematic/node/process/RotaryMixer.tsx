@@ -24,6 +24,7 @@ export const SYMBOL = Custom.createBuiltIn({
     { key: "1", position: { x: 0.02, y: 0.484849 }, orientation: "left" },
     { key: "2", position: { x: 0.975, y: 0.484849 }, orientation: "right" },
   ],
+  ...Custom.DETAIL_LINES,
 });
 
 export const RotaryMixer = ({
