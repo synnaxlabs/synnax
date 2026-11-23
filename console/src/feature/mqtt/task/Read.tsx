@@ -103,8 +103,7 @@ const isDraft = (addition: Addition): addition is Draft => addition.type === "pl
 
 /** @param index - The pointer of the leaf that indexes the message. */
 const createDraft = (topic: string, leaves: Leaf[] = [], index?: string): Draft => {
-  const names = ICD.fieldNames(leaves.map(({ pointer }) => pointer));
-  const fields = leaves.map((leaf, i) => ICD.createField(leaf, names[i]));
+  const fields = ICD.createFields(leaves);
   return {
     type: "plain",
     topic,

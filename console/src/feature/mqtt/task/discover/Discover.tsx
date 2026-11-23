@@ -29,7 +29,7 @@ import type { Modals } from "@/platform/modals";
 
 type Mode = "topics" | "sparkplug";
 
-const FORMAT_REQUIRED = "Select a message format to add topics.";
+const FORMAT_HELP = "Optional. A topic with no format gets one from its last message.";
 
 /** A message of an ICD. */
 export interface Format {
@@ -41,7 +41,7 @@ export interface Format {
 export interface Picks {
   topics: TopicPicks;
   tags: TagPicks;
-  /** The message that each entry from a topic sends, when the kind picks one. */
+  /** The message that each entry from a topic sends, when the dialog picked one. */
   format: Format | null;
 }
 
@@ -61,11 +61,8 @@ export interface Kind<E> {
   whole?: boolean;
   /** A pick of a topic that the task does not read takes its index too. */
   indexed?: boolean;
-  /**
-   * Each entry from a topic sends one message, which a field under the topics picks. An
-   * add that holds a topic before the pick shows the error at that field.
-   */
-  formatRequired?: boolean;
+  /** Each entry from a topic sends a message that a field under the topics picks. */
+  formatPickable?: boolean;
   /** @returns what the picks add to a task that holds the entries. */
   create: (picks: Picks, entries: HeldEntry[]) => E[];
   /** @returns what a topic added by name adds. Absent, the dialog lists no topics. */
@@ -90,19 +87,9 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
   const [topicPicks, setTopicPicks] = useState<TopicPicks>(() => new Map());
   const [tagPicks, setTagPicks] = useState<TagPicks>(() => new Map());
   const [format, setFormat] = useState<Format | null>(null);
-  const [refused, setRefused] = useState(false);
   const picks: Picks = { topics: topicPicks, tags: tagPicks, format };
-  const formatError = refused && format == null ? FORMAT_REQUIRED : undefined;
 
-  const add = (extra: () => E[], extraTopics = 0) => {
-    const topicCount = topicPicks.size + extraTopics;
-    if (kind.formatRequired === true && format == null && topicCount > 0) {
-      setMode("topics");
-      setRefused(true);
-      return;
-    }
-    close([...kind.create(picks, entries), ...extra()]);
-  };
+  const add = (extra: () => E[]) => close([...kind.create(picks, entries), ...extra()]);
 
   const entryCount =
     kind.whole === true
@@ -136,16 +123,15 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
             indexed={kind.indexed}
             value={topicPicks}
             onChange={setTopicPicks}
-            onAddByName={(topic) => add(() => [createTopic(topic, picks)], 1)}
+            onAddByName={(topic) => add(() => [createTopic(topic, picks)])}
           >
-            {kind.formatRequired === true && (
+            {kind.formatPickable === true && (
               <Flex.Box y empty className={CSS.BE("mqtt-discover", "format")}>
                 <ICD.MessageFormatField
                   icdKey={format?.icd}
                   message={format?.message.key}
                   onChange={(icdKey, message) => setFormat({ icd: icdKey, message })}
-                  helpText={formatError}
-                  status={formatError == null ? undefined : "error"}
+                  helpText={FORMAT_HELP}
                   padHelpText
                 />
               </Flex.Box>

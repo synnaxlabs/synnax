@@ -43,6 +43,19 @@ describe("ICD inferred formats", () => {
     });
   });
 
+  describe("createFields", () => {
+    it("should name each field after its pointer", () => {
+      const fields = ICD.createFields([
+        { pointer: "/motor/speed", kind: "float" },
+        { pointer: "/time", kind: "timestamp", timeFormat: "unix_ns" },
+      ]);
+      expect(fields).toMatchObject([
+        { name: "motor_speed", pointer: "/motor/speed", type: "float" },
+        { name: "time", pointer: "/time", type: "timestamp", timeFormat: "unix_ns" },
+      ]);
+    });
+  });
+
   describe("createMessage", () => {
     const field = ICD.createField({ pointer: "/v", kind: "float" }, "v");
 
