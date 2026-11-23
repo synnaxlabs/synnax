@@ -680,4 +680,62 @@ describe("Custom.Drawing motion", () => {
       expect(attr(".rotor", "transform")).toBe("translate(5 0) translate(1 1)");
     });
   });
+
+  describe("shared elements", () => {
+    const SHARED = [
+      ...PARTS,
+      { key: "rotor2", name: "Rotor 2", selectors: [".rotor"] },
+    ];
+
+    it("should compose the motions of two parts that select one element", async () => {
+      const rotate: schematic.symbol.Look = {
+        key: "rotate",
+        part: "rotor",
+        motion: { type: "rotate", state: "speed", from: 0, to: 90 },
+      };
+      const spin = { ...SPIN, part: "rotor2" };
+      const { frame, attr, rerender } = await setup({
+        spec: createSpec([rotate, spin], SHARED),
+        readings: { speed: reading(50) },
+      });
+      frame(0);
+      frame(500);
+      await rerender({ readings: { speed: reading(100) } });
+      frame(600);
+      frame(750);
+      expect(attr(".rotor", "transform")).toBe("rotate(225 3 3) translate(1 1)");
+    });
+
+    it("should draw the spin of the later look when two parts spin one element", async () => {
+      // The blink puts the rotor part first in the loop, so the later look draws first.
+      const looks: schematic.symbol.Look[] = [
+        { key: "blink", part: "rotor", blink: { period: 1e9 } },
+        { ...SPIN, key: "fast", part: "rotor2", motion: { type: "spin", rate: 1 } },
+        SPIN,
+      ];
+      const { frame, attr } = await setup({ spec: createSpec(looks, SHARED) });
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("rotate(90 3 3) translate(1 1)");
+    });
+
+    it("should draw the spin of the later look when the looks change order", async () => {
+      const motion = { type: "spin" as const, rate: 1, state: "speed" };
+      const slow = { ...SPIN, motion: { ...motion, rate: 0.5 } };
+      const fast = { ...SPIN, key: "fast", part: "rotor2", motion };
+      const { frame, attr, rerender } = await setup({
+        spec: createSpec([slow, fast], SHARED),
+        readings: { speed: reading(100) },
+      });
+      frame(0);
+      frame(500);
+      await rerender({ readings: { speed: reading(100, true) } });
+      expect(attr(".rotor", "transform")).toBe("rotate(180 3 3) translate(1 1)");
+      await rerender({
+        spec: createSpec([fast, slow], SHARED),
+        readings: { speed: reading(100, true) },
+      });
+      expect(attr(".rotor", "transform")).toBe("rotate(90 3 3) translate(1 1)");
+    });
+  });
 });
