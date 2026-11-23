@@ -63,6 +63,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             const auto parsed = ::synnax::opcua::WriteChannel::parse(cp);
             if (parsed.disabled) return;
             auto chan = std::make_unique<OutputChan>(parsed, cp);
+            if (parsed.cmd_channel == 0) return;
             if (!channels.try_emplace(parsed.cmd_channel, std::move(chan)).second)
                 cp.field_err(
                     "cmd_channel",
