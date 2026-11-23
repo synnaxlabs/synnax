@@ -50,7 +50,7 @@ const fakeCore = (
     codec: new binary.JSONCodec(),
     connector,
   });
-  return { client: new impact.Client(http), sent };
+  return { client: new impact.Client({ unary: http, unaryNoRetry: http }), sent };
 };
 
 const change: impact.Change = { type: "delete_channels", keys: [1048577] };
