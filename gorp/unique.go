@@ -214,33 +214,37 @@ func (u *UniqueIndex[K, E, V]) Value(
 	return u.store.Value(scopeOf(snap), key)
 }
 
-// ValueOf returns the value of the entry target in the space of u, as seen by snap, and
-// false when no index of the space holds target. Value reads the table of u by key
-// with no text form.
+// ValueOf returns the value of the entry target, in any table of the space of u, as
+// seen by snap, and false when its table has no entry under its key. It fails when no
+// index of the space is on the table of target.
 func (u *UniqueIndex[K, E, V]) ValueOf(
 	ctx context.Context,
 	snap Snapshot,
 	target Target,
 ) (V, bool, error) {
-	scope := scopeOf(snap)
 	for _, m := range *u.members.members.Load() {
-		if v, found, err := m.valueOf(ctx, scope, target); err != nil || found {
-			return v, found, err
+		if m.on(target.Table) {
+			return m.valueOf(ctx, scopeOf(snap), target)
 		}
 	}
 	var none V
-	return none, false, nil
+	return none, false, errors.Newf(
+		"[gorp] - no index of space %s is on table %s",
+		u.space,
+		target.Table,
+	)
 }
 
+// on implements uniqueMember.
+func (u *UniqueIndex[K, E, V]) on(table string) bool { return u.table == table }
+
+// valueOf implements uniqueMember.
 func (u *UniqueIndex[K, E, V]) valueOf(
 	ctx context.Context,
 	scope *txState,
 	target Target,
 ) (V, bool, error) {
 	var none V
-	if target.Table != u.table {
-		return none, false, nil
-	}
 	k, err := key.Parse[K](target.Key)
 	if err != nil {
 		return none, false, err
@@ -367,8 +371,10 @@ type checkedIndex[K Key, E Entry[K]] interface {
 type uniqueMember[V comparable] interface {
 	// holder returns an entry that holds v, with the changes of scope applied.
 	holder(ctx context.Context, scope *txState, v V) (Target, bool, error)
-	// valueOf returns the value of target when it is an entry of the member's table,
-	// with the changes of scope applied, and false otherwise.
+	// on reports whether the index is on the table named table.
+	on(table string) bool
+	// valueOf returns the value of target, an entry of the table of the index, with the
+	// changes of scope applied, and false when the table has no entry under its key.
 	valueOf(ctx context.Context, scope *txState, target Target) (V, bool, error)
 }
 
