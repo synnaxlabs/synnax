@@ -282,14 +282,14 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v14.FormatConfig{
-				Units:     "test_1",
+				Units:     new(string("test_1")),
 				Precision: new(uint8(3)),
-				Notation:  notation.Notation("standard"),
+				Notation:  new(notation.Notation("standard")),
 			}),
 			Entry("zero values", v14.FormatConfig{
-				Units:     "",
+				Units:     nil,
 				Precision: nil,
-				Notation:  notation.Notation(""),
+				Notation:  nil,
 			}),
 		)
 	})
@@ -918,9 +918,9 @@ var _ = Describe("Codec", func() {
 				OnClickDelay:   telem.TimeSpan(8),
 				States: []v14.StateBinding{
 					{
-						Units:       "test_9",
+						Units:       new(string("test_9")),
 						Precision:   new(uint8(11)),
-						Notation:    notation.Notation("standard"),
+						Notation:    new(notation.Notation("standard")),
 						Key:         "test_12",
 						Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(15)), Command: new(channel.Key(16))}}),
 						Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
@@ -1078,9 +1078,9 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v14.StateBinding{
-				Units:       "test_1",
+				Units:       new(string("test_1")),
 				Precision:   new(uint8(3)),
-				Notation:    notation.Notation("standard"),
+				Notation:    new(notation.Notation("standard")),
 				Key:         "test_4",
 				Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(7)), Command: new(channel.Key(8))}}),
 				Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
@@ -1089,9 +1089,9 @@ var _ = Describe("Codec", func() {
 				Default:     new(float64(13.5)),
 			}),
 			Entry("zero values", v14.StateBinding{
-				Units:       "",
+				Units:       nil,
 				Precision:   nil,
-				Notation:    notation.Notation(""),
+				Notation:    nil,
 				Key:         "",
 				Source:      nil,
 				Enumeration: nil,
@@ -1161,9 +1161,9 @@ func BenchmarkEncodeDecodeEdgeConfig(b *testing.B) {
 
 func BenchmarkEncodeDecodeFormatConfig(b *testing.B) {
 	seed := v14.FormatConfig{
-		Units:     "test_1",
+		Units:     new(string("test_1")),
 		Precision: new(uint8(3)),
-		Notation:  notation.Notation("standard"),
+		Notation:  new(notation.Notation("standard")),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1312,9 +1312,9 @@ func BenchmarkEncodeDecodeSource(b *testing.B) {
 
 func BenchmarkEncodeDecodeStateBinding(b *testing.B) {
 	seed := v14.StateBinding{
-		Units:       "test_1",
+		Units:       new(string("test_1")),
 		Precision:   new(uint8(3)),
-		Notation:    notation.Notation("standard"),
+		Notation:    new(notation.Notation("standard")),
 		Key:         "test_4",
 		Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(7)), Command: new(channel.Key(8))}}),
 		Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
@@ -1513,9 +1513,9 @@ func FuzzDecodeEdgeConfig(f *testing.F) {
 func FuzzDecodeFormatConfig(f *testing.F) {
 	{
 		seed := v14.FormatConfig{
-			Units:     "test_1",
+			Units:     new(string("test_1")),
 			Precision: new(uint8(3)),
-			Notation:  notation.Notation("standard"),
+			Notation:  new(notation.Notation("standard")),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1525,9 +1525,9 @@ func FuzzDecodeFormatConfig(f *testing.F) {
 	}
 	{
 		seed := v14.FormatConfig{
-			Units:     "",
+			Units:     nil,
 			Precision: nil,
-			Notation:  notation.Notation(""),
+			Notation:  nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2925,9 +2925,9 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			OnClickDelay:   telem.TimeSpan(8),
 			States: []v14.StateBinding{
 				{
-					Units:       "test_9",
+					Units:       new(string("test_9")),
 					Precision:   new(uint8(11)),
-					Notation:    notation.Notation("standard"),
+					Notation:    new(notation.Notation("standard")),
 					Key:         "test_12",
 					Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(15)), Command: new(channel.Key(16))}}),
 					Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
@@ -3212,9 +3212,9 @@ func FuzzDecodeSource(f *testing.F) {
 func FuzzDecodeStateBinding(f *testing.F) {
 	{
 		seed := v14.StateBinding{
-			Units:       "test_1",
+			Units:       new(string("test_1")),
 			Precision:   new(uint8(3)),
-			Notation:    notation.Notation("standard"),
+			Notation:    new(notation.Notation("standard")),
 			Key:         "test_4",
 			Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(7)), Command: new(channel.Key(8))}}),
 			Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
@@ -3230,9 +3230,9 @@ func FuzzDecodeStateBinding(f *testing.F) {
 	}
 	{
 		seed := v14.StateBinding{
-			Units:       "",
+			Units:       nil,
 			Precision:   nil,
-			Notation:    notation.Notation(""),
+			Notation:    nil,
 			Key:         "",
 			Source:      nil,
 			Enumeration: nil,

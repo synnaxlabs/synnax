@@ -9,6 +9,7 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
+import type { schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -65,6 +66,20 @@ interface PreviewProps {
   onHandleSelect: (handleKey: string) => void;
   onHandlePlace: (handleKey: string, position: { x: number; y: number }) => void;
 }
+
+interface DrawingProps {
+  spec: schematic.symbol.Spec;
+  value: number;
+  onMount: (drawing: SVGGElement) => void;
+}
+
+// Drawing renders inside the preview's theme provider, so its paints band in the
+// preview theme.
+const Drawing = ({ spec, value, onMount }: DrawingProps): ReactElement => {
+  const paints = Schematic.Node.Custom.usePaints(spec, value);
+  const setDrawing = Schematic.Node.Custom.useRender({ spec, paints, onMount });
+  return <g ref={setDrawing} />;
+};
 
 export const Preview = ({
   selectedValue,
@@ -213,8 +228,6 @@ export const Preview = ({
     Array.from(drawing.children).forEach(addInteractivity);
   };
 
-  const paints = Schematic.Node.Custom.usePaints(spec, selectedValue);
-  const setDrawing = Schematic.Node.Custom.useRender({ spec, paints, onMount });
   const dims = Schematic.Node.Region.measure(spec.drawing.markup);
 
   const handleContentsChange = (contents: string, filename?: string) => {
@@ -330,7 +343,7 @@ export const Preview = ({
                       Schematic.Node.Primitive.resolveScale(spec.scale),
                     )}
                   >
-                    <g ref={setDrawing} />
+                    <Drawing spec={spec} value={selectedValue} onMount={onMount} />
                   </svg>
                 )}
               </div>
