@@ -43,6 +43,9 @@ class Text {
         bool tagged = false;
         /// @brief tag is the text before the value of a tagged field.
         std::string tag;
+        /// @brief longer holds the tags of the message that start with tag and are
+        /// longer, whose items belong to their own fields.
+        std::vector<std::string> longer;
         /// @brief position is the item index of a delimited field.
         std::uint32_t position = 0;
         /// @brief scaled is true when the field's scale or offset changes its value.
@@ -109,9 +112,9 @@ public:
     /// @brief finds the message that line belongs to and decodes one sample for each of
     /// its bindings into its samples. The line splits into items on the delimiter of
     /// its message. A delimited field reads the item at its position, and a tagged
-    /// field reads the rest of the first item that starts with its tag. A value is a
-    /// decimal number, with any spaces, tabs, or carriage returns around it. An empty
-    /// or missing item has no value.
+    /// field reads the rest of the first item whose longest tag of the message is its
+    /// tag. A value is a decimal number, with any spaces, tabs, or carriage returns
+    /// around it. An empty or missing item has no value.
     /// @returns the index of the message in create order, or nothing when line belongs
     /// to no message. A line of only spaces, tabs, and carriage returns belongs to
     /// none.
