@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 )
 
@@ -42,6 +43,83 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Retarget: func(e *ReadConfig, from, to device.Key) {
 				if e.Device == from {
 					e.Device = to
+				}
+			},
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, icd.Key]{
+			Name:     "endpoints.icd",
+			Table:    "icd",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *ReadConfig) []icd.Key {
+				var targets []icd.Key
+				for _, v1 := range e.Endpoints {
+					if v1.ICD != nil {
+						if targets == nil {
+							targets = make([]icd.Key, 0, len(e.Endpoints))
+						}
+						targets = append(targets, *v1.ICD)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *ReadConfig, t icd.Key) {
+				for i2 := range e.Endpoints {
+					if e.Endpoints[i2].ICD != nil && *e.Endpoints[i2].ICD == t {
+						e.Endpoints[i2].ICD = nil
+					}
+				}
+			},
+			Retarget: func(e *ReadConfig, from, to icd.Key) {
+				for i3 := range e.Endpoints {
+					if e.Endpoints[i3].ICD != nil && *e.Endpoints[i3].ICD == from {
+						*e.Endpoints[i3].ICD = to
+					}
+				}
+			},
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
+			Name:     "endpoints.messages.bindings.channel",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Tag:      2, // direction write
+			Targets: func(e *ReadConfig) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Endpoints {
+					for _, v2 := range v1.Messages {
+						for _, v3 := range v2.Bindings {
+							if v3.Channel != 0 {
+								if targets == nil {
+									targets = make([]channel.Key, 0, len(e.Endpoints))
+								}
+								targets = append(targets, v3.Channel)
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *ReadConfig, t channel.Key) {
+				for i4 := range e.Endpoints {
+					for i5 := range e.Endpoints[i4].Messages {
+						for i6 := range e.Endpoints[i4].Messages[i5].Bindings {
+							if e.Endpoints[i4].Messages[i5].Bindings[i6].Channel == t {
+								e.Endpoints[i4].Messages[i5].Bindings[i6].Channel = 0
+							}
+						}
+					}
+				}
+			},
+			Retarget: func(e *ReadConfig, from, to channel.Key) {
+				for i7 := range e.Endpoints {
+					for i8 := range e.Endpoints[i7].Messages {
+						for i9 := range e.Endpoints[i7].Messages[i8].Bindings {
+							if e.Endpoints[i7].Messages[i8].Bindings[i9].Channel == from {
+								e.Endpoints[i7].Messages[i8].Bindings[i9].Channel = to
+							}
+						}
+					}
 				}
 			},
 		}),
@@ -79,6 +157,48 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					for i6 := range e.Endpoints[i5].Fields {
 						if e.Endpoints[i5].Fields[i6].Channel == from {
 							e.Endpoints[i5].Fields[i6].Channel = to
+						}
+					}
+				}
+			},
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
+			Name:     "inline.endpoints.fields.channel",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Tag:      2, // direction write
+			Targets: func(e *ReadConfig) []channel.Key {
+				var targets []channel.Key
+				if e.Inline != nil {
+					for _, v1 := range e.Inline.Endpoints {
+						for _, v2 := range v1.Fields {
+							if v2.Channel != 0 {
+								targets = append(targets, v2.Channel)
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *ReadConfig, t channel.Key) {
+				if e.Inline != nil {
+					for i3 := range e.Inline.Endpoints {
+						for i4 := range e.Inline.Endpoints[i3].Fields {
+							if e.Inline.Endpoints[i3].Fields[i4].Channel == t {
+								e.Inline.Endpoints[i3].Fields[i4].Channel = 0
+							}
+						}
+					}
+				}
+			},
+			Retarget: func(e *ReadConfig, from, to channel.Key) {
+				if e.Inline != nil {
+					for i5 := range e.Inline.Endpoints {
+						for i6 := range e.Inline.Endpoints[i5].Fields {
+							if e.Inline.Endpoints[i5].Fields[i6].Channel == from {
+								e.Inline.Endpoints[i5].Fields[i6].Channel = to
+							}
 						}
 					}
 				}

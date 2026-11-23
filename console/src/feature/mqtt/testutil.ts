@@ -12,19 +12,13 @@ import { deep, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, within } from "@testing-library/react";
 
-import {
-  MAKE,
-  type Properties,
-  SCHEMAS,
-  ZERO_PROPERTIES,
-} from "@/feature/mqtt/device/types";
-import { SCAN_TYPE } from "@/feature/mqtt/task/types";
+import { Device } from "@/feature/mqtt/device";
 import { createTestDevice, startRackHeartbeat } from "@/platform/device/testutil";
 import { awaitCommand } from "@/platform/task/testutil";
 
 export interface CreateBrokerOptions {
   configured?: boolean;
-  properties?: Partial<Properties>;
+  properties?: Partial<Device.Properties>;
   /** Defaults to a new rack. */
   rack?: rack.Key;
 }
@@ -38,13 +32,13 @@ export const createBroker = async (
     client,
     {
       name: uniqueName("mqtt_broker"),
-      make: MAKE,
+      make: Device.MAKE,
       model: "MQTT broker",
       configured,
-      properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
+      properties: { ...deep.copy(Device.ZERO_PROPERTIES), ...properties },
       rack: rackKey,
     },
-    SCHEMAS,
+    Device.SCHEMAS,
   );
 
 export interface ScannerReply {
@@ -72,7 +66,7 @@ export const openScanner = async (
   await startRackHeartbeat(client, rck);
   const scanTask = await rck.createTask({
     name: "MQTT scanner",
-    type: SCAN_TYPE,
+    type: Device.SCAN_TYPE,
     config: {},
   });
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);

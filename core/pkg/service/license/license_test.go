@@ -867,10 +867,8 @@ var _ = Describe("License", func() {
 			codec := errors.NewCodec(license.ErrorProvider())
 			pld := codec.Encode(svc.CheckChannelLimit(11), false)
 			Expect(pld.Type).To(Equal("sy.license.too_many"))
-			Expect(pld.Data).To(Equal(
-				"limit is 10 channels: using more channels than allowed by the " +
-					"license: license error",
-			))
+			Expect(pld.Data).To(ContainSubstring("limit is 10 channels"))
+			Expect(pld.Data).To(ContainSubstring(license.ErrTooMany.Error()))
 			Expect(codec.Decode(pld)).To(And(
 				MatchError(license.ErrTooMany),
 				MatchError(ContainSubstring("limit is 10 channels")),

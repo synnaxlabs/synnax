@@ -176,6 +176,12 @@ var (
 			Internal: true,
 		},
 		{
+			Name:     "Driver ICD View Access",
+			Objects:  []resource.ID{{Type: resource.TypeICD}},
+			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+		{
 			Name:     "Driver Secret View Access",
 			Objects:  []resource.ID{{Type: resource.TypeSecret}},
 			Actions:  []access.Action{access.ActionRetrieve},

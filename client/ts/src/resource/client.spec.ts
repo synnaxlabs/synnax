@@ -11,8 +11,8 @@ import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { channel } from "@/channel";
-import { NotFoundError, ValidationError } from "@/errors";
 import { group } from "@/group";
+import { NotFoundError, ValidationError } from "@/index";
 import { label } from "@/label";
 import { lineplot } from "@/lineplot";
 import { query } from "@/query";
