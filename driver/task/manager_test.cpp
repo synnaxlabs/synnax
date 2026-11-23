@@ -5187,6 +5187,32 @@ TEST_F(ScriptedControlTest, OutageAcrossARunRestartKeepsTheLastMirror) {
     manager->close();
 }
 
+/// @brief it should hand a channel between local writers by the local rule once a run
+/// ends because the Core is unreachable.
+TEST_F(ScriptedControlTest, UnreachableCoreHandsOffLocally) {
+    start([this] { this->scripted.control->reply({}); }, true);
+    const auto st = this->states();
+    const x::control::Subject high{"high", "high-1"};
+    const x::control::Subject low{"low", "low-1"};
+    st->opened_on_core(high);
+    st->open_gate(high, {BUS_KEY}, {200});
+    st->open_gate(low, {BUS_KEY}, {150});
+    // The Core decides for a writer open on it, so the decrease waits for it.
+    st->set_authority(high, BUS_KEY, 100);
+    ASSERT_TRUE(st->is_authorized(BUS_KEY, high));
+    pipe->pause();
+    this->scripted.control->reply({}, freighter::UNREACHABLE);
+    miss();
+    thread.join();
+    ASSERT_TRUE(synnax::errors::is_unreachable(manager->run()));
+    ASSERT_TRUE(st->is_authorized(BUS_KEY, low));
+    ASSERT_FALSE(st->is_authorized(BUS_KEY, high));
+    pipe->resume();
+    // Unblock the detached monitor read, which still waits for a reply.
+    this->scripted.control->close();
+    manager->close();
+}
+
 /// @brief it should start with the bus closed when the first control read fails, keep
 /// the run going, and open the bus once a later read succeeds.
 TEST_F(ScriptedControlTest, FailedFirstReadKeepsTheRunAndOpensLater) {
