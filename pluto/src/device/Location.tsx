@@ -112,13 +112,7 @@ interface PartProps {
 }
 
 const Part = ({ className, children }: PartProps): ReactElement => (
-  <Text.Text
-    el="span"
-    level="small"
-    variant="code"
-    overflow="fade"
-    className={className}
-  >
+  <Text.Text el="span" level="small" overflow="fade" className={className}>
     {children}
   </Text.Text>
 );
@@ -158,7 +152,6 @@ export const Location = ({
       <Text.Text
         el="span"
         level="small"
-        variant="code"
         className={CSS.cls(CSS.B("device-location"), className)}
         style={style}
       >

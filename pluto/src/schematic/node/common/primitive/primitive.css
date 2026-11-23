@@ -213,7 +213,6 @@
 
     input,
     .lyra-select__label {
-        font-family: var(--pluto-code-font-family);
         font-variant-numeric: tabular-nums;
     }
 
@@ -346,7 +345,6 @@
            height to center the text in. */
         min-height: 1lh;
         color: var(--pluto-gray-l10);
-        font-family: var(--pluto-code-font-family);
         font-variant-numeric: tabular-nums;
     }
 }
