@@ -28,10 +28,10 @@ export interface DataTypeFieldProps extends Pick<
   Telem.SelectDataTypeProps,
   "hideDataTypes" | "hideVariableDensity"
 > {
-  path: deep.Target<string>;
+  /** An empty or absent value stands for the default data type. */
+  path: deep.Target<string | undefined>;
   /** The channel that sets the data type, or 0 before deploying creates one. */
   channel: channel.Key;
-  /** The data type that an empty value stands for. */
   defaultDataType?: string;
 }
 
@@ -46,9 +46,17 @@ export const DataTypeField = ({
   ...rest
 }: DataTypeFieldProps): ReactElement => {
   const unbound = (
-    <Form.Field path={path} label="Data type" padHelpText={false}>
+    <Form.Field<string | undefined, string>
+      path={path}
+      label="Data type"
+      padHelpText={false}
+    >
       {({ value, ...p }) => (
-        <Select {...p} {...rest} value={value === "" ? defaultDataType : value} />
+        <Select
+          {...p}
+          {...rest}
+          value={value == null || value === "" ? defaultDataType : value}
+        />
       )}
     </Form.Field>
   );
