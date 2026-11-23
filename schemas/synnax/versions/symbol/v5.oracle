@@ -255,6 +255,7 @@ Motion union on type {
                 is the turns each second at the upper bound of the state. A negative
                 rate turns the part the other way.
             """
+            @validate finite
         }
         state string?    {
             @doc value "is the key of the number state that sets the speed."
@@ -268,6 +269,7 @@ Motion union on type {
                 is the cycles each second at the upper bound of the state. A negative
                 rate moves the dashes the other way.
             """
+            @validate finite
         }
         state string?    {
             @doc value "is the key of the number state that sets the speed."
