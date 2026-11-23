@@ -424,6 +424,14 @@ bound, a log precision, or the line plot X channel.
 - The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
   icon. Hex codes use the code font, so every code takes the same width and fits.
 
+### Symbol motion
+
+- The symbol editor groups the motion kinds. "Follow a value" holds Fill, Rotation, and
+  Position. "Loop" holds Spin, Flow, and Blink.
+- The editor shows the `level` motion as Fill. The stored name stays `level`.
+- Until number states arrive, the picker offers only None, Spin, and Flow. Keep the
+  groups ready for the other kinds.
+
 ### Menus and selects
 
 - Menus use 13 px text in 28 px items. This includes context menus, the filter menu, and
