@@ -1,0 +1,46 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "transport",
+    srcs = ["connection.cpp"],
+    hdrs = [
+        "connection.h",
+        "errors.h",
+        "transport.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/telem",
+        "@asio//:asio_no_openssl",
+    ],
+)
+
+cc_test(
+    name = "transport_test",
+    srcs = [
+        "connection_test.cpp",
+        "transport_test.cpp",
+    ],
+    deps = [
+        ":transport",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "@asio//:asio_no_openssl",
+        "@googletest//:gtest_main",
+    ],
+)

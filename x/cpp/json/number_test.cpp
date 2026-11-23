@@ -12,11 +12,14 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/number.h"
+#include "x/cpp/json/text.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -252,5 +255,63 @@ TEST(NumberToString, PrintsExponentForm) {
 TEST(NumberToString, PrintsParsedIntegerExactly) {
     const auto n = ASSERT_NIL_P(Number::parse("1e2"));
     ASSERT_EQ(n.to_string(), "100");
+}
+
+/// @brief it should parse a decimal number as the nearest double.
+TEST(ParseFloat64, Parses) {
+    EXPECT_EQ(ASSERT_NIL_P(parse_float64("-122.41941550000")), -122.4194155);
+    EXPECT_EQ(ASSERT_NIL_P(parse_float64("1e3")), 1000);
+    EXPECT_EQ(ASSERT_NIL_P(parse_float64(".5")), 0.5);
+    EXPECT_EQ(ASSERT_NIL_P(parse_float64("+7")), 7);
+    EXPECT_EQ(
+        ASSERT_NIL_P(parse_float64("18446744073709551617")),
+        18446744073709551616.0
+    );
+    EXPECT_EQ(ASSERT_NIL_P(parse_float64("1e-400")), 0);
+}
+
+/// @brief it should reject text that is not a decimal number or is past the range of a
+/// double.
+TEST(ParseFloat64, Rejects) {
+    for (const auto *text: {"", "nan", "inf", "0x10", "1e999", "1.2.3", " 1"}) {
+        const auto [v, err] = parse_float64(text);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        EXPECT_EQ(err.data, "invalid number " + quote(text));
+    }
+}
+
+/// @brief it should append the shortest JSON number that reads back as the double.
+TEST(AppendFloat, AppendsShortestNumber) {
+    for (const auto &[v, expected]: std::vector<std::pair<double, std::string>>{
+             {40.0, "40"},
+             {0.1, "0.1"},
+             {-0.0, "-0"},
+             {1e-6, "0.000001"},
+             {1e20, "100000000000000000000"},
+             {1e21, "1e+21"},
+             {1e-7, "1e-7"},
+             {1.5e-10, "1.5e-10"},
+             {5e-324, "5e-324"},
+             {std::numeric_limits<double>::max(), "1.7976931348623157e+308"},
+         }) {
+        std::string out = "x";
+        ASSERT_NIL(append_float(v, out));
+        EXPECT_EQ(out, "x" + expected);
+    }
+}
+
+/// @brief it should reject a double that JSON cannot hold, appending nothing.
+TEST(AppendFloat, RejectsNumberJSONCannotHold) {
+    for (const auto &[v, expected]: std::vector<std::pair<double, std::string>>{
+             {NaN, "NaN is not a JSON number"},
+             {INF, "Infinity is not a JSON number"},
+             {-INF, "-Infinity is not a JSON number"},
+         }) {
+        std::string out;
+        const auto err = append_float(v, out);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        EXPECT_EQ(err.data, expected);
+        EXPECT_EQ(out, "");
+    }
 }
 }

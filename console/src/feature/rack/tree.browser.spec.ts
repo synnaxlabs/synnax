@@ -83,7 +83,7 @@ const createOPCUARackWithScanner = async () => {
   });
   const scanTask = await r.createTask({
     name: uniqueName("opcua_scanner"),
-    type: OPCUA.Task.SCAN_TYPE,
+    type: OPCUA.Device.SCAN_TYPE,
     config: {},
   });
   return { rack: r, scanTask };
@@ -244,7 +244,7 @@ describe("rack tree item", () => {
   it("should open the OPC UA Driver certificate of the rack", async () => {
     const { rack: r, scanTask } = await createOPCUARackWithScanner();
     const { answered } = await answerNextCommand(client, scanTask, {
-      type: OPCUA.Task.GET_CERTIFICATE_COMMAND_TYPE,
+      type: OPCUA.Device.GET_CERTIFICATE_COMMAND_TYPE,
       data: { current: SERVER_CERTIFICATE },
     });
     await renderMenu([r]);

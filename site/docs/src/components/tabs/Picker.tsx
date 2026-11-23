@@ -15,7 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { type ReactElement, useId } from "react";
 
-import { PICKER_ATTRIBUTE, QUERY_ATTRIBUTE } from "@/components/tabs/sync";
+import { sync } from "@/components/tabs/sync";
 
 export interface Option {
   key: string;
@@ -47,7 +47,7 @@ export const Picker = ({ query, options }: PickerProps): ReactElement => {
       className="docs-picker"
       direction="y"
       empty
-      {...{ [QUERY_ATTRIBUTE]: query, [PICKER_ATTRIBUTE]: "" }}
+      {...{ [sync.QUERY_ATTRIBUTE]: query, [sync.PICKER_ATTRIBUTE]: "" }}
     >
       <Button.Button
         className="docs-picker__trigger"

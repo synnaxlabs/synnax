@@ -88,15 +88,15 @@ These properties are the same for each message format.
 </Field.Item>
 
 <Field.Item label="Min" field="min" type="number">
-  The smallest value that a write task accepts. Empty leaves the limit to the bits or
-  the type of the field. Only a number field can have a min. The Console does not show
-  it.
+  The smallest value, after the scale and offset, that a write task accepts. Empty
+  leaves the limit to the bits or the type of the field. Only a number field can have a
+  min. The Console does not show it.
 </Field.Item>
 
 <Field.Item label="Max" field="max" type="number">
-  The largest value that a write task accepts. It cannot be less than the min. Empty
-  leaves the limit to the bits or the type of the field. Only a number field can have a
-  max. The Console does not show it.
+  The largest value, after the scale and offset, that a write task accepts. It cannot be
+  less than the min. Empty leaves the limit to the bits or the type of the field. Only a
+  number field can have a max. The Console does not show it.
 </Field.Item>
 
 </Field.List>
@@ -590,6 +590,24 @@ code, `client.icds.check` returns the problems of an ICD.
   <Problem.Fix>Enter a value that the field can hold.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item
+  message={[
+    "default <n> is below the min <m>",
+    "default <n> is above the max <m>",
+    "default <n> decodes to <v>, which is below the min <m>",
+    "default <n> decodes to <v>, which is above the max <m>",
+    "enum value <n> is below the min <m>",
+    "enum value <n> is above the max <m>",
+  ]}
+>
+  <Problem.Cause>
+    A default, after the scale and offset, is outside the min and max of its field. An
+    enum value of a JSON field can also be outside them. The scale and offset do not
+    apply to an enum value.
+  </Problem.Cause>
+  <Problem.Fix>Change the value, the min, or the max.</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item message={"max must be greater than or equal to min"}>
   <Problem.Cause>The max of a field is less than its min.</Problem.Cause>
   <Problem.Fix>Change the min or the max.</Problem.Fix>
@@ -653,6 +671,24 @@ code, `client.icds.check` returns the problems of an ICD.
 <Problem.Item message={"tag is required"}>
   <Problem.Cause>A tagged field has no tag.</Problem.Cause>
   <Problem.Fix>Enter the text that comes before the value, such as `T=`.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={'the tag contains the delimiter "<delimiter>"'}>
+  <Problem.Cause>
+    The tag of a tagged field holds the delimiter of its message. The Driver splits each
+    line on the delimiter, so no item of the line can start with the tag.
+  </Problem.Cause>
+  <Problem.Fix>
+    Remove the delimiter from the tag, or enter a different delimiter.
+  </Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"the tag starts with whitespace"}>
+  <Problem.Cause>
+    The tag of a tagged field starts with a space, a tab, or a carriage return. The
+    Driver removes these from the start of each item, so no item can start with the tag.
+  </Problem.Cause>
+  <Problem.Fix>Remove the whitespace from the start of the tag.</Problem.Fix>
 </Problem.Item>
 
 </Problem.List>

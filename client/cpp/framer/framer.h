@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -233,6 +234,11 @@ public:
     /// @brief writer group IDs whose frames should be filtered out by the server. Used
     /// for telemetry bypass deduplication.
     std::vector<std::uint32_t> exclude_groups;
+    /// @brief called by read() when the Core dropped frames because the streamer fell
+    /// behind, on the thread that calls read(). That read() then returns an empty
+    /// frame. The stream continues, and the dropped frames never arrive. The Core
+    /// reports drops only to a streamer opened with this set.
+    std::function<void()> on_missed;
 
 private:
     /// @brief binds the configuration fields to it's protobuf representation.

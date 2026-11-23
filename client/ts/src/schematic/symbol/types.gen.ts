@@ -227,6 +227,14 @@ export const entryPaintZ = z.object({
 });
 export interface EntryPaint extends z.infer<typeof entryPaintZ> {}
 
+/** ContrastPaint is black or white, whichever reads on the entry color of a state. */
+export const contrastPaintZ = z.object({
+  type: z.literal("contrast"),
+  /** state is the key of the state whose current entry color the paint reads on. */
+  state: z.string(),
+});
+export interface ContrastPaint extends z.infer<typeof contrastPaintZ> {}
+
 /** NodePaint is the color that the node sets. */
 export const nodePaintZ = z.object({
   type: z.literal("node"),
@@ -241,22 +249,24 @@ export const colorPaintZ = z.object({
 });
 export interface ColorPaint extends z.infer<typeof colorPaintZ> {}
 
-export const PAINT_TYPES = ["entry", "node", "color"] as const;
+export const PAINT_TYPES = ["entry", "contrast", "node", "color"] as const;
 export const paintTypeZ = z.enum(PAINT_TYPES);
 export type PaintType = z.infer<typeof paintTypeZ>;
 
 /** Paint is the color of a fill or stroke. */
 export const paintZ = z.discriminatedUnion("type", [
   entryPaintZ,
+  contrastPaintZ,
   nodePaintZ,
   colorPaintZ,
 ]);
-export type Paint = EntryPaint | NodePaint | ColorPaint;
+export type Paint = EntryPaint | ContrastPaint | NodePaint | ColorPaint;
 
 export const PAINT_SCHEMAS: {
   [K in PaintType]: z.ZodType<Extract<Paint, { type: K }>>;
 } = {
   entry: entryPaintZ,
+  contrast: contrastPaintZ,
   node: nodePaintZ,
   color: colorPaintZ,
 };
@@ -264,8 +274,11 @@ export const PAINT_SCHEMAS: {
 /** SpinMotion turns a part around its pivot. */
 export const spinMotionZ = z.object({
   type: z.literal("spin"),
-  /** rate is the turns each second at the upper bound of the state. */
-  rate: z.number().min(0).default(0.5),
+  /**
+   * rate is the turns each second at the upper bound of the state. A negative rate
+   * turns the part the other way.
+   */
+  rate: z.number().default(0.5),
   /** state is the key of the number state that sets the speed. */
   state: z.string().optional(),
 });
@@ -274,8 +287,11 @@ export interface SpinMotion extends z.infer<typeof spinMotionZ> {}
 /** FlowMotion moves the dashes of a stroke along it. */
 export const flowMotionZ = z.object({
   type: z.literal("flow"),
-  /** rate is the cycles each second at the upper bound of the state. */
-  rate: z.number().min(0).default(0.5),
+  /**
+   * rate is the cycles each second at the upper bound of the state. A negative rate
+   * moves the dashes the other way.
+   */
+  rate: z.number().default(0.5),
   /** state is the key of the number state that sets the speed. */
   state: z.string().optional(),
 });
@@ -484,7 +500,7 @@ export interface Command extends z.infer<typeof commandZ> {}
 
 /**
  * Look is paint, visibility, or motion on a part. A later look wins on each field that
- * it sets.
+ * it sets. On motion, it replaces only an earlier motion of the same kind.
  */
 export const lookZ = z.object({
   /** key is the look identifier. */

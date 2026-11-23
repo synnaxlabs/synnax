@@ -37,6 +37,21 @@ const LABEL_GAP = 8;
 const BREAK_STROKES = [-3, 3];
 const BREAK_STROKE_WIDTH = 5;
 const OPEN_BREAK_ALPHA = 0.35;
+
+// Space between a y axis's widest tick label and its outer edge.
+const EDGE_PADDING = 6;
+// Least space between a y axis's end tick labels and its ends.
+const END_PADDING = 3;
+
+/**
+ * @returns the baseline of a y axis tick label, centered on its tick unless that would
+ * put the label past an end of the axis, in which case it moves inward.
+ */
+const labelBaseline = (position: number, height: number, size: number): number =>
+  bounds.clamp(
+    { lower: height + END_PADDING, upper: size - END_PADDING },
+    position + height / 2,
+  );
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
 const AXES: Record<
@@ -328,7 +343,7 @@ class LeftCanvas extends Base implements Axis {
       canvas.fillText(
         tick.label,
         p.x - d.width - TICK_LINE_SIZE * 2,
-        p.y + tick.position + d.height / 2,
+        p.y + labelBaseline(tick.position, d.height, size),
         undefined,
         FILL_TEXT_OPTIONS,
       );
@@ -340,7 +355,7 @@ class LeftCanvas extends Base implements Axis {
       xy.translate(p, { x: gridSize, y: tick.position }),
     ]);
 
-    return { size: maxTickSize.width + TICK_LINE_SIZE * 2 };
+    return { size: maxTickSize.width + TICK_LINE_SIZE * 2 + EDGE_PADDING };
   }
 }
 
@@ -364,7 +379,7 @@ export class Right extends Base implements Axis {
       canvas.fillText(
         tick.label,
         pos.x + TICK_LINE_SIZE + TICK_PADDING,
-        pos.y + tick.position + d.height / 2,
+        pos.y + labelBaseline(tick.position, d.height, size),
         undefined,
         FILL_TEXT_OPTIONS,
       );
@@ -377,6 +392,6 @@ export class Right extends Base implements Axis {
       xy.translate(pos, { x: -gridSize, y: tick.position }),
     ]);
 
-    return { size: maxTickSize.width + TICK_LINE_SIZE + TICK_PADDING };
+    return { size: maxTickSize.width + TICK_LINE_SIZE + TICK_PADDING + EDGE_PADDING };
   }
 }
