@@ -32,7 +32,9 @@ describe("Core.useLogout", () => {
       return undefined;
     });
     onTestFinished(clearMocks);
-    const client = createTestClient();
+    // A cache reconciles in the background each time its stream goes live, and a
+    // reconcile still in flight after the logout fails with no credentials.
+    const client = createTestClient({ cache: false });
     await client.connect();
     const session = client.auth.session;
     if (session == null) throw new Error("expected a session after connecting");
