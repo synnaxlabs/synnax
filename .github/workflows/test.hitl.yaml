@@ -246,13 +246,11 @@ jobs:
           RUNNING: ${{ steps.services.outputs.running }}
         run: Start-Service -Name ($env:RUNNING -split ',')
 
-  # A run that finds the hardware in use posts only on the last attempt of the day.
+  # Only the last attempt of the day posts, so a day with no passed run posts once.
   notify:
     name: Notify Slack
     needs: [gate, build, test]
-    if: >-
-      failure() && github.event_name == 'schedule' && (needs.test.outputs.holders == ''
-      || github.event.schedule == '0 10 * * *')
+    if: failure() && github.event.schedule == '0 10 * * *'
     runs-on: ubuntu-latest
     permissions: {}
     timeout-minutes: 10
