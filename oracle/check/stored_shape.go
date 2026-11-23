@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -25,7 +26,8 @@ import (
 // new one. It fills in each generic type with its type arguments, defaults included,
 // and looks through aliases and distinct types, so only the filled-in shape counts:
 // stored field names and order, field types, optionality, keys, defaults, and enum and
-// union members. Struct fields encode by position, so their order counts. Enum members
+// union members. A create or now boundary default does not count, since a client
+// computes it. Struct fields encode by position, so their order counts. Enum members
 // and union variants encode by value and name, so the new side may add them.
 type shapes struct {
 	old, next *resolution.Table
@@ -182,7 +184,9 @@ func (s shapes) fields(at string, oldFields, newFields []resolution.Field) strin
 		case domain.HasDomainFromField(of, "key") !=
 			domain.HasDomainFromField(nf, "key"):
 			return fieldAt + ": changes @key"
-		case !reflect.DeepEqual(of.Default, nf.Default):
+		case !reflect.DeepEqual(
+			writtenDefault(of, s.old), writtenDefault(nf, s.next),
+		):
 			return fieldAt + ": changes its default"
 		}
 		if reason := s.ref(fieldAt, of.Type, nf.Type); reason != "" {
@@ -334,4 +338,25 @@ func fieldNames(fields []resolution.Field) []string {
 		names[i] = f.Name
 	}
 	return names
+}
+
+// writtenDefault returns the default that a generated Go writer stores for f, or nil
+// when it stores none. A create or now boundary default is a value a client computes
+// when it makes a record, so Go fills it only when the name is a union variant or enum
+// member of the field's type.
+func writtenDefault(
+	f resolution.Field, table *resolution.Table,
+) *resolution.ExpressionValue {
+	d := f.Default
+	if d == nil || d.Kind != resolution.ValueKindIdent ||
+		(d.IdentValue != "create" && d.IdentValue != "now") {
+		return d
+	}
+	if _, ok := validation.ResolveUnionVariant(d.IdentValue, f.Type, table); ok {
+		return d
+	}
+	if _, ok := validation.ResolveEnumVariant(d.IdentValue, f.Type, table); ok {
+		return d
+	}
+	return nil
 }

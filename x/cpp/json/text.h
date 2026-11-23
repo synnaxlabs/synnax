@@ -19,6 +19,11 @@ namespace x::json {
 /// control characters, and bytes that are not valid UTF-8 escaped.
 std::string quote(std::string_view text);
 
+/// @brief appends JSON text to out: text as a JSON string. Only quotes, backslashes,
+/// and control characters are escaped, with \b, \t, \n, \f, and \r in short form.
+/// @returns VALIDATION, appending nothing, when text is not valid UTF-8.
+[[nodiscard]] errors::Error append_quoted(std::string_view text, std::string &out);
+
 /// @brief decodes raw, one JSON string literal with its quotes, into dst. dst is
 /// cleared first.
 /// @returns VALIDATION when raw is not a valid JSON string literal.

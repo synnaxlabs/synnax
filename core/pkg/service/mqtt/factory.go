@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -280,7 +281,7 @@ func (f *Factory) ConfigureTask(
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.
 	if autoStart {
-		if err = configured.Start(ctx, driver.NoCommand); err != nil {
+		if err = configured.Start(ctx, cmdKey); err != nil {
 			return nil, err
 		}
 	}
@@ -650,7 +651,7 @@ func enabledTargets(
 				continue
 			}
 			icds = append(icds, target.ICD)
-			for _, b := range channelBindings(target.Message) {
+			for _, b := range write.ChannelBindings(target.Message) {
 				keys = append(keys, b.Channel)
 			}
 		case SparkplugWriteTarget:
@@ -689,7 +690,7 @@ func (s *writeSink) addTargets(
 			if err != nil {
 				return err
 			}
-			s.add(built, built.channels...)
+			s.add(built, built.docs.Channels()...)
 		case SparkplugWriteTarget:
 			ch, ok := channels[target.Channel]
 			if !ok {

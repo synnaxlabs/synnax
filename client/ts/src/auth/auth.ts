@@ -121,6 +121,8 @@ export interface OIDCLink extends z.infer<typeof oidcLinkZ> {}
 const oidcLoginZ = z.object({
   /** provider is the name of the provider. */
   provider: z.string(),
+  /** issuer is the provider's issuer URL, which the links of its accounts hold. */
+  issuer: z.string(),
   /** authorizationEndpoint is the provider's login address. */
   authorizationEndpoint: z.string(),
   /** clientId is the Core's client ID at the provider. */
@@ -134,6 +136,21 @@ const oidcLinkResZ = z.object({ link: oidcLinkZ });
 const oidcRetrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const oidcRetrieveResZ = z.object({ links: oidcLinkZ.array() });
 const oidcUnlinkReqZ = z.object({ keys: oidcLinkKeyZ.array() });
+export interface CreatePasswordParams {
+  /** The user to give the password. Defaults to the caller. */
+  subject?: resource.ID;
+  /** The username to log in with. */
+  username: string;
+  /** The password. */
+  password: string;
+}
+
+const passwordCreateReqZ = z.object({
+  subject: resource.idZ.optional(),
+  username: z.string(),
+  password: z.string(),
+});
+
 export interface SetPasswordParams {
   /** The user whose password to set. Defaults to the caller. */
   subject?: resource.ID;
@@ -173,6 +190,7 @@ const KEY_DELETE_ENDPOINT = "/auth/key/delete";
 const OIDC_LINK_ENDPOINT = "/auth/oidc/link";
 const OIDC_RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
 const OIDC_UNLINK_ENDPOINT = "/auth/oidc/unlink";
+const PASSWORD_CREATE_ENDPOINT = "/auth/password/create";
 const PASSWORD_SET_ENDPOINT = "/auth/password/set";
 
 // routes the Core serves without a token, so a request to one never logs in
@@ -540,6 +558,24 @@ export class Client {
   }
 
   /**
+   * Gives the caller, or another user when the caller may create and update that user,
+   * its first password.
+   * @throws {AuthError} when another user holds the username.
+   * @throws {AccessDeniedError} when the caller may not create and update the user.
+   * @throws {NotFoundError} when the user does not exist.
+   * @throws {ValidationError} when the username or password is empty, or the user
+   * already has a password.
+   */
+  async createPassword(params: CreatePasswordParams): Promise<void> {
+    await this.client.send(
+      PASSWORD_CREATE_ENDPOINT,
+      params,
+      passwordCreateReqZ,
+      emptyResZ,
+    );
+  }
+
+  /**
    * Sets the caller's password, or another user's when the caller may update that
    * user, and ends every session the old password opened. When that ends the client's
    * own session, the client switches to the session the Core opens in its place.
@@ -583,6 +619,8 @@ export class Client {
       return;
     }
     const { key } = authState.session;
+    // a request that fails on the ended session must not log in again mid-delete
+    this.forget();
     try {
       await this.sendAs(
         authState.token,
@@ -594,13 +632,11 @@ export class Client {
     } catch (err) {
       if (!RETRY_ON.some((e) => e.matches(err))) throw errors.fromUnknown(err);
     } finally {
-      this.resumeToken = undefined;
-      // a request that logged in again during the delete holds a session this logout
+      // new credentials set during the delete may have opened a session this logout
       // did not end
       if (this.authState.authenticated && this.authState.session.key === key) {
         this.authState = { authenticated: false };
         this.authenticating = undefined;
-        this.forget();
       }
     }
   }

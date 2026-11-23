@@ -10,6 +10,7 @@
 import "schemas/synnax/versions/color/v0"
 import "schemas/synnax/versions/enumeration/v0"
 import "schemas/synnax/versions/group/v1"
+import "schemas/synnax/versions/resource/v0"
 import "schemas/x/versions/spatial/v0"
 import "schemas/x/versions/telem/v0"
 
@@ -195,7 +196,7 @@ Look struct {
 
     @doc value  """
         is paint, visibility, or motion on a part. A later look wins on each field that
-        it sets.
+        it sets. On motion, it replaces only an earlier motion of the same kind.
     """
     @go marshal
 }
@@ -409,4 +410,39 @@ Spec struct {
     @go marshal
 }
 
-Symbol struct extends v4.Symbol {}
+Ref union on type {
+    builtin {
+        name string {
+            @doc value "is the shipped name of the built-in."
+        }
+
+        @doc value "is a symbol that the Core ships."
+    }
+    custom {
+        key Key {
+            @doc value "is the key of the symbol."
+        }
+
+        @doc value "is a symbol that a user made."
+    }
+    missing {
+        key string {
+            @doc value "is the key of the custom symbol that the Core does not have."
+        }
+
+        @doc value "is a custom symbol that the Core does not have."
+    }
+
+    @doc value  "is the symbol that a node draws."
+    @go marshal
+}
+
+Symbol struct extends v4.Symbol {
+    uses resource.ID[]? {
+        @doc value  """
+            are the schematics that use the symbol and that the caller can read, filled
+            only when a retrieve request asks for them.
+        """
+        @go marshal omit
+    }
+}

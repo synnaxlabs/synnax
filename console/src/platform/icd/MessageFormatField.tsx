@@ -9,7 +9,7 @@
 
 import type { icd } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Form } from "@synnaxlabs/lyra/form";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -18,11 +18,10 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import type { deep, destructor, record } from "@synnaxlabs/x";
+import type { destructor, record } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
 
-import type { ReadSource } from "@/platform/icd/read";
-import { Task } from "@/platform/task";
+import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 
 /** A JSON message of an ICD, as one option of the field. */
 interface Choice extends record.KeyedNamed<string> {
@@ -49,25 +48,33 @@ const ChoiceItem = (props: List.ItemRenderProps<string>): ReactElement => {
 
 const choiceRenderProp = Component.renderProp(ChoiceItem);
 
-export interface MessageFormatFieldProps {
-  /** The path of a source that reads one message. */
-  path: deep.Path<ReadSource>;
+export interface MessageFormatFieldProps extends Pick<
+  Input.ItemProps,
+  "helpText" | "status" | "padHelpText"
+> {
+  /** The ICD of the picked message. Absent before a pick. */
+  icdKey?: icd.Key;
+  /** The key of the picked message. Absent before a pick. */
+  message?: icd.MessageKey;
   onChange: (icdKey: icd.Key, message: icd.Message) => void;
   disabled?: boolean;
+  /** Shows the pick read only. */
+  preview?: boolean;
 }
 
 /**
- * Picks the message that a source reads from the JSON messages of every ICD. A search
- * matches ICD names on the Core and lists every JSON message of each match.
+ * Picks a message from the JSON messages of every ICD, beside a button that opens the
+ * editor at it. A search matches ICD names on the Core and lists every JSON message of
+ * each match.
  */
 export const MessageFormatField = ({
-  path,
+  icdKey,
+  message,
   onChange,
   disabled = false,
+  preview = false,
+  ...rest
 }: MessageFormatFieldProps): ReactElement => {
-  const isPreview = Task.useIsPreview();
-  const icdKey = Form.useFieldValue(path.icd);
-  const { message } = Form.useFieldValue(path.messages[0]);
   const icds = PICD.useList();
   // List readers need one choice object for as long as its ICD stays the same.
   const cache = useInitializerRef(() => new WeakMap<icd.ICD, Map<string, Choice>>());
@@ -126,23 +133,28 @@ export const MessageFormatField = ({
     onChange(parent, picked);
   };
   return (
-    <Input.Item label="Message format" padHelpText={false}>
-      <Select.Single<string, Choice>
-        resourceName="message format"
-        value={choiceKey(icdKey, message)}
-        onChange={handleChange}
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        onFetchMore={handleFetchMore}
-        onSearch={handleSearch}
-        status={icds.status}
-        allowNone={false}
-        preview={isPreview}
-        disabled={disabled}
-      >
-        {choiceRenderProp}
-      </Select.Single>
+    <Input.Item label="Message format" {...rest}>
+      <Flex.Box x align="center" gap="small">
+        <Select.Single<string, Choice>
+          resourceName="message format"
+          value={icdKey == null || message == null ? "" : choiceKey(icdKey, message)}
+          onChange={handleChange}
+          data={data}
+          getItem={getItem}
+          subscribe={subscribe}
+          onFetchMore={handleFetchMore}
+          onSearch={handleSearch}
+          status={icds.status}
+          allowNone={false}
+          preview={preview}
+          disabled={disabled}
+        >
+          {choiceRenderProp}
+        </Select.Single>
+        {icdKey != null && message != null && (
+          <OpenInEditor icdKey={icdKey} message={message} />
+        )}
+      </Flex.Box>
     </Input.Item>
   );
 };

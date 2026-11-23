@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
@@ -35,6 +36,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("Task migration", func() {
@@ -114,6 +118,9 @@ var _ = Describe("ICDMigration", func() {
 		// asked holds the keys of each lookup call.
 		asked  [][]uuid.UUID
 		lookup http.TaskNames
+		ins    alamos.Instrumentation
+		// logs holds the warnings that the migration logs.
+		logs *observer.ObservedLogs
 	)
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(http.OpenService(ctx, http.ServiceConfig{
@@ -122,6 +129,11 @@ var _ = Describe("ICDMigration", func() {
 			ICD:     icdSvc,
 		}))
 		names, asked = map[uuid.UUID]string{}, nil
+		var core zapcore.Core
+		core, logs = observer.New(zapcore.WarnLevel)
+		ins = alamos.New("test", alamos.WithLogger(MustSucceed(alamos.NewLogger(
+			alamos.LoggerConfig{ZapLogger: zap.New(core)},
+		))))
 		lookup = func(
 			_ context.Context,
 			_ gorp.Tx,
@@ -132,35 +144,46 @@ var _ = Describe("ICDMigration", func() {
 		}
 	})
 
-	// stage stores a config that the task named name owns, with its fields staged as
-	// v5.ReadMigration stages them.
-	stage := func(ctx SpecContext, name string) uuid.UUID {
+	// stageEndpoint stores a config that the task named name owns, with one endpoint
+	// that reads fields and indexes them with index, staged as v5.ReadMigration stages
+	// them.
+	stageEndpoint := func(
+		ctx SpecContext,
+		name string,
+		index string,
+		fields ...http.ReadField,
+	) uuid.UUID {
 		GinkgoHelper()
 		key := uuid.New()
-		fields := []http.ReadField{{
-			Key:      "level",
-			Pointer:  "/level",
-			DataType: telem.Float64T,
-		}}
 		Expect(gorp.WrapWriter[uuid.UUID, http.ReadConfig](db).Set(
 			ctx,
-			http.ReadConfig{Key: key, Endpoints: []http.ReadEndpoint{{
+			http.ReadConfig{Key: key, Rate: 1, Endpoints: []http.ReadEndpoint{{
 				Key:    "ep",
 				Method: "GET",
 				Path:   "/level",
+				Index:  index,
 				Fields: fields,
 			}}},
 		)).To(Succeed())
 		b := MustSucceed(json.Marshal(http.InlineRead{
-			Endpoints: []http.InlineEndpoint{{Key: "ep", Fields: fields}},
+			Endpoints: []http.InlineEndpoint{{Key: "ep", Index: index, Fields: fields}},
 		}))
 		Expect(db.Set(ctx, v5.StagedFieldsKVKey(key), b)).To(Succeed())
 		names[key] = name
 		return key
 	}
+	// stage stores a config that the task named name owns, with one staged field.
+	stage := func(ctx SpecContext, name string) uuid.UUID {
+		GinkgoHelper()
+		return stageEndpoint(ctx, name, "", http.ReadField{
+			Key:      "level",
+			Pointer:  "/level",
+			DataType: telem.Float64T,
+		})
+	}
 	run := func(ctx SpecContext) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.ICDMigration(lookup).Run(ctx, tx, alamos.Instrumentation{})
+			return svc.ICDMigration(lookup).Run(ctx, tx, ins)
 		})
 	}
 	// expectStaged asserts whether the fields of the config are staged.
@@ -206,6 +229,82 @@ var _ = Describe("ICDMigration", func() {
 			Expect(ic.Messages[0].Name).To(Equal("GET /level"))
 		},
 	)
+
+	It("Should store reads that a later save accepts", func(ctx SpecContext) {
+		idx := createChannel(ctx, telem.TimestampT, channel.Channel{})
+		value := createChannel(ctx, telem.Float64T, idx)
+		key := stageEndpoint(
+			ctx,
+			"Tank farm",
+			"ts",
+			http.ReadField{
+				Key:      "ts",
+				Disabled: true,
+				Channel:  idx.Key(),
+				Pointer:  "/ts",
+				DataType: telem.TimestampT,
+			},
+			http.ReadField{
+				Key:      "level",
+				Channel:  value.Key(),
+				Pointer:  "/level",
+				DataType: telem.Float64T,
+			},
+		)
+		Expect(run(ctx)).To(Succeed())
+		data := MustSucceed(svc.Read.Read(ctx, db, key))
+		MustSucceed(svc.Read.Prepare(ctx, db, key, "Tank farm", data))
+	})
+
+	It("Should lift two index fields, note them, and refuse a later save", func(
+		ctx SpecContext,
+	) {
+		sent := createChannel(ctx, telem.TimestampT, channel.Channel{})
+		received := createChannel(ctx, telem.TimestampT, channel.Channel{})
+		key := stageEndpoint(
+			ctx,
+			"Tank farm",
+			"sent",
+			http.ReadField{
+				Key:      "sent",
+				Name:     "sent",
+				Channel:  sent.Key(),
+				Pointer:  "/sent",
+				DataType: telem.TimestampT,
+			},
+			http.ReadField{
+				Key:      "received",
+				Name:     "received",
+				Channel:  received.Key(),
+				Pointer:  "/received",
+				DataType: telem.TimestampT,
+			},
+		)
+		Expect(run(ctx)).To(Succeed())
+		ep := read(ctx, key).Endpoints[0]
+		Expect(ep.Messages).To(HaveLen(1))
+		Expect(ep.Messages[0].Bindings).To(HaveExactElements(
+			HaveField("Channel", sent.Key()),
+			HaveField("Channel", received.Key()),
+		))
+		Expect(logs.FilterMessage("changed an HTTP read field to v5").All()).To(
+			HaveExactElements(WithTransform(
+				func(e observer.LoggedEntry) map[string]any { return e.ContextMap() },
+				SatisfyAll(
+					HaveKeyWithValue("field", "endpoints.0.fields.1"),
+					HaveKeyWithValue("change", "field received and index field sent "+
+						"both write index channels. Split the endpoint into two, "+
+						"each with one index field"),
+				),
+			)),
+		)
+		data := MustSucceed(svc.Read.Read(ctx, db, key))
+		Expect(svc.Read.Prepare(ctx, db, key, "Tank farm", data)).Error().To(MatchError(
+			"endpoints.0.messages.0.bindings.1.channel: field received cannot write " +
+				"to index channel " + received.Name + ", because only the index " +
+				"field can. Bind field received to a data channel",
+		))
+	})
 
 	It("Should do nothing without staged fields", func(ctx SpecContext) {
 		Expect(run(ctx)).To(Succeed())

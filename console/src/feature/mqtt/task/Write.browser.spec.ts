@@ -8,17 +8,31 @@
 // included in the file licenses/APL.txt.
 
 import { channel, icd, mqtt, type Synnax, type task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  holdResponses,
+  rejectRequests,
+} from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
+import { scheduler } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
 import { Device } from "@/platform/device";
+import { ICD } from "@/platform/icd";
+import {
+  pickMessageFormat,
+  removeField,
+  retype,
+  selectedIn,
+  setField,
+} from "@/platform/icd/testutil";
 import {
   clickDeploy,
+  countFailedSaves,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
   findChannelListItem,
@@ -26,8 +40,14 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
+  toggleRefused,
 } from "@/platform/task/testutil";
-import { awaitTextEditingElement, commitTextEdit, getSwitchInput } from "@/testutil";
+import {
+  awaitTextEditingElement,
+  commitTextEdit,
+  getSwitchInput,
+  isSelectButtonSelected,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -125,6 +145,38 @@ const renderWrite = async (
   return { ...result, dev, draft };
 };
 
+/** Creates an ICD that holds one JSON message of the fields, with unique names. */
+const createFormat = async (fields: icd.JSONField[]) => {
+  const message = icd.messageZ.parse({
+    name: uniqueName("command"),
+    payload: { format: "json", fields },
+  });
+  const ic = await client.icds.create({
+    name: uniqueName("valve"),
+    messages: [message],
+  });
+  return { ic, message };
+};
+
+const createField = (
+  name: string,
+  type: icd.JSONField["type"],
+  rest: Partial<icd.JSONField> = {},
+): icd.JSONField => icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type, ...rest });
+
+/** Creates a plain target that sends a message of the fields, with no channels. */
+const createFormatTarget = async (fields: icd.JSONField[]) => {
+  const { ic, message } = await createFormat(fields);
+  const target = mqtt.plainWriteTargetZ.parse({
+    type: "plain",
+    key: "t1",
+    topic: "plant/valve/set",
+    icd: ic.key,
+    message: { message: message.key, bindings: ICD.Write.suit([], fields) },
+  });
+  return { ic, message, target };
+};
+
 // The add button renders once the form leaves its loading preview.
 const openAddTargets = async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Add targets" }));
@@ -133,6 +185,7 @@ const openAddTargets = async () => {
 
 const addTag = async (): Promise<void> => {
   const dialog = await openAddTargets();
+  fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
   fireEvent.click(await dialog.findByRole("button", { name: "Add a tag by name" }));
   await screen.findByText("Edge node");
 };
@@ -151,7 +204,7 @@ describe("MQTT Write form", () => {
     expect(screen.getByText("Sparkplug B type")).toBeTruthy();
   }, 30_000);
 
-  it("should show the topic settings of a plain target and no payload", async () => {
+  it("should show the topic settings of a plain target", async () => {
     await renderWrite([
       await createPlainTarget("t1", "plant/valve/set", { retained: true }),
     ]);
@@ -162,8 +215,9 @@ describe("MQTT Write form", () => {
     expect(screen.queryByText("JSON type")).toBeNull();
   });
 
-  it("should duplicate a plain target with its message and bindings", async () => {
+  it("should duplicate a plain target with its message and bindings, but no command channels", async () => {
     const plain = await createPlainTarget("t1", "plant/valve/set");
+    const [binding] = plain.message.bindings;
     const { draft } = await renderWrite([plain]);
     fireEvent.contextMenu(await screen.findByRole("option", { name: /plant\/valve/ }));
     expect(await screen.findByText("Duplicate")).toBeTruthy();
@@ -172,8 +226,12 @@ describe("MQTT Write form", () => {
     await waitFor(async () => {
       const targets = await retrieveTargets(draft.key);
       expect(targets).toMatchObject([
-        { key: "t1" },
-        { topic: plain.topic, icd: plain.icd, message: plain.message },
+        { key: "t1", message: plain.message },
+        {
+          topic: plain.topic,
+          icd: plain.icd,
+          message: { ...plain.message, bindings: [{ ...binding, channel: 0 }] },
+        },
       ]);
       expect(targets[1].key).not.toBe("t1");
     });
@@ -270,6 +328,7 @@ describe("MQTT Write form", () => {
     it("should focus the group of a tag added by name", async () => {
       await renderWrite();
       const dialog = await openAddTargets();
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
       fireEvent.click(await dialog.findByRole("button", { name: "Add a tag by name" }));
       const group = await screen.findByPlaceholderText("plant");
       await waitFor(() => expect(document.activeElement).toBe(group));
@@ -311,6 +370,499 @@ describe("MQTT Write form", () => {
     });
   });
 
+  describe("binding the fields of a plain target", () => {
+    const fieldGroup = async (name: string) =>
+      within(await screen.findByRole("group", { name }));
+
+    it("should put each field with no default on a channel when a message is picked", async () => {
+      const { target, message: first } = await createFormatTarget([
+        createField("value", "float"),
+      ]);
+      const setpoint = createField("setpoint", "float");
+      const mode = createField("mode", "string", { default: "auto" });
+      const { ic, message } = await createFormat([setpoint, mode]);
+      const { draft } = await renderWrite([target]);
+      await pickMessageFormat(first.name, message.name, ic.name);
+      await waitFor(async () =>
+        expect(await retrieveTargets(draft.key)).toMatchObject([
+          {
+            icd: ic.key,
+            message: {
+              message: message.key,
+              bindings: [{ type: "channel", field: setpoint.key, channel: 0 }],
+            },
+          },
+        ]),
+      );
+      const modeGroup = await fieldGroup(mode.name);
+      expect(modeGroup.getByText('Sends its default, "auto".')).toBeTruthy();
+    });
+
+    it("should send a fixed value for a field set to Value", async () => {
+      const setpoint = createField("setpoint", "float");
+      const mode = createField("mode", "string");
+      const { target } = await createFormatTarget([setpoint, mode]);
+      const { draft } = await renderWrite([target]);
+      const modeGroup = await fieldGroup(mode.name);
+      fireEvent.click(modeGroup.getByRole("button", { name: "Value" }));
+      const input = await modeGroup.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "auto" } });
+      fireEvent.blur(input);
+      await waitFor(async () =>
+        expect(await retrieveTargets(draft.key)).toMatchObject([
+          {
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                {
+                  type: "value",
+                  field: mode.key,
+                  value: { type: "string", value: "auto" },
+                },
+              ],
+            },
+          },
+        ]),
+      );
+    });
+
+    it("should let a field that sends its default take a fixed value", async () => {
+      const setpoint = createField("setpoint", "float");
+      const mode = createField("mode", "string", { default: "auto" });
+      const { target } = await createFormatTarget([setpoint, mode]);
+      const { draft } = await renderWrite([target]);
+      const modeGroup = await fieldGroup(mode.name);
+      fireEvent.click(modeGroup.getByRole("button", { name: "Value" }));
+      await modeGroup.findByRole("textbox");
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          message: {
+            bindings: [
+              { type: "channel", field: setpoint.key },
+              { type: "value", field: mode.key, value: { type: "string", value: "" } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it("should start a fixed value inside the min and max of its field", async () => {
+      const setpoint = createField("setpoint", "float");
+      const low = createField("low", "float", { min: 5 });
+      const high = createField("high", "integer", { max: -2.5 });
+      // Each limit maps to a raw value through the scale and offset of its field.
+      const scaled = createField("scaled", "float", { scale: 0.1, min: 5 });
+      const shifted = createField("shifted", "integer", { offset: 10, max: 5 });
+      const flipped = createField("flipped", "float", { scale: -2, min: 10 });
+      const fields = [setpoint, low, high, scaled, shifted, flipped];
+      const { target } = await createFormatTarget(fields);
+      const { draft } = await renderWrite([target]);
+      for (const field of fields.slice(1))
+        fireEvent.click(
+          (await fieldGroup(field.name)).getByRole("button", { name: "Value" }),
+        );
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          message: {
+            bindings: [
+              { type: "channel", field: setpoint.key },
+              { type: "value", field: low.key, value: { type: "float", value: 5 } },
+              {
+                type: "value",
+                field: high.key,
+                value: { type: "integer", value: "-3" },
+              },
+              { type: "value", field: scaled.key, value: { type: "float", value: 50 } },
+              {
+                type: "value",
+                field: shifted.key,
+                value: { type: "integer", value: "-5" },
+              },
+              {
+                type: "value",
+                field: flipped.key,
+                value: { type: "float", value: -5 },
+              },
+            ],
+          },
+        }),
+      );
+    });
+
+    describe("when the message changes in the ICD", () => {
+      const messageOf = ({ icd: key, message }: MQTT.Task.PlainWriteTarget) => ({
+        icd: key,
+        message: message.message,
+      });
+
+      it("should warn when the last field leaves the message", async () => {
+        const setpoint = createField("setpoint", "float");
+        const { target } = await createFormatTarget([setpoint]);
+        await renderWrite([target]);
+        await fieldGroup(setpoint.name);
+        await removeField(client, messageOf(target), setpoint);
+        await screen.findByText("Message has no fields");
+      });
+
+      it("should drop the binding of a field that leaves the message", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string");
+        const { target } = await createFormatTarget([setpoint, mode]);
+        const { draft } = await renderWrite([target]);
+        await fieldGroup(mode.name);
+        await removeField(client, messageOf(target), mode);
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [{ type: "channel", field: setpoint.key, channel: 0 }],
+            },
+          }),
+        );
+      });
+
+      it("should put a field on a channel when its fixed value stops suiting its kind", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string");
+        const { target } = await createFormatTarget([setpoint, mode]);
+        const { draft } = await renderWrite([
+          {
+            ...target,
+            message: {
+              ...target.message,
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                {
+                  type: "value",
+                  field: mode.key,
+                  value: { type: "string", value: "auto" },
+                },
+              ],
+            },
+          },
+        ]);
+        await fieldGroup(mode.name);
+        await retype(client, messageOf(target), mode, "float");
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: mode.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+      });
+
+      it("should put a field on a channel when it loses its default", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string", { default: "auto" });
+        const { ic, message, target } = await createFormatTarget([setpoint, mode]);
+        const { draft } = await renderWrite([target]);
+        await (await fieldGroup(mode.name)).findByText('Sends its default, "auto".');
+        await client.icds.dispatch(
+          ic.key,
+          icd.set({
+            path: ["messages", message.key, "payload", "fields", mode.key],
+            value: { ...mode, default: undefined },
+          }),
+        );
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: mode.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+      });
+
+      it("should unbind a channel whose data type its field stops taking", async () => {
+        const setpoint = createField("setpoint", "float");
+        const count = createField("count", "integer");
+        const [{ target }, cmd] = await Promise.all([
+          createFormatTarget([setpoint, count]),
+          client.channels.create({
+            name: uniqueName("mqtt_cmd"),
+            dataType: "int64",
+            virtual: true,
+          }),
+        ]);
+        const { draft } = await renderWrite([
+          {
+            ...target,
+            message: {
+              ...target.message,
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: count.key, channel: cmd.key },
+              ],
+            },
+          },
+        ]);
+        await (await fieldGroup(count.name)).findByDisplayValue(cmd.name);
+        await retype(client, messageOf(target), count, "string");
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: count.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+      });
+
+      it("should send a refused binding once, and again on the next format change", async () => {
+        const setpoint = createField("setpoint", "float");
+        const { target } = await createFormatTarget([setpoint]);
+        let statuses: Status.NotificationSpec[] = [];
+        const { draft } = await renderWrite([target], {
+          onStatuses: (s) => (statuses = s),
+        });
+        await fieldGroup(setpoint.name);
+        // Pointer "" reads the whole document, which holds the value of setpoint.
+        const whole = createField("whole", "float", { pointer: "" });
+        await client.icds.dispatch(
+          target.icd,
+          icd.insert({
+            path: ["messages", target.message.message, "payload", "fields"],
+            value: whole,
+            after: setpoint.key,
+          }),
+        );
+        await waitFor(() => expect(countFailedSaves(statuses)).toBeGreaterThan(0));
+        await toggleRefused("Retain");
+        expect(countFailedSaves(statuses)).toBe(2);
+        await setField(client, messageOf(target), { ...whole, pointer: "/whole" });
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: whole.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+        expect(countFailedSaves(statuses)).toBe(2);
+      });
+
+      it("should send a refused unbind once, and again on the next format change", async () => {
+        const setpoint = createField("setpoint", "float");
+        const count = createField("count", "integer");
+        const [{ target }, cmd] = await Promise.all([
+          createFormatTarget([setpoint, count]),
+          client.channels.create({
+            name: uniqueName("mqtt_cmd"),
+            dataType: "int64",
+            virtual: true,
+          }),
+        ]);
+        let statuses: Status.NotificationSpec[] = [];
+        const { draft } = await renderWrite(
+          [
+            {
+              ...target,
+              message: {
+                ...target.message,
+                bindings: [
+                  { type: "channel", field: setpoint.key, channel: 0 },
+                  { type: "channel", field: count.key, channel: cmd.key },
+                ],
+              },
+            },
+          ],
+          { onStatuses: (s) => (statuses = s) },
+        );
+        await (await fieldGroup(count.name)).findByDisplayValue(cmd.name);
+        // Pointer /count/x reads inside count, so the Core refuses each save.
+        await setField(client, messageOf(target), { ...setpoint, pointer: "/count/x" });
+        await retype(client, messageOf(target), count, "string", setpoint.key);
+        await waitFor(() => expect(countFailedSaves(statuses)).toBeGreaterThan(0));
+        await toggleRefused("Retain");
+        expect(countFailedSaves(statuses)).toBe(2);
+        await setField(client, messageOf(target), setpoint);
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: count.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+        expect(countFailedSaves(statuses)).toBe(2);
+      });
+
+      it("should correct for a format that changes while a refused save is in flight", async () => {
+        const setpoint = createField("setpoint", "float");
+        const count = createField("count", "integer");
+        const [{ target }, cmd] = await Promise.all([
+          createFormatTarget([setpoint, count]),
+          client.channels.create({
+            name: uniqueName("mqtt_cmd"),
+            dataType: "int64",
+            virtual: true,
+          }),
+        ]);
+        let statuses: Status.NotificationSpec[] = [];
+        const { draft } = await renderWrite(
+          [
+            {
+              ...target,
+              message: {
+                ...target.message,
+                bindings: [
+                  { type: "channel", field: setpoint.key, channel: 0 },
+                  { type: "channel", field: count.key, channel: cmd.key },
+                ],
+              },
+            },
+          ],
+          { onStatuses: (s) => (statuses = s) },
+        );
+        await (await fieldGroup(count.name)).findByDisplayValue(cmd.name);
+        const { responded, release } = holdResponses(client, "/task/dispatch");
+        // Pointer /count/x reads inside count, so the Core refuses the unbind of count.
+        await setField(client, messageOf(target), { ...setpoint, pointer: "/count/x" });
+        await retype(client, messageOf(target), count, "string", setpoint.key);
+        await responded;
+        const renamed = { ...setpoint, name: "target" };
+        await setField(client, messageOf(target), renamed);
+        await fieldGroup(renamed.name);
+        // The form corrects for the format a task after it renders the format.
+        await act(async () => await scheduler.nextTask());
+        release();
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [
+                { type: "channel", field: setpoint.key, channel: 0 },
+                { type: "channel", field: count.key, channel: 0 },
+              ],
+            },
+          }),
+        );
+        expect(countFailedSaves(statuses)).toBe(1);
+      });
+
+      it("should suit the bindings when the channels of the message fail to load", async () => {
+        const setpoint = createField("setpoint", "float");
+        const count = createField("count", "integer");
+        const [{ target }, cmd, dev] = await Promise.all([
+          createFormatTarget([setpoint, count]),
+          client.channels.create({
+            name: uniqueName("mqtt_cmd"),
+            dataType: "int64",
+            virtual: true,
+          }),
+          createBroker(client),
+        ]);
+        const draft = await createDraft(
+          client,
+          createWriteConfig(dev.key, [
+            {
+              ...target,
+              message: {
+                ...target.message,
+                bindings: [
+                  { type: "channel", field: setpoint.key, channel: 0 },
+                  { type: "channel", field: count.key, channel: cmd.key },
+                ],
+              },
+            },
+          ]),
+        );
+        await removeField(client, messageOf(target), setpoint);
+        // A new client caches no channel, so its retrievals of cmd reach the Core.
+        const as = createTestClient();
+        const reject = rejectRequests(
+          as,
+          (t, req) =>
+            t === "/channel/retrieve" && JSON.stringify(req).includes(`${cmd.key}`),
+          new Error("channels unavailable"),
+        );
+        onTestFinished(() => reject.mockRestore());
+        let statuses: Status.NotificationSpec[] = [];
+        await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE], {
+          client,
+          as,
+          taskKey: draft.key,
+          onStatuses: (s) => (statuses = s),
+        });
+        await waitFor(async () =>
+          expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+            message: {
+              bindings: [{ type: "channel", field: count.key, channel: cmd.key }],
+            },
+          }),
+        );
+        await waitFor(() =>
+          expect(statuses).toContainEqual(
+            expect.objectContaining({
+              message: "Failed to retrieve the channels of a message",
+              description: "channels unavailable",
+            }),
+          ),
+        );
+      });
+    });
+
+    it("should send the default of a field set to Default", async () => {
+      const setpoint = createField("setpoint", "float");
+      const mode = createField("mode", "string", { default: "auto" });
+      const { target } = await createFormatTarget([setpoint, mode]);
+      const { draft } = await renderWrite([
+        {
+          ...target,
+          message: {
+            ...target.message,
+            bindings: [
+              ...target.message.bindings,
+              { type: "channel", field: mode.key, channel: 0 },
+            ],
+          },
+        },
+      ]);
+      const modeGroup = await fieldGroup(mode.name);
+      fireEvent.click(modeGroup.getByRole("button", { name: "Default" }));
+      await modeGroup.findByText('Sends its default, "auto".');
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          message: { bindings: [{ type: "channel", field: setpoint.key }] },
+        }),
+      );
+    });
+
+    it("should keep the first field on a channel when every field has a default", async () => {
+      const mode = createField("mode", "string", { default: "auto" });
+      const open = createField("open", "boolean", { default: false });
+      const { target } = await createFormatTarget([mode, open]);
+      await renderWrite([target]);
+      const group = await fieldGroup(mode.name);
+      for (const name of ["Value", "Default"])
+        expect(group.getByRole("button", { name }).getAttribute("aria-disabled")).toBe(
+          "true",
+        );
+      const openGroup = await fieldGroup(open.name);
+      expect(openGroup.getByText("Sends its default, False.")).toBeTruthy();
+    });
+
+    it("should open the editor at the message of the target", async () => {
+      const { target, ic, message } = await createFormatTarget([
+        createField("setpoint", "float"),
+      ]);
+      const { store } = await renderWrite([target]);
+      fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
+      expect(selectedIn(store, ic.key)).toEqual([message.key]);
+    });
+  });
+
   describe("picking targets in the add targets dialog", () => {
     const NODES = [{ group: "plant", edgeNode: "line1", devices: ["ovenA"] }];
 
@@ -320,6 +872,8 @@ describe("MQTT Write form", () => {
       const { dev, draft } = await renderWrite();
       const scanner = await openScanner(client, dev.rack);
       const dialog = await openAddTargets();
+      await scanner.answer({ data: { topics: [], truncated: false } });
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
       await scanner.answer({ data: { nodes: NODES, tags: [] } });
       if (reply.message != null)
         await scanner.answer({ variant: "error", message: reply.message });
@@ -327,12 +881,104 @@ describe("MQTT Write form", () => {
       return { dialog, draft, scanner };
     };
 
-    it("should list only Sparkplug B tags", async () => {
-      const { dialog, scanner } = await openOnTags({ tags: [] });
+    const TOPIC = {
+      topic: "plant/valve/set",
+      payload: '{"setpoint": 1, "mode": "auto"}',
+      fields: [
+        { pointer: "/setpoint", type: "number", sample: "1" },
+        { pointer: "/mode", type: "string", sample: '"auto"' },
+      ],
+      retained: true,
+    };
+    const FORMAT_REQUIRED = "Select a message format to add topics.";
+
+    // Opens the dialog over a broker whose scan task lists TOPIC, and picks it.
+    const openOnPickedTopic = async () => {
+      const { dev, draft } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      await scanner.answer({ data: { topics: [TOPIC], truncated: false } });
       scanner.close();
-      await dialog.findByText("line1");
-      expect(dialog.queryByRole("button", { name: "JSON topics" })).toBeNull();
-      expect(dialog.queryByRole("button", { name: "Add a topic by name" })).toBeNull();
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record setpoint" }));
+      return { dialog, draft };
+    };
+
+    it("should ask for a message format before it adds a whole picked topic", async () => {
+      const setpoint = createField("setpoint", "float");
+      const { ic, message } = await createFormat([setpoint]);
+      const { dialog, draft } = await openOnPickedTopic();
+      const mode = dialog.getByRole<HTMLInputElement>("checkbox", {
+        name: "Record mode",
+      });
+      expect(mode.checked).toBe(true);
+      dialog.getByText("1 topic selected");
+      const add = () => dialog.getByRole("button", { name: "Add 1 target" });
+      fireEvent.click(add());
+      await dialog.findByText(FORMAT_REQUIRED);
+      await pickMessageFormat("Select message format", message.name, ic.name);
+      await waitFor(() => expect(dialog.queryByText(FORMAT_REQUIRED)).toBeNull());
+      fireEvent.click(add());
+      await waitFor(async () =>
+        expect(await retrieveTargets(draft.key)).toMatchObject([
+          {
+            type: "plain",
+            topic: "plant/valve/set",
+            icd: ic.key,
+            message: {
+              message: message.key,
+              bindings: [{ type: "channel", field: setpoint.key, channel: 0 }],
+            },
+          },
+        ]),
+      );
+    });
+
+    it("should go back to the topics to ask for a message format when a tag adds by name", async () => {
+      const { dialog } = await openOnPickedTopic();
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      fireEvent.click(await dialog.findByRole("button", { name: "Add a tag by name" }));
+      await dialog.findByText(FORMAT_REQUIRED);
+      expect(isSelectButtonSelected("JSON topics")).toBe(true);
+    });
+
+    it("should drop a whole picked topic when any of its fields is unticked", async () => {
+      const { dialog } = await openOnPickedTopic();
+      const box = (name: string) =>
+        dialog.getByRole<HTMLInputElement>("checkbox", { name: `Record ${name}` });
+      dialog.getByText("1 topic selected");
+      fireEvent.click(box("mode"));
+      expect([box("setpoint").checked, box("mode").checked]).toEqual([false, false]);
+      expect(dialog.queryByText("1 topic selected")).toBeNull();
+    });
+
+    it("should ask for a message format before it adds a topic by name", async () => {
+      const setpoint = createField("setpoint", "float");
+      const mode = createField("mode", "string", { default: "auto" });
+      const { ic, message } = await createFormat([setpoint, mode]);
+      const { draft } = await renderWrite();
+      const dialog = await openAddTargets();
+      const byName = () => dialog.getByRole("button", { name: "Add a topic by name" });
+      fireEvent.click(
+        await dialog.findByRole("button", { name: "Add a topic by name" }),
+      );
+      await dialog.findByText(FORMAT_REQUIRED);
+      await pickMessageFormat("Select message format", message.name, ic.name);
+      await waitFor(() => expect(dialog.queryByText(FORMAT_REQUIRED)).toBeNull());
+      fireEvent.click(byName());
+      await screen.findByText(setpoint.name);
+      await waitFor(async () =>
+        expect(await retrieveTargets(draft.key)).toMatchObject([
+          {
+            type: "plain",
+            topic: "",
+            icd: ic.key,
+            message: {
+              message: message.key,
+              bindings: [{ type: "channel", field: setpoint.key, channel: 0 }],
+            },
+          },
+        ]),
+      );
     });
 
     it("should show a failed listen in place of the list, with no notification", async () => {
@@ -365,6 +1011,8 @@ describe("MQTT Write form", () => {
         ]),
       );
       const again = await openAddTargets();
+      await scanner.answer({ data: { topics: [], truncated: false } });
+      fireEvent.click(again.getByRole("button", { name: "Sparkplug B" }));
       await scanner.answer({ data: { nodes: NODES, tags: [] } });
       await scanner.answer({ data: { nodes: [], tags } });
       scanner.close();
@@ -598,6 +1246,93 @@ describe("MQTT Write form", () => {
         [`${topic}#${value.key}`]: keys[0],
         [`${topic}#${open.key}`]: keys[1],
       });
+    });
+
+    it("should replace the integer command channel of a field that gains a scale", async () => {
+      const message = icd.messageZ.parse({
+        name: "Command",
+        payload: {
+          format: "json",
+          fields: [{ name: "count", pointer: "/count", type: "integer" }],
+        },
+      });
+      if (message.payload.format !== "json") throw new Error("expected a JSON message");
+      const [count] = message.payload.fields;
+      const ic = await client.icds.create({
+        name: uniqueName("format"),
+        messages: [message],
+      });
+      const dev = await createBroker(client);
+      const name = `${dev.name}_plant_valve_set_count_cmd`;
+      const index = await client.channels.create({
+        name: `${name}_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const old = await client.channels.create({
+        name,
+        dataType: "int64",
+        index: index.key,
+      });
+      // Configure stores each command channel that it gives a field.
+      await Device.setProperties(
+        client,
+        {
+          key: dev.key,
+          properties: {
+            ...MQTT.Device.ZERO_PROPERTIES,
+            write: { [`plant/valve/set#${count.key}`]: old.key },
+          },
+        },
+        MQTT.Device.ZERO_PROPERTIES,
+        MQTT.Device.SCHEMAS,
+      );
+      const draft = await createDraft(
+        client,
+        createWriteConfig(dev.key, [
+          mqtt.plainWriteTargetZ.parse({
+            type: "plain",
+            key: "t1",
+            topic: "plant/valve/set",
+            icd: ic.key,
+            message: {
+              message: message.key,
+              bindings: [
+                {
+                  type: "channel",
+                  field: count.key,
+                  channel: old.key,
+                  dataType: "int64",
+                },
+              ],
+            },
+          }),
+        ]),
+      );
+      await client.icds.dispatch(
+        ic.key,
+        icd.set({
+          path: ["messages", message.key, "payload", "fields", count.key, "scale"],
+          value: 0.5,
+        }),
+      );
+      const { container } = await renderTaskFormTab(
+        MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE],
+        { client, taskKey: draft.key },
+      );
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.WRITE_SCHEMAS,
+      );
+      const [target] = created.config.targets;
+      if (target.type !== "plain") throw new Error("expected a plain target");
+      const [binding] = target.message.bindings;
+      if (binding.type !== "channel") throw new Error("expected a channel binding");
+      const ch = await client.channels.retrieve(binding.channel);
+      expect([ch.name, ch.dataType.toString()]).toEqual([name, "float64"]);
+      expect((await client.channels.retrieve(old.key)).name).toBe(`${name}_2`);
     });
 
     it("should deploy a plain target as it is stored", async () => {

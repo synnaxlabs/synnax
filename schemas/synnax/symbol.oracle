@@ -10,6 +10,7 @@
 import "schemas/synnax/color"
 import "schemas/synnax/enumeration"
 import "schemas/synnax/group"
+import "schemas/synnax/resource"
 import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/patch"
@@ -241,7 +242,7 @@ Look struct {
 
     @doc value  """
         is paint, visibility, or motion on a part. A later look wins on each field that
-        it sets.
+        it sets. On motion, it replaces only an earlier motion of the same kind.
     """
     @go marshal
 }
@@ -461,20 +462,29 @@ Symbol struct {
         @doc value "is the unique identifier for this symbol."
         @key
     }
-    name  string     {
+    name  string         {
         @doc value           "is a human-readable name for the symbol."
         @index sorted
         @search
         @validate min_length 1
     }
-    data  Spec       {
+    data  Spec           {
         @doc value "is the complete symbol specification."
     }
-    group group.Key? {
+    group group.Key?     {
         @doc value     "is the group the symbol sits in, if any."
         @group scope   schematic_symbol
         @ref kind      place
         @ref on_delete detach
+    }
+    uses  resource.ID[]? {
+        @doc value     """
+            are the schematics that use the symbol and that the caller can read, filled
+            only when a retrieve request asks for them.
+        """
+        @go marshal    omit
+        @include
+        @validate skip
     }
 
     action Create {
@@ -531,4 +541,33 @@ Where filter Symbol {
 
     @doc value         "is a filter that selects schematic symbols."
     @go request_output "core/pkg/api/schematic/symbol"
+}
+
+Ref union on type {
+    builtin {
+        name string {
+            @doc value "is the shipped name of the built-in."
+        }
+
+        @doc value "is a symbol that the Core ships."
+    }
+    custom {
+        key Key {
+            @doc value     "is the key of the symbol."
+            @ref kind      use
+            @ref on_delete restrict
+        }
+
+        @doc value "is a symbol that a user made."
+    }
+    missing {
+        key string {
+            @doc value "is the key of the custom symbol that the Core does not have."
+        }
+
+        @doc value "is a custom symbol that the Core does not have."
+    }
+
+    @doc value  "is the symbol that a node draws."
+    @go marshal
 }

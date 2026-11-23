@@ -10,9 +10,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
-#include <span>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -35,10 +33,7 @@ namespace driver::icd {
 namespace {
 const x::telem::TimeStamp RECEIVED(1000);
 
-/// @brief returns the bytes of text.
-std::span<const std::uint8_t> bytes(const std::string_view text) {
-    return {reinterpret_cast<const std::uint8_t *>(text.data()), text.size()};
-}
+using x::testutil::bytes;
 
 /// @brief returns a channel of dt with key that index indexes.
 synnax::channel::Channel channel(
@@ -380,6 +375,15 @@ TEST(Reader, StampsSamplesWithIndexField) {
     ASSERT_EQ(fr.at<double>(2, 0), 2.0);
 }
 
+/// @brief it should list each channel that it writes, with index channels last.
+TEST(Reader, ListsChannelsWithIndexesLast) {
+    auto e = indexed();
+    e.bind(float_field("w"), channel(3, x::telem::FLOAT64_T, 4));
+    e.bind(float_field("x"), channel(5, x::telem::FLOAT64_T, 0));
+    const auto r = ASSERT_NIL_P(e.create());
+    ASSERT_EQ(r.channels(), (std::vector<synnax::channel::Key>{2, 3, 5, 1, 4}));
+}
+
 /// @brief it should write no index for virtual channels.
 TEST(Reader, WritesNoIndexForVirtualChannels) {
     auto r = ASSERT_NIL_P(
@@ -531,11 +535,13 @@ TEST(Reader, RejectsIndexFieldOnDataChannel) {
 TEST(Reader, RejectsDataFieldOnIndexChannel) {
     auto e = indexed();
     e.reads[0].index.reset();
+    e.channels.at(1).name = "time";
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
         err.data,
-        "message reading: only the index field can write to an index channel"
+        "message reading: field t cannot write to index channel time, because only "
+        "the index field can. Bind field t to a data channel"
     );
 }
 
