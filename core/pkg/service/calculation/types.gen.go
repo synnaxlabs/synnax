@@ -62,6 +62,16 @@ type Status = versions.Status
 // other channels. It has no name or folder of its own: both are those of its output.
 type Calculation = versions.Calculation
 
+// HiddenOutput is the sample of the set channel that a subject who cannot retrieve a
+// calculation, but can retrieve its output, receives in place of the calculation.
+type HiddenOutput struct {
+	// Output is the channel that the calculation wrote or writes.
+	Output channel.Key `json:"output" msgpack:"output"`
+	// Hidden is true when a calculation that the subject cannot retrieve writes output,
+	// and false once no calculation writes it.
+	Hidden bool `json:"hidden" msgpack:"hidden"`
+}
+
 // Where is a filter that selects calculations.
 type Where struct {
 	// And matches when every child matches.

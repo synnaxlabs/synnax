@@ -25,7 +25,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -829,5 +832,194 @@ var _ = Describe("Change channels", func() {
 		createLabels(ctx, removed)
 		createLabels(ctx, granted)
 		Expect(received()).To(Equal([]resource.ID{label.ResourceID(granted.Key)}))
+	})
+
+	Describe("Calculations", func() {
+		virtual := func(ctx SpecContext) channel.Channel {
+			GinkgoHelper()
+			ch := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			return ch
+		}
+		calculate := func(ctx SpecContext, expression string) calculation.Calculation {
+			GinkgoHelper()
+			output := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+				Name:       UniqueChannelName(),
+				Expression: expression,
+			}))
+			return MustSucceed(creator.CalculationOf(ctx, output.Key()))
+		}
+		// edit sets the expression of c through an action.
+		edit := func(ctx SpecContext, c calculation.Calculation, expression string) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.Calculation.NewWriter(tx).Apply(
+					ctx,
+					c.Key,
+					calculation.NewSetAction(calculation.SetPayload{
+						Path:  []string{"expression"},
+						Value: expression,
+					}),
+				)
+				return err
+			})).To(Succeed())
+		}
+		times := func(ch channel.Channel, n int) string {
+			return fmt.Sprintf("return %s * %d", ch.Name, n)
+		}
+		// links returns every calculation and the channels that the calculations link,
+		// except secret.
+		links := func(
+			secret channel.Channel,
+			calcs ...calculation.Calculation,
+		) []resource.ID {
+			ids := []resource.ID{{Type: resource.TypeCalculation}}
+			for _, c := range calcs {
+				for _, id := range svc.Calculation.Channels(c) {
+					if id != channel.ResourceID(secret.Key()) {
+						ids = append(ids, id)
+					}
+				}
+			}
+			return ids
+		}
+
+		DescribeTable(
+			"Should send a change to a calculation only to a subject that can read "+
+				"every channel that it links",
+			func(ctx SpecContext, name string) {
+				open, secret := virtual(ctx), virtual(ctx)
+				readable := calculate(ctx, times(open, 2))
+				denied := calculate(ctx, times(secret, 2))
+				stream(ctx, name, links(secret, readable)...)
+				edit(ctx, denied, times(secret, 3))
+				edit(ctx, readable, times(open, 3))
+				Expect(received()).To(Equal(
+					[]resource.ID{calculation.ResourceID(readable.Key)},
+				))
+			},
+			Entry("a calculation set", "sy_calculation_set"),
+			Entry("a calculation action", "sy_calculation_action_set"),
+		)
+
+		DescribeTable(
+			"Should not send the change that makes a calculation read a channel "+
+				"that the subject cannot read",
+			func(ctx SpecContext, name string) {
+				open, secret := virtual(ctx), virtual(ctx)
+				c := calculate(ctx, times(open, 2))
+				witness := calculate(ctx, times(open, 4))
+				stream(ctx, name, links(secret, c, witness)...)
+				edit(ctx, c, times(secret, 2))
+				edit(ctx, witness, times(open, 5))
+				Expect(received()).To(Equal(
+					[]resource.ID{calculation.ResourceID(witness.Key)},
+				))
+			},
+			// The set channel sends such a subject the output as hidden, which Hidden
+			// outputs covers.
+			Entry("a calculation action", "sy_calculation_action_set"),
+		)
+
+		Describe("Hidden outputs", func() {
+			// samples returns the samples of the next frame of ch.
+			samples := func() []string {
+				GinkgoHelper()
+				res := MustSucceed(client.Receive())
+				var out []string
+				for _, series := range res.Frame.Get(ch.Key()).Series {
+					for sample := range series.Samples() {
+						out = append(out, string(sample))
+					}
+				}
+				return out
+			}
+			hidden := func(c calculation.Calculation, isHidden bool) string {
+				return fmt.Sprintf(`{"output":%d,"hidden":%t}`, c.Output, isHidden)
+			}
+			// readsOutput returns the calculations and the output of c, which a subject
+			// that reads them reads, but not c.
+			readsOutput := func(c calculation.Calculation) []resource.ID {
+				return []resource.ID{
+					{Type: resource.TypeCalculation},
+					channel.ResourceID(c.Output),
+				}
+			}
+			remove := func(ctx SpecContext, c calculation.Calculation) {
+				GinkgoHelper()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Calculation.NewWriter(tx).Delete(ctx, c.Key)
+				})).To(Succeed())
+			}
+
+			It("Should send the output as hidden once an edit makes the subject "+
+				"unable to read the calculation", func(ctx SpecContext) {
+				open, secret := virtual(ctx), virtual(ctx)
+				c := calculate(ctx, times(open, 2))
+				witness := calculate(ctx, times(open, 3))
+				stream(ctx, "sy_calculation_set", links(secret, c, witness)...)
+				edit(ctx, c, times(secret, 2))
+				edit(ctx, witness, times(open, 4))
+				Expect(samples()).To(Equal([]string{hidden(c, true)}))
+			})
+
+			It("Should send a full record once an edit lets the subject read the "+
+				"calculation", func(ctx SpecContext) {
+				open, secret := virtual(ctx), virtual(ctx)
+				c := calculate(ctx, times(secret, 2))
+				granted := append(links(secret, c), channel.ResourceID(open.Key()))
+				stream(ctx, "sy_calculation_set", granted...)
+				edit(ctx, c, times(open, 2))
+				Expect(samples()).To(ConsistOf(
+					ContainSubstring(`"key":"` + c.Key.String() + `"`),
+				))
+			})
+
+			It("Should tell a subject that held the hidden output that no "+
+				"calculation writes it once the calculation is deleted", func(
+				ctx SpecContext,
+			) {
+				open, secret := virtual(ctx), virtual(ctx)
+				c := calculate(ctx, times(secret, 2))
+				witness := calculate(ctx, times(open, 3))
+				granted := append(readsOutput(c), links(secret, witness)...)
+				stream(ctx, "sy_calculation_set", granted...)
+				remove(ctx, c)
+				edit(ctx, witness, times(open, 4))
+				Expect(samples()).To(Equal([]string{hidden(c, false)}))
+			})
+
+			It("Should not send the output to a subject that read the deleted "+
+				"calculation", func(ctx SpecContext) {
+				open, secret := virtual(ctx), virtual(ctx)
+				c := calculate(ctx, times(open, 2))
+				witness := calculate(ctx, times(open, 3))
+				stream(ctx, "sy_calculation_set", links(secret, c, witness)...)
+				remove(ctx, c)
+				edit(ctx, witness, times(open, 4))
+				Expect(samples()).To(ConsistOf(
+					ContainSubstring(`"key":"` + witness.Key.String() + `"`),
+				))
+			})
+
+			It("Should send nothing to a subject that reads neither the calculation "+
+				"nor its output", func(ctx SpecContext) {
+				open, secret := virtual(ctx), virtual(ctx)
+				c := calculate(ctx, times(secret, 2))
+				witness := calculate(ctx, times(open, 3))
+				stream(ctx, "sy_calculation_set", links(secret, witness)...)
+				edit(ctx, c, times(secret, 3))
+				edit(ctx, witness, times(open, 4))
+				Expect(samples()).To(ConsistOf(
+					ContainSubstring(`"key":"` + witness.Key.String() + `"`),
+				))
+			})
+		})
 	})
 })

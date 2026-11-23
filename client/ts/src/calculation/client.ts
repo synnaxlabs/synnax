@@ -22,6 +22,8 @@ import {
 import {
   type Calculation,
   calculationZ,
+  type HiddenOutput,
+  hiddenOutputZ,
   type Key,
   keyZ,
   type New,
@@ -47,6 +49,7 @@ import { query } from "@/query";
 import { type status } from "@/status";
 
 export const ACTION_CHANNEL_NAME = "sy_calculation_action_set";
+export const SET_CHANNEL_NAME = "sy_calculation_set";
 export const DELETE_CHANNEL_NAME = "sy_calculation_delete";
 
 const inputZ = z.object({
@@ -194,6 +197,26 @@ export class Client extends query.Retriever<
         outputs.set(
           named.map(({ key }) => ({ key, hidden: false, calculation: null })),
         );
+    });
+    // The set channel tells a reader the outputs of the calculations that it cannot
+    // retrieve. Every other change reaches the store through the action channel.
+    cache.listen({
+      channel: SET_CHANNEL_NAME,
+      schema: hiddenOutputZ.or(z.object({ key: keyZ })),
+      onChange: (changed) => {
+        const hidden = changed.filter((c): c is HiddenOutput => "hidden" in c);
+        if (hidden.length === 0) return;
+        const named = new Set(hidden.map(({ output }) => output));
+        const held = store.get((calc) => named.has(calc.output));
+        if (held.length > 0) store.mirrorDelete(held.map(({ key }) => key));
+        outputs.set(
+          hidden.map(({ output, hidden }): Output =>
+            hidden
+              ? { key: output, hidden: true }
+              : { key: output, hidden: false, calculation: null },
+          ),
+        );
+      },
     });
     statuses.holdOwned(store, resourceID);
     super(cache, {

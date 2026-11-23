@@ -189,6 +189,7 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	named := req.Named()
+	allowed := snap.Allowed
 	hidden := hiddenOutputs{snap: snap, size: outputCount(req.Where)}
 	// The filter of req runs first, so only the calculations it selects reach here.
 	if err = q.Where(calculation.Match(func(
@@ -196,8 +197,12 @@ func (s *Service) Retrieve(
 		_ calculation.Retrieve,
 		c *calculation.Calculation,
 	) (bool, error) {
-		if ok, err := s.allowed(snap, named, *c); err != nil || ok {
-			return ok, err
+		id, denied := s.internal.Denied(*c, allowed)
+		if !denied {
+			return true, nil
+		}
+		if len(named) > 0 && slices.Contains(named, calculation.ResourceID(c.Key)) {
+			return false, snap.Enforce(id)
 		}
 		hidden.add(c.Output)
 		return false, nil
@@ -243,28 +248,6 @@ func outputCount(where *calculation.Where) int {
 		return 0
 	}
 	return len(where.Output.In)
-}
-
-// allowed reports whether the subject of snap can retrieve c and each channel that c
-// links. It returns the denial of a channel when the request names c.
-func (s *Service) allowed(
-	snap bind.Snapshot,
-	named []resource.ID,
-	c calculation.Calculation,
-) (bool, error) {
-	if !snap.Allowed(c.ResourceID()) {
-		return false, nil
-	}
-	for _, id := range s.internal.Channels(c) {
-		if snap.Allowed(id) {
-			continue
-		}
-		if slices.Contains(named, calculation.ResourceID(c.Key)) {
-			return false, snap.Enforce(id)
-		}
-		return false, nil
-	}
-	return true, nil
 }
 
 func (s *Service) attachStatuses(
