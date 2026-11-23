@@ -101,8 +101,9 @@ type PlanOptions struct {
 
 // Plan returns every record that c touches with the picks of opts, as seen by snap, and
 // the token that Apply checks. A delete pick on a channel adds its holders, as Apply
-// does. It writes nothing. A pick that is not a choice, that names no visible entry, or
-// that its entry does not allow fails with a validation error.
+// does. A pick for a record that the plan does not reach has no effect, and the token
+// does not hold it. Plan writes nothing. A pick that is not a choice, or that its entry
+// does not allow, fails with a validation error.
 func (s *Service) Plan(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -120,9 +121,6 @@ func (s *Service) Plan(
 	r, err := s.resolve(ctx, snap, keys, chosen)
 	if err != nil {
 		return Plan{}, err
-	}
-	if r.unknown != nil {
-		return Plan{}, r.unknown
 	}
 	r.plan.Token = token(keys, r.plan)
 	return r.plan, nil
@@ -172,7 +170,11 @@ func newPicks(opts PlanOptions) (picks, error) {
 		}
 		id, err := resource.ParseID(text)
 		if err != nil {
-			return picks{}, errors.Wrapf(validate.ErrValidation, "no entry is %s", text)
+			return picks{}, errors.Wrapf(
+				validate.ErrValidation,
+				"%s is not a record",
+				text,
+			)
 		}
 		p.named[id] = pick
 	}
@@ -267,9 +269,6 @@ func (s *Service) Apply(
 		}
 		r.plan.Token = opts.Token
 	}
-	if r.unknown != nil {
-		return Plan{}, r.unknown
-	}
 	if r.cancel != nil {
 		return Plan{}, *r.cancel
 	}
@@ -321,9 +320,6 @@ type resolution struct {
 	records []resource.ID
 	// cancel is the error of the first entry that takes cancel, or nil.
 	cancel *gorp.RestrictError
-	// unknown is the error of a pick that names no entry, or nil. Apply reads the token
-	// first, so a picked entry that another change removed reads as a changed plan.
-	unknown error
 }
 
 // resolve plans the delete of the channels with keys in snap with chosen, then plans
@@ -340,7 +336,6 @@ func (s *Service) resolve(
 		r       resolution
 		all     = keys
 		earlier []Entry
-		visible = set.New[resource.ID]()
 		deleted = set.New[resource.ID]()
 	)
 	for {
@@ -355,11 +350,6 @@ func (s *Service) resolve(
 		if r.cancel == nil {
 			r.cancel = cancel
 		}
-		for _, e := range p.Entries {
-			if chosen.sees(e.Record) {
-				visible.Add(e.Record)
-			}
-		}
 		for _, rec := range picked {
 			if !deleted.Contains(rec) {
 				deleted.Add(rec)
@@ -372,12 +362,6 @@ func (s *Service) resolve(
 		}
 		earlier = append(earlier, p.Entries...)
 		all = append(slices.Clip(all), more...)
-	}
-	for id := range chosen.named {
-		if !visible.Contains(id) {
-			r.unknown = errors.Wrapf(validate.ErrValidation, "no entry is %s", id)
-			break
-		}
 	}
 	applied := Plan{Entries: r.last.Entries, Kept: r.last.Kept}
 	if len(earlier) > 0 {
