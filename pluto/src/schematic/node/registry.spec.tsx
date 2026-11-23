@@ -7,15 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, schematic } from "@synnaxlabs/client";
+import { type enumeration, NotFoundError, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { deep, TimeSpan } from "@synnaxlabs/x";
-import { fireEvent } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { color, deep, TimeSpan } from "@synnaxlabs/x";
+import { fireEvent, renderHook, waitFor } from "@testing-library/react";
+import type { FC, PropsWithChildren } from "react";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
+import { Custom } from "@/schematic/node/common/custom";
 import { GroupBox } from "@/schematic/node/groupBox";
-import { createSynnaxWrapper, renderForm } from "@/testutil";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper, renderForm } from "@/testutil";
 
 const createSymbol = (variant: string): schematic.symbol.Symbol =>
   schematic.symbol.symbolZ.parse({
@@ -73,6 +75,69 @@ describe("Schematic.Node.BUILT_INS", () => {
       symbols: [...Node.BUILT_INS].map(([name, data]) => ({ name, data })),
     });
     await client.schematics.symbols.delete(symbols.map((s) => s.key));
+  });
+
+  describe("looks", () => {
+    const client = createTestClient();
+    const RED = color.construct("#ff0000");
+    const GREEN = color.construct("#00ff00");
+    let wrapper: FC<PropsWithChildren>;
+    let colored: enumeration.Key;
+
+    // The built-in enumerations have no colors, so each state reads one that has.
+    beforeAll(async () => {
+      wrapper = await createAsyncSynnaxWrapper({ client });
+      const created = await client.enumerations.create({
+        name: "Built-in looks",
+        entries: [
+          { key: "off", value: 0, name: "Off", color: { type: "fixed", value: RED } },
+          { key: "on", value: 1, name: "On", color: { type: "fixed", value: GREEN } },
+        ],
+      });
+      colored = created.key;
+    });
+
+    it.each<[string, number, Custom.Paint[]]>([
+      ["valve", 0, [{ stroke: RED }]],
+      ["valve", 1, [{ stroke: GREEN }, { fill: GREEN }]],
+      [
+        "normally_open_solenoid_valve",
+        0,
+        [{ stroke: RED }, { selectors: [".pluto-body"], fill: RED }],
+      ],
+      [
+        "normally_open_solenoid_valve",
+        1,
+        [
+          { stroke: GREEN },
+          { selectors: [".pluto-solenoid-valve__coil"], fill: GREEN },
+        ],
+      ],
+      [
+        "pump",
+        1,
+        [
+          { stroke: GREEN },
+          { fill: GREEN },
+          { selectors: [".pluto--detail"], stroke: color.construct("#000000e6") },
+        ],
+      ],
+      ["light", 1, [{ fill: GREEN }]],
+    ])(
+      "should paint %s at %d as its old variant draws",
+      async (name, value, paints) => {
+        const spec = Node.BUILT_INS.get(name);
+        if (spec == null) throw new Error(`expected a spec for ${name}`);
+        const states = spec.states.map((s) =>
+          s.type === "enumeration" ? { ...s, enumeration: colored } : s,
+        );
+        const { result } = renderHook(
+          () => Custom.usePaints({ ...spec, states }, value),
+          { wrapper },
+        );
+        await waitFor(() => expect(result.current).toEqual(paints));
+      },
+    );
   });
 });
 
