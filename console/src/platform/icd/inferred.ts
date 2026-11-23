@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
-import type { json } from "@synnaxlabs/x";
+import { type json, uuid } from "@synnaxlabs/x";
 
 /** @returns a field named name that reads the values of an inferred field. */
 export const createField = (
@@ -19,3 +19,19 @@ export const createField = (
   }: Pick<json.InferredField, "pointer" | "kind" | "timeFormat">,
   name: string,
 ): icd.JSONField => icd.jsonFieldZ.parse({ name, pointer, type: kind, timeFormat });
+
+/**
+ * @returns a JSON message of fields named name, or `Untitled` when name is empty. A name
+ * that a message in taken holds gets a number, such as `plant/oven 2`.
+ */
+export const createMessage = (
+  name: string,
+  fields: icd.JSONField[],
+  taken: icd.Message[],
+): icd.Message => {
+  const names = new Set(taken.map((m) => m.name));
+  const base = name === "" ? "Untitled" : name;
+  let next = base;
+  for (let n = 2; names.has(next); n++) next = `${base} ${n}`;
+  return { key: uuid.create(), name: next, payload: { format: "json", fields } };
+};
