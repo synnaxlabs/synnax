@@ -66,8 +66,9 @@ type run struct {
 // acks that the engine gave while the disk held that state. The faults of the workload
 // disk start once the engine opens. It returns the counts of what it checked, and a
 // *Violation for the first rule that the engine breaks, an error that matches
-// validate.ErrValidation for a bad cfg, an error that matches ErrNoFault when no fault
-// of the profile fired after the open, or nil when the engine holds.
+// validate.ErrValidation for a bad cfg, an error when no fault of the profile fired
+// after the open, so the run checked nothing that the profile names, or nil when the
+// engine holds.
 func Run(ctx context.Context, cfg Config) (Result, error) {
 	if err := cfg.validate(); err != nil {
 		return Result{}, err
@@ -104,7 +105,7 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 	if r.broken == nil {
 		if unfired := r.unfired(); r.armed.Load() && len(unfired) > 0 {
 			return r.result, errors.Wrapf(
-				ErrNoFault,
+				errNoFault,
 				"profile %d: no %s",
 				cfg.Profile,
 				strings.Join(unfired, ", no "),
@@ -537,8 +538,8 @@ func (r *run) recover(
 	if records, err = engine.Recovered(r.ctx); err != nil {
 		return nil, nil, nil, err
 	}
-	if auditor, ok := engine.(Auditor); ok {
-		audit = auditor.Audit(r.ctx)
+	if a, ok := engine.(auditor); ok {
+		audit = a.Audit(r.ctx)
 	}
 	return records, nil, audit, nil
 }

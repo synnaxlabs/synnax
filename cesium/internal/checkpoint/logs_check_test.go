@@ -113,8 +113,11 @@ var _ = Describe("Check: logs while heads fail", func() {
 		}
 	})
 
-	It("Should keep at most MaxLogs logs in the root while heads fail", func() {
-		const size = 64 << 10
+	It("Should keep at most 16 logs in the root while heads fail", func() {
+		const (
+			size    = 64 << 10
+			maxLogs = 16
+		)
 		fs := xfs.NewMem()
 		Expect(log.Prepare(fs, 1, size)).To(Succeed())
 		Expect(checkpoint.Write(fs, 1, checkpoint.Encode(db, 1, &state.Snapshot{
@@ -138,7 +141,7 @@ var _ = Describe("Check: logs while heads fail", func() {
 		// it, and no head is written, as when every head fails. It switches only to a
 		// file that is ready.
 		c.Prepare(2)
-		for g := uint64(2); g <= checkpoint.MaxLogs+4; g++ {
+		for g := uint64(2); g <= maxLogs+4; g++ {
 			Eventually(p.count).Should(Equal(int(g - 1)))
 			p.mu.Lock()
 			err := p.errs[g-2]
@@ -154,9 +157,11 @@ var _ = Describe("Check: logs while heads fail", func() {
 				logs++
 			}
 		}
-		Expect(logs).To(BeNumerically("<=", checkpoint.MaxLogs))
+		Expect(logs).To(BeNumerically("<=", maxLogs))
 		p.mu.Lock()
 		defer p.mu.Unlock()
-		Expect(p.errs).To(ContainElement(MatchError(checkpoint.ErrDiskFull)))
+		Expect(p.errs).To(ContainElement(
+			MatchError("16 logs since the oldest head: disk full"),
+		))
 	})
 })
