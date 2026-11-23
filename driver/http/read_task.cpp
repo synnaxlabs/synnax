@@ -238,7 +238,7 @@ std::pair<std::vector<driver::icd::Reader>, x::errors::Error> build_readers(
     auto [icds, icd_err] = client.icds.retrieve(
         std::vector(icd_keys.begin(), icd_keys.end())
     );
-    if (icd_err) return {{}, icd_err};
+    if (icd_err) return {std::vector<driver::icd::Reader>(), icd_err};
     std::map<synnax::channel::Key, synnax::channel::Channel> channels;
     if (!channel_keys.empty()) {
         // Skips missing keys, so the reader of each endpoint names the one it lacks.
@@ -247,7 +247,7 @@ std::pair<std::vector<driver::icd::Reader>, x::errors::Error> build_readers(
                 .key = std::vector(channel_keys.begin(), channel_keys.end())
             }
         );
-        if (ch_err) return {{}, ch_err};
+        if (ch_err) return {std::vector<driver::icd::Reader>(), ch_err};
         for (auto &ch: found)
             channels.emplace(ch.key, std::move(ch));
     }
@@ -260,7 +260,7 @@ std::pair<std::vector<driver::icd::Reader>, x::errors::Error> build_readers(
         const auto name = "endpoint " + ep.method + " " + ep.path;
         if (!ep.icd.has_value() || ep.messages.empty())
             return {
-                {},
+                std::vector<driver::icd::Reader>(),
                 x::errors::Error(
                     driver::errors::CONFIGURATION_ERROR,
                     name +
@@ -270,19 +270,23 @@ std::pair<std::vector<driver::icd::Reader>, x::errors::Error> build_readers(
         const auto ic = std::ranges::find(icds, *ep.icd, &synnax::icd::ICD::key);
         if (ic == icds.end())
             return {
-                {},
+                std::vector<driver::icd::Reader>(),
                 x::errors::Error(
                     driver::errors::CONFIGURATION_ERROR,
                     name + ": ICD " + ep.icd->to_string() + " does not exist"
                 ),
             };
         auto [reader, err] = driver::icd::Reader::create(ep.messages, *ic, channels);
-        if (err) return {{}, x::errors::Error(err, name + ": " + err.data)};
+        if (err)
+            return {
+                std::vector<driver::icd::Reader>(),
+                x::errors::Error(err, name + ": " + err.data)
+            };
         for (const auto key: reader.channels()) {
             const auto [other, claimed] = writers.try_emplace(key, name);
             if (!claimed)
                 return {
-                    {},
+                    std::vector<driver::icd::Reader>(),
                     x::errors::Error(
                         driver::errors::CONFIGURATION_ERROR,
                         other->second + " and " + name + " write to the same channel " +
