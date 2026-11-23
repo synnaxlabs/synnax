@@ -336,7 +336,13 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
     ...spec,
     variant,
     states: withState(spec, { type: "exact" }),
-    looks: spec.looks.filter((l) => !only(l, l.part, ACTIVE)),
+    // A static symbol has only Base, so a look of Base reaches every value.
+    looks: spec.looks.flatMap((l): Look[] => {
+      if (l.when?.state !== STATE) return [l];
+      if (!l.when.values.includes(BASE)) return [];
+      const { when: _, ...rest } = l;
+      return [rest];
+    }),
     commands: [],
     interactions: [],
   };
