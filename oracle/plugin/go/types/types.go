@@ -753,21 +753,11 @@ func processEnum(e resolution.Type) enumData {
 			IntValue: v.IntValue(),
 		})
 	}
-	startsAtOne := form.IsIntEnum && len(values) > 0 && values[0].IntValue == 1
-	if startsAtOne {
-		for i, v := range values {
-			if v.IntValue != int64(i+1) {
-				startsAtOne = false
-				break
-			}
-		}
-	}
 	return enumData{
-		Name:        name,
-		Doc:         doc.Get(e.Domains),
-		Values:      values,
-		IsIntEnum:   form.IsIntEnum,
-		StartsAtOne: startsAtOne,
+		Name:      name,
+		Doc:       doc.Get(e.Domains),
+		Values:    values,
+		IsIntEnum: form.IsIntEnum,
 	}
 }
 
@@ -1399,11 +1389,10 @@ func (f fieldData) MsgpackTag() string {
 }
 
 type enumData struct {
-	Name        string
-	Doc         string
-	Values      []enumValueData
-	IsIntEnum   bool
-	StartsAtOne bool
+	Name      string
+	Doc       string
+	Values    []enumValueData
+	IsIntEnum bool
 }
 
 // Receiver returns the single-letter, lowercased method receiver name for the enum type
@@ -1517,7 +1506,7 @@ type {{$enum.Name}} uint8
 
 {{formatDoc (printf "%s%s" $enum.Name .Name) .Doc}}
 {{- end}}
-const {{$enum.Name}}{{.Name}} {{$enum.Name}} = {{if $enum.StartsAtOne}}1{{else}}0{{end}}
+const {{$enum.Name}}{{.Name}} {{$enum.Name}} = {{.IntValue}}
 {{- end}}
 {{- else}}
 
@@ -1526,11 +1515,7 @@ const (
 {{- if $v.Doc}}
 	{{formatFieldDoc (printf "%s%s" $enum.Name $v.Name) $v.Doc | printf "%s"}}
 {{- end}}
-{{- if eq $i 0}}
-	{{$enum.Name}}{{$v.Name}} {{$enum.Name}} = iota{{if $enum.StartsAtOne}} + 1{{end}}
-{{- else}}
-	{{$enum.Name}}{{$v.Name}}
-{{- end}}
+	{{$enum.Name}}{{$v.Name}} {{$enum.Name}} = {{$v.IntValue}}
 {{- end}}
 )
 {{- end}}
@@ -1559,6 +1544,7 @@ const (
 {{- end}}
 )
 {{- end}}
+{{- end}}
 {{- if $enum.Values}}
 
 // IsValid reports whether {{$enum.Receiver}} is one of the defined {{$enum.Name}}
@@ -1571,7 +1557,6 @@ func ({{$enum.Receiver}} {{$enum.Name}}) IsValid() bool {
 		return false
 	}
 }
-{{- end}}
 {{- end}}
 {{- end}}
 {{- with .Struct}}
