@@ -82,15 +82,15 @@ class BlobPut:
 class FakeBlob:
     """A local Vercel Blob API. Point the script under test at `url`.
 
-    Records each upload and answers it with a public URL under `PUBLIC`. Call `close`
-    when done.
+    Records each upload and answers it with a public URL under `PUBLIC`, or with the
+    next status in `failures`. Call `close` when done.
     """
 
     PUBLIC = "https://blob.test"
 
     def __init__(self) -> None:
         self.puts: list[BlobPut] = []
-        self.status = 200
+        self.failures: list[int] = []
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -99,9 +99,11 @@ class FakeBlob:
                 pathname = urllib.parse.parse_qs(query)["pathname"][0]
                 body = self.rfile.read(int(self.headers["Content-Length"]))
                 headers = {k.lower(): v for k, v in self.headers.items()}
-                fake.puts.append(BlobPut(pathname, headers, body))
+                status = fake.failures.pop(0) if fake.failures else 200
+                if status == 200:
+                    fake.puts.append(BlobPut(pathname, headers, body))
                 reply = json.dumps({"url": f"{fake.PUBLIC}/{pathname}"}).encode()
-                self.send_response(fake.status)
+                self.send_response(status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(reply)))
                 self.end_headers()

@@ -10,6 +10,7 @@
 import base64
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -20,7 +21,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from scripts_common import FakeBlob
+from scripts_common import FakeBlob, FakeGH
 
 from agent.agent import (
     LIMITED,
@@ -410,6 +411,48 @@ class TestMain:
         assert main([*argv, "--output", "report"]) == 0
         assert capsys.readouterr().out == "Stopped.\n"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_should_push_the_work_and_show_hosted_images_in_the_pr(
+        self,
+        repo: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        blob: FakeBlob,
+    ) -> None:
+        origin = tmp_path / "origin.git"
+        git(tmp_path, "init", "--quiet", "--bare", str(origin))
+        git(repo, "remote", "add", "origin", str(origin))
+        gh = FakeGH(tmp_path)
+        gh.serve("pr create", "https://github.com/synnaxlabs/synnax/pull/1")
+        monkeypatch.setenv("PATH", f"{gh.bin_dir}:{os.environ['PATH']}")
+        monkeypatch.setenv("VERCEL_BLOB_API_URL", blob.url)
+        assert main(fake_agent(tmp_path)) == 0
+        head = git(repo, "branch", "--show-current")
+        assert git(origin, "log", "-1", "--format=%s", head) == "SY-1: Fix the thing"
+        [put] = blob.puts
+        assert put.body == b"png"
+        call = gh.calls()[-1]
+        body = Path(call[call.index("--body-file") + 1]).read_text()
+        assert f"![shot.png]({FakeBlob.PUBLIC}/{put.pathname})" in body
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_should_push_the_work_before_a_failed_upload(
+        self,
+        repo: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        blob: FakeBlob,
+    ) -> None:
+        origin = tmp_path / "origin.git"
+        git(tmp_path, "init", "--quiet", "--bare", str(origin))
+        git(repo, "remote", "add", "origin", str(origin))
+        monkeypatch.setenv("VERCEL_BLOB_API_URL", blob.url)
+        blob.failures = [401]
+        with pytest.raises(urllib.error.HTTPError):
+            main(fake_agent(tmp_path))
+        head = git(repo, "branch", "--show-current")
+        assert git(origin, "log", "-1", "--format=%s", head) == "SY-1: Fix the thing"
+
     def test_should_reject_a_dirty_checkout(self, repo: Path, tmp_path: Path) -> None:
         (repo / "stray.txt").write_text("not the agent's")
         with pytest.raises(SystemExit, match="uncommitted changes"):
@@ -434,7 +477,8 @@ class TestMain:
 PRIVATE_AGENT = """#!/bin/sh
 echo "secret on stderr" >&2
 printf '{"type": "result", "is_error": false, "result": "%s"}\\n' \
-    "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY \
+    "secret report token=$GH_TOKEN blob=$BLOB_READ_WRITE_TOKEN \
+summary=$GITHUB_STEP_SUMMARY \
 login=$(cat "$CLAUDE_SECURESTORAGE_CONFIG_DIR/.credentials.json")"
 echo "$CLAUDE_CONFIG_DIR" > "$STATE_FILE"
 echo refreshed > "$CLAUDE_SECURESTORAGE_CONFIG_DIR/new"
@@ -494,7 +538,7 @@ class TestPrivateReport:
         plain = subprocess.run(
             [*gpg, "--decrypt"], input=armor, capture_output=True, text=True
         ).stdout
-        assert plain == "secret report token= summary= login=seat"
+        assert plain == "secret report token= blob= summary= login=seat"
         state = Path((tmp_path / "state").read_text().strip())
         assert state.is_relative_to(runner_temp)
         assert not state.exists()
@@ -548,11 +592,23 @@ class TestDelivery:
     def test_should_fail_when_the_blob_api_rejects_an_upload(
         self, tmp_path: Path, blob: FakeBlob
     ) -> None:
-        blob.status = 403
+        blob.failures = [403]
         shot = tmp_path / "shot.png"
         shot.write_bytes(b"png")
         with pytest.raises(urllib.error.HTTPError, match="403"):
             upload([shot], prefix="agent", token="t", api=blob.url)
+        assert blob.failures == []
+        assert blob.puts == []
+
+    def test_should_retry_a_failed_upload_on_a_server_error(
+        self, tmp_path: Path, blob: FakeBlob
+    ) -> None:
+        blob.failures = [503]
+        shot = tmp_path / "shot.png"
+        shot.write_bytes(b"png")
+        [url] = upload([shot], prefix="agent", token="t", api=blob.url)
+        assert url.startswith(f"{FakeBlob.PUBLIC}/agent/")
+        assert len(blob.puts) == 1
 
     @pytest.mark.skipif(sys.platform == "win32", reason="uses a POSIX shell")
     def test_should_kill_the_agent_and_its_children_on_timeout(

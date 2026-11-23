@@ -109,7 +109,7 @@ class TestPublish:
     def test_should_fail_when_the_blob_api_rejects_an_upload(
         self, env: dict[str, str], report: Path, gh: FakeGH, blob: FakeBlob
     ) -> None:
-        blob.status = 403
+        blob.failures = [403]
         done = publish(env, report)
         assert done.returncode != 0
         assert "403" in done.stderr

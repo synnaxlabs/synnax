@@ -57,6 +57,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Iterable, Sequence
@@ -414,7 +415,8 @@ def upload(paths: list[Path], *, prefix: str, token: str, api: str) -> list[str]
     """Stores paths as public Vercel Blob objects under prefix and returns their URLs.
 
     Names each object by the SHA-256 of its content, so a rerun rewrites the same bytes.
-    Raises HTTPError when the Blob API rejects an upload.
+    Retries a 5xx reply or a network error three times. Raises HTTPError when the Blob
+    API rejects an upload, and URLError or TimeoutError when it stays unreachable.
     """
     urls = []
     for path in paths:
@@ -434,9 +436,26 @@ def upload(paths: list[Path], *, prefix: str, token: str, api: str) -> list[str]
                 "x-allow-overwrite": "1",
             },
         )
-        with urllib.request.urlopen(req, timeout=60) as res:
-            urls.append(json.load(res)["url"])
+        urls.append(_put(req))
     return urls
+
+
+def _put(req: urllib.request.Request, *, attempts: int = 4) -> str:
+    for attempt in range(attempts - 1):
+        try:
+            return _send(req)
+        except urllib.error.HTTPError as e:
+            if e.code < 500:
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            pass
+        time.sleep(2**attempt)
+    return _send(req)
+
+
+def _send(req: urllib.request.Request) -> str:
+    with urllib.request.urlopen(req, timeout=60) as res:
+        return str(json.load(res)["url"])
 
 
 def find_images(opts: Options, *, out: Path) -> list[Path]:
@@ -580,13 +599,6 @@ def deliver(argv: Sequence[str]) -> int:
         print(message)
         return 0
 
-    if opts.dry_run:
-        urls = [path.as_uri() for path in images]
-    else:
-        api = env.get("VERCEL_BLOB_API_URL", BLOB_API)
-        token = env["BLOB_READ_WRITE_TOKEN"]
-        urls = upload(images, prefix="agent", token=token, api=api)
-    pictures = image_markdown(images, urls)
     footer = f"Agent: {opts.agent}. [Run]({run_url(env)})." if run_url(env) else ""
 
     if opts.output != "report":
@@ -600,6 +612,14 @@ def deliver(argv: Sequence[str]) -> int:
             return 0
         if changed:
             r.run(["git", "push", "origin", f"HEAD:refs/heads/{head}"], writes=True)
+
+    if opts.dry_run:
+        urls = [path.as_uri() for path in images]
+    else:
+        api = env.get("VERCEL_BLOB_API_URL", BLOB_API)
+        token = env["BLOB_READ_WRITE_TOKEN"]
+        urls = upload(images, prefix="agent", token=token, api=api)
+    pictures = image_markdown(images, urls)
 
     if opts.pr is not None:
         body = "\n\n".join(p for p in (message, pictures, footer) if p)
