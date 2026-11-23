@@ -1037,6 +1037,27 @@ var _ = Describe("Completion", func() {
 					}))
 				},
 			)
+			It(
+				"should complete an unclosed quoted segment after a path's dot in a placeholder",
+				func(ctx SpecContext) {
+					OpenArcDocument(
+						server,
+						ctx,
+						docURI,
+						"func f() {\n    x := f\"{stand.'pt-0}\"\n}",
+					)
+					completions := Completion(server, ctx, docURI, 1, 23)
+					item := MustBeOk(FindCompletion(completions.Items, "stand.pt-01"))
+					Expect(item.TextEdit).To(Equal(&protocol.TextEdit{
+						Range: protocol.Range{
+							Start: protocol.Position{Line: 1, Character: 12},
+							End:   protocol.Position{Line: 1, Character: 23},
+						},
+						NewText: "'stand.pt-01'",
+					}))
+				},
+			)
+
 			It("should complete an unclosed quoted name in a placeholder", func(
 				ctx SpecContext,
 			) {
