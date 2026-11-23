@@ -86,9 +86,23 @@ Client::retrieve(const Key key, const RetrieveOptions &options) const {
     return this->retrieve(Where{.key = key}, x::filter::one, options);
 }
 
+namespace {
+/// @brief joins the folders of a channel's path and its name. No name holds one.
+constexpr char PATH_SEPARATOR = '.';
+
+bool is_path(const std::string &text) {
+    return text.find(PATH_SEPARATOR) != std::string::npos;
+}
+}
+
 std::pair<Channel, x::errors::Error>
-Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
-    return this->retrieve(Where{.name = name}, x::filter::one, options);
+Client::retrieve(const std::string &text, const RetrieveOptions &options) const {
+    auto strict = options;
+    // One name or path needs exactly one channel, so the Core refuses an ambiguous
+    // name.
+    strict.strict = true;
+    const auto where = is_path(text) ? Where{.path = text} : Where{.name = text};
+    return this->retrieve(where, x::filter::one, strict);
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>
@@ -114,10 +128,16 @@ Client::retrieve(const std::vector<Key> &keys) const {
 }
 
 std::pair<std::vector<Channel>, x::errors::Error> Client::retrieve(
-    const std::vector<std::string> &names,
+    const std::vector<std::string> &texts,
     const RetrieveOptions &options
 ) const {
-    return this->retrieve(Where{.name = names}, options);
+    std::vector<std::string> names;
+    std::vector<std::string> paths;
+    for (const auto &text: texts)
+        (is_path(text) ? paths : names).push_back(text);
+    if (paths.empty()) return this->retrieve(Where{.name = names}, options);
+    if (names.empty()) return this->retrieve(Where{.path = paths}, options);
+    return this->retrieve(Where{.name = names} || Where{.path = paths}, options);
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>

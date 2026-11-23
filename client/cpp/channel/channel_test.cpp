@@ -15,6 +15,7 @@
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
+#include "freighter/cpp/testutil/testutil.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -166,9 +167,74 @@ TEST(TestChannel, testRetrieveByNamePattern) {
     ASSERT_NIL_P(client.channels.create(prefix + "_a", x::telem::FLOAT64_T, true));
     ASSERT_NIL_P(client.channels.create(prefix + "_b", x::telem::FLOAT64_T, true));
     ASSERT_OCCURRED_AS_P(
-        client.channels.retrieve(prefix + "_.*"),
+        client.channels.retrieve(prefix + "_[ab]"),
         x::errors::NOT_FOUND
     );
+}
+
+/// @brief it should read a text that holds a '.' as a path.
+TEST(TestChannel, testRetrieveByPathNotFound) {
+    const auto client = new_test_client();
+    const auto path = make_unique_channel_name("folder") + ".channel";
+    auto [ch, err] = client.channels.retrieve(path);
+    ASSERT_TRUE(err.matches(x::errors::NOT_FOUND));
+    EXPECT_NE(err.data.find("path"), std::string::npos) << err.message();
+}
+
+/// @brief it should retrieve a list that mixes names and paths.
+TEST(TestChannel, testRetrieveManyMixesNamesAndPaths) {
+    const auto client = new_test_client();
+    const auto a = create_virtual_channel(client);
+    const auto missing = make_unique_channel_name("folder") + ".channel";
+    const auto channels = ASSERT_NIL_P(
+        client.channels.retrieve(std::vector<std::string>{a.name, missing})
+    );
+    ASSERT_EQ(channels.size(), 1);
+    EXPECT_EQ(channels[0].key, a.key);
+}
+
+/// @brief it should send a lookup of one name or path strictly, and a list of them
+/// not strictly.
+TEST(TestChannel, testRetrieveStrict) {
+    auto retrieve = std::make_shared<freighter::testutil::UnaryClient<
+        grpc::channel::RetrieveRequest,
+        grpc::channel::RetrieveResponse>>(
+        std::vector<grpc::channel::RetrieveResponse>(3),
+        std::vector<x::errors::Error>(3, x::errors::NIL)
+    );
+    const Client client(
+        retrieve,
+        std::make_shared<freighter::testutil::UnaryClient<
+            grpc::channel::CreateRequest,
+            grpc::channel::CreateResponse>>()
+    );
+    ASSERT_OCCURRED_AS_P(client.retrieve("tank"), x::errors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.retrieve("stand.tank"), x::errors::NOT_FOUND);
+    ASSERT_NIL_P(client.retrieve(std::vector<std::string>{"tank", "stand.tank"}));
+    ASSERT_EQ(retrieve->requests.size(), 3);
+    const auto &one_name = retrieve->requests[0].request();
+    EXPECT_TRUE(one_name.strict());
+    EXPECT_TRUE(one_name.where().has_name());
+    const auto &one_path = retrieve->requests[1].request();
+    EXPECT_TRUE(one_path.strict());
+    EXPECT_TRUE(one_path.where().has_path());
+    const auto &list = retrieve->requests[2].request();
+    EXPECT_FALSE(list.strict());
+    EXPECT_TRUE(list.where().has_or_());
+}
+
+/// @brief it should keep the description of a channel.
+TEST(TestChannel, testDescription) {
+    const auto client = new_test_client();
+    Channel ch{
+        .name = make_unique_channel_name("description"),
+        .data_type = x::telem::FLOAT64_T,
+        .is_virtual = true,
+        .description = "the tank pressure",
+    };
+    ASSERT_NIL(client.channels.create(ch));
+    const auto got = ASSERT_NIL_P(client.channels.retrieve(ch.key));
+    EXPECT_EQ(got.description, "the tank pressure");
 }
 
 /// @brief it should retrieve many channels by their key.

@@ -113,14 +113,15 @@ public:
     [[nodiscard]] std::pair<Channel, x::errors::Error>
     retrieve(Key key, const RetrieveOptions &options = {}) const;
 
-    /// @brief retrieves the channel with the given name.
-    /// @param name the name of the channel. The name matches exactly.
+    /// @brief retrieves the channel with the given name or path.
+    /// @param text the name of the channel, or its path when the text holds a '.'. It
+    /// matches exactly.
     /// @param options the options of the retrieve.
-    /// @returns the channel, and an error that matches NOT_FOUND when no channel has
-    /// the name, MULTIPLE_RESULTS when more than one does, or VALIDATION when options
-    /// set a limit or a cursor.
+    /// @returns the channel, and an error that matches NOT_FOUND when no channel
+    /// matches, MULTIPLE_RESULTS when several channels hold the name, or VALIDATION
+    /// when options set a limit or a cursor.
     [[nodiscard]] std::pair<Channel, x::errors::Error>
-    retrieve(const std::string &name, const RetrieveOptions &options = {}) const;
+    retrieve(const std::string &text, const RetrieveOptions &options = {}) const;
 
     /// @brief retrieves the channels with the given keys. It takes no options, since
     /// a page or a search could hide a key that exists.
@@ -130,12 +131,13 @@ public:
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
     retrieve(const std::vector<Key> &keys) const;
 
-    /// @brief retrieves the channels with the given names. Each name matches exactly,
-    /// and a name with no channel is left out.
-    /// @param names the names of the channels.
+    /// @brief retrieves the channels with the given names or paths. A text that holds
+    /// a '.' is a path, and any other text is a name. Each matches exactly, a name can
+    /// match several channels, and a text with no channel is left out.
+    /// @param texts the names or paths of the channels, in any mix.
     /// @param options the options of the retrieve.
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error> retrieve(
-        const std::vector<std::string> &names,
+        const std::vector<std::string> &texts,
         const RetrieveOptions &options = {}
     ) const;
 
