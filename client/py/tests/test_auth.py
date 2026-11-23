@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import asyncio
 import threading
 import time
 from uuid import uuid4
@@ -196,6 +197,32 @@ class TestAuthRenewal:
         ctx = Context(protocol="mock", target="/frame/stream", role="client")
         _, ticks = await ticks_while(auth.async_middleware()(ctx, finish))
         assert ticks > 10
+        assert ctx.params["Authorization"] == "Bearer abc"
+
+    @pytest.mark.asyncio
+    async def test_async_failure_during_login_keeps_loop_running(self) -> None:
+        """Should keep the event loop running when an async request fails while
+        another thread logs in.
+        """
+        auth, login = _slow_login(1)
+        auth.token = "old"
+        auth.authenticated = True
+        thread = threading.Thread(target=auth._login)
+
+        async def expire_once(ctx: Context) -> Context:
+            if thread.is_alive() or login.requests:
+                return ctx
+            auth.authenticated = False
+            thread.start()
+            while not auth._login_lock.locked():
+                await asyncio.sleep(0)
+            raise sy.ExpiredToken("expired")
+
+        ctx = Context(protocol="mock", target="/frame/stream", role="client")
+        _, ticks = await ticks_while(auth.async_middleware()(ctx, expire_once))
+        thread.join()
+        assert ticks > 10
+        assert len(login.requests) == 1
         assert ctx.params["Authorization"] == "Bearer abc"
 
     def test_concurrent_renewals_open_one_session(self) -> None:

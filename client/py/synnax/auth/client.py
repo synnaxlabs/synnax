@@ -356,7 +356,8 @@ class Client:
             except _RETRY_ON_ERRORS:
                 if not retry:
                     raise
-                self._forget(sent)
+                # A login can hold the lock that _forget waits on.
+                await asyncio.to_thread(self._forget, sent)
                 return await mw(ctx, _next)
 
         return mw
