@@ -43,8 +43,9 @@ std::pair<Multiplexors::Condition, x::errors::Error> Multiplexors::resolve(
         };
     Condition c{.values = {f.multiplex_values.begin(), f.multiplex_values.end()}};
     const auto &key = *f.multiplexor;
-    if (const auto it = this->index.find(key); it != this->index.end()) {
-        c.mux = it->second;
+    if (const auto it = std::ranges::find(this->muxes, key, &Mux::key);
+        it != this->muxes.end()) {
+        c.mux = static_cast<int>(it - this->muxes.begin());
         return {std::move(c), x::errors::NIL};
     }
     const auto found = fields.find(key);
@@ -66,8 +67,8 @@ std::pair<Multiplexors::Condition, x::errors::Error> Multiplexors::resolve(
                 "multiplexor " + mb.name + " is a float field"
             ),
         };
-    // A multiplexor joins index only after the ones above it, so a cycle never ends in
-    // index. A chain longer than the fields is a cycle.
+    // A multiplexor joins muxes only after the ones above it, so a cycle never ends in
+    // muxes. A chain longer than the fields is a cycle.
     if (depth >= fields.size())
         return {
             Condition{},
@@ -78,7 +79,6 @@ std::pair<Multiplexors::Condition, x::errors::Error> Multiplexors::resolve(
     auto [above, err] = this->resolve(mb, fields, depth + 1);
     if (err) return {Condition{}, err};
     c.mux = static_cast<int>(this->muxes.size());
-    this->index[key] = c.mux;
     this->muxes.push_back({
         .key = key,
         .name = mb.name,

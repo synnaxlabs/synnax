@@ -67,8 +67,6 @@ public:
 
 private:
     std::vector<Mux> muxes;
-    /// @brief index maps the key of each multiplexor to its position in muxes.
-    std::map<synnax::icd::FieldKey, int> index;
     std::size_t end_byte = 0;
 
     /// @param depth is the number of multiplexors below f in its chain.
