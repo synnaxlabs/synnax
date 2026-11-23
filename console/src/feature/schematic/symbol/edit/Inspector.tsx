@@ -87,12 +87,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
     value: Spec.effective({ looks }, part, f, shown),
     inherited:
       part == null ? undefined : Spec.effective({ looks }, undefined, f, shown),
-    own: Spec.effective(
-      { looks: looks.filter((l) => l.part === part) },
-      part,
-      f,
-      shown,
-    ),
+    own: Spec.own({ looks }, part, f, shown),
     onChange: (v) => {
       const spec = get(path.data).value;
       // A stored static symbol can hold looks on Base, which an edit at every value
@@ -127,7 +122,7 @@ const Property = ({
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
   const [split, setSplit] = useState(() => Spec.variesByValue({ looks }, part, field));
-  const several = values.values.length > 1;
+  const several = values.list.length > 1;
   // A static symbol has one value, so it ends By state.
   if (split && !several) setSplit(false);
   const varies = several && (split || Spec.variesByValue({ looks }, part, field));
@@ -138,7 +133,7 @@ const Property = ({
         get(path.data).value,
         part,
         field,
-        values.values.map((v) => v.value),
+        values.list.map((v) => v.value),
         next,
       ),
     );
@@ -162,6 +157,7 @@ const Property = ({
               size="small"
               value={varies}
               onChange={handleVariesChange}
+              aria-label={`${label} by state`}
               tooltip={
                 varies
                   ? `Use one ${name} in every state`
@@ -175,7 +171,7 @@ const Property = ({
       </Flex.Box>
       {wide && control}
       {varies &&
-        values.values.map((v) => (
+        values.list.map((v) => (
           <Flex.Box
             key={v.key}
             x
@@ -226,7 +222,7 @@ const VisibleControl = (): ReactElement => {
   const drawingHides =
     part != null &&
     (at == null
-      ? values.values.some(
+      ? values.list.some(
           (v) => Spec.effective({ looks }, undefined, "hidden", v.value) === true,
         )
       : inherited === true);

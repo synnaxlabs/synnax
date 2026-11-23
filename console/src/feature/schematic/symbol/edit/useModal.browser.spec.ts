@@ -218,7 +218,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(await screen.findByText("Actuator"));
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
-      const toggle = findButton("By state");
+      const toggle = screen.getByLabelText("Fill by state");
       expect(toggle.getAttribute("aria-pressed")).toBe("false");
       fireEvent.click(toggle);
       expect(toggle.getAttribute("aria-pressed")).toBe("true");
@@ -785,12 +785,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    // byState presses By state on the property with the label.
-    const byState = (label: string) => {
-      const header = screen.getByText(label).parentElement;
-      assertDefined(header);
-      fireEvent.click(within(header).getByText("By state"));
-    };
+    const byState = (label: string) =>
+      fireEvent.click(screen.getByLabelText(`${label} by state`));
     const atActive: schematic.symbol.Condition = {
       type: "equals",
       state: "active",
@@ -908,10 +904,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("fits the motion picker and its By state button in the inspector", async () => {
       await openPainted({ variant: "actuator", states: [createState()] });
-      const header = screen.getByText("Motion").parentElement;
-      assertDefined(header);
       const right = getInspector().getBoundingClientRect().right;
-      for (const el of [within(header).getByText("By state"), findButton("Flow")])
+      for (const el of [screen.getByLabelText("Motion by state"), findButton("Flow")])
         expect(el.getBoundingClientRect().right).toBeLessThanOrEqual(right);
     });
 
