@@ -17,12 +17,9 @@ import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, id, xy } from "@synnaxlabs/x";
 import { type ReactElement, useRef } from "react";
 
-import { useClipboard } from "@/arc/graph/clipboard";
-import {
-  Diagram,
-  edgeChangesToActions,
-  nodeChangesToActions,
-} from "@/arc/graph/Diagram";
+import { Clipboard } from "@/arc/graph/clipboard";
+import { Diagram } from "@/arc/graph/Diagram";
+import { gesture } from "@/arc/graph/gesture";
 import { canDropHaulItem, filterHaulItems } from "@/arc/haul";
 import {
   useAddNode,
@@ -72,9 +69,9 @@ export const Editor = ({
   const dispatch = useSingleDispatch();
 
   const handleNodesChange = (changes: BaseDiagram.NodeChange[]) =>
-    dispatch(nodeChangesToActions(changes));
+    dispatch(gesture.nodeChangesToActions(changes));
   const handleEdgesChange = (changes: BaseDiagram.EdgeChange[]) =>
-    dispatch(edgeChangesToActions(changes));
+    dispatch(gesture.edgeChangesToActions(changes));
 
   const handleAddNode = useAddNode();
   const ref = useRef<HTMLDivElement>(null);
@@ -114,7 +111,7 @@ export const Editor = ({
   const { undo, canUndo } = useUndo();
   const { redo, canRedo } = useRedo();
 
-  const { onCopy, onCut, onPaste, copy, cut, paste } = useClipboard({
+  const { onCopy, onCut, onPaste, copy, cut, paste } = Clipboard.use({
     key,
     selected,
     onCut: onSelectionChange,

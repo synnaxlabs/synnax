@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { icd, type Synnax } from "@synnaxlabs/client";
+import type { payload } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
+import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
 /**
@@ -45,3 +49,50 @@ export const pickMessageFormat = async (
     fireEvent.click(match);
   });
 };
+
+/** A message of an ICD. */
+interface MessageRef {
+  icd: icd.Key;
+  message: icd.MessageKey;
+}
+
+const fieldsPath = (message: icd.MessageKey): string[] => [
+  "messages",
+  message,
+  "payload",
+  "fields",
+];
+
+/** Gives a field a new kind, in the ICD. after names the field it then follows. */
+export const retype = async (
+  client: Synnax,
+  { icd: key, message }: MessageRef,
+  field: icd.JSONField,
+  kind: payload.Kind,
+  after?: icd.FieldKey,
+): Promise<void> => {
+  const path = fieldsPath(message);
+  await client.icds.dispatch(key, [
+    icd.remove({ path, key: field.key }),
+    icd.insert({ path, value: { ...field, type: kind }, after }),
+  ]);
+};
+
+/** Removes a field of a message, in the ICD. */
+export const removeField = async (
+  client: Synnax,
+  { icd: key, message }: MessageRef,
+  field: icd.JSONField,
+): Promise<void> => {
+  await client.icds.dispatch(
+    key,
+    icd.remove({ path: fieldsPath(message), key: field.key }),
+  );
+};
+
+/** @returns the messages that the editor of the ICD selects in the store. */
+export const selectedIn = (
+  store: { getState: () => Session.State },
+  key: icd.Key,
+): icd.MessageKey[] | undefined =>
+  documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.selected;
