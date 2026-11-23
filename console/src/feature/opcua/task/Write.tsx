@@ -15,16 +15,10 @@ import { Access } from "@synnaxlabs/pluto";
 import { caseconv, deep, errors, primitive } from "@synnaxlabs/x";
 import type { FC } from "react";
 
-import { Select } from "@/feature/opcua/device/Select";
-import {
-  type Device,
-  type Properties as DeviceProperties,
-  SCHEMAS,
-} from "@/feature/opcua/device/types";
+import { Device } from "@/feature/opcua/device";
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
 import {
   deployWriteConfigZ,
-  type ScannedNode,
   WRITE_SCHEMAS,
   type WriteChannel,
   type WriteSchemas,
@@ -35,10 +29,10 @@ import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
 
-const Properties = () => <Select />;
+const Properties = () => <Device.Select />;
 
 // A write goes to a whole node, so a member of a structure is not a write channel.
-const convertNodeToChannel = (node: ScannedNode): WriteChannel | null =>
+const convertNodeToChannel = (node: Device.ScannedNode): WriteChannel | null =>
   node.field !== ""
     ? null
     : {
@@ -82,10 +76,10 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const getChannelByNodeID = (props: DeviceProperties, nodeId: string) =>
+const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
-const resolve = (device: Device, { nodeId }: WriteChannel) => ({
+const resolve = (device: Device.Device, { nodeId }: WriteChannel) => ({
   cmdChannel: getChannelByNodeID(device.properties, nodeId) ?? 0,
 });
 
@@ -103,7 +97,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const before = deep.copy(dev.properties);
   try {
@@ -155,7 +149,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
     }));
   } finally {
-    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };

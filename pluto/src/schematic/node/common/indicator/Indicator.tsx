@@ -20,7 +20,7 @@ import { Grid } from "@/schematic/node/common/grid";
 import { Staleness } from "@/vis/staleness";
 
 /** Unknown shows that a state of a symbol has no data, or names no entry. */
-export const Unknown = (): ReactElement => (
+const Unknown = (): ReactElement => (
   <Badge.Badge
     status="warning"
     className={CSS.B("unknown-badge")}
