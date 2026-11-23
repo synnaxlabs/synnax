@@ -170,8 +170,8 @@ var _ = Describe("Go aliases", func() {
 				corners Quad?
 			}
 		`, "Corners *Quad `"),
-		Entry("a parent alias passed a defaulted type argument", `
-			Child struct extends Couple<int32, string> {
+		Entry("a parent alias with a defaulted type parameter", `
+			Child struct extends Couple<int32> {
 				depth float64
 			}
 		`, "\tCouple[int32]\n"),

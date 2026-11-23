@@ -12,9 +12,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 import { Media } from "@/components/media";
 import { start } from "@/components/media/video";
-import versions from "@/components/media/videos.json";
+import videos from "@/components/media/videos.json";
 
-const [ID, OTHER_ID] = Object.keys(versions);
+const [ID, OTHER_ID] = Object.keys(videos);
 
 let touch = false;
 let schemeChange: (() => void) | null = null;

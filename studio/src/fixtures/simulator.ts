@@ -17,11 +17,8 @@ import { portInUse } from "@/fixtures/core";
 
 const CLIENT_PY = path.resolve(import.meta.dirname, "../../../client/py");
 const CORE = path.resolve(import.meta.dirname, "../../../core");
-/** The fake servers that run as Go programs from the core module. */
-const GO_MAINS = {
-  kafka: path.join(import.meta.dirname, "kafka/main.go"),
-  sift: path.join(import.meta.dirname, "sift/main.go"),
-};
+/** The fake servers that run as Go programs in the core module. */
+const GO_MAINS = { kafka: "./cmd/studio/kafka", sift: "./cmd/studio/sift" };
 
 const READY_TIMEOUT_MS = 30_000;
 
@@ -77,8 +74,8 @@ export interface SimulatorFixture {
 /**
  * simulator runs a device server from the Python client examples, the same servers the
  * driver integration tests use, so the real Driver connects to it and reads its values.
- * A Kafka or Sift server is the Go fake in `kafka/main.go` or `sift/main.go`. Refuses
- * to start if the port is in use.
+ * A Kafka or Sift server is the Go fake in `core/cmd/studio`. Refuses to start if the
+ * port is in use.
  */
 export const simulator = async ({
   protocol,

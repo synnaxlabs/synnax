@@ -11,7 +11,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useGridEntry } from "@/lineplot/Frame";
 

@@ -22,7 +22,7 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { UnsupportedError } from "@/errors";
 import { framer } from "@/framer";
 import { domainOf } from "@/framer/cache/block";

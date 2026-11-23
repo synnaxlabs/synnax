@@ -18,14 +18,14 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import type { FC, ReactElement } from "react";
 
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
-import { type MessagePlan } from "@/platform/icd/configure";
+import type { MessagePlan } from "@/platform/icd/configure";
 import { DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
 import { FieldsStatus, JSONField } from "@/platform/icd/Fields";
-import { type FormatForm } from "@/platform/icd/Formats";
+import type { FormatForm } from "@/platform/icd/Formats";
 import { Match } from "@/platform/icd/Match";
 import { usePlan } from "@/platform/icd/Plans";
 import {
@@ -63,13 +63,17 @@ const OpenInEditor: FC<OpenInEditorProps> = FLAGS.icds ? EditorButton : () => nu
 
 export interface AddFieldProps {
   onClick: () => void;
+  disabled?: boolean;
 }
 
-export const AddField = ({ onClick }: AddFieldProps): ReactElement | null => {
+export const AddField = ({
+  onClick,
+  disabled = false,
+}: AddFieldProps): ReactElement | null => {
   const isPreview = Task.useIsPreview();
   if (isPreview) return null;
   return (
-    <Button.Button variant="text" size="small" onClick={onClick}>
+    <Button.Button variant="text" size="small" onClick={onClick} disabled={disabled}>
       <Icon.Add />
       Add field
     </Button.Button>
@@ -332,13 +336,18 @@ export const MessageSections: FC<MessageSectionsProps> = ({
 export interface MessageDetailsProps extends MessageSectionsProps {
   /** Titles the section that matches the values of the message, such as "Documents". */
   matchTitle: string;
+  /** Names the match option that takes every payload, such as "Any document". */
+  anyLabel: string;
   onAddField: () => void;
+  addFieldDisabled?: boolean;
 }
 
 /** The name and match of a message of a source that reads several. */
 export const MessageDetails: FC<MessageDetailsProps> = ({
   matchTitle,
+  anyLabel,
   onAddField,
+  addFieldDisabled = false,
   ...rest
 }) => {
   const { path, read, format } = rest;
@@ -357,7 +366,7 @@ export const MessageDetails: FC<MessageDetailsProps> = ({
               title="Message"
               actions={
                 <>
-                  <AddField onClick={onAddField} />
+                  <AddField onClick={onAddField} disabled={addFieldDisabled} />
                   <OpenInEditor icdKey={icdKey} />
                 </>
               }
@@ -375,6 +384,7 @@ export const MessageDetails: FC<MessageDetailsProps> = ({
                   "format",
                   "json",
                 )}
+                anyLabel={anyLabel}
               />
             </PForm.Section>
           </PForm.Form>

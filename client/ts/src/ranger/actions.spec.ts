@@ -44,13 +44,16 @@ describe("ranger.reduceAll", () => {
 
     it("should set a color the range does not have", () => {
       const { next } = ranger.reduceAll(createRange(), [
-        ranger.set({ path: ["color"], value: "#ff0000" }),
+        ranger.set({ path: ["color"], value: { type: "fixed", value: "#ff0000" } }),
       ]);
-      expect(next.color).toEqual(color.construct("#ff0000"));
+      expect(next.color).toEqual({ type: "fixed", value: color.construct("#ff0000") });
     });
 
     it("should remove the color when a set holds null", () => {
-      const prev = { ...createRange(), color: color.construct("#00ff00") };
+      const prev = {
+        ...createRange(),
+        color: { type: "fixed" as const, value: color.construct("#00ff00") },
+      };
       const { next } = ranger.reduceAll(prev, [
         ranger.set({ path: ["color"], value: null }),
       ]);
@@ -120,7 +123,10 @@ describe("ranger.reduceAll", () => {
 
   describe("remove", () => {
     it("should remove the color", () => {
-      const prev = { ...createRange(), color: color.construct("#00ff00") };
+      const prev = {
+        ...createRange(),
+        color: { type: "fixed" as const, value: color.construct("#00ff00") },
+      };
       const { next, inverse } = ranger.reduceAll(prev, [
         ranger.remove({ path: [], key: "color" }),
       ]);
@@ -140,7 +146,10 @@ describe("ranger.reduceAll", () => {
 
   describe("create", () => {
     it("should replace the range, dropping fields the created range lacks", () => {
-      const prev = { ...createRange(), color: color.construct("#00ff00") };
+      const prev = {
+        ...createRange(),
+        color: { type: "fixed" as const, value: color.construct("#00ff00") },
+      };
       const created = { ...createRange(), name: "Created" };
       const { next } = ranger.reduceAll(prev, [ranger.create({ range: created })]);
       expect(next).toEqual(created);
