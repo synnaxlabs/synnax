@@ -50,15 +50,23 @@ inline bool is_temporarily_unavailable(const x::errors::Error &err) {
 enum class Kind {
     /// @brief the Core or the path to it fails for now. Wait, then retry.
     TRANSIENT,
+    /// @brief the Core stopped while it handled the request, so the request may have
+    /// taken effect. Wait, then retry only a request that is safe to send twice.
+    INTERRUPTED,
     /// @brief the Core refused the request. The same request fails again.
     REJECTED,
     /// @brief a defect in the Driver or the Core. Fail loud.
     BUG,
 };
 
+/// @brief the Core stopped while it handled the request.
+// TODO(SY-6843): use freighter::INTERRUPTED once it is on main.
+const x::errors::Error INTERRUPTED("freighter.interrupted", "Interrupted");
+
 /// @brief the kind of each error type. The first match wins, so a sub-type comes
 /// before its parent. A type that matches no row is a BUG.
 const std::vector<std::pair<x::errors::Error, Kind>> KINDS = {
+    {INTERRUPTED, Kind::INTERRUPTED},
     {freighter::UNREACHABLE, Kind::TRANSIENT},
     {freighter::TIMEOUT, Kind::TRANSIENT},
     {freighter::TRANSPORT, Kind::TRANSIENT},

@@ -116,6 +116,7 @@ TEST(ErrorsTest, IsTemporarilyUnavailable) {
 /// @brief it should classify each row of the table.
 TEST(ErrorsTest, ClassifyTable) {
     const std::vector<std::pair<x::errors::Error, Kind>> cases = {
+        {INTERRUPTED, Kind::INTERRUPTED},
         {freighter::UNREACHABLE, Kind::TRANSIENT},
         {freighter::TIMEOUT, Kind::TRANSIENT},
         {freighter::TRANSPORT, Kind::TRANSIENT},
