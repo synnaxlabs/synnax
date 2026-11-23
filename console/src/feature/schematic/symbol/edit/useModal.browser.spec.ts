@@ -548,6 +548,33 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(fill.querySelector(".lyra-icon--node")).not.toBeNull();
     });
 
+    it("shows a part that the whole drawing hides", async () => {
+      const symbol = await openPainted({ looks: [{ key: "hide", hidden: true }] });
+      const visible = screen.getByLabelText<HTMLInputElement>("Visible");
+      expect(visible.checked).toBe(false);
+      fireEvent.click(visible);
+      await waitFor(() => expect(visible.checked).toBe(true));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          { key: "hide", hidden: true },
+          { key: expect.any(String), part: "body", hidden: false },
+        ]),
+      );
+    });
+
+    it("keeps the blink and motion that the whole drawing gives a part", async () => {
+      await openPainted({
+        looks: [
+          { key: "all", blink: { period: 1e9 }, motion: { type: "spin", rate: 1 } },
+        ],
+      });
+      const blink = screen.getByLabelText<HTMLInputElement>("Blink");
+      expect(blink.checked).toBe(true);
+      expect(blink.disabled).toBe(true);
+      expect(findButton("None").getAttribute("aria-disabled")).toBe("true");
+    });
+
     it("clears the paint of a part at the value when Drawing is picked", async () => {
       const symbol = await openPainted({
         states: [createState()],
