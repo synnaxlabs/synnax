@@ -10,8 +10,7 @@
 import { kafka, status, type Synnax } from "@synnaxlabs/client";
 import { type record, TimeSpan } from "@synnaxlabs/x";
 
-import type { Device } from "@/feature/kafka/device/types";
-import { SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/kafka/task/types";
+import { Device } from "@/feature/kafka/device";
 
 const TIMEOUT = TimeSpan.seconds(25);
 
@@ -21,15 +20,15 @@ const TIMEOUT = TimeSpan.seconds(25);
  */
 const execute = async (
   client: Synnax,
-  device: Device,
+  device: Device.Device,
   type: string,
   args: record.Unknown,
 ): Promise<unknown> => {
   const scanTask = await client.tasks.retrieve({
-    type: SCAN_TYPE,
+    type: Device.SCAN_TYPE,
     rack: device.rack,
     one: true,
-    schemas: SCAN_SCHEMAS,
+    schemas: Device.SCAN_SCHEMAS,
   });
   const res = await scanTask.executeCommandSync({ type, timeout: TIMEOUT, args });
   if (res.variant !== "success") throw status.toError(res);
@@ -42,7 +41,7 @@ const execute = async (
  */
 export const browseTopics = async (
   client: Synnax,
-  device: Device,
+  device: Device.Device,
 ): Promise<kafka.BrowseResult> =>
   kafka.browseResultZ.parse(
     await execute(client, device, "browse", { device: device.key }),
@@ -56,7 +55,7 @@ export const browseTopics = async (
  */
 export const sampleTopic = async (
   client: Synnax,
-  device: Device,
+  device: Device.Device,
   topic: string,
 ): Promise<kafka.SampledTopic> => {
   const args = kafka.sampleArgsZ.parse({ device: device.key, topics: [topic] });

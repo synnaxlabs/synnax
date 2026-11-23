@@ -49,18 +49,30 @@ var _ = Describe("Default Invariant", func() {
 				}
 			`,
 			""),
-		Entry("rejects an integer-enum default that is not the zeroth member",
+		Entry("rejects an integer-enum default other than 0 when a member is 0",
 			`
 				Priority enum {
-					low = 0
 					high = 1
+					low = 0
 				}
 
 				Cfg struct {
 					priority Priority = PriorityHigh
 				}
 			`,
-			"integer-enum default that is not the zeroth member"),
+			"an integer-enum default other than 0 leaves the member with value 0"),
+		Entry("accepts an integer-enum default other than 0 when no member is 0",
+			`
+				Size enum {
+					one = 1
+					four = 4
+				}
+
+				Cfg struct {
+					size Size = SizeOne
+				}
+			`,
+			""),
 		Entry("accepts an integer-enum default on the zeroth member (the zero value)",
 			`
 				Priority enum {

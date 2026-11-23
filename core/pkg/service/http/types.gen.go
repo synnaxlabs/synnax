@@ -91,3 +91,9 @@ type WriteConfig = versions.WriteConfig
 
 // ScanConfig configures an HTTP scan task.
 type ScanConfig = versions.ScanConfig
+
+// InlineEndpoint is an endpoint from before ICDs, which held its fields inline.
+type InlineEndpoint = versions.InlineEndpoint
+
+// InlineRead holds the fields of a read config from before ICDs.
+type InlineRead = versions.InlineRead
