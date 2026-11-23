@@ -544,6 +544,10 @@ var _ = Describe("JSONEncoder", func() {
 				MatchError(validate.ErrValidation),
 				MatchError(expected),
 			))
+			Expect(enc.Check(0, sample)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(expected),
+			))
 		},
 		Entry("an integer past an int64",
 			icd.JSONField{Variant: icd.IntegerJSONField{
@@ -572,6 +576,16 @@ var _ = Describe("JSONEncoder", func() {
 			"message command: field v: 2.5 is not 0 or 1: validation error",
 		),
 	)
+
+	It("Should accept a sample in Check that its field can hold", func() {
+		key := uuid.New()
+		enc := MustSucceed(codec.NewJSONEncoder(message(
+			[]icd.JSONField{floatField("v", key, 1, 0)},
+			codec.Binding{Field: key, DataType: telem.Float64T},
+		)))
+		Expect(enc.Check(0, float64Sample(3))).To(Succeed())
+		Expect(enc.Encode(nil, [][]byte{float64Sample(5)})).To(MatchJSON(`{"v":5}`))
+	})
 
 	DescribeTable("Should reject a message it cannot write",
 		func(m codec.JSONMessage, expected string) {
