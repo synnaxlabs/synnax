@@ -9,7 +9,7 @@
 
 import type { rack, Synnax, task } from "@synnaxlabs/client";
 
-import { SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/mqtt/task/types";
+import { SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/mqtt/device/scan";
 
 export const retrieveScanTask = async (
   client: Synnax,

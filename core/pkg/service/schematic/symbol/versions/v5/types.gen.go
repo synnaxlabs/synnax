@@ -619,7 +619,7 @@ func (u CommandValue) Validate() error {
 }
 
 // Look is paint, visibility, or motion on a part. A later look wins on each field that
-// it sets.
+// it sets. On motion, it replaces only an earlier motion of the same kind.
 type Look struct {
 	// Key is the look identifier.
 	Key string `json:"key" msgpack:"key"`
@@ -791,6 +791,9 @@ type PaintType string
 const (
 	// EntryPaintType is the color of the current entry of a state.
 	EntryPaintType PaintType = "entry"
+	// ContrastPaintType is black or white, whichever reads on the entry color of a
+	// state.
+	ContrastPaintType PaintType = "contrast"
 	// NodePaintType is the color that the node sets.
 	NodePaintType PaintType = "node"
 	// ColorPaintType is one color.
@@ -809,6 +812,14 @@ type EntryPaint struct {
 }
 
 func (EntryPaint) isPaintVariant() {}
+
+// ContrastPaint is black or white, whichever reads on the entry color of a state.
+type ContrastPaint struct {
+	// State is the key of the state whose current entry color the paint reads on.
+	State string `json:"state" msgpack:"state"`
+}
+
+func (ContrastPaint) isPaintVariant() {}
 
 // NodePaint is the color that the node sets.
 type NodePaint struct {
@@ -847,6 +858,11 @@ func (u Paint) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type PaintType `json:"type"`
 			EntryPaint
 		}{Type: EntryPaintType, EntryPaint: v})
+	case ContrastPaint:
+		return json.MarshalEncode(enc, struct {
+			Type PaintType `json:"type"`
+			ContrastPaint
+		}{Type: ContrastPaintType, ContrastPaint: v})
 	case NodePaint:
 		return json.MarshalEncode(enc, struct {
 			Type PaintType `json:"type"`
@@ -891,6 +907,15 @@ func (u *Paint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.EntryPaint
+	case ContrastPaintType:
+		var v struct {
+			Type PaintType `json:"type"`
+			ContrastPaint
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ContrastPaint
 	case NodePaintType:
 		var v struct {
 			Type PaintType `json:"type"`
@@ -924,6 +949,8 @@ func (u Paint) Type() PaintType {
 	switch u.Variant.(type) {
 	case EntryPaint:
 		return EntryPaintType
+	case ContrastPaint:
+		return ContrastPaintType
 	case NodePaint:
 		return NodePaintType
 	case ColorPaint:
@@ -967,8 +994,9 @@ type MotionVariant interface {
 
 // SpinMotion turns a part around its pivot.
 type SpinMotion struct {
-	// Rate is the turns each second at the upper bound of the state.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Rate is the turns each second at the upper bound of the state. A negative rate
+	// turns the part the other way.
+	Rate float64 `json:"rate" msgpack:"rate"`
 	// State is the key of the number state that sets the speed.
 	State *string `json:"state,omitzero" msgpack:"state,omitempty"`
 }
@@ -984,14 +1012,15 @@ func (s *SpinMotion) SetDefaults() {
 // schema constraints.
 func (s SpinMotion) Validate() error {
 	v := validate.New("SpinMotion")
-	v.GreaterThanEq("rate", s.Rate, 0)
+	v.Finite("rate", s.Rate)
 	return v.Error()
 }
 
 // FlowMotion moves the dashes of a stroke along it.
 type FlowMotion struct {
-	// Rate is the cycles each second at the upper bound of the state.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Rate is the cycles each second at the upper bound of the state. A negative rate
+	// moves the dashes the other way.
+	Rate float64 `json:"rate" msgpack:"rate"`
 	// State is the key of the number state that sets the speed.
 	State *string `json:"state,omitzero" msgpack:"state,omitempty"`
 }
@@ -1007,7 +1036,7 @@ func (f *FlowMotion) SetDefaults() {
 // schema constraints.
 func (f FlowMotion) Validate() error {
 	v := validate.New("FlowMotion")
-	v.GreaterThanEq("rate", f.Rate, 0)
+	v.Finite("rate", f.Rate)
 	return v.Error()
 }
 
@@ -1444,6 +1473,155 @@ func (s Spec) Validate() error {
 			return validate.PathedError(s.Interactions[i].Validate(), "interactions", strconv.Itoa(i))
 		})
 	}
+	return v.Error()
+}
+
+// RefType is the "type" value that selects a variant of Ref.
+type RefType string
+
+const (
+	// BuiltinRefType is a symbol that the Core ships.
+	BuiltinRefType RefType = "builtin"
+	// CustomRefType is a symbol that a user made.
+	CustomRefType RefType = "custom"
+	// MissingRefType is a custom symbol that the Core does not have.
+	MissingRefType RefType = "missing"
+)
+
+// RefVariant is implemented by every Ref variant.
+type RefVariant interface {
+	isRefVariant()
+}
+
+// BuiltinRef is a symbol that the Core ships.
+type BuiltinRef struct {
+	// Name is the shipped name of the built-in.
+	Name string `json:"name" msgpack:"name"`
+}
+
+func (BuiltinRef) isRefVariant() {}
+
+// CustomRef is a symbol that a user made.
+type CustomRef struct {
+	// Key is the key of the symbol.
+	Key Key `json:"key" msgpack:"key"`
+}
+
+func (CustomRef) isRefVariant() {}
+
+// MissingRef is a custom symbol that the Core does not have.
+type MissingRef struct {
+	// Key is the key of the custom symbol that the Core does not have.
+	Key string `json:"key" msgpack:"key"`
+}
+
+func (MissingRef) isRefVariant() {}
+
+// Ref is the symbol that a node draws.
+type Ref struct {
+	Variant RefVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Ref) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case BuiltinRef:
+		return json.MarshalEncode(enc, struct {
+			Type RefType `json:"type"`
+			BuiltinRef
+		}{Type: BuiltinRefType, BuiltinRef: v})
+	case CustomRef:
+		return json.MarshalEncode(enc, struct {
+			Type RefType `json:"type"`
+			CustomRef
+		}{Type: CustomRefType, CustomRef: v})
+	case MissingRef:
+		return json.MarshalEncode(enc, struct {
+			Type RefType `json:"type"`
+			MissingRef
+		}{Type: MissingRefType, MissingRef: v})
+	default:
+		return errors.Newf("Ref: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type RefType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case BuiltinRefType:
+		var v struct {
+			Type RefType `json:"type"`
+			BuiltinRef
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BuiltinRef
+	case CustomRefType:
+		var v struct {
+			Type RefType `json:"type"`
+			CustomRef
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CustomRef
+	case MissingRefType:
+		var v struct {
+			Type RefType `json:"type"`
+			MissingRef
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.MissingRef
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Ref: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Ref) Type() RefType {
+	switch u.Variant.(type) {
+	case BuiltinRef:
+		return BuiltinRefType
+	case CustomRef:
+		return CustomRefType
+	case MissingRef:
+		return MissingRefType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Ref) Validate() error {
+	v := validate.New("Ref")
+	v.Ternary("type", u.Variant == nil, "required")
 	return v.Error()
 }
 

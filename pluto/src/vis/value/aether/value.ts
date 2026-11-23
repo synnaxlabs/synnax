@@ -26,7 +26,10 @@ const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 // a legible gray.
 const MIN_LEGIBLE_CONTRAST = 1.5;
 
-const valueState = staleness.drawnStateZ.extend({
+const valueState = staleness.stateZ.extend({
+  // stalenessColor is the text color while the value is stale. Absent, the text keeps
+  // its color.
+  stalenessColor: color.colorZ.optional(),
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
@@ -144,8 +147,8 @@ export class Value
 
   private getTextColor(): color.Color {
     const { theme } = this.internal;
-    const staleColor = staleness.drawnColor(this.state, theme);
-    if (staleColor != null) return staleColor;
+    const { stale, stalenessColor } = this.state;
+    if (stale && stalenessColor != null) return stalenessColor;
 
     // gray.l0 is the background the text renders on; gray.l11 is the
     // high-contrast end of the scale, legible against it in both themes.

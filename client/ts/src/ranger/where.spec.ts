@@ -19,11 +19,11 @@ import {
   retrieveInputZ,
   serverComputed,
 } from "@/ranger/where.gen";
-import { itMatchesVectors, readVectors } from "@/testutil/vectors";
+import { vectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  itMatchesVectors(
-    readVectors("ranges", ranger.payloadZ, ranger.whereZ),
+  vectors.itMatches(
+    vectors.read("ranges", ranger.payloadZ, ranger.whereZ),
     (r, where) => matches(LINES, r, where),
     (where) => serverComputed(LINES, where),
   );

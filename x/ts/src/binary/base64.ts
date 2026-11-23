@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
 /**
  * The alphabet of a base64 string. "base64url" (RFC 4648 §5) swaps "+" and "/" for "-"
  * and "_" and has no padding, so the string is safe to embed in a URL.
@@ -46,3 +48,16 @@ export const decodeBase64 = (
     alphabet === "base64" ? encoded : encoded.replace(/-/g, "+").replace(/_/g, "/");
   return Uint8Array.from(atob(standard), (char) => char.charCodeAt(0));
 };
+
+/**
+ * bytesZ decodes bytes from standard, padded base64 text or a Uint8Array. z.encode
+ * writes them back as base64 text, which is how bytes cross JSON.
+ */
+export const bytesZ = z.codec(
+  z.union([z.base64(), z.instanceof(Uint8Array)]),
+  z.instanceof(Uint8Array),
+  {
+    decode: (v) => (typeof v === "string" ? decodeBase64(v) : v),
+    encode: (v) => encodeBase64(v),
+  },
+);
