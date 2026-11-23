@@ -235,7 +235,9 @@ func BenchmarkExport(b *testing.B) {
 	w := openBenchWorkspace(b)
 	b.ReportAllocs()
 	for b.Loop() {
-		MustSucceed2(w.layer.Bundle.Export(w.ctx, w.db, w.project, xjson.Codec))
+		MustSucceed2(
+			w.layer.Bundle.Export(w.ctx, w.db, w.project, xjson.Codec, readAll),
+		)
 	}
 }
 
@@ -243,7 +245,9 @@ func BenchmarkExport(b *testing.B) {
 // back, so the Core keeps one copy.
 func BenchmarkImport(b *testing.B) {
 	w := openBenchWorkspace(b)
-	files, _ := MustSucceed2(w.layer.Bundle.Export(w.ctx, w.db, w.project, xjson.Codec))
+	files, _ := MustSucceed2(
+		w.layer.Bundle.Export(w.ctx, w.db, w.project, xjson.Codec, readAll),
+	)
 	b.ReportAllocs()
 	for b.Loop() {
 		bundle := MustSucceed(w.layer.Bundle.Decode(w.ctx, files, "bench"))

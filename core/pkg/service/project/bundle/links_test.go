@@ -115,7 +115,7 @@ var _ = Describe("Channel links", func() {
 		key := createFolderChannel(ctx, folder, name)
 		src := createProject(ctx, "Links")
 		createLinkedLog(ctx, src.Key, key)
-		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec, readAll))
 		Expect(memberOfType(files, "log")["channels"]).To(ConsistOf(
 			HaveKeyWithValue("channel", folder+"."+name),
 		))
@@ -169,7 +169,7 @@ var _ = Describe("Channel links", func() {
 			})).To(Succeed())
 		})
 		createPanel(ctx, "Controls", src.Key, leaf(resourceTab(a.ResourceID())))
-		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec, readAll))
 		Expect(memberOfType(files, "log")["channels"]).To(ConsistOf(
 			HaveKeyWithValue("channel", folder+"."+name),
 		))

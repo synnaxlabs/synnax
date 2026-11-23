@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
@@ -101,3 +102,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	svc = openService(ctx, node)
 })
+
+// readAll lets the exporting subject retrieve every record.
+func readAll(resource.ID) bool { return true }

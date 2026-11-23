@@ -225,13 +225,15 @@ func descendants(ctx SpecContext, key group.Key) []resource.ID {
 
 var _ = Describe("Export", func() {
 	It("Should return NotFound for a missing project", func(ctx SpecContext) {
-		Expect(svc.Export(ctx, db, uuid.New(), xjson.Codec)).Error().
+		Expect(svc.Export(ctx, db, uuid.New(), xjson.Codec, readAll)).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should export an empty project as a manifest alone", func(ctx SpecContext) {
 		proj := createProject(ctx, "Empty")
-		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, members := MustSucceed2(
+			svc.Export(ctx, db, proj.Key, xjson.Codec, readAll),
+		)
 		Expect(files).To(HaveLen(1))
 		manifest := decode(files["manifest.json"])
 		Expect(manifest).To(HaveKeyWithValue("version", BeNumerically("==", 1)))
@@ -246,7 +248,9 @@ var _ = Describe("Export", func() {
 		p := createPanel(
 			ctx, "Controls", proj.Key, leaf(resourceTab(l.ResourceID())),
 		)
-		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, members := MustSucceed2(
+			svc.Export(ctx, db, proj.Key, xjson.Codec, readAll),
+		)
 		Expect(files).To(HaveLen(3))
 		Expect(decode(files["Metrics Log.json"])).To(HaveKeyWithValue("type", "log"))
 		panelBody := decode(files["Controls.json"])
@@ -268,7 +272,9 @@ var _ = Describe("Export", func() {
 		createPanel(
 			ctx, "Controls", proj.Key, leaf(resourceTab(l.ResourceID())),
 		)
-		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, members := MustSucceed2(
+			svc.Export(ctx, db, proj.Key, xjson.Codec, readAll),
+		)
 		Expect(files).To(HaveKey("Propulsion/Tanks/Pressure.json"))
 		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
 		Expect(ok).To(BeTrue())
@@ -281,7 +287,9 @@ var _ = Describe("Export", func() {
 	It("Should drop a group with no exported members", func(ctx SpecContext) {
 		proj := createProject(ctx, "Sparse")
 		createGroup(ctx, "Empty Group", proj.ResourceID())
-		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, members := MustSucceed2(
+			svc.Export(ctx, db, proj.Key, xjson.Codec, readAll),
+		)
 		Expect(files).To(HaveLen(1))
 		Expect(members).To(BeEmpty())
 	})
@@ -305,7 +313,9 @@ var _ = Describe("Export", func() {
 			draft.Owner = &u.Key
 			return panelSvc.NewWriter(tx).Create(ctx, &draft)
 		})).To(Succeed())
-		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, members := MustSucceed2(
+			svc.Export(ctx, db, proj.Key, xjson.Codec, readAll),
+		)
 		Expect(files).To(HaveLen(1))
 		Expect(members).To(BeEmpty())
 	})
@@ -320,7 +330,9 @@ var _ = Describe("Export", func() {
 			proj.Key,
 			leaf(resourceTab(l.ResourceID()), resourceTab(lp.ResourceID())),
 		)
-		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, members := MustSucceed2(
+			svc.Export(ctx, db, proj.Key, xjson.Codec, readAll),
+		)
 		Expect(files).To(HaveLen(3))
 		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
 		Expect(ok).To(BeTrue())
@@ -336,7 +348,9 @@ var _ = Describe("Export", func() {
 		p := createPanel(
 			ctx, "Controls", proj.Key, leaf(resourceTab(t.ResourceID())),
 		)
-		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, members := MustSucceed2(
+			svc.Export(ctx, db, proj.Key, xjson.Codec, readAll),
+		)
 		Expect(files).To(HaveKey("Sequence.json"))
 		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
 		Expect(ok).To(BeTrue())
@@ -354,7 +368,9 @@ var _ = Describe("Export", func() {
 		p := createPanel(
 			ctx, "Controls", proj.Key, leaf(resourceTab(a.ResourceID())),
 		)
-		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, members := MustSucceed2(
+			svc.Export(ctx, db, proj.Key, xjson.Codec, readAll),
+		)
 		Expect(files).To(HaveKey("Startup.json"))
 		Expect(decode(files["Startup.json"])).To(SatisfyAll(
 			HaveKeyWithValue("type", "arc-automation"),
@@ -380,7 +396,9 @@ var _ = Describe("Export", func() {
 		createPanel(
 			ctx, "Second", proj.Key, leaf(resourceTab(t.ResourceID())),
 		)
-		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, members := MustSucceed2(
+			svc.Export(ctx, db, proj.Key, xjson.Codec, readAll),
+		)
 		Expect(files).To(HaveLen(4))
 		Expect(files).To(HaveKey("Sequence.json"))
 		for _, name := range []string{"First.json", "Second.json"} {
@@ -400,7 +418,7 @@ var _ = Describe("Export", func() {
 			Key:  uuid.New().String(),
 		}
 		createPanel(ctx, "Controls", proj.Key, leaf(resourceTab(dangling)))
-		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec, readAll))
 		Expect(files).To(HaveLen(2))
 		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
 		Expect(ok).To(BeTrue())
@@ -413,7 +431,7 @@ var _ = Describe("Export", func() {
 		proj := createProject(ctx, "Colliding")
 		createLog(ctx, proj.Key, "Pressure")
 		createLog(ctx, proj.Key, "pressure")
-		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec, readAll))
 		Expect(files).To(HaveKey("Pressure.json"))
 		Expect(files).To(HaveKey("pressure (1).json"))
 	})
@@ -426,7 +444,7 @@ var _ = Describe("Export", func() {
 		l2 := createLog(ctx, proj.Key, "B")
 		moveToGroup(ctx, l1, g1)
 		moveToGroup(ctx, l2, g2)
-		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec, readAll))
 		Expect(files).To(HaveKey("Valves/A.json"))
 		Expect(files).To(HaveKey("valves (1)/B.json"))
 	})
@@ -437,7 +455,7 @@ var _ = Describe("Export", func() {
 		outerLog := createLog(ctx, proj.Key, "Pressure")
 		innerLog := createLog(ctx, proj.Key, "Pressure")
 		moveToGroup(ctx, innerLog, g)
-		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec, readAll))
 		Expect(files).To(HaveKey("Pressure.json"))
 		Expect(files).To(HaveKey("Propulsion/Pressure.json"))
 		Expect(outerLog.Key).ToNot(Equal(innerLog.Key))
@@ -448,7 +466,7 @@ var _ = Describe("Export", func() {
 	) {
 		proj := createProject(ctx, "Reserved")
 		createLog(ctx, proj.Key, "manifest")
-		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec, readAll))
 		Expect(files).To(HaveKey("manifest.json"))
 		Expect(files).To(HaveKey("manifest (1).json"))
 	})
@@ -458,7 +476,7 @@ var _ = Describe("Export", func() {
 	) {
 		proj := createProject(ctx, "Layout Member")
 		createLog(ctx, proj.Key, "LAYOUT")
-		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec, readAll))
 		Expect(files).To(HaveKey("LAYOUT.json"))
 	})
 
@@ -467,7 +485,7 @@ var _ = Describe("Export", func() {
 		g := createGroup(ctx, "Configs", proj.ResourceID())
 		l := createLog(ctx, proj.Key, "manifest")
 		moveToGroup(ctx, l, g)
-		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec, readAll))
 		Expect(files).To(HaveKey("Configs/manifest.json"))
 	})
 })
@@ -726,7 +744,7 @@ var _ = Describe("Import", func() {
 			src.Key,
 			leaf(resourceTab(grouped.ResourceID())),
 		)
-		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec, readAll))
 		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, files)
 		Expect(proj.Key).ToNot(Equal(src.Key))
@@ -808,7 +826,7 @@ var _ = Describe("Import", func() {
 		createPanel(
 			ctx, "Controls", src.Key, leaf(resourceTab(t.ResourceID())),
 		)
-		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec, readAll))
 		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, files)
 		children := childrenOf(ctx, project.ResourceID(proj.Key))
@@ -828,7 +846,7 @@ var _ = Describe("Import", func() {
 		createPanel(
 			ctx, "Controls", src.Key, leaf(resourceTab(a.ResourceID())),
 		)
-		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec, readAll))
 		// The import lands beside the original, where the name is taken.
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return arcSvc.NewWriter(tx).Apply(
@@ -870,7 +888,7 @@ var _ = Describe("Import", func() {
 		createPanel(
 			ctx, "Controls", src.Key, leaf(resourceTab(a.ResourceID())),
 		)
-		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec))
+		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec, readAll))
 		tx = DeferClose(db.OpenTx())
 		Expect(importFiles(ctx, files, "Fallback.zip")).Error().
 			To(MatchError(ContainSubstring(`name "Startup" is already used`)))
