@@ -79,9 +79,6 @@ export interface WriteBinding extends z.infer<typeof writeBindingZ> {}
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-export const startupParameterZ = ethercat.startupParameterZ;
-export type StartupParameter = z.infer<typeof startupParameterZ>;
-
 /** PDOs holds the PDO entries of a slave. */
 export const pdOsZ = z.object({
   /** inputs are the entries that the slave sends. */
@@ -300,6 +297,25 @@ export const cursorZ = z.object({
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
+/** Identity holds the slave fields that the scanner owns. */
+export const identityZ = z.object({
+  /** rack is the key of the rack the slave is connected to. */
+  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  /** serial is the serial number of the slave. 0 when the slave reports none. */
+  serial: z.number().max(9007199254740991).default(0),
+  /** vendorId is the EtherCAT vendor ID of the slave. */
+  vendorId: z.uint32(),
+  /** productCode is the product code of the slave. */
+  productCode: z.uint32(),
+  /** revision is the revision number of the slave. */
+  revision: z.uint32(),
+  /** master is the master on whose bus the slave sits. */
+  master: ethercatMaster.keyZ.min(1, "master is required"),
+  /** pdos are the PDO entries that the scan found on the slave. */
+  pdos: pdOsZ.prefault({}),
+});
+export interface Identity extends z.infer<typeof identityZ> {}
+
 /** Configuration holds the slave fields that the user owns. */
 export const configurationZ = z.object({
   /** name is a human-readable name for the slave. */
@@ -325,25 +341,6 @@ export const configurationZ = z.object({
   writeBindings: writeBindingZ.array().default(() => []),
 });
 export interface Configuration extends z.infer<typeof configurationZ> {}
-
-/** Identity holds the slave fields that the scanner owns. */
-export const identityZ = z.object({
-  /** rack is the key of the rack the slave is connected to. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
-  /** serial is the serial number of the slave. 0 when the slave reports none. */
-  serial: z.number().max(9007199254740991).default(0),
-  /** vendorId is the EtherCAT vendor ID of the slave. */
-  vendorId: z.uint32(),
-  /** productCode is the product code of the slave. */
-  productCode: z.uint32(),
-  /** revision is the revision number of the slave. */
-  revision: z.uint32(),
-  /** master is the master on whose bus the slave sits. */
-  master: ethercatMaster.keyZ.min(1, "master is required"),
-  /** pdos are the PDO entries that the scan found on the slave. */
-  pdos: pdOsZ.prefault({}),
-});
-export interface Identity extends z.infer<typeof identityZ> {}
 
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;

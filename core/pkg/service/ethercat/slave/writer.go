@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer creates, updates, and deletes EtherCAT slaves in the transaction given to
@@ -51,14 +53,79 @@ func (w Writer) setStatus(ctx context.Context, sl Slave) error {
 	return w.status.Set(ctx, &s)
 }
 
+type address struct {
+	index    uint16
+	subIndex uint8
+}
+
+type readKind struct {
+	address
+	scaled, calibrated bool
+}
+
+func entryAddresses(entries []PDOEntry) set.Set[address] {
+	m := make(set.Set[address], len(entries))
+	for _, e := range entries {
+		m.Add(address{index: e.Index, subIndex: e.SubIndex})
+	}
+	return m
+}
+
+func bindingErr(field string, i int, b address, problem string) error {
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"%s.%d: entry 0x%04X:%02X %s",
+		field,
+		i,
+		b.index,
+		b.subIndex,
+		problem,
+	)
+}
+
+// validateSlave checks s and checks that each binding addresses one entry of the
+// slave's PDOs, once.
+func validateSlave(s Slave) error {
+	if err := s.Validate(); err != nil {
+		return err
+	}
+	inputs := entryAddresses(s.Pdos.Inputs)
+	reads := make(set.Set[readKind], len(s.ReadBindings))
+	for i, b := range s.ReadBindings {
+		a := address{index: b.Index, subIndex: b.SubIndex}
+		if !inputs.Contains(a) {
+			return bindingErr("read_bindings", i, a, "is not an input of the slave")
+		}
+		k := readKind{address: a, scaled: b.Scaled, calibrated: b.Calibrated}
+		if reads.Contains(k) {
+			return bindingErr("read_bindings", i, a, "is bound twice")
+		}
+		reads.Add(k)
+	}
+	outputs := entryAddresses(s.Pdos.Outputs)
+	writes := make(set.Set[address], len(s.WriteBindings))
+	for i, b := range s.WriteBindings {
+		a := address{index: b.Index, subIndex: b.SubIndex}
+		if !outputs.Contains(a) {
+			return bindingErr("write_bindings", i, a, "is not an output of the slave")
+		}
+		if writes.Contains(a) {
+			return bindingErr("write_bindings", i, a, "is bound twice")
+		}
+		writes.Add(a)
+	}
+	return nil
+}
+
 // Create stores s and writes an unknown status when it has none. An existing status
 // takes the name and rack of s. A slave with a nil key gets a new one. It returns a
-// validation error when s is invalid or its rack or master does not exist.
+// validation error when s is invalid, a binding does not address one entry of its
+// PDOs, or its rack or master does not exist.
 func (w Writer) Create(ctx context.Context, s *Slave) error {
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	}
-	if err := s.Validate(); err != nil {
+	if err := validateSlave(*s); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
@@ -84,7 +151,7 @@ func (w Writer) update(
 				return Slave{}, err
 			}
 			updated.Key = key
-			if err = updated.Validate(); err != nil {
+			if err = validateSlave(updated); err != nil {
 				return Slave{}, err
 			}
 			next = updated
