@@ -11,7 +11,6 @@ package write
 
 import (
 	"context"
-	"encoding/json/v2"
 	"slices"
 
 	"github.com/samber/lo"
@@ -61,9 +60,19 @@ func (r Resolver) Check(
 	if len(writes) == 0 {
 		return nil
 	}
-	icds, err := r.retrieve(ctx, snap, writes, icds)
-	if err != nil {
-		return err
+	missing := lo.Uniq(lo.FilterMap(writes, func(w Write, _ int) (icd.Key, bool) {
+		_, ok := icds[w.ICD]
+		return w.ICD, !ok
+	}))
+	if len(missing) > 0 {
+		found, err := r.icds.NewRetrieve().
+			Where(icd.MatchKeys(missing...)).
+			SkipMissingKeys().
+			ByKey(ctx, snap)
+		if err != nil {
+			return err
+		}
+		icds = lo.Assign(icds, found)
 	}
 	var keys []channel.Key
 	for _, w := range writes {
@@ -75,6 +84,7 @@ func (r Resolver) Check(
 	}
 	var channels map[channel.Key]icdv0.Channel
 	if len(keys) > 0 {
+		var err error
 		if channels, err = r.channels(ctx, snap, lo.Uniq(keys)); err != nil {
 			return err
 		}
@@ -88,7 +98,7 @@ func (r Resolver) Check(
 		if !ok || unfilled(ic, w.Message) {
 			continue
 		}
-		if _, err = newEncoder(w.Message, ic, dataTypes); err != nil {
+		if _, err := newEncoder(w.Message, ic, dataTypes); err != nil {
 			path := slices.Concat(w.Path, []string{"message"})
 			return validate.PathedError(err, path...)
 		}
@@ -114,7 +124,8 @@ func unfilled(ic icd.ICD, wm icd.WriteMessage) bool {
 
 // Hash writes to h the payload of each ICD message that writes send, retrieved through
 // snap, so an edit to the format of one changes the hash. A write of a message that its
-// ICD lacks, or of an ICD that does not exist, writes only that the message is absent.
+// ICD lacks writes only that the message is absent. Hash returns query.ErrNotFound when
+// an ICD of writes does not exist.
 func (r Resolver) Hash(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -124,61 +135,15 @@ func (r Resolver) Hash(
 	if len(writes) == 0 {
 		return nil
 	}
-	icds, err := r.retrieve(ctx, snap, writes, nil)
+	keys := lo.Uniq(lo.Map(writes, func(w Write, _ int) icd.Key { return w.ICD }))
+	icds, err := r.icds.NewRetrieve().Where(icd.MatchKeys(keys...)).ByKey(ctx, snap)
 	if err != nil {
 		return err
 	}
 	for _, w := range writes {
-		if err = hash(h, icds[w.ICD], w.Message); err != nil {
+		if err = icd.HashMessage(h, icds[w.ICD], w.Message.Message); err != nil {
 			return err
 		}
 	}
-	return nil
-}
-
-// retrieve returns icds with the ICD of each of writes that icds lacks, read through
-// snap. An ICD that does not exist is absent from the result.
-func (r Resolver) retrieve(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	writes []Write,
-	icds map[icd.Key]icd.ICD,
-) (map[icd.Key]icd.ICD, error) {
-	missing := lo.Uniq(lo.FilterMap(writes, func(w Write, _ int) (icd.Key, bool) {
-		_, ok := icds[w.ICD]
-		return w.ICD, !ok
-	}))
-	if len(missing) == 0 {
-		return icds, nil
-	}
-	var found []icd.ICD
-	if err := r.icds.NewRetrieve().
-		Where(icd.MatchKeys(missing...)).
-		SkipMissingKeys().
-		Entries(&found).
-		Exec(ctx, snap); err != nil {
-		return nil, err
-	}
-	return lo.Assign(
-		icds,
-		lo.KeyBy(found, func(ic icd.ICD) icd.Key { return ic.Key }),
-	), nil
-}
-
-// hash writes to h the payload of the message of ic that wm sends. When ic lacks the
-// message, hash writes only that it is absent.
-func hash(h *content.Hash, ic icd.ICD, wm icd.WriteMessage) error {
-	m, ok := lo.Find(ic.Messages, func(m icd.Message) bool {
-		return m.Key == wm.Message
-	})
-	h.Bool(ok)
-	if !ok {
-		return nil
-	}
-	b, err := json.Marshal(m.Payload, json.Deterministic(true))
-	if err != nil {
-		return err
-	}
-	h.Bytes(b)
 	return nil
 }

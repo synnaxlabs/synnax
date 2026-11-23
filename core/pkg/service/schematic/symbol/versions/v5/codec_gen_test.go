@@ -294,6 +294,22 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Ref", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v5.Ref) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v5.Ref
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("builtin variant", v5.Ref{Variant: v5.BuiltinRef{Name: "test_1"}}),
+			Entry("custom variant", v5.Ref{Variant: v5.CustomRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}}),
+			Entry("missing variant", v5.Ref{Variant: v5.MissingRef{Key: "test_1"}}),
+		)
+	})
 	Describe("Spec", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v5.Spec) {
@@ -548,6 +564,24 @@ var _ = Describe("Codec", func() {
 				},
 				Group: nil,
 			}),
+			Entry("empty collections", v5.Symbol{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Data: v5.Spec{
+					Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_5"}},
+					Parts:           []v5.Part{},
+					Handles:         []v5.Handle{},
+					States:          []v5.State{},
+					Commands:        []v5.Command{},
+					Looks:           []v5.Look{},
+					Interactions:    []v5.Interaction{},
+					Variant:         "test_12",
+					Scale:           13.5,
+					StrokeScaled:    false,
+					PreviewViewport: new(spatial.Viewport{Zoom: 16.5, Position: spatial.XY{X: 18.5, Y: 19.5}}),
+				},
+				Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+			}),
 		)
 	})
 })
@@ -788,6 +822,23 @@ func BenchmarkEncodeDecodePart(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v5.Part
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRef(b *testing.B) {
+	seed := v5.Ref{Variant: v5.BuiltinRef{Name: "test_1"}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v5.Ref
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1605,6 +1656,53 @@ func FuzzDecodePart(f *testing.F) {
 	})
 }
 
+func FuzzDecodeRef(f *testing.F) {
+	{
+		seed := v5.Ref{Variant: v5.BuiltinRef{Name: "test_1"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.Ref{Variant: v5.CustomRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.Ref{Variant: v5.MissingRef{Key: "test_1"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v5.Ref
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v5.Ref
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeSpec(f *testing.F) {
 	{
 		seed := v5.Spec{
@@ -1942,6 +2040,31 @@ func FuzzDecodeSymbol(f *testing.F) {
 				PreviewViewport: nil,
 			},
 			Group: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.Symbol{
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
+			Data: v5.Spec{
+				Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_5"}},
+				Parts:           []v5.Part{},
+				Handles:         []v5.Handle{},
+				States:          []v5.State{},
+				Commands:        []v5.Command{},
+				Looks:           []v5.Look{},
+				Interactions:    []v5.Interaction{},
+				Variant:         "test_12",
+				Scale:           13.5,
+				StrokeScaled:    false,
+				PreviewViewport: new(spatial.Viewport{Zoom: 16.5, Position: spatial.XY{X: 18.5, Y: 19.5}}),
+			},
+			Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

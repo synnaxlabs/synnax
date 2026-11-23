@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -307,11 +308,11 @@ var _ = Describe("Resolver", func() {
 			Expect(sum(ctx, lacked)).ToNot(Equal(sum(ctx)))
 		})
 
-		It("Should hash a write of an ICD that does not exist as a message that is "+
-			"absent", func(ctx SpecContext) {
+		It("Should fail for an ICD that does not exist", func(ctx SpecContext) {
+			h := content.NewHash()
 			missing := writeAt(0, uuid.New(), writeOf(setpoint, bind(temp)))
-			lacked := writeAt(0, stored.Key, writeOf(binary))
-			Expect(sum(ctx, missing)).To(Equal(sum(ctx, lacked)))
+			Expect(resolver.Hash(ctx, db, &h, []write.Write{missing})).
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 })
