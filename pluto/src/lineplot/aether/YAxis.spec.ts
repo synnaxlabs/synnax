@@ -26,7 +26,7 @@ import { type BreakAction, type BreaksRequest, XAxis } from "@/lineplot/aether/X
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
-import { buildStack } from "@/testutil/providers";
+import { buildStack } from "@/testutil/internal";
 import { Line } from "@/vis/line/aether/line";
 import { lineTest } from "@/vis/line/aether/testutil";
 import { canvasTest } from "@/vis/render/testutil";

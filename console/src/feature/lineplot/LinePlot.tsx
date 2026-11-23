@@ -35,25 +35,11 @@ import {
 import { type ReactElement, type RefObject, useRef, useState } from "react";
 
 import { Controls } from "@/feature/lineplot/Controls";
-import {
-  type DownloadLine,
-  useDownloadAsCSV,
-} from "@/feature/lineplot/useDownloadAsCSV";
-import { useResetZoomOnRangeChange } from "@/feature/lineplot/useResetZoomOnRangeChange";
-import { useSetT0Modal } from "@/feature/lineplot/useSetT0Modal";
-import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
-import {
-  countHidden,
-  inScope,
-  isLineHidden,
-  isolate,
-  type Item,
-  NONE_HIDDEN,
-  type Scope,
-  setItemVisible,
-  toggleIsolation,
-  type Visibility,
-} from "@/feature/lineplot/visibility";
+import { CSV } from "@/feature/lineplot/csv";
+import { Hold } from "@/feature/lineplot/hold";
+import { T0 } from "@/feature/lineplot/t0";
+import { Visibility } from "@/feature/lineplot/visibility";
+import { Zoom } from "@/feature/lineplot/zoom";
 import { Sift } from "@/feature/sift";
 import { FLAGS } from "@/flags";
 import { ContextMenu } from "@/platform/context-menu";
@@ -67,7 +53,7 @@ const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
 const VIEWPORT_DEBOUNCE = TimeSpan.milliseconds(100);
 
 interface RangeAnnotationContextMenuProps {
-  lines: DownloadLine[];
+  lines: CSV.DownloadLine[];
   range: Base.Range.MenuProps;
 }
 
@@ -75,7 +61,7 @@ const RangeAnnotationContextMenu = ({
   lines,
   range,
 }: RangeAnnotationContextMenuProps): ReactElement => {
-  const downloadAsCSV = useDownloadAsCSV();
+  const downloadAsCSV = CSV.useDownload();
   return (
     <Range.ContextMenu
       keys={[range.key]}
@@ -134,10 +120,10 @@ interface Compare {
   refs: ranger.Ref[];
   ranges: Base.RangeSpec[];
   hovered: Base.Hovered | null;
-  onItemVisibleChange: (item: Item, visible: boolean) => void;
-  onIsolate: (item: Item) => void;
+  onItemVisibleChange: (item: Visibility.Item, visible: boolean) => void;
+  onIsolate: (item: Visibility.Item) => void;
   hidden: Session.LinePlot.Hidden;
-  scope: Scope;
+  scope: Visibility.Scope;
   /** The key of the range the plot is zoomed to, if any. */
   zoomed: string | null;
   onShowAll: () => void;
@@ -171,7 +157,7 @@ const CompareMenuItems = ({
 }: CompareMenuItemsProps): ReactElement | null => {
   const { dispatch } = Base.useDispatch();
   const key = Base.useKey();
-  const setT0Modal = useSetT0Modal();
+  const setT0Modal = T0.useSetModal();
   const handleError = Status.useErrorHandler();
   const heading = ranges.find((r) => r.key === menuKey);
   const trace = heading == null ? Base.parseTraceKey(menuKey, ranges) : null;
@@ -179,7 +165,7 @@ const CompareMenuItems = ({
   const target = trace ?? pointed;
   const range = heading ?? ranges.find((r) => r.key === target?.range);
   const showAll =
-    countHidden(hidden) > 0 ? (
+    Visibility.countHidden(hidden) > 0 ? (
       <Menu.Item itemKey="showAll" onClick={onShowAll}>
         <Icon.Visible /> Show all
       </Menu.Item>
@@ -204,7 +190,8 @@ const CompareMenuItems = ({
   const shown = timeRange.boundBy(new TimeRange(TimeStamp.ZERO, TimeStamp.now()));
   const zoomable = !shown.span.isZero;
   const t0Editable = editable && isKey;
-  const lineHidden = target != null && isLineHidden(hidden, target.line, scope);
+  const lineHidden =
+    target != null && Visibility.isLineHidden(hidden, target.line, scope);
   const handleSetT0 = () =>
     handleError(async () => {
       const t0 = await setT0Modal({
@@ -300,7 +287,7 @@ const CompareMenuItems = ({
 };
 
 interface ContextMenuContentProps {
-  csvLines: DownloadLine[];
+  csvLines: CSV.DownloadLine[];
   linePlotRef: RefObject<Base.FrameRef | null>;
   editable: boolean;
   breaks: pLineplot.BreakCounts;
@@ -325,7 +312,7 @@ const ContextMenuContent = ({
   const openCreateRange = Range.useCreateModal();
   const hasRangeCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const handleError = Status.useErrorHandler();
-  const downloadAsCSV = useDownloadAsCSV();
+  const downloadAsCSV = CSV.useDownload();
   const getTimeRange = async (): Promise<TimeRange> => {
     const bounds = await linePlotRef.current?.getXBounds(box.xBounds(selection));
     if (bounds == null) throw new Error("No bounds available");
@@ -427,25 +414,32 @@ const Internal = (): ReactElement => {
   const relative = FLAGS.compare && Base.isRelative(x1);
 
   const derived = Base.useLines();
-  const scope: Scope = {
+  const scope: Visibility.Scope = {
     ranges: ranges.filter((r) => r.zero != null).map((r) => r.key),
     lines: derived.map((d) => d.key),
   };
-  const hidden = inScope(Session.LinePlot.useSelectHidden(), scope);
+  const hidden = Visibility.inScope(Session.LinePlot.useSelectHidden(), scope);
   const isolation = Session.LinePlot.useSelectIsolation();
   const { dispatch: dispatchPlot } = Base.useDispatch();
   const hoveredRef = useRef<Base.Hovered | null>(null);
-  const setVisibility = (next: Visibility) =>
+  const setVisibility = (next: Visibility.Visibility) =>
     dispatch(Session.LinePlot.setHidden({ key, ...next }));
-  const handleItemVisibleChange = (item: Item, itemVisible: boolean) =>
-    setVisibility(setItemVisible({ hidden, isolation }, item, itemVisible, scope));
-  const handleIsolate = (item: Item) =>
-    setVisibility(isolate({ hidden, isolation }, item, scope));
-  const handleLegendChange = (item: Item, itemVisible: boolean, isolated: boolean) =>
+  const handleItemVisibleChange = (item: Visibility.Item, itemVisible: boolean) =>
+    setVisibility(
+      Visibility.setItemVisible({ hidden, isolation }, item, itemVisible, scope),
+    );
+  const handleIsolate = (item: Visibility.Item) =>
+    setVisibility(Visibility.isolate({ hidden, isolation }, item, scope));
+  const handleLegendChange = (
+    item: Visibility.Item,
+    itemVisible: boolean,
+    isolated: boolean,
+  ) =>
     isolated
-      ? setVisibility(toggleIsolation({ hidden, isolation }, item, scope))
+      ? setVisibility(Visibility.toggleIsolation({ hidden, isolation }, item, scope))
       : handleItemVisibleChange(item, itemVisible);
-  const handleShowAll = () => setVisibility({ hidden: NONE_HIDDEN, isolation: null });
+  const handleShowAll = () =>
+    setVisibility({ hidden: Visibility.NONE_HIDDEN, isolation: null });
   const handleLineVisibleChange = (lineKey: string, v: boolean, isolated: boolean) => {
     const trace = relative ? Base.parseTraceKey(lineKey, ranges) : null;
     if (!relative) handleLegendChange({ variant: "line", line: lineKey }, v, isolated);
@@ -467,7 +461,7 @@ const Internal = (): ReactElement => {
   const handleHoveredChange = (h: Base.Hovered | null) => {
     hoveredRef.current = h;
   };
-  const csvLines: DownloadLine[] = derived.map((d) => ({
+  const csvLines: CSV.DownloadLine[] = derived.map((d) => ({
     channels: { x: d.xChannel, y: d.yChannel },
   }));
 
@@ -484,8 +478,8 @@ const Internal = (): ReactElement => {
     location.BOTTOM_LEFT,
   );
 
-  useTriggerHold({ key, enabled: hasUpdatePermission });
-  useResetZoomOnRangeChange({ key });
+  Hold.useTrigger({ key, enabled: hasUpdatePermission });
+  Zoom.useResetOnRangeChange({ key });
 
   const handleViewportChange = useDebouncedCallback(
     ({ box: b, stage, mode }: Viewport.UseEvent) => {
