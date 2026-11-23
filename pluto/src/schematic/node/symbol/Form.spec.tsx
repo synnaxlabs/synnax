@@ -89,6 +89,29 @@ describe("Symbol form", () => {
       ]);
     });
 
+    it("should keep the bounds of a within match on a click of Within", () => {
+      const states = [
+        schematic.stateBindingZ.parse({
+          key: "active",
+          match: { type: "within", bounds: { lower: 2, upper: 3 } },
+        }),
+      ];
+      const { getByText, value } = render(states);
+      fireEvent.click(getByText("Within"));
+      expect(value(path.states)).toEqual(states);
+    });
+
+    it("should replace the bounds of a within match", () => {
+      const { getByLabelText, value } = render();
+      commit(getByLabelText("Max value"), "1.5");
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({
+          key: "active",
+          match: { type: "within", bounds: { lower: 0.9, upper: 1.5 } },
+        }),
+      ]);
+    });
+
     it("should replace the default of an enumeration state", () => {
       const { getByLabelText, value } = render();
       commit(getByLabelText("Default"), "1");
@@ -145,7 +168,12 @@ describe("Symbol form", () => {
           drawing: { type: "svg", markup: "<svg/>" },
           variant: "static",
           states: [
-            { type: "enumeration", key: "active", name: "Active" },
+            {
+              type: "enumeration",
+              key: "active",
+              name: "Active",
+              match: { type: "within", bounds: { lower: 2, upper: 3 } },
+            },
             { type: "number", key: "level", name: "Level" },
           ],
           commands: [
@@ -174,17 +202,40 @@ describe("Symbol form", () => {
     });
 
     it("should replace the bounds of a number state", async () => {
-      const { findByLabelText, value } = renderForm(
+      const { findAllByLabelText, value } = renderForm(
         <Form tab="telemetry" onTabChange={vi.fn()} />,
         parse({ spec: ref }),
         schematic.symbolNodeConfigZ,
         wrapper,
       );
-      commit(await findByLabelText("Max value"), "50");
+      // The within match of the Active state comes first.
+      const [, level] = await findAllByLabelText("Max value");
+      commit(level, "50");
       expect(value(path.states)).toEqual([
         schematic.stateBindingZ.parse({
           key: "level",
           bounds: { lower: 0, upper: 50 },
+        }),
+      ]);
+    });
+
+    it("should start a within match at the bounds of the symbol", async () => {
+      const { findByText, value } = renderForm(
+        <Form tab="telemetry" onTabChange={vi.fn()} />,
+        parse({
+          spec: ref,
+          states: [
+            schematic.stateBindingZ.parse({ key: "active", match: { type: "exact" } }),
+          ],
+        }),
+        schematic.symbolNodeConfigZ,
+        wrapper,
+      );
+      fireEvent.click(await findByText("Within"));
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({
+          key: "active",
+          match: { type: "within", bounds: { lower: 2, upper: 3 } },
         }),
       ]);
     });

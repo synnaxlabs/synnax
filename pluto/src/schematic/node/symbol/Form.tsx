@@ -163,6 +163,8 @@ const EnumerationOverrides = ({
   onChange,
 }: EnumerationOverridesProps): ReactElement => {
   const match = binding.match ?? state.match;
+  const within =
+    state.match.type === "within" ? state.match.bounds : Telem.DEFAULT_THRESHOLD;
   const setMatch = (next: schematic.symbol.Matcher): void =>
     onChange({ ...binding, match: next });
   return (
@@ -171,9 +173,7 @@ const EnumerationOverrides = ({
         <Select.Buttons
           value={match.type}
           onChange={(type: schematic.symbol.MatcherType) =>
-            setMatch(
-              type === "exact" ? { type } : { type, bounds: Telem.DEFAULT_THRESHOLD },
-            )
+            setMatch(type === "exact" ? { type } : { type, bounds: within })
           }
         >
           <Select.Item itemKey="exact">Exact</Select.Item>
