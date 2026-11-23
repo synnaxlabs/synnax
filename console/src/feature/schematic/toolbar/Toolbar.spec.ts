@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { schematic } from "@synnaxlabs/client";
+import { DataType, type schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -60,6 +60,24 @@ const pickSymbol = async (name: string): Promise<void> => {
   });
   fireEvent.click(await within(symbols).findByText(name, { selector: "small" }));
 };
+
+// The toolbar adds a built-in as a symbol node named after it.
+const createSymbolNode = (
+  name: string,
+  label: string,
+  states: schematic.StateBinding[] = [],
+): schematic.NodeConfig =>
+  Schematic.Node.createConfig({
+    variant: "symbol",
+    spec: { type: "builtin", name },
+    label: { label },
+    states,
+  });
+
+const builtIn = (name: string) => ({
+  variant: "symbol",
+  spec: { type: "builtin", name },
+});
 
 const retrieveConfigs = async (key: string) =>
   client.schematics.configsOf(await client.schematics.retrieve(key));
@@ -179,7 +197,7 @@ describe("Toolbar", () => {
       await pickSymbol("Solenoid");
       await waitFor(async () =>
         expect((await retrieveConfigs(key)).n1).toMatchObject({
-          variant: "solenoid_valve",
+          ...builtIn("solenoid_valve"),
           label: { label: "OX-1" },
           orientation: "top",
         }),
@@ -223,7 +241,9 @@ describe("Toolbar", () => {
       });
       await pickSymbol("Solenoid");
       await waitFor(async () =>
-        expect((await retrieveConfigs(key)).n1.variant).toBe("solenoid_valve"),
+        expect((await retrieveConfigs(key)).n1).toMatchObject(
+          builtIn("solenoid_valve"),
+        ),
       );
       expect(Object.keys(await retrieveConfigs(key))).toEqual(["n1"]);
     });
@@ -249,7 +269,7 @@ describe("Toolbar", () => {
       await pickSymbol("Solenoid");
       await waitFor(async () =>
         expect((await retrieveConfigs(key)).n1).toMatchObject({
-          variant: "solenoid_valve",
+          ...builtIn("solenoid_valve"),
           label: { label: "Solenoid" },
         }),
       );
@@ -264,9 +284,9 @@ describe("Toolbar", () => {
       await pickSymbol("Ball");
       await waitFor(async () => {
         const configs = await retrieveConfigs(key);
-        expect([configs.n1.variant, configs.n2.variant]).toEqual([
-          "ball_valve",
-          "ball_valve",
+        expect([configs.n1, configs.n2]).toMatchObject([
+          builtIn("ball_valve"),
+          builtIn("ball_valve"),
         ]);
       });
     });
@@ -281,11 +301,92 @@ describe("Toolbar", () => {
       await pickSymbol(symbol.name);
       await waitFor(async () =>
         expect((await retrieveConfigs(key)).n1).toMatchObject({
-          variant: "custom_static",
-          specKey: symbol.key,
+          variant: "symbol",
+          spec: { type: "custom", key: symbol.key },
           label: { label: symbol.name },
         }),
       );
+    });
+
+    it("names a symbol node after its symbol and marks it", async () => {
+      await renderSelected({ n1: createSymbolNode("valve", "OX-1") });
+      fireEvent.click(await screen.findByLabelText("Change symbol"));
+      expect(await screen.findByText("Changing Valve")).toBeDefined();
+      const symbols = await waitFor(() => {
+        const el = document.querySelector<HTMLElement>(".console-schematic__symbols");
+        assertDefined(el);
+        return el;
+      });
+      fireEvent.change(within(symbols).getByPlaceholderText("Search symbols..."), {
+        target: { value: "Generic" },
+      });
+      const current = (
+        await within(symbols).findByText("Generic", { selector: "small" })
+      ).parentElement;
+      expect(current?.classList.contains("lyra--selected")).toBe(true);
+    });
+
+    it("reads symbol nodes of two symbols as mixed", async () => {
+      await renderSelected({
+        n1: createSymbolNode("valve", "Valve"),
+        n2: createSymbolNode("solenoid_valve", "Solenoid"),
+      });
+      expect(await screen.findByText("Mixed")).toBeDefined();
+    });
+
+    it("keeps the binding of a state that the new symbol shares", async () => {
+      const binding = { key: "active", source: { type: "local" as const, value: 1 } };
+      const { key } = await renderSelected({
+        n1: createSymbolNode("valve", "Valve", [binding]),
+      });
+      await pickSymbol("Light");
+      await waitFor(async () =>
+        expect((await retrieveConfigs(key)).n1).toMatchObject({
+          ...builtIn("light"),
+          label: { label: "Light" },
+          states: [binding],
+        }),
+      );
+    });
+
+    it("keeps a label that a user gave a symbol node", async () => {
+      const { key } = await renderSelected({ n1: createSymbolNode("valve", "OX-1") });
+      await pickSymbol("Solenoid");
+      await waitFor(async () =>
+        expect((await retrieveConfigs(key)).n1).toMatchObject({
+          ...builtIn("solenoid_valve"),
+          label: { label: "OX-1" },
+        }),
+      );
+    });
+
+    it("keeps only the channel of a state that changes type", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("level"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const payload = createSymbolPayload(uniqueName("gauge"));
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        data: {
+          ...payload.data,
+          states: [{ type: "number", key: "active", name: "Level" }],
+        },
+      });
+      const source = { type: "channel" as const, key: ch.key };
+      const { key } = await renderSelected({
+        n1: createSymbolNode("valve", "Valve", [{ key: "active", source, default: 1 }]),
+      });
+      await pickSymbol(symbol.name);
+      await waitFor(async () =>
+        expect((await retrieveConfigs(key)).n1).toMatchObject({
+          variant: "symbol",
+          spec: { type: "custom", key: symbol.key },
+          states: [{ key: "active", source }],
+        }),
+      );
+      expect((await retrieveConfigs(key)).n1).not.toHaveProperty("states.0.default");
     });
 
     it("shows the form of the new symbol", async () => {

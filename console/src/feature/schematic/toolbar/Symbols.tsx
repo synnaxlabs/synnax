@@ -69,10 +69,16 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
   const variant = itemKey as Schematic.Node.Variant;
   const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
+  const ref: schematic.symbol.BuiltinRef = { type: "builtin", name: variant };
+  const symbolNode = FLAGS.symbolNodes && Schematic.Node.BUILT_INS.has(variant);
   const createParams = (): Schematic.AddNodeProps<"symbol"> | Schematic.AddNodeProps =>
-    FLAGS.symbolNodes && Schematic.Node.BUILT_INS.has(variant) && spec != null
-      ? createSymbolParams({ type: "builtin", name: variant }, spec.label ?? spec.name)
+    symbolNode && spec != null
+      ? createSymbolParams(ref, spec.label ?? spec.name)
       : { key: id.create(), config: { variant } };
+  const handleChange = (target: SymbolsChangeProps) =>
+    symbolNode
+      ? target.onChange({ variant: "symbol", spec: ref })
+      : target.onChange({ variant });
   const handleAddNode = () => addNode(createParams());
   const change = use(ChangeContext);
   const config = spec == null ? null : Schematic.Node.createConfig({ variant });
@@ -94,7 +100,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
       selected={change?.value === variant}
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
-      onClick={change == null ? handleAddNode : () => change.onChange({ variant })}
+      onClick={change == null ? handleAddNode : () => handleChange(change)}
       y
       {...props}
     >
@@ -148,6 +154,10 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
     FLAGS.symbolNodes
       ? createSymbolParams({ type: "custom", key: itemKey }, symbol?.name)
       : { key: id.create(), config: { variant, specKey: itemKey } };
+  const handleChange = (target: SymbolsChangeProps) =>
+    FLAGS.symbolNodes
+      ? target.onChange({ variant: "symbol", spec: { type: "custom", key: itemKey } })
+      : target.onChange({ variant, specKey: itemKey });
   const handleAddNode = () => addNode(createParams());
   const change = use(ChangeContext);
   const { update: rename } = Schematic.Symbol.useRename();
@@ -177,11 +187,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
       selected={change?.value === itemKey}
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
-      onClick={
-        change == null
-          ? handleAddNode
-          : () => change.onChange({ variant, specKey: itemKey })
-      }
+      onClick={change == null ? handleAddNode : () => handleChange(change)}
       y
       {...props}
     >

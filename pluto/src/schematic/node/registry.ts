@@ -114,16 +114,26 @@ export const isCustomConfig = (config: Config): config is CustomConfig =>
 export const customVariant = (symbol: schematic.symbol.Symbol): CustomVariant =>
   symbol.data.variant === "actuator" ? CUSTOM_ACTUATOR_VARIANT : CUSTOM_STATIC_VARIANT;
 
+/** @returns the key of the custom symbol the config draws, or undefined if built in. */
+export const customKey = (config: Config): string | undefined => {
+  if (isCustomConfig(config)) return config.specKey;
+  if (config.variant === SYMBOL_VARIANT && config.spec.type !== "builtin")
+    return config.spec.key;
+  return undefined;
+};
+
 /**
- * @returns the key of the symbol the config draws: the spec key of a custom symbol, or
- * the variant of a built-in one.
+ * @returns the key of the symbol the config draws: the key of a custom symbol, or the
+ * name of a built-in one.
  */
-export const symbolKey = (config: Config): string =>
-  isCustomConfig(config) ? config.specKey : config.variant;
+export const symbolKey = (config: Config): string => {
+  if (config.variant !== SYMBOL_VARIANT) return customKey(config) ?? config.variant;
+  return config.spec.type === "builtin" ? config.spec.name : config.spec.key;
+};
 
 /**
  * Changes the config to the variant the input names. Each field the new variant
- * accepts keeps its value, except the spec key and state overrides of a custom symbol.
+ * accepts keeps its value, except the spec key, spec, and state overrides.
  * @param config - The config to change.
  * @param input - The variant to change to, plus any fields to set on top.
  * @throws {NotFoundError} if no spec is registered for the variant.
@@ -134,7 +144,7 @@ export const changeConfig = <V extends Variant>(
 ): ConfigOf<V> =>
   deep.overrideValidItems(
     createConfig(input),
-    record.omit(config as record.Unknown, "specKey", "stateOverrides"),
+    record.omit(config as record.Unknown, "specKey", "spec", "stateOverrides"),
     schematic.NODE_CONFIG_SCHEMAS[input.variant],
   );
 

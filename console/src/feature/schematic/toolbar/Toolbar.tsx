@@ -85,13 +85,13 @@ interface SymbolName {
 const useSymbolName = (configs: Map<string, Schematic.Node.Config>): SymbolName => {
   const symbolKeys = new Set(Array.from(configs.values(), Schematic.Node.symbolKey));
   const shared = symbolKeys.size === 1 ? configs.values().next().value : undefined;
-  const specKey =
-    shared != null && Schematic.Node.isCustomConfig(shared) ? shared.specKey : null;
-  const { symbol: custom } = Schematic.Symbol.useResolved(specKey);
+  const customKey = shared == null ? undefined : Schematic.Node.customKey(shared);
+  const { symbol: custom } = Schematic.Symbol.useResolved(customKey ?? null);
   if (shared == null) return { name: "Mixed" };
-  if (specKey != null) return { symbol: specKey, name: custom?.name ?? "" };
-  const spec = Schematic.Node.resolveSpec(shared.variant);
-  return { symbol: shared.variant, name: spec.label ?? spec.name };
+  if (customKey != null) return { symbol: customKey, name: custom?.name ?? "" };
+  const symbol = Schematic.Node.symbolKey(shared);
+  const spec = Schematic.Node.resolveSpec(symbol);
+  return { symbol, name: spec.label ?? spec.name };
 };
 
 interface SymbolSummaryProps {

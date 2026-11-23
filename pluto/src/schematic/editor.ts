@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, schematic, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  NotFoundError,
+  query,
+  schematic,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { xy } from "@synnaxlabs/x";
 
 import { Node } from "@/schematic/node";
@@ -46,18 +51,33 @@ export const useAddNode = () => {
 
 // The label a symbol takes on creation: a custom symbol's name, or its spec's label.
 const defaultLabel = (client: Client, config: Node.Config): string | undefined => {
-  if (!Node.isCustomConfig(config)) {
-    const spec = Node.resolveSpec(config.variant);
+  const key = Node.customKey(config);
+  if (key == null) {
+    const spec = Node.resolveSpec(Node.symbolKey(config));
     return spec.label ?? spec.name;
   }
-  const sym = client.schematics.symbols.watch(config.specKey).getCached();
+  const sym = client.schematics.symbols.watch(key).getCached();
   return query.isLive(sym) ? sym.name : undefined;
+};
+
+// The spec that a symbol node draws, or undefined when its symbol is missing, as the
+// node draws it.
+const resolveSymbol = (
+  client: Client,
+  ref: schematic.symbol.Ref,
+): schematic.symbol.Spec | undefined => {
+  if (ref.type === "builtin") return Node.BUILT_INS.get(ref.name);
+  if (ref.type === "missing") return undefined;
+  const sym = client.schematics.symbols.watch(ref.key).getCached();
+  return query.isLive(sym) ? sym.data : undefined;
 };
 
 /**
  * useChangeSymbol returns a callback that changes the given symbols to the symbol the
  * input names, dispatched as a single undoable step. A label that still reads the old
- * symbol's name takes the new symbol's name.
+ * symbol's name takes the new symbol's name. A symbol node keeps the bindings that
+ * {@link Node.rebind} keeps.
+ * @throws {NotFoundError} if the input names a symbol node whose symbol is missing.
  */
 export const useChangeSymbol = () => {
   const key = Scope.use();
@@ -70,8 +90,16 @@ export const useChangeSymbol = () => {
       const config = s.nodes.find((n) => n.key === k)?.config;
       if (config == null || !Node.isConfig(config))
         throw new Error(`Element ${k} is not a symbol`);
-      const next = Node.changeConfig(config, input);
+      const next: Node.Config = Node.changeConfig(config, input);
       if (Node.symbolKey(next) === Node.symbolKey(config)) return [];
+      if (config.variant === "symbol" && next.variant === "symbol") {
+        const to = resolveSymbol(client, next.spec);
+        if (to == null)
+          throw new NotFoundError(`symbol ${Node.symbolKey(next)} is missing`);
+        const bindings = Node.rebind(config, resolveSymbol(client, config.spec), to);
+        next.states = bindings.states;
+        next.commands = bindings.commands;
+      }
       if (
         "label" in config &&
         "label" in next &&
