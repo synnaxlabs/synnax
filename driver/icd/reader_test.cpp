@@ -11,9 +11,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
-#include <span>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -36,10 +34,7 @@ namespace driver::icd {
 namespace {
 const x::telem::TimeStamp RECEIVED(1000);
 
-/// @brief returns the bytes of text.
-std::span<const std::uint8_t> bytes(const std::string_view text) {
-    return {reinterpret_cast<const std::uint8_t *>(text.data()), text.size()};
-}
+using x::testutil::bytes;
 
 /// @brief returns a channel of dt with key that index indexes.
 synnax::channel::Channel channel(
