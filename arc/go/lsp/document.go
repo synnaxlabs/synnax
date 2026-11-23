@@ -54,54 +54,42 @@ type document struct {
 	names *nameTokens
 }
 
-// nameTokens holds the tokens of one content that can hold a quoted channel name (the
-// quoted names and the string literals, whose placeholders can hold them) and its
-// dotted names. It lexes the content on first use and keeps them until the content
-// changes, so a lookup by position costs the same at any document length.
+// nameTokens holds the quote facts and the dotted names of one content. It lexes the
+// content once on first use and keeps both until the content changes, so a lookup by
+// position costs the same at any document length.
 type nameTokens struct {
 	mu      sync.Mutex
 	content string
-	lexed   bool
-	tokens  []antlr.Token
+	scan    *quoteScan
 	paths   []pathToken
 }
 
 // of returns the name tokens of content in order. Callers must not change them.
-func (n *nameTokens) of(content string) []antlr.Token {
+func (n *nameTokens) of(content string) []antlr.Token { return n.scanOf(content).names }
+
+// scanOf returns the quote facts of content. Callers must not change them.
+func (n *nameTokens) scanOf(content string) *quoteScan {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.lex(content)
-	return n.tokens
+	n.load(content)
+	return n.scan
 }
 
 // pathsOf returns the dotted names of content in order. Callers must not change them.
 func (n *nameTokens) pathsOf(content string) []pathToken {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.lex(content)
+	n.load(content)
 	return n.paths
 }
 
-func (n *nameTokens) lex(content string) {
-	if n.lexed && n.content == content {
+func (n *nameTokens) load(content string) {
+	if n.scan != nil && n.content == content {
 		return
 	}
 	tokens := tokenizeContent(content)
-	n.content, n.lexed = content, true
-	n.tokens, n.paths = keepNameTokens(tokens), linePaths(tokens)
-}
-
-func keepNameTokens(tokens []antlr.Token) []antlr.Token {
-	var kept []antlr.Token
-	for _, t := range tokens {
-		switch t.GetTokenType() {
-		case parser.ArcLexerCHANNEL_NAME,
-			parser.ArcLexerSTR_LITERAL,
-			parser.ArcLexerSTR_LITERAL_MULTI:
-			kept = append(kept, t)
-		}
-	}
-	return kept
+	n.content = content
+	n.scan, n.paths = scanTokens(content, tokens), linePaths(tokens)
 }
 
 func (d *document) isBlock() bool {

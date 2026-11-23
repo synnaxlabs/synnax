@@ -985,6 +985,110 @@ var _ = Describe("Completion", func() {
 			Expect(completions.Items).To(HaveLen(1))
 			Expect(completions.Items[0].Label).To(Equal("ox-pt-1"))
 		})
+
+		Describe("in a format string", func() {
+			labels := func(items []protocol.CompletionItem) []string {
+				out := make([]string, len(items))
+				for i, item := range items {
+					out[i] = item.Label
+				}
+				return out
+			}
+
+			It("should complete a quoted name in a placeholder", func(ctx SpecContext) {
+				OpenArcDocument(
+					server,
+					ctx,
+					docURI,
+					"func f() {\n    x := f\"{'ox-p'}\"\n}",
+				)
+				completions := Completion(server, ctx, docURI, 1, 17)
+				Expect(HasCompletion(completions.Items, "pt-2")).To(BeFalse())
+				item := MustBeOk(FindCompletion(completions.Items, "ox-pt-1"))
+				Expect(item.TextEdit).To(Equal(&protocol.TextEdit{
+					Range: protocol.Range{
+						Start: protocol.Position{Line: 1, Character: 12},
+						End:   protocol.Position{Line: 1, Character: 18},
+					},
+					NewText: "'ox-pt-1'",
+				}))
+			})
+
+			It("should complete code in a placeholder as outside a string", func(
+				ctx SpecContext,
+			) {
+				outside := uri.URI("file:///outside.arc")
+				OpenArcDocument(
+					server,
+					ctx,
+					outside,
+					"func f() {\n    o_local f64 := 1.0\n    x := o\n}",
+				)
+				want := labels(Completion(server, ctx, outside, 2, 10).Items)
+				Expect(want).To(ContainElement("o_local"))
+				OpenArcDocument(
+					server,
+					ctx,
+					docURI,
+					"func f() {\n    o_local f64 := 1.0\n    x := f\"{o}\"\n}",
+				)
+				Expect(labels(Completion(server, ctx, docURI, 2, 13).Items)).
+					To(ConsistOf(want))
+			})
+
+			It("should offer nothing in the text of a format string", func(
+				ctx SpecContext,
+			) {
+				OpenArcDocument(
+					server,
+					ctx,
+					docURI,
+					"func f() {\n    x := f\"ox-p {1} 'ox\"\n}",
+				)
+				Expect(Completion(server, ctx, docURI, 1, 15).Items).To(BeEmpty())
+				Expect(Completion(server, ctx, docURI, 1, 23).Items).To(BeEmpty())
+			})
+
+			It("should escape a quoted name for the literal that holds it", func(
+				ctx SpecContext,
+			) {
+				channels := []symbol.Symbol{{
+					Name: `a"b`,
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   3,
+				}}
+				cfg := lsp.Config{
+					NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
+				}
+				quoted, quotedURI, _ := SetupTestServerWithClient(cfg)
+				OpenArcDocument(
+					quoted,
+					ctx,
+					quotedURI,
+					"func f() {\n    x := f\"{''}\"\n}",
+				)
+				completions := Completion(quoted, ctx, quotedURI, 1, 13)
+				item := MustBeOk(FindCompletion(completions.Items, `a"b`))
+				Expect(item.TextEdit).To(Equal(&protocol.TextEdit{
+					Range: protocol.Range{
+						Start: protocol.Position{Line: 1, Character: 12},
+						End:   protocol.Position{Line: 1, Character: 14},
+					},
+					NewText: `'a\"b'`,
+				}))
+				server, written, client := SetupTestServerWithClient(cfg)
+				OpenArcDocument(
+					server,
+					ctx,
+					written,
+					"func f() {\n    x := f\"{"+ItemTextEdit(item).NewText+"}\"\n}",
+				)
+				Expect(client.Diagnostics()).To(BeEmpty())
+				Expect(HoverContents(Hover(server, ctx, written, 1, 14))).
+					To(ContainSubstring(`a"b`))
+			})
+		})
 	})
 
 	Describe("Loop Keyword Completion", func() {
