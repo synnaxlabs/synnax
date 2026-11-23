@@ -18,6 +18,7 @@ import {
 import {
   createTestClient,
   createTestClientWithPolicy,
+  holdRequests,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import {
@@ -1991,6 +1992,101 @@ describe("Kafka read form", () => {
       );
       await screen.findByRole("treeitem", { name: /^pressure/ });
       await screen.findByRole("treeitem", { name: /^mode/ });
+    });
+
+    /** @returns a record that a deploy bound to a float channel for /temperature. */
+    const createBoundRecord = async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const temperature = createField("temperature", "float");
+      const rec = await createRecord({
+        fields: [temperature],
+        bound: { [temperature.key]: ch.key },
+      });
+      const beforeRender = async (dev: device.Device) =>
+        await storeChannels(dev.key, rec, {
+          index: 0,
+          channels: { "/temperature": ch.key },
+        });
+      return { ch, rec, beforeRender };
+    };
+
+    /** Picks a message of another ICD whose temperature field is of kind. */
+    const switchTemperature = async (kind: payload.Kind) => {
+      const { ch, rec, beforeRender } = await createBoundRecord();
+      const next = createField("temperature", kind);
+      const message: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("status"),
+        payload: { format: "json", fields: [next] },
+      };
+      const shared = await client.icds.create({
+        name: uniqueName("pump"),
+        messages: [message],
+      });
+      const { draft } = await renderRead({ records: [rec], beforeRender });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      await pickMessageFormat("Any key", message.name, shared.name);
+      return { ch, next, draft };
+    };
+
+    it("should keep the channel of a pointer whose new field fits its data type", async () => {
+      const { ch, next, draft } = await switchTemperature("integer");
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: next.key, channel: ch.key, dataType: "" },
+        ]),
+      );
+    });
+
+    it("should give a new channel to a pointer whose new field does not fit its data type", async () => {
+      const { next, draft } = await switchTemperature("string");
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: next.key, channel: 0, dataType: "" },
+        ]),
+      );
+    });
+
+    it("should wait for the data types of the stored channels before it binds", async () => {
+      const { rec, beforeRender } = await createBoundRecord();
+      // A new client has no channels cached, so the form fetches the stored one.
+      const viewer = createTestClient();
+      await viewer.connect();
+      const { release } = holdRequests(viewer, "/channel/retrieve");
+      await renderRead({ records: [rec], beforeRender, as: viewer });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      const addField = await screen.findByRole("button", { name: "Add field" });
+      const format = await findDialogTriggerByText("Any key");
+      const read = await screen.findByRole<HTMLInputElement>("checkbox", {
+        name: "Read temperature",
+      });
+      expect(addField.getAttribute("aria-disabled")).toBe("true");
+      expect(format.getAttribute("aria-disabled")).toBe("true");
+      expect(read.disabled).toBe(true);
+      release();
+      await waitFor(() => {
+        expect(addField.getAttribute("aria-disabled")).toBeNull();
+        expect(format.getAttribute("aria-disabled")).toBeNull();
+        expect(read.disabled).toBe(false);
+      });
+    });
+
+    it("should wait for the data types before a message of a record adds a field", async () => {
+      const { rec, beforeRender } = await createBoundRecord();
+      await addMessage(rec, "status", [createField("mode", "string")], KIND_MATCH);
+      const viewer = createTestClient();
+      await viewer.connect();
+      const { release } = holdRequests(viewer, "/channel/retrieve");
+      await renderRead({ records: [rec], beforeRender, as: viewer });
+      fireEvent.click(await screen.findByRole("treeitem", { name: "status" }));
+      const addField = await screen.findByRole("button", { name: "Add field" });
+      expect(addField.getAttribute("aria-disabled")).toBe("true");
+      release();
+      await waitFor(() => expect(addField.getAttribute("aria-disabled")).toBeNull());
     });
   });
 
