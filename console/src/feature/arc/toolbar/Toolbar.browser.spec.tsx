@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc as clientArc, type resource } from "@synnaxlabs/client";
+import { arc as clientArc, panel, project, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -34,6 +34,7 @@ import {
   awaitTextEditingElement,
   commitTextEdit,
   createConsoleWrapper,
+  createTestClientWithGrants,
   getIconButton,
   renderSuspended,
   resolveFocusedTab,
@@ -60,12 +61,26 @@ const createModule = async () =>
 const createDirectory = async (parent: resource.ID) =>
   await client.arcs.directories.create({ parent: parent.key, name: uniqueName("dir") });
 
-const renderToolbar = async (): Promise<{ store: TestStore }> => {
+const ARC_TYPES = [clientArc.TYPE_RESOURCE_ID, clientArc.directory.TYPE_RESOURCE_ID];
+const TAB_TYPES = [project.TYPE_RESOURCE_ID, panel.TYPE_RESOURCE_ID];
+
+// The toolbar lists every Arc and directory that its user can read, and other specs
+// leave theirs in the Arcs directory. With shown, the user reads only those records, so
+// the tree shows the same rows on any Core. A search narrows the rows by itself.
+const renderToolbar = async (shown?: resource.ID[]): Promise<{ store: TestStore }> => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
   });
+  const subject =
+    shown == null
+      ? client
+      : await createTestClientWithGrants(client, {
+          retrieve: [await retrieveRootDirectoryID(client), ...shown, ...TAB_TYPES],
+          create: [...ARC_TYPES, ...TAB_TYPES],
+          update: [...ARC_TYPES, ...TAB_TYPES],
+        });
   const { wrapper: Console, store } = await createConsoleWrapper({
-    client,
+    client: subject,
     preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
   });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -94,7 +109,7 @@ const focusedResourceKey = async (store: TestStore): Promise<string> => {
 describe("arc/Toolbar", () => {
   it("shows an Arc in the Arcs directory as a tree row", async () => {
     const arc = await createArc();
-    await renderToolbar();
+    await renderToolbar([clientArc.resourceID(arc.key)]);
     expect(await findTreeRow(arc.name)).toBeTruthy();
   });
 
@@ -106,7 +121,10 @@ describe("arc/Toolbar", () => {
       clientArc.directory.resourceID(dir.key),
       clientArc.resourceID(arc.key),
     );
-    await renderToolbar();
+    await renderToolbar([
+      clientArc.directory.resourceID(dir.key),
+      clientArc.resourceID(arc.key),
+    ]);
     await findTreeRow(dir.name);
     expandTreeRow(dir.name);
     expect(await findTreeRow(arc.name)).toBeTruthy();
@@ -115,7 +133,7 @@ describe("arc/Toolbar", () => {
   it("draws a module with the module icon", async () => {
     const module = await createModule();
     const automation = await createArc();
-    await renderToolbar();
+    await renderToolbar(clientArc.resourceID([module.key, automation.key]));
     expect(await findTreeRowIcon(module.name, "module")).not.toBeNull();
     expect(await findTreeRowIcon(automation.name, "arc")).not.toBeNull();
   });
@@ -137,7 +155,7 @@ describe("arc/Toolbar", () => {
 
   it("opens the arc editor on double click", async () => {
     const arc = await createArc();
-    const { store } = await renderToolbar();
+    const { store } = await renderToolbar([clientArc.resourceID(arc.key)]);
     fireEvent.doubleClick(await findTreeRow(arc.name));
     expect(await focusedResourceKey(store)).toBe(arc.key);
   });
@@ -145,7 +163,7 @@ describe("arc/Toolbar", () => {
   describe("context menu", () => {
     it("opens the editor from Edit", async () => {
       const arc = await createArc();
-      const { store } = await renderToolbar();
+      const { store } = await renderToolbar([clientArc.resourceID(arc.key)]);
       await openTreeRowContextMenu(arc.name);
       fireEvent.click(await screen.findByText("Edit"));
       expect(await focusedResourceKey(store)).toBe(arc.key);
@@ -153,7 +171,7 @@ describe("arc/Toolbar", () => {
 
     it("renames the arc through the inline editor", async () => {
       const arc = await createArc();
-      await renderToolbar();
+      await renderToolbar([clientArc.resourceID(arc.key)]);
       await openTreeRowContextMenu(arc.name);
       fireEvent.click(await screen.findByText("Rename"));
       const renamed = uniqueName("renamed");
@@ -166,7 +184,7 @@ describe("arc/Toolbar", () => {
     it("moves an Arc into a new directory from its menu", async () => {
       const arc = await createArc();
       const arcsID = await retrieveRootDirectoryID(client);
-      await renderToolbar();
+      await renderToolbar([clientArc.resourceID(arc.key)]);
       await openTreeRowContextMenu(arc.name);
       const item = await screen.findByText("New directory");
       await act(async () => {
@@ -187,7 +205,7 @@ describe("arc/Toolbar", () => {
     it("creates a directory from the menu on empty space", async () => {
       const arc = await createArc();
       const arcsID = await retrieveRootDirectoryID(client);
-      await renderToolbar();
+      await renderToolbar([clientArc.resourceID(arc.key)]);
       await findTreeRow(arc.name);
       await openTreeRootContextMenu();
       const item = await screen.findByText("New directory");
@@ -206,7 +224,7 @@ describe("arc/Toolbar", () => {
 
     it("creates a directory inside a directory from its menu", async () => {
       const dir = await createDirectory(await retrieveRootDirectoryID(client));
-      await renderToolbar();
+      await renderToolbar([clientArc.directory.resourceID(dir.key)]);
       await openTreeRowContextMenu(dir.name);
       const item = await screen.findByText("New directory");
       await act(async () => {
@@ -224,7 +242,7 @@ describe("arc/Toolbar", () => {
 
     it("opens the create modal from Create Arc, listed above New directory", async () => {
       const arc = await createArc();
-      await renderToolbar();
+      await renderToolbar([clientArc.resourceID(arc.key)]);
       await findTreeRow(arc.name);
       await openTreeRootContextMenu();
       const createArcItem = await screen.findByText("Create Arc");
