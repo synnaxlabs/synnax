@@ -13,7 +13,6 @@ export * from "@/schematic/node/common/control";
 export * from "@/schematic/node/common/custom";
 export * from "@/schematic/node/common/form";
 export * from "@/schematic/node/common/grid";
-export { DRAG_HANDLE_CLASS } from "@/schematic/node/common/grid/Grid";
 export * from "@/schematic/node/common/handle";
 export * from "@/schematic/node/common/label";
 export * from "@/schematic/node/common/options";

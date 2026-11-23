@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -183,6 +184,16 @@ func (s *Service) NewRetrieve() Retrieve {
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
 	}
+}
+
+// Uses returns the ID of every schematic in snap with a symbol node that draws the
+// symbol with key. Each one refuses the delete of the symbol.
+func (s *Service) Uses(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key Key,
+) ([]resource.ID, error) {
+	return resource.Uses(ctx, snap, s.table, key)
 }
 
 // Close closes the symbol service, shutting down signal publishers.

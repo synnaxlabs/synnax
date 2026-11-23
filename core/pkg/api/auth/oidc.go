@@ -27,6 +27,8 @@ import (
 type OIDCLogin struct {
 	// Provider is the name of the provider.
 	Provider string `json:"provider" msgpack:"provider"`
+	// Issuer is the provider's issuer URL, which the links of its accounts hold.
+	Issuer string `json:"issuer" msgpack:"issuer"`
 	// AuthorizationEndpoint is the provider's login address.
 	AuthorizationEndpoint string `json:"authorization_endpoint" msgpack:"authorization_endpoint"`
 	// ClientID is the Core's client ID at the provider.
