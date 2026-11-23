@@ -19,13 +19,36 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Delete deletes the specified time range from the database. Note that the start of the
-// time range is inclusive whereas the end is note.
-func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
+// OpenDelete claims tr so that del deletes it, and returns an error if a writer holds
+// part of tr. No writer can take tr until the caller calls release.
+func (db *DB) OpenDelete(
+	tr telem.TimeRange,
+) (del func(context.Context) error, release func(), err error) {
 	if db.closed.Load() {
-		return ErrDBClosed
+		return nil, nil, ErrDBClosed
 	}
-	return db.wrapError(db.delete(ctx, tr))
+	if !tr.Valid() {
+		return nil, nil, db.wrapError(errors.Newf(
+			"delete start %d cannot be after delete end %d",
+			tr.Start,
+			tr.End,
+		))
+	}
+	if release, err = db.claimForNonWriteOp(tr); err != nil {
+		return nil, nil, db.wrapError(err)
+	}
+	return func(ctx context.Context) error {
+		if err := db.domain.Delete(
+			ctx,
+			tr,
+			db.calculateStartOffset,
+			db.calculateEndOffset,
+		); err != nil {
+			return db.wrapError(err)
+		}
+		db.resolver.invalidate()
+		return nil
+	}, release, nil
 }
 
 // GarbageCollect removes unused telemetry data in the unaryDB. It is NOT safe to call
@@ -71,31 +94,6 @@ func (db *DB) claimForNonWriteOp(tr telem.TimeRange) (release func(), err error)
 		return nil, err
 	}
 	return func() { c.Release() }, nil
-}
-
-func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
-	if !tr.Valid() {
-		return errors.Newf(
-			"delete start %d cannot be after delete end %d",
-			tr.Start,
-			tr.End,
-		)
-	}
-	release, err := db.claimForNonWriteOp(tr)
-	if err != nil {
-		return err
-	}
-	defer release()
-	if err := db.domain.Delete(
-		ctx,
-		tr,
-		db.calculateStartOffset,
-		db.calculateEndOffset,
-	); err != nil {
-		return err
-	}
-	db.resolver.invalidate()
-	return nil
 }
 
 // calculateStartOffset calculates the distance from a domain's start to the given time

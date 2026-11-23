@@ -87,6 +87,11 @@ const GENERATED_X_NAMESPACES = {
     "Generated code alone imports these namespaces. Use the hand-written names, such as bounds.Bounds or TimeSpan.",
 };
 
+const ZOD_SUBPATH = {
+  name: "zod/v4",
+  message: 'Import Zod from "zod".',
+};
+
 const RESTRICTED_SYNTAX = [
   {
     selector: "JSXAttribute > JSXExpressionContainer > Literal.expression[value=true]",
@@ -211,6 +216,7 @@ const config: Linter.Config[] = [
         "error",
         { fixStyle: "inline-type-imports" },
       ],
+      "@typescript-eslint/no-import-type-side-effects": "error",
       "simple-import-sort/imports": "error",
       "simple-import-sort/exports": "error",
       "@stylistic/jsx-curly-brace-presence": [
@@ -230,7 +236,10 @@ const config: Linter.Config[] = [
       "jsdoc/no-types": "error",
       "jsdoc/require-hyphen-before-param-description": ["error", "always"],
       "no-restricted-syntax": ["error", ...RESTRICTED_SYNTAX],
-      "no-restricted-imports": ["error", { paths: [GENERATED_X_NAMESPACES] }],
+      "no-restricted-imports": [
+        "error",
+        { paths: [GENERATED_X_NAMESPACES, ZOD_SUBPATH] },
+      ],
       "@eslint-react/no-missing-component-display-name": "error",
       "@eslint-react/no-missing-context-display-name": "error",
       "@eslint-react/jsx-no-useless-fragment": "error",
@@ -275,6 +284,15 @@ const config: Linter.Config[] = [
       "@eslint-react/naming-convention-context-name": "off",
       "@eslint-react/naming-convention-id-name": "off",
       "@eslint-react/naming-convention-ref-name": "off",
+      "@typescript-eslint/switch-exhaustiveness-check": [
+        "error",
+        { considerDefaultExhaustiveForUnions: true },
+      ],
+      // The React Compiler cannot compile ??=. An empty string falls back on purpose.
+      "@typescript-eslint/prefer-nullish-coalescing": [
+        "error",
+        { ignoreIfStatements: true, ignorePrimitives: { boolean: true, string: true } },
+      ],
       "@typescript-eslint/no-deprecated": "error",
       "@typescript-eslint/use-unknown-in-catch-callback-variable": "error",
       "@typescript-eslint/only-throw-error": [
@@ -323,12 +341,6 @@ const config: Linter.Config[] = [
         },
       ],
     },
-    settings: {
-      "import/resolver": {
-        typescript: {}, // this loads <rootdir>/tsconfig.json to eslint
-        node: { extensions: [".js", ".jsx", ".ts", ".tsx"] },
-      },
-    },
   },
   {
     // Oracle imports one generated module into another as a namespace. A generated file
@@ -358,7 +370,7 @@ const config: Linter.Config[] = [
       "no-restricted-imports": [
         "error",
         {
-          paths: [GENERATED_X_NAMESPACES],
+          paths: [GENERATED_X_NAMESPACES, ZOD_SUBPATH],
           patterns: [
             {
               group: ["*.css"],

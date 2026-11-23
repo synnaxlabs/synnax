@@ -13,13 +13,13 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Log as Base } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
-export const Controls = memo((): ReactElement => {
+export const Controls = (): ReactElement => {
   const key = Base.useKey();
   const hold = Session.Log.useSelectHold();
   const dispatch = Session.useDispatch();
@@ -46,5 +46,5 @@ export const Controls = memo((): ReactElement => {
       </Button.Toggle>
     </Vis.Controls>
   );
-});
+};
 Controls.displayName = "Controls";

@@ -9,7 +9,7 @@
 
 import { map } from "@synnaxlabs/x";
 
-import { type Path } from "@/schematic/edge/common/path";
+import type { Path } from "@/schematic/edge/common/path";
 
 const EMPTY: Path.Crossing[] = [];
 

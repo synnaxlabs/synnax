@@ -7,22 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type ReactElement } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Telem } from "@/schematic/node/common/telem";
 import { Button } from "@/schematic/node/general/button/Primitive";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
 
 export const Symbol = ({
   nodeKey,
   selected,
   onConfigChange,
-  config: { label, orientation = "left", commandChannel, control, mode, ...rest },
+  config: {
+    label,
+    orientation = "left",
+    commandChannel,
+    control,
+    mode,
+    fillColor,
+    ...rest
+  },
 }: NodeProps<schematic.ButtonNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const sink = Telem.booleanSink(commandChannel);
   const { onClick, onMouseDown, onMouseUp } = BaseButton.use({
     aetherKey: nodeKey,
@@ -49,8 +59,18 @@ export const Symbol = ({
         onMouseDown={onMouseDown}
         onMouseUp={onMouseUp}
         orientation={orientation}
+        fillColor={resolve(fillColor)}
         {...rest}
       />
     </Grid.Grid>
   );
+};
+
+/** Renders the button in the symbol list, with its colors resolved for the theme. */
+export const Preview = ({
+  fillColor,
+  ...rest
+}: schematic.ButtonNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return <Button {...rest} fillColor={resolve(fillColor)} />;
 };

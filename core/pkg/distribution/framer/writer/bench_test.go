@@ -180,51 +180,54 @@ func BenchmarkWriteStored(b *testing.B) {
 			if contended {
 				name += "/contended"
 			}
-			b.Run(name, func(b *testing.B) {
-				dist, keys := openStored(b, channels)
-				open := func(subject string, auth control.Authority) *writer.Writer {
-					return xtestutil.MustSucceed(dist.Framer.OpenWriter(
-						b.Context(),
-						writer.Config{
-							ControlSubject: control.Subject{Key: subject},
-							Keys:           keys,
-							Start:          10 * telem.SecondTS,
-							Authorities:    []control.Authority{auth},
-						},
-					))
-				}
-				w := open("holder", control.AuthorityAbsolute)
-				var (
-					lw    *writer.Writer
-					lower frame.Frame
-				)
-				if contended {
-					lw = open("contender", 1)
-					lower = storedFrame(keys, 10*telem.SecondTS)
-				}
-				b.ReportAllocs()
-				b.ResetTimer()
-				for i := range b.N {
-					if lw != nil {
-						if _, err := lw.Write(lower); err != nil {
-							b.Fatal(err)
-						}
-					}
-					fr := storedFrame(keys, telem.TimeStamp(i+10)*telem.SecondTS)
-					if authorized, err := w.Write(fr); err != nil || !authorized {
-						b.Fatalf("write failed: authorized=%v, err=%v", authorized, err)
-					}
-				}
-				b.StopTimer()
-				if lw != nil {
-					if err := lw.Close(); err != nil {
-						b.Fatal(err)
-					}
-				}
-				if err := w.Close(); err != nil {
-					b.Fatal(err)
-				}
-			})
+			b.Run(name, func(b *testing.B) { benchWriteStored(b, channels, contended) })
 		}
+	}
+}
+
+func benchWriteStored(b *testing.B, channels int, contended bool) {
+	b.Helper()
+	dist, keys := openStored(b, channels)
+	open := func(subject string, auth control.Authority) *writer.Writer {
+		return xtestutil.MustSucceed(dist.Framer.OpenWriter(
+			b.Context(),
+			writer.Config{
+				ControlSubject: control.Subject{Key: subject},
+				Keys:           keys,
+				Start:          10 * telem.SecondTS,
+				Authorities:    []control.Authority{auth},
+			},
+		))
+	}
+	w := open("holder", control.AuthorityAbsolute)
+	var (
+		lw    *writer.Writer
+		lower frame.Frame
+	)
+	if contended {
+		lw = open("contender", 1)
+		lower = storedFrame(keys, 10*telem.SecondTS)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := range b.N {
+		if lw != nil {
+			if _, err := lw.Write(lower); err != nil {
+				b.Fatal(err)
+			}
+		}
+		fr := storedFrame(keys, telem.TimeStamp(i+10)*telem.SecondTS)
+		if authorized, err := w.Write(fr); err != nil || !authorized {
+			b.Fatalf("write failed: authorized=%v, err=%v", authorized, err)
+		}
+	}
+	b.StopTimer()
+	if lw != nil {
+		if err := lw.Close(); err != nil {
+			b.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		b.Fatal(err)
 	}
 }

@@ -12,6 +12,7 @@
 import { filter, telem, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { secret } from "@/secret";
 
@@ -54,6 +55,11 @@ export const baseZ = z.object({
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the certificate. */
   name: z.string().min(1, "name is required"),
+  /**
+   * uses are the resources that use the certificate and that the caller can read,
+   * filled only when a retrieve request asks for them.
+   */
+  uses: zod.nullToUndefined(resource.idZ.array()),
 });
 export interface Base extends z.infer<typeof baseZ> {}
 
@@ -64,6 +70,8 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   name?: filter.String;
+  source?: filter.Set<typeof secret.sourceZ>;
+  racks?: rack.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -82,6 +90,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   key: filter.setZ(keyZ).optional(),
   /** name selects by name. */
   name: filter.stringZ.optional(),
+  /** source selects by source. */
+  source: filter.setZ(secret.sourceZ).optional(),
+  /** racks matches the file certificates on any of the given racks. */
+  racks: zod.nullToUndefined(rack.keyZ.array()),
 });
 
 /**
@@ -122,6 +134,8 @@ export const fileCertificateZ = baseZ.extend({
   privateKeyFile: z.string().optional(),
   /** details describes the leaf, as the file browser read it. */
   details: detailsZ.optional(),
+  /** rack is the rack that reads the files. */
+  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
 });
 export interface FileCertificate extends z.infer<typeof fileCertificateZ> {}
 
@@ -156,6 +170,8 @@ export const retrieveRequestZ = z.strictObject({
   after: cursorZ.optional(),
   /** limit is the most certificates to return. */
   limit: z.uint32().optional(),
+  /** includeUses includes the uses of each record. */
+  includeUses: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 

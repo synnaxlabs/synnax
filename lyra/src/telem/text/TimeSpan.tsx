@@ -12,9 +12,9 @@ import {
   TimeSpan as XTimeSpan,
   type TimeSpanStringFormat,
 } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Generic } from "@/generic";
+import type { Generic } from "@/generic";
 import { Text } from "@/text";
 
 export type TimeSpanProps<E extends Generic.ElementType = "p"> = Omit<
