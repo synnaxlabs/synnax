@@ -74,8 +74,8 @@ export const Symbol = ({
       onResize={handleResize}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {deleted && <Deleted.Item />}
       {stale && <Stale.Indicator />}
+      {deleted && <Deleted.Item />}
       <div style={outer} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
   );

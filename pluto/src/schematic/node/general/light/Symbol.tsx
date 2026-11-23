@@ -51,8 +51,8 @@ export const Symbol = ({
       onResize={({ width }) => onConfigChange({ scale: width / WIDTH_PER_SCALE })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {deleted && <Deleted.Item />}
       {stale && <Stale.Indicator />}
+      {deleted && <Deleted.Item />}
       <Light enabled={enabled} orientation={orientation} {...rest} />
     </Grid.Grid>
   );

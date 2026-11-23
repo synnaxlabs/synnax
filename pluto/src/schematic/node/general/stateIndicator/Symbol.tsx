@@ -56,8 +56,8 @@ export const Symbol = ({
       onResize={({ width }) => onConfigChange({ inlineSize: width })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {deleted && <Deleted.Item />}
       {stale && <Stale.Indicator />}
+      {deleted && <Deleted.Item />}
       <StateIndicator
         matchedOptionKey={optKey}
         options={options}

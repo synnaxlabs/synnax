@@ -76,8 +76,8 @@ export const Symbol = ({
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
       <Label.Label config={label} onChange={onConfigChange} />
-      {deleted && <Deleted.Item />}
       {stale && <Stale.Indicator />}
+      {deleted && <Deleted.Item />}
       <div style={dims} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
   );

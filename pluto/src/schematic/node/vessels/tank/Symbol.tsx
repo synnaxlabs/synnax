@@ -77,8 +77,8 @@ const Body = ({
       onResize={(dimensions) => onConfigChange({ dimensions })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {deleted && <Deleted.Item />}
       {staleIndicated && <Stale.Indicator />}
+      {deleted && <Deleted.Item />}
       <Tank
         strokeColor={resolve(strokeColor)}
         dimensions={dimensions}
