@@ -13,6 +13,7 @@ export * from "@/schematic/node/common/custom/Overrides";
 export {
   listValues,
   type Paint,
+  type StateValue,
   usePaints,
   useRegions,
   type Value,

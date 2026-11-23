@@ -15,6 +15,7 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Custom } from "@/schematic/node/common/custom";
+import { createSynnaxWrapper } from "@/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const fixed = (hex: string) => ({
@@ -56,6 +57,81 @@ describe("Custom.listValues", () => {
     expect(Custom.listValues(createSpec({ variant: "actuator" }), one)).toEqual([
       { key: "closed", value: 0, name: "Closed" },
       { key: "active", value: 1, name: "Active" },
+    ]);
+  });
+});
+
+describe("Custom.usePaints state values", () => {
+  const RED = color.construct("#ff0000");
+  const BLUE = color.construct("#0000ff");
+
+  const createValueSpec = () =>
+    createSpec({
+      states: [
+        { type: "enumeration", key: "a", name: "A", default: 1 },
+        { type: "enumeration", key: "b", name: "B" },
+        {
+          type: "number",
+          key: "level",
+          name: "Level",
+          bounds: { lower: 5, upper: 10 },
+        },
+      ],
+      looks: [
+        {
+          key: "a",
+          part: "body",
+          when: { type: "equals", state: "a", values: [1] },
+          fill: { type: "color", value: fixed("#ff0000") },
+        },
+        {
+          key: "b",
+          part: "body",
+          when: { type: "equals", state: "b", values: [1] },
+          fill: { type: "color", value: fixed("#0000ff") },
+        },
+        {
+          key: "level",
+          part: "body",
+          when: { type: "equals", state: "level", values: [5] },
+          hidden: true,
+        },
+      ],
+    });
+
+  const renderValues = async (value: Custom.StateValue): Promise<Custom.Paint[]> => {
+    const { result } = renderHook(() => Custom.usePaints(createValueSpec(), value), {
+      wrapper: createSynnaxWrapper({ client: null }),
+    });
+    await waitFor(() => expect(result.current).not.toHaveLength(0));
+    return result.current;
+  };
+
+  it("should read each state by its key", async () => {
+    const values = new Map([
+      ["a", 0],
+      ["b", 1],
+      ["level", 7],
+    ]);
+    expect(await renderValues(values)).toEqual([{ selectors: [".body"], fill: BLUE }]);
+  });
+
+  it("should read a state with no value at its default", async () => {
+    expect(await renderValues(new Map([["level", 7]]))).toEqual([
+      { selectors: [".body"], fill: RED },
+    ]);
+  });
+
+  it("should read a number state with no value at its lower bound", async () => {
+    expect(await renderValues(new Map([["a", 0]]))).toEqual([
+      { selectors: [".body"], hidden: true },
+    ]);
+  });
+
+  it("should read one number as the value of every state", async () => {
+    expect(await renderValues(1)).toEqual([
+      { selectors: [".body"], fill: RED },
+      { selectors: [".body"], fill: BLUE },
     ]);
   });
 });
