@@ -210,11 +210,19 @@ describe("User", () => {
       expect(p.subject).toEqual(user.resourceID(u.key));
     });
     test("should keep logging in after a user changes its own username", async () => {
+      const r = await createEmptyRole(client);
       const {
         user: u,
         username: old,
         password,
-      } = await createTestUser(client, { role: empty.key });
+      } = await createTestUser(client, { role: r.key });
+      // a self-rename needs update on the user, as any rename does
+      await client.access.policies.create({
+        name: "self rename",
+        role: r.key,
+        objects: [user.resourceID(u.key)],
+        actions: ["update"],
+      });
       const self = createTestClientAs(old, password);
       const username = id.create();
       await self.users.changeUsername(u.key, username);

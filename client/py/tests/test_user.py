@@ -92,16 +92,24 @@ class TestUserClient:
         client.close()
         admin.close()
 
-    def test_change_own_username(
-        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
-    ) -> None:
+    def test_change_own_username(self, login_info: tuple[str, int, str, str]) -> None:
         """Should let a user change its own username, keep its session, and log in
         again with the new username.
         """
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         old_username = str(uuid())
-        user = create_user(admin, old_username, "test", empty_role.key)
+        role = admin.access.roles.create(sy.Role(name="Self Rename"))
+        user = create_user(admin, old_username, "test", role.key)
+        # a self-rename needs update on the user, as any rename does
+        admin.access.policies.create(
+            sy.Policy(
+                name="Self Rename",
+                objects=[user.resource_id],
+                actions=["update"],
+                role=role.key,
+            )
+        )
         client = sy.Synnax(host=host, port=port, username=old_username, password="test")
         new_username = str(uuid())
         client.users.change_username(user.key, new_username)
