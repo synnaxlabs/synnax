@@ -30,16 +30,16 @@
 #include "driver/icd/writer.h"
 
 namespace driver::icd {
-namespace {
-namespace icd = synnax::icd;
-}
-
 std::pair<Writer, x::errors::Error> Writer::create(
-    const icd::WriteMessage &wm,
-    const icd::ICD &ic,
+    const synnax::icd::WriteMessage &wm,
+    const synnax::icd::ICD &ic,
     const std::map<synnax::channel::Key, synnax::channel::Channel> &channels
 ) {
-    const auto msg = std::ranges::find(ic.messages, wm.message, &icd::Message::key);
+    const auto msg = std::ranges::find(
+        ic.messages,
+        wm.message,
+        &synnax::icd::Message::key
+    );
     if (msg == ic.messages.end())
         return {
             Writer{},
@@ -58,24 +58,24 @@ std::pair<Writer, x::errors::Error> Writer::create(
             ),
         };
     };
-    const auto *text_payload = std::get_if<icd::TextPayload>(&msg->payload);
+    const auto *text_payload = std::get_if<synnax::icd::TextPayload>(&msg->payload);
     if (text_payload == nullptr) return refuse("the Driver writes only text messages");
-    if (std::ranges::none_of(wm.bindings, [](const icd::WriteBinding &b) {
-            return std::holds_alternative<icd::ChannelWriteBinding>(b);
+    if (std::ranges::none_of(wm.bindings, [](const synnax::icd::WriteBinding &b) {
+            return std::holds_alternative<synnax::icd::ChannelWriteBinding>(b);
         }))
         return refuse("binds no channels");
     auto payload = *text_payload;
-    std::map<icd::FieldKey, icd::TextField *> fields;
+    std::map<synnax::icd::FieldKey, synnax::icd::TextField *> fields;
     for (auto &f: payload.fields)
-        fields[icd::base(f).key] = &f;
-    std::map<icd::FieldKey, int> counts;
+        fields[synnax::icd::base(f).key] = &f;
+    std::map<synnax::icd::FieldKey, int> counts;
     for (const auto &b: wm.bindings)
-        counts[icd::base(b).field]++;
+        counts[synnax::icd::base(b).field]++;
     Writer w;
     w.name = msg->name;
     codec::TextMessage encoded{.name = msg->name};
     for (const auto &b: wm.bindings) {
-        if (const auto *cb = std::get_if<icd::ChannelWriteBinding>(&b)) {
+        if (const auto *cb = std::get_if<synnax::icd::ChannelWriteBinding>(&b)) {
             const auto ch = channels.find(cb->channel);
             if (ch == channels.end())
                 return refuse(
@@ -88,21 +88,24 @@ std::pair<Writer, x::errors::Error> Writer::create(
             );
             continue;
         }
-        const auto &vb = std::get<icd::ValueWriteBinding>(b);
+        const auto &vb = std::get<synnax::icd::ValueWriteBinding>(b);
         const auto found = fields.find(vb.field);
         if (found == fields.end())
             return refuse("field " + vb.field.to_string() + " does not exist");
         auto &f = *found->second;
-        const auto &field = icd::base(f).name;
+        const auto &field = synnax::icd::base(f).name;
         if (counts[vb.field] > 1)
             return refuse("field " + field + " has more than one binding");
-        const auto *value = std::get_if<icd::FloatWriteValue>(&vb.value);
+        const auto *value = std::get_if<synnax::icd::FloatWriteValue>(&vb.value);
         if (value == nullptr)
             return refuse(
                 "field " + field + " of kind float needs a value of its kind"
             );
         std::visit([&](auto &v) { v.default_ = value->value; }, f);
-        if (const auto err = codec::check_raw_limits(icd::base(f), value->value.value))
+        if (const auto err = codec::check_raw_limits(
+                synnax::icd::base(f),
+                value->value.value
+            ))
             return refuse("field " + field + ": " + err.data);
     }
     encoded.payload = std::move(payload);
