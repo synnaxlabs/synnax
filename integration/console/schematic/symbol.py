@@ -35,7 +35,6 @@ class Properties(TypedDict, total=False):
     notation: Notation
     precision: int
     averaging_window: int
-    stale_color: str
     stale_timeout: int
     control_authority: Authority
     show_control_legend: bool

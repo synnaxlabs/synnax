@@ -227,6 +227,14 @@ export const entryPaintZ = z.object({
 });
 export interface EntryPaint extends z.infer<typeof entryPaintZ> {}
 
+/** ContrastPaint is black or white, whichever reads on the entry color of a state. */
+export const contrastPaintZ = z.object({
+  type: z.literal("contrast"),
+  /** state is the key of the state whose current entry color the paint reads on. */
+  state: z.string(),
+});
+export interface ContrastPaint extends z.infer<typeof contrastPaintZ> {}
+
 /** NodePaint is the color that the node sets. */
 export const nodePaintZ = z.object({
   type: z.literal("node"),
@@ -241,22 +249,24 @@ export const colorPaintZ = z.object({
 });
 export interface ColorPaint extends z.infer<typeof colorPaintZ> {}
 
-export const PAINT_TYPES = ["entry", "node", "color"] as const;
+export const PAINT_TYPES = ["entry", "contrast", "node", "color"] as const;
 export const paintTypeZ = z.enum(PAINT_TYPES);
 export type PaintType = z.infer<typeof paintTypeZ>;
 
 /** Paint is the color of a fill or stroke. */
 export const paintZ = z.discriminatedUnion("type", [
   entryPaintZ,
+  contrastPaintZ,
   nodePaintZ,
   colorPaintZ,
 ]);
-export type Paint = EntryPaint | NodePaint | ColorPaint;
+export type Paint = EntryPaint | ContrastPaint | NodePaint | ColorPaint;
 
 export const PAINT_SCHEMAS: {
   [K in PaintType]: z.ZodType<Extract<Paint, { type: K }>>;
 } = {
   entry: entryPaintZ,
+  contrast: contrastPaintZ,
   node: nodePaintZ,
   color: colorPaintZ,
 };

@@ -153,6 +153,9 @@ type PaintType = v5.PaintType
 const (
 	// EntryPaintType is the color of the current entry of a state.
 	EntryPaintType PaintType = v5.EntryPaintType
+	// ContrastPaintType is black or white, whichever reads on the entry color of a
+	// state.
+	ContrastPaintType PaintType = v5.ContrastPaintType
 	// NodePaintType is the color that the node sets.
 	NodePaintType PaintType = v5.NodePaintType
 	// ColorPaintType is one color.
@@ -161,6 +164,9 @@ const (
 
 // EntryPaint is the color of the current entry of a state.
 type EntryPaint = v5.EntryPaint
+
+// ContrastPaint is black or white, whichever reads on the entry color of a state.
+type ContrastPaint = v5.ContrastPaint
 
 // NodePaint is the color that the node sets.
 type NodePaint = v5.NodePaint

@@ -675,10 +675,12 @@ WriteBaseBinding struct {
 WriteBinding union on type extends WriteBaseBinding {
     channel {
         channel   channel.Key = 0 {
-            @doc value """
+            @doc value     """
                 is the command channel whose values the field sends. 0 means that a
                 client creates the channel on configure.
             """
+            @ref kind      use
+            @ref on_delete restrict
         }
         data_type telem.DataType? {
             @doc value """

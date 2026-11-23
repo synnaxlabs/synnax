@@ -31,13 +31,6 @@ export const stateZ = z.object({
   stale: z.boolean().default(false),
 });
 
-/** drawnStateZ is the state of a component that draws its stale color on the worker. */
-export const drawnStateZ = stateZ.extend({
-  stalenessColor: color.colorZ.optional(),
-  // A stale indicator beside the component shows the staleness instead.
-  staleColorHidden: z.boolean().default(false),
-});
-
 export interface EntryProps {
   /** Returns the current staleness timeout, in nanoseconds. */
   timeout: () => number;
@@ -200,7 +193,7 @@ const use = (ctx: aether.Context): Provider => ctx.get<Provider>(CONTEXT_KEY);
  * values rather than props captured on this call.
  * @throws {NotFoundError} if no {@link Provider} is mounted above the caller.
  */
-const useRegistration = (
+export const useRegistration = (
   ctx: aether.Context,
   prev: Registration | undefined,
   props: EntryProps,
@@ -255,15 +248,5 @@ export const resolveColor = (
   c: color.Crude | undefined,
   theme: theme.Theme,
 ): color.Color => (c == null ? theme.colors.warning.m1 : color.construct(c));
-
-/**
- * @returns the color that the stale content of a drawn component paints in, or
- * undefined while the component paints in its own colors.
- */
-export const drawnColor = (
-  { stale, staleColorHidden, stalenessColor }: z.infer<typeof drawnStateZ>,
-  theme: theme.Theme,
-): color.Color | undefined =>
-  stale && !staleColorHidden ? resolveColor(stalenessColor, theme) : undefined;
 
 export const REGISTRY: aether.ComponentRegistry = { [Provider.TYPE]: Provider };

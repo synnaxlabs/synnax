@@ -13,13 +13,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { deep, primitive } from "@synnaxlabs/x";
 import type { FC } from "react";
 
-import {
-  useResultSlave,
-  useSlavesByKeys,
-  useSlavesOnRack,
-} from "@/feature/ethercat/device/queries";
-import { needsSetup } from "@/feature/ethercat/device/SetupNote";
-import { SLAVE_SCHEMAS } from "@/feature/ethercat/device/types";
+import { Device } from "@/feature/ethercat/device";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
   WriteChannelDetails,
@@ -51,7 +45,7 @@ import {
   writeChannelOf,
   type WriteSchemas,
 } from "@/feature/ethercat/task/types";
-import { Device } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
@@ -73,7 +67,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = path.config.channels[itemKey];
   const ch = PForm.useFieldValue(entry);
-  const { data: slave } = useResultSlave(
+  const { data: slave } = Device.useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const names =
@@ -92,7 +86,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       stateChannel={ch.stateChannel}
       stateDefaultName={names?.state}
       skipped={ch.disabled}
-      warned={!ch.disabled && slave != null && needsSetup(slave)}
+      warned={!ch.disabled && slave != null && Device.needsSetup(slave)}
       nameDirection="y"
       portMaxChars={20}
     />
@@ -120,8 +114,10 @@ const ContextMenuItems = (props: Task.ContextMenuItemProps<WriteChannel>) => (
 const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
-  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
-  const onRack = useSlavesOnRack(slaves?.[0]?.rack);
+  const slaves = Device.useSlavesByKeys(
+    Task.useChannelDeviceKeys(path.config.channels),
+  );
+  const onRack = Device.useSlavesOnRack(slaves?.[0]?.rack);
   PForm.useCheck(path.config, slavesZ("outputs", slaves ?? [], onRack ?? []));
   const resolve = (ch: WriteChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
@@ -247,7 +243,8 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       );
     }
 
-    if (modified) await Device.setProperties(client, slave, before, SLAVE_SCHEMAS);
+    if (modified)
+      await PlatformDevice.setProperties(client, slave, before, Device.SLAVE_SCHEMAS);
 
     channels.forEach((ch) => {
       ch.cmdChannel = writeChannelOf(slave, ch, "command");
