@@ -80,7 +80,7 @@ func (s *recordSender) Send(res StreamerResponse) error {
 			if record.Deleted {
 				keep = deleted
 			}
-			if sr, err = keepAllowed(sr, record.Of, keep); err != nil {
+			if sr, err = keepAllowed(sr, record, keep); err != nil {
 				return err
 			}
 			if sr.Size() == 0 {
@@ -156,11 +156,38 @@ func (s *recordSender) policies() ([]policy.Policy, error) {
 	return policies, err
 }
 
-// keepAllowed returns a copy of the series with only the samples whose record allowed
-// accepts. Streams share the series they receive, so it never changes them.
+// admits returns what a subject that allowed admits receives of sample, a sample of the
+// channel of record: by the check of record when it has one, and else by the record of
+// the sample. It returns false when the subject receives nothing.
+func admits(
+	record signals.Record,
+	allowed func(resource.ID) bool,
+	sample []byte,
+) ([]byte, bool, error) {
+	if record.Check != nil {
+		check, err := record.Check(sample)
+		if err != nil {
+			return nil, false, err
+		}
+		replacement, send := check(allowed)
+		if replacement != nil {
+			sample = replacement
+		}
+		return sample, send, nil
+	}
+	id, err := record.Of(sample)
+	if err != nil {
+		return nil, false, err
+	}
+	return sample, allowed(id), nil
+}
+
+// keepAllowed returns a copy of the series with only the samples that a subject that
+// allowed admits may receive. Streams share the series they receive, so it never
+// changes them.
 func keepAllowed(
 	series telem.Series,
-	recordOf signals.RecordOf,
+	record signals.Record,
 	allowed func(resource.ID) bool,
 ) (telem.Series, error) {
 	kept := telem.Series{
@@ -171,11 +198,11 @@ func keepAllowed(
 	}
 	variable := series.DataType.IsVariable()
 	for sample := range series.Samples() {
-		record, err := recordOf(sample)
+		sample, ok, err := admits(record, allowed, sample)
 		if err != nil {
 			return telem.Series{}, err
 		}
-		if !allowed(record) {
+		if !ok {
 			continue
 		}
 		if variable {

@@ -9,7 +9,7 @@
 
 import "@/feature/channel/tree.css";
 
-import { channel, query, status, type Synnax } from "@synnaxlabs/client";
+import { calculation, channel, query, status, type Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -120,12 +120,15 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     firstChannel == null ? null : { channel: firstChannel.key },
   ).data;
   const editable =
-    singleResource && output?.hidden === false && output.calculation != null;
+    singleResource &&
+    hasUpdatePermission &&
+    output != null &&
+    calculation.keyOf(output) != null;
   const renamable = firstChannel?.internal !== true;
 
   return (
     <ContextMenu.Menu>
-      {editable && hasUpdatePermission && (
+      {editable && (
         <Menu.Item itemKey="openCalculated" onClick={() => openCalculated(props)}>
           <Icon.Edit />
           Edit calculation

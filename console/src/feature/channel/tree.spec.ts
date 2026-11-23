@@ -408,6 +408,36 @@ describe("permission to write the channel", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
+  it("should withhold Edit calculation from a selection of two calculated channels", async () => {
+    const first = await createChannel({
+      isIndex: false,
+      virtual: true,
+      expression: "return 1",
+    });
+    const second = await createChannel({
+      isIndex: false,
+      virtual: true,
+      expression: "return 1",
+    });
+    const reader = createTestClient();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: reader,
+      resources: [
+        createResource(channelClient.resourceID(first.key), first.name),
+        createResource(channelClient.resourceID(second.key), second.name),
+      ],
+    });
+    expect(await screen.findByText("Group selection")).toBeTruthy();
+    await waitFor(() =>
+      expect(reader.calculations.outputs.get(first.key)).toMatchObject({
+        hidden: false,
+      }),
+    );
+    await act(async () => {});
+    expect(screen.queryByText("Edit calculation")).toBeNull();
+  });
+
   it("should withhold Edit calculation from a user who cannot read the calculation", async () => {
     const calc = await createChannel({
       isIndex: false,

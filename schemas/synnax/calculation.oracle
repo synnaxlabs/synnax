@@ -153,6 +153,24 @@ Hidden struct {
     @ts omit
 }
 
+HiddenOutput struct {
+    output channel.Key {
+        @doc value "is the channel that the calculation wrote or writes."
+    }
+    hidden bool        {
+        @doc value """
+            is true when a calculation that the subject cannot retrieve writes output,
+            and false once no calculation writes it.
+        """
+    }
+
+    @doc value """
+        is the sample of the set channel that a subject who cannot retrieve a
+        calculation, but can retrieve its output, receives in place of the calculation.
+    """
+    @py omit
+}
+
 Where filter Calculation {
     key
     output

@@ -30,6 +30,21 @@ export const windowZ = z.object({
 });
 export interface Window extends z.infer<typeof windowZ> {}
 
+/**
+ * HiddenOutput is the sample of the set channel that a subject who cannot retrieve a
+ * calculation, but can retrieve its output, receives in place of the calculation.
+ */
+export const hiddenOutputZ = z.object({
+  /** output is the channel that the calculation wrote or writes. */
+  output: channel.keyZ,
+  /**
+   * hidden is true when a calculation that the subject cannot retrieve writes output,
+   * and false once no calculation writes it.
+   */
+  hidden: z.boolean(),
+});
+export interface HiddenOutput extends z.infer<typeof hiddenOutputZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
