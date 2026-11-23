@@ -83,17 +83,15 @@ describe("traceResizeLoops", () => {
   });
 
   it("should name an element that a callback resized by under a pixel", async () => {
-    // Chromium writes a computed size to six digits, which still keeps this step.
-    const element = box(root, "shrinker", 12000.25);
+    // Each size is exact in six digits and in 1/64 of a pixel.
+    const element = box(root, "shrinker", 100.25);
     element.style.width = "10px";
     observe(element, () => {
       element.style.height = `${element.getBoundingClientRect().height - 0.125}px`;
     });
     await frames(3);
     expect(reports.length).toBeGreaterThan(0);
-    expect(reports[0]).toMatch(
-      /div\.shrinker changed from 10x12000\.(25|2) to 10x12000\.(125|1) /,
-    );
+    expect(reports[0]).toContain("div.shrinker changed from 10x100.25 to 10x100.125");
   });
 
   it("should name an element whose content size a callback changed", async () => {
