@@ -117,7 +117,7 @@ export class Latest {
   private timeSource: { index: channel.Key } | "self" | "stamps" | null = null;
   // indexStamps holds the index series that stamp the samples held, from the first
   // timeAt that needs them.
-  private indexStamps: cacheStamps.IndexStamps | null = null;
+  private indexStamps: cacheStamps.Index | null = null;
   // timed is true from the first timeAt, so reads fetch the index with the samples.
   private timed = false;
   private indexDemand: Demand | null = null;
@@ -383,8 +383,8 @@ export class Latest {
   }
 
   // Streams the index, keeping the index series written with this channel's samples.
-  private streamIndex(index: channel.Key): cacheStamps.IndexStamps {
-    const stamps = new cacheStamps.IndexStamps();
+  private streamIndex(index: channel.Key): cacheStamps.Index {
+    const stamps = new cacheStamps.Index();
     this.indexDemand = this.props.streamer.demand([index], (frame) => {
       const data = frame.get(this.key);
       const written = frame.get(index);

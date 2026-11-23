@@ -166,16 +166,16 @@ const index = (alignment: bigint, ...stamps: TimeStamp[]): Series =>
 
 const span = (lower: bigint, upper: bigint) => ({ lower, upper });
 
-describe("IndexStamps", () => {
+describe("Index", () => {
   it("should return the stamp of the index sample at an alignment", () => {
-    const s = new cacheStamps.IndexStamps();
+    const s = new cacheStamps.Index();
     s.add([index(10n, T0, T1)], [span(10n, 12n)]);
     expect(s.at(10n)).toEqual(T0);
     expect(s.at(11n)).toEqual(T1);
   });
 
   it("should be null outside the series it holds", () => {
-    const s = new cacheStamps.IndexStamps();
+    const s = new cacheStamps.Index();
     s.add([index(20n, T1), index(10n, T0)], [span(10n, 11n), span(20n, 21n)]);
     expect(s.at(10n)).toEqual(T0);
     expect(s.at(20n)).toEqual(T1);
@@ -185,27 +185,27 @@ describe("IndexStamps", () => {
   });
 
   it("should keep the index series that overlap unsorted data spans", () => {
-    const s = new cacheStamps.IndexStamps();
+    const s = new cacheStamps.Index();
     s.add([index(10n, T0), index(20n, T1)], [span(20n, 21n), span(10n, 11n)]);
     expect(s.at(10n)).toEqual(T0);
     expect(s.at(20n)).toEqual(T1);
   });
 
   it("should join the data spans that touch or overlap", () => {
-    const s = new cacheStamps.IndexStamps();
+    const s = new cacheStamps.Index();
     s.add([index(13n, T0)], [span(10n, 12n), span(11n, 14n), span(12n, 13n)]);
     expect(s.at(13n)).toEqual(T0);
   });
 
   it("should keep only the index series that overlap the data", () => {
-    const s = new cacheStamps.IndexStamps();
+    const s = new cacheStamps.Index();
     s.add([index(10n, T0), index(20n, T1)], [span(20n, 21n)]);
     expect(s.at(10n)).toBeNull();
     expect(s.at(20n)).toEqual(T1);
   });
 
   it("should replace the series held over the alignments of a new one", () => {
-    const s = new cacheStamps.IndexStamps();
+    const s = new cacheStamps.Index();
     s.add([index(10n, T0, T1)], [span(10n, 12n)]);
     s.add([index(10n, T2, T3, T4)], [span(10n, 13n)]);
     expect(s.at(10n)).toEqual(T2);
@@ -213,7 +213,7 @@ describe("IndexStamps", () => {
   });
 
   it("should drop the series that no data overlaps", () => {
-    const s = new cacheStamps.IndexStamps();
+    const s = new cacheStamps.Index();
     s.add([index(10n, T0), index(20n, T1)], [span(10n, 11n), span(20n, 21n)]);
     s.retain([span(20n, 21n)]);
     expect(s.at(10n)).toBeNull();

@@ -56,7 +56,7 @@ const ZERO_PLAN: InsertionPlan = {
  *
  * @returns null when value already lies entirely inside an existing bound.
  */
-export const buildInsertionPlan = <T extends numeric.Value>(
+export const buildPlan = <T extends numeric.Value>(
   ordered: Array<bounds.Crude<T>>,
   value: bounds.Crude<T>,
 ): InsertionPlan | null => {

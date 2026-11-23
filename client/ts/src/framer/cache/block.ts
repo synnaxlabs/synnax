@@ -379,7 +379,7 @@ export class RawBlock implements Block {
   }
 
   private insert(series: Series): void {
-    const plan = insertion.buildInsertionPlan(
+    const plan = insertion.buildPlan(
       this._fetched.map((s) => s.alignmentBounds),
       series.alignmentBounds,
     );
