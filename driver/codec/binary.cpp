@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstddef>
@@ -82,13 +83,21 @@ void (*put_for(const x::telem::DataType &dt))(x::telem::Series &, std::uint64_t)
 x::errors::Error config_error(const std::string &text) {
     return x::errors::Error(CONFIG_ERROR, text);
 }
+
+/// @brief returns the error for a payload of size bytes that is shorter than the end
+/// of a field.
+x::errors::Error too_short(const std::size_t size, const std::size_t end) {
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        "the payload has " + std::to_string(size) + " bytes and the field needs " +
+            std::to_string(end)
+    );
+}
 }
 
 std::pair<Binary::Field, x::errors::Error>
 Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
     const auto &b = icd::base(f);
-    if (b.multiplexor.has_value())
-        return {Field{}, config_error("multiplexed fields are not supported yet")};
     auto [bits, bits_err] = BitRange::create(b);
     if (bits_err) return {Field{}, bits_err};
     Field field{
@@ -237,11 +246,7 @@ x::errors::Error Binary::Field::decode(
             dst.write(*this->fallback);
             return x::errors::NIL;
         }
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            "the payload has " + std::to_string(payload.size()) +
-                " bytes and the field needs " + std::to_string(this->bits.end())
-        );
+        return too_short(payload.size(), this->bits.end());
     }
     const auto *p = payload.data();
     if (this->type == Type::SIGNED)
@@ -249,12 +254,84 @@ x::errors::Error Binary::Field::decode(
     return this->append(this->bits.read(p), dst);
 }
 
+std::pair<Binary::Condition, x::errors::Error> Binary::Message::resolve(
+    const icd::BinaryBaseField &f,
+    const Layout &fields,
+    std::map<icd::FieldKey, int> &index,
+    const std::size_t depth
+) {
+    if (!f.multiplexor.has_value()) return {Condition{}, x::errors::NIL};
+    if (f.multiplex_values.empty())
+        return {Condition{}, config_error("multiplex values are empty")};
+    Condition c{.values = {f.multiplex_values.begin(), f.multiplex_values.end()}};
+    const auto &key = *f.multiplexor;
+    if (const auto it = index.find(key); it != index.end()) {
+        c.mux = it->second;
+        return {std::move(c), x::errors::NIL};
+    }
+    const auto found = fields.find(key);
+    if (found == fields.end())
+        return {
+            Condition{},
+            config_error("multiplexor " + key.to_string() + " does not exist"),
+        };
+    const auto &mux = *found->second;
+    const auto &mb = icd::base(mux);
+    if (std::holds_alternative<icd::FloatBinaryField>(mux))
+        return {
+            Condition{},
+            config_error("multiplexor " + mb.name + " is a float field"),
+        };
+    // A multiplexor joins index only after the ones above it, so a cycle never ends in
+    // index. A chain longer than the fields is a cycle.
+    if (depth >= fields.size())
+        return {Condition{}, config_error("multiplexors form a cycle")};
+    auto [bits, bits_err] = BitRange::create(mb);
+    if (bits_err) return {Condition{}, as_config(bits_err, "multiplexor " + mb.name)};
+    auto [above, err] = this->resolve(mb, fields, index, depth + 1);
+    if (err) return {Condition{}, err};
+    c.mux = static_cast<int>(this->muxes.size());
+    index[key] = c.mux;
+    this->muxes.push_back({
+        .name = mb.name,
+        .bits = bits,
+        .is_signed = std::holds_alternative<icd::IntegerBinaryField>(mux),
+        .condition = std::move(above),
+    });
+    this->mux_end = std::max(this->mux_end, bits.end());
+    return {std::move(c), x::errors::NIL};
+}
+
+bool Binary::Message::selected(const Condition &c) const {
+    for (const Condition *at = &c; at->mux >= 0; at = &this->muxes[at->mux].condition)
+        if (std::ranges::find(at->values, this->raw[at->mux]) == at->values.end())
+            return false;
+    return true;
+}
+
 x::errors::Error Binary::Message::decode(const std::span<const std::uint8_t> payload) {
+    if (payload.size() < this->mux_end) {
+        const auto &m = *std::ranges::find_if(this->muxes, [&](const Mux &mux) {
+            return mux.bits.end() > payload.size();
+        });
+        return wrap(too_short(payload.size(), m.bits.end()), "field " + m.name);
+    }
+    for (std::size_t i = 0; i < this->muxes.size(); i++) {
+        const auto &m = this->muxes[i];
+        this->raw[i] = m.is_signed
+                         ? m.bits.read_signed(payload.data())
+                         : static_cast<std::int64_t>(m.bits.read(payload.data()));
+    }
     for (std::size_t i = 0; i < this->fields.size(); i++) {
+        const auto &f = this->fields[i];
         auto &dst = this->samples[i];
         dst.clear();
-        if (const auto err = this->fields[i].decode(payload, dst))
-            return wrap(err, "field " + this->fields[i].name);
+        if (!this->selected(f.condition)) {
+            if (f.fallback.has_value()) dst.write(*f.fallback);
+            continue;
+        }
+        if (const auto err = f.decode(payload, dst))
+            return wrap(err, "field " + f.name);
     }
     return x::errors::NIL;
 }
@@ -282,9 +359,10 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
             };
         bin.fallback = i;
         Message msg{.name = m.name};
-        std::map<icd::FieldKey, const icd::BinaryField *> by_key;
+        Layout by_key;
         for (const auto &f: m.payload.fields)
             by_key[icd::base(f).key] = &f;
+        std::map<icd::FieldKey, int> index;
         for (const auto &b: m.bindings) {
             const auto found = by_key.find(b.field);
             if (found == by_key.end())
@@ -299,6 +377,9 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
             const auto context = "message " + m.name + ": field " + base.name;
             auto [field, err] = Field::create(*found->second, b.data_type);
             if (err) return {Binary{}, as_config(err, context)};
+            auto [condition, mux_err] = msg.resolve(base, by_key, index, 0);
+            if (mux_err) return {Binary{}, as_config(mux_err, context)};
+            field.condition = std::move(condition);
             if (const auto length = m.payload.length;
                 length.has_value() && field.bits.end() > *length)
                 return {
@@ -311,6 +392,7 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
             msg.fields.push_back(std::move(field));
             msg.samples.emplace_back(b.data_type, 1);
         }
+        msg.raw.resize(msg.muxes.size());
         bin.messages.push_back(std::move(msg));
     }
     return {std::move(bin), x::errors::NIL};

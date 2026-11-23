@@ -2569,7 +2569,10 @@ var primitiveZodTypes = map[string]primitiveMapping{
 		schema:   "record.unknownZ().or(z.string().transform((s) => JSON.parse(s)))",
 		xImports: []xImport{{name: "record", submodule: "record"}},
 	},
-	"bytes": {schema: "z.instanceof(Uint8Array)"},
+	"bytes": {
+		schema:   "binary.bytesZ",
+		xImports: []xImport{{name: "binary", submodule: "binary"}},
+	},
 }
 
 const (
@@ -2600,7 +2603,7 @@ var primitiveZodSchemaTypes = map[string]string{
 	"time_range_bounded": "typeof TimeRange.boundedZ",
 	"data_type":          "typeof DataType.z",
 	"record":             "z.ZodType",
-	"bytes":              "z.ZodType<Uint8Array>",
+	"bytes":              "typeof binary.bytesZ",
 }
 
 func primitiveToZodSchemaType(primitive string) string {

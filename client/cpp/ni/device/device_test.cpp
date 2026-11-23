@@ -65,8 +65,7 @@ TEST(Client, UpdatesIdentityAndKeepsName) {
     identity.serial = "01A";
     identity.resource_name = dev.resource_name;
     identity.model = "9205";
-    ASSERT_NIL(client.ni.devices.update(dev.key, Update(identity)));
-    const auto got = ASSERT_NIL_P(client.ni.devices.retrieve(dev.key));
+    const auto got = ASSERT_NIL_P(client.ni.devices.update(dev.key, Update(identity)));
     ASSERT_EQ(got.serial, "01A");
     ASSERT_EQ(got.name, "NI 9205");
 }
@@ -109,8 +108,9 @@ TEST(Client, UpdatesConfigurationAndKeepsIdentity) {
     configuration.name = "Thermocouples";
     configuration.identifier = "tc";
     configuration.analog_input.channels[0] = 0;
-    ASSERT_NIL(client.ni.devices.update(dev.key, Update(configuration)));
-    const auto got = ASSERT_NIL_P(client.ni.devices.retrieve(dev.key));
+    const auto got = ASSERT_NIL_P(
+        client.ni.devices.update(dev.key, Update(configuration))
+    );
     ASSERT_EQ(got.name, "Thermocouples");
     ASSERT_EQ(got.identifier, "tc");
     ASSERT_EQ(got.resource_name, dev.resource_name);
