@@ -53,8 +53,8 @@ func (f *unlinkFS) Remove(name string) error {
 
 // BenchmarkCompact rewrites one sealed segment of int64 samples whose middle half a
 // delete took out, per iteration, on the OS file system with no rate limit. The time
-// of an iteration runs from the delete to the unlink of the old file, and its bytes are
-// the live bytes of the copy.
+// of an iteration runs from the return of the delete to the unlink of the old file, and
+// its bytes are the live bytes of the copy.
 func BenchmarkCompact(b *testing.B) {
 	for _, size := range []int{1 << 20, 64 << 20} {
 		b.Run(fmt.Sprintf("size=%dMiB", size>>20), func(b *testing.B) {
@@ -105,10 +105,10 @@ func benchmarkCompact(b *testing.B, size int) {
 		)
 		quarter := telem.TimeStamp(n/4) * telem.SecondTS
 		middle := (first + quarter).Range(first + 3*quarter)
-		b.StartTimer()
 		if err := db.DeleteTimeRange(b.Context(), keys[1:], middle); err != nil {
 			b.Fatal(err)
 		}
+		b.StartTimer()
 		<-fs.unlinked
 		b.StopTimer()
 		// The delete of the whole stretch unlinks both segments, which keeps the memory
