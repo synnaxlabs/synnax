@@ -103,7 +103,9 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
             return {nullptr, err};
         created = true;
     }
-    auto [reader, r_err] = Reader::open({.path = cfg.path, .magic = cfg.magic});
+    auto [reader, r_err] = Reader::open(
+        {.path = cfg.path, .magic = cfg.magic, .sync_bytes = cfg.sync_bytes}
+    );
     if (r_err) return {nullptr, r_err};
     if (reader->header.version < VERSION)
         return {
@@ -247,7 +249,6 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
             )
         };
     auto &pos = reader->cfg.pos;
-    reader->at_start = pos != 0;
     if (pos == 0) pos = HEADER_SIZE;
     if (pos < HEADER_SIZE || pos > reader->size)
         return {nullptr, x::errors::Error(CORRUPT, "position is outside " + path)};
@@ -291,16 +292,14 @@ Reader::read(const std::uint64_t pos, char *dst, const std::size_t size) {
 std::pair<std::optional<Record>, x::errors::Error> Reader::next_record() {
     const auto pos = this->cfg.pos;
     if (this->cut_bytes > 0 || pos == this->size) return {std::nullopt, x::errors::NIL};
-    const auto at_start = std::exchange(this->at_start, false);
-    if (this->size - pos < RECORD_PREFIX_SIZE)
-        return this->damaged(at_start, this->size);
+    if (this->size - pos < RECORD_PREFIX_SIZE) return this->damaged();
     std::array<char, RECORD_PREFIX_SIZE> prefix{};
     if (auto err = this->read(pos, prefix.data(), prefix.size()))
         return {std::nullopt, err};
     const auto len = get<std::uint32_t>(prefix.data());
     const auto end = pos + RECORD_PREFIX_SIZE + len;
-    if (len > MAX_PAYLOAD) return this->damaged(at_start, pos + RECORD_PREFIX_SIZE);
-    if (end > this->size) return this->damaged(at_start, this->size);
+    if (len > MAX_PAYLOAD) return this->damaged();
+    if (end > this->size) return this->damaged();
     Record record{.type = static_cast<std::uint8_t>(prefix[8])};
     x::errors::Error err;
     record.payload.resize_and_overwrite(len, [&](char *data, const std::size_t n) {
@@ -310,44 +309,30 @@ std::pair<std::optional<Record>, x::errors::Error> Reader::next_record() {
     if (err) return {std::nullopt, err};
     if (checksum(prefix.data(), record.type, record.payload) !=
         get<std::uint32_t>(prefix.data() + 4))
-        return this->damaged(at_start, end);
+        return this->damaged();
     if ((record.type & ~SKIPPABLE) == 0)
         return {std::nullopt, x::errors::Error(CORRUPT, "record type has no value")};
     this->cfg.pos = end;
     return {std::move(record), x::errors::NIL};
 }
 
-std::pair<std::optional<Record>, x::errors::Error>
-Reader::damaged(const bool at_start, const std::uint64_t record_end) {
+std::pair<std::optional<Record>, x::errors::Error> Reader::damaged() {
     const auto pos = this->cfg.pos;
-    const auto path = this->cfg.path.string();
-    if (at_start)
+    // A writer syncs once sync_bytes are unsynced, after the write of one record.
+    const auto unsynced = this->cfg.sync_bytes + std::min<std::uint64_t>(
+                                                     RECORD_PREFIX_SIZE + MAX_PAYLOAD,
+                                                     UINT64_MAX - this->cfg.sync_bytes
+                                                 );
+    if (this->size - pos > unsynced)
         return {
             std::nullopt,
             x::errors::Error(
                 CORRUPT,
-                "position " + std::to_string(pos) + " of " + path +
-                    " is not the start of a valid record"
+                "the record at " + std::to_string(pos) + " of " +
+                    this->cfg.path.string() + " is damaged before its last " +
+                    std::to_string(unsynced) + " bytes"
             )
         };
-    // A crash or a power loss damages only the last record, and can leave zeros
-    // after it.
-    std::array<char, 4096> chunk{};
-    for (auto at = record_end; at < this->size; at += chunk.size()) {
-        const auto n = std::min<std::uint64_t>(chunk.size(), this->size - at);
-        if (auto err = this->read(at, chunk.data(), n)) return {std::nullopt, err};
-        if (std::any_of(chunk.begin(), chunk.begin() + n, [](const char c) {
-                return c != 0;
-            }))
-            return {
-                std::nullopt,
-                x::errors::Error(
-                    CORRUPT,
-                    "the record at " + std::to_string(pos) + " of " + path +
-                        " is damaged and has data after it"
-                )
-            };
-    }
     this->cut_bytes = this->size - pos;
     return {std::nullopt, x::errors::NIL};
 }

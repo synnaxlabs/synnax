@@ -102,9 +102,10 @@ channels (`core/pkg/service/channel/writer.go:407-408`).
 The spool and the outbox (§3.4) share one file format, `journal` (NEW). A file starts
 with a magic for its kind, a format version, and flags. Each record has a length, a
 CRC-32C, a type, and a protobuf payload that the Driver owns, and a writer syncs to disk
-each second or each megabyte. After a crash, a last record that is cut off, or that
-fails its CRC with only zeros after it, ends the file, and the writer cuts it and
-reports how much it cut. Damage with data after it fails the open as corrupt.
+each second or each megabyte. After a crash, a record that is cut off or fails its CRC
+ends the file when it starts in the last megabyte plus one record, which a crash can
+leave unsynced, and the writer cuts the rest and reports how much it cut. Damage before
+that fails the open as corrupt.
 
 The spool's own drainer thread sends segments whenever the Core is reachable, so a
 segment survives its task stopping, a config change, a second outage, and a restart. For

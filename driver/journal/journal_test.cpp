@@ -210,23 +210,49 @@ TEST_F(JournalTest, RecoversZeroFilledTail) {
     EXPECT_EQ(std::filesystem::file_size(this->path), size);
 }
 
-/// @brief it should return CORRUPT for a damaged record with data after it, and
-/// leave the file unchanged.
-TEST_F(JournalTest, BadChecksumMidFileIsCorrupt) {
+/// @brief it should cut at a damaged record in the bytes a crash can leave unsynced,
+/// with the valid records after it, as out of order writeback leaves them.
+TEST_F(JournalTest, CutsAtHoleBeforeUnsyncedRecords) {
     this->write(
         {{.type = 1, .payload = "abc"},
          {.type = 1, .payload = "def"},
          {.type = 1, .payload = "ghi"}}
     );
+    const auto size = std::filesystem::file_size(this->path);
     const auto second = HEADER_SIZE + RECORD_PREFIX_SIZE + 3;
     auto data = read_file(this->path);
     data[second + RECORD_PREFIX_SIZE] = 'x';
     write_file(this->path, data);
-    const auto reader = this->open_reader();
-    ASSERT_NIL_P(reader->next());
+    auto reader = this->open_reader();
+    EXPECT_EQ(read_all(*reader).size(), 1);
+    EXPECT_EQ(reader->cut(), size - second);
+    reader.reset();
+    auto writer = ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));
+    EXPECT_EQ(writer->cut(), size - second);
+    EXPECT_EQ(writer->pos(), second);
+    ASSERT_NIL(writer->close());
+    EXPECT_EQ(std::filesystem::file_size(this->path), second);
+}
+
+/// @brief it should return CORRUPT for a damaged record before the bytes a crash can
+/// leave unsynced, and leave the file unchanged.
+TEST_F(JournalTest, DamageBeforeUnsyncedBytesIsCorrupt) {
+    const std::string mib(1024 * 1024, 'm');
+    this->write(std::vector<Record>(66, {.type = 1, .payload = mib}));
+    auto data = read_file(this->path);
+    data[HEADER_SIZE + RECORD_PREFIX_SIZE] = 'x';
+    write_file(this->path, data);
+    const auto reader = ASSERT_NIL_P(
+        Reader::open(
+            {.path = this->path, .magic = SEGMENT, .types = {1}, .sync_bytes = 1}
+        )
+    );
     ASSERT_OCCURRED_AS_P(reader->next(), CORRUPT);
-    ASSERT_OCCURRED_AS_P(Writer::open({.path = this->path, .magic = SEGMENT}), CORRUPT);
-    EXPECT_EQ(read_file(this->path), data);
+    ASSERT_OCCURRED_AS_P(
+        Writer::open({.path = this->path, .magic = SEGMENT, .sync_bytes = 1}),
+        CORRUPT
+    );
+    EXPECT_EQ(std::filesystem::file_size(this->path), data.size());
 }
 
 /// @brief it should cut a damaged last record that has only zeros after it.
@@ -241,11 +267,15 @@ TEST_F(JournalTest, RecoversBadChecksumAtEnd) {
     EXPECT_EQ(writer->cut(), data.size() + 50 - second);
 }
 
-/// @brief it should return CORRUPT for a position in the middle of a record.
-TEST_F(JournalTest, MidRecordPositionIsCorrupt) {
-    this->write({{.type = 1, .payload = std::string(100, 'a')}});
-    const auto reader = this->open_reader({1}, HEADER_SIZE + 50);
-    ASSERT_OCCURRED_AS_P(reader->next(), CORRUPT);
+/// @brief it should read a position at a record that a crash cut off as the end of
+/// the file.
+TEST_F(JournalTest, PositionAtCutOffRecordIsEnd) {
+    this->write({{.type = 1, .payload = "a"}});
+    const auto end = std::filesystem::file_size(this->path);
+    append_file(this->path, encode(1, "bcd").substr(0, RECORD_PREFIX_SIZE + 1));
+    const auto reader = this->open_reader({1}, end);
+    EXPECT_FALSE(ASSERT_NIL_P(reader->next()).has_value());
+    EXPECT_EQ(reader->cut(), RECORD_PREFIX_SIZE + 1);
 }
 
 /// @brief it should return an error when the file is shorter than at open.
