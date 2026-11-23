@@ -58,14 +58,23 @@ class Reader {
     std::vector<bool> present;
 
     /// @brief sets the channels, the index groups, and the index field of m from the
-    /// bindings of rm, and returns the codec binding of each.
+    /// bindings of rm, which reads msg, and returns the codec binding of each.
     static std::pair<std::vector<codec::Binding>, x::errors::Error> bind(
         const synnax::icd::ReadMessage &rm,
+        const synnax::icd::Message &msg,
         const std::map<synnax::channel::Key, synnax::channel::Channel> &channels,
         Message &m
     );
 
 public:
+    Reader() = default;
+    Reader(Reader &&) = default;
+    Reader &operator=(Reader &&) = default;
+    // The decoder holds vectors of move-only fields, which hide from type traits that
+    // it cannot be copied. Without these, MSVC grows a vector of readers by copying.
+    Reader(const Reader &) = delete;
+    Reader &operator=(const Reader &) = delete;
+
     /// @brief creates a Reader for messages that share one source of payloads.
     /// @param reads the messages to read and the channel of each field.
     /// @param ic the ICD that holds the messages of reads.
@@ -83,18 +92,24 @@ public:
         const std::map<synnax::channel::Key, synnax::channel::Channel> &channels
     );
 
+    /// @brief returns each channel that the reader writes, index channels last.
+    [[nodiscard]] std::vector<synnax::channel::Key> channels() const;
+
     /// @brief reads payload as the message it belongs to, and adds one sample for each
     /// channel of that message to fr. The index channel of the index field takes its
     /// value, and every other index channel takes received. An index channel and the
     /// channels it indexes take no sample when the multiplexors of payload select none
     /// of their fields.
+    /// @param cap the capacity of each series that read adds to fr. A series that fr
+    /// already holds for a channel takes the sample instead, and must have room for it.
     /// @returns the position in reads of the message, or nothing, adding nothing, when
     /// payload belongs to no message.
     /// @returns VALIDATION, adding nothing, when the decoder cannot decode payload.
     std::pair<std::optional<std::size_t>, x::errors::Error> read(
         std::span<const std::uint8_t> payload,
         x::telem::TimeStamp received,
-        x::telem::Frame &fr
+        x::telem::Frame &fr,
+        std::size_t cap = 1
     );
 };
 }

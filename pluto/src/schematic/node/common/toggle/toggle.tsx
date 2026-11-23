@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import { type FC, memo, type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
@@ -48,12 +47,8 @@ export const createToggle = <C extends ToggleConfig>(
       orientation = "left",
       onClickDelay = 0,
       stalenessTimeout,
-      stalenessColor,
-      strokeColor: symbolColor,
       ...rest
     } = config;
-    const theme = Theming.use();
-    const badged = Staleness.useBadged();
     const source = Telem.booleanSource(stateChannel);
     const sink = Telem.booleanSink(commandChannel);
     const { enabled, toggle, stale } = Base.use({
@@ -78,18 +73,13 @@ export const createToggle = <C extends ToggleConfig>(
           channel={commandChannel}
           onChange={onConfigChange}
         >
-          {stale && badged ? <Staleness.Badge /> : null}
+          {stale ? <Staleness.Badge /> : null}
         </Control.State>
         <Sym
           enabled={enabled}
           onClick={toggle}
           onClickDelay={onClickDelay}
           orientation={orientation}
-          strokeColor={
-            stale && !badged
-              ? Staleness.resolveColor(stalenessColor, theme)
-              : symbolColor
-          }
           {...rest}
         />
       </Grid.Grid>

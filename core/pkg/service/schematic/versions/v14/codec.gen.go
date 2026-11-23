@@ -1233,14 +1233,6 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		}
 		w.String(string(v.Notation))
 		w.Int64(int64(v.StalenessTimeout))
-		if v.StalenessColor != nil {
-			w.Bool(true)
-			if err := v.StalenessColor.EncodeOrc(w); err != nil {
-				return err
-			}
-		} else {
-			w.Bool(false)
-		}
 		w.Float64(float64(v.Bounds.Lower))
 		w.Float64(float64(v.Bounds.Upper))
 		if v.LevelColor != nil {
@@ -2879,19 +2871,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 			}
 			v.StalenessTimeout = telem.TimeSpan(rawV)
 		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv xcolor.Color
-				if err = hv.DecodeOrc(r); err != nil {
-					return err
-				}
-				v.StalenessColor = &hv
-			}
-		}
 		if v.Bounds.Lower, err = r.Float64(); err != nil {
 			return err
 		}
@@ -3193,14 +3172,6 @@ func (sic ScaleIndicatorConfig) EncodeOrc(w *orc.Writer) error {
 	}
 	w.String(string(sic.Notation))
 	w.Int64(int64(sic.StalenessTimeout))
-	if sic.StalenessColor != nil {
-		w.Bool(true)
-		if err := sic.StalenessColor.EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
 	w.Float64(float64(sic.Bounds.Lower))
 	w.Float64(float64(sic.Bounds.Upper))
 	if sic.LevelColor != nil {
@@ -3276,19 +3247,6 @@ func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		sic.StalenessTimeout = telem.TimeSpan(rawV)
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv xcolor.Color
-			if err = hv.DecodeOrc(r); err != nil {
-				return err
-			}
-			sic.StalenessColor = &hv
-		}
 	}
 	if sic.Bounds.Lower, err = r.Float64(); err != nil {
 		return err
@@ -3628,6 +3586,24 @@ func (s *Source) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (sc StalenessConfig) EncodeOrc(w *orc.Writer) error {
+	w.Int64(int64(sc.StalenessTimeout))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (sc *StalenessConfig) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		sc.StalenessTimeout = telem.TimeSpan(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (sb StateBinding) EncodeOrc(w *orc.Writer) error {
 	if sb.Units != nil {
 		w.Bool(true)
@@ -3801,6 +3777,161 @@ func (sb *StateBinding) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			sb.Default = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (tc ToggleConfig) EncodeOrc(w *orc.Writer) error {
+	if err := tc.Label.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(string(tc.Orientation))
+	w.Float64(float64(tc.Scale))
+	w.Int64(int64(tc.StalenessTimeout))
+	w.Uint32(uint32(tc.StateChannel))
+	w.Uint32(uint32(tc.CommandChannel))
+	if err := tc.Control.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Int64(int64(tc.OnClickDelay))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (tc *ToggleConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = tc.Label.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tc.Orientation = spatial.OuterLocation(rawV)
+	}
+	if tc.Scale, err = r.Float64(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		tc.StalenessTimeout = telem.TimeSpan(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		tc.StateChannel = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		tc.CommandChannel = channel.Key(rawV)
+	}
+	if err = tc.Control.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		tc.OnClickDelay = telem.TimeSpan(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (tsc ToggleSymbolConfig) EncodeOrc(w *orc.Writer) error {
+	if err := tsc.Label.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(string(tsc.Orientation))
+	w.Float64(float64(tsc.Scale))
+	w.Int64(int64(tsc.StalenessTimeout))
+	w.Uint32(uint32(tsc.StateChannel))
+	w.Uint32(uint32(tsc.CommandChannel))
+	if err := tsc.Control.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Int64(int64(tsc.OnClickDelay))
+	if tsc.StrokeColor != nil {
+		w.Bool(true)
+		if err := tsc.StrokeColor.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (tsc *ToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = tsc.Label.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tsc.Orientation = spatial.OuterLocation(rawV)
+	}
+	if tsc.Scale, err = r.Float64(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		tsc.StalenessTimeout = telem.TimeSpan(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		tsc.StateChannel = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		tsc.CommandChannel = channel.Key(rawV)
+	}
+	if err = tsc.Control.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		tsc.OnClickDelay = telem.TimeSpan(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv xcolor.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			tsc.StrokeColor = &hv
 		}
 	}
 	return nil

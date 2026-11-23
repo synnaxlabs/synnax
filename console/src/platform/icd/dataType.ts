@@ -61,8 +61,9 @@ export const defaultDataType = (field: icd.JSONField): string =>
 
 /**
  * @returns the data type of the channel that deploying creates for a binding of field.
+ * A binding with an empty or absent data type takes the default of field.
  */
 export const bindingDataType = (
-  { dataType }: { dataType: string },
+  { dataType = "" }: { dataType?: string },
   field: icd.JSONField,
 ): string => (dataType === "" ? defaultDataType(field) : dataType);
