@@ -571,11 +571,26 @@ TEST(Decoder, AppendsSamplesInOrder) {
     ASSERT_EQ(dst.strings(), (std::vector<std::string>{"a", "bc"}));
 }
 
-/// @brief it should reject a number for a string.
-TEST(Decoder, RejectsNumberForString) {
-    const auto err = decode_error({.data_type = telem::STRING_T}, "1");
-    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "expected a string, got a number");
+/// @brief it should write a number as its JSON text to a string, which takes no enum
+/// label.
+TEST(Decoder, ConvertsNumberToStringAsJSONText) {
+    const auto s = decode(
+        {.data_type = telem::STRING_T, .enums = {{"1.50", "ON"}}},
+        "1.50"
+    );
+    ASSERT_EQ(s.strings(), std::vector<std::string>{"1.50"});
+}
+
+/// @brief it should write a boolean as its JSON text to a string.
+TEST(Decoder, ConvertsBooleanToStringAsJSONText) {
+    const auto s = decode({.data_type = telem::STRING_T}, "true");
+    ASSERT_EQ(s.strings(), std::vector<std::string>{"true"});
+}
+
+/// @brief it should write an object as its compacted JSON text to a string.
+TEST(Decoder, ConvertsObjectToStringAsCompactedJSONText) {
+    const auto s = decode({.data_type = telem::STRING_T}, R"({ "a" : [ 1 , 2 ] })");
+    ASSERT_EQ(s.strings(), std::vector<std::string>{R"({"a":[1,2]})"});
 }
 
 /// @brief it should reject a string that is no enum label for a number.

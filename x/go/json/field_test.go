@@ -182,6 +182,17 @@ var _ = Describe("Field", func() {
 				`"OFF"`, text("OFF")),
 			Entry("a string", xjson.Field{DataType: telem.StringT}, `"a\nb"`,
 				text("a\nb")),
+			Entry("a number as its JSON text into a string",
+				xjson.Field{
+					DataType: telem.StringT,
+					Enums:    []xjson.Enum{xjson.NewEnum("1.50", "ON")},
+				},
+				`1.50`, text("1.50")),
+			Entry("a boolean as its JSON text into a string",
+				xjson.Field{DataType: telem.StringT}, `true`, text("true")),
+			Entry("an object as its compacted JSON text into a string",
+				xjson.Field{DataType: telem.StringT}, `{ "a" : [ 1 , 2 ] }`,
+				text(`{"a":[1,2]}`)),
 			Entry("JSON as the document spells it", xjson.Field{DataType: telem.JSONT},
 				`{ "z" : 1.0, "a" : [ 1 , 2 ] }`, text(`{"z":1.0,"a":[1,2]}`)),
 			Entry("a scalar as JSON", xjson.Field{DataType: telem.JSONT}, `1e999`,
@@ -254,8 +265,6 @@ var _ = Describe("Field", func() {
 				))
 				Expect(out).To(BeNil())
 			},
-			Entry("a number into a string", xjson.Field{DataType: telem.StringT}, `1`,
-				"expected a string, got a number"),
 			Entry("a string into a number", xjson.Field{DataType: telem.Float64T},
 				`"1"`, `unknown enum label "1"`),
 			Entry("null into a number", xjson.Field{DataType: telem.Float64T}, `null`,
