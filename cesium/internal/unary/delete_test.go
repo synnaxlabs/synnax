@@ -1489,7 +1489,9 @@ var _ = Describe("Delete", func() {
 								End:   18 * telem.SecondTS,
 							},
 						))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
+						MustSucceed2(
+							w.WriteUnless(telem.NewSeriesSecondsTSV(10, 11, 12), nil),
+						)
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
 
@@ -1573,12 +1575,18 @@ var _ = Describe("Delete", func() {
 								Start: 10 * telem.SecondTS,
 							}),
 						)
-						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
@@ -1658,12 +1666,18 @@ var _ = Describe("Delete", func() {
 								},
 							),
 						)
-						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(10, 12, 14, 16, 18, 20)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesSecondsTSV(10, 12, 14, 16, 18, 20),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(22, 24, 26, 28, 30)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesSecondsTSV(22, 24, 26, 28, 30),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
@@ -1675,12 +1689,18 @@ var _ = Describe("Delete", func() {
 								},
 							),
 						)
-						MustSucceed(
-							w.Write(telem.NewSeriesV[int64](10, 12, 14, 16, 18)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesV[int64](10, 12, 14, 16, 18),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(
-							w.Write(telem.NewSeriesV[int64](20, 22, 24, 26, 28, 30)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesV[int64](20, 22, 24, 26, 28, 30),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
@@ -1747,12 +1767,18 @@ var _ = Describe("Delete", func() {
 								},
 							),
 						)
-						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(10, 12, 14, 16, 18, 20)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesSecondsTSV(10, 12, 14, 16, 18, 20),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(22, 24, 26, 28, 30)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesSecondsTSV(22, 24, 26, 28, 30),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
@@ -1764,12 +1790,18 @@ var _ = Describe("Delete", func() {
 								},
 							),
 						)
-						MustSucceed(
-							w.Write(telem.NewSeriesV[int64](10, 12, 14, 16, 18, 20)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesV[int64](10, 12, 14, 16, 18, 20),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(
-							w.Write(telem.NewSeriesV[int64](22, 24, 26, 28, 30)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesV[int64](22, 24, 26, 28, 30),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
@@ -1833,12 +1865,18 @@ var _ = Describe("Delete", func() {
 								},
 							),
 						)
-						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(10, 12, 14, 16, 18, 20)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesSecondsTSV(10, 12, 14, 16, 18, 20),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(22, 24, 26, 28, 30)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesSecondsTSV(22, 24, 26, 28, 30),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
@@ -1850,12 +1888,18 @@ var _ = Describe("Delete", func() {
 								},
 							),
 						)
-						MustSucceed(
-							w.Write(telem.NewSeriesV[int64](10, 12, 14, 16, 18, 20)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesV[int64](10, 12, 14, 16, 18, 20),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(
-							w.Write(telem.NewSeriesV[int64](22, 24, 26, 28, 30)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesV[int64](22, 24, 26, 28, 30),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
