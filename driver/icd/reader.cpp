@@ -408,7 +408,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         if (const auto group = m.groups[k]; group.has_value() && !this->present[*group])
             continue;
         const auto &dt = samples[k].data_type();
-        if (this->filled[k])
+        if (fill.has_value() && this->filled[k])
             series(fr, m.channels[k], dt, cap).write(dt.cast(*fill));
         else if (!samples[k].empty())
             series(fr, m.channels[k], dt, cap).write(samples[k]);
