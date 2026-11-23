@@ -50,6 +50,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     std::vector<::synnax::http::ReadEndpoint> active;
     active.reserve(cfg.endpoints.size());
     for (auto &ep: cfg.endpoints) {
+        if (ep.disabled) continue;
         validate_request(ep, parser);
         size_t enabled_field_count = 0;
         for (const auto &field: ep.fields) {
