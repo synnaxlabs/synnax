@@ -220,6 +220,34 @@ describe("symbol editor spec", () => {
       ]);
     });
 
+    it("should take an old motion off an earlier owned look", () => {
+      const spin = {
+        key: "a",
+        part: "body",
+        when: equals(0),
+        motion: { type: "spin" as const, rate: 1 },
+      };
+      const stroke = { key: "b", part: "body", stroke: fixed(BLUE) };
+      const first = Spec.setOwn(
+        createSpec({ looks: [spin, stroke] }),
+        "body",
+        "stroke",
+        fixed(RED),
+        0,
+      );
+      const flow = { type: "flow" as const, rate: 1 };
+      expect(Spec.setOwn(first, "body", "motion", flow, 0).looks).toEqual([
+        stroke,
+        {
+          key: expect.any(String),
+          part: "body",
+          when: equals(0),
+          stroke: fixed(RED),
+          motion: flow,
+        },
+      ]);
+    });
+
     it("should set the field on the look of the part for every value", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", fill: fixed(BLUE) },
