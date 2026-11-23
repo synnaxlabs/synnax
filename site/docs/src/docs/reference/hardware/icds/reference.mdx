@@ -88,15 +88,15 @@ These properties are the same for each message format.
 </Field.Item>
 
 <Field.Item label="Min" field="min" type="number">
-  The smallest value that a write task accepts. Empty leaves the limit to the bits or
-  the type of the field. Only a number field can have a min. The Console does not show
-  it.
+  The smallest value, after the scale and offset, that a write task accepts. Empty
+  leaves the limit to the bits or the type of the field. Only a number field can have a
+  min. The Console does not show it.
 </Field.Item>
 
 <Field.Item label="Max" field="max" type="number">
-  The largest value that a write task accepts. It cannot be less than the min. Empty
-  leaves the limit to the bits or the type of the field. Only a number field can have a
-  max. The Console does not show it.
+  The largest value, after the scale and offset, that a write task accepts. It cannot be
+  less than the min. Empty leaves the limit to the bits or the type of the field. Only a
+  number field can have a max. The Console does not show it.
 </Field.Item>
 
 </Field.List>

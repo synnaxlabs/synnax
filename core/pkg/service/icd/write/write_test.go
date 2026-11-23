@@ -33,6 +33,14 @@ func jsonField(name string, v icd.JSONFieldVariant) icd.JSONField {
 	return f
 }
 
+// withMax returns f with limit as its max.
+func withMax(f icd.JSONField, limit float64) icd.JSONField {
+	b := f.Base()
+	b.Max = &limit
+	f.SetBase(b)
+	return f
+}
+
 func jsonMessage(name string, fields ...icd.JSONField) icd.Message {
 	return icd.Message{
 		Key:     uuid.New(),
@@ -188,6 +196,11 @@ var _ = Describe("Write", func() {
 				jsonField("v", icd.FloatJSONField{}),
 				icd.FloatWriteValue{Value: payload.Float(math.Inf(1))},
 				"bindings.1.value: field v: Infinity is not a JSON number",
+			),
+			Entry("a float above the max",
+				withMax(jsonField("v", icd.FloatJSONField{}), 100),
+				icd.FloatWriteValue{Value: 120},
+				"bindings.1.value: field v: 120 is above the max 100",
 			),
 		)
 

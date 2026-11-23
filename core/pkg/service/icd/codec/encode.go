@@ -82,6 +82,36 @@ type encodeField struct {
 	// a range check, or a change to a boolean.
 	converted     bool
 	scale, offset float64
+	bounds        bounds
+}
+
+// bounds holds the min and max of the decoded value of a number field. A nil end sets
+// no limit.
+type bounds struct{ min, max *float64 }
+
+// check returns a validation error when decoded, the decoded value of raw, is outside
+// b.
+func (b bounds) check(raw, decoded float64) error {
+	var (
+		side  string
+		limit float64
+	)
+	switch {
+	case b.min != nil && decoded < *b.min:
+		side, limit = "below the min", *b.min
+	case b.max != nil && decoded > *b.max:
+		side, limit = "above the max", *b.max
+	default:
+		return nil
+	}
+	if raw == decoded {
+		return errors.Wrapf(validate.ErrValidation, "%v is %s %v", decoded, side, limit)
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"%v decodes to %v, which is %s %v",
+		raw, decoded, side, limit,
+	)
 }
 
 // NewJSONEncoder returns an encoder of the documents of m. A document holds the value
@@ -92,7 +122,7 @@ type encodeField struct {
 // field, and a boolean field takes only 0 and 1 from one. NewJSONEncoder returns an
 // error wrapping validate.ErrValidation when:
 //   - a field has no binding and no default
-//   - a field's default is not valid, bound or not
+//   - a field's default is not valid or is outside its min and max, bound or not
 //   - a binding names no field of m, or a field has two bindings
 //   - a binding's data type does not write to its field's kind
 //   - a scaled field's channel is not a float
@@ -267,6 +297,7 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 		scaled: b.Scale != 1 || b.Offset != 0,
 		scale:  b.Scale,
 		offset: b.Offset,
+		bounds: bounds{min: b.Min, max: b.Max},
 	}
 	kind, sample, err := sampleField(jf, dt)
 	if err != nil {
@@ -284,7 +315,8 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 			dt,
 		)
 	}
-	f.kind, f.converted = kind, converted(kind, dt, f.scaled)
+	bounded := b.Min != nil || b.Max != nil
+	f.kind, f.converted = kind, converted(kind, dt, f.scaled, bounded)
 	if kind == payload.KindBoolean && f.converted {
 		sample.Type = xjson.Number
 	}
@@ -334,15 +366,16 @@ func sampleField(
 	return "", xjson.Field{}, errors.Wrap(validate.ErrValidation, "type is required")
 }
 
-// converted reports whether a field of kind k changes the number that an encoder writes
-// for a sample of dt.
-func converted(k payload.Kind, dt telem.DataType, scaled bool) bool {
+// converted reports whether a field of kind k changes or checks the number that an
+// encoder writes for a sample of dt. A bounded number field checks it against its min
+// and max.
+func converted(k payload.Kind, dt telem.DataType, scaled, bounded bool) bool {
 	dk, _ := payload.KindOf(dt)
 	switch k {
 	case payload.KindFloat:
-		return scaled
+		return scaled || bounded
 	case payload.KindInteger, payload.KindUnsigned:
-		return scaled || dk != k
+		return scaled || bounded || dk != k
 	case payload.KindBoolean:
 		return dk != payload.KindBoolean
 	case payload.KindString, payload.KindTimestamp, payload.KindJSON,
@@ -397,8 +430,8 @@ func matchLiteral(m icd.JSONMatch) (xjson.TemplateField, error) {
 }
 
 // CheckDefault returns a validation error when f cannot send its default, such as JSON
-// text that is not valid. The error does not name the default, so the caller adds the
-// path of the value.
+// text that is not valid or a number that decodes outside the min and max of f. The
+// error does not name the default, so the caller adds the path of the value.
 func CheckDefault(f icd.JSONField) error {
 	_, err := defaultOf(f)
 	return err
@@ -408,20 +441,26 @@ func CheckDefault(f icd.JSONField) error {
 // errors do not name the default.
 func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 	var (
-		d   fieldDefault
-		err error
+		d fieldDefault
+		// raw is the default of a number field, before its scale and offset.
+		raw    float64
+		number bool
+		err    error
 	)
 	switch v := jf.Variant.(type) {
 	case icd.FloatJSONField:
 		if v.Default != nil {
-			d.literal, err = xjson.AppendFloat(nil, float64(*v.Default))
+			raw, number = float64(*v.Default), true
+			d.literal, err = xjson.AppendFloat(nil, raw)
 		}
 	case icd.IntegerJSONField:
 		if v.Default != nil {
+			raw, number = float64(*v.Default), true
 			d.literal = strconv.AppendInt(nil, int64(*v.Default), 10)
 		}
 	case icd.UnsignedJSONField:
 		if v.Default != nil {
+			raw, number = float64(*v.Default), true
 			d.literal = strconv.AppendUint(nil, uint64(*v.Default), 10)
 		}
 	case icd.StringJSONField:
@@ -450,6 +489,10 @@ func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 		}
 	case nil:
 		err = errUntyped
+	}
+	if err == nil && number {
+		b := jf.Base()
+		err = bounds{min: b.Min, max: b.Max}.check(raw, raw*b.Scale+b.Offset)
 	}
 	if err != nil {
 		return fieldDefault{}, err
@@ -515,8 +558,9 @@ func quote(s string) ([]byte, error) {
 // Encode appends the document of samples to dst. samples holds one sample for each
 // binding, in binding order. A variable-density sample is its data alone, without a
 // length, and a nil sample writes the default of its field. Encode returns an error
-// wrapping validate.ErrValidation when a field cannot hold its sample, and an error
-// when a nil sample's field has no default.
+// wrapping validate.ErrValidation when a field cannot hold its sample or the sample is
+// outside the field's min and max, and an error when a nil sample's field has no
+// default.
 func (e *JSONEncoder) Encode(dst []byte, samples [][]byte) ([]byte, error) {
 	e.slots.samples = samples
 	out, err := e.template.Append(dst, &e.slots)
@@ -574,7 +618,8 @@ func (f *encodeField) encode(dst, sample []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// An enum label writes a channel value, which takes no conversion.
+	// An enum label writes a value that the ICD names, which takes no conversion or
+	// check.
 	if !f.converted || dst[start] == '"' {
 		return dst, nil
 	}
@@ -582,10 +627,14 @@ func (f *encodeField) encode(dst, sample []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	v := n.Float64()
+	if err = f.bounds.check(v, v); err != nil {
+		return nil, err
+	}
 	dst = dst[:start]
 	switch f.kind {
 	case payload.KindFloat:
-		return xjson.AppendFloat(dst, (n.Float64()-f.offset)/f.scale)
+		return xjson.AppendFloat(dst, (v-f.offset)/f.scale)
 	case payload.KindInteger, payload.KindUnsigned:
 		return f.appendInteger(dst, n)
 	case payload.KindBoolean:

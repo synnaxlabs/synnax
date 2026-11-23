@@ -34,7 +34,7 @@ the message sends a command from a command channel, a fixed value, or its
 - **First commands** -> the target sends nothing until each field with a channel and no
   default has a command.
 - **Dropped commands** -> the task drops a command that its field cannot hold, such as
-  NaN in a JSON number, and shows a warning.
+  NaN in a JSON number or a value above the max of its field, and shows a warning.
 
 For a message where `/position` has a command channel, `/source` has the fixed value
 `synnax`, and `/id` has a random UUID default, a command of 42 publishes:

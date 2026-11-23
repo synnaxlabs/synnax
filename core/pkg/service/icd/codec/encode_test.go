@@ -441,6 +441,82 @@ var _ = Describe("JSONEncoder", func() {
 			To(MatchJSON(`{"temp":40}`))
 	})
 
+	DescribeTable("Should refuse a command outside the min and max of its field",
+		func(field icd.JSONField, dt telem.DataType, sample []byte, expected string) {
+			enc := MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{field},
+				codec.Binding{Field: field.Base().Key, DataType: dt},
+			)))
+			Expect(enc.Check(0, sample)).To(MatchError(expected))
+			Expect(enc.Encode(nil, [][]byte{sample})).Error().To(MatchError(expected))
+		},
+		Entry("a float below the min",
+			icd.JSONField{Variant: icd.FloatJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Min: new(0.0),
+			}},
+			telem.Float64T, float64Sample(-1),
+			"message command: field v: -1 is below the min 0: validation error",
+		),
+		Entry("a float above the max",
+			icd.JSONField{Variant: icd.FloatJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Max: new(100.0),
+			}},
+			telem.Float64T, float64Sample(120),
+			"message command: field v: 120 is above the max 100: validation error",
+		),
+		Entry("a scaled float whose raw value is inside the max",
+			icd.JSONField{Variant: icd.FloatJSONField{
+				Key: uuid.New(), Name: "v", Scale: 10, Pointer: "/v", Max: new(100.0),
+			}},
+			telem.Float64T, float64Sample(120),
+			"message command: field v: 120 is above the max 100: validation error",
+		),
+		Entry("an integer above the max",
+			icd.JSONField{Variant: icd.IntegerJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Max: new(10.0),
+			}},
+			telem.Int64T, int64Sample(11),
+			"message command: field v: 11 is above the max 10: validation error",
+		),
+	)
+
+	DescribeTable("Should write a command at the min or max of its field",
+		func(field icd.JSONField, dt telem.DataType, sample []byte, expected string) {
+			enc := MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{field},
+				codec.Binding{Field: field.Base().Key, DataType: dt},
+			)))
+			Expect(enc.Check(0, sample)).To(Succeed())
+			Expect(enc.Encode(nil, [][]byte{sample})).To(MatchJSON(expected))
+		},
+		Entry("a float at the min",
+			icd.JSONField{Variant: icd.FloatJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+				Min: new(0.0), Max: new(100.0),
+			}},
+			telem.Float64T, float64Sample(0), `{"v":0}`,
+		),
+		Entry("a float at the max",
+			icd.JSONField{Variant: icd.FloatJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+				Min: new(0.0), Max: new(100.0),
+			}},
+			telem.Float64T, float64Sample(100), `{"v":100}`,
+		),
+		Entry("an integer at the max",
+			icd.JSONField{Variant: icd.IntegerJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Max: new(10.0),
+			}},
+			telem.Int64T, int64Sample(10), `{"v":10}`,
+		),
+		Entry("a scaled float whose raw value is above the max",
+			icd.JSONField{Variant: icd.FloatJSONField{
+				Key: uuid.New(), Name: "v", Scale: 0.1, Pointer: "/v", Max: new(10.0),
+			}},
+			telem.Float64T, float64Sample(5), `{"v":50}`,
+		),
+	)
+
 	DescribeTable("Should write a number channel to a field of another number kind",
 		func(field icd.JSONField, dt telem.DataType, sample []byte, expected string) {
 			enc := MustSucceed(codec.NewJSONEncoder(message(
@@ -837,6 +913,12 @@ var _ = Describe("CheckDefault", func() {
 		Entry("JSON text", icd.JSONJSONField{Default: new(`{"max":10}`)}),
 		Entry("base64 text", icd.BytesJSONField{Default: new("AQI=")}),
 		Entry("a finite float", icd.FloatJSONField{Default: new(payload.Float(2.5))}),
+		Entry("a number at the max", icd.FloatJSONField{
+			Scale: 1, Max: new(100.0), Default: new(payload.Float(100)),
+		}),
+		Entry("a scaled number whose raw value is above the max", icd.FloatJSONField{
+			Scale: 0.1, Max: new(10.0), Default: new(payload.Float(50)),
+		}),
 	)
 
 	DescribeTable("Should refuse a default without naming it",
@@ -866,6 +948,24 @@ var _ = Describe("CheckDefault", func() {
 		Entry("a UUID default with no type",
 			icd.UuidJSONField{Default: &icd.UUIDDefault{}},
 			"type is required: validation error",
+		),
+		Entry("a number above the max",
+			icd.FloatJSONField{
+				Scale: 1, Max: new(100.0), Default: new(payload.Float(120)),
+			},
+			"120 is above the max 100: validation error",
+		),
+		Entry("an integer below the min",
+			icd.IntegerJSONField{
+				Scale: 1, Min: new(0.0), Default: new(payload.Integer(-1)),
+			},
+			"-1 is below the min 0: validation error",
+		),
+		Entry("a scaled number whose raw value is inside the max",
+			icd.FloatJSONField{
+				Scale: 10, Max: new(100.0), Default: new(payload.Float(12)),
+			},
+			"12 decodes to 120, which is above the max 100: validation error",
 		),
 	)
 })
