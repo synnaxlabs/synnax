@@ -767,23 +767,27 @@ valid frames follow the bad one, so repair loses only the records of the bad fra
    segment identities and alignment numbers above every value that those frames and the
    files use, since a Reserve of the bad frame is gone, and a fresh number comes from
    above them. A record that names a segment that the state does not hold takes the
-   segment from its place check (the table above). A record that breaks a rule of §5.2
-   only because a record of the bad frame is gone is skipped and listed. With both heads
-   bad, the records of a log older than a part's switch are skipped for that part's
-   segments, which already hold them. An orphan segment whose samples a live segment of
-   its key already holds (equal bytes in version 1, equal stamps in version 2) is the
-   output of a lost rewrite: it is listed and renamed `<S>.seg.unrecovered`, not placed.
+   segment from its place check (the table above). A Tombstone or a data Commit against
+   stored stamps that names a rebuilt range takes its cuts or its alignment again from
+   its time range or its first stamp. A record that still breaks a rule of §5.2 only
+   because a record of the bad frame is gone is skipped and listed. With both heads bad,
+   the records of a log older than a part's switch are skipped for that part's segments,
+   which already hold them. An orphan segment whose samples a live segment of its key
+   already holds (equal bytes in version 1, equal stamps in version 2) is the output of
+   a lost rewrite: it is listed and renamed `<S>.seg.unrecovered`, not placed.
 3. Rebuild the commits of the bad frame. For each segment, the samples between the end
    of its last pointer before the bad frame and the start of its first pointer after it
    are one range, from the full blocks that pass their check in the clock segment and in
    every data segment of the clock write. A segment that a valid frame seals ends at the
-   Seal's length, so samples that a refused commit wrote never return. A range past the
-   last pointer of an open segment ends at its last full checked block. A data range
-   whose clock has more than one segment that could time it is not placed and is listed.
+   Seal's length, so samples that a refused commit wrote never return. Past the last
+   pointer of an open segment, only the clock range is placed, to its last full checked
+   block: a lost commit may have skipped a data key, and nothing there shows it. A data
+   range whose clock has more than one segment that could time it is not placed and is
+   listed.
 4. List, with key, segment, bytes, and the time range where it is known:
    - each rebuilt range, which takes its own stretch;
-   - each rebuilt range past the last pointer of a segment, which may hold samples that
-     were written and never committed;
+   - each rebuilt clock range past the last pointer of a segment, which may hold samples
+     that were written and never committed, and each data range there, not placed;
    - the tail block of a segment whose last commit was in the bad frame, at most 64 KiB,
      since its `tail_crc` was only in that frame;
    - a segment that no record names and whose full blocks pass for no candidate type and
