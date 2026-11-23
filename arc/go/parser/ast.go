@@ -428,9 +428,9 @@ func (n Name) Text() string {
 	return n.String()
 }
 
-// decodeChannelName returns the path that the text of a quoted channel name token
-// holds, with its escapes decoded, in NFC.
-func decodeChannelName(text string) string {
+// DecodeChannelName returns the path that the text of a quoted channel name holds, its
+// quotes included, with its escapes decoded, in NFC.
+func DecodeChannelName(text string) string {
 	text = text[1 : len(text)-1]
 	var b strings.Builder
 	b.Grow(len(text))
@@ -445,7 +445,7 @@ func decodeChannelName(text string) string {
 }
 
 func channelName(token antlr.TerminalNode) Name {
-	return Name{Head: decodeChannelName(token.GetText()), Quoted: true}
+	return Name{Head: DecodeChannelName(token.GetText()), Quoted: true}
 }
 
 // TokenName returns the name that an IDENTIFIER or a CHANNEL_NAME token holds, and the
@@ -455,7 +455,7 @@ func TokenName(token antlr.Token) Name {
 	case ArcLexerIDENTIFIER:
 		return Name{Head: token.GetText()}
 	case ArcLexerCHANNEL_NAME:
-		return Name{Head: decodeChannelName(token.GetText()), Quoted: true}
+		return Name{Head: DecodeChannelName(token.GetText()), Quoted: true}
 	}
 	return Name{}
 }

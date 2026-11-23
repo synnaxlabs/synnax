@@ -11,10 +11,13 @@ package lsp
 
 import (
 	"context"
+	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/formatter"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -22,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
-	"golang.org/x/text/unicode/norm"
 )
 
 type completionCategory int
@@ -422,12 +424,7 @@ func (s *Server) Completion(
 		return &protocol.CompletionList{}, nil
 	}
 
-	if items, quoted := s.quotedCompletions(
-		ctx,
-		doc,
-		line,
-		params.Position,
-	); quoted {
+	if items, done := s.literalCompletions(ctx, doc, line, params.Position); done {
 		return &protocol.CompletionList{Items: items}, nil
 	}
 
@@ -446,109 +443,146 @@ func (s *Server) Completion(
 	}, nil
 }
 
-// quotedCompletions returns the channels to complete when the cursor at pos sits in a
-// quoted channel name, and false when it sits in none. The prefix is the text from the
-// quote to the cursor, in NFC. Each edit replaces that text, and a closing quote right
-// after the cursor, with the quoted name.
-func (s *Server) quotedCompletions(
+// literalCompletions returns the completions of a cursor in a quoted channel name, in a
+// string, or in a comment that never closes, and false for a cursor in code. In a
+// quoted name, it offers channels only, by the NFC text from the quote to the cursor,
+// and each edit replaces that text, and a closing quote right after the cursor. A
+// placeholder of a format string is code. Any other text of a string or comment offers
+// nothing.
+func (s *Server) literalCompletions(
 	ctx context.Context,
 	doc *document,
 	line string,
 	pos protocol.Position,
 ) ([]protocol.CompletionItem, bool) {
-	text := doc.displayContent()
-	content := []rune(text)
-	lineStart := 0
-	for n := uint32(0); n < pos.Line; lineStart++ {
-		if content[lineStart] == '\n' {
-			n++
-		}
-	}
-	col := int(fromUTF16In(line, pos).Character)
-	cursor := lineStart + col
-	tokens := tokenizeContentWithComments(text)
-	quote, ok := openQuote(tokens, content, lineStart, cursor)
-	if !ok {
+	content := doc.displayContent()
+	col := lsp.CharacterToByte(line, pos.Character)
+	// Most completions sit in code, so they skip the scan.
+	if !strings.ContainsAny(line[:col], "'\"`") && strings.IndexByte(content, '`') < 0 {
 		return nil, false
 	}
-	prefix := strings.NewReplacer(`\\`, `\`, `\'`, `'`).Replace(
-		string(content[quote+1 : cursor]),
-	)
-	prefix = norm.NFC.String(prefix)
-	end := pos
-	if cursor < len(content) && content[cursor] == '\'' {
-		end.Character++
-	}
-	replace := protocol.Range{
-		Start: toUTF16In(line, protocol.Position{
-			Line:      pos.Line,
-			Character: uint32(quote - lineStart),
-		}),
-		End: end,
-	}
-	var root *symbol.Symbol
-	if s.cfg.NewRoot != nil {
-		root = s.cfg.NewRoot()
-	}
-	channels := s.collectSymbols(ctx, doc, prefix, func(t types.Type) bool {
-		return t.Kind == types.KindChan
-	}, root)
-	items := make([]protocol.CompletionItem, 0, len(channels))
-	for _, item := range channels {
-		if !strings.HasPrefix(item.Label, prefix) {
-			continue
+	scan := doc.names.scanOf(content)
+	at := fromUTF16In(line, pos)
+	place, quote, str := scan.at(scan.lines[pos.Line] + int(at.Character))
+	switch place {
+	case inQuote:
+		start := runeOffset(line, quote-scan.lines[pos.Line])
+		end := pos
+		if col < len(line) && line[col] == '\'' {
+			end.Character++
 		}
-		quoted := parser.QuoteChannelName(item.Label)
-		item.InsertText = protocol.Optional[string]{}
-		item.FilterText = protocol.NewOptional(quoted)
-		item.TextEdit = &protocol.TextEdit{Range: replace, NewText: quoted}
-		items = append(items, item)
+		replace := protocol.Range{
+			Start: toUTF16In(line, protocol.Position{
+				Line:      pos.Line,
+				Character: uint32(quote - scan.lines[pos.Line]),
+			}),
+			End: end,
+		}
+		return s.quotedChannels(ctx, doc, line[start+1:col], replace, nil), true
+	case inLiteral:
+		if str != nil {
+			return s.placeholderCompletions(ctx, doc, str, line, pos, at)
+		}
+		return nil, true
+	case inCode:
 	}
-	return items, true
+	return nil, false
 }
 
-// openQuote returns the offset in content of the quote that opens the channel name
-// that the cursor at offset cursor sits in, and false when it sits in none. Offsets
-// count code points, and lineStart is the offset of the cursor's line. A complete name
-// holds the cursor after its opening quote and up to its closing quote. An
-// unterminated name opens with a quote that no token holds.
-func openQuote(
-	tokens []antlr.Token,
-	content []rune,
-	lineStart, cursor int,
-) (int, bool) {
-	at := func(i int) antlr.Token {
-		for _, t := range tokens {
-			if t.GetStart() <= i && i <= t.GetStop() {
-				return t
-			}
-		}
-		return nil
+// placeholderCompletions returns the completions of a cursor in the string str, as
+// literalCompletions does for its placeholders, and false for a cursor in placeholder
+// code outside a quoted name. at is the cursor's position in code points.
+func (s *Server) placeholderCompletions(
+	ctx context.Context,
+	doc *document,
+	str antlr.Token,
+	line string,
+	pos, at protocol.Position,
+) ([]protocol.CompletionItem, bool) {
+	f, ok := parseFormatString(str)
+	if !ok {
+		return nil, true
 	}
-	if t := at(cursor - 1); t != nil &&
-		t.GetTokenType() == parser.ArcLexerCHANNEL_NAME &&
-		cursor-1 < t.GetStop() {
-		return t.GetStart(), true
-	}
-	for i := cursor - 1; i >= lineStart; i-- {
-		t := at(i)
-		if t == nil {
-			if content[i] == '\'' && (i == 0 || content[i-1] != '\\') {
-				return i, true
-			}
+	b := slices.Index(f.at, at)
+	for _, seg := range f.segs {
+		if !seg.IsPlaceholder || b < f.bodyOff+seg.Offsets[0] ||
+			b > f.bodyOff+seg.Offsets[len(seg.Text)] {
 			continue
 		}
-		switch t.GetTokenType() {
-		case parser.ArcLexerCHANNEL_NAME,
-			parser.ArcLexerSTR_LITERAL,
-			parser.ArcLexerSTR_LITERAL_MULTI,
-			parser.ArcLexerSINGLE_LINE_COMMENT,
-			parser.ArcLexerMULTI_LINE_COMMENT:
-			return 0, false
+		d := 0
+		for f.bodyOff+seg.Offsets[d] < b {
+			d++
 		}
-		i = t.GetStart()
+		place, quote, _ := scanQuotes(seg.Text).at(utf8.RuneCountInString(seg.Text[:d]))
+		switch place {
+		case inCode:
+			return nil, false
+		case inLiteral:
+			return nil, true
+		case inQuote:
+		}
+		quote = runeOffset(seg.Text, quote)
+		end := pos
+		if d < len(seg.Text) && seg.Text[d] == '\'' {
+			end = toUTF16In(line, f.at[f.bodyOff+seg.Offsets[d+1]])
+		}
+		replace := protocol.Range{
+			Start: toUTF16In(line, f.at[f.bodyOff+seg.Offsets[quote]]),
+			End:   end,
+		}
+		escape := func(text string) (string, bool) {
+			return literal.Escape(text, f.flags)
+		}
+		return s.quotedChannels(ctx, doc, seg.Text[quote+1:d], replace, escape), true
 	}
-	return 0, false
+	return nil, true
+}
+
+// quotedChannels returns an item for each channel whose name starts with the decoded
+// text, whose edit writes the quoted name over replace. escape, when not nil, writes
+// the quoted name for the literal that holds it, and refuses a name it cannot hold.
+func (s *Server) quotedChannels(
+	ctx context.Context,
+	doc *document,
+	text string,
+	replace protocol.Range,
+	escape func(string) (string, bool),
+) []protocol.CompletionItem {
+	prefix := parser.DecodeChannelName("'" + text + "'")
+	seen := make(set.Set[string])
+	var items []protocol.CompletionItem
+	add := func(symbols []*symbol.Symbol) {
+		for _, sym := range symbols {
+			if sym.Kind != symbol.KindChannel || seen.Contains(sym.Name) ||
+				!strings.HasPrefix(sym.Name, prefix) {
+				continue
+			}
+			seen.Add(sym.Name)
+			quoted := parser.QuoteChannelName(sym.Name)
+			if escape != nil {
+				var fits bool
+				if quoted, fits = escape(quoted); !fits {
+					continue
+				}
+			}
+			items = append(items, protocol.CompletionItem{
+				Label:      sym.Name,
+				Kind:       protocol.CompletionItemKindVariable,
+				Detail:     protocol.NewOptional(sym.Type.String()),
+				FilterText: protocol.NewOptional(quoted),
+				TextEdit:   &protocol.TextEdit{Range: replace, NewText: quoted},
+			})
+		}
+	}
+	if symbols, err := s.cfg.NewRoot().Search(ctx, prefix); err == nil {
+		add(symbols)
+	}
+	if doc.IR.Symbols != nil {
+		if symbols, err := doc.IR.Symbols.Search(ctx, prefix); err == nil {
+			add(symbols)
+		}
+	}
+	return items
 }
 
 func (s *Server) getCompletionItems(
@@ -563,10 +597,7 @@ func (s *Server) getCompletionItems(
 		return []protocol.CompletionItem{}
 	}
 
-	var root *symbol.Symbol
-	if s.cfg.NewRoot != nil {
-		root = s.cfg.NewRoot()
-	}
+	root := s.cfg.NewRoot()
 
 	if completionCtx == contextAuthorityEntry {
 		return s.getAuthorityEntryCompletions(ctx, doc, prefix, pos, root)

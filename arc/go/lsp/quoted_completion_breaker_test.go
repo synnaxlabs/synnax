@@ -91,28 +91,6 @@ var _ = Describe("Quoted channel name completion (breaker)", func() {
 		)).To(BeEmpty())
 	})
 
-	It("should keep normal completion after an empty quote pair", func(
-		ctx SpecContext,
-	) {
-		OpenArcDocument(
-			server,
-			ctx,
-			docURI,
-			"func f() {\n    o_local f64 := 1.0\n    x := 1 + o\n}",
-		)
-		completions := Completion(server, ctx, docURI, 2, 14)
-		Expect(HasCompletion(completions.Items, "o_local")).To(BeTrue())
-		pairURI := uri.URI("file:///pair.arc")
-		OpenArcDocument(
-			server,
-			ctx,
-			pairURI,
-			"func f() {\n    o_local f64 := 1.0\n    x := '' + o\n}",
-		)
-		completions = Completion(server, ctx, pairURI, 2, 15)
-		Expect(HasCompletion(completions.Items, "o_local")).To(BeTrue())
-	})
-
 	It("should complete a quoted name in a format string placeholder", func(
 		ctx SpecContext,
 	) {

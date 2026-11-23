@@ -54,38 +54,27 @@ type document struct {
 	names *nameTokens
 }
 
-// nameTokens holds the tokens of one content that can hold a quoted channel name: the
-// quoted names and the string literals, whose placeholders can hold them. It lexes the
-// content on first use and keeps the tokens until the content changes, so a lookup by
-// position costs the same at any document length.
+// nameTokens holds the quote facts of one content: the quoted names, the string
+// literals, whose placeholders can hold them, and the runes that no token holds. It
+// lexes the content on first use and keeps the facts until the content changes, so a
+// lookup by position costs the same at any document length.
 type nameTokens struct {
 	mu      sync.Mutex
 	content string
-	lexed   bool
-	tokens  []antlr.Token
+	scan    *quoteScan
 }
 
 // of returns the name tokens of content in order. Callers must not change them.
-func (n *nameTokens) of(content string) []antlr.Token {
+func (n *nameTokens) of(content string) []antlr.Token { return n.scanOf(content).names }
+
+// scanOf returns the quote facts of content. Callers must not change them.
+func (n *nameTokens) scanOf(content string) *quoteScan {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	if !n.lexed || n.content != content {
-		n.content, n.lexed, n.tokens = content, true, lexNameTokens(content)
+	if n.scan == nil || n.content != content {
+		n.content, n.scan = content, scanQuotes(content)
 	}
-	return n.tokens
-}
-
-func lexNameTokens(content string) []antlr.Token {
-	var kept []antlr.Token
-	for _, t := range tokenizeContent(content) {
-		switch t.GetTokenType() {
-		case parser.ArcLexerCHANNEL_NAME,
-			parser.ArcLexerSTR_LITERAL,
-			parser.ArcLexerSTR_LITERAL_MULTI:
-			kept = append(kept, t)
-		}
-	}
-	return kept
+	return n.scan
 }
 
 func (d *document) isBlock() bool {
