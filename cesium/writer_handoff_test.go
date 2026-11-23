@@ -121,6 +121,18 @@ var _ = Describe("Handoff", func() {
 		Expect(back.Close()).To(Succeed())
 	})
 
+	It("Should commit the clock samples that a writer handed back with no commit",
+		func(ctx SpecContext) {
+			w, p := MustSucceed2(db.Handoff(ctx, openFirst(ctx), config(clock), nil))
+			mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(14)))
+			back, _ := MustSucceed2(db.Handoff(ctx, w, config(clock, data), p))
+			Expect(MustSucceed2(back.Commit(ctx, nil))).To(Equal(14*telem.SecondTS + 1))
+			Expect(stored(ctx, clock)).To(Equal(int64(5)))
+			Expect(stored(ctx, data)).To(Equal(int64(4)))
+			Expect(back.Close()).To(Succeed())
+		},
+	)
+
 	It("Should drop the pending samples on Close", func(ctx SpecContext) {
 		w, p := MustSucceed2(db.Handoff(ctx, openFirst(ctx), config(clock), nil))
 		Expect(p.Close()).To(Succeed())
