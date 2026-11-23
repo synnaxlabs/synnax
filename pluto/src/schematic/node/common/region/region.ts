@@ -207,15 +207,12 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
  * @returns the shapes that selectors match in root, in selector order. A selector that
  * matches a group stands for each shape inside it.
  */
-export const shapes = (root: Element, selectors: string[]): SVGElement[] => [
-  ...new Set(
-    selectors.flatMap((s) =>
-      Array.from(root.querySelectorAll<SVGElement>(s)).flatMap((el) =>
-        el.tagName === "g" ? collectVisualElements(el) : [el],
-      ),
+export const shapes = (root: Element, selectors: string[]): SVGElement[] =>
+  selectors.flatMap((s) =>
+    Array.from(root.querySelectorAll<SVGElement>(s)).flatMap((el) =>
+      el.tagName === "g" ? collectVisualElements(el) : [el],
     ),
-  ),
-];
+  );
 
 /**
  * Returns the colors a normalized SVG paints a region with when the region sets none:
