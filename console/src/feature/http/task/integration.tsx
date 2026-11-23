@@ -15,7 +15,16 @@ import { Task } from "@/platform/task";
 
 const readPlotChannels: Task.PlotChannels = (config) =>
   Task.enabledChannels(
-    READ_SCHEMAS.config.parse(config).endpoints.flatMap(({ fields }) => fields),
+    READ_SCHEMAS.config
+      .parse(config)
+      .endpoints.filter(({ disabled }) => !disabled)
+      .flatMap<Task.PlotEntry>(({ icd, fields, messages }) =>
+        icd == null
+          ? fields
+          : messages.flatMap(({ bindings }) =>
+              bindings.map(({ channel }) => ({ channel, disabled: false })),
+            ),
+      ),
   );
 
 export const INTEGRATION: Task.Integration = {

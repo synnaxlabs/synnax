@@ -796,4 +796,26 @@ describe("plotChannels", () => {
     };
     expect(plotChannels(config)).toEqual([1, 3]);
   });
+
+  it("should find the bound channels of each enabled endpoint that reads an ICD", () => {
+    const plotChannels = HTTP.Task.INTEGRATION.plotChannels?.[HTTP.Task.READ_TYPE];
+    assertDefined(plotChannels, "read tasks have no channels to plot");
+    const endpoint = (disabled: boolean, ...channels: number[][]) => ({
+      disabled,
+      icd: uuid.create(),
+      messages: channels.map((keys) => ({
+        message: uuid.create(),
+        bindings: keys.map((channel) => ({ field: uuid.create(), channel })),
+      })),
+    });
+    const config = {
+      endpoints: [
+        endpoint(false, [1, 0], [2]),
+        endpoint(true, [3]),
+        { disabled: true, fields: [{ channel: 4, disabled: false }] },
+        { fields: [{ channel: 5, disabled: false }] },
+      ],
+    };
+    expect(plotChannels(config)).toEqual([1, 2, 5]);
+  });
 });
