@@ -14,8 +14,8 @@ const METHODS = ["error", "warn"] as const;
 // An error prints with each error in its cause chain.
 const format = (arg: unknown): string => {
   let out = String(arg);
-  for (let e = arg; e instanceof Error && e.cause != null; e = e.cause)
-    out += `\n  caused by: ${String(e.cause)}`;
+  for (let e = arg; e instanceof Error && e.cause instanceof Error; e = e.cause)
+    out += `\n  caused by: ${e.cause.toString()}`;
   return out;
 };
 

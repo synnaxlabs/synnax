@@ -36,6 +36,14 @@ describe("color.reduceAll", () => {
       expect(next.light).toEqual(xcolor.construct("#ff0000"));
     });
 
+    it("should clear the dark value on a set of null", () => {
+      const prev = color.namedZ.parse({ ...createNamed(), dark: "#0000ff" });
+      const { next } = color.reduceAll(prev, [
+        color.set({ path: ["dark"], value: null }),
+      ]);
+      expect(next.dark).toBeUndefined();
+    });
+
     it("should set a dark value on a named color that has none", () => {
       const { next } = color.reduceAll(createNamed(), [
         color.set({ path: ["dark"], value: "#0000ff" }),
