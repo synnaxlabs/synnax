@@ -360,6 +360,16 @@ describe("Region.paint", () => {
     });
   });
 
+  it("should read a use that a selector names", () => {
+    const used =
+      '<svg xmlns="http://www.w3.org/2000/svg"><defs><rect id="t"/></defs>' +
+      '<use id="u" href="#t" stroke="#ff0000" fill="#0000ff" /></svg>';
+    expect(Region.paint(used, ["#u"])).toEqual({
+      stroke: color.construct("#ff0000"),
+      fill: color.construct("#0000ff"),
+    });
+  });
+
   it("should return transparent when no selector matches", () => {
     expect(Region.paint(SVG, ["#missing"])).toEqual({
       stroke: color.TRANSPARENT,
