@@ -39,6 +39,7 @@ const (
 // MigrateSymbol lifts a v4 symbol to v5. Each region becomes a part, state i becomes
 // value i of the state "active", and each region color becomes a color look on that
 // value. An actuator gets the commands Off and On and a click that picks between them.
+// The looks of a static symbol on value 0 have no condition.
 func MigrateSymbol(ctx context.Context, old v4.Symbol) (Symbol, error) {
 	return autoMigrateSymbol(ctx, old)
 }
@@ -258,11 +259,19 @@ func (m *specMigration) addActuator() {
 	}}}
 }
 
-// finish returns the spec with the state "active" when the symbol has it.
+// finish returns the spec with the state "active" when the symbol has it. A symbol
+// with no commands draws only value 0, so its looks on value 0 reach every value.
 func (m *specMigration) finish() Spec {
 	m.spec.States = []State{}
 	if m.state != nil {
 		m.spec.States = append(m.spec.States, State{Variant: *m.state})
+	}
+	if len(m.spec.Commands) == 0 {
+		for i, l := range m.spec.Looks {
+			if holdsBase(l.When) {
+				m.spec.Looks[i].When = nil
+			}
+		}
 	}
 	return m.spec
 }
@@ -334,6 +343,15 @@ func (m *partMigrator) markup(svg string) string {
 		return svg
 	}
 	return m.tree.markupWithIDs()
+}
+
+// holdsBase returns whether c holds at value 0 of the state "active".
+func holdsBase(c *Condition) bool {
+	if c == nil {
+		return false
+	}
+	eq, ok := c.Variant.(EqualsCondition)
+	return ok && eq.State == activeState && slices.Contains(eq.Values, 0)
 }
 
 func equals(values ...float64) *Condition {
