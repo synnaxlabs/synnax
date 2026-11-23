@@ -56,6 +56,7 @@ from synnax.schematic.symbol.types_gen import (
 )
 
 __all__ = [
+    "TYPE_RESOURCE_ID",
     "AskCommandValue",
     "Blink",
     "BuiltinRef",
@@ -96,7 +97,6 @@ __all__ = [
     "StateOverride",
     "SvgDrawing",
     "Symbol",
-    "TYPE_RESOURCE_ID",
     "Where",
     "WhereInput",
     "WithinMatcher",

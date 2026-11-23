@@ -161,6 +161,7 @@ from synnax.schematic.types_gen import (
 )
 
 __all__ = [
+    "TYPE_RESOURCE_ID",
     "AgitatorNodeConfig",
     "AngledReliefValveNodeConfig",
     "AngledSpringLoadedReliefValveNodeConfig",
@@ -294,7 +295,6 @@ __all__ = [
     "SwitchNodeConfig",
     "SymbolNodeConfig",
     "TJunctionNodeConfig",
-    "TYPE_RESOURCE_ID",
     "TankNodeConfig",
     "TextBoxNodeConfig",
     "ThreeWayBallValveNodeConfig",
