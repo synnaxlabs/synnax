@@ -11,6 +11,7 @@
 #include <condition_variable>
 #include <future>
 #include <mutex>
+#include <thread>
 
 #include "gtest/gtest.h"
 
@@ -109,9 +110,10 @@ TEST(ForwarderTest, DropsFramesPastTheQueueCap) {
     );
     for (int i = 0; i < 15; i++)
         ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
-    ASSERT_EQ(forwarder.dropped(), 5);
+    ASSERT_EQ(forwarder.dropped().full, 5);
     ASSERT_NIL(forwarder.close());
-    ASSERT_EQ(forwarder.dropped(), 15);
+    ASSERT_EQ(forwarder.dropped().full, 5);
+    ASSERT_EQ(forwarder.dropped().stopped, 10);
     ASSERT_EQ(server->writes->size(), 0);
 }
 
@@ -121,7 +123,7 @@ TEST(ForwarderTest, AcceptsALargeFrameIntoAnEmptyQueue) {
     Forwarder forwarder(server, {.channels = {1}}, {.max_queue_bytes = 2});
     ASSERT_NIL(forwarder.write(frame(1)));
     ASSERT_EVENTUALLY_EQ(server->writes->size(), 1);
-    ASSERT_EQ(forwarder.dropped(), 0);
+    ASSERT_EQ(forwarder.dropped().total(), 0);
     ASSERT_NIL(forwarder.close());
 }
 
@@ -166,7 +168,7 @@ TEST(ForwarderTest, CountsHeldFramesOnAPermanentError) {
         ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
     gate.set_value();
     ASSERT_OCCURRED_AS(forwarder.opened(), x::errors::VALIDATION);
-    ASSERT_EQ(forwarder.dropped(), 3);
+    ASSERT_EQ(forwarder.dropped().failed, 3);
     ASSERT_OCCURRED_AS(forwarder.close(), x::errors::VALIDATION);
 }
 
@@ -245,7 +247,7 @@ TEST(ForwarderTest, WarnsWhileFallingBehindTheCore) {
     ASSERT_NIL(forwarder.close());
     ASSERT_EQ(warnings->size(), 4);
     EXPECT_EQ(warnings->at(3).first, "");
-    ASSERT_EQ(forwarder.dropped(), 0);
+    ASSERT_EQ(forwarder.dropped().total(), 0);
 }
 
 /// @brief it should report the count of dropped frames at most once per interval, and
@@ -263,7 +265,7 @@ TEST(ForwarderTest, ReportsDroppedFramesAtMostOncePerInterval) {
     x::defer::defer release([&server] { server->allow(1000); });
     for (int i = 0; i < 5; i++)
         ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
-    ASSERT_EQ(forwarder.dropped(), 1);
+    ASSERT_EQ(forwarder.dropped().full, 1);
     server->allow(1);
     const auto last = [&] { return warnings->at(warnings->size() - 1); };
     // The forwarder removed the first frame from its queue once it waits on the second.
@@ -271,12 +273,12 @@ TEST(ForwarderTest, ReportsDroppedFramesAtMostOncePerInterval) {
     ASSERT_EVENTUALLY_EQ(last().first, "Dropped frames");
     EXPECT_EQ(
         last().second,
-        "Dropped 1 frame because the Core could not take them fast enough."
+        "Dropped 1 frame because the queue for the Core was full."
     );
     const auto reports = warnings->size();
     for (int i = 0; i < 2; i++)
         ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
-    ASSERT_EQ(forwarder.dropped(), 2);
+    ASSERT_EQ(forwarder.dropped().full, 2);
     server->allow(2);
     ASSERT_EVENTUALLY_EQ(server->written.load(), 3);
     EXPECT_EQ(warnings->size(), reports);
@@ -288,7 +290,7 @@ TEST(ForwarderTest, ReportsDroppedFramesAtMostOncePerInterval) {
     ASSERT_NIL(forwarder.close());
     EXPECT_EQ(
         last().second,
-        "Dropped 2 frames because the Core could not take them fast enough."
+        "Dropped 2 frames because the queue for the Core was full."
     );
 }
 
@@ -311,7 +313,7 @@ TEST(ForwarderTest, ReportsFramesDroppedOnClose) {
     EXPECT_EQ(warnings->at(0).first, "Dropped frames");
     EXPECT_EQ(
         warnings->at(0).second,
-        "Dropped 3 frames because the Core could not take them fast enough."
+        "Dropped 3 frames because the task stopped before delivery to the Core."
     );
 }
 
@@ -329,7 +331,98 @@ TEST(ForwarderTest, ReportsFramesDroppedOnAPermanentError) {
     ASSERT_EQ(warnings->size(), 1);
     EXPECT_EQ(
         warnings->at(0).second,
-        "Dropped 1 frame because the Core could not take them fast enough."
+        "Dropped 1 frame because a Core error stopped delivery."
+    );
+}
+
+/// @brief opens Core writers that take each frame after a delay.
+class SlowFactory final : public ::driver::pipeline::WriterFactory {
+    class Writer final : public ::driver::pipeline::Writer {
+        SlowFactory &factory;
+
+    public:
+        explicit Writer(SlowFactory &factory): factory(factory) {}
+
+        x::errors::Error write(const x::telem::Frame &) override {
+            std::this_thread::sleep_for(this->factory.delay);
+            this->factory.written++;
+            return x::errors::NIL;
+        }
+
+        x::errors::Error close() override { return x::errors::NIL; }
+    };
+
+public:
+    const std::chrono::milliseconds delay;
+    std::atomic<size_t> written = 0;
+
+    explicit SlowFactory(const std::chrono::milliseconds delay): delay(delay) {}
+
+    std::pair<std::unique_ptr<::driver::pipeline::Writer>, x::errors::Error>
+    open_writer(const synnax::framer::WriterConfig &) override {
+        return {std::make_unique<Writer>(*this), x::errors::NIL};
+    }
+};
+
+/// @brief it should stop sending its queue to a slow Core once the close timeout
+/// passes, and count what is left as dropped by the stop.
+TEST(ForwarderTest, StopsDrainingASlowCoreAtTheCloseTimeout) {
+    const auto server = std::make_shared<SlowFactory>(std::chrono::milliseconds(20));
+    const auto warnings = std::make_shared<Warnings>();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.close_timeout = 100 * x::telem::MILLISECOND, .warn = record(warnings)}
+    );
+    constexpr size_t frames = 500;
+    for (size_t i = 0; i < frames; i++)
+        ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_NIL(forwarder.close());
+    ASSERT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(2));
+    const auto dropped = forwarder.dropped();
+    ASSERT_GT(dropped.stopped, 0);
+    ASSERT_EQ(dropped.full, 0);
+    ASSERT_EQ(server->written.load() + dropped.stopped, frames);
+    EXPECT_EQ(
+        warnings->at(warnings->size() - 1).second,
+        "Dropped " + std::to_string(dropped.stopped) +
+            " frames because the task stopped before delivery to the Core."
+    );
+}
+
+/// @brief it should report new drops at the report interval while it waits out a long
+/// backoff from an unreachable Core.
+TEST(ForwarderTest, ReportsDropsDuringALongBackoff) {
+    const auto server = factory(
+        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
+    );
+    const auto warnings = std::make_shared<Warnings>();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.max_queue_bytes = 2 * FRAME_SIZE,
+         .drop_report_interval = 10 * x::telem::MILLISECOND,
+         .warn = record(warnings),
+         .breaker = {.base_interval = x::telem::HOUR}}
+    );
+    ASSERT_NIL(forwarder.opened());
+    for (int i = 0; i < 5; i++)
+        ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
+    const auto last = [&] {
+        if (warnings->size() == 0) return std::pair<std::string, std::string>{};
+        return warnings->at(warnings->size() - 1);
+    };
+    ASSERT_EVENTUALLY_EQ(
+        last().second,
+        "Dropped 3 frames because the queue for the Core was full."
+    );
+    ASSERT_EQ(server->writer_opens.load(), 1);
+    ASSERT_NIL(forwarder.close());
+    EXPECT_EQ(
+        warnings->at(warnings->size() - 1).second,
+        "Dropped 3 frames because the queue for the Core was full. Dropped 2 frames "
+        "because the task stopped before delivery to the Core."
     );
 }
 }

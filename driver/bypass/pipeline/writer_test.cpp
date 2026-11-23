@@ -618,7 +618,7 @@ TEST(WriterTest, CarriesDropsAcrossAReopen) {
     ASSERT_OCCURRED_AS(writer->close(), synnax::errors::LICENSE_MISSING);
     const std::pair<std::string, std::string> dropped{
         "Dropped frames",
-        "Dropped 3 frames because the Core could not take them fast enough.",
+        "Dropped 3 frames because the queue for the Core was full.",
     };
     ASSERT_EQ(warnings->at(warnings->size() - 1), dropped);
     const auto before = warnings->size();
@@ -685,7 +685,8 @@ TEST(WriterTest, StartsEachRunWithNoDrops) {
     ASSERT_TRUE(pipeline.stop());
     ASSERT_EQ(
         warnings->at(warnings->size() - 1).second,
-        "Dropped 5 frames because the Core could not take them fast enough."
+        "Dropped 3 frames because the queue for the Core was full. Dropped 2 frames "
+        "because the task stopped before delivery to the Core."
     );
     const auto first_run = warnings->size();
     // Ends the outage for the second run.

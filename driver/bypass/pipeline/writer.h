@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <atomic>
 #include <memory>
 
 #include "absl/log/log.h"
@@ -33,17 +32,17 @@ class Writer final : public ::driver::pipeline::Writer {
     /// @brief publishes to the bus. It owns the bus, since a held frame publishes after
     /// write returns.
     control::Publish publish;
-    std::shared_ptr<std::atomic<size_t>> carried_drops;
+    std::shared_ptr<Drops> carried_drops;
 
 public:
-    /// @param carried_drops receives the drop count on close, for a writer that the
+    /// @param carried_drops receives the drop counts on close, for a writer that the
     /// acquisition pipeline reopens in the same run. May be null.
     Writer(
         std::unique_ptr<Forwarder> forwarder,
         std::shared_ptr<Bus> bus,
         std::shared_ptr<control::States> states,
         synnax::framer::WriterConfig cfg,
-        std::shared_ptr<std::atomic<size_t>> carried_drops = nullptr
+        std::shared_ptr<Drops> carried_drops = nullptr
     ):
         forwarder(std::move(forwarder)),
         bus(std::move(bus)),
@@ -81,7 +80,7 @@ public:
     [[nodiscard]] x::errors::Error close() override {
         auto err = this->forwarder->close();
         if (this->carried_drops != nullptr)
-            this->carried_drops->store(this->forwarder->dropped());
+            *this->carried_drops = this->forwarder->dropped();
         return err;
     }
 };
@@ -97,9 +96,9 @@ class WriterFactory final : public ::driver::pipeline::WriterFactory {
     std::shared_ptr<control::States> states;
     std::uint32_t group;
     ForwarderConfig forwarder;
-    /// @brief the drop count that a reopened writer of the same run starts from.
-    std::shared_ptr<std::atomic<size_t>>
-        carried_drops = std::make_shared<std::atomic<size_t>>(0);
+    /// @brief the drop counts that a reopened writer of the same run starts from. Only
+    /// the acquisition thread touches them.
+    std::shared_ptr<Drops> carried_drops = std::make_shared<Drops>();
 
 public:
     WriterFactory(
@@ -116,7 +115,7 @@ public:
         forwarder(std::move(forwarder)) {}
 
     /// @brief starts the drop count of the run at 0.
-    void begin_run() override { this->carried_drops->store(0); }
+    void begin_run() override { *this->carried_drops = {}; }
 
     std::pair<std::unique_ptr<::driver::pipeline::Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) override {
@@ -124,7 +123,7 @@ public:
         if (this->group != 0 && cfg.subject.group == 0) cfg.subject.group = this->group;
         this->bus->register_channels(cfg.channels);
         auto forwarder_cfg = this->forwarder;
-        forwarder_cfg.dropped = this->carried_drops->load();
+        forwarder_cfg.dropped = *this->carried_drops;
         auto forwarder = std::make_unique<Forwarder>(this->server, cfg, forwarder_cfg);
         if (auto err = forwarder->opened()) return {nullptr, err};
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()

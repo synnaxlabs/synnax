@@ -31,6 +31,7 @@ cc_library(
         "//x/cpp/control",
         "//x/cpp/defer",
         "//x/cpp/telem",
+        "//x/cpp/thread",
     ],
 )
 

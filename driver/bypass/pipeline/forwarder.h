@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <deque>
@@ -25,6 +26,7 @@
 #include "client/cpp/errors/errors.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/thread/thread.h"
 
 #include "driver/pipeline/acquisition.h"
 
@@ -49,23 +51,42 @@ constexpr size_t AUTHORITIES_OVERHEAD = sizeof(::driver::pipeline::Authorities) 
 using Warn = std::function<
     void(const std::string &message, const std::string &description)>;
 
+/// @brief counts the frames that a Forwarder dropped, by cause.
+struct Drops {
+    /// @brief frames dropped because the queue was full.
+    size_t full = 0;
+    /// @brief frames still queued when the task stopped.
+    size_t stopped = 0;
+    /// @brief frames still queued when a Core error stopped the forwarder.
+    size_t failed = 0;
+
+    /// @returns the frames dropped for any cause.
+    [[nodiscard]] size_t total() const {
+        return this->full + this->stopped + this->failed;
+    }
+};
+
 /// @brief configures a Forwarder.
 struct ForwarderConfig {
     /// @brief the most bytes that queued frames and authority changes hold, overhead
     /// included. A write past it drops its frame, the newest one, and counts it.
     size_t max_queue_bytes = size_t{64} * 1024 * 1024;
-    /// @brief the shortest time between two reports of a new drop count.
+    /// @brief the shortest time between two reports of a new drop count. While the Core
+    /// is unreachable, the forwarder also reports at this interval.
     x::telem::TimeSpan drop_report_interval = 5 * x::telem::SECOND;
+    /// @brief the longest time that close() sends queued ops to a reachable Core. It
+    /// drops and counts what is left after it.
+    x::telem::TimeSpan close_timeout = 5 * x::telem::SECOND;
     /// @brief the frames that earlier forwarders of the same run dropped. The drop
-    /// count starts from it.
-    size_t dropped = 0;
+    /// counts start from them.
+    Drops dropped;
     /// @brief warns when the queue passes half its cap, until it drains below a
     /// quarter. Once a frame drops, it reports the drop count instead, and leaves the
     /// final count when the forwarder closes. Called from the forwarder thread only.
     Warn warn;
-    /// @brief backs off from an unreachable Core, with no retry limit.
+    /// @brief the backoff from an unreachable Core. The forwarder retries with no
+    /// limit, so only the intervals apply.
     x::breaker::Config breaker{
-        .name = "forwarder",
         .base_interval = x::telem::SECOND,
         .scale = 1.1f,
         .max_interval = x::telem::MINUTE,
@@ -80,14 +101,27 @@ struct ForwarderConfig {
 class Forwarder {
     using Op = std::variant<x::telem::Frame, ::driver::pipeline::Authorities>;
 
+    struct Entry {
+        Op op;
+        size_t bytes;
+    };
+
+    /// @brief the queue state that report() shows.
+    struct Snapshot {
+        size_t bytes;
+        Drops dropped;
+    };
+
     std::shared_ptr<::driver::pipeline::WriterFactory> server;
     synnax::framer::WriterConfig config;
     const size_t max_queue_bytes;
     const std::chrono::nanoseconds drop_report_interval;
+    const std::chrono::nanoseconds close_timeout;
     const Warn warn;
-    x::breaker::Breaker breaker;
+    const x::breaker::Config backoff;
 
     // Only the forwarder thread touches these.
+    size_t failures = 0;
     bool lagging = false;
     std::string shown_message;
     std::string shown_description;
@@ -95,10 +129,13 @@ class Forwarder {
 
     std::mutex mu;
     std::condition_variable cv;
-    std::deque<Op> queue;
+    std::deque<Entry> queue;
     size_t queue_bytes = 0;
-    size_t dropped_frames;
+    Drops drops;
+    /// @brief the frames this forwarder dropped at the cap, for its log.
+    size_t cap_drops = 0;
     bool closing = false;
+    std::chrono::steady_clock::time_point close_deadline;
     x::errors::Error err = x::errors::NIL;
     bool settled = false;
     std::condition_variable settled_cv;
@@ -114,18 +151,30 @@ class Forwarder {
         this->settled_cv.notify_all();
     }
 
-    static size_t byte_size(const Op &op) {
-        const auto *fr = std::get_if<x::telem::Frame>(&op);
-        if (fr == nullptr) {
-            const auto &auth = std::get<::driver::pipeline::Authorities>(op);
-            return AUTHORITIES_OVERHEAD +
-                   auth.keys.size() * sizeof(synnax::channel::Key) +
-                   auth.authorities.size() * sizeof(x::control::Authority);
-        }
+    static size_t frame_bytes(const x::telem::Frame &fr) {
         size_t size = FRAME_OVERHEAD;
-        for (const auto &s: *fr->series)
+        for (const auto &s: *fr.series)
             size += SERIES_OVERHEAD + s.byte_size();
         return size;
+    }
+
+    static size_t authorities_bytes(const ::driver::pipeline::Authorities &auth) {
+        return AUTHORITIES_OVERHEAD + auth.keys.size() * sizeof(synnax::channel::Key) +
+               auth.authorities.size() * sizeof(x::control::Authority);
+    }
+
+    /// @brief queues entry. Requires mu. Returns true when the queue was empty, so the
+    /// forwarder thread may wait on it.
+    bool push_locked(Entry entry) {
+        const bool was_empty = this->queue.empty();
+        this->queue_bytes += entry.bytes;
+        this->queue.push_back(std::move(entry));
+        return was_empty;
+    }
+
+    Snapshot snapshot() {
+        std::lock_guard lock(this->mu);
+        return {this->queue_bytes, this->drops};
     }
 
     void show(const std::string &message, const std::string &description) {
@@ -136,35 +185,34 @@ class Forwarder {
         this->warn(message, description);
     }
 
-    void show_drops(const size_t dropped) {
+    void show_drops(const Drops &dropped) {
         this->drops_shown_at = std::chrono::steady_clock::now();
-        this->show(
-            "Dropped frames",
-            "Dropped " + std::to_string(dropped) +
-                (dropped == 1 ? " frame" : " frames") +
-                " because the Core could not take them fast enough."
-        );
+        std::string description;
+        const auto add = [&description](const size_t count, const std::string &cause) {
+            if (count == 0) return;
+            if (!description.empty()) description += " ";
+            description += "Dropped " + std::to_string(count) +
+                           (count == 1 ? " frame" : " frames") + " because " + cause +
+                           ".";
+        };
+        add(dropped.full, "the queue for the Core was full");
+        add(dropped.stopped, "the task stopped before delivery to the Core");
+        add(dropped.failed, "a Core error stopped delivery");
+        this->show("Dropped frames", description);
     }
 
     /// @brief shows on the task status whether the queue lags or drops frames.
-    void report() {
+    void report(const Snapshot &snap) {
         if (!this->warn) return;
-        size_t bytes = 0;
-        size_t dropped = 0;
-        {
-            std::lock_guard lock(this->mu);
-            bytes = this->queue_bytes;
-            dropped = this->dropped_frames;
-        }
-        if (bytes * 2 >= this->max_queue_bytes)
+        if (snap.bytes * 2 >= this->max_queue_bytes)
             this->lagging = true;
-        else if (bytes * 4 < this->max_queue_bytes)
+        else if (snap.bytes * 4 < this->max_queue_bytes)
             this->lagging = false;
-        if (dropped > 0) {
+        if (snap.dropped.total() > 0) {
             if (this->shown_message != "Dropped frames" ||
                 std::chrono::steady_clock::now() - this->drops_shown_at >=
                     this->drop_report_interval)
-                this->show_drops(dropped);
+                this->show_drops(snap.dropped);
             return;
         }
         if (!this->lagging) {
@@ -184,48 +232,65 @@ class Forwarder {
     /// stop status, or clears the warning when no frame dropped.
     void report_closed() {
         if (!this->warn) return;
-        size_t dropped = 0;
-        {
-            std::lock_guard lock(this->mu);
-            dropped = this->dropped_frames;
-        }
-        if (dropped == 0)
+        const auto dropped = this->snapshot().dropped;
+        if (dropped.total() == 0)
             this->show("", "");
         else
             this->show_drops(dropped);
     }
 
-    /// @brief waits for an op, or returns false once closing leaves none.
-    bool next(Op &op) {
+    /// @brief waits for an op. Returns null once closing leaves none, or once the close
+    /// timeout passes. The entry stays valid until pop(), because only this thread
+    /// removes entries.
+    const Entry *next() {
         std::unique_lock lock(this->mu);
         this->cv.wait(lock, [this] { return this->closing || !this->queue.empty(); });
-        if (this->queue.empty()) return false;
-        const auto &front = this->queue.front();
-        if (const auto *fr = std::get_if<x::telem::Frame>(&front))
-            op = fr->shallow_copy();
-        else
-            op = std::get<::driver::pipeline::Authorities>(front);
-        return true;
+        if (this->queue.empty()) return nullptr;
+        if (this->closing && std::chrono::steady_clock::now() >= this->close_deadline)
+            return nullptr;
+        return &this->queue.front();
     }
 
-    void pop() {
+    Snapshot pop() {
         std::lock_guard lock(this->mu);
-        this->queue_bytes -= byte_size(this->queue.front());
+        this->queue_bytes -= this->queue.front().bytes;
         this->queue.pop_front();
+        return {this->queue_bytes, this->drops};
     }
 
-    [[nodiscard]] bool is_closing() {
+    /// @brief drops every waiting frame and counts it under cause.
+    void drop_queue(size_t Drops::*cause) {
         std::lock_guard lock(this->mu);
-        return this->closing;
-    }
-
-    /// @brief drops every waiting frame and counts it.
-    void drop_queue() {
-        std::lock_guard lock(this->mu);
-        for (const auto &op: this->queue)
-            if (std::holds_alternative<x::telem::Frame>(op)) this->dropped_frames++;
+        for (const auto &entry: this->queue)
+            if (std::holds_alternative<x::telem::Frame>(entry.op))
+                ++(this->drops.*cause);
         this->queue.clear();
         this->queue_bytes = 0;
+    }
+
+    /// @brief waits out the backoff after the Core proves unreachable, and reports the
+    /// queue while it waits. Returns false once the forwarder closes.
+    bool back_off(const x::errors::Error &err) {
+        this->failures++;
+        const auto interval = this->backoff.interval(this->failures);
+        LOG(WARNING) << "[bypass.forwarder] " << this->config.subject.name << " retry "
+                     << this->failures << " in " << interval.seconds() << " s: " << err;
+        const auto until = std::chrono::steady_clock::now() + interval.chrono();
+        while (true) {
+            Snapshot snap;
+            {
+                std::unique_lock lock(this->mu);
+                const auto wake = std::min(
+                    until,
+                    std::chrono::steady_clock::now() + this->drop_report_interval
+                );
+                this->cv.wait_until(lock, wake, [this] { return this->closing; });
+                if (this->closing) return false;
+                snap = {this->queue_bytes, this->drops};
+            }
+            if (std::chrono::steady_clock::now() >= until) return true;
+            this->report(snap);
+        }
     }
 
     /// @brief backs off after an unreachable Core. Any other Core error, a license
@@ -234,8 +299,8 @@ class Forwarder {
     bool wait(const x::errors::Error &err) {
         if (synnax::errors::is_unreachable(err)) {
             this->settle();
-            if (!this->is_closing() && this->breaker.wait_unlimited(err)) return true;
-            this->drop_queue();
+            if (this->back_off(err)) return true;
+            this->drop_queue(&Drops::stopped);
             return false;
         }
         LOG(ERROR) << "[bypass.forwarder] " << this->config.subject.name
@@ -244,7 +309,7 @@ class Forwarder {
             std::lock_guard lock(this->mu);
             this->err = err;
         }
-        this->drop_queue();
+        this->drop_queue(&Drops::failed);
         this->settle();
         return false;
     }
@@ -261,29 +326,32 @@ class Forwarder {
     }
 
     void run() {
+        const auto name = "fwd:" + this->config.subject.name;
+        x::thread::set_name(name.substr(0, x::thread::MAX_NAME_LEN - 1).c_str());
         x::defer::defer settle([this] {
             this->settle();
             this->report_closed();
         });
         while (true) {
-            this->report();
+            this->report(this->snapshot());
             auto [writer, open_err] = this->server->open_writer(this->config);
             if (open_err) {
                 if (this->wait(open_err)) continue;
                 return;
             }
             this->settle();
-            this->breaker.reset();
-            Op op;
+            this->failures = 0;
             x::errors::Error op_err;
-            while (this->next(op)) {
-                if (op_err = this->apply(*writer, op); op_err) break;
-                this->pop();
-                this->report();
+            while (const auto *entry = this->next()) {
+                if (op_err = this->apply(*writer, entry->op); op_err) break;
+                this->report(this->pop());
             }
             const auto close_err = writer->close();
             const auto err = close_err ? close_err : op_err;
-            if (!err) return;
+            if (!err) {
+                this->drop_queue(&Drops::stopped);
+                return;
+            }
             if (!this->wait(err)) return;
         }
     }
@@ -298,10 +366,10 @@ public:
         config(std::move(config)),
         max_queue_bytes(cfg.max_queue_bytes),
         drop_report_interval(cfg.drop_report_interval.chrono()),
+        close_timeout(cfg.close_timeout.chrono()),
         warn(cfg.warn),
-        breaker(cfg.breaker),
-        dropped_frames(cfg.dropped) {
-        this->breaker.start();
+        backoff(cfg.breaker),
+        drops(cfg.dropped) {
         this->thread = std::thread([this] { this->run(); });
     }
 
@@ -324,20 +392,24 @@ public:
     /// is empty.
     /// @returns the Core error that stopped the forwarder, if any.
     x::errors::Error write(const x::telem::Frame &fr) {
-        std::lock_guard lock(this->mu);
-        if (this->err) return this->err;
-        Op op = fr.shallow_copy();
-        const auto size = byte_size(op);
-        if (this->queue_bytes > 0 && this->queue_bytes + size > this->max_queue_bytes) {
-            if (this->dropped_frames++ % 1000 == 0)
-                LOG(WARNING) << "[bypass.forwarder] " << this->config.subject.name
-                             << " dropped " << this->dropped_frames
-                             << " frames: the Core is not taking them fast enough";
-            return x::errors::NIL;
+        Entry entry{.op = fr.shallow_copy(), .bytes = frame_bytes(fr)};
+        bool wake = false;
+        size_t logged_drops = 0;
+        {
+            std::lock_guard lock(this->mu);
+            if (this->err) return this->err;
+            if (this->queue_bytes > 0 &&
+                this->queue_bytes + entry.bytes > this->max_queue_bytes) {
+                this->drops.full++;
+                if (++this->cap_drops % 1000 == 1) logged_drops = this->cap_drops;
+            } else
+                wake = this->push_locked(std::move(entry));
         }
-        this->queue_bytes += size;
-        this->queue.push_back(std::move(op));
-        this->cv.notify_one();
+        if (wake) this->cv.notify_one();
+        if (logged_drops > 0)
+            LOG(WARNING) << "[bypass.forwarder] " << this->config.subject.name
+                         << " dropped " << logged_drops
+                         << " frames: the queue for the Core is full";
         return x::errors::NIL;
     }
 
@@ -345,34 +417,40 @@ public:
     /// them, but they count toward the queue cap.
     /// @returns the Core error that stopped the forwarder, if any.
     x::errors::Error set_authority(const ::driver::pipeline::Authorities &authorities) {
-        std::lock_guard lock(this->mu);
-        if (this->err) return this->err;
-        Op op = authorities;
-        this->queue_bytes += byte_size(op);
-        this->queue.push_back(std::move(op));
-        this->cv.notify_one();
+        Entry entry{.op = authorities, .bytes = authorities_bytes(authorities)};
+        bool wake = false;
+        {
+            std::lock_guard lock(this->mu);
+            if (this->err) return this->err;
+            wake = this->push_locked(std::move(entry));
+        }
+        if (wake) this->cv.notify_one();
         return x::errors::NIL;
     }
 
-    /// @brief sends what the queue holds while the Core is reachable, then closes the
-    /// Core writer. Drops and counts what is left when the Core is unreachable.
+    /// @brief sends what the queue holds while the Core is reachable, for at most
+    /// ForwarderConfig::close_timeout, then closes the Core writer. Drops and counts
+    /// what is left, and all of the queue when the Core is unreachable.
     /// @returns the Core error that stopped the forwarder, if any.
     x::errors::Error close() {
         {
             std::lock_guard lock(this->mu);
-            this->closing = true;
+            if (!this->closing) {
+                this->closing = true;
+                this->close_deadline = std::chrono::steady_clock::now() +
+                                       this->close_timeout;
+            }
         }
         this->cv.notify_one();
-        this->breaker.stop();
         if (this->thread.joinable()) this->thread.join();
         std::lock_guard lock(this->mu);
         return this->err;
     }
 
-    /// @brief the number of frames dropped, ForwarderConfig::dropped included.
-    [[nodiscard]] size_t dropped() {
+    /// @brief the frames dropped, ForwarderConfig::dropped included.
+    [[nodiscard]] Drops dropped() {
         std::lock_guard lock(this->mu);
-        return this->dropped_frames;
+        return this->drops;
     }
 };
 }
