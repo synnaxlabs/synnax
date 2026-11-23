@@ -11,6 +11,7 @@ package relay
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"sync/atomic"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -150,7 +152,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		s.demands.Inlet() <- demand{addr: s.addr, keys: s.keys.Load().Slice(), ack: ack}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
-		responses, missed, disconnect := s.relay.connectToDelta(s.accepts)
+		sub, disconnect := s.relay.connectToDelta(s.accepts, s.missedRequested)
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
 			// we do this before updating our demands, otherwise we may deadlock.
@@ -167,21 +169,23 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				return err
 			}
 		}
-		if !s.missedRequested {
-			missed = nil
-		}
-		return s.forward(ctx, responses, missed)
+		return s.forward(ctx, sub)
 	}, o.Signal...)
 }
 
-// sendMissed sends a missed marker. The marker covers every drop signaled so far, so
-// it takes a signal still pending on missed.
-func (s *streamer) sendMissed(ctx context.Context, missed <-chan struct{}) error {
-	select {
-	case <-missed:
-	default:
-	}
-	return signal.SendUnderContext(ctx, s.Out.Inlet(), Response{Missed: true})
+// sendMissed sends a missed marker that covers every drop signaled so far, with the
+// missed ranges of the streamer's channels.
+func (s *streamer) sendMissed(ctx context.Context, sub *subscriber) error {
+	ranges := sub.takeMissed()
+	keys := *s.keys.Load()
+	maps.DeleteFunc(ranges, func(k channel.Key, _ telem.TimeRange) bool {
+		return !keys.Contains(k)
+	})
+	return signal.SendUnderContext(
+		ctx,
+		s.Out.Inlet(),
+		Response{Missed: true, MissedRanges: ranges},
+	)
 }
 
 // awaitOpenAck waits for the relay to confirm the opening demand, then signals
@@ -203,9 +207,9 @@ func (s *streamer) awaitOpenAck(ctx context.Context, ack chan struct{}) error {
 // a missed marker once it has sent every frame buffered before the drop.
 func (s *streamer) forward(
 	ctx context.Context,
-	responses <-chan Response,
-	missed <-chan struct{},
+	sub *subscriber,
 ) error {
+	responses, missed := sub.responses, sub.missed
 	// pendingAcks holds the ack channels of key updates the tapper has not applied
 	// yet. The tapper applies demands in order, so the head always closes first.
 	// Waiting here instead of blocking on the send keeps frames for live keys flowing
@@ -217,7 +221,7 @@ func (s *streamer) forward(
 	for {
 		if lost && len(responses) == 0 {
 			lost = false
-			if err := s.sendMissed(ctx, missed); err != nil {
+			if err := s.sendMissed(ctx, sub); err != nil {
 				return err
 			}
 		}
