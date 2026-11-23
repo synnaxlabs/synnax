@@ -317,6 +317,48 @@ func main() {
 			}))
 			Expect(result).To(BeNil())
 		})
+
+		It(
+			"should not edit a quoted channel name that starts with the variable name",
+			func(ctx SpecContext) {
+				quoted := []symbol.Symbol{{
+					Name: "sensor-1",
+					Type: types.Chan(types.F32()),
+					Kind: symbol.KindChannel,
+					ID:   44,
+				}}
+				server = MustSucceed(lsp.New(lsp.Config{
+					NewRoot: func() *symbol.Symbol { return NewRoot(nil, quoted...) },
+				}))
+				server.SetClient(&MockClient{})
+				OpenArcDocument(server, ctx, uri, "func test() {\n"+
+					"    sensor f32 := 1.0\n"+
+					"    y := sensor + 'sensor-1'\n"+
+					"}")
+				result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 4},
+					NewName:      "s",
+				}))
+				Expect(result).ToNot(BeNil())
+				Expect(result.Changes[uri]).To(ConsistOf(
+					protocol.TextEdit{
+						Range: protocol.Range{
+							Start: protocol.Position{Line: 1, Character: 4},
+							End:   protocol.Position{Line: 1, Character: 10},
+						},
+						NewText: "s",
+					},
+					protocol.TextEdit{
+						Range: protocol.Range{
+							Start: protocol.Position{Line: 2, Character: 9},
+							End:   protocol.Position{Line: 2, Character: 15},
+						},
+						NewText: "s",
+					},
+				))
+			},
+		)
 	})
 
 	Describe("OnRename", func() {
