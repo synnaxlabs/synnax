@@ -280,7 +280,7 @@ var _ = Describe("ICDMigration", func() {
 		Expect(svc.Read.Prepare(ctx, db, key, "Tank farm", data)).Error().To(MatchError(
 			"endpoints.0.messages.0.bindings.1.channel: field received cannot write " +
 				"to index channel " + received.Name + ", because only the index " +
-				"field can. Move field received into its own message",
+				"field can. Bind field received to a data channel",
 		))
 	})
 
