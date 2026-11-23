@@ -57,8 +57,10 @@ const only = (look: Look, target: Target, value: number): boolean =>
 const owns = (look: Look, target: Target, value?: number): boolean =>
   value == null ? look.part === target && look.when == null : only(look, target, value);
 
+// reaches is true for a look that target shows at value, or at every value when value
+// is undefined. A look of the whole drawing reaches every part.
 const reaches = (look: Look, target: Target, value?: number): boolean =>
-  look.part === target &&
+  (look.part == null || look.part === target) &&
   (look.when == null ||
     (value != null && look.when.state === STATE && look.when.values.includes(value)));
 
@@ -78,14 +80,14 @@ const split = (looks: Look[], target: Target, field: Field, value: number): Look
     ];
   });
 
-// rank orders the looks that the editor adds: a look on one value wins over a look on
-// every value, and a look on a part wins over a look on the whole drawing.
+// rank orders the looks that the editor adds: a look on a part wins over a look on the
+// whole drawing, and a look on one value wins over a look on every value.
 const rank = (look: Look): number =>
-  (look.when == null ? 0 : 2) + (look.part == null ? 0 : 1);
+  (look.part == null ? 0 : 2) + (look.when == null ? 0 : 1);
 
-const insert = (looks: Look[], look: Look): Look[] => {
+const slot = (looks: Look[], look: Look): number => {
   const i = looks.findIndex((l) => rank(l) > rank(look));
-  return i < 0 ? [...looks, look] : looks.toSpliced(i, 0, look);
+  return i < 0 ? looks.length : i;
 };
 
 const withActive = (states: Spec["states"]): Spec["states"] =>
@@ -116,22 +118,18 @@ export const setOwn = <F extends Field>(
       }),
     };
   }
+  const hidden = (from: number): boolean =>
+    looks.slice(from).some((l) => reaches(l, target, value) && l[field] != null);
   const i = looks.findLastIndex((l) => owns(l, target, value));
-  const overridden =
-    i >= 0 &&
-    looks.slice(i + 1).some((l) => reaches(l, target, value) && l[field] != null);
-  if (i >= 0 && !overridden)
+  if (i >= 0 && !hidden(i + 1))
     return { ...spec, looks: looks.with(i, { ...looks[i], [field]: v }) };
   const look: Look = { key: `look-${id.create()}`, part: target, [field]: v };
-  if (value == null) return { ...spec, looks: insert(looks, look) };
-  const onValue: Look = {
-    ...look,
-    when: { type: "equals", state: STATE, values: [value] },
-  };
+  if (value != null) look.when = { type: "equals", state: STATE, values: [value] };
+  const at = slot(looks, look);
   return {
     ...spec,
-    states: withActive(spec.states),
-    looks: overridden ? [...looks, onValue] : insert(looks, onValue),
+    states: value == null ? spec.states : withActive(spec.states),
+    looks: hidden(at) ? [...looks, look] : looks.toSpliced(at, 0, look),
   };
 };
 
