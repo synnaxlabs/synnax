@@ -58,8 +58,11 @@ func (r readResolver) resolve(
 	}, nil
 }
 
-// hash writes to h the payload of each ICD message that an endpoint of cfg reads, so an
-// edit to the format of one changes the config hash of the task.
+// readsICD reports whether ep is enabled and names an ICD.
+func readsICD(ep ReadEndpoint) bool { return !ep.Disabled && ep.ICD != nil }
+
+// hash writes to h the payload of each ICD message that an enabled endpoint of cfg
+// reads, so an edit to the format of one changes the config hash of the task.
 func (r readResolver) hash(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -79,7 +82,7 @@ func (r readResolver) hash(
 	}
 	icds := lo.KeyBy(found, func(ic icd.ICD) icd.Key { return ic.Key })
 	for _, ep := range cfg.Endpoints {
-		if ep.ICD == nil {
+		if !readsICD(ep) {
 			continue
 		}
 		if err := read.Hash(h, icds[*ep.ICD], ep.Messages); err != nil {
@@ -89,9 +92,9 @@ func (r readResolver) hash(
 	return nil
 }
 
-// check checks each endpoint of cfg that names an ICD against that ICD, from icds or
-// else read through snap, and its channels. It skips an ICD or a channel that does not
-// exist, which the reference check of the write reports.
+// check checks each enabled endpoint of cfg that names an ICD against that ICD, from
+// icds or else read through snap, and its channels. It skips an ICD or a channel that
+// does not exist, which the reference check of the write reports.
 func (r readResolver) check(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -124,7 +127,7 @@ func (r readResolver) check(
 		func(ch icdv0.Channel, _ channel.Key) read.Channel { return read.Channel(ch) },
 	))
 	for i, ep := range cfg.Endpoints {
-		if ep.ICD == nil {
+		if !readsICD(ep) {
 			continue
 		}
 		ic, ok := icds[*ep.ICD]
@@ -141,14 +144,14 @@ func (r readResolver) check(
 	return nil
 }
 
-// referencedKeys returns the ICDs that the endpoints of cfg name and icds lacks, and
-// the channels that the endpoints name.
+// referencedKeys returns the ICDs that the enabled endpoints of cfg name and icds
+// lacks, and the channels that those endpoints name.
 func referencedKeys(
 	cfg *ReadConfig,
 	icds map[icd.Key]icd.ICD,
 ) (icdKeys []icd.Key, channelKeys []channel.Key) {
 	for _, ep := range cfg.Endpoints {
-		if ep.ICD == nil {
+		if !readsICD(ep) {
 			continue
 		}
 		if _, ok := icds[*ep.ICD]; !ok {

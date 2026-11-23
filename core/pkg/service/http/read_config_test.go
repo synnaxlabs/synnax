@@ -67,17 +67,22 @@ func readMessage(m icd.Message, bindings ...map[string]any) map[string]any {
 	return map[string]any{"message": m.Key, "bindings": list}
 }
 
+// endpointOf returns an endpoint that reads one message of ic through read.
+func endpointOf(ic icd.ICD, read map[string]any) map[string]any {
+	return map[string]any{
+		"key":      uuid.New().String(),
+		"path":     "/values",
+		"icd":      ic.Key,
+		"messages": []any{read},
+	}
+}
+
 // readConfigOf returns a read config with one endpoint for each read, each reading one
 // message of ic.
 func readConfigOf(ic icd.ICD, reads ...map[string]any) msgpack.EncodedJSON {
 	endpoints := make([]any, len(reads))
 	for i, r := range reads {
-		endpoints[i] = map[string]any{
-			"key":      uuid.New().String(),
-			"path":     "/values",
-			"icd":      ic.Key,
-			"messages": []any{r},
-		}
+		endpoints[i] = endpointOf(ic, r)
 	}
 	return msgpack.EncodedJSON{"endpoints": endpoints}
 }
@@ -190,6 +195,33 @@ var _ = Describe("Read config", func() {
 			"is also written by endpoints.0.messages.0.bindings.0.channel"),
 	)
 
+	DescribeTable(
+		"Should save a disabled endpoint without checking its reads",
+		func(ctx SpecContext, read func(f format) map[string]any) {
+			f := createFormat(ctx)
+			disabled := endpointOf(f.ic, read(f))
+			disabled["disabled"] = true
+			MustSucceed(
+				svc.Read.Prepare(ctx, db, uuid.New(), "Pump", msgpack.EncodedJSON{
+					"endpoints": []any{
+						endpointOf(f.ic, readMessage(f.m, binding(f.m, 1, f.value))),
+						disabled,
+					},
+				}),
+			)
+		},
+		Entry("a message that the ICD lacks", func(f format) map[string]any {
+			lacked := jsonMessage("Lacked", jsonField("v", "/v", icd.FloatJSONField{}))
+			return readMessage(lacked, binding(lacked, 0, f.value))
+		}),
+		Entry(
+			"a channel that an enabled endpoint writes",
+			func(f format) map[string]any {
+				return readMessage(f.m, binding(f.m, 1, f.value))
+			},
+		),
+	)
+
 	Describe("Config hash", func() {
 		var (
 			f   format
@@ -243,6 +275,25 @@ var _ = Describe("Read config", func() {
 
 		It("Should not change when a message the task does not read changes",
 			func(ctx SpecContext) {
+				before := hash(ctx)
+				set(ctx, pointerPath(f.other, 0), "/value")
+				Expect(hash(ctx)).To(Equal(before))
+			},
+		)
+
+		It("Should not change for a message that only a disabled endpoint reads",
+			func(ctx SpecContext) {
+				disabled := endpointOf(
+					f.ic,
+					readMessage(f.other, binding(f.other, 0, f.value)),
+				)
+				disabled["disabled"] = true
+				key = MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+					"endpoints": []any{
+						endpointOf(f.ic, readMessage(f.m, binding(f.m, 1, f.value))),
+						disabled,
+					},
+				}))
 				before := hash(ctx)
 				set(ctx, pointerPath(f.other, 0), "/value")
 				Expect(hash(ctx)).To(Equal(before))
