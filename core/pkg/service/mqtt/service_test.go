@@ -188,6 +188,15 @@ var _ = Describe("Service", func() {
 			)))
 		})
 
+		It("Should reject a null read entry", func(ctx SpecContext) {
+			Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"entries": []any{nil},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("entries.0.type: required"),
+			))
+		})
+
 		It("Should store a Sparkplug read entry", func(ctx SpecContext) {
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"entries": []any{map[string]any{
@@ -857,6 +866,21 @@ var _ = Describe("Service", func() {
 				))
 			},
 		)
+
+		It("Should reject a null binding", func(ctx SpecContext) {
+			_, _, target := createSetpoint(ctx)
+			message, ok := target["message"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			bindings, ok := message["bindings"].([]any)
+			Expect(ok).To(BeTrue())
+			message["bindings"] = append(bindings, nil)
+			Expect(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+				"targets": []any{target},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("targets.0.message.bindings.1.type: required"),
+			))
+		})
 
 		Describe("Fixed values", func() {
 			// fixedTarget returns a target that sends the value field from a channel
