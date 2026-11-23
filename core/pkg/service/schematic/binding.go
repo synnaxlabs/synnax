@@ -108,8 +108,7 @@ func (w Writer) customSymbols(
 }
 
 // rebound returns the keys of the nodes whose symbol or bindings acts can change.
-// Reduce
-// must accept acts first, so that each path into a node goes into a field of it.
+// Reduce must accept acts first, so that each path into a node goes into a field of it.
 func rebound(acts []Action) (set.Set[string], error) {
 	keys := set.Set[string]{}
 	for _, a := range acts {
