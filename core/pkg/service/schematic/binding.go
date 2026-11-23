@@ -132,15 +132,15 @@ func (s *Service) removeOrphans(
 	tx gorp.Tx,
 	sym symbol.Symbol,
 ) error {
-	var drawing []Schematic
+	var using []Schematic
 	if err := s.table.NewRetrieve().
 		Where(s.indexes.nodesConfigSpecKey.Filter(sym.Key)).
-		Entries(&drawing).
+		Entries(&using).
 		Exec(ctx, tx); err != nil {
 		return err
 	}
 	w := s.NewWriter(tx)
-	for _, sc := range drawing {
+	for _, sc := range using {
 		var acts []Action
 		for _, n := range sc.Nodes {
 			cfg, ok := n.Config.Variant.(SymbolNodeConfig)
