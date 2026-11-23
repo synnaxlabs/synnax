@@ -107,6 +107,16 @@ class CalcTypeCascade(ConsoleCase):
             return to_float(result[calc_ch.key][0])
         return None
 
+    def _set_expression(self, calc_label: str, expression: str) -> None:
+        output = self.client.channels.retrieve(self.calcs[calc_label])
+        calc = self.client.calculations.retrieve(output=output.key, one=True)
+        self.client.calculations.dispatch(
+            calc.key,
+            sy.calculation.set(
+                sy.calculation.SetPayload(path=["expression"], value=expression)
+            ),
+        )
+
     def _get_data_type(self, calc_label: str) -> sy.DataType:
         fresh = self.synnax_connection.create_client()
         try:
@@ -154,10 +164,7 @@ class CalcTypeCascade(ConsoleCase):
 
         self.console.notifications.close_all()
 
-        scaled_ch = self.client.channels.retrieve(self.calcs["scaled"])
-        self.client.channels.set_expression(
-            scaled_ch.key, f"return {self.raw['precision']} * 2"
-        )
+        self._set_expression("scaled", f"return {self.raw['precision']} * 2")
 
         def widened() -> bool | None:
             data_type = self._get_data_type("scaled")
@@ -217,10 +224,8 @@ class CalcTypeCascade(ConsoleCase):
 
         self.console.notifications.close_all()
 
-        combined_ch = self.client.channels.retrieve(self.calcs["combined"])
-        self.client.channels.set_expression(
-            combined_ch.key,
-            f"return f32({self.calcs['scaled']}) + {self.raw['reference']}",
+        self._set_expression(
+            "combined", f"return f32({self.calcs['scaled']}) + {self.raw['reference']}"
         )
         hold(2, reason="checks that no error shows")
 

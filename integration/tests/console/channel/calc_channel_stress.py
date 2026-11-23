@@ -54,6 +54,15 @@ class CalcChannelStress(ConsoleCase):
         names = [f"{base_name}_{i + 1}" for i in range(count)]
         return create_indexed_channels(self.client, names, index_key=index_key)
 
+    def _calculated(self, name: str, expression: str) -> sy.Channel:
+        """Returns the channel named name, which a calculation writes. It creates the
+        calculation when no channel holds the name."""
+        existing = self.client.channels.retrieve([name])
+        if existing:
+            return existing[0]
+        calc = self.client.calculations.create(name=name, expression=expression)
+        return self.client.channels.retrieve(calc.output)
+
     def _start_stress_writer(self) -> None:
         """Start the stress writer in a background thread."""
         client = self.client
@@ -88,21 +97,17 @@ class CalcChannelStress(ConsoleCase):
         )
 
         # Different average calculations
-        calc_avg_sum_div_50_sine = client.channels.create(
-            name="calc_avg_sum_div_50_sine",
-            data_type=sy.DataType.FLOAT32,
-            expression="return ("
+        calc_avg_sum_div_50_sine = self._calculated(
+            "calc_avg_sum_div_50_sine",
+            "return ("
             + " + ".join([f"sine_50_channel_{i + 1}" for i in range(50)])
             + ") / 50.0",
-            retrieve_if_name_exists=True,
         )
 
         running_sum = " + ".join([f"sine_50_channel_{i + 1}" for i in range(50)])
-        calc_avg_explicit_50_sine = client.channels.create(
-            name="calc_avg_explicit_50_sine",
-            data_type=sy.DataType.FLOAT32,
-            expression=f"return ({running_sum}) / 50.0",
-            retrieve_if_name_exists=True,
+        calc_avg_explicit_50_sine = self._calculated(
+            "calc_avg_explicit_50_sine",
+            f"return ({running_sum}) / 50.0",
         )
 
         pairs = [
@@ -110,11 +115,9 @@ class CalcChannelStress(ConsoleCase):
             for i in range(25)
         ]
         pairwise_avg = "(" + " + ".join(pairs) + ") / 25.0"
-        calc_avg_pairwise_50_sine = client.channels.create(
-            name="calc_avg_pairwise_50_sine",
-            data_type=sy.DataType.FLOAT32,
-            expression=f"return {pairwise_avg}",
-            retrieve_if_name_exists=True,
+        calc_avg_pairwise_50_sine = self._calculated(
+            "calc_avg_pairwise_50_sine",
+            f"return {pairwise_avg}",
         )
 
         all_channels = [
