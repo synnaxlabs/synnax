@@ -76,9 +76,10 @@ func openBenchWriter(b *testing.B, db *gorp.DB, layer *service.Layer) benchWrite
 		b.Fatalf("failed to open the API service: %v", err)
 	}
 	binder, err := bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: layer.RBAC,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(arc.DriftTable),
+		DB:      db,
+		RBAC:    layer.RBAC,
+		Held:    apiauth.HeldTables(),
 	})
 	if err != nil {
 		b.Fatalf("failed to open the binder: %v", err)

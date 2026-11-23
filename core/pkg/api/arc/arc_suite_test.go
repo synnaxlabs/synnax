@@ -121,9 +121,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Calculation: svc.Calculation,
 	}))
 	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: rbacSvc,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(arc.DriftTable),
+		DB:      db,
+		RBAC:    rbacSvc,
+		Held:    apiauth.HeldTables(),
 	}))
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
 		DB:              db,

@@ -182,9 +182,10 @@ var _ = Describe("Calculated channels of a channel-only subject after upgrade", 
 			},
 		))
 		binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-			DB:   n.DB,
-			RBAC: l.RBAC,
-			Held: apiauth.HeldTables(),
+			Holders: taskconfig.NewHolders(arc.DriftTable),
+			DB:      n.DB,
+			RBAC:    l.RBAC,
+			Held:    apiauth.HeldTables(),
 		}))
 		authed := AuthedCtx(ctx, u)
 

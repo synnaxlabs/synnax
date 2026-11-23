@@ -53,6 +53,11 @@ var _ = Describe("ServiceConfig", func() {
 				"rbac: must be non-nil",
 			),
 			Entry(
+				"holders",
+				func(c *bind.ServiceConfig) { c.Holders = nil },
+				"holders: must be non-nil",
+			),
+			Entry(
 				"held",
 				func(c *bind.ServiceConfig) { c.Held = nil },
 				"held: must be non-empty",
@@ -74,6 +79,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Held).To(Equal(cfg.Held))
 			Expect(merged.Owned).To(Equal(cfg.Owned))
 			Expect(merged.OwnedPlaces).To(Equal(cfg.OwnedPlaces))
+			Expect(merged.Holders).To(BeIdenticalTo(cfg.Holders))
 		})
 
 		It("Should keep the receiver's fields when the other's are nil", func() {
@@ -84,6 +90,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Held).To(Equal(cfg.Held))
 			Expect(merged.Owned).To(Equal(cfg.Owned))
 			Expect(merged.OwnedPlaces).To(Equal(cfg.OwnedPlaces))
+			Expect(merged.Holders).To(BeIdenticalTo(cfg.Holders))
 		})
 	})
 })

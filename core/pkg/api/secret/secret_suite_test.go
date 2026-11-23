@@ -72,9 +72,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:          node.DB,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   node.DB,
-		RBAC: svc.RBAC,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(arc.DriftTable),
+		DB:      node.DB,
+		RBAC:    svc.RBAC,
+		Held:    apiauth.HeldTables(),
 	}))
 	set = bind.Write(binder, apiSvc.Set)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
