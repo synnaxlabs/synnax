@@ -11,7 +11,7 @@ import { emit } from "@tauri-apps/api/event";
 import { waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { follow } from "@/app/analytics/core";
+import { Core } from "@/app/analytics/core";
 import {
   clearSupervisor,
   type History,
@@ -67,7 +67,7 @@ const followCore = async (initial: History) => {
   const supervisor = mockSupervisor(() => FAILED, {
     supervisor_history: () => history,
   });
-  await follow(sink);
+  await Core.follow(sink);
   const reads = (): number =>
     supervisor.commands.mock.calls.filter(([cmd]) => cmd === "supervisor_history")
       .length;
@@ -85,7 +85,7 @@ const followCore = async (initial: History) => {
   };
 };
 
-describe("follow", () => {
+describe("Core.follow", () => {
   afterEach(clearSupervisor);
 
   it("should report a give-up on a Core that never started", async () => {

@@ -10,7 +10,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Guard } from "@/app/window/Guard";
+import { Guard } from "@/app/window/guard";
 import {
   createStatusConsoleWrapper,
   renderWithConsole,
@@ -19,13 +19,13 @@ import {
 
 const renderGuard = async (): Promise<void> => {
   await renderWithConsole(
-    <Guard>
+    <Guard.Guard>
       <span>workspace</span>
-    </Guard>,
+    </Guard.Guard>,
   );
 };
 
-describe("app/window/Guard in Synnax Desktop", () => {
+describe("Guard in Synnax Desktop", () => {
   it("should wait for the embedded Core and never ask for a login", async () => {
     await renderGuard();
     expect(await screen.findByText("Starting Synnax...")).toBeTruthy();
@@ -39,9 +39,9 @@ describe("app/window/Guard in Synnax Desktop", () => {
       status: UNLICENSED_STATUS,
     });
     render(
-      <Guard>
+      <Guard.Guard>
         <span>workspace</span>
-      </Guard>,
+      </Guard.Guard>,
       { wrapper },
     );
     expect(screen.getByText("Log in to continue")).toBeTruthy();
