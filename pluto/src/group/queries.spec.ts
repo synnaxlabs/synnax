@@ -264,14 +264,17 @@ describe("Group queries", () => {
 
   describe("useResultAncestors", () => {
     it("should keep the groups and the groups above them live", async () => {
-      const root = await client.groups.create({ scope: "channel", name: "root" });
+      const root = await client.groups.create({
+        scope: "channel",
+        name: `root_${id.create()}`,
+      });
       const mid = await client.groups.create({
         parent: group.resourceID(root.key),
-        name: "mid",
+        name: `mid_${id.create()}`,
       });
       const leaf = await client.groups.create({
         parent: group.resourceID(mid.key),
-        name: "leaf",
+        name: `leaf_${id.create()}`,
       });
       const keysOf = (groups?: group.Group[]): group.Key[] =>
         (groups ?? []).map(({ key }) => key).sort();
