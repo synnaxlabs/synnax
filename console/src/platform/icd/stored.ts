@@ -12,6 +12,7 @@ import { Channel } from "@synnaxlabs/pluto";
 import { unique } from "@synnaxlabs/x";
 
 import { converts } from "@/platform/icd/dataType";
+import type { Task } from "@/platform/task";
 
 /**
  * @returns the bindings of fields, each to the channel stored for its pointer. A field
@@ -44,9 +45,9 @@ export interface StoredDataTypes {
   bindDisabled: boolean;
 }
 
-/** @returns the data types of the channels that read stores, by source key. */
+/** @returns the data types of the channels in read, the read properties of a device. */
 export const useStoredDataTypes = (
-  read: Record<string, { channels: Record<string, channel.Key> }>,
+  read: Record<string, Pick<Task.ReadChannelProps, "channels">>,
 ): StoredDataTypes => {
   const keys = unique
     .unique(Object.values(read).flatMap(({ channels }) => Object.values(channels)))
