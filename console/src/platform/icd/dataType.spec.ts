@@ -85,5 +85,9 @@ describe("ICD data types", () => {
         expect(ICD.bindingDataType({ dataType: "" }, field)).toBe(expected);
       },
     );
+
+    it("should give a binding with an absent data type the default of its field", () => {
+      expect(ICD.bindingDataType({}, fieldOf("integer"))).toBe("int64");
+    });
   });
 });
