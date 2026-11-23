@@ -21,6 +21,11 @@ from synnax.ni import chassis as chassis_
 from synnax.resource import ID
 from x import filter
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 Key: TypeAlias = UUID
 
 
@@ -113,6 +118,18 @@ class Identity(BaseModel):
     chassis: chassis_.Key | None = None
 
 
+class Order(BaseModel):
+    """Is a sort of devices.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
+
+
 class Where(BaseModel):
     """Is a filter that selects NI devices.
 
@@ -177,9 +194,11 @@ class Cursor(BaseModel):
 
     Attributes:
         key: Is the key of the device at the position.
+        name: Is the name of the device at the position, when the order sorts by it.
     """
 
     key: Key
+    name: str | None = None
 
 
 class DigitalOutputChannels(BaseModel):
@@ -205,6 +224,7 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the devices to retrieve. An absent where selects all of them.
         search_term: Keeps the devices that match the term, closest match first.
+        order: Sorts the devices. An absent order sorts them by key.
         after: Starts the devices strictly past this position in their order.
         limit: Is the most devices to return.
         include_status: Includes the status of each record.
@@ -214,6 +234,7 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_status: bool = False
