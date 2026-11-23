@@ -18,9 +18,9 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type label } from "@/label";
-import { type resource } from "@/resource";
-import { type Status, type Variant } from "@/status/types.gen";
+import type { label } from "@/label";
+import type { resource } from "@/resource";
+import type { Status, Variant } from "@/status/types.gen";
 
 // Input type for creating statuses - uses conditional typing for optional details
 type Base<V extends Variant> = {

@@ -238,11 +238,25 @@ export const createPathHandlers = <D, A>(
   move: (state: D, move: patch.Move) => apply(state, { type: "move", move }),
 });
 
+// Returns a copy of the plain objects and arrays in value. Other objects, such as a
+// TimeStamp, are shared.
+const copyPlain = <T>(value: T): T => {
+  if (typeof value !== "object" || value === null) return value;
+  if (!Array.isArray(value) && !narrow.isPlainObject(value)) return value;
+  const out: T & object = Array.isArray(value)
+    ? Object.assign([], value)
+    : { ...value };
+  for (const [key, child] of Object.entries(value))
+    Reflect.set(out, key, copyPlain(child));
+  return out;
+};
+
 /**
  * createReduceAll lifts a per-variant `reduceOne` switch into a batched
  * reducer. The returned function applies each action against an Immer draft of
  * `state` in order, accumulates the inverses in reverse application order so a
- * single undo replays them correctly, and unions the touched targets.
+ * single undo replays them correctly, and unions the touched targets. The caller's
+ * actions stay unchanged.
  */
 export const createReduceAll =
   <S, A>(reduceOne: (draft: Draft<S>, action: A) => HandlerResult<A>) =>
@@ -251,7 +265,10 @@ export const createReduceAll =
     const targetsSet = new Set<string>();
     const next = produce(state, (draft) => {
       for (const action of actions) {
-        const result = reduceOne(draft, action);
+        // Immer does not draft an object that an action puts into the draft, so a later
+        // action in the batch edits it in place. The copy keeps that edit off the
+        // caller's action, which an earlier reduce can have frozen.
+        const result = reduceOne(draft, copyPlain(action));
         if (result.inverse.length > 0) inverse.unshift(...result.inverse);
         for (const t of result.targets) targetsSet.add(t);
       }

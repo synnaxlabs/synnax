@@ -61,6 +61,11 @@ func newIndexes() indexes {
 				}
 				return []Key{*e.Parent}
 			},
+			Retarget: func(e *Directory, from, to Key) {
+				if e.Parent != nil && *e.Parent == from {
+					*e.Parent = to
+				}
+			},
 		}),
 		search: gorp.NewSearchIndex[Key, Directory](
 			"search",

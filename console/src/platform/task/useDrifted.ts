@@ -9,7 +9,7 @@
 
 import { task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { formPath } from "@/platform/task/types";
 import { useStatus } from "@/platform/task/useStatus";

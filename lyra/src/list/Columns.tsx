@@ -9,11 +9,7 @@
 
 import "@/list/Columns.css";
 
-import {
-  type ComponentPropsWithRef,
-  type PropsWithChildren,
-  type ReactElement,
-} from "react";
+import type { ComponentPropsWithRef, PropsWithChildren, ReactElement } from "react";
 
 import { context } from "@/context";
 import { CSS } from "@/css";

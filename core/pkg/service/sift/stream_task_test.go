@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -289,7 +290,7 @@ var _ = Describe("Stream task", func() {
 		var l label.Label
 
 		BeforeEach(func(ctx SpecContext) {
-			l = label.Label{Name: "hotfire"}
+			l = label.Label{Name: "hotfire", Color: labelColor}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return labelSvc.NewWriter(tx).Create(ctx, &l)
 			})).To(Succeed())
@@ -527,7 +528,7 @@ var _ = Describe("Stream task", func() {
 
 		It("Should update the tags of a run when its range gets a label",
 			func(ctx SpecContext) {
-				cold := label.Label{Name: "cold"}
+				cold := label.Label{Name: "cold", Color: labelColor}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return labelSvc.NewWriter(tx).Create(ctx, &cold)
 				})).To(Succeed())
@@ -555,7 +556,7 @@ var _ = Describe("Stream task", func() {
 		// createCold creates a label that no task has.
 		createCold := func(ctx context.Context) label.Label {
 			GinkgoHelper()
-			cold := label.Label{Name: "cold"}
+			cold := label.Label{Name: "cold", Color: labelColor}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return labelSvc.NewWriter(tx).Create(ctx, &cold)
 			})).To(Succeed())
@@ -947,3 +948,6 @@ var _ = Describe("Stream task", func() {
 		Entry("no channels", "channels", "channels"),
 	)
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = servicecolor.Ref{Variant: servicecolor.FixedRef{}}

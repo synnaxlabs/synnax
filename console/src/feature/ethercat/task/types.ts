@@ -13,11 +13,11 @@ import { z } from "zod";
 
 import { type Address, findInput } from "@/feature/ethercat/device/settings";
 import { onlyReaderOf } from "@/feature/ethercat/device/setup";
-import {
-  type ReadBinding,
-  type SlaveDevice,
-  type SlaveProperties,
-  type WriteBinding,
+import type {
+  ReadBinding,
+  SlaveDevice,
+  SlaveProperties,
+  WriteBinding,
 } from "@/feature/ethercat/device/types";
 import { Task } from "@/platform/task";
 

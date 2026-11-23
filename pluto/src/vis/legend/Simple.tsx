@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Theming } from "@synnaxlabs/lyra/theming";
-import { type optional } from "@synnaxlabs/x";
+import type { Theming } from "@synnaxlabs/lyra/theming";
+import type { optional } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Container, type ContainerProps } from "@/vis/legend/Container";
@@ -17,7 +17,10 @@ import { Entries, type EntriesProps, type EntryData } from "@/vis/legend/Entries
 export interface SimpleProps
   extends
     Omit<ContainerProps, "value" | "onChange" | "background" | "draggable" | "gap">,
-    Pick<EntriesProps, "onColorChange" | "onLabelChange" | "onVisibleChange"> {
+    Pick<
+      EntriesProps,
+      "onColorChange" | "onLabelChange" | "onVisibleChange" | "onHoverChange"
+    > {
   data?: optional.Optional<EntryData, "visible">[];
   position?: ContainerProps["value"];
   onPositionChange?: ContainerProps["onChange"];
@@ -30,6 +33,7 @@ export const Simple = ({
   onColorChange,
   onLabelChange,
   onVisibleChange,
+  onHoverChange,
   position,
   onPositionChange,
   allowEntryVisibleChange = true,
@@ -52,6 +56,7 @@ export const Simple = ({
         onColorChange={onColorChange}
         onLabelChange={onLabelChange}
         onVisibleChange={onVisibleChange}
+        onHoverChange={onHoverChange}
         colorPickerVisible={pickerVisible}
         onColorPickerVisibleChange={setPickerVisible}
         allowVisibleChange={allowEntryVisibleChange}

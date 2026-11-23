@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -91,7 +91,7 @@ class RetrieveBuiltInsResponse(BaseModel):
         keys: Are the keys of the built-in channels.
     """
 
-    keys: list[Key] = Field(default_factory=list)
+    keys: list[Annotated[Key, Field(ge=0, le=4294967295)]] = Field(default_factory=list)
 
 
 class CountLimitedResponse(BaseModel):

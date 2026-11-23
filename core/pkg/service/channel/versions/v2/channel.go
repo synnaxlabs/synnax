@@ -128,7 +128,7 @@ func (c Channel) ResourceID() resource.ID {
 }
 
 // payloadSize is the most keys a payload holds.
-const payloadSize = 10
+const payloadSize = 11
 
 // ToPayload returns a map representation of the channel for use in ontology resources
 // and signal marshaling. The "operations" and "group" keys are omitted when the channel
@@ -142,6 +142,7 @@ func (c Channel) ToPayload() map[string]any {
 	p["index"] = c.Index()
 	p["data_type"] = c.DataType
 	p["virtual"] = c.Virtual
+	p["concurrency"] = c.Concurrency
 	p["expression"] = c.Expression
 	if len(c.Operations) > 0 {
 		p["operations"] = c.Operations

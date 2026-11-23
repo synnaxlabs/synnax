@@ -23,7 +23,7 @@ import {
   type WriteChannel,
   type WriteSchemas,
 } from "@/feature/labjack/task/types";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const createFirstReadChannel = (): ReadChannel => ({

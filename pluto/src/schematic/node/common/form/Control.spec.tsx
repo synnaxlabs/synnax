@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 

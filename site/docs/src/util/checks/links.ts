@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Check, type Context } from "@/util/checks/check";
+import type { Check, Context } from "@/util/checks/check";
 import { locate, locateSource, navRefs, type Ref } from "@/util/checks/crawl";
 import { attrValues, idValues } from "@/util/checks/html";
 import { normalizeRoute } from "@/util/route";
