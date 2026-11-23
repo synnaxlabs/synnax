@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <unordered_map>
@@ -33,10 +34,15 @@ class Calculator {
     std::set<::arc::types::ChannelKey> computed;
     /// @brief the channels that the calculations read.
     std::set<::arc::types::ChannelKey> inputs;
+    /// @brief true once a compute runs after the last open.
+    bool used = false;
 
-    /// @brief loads a new runtime for each calculation.
+    /// @brief loads a new runtime for each calculation. On error, the calculator keeps
+    /// the runtimes it had.
     x::errors::Error open() {
-        this->runtimes.clear();
+        std::vector<std::shared_ptr<::arc::runtime::Runtime>> loaded;
+        std::set<::arc::types::ChannelKey> loaded_computed;
+        std::set<::arc::types::ChannelKey> loaded_inputs;
         for (const auto &c: this->calculations) {
             this->cfg.program = c.program;
             auto [rt, err] = ::arc::runtime::load(
@@ -45,10 +51,17 @@ class Calculator {
                 this->on_error
             );
             if (err) return err;
-            this->computed.insert(rt->write_channels.begin(), rt->write_channels.end());
-            this->inputs.insert(rt->read_channels.begin(), rt->read_channels.end());
-            this->runtimes.push_back(std::move(rt));
+            loaded_computed.insert(
+                rt->write_channels.begin(),
+                rt->write_channels.end()
+            );
+            loaded_inputs.insert(rt->read_channels.begin(), rt->read_channels.end());
+            loaded.push_back(std::move(rt));
         }
+        this->runtimes = std::move(loaded);
+        this->computed = std::move(loaded_computed);
+        this->inputs = std::move(loaded_inputs);
+        this->used = false;
         return x::errors::NIL;
     }
 
@@ -93,8 +106,8 @@ public:
         return {std::move(calc), x::errors::NIL};
     }
 
-    /// @brief returns the channels to stream for an Arc that reads reads. A calculated
-    /// channel gives way to the base channels it reads.
+    /// @brief returns the channels to stream for an Arc that reads the given channels.
+    /// A calculated channel gives way to the base channels it reads.
     [[nodiscard]] std::vector<::arc::types::ChannelKey>
     streamed(const std::vector<::arc::types::ChannelKey> &reads) const {
         std::set keys(reads.begin(), reads.end());
@@ -104,17 +117,27 @@ public:
         return {keys.begin(), keys.end()};
     }
 
-    /// @brief loads every calculation again, so that the next compute starts from a
-    /// fresh state. Call it only while no compute runs.
-    x::errors::Error reset() { return this->open(); }
+    /// @brief loads every calculation again if a compute ran since the last load, so
+    /// that the next compute starts from a fresh state. On error, the calculator keeps
+    /// its runtimes. Call it only while no compute runs.
+    x::errors::Error reset() {
+        if (!this->used) return x::errors::NIL;
+        return this->open();
+    }
 
     /// @brief adds to frame the series of each calculated channel that its inputs in
     /// frame let it compute. A calculation reads the series that the ones before it
-    /// added.
-    void compute(x::telem::Frame &frame) const {
+    /// added. A calculation with no input in frame does not run.
+    void compute(x::telem::Frame &frame) {
+        this->used = true;
         for (const auto &rt: this->runtimes) {
-            auto out = rt->compute(frame.shallow_copy());
-            for (auto [key, series]: out)
+            x::telem::Frame in;
+            for (const auto [key, series]: frame)
+                if (std::ranges::find(rt->read_channels, key) !=
+                    rt->read_channels.end())
+                    in.emplace(key, series.shallow_copy());
+            if (in.empty()) continue;
+            for (auto [key, series]: rt->compute(in))
                 frame.emplace(key, std::move(series));
         }
     }

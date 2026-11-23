@@ -93,7 +93,7 @@ protected:
 TEST_F(CalculatorTest, ComputesFromBaseInput) {
     const auto base = this->create_base("calc_base");
     const auto calc = this->create_calculated("calc", base.name + " * 2");
-    const auto calculator = this->load(calc);
+    auto calculator = this->load(calc);
     x::telem::Frame frame(base.key, x::telem::Series(static_cast<int64_t>(3)));
     calculator.compute(frame);
     ASSERT_EQ(frame.at<int64_t>(calc.key, 0), 6);
@@ -104,7 +104,7 @@ TEST_F(CalculatorTest, ComputesNestedInDependencyOrder) {
     const auto base = this->create_base("calc_base");
     const auto inner = this->create_calculated("calc_inner", base.name + " + 1");
     const auto outer = this->create_calculated("calc_outer", inner.name + " * 2");
-    const auto calculator = this->load(outer);
+    auto calculator = this->load(outer);
     x::telem::Frame frame(base.key, x::telem::Series(static_cast<int64_t>(3)));
     calculator.compute(frame);
     ASSERT_EQ(frame.at<int64_t>(inner.key, 0), 4);
@@ -117,7 +117,7 @@ TEST_F(CalculatorTest, WaitsForMissingInputs) {
     const auto a = this->create_base("calc_a");
     const auto b = this->create_base("calc_b");
     const auto calc = this->create_calculated("calc_sum", a.name + " + " + b.name);
-    const auto calculator = this->load(calc);
+    auto calculator = this->load(calc);
     x::telem::Frame first(a.key, x::telem::Series(static_cast<int64_t>(3)));
     calculator.compute(first);
     ASSERT_FALSE(first.contains(calc.key));
@@ -151,5 +151,16 @@ TEST_F(CalculatorTest, StreamsBaseInputs) {
         calculator.streamed({outer.key, other.key}),
         std::vector({std::min(base.key, other.key), std::max(base.key, other.key)})
     );
+}
+
+/// @brief it should leave a frame that holds no input of a calculation unchanged.
+TEST_F(CalculatorTest, SkipsFrameWithoutInputs) {
+    const auto base = this->create_base("calc_base");
+    const auto other = this->create_base("calc_other");
+    const auto calc = this->create_calculated("calc", base.name + " * 2");
+    auto calculator = this->load(calc);
+    x::telem::Frame frame(other.key, x::telem::Series(static_cast<int64_t>(3)));
+    calculator.compute(frame);
+    ASSERT_EQ(frame.size(), 1);
 }
 }
