@@ -302,3 +302,26 @@ var _ = Describe("Migrated selectors", func() {
 		Entry("a name that selects no shape", `<svg><rect/></svg>`, "#a,b"),
 	)
 })
+
+var _ = Describe("CheckBounds", func() {
+	It("Should accept bounds whose lower is below their upper", func() {
+		Expect(symbol.CheckBounds(
+			[]string{"bounds"},
+			spatial.Bounds{Lower: 0.9, Upper: 1.1},
+		)).To(Succeed())
+	})
+
+	DescribeTable(
+		"Should refuse bounds whose lower is not below their upper",
+		func(b spatial.Bounds, msg string) {
+			Expect(symbol.CheckBounds([]string{"match", "bounds"}, b)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(msg)),
+			))
+		},
+		Entry("equal", spatial.Bounds{Lower: 1, Upper: 1},
+			"match.bounds: lower 1 must be below upper 1"),
+		Entry("inverted", spatial.Bounds{Lower: 2, Upper: 1},
+			"match.bounds: lower 2 must be below upper 1"),
+	)
+})
