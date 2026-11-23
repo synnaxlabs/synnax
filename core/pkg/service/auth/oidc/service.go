@@ -279,6 +279,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 type Login struct {
 	// Provider is the name of the provider.
 	Provider string
+	// Issuer is the provider's issuer URL, which the links of its accounts hold.
+	Issuer string
 	// AuthorizationEndpoint is the provider's login address.
 	AuthorizationEndpoint string
 	// ClientID is the Core's client ID at the provider.
@@ -302,6 +304,7 @@ func (s *Service) Logins() []Login {
 		}
 		logins = append(logins, Login{
 			Provider:              name,
+			Issuer:                p.Issuer,
 			AuthorizationEndpoint: d.Endpoint().AuthURL,
 			ClientID:              p.ClientID,
 		})

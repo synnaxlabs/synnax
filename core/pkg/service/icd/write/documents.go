@@ -51,7 +51,7 @@ type Documents struct {
 // NewDocuments returns the Documents of wm, the message of ic that a task sends.
 // channels holds the command channels of wm, and name names the sender in each skip
 // description. NewDocuments returns a validation error when a command channel does not
-// exist, or the error of Encoder.
+// exist or wm does not build from ic.
 func NewDocuments(
 	wm icd.WriteMessage,
 	ic icd.ICD,
@@ -81,7 +81,7 @@ func NewDocuments(
 		d.last[i] = []byte{}
 	}
 	var err error
-	if d.encoder, err = Encoder(wm, ic, dataTypes); err != nil {
+	if d.encoder, err = newEncoder(wm, ic, dataTypes); err != nil {
 		return nil, err
 	}
 	return d, nil
