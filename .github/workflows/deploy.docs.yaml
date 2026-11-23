@@ -18,17 +18,14 @@ on:
       - main
     paths:
       - .github/workflows/deploy.docs.yaml
-      - alamos/ts/**
       - arc/go/analyzer/codes/codes.gen.json
-      - client/ts/**
+      - arc/ts/**
       - configs/ts/**
       - configs/vite/**
       - site/common/**
       - site/docs/**
-      - freighter/ts/**
       - lyra/**
       - package.json
-      - pluto/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - turbo.json

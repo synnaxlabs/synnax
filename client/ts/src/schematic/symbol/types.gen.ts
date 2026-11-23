@@ -274,8 +274,11 @@ export const PAINT_SCHEMAS: {
 /** SpinMotion turns a part around its pivot. */
 export const spinMotionZ = z.object({
   type: z.literal("spin"),
-  /** rate is the turns each second at the upper bound of the state. */
-  rate: z.number().min(0).default(0.5),
+  /**
+   * rate is the turns each second at the upper bound of the state. A negative rate
+   * turns the part the other way.
+   */
+  rate: z.number().default(0.5),
   /** state is the key of the number state that sets the speed. */
   state: z.string().optional(),
 });
@@ -284,8 +287,11 @@ export interface SpinMotion extends z.infer<typeof spinMotionZ> {}
 /** FlowMotion moves the dashes of a stroke along it. */
 export const flowMotionZ = z.object({
   type: z.literal("flow"),
-  /** rate is the cycles each second at the upper bound of the state. */
-  rate: z.number().min(0).default(0.5),
+  /**
+   * rate is the cycles each second at the upper bound of the state. A negative rate
+   * moves the dashes the other way.
+   */
+  rate: z.number().default(0.5),
   /** state is the key of the number state that sets the speed. */
   state: z.string().optional(),
 });
@@ -444,6 +450,50 @@ export const cursorZ = z.object({
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
+/** BuiltinRef is a symbol that the Core ships. */
+export const builtinRefZ = z.object({
+  type: z.literal("builtin"),
+  /** name is the shipped name of the built-in. */
+  name: z.string(),
+});
+export interface BuiltinRef extends z.infer<typeof builtinRefZ> {}
+
+/** CustomRef is a symbol that a user made. */
+export const customRefZ = z.object({
+  type: z.literal("custom"),
+  /** key is the key of the symbol. */
+  key: keyZ,
+});
+export interface CustomRef extends z.infer<typeof customRefZ> {}
+
+/** MissingRef is a custom symbol that the Core does not have. */
+export const missingRefZ = z.object({
+  type: z.literal("missing"),
+  /** key is the key of the custom symbol that the Core does not have. */
+  key: z.string(),
+});
+export interface MissingRef extends z.infer<typeof missingRefZ> {}
+
+export const REF_TYPES = ["builtin", "custom", "missing"] as const;
+export const refTypeZ = z.enum(REF_TYPES);
+export type RefType = z.infer<typeof refTypeZ>;
+
+/** Ref is the symbol that a node draws. */
+export const refZ = z.discriminatedUnion("type", [
+  builtinRefZ,
+  customRefZ,
+  missingRefZ,
+]);
+export type Ref = BuiltinRef | CustomRef | MissingRef;
+
+export const REF_SCHEMAS: {
+  [K in RefType]: z.ZodType<Extract<Ref, { type: K }>>;
+} = {
+  builtin: builtinRefZ,
+  custom: customRefZ,
+  missing: missingRefZ,
+};
+
 /** EnumerationState is a state that shows the entries of an enumeration. */
 export const enumerationStateZ = baseStateZ.extend({
   type: z.literal("enumeration"),
@@ -494,7 +544,7 @@ export interface Command extends z.infer<typeof commandZ> {}
 
 /**
  * Look is paint, visibility, or motion on a part. A later look wins on each field that
- * it sets.
+ * it sets. On motion, it replaces only an earlier motion of the same kind.
  */
 export const lookZ = z.object({
   /** key is the look identifier. */
@@ -528,6 +578,8 @@ export const retrieveRequestZ = z.strictObject({
   after: cursorZ.optional(),
   /** limit is the most symbols to return. */
   limit: z.uint32().optional(),
+  /** includeUses includes the uses of each record. */
+  includeUses: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
@@ -587,6 +639,11 @@ export const symbolZ = z.object({
   data: specZ,
   /** group is the group the symbol sits in, if any. */
   group: group.keyZ.optional(),
+  /**
+   * uses are the schematics that use the symbol and that the caller can read, filled
+   * only when a retrieve request asks for them.
+   */
+  uses: zod.nullToUndefined(resource.idZ.array()),
 });
 export interface Symbol extends z.infer<typeof symbolZ> {}
 export interface New extends z.input<typeof symbolZ> {}

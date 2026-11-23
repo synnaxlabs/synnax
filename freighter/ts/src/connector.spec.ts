@@ -9,13 +9,17 @@
 
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import type { IncomingMessage } from "node:http";
+import {
+  createServer as createHTTPServer,
+  type IncomingMessage,
+  type Server as HTTPServer,
+} from "node:http";
 import { createServer, type Server } from "node:https";
 import { type AddressInfo, createServer as createTCPServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { binary, url } from "@synnaxlabs/x";
+import { binary, sleep, TimeSpan, url } from "@synnaxlabs/x";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { z } from "zod";
@@ -180,14 +184,18 @@ describe("trustCA", () => {
 
   describe("in Node versions without tls.getCACertificates", () => {
     beforeAll(() => {
-      vi.doMock("node:tls", async (importOriginal) => ({
-        ...(await importOriginal<object>()),
+      const tls = {
+        ...process.getBuiltinModule("node:tls"),
         getCACertificates: undefined,
-      }));
+      };
+      const getBuiltinModule = process.getBuiltinModule.bind(process);
+      vi.spyOn(process, "getBuiltinModule").mockImplementation((id: string) =>
+        id === "node:tls" ? tls : getBuiltinModule(id),
+      );
     });
 
     afterAll(() => {
-      vi.doUnmock("node:tls");
+      vi.restoreAllMocks();
     });
 
     afterEach(() => {
@@ -228,4 +236,54 @@ describe("trustCA", () => {
       expect(() => trustCA(ca)).toThrow("browser");
     });
   });
+});
+
+describe("default connector", () => {
+  // The Core closes a connection after two minutes idle and sends no Keep-Alive header,
+  // so the client keeps its own idle timeout.
+  const CORE_IDLE_TIMEOUT = TimeSpan.minutes(2);
+  // Undici's default idle timeout is 4 s, on a native timer.
+  const PAST_CLIENT_IDLE_TIMEOUT = TimeSpan.milliseconds(4500);
+  let server: HTTPServer;
+  let client: HTTPClient;
+  let connections = 0;
+
+  const send = async (): Promise<void> => {
+    const res = await client.send("/", { message: "hi" }, messageZ, messageZ);
+    expect(res).toEqual({ message: "hi" });
+  };
+
+  beforeAll(async () => {
+    server = createHTTPServer((req, res) => {
+      res.setHeader("Content-Type", "application/json");
+      req.pipe(res);
+    });
+    server.keepAliveTimeout = 0;
+    server.on("connection", (socket) => {
+      connections++;
+      socket.setTimeout(CORE_IDLE_TIMEOUT.milliseconds, () => socket.destroy());
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    client = new HTTPClient({
+      endpoint: new url.URL({ host: "127.0.0.1", port }),
+      codec: binary.JSON_CODEC,
+    });
+  });
+
+  afterAll(async () => {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  it("should drop an idle socket long before the Core closes it", async () => {
+    await send();
+    // A socket returns to the pool shortly after its response ends.
+    await sleep.sleep(TimeSpan.milliseconds(100));
+    await send();
+    expect(connections).toBe(1);
+    await sleep.sleep(PAST_CLIENT_IDLE_TIMEOUT);
+    await send();
+    expect(connections).toBe(2);
+  }, 10_000);
 });

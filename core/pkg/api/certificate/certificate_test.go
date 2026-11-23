@@ -413,7 +413,9 @@ var _ = Describe("Service", func() {
 		It("Should let a rack replace a file certificate on it", func(ctx SpecContext) {
 			r := createRack(ctx)
 			c := createFileCertificate(ctx, r.Key)
-			details := *c.Variant.(certificate.FileCertificate).Details
+			file, ok := c.Variant.(certificate.FileCertificate)
+			Expect(ok).To(BeTrue())
+			details := *file.Details
 			details.Sha256 = "cc"
 			MustSucceed(set(SubjectCtx(ctx, r.Key.ResourceID()),
 				apicertificate.SetRequest{Certificates: []apicertificate.Input{{
@@ -432,6 +434,59 @@ var _ = Describe("Service", func() {
 			Expect(got.CertificatePath).To(Equal("/var/lib/synnax/next.der"))
 			Expect(got.Details).To(Equal(&details))
 		})
+		It("Should let a rack add details to a file certificate on it",
+			func(ctx SpecContext) {
+				r := createRack(ctx)
+				c := certificate.Certificate{Variant: certificate.FileCertificate{
+					Base:            certificate.Base{Name: "Driver"},
+					CertificatePath: "/var/lib/synnax/driver.der",
+					Rack:            r.Key,
+				}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Certificate.NewWriter(tx).Set(ctx, &c, nil)
+				})).To(Succeed())
+				details := certificate.Details{
+					Subject:  "CN=driver",
+					Issuer:   "CN=driver",
+					NotAfter: telem.Now().Add(telem.Hour),
+					Sha1:     "aa",
+					Sha256:   "bb",
+				}
+				MustSucceed(set(SubjectCtx(ctx, r.Key.ResourceID()),
+					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
+						Key:             c.Base().Key,
+						Source:          secret.SourceFile,
+						Name:            "Driver",
+						CertificatePath: "/var/lib/synnax/driver.der",
+						Details:         &details,
+						Rack:            r.Key,
+					}}},
+				))
+				got, ok := retrieveCertificate(ctx, c.Base().Key).
+					Variant.(certificate.FileCertificate)
+				Expect(ok).To(BeTrue())
+				Expect(got.Details).To(Equal(&details))
+			},
+		)
+		It("Should let a rack clear the details of a file certificate on it",
+			func(ctx SpecContext) {
+				r := createRack(ctx)
+				c := createFileCertificate(ctx, r.Key)
+				MustSucceed(set(SubjectCtx(ctx, r.Key.ResourceID()),
+					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
+						Key:             c.Base().Key,
+						Source:          secret.SourceFile,
+						Name:            "Driver",
+						CertificatePath: "/var/lib/synnax/driver.der",
+						Rack:            r.Key,
+					}}},
+				))
+				got, ok := retrieveCertificate(ctx, c.Base().Key).
+					Variant.(certificate.FileCertificate)
+				Expect(ok).To(BeTrue())
+				Expect(got.Details).To(BeNil())
+			},
+		)
 		It("Should deny a rack moving a file certificate on it to another rack",
 			func(ctx SpecContext) {
 				r := createRack(ctx)
@@ -881,5 +936,33 @@ var _ = Describe("Service", func() {
 				apicertificate.RefreshRequest{Key: uuid.New(), Details: details},
 			)).Error().To(MatchError(query.ErrNotFound))
 		})
+	})
+})
+
+var _ = Describe("OwnedTables", func() {
+	It("Should name the table of a file certificate that uses a rack", func(
+		ctx SpecContext,
+	) {
+		r := createRack(ctx)
+		tx := DeferClose(db.OpenTx())
+		c := certificate.Certificate{Variant: certificate.FileCertificate{
+			Base:            certificate.Base{Name: "Driver"},
+			CertificatePath: "/var/lib/synnax/driver.der",
+			Rack:            r.Key,
+		}}
+		Expect(svc.Certificate.NewWriter(tx).Set(ctx, &c, nil)).To(Succeed())
+		changes := gorp.ChangesOf(tx)
+		tables := make([]string, 0, len(changes))
+		var uses []string
+		for _, ch := range changes {
+			tables = append(tables, ch.Record.Table)
+			for _, l := range ch.Added {
+				if l.Kind == gorp.Use {
+					uses = append(uses, l.Target.Table)
+				}
+			}
+		}
+		Expect(tables).To(ConsistOf(apicertificate.OwnedTables()))
+		Expect(uses).To(ConsistOf(string(resource.TypeRack)))
 	})
 })

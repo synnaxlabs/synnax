@@ -18,8 +18,7 @@ import {
 import { useSyncedRef } from "@/hooks/ref";
 import { useDestructors } from "@/hooks/useDestructors";
 import { useMemoCompare } from "@/memo";
-import { ACTIVATION_KEYS } from "@/util/event";
-import { ownsEvent } from "@/util/focus";
+import { ACTIVATION_KEYS, ownsEvent } from "@/util";
 
 export interface UseHoldProps<E extends Element> {
   onClick?: MouseEventHandler<E>;

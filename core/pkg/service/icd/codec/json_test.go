@@ -68,18 +68,20 @@ func fixtureEntry(path string) TableEntry {
 	return Entry(strings.TrimSuffix(filepath.Base(path), ".json"), path)
 }
 
-func fixturePaths() []string {
+// fixturePaths returns the fixtures in the dir folder of testdata.
+func fixturePaths(dir string) []string {
 	GinkgoHelper()
 	paths := MustSucceed(
-		filepath.Glob(filepath.Join("..", "testdata", "decode", "*.json")),
+		filepath.Glob(filepath.Join("..", "testdata", dir, "*.json")),
 	)
 	Expect(paths).ToNot(BeEmpty())
 	return paths
 }
 
-func decodeEntries() []TableEntry {
+// fixtureEntries returns an entry for each fixture in the dir folder of testdata.
+func fixtureEntries(dir string) []TableEntry {
 	GinkgoHelper()
-	return lo.Map(fixturePaths(), func(path string, _ int) TableEntry {
+	return lo.Map(fixturePaths(dir), func(path string, _ int) TableEntry {
 		return fixtureEntry(path)
 	})
 }
@@ -137,15 +139,19 @@ func readDecodeFixture(path string) decodeFixture {
 	return f
 }
 
+func (m fixtureMessage) jsonMessage() codec.JSONMessage {
+	return codec.JSONMessage{
+		Name:    m.Name,
+		Payload: m.Payload,
+		Bindings: lo.Map(m.Bindings, func(b binding, _ int) codec.Binding {
+			return codec.Binding{Field: b.Field, DataType: b.DataType}
+		}),
+	}
+}
+
 func (f decodeFixture) messages() []codec.JSONMessage {
 	return lo.Map(f.Messages, func(m fixtureMessage, _ int) codec.JSONMessage {
-		return codec.JSONMessage{
-			Name:    m.Name,
-			Payload: m.Payload,
-			Bindings: lo.Map(m.Bindings, func(b binding, _ int) codec.Binding {
-				return codec.Binding{Field: b.Field, DataType: b.DataType}
-			}),
-		}
+		return m.jsonMessage()
 	})
 }
 
@@ -206,7 +212,7 @@ var _ = Describe("JSON", func() {
 				}
 			}
 		}
-	}, decodeEntries())
+	}, fixtureEntries("decode"))
 
 	It("Should reject a match rule with no type", func() {
 		key := uuid.New()

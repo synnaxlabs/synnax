@@ -33,6 +33,7 @@ import (
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
@@ -107,12 +108,18 @@ var legacySecrets = map[string]struct{ key, plain string }{
 	"pagerduty_alert": {key: "routing_key", plain: "plain_routing_key"},
 }
 
-// legacyReimportErrors holds, for each task type whose current shape the legacy rewrite
+// legacyICDs holds each task type whose import moves the fields of each endpoint into a
+// message of a new ICD, named after the task.
+var legacyICDs = set.New("http_read")
+
+// legacyReimportErrors holds, for each fixture whose current shape the legacy rewrite
 // cannot read, the error that normalizing an unversioned copy of its stored config
 // returns.
 var legacyReimportErrors = map[string]string{
-	"ethercat_read":  `within "/channels/0": ReadChannel: unknown type "unresolved"`,
-	"ethercat_write": `within "/channels/0": WriteChannel: unknown type "unresolved"`,
+	"ethercat_read":      `within "/channels/0": ReadChannel: unknown type "unresolved"`,
+	"ethercat_write":     `within "/channels/0": WriteChannel: unknown type "unresolved"`,
+	"ni_counter_read":    `unmarshal JSON string into Go float64 within "/meas_time"`,
+	"ni_counter_read_py": `unmarshal JSON string into Go float64 within "/meas_time"`,
 }
 
 // legacyVariantDiscarded lists the keys a rewrite drops on purpose from one union
@@ -456,6 +463,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		// created for it, and toFixture maps it back.
 		toCreated, toFixture map[float64]float64
 		secretSvc            *secret.Service
+		icdSvc               *icd.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -520,6 +528,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		for fixture, created := range toCreated {
 			toFixture[created] = fixture
 		}
+		icdSvc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
+			DB:   db,
+			ImEx: imex.NewService(),
+		}))
 		stores := slices.Concat(
 			MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db})).Stores(),
 			MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
@@ -529,6 +541,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			MustOpen(http.OpenService(ctx, http.ServiceConfig{
 				DB:      db,
 				Channel: channelSvc,
+				ICD:     icdSvc,
 			})).Stores(),
 			MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db})).Stores(),
 			MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{DB: db})).Stores(),
@@ -629,11 +642,66 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		return env, imported
 	}
 
+	// revealICD returns ep with the key of its ICD, and the message and field keys of
+	// each read, swapped for their names in the ICD that the import made.
+	revealICD := func(ctx context.Context, ep map[string]any) map[string]any {
+		GinkgoHelper()
+		var ic icd.ICD
+		Expect(icdSvc.NewRetrieve().
+			Where(icd.MatchKeys(uuid.MustParse(as[string](ep["icd"])))).
+			Entry(&ic).
+			Exec(ctx, db)).To(Succeed())
+		names := make(map[string]string)
+		for _, m := range ic.Messages {
+			names[m.Key.String()] = m.Name
+			for _, f := range as[icd.JSONPayload](m.Payload.Variant).Fields {
+				names[f.Base().Key.String()] = f.Base().Name
+			}
+		}
+		name := func(key any) string {
+			GinkgoHelper()
+			n, ok := names[as[string](key)]
+			Expect(ok).To(BeTrue(), "key %v is not in ICD %s", key, ic.Name)
+			return n
+		}
+		revealed := maps.Clone(ep)
+		revealed["icd"] = ic.Name
+		reads := as[[]any](ep["messages"])
+		revealedReads := make([]any, len(reads))
+		for i, r := range reads {
+			read := maps.Clone(as[map[string]any](r))
+			read["message"] = name(read["message"])
+			if index, ok := read["index"]; ok {
+				read["index"] = name(index)
+			}
+			bindings := as[[]any](read["bindings"])
+			revealedBindings := make([]any, len(bindings))
+			for j, b := range bindings {
+				binding := maps.Clone(as[map[string]any](b))
+				binding["field"] = name(binding["field"])
+				revealedBindings[j] = binding
+			}
+			read["bindings"] = revealedBindings
+			revealedReads[i] = read
+		}
+		revealed["messages"] = revealedReads
+		return revealed
+	}
+
 	// reveal returns the config of imported with the key of each secret it holds
-	// swapped for the value the import read.
+	// swapped for the value the import read, and each key of an ICD that the import
+	// made swapped for its name.
 	reveal := func(ctx context.Context, imported task.Task) map[string]any {
 		GinkgoHelper()
 		config := maps.Clone(map[string]any(imported.Config))
+		if legacyICDs.Contains(imported.Type) {
+			endpoints := as[[]any](config["endpoints"])
+			revealed := make([]any, len(endpoints))
+			for i, ep := range endpoints {
+				revealed[i] = revealICD(ctx, as[map[string]any](ep))
+			}
+			config["endpoints"] = revealed
+		}
 		fields, ok := legacySecrets[imported.Type]
 		if !ok {
 			return config
@@ -676,17 +744,26 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			expected := MustSucceed(store.Normalize(ctx, db, 0, legacy))
 			// The store assigns the key on write.
 			delete(expected, "key")
+			// The write moves the staged fields into an ICD and fills in each read.
+			if legacyICDs.Contains(env.Type) {
+				delete(expected, "inline")
+				for _, ep := range as[[]any](expected["endpoints"]) {
+					delete(as[map[string]any](ep), "messages")
+				}
+			}
 			revealed := reveal(ctx, imported)
 			expectSubset("config", map[string]any(expected), revealed)
 
 			// The rewrite and the ladder must leave their own output unchanged. An
-			// unversioned copy of a config reads each secret key as a plain value.
-			reimportErr, unreadable := legacyReimportErrors[env.Type]
+			// unversioned copy of a config reads each secret key as a plain value, and
+			// stages again the fields that the import moved into an ICD.
+			reimportErr, unreadable := legacyReimportErrors[fixture]
 			if unreadable {
 				Expect(store.Normalize(ctx, db, 0, imported.Config)).Error().
 					To(MatchError(ContainSubstring(reimportErr)))
 			}
-			if _, moved := legacySecrets[env.Type]; unreadable || moved {
+			_, moved := legacySecrets[env.Type]
+			if unreadable || moved || legacyICDs.Contains(env.Type) {
 				Expect(store.Normalize(ctx, db, store.Version(), imported.Config)).
 					To(Equal(imported.Config))
 			} else {
@@ -807,3 +884,11 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		Entry(nil, "v0.59.2", "pagerduty_alert"),
 	)
 })
+
+// as returns v as a T, and fails the spec when v is not a T.
+func as[T any](v any) T {
+	GinkgoHelper()
+	t, ok := v.(T)
+	Expect(ok).To(BeTrue())
+	return t
+}

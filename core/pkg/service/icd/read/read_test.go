@@ -236,7 +236,8 @@ var _ = Describe("Read", func() {
 				Entry("a data field on an index channel",
 					readOf(status, bind(ts, timeKey)),
 					"reads.0.messages.0.bindings.0.channel",
-					"only the index field can write to index channel time",
+					"field ts cannot write to index channel time, because only the "+
+						"index field can. Bind field ts to a data channel",
 				),
 			)
 

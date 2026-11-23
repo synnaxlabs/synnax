@@ -11,7 +11,20 @@
 
 package v5
 
-import v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
+	"strconv"
+
+	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+)
 
 // Method is the HTTP method used when requesting an endpoint.
 type Method = v4.Method
@@ -47,11 +60,161 @@ type QueryParam = v4.QueryParam
 type ReadField = v4.ReadField
 
 // ReadEndpoint is a single HTTP endpoint polled by a read task.
-type ReadEndpoint = v4.ReadEndpoint
+type ReadEndpoint struct {
+	// Key uniquely identifies the endpoint within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the endpoint is excluded from the task.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Method is the HTTP method used to poll the endpoint.
+	Method Method `json:"method" msgpack:"method"`
+	// Path is the URL path appended to the device's base URL.
+	Path string `json:"path" msgpack:"path"`
+	// Headers contains additional headers merged into the request.
+	Headers []Header `json:"headers" msgpack:"headers"`
+	// QueryParams contains query parameters appended to the request URL.
+	QueryParams []QueryParam `json:"query_params" msgpack:"query_params"`
+	// Body is a static body sent with each request. Empty sends no body.
+	Body string `json:"body" msgpack:"body"`
+	// ICD is the key of the ICD that holds the messages of the endpoint. Absent when
+	// the endpoint reads no messages.
+	ICD *icd.Key `json:"icd,omitzero" msgpack:"icd,omitempty"`
+	// Messages are the messages that the response body is read as.
+	Messages []icd.ReadMessage `json:"messages" msgpack:"messages"`
+	// Fields contains the values to extract from the response.
+	Fields []ReadField `json:"fields" msgpack:"fields"`
+	// Index is the key of the field whose channel indexes the others. Empty when the
+	// task stamps samples on arrival.
+	Index string `json:"index" msgpack:"index"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadEndpoint) SetDefaults() {
+	r.Method = MethodGet
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadEndpoint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadEndpoint
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadEndpoint
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadEndpoint) Validate() error {
+	v := validate.New("ReadEndpoint")
+	v.Ternaryf("method", !r.Method.IsValid(), "invalid method: %v", r.Method)
+	for i := range r.Fields {
+		v.Exec(func() error { return validate.PathedError(r.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// InlineEndpoint is an endpoint from before ICDs, which held its fields inline.
+type InlineEndpoint struct {
+	// Key is the key of the endpoint that held the fields.
+	Key string `json:"key" msgpack:"key"`
+	// Index is the key of the field whose channel indexes the others. Empty when the
+	// task stamps samples on arrival.
+	Index string `json:"index" msgpack:"index"`
+	// Fields are the fields of the endpoint.
+	Fields []ReadField `json:"fields" msgpack:"fields"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (in InlineEndpoint) Validate() error {
+	v := validate.New("InlineEndpoint")
+	for i := range in.Fields {
+		v.Exec(func() error { return validate.PathedError(in.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// InlineRead holds the fields of a read config from before ICDs.
+type InlineRead struct {
+	// Endpoints are the endpoints that held their fields inline.
+	Endpoints []InlineEndpoint `json:"endpoints" msgpack:"endpoints"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (in InlineRead) Validate() error {
+	v := validate.New("InlineRead")
+	for i := range in.Endpoints {
+		v.Exec(func() error { return validate.PathedError(in.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // ReadConfig configures an HTTP read task, which polls one or more endpoints on an HTTP
 // server device and writes extracted JSON values to Synnax channels.
-type ReadConfig = v4.ReadConfig
+type ReadConfig struct {
+	task.PersistConfig
+	// Device is the key of the HTTP server device to poll.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Rate is the polling rate applied to all endpoints, in Hertz.
+	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Endpoints contains the endpoints to poll.
+	Endpoints []ReadEndpoint `json:"endpoints" msgpack:"endpoints"`
+	// NanFillEnabled is true when a float field that is missing or fails to convert is
+	// written as NaN. When false, the task skips every field that shares the endpoint
+	// and index channel with it.
+	NanFillEnabled bool `json:"nan_fill_enabled" msgpack:"nan_fill_enabled"`
+	// Inline holds the fields of each endpoint of a config from before ICDs. A write
+	// moves them into a new ICD and clears it.
+	Inline *InlineRead `json:"inline,omitzero" msgpack:"inline,omitempty"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.Rate = 1
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.GreaterThan("rate", r.Rate, 0)
+	for i := range r.Endpoints {
+		v.Exec(func() error { return validate.PathedError(r.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })
+	}
+	if r.Inline != nil {
+		v.Exec(func() error { return validate.PathedError(r.Inline.Validate(), "inline") })
+	}
+	return v.Error()
+}
 
 // ChannelField is the command channel value placed into a write endpoint's body.
 type ChannelField = v4.ChannelField
