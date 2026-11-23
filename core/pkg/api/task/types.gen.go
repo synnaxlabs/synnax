@@ -12,6 +12,8 @@
 package task
 
 import (
+	"strconv"
+
 	servicetask "github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -87,4 +89,14 @@ func (r RetrieveRequest) Validate() error {
 type RetrieveResponse struct {
 	// Tasks are the tasks the request selects.
 	Tasks []servicetask.Task `json:"tasks" msgpack:"tasks"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Tasks {
+		v.Exec(func() error { return validate.PathedError(r.Tasks[i].Validate(), "tasks", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

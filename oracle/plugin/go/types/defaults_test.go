@@ -870,11 +870,16 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 						}
 						upper T
 					}
+
+					Holder struct {
+						range Range
+					}
 				`
 				resp := MustGenerate(source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
 					"Lower float64",
 					`v.Ternary("lower", !(r.Lower < r.Upper), "must be less than upper")`,
+					`h.Range.Validate()`,
 				)
 			},
 		)

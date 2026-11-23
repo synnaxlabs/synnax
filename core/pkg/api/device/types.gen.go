@@ -12,6 +12,8 @@
 package device
 
 import (
+	"strconv"
+
 	legacydevice "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -87,4 +89,14 @@ func (r RetrieveRequest) Validate() error {
 type RetrieveResponse struct {
 	// Devices are the devices the request selects.
 	Devices []legacydevice.Device `json:"devices" msgpack:"devices"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Devices {
+		v.Exec(func() error { return validate.PathedError(r.Devices[i].Validate(), "devices", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

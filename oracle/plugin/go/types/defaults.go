@@ -1099,11 +1099,12 @@ func structNeedsMethod(
 	visited set.Set[string],
 	rule methodRule,
 ) bool {
-	if form.IsGeneric() {
+	if len(resolution.NonDefaultedTypeParams(form.TypeParams)) > 0 {
 		return false
 	}
 	probe := probeData(data)
-	for _, field := range resolution.UnifiedFields(resolved, data.table) {
+	fields, _ := resolution.RecordFields(resolved, data.table)
+	for _, field := range fields {
 		if rule.skip(field, data) {
 			continue
 		}
