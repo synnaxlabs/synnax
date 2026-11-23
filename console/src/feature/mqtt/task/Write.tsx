@@ -198,13 +198,23 @@ const DISCOVER_KIND: Kind<SparkplugWriteTarget> = {
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
+const unbind = (binding: icd.WriteBinding): icd.WriteBinding =>
+  binding.type === "channel" ? { ...binding, channel: 0 } : binding;
+
 const duplicateTargets = (targets: WriteTarget[], keys: string[]): WriteTarget[] =>
   targets
     .filter(({ key }) => keys.includes(key))
     .map((target) =>
       target.type === "sparkplug"
         ? { ...target, key: id.create(), channel: 0, name: "" }
-        : { ...target, key: id.create() },
+        : {
+            ...target,
+            key: id.create(),
+            message: {
+              ...target.message,
+              bindings: target.message.bindings.map(unbind),
+            },
+          },
     );
 
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
@@ -279,35 +289,37 @@ const Form = PlatformDevice.wrapTaskForm({
 });
 
 /**
- * Gives each channel binding of target with channel 0 a command channel: the one that
- * dev stores for its field, or a new one. A new channel takes the data type of the
- * binding, or the default of its field when the binding names none. Updates the write
- * properties of dev in place.
+ * Gives each channel binding of target a command channel that its field takes: the one
+ * it has, the one that dev stores for its field, or a new one. A new channel takes the
+ * data type of the binding, or the default of its field when the binding names none or
+ * one that the field no longer takes. Updates the write properties of dev in place.
  */
 const configureBindings = async (
   client: Synnax,
   dev: Device.Device,
   target: PlainWriteTarget,
 ): Promise<void> => {
-  const unbound = target.message.bindings.filter(
-    (b): b is icd.ChannelWriteBinding =>
-      b.type === "channel" && !primitive.isNonZero(b.channel),
+  const bindings = target.message.bindings.filter(
+    (b): b is icd.ChannelWriteBinding => b.type === "channel",
   );
-  if (unbound.length === 0) return;
+  if (bindings.length === 0) return;
   const messages = await ICD.retrieveMessages(client, [target.icd]);
   const fields = ICD.jsonFields(
     messages.get(target.icd)?.find(({ key }) => key === target.message.message),
   );
   const prefix = namePrefix(dev.name, target.topic);
-  for (const binding of unbound) {
+  for (const binding of bindings) {
     const field = fields.find(({ key }) => key === binding.field);
     // The Core rejects a binding to a field that the message lacks.
     if (field == null) continue;
+    const { dataType = "" } = binding;
+    const suited = dataType !== "" && ICD.encodes(field, dataType);
     binding.channel = await Task.configureCommandChannel(client, dev.properties.write, {
       propertiesKey: `${target.topic}#${binding.field}`,
       channel: binding.channel,
       name: `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`,
-      dataType: ICD.bindingDataType(binding, field),
+      dataType: ICD.bindingDataType(suited ? binding : {}, field),
+      suits: (ch) => ICD.encodes(field, ch.dataType.toString()),
     });
   }
 };

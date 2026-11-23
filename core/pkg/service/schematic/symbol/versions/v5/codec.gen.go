@@ -784,6 +784,55 @@ func (p *Part) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (rv Ref) EncodeOrc(w *orc.Writer) error {
+	switch v := rv.Variant.(type) {
+	case BuiltinRef:
+		w.String("builtin")
+		w.String(v.Name)
+	case CustomRef:
+		w.String("custom")
+		w.Write(v.Key[:])
+	case MissingRef:
+		w.String("missing")
+		w.String(v.Key)
+	default:
+		return errors.Newf("Ref: nil or unknown variant %T", rv.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *Ref) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "builtin":
+		var v BuiltinRef
+		if v.Name, err = r.String(); err != nil {
+			return err
+		}
+		rv.Variant = v
+	case "custom":
+		var v CustomRef
+		if _, err := r.Read(v.Key[:]); err != nil {
+			return err
+		}
+		rv.Variant = v
+	case "missing":
+		var v MissingRef
+		if v.Key, err = r.String(); err != nil {
+			return err
+		}
+		rv.Variant = v
+	default:
+		return errors.Newf("Ref: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (s Spec) EncodeOrc(w *orc.Writer) error {
 	if err := s.Drawing.EncodeOrc(w); err != nil {
 		return err
