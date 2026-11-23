@@ -407,6 +407,16 @@ describe("symbol editor spec", () => {
       expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
     });
 
+    it("should not count a clip-path of none", () => {
+      const spec = createSpec({
+        drawing: drawn(
+          '<rect id="body" clip-path="none" style="clip-path: none; fill: red"/>',
+        ),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map());
+    });
+
     it("should return a part with a level motion and more than one shape", () => {
       const spec = createSpec({
         drawing: drawn('<rect id="body"/>'),
@@ -469,6 +479,33 @@ describe("symbol editor spec", () => {
       const next = Spec.removePart(spec, "body");
       expect(next.parts.map((p) => p.key)).toEqual(["seat"]);
       expect(next.looks.map((l) => l.key)).toEqual(["b"]);
+    });
+  });
+
+  describe("owner", () => {
+    const spec = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<g id="g"><rect id="body"/><rect id="c"/></g><rect id="d"/></svg>',
+      },
+      parts: [
+        { key: "group", name: "Group", selectors: ["#g"] },
+        { key: "body", name: "Body", selectors: ["#body"] },
+      ],
+    });
+
+    it("should return the part that holds the shape itself", () => {
+      expect(Spec.owner(spec, "#body")?.key).toBe("body");
+    });
+
+    it("should return the part that holds the group around the shape", () => {
+      expect(Spec.owner(spec, "#c")?.key).toBe("group");
+    });
+
+    it("should return undefined for a shape that no part holds", () => {
+      expect(Spec.owner(spec, "#d")).toBeUndefined();
     });
   });
 

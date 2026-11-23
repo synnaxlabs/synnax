@@ -188,7 +188,7 @@ const Editor = ({
     const spec = form.get(path.data).value;
     if (part != null)
       return form.set(path.data.parts, Spec.toggleSelector(spec, part, selector));
-    const owner = spec.parts.find((p) => p.selectors.includes(selector));
+    const owner = Spec.owner(spec, selector);
     if (owner == null) return addPart(selector);
     setSelectedPart(owner.key);
   };

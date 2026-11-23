@@ -180,10 +180,14 @@ export const setVariesByValue = (
   return setOwn(cleared, target, field, first);
 };
 
-const CLIP_STYLE = /(^|;)\s*clip-path\s*:/;
+const CLIP_STYLE = /(^|;)\s*clip-path\s*:\s*(?!none\s*(;|$))[^;\s]/;
 
-const clipped = (el: Element): boolean =>
-  el.hasAttribute("clip-path") || CLIP_STYLE.test(el.getAttribute("style") ?? "");
+const clipped = (el: Element): boolean => {
+  const clip = el.getAttribute("clip-path")?.trim() ?? "none";
+  return (
+    !["", "none"].includes(clip) || CLIP_STYLE.test(el.getAttribute("style") ?? "")
+  );
+};
 
 /**
  * LevelIssue is why a level motion cannot draw a part. Level clips each shape of the
@@ -239,6 +243,25 @@ const heldBy = (markup: string, group: string, selectors: string[]): Set<string>
       return shapes.length > 0 && shapes.every((shape) => el.contains(shape));
     }),
   );
+};
+
+/**
+ * @returns the part that holds the shape of selector, itself or through the nearest
+ * group around it that a part holds.
+ */
+export const owner = (
+  spec: Pick<Spec, "drawing" | "parts">,
+  selector: string,
+): schematic.symbol.Part | undefined => {
+  const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+  const around: Element[] = [];
+  for (let el = doc.querySelector(selector); el != null; el = el.parentElement)
+    around.push(el);
+  for (const el of around) {
+    const found = spec.parts.find((p) => p.selectors.some((s) => el.matches(s)));
+    if (found != null) return found;
+  }
+  return undefined;
 };
 
 /**
