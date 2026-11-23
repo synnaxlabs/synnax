@@ -87,19 +87,36 @@ type encodeField struct {
 
 // bounds holds the min and max of the decoded value of a number field. A nil end sets
 // no limit.
-type bounds struct{ min, max *float64 }
+type bounds struct {
+	min, max *float64
+	// narrow is true for float32 samples, which check against each limit at float32
+	// precision, so a command at a limit passes.
+	narrow bool
+}
 
-// check returns a validation error when decoded, the decoded value of raw, is outside
-// b.
-func (b bounds) check(raw, decoded float64) error {
+// at returns limit at the precision of the samples of b.
+func (b bounds) at(limit float64) float64 {
+	if b.narrow {
+		return float64(float32(limit))
+	}
+	return limit
+}
+
+// decodeRounding bounds the float64 rounding of raw × scale + offset, relative to
+// |raw × scale| + |offset|.
+const decodeRounding = 4 * 0x1p-52
+
+// check returns a validation error when decoded, the decoded value of raw, is more
+// than slack outside b.
+func (b bounds) check(raw, decoded, slack float64) error {
 	var (
 		side  string
 		limit float64
 	)
 	switch {
-	case b.min != nil && decoded < *b.min:
+	case b.min != nil && decoded < b.at(*b.min)-slack:
 		side, limit = "below the min", *b.min
-	case b.max != nil && decoded > *b.max:
+	case b.max != nil && decoded > b.at(*b.max)+slack:
 		side, limit = "above the max", *b.max
 	default:
 		return nil
@@ -297,7 +314,7 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 		scaled: b.Scale != 1 || b.Offset != 0,
 		scale:  b.Scale,
 		offset: b.Offset,
-		bounds: bounds{min: b.Min, max: b.Max},
+		bounds: bounds{min: b.Min, max: b.Max, narrow: dt == telem.Float32T},
 	}
 	kind, sample, err := sampleField(jf, dt)
 	if err != nil {
@@ -492,7 +509,12 @@ func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 	}
 	if err == nil && number {
 		b := jf.Base()
-		err = bounds{min: b.Min, max: b.Max}.check(raw, raw*b.Scale+b.Offset)
+		scaled := raw * b.Scale
+		err = bounds{min: b.Min, max: b.Max}.check(
+			raw,
+			scaled+b.Offset,
+			decodeRounding*(math.Abs(scaled)+math.Abs(b.Offset)),
+		)
 	}
 	if err != nil {
 		return fieldDefault{}, err
@@ -628,7 +650,7 @@ func (f *encodeField) encode(dst, sample []byte) ([]byte, error) {
 		return nil, err
 	}
 	v := n.Float64()
-	if err = f.bounds.check(v, v); err != nil {
+	if err = f.bounds.check(v, v, 0); err != nil {
 		return nil, err
 	}
 	dst = dst[:start]

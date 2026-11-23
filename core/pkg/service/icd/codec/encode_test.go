@@ -478,6 +478,22 @@ var _ = Describe("JSONEncoder", func() {
 			telem.Int64T, int64Sample(11),
 			"message command: field v: 11 is above the max 10: validation error",
 		),
+		Entry("a float32 above the max",
+			icd.JSONField{Variant: icd.FloatJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Max: new(0.1),
+			}},
+			telem.Float32T, telem.NewSeriesV(math.Nextafter32(0.1, 1)).Data,
+			"message command: field v: 0.10000000894069672 is above the max 0.1: "+
+				"validation error",
+		),
+		Entry("a float32 below the min",
+			icd.JSONField{Variant: icd.FloatJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Min: new(3.3),
+			}},
+			telem.Float32T, telem.NewSeriesV(math.Nextafter32(3.3, 0)).Data,
+			"message command: field v: 3.299999713897705 is below the min 3.3: "+
+				"validation error",
+		),
 	)
 
 	DescribeTable("Should write a command at the min or max of its field",
@@ -514,6 +530,20 @@ var _ = Describe("JSONEncoder", func() {
 				Key: uuid.New(), Name: "v", Scale: 0.1, Pointer: "/v", Max: new(10.0),
 			}},
 			telem.Float64T, float64Sample(5), `{"v":50}`,
+		),
+		Entry("a float32 at the max",
+			icd.JSONField{Variant: icd.FloatJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Max: new(0.1),
+			}},
+			telem.Float32T, telem.NewSeriesV[float32](0.1).Data,
+			`{"v":0.10000000149011612}`,
+		),
+		Entry("a float32 at the min",
+			icd.JSONField{Variant: icd.FloatJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Min: new(3.3),
+			}},
+			telem.Float32T, telem.NewSeriesV[float32](3.3).Data,
+			`{"v":3.299999952316284}`,
 		),
 	)
 
@@ -919,6 +949,14 @@ var _ = Describe("CheckDefault", func() {
 		Entry("a scaled number whose raw value is above the max", icd.FloatJSONField{
 			Scale: 0.1, Max: new(10.0), Default: new(payload.Float(50)),
 		}),
+		Entry("a scaled number that float error puts above the max", icd.FloatJSONField{
+			Scale: 0.1, Max: new(0.3), Default: new(payload.Float(3)),
+		}),
+		Entry("a scaled integer that float error puts below the min",
+			icd.IntegerJSONField{
+				Scale: 0.3, Min: new(0.9), Default: new(payload.Integer(3)),
+			},
+		),
 	)
 
 	DescribeTable("Should refuse a default without naming it",
@@ -966,6 +1004,13 @@ var _ = Describe("CheckDefault", func() {
 				Scale: 10, Max: new(100.0), Default: new(payload.Float(12)),
 			},
 			"12 decodes to 120, which is above the max 100: validation error",
+		),
+		Entry("a scaled number just above the max",
+			icd.FloatJSONField{
+				Scale: 0.1, Max: new(0.3), Default: new(payload.Float(3.000001)),
+			},
+			"3.000001 decodes to 0.30000010000000005, which is above the max 0.3: "+
+				"validation error",
 		),
 	)
 })
