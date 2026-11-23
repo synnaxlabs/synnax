@@ -40,8 +40,8 @@ export interface PaintContext {
   enumerations: ReadonlyMap<enumeration.Key, enumeration.Enumeration>;
   /** nodeColor is the color that `node` paint draws. */
   nodeColor?: color.Color;
-  /** symbolColor is the color of an entry that has no color. */
-  symbolColor?: color.Color;
+  /** defaultEntryColor is the color of an entry that has no color. */
+  defaultEntryColor?: color.Color;
 }
 
 type Field = "stroke" | "fill";
@@ -54,7 +54,7 @@ interface Band {
 
 // banded says whether a drawing shows a paint type on a field in the symbol band of the
 // theme. Every stroke bands. Only a built-in drawing bands its entry and node fills, as
-// the built-in CSS does, so a custom drawing keeps each fill as stored.
+// the built-in CSS does.
 const banded = (
   field: Field,
   type: schematic.symbol.Paint["type"],
@@ -89,7 +89,8 @@ const entryColor = (
     entries.find((e) => e.value === value) ??
     entries.find((e) => e.value === state.default);
   return (
-    (entry?.color == null ? undefined : ctx.resolve(entry.color)) ?? ctx.symbolColor
+    (entry?.color == null ? undefined : ctx.resolve(entry.color)) ??
+    ctx.defaultEntryColor
   );
 };
 
@@ -116,8 +117,8 @@ const baseColor = (
   }
 };
 
-// resolvePaint returns the color of paint on field as band shows it, or the color
-// before the band with no band.
+// resolvePaint returns the color of paint on field as band shows it, or the stored
+// color when band is absent.
 const resolvePaint = (
   paint: schematic.symbol.Paint | undefined,
   field: Field,
@@ -295,7 +296,7 @@ export interface UsePaintsParams {
   nodeColor?: color.Crude;
   /**
    * builtIn marks a drawing that ships with Pluto. It bands its entry and node fills,
-   * and an entry with no color draws the node color, else the default symbol color.
+   * and an entry with no color draws the node color, else the theme gray.
    */
   builtIn?: boolean;
 }
@@ -312,14 +313,14 @@ export const usePaints = (
 ): Paint[] => {
   const ctx = usePaintContext(spec, nodeColor);
   const t = Theming.use();
-  const symbolColor = builtIn ? (ctx?.nodeColor ?? t.colors.gray.l11) : undefined;
+  const defaultEntryColor = builtIn ? (ctx?.nodeColor ?? t.colors.gray.l11) : undefined;
   return useMemoDeepEqual(
     spec == null || ctx == null
       ? NO_PAINTS
       : resolvePaints(
           spec,
           overrides,
-          { ...ctx, value, symbolColor },
+          { ...ctx, value, defaultEntryColor },
           { theme: t, builtIn },
         ),
   );
