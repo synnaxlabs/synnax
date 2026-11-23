@@ -51,17 +51,19 @@ LabeledConfig = v13.LabeledConfig
 
 ScaledConfig = v9.ScaledConfig
 
-StalenessConfig = v13.StalenessConfig
+StalenessConfig struct extends v13.StalenessConfig {
+    -staleness_color
+}
 
 NumericTelemConfig = v13.NumericTelemConfig
 
 ControlStateConfig = v9.ControlStateConfig
 
-ToggleConfig = v13.ToggleConfig
+ToggleConfig struct extends v13.ToggleConfig {}
 
 StaticSymbolConfig = v13.StaticSymbolConfig
 
-ToggleSymbolConfig = v13.ToggleSymbolConfig
+ToggleSymbolConfig struct extends v13.ToggleSymbolConfig {}
 
 DummyToggleSymbolConfig = v13.DummyToggleSymbolConfig
 

@@ -294,7 +294,7 @@ func (c Checker) checkBinding(
 	if !isIndex && ch.Index {
 		return at(validate.Errorf(
 			"field %s cannot write to index channel %s, because only the index field "+
-				"can. Move field %s into its own message",
+				"can. Bind field %s to a data channel",
 			name, ch.Name, name,
 		), "channel")
 	}
