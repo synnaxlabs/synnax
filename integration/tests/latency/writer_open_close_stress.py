@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Regression test for SY-3812: lock-ordering deadlock in cesium/internal/control/.
+"""Regression test for SY-3812: lock-ordering deadlock in x/go/control/.
 
 The cesium control layer had a lock-ordering deadlock: OpenGate (writer open)
 locked controller -> region, while release (writer close) locked region ->

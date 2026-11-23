@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 
 import type Synnax from "@/client";
-import { type project } from "@/project";
+import type { project } from "@/project";
 
 /**
  * Creates a throwaway project and returns its key. A panel must belong to a project or

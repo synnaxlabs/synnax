@@ -21,12 +21,12 @@ import {
   unique,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { type Block } from "@/framer/cache/block";
+import type { Block } from "@/framer/cache/block";
 import { type Bounds, tileRange } from "@/framer/cache/grid";
 import { DEFAULT_BATCH_DEBOUNCE, type RemoteReader } from "@/framer/cache/reader";
-import { type Store } from "@/framer/cache/store";
+import type { Store } from "@/framer/cache/store";
 
 /** Identifies one tile of one channel, reduced under a point limit. */
 export interface TileSpec extends Bounds {
@@ -88,18 +88,18 @@ export const isCut = ({ start, end }: TileSpec): boolean =>
 export const tileKey = ({
   key,
   level,
-  index,
+  tile,
   pointLimit,
   aggregation,
-}: TileSpec): string => `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
+}: TileSpec): string => `${key}/${level}/${tile}/${pointLimit}/${aggregation}`;
 
 /**
  * @returns a key for the time range and reduction of the tile's read. Specs with equal
  * keys differ at most in channel, so their reads share one request.
  */
 export const tileRequestKey = (spec: TileSpec): string => {
-  const { level, index, pointLimit, aggregation, start, end } = spec;
-  return [level, index, pointLimit, aggregation, start?.valueOf(), end?.valueOf()].join(
+  const { level, tile, pointLimit, aggregation, start, end } = spec;
+  return [level, tile, pointLimit, aggregation, start?.valueOf(), end?.valueOf()].join(
     "/",
   );
 };

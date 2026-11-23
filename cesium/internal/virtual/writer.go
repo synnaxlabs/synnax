@@ -14,7 +14,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
@@ -66,7 +65,7 @@ type Writer struct {
 	onClose func()
 	// control stores the control gate held by the virtual writer, and used to track
 	// control handoff scenarios with other writers.
-	control *control.Gate[*controlResource]
+	control *xcontrol.Gate[channel.Key, *controlResource]
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
@@ -82,7 +81,7 @@ type Writer struct {
 func (db *DB) OpenWriter(
 	_ context.Context,
 	cfgs ...WriterConfig,
-) (w *Writer, transfer control.Transfer, err error) {
+) (w *Writer, transfer xcontrol.Transfer[channel.Key], err error) {
 	if db.closed.Load() {
 		err = ErrDBClosed
 		return nil, transfer, db.wrapError(err)
@@ -99,7 +98,7 @@ func (db *DB) OpenWriter(
 		wrapError:    db.wrapError,
 	}
 	if w.control, transfer, err = db.controller.OpenGate(
-		control.GateConfig[*controlResource]{
+		xcontrol.GateConfig[channel.Key, *controlResource]{
 			TimeRange:             cfg.domain(),
 			ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
 			Authority:             cfg.Authority,
@@ -144,13 +143,13 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	return a, nil
 }
 
-func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
+func (w *Writer) SetAuthority(a xcontrol.Authority) xcontrol.Transfer[channel.Key] {
 	return w.control.SetAuthority(a)
 }
 
-func (w *Writer) Close() (control.Transfer, error) {
+func (w *Writer) Close() (xcontrol.Transfer[channel.Key], error) {
 	if w.closed {
-		return control.Transfer{}, nil
+		return xcontrol.Transfer[channel.Key]{}, nil
 	}
 	w.closed = true
 	_, t := w.control.Release()

@@ -27,6 +27,7 @@ jobs:
     env:
       # The proxy drops streams at times, so a failed fetch falls back to the source.
       GOPROXY: https://proxy.golang.org|direct
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

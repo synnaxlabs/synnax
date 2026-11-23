@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type primitive } from "@/primitive";
-import { type record } from "@/record";
+import type { primitive } from "@/primitive";
+import type { record } from "@/record";
 
 /** Shape of values storable as state. */
 export type State = Exclude<primitive.Value, undefined> | record.Unknown | void;

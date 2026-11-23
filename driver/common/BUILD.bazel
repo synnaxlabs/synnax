@@ -20,11 +20,13 @@ cc_library(
         "sample_clock.h",
         "scan_task.h",
         "status.h",
+        "sync.h",
         "write_task.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/device",
+        "//client/cpp/rack:key",
         "//client/cpp/status",
         "//client/cpp/task",
         "//driver/bypass/pipeline",
@@ -45,6 +47,17 @@ cc_library(
 )
 
 cc_binary(
+    name = "sample_clock_bench",
+    srcs = ["sample_clock_bench.cpp"],
+    deps = [
+        "//driver/common",
+        "//x/cpp/bench",
+        "//x/cpp/telem",
+        "@google_benchmark//:benchmark_main",
+    ],
+)
+
+cc_binary(
     name = "write_task_bench",
     srcs = ["write_task_bench.cpp"],
     deps = [
@@ -61,6 +74,7 @@ cc_test(
         "sample_clock_test.cpp",
         "scan_task_test.cpp",
         "status_test.cpp",
+        "sync_test.cpp",
         "testutil.h",
         "write_task_test.cpp",
     ],

@@ -14,7 +14,7 @@ import { Toolbar } from "@/feature/log/toolbar";
 import { renderLog } from "@/feature/log/toolbar/testutil";
 import { Session } from "@/session";
 import { inWindow } from "@/session/window/testutil";
-import { type ConsolePreloadedState } from "@/testutil";
+import type { ConsolePreloadedState } from "@/testutil";
 
 const preloadedState = (
   key: string,

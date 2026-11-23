@@ -27,7 +27,8 @@ type EntryChange[K Key, E Entry[K]] struct {
 	Value E
 	// Kind is what the commit did to the entry.
 	Kind ChangeKind
-	// Derived is true when Gorp made every write to the entry by a cascade or a detach.
+	// Derived is true when Gorp made every write to the entry by a cascade, a detach,
+	// or a Retarget.
 	Derived bool
 }
 

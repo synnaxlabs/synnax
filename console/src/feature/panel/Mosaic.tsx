@@ -29,7 +29,7 @@ import { TabMenuItems } from "@/feature/panel/ContextMenu";
 import { useCreate } from "@/feature/panel/useCreate";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
-import { type Import } from "@/platform/import";
+import type { Import } from "@/platform/import";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { ResourceGuard, useTab } from "@/platform/panel/tab";
 import { Session } from "@/session";

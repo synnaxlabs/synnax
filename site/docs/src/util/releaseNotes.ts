@@ -9,7 +9,10 @@
 
 // The indexer runs under plain Node, so this module imports nothing from the site.
 import fs from "fs";
+import matter from "gray-matter";
 import path from "path";
+
+import type { Releases } from "@/util/releases";
 
 /** The directory that holds each version's notes. */
 export const RELEASE_NOTES_DIR = path.join(import.meta.dirname, "../releases");
@@ -17,27 +20,33 @@ export const RELEASE_NOTES_DIR = path.join(import.meta.dirname, "../releases");
 export interface Notes {
   /** The file name without its extension, which was the notes' route before. */
   name: string;
+  version: string;
   /** The id of the notes on /releases. */
   anchor: string;
 }
 
+/** The page that lists the notes of every version. It has no frontmatter to read. */
+export const NOTES_PAGE = {
+  route: "/releases",
+  title: "Release notes",
+  description: "The new features, improvements, and fixes in each Synnax release.",
+};
+
 /** Returns the id that the notes of a version render under on /releases. */
 export const releaseAnchor = (version: string): string => version.split(".").join("-");
 
-const VERSION = /version="([^"]+)"/;
-
 /**
  * Lists the notes in a directory.
- * @throws {Error} if a file does not pass a version to its release.
+ * @throws {Error} if a file has no version in its frontmatter.
  */
 export const listReleaseNotes = (dir: string = RELEASE_NOTES_DIR): Notes[] =>
   fs
     .readdirSync(dir)
     .filter((f) => f.endsWith(".mdx"))
     .map((f) => {
-      const version = VERSION.exec(fs.readFileSync(path.join(dir, f), "utf8"))?.[1];
-      if (version == null) throw new Error(`${f} passes no version to its release`);
-      return { name: f.replace(/\.mdx$/, ""), anchor: releaseAnchor(version) };
+      const { version } = matter(fs.readFileSync(path.join(dir, f))).data;
+      if (typeof version !== "string") throw new Error(`${f} has no version`);
+      return { name: f.replace(/\.mdx$/, ""), version, anchor: releaseAnchor(version) };
     });
 
 const DATE = new Intl.DateTimeFormat("en-US", {
@@ -61,6 +70,20 @@ export interface Release {
   /** The TypeScript client's version, or null if none shipped. Defaults to version. */
   npmVersion?: string | null;
 }
+
+/**
+ * Returns the day a release shipped: the date its notes pass, else the publish date of
+ * its stable Core release, else undefined if it has not shipped.
+ * @throws {Error} if the GitHub API is unreachable.
+ */
+export const shippedOn = async (
+  releases: Releases,
+  { version, date }: Pick<Release, "version" | "date">,
+): Promise<string | undefined> => {
+  if (date != null) return date;
+  const publishedAt = await releases.publishedAt("core", version);
+  return publishedAt == null ? undefined : releaseDate(publishedAt);
+};
 
 export interface Links {
   github: string;

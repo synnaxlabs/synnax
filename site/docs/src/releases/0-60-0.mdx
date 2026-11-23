@@ -1,22 +1,18 @@
 ---
-title: "Version 0.60 release notes"
+title: "Synnax Desktop, tiled line plots, and EtherCAT that recovers"
+version: "0.60.0"
+desktopVersion: "1.0.0"
+breakingChanges: true
 ---
 
 import { Hero } from "@/components/hero";
-import { Image, Video } from "@/components/media/Media";
-import { Releases } from "@/components/releases";
+import Image from "@/components/media/Image.astro";
+import { Video } from "@/components/media/Media";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
-
-<Releases.Release
-    version="0.60.0"
-    desktopVersion="1.0.0"
-    breakingChanges
-    title="Synnax Desktop, tiled line plots, and EtherCAT that recovers"
->
 
 <Hero.Hero
   still="releases/0-60-0/hero"
@@ -327,5 +323,3 @@ and on macOS the first code editor opens in 0.2 seconds instead of 1.3.
 - `status.fromException(error, heading)` needs the heading.
 - `setLineDownsample` and `setLineDownsampleMode` are now `setLineAggregation` and
   `setLineDetail`.
-
-</Releases.Release>

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Button, type ButtonProps } from "@/button/Button";
 import { CSS } from "@/css";
-import { type Input } from "@/input";
+import type { Input } from "@/input";
 
 export interface ToggleProps
   extends Input.Control<boolean, boolean>, Omit<ButtonProps, "value" | "onChange"> {

@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import type { Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { License } from "@/license";
 import { Synnax } from "@/synnax";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 /** Renders the license query under a client that a spec can swap. */
 const renderResult = async (client: Client) => {

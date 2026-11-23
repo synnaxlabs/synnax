@@ -14,9 +14,11 @@ import {
   type PropsWithChildren,
   type ReactElement,
   useContext,
+  useEffect,
+  useState,
 } from "react";
 
-import { jsonFields } from "@/platform/icd/read";
+import { jsonFields, type Messages } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
 /** The form that edits an ICD. */
@@ -36,6 +38,23 @@ export const formatOf = (formats: Formats, key: icd.Key): FormatForm => {
   const format = formats.get(key);
   if (format == null) throw new Error(`The form of ICD ${key} is not open`);
   return format;
+};
+
+/** @returns the messages of each open ICD, by ICD key. */
+export const messagesOf = (formats: Formats): Messages =>
+  new Map([...formats].map(([key, form]) => [key, form.value().messages]));
+
+/** @returns the messages of each open ICD, by ICD key, current with each edit. */
+export const useMessages = (): Messages => {
+  const formats = useFormats();
+  const [messages, setMessages] = useState(() => messagesOf(formats));
+  useEffect(() => {
+    const update = () => setMessages(messagesOf(formats));
+    update();
+    const destructors = [...formats.values()].map((form) => form.bind(update));
+    return () => destructors.forEach((destroy) => destroy());
+  }, [formats]);
+  return messages;
 };
 
 /** @returns the fields of a message of an ICD. */
