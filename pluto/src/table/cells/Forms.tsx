@@ -54,6 +54,7 @@ const TelemForm = () => {
           <Input.Numeric
             value={value.rollingAverage}
             bounds={{ lower: 1, upper: 100 }}
+            integer
             onChange={(rollingAverage) => onChange({ ...value, rollingAverage })}
           />
         </Input.Item>
