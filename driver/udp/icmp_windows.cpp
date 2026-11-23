@@ -19,7 +19,7 @@
 #include "driver/udp/icmp.h"
 
 namespace driver::udp::icmp {
-std::error_code ignore(const SOCKET socket) {
+std::error_code ignore(const asio::ip::udp::socket::native_handle_type socket) {
     for (const DWORD code: std::array<DWORD, 2>{SIO_UDP_CONNRESET, SIO_UDP_NETRESET}) {
         BOOL enabled = FALSE;
         DWORD returned = 0;
