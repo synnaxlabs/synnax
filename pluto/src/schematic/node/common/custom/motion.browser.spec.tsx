@@ -22,7 +22,8 @@ const MARKUP =
   '<path class="pipe" d="M0 5H10" stroke="black" stroke-dasharray="4 2" ' +
   'stroke-dashoffset="1"/>' +
   '<rect class="liquid" width="10" height="10"/>' +
-  '<g transform="scale(2)"><rect class="slider" width="1" height="1"/></g>' +
+  '<g class="arm" transform="scale(2)">' +
+  '<rect class="slider" width="1" height="1"/></g>' +
   "</svg>";
 
 const PARTS: schematic.symbol.Part[] = [
@@ -123,7 +124,7 @@ describe("Custom.Drawing motion", () => {
       expect(attr(".rotor", "transform")).toBe("rotate(90 3 3) translate(1 1)");
     });
 
-    it("should turn a part in a scaled group around the center of its own box", async () => {
+    it("should turn a part in a scaled group around its own center", async () => {
       const look = { ...SPIN, part: "slider" };
       const { frame, attr } = await setup({ spec: createSpec([look]) });
       frame(0);
@@ -139,6 +140,97 @@ describe("Custom.Drawing motion", () => {
       frame(0);
       frame(500);
       expect(attr(".rotor", "transform")).toBe("rotate(90 2 4) translate(1 1)");
+    });
+
+    it("should turn the whole drawing around the center of its box", async () => {
+      const look: schematic.symbol.Look = {
+        key: "spin",
+        motion: { type: "spin", rate: 0.5 },
+      };
+      const { frame, container } = await setup({ spec: createSpec([look]) });
+      frame(0);
+      frame(500);
+      const drawing = container.querySelector(".rotor")?.parentElement;
+      expect(drawing?.getAttribute("transform")).toBe("rotate(90 5 5)");
+    });
+
+    it("should turn a part in a turning group around its own center", async () => {
+      const parts: schematic.symbol.Part[] = [
+        { key: "arm", name: "Arm", selectors: [".arm"], pivot: { x: 0, y: 0 } },
+        { key: "slider", name: "Slider", selectors: [".slider"] },
+      ];
+      const looks: schematic.symbol.Look[] = [
+        { key: "arm", part: "arm", motion: { type: "spin", rate: 0.5 } },
+        {
+          key: "slider",
+          part: "slider",
+          motion: { type: "spin", rate: 1, state: "speed" },
+        },
+      ];
+      const { frame, attr, rerender } = await setup({
+        spec: createSpec(looks, parts),
+        readings: { speed: reading(0) },
+      });
+      frame(0);
+      frame(500);
+      await rerender({ readings: { speed: reading(100) } });
+      frame(1000);
+      frame(1250);
+      expect(attr(".slider", "transform")).toBe("rotate(90 0.5 0.5)");
+    });
+
+    it("should measure the center again when a hidden drawing shows", async () => {
+      const { frame, attr, container } = await setup();
+      container.style.display = "none";
+      frame(0);
+      container.style.display = "";
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("rotate(90 3 3) translate(1 1)");
+    });
+
+    it("should turn a part around its new pivot when the pivot changes", async () => {
+      const { frame, attr, rerender } = await setup();
+      frame(0);
+      frame(500);
+      const parts = PARTS.map((p) =>
+        p.key === "rotor" ? { ...p, pivot: { x: 0.2, y: 0.4 } } : p,
+      );
+      await rerender({ spec: createSpec([SPIN], parts) });
+      frame(1000);
+      frame(1500);
+      expect(attr(".rotor", "transform")).toBe("rotate(90 2 4) translate(1 1)");
+    });
+
+    it("should draw the part as drawn when its motion changes kind", async () => {
+      const flow: schematic.symbol.Look = {
+        key: "flow",
+        part: "rotor",
+        motion: { type: "flow", rate: 0.5 },
+      };
+      const { loop, frame, attr, rerender } = await setup();
+      frame(0);
+      frame(500);
+      await rerender({ spec: createSpec([flow]) });
+      expect(attr(".rotor", "transform")).toBe("translate(1 1)");
+      expect(loop.size).toBe(1);
+    });
+
+    it("should read bounds that the Core refuses as fraction 0", async () => {
+      const look = {
+        ...SPIN,
+        motion: { type: "spin" as const, rate: 1, state: "speed" },
+      };
+      const valid = createSpec([look]);
+      const states = [{ ...STATES[0], bounds: { lower: 50, upper: 50 } }, STATES[1]];
+      const { loop, frame, attr, rerender } = await setup({
+        spec: { ...valid, states },
+        readings: { speed: reading(50) },
+      });
+      expect(loop.size).toBe(0);
+      await rerender({ spec: valid });
+      frame(0);
+      frame(1000);
+      expect(attr(".rotor", "transform")).toBe("rotate(180 3 3) translate(1 1)");
     });
 
     it("should turn the other way at a negative rate", async () => {
@@ -219,7 +311,7 @@ describe("Custom.Drawing motion", () => {
       expect(loop.size).toBe(0);
     });
 
-    it("should leave the loop and draw as drawn when its look no longer applies", async () => {
+    it("should leave the loop and draw as drawn when its look stops", async () => {
       const look = {
         ...SPIN,
         when: { type: "equals" as const, state: "active", values: [1] },
@@ -275,7 +367,7 @@ describe("Custom.Drawing motion", () => {
   });
 
   describe("flow", () => {
-    it("should move the dashes by one pattern a cycle from their own offset", async () => {
+    it("should move the dashes one pattern a cycle from their offset", async () => {
       const look: schematic.symbol.Look = {
         key: "flow",
         part: "pipe",
@@ -398,9 +490,18 @@ describe("Custom.Drawing motion", () => {
         spec: level(),
         readings: { speed: reading(25) },
       });
-      await rerender({ readings: { speed: reading(25, true) } });
+      await rerender({ readings: { speed: reading(75, true) } });
       expect(loop.size).toBe(0);
       expect(attr(".liquid", "clip-path")).toBe("inset(75% 0 0 0)");
+    });
+
+    it("should draw an edited look while its fraction holds", async () => {
+      const { attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ spec: level("top") });
+      expect(attr(".liquid", "clip-path")).toBe("inset(0 0 75% 0)");
     });
   });
 
@@ -420,7 +521,7 @@ describe("Custom.Drawing motion", () => {
   });
 
   describe("move", () => {
-    it("should move a part by fractions of the box in its parent's coordinates", async () => {
+    it("should move a part by fractions of the box", async () => {
       const look: schematic.symbol.Look = {
         key: "move",
         part: "slider",

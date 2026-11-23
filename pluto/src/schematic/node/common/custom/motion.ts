@@ -61,7 +61,7 @@ class Shape {
   /** written is the value that the motion last wrote. */
   written?: string;
   private cycle?: number;
-  private turn?: xy.XY;
+  private turn?: { of: xy.XY; at: xy.XY };
 
   constructor(
     readonly el: SVGElement,
@@ -80,11 +80,12 @@ class Shape {
 
   /** pivot is the pivot of the part in the coordinates of the parent of el. */
   get pivot(): xy.XY {
-    if (this.turn == null) {
-      const { x, y } = this.matrix.transformPoint(this.pivotOf());
-      this.turn = { x, y };
+    const of = this.pivotOf();
+    if (this.turn == null || this.turn.of !== of) {
+      const { x, y } = this.matrix.transformPoint(of);
+      this.turn = { of, at: { x, y } };
     }
-    return this.turn;
+    return this.turn.at;
   }
 }
 
@@ -170,30 +171,39 @@ const transformOf = (el: Element): DOMMatrix => {
   return m;
 };
 
+// Space is a drawing, its box, and the transforms of its elements before any motion.
+interface Space {
+  drawing: SVGGElement;
+  box: dimensions.Dimensions;
+  rest: Map<Element, DOMMatrix>;
+}
+
 // toDrawing maps the coordinates of the parent of el to the coordinates of drawing.
-const toDrawing = (el: Element, drawing: Element): DOMMatrix => {
+const toDrawing = (el: Element, { drawing, rest }: Space): DOMMatrix => {
   const m = new DOMMatrix();
   if (el === drawing) return m;
-  for (let a = el.parentElement; a != null && a !== drawing; a = a.parentElement)
-    m.preMultiplySelf(transformOf(a));
+  for (let a = el.parentElement; a != null && a !== drawing; a = a.parentElement) {
+    const t = rest.get(a);
+    if (t != null) m.preMultiplySelf(t);
+  }
   return m;
 };
 
-// center returns the center of the bounding box of elements, as fractions of the box.
-const center = (
-  elements: SVGElement[],
-  drawing: SVGGElement,
-  box: dimensions.Dimensions,
-): xy.XY => {
+const MIDDLE: xy.XY = { x: 0.5, y: 0.5 };
+
+// center returns the center of the bounding box of elements, as fractions of the box,
+// or undefined while no element has a layout, as in a hidden tab.
+const center = (elements: SVGElement[], space: Space): xy.XY | undefined => {
+  const graphics = elements.filter((el) => el instanceof SVGGraphicsElement);
+  if (graphics.length === 0) return MIDDLE;
   const xs: number[] = [];
   const ys: number[] = [];
-  for (const el of elements) {
-    if (!(el instanceof SVGGraphicsElement)) continue;
+  for (const el of graphics) {
     const { x, y, width, height } = el.getBBox();
-    const m =
-      el === drawing
-        ? new DOMMatrix()
-        : toDrawing(el, drawing).multiplySelf(transformOf(el));
+    if (width === 0 && height === 0) continue;
+    const m = toDrawing(el, space);
+    const own = space.rest.get(el);
+    if (own != null) m.multiplySelf(own);
     for (const corner of [
       { x, y },
       { x: x + width, y },
@@ -205,10 +215,10 @@ const center = (
       ys.push(p.y);
     }
   }
-  if (xs.length === 0) return { x: 0.5, y: 0.5 };
+  if (xs.length === 0) return undefined;
   return {
-    x: (Math.min(...xs) + Math.max(...xs)) / 2 / box.width,
-    y: (Math.min(...ys) + Math.max(...ys)) / 2 / box.height,
+    x: (Math.min(...xs) + Math.max(...xs)) / 2 / space.box.width,
+    y: (Math.min(...ys) + Math.max(...ys)) / 2 / space.box.height,
   };
 };
 
@@ -229,6 +239,8 @@ const fraction = ({ states, readings }: Context, key: string): number => {
   const value = readings[key]?.value ?? NaN;
   if (state?.type !== "number" || Number.isNaN(value)) return 0;
   const { lower, upper } = state.bounds;
+  // The Core refuses these bounds, but a draft in the editor can hold them.
+  if (upper <= lower) return 0;
   return Math.min(1, Math.max(0, (value - lower) / (upper - lower)));
 };
 
@@ -297,15 +309,13 @@ class Track {
     readonly kind: Kind,
     private motion: Value,
     elements: SVGElement[],
-    drawing: SVGGElement,
-    box: dimensions.Dimensions,
+    space: Space,
     pivotOf: () => xy.XY,
   ) {
     this.entry = MOTIONS[kind] as Entry<Value>;
+    const { width, height } = space.box;
     this.shapes = elements.map((el) => {
-      const matrix = toDrawing(el, drawing)
-        .invertSelf()
-        .scaleSelf(box.width, box.height);
+      const matrix = toDrawing(el, space).invertSelf().scaleSelf(width, height);
       return new Shape(el, el.getAttribute(this.entry.attribute), matrix, pivotOf);
     });
   }
@@ -339,11 +349,14 @@ class Track {
     this.speed = next;
   }
 
-  // follow jumps to the fraction of state when fresh, frozen, or unknown. Otherwise it
-  // starts a transition to it.
+  // follow jumps to the fraction of state when fresh, frozen, or unknown, and keeps its
+  // target while state is stale. Otherwise it starts a transition to the fraction. A
+  // part that does not move draws again, for a look whose fields changed.
   private follow(ctx: Context, state: string, fresh: boolean): void {
-    const f = fraction(ctx, state);
-    if (fresh || ctx.frozen || Number.isNaN(ctx.readings[state]?.value ?? 0)) {
+    const reading = ctx.readings[state];
+    const held = !fresh && reading?.stale === true;
+    const f = held ? this.target : fraction(ctx, state);
+    if (!held && (fresh || ctx.frozen || Number.isNaN(reading?.value ?? 0))) {
       this.value = f;
       this.target = f;
       this.draw();
@@ -351,7 +364,7 @@ class Track {
       this.from = this.value;
       this.target = f;
       this.start = undefined;
-    }
+    } else if (!this.moving) this.draw();
   }
 
   step(now: number): boolean {
@@ -401,17 +414,17 @@ class Part implements Mover {
   constructor(
     readonly def: schematic.symbol.Part | undefined,
     private readonly elements: SVGElement[],
-    private readonly drawing: SVGGElement,
-    private readonly box: dimensions.Dimensions,
+    private readonly space: Space,
   ) {}
 
   get moving(): boolean {
     return FIELDS.some((field) => this.tracks[field]?.moving === true);
   }
 
-  // A part with no pivot turns about the center of its own box.
+  // A part with no pivot turns about the center of its own box. A part with no layout
+  // yet measures again on the next frame.
   private readonly pivotOf = (): xy.XY =>
-    this.def?.pivot ?? (this.center ??= center(this.elements, this.drawing, this.box));
+    this.def?.pivot ?? (this.center ??= center(this.elements, this.space)) ?? MIDDLE;
 
   set(effects: Effects, ctx: Context): void {
     const partCtx = { ...ctx, frozen: ctx.frozen || effects.hidden };
@@ -431,8 +444,7 @@ class Part implements Mover {
         kindOf(effect.value),
         effect.value,
         this.elements,
-        this.drawing,
-        this.box,
+        this.space,
         this.pivotOf,
       );
       track.set(effect, partCtx, fresh);
@@ -463,12 +475,19 @@ const select = (drawing: SVGGElement, def: schematic.symbol.Part): SVGElement[] 
  */
 export class Motion {
   private readonly parts = new Map<string | undefined, Part>();
+  private readonly space: Space;
 
+  /** Builds a Motion for a drawing that nothing has moved yet. */
   constructor(
     readonly loop: Loop,
-    private readonly drawing: SVGGElement,
-    private readonly box: dimensions.Dimensions,
-  ) {}
+    drawing: SVGGElement,
+    box: dimensions.Dimensions,
+  ) {
+    const rest = new Map<Element, DOMMatrix>();
+    for (const el of drawing.querySelectorAll("[transform]"))
+      rest.set(el, transformOf(el));
+    this.space = { drawing, box, rest };
+  }
 
   update(
     spec: schematic.symbol.Spec,
@@ -493,9 +512,10 @@ export class Motion {
       let part = this.parts.get(key);
       if (part == null) {
         const def = defOf(key);
+        const { drawing } = this.space;
         const elements =
-          key == null ? [this.drawing] : def == null ? [] : select(this.drawing, def);
-        part = new Part(def, elements, this.drawing, this.box);
+          key == null ? [drawing] : def == null ? [] : select(drawing, def);
+        part = new Part(def, elements, this.space);
         this.parts.set(key, part);
       }
       part.set(effect, ctx);
@@ -504,9 +524,12 @@ export class Motion {
     }
   }
 
-  /** Takes every part out of the loop, as when the drawing is removed. */
+  /** Takes every part out of the loop and draws the drawing as drawn. */
   stop(): void {
-    for (const part of this.parts.values()) this.loop.delete(part);
+    for (const part of this.parts.values()) {
+      this.loop.delete(part);
+      part.restore();
+    }
     this.parts.clear();
   }
 }
