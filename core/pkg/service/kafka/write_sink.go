@@ -147,7 +147,12 @@ func (s *writeSink) Open(
 	if err != nil {
 		return nil, err
 	}
-	cl, err := openClient(props, kgo.AllowAutoTopicCreation())
+	cl, err := openClient(
+		props,
+		kgo.AllowAutoTopicCreation(),
+		// Without it, the client waits out a lost cluster for a record in flight.
+		kgo.AllowIdempotentProduceCancellation(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -175,9 +180,10 @@ type writer struct {
 
 var _ driver.Writer = (*writer)(nil)
 
-// Write implements driver.Writer. It produces the records of fr and waits until the
-// cluster takes them or the ping timeout of the factory passes. A record that the
-// cluster does not take returns an error that matches driver.ErrTemporary.
+// Write implements driver.Writer. It produces the records of fr and waits for the
+// cluster to take them. A record that the cluster has not taken by the ping timeout of
+// the factory fails at the next retry of the client, and is never sent after that. A
+// failed record returns an error that matches driver.ErrTemporary.
 func (w *writer) Write(ctx context.Context, fr framer.Frame) error {
 	now := telem.Now()
 	w.records = w.records[:0]
@@ -220,7 +226,12 @@ func (f *factory) configureTargets(
 	t task.Task,
 	cfg WriteConfig,
 ) (*driver.WriteTask, error) {
-	if _, err := resolveProperties(ctx, f.cfg.DB, f.cfg.Device, cfg.Device); err != nil {
+	if _, err := resolveProperties(
+		ctx,
+		f.cfg.DB,
+		f.cfg.Device,
+		cfg.Device,
+	); err != nil {
 		return nil, err
 	}
 	enabled := lo.Filter(cfg.Targets, func(wt WriteTarget, _ int) bool {

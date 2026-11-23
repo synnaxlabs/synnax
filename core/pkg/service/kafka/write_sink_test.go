@@ -118,7 +118,8 @@ var _ = Describe("Write task with targets", func() {
 		},
 	)
 
-	It("Should give the record of a virtual channel the time it was produced and no key",
+	It(
+		"Should give the record of a virtual channel the time it was produced and no key",
 		func(ctx SpecContext) {
 			ch := createVirtual(ctx)
 			dev := createDevice(ctx, clusterProperties())
@@ -227,7 +228,7 @@ var _ = Describe("Write task with targets", func() {
 				g.Expect(stat.Description).
 					To(HavePrefix("producing to topic " + topic + ": "))
 				g.Expect(stat.Details.Running).To(BeTrue())
-			}).WithTimeout(5 * time.Second).Should(Succeed())
+			}).WithTimeout(15 * time.Second).Should(Succeed())
 		},
 	)
 })

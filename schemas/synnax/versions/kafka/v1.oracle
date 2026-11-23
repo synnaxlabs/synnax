@@ -144,7 +144,7 @@ WriteTarget struct {
     record_key string = "" {
         @doc value "is the key of each record. Empty sends records with no key."
     }
-    icd        icd.Key {
+    icd        icd.Key          {
         @doc value "is the key of the ICD that holds the message."
     }
     message    icd.WriteMessage {

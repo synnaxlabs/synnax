@@ -22,7 +22,6 @@ import (
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -415,10 +414,8 @@ var _ = Describe("MigrateWriteConfig", func() {
 		ctx SpecContext,
 	) {
 		old := v0.WriteConfig{
-			StartConfig: task.StartConfig{
-				KeyedConfig: task.KeyedConfig{Key: uuid.New()},
-				AutoStart:   true,
-			},
+			Key:       uuid.New(),
+			AutoStart: true,
 			Device:    "cluster",
 			Topic:     "plant",
 			RecordKey: v0.RecordKeyNone,
