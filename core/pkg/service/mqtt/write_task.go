@@ -235,7 +235,10 @@ func (s *writeSink) add(t target, keys ...channel.Key) {
 }
 
 // Open implements driver.Sink.
-func (s *writeSink) Open(ctx context.Context) (driver.Writer, error) {
+func (s *writeSink) Open(
+	ctx context.Context,
+	skips *driver.Skips,
+) (driver.Writer, error) {
 	// A write task receives no messages, so its queue holds none.
 	a, err := s.pool.attach(ctx, s.broker, 0)
 	if err != nil {
@@ -251,7 +254,7 @@ func (s *writeSink) Open(ctx context.Context) (driver.Writer, error) {
 	return &writer{
 		writeSink:  s,
 		attachment: a,
-		skips:      driver.NewSkips("command"),
+		skips:      skips,
 		touched:    make([]bool, len(s.targets)),
 		fed:        make([]int, 0, len(s.targets)),
 	}, nil
@@ -283,8 +286,8 @@ func (w *writer) Close() error {
 }
 
 // Write implements driver.Writer. It publishes every message it can, and returns the
-// first error it met. A command with no form in its message, such as NaN in JSON, is
-// dropped, and Write returns the warning of the skips.
+// first error it met. It drops a command with no form in its message, such as NaN in
+// JSON, and counts it in the skips.
 func (w *writer) Write(ctx context.Context, fr framer.Frame) error {
 	w.fed = w.fed[:0]
 	for key := range fr.Keys() {
@@ -314,11 +317,5 @@ func (w *writer) Write(ctx context.Context, fr framer.Frame) error {
 			}
 		}
 	}
-	if first != nil {
-		return first
-	}
-	if skipped := w.skips.Warning(time.Now()); skipped != nil {
-		return skipped.Degraded()
-	}
-	return nil
+	return first
 }
