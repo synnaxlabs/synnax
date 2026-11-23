@@ -191,8 +191,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(await screen.findByText("Actuator"));
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
-      const [fill] = screen.getAllByText("By state");
+      const fill = screen.getAllByText("By state")[0].closest("button");
+      assertDefined(fill);
+      expect(fill.getAttribute("aria-pressed")).toBe("false");
       fireEvent.click(fill);
+      expect(fill.getAttribute("aria-pressed")).toBe("true");
       fireEvent.click(await screen.findByLabelText("Fill while Active"));
       fireEvent.click(screen.getByText("Node color"));
       fireEvent.change(findNameInput(), {
@@ -242,6 +245,14 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           expect.objectContaining({ hidden: true, blink: { period: 1e9 } }),
         ]),
       );
+    });
+
+    it("offers the loop motions in a Loop group", async () => {
+      await createWithPart();
+      expect(screen.getByText("Loop")).toBeDefined();
+      expect(screen.getByText("Spin")).toBeDefined();
+      expect(screen.getByText("Flow")).toBeDefined();
+      expect(screen.queryByText("Follow a value")).toBeNull();
     });
 
     it("saves a spin at the rate that its field shows whole", async () => {
@@ -607,13 +618,13 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      expect(screen.getByText("Level motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
       expect(findButton("Save").getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(screen.getByText("Spin"));
       await waitFor(() =>
         expect(findButton("Save").getAttribute("aria-disabled")).toBeNull(),
       );
-      expect(screen.queryByText("Level motion needs one shape")).toBeNull();
+      expect(screen.queryByText("Fill motion needs one shape")).toBeNull();
     });
 
     it("blocks the save while a level motion would replace a clip-path", async () => {
@@ -635,7 +646,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      const reason = "Level motion replaces a clip-path";
+      const reason = "Fill motion replaces a clip-path";
       expect(screen.getByText(reason)).toBeDefined();
       expect(findButton("Save").getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(screen.getByText("None"));
