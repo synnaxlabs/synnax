@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import uuid4
+from typing import Any, ClassVar
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -515,3 +516,113 @@ class TestMQTTTaskRack:
         )
         client.tasks.configure(task)
         assert client.tasks.retrieve(key=task.key).rack == rack.key
+
+
+@pytest.mark.mqtt
+class TestMQTTBrokerResource:
+    """Tests for the typed MQTT broker resource."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+    BROKER: ClassVar[dict[str, Any]] = {
+        "rack": 1,
+        "name": "Plant Broker",
+        "host": "mqtt.example.com",
+    }
+
+    def test_applies_the_defaults(self) -> None:
+        """Should parse a broker and fill in its defaults."""
+        broker = sy.mqtt.broker.Broker.model_validate(self.BROKER)
+        assert isinstance(broker.transport, sy.mqtt.broker.TcpTransport)
+        assert isinstance(broker.auth, sy.mqtt.broker.NoneAuth)
+        assert broker.port is None
+        assert broker.client_id is None
+        assert broker.keep_alive == 30 * sy.TimeSpan.SECOND
+        assert isinstance(broker.sparkplug.mode, sy.mqtt.broker.PassiveSparkplugMode)
+        assert broker.sparkplug.groups == []
+        assert broker.reads == []
+        assert broker.writes == []
+        assert broker.edge_commands == []
+
+    def test_parses_bindings(self) -> None:
+        """Should parse plain and Sparkplug bindings by their type."""
+        message, field = uuid4(), uuid4()
+        broker = sy.mqtt.broker.Broker.model_validate(
+            {
+                **self.BROKER,
+                "reads": [
+                    {
+                        "type": "plain",
+                        "topic": "plant/temp",
+                        "message": message,
+                        "index": 1,
+                        "channel": 2,
+                    },
+                    {
+                        "type": "sparkplug",
+                        "group": "Plant",
+                        "edge_node": "Line1",
+                        "tag": "Pressure",
+                        "index": 1,
+                        "channel": 3,
+                    },
+                ],
+                "writes": [
+                    {
+                        "type": "plain",
+                        "topic": "plant/valve",
+                        "field": field,
+                        "channel": 4,
+                    }
+                ],
+                "edge_commands": [
+                    {"group": "Plant", "edge_node": "Synnax", "tag": "Sp", "channel": 5}
+                ],
+            }
+        )
+        assert isinstance(broker.reads[0], sy.mqtt.broker.PlainRead)
+        assert broker.reads[0].pointer == ""
+        assert isinstance(broker.reads[1], sy.mqtt.broker.SparkplugRead)
+        assert broker.reads[1].device == ""
+        assert isinstance(broker.writes[0], sy.mqtt.broker.PlainWrite)
+        assert broker.edge_commands[0].channel == 5
+
+    def test_parses_tls_and_credentials(self) -> None:
+        """Should parse TLS with optional certificates and a secret password."""
+        password = uuid4()
+        broker = sy.mqtt.broker.Broker.model_validate(
+            {
+                **self.BROKER,
+                "transport": {"type": "tls"},
+                "auth": {"type": "username", "username": "admin", "password": password},
+            }
+        )
+        assert isinstance(broker.transport, sy.mqtt.broker.TlsTransport)
+        assert broker.transport.ca_certificate is None
+        assert broker.transport.certificate_validation_disabled is False
+        assert isinstance(broker.auth, sy.mqtt.broker.UsernameAuth)
+        assert broker.auth.password == password
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"transport": {"type": "websocket"}},
+            {"port": 0},
+            {"client_id": ""},
+            {"keep_alive": 999 * sy.TimeSpan.MILLISECOND},
+            {"keep_alive": 65536 * sy.TimeSpan.SECOND},
+            {"auth": {"type": "username", "username": "a", "password": "plain"}},
+            {"sparkplug": {"mode": {"type": "primary"}}},
+            {"writes": [{"type": "plain", "topic": "a", "channel": 3}]},
+        ],
+    )
+    def test_rejects_an_invalid_broker(self, change: dict[str, Any]) -> None:
+        """Should reject an unknown transport, a zero port, an empty client ID, a keep
+        alive out of range, a plaintext password, a primary host with no ID, and a
+        write with no field."""
+        with pytest.raises(ValidationError):
+            sy.mqtt.broker.Broker.model_validate({**self.BROKER, **change})
+
+    def test_resource_id(self) -> None:
+        """Should name the broker by its key under the mqtt_broker type."""
+        assert sy.mqtt.broker.resource_id(self.KEY).type == "mqtt_broker"
+        assert sy.mqtt.broker.resource_id(self.KEY).key == str(self.KEY)

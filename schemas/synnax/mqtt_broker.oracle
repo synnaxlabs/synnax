@@ -1,0 +1,333 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/certificate"
+import "schemas/synnax/channel"
+import "schemas/synnax/icd"
+import "schemas/synnax/rack"
+import "schemas/synnax/secret"
+import "schemas/synnax/status"
+import "schemas/x/telem"
+
+@go output "core/pkg/service/mqtt/broker"
+@py output "client/py/synnax/mqtt/broker"
+@ts output "client/ts/src/mqtt/broker"
+
+Key = uuid {
+    @doc value "uniquely identifies an MQTT broker."
+}
+
+Transport union on type {
+    tcp {
+        @doc value "connects over plain TCP."
+    }
+    tls {
+        ca_certificate                  certificate.Key? {
+            @doc value """
+                is the certificate authority that signs the certificate of the broker.
+                Absent trusts the system roots.
+            """
+        }
+        client_certificate              certificate.Key? {
+            @doc value """
+                is the certificate and private key that the Core presents to the broker.
+                Absent presents no certificate.
+            """
+        }
+        certificate_validation_disabled bool = false {
+            @doc value "is true when the Core accepts any broker certificate."
+        }
+
+        @doc value "connects over TLS."
+    }
+
+    @doc value  "is the transport that the Core connects to a broker over."
+    @go marshal
+}
+
+Auth union on type {
+    none {
+        @doc value "sends no credentials."
+    }
+    username {
+        username string      {
+            @doc value         "is the user name to authenticate with."
+            @validate required
+        }
+        password secret.Key? {
+            @doc value """
+                is the secret that holds the password. Absent sends no password.
+            """
+        }
+
+        @doc value "sends a user name and an optional password."
+    }
+
+    @doc value  "holds the credentials that the Core connects to a broker with."
+    @go marshal
+}
+
+SparkplugMode union on type {
+    passive {
+        @doc value "subscribes to Sparkplug B topics as an observer."
+    }
+    primary {
+        host_id string {
+            @doc value         """
+                is the ID that the Core publishes its host application state as.
+            """
+            @go validate       pattern "^[^/+#]+$" "Host ID must not be empty or hold /, +, or #"
+            @validate required
+        }
+
+        @doc value "publishes the state of a primary host application."
+    }
+
+    @doc value  "is the role that the Core takes in a Sparkplug B system."
+    @go marshal
+}
+
+Sparkplug struct {
+    mode   SparkplugMode = passive {
+        @doc value "is the role that the Core takes in the Sparkplug B system."
+    }
+    groups string[] = [] {
+        @doc value "are the Sparkplug group IDs that a browse lists. Empty lists all."
+    }
+
+    @doc value  "configures how the Core takes part in a Sparkplug B system."
+    @go marshal
+}
+
+Read union on type {
+    plain {
+        topic   string         {
+            @doc value         "is the topic to subscribe to. It holds no wildcards."
+            @go validate       pattern "^[^+#]+$" "Topic must not be empty or hold + or #"
+            @validate required
+        }
+        message icd.MessageKey {
+            @doc value         "is the ICD message that the payloads of the topic hold."
+            @validate required
+        }
+        pointer string = "" {
+            @doc value   "is the JSON Pointer to the value in the message."
+            @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
+        }
+        index   channel.Key    {
+            @doc value         "is the index channel of the channel."
+            @validate required
+        }
+        channel channel.Key    {
+            @doc value         "is the channel that holds the samples of the value."
+            @validate required
+        }
+
+        @doc value "binds a value in the JSON payloads of a topic to a channel."
+    }
+    sparkplug {
+        group     string      {
+            @doc value         "is the Sparkplug group ID of the edge node."
+            @go validate       pattern "^[^/+#]+$" "Group must not be empty or hold /, +, or #"
+            @validate required
+        }
+        edge_node string      {
+            @doc value         "is the Sparkplug edge node ID."
+            @go validate       pattern "^[^/+#]+$" "Edge node must not be empty or hold /, +, or #"
+            @validate required
+        }
+        device    string = "" {
+            @doc value   "is the Sparkplug device ID. Empty for a tag of the edge node."
+            @go validate pattern "^$|^[^/+#]+$" "Device must not hold /, +, or #"
+        }
+        tag       string      {
+            @doc value         "is the name of the tag."
+            @validate required
+        }
+        index     channel.Key {
+            @doc value         "is the index channel of the channel."
+            @validate required
+        }
+        channel   channel.Key {
+            @doc value         "is the channel that holds the samples of the tag."
+            @validate required
+        }
+
+        @doc value "binds a Sparkplug B tag to a channel."
+    }
+
+    @doc value  "binds a value that a broker delivers to a channel."
+    @go marshal
+}
+
+Write union on type {
+    plain {
+        topic   string       {
+            @doc value         "is the topic to publish to. It holds no wildcards."
+            @go validate       pattern "^[^+#]+$" "Topic must not be empty or hold + or #"
+            @validate required
+        }
+        field   icd.FieldKey {
+            @doc value         """
+                is the ICD field that a command sets in the published message.
+            """
+            @validate required
+        }
+        channel channel.Key  {
+            @doc value         "is the channel whose commands publish the message."
+            @validate required
+        }
+
+        @doc value "binds a field of a message published to a topic to a channel."
+    }
+    sparkplug {
+        group     string      {
+            @doc value         "is the Sparkplug group ID of the edge node."
+            @go validate       pattern "^[^/+#]+$" "Group must not be empty or hold /, +, or #"
+            @validate required
+        }
+        edge_node string      {
+            @doc value         "is the Sparkplug edge node ID."
+            @go validate       pattern "^[^/+#]+$" "Edge node must not be empty or hold /, +, or #"
+            @validate required
+        }
+        device    string = "" {
+            @doc value   "is the Sparkplug device ID. Empty for a tag of the edge node."
+            @go validate pattern "^$|^[^/+#]+$" "Device must not hold /, +, or #"
+        }
+        tag       string      {
+            @doc value         "is the name of the tag."
+            @validate required
+        }
+        channel   channel.Key {
+            @doc value         "is the channel whose commands write the tag."
+            @validate required
+        }
+
+        @doc value "binds a Sparkplug B tag to the channel whose commands write it."
+    }
+
+    @doc value  "binds a channel to the value that its commands publish to a broker."
+    @go marshal
+}
+
+EdgeCommand struct {
+    group     string      {
+        @doc value         "is the Sparkplug group ID of the edge node."
+        @go validate       pattern "^[^/+#]+$" "Group must not be empty or hold /, +, or #"
+        @validate required
+    }
+    edge_node string      {
+        @doc value         "is the Sparkplug edge node ID that the Core publishes as."
+        @go validate       pattern "^[^/+#]+$" "Edge node must not be empty or hold /, +, or #"
+        @validate required
+    }
+    tag       string      {
+        @doc value         "is the name of the tag."
+        @validate required
+    }
+    channel   channel.Key {
+        @doc value         "is the command channel of the tag."
+        @validate required
+    }
+
+    @doc value  """
+        binds a tag that the Core publishes as an edge node to its command channel.
+    """
+    @go marshal
+}
+
+StatusDetails struct {
+    rack      rack.Key {
+        @doc value "is the key of the rack the broker belongs to."
+    }
+    broker    Key      {
+        @doc value "is the key of the broker."
+    }
+    connected bool = false {
+        @doc value "is true when the Core is connected to the broker."
+    }
+
+    @doc value "identifies the broker and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the connection status of a broker."
+}
+
+Broker struct {
+    key           Key = create {
+        @doc value "uniquely identifies the broker."
+        @key
+    }
+    rack          rack.Key       {
+        @doc value     "is the key of the rack that connects to the broker."
+        @ref kind      place
+        @ref on_delete restrict
+    }
+    name          string         {
+        @doc value         "is a human-readable name for the broker."
+        @filter
+        @search
+        @validate required
+    }
+    host          string         {
+        @doc value         "is the hostname or IP address of the broker."
+        @go validate       pattern "^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$" "Host must be a hostname or an IP address, with no scheme, port, or path"
+        @validate required
+    }
+    port          uint16?        {
+        @doc value    """
+            is the TCP port. Absent takes 1883, or 8883 when the transport is TLS.
+        """
+        @validate min 1
+    }
+    transport     Transport = tcp {
+        @doc value "is the transport that the Core connects to the broker over."
+    }
+    auth          Auth = none {
+        @doc value "holds the credentials that the Core connects to the broker with."
+    }
+    client_id     string?        {
+        @doc value           """
+            is the MQTT client ID. Absent derives one from the key of the broker.
+        """
+        @validate min_length 1
+    }
+    keep_alive    telem.TimeSpan = 30000000000 {
+        @doc value    "is the keep alive interval, in whole seconds."
+        @ts type      telem.NumericTimeSpan
+        @validate max 65535000000000
+        @validate min 1000000000
+    }
+    sparkplug     Sparkplug = {} {
+        @doc value "configures how the Core takes part in a Sparkplug B system."
+    }
+    reads         Read[] = [] {
+        @doc value "bind the values that read tasks receive to channels."
+    }
+    writes        Write[] = [] {
+        @doc value "bind the channels whose commands write tasks publish."
+    }
+    edge_commands EdgeCommand[] = [] {
+        @doc value "bind the tags that the Core publishes as an edge node to channels."
+    }
+    status        Status?        {
+        @doc value  "is the current connection status of the broker."
+        @go marshal omit
+        @include
+    }
+
+    @create
+    @doc value     "is an MQTT broker that a rack connects to."
+    @go marshal
+    @go migrate
+    @resource type "mqtt_broker"
+    @retrieve
+}
