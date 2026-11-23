@@ -337,6 +337,34 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+class BuiltinRef(BaseModel):
+    """Is a symbol that the Core ships."""
+
+    type: Literal["builtin"] = "builtin"
+    name: str
+
+
+class CustomRef(BaseModel):
+    """Is a symbol that a user made."""
+
+    type: Literal["custom"] = "custom"
+    key: Key
+
+
+class MissingRef(BaseModel):
+    """Is a custom symbol that the Core does not have."""
+
+    type: Literal["missing"] = "missing"
+    key: str
+
+
+# Is the symbol that a node draws.
+Ref = Annotated[
+    BuiltinRef | CustomRef | MissingRef,
+    Field(discriminator="type"),
+]
+
+
 class StateOverride(BaseModel):
     """Is a node's replacement for the region colors of one value that it draws.
 
