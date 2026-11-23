@@ -188,6 +188,24 @@ const storedSource = ({
 });
 
 /**
+ * @returns stored with the channels that an older Console stored under the path of
+ * endpoints split among the messages that read the path. An endpoint that reads no ICD
+ * keeps them under the path.
+ */
+const splitStored = (
+  stored: Record<string, Task.ReadChannelProps>,
+  endpoints: ReadEndpoint[],
+): Record<string, Task.ReadChannelProps> =>
+  ICD.Stored.split(
+    stored,
+    endpoints.map((ep) =>
+      readsICD(ep)
+        ? { ...storedSource(ep), disabled: ep.disabled }
+        : { key: ep.path, legacy: ep.path, messages: [] },
+    ),
+  );
+
+/**
  * @returns whether ep stores and reuses the channels of message: no endpoint before it
  * in endpoints reads message from the path of ep.
  */
@@ -204,51 +222,38 @@ const ownsStored = (
 /**
  * @returns stored without the channels of messages that other endpoints with the path
  * of ep read, which the device stores beside the channels of ep. It keeps a message
- * that ep reads only when ep owns its channels. It also leaves out the channels an
- * older Console stored under the path, when another endpoint binds one.
+ * that ep reads only when ep owns its channels.
  */
 const storedFor = (
   stored: Record<string, Task.ReadChannelProps>,
   endpoints: ReadEndpoint[],
   ep: ICDEndpoint,
 ): Record<string, Task.ReadChannelProps> => {
-  const others = endpoints.filter(
-    ({ key, path }) => key !== ep.key && path === ep.path,
-  );
   const owned = new Set(
     ep.messages
       .filter(({ message }) => ownsStored(endpoints, ep, message))
       .map(({ message }) => ICD.Stored.key(ep.path, message)),
   );
-  const hidden = new Set(
-    others
+  const others = new Set(
+    endpoints
+      .filter(({ key, path }) => key !== ep.key && path === ep.path)
       .flatMap(({ messages }) =>
         messages.map(({ message }) => ICD.Stored.key(ep.path, message)),
       )
       .filter((at) => !owned.has(at)),
   );
-  const legacy = stored[ep.path];
-  if (legacy != null) {
-    const held = new Set([legacy.index, ...Object.values(legacy.channels)]);
-    held.delete(0);
-    const bound = others.some(({ messages }) =>
-      messages.some(({ bindings }) =>
-        bindings.some(({ channel }) => held.has(channel)),
-      ),
-    );
-    if (bound) hidden.add(ep.path);
-  }
-  return Object.fromEntries(Object.entries(stored).filter(([at]) => !hidden.has(at)));
+  return Object.fromEntries(Object.entries(stored).filter(([at]) => !others.has(at)));
 };
 
-/** @returns the channels that enabled endpoints bind. The Core skips disabled ones. */
+/**
+ * @returns the channels that endpoints bind. A disabled endpoint keeps its channels for
+ * when it is enabled again.
+ */
 const writtenChannels = (endpoints: ReadEndpoint[]): Set<channel.Key> => {
   const written = new Set(
-    endpoints
-      .filter(({ disabled }) => !disabled)
-      .flatMap(({ messages }) =>
-        messages.flatMap(({ bindings }) => bindings.map((b) => b.channel)),
-      ),
+    endpoints.flatMap(({ messages }) =>
+      messages.flatMap(({ bindings }) => bindings.map((b) => b.channel)),
+    ),
   );
   written.delete(0);
   return written;
@@ -494,14 +499,14 @@ const Endpoints: FC<EndpointsProps> = ({
     SourceItem: EndpointItem,
     tareable: true,
     // Starting reuses the channel that the device stores for the field's pointer,
-    // unless an enabled endpoint reads it, another endpoint owns its message, or it no
-    // longer exists or fits the field. An endpoint that reads one message also reuses
-    // the channels of its earlier messages, so a new message format keeps its channels.
+    // unless an endpoint reads it, another endpoint owns its message, or it no longer
+    // exists or fits the field. An endpoint that reads one message also reuses the
+    // channels of its earlier messages, so a new message format keeps its channels.
     bindDisabled,
     bindingOf: (key, read, field) => {
       const ep = ctx.get(icdPath(key)).value;
       const all = ctx.get(root.config.endpoints).value;
-      const held = storedFor(stored, all, ep);
+      const held = storedFor(splitStored(stored, all), all, ep);
       const channels =
         ep.messages.length === 1
           ? ICD.Stored.channels(held, storedSource(ep), ep.messages[0].message)
@@ -680,16 +685,16 @@ const storedKeyOf = ({ source, read }: BoundMessage): string =>
   ICD.Stored.key(source.path, source.messages[read].message);
 
 /**
- * @returns the channels that the device stores for b, or undefined when an earlier
- * endpoint of endpoints owns them.
+ * @returns the channels that stored, split by splitStored, holds for b, or undefined
+ * when an earlier endpoint of endpoints owns them.
  */
 const storedPropsOf = (
-  dev: Device.Device,
+  stored: Record<string, Task.ReadChannelProps>,
   endpoints: ReadEndpoint[],
   b: BoundMessage,
 ): Task.ReadChannelProps | undefined =>
   ownsStored(endpoints, b.source, b.source.messages[b.read].message)
-    ? ICD.Stored.of(dev.properties.read, storedSource(b.source), b.read)
+    ? ICD.Stored.of(stored, storedSource(b.source), b.read)
     : undefined;
 
 /** @returns the prefix of the names of the channels that a message creates. */
@@ -711,6 +716,7 @@ const planMessages = async (
 ): Promise<ICD.MessagePlan[]> => {
   const namer = Task.createNamer(client);
   const written = writtenChannels(endpoints);
+  const stored = splitStored(dev.properties.read, endpoints);
   const plans: ICD.MessagePlan[] = [];
   for (const b of bound) {
     signal?.throwIfAborted();
@@ -719,7 +725,7 @@ const planMessages = async (
       namer,
       b,
       prefixOf(dev.name, b),
-      storedPropsOf(dev, endpoints, b),
+      storedPropsOf(stored, endpoints, b),
       written,
     );
     ICD.keptChannels(plan).forEach((ch) => written.add(ch));
@@ -750,13 +756,14 @@ const MessagePlans = ({ device, children }: MessagePlansProps): ReactElement => 
         return [{ source, read: r, message, fields }];
       }),
     );
+  const stored = splitStored(device.properties.read, endpoints);
   const sources = bound.map((b) => ({
     key: b.source.key,
     position: b.read,
     read: b.source.messages[b.read],
     message: b.message,
     prefix: prefixOf(device.name, b),
-    props: storedPropsOf(device, endpoints, b),
+    props: storedPropsOf(stored, endpoints, b),
   }));
   const plans = Task.useChannelPlans(
     sources,
@@ -837,13 +844,13 @@ const configureICD: Task.OnConfigure<ReadSchemas["config"]> = async (
   // A deploy that fails partway keeps the channels it made for the next one.
   const before = deep.copy(dev.properties);
   try {
+    // Each endpoint gets its share of the channels stored under its path, even when it
+    // is disabled or a create below fails.
+    dev.properties.read = splitStored(dev.properties.read, config.endpoints);
     const plans = await planMessages(client, dev, config.endpoints, bound);
     for (const [i, b] of bound.entries()) {
       const message = b.source.messages[b.read].message;
-      const owned = ownsStored(config.endpoints, b.source, message);
-      if (owned)
-        ICD.Stored.moveLegacy(dev.properties.read, storedSource(b.source), b.read);
-      const stored = owned
+      const stored = ownsStored(config.endpoints, b.source, message)
         ? { read: dev.properties.read, key: storedKeyOf(b) }
         : undefined;
       await ICD.applyMessage(client, b, plans[i], stored);

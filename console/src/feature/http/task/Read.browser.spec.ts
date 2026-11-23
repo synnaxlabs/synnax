@@ -548,6 +548,37 @@ describe("Read", () => {
     );
   });
 
+  it("should reuse a channel stored under the path for a second endpoint on it", async () => {
+    const [temperature, pressure] = await client.channels.create([
+      { name: uniqueName("temperature"), dataType: DataType.FLOAT64, virtual: true },
+      { name: uniqueName("pressure"), dataType: DataType.FLOAT64, virtual: true },
+    ]);
+    const first = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    const pressureField = createField("pressure");
+    const second = await createEndpoint({
+      key: "ep2",
+      method: "POST",
+      path: "/data",
+      fields: [pressureField],
+    });
+    const channels = { "/temperature": temperature.key, "/pressure": pressure.key };
+    const { draft } = await renderWithDevice([first, second], {
+      read: { "/data": { index: 0, channels } },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[1].messages[0].bindings;
+    await readAgain("pressure", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: pressureField.key, channel: pressure.key, dataType: "" },
+      ]),
+    );
+  });
+
   it("should not reuse a stored channel that another endpoint reads", async () => {
     const ch = await client.channels.create({
       name: uniqueName("temperature"),
@@ -865,6 +896,127 @@ describe("Read", () => {
     });
     expect(properties.read).toEqual({
       [`/data#${ep.messages[0].message}`]: stored,
+    });
+  });
+
+  it("should deploy a new channel for a field whose stored channel a disabled endpoint binds", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const other = await createEndpoint({
+      key: "ep1",
+      method: "POST",
+      path: "/query",
+      disabled: true,
+      fields: [createField("temperature")],
+    });
+    other.messages[0].bindings[0].channel = ch.key;
+    const ep = await createEndpoint({
+      key: "ep2",
+      path: "/query",
+      fields: [createField("temperature")],
+    });
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    const { container, draft, dev } = await renderWithDevice([other, ep], {
+      read: { "/query": stored },
+    });
+    await screen.findAllByRole("treeitem", { name: /\/query/ });
+    const created = await deploy(container, draft.key);
+    const bound = created.config.endpoints[1].messages[0].bindings[0].channel;
+    expect(bound).not.toBe(0);
+    expect(bound).not.toBe(ch.key);
+    const { properties } = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(properties.read[`/query#${other.messages[0].message}`]).toEqual(stored);
+    expect(properties.read).not.toHaveProperty("/query");
+  });
+
+  it("should store the channels under a path for each endpoint that reads it, disabled ones too", async () => {
+    const time = await client.channels.create({
+      name: uniqueName("time"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const [a, b] = await client.channels.create([
+      { name: uniqueName("a"), dataType: DataType.FLOAT64, index: time.key },
+      { name: uniqueName("b"), dataType: DataType.FLOAT64, index: time.key },
+    ]);
+    const first = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("a")],
+    });
+    first.messages[0].bindings[0].channel = a.key;
+    const second = await createEndpoint({
+      key: "ep2",
+      method: "POST",
+      path: "/data",
+      disabled: true,
+      fields: [createField("b")],
+    });
+    second.messages[0].bindings[0].channel = b.key;
+    const stored = { index: time.key, channels: { "/a": a.key, "/b": b.key } };
+    const { container, draft, dev } = await renderWithDevice([first, second], {
+      read: { "/data": stored },
+    });
+    await screen.findAllByRole("treeitem", { name: /\/data/ });
+    const created = await deploy(container, draft.key);
+    expect(created.config.endpoints[0].messages[0].bindings[0].channel).toBe(a.key);
+    const { properties } = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(properties.read).toEqual({
+      [`/data#${first.messages[0].message}`]: stored,
+      [`/data#${second.messages[0].message}`]: { index: 0, channels: { "/b": b.key } },
+    });
+  });
+
+  it("should keep the channel and index of an enabled endpoint before a disabled one", async () => {
+    const time = await client.channels.create({
+      name: uniqueName("time"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const [a, b] = await client.channels.create([
+      { name: uniqueName("a"), dataType: DataType.FLOAT64, index: time.key },
+      { name: uniqueName("b"), dataType: DataType.FLOAT64, index: time.key },
+    ]);
+    const disabled = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      disabled: true,
+      fields: [createField("a")],
+    });
+    disabled.messages[0].bindings[0].channel = a.key;
+    const enabled = await createEndpoint({
+      key: "ep2",
+      method: "POST",
+      path: "/data",
+      fields: [createField("b")],
+    });
+    enabled.messages[0].bindings[0].channel = b.key;
+    const stored = { index: time.key, channels: { "/a": a.key, "/b": b.key } };
+    const { container, draft, dev } = await renderWithDevice([disabled, enabled], {
+      read: { "/data": stored },
+    });
+    await screen.findAllByRole("treeitem", { name: /\/data/ });
+    const created = await deploy(container, draft.key);
+    expect(created.config.endpoints[1].messages[0].bindings[0].channel).toBe(b.key);
+    const { properties } = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(properties.read).toEqual({
+      [`/data#${disabled.messages[0].message}`]: {
+        index: 0,
+        channels: { "/a": a.key },
+      },
+      [`/data#${enabled.messages[0].message}`]: stored,
     });
   });
 
