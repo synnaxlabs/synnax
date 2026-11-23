@@ -503,7 +503,10 @@ TEST(TestCommonWriteTask, MissedCommandsWarningHolds) {
         std::vector<synnax::channel::Key>{1},
         std::make_shared<std::vector<x::telem::Frame>>()
     );
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     MockSink *sink = nullptr;
     auto write_task = create_write_task(ctx, streamer_factory, sink);
     ASSERT_TRUE(write_task->start("start_cmd", cancel));
@@ -611,7 +614,10 @@ TEST(TestCommonWriteTask, WriteErrorAfterMissClearsOnACleanWrite) {
     x::breaker::Breaker cancel;
     const auto queue = std::make_shared<CommandQueue>();
     const auto streamer_factory = std::make_shared<QueueStreamerFactory>(queue);
-    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto errors = std::make_shared<std::vector<x::errors::Error>>(std::vector{
         x::errors::Error(driver::errors::TEMPORARY_HARDWARE_ERROR, "busy"),
         x::errors::NIL,

@@ -4656,7 +4656,12 @@ TEST_F(TaskManagerTest, MissedTaskChangesSyncTasksInPlace) {
     // The open ack.
     stream->push({});
     const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
-    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
+    manager = std::make_unique<Manager>(
+        managed_rack,
+        managed,
+        std::move(factory),
+        ::driver::outbox::testutil::open(managed->statuses)
+    );
     std::promise<void> started;
     thread = std::thread([&] {
         ASSERT_NIL(manager->run([&] { started.set_value(); }));
@@ -4726,7 +4731,12 @@ TEST_F(TaskManagerTest, MissedChangesReadControlStateAndRackNameAgain) {
     // The open ack.
     stream->push({});
     const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
-    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
+    manager = std::make_unique<Manager>(
+        managed_rack,
+        managed,
+        std::move(factory),
+        ::driver::outbox::testutil::open(managed->statuses)
+    );
     std::promise<void> started;
     thread = std::thread([&] {
         ASSERT_NIL(manager->run([&] { started.set_value(); }));
@@ -4805,7 +4815,12 @@ TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
     auto factory = std::make_unique<ContextCaptureFactory>();
     auto *f = factory.get();
     const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
-    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
+    manager = std::make_unique<Manager>(
+        managed_rack,
+        managed,
+        std::move(factory),
+        ::driver::outbox::testutil::open(managed->statuses)
+    );
     std::promise<void> started;
     std::promise<x::errors::Error> ended;
     thread = std::thread([&] {
@@ -5012,6 +5027,7 @@ protected:
             managed_rack,
             managed,
             std::move(factory),
+            ::driver::outbox::testutil::open(managed->statuses),
             ManagerConfig{.poll_interval = poll_interval}
         );
         std::promise<void> started;
