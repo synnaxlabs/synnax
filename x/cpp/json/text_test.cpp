@@ -138,8 +138,8 @@ TEST(AppendQuoted, EscapesSpecialCharacters) {
 /// @brief it should keep characters that JSON does not need escaped.
 TEST(AppendQuoted, KeepsCharactersJSONAllows) {
     std::string out;
-    ASSERT_NIL(append_quoted("<>&/\x7f\u2028\xc2\x85😀", out));
-    ASSERT_EQ(out, "\"<>&/\x7f\u2028\xc2\x85😀\"");
+    ASSERT_NIL(append_quoted("<>&/\x7f\xe2\x80\xa8\xc2\x85\xf0\x9f\x98\x80", out));
+    ASSERT_EQ(out, "\"<>&/\x7f\xe2\x80\xa8\xc2\x85\xf0\x9f\x98\x80\"");
 }
 
 /// @brief it should reject text that is not valid UTF-8, appending nothing.

@@ -455,4 +455,303 @@ describe("Custom.Drawing motion", () => {
       expect(attr(".rotor", "opacity")).toBe("1");
     });
   });
+
+  describe("level", () => {
+    const level = (side: schematic.symbol.LevelMotion["side"] = "bottom") =>
+      createSpec([
+        {
+          key: "level",
+          part: "liquid",
+          motion: { type: "level", state: "speed", side },
+        },
+      ]);
+
+    it("should fill a part from its side to the fraction of its state", async () => {
+      const { pending, attr } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      expect(pending()).toBe(0);
+      expect(attr(".liquid", "clip-path")).toBe("inset(75% 0 0 0)");
+    });
+
+    it("should fill from the top", async () => {
+      const { attr } = await setup({
+        spec: level("top"),
+        readings: { speed: reading(25) },
+      });
+      expect(attr(".liquid", "clip-path")).toBe("inset(0 0 75% 0)");
+    });
+
+    it("should join the loop while it moves to a new fraction", async () => {
+      const { pending, frame, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(75) } });
+      expect(pending()).toBe(1);
+      frame(0);
+      frame(100);
+      expect(attr(".liquid", "clip-path")).not.toBe("inset(25% 0 0 0)");
+      frame(200);
+      expect(attr(".liquid", "clip-path")).toBe("inset(25% 0 0 0)");
+      expect(pending()).toBe(0);
+    });
+
+    it("should slide on the curve of the modal animation", async () => {
+      const { frame, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(75) } });
+      frame(0);
+      frame(75);
+      expect(attr(".liquid", "clip-path")).toBe("inset(50% 0 0 0)");
+    });
+
+    it("should land a value that arrives mid-slide when the slide ends", async () => {
+      const { frame, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(75) } });
+      frame(0);
+      frame(75);
+      await rerender({ readings: { speed: reading(100) } });
+      expect(attr(".liquid", "clip-path")).toBe("inset(50% 0 0 0)");
+      frame(150);
+      expect(attr(".liquid", "clip-path")).toBe("inset(0% 0 0 0)");
+    });
+
+    it("should jump to a new fraction on a node with motion disabled", async () => {
+      const { pending, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+        motionDisabled: true,
+      });
+      await rerender({ readings: { speed: reading(75) } });
+      expect(pending()).toBe(0);
+      expect(attr(".liquid", "clip-path")).toBe("inset(25% 0 0 0)");
+    });
+
+    it("should draw an empty level while its state is unknown", async () => {
+      const { pending, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(NaN) } });
+      expect(pending()).toBe(0);
+      expect(attr(".liquid", "clip-path")).toBe("inset(100% 0 0 0)");
+    });
+
+    it("should keep its last fraction while its state is stale", async () => {
+      const { pending, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(75, true) } });
+      expect(pending()).toBe(0);
+      expect(attr(".liquid", "clip-path")).toBe("inset(75% 0 0 0)");
+    });
+
+    it("should draw an edited look while its fraction holds", async () => {
+      const { attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ spec: level("top") });
+      expect(attr(".liquid", "clip-path")).toBe("inset(0 0 75% 0)");
+    });
+  });
+
+  describe("rotate", () => {
+    it("should turn a part to the angle at the fraction of its state", async () => {
+      const look: schematic.symbol.Look = {
+        key: "rotate",
+        part: "rotor",
+        motion: { type: "rotate", state: "speed", from: -45, to: 45 },
+      };
+      const { attr } = await setup({
+        spec: createSpec([look]),
+        readings: { speed: reading(75) },
+      });
+      expect(attr(".rotor", "transform")).toBe("rotate(22.5 3 3) translate(1 1)");
+    });
+  });
+
+  describe("move", () => {
+    it("should move a part by fractions of the box", async () => {
+      const look: schematic.symbol.Look = {
+        key: "move",
+        part: "slider",
+        motion: {
+          type: "move",
+          state: "speed",
+          from: { x: 0, y: 0 },
+          to: { x: 0.5, y: 0 },
+        },
+      };
+      const { attr } = await setup({
+        spec: createSpec([look]),
+        readings: { speed: reading(100) },
+      });
+      expect(attr(".slider", "transform")).toBe("translate(2.5 0)");
+    });
+  });
+
+  describe("kinds", () => {
+    const MOVE: schematic.symbol.Look = {
+      key: "move",
+      part: "rotor",
+      motion: {
+        type: "move",
+        state: "speed",
+        from: { x: 0, y: 0 },
+        to: { x: 0.5, y: 0 },
+      },
+    };
+
+    it("should move a part, then spin it about its pivot", async () => {
+      const { frame, attr } = await setup({
+        spec: createSpec([SPIN, MOVE]),
+        readings: { speed: reading(100) },
+      });
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe(
+        "translate(5 0) rotate(90 3 3) translate(1 1)",
+      );
+    });
+
+    it("should add the angles of a rotate and a spin", async () => {
+      const look: schematic.symbol.Look = {
+        key: "rotate",
+        part: "rotor",
+        motion: { type: "rotate", state: "speed", from: 0, to: 90 },
+      };
+      const { frame, attr } = await setup({
+        spec: createSpec([look, SPIN]),
+        readings: { speed: reading(50) },
+      });
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("rotate(135 3 3) translate(1 1)");
+    });
+
+    it("should replace an earlier spin with a later spin", async () => {
+      const fast = { ...SPIN, key: "fast", motion: { type: "spin" as const, rate: 1 } };
+      const { frame, attr } = await setup({ spec: createSpec([SPIN, fast]) });
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("rotate(180 3 3) translate(1 1)");
+    });
+
+    it("should fill and flow one part at once", async () => {
+      const looks: schematic.symbol.Look[] = [
+        {
+          key: "level",
+          part: "pipe",
+          motion: { type: "level", state: "speed", side: "bottom" },
+        },
+        { key: "flow", part: "pipe", motion: { type: "flow", rate: 0.5 } },
+      ];
+      const { frame, attr } = await setup({
+        spec: createSpec(looks),
+        readings: { speed: reading(25) },
+      });
+      frame(0);
+      frame(1000);
+      expect(attr(".pipe", "clip-path")).toBe("inset(75% 0 0 0)");
+      expect(attr(".pipe", "stroke-dashoffset")).toBe("-2");
+    });
+
+    it("should keep the move of a part when its spin stops", async () => {
+      const spin = {
+        ...SPIN,
+        when: { type: "equals" as const, state: "active", values: [1] },
+      };
+      const { frame, attr, rerender } = await setup({
+        spec: createSpec([MOVE, spin]),
+        readings: { speed: reading(100), active: reading(1) },
+      });
+      frame(0);
+      frame(500);
+      await rerender({ readings: { speed: reading(100), active: reading(0) } });
+      expect(attr(".rotor", "transform")).toBe("translate(5 0) translate(1 1)");
+    });
+  });
+
+  describe("shared elements", () => {
+    const SHARED = [
+      ...PARTS,
+      { key: "rotor2", name: "Rotor 2", selectors: [".rotor"] },
+    ];
+
+    it("should compose the motions of two parts that select one element", async () => {
+      const rotate: schematic.symbol.Look = {
+        key: "rotate",
+        part: "rotor",
+        motion: { type: "rotate", state: "speed", from: 0, to: 90 },
+      };
+      const spin = { ...SPIN, part: "rotor2" };
+      const { frame, attr, rerender } = await setup({
+        spec: createSpec([rotate, spin], SHARED),
+        readings: { speed: reading(50) },
+      });
+      frame(0);
+      frame(500);
+      await rerender({ readings: { speed: reading(100) } });
+      frame(600);
+      frame(750);
+      expect(attr(".rotor", "transform")).toBe("rotate(225 3 3) translate(1 1)");
+    });
+
+    it("should draw the spin of the later look when two parts spin one element", async () => {
+      // The blink puts the rotor part first in the loop, so the later look draws first.
+      const looks: schematic.symbol.Look[] = [
+        { key: "blink", part: "rotor", blink: { period: 1e9 } },
+        { ...SPIN, key: "fast", part: "rotor2", motion: { type: "spin", rate: 1 } },
+        SPIN,
+      ];
+      const { frame, attr } = await setup({ spec: createSpec(looks, SHARED) });
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("rotate(90 3 3) translate(1 1)");
+    });
+
+    it("should hold an element still while the spin of the later look stops", async () => {
+      const still = {
+        ...SPIN,
+        key: "still",
+        part: "rotor2",
+        motion: { type: "spin" as const, rate: 1, state: "speed" },
+      };
+      const { frame, attr } = await setup({
+        spec: createSpec([SPIN, still], SHARED),
+        readings: { speed: reading(0) },
+      });
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("translate(1 1)");
+    });
+
+    it("should draw the spin of the later look when the looks change order", async () => {
+      const motion = { type: "spin" as const, rate: 1, state: "speed" };
+      const slow = { ...SPIN, motion: { ...motion, rate: 0.5 } };
+      const fast = { ...SPIN, key: "fast", part: "rotor2", motion };
+      const { frame, attr, rerender } = await setup({
+        spec: createSpec([slow, fast], SHARED),
+        readings: { speed: reading(100) },
+      });
+      frame(0);
+      frame(500);
+      await rerender({ readings: { speed: reading(100, true) } });
+      expect(attr(".rotor", "transform")).toBe("rotate(180 3 3) translate(1 1)");
+      await rerender({
+        spec: createSpec([fast, slow], SHARED),
+        readings: { speed: reading(100, true) },
+      });
+      expect(attr(".rotor", "transform")).toBe("rotate(90 3 3) translate(1 1)");
+    });
+  });
 });
