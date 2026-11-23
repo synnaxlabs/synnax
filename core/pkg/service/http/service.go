@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -80,9 +81,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
+	channels := icd.ReadChannels(cfg.Channel)
 	s = &Service{resolver: readResolver{
 		icds:     cfg.ICD,
-		channels: icd.ReadChannels(cfg.Channel),
+		channels: channels,
+		reads:    read.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
 	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)

@@ -13,10 +13,8 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
@@ -28,6 +26,7 @@ import (
 type readResolver struct {
 	icds     *icd.Service
 	channels icdv0.Channels
+	reads    read.Resolver
 	ins      alamos.Instrumentation
 }
 
@@ -58,9 +57,6 @@ func (r readResolver) resolve(
 	}, nil
 }
 
-// readsICD reports whether ep is enabled and names an ICD.
-func readsICD(ep ReadEndpoint) bool { return !ep.Disabled && ep.ICD != nil }
-
 // hash writes to h the payload of each ICD message that an enabled endpoint of cfg
 // reads, so an edit to the format of one changes the config hash of the task.
 func (r readResolver) hash(
@@ -69,101 +65,41 @@ func (r readResolver) hash(
 	cfg *ReadConfig,
 	h *content.Hash,
 ) error {
-	icdKeys, _ := referencedKeys(cfg, nil)
-	if len(icdKeys) == 0 {
-		return nil
-	}
-	var found []icd.ICD
-	if err := r.icds.NewRetrieve().
-		Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
-		Entries(&found).
-		Exec(ctx, snap); err != nil {
-		return err
-	}
-	icds := lo.KeyBy(found, func(ic icd.ICD) icd.Key { return ic.Key })
-	for _, ep := range cfg.Endpoints {
-		if !readsICD(ep) {
-			continue
-		}
-		if err := read.Hash(h, icds[*ep.ICD], ep.Messages); err != nil {
-			return err
-		}
-	}
-	return nil
+	return r.reads.Hash(ctx, snap, h, readsOf(cfg))
 }
 
-// check checks each enabled endpoint of cfg that names an ICD against that ICD, from
-// icds or else read through snap, and its channels. It skips an ICD or a channel that
-// does not exist, which the reference check of the write reports.
+// check checks each enabled endpoint of cfg that names an ICD, in order, against that
+// ICD, from icds or else read through snap, and its channels.
 func (r readResolver) check(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	cfg *ReadConfig,
 	icds map[icd.Key]icd.ICD,
 ) error {
-	icdKeys, channelKeys := referencedKeys(cfg, icds)
-	if len(icdKeys) > 0 {
-		var found []icd.ICD
-		if err := r.icds.NewRetrieve().
-			Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
-			SkipMissingKeys().
-			Entries(&found).
-			Exec(ctx, snap); err != nil {
-			return err
-		}
-		for _, ic := range found {
-			icds[ic.Key] = ic
-		}
+	reads := readsOf(cfg)
+	c, err := r.reads.NewChecker(ctx, snap, reads, icds)
+	if err != nil {
+		return err
 	}
-	var channels map[channel.Key]icdv0.Channel
-	if len(channelKeys) > 0 {
-		var err error
-		if channels, err = r.channels(ctx, snap, lo.Uniq(channelKeys)); err != nil {
+	for _, rd := range reads {
+		if err = c.Read(rd); err != nil {
 			return err
-		}
-	}
-	c := read.NewChecker(lo.MapValues(
-		channels,
-		func(ch icdv0.Channel, _ channel.Key) read.Channel { return read.Channel(ch) },
-	))
-	for i, ep := range cfg.Endpoints {
-		if !readsICD(ep) {
-			continue
-		}
-		ic, ok := icds[*ep.ICD]
-		if !ok {
-			continue
-		}
-		for j, rm := range ep.Messages {
-			path := []string{"endpoints", strconv.Itoa(i), "messages", strconv.Itoa(j)}
-			if err := c.Message(rm, ic, path); err != nil {
-				return err
-			}
 		}
 	}
 	return nil
 }
 
-// referencedKeys returns the ICDs that the enabled endpoints of cfg name and icds
-// lacks, and the channels that those endpoints name.
-func referencedKeys(
-	cfg *ReadConfig,
-	icds map[icd.Key]icd.ICD,
-) (icdKeys []icd.Key, channelKeys []channel.Key) {
-	for _, ep := range cfg.Endpoints {
-		if !readsICD(ep) {
-			continue
-		}
-		if _, ok := icds[*ep.ICD]; !ok {
-			icdKeys = append(icdKeys, *ep.ICD)
-		}
-		for _, m := range ep.Messages {
-			for _, b := range m.Bindings {
-				if b.Channel != 0 {
-					channelKeys = append(channelKeys, b.Channel)
-				}
-			}
+// readsOf returns the read of each enabled endpoint of cfg that names an ICD.
+func readsOf(cfg *ReadConfig) []read.Read {
+	var reads []read.Read
+	for i, ep := range cfg.Endpoints {
+		if !ep.Disabled && ep.ICD != nil {
+			reads = append(reads, read.Read{
+				Path:     []string{"endpoints", strconv.Itoa(i)},
+				ICD:      *ep.ICD,
+				Messages: ep.Messages,
+			})
 		}
 	}
-	return icdKeys, channelKeys
+	return reads
 }
