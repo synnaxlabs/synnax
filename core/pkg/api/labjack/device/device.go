@@ -101,9 +101,7 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	for i, st := range statuses {
-		b := res.Devices[i].Base()
-		b.Status = st
-		res.Devices[i].SetBase(b)
+		res.Devices[i].Status = st
 	}
 	return res, nil
 }

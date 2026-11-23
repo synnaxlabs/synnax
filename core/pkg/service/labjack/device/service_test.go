@@ -60,13 +60,15 @@ var _ = Describe("Service", func() {
 	}
 	create := func(ctx context.Context) device.Device {
 		GinkgoHelper()
-		d := device.Device{Variant: device.T7Device{Base: device.Base{
+		d := device.Device{
 			Key:        uuid.New(),
 			Rack:       rackKey,
 			Name:       "T7-0001",
 			Serial:     nextSerial(),
 			Connection: device.ConnectionUSB,
-		}}}
+			Model:      device.ModelT7,
+			Ports:      device.Ports{Variant: device.T7Ports{}},
+		}
 		Expect(gorp.NewCreate[device.Key, device.Device]().Entry(&d).Exec(ctx, tx)).
 			To(Succeed())
 		return d
@@ -91,11 +93,11 @@ var _ = Describe("Service", func() {
 			create(ctx)
 			var got []device.Device
 			Expect(svc.NewRetrieve().
-				Where(device.MatchSerials(d.Base().Serial)).
+				Where(device.MatchSerials(d.Serial)).
 				Entries(&got).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(got).To(HaveLen(1))
-			Expect(got[0].Base().Key).To(Equal(d.Base().Key))
+			Expect(got[0].Key).To(Equal(d.Key))
 		})
 	})
 
@@ -103,7 +105,7 @@ var _ = Describe("Service", func() {
 		It("Should name each device by its name", func(ctx SpecContext) {
 			d := create(ctx)
 			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{d.ResourceID()})).
-				To(Equal([]resource.Resource{{ID: d.ResourceID(), Name: d.Base().Name}}))
+				To(Equal([]resource.Resource{{ID: d.ResourceID(), Name: d.Name}}))
 		})
 
 		It("Should reject a key that is not a UUID", func(ctx SpecContext) {
@@ -118,7 +120,7 @@ var _ = Describe("Service", func() {
 			res := MustSucceed(svc.Resources().Search(
 				ctx,
 				tx,
-				search.Query[resource.ID]{Term: d.Base().Name, Limit: 10},
+				search.Query[resource.ID]{Term: d.Name, Limit: 10},
 			))
 			Expect(res.Keys).To(ContainElement(d.ResourceID()))
 		})

@@ -41,7 +41,7 @@ var _ = Describe("Where", Ordered, func() {
 		alias string,
 		d device.Device,
 	) (device.Key, string) {
-		return d.Base().Key, alias
+		return d.Key, alias
 	})
 
 	BeforeAll(func(ctx SpecContext) {
@@ -65,7 +65,7 @@ var _ = Describe("Where", Ordered, func() {
 			_ string,
 			d device.Device,
 		) rack.Key {
-			return d.Base().Rack
+			return d.Rack
 		}))
 		for _, k := range rackKeys {
 			r := rack.Rack{Key: k, Name: "Rack"}
@@ -92,7 +92,7 @@ var _ = Describe("Where", Ordered, func() {
 				Entries(&res).
 				Exec(ctx, whereDB)).To(Succeed())
 			Expect(lo.Map(res, func(d device.Device, _ int) string {
-				return aliases[d.Base().Key]
+				return aliases[d.Key]
 			})).To(ConsistOf(c.Expected))
 		},
 		lo.Map(v.Cases, func(c vectors.Case[device.Where], _ int) TableEntry {

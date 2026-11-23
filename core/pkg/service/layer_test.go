@@ -367,19 +367,19 @@ var _ = Describe("Layer", func() {
 			"labjack_device",
 			func(ctx context.Context, tx gorp.Tx, layer *service.Layer) uuid.UUID {
 				GinkgoHelper()
-				d := labjackdevice.Device{Variant: labjackdevice.T7Device{
-					Base: labjackdevice.Base{
-						Key:        uuid.New(),
-						Rack:       layer.Rack.EmbeddedKey,
-						Name:       "T7-0001",
-						Serial:     470010001,
-						Connection: labjackdevice.ConnectionUSB,
-					},
-				}}
+				d := labjackdevice.Device{
+					Key:        uuid.New(),
+					Rack:       layer.Rack.EmbeddedKey,
+					Name:       "T7-0001",
+					Serial:     470010001,
+					Connection: labjackdevice.ConnectionUSB,
+					Model:      labjackdevice.ModelT7,
+					Ports:      labjackdevice.Ports{Variant: labjackdevice.T7Ports{}},
+				}
 				Expect(gorp.NewCreate[labjackdevice.Key, labjackdevice.Device]().
 					Entry(&d).
 					Exec(ctx, tx)).To(Succeed())
-				return d.Base().Key
+				return d.Key
 			},
 			func(
 				ctx context.Context,
@@ -1386,15 +1386,15 @@ var _ = Describe("Resource search", Ordered, func() {
 	})
 
 	It("Should find LabJack devices by name", func(ctx SpecContext) {
-		d := labjackdevice.Device{Variant: labjackdevice.T4Device{
-			Base: labjackdevice.Base{
-				Key:        uuid.New(),
-				Rack:       layer.Rack.EmbeddedKey,
-				Name:       "Pump LabJack",
-				Serial:     440010001,
-				Connection: labjackdevice.ConnectionEthernet,
-			},
-		}}
+		d := labjackdevice.Device{
+			Key:        uuid.New(),
+			Rack:       layer.Rack.EmbeddedKey,
+			Name:       "Pump LabJack",
+			Serial:     440010001,
+			Connection: labjackdevice.ConnectionEthernet,
+			Model:      labjackdevice.ModelT4,
+			Ports:      labjackdevice.Ports{Variant: labjackdevice.T4Ports{}},
+		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return gorp.NewCreate[labjackdevice.Key, labjackdevice.Device]().
 				Entry(&d).

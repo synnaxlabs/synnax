@@ -2533,7 +2533,8 @@
         "name": "T7 bench",
         "serial": 470010001,
         "connection": "LJM_ctUSB",
-        "model": "t7"
+        "model": "t7",
+        "ports": { "model": "t7" }
       },
       "b": {
         "key": "00000000-0000-4000-8000-00000000020b",
@@ -2541,7 +2542,8 @@
         "name": "T4 bench",
         "serial": 440010002,
         "connection": "LJM_ctETHERNET",
-        "model": "t4"
+        "model": "t4",
+        "ports": { "model": "t4" }
       },
       "c": {
         "key": "00000000-0000-4000-8000-00000000020c",
@@ -2549,7 +2551,8 @@
         "name": "T8 cart",
         "serial": 480010003,
         "connection": "LJM_ctUSB",
-        "model": "t8"
+        "model": "t8",
+        "ports": { "model": "t8" }
       }
     },
     "cases": [
