@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, rack as rackClient } from "@synnaxlabs/client";
+import { device, group, rack as rackClient } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { assertDefined, expectAlways, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -24,11 +25,12 @@ import {
   searchTree,
 } from "@/platform/tree/testutil";
 import {
-  assertDefined,
   createTestClientWithGrants,
+  findIconButton,
   getIconButton,
+  type Grants,
+  queryIconButton,
   renderHookWithConsole,
-  uniqueName,
   uniqueToken,
 } from "@/testutil";
 
@@ -39,8 +41,13 @@ describe("device/Toolbar", () => {
   it("lists a created device under its rack in the devices tree", async () => {
     const dev = await createTestDevice(client);
     const rack = await client.racks.retrieve(dev.rack);
+    // The tree lists only the racks that its subject can read. Other specs leave their
+    // racks in the Core.
+    const reader = await createTestClientWithGrants(client, {
+      retrieve: [rackClient.resourceID(rack.key), device.resourceID(dev.key)],
+    });
     await renderToolbar(Device.TOOLBAR.content, {
-      client,
+      client: reader,
       items: { ...Rack.TREE_ITEMS, ...Device.TREE_ITEMS },
     });
     await screen.findByText("Devices");
@@ -207,6 +214,35 @@ describe("device toolbar permissions", () => {
       client: denied,
     });
     await waitFor(() => expect(result.current).toBe(false));
+  });
+
+  const READS = [
+    device.TYPE_RESOURCE_ID,
+    rackClient.TYPE_RESOURCE_ID,
+    group.TYPE_RESOURCE_ID,
+  ];
+
+  const renderRackActions = async (grants: Grants) =>
+    await renderToolbar(Device.TOOLBAR.content, {
+      client: await createTestClientWithGrants(client, grants),
+      items: Device.TREE_ITEMS,
+    });
+
+  it("should withhold Create rack from a subject who cannot create racks", async () => {
+    await renderRackActions({
+      retrieve: READS,
+      update: [rackClient.TYPE_RESOURCE_ID],
+    });
+    await screen.findByText("Devices");
+    await expectAlways(() => expect(queryIconButton(document.body, "rack")).toBeNull());
+  });
+
+  it("should offer Create rack to a subject who may create racks", async () => {
+    await renderRackActions({
+      retrieve: READS,
+      create: [rackClient.TYPE_RESOURCE_ID],
+    });
+    expect(await findIconButton(document.body, "rack")).toBeTruthy();
   });
 
   it("should offer the toolbar to a viewer, who may read devices", async () => {

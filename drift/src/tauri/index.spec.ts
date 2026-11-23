@@ -13,7 +13,7 @@ import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { LogicalPosition } from "@tauri-apps/api/window";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type Event } from "@/runtime";
+import type { Event } from "@/runtime";
 import { runtimeSetWindowProps, type StoreState } from "@/state";
 import { TauriRuntime } from "@/tauri";
 
@@ -96,7 +96,7 @@ describe("TauriRuntime", () => {
         beforeClose: async (label) => {
           // A timer fires after every pending microtask, so a close that does not
           // wait for the hook destroys the window first.
-          await scheduler.flushTaskQueue();
+          await scheduler.nextTask();
           commands.push(`before close ${label}`);
         },
       });

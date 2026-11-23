@@ -168,11 +168,13 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
 }
 
 namespace {
-/// @returns a Modbus device on the local test slave.
+/// @returns a Modbus device on the local test slave. A timeout runs from the send, so
+/// a slow accept counts against it. Only a silent unit should take a short one.
 synnax::device::Device local_device(
     const std::string &key,
     const int port,
-    const int unit_id = MODBUS_TCP_SLAVE
+    const int unit_id = MODBUS_TCP_SLAVE,
+    const int timeout_ms = 10000
 ) {
     synnax::device::Device dev;
     dev.key = key;
@@ -185,7 +187,7 @@ synnax::device::Device local_device(
           {"swap_bytes", false},
           {"swap_words", false},
           {"unit_id", unit_id},
-          {"timeout_ms", 50},
+          {"timeout_ms", timeout_ms},
           {"retries", 0}}}
     };
     return dev;
@@ -263,7 +265,7 @@ TEST(ScanTask, testScanReportsSilentUnit) {
     synnax::task::Task t;
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
 
-    const auto status = scan(scanner, local_device("silent", 1662, 5))[0]
+    const auto status = scan(scanner, local_device("silent", 1662, 5, 50))[0]
                             .status.value();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Failed to reach device");
@@ -309,8 +311,7 @@ TEST(ScanTask, testConnectionDuringSlowScan) {
     synnax::task::Task t;
     t.key = x::uuid::create();
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
-    auto slow = local_device("slow", 1666, 5);
-    slow.properties["connection"]["timeout_ms"] = 2000;
+    const auto slow = local_device("slow", 1666, 5, 2000);
     std::thread scanning([&] { scan(scanner, slow); });
     x::defer::defer join([&scanning] { scanning.join(); });
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -378,7 +379,7 @@ TEST(ScanTask, testConnectionFailsForSilentUnit) {
     synnax::task::Task t;
     t.key = x::uuid::create();
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
-    const auto dev = local_device("silent", 1663, 5);
+    const auto dev = local_device("silent", 1663, 5, 50);
     synnax::task::Command cmd{
         .task = t.key,
         .type = TEST_CONNECTION_CMD_TYPE,

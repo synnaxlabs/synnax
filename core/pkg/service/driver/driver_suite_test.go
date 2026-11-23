@@ -55,6 +55,8 @@ var (
 	hookedKV    *hookkv.DB
 	db          *gorp.DB
 	rackService *rack.Service
+	// coreRack is the key of the rack that each driver of the suite runs on.
+	coreRack    rack.Key
 	deviceSvc   *device.Service
 	taskService *task.Service
 	channelSvc  *channel.Service
@@ -96,6 +98,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		// No Driver reports for the rack, so a check would overwrite task statuses.
 		HealthCheckInterval: telem.Hour,
 	}))
+	coreRack = MustSucceed(rackService.RetrieveOrCreateEmbedded(ctx, "Node 1")).Key
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     node.DB,
 		Status: statusSvc,
@@ -130,6 +133,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 		DB:     node.DB,
 		Secret: secrets,
+		Rack:   secrettestutil.CoreRack,
 	}))
 	watched := MustOpen(taskconfig.OpenService(
 		ctx,

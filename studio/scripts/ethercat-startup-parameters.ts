@@ -30,9 +30,21 @@ export default configureScript(async (session, modal) => {
     await session.hold(300);
   };
   await fill("Index", "8000");
-  await fill("Subindex", "19");
+  await fill("Subindex", "15");
   await session.hold(300);
-  await fill("Value", "2");
-  await fill("Name", "Filter settings");
+  // The trigger's accessible name also holds its value, so match its own label.
+  await session.click(row.locator("[aria-label='Data type 1']").first());
+  const option = session.page
+    .locator(".lyra-select__dialog:visible .lyra-list__item")
+    .filter({ hasText: /^\s*uint16\s*$/ })
+    .first();
+  await session.waitFor(option);
+  await session.hold(500);
+  await session.click(option, { text: true });
+  await session.hold(400);
+  await fill("Value", "1");
+  // Tab from the last cell focuses the remove button and shows its tooltip.
+  await session.click(cell("Name"));
+  await session.type("Filter settings");
   await session.hold(1800);
 });

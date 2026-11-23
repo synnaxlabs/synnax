@@ -12,9 +12,6 @@
 #ifdef _WIN32
 #include <cstdlib> // For std::mbstowcs, std::wcstombs
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN // Exclude winsock.h from windows.h
-#endif
 #include <windows.h>
 #else
 #include <pthread.h>

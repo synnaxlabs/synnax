@@ -9,7 +9,7 @@
 
 import "@/platform/settings/Table.css";
 
-import { type status } from "@synnaxlabs/client";
+import type { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -18,7 +18,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import {
   createContext,
   Fragment,
@@ -52,6 +52,11 @@ export interface TableData<
 export interface CreateContextValue {
   /** Closes the create item. */
   close: () => void;
+  /**
+   * Lists the item with the key first from the moment the list holds it. Call it
+   * before a save that lists the item before the Core answers.
+   */
+  creating: (key: record.Key) => void;
   /** Lists a new item under the create item, which then starts empty for the next. */
   created: (key: record.Key) => void;
 }
@@ -74,10 +79,11 @@ export interface CreateProviderProps extends CreateContextValue, PropsWithChildr
  */
 export const CreateProvider = ({
   close,
+  creating,
   created,
   children,
 }: CreateProviderProps): ReactElement => (
-  <CreateContext value={{ close, created }}>{children}</CreateContext>
+  <CreateContext value={{ close, creating, created }}>{children}</CreateContext>
 );
 
 export interface TableProps<K extends record.Key, E extends record.Keyed<K>> {
@@ -275,7 +281,7 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
       <Menu.ContextMenu menu={menu} {...menuProps} />
       <ScrollTo data={ordered} itemKey={initial} onShow={onShowSelected} />
       <Flex.Box y gap="medium" className={CSS.B("settings-table")}>
-        <Flex.Box x align="center" justify="between" gap="medium">
+        <Flex.Box x wrap align="center" justify="between" gap="medium">
           <Input.Text
             value={term}
             onChange={handleSearch}
@@ -295,57 +301,67 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
           )}
         </Flex.Box>
         <Card flush>
-          <List.Columns columns={columns}>
-            <List.Headings checkable />
-            {creating != null && create != null && (
-              <div
-                className={CSS.cls(
-                  CSS.BE("settings-table", "reveal"),
-                  creating === "closing" &&
-                    CSS.BEM("settings-table", "reveal", "closing"),
+          <div className={CSS.BE("settings-table", "scroll")}>
+            <div className={CSS.BE("settings-table", "columns")}>
+              <List.Columns columns={columns}>
+                <List.Headings checkable />
+                {creating != null && create != null && (
+                  <div
+                    className={CSS.cls(
+                      CSS.BE("settings-table", "reveal"),
+                      creating === "closing" &&
+                        CSS.BEM("settings-table", "reveal", "closing"),
+                    )}
+                    onAnimationEnd={(e) => {
+                      if (creating === "closing" && e.target === e.currentTarget)
+                        setCreating(null);
+                    }}
+                  >
+                    <div>
+                      <CreateContext
+                        value={{
+                          close: handleClose,
+                          creating: markFresh,
+                          created: handleCreated,
+                        }}
+                      >
+                        <Fragment key={round}>{create}</Fragment>
+                      </CreateContext>
+                    </div>
+                  </div>
                 )}
-                onAnimationEnd={(e) => {
-                  if (creating === "closing" && e.target === e.currentTarget)
-                    setCreating(null);
-                }}
-              >
-                <div>
-                  <CreateContext value={{ close: handleClose, created: handleCreated }}>
-                    <Fragment key={round}>{create}</Fragment>
-                  </CreateContext>
-                </div>
-              </div>
-            )}
-            <FreshContext value={freshSet}>
-              <List.Scroll onContextMenu={menuProps.open}>
-                <List.Items<K>
-                  emptyContent={
-                    query?.variant === "error" ? (
-                      <Status.Summary
-                        center
-                        status={query}
-                        className={CSS.BE("settings-table", "empty")}
-                      />
-                    ) : (
-                      answered &&
-                      creating == null && (
-                        <Status.Summary
-                          center
-                          variant="disabled"
-                          hideIcon
-                          className={CSS.BE("settings-table", "empty")}
-                        >
-                          No {noun}
-                        </Status.Summary>
-                      )
-                    )
-                  }
-                >
-                  {children}
-                </List.Items>
-              </List.Scroll>
-            </FreshContext>
-          </List.Columns>
+                <FreshContext value={freshSet}>
+                  <List.Scroll onContextMenu={menuProps.open}>
+                    <List.Items<K>
+                      emptyContent={
+                        query?.variant === "error" ? (
+                          <Status.Summary
+                            center
+                            status={query}
+                            className={CSS.BE("settings-table", "empty")}
+                          />
+                        ) : (
+                          answered &&
+                          creating == null && (
+                            <Status.Summary
+                              center
+                              variant="disabled"
+                              hideIcon
+                              className={CSS.BE("settings-table", "empty")}
+                            >
+                              No {noun}
+                            </Status.Summary>
+                          )
+                        )
+                      }
+                    >
+                      {children}
+                    </List.Items>
+                  </List.Scroll>
+                </FreshContext>
+              </List.Columns>
+            </div>
+          </div>
         </Card>
       </Flex.Box>
     </Select.Frame>

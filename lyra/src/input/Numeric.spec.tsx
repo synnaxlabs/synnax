@@ -46,7 +46,7 @@ const release = (el: HTMLElement, x: number): void => {
 const settle = async (): Promise<void> =>
   await act(async () => {
     await import("mathjs");
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
   });
 
 describe("Input.Numeric", () => {

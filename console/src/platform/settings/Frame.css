@@ -14,8 +14,53 @@
     width: 40rem;
     padding: 4rem 2rem;
     margin: 2rem 0 2rem 2rem;
-    overflow-y: auto;
+    overflow: hidden auto;
     overscroll-behavior: contain;
+
+    /* Shows only the icons. The toggle and each icon keep their place in both modes. */
+    &.console-settings__nav--rail {
+        /* Centers the icons, which start 4rem inside the border. */
+        width: calc(2 * (var(--pluto-border-width) + 4rem) + var(--pluto-p-size));
+
+        .console-settings__nav-heading,
+        .console-settings__nav-name {
+            opacity: 0;
+        }
+
+        .console-settings__nav-group::before {
+            opacity: 1;
+        }
+
+        /* A square centered on the icon. */
+        .console-settings__nav-item {
+            width: var(--pluto-height-medium);
+            padding: 0 calc((var(--pluto-height-medium) - var(--pluto-p-size)) / 2);
+            margin-left: calc(
+                2rem - (var(--pluto-height-medium) - var(--pluto-p-size)) / 2
+            );
+        }
+    }
+}
+
+/* Its icon lines up with the section icons. */
+.console-settings__toggle {
+    align-self: flex-start;
+    margin: 0 0 4rem calc(2rem - (var(--pluto-height-small) - var(--pluto-p-size)) / 2);
+}
+
+.console-settings__nav-group {
+    position: relative;
+
+    /* Takes the place of the heading in the rail, centered in the gap above it. */
+    &::before {
+        content: "";
+        position: absolute;
+        top: -0.25rem;
+        right: 0;
+        left: 0;
+        border-top: var(--pluto-border);
+        opacity: 0;
+    }
 }
 
 .console-settings__nav-group + .console-settings__nav-group {
@@ -24,11 +69,45 @@
 
 .console-settings__nav-heading {
     padding: 0 2rem 0.5rem;
+    white-space: nowrap;
+}
+
+.console-settings__nav-item {
+    width: 100%;
+    overflow: hidden;
+}
+
+.console-settings__nav-name {
+    white-space: nowrap;
+}
+
+/* A pane that turns narrow snaps to the rail, as it does on mount. */
+@media (prefers-reduced-motion: no-preference) {
+    .console-settings__nav:not(.console-settings__nav--narrow) {
+        transition:
+            width 0.15s ease-in-out,
+            border-radius 0.15s ease-in-out;
+
+        .console-settings__nav-item {
+            transition:
+                var(--pluto-btn-transition),
+                width 0.15s ease-in-out,
+                padding 0.15s ease-in-out,
+                margin 0.15s ease-in-out;
+        }
+
+        .console-settings__nav-heading,
+        .console-settings__nav-name,
+        .console-settings__nav-group::before {
+            transition: opacity 0.15s ease-in-out;
+        }
+    }
 }
 
 /* Keeps the scroll bar's space in every section, so a section long enough to scroll
    has the same width and place as the others. */
 .console-settings__page {
+    container: settings-page / inline-size;
     flex-grow: 1;
     min-width: 0;
     overflow-y: auto;
@@ -42,4 +121,18 @@
     max-width: 170rem;
     padding: 8rem 6rem;
     margin: 0 auto;
+}
+
+@container settings-page (width < 100rem) {
+    .console-settings__content {
+        gap: 5rem;
+        padding: 5rem 4rem;
+    }
+}
+
+@container settings-page (width < 72rem) {
+    .console-settings__content {
+        gap: 4rem;
+        padding: 3rem 2rem;
+    }
 }

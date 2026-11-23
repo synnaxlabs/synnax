@@ -7,17 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type deep, type destructor } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { deep, destructor } from "@synnaxlabs/x";
+import type { z } from "zod";
 
 import { context } from "@/context";
-import {
-  type FieldState,
-  type GetOptions,
-  type RequiredGetOptions,
-} from "@/form/state";
-import { type Entry } from "@/form/store";
-import { type Status } from "@/status";
+import type { FieldState, GetOptions, RequiredGetOptions } from "@/form/state";
+import type { Entry } from "@/form/store";
+import type { Status } from "@/status";
 
 export interface RemoveFunc {
   (path: deep.Target<unknown>): void;

@@ -10,20 +10,20 @@
 import { status as clientStatus } from "@synnaxlabs/client";
 import { Status as Base } from "@synnaxlabs/lyra/status";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
+import { Status } from "@/status";
 import { status } from "@/status/aether";
-import { Aggregator } from "@/status/Aggregator";
 
 const mount = async () => {
   const [workerSide, mainSide] = aether.createMockPair();
   const root = aether.render({ worker: workerSide, registry: status.REGISTRY });
   const wrapper = ({ children }: PropsWithChildren) => (
     <Aether.Provider worker={mainSide}>
-      <Aggregator>{children}</Aggregator>
+      <Status.Aggregator>{children}</Status.Aggregator>
     </Aether.Provider>
   );
   const { result } = renderHook(() => Base.useNotifications(), { wrapper });
