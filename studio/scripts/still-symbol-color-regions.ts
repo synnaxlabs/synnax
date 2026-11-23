@@ -17,8 +17,7 @@ const SVG = path.join(import.meta.dirname, "files", "tank.svg");
 
 /**
  * Still for docs image `console/schematics/symbol-color-regions`: the create symbol
- * dialog with an SVG loaded, its Parts list beside the inspector of the whole
- * drawing.
+ * dialog with an SVG loaded, its Parts list beside the inspector of the whole drawing.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;

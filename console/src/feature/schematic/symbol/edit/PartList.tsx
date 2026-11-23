@@ -14,6 +14,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -29,9 +30,7 @@ const path = Schematic.Symbol.formPath;
 // WHOLE_DRAWING is the list key of the whole drawing, which has no part key.
 const WHOLE_DRAWING = "";
 
-export interface PartListProps {
-  value: Spec.Target;
-  onChange: (value: Spec.Target) => void;
+export interface PartListProps extends Input.Control<Spec.Target> {
   onAdd: () => void;
 }
 
