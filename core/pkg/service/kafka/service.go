@@ -119,6 +119,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation: cfg.Instrumentation,
 			Type:            WriteTaskType,
 			Ladder:          versions.WriteConfigLadder,
+			Migrations:      []gorp.Migration{v1.WriteMigration},
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
