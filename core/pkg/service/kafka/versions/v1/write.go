@@ -38,9 +38,10 @@ import (
 // CreateICD creates ic through tx.
 type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
 
-// MigrateWriteConfig lifts a v0 write config to v1. When old has channels, it moves them
-// into Inline with the topic, record key, and record of old, for ResolveWriteConfig to
-// add back as targets with an ICD. Those fields of the config then take their defaults.
+// MigrateWriteConfig lifts a v0 write config to v1. When old has channels, it moves
+// them into Inline with the topic, record key, and record of old, for
+// ResolveWriteConfig to add back as targets with an ICD. Those fields of the config
+// then take their defaults.
 func MigrateWriteConfig(ctx context.Context, old v0.WriteConfig) (WriteConfig, error) {
 	cfg, err := autoMigrateWriteConfig(ctx, old)
 	if err != nil {
@@ -338,7 +339,10 @@ func liftRecordFields(
 	}
 	if p := rec.TimestampPointer; p != nil {
 		format := payload.TimeFormatISO8601
-		if f := validFormat(&rec.TimeFormat, notef(note, "record.time_format")); f != nil {
+		if f := validFormat(
+			&rec.TimeFormat,
+			notef(note, "record.time_format"),
+		); f != nil {
 			format = *f
 		}
 		fields = append(fields, icd.JSONField{Variant: icd.TimestampJSONField{

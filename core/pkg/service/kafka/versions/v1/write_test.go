@@ -290,7 +290,9 @@ var _ = Describe("ResolveWriteConfig", func() {
 				Expect(f[1].Variant).To(Equal(icd.TimestampJSONField{
 					JSONBaseField: f[1].Base(),
 					TimeFormat:    payload.TimeFormatUnixMs,
-					Default:       &icd.TimestampDefault{Variant: icd.NowTimestampDefault{}},
+					Default: &icd.TimestampDefault{
+						Variant: icd.NowTimestampDefault{},
+					},
 				}))
 			}
 			Expect(changes).To(Equal([]string{
@@ -327,7 +329,9 @@ var _ = Describe("ResolveWriteConfig", func() {
 		f := liftFields(ctx, rec)
 		Expect(f).To(HaveLen(6))
 		Expect(*variantOf[icd.StringJSONField](f[1]).Default).To(Equal("auto"))
-		Expect(*variantOf[icd.FloatJSONField](f[2]).Default).To(Equal(payload.Float(2.5)))
+		Expect(
+			*variantOf[icd.FloatJSONField](f[2]).Default,
+		).To(Equal(payload.Float(2.5)))
 		Expect(*variantOf[icd.FloatJSONField](f[3]).Default).To(Equal(payload.Float(3)))
 		Expect(*variantOf[icd.BooleanJSONField](f[4]).Default).To(BeTrue())
 		Expect(*variantOf[icd.JSONJSONField](f[5]).Default).To(MatchJSON(`{"max":10}`))
@@ -339,7 +343,11 @@ var _ = Describe("ResolveWriteConfig", func() {
 		rec := record()
 		rec.Fields = []http.WriteField{
 			generatedField("/id", payload.GeneratorTypeUUID, nil),
-			generatedField("/time", payload.GeneratorTypeTimestamp, new(payload.TimeFormatUnixNs)),
+			generatedField(
+				"/time",
+				payload.GeneratorTypeTimestamp,
+				new(payload.TimeFormatUnixNs),
+			),
 			generatedField("/sent", payload.GeneratorTypeTimestamp, nil),
 		}
 		f := liftFields(ctx, rec)
@@ -371,22 +379,32 @@ var _ = Describe("ResolveWriteConfig", func() {
 		},
 	)
 
-	It("Should drop a null field of the record and note it once", func(ctx SpecContext) {
-		old := writeConfig(writeChannel("c1", 7), writeChannel("c2", 8))
-		old.Record.Fields = []http.WriteField{{}}
-		_, ic := lift(ctx, old)
-		Expect(jsonFields(ic.Messages[0])).To(HaveLen(1))
-		Expect(jsonFields(ic.Messages[1])).To(HaveLen(1))
-		Expect(changes).To(Equal([]string{"record.fields.0: a null field was dropped"}))
-	})
+	It(
+		"Should drop a null field of the record and note it once",
+		func(ctx SpecContext) {
+			old := writeConfig(writeChannel("c1", 7), writeChannel("c2", 8))
+			old.Record.Fields = []http.WriteField{{}}
+			_, ic := lift(ctx, old)
+			Expect(jsonFields(ic.Messages[0])).To(HaveLen(1))
+			Expect(jsonFields(ic.Messages[1])).To(HaveLen(1))
+			Expect(
+				changes,
+			).To(Equal([]string{"record.fields.0: a null field was dropped"}))
+		},
+	)
 
-	It("Should keep the names of the fields of a message unique", func(ctx SpecContext) {
-		rec := record()
-		rec.Fields = []http.WriteField{staticField("/value", payload.JSONTypeNumber, 1.0)}
-		f := liftFields(ctx, rec)
-		Expect(f[0].Base().Name).To(Equal("value"))
-		Expect(f[1].Base().Name).To(Equal("value (2)"))
-	})
+	It(
+		"Should keep the names of the fields of a message unique",
+		func(ctx SpecContext) {
+			rec := record()
+			rec.Fields = []http.WriteField{
+				staticField("/value", payload.JSONTypeNumber, 1.0),
+			}
+			f := liftFields(ctx, rec)
+			Expect(f[0].Base().Name).To(Equal("value"))
+			Expect(f[1].Base().Name).To(Equal("value (2)"))
+		},
+	)
 
 	It("Should bind no channel and take float64 for a channel that does not exist",
 		func(ctx SpecContext) {
@@ -421,7 +439,12 @@ var _ = Describe("ResolveWriteConfig", func() {
 			wc.JSONType = t
 			Expect(liftValue(ctx, wc).Type()).To(Equal(kind))
 		},
-		Entry("a float number", telem.Float32T, payload.JSONTypeNumber, payload.KindFloat),
+		Entry(
+			"a float number",
+			telem.Float32T,
+			payload.JSONTypeNumber,
+			payload.KindFloat,
+		),
 		Entry(
 			"an integer number",
 			telem.Int64T,
@@ -466,7 +489,8 @@ var _ = Describe("ResolveWriteConfig", func() {
 		},
 	)
 
-	DescribeTable("Should note each change to what the value field sends, with its path",
+	DescribeTable(
+		"Should note each change to what the value field sends, with its path",
 		func(ctx SpecContext, dt telem.DataType, t payload.JSONType, change string) {
 			found[7] = v1.Channel{Name: "valve_cmd", DataType: dt}
 			wc := writeChannel("c1", 7)
@@ -555,7 +579,8 @@ var _ = Describe("NewWriteMigration", func() {
 		return cfg
 	}
 
-	It("Should move the channels of a config into targets of an ICD named after its task",
+	It(
+		"Should move the channels of a config into targets of an ICD named after its task",
 		func(ctx SpecContext) {
 			old := writeConfig(writeChannel("c1", 7))
 			old.Record.TimestampPointer = new("/time")
