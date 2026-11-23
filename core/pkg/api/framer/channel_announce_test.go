@@ -93,8 +93,8 @@ var _ = Describe("Old API edits that let a subject read a calculation", func() {
 		Expect(MustSucceed(client.Receive()).Frame.Empty()).To(BeTrue())
 		return u
 	}
-	// until returns the batches that the stream receives up to and with the first
-	// batch for witness.
+	// until returns the batches that the stream receives up to and with the first batch
+	// for witness.
 	until := func(witness channel.Key) []batch {
 		GinkgoHelper()
 		var out []batch
@@ -173,7 +173,11 @@ var _ = Describe("Old API edits that let a subject read a calculation", func() {
 		})).To(Succeed())
 	}
 	// retrieveAs returns the old API form of the channel with key, as u retrieves it.
-	retrieveAs := func(ctx SpecContext, u user.User, key channel.Key) apichannel.Channel {
+	retrieveAs := func(
+		ctx SpecContext,
+		u user.User,
+		key channel.Key,
+	) apichannel.Channel {
 		GinkgoHelper()
 		res := MustSucceed(retrieve(
 			subjectCtx(ctx, u.ResourceID()),

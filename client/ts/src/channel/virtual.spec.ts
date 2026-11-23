@@ -72,8 +72,15 @@ describe("live virtual lists", () => {
   it("should admit an output that the client never held when its calculation is deleted", async () => {
     const prefix = `virtual_${id.create()}`;
     const input = await createInput();
-    const calc = await admin.calculations.create({
+    const output = await admin.channels.create({
       name: `${prefix}_output`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    // A calculation on a stored output creates and deletes no other channel, so only the
+    // announce of its delete can reach the list.
+    const calc = await admin.calculations.create({
+      output: output.key,
       expression: `return ${input.name} * 2`,
     });
     const client = createTestClient();
@@ -86,7 +93,7 @@ describe("live virtual lists", () => {
       const keys = () => (list.getCached()?.records ?? []).map(({ key }) => key);
       expect(keys()).toEqual([]);
       await admin.calculations.delete(calc.key);
-      await expect.poll(keys).toEqual([calc.output]);
+      await expect.poll(keys).toEqual([output.key]);
     } finally {
       off();
     }

@@ -128,7 +128,7 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 				)
 				continue
 			}
-			// Nothing writes b again, so the key shares its bytes.
+			// Nothing writes b again, so the key shares its bytes, as add requires.
 			checks[unsafe.String(unsafe.SliceData(b), len(b))] = check
 		}
 		samples.Data = append(samples.Data, telem.MarshalVariableSample(b)...)

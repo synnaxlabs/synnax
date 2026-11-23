@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type patch, zod } from "@synnaxlabs/x";
-import { current, type Draft } from "immer";
+import type { Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -63,9 +63,11 @@ const applyPath = (state: Draft<Payload>, action: patch.Action) =>
 export const reduceAll = actions.createReduceAll<Payload, Action>((state, action) => {
   switch (action.type) {
     case "create": {
-      const { expression, operations, calculated } = current(state) as Payload;
-      const created = fromStored(action.create.channel);
-      return actions.replace(state, { ...created, expression, operations, calculated });
+      const { expression, operations, calculated } = state;
+      const result = actions.replace(state, fromStored(action.create.channel));
+      // A create holds no calculation field, so the cached ones stay.
+      Object.assign(state, { expression, operations, calculated });
+      return result;
     }
     case "rename": {
       const prev = state.name;
