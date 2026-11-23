@@ -750,21 +750,43 @@ var _ = Describe("Passwords", func() {
 				apiauth.SessionCreateRequest{Proof: passwordProof(bob.Name, "p")},
 			)).Error().To(MatchError(auth.ErrInvalidCredentials))
 		})
-		It("Should let a user rename its own password", func(ctx SpecContext) {
+		It("Should let a user that may update itself rename its own password", func(
+			ctx SpecContext,
+		) {
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				bob.Key,
+				[]access.Action{access.ActionUpdate},
+				bob.ResourceID(),
+			))
 			username := "self-" + uuid.New().String()
 			Expect(rename(ctx, bobToken, keyOf(ctx, bob.ResourceID()), username)).
 				To(Succeed())
 			tokenFor(ctx, username, "p")
 		})
+		It("Should deny a self-rename without update on the user", func(
+			ctx SpecContext,
+		) {
+			Expect(rename(
+				ctx,
+				bobToken,
+				keyOf(ctx, bob.ResourceID()),
+				"self-"+uuid.New().String(),
+			)).To(MatchError(access.ErrDenied))
+			tokenFor(ctx, bob.Name, "p")
+		})
 		It("Should keep the username when it does not change", func(ctx SpecContext) {
-			Expect(rename(ctx, bobToken, keyOf(ctx, bob.ResourceID()), bob.Name)).
+			Expect(rename(ctx, rootToken, keyOf(ctx, bob.ResourceID()), bob.Name)).
 				To(Succeed())
 			tokenFor(ctx, bob.Name, "p")
 		})
 		It("Should refuse a username another user holds", func(ctx SpecContext) {
 			Expect(rename(
 				ctx,
-				bobToken,
+				rootToken,
 				keyOf(ctx, bob.ResourceID()),
 				creds.Username,
 			)).To(MatchError(auth.ErrRepeatedUsername))
@@ -787,7 +809,7 @@ var _ = Describe("Passwords", func() {
 				To(MatchError(query.ErrNotFound))
 		})
 		It("Should reject an empty username", func(ctx SpecContext) {
-			Expect(rename(ctx, bobToken, keyOf(ctx, bob.ResourceID()), "")).
+			Expect(rename(ctx, rootToken, keyOf(ctx, bob.ResourceID()), "")).
 				To(MatchError(validate.ErrValidation))
 		})
 	})

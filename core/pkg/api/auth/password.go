@@ -316,16 +316,32 @@ func (s *Service) RetrievePasswords(
 type PasswordDispatchRequest = actions.DispatchRequest[password.Key, password.Action]
 
 // DispatchPassword applies the actions of req to a password in order. Sessions stay
-// open. It returns [auth.ErrRepeatedUsername] when another user holds the username
-// that the actions set, a validation error when the password method is off or an
-// action sets an empty username, and an error wrapping query.ErrNotFound when no
-// password has the key.
+// open. It returns access.ErrDenied when the caller cannot update the password's user,
+// [auth.ErrRepeatedUsername] when another user holds the username that the actions
+// set, a validation error when the password method is off or an action sets an empty
+// username, and an error wrapping query.ErrNotFound when no password has the key.
 func (s *Service) DispatchPassword(
 	ctx context.Context,
 	tx gorp.Tx,
 	req PasswordDispatchRequest,
 ) (struct{}, error) {
 	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return struct{}{}, err
+	}
+	var p password.Password
+	if err := s.password.NewRetrieve().
+		Where(password.MatchKeys(req.Key)).
+		Entry(&p).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	// The binder lets a user change the passwords it holds, but the Core makes root
+	// whichever user holds the root username, so renaming even one's own needs update.
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []resource.ID{p.Subject},
+	}); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.password.NewWriter(tx).Apply(ctx, req.Key, req.Actions...)
