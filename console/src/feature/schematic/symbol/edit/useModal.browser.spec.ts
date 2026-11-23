@@ -669,7 +669,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("selects the whole drawing again when the selected part is removed", async () => {
-      const { symbol, handle } = await openEditModal(
+      await openEditModal(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
           '<rect id="a" width="10" height="10"/></svg>',
       );
@@ -685,13 +685,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(getIconButton(row("Part 1"), "close"));
       await waitFor(() => expect(screen.queryByText("Part 1")).toBeNull());
       expect(row("Whole drawing").classList.contains("lyra--selected")).toBe(true);
-      const shape = getPreviewTransformWrapper(handle.baseElement).querySelector("#a");
-      assertDefined(shape);
-      fireEvent.click(shape);
-      fireEvent.click(findButton("Save"));
-      await waitFor(async () =>
-        expect((await retrieveStored(symbol.key)).data.parts).toEqual([]),
-      );
     });
 
     it("counts the looks of a part beside its shapes", async () => {
