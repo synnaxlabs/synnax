@@ -8,12 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 import base64
+import contextlib
 import socket
 import ssl
 import threading
 from collections.abc import Iterator
 from socketserver import StreamRequestHandler, ThreadingTCPServer
-from typing import override
+from typing import Any, override
 from urllib.parse import urlsplit
 
 import pytest
@@ -42,17 +43,48 @@ def _pipe(src: socket.socket, dst: socket.socket) -> None:
 
 
 class _Proxy(ThreadingTCPServer):
-    daemon_threads = True
     requests: list[tuple[str, str | None]]
     """The target and the Proxy-Authorization header of each connection."""
+    _open: set[socket.socket]
+    _lock: threading.Lock
 
     def __init__(self) -> None:
         super().__init__(("localhost", 0), _Handler)
         self.requests = []
+        self._open = set()
+        self._lock = threading.Lock()
 
     @property
     def address(self) -> str:
         return f"localhost:{self.server_address[1]}"
+
+    @override
+    def process_request(
+        self, request: socket.socket | tuple[bytes, socket.socket], client_address: Any
+    ) -> None:
+        assert isinstance(request, socket.socket)
+        with self._lock:
+            self._open.add(request)
+        super().process_request(request, client_address)
+
+    @override
+    def shutdown_request(
+        self, request: socket.socket | tuple[bytes, socket.socket]
+    ) -> None:
+        assert isinstance(request, socket.socket)
+        with self._lock:
+            self._open.discard(request)
+        super().shutdown_request(request)
+
+    def close(self) -> None:
+        """Stops the proxy, ends open tunnels, and waits for their threads."""
+        self.shutdown()
+        with self._lock:
+            for request in self._open:
+                # A tunnel whose client already left is ending on its own.
+                with contextlib.suppress(OSError):
+                    request.shutdown(socket.SHUT_RDWR)
+        self.server_close()
 
 
 class _Handler(StreamRequestHandler):
@@ -94,8 +126,7 @@ def proxy(monkeypatch: pytest.MonkeyPatch, tls: bool) -> Iterator[_Proxy]:
         "HTTPS_PROXY" if tls else "HTTP_PROXY", f"http://{server.address}"
     )
     yield server
-    server.shutdown()
-    server.server_close()
+    server.close()
 
 
 @pytest.fixture
