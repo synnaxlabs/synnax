@@ -7,5 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/feature/http/ContextMenuItems";
 export * from "@/feature/http/device";
 export * from "@/feature/http/task";

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import type { schematic } from "@synnaxlabs/client";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -21,7 +20,6 @@ import { Stale } from "@/schematic/node/common/stale";
 import { Telem } from "@/schematic/node/common/telem";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import type { NodeProps } from "@/schematic/node/spec";
-import { Staleness } from "@/vis/staleness";
 import { StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 
 export const Symbol = ({
@@ -37,13 +35,10 @@ export const Symbol = ({
     inlineSize,
     size,
     stalenessTimeout,
-    stalenessColor,
   },
 }: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
   const resolve = Color.useResolve();
-  const theme = Theming.use();
   const options = Options.use({ enumeration, options: ownOptions });
-  const badged = Staleness.useBadged();
   const source = Telem.numberSource(channel);
   const { key: optKey, stale } = BaseStateIndicator.use({
     aetherKey: nodeKey,
@@ -61,16 +56,14 @@ export const Symbol = ({
       onResize={({ width }) => onConfigChange({ inlineSize: width })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {deleted ? <Deleted.Item /> : stale && badged && <Stale.Indicator />}
+      {stale && <Stale.Indicator />}
+      {deleted && <Deleted.Item />}
       <StateIndicator
         matchedOptionKey={optKey}
         options={options}
         strokeColor={resolve(strokeColor)}
         inlineSize={inlineSize}
         size={size}
-        staleColor={
-          stale && !badged ? Staleness.resolveColor(stalenessColor, theme) : undefined
-        }
       />
     </Grid.Grid>
   );

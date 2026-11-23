@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, label } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color as xcolor, id } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import { type FC, Profiler, type PropsWithChildren } from "react";
@@ -23,7 +23,6 @@ describe("Tags", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
   });
 
   const createLabels = async () =>

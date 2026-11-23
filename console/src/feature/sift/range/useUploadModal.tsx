@@ -28,18 +28,13 @@ import type { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, Device, Synnax } from "@synnaxlabs/pluto";
+import { Channel, Device as PDevice, Synnax } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, deep } from "@synnaxlabs/x";
 import { useState } from "react";
 import { z } from "zod";
 
 import { Asset } from "@/feature/sift/asset";
-import { MAKE } from "@/feature/sift/device/types";
-import {
-  SCAN_SCHEMAS,
-  SCAN_TYPE,
-  UPLOAD_COMMAND_TYPE,
-} from "@/feature/sift/task/types";
+import { Device } from "@/feature/sift/device";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Task } from "@/platform/task";
@@ -107,13 +102,13 @@ const UploadButton = ({ name, source, onUploaded, onRejection }: UploadButtonPro
             : { timeRange: encodeTimeRange(source) };
         const dev = await client.devices.retrieve({ key: device });
         const scanTask = await client.tasks.retrieve({
-          type: SCAN_TYPE,
+          type: Device.SCAN_TYPE,
           rack: dev.rack,
           one: true,
-          schemas: SCAN_SCHEMAS,
+          schemas: Device.SCAN_SCHEMAS,
         });
         const res = await scanTask.executeCommandSync({
-          type: UPLOAD_COMMAND_TYPE,
+          type: Device.UPLOAD_COMMAND_TYPE,
           timeout: UPLOAD_TIMEOUT,
           args: { device, channels, asset, ...data },
         });
@@ -212,10 +207,10 @@ const UploadForm = ({ name, source, close, device }: UploadFormProps) => {
 };
 
 // Two at most: the modal picks the connection only when it is the only one.
-const DEVICES_QUERY = { where: { make: { eq: MAKE } }, limit: 2 };
+const DEVICES_QUERY = { where: { make: { eq: Device.MAKE } }, limit: 2 };
 
 const Upload = (props: Modals.ContentProps<UploadModalParams, void>) => {
-  const { variant, data } = Device.useResultMultiple(DEVICES_QUERY);
+  const { variant, data } = PDevice.useResultMultiple(DEVICES_QUERY);
   if (variant === "loading") return null;
   const device = data?.length === 1 ? data[0].key : "";
   return <UploadForm {...props} device={device} />;

@@ -13,7 +13,7 @@ import { Configure } from "@/feature/ethercat/device/Configure";
 import { formatLocation, slotZ } from "@/feature/ethercat/device/location";
 import { ScanAction } from "@/feature/ethercat/device/ScanAction";
 import { INTEGRATION_KEY, MAKE, SLAVE_MODEL } from "@/feature/ethercat/device/types";
-import { SCAN_TYPE } from "@/feature/ethercat/task/types";
+import { SCAN_TYPE } from "@/feature/ethercat/types";
 import type { Device } from "@/platform/device";
 
 export const HARDWARE: Device.Hardware = {

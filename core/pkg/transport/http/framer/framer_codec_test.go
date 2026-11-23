@@ -357,6 +357,23 @@ var _ = Describe("FramerCodec", func() {
 	})
 
 	Describe("Frame Stream Response", func() {
+		It("Should JSON-encode a missed marker", func(ctx SpecContext) {
+			v := framer.NewCodec(
+				ctx,
+				codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
+			)
+			msg := http.WSMessage[framer.StreamerResponse]{
+				Type:    "data",
+				Payload: framer.StreamerResponse{Missed: true},
+			}
+			encoded := MustSucceed(v.Encode(msg))
+			Expect(encoded[0]).To(Equal(uint8(254)))
+			var resMsg http.WSMessage[framer.StreamerResponse]
+			Expect(v.Decode(encoded, &resMsg)).To(Succeed())
+			Expect(resMsg.Payload.Missed).To(BeTrue())
+			Expect(resMsg.Payload.Frame.Empty()).To(BeTrue())
+		})
+
 		It("Should encode and decode single channel int32", func(ctx SpecContext) {
 			keys := channel.Keys{1}
 			v := framer.NewCodec(
