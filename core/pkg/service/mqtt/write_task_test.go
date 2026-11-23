@@ -519,6 +519,24 @@ var _ = Describe("Write task", func() {
 			})
 		})
 
+		It("Should clear the warning of a dropped command with no new command",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.Float64T)
+				t, _ := start(ctx, writeConfig(dev, fieldTarget(
+					ctx, "plant/hold", ch, jsonField("v", "/v", icd.FloatJSONField{}),
+				)))
+				command(ctx, ch, telem.NewSeriesV(math.NaN()), func(g Gomega) {
+					g.Expect(taskStatus(ctx, t).Variant).
+						To(Equal(status.VariantWarning))
+				})
+				Eventually(
+					func() status.Variant { return taskStatus(ctx, t).Variant },
+					2*driver.SkipHold, 100*time.Millisecond,
+				).Should(Equal(status.VariantSuccess))
+				Expect(payloads("plant/hold")).To(BeEmpty())
+			},
+		)
+
 		It("Should warn while the broker is down and drop the commands of the outage",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Float64T)

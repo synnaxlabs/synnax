@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { schematic } from "@synnaxlabs/client";
-import { deep, type dimensions, type location, TimeSpan, type xy } from "@synnaxlabs/x";
+import { deep, type dimensions, type location, TimeSpan, xy } from "@synnaxlabs/x";
 
 import type { Loop, Mover } from "@/schematic/node/common/custom/loop";
 import { matched } from "@/schematic/node/common/custom/paint";
@@ -72,12 +72,23 @@ const dashCycle = (el: Element): number => {
   return lengths.length % 2 === 1 ? 2 * sum : sum;
 };
 
-/** Shape is one element of a moving part, for the attribute of one motion. */
+const num = (v: number): string => String(Math.round(v * 1000) / 1000);
+
+// Pose is what one motion that writes transform gives an element.
+interface Pose {
+  /** offset is a move, as fractions of the box. */
+  offset?: xy.XY;
+  /** angle is a turn about the pivot of the part, in degrees. */
+  angle?: number;
+}
+
+/** Shape is one element of a moving part, for one attribute that its motions write. */
 class Shape {
-  /** written is the value that the motion last wrote. */
+  /** written is the value that the motions last wrote. */
   written?: string;
   private cycle?: number;
   private turn?: { of: xy.XY; at: xy.XY };
+  private readonly poses = new Map<Kind, Pose>();
 
   constructor(
     readonly el: SVGElement,
@@ -103,22 +114,47 @@ class Shape {
     }
     return this.turn.at;
   }
+
+  /** @returns the transform of every pose, after the motion of kind takes pose. */
+  pose(kind: Kind, pose: Pose): string {
+    this.poses.set(kind, pose);
+    return this.transform();
+  }
+
+  /** @returns the value to draw after the motion of kind lets go of the element. */
+  release(kind: Kind): string | null {
+    this.poses.delete(kind);
+    return this.poses.size === 0 ? this.own : this.transform();
+  }
+
+  // transform moves the element, then turns it about the pivot, then applies own.
+  private transform(): string {
+    let offset: xy.XY | undefined;
+    let angle: number | undefined;
+    for (const pose of this.poses.values()) {
+      if (pose.offset != null) offset = xy.translate(offset ?? xy.ZERO, pose.offset);
+      if (pose.angle != null) angle = (angle ?? 0) + pose.angle;
+    }
+    const list: string[] = [];
+    if (offset != null) {
+      const { a, b, c, d } = this.matrix;
+      const { x, y } = offset;
+      list.push(`translate(${num(a * x + c * y)} ${num(b * x + d * y)})`);
+    }
+    if (angle != null) {
+      const { x, y } = this.pivot;
+      list.push(`rotate(${num(angle)} ${num(x)} ${num(y)})`);
+    }
+    if (this.own != null) list.push(this.own);
+    return list.join(" ");
+  }
 }
 
-const num = (v: number): string => String(Math.round(v * 1000) / 1000);
 const parse = (own: string | null, fallback: number): number => {
   const v = Number.parseFloat(own ?? "");
   return Number.isFinite(v) ? v : fallback;
 };
-const compose = (motion: string, own: string | null): string =>
-  own == null ? motion : `${motion} ${own}`;
 const lerp = (from: number, to: number, f: number): number => from + (to - from) * f;
-
-const rotate = (angle: number, { pivot, own }: Shape): string =>
-  compose(`rotate(${num(angle)} ${num(pivot.x)} ${num(pivot.y)})`, own);
-
-const translate = ({ matrix: { a, b, c, d }, own }: Shape, { x, y }: xy.XY): string =>
-  compose(`translate(${num(a * x + c * y)} ${num(b * x + d * y)})`, own);
 
 const INSETS: Record<location.Outer, (cut: string) => string> = {
   bottom: (cut) => `inset(${cut} 0 0 0)`,
@@ -127,9 +163,11 @@ const INSETS: Record<location.Outer, (cut: string) => string> = {
   right: (cut) => `inset(0 0 0 ${cut})`,
 };
 
+type Attribute = "transform" | "stroke-dashoffset" | "clip-path" | "opacity";
+
 interface Entry<M> {
   /** attribute is the attribute that the motion writes. No look writes it. */
-  attribute: "transform" | "stroke-dashoffset" | "clip-path" | "opacity";
+  attribute: Attribute;
   /**
    * speed is the cycles each second at the upper bound of the state. A motion with no
    * speed follows the fraction of its state.
@@ -146,7 +184,7 @@ const MOTIONS: { [K in Kind]: Entry<Of<K>> } = {
     attribute: "transform",
     speed: ({ rate }) => rate,
     held: true,
-    draw: (_, shape, turns) => rotate(turns * 360, shape),
+    draw: (_, shape, turns) => shape.pose("spin", { angle: turns * 360 }),
   },
   flow: {
     attribute: "stroke-dashoffset",
@@ -167,17 +205,17 @@ const MOTIONS: { [K in Kind]: Entry<Of<K>> } = {
   },
   rotate: {
     attribute: "transform",
-    draw: ({ from, to }, shape, f) => rotate(lerp(from, to, f), shape),
+    draw: ({ from, to }, shape, f) =>
+      shape.pose("rotate", { angle: lerp(from, to, f) }),
   },
   move: {
     attribute: "transform",
     draw: ({ from, to }, shape, f) =>
-      translate(shape, { x: lerp(from.x, to.x, f), y: lerp(from.y, to.y, f) }),
+      shape.pose("move", {
+        offset: { x: lerp(from.x, to.x, f), y: lerp(from.y, to.y, f) },
+      }),
   },
 };
-
-const kindOf = (motion: schematic.symbol.Motion | schematic.symbol.Blink): Kind =>
-  "type" in motion ? motion.type : "blink";
 
 const transformOf = (el: Element): DOMMatrix => {
   const m = new DOMMatrix();
@@ -268,8 +306,8 @@ interface Effect {
 }
 
 interface Effects {
-  motion?: Effect;
-  blink?: Effect;
+  /** motions holds the motion of each kind that applies, blink included. */
+  motions: Map<Kind, Effect>;
   hidden: boolean;
 }
 
@@ -285,8 +323,9 @@ const applies = (look: schematic.symbol.Look, ctx: Context): boolean => {
   return look.when.values.includes(read);
 };
 
-// resolve returns the motion and blink that the looks in effect give each part, by
-// part key. The key undefined is the whole drawing.
+// resolve returns the motions that the looks in effect give each part, by part key. A
+// later look replaces an earlier motion of its kind only. The key undefined is the
+// whole drawing.
 const resolve = (
   looks: schematic.symbol.Look[],
   ctx: Context,
@@ -295,10 +334,14 @@ const resolve = (
   const effects = new Map<string | undefined, Effects>();
   for (const look of applied) {
     if (look.motion == null && look.blink == null) continue;
-    const effect = effects.get(look.part) ?? { hidden: false };
+    const effect = effects.get(look.part) ?? {
+      motions: new Map<Kind, Effect>(),
+      hidden: false,
+    };
     const reads = look.when == null ? [] : [look.when.state];
-    if (look.motion != null) effect.motion = { value: look.motion, reads };
-    if (look.blink != null) effect.blink = { value: look.blink, reads };
+    if (look.motion != null)
+      effect.motions.set(look.motion.type, { value: look.motion, reads });
+    if (look.blink != null) effect.motions.set("blink", { value: look.blink, reads });
     effects.set(look.part, effect);
   }
   for (const [part, effect] of effects)
@@ -313,7 +356,6 @@ type Value = Effect["value"];
 // Track moves the elements of a part with one motion.
 class Track {
   private readonly entry: Entry<Value>;
-  private readonly shapes: Shape[];
   // value is the cycle of a motion that cycles, or the fraction drawn.
   private value = 0;
   private speed = 0;
@@ -325,18 +367,11 @@ class Track {
   private startEase = 0;
 
   constructor(
-    readonly kind: Kind,
+    private readonly kind: Kind,
     private motion: Value,
-    elements: SVGElement[],
-    space: Space,
-    pivotOf: () => xy.XY,
+    private readonly shapes: Shape[],
   ) {
     this.entry = MOTIONS[kind] as Entry<Value>;
-    const { width, height } = space.box;
-    this.shapes = elements.map((el) => {
-      const matrix = toDrawing(el, space).invertSelf().scaleSelf(width, height);
-      return new Shape(el, el.getAttribute(this.entry.attribute), matrix, pivotOf);
-    });
   }
 
   get moving(): boolean {
@@ -425,17 +460,20 @@ class Track {
 
   restore(): void {
     const { attribute } = this.entry;
-    for (const { el, own } of this.shapes)
-      if (own == null) el.removeAttribute(attribute);
-      else el.setAttribute(attribute, own);
+    for (const shape of this.shapes) {
+      const v = shape.release(this.kind);
+      if (v == null) shape.el.removeAttribute(attribute);
+      else shape.el.setAttribute(attribute, v);
+      shape.written = v ?? undefined;
+    }
   }
 }
 
-const FIELDS = ["motion", "blink"] as const;
-
-// Part moves the elements of one part, or of the whole drawing.
+// Part moves the elements of one part, or of the whole drawing, with one track for each
+// kind of motion.
 class Part implements Mover {
-  private readonly tracks: { motion?: Track; blink?: Track } = {};
+  private readonly tracks = new Map<Kind, Track>();
+  private readonly shapes = new Map<Attribute, Shape[]>();
   private center?: xy.XY;
 
   constructor(
@@ -445,7 +483,8 @@ class Part implements Mover {
   ) {}
 
   get moving(): boolean {
-    return FIELDS.some((field) => this.tracks[field]?.moving === true);
+    for (const track of this.tracks.values()) if (track.moving) return true;
+    return false;
   }
 
   // A part with no pivot turns about the center of its own box. A part with no layout
@@ -453,41 +492,45 @@ class Part implements Mover {
   private readonly pivotOf = (): xy.XY =>
     this.def?.pivot ?? (this.center ??= center(this.elements, this.space)) ?? MIDDLE;
 
+  // The motions that write one attribute share its shapes, so each element keeps the
+  // attribute as drawn before any of them.
+  private shapesOf(attribute: Attribute): Shape[] {
+    let shapes = this.shapes.get(attribute);
+    if (shapes != null) return shapes;
+    const { width, height } = this.space.box;
+    shapes = this.elements.map((el) => {
+      const matrix = toDrawing(el, this.space).invertSelf().scaleSelf(width, height);
+      return new Shape(el, el.getAttribute(attribute), matrix, this.pivotOf);
+    });
+    this.shapes.set(attribute, shapes);
+    return shapes;
+  }
+
   set(effects: Effects, ctx: Context): void {
     const partCtx = { ...ctx, frozen: ctx.frozen || effects.hidden };
-    for (const field of FIELDS) {
-      const effect = effects[field];
-      let track = this.tracks[field];
-      if (track != null && track.kind !== (effect && kindOf(effect.value))) {
-        track.restore();
-        track = undefined;
-      }
-      if (effect == null) {
-        delete this.tracks[field];
-        continue;
-      }
+    for (const [kind, track] of this.tracks) {
+      if (effects.motions.has(kind)) continue;
+      track.restore();
+      this.tracks.delete(kind);
+    }
+    for (const [kind, effect] of effects.motions) {
+      let track = this.tracks.get(kind);
       const fresh = track == null;
-      track ??= new Track(
-        kindOf(effect.value),
-        effect.value,
-        this.elements,
-        this.space,
-        this.pivotOf,
-      );
+      track ??= new Track(kind, effect.value, this.shapesOf(MOTIONS[kind].attribute));
       track.set(effect, partCtx, fresh);
-      this.tracks[field] = track;
+      this.tracks.set(kind, track);
     }
   }
 
   step(now: number): boolean {
+    let moving = false;
     // Every track steps, so no short circuit.
-    const motion = this.tracks.motion?.step(now) === true;
-    const blink = this.tracks.blink?.step(now) === true;
-    return motion || blink;
+    for (const track of this.tracks.values()) if (track.step(now)) moving = true;
+    return moving;
   }
 
   restore(): void {
-    for (const field of FIELDS) this.tracks[field]?.restore();
+    for (const track of this.tracks.values()) track.restore();
   }
 }
 
