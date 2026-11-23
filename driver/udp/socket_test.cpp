@@ -80,7 +80,6 @@ std::string text(const transport::Chunk &chunk) {
     return {chunk.data.begin(), chunk.data.end()};
 }
 
-/// @brief opens a socket on loopback that sends to and receives from peer.
 /// @brief reports whether an interface holds address.
 bool held(const std::string &address) {
     asio::io_context ctx;
@@ -91,6 +90,7 @@ bool held(const std::string &address) {
     return !s.bind(ep, ec);
 }
 
+/// @brief opens a socket on loopback that sends to and receives from peer.
 std::unique_ptr<Socket> open_to(const Peer &peer) {
     return ASSERT_NIL_P(
         Socket::open(
