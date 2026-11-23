@@ -16,7 +16,6 @@ import {
   PlanChangedError,
   resource,
   type Synnax as Client,
-  ValidationError,
 } from "@synnaxlabs/client";
 import { Timeout, Unreachable } from "@synnaxlabs/freighter";
 import { Badge } from "@synnaxlabs/lyra/badge";
@@ -127,16 +126,6 @@ const reasonOf = (err: unknown, step: Step): string => {
   return `${UNREACHABLE[step]} ${sentence}`;
 };
 
-/** The status when records that the user cannot see and did not pick block a delete. */
-const hiddenBlockedOf = (hidden: number): FooterStatus => ({
-  variant: "error",
-  message:
-    hidden === 1
-      ? "A record you cannot see blocks the delete"
-      : "Records you cannot see block the delete",
-  description: `Check "${PICK_LABEL}", or cancel.`,
-});
-
 /** A plan with the records it names, as the dialog shows it. */
 interface View {
   plan: impact.Plan;
@@ -218,7 +207,7 @@ const useSpinner = (loading: boolean): boolean => {
 /** The label of every check that deletes a blocking record too. */
 const PICK_LABEL = "Delete too";
 
-interface PickProps {
+interface CheckProps {
   label: string;
   /** nameID is the id of the text that names the record, read before the label. */
   nameID?: string;
@@ -229,14 +218,14 @@ interface PickProps {
   onChange: (picked: boolean) => void;
 }
 
-const Pick = ({
+const Check = ({
   label,
   nameID,
   picked,
   indeterminate,
   mark,
   onChange,
-}: PickProps): ReactElement => {
+}: CheckProps): ReactElement => {
   const id = useId();
   // The check's name and description hold the label and mark, so a screen reader reads
   // each once, on the check.
@@ -312,7 +301,7 @@ const Entry = ({
       </Text.Text>
       {fresh && <Badge.Badge status="warning">New</Badge.Badge>}
       {entry.effect === "restrict" && (
-        <Pick
+        <Check
           label={PICK_LABEL}
           nameID={`${id}-name`}
           picked={picked}
@@ -326,22 +315,28 @@ const Entry = ({
 
 interface HiddenProps {
   count: number;
+  className?: string | false;
   /** pick is the check for the records, absent when the user picks nothing for them. */
-  pick?: Omit<PickProps, "label" | "nameID" | "indeterminate">;
+  pick?: Omit<CheckProps, "label" | "nameID" | "indeterminate">;
 }
 
 /** A row for the records of a group that the user cannot see. */
-const Hidden = ({ count, pick }: HiddenProps): ReactElement => {
+const Hidden = ({ count, className, pick }: HiddenProps): ReactElement => {
   const id = useId();
   return (
-    <Flex.Box x align="center" gap="medium" className={CSS.BE("impact", "hidden")}>
+    <Flex.Box
+      x
+      align="center"
+      gap="medium"
+      className={CSS.cls(CSS.BE("impact", "hidden"), className)}
+    >
       <span className={CSS.BE("impact", "icon")}>
         <Icon.Hidden />
       </span>
       <Text.Text id={`${id}-name`} grow>
         {count === 1 ? "1 record you cannot see" : `${count} records you cannot see`}
       </Text.Text>
-      {pick != null && <Pick label={PICK_LABEL} nameID={`${id}-name`} {...pick} />}
+      {pick != null && <Check label={PICK_LABEL} nameID={`${id}-name`} {...pick} />}
     </Flex.Box>
   );
 };
@@ -355,6 +350,17 @@ interface GroupProps {
   /** pickable is true for the records that block the delete, which the user picks. */
   pickable: boolean;
   onPick: (keys: string[], picked: boolean) => void;
+  /** hidden is the number of the group's records that the user cannot see. */
+  hidden: number;
+  /** hiddenPick is the check for the hidden records of a pickable group. */
+  hiddenPick: HiddenPick;
+}
+
+/** The check for the hidden records that block the delete. */
+interface HiddenPick {
+  picked: boolean;
+  marked: boolean;
+  onChange: (picked: boolean) => void;
 }
 
 const Group = ({
@@ -365,45 +371,51 @@ const Group = ({
   initiallyOpen,
   pickable,
   onPick,
+  hidden,
+  hiddenPick,
 }: GroupProps): ReactElement => {
   const [open, setOpen] = useState(initiallyOpen);
   const byKey = new Map(rows.map((r) => [r.key, r]));
   const { data, getItem } = List.useStaticData<string, Row>({ data: rows });
-  const pickedCount = rows.filter((r) => picks[r.key] === "delete").length;
+  // The hidden records share one check, so they count as one pick.
+  const hiddenPicks = pickable && hidden > 0 ? 1 : 0;
+  const pickCount = rows.length + hiddenPicks;
+  const pickedCount =
+    rows.filter((r) => picks[r.key] === "delete").length +
+    (hiddenPicks > 0 && hiddenPick.picked ? 1 : 0);
   const scrolls = rows.length > DISPLAY_ITEMS;
+  const scrollsClass = scrolls && CSS.M("scrolls");
   return (
     <section className={CSS.BE("impact", "group")} aria-label={title}>
       <Header.Group size="medium" open={open} onOpenChange={setOpen}>
         {title}
         <Text.Text level="tiny" color={9}>
-          {rows.length}
+          {rows.length + hidden}
         </Text.Text>
       </Header.Group>
-      {open && pickable && rows.length > 1 && (
+      {open && pickable && pickCount > 1 && (
         <Flex.Box
           x
           align="center"
           justify="end"
           gap="small"
-          className={CSS.cls(
-            CSS.BE("impact", "all"),
-            scrolls && CSS.BEM("impact", "all", "scrolls"),
-          )}
+          className={CSS.cls(CSS.BE("impact", "all"), scrollsClass)}
         >
-          <Pick
+          <Check
             label="Delete all too"
-            picked={pickedCount === rows.length}
-            indeterminate={pickedCount > 0 && pickedCount < rows.length}
-            onChange={(v) =>
+            picked={pickedCount === pickCount}
+            indeterminate={pickedCount > 0 && pickedCount < pickCount}
+            onChange={(v) => {
               onPick(
                 rows.map((r) => r.key),
                 v,
-              )
-            }
+              );
+              if (hiddenPicks > 0) hiddenPick.onChange(v);
+            }}
           />
         </Flex.Box>
       )}
-      {open && (
+      {open && rows.length > 0 && (
         <List.Frame<string, Row>
           data={data}
           getItem={getItem}
@@ -435,11 +447,33 @@ const Group = ({
           </List.Scroll>
         </List.Frame>
       )}
+      {open && hidden > 0 && (
+        <Hidden
+          count={hidden}
+          className={scrollsClass}
+          pick={
+            pickable
+              ? {
+                  picked: hiddenPick.picked,
+                  mark: hiddenPick.marked
+                    ? hidden === 1
+                      ? "Uses the channel"
+                      : "Use the channel"
+                    : undefined,
+                  onChange: hiddenPick.onChange,
+                }
+              : undefined
+          }
+        />
+      )}
     </section>
   );
 };
 
-interface EntriesProps extends Pick<GroupProps, "picks" | "unpicked" | "onPick"> {
+interface EntriesProps extends Pick<
+  GroupProps,
+  "picks" | "unpicked" | "onPick" | "hiddenPick"
+> {
   view: View;
   plural: boolean;
 }
@@ -447,8 +481,10 @@ interface EntriesProps extends Pick<GroupProps, "picks" | "unpicked" | "onPick">
 const Entries = ({ view, plural, ...rest }: EntriesProps): ReactElement => {
   const many = view.plan.entries.length > MANY_ENTRIES;
   const groups = groupsOf(plural);
-  const first = groups.find(({ effect }) =>
-    view.plan.entries.some((e) => e.effect === effect),
+  const first = groups.find(
+    ({ effect }) =>
+      view.plan.hidden[effect] > 0 ||
+      view.plan.entries.some((e) => e.effect === effect),
   );
   return (
     <Flex.Box y gap="small" className={CSS.BE("impact", "entries")}>
@@ -462,7 +498,8 @@ const Entries = ({ view, plural, ...rest }: EntriesProps): ReactElement => {
             fresh: view.fresh.has(recordKey(entry)),
           }))
           .toSorted(ROW_ORDER);
-        if (rows.length === 0) return null;
+        const hidden = view.plan.hidden[effect];
+        if (rows.length === 0 && hidden === 0) return null;
         const initiallyOpen = !many || effect === first?.effect;
         return (
           <Group
@@ -470,6 +507,7 @@ const Entries = ({ view, plural, ...rest }: EntriesProps): ReactElement => {
             title={title}
             rows={rows}
             pickable={effect === "restrict"}
+            hidden={hidden}
             initiallyOpen={initiallyOpen}
             {...rest}
           />
@@ -501,7 +539,9 @@ const Dialog = ({
   Modals.useBusy(applying);
   const listing = useSpinner(view == null && planError == null);
   const updating = useSpinner(planning && view != null);
-  const hiddenPick = hidden ? "delete" : undefined;
+  // The hidden pick covers only hidden blockers, so it goes out only when one exists.
+  const hiddenPick =
+    hidden && (view?.plan.hidden.restrict ?? 0) > 0 ? "delete" : undefined;
   const plural = names.length > 1;
 
   useAsyncEffect(
@@ -567,13 +607,16 @@ const Dialog = ({
     const blockers = view.plan.entries
       .filter((e) => e.effect === "restrict" && picks[recordKey(e)] !== "delete")
       .map(recordKey);
-    if (blockers.length > 0) {
+    const hiddenBlocks = view.plan.hidden.restrict > 0 && !hidden;
+    const blocking = blockers.length + (hiddenBlocks ? view.plan.hidden.restrict : 0);
+    if (blocking > 0) {
       setUnpicked(new Set(blockers));
+      setHiddenBlocks(hiddenBlocks);
       setFooter({
         variant: "error",
-        message: blockedOf(blockers.length),
+        message: blockedOf(blocking),
         description:
-          blockers.length === 1
+          blocking === 1
             ? `Check "${PICK_LABEL}", or cancel.`
             : `Check "${PICK_LABEL}" on each one, or cancel.`,
       });
@@ -599,11 +642,6 @@ const Dialog = ({
     }
     if (!(failure instanceof PlanChangedError)) {
       setApplying(false);
-      if (ValidationError.matches(failure) && view.plan.hidden > 0 && !hidden) {
-        setHiddenBlocks(true);
-        setFooter(hiddenBlockedOf(view.plan.hidden));
-        return;
-      }
       setFooter({
         variant: "error",
         message: unanswered(failure) ? "No answer from the Core" : failureOf(names),
@@ -644,7 +682,10 @@ const Dialog = ({
   const plan = shown?.plan;
   const status = updating ? UPDATING : footer;
   const empty =
-    plan != null && plan.entries.length === 0 && plan.kept === 0 && plan.hidden === 0;
+    plan != null &&
+    plan.entries.length === 0 &&
+    plan.kept === 0 &&
+    plan.hidden.restrict + plan.hidden.cascade + plan.hidden.detach === 0;
 
   return (
     <Modal.Frame ref={frameRef} className={CSS.B("impact")}>
@@ -689,25 +730,16 @@ const Dialog = ({
             </Button.Button>
           </Flex.Box>
         )}
-        {shown != null && shown.plan.entries.length > 0 && (
+        {shown != null && !empty && (
           <Entries
             view={shown}
             plural={plural}
             picks={picks}
             unpicked={unpicked}
             onPick={handlePick}
-          />
-        )}
-        {plan != null && plan.hidden > 0 && (
-          <Hidden
-            count={plan.hidden}
-            pick={{
+            hiddenPick={{
               picked: hidden,
-              mark: hiddenBlocks
-                ? plan.hidden === 1
-                  ? "Uses the channel"
-                  : "Use the channel"
-                : undefined,
+              marked: hiddenBlocks,
               onChange: handleHidden,
             }}
           />

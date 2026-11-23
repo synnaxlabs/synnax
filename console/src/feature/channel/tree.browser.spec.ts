@@ -31,6 +31,7 @@ import {
   type RenderOptions,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
@@ -380,20 +381,44 @@ describe("channel/tree", () => {
         resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
       });
       fireEvent.click(await screen.findByText("Delete"));
-      await screen.findByText("1 record you cannot see");
-      expect(screen.queryByText("Blocks the delete")).toBeNull();
-      await clickDelete();
-      const blocked = "A record you cannot see blocks the delete";
-      await screen.findByText(blocked);
-      screen.getByText('Check "Delete too", or cancel.');
-      const hidden = screen.getByRole("checkbox", {
+      const blocks = await screen.findByRole("region", { name: "Blocks the delete" });
+      const hidden = within(blocks).getByRole("checkbox", {
         name: "1 record you cannot see Delete too",
       });
+      await clickDelete();
+      const blocked = "1 record blocks the delete";
+      await screen.findByText(blocked);
+      screen.getByText('Check "Delete too", or cancel.');
       expect(hidden).toHaveAccessibleDescription("Uses the channel");
       expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
       fireEvent.click(hidden);
       await waitFor(() => expect(screen.queryByText(blocked)).toBeNull());
       expect(screen.queryByText("Uses the channel")).toBeNull();
+    });
+
+    it("lists a hidden plot with no check when nothing blocks", async () => {
+      const ch = await createChannel();
+      const proj = await client.projects.create({ name: uniqueName("proj") });
+      await client.lineplots.create({
+        project: proj.key,
+        name: uniqueName("plot"),
+        channels: { y1: [ch.key] },
+      });
+      const userClient = await createTestClientWithPolicy(client, {
+        name: uniqueName("impact"),
+        objects: [channelClient.resourceID(ch.key)],
+        actions: ["retrieve", "delete"],
+      });
+      assertDefined(Item.ContextMenu);
+      await renderTreeContextMenu(Item.ContextMenu, {
+        client: userClient,
+        resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
+      });
+      fireEvent.click(await screen.findByText("Delete"));
+      const loses = await screen.findByRole("region", { name: "Loses the channel" });
+      within(loses).getByText("1 record you cannot see");
+      expect(within(loses).queryByRole("checkbox")).toBeNull();
+      expect(screen.queryByRole("region", { name: "Blocks the delete" })).toBeNull();
     });
 
     it("plans again when the user presses Try again", async () => {

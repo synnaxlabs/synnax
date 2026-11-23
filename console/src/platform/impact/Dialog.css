@@ -81,7 +81,7 @@
     height: 6rem;
 
     /* a scrolling list's rows end 1rem sooner, at its scrollbar */
-    &.console-impact__all--scrolls {
+    &.console--scrolls {
         padding-right: 3.5rem;
     }
 }
