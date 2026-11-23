@@ -24,7 +24,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type bounds, id, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useRef, useState } from "react";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
@@ -161,8 +161,13 @@ const Editor = ({
     }
   };
 
-  const handleElementClick = (selector: string) => {
+  const lastClickWholeRef = useRef(false);
+  const handleElementClick = (selector: string, count: number) => {
     const part = selectedPartRef.current;
+    // A click on the whole drawing selects or adds a part, so a later click of the same
+    // double click would undo it.
+    if (count > 1 && lastClickWholeRef.current) return;
+    lastClickWholeRef.current = part == null;
     const spec = form.get(path.data).value;
     if (part != null)
       return form.set(path.data.parts, Spec.toggleSelector(spec, part, selector));

@@ -1291,6 +1291,18 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("takes each click of a double click while a part is selected", async () => {
+      const symbol = await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
+      fireEvent.click(findShape("b"), { detail: 1 });
+      fireEvent.click(findShape("a"), { detail: 2 });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#b"] },
+        ]),
+      );
+    });
+
     it("takes the group out of the part when a click lands inside it", async () => {
       const symbol = await openPainted({
         drawing: { type: "svg", markup: GROUPED },

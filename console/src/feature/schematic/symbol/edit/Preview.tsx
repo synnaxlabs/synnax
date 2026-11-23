@@ -64,7 +64,8 @@ interface PreviewProps {
   selectedHandle?: string;
   /** selectedPart is the part whose shapes the preview marks. */
   selectedPart?: string;
-  onElementClick: (selector: string) => void;
+  /** count is the place of the click in a double click, as in MouseEvent.detail. */
+  onElementClick: (selector: string, count: number) => void;
   onContentsChange: (contents: string) => void;
   onHandleSelect: (handleKey: string) => void;
   onHandlePlace: (handleKey: string, position: { x: number; y: number }) => void;
@@ -200,13 +201,12 @@ export const Preview = ({
       el.addEventListener("click", (e) => {
         // The groups around the shape have their own listeners.
         e.stopPropagation();
-        // Shift+drag pans the preview. A later click of a double click would undo the
-        // first one after it selects or makes a part.
-        if (e.shiftKey || e.detail > 1) return;
+        // Shift+drag pans the preview.
+        if (e.shiftKey) return;
         const markup = form.get(path.data.drawing.markup).value;
         const named = Schematic.Node.Region.name(markup, drawing, el);
         if (named.markup !== markup) form.set(path.data.drawing.markup, named.markup);
-        onElementClick(named.selector);
+        onElementClick(named.selector, e.detail);
       });
 
       // The spans of a text are part of its shape, so their clicks reach the text.
