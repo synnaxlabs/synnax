@@ -32,6 +32,20 @@ namespace driver::icd {
 /// @brief Reader reads payloads, each one of several ICD messages of one format, into
 /// the channels of that message. It is not safe for concurrent use.
 class Reader {
+public:
+    /// @brief Failure is a channel whose field the last read could not decode.
+    struct Failure {
+        /// @brief channel is the channel that the field writes to.
+        synnax::channel::Key channel = 0;
+        /// @brief missing is true when the payload has no value for the field, and the
+        /// field has no default.
+        bool missing = false;
+        /// @brief error is why the field did not decode. It names the field, and also
+        /// the message when the reader holds more than one.
+        x::errors::Error error;
+    };
+
+private:
     /// @brief Index is an index channel that a message writes.
     struct Index {
         synnax::channel::Key key = 0;
@@ -59,8 +73,8 @@ class Reader {
     /// @brief filled is scratch space that marks the bindings of a read that take its
     /// fill value.
     std::vector<bool> filled;
-    /// @brief last is the message of the last read, or nothing when it returned none.
-    std::optional<std::size_t> last;
+    /// @brief failed holds the failures of the last read.
+    std::vector<Failure> failed;
 
     /// @brief sets the channels, the index groups, and the index field of m from the
     /// bindings of rm, which reads msg, and returns the codec binding of each.
@@ -122,9 +136,8 @@ public:
         std::optional<double> fill = std::nullopt
     );
 
-    /// @brief returns the fields of the last read that its decoder could not decode, by
-    /// position in the bindings of the message that it returned. Empty after a read
-    /// that returned no message or an error, and for a format other than JSON.
-    [[nodiscard]] std::span<const codec::Failure> failures() const;
+    /// @brief returns the failures of the last read, in binding order. Empty after a
+    /// read that returned no message or an error, and for a format other than JSON.
+    [[nodiscard]] const std::vector<Failure> &failures() const { return this->failed; }
 };
 }

@@ -366,7 +366,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         },
         this->decoder
     );
-    this->last = i;
+    this->failed.clear();
     if (err || !i.has_value()) return {std::nullopt, err};
     const auto msg = *i;
     const auto &m = this->messages[msg];
@@ -377,11 +377,18 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         this->decoder
     );
     this->filled.assign(samples.size(), false);
-    if (fill.has_value())
-        for (const auto &f: this->failures())
+    if (const auto *json = std::get_if<codec::JSON>(&this->decoder); json != nullptr)
+        for (const auto &f: json->failures(msg)) {
+            this->failed.push_back(
+                {.channel = m.channels[f.binding],
+                 .missing = f.missing,
+                 .error = f.error}
+            );
             if (const auto dt = samples[f.binding].data_type();
-                dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T)
+                fill.has_value() &&
+                (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T))
                 this->filled[f.binding] = true;
+        }
     this->present.assign(m.indexes.size(), true);
     for (std::size_t k = 0; k < samples.size(); k++)
         if (const auto group = m.groups[k];
@@ -407,11 +414,5 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
             series(fr, m.channels[k], dt, cap).write(samples[k]);
     }
     return {msg, x::errors::NIL};
-}
-
-std::span<const codec::Failure> Reader::failures() const {
-    const auto *json = std::get_if<codec::JSON>(&this->decoder);
-    if (json == nullptr || !this->last.has_value()) return {};
-    return json->failures(*this->last);
 }
 }

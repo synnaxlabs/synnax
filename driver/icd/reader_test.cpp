@@ -436,7 +436,8 @@ TEST(Reader, WritesOtherIndexGroupsWhenValueOfOneDoesNotConvert) {
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
     ASSERT_EQ(fr.at<double>(2, 0), 1.0);
     ASSERT_EQ(r.failures().size(), 1U);
-    ASSERT_EQ(r.failures()[0].binding, 1U);
+    ASSERT_EQ(r.failures()[0].channel, 3U);
+    ASSERT_FALSE(r.failures()[0].missing);
     ASSERT_OCCURRED_AS(r.failures()[0].error, x::errors::VALIDATION);
     ASSERT_EQ(
         r.failures()[0].error.data,
@@ -482,6 +483,8 @@ TEST(Reader, DropsGroupOfNonFloatFieldWithFill) {
     x::telem::Frame fr(4);
     ASSERT_NIL_P(r.read(bytes(R"({"v": 1})"), RECEIVED, fr, 1, 0.0));
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(r.failures()[0].channel, 3U);
+    ASSERT_TRUE(r.failures()[0].missing);
     ASSERT_EQ(r.failures()[0].error.data, "field w: no value at /w");
 }
 
