@@ -10,6 +10,8 @@
 package analyzer
 
 import (
+	"fmt"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -313,17 +315,16 @@ func defaultInvariantViolation(
 			return "", false
 		}
 		form, ok := ev.Type.Form.(resolution.EnumForm)
-		if !ok || !form.IsIntEnum {
-			// A string enum has no zero member (its zero is ""), so any default is
-			// safe.
+		if !ok {
 			return "", false
 		}
-		hasZero := lo.ContainsBy(form.Values, func(v resolution.EnumValue) bool {
-			return v.IntValue() == 0
-		})
-		if hasZero && ev.Variant.IntValue() != 0 {
-			return "an integer-enum default other than 0 leaves the member with " +
-				"value 0 (the zero value) as a valid, distinct value", true
+		// A string enum, or an integer enum with no member of 0, has no valid zero.
+		if zero, ok := form.ZeroMember(); ok && zero.Name != ev.Variant.Name {
+			return fmt.Sprintf(
+				"an integer-enum default other than %q, the member of value 0, leaves "+
+					"that member (the zero value) as a valid, distinct value",
+				zero.Name,
+			), true
 		}
 	case resolution.ValueKindString,
 		resolution.ValueKindInt,
