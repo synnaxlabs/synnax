@@ -198,8 +198,8 @@ TEST(TestChannel, testRetrieveManyMixesNamesAndPaths) {
 TEST(TestChannel, testRetrieveStrict) {
     auto retrieve = std::make_shared<freighter::testutil::UnaryClient<
         grpc::channel::RetrieveRequest,
-        grpc::channel::RetrieveResponse>>(
-        std::vector<grpc::channel::RetrieveResponse>(3),
+        ::api::channel::pb::RetrieveResponse>>(
+        std::vector<::api::channel::pb::RetrieveResponse>(3),
         std::vector<x::errors::Error>(3, x::errors::NIL)
     );
     const Client client(
