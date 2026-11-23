@@ -269,6 +269,16 @@ var _ = Describe("Service", func() {
 			Expect(retrieve(ctx, b.Key).Key).To(Equal(b.Key))
 		})
 
+		It("Should refuse a key that a stored broker holds", func(ctx SpecContext) {
+			b := create(ctx)
+			again := newBroker()
+			again.Key = b.Key
+			again.Name = "Other Broker"
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).
+				To(MatchError(validate.ErrValidation))
+			Expect(retrieve(ctx, b.Key).Name).To(Equal(b.Name))
+		})
+
 		It("Should store every kind of binding", func(ctx SpecContext) {
 			b := newBroker()
 			b.Sparkplug = broker.Sparkplug{
@@ -433,6 +443,15 @@ var _ = Describe("Service", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &b)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("holds no private key")),
+			))
+		})
+
+		It("Should reject a missing client certificate", func(ctx SpecContext) {
+			b := newBroker()
+			b.Transport = tls(nil, new(uuid.New()))
+			Expect(svc.NewWriter(tx).Create(ctx, &b)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("transport.client_certificate")),
 			))
 		})
 

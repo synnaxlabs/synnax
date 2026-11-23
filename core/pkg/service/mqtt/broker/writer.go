@@ -36,7 +36,7 @@ type Writer struct {
 // prepare validates b and refuses a rack that does not run MQTT and a client
 // certificate with no private key.
 func (w Writer) prepare(ctx context.Context, b Broker) error {
-	if err := validateFields(&b); err != nil {
+	if err := Validate(b); err != nil {
 		return err
 	}
 	if err := w.checkRack(ctx, b); err != nil {
@@ -67,11 +67,11 @@ func (w Writer) setStatus(ctx context.Context, b Broker) error {
 	return w.status.Set(ctx, &st)
 }
 
-// Create stores b and writes an unknown status when it has none. An existing status
-// takes the name and rack of b. A broker with a nil key gets a new one. It returns a
-// validation error when b is invalid, holds a duplicate binding, keeps alive for a
-// fraction of a second, or names a rack that does not run MQTT, a client certificate
-// with no private key, or a file certificate or secret of another rack.
+// Create stores b and writes its unknown status. A broker with a nil key gets a new
+// one. It returns a validation error when a broker is stored under the key of b, when b
+// fails Validate, or when b names a rack that does not run MQTT, a missing client
+// certificate or one with no private key, or a file certificate or secret of another
+// rack.
 func (w Writer) Create(ctx context.Context, b *Broker) error {
 	if b.Key == uuid.Nil() {
 		b.Key = uuid.New()
@@ -79,7 +79,7 @@ func (w Writer) Create(ctx context.Context, b *Broker) error {
 	if err := w.prepare(ctx, *b); err != nil {
 		return err
 	}
-	if err := w.table.NewCreate().Entry(b).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(b).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	return w.setStatus(ctx, *b)

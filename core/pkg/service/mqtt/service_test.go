@@ -84,13 +84,15 @@ var _ = Describe("Service", func() {
 			ICD:     icds,
 			Status:  statuses,
 			Secret:  secrets,
-			Certificate: MustOpen(certificate.OpenService(ctx, certificate.ServiceConfig{
-				DB:      db,
-				Secret:  secrets,
-				Status:  statuses,
-				Rack:    racks.EmbeddedKey,
-				HostKey: 1,
-			})),
+			Certificate: MustOpen(
+				certificate.OpenService(ctx, certificate.ServiceConfig{
+					DB:      db,
+					Secret:  secrets,
+					Status:  statuses,
+					Rack:    racks.EmbeddedKey,
+					HostKey: 1,
+				}),
+			),
 			Rack: racks,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{

@@ -19,7 +19,6 @@ import (
 	apibroker "github.com/synnaxlabs/synnax/pkg/api/mqtt/broker"
 	"github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/broker"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -390,8 +389,12 @@ var _ = Describe("Service", func() {
 			))
 			got := retrieveBroker(ctx, s.Key)
 			Expect(got.Writes).To(HaveLen(1))
-			Expect(got.Writes[0].Variant.(broker.SparkplugWrite).Channel).
-				To(Equal(channel.Key(2)))
+			Expect(got.Writes[0].Variant).To(Equal(broker.SparkplugWrite{
+				Group:    "Plant",
+				EdgeNode: "Line1",
+				Tag:      "Speed",
+				Channel:  2,
+			}))
 			Expect(got.Name).To(Equal(s.Name))
 		})
 
