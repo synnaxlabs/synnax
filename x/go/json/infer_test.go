@@ -674,6 +674,24 @@ var _ = Describe("Inferrer", func() {
 		Expect(shapes[0].Index).To(Equal(-1))
 	})
 
+	DescribeTable("Should give one shape past 1,024 fields across its sets of fields",
+		func(second, shapes, fields int) {
+			inf := xjson.NewInferrer()
+			for i, n := range []int{600, second} {
+				names := make([]string, n)
+				for f := range names {
+					names[f] = fmt.Sprintf(`"s%d-%d":1`, i, f)
+				}
+				inf.Add([]byte("{"+strings.Join(names, ",")+"}"), t0)
+			}
+			inferred := inf.Shapes()
+			Expect(inferred).To(HaveLen(shapes))
+			Expect(inferred[0].Fields).To(HaveLen(fields))
+		},
+		Entry("1,024 fields", 424, 2, 600),
+		Entry("1,025 fields", 425, 1, 1024),
+	)
+
 	DescribeTable(
 		"Should infer the shapes that Infer gives the same documents",
 		func(docs []xjson.Document) {

@@ -121,7 +121,7 @@ func Infer(docs []Document) []Shape {
 		}
 		src, ok := byName[doc.Source]
 		if !ok {
-			src = newInferSource(doc.Source)
+			src = newInferSource(doc.Source, math.MaxInt)
 			byName[doc.Source] = src
 			sources = append(sources, src)
 		}
@@ -256,12 +256,15 @@ func mergeUnmarked(
 }
 
 // Inferrer infers the shapes of the documents of one source as they arrive, with the
-// rules of Infer. It keeps counts for each set of fields, not documents, so its memory
-// does not grow with the number of documents. It is not safe for concurrent use.
+// rules of Infer. Past 1,024 fields across its sets of fields, the documents are one
+// shape. It keeps counts, not documents, so its memory does not grow with the number of
+// documents. It is not safe for concurrent use.
 type Inferrer struct{ src *inferSource }
 
 // NewInferrer returns an Inferrer that holds no documents.
-func NewInferrer() *Inferrer { return &Inferrer{src: newInferSource("")} }
+func NewInferrer() *Inferrer {
+	return &Inferrer{src: newInferSource("", maxInferredFields)}
+}
 
 // Add adds data, written at t. Data that is not one JSON value adds nothing.
 func (i *Inferrer) Add(data []byte, t telem.TimeStamp) {
@@ -289,16 +292,21 @@ type inferSource struct {
 	// disordered holds, for each time field, the pairs of sets where a value of one is
 	// older than the last value of the other.
 	disordered map[string]set.Set[[2]int]
-	// whole is true once the documents have more than 256 sets of fields. The one set
-	// in sets then takes every document.
+	// fields is the number of fields of all of the sets.
+	fields int
+	// limit is the most fields of all of the sets before the source has one set.
+	limit int
+	// whole is true once the documents have more than 256 sets of fields, or more than
+	// limit fields of all of the sets. The one set in sets then takes every document.
 	whole bool
 }
 
-func newInferSource(name string) *inferSource {
+func newInferSource(name string, limit int) *inferSource {
 	return &inferSource{
 		name:       name,
 		byKey:      make(map[string]int),
 		disordered: make(map[string]set.Set[[2]int]),
+		limit:      limit,
 	}
 }
 
@@ -340,19 +348,17 @@ func (src *inferSource) add(doc parsedDocument) {
 // fields.
 func (src *inferSource) setOf(fields set.Set[string]) int {
 	if src.whole {
-		for f := range fields {
-			src.sets[0].fields.Add(f)
-		}
 		return 0
 	}
 	fs := newFieldSet(fields)
 	if k, ok := src.byKey[fs.key]; ok {
 		return k
 	}
-	if len(src.sets) == maxFieldSets {
+	if len(src.sets) == maxFieldSets || src.fields+len(fields) > src.limit {
 		src.collapse()
-		return src.setOf(fields)
+		return 0
 	}
+	src.fields += len(fields)
 	fs.group = newInferGroup()
 	src.byKey[fs.key] = len(src.sets)
 	src.sets = append(src.sets, fs)
@@ -361,14 +367,9 @@ func (src *inferSource) setOf(fields set.Set[string]) int {
 
 // collapse merges every set of src into one set that takes every later document.
 func (src *inferSource) collapse() {
-	c := src.union()[0]
 	g := newInferGroup()
-	g.merge(src, c.sets)
-	fields := make(set.Set[string])
-	for _, fs := range src.sets {
-		fields.Add(fs.fields.Slice()...)
-	}
-	src.sets = []fieldSet{{fields: fields, group: g}}
+	g.merge(src, src.union()[0].sets)
+	src.sets = []fieldSet{{group: g}}
 	src.byKey, src.disordered, src.whole = nil, nil, true
 }
 
@@ -398,7 +399,11 @@ func (src *inferSource) recordDisorder(k int, key string) {
 // split returns the clusters of src, in the order of their first documents.
 func (src *inferSource) split() []cluster {
 	if src.whole {
-		return src.union()
+		fields := make(set.Set[string], len(src.sets[0].group.fields))
+		for key := range src.sets[0].group.fields {
+			fields.Add(key)
+		}
+		return []cluster{{key: newFieldSet(fields).key, sets: []int{0}}}
 	}
 	into := src.joins()
 	var (

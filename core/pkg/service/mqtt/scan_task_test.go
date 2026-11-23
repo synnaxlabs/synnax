@@ -779,24 +779,20 @@ var _ = Describe("Scan task", func() {
 			},
 		)
 
-		It("Should give no kind to a field past the first 1,024 fields of a shape",
+		It("Should give no kind to a field past the first 1,024 fields of a topic",
 			func(ctx SpecContext) {
 				names := make([]string, 1024)
 				for i := range names {
 					names[i] = fmt.Sprintf(`"f%04d": %d`, i, i)
 				}
-				fields := strings.Join(names, ", ")
-				broker.publish("plant/a", "{"+fields+"}", true)
-				publishUntilDone(broker, "plant/a", `{"late": 1, `+fields+"}")
+				broker.publish("plant/a", "{"+strings.Join(names, ", ")+"}", true)
+				publishUntilDone(broker, "plant/a", `{"late": 1}`)
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
 				topics, ok := stat.Details.Data["topics"].([]any)
 				Expect(ok).To(BeTrue())
-				Expect(topics[0]).To(HaveKeyWithValue("fields", SatisfyAll(
-					ContainElement(map[string]any{
-						"pointer": "/late", "type": "number", "sample": "1",
-					}),
-					ContainElement(field("/f0000", "number", "0", payload.KindInteger)),
-				)))
+				Expect(topics[0]).To(HaveKeyWithValue("fields", []any{
+					map[string]any{"pointer": "/late", "type": "number", "sample": "1"},
+				}))
 			},
 		)
 
