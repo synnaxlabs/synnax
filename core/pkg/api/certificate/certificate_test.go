@@ -410,6 +410,51 @@ var _ = Describe("Service", func() {
 				"pem: must be empty for a file certificate",
 			),
 		)
+		It("Should let a rack replace a file certificate on it", func(ctx SpecContext) {
+			r := createRack(ctx)
+			c := createFileCertificate(ctx, r.Key)
+			details := *c.Variant.(certificate.FileCertificate).Details
+			details.Sha256 = "cc"
+			MustSucceed(set(SubjectCtx(ctx, r.Key.ResourceID()),
+				apicertificate.SetRequest{Certificates: []apicertificate.Input{{
+					Key:             c.Base().Key,
+					Source:          secret.SourceFile,
+					Name:            "Renamed",
+					CertificatePath: "/var/lib/synnax/next.der",
+					Details:         &details,
+					Rack:            r.Key,
+				}}},
+			))
+			got, ok := retrieveCertificate(ctx, c.Base().Key).
+				Variant.(certificate.FileCertificate)
+			Expect(ok).To(BeTrue())
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.CertificatePath).To(Equal("/var/lib/synnax/next.der"))
+			Expect(got.Details).To(Equal(&details))
+		})
+		It("Should deny a rack moving a file certificate on it to another rack",
+			func(ctx SpecContext) {
+				r := createRack(ctx)
+				c := createFileCertificate(ctx, r.Key)
+				other := createRack(ctx)
+				Expect(set(SubjectCtx(ctx, r.Key.ResourceID()),
+					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
+						Key:             c.Base().Key,
+						Source:          secret.SourceFile,
+						Name:            "Driver",
+						CertificatePath: "/var/lib/synnax/driver.der",
+						Rack:            other.Key,
+					}}},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						r.Key.ResourceID().String()+" cannot update "+
+							c.ResourceID().String(),
+					)),
+				))
+				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
+			},
+		)
 	})
 
 	Describe("Retrieve", func() {
@@ -554,6 +599,20 @@ var _ = Describe("Service", func() {
 			Expect(retrieveCertificate(ctx, c.Base().Key).Base().Name).
 				To(Equal("After"))
 		})
+		It("Should let a rack apply the actions to a file certificate on it",
+			func(ctx SpecContext) {
+				r := createRack(ctx)
+				c := createFileCertificate(ctx, r.Key)
+				MustSucceed(
+					dispatch(
+						SubjectCtx(ctx, r.Key.ResourceID()),
+						setName(c.Base().Key),
+					),
+				)
+				Expect(retrieveCertificate(ctx, c.Base().Key).Base().Name).
+					To(Equal("After"))
+			},
+		)
 		It("Should deny a user without update access", func(ctx SpecContext) {
 			u := createUser(ctx)
 			c := createCertificate(ctx, "Before")
