@@ -322,3 +322,51 @@ describe("resolvePath", () => {
     expect(deep.resolvePath("a.0.missing.deeper", obj)).toEqual("a.x.missing.deeper");
   });
 });
+
+describe("getIndex", () => {
+  it("should return the index that a part names", () => {
+    expect(deep.getIndex("0")).toBe(0);
+    expect(deep.getIndex("12")).toBe(12);
+  });
+
+  it("should return null for a part that is not a canonical index", () => {
+    expect(deep.getIndex("01")).toBeNull();
+    expect(deep.getIndex("-1")).toBeNull();
+    expect(deep.getIndex("1.5")).toBeNull();
+    expect(deep.getIndex("a")).toBeNull();
+    expect(deep.getIndex("")).toBeNull();
+  });
+});
+
+describe("step", () => {
+  it("should find the child that one part names", () => {
+    expect(deep.step({ a: { b: 1 } }, ["a", "b"], 0)).toEqual({
+      key: "a",
+      value: { b: 1 },
+      end: 1,
+    });
+  });
+
+  it("should start at the given part", () => {
+    expect(deep.step({ b: 1 }, ["a", "b"], 1)).toEqual({ key: "b", value: 1, end: 2 });
+  });
+
+  it("should take the longest run of parts that names a child", () => {
+    expect(deep.step({ a: 1, "a.b": 2 }, ["a", "b", "c"], 0)).toEqual({
+      key: "a.b",
+      value: 2,
+      end: 2,
+    });
+  });
+
+  it("should find an array entry by index, then by key", () => {
+    const value = [{ key: "x" }, { key: "y" }];
+    expect(deep.step(value, ["1"], 0)).toEqual({ key: 1, value: value[1], end: 1 });
+    expect(deep.step(value, ["x"], 0)).toEqual({ key: 0, value: value[0], end: 1 });
+  });
+
+  it("should return null when no run of parts names a child", () => {
+    expect(deep.step({ a: 1 }, ["b"], 0)).toBeNull();
+    expect(deep.step(5, ["a"], 0)).toBeNull();
+  });
+});
