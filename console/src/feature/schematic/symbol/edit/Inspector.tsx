@@ -59,6 +59,9 @@ const [FieldContext, useFieldContext] = context.create<FieldContextValue>({
 });
 
 interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContextValue {
+  /** shown is the value whose looks the control shows. */
+  shown: number;
+  looks: Look[];
   value: Look[F] | undefined;
   /** inherited is what a look on the whole drawing gives the part. */
   inherited: Look[F] | undefined;
@@ -77,21 +80,21 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const { at } = field;
   // A control for every value shows what the canvas draws at the preview value.
   const shown = at ?? preview;
+  const f = field.field as F;
   return {
     ...inspector,
     ...field,
-    value: Spec.effective({ looks }, part, field.field, shown) as Look[F] | undefined,
+    shown,
+    looks,
+    value: Spec.effective({ looks }, part, f, shown),
     inherited:
-      part == null
-        ? undefined
-        : (Spec.effective({ looks }, undefined, field.field, shown) as
-            Look[F] | undefined),
+      part == null ? undefined : Spec.effective({ looks }, undefined, f, shown),
     own: Spec.effective(
       { looks: looks.filter((l) => l.part === part) },
       part,
-      field.field,
+      f,
       shown,
-    ) as Look[F] | undefined,
+    ),
     onChange: (v) => {
       const spec = get(path.data).value;
       // A stored static symbol can hold looks on Base, which an edit at every value
@@ -100,7 +103,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
         spec.variant === "static"
           ? { ...spec, looks: Spec.staticLooks(spec.looks) }
           : spec;
-      set(path.data, Spec.setOwn(from, part, field.field, v, at));
+      set(path.data, Spec.setOwn(from, part, f, v, at));
     },
   };
 };
@@ -131,10 +134,15 @@ const Property = ({
   if (split && !several) setSplit(false);
   const varies = several && (split || Spec.variesByValue({ looks }, part, field));
   const handleVariesChange = (next: boolean) => {
-    const keys = values.values.map((v) => v.value);
     set(
       path.data,
-      Spec.setVariesByValue(get(path.data).value, part, field, keys, next),
+      Spec.setVariesByValue(
+        get(path.data).value,
+        part,
+        field,
+        values.values.map((v) => v.value),
+        next,
+      ),
     );
     setSplit(next);
   };
@@ -196,7 +204,7 @@ interface PaintControlProps {
 }
 
 const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
-  const { value, inherited, own, onChange, label, at, preview, values } = useScope<
+  const { value, inherited, own, onChange, label, shown, values } = useScope<
     "fill" | "stroke"
   >("PaintControl");
   return (
@@ -208,15 +216,14 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
-      entryColor={values.entryColor(at ?? preview)}
+      entryColor={values.entryColor(shown)}
     />
   );
 };
 
 const VisibleControl = (): ReactElement => {
-  const { value, inherited, part, at, values, onChange, label } =
+  const { value, inherited, part, at, values, looks, onChange, label } =
     useScope<"hidden">("VisibleControl");
-  const looks = Form.useFieldValue(path.data.looks);
   // A part shown at every value stores false when the drawing hides at any value.
   const drawingHides =
     part != null &&
@@ -251,16 +258,15 @@ const BlinkControl = (): ReactElement => {
   );
 };
 
-type MotionKind = schematic.symbol.Motion["type"];
-type Loop = Extract<MotionKind, "spin" | "flow">;
+type Loop = Extract<schematic.symbol.MotionType, "spin" | "flow">;
 
 interface MotionGroup {
   name: string;
-  kinds: { kind: MotionKind; name: string }[];
+  kinds: { kind: schematic.symbol.MotionType; name: string }[];
 }
 
-// MOTIONS groups the kinds by how they move. The picker offers only the loops, since
-// a motion that follows a value needs a number state.
+// MOTIONS groups the kinds by how they move. The picker offers only the loops, since a
+// motion that follows a value needs a number state.
 const MOTIONS: MotionGroup[] = [
   {
     name: "Follow a value",
@@ -279,7 +285,8 @@ const MOTIONS: MotionGroup[] = [
   },
 ];
 
-const isLoop = (kind: MotionKind): kind is Loop => kind === "spin" || kind === "flow";
+const isLoop = (kind: schematic.symbol.MotionType): kind is Loop =>
+  kind === "spin" || kind === "flow";
 
 // The picker sets only loops. It shows a motion that follows a value, so a pick
 // replaces it in sight.
@@ -290,7 +297,7 @@ const MotionControl = (): ReactElement => {
     useScope<"motion">("MotionControl");
   const locked = inherited != null && own == null;
   const moving = value?.type === "spin" || value?.type === "flow" ? value : undefined;
-  const handleKindChange = (kind: MotionKind | "none") => {
+  const handleKindChange = (kind: schematic.symbol.MotionType | "none") => {
     if (kind === "none") return onChange(undefined);
     if (!isLoop(kind)) throw new Error(`the motion picker cannot set ${kind}`);
     onChange(
@@ -301,7 +308,8 @@ const MotionControl = (): ReactElement => {
   };
   return (
     <Flex.Box y align="end" gap="small">
-      <Select.Buttons<MotionKind | "none">
+      <Select.Buttons<schematic.symbol.MotionType | "none">
+        aria-label={label}
         value={value?.type ?? "none"}
         onChange={handleKindChange}
         size="small"
@@ -363,19 +371,21 @@ export interface InspectorProps {
   preview: number;
 }
 
-const LEVEL_ISSUES: Record<Spec.LevelIssue, { message: string; description: string }> =
-  {
-    shapes: {
-      message: "Fill motion needs one shape",
-      description:
-        "Fill motion fills each shape in this part by its own box. Use Select parent group to make the group around the shapes the part. If the shapes sit in no group, group them in the drawing, or remove the motion from the part to save.",
-    },
-    clip: {
-      message: "Fill motion replaces a clip-path",
-      description:
-        "A shape in this part has its own clip-path, which fill motion would replace. Remove the clip-path from the drawing or the motion from the part to save.",
-    },
-  };
+const LEVEL_ISSUES: Record<
+  Spec.LevelIssue,
+  Pick<Status.SummaryProps, "message" | "description">
+> = {
+  shapes: {
+    message: "Fill motion needs one shape",
+    description:
+      "Fill motion fills each shape in this part by its own box. Use Select parent group to make the group around the shapes the part. If the shapes sit in no group, group them in the drawing, or remove the motion from the part to save.",
+  },
+  clip: {
+    message: "Fill motion replaces a clip-path",
+    description:
+      "A shape in this part has its own clip-path, which fill motion would replace. Remove the clip-path from the drawing or the motion from the part to save.",
+  },
+};
 
 const SELECT_PARENT_TOOLTIP = (
   <Triggers.Text trigger={["Alt", "MouseLeft"]} level="small">
@@ -435,7 +445,7 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
           <Text.Text level="h5">{part?.name ?? "Whole drawing"}</Text.Text>
           <Text.Text level="small" color={9}>
             {part == null
-              ? "Looks here reach every shape. Click a shape to select its part or make one."
+              ? "Looks here reach every shape. Click a shape to select its part or add one."
               : "Click shapes in the drawing to add or remove them."}
           </Text.Text>
         </Flex.Box>
