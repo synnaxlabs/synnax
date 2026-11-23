@@ -123,7 +123,7 @@ describe("DynamicCache", () => {
         expect(cache.leadingBuffer?.at(0)).toEqual(4);
       });
       it("should start a new buffer when the clock of the series changes", () => {
-        const cache = new Dynamic({ dynamicBufferSize: 100 });
+        const cache = new dynamic.Dynamic({ dynamicBufferSize: 100 });
         const on = (clock: number, values: number[], a: bigint): Series =>
           new Series({ data: new Float32Array(values), clock }).reAlign(a);
         cache.write(new MultiSeries([on(1, [1, 2, 3], 0n)]));
