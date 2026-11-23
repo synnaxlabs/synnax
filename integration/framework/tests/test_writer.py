@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, cast
+from typing import Any
 
 import pytest
 
@@ -27,14 +27,14 @@ class _Stream:
         self.closed = True
 
 
-class _Client:
+class _Client(sy.Synnax):
     """A client whose first open_writer calls fail, as many as open_failures says."""
 
     def __init__(self, open_failures: int = 0) -> None:
         self.open_failures = open_failures
         self.streams: list[_Stream] = []
 
-    def open_writer(self, **_: object) -> _Stream:
+    def open_writer(self, *_: Any, **__: Any) -> Any:
         if self.open_failures > 0:
             self.open_failures -= 1
             raise ConnectionError("Core unreachable")
@@ -44,7 +44,7 @@ class _Client:
 
 
 def _writer(client: _Client) -> Writer:
-    return Writer(cast(sy.Synnax, cast(Any, client)))
+    return Writer(client)
 
 
 class TestWriter:
