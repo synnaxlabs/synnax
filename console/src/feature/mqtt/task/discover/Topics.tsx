@@ -616,7 +616,6 @@ export const TopicPicker = ({
                 onChange={setScopeDraft}
                 size="small"
                 placeholder="plant/line1"
-                className={CSS.BE("mqtt-discover", "code")}
               />
               <Button.Button
                 variant="outlined"
