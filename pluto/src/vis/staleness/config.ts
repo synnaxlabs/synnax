@@ -12,10 +12,8 @@ import { z } from "zod";
 import { staleness } from "@/vis/staleness/aether";
 
 /**
- * configZ carries the staleness key a symbol config holds. Extend a symbol's schema
- * with its shape to pair the schema with {@link TimeoutField}, which writes this exact
- * key. It is optional, because a symbol saved before it gained staleness config does
- * not carry it.
+ * configZ is the staleness timeout of a symbol config, the key {@link TimeoutField}
+ * writes. It is optional, because an older symbol does not carry it.
  */
 export const configZ = z.object({
   // Positive matches the aether schema, so the form rejects a timeout the worker would
