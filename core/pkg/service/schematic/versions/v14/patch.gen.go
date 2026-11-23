@@ -5608,8 +5608,6 @@ func (snc *SymbolNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&snc.StalenessConfig.StalenessTimeout, c.Next(), func(def *SymbolNodeConfig) {
 			snc.StalenessConfig.StalenessTimeout = def.StalenessConfig.StalenessTimeout
 		})
-	case "staleness_color":
-		return patch.OptionalValue(&snc.StalenessConfig.StalenessColor, c.Next())
 	case "spec":
 		if c = c.Next(); c.Done() {
 			return patch.Value(&snc.Spec, c)
