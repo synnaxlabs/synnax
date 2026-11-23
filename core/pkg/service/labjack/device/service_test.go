@@ -190,6 +190,18 @@ var _ = Describe("Service", func() {
 			)),
 		)
 
+		It("Should refuse to replace a device of another model", func(ctx SpecContext) {
+			d := create(ctx)
+			replaced := d
+			replaced.Model = device.ModelT4
+			replaced.Ports = device.Ports{Variant: device.T4Ports{}}
+			Expect(svc.NewWriter(tx).Create(ctx, &replaced)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("model: cannot change from t7 to t4")),
+			))
+			Expect(retrieve(ctx, d.Key).Model).To(Equal(device.ModelT7))
+		})
+
 		It("Should keep a key the caller sets", func(ctx SpecContext) {
 			key := uuid.New()
 			d := device.Device{
