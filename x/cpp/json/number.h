@@ -78,4 +78,10 @@ public:
 /// @returns VALIDATION when text is not a decimal number, or is past the range of a
 /// double.
 std::pair<double, errors::Error> parse_float64(std::string_view text);
+
+/// @brief appends JSON text to out: v as a JSON number in the shortest form that reads
+/// back as v. It is plain decimal for 0 and when 1e-6 <= |v| < 1e21, and otherwise has
+/// an exponent with no padding, such as 1e-7 or 1e+21.
+/// @returns VALIDATION, appending nothing, when v is NaN or infinite.
+[[nodiscard]] errors::Error append_float(double v, std::string &out);
 }
