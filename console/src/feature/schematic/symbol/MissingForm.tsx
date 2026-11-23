@@ -9,7 +9,7 @@
 
 import "@/feature/schematic/symbol/MissingForm.css";
 
-import { type group, type schematic } from "@synnaxlabs/client";
+import type { group, schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";

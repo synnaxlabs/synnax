@@ -55,7 +55,7 @@ describe("Ranger.HaulPreview", () => {
 
   it("should fill the tile with the color of the range", () => {
     const { container } = render(
-      <Ranger.HaulPreview range={createRange({ color: "#00ff00" })} />,
+      <Ranger.HaulPreview range={createRange({})} color="#00ff00" />,
     );
     const tile = container.querySelector<HTMLElement>(".lyra-haul-preview__tile");
     expect(tile?.style.background).toBe("rgb(0, 255, 0)");

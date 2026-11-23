@@ -257,9 +257,11 @@ TEST(CreateRangeTest, NextParsesColor) {
         client->ranges.retrieve(ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s))))
     );
     ASSERT_TRUE(r.color.has_value());
-    EXPECT_EQ(r.color.value().r, 0xdf);
-    EXPECT_EQ(r.color.value().g, 0x6d);
-    EXPECT_EQ(r.color.value().b, 0x38);
+    const auto *fixed = std::get_if<synnax::color::FixedRef>(&r.color.value());
+    ASSERT_NE(fixed, nullptr);
+    EXPECT_EQ(fixed->value.r, 0xdf);
+    EXPECT_EQ(fixed->value.g, 0x6d);
+    EXPECT_EQ(fixed->value.b, 0x38);
 }
 
 TEST(CreateRangeTest, NextCreatesRangeUnderParent) {

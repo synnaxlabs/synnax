@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 import sys
 from pathlib import Path
 
@@ -69,6 +70,19 @@ class TestProcess:
         assert "--secure=false" in args
         assert "--state-file " in args
         assert "--disable-integrations ni" in args
+
+    def test_config(self, binary: Path, tmp_path: Path) -> None:
+        """Should pass a config file that names a secrets folder of the Driver's own,
+        and remove the folder on stop."""
+        log_path = tmp_path / "driver.log"
+        process = start(binary, log_path)
+        config = process._state / "config.json"
+        secrets = Path(json.loads(config.read_text())["secrets_dir"])
+        assert secrets.is_dir()
+        assert secrets.parent == process._state
+        process.stop()
+        assert f"--config {config}" in log_path.read_text()
+        assert not secrets.exists()
 
     def test_stop(self, binary: Path, tmp_path: Path) -> None:
         """Should ask the Driver to stop with a STOP line on stdin."""

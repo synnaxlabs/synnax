@@ -86,15 +86,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	router.BindTo(app)
 	DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 	var login apiauth.LoginResponse
-	Expect(post("/api/v1/auth/login", rootCreds, &login)).To(Succeed())
+	Expect(post("", "/api/v1/auth/login", rootCreds, &login)).To(Succeed())
 	rootToken = login.Token
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// post sends req to path over HTTP as the root user and decodes the response into res
-// unless res is nil. It returns the error that the response holds.
-func post(path string, req, res any) error {
+// post sends req to path over HTTP with the session token and decodes the response into
+// res unless res is nil. It returns the error that the response holds.
+func post(token, path string, req, res any) error {
 	GinkgoHelper()
 	httpReq := httptest.NewRequest(
 		http.MethodPost,
@@ -103,7 +103,7 @@ func post(path string, req, res any) error {
 	)
 	httpReq.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 	httpReq.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
-	httpReq.Header.Set(fiber.HeaderAuthorization, "Bearer "+rootToken)
+	httpReq.Header.Set(fiber.HeaderAuthorization, "Bearer "+token)
 	httpRes := send(httpReq)
 	defer func() { Expect(httpRes.Body.Close()).To(Succeed()) }()
 	body := MustSucceed(io.ReadAll(httpRes.Body))

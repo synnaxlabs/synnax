@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -23,6 +24,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
+	xcolor "github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -257,6 +260,57 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Rows).To(Equal(original.Rows))
 				Expect(res.Columns).To(Equal(original.Columns))
 			},
+		)
+
+		DescribeTable(
+			"Should keep a cell's named color only when the Core holds it",
+			func(ctx SpecContext, held bool) {
+				named := color.Named{
+					Name:  "Custom",
+					Light: MustSucceed(xcolor.Parse("#123456")),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &named)
+				})).To(Succeed())
+				ref := &color.Ref{Variant: color.NamedRef{Key: named.Key}}
+				cfg := defaults.Fill(table.CellConfig{
+					Variant: table.TextCellConfig{FillColor: ref},
+				})
+				original := table.Table{
+					Project: &proj.Key,
+					Name:    "colored",
+					Rows:    []table.Row{row("r0", 30, cfg, "c1")},
+					Columns: []table.Column{{Key: "c0", Size: 80}},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &original)
+				})).To(Succeed())
+				env := MustSucceed(svc.Export(ctx, db, table.ResourceID(original.Key)))
+				if !held {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return colorSvc.NewWriter(tx).Delete(ctx, named.Key)
+					})).To(Succeed())
+				}
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),
+						imex.ImportOptions{Parent: proj.ResourceID()})
+					return err
+				})).To(Succeed())
+				var res table.Table
+				Expect(svc.NewRetrieve().
+					Where(table.MatchKeys(MustSucceed(uuid.Parse(id.Key)))).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				fill := asText(configOf(res, "c1")).FillColor
+				if held {
+					Expect(fill).To(Equal(ref))
+				} else {
+					Expect(fill).To(BeNil())
+				}
+			},
+			Entry("held", true),
+			Entry("missing", false),
 		)
 	})
 })

@@ -13,6 +13,7 @@ import {
   type device,
   DisconnectedError,
   type rack,
+  status,
   type Synnax,
   task,
 } from "@synnaxlabs/client";
@@ -23,7 +24,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
 import { deep, narrow, primitive } from "@synnaxlabs/x";
 import { createContext, type FC, useContext, useEffect, useRef, useState } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
@@ -107,6 +108,8 @@ const copyConfig = <T,>(config: T): T => {
   return copy;
 };
 
+const STILL_RUNS = "The task still runs its last deployed config.";
+
 export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
   Form: FC<{}>;
@@ -178,16 +181,27 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
 
     const deployChecked = useRef(false);
     const [configuring, setConfiguring] = useState(false);
+    const [failure, setFailure] = useState<Controls.DeployFailure>();
     // A Stop while a start configures cancels the start.
     const startCancelled = useRef(false);
 
     const handleDeploy = async () => {
       startCancelled.current = false;
+      setFailure(undefined);
       setConfiguring(true);
       try {
         await deploy();
       } catch (e) {
-        handleError(e, "Failed to start task");
+        const { name, status: current } = form.value();
+        const running = current?.details.running === true;
+        const heading = {
+          name,
+          message: running ? "Failed to deploy changes" : "Failed to start task",
+        };
+        handleError(e, heading);
+        const failed = status.fromException(e, heading);
+        if (running) failed.description = `${STILL_RUNS} ${failed.description}`;
+        setFailure({ status: failed, taskStatusTime: current?.time });
       }
       setConfiguring(false);
     };
@@ -283,6 +297,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
             {showControls && (
               <Controls.Controls
                 configuring={configuring}
+                failure={failure}
                 onDeploy={() => void handleDeploy()}
                 onStop={handleStop}
               />

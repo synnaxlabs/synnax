@@ -369,7 +369,8 @@ var _ = Describe("Writer", func() {
 						`{"key":"b","config":{"variant":"cap"}}],"edges":[`+
 						`{"key":"e1","source":{"node":"a","param":"o"},`+
 						`"target":{"node":"b","param":"i"},`+
-						`"config":{"variant":"pipe","stroke_color":"#ff0000"}}]}`,
+						`"config":{"variant":"pipe",`+
+						`"stroke_color":{"type":"fixed","value":"#ff0000"}}}]}`,
 				), &s)).To(Succeed())
 				s.Project = &proj.Key
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
