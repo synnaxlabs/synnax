@@ -248,6 +248,75 @@ var _ = Describe("Service", func() {
 			),
 		)
 
+		DescribeTable("Should reject a malformed header or query parameter",
+			func(
+				ctx SpecContext,
+				change func(*server.Server, secret.Key),
+				path string,
+			) {
+				s := newServer()
+				change(&s, createSecret(ctx))
+				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(path)),
+				))
+			},
+			Entry("an API key header name with a space", func(
+				s *server.Server,
+				key secret.Key,
+			) {
+				s.Auth = server.Auth{Variant: server.APIKeyAuth{
+					Key:    key,
+					SendAs: server.SendAsHeader,
+					Name:   "X Key",
+				}}
+			}, "auth.name"),
+			Entry("a health check header name with a colon", func(
+				s *server.Server,
+				_ secret.Key,
+			) {
+				s.HealthCheck.Headers = []http.Header{{Name: "Accept:", Value: "json"}}
+			}, "health_check.headers.0.name"),
+			Entry("a health check header value with a line break", func(
+				s *server.Server,
+				_ secret.Key,
+			) {
+				s.HealthCheck.Headers = []http.Header{{Name: "Accept", Value: "a\r\nb"}}
+			}, "health_check.headers.0.value"),
+			Entry("a health check query parameter with no name", func(
+				s *server.Server,
+				_ secret.Key,
+			) {
+				s.HealthCheck.QueryParams = []http.QueryParam{{Value: "1"}}
+			}, "health_check.query_params.0.parameter"),
+			Entry("a read query parameter with no name", func(
+				s *server.Server,
+				_ secret.Key,
+			) {
+				s.Reads = []server.Read{read("/now", "/t", http.QueryParam{Value: "1"})}
+			}, "reads.0.request.query.0.parameter"),
+			Entry("a write query parameter with no name", func(
+				s *server.Server,
+				_ secret.Key,
+			) {
+				s.Writes = []server.Write{
+					write("/valve", 3, http.QueryParam{Value: "1"}),
+				}
+			}, "writes.0.request.query.0.parameter"),
+		)
+
+		It("Should accept an API key sent as a query parameter of any name", func(
+			ctx SpecContext,
+		) {
+			s := newServer()
+			s.Auth = server.Auth{Variant: server.APIKeyAuth{
+				Key:    createSecret(ctx),
+				SendAs: server.SendAsQueryParam,
+				Name:   "api[key]",
+			}}
+			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+		})
+
 		It("Should normalize the paths and queries of bindings", func(ctx SpecContext) {
 			s := newServer()
 			s.Reads = []server.Read{read(

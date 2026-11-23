@@ -152,7 +152,7 @@ type Server = versions.Server
 
 var validatePattern0 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f.]*:[0-9A-Fa-f:.]*)$")
 
-var validatePattern1 = regexp.MustCompile("^$|^/")
+var validatePattern1 = regexp.MustCompile("^$|^/[^?#[:space:]]*$")
 
 // Where is a filter that selects HTTP servers.
 type Where struct {
@@ -214,7 +214,7 @@ func (i Identity) Validate() error {
 	if i.Port != nil {
 		v.GreaterThanEq("port", *i.Port, 1)
 	}
-	v.Ternary("base_path", !validatePattern1.MatchString(string(i.BasePath)), "Base path must be empty or start with /")
+	v.Ternary("base_path", !validatePattern1.MatchString(string(i.BasePath)), "Base path must be empty or start with /, with no query, fragment, or whitespace")
 	v.GreaterThanEq("timeout", i.Timeout, 10000000)
 	v.LessThanEq("timeout", i.Timeout, 9007199254740991)
 	v.GreaterThanEq("max_concurrent_requests", i.MaxConcurrentRequests, 1)

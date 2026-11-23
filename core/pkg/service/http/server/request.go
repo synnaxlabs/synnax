@@ -13,6 +13,7 @@ import (
 	"cmp"
 	"fmt"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -55,12 +56,58 @@ func normalize(s *Server) {
 	}
 }
 
+// tokenPattern matches an HTTP field name, which RFC 9110 defines as a token.
+var tokenPattern = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+
+// checkFields refuses an API key header name or a health check header name that is not
+// a token, a header value that holds a line break or NUL, and an empty query parameter
+// name.
+func checkFields(s Server, v *validate.Validator) {
+	if a, ok := s.Auth.Variant.(APIKeyAuth); ok && a.SendAs == SendAsHeader {
+		v.Ternary(
+			"auth.name",
+			!tokenPattern.MatchString(a.Name),
+			"must be a header name",
+		)
+	}
+	for i, h := range s.HealthCheck.Headers {
+		path := fmt.Sprintf("health_check.headers.%d", i)
+		v.Ternary(
+			path+".name",
+			!tokenPattern.MatchString(h.Name),
+			"must be a header name",
+		)
+		v.Ternary(
+			path+".value",
+			strings.ContainsAny(h.Value, "\r\n\x00"),
+			"must not hold a line break or NUL",
+		)
+	}
+	for i, q := range s.HealthCheck.QueryParams {
+		path := fmt.Sprintf("health_check.query_params.%d.parameter", i)
+		v.Ternary(path, q.Parameter == "", "required")
+	}
+	for i, r := range s.Reads {
+		for j, q := range r.Request.Query {
+			path := fmt.Sprintf("reads.%d.request.query.%d.parameter", i, j)
+			v.Ternary(path, q.Parameter == "", "required")
+		}
+	}
+	for i, w := range s.Writes {
+		for j, q := range w.Request.Query {
+			path := fmt.Sprintf("writes.%d.request.query.%d.parameter", i, j)
+			v.Ternary(path, q.Parameter == "", "required")
+		}
+	}
+}
+
 type requestKey struct {
 	method, path, query string
 }
 
-// prepare normalizes and validates s. It refuses a read of the same request, pointer,
-// and index as another read, and a write of the same request as another write.
+// prepare normalizes and validates s, and runs checkFields. It refuses a read of the
+// same request, pointer, and index as another read, and a write of the same request as
+// another write.
 func prepare(s *Server) error {
 	normalize(s)
 	if err := s.Validate(); err != nil {
@@ -72,6 +119,7 @@ func prepare(s *Server) error {
 		index   channel.Key
 	}
 	v := validate.New("Server")
+	checkFields(*s, v)
 	reads := make(set.Set[readKey], len(s.Reads))
 	for i, r := range s.Reads {
 		query := make(url.Values, len(r.Request.Query))

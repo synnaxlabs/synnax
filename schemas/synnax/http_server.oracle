@@ -365,7 +365,7 @@ Identity struct {
     }
     base_path               string = "" {
         @doc value   "is the path that prefixes the path of every request."
-        @go validate pattern "^$|^/" "Base path must be empty or start with /"
+        @go validate pattern "^$|^/[^?#[:space:]]*$" "Base path must be empty or start with /, with no query, fragment, or whitespace"
     }
     timeout                 telem.TimeSpan = 1000000000 {
         @doc value    "is the timeout of each request."
