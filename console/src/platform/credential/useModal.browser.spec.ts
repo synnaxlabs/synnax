@@ -264,4 +264,30 @@ describe("useModal", () => {
     await screen.findByText("No API keys");
     await waitFor(() => expect(screen.queryByText("Password")).toBeNull());
   });
+
+  it("should hide the username from a viewer who may not update the user", async () => {
+    const self = await createTestClientWithRole(createTestClient(), "Viewer");
+    await self.auth.sessions.retrieve();
+    const { subject } = self.auth;
+    if (subject == null) throw new Error("not logged in");
+    await openModal(Credential.useModal, { client: self, params: { subject } });
+    await screen.findByPlaceholderText("New password");
+    expect(screen.queryByPlaceholderText("Username")).toBeNull();
+  });
+
+  it("should show the username to a viewer who may update the user", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const { user: subject } = await createTestUser(client, {
+      role,
+      username: uniqueName("user"),
+    });
+    const id = user.resourceID(subject.key);
+    const viewer = await createTestClientWithGrants(client, {
+      retrieve: [id],
+      update: [id],
+    });
+    await openModal(Credential.useModal, { client: viewer, params: { subject: id } });
+    expect(await screen.findByPlaceholderText("Username")).toBeTruthy();
+  });
 });

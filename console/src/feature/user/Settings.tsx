@@ -23,15 +23,15 @@ import { Settings as PlatformSettings } from "@/platform/settings";
 import { Session } from "@/session";
 
 const Password = ({ userKey }: { userKey: user.Key }): ReactElement => {
-  const [changed, setChanged] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   return (
     <Page.Card title="Password">
       <PlatformSettings.Body>
-        <Credential.Password.SetForm
+        <Credential.Password.Form
           subject={user.resourceID(userKey)}
-          onMessage={(message) => setChanged(message != null)}
+          onMessage={setMessage}
         />
-        {changed && <Status.Summary variant="success" message="Changed password" />}
+        {message != null && <Status.Summary variant="success" message={message} />}
       </PlatformSettings.Body>
     </Page.Card>
   );

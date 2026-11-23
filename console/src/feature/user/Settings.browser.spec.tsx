@@ -112,7 +112,7 @@ describe("User.ProfileSettings", () => {
     await act(async () => {
       fireEvent.click(findButton("Set password"));
     });
-    expect(await screen.findByText("Changed password")).toBeTruthy();
+    expect(await screen.findByText("Successfully changed password")).toBeTruthy();
     await expect(
       createTestClientAs(username, next).auth.sessions.retrieve(),
     ).resolves.toBeDefined();

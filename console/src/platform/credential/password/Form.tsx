@@ -14,7 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Credential, User } from "@synnaxlabs/pluto";
+import { Access, Credential, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -121,8 +121,7 @@ const RenameForm = ({ password, onMessage }: RenameFormProps): ReactElement => {
   );
 };
 
-export interface SetFormProps {
-  /** The user whose password to set. */
+interface SetFormProps {
   subject: resource.ID;
   onMessage: MessageHandler;
 }
@@ -131,7 +130,7 @@ export interface SetFormProps {
  * Sets the subject's password. The logged-in user must give the current password to
  * change their own.
  */
-export const SetForm = ({ subject, onMessage }: SetFormProps): ReactElement => {
+const SetForm = ({ subject, onMessage }: SetFormProps): ReactElement => {
   const { data: currentKey } = User.useResultKey({});
   const own = currentKey === subject.key;
   const [password, setPassword] = useState("");
@@ -199,6 +198,8 @@ const Passwords = ({
   onMessage,
 }: PasswordsProps): ReactElement | null => {
   const passwords = Credential.Password.useResult({ subject });
+  // A rename needs update on the user, even for the user's own password.
+  const canRename = Access.useUpdateGranted(subject);
   if (passwords.variant === "error")
     return <Text.Text status="error">{passwords.status.message}</Text.Text>;
   if (passwords.data == null) return null;
@@ -206,7 +207,7 @@ const Passwords = ({
     return <CreateForm subject={subject} onCreate={onCreate} onMessage={onMessage} />;
   return (
     <>
-      <RenameForm password={passwords.data[0]} onMessage={onMessage} />
+      {canRename && <RenameForm password={passwords.data[0]} onMessage={onMessage} />}
       <SetForm subject={subject} onMessage={onMessage} />
     </>
   );
@@ -219,8 +220,8 @@ export interface FormProps {
 }
 
 /**
- * Changes the subject's username and password, or creates a password when the subject
- * has none.
+ * Creates a password for a subject that has none. Otherwise sets the password, and
+ * changes the username when the viewer may update the subject.
  */
 export const Form = ({ subject, onMessage }: FormProps): ReactElement => {
   const query = { subject };
