@@ -132,7 +132,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.getByText("0 elements")).toBeDefined();
     });
 
-    it("saves a region stroke picked from its swatch", async () => {
+    it("saves a region stroke picked from its paint", async () => {
       const createKey = uuid.create();
       const { picker, handle } = await openCreateModal(createKey);
       await loadSVG(picker);
@@ -143,10 +143,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       assertDefined(item);
       expect(within(item).queryAllByRole("textbox")).toHaveLength(0);
-      const swatches = item.querySelectorAll<HTMLElement>(".lyra-color-swatch");
-      expect(swatches).toHaveLength(2);
-      fireEvent.click(swatches[0]);
-      fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "ff0000" } });
+      fireEvent.click(within(item).getByLabelText("Stroke"));
+      fireEvent.click(await screen.findByText("Color"));
+      fireEvent.change(await screen.findByLabelText("Hex"), {
+        target: { value: "ff0000" },
+      });
       fireEvent.change(findNameInput(), {
         target: { value: uniqueName("colored_symbol") },
       });
@@ -157,6 +158,32 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         expect(created.data.looks.find((l) => l.part === part)?.stroke).toEqual({
           type: "color",
           value: { type: "fixed", value: color.construct("#ff0000") },
+        });
+      });
+    });
+
+    it("saves the node color as a region fill", async () => {
+      const createKey = uuid.create();
+      const { picker, handle } = await openCreateModal(createKey);
+      await loadSVG(picker);
+      fireEvent.click(getEditSectionHeaderButton("Colors"));
+      await screen.findByText("Region 1");
+      const item = handle.baseElement.querySelector<HTMLElement>(
+        ".console-schematic-region-list-item",
+      );
+      assertDefined(item);
+      fireEvent.click(within(item).getByLabelText("Fill"));
+      expect(findButton("State color").getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(screen.getByText("Node color"));
+      fireEvent.change(findNameInput(), {
+        target: { value: uniqueName("node_colored_symbol") },
+      });
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () => {
+        const created = await client.schematics.symbols.retrieve(createKey);
+        const part = created.data.parts[0].key;
+        expect(created.data.looks.find((l) => l.part === part)?.fill).toEqual({
+          type: "node",
         });
       });
     });
@@ -296,8 +323,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         ".console-schematic-region-list-item",
       );
       assertDefined(item);
-      fireEvent.click(item.querySelectorAll<HTMLElement>(".lyra-color-swatch")[0]);
-      fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "ff0000" } });
+      fireEvent.click(within(item).getByLabelText("Stroke"));
+      fireEvent.click(await screen.findByText("Color"));
+      fireEvent.change(await screen.findByLabelText("Hex"), {
+        target: { value: "ff0000" },
+      });
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);

@@ -225,3 +225,7 @@
         min-width: 80px;
     }
 }
+
+.console-schematic-paint-dialog {
+    padding: 1rem;
+}

@@ -13,8 +13,8 @@ import { id } from "@synnaxlabs/x";
 type Spec = schematic.symbol.Spec;
 type Look = schematic.symbol.Look;
 
-// STATE is the key of the one state that the editor edits.
-const STATE = "active";
+/** STATE is the key of the one state that the editor edits. */
+export const STATE = "active";
 
 /** Field is a field of a look that the editor sets. */
 export type Field = "fill" | "stroke" | "hidden" | "blink" | "motion";
