@@ -476,6 +476,20 @@ TEST(CallsTest, ReportsRefusedCallsOnce) {
     EXPECT_EQ(got[1].description, "outbox is full. Dropped 1 calls.");
 }
 
+/// @brief it should count and report each reason of a message on its own.
+TEST(CallsTest, ReportsEachReasonOnItsOwn) {
+    const auto reports = std::make_shared<Reports>();
+    Calls calls(recordingReporter(reports));
+    calls.refuse(CREATE_FAILURE_MSG, "outbox is full.");
+    calls.refuse(CREATE_FAILURE_MSG, "outbox is full.");
+    calls.refuse(CREATE_FAILURE_MSG, "The range name is empty.");
+    calls.report_refused();
+    const auto got = reports->snapshot();
+    ASSERT_EQ(got.size(), 2u);
+    EXPECT_EQ(got[0].description, "The range name is empty. Dropped 1 calls.");
+    EXPECT_EQ(got[1].description, "outbox is full. Dropped 2 calls.");
+}
+
 #ifndef _WIN32
 /// @brief it should create and end a range while the Core is unreachable, and the
 /// Core should hold the range with the times of the runs after it reconnects.

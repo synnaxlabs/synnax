@@ -46,13 +46,9 @@ class Calls {
     /// @brief held while a report runs, which can wait on the Core.
     std::mutex report_mu;
     Reporter reporter;
-    struct Refused {
-        size_t count = 0;
-        std::string reason;
-    };
     std::mutex refused_mu;
-    /// @brief the refused calls by the message that reports them.
-    std::map<std::string, Refused> refused;
+    /// @brief the number of dropped calls by their message and reason.
+    std::map<std::pair<std::string, std::string>, size_t> refused;
 
 public:
     explicit Calls(Reporter reporter): reporter(std::move(reporter)) {}
@@ -69,24 +65,22 @@ public:
     bool refuse(const std::string &message, const std::string &reason) {
         std::lock_guard lock(this->refused_mu);
         const bool first = this->refused.empty();
-        auto &r = this->refused[message];
-        r.count++;
-        r.reason = reason;
+        ++this->refused[{message, reason}];
         return first;
     }
 
     /// @brief reports the calls refused since the last call, if any. It can wait on
     /// the Core, so only the outbox thread calls it.
     void report_refused() {
-        std::map<std::string, Refused> reports;
+        std::map<std::pair<std::string, std::string>, size_t> reports;
         {
             std::lock_guard lock(this->refused_mu);
             std::swap(reports, this->refused);
         }
-        for (const auto &[message, r]: reports)
+        for (const auto &[key, count]: reports)
             this->report(
-                message,
-                r.reason + " Dropped " + std::to_string(r.count) + " calls."
+                key.first,
+                key.second + " Dropped " + std::to_string(count) + " calls."
             );
     }
 
