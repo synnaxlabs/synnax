@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Search } from "@/components/search";
@@ -19,16 +19,12 @@ const hit = (title: string) => ({
 });
 
 describe("Results", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it("should keep the latest results when an older query answers last", async () => {
-    class Observer {
-      observe(): void {}
-      unobserve(): void {}
-      disconnect(): void {}
-    }
-    vi.stubGlobal("IntersectionObserver", Observer);
-    vi.stubGlobal("ResizeObserver", Observer);
     const pending: ((titles: string[]) => void)[] = [];
     vi.stubGlobal(
       "fetch",
