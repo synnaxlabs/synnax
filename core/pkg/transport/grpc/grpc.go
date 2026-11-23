@@ -101,7 +101,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		apiauth.PasswordRetrieveRequest,
 		apiauth.PasswordRetrieveResponse,
 	]{}
-	t.AuthPasswordRename = noop.UnaryServer[apiauth.PasswordRenameRequest, struct{}]{}
+	t.AuthPasswordDispatch = noop.UnaryServer[
+		apiauth.PasswordDispatchRequest,
+		struct{},
+	]{}
 	t.AuthPasswordSet = noop.UnaryServer[
 		apiauth.PasswordSetRequest,
 		apiauth.PasswordSetResponse,

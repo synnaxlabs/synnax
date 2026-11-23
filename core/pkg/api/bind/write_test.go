@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	certtestutil "github.com/synnaxlabs/synnax/pkg/service/certificate/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -584,10 +583,10 @@ var _ = Describe("Write", func() {
 				changed := MustSucceed(svc.Password.Hash("changed"))
 				return rule{
 					write: func(ctx context.Context, tx gorp.Tx) error {
-						return svc.Password.NewWriter(tx).Apply(
+						return svc.Password.NewWriter(tx).SetHash(
 							ctx,
 							other.ResourceID(),
-							password.NewSetHashAction(changed),
+							changed,
 						)
 					},
 					needed: need{access.ActionUpdate, other.ResourceID()},

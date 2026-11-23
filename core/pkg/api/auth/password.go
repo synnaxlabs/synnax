@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -228,7 +229,7 @@ func (s *Service) SetPassword(
 		return PasswordSetResponse{}, err
 	}
 	if err := s.password.NewWriter(tx).
-		Apply(ctx, subject, password.NewSetHashAction(hash)); err != nil {
+		SetHash(ctx, subject, hash); err != nil {
 		return PasswordSetResponse{}, err
 	}
 	w := s.auth.NewWriter(tx)
@@ -248,9 +249,11 @@ func (s *Service) SetPassword(
 	}, nil
 }
 
-// Password is a password as the API returns it: its subject and username, without its
-// hash.
+// Password is a password as the API returns it: its key, subject, and username,
+// without its hash.
 type Password struct {
+	// Key is the unique identifier of the password.
+	Key password.Key `json:"key" msgpack:"key"`
 	// Subject is the user the password logs in as.
 	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Username is the name the password logs in with.
@@ -302,37 +305,28 @@ func (s *Service) RetrievePasswords(
 	return PasswordRetrieveResponse{Passwords: lo.FilterMap(
 		passwords,
 		func(p password.Password, _ int) (Password, bool) {
-			return Password{Subject: p.Subject, Username: p.Username},
+			return Password{Key: p.Key, Subject: p.Subject, Username: p.Username},
 				p.Subject == caller || allowed(p.Subject)
 		},
 	)}, nil
 }
 
-// PasswordRenameRequest changes the username of a password.
-type PasswordRenameRequest struct {
-	// Subject is the user whose password to rename. Empty means the caller.
-	Subject resource.ID `json:"subject" msgpack:"subject"`
-	// Username is the new username.
-	Username string `json:"username" msgpack:"username"`
-}
+// PasswordDispatchRequest carries actions to apply to one password, keyed by the
+// password's key.
+type PasswordDispatchRequest = actions.DispatchRequest[password.Key, password.Action]
 
-// RenamePassword changes the username of the caller's password, or of another user's
-// when the caller may update that user. Sessions stay open. It returns
-// [auth.ErrRepeatedUsername] when another user holds the username, a validation error
-// when the password method is off or the username is empty, and an error wrapping
-// query.ErrNotFound when the user has no password.
-func (s *Service) RenamePassword(
+// DispatchPassword applies the actions of req to a password in order. Sessions stay
+// open. It returns [auth.ErrRepeatedUsername] when another user holds the username
+// that the actions set, a validation error when the password method is off or an
+// action sets an empty username, and an error wrapping query.ErrNotFound when no
+// password has the key.
+func (s *Service) DispatchPassword(
 	ctx context.Context,
 	tx gorp.Tx,
-	req PasswordRenameRequest,
+	req PasswordDispatchRequest,
 ) (struct{}, error) {
 	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
 		return struct{}{}, err
 	}
-	if req.Username == "" {
-		return struct{}{}, errors.Wrap(validate.ErrValidation, "username: required")
-	}
-	subject := lo.Ternary(req.Subject.IsZero(), GetSubject(ctx), req.Subject)
-	return struct{}{}, s.password.NewWriter(tx).
-		Apply(ctx, subject, password.NewSetUsernameAction(req.Username))
+	return struct{}{}, s.password.NewWriter(tx).Apply(ctx, req.Key, req.Actions...)
 }

@@ -13,6 +13,8 @@ import { z } from "zod";
 
 import type { role } from "@/access/role";
 import { actions } from "@/actions";
+import type { auth } from "@/auth";
+import { password } from "@/auth/password";
 import type { batch } from "@/batch";
 import type { connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
@@ -87,6 +89,8 @@ const singleParamsZ = z.union([
 
 export interface ClientConfig {
   unary: UnaryClient;
+  /** Finds and renames user passwords. */
+  auth: auth.Client;
   cache: query.Cache;
   batch: batch.Client;
   connection: connection.Client;
@@ -178,6 +182,20 @@ export class Client extends query.Retriever<
     );
     this.store.set(res.users);
     return isMany ? res.users : res.users[0];
+  }
+
+  /**
+   * Changes the username of the user's password. Sessions stay open. A client that
+   * logged in with the password logs in again under the new username.
+   * @throws {NotFoundError} if the user has no password.
+   * @throws {AuthError} if another user holds the username.
+   * @throws {AccessDeniedError} if the caller cannot retrieve or update the user.
+   * @throws {ValidationError} if the username is empty.
+   */
+  async changeUsername(key: Key, username: string): Promise<void> {
+    const [p] = await this.cfg.auth.retrievePasswords({ subjects: [resourceID(key)] });
+    if (p == null) throw new NotFoundError(`User ${key} has no password`);
+    await this.cfg.auth.dispatchPassword(p.key, password.setUsername({ username }));
   }
 
   async rename(key: Key, name: string): Promise<void> {

@@ -12,6 +12,7 @@ from uuid import uuid4 as uuid
 import pytest
 
 import synnax as sy
+from tests.user import create_user
 from x import filter
 from x.testutil import untyped
 
@@ -74,6 +75,65 @@ class TestUserClient:
         assert len(repeated_user_list) == len(new_user_list)
         for i in range(len(repeated_user_list)):
             compare_users(repeated_user_list[i], new_user_list[i])
+
+    def test_change_username(
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
+    ) -> None:
+        """Should let an owner change another user's username, and let a client log
+        in with the new username.
+        """
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        user = create_user(admin, str(uuid()), "test", empty_role.key)
+        new_username = str(uuid())
+        admin.users.change_username(user.key, new_username)
+        client = sy.Synnax(host=host, port=port, username=new_username, password="test")
+        assert client.auth.subject == user.resource_id
+        client.close()
+        admin.close()
+
+    def test_change_own_username(
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
+    ) -> None:
+        """Should let a user change its own username, keep its session, and log in
+        again with the new username.
+        """
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        old_username = str(uuid())
+        user = create_user(admin, old_username, "test", empty_role.key)
+        client = sy.Synnax(host=host, port=port, username=old_username, password="test")
+        new_username = str(uuid())
+        client.users.change_username(user.key, new_username)
+        [p] = client.auth.retrieve_passwords()
+        assert p.username == new_username
+        session = client.auth.session
+        assert session is not None
+        client.auth.delete_sessions(session.key)
+        [p] = client.auth.retrieve_passwords()
+        assert p.username == new_username
+        assert client.auth.session is not None
+        assert client.auth.session.key != session.key
+        client.close()
+        admin.close()
+
+    def test_change_username_repeated(
+        self, client: sy.Synnax, empty_role: sy.Role
+    ) -> None:
+        """Should refuse a username another user holds."""
+        taken = str(uuid())
+        create_user(client, taken, "test", empty_role.key)
+        user = create_user(client, str(uuid()), "test", empty_role.key)
+        with pytest.raises(sy.AuthError):
+            client.users.change_username(user.key, taken)
+
+    def test_change_username_no_password(
+        self, client: sy.Synnax, new_user: sy.user.New
+    ) -> None:
+        """Should raise NotFoundError for a user with no password."""
+        user = client.users.create(user=new_user)
+        with pytest.raises(sy.NotFoundError):
+            client.users.change_username(user.key, str(uuid()))
 
     def test_change_name(self, client: sy.Synnax, new_user: sy.user.New) -> None:
         user = client.users.create(user=new_user)

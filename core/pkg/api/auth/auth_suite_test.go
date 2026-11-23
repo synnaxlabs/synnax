@@ -59,7 +59,7 @@ var (
 		apiauth.PasswordSetResponse,
 	]
 	createPassword    freighter.UnaryHandler[apiauth.PasswordCreateRequest, struct{}]
-	renamePassword    freighter.UnaryHandler[apiauth.PasswordRenameRequest, struct{}]
+	dispatchPassword  freighter.UnaryHandler[apiauth.PasswordDispatchRequest, struct{}]
 	retrievePasswords freighter.UnaryHandler[
 		apiauth.PasswordRetrieveRequest,
 		apiauth.PasswordRetrieveResponse,
@@ -166,7 +166,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		apiSvc.PrepareCreatePassword,
 		apiSvc.CreatePassword,
 	)
-	renamePassword = bind.Write(binder, apiSvc.RenamePassword)
+	dispatchPassword = bind.Write(binder, apiSvc.DispatchPassword)
 	retrievePasswords = bind.Read(binder, func(
 		ctx context.Context,
 		snap bind.Snapshot,

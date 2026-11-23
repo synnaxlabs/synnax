@@ -23,6 +23,7 @@ from freighter import (
     UnaryClient,
 )
 from synnax import resource
+from synnax.auth import password as password_
 from synnax.auth.types_gen import PasswordProof, Proof, Session, SessionKey
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.payload import User
@@ -121,29 +122,19 @@ class _PasswordCreateRequest(BaseModel):
     password: str
 
 
-class Password(BaseModel):
-    """A password as the API returns it: its subject and username, without its
-    hash.
-    """
-
-    subject: resource.ID
-    """The user the password logs in as."""
-    username: str
-    """The name the password logs in with."""
-
-
 class _PasswordRetrieveRequest(BaseModel):
     subjects: list[resource.ID] = []
     usernames: list[str] = []
 
 
 class _PasswordRetrieveResponse(BaseModel):
-    passwords: list[Password] = []
+    passwords: list[password_.Password] = []
 
 
-class _PasswordRenameRequest(BaseModel):
-    subject: resource.ID | None = None
-    username: str
+class _PasswordDispatchRequest(BaseModel):
+    key: password_.Key
+    dispatch_key: str = ""
+    actions: list[password_.Action]
 
 
 _METHODS_ENDPOINT = "/auth/methods"
@@ -156,7 +147,7 @@ _KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve"
 _KEY_DELETE_ENDPOINT = "/auth/key/delete"
 _PASSWORD_CREATE_ENDPOINT = "/auth/password/create"
 _PASSWORD_RETRIEVE_ENDPOINT = "/auth/password/retrieve"
-_PASSWORD_RENAME_ENDPOINT = "/auth/password/rename"
+_PASSWORD_DISPATCH_ENDPOINT = "/auth/password/dispatch"
 
 _AUTHORIZATION_HEADER = "Authorization"
 _RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
@@ -310,7 +301,7 @@ class Client:
         self,
         subjects: list[resource.ID] | None = None,
         usernames: list[str] | None = None,
-    ) -> list[Password]:
+    ) -> list[password_.Password]:
         """Lists the caller's password, or those of the given subjects or usernames
         when the caller may retrieve their subjects. Unknown subjects and usernames
         are ignored.
@@ -327,26 +318,32 @@ class Client:
         )
         return res.passwords
 
-    def rename_password(
-        self, username: str, subject: resource.ID | None = None
-    ) -> None:
-        """Changes the username of the subject's password, or of the caller's when
-        none is given. Sessions stay open.
+    def dispatch_password(self, key: password_.Key, *actions: password_.Action) -> None:
+        """Applies the actions in order to the password with the given key. Sessions
+        stay open. When the client logged in with the password, it logs in again under
+        the new username.
 
-        :raises AuthError: if another user holds the username.
-        :raises AccessDenied: if the caller may not update the subject.
-        :raises NotFoundError: if the subject has no password.
-        :raises ValidationError: if the username is empty.
+        :raises AuthError: if another user holds the username that the actions set.
+        :raises AccessDenied: if the caller may not update the password's user.
+        :raises NotFoundError: if no password has the key.
+        :raises ValidationError: if an action sets an empty username.
         """
         send_required(
             self.client,
-            _PASSWORD_RENAME_ENDPOINT,
-            _PasswordRenameRequest(subject=subject, username=username),
+            _PASSWORD_DISPATCH_ENDPOINT,
+            _PasswordDispatchRequest(key=key, actions=list(actions)),
             Empty,
         )
-        own = subject is None or subject == self.subject
-        if own and isinstance(self.proof, PasswordProof):
-            self.proof = self.proof.model_copy(update={"username": username})
+        if (
+            self.session is None
+            or self.session.credential != key
+            or not isinstance(self.proof, PasswordProof)
+        ):
+            return
+        for action in actions:
+            self.proof = self.proof.model_copy(
+                update={"username": action.set_username.username}
+            )
 
     def logout(self) -> None:
         """Ends the client's own session and forgets it. A later request logs in

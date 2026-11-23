@@ -461,6 +461,7 @@ export default class Synnax extends framer.Client {
     this.control = new control.Client({ unary, cache });
     this.users = new user.Client({
       unary,
+      auth: this.auth,
       cache,
       batch: this.batch,
       connection: this.conn,

@@ -94,8 +94,8 @@ type Transport struct {
 		auth.PasswordRetrieveRequest,
 		auth.PasswordRetrieveResponse,
 	]
-	// AuthPasswordRename changes the username of the caller's password or another's.
-	AuthPasswordRename freighter.UnaryServer[auth.PasswordRenameRequest, struct{}]
+	// AuthPasswordDispatch applies actions to a password.
+	AuthPasswordDispatch freighter.UnaryServer[auth.PasswordDispatchRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
 	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, auth.PasswordSetResponse]
 	// USER
@@ -432,7 +432,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthOIDCUnlink,
 		t.AuthPasswordCreate,
 		t.AuthPasswordRetrieve,
-		t.AuthPasswordRename,
+		t.AuthPasswordDispatch,
 		t.AuthPasswordSet,
 
 		// USER
@@ -704,7 +704,7 @@ func (l *Layer) BindTo(t Transport) {
 	) (auth.PasswordRetrieveResponse, error) {
 		return l.Auth.RetrievePasswords(ctx, snap, snap.Allowed, req)
 	}))
-	t.AuthPasswordRename.BindHandler(bind.Write(l.binder, l.Auth.RenamePassword))
+	t.AuthPasswordDispatch.BindHandler(bind.Write(l.binder, l.Auth.DispatchPassword))
 	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.Auth.PrepareSetPassword,

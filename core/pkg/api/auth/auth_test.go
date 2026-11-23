@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding"
@@ -250,11 +251,11 @@ var _ = Describe("Disabled methods", func() {
 		)).Error().To(MatchError(validate.ErrValidation))
 		MustSucceed(passwordSvc.Authenticate(ctx, passwordProof(own.Username, "old")))
 	})
-	It("Should refuse to rename a password", func(ctx SpecContext) {
-		Expect(disabled(ctx, auth.MethodPassword).RenamePassword(
+	It("Should refuse to dispatch to a password", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodPassword).DispatchPassword(
 			requestCtx(ctx),
 			nil,
-			apiauth.PasswordRenameRequest{Username: "off"},
+			apiauth.PasswordDispatchRequest{Key: uuid.New()},
 		)).Error().To(MatchError(validate.ErrValidation))
 	})
 	It("Should refuse to create a password", func(ctx SpecContext) {
@@ -656,6 +657,15 @@ var _ = Describe("Passwords", func() {
 			apiauth.SessionCreateRequest{Proof: passwordProof(username, pwd)},
 		)).Token
 	}
+	keyOf := func(ctx context.Context, subject resource.ID) password.Key {
+		GinkgoHelper()
+		var p password.Password
+		Expect(passwordSvc.NewRetrieve().
+			Where(password.MatchSubjects(subject)).
+			Entry(&p).
+			Exec(ctx, db)).To(Succeed())
+		return p.Key
+	}
 	BeforeEach(func(ctx SpecContext) {
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
 		bobToken = tokenFor(ctx, bob.Name, "p")
@@ -673,6 +683,7 @@ var _ = Describe("Passwords", func() {
 		It("Should return the caller's password by default", func(ctx SpecContext) {
 			Expect(retrieve(ctx, bobToken, apiauth.PasswordRetrieveRequest{})).
 				To(ConsistOf(apiauth.Password{
+					Key:      keyOf(ctx, bob.ResourceID()),
 					Subject:  bob.ResourceID(),
 					Username: bob.Name,
 				}))
@@ -707,22 +718,31 @@ var _ = Describe("Passwords", func() {
 			})).To(ConsistOf(HaveField("Subject", bob.ResourceID())))
 		})
 	})
-	Describe("RenamePassword", func() {
+	Describe("DispatchPassword", func() {
 		rename := func(
 			ctx context.Context,
 			token string,
-			req apiauth.PasswordRenameRequest,
-		) (struct{}, error) {
-			return renamePassword(authed(ctx, token), req)
+			key password.Key,
+			username string,
+		) error {
+			action := password.NewSetUsernameAction(
+				password.SetUsernamePayload{Username: username},
+			)
+			_, err := dispatchPassword(
+				authed(ctx, token),
+				apiauth.PasswordDispatchRequest{
+					Key:     key,
+					Actions: []password.Action{action},
+				},
+			)
+			return err
 		}
 		It("Should let the owner rename another user's password", func(
 			ctx SpecContext,
 		) {
 			username := "renamed-" + uuid.New().String()
-			Expect(rename(ctx, rootToken, apiauth.PasswordRenameRequest{
-				Subject:  bob.ResourceID(),
-				Username: username,
-			})).Error().ToNot(HaveOccurred())
+			Expect(rename(ctx, rootToken, keyOf(ctx, bob.ResourceID()), username)).
+				To(Succeed())
 			tokenFor(ctx, username, "p")
 			MustSucceed(authSvc.Authenticate(ctx, bobToken))
 			Expect(apiSvc.CreateSession(
@@ -732,47 +752,42 @@ var _ = Describe("Passwords", func() {
 		})
 		It("Should let a user rename its own password", func(ctx SpecContext) {
 			username := "self-" + uuid.New().String()
-			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{
-				Username: username,
-			})).Error().ToNot(HaveOccurred())
+			Expect(rename(ctx, bobToken, keyOf(ctx, bob.ResourceID()), username)).
+				To(Succeed())
 			tokenFor(ctx, username, "p")
 		})
 		It("Should keep the username when it does not change", func(ctx SpecContext) {
-			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{
-				Username: bob.Name,
-			})).Error().ToNot(HaveOccurred())
+			Expect(rename(ctx, bobToken, keyOf(ctx, bob.ResourceID()), bob.Name)).
+				To(Succeed())
 			tokenFor(ctx, bob.Name, "p")
 		})
 		It("Should refuse a username another user holds", func(ctx SpecContext) {
-			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{
-				Username: creds.Username,
-			})).Error().To(MatchError(auth.ErrRepeatedUsername))
+			Expect(rename(
+				ctx,
+				bobToken,
+				keyOf(ctx, bob.ResourceID()),
+				creds.Username,
+			)).To(MatchError(auth.ErrRepeatedUsername))
 		})
 		It("Should deny a user renaming another user's password", func(
 			ctx SpecContext,
 		) {
-			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{
-				Subject:  root.ResourceID(),
-				Username: "taken-" + uuid.New().String(),
-			})).Error().To(MatchError(access.ErrDenied))
+			Expect(rename(
+				ctx,
+				bobToken,
+				keyOf(ctx, root.ResourceID()),
+				"taken-"+uuid.New().String(),
+			)).To(MatchError(access.ErrDenied))
+			tokenFor(ctx, creds.Username, creds.Password)
 		})
-		It("Should report a user with no password as not found", func(
+		It("Should report a password that does not exist as not found", func(
 			ctx SpecContext,
 		) {
-			u := MustSucceed(rbactestutil.CreateUser(
-				ctx,
-				db,
-				rbacSvc,
-				userSvc,
-				user.User{Name: "nopass-" + uuid.New().String()},
-			))
-			Expect(rename(ctx, rootToken, apiauth.PasswordRenameRequest{
-				Subject:  u.ResourceID(),
-				Username: "nopass-" + uuid.New().String(),
-			})).Error().To(MatchError(query.ErrNotFound))
+			Expect(rename(ctx, rootToken, uuid.New(), "nopass-"+uuid.New().String())).
+				To(MatchError(query.ErrNotFound))
 		})
 		It("Should reject an empty username", func(ctx SpecContext) {
-			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{})).Error().
+			Expect(rename(ctx, bobToken, keyOf(ctx, bob.ResourceID()), "")).
 				To(MatchError(validate.ErrValidation))
 		})
 	})

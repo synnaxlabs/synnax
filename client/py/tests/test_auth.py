@@ -16,7 +16,6 @@ import freighter
 import synnax as sy
 from freighter import Context, Empty, Next
 from freighter.mock import MockUnaryClient
-from synnax.auth import Password
 from synnax.auth.client import _SessionCreateResponse
 from synnax.exceptions import create_registry
 from tests.proxy import Proxy
@@ -376,9 +375,8 @@ class TestPasswords:
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test", empty_role.key)
         client = sy.Synnax(host=host, port=port, username=new_username, password="test")
-        assert client.auth.retrieve_passwords() == [
-            Password(subject=user.resource_id, username=new_username)
-        ]
+        [p] = client.auth.retrieve_passwords()
+        assert (p.subject, p.username) == (user.resource_id, new_username)
         client.close()
         admin.close()
 
@@ -391,7 +389,9 @@ class TestPasswords:
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test", empty_role.key)
         res = admin.auth.retrieve_passwords(usernames=[new_username, str(uuid4())])
-        assert res == [Password(subject=user.resource_id, username=new_username)]
+        assert [(p.subject, p.username) for p in res] == [
+            (user.resource_id, new_username)
+        ]
         admin.close()
 
     def test_retrieve_by_subject(
@@ -403,59 +403,7 @@ class TestPasswords:
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test", empty_role.key)
         res = admin.auth.retrieve_passwords(subjects=[user.resource_id])
-        assert res == [Password(subject=user.resource_id, username=new_username)]
-        admin.close()
-
-    def test_rename(
-        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
-    ) -> None:
-        """Should let an owner rename another user's password, and let a client log
-        in with the new username.
-        """
-        host, port, username, password = login_info
-        admin = sy.Synnax(host=host, port=port, username=username, password=password)
-        user = create_user(admin, str(uuid4()), "test", empty_role.key)
-        new_username = str(uuid4())
-        admin.auth.rename_password(new_username, subject=user.resource_id)
-        client = sy.Synnax(host=host, port=port, username=new_username, password="test")
-        assert client.auth.subject == user.resource_id
-        client.close()
-        admin.close()
-
-    def test_rename_own(
-        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
-    ) -> None:
-        """Should let a user rename its own password, keep its session, and log in
-        again with the new username.
-        """
-        host, port, username, password = login_info
-        admin = sy.Synnax(host=host, port=port, username=username, password=password)
-        old_username = str(uuid4())
-        user = create_user(admin, old_username, "test", empty_role.key)
-        client = sy.Synnax(host=host, port=port, username=old_username, password="test")
-        new_username = str(uuid4())
-        client.auth.rename_password(new_username)
-        assert client.auth.retrieve_passwords() == [
-            Password(subject=user.resource_id, username=new_username)
+        assert [(p.subject, p.username) for p in res] == [
+            (user.resource_id, new_username)
         ]
-        session = client.auth.session
-        assert session is not None
-        client.auth.delete_sessions(session.key)
-        assert client.auth.retrieve_passwords() == [
-            Password(subject=user.resource_id, username=new_username)
-        ]
-        assert client.auth.session is not None
-        assert client.auth.session.key != session.key
-        client.close()
-        admin.close()
-
-    def test_rename_repeated_username(
-        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
-    ) -> None:
-        """Should refuse a username another user holds."""
-        host, port, username, password = login_info
-        admin = sy.Synnax(host=host, port=port, username=username, password=password)
-        user = create_user(admin, str(uuid4()), "test", empty_role.key)
-        with pytest.raises(sy.AuthError):
-            admin.auth.rename_password(username, subject=user.resource_id)
         admin.close()

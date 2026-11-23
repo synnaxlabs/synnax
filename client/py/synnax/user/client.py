@@ -12,11 +12,22 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
+from synnax import auth as auth_
 from synnax.access import role as role_
+from synnax.auth import password
+from synnax.exceptions import NotFoundError
 from synnax.transport import send_batch
 from synnax.user import actions_gen
 from synnax.user.payload import New, User
-from synnax.user.types_gen import Cursor, Key, Order, RetrieveRequest, Where, WhereInput
+from synnax.user.types_gen import (
+    Cursor,
+    Key,
+    Order,
+    RetrieveRequest,
+    Where,
+    WhereInput,
+    resource_id,
+)
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -48,8 +59,9 @@ class _DispatchRequest(BaseModel):
 class Client:
     client: UnaryClient
 
-    def __init__(self, transport: UnaryClient) -> None:
+    def __init__(self, transport: UnaryClient, auth: auth_.Client) -> None:
         self.client = transport
+        self._auth = auth
 
     @overload
     def create(self, *, name: str, role: role_.Key, key: Key | None = None) -> User: ...
@@ -88,6 +100,23 @@ class Client:
         if single:
             return res[0]
         return res
+
+    def change_username(self, key: Key, username: str) -> None:
+        """Changes the username of the user's password. Sessions stay open. A client
+        that logged in with the password logs in again under the new username.
+
+        :raises NotFoundError: if the user has no password.
+        :raises AuthError: if another user holds the username.
+        :raises AccessDenied: if the caller may not retrieve or update the user.
+        :raises ValidationError: if the username is empty.
+        """
+        passwords = self._auth.retrieve_passwords(subjects=[resource_id(key)])
+        if len(passwords) == 0:
+            raise NotFoundError(f"user {key} has no password")
+        self._auth.dispatch_password(
+            passwords[0].key,
+            password.set_username(password.SetUsernamePayload(username=username)),
+        )
 
     def change_name(self, key: Key, *, name: str) -> None:
         action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))

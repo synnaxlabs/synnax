@@ -11,7 +11,7 @@ import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, onTestFinished, test, vi } from "vitest";
 
 import { role } from "@/access/role";
-import { AccessDeniedError, NotFoundError, ValidationError } from "@/index";
+import { AccessDeniedError, AuthError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import {
   createEmptyRole,
@@ -198,6 +198,48 @@ describe("User", () => {
       release();
       await fetching;
       expect(cachedName()).toBe(name);
+    });
+  });
+  describe("Change Username", () => {
+    test("should let an owner change another user's username", async () => {
+      const { user: u, password } = await createTestUser(client, { role: empty.key });
+      const username = id.create();
+      await client.users.changeUsername(u.key, username);
+      const renamed = createTestClient({ username, password });
+      const [p] = await renamed.auth.retrievePasswords();
+      expect(p.subject).toEqual(user.resourceID(u.key));
+    });
+    test("should keep logging in after a user changes its own username", async () => {
+      const {
+        user: u,
+        username: old,
+        password,
+      } = await createTestUser(client, { role: empty.key });
+      const self = createTestClient({ username: old, password });
+      const username = id.create();
+      await self.users.changeUsername(u.key, username);
+      const [p] = await client.auth.retrievePasswords({
+        subjects: [user.resourceID(u.key)],
+      });
+      expect(p.username).toEqual(username);
+      const key = self.auth.session?.key;
+      if (key == null) throw new Error("no session");
+      await self.auth.deleteSessions(key);
+      await self.auth.retrieveSessions();
+      expect(self.auth.session?.key).not.toEqual(key);
+    });
+    test("should refuse a username another user holds", async () => {
+      const { username } = await createTestUser(client, { role: empty.key });
+      const { user: u } = await createTestUser(client, { role: empty.key });
+      await expect(client.users.changeUsername(u.key, username)).rejects.toThrow(
+        AuthError,
+      );
+    });
+    test("should refuse a user with no password", async () => {
+      const u = await createUser();
+      await expect(client.users.changeUsername(u.key, id.create())).rejects.toThrow(
+        NotFoundError,
+      );
     });
   });
   describe("Role", () => {

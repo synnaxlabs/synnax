@@ -18,7 +18,6 @@ import {
   InvalidCredentialsError,
   InvalidTokenError,
   MissingCredentialsError,
-  NotFoundError,
   SessionEndedError,
   ValidationError,
 } from "@/index";
@@ -1070,7 +1069,9 @@ describe("auth", () => {
       const { user: u, username, password } = await createTestUser(owner, { role });
       const client = createTestClient({ username, password });
       const passwords = await client.auth.retrievePasswords();
-      expect(passwords).toEqual([{ subject: user.resourceID(u.key), username }]);
+      expect(passwords).toEqual([
+        { key: expect.any(String), subject: user.resourceID(u.key), username },
+      ]);
     });
 
     it("should retrieve a password by its username", async () => {
@@ -1078,7 +1079,9 @@ describe("auth", () => {
       const { key: role } = await createEmptyRole(client);
       const { user: u, username } = await createTestUser(client, { role });
       const passwords = await client.auth.retrievePasswords({ usernames: [username] });
-      expect(passwords).toEqual([{ subject: user.resourceID(u.key), username }]);
+      expect(passwords).toEqual([
+        { key: expect.any(String), subject: user.resourceID(u.key), username },
+      ]);
     });
 
     it("should retrieve a password by its subject", async () => {
@@ -1087,7 +1090,7 @@ describe("auth", () => {
       const { user: u, username } = await createTestUser(client, { role });
       const subject = user.resourceID(u.key);
       const passwords = await client.auth.retrievePasswords({ subjects: [subject] });
-      expect(passwords).toEqual([{ subject, username }]);
+      expect(passwords).toEqual([{ key: expect.any(String), subject, username }]);
     });
 
     it("should ignore an unknown username", async () => {
@@ -1097,64 +1100,9 @@ describe("auth", () => {
       const passwords = await client.auth.retrievePasswords({
         usernames: [username, id.create()],
       });
-      expect(passwords).toEqual([{ subject: user.resourceID(u.key), username }]);
-    });
-  });
-
-  describe("renamePassword", () => {
-    it("should let an owner rename another user's password", async () => {
-      const owner = createTestClient();
-      const { key: role } = await createEmptyRole(owner);
-      const { user: u, password } = await createTestUser(owner, { role });
-      const username = id.create();
-      await owner.auth.renamePassword({ subject: user.resourceID(u.key), username });
-      const client = createLoginClient({ username, password });
-      await client.retrieveSessions();
-      expect(client.subject?.key).toEqual(u.key);
-    });
-
-    it("should let a user rename its own password and log in again", async () => {
-      const owner = createTestClient();
-      const { key: role } = await createEmptyRole(owner);
-      const {
-        user: u,
-        username: old,
-        password,
-      } = await createTestUser(owner, { role });
-      const client = createLoginClient({ username: old, password });
-      const username = id.create();
-      await client.renamePassword({ username });
-      const [p] = await owner.auth.retrievePasswords({
-        subjects: [user.resourceID(u.key)],
-      });
-      expect(p.username).toEqual(username);
-      const key = client.session?.key;
-      if (key == null) throw new Error("no session");
-      await client.deleteSessions(key);
-      await client.retrieveSessions();
-      expect(client.session?.key).not.toEqual(key);
-    });
-
-    it("should refuse a username another user holds", async () => {
-      const owner = createTestClient();
-      const { key: role } = await createEmptyRole(owner);
-      const { username } = await createTestUser(owner, { role });
-      const { user: u } = await createTestUser(owner, { role });
-      await expect(
-        owner.auth.renamePassword({ subject: user.resourceID(u.key), username }),
-      ).rejects.toThrow(AuthError);
-    });
-
-    it("should refuse a user with no password", async () => {
-      const owner = createTestClient();
-      const { key: role } = await createEmptyRole(owner);
-      const u = await owner.users.create({ name: "no password", role });
-      await expect(
-        owner.auth.renamePassword({
-          subject: user.resourceID(u.key),
-          username: id.create(),
-        }),
-      ).rejects.toThrow(NotFoundError);
+      expect(passwords).toEqual([
+        { key: expect.any(String), subject: user.resourceID(u.key), username },
+      ]);
     });
   });
 
