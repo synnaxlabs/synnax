@@ -29,7 +29,10 @@ type Writer struct {
 
 var ErrWriterClosed = resource.NewClosedError("cesium.writer")
 
-func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
+func wrapStreamWriter(
+	cfg WriterConfig,
+	internal confluence.Segment[WriterRequest, WriterResponse],
+) *Writer {
 	sCtx, cancel := signal.Isolated()
 	req := confluence.NewStream[WriterRequest](1)
 	res := confluence.NewStream[WriterResponse](1)
@@ -48,6 +51,10 @@ func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
 	}
 }
 
+// Write writes the given frame, returning whether the write was authorized. When Sync
+// is false, Write returns true and Commit reports a refused write. The writer sets the
+// alignment of each series in frame and can set its time range, possibly after Write
+// returns, so the caller must not use frame again. Pass a ShallowCopy to keep using it.
 func (w *Writer) Write(frame Frame) (authorized bool, err error) {
 	res, err := w.exec(
 		WriterRequest{Frame: frame, Command: WriterCommandWrite},

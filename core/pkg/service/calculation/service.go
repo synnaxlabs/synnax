@@ -77,7 +77,7 @@ type Service struct {
 // batchCheck checks one action batch by the calculation as the batch leaves it.
 type batchCheck[K comparable] struct {
 	id    batchID[K]
-	check StreamCheck
+	check streamCheck
 }
 
 // batchID names one action batch by the key of its entry and its number.
@@ -89,8 +89,8 @@ type batchID[K comparable] struct {
 // checksOf returns the check of each batch in attached, by its ID.
 func checksOf[K comparable](
 	attached []batchCheck[K],
-) map[batchID[K]]StreamCheck {
-	byBatch := make(map[batchID[K]]StreamCheck, len(attached))
+) map[batchID[K]]streamCheck {
+	byBatch := make(map[batchID[K]]streamCheck, len(attached))
 	for _, b := range attached {
 		byBatch[b.id] = b.check
 	}
@@ -187,7 +187,7 @@ func (s *Service) Written(
 	ctx context.Context,
 	snap gorp.Snapshot,
 ) (channel.Keys, error) {
-	return s.indexes.output.Held(ctx, snap)
+	return s.indexes.output.AllReferenced(ctx, snap)
 }
 
 // Channels returns the resource of each channel that c links, in the order of its
@@ -212,10 +212,10 @@ func (s *Service) Denied(
 	return s.denied(c, nil, allowed)
 }
 
-// Readable returns whether a subject reads c, given whether it can retrieve each
+// readable returns whether a subject reads c, given whether it can retrieve each
 // resource. It finds the channels of c once, so a check of many subjects reads them
 // once.
-func (s *Service) Readable(c Calculation) StreamCheck {
+func (s *Service) readable(c Calculation) streamCheck {
 	channels := s.Channels(c)
 	return func(allowed func(resource.ID) bool) ([]byte, bool) {
 		_, refused := s.denied(c, channels, allowed)
@@ -259,14 +259,14 @@ func refused(
 }
 
 // BatchChecks returns the lookup of the check of each action batch that the transaction
-// of c attached, by the key of its calculation and its number. Each check is Readable
+// of c attached, by the key of its calculation and its number. Each check is readable
 // of the calculation as its batch left it, so a later batch in the commit does not
 // change who receives an earlier one.
 func (s *Service) BatchChecks(
 	c gorp.Commit,
-) func(key Key, seq uint64) (StreamCheck, bool) {
+) func(key Key, seq uint64) (streamCheck, bool) {
 	byBatch := checksOf(s.checks.Of(c))
-	return func(key Key, seq uint64) (StreamCheck, bool) {
+	return func(key Key, seq uint64) (streamCheck, bool) {
 		check, ok := byBatch[batchID[Key]{key: key, seq: seq}]
 		return check, ok
 	}
@@ -276,8 +276,8 @@ func (s *Service) BatchChecks(
 // key. Only a subject that read the calculation before the delete passes it.
 func (s *Service) DeleteChecks(
 	c gorp.Commit,
-) func(key Key) (StreamCheck, bool) {
-	byKey := make(map[string]StreamCheck)
+) func(key Key) (streamCheck, bool) {
+	byKey := make(map[string]streamCheck)
 	for _, ch := range c.Changes {
 		if ch.Record.Table != tableName || ch.Kind != gorp.ChangeDelete {
 			continue
@@ -295,7 +295,7 @@ func (s *Service) DeleteChecks(
 			return nil, !denied
 		}
 	}
-	return func(key Key) (StreamCheck, bool) {
+	return func(key Key) (streamCheck, bool) {
 		check, ok := byKey[gorp.FormatKey(key)]
 		return check, ok
 	}

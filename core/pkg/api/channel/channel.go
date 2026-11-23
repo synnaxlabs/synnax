@@ -363,7 +363,13 @@ func (s *Service) retrieve(
 	snap bind.Snapshot,
 	req RetrieveRequest,
 ) ([]channel.Channel, error) {
-	calculated := req.Where != nil && holdsCalculated(*req.Where)
+	// The rewrite of the virtual line moves a top-level name under an and.
+	named := namesByName(req.Where)
+	var name filter.String
+	if named {
+		name = *req.Where.Name
+	}
+	namedLine := named && holdsCalculated(*req.Where)
 	if req.Where != nil && hasVirtual(*req.Where) {
 		where := withOldVirtual(*req.Where)
 		req.Where = &where
@@ -373,21 +379,19 @@ func (s *Service) retrieve(
 	if err != nil {
 		return nil, err
 	}
-	named := namesByName(req.Where)
-	holders := named && calculated
 	if !named {
 		q = q.Where(bind.Filter(snap, channel.Match))
-	} else if holders {
+	} else if namedLine {
 		// The calculated line must not show, by what it leaves out, which holders of a
 		// name are outputs.
-		if err = s.enforceHolders(ctx, snap, *req.Where.Name); err != nil {
+		if err = s.enforceHolders(ctx, snap, name); err != nil {
 			return nil, err
 		}
 	}
 	if err = q.Exec(ctx, snap.Snapshot); err != nil {
 		return nil, err
 	}
-	if named && !holders {
+	if named && !namedLine {
 		if err = snap.Enforce(channel.ResourceIDsFromChannels(res)...); err != nil {
 			return nil, err
 		}

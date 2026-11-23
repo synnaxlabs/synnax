@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { MAKE } from "@/feature/kafka/device/types";
+import { Device } from "@/feature/kafka/device";
 import {
   READ_SCHEMAS,
   READ_TYPE,
@@ -34,7 +34,7 @@ const getReadInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues: getReadInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const ReadSelectable: Selector.Selectable = {
@@ -60,7 +60,7 @@ const getWriteInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues: getWriteInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable: Selector.Selectable = {

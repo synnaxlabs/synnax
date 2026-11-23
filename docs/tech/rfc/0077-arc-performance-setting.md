@@ -74,9 +74,9 @@ running task: the drift check shows the redeploy button.
 
 ### 2.3 Console
 
-`TaskControls` (`console/src/feature/arc/editor/TaskControls.tsx`) gets a "Performance"
-dropdown next to the rack select, with a CPU-cost hint per level. It is disabled while
-no rack is bound.
+`TaskControls` (`console/src/feature/arc/editor/controls/TaskControls.tsx`) gets a
+"Performance" dropdown next to the rack select, with a CPU-cost hint per level. It is
+disabled while no rack is bound.
 
 ## 3 Implementation
 

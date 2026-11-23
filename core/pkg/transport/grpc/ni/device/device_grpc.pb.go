@@ -237,7 +237,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NIDeviceUpdateServiceClient interface {
-	Exec(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Exec(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 }
 
 type nIDeviceUpdateServiceClient struct {
@@ -248,9 +248,9 @@ func NewNIDeviceUpdateServiceClient(cc grpc.ClientConnInterface) NIDeviceUpdateS
 	return &nIDeviceUpdateServiceClient{cc}
 }
 
-func (c *nIDeviceUpdateServiceClient) Exec(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *nIDeviceUpdateServiceClient) Exec(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
+	out := new(UpdateResponse)
 	err := c.cc.Invoke(ctx, NIDeviceUpdateService_Exec_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -262,7 +262,7 @@ func (c *nIDeviceUpdateServiceClient) Exec(ctx context.Context, in *UpdateReques
 // All implementations should embed UnimplementedNIDeviceUpdateServiceServer
 // for forward compatibility.
 type NIDeviceUpdateServiceServer interface {
-	Exec(context.Context, *UpdateRequest) (*emptypb.Empty, error)
+	Exec(context.Context, *UpdateRequest) (*UpdateResponse, error)
 }
 
 // UnimplementedNIDeviceUpdateServiceServer should be embedded to have
@@ -272,7 +272,7 @@ type NIDeviceUpdateServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedNIDeviceUpdateServiceServer struct{}
 
-func (UnimplementedNIDeviceUpdateServiceServer) Exec(context.Context, *UpdateRequest) (*emptypb.Empty, error) {
+func (UnimplementedNIDeviceUpdateServiceServer) Exec(context.Context, *UpdateRequest) (*UpdateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
 }
 func (UnimplementedNIDeviceUpdateServiceServer) testEmbeddedByValue() {}

@@ -11,13 +11,8 @@ import { type ranger, sift, status, type Synnax, TimeSpan } from "@synnaxlabs/cl
 import { Flux, Status } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
-import { INTEGRATION } from "@/feature/sift/device/types";
+import { Device } from "@/feature/sift/device";
 import { KEY_PREFIX } from "@/feature/sift/range/types";
-import {
-  LIST_UPLOADS_COMMAND_TYPE,
-  SCAN_SCHEMAS,
-  SCAN_TYPE,
-} from "@/feature/sift/task/types";
 
 const LIST_TIMEOUT = TimeSpan.seconds(15);
 
@@ -31,18 +26,18 @@ const listResultZ = z.object({ uploads: status.keyZ.array() });
  */
 const list = async (client: Synnax, range: ranger.Key): Promise<status.Key[]> => {
   const [rack] = await client.racks.retrieve({
-    where: { embedded: { eq: true }, integrations: { any: [INTEGRATION] } },
+    where: { embedded: { eq: true }, integrations: { any: [Device.INTEGRATION] } },
     limit: 1,
   });
   if (rack == null) return [];
   const scanTask = await client.tasks.retrieve({
-    type: SCAN_TYPE,
+    type: Device.SCAN_TYPE,
     rack: rack.key,
     one: true,
-    schemas: SCAN_SCHEMAS,
+    schemas: Device.SCAN_SCHEMAS,
   });
   const res = await scanTask.executeCommandSync({
-    type: LIST_UPLOADS_COMMAND_TYPE,
+    type: Device.LIST_UPLOADS_COMMAND_TYPE,
     timeout: LIST_TIMEOUT,
     args: { range },
   });

@@ -47,14 +47,26 @@ import {
 
 const roles = new RoleClients(client);
 
-const renderToolbar = async (name = uniqueName("plot"), as?: Client) => ({
-  name,
-  ...(await renderLinePlot(Toolbar, {
-    linePlot: { name },
-    preloadedState: (key) => createPreloadedState(key),
-    as,
-  })),
-});
+const renderToolbar = async (linePlot: Partial<lineplot.New> = {}, as?: Client) => {
+  const name = linePlot.name ?? uniqueName("plot");
+  return {
+    name,
+    ...(await renderLinePlot(Toolbar, {
+      linePlot: { ...linePlot, name },
+      preloadedState: (key) => createPreloadedState(key),
+      as,
+    })),
+  };
+};
+
+const FIXED: lineplot.New["ranges"] = [
+  {
+    variant: "window",
+    window: staticWindow(
+      new TimeRange(TimeStamp.now().sub(TimeSpan.minutes(5)), TimeStamp.now()),
+    ),
+  },
+];
 
 describe("lineplot/toolbar/Toolbar", () => {
   it("switches tabs and records the active tab in the session store", async () => {
@@ -85,7 +97,7 @@ describe("lineplot/toolbar/Toolbar", () => {
   });
 
   it("hides the CSV download in relative time", async () => {
-    const { result } = await renderToolbar();
+    const { result } = await renderToolbar({ ranges: FIXED });
     await screen.findByText("Data");
     expect(getIconButtons(result.container, "csv")).toHaveLength(1);
     fireEvent.click(screen.getByText("Relative"));

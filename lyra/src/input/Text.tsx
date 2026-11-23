@@ -194,7 +194,11 @@ export const Text = ({
     }
     if (e.defaultPrevented) return;
     e.currentTarget.blur();
-    if (!Dialog.inTopModal(e.currentTarget)) e.stopPropagation();
+    // Escape in a field of a modal also closes the modal. Anywhere else the field takes
+    // it, so a modal around the field's dropdown stays open.
+    if (Dialog.inModal(e.currentTarget)) return;
+    e.stopPropagation();
+    e.preventDefault();
   };
 
   // An input's text is no scroll container a CSS scroll timeline can watch, so the
