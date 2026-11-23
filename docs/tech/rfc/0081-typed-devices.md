@@ -311,7 +311,8 @@ that dispatches on a union over the identity and configuration groups, so one re
 writes one group. Retrieve filters are the struct's `@filter` fields plus `search_term`,
 `include_status`, and `include_parent`. The generic `/device/*` routes are deleted. Two
 narrow writes serve OPC UA: `/opcua/server/pin` for the certificate pin (§4.1), and
-`/opcua/server/resolve`, which appends resolved `ns=` bindings and skips duplicates.
+`/opcua/server/resolve`, which appends resolved `ns=` bindings, skips duplicates, and
+rewrites the parked task node IDs.
 
 Clients expose one namespace per resource: `client.ni.devices`, `client.ni.chassis`,
 `client.labjack.devices`, `client.ethercat.masters`, `client.ethercat.slaves`,
@@ -384,7 +385,7 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    - An endpoint without a scheme gains `opc.tcp://`; another bad one is quarantined.
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
-   map. OPC UA parks `ns=` task node IDs with the bindings; one resolution fixes both.
+   map. OPC UA parks `ns=` task node IDs with the bindings for `/opcua/server/resolve`.
 5. Delete the legacy table and the map.
 
 Steps 1 to 3 are one migration, step 4 is one per integration, and step 5 runs last.
