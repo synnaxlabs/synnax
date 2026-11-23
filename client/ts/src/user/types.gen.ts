@@ -85,7 +85,7 @@ export const cursorZ = z.object({
   name: z.string().optional(),
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
-export interface New extends z.input<typeof userZ> {}
+export interface New extends Omit<z.input<typeof userZ>, "rootUser"> {}
 
 /** RetrieveResponse holds the users a RetrieveRequest selects. */
 export const retrieveResponseZ = z.object({

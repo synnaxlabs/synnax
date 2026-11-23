@@ -36,6 +36,7 @@ User struct {
             cannot be deleted.
         """
         @filter
+        @output
     }
     role      role.Key {
         @doc value         "is the role that grants the user its permissions."
