@@ -357,10 +357,7 @@ TEST(JSONEncoder, RejectsDefaultThatIsNotFinite) {
     v.default_ = std::numeric_limits<double>::infinity();
     const auto err = JSONEncoder::create(command({v})).second;
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    ASSERT_EQ(
-        err.data,
-        "message command: field v: default: Infinity is not a JSON number"
-    );
+    ASSERT_EQ(err.data, "message command: field v: default: must be finite");
 }
 
 /// @brief it should reject a NaN sample for a float field, in encode and in check.

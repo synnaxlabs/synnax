@@ -459,6 +459,7 @@ JSONEncoder::Default::create(const icd::JSONField &f) {
             if (!v.default_.has_value()) return x::errors::NIL;
             std::string text;
             if constexpr (std::is_same_v<F, icd::FloatJSONField>) {
+                if (!std::isfinite(v.default_->value)) return invalid("must be finite");
                 if (auto err = x::json::append_float(v.default_->value, text))
                     return err;
             } else if constexpr (
@@ -485,7 +486,7 @@ JSONEncoder::Default::create(const icd::JSONField &f) {
                 }
             } else if constexpr (std::is_same_v<F, icd::JSONJSONField>) {
                 if (!x::json::json::accept(v.default_.value()))
-                    return invalid("not valid JSON");
+                    return invalid("must be valid JSON");
                 text = v.default_.value();
             } else if constexpr (std::is_same_v<F, icd::UuidJSONField>) {
                 const auto *c = std::get_if<icd::ConstantUUIDDefault>(
@@ -498,8 +499,8 @@ JSONEncoder::Default::create(const icd::JSONField &f) {
                 text = '"' + c->value.to_string() + '"';
             } else {
                 static_assert(std::is_same_v<F, icd::BytesJSONField>);
-                auto [bytes, err] = x::base64::decode_strict(v.default_.value());
-                if (err) return err;
+                if (x::base64::decode_strict(v.default_.value()).second)
+                    return invalid("must be base64");
                 // Canonical base64 text needs no escapes.
                 text = '"' + v.default_.value() + '"';
             }
