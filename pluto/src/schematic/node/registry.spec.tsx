@@ -43,6 +43,31 @@ describe("Schematic.Node.REGISTRY", () => {
   });
 });
 
+describe("Schematic.Node.BUILT_INS", () => {
+  it("should give each symbol the states and commands that the Core lists", async () => {
+    const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
+    expect(Object.keys(Node.BUILT_INS).sort()).toEqual(
+      builtins.map((b) => b.name).sort(),
+    );
+    for (const { name, states, commands } of builtins) {
+      const spec = Node.BUILT_INS[name];
+      expect({ name, states: spec?.states, commands: spec?.commands }).toEqual({
+        name,
+        states,
+        commands,
+      });
+    }
+  });
+
+  it("should give each symbol a spec that the Core accepts", async () => {
+    const client = createTestClient();
+    const symbols = await client.schematics.symbols.create({
+      symbols: Object.entries(Node.BUILT_INS).map(([name, data]) => ({ name, data })),
+    });
+    await client.schematics.symbols.delete(symbols.map((s) => s.key));
+  });
+});
+
 describe("Schematic.Node.isConfig", () => {
   it("should accept a node config", () => {
     expect(Node.isConfig(Node.createConfig({ variant: "tank" }))).toBe(true);

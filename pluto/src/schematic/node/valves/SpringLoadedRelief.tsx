@@ -17,8 +17,8 @@ import svg from "@/schematic/node/valves/SpringLoadedRelief.svg?raw";
 
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
-  variant: "actuator",
+export const SYMBOL = Custom.createBuiltIn({
+  family: "valve",
   svg,
   handles: [
     { key: "1", position: { x: 0.021373, y: 0.690785 }, orientation: "left" },
@@ -41,7 +41,7 @@ export const SpringLoadedRelief = ({
     enabled={enabled}
   >
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

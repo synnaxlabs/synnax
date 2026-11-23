@@ -16,7 +16,7 @@ import svg from "@/schematic/node/fittings/Cap.svg?raw";
 
 export interface CapProps extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [{ key: "1", position: { x: 0.076923, y: 0.5 }, orientation: "left" }],
 });
@@ -30,7 +30,7 @@ export const Cap = ({
 }: CapProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("cap"), className)} {...rest}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

@@ -13,7 +13,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import svg from "@/schematic/node/flowmeters/General.svg?raw";
 import type { Props } from "@/schematic/node/flowmeters/props";
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.04, y: 0.5 }, orientation: "left" },
@@ -33,7 +33,7 @@ export const General = ({
 }: Props) => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("flowmeter-general"), className)}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

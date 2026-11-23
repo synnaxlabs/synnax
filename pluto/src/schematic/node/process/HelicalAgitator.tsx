@@ -17,8 +17,8 @@ import svg from "@/schematic/node/process/HelicalAgitator.svg?raw";
 
 export interface Props extends AgitatorProps {}
 
-const SPEC = Custom.createBuiltIn({
-  variant: "actuator",
+export const SYMBOL = Custom.createBuiltIn({
+  family: "pump",
   svg,
   handles: [{ key: "4", position: { x: 0.51, y: 0.02 }, orientation: "top" }],
 });
@@ -32,7 +32,7 @@ export const HelicalAgitator = ({
 }: Props): ReactElement => (
   <Toggle.Button {...rest} className={CSS.cls(CSS.B("agitator"))}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

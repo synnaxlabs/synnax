@@ -16,7 +16,7 @@ import svg from "@/schematic/node/fittings/ISOCap.svg?raw";
 
 export interface ISOCapProps extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [{ key: "1", position: { x: 0.5, y: 0.5 }, orientation: "left" }],
 });
@@ -30,7 +30,7 @@ export const ISOCap = ({
 }: ISOCapProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("cap"), className)} {...rest}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

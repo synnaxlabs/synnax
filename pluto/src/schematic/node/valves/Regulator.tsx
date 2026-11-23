@@ -16,7 +16,7 @@ import svg from "@/schematic/node/valves/Regulator.svg?raw";
 
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.034091, y: 0.6625 }, orientation: "left" },
@@ -34,7 +34,7 @@ export const Regulator = ({
 }: Props): ReactElement => (
   <Primitive.Div className={CSS.cls(className, CSS.B("regulator"))} {...rest}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

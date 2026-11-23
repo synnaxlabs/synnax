@@ -16,8 +16,8 @@ import svg from "@/schematic/node/fittings/Thruster.svg?raw";
 
 export interface ThrusterProps extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
-  variant: "actuator",
+export const SYMBOL = Custom.createBuiltIn({
+  family: "switch",
   svg,
   handles: [
     { key: "1", position: { x: 0.03125, y: 0.5 }, orientation: "left" },
@@ -25,6 +25,9 @@ const SPEC = Custom.createBuiltIn({
     { key: "3", position: { x: 0.253, y: 0.0476 }, orientation: "top" },
     { key: "4", position: { x: 0.253, y: 0.9524 }, orientation: "bottom" },
   ],
+  // The thruster draws as a static picture and takes no clicks.
+  looks: [],
+  interactions: [],
 });
 
 export const Thruster = ({
@@ -36,7 +39,7 @@ export const Thruster = ({
 }: ThrusterProps): ReactElement => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("thruster"), className)}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

@@ -17,8 +17,8 @@ import svg from "@/schematic/node/valves/Needle.svg?raw";
 
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
-  variant: "actuator",
+export const SYMBOL = Custom.createBuiltIn({
+  family: "valve",
   svg,
   handles: [
     { key: "1", position: { x: 0.022989, y: 0.511905 }, orientation: "left" },
@@ -41,7 +41,7 @@ export const Needle = ({
     enabled={enabled}
   >
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

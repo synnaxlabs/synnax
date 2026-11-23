@@ -16,7 +16,7 @@ import svg from "@/schematic/node/fittings/Vent.svg?raw";
 
 export interface VentProps extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.227273, y: 0.5 }, orientation: "left" },
@@ -33,7 +33,7 @@ export const Vent = ({
 }: VentProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("vent"), className)} {...rest}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

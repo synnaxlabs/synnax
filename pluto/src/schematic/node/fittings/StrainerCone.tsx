@@ -17,7 +17,7 @@ import svg from "@/schematic/node/fittings/StrainerCone.svg?raw";
 export interface StrainerConeProps
   extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.0606, y: 0.5 }, orientation: "left" },
@@ -34,7 +34,7 @@ export const StrainerCone = ({
 }: StrainerConeProps): ReactElement => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("strainer"), className)}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

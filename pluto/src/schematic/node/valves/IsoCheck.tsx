@@ -15,7 +15,7 @@ import svg from "@/schematic/node/valves/IsoCheck.svg?raw";
 
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.083333, y: 0.5 }, orientation: "left" },
@@ -32,7 +32,7 @@ export const IsoCheck = ({
 }: Props): ReactElement => (
   <Primitive.Div {...rest} orientation={orientation}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

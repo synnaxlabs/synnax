@@ -17,8 +17,8 @@ import svg from "@/schematic/node/process/RotaryMixer.svg?raw";
 
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
-  variant: "actuator",
+export const SYMBOL = Custom.createBuiltIn({
+  family: "pump",
   svg,
   handles: [
     { key: "1", position: { x: 0.02, y: 0.484849 }, orientation: "left" },
@@ -39,7 +39,7 @@ export const RotaryMixer = ({
     orientation={orientation}
   >
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}
