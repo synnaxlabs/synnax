@@ -542,25 +542,39 @@ const storedSource = ({
 
 /**
  * @returns stored without the channels of messages that other endpoints with the path
- * of ep read, which the device stores beside the channels of ep.
+ * of ep read, which the device stores beside the channels of ep. It also leaves out the
+ * channels an older Console stored under the path, when another endpoint binds one.
  */
 const storedFor = (
   stored: Record<string, Task.ReadChannelProps>,
   endpoints: ReadEndpoint[],
   ep: ICDEndpoint,
 ): Record<string, Task.ReadChannelProps> => {
+  const others = endpoints.filter(
+    ({ key, path }) => key !== ep.key && path === ep.path,
+  );
   const own = new Set(
     ep.messages.map(({ message }) => ICD.Stored.key(ep.path, message)),
   );
-  const others = new Set(
-    endpoints
-      .filter(({ key, path }) => key !== ep.key && path === ep.path)
+  const hidden = new Set(
+    others
       .flatMap(({ messages }) =>
         messages.map(({ message }) => ICD.Stored.key(ep.path, message)),
       )
       .filter((at) => !own.has(at)),
   );
-  return Object.fromEntries(Object.entries(stored).filter(([at]) => !others.has(at)));
+  const legacy = stored[ep.path];
+  if (legacy != null) {
+    const held = new Set([legacy.index, ...Object.values(legacy.channels)]);
+    held.delete(0);
+    const bound = others.some(({ messages }) =>
+      messages.some(({ bindings }) =>
+        bindings.some(({ channel }) => held.has(channel)),
+      ),
+    );
+    if (bound) hidden.add(ep.path);
+  }
+  return Object.fromEntries(Object.entries(stored).filter(([at]) => !hidden.has(at)));
 };
 
 /** @returns the channels that enabled endpoints bind. The Core skips disabled ones. */
