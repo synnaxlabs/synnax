@@ -13,9 +13,15 @@
     width: 110rem;
 }
 
-/* Lyra sets the dialog's opacity, so the wait hides it by visibility. */
+/*
+ * The wait keeps the dialog focusable but unseen. Its entrance animation sets its
+ * opacity, so the animation waits too and runs on the reveal. Lyra moves a modal as it
+ * grows, so the move is instant while unseen.
+ */
 .console-impact--unpainted {
-    visibility: hidden;
+    opacity: 0;
+    animation: none;
+    transition: none;
 }
 
 .console-impact__body {

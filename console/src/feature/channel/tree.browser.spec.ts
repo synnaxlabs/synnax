@@ -64,7 +64,6 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
     ...overrides,
   });
 
-// Clients cannot create internal channels, so this reads one the Core made.
 const createReadTask = async (ch: channelClient.Key) => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
   const device = await client.devices.create({
@@ -99,10 +98,40 @@ const expectGone = async (retrieve: () => Promise<unknown>) =>
     await expect(retrieve()).rejects.toSatisfy((e) => NotFoundError.matches(e));
   });
 
+// Clients cannot create internal channels, so this reads one the Core made.
 const retrieveInternalChannel = async (): Promise<channelClient.Channel> => {
   const [ch] = await client.channels.retrieve({ internal: true, limit: 1 });
   assertDefined(ch);
   return ch;
+};
+
+/**
+ * Creates a user whose role may retrieve and delete ch, and returns its client. A spec
+ * deletes the retrieve policy to make the next plan fail, and grants it again to retry.
+ */
+const createChannelUser = async (ch: channelClient.Channel) => {
+  const role = await createEmptyRole(client);
+  const grant = async (action: "retrieve" | "delete") =>
+    await client.access.policies.create({
+      name: uniqueName("impact"),
+      role: role.key,
+      objects: [channelClient.resourceID(ch.key)],
+      actions: [action],
+    });
+  await grant("delete");
+  const retrieve = await grant("retrieve");
+  const username = uniqueName("user");
+  await client.users.create({
+    username,
+    password: "test",
+    name: "test",
+    role: role.key,
+  });
+  return {
+    userClient: createTestClientAs(username, "test"),
+    retrieve,
+    grantRetrieve: async () => await grant("retrieve"),
+  };
 };
 
 // Hosts the channels under the host root, outside any group.
@@ -323,11 +352,12 @@ describe("channel/tree", () => {
       await renderChannelTree(hostChannels(ch));
       await openTreeRowContextMenu(ch.name);
       fireEvent.click(await screen.findByText("Delete"));
-      // A dialog that waits for its plan is hidden from the accessibility tree too.
+      // The opacity reads the reveal: vitest's toBeVisible counts an opacity of 0 as
+      // visible, as Playwright does.
       const dialog = screen.getByRole("dialog", { hidden: true });
-      expect(dialog).not.toBeVisible();
+      expect(getComputedStyle(dialog).opacity).toBe("0");
       await screen.findByRole("region", { name: "Blocks the delete" });
-      expect(dialog).toBeVisible();
+      await waitFor(() => expect(getComputedStyle(dialog).opacity).toBe("1"));
       expect(dialog).toHaveFocus();
     });
 
@@ -344,15 +374,15 @@ describe("channel/tree", () => {
       try {
         fireEvent.click(item);
         dialog = screen.getByRole("dialog", { hidden: true });
-        expect(dialog).not.toBeVisible();
+        expect(getComputedStyle(dialog).opacity).toBe("0");
         act(() => {
           vi.advanceTimersByTime(1000);
         });
       } finally {
         vi.useRealTimers();
       }
-      expect(dialog).toBeVisible();
       screen.getByText("Listing the records that this delete touches");
+      await waitFor(() => expect(getComputedStyle(dialog).opacity).toBe("1"));
       await screen.findByRole("region", { name: "Blocks the delete" });
       expect(
         screen.queryByText("Listing the records that this delete touches"),
@@ -465,26 +495,10 @@ describe("channel/tree", () => {
 
     it("plans again when the user presses Try again", async () => {
       const ch = await createChannel();
-      const role = await createEmptyRole(client);
-      const grant = async (action: "retrieve" | "delete") =>
-        await client.access.policies.create({
-          name: uniqueName("impact"),
-          role: role.key,
-          objects: [channelClient.resourceID(ch.key)],
-          actions: [action],
-        });
-      await grant("delete");
-      const retrieve = await grant("retrieve");
-      const username = uniqueName("user");
-      await client.users.create({
-        username,
-        password: "test",
-        name: "test",
-        role: role.key,
-      });
+      const { userClient, retrieve, grantRetrieve } = await createChannelUser(ch);
       assertDefined(Item.ContextMenu);
       await renderTreeContextMenu(Item.ContextMenu, {
-        client: createTestClientAs(username, "test"),
+        client: userClient,
         resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
       });
       const item = await screen.findByText("Delete");
@@ -494,7 +508,7 @@ describe("channel/tree", () => {
       const failed = "Failed to list the records that this delete touches";
       await screen.findByText(failed);
       expect(findLastButton("Delete")).toHaveAttribute("aria-disabled", "true");
-      await grant("retrieve");
+      await grantRetrieve();
       const retry = findLastButton("Try again");
       retry.focus();
       fireEvent.click(retry);
@@ -511,26 +525,10 @@ describe("channel/tree", () => {
     it("keeps the records listed when a plan after a pick fails", async () => {
       const ch = await createChannel();
       await createReadTask(ch.key);
-      const role = await createEmptyRole(client);
-      const grant = async (action: "retrieve" | "delete") =>
-        await client.access.policies.create({
-          name: uniqueName("impact"),
-          role: role.key,
-          objects: [channelClient.resourceID(ch.key)],
-          actions: [action],
-        });
-      await grant("delete");
-      const retrieve = await grant("retrieve");
-      const username = uniqueName("user");
-      await client.users.create({
-        username,
-        password: "test",
-        name: "test",
-        role: role.key,
-      });
+      const { userClient, retrieve, grantRetrieve } = await createChannelUser(ch);
       assertDefined(Item.ContextMenu);
       await renderTreeContextMenu(Item.ContextMenu, {
-        client: createTestClientAs(username, "test"),
+        client: userClient,
         resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
       });
       fireEvent.click(await screen.findByText("Delete"));
@@ -545,7 +543,7 @@ describe("channel/tree", () => {
       await screen.findByText(failed);
       expect(hidden).toHaveFocus();
       expect(findLastButton("Delete")).toHaveAttribute("aria-disabled", "true");
-      await grant("retrieve");
+      await grantRetrieve();
       fireEvent.click(findLastButton("Try again"));
       await waitFor(() => expect(screen.queryByText(failed)).toBeNull());
       await waitFor(() =>

@@ -35,10 +35,11 @@ import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
 import { compare, type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
+  createContext,
   type ReactElement,
+  use,
   useEffect,
   useId,
-  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -122,15 +123,16 @@ const UNANSWERED =
 const unanswered = (err: unknown): boolean =>
   Timeout.matches(err) || (err instanceof Unreachable && err.delivered);
 
-/** Returns why err failed step, as sentences, with the next step when one helps. */
+/**
+ * Returns why err failed step: our sentence with the next step when one helps, then the
+ * error's own text and cause chain, as Status.fromException gives them.
+ */
 const reasonOf = (err: unknown, step: Step): string => {
-  const text = (err instanceof Error ? err.message : String(err)).trim();
-  let sentence = text.charAt(0).toUpperCase() + text.slice(1);
-  if (!/[.!?]$/.test(sentence)) sentence += ".";
-  if (AccessDeniedError.matches(err)) return `${DENIED[step]} ${sentence}`;
-  if (!isConnectionError(err)) return sentence;
-  if (step === "apply" && unanswered(err)) return `${UNANSWERED} ${sentence}`;
-  return `${UNREACHABLE[step]} ${sentence}`;
+  const { description } = Status.fromException(err, "");
+  if (AccessDeniedError.matches(err)) return `${DENIED[step]} ${description}`;
+  if (!isConnectionError(err)) return description;
+  if (step === "apply" && unanswered(err)) return `${UNANSWERED} ${description}`;
+  return `${UNREACHABLE[step]} ${description}`;
 };
 
 /** A plan with the records it names, as the dialog shows it. */
@@ -214,6 +216,10 @@ const useSpinner = (loading: boolean): boolean => {
 /** The label of every check that deletes a blocking record too. */
 const PICK_LABEL = "Delete too";
 
+/** Applying is true while the one apply attempt is in flight. It locks every check. */
+const ApplyingContext = createContext(false);
+ApplyingContext.displayName = "Impact.ApplyingContext";
+
 interface CheckProps {
   label: string;
   /** nameID is the id of the text that names the record, read before the label. */
@@ -233,6 +239,7 @@ const Check = ({
   mark,
   onChange,
 }: CheckProps): ReactElement => {
+  const applying = use(ApplyingContext);
   const id = useId();
   // The check's name and description hold the label and mark, so a screen reader reads
   // each once, on the check.
@@ -254,6 +261,7 @@ const Check = ({
         aria-describedby={mark == null ? undefined : `${id}-mark`}
         value={picked}
         indeterminate={indeterminate}
+        disabled={applying}
         onChange={onChange}
       />
       <Text.Text
@@ -371,11 +379,11 @@ interface GroupProps {
   /** hidden is the number of the group's records that the user cannot see. */
   hidden: number;
   /** hiddenPick is the check for the hidden records of a pickable group. */
-  hiddenPick: HiddenPick;
+  hiddenPick: HiddenCheck;
 }
 
 /** The check for the hidden records that block the delete. */
-interface HiddenPick {
+interface HiddenCheck {
   picked: boolean;
   marked: boolean;
   onChange: (picked: boolean) => void;
@@ -542,6 +550,22 @@ const Entries = ({ view, plural, ...rest }: EntriesProps): ReactElement => {
   );
 };
 
+/** Returns the keys of the entries that keys added, through every pick in between. */
+const addedBy = (origins: Record<string, string[]>, keys: string[]): Set<string> => {
+  const out = new Set<string>();
+  const roots = new Set(keys);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const [key, causes] of Object.entries(origins))
+      if (!out.has(key) && causes.some((c) => roots.has(c) || out.has(c))) {
+        out.add(key);
+        grew = true;
+      }
+  }
+  return out;
+};
+
 const Dialog = ({
   change,
   names,
@@ -549,7 +573,14 @@ const Dialog = ({
 }: Modals.ContentProps<DialogParams, impact.Plan>): ReactElement => {
   const client = Synnax.use();
   const [picks, setPicks] = useState<Picks>({});
-  const [hidden, setHidden] = useState(false);
+  const [hiddenPicked, setHiddenPicked] = useState(false);
+  // origins maps each entry that a plan first listed after a pick to the keys of that
+  // pick, so unchecking a pick also drops the picks of the blockers that it added.
+  const [origins, setOrigins] = useState<Record<string, string[]>>({});
+  const lastPicked = useRef<string[] | null>(null);
+  // shownPlan is the plan that the user saw when the Core refused a stale token, which
+  // the next plan marks its new entries against.
+  const shownPlan = useRef<impact.Plan | null>(null);
   const [view, setView] = useState<View | null>(null);
   const [planning, setPlanning] = useState(true);
   /** planError is why the last plan failed. */
@@ -564,18 +595,26 @@ const Dialog = ({
   Modals.useBusy(applying);
   const listing = useSpinner(view == null && planError == null);
   // The dialog stays unseen until its first plan arrives or the spinner shows, so a
-  // plan inside the spinner delay opens the dialog at its final size. Once shown, it
-  // stays shown, also while a retry plans again.
+  // plan inside the spinner delay opens the dialog at its final size. Lyra places a
+  // modal by its size, so it shows two frames later, once that place settles. Once
+  // shown, it stays shown, also while a retry plans again.
+  const ready = view != null || planError != null || listing;
   const [painted, setPainted] = useState(false);
-  if (!painted && (view != null || planError != null || listing)) setPainted(true);
-  // A hidden dialog cannot take the focus it gets on open, so it takes it on its paint.
-  useLayoutEffect(() => {
-    if (painted) frameRef.current?.focus();
-  }, [painted]);
+  useEffect(() => {
+    if (!ready || painted) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setPainted(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [ready, painted]);
   const updating = useSpinner(planning && view != null);
   // The hidden pick covers only hidden blockers, so it goes out only when one exists.
   const hiddenPick =
-    hidden && (view?.plan.hidden.restrict ?? 0) > 0 ? "delete" : undefined;
+    hiddenPicked && (view?.plan.hidden.restrict ?? 0) > 0 ? "delete" : undefined;
   const plural = names.length > 1;
 
   useAsyncEffect(
@@ -584,9 +623,10 @@ const Dialog = ({
       setPlanning(true);
       let next: View | null = null;
       let failure: unknown = null;
+      const shown = shownPlan.current;
       try {
         const planned = await client.impact.plan(change, { picks, hidden: hiddenPick });
-        next = await createView(client, planned, null);
+        next = await createView(client, planned, shown);
       } catch (e) {
         failure = e;
       }
@@ -596,9 +636,26 @@ const Dialog = ({
         setPlanError(reasonOf(failure, "plan"));
         return;
       }
+      shownPlan.current = null;
       const planned = next;
+      const cause = lastPicked.current;
+      lastPicked.current = null;
       setPlanError(null);
-      setView((prev) => (prev == null ? planned : { ...planned, fresh: prev.fresh }));
+      setView((prev) => {
+        if (cause != null && prev != null) {
+          const listed = new Set(prev.plan.entries.map(recordKey));
+          const added = planned.plan.entries
+            .map(recordKey)
+            .filter((k) => !listed.has(k));
+          if (added.length > 0)
+            setOrigins((o) => ({
+              ...o,
+              ...Object.fromEntries(added.map((k) => [k, cause])),
+            }));
+        }
+        if (prev == null || shown != null) return planned;
+        return { ...planned, fresh: prev.fresh };
+      });
     },
     [client, change, picks, hiddenPick, attempt],
   );
@@ -611,7 +668,8 @@ const Dialog = ({
     setAttempt((prev) => prev + 1);
   };
 
-  // A pick plans again, so Delete waits for that plan.
+  // A pick plans again, so Delete waits for that plan. Unchecking a pick also drops the
+  // picks of the blockers that it added, which the next plan no longer lists.
   const handlePick = (keys: string[], picked: boolean) => {
     setPlanning(true);
     setUnpicked((prev) => {
@@ -620,20 +678,27 @@ const Dialog = ({
       return next;
     });
     setFooter(null);
+    lastPicked.current = picked ? keys : null;
+    const dropped = picked ? new Set<string>() : addedBy(origins, keys);
     setPicks((prev) => {
       const next = { ...prev };
       for (const key of keys)
         if (picked) next[key] = "delete";
         else delete next[key];
+      for (const key of dropped) delete next[key];
       return next;
     });
+    if (dropped.size > 0)
+      setOrigins((prev) =>
+        Object.fromEntries(Object.entries(prev).filter(([k]) => !dropped.has(k))),
+      );
   };
 
   const handleHidden = (picked: boolean) => {
     setPlanning(true);
     setHiddenBlocks(false);
     setFooter(null);
-    setHidden(picked);
+    setHiddenPicked(picked);
   };
 
   const handleDelete = async () => {
@@ -641,11 +706,11 @@ const Dialog = ({
     const blockers = view.plan.entries
       .filter((e) => e.effect === "restrict" && picks[recordKey(e)] !== "delete")
       .map(recordKey);
-    const hiddenBlocks = view.plan.hidden.restrict > 0 && !hidden;
-    const blocking = blockers.length + (hiddenBlocks ? view.plan.hidden.restrict : 0);
+    const hiddenBlocking = view.plan.hidden.restrict > 0 && !hiddenPicked;
+    const blocking = blockers.length + (hiddenBlocking ? view.plan.hidden.restrict : 0);
     if (blocking > 0) {
       setUnpicked(new Set(blockers));
-      setHiddenBlocks(hiddenBlocks);
+      setHiddenBlocks(hiddenBlocking);
       setFooter({
         variant: "error",
         message: blockedOf(blocking),
@@ -669,13 +734,12 @@ const Dialog = ({
     } catch (e) {
       failure = e;
     }
+    setApplying(false);
     if (applied != null) {
-      setApplying(false);
       close(applied);
       return;
     }
     if (!(failure instanceof PlanChangedError)) {
-      setApplying(false);
       setFooter({
         variant: "error",
         message: unanswered(failure) ? "No answer from the Core" : failureOf(names),
@@ -683,28 +747,18 @@ const Dialog = ({
       });
       return;
     }
-    const current = impact.planOf(failure);
-    let next: View | null = null;
-    try {
-      next = await createView(client, current, view.plan);
-    } catch (e) {
-      failure = e;
-    }
-    setApplying(false);
-    if (next == null) {
-      setFooter({
-        variant: "error",
-        message: failureOf(names),
-        description: reasonOf(failure, "apply"),
-      });
-      return;
-    }
-    const kept = new Set(current.entries.map(recordKey));
-    setView(next);
+    // The Core refused a stale token. The plan effect loads the current plan once, with
+    // its own failure text and Try again, and marks what is new against this plan.
+    const listed = new Set(impact.planOf(failure).entries.map(recordKey));
+    shownPlan.current = view.plan;
     setChanged(true);
-    setPicks((prev) =>
-      Object.fromEntries(Object.entries(prev).filter(([key]) => kept.has(key))),
-    );
+    setPlanning(true);
+    const stale = Object.keys(picks).filter((key) => !listed.has(key));
+    if (stale.length === 0) setAttempt((prev) => prev + 1);
+    else
+      setPicks((prev) =>
+        Object.fromEntries(Object.entries(prev).filter(([key]) => listed.has(key))),
+      );
   };
 
   // A held spinner hides a failure until it ends, so the two never show together. A
@@ -726,116 +780,118 @@ const Dialog = ({
       ref={frameRef}
       className={CSS.cls(CSS.B("impact"), !painted && CSS.BM("impact", "unpainted"))}
     >
-      <Modal.Header icon={<Icon.Channel />} closeDisabled={applying}>
-        Channel.Delete
-      </Modal.Header>
-      <Modal.Body gap="medium" className={CSS.BE("impact", "body")}>
-        {changed && (
-          <Note.Note variant="warning" role="alert">
-            <Text.Text level="small">
-              These records changed. Check them again.
-            </Text.Text>
-          </Note.Note>
-        )}
-        <Text.Text level="h3" weight={450}>
-          {messageOf(names)}
-        </Text.Text>
-        <Text.Text weight={450}>{descriptionOf(names, empty)}</Text.Text>
-        {listing && (
-          <Status.Summary
-            variant="loading"
-            message="Listing the records that this delete touches"
-          />
-        )}
-        {listFailed && (
-          <Flex.Box
-            y
-            align="start"
-            gap="medium"
-            role="alert"
-            className={CSS.BE("impact", "failure")}
-          >
-            <Status.Summary
-              variant="error"
-              message="Failed to list the records that this delete touches"
-              description={failure}
-              center={false}
-            />
-            <Button.Button variant="outlined" onClick={handleRetry}>
-              <Icon.Refresh />
-              Try again
-            </Button.Button>
-          </Flex.Box>
-        )}
-        {shown != null && !empty && (
-          <Entries
-            view={shown}
-            plural={plural}
-            picks={picks}
-            unpicked={unpicked}
-            onPick={handlePick}
-            hiddenPick={{
-              picked: hidden,
-              marked: hiddenBlocks,
-              onChange: handleHidden,
-            }}
-          />
-        )}
-        {plan != null && plan.kept > 0 && (
-          <Text.Text level="small" color={9}>
-            {plan.kept === 1
-              ? "1 more record keeps a link and does not change."
-              : `${plan.kept} more records keep a link and do not change.`}
+      <ApplyingContext value={applying}>
+        <Modal.Header icon={<Icon.Channel />} closeDisabled={applying}>
+          Channel.Delete
+        </Modal.Header>
+        <Modal.Body gap="medium" className={CSS.BE("impact", "body")}>
+          {changed && (
+            <Note.Note variant="warning" role="alert">
+              <Text.Text level="small">
+                These records changed. Check them again.
+              </Text.Text>
+            </Note.Note>
+          )}
+          <Text.Text level="h3" weight={450}>
+            {messageOf(names)}
           </Text.Text>
-        )}
-      </Modal.Body>
-      <Modal.Footer>
-        {/* A live region stays mounted, so a screen reader reads each status. */}
-        <Nav.Bar.Start role="status" className={CSS.BE("impact", "status")}>
-          {failure != null && !listFailed ? (
-            <Status.Summary variant="error" description={failure} center={false}>
-              Failed to update the records
-              <Button.Button
-                variant="text"
-                size="tiny"
-                className={CSS.BE("impact", "retry")}
-                onClick={handleRetry}
-              >
-                Try again
-              </Button.Button>
-            </Status.Summary>
-          ) : (
-            status != null && (
+          <Text.Text weight={450}>{descriptionOf(names, empty)}</Text.Text>
+          {listing && (
+            <Status.Summary
+              variant="loading"
+              message="Listing the records that this delete touches"
+            />
+          )}
+          {listFailed && (
+            <Flex.Box
+              y
+              align="start"
+              gap="medium"
+              role="alert"
+              className={CSS.BE("impact", "failure")}
+            >
               <Status.Summary
-                variant={status.variant}
-                message={status.message}
-                description={status.description}
+                variant="error"
+                message="Failed to list the records that this delete touches"
+                description={failure}
                 center={false}
               />
-            )
+              <Button.Button variant="outlined" onClick={handleRetry}>
+                <Icon.Refresh />
+                Try again
+              </Button.Button>
+            </Flex.Box>
           )}
-        </Nav.Bar.Start>
-        <Nav.Bar.End x align="center">
-          <Button.Button
-            variant="outlined"
-            triggerIndicator={PTriggers.ESCAPE}
-            disabled={applying}
-            onClick={() => close()}
-          >
-            Cancel
-          </Button.Button>
-          <Button.Button
-            variant="filled"
-            status={applying ? "loading" : "error"}
-            disabled={shown == null || failure != null || planning || updating}
-            trigger={Triggers.SAVE}
-            triggerIndicator
-            onClick={() => void handleDelete()}
-          >
-            Delete
-          </Button.Button>
-        </Nav.Bar.End>
-      </Modal.Footer>
+          {shown != null && !empty && (
+            <Entries
+              view={shown}
+              plural={plural}
+              picks={picks}
+              unpicked={unpicked}
+              onPick={handlePick}
+              hiddenPick={{
+                picked: hiddenPicked,
+                marked: hiddenBlocks,
+                onChange: handleHidden,
+              }}
+            />
+          )}
+          {plan != null && plan.kept > 0 && (
+            <Text.Text level="small" color={9}>
+              {plan.kept === 1
+                ? "1 more record keeps a link and does not change."
+                : `${plan.kept} more records keep a link and do not change.`}
+            </Text.Text>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          {/* A live region stays mounted, so a screen reader reads each status. */}
+          <Nav.Bar.Start role="status" className={CSS.BE("impact", "status")}>
+            {failure != null && !listFailed ? (
+              <Status.Summary variant="error" description={failure} center={false}>
+                Failed to update the records
+                <Button.Button
+                  variant="text"
+                  size="tiny"
+                  className={CSS.BE("impact", "retry")}
+                  onClick={handleRetry}
+                >
+                  Try again
+                </Button.Button>
+              </Status.Summary>
+            ) : (
+              status != null && (
+                <Status.Summary
+                  variant={status.variant}
+                  message={status.message}
+                  description={status.description}
+                  center={false}
+                />
+              )
+            )}
+          </Nav.Bar.Start>
+          <Nav.Bar.End x align="center">
+            <Button.Button
+              variant="outlined"
+              triggerIndicator={PTriggers.ESCAPE}
+              disabled={applying}
+              onClick={() => close()}
+            >
+              Cancel
+            </Button.Button>
+            <Button.Button
+              variant="filled"
+              status={applying ? "loading" : "error"}
+              disabled={shown == null || failure != null || planning || updating}
+              trigger={Triggers.SAVE}
+              triggerIndicator
+              onClick={() => void handleDelete()}
+            >
+              Delete
+            </Button.Button>
+          </Nav.Bar.End>
+        </Modal.Footer>
+      </ApplyingContext>
     </Modal.Frame>
   );
 };
