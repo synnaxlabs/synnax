@@ -200,8 +200,9 @@ export const Preview = ({
       el.addEventListener("click", (e) => {
         // The groups around the shape have their own listeners.
         e.stopPropagation();
-        // Shift+drag pans the preview.
-        if (e.shiftKey) return;
+        // Shift+drag pans the preview. A later click of a double click would undo the
+        // first one after it selects or makes a part.
+        if (e.shiftKey || e.detail > 1) return;
         const markup = form.get(path.data.drawing.markup).value;
         const named = Schematic.Node.Region.name(markup, drawing, el);
         if (named.markup !== markup) form.set(path.data.drawing.markup, named.markup);
