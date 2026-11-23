@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type AriaAttributes, type Dispatch, type SetStateAction } from "react";
+import type { AriaAttributes, Dispatch, SetStateAction } from "react";
 
 import { context } from "@/context";
-import { type KeyboardHandlers } from "@/select/useCursor";
-import { type Status } from "@/status";
+import type { KeyboardHandlers } from "@/select/useCursor";
+import type { Status } from "@/status";
 
 /** True inside a closed select dialog, whose children render into a detached node. */
 export const [ClosedContext, useClosed] = context.create<boolean>({
@@ -35,6 +35,14 @@ export const [ShownContext, useShownContext] = context.create<Dispatch<
   defaultValue: null,
   displayName: "Select.ShownContext",
 });
+
+/**
+ * Tells the selection whether its dialog shows a view in place of its options. The
+ * hover answers no keys while a view shows.
+ */
+export const [ViewingContext, useViewingContext] = context.create<
+  (viewing: boolean) => void
+>({ displayName: "Select.ViewingContext", providerName: "Select.Frame" });
 
 /** True inside a `Select.List`. A fixed item outside one is pinned. */
 export const [ListContext, useInList] = context.create<boolean>({

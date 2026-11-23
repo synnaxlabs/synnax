@@ -59,6 +59,7 @@ func openHealBench(b *testing.B) healBench {
 		DB:        db,
 		HostKey:   node.Identity.HostKey,
 		Status:    statusSvc,
+		TS:        node.Storage.TS,
 		Retargets: func(d gorp.Dependent) bool { return d.Holder.Table == "display" },
 	})
 	if err != nil {

@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -83,6 +85,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to one hour.
 	ExpiryCheckInterval telem.TimeSpan
+	// Rack is the Core's own rack. Each file certificate stored before file
+	// certificates named a rack moves to it.
+	//
+	// [REQUIRED]
+	Rack rack.Key
 }
 
 var (
@@ -109,6 +116,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 		c.ExpiryCheckInterval,
 		other.ExpiryCheckInterval,
 	)
+	c.Rack = override.Numeric(c.Rack, other.Rack)
 	return c
 }
 
@@ -121,6 +129,7 @@ func (c ServiceConfig) Validate() error {
 	v.NonZero("host_key", c.HostKey)
 	v.NotNil("now", c.Now)
 	v.Positive("expiry_check_interval", c.ExpiryCheckInterval)
+	v.NonZero("rack", c.Rack)
 	return v.Error()
 }
 
@@ -151,6 +160,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Name:            tableName,
 		Indexes:         s.indexes.all(),
 		References:      s.indexes.references(),
+		Migrations:      versions.NewMigrations(s.cfg.Rack),
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

@@ -16,9 +16,14 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel as channel_, group as group_, project as project_
+from synnax import (
+    channel as channel_,
+    color as color_,
+    group as group_,
+    project as project_,
+)
 from synnax.resource import ID
-from x import color as color_, filter, notation as notation_, telem
+from x import filter, notation as notation_, telem
 from x.filter import shorthand
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
@@ -116,8 +121,8 @@ class ChannelEntry(BaseModel):
 
     Attributes:
         channel: Is the channel this entry references.
-        color: Is the display color for the channel. Absent uses the text color of the
-            log.
+        color: Is the display color for the channel, a named color or a fixed color.
+            Absent uses the text color of the log.
         notation: Is the numeric notation used to render samples.
         precision: Is the number of digits after the decimal point, from 0 to 17. Absent
             shows each sample as it arrives.
@@ -127,7 +132,7 @@ class ChannelEntry(BaseModel):
     """
 
     channel: channel_.Key = Field(gt=0, le=4294967295)
-    color: color_.Color | None = None
+    color: color_.Ref | None = None
     notation: notation_.Notation = "standard"
     precision: int | None = Field(default=None, ge=0, le=17)
     alias: str = Field(max_length=64, default="")

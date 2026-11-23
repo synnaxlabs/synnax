@@ -98,18 +98,14 @@ type Store interface {
 	// Version returns the current version of the store's config type, stamped on
 	// exported envelopes.
 	Version() imex.Version
-	// OnRewrite sets the hook that runs in the transaction of each delete that detaches
-	// a target from a record, and of each retarget that moves one, with the key of the
-	// record. An error from the hook fails the delete or the retarget. Set it before
-	// the store serves deletes.
+	// OnRewrite sets the hook that runs in the transaction of each delete or retarget
+	// that rewrites a record, with the key of the record. An error from the hook fails
+	// the delete or retarget. Set it before the store serves either.
 	OnRewrite(hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error)
 	// OnTargetSet sets the hook that runs in the transaction of each write that sets a
 	// record of one of HashedTables that a record uses, with the key of the record. An
 	// error from the hook fails the write. Set it before the store serves writes.
 	OnTargetSet(hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error)
-	// HashedTables returns the names of the tables whose records Hash covers, as
-	// ServiceConfig.HashedTables does.
-	HashedTables() []string
 }
 
 // Decoded is a config blob in the current stored shape that is not yet checked against
@@ -616,9 +612,6 @@ func (s *Service[E]) OnRewrite(
 ) {
 	s.onRewrite = hook
 }
-
-// HashedTables implements Store.
-func (s *Service[E]) HashedTables() []string { return s.cfg.HashedTables }
 
 // OnTargetSet implements Store.
 func (s *Service[E]) OnTargetSet(

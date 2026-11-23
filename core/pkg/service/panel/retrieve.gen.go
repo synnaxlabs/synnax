@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -37,11 +38,12 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name    *gorp.SortedIndex[Key, Panel, string]
-	group   *gorp.KeyReference[Key, Panel, group.Key]
-	project *gorp.KeyReference[Key, Panel, project.Key]
-	owner   *gorp.KeyReference[Key, Panel, user.Key]
-	search  *gorp.SearchIndex[Key, Panel]
+	name     *gorp.SortedIndex[Key, Panel, string]
+	group    *gorp.KeyReference[Key, Panel, group.Key]
+	project  *gorp.KeyReference[Key, Panel, project.Key]
+	owner    *gorp.KeyReference[Key, Panel, user.Key]
+	colorKey *gorp.KeyReference[Key, Panel, color.Key]
+	search   *gorp.SearchIndex[Key, Panel]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -68,7 +70,7 @@ func newIndexes() indexes {
 			Retarget: func(e *Panel, to map[group.Key]group.Key) {
 				if e.Group != nil {
 					if t, ok := to[*e.Group]; ok {
-						e.Group = &t
+						*e.Group = t
 					}
 				}
 			},
@@ -84,6 +86,13 @@ func newIndexes() indexes {
 				}
 				return []project.Key{*e.Project}
 			},
+			Retarget: func(e *Panel, to map[project.Key]project.Key) {
+				if e.Project != nil {
+					if t, ok := to[*e.Project]; ok {
+						*e.Project = t
+					}
+				}
+			},
 		}),
 		owner: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, user.Key]{
 			Name:     "owner",
@@ -95,6 +104,67 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []user.Key{*e.Owner}
+			},
+			Retarget: func(e *Panel, to map[user.Key]user.Key) {
+				if e.Owner != nil {
+					if t, ok := to[*e.Owner]; ok {
+						*e.Owner = t
+					}
+				}
+			},
+		}),
+		colorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, color.Key]{
+			Name:     "color.key",
+			Table:    "color",
+			OnDelete: gorp.Inline,
+			Kind:     gorp.Use,
+			Targets: func(e *Panel) []color.Key {
+				var targets []color.Key
+				if e.Color != nil {
+					switch v1 := e.Color.Variant.(type) {
+					case color.NamedRef:
+						targets = append(targets, v1.Key)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Panel, t color.Key) {
+				if e.Color != nil {
+					if v3, ok := e.Color.Variant.(color.NamedRef); ok && v3.Key == t {
+						e.Color = nil
+					}
+				}
+			},
+			Retarget: func(e *Panel, to map[color.Key]color.Key) {
+				if e.Color != nil {
+					switch v4 := e.Color.Variant.(type) {
+					case color.NamedRef:
+						if t, ok := to[v4.Key]; ok {
+							v4.Key = t
+						}
+						e.Color.Variant = v4
+					}
+				}
+			},
+			Inline: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				e *Panel,
+				t color.Key,
+			) error {
+				var target color.Named
+				if err := gorp.NewRetrieve[color.Key, color.Named]().
+					Where(gorp.MatchKeys[color.Key, color.Named](t)).
+					Entry(&target).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				if e.Color != nil {
+					if v2, ok := e.Color.Variant.(color.NamedRef); ok && v2.Key == t {
+						e.Color.Variant = target.Inline()
+					}
+				}
+				return nil
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Panel](
@@ -122,6 +192,7 @@ func (i indexes) references() []gorp.Reference[Key, Panel] {
 		i.group,
 		i.project,
 		i.owner,
+		i.colorKey,
 	}
 }
 

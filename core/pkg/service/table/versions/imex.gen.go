@@ -21,11 +21,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v6"
+	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v7"
 )
 
 // Latest is the portable schema version stamped on exported Table envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v6.Version
+const Latest = v7.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Table
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -57,7 +58,11 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		if err != nil {
 			return Table{}, err
 		}
-		return t6, nil
+		t7, err := v7.MigrateTable(ctx, t6)
+		if err != nil {
+			return Table{}, err
+		}
+		return t7, nil
 	case v2.Version:
 		t2, err := env.Decode[v2.Table]()
 		if err != nil {
@@ -79,7 +84,11 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		if err != nil {
 			return Table{}, err
 		}
-		return t6, nil
+		t7, err := v7.MigrateTable(ctx, t6)
+		if err != nil {
+			return Table{}, err
+		}
+		return t7, nil
 	case v3.Version:
 		t3, err := env.Decode[v3.Table]()
 		if err != nil {
@@ -97,7 +106,11 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		if err != nil {
 			return Table{}, err
 		}
-		return t6, nil
+		t7, err := v7.MigrateTable(ctx, t6)
+		if err != nil {
+			return Table{}, err
+		}
+		return t7, nil
 	case v4.Version:
 		t4, err := env.Decode[v4.Table]()
 		if err != nil {
@@ -111,7 +124,11 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		if err != nil {
 			return Table{}, err
 		}
-		return t6, nil
+		t7, err := v7.MigrateTable(ctx, t6)
+		if err != nil {
+			return Table{}, err
+		}
+		return t7, nil
 	case v5.Version:
 		t5, err := env.Decode[v5.Table]()
 		if err != nil {
@@ -121,8 +138,22 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		if err != nil {
 			return Table{}, err
 		}
-		return t6, nil
+		t7, err := v7.MigrateTable(ctx, t6)
+		if err != nil {
+			return Table{}, err
+		}
+		return t7, nil
 	case v6.Version:
+		t6, err := env.Decode[v6.Table]()
+		if err != nil {
+			return Table{}, err
+		}
+		t7, err := v7.MigrateTable(ctx, t6)
+		if err != nil {
+			return Table{}, err
+		}
+		return t7, nil
+	case v7.Version:
 		return env.Decode[Table]()
 	}
 	return Table{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
@@ -151,5 +182,9 @@ func liftFirst(ctx context.Context, t1 v1.Table) (Table, error) {
 	if err != nil {
 		return Table{}, err
 	}
-	return t6, nil
+	t7, err := v7.MigrateTable(ctx, t6)
+	if err != nil {
+		return Table{}, err
+	}
+	return t7, nil
 }

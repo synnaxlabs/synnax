@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -356,6 +357,17 @@ func (w Writer) DeletePlanned(
 	return w.delete(ctx, keys, &effects)
 }
 
+// RetargetHolders moves the links that holders keep from each key of to onto its value,
+// as gorp.Table.RetargetHolders does. It can fail after it writes other holders, so
+// discard the transaction on an error.
+func (w Writer) RetargetHolders(
+	ctx context.Context,
+	to map[Key]Key,
+	holders []gorp.Dependent,
+) error {
+	return w.svc.table.RetargetHolders(ctx, w.tx, to, holders)
+}
+
 // DeleteManyByNames deletes the channels with the given names. Unless allowInternal is
 // true, deleting any internal channel returns an error and no channels are deleted.
 func (w Writer) DeleteManyByNames(
@@ -543,6 +555,9 @@ func (w Writer) create(
 func (w Writer) validateCreate(ctx context.Context, channels []Channel) error {
 	for i, ch := range channels {
 		if err := ch.Validate(); err != nil {
+			return validate.PathedError(err, strconv.Itoa(i))
+		}
+		if err := validateConcurrency(ch); err != nil {
 			return validate.PathedError(err, strconv.Itoa(i))
 		}
 		if err := group.CheckMember(
@@ -809,6 +824,33 @@ func (w Writer) linkStoredIndexes(
 		linked = append(linked, ch.Key())
 	}
 	return linked, nil
+}
+
+func validateConcurrency(ch Channel) error {
+	switch ch.Concurrency {
+	case control.ConcurrencyExclusive:
+		return nil
+	case control.ConcurrencyShared:
+		if ch.Virtual || ch.IsCalculated() {
+			return nil
+		}
+		return validate.PathedError(
+			errors.Wrap(
+				validate.ErrValidation,
+				"only virtual channels can have shared concurrency",
+			),
+			"concurrency",
+		)
+	default:
+		return validate.PathedError(
+			errors.Wrapf(
+				validate.ErrValidation,
+				"%d is not a valid concurrency",
+				ch.Concurrency,
+			),
+			"concurrency",
+		)
+	}
 }
 
 func sameGroup(a, b *group.Key) bool {

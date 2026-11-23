@@ -79,6 +79,19 @@ func newIndexes() indexes {
 					}
 				}
 			},
+			Retarget: func(e *Enumeration, to map[color.Key]color.Key) {
+				for i7 := range e.Entries {
+					if e.Entries[i7].Color != nil {
+						switch v8 := e.Entries[i7].Color.Variant.(type) {
+						case color.NamedRef:
+							if t, ok := to[v8.Key]; ok {
+								v8.Key = t
+							}
+							e.Entries[i7].Color.Variant = v8
+						}
+					}
+				}
+			},
 			Inline: func(
 				ctx context.Context,
 				tx gorp.Tx,

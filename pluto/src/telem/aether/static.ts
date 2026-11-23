@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Factory } from "@/telem/aether/factory";
+import type { Factory } from "@/telem/aether/factory";
 import {
   AbstractSource,
   type ColorSource,
@@ -156,7 +156,7 @@ export class IterativeSeries
     }, rate.period.milliseconds) as unknown as number;
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     clearInterval(this.interval);
   }
 }
@@ -215,7 +215,7 @@ export class Clock extends AbstractSource<typeof clockPropsZ> implements NumberS
     );
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     clearTimeout(this.timeout);
   }
 

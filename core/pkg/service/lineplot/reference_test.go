@@ -23,9 +23,11 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -172,7 +174,7 @@ var _ = Describe("Channel references", func() {
 
 var _ = Describe("Color references", func() {
 	It(
-		"Should inline a deleted named color into the lines and rules that use it",
+		"Should inline a deleted named color wherever the plot uses it",
 		func(ctx SpecContext) {
 			gone := color.Named{
 				Name:  "Fault",
@@ -192,6 +194,7 @@ var _ = Describe("Color references", func() {
 			named := func(n color.Named) *color.Ref {
 				return &color.Ref{Variant: color.NamedRef{Key: n.Key}}
 			}
+			window := telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.Second}}
 			plot := defaults.Fill(lineplot.LinePlot{
 				Project:  &proj.Key,
 				Name:     "colored",
@@ -203,6 +206,9 @@ var _ = Describe("Color references", func() {
 				Rules: []lineplot.Rule{
 					{Key: "r", Axis: lineplot.AxisKeyY1, Color: named(gone)},
 				},
+				Ranges: []ranger.Ref{{Variant: ranger.WindowRef{
+					Window: window, Color: named(gone),
+				}}},
 			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &plot)
@@ -229,6 +235,9 @@ var _ = Describe("Color references", func() {
 			Expect(res.Lines[0].Color).To(Equal(fixed("#ff0000")))
 			Expect(res.Lines[1].Color).To(Equal(named(kept)))
 			Expect(res.Rules[0].Color).To(Equal(fixed("#ff0000")))
+			Expect(res.Ranges).To(Equal([]ranger.Ref{{Variant: ranger.WindowRef{
+				Window: window, Color: fixed("#ff0000"),
+			}}}))
 			seen := rec.Snapshot()
 			Expect(seen).To(HaveLen(1))
 			Expect(seen[0].Key).To(Equal(plot.Key))
@@ -237,4 +246,136 @@ var _ = Describe("Color references", func() {
 			Expect(seen[0].Actions[0].Create.LinePlot).To(Equal(res))
 		},
 	)
+})
+
+var _ = Describe("Channel retargets", func() {
+	create := func(ctx SpecContext, channels lineplot.Channels) lineplot.LinePlot {
+		GinkgoHelper()
+		plot := defaults.Fill(lineplot.LinePlot{
+			Project:  &proj.Key,
+			Name:     "retarget",
+			Channels: channels,
+		})
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &plot)
+		})).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, plot.Key)
+			})).To(Succeed())
+		})
+		return plot
+	}
+	style := func(ctx SpecContext, plot lineplot.Key, line string, width float64) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			_, err := svc.NewWriter(tx).Apply(
+				ctx,
+				plot,
+				lineplot.NewSetLineStrokeWidthAction(lineplot.SetLineStrokeWidthPayload{
+					Key:         line,
+					StrokeWidth: width,
+				}),
+			)
+			return err
+		})).To(Succeed())
+	}
+	retarget := func(
+		ctx SpecContext,
+		plot lineplot.Key,
+		to map[channel.Key]channel.Key,
+	) {
+		GinkgoHelper()
+		id := lineplot.ResourceID(plot)
+		holders := []gorp.Dependent{{
+			Holder:    gorp.Target{Table: string(id.Type), Key: id.Key},
+			Reference: "channels",
+		}}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).RetargetHolders(ctx, to, holders)
+		})).To(Succeed())
+	}
+	retrieve := func(ctx SpecContext, key lineplot.Key) lineplot.LinePlot {
+		GinkgoHelper()
+		var res lineplot.LinePlot
+		Expect(svc.NewRetrieve().
+			Where(lineplot.MatchKeys(key)).
+			Entry(&res).
+			Exec(ctx, db)).To(Succeed())
+		return res
+	}
+	widthsOf := func(lines []lineplot.Line) []float64 {
+		widths := make([]float64, len(lines))
+		for i, l := range lines {
+			widths[i] = l.StrokeWidth
+		}
+		return widths
+	}
+
+	It("Should swap two y channels and keep the style of each line", func(
+		ctx SpecContext,
+	) {
+		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 2))
+		a, b := keys[0], keys[1]
+		plot := create(ctx, lineplot.Channels{Y1: []channel.Key{a, b}})
+		style(ctx, plot.Key, lk(plot.Key, 0, a), 7)
+		style(ctx, plot.Key, lk(plot.Key, 0, b), 9)
+		retarget(ctx, plot.Key, map[channel.Key]channel.Key{a: b, b: a})
+		res := retrieve(ctx, plot.Key)
+		Expect(res.Channels.Y1).To(Equal([]channel.Key{b, a}))
+		Expect(lineKeysOf(res.Lines)).
+			To(Equal([]string{lk(plot.Key, 0, b), lk(plot.Key, 0, a)}))
+		Expect(widthsOf(res.Lines)).To(Equal([]float64{7, 9}))
+	})
+
+	It(
+		"Should keep the first line when a retarget moves a channel onto one the plot "+
+			"shows",
+		func(ctx SpecContext) {
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 3))
+			a, b, c := keys[0], keys[1], keys[2]
+			plot := create(ctx, lineplot.Channels{Y1: []channel.Key{a, c, b}})
+			style(ctx, plot.Key, lk(plot.Key, 0, a), 7)
+			style(ctx, plot.Key, lk(plot.Key, 0, b), 9)
+			retarget(ctx, plot.Key, map[channel.Key]channel.Key{a: b})
+			res := retrieve(ctx, plot.Key)
+			Expect(res.Channels.Y1).To(Equal([]channel.Key{b, c}))
+			Expect(lineKeysOf(res.Lines)).
+				To(Equal([]string{lk(plot.Key, 0, b), lk(plot.Key, 0, c)}))
+			Expect(widthsOf(res.Lines)).To(Equal([]float64{7, 2}))
+		},
+	)
+
+	It("Should rekey every line when the x channel moves and keep the styles", func(
+		ctx SpecContext,
+	) {
+		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 3))
+		x, moved, y := keys[0], keys[1], keys[2]
+		plot := create(ctx, lineplot.Channels{X1: x, Y1: []channel.Key{y}})
+		style(ctx, plot.Key, lk(plot.Key, x, y), 7)
+		retarget(ctx, plot.Key, map[channel.Key]channel.Key{x: moved})
+		res := retrieve(ctx, plot.Key)
+		Expect(res.Channels.X1).To(Equal(moved))
+		Expect(lineKeysOf(res.Lines)).To(Equal([]string{lk(plot.Key, moved, y)}))
+		Expect(res.Lines[0].XChannel).To(Equal(moved))
+		Expect(widthsOf(res.Lines)).To(Equal([]float64{7}))
+	})
+
+	It("Should send the line plot as written to open Consoles", func(
+		ctx SpecContext,
+	) {
+		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 2))
+		a, b := keys[0], keys[1]
+		plot := create(ctx, lineplot.Channels{Y1: []channel.Key{a}})
+		rec := &Recorder[lineplot.Key, lineplot.Action]{}
+		DeferCleanup(svc.OnAction(rec.Record))
+		retarget(ctx, plot.Key, map[channel.Key]channel.Key{a: b})
+		seen := rec.Snapshot()
+		Expect(seen).To(HaveLen(1))
+		Expect(seen[0].Key).To(Equal(plot.Key))
+		Expect(seen[0].Actions).To(HaveLen(1))
+		Expect(seen[0].Actions[0].Create).ToNot(BeNil())
+		Expect(seen[0].Actions[0].Create.LinePlot.Channels.Y1).
+			To(Equal([]channel.Key{b}))
+	})
 })

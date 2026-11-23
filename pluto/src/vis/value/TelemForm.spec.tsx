@@ -11,12 +11,11 @@ import { type channel, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper, renderForm } from "@/testutil";
 import { Value } from "@/vis/value";
 
 const schema = z.object({ precision: z.number().optional() }).loose();

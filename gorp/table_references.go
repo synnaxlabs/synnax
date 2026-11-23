@@ -136,15 +136,6 @@ func (t *Table[K, E]) writer(tx Tx, checks writerChecks) Writer[K, E] {
 	return w
 }
 
-// formatKey implements registeredTable.
-func (t *Table[K, E]) formatKey(k string) (string, error) {
-	pk, err := key.Parse[K](k)
-	if err != nil {
-		return "", err
-	}
-	return key.Format(pk), nil
-}
-
 // canonical implements registeredTable.
 func (t *Table[K, E]) canonical(k string) bool {
 	pk, err := key.Parse[K](k)
@@ -177,6 +168,30 @@ func (t *Table[K, E]) has(snap Snapshot, codec key.Codec[K], k K) (bool, error) 
 		return false, err
 	}
 	return true, nil
+}
+
+// links implements registeredTable.
+func (t *Table[K, E]) links(
+	ctx context.Context,
+	snap Snapshot,
+	k string,
+) ([]Link, error) {
+	pk, err := key.Parse[K](k)
+	if err != nil {
+		return nil, err
+	}
+	var e E
+	if err = t.NewRetrieve().
+		Where(MatchKeys[K, E](pk)).
+		Entry(&e).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	var out []Link
+	for _, r := range t.references {
+		out = r.links(out, &e)
+	}
+	return out, nil
 }
 
 // deleteKeys implements registeredTable.
@@ -247,114 +262,6 @@ func (t *Table[K, E]) detach(
 		return err
 	}
 	return t.onRewrite(ctx, tx, e)
-}
-
-// retarget implements registeredTable.
-func (t *Table[K, E]) retarget(
-	ctx context.Context,
-	tx Tx,
-	k string,
-	refs []string,
-	table string,
-	to any,
-) error {
-	pk, err := key.Parse[K](k)
-	if err != nil {
-		return err
-	}
-	var e E
-	if err = t.NewRetrieve().
-		Where(MatchKeys[K, E](pk)).
-		Entry(&e).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-	moved := false
-	for _, name := range refs {
-		i := slices.IndexFunc(t.references, func(r Reference[K, E]) bool {
-			return r.referenceName() == name
-		})
-		if i < 0 {
-			return errors.Newf("[gorp] - table %s has no reference %s", t.name, name)
-		}
-		held, err := t.references[i].retargetTargets(&e, table, to)
-		if err != nil {
-			return err
-		}
-		moved = moved || held
-	}
-	if !moved {
-		return nil
-	}
-	w := t.writer(tx, checkAll)
-	if err = w.Set(ctx, e); err != nil || t.onRewrite == nil {
-		return err
-	}
-	return t.onRewrite(ctx, tx, e)
-}
-
-// Retarget moves the links that holders keep to entries of the table: each named
-// reference of each holder replaces every target that is a key of to with its value.
-// holders are dependents that Dependents returns, or a subset of them. Gorp applies to
-// once per holder, so a map that swaps two keys swaps them, and writes each holder that
-// held a key of to once, through its reference checks, then runs OnRewrite. A Unique
-// reference checks each holder against the others as they stand, so a map cannot swap
-// or chain targets between holders of one Unique reference.
-//
-// Retarget fails with a validation error when to moves the zero key or moves a key onto
-// it. It fails on a holder that does not exist, and on a reference that has no Retarget
-// or does not point at the table. It can fail after it writes other holders, so discard
-// tx on an error.
-func (t *Table[K, E]) Retarget(
-	ctx context.Context,
-	tx Tx,
-	to map[K]K,
-	holders []Dependent,
-) error {
-	if len(to) == 0 {
-		return nil
-	}
-	var zero K
-	for from, onto := range to {
-		if from == zero || onto == zero {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"cannot retarget %s to or from the zero key",
-				t.name,
-			)
-		}
-	}
-	var (
-		order []Target
-		refs  = make(map[Target][]string, len(holders))
-	)
-	for _, d := range holders {
-		table, err := t.db.registry.table(d.Holder.Table)
-		if err != nil {
-			return err
-		}
-		h := d.Holder
-		if h.Key, err = table.formatKey(h.Key); err != nil {
-			return err
-		}
-		named, ok := refs[h]
-		if !ok {
-			order = append(order, h)
-		}
-		if !slices.Contains(named, d.Reference) {
-			refs[h] = append(named, d.Reference)
-		}
-	}
-	for _, h := range order {
-		table, err := t.db.registry.table(h.Table)
-		if err != nil {
-			return err
-		}
-		if err = table.retarget(ctx, tx, h.Key, refs[h], t.name, to); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // delete deletes entries and applies the OnDelete of every reference that points at
@@ -563,6 +470,81 @@ func (t *Table[K, E]) Dependents(
 		return nil, err
 	}
 	return deps[0], nil
+}
+
+// Uses returns the entries of every open table that hold a Use reference to the entry
+// with key k, as seen by snap. It waits and fails as Dependents does.
+func (t *Table[K, E]) Uses(ctx context.Context, snap Snapshot, k K) ([]Target, error) {
+	deps, err := t.Dependents(ctx, snap, k)
+	if err != nil {
+		return nil, err
+	}
+	var out []Target
+	for _, d := range deps {
+		if d.Kind == Use {
+			out = append(out, d.Holder)
+		}
+	}
+	return out, nil
+}
+
+// PlacedIn returns the records that hold a Place link to target, as seen by tx. It
+// waits for each index as Table.Dependents does.
+func PlacedIn(ctx context.Context, tx Tx, target Target) ([]Target, error) {
+	var out []Target
+	for _, ref := range txDB(tx).registry.referencesTo(target.Table) {
+		if ref.linkKind() != Place {
+			continue
+		}
+		keys, err := ref.dependentsOf(ctx, tx, target)
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range keys {
+			out = append(out, Target{Table: ref.ownerTable(), Key: k})
+		}
+	}
+	return out, nil
+}
+
+// LinksOf returns the links that the record target holds, as seen by tx. It returns an
+// error wrapping query.ErrNotFound when the record does not exist.
+func LinksOf(ctx context.Context, tx Tx, target Target) ([]Link, error) {
+	t, err := txDB(tx).registry.table(target.Table)
+	if err != nil {
+		return nil, err
+	}
+	return t.links(ctx, tx, target.Key)
+}
+
+// RestrictChange returns a RestrictError for a change to field of the entry with key k
+// when an entry holds it through a Restrict reference, as seen by snap. It returns nil
+// when no entry does.
+func (t *Table[K, E]) RestrictChange(
+	ctx context.Context,
+	snap Snapshot,
+	k K,
+	field string,
+) error {
+	target := Target{Table: t.name, Key: FormatKey(k)}
+	for _, ref := range t.db.registry.referencesTo(t.name) {
+		if ref.onDeletePolicy() != Restrict {
+			continue
+		}
+		keys, err := ref.dependentsOf(ctx, snap, target)
+		if err != nil {
+			return err
+		}
+		if len(keys) > 0 {
+			return RestrictError{
+				Target:    target,
+				Holder:    Target{Table: ref.ownerTable(), Key: keys[0]},
+				Reference: ref.referenceName(),
+				Field:     field,
+			}
+		}
+	}
+	return nil
 }
 
 // DependentsEach returns, at each position of keys, the dependents of the entry with

@@ -58,10 +58,21 @@ func newIndexes() indexes {
 				})
 			},
 			Retarget: func(e *Status[any], to map[label.Key]label.Key) {
-				for i, k := range e.Labels {
-					if t, ok := to[k]; ok {
-						e.Labels[i] = t
+				moved2 := false
+				for i1 := range e.Labels {
+					if t, ok := to[e.Labels[i1]]; ok {
+						e.Labels[i1] = t
+						moved2 = true
 					}
+				}
+				if moved2 {
+					kept3 := e.Labels[:0]
+					for _, k4 := range e.Labels {
+						if !slices.Contains(kept3, k4) {
+							kept3 = append(kept3, k4)
+						}
+					}
+					e.Labels = kept3
 				}
 			},
 		}),
@@ -76,6 +87,13 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []gorp.Target{resourceTarget(*e.Owner)}
+			},
+			Retarget: func(e *Status[any], to map[gorp.Target]gorp.Target) {
+				if e.Owner != nil {
+					if t, ok := to[gorp.Target{Table: string((*e.Owner).Type), Key: (*e.Owner).Key}]; ok {
+						e.Owner.Key = t.Key
+					}
+				}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Status[any]](
