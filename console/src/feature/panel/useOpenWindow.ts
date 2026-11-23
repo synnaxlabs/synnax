@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
+import type { panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { id } from "@synnaxlabs/x";
 
 import { Session } from "@/session";

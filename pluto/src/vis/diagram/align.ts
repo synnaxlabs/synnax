@@ -9,7 +9,7 @@
 
 import { box, type direction, location, math, xy } from "@synnaxlabs/x";
 
-import { type NodeLayout } from "@/vis/diagram/util";
+import type { NodeLayout } from "@/vis/diagram/util";
 
 /** Aligns nodes to a specific edge (left/right/top/bottom). */
 export const alignNodesToLocation = (

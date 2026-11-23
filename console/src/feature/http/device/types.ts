@@ -9,7 +9,7 @@
 
 import { channel, type device, http } from "@synnaxlabs/client";
 import { json, TimeSpan, zod } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const MAKE = "http";
 

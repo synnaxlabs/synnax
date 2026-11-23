@@ -79,10 +79,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Label]{
-		DB:              cfg.DB,
-		Name:            tableName,
-		Indexes:         s.indexes.all(),
-		Migrations:      versions.Migrations,
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
+		Migrations: versions.Migrations,
+		// A named color delete puts its color in each label that uses it. No label
+		// write does that, so the service sets the color that the label keeps.
+		OnRewrite: func(_ context.Context, tx gorp.Tx, l Label) error {
+			s.state.Dispatcher().Attach(
+				tx,
+				l.Key,
+				NewSetAction(SetPayload{Path: []string{"color"}, Value: l.Color}),
+			)
+			return nil
+		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

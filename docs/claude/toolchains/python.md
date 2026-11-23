@@ -27,10 +27,13 @@ Always prefix with `uv run`. Client CLI: `uv run sy --help`.
 
 ## Style
 
-- Ruff: 88-char lines, target py313. Rules: `F`, `I`, `B`, `DTZ`, `E501`, `E7`, `E9`,
-  `PLE`, `PLR1722`, `UP`, `SIM`, `C4`, `RET`, `PIE`, `PERF`, `RUF`, `S110`, and `PT`
-  (not in `integration`). The published packages also select the preview rule `PLW1514`:
-  pass `encoding="utf-8"` to every text file open.
+- Ruff: the root `pyproject.toml` holds the base config, and each package `extend`s it
+  with its own rules. 88-char lines, target py313. Rules: `F`, `I`, `B`, `DTZ`, `E501`,
+  `E7`, `E9`, `PLE`, `PLR1722`, `UP`, `SIM`, `C4`, `RET`, `PIE`, `PERF`, `RUF`, `S110`,
+  `ASYNC` (not in the client and Freighter `tests/**`), `EXE`, `FURB`, `PGH`, `PLW1508`,
+  `T10`, `TID252`, `W605`, `YTT`, and `PT` (not in `integration`). The published
+  packages also select the preview rule `PLW1514`: pass `encoding="utf-8"` to every text
+  file open.
 - mypy strict with numpy and pydantic plugins — fix type issues early.
 - Type hints on every function signature.
 - Pydantic models for validation at API boundaries (they validate at runtime).

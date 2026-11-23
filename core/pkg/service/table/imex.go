@@ -36,8 +36,8 @@ func (*Service) Match(body map[string]any) bool {
 
 // Decode decodes env into a Table that its Write creates under opts.Parent, which must
 // be a project. A group must be in the parent project. The key on the wire is discarded
-// so every import mints a new resource. An unknown envelope version is a path-scoped
-// validation error.
+// so every import mints a new resource. The table drops each named color the Core does
+// not hold. An unknown envelope version is a path-scoped validation error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	t, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
@@ -55,6 +55,10 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 		if err = project.ValidateGroup(
 			ctx, tx, proj, opts.Group, resource.TypeTable,
 		); err != nil {
+			return resource.ID{}, err
+		}
+		t.Group, t.Project = nil, nil
+		if _, err = s.table.DropDangling(ctx, tx, &t); err != nil {
 			return resource.ID{}, err
 		}
 		t.Group, t.Project = opts.Group, &proj

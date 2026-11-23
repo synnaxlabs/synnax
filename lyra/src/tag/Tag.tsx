@@ -10,10 +10,10 @@
 import "@/tag/Tag.css";
 
 import { color, type optional } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Button } from "@/button";
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Text } from "@/text";

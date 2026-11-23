@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { type deep } from "@synnaxlabs/x";
+import type { deep } from "@synnaxlabs/x";
 import { render, type RenderResult } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 export interface RenderFormResult extends RenderResult {
   /** Reads the form's current value at the path. */

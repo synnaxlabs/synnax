@@ -12,6 +12,7 @@ package channel_test
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -198,7 +199,7 @@ var _ = Describe("Sweep", func() {
 		restart(ctx, node, &cfg, fsys)
 		DeferClose(start(ctx, cfg))
 		s := MustSucceed(keptStatus(ctx, node, cfg.Status))
-		Expect(s.Description).To(ContainSubstring(fmt.Sprint(key)))
+		Expect(s.Description).To(ContainSubstring(strconv.FormatUint(uint64(key), 10)))
 	})
 
 	It("Should give a new channel no key that kept data holds", func(ctx SpecContext) {
@@ -278,7 +279,7 @@ var _ = Describe("Sweep", func() {
 				data,
 			))),
 		))
-		Expect(fsys.Exists(fmt.Sprint(idx))).To(BeTrue())
+		Expect(fsys.Exists(strconv.FormatUint(uint64(idx), 10))).To(BeTrue())
 		cfg, _ := serviceConfig(ctx, node, node.DB)
 		restart(ctx, node, &cfg, fsys)
 		Expect(channel.Purge(
@@ -287,8 +288,8 @@ var _ = Describe("Sweep", func() {
 			node.Storage.TS,
 			[]channel.Key{channel.Key(idx), channel.Key(data)},
 		)).To(BeEmpty())
-		Expect(fsys.Exists(fmt.Sprint(idx))).To(BeFalse())
-		Expect(fsys.Exists(fmt.Sprint(data))).To(BeFalse())
+		Expect(fsys.Exists(strconv.FormatUint(uint64(idx), 10))).To(BeFalse())
+		Expect(fsys.Exists(strconv.FormatUint(uint64(data), 10))).To(BeFalse())
 	})
 
 	It("Should log no intent for the delete of a virtual channel", func(

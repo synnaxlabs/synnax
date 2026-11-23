@@ -15,7 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { OS } from "@synnaxlabs/pluto";
-import { memo, type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect } from "react";
 
 import { Notifications } from "@/app/notifications";
 import { Primary } from "@/app/window/Primary";
@@ -37,7 +37,7 @@ const menu = Component.renderProp(DefaultContextMenu);
 
 const INSTALL_MIDDLEWARE = DESKTOP ? Embedded.installMiddleware : undefined;
 
-export const Window = memo((): ReactElement | null => {
+export const Window = (): ReactElement | null => {
   const isMain = Session.Runtime.isMainWindow();
   const os = OS.use() ?? "Windows";
   const dispatch = Session.useDispatch();
@@ -91,5 +91,5 @@ export const Window = memo((): ReactElement | null => {
       )}
     </Flex.Box>
   );
-});
+};
 Window.displayName = "Window";

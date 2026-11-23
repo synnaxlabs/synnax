@@ -15,40 +15,51 @@
 # workflow fails instead. Release runs are left to a person.
 
 name: Agent - Requeue
+run-name: Requeue run ${{ inputs.run }}
 
+# A failed run of a watched workflow starts this from its last job, through
+# relay.failure.yaml.
 on:
-  workflow_run:
-    workflows:
-      - Agent - Bug hunt
-      - Agent - Console QA
-      - Agent - Lint
-      - Agent - Nightly
-      - Agent - Shepherd
-      - Agent - Task
-      - Dismiss - Sedosaur
-      - Dispatch - Agents
-      - Nightly
-      - Review - Sedosaur
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run:
+        description: "Run to requeue"
+        type: string
+        required: true
 
 permissions: {}
 
 jobs:
   requeue:
     name: Requeue
-    if: github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       actions: write
       checks: read
       id-token: write
     env:
       GH_TOKEN: ${{ github.token }}
-      RUN: ${{ github.event.workflow_run.id }}
-      ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
-      TITLE: ${{ github.event.workflow_run.display_title }}
+      RUN: ${{ inputs.run }}
     steps:
+      # GitHub runs a job again only after its run completes.
+      - name: Wait for the run to complete
+        id: run
+        run: |
+          for _ in $(seq 120); do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN" > "$RUNNER_TEMP/run"
+            if [ "$(jq -r .status "$RUNNER_TEMP/run")" = completed ]; then
+              jq -r '"conclusion=\(.conclusion)", "attempt=\(.run_attempt)",
+                "title=\(.display_title)"' "$RUNNER_TEMP/run" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Run $RUN did not complete in 30 minutes."
+          exit 1
+
       - name: Assume the runner start role
+        if: steps.run.outputs.conclusion == 'failure'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
@@ -60,6 +71,10 @@ jobs:
       # shuts down under a job, so such a job runs again too. Only one job of a run can
       # run again at a time, so the first one goes.
       - name: Run a job that a usage limit stopped again where usage is left
+        if: steps.run.outputs.conclusion == 'failure'
+        env:
+          ATTEMPT: ${{ steps.run.outputs.attempt }}
+          TITLE: ${{ steps.run.outputs.title }}
         run: |
           jobs="repos/$GITHUB_REPOSITORY/actions/runs/$RUN/jobs?filter=latest"
           gh api --paginate "$jobs" --jq '.jobs[] | select(.conclusion == "failure")

@@ -47,33 +47,13 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 		return
 	}
 	name := idents[0].GetText()
-	if kw := idents[1].GetText(); kw != filterKeyword {
-		c.report(diagnostics.Errorf(
-			def, "%s: expected 'filter' before the target, got %q", name, kw,
-		))
-		return
-	}
-	if name != filterName {
-		c.report(diagnostics.Errorf(
-			def, "filter %s: a filter must be named %s", name, filterName,
-		))
-		return
-	}
 	qname := c.namespace + "." + name
-	if _, exists := c.table.Get(qname); exists {
-		c.report(diagnostics.Errorf(def, "duplicate type definition: %s", qname))
+	if !validFilterHeader(c, def, name, qname) {
 		return
 	}
-	if !plainTypeRef(def.TypeRef()) {
-		c.report(diagnostics.Errorf(
-			def,
-			"filter %s: the target must be a plain type reference, got %q",
-			name,
-			def.TypeRef().GetText(),
-		))
-		return
-	}
-	filter := &resolution.Filter{Target: collectTypeRef(def.TypeRef(), nil)}
+	filter := &resolution.Filter{Target: collectTypeRef(
+		c, def.TypeRef(), nil, "filter target",
+	)}
 	self := resolution.TypeRef{Name: name}
 	form := resolution.StructForm{Fields: []resolution.Field{
 		treeField("and", arrayOf(self), "matches when every child matches."),
@@ -82,26 +62,7 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 	}}
 	domains := make(map[string]resolution.Domain)
 	if body := def.FilterBody(); body != nil {
-		names := set.New(treeFields...)
-		for _, fd := range body.AllFieldDef() {
-			line, ok := collectFilterLine(c, name, fd)
-			if !ok {
-				continue
-			}
-			if names.Contains(line.Name) {
-				msg := "filter %s: duplicate line %q"
-				if slices.Contains(treeFields, line.Name) {
-					msg = "filter %s: %q is reserved for the tree"
-				}
-				c.report(diagnostics.Errorf(fd, msg, name, line.Name))
-				continue
-			}
-			names.Add(line.Name)
-			filter.Lines = append(filter.Lines, line)
-			if line.HasType() {
-				form.Fields = append(form.Fields, lineField(line, line.Type))
-			}
-		}
+		collectFilterLines(c, name, body, filter, &form)
 		for _, d := range body.AllDomain() {
 			addDomain(domains, collectDomain(c, d))
 		}
@@ -116,6 +77,70 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 		AST:           def,
 		Filter:        filter,
 	}))
+}
+
+// validFilterHeader reports whether a filter definition has a valid keyword, name, and
+// target, reporting the first problem it finds.
+func validFilterHeader(
+	c *analysisCtx, def parser.IFilterDefContext, name, qname string,
+) bool {
+	if kw := def.AllIDENT()[1].GetText(); kw != filterKeyword {
+		c.report(diagnostics.Errorf(
+			def, "%s: expected 'filter' before the target, got %q", name, kw,
+		))
+		return false
+	}
+	if name != filterName {
+		c.report(diagnostics.Errorf(
+			def, "filter %s: a filter must be named %s", name, filterName,
+		))
+		return false
+	}
+	if _, exists := c.table.Get(qname); exists {
+		c.report(diagnostics.Errorf(def, "duplicate type definition: %s", qname))
+		return false
+	}
+	if !plainTypeRef(def.TypeRef()) {
+		c.report(diagnostics.Errorf(
+			def,
+			"filter %s: the target must be a plain type reference, got %q",
+			name,
+			def.TypeRef().GetText(),
+		))
+		return false
+	}
+	return true
+}
+
+// collectFilterLines adds the lines of a filter body to filter, and a field to form for
+// each typed line.
+func collectFilterLines(
+	c *analysisCtx,
+	name string,
+	body parser.IFilterBodyContext,
+	filter *resolution.Filter,
+	form *resolution.StructForm,
+) {
+	names := set.New(treeFields...)
+	for _, fd := range body.AllFieldDef() {
+		line, ok := collectFilterLine(c, name, fd)
+		if !ok {
+			continue
+		}
+		if names.Contains(line.Name) {
+			msg := "filter %s: duplicate line %q"
+			if slices.Contains(treeFields, line.Name) {
+				msg = "filter %s: %q is reserved for the tree"
+			}
+			c.report(diagnostics.Errorf(fd, msg, name, line.Name))
+			continue
+		}
+		names.Add(line.Name)
+		filter.Lines = append(filter.Lines, line)
+		if line.HasType() {
+			form.Fields = append(form.Fields, lineField(line, line.Type))
+		}
+	}
 }
 
 func collectFilterLine(
@@ -264,11 +289,28 @@ func expandFilter(c *analysisCtx, typ resolution.Type) resolution.Type {
 		return typ
 	}
 	form := resolution.MustForm[resolution.StructForm](typ)
+	form.Fields = expandFilterLines(c, &typ, &filter, form.Fields, target, fields)
+	typ.Form = form
+	return typ
+}
+
+// expandFilterLines returns the fields of a filter in declared line order: the tree
+// fields, each typed line's field, and a field typed by its operator type for each bare
+// line. It sets the type of each typed line in filter.
+func expandFilterLines(
+	c *analysisCtx,
+	typ *resolution.Type,
+	filter *resolution.Filter,
+	collected []resolution.Field,
+	target resolution.Type,
+	fields []resolution.Field,
+) []resolution.Field {
+	def := filterDef(*typ)
 	typed := make(map[string]resolution.Field)
-	for _, f := range form.Fields[len(treeFields):] {
+	for _, f := range collected[len(treeFields):] {
 		typed[f.Name] = f
 	}
-	expanded := slices.Clone(form.Fields[:len(treeFields)])
+	expanded := slices.Clone(collected[:len(treeFields)])
 	for i, line := range filter.Lines {
 		if line.HasType() {
 			f := typed[line.Name]
@@ -288,12 +330,10 @@ func expandFilter(c *analysisCtx, typ resolution.Type) resolution.Type {
 		if !ok {
 			continue
 		}
-		resolveTypeRef(c, &typ, &op)
+		resolveTypeRef(c, typ, &op)
 		expanded = append(expanded, lineField(line, op))
 	}
-	form.Fields = expanded
-	typ.Form = form
-	return typ
+	return expanded
 }
 
 // filterTarget dealiases a filter's target and returns it with the fields its records
@@ -336,24 +376,7 @@ func bareLineOperator(
 		return f.Name == line.Name
 	})
 	if !ok {
-		if key, ok := resolution.RetrieveKey(target); ok && line.Name == "key" {
-			return operator(resolution.OperatorSet, key), true
-		}
-		if form, ok := target.Form.(resolution.UnionForm); ok &&
-			line.Name == form.Discriminator {
-			return report(
-				"%s takes its %s from an unnamed enum; declare an enum and borrow it "+
-					"with `union on %s <Enum>`",
-				target.Name,
-				line.Name,
-				line.Name,
-			)
-		}
-		return report(
-			"%s has no field %s; give the line a type to make it a typed line",
-			target.Name,
-			line.Name,
-		)
+		return missingFieldOperator(target, line.Name, report)
 	}
 	if field.Optional {
 		return report(
@@ -373,36 +396,91 @@ func bareLineOperator(
 		)
 	}
 	if ref.Name == "Array" && len(ref.TypeArgs) == 1 {
-		if ref.ArraySize != nil {
-			return report(
-				"%s.%s is a fixed-size array, which bare lines do not support; give "+
-					"the line a type to make it a typed line",
-				target.Name,
-				field.Name,
-			)
-		}
-		if !isComparable(ref.TypeArgs[0], c.table) {
-			return report(
-				"%s.%s has elements that cannot be compared; give the line a type to "+
-					"make it a typed line",
-				target.Name,
-				field.Name,
-			)
-		}
-		return operator(resolution.OperatorContains, ref.TypeArgs[0]), true
+		return arrayFieldOperator(c, target, field, report)
 	}
+	if op, ok := fieldOperator(field, c.table); ok {
+		return op, true
+	}
+	return report(
+		"%s.%s has no operators for its type; give the line a type to make it a "+
+			"typed line",
+		target.Name,
+		field.Name,
+	)
+}
+
+// missingFieldOperator returns the operator type for a bare line that names no field of
+// target, which only the retrieve key has.
+func missingFieldOperator(
+	target resolution.Type,
+	name string,
+	report func(format string, args ...any) (resolution.TypeRef, bool),
+) (resolution.TypeRef, bool) {
+	if key, ok := resolution.RetrieveKey(target); ok && name == "key" {
+		return operator(resolution.OperatorSet, key), true
+	}
+	if form, ok := target.Form.(resolution.UnionForm); ok &&
+		name == form.Discriminator {
+		return report(
+			"%s takes its %s from an unnamed enum; declare an enum and borrow it "+
+				"with `union on %s <Enum>`",
+			target.Name,
+			name,
+			name,
+		)
+	}
+	return report(
+		"%s has no field %s; give the line a type to make it a typed line",
+		target.Name,
+		name,
+	)
+}
+
+// arrayFieldOperator returns the operator type for a bare line on an array field.
+func arrayFieldOperator(
+	c *analysisCtx,
+	target resolution.Type,
+	field resolution.Field,
+	report func(format string, args ...any) (resolution.TypeRef, bool),
+) (resolution.TypeRef, bool) {
+	ref := field.Type
+	if ref.ArraySize != nil {
+		return report(
+			"%s.%s is a fixed-size array, which bare lines do not support; give "+
+				"the line a type to make it a typed line",
+			target.Name,
+			field.Name,
+		)
+	}
+	if !isComparable(ref.TypeArgs[0], c.table) {
+		return report(
+			"%s.%s has elements that cannot be compared; give the line a type to "+
+				"make it a typed line",
+			target.Name,
+			field.Name,
+		)
+	}
+	return operator(resolution.OperatorContains, ref.TypeArgs[0]), true
+}
+
+// fieldOperator returns the operator type for a bare line on a non-array field. It
+// returns false when the field's type has no operators.
+func fieldOperator(
+	field resolution.Field, table *resolution.Table,
+) (resolution.TypeRef, bool) {
+	ref := field.Type
 	if _, isKey := field.Domains["key"]; isKey {
 		return operator(resolution.OperatorSet, ref), true
 	}
-	if resolved, _, ok := resolution.Dealias(ref, c.table); ok {
+	if resolved, _, ok := resolution.Dealias(ref, table); ok {
 		_, isKeyType := resolved.Domains["key"]
 		_, isEnum := resolved.Form.(resolution.EnumForm)
 		if isKeyType || isEnum {
 			return operator(resolution.OperatorSet, ref), true
 		}
 	}
-	base := resolution.PrimitiveBase(ref, c.table)
-	distinct := resolution.IsDistinct(ref, c.table)
+	base := resolution.PrimitiveBase(ref, table)
+	distinct := resolution.IsDistinct(ref, table)
 	switch {
 	case base == "string" && !distinct:
 		return resolution.TypeRef{Name: resolution.OperatorString}, true
@@ -413,12 +491,7 @@ func bareLineOperator(
 	case resolution.IsNumberPrimitive(base):
 		return operator(resolution.OperatorOrdered, ref), true
 	}
-	return report(
-		"%s.%s has no operators for its type; give the line a type to make it a "+
-			"typed line",
-		target.Name,
-		field.Name,
-	)
+	return resolution.TypeRef{}, false
 }
 
 // isComparable reports whether the generated matchers can compare ref by value.
@@ -450,13 +523,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	if !ok {
 		return
 	}
-	if expr, ok := where.Domains["go"].Expressions.Find("request_output"); ok &&
-		(len(expr.Values) != 1 || expr.Values[0].Kind != resolution.ValueKindString) {
-		c.report(diagnostics.Errorf(
-			filterDef(where),
-			"filter %s: @go request_output takes one path",
-			where.Name,
-		))
+	if !validRequestOutput(c, where) {
 		return
 	}
 	target, fields, ok := filterTarget(where.Filter.Target, c.table)
@@ -474,6 +541,153 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		layDomains(c.fileDomains, where.Domains, "output", "omit"),
 		where,
 	)
+	request := selectionFields(where, fields, words)
+	ordering, sorted, ok := orderingTypes(c, where, target, fields, domains, words)
+	if !ok {
+		return
+	}
+	request = append(request, pageFields(c, sorted, len(ordering) > 0, words)...)
+	response, records, ok := retrieveResponse(c, where, target, fields, plural, words)
+	if !ok {
+		return
+	}
+	request = append(request, includeFields(records)...)
+	if !checkRetrieveOptions(c, where, request) {
+		return
+	}
+	// The request refers to the ordering types, so they resolve first.
+	created := append(slices.Clone(ordering), resolution.Type{
+		Name: "RetrieveRequest",
+		Form: resolution.StructForm{Fields: request},
+		Domains: withDoc(domains, fmt.Sprintf(
+			"is a request to retrieve %s.", words,
+		)),
+	}, response)
+	if !addDerivedTypes(c, where, created) {
+		return
+	}
+	filter := *where.Filter
+	filter.Request = c.namespace + ".RetrieveRequest"
+	filter.Response = c.namespace + "." + response.Name
+	where.Filter = &filter
+	replaceType(c.table, where)
+}
+
+// validRequestOutput reports whether the `@go request_output` of where, if any, holds
+// one path.
+func validRequestOutput(c *analysisCtx, where resolution.Type) bool {
+	expr, ok := where.Domains["go"].Expressions.Find("request_output")
+	if !ok ||
+		(len(expr.Values) == 1 && expr.Values[0].Kind == resolution.ValueKindString) {
+		return true
+	}
+	c.report(diagnostics.Errorf(
+		filterDef(where), "filter %s: @go request_output takes one path", where.Name,
+	))
+	return false
+}
+
+// pageFields returns the request fields that order and page a retrieve: order when the
+// target is sorted, after when it has a cursor, and limit.
+func pageFields(
+	c *analysisCtx, sorted, hasCursor bool, words string,
+) []resolution.Field {
+	var fields []resolution.Field
+	if sorted {
+		fields = append(fields, optionalField(
+			"order",
+			resolution.TypeRef{Name: c.namespace + ".Order"},
+			fmt.Sprintf("sorts the %s. An absent order sorts them by key.", words),
+		))
+	}
+	if hasCursor {
+		fields = append(fields, optionalField(
+			"after",
+			resolution.TypeRef{Name: c.namespace + ".Cursor"},
+			fmt.Sprintf(
+				"starts the %s strictly past this position in their order.", words,
+			),
+		))
+	}
+	return append(fields, optionalField(
+		"limit",
+		resolution.TypeRef{Name: "uint32"},
+		fmt.Sprintf("is the most %s to return.", words),
+	))
+}
+
+// includeFields returns a request field for each record field marked @include.
+func includeFields(records []resolution.Field) []resolution.Field {
+	var fields []resolution.Field
+	for _, f := range records {
+		if _, ok := f.Domains["include"]; ok {
+			fields = append(fields, defaultField(
+				"include_"+f.Name,
+				resolution.TypeRef{Name: "bool"},
+				fmt.Sprintf("includes the %s of each record.", f.Name),
+				resolution.ExpressionValue{Kind: resolution.ValueKindBool},
+			))
+		}
+	}
+	return fields
+}
+
+// checkRetrieveOptions reports whether no line of where shares a name with a request
+// field or a retrieve option in any casing. A client takes lines and retrieve options
+// side by side.
+func checkRetrieveOptions(
+	c *analysisCtx, where resolution.Type, request []resolution.Field,
+) bool {
+	options := append(
+		lo.Map(request, func(f resolution.Field, _ int) string { return f.Name }),
+		oneOption,
+	)
+	for _, line := range where.Filter.Lines {
+		if lo.Contains(options, casing.FieldSnake(line.Name)) {
+			c.report(diagnostics.Errorf(
+				filterDef(where),
+				"filter %s: %q is reserved for retrieve",
+				where.Name,
+				line.Name,
+			))
+			return false
+		}
+	}
+	return true
+}
+
+// addDerivedTypes adds the types that where derives to the table, in order. It reports
+// whether the schema declares none of them already.
+func addDerivedTypes(
+	c *analysisCtx, where resolution.Type, created []resolution.Type,
+) bool {
+	derived := true
+	for _, t := range created {
+		t.Namespace = c.namespace
+		t.QualifiedName = c.namespace + "." + t.Name
+		t.FilePath = c.filePath
+		if _, exists := c.table.Get(t.QualifiedName); exists {
+			c.report(diagnostics.Errorf(
+				filterDef(where),
+				"filter %s: %s derives %s, which the schema already declares",
+				where.Name,
+				where.Name,
+				t.QualifiedName,
+			))
+			derived = false
+			continue
+		}
+		resolveTypeRefs(c, &t)
+		lo.Must0(c.table.Add(t))
+	}
+	return derived
+}
+
+// selectionFields returns the request fields that select records: where, and
+// search_term when a target field is searchable.
+func selectionFields(
+	where resolution.Type, fields []resolution.Field, words string,
+) []resolution.Field {
 	request := []resolution.Field{
 		optionalField(
 			"where",
@@ -497,97 +711,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 			resolution.ExpressionValue{Kind: resolution.ValueKindString},
 		))
 	}
-	ordering, sorted, ok := orderingTypes(c, where, target, fields, domains, words)
-	if !ok {
-		return
-	}
-	if sorted {
-		request = append(request, optionalField(
-			"order",
-			resolution.TypeRef{Name: c.namespace + ".Order"},
-			fmt.Sprintf("sorts the %s. An absent order sorts them by key.", words),
-		))
-	}
-	if len(ordering) > 0 {
-		request = append(request, optionalField(
-			"after",
-			resolution.TypeRef{Name: c.namespace + ".Cursor"},
-			fmt.Sprintf(
-				"starts the %s strictly past this position in their order.", words,
-			),
-		))
-	}
-	request = append(request, optionalField(
-		"limit",
-		resolution.TypeRef{Name: "uint32"},
-		fmt.Sprintf("is the most %s to return.", words),
-	))
-	response, records, ok := retrieveResponse(c, where, target, fields, plural, words)
-	if !ok {
-		return
-	}
-	for _, f := range records {
-		if _, ok := f.Domains["include"]; ok {
-			request = append(request, defaultField(
-				"include_"+f.Name,
-				resolution.TypeRef{Name: "bool"},
-				fmt.Sprintf("includes the %s of each record.", f.Name),
-				resolution.ExpressionValue{Kind: resolution.ValueKindBool},
-			))
-		}
-	}
-	// A client takes lines and retrieve options side by side, so no line may share a
-	// name with an option in any casing.
-	options := append(
-		lo.Map(request, func(f resolution.Field, _ int) string { return f.Name }),
-		oneOption,
-	)
-	for _, line := range where.Filter.Lines {
-		if lo.Contains(options, casing.FieldSnake(line.Name)) {
-			c.report(diagnostics.Errorf(
-				filterDef(where),
-				"filter %s: %q is reserved for retrieve",
-				where.Name,
-				line.Name,
-			))
-			return
-		}
-	}
-	// The request refers to the ordering types, so they resolve first.
-	created := append(slices.Clone(ordering), resolution.Type{
-		Name: "RetrieveRequest",
-		Form: resolution.StructForm{Fields: request},
-		Domains: withDoc(domains, fmt.Sprintf(
-			"is a request to retrieve %s.", words,
-		)),
-	}, response)
-	derived := true
-	for _, t := range created {
-		t.Namespace = c.namespace
-		t.QualifiedName = c.namespace + "." + t.Name
-		t.FilePath = c.filePath
-		if _, exists := c.table.Get(t.QualifiedName); exists {
-			c.report(diagnostics.Errorf(
-				filterDef(where),
-				"filter %s: %s derives %s, which the schema already declares",
-				where.Name,
-				where.Name,
-				t.QualifiedName,
-			))
-			derived = false
-			continue
-		}
-		resolveTypeRefs(c, &t)
-		lo.Must0(c.table.Add(t))
-	}
-	if !derived {
-		return
-	}
-	filter := *where.Filter
-	filter.Request = c.namespace + ".RetrieveRequest"
-	filter.Response = c.namespace + "." + response.Name
-	where.Filter = &filter
-	replaceType(c.table, where)
+	return request
 }
 
 // orderingTypes derives the types that order a retrieve: the cursor that `after` holds
@@ -606,36 +730,53 @@ func orderingTypes(
 		c.report(diagnostics.Errorf(def, "filter %s: %v", where.Name, err))
 		return nil, false, false
 	}
-	key, ok := resolution.RetrieveKey(target)
-	if !ok {
-		keyField, found := lo.Find(fields, func(f resolution.Field) bool {
-			_, ok := f.Domains["key"]
-			return ok
-		})
-		if !found && len(sorts) > 0 {
-			c.report(diagnostics.Errorf(
-				def,
-				"filter %s: %s has sorted fields but no key to order ties by",
-				where.Name,
-				target.Name,
-			))
-			return nil, false, false
-		}
-		// A target with no key has no position to resume after.
-		if !found {
-			return nil, false, true
-		}
-		key = keyField.Type
+	key, found := orderingKey(target, fields)
+	if !found && len(sorts) > 0 {
+		c.report(diagnostics.Errorf(
+			def,
+			"filter %s: %s has sorted fields but no key to order ties by",
+			where.Name,
+			target.Name,
+		))
+		return nil, false, false
+	}
+	// A target with no key has no position to resume after.
+	if !found {
+		return nil, false, true
 	}
 	singular := strings.ReplaceAll(casing.TypeSnake(target.Name), "_", " ")
 	if noun, ok := resolution.RetrieveNoun(target); ok {
 		singular = noun
 	}
-	cursor := []resolution.Field{requiredField(
+	cursor, values := cursorFields(key, sorts, singular, words)
+	cursorType := resolution.Type{
+		Name: "Cursor",
+		Form: resolution.StructForm{Fields: cursor},
+		Domains: withDoc(domains, fmt.Sprintf(
+			"is a position in an order of %s: the sort value and the key of a %s.",
+			words,
+			singular,
+		)),
+	}
+	if len(sorts) == 0 {
+		return []resolution.Type{cursorType}, false, true
+	}
+	return append(
+		[]resolution.Type{cursorType}, orderTypes(c, domains, values, words)...,
+	), true, true
+}
+
+// cursorFields returns the fields of a retrieve cursor and the order field values, one
+// for each sorted field.
+func cursorFields(
+	key resolution.TypeRef, sorts []resolution.Sort, singular, words string,
+) ([]resolution.Field, []resolution.EnumValue) {
+	cursor := make([]resolution.Field, 0, 1+len(sorts))
+	cursor = append(cursor, requiredField(
 		"key",
 		key,
 		fmt.Sprintf("is the key of the %s at the position.", singular),
-	)}
+	))
 	values := make([]resolution.EnumValue, len(sorts))
 	for i, sort := range sorts {
 		path := strings.ReplaceAll(sort.Name, "_", " ")
@@ -656,19 +797,36 @@ func orderingTypes(
 			),
 		))
 	}
-	cursorType := resolution.Type{
-		Name: "Cursor",
-		Form: resolution.StructForm{Fields: cursor},
-		Domains: withDoc(domains, fmt.Sprintf(
-			"is a position in an order of %s: the sort value and the key of a %s.",
-			words,
-			singular,
-		)),
+	return cursor, values
+}
+
+// orderingKey returns the type of the key that orders ties in a retrieve of target, and
+// false when target has no key.
+func orderingKey(
+	target resolution.Type, fields []resolution.Field,
+) (resolution.TypeRef, bool) {
+	if key, ok := resolution.RetrieveKey(target); ok {
+		return key, true
 	}
-	if len(sorts) == 0 {
-		return []resolution.Type{cursorType}, false, true
+	keyField, found := lo.Find(fields, func(f resolution.Field) bool {
+		_, ok := f.Domains["key"]
+		return ok
+	})
+	if !found {
+		return resolution.TypeRef{}, false
 	}
-	return []resolution.Type{cursorType, {
+	return keyField.Type, true
+}
+
+// orderTypes returns the enum of the fields a retrieve can sort by, with values, and
+// the order that holds one of them.
+func orderTypes(
+	c *analysisCtx,
+	domains map[string]resolution.Domain,
+	values []resolution.EnumValue,
+	words string,
+) []resolution.Type {
+	return []resolution.Type{{
 		Name: "OrderField",
 		Form: resolution.EnumForm{Values: values},
 		Domains: withDoc(domains, fmt.Sprintf(
@@ -690,7 +848,7 @@ func orderingTypes(
 			),
 		}},
 		Domains: withDoc(domains, fmt.Sprintf("is a sort of %s.", words)),
-	}}, true, true
+	}}
 }
 
 // retrieveResponse derives the response and returns it with the fields of the records
@@ -702,16 +860,7 @@ func retrieveResponse(
 	fields []resolution.Field,
 	plural, words string,
 ) (resolution.Type, []resolution.Field, bool) {
-	elem := resolution.TypeRef{Name: target.QualifiedName}
-	// A generic target's table holds records of every type argument.
-	if form, ok := target.Form.(resolution.StructForm); ok {
-		for _, param := range form.TypeParams {
-			if param.HasDefault() {
-				break
-			}
-			elem.TypeArgs = append(elem.TypeArgs, resolution.TypeRef{Name: "any"})
-		}
-	}
+	elem := recordRef(target)
 	domains := c.fileDomains
 	if dom, ok := where.Domains["response"]; ok {
 		def := filterDef(where)
@@ -760,6 +909,21 @@ func retrieveResponse(
 			"holds the %s a RetrieveRequest selects.", words,
 		)),
 	}, withVariantFields(target, fields, c.table), true
+}
+
+// recordRef returns a reference to the records of target. A generic target's table
+// holds records of every type argument.
+func recordRef(target resolution.Type) resolution.TypeRef {
+	elem := resolution.TypeRef{Name: target.QualifiedName}
+	if form, ok := target.Form.(resolution.StructForm); ok {
+		for _, param := range form.TypeParams {
+			if param.HasDefault() {
+				break
+			}
+			elem.TypeArgs = append(elem.TypeArgs, resolution.TypeRef{Name: "any"})
+		}
+	}
+	return elem
 }
 
 // withVariantFields returns fields with the payload fields of each variant of a union

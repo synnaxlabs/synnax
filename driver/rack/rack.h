@@ -11,9 +11,6 @@
 #include "driver/arc/arc.h"
 
 #ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
 #include <windows.h>
 #include <winsock2.h>
 #endif
@@ -42,6 +39,7 @@
 
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
+#include "driver/file/file.h"
 #include "driver/http/http.h"
 #include "driver/opcua/opcua.h"
 #include "driver/task/task.h"
@@ -98,7 +96,8 @@ inline std::vector<std::string> built_integrations() {
         opcua::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
         ethercat::INTEGRATION_NAME,
-        http::INTEGRATION_NAME
+        http::INTEGRATION_NAME,
+        file::INTEGRATION_NAME
     };
     std::ranges::copy(platform_integrations(), std::back_inserter(integrations));
 #ifndef SYNNAX_NILINUXRT
@@ -136,6 +135,9 @@ struct Config {
     /// @brief the directory that holds the persisted state file. Integrations keep
     /// their own files, such as certificates, inside it.
     std::filesystem::path state_dir;
+    /// @brief the folder of the rack's file secrets and certificate keys. Empty when
+    /// none is set. The file browser gives only the names of what it holds.
+    std::filesystem::path secrets_dir;
     /// @brief the version of the Core when it runs another minor than this Driver. The
     /// Driver then starts no tasks. Set by load_remote.
     std::optional<std::string> incompatible_core_version;

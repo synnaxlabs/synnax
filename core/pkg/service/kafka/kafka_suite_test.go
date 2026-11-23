@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -65,6 +66,8 @@ var (
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	taskSvc    *task.Service
+	icdSvc     *icd.Service
+	kafkaSvc   *kafka.Service
 	cluster    *kfake.Cluster
 )
 
@@ -127,9 +130,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
-	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
+	icdSvc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
+		DB:   db,
+		ImEx: imex.NewService(),
+	}))
+	kafkaSvc = MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
 		DB:      db,
 		Channel: channelSvc,
+		ICD:     icdSvc,
 	}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      db,
@@ -161,6 +169,7 @@ func newFactory(cfgs ...kafka.FactoryConfig) driver.Factory {
 		Channel:      channelSvc,
 		Framer:       framerSvc,
 		Status:       statusSvc,
+		ICD:          icdSvc,
 		PingTimeout:  2 * telem.Second,
 		FetchMaxWait: 100 * telem.Millisecond,
 	}}, cfgs...)...))
