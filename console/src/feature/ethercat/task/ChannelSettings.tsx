@@ -13,20 +13,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { deep, primitive, strings } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { useResultSlave } from "@/feature/ethercat/device/queries";
-import { SettingInput } from "@/feature/ethercat/device/SettingInput";
-import {
-  check,
-  fill,
-  findInput,
-  type Note,
-  problemAt,
-  sameAddress,
-  set,
-  valueAt,
-  visibleFields,
-} from "@/feature/ethercat/device/settings";
-import { setUpBy } from "@/feature/ethercat/device/setup";
+import { Device } from "@/feature/ethercat/device";
 import type { EntryReadChannel, ReadSchemas } from "@/feature/ethercat/task/types";
 import type { Task } from "@/platform/task";
 
@@ -57,18 +44,22 @@ export const ChannelSettings = ({
 }: ChannelSettingsProps): ReactElement | null => {
   const ch = PForm.useFieldValue(path);
   const { value: held, onChange } = PForm.useField(PARAMETERS_PATH);
-  const { data: slave } = useResultSlave(
+  const { data: slave } = Device.useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
-  const [moved, setMoved] = useState<{ device: string; notes: Note[] }>();
-  const input = findInput(slave?.properties.settings, ch);
+  const [moved, setMoved] = useState<{
+    device: string;
+    notes: Device.Settings.Note[];
+  }>();
+  const input = Device.Settings.findInput(slave?.properties.settings, ch);
   if (input == null || slave == null) return null;
-  const reader = setUpBy(slave.properties.settings);
+  const reader = Device.Setup.setUpBy(slave.properties.settings);
   const fields = input.settings;
   const prior = held.find((s) => s.device === ch.device)?.parameters ?? [];
-  const filled = reader == null ? fill(fields, prior) : { values: [], notes: [] };
+  const filled =
+    reader == null ? Device.Settings.fill(fields, prior) : { values: [], notes: [] };
   const { values } = filled;
-  const problems = reader == null ? check(input, values) : [];
+  const problems = reader == null ? Device.Settings.check(input, values) : [];
   const notes = [...filled.notes, ...(moved?.device === ch.device ? moved.notes : [])];
   return (
     <PForm.Section title="Settings">
@@ -77,15 +68,17 @@ export const ChannelSettings = ({
           {strings.capitalize(reader)} sets these values. Synnax does not change them.
         </Text.Text>
       )}
-      {visibleFields(fields, values).map((field) => (
-        <SettingInput
+      {Device.Settings.visibleFields(fields, values).map((field) => (
+        <Device.SettingInput
           key={`${field.index}_${field.subIndex}_${field.name}`}
           field={field}
-          value={reader == null ? valueAt(fields, values, field) : undefined}
-          problem={problemAt(problems, field)?.message}
-          note={notes.find((n) => sameAddress(n, field))?.message}
+          value={
+            reader == null ? Device.Settings.valueAt(fields, values, field) : undefined
+          }
+          problem={Device.Settings.problemAt(problems, field)?.message}
+          note={notes.find((n) => Device.Settings.sameAddress(n, field))?.message}
           onChange={(value) => {
-            const change = set(fields, prior, field, value);
+            const change = Device.Settings.set(fields, prior, field, value);
             setMoved({ device: ch.device, notes: change.notes });
             onChange(withParameters(held, ch.device, change.values));
           }}

@@ -144,14 +144,28 @@ type UpdateRequest struct {
 	Key device.Key `json:"key" msgpack:"key"`
 }
 
+// UpdateResponse carries the device as stored after an update.
+type UpdateResponse struct {
+	// Device is the stored device, without its status.
+	Device device.Device `json:"device" msgpack:"device"`
+}
+
 // Update writes one field group to a device and keeps the other as stored. It returns
-// a validation error when the request carries no group.
+// the stored device, or a validation error when the request carries no group.
 func (s *Service) Update(
 	ctx context.Context,
 	tx gorp.Tx,
 	req UpdateRequest,
-) (struct{}, error) {
-	return struct{}{}, s.cfg.Device.NewWriter(tx).Apply(ctx, req.Key, req.Update)
+) (UpdateResponse, error) {
+	if err := s.cfg.Device.NewWriter(tx).Apply(ctx, req.Key, req.Update); err != nil {
+		return UpdateResponse{}, err
+	}
+	var res UpdateResponse
+	err := s.cfg.Device.NewRetrieve().
+		Where(device.MatchKeys(req.Key)).
+		Entry(&res.Device).
+		Exec(ctx, tx)
+	return res, err
 }
 
 // DeleteRequest carries the keys of the devices to delete.

@@ -20,14 +20,14 @@ import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
 import { CopyContextMenuItem } from "@/platform/tree/CopyContextMenuItem";
 import type { Item } from "@/platform/tree/item";
-import { isMoreKey, type Store } from "@/platform/tree/store";
+import { Store } from "@/platform/tree/store";
 import type {
   ContextMenuProps,
   RootContextMenuProps,
   TreeState,
 } from "@/platform/tree/types";
 import { useResources } from "@/platform/tree/useResource";
-import type { Action, State } from "@/session/store";
+import type { Session } from "@/session";
 
 /** A menu that holds only the reload of the Console. */
 export const FallbackContextMenu = (): ReactElement => (
@@ -62,7 +62,7 @@ const SelectionContextMenu = ({ menu: M, ...props }: SelectionContextMenuProps) 
 
 export interface UseMenuProps {
   client: Client;
-  store: Store;
+  store: Store.Store;
   root: resource.ID;
   selected: string[];
   state: TreeState;
@@ -87,12 +87,12 @@ export const useMenu = ({
   handleError,
 }: UseMenuProps): ((props: Menu.ContextMenuMenuProps) => ReactElement) => {
   const openTab = Panel.useOpenTab();
-  const session = useStore<State, Action>();
+  const session = useStore<Session.State, Session.Action>();
 
   const render = ({ keys: targets }: Menu.ContextMenuMenuProps): ReactElement => {
     // The node that loads more names no resource, so it opens the root menu.
-    const clicked = targets.filter((key) => !isMoreKey(key));
-    const chosen = selected.filter((key) => !isMoreKey(key));
+    const clicked = targets.filter((key) => !Store.isMoreKey(key));
+    const chosen = selected.filter((key) => !Store.isMoreKey(key));
     if (clicked.length === 0) return <RootContextMenu root={root} state={state} />;
     const rightClickedButNotSelected = clicked.find((v) => !chosen.includes(v));
     // A right-click outside the selection shows a menu for that item alone. Otherwise

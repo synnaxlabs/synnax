@@ -56,4 +56,23 @@ var _ = Describe("Errors", func() {
 		Expect(decoded).To(MatchError(ContainSubstring(`2 channels are named "pt"`)))
 		Expect(codec.Encode(decoded, false).Type).To(Equal("sy.query.multiple_results"))
 	})
+
+	DescribeTable(
+		"Should not repeat the sentinel message on each hop",
+		func(base error) {
+			codec := errors.NewCodec(query.ErrorProvider())
+			err := errors.Wrap(base, "channel 5")
+			Expect(codec.Decode(
+				codec.Encode(codec.Decode(codec.Encode(err, false)), false),
+			)).To(MatchError(err.Error()))
+			pld := codec.Encode(base, false)
+			Expect(pld.Data).To(Equal(base.Error()))
+			Expect(codec.Decode(pld)).To(Equal(base))
+		},
+		Entry("not found", query.ErrNotFound),
+		Entry("unique violation", query.ErrUniqueViolation),
+		Entry("invalid parameters", query.ErrInvalidParameters),
+		Entry("unsupported", query.ErrUnsupported),
+		Entry("query", query.ErrQuery),
+	)
 })

@@ -20,3 +20,9 @@ export const REGISTRY = {
   tank: Tank.spec,
   t_junction: TJunction.spec,
 } as const satisfies Partial<Record<schematic.NodeConfigType, unknown>>;
+
+/** BUILT_INS maps the name of each built-in symbol to its spec. */
+export const BUILT_INS = {
+  cross_junction: CrossJunction.SYMBOL,
+  t_junction: TJunction.SYMBOL,
+} as const satisfies Record<string, schematic.symbol.Spec>;

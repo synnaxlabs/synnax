@@ -535,27 +535,25 @@ change:
 
 ### 4.9 Migrations and compatibility
 
-- **Phase 1: Channel v2.** It drops `internal` and logs each record that held it.
-  First it stages the key of each record that holds `internal` and the name of a
-  channel this Core retired (`sy_range_alias_set`, `sy_calculation_status`, and the
-  rest), and one step deletes those keys with their data; no start deletes a channel by
-  name. A one-shot step, `v63_clear_unissued_channel_links`, runs once the channel
-  service and its counter are open and before the API serves: it clears every stored
-  schematic and table link, and each channel input of an Arc graph node, whose key this
-  Core never issued, as `core/v0.62.0` import kept raw keys and those fields had no
-  reference.
+- **Phase 1: Channel v2.** It drops `internal` and logs each record that held it. First
+  it stages the key of each record that holds `internal` and the name of a channel this
+  Core retired (`sy_range_alias_set`, `sy_calculation_status`, and the rest), and one
+  step deletes those keys with their data; no start deletes a channel by name. A
+  one-shot step, `v63_clear_unissued_channel_links`, runs once the channel service and
+  its counter are open and before the API serves: it clears every stored schematic and
+  table link, and each channel input of an Arc graph node, whose key this Core never
+  issued, as `core/v0.62.0` import kept raw keys and those fields had no reference.
 - **Phase 7: Names.** The pass rewrites a name only when it breaks the rule, which
-  includes a name not in NFC. Each `.` becomes `_`, refused characters go, invalid
-  bytes become U+FFFD, and an empty result becomes `channel_<key>`. A rewritten name
-  that is taken gets the first free suffix (`_2`, `_3`); until Phase 31, "taken" means
-  anywhere in the Core. A name that needs no rewrite never moves, even when another
-  channel holds it after NFC, and a built-in is never renamed. The same pass runs on
-  folders in the group chain, in key order; after both tables open, in a clash of a
-  folder and a sibling channel, the name that a pass rewrote takes a suffix, and the
-  folder does when both or neither were rewritten. A folder that the Core makes by name
-  (`Metrics`) never takes the suffix; the clashing item does. Duplicates in different
-  folders stay. Each rename writes a warning status
-  (`core/pkg/service/migrate.go:62`).
+  includes a name not in NFC. Each `.` becomes `_`, refused characters go, invalid bytes
+  become U+FFFD, and an empty result becomes `channel_<key>`. A rewritten name that is
+  taken gets the first free suffix (`_2`, `_3`); until Phase 31, "taken" means anywhere
+  in the Core. A name that needs no rewrite never moves, even when another channel holds
+  it after NFC, and a built-in is never renamed. The same pass runs on folders in the
+  group chain, in key order; after both tables open, in a clash of a folder and a
+  sibling channel, the name that a pass rewrote takes a suffix, and the folder does when
+  both or neither were rewritten. A folder that the Core makes by name (`Metrics`) never
+  takes the suffix; the clashing item does. Duplicates in different folders stay. Each
+  rename writes a warning status (`core/pkg/service/migrate.go:62`).
 - **Phase 7: Text.** The name pass writes each change under a staging prefix in its own
   transaction. One pass over Arc text and one over calculation expressions write each
   changed name in its new form, and quote a dashed token only when a channel holds that
@@ -585,11 +583,11 @@ and calculation migrates forward. No client, Driver, or script of `core/v0.62.0`
 older works with this Core, and none is owed (founder, 2026-11-21): `APIChannel` keeps
 no old field, and its `virtual` filter means the stored field from Phase 3. Four breaks
 go in the release notes. A start with the old flag fails. A digit-only string no longer
-means a key, except that a frame record still reads an all-digit key as a key unless
-the writer holds a channel by that name. A lookup that acts on a duplicate name fails
-where it picked one. On a Core that ran with the old flag, an Arc program or calculation
-that gives a dashed name to a variable, function, parameter, or stage fails its compile,
-and the error names the place: the one exception to the rule that stored data migrates
+means a key, except that a frame record still reads an all-digit key as a key unless the
+writer holds a channel by that name. A lookup that acts on a duplicate name fails where
+it picked one. On a Core that ran with the old flag, an Arc program or calculation that
+gives a dashed name to a variable, function, parameter, or stage fails its compile, and
+the error names the place: the one exception to the rule that stored data migrates
 (founder, 2026-11-22). The release notes also say that every client and Driver upgrades
 with the Core.
 
@@ -639,17 +637,18 @@ with the Core.
   creates the built-in as two actions, the rename first, so text that names the user
   channel follows it. Every first free suffix in this RFC (`Declare`, the Phase 7
   migration, a displaced channel) skips tombstone paths.
-- **Access**: An entry for a record that the caller cannot retrieve is a count, with no
-  name or text. Applying an entry needs update access on its record, or delete access
-  for a delete. An entry that the caller may not apply fails the apply with an access
-  error that names no record; one pick covers all hidden entries. A delete of data by
-  path needs delete access on each piece.
+- **Access**: An entry for a record that the caller cannot retrieve is a count for its
+  effect, with no name or text. Applying an entry needs update access on its record, or
+  delete access for a delete. An entry that the caller may not apply fails the apply
+  with an access error that names no record; one pick covers all hidden entries that
+  restrict the change. A delete of data by path needs delete access on each piece.
 - **Folders**: A folder delete deletes the folder's tombstones first, and lists them, so
   the group guard sees only live members (`core/pkg/service/group/service.go:397-423`).
 - **Routes**: `/impact/plan` and `/impact/apply`. A plan carries a token, an 8 B
   xxHash-64 over length-prefixed fields: the change, each visible entry, and the hidden
-  count. It holds no hidden data. A pick names an entry by its record. The Console shows
-  one dialog for every plan; the clients, imports, and Git apply pass picks.
+  count for each effect. It holds no hidden data. A pick names an entry by its record.
+  The Console shows one dialog for every plan; the clients, imports, and Git apply pass
+  picks.
 - **Check at apply**: Parses and lexing run outside the write lock. Under it, the Core
   plans the Gorp entries again and compares each text holder's hash; a holder that
   changed reruns its edit once, inline, with no retry loop. It also lexes each text

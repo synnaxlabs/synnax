@@ -37,15 +37,15 @@ import {
 import { Details } from "@/feature/opcua/device/Details";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
 import { HaulPreview, resolveIcon } from "@/feature/opcua/device/HaulPreview";
-import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
-import type { Device } from "@/feature/opcua/device/types";
 import {
   BROWSE_COMMAND_TYPE,
   type BrowseResponse,
   browseResponseZ,
   nodeIdentity,
   type ScannedNode,
-} from "@/feature/opcua/task/types";
+} from "@/feature/opcua/device/scan";
+import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
+import type { Device } from "@/feature/opcua/device/types";
 import { CSS } from "@/platform/css";
 import { Section } from "@/platform/section";
 

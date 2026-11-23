@@ -43,6 +43,12 @@ func decode(_ *errors.Codec, p errors.Payload) (error, bool) {
 		return nil, false
 	}
 	if p.Type == unauthorized {
+		if p.Data == ErrUnauthorized.Error() {
+			return ErrUnauthorized, true
+		}
+		if detail, ok := strings.CutSuffix(p.Data, ": "+ErrUnauthorized.Error()); ok {
+			return errors.Wrap(ErrUnauthorized, detail), true
+		}
 		return errors.Wrap(ErrUnauthorized, p.Data), true
 	}
 	return errors.Wrap(ErrControl, p.Data), true
