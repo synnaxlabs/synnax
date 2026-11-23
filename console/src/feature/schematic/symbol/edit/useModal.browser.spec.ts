@@ -515,7 +515,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(screen.getByLabelText("Fill"));
       fireEvent.click(await screen.findByText("Contrast"));
       await waitFor(() =>
-        expect(fill.querySelector(".lyra-icon--contrast")).not.toBeNull(),
+        expect(
+          screen.getByLabelText("Fill").querySelector(".lyra-icon--contrast"),
+        ).not.toBeNull(),
       );
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
