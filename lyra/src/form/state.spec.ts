@@ -7,11 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x";
+import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { State } from "@/form/state";
-import { createLocalStore } from "@/form/store";
+import { Form } from "@/form";
+import { createLocalStore } from "@/form/testutil";
+
+const create = <Z extends z.ZodType>(params: Form.UseParams<Z>) => {
+  let touched = false;
+  const onHasTouched = (value: boolean) => {
+    touched = value;
+  };
+  const { result, unmount } = renderHook(() =>
+    Form.use<Z>({ ...params, onHasTouched }),
+  );
+  return { form: result.current, hasTouched: () => touched, unmount };
+};
 
 const basicSchema = z
   .object({
@@ -37,7 +50,9 @@ const basicSchema = z
       });
   });
 
-const initialValues = {
+type BasicValues = z.infer<typeof basicSchema>;
+
+const initialValues: BasicValues = {
   name: "John Doe",
   email: "john@example.com",
   age: 25,
@@ -49,6 +64,11 @@ const initialValues = {
   isActive: true,
   optionalField: undefined,
 };
+
+const createBasic = (values: BasicValues = initialValues) =>
+  create({ values, schema: basicSchema });
+
+const basic = deep.path<BasicValues>();
 
 const verdictSchema = z.object({
   name: z.string(),
@@ -64,17 +84,17 @@ const verdictSchema = z.object({
     .object({ margin: z.object({ x: z.number().default(1) }).default({ x: 2 }) })
     .optional(),
 });
-type VerdictValues = z.infer<typeof verdictSchema>;
-const verdictValues = {
+type VerdictValues = z.input<typeof verdictSchema>;
+const verdictValues: VerdictValues = {
   name: "John Doe",
   extra: {},
   nested: { ssn: "1" },
-} as VerdictValues;
+};
 
-interface Tracked {
-  channels: { key: string; port: number }[];
-  config: { type: "a"; value: string } | { type: "b"; value?: string };
-}
+const createVerdict = (values: VerdictValues = verdictValues) =>
+  create<z.ZodType<VerdictValues>>({ values, schema: verdictSchema });
+
+const verdict = deep.path<VerdictValues>();
 
 const trackedSchema = z.object({
   channels: z.array(z.object({ key: z.string(), port: z.number() })),
@@ -83,69 +103,79 @@ const trackedSchema = z.object({
     z.object({ type: z.literal("b"), value: z.string().optional() }),
   ]),
 });
+type Tracked = z.infer<typeof trackedSchema>;
 
-const buildTracked = () => {
-  const store = createLocalStore<Tracked>({
+const createTrackedStore = () =>
+  createLocalStore<Tracked>({
     channels: [
       { key: "a", port: 1 },
       { key: "b", port: 2 },
     ],
     config: { type: "a", value: "v" },
   });
-  const state = new State(store, trackedSchema);
+
+const buildTracked = () => {
+  const store = createTrackedStore();
+  const { form, unmount } = create({ store, schema: trackedSchema });
   const handleChange = vi.fn();
-  state.onChange(handleChange);
-  return { store, state, handleChange };
+  form.bind(handleChange);
+  return { store, form, handleChange, unmount };
 };
+
+const tracked = deep.path<Tracked>();
+
+const loose = deep.path<unknown>();
 
 describe("State", () => {
   describe("constructor", () => {
     it("should initialize with values and schema", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      expect(state.values).toEqual(initialValues);
-      expect(state.initialValues).toEqual(initialValues);
+      const { form } = createBasic();
+      expect(form.value()).toEqual(initialValues);
+      form.set(basic.name, "Jane Doe");
+      form.reset();
+      expect(form.value()).toEqual(initialValues);
     });
 
     it("should initialize without schema", () => {
-      const state = new State(createLocalStore(initialValues));
-      expect(state.values).toEqual(initialValues);
-      expect(state.initialValues).toEqual(initialValues);
+      const { form } = create({ values: initialValues });
+      expect(form.value()).toEqual(initialValues);
+      form.set(basic.name, "Jane Doe");
+      form.reset();
+      expect(form.value()).toEqual(initialValues);
     });
 
     it("should deep copy initial values", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.values.name = "Jane Doe";
-      expect(state.initialValues.name).toBe("John Doe");
+      const { form } = createBasic();
+      form.value().name = "Jane Doe";
+      form.reset();
+      expect(form.value().name).toBe("John Doe");
     });
   });
 
   describe("setValue", () => {
     describe("materializing an absent ancestor", () => {
       it("should build a defaulted subtree before writing its leaf", () => {
-        const state = new State(createLocalStore(verdictValues), verdictSchema);
-        state.setValue("color.g", 5);
-        expect(state.values.color).toEqual({ r: 1, g: 5 });
+        const { form } = createVerdict();
+        form.set(deep.present(verdict.color).g, 5);
+        expect(form.value().color).toEqual({ r: 1, g: 5 });
       });
 
       it("should build an optional subtree only when it can complete it", () => {
-        const state = new State(createLocalStore(verdictValues), verdictSchema);
-        state.setValue("redline.upper", 10);
-        expect(state.values.redline).toEqual({ upper: 10 });
+        const { form } = createVerdict();
+        form.set(deep.present(verdict.redline).upper, 10);
+        expect(form.value().redline).toEqual({ upper: 10 });
       });
 
       it("should build nested defaults below an optional ancestor", () => {
-        const state = new State(createLocalStore(verdictValues), verdictSchema);
-        state.setValue("layout.margin.x", 9);
-        expect(state.values.layout).toEqual({ margin: { x: 9 } });
+        const { form } = createVerdict();
+        form.set(deep.present(deep.present(verdict.layout).margin).x, 9);
+        expect(form.value().layout).toEqual({ margin: { x: 9 } });
       });
 
       it("should leave a present ancestor alone", () => {
-        const state = new State(
-          createLocalStore({ ...verdictValues, color: { r: 3, g: 3 } }),
-          verdictSchema,
-        );
-        state.setValue("color.g", 5);
-        expect(state.values.color).toEqual({ r: 3, g: 5 });
+        const { form } = createVerdict({ ...verdictValues, color: { r: 3, g: 3 } });
+        form.set(deep.present(verdict.color).g, 5);
+        expect(form.value().color).toEqual({ r: 3, g: 5 });
       });
     });
 
@@ -161,313 +191,279 @@ describe("State", () => {
         ],
         other: { x: 1 },
       });
+      const createKeyed = (values: Keyed = keyed()) =>
+        create<z.ZodType<Keyed>>({ values });
+      const path = deep.path<Keyed>();
 
       it("should give every ancestor of the written path a new identity", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        const { values } = state;
+        const { form } = createBasic();
+        const values = form.value();
         const { profile } = values;
-        state.setValue("profile.bio", "Updated bio");
-        expect(state.values).not.toBe(values);
-        expect(state.values.profile).not.toBe(profile);
+        form.set(basic.profile.bio, "Updated bio");
+        expect(form.value()).not.toBe(values);
+        expect(form.value().profile).not.toBe(profile);
         expect(profile.bio).toBe("Software developer");
       });
 
       it("should keep the identity of untouched siblings", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        const { tags } = state.values;
-        state.setValue("profile.bio", "Updated bio");
-        expect(state.values.tags).toBe(tags);
+        const { form } = createBasic();
+        const { tags } = form.value();
+        form.set(basic.profile.bio, "Updated bio");
+        expect(form.value().tags).toBe(tags);
       });
 
       it("should copy an array entry reached through its key", () => {
-        const state = new State<z.ZodType<Keyed>>(createLocalStore(keyed()));
-        const { channels, other } = state.values;
-        state.setValue("channels.b.port", 3);
-        expect(state.values.channels).not.toBe(channels);
-        expect(state.values.channels[1]).not.toBe(channels[1]);
-        expect(state.values.channels[1].port).toBe(3);
-        expect(state.values.channels[0]).toBe(channels[0]);
-        expect(state.values.other).toBe(other);
+        const { form } = createKeyed();
+        const { channels, other } = form.value();
+        form.set(path.channels.b.port, 3);
+        expect(form.value().channels).not.toBe(channels);
+        expect(form.value().channels[1]).not.toBe(channels[1]);
+        expect(form.value().channels[1].port).toBe(3);
+        expect(form.value().channels[0]).toBe(channels[0]);
+        expect(form.value().other).toBe(other);
         expect(channels[1].port).toBe(2);
       });
 
       it("should give a field's state a new value after a write below it", () => {
-        const state = new State<z.ZodType<Keyed>>(createLocalStore(keyed()));
-        const before = state.getState<{ port: number }>("channels.0").value;
-        state.setValue("channels.0.port", 3);
-        const after = state.getState<{ port: number }>("channels.0").value;
+        const { form } = createKeyed();
+        const before = form.get(path.channels[0]).value;
+        form.set(path.channels[0].port, 3);
+        const after = form.get(path.channels[0]).value;
         expect(after).not.toBe(before);
         expect(after.port).toBe(3);
         expect(before.port).toBe(1);
       });
 
       it("should give an entry's state a new value when its key holds a dot", () => {
-        const state = new State<z.ZodType<Keyed>>(
-          createLocalStore({
-            channels: [{ key: "ns=1;s=a.b", port: 1 }],
-            other: { x: 1 },
-          }),
-        );
-        const before = state.getState<{ port: number }>("channels.ns=1;s=a.b").value;
-        state.setValue("channels.ns=1;s=a.b.port", 3);
-        const after = state.getState<{ port: number }>("channels.ns=1;s=a.b").value;
+        const { form } = createKeyed({
+          channels: [{ key: "ns=1;s=a.b", port: 1 }],
+          other: { x: 1 },
+        });
+        const entry = path.channels["ns=1;s=a.b"];
+        const before = form.get(entry).value;
+        form.set(entry.port, 3);
+        const after = form.get(entry).value;
         expect(after).not.toBe(before);
         expect(after.port).toBe(3);
       });
 
       it("should keep the state object of a sibling the write left unchanged", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        const sibling = state.getState("email");
-        const written = state.getState("name");
-        state.setValue("name", "Jane Doe");
-        expect(state.getState("email")).toBe(sibling);
-        expect(state.getState("name")).not.toBe(written);
-        expect(state.getState("name").value).toBe("Jane Doe");
+        const { form } = createBasic();
+        const sibling = form.get(basic.email);
+        const written = form.get(basic.name);
+        form.set(basic.name, "Jane Doe");
+        expect(form.get(basic.email)).toBe(sibling);
+        expect(form.get(basic.name)).not.toBe(written);
+        expect(form.get(basic.name).value).toBe("Jane Doe");
       });
 
       it("should give the ancestors of a removed path a new identity", () => {
-        const state = new State<z.ZodType<Keyed>>(createLocalStore(keyed()));
-        const { channels } = state.values;
-        state.remove("channels.0");
-        expect(state.values.channels).not.toBe(channels);
-        expect(state.values.channels).toEqual([{ key: "b", port: 2 }]);
+        const { form } = createKeyed();
+        const { channels } = form.value();
+        form.remove(path.channels[0]);
+        expect(form.value().channels).not.toBe(channels);
+        expect(form.value().channels).toEqual([{ key: "b", port: 2 }]);
         expect(channels).toHaveLength(2);
       });
 
       it("should leave the older value unchanged when a shorter key also matches", () => {
-        const state = new State<z.ZodType<Record<string, object>>>(
-          createLocalStore({
-            a: {},
-            "a.b": { x: 1, y: 2 },
-          }),
-        );
-        const { values } = state;
-        state.remove("a.b.x");
-        expect(state.values).toEqual({ a: {}, "a.b": { y: 2 } });
-        expect(state.values["a.b"]).not.toBe(values["a.b"]);
+        type Nested = Record<string, Record<string, number>>;
+        const { form } = create<z.ZodType<Nested>>({
+          values: { a: {}, "a.b": { x: 1, y: 2 } },
+        });
+        const values = form.value();
+        form.remove(deep.path<Nested>()["a.b"].x);
+        expect(form.value()).toEqual({ a: {}, "a.b": { y: 2 } });
+        expect(form.value()["a.b"]).not.toBe(values["a.b"]);
         expect(values).toEqual({ a: {}, "a.b": { x: 1, y: 2 } });
       });
     });
 
     it("should set a top-level value", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setValue("name", "Jane Doe");
-      expect(state.values.name).toBe("Jane Doe");
+      const { form } = createBasic();
+      form.set(basic.name, "Jane Doe");
+      expect(form.value().name).toBe("Jane Doe");
     });
 
     it("should set a nested value", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setValue("profile.bio", "Updated bio");
-      expect(state.values.profile.bio).toBe("Updated bio");
+      const { form } = createBasic();
+      form.set(basic.profile.bio, "Updated bio");
+      expect(form.value().profile.bio).toBe("Updated bio");
     });
 
     it("should set array values", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setValue("tags.0", "engineer");
-      expect(state.values.tags[0]).toBe("engineer");
+      const { form } = createBasic();
+      form.set(basic.tags[0], "engineer");
+      expect(form.value().tags[0]).toBe("engineer");
     });
 
     it("should replace entire object when path is empty", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
+      const { form } = createBasic();
       const newValues = { ...initialValues, name: "Jane Doe" };
-      state.setValue("", newValues);
-      expect(state.values).toEqual(newValues);
+      form.set(basic, newValues);
+      expect(form.value()).toEqual(newValues);
     });
 
     it("should mark field as touched when value changes", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setValue("name", "Jane Doe");
-      const fieldState = state.getState("name");
-      expect(fieldState.touched).toBe(true);
+      const { form } = createBasic();
+      form.set(basic.name, "Jane Doe");
+      expect(form.get(basic.name).touched).toBe(true);
     });
 
     it("should not mark field as touched when value equals initial", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setValue("name", "Jane Doe");
-      state.setValue("name", "John Doe"); // Back to initial
-      const fieldState = state.getState("name");
-      expect(fieldState.touched).toBe(false);
+      const { form } = createBasic();
+      form.set(basic.name, "Jane Doe");
+      form.set(basic.name, "John Doe");
+      expect(form.get(basic.name).touched).toBe(false);
     });
 
     describe("markTouched option", () => {
       it("should mark field as touched when markTouched is true", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setValue("name", "Jane Doe", { markTouched: true });
-        const fieldState = state.getState("name");
-        expect(fieldState.touched).toBe(true);
+        const { form } = createBasic();
+        form.set(basic.name, "Jane Doe", { markTouched: true });
+        expect(form.get(basic.name).touched).toBe(true);
       });
 
       it("should not mark field as touched when markTouched is false", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setValue("name", "Jane Doe", { markTouched: false });
-        const fieldState = state.getState("name");
-        expect(fieldState.touched).toBe(false);
+        const { form } = createBasic();
+        form.set(basic.name, "Jane Doe", { markTouched: false });
+        expect(form.get(basic.name).touched).toBe(false);
       });
 
       it("should mark field as touched by default when value changes", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setValue("name", "Jane Doe");
-        const fieldState = state.getState("name");
-        expect(fieldState.touched).toBe(true);
+        const { form } = createBasic();
+        form.set(basic.name, "Jane Doe");
+        expect(form.get(basic.name).touched).toBe(true);
       });
 
       it("should mark nested fields as touched when markTouched is true", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setValue("profile.bio", "New bio", { markTouched: true });
-        const fieldState = state.getState("profile.bio");
-        expect(fieldState.touched).toBe(true);
+        const { form } = createBasic();
+        form.set(basic.profile.bio, "New bio", { markTouched: true });
+        expect(form.get(basic.profile.bio).touched).toBe(true);
       });
 
       it("should not mark nested fields as touched when markTouched is false", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setValue("profile.bio", "New bio", { markTouched: false });
-        const fieldState = state.getState("profile.bio");
-        expect(fieldState.touched).toBe(false);
+        const { form } = createBasic();
+        form.set(basic.profile.bio, "New bio", { markTouched: false });
+        expect(form.get(basic.profile.bio).touched).toBe(false);
       });
 
       it("should mark array elements as touched when markTouched is true", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setValue("tags.0", "new-tag", { markTouched: true });
-        const fieldState = state.getState("tags.0");
-        expect(fieldState.touched).toBe(true);
+        const { form } = createBasic();
+        form.set(basic.tags[0], "new-tag", { markTouched: true });
+        expect(form.get(basic.tags[0]).touched).toBe(true);
       });
 
       it("should not mark array elements as touched when markTouched is false", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setValue("tags.0", "new-tag", { markTouched: false });
-        const fieldState = state.getState("tags.0");
-        expect(fieldState.touched).toBe(false);
+        const { form } = createBasic();
+        form.set(basic.tags[0], "new-tag", { markTouched: false });
+        expect(form.get(basic.tags[0]).touched).toBe(false);
       });
 
       it("should still clear touched when value equals initial regardless of markTouched", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setValue("name", "Jane Doe", { markTouched: true });
-        expect(state.getState("name").touched).toBe(true);
-
-        // Setting back to initial should clear touched even with markTouched: true
-        state.setValue("name", "John Doe", { markTouched: true });
-        expect(state.getState("name").touched).toBe(false);
+        const { form } = createBasic();
+        form.set(basic.name, "Jane Doe", { markTouched: true });
+        expect(form.get(basic.name).touched).toBe(true);
+        form.set(basic.name, "John Doe", { markTouched: true });
+        expect(form.get(basic.name).touched).toBe(false);
       });
 
       it("should handle markTouched for entire object replacement", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        const newValues = { ...initialValues, name: "Jane Doe" };
-        state.setValue("", newValues, { markTouched: true });
-        const fieldState = state.getState("");
-        expect(fieldState.touched).toBe(true);
+        const { form } = createBasic();
+        form.set(basic, { ...initialValues, name: "Jane Doe" }, { markTouched: true });
+        expect(form.get(basic).touched).toBe(true);
       });
 
       it("should respect markTouched when setting undefined values", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setValue("optionalField", "some value", { markTouched: true });
-        expect(state.getState("optionalField").touched).toBe(true);
-
-        state.setValue("optionalField", undefined, { markTouched: false });
-        expect(state.getState("optionalField").value).toBeUndefined();
+        const { form } = createBasic();
+        form.set(basic.optionalField, "some value", { markTouched: true });
+        expect(form.get(basic.optionalField).touched).toBe(true);
+        form.set(basic.optionalField, undefined, { markTouched: false });
+        expect(form.get(basic.optionalField).value).toBeUndefined();
       });
 
       it("should work with validation when markTouched is used", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setValue("email", "invalid-email", { markTouched: true });
-
-        const isValid = state.validate();
-        expect(isValid).toBe(false);
-
-        const fieldState = state.getState("email");
+        const { form } = createBasic();
+        form.set(basic.email, "invalid-email", { markTouched: true });
+        const fieldState = form.get(basic.email);
         expect(fieldState.touched).toBe(true);
         expect(fieldState.status.variant).toBe("error");
+        expect(form.validate()).toBe(false);
       });
 
       it("should not trigger validation for untouched fields when markTouched is false", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setValue("email", "invalid-email", { markTouched: false });
-
-        const isValid = state.validate();
-        expect(isValid).toBe(true);
-
-        const fieldState = state.getState("email");
+        const { form } = createBasic();
+        form.set(basic.email, "invalid-email", { markTouched: false });
+        const fieldState = form.get(basic.email);
         expect(fieldState.touched).toBe(false);
         expect(fieldState.status.variant).toBe("success");
       });
 
       it("should handle complex nested updates with markTouched", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        const newProfile = {
-          bio: "Updated bio",
-          website: "https://newsite.com",
-        };
-        state.setValue("profile", newProfile, { markTouched: true });
-
-        expect(state.getState("profile").touched).toBe(true);
-        expect(state.getState("profile.bio").touched).toBe(false);
-        expect(state.getState("profile.website").touched).toBe(false);
+        const { form } = createBasic();
+        form.set(
+          basic.profile,
+          { bio: "Updated bio", website: "https://newsite.com" },
+          { markTouched: true },
+        );
+        expect(form.get(basic.profile).touched).toBe(true);
+        expect(form.get(basic.profile.bio).touched).toBe(false);
+        expect(form.get(basic.profile.website).touched).toBe(false);
       });
 
       it("should clear orphaned touched paths even with markTouched option", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-
-        state.setValue("tags", [...state.values.tags, "new-tag"], {
-          markTouched: true,
-        });
-        state.setValue("tags.2", "modified-tag", { markTouched: true });
-        expect(state.getState("tags.2").touched).toBe(true);
-
-        // Remove the item - should clear the orphaned touched path
-        state.setValue("tags", initialValues.tags, { markTouched: false });
-        expect(state.hasBeenTouched).toBe(false);
+        const { form, hasTouched } = createBasic();
+        form.set(basic.tags, [...form.value().tags, "new-tag"], { markTouched: true });
+        form.set(basic.tags[2], "modified-tag", { markTouched: true });
+        expect(form.get(basic.tags[2]).touched).toBe(true);
+        form.set(basic.tags, initialValues.tags, { markTouched: false });
+        expect(hasTouched()).toBe(false);
       });
     });
   });
 
   describe("setStatus and clearStatus", () => {
     it("should set status for a field", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
+      const { form } = createBasic();
       const status = {
         key: "name",
         variant: "error" as const,
         message: "Error message",
       };
-      state.setStatus("name", status);
-      const fieldState = state.getState("name");
-      expect(fieldState.status).toEqual(status);
+      form.setStatus(basic.name, status);
+      expect(form.get(basic.name).status).toEqual(status);
     });
 
     it("should key a status by its path", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setStatus("name", { variant: "error", message: "Taken" });
-      expect(state.getStatuses()).toEqual([
+      const { form } = createBasic();
+      form.setStatus(basic.name, { variant: "error", message: "Taken" });
+      expect(form.getStatuses()).toEqual([
         { key: "name", variant: "error", message: "Taken" },
       ]);
     });
 
     it("should clear status for a field", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      const status = {
-        key: "name",
-        variant: "error" as const,
-        message: "Error message",
-      };
-      state.setStatus("name", status);
-      state.clearStatus("name");
-      const fieldState = state.getState("name");
-      expect(fieldState.status.variant).toBe("success");
+      const { form } = createBasic();
+      form.setStatus(basic.name, { key: "name", variant: "error", message: "Error" });
+      form.clearStatus(basic.name);
+      expect(form.get(basic.name).status.variant).toBe("success");
     });
 
     it("should clear every status when no path is given", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setStatus("name", { key: "name", variant: "error", message: "e" });
-      state.setStatus("email", { key: "email", variant: "error", message: "e" });
-      state.clearStatus();
-      expect(state.getState("name").status.variant).toBe("success");
-      expect(state.getState("email").status.variant).toBe("success");
+      const { form } = createBasic();
+      form.setStatus(basic.name, { key: "name", variant: "error", message: "e" });
+      form.setStatus(basic.email, { key: "email", variant: "error", message: "e" });
+      form.clearStatuses();
+      expect(form.get(basic.name).status.variant).toBe("success");
+      expect(form.get(basic.email).status.variant).toBe("success");
     });
 
     it("should clear only the root status when the root path is given", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setStatus("", { key: "", variant: "error", message: "e" });
-      state.setStatus("name", { key: "name", variant: "error", message: "e" });
-      state.clearStatus("");
-      expect(state.getStatuses()).toEqual([
+      const { form } = createBasic();
+      form.setStatus(basic, { key: "", variant: "error", message: "e" });
+      form.setStatus(basic.name, { key: "name", variant: "error", message: "e" });
+      form.clearStatus(basic);
+      expect(form.getStatuses()).toEqual([
         { key: "name", variant: "error", message: "e" },
       ]);
     });
@@ -476,198 +472,189 @@ describe("State", () => {
       const taken = { key: "name", variant: "error" as const, message: "Taken" };
 
       it("should survive validation after an edit to another field", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setStatus("name", taken);
-        state.setValue("age", 30);
-        state.validate();
-        expect(state.getState("name").status).toEqual(taken);
+        const { form } = createBasic();
+        form.setStatus(basic.name, taken);
+        form.set(basic.age, 30);
+        expect(form.get(basic.name).status).toEqual(taken);
       });
 
       it("should clear the status when the value at its path changes", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setStatus("name", taken);
-        state.setValue("name", "Jane Doe");
-        expect(state.getState("name").status.variant).toBe("success");
+        const { form } = createBasic();
+        form.setStatus(basic.name, taken);
+        form.set(basic.name, "Jane Doe");
+        expect(form.get(basic.name).status.variant).toBe("success");
       });
 
       it("should keep the status when a write to its parent keeps its value", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
+        const { form } = createBasic();
         const status = {
           key: "profile.bio",
           variant: "warning" as const,
           message: "Short",
         };
-        state.setStatus("profile.bio", status);
-        state.setValue("profile", {
-          ...initialValues.profile,
-          website: "https://x.com",
-        });
-        expect(state.getState("profile.bio").status).toEqual(status);
+        form.setStatus(basic.profile.bio, status);
+        form.set(basic.profile, { ...initialValues.profile, website: "https://x.com" });
+        expect(form.get(basic.profile.bio).status).toEqual(status);
       });
 
       it("should clear the status when its path is removed", () => {
-        const state = new State(createLocalStore(initialValues), basicSchema);
-        state.setStatus("tags.1", { key: "tags.1", variant: "error", message: "Bad" });
-        state.remove("tags.1");
-        expect(state.getStatuses()).toEqual([]);
+        const { form } = createBasic();
+        form.setStatus(basic.tags[1], {
+          key: "tags.1",
+          variant: "error",
+          message: "Bad",
+        });
+        form.remove(basic.tags[1]);
+        expect(form.getStatuses()).toEqual([]);
       });
 
       it("should survive the removal of a form-level validation error", () => {
         const schema = z
           .object({ a: z.string(), b: z.string() })
           .refine(({ a, b }) => a !== b, "Must differ");
-        const state = new State(createLocalStore({ a: "x", b: "x" }), schema);
-        state.validate(true);
-        expect(state.getStatuses().map(({ message }) => message)).toEqual([
+        const { form } = create({ values: { a: "x", b: "x" }, schema });
+        const path = deep.path<z.infer<typeof schema>>();
+        form.validate();
+        expect(form.getStatuses().map(({ message }) => message)).toEqual([
           "Must differ",
         ]);
-        state.setStatus("a", { key: "a", variant: "error", message: "Taken" });
-        state.setValue("b", "y");
-        state.validate(true);
-        expect(state.getStatuses().map(({ message }) => message)).toEqual(["Taken"]);
+        form.setStatus(path.a, { key: "a", variant: "error", message: "Taken" });
+        form.set(path.b, "y");
+        form.validate();
+        expect(form.getStatuses().map(({ message }) => message)).toEqual(["Taken"]);
       });
 
       it("should yield to a status that validation sets at its path", () => {
-        const state = new State(
-          createLocalStore({ ...initialValues, email: "invalid" }),
-          basicSchema,
-        );
-        state.setStatus("email", { key: "email", variant: "error", message: "Taken" });
-        state.validate(true);
-        expect(state.getState("email").status.message).toBe("Invalid email format");
-        state.setValue("name", "Jane Doe");
-        state.validate();
-        expect(state.getState("email").status.variant).toBe("success");
+        const { form } = createBasic({ ...initialValues, email: "invalid" });
+        form.setStatus(basic.email, {
+          key: "email",
+          variant: "error",
+          message: "Taken",
+        });
+        form.validate();
+        expect(form.get(basic.email).status.message).toBe("Invalid email format");
+        form.set(basic.name, "Jane Doe");
+        expect(form.get(basic.email).status.variant).toBe("success");
       });
     });
   });
 
-  describe("setTouched and clearTouched", () => {
-    it("should mark field as touched", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setTouched("name");
-      const fieldState = state.getState("name");
-      expect(fieldState.touched).toBe(true);
+  describe("touched", () => {
+    it("should mark a field touched when a write changes it", () => {
+      const { form, hasTouched } = createBasic();
+      expect(hasTouched()).toBe(false);
+      form.set(basic.name, "Jane Doe");
+      expect(form.get(basic.name).touched).toBe(true);
+      expect(hasTouched()).toBe(true);
     });
 
-    it("should clear touched state for specific field", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setTouched("name");
-      state.clearTouched("name");
-      const fieldState = state.getState("name");
-      expect(fieldState.touched).toBe(false);
+    it("should clear the touched flag of a field a write restores", () => {
+      const { form } = createBasic();
+      form.set(basic.name, "Jane Doe");
+      form.set(basic.email, "jane@example.com");
+      form.set(basic.name, "John Doe");
+      expect(form.get(basic.name).touched).toBe(false);
+      expect(form.get(basic.email).touched).toBe(true);
     });
 
-    it("should clear all touched states when no path provided", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setTouched("name");
-      state.setTouched("email");
-      state.clearTouched();
-      expect(state.getState("name").touched).toBe(false);
-      expect(state.getState("email").touched).toBe(false);
+    it("should report the form untouched when every field is restored", () => {
+      const { form, hasTouched } = createBasic();
+      form.set(basic.name, "Jane Doe");
+      form.set(basic.email, "jane@example.com");
+      form.set(basic.name, "John Doe");
+      expect(hasTouched()).toBe(true);
+      form.set(basic.email, "john@example.com");
+      expect(hasTouched()).toBe(false);
     });
   });
 
   describe("reset", () => {
     it("should reset to initial values", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setValue("name", "Jane Doe");
-      state.setStatus("name", { key: "name", variant: "error", message: "Error" });
-      state.setTouched("name");
-
-      state.reset();
-
-      expect(state.values).toEqual(initialValues);
-      expect(state.getState("name").status.variant).toBe("success");
-      expect(state.getState("name").touched).toBe(false);
+      const { form } = createBasic();
+      form.set(basic.name, "Jane Doe");
+      form.setStatus(basic.name, { key: "name", variant: "error", message: "Error" });
+      form.reset();
+      expect(form.value()).toEqual(initialValues);
+      expect(form.get(basic.name).status.variant).toBe("success");
+      expect(form.get(basic.name).touched).toBe(false);
     });
 
     it("should reset to new initial values when provided", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
+      const { form } = createBasic();
       const newInitialValues = { ...initialValues, name: "Jane Doe" };
-
-      state.reset(newInitialValues);
-
-      expect(state.values).toEqual(newInitialValues);
-      expect(state.initialValues).toEqual(newInitialValues);
+      form.reset(newInitialValues);
+      expect(form.value()).toEqual(newInitialValues);
+      form.set(basic.name, "John Doe");
+      form.reset();
+      expect(form.value()).toEqual(newInitialValues);
     });
 
     it("should clear all statuses and touched states on reset", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setValue("name", "Test");
-      state.setStatus("name", { key: "name", variant: "error", message: "Error" });
-      state.setTouched("name");
-
-      state.reset();
-
-      expect(state.getState("name").status.variant).toBe("success");
-      expect(state.getState("name").touched).toBe(false);
+      const { form, hasTouched } = createBasic();
+      form.set(basic.name, "Test");
+      form.setStatus(basic.name, { key: "name", variant: "error", message: "Error" });
+      form.reset();
+      expect(form.get(basic.name).status.variant).toBe("success");
+      expect(form.get(basic.name).touched).toBe(false);
+      expect(hasTouched()).toBe(false);
     });
 
     it("should take the given values as initial when they equal the current ones", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setValue("name", "Jane Doe");
-      state.setStatus("name", { key: "name", variant: "error", message: "Error" });
-      const saved = { ...initialValues, name: "Jane Doe" };
-
-      state.reset(saved);
-
-      expect(state.initialValues).toEqual(saved);
-      expect(state.hasBeenTouched).toBe(false);
-      expect(state.getState("name").status.variant).toBe("success");
-      state.setValue("name", "John Doe");
-      expect(state.getState("name").touched).toBe(true);
+      const { form, hasTouched } = createBasic();
+      form.set(basic.name, "Jane Doe");
+      form.setStatus(basic.name, { key: "name", variant: "error", message: "Error" });
+      form.reset({ ...initialValues, name: "Jane Doe" });
+      expect(hasTouched()).toBe(false);
+      expect(form.get(basic.name).status.variant).toBe("success");
+      form.set(basic.name, "John Doe");
+      expect(form.get(basic.name).touched).toBe(true);
     });
   });
 
   describe("setCurrentStateAsInitialValues", () => {
     it("should snapshot current state as initial values", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setValue("name", "Jane Doe");
-      state.setTouched("name");
-
-      state.setCurrentStateAsInitialValues();
-
-      expect(state.initialValues.name).toBe("Jane Doe");
-      expect(state.getState("name").touched).toBe(false);
+      const { form } = createBasic();
+      form.set(basic.name, "Jane Doe");
+      form.setCurrentStateAsInitialValues();
+      expect(form.get(basic.name).touched).toBe(false);
+      form.set(basic.name, "John Doe");
+      form.reset();
+      expect(form.get(basic.name).value).toBe("Jane Doe");
     });
 
     it("should make previously touched fields untouched", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setValue("name", "Jane Doe");
-      state.setValue("email", "jane@example.com");
-      expect(state.getState("name").touched).toBe(true);
-      expect(state.getState("email").touched).toBe(true);
-
-      state.setCurrentStateAsInitialValues();
-
-      expect(state.getState("name").touched).toBe(false);
-      expect(state.getState("email").touched).toBe(false);
+      const { form, hasTouched } = createBasic();
+      form.set(basic.name, "Jane Doe");
+      form.set(basic.email, "jane@example.com");
+      expect(form.get(basic.name).touched).toBe(true);
+      expect(form.get(basic.email).touched).toBe(true);
+      form.setCurrentStateAsInitialValues();
+      expect(form.get(basic.name).touched).toBe(false);
+      expect(form.get(basic.email).touched).toBe(false);
+      expect(hasTouched()).toBe(false);
     });
   });
 
   describe("remove", () => {
     it("should remove field value, status, and touched state", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setStatus("name", { key: "name", variant: "error", message: "Error" });
-      state.setTouched("name");
-
-      state.remove("name");
-
-      expect(state.values.name).toBeUndefined();
-      expect(state.getState("name", { optional: true })).toBeNull();
+      const { form } = createBasic();
+      form.set(basic.name, "Jane Doe");
+      form.setStatus(basic.name, { key: "name", variant: "error", message: "Error" });
+      form.remove(basic.name);
+      expect(form.value().name).toBeUndefined();
+      expect(form.get(basic.name, { optional: true })).toBeNull();
     });
 
     it("should remove nested field", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.remove("profile.bio");
-      expect(state.values.profile.bio).toBeUndefined();
+      const { form } = createBasic();
+      form.remove(basic.profile.bio);
+      expect(form.value().profile.bio).toBeUndefined();
     });
 
     it("should remove array element", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.remove("tags.0");
-      expect(state.values.tags).toEqual(["typescript"]);
+      const { form } = createBasic();
+      form.remove(basic.tags[0]);
+      expect(form.value().tags).toEqual(["typescript"]);
     });
   });
 
@@ -681,134 +668,131 @@ describe("State", () => {
         { key: "b", port: 2 },
       ],
     });
-    const keysOf = (state: State<z.ZodType<Keyed>>): string[] =>
-      state.values.channels.map(({ key }) => key);
+    const path = deep.path<Keyed>();
+    const keysOf = (values: Keyed): string[] => values.channels.map(({ key }) => key);
 
     it("should insert an entry after the named entry", () => {
-      const state = new State<z.ZodType<Keyed>>(createLocalStore(createKeyed()));
-      state.insert("channels", { key: "c", port: 3 }, "a");
-      expect(keysOf(state)).toEqual(["a", "c", "b"]);
-      expect(state.getState("channels").touched).toBe(true);
+      const { form } = create<z.ZodType<Keyed>>({ values: createKeyed() });
+      form.insert(path.channels, { key: "c", port: 3 }, "a");
+      expect(keysOf(form.value())).toEqual(["a", "c", "b"]);
+      expect(form.get(path.channels).touched).toBe(true);
     });
 
     it("should refresh a field whose index an insert shifts", () => {
-      const state = new State<z.ZodType<Keyed>>(createLocalStore(createKeyed()));
-      expect(state.getState("channels.0.port").value).toBe(1);
-      state.insert("channels", { key: "c", port: 3 });
-      expect(state.getState("channels.0.port").value).toBe(3);
+      const { form } = create<z.ZodType<Keyed>>({ values: createKeyed() });
+      expect(form.get(path.channels[0].port).value).toBe(1);
+      form.insert(path.channels, { key: "c", port: 3 });
+      expect(form.get(path.channels[0].port).value).toBe(3);
     });
 
     it("should move an entry and refresh the fields it shifts", () => {
-      const state = new State<z.ZodType<Keyed>>(createLocalStore(createKeyed()));
-      expect(state.getState("channels.0.port").value).toBe(1);
-      state.move("channels", "b");
-      expect(keysOf(state)).toEqual(["b", "a"]);
-      expect(state.getState("channels.0.port").value).toBe(2);
+      const { form } = create<z.ZodType<Keyed>>({ values: createKeyed() });
+      expect(form.get(path.channels[0].port).value).toBe(1);
+      form.move(path.channels, "b");
+      expect(keysOf(form.value())).toEqual(["b", "a"]);
+      expect(form.get(path.channels[0].port).value).toBe(2);
     });
 
     it("should clear the touched flag when a move restores the list", () => {
-      const state = new State<z.ZodType<Keyed>>(createLocalStore(createKeyed()));
-      state.move("channels", "b");
-      state.move("channels", "a");
-      expect(state.getState("channels").touched).toBe(false);
+      const { form } = create<z.ZodType<Keyed>>({ values: createKeyed() });
+      form.move(path.channels, "b");
+      form.move(path.channels, "a");
+      expect(form.get(path.channels).touched).toBe(false);
     });
 
     it("should mark the list touched when it removes an entry", () => {
-      const state = new State<z.ZodType<Keyed>>(createLocalStore(createKeyed()));
-      state.remove("channels.a");
-      expect(keysOf(state)).toEqual(["b"]);
-      expect(state.getState("channels").touched).toBe(true);
+      const { form } = create<z.ZodType<Keyed>>({ values: createKeyed() });
+      form.remove(path.channels.a);
+      expect(keysOf(form.value())).toEqual(["b"]);
+      expect(form.get(path.channels).touched).toBe(true);
     });
 
     it("should clear the touched flag when a remove of a dotted key restores the list", () => {
-      const state = new State<z.ZodType<Keyed>>(createLocalStore(createKeyed()));
-      state.insert("channels", { key: "ns=1;s=a.b", port: 3 });
-      state.remove("channels.ns=1;s=a.b");
-      expect(keysOf(state)).toEqual(["a", "b"]);
-      expect(state.getState("channels").touched).toBe(false);
+      const { form } = create<z.ZodType<Keyed>>({ values: createKeyed() });
+      form.insert(path.channels, { key: "ns=1;s=a.b", port: 3 });
+      form.remove(path.channels["ns=1;s=a.b"]);
+      expect(keysOf(form.value())).toEqual(["a", "b"]);
+      expect(form.get(path.channels).touched).toBe(false);
     });
 
     it("should leave the values unchanged for a write to an entry another client removed", () => {
       const store = createLocalStore(createKeyed());
-      const state = new State<z.ZodType<Keyed>>(store);
-      state.listen(() => {});
+      const { form } = create<z.ZodType<Keyed>>({ store });
       store.remove("channels.a");
-      const prev = state.values;
-      expect(() => state.setValue("channels.a.port", 5)).not.toThrow();
-      expect(state.values).toBe(prev);
-      expect(keysOf(state)).toEqual(["b"]);
+      const prev = form.value();
+      expect(() => form.set(path.channels.a.port, 5)).not.toThrow();
+      expect(form.value()).toBe(prev);
+      expect(keysOf(form.value())).toEqual(["b"]);
     });
 
     it("should do nothing when it removes an entry the list does not hold", () => {
-      const state = new State<z.ZodType<Keyed>>(createLocalStore(createKeyed()));
-      expect(() => state.remove("channels.c")).not.toThrow();
-      expect(state.values).toEqual(createKeyed());
-      expect(state.getState("channels").touched).toBe(false);
+      const { form } = create<z.ZodType<Keyed>>({ values: createKeyed() });
+      expect(() => form.remove(path.channels.c)).not.toThrow();
+      expect(form.value()).toEqual(createKeyed());
+      expect(form.get(path.channels).touched).toBe(false);
     });
 
     it("should refresh a field of an entry with a dot in its key when another client writes it", () => {
       const store = createLocalStore(createKeyed());
-      const state = new State<z.ZodType<Keyed>>(store);
-      state.listen(() => {});
-      state.insert("channels", { key: "ns=1;s=a.b", port: 3 });
-      expect(state.getState("channels.ns=1;s=a.b.port").value).toBe(3);
+      const { form } = create<z.ZodType<Keyed>>({ store });
+      form.insert(path.channels, { key: "ns=1;s=a.b", port: 3 });
+      expect(form.get(path.channels["ns=1;s=a.b"].port).value).toBe(3);
       store.set("channels.ns=1;s=a.b.port", 4);
-      expect(state.getState("channels.ns=1;s=a.b.port").value).toBe(4);
+      expect(form.get(path.channels["ns=1;s=a.b"].port).value).toBe(4);
     });
 
     it("should keep the state of a field whose entry another client did not change", () => {
       const store = createLocalStore(createKeyed());
-      const state = new State<z.ZodType<Keyed>>(store);
-      state.listen(() => {});
-      const before = state.getState("channels.b.port");
+      const { form } = create<z.ZodType<Keyed>>({ store });
+      const before = form.get(path.channels.b.port);
       store.set("channels.a.port", 9);
-      expect(state.getState("channels.b.port")).toBe(before);
-      expect(state.getState("channels.a.port").value).toBe(9);
+      expect(form.get(path.channels.b.port)).toBe(before);
+      expect(form.get(path.channels.a.port).value).toBe(9);
     });
   });
 
   describe("batch", () => {
     it("should make every write in the batch one store change", () => {
       const store = createLocalStore(initialValues);
-      const state = new State(store, basicSchema);
+      const { form } = create({ store, schema: basicSchema });
       const handleChange = vi.fn();
       store.onChange(handleChange);
-      state.batch(() => {
-        state.setValue("name", "Jane");
-        state.setValue("age", 30);
+      form.batch(() => {
+        form.set(basic.name, "Jane");
+        form.set(basic.age, 30);
       });
       expect(handleChange).toHaveBeenCalledTimes(1);
-      expect(state.getState("name").value).toBe("Jane");
-      expect(state.getState("age").value).toBe(30);
+      expect(form.get(basic.name).value).toBe("Jane");
+      expect(form.get(basic.age).value).toBe(30);
     });
 
     it("should read a value that the batch wrote earlier", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      expect(state.getState("profile.bio").value).toBe("Software developer");
+      const { form } = createBasic();
+      expect(form.get(basic.profile.bio).value).toBe("Software developer");
       let read: unknown;
-      state.batch(() => {
-        state.setValue("profile", { ...state.values.profile, bio: "Updated bio" });
-        read = state.getState("profile.bio").value;
+      form.batch(() => {
+        form.set(basic.profile, { ...form.value().profile, bio: "Updated bio" });
+        read = form.get(basic.profile.bio).value;
       });
       expect(read).toBe("Updated bio");
     });
 
     it("should keep a status set after a write in the same batch", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.batch(() => {
-        state.setValue("name", "Jane Doe");
-        state.setStatus("name", { variant: "error", message: "Name is taken" });
+      const { form } = createBasic();
+      form.batch(() => {
+        form.set(basic.name, "Jane Doe");
+        form.setStatus(basic.name, { variant: "error", message: "Name is taken" });
       });
-      expect(state.getState("name").status.message).toBe("Name is taken");
+      expect(form.get(basic.name).status.message).toBe("Name is taken");
     });
 
     it("should drop a status that a write earlier in the batch cleared", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setStatus("name", { variant: "error", message: "Name is taken" });
+      const { form } = createBasic();
+      form.setStatus(basic.name, { variant: "error", message: "Name is taken" });
       let statuses: unknown;
-      state.batch(() => {
-        state.setValue("name", "Jane Doe");
-        statuses = state.getStatuses();
+      form.batch(() => {
+        form.set(basic.name, "Jane Doe");
+        statuses = form.getStatuses();
       });
       expect(statuses).toEqual([]);
     });
@@ -816,233 +800,207 @@ describe("State", () => {
 
   describe("listen", () => {
     it("should refresh a field that another writer changes", () => {
-      const { store, state, handleChange } = buildTracked();
-      state.listen(() => state.notify());
-      expect(state.getState("channels.b.port").value).toBe(2);
+      const { store, form, handleChange } = buildTracked();
+      expect(form.get(tracked.channels.b.port).value).toBe(2);
       store.set("channels.b.port", 3);
-      expect(state.getState("channels.b.port").value).toBe(3);
+      expect(form.get(tracked.channels.b.port).value).toBe(3);
       expect(handleChange).toHaveBeenCalledTimes(1);
     });
 
     it("should clear a status from setStatus when another writer changes its value", () => {
-      const { store, state } = buildTracked();
-      state.listen(() => state.notify());
-      const taken = {
+      const { store, form } = buildTracked();
+      form.setStatus(tracked.channels.b.port, {
         key: "channels.b.port",
-        variant: "error" as const,
+        variant: "error",
         message: "Taken",
-      };
-      state.setStatus("channels.b.port", taken);
+      });
       store.set("channels.b.port", 3);
-      expect(state.getState("channels.b.port").status.variant).toBe("success");
+      expect(form.get(tracked.channels.b.port).status.variant).toBe("success");
     });
 
     it("should keep the state of a field that the change does not reach", () => {
-      const { store, state } = buildTracked();
-      state.listen(() => state.notify());
-      const prev = state.getState("channels.a.port");
+      const { store, form } = buildTracked();
+      const prev = form.get(tracked.channels.a.port);
       store.set("channels.b.port", 3);
-      expect(state.getState("channels.a.port")).toBe(prev);
+      expect(form.get(tracked.channels.a.port)).toBe(prev);
     });
 
     it("should refresh a field whose discriminator another writer changes", () => {
-      const { store, state } = buildTracked();
-      state.listen(() => state.notify());
-      expect(state.getState("config.value").required).toBe(true);
+      const { store, form } = buildTracked();
+      expect(form.get(tracked.config.value).required).toBe(true);
       store.set("config", { type: "b" });
-      expect(state.getState("config.value").required).toBe(false);
+      expect(form.get(tracked.config.value).required).toBe(false);
     });
 
     it("should refresh a field that another writer removes", () => {
-      const { store, state } = buildTracked();
-      state.listen(() => state.notify());
-      expect(state.getState("channels.0.port").value).toBe(1);
+      const { store, form } = buildTracked();
+      expect(form.get(tracked.channels[0].port).value).toBe(1);
       store.remove("channels.a");
-      expect(state.getState("channels.0.port").value).toBe(2);
+      expect(form.get(tracked.channels[0].port).value).toBe(2);
     });
 
-    it("should not notify for its own writes", () => {
-      const { state, handleChange } = buildTracked();
-      state.listen(() => state.notify());
-      state.setValue("channels.a.port", 5);
-      expect(handleChange).not.toHaveBeenCalled();
+    it("should notify once for its own write", () => {
+      const { form, handleChange } = buildTracked();
+      form.set(tracked.channels.a.port, 5);
+      expect(handleChange).toHaveBeenCalledTimes(1);
     });
 
     it("should catch up on a change made before it listens", () => {
-      const { store, state, handleChange } = buildTracked();
-      expect(state.getState("channels.b.port").value).toBe(2);
-      store.set("channels.b.port", 3);
-      state.listen(() => state.notify());
+      const store = createTrackedStore();
+      const handleChange = vi.fn();
+      let rendered = false;
+      const { result } = renderHook(() => {
+        const form = Form.use({ store, schema: trackedSchema });
+        if (!rendered) {
+          rendered = true;
+          form.bind(handleChange);
+          expect(form.get(tracked.channels.b.port).value).toBe(2);
+          store.set("channels.b.port", 3);
+        }
+        return form;
+      });
       expect(handleChange).toHaveBeenCalledTimes(1);
-      expect(state.getState("channels.b.port").value).toBe(3);
+      expect(result.current.get(tracked.channels.b.port).value).toBe(3);
     });
 
-    it("should stop following after the destructor runs", () => {
-      const { store, state, handleChange } = buildTracked();
-      const destroy = state.listen(() => state.notify());
-      destroy();
+    it("should stop following after the form unmounts", () => {
+      const { store, handleChange, unmount } = buildTracked();
+      unmount();
       store.set("channels.b.port", 3);
       expect(handleChange).not.toHaveBeenCalled();
     });
   });
 
-  describe("setStore", () => {
+  describe("store", () => {
     it("should read another store with its values as the initial ones", () => {
-      const { state } = buildTracked();
-      state.setValue("channels.a.port", 5);
+      const store = createTrackedStore();
+      const onHasTouched = vi.fn();
+      const { result, rerender } = renderHook(
+        (props) =>
+          Form.use({ store: props.store, schema: trackedSchema, onHasTouched }),
+        { initialProps: { store } },
+      );
+      result.current.set(tracked.channels.a.port, 5);
       const next = createLocalStore<Tracked>({
         channels: [{ key: "c", port: 9 }],
         config: { type: "b" },
       });
-      expect(state.setStore(next)).toBe(true);
-      expect(state.getState("channels.0.port").value).toBe(9);
-      expect(state.hasBeenTouched).toBe(false);
-      expect(state.initialValues).toEqual(next.get());
+      rerender({ store: next });
+      const form = result.current;
+      expect(form.get(tracked.channels[0].port).value).toBe(9);
+      expect(onHasTouched).toHaveBeenLastCalledWith(false);
+      form.set(tracked.channels[0].port, 1);
+      form.reset();
+      expect(form.value()).toEqual(next.get());
+      expect(form.value()).toEqual({
+        channels: [{ key: "c", port: 9 }],
+        config: { type: "b" },
+      });
     });
 
-    it("should report no change for the store it already reads", () => {
-      const { store, state } = buildTracked();
-      expect(state.setStore(store)).toBe(false);
+    it("should keep its state for the store it already reads", () => {
+      const store = createTrackedStore();
+      const onHasTouched = vi.fn();
+      const { result, rerender } = renderHook(
+        (props) =>
+          Form.use({ store: props.store, schema: trackedSchema, onHasTouched }),
+        { initialProps: { store } },
+      );
+      result.current.set(tracked.channels.a.port, 5);
+      rerender({ store });
+      expect(result.current.get(tracked.channels.a.port).touched).toBe(true);
+      expect(onHasTouched).toHaveBeenCalledExactlyOnceWith(true);
     });
   });
 
   describe("validate", () => {
     it("should return true for valid data", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      const isValid = state.validate();
-      expect(isValid).toBe(true);
+      const { form } = createBasic();
+      expect(form.validate()).toBe(true);
     });
 
-    it("should return true even if untouched fields are invalid", () => {
-      const invalidValues = { ...initialValues, email: "invalid-email" };
-      const state = new State(createLocalStore(invalidValues), basicSchema);
-      const isValid = state.validate();
-      expect(isValid).toBe(true);
+    it("should not flag an untouched invalid field when another field changes", () => {
+      const { form } = createBasic({ ...initialValues, email: "invalid-email" });
+      form.set(basic.name, "Jane Doe");
+      expect(form.get(basic.email).status.variant).toBe("success");
+      expect(form.getStatuses()).toEqual([]);
     });
 
     it("should set error status for invalid fields", () => {
-      const invalidValues = { ...initialValues, email: "invalid-email" };
-      const state = new State(createLocalStore(invalidValues), basicSchema);
-      state.setTouched("email");
-      state.validate();
-      const fieldState = state.getState("email");
+      const { form } = createBasic();
+      form.set(basic.email, "invalid-email");
+      const fieldState = form.get(basic.email);
       expect(fieldState.status.variant).toBe("error");
       expect(fieldState.status.message).toBe("Invalid email format");
     });
 
     it("should return true for warnings (non-error variants)", () => {
-      const warningValues = { ...initialValues, name: "admin", age: 16 };
-      const state = new State(createLocalStore(warningValues), basicSchema);
-      state.setTouched("name");
-      const isValid = state.validate();
-      expect(isValid).toBe(true);
-      expect(state.getState("name").status.variant).toBe("warning");
+      const { form } = createBasic({ ...initialValues, name: "admin", age: 16 });
+      expect(form.validate()).toBe(true);
+      expect(form.get(basic.name).status.variant).toBe("warning");
     });
 
     it("should clear previous validation errors on successful validation", () => {
-      const state = new State(
-        createLocalStore({ ...initialValues, email: "invalid" }),
-        basicSchema,
-      );
-      state.setTouched("email");
-      state.validate();
-      expect(state.getState("email").status.variant).toBe("error");
-
-      state.setValue("email", "valid@example.com");
-      state.validate();
-      expect(state.getState("email").status.variant).toBe("success");
+      const { form } = createBasic();
+      form.set(basic.email, "invalid");
+      expect(form.get(basic.email).status.variant).toBe("error");
+      form.set(basic.email, "valid@example.com");
+      expect(form.get(basic.email).status.variant).toBe("success");
     });
 
     it("should keep the state object of a field whose error did not change", () => {
-      const state = new State(
-        createLocalStore({ ...initialValues, email: "invalid" }),
-        basicSchema,
-      );
-      state.setTouched("email");
-      state.validate();
-      const before = state.getState("email");
-      state.setValue("name", "Jane Doe");
-      state.validate();
-      expect(state.getState("email")).toBe(before);
+      const { form } = createBasic();
+      form.set(basic.email, "invalid");
+      const before = form.get(basic.email);
+      form.set(basic.name, "Jane Doe");
+      expect(form.get(basic.email)).toBe(before);
     });
 
     it("should give a field a new state object when its error changes", () => {
-      const state = new State(
-        createLocalStore({ ...initialValues, age: -1 }),
-        basicSchema,
-      );
-      state.setTouched("age");
-      state.validate();
-      expect(state.getState("age").status.message).toBe("Age must be positive");
-      state.setValue("age", 200);
-      state.validate();
-      expect(state.getState("age").status.message).toBe("Age must be realistic");
+      const { form } = createBasic();
+      form.set(basic.age, -1);
+      const before = form.get(basic.age);
+      expect(before.status.message).toBe("Age must be positive");
+      form.set(basic.age, 200);
+      expect(form.get(basic.age)).not.toBe(before);
+      expect(form.get(basic.age).status.message).toBe("Age must be realistic");
     });
 
     it("should return true when no schema is provided", () => {
-      const state = new State(createLocalStore(initialValues));
-      const isValid = state.validate();
-      expect(isValid).toBe(true);
+      const { form } = create({ values: initialValues });
+      expect(form.validate()).toBe(true);
     });
   });
 
   describe("validateAsync", () => {
     it("should return true for valid data", async () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      const isValid = await state.validateAsync();
-      expect(isValid).toBe(true);
+      const { form } = createBasic();
+      expect(await form.validateAsync()).toBe(true);
     });
 
     it("should return false for invalid data", async () => {
-      const invalidValues = { ...initialValues, email: "invalid-email" };
-      const state = new State(createLocalStore(invalidValues), basicSchema);
-      state.setTouched("email");
-      const isValid = await state.validateAsync();
-      expect(isValid).toBe(false);
+      const { form } = createBasic({ ...initialValues, email: "invalid-email" });
+      expect(await form.validateAsync()).toBe(false);
     });
 
     it("should set error status for invalid fields", async () => {
-      const invalidValues = { ...initialValues, email: "invalid-email" };
-      const state = new State(createLocalStore(invalidValues), basicSchema);
-      state.setTouched("email");
-      await state.validateAsync();
-      const fieldState = state.getState("email");
+      const { form } = createBasic({ ...initialValues, email: "invalid-email" });
+      await form.validateAsync();
+      const fieldState = form.get(basic.email);
       expect(fieldState.status.variant).toBe("error");
       expect(fieldState.status.message).toBe("Invalid email format");
     });
 
     it("should return true when no schema is provided", async () => {
-      const state = new State(createLocalStore(initialValues));
-      const isValid = await state.validateAsync();
-      expect(isValid).toBe(true);
-    });
-  });
-
-  describe("hasBeenTouched", () => {
-    it("should return false initially", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      expect(state.hasBeenTouched).toBe(false);
-    });
-
-    it("should return true when any field is touched", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setTouched("name");
-      expect(state.hasBeenTouched).toBe(true);
-    });
-
-    it("should return false when all touched states are cleared", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setTouched("name");
-      state.setTouched("email");
-      state.clearTouched();
-      expect(state.hasBeenTouched).toBe(false);
+      const { form } = create({ values: initialValues });
+      expect(await form.validateAsync()).toBe(true);
     });
   });
 
   describe("getState", () => {
     it("should return field state for existing field", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      const fieldState = state.getState("name");
+      const { form } = createBasic();
+      const fieldState = form.get(basic.name);
       expect(fieldState.value).toBe("John Doe");
       expect(fieldState.status.variant).toBe("success");
       expect(fieldState.touched).toBe(false);
@@ -1050,95 +1008,85 @@ describe("State", () => {
     });
 
     it("should return field state for nested field", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      const fieldState = state.getState("profile.bio");
-      expect(fieldState.value).toBe("Software developer");
+      const { form } = createBasic();
+      expect(form.get(basic.profile.bio).value).toBe("Software developer");
     });
 
     it("should return field state for array element", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      const fieldState = state.getState("tags.0");
-      expect(fieldState.value).toBe("developer");
+      const { form } = createBasic();
+      expect(form.get(basic.tags[0]).value).toBe("developer");
     });
 
     it("should throw error for non-existent required field", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      expect(() => state.getState("nonExistent")).toThrow();
+      const { form } = createBasic();
+      expect(() => form.get(loose.nonExistent)).toThrow();
     });
 
     it("should return null for non-existent optional field", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      const fieldState = state.getState("nonExistent", { optional: true });
-      expect(fieldState).toBeNull();
+      const { form } = createBasic();
+      expect(form.get(loose.nonExistent, { optional: true })).toBeNull();
     });
 
     describe("schema verdict on an absent value", () => {
       it("should show the schema default without writing it", () => {
-        const state = new State(createLocalStore(verdictValues), verdictSchema);
-        const fieldState = state.getState("defaulted");
+        const { form } = createVerdict();
+        const fieldState = form.get(verdict.defaulted);
         expect(fieldState.value).toBe("cat");
         expect(fieldState.required).toBe(false);
-        expect("defaulted" in state.values).toBe(false);
+        expect("defaulted" in form.value()).toBe(false);
       });
 
       it("should not override an existing value with the default", () => {
-        const state = new State(
-          createLocalStore({ ...verdictValues, defaulted: "dog" }),
-          verdictSchema,
-        );
-        expect(state.getState("defaulted").value).toBe("dog");
+        const { form } = createVerdict({ ...verdictValues, defaulted: "dog" });
+        expect(form.get(verdict.defaulted).value).toBe("dog");
       });
 
       it("should read an optional field as undefined", () => {
-        const state = new State(createLocalStore(verdictValues), verdictSchema);
-        const fieldState = state.getState("optionalField");
+        const { form } = createVerdict();
+        const fieldState = form.get(verdict.optionalField);
         expect(fieldState.value).toBeUndefined();
         expect(fieldState.required).toBe(false);
       });
 
       it("should throw for a required field", () => {
-        const state = new State(
-          createLocalStore({
-            ...verdictValues,
-            name: undefined,
-          } as unknown as VerdictValues),
-          verdictSchema,
-        );
-        expect(() => state.getState("name")).toThrow(
+        const { form } = createVerdict();
+        form.remove(verdict.name);
+        expect(() => form.get(verdict.name)).toThrow(
           "Field name is required and holds no value",
         );
-        expect(state.getState("name", { optional: true })).toBeNull();
+        expect(form.get(verdict.name, { optional: true })).toBeNull();
       });
 
       it("should throw for a path the schema does not contain", () => {
-        const state = new State(createLocalStore(verdictValues), verdictSchema);
-        expect(() => state.getState("nested.typo")).toThrow(
+        const { form } = createVerdict();
+        expect(() => form.get(loose.nested.typo)).toThrow(
           "Field nested.typo is not in the form",
         );
       });
 
       it("should treat a path under a record of unknowns as optional", () => {
-        const state = new State(createLocalStore(verdictValues), verdictSchema);
-        const fieldState = state.getState("extra.anything.deep");
+        const { form } = createVerdict();
+        const fieldState = form.get(verdict.extra.anything.deep);
         expect(fieldState.value).toBeUndefined();
         expect(fieldState.required).toBe(false);
       });
 
       it("should read a leaf of a defaulted subtree from the subtree default", () => {
-        const state = new State(createLocalStore(verdictValues), verdictSchema);
-        expect(state.getState("color.r").value).toBe(1);
+        const { form } = createVerdict();
+        expect(form.get(deep.present(verdict.color).r).value).toBe(1);
       });
 
       it("should read a leaf below an optional ancestor from nested defaults", () => {
-        const state = new State(createLocalStore(verdictValues), verdictSchema);
-        expect(state.getState("layout.margin.x").value).toBe(2);
+        const { form } = createVerdict();
+        const margin = deep.present(deep.present(verdict.layout).margin);
+        expect(form.get(margin.x).value).toBe(2);
       });
     });
 
     it("should correctly determine required status from schema", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      expect(state.getState("name").required).toBe(true);
-      expect(state.getState("optionalField").required).toBe(false);
+      const { form } = createBasic();
+      expect(form.get(basic.name).required).toBe(true);
+      expect(form.get(basic.optionalField).required).toBe(false);
     });
 
     describe("required", () => {
@@ -1150,45 +1098,40 @@ describe("State", () => {
         open: z.array(z.string()),
       });
       const values = { free: "a", count: 1, on: true, tags: ["t"], open: [] };
+      const path = deep.path<z.infer<typeof schema>>();
+      const createRequired = () => create({ values, schema }).form;
 
       it("should not require a string the schema accepts empty", () => {
-        expect(
-          new State(createLocalStore(values), schema).getState("free").required,
-        ).toBe(false);
+        expect(createRequired().get(path.free).required).toBe(false);
       });
 
       it("should not require a value no input can empty", () => {
-        const state = new State(createLocalStore(values), schema);
-        expect(state.getState("count").required).toBe(false);
-        expect(state.getState("on").required).toBe(false);
+        const form = createRequired();
+        expect(form.get(path.count).required).toBe(false);
+        expect(form.get(path.on).required).toBe(false);
       });
 
       it("should require a list the schema refuses empty", () => {
-        expect(
-          new State(createLocalStore(values), schema).getState("tags").required,
-        ).toBe(true);
+        expect(createRequired().get(path.tags).required).toBe(true);
       });
 
       it("should not require a list the schema accepts empty", () => {
-        expect(
-          new State(createLocalStore(values), schema).getState("open").required,
-        ).toBe(false);
+        expect(createRequired().get(path.open).required).toBe(false);
       });
 
       it("should not require a field whose schema checks asynchronously", () => {
         const asyncSchema = z.object({
           name: z.string().refine(async (v) => v !== "taken"),
         });
-        const state = new State(createLocalStore({ name: "a" }), asyncSchema);
-        expect(state.getState("name").required).toBe(false);
+        const { form } = create({ values: { name: "a" }, schema: asyncSchema });
+        const asyncPath = deep.path<z.infer<typeof asyncSchema>>();
+        expect(form.get(asyncPath.name).required).toBe(false);
       });
     });
 
     it("should return cached reference for performance", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      const fieldState1 = state.getState("name");
-      const fieldState2 = state.getState("name");
-      expect(fieldState1).toBe(fieldState2);
+      const { form } = createBasic();
+      expect(form.get(basic.name)).toBe(form.get(basic.name));
     });
 
     describe("memoization", () => {
@@ -1212,44 +1155,52 @@ describe("State", () => {
           nested: { leaf: "l" },
         };
         return {
-          state: new State(createLocalStore(values), schema),
+          form: create({ values, schema }).form,
+          path: deep.path<z.infer<typeof schema>>(),
           checks: () => checks,
         };
       };
 
       it("should not consult the schema again for an unchanged field", () => {
-        const { state, checks } = build();
-        state.getState("tracked");
-        state.getState("tracked");
+        const { form, path, checks } = build();
+        form.get(path.tracked);
+        form.get(path.tracked);
         expect(checks()).toBe(1);
       });
 
       it("should consult the schema again after the field changes", () => {
-        const { state, checks } = build();
-        state.getState("tracked");
-        state.setValue("tracked", "b");
-        expect(state.getState("tracked").value).toBe("b");
-        expect(checks()).toBe(2);
+        const { form, path, checks } = build();
+        form.get(path.tracked);
+        form.set(path.tracked, "b");
+        const before = checks();
+        expect(form.get(path.tracked).value).toBe("b");
+        expect(checks()).toBe(before + 1);
       });
 
       it("should refresh a field when a sibling discriminator changes", () => {
-        const { state } = build();
-        expect(state.getState("config.value").required).toBe(true);
-        state.setValue("config.type", "b");
-        expect(state.getState("config.value").required).toBe(false);
+        const { form, path } = build();
+        expect(form.get(path.config.value).required).toBe(true);
+        form.set(path.config.type, "b");
+        expect(form.get(path.config.value).required).toBe(false);
       });
 
       it("should refresh a child when its parent is replaced", () => {
-        const { state } = build();
-        state.getState("nested.leaf");
-        state.setValue("nested", { leaf: "m" });
-        expect(state.getState("nested.leaf").value).toBe("m");
+        const { form, path } = build();
+        form.get(path.nested.leaf);
+        form.set(path.nested, { leaf: "m" });
+        expect(form.get(path.nested.leaf).value).toBe("m");
       });
 
       describe("a change elsewhere in the form", () => {
+        interface Values {
+          name: string;
+          config: { tracked: string };
+        }
+        type Return = Form.UseReturn<z.ZodType<Values>>;
+        const path = deep.path<Values>();
         const buildNested = () => {
           let checks = 0;
-          const schema = z.object({
+          const counted = z.object({
             name: z.string(),
             config: z.object({
               tracked: z.string().check(() => {
@@ -1257,211 +1208,170 @@ describe("State", () => {
               }),
             }),
           });
-          const state = new State(
-            createLocalStore({ name: "a", config: { tracked: "a" } }),
-            schema,
-          );
-          state.getState("config.tracked");
-          return { state, checks: () => checks };
+          const { form } = create<z.ZodType<Values>>({
+            values: { name: "a", config: { tracked: "a" } },
+            schema: counted,
+          });
+          form.get(path.config.tracked);
+          return { form, checks: () => checks };
         };
 
         it.each([
-          ["a write", (s: State<z.ZodType>) => s.setValue("name", "b")],
-          ["setTouched", (s: State<z.ZodType>) => s.setTouched("name")],
-          ["clearTouched", (s: State<z.ZodType>) => s.clearTouched("name")],
+          ["a write", (f: Return) => f.set(path.name, "b")],
+          [
+            "a write that restores the initial value",
+            (f: Return) => {
+              f.set(path.name, "b");
+              f.set(path.name, "a");
+            },
+          ],
           [
             "setStatus",
-            (s: State<z.ZodType>) =>
-              s.setStatus("name", { key: "name", variant: "error", message: "e" }),
+            (f: Return) =>
+              f.setStatus(path.name, { key: "name", variant: "error", message: "e" }),
           ],
-          ["clearStatus", (s: State<z.ZodType>) => s.clearStatus("name")],
+          ["clearStatus", (f: Return) => f.clearStatus(path.name)],
         ])("should not consult the schema for a field after %s", (_, change) => {
-          const { state, checks } = buildNested();
-          change(state);
-          state.getState("config.tracked");
-          expect(checks()).toBe(1);
+          const { form, checks } = buildNested();
+          change(form);
+          const before = checks();
+          form.get(path.config.tracked);
+          expect(checks()).toBe(before);
         });
 
         it("should consult the schema again after clearing every touched flag", () => {
-          const { state, checks } = buildNested();
-          state.clearTouched();
-          state.getState("config.tracked");
-          expect(checks()).toBe(2);
+          const { form, checks } = buildNested();
+          form.set(path.name, "b");
+          form.setCurrentStateAsInitialValues();
+          const before = checks();
+          form.get(path.config.tracked);
+          expect(checks()).toBe(before + 1);
         });
       });
 
       it("should refresh every field on reset", () => {
-        const { state } = build();
-        state.setValue("other", "y");
-        state.setStatus("tracked", { key: "tracked", variant: "error", message: "e" });
-        state.reset();
-        expect(state.getState("other").touched).toBe(false);
-        expect(state.getState("tracked").status.variant).toBe("success");
+        const { form, path } = build();
+        form.set(path.other, "y");
+        form.setStatus(path.tracked, {
+          key: "tracked",
+          variant: "error",
+          message: "e",
+        });
+        form.reset();
+        expect(form.get(path.other).touched).toBe(false);
+        expect(form.get(path.tracked).status.variant).toBe("success");
       });
     });
 
     it("should update cached reference when field changes", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      const fieldState1 = state.getState("name");
-      state.setValue("name", "Jane Doe");
-      const fieldState2 = state.getState("name");
+      const { form } = createBasic();
+      const fieldState1 = form.get(basic.name);
+      form.set(basic.name, "Jane Doe");
+      const fieldState2 = form.get(basic.name);
       expect(fieldState1).not.toBe(fieldState2);
       expect(fieldState2.value).toBe("Jane Doe");
     });
   });
 
   describe("observer functionality", () => {
-    it("should notify observers when notify is called", () => {
-      const invalidValues = { ...initialValues, email: "invalid" };
-      const state = new State(createLocalStore(invalidValues), basicSchema);
+    it("should notify observers when the form changes", () => {
+      const { form } = createBasic({ ...initialValues, email: "invalid" });
       const observer = vi.fn();
-      state.onChange(observer);
-      state.notify();
+      form.bind(observer);
+      form.validate();
       expect(observer).toHaveBeenCalled();
     });
   });
 
   describe("path validation", () => {
     it("should validate only specified path and its children", () => {
-      const invalidValues = {
+      const { form } = createBasic({
         ...initialValues,
         name: "",
         email: "invalid-email",
         profile: { ...initialValues.profile, website: "invalid-url" },
-      };
-      const state = new State(createLocalStore(invalidValues), basicSchema);
-      state.setTouched("name");
-      state.setTouched("email");
-      state.setTouched("profile.website");
-
-      const isValid = state.validate(true, "profile");
-
-      expect(isValid).toBe(false);
-      expect(state.getState("profile.website").status.variant).toBe("error");
-      expect(state.getState("name").status.variant).toBe("success");
-      expect(state.getState("email").status.variant).toBe("success");
+      });
+      expect(form.validate(basic.profile)).toBe(false);
+      expect(form.get(basic.profile.website).status.variant).toBe("error");
+      expect(form.get(basic.name).status.variant).toBe("success");
+      expect(form.get(basic.email).status.variant).toBe("success");
     });
 
     it("should validate specific field path", () => {
-      const invalidValues = {
+      const { form } = createBasic({
         ...initialValues,
         name: "",
         email: "invalid-email",
-      };
-      const state = new State(createLocalStore(invalidValues), basicSchema);
-      state.setTouched("name");
-      state.setTouched("email");
-
-      const isValid = state.validate(true, "email");
-
-      expect(isValid).toBe(false);
-      expect(state.getState("email").status.variant).toBe("error");
-      expect(state.getState("name").status.variant).toBe("success");
+      });
+      expect(form.validate(basic.email)).toBe(false);
+      expect(form.get(basic.email).status.variant).toBe("error");
+      expect(form.get(basic.name).status.variant).toBe("success");
     });
 
     it("should validate parent path and include child errors", () => {
-      const invalidValues = {
+      const { form } = createBasic({
         ...initialValues,
         name: "",
         profile: { ...initialValues.profile, website: "invalid-url" },
-      };
-      const state = new State(createLocalStore(invalidValues), basicSchema);
-      state.setTouched("name");
-      state.setTouched("profile.website");
-
-      const isValid = state.validate(true, "profile");
-
-      expect(isValid).toBe(false);
-      expect(state.getState("profile.website").status.variant).toBe("error");
-      expect(state.getState("name").status.variant).toBe("success");
+      });
+      expect(form.validate(basic.profile)).toBe(false);
+      expect(form.get(basic.profile.website).status.variant).toBe("error");
+      expect(form.get(basic.name).status.variant).toBe("success");
     });
 
     it("should validate child path when parent is specified", () => {
-      const invalidValues = {
+      const { form } = createBasic({
         ...initialValues,
         email: "invalid-email",
         profile: { ...initialValues.profile, website: "invalid-url" },
-      };
-      const state = new State(createLocalStore(invalidValues), basicSchema);
-      state.setTouched("email");
-      state.setTouched("profile.website");
-
-      const isValid = state.validate(true, "profile.website");
-
-      expect(isValid).toBe(false);
-      expect(state.getState("profile.website").status.variant).toBe("error");
-      expect(state.getState("email").status.variant).toBe("success");
+      });
+      expect(form.validate(basic.profile.website)).toBe(false);
+      expect(form.get(basic.profile.website).status.variant).toBe("error");
+      expect(form.get(basic.email).status.variant).toBe("success");
     });
 
     it("should return true when validating path with no errors", () => {
-      const partiallyInvalidValues = {
-        ...initialValues,
-        email: "invalid-email",
-      };
-      const state = new State(createLocalStore(partiallyInvalidValues), basicSchema);
-      state.setTouched("email");
-      state.setTouched("name");
-
-      const isValid = state.validate(true, "name");
-
-      expect(isValid).toBe(true);
-      expect(state.getState("name").status.variant).toBe("success");
-      expect(state.getState("email").status.variant).toBe("success");
+      const { form } = createBasic({ ...initialValues, email: "invalid-email" });
+      expect(form.validate(basic.name)).toBe(true);
+      expect(form.get(basic.name).status.variant).toBe("success");
+      expect(form.get(basic.email).status.variant).toBe("success");
     });
 
     it("should handle array paths correctly", () => {
-      const invalidValues = {
-        ...initialValues,
-        tags: ["", "valid-tag"],
-      };
       const arraySchema = z.object({
         ...basicSchema.shape,
         tags: z.array(z.string().min(1, "Tag cannot be empty")),
       });
-      const state = new State(createLocalStore(invalidValues), arraySchema);
-      state.setTouched("tags.0");
-      state.setTouched("tags.1");
-
-      const isValid = state.validate(true, "tags.0");
-
-      expect(isValid).toBe(false);
-      expect(state.getState("tags.0").status.variant).toBe("error");
+      const { form } = create({
+        values: { ...initialValues, tags: ["", "valid-tag"] },
+        schema: arraySchema,
+      });
+      expect(form.validate(basic.tags[0])).toBe(false);
+      expect(form.get(basic.tags[0]).status.variant).toBe("error");
     });
   });
 
   describe("async path validation", () => {
     it("should validate only specified path asynchronously", async () => {
-      const invalidValues = {
+      const { form } = createBasic({
         ...initialValues,
         name: "",
         email: "invalid-email",
-      };
-      const state = new State(createLocalStore(invalidValues), basicSchema);
-      state.setTouched("name");
-      state.setTouched("email");
-
-      const isValid = await state.validateAsync(true, "email");
-
-      expect(isValid).toBe(false);
-      expect(state.getState("email").status.variant).toBe("error");
-      expect(state.getState("name").status.variant).toBe("success");
+      });
+      expect(await form.validateAsync(basic.email)).toBe(false);
+      expect(form.get(basic.email).status.variant).toBe("error");
+      expect(form.get(basic.name).status.variant).toBe("success");
     });
 
     it("should validate nested paths asynchronously", async () => {
-      const invalidValues = {
+      const { form } = createBasic({
         ...initialValues,
         name: "",
         profile: { ...initialValues.profile, website: "invalid-url" },
-      };
-      const state = new State(createLocalStore(invalidValues), basicSchema);
-      state.setTouched("name");
-      state.setTouched("profile.website");
-
-      const isValid = await state.validateAsync(true, "profile");
-
-      expect(isValid).toBe(false);
-      expect(state.getState("profile.website").status.variant).toBe("error");
-      expect(state.getState("name").status.variant).toBe("success");
+      });
+      expect(await form.validateAsync(basic.profile)).toBe(false);
+      expect(form.get(basic.profile.website).status.variant).toBe("error");
+      expect(form.get(basic.name).status.variant).toBe("success");
     });
   });
 
@@ -1478,93 +1388,65 @@ describe("State", () => {
         }),
       ]),
     });
+    const path = deep.path<z.infer<typeof schema>>();
+    const color = deep.variant(path.a, "type", "a").color;
+
     it("should return success when all fields are valid", () => {
-      const state = new State(
-        createLocalStore<z.infer<typeof schema>>({ a: { type: "a", color: "red" } }),
-        schema,
-      );
-      state.setTouched("a");
-      state.validate();
-      expect(state.getState("a").status.variant).toBe("success");
+      const { form } = create({ values: { a: { type: "a", color: "" } }, schema });
+      form.set(color, "red");
+      expect(form.get(path.a).status.variant).toBe("success");
+      expect(form.get(color).status.variant).toBe("success");
     });
 
     it("should return an error for the most favored union field", () => {
-      const state = new State(
-        createLocalStore<z.infer<typeof schema>>({ a: { type: "a", color: "" } }),
-        schema,
-      );
-      state.setTouched("a.color");
-      state.validate();
-      expect(state.getState("a.color").status.variant).toBe("error");
+      const { form } = create({ values: { a: { type: "a", color: "red" } }, schema });
+      form.set(color, "");
+      expect(form.get(color).status.variant).toBe("error");
     });
   });
 
   describe("field array touched tracking", () => {
     it("should reset touched status when field array item is removed after modification", () => {
       const arraySchema = z.object({
-        items: z.array(
-          z.object({
-            name: z.string(),
-            value: z.number(),
-          }),
-        ),
+        items: z.array(z.object({ name: z.string(), value: z.number() })),
       });
-
-      const initialValues = {
-        items: [
-          { name: "item1", value: 10 },
-          { name: "item2", value: 20 },
-        ],
-      };
-
-      const state = new State(createLocalStore(initialValues), arraySchema);
-      expect(state.hasBeenTouched).toBe(false);
-
-      const newItem = { name: "item3", value: 30 };
-      const updatedItems = [...state.values.items, newItem];
-      state.setValue("items", updatedItems);
-
-      expect(state.hasBeenTouched).toBe(true);
-
-      state.setValue("items.2.name", "modified_item3");
-
-      expect(state.hasBeenTouched).toBe(true);
-      expect(state.getState("items.2.name").touched).toBe(true);
-
-      const finalItems = state.values.items.slice(0, 2);
-      state.setValue("items", finalItems);
-
-      expect(state.hasBeenTouched).toBe(false);
+      const path = deep.path<z.infer<typeof arraySchema>>();
+      const { form, hasTouched } = create({
+        values: {
+          items: [
+            { name: "item1", value: 10 },
+            { name: "item2", value: 20 },
+          ],
+        },
+        schema: arraySchema,
+      });
+      expect(hasTouched()).toBe(false);
+      form.set(path.items, [...form.value().items, { name: "item3", value: 30 }]);
+      expect(hasTouched()).toBe(true);
+      form.set(path.items[2].name, "modified_item3");
+      expect(hasTouched()).toBe(true);
+      expect(form.get(path.items[2].name).touched).toBe(true);
+      form.set(path.items, form.value().items.slice(0, 2));
+      expect(hasTouched()).toBe(false);
     });
 
     it("should maintain touched status for other modified fields when array item is removed", () => {
       const arraySchema = z.object({
         name: z.string(),
-        items: z.array(
-          z.object({
-            title: z.string(),
-          }),
-        ),
+        items: z.array(z.object({ title: z.string() })),
       });
-
-      const initialValues = {
-        name: "test",
-        items: [{ title: "original" }],
-      };
-
-      const state = new State(createLocalStore(initialValues), arraySchema);
-
-      state.setValue("name", "modified");
-      expect(state.hasBeenTouched).toBe(true);
-
-      state.setValue("items", [...state.values.items, { title: "new item" }]);
-
-      state.setValue("items.1.title", "modified new item");
-
-      state.setValue("items", [{ title: "original" }]);
-
-      expect(state.hasBeenTouched).toBe(true);
-      expect(state.getState("name").touched).toBe(true);
+      const path = deep.path<z.infer<typeof arraySchema>>();
+      const { form, hasTouched } = create({
+        values: { name: "test", items: [{ title: "original" }] },
+        schema: arraySchema,
+      });
+      form.set(path.name, "modified");
+      expect(hasTouched()).toBe(true);
+      form.set(path.items, [...form.value().items, { title: "new item" }]);
+      form.set(path.items[1].title, "modified new item");
+      form.set(path.items, [{ title: "original" }]);
+      expect(hasTouched()).toBe(true);
+      expect(form.get(path.name).touched).toBe(true);
     });
 
     it("should handle nested array operations correctly", () => {
@@ -1572,94 +1454,67 @@ describe("State", () => {
         groups: z.array(
           z.object({
             name: z.string(),
-            items: z.array(
-              z.object({
-                value: z.string(),
-              }),
-            ),
+            items: z.array(z.object({ value: z.string() })),
           }),
         ),
       });
-
-      const initialValues = {
-        groups: [
-          {
-            name: "group1",
-            items: [{ value: "item1" }],
-          },
-        ],
-      };
-
-      const state = new State(createLocalStore(initialValues), nestedArraySchema);
-
-      const newGroup = { name: "group2", items: [{ value: "item2" }] };
-      state.setValue("groups", [...state.values.groups, newGroup]);
-
-      state.setValue("groups.1.items.0.value", "modified_item2");
-
-      expect(state.hasBeenTouched).toBe(true);
-
-      state.setValue("groups", [{ name: "group1", items: [{ value: "item1" }] }]);
-
-      expect(state.hasBeenTouched).toBe(false);
+      const path = deep.path<z.infer<typeof nestedArraySchema>>();
+      const { form, hasTouched } = create({
+        values: { groups: [{ name: "group1", items: [{ value: "item1" }] }] },
+        schema: nestedArraySchema,
+      });
+      form.set(path.groups, [
+        ...form.value().groups,
+        { name: "group2", items: [{ value: "item2" }] },
+      ]);
+      form.set(path.groups[1].items[0].value, "modified_item2");
+      expect(hasTouched()).toBe(true);
+      form.set(path.groups, [{ name: "group1", items: [{ value: "item1" }] }]);
+      expect(hasTouched()).toBe(false);
     });
   });
 
   describe("edge cases", () => {
     it("should handle empty string paths correctly", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
+      const { form } = createBasic();
       const newValues = { ...initialValues, name: "Jane Doe" };
-      state.setValue("", newValues);
-      expect(state.values).toEqual(newValues);
+      form.set(basic, newValues);
+      expect(form.value()).toEqual(newValues);
     });
 
     it("should handle deeply nested paths", () => {
-      const deepValues = {
-        level1: {
-          level2: {
-            level3: {
-              value: "deep",
-            },
-          },
-        },
-      };
       const deepSchema = z.object({
         level1: z.object({
-          level2: z.object({
-            level3: z.object({
-              value: z.string(),
-            }),
-          }),
+          level2: z.object({ level3: z.object({ value: z.string() }) }),
         }),
       });
-      const state = new State(createLocalStore(deepValues), deepSchema);
-      state.setValue("level1.level2.level3.value", "updated");
-      expect(state.values.level1.level2.level3.value).toBe("updated");
+      const path = deep.path<z.infer<typeof deepSchema>>();
+      const { form } = create({
+        values: { level1: { level2: { level3: { value: "deep" } } } },
+        schema: deepSchema,
+      });
+      form.set(path.level1.level2.level3.value, "updated");
+      expect(form.value().level1.level2.level3.value).toBe("updated");
     });
 
     it("should handle array mutations correctly", () => {
-      const state = new State(createLocalStore(initialValues), basicSchema);
-      state.setValue("tags", ["new", "tags"]);
-      expect(state.values.tags).toEqual(["new", "tags"]);
+      const { form } = createBasic();
+      form.set(basic.tags, ["new", "tags"]);
+      expect(form.value().tags).toEqual(["new", "tags"]);
     });
 
     it("should handle null and undefined values", () => {
-      const state = new State(
-        createLocalStore({ test: null }),
-        z.object({ test: z.string().nullable() }),
-      );
-      expect(state.getState("test", { optional: true })).toBeNull();
+      const schema = z.object({ test: z.string().nullable() });
+      const { form } = create({ values: { test: null }, schema });
+      const path = deep.path<z.infer<typeof schema>>();
+      expect(form.get(path.test, { optional: true })).toBeNull();
     });
 
     it("should handle schema without required fields", () => {
-      const optionalSchema = z.object({
-        optional: z.string().optional(),
-      });
-      const state = new State(
-        createLocalStore({ optional: undefined }),
-        optionalSchema,
-      );
-      expect(state.getState("optional").value).toBeUndefined();
+      const schema = z.object({ optional: z.string().optional() });
+      const { form } = create({ values: { optional: undefined }, schema });
+      const path = deep.path<z.infer<typeof schema>>();
+      expect(form.get(path.optional).value).toBeUndefined();
     });
   });
 });
