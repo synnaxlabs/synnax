@@ -45,7 +45,8 @@ public:
     struct Config {
         Opener open;
         /// @brief min_backoff is the wait before the first open after a failure. Each
-        /// failure in a row doubles it, up to max_backoff, and an open resets it.
+        /// failure in a row doubles it, up to max_backoff. A turn that takes the open
+        /// transport and does not fail resets it.
         x::telem::TimeSpan min_backoff = 250 * x::telem::MILLISECOND;
         x::telem::TimeSpan max_backoff = 10 * x::telem::SECOND;
         Clock now = std::chrono::steady_clock::now;
@@ -58,10 +59,15 @@ public:
     /// @brief Guard is the turn of a task on a connection, which ends when the guard is
     /// destroyed.
     class Guard {
+        friend class Connection;
         Connection &conn;
+        /// @brief healthy is true when the turn took the open transport and did not
+        /// fail.
+        bool healthy = false;
+
+        Guard(Connection &conn, std::uint64_t ticket);
 
     public:
-        explicit Guard(Connection &conn);
         ~Guard();
         Guard(const Guard &) = delete;
         Guard &operator=(const Guard &) = delete;
@@ -80,9 +86,9 @@ public:
         [[nodiscard]] std::uint64_t opens() const;
     };
 
-    /// @brief opens the transport when it is closed and the backoff has passed, after
-    /// any open that another task started. Then blocks until the turns of earlier
-    /// callers end.
+    /// @brief takes a place in line, then opens the transport when it is closed and the
+    /// backoff has passed, after any open that another task started. Then blocks until
+    /// the turns of earlier callers end.
     [[nodiscard]] Guard lock();
 
     /// @brief returns the time on Config::now at which the next open may run. A task

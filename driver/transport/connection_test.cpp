@@ -15,6 +15,7 @@
 #include <memory>
 #include <mutex>
 #include <span>
+#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -208,20 +209,23 @@ TEST(Connection, DoubleBackoffUpToMax) {
     }
 }
 
-/// @brief it should reset the backoff after an open.
-TEST(Connection, ResetBackoffAfterOpen) {
+/// @brief it should keep doubling the backoff while each open fails at once, and reset
+/// it after a turn that uses the transport without failing.
+TEST(Connection, ResetBackoffAfterHealthyTurn) {
     const auto device = std::make_shared<Device>();
-    device->failures = {GONE, GONE};
     ManualClock clock;
     Connection conn({
         .open = opener(device),
         .min_backoff = 100 * x::telem::MILLISECOND,
         .now = clock.func(),
     });
-    ASSERT_OCCURRED_AS_P(conn.lock().transport(), UNREACHABLE_ERROR);
+    conn.lock().fail(GONE);
     clock.advance(100 * x::telem::MILLISECOND);
+    conn.lock().fail(GONE);
+    clock.advance(199 * x::telem::MILLISECOND);
     ASSERT_OCCURRED_AS_P(conn.lock().transport(), UNREACHABLE_ERROR);
-    clock.advance(200 * x::telem::MILLISECOND);
+    clock.advance(x::telem::MILLISECOND);
+    ASSERT_NIL_P(conn.lock().transport());
     conn.lock().fail(GONE);
     clock.advance(100 * x::telem::MILLISECOND);
     ASSERT_NIL_P(conn.lock().transport());
@@ -317,20 +321,44 @@ TEST(Connection, GiveOneTurnAtATime) {
     EXPECT_TRUE(taken);
 }
 
-/// @brief it should give turns in the order that tasks ask, so a task that asks again
-/// at once cannot starve another.
+/// @brief it should give turns in the order that tasks ask, so a task that locks again
+/// at once waits behind a task that asked first.
 TEST(Connection, GiveTurnsInOrder) {
-    Connection conn({.open = opener(std::make_shared<Device>())});
-    std::atomic running = true;
-    std::thread spinner([&] {
-        while (running)
-            auto guard = conn.lock();
+    const auto device = std::make_shared<Device>();
+    std::mutex mu;
+    std::condition_variable cv;
+    int calls = 0;
+    bool asked = false;
+    const auto open = opener(device);
+    Connection conn({
+        .open =
+            [&] {
+                std::lock_guard lock(mu);
+                if (calls++ == 1) {
+                    asked = true;
+                    cv.notify_all();
+                }
+                return open();
+            },
+        .min_backoff = x::telem::TimeSpan::ZERO(),
     });
-    const x::telem::Stopwatch sw;
-    for (int i = 0; i < 1000; i++)
+    std::vector<std::string> order;
+    std::thread task;
+    {
         auto guard = conn.lock();
-    running = false;
-    spinner.join();
-    EXPECT_LT(sw.elapsed(), x::telem::SECOND);
+        guard.fail(GONE);
+        task = std::thread([&] {
+            auto other = conn.lock();
+            order.emplace_back("task");
+        });
+        std::unique_lock lock(mu);
+        cv.wait(lock, [&] { return asked; });
+    }
+    {
+        auto again = conn.lock();
+        order.emplace_back("again");
+    }
+    task.join();
+    EXPECT_EQ(order, (std::vector<std::string>{"task", "again"}));
 }
 }

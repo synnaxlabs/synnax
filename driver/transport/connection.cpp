@@ -25,15 +25,15 @@ namespace driver::transport {
 Connection::Connection(Config cfg):
     cfg(std::move(cfg)), backoff(this->cfg.min_backoff) {}
 
-Connection::Guard::Guard(Connection &conn): conn(conn) {
+Connection::Guard::Guard(Connection &conn, const std::uint64_t ticket): conn(conn) {
     std::unique_lock lock(conn.mu);
-    const auto ticket = conn.next_ticket++;
     conn.cv.wait(lock, [&] { return conn.serving == ticket; });
 }
 
 Connection::Guard::~Guard() {
     {
         std::lock_guard lock(this->conn.mu);
+        if (this->healthy) this->conn.backoff = this->conn.cfg.min_backoff;
         this->conn.serving++;
     }
     this->conn.cv.notify_all();
@@ -42,11 +42,13 @@ Connection::Guard::~Guard() {
 std::pair<Transport *, x::errors::Error> Connection::Guard::transport() {
     std::lock_guard lock(this->conn.mu);
     if (this->conn.current == nullptr) return {nullptr, this->conn.err};
+    this->healthy = true;
     return {this->conn.current.get(), x::errors::NIL};
 }
 
 void Connection::Guard::fail(const x::errors::Error &err) {
     std::lock_guard lock(this->conn.mu);
+    this->healthy = false;
     this->conn.current.reset();
     this->conn.failed(err);
 }
@@ -57,8 +59,13 @@ std::uint64_t Connection::Guard::opens() const {
 }
 
 Connection::Guard Connection::lock() {
+    std::uint64_t ticket = 0;
+    {
+        std::lock_guard lock(this->mu);
+        ticket = this->next_ticket++;
+    }
     this->open();
-    return Guard(*this);
+    return Guard(*this, ticket);
 }
 
 void Connection::open() {
@@ -78,7 +85,6 @@ void Connection::open() {
             this->current = std::move(t);
             this->opened++;
             this->err = x::errors::NIL;
-            this->backoff = this->cfg.min_backoff;
         }
     }
     this->cv.notify_all();
