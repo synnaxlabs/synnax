@@ -112,22 +112,22 @@ FormatConfig struct {
 }
 
 StateBinding struct extends FormatConfig {
-    key         string           {
+    key         string                {
         @doc value "is the key of the state of the symbol that the binding sets."
     }
-    source      Source?          {
+    source      Source?               {
         @doc value "is where the state reads its value, or nowhere."
     }
-    enumeration enumeration.Key? {
+    enumeration enumeration.Key?      {
         @doc value "replaces the enumeration of the state."
     }
-    match       symbol.Matcher?  {
+    match       symbol.Matcher?       {
         @doc value "replaces the match of the state."
     }
     bounds      spatial.ClosedBounds? {
         @doc value "replaces the bounds of a number state."
     }
-    default     float64?         {
+    default     float64?              {
         @doc value "replaces the default of the state."
     }
 
