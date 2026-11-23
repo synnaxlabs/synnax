@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/segment"
-	"github.com/synnaxlabs/cesium/internal/state"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -201,7 +200,7 @@ var _ = Describe("Delete on the pointer log", func() {
 			write(ctx, 10, 11, 12)
 			Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{idx}, span(11, 12))).
 				To(SatisfyAll(
-					MatchError(state.ErrRefused),
+					MatchError(ContainSubstring("refused by the state")),
 					MatchError(
 						ContainSubstring("key "+strconv.Itoa(int(data))+" uses"),
 					),

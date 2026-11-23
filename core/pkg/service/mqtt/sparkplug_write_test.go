@@ -12,6 +12,7 @@ package mqtt_test
 import (
 	"context"
 	"math"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
@@ -83,6 +85,7 @@ var _ = Describe("Sparkplug B write targets", func() {
 		ch channel.Channel,
 		series telem.Series,
 		check func(g Gomega),
+		intervals ...time.Duration,
 	) {
 		GinkgoHelper()
 		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
@@ -90,10 +93,17 @@ var _ = Describe("Sparkplug B write targets", func() {
 			Start: telem.Now(),
 		}))
 		defer func() { Expect(w.Close()).To(Succeed()) }()
-		Eventually(func(g Gomega) {
+		e := Eventually(func(g Gomega) {
 			g.Expect(w.Write(frame.NewUnary(ch.Key(), series))).To(BeTrue())
 			check(g)
-		}).Should(Succeed())
+		})
+		if len(intervals) > 0 {
+			e = e.WithTimeout(intervals[0])
+		}
+		if len(intervals) > 1 {
+			e = e.WithPolling(intervals[1])
+		}
+		e.Should(Succeed())
 	}
 
 	// metrics returns the one metric of each command that the edge node received.
@@ -272,7 +282,10 @@ var _ = Describe("Sparkplug B write targets", func() {
 				plain := createVirtual(ctx, telem.Float64T)
 				tag := createVirtual(ctx, telem.Int32T)
 				start(ctx, writeConfig(dev,
-					plainTarget("plant/valve/set", plain, "/v", "number"),
+					fieldTarget(
+						ctx, "plant/valve/set", plain,
+						jsonField("v", "/v", icd.FloatJSONField{}),
+					),
 					tagTarget("plant", "line1", "", "rpm", "int32", tag),
 				))
 				command(ctx, plain, telem.NewSeriesV(0.5), func(g Gomega) {
@@ -292,7 +305,7 @@ var _ = Describe("Sparkplug B write targets", func() {
 	})
 
 	Describe("Errors while running", func() {
-		It("Should warn on a value that does not fit its data type and keep running",
+		It("Should count a value that does not fit its data type and keep running",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Int32T)
 				t := start(ctx, writeConfig(dev, tagTarget(
@@ -301,8 +314,10 @@ var _ = Describe("Sparkplug B write targets", func() {
 				command(ctx, ch, telem.NewSeriesV[int32](300), func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
-					g.Expect(stat.Message).To(Equal("Failed to write data"))
+					g.Expect(stat.Message).
+						To(MatchRegexp(`^Skipped [\d,]+ of [\d,]+ commands?$`))
 					g.Expect(stat.Description).To(And(
+						HavePrefix("Command for "),
 						ContainSubstring("tag level"),
 						ContainSubstring("300 as Int8"),
 						ContainSubstring("value does not fit the data type"),
@@ -314,7 +329,7 @@ var _ = Describe("Sparkplug B write targets", func() {
 					g.Expect(node.received()).ToNot(BeEmpty())
 					g.Expect(taskStatus(ctx, t).Variant).
 						To(Equal(status.VariantSuccess))
-				})
+				}, 2*driver.SkipHold, 100*time.Millisecond)
 				Expect(metrics()).To(HaveEach(HaveField(
 					"Value", Equal(&pb.Payload_Metric_IntValue{IntValue: 100}),
 				)))

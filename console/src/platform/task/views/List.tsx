@@ -14,7 +14,7 @@ import type { List as PList } from "@synnaxlabs/lyra/list";
 import { useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { HoverProvider } from "@/platform/task/port/Hovered";
+import { Port } from "@/platform/task/port";
 import type { Channel } from "@/platform/task/types";
 import {
   ChannelList,
@@ -95,5 +95,5 @@ export const List = <C extends Channel>({
       onSelect={setSelected}
     />
   );
-  return map == null ? list : <HoverProvider>{list}</HoverProvider>;
+  return map == null ? list : <Port.HoverProvider>{list}</Port.HoverProvider>;
 };

@@ -20,23 +20,23 @@ import (
 	"github.com/synnaxlabs/x/timeout"
 )
 
-// AbstractMultiSource is a basic implementation of a Source that can send values to
+// abstractMultiSource is a basic implementation of a Source that can send values to
 // multiple Outlet(sink). It implements an empty Flow method, as sources are typically
 // driven by external events. The user can define a custom Flow method if they wish to
 // drive the source themselves.
-type AbstractMultiSource[V Value] struct {
+type abstractMultiSource[V Value] struct {
 	Out []Inlet[V]
 }
 
 // OutTo implements the Source interface.
-func (ams *AbstractMultiSource[V]) OutTo(
+func (ams *abstractMultiSource[V]) OutTo(
 	inlets ...Inlet[V],
 ) {
 	ams.Out = append(ams.Out, inlets...)
 }
 
 // SendToEach sends the provided value to each Inlet in the Source.
-func (ams *AbstractMultiSource[V]) SendToEach(ctx context.Context, v V) error {
+func (ams *abstractMultiSource[V]) SendToEach(ctx context.Context, v V) error {
 	for _, inlet := range ams.Out {
 		select {
 		case <-ctx.Done():
@@ -52,7 +52,7 @@ func (ams *AbstractMultiSource[V]) SendToEach(ctx context.Context, v V) error {
 // will not send to the inlet. It will, however, continue to send to the remaining
 // inlets, resetting the timer after it expires. If the timer expired for any inlet,
 // the function will return a timeout error.
-func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
+func (ams *abstractMultiSource[V]) SendToEachWithTimeout(
 	ctx context.Context,
 	v V,
 	t time.Duration,
@@ -80,7 +80,7 @@ func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
 }
 
 // CloseInlets implements the InletCloser interface.
-func (ams *AbstractMultiSource[V]) CloseInlets() {
+func (ams *abstractMultiSource[V]) CloseInlets() {
 	for _, inlet := range ams.Out {
 		inlet.Close()
 	}

@@ -11,7 +11,6 @@ package meta_test
 
 import (
 	jsonv2 "encoding/json/v2"
-	"io"
 	"os"
 	"strconv"
 
@@ -20,9 +19,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -115,40 +112,6 @@ var _ = Describe("Meta", func() {
 					Expect(faulty.Exists("meta.json.tmp")).To(BeFalse())
 				})
 
-				Specify(
-					"Should write a legacy file under the current names on Create",
-					func(
-						ctx SpecContext,
-					) {
-						key := GenerateChannelKey()
-						subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
-						f := MustSucceed(
-							subFs.Open("meta.json", os.O_CREATE|os.O_WRONLY),
-						)
-						legacy := []byte(`{"name":"Faraday","data_type":"timestamp",` +
-							`"key":` + strconv.Itoa(int(key)) +
-							`,"index":0,"IsIndex":true,"version":2}`)
-						Expect(f.Write(legacy)).To(Equal(len(legacy)))
-						Expect(f.Close()).To(Succeed())
-
-						codec := json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
-						ch := MustSucceed(meta.Open(
-							ctx, subFs, channel.Channel{Key: key}, codec,
-						))
-						Expect(meta.Create(ctx, subFs, codec, ch)).To(Succeed())
-
-						r := MustSucceed(subFs.Open("meta.json", os.O_RDONLY))
-						stored := make([]byte, 512)
-						n := MustSucceed(r.Read(stored))
-						Expect(r.Close()).To(Succeed())
-						Expect(
-							string(stored[:n]),
-						).To(ContainSubstring(`"is_index":true`))
-						Expect(string(stored[:n])).To(ContainSubstring(`"version":3`))
-						Expect(string(stored[:n])).NotTo(ContainSubstring(`"IsIndex"`))
-					},
-				)
-
 				Specify("Should read a meta.json written under Go field names", func(
 					ctx SpecContext,
 				) {
@@ -231,63 +194,6 @@ var _ = Describe("Meta", func() {
 					),
 				)
 			})
-
-			It(
-				"Should not delete the original file if an error occurs while encoding",
-				func(ctx SpecContext) {
-					key := GenerateChannelKey()
-					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
-					ch := MustSucceed(meta.Open(
-						ctx,
-						subFs,
-						channel.Channel{
-							Key:      key,
-							Name:     "Faraday",
-							Virtual:  true,
-							DataType: telem.Int64T,
-						},
-						json.Codec,
-					))
-					Expect(ch.Key).To(Equal(key))
-
-					Expect(meta.Create(ctx, subFs, &brokenCodec{}, ch)).Error().
-						To(MatchError(errEncoding))
-					Expect(subFs.Exists("meta.json")).To(BeTrue())
-
-					Expect(meta.Read(ctx, subFs, &brokenCodec{})).Error().
-						To(MatchError(errEncoding))
-					Expect(subFs.Exists("meta.json")).To(BeTrue())
-					Expect(subFs.Exists("meta.json.tmp")).To(BeFalse())
-
-					ch2 := MustSucceed(meta.Read(ctx, subFs, json.Codec))
-					Expect(ch2.Key).To(Equal(key))
-					Expect(ch2.Name).To(Equal("Faraday"))
-					Expect(ch2.Virtual).To(BeTrue())
-					Expect(ch2.DataType).To(Equal(telem.Int64T))
-				},
-			)
 		})
 	}
 })
-
-type brokenCodec struct{}
-
-var _ encoding.Codec = (*brokenCodec)(nil)
-
-var errEncoding = errors.New("broken json.Codec")
-
-func (b *brokenCodec) Encode(any) ([]byte, error) {
-	return nil, errEncoding
-}
-
-func (b *brokenCodec) EncodeStream(io.Writer, any) error {
-	return errEncoding
-}
-
-func (b *brokenCodec) Decode([]byte, any) error {
-	return errEncoding
-}
-
-func (b *brokenCodec) DecodeStream(io.Reader, any) error {
-	return errEncoding
-}

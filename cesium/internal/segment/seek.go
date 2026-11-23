@@ -18,34 +18,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Seek returns the stream offset where the sample at position pos of a variable-density
-// segment starts, or length when pos is samples. length and samples are the committed
-// length and sample count of the segment in r. buf is scratch space of at least 16
-// bytes, and Seek reads up to len(buf) bytes at once. Seek reads the trailers of a
-// logarithmic number of blocks, then walks the sample lengths of at most one block and
-// the tail. It checks no checksum, and returns an error that wraps place.ErrCorrupt
-// when a trailer or a length does not fit the segment.
-func (c Config) Seek(
-	r io.ReaderAt,
-	buf []byte,
-	pos uint32,
-	length int64,
-	samples uint32,
-) (int64, error) {
-	if pos > samples {
-		return 0, errors.Newf("position %d is past the %d samples of the segment", pos,
-			samples)
-	}
-	if pos == samples {
-		return length, nil
-	}
-	x, p, err := c.seekBlock(r, buf, pos, length/BlockSize, samples)
-	if err != nil {
-		return 0, err
-	}
-	return c.walk(r, buf, x, p, pos, length)
-}
-
 // SeekFrom returns the stream offset where the sample k positions after the sample at
 // stream offset from starts, in a variable-density segment of committed length length
 // in r. buf is scratch space of at least 16 bytes. SeekFrom walks the sample lengths to
