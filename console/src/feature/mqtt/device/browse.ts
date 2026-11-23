@@ -11,12 +11,12 @@ import { status, type Synnax } from "@synnaxlabs/client";
 import { TimeSpan } from "@synnaxlabs/x";
 
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
-import type { Device } from "@/feature/mqtt/device/types";
 import {
   BROWSE_COMMAND_TYPE,
   BROWSE_SPARKPLUG_COMMAND_TYPE,
   type BrowsedTopic,
-} from "@/feature/mqtt/task/types";
+} from "@/feature/mqtt/device/scan";
+import type { Device } from "@/feature/mqtt/device/types";
 
 /** How long the Core listens to the broker for one browse. */
 export const BROWSE_DURATION = TimeSpan.seconds(3);

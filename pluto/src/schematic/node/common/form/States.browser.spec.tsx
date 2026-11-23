@@ -16,6 +16,7 @@ import { color, deep, id } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeAll, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import { page } from "vitest/browser";
 import type { z } from "zod";
 
 import { Enumeration } from "@/enumeration";
@@ -265,6 +266,16 @@ describe("Form.States", () => {
       fireEvent.click(await c.findByRole("option", { name: createName(term) }));
     };
 
+    // A listed option can render again between a find and a later click, so the click
+    // finds the option as it acts.
+    const pick = async (
+      c: ReturnType<typeof renderStates>,
+      e: enumeration.Enumeration,
+    ): Promise<void> => {
+      await openPicker(c, e.name);
+      await page.getByRole("option", { name: e.name, exact: true }).click();
+    };
+
     it("should lock the options while it creates an enumeration", async () => {
       const c = renderStates();
       await openCreate(c, `Valve ${id.create()}`);
@@ -405,11 +416,9 @@ describe("Form.States", () => {
       const e = await created(c.value, linked.key);
       const add = (): HTMLElement => c.getByRole("button", { name: "Add entry" });
       await waitFor(() => expect(document.activeElement).toBe(add()));
-      await openPicker(c, linked.name);
-      fireEvent.click(await c.findByRole("option", { name: linked.name }));
+      await pick(c, linked);
       await waitFor(() => expect(c.value(path.enumeration)).toBe(linked.key));
-      await openPicker(c, e.name);
-      fireEvent.click(await c.findByRole("option", { name: e.name }));
+      await pick(c, e);
       await waitFor(() => expect(c.value(path.enumeration)).toBe(e.key));
       await act(async () => {});
       expect(document.activeElement).not.toBe(add());
