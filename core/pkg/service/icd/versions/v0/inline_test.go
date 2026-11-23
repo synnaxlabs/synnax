@@ -351,7 +351,7 @@ var _ = Describe("LiftMessage", func() {
 		for _, f := range jsonFields(msg) {
 			names = append(names, f.Base().Name)
 		}
-		Expect(names).To(Equal([]string{"out/flow", "level", "level (2)", "value"}))
+		Expect(names).To(Equal([]string{"out_flow", "level", "level_2", "value"}))
 	})
 
 	It("Should note each change at the path of its field", func() {
@@ -386,6 +386,41 @@ var _ = Describe("UniqueName", func() {
 		Expect(v0.UniqueName(taken, "level")).To(Equal("level (2)"))
 		Expect(v0.UniqueName(taken, "level")).To(Equal("level (3)"))
 		Expect(taken).To(Equal(set.New("level", "flow", "level (2)", "level (3)")))
+	})
+})
+
+var _ = Describe("FieldName", func() {
+	var taken set.Set[string]
+	BeforeEach(func() { taken = set.New[string]() })
+
+	DescribeTable("Should name a field with no name by its pointer",
+		func(pointer, name string) {
+			Expect(v0.FieldName(taken, "", pointer)).To(Equal(name))
+		},
+		Entry("a top-level pointer", "/level", "level"),
+		Entry("a nested pointer", "/motor/speed", "motor_speed"),
+		Entry("escaped tokens", "/a~1b/c~0d", "a/b_c~d"),
+		Entry("the whole document", "", "value"),
+		Entry("a pointer to an empty key", "/", "value"),
+		Entry("a malformed pointer", "/a~2", "a~2"),
+	)
+
+	It("Should keep the name of a named field", func() {
+		Expect(v0.FieldName(taken, "flow", "/level")).To(Equal("flow"))
+	})
+
+	It("Should number each name that is taken", func() {
+		Expect(v0.FieldName(taken, "", "")).To(Equal("value"))
+		Expect(v0.FieldName(taken, "", "")).To(Equal("value_2"))
+		Expect(v0.FieldName(taken, "value", "/x")).To(Equal("value_3"))
+		Expect(taken).To(Equal(set.New("value", "value_2", "value_3")))
+	})
+
+	It("Should number a name that is taken as a channel name", func() {
+		Expect(v0.FieldName(taken, "a b", "")).To(Equal("a b"))
+		Expect(v0.FieldName(taken, "a_b", "")).To(Equal("a_b_2"))
+		Expect(v0.FieldName(taken, "", "/1st")).To(Equal("1st"))
+		Expect(taken).To(Equal(set.New("a_b", "a_b_2", "_1st")))
 	})
 })
 
