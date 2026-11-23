@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ValidationError } from "@/index";
 import { query } from "@/query";
-import { Lists, MAX_SEARCH_LIMIT } from "@/query/list";
+import { list } from "@/query/list";
 import { space } from "@/query/space";
 
 interface Rec {
@@ -72,7 +72,7 @@ const byName: Order = { field: "name" };
 const setup = (records: Rec[], hooks: space.Hooks = {}) => {
   const table = new query.Table<string, Rec>({ onError: () => {} });
   const { core, fetch } = createCore(records);
-  const lists = new Lists<Q, Rec, string, Rec, Cursor, Order>(
+  const lists = new list.Lists<Q, Rec, string, Rec, Cursor, Order>(
     {
       name: "thing",
       table,
@@ -87,8 +87,7 @@ const setup = (records: Rec[], hooks: space.Hooks = {}) => {
   return { table, core, fetch, lists };
 };
 
-const names = (window?: query.Window<Rec, Cursor>) =>
-  window?.records.map((r) => r.name);
+const names = (window?: list.Window<Rec, Cursor>) => window?.records.map((r) => r.name);
 
 describe("Lists", () => {
   describe("retrieve", () => {
@@ -676,13 +675,13 @@ describe("Lists", () => {
     });
 
     it("should stop growing at the most records a search returns", async () => {
-      const records = Array.from({ length: MAX_SEARCH_LIMIT + 1 }, (_, i) =>
+      const records = Array.from({ length: list.MAX_SEARCH_LIMIT + 1 }, (_, i) =>
         rec(`${i}`, `a${i}`),
       );
-      const { list, fetch } = await searching(records, MAX_SEARCH_LIMIT);
-      await list.more(10);
+      const { list: search, fetch } = await searching(records, list.MAX_SEARCH_LIMIT);
+      await search.more(10);
       expect(fetch).toHaveBeenCalledTimes(1);
-      expect(list.getCached()?.end).not.toBeNull();
+      expect(search.getCached()?.end).not.toBeNull();
     });
 
     it("should fetch again on a change during its first fetch", async () => {
@@ -717,7 +716,7 @@ describe("Lists", () => {
       });
       const table = new query.Table<string, Rec>({ onError: () => {} });
       const { core, fetch } = createCore(records);
-      const lists = new Lists<
+      const lists = new list.Lists<
         Q,
         Rec & { variant?: string },
         string,

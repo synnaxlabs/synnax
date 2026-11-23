@@ -112,7 +112,7 @@ export interface VisualizationClient {
   retrieve(query: VisualizationQuery): Promise<Visualization[]>;
   watch(
     query: VisualizationQuery & { order?: { field: "name" } },
-  ): query.List<Visualization, unknown>;
+  ): query.list.List<Visualization, unknown>;
   readonly setProjectRequest: project.MoveRequest<string>;
 }
 
