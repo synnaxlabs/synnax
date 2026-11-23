@@ -18,12 +18,9 @@ from synnax.mqtt.types import (
 )
 from synnax.mqtt.types_gen import (
     BaseReadEntry,
-    BaseWriteField,
     BaseWriteTarget,
-    ChannelField,
     EdgeConfig,
     EdgeTag,
-    GeneratedWriteField,
     PlainReadEntry,
     PlainWriteTarget,
     QoS,
@@ -33,9 +30,7 @@ from synnax.mqtt.types_gen import (
     SparkplugDataType,
     SparkplugReadEntry,
     SparkplugWriteTarget,
-    StaticWriteField,
     WriteConfig,
-    WriteField,
     WriteTarget,
 )
 
@@ -44,14 +39,11 @@ __all__ = [
     "MAKE",
     "MODEL",
     "BaseReadEntry",
-    "BaseWriteField",
     "BaseWriteTarget",
-    "ChannelField",
     "Device",
     "EdgeConfig",
     "EdgeTag",
     "EdgeTask",
-    "GeneratedWriteField",
     "PlainReadEntry",
     "PlainWriteTarget",
     "QoS",
@@ -62,9 +54,7 @@ __all__ = [
     "SparkplugDataType",
     "SparkplugReadEntry",
     "SparkplugWriteTarget",
-    "StaticWriteField",
     "WriteConfig",
-    "WriteField",
     "WriteTarget",
     "WriteTask",
 ]

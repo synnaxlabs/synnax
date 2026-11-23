@@ -21,10 +21,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Channel as PChannel, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 
-import { use } from "@/feature/mqtt/device/queries";
-import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
-import { SCHEMAS } from "@/feature/mqtt/device/types";
-import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
+import { Device } from "@/feature/mqtt/device";
 import {
   fromSparkplugDataType,
   sparkplugPropertiesKey,
@@ -47,7 +44,7 @@ const root = deep.path<Task.Values<EdgeSchemas>>();
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <SparkplugNodeFields path={root.config} />
     <Flex.Box x grow>
       <PForm.NumericField
@@ -60,7 +57,10 @@ const Properties = () => (
   </>
 );
 
-const AUTHORITY_INPUT_PROPS = { bounds: { lower: 0, upper: 255 } } as const;
+const AUTHORITY_INPUT_PROPS = {
+  bounds: { lower: 0, upper: 255 },
+  integer: true,
+} as const;
 
 const SelectChannel = (p: PChannel.SelectSingleProps) => (
   <PChannel.SelectSingle {...p} location="bottom" />
@@ -224,14 +224,17 @@ const Content = () => (
 );
 
 const Form = PlatformDevice.wrapTaskForm({
-  use,
-  useConfigure: useConnectModal,
-  useNoneSelected,
+  use: Device.use,
+  useConfigure: Device.useConnectModal,
+  useNoneSelected: Device.useNoneSelected,
   Content,
 });
 
 const onConfigure: Task.OnConfigure<EdgeSchemas["config"]> = async (client, config) => {
-  const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
+  const dev = await client.devices.retrieve({
+    key: config.device,
+    schemas: Device.SCHEMAS,
+  });
   const before = deep.copy(dev.properties);
   const { group, edgeNode } = config;
   try {
@@ -254,7 +257,7 @@ const onConfigure: Task.OnConfigure<EdgeSchemas["config"]> = async (client, conf
       );
     }
   } finally {
-    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
   return [config, dev.rack];
 };

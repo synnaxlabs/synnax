@@ -15,15 +15,8 @@ import { id, map } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useEffect, useState } from "react";
 
+import { Device } from "@/feature/mqtt/device";
 import {
-  BROWSE_DURATION,
-  browseSparkplug,
-  LISTENING,
-} from "@/feature/mqtt/device/browse";
-import type { Device } from "@/feature/mqtt/device/types";
-import {
-  type BrowsedSparkplugNode,
-  type BrowsedSparkplugTag,
   type HeldEntry,
   nodeKey,
   type SparkplugTag,
@@ -36,11 +29,11 @@ export type TagPicks = Map<string, SparkplugTag>;
 interface Listing {
   /** Names the listen, so each one opens a fresh, fully expanded tree. */
   key: string;
-  nodes: BrowsedSparkplugNode[];
+  nodes: Device.BrowsedSparkplugNode[];
 }
 
 interface NodeTags {
-  tags: BrowsedSparkplugTag[] | null;
+  tags: Device.BrowsedSparkplugTag[] | null;
   loading: boolean;
   error?: status.Status;
 }
@@ -53,11 +46,11 @@ interface ListingTags {
 
 const ALL_NODES = { group: "", edgeNode: "" };
 
-const NO_NODES: BrowsedSparkplugNode[] = [];
+const NO_NODES: Device.BrowsedSparkplugNode[] = [];
 
 const toTag = (
-  { group, edgeNode }: BrowsedSparkplugNode,
-  t: BrowsedSparkplugTag,
+  { group, edgeNode }: Device.BrowsedSparkplugNode,
+  t: Device.BrowsedSparkplugTag,
 ): SparkplugTag => ({
   group,
   edgeNode,
@@ -66,15 +59,15 @@ const toTag = (
   dataType: t.dataType,
 });
 
-const inNode = (tag: SparkplugTag, node: BrowsedSparkplugNode) =>
+const inNode = (tag: SparkplugTag, node: Device.BrowsedSparkplugNode) =>
   tag.group === node.group && tag.edgeNode === node.edgeNode;
 
-const pickedIn = (picks: TagPicks, node: BrowsedSparkplugNode): SparkplugTag[] =>
+const pickedIn = (picks: TagPicks, node: Device.BrowsedSparkplugNode): SparkplugTag[] =>
   [...picks.values()].filter((t) => inNode(t, node));
 
 const replaceNodePicks = (
   picks: TagPicks,
-  node: BrowsedSparkplugNode,
+  node: Device.BrowsedSparkplugNode,
   picked: SparkplugTag[],
 ): TagPicks => {
   const next = new Map(picks);
@@ -98,7 +91,7 @@ const SKELETON: ICD.Picker.SkeletonItem[] = [
 ];
 
 export interface TagPickerProps {
-  device: Device;
+  device: Device.Device;
   /** What the task holds now. */
   entries: HeldEntry[];
   value: TagPicks;
@@ -123,7 +116,7 @@ export const TagPicker = ({
   const valueRef = useSyncedRef(value);
   const { result, listen, follow } = ICD.Picker.useListen<Listing>(
     async (client) => {
-      const { nodes } = await browseSparkplug(client, device, ALL_NODES);
+      const { nodes } = await Device.browseSparkplug(client, device, ALL_NODES);
       return { key: id.create(), nodes };
     },
     [device],
@@ -133,14 +126,16 @@ export const TagPicker = ({
     setTags({ listing: listing.key, nodes: new Map() });
 
   const loadTags = async (
-    node: BrowsedSparkplugNode,
-  ): Promise<BrowsedSparkplugTag[] | null> => {
+    node: Device.BrowsedSparkplugNode,
+  ): Promise<Device.BrowsedSparkplugTag[] | null> => {
     const key = nodeKey(node);
     const set = (state: NodeTags) =>
       setTags((prev) => ({ ...prev, nodes: new Map(prev.nodes).set(key, state) }));
     set({ tags: null, loading: true });
     try {
-      const answer = await follow((client) => browseSparkplug(client, device, node));
+      const answer = await follow((client) =>
+        Device.browseSparkplug(client, device, node),
+      );
       if (answer == null) return null;
       set({ tags: answer.tags, loading: false });
       return answer.tags;
@@ -169,7 +164,10 @@ export const TagPicker = ({
   const taken = new Set(
     entries.flatMap((e) => (e.type === "sparkplug" ? [tagKey(e)] : [])),
   );
-  const freeTags = (node: BrowsedSparkplugNode, list: BrowsedSparkplugTag[]) =>
+  const freeTags = (
+    node: Device.BrowsedSparkplugNode,
+    list: Device.BrowsedSparkplugTag[],
+  ) =>
     list
       .filter((t) => t.supported)
       .map((t) => toTag(node, t))
@@ -225,7 +223,7 @@ export const TagPicker = ({
   const loading = result.variant === "loading";
   const asking = nodes.find((n) => tags.nodes.get(nodeKey(n))?.loading === true);
   let statusText = pluralize("edge node", nodes.length, true);
-  if (loading) statusText = LISTENING;
+  if (loading) statusText = Device.LISTENING;
   else if (asking != null) statusText = `Asking ${asking.edgeNode} for its tags`;
 
   let tree: ReactNode;
@@ -325,7 +323,7 @@ export const TagPicker = ({
   return (
     <>
       <ICD.Picker.Status
-        duration={BROWSE_DURATION}
+        duration={Device.BROWSE_DURATION}
         status={statusText}
         loading={loading || asking != null}
         onListen={listen}

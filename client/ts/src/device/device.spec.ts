@@ -14,6 +14,7 @@ import { z } from "zod";
 import { device } from "@/device";
 import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
+import { rack } from "@/rack";
 import { status } from "@/status";
 import {
   createTestClient,
@@ -75,6 +76,43 @@ describe("Device", async () => {
       expect(retrieved.status?.message).toBe("Custom device status");
       expect(retrieved.status?.description).toBe("Device is connected");
       expect(retrieved.status?.owner).toEqual(device.resourceID(d.key));
+    });
+    it("should cache a device that another client creates without its status", async () => {
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const key = id.create();
+      await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key,
+        name: "device-created-remotely",
+        make: "ni",
+        model: "dog",
+        properties: { cat: "dog" },
+        status: {
+          key: "",
+          name: "",
+          variant: "success",
+          message: "Remote device status",
+          description: "Device is connected",
+          time: TimeStamp.now(),
+          labels: [],
+          details: { rack: 0, connected: true },
+        },
+      });
+      await expect
+        .poll(() => query.isLive(local.devices.watch(key).getCached()))
+        .toBe(true);
+      const cached = expectLive(local.devices.watch(key).getCached());
+      expect(cached.name).toBe("device-created-remotely");
+      // A status-free list answers with the stored record as it is.
+      const [listed] = expectLive(local.devices.watch([key]).getCached());
+      expect(listed.name).toBe("device-created-remotely");
+      expect("status" in listed).toBe(false);
+      await expect
+        .poll(() => local.devices.watch({ key, includeStatus: true }).getCached())
+        .toMatchObject({ status: { message: "Remote device status" } });
     });
     it("should answer a cached status query for new devices", async () => {
       const local = createTestClient();
@@ -364,12 +402,58 @@ describe("Device", async () => {
       await client.devices.dispatch(d.key, [
         device.set({ path: ["configured"], value: true }),
         device.set({ path: ["properties", "read_index"], value: 2 }),
+        device.set({ path: ["properties", "write_state"], value: { state_index: 3 } }),
       ]);
+      const properties = {
+        readIndex: 2,
+        identifier: "dev",
+        writeState: { stateIndex: 3 },
+      };
       const cached = expectLive(client.devices.watch(d.key).getCached());
       expect(cached.configured).toBe(true);
-      expect(cached.properties).toEqual({ readIndex: 2, identifier: "dev" });
+      expect(cached.properties).toEqual(properties);
       const stored = await createTestClient().devices.retrieve(d.key);
-      expect(stored.properties).toEqual({ readIndex: 2, identifier: "dev" });
+      expect(stored.properties).toEqual(properties);
+    });
+
+    it("should move a device under a parent on another rack and out of its group", async () => {
+      const other = await client.racks.create({ name: "other" });
+      const g = await client.groups.create({
+        name: `group-${id.create()}`,
+        parent: rack.resourceID(testRack.key),
+      });
+      const d = await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key: id.create(),
+        name: "device-dispatch-rack",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const parent = await client.devices.create({
+        rack: other.key,
+        location: "Dev0",
+        key: id.create(),
+        name: "device-dispatch-parent",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      await client.batch.send(client.devices.setGroupRequest(d.key, g.key));
+      expect((await client.devices.retrieve(d.key)).group).toEqual(g.key);
+      await client.devices.dispatch(
+        d.key,
+        device.setRack({ rack: other.key, parent: parent.key }),
+      );
+      const cached = expectLive(client.devices.watch(d.key).getCached());
+      expect(cached.rack).toEqual(other.key);
+      expect(cached.parent).toEqual(parent.key);
+      expect(cached.group).toBeUndefined();
+      const stored = await createTestClient().devices.retrieve(d.key);
+      expect(stored.rack).toEqual(other.key);
+      expect(stored.parent).toEqual(parent.key);
+      expect(stored.group).toBeUndefined();
     });
   });
 
@@ -390,7 +474,7 @@ describe("Device", async () => {
         ),
       );
       const local = createTestClient();
-      await local.connect();
+      await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
       const res = await Promise.all(
         created.map(async ({ key }) => await local.devices.retrieve(key)),
@@ -709,6 +793,7 @@ describe("Device", async () => {
           ),
         );
         const local = createTestClient();
+        await waitForStreamLive(local.connection);
         const send = spyOnSend(local);
         const retrieved = await Promise.all(
           devices.map(
