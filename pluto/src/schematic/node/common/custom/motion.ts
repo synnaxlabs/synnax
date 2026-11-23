@@ -114,13 +114,13 @@ class Shape {
     return (this.cycle ??= dashCycle(this.el));
   }
 
-  /** Draws the element with the offer of track. */
   /** Claims the element for track, which draws nothing until it offers. */
   claim(track: Track): void {
     if (!this.offers.has(track)) this.offers.set(track, undefined);
     this.write();
   }
 
+  /** Draws the element with the offer of track. */
   offer(track: Track, offer: Offer): void {
     this.offers.set(track, offer);
     this.write();
