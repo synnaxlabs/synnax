@@ -19,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Color } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
-import type { ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -50,6 +50,9 @@ const NOTES: Record<Exclude<Kind, "color">, string> = {
   entry: "Each state draws the color of its enumeration entry.",
   node: "Each node on a schematic sets this color.",
 };
+
+// FILLS are the button inputs for its fill at rest, on hover, and on press.
+const FILLS = ["--pluto-bg", "--pluto-hover-bg", "--pluto-active-bg"];
 
 const ICONS: Partial<Record<Kind, ReactElement>> = {
   entry: <Icon.Enumeration />,
@@ -92,7 +95,16 @@ export const Paint = ({
       value: { type: "fixed", value: color.construct(start) },
     });
   };
-  const background = shown ?? color.TRANSPARENT;
+  const opacity = shown == null ? 0 : color.opacity(shown);
+  // A clear paint keeps the fill and text of the button. Any other paint sets the rest,
+  // hover, and press fills, and the icon takes the gray that reads over it.
+  let chip: CSSProperties | undefined;
+  let text: color.Crude | 9 = 9;
+  if (shown != null && opacity > 0) {
+    const fill = color.cssString(shown);
+    chip = Object.fromEntries(FILLS.map((v) => [v, fill]));
+    text = color.pickByContrast(color.over(shown, gray.l0, opacity), gray.l0, gray.l11);
+  }
   return (
     <Dialog.Frame variant="floating">
       <Dialog.Trigger
@@ -102,10 +114,8 @@ export const Paint = ({
         variant="outlined"
         aria-label={ariaLabel}
         tooltip={NAMES[kind]}
-        style={{
-          backgroundColor: color.cssString(background),
-          color: color.cssString(color.pickByContrast(background, gray.l0, gray.l11)),
-        }}
+        style={chip}
+        textColor={text}
       >
         {ICONS[kind] ?? (shown == null && <Icon.Auto />)}
       </Dialog.Trigger>

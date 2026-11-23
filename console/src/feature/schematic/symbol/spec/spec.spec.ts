@@ -57,10 +57,20 @@ describe("symbol editor spec", () => {
       expect(Spec.effective({ looks }, "body", "fill", 0)).toEqual(fixed(BLUE));
     });
 
-    it("should not count the looks of the whole drawing for a part", () => {
-      const looks: schematic.symbol.Look[] = [{ key: "a", fill: fixed(RED) }];
-      expect(Spec.effective({ looks }, "body", "fill", 0)).toBeUndefined();
-      expect(Spec.effective({ looks }, undefined, "fill", 0)).toEqual(fixed(RED));
+    it("should count a later look of the whole drawing for a part", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.effective({ looks }, "body", "fill", 0)).toEqual(fixed(RED));
+      expect(Spec.effective({ looks }, "body", "fill", 1)).toEqual(fixed(BLUE));
+    });
+
+    it("should not count the looks of a part for the whole drawing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(RED) },
+      ];
+      expect(Spec.effective({ looks }, undefined, "fill", 0)).toBeUndefined();
     });
   });
 
@@ -172,6 +182,31 @@ describe("symbol editor spec", () => {
       ).toEqual([
         { key: expect.any(String), part: undefined, fill: fixed(RED) },
         looks[0],
+      ]);
+    });
+
+    it("should add a look of a part after the drawing looks on one value", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", when: equals(0), fill: fixed(BLUE) },
+      ];
+      expect(
+        Spec.setOwn(createSpec({ looks }), "body", "fill", fixed(RED)).looks,
+      ).toEqual([
+        looks[0],
+        { key: expect.any(String), part: "body", fill: fixed(RED) },
+      ]);
+    });
+
+    it("should add a look at the end when a later drawing look wins", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", fill: fixed(BLUE) },
+      ];
+      expect(
+        Spec.setOwn(createSpec({ looks }), "body", "fill", fixed(RED)).looks,
+      ).toEqual([
+        ...looks,
+        { key: expect.any(String), part: "body", fill: fixed(RED) },
       ]);
     });
 

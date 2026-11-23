@@ -393,6 +393,124 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    const BODY: schematic.symbol.Part = {
+      key: "body",
+      name: "Body",
+      selectors: ["#a"],
+    };
+    const GREEN = color.construct("#2fb36b");
+
+    const createState = (enumeration?: string): schematic.symbol.State => ({
+      type: "enumeration",
+      key: "active",
+      name: "Active",
+      enumeration,
+      match: { type: "exact" },
+      default: 0,
+    });
+
+    // openPainted opens the editor on a new symbol whose one part, Body, selects #a.
+    const openPainted = async (data: Partial<schematic.symbol.Spec>) => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("painted"));
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: { ...payload.data, parts: [BODY], ...data },
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      const item = (await screen.findByText("Body")).closest<HTMLElement>(
+        ".console-schematic-part-list-item",
+      );
+      assertDefined(item);
+      return { symbol, fill: within(item).getByLabelText("Fill") };
+    };
+
+    it("saves the state color and shows the default entry where no entry matches", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [
+          {
+            key: "closed",
+            value: 0,
+            name: "Closed",
+            color: { type: "fixed", value: GREEN },
+          },
+        ],
+      });
+      const { symbol, fill } = await openPainted({
+        variant: "actuator",
+        states: [createState(enumeration.key)],
+      });
+      fireEvent.click(await screen.findByText("Active"));
+      fireEvent.click(fill);
+      fireEvent.click(await screen.findByText("State color"));
+      await waitFor(() =>
+        expect(fill.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(GREEN)),
+      );
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.looks).toEqual([
+          {
+            key: expect.any(String),
+            part: "body",
+            when: { type: "equals", state: "active", values: [1] },
+            fill: { type: "entry", state: "active" },
+          },
+        ]);
+      });
+    });
+
+    it("clears the paint of a part at the value when Drawing is picked", async () => {
+      const { symbol, fill } = await openPainted({
+        states: [createState()],
+        looks: [
+          {
+            key: "red",
+            part: "body",
+            when: { type: "equals", state: "active", values: [0] },
+            fill: {
+              type: "color",
+              value: { type: "fixed", value: color.construct("#ff0000") },
+            },
+          },
+        ],
+      });
+      fireEvent.click(fill);
+      fireEvent.click(await screen.findByText("Drawing"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.looks).toEqual([]);
+      });
+    });
+
+    it("starts a picked color from the color of the drawing", async () => {
+      const { symbol, fill } = await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+            '<rect id="a" width="10" height="10" fill="#2fb36b"/></svg>',
+        },
+      });
+      fireEvent.click(fill);
+      fireEvent.click(await screen.findByText("Color"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.looks.find((l) => l.part === "body")?.fill).toEqual({
+          type: "color",
+          value: { type: "fixed", value: GREEN },
+        });
+      });
+    });
+
     it("counts the shapes of each part in the singular and the plural", async () => {
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("counted"));
