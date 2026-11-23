@@ -102,7 +102,11 @@ var _ = Describe("Broker", func() {
 		}
 		b.Reads = []v0.Read{{Variant: plainRead()}, {Variant: sparkplugRead()}}
 		b.Writes = []v0.Write{
-			{Variant: v0.PlainWrite{Topic: "plant/valve", Field: uuid.New(), Channel: 3}},
+			{Variant: v0.PlainWrite{
+				Topic:   "plant/valve",
+				Field:   uuid.New(),
+				Channel: 3,
+			}},
 			{Variant: v0.SparkplugWrite{
 				Group:    "Plant",
 				EdgeNode: "Line1",
