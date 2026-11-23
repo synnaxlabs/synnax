@@ -154,10 +154,10 @@ func (c checker) checkLook(i int, l Look) error {
 		if paint.paint == nil {
 			continue
 		}
-		if e, ok := paint.paint.Variant.(EntryPaint); ok {
+		if state := paintState(*paint.paint); state != nil {
 			if err := c.enumerationState(
 				at("looks", i, paint.field, "state"),
-				e.State,
+				*state,
 			); err != nil {
 				return err
 			}
@@ -168,6 +168,16 @@ func (c checker) checkLook(i int, l Look) error {
 	}
 	if state := motionState(*l.Motion); state != nil {
 		return c.numberState(at("looks", i, "motion", "state"), *state)
+	}
+	return nil
+}
+
+func paintState(p Paint) *string {
+	switch v := p.Variant.(type) {
+	case EntryPaint:
+		return &v.State
+	case ContrastPaint:
+		return &v.State
 	}
 	return nil
 }
