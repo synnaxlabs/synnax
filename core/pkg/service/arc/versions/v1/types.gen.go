@@ -64,5 +64,6 @@ type Arc struct {
 func (a Arc) Validate() error {
 	v := validate.New("Arc")
 	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)
+	v.Exec(func() error { return validate.PathedError(a.Graph.Validate(), "graph") })
 	return v.Error()
 }

@@ -26,7 +26,7 @@ const TAB_TYPE = log.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
-const TAB: Panel.Tab = {
+const TAB = {
   Content: Panel.lazyComponent(() => import("@/feature/log/Log"), "Log"),
   Toolbar: Panel.lazyComponent(() => import("@/feature/log/toolbar"), "Toolbar"),
   Icon: Icon.Log,
@@ -47,8 +47,8 @@ const TAB: Panel.Tab = {
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),
-};
+} satisfies Panel.Tab;
 
-export const TABS: Panel.Tabs = {
+export const TABS = {
   [TAB_TYPE]: TAB,
-};
+} satisfies Panel.Tabs;

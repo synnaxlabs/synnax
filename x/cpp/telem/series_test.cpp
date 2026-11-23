@@ -1227,6 +1227,19 @@ TEST(TestSeries, testFillFromEmpty) {
     ASSERT_EQ(series.size(), 0);
 }
 
+/// @brief it should not read past the capacity when filling a partly full series.
+TEST(TestSeries, testFillFromStopsAtCapacity) {
+    const std::vector<uint8_t> first_data = {1, 2};
+    const std::vector<uint8_t> second_data = {3, 4, 5, 6};
+    Series series(UINT8_T, 4);
+    binary::Reader first(first_data);
+    ASSERT_EQ(series.fill_from(first), 2);
+    binary::Reader second(second_data);
+    ASSERT_EQ(series.fill_from(second), 2);
+    ASSERT_EQ(series.size(), 4);
+    ASSERT_EQ(series.values<uint8_t>(), (std::vector<uint8_t>{1, 2, 3, 4}));
+}
+
 /// @brief it should fill series from multiple binary reader reads.
 TEST(TestSeries, testFillFromMultipleReads) {
     std::vector source_data1 = {1.0f, 2.0f, 3.0f};

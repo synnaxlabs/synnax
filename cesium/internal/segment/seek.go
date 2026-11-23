@@ -12,37 +12,51 @@ package segment
 import (
 	"encoding/binary"
 	"io"
+	"math"
 
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Seek returns the stream offset where the sample at position pos of a variable-density
-// segment starts, or length when pos is samples. length and samples are the committed
-// length and sample count of the segment in r. buf is scratch space of at least 16
-// bytes, and Seek reads up to len(buf) bytes at once. Seek reads the trailers of a
-// logarithmic number of blocks, then walks the sample lengths of at most one block and
-// the tail. It checks no checksum, and returns an error that wraps place.ErrCorrupt
-// when a trailer or a length does not fit the segment.
-func (c Config) Seek(
+// SeekFrom returns the stream offset where the sample k positions after the sample at
+// stream offset from starts, in a variable-density segment of committed length length
+// in r. buf is scratch space of at least 16 bytes. SeekFrom walks the sample lengths to
+// the end of the block of from, reads the trailers of a logarithmic number of blocks,
+// then walks the sample lengths of at most one block and the tail. It checks no
+// checksum, and returns an error that wraps place.ErrCorrupt when a trailer or a length
+// does not fit the segment.
+func (c Config) SeekFrom(
 	r io.ReaderAt,
 	buf []byte,
-	pos uint32,
+	from int64,
+	k uint32,
 	length int64,
-	samples uint32,
 ) (int64, error) {
-	if pos > samples {
-		return 0, errors.Newf("position %d is past the %d samples of the segment", pos,
-			samples)
+	end := min((from/BlockSize+1)*BlockSize, length)
+	x, n, err := c.walkTo(r, buf, from, 0, k, end, length)
+	if err != nil || n == k {
+		return x, err
 	}
-	if pos == samples {
-		return length, nil
+	full := length / BlockSize
+	b := x / BlockSize
+	if b >= full {
+		return c.walk(r, buf, x, n, k, length)
 	}
-	x, p, err := c.seekBlock(r, buf, pos, length/BlockSize, samples)
+	// x is the first start of block b, so the trailer of b holds its position.
+	fp, off, err := c.trailerAt(r, buf, b, math.MaxUint32)
 	if err != nil {
 		return 0, err
 	}
-	return c.walk(r, buf, x, p, pos, length)
+	if int64(off) != x%BlockSize {
+		return 0, errors.Wrapf(place.ErrCorrupt, "segment block %d starts its first "+
+			"sample at %d, not at %d", b, off, x%BlockSize)
+	}
+	pos := fp + k - n
+	bx, bp, err := c.seekBlock(r, buf, pos, full, math.MaxUint32)
+	if err != nil {
+		return 0, err
+	}
+	return c.walk(r, buf, bx, bp, pos, length)
 }
 
 // seekBlock returns the stream offset and position of a sample that starts at or before
@@ -130,23 +144,42 @@ func (c Config) walk(
 	p, pos uint32,
 	length int64,
 ) (int64, error) {
+	x, _, err := c.walkTo(r, buf, x, p, pos, math.MaxInt64, length)
+	return x, err
+}
+
+// walkTo walks the sample lengths from the sample at position p that starts at stream
+// offset x, to the sample at pos or to the first start at or past end, whichever comes
+// first. It returns the stream offset and the position of that start.
+func (c Config) walkTo(
+	r io.ReaderAt,
+	buf []byte,
+	x int64,
+	p, pos uint32,
+	end, length int64,
+) (int64, uint32, error) {
 	var lo, hi int64
 	for ; ; p++ {
 		if x+lengthSize > length {
-			return 0, errors.Wrapf(place.ErrCorrupt, "sample %d at stream offset %d "+
-				"starts past the length %d", p, x, length)
+			return 0, 0, errors.Wrapf(
+				place.ErrCorrupt,
+				"sample %d at stream offset %d "+
+					"starts past the length %d",
+				p,
+				x,
+				length,
+			)
 		}
-		if p == pos {
-			break
+		if p == pos || x >= end {
+			return x, p, nil
 		}
 		if x+lengthSize > hi {
 			n := min(int64(len(buf)), length-x)
 			if err := c.ReadAt(r, buf[:n], x); err != nil {
-				return 0, err
+				return 0, 0, err
 			}
 			lo, hi = x, x+n
 		}
 		x += lengthSize + int64(binary.LittleEndian.Uint32(buf[x-lo:]))
 	}
-	return x, nil
 }

@@ -126,7 +126,7 @@ type FixedCommandValue = versions.FixedCommandValue
 type AskCommandValue = versions.AskCommandValue
 
 // Look is paint, visibility, or motion on a part. A later look wins on each field that
-// it sets.
+// it sets. On motion, it replaces only an earlier motion of the same kind.
 type Look = versions.Look
 
 // Blink makes a part flash.
@@ -159,6 +159,9 @@ type PaintType = versions.PaintType
 const (
 	// EntryPaintType is the color of the current entry of a state.
 	EntryPaintType PaintType = versions.EntryPaintType
+	// ContrastPaintType is black or white, whichever reads on the entry color of a
+	// state.
+	ContrastPaintType PaintType = versions.ContrastPaintType
 	// NodePaintType is the color that the node sets.
 	NodePaintType PaintType = versions.NodePaintType
 	// ColorPaintType is one color.
@@ -167,6 +170,9 @@ const (
 
 // EntryPaint is the color of the current entry of a state.
 type EntryPaint = versions.EntryPaint
+
+// ContrastPaint is black or white, whichever reads on the entry color of a state.
+type ContrastPaint = versions.ContrastPaint
 
 // NodePaint is the color that the node sets.
 type NodePaint = versions.NodePaint
@@ -245,6 +251,33 @@ type Spec = versions.Spec
 // Symbol is a persisted schematic symbol defining reusable visual components for
 // diagrams.
 type Symbol = versions.Symbol
+
+// Ref is the symbol that a node draws.
+type Ref = versions.Ref
+
+// RefVariant is implemented by every Ref variant.
+type RefVariant = versions.RefVariant
+
+// RefType is the "type" value that selects a variant of Ref.
+type RefType = versions.RefType
+
+const (
+	// BuiltinRefType is a symbol that the Core ships.
+	BuiltinRefType RefType = versions.BuiltinRefType
+	// CustomRefType is a symbol that a user made.
+	CustomRefType RefType = versions.CustomRefType
+	// MissingRefType is a custom symbol that the Core does not have.
+	MissingRefType RefType = versions.MissingRefType
+)
+
+// BuiltinRef is a symbol that the Core ships.
+type BuiltinRef = versions.BuiltinRef
+
+// CustomRef is a symbol that a user made.
+type CustomRef = versions.CustomRef
+
+// MissingRef is a custom symbol that the Core does not have.
+type MissingRef = versions.MissingRef
 
 // Builtin is a symbol that the Core ships. Pluto holds its drawing.
 type Builtin struct {

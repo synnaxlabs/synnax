@@ -12,6 +12,7 @@
 package v1
 
 import (
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
@@ -1339,6 +1340,261 @@ func (uuidd *UUIDDefault) DecodeOrc(r *orc.Reader) error {
 		uuidd.Variant = v
 	default:
 		return errors.Newf("UUIDDefault: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wbb WriteBaseBinding) EncodeOrc(w *orc.Writer) error {
+	w.Write(wbb.Field[:])
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wbb *WriteBaseBinding) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(wbb.Field[:]); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wb WriteBinding) EncodeOrc(w *orc.Writer) error {
+	switch v := wb.Variant.(type) {
+	case ChannelWriteBinding:
+		w.String("channel")
+		if err := v.WriteBaseBinding.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Uint32(uint32(v.Channel))
+		if v.DataType != nil {
+			w.Bool(true)
+			w.String(string(*v.DataType))
+		} else {
+			w.Bool(false)
+		}
+	case ValueWriteBinding:
+		w.String("value")
+		if err := v.WriteBaseBinding.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.Value.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("WriteBinding: nil or unknown variant %T", wb.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wb *WriteBinding) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "channel":
+		var v ChannelWriteBinding
+		if err := v.WriteBaseBinding.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.Uint32()
+			if err != nil {
+				return err
+			}
+			v.Channel = channel.Key(rawV)
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv telem.DataType
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					hv = telem.DataType(rawV)
+				}
+				v.DataType = &hv
+			}
+		}
+		wb.Variant = v
+	case "value":
+		var v ValueWriteBinding
+		if err := v.WriteBaseBinding.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err = v.Value.DecodeOrc(r); err != nil {
+			return err
+		}
+		wb.Variant = v
+	default:
+		return errors.Newf("WriteBinding: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wm WriteMessage) EncodeOrc(w *orc.Writer) error {
+	w.Write(wm.Message[:])
+	w.Bool(wm.Bindings != nil)
+	if wm.Bindings != nil {
+		w.Uint32(uint32(len(wm.Bindings)))
+		for i := range wm.Bindings {
+			if err := wm.Bindings[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wm *WriteMessage) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(wm.Message[:]); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wm.Bindings = make([]WriteBinding, n)
+			for i := range wm.Bindings {
+				if err = wm.Bindings[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wv WriteValue) EncodeOrc(w *orc.Writer) error {
+	switch v := wv.Variant.(type) {
+	case FloatWriteValue:
+		w.String("float")
+		w.Float64(float64(v.Value))
+	case IntegerWriteValue:
+		w.String("integer")
+		w.Int64(int64(v.Value))
+	case UnsignedWriteValue:
+		w.String("unsigned")
+		w.Uint64(uint64(v.Value))
+	case StringWriteValue:
+		w.String("string")
+		w.String(v.Value)
+	case BooleanWriteValue:
+		w.String("boolean")
+		w.Bool(v.Value)
+	case TimestampWriteValue:
+		w.String("timestamp")
+		w.Int64(int64(v.Value))
+	case JSONWriteValue:
+		w.String("json")
+		w.String(v.Value)
+	case UuidWriteValue:
+		w.String("uuid")
+		w.Write(v.Value[:])
+	case BytesWriteValue:
+		w.String("bytes")
+		w.String(v.Value)
+	default:
+		return errors.Newf("WriteValue: nil or unknown variant %T", wv.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wv *WriteValue) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "float":
+		var v FloatWriteValue
+		{
+			rawV, err := r.Float64()
+			if err != nil {
+				return err
+			}
+			v.Value = payload.Float(rawV)
+		}
+		wv.Variant = v
+	case "integer":
+		var v IntegerWriteValue
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.Value = payload.Integer(rawV)
+		}
+		wv.Variant = v
+	case "unsigned":
+		var v UnsignedWriteValue
+		{
+			rawV, err := r.Uint64()
+			if err != nil {
+				return err
+			}
+			v.Value = payload.Unsigned(rawV)
+		}
+		wv.Variant = v
+	case "string":
+		var v StringWriteValue
+		if v.Value, err = r.String(); err != nil {
+			return err
+		}
+		wv.Variant = v
+	case "boolean":
+		var v BooleanWriteValue
+		if v.Value, err = r.Bool(); err != nil {
+			return err
+		}
+		wv.Variant = v
+	case "timestamp":
+		var v TimestampWriteValue
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.Value = telem.TimeStamp(rawV)
+		}
+		wv.Variant = v
+	case "json":
+		var v JSONWriteValue
+		if v.Value, err = r.String(); err != nil {
+			return err
+		}
+		wv.Variant = v
+	case "uuid":
+		var v UuidWriteValue
+		if _, err := r.Read(v.Value[:]); err != nil {
+			return err
+		}
+		wv.Variant = v
+	case "bytes":
+		var v BytesWriteValue
+		if v.Value, err = r.String(); err != nil {
+			return err
+		}
+		wv.Variant = v
+	default:
+		return errors.Newf("WriteValue: unknown variant %q", tag)
 	}
 	return nil
 }

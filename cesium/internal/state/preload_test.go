@@ -53,7 +53,7 @@ var _ = Describe("Preloads", func() {
 	It("Should refuse a writer that starts in a parted segment, through its "+
 		"preloaded record", func() {
 		Expect(s.OpenWriter(writer, preload(5, record))).Error().To(SatisfyAll(
-			MatchError(state.ErrConflict),
+			conflict(),
 			MatchError(ContainSubstring("inside its stored data from 10 to 30")),
 		))
 	})
@@ -74,7 +74,7 @@ var _ = Describe("Preloads", func() {
 
 	It("Should refuse a step with no preload of a key that parts hold", func() {
 		Expect(s.OpenWriter(writer)).Error().To(SatisfyAll(
-			MatchError(state.ErrRefused),
+			refused(),
 			MatchError(ContainSubstring("no preload of key 6, which parts hold")),
 		))
 	})
@@ -194,7 +194,7 @@ var _ = Describe("Replay preloads", func() {
 			}
 			Expect(s.Replay(10, []log.Record{commit(1, 3, 0, 32, 32, slot(4, 20))},
 				state.Preload{Key: 5, Segments: []state.Segment{over}})).To(SatisfyAll(
-				MatchError(state.ErrRefused),
+				refused(),
 				MatchError(
 					ContainSubstring("from 32 to 32 overlaps its pointer from 30 "+
 						"to 35"),
@@ -225,7 +225,7 @@ var _ = Describe("Clock users", func() {
 	It("Should refuse a replayed Drop of a clock that a parted record of a kept key "+
 		"names", func() {
 		Expect(s.Replay(10, []log.Record{&log.Drop{Key: 5}}, users)).To(SatisfyAll(
-			MatchError(state.ErrRefused),
+			refused(),
 			MatchError(
 				ContainSubstring("drop of key 5, the clock of segment 3 of key 6"),
 			),
@@ -245,7 +245,7 @@ var _ = Describe("Clock users", func() {
 			Expect(s.Replay(10, []log.Record{
 				&log.Tombstone{Key: 5, Start: 15, End: 25},
 			}, users)).To(SatisfyAll(
-				MatchError(state.ErrRefused),
+				refused(),
 				MatchError(
 					ContainSubstring("tombstone of clock 5 from 15 to 25, which "+
 						"key 6 uses from 10 to 30"),
@@ -258,7 +258,7 @@ var _ = Describe("Clock users", func() {
 		run(s)
 		d := MustSucceed(s.BeginDelete(5, 15, 25, users))
 		Expect(d.Check(&log.Tombstone{Key: 5, Start: 15, End: 25})).To(SatisfyAll(
-			MatchError(state.ErrRefused),
+			refused(),
 			MatchError(ContainSubstring("which key 6 uses from 10 to 30")),
 		))
 		Expect(d.Release()).To(Succeed())

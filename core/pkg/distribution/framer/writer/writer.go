@@ -31,7 +31,10 @@ type Writer struct {
 	cfg       Config
 }
 
-// Write implements Writer.
+// Write writes the given frame, returning whether the write was authorized. When Sync
+// is false, Write returns true and Commit reports a refused write. The writer sets the
+// alignment of each series in frame and can set its time range, possibly after Write
+// returns, so the caller must not use frame again. Pass a ShallowCopy to keep using it.
 func (w *Writer) Write(frame frame.Frame) (authorized bool, err error) {
 	res, err := w.exec(Request{Frame: frame, Command: CommandWrite}, *w.cfg.Sync)
 	if err != nil {

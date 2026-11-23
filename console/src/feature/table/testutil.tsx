@@ -25,14 +25,27 @@ import {
   type ReactElement,
   Suspense,
 } from "react";
+import { beforeAll } from "vitest";
 import type { z } from "zod";
 
+import { Table } from "@/feature/table";
 import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
 export const client = createTestClient();
+
+const TAB = Table.TABS[clientTable.TYPE_RESOURCE_ID.type];
+
+/** The lazily loaded toolbar of a table tab. */
+export const TabToolbar = TAB.Toolbar;
+
+/** Loads the lazy tab content and toolbar before the specs of a file run. */
+export const preloadTab = (): void =>
+  beforeAll(async () => {
+    await Promise.all([TAB.Content.preload(), TAB.Toolbar.preload()]);
+  });
 
 let projectKey: string | undefined;
 export const project = async (): Promise<string> =>

@@ -17,7 +17,7 @@ import type { diagram } from "@/vis/diagram/aether";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
-export const stateZ = staleness.drawnStateZ.extend({
+export const stateZ = staleness.stateZ.extend({
   // box is the region the text fills. The text starts at its left edge, centers on it
   // vertically, and fades out where it would overflow.
   box: box.box,
@@ -62,9 +62,7 @@ export class StringValue
     i.theme = theming.use(ctx);
     i.fontString = theme.fontString(i.theme, { level: this.state.level, code: true });
     i.source = telem.useSource(ctx, this.state.telem, i.source);
-    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.source, () =>
-      this.requestRender(),
-    );
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.source);
     i.stopListening?.();
     i.stopListening = i.source.onChange(() => {
       i.staleness.received();
@@ -92,9 +90,7 @@ export class StringValue
 
   private get textColor(): color.Color {
     const { theme } = this.internal;
-    return (
-      staleness.drawnColor(this.state, theme) ?? this.state.color ?? theme.colors.text
-    );
+    return this.state.color ?? theme.colors.text;
   }
 
   render({ viewportScale = scale.XY.IDENTITY }: { viewportScale?: scale.XY }): void {
