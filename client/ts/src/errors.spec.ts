@@ -14,6 +14,7 @@ import { describe, expect, test } from "vitest";
 import { errorsMiddleware } from "@/errors";
 import {
   AccessDeniedError,
+  APIKeyUnavailableError,
   AuthError,
   ContiguityError,
   ControlError,
@@ -98,6 +99,12 @@ describe("error", () => {
     test("round trips a synnax error through the registry", () => {
       const decoded = errors.decode(errors.encode(new NotFoundError("nope")));
       expect(NotFoundError.matches(decoded)).toBe(true);
+    });
+
+    test("round trips an API key that cannot load through the registry", () => {
+      const decoded = errors.decode(errors.encode(new APIKeyUnavailableError("gone")));
+      expect(APIKeyUnavailableError.matches(decoded)).toBe(true);
+      expect(decoded?.message).toEqual("gone");
     });
 
     test("round trips a path error through the registry", () => {
