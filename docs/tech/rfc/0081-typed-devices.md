@@ -223,9 +223,9 @@ Field groups per make:
 - **OPC UA server**: identity `rack`, `name`, and `connection` (`auth`, `security`, and
   nested `server_trust` unions); configuration `reads` and `writes`. Node IDs name their
   namespace by URI.
-- **Modbus server**: identity `connection` (TCP `host` is a hostname or IP) and
-  `requests`; configuration `reads` (register and index, unique) and `writes` (register,
-  unique). Durations are `TimeSpan`; `baud_rate` is an enum of the nine rates.
+- **Modbus server**: `connection` (TCP `host` is a hostname or IP) and `requests` from
+  the connect form; `reads` (register and index, unique) and `writes` (register, unique)
+  from the task forms. Durations are `TimeSpan`; `baud_rate` is an enum of nine rates.
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
   union), `max_concurrent_requests`, `health_check`, per-path read and write channel
   maps (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver

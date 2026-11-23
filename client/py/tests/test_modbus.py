@@ -14,7 +14,6 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
-import synnax.modbus.server
 from synnax.exceptions import PathError
 from synnax.modbus.types import _READ_NAME_TYPES, _WRITE_NAME_TYPES
 from tests.json_value import arr, obj
