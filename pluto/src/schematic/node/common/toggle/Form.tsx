@@ -59,7 +59,7 @@ export const ChannelForm = ({ omit = [] }: ChannelFormProps): ReactElement => {
         <ControlChipField />
       </Form.Section>
       <Form.Section title="Staleness">
-        <Staleness.Fields />
+        <Staleness.TimeoutField />
       </Form.Section>
     </Form.Sections>
   );

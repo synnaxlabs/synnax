@@ -9,14 +9,7 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import {
-  channel,
-  DisconnectedError,
-  icd,
-  mqtt,
-  query,
-  type Synnax,
-} from "@synnaxlabs/client";
+import { channel, DisconnectedError, icd, mqtt, type Synnax } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -24,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
-import { Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import {
   DataType,
   deep,
@@ -84,9 +77,6 @@ interface Format {
   key: icd.Key;
   form: ICD.FormatForm;
 }
-
-/** The channels a device stores for the topics it reads, by topic. */
-type Stored = Device.Device["properties"]["read"];
 
 /** The field kind that a browsed sample of each JSON type starts as. */
 const SAMPLE_KINDS = {
@@ -179,52 +169,18 @@ const writtenChannels = (entries: ReadEntry[]): Set<channel.Key> => {
   return written;
 };
 
-/** @returns the key of the device properties that store the channels of a message. */
-const storedKey = (topic: string, message: icd.MessageKey): string =>
-  `${topic}#${message}`;
-
 /**
- * @returns the channels that the device stores for read r of the entry. An older
- * Console stored the channels of a topic under the bare topic. They belong to the
- * message that binds one of them, or else to the first message.
+ * @returns where the device stores the channels of the messages of entry. An older
+ * Console stored the channels of a topic under the bare topic.
  */
-const storedOf = (
-  stored: Stored,
-  { topic, messages }: Pick<PlainReadEntry, "topic" | "messages">,
-  r: number,
-): Stored[string] | undefined => {
-  const own = stored[storedKey(topic, messages[r].message)];
-  if (own != null) return own;
-  const legacy = stored[topic];
-  if (legacy == null) return undefined;
-  const channels = new Set([legacy.index, ...Object.values(legacy.channels)]);
-  channels.delete(0);
-  const owner = messages.findIndex(({ bindings }) =>
-    bindings.some(({ channel }) => channels.has(channel)),
-  );
-  return Math.max(owner, 0) === r ? legacy : undefined;
-};
-
-/**
- * @returns the channel that the device stores for each pointer of the topic, for a
- * message that Add data binds as the first read of entry. The channels of the message
- * itself come first. The channels of a later read of entry stay with that read.
- */
-const topicChannels = (
-  stored: Stored,
-  entry: Pick<PlainReadEntry, "topic" | "messages">,
-  message: icd.MessageKey,
-): Record<string, channel.Key> => {
-  const { topic, messages } = entry;
-  const claimed = new Set(
-    messages.slice(1).map((_, i) => storedOf(stored, entry, i + 1)),
-  );
-  const channels: Record<string, channel.Key> = {};
-  for (const [key, props] of Object.entries(stored))
-    if ((key === topic || key.startsWith(`${topic}#`)) && !claimed.has(props))
-      Object.assign(channels, props.channels);
-  return { ...channels, ...stored[storedKey(topic, message)]?.channels };
-};
+const storedSource = ({
+  topic,
+  messages,
+}: Pick<PlainReadEntry, "topic" | "messages">): ICD.Stored.Source => ({
+  key: topic,
+  legacy: topic,
+  messages,
+});
 
 /**
  * The prefix of the names of the channels that deploying creates for a message. A
@@ -239,27 +195,6 @@ const messagePrefix = (
   const prefix = namePrefix(deviceName, topic);
   return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
 };
-
-/**
- * @returns the bindings of fields, each to the channel stored for its pointer. A field
- * gets no channel when its stored channel is in written, as the Core refuses a channel
- * that two bindings write, or when its kind does not convert to the data type of the
- * channel in dataTypes. Adds the channels it binds to written.
- */
-const bindingsOf = (
-  stored: Record<string, channel.Key>,
-  fields: Pick<icd.JSONField, "key" | "pointer" | "type">[],
-  written: Set<channel.Key>,
-  dataTypes: ReadonlyMap<channel.Key, string>,
-): icd.ReadBinding[] =>
-  fields.map(({ key: field, pointer, type }) => {
-    const ch = stored[pointer] ?? 0;
-    const dataType = dataTypes.get(ch);
-    if (written.has(ch) || dataType == null || !ICD.converts(type, dataType))
-      return icd.readBindingZ.parse({ field });
-    written.add(ch);
-    return icd.readBindingZ.parse({ field, channel: ch });
-  });
 
 /** Inserts entries into the lists of one ICD. */
 type Inserter = Pick<ICD.FormatForm, "insert">;
@@ -467,7 +402,8 @@ const useMessageProps = (
     read,
     prefix,
     indexChannel:
-      storedOf(device.properties.read, { topic, messages }, read)?.index ?? 0,
+      ICD.Stored.of(device.properties.read, storedSource({ topic, messages }), read)
+        ?.index ?? 0,
     sourceLabel: "Arrival time",
     missingDescription:
       read === 0
@@ -553,6 +489,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   const isPreview = Task.useIsPreview();
   const topic = PForm.useFieldValue(path.topic);
   const reads = PForm.useFieldValue(path.messages);
+  const icdKey = PForm.useFieldValue(path.icd);
   const encoding = PForm.useFieldValue(
     PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
     { optional: true, ctx: format },
@@ -584,7 +521,8 @@ const TopicDetails: FC<TopicDetailsProps> = ({
           />
           {reads.length === 1 && (
             <ICD.MessageFormatField
-              path={path}
+              icdKey={icdKey}
+              message={reads[0].message}
               onChange={onFormatChange}
               disabled={bindDisabled}
             />
@@ -695,18 +633,7 @@ const Entries: FC<EntriesProps> = ({
   const { push } = PForm.useFieldList(root.config.entries);
   const entries = PForm.useFieldValue(root.config.entries);
   const stored = device.properties.read;
-  const storedKeys = unique
-    .unique(Object.values(stored).flatMap(({ channels }) => Object.values(channels)))
-    .filter((key) => key !== 0);
-  const { data: storedChannels, variant } = Channel.useResultMultiple(
-    storedKeys.length === 0 ? null : query.keysRequest(storedKeys),
-  );
-  // Each control that binds waits for the data types of the stored channels, as the
-  // Core refuses a channel that the field's kind does not convert to.
-  const bindDisabled = storedKeys.length > 0 && variant !== "success";
-  const dataTypes = new Map(
-    storedChannels?.map(({ key, dataType }) => [key, dataType.toString()]),
-  );
+  const { dataTypes, bindDisabled } = ICD.Stored.useDataTypes(stored);
   const {
     tree,
     handleSelect,
@@ -729,10 +656,10 @@ const Entries: FC<EntriesProps> = ({
       const entry = ctx.get(plainPath(key)).value;
       const channels =
         entry.messages.length === 1
-          ? topicChannels(stored, entry, entry.messages[0].message)
-          : (storedOf(stored, entry, read)?.channels ?? {});
+          ? ICD.Stored.channels(stored, storedSource(entry), entry.messages[0].message)
+          : (ICD.Stored.of(stored, storedSource(entry), read)?.channels ?? {});
       const written = writtenChannels(ctx.get(root.config.entries).value);
-      return bindingsOf(channels, [field], written, dataTypes)[0];
+      return ICD.Stored.bindingsOf(channels, [field], written, dataTypes)[0];
     },
     messageName: (entry, held) =>
       nextMessageName(ctx.get(plainPath(entry)).value, held),
@@ -766,8 +693,8 @@ const Entries: FC<EntriesProps> = ({
     const written = writtenChannels(entries);
     const bind: Bind = ({ topic }, fields, message) => {
       const entry = plain.find((e) => e.topic === topic) ?? { topic, messages: [] };
-      return bindingsOf(
-        topicChannels(stored, entry, message),
+      return ICD.Stored.bindingsOf(
+        ICD.Stored.channels(stored, storedSource(entry), message),
         fields,
         written,
         dataTypes,
@@ -958,7 +885,7 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
       read: b.source.messages[b.read],
       message: b.message,
       prefix: messagePrefix(device.name, b.source.topic, b.read, b.message.name),
-      props: storedOf(device.properties.read, b.source, b.read),
+      props: ICD.Stored.of(device.properties.read, storedSource(b.source), b.read),
     })),
     ...tags.map((entry) => ({
       entry,
@@ -1088,7 +1015,7 @@ const planRead = async (
       namer,
       b,
       messagePrefix(dev.name, entry.topic, r, message.name),
-      storedOf(dev.properties.read, entry, r),
+      ICD.Stored.of(dev.properties.read, storedSource(entry), r),
       kept,
     );
     ICD.keptChannels(plan).forEach((ch) => kept.add(ch));
@@ -1140,13 +1067,11 @@ const applyMessage = async (
 ): Promise<void> => {
   const { source: entry, read: r } = bound;
   const { read } = dev.properties;
-  const propertiesKey = storedKey(entry.topic, entry.messages[r].message);
-  const legacy = read[propertiesKey] == null ? storedOf(read, entry, r) : undefined;
-  if (legacy != null) {
-    read[propertiesKey] = legacy;
-    delete read[entry.topic];
-  }
-  await ICD.applyMessage(client, bound, plan, { read, key: propertiesKey });
+  ICD.Stored.moveLegacy(read, storedSource(entry), r);
+  await ICD.applyMessage(client, bound, plan, {
+    read,
+    key: ICD.Stored.key(entry.topic, entry.messages[r].message),
+  });
 };
 
 /** Gives each field and tag that an enabled entry reads a channel, and binds it. */

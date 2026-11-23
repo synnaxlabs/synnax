@@ -35,6 +35,12 @@ class PayloadWithOptional(BaseModel):
     limit: int | None = None
 
 
+class PayloadWithBoundedBytes(BaseModel):
+    """Payload with a binary field of exactly three bytes."""
+
+    data: Bytes = Field(min_length=3, max_length=3)
+
+
 class PayloadWithBytes(BaseModel):
     """Payload with a binary field."""
 
@@ -88,3 +94,20 @@ class TestJSONCodec:
         """Should reject binary data that is not standard, padded base64 text."""
         with pytest.raises(ValidationError):
             JSONCodec().decode(f'{{"data": {wire}}}'.encode(), PayloadWithBytes)
+
+    def test_bytes_bounds_count_decoded_bytes(self) -> None:
+        """Should bound binary data by its decoded bytes, not its base64 text."""
+        codec = JSONCodec()
+        decoded = codec.decode(b'{"data": "AQID"}', PayloadWithBoundedBytes)
+        assert decoded.data == b"\x01\x02\x03"
+
+    @pytest.mark.parametrize(
+        ("text", "error"), [("AQI=", "bytes_too_short"), ("AQIDBA==", "bytes_too_long")]
+    )
+    def test_bytes_bounds_reject(self, text: str, error: str) -> None:
+        """Should reject binary data outside its bounds, whatever its text length."""
+        with pytest.raises(ValidationError) as exc:
+            JSONCodec().decode(
+                f'{{"data": "{text}"}}'.encode(), PayloadWithBoundedBytes
+            )
+        assert exc.value.errors()[0]["type"] == error
