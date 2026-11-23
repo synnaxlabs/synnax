@@ -233,7 +233,7 @@ const EditableSlot = ({ loc, nodeKey, items }: SlotProps) => {
         isDragging && CSS.B("dragging"),
       )}
       onDragLeave={() => setDraggingOver(false)}
-      empty
+      gap="tiny"
       {...dropProps}
     >
       {filtered.map(({ children, itemKey }) => (
@@ -257,7 +257,7 @@ const StaticSlot = ({ loc, items }: SlotProps) => {
     <Flex.Box
       direction={location.direction(loc)}
       className={CSS.cls(CSS.BE("grid", "item"), CSS.loc(loc))}
-      empty
+      gap="tiny"
     >
       {filtered.map(({ children, itemKey }) => (
         <Fragment key={itemKey}>{children}</Fragment>
