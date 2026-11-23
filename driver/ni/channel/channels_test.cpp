@@ -1654,18 +1654,22 @@ TEST_P(ChannelRangeTest, PassesRangeToDAQmx) {
         {"device", "cdaq1Mod2"}
     };
     x::json::Parser p(j);
-    const auto chan = output ? parse_output(p, "ni_analog_write")
-                             : parse_input(p, "ni_analog_read");
-    ASSERT_NIL(p.error());
-    ASSERT_NE(chan, nullptr);
-    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::MockAPI> mock;
-    const auto dmx = mock_dmx(mock);
-    ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = mock->calls_to(fn);
-    ASSERT_EQ(calls.size(), 1);
-    EXPECT_EQ(calls[0]["args"]["minVal"], -2);
-    EXPECT_EQ(calls[0]["args"]["maxVal"], 3);
+    const auto check = [&](const auto &chan) {
+        ASSERT_NIL(p.error());
+        ASSERT_NE(chan, nullptr);
+        chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+        std::shared_ptr<daqmx::MockAPI> mock;
+        const auto dmx = mock_dmx(mock);
+        ASSERT_NIL(chan->apply(dmx, nullptr));
+        const auto calls = mock->calls_to(fn);
+        ASSERT_EQ(calls.size(), 1);
+        EXPECT_EQ(calls[0]["args"]["minVal"], -2);
+        EXPECT_EQ(calls[0]["args"]["maxVal"], 3);
+    };
+    if (output)
+        check(parse_output(p, "ni_analog_write"));
+    else
+        check(parse_input(p, "ni_analog_read"));
 }
 
 INSTANTIATE_TEST_SUITE_P(
