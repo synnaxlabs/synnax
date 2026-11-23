@@ -13,6 +13,7 @@ import "schemas/synnax/icd"
 import "schemas/synnax/rack"
 import "schemas/synnax/secret"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/mqtt/broker"
@@ -338,4 +339,13 @@ Broker struct {
     @go migrate
     @resource type "mqtt_broker"
     @retrieve
+}
+
+Where filter Broker {
+    key
+    name
+    rack
+
+    @doc value         "is a filter that selects MQTT brokers."
+    @go request_output "core/pkg/api/mqtt/broker"
 }

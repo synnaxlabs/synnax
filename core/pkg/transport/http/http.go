@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	mqttbroker "github.com/synnaxlabs/synnax/pkg/api/mqtt/broker"
 	nichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
 	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/opcua/server"
@@ -662,6 +663,12 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/opcua/server/delete",
 		),
+
+		// MQTT BROKER
+		MQTTBrokerRetrieve: unary[
+			mqttbroker.RetrieveRequest,
+			mqttbroker.RetrieveResponse,
+		](router, "/api/v1/mqtt/broker/retrieve"),
 
 		// ACCESS
 		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](

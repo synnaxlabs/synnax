@@ -198,6 +198,9 @@ var _ = Describe("HTTP", func() {
 				"unary OPC UA server retrieve",
 				http.MethodPost,
 				"/api/v1/opcua/server/retrieve",
+				"unary MQTT broker retrieve",
+				http.MethodPost,
+				"/api/v1/mqtt/broker/retrieve",
 			),
 			Entry(
 				"unary OPC UA server create",

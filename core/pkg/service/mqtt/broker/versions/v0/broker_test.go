@@ -11,6 +11,7 @@ package v0_test
 
 import (
 	"encoding/json/v2"
+	"io"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +22,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Broker", func() {
@@ -280,4 +282,160 @@ var _ = Describe("Broker", func() {
 			b.Reads = []v0.Read{{Variant: plainRead()}}
 		}),
 	)
+})
+
+var _ = Describe("msgpack", func() {
+	roundTrip := func(in, out any) {
+		GinkgoHelper()
+		Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(in)), out)).To(Succeed())
+	}
+
+	DescribeTable("Should round trip a transport",
+		func(t v0.Transport) {
+			var decoded v0.Transport
+			roundTrip(t, &decoded)
+			Expect(decoded).To(Equal(t))
+		},
+		Entry("TCP", v0.Transport{Variant: v0.TcpTransport{}}),
+		Entry("TLS", v0.Transport{Variant: v0.TlsTransport{
+			CaCertificate:                 new(uuid.New()),
+			ClientCertificate:             new(uuid.New()),
+			CertificateValidationDisabled: true,
+		}}),
+		Entry("no variant", v0.Transport{}),
+	)
+
+	DescribeTable("Should round trip an auth",
+		func(a v0.Auth) {
+			var decoded v0.Auth
+			roundTrip(a, &decoded)
+			Expect(decoded).To(Equal(a))
+		},
+		Entry("none", v0.Auth{Variant: v0.NoneAuth{}}),
+		Entry("user name", v0.Auth{Variant: v0.UsernameAuth{
+			Username: "admin",
+			Password: new(uuid.New()),
+		}}),
+		Entry("no variant", v0.Auth{}),
+	)
+
+	DescribeTable("Should round trip a Sparkplug mode",
+		func(m v0.SparkplugMode) {
+			var decoded v0.SparkplugMode
+			roundTrip(m, &decoded)
+			Expect(decoded).To(Equal(m))
+		},
+		Entry("passive", v0.SparkplugMode{Variant: v0.PassiveSparkplugMode{}}),
+		Entry("primary", v0.SparkplugMode{
+			Variant: v0.PrimarySparkplugMode{HostID: "scada"},
+		}),
+	)
+
+	DescribeTable("Should round trip a read",
+		func(r v0.Read) {
+			var decoded v0.Read
+			roundTrip(r, &decoded)
+			Expect(decoded).To(Equal(r))
+		},
+		Entry("plain", v0.Read{Variant: v0.PlainRead{
+			Topic:   "plant/temp",
+			Message: uuid.New(),
+			Pointer: "/t",
+			Index:   1,
+			Channel: 2,
+		}}),
+		Entry("Sparkplug", v0.Read{Variant: v0.SparkplugRead{
+			Group:    "Plant",
+			EdgeNode: "Line1",
+			Device:   "Pump",
+			Tag:      "Pressure",
+			Index:    1,
+			Channel:  2,
+		}}),
+	)
+
+	DescribeTable("Should round trip a write",
+		func(w v0.Write) {
+			var decoded v0.Write
+			roundTrip(w, &decoded)
+			Expect(decoded).To(Equal(w))
+		},
+		Entry("plain", v0.Write{Variant: v0.PlainWrite{
+			Topic:   "plant/valve",
+			Field:   uuid.New(),
+			Channel: 3,
+		}}),
+		Entry("Sparkplug", v0.Write{Variant: v0.SparkplugWrite{
+			Group:    "Plant",
+			EdgeNode: "Line1",
+			Tag:      "Speed",
+			Channel:  4,
+		}}),
+	)
+
+	DescribeTable("Should reject an unknown type",
+		func(target any) {
+			raw := MustSucceed(msgpack.Marshal(map[string]any{"type": "unknown"}))
+			Expect(msgpack.Unmarshal(raw, target)).
+				To(MatchError(validate.ErrValidation))
+		},
+		Entry("transport", &v0.Transport{}),
+		Entry("auth", &v0.Auth{}),
+		Entry("Sparkplug mode", &v0.SparkplugMode{}),
+		Entry("read", &v0.Read{}),
+		Entry("write", &v0.Write{}),
+	)
+
+	DescribeTable("Should reject a variant whose fields have the wrong type",
+		func(target any, fields map[string]any) {
+			raw := MustSucceed(msgpack.Marshal(fields))
+			Expect(msgpack.Unmarshal(raw, target)).
+				To(MatchError(ContainSubstring("msgpack: ")))
+		},
+		Entry("TLS", &v0.Transport{}, map[string]any{
+			"type":                            "tls",
+			"certificate_validation_disabled": "yes",
+		}),
+		Entry("user name", &v0.Auth{}, map[string]any{"type": "username", "username": 1}),
+		Entry("primary", &v0.SparkplugMode{}, map[string]any{
+			"type":    "primary",
+			"host_id": 1,
+		}),
+		Entry("plain read", &v0.Read{}, map[string]any{"type": "plain", "topic": 1}),
+		Entry("Sparkplug write", &v0.Write{}, map[string]any{
+			"type": "sparkplug",
+			"tag":  1,
+		}),
+		Entry("TCP", &v0.Transport{}, map[string]any{"type": []int{1}}),
+	)
+
+	DescribeTable("Should reject truncated input",
+		func(target any) {
+			Expect(msgpack.Unmarshal([]byte{0x81}, target)).To(MatchError(io.EOF))
+		},
+		Entry("transport", &v0.Transport{}),
+		Entry("auth", &v0.Auth{}),
+		Entry("Sparkplug mode", &v0.SparkplugMode{}),
+		Entry("read", &v0.Read{}),
+		Entry("write", &v0.Write{}),
+	)
+
+	It("Should round trip a broker", func() {
+		b := v0.Broker{
+			Key:       uuid.New(),
+			Rack:      1,
+			Name:      "Plant Broker",
+			Host:      "mqtt.example.com",
+			Transport: v0.Transport{Variant: v0.TlsTransport{}},
+			Auth:      v0.Auth{Variant: v0.NoneAuth{}},
+			KeepAlive: 30 * telem.Second,
+			Sparkplug: v0.Sparkplug{
+				Mode:   v0.SparkplugMode{Variant: v0.PassiveSparkplugMode{}},
+				Groups: []string{"Plant"},
+			},
+		}
+		var decoded v0.Broker
+		roundTrip(b, &decoded)
+		Expect(decoded).To(Equal(b))
+	})
 })

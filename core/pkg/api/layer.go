@@ -48,6 +48,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	mqttbroker "github.com/synnaxlabs/synnax/pkg/api/mqtt/broker"
 	nichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
 	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/opcua/server"
@@ -280,6 +281,12 @@ type Transport struct {
 	OPCUAServerRetrieve freighter.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]
 	OPCUAServerUpdate   freighter.UnaryServer[server.UpdateRequest, struct{}]
 	OPCUAServerDelete   freighter.UnaryServer[server.DeleteRequest, struct{}]
+
+	// MQTT BROKER
+	MQTTBrokerRetrieve freighter.UnaryServer[
+		mqttbroker.RetrieveRequest,
+		mqttbroker.RetrieveResponse,
+	]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -380,6 +387,7 @@ type Layer struct {
 	NIDevice    *nidevice.Service
 	NIChassis   *nichassis.Service
 	OPCUAServer *server.Service
+	MQTTBroker  *mqttbroker.Service
 	Policy      *policy.Service
 	Role        *role.Service
 	Arc         *arc.Service
@@ -615,6 +623,9 @@ func (l *Layer) BindTo(t Transport) {
 		t.OPCUAServerRetrieve,
 		t.OPCUAServerUpdate,
 		t.OPCUAServerDelete,
+
+		// MQTT BROKER
+		t.MQTTBrokerRetrieve,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -920,6 +931,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.OPCUAServerUpdate.BindHandler(bind.Write(l.binder, l.OPCUAServer.Update))
 	t.OPCUAServerDelete.BindHandler(bind.Write(l.binder, l.OPCUAServer.Delete))
 
+	// MQTT BROKER
+	t.MQTTBrokerRetrieve.BindHandler(bind.Read(l.binder, l.MQTTBroker.Retrieve))
+
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
 	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
@@ -1187,6 +1201,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.NIChassis, err = nichassis.NewService(nichassis.ServiceConfig{
 		Chassis: cfg.Service.NI.Chassis,
 		Status:  cfg.Service.Status,
+	}); err != nil {
+		return nil, err
+	}
+	if l.MQTTBroker, err = mqttbroker.NewService(mqttbroker.ServiceConfig{
+		Broker: cfg.Service.MQTT.Brokers,
+		Status: cfg.Service.Status,
 	}); err != nil {
 		return nil, err
 	}

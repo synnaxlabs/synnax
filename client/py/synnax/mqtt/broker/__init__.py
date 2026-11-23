@@ -11,6 +11,7 @@ from synnax.mqtt.broker.types_gen import (
     TYPE_RESOURCE_ID,
     Auth,
     Broker,
+    Cursor,
     EdgeCommand,
     Key,
     NoneAuth,
@@ -29,6 +30,8 @@ from synnax.mqtt.broker.types_gen import (
     TlsTransport,
     Transport,
     UsernameAuth,
+    Where,
+    WhereInput,
     Write,
     resource_id,
 )
@@ -37,6 +40,7 @@ __all__ = [
     "TYPE_RESOURCE_ID",
     "Auth",
     "Broker",
+    "Cursor",
     "EdgeCommand",
     "Key",
     "NoneAuth",
@@ -55,6 +59,8 @@ __all__ = [
     "TlsTransport",
     "Transport",
     "UsernameAuth",
+    "Where",
+    "WhereInput",
     "Write",
     "resource_id",
 ]
