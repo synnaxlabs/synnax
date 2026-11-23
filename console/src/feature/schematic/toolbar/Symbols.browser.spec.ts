@@ -30,10 +30,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   client,
   createSymbolPayload,
+  preloadTab,
   renderSchematic,
   SYMBOL_FILE_DROP_PROMPT,
+  TabToolbar,
 } from "@/feature/schematic/testutil";
-import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
@@ -54,7 +55,7 @@ afterEach(() => {
 });
 
 const renderSymbolsToolbar = async (as?: Client) =>
-  await renderSchematic(Toolbar, {
+  await renderSchematic(TabToolbar, {
     sessionState: { editable: true },
     additionalRegistry: theming.REGISTRY,
     as,
@@ -77,6 +78,8 @@ const createRemoteSymbolGroup = async (
     );
   return { grp, symbols };
 };
+
+preloadTab();
 
 describe("Schematic toolbar Symbols", () => {
   it("adds a static symbol node to the schematic on click", async () => {
@@ -265,7 +268,7 @@ describe("Schematic toolbar Symbols", () => {
 });
 
 const DraggableToolbar = (): ReactElement =>
-  createElement(HaulProvider, null, createElement(Toolbar));
+  createElement(HaulProvider, null, createElement(TabToolbar));
 
 const layer = (): Element | null => document.querySelector(".lyra-haul__layer");
 

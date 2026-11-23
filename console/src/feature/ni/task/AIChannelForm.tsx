@@ -14,7 +14,7 @@ import { Select as PSelect } from "@synnaxlabs/lyra/select";
 import { deep, record } from "@synnaxlabs/x";
 import type { FC } from "react";
 
-import { Select } from "@/feature/ni/device/Select";
+import { Device } from "@/feature/ni/device";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
@@ -1012,7 +1012,7 @@ export const AIChannelForm = ({ type, path, channelsPath }: AIChannelFormProps) 
   return (
     <Form.Sections>
       <Form.Section title="Source">
-        <Select path={path.device} />
+        <Device.Select path={path.device} />
         {type !== "ai_temp_builtin" && (
           <PortField
             path={deep.variant(path, "type", type)}
