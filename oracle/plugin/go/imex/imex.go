@@ -776,6 +776,9 @@ const Latest = {{.CurrentPkg}}.Version
 // shape and lifts it through the per-version migration chain to the current shape. A
 // version the ladder does not cover is rejected with a path-scoped validation error.
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) ({{.Type}}, error) {
+{{- if .Arms}}
+	ctx = imex.DecodeContext(ctx, env)
+{{- end}}
 	switch env.Version {
 {{- range .Arms}}
 	case {{.Pkg}}.Version:

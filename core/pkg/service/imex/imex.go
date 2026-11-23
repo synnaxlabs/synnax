@@ -192,6 +192,25 @@ func (e Envelope) WithDecodeOptions(opts ...json.Options) Envelope {
 // decodes the body in a later step of its own.
 func (e Envelope) DecodeOptions() []json.Options { return e.decodeOptions }
 
+// decodeOptionsKey is the context key of the decode options of DecodeContext.
+type decodeOptionsKey struct{}
+
+// DecodeContext returns ctx carrying the decode options of e. A migration of an import
+// ladder reads them with DecodeOptions, so a payload that it decodes from opaque fields
+// decodes as the file does.
+func DecodeContext(ctx context.Context, e Envelope) context.Context {
+	if len(e.decodeOptions) == 0 {
+		return ctx
+	}
+	return context.WithValue(ctx, decodeOptionsKey{}, e.decodeOptions)
+}
+
+// DecodeOptions returns the decode options that DecodeContext put on ctx, or none.
+func DecodeOptions(ctx context.Context) []json.Options {
+	opts, _ := ctx.Value(decodeOptionsKey{}).([]json.Options)
+	return opts
+}
+
 // decodeOptions are the JSON options every import decode uses.
 var decodeOptions = jsontext.AllowInvalidUTF8(true)
 

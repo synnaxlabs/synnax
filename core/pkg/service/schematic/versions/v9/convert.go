@@ -94,15 +94,24 @@ func camelToSnakeKey(s string) string {
 }
 
 // DecodeElementConfig validates an opaque config payload against the element config
-// union. It wraps validate.ErrValidation when the payload names no variant, names one
-// the union does not, or carries fields that do not fit the variant it names.
-func DecodeElementConfig(raw msgpack.EncodedJSON) (ElementConfig, error) {
+// union, decoding it with opts, such as the channel links of an import. It wraps
+// validate.ErrValidation when the payload names no variant, names one the union does
+// not, or carries fields that do not fit the variant it names.
+func DecodeElementConfig(
+	raw msgpack.EncodedJSON,
+	opts ...jsonv2.Options,
+) (ElementConfig, error) {
 	b, err := json.Marshal(raw)
 	if err != nil {
 		return ElementConfig{}, err
 	}
 	var cfg ElementConfig
-	if err := json.Unmarshal(b, &cfg); err != nil {
+	if err := jsonv2.Unmarshal(
+		b,
+		&cfg,
+		json.DefaultOptionsV1(),
+		jsonv2.JoinOptions(opts...),
+	); err != nil {
 		return ElementConfig{}, errors.Wrapf(
 			validate.ErrValidation, "invalid element config: %s", err,
 		)
@@ -629,8 +638,11 @@ func liftIndicator(
 // DecodeWithDefaults decodes a normalized config over its variant's schema defaults. A
 // field the config carries keeps its value even when it is zero; only an omitted field
 // takes the default. It returns an error wrapping validate.ErrValidation when the
-// config names no known variant.
-func DecodeWithDefaults(stored msgpack.EncodedJSON) (ElementConfig, error) {
+// config names no known variant. opts decode the channel links of an import.
+func DecodeWithDefaults(
+	stored msgpack.EncodedJSON,
+	opts ...jsonv2.Options,
+) (ElementConfig, error) {
 	defaults, err := defaultConfig(stored)
 	if err != nil {
 		return ElementConfig{}, err
@@ -640,7 +652,7 @@ func DecodeWithDefaults(stored msgpack.EncodedJSON) (ElementConfig, error) {
 		return ElementConfig{}, err
 	}
 	mergeFields(fields, stored)
-	return DecodeElementConfig(fields)
+	return DecodeElementConfig(fields, opts...)
 }
 
 // defaultConfig returns the schema defaults of the variant a normalized config names,
