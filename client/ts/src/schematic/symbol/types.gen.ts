@@ -450,6 +450,50 @@ export const cursorZ = z.object({
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
+/** BuiltinRef is a symbol that the Core ships. */
+export const builtinRefZ = z.object({
+  type: z.literal("builtin"),
+  /** name is the shipped name of the built-in. */
+  name: z.string(),
+});
+export interface BuiltinRef extends z.infer<typeof builtinRefZ> {}
+
+/** CustomRef is a symbol that a user made. */
+export const customRefZ = z.object({
+  type: z.literal("custom"),
+  /** key is the key of the symbol. */
+  key: keyZ,
+});
+export interface CustomRef extends z.infer<typeof customRefZ> {}
+
+/** MissingRef is a custom symbol that the Core does not have. */
+export const missingRefZ = z.object({
+  type: z.literal("missing"),
+  /** key is the key of the custom symbol that the Core does not have. */
+  key: z.string(),
+});
+export interface MissingRef extends z.infer<typeof missingRefZ> {}
+
+export const REF_TYPES = ["builtin", "custom", "missing"] as const;
+export const refTypeZ = z.enum(REF_TYPES);
+export type RefType = z.infer<typeof refTypeZ>;
+
+/** Ref is the symbol that a node draws. */
+export const refZ = z.discriminatedUnion("type", [
+  builtinRefZ,
+  customRefZ,
+  missingRefZ,
+]);
+export type Ref = BuiltinRef | CustomRef | MissingRef;
+
+export const REF_SCHEMAS: {
+  [K in RefType]: z.ZodType<Extract<Ref, { type: K }>>;
+} = {
+  builtin: builtinRefZ,
+  custom: customRefZ,
+  missing: missingRefZ,
+};
+
 /** EnumerationState is a state that shows the entries of an enumeration. */
 export const enumerationStateZ = baseStateZ.extend({
   type: z.literal("enumeration"),
