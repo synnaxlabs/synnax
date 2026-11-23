@@ -60,16 +60,12 @@ const banded = (
   builtIn: boolean,
 ): boolean => field === "stroke" || (builtIn && (type === "entry" || type === "node"));
 
-// A number state with no value reads fraction 0, at its lower bound.
-const valueOf = (state: schematic.symbol.State, value: StateValue): number => {
-  if (typeof value === "number") return value;
-  const v = value.get(state.key);
-  if (v != null) return v;
-  return state.type === "enumeration" ? state.default : state.bounds.lower;
-};
-
+// A number state with no value reads fraction 0, at its lower bound. An enumeration
+// state with no value reads its default entry, which needs no match.
 const matched = (state: schematic.symbol.State, value: StateValue): number => {
-  const v = valueOf(state, value);
+  const v = typeof value === "number" ? value : value.get(state.key);
+  if (v == null)
+    return state.type === "enumeration" ? state.default : state.bounds.lower;
   if (state.type !== "enumeration" || state.match.type === "exact") return v;
   const { lower, upper } = state.match.bounds;
   return v >= lower && v < upper ? 1 : 0;

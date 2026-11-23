@@ -122,6 +122,33 @@ describe("Custom.usePaints state values", () => {
     ]);
   });
 
+  it("should read a within state with no value at its default, with no match", async () => {
+    const spec = createSpec({
+      states: [
+        {
+          type: "enumeration",
+          key: "a",
+          name: "A",
+          match: { type: "within", bounds: { lower: 50, upper: 100 } },
+          default: 1,
+        },
+      ],
+      looks: [
+        {
+          key: "a",
+          part: "body",
+          when: { type: "equals", state: "a", values: [1] },
+          fill: { type: "color", value: fixed("#ff0000") },
+        },
+      ],
+    });
+    const { result } = renderHook(() => Custom.usePaints(spec, new Map()), {
+      wrapper: createSynnaxWrapper({ client: null }),
+    });
+    await waitFor(() => expect(result.current).not.toHaveLength(0));
+    expect(result.current).toEqual([{ selectors: [".body"], fill: RED }]);
+  });
+
   it("should read a number state with no value at its lower bound", async () => {
     expect(await renderValues(new Map([["a", 0]]))).toEqual([
       { selectors: [".body"], hidden: true },
