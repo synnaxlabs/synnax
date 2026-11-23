@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -63,6 +64,27 @@ var _ = Describe("Symbol node bindings", func() {
 			})
 		}
 		return err
+	}
+	// importNode imports a file that holds one node with the symbol and bindings of
+	// cfg, and returns the config that the import stores.
+	importNode := func(
+		ctx SpecContext,
+		cfg schematic.SymbolNodeConfig,
+	) schematic.SymbolNodeConfig {
+		GinkgoHelper()
+		s := diagram(symbolNode("n", schematic.SymbolNodeConfig{Spec: cfg.Spec}))
+		Expect(create(ctx, &s)).To(Succeed())
+		env := WireRoundTrip(
+			MustSucceed(svc.Export(ctx, db, schematic.ResourceID(s.Key))),
+		)
+		file := MustSucceed(env.Decode[schematic.Schematic]())
+		node := as[schematic.SymbolNodeConfig](file.Nodes[0].Config.Variant)
+		cfg = defaults.Fill(cfg)
+		node.States, node.Commands = cfg.States, cfg.Commands
+		file.Nodes[0].Config.Variant = node
+		Expect(env.Encode(file)).To(Succeed())
+		res := importSchematic(ctx, WireRoundTrip(env))
+		return as[schematic.SymbolNodeConfig](res.Nodes[0].Config.Variant)
 	}
 
 	It("Should save a node whose bindings fit its custom symbol", func(
@@ -327,82 +349,115 @@ var _ = Describe("Symbol node bindings", func() {
 			}, refused("1")),
 		)
 	})
+
 	DescribeTable(
-		"DropOrphans",
+		"Should drop on import the bindings that the symbol orphans",
 		func(
-			states []schematic.StateBinding,
-			commands []schematic.CommandBinding,
-			wantStates []schematic.StateBinding,
-			wantCommands []schematic.CommandBinding,
+			ctx SpecContext,
+			cfg func(ctx SpecContext) schematic.SymbolNodeConfig,
+			states types.GomegaMatcher,
+			commands types.GomegaMatcher,
 		) {
-			data := heater().Data
-			cfg := schematic.DropOrphans(
-				schematic.SymbolNodeConfig{States: states, Commands: commands},
-				data.States,
-				data.Commands,
-			)
-			Expect(cfg.States).To(ConsistOf(wantStates))
-			Expect(cfg.Commands).To(ConsistOf(wantCommands))
+			res := importNode(ctx, cfg(ctx))
+			Expect(res.States).To(states)
+			Expect(res.Commands).To(commands)
 		},
 		Entry(
-			"keeps the bindings that fit",
-			[]schematic.StateBinding{
-				{Key: "active", Default: new(1.0)},
-				{Key: "level", Bounds: &spatial.Bounds{Lower: 10, Upper: 20}},
+			"a binding of a state that the symbol lacks",
+			func(SpecContext) schematic.SymbolNodeConfig {
+				return schematic.SymbolNodeConfig{
+					Spec:   customRef(sym),
+					States: []schematic.StateBinding{{Key: "gone"}, {Key: "active"}},
+				}
 			},
-			[]schematic.CommandBinding{{Key: "reset", Channel: 2}},
-			[]schematic.StateBinding{
-				{Key: "active", Default: new(1.0)},
-				{Key: "level", Bounds: &spatial.Bounds{Lower: 10, Upper: 20}},
+			HaveExactElements(HaveField("Key", "active")),
+			BeEmpty(),
+		),
+		Entry(
+			"a binding of a state that a built-in lacks",
+			func(SpecContext) schematic.SymbolNodeConfig {
+				return schematic.SymbolNodeConfig{
+					Spec:   builtinRef("valve"),
+					States: []schematic.StateBinding{{Key: "gone"}, {Key: "active"}},
+				}
 			},
-			[]schematic.CommandBinding{{Key: "reset", Channel: 2}},
+			HaveExactElements(HaveField("Key", "active")),
+			BeEmpty(),
 		),
 		Entry(
-			"drops a binding of a state that the symbol lacks",
-			[]schematic.StateBinding{{Key: "gone"}, {Key: "active"}},
-			nil,
-			[]schematic.StateBinding{{Key: "active"}},
-			nil,
+			"the overrides that a number state lacks",
+			func(ctx SpecContext) schematic.SymbolNodeConfig {
+				enums := []enumeration.Enumeration{{Name: "Level"}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return enumSvc.NewWriter(tx).CreateMany(ctx, enums)
+				})).To(Succeed())
+				enum := enums[0]
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return enumSvc.NewWriter(tx).Delete(ctx, enum.Key)
+					})).To(Succeed())
+				})
+				return schematic.SymbolNodeConfig{
+					Spec: customRef(sym),
+					States: []schematic.StateBinding{{
+						Key:          "level",
+						FormatConfig: schematic.FormatConfig{Units: "C"},
+						Enumeration:  &enum.Key,
+						Match:        &symbol.Matcher{Variant: symbol.ExactMatcher{}},
+						Default:      new(1.0),
+					}},
+				}
+			},
+			HaveExactElements(SatisfyAll(
+				HaveField("Key", "level"),
+				HaveField("Units", "C"),
+				HaveField("Enumeration", BeNil()),
+				HaveField("Match", BeNil()),
+				HaveField("Default", BeNil()),
+			)),
+			BeEmpty(),
 		),
 		Entry(
-			"clears the overrides that a number state lacks",
-			[]schematic.StateBinding{{
-				Key:          "level",
-				FormatConfig: schematic.FormatConfig{Units: "C"},
-				Enumeration:  new(enumeration.Key(uuid.New())),
-				Match:        &symbol.Matcher{Variant: symbol.ExactMatcher{}},
-				Default:      new(1.0),
-			}},
-			nil,
-			[]schematic.StateBinding{{
-				Key:          "level",
-				FormatConfig: schematic.FormatConfig{Units: "C"},
-			}},
-			nil,
+			"the bounds of an enumeration state",
+			func(SpecContext) schematic.SymbolNodeConfig {
+				return schematic.SymbolNodeConfig{
+					Spec: customRef(sym),
+					States: []schematic.StateBinding{{
+						Key:    "active",
+						Bounds: &spatial.Bounds{Lower: 0, Upper: 1},
+					}},
+				}
+			},
+			HaveExactElements(SatisfyAll(
+				HaveField("Key", "active"),
+				HaveField("Bounds", BeNil()),
+			)),
+			BeEmpty(),
 		),
 		Entry(
-			"clears the bounds of an enumeration state",
-			[]schematic.StateBinding{{
-				Key:    "active",
-				Bounds: &spatial.Bounds{Lower: 0, Upper: 1},
-			}},
-			nil,
-			[]schematic.StateBinding{{Key: "active"}},
-			nil,
+			"a binding of a command that the symbol lacks",
+			func(SpecContext) schematic.SymbolNodeConfig {
+				return schematic.SymbolNodeConfig{
+					Spec: customRef(sym),
+					Commands: []schematic.CommandBinding{
+						{Key: "gone", Channel: 2},
+						{Key: "reset", Channel: 2},
+					},
+				}
+			},
+			BeEmpty(),
+			HaveExactElements(HaveField("Key", "reset")),
 		),
 		Entry(
-			"drops a binding of a command that the symbol lacks",
-			nil,
-			[]schematic.CommandBinding{{Key: "gone", Channel: 2}},
-			nil,
-			nil,
-		),
-		Entry(
-			"drops a binding of a command that has a state",
-			nil,
-			[]schematic.CommandBinding{{Key: "activate", Channel: 2}},
-			nil,
-			nil,
+			"a binding of a command that has a state",
+			func(SpecContext) schematic.SymbolNodeConfig {
+				return schematic.SymbolNodeConfig{
+					Spec:     customRef(sym),
+					Commands: []schematic.CommandBinding{{Key: "activate", Channel: 2}},
+				}
+			},
+			BeEmpty(),
+			BeEmpty(),
 		),
 	)
 })

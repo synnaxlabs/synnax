@@ -82,10 +82,10 @@ func (w Writer) checkBindings(
 	return nil
 }
 
-// DropOrphans returns cfg without the bindings that a symbol with states and commands
+// dropOrphans returns cfg without the bindings that a symbol with states and commands
 // orphans: a binding of a state or command that the symbol lacks, an override that the
 // type of its state lacks, and a command binding of a command that has a state.
-func DropOrphans(
+func dropOrphans(
 	cfg SymbolNodeConfig,
 	states []symbol.State,
 	commands []symbol.Command,

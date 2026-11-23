@@ -41,8 +41,8 @@ func (*Service) Match(body map[string]any) bool {
 // and each enumeration that the Core does not hold, so a select or state indicator that
 // loses its enumeration draws its own options. A node whose custom symbol the Core does
 // not hold draws a missing symbol with the same key, and every other node drops the
-// bindings that its symbol orphans (DropOrphans). An unknown envelope version is a
-// path-scoped validation error.
+// bindings that its symbol orphans. An unknown envelope version is a path-scoped
+// validation error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	sch, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
@@ -93,11 +93,11 @@ func (s *Service) fitNodes(ctx context.Context, tx gorp.Tx, sch *Schematic) erro
 		switch ref := cfg.Spec.Variant.(type) {
 		case symbol.BuiltinRef:
 			if b, ok := s.builtins[ref.Name]; ok {
-				cfg = DropOrphans(cfg, b.States, b.Commands)
+				cfg = dropOrphans(cfg, b.States, b.Commands)
 			}
 		case symbol.CustomRef:
 			if sym, ok := held[ref.Key]; ok {
-				cfg = DropOrphans(cfg, sym.Data.States, sym.Data.Commands)
+				cfg = dropOrphans(cfg, sym.Data.States, sym.Data.Commands)
 			} else {
 				cfg.Spec = symbol.Ref{Variant: symbol.MissingRef{Key: ref.Key.String()}}
 			}
