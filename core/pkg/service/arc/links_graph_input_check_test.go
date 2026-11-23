@@ -10,6 +10,7 @@
 package arc_test
 
 import (
+	"encoding/json/v2"
 	"fmt"
 	"uuid"
 
@@ -23,6 +24,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Channel links of graph inputs that hold no key check", func() {
@@ -45,16 +48,14 @@ var _ = Describe("Channel links of graph inputs that hold no key check", func() 
 		key = ch.Key()
 	})
 
-	DescribeTable("Should export a graph Arc whose channel input is no key", func(
-		ctx SpecContext,
-		stored func() any,
-	) {
+	createArc := func(ctx SpecContext, stored any) arc.Arc {
+		GinkgoHelper()
 		a := newAutomation(arc.Base{
 			Name: "graph_input_" + uuid.New().String()[:8],
 			Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
 				Nodes: graph.Nodes{{Key: "n"}},
 				Inputs: map[string]msgpack.EncodedJSON{
-					"n": {"type": "on", "channel": stored()},
+					"n": {"type": "on", "channel": stored},
 				},
 			}}},
 		})
@@ -66,11 +67,33 @@ var _ = Describe("Channel links of graph inputs that hold no key check", func() 
 				return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
 			})).To(Succeed())
 		})
+		return a
+	}
+
+	DescribeTable("Should fail the export of a graph input that holds text", func(
+		ctx SpecContext,
+		stored func() any,
+	) {
+		a := createArc(ctx, stored())
 		Expect(svc.Export(ctx, db, arc.ResourceID(a.Base().Key))).Error().
-			ToNot(HaveOccurred())
+			To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"Arc %s: input channel of node n: holds text, not a channel key",
+					a.Base().Name,
+				)),
+			))
 	},
 		Entry("a key as text", func() any { return fmt.Sprint(key) }),
 		Entry("a channel name", func() any { return "valve_cmd" }),
-		Entry("null", func() any { return nil }),
 	)
+
+	It("Should export a null graph input as no channel", func(ctx SpecContext) {
+		a := createArc(ctx, nil)
+		env := MustSucceed(svc.Export(ctx, db, arc.ResourceID(a.Base().Key)))
+		file := MustSucceed(json.Marshal(env.WithEncodeOptions(
+			channelSvc.LinkWriter(ctx, db, func(resource.ID) bool { return true }),
+		)))
+		Expect(string(file)).To(ContainSubstring(`"channel":0`))
+	})
 })
