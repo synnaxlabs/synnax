@@ -183,6 +183,17 @@ func (e Entry) Validate() error {
 	return v.Error()
 }
 
+// Hidden counts the entries whose records the caller cannot see, by effect. Counts name
+// no record.
+type Hidden struct {
+	// Restrict is the number of hidden entries that stop the change.
+	Restrict uint32 `json:"restrict" msgpack:"restrict"`
+	// Cascade is the number of hidden entries that the change deletes.
+	Cascade uint32 `json:"cascade" msgpack:"cascade"`
+	// Detach is the number of hidden entries that lose the channel.
+	Detach uint32 `json:"detach" msgpack:"detach"`
+}
+
 // Plan is every record that a change touches, with the picks for each.
 type Plan struct {
 	// Entries are the records that the change touches, sorted by record.
@@ -190,11 +201,11 @@ type Plan struct {
 	// Kept is the number of records that hold a deleted channel and keep it with no
 	// change. They need no pick, so they are not entries.
 	Kept uint32 `json:"kept" msgpack:"kept"`
-	// Hidden is the number of entries whose records the caller cannot see. One pick
-	// covers all of them.
-	Hidden uint32 `json:"hidden" msgpack:"hidden"`
+	// Hidden counts the entries whose records the caller cannot see. One pick covers
+	// the ones that stop the change.
+	Hidden Hidden `json:"hidden" msgpack:"hidden"`
 	// Token is the hex form of a hash of the change, each visible entry, and the hidden
-	// count, with the caller's picks. Apply refuses a token that no longer matches.
+	// counts, with the caller's picks. Apply refuses a token that no longer matches.
 	Token string `json:"token" msgpack:"token"`
 	// Change is the change that the plan covers.
 	Change Change `json:"change" msgpack:"change"`
