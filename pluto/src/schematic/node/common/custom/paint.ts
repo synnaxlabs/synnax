@@ -27,7 +27,8 @@ export interface Paint {
 
 /**
  * StateValue is the value of every state of a symbol, or the value of each state by its
- * key. A state with no value in the map reads its default.
+ * key. A state with no value in the map reads its default entry, or the lower bound of
+ * a number state.
  */
 export type StateValue = number | ReadonlyMap<string, number>;
 
