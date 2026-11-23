@@ -18,6 +18,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "x/cpp/errors/errors.h"
 
@@ -38,6 +39,9 @@ const std::string KEYS_FILE = "status_keys";
 class Keys {
     std::filesystem::path path;
     std::size_t max;
+    /// @brief held for a whole save, so saves reach the disk in order. Taken before
+    /// mu.
+    std::mutex save_mu;
     std::mutex mu;
     /// @brief the names and keys, the most recently used first.
     std::list<std::pair<std::string, std::string>> entries;
@@ -47,8 +51,10 @@ class Keys {
     /// @brief puts name first with key, and forgets the least recently used name past
     /// max. Requires mu.
     void put(const std::string &name, const std::string &key);
-    /// @brief replaces the file with the entries. Requires mu.
-    [[nodiscard]] x::errors::Error save() const;
+    /// @brief replaces the file with entries, the least recently used first.
+    /// Requires save_mu.
+    [[nodiscard]] x::errors::Error
+    save(const std::vector<std::pair<std::string, std::string>> &entries) const;
 
 public:
     /// @brief loads the keys in the file at path, or none when the file does not
@@ -65,7 +71,7 @@ public:
 
     /// @brief records key as the key of name. When it changes, replaces the file,
     /// so a crash leaves the old file or the new one, and returns after the new file
-    /// is on the disk.
+    /// is on the disk. get does not wait for the disk.
     /// @returns an error from the file, and then the keys still hold key in memory.
     x::errors::Error set(const std::string &name, const std::string &key);
 };
