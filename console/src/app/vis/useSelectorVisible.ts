@@ -16,5 +16,5 @@ export const useSelectorVisible = (): boolean => {
     // eslint-disable-next-line synnax/react-compiler
     (s) => s.useVisible?.() ?? true,
   ).some(Boolean);
-  return Panel.useCanOpenTab() && anySelectable;
+  return Panel.useCanOpenTab() === true && anySelectable;
 };

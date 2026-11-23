@@ -15,7 +15,7 @@ package v0
 // once.
 type Concurrency uint8
 
-//go:generate stringer -type=Concurrency
+//go:generate go tool stringer -type=Concurrency
 
 const (
 	// ConcurrencyExclusive allows one subject to act on the resource at a time.

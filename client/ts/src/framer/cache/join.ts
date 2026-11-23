@@ -9,7 +9,7 @@
 
 import { map, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import {
   alignmentOf,
   domainOf,
@@ -20,7 +20,7 @@ import {
   search,
 } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
-import { type Store } from "@/framer/cache/store";
+import type { Store } from "@/framer/cache/store";
 import { status } from "@/status";
 
 // A run of a streamed index series' samples that falls in one raw block. The offset is

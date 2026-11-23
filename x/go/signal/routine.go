@@ -54,7 +54,7 @@ type (
 	contextPolicy uint8
 )
 
-//go:generate stringer -type=RoutineState
+//go:generate go tool stringer -type=RoutineState
 const (
 	RoutineStateStarting RoutineState = iota
 	RoutineStateRunning
@@ -65,7 +65,7 @@ const (
 	RoutineStatePanicked
 )
 
-//go:generate stringer -type=panicPolicy
+//go:generate go tool stringer -type=panicPolicy
 const (
 	propagatePanic panicPolicy = iota
 	recoverNoErr
@@ -238,6 +238,7 @@ func (r *routine) runPrelude() (ctx context.Context, err error) {
 	}
 
 	r.ctx.mu.routines = append(r.ctx.mu.routines, r)
+	r.ctx.mu.live++
 	// A routine runs even when the context is already canceled, since it may own
 	// resources that only it releases.
 	r.state.state = RoutineStateStarting
@@ -299,6 +300,7 @@ func (r *routine) runPostlude(err error) error {
 
 	r.span.End()
 
+	r.ctx.mu.live--
 	r.ctx.maybeStop()
 
 	r.ctx.L.Debug("routine stopped", r.zapFields()...)

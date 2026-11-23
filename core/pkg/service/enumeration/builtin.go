@@ -18,12 +18,13 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
+// The keys of the built-in enumerations. A shipped key never changes.
 var (
-	valveKey             = uuid.MustParse("0fdb5bf9-8929-4839-84f4-5bc0cda63344")
-	normallyOpenValveKey = uuid.MustParse("18dd0627-e014-4c38-9fc8-cd077bdf3888")
-	pumpKey              = uuid.MustParse("21709d6c-c7a8-41ca-89d0-6e946236491e")
-	switchKey            = uuid.MustParse("d396f0f9-46ba-45a3-b9b5-36fc8b610625")
-	lightKey             = uuid.MustParse("ed3c515d-10eb-468a-95bf-15b6204bb5f2")
+	ValveKey             = uuid.MustParse("0fdb5bf9-8929-4839-84f4-5bc0cda63344")
+	NormallyOpenValveKey = uuid.MustParse("18dd0627-e014-4c38-9fc8-cd077bdf3888")
+	PumpKey              = uuid.MustParse("21709d6c-c7a8-41ca-89d0-6e946236491e")
+	SwitchKey            = uuid.MustParse("d396f0f9-46ba-45a3-b9b5-36fc8b610625")
+	LightKey             = uuid.MustParse("ed3c515d-10eb-468a-95bf-15b6204bb5f2")
 )
 
 func isBuiltin(key Key) bool {
@@ -57,11 +58,11 @@ func Builtins() []Enumeration {
 		running = shippedEntry{"running", "Running"}
 	)
 	return []Enumeration{
-		twoState(valveKey, "Valve", closed, open),
-		twoState(normallyOpenValveKey, "Normally open valve", open, closed),
-		twoState(pumpKey, "Pump", stopped, running),
-		twoState(switchKey, "Switch", off, on),
-		twoState(lightKey, "Light", off, on),
+		twoState(ValveKey, "Valve", closed, open),
+		twoState(NormallyOpenValveKey, "Normally open valve", open, closed),
+		twoState(PumpKey, "Pump", stopped, running),
+		twoState(SwitchKey, "Switch", off, on),
+		twoState(LightKey, "Light", off, on),
 	}
 }
 

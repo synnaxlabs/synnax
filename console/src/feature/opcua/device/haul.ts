@@ -9,7 +9,7 @@
 
 import { Haul } from "@synnaxlabs/lyra/haul";
 
-import { type ScannedNode } from "@/feature/opcua/task/types";
+import type { ScannedNode } from "@/feature/opcua/task/types";
 
 export const HAUL_TYPE = "opc";
 

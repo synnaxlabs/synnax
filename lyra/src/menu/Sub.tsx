@@ -9,7 +9,7 @@
 
 import "@/menu/Sub.css";
 
-import { type xy } from "@synnaxlabs/x";
+import type { xy } from "@synnaxlabs/x";
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -35,7 +35,7 @@ import {
 import { useContext } from "@/menu/Menu";
 import { SubContext, useSubContext, useSubmenusContext } from "@/menu/submenus";
 import { CLOSES_ATTRIBUTE } from "@/menu/types";
-import { type position } from "@/position";
+import type { position } from "@/position";
 
 const MENU_ITEM = '[role="menuitem"]';
 const CLOSING = `${MENU_ITEM}, [${CLOSES_ATTRIBUTE}]`;

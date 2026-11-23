@@ -161,7 +161,7 @@ def default_title(prompt: str) -> str:
 
 def skill_prompt(prompt: str, *, root: Path) -> str:
     """Spells out a slash skill for Codex, which does not read `.claude/skills`."""
-    m = re.fullmatch(r"/([\w-]+)(?:\s+(.*))?", prompt, flags=re.S)
+    m = re.fullmatch(r"/([\w-]+)(?:\s+(.*))?", prompt, flags=re.DOTALL)
     if m is None:
         return prompt
     skill = Path(".claude/skills") / m[1] / "SKILL.md"
@@ -227,7 +227,7 @@ def agent_command(opts: Options, *, prompt: str, out: Path) -> list[str]:
 def render_body(
     template: str, *, issue: str, description: str, labels: list[str]
 ) -> str:
-    body = re.sub(r"<!--.*?-->\n?", "", template, flags=re.S)
+    body = re.sub(r"<!--.*?-->\n?", "", template, flags=re.DOTALL)
     link = f"[{issue}]({LINEAR_URL}{issue})" if issue else "None"
     body = body.replace("[SY-####](<>)", link)
     body = body.replace("## Description\n", f"## Description\n\n{description}\n", 1)

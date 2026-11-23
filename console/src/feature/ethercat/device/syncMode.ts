@@ -9,7 +9,7 @@
 
 import { TimeSpan } from "@synnaxlabs/x";
 
-import { type OpMode, type OpModeChoice } from "@/feature/ethercat/device/types";
+import type { OpMode, OpModeChoice } from "@/feature/ethercat/device/types";
 
 /** The AssignActivate bit that gives the sync unit to the PDI. */
 const PDI_SYNC_UNIT = 0x0001;

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Embedded } from "@/feature/embedded";
-import { type Analytics } from "@/platform/analytics";
+import type { Analytics } from "@/platform/analytics";
 
 /**
  * Reports what the embedded Core does. The counts in the history decide what is new, so

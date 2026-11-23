@@ -181,7 +181,7 @@ class DriverNIDigitalWrite(Latency):
         latency_range.meta_data.set(
             {
                 "machine": machine_name,
-                "memory": memory_info if memory_info else "",
+                "memory": memory_info or "",
                 "cpu_cores": f"{cpu_cores} cores",
                 "driver_mean_ms": round(stats_core["mean"], 3),
                 "driver_median_ms": round(stats_core["median"], 3),

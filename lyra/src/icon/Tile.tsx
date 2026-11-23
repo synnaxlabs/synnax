@@ -9,9 +9,9 @@
 
 import "@/icon/Tile.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 
 /** Props for {@link Tile}. */

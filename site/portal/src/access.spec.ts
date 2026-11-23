@@ -11,11 +11,11 @@ import { uuid } from "@synnaxlabs/x";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { activationFor, licenseFor, requireStaff } from "@/access";
-import { type Portal } from "@/portal";
-import { type License, type Organization } from "@/server/db/schema";
+import type { Portal } from "@/portal";
+import type { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { HASH_A, HASH_B, HASH_C } from "@/server/license/testutil";
-import { type Session } from "@/server/session";
+import type { Session } from "@/server/session";
 import {
   createActivation,
   createHarness,
@@ -40,8 +40,8 @@ const STAFF = session({ userID: "user_staff", staff: true });
 describe("access", () => {
   let store: Memory;
   let portal: Portal;
-  let org: Organization;
-  let lic: License;
+  let org: schema.Organization;
+  let lic: schema.License;
   beforeAll(async () => {
     store = await openMemory();
     portal = createHarness(store).portal;

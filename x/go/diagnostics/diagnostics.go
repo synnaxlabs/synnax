@@ -126,8 +126,7 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 		Range:    rangeOf(ctx),
 		cause:    err,
 	}
-	var marked *kindError
-	if errors.As(err, &marked) {
+	if marked, ok := errors.AsType[*kindError](err); ok {
 		d.Code, d.Severity = marked.kind.Code, marked.kind.Severity
 		// The text of an error that wraps the marked error moves to the end.
 		own := marked.Error()
