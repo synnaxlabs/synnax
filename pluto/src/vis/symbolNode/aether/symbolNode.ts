@@ -44,6 +44,11 @@ interface Reader {
 
 const NO_READING: Reading = { value: null, stale: false };
 
+// Keys come from user data, so a key such as "constructor" must not find a prototype
+// member.
+const own = <V>(r: Record<string, V>, key: string): V | undefined =>
+  Object.hasOwn(r, key) ? r[key] : undefined;
+
 const read = (source: telem.NumberSource): number | null => {
   const { data } = source.value();
   return Number.isNaN(data) ? null : data;
@@ -76,24 +81,24 @@ export class SymbolNode
   override afterUpdate(ctx: aether.Context): void {
     const { sources, sinks } = this.state;
     for (const [key, reader] of this.readers)
-      if (!(key in sources)) {
+      if (!Object.hasOwn(sources, key)) {
         release(reader);
         this.readers.delete(key);
       }
     for (const [key, spec] of Object.entries(sources))
       this.updateReader(ctx, key, spec);
     for (const [key, sink] of this.sinks)
-      if (!(key in sinks)) {
+      if (!Object.hasOwn(sinks, key)) {
         sink.cleanup?.();
         this.sinks.delete(key);
       }
     for (const [key, spec] of Object.entries(sinks))
       this.sinks.set(key, telem.useSink(ctx, spec, this.sinks.get(key)));
-    if (Object.keys(this.state.readings).some((key) => !(key in sources)))
+    if (Object.keys(this.state.readings).some((key) => !Object.hasOwn(sources, key)))
       this.setState((p) => ({
         ...p,
         readings: Object.fromEntries(
-          Object.entries(p.readings).filter(([key]) => key in p.sources),
+          Object.entries(p.readings).filter(([key]) => Object.hasOwn(p.sources, key)),
         ),
       }));
   }
@@ -106,7 +111,7 @@ export class SymbolNode
       prev?.staleness,
       {
         timeout: () => this.state.stalenessTimeout,
-        stale: () => this.state.readings[key]?.stale ?? false,
+        stale: () => own(this.state.readings, key)?.stale ?? false,
         onChange: (stale) => this.setReading(key, { stale }),
       },
       source,
@@ -121,7 +126,7 @@ export class SymbolNode
   }
 
   private setReading(key: string, change: Partial<Reading>): void {
-    const prev = this.state.readings[key];
+    const prev = own(this.state.readings, key);
     const next = { ...(prev ?? NO_READING), ...change };
     if (prev?.value === next.value && prev.stale === next.stale) return;
     this.setState((p) => ({ ...p, readings: { ...p.readings, [key]: next } }));

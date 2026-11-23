@@ -73,6 +73,29 @@ describe("symbolNode/aether/SymbolNode", () => {
       expect(Object.keys(h.state.readings)).toEqual(["active"]);
     });
 
+    it("should read the new source of a key whose spec changes", () => {
+      const { h, active } = setup();
+      active.setValue(1);
+      const next = telemTest.source<number>(5);
+      h.setState((p) => ({
+        ...p,
+        sources: { ...p.sources, active: telemTest.numberSourceSpec(next) },
+      }));
+      expect(h.state.readings.active).toEqual({ value: 5, stale: false });
+    });
+
+    it("should read a source whose key names an object prototype member", () => {
+      const source = telemTest.source<number>(3);
+      const h = renderAether(symbolNode.SymbolNode, {
+        state: { sources: { constructor: telemTest.numberSourceSpec(source) } },
+      });
+      expect(h.state.readings).toEqual({ constructor: { value: 3, stale: false } });
+      const cleanup = vi.spyOn(source, "cleanup");
+      h.setState((p) => ({ ...p, sources: {} }));
+      expect(cleanup).toHaveBeenCalled();
+      expect(h.state.readings).toEqual({});
+    });
+
     it("should stop reading a source that the state removes", () => {
       const { h, active, level } = setup();
       const cleanup = vi.spyOn(level, "cleanup");
@@ -98,6 +121,20 @@ describe("symbolNode/aether/SymbolNode", () => {
       }
       expect(h.state.readings.active.stale).toBe(true);
       expect(h.state.readings.level.stale).toBe(false);
+    });
+
+    it("should read a new source of a stale key as live", () => {
+      const { h, active } = setup();
+      active.setValue(1);
+      vi.advanceTimersByTime(1250);
+      h.setState((p) => ({
+        ...p,
+        sources: {
+          ...p.sources,
+          active: telemTest.numberSourceSpec(telemTest.source<number>(2)),
+        },
+      }));
+      expect(h.state.readings.active).toEqual({ value: 2, stale: false });
     });
 
     it("should keep the last value of a stale source", () => {
@@ -126,6 +163,16 @@ describe("symbolNode/aether/SymbolNode", () => {
       const { h } = setup();
       expect(() => h.component.set("level", 1)).toThrow(
         "symbol node has no sink level",
+      );
+    });
+
+    it("should throw for a sink that the state removes", () => {
+      const { h, sink } = setup();
+      const cleanup = vi.spyOn(sink, "cleanup");
+      h.setState((p) => ({ ...p, sinks: {} }));
+      expect(cleanup).toHaveBeenCalled();
+      expect(() => h.component.set("active", 1)).toThrow(
+        "symbol node has no sink active",
       );
     });
 
