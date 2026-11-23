@@ -13,6 +13,8 @@ import subprocess
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from itertools import pairwise
+from pathlib import Path
 from typing import Any
 
 from review import render
@@ -91,10 +93,31 @@ _SUMMARY = re.compile(
 )
 
 
-def gh(*args: str, stdin: str | None = None) -> str:
+_GH_API = Path(__file__).resolve().parents[1] / "gh_api.sh"
+_REPEATABLE = {"GET", "PATCH", "PUT"}
+_FIELDS = {"-f", "-F", "--field", "--raw-field", "--input"}
+
+
+def gh(*args: str, stdin: str | None = None, env: dict[str, str] | None = None) -> str:
+    """Runs `gh` with the given arguments and returns its stdout. A read, a GraphQL
+    query, a PATCH, or a PUT retries a transient failure as `gh_api.sh` does. Any other
+    call runs once: a failed call can still land, so a retry could post twice."""
+    cmd = [str(_GH_API), *args[1:]] if _repeatable(args) else ["gh", *args]
     return subprocess.run(
-        ["gh", *args], input=stdin, stdout=subprocess.PIPE, text=True, check=True
+        cmd, input=stdin, stdout=subprocess.PIPE, text=True, check=True, env=env
     ).stdout
+
+
+def _repeatable(args: tuple[str, ...]) -> bool:
+    if args[:1] != ("api",):
+        return False
+    if "graphql" in args:
+        return any(a.startswith("query=query") for a in args)
+    method = next((b for a, b in pairwise(args) if a in ("-X", "--method")), None)
+    if method is None:
+        # gh sends a call with fields as a POST.
+        return not _FIELDS.intersection(args)
+    return method.upper() in _REPEATABLE
 
 
 @dataclass(frozen=True, kw_only=True)
