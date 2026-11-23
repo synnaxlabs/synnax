@@ -9,6 +9,7 @@
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
+import { Profiler } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -202,6 +203,36 @@ describe("Input", () => {
       await userEvent.click(hex);
       expect(document.activeElement).toBe(hex.element());
     });
+  });
+
+  // A render in the callback of an input's ResizeObserver flushes pending updates
+  // inside the observer loop. One that resizes an observed ancestor fails the loop.
+  it("should mark a value that a resize cuts without a render", async () => {
+    const onRender = vi.fn();
+    const { getByRole } = await renderThemed(
+      <Profiler id="input" onRender={onRender}>
+        <Input.Text value="A long value" onChange={() => {}} />
+      </Profiler>,
+    );
+    const input = getByRole("textbox").element();
+    assert(input instanceof HTMLElement);
+    input.style.width = "40rem";
+    await expect.poll(() => input.classList.contains(CSS.M("cut"))).toBe(false);
+    onRender.mockClear();
+    input.style.width = "4rem";
+    await expect.poll(() => input.classList.contains(CSS.M("cut"))).toBe(true);
+    expect(onRender).not.toHaveBeenCalled();
+  });
+
+  it("should keep the fade of a cut value through a render", async () => {
+    const props = { value: "A long value", onChange: () => {} };
+    const { getByRole, rerender } = await renderThemed(<Input.Text {...props} />);
+    const input = getByRole("textbox").element();
+    assert(input instanceof HTMLElement);
+    input.style.width = "4rem";
+    await expect.poll(() => computed(input, "mask-image")).toContain("gradient");
+    await rerender(<Input.Text {...props} className="other" />);
+    expect(computed(input, "mask-image")).toContain("gradient");
   });
 
   it("should stack above the packed button beside it", async () => {
