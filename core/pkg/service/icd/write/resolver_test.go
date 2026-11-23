@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
@@ -109,6 +110,58 @@ var _ = Describe("Resolver", func() {
 					"channels to string fields: validation error",
 			))
 		})
+
+		// scaled returns f with scale as its scale.
+		scaled := func(f icd.JSONField, scale float64) icd.JSONField {
+			b := f.Base()
+			b.Scale = scale
+			f.SetBase(b)
+			return f
+		}
+
+		DescribeTable("Should give a binding whose channel the lookup does not find "+
+			"its own data type, or else one from its field",
+			func(
+				ctx SpecContext,
+				f icd.JSONField,
+				dt *telem.DataType,
+				matcher types.GomegaMatcher,
+			) {
+				m := jsonMessage("Command", f)
+				ic := icd.ICD{
+					Key:      uuid.New(),
+					Name:     "Plant",
+					Messages: []icd.Message{m},
+				}
+				w := writeAt(
+					0,
+					ic.Key,
+					writeOf(m, channelOf(f.Base().Key, modeKey, dt)),
+				)
+				Expect(resolver.Check(ctx, db, []write.Write{w}, map[icd.Key]icd.ICD{
+					ic.Key: ic,
+				})).To(matcher)
+			},
+			Entry(
+				"its own data type",
+				jsonField("mode", icd.StringJSONField{}),
+				new(telem.Float64T),
+				MatchError(
+					"targets.0.message: message Command: field mode: cannot write "+
+						"float64 channels to string fields: validation error",
+				),
+			),
+			Entry("the default of its field's kind",
+				jsonField("id", icd.UuidJSONField{}),
+				nil,
+				Succeed(),
+			),
+			Entry("float64 for a scaled field",
+				scaled(jsonField("raw", icd.IntegerJSONField{}), 0.5),
+				nil,
+				Succeed(),
+			),
+		)
 
 		It("Should retrieve an ICD that the given ICDs lack", func(ctx SpecContext) {
 			stored := icd.ICD{Name: "Stored", Messages: []icd.Message{tagged}}

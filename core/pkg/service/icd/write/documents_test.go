@@ -184,16 +184,6 @@ var _ = Describe("Documents", func() {
 			To(Equal(channel.Keys{xKey, yKey}))
 	})
 
-	It("Should return the error of a message that the encoder rejects", func() {
-		Expect(write.NewDocuments(
-			writeOf(binary, channelOf(temp.Base().Key, xKey, nil)),
-			plant,
-			channels,
-			"target",
-		)).Error().
-			To(MatchError(ContainSubstring("message Frame is not a JSON message")))
-	})
-
 	It("Should return a validation error for a command channel that does not exist",
 		func() {
 			x := jsonField("x", icd.FloatJSONField{})

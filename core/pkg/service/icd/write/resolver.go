@@ -49,7 +49,7 @@ func NewResolver(icds *icd.Service, channels icdv0.Channels) Resolver {
 // Check builds the encoder of each of writes from its ICD, from icds or else retrieved
 // through snap, and the data types of the channels that the lookup finds. It skips a
 // write whose ICD does not exist, which the reference check of the write reports. It
-// returns the error of Encoder for the first write that does not build, at the path of
+// returns the validation error of the first write that does not build, at the path of
 // its message.
 func (r Resolver) Check(
 	ctx context.Context,
@@ -87,7 +87,7 @@ func (r Resolver) Check(
 		if !ok {
 			continue
 		}
-		if _, err = Encoder(w.Message, ic, dataTypes); err != nil {
+		if _, err = newEncoder(w.Message, ic, dataTypes); err != nil {
 			path := slices.Concat(w.Path, []string{"message"})
 			return validate.PathedError(err, path...)
 		}

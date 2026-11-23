@@ -39,15 +39,15 @@ var defaultDataTypes = map[payload.Kind]telem.DataType{
 	payload.KindBytes:     telem.BytesT,
 }
 
-// Encoder returns the encoder of the documents that wm sends of its message in ic. The
-// encoder takes one sample for each channel binding of wm, in binding order. A value
-// binding sends its value as its field. dataTypes holds the data type of each channel
-// that exists. A binding to another channel takes its own data type, or else float64
-// for a scaled field and the default of its field's kind for any other. Encoder returns
-// a validation error when wm is not valid, ic lacks the message, the message is not
-// JSON, wm binds no channels, a value does not suit its field, or the encoder refuses
-// the bindings.
-func Encoder(
+// newEncoder returns the encoder of the documents that wm sends of its message in ic.
+// The encoder takes one sample for each channel binding of wm, in binding order. A
+// value binding sends its value as its field. dataTypes holds the data type of each
+// channel that exists. A binding to another channel takes its own data type, or else
+// float64 for a scaled field and the default of its field's kind for any other.
+// newEncoder returns a validation error when wm is not valid, ic lacks the message, the
+// message is not JSON, wm binds no channels, a value does not suit its field, or the
+// encoder refuses the bindings.
+func newEncoder(
 	wm icd.WriteMessage,
 	ic icd.ICD,
 	dataTypes map[channel.Key]telem.DataType,
