@@ -146,9 +146,8 @@ const messagePrefix = (
   return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
 };
 
-/** @returns the key of the device properties that store the channels of a message. */
-const storedKey = (topic: string, recordKey: string, message: icd.MessageKey): string =>
-  `${topic}#${recordKey}#${message}`;
+/** @returns the key of a record of topic in the read properties of a device. */
+const sourceKey = (topic: string, recordKey: string): string => `${topic}#${recordKey}`;
 
 /**
  * @returns the channel that the device stores for each pointer of a record, for a
@@ -161,9 +160,10 @@ const recordChannels = (
   { recordKey, messages }: Pick<ReadRecord, "recordKey" | "messages">,
   message: icd.MessageKey,
 ): Record<string, channel.Key> => {
-  const prefix = storedKey(topic, recordKey, "");
+  const source = sourceKey(topic, recordKey);
+  const prefix = `${source}#`;
   const claimed = new Set(
-    messages.slice(1).map((m) => storedKey(topic, recordKey, m.message)),
+    messages.slice(1).map((m) => ICD.Stored.key(source, m.message)),
   );
   const channels: Record<string, channel.Key> = {};
   // A record key may hold "#", and a message key never does.
@@ -174,7 +174,7 @@ const recordChannels = (
       !claimed.has(key)
     )
       Object.assign(channels, props.channels);
-  return { ...channels, ...stored[storedKey(topic, recordKey, message)]?.channels };
+  return { ...channels, ...stored[ICD.Stored.key(source, message)]?.channels };
 };
 
 /** @returns the channels that enabled records bind. The Core skips disabled ones. */
@@ -473,7 +473,7 @@ const Records: FC<RecordsProps> = ({
   const topics = PForm.useFieldValue(root.config.topics);
   const records = topics.flatMap((t) => t.records);
   const stored = device.properties.read;
-  const { dataTypes, bindDisabled } = ICD.useStoredDataTypes(stored);
+  const { dataTypes, bindDisabled } = ICD.Stored.useDataTypes(stored);
   const pathOf = (record: string) =>
     recordPath(topicOf(ctx.get(root.config.topics).value, record), record);
   const {
@@ -507,8 +507,14 @@ const Records: FC<RecordsProps> = ({
       const channels =
         rec.messages.length === 1
           ? recordChannels(stored, topic, rec, message)
-          : (stored[storedKey(topic, rec.recordKey, message)]?.channels ?? {});
-      return ICD.bindingsOf(channels, [field], writtenChannels(all), dataTypes)[0];
+          : (stored[ICD.Stored.key(sourceKey(topic, rec.recordKey), message)]
+              ?.channels ?? {});
+      return ICD.Stored.bindingsOf(
+        channels,
+        [field],
+        writtenChannels(all),
+        dataTypes,
+      )[0];
     },
     messageName: (key, held) => {
       const rec = ctx.get(pathOf(key)).value;
@@ -770,7 +776,10 @@ interface BoundMessage extends ICD.BoundMessage<ReadRecord> {
 
 /** @returns the key of the device properties that store the channels of a message. */
 const storedKeyOf = ({ topic, source, read }: BoundMessage): string =>
-  storedKey(topic.name, source.recordKey, source.messages[read].message);
+  ICD.Stored.key(
+    sourceKey(topic.name, source.recordKey),
+    source.messages[read].message,
+  );
 
 /** @returns the prefix of the names of the channels that a message creates. */
 const prefixOf = (deviceName: string, { topic, source, read, message }: BoundMessage) =>
