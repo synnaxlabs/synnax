@@ -116,9 +116,16 @@ const reasonOf = (err: unknown, step: Step): string => {
   return `${sentence} ${UNREACHABLE[step]}`;
 };
 
-/** The next step when a record that the user cannot see and did not pick blocks. */
-const hiddenStepOf = (hidden: number): string =>
-  `Check "${hidden === 1 ? "Delete it too" : "Delete them too"}", or cancel.`;
+/** Why records that the user cannot see and did not pick block a delete. */
+const hiddenReasonOf = (hidden: number, names: string[]): string => {
+  const records =
+    hidden === 1
+      ? "A record you cannot see uses"
+      : `${hidden} records you cannot see use`;
+  const target = names.length === 1 ? `channel ${names[0]}` : "the channels";
+  const pick = hidden === 1 ? "Delete it too" : "Delete them too";
+  return `${records} ${target}. Check "${pick}", or cancel.`;
+};
 
 /** A plan with the records it names, as the dialog shows it. */
 interface View {
@@ -487,9 +494,10 @@ const Dialog = ({
     }
     if (!(failure instanceof PlanChangedError)) {
       setApplying(false);
-      let description = reasonOf(failure, "apply");
-      if (ValidationError.matches(failure) && view.plan.hidden > 0 && !hidden)
-        description = `${description} ${hiddenStepOf(view.plan.hidden)}`;
+      const description =
+        ValidationError.matches(failure) && view.plan.hidden > 0 && !hidden
+          ? hiddenReasonOf(view.plan.hidden, names)
+          : reasonOf(failure, "apply");
       setFooter({ variant: "error", message: failureOf(names), description });
       return;
     }

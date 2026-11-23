@@ -357,7 +357,7 @@ describe("channel/tree", () => {
       expect(screen.queryByText("Blocks the delete")).toBeNull();
       await clickDelete();
       const step =
-        `Cannot delete channel ${ch.name} because a hidden task uses it. ` +
+        `A record you cannot see uses channel ${ch.name}. ` +
         'Check "Delete it too", or cancel.';
       await screen.findByText(step);
       expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
