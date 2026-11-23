@@ -485,9 +485,11 @@ file depend on the state alone. A count is the index of the next record minus it
 | 8 Clocks          | 4           | The distinct clock keys that data segments in the file name, in rising order. `Drop`, `Sweep`, and the delete guard read it                                                                                                           |
 | 9 Intents (head)  | 4           | The key of each live delete intent (§4.1), in rising order                                                                                                                                                                            |
 
-- **Head**: Every open segment, every segment sealed since the last part, and the dead
-  marks that parts still need. Pointers in the head are cut in memory, so they are
-  exact. A head does not grow with history.
+- **Head**: Every open segment, every segment sealed since the last part, every
+  segment that waits for a rewrite, and the dead marks that parts still need. Pointers
+  in the head are cut in memory, so they are exact. A segment that waits for a rewrite
+  stays through switches until the compactor rewrites it, so a head grows with pending
+  work, not with history.
 - **Part**: Sections 4, 5, 6, and 8: sealed segments and their pointers as they were at
   the switch, written once. A kill in the head hides records in parts of its generation
   or older. The checkpointer writes a part again, under a new identity, only when half
@@ -887,9 +889,10 @@ update backup of RFC 0102. That backup now also holds the `index.domain` and
    that its clock has stamps for. Log each cut. The cut of step 2 runs first, so a
    pointer that covers index bytes past the end of their file never keeps data samples
    with no stamps. Bytes inside a file can still read as zeros after a crash on some
-   file systems: the newest pointer of each old index has its last stamp read and
-   compared with the pointer's time range, and a stamp that does not fit is cut back, by
-   a binary search, to the last stamp that rises.
+   file systems: each bound stamp that the conversion reads (the first and last stamp of
+   each index pointer and of each data piece) is compared with its index pointer's time
+   range, and a stamp that does not fit cuts that pointer back, by a binary search, to
+   the last stamp that rises. The check pass (§5.1) finds zeros inside a pointer.
 4. Build the state. Each `N.domain` with a pointer is a sealed version 0 segment with a
    new identity and the old index key as its clock key. Each stretch of an old index
    takes one alignment number, in key order and then in time order. An old data pointer
@@ -903,10 +906,14 @@ update backup of RFC 0102. That backup now also holds the `index.domain` and
 7. Write the header sector of head 1 and sync. That sync is the commit point.
 8. The Core writes the database identity of head 1 to the metadata store before it
    serves (§9.0). The first open after that removes the `-DELETE-<n>` directories and
-   the temporary files of an old compaction or truncate (`<N>.domain_temp`,
-   `<N>.domain_gc`, `<N>.domain.tmp`): the old binary renames a temporary file into
-   place only once it is whole (`cesium/internal/domain/delete.go:480-484`,
-   `cesium/internal/unary/truncate.go:162`), so none holds committed data.
+   each `<start>-<end>.truncated.tmp` of an old truncate, whose bytes the data file
+   still holds (`cesium/internal/unary/truncate.go:162`). It keeps `<N>.domain_temp`
+   and `<N>.domain_gc` and logs each: the old compaction renames with no sync
+   (`cesium/internal/domain/delete.go:336-500`), so after a power loss either can hold
+   the only copy of file N. Where `N.domain` is missing, the conversion reads
+   `N.domain_temp` as file N, an open or unlink of a version 0 file tries `N.domain`,
+   then `N.domain_temp`, then `N.domain` again, and that first open renames
+   `N.domain_temp` into place.
 
 No old file in a channel directory is written, renamed, or removed before step 8. The
 only new file there is `<key>/channel`, written and synced with step 5, which the old
@@ -922,18 +929,25 @@ update fails at start (`core/pkg/storage/update.go:49`), or `synnax update undo`
 old binary, which restores the metadata store and each `meta.json` and touches no other
 file (`cesium/backup.go:47-79`, `core/pkg/storage/restore.go:200-221`). So the new
 layout is tied to a mark that every undo rolls back: the Core keeps the database
-identity of head 1 in the metadata store (step 8 of §9) and passes it to `Open`. A
-newest head whose identity differs from the one passed, or heads with none passed, mark
-an undone conversion. Cesium then renames the root heads, logs, and parts and every
-`.seg` and `.chk` file with the suffix `.undone` inside its directory, syncs each
-directory, and converts again from the old files as they are now. A crash between the
+identity of head 1 in the metadata store (step 8 of §9) and passes it to `Open`, which
+refuses a root that holds a head when the caller states no identity. A newest head whose
+identity differs from the one stated, or heads when the caller holds none
+(`WithIdentity(0)`), mark an undone conversion. Cesium then renames every `.seg`,
+`.chk`, and `<key>/channel` file, then the root logs and parts, then the heads, to
+`<name>.<identity>.undone` inside its directory, with the identity of the undone
+database, so a second undo keeps the files of the first and a crash in the middle undoes
+again. It syncs each directory and converts again from the old files as they are now. A
+Drop removes every file of its key's directory but the `.undone` files, so a channel
+that reuses an undone channel's key never deletes that telemetry. A crash between the
 commit point and the identity write converts again with nothing lost, since the Core
-serves only after the write. Telemetry that the new binary wrote is lost, and the new
-binary's undo warns before it runs. An update that keeps the Cesium formats backs up and
-restores no Cesium file: its undo leaves the live state, and `Sweep` handles the keys
-that the restored channel table does not hold. No background work rewrites a version 0
-file while a backup from a release older than the first that writes segments exists
-(§5.1), so every undo finds the old files that it needs.
+serves only after the write. Telemetry that the new binary wrote is lost, so
+`synnax update undo` across the conversion warns and asks before it runs; `--yes` skips
+the question, and with no answer or no terminal the undo refuses. An update that keeps
+the Cesium formats backs up and restores no Cesium file: its undo leaves the live state,
+and `Sweep` handles the keys that the restored channel table does not hold. No
+background work rewrites a version 0 file while a backup from a release older than the
+first that writes segments exists (§5.1), so every undo finds the old files that it
+needs.
 
 ### 9.1 What is owed
 
@@ -976,23 +990,27 @@ take a predicate over the keys that the session lacks (nil skips nothing; one me
 each), which Cesium calls under each channel's claim lock, with the lock order claim,
 then the framer's gate, so a write never lands after a new holder's. A group whose index
 the session lacks is skipped whole, as today (`cesium/writer_stream.go:687-693`), so no
-data lands at another session's stamps, and a narrowed `EndDomain` still reports that
-the session is not authorized; and the framer names to `EndDomain` only the indexes
-whose groups it fully controls, so a write or a commit never reaches a channel that
-another session controls. From Phase 6 the framer opens one Cesium writer per live
-clock, for the session that holds the clock, over that session's keys on it. A handoff
-of the clock closes that writer (a `Sync`, then a Seal) and opens one for the new
-holder, as one event, at one sealed segment and one new stretch. The predicate stays for
-data channels that the holder lacks, until RFC 0117 Phase 6 gives each control writer
-its own clock. One clock per writer and the refusal of an overlapping writer (§5.8)
-arrive with Phase 6. Phase 6 builds the log, heads, `Sync` and the framer's call to it,
-recovery, the state owner, the handle budget, version 1 segments, and replay from a run
-key, behind a Cesium open option that keeps the old layout the default. Phase 7 builds
-parts, versions 0 and 2, tombstones, compaction, the conversion with a crash test at
-each of its steps, the backup change, and `synnax repair` (§6.1), and makes the new
-layout the only one that opens. RFC 0117 Phase 8 deletes the old code, except the
-old-layout reader of the conversion. Phase 5 comes after RFC 0117 Phases 1 and 2, and
-RFC 0117 Phases 6 to 8 come after Phase 7.
+write lands at another session's stamps, and a narrowed `EndDomain` still reports that
+the session is not authorized. Data that the session wrote before it lost the index
+stays pending, as on `main` since #5906: it commits alone once another holder's commit
+covers its last stamp, as a write against stored stamps (§5.7) with that path's checks,
+or with the index once the session holds the index again, and it drops at `Close`
+otherwise; and the framer names to `EndDomain` only the indexes whose groups it fully
+controls, so a write or a commit never reaches a channel that another session controls.
+From Phase 6 the framer opens one Cesium writer per live clock, for the session that
+holds the clock, over that session's keys on it. A handoff of the clock closes that
+writer (a `Sync`, then a Seal) and opens one for the new holder, as one event, at one
+sealed segment and one new stretch. The predicate stays for data channels that the
+holder lacks, until RFC 0117 Phase 6 gives each control writer its own clock. One clock
+per writer and the refusal of an overlapping writer (§5.8) arrive with Phase 6. Phase 6
+builds the log, heads, `Sync` and the framer's call to it, recovery, the state owner,
+the handle budget, version 1 segments, and replay from a run key, behind a Cesium open
+option that keeps the old layout the default. Phase 7 builds parts, versions 0 and 2,
+tombstones, compaction, the conversion with a crash test at each of its steps, the
+backup change, and `synnax repair` (§6.1), and makes the new layout the only one that
+opens. RFC 0117 Phase 8 deletes the old code, except the old-layout reader of the
+conversion. Phase 5 comes after RFC 0117 Phases 1 and 2, and RFC 0117 Phases 6 to 8 come
+after Phase 7.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                       | Depends on |
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
