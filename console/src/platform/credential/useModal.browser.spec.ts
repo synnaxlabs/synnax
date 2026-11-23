@@ -86,8 +86,8 @@ describe("useModal", () => {
     await screen.findByText("No API keys");
     // A real key press takes longer than the save, so the save waits for it.
     const { promise: pressed, resolve: release } = Promise.withResolvers<void>();
-    const save = client.auth.createKey.bind(client.auth);
-    vi.spyOn(client.auth, "createKey").mockImplementation(async (props) => {
+    const save = client.auth.createAPIKey.bind(client.auth);
+    vi.spyOn(client.auth, "createAPIKey").mockImplementation(async (props) => {
       await pressed;
       return await save(props);
     });
