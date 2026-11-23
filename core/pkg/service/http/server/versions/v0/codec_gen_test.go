@@ -185,8 +185,21 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.Request{Method: http.Method("GET"), Path: "test_2"}),
-			Entry("zero values", v0.Request{Method: http.Method(""), Path: ""}),
+			Entry("fully populated", v0.Request{
+				Method: http.Method("GET"),
+				Path:   "test_2",
+				Query:  []http.QueryParam{{Parameter: "test_4", Value: "test_5"}},
+			}),
+			Entry("zero values", v0.Request{
+				Method: http.Method(""),
+				Path:   "",
+				Query:  []http.QueryParam{},
+			}),
+			Entry("empty collections", v0.Request{
+				Method: http.Method("GET"),
+				Path:   "test_2",
+				Query:  []http.QueryParam{},
+			}),
 		)
 	})
 	Describe("Response", func() {
@@ -274,8 +287,12 @@ var _ = Describe("Codec", func() {
 				},
 				Writes: []v0.Write{
 					{
-						Request: v0.Request{Method: http.Method("GET"), Path: "test_37"},
-						Channel: channel.Key(39),
+						Request: v0.Request{
+							Method: http.Method("GET"),
+							Path:   "test_37",
+							Query:  []http.QueryParam{{Parameter: "test_39", Value: "test_40"}},
+						},
+						Channel: channel.Key(42),
 					},
 				},
 			}),
@@ -340,11 +357,19 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Write{
-				Request: v0.Request{Method: http.Method("GET"), Path: "test_3"},
-				Channel: channel.Key(5),
+				Request: v0.Request{
+					Method: http.Method("GET"),
+					Path:   "test_3",
+					Query:  []http.QueryParam{{Parameter: "test_5", Value: "test_6"}},
+				},
+				Channel: channel.Key(8),
 			}),
 			Entry("zero values", v0.Write{
-				Request: v0.Request{Method: http.Method(""), Path: ""},
+				Request: v0.Request{
+					Method: http.Method(""),
+					Path:   "",
+					Query:  []http.QueryParam{},
+				},
 				Channel: channel.Key(0),
 			}),
 		)
@@ -460,7 +485,11 @@ func BenchmarkEncodeDecodeReadRequest(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeRequest(b *testing.B) {
-	seed := v0.Request{Method: http.Method("GET"), Path: "test_2"}
+	seed := v0.Request{
+		Method: http.Method("GET"),
+		Path:   "test_2",
+		Query:  []http.QueryParam{{Parameter: "test_4", Value: "test_5"}},
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -550,8 +579,12 @@ func BenchmarkEncodeDecodeServer(b *testing.B) {
 		},
 		Writes: []v0.Write{
 			{
-				Request: v0.Request{Method: http.Method("GET"), Path: "test_37"},
-				Channel: channel.Key(39),
+				Request: v0.Request{
+					Method: http.Method("GET"),
+					Path:   "test_37",
+					Query:  []http.QueryParam{{Parameter: "test_39", Value: "test_40"}},
+				},
+				Channel: channel.Key(42),
 			},
 		},
 	}
@@ -572,8 +605,12 @@ func BenchmarkEncodeDecodeServer(b *testing.B) {
 
 func BenchmarkEncodeDecodeWrite(b *testing.B) {
 	seed := v0.Write{
-		Request: v0.Request{Method: http.Method("GET"), Path: "test_3"},
-		Channel: channel.Key(5),
+		Request: v0.Request{
+			Method: http.Method("GET"),
+			Path:   "test_3",
+			Query:  []http.QueryParam{{Parameter: "test_5", Value: "test_6"}},
+		},
+		Channel: channel.Key(8),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -883,7 +920,11 @@ func FuzzDecodeReadRequest(f *testing.F) {
 
 func FuzzDecodeRequest(f *testing.F) {
 	{
-		seed := v0.Request{Method: http.Method("GET"), Path: "test_2"}
+		seed := v0.Request{
+			Method: http.Method("GET"),
+			Path:   "test_2",
+			Query:  []http.QueryParam{{Parameter: "test_4", Value: "test_5"}},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -891,7 +932,23 @@ func FuzzDecodeRequest(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Request{Method: http.Method(""), Path: ""}
+		seed := v0.Request{
+			Method: http.Method(""),
+			Path:   "",
+			Query:  []http.QueryParam{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Request{
+			Method: http.Method("GET"),
+			Path:   "test_2",
+			Query:  []http.QueryParam{},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1058,8 +1115,12 @@ func FuzzDecodeServer(f *testing.F) {
 			},
 			Writes: []v0.Write{
 				{
-					Request: v0.Request{Method: http.Method("GET"), Path: "test_37"},
-					Channel: channel.Key(39),
+					Request: v0.Request{
+						Method: http.Method("GET"),
+						Path:   "test_37",
+						Query:  []http.QueryParam{{Parameter: "test_39", Value: "test_40"}},
+					},
+					Channel: channel.Key(42),
 				},
 			},
 		}
@@ -1155,8 +1216,12 @@ func FuzzDecodeServer(f *testing.F) {
 func FuzzDecodeWrite(f *testing.F) {
 	{
 		seed := v0.Write{
-			Request: v0.Request{Method: http.Method("GET"), Path: "test_3"},
-			Channel: channel.Key(5),
+			Request: v0.Request{
+				Method: http.Method("GET"),
+				Path:   "test_3",
+				Query:  []http.QueryParam{{Parameter: "test_5", Value: "test_6"}},
+			},
+			Channel: channel.Key(8),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1166,7 +1231,11 @@ func FuzzDecodeWrite(f *testing.F) {
 	}
 	{
 		seed := v0.Write{
-			Request: v0.Request{Method: http.Method(""), Path: ""},
+			Request: v0.Request{
+				Method: http.Method(""),
+				Path:   "",
+				Query:  []http.QueryParam{},
+			},
 			Channel: channel.Key(0),
 		}
 		w := orc.NewWriter(0)

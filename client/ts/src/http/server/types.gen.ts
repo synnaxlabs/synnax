@@ -36,6 +36,8 @@ export const requestZ = z.object({
   method: http.methodZ.default("POST"),
   /** path is the path appended to the base URL. Empty requests the base URL. */
   path: z.string().default(""),
+  /** query are the query parameters of the request, in sorted order. */
+  query: http.queryParamZ.array().default(() => []),
 });
 export interface Request extends z.infer<typeof requestZ> {}
 

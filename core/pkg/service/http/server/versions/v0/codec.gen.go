@@ -298,6 +298,15 @@ func (rr *ReadRequest) DecodeOrc(r *orc.Reader) error {
 func (rv Request) EncodeOrc(w *orc.Writer) error {
 	w.String(string(rv.Method))
 	w.String(rv.Path)
+	w.Bool(rv.Query != nil)
+	if rv.Query != nil {
+		w.Uint32(uint32(len(rv.Query)))
+		for i := range rv.Query {
+			if err := rv.Query[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -313,6 +322,24 @@ func (rv *Request) DecodeOrc(r *orc.Reader) error {
 	}
 	if rv.Path, err = r.String(); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rv.Query = make([]http.QueryParam, n)
+			for i := range rv.Query {
+				if err = rv.Query[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

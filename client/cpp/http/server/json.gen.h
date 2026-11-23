@@ -75,6 +75,10 @@ inline Request Request::parse(x::json::Parser parser) {
     return Request{
         .method = parser.field<std::string>("method", "POST"),
         .path = parser.field<std::string>("path", ""),
+        .query = parser.field<std::vector<::synnax::http::QueryParam>>(
+            "query",
+            std::vector<::synnax::http::QueryParam>{}
+        ),
     };
 }
 
@@ -82,6 +86,7 @@ inline x::json::json Request::to_json() const {
     x::json::json j = x::json::json::object();
     j["method"] = this->method;
     j["path"] = this->path;
+    j["query"] = x::json::to_array(this->query);
     return j;
 }
 

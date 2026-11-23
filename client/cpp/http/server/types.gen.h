@@ -58,6 +58,8 @@ struct Request {
     std::string method = ::synnax::http::METHOD_POST;
     /// @brief path is the path appended to the base URL. Empty requests the base URL.
     std::string path = "";
+    /// @brief query are the query parameters of the request, in sorted order.
+    std::vector<::synnax::http::QueryParam> query = {};
 
     static Request parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

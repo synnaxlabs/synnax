@@ -729,6 +729,8 @@ type Request struct {
 	Method http.Method `json:"method" msgpack:"method"`
 	// Path is the path appended to the base URL. Empty requests the base URL.
 	Path string `json:"path" msgpack:"path"`
+	// Query are the query parameters of the request, in sorted order.
+	Query []http.QueryParam `json:"query" msgpack:"query"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.

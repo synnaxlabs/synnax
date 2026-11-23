@@ -105,7 +105,11 @@ var _ = Describe("Server", func() {
 				Channel: 2,
 			}}
 			s.Writes = []v0.Write{{
-				Request: v0.Request{Method: http.MethodPut, Path: "/valve"},
+				Request: v0.Request{
+					Method: http.MethodPut,
+					Path:   "/valve",
+					Query:  []http.QueryParam{{Parameter: "id", Value: "1"}},
+				},
 				Channel: 3,
 			}}
 			var decoded v0.Server

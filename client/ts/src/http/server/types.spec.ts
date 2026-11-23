@@ -46,7 +46,11 @@ describe("serverZ", () => {
       writes: [{ request: { path: "/valve" }, channel: 3 }],
     });
     expect(server.reads[0].request).toEqual({ method: "GET", path: "/now", query: [] });
-    expect(server.writes[0].request).toEqual({ method: "POST", path: "/valve" });
+    expect(server.writes[0].request).toEqual({
+      method: "POST",
+      path: "/valve",
+      query: [],
+    });
   });
 
   it("should parse an API key that names its key by secret", () => {

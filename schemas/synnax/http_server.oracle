@@ -170,6 +170,9 @@ Request struct {
     path   string = "" {
         @doc value "is the path appended to the base URL. Empty requests the base URL."
     }
+    query  http.QueryParam[] = [] {
+        @doc value "are the query parameters of the request, in sorted order."
+    }
 
     @doc value  "identifies the request that a write task sends."
     @go marshal

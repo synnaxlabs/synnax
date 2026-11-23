@@ -47,10 +47,12 @@ class Request(BaseModel):
     Attributes:
         method: Is the method of the request.
         path: Is the path appended to the base URL. Empty requests the base URL.
+        query: Are the query parameters of the request, in sorted order.
     """
 
     method: types_gen.Method = "POST"
     path: str = ""
+    query: list[types_gen.QueryParam] = Field(default_factory=list)
 
 
 class ReadRequest(BaseModel):
