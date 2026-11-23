@@ -212,6 +212,8 @@ export const Preview = ({
       el.addEventListener("click", (e) => {
         // The groups around the shape have their own listeners.
         e.stopPropagation();
+        // Shift+drag pans the preview.
+        if (e.shiftKey) return;
         const markup = form.get(path.data.drawing.markup).value;
         const shape = Schematic.Node.Region.name(markup, drawing, el);
         // Alt-click is the shortcut for Select parent group.
