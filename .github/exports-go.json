@@ -5,30 +5,30 @@
   ],
   "pending": [
     {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "JSONEncoder",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/6668"
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium",
+      "name": "ErrChannelNotFound",
+      "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
     },
     {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "NewJSONEncoder",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/6668"
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium",
+      "name": "Writer",
+      "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
     },
     {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "receiver": "JSONEncoder",
-      "name": "Encode",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/6668"
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/validate",
+      "receiver": "Validator",
+      "name": "MaxBytes",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
     },
     {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "receiver": "JSONEncoder",
-      "name": "HasDefault",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/6668"
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/validate",
+      "receiver": "Validator",
+      "name": "MinBytes",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
     }
   ]
 }

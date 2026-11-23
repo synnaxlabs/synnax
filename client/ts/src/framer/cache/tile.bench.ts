@@ -12,7 +12,7 @@ import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
 import type { channel } from "@/channel";
-import { tileSpan } from "@/framer/cache/grid";
+import { grid } from "@/framer/cache/grid";
 import { Store } from "@/framer/cache/store";
 import { tileKey, TileReader, type TileSpec } from "@/framer/cache/tile";
 import { SyntheticCore } from "@/testutil";
@@ -36,7 +36,7 @@ const createReader = (core: SyntheticCore, budget?: Size): TileReader =>
 
 // specs returns the tiles of the last day for the index and every data channel.
 const specs = (core: SyntheticCore, tiles = 3): TileSpec[] => {
-  const last = Number(NOW.valueOf() / tileSpan(LEVEL).valueOf());
+  const last = Number(NOW.valueOf() / grid.tileSpan(LEVEL).valueOf());
   const keys: channel.Key[] = [core.index.key, ...core.data.map((c) => c.key)];
   return Array.from({ length: tiles }, (_, i) => last - tiles + 1 + i).flatMap((tile) =>
     keys.map((key) => ({
@@ -105,7 +105,7 @@ const insertPastBudget = async (held: number): Promise<() => Promise<void>> => {
     pointLimit: POINT_LIMIT,
     aggregation: "min_max",
   });
-  const first = Number(START.valueOf() / tileSpan(HELD_LEVEL).valueOf()) + 1;
+  const first = Number(START.valueOf() / grid.tileSpan(HELD_LEVEL).valueOf()) + 1;
   const heldSpecs = Array.from({ length: held }, (_, i) => spec(first + i));
   const sizer = createReader(core);
   const sizes = await Promise.all(

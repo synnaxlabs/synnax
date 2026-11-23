@@ -27,8 +27,8 @@ import type { channel } from "@/channel";
 import { NotFoundError, UnsupportedError } from "@/errors";
 import type { ChannelRetriever } from "@/framer/adapter";
 import { domainOf } from "@/framer/cache/block";
-import { Dynamic } from "@/framer/cache/dynamic";
-import { IndexStamps, Stamps } from "@/framer/cache/stamps";
+import { dynamic } from "@/framer/cache/dynamic";
+import { stamps as cacheStamps } from "@/framer/cache/stamps";
 import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { calculated, type Store } from "@/framer/cache/store";
 import type { Demand, MultiplexedStreamer } from "@/framer/cache/streamer";
@@ -103,7 +103,7 @@ export class Latest {
   // newest samples after them, while streamed series continue it.
   private series: Series[] = [];
   private closedTotal = 0;
-  private buffer: Dynamic;
+  private buffer: dynamic.Dynamic;
   // unserved counts the newest samples that no value served.
   private unserved = 0;
   private appended = 0;
@@ -117,7 +117,7 @@ export class Latest {
   private timeSource: { index: channel.Key } | "self" | "stamps" | null = null;
   // indexStamps holds the index series that stamp the samples held, from the first
   // timeAt that needs them.
-  private indexStamps: IndexStamps | null = null;
+  private indexStamps: cacheStamps.Index | null = null;
   // timed is true from the first timeAt, so reads fetch the index with the samples.
   private timed = false;
   private indexDemand: Demand | null = null;
@@ -128,7 +128,7 @@ export class Latest {
   private indexRefused = false;
   // stamps records each write until the channel turns out to have an index, since
   // streamed series can arrive before it is found.
-  private stamps: Stamps | null;
+  private stamps: cacheStamps.Stamps | null;
   // seedable is true for a channel the Core stores nothing of, null until known.
   private seedable: boolean | null = null;
   // The newest series streamed before the channel was known.
@@ -177,8 +177,9 @@ export class Latest {
       this.notify();
     });
     this.demand.onDrop(() => this.reload());
-    this.stopInvalidations = props.store.onInvalidate((ch, tr) => {
-      if (ch == null || ch === key) this.changed(tr);
+    // A miss reaches the reader through its drop handler, which keeps the samples held.
+    this.stopInvalidations = props.store.onInvalidate((ch, tr, missed) => {
+      if (!missed && (ch == null || ch === key)) this.changed(tr);
     });
     this.running = { abort: new AbortController(), mark: 0 };
     void this.load(this.running);
@@ -352,8 +353,8 @@ export class Latest {
 
   // Each write holds at least one sample, so count records cover the newest count
   // samples.
-  private createStamps(): Stamps {
-    return new Stamps(Math.max(this.count, 1));
+  private createStamps(): cacheStamps.Stamps {
+    return new cacheStamps.Stamps(Math.max(this.count, 1));
   }
 
   private findTimeSource(p: channel.Payload): void {
@@ -382,8 +383,8 @@ export class Latest {
   }
 
   // Streams the index, keeping the index series written with this channel's samples.
-  private streamIndex(index: channel.Key): IndexStamps {
-    const stamps = new IndexStamps();
+  private streamIndex(index: channel.Key): cacheStamps.Index {
+    const stamps = new cacheStamps.Index();
     this.indexDemand = this.props.streamer.demand([index], (frame) => {
       const data = frame.get(this.key);
       const written = frame.get(index);
@@ -434,10 +435,10 @@ export class Latest {
     read.retryAt = this.props.now().add(INDEX_RETRY);
   }
 
-  private createBuffer(): Dynamic {
+  private createBuffer(): dynamic.Dynamic {
     const size = bounds.clamp({ lower: MIN_BUFFER, upper: MAX_BUFFER }, this.count);
     // A value keeps every series it served, so a closed buffer stays the same object.
-    return new Dynamic({
+    return new dynamic.Dynamic({
       dynamicBufferSize: size,
       now: this.props.now,
       compactionDisabled: true,
@@ -482,6 +483,7 @@ export class Latest {
       try {
         const [payload] = await retrieveChannels([this.key]);
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
+        this.props.store.setChannel(payload);
         if (this.running === run) this.findTimeSource(payload);
         let read: Series[] = [];
         let seed: Series | null = null;

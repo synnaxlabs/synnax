@@ -120,7 +120,7 @@ type FixedCommandValue = v5.FixedCommandValue
 type AskCommandValue = v5.AskCommandValue
 
 // Look is paint, visibility, or motion on a part. A later look wins on each field that
-// it sets.
+// it sets. On motion, it replaces only an earlier motion of the same kind.
 type Look = v5.Look
 
 // Blink makes a part flash.
@@ -153,6 +153,9 @@ type PaintType = v5.PaintType
 const (
 	// EntryPaintType is the color of the current entry of a state.
 	EntryPaintType PaintType = v5.EntryPaintType
+	// ContrastPaintType is black or white, whichever reads on the entry color of a
+	// state.
+	ContrastPaintType PaintType = v5.ContrastPaintType
 	// NodePaintType is the color that the node sets.
 	NodePaintType PaintType = v5.NodePaintType
 	// ColorPaintType is one color.
@@ -161,6 +164,9 @@ const (
 
 // EntryPaint is the color of the current entry of a state.
 type EntryPaint = v5.EntryPaint
+
+// ContrastPaint is black or white, whichever reads on the entry color of a state.
+type ContrastPaint = v5.ContrastPaint
 
 // NodePaint is the color that the node sets.
 type NodePaint = v5.NodePaint
@@ -239,3 +245,30 @@ type Spec = v5.Spec
 // Symbol is a persisted schematic symbol defining reusable visual components for
 // diagrams.
 type Symbol = v5.Symbol
+
+// Ref is the symbol that a node draws.
+type Ref = v5.Ref
+
+// RefVariant is implemented by every Ref variant.
+type RefVariant = v5.RefVariant
+
+// RefType is the "type" value that selects a variant of Ref.
+type RefType = v5.RefType
+
+const (
+	// BuiltinRefType is a symbol that the Core ships.
+	BuiltinRefType RefType = v5.BuiltinRefType
+	// CustomRefType is a symbol that a user made.
+	CustomRefType RefType = v5.CustomRefType
+	// MissingRefType is a custom symbol that the Core does not have.
+	MissingRefType RefType = v5.MissingRefType
+)
+
+// BuiltinRef is a symbol that the Core ships.
+type BuiltinRef = v5.BuiltinRef
+
+// CustomRef is a symbol that a user made.
+type CustomRef = v5.CustomRef
+
+// MissingRef is a custom symbol that the Core does not have.
+type MissingRef = v5.MissingRef

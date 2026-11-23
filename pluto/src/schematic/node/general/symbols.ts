@@ -46,3 +46,9 @@ export const REGISTRY = {
   text_box: TextBox.spec,
   value: Value.spec,
 } as const satisfies Partial<Record<schematic.NodeConfigType, unknown>>;
+
+/** BUILT_INS maps the name of each built-in symbol to its spec. */
+export const BUILT_INS = {
+  light: Light.SYMBOL,
+  switch: Switch.SYMBOL,
+} as const satisfies Record<string, schematic.symbol.Spec>;
