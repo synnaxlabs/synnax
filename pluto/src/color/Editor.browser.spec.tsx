@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { color as xcolor, id } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
@@ -24,6 +24,9 @@ describe("Color.Editor", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
+    // `other` serves a cached read until its stream goes live, which can outlast a
+    // poll.
+    await waitForStreamLive(other.connection);
   });
 
   const renderEditor = (key: color.Key, disabled?: boolean) =>

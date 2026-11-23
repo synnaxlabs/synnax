@@ -228,14 +228,14 @@ class FormatConfig(BaseModel):
     """Is how a node shows a number.
 
     Attributes:
-        units: Is the unit suffix shown after the value.
+        units: Is the unit suffix shown after the value. Absent shows none.
         precision: Is the number of decimal places shown, from 0 to 17. Absent shows 2.
-        notation: Is the notation of the value.
+        notation: Is the notation of the value. Absent shows standard notation.
     """
 
-    units: str = ""
+    units: str | None = None
     precision: int | None = Field(default=None, ge=0, le=17)
-    notation: notation_.Notation = "standard"
+    notation: notation_.Notation | None = None
 
 
 class CommandBinding(BaseModel):

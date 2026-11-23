@@ -9,7 +9,14 @@
 
 // The pure entry leaves the act environment of the browser specs alone.
 import { act, cleanup, fireEvent, render } from "@testing-library/react/pure";
-import { type CSSProperties, type ReactElement, type ReactNode, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   afterEach,
   assert,
@@ -29,7 +36,7 @@ import { Input } from "@/input";
 import { List } from "@/list";
 import { Menu } from "@/menu";
 import { Portal } from "@/portal";
-import { computed, renderThemed, resolve } from "@/styletest";
+import { computed, renderThemed, resolve, withMotion } from "@/styletest";
 import { Triggers } from "@/triggers";
 
 const TALL = <div style={{ height: 2000, flexShrink: 0 }}>Tall</div>;
@@ -198,21 +205,21 @@ const VirtualList = (): ReactElement => (
   </Triggers.Provider>
 );
 
-/** @returns whether each dialog added to the page was shown before it was painted. */
-const watchDialogMounts = (): boolean[] => {
-  const shown: boolean[] = [];
+/** @returns a snapshot of each dialog added to the page, taken before it is painted. */
+const watchDialogMounts = <T,>(snapshot: (dialog: Element) => T): T[] => {
+  const snapshots: T[] = [];
   const observer = new MutationObserver((records) => {
     for (const { addedNodes } of records)
       for (const node of addedNodes) {
         if (!(node instanceof Element)) continue;
         const dialog =
           node.closest('[role="dialog"]') ?? node.querySelector('[role="dialog"]');
-        if (dialog != null) shown.push(dialog.classList.contains(CSS.visible(true)));
+        if (dialog != null) snapshots.push(snapshot(dialog));
       }
   });
   observer.observe(document.body, { childList: true, subtree: true });
   onTestFinished(() => observer.disconnect());
-  return shown;
+  return snapshots;
 };
 
 /** An item that closes its dropdown when clicked, and cannot take the focus. */
@@ -385,9 +392,49 @@ describe("Dialog", () => {
       expect(onTop(dialog)).toBe(true);
     });
 
+    it("should focus an autoFocus field as it mounts, before the popover shows", async () => {
+      // A closed popover gets display: none from the browser, which the surface's own
+      // display overrides. Without it, React's autoFocus would focus nothing.
+      const mounted: { display: string; focused: boolean; open: boolean }[] = [];
+      const Field = (): ReactElement => {
+        const ref = useRef<HTMLInputElement>(null);
+        useLayoutEffect(() => {
+          const surface = ref.current?.closest("[popover]");
+          assert(surface != null);
+          mounted.push({
+            display: getComputedStyle(surface).display,
+            focused: document.activeElement === ref.current,
+            open: surface.matches(":popover-open"),
+          });
+        }, []);
+        return <input ref={ref} aria-label="Search" autoFocus />;
+      };
+      await renderThemed(
+        <Triggers.Provider>
+          <Dialog.Frame>
+            <Dialog.Trigger>Menu</Dialog.Trigger>
+            <Dialog.Dialog>
+              <Field />
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      await userEvent.click(button("Menu"));
+      await expect.element(page.getByLabelText("Search")).toHaveFocus();
+      expect(mounted).toEqual([{ display: "flex", focused: true, open: false }]);
+    });
+
     it("should show in the top layer", async () => {
       const { dialog } = await openDialog("floating");
       expect(dialog.matches(":popover-open")).toBe(true);
+    });
+
+    it("should start its entrance animation only once it is placed", async () => {
+      const animations = watchDialogMounts((d) =>
+        withMotion(() => computed(d, "animation-name")),
+      );
+      await openDialog("floating");
+      expect(animations).toEqual(["none"]);
     });
 
     it("should open beside its trigger without covering it", async () => {
@@ -420,7 +467,7 @@ describe("Dialog", () => {
       await userEvent.click(button("Menu"));
       await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
       await userEvent.click(button("Grow"));
-      const shown = watchDialogMounts();
+      const shown = watchDialogMounts((d) => d.classList.contains(CSS.visible(true)));
       await userEvent.click(button("A much longer menu"));
       const dialog = page.getByRole("dialog").element();
       await expect.poll(() => computed(dialog, "opacity")).toBe("1");

@@ -178,12 +178,12 @@ export interface ScaledConfig extends z.infer<typeof scaledConfigZ> {}
 
 /** FormatConfig is how a node shows a number. */
 export const formatConfigZ = z.object({
-  /** units is the unit suffix shown after the value. */
-  units: z.string().default(""),
+  /** units is the unit suffix shown after the value. Absent shows none. */
+  units: z.string().optional(),
   /** precision is the number of decimal places shown, from 0 to 17. Absent shows 2. */
   precision: zod.uint8.max(17).optional(),
-  /** notation is the notation of the value. */
-  notation: notation.notationZ.default("standard"),
+  /** notation is the notation of the value. Absent shows standard notation. */
+  notation: notation.notationZ.optional(),
 });
 export interface FormatConfig extends z.infer<typeof formatConfigZ> {}
 

@@ -1200,6 +1200,49 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 		)
 
 		It(
+			"Should check bytes lengths with the byte counting validator methods",
+			func() {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					data bytes {
+						@validate {
+							min_length 1
+							max_length 64
+						}
+					}
+				}
+			`
+				resp := MustGenerate(source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					`v.MinBytes("data", c.Data, 1)`,
+					`v.MaxBytes("data", c.Data, 64)`,
+				).ToNotContain("v.MinLength", "v.NotEmptyString")
+			},
+		)
+
+		It(
+			"Should check an optional bytes field without dereferencing it",
+			func() {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					data bytes? {
+						@validate min_length 1
+					}
+				}
+			`
+				resp := MustGenerate(source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					`if c.Data != nil {`,
+					`v.MinBytes("data", c.Data, 1)`,
+				)
+			},
+		)
+
+		It(
 			"Should recurse into a nested type that only has a constraint",
 			func() {
 				source := `

@@ -84,13 +84,11 @@ func (s *Schematic) Patch(c patch.Cursor) error {
 func (sb *StateBinding) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "units":
-		return patch.Value(&sb.FormatConfig.Units, c.Next())
+		return patch.OptionalValue(&sb.FormatConfig.Units, c.Next())
 	case "precision":
 		return patch.OptionalValue(&sb.FormatConfig.Precision, c.Next())
 	case "notation":
-		return patch.Defaulted(&sb.FormatConfig.Notation, c.Next(), func(def *StateBinding) {
-			sb.FormatConfig.Notation = def.FormatConfig.Notation
-		})
+		return patch.OptionalValue(&sb.FormatConfig.Notation, c.Next())
 	case "key":
 		return patch.Value(&sb.Key, c.Next())
 	case "source":
