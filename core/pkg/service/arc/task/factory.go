@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -37,8 +38,9 @@ import (
 // Type is the type identifier for Arc tasks.
 const Type = "arc"
 
-// GetProgramFunc retrieves an automation with its compiled Program by key.
-type GetProgramFunc func(context.Context, arc.Key) (arc.AutomationArc, error)
+// GetProgramFunc retrieves an automation with its compiled Program by key, for the
+// Driver of a rack that takes the program to run.
+type GetProgramFunc func(context.Context, arc.Key, rack.Key) (arc.AutomationArc, error)
 
 // FactoryConfig is the configuration for creating an Arc factory.
 type FactoryConfig struct {
@@ -58,9 +60,9 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// GetProgram retrieves an automation with its compiled Program by key, as the
-	// Driver takes it to run, and compiles again itself when writes change what it
-	// read.
+	// GetProgram retrieves an automation with its compiled Program by key, for the
+	// Driver of the task's rack that takes it to run. It compiles again itself when
+	// writes change what it read.
 	//
 	// [REQUIRED]
 	GetProgram GetProgramFunc
@@ -149,7 +151,7 @@ func (f *factory) ConfigureTask(
 		f.reporter.Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
-	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey)
+	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey, t.Rack)
 	if err != nil {
 		f.reporter.Report(ctx, t, cmdKey, err)
 		return nil, err
