@@ -780,6 +780,7 @@ const Endpoints: FC<EndpointsProps> = ({
     sourceOf: (ep) => (readsICD(ep) ? ep : null),
     pathOf: icdPath,
     SourceItem: EndpointItem,
+    tareable: true,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless an enabled endpoint reads it, or it no longer exists or fits the field.
     bindDisabled,

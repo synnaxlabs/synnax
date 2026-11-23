@@ -19,13 +19,15 @@ import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
   awaitEditableForm,
+  awaitTare,
   clickDeploy,
   deployAndAwaitTask,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  reportTaskRunning,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, getLabeledInput } from "@/testutil";
+import { findDialogTriggerByText, findIconButton, getLabeledInput } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
@@ -413,6 +415,28 @@ describe("Read", () => {
     expect(toggle.checked).toBe(false);
     fireEvent.click(toggle);
     expect(toggle.checked).toBe(true);
+  });
+
+  it("should tare a float field from its button while the task runs", async () => {
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("value")],
+    });
+    ep.messages[0].bindings[0].channel = float.key;
+    const dev = await createHTTPDevice(client);
+    const draft = await createDraft(client, createReadConfig(dev.key, [ep]));
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
   });
 
   it("should open each endpoint of a saved task with the fields it reads", async () => {
