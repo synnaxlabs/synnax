@@ -71,7 +71,7 @@ const client = createTestClient();
 const createField = (name: string, kind: payload.Kind = "float"): icd.JSONField =>
   icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type: kind });
 
-interface EndpointParams extends Partial<HTTP.Task.ReadEndpoint> {
+interface EndpointParams extends Partial<Omit<HTTP.Task.ReadEndpoint, "fields">> {
   /** The fields of the message that the endpoint reads, each bound to channel 0. */
   fields?: icd.JSONField[];
 }
@@ -84,7 +84,7 @@ const createEndpoint = async ({
   const ep = http.readEndpointZ.parse(rest);
   const message: icd.Message = {
     key: uuid.create(),
-    name: `${ep.method} ${ep.path}`,
+    name: `${ep.method} ${ep.path}`.trim(),
     payload: { format: "json", fields: messageFields },
   };
   const format = await client.icds.create({
@@ -118,8 +118,10 @@ const deploy = async (container: HTMLElement, key: string) =>
 
 describe("Read", () => {
   it("should ask for a device while the task has none", async () => {
+    await createHTTPDevice(client);
     await renderRead();
-    await screen.findByText("Select a device to configure endpoints");
+    await screen.findByText("No device selected");
+    expect(screen.queryByText("No endpoints")).toBeNull();
   });
 
   it("should show the empty state and add + select an endpoint", async () => {
@@ -167,6 +169,23 @@ describe("Read", () => {
       expect(
         (await client.icds.retrieve(icdKey)).messages.map(({ name }) => name),
       ).toEqual(["GET /a", "GET"]),
+    );
+  });
+
+  it("should number the name of a new message that the ICD already holds", async () => {
+    const first = await createEndpoint({ key: "ep1" });
+    const icdKey = first.icd;
+    assertDefined(icdKey, "the first endpoint reads no ICD");
+    const { draft } = await renderWithDevice([first]);
+    await screen.findByRole("treeitem", { name: /GET/ });
+    await addEndpoint();
+    await waitFor(async () =>
+      expect(await retrieveEndpoints(draft.key)).toHaveLength(2),
+    );
+    await waitFor(async () =>
+      expect(
+        (await client.icds.retrieve(icdKey)).messages.map(({ name }) => name),
+      ).toEqual(["GET", "GET 2"]),
     );
   });
 
