@@ -125,6 +125,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:            WriteTaskType,
 			Ladder:          versions.WriteConfigLadder,
 			Migrations: []gorp.Migration{
+				v1.WriteMigration,
 				v1.NewWriteMigration(writes.channels, createICD(cfg.ICD)),
 			},
 			SetEntryKey:     (*WriteConfig).SetKey,

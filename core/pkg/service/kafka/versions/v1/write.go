@@ -43,8 +43,18 @@ type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
 // add back as targets with an ICD. Those fields of the config then take their defaults.
 func MigrateWriteConfig(ctx context.Context, old v0.WriteConfig) (WriteConfig, error) {
 	cfg, err := autoMigrateWriteConfig(ctx, old)
-	if err != nil || len(old.Channels) == 0 {
+	if err != nil {
 		return cfg, err
+	}
+	stage(&cfg)
+	return cfg, nil
+}
+
+// stage moves the channels of cfg into Inline with its topic, record key, and record,
+// and gives those fields their defaults. It does nothing when cfg has no channels.
+func stage(cfg *WriteConfig) {
+	if len(cfg.Channels) == 0 {
+		return
 	}
 	cfg.Inline = &InlineWrite{
 		Topic:     cfg.Topic,
@@ -55,7 +65,6 @@ func MigrateWriteConfig(ctx context.Context, old v0.WriteConfig) (WriteConfig, e
 	cfg.Topic, cfg.RecordKey, cfg.Channels = "", RecordKeyChannelName, []WriteChannel{}
 	cfg.Record = Record{Fields: []http.WriteField{}}
 	cfg.Record.SetDefaults()
-	return cfg, nil
 }
 
 // ResolveWriteConfig moves the inline channels of cfg into a new ICD named name, with
@@ -116,42 +125,42 @@ func ResolveWriteConfig(
 	return ic, true, nil
 }
 
-// NewWriteMigration returns the migration that lifts each stored v0 write config with
-// channels to v1. It resolves each one as ResolveWriteConfig does, with the name of its
-// task, creates the ICD with create, and logs each change to a field. The config of a
-// snapshot task gets no ICD and loses its channels, because the task service deletes
-// snapshots after this migration runs.
+// NewWriteMigration returns the migration that moves the channels of each stored write
+// config into targets, after WriteMigration. It resolves each config as
+// ResolveWriteConfig does, with the name of its task, creates the ICD with create, and
+// logs each change to a field. The config of a snapshot task gets no ICD and loses its
+// channels, because the task service deletes snapshots after this migration runs.
 func NewWriteMigration(channels Channels, create CreateICD) gorp.Migration {
 	return migrate.New(
 		"v63_kafka_write_icd",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-			var olds []v0.WriteConfig
-			if err := gorp.NewRetrieve[uuid.UUID, v0.WriteConfig]().
+			var cfgs []WriteConfig
+			if err := gorp.NewRetrieve[uuid.UUID, WriteConfig]().
 				Where(gorp.Match[uuid.UUID](
-					func(_ gorp.Context, c *v0.WriteConfig) (bool, error) {
+					func(_ gorp.Context, c *WriteConfig) (bool, error) {
 						return len(c.Channels) > 0, nil
 					},
 				)).
-				Entries(&olds).
-				Exec(ctx, tx); err != nil || len(olds) == 0 {
+				Entries(&cfgs).
+				Exec(ctx, tx); err != nil || len(cfgs) == 0 {
 				return err
 			}
-			tasks, err := retrieveTasks(ctx, tx, olds)
+			tasks, err := retrieveTasks(ctx, tx, cfgs)
 			if err != nil {
 				return err
 			}
-			news := make([]WriteConfig, len(olds))
-			for i, old := range olds {
+			news := make([]WriteConfig, len(cfgs))
+			for i, cfg := range cfgs {
 				if news[i], err = migrateStored(
 					ctx,
 					tx,
 					channels,
 					create,
-					tasks[old.Key],
-					old,
-					NoteLift(ins, old.Key),
+					tasks[cfg.Key],
+					cfg,
+					NoteLift(ins, cfg.Key),
 				); err != nil {
-					return errors.Wrapf(err, "config %s", old.Key)
+					return errors.Wrapf(err, "config %s", cfg.Key)
 				}
 			}
 			return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, news...)
@@ -165,12 +174,12 @@ func migrateStored(
 	channels Channels,
 	create CreateICD,
 	t task.Task,
-	old v0.WriteConfig,
+	cfg WriteConfig,
 	note func(path, change string),
 ) (WriteConfig, error) {
-	cfg, err := MigrateWriteConfig(ctx, old)
-	if err != nil || t.Snapshot {
-		return cfg, err
+	stage(&cfg)
+	if t.Snapshot {
+		return cfg, nil
 	}
 	ic, ok, err := ResolveWriteConfig(ctx, tx, channels, t.Name, &cfg, note)
 	if err != nil || !ok {
@@ -183,12 +192,12 @@ func migrateStored(
 func retrieveTasks(
 	ctx context.Context,
 	tx gorp.Tx,
-	cfgs []v0.WriteConfig,
+	cfgs []WriteConfig,
 ) (map[uuid.UUID]task.Task, error) {
 	var tasks []task.Task
 	if err := gorp.NewRetrieve[task.Key, task.Task]().
 		Where(gorp.MatchKeys[task.Key, task.Task](
-			lo.Map(cfgs, func(c v0.WriteConfig, _ int) task.Key { return c.Key })...,
+			lo.Map(cfgs, func(c WriteConfig, _ int) task.Key { return c.Key })...,
 		)).
 		Entries(&tasks).
 		Exec(ctx, tx); err != nil {

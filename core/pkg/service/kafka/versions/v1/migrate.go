@@ -318,3 +318,25 @@ var ReadMigration = migrate.New(
 		return gorp.WrapWriter[uuid.UUID, ReadConfig](tx).Set(ctx, news...)
 	},
 )
+
+// WriteMigration lifts each stored v0 write config to v1. It keeps the channels of each
+// config.
+var WriteMigration = migrate.New(
+	"v63_kafka_write_targets",
+	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+		var olds []v0.WriteConfig
+		if err := gorp.NewRetrieve[uuid.UUID, v0.WriteConfig]().
+			Entries(&olds).
+			Exec(ctx, tx); err != nil || len(olds) == 0 {
+			return err
+		}
+		news := make([]WriteConfig, len(olds))
+		for i, old := range olds {
+			var err error
+			if news[i], err = autoMigrateWriteConfig(ctx, old); err != nil {
+				return errors.Wrapf(err, "config %s", old.Key)
+			}
+		}
+		return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, news...)
+	},
+)
