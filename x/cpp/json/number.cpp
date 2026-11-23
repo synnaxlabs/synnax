@@ -255,6 +255,7 @@ std::pair<Number, errors::Error> Number::parse(const std::string_view text) {
     n.kind = Kind::Float;
     n.f = *v;
     n.fraction = d->fraction;
+    n.out_of_range = !d->fraction && d->magnitude != 0;
     n.text = text;
     return {std::move(n), errors::NIL};
 }
@@ -383,7 +384,7 @@ bool Number::within(const std::int64_t lo, const std::uint64_t hi) const {
         case Kind::Float:
             // static_cast<double>(hi) + 1 rounds to the first value past hi for every
             // integer type.
-            return this->f >= static_cast<double>(lo) &&
+            return !this->out_of_range && this->f >= static_cast<double>(lo) &&
                    this->f < static_cast<double>(hi) + 1;
     }
     return false;

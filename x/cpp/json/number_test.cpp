@@ -175,6 +175,14 @@ TEST(NumberCheckFits, RejectsUint64ForInt64) {
     ASSERT_EQ(err.data, "18446744073709551615 is out of range for int64");
 }
 
+/// @brief it should reject an integer below an int64 that a double rounds to the
+/// smallest int64.
+TEST(NumberCheckFits, RejectsIntegerBelowInt64) {
+    const auto err = fits("-9223372036854775809", telem::INT64_T);
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "-9223372036854775809 is out of range for int64");
+}
+
 /// @brief it should reject a negative number for an unsigned data type.
 TEST(NumberCheckFits, RejectsNegativeForUnsigned) {
     const auto err = fits("-1", telem::UINT64_T);
