@@ -64,6 +64,8 @@ const std::vector<std::pair<x::errors::Error, Kind>> KINDS = {
     {freighter::TRANSPORT, Kind::TRANSIENT},
     {freighter::RESOURCE_EXHAUSTED, Kind::TRANSIENT},
     {freighter::CANCELLED, Kind::TRANSIENT},
+    {freighter::STREAM_CLOSED, Kind::TRANSIENT},
+    {freighter::ERR_EOF, Kind::TRANSIENT},
     {LICENSE_MISSING, Kind::TRANSIENT},
     {LICENSE_EXPIRED, Kind::TRANSIENT},
     {auth::ERR_INVALID_TOKEN, Kind::TRANSIENT},

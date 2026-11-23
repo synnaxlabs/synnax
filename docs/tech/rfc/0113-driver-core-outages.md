@@ -171,11 +171,11 @@ own controls as the fallback.
 `synnax::errors::classify` (`client/cpp/errors`) sorts each Core error into one kind,
 from one table. The first matching row wins. Each caller sets how long it waits.
 
-| Kind        | Types                                                                                                                                                 | Caller               |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| `TRANSIENT` | `freighter.unreachable`, `.timeout`, `.transport`, `.resource_exhausted`, `.cancelled`, `sy.license.missing`, `.expired`, `sy.auth` token and session | Waits, then retries  |
-| `REJECTED`  | Other `sy.license` and `sy.auth`, `sy.validation`, `sy.query`, `sy.control`, `sy.not_supported`, `arc`                                                | Reports it, no retry |
-| `BUG`       | Any other type: `unknown`, `freighter.unknown`, `sy.internal`                                                                                         | Fails loud, no retry |
+| Kind        | Types                                                                                                                                                                           | Caller               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `TRANSIENT` | `freighter.unreachable`, `.timeout`, `.transport`, `.resource_exhausted`, `.cancelled`, `.stream_closed`, `.eof`, `sy.license.missing`, `.expired`, `sy.auth` token and session | Waits, then retries  |
+| `REJECTED`  | Other `sy.license` and `sy.auth`, `sy.validation`, `sy.query`, `sy.control`, `sy.not_supported`, `arc`                                                                          | Reports it, no retry |
+| `BUG`       | Any other type: `unknown`, `freighter.unknown`, `sy.internal`                                                                                                                   | Fails loud, no retry |
 
 ## 4 What this RFC does not cover
 
