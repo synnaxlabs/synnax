@@ -27,6 +27,36 @@ const digits = (): string => `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
 
 describe("Channel lookups", () => {
   describe("delete", () => {
+    it("should refuse a delete of a path that names no channel, naming the path", async () => {
+      const path = `${id.create()}.${id.create()}`;
+      await expect(client.channels.delete([path])).rejects.toThrow(
+        `channels not found matching ${JSON.stringify([path])}`,
+      );
+    });
+
+    it("should delete a list of a key and a name in one request", async () => {
+      const byKey = await client.channels.create(virtual(id.create()));
+      const byName = await client.channels.create(virtual(id.create()));
+      const send = spyOnSend(client);
+      try {
+        await client.channels.delete([byKey.key, byName.name]);
+        const deletes = send.mock.calls.filter(
+          ([target]) => target === "/channel/delete",
+        );
+        expect(deletes.map(([, req]) => req)).toEqual([
+          { keys: [byKey.key], names: [byName.name] },
+        ]);
+      } finally {
+        send.mockRestore();
+      }
+      const fresh = createTestClient();
+      expect(
+        await fresh.channels.retrieve({
+          where: { key: { in: [byKey.key, byName.key] } },
+        }),
+      ).toEqual([]);
+    });
+
     it("should delete the channel at a path", async () => {
       const g = await client.groups.create({ name: id.create(), scope: "channel" });
       const ch = await client.channels.create({

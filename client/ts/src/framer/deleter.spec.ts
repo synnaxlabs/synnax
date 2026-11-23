@@ -17,11 +17,37 @@ import {
   newIndexedPair,
   randomSeries,
   secondsLinspace,
+  spyOnSend,
 } from "@/testutil";
 
 const client = createTestClient();
 
 describe("Deleter", () => {
+  test("Client - refuse a delete of a path that names no channel, naming the path", async () => {
+    const path = `${id.create()}.${id.create()}`;
+    await expect(client.delete(path, TimeRange.MAX)).rejects.toThrow(
+      `channels not found matching ${JSON.stringify([path])}`,
+    );
+  });
+
+  test("Client - delete the data of a key and a name in one request", async () => {
+    const [index, data] = await newIndexedPair(client);
+    await client.write(TimeStamp.seconds(0), {
+      [index.key]: secondsLinspace(0, 10),
+      [data.key]: randomSeries(10, data.dataType),
+    });
+    const send = spyOnSend(client);
+    try {
+      await client.delete([index.key, data.name], TimeRange.MAX);
+      const deletes = send.mock.calls.filter(([target]) => target === "/frame/delete");
+      expect(deletes).toHaveLength(1);
+      expect(deletes[0][1]).toMatchObject({ keys: [index.key, data.key] });
+    } finally {
+      send.mockRestore();
+    }
+    expect((await client.read(TimeRange.MAX, data.key)).length).toEqual(0);
+  });
+
   test("Client - delete the data of the channel at a path", async () => {
     const g = await client.groups.create({ name: id.create(), scope: "channel" });
     const index = await client.channels.create({
