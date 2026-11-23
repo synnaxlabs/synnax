@@ -500,8 +500,7 @@ TEST(testGRPC, testErrFromStatusKeepsPayloadType) {
     ASSERT_EQ(err.data, "bad key");
 }
 
-/// @brief it should keep the type of a payload that comes with any status code, as a
-/// Core panic does.
+/// @brief it should keep the type of a payload that comes with any status code.
 TEST(testGRPC, testErrFromStatusKeepsPayloadTypeOfAnyCode) {
     const auto err = priv::err_from_status(
         ::grpc::Status(::grpc::StatusCode::INTERNAL, "sy.internal---panic")
