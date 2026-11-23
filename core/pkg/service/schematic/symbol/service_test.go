@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
@@ -33,9 +34,11 @@ var _ = Describe("Service", func() {
 			}))
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-				DB:    testDB,
-				Group: testGroup,
-				ImEx:  imex.NewService(),
+				DB:          testDB,
+				Group:       testGroup,
+				ImEx:        imex.NewService(),
+				Enumeration: openEnumerations(ctx, testDB),
+				Actuators:   noActuators,
 			}))
 			Expect(testSvc).ToNot(BeNil())
 		})
@@ -47,6 +50,17 @@ var _ = Describe("Service", func() {
 			},
 			Entry("no db", symbol.ServiceConfig{DB: nil}, "db"),
 			Entry("no group", symbol.ServiceConfig{DB: &gorp.DB{}}, "group"),
+			Entry("no enumeration", symbol.ServiceConfig{
+				DB:    &gorp.DB{},
+				Group: &group.Service{},
+				ImEx:  &imex.Service{},
+			}, "enumeration"),
+			Entry("no actuators", symbol.ServiceConfig{
+				DB:          &gorp.DB{},
+				Group:       &group.Service{},
+				ImEx:        &imex.Service{},
+				Enumeration: &enumeration.Service{},
+			}, "actuators"),
 		)
 
 		It("Should apply later configurations as overrides", func(ctx SpecContext) {
@@ -58,8 +72,10 @@ var _ = Describe("Service", func() {
 			// cfg1 omits the DB; cfg2 supplies it. OpenService merges later configs
 			// over earlier ones, so the service opens only because cfg2 fills the gap.
 			cfg1 := symbol.ServiceConfig{
-				Group: testGroup,
-				ImEx:  imex.NewService(),
+				Group:       testGroup,
+				ImEx:        imex.NewService(),
+				Enumeration: openEnumerations(ctx, testDB),
+				Actuators:   noActuators,
 			}
 			cfg2 := symbol.ServiceConfig{DB: testDB}
 			Expect(MustOpen(symbol.OpenService(ctx, cfg1, cfg2))).ToNot(BeNil())
@@ -90,9 +106,11 @@ var _ = Describe("Service", func() {
 			}))
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-				DB:    testDB,
-				Group: testGroup,
-				ImEx:  imex.NewService(),
+				DB:          testDB,
+				Group:       testGroup,
+				ImEx:        imex.NewService(),
+				Enumeration: openEnumerations(ctx, testDB),
+				Actuators:   noActuators,
 			}))
 
 			Expect(testSvc.Close()).To(Succeed())
@@ -111,7 +129,10 @@ var _ = Describe("Service", func() {
 				for range 10 {
 					sym := defaults.Fill(symbol.Symbol{
 						Name: "concurrent-write",
-						Data: symbol.Spec{SVG: "<svg>...</svg>", Variant: "valve"},
+						Data: symbol.Spec{
+							Drawing: svg("<svg>...</svg>"),
+							Variant: "valve",
+						},
 					})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &sym)
@@ -154,3 +175,8 @@ var _ = Describe("Service", func() {
 		})
 	})
 })
+
+func openEnumerations(ctx SpecContext, db *gorp.DB) *enumeration.Service {
+	GinkgoHelper()
+	return MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
+}

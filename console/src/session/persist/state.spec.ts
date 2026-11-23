@@ -123,6 +123,58 @@ class CountingKV extends MemoryKV {
   }
 }
 
+/** A store whose reads of keys matching failOn reject, standing in for a lost disk. */
+class ReadFailingKV extends CountingKV {
+  failOn: RegExp | null = null;
+
+  override async get<V>(key: string): Promise<V | null> {
+    if (this.failOn?.test(key) === true) throw new Error("read failed");
+    return await super.get<V>(key);
+  }
+}
+
+/** Holds reads of the keys matching pattern, standing in for a slow disk. */
+class GatedKV implements Persist.SugaredKV {
+  held = false;
+  readonly hit = vi.fn();
+  private readonly gate = Promise.withResolvers<void>();
+
+  constructor(
+    private readonly store: MemoryKV,
+    private readonly pattern: RegExp,
+  ) {}
+
+  release(): void {
+    this.gate.resolve();
+  }
+
+  async get<V>(key: string): Promise<V | null> {
+    if (this.held && this.pattern.test(key)) {
+      this.hit();
+      await this.gate.promise;
+    }
+    return await this.store.get<V>(key);
+  }
+
+  set: Persist.SugaredKV["set"] = async (key, value) =>
+    await this.store.set(key, value);
+  setMany: Persist.SugaredKV["setMany"] = async (entries) =>
+    await this.store.setMany(entries);
+  delete: Persist.SugaredKV["delete"] = async (key) => await this.store.delete(key);
+  deleteMany: Persist.SugaredKV["deleteMany"] = async (keys) =>
+    await this.store.deleteMany(keys);
+  length: Persist.SugaredKV["length"] = async () => await this.store.length();
+  keys: Persist.SugaredKV["keys"] = async () => await this.store.keys();
+  clear: Persist.SugaredKV["clear"] = async () => await this.store.clear();
+}
+
+/** Lists every work value written to a project's ring in c1, in write order. */
+const works = (store: CountingKV, project: string): Array<string | undefined> =>
+  store.writes
+    .flat()
+    .filter(({ key }) => new RegExp(`^project\\.c1\\.${project}\\.\\d+$`).test(key))
+    .map(({ value }) => z.object({ work: workZ }).safeParse(value).data?.work.value);
+
 const openPersist = async (
   store: MemoryKV,
   overrides: Partial<Persist.Config<MockState>> = {},
@@ -154,6 +206,11 @@ const createDriver = async (
   let hydrates = 0;
   const next = vi.fn((action: unknown) => action);
   const dispatched = vi.fn((action: unknown) => {
+    // The swap's end rides back through the chain, as it would in the redux store.
+    if (Persist.endSwap.match(action)) {
+      run(action);
+      return;
+    }
     if (!Persist.hydrate.match(action)) return;
     hydrates++;
     state = { ...state, ...(action.payload as Partial<MockState>) };
@@ -224,6 +281,34 @@ const edit = async (driver: Driver, value: string) => {
     },
   );
   await driver.flushed(workIs(value));
+};
+
+/** Edits the work slice and flushes it, for a driver whose debounce may not fire. */
+const commit = async (driver: Driver, value: string) => {
+  driver.dispatch(
+    { type: "work/edit" },
+    { ...driver.getState(), work: { value, transient: "drag" } },
+  );
+  await Persist.flush((action) => driver.dispatch(action));
+};
+
+const P2_STATE = /^project\.c1\.p2\.\d+$/;
+
+/**
+ * Leaves p2 holding p2-work for p1 holding p1-work, then starts a swap back to p2 that
+ * stays in flight until p2 is released.
+ */
+const swapToHeldP2 = async (driver: Driver, p2: GatedKV) => {
+  await enter(driver, { core: "c1", project: "p2" });
+  await commit(driver, "p2-work");
+  await enter(driver, CTX);
+  await commit(driver, "p1-work");
+  p2.held = true;
+  driver.dispatch(
+    { type: "project/select" },
+    { ...driver.getState(), project: { selected: "p2" } },
+  );
+  await vi.waitFor(() => expect(p2.hit).toHaveBeenCalled());
 };
 
 /** Edits one window's view of the project, the way a window-scoped slice changes. */
@@ -1006,6 +1091,167 @@ describe("Persist.middleware", () => {
     );
   });
 
+  describe("after a failed swap", () => {
+    const P2_SWAP = { core: "c1", project: "p2" };
+    const C2_SWAP = { core: "c2", project: "p1" };
+
+    /**
+     * Leaves p1 loaded with p1-work, then swaps to the target, failing the swap's first
+     * read of a key matching failOn.
+     */
+    const failSwap = async (
+      target: Persist.Context,
+      failOn: RegExp,
+      scopes: Persist.Scopes<MockState> = SCOPES,
+    ) => {
+      const store = new ReadFailingKV();
+      const driver = await createDriver(store, {
+        onError: vi.fn(),
+        debounceInterval: TimeSpan.hours(1),
+        scopes,
+      });
+      await enter(driver, P2_SWAP);
+      await commit(driver, "p2-work");
+      await enter(driver, CTX);
+      await commit(driver, "p1-work");
+      store.failOn = failOn;
+      driver.dispatch(
+        { type: "context/select" },
+        {
+          ...driver.getState(),
+          core: { selected: target.core },
+          project: { selected: target.project },
+        },
+      );
+      await vi.waitFor(() =>
+        expect(driver.dispatched).toHaveBeenCalledWith(Persist.endSwap()),
+      );
+      return { store, driver, written: store.writes.length };
+    };
+
+    /** Lists the work values written under the key pattern, in write order. */
+    const worksAt = (store: CountingKV, pattern: RegExp): Array<string | undefined> =>
+      store.writes
+        .flat()
+        .filter(({ key }) => pattern.test(key))
+        .map(
+          ({ value }) => z.object({ work: workZ }).safeParse(value).data?.work.value,
+        );
+
+    it("should save no project slice until a later swap hydrates", async () => {
+      const { store, driver, written } = await failSwap(P2_SWAP, P2_STATE);
+      await commit(driver, "late");
+      expect(store.writes.length).toBe(written);
+    });
+
+    it("should save a global edit but not a project edit", async () => {
+      const scopes: Persist.Scopes<MockState> = {
+        global: { core: selectedZ, work: workZ },
+        core: { project: selectedZ },
+        project: { view: viewZ, windows: z.string().array() },
+        window: {},
+        transient: [],
+      };
+      const { store, driver, written } = await failSwap(P2_SWAP, P2_STATE, scopes);
+      driver.dispatch(
+        { type: "edit" },
+        {
+          ...driver.getState(),
+          work: { value: "global-edit" },
+          view: { label: "project-edit", windows: {} },
+        },
+      );
+      await Persist.flush((action) => driver.dispatch(action));
+      const entries = store.writes.slice(written).flat();
+      expect(entries.map(({ key }) => key)).toEqual(
+        expect.arrayContaining([expect.stringMatching(/^global\./)]),
+      );
+      entries.forEach(({ key }) => expect(key).toMatch(/^global\./));
+      store.failOn = null;
+      const { initialState } = await openPersist(store, { scopes });
+      expect(initialState?.work.value).toBe("global-edit");
+    });
+
+    it("should save again once a later swap hydrates", async () => {
+      const { store, driver } = await failSwap(P2_SWAP, P2_STATE);
+      store.failOn = null;
+      await enter(driver, { core: "c1", project: "p3" });
+      await commit(driver, "p3-work");
+      expect(works(store, "p3")).toContain("p3-work");
+    });
+
+    it("should reload the context the store held on a return to it", async () => {
+      const { store, driver } = await failSwap(P2_SWAP, P2_STATE);
+      store.failOn = null;
+      await commit(driver, "late");
+      await enter(driver, CTX);
+      expect(driver.getState().work.value).toBe("p1-work");
+      await Persist.flush((action) => driver.dispatch(action));
+      expect(worksAt(store, /^project\.c1\.p\d\.\d+$/)).not.toContain("late");
+    });
+
+    it("should reload the old Core on a return after a failed Core swap", async () => {
+      const scopes: Persist.Scopes<MockState> = {
+        ...SCOPES,
+        core: { project: selectedZ, work: workZ },
+        project: { windows: z.string().array() },
+      };
+      const { store, driver } = await failSwap(C2_SWAP, /^core\.c2\./, scopes);
+      // The target Core's synchronizers change the store after the failure.
+      await commit(driver, "c2-sync");
+      store.failOn = null;
+      driver.dispatch(
+        { type: "Core/select" },
+        { ...driver.getState(), core: { selected: "c1" } },
+      );
+      await driver.settle();
+      expect(driver.getState().work.value).toBe("p1-work");
+      await Persist.flush((action) => driver.dispatch(action));
+      expect(worksAt(store, /^core\.c\d\.\d+$/)).not.toContain("c2-sync");
+    });
+
+    it("should keep a project picked in the target Core after a failed Core swap", async () => {
+      const { store, driver } = await failSwap(C2_SWAP, /^core\.c2\./);
+      store.failOn = null;
+      driver.dispatch(
+        { type: "project/select" },
+        { ...driver.getState(), project: { selected: "p3" } },
+      );
+      await driver.settle();
+      expect(driver.getState().project.selected).toBe("p3");
+      await Persist.flush((action) => driver.dispatch(action));
+      const c1Projects = store.writes
+        .flat()
+        .filter(({ key }) => /^core\.c1\.\d+$/.test(key))
+        .map(
+          ({ value }) => z.object({ project: selectedZ }).parse(value).project.selected,
+        );
+      expect(c1Projects).not.toContain("p3");
+    });
+
+    it("should reload the old Core after a retry of a failed Core swap fails", async () => {
+      const { store, driver } = await failSwap(C2_SWAP, /^core\.c2\./);
+      // The project remover clears a project the new Core does not have.
+      driver.dispatch({ type: "project/clear" }, { ...driver.getState(), project: {} });
+      await vi.waitFor(() =>
+        expect(
+          driver.dispatched.mock.calls.filter(([a]) => Persist.endSwap.match(a)),
+        ).toHaveLength(2),
+      );
+      store.failOn = null;
+      driver.dispatch(
+        { type: "Core/select" },
+        { ...driver.getState(), core: { selected: "c1" } },
+      );
+      await driver.settle();
+      expect(driver.getState().project.selected).toBe("p1");
+      expect(driver.getState().work.value).toBe("p1-work");
+      await Persist.flush((action) => driver.dispatch(action));
+      const { initialState } = await openPersist(store);
+      expect(initialState?.project.selected).toBe("p1");
+    });
+  });
+
   it("should mark the swap window with beginSwap before hydrate", async () => {
     const driver = await createDriver(new MemoryKV());
     await enter(driver, CTX);
@@ -1123,6 +1369,176 @@ describe("Persist.middleware", () => {
         ([action]) => (action as { type: string }).type === Persist.hydrate.type,
       ).length;
     expect(hydrates()).toBe(1);
+  });
+
+  describe("while a swap is in flight", () => {
+    it("should not save an edit under the context the swap moves to", async () => {
+      const store = new CountingKV();
+      const p2 = new GatedKV(store, P2_STATE);
+      const driver = await createDriver(store, { openKV: () => p2 });
+      await swapToHeldP2(driver, p2);
+      driver.dispatch(
+        { type: "work/edit" },
+        { ...driver.getState(), work: { value: "p1-late", transient: "drag" } },
+      );
+      p2.release();
+      await driver.settle();
+      await Persist.flush((action) => driver.dispatch(action));
+      expect(works(store, "p2")).not.toContain("p1-late");
+      expect(driver.getState().work.value).toBe("p2-work");
+    });
+
+    it("should drop a save still waiting on the debounce when the swap starts", async () => {
+      const store = new CountingKV();
+      const p2 = new GatedKV(store, P2_STATE);
+      const driver = await createDriver(store, {
+        openKV: () => p2,
+        debounceInterval: TimeSpan.milliseconds(250),
+      });
+      await enter(driver, { core: "c1", project: "p2" });
+      await commit(driver, "p2-work");
+      await enter(driver, CTX);
+      await commit(driver, "p1-work");
+      vi.useFakeTimers();
+      try {
+        driver.dispatch(
+          { type: "work/edit" },
+          { ...driver.getState(), work: { value: "p1-late", transient: "drag" } },
+        );
+        p2.held = true;
+        driver.dispatch(
+          { type: "project/select" },
+          { ...driver.getState(), project: { selected: "p2" } },
+        );
+        await vi.advanceTimersByTimeAsync(250);
+      } finally {
+        vi.useRealTimers();
+      }
+      await vi.waitFor(() => expect(p2.hit).toHaveBeenCalled());
+      p2.release();
+      await driver.settle();
+      await Persist.flush((action) => driver.dispatch(action));
+      expect(works(store, "p1")).toContain("p1-late");
+      expect(works(store, "p2")).not.toContain("p1-late");
+    });
+
+    it("should resolve a flush without saving under the swap's target", async () => {
+      const store = new CountingKV();
+      const p2 = new GatedKV(store, P2_STATE);
+      const driver = await createDriver(store, {
+        openKV: () => p2,
+        debounceInterval: TimeSpan.hours(1),
+      });
+      await swapToHeldP2(driver, p2);
+      driver.dispatch(
+        { type: "work/edit" },
+        { ...driver.getState(), work: { value: "p1-late", transient: "drag" } },
+      );
+      const flush = Persist.flush((action) => driver.dispatch(action));
+      p2.release();
+      await flush;
+      await driver.settle();
+      await Persist.flush((action) => driver.dispatch(action));
+      expect(works(store, "p2")).not.toContain("p1-late");
+    });
+
+    it("should reload without stepping back the swap target's ring on a revert", async () => {
+      const store = new CountingKV();
+      const p2 = new GatedKV(store, P2_STATE);
+      const reload = vi.fn<() => void>();
+      const driver = await createDriver(store, { openKV: () => p2, reload });
+      await swapToHeldP2(driver, p2);
+      const written = store.writes.length;
+      driver.dispatch(Persist.revertState());
+      p2.release();
+      await driver.settle();
+      await vi.waitFor(() => expect(reload).toHaveBeenCalled());
+      const pointers = store.writes
+        .slice(written)
+        .flat()
+        .filter(({ key }) => key === "project.c1.p2.slot");
+      expect(pointers).toEqual([]);
+    });
+
+    it("should not flush the store's slices under the target a newer swap supersedes", async () => {
+      const store = new CountingKV();
+      const p2 = new GatedKV(store, P2_STATE);
+      const driver = await createDriver(store, { openKV: () => p2 });
+      await swapToHeldP2(driver, p2);
+      driver.dispatch(
+        { type: "project/select" },
+        { ...driver.getState(), project: { selected: "p3" } },
+      );
+      p2.release();
+      await driver.settle();
+      await Persist.flush((action) => driver.dispatch(action));
+      expect(works(store, "p2")).not.toContain("p1-work");
+      await enter(driver, { core: "c1", project: "p2" });
+      expect(driver.getState().work.value).toBe("p2-work");
+    });
+
+    it("should load the new Core's slices when a newer swap supersedes a Core swap", async () => {
+      const store = new MemoryKV();
+      const c2 = new GatedKV(store, /^core\.c2\./);
+      const scopes: Persist.Scopes<MockState> = {
+        ...SCOPES,
+        core: { project: selectedZ, work: workZ },
+        project: { windows: z.string().array() },
+      };
+      const driver = await createDriver(store, { openKV: () => c2, scopes });
+      await enter(driver, { core: "c2", project: "p9" });
+      await commit(driver, "c2-work");
+      await enter(driver, CTX);
+      await commit(driver, "c1-work");
+      c2.held = true;
+      driver.dispatch(
+        { type: "Core/select" },
+        { ...driver.getState(), core: { selected: "c2" } },
+      );
+      await vi.waitFor(() => expect(c2.hit).toHaveBeenCalled());
+      // The project remover clears a project the new Core does not have.
+      driver.dispatch({ type: "project/clear" }, { ...driver.getState(), project: {} });
+      c2.release();
+      await driver.settle();
+      expect(driver.getState().project.selected).toBe("p9");
+      expect(driver.getState().work.value).toBe("c2-work");
+      await Persist.flush((action) => driver.dispatch(action));
+      const { initialState } = await openPersist(store, { scopes });
+      expect(initialState?.work.value).toBe("c2-work");
+    });
+
+    it("should keep a project picked while a Core swap loads", async () => {
+      const store = new MemoryKV();
+      const c2 = new GatedKV(store, /^core\.c2\./);
+      const scopes: Persist.Scopes<MockState> = {
+        ...SCOPES,
+        core: { project: selectedZ, work: workZ },
+        project: { windows: z.string().array() },
+      };
+      const driver = await createDriver(store, { openKV: () => c2, scopes });
+      await enter(driver, { core: "c2", project: "p9" });
+      await commit(driver, "c2-work");
+      await enter(driver, CTX);
+      await commit(driver, "c1-work");
+      c2.held = true;
+      driver.dispatch(
+        { type: "Core/select" },
+        { ...driver.getState(), core: { selected: "c2" } },
+      );
+      await vi.waitFor(() => expect(c2.hit).toHaveBeenCalled());
+      driver.dispatch(
+        { type: "project/select" },
+        { ...driver.getState(), project: { selected: "p3" } },
+      );
+      c2.release();
+      await driver.settle();
+      expect(driver.getState().project.selected).toBe("p3");
+      expect(driver.getState().work.value).toBe("c2-work");
+      await Persist.flush((action) => driver.dispatch(action));
+      const { initialState } = await openPersist(store, { scopes });
+      expect(initialState?.project.selected).toBe("p3");
+      expect(initialState?.work.value).toBe("c2-work");
+    });
   });
 
   it("should queue a swap's flush behind a write already in flight", async () => {

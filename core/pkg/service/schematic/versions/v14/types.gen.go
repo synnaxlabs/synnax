@@ -18,9 +18,10 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	border "github.com/synnaxlabs/x/border/versions/v0"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
@@ -505,7 +506,24 @@ type ScaledConfig = v13.ScaledConfig
 
 // StalenessConfig is the staleness detection shared by every symbol that reads a
 // channel.
-type StalenessConfig = v13.StalenessConfig
+type StalenessConfig struct {
+	// StalenessTimeout is the span after which the value is considered stale.
+	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StalenessConfig) SetDefaults() {
+	s.StalenessTimeout = 5000000000
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StalenessConfig) Validate() error {
+	v := validate.New("StalenessConfig")
+	v.GreaterThanEq("staleness_timeout", s.StalenessTimeout, 1000000000)
+	v.LessThanEq("staleness_timeout", s.StalenessTimeout, 9007199254740991)
+	return v.Error()
+}
 
 // NumericTelemConfig is the numeric read and formatting shared by symbols that display
 // a channel's value as a number.
@@ -517,13 +535,66 @@ type ControlStateConfig = v13.ControlStateConfig
 
 // ToggleConfig is the base configuration for symbols actuated through a boolean
 // telemetry pair.
-type ToggleConfig = v13.ToggleConfig
+type ToggleConfig struct {
+	LabeledConfig
+	ScaledConfig
+	StalenessConfig
+	// StateChannel is the channel whose value drives the symbol's active state, or 0
+	// when none does.
+	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
+	// CommandChannel is the channel actuation commands are written to, or 0 when the
+	// symbol writes to none.
+	CommandChannel channel.Key `json:"command_channel" msgpack:"command_channel"`
+	// Control is the control state display configuration.
+	Control ControlStateConfig `json:"control" msgpack:"control"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ToggleConfig) SetDefaults() {
+	t.LabeledConfig.SetDefaults()
+	t.ScaledConfig.SetDefaults()
+	t.StalenessConfig.SetDefaults()
+	t.Control.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t ToggleConfig) Validate() error {
+	v := validate.New("ToggleConfig")
+	v.GreaterThanEq("on_click_delay", t.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", t.OnClickDelay, 2147483647000000)
+	v.Exec(t.LabeledConfig.Validate)
+	v.Exec(t.ScaledConfig.Validate)
+	v.Exec(t.StalenessConfig.Validate)
+	v.Exec(func() error { return validate.PathedError(t.Control.Validate(), "control") })
+	return v.Error()
+}
 
 // StaticSymbolConfig is the configuration for non-interactive labeled symbols.
 type StaticSymbolConfig = v13.StaticSymbolConfig
 
 // ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
-type ToggleSymbolConfig = v13.ToggleSymbolConfig
+type ToggleSymbolConfig struct {
+	ToggleConfig
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor *xcolor.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ToggleSymbolConfig) SetDefaults() {
+	t.ToggleConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t ToggleSymbolConfig) Validate() error {
+	v := validate.New("ToggleSymbolConfig")
+	v.Exec(t.ToggleConfig.Validate)
+	return v.Error()
+}
 
 // DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
 // from local state without binding to telemetry.
@@ -609,6 +680,193 @@ const (
 
 // Page identifies a page an off-page reference links to.
 type Page = v13.Page
+
+// FormatConfig is how a node shows a number.
+type FormatConfig struct {
+	// Units is the unit suffix shown after the value. Absent shows none.
+	Units *string `json:"units,omitzero" msgpack:"units,omitempty"`
+	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
+	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	// Notation is the notation of the value. Absent shows standard notation.
+	Notation *notation.Notation `json:"notation,omitzero" msgpack:"notation,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (f FormatConfig) Validate() error {
+	v := validate.New("FormatConfig")
+	if f.Notation != nil {
+		v.Ternaryf("notation", !f.Notation.IsValid(), "invalid notation: %v", *f.Notation)
+	}
+	if f.Precision != nil {
+		v.LessThanEq("precision", *f.Precision, 17)
+	}
+	return v.Error()
+}
+
+// StateBinding is how one node reads one state of its symbol.
+type StateBinding struct {
+	FormatConfig
+	// Key is the key of the state of the symbol that the binding sets.
+	Key string `json:"key" msgpack:"key"`
+	// Source is where the state reads its value, or nowhere.
+	Source *Source `json:"source,omitzero" msgpack:"source,omitempty"`
+	// Enumeration replaces the enumeration of the state.
+	Enumeration *enumeration.Key `json:"enumeration,omitzero" msgpack:"enumeration,omitempty"`
+	// Match replaces the match of the state.
+	Match *symbol.Matcher `json:"match,omitzero" msgpack:"match,omitempty"`
+	// Bounds replaces the bounds of a number state.
+	Bounds *spatial.Bounds `json:"bounds,omitzero" msgpack:"bounds,omitempty"`
+	// Default replaces the default of the state.
+	Default *float64 `json:"default,omitzero" msgpack:"default,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StateBinding) Validate() error {
+	v := validate.New("StateBinding")
+	v.Exec(s.FormatConfig.Validate)
+	if s.Source != nil {
+		v.Exec(func() error { return validate.PathedError(s.Source.Validate(), "source") })
+	}
+	if s.Match != nil {
+		v.Exec(func() error { return validate.PathedError(s.Match.Validate(), "match") })
+	}
+	return v.Error()
+}
+
+// SourceType is the "type" value that selects a variant of Source.
+type SourceType string
+
+const (
+	// ChannelSourceType reads a channel.
+	ChannelSourceType SourceType = "channel"
+	// LocalSourceType holds a value in the node.
+	LocalSourceType SourceType = "local"
+)
+
+// SourceVariant is implemented by every Source variant.
+type SourceVariant interface {
+	isSourceVariant()
+}
+
+// ChannelSource reads a channel.
+type ChannelSource struct {
+	// Key is the channel that the state reads.
+	Key *channel.Key `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Command is the channel that the commands of the state write to.
+	Command *channel.Key `json:"command,omitzero" msgpack:"command,omitempty"`
+}
+
+func (ChannelSource) isSourceVariant() {}
+
+// LocalSource holds a value in the node.
+type LocalSource struct {
+	// Value is the value that the state reads and its commands write.
+	Value float64 `json:"value" msgpack:"value"`
+}
+
+func (LocalSource) isSourceVariant() {}
+
+// Source is where a state reads its value.
+type Source struct {
+	Variant SourceVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Source) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case ChannelSource:
+		return json.MarshalEncode(enc, struct {
+			Type SourceType `json:"type"`
+			ChannelSource
+		}{Type: ChannelSourceType, ChannelSource: v})
+	case LocalSource:
+		return json.MarshalEncode(enc, struct {
+			Type SourceType `json:"type"`
+			LocalSource
+		}{Type: LocalSourceType, LocalSource: v})
+	default:
+		return errors.Newf("Source: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Source) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type SourceType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case ChannelSourceType:
+		var v struct {
+			Type SourceType `json:"type"`
+			ChannelSource
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ChannelSource
+	case LocalSourceType:
+		var v struct {
+			Type SourceType `json:"type"`
+			LocalSource
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.LocalSource
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Source: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Source) Type() SourceType {
+	switch u.Variant.(type) {
+	case ChannelSource:
+		return ChannelSourceType
+	case LocalSource:
+		return LocalSourceType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Source) Validate() error {
+	v := validate.New("Source")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
+
+// CommandBinding is the channel of a command that has no state.
+type CommandBinding struct {
+	// Key is the key of the command of the symbol.
+	Key string `json:"key" msgpack:"key"`
+	// Channel is the channel that the command writes to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
 
 // NodeConfigType is the "variant" value that selects a variant of NodeConfig.
 type NodeConfigType string
@@ -844,6 +1102,8 @@ const (
 	// GroupBoxNodeConfigType is the configuration for a group box, the symbol that
 	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
 	GroupBoxNodeConfigType NodeConfigType = "group_box"
+	// SymbolNodeConfigType is the configuration for a node that draws a symbol.
+	SymbolNodeConfigType NodeConfigType = "symbol"
 )
 
 // NodeConfigVariant is implemented by every NodeConfig variant.
@@ -1726,6 +1986,9 @@ type SelectNodeConfig struct {
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
 	Options []StateMapping `json:"options" msgpack:"options"`
+	// Enumeration is the enumeration whose entries the select offers in place of its
+	// options.
+	Enumeration *enumeration.Key `json:"enumeration,omitzero" msgpack:"enumeration,omitempty"`
 	// Disabled indicates whether the select rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// OnClickDelay is the debounce delay applied to clicks.
@@ -1865,6 +2128,9 @@ type StateIndicatorNodeConfig struct {
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
 	Options []StateMapping `json:"options" msgpack:"options"`
+	// Enumeration is the enumeration whose entries the indicator shows in place of its
+	// options.
+	Enumeration *enumeration.Key `json:"enumeration,omitzero" msgpack:"enumeration,omitempty"`
 	// Size is the rendered size preset of the indicator.
 	Size ComponentSize `json:"size" msgpack:"size"`
 }
@@ -3183,8 +3449,6 @@ type TankNodeConfig struct {
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// StalenessTimeout is the span after which the value is considered stale.
 	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *xcolor.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 	// Bounds is the numeric range the indicator maps onto its extent.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// LevelColor is the color of the filled portion, the caret, and the value readout
@@ -3293,9 +3557,9 @@ type CustomActuatorNodeConfig struct {
 	ToggleConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// StateOverrides contains per-instance overrides of the spec's visual states,
-	// matched to the spec's states by key.
-	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
+	// StateOverrides contains per-instance replacements of the spec's region colors,
+	// one for each value that the node draws, in value order: Base, then Active.
+	StateOverrides []symbol.StateOverride `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (CustomActuatorNodeConfig) isNodeConfigVariant() {}
@@ -3319,9 +3583,9 @@ type CustomStaticNodeConfig struct {
 	ScaledConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// StateOverrides contains per-instance overrides of the spec's visual states,
-	// matched to the spec's states by key.
-	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
+	// StateOverrides contains per-instance replacements of the spec's region colors,
+	// one for each value that the node draws, in value order: Base, then Active.
+	StateOverrides []symbol.StateOverride `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (CustomStaticNodeConfig) isNodeConfigVariant() {}
@@ -3349,6 +3613,60 @@ type GroupBoxNodeConfig struct {
 }
 
 func (GroupBoxNodeConfig) isNodeConfigVariant() {}
+
+// SymbolNodeConfig is the configuration for a node that draws a symbol.
+type SymbolNodeConfig struct {
+	LabeledConfig
+	ScaledConfig
+	StalenessConfig
+	// Spec is the symbol that the node draws.
+	Spec symbol.Ref `json:"spec" msgpack:"spec"`
+	// Color is the color that node paint reads.
+	Color *servicecolor.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
+	// Disabled is true when the node takes no clicks.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// MotionDisabled is true when the node draws no motion.
+	MotionDisabled bool `json:"motion_disabled" msgpack:"motion_disabled"`
+	// OnClickDelay is the debounce delay applied to clicks.
+	OnClickDelay telem.TimeSpan `json:"on_click_delay" msgpack:"on_click_delay"`
+	// States are how the node reads the states of its symbol.
+	States []StateBinding `json:"states" msgpack:"states"`
+	// Commands are the channels of the commands that have no state.
+	Commands []CommandBinding `json:"commands" msgpack:"commands"`
+	// Control is the control state display configuration.
+	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
+}
+
+func (SymbolNodeConfig) isNodeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SymbolNodeConfig) SetDefaults() {
+	s.LabeledConfig.SetDefaults()
+	s.ScaledConfig.SetDefaults()
+	s.StalenessConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SymbolNodeConfig) Validate() error {
+	v := validate.New("SymbolNodeConfig")
+	v.GreaterThanEq("on_click_delay", s.OnClickDelay, 0)
+	v.LessThanEq("on_click_delay", s.OnClickDelay, 2147483647000000)
+	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.ScaledConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
+	v.Exec(func() error { return validate.PathedError(s.Spec.Validate(), "spec") })
+	if s.Color != nil {
+		v.Exec(func() error { return validate.PathedError(s.Color.Validate(), "color") })
+	}
+	for i := range s.States {
+		v.Exec(func() error { return validate.PathedError(s.States[i].Validate(), "states", strconv.Itoa(i)) })
+	}
+	if s.Control != nil {
+		v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
+	}
+	return v.Error()
+}
 
 // NodeConfig is the configuration of one node. The variant selects the symbol rendered
 // for the node and the fields that accompany it.
@@ -3881,6 +4199,11 @@ func (u NodeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type NodeConfigType `json:"variant"`
 			GroupBoxNodeConfig
 		}{Type: GroupBoxNodeConfigType, GroupBoxNodeConfig: v})
+	case SymbolNodeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			SymbolNodeConfig
+		}{Type: SymbolNodeConfigType, SymbolNodeConfig: v})
 	default:
 		return errors.Newf("NodeConfig: unknown variant %T", v)
 	}
@@ -4945,6 +5268,16 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.GroupBoxNodeConfig
+	case SymbolNodeConfigType:
+		var v struct {
+			Type NodeConfigType `json:"variant"`
+			SymbolNodeConfig
+		}
+		v.SymbolNodeConfig.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SymbolNodeConfig
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -5166,6 +5499,8 @@ func (u NodeConfig) Validate() error {
 	case CustomActuatorNodeConfig:
 		v.Exec(variant.Validate)
 	case CustomStaticNodeConfig:
+		v.Exec(variant.Validate)
+	case SymbolNodeConfig:
 		v.Exec(variant.Validate)
 	}
 	return v.Error()

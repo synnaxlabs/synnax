@@ -430,33 +430,46 @@ func (c *collector) aliasFunc(typ resolution.Type, form resolution.AliasForm) fu
 		targetRef = form.Target
 		targetResolved, ok = c.oldTable.Lookup(typ.Namespace, form.Target.Name)
 	}
-	if ok {
-		if sf, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
-			newTarget, _ := c.newCounterpart(targetResolved)
-			newSF, _ := newTarget.Form.(resolution.StructForm)
-			oldSF := substituteTypeParams(sf, targetRef.TypeArgs)
-			if newAlias, ok := c.newCounterpart(typ); ok {
-				if af, ok := newAlias.Form.(resolution.AliasForm); ok {
-					if _, newTargetRef, ok := resolution.Dealias(
-						af.Target, c.newTable,
-					); ok {
-						newSF = substituteTypeParams(newSF, newTargetRef.TypeArgs)
-					}
-				}
-			}
-			return decorateWithTypeParams(
-				c.structFuncFromForms(goName, oldName, newName, "old", oldSF, newSF),
-				form.TypeParams,
-			)
-		}
-		// A Go alias is its target's type, so the variants keep the union's names.
-		if uf, isUnion := targetResolved.Form.(resolution.UnionForm); isUnion {
-			fn := c.unionFunc(targetResolved, uf)
-			fn.GoName, fn.OldTypeName, fn.NewTypeName = goName, oldName, newName
-			return fn
-		}
+	if !ok {
+		return decorateWithTypeParams(c.castFunc(typ), form.TypeParams)
+	}
+	if sf, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+		newTarget, _ := c.newCounterpart(targetResolved)
+		newSF, _ := newTarget.Form.(resolution.StructForm)
+		oldSF := substituteTypeParams(sf, targetRef.TypeArgs)
+		return decorateWithTypeParams(
+			c.structFuncFromForms(
+				goName, oldName, newName, "old", oldSF, c.newAliasForm(typ, newSF),
+			),
+			form.TypeParams,
+		)
+	}
+	// A Go alias is its target's type, so the variants keep the union's names.
+	if uf, isUnion := targetResolved.Form.(resolution.UnionForm); isUnion {
+		fn := c.unionFunc(targetResolved, uf)
+		fn.GoName, fn.OldTypeName, fn.NewTypeName = goName, oldName, newName
+		return fn
 	}
 	return decorateWithTypeParams(c.castFunc(typ), form.TypeParams)
+}
+
+// newAliasForm returns newSF with the type arguments of the new alias of typ, or newSF
+// itself when the new alias has none to apply.
+func (c *collector) newAliasForm(
+	typ resolution.Type, newSF resolution.StructForm,
+) resolution.StructForm {
+	newAlias, ok := c.newCounterpart(typ)
+	if !ok {
+		return newSF
+	}
+	af, ok := newAlias.Form.(resolution.AliasForm)
+	if !ok {
+		return newSF
+	}
+	if _, newTargetRef, ok := resolution.Dealias(af.Target, c.newTable); ok {
+		return substituteTypeParams(newSF, newTargetRef.TypeArgs)
+	}
+	return newSF
 }
 
 func (c *collector) distinctFunc(
@@ -493,25 +506,7 @@ func (c *collector) structFuncFromForms(
 		GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName,
 		ZeroValue: newTypeName + "{}", Kind: "struct", recv: recv,
 	}
-	newExtends := make(set.Set[string], len(newSF.Extends))
-	for _, ext := range newSF.Extends {
-		if newParent, ok := ext.Resolve(c.newTable); ok {
-			newExtends.Add(naming.GetGoName(newParent))
-		}
-	}
-	var copied []resolution.TypeRef
-	for _, ext := range oldSF.Extends {
-		oldParent, ok := c.resolveRef(ext)
-		if !ok {
-			continue
-		}
-		name := naming.GetGoName(oldParent)
-		if !newExtends.Contains(name) {
-			continue
-		}
-		c.addField(&fn, ext, recv+"."+name, name, false)
-		copied = append(copied, ext)
-	}
+	copied := c.addParents(&fn, recv, oldSF, newSF)
 	// A field that overrides only the default of a copied parent's field is that
 	// parent's field in Go, so the parent's copy carries it.
 	carried := resolver.DefaultOnlyOverrides(copied, oldSF.Fields, c.oldTable)
@@ -559,6 +554,33 @@ func (c *collector) structFuncFromForms(
 		c.addField(&fn, oldField.Type, recv+"."+name, name, oldField.Optional)
 	}
 	return fn
+}
+
+// addParents adds a copy to fn of each parent that oldSF and newSF both extend, reading
+// it through recv, and returns the copied parents.
+func (c *collector) addParents(
+	fn *funcData, recv string, oldSF, newSF resolution.StructForm,
+) []resolution.TypeRef {
+	newExtends := make(set.Set[string], len(newSF.Extends))
+	for _, ext := range newSF.Extends {
+		if newParent, ok := ext.Resolve(c.newTable); ok {
+			newExtends.Add(naming.GetGoName(newParent))
+		}
+	}
+	var copied []resolution.TypeRef
+	for _, ext := range oldSF.Extends {
+		oldParent, ok := c.resolveRef(ext)
+		if !ok {
+			continue
+		}
+		name := naming.GetGoName(oldParent)
+		if !newExtends.Contains(name) {
+			continue
+		}
+		c.addField(fn, ext, recv+"."+name, name, false)
+		copied = append(copied, ext)
+	}
+	return copied
 }
 
 // unionFunc converts a union variant by variant. A variant the incoming version drops

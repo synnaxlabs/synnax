@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { color, TimeSpan } from "@synnaxlabs/x";
-import { render, waitFor } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import type { FC } from "react";
 import { describe, expect, it } from "vitest";
@@ -17,8 +17,7 @@ import { describe, expect, it } from "vitest";
 import { Node } from "@/schematic/node";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
-import { Staleness } from "@/vis/staleness";
+import { createSynnaxWrapper } from "@/testutil";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { toggle } from "@/vis/toggle/aether";
 
@@ -69,10 +68,10 @@ const Stub: FC<Omit<schematic.ToggleSymbolConfig, "label"> & Toggle.ButtonProps>
 
 const StubToggle = Toggle.createToggle<schematic.ToggleSymbolConfig>(Stub);
 
-const renderStale = (badged: boolean) =>
-  render(
-    <StaleWrapper>
-      <Staleness.Provider badged={badged}>
+describe("createToggle staleness", () => {
+  it("should show the stale indicator and keep the symbol color", async () => {
+    const { findByRole, getByTestId } = render(
+      <StaleWrapper>
         <ReactFlowProvider>
           <StubToggle
             nodeKey="v1"
@@ -84,22 +83,9 @@ const renderStale = (badged: boolean) =>
             onConfigChange={() => {}}
           />
         </ReactFlowProvider>
-      </Staleness.Provider>
-    </StaleWrapper>,
-  );
-
-describe("createToggle staleness", () => {
-  it("should show the stale badge and keep the symbol color when badged", async () => {
-    const { findByRole, getByTestId } = renderStale(true);
+      </StaleWrapper>,
+    );
     await findByRole("img", { name: "Stale" });
     expect(getByTestId("symbol").dataset.stroke).toBe(SYMBOL_COLOR);
-  });
-
-  it("should paint the stale color with no badge when not badged", async () => {
-    const { getByTestId, queryByRole } = renderStale(false);
-    await waitFor(() =>
-      expect(getByTestId("symbol").dataset.stroke).not.toBe(SYMBOL_COLOR),
-    );
-    expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 });

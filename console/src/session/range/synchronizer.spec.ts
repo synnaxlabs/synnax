@@ -132,15 +132,15 @@ describe("Range.SYNCHRONIZERS", () => {
       );
       const reader = createTestClient();
       expect((await reader.lineplots.retrieve(mixed.key)).ranges).toEqual([
-        savedRef,
-        rolling,
-        windowOf(local),
+        expect.objectContaining(savedRef),
+        expect.objectContaining(rolling),
+        expect.objectContaining(windowOf(local)),
       ]);
       expect((await reader.lineplots.retrieve(shown.key)).ranges).toEqual([
-        windowOf(local),
+        expect.objectContaining(windowOf(local)),
       ]);
       expect((await reader.lineplots.retrieve(untouched.key)).ranges).toEqual([
-        savedRef,
+        expect.objectContaining(savedRef),
       ]);
       expect(send).not.toHaveBeenCalledWith(untouched.key, expect.anything());
       expect(client.lineplots.hasUndo(mixed.key)).toBe(false);
@@ -165,7 +165,9 @@ describe("Range.SYNCHRONIZERS", () => {
       );
       await waitFor(() => expect(result.current).toBe(true));
       const { ranges } = await createTestClient().lineplots.retrieve(plot.key);
-      expect(ranges).toEqual([{ variant: "key", key: local.key }]);
+      expect(ranges).toEqual([
+        expect.objectContaining({ variant: "key", key: local.key }),
+      ]);
     });
 
     const mount = async (local: Local, as: Synnax = client) => {
@@ -230,7 +232,9 @@ describe("Range.SYNCHRONIZERS", () => {
       expect(rewritten()).toBe(false);
       expect(result.current.statuses).toEqual([]);
       const { ranges } = await createTestClient().lineplots.retrieve(plot.key);
-      expect(ranges).toEqual([{ variant: "key", key: local.key }]);
+      expect(ranges).toEqual([
+        expect.objectContaining({ variant: "key", key: local.key }),
+      ]);
     });
 
     it("should mark the rewrite done when a line plot is deleted first", async () => {

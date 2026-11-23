@@ -9,7 +9,7 @@
 
 import type { APIContext } from "astro";
 
-import { toResponse } from "@/server/errors";
+import { badRequest, toResponse } from "@/server/errors";
 import { filename } from "@/server/license/limits";
 
 /**
@@ -43,13 +43,24 @@ const flatten = (value: unknown): string => {
   return JSON.stringify(value) ?? "";
 };
 
-/** form reads a JSON body or a posted form into one flat record without null fields. */
+const parse = async <T>(read: () => Promise<T>): Promise<T> => {
+  try {
+    return await read();
+  } catch (err) {
+    throw badRequest("The request body is malformed", { cause: err });
+  }
+};
+
+/**
+ * form reads a JSON body or a posted form into one flat record without null fields.
+ * @throws {HTTPError} 400 when the body does not parse.
+ */
 export const form = async ({
   request,
 }: APIContext): Promise<Record<string, string>> => {
   const type = request.headers.get("content-type") ?? "";
   if (type.includes("application/json")) {
-    const body: unknown = await request.json();
+    const body: unknown = await parse(async () => await request.json());
     if (body == null || typeof body !== "object" || Array.isArray(body)) return {};
     return Object.fromEntries(
       Object.entries(body)
@@ -57,7 +68,7 @@ export const form = async ({
         .map(([k, v]) => [k, flatten(v)]),
     );
   }
-  const data = await request.formData();
+  const data = await parse(async () => await request.formData());
   return Object.fromEntries(
     [...data.entries()].map(([k, v]) => [k, typeof v === "string" ? v : v.name]),
   );

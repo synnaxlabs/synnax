@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type deep, record, TimeSpan } from "@synnaxlabs/x";
 import type { FC } from "react";
 
-import { Select as SelectDevice } from "@/feature/ni/device/Select";
+import { Device } from "@/feature/ni/device";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
@@ -162,8 +163,24 @@ const MeasMethodField = Form.buildSelectField<CIMeasMethod>({
   },
 });
 
+const checkMeasTime = (span: TimeSpan): string | null =>
+  span.lessThan(TimeSpan.NANOSECOND) ? "Measurement time must be 1ns or more" : null;
+
+/** Stores nanoseconds, and reads a number typed alone as seconds. */
 const MeasTimeField = ({ path }: { path: deep.Target<number> }) => (
-  <Form.TimeSpanField path={path} label="Measurement time" unit={TimeSpan.SECOND} />
+  <Form.Field<number> path={path} label="Measurement time">
+    {({ value, onChange, ...p }) => (
+      <Input.TimeSpan
+        {...p}
+        inline
+        unit={TimeSpan.SECOND}
+        precision={TimeSpan.NANOSECOND}
+        value={value}
+        onChange={onChange}
+        check={checkMeasTime}
+      />
+    )}
+  </Form.Field>
 );
 
 const COUNT_INPUT_PROPS = { bounds: { lower: 1, upper: Infinity } } as const;
@@ -557,7 +574,7 @@ export const CIChannelForm = ({ type, path, channelsPath }: CIChannelFormProps) 
   return (
     <Form.Sections>
       <Form.Section title="Source">
-        <SelectDevice path={path.device} />
+        <Device.Select path={path.device} />
         <PortField
           path={path}
           channelsPath={channelsPath}

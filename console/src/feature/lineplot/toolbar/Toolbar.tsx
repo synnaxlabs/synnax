@@ -17,12 +17,13 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Access, LinePlot, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
+import { CSV } from "@/feature/lineplot/csv";
 import { Annotations } from "@/feature/lineplot/toolbar/Annotations";
 import { Axes } from "@/feature/lineplot/toolbar/Axes";
 import { Data } from "@/feature/lineplot/toolbar/Data";
 import { Lines } from "@/feature/lineplot/toolbar/Lines";
 import { Properties } from "@/feature/lineplot/toolbar/Properties";
-import { useDownloadPlotAsCSV } from "@/feature/lineplot/useDownloadAsCSV";
+import { FLAGS } from "@/flags";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -44,7 +45,9 @@ const Internal = (): ReactElement => {
       }),
     );
   };
-  const downloadAsCSV = useDownloadPlotAsCSV(key);
+  const downloadAsCSV = CSV.useDownloadPlot(key);
+  const x1 = LinePlot.useXAxis({ axisKey: "x1" });
+  const relative = FLAGS.compare && LinePlot.isRelative(x1);
   return (
     <Base.Content className={CSS.B("line-plot-toolbar")}>
       <Tabs.Frame value={activeTab} onChange={handleTabSelect} grow>
@@ -59,14 +62,16 @@ const Internal = (): ReactElement => {
               gap="small"
               className={CSS.BE("line-plot", "toolbar", "actions")}
             >
-              <Button.Button
-                tooltip="Download as CSV"
-                size="medium"
-                variant="text"
-                onClick={downloadAsCSV}
-              >
-                <Icon.CSV />
-              </Button.Button>
+              {!relative && (
+                <Button.Button
+                  tooltip="Download as CSV"
+                  size="medium"
+                  variant="text"
+                  onClick={downloadAsCSV}
+                >
+                  <Icon.CSV />
+                </Button.Button>
+              )}
               <Export.ToolbarButton id={lineplot.resourceID(key)} />
               <Core.CopyLinkToolbarButton
                 name={name}

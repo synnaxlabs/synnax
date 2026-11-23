@@ -59,7 +59,7 @@ var _ = Describe("Where", func() {
 			lo.Values(v.Records),
 			func(r ranger.Range, _ int) []label.Key { return r.Labels },
 		)) {
-			l := label.Label{Key: k, Name: k.String()}
+			l := label.Label{Key: k, Name: k.String(), Color: labelColor}
 			Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		}
 		for _, r := range v.Records {

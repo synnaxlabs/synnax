@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/set"
@@ -201,7 +202,7 @@ var _ = Describe("Ranger", func() {
 			},
 		)
 		It("Should retrieve ranges that have a specific label", func(ctx SpecContext) {
-			l := &label.Label{Name: "TestLabel"}
+			l := &label.Label{Name: "TestLabel", Color: labelColor}
 			Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
 			r1 := &ranger.Range{
 				Name:      "LabeledRange",
@@ -229,7 +230,7 @@ var _ = Describe("Ranger", func() {
 		It(
 			"Should return empty when no ranges have the specified label",
 			func(ctx SpecContext) {
-				l := &label.Label{Name: "UnusedLabel"}
+				l := &label.Label{Name: "UnusedLabel", Color: labelColor}
 				Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
 				r := &ranger.Range{
 					Name:      "RangeWithoutLabels",
@@ -249,8 +250,8 @@ var _ = Describe("Ranger", func() {
 		It(
 			"Should match ranges that have any of multiple provided labels",
 			func(ctx SpecContext) {
-				la := &label.Label{Name: "LabelA"}
-				lb := &label.Label{Name: "LabelB"}
+				la := &label.Label{Name: "LabelA", Color: labelColor}
+				lb := &label.Label{Name: "LabelB", Color: labelColor}
 				Expect(labelSvc.NewWriter(tx).Create(ctx, la)).To(Succeed())
 				Expect(labelSvc.NewWriter(tx).Create(ctx, lb)).To(Succeed())
 				rA := &ranger.Range{
@@ -291,7 +292,7 @@ var _ = Describe("Ranger", func() {
 		It(
 			"Should compose MatchOverlaps and MatchLabels under And via Where",
 			func(ctx SpecContext) {
-				l := &label.Label{Name: "AndLabel"}
+				l := &label.Label{Name: "AndLabel", Color: labelColor}
 				Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
 				rHit := &ranger.Range{
 					Name: "AndHit",
@@ -382,7 +383,7 @@ var _ = Describe("Ranger", func() {
 			},
 		)
 		It("Should invert a filter with Not", func(ctx SpecContext) {
-			l := &label.Label{Name: "NotLabel"}
+			l := &label.Label{Name: "NotLabel", Color: labelColor}
 			Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
 			rLabeled := &ranger.Range{
 				Name:      "NotLabeled",
@@ -490,3 +491,6 @@ var _ = Describe("Ranger", func() {
 		})
 	})
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = servicecolor.Ref{Variant: servicecolor.FixedRef{}}

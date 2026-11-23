@@ -240,43 +240,11 @@ func (w *bundleWalk) directory(
 		}
 		switch {
 		case child.ID.Type == resource.TypeGroup:
-			dirName, err := filename.Sanitize(child.Name, "")
-			if err != nil {
+			if err = w.group(ctx, child, prefix, claims); err != nil {
 				return err
 			}
-			dirName = claims.Claim(dirName, "")
-			w.visited.Add(child.ID)
-			before := len(w.refs) + len(w.panels)
-			err = w.directory(ctx, child.ID, prefix+dirName+"/", imex.NewClaims())
-			if err != nil {
-				return err
-			}
-			// An empty group is dropped: it enforces no access, and the name it claimed
-			// only pushes a same-named sibling group to the next suffix.
-			if len(w.refs)+len(w.panels) == before {
-				continue
-			}
-			w.groups = append(w.groups, child.ID)
 		case child.ID.Type == resource.TypePanel:
-			w.visited.Add(child.ID)
-			p, err := w.retrievePanel(ctx, child.ID)
-			if err != nil {
-				return err
-			}
-			// A draft is private to its owner, so it never leaves the Core.
-			if p.Owner != nil {
-				continue
-			}
-			fileName, err := filename.Sanitize(child.Name, w.ext)
-			if err != nil {
-				return err
-			}
-			fileName = claims.Claim(fileName, w.ext)
-			w.panels = append(w.panels, bundlePanel{
-				panel: p,
-				path:  prefix + fileName,
-			})
-			if err = w.panelRefs(ctx, p, prefix, claims); err != nil {
+			if err = w.panel(ctx, child, prefix, claims); err != nil {
 				return err
 			}
 		case w.svc.cfg.ImEx.ExporterRegistered(child.ID.Type):
@@ -292,6 +260,62 @@ func (w *bundleWalk) directory(
 	return nil
 }
 
+// group walks the group child into a directory of its own in the directory at prefix.
+func (w *bundleWalk) group(
+	ctx context.Context,
+	child resource.Resource,
+	prefix string,
+	claims *imex.Claims,
+) error {
+	dirName, err := filename.Sanitize(child.Name, "")
+	if err != nil {
+		return err
+	}
+	dirName = claims.Claim(dirName, "")
+	w.visited.Add(child.ID)
+	before := len(w.refs) + len(w.panels)
+	err = w.directory(ctx, child.ID, prefix+dirName+"/", imex.NewClaims())
+	if err != nil {
+		return err
+	}
+	// An empty group is dropped: it enforces no access, and the name it claimed only
+	// pushes a same-named sibling group to the next suffix.
+	if len(w.refs)+len(w.panels) == before {
+		return nil
+	}
+	w.groups = append(w.groups, child.ID)
+	return nil
+}
+
+// panel adds the panel child and the resources it references to the directory at
+// prefix.
+func (w *bundleWalk) panel(
+	ctx context.Context,
+	child resource.Resource,
+	prefix string,
+	claims *imex.Claims,
+) error {
+	w.visited.Add(child.ID)
+	p, err := w.retrievePanel(ctx, child.ID)
+	if err != nil {
+		return err
+	}
+	// A draft is private to its owner, so it never leaves the Core.
+	if p.Owner != nil {
+		return nil
+	}
+	fileName, err := filename.Sanitize(child.Name, w.ext)
+	if err != nil {
+		return err
+	}
+	fileName = claims.Claim(fileName, w.ext)
+	w.panels = append(w.panels, bundlePanel{
+		panel: p,
+		path:  prefix + fileName,
+	})
+	return w.panelRefs(ctx, p, prefix, claims)
+}
+
 // children returns the resources in the directory of parent: the groups and members of
 // a group, or the groups and ungrouped members of the project.
 func (w *bundleWalk) children(
@@ -300,18 +324,9 @@ func (w *bundleWalk) children(
 ) ([]resource.Resource, error) {
 	var ids []resource.ID
 	if parent.Type == resource.TypeProject {
-		key, err := project.KeyFromResourceID(parent)
-		if err != nil {
+		var err error
+		if ids, err = w.ungrouped(ctx, parent); err != nil {
 			return nil, err
-		}
-		deps, err := w.svc.cfg.Project.Children(ctx, w.snap, key)
-		if err != nil {
-			return nil, err
-		}
-		for _, id := range deps {
-			if !w.grouped.Contains(id) {
-				ids = append(ids, id)
-			}
 		}
 	} else {
 		key, err := group.KeyFromResourceID(parent)
@@ -323,6 +338,28 @@ func (w *bundleWalk) children(
 		}
 	}
 	return w.svc.cfg.Resource.Retrieve(ctx, w.snap, ids...)
+}
+
+// ungrouped returns the groups and ungrouped members of the project with id.
+func (w *bundleWalk) ungrouped(
+	ctx context.Context,
+	id resource.ID,
+) ([]resource.ID, error) {
+	key, err := project.KeyFromResourceID(id)
+	if err != nil {
+		return nil, err
+	}
+	deps, err := w.svc.cfg.Project.Children(ctx, w.snap, key)
+	if err != nil {
+		return nil, err
+	}
+	var ids []resource.ID
+	for _, dep := range deps {
+		if !w.grouped.Contains(dep) {
+			ids = append(ids, dep)
+		}
+	}
+	return ids, nil
 }
 
 // groupedMembers returns every member of the groups under the project with id, as seen

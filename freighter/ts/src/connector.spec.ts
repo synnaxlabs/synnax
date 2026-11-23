@@ -24,16 +24,31 @@ import { HTTPClient, trustCA, Unreachable, WebSocketClient } from "@/index";
 
 const messageZ = z.object({ message: z.string() });
 
+const KEY_ARGS = "-newkey rsa:2048 -nodes -days 1";
+
+const openssl = (dir: string, args: string): void => {
+  execFileSync("openssl", args.split(" "), { cwd: dir, stdio: "ignore" });
+};
+
+// Writes a test CA and returns its PEM text.
+const createCA = (dir: string, name: string): string => {
+  openssl(
+    dir,
+    `req -x509 ${KEY_ARGS} -keyout ${name}.key -out ${name}.crt -subj /CN=${name}`,
+  );
+  return readFileSync(join(dir, `${name}.crt`), "utf8");
+};
+
 // Writes a test CA and a certificate for 127.0.0.1 that the CA signs.
 const createCertificates = (dir: string): void => {
-  const openssl = (args: string): void => {
-    execFileSync("openssl", args.split(" "), { cwd: dir, stdio: "ignore" });
-  };
-  const key = "-newkey rsa:2048 -nodes -days 1";
-  openssl(`req -x509 ${key} -keyout ca.key -out ca.crt -subj /CN=ca`);
-  openssl(`req ${key} -keyout server.key -out server.csr -subj /CN=127.0.0.1`);
+  createCA(dir, "ca");
+  openssl(
+    dir,
+    `req ${KEY_ARGS} -keyout server.key -out server.csr -subj /CN=127.0.0.1`,
+  );
   writeFileSync(join(dir, "ext.cnf"), "subjectAltName=IP:127.0.0.1\n");
   openssl(
+    dir,
     "x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial " +
       "-out server.crt -days 1 -extfile ext.cnf",
   );
@@ -161,6 +176,41 @@ describe("trustCA", () => {
       (e: unknown) => e,
     );
     expect(Unreachable.matches(err)).toBe(true);
+  });
+
+  describe("in Node versions without tls.getCACertificates", () => {
+    beforeAll(() => {
+      vi.doMock("node:tls", async (importOriginal) => ({
+        ...(await importOriginal<object>()),
+        getCACertificates: undefined,
+      }));
+    });
+
+    afterAll(() => {
+      vi.doUnmock("node:tls");
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("should keep the certificates in NODE_EXTRA_CA_CERTS", async () => {
+      vi.stubEnv("NODE_EXTRA_CA_CERTS", join(dir, "ca.crt"));
+      const client = new HTTPClient({
+        endpoint,
+        codec: binary.JSON_CODEC,
+        secure: true,
+        connector: trustCA(createCA(dir, "other")),
+      });
+      const res = await client.send("/", { message: "hi" }, messageZ, messageZ);
+      expect(res).toEqual({ message: "hi" });
+    });
+
+    it("should skip a NODE_EXTRA_CA_CERTS file that does not exist", async () => {
+      vi.stubEnv("NODE_EXTRA_CA_CERTS", join(dir, "missing.crt"));
+      const res = await httpClient().send("/", { message: "hi" }, messageZ, messageZ);
+      expect(res).toEqual({ message: "hi" });
+    });
   });
 
   describe("in runtimes without a CA option for WebSockets", () => {

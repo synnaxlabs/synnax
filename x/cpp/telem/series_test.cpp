@@ -9,6 +9,7 @@
 
 #include <array>
 #include <iostream>
+#include <limits>
 
 #include "gtest/gtest.h"
 
@@ -666,6 +667,14 @@ TEST(TestSeries, testDeepCopyWriteIntoSpareCapacity) {
     ASSERT_EQ(s2.at<std::uint32_t>(-1), 7);
 }
 
+/// @brief it should append the strings of another string series.
+TEST(TestSeries, testWriteStringSeries) {
+    Series s(std::vector<std::string>{"a"});
+    ASSERT_EQ(s.write(Series(std::vector<std::string>{"bc", "def"})), 2);
+    ASSERT_EQ(s.size(), 3);
+    ASSERT_EQ(s.strings(), (std::vector<std::string>{"a", "bc", "def"}));
+}
+
 /// @brief it should throw when writing a series of another data type.
 TEST(TestSeries, testWriteSeriesTypeMismatch) {
     Series s(FLOAT64_T, 4);
@@ -1217,6 +1226,19 @@ TEST(TestSeries, testFillFromEmpty) {
     ASSERT_EQ(series.size(), 0);
 }
 
+/// @brief it should not read past the capacity when filling a partly full series.
+TEST(TestSeries, testFillFromStopsAtCapacity) {
+    const std::vector<uint8_t> first_data = {1, 2};
+    const std::vector<uint8_t> second_data = {3, 4, 5, 6};
+    Series series(UINT8_T, 4);
+    binary::Reader first(first_data);
+    ASSERT_EQ(series.fill_from(first), 2);
+    binary::Reader second(second_data);
+    ASSERT_EQ(series.fill_from(second), 2);
+    ASSERT_EQ(series.size(), 4);
+    ASSERT_EQ(series.values<uint8_t>(), (std::vector<uint8_t>{1, 2, 3, 4}));
+}
+
 /// @brief it should fill series from multiple binary reader reads.
 TEST(TestSeries, testFillFromMultipleReads) {
     std::vector source_data1 = {1.0f, 2.0f, 3.0f};
@@ -1590,6 +1612,30 @@ TEST(SeriesOperators, ScalarOnLeftDivision) {
 TEST(SeriesOperators, DivisionByZeroThrows) {
     auto a = Series(std::vector<double>{1.0, 2.0, 3.0});
     ASSERT_THROW(a / 0.0, std::runtime_error);
+}
+
+/// @brief it should wrap a signed minimum divided by -1 to the minimum.
+TEST(SeriesOperators, SignedMinDividedByNegativeOneWraps) {
+    constexpr auto min = std::numeric_limits<int64_t>::min();
+    auto a = Series(std::vector<int64_t>{min, 6});
+    auto b = Series(std::vector<int64_t>{-1, -1});
+    auto series = a / b;
+    ASSERT_EQ(series.at<int64_t>(0), min);
+    ASSERT_EQ(series.at<int64_t>(1), -6);
+    ASSERT_EQ((a / int64_t{-1}).at<int64_t>(0), min);
+    ASSERT_EQ((min / Series(std::vector<int64_t>{-1})).at<int64_t>(0), min);
+}
+
+/// @brief it should return zero for a signed minimum modulo -1.
+TEST(SeriesOperators, SignedMinModuloNegativeOneIsZero) {
+    constexpr auto min = std::numeric_limits<int32_t>::min();
+    auto a = Series(std::vector<int32_t>{min, 7});
+    auto b = Series(std::vector<int32_t>{-1, 3});
+    auto series = a % b;
+    ASSERT_EQ(series.at<int32_t>(0), 0);
+    ASSERT_EQ(series.at<int32_t>(1), 1);
+    ASSERT_EQ((a % int32_t{-1}).at<int32_t>(0), 0);
+    ASSERT_EQ((min % Series(std::vector<int32_t>{-1})).at<int32_t>(0), 0);
 }
 
 /// @brief Tests > comparison operator.

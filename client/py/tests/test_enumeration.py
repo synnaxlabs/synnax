@@ -13,7 +13,8 @@ import pydantic
 import pytest
 
 import synnax as sy
-from synnax import color, enumeration
+from synnax import color, enumeration, schematic
+from x import spatial
 from x.testutil import untyped
 
 
@@ -101,6 +102,34 @@ class TestEnumerationClient:
             (1, "Open"),
         ]
 
+    def test_retrieve_unused(self, client: sy.Synnax) -> None:
+        """Should retrieve empty uses for an enumeration that nothing uses."""
+        created = client.enumerations.create(name=str(uuid4()))
+        assert (
+            client.enumerations.retrieve(key=created.key, include_uses=True).uses == []
+        )
+        assert client.enumerations.retrieve(key=created.key).uses is None
+
+    def test_retrieve_uses(self, client: sy.Synnax) -> None:
+        """Should retrieve the schematics that use an enumeration."""
+        created = client.enumerations.create(name=str(uuid4()), entries=_entries())
+        project = client.projects.create(name=str(uuid4()))
+        s = client.schematics.create(
+            sy.Schematic(
+                project=project.key,
+                name=str(uuid4()),
+                nodes=[
+                    schematic.Node(
+                        key="select",
+                        position=spatial.XY(x=0, y=0),
+                        config=schematic.SelectNodeConfig(enumeration=created.key),
+                    )
+                ],
+            )
+        )
+        res = client.enumerations.retrieve(keys=[created.key], include_uses=True)
+        assert [e.uses for e in res] == [[schematic.resource_id(s.key)]]
+
     def test_retrieve_key_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when no enumeration has the key."""
         with pytest.raises(sy.NotFoundError):
@@ -162,3 +191,19 @@ class TestEnumerationClient:
     def test_delete_missing(self, client: sy.Synnax) -> None:
         """Should not fail on a key with no enumeration."""
         client.enumerations.delete(uuid4())
+
+    def test_replace(self, client: sy.Synnax) -> None:
+        """Should delete the replaced enumeration and keep the replacement."""
+        old = client.enumerations.create(name=str(uuid4()))
+        new = client.enumerations.create(name=str(uuid4()))
+        client.enumerations.replace(old.key, new.key)
+        with pytest.raises(sy.NotFoundError):
+            client.enumerations.retrieve(key=old.key)
+        assert client.enumerations.retrieve(key=new.key).key == new.key
+
+    def test_replace_builtin(self, client: sy.Synnax) -> None:
+        """Should refuse to replace a built-in enumeration."""
+        valve = client.enumerations.retrieve(name="Valve")
+        new = client.enumerations.create(name=str(uuid4()))
+        with pytest.raises(sy.ValidationError, match="built-in enumeration Valve"):
+            client.enumerations.replace(valve.key, new.key)

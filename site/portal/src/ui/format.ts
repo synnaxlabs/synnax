@@ -9,7 +9,7 @@
 
 import { array, math } from "@synnaxlabs/x";
 
-import type { Event, License } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import { roleName } from "@/server/directory";
 import { type Denial, deny } from "@/server/license/deny";
 import type { Status } from "@/server/license/status";
@@ -81,7 +81,7 @@ export interface Standing {
 
 /** standing sums the seats and expiries of the licenses usable at `now`. */
 export const standing = (
-  licenses: { license: License; seats: number }[],
+  licenses: { license: schema.License; seats: number }[],
   now: Date,
 ): Standing => {
   const live = licenses.filter(({ license }) => deny(license, now) == null);
@@ -97,10 +97,10 @@ export const standing = (
   };
 };
 
-export const edition = (e: License["edition"]): string =>
+export const edition = (e: schema.License["edition"]): string =>
   e === "desktop" ? "Desktop" : "Enterprise";
 
-const EVENT_LABELS: Record<Event["kind"], string> = {
+const EVENT_LABELS: Record<schema.Event["kind"], string> = {
   issue: "License issued",
   amend: "License changed",
   activate: "Machine activated",
@@ -142,7 +142,10 @@ const text = (value: unknown): string | undefined =>
   typeof value === "string" ? value : undefined;
 
 /** describeEvent writes one event as a line: what happened, to what, by whom. */
-export const describeEvent = (e: Event, { machines, actors }: Narrator): string => {
+export const describeEvent = (
+  e: schema.Event,
+  { machines, actors }: Narrator,
+): string => {
   const detail = e.detail as Record<string, unknown>;
   const on =
     e.activation == null

@@ -11,7 +11,7 @@ import { box, type runtime, xy } from "@synnaxlabs/x";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
-import { buildStack } from "@/testutil/providers";
+import { buildStack } from "@/testutil/internal";
 import { canvas } from "@/vis/canvas/aether";
 import type { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
@@ -292,6 +292,45 @@ describe("render.Context", () => {
       m.renderCtx.loop.set(req);
       vi.advanceTimersToNextFrame();
       expect(req.render).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("GL scissor", () => {
+    const scissors = (calls: canvasTest.Call[]) =>
+      calls.filter((c) => c.op === "scissor").map((c) => c.args);
+
+    it("should draw a scissor inside another only where both boxes overlap", () => {
+      const m = mount();
+      m.calls.length = 0;
+      const outer = m.renderCtx.scissor(box.construct(0, 0, 100, 100), xy.ZERO, ["gl"]);
+      const inner = m.renderCtx.scissor(box.construct(50, 0, 100, 100), xy.ZERO, [
+        "gl",
+      ]);
+      expect(scissors(m.calls).at(-1)).toEqual([50, 0, 50, 100]);
+      inner();
+      outer();
+    });
+
+    it("should give two boxes that meet the same edge in device pixels", () => {
+      const m = mount();
+      m.calls.length = 0;
+      m.renderCtx.scissor(box.construct(10.6, 0, 39.9, 100), xy.ZERO, ["gl"])();
+      m.renderCtx.scissor(box.construct(50.5, 0, 40, 100), xy.ZERO, ["gl"])();
+      const [left, right] = scissors(m.calls) as number[][];
+      expect([...left, ...right].every(Number.isInteger)).toBe(true);
+      expect(left[0] + left[2]).toBe(right[0]);
+    });
+
+    it("should put back the box before it when an inner scissor ends", () => {
+      const m = mount();
+      const outer = m.renderCtx.scissor(box.construct(0, 0, 60, 100), xy.ZERO, ["gl"]);
+      const inner = m.renderCtx.scissor(box.construct(20, 0, 20, 100), xy.ZERO, ["gl"]);
+      m.calls.length = 0;
+      inner();
+      expect(scissors(m.calls)).toEqual([[0, 0, 60, 100]]);
+      expect(m.count("disable")).toBe(0);
+      outer();
+      expect(m.count("disable")).toBe(1);
     });
   });
 

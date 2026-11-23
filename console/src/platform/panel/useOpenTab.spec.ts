@@ -632,8 +632,8 @@ describe("Panel.useCanOpenTab", () => {
     async (role) => {
       const existing = await createServerPanel(client, viewLeaf(uuid.create(), "seed"));
       const { result } = await renderCan(await roles.get(role), existing.key);
-      await waitFor(() => expect(result.current.edit).toBe(false));
-      expect(result.current.open).toBe(false);
+      await waitFor(() => expect(result.current.open).toBe(false));
+      expect(result.current.edit).toBe(false);
     },
   );
 

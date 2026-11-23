@@ -9,34 +9,39 @@
 
 import "@/input/Table.css";
 
-import { csv, type dimensions, grid, xy } from "@synnaxlabs/x";
+import { csv, type dimensions, grid, strings, xy } from "@synnaxlabs/x";
 import {
   type ClipboardEvent,
   type ComponentPropsWithRef,
+  type DragEvent,
   type FocusEvent,
   type KeyboardEvent,
+  type PropsWithChildren,
   type ReactElement,
   type ReactNode,
   type SyntheticEvent,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
 
 import { Button } from "@/button";
-import type { RenderProp } from "@/component/renderProp";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
+import { Haul } from "@/haul";
 import { Icon } from "@/icon";
+import { Checkbox } from "@/input/Checkbox";
 import { Numeric } from "@/input/Numeric";
 import { ItemContext, type ItemContextValue } from "@/input/scope";
 import { Text as InputText } from "@/input/Text";
 import type { Control, Variant } from "@/input/types";
 import type { Status } from "@/status";
 import { Text } from "@/text";
-import { reactElementToArray } from "@/util/children";
+import { reactElementToArray } from "@/util";
 
-/** The value one {@link Table} cell holds. */
-export type TableCell = string | number;
+/** The value one {@link Table} cell holds. The cell's column decides its type. */
+export type TableCell = unknown;
 
 /** The props a {@link TableColumn} cell renderer receives. */
 export interface TableCellProps<V extends TableCell = TableCell> extends Control<V> {
@@ -45,6 +50,14 @@ export interface TableCellProps<V extends TableCell = TableCell> extends Control
   /** The edit-in-place chassis every cell shares. Spread it onto the input. */
   variant?: Variant;
   "aria-label": string;
+}
+
+/** The props a custom column's cell renderer receives. */
+export interface TableCustomCellProps<
+  V extends TableCell = TableCell,
+> extends TableCellProps<V> {
+  /** The index of the cell's row. */
+  row: number;
 }
 
 interface BaseTableColumnProps {
@@ -62,22 +75,37 @@ const MIN_SHARED_WIDTH = 16;
 
 /**
  * The column's type decides what a new row holds, how pasted text is read, and which
- * input a cell defaults to.
+ * input a cell defaults to. A custom column holds any value and renders it itself.
  */
-export type TableColumnProps =
+export type TableColumnProps<V = unknown> =
   | (BaseTableColumnProps & {
       type?: "number";
       /** Reads pasted text, or returns null to refuse it. Defaults to `Number`. */
       parse?: (text: string) => number | null;
       /** Renders the cell. Defaults to a numeric input. */
-      children?: RenderProp<TableCellProps<number>>;
+      children?: Component.RenderProp<TableCellProps<number>>;
     })
   | (BaseTableColumnProps & {
       type: "string";
       /** Reads pasted text, or returns null to refuse it. Defaults to the text. */
       parse?: (text: string) => string | null;
       /** Renders the cell. Defaults to a text input. */
-      children?: RenderProp<TableCellProps<string>>;
+      children?: Component.RenderProp<TableCellProps<string>>;
+    })
+  | (BaseTableColumnProps & {
+      type: "boolean";
+      /** Reads pasted text, or returns null to refuse it. Defaults to true or false. */
+      parse?: (text: string) => boolean | null;
+      /** Renders the cell. Defaults to a checkbox. */
+      children?: Component.RenderProp<TableCellProps<boolean>>;
+    })
+  | (BaseTableColumnProps & {
+      type: "custom";
+      /** The value a new row holds. */
+      empty: V;
+      /** Reads pasted text, or returns null to refuse it. Omitted, pastes fail. */
+      parse?: (text: string) => V | null;
+      children: Component.RenderProp<TableCustomCellProps<V>>;
     });
 
 /**
@@ -86,34 +114,87 @@ export type TableColumnProps =
  *
  * @example <Input.TableColumn name="Pre-scaled" />
  * @example <Input.TableColumn name="Label" type="string" />
+ * @example <Input.TableColumn name="Enabled" type="boolean" />
  */
-export const TableColumn = (_: TableColumnProps): null => null;
+export const TableColumn = <V,>(_: TableColumnProps<V>): null => null;
 
-const renderCell = (column: TableColumnProps, props: TableCellProps): ReactNode => {
-  if (column.type === "string") {
-    const cell = { ...props, value: String(props.value) };
-    if (column.children != null) return column.children(cell);
-    return <InputText {...cell} />;
+// Only a custom renderer gets the row. A typed column's renderer often spreads its
+// props onto an input, where the row would land on the DOM.
+const renderCell = (
+  column: TableColumnProps,
+  props: TableCellProps,
+  row: number,
+): ReactNode => {
+  switch (column.type) {
+    case "string": {
+      const cell = { ...props, value: String(props.value) };
+      if (column.children != null) return column.children(cell);
+      return <InputText {...cell} />;
+    }
+    case "boolean": {
+      const cell = { ...props, value: props.value === true };
+      if (column.children != null) return column.children(cell);
+      // A read-only box still shows its state as a control.
+      return <Checkbox {...cell} preview={false} disabled={props.preview} />;
+    }
+    case "custom":
+      return column.children({ ...props, row });
+    case "number":
+    case undefined: {
+      const cell = { ...props, value: Number(props.value) };
+      if (column.children != null) return column.children(cell);
+      return <Numeric {...cell} showDragHandle={false} />;
+    }
   }
-  const cell = { ...props, value: Number(props.value) };
-  if (column.children != null) return column.children(cell);
-  return <Numeric {...cell} showDragHandle={false} />;
 };
 
 /** The value a new row holds in this column. */
-const emptyCell = (column: TableColumnProps): TableCell =>
-  column.type === "string" ? "" : 0;
+const emptyCell = (column: TableColumnProps): TableCell => {
+  switch (column.type) {
+    case "string":
+      return "";
+    case "boolean":
+      return false;
+    case "custom":
+      return column.empty;
+    case "number":
+    case undefined:
+      return 0;
+  }
+};
+
+/** Whether the column's default reader refuses words, as a heading holds. */
+const refusesWords = (column: TableColumnProps): boolean =>
+  column.type == null || column.type === "number" || column.type === "boolean";
+
+const BOOLEANS = new Map<string, boolean>([
+  ["true", true],
+  ["false", false],
+  ["1", true],
+  ["0", false],
+]);
 
 /**
  * Reads a pasted cell with its column's parse, or as the type its column holds.
  * @returns null when the column refuses the text. By default, a number column refuses
- * text that is not a number, and a text column takes anything.
+ * text that is not a number, a text column takes anything, a boolean column takes true,
+ * false, 1, and 0, and a custom column refuses all text.
  */
 const parseCell = (text: string, column: TableColumnProps): TableCell | null => {
   if (column.parse != null) return column.parse(text);
-  if (column.type === "string") return text;
-  const value = Number(text);
-  return isFinite(value) ? value : null;
+  switch (column.type) {
+    case "string":
+      return text;
+    case "boolean":
+      return BOOLEANS.get(text.trim().toLowerCase()) ?? null;
+    case "custom":
+      return null;
+    case "number":
+    case undefined: {
+      const value = Number(text);
+      return isFinite(value) ? value : null;
+    }
+  }
 };
 
 /** Pasted text bound for one cell, and its value when the cell's column reads it. */
@@ -123,18 +204,18 @@ interface PastedCell {
 }
 
 /**
- * A spreadsheet selection often carries a heading row: one with number cells, none of
- * which parse.
+ * A spreadsheet selection often carries a heading row: one with number or boolean
+ * cells, none of which parse.
  */
 const isHeading = (row: PastedCell[], columns: TableColumnProps[]): boolean => {
-  const numbers = row.filter((_, j) => columns[j].type !== "string");
-  return numbers.length > 0 && numbers.every(({ value }) => value == null);
+  const typed = row.filter((_, j) => refusesWords(columns[j]));
+  return typed.length > 0 && typed.every(({ value }) => value === null);
 };
 
 /**
  * Reads clipboard text as a grid of cells, parsing each against the column it lands on.
- * A first row that reads as a heading is dropped.
- * @returns null when the text is a single cell, leaving the paste to the focused cell.
+ * A first row that reads as a heading is dropped, unless it is a single cell.
+ * @returns null when the text holds no cells.
  */
 const parseBlock = (
   text: string,
@@ -151,11 +232,26 @@ const parseBlock = (
         .slice(0, targets.length)
         .map((text, j) => ({ text, value: parseCell(text, targets[j]) })),
     );
-  if (block.length > 0 && isHeading(block[0], targets)) block.shift();
-  if (block.length === 0) return null;
-  if (block.length === 1 && block[0].length === 1) return null;
-  return block;
+  if (block.length > 0 && !isSingle(block) && isHeading(block[0], targets))
+    block.shift();
+  return block.length === 0 ? null : block;
 };
+
+const isSingle = (block: unknown[][]): boolean =>
+  block.length === 1 && block[0].length === 1;
+
+/** Whether the element takes pasted text itself, as a text field does. */
+const takesText = (el: EventTarget): boolean =>
+  el instanceof HTMLTextAreaElement ||
+  (el instanceof HTMLInputElement && el.type !== "checkbox" && el.type !== "radio");
+
+/**
+ * Whether a single value pasted on a cell that is not a text field, such as a select,
+ * reaches the cell. The default string and number readers take values that such a cell
+ * may not hold, so they do not.
+ */
+const checksText = (column: TableColumnProps): boolean =>
+  column.parse != null || column.type === "boolean" || column.type === "custom";
 
 type Move = (dims: dimensions.Dimensions, from: xy.XY, back: boolean) => xy.XY | null;
 
@@ -172,7 +268,81 @@ const inTable = (e: SyntheticEvent): boolean =>
 
 type ColumnElement = ReactElement<TableColumnProps>;
 
-export interface TableProps
+const HANDLE_CLASS = CSS.BE("input", "table-handle");
+
+interface RowProps extends PropsWithChildren {
+  index: number;
+  /** The key of the row, which its drag carries. */
+  rowKey: string;
+  /** @returns the index of the row with the given key, or -1. */
+  indexOf: (key: string) => number;
+  /** The haul type of one table's rows, so a row drops only in its own table. */
+  haulType: string;
+  /** Renders the preview of the row while it drags. */
+  haulPreview: () => ReactNode;
+  /** Omitted while the table is in preview, so the row takes no drop. */
+  onMove?: (from: number, to: number) => void;
+}
+
+/** A body row that drags by its handle and takes drops of its table's other rows. */
+const Row = ({
+  index,
+  rowKey,
+  indexOf,
+  haulType,
+  haulPreview,
+  onMove,
+  children,
+}: RowProps): ReactElement => {
+  const [over, setOver] = useState<"above" | "below" | null>(null);
+  const draggedIndex = (items: Haul.Item[]): number | null => {
+    const dragged = Haul.filterByType(haulType, items).at(0);
+    if (dragged == null) return null;
+    const from = indexOf(String(dragged.key));
+    return from === -1 ? null : from;
+  };
+  const { startDrag, onDragEnd, onDragOver, onDrop } = Haul.useDragAndDrop({
+    type: haulType,
+    key: rowKey,
+    canDrop: (state) => onMove != null && Haul.canDropOfType(haulType)(state),
+    onDragOver: ({ items }) => {
+      const from = draggedIndex(items);
+      if (from == null || from === index) setOver(null);
+      else setOver(from < index ? "below" : "above");
+    },
+    onDrop: ({ items }) => {
+      setOver(null);
+      const from = draggedIndex(items);
+      if (from != null && from !== index) onMove?.(from, index);
+      return items;
+    },
+  });
+  // Only the handle drags, so text in a cell still selects and drags as text. The row
+  // starts the drag, so the whole row dims.
+  const handleDragStart = (event: DragEvent): void => {
+    if (!(event.target instanceof Element) || !event.target.closest(`.${HANDLE_CLASS}`))
+      return;
+    startDrag({
+      event,
+      items: [{ type: haulType, key: rowKey }],
+      preview: haulPreview(),
+    });
+  };
+  return (
+    <tr
+      className={CSS.cls(over != null && CSS.BEM("input", "table-row", over))}
+      onDragStart={handleDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDragLeave={() => setOver(null)}
+      onDrop={onDrop}
+    >
+      {children}
+    </tr>
+  );
+};
+
+interface BaseTableProps
   extends
     Omit<ComponentPropsWithRef<"table">, "onChange" | "children">,
     Control<TableCell[][]> {
@@ -180,13 +350,13 @@ export interface TableProps
   children: ColumnElement | ColumnElement[];
   /** Hides the add and remove buttons and makes every cell read-only. */
   preview?: boolean;
-  /** Labels a row's gutter cell. Omitted, no gutter column renders. */
-  rowLabel?: (index: number) => string;
+  /** Focuses the first cell on mount, or the add button when there are no rows. */
+  autoFocus?: boolean;
   /**
-   * Identifies a row, so the state of its cells, such as an open dialog, stays with it
-   * when the rows above it change. Defaults to the index.
+   * Labels each row's gutter cell. A row's move handle takes the place of its label and
+   * carries it in its name. With no label and no handle, no gutter column renders.
    */
-  rowKey?: (index: number) => string;
+  rowLabel?: (index: number) => string;
   /**
    * Builds each new row: the one the add button appends, and each one a paste adds.
    * Defaults to the column default values.
@@ -201,7 +371,31 @@ export interface TableProps
    * place of onChange, so the caller can remove the row by identity.
    */
   onRemove?: (index: number) => void;
+  /** Renders the preview of a dragged row. Defaults to the row's name. */
+  renderHaulPreview?: (index: number) => ReactNode;
 }
+
+interface StaticTableProps {
+  /**
+   * Identifies a row, so the state of its cells, such as an open dialog, stays with it
+   * when the rows above it change. Defaults to the index.
+   */
+  rowKey?: (index: number) => string;
+  onMove?: undefined;
+}
+
+interface MovableTableProps {
+  /** Identifies a row, so its cells, marks, and focus stay with it when it moves. */
+  rowKey: (index: number) => string;
+  /**
+   * Called with the index of a row the user moves and the index it moves to. When set,
+   * each row's gutter holds a handle. A drag drops the row in the place of the row it
+   * lands on, and the up and down arrows on the handle move it by one row.
+   */
+  onMove?: (from: number, to: number) => void;
+}
+
+export type TableProps = BaseTableProps & (StaticTableProps | MovableTableProps);
 
 /** A focused cell's value and text from when it took focus. */
 interface Initial {
@@ -211,7 +405,12 @@ interface Initial {
 
 /** Pasted text that a cell could not read. */
 interface Rejection {
-  at: xy.XY;
+  /**
+   * The key of the cell's row, so the mark moves with it. It is the index while the row
+   * has no key: in a table with no rowKey, or in a row that a paste adds.
+   */
+  row: string | number;
+  x: number;
   text: string;
   /** The value the cell kept in place of the text. */
   kept: TableCell | undefined;
@@ -236,12 +435,15 @@ export const Table = ({
   onChange,
   children,
   preview = false,
+  autoFocus = false,
   rowLabel,
   rowKey,
   createRow,
   resourceName = "row",
   cellStatus,
   onRemove,
+  onMove,
+  renderHaulPreview,
   className,
   style,
   ...rest
@@ -253,19 +455,33 @@ export const Table = ({
   const restored = useRef(false);
   // Set by a block paste, which commits: Esc then puts back what the paste wrote.
   const pasted = useRef(false);
-  // The row that takes focus once an add or a remove renders.
-  const pendingFocus = useRef<number | null>(null);
+  // The row that takes focus once an add or a remove renders, or the mount.
+  const pendingFocus = useRef<number | null>(autoFocus ? 0 : null);
+  const haulType = `${CSS.BE("input", "table-row")}-${useId()}`;
   const table = useRef<HTMLTableElement>(null);
+  // The key of the row whose handle a keyboard move left.
+  const movedRow = useRef<string | null>(null);
   const [rejections, setRejections] = useState<Rejection[]>([]);
+  const keys = value.map((_, i) => rowKey?.(i) ?? String(i));
+  const keyAt = (y: number): string | number =>
+    rowKey != null && y < value.length ? keys[y] : y;
+  const rowOf = ({ row }: Rejection): number =>
+    typeof row === "number" ? row : keys.indexOf(row);
+  const markAt = (mark: Rejection, at: xy.XY): boolean =>
+    mark.x === at.x && rowOf(mark) === at.y;
   // A cell that the caller gives another value drops its mark for good.
-  const marks = rejections.filter(({ at, kept }) => value[at.y]?.[at.x] === kept);
+  const marks = rejections.filter((mark) => {
+    const y = rowOf(mark);
+    return y !== -1 && value[y]?.[mark.x] === mark.kept;
+  });
   if (marks.length !== rejections.length) setRejections(marks);
   const columns = reactElementToArray<TableColumnProps>(children).map(
     ({ props }) => props,
   );
   const dims: dimensions.Dimensions = { width: columns.length, height: value.length };
   const emptyRow = (): TableCell[] => columns.map(emptyCell);
-  const hasGutter = rowLabel != null;
+  const movable = onMove != null && !preview;
+  const hasGutter = rowLabel != null || movable;
   // Accessible row names survive without a gutter.
   const rowName = (index: number): string =>
     rowLabel?.(index) ?? (index + 1).toString();
@@ -280,8 +496,8 @@ export const Table = ({
   };
 
   const handleCellChange = (at: xy.XY, next: TableCell) => {
-    if (marks.some((mark) => xy.equals(mark.at, at)))
-      setRejections(marks.filter((mark) => !xy.equals(mark.at, at)));
+    if (marks.some((mark) => markAt(mark, at)))
+      setRejections(marks.filter((mark) => !markAt(mark, at)));
     onChange(
       value.map((row, i) =>
         i === at.y ? row.map((cell, j) => (j === at.x ? next : cell)) : row,
@@ -297,6 +513,11 @@ export const Table = ({
       anchor.current.x,
     );
     if (block == null) return;
+    if (
+      isSingle(block) &&
+      (takesText(e.target) || !checksText(columns[anchor.current.x]))
+    )
+      return;
     e.preventDefault();
     restored.current = false;
     pasted.current = true;
@@ -306,17 +527,17 @@ export const Table = ({
       next.push(createRow?.(next) ?? emptyRow());
     const rejected: Rejection[] = [];
     plan.writes.forEach(({ position: at, value: { text, value: parsed } }) => {
-      if (parsed != null) next[at.y][at.x] = parsed;
-      else rejected.push({ at, text, kept: next[at.y][at.x] });
+      if (parsed !== null) next[at.y][at.x] = parsed;
+      else rejected.push({ row: keyAt(at.y), x: at.x, text, kept: next[at.y][at.x] });
     });
-    const written = (at: xy.XY): boolean =>
-      plan.writes.some(({ position }) => xy.equals(position, at));
-    setRejections([...marks.filter(({ at }) => !written(at)), ...rejected]);
+    const written = (mark: Rejection): boolean =>
+      plan.writes.some(({ position }) => markAt(mark, position));
+    setRejections([...marks.filter((mark) => !written(mark)), ...rejected]);
     onChange(next);
   };
 
   const statusAt = (at: xy.XY): Status.Crude | undefined => {
-    const rejection = marks.find((mark) => xy.equals(mark.at, at));
+    const rejection = marks.find((mark) => markAt(mark, at));
     if (rejection == null) return cellStatus?.(at);
     const column = columns[at.x].name ?? "this column";
     return {
@@ -355,21 +576,54 @@ export const Table = ({
 
   const handleRemove = (index: number) => {
     pendingFocus.current = index;
-    // Marks below the row move up with their rows.
+    // Marks below the row move up with their rows, unless a key holds them.
     setRejections(
       marks.flatMap((mark) => {
-        if (mark.at.y < index) return [mark];
-        if (mark.at.y === index) return [];
-        return [{ ...mark, at: { x: mark.at.x, y: mark.at.y - 1 } }];
+        const y = rowOf(mark);
+        if (y === index) return [];
+        if (typeof mark.row === "string" || y < index) return [mark];
+        return [{ ...mark, row: y - 1 }];
       }),
     );
     if (onRemove != null) onRemove(index);
     else onChange(value.filter((_, i) => i !== index));
   };
 
+  const handleMove = (from: number, to: number) => {
+    // A mark of a row that a paste added takes the row's key, so it moves with the row.
+    if (marks.some(({ row }) => typeof row === "number"))
+      setRejections(marks.map((mark) => ({ ...mark, row: keyAt(rowOf(mark)) })));
+    onMove?.(from, to);
+  };
+
+  // A move can take the row out of the document, which drops the focus of its handle.
+  useEffect(() => {
+    const key = movedRow.current;
+    movedRow.current = null;
+    if (key == null || document.activeElement !== document.body) return;
+    table.current?.tBodies[0]?.rows[keys.indexOf(key)]
+      ?.querySelector<HTMLElement>(`.${HANDLE_CLASS}`)
+      ?.focus();
+  }, [value]);
+
+  const handleHandleKeyDown = (e: KeyboardEvent, index: number) => {
+    const step = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+    const to = index + step;
+    if (step === 0 || to < 0 || to >= value.length) return;
+    e.preventDefault();
+    movedRow.current = keys[index];
+    handleMove(index, to);
+  };
+
+  const haulPreview = (index: number): ReactNode =>
+    renderHaulPreview?.(index) ?? (
+      <Haul.Preview name={`${strings.capitalize(resourceName)} ${rowName(index)}`} />
+    );
+
   const handleCellFocus = (e: FocusEvent<HTMLTableCellElement>, at: xy.XY) => {
     if (!inTable(e)) return;
     anchor.current = at;
+    movedRow.current = null;
     if (initial.current != null || !(e.target instanceof HTMLInputElement)) return;
     initial.current = { value: value[at.y]?.[at.x], text: e.target.value };
     restored.current = false;
@@ -452,75 +706,120 @@ export const Table = ({
           </thead>
         )}
         <tbody>
-          {value.map((row, i) => (
-            <tr key={rowKey?.(i) ?? i}>
-              {hasGutter && (
-                <th scope="row" className={CSS.BE("input", "table-gutter")}>
-                  <Text.Text level="small" color={9}>
-                    {rowName(i)}
-                  </Text.Text>
-                </th>
-              )}
-              {columns.map((column, j) => {
-                const status = statusAt({ x: j, y: i });
-                // A cell's own status replaces the status of an item around the table.
-                const cellItem: ItemContextValue = {
-                  status: status?.variant,
-                  message: status?.message,
-                  helpTextHidden: true,
-                };
-                return (
-                  <td
-                    key={j}
-                    onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
-                    onBlur={handleCellBlur}
-                  >
-                    <ItemContext value={cellItem}>
-                      {renderCell(column, {
-                        value: row[j] ?? emptyCell(column),
-                        onChange: (next) => handleCellChange({ x: j, y: i }, next),
-                        preview,
-                        variant: "shadow",
-                        "aria-label":
-                          column.name == null
-                            ? rowName(i)
-                            : `${column.name} ${rowName(i)}`,
-                      })}
-                    </ItemContext>
-                  </td>
-                );
-              })}
-              <td>
-                {!preview && (
-                  <Button.Button
-                    variant="text"
-                    size="small"
-                    textColor={9}
-                    tooltip={`Remove ${resourceName} ${rowName(i)}`}
-                    onClick={() => handleRemove(i)}
-                  >
-                    <Icon.Close />
-                  </Button.Button>
+          {value.map((row, i) => {
+            const cells = (
+              <>
+                {hasGutter && (
+                  <th scope="row" className={CSS.BE("input", "table-gutter")}>
+                    {movable ? (
+                      <Button.Button
+                        variant="text"
+                        size="small"
+                        textColor={9}
+                        draggable
+                        className={HANDLE_CLASS}
+                        aria-label={`Move ${resourceName} ${rowName(i)}`}
+                        tooltip={`Move ${resourceName} ${rowName(i)}`}
+                        onKeyDown={(e) => handleHandleKeyDown(e, i)}
+                      >
+                        <Icon.Drag />
+                      </Button.Button>
+                    ) : (
+                      rowLabel != null && (
+                        <Text.Text level="small" color={9}>
+                          {rowName(i)}
+                        </Text.Text>
+                      )
+                    )}
+                  </th>
                 )}
-              </td>
-            </tr>
-          ))}
+                {columns.map((column, j) => {
+                  const status = statusAt({ x: j, y: i });
+                  // A cell's own status replaces the status of an item around the
+                  // table.
+                  const cellItem: ItemContextValue = {
+                    status: status?.variant,
+                    message: status?.message,
+                    helpTextHidden: true,
+                  };
+                  return (
+                    <td
+                      key={j}
+                      onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
+                      onBlur={handleCellBlur}
+                    >
+                      <ItemContext value={cellItem}>
+                        {renderCell(
+                          column,
+                          {
+                            value: row[j] ?? emptyCell(column),
+                            onChange: (next) => handleCellChange({ x: j, y: i }, next),
+                            preview,
+                            variant: "shadow",
+                            "aria-label":
+                              column.name == null
+                                ? rowName(i)
+                                : `${column.name} ${rowName(i)}`,
+                          },
+                          i,
+                        )}
+                      </ItemContext>
+                    </td>
+                  );
+                })}
+                <td>
+                  {!preview && (
+                    <Button.Button
+                      variant="text"
+                      size="small"
+                      textColor={9}
+                      tooltip={`Remove ${resourceName} ${rowName(i)}`}
+                      onClick={() => handleRemove(i)}
+                    >
+                      <Icon.Close />
+                    </Button.Button>
+                  )}
+                </td>
+              </>
+            );
+            // A preview keeps the row, so its inputs and focus stay when it changes.
+            if (onMove == null) return <tr key={keys[i]}>{cells}</tr>;
+            return (
+              <Row
+                key={keys[i]}
+                index={i}
+                rowKey={keys[i]}
+                indexOf={(key) => keys.indexOf(key)}
+                haulType={haulType}
+                haulPreview={() => haulPreview(i)}
+                onMove={movable ? handleMove : undefined}
+              >
+                {cells}
+              </Row>
+            );
+          })}
         </tbody>
         {!preview && (
           <tfoot>
             <tr>
               {hasGutter && <td className={CSS.BE("input", "table-gutter")} />}
-              <td colSpan={columns.length + 1}>
-                <Button.Button
-                  variant="text"
-                  size="small"
-                  textColor={9}
-                  onClick={handleAdd}
-                >
-                  <Icon.Add />
-                  Add {resourceName}
-                </Button.Button>
-              </td>
+              {/* A cell under each column keeps its width while the table is empty. */}
+              {columns.map((_, i) => (
+                <td key={i}>
+                  {i === 0 && (
+                    <Button.Button
+                      variant="text"
+                      size="small"
+                      textColor={9}
+                      onClick={handleAdd}
+                    >
+                      <Icon.Add />
+                      Add {resourceName}
+                    </Button.Button>
+                  )}
+                </td>
+              ))}
+              <td />
             </tr>
           </tfoot>
         )}

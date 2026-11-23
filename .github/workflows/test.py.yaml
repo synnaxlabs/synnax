@@ -32,7 +32,7 @@ on:
         required: true
         type: string
       free_threaded:
-        description: Whether to also test on free-threaded Python 3.14t, on Ubuntu
+        description: Whether to also test on free-threaded Python 3.14t
         required: false
         type: boolean
         default: false
@@ -69,8 +69,18 @@ on:
         required: false
         type: boolean
         default: true
+      ubuntu_arm:
+        description: Whether to test on Ubuntu on ARM
+        required: false
+        type: boolean
+        default: false
       windows:
         description: Whether to test on Windows
+        required: false
+        type: boolean
+        default: false
+      windows_arm:
+        description: Whether to test on Windows on ARM
         required: false
         type: boolean
         default: false
@@ -102,20 +112,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        # The versions follow SPEC 0. oldest is the lower bound of requires-python. Only
-        # Ubuntu runs 3.14t.
+        os:
+          [
+            macos-latest,
+            ubuntu-latest,
+            ubuntu-24.04-arm,
+            windows-latest,
+            windows-11-arm,
+          ]
+        # The versions follow SPEC 0. oldest is the lower bound of requires-python.
         python:
           ${{ fromJSON(inputs.lowest && '["oldest"]' || inputs.free_threaded &&
           '["oldest", "3.14", "3.15", "3.14t"]' || '["oldest", "3.14", "3.15"]') }}
         exclude:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
+          - os: ${{ !inputs.ubuntu_arm && 'ubuntu-24.04-arm' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
-          - os: macos-latest
-            python: 3.14t
-          - os: windows-latest
-            python: 3.14t
+          - os: ${{ !inputs.windows_arm && 'windows-11-arm' }}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -127,8 +141,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # The service images are only for linux/amd64.
       - name: Start Core
-        if: runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true'
+        if:
+          runner.os == 'Linux' && runner.arch == 'X64' && inputs.core_image != '' &&
+          env.FORK != 'true'
         uses: ./.github/actions/start-service
         env:
           SYNNAX_VERBOSE: true
@@ -143,7 +160,7 @@ jobs:
           variables: SYNNAX_VERBOSE SYNNAX_INSECURE SYNNAX_MEM SYNNAX_LICENSE_KEY
 
       - name: Start the Freighter server
-        if: runner.os == 'Linux' && inputs.freighter_image != ''
+        if: runner.os == 'Linux' && runner.arch == 'X64' && inputs.freighter_image != ''
         uses: ./.github/actions/start-service
         with:
           name: freighter
@@ -203,12 +220,22 @@ jobs:
           read -ra directories <<< "$TYPE_CHECK_DIR"
           uv run mypy "${directories[@]}"
 
-      # Only the Linux runners start a Core, and not for a fork, so the others skip the
-      # tests that need one.
+      # Only the x86 Linux runners start a Core, and not for a fork, so the others skip
+      # the tests that need one.
       - name: Skip the tests that need a Core
-        if: inputs.core_image != '' && (runner.os != 'Linux' || env.FORK == 'true')
+        if:
+          inputs.core_image != '' && (runner.os != 'Linux' || runner.arch != 'X64' ||
+          env.FORK == 'true')
         shell: bash
         run: echo 'PYTEST_ADDOPTS=-m "not core"' >> "$GITHUB_ENV"
+
+      # Only the x86 Linux runners start the Freighter server, so the others skip the
+      # tests that need it.
+      - name: Skip the tests that need the Freighter server
+        if:
+          inputs.freighter_image != '' && (runner.os != 'Linux' || runner.arch != 'X64')
+        shell: bash
+        run: echo 'PYTEST_ADDOPTS=-m "not http and not ws"' >> "$GITHUB_ENV"
 
       # Without a limit, a hung test run holds the job for up to 6 hours. Only Python
       # 3.15 measures coverage.
@@ -231,7 +258,7 @@ jobs:
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
-          fail_ci_if_error: true
+          fail_ci_if_error: ${{ github.event_name != 'merge_group' }}
           flags: ${{ inputs.coverage_flag }}
           directory: ${{ inputs.directory }}
 

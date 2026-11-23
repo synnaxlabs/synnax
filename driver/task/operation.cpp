@@ -42,6 +42,15 @@ void Operation::set_task(const std::string &name, const std::string &config_hash
     this->config_hash = config_hash;
 }
 
+std::vector<synnax::task::Command>
+Operation::change_config(const std::string &name, const std::string &config_hash) {
+    std::lock_guard lock{this->mu};
+    this->name = name;
+    this->config_hash = config_hash;
+    this->unanswered.clear();
+    return std::exchange(this->joined, {});
+}
+
 std::pair<std::string, std::string> Operation::task_info() {
     std::lock_guard lock{this->mu};
     return {this->name, this->config_hash};

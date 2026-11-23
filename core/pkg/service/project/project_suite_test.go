@@ -17,12 +17,14 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	. "github.com/synnaxlabs/x/testutil"
@@ -57,15 +59,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
+	enumSvc := MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
 	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
-		DB:    db,
-		Group: groupSvc,
-		ImEx:  imex.NewService(),
+		DB:          db,
+		Group:       groupSvc,
+		ImEx:        imex.NewService(),
+		Enumeration: enumSvc,
 	}))
 	lineplotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:   db,
 		ImEx: imex.NewService(),
 		Color: MustOpen(color.OpenService(ctx, color.ServiceConfig{
+			DB:    db,
+			Group: groupSvc,
+		})),
+		Ranger: MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:    db,
 			Group: groupSvc,
 		})),

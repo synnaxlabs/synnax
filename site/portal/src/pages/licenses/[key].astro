@@ -63,6 +63,7 @@ try {
             staff={session.staff}
             admin={isAdmin(view.organization, session)}
             now={portal.now()}
+            mailFailed={Astro.url.searchParams.get(Licenses.MAIL_PARAM) === "failed"}
         />
     )}
 </Portal>

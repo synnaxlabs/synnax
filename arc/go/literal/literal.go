@@ -476,6 +476,12 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 				value,
 			), ErrTruncated))
 		}
+		if value < math.MinInt64 || value >= math.MaxInt64 {
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %f out of range for i64",
+				value,
+			)
+		}
 		return ParsedValue{Value: int64(value), Type: types.I64()}, nil
 	case types.KindU8:
 		if value != math.Trunc(value) {
@@ -529,9 +535,9 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 				value,
 			), ErrTruncated))
 		}
-		if value < 0 {
+		if value < 0 || value >= math.MaxUint64 {
 			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %f out of range for u64 (must be non-negative)",
+				"value %f out of range for u64",
 				value,
 			)
 		}
@@ -603,6 +609,12 @@ func convertToTargetKind(
 		}
 		return ParsedValue{Value: int32(intVal), Type: resultType}, nil
 	case types.KindI64:
+		if value < math.MinInt64 || value >= math.MaxInt64 {
+			return ParsedValue{}, codes.ConstantOverflow.Errorf(
+				"value %g out of range for i64",
+				value,
+			)
+		}
 		if isTime(resultType.Unit) {
 			return ParsedValue{Value: telem.TimeSpan(value), Type: resultType}, nil
 		}
@@ -635,9 +647,9 @@ func convertToTargetKind(
 		}
 		return ParsedValue{Value: uint32(intVal), Type: resultType}, nil
 	case types.KindU64:
-		if value < 0 {
+		if value < 0 || value >= math.MaxUint64 {
 			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %g out of range for u64 (must be non-negative)",
+				"value %g out of range for u64",
 				value,
 			)
 		}

@@ -44,72 +44,10 @@ func typesEqual(
 	switch oldForm := old.Form.(type) {
 	case resolution.StructForm:
 		newForm, ok := next.Form.(resolution.StructForm)
-		if !ok {
-			return false
-		}
-		// Omitted fields are memory-only: their types never reach the stored shape, so
-		// only persisted fields compare. A field flipping between persisted and omitted
-		// surfaces as an add/remove here.
-		oldFields, newFields := PersistedFields(
-			oldForm.Fields,
-		), PersistedFields(
-			newForm.Fields,
-		)
-		if len(oldFields) != len(newFields) ||
-			len(oldForm.Extends) != len(newForm.Extends) {
-			return false
-		}
-		for i := range oldFields {
-			of, nf := oldFields[i], newFields[i]
-			if of.Name != nf.Name || of.Optional != nf.Optional {
-				return false
-			}
-			if !refsEqual(of.Type, nf.Type, oldTable, newTable, visiting) {
-				return false
-			}
-			if domain.GetStringFromField(of, "go", "marshal") !=
-				domain.GetStringFromField(nf, "go", "marshal") {
-				return false
-			}
-		}
-		for i := range oldForm.Extends {
-			if !refsEqual(
-				oldForm.Extends[i],
-				newForm.Extends[i],
-				oldTable,
-				newTable,
-				visiting,
-			) {
-				return false
-			}
-		}
-		return true
+		return ok && structsEqual(oldForm, newForm, oldTable, newTable, visiting)
 	case resolution.EnumForm:
 		newForm, ok := next.Form.(resolution.EnumForm)
-		if !ok || oldForm.IsIntEnum != newForm.IsIntEnum {
-			return false
-		}
-		// Enum value adds, removes, and renames are wire-format-compatible: the
-		// underlying representation is the string (or int) itself, and old records
-		// still deserialize into the underlying type even when their stored value is no
-		// longer a named constant. The only enum delta that breaks wire format is
-		// renumbering an int enum — a name that exists in both versions assigned a
-		// different integer. Anything else is purely a source-level /
-		// application-semantic change and must not propagate through field references
-		// as a structural type change.
-		if oldForm.IsIntEnum {
-			newByName := make(map[string]int64, len(newForm.Values))
-			for _, v := range newForm.Values {
-				newByName[v.Name] = v.IntValue()
-			}
-			for _, ov := range oldForm.Values {
-				if newVal, exists := newByName[ov.Name]; exists &&
-					newVal != ov.IntValue() {
-					return false
-				}
-			}
-		}
-		return true
+		return ok && enumsEqual(oldForm, newForm)
 	case resolution.AliasForm:
 		newForm, ok := next.Form.(resolution.AliasForm)
 		return ok &&
@@ -119,37 +57,7 @@ func typesEqual(
 		return ok && refsEqual(oldForm.Base, newForm.Base, oldTable, newTable, visiting)
 	case resolution.UnionForm:
 		newForm, ok := next.Form.(resolution.UnionForm)
-		if !ok || oldForm.Discriminator != newForm.Discriminator ||
-			len(oldForm.Variants) != len(newForm.Variants) ||
-			len(oldForm.Extends) != len(newForm.Extends) ||
-			oldForm.BorrowsEnum() != newForm.BorrowsEnum() {
-			return false
-		}
-		if oldForm.BorrowsEnum() &&
-			!refsEqual(oldForm.Enum, newForm.Enum, oldTable, newTable, visiting) {
-			return false
-		}
-		for i := range oldForm.Variants {
-			ov, nv := oldForm.Variants[i], newForm.Variants[i]
-			if ov.Name != nv.Name || ov.Inline != nv.Inline {
-				return false
-			}
-			if !refsEqual(ov.Type, nv.Type, oldTable, newTable, visiting) {
-				return false
-			}
-		}
-		for i := range oldForm.Extends {
-			if !refsEqual(
-				oldForm.Extends[i],
-				newForm.Extends[i],
-				oldTable,
-				newTable,
-				visiting,
-			) {
-				return false
-			}
-		}
-		return true
+		return ok && unionsEqual(oldForm, newForm, oldTable, newTable, visiting)
 	case resolution.PrimitiveForm:
 		newForm, ok := next.Form.(resolution.PrimitiveForm)
 		return ok && oldForm.Name == newForm.Name
@@ -159,6 +67,111 @@ func typesEqual(
 	default:
 		return false
 	}
+}
+
+func structsEqual(
+	oldForm, newForm resolution.StructForm,
+	oldTable, newTable *resolution.Table,
+	visiting set.Set[string],
+) bool {
+	// Omitted fields are memory-only: their types never reach the stored shape, so only
+	// persisted fields compare. A field flipping between persisted and omitted surfaces
+	// as an add/remove here.
+	oldFields := PersistedFields(oldForm.Fields)
+	newFields := PersistedFields(newForm.Fields)
+	if len(oldFields) != len(newFields) ||
+		len(oldForm.Extends) != len(newForm.Extends) {
+		return false
+	}
+	for i := range oldFields {
+		of, nf := oldFields[i], newFields[i]
+		if of.Name != nf.Name || of.Optional != nf.Optional {
+			return false
+		}
+		if !refsEqual(of.Type, nf.Type, oldTable, newTable, visiting) {
+			return false
+		}
+		if domain.GetStringFromField(of, "go", "marshal") !=
+			domain.GetStringFromField(nf, "go", "marshal") {
+			return false
+		}
+	}
+	for i := range oldForm.Extends {
+		if !refsEqual(
+			oldForm.Extends[i],
+			newForm.Extends[i],
+			oldTable,
+			newTable,
+			visiting,
+		) {
+			return false
+		}
+	}
+	return true
+}
+
+func enumsEqual(oldForm, newForm resolution.EnumForm) bool {
+	if oldForm.IsIntEnum != newForm.IsIntEnum {
+		return false
+	}
+	// Enum value adds, removes, and renames are wire-format-compatible: the underlying
+	// representation is the string (or int) itself, and old records still deserialize
+	// into the underlying type even when their stored value is no longer a named
+	// constant. The only enum delta that breaks wire format is renumbering an int enum
+	// — a name that exists in both versions assigned a different integer. Anything else
+	// is purely a source-level / application-semantic change and must not propagate
+	// through field references as a structural type change.
+	if oldForm.IsIntEnum {
+		newByName := make(map[string]int64, len(newForm.Values))
+		for _, v := range newForm.Values {
+			newByName[v.Name] = v.IntValue()
+		}
+		for _, ov := range oldForm.Values {
+			if newVal, exists := newByName[ov.Name]; exists &&
+				newVal != ov.IntValue() {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func unionsEqual(
+	oldForm, newForm resolution.UnionForm,
+	oldTable, newTable *resolution.Table,
+	visiting set.Set[string],
+) bool {
+	if oldForm.Discriminator != newForm.Discriminator ||
+		len(oldForm.Variants) != len(newForm.Variants) ||
+		len(oldForm.Extends) != len(newForm.Extends) ||
+		oldForm.BorrowsEnum() != newForm.BorrowsEnum() {
+		return false
+	}
+	if oldForm.BorrowsEnum() &&
+		!refsEqual(oldForm.Enum, newForm.Enum, oldTable, newTable, visiting) {
+		return false
+	}
+	for i := range oldForm.Variants {
+		ov, nv := oldForm.Variants[i], newForm.Variants[i]
+		if ov.Name != nv.Name || ov.Inline != nv.Inline {
+			return false
+		}
+		if !refsEqual(ov.Type, nv.Type, oldTable, newTable, visiting) {
+			return false
+		}
+	}
+	for i := range oldForm.Extends {
+		if !refsEqual(
+			oldForm.Extends[i],
+			newForm.Extends[i],
+			oldTable,
+			newTable,
+			visiting,
+		) {
+			return false
+		}
+	}
+	return true
 }
 
 // PersistedFields returns the fields that contribute to a type's stored shape: those
@@ -252,37 +265,25 @@ func diffWalk(
 
 	switch oldForm := old.Form.(type) {
 	case resolution.AliasForm:
-		if k := diffRefWalk(
+		return diffWrapped(
+			old,
 			oldForm.Target,
 			oldTable,
 			newTable,
 			counterpart,
 			result,
 			visiting,
-		); k != TypeUnchanged {
-			result[old.QualifiedName] = TypeDiff{
-				QualifiedName: old.QualifiedName,
-				Kind:          TypeDescendantChanged,
-			}
-			return TypeDescendantChanged
-		}
-		return TypeUnchanged
+		)
 	case resolution.DistinctForm:
-		if k := diffRefWalk(
+		return diffWrapped(
+			old,
 			oldForm.Base,
 			oldTable,
 			newTable,
 			counterpart,
 			result,
 			visiting,
-		); k != TypeUnchanged {
-			result[old.QualifiedName] = TypeDiff{
-				QualifiedName: old.QualifiedName,
-				Kind:          TypeDescendantChanged,
-			}
-			return TypeDescendantChanged
-		}
-		return TypeUnchanged
+		)
 	case resolution.UnionForm:
 		if _, ok := next.Form.(resolution.UnionForm); ok {
 			return diffUnion(
@@ -291,6 +292,27 @@ func diffWalk(
 		}
 	}
 
+	return diffStruct(
+		old,
+		next,
+		oldTable,
+		newTable,
+		counterpart,
+		result,
+		visiting,
+	)
+}
+
+// diffStruct records old as changed when its own fields changed, or as
+// descendant-changed when a type its persisted fields or bases reference changed. When
+// old or next is not a struct, it compares them with typesEqual.
+func diffStruct(
+	old, next resolution.Type,
+	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
+	result map[string]TypeDiff,
+	visiting set.Set[string],
+) TypeChangeKind {
 	oldStruct, oldOk := old.Form.(resolution.StructForm)
 	newStruct, newOk := next.Form.(resolution.StructForm)
 	if !oldOk || !newOk {
@@ -339,6 +361,33 @@ func diffWalk(
 		return TypeDescendantChanged
 	}
 	return TypeUnchanged
+}
+
+// diffWrapped records old as descendant-changed when the type it wraps through target
+// changed.
+func diffWrapped(
+	old resolution.Type,
+	target resolution.TypeRef,
+	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
+	result map[string]TypeDiff,
+	visiting set.Set[string],
+) TypeChangeKind {
+	if diffRefWalk(
+		target,
+		oldTable,
+		newTable,
+		counterpart,
+		result,
+		visiting,
+	) == TypeUnchanged {
+		return TypeUnchanged
+	}
+	result[old.QualifiedName] = TypeDiff{
+		QualifiedName: old.QualifiedName,
+		Kind:          TypeDescendantChanged,
+	}
+	return TypeDescendantChanged
 }
 
 // diffUnion walks a union's bases and variant payloads, so a type that changed inside

@@ -1,0 +1,116 @@
+{
+  "description": "Present rules and value rules pick messages together, and a document that meets no rule belongs to the message with no rule.",
+  "messages": [
+    {
+      "name": "event",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "string",
+          "pointer": "/type",
+          "value": "event"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "pressure",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/pressure",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "present",
+          "pointer": "/pressure"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "other",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "type": "event",
+        "v": 1
+      },
+      "message": "event",
+      "samples": [1]
+    },
+    {
+      "document": {
+        "pressure": 2
+      },
+      "message": "reading",
+      "samples": [2]
+    },
+    {
+      "document": {
+        "type": "alarm",
+        "v": 3
+      },
+      "message": "other",
+      "samples": [3]
+    },
+    {
+      "document": {
+        "type": "event",
+        "v": 4,
+        "pressure": 5
+      },
+      "error": "document matches messages event and reading: validation error"
+    }
+  ]
+}

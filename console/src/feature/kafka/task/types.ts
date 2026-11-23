@@ -8,14 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { kafka, type task } from "@synnaxlabs/client";
-import {
-  type CrudeDataType,
-  DataType,
-  json,
-  type payload,
-  record,
-  zod,
-} from "@synnaxlabs/x";
+import { type CrudeDataType, DataType, json, type payload } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -28,59 +21,77 @@ const topicZ = z.string().min(1, "Topic is required");
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export interface ReadField extends kafka.ReadField {}
-
 export interface ReadRecord extends kafka.ReadRecord {}
+
+export interface ReadTopic extends kafka.ReadTopic {}
 
 export type StartOffset = kafka.StartOffset;
 
-const readConfigZ = kafka.readConfigZ;
+// The Core skips disabled records, so they may share a key with an enabled one.
+const validateRecords = (
+  ctx: z.core.ParsePayload<Pick<ReadRecord, "disabled" | "recordKey">[]>,
+) => {
+  const seen = new Set<string>();
+  ctx.value.forEach(({ disabled, recordKey }, i) => {
+    if (disabled) return;
+    if (!seen.has(recordKey)) {
+      seen.add(recordKey);
+      return;
+    }
+    ctx.issues.push({
+      continue: true,
+      code: "custom",
+      input: ctx.value,
+      message:
+        recordKey === ""
+          ? "Only one record can read any key"
+          : `Record key "${recordKey}" is used by another record`,
+      path: [i, "recordKey"],
+    });
+  });
+};
 
-const deployReadFieldZ = kafka.readFieldZ
-  .refine(({ disabled, pointer }) => disabled || pointer !== "", {
-    message: "Pointer is required",
-    path: ["pointer"],
-  })
-  .refine(
-    ({ disabled, pointer }) => disabled || json.pointerZ.safeParse(pointer).success,
-    { message: "Pointer must be a valid JSON pointer", path: ["pointer"] },
-  )
-  .refine(
-    ({ disabled, dataType, timeFormat }) =>
-      disabled ||
-      timeFormat != null ||
-      !new DataType(dataType).equals(DataType.TIMESTAMP),
-    { message: "Time format is required for timestamps", path: ["timeFormat"] },
-  );
-
-const deployReadRecordZ = kafka.readRecordZ.extend({
-  fields: deployReadFieldZ.array().check(Task.validateReadChannels),
-});
-
-/** Flags every record whose key an earlier record already claims. */
-const validateRecordKeys = zod.uniqueBy<ReadRecord, "recordKey">("recordKey", (key) =>
-  key === ""
-    ? "Only one record can read any key"
-    : `Record key "${key}" is used by another record`,
-);
+const validateTopics = (
+  ctx: z.core.ParsePayload<Pick<ReadTopic, "name" | "records">[]>,
+) => {
+  if (ctx.value.every(({ records }) => records.every(({ disabled }) => disabled)))
+    ctx.issues.push({
+      continue: true,
+      code: "custom",
+      input: ctx.value,
+      message: "At least one record must be enabled",
+      path: [],
+    });
+  const seen = new Set<string>();
+  ctx.value.forEach(({ name }, i) => {
+    if (!seen.has(name)) {
+      seen.add(name);
+      return;
+    }
+    ctx.issues.push({
+      continue: true,
+      code: "custom",
+      input: ctx.value,
+      message: `Topic "${name}" is listed more than once`,
+      path: [i, "name"],
+    });
+  });
+};
 
 export const deployReadConfigZ = kafka.readConfigZ.extend({
   device: Task.deviceKeyZ,
-  topic: topicZ,
-  records: deployReadRecordZ
+  topics: kafka.readTopicZ
+    .extend({
+      name: topicZ,
+      records: kafka.readRecordZ.array().check(validateRecords),
+    })
     .array()
-    .check(validateRecordKeys)
-    .refine(
-      (records) => records.some(({ fields }) => fields.some((f) => !f.disabled)),
-      {
-        message: "At least one field must be enabled",
-      },
-    ),
+    .check(validateTopics),
 });
 
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
-  config: readConfigZ,
+  config: kafka.readConfigZ,
   statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 
@@ -122,16 +133,6 @@ export const WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
-
-export const SCAN_TYPE = `${PREFIX}_scan`;
-
-export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
-
-export const SCAN_SCHEMAS = {
-  type: z.literal(SCAN_TYPE),
-  config: record.nullishToEmpty(),
-  statusData: z.unknown().optional(),
-} as const satisfies task.Schemas;
 
 /** Whether a value of the data type travels as a JSON string. */
 export const isString = (dataType: CrudeDataType): boolean => {

@@ -15,6 +15,7 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { device } from "@/device";
 import { http } from "@/http";
+import { icd } from "@/icd";
 import { task } from "@/task";
 
 export const START_OFFSETS = ["latest", "earliest", "none"] as const;
@@ -36,32 +37,6 @@ export interface Credentials extends z.infer<typeof credentialsZ> {}
 
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
-
-/** ReadField is a single value extracted from a record's JSON value. */
-export const readFieldZ = z.object({
-  /** key uniquely identifies the field within the task. */
-  key: z.string().default(id.create),
-  /** disabled is true when the field is excluded from the task. */
-  disabled: z.boolean().default(false),
-  /** name is the name given to the channel when the task creates it. */
-  name: z.string().default(""),
-  /** channel is the Synnax channel the extracted value is written to. */
-  channel: channel.keyZ.default(0),
-  /** pointer is the JSON Pointer to the value within the record value. */
-  pointer: z.string().default(""),
-  /** dataType is the data type of the extracted value. */
-  dataType: z.string().default("float64"),
-  /**
-   * timeFormat is the encoding of the JSON value when the target channel holds
-   * timestamps. Required for timestamp channels.
-   */
-  timeFormat: payload.timeFormatZ.optional(),
-  /**
-   * enumValues maps string labels in the record to numeric or boolean channel values.
-   */
-  enumValues: payload.enumEntryZ.array().default(() => []),
-});
-export interface ReadField extends z.infer<typeof readFieldZ> {}
 
 /** WriteChannel is a channel whose samples a write task produces as records. */
 export const writeChannelZ = z.object({
@@ -106,6 +81,27 @@ export const recordZ = z.object({
   fields: http.writeFieldZ.array().default(() => []),
 });
 export interface Record extends z.infer<typeof recordZ> {}
+
+/** ReadRecord reads the records with one Kafka key as the messages of an ICD. */
+export const readRecordZ = z.object({
+  /** key uniquely identifies the record within the task. */
+  key: z.string().default(id.create),
+  /** disabled is true when the record is excluded from the task. */
+  disabled: z.boolean().default(false),
+  /**
+   * recordKey is the Kafka key of the records read here. Empty reads every record of
+   * the topic that no other record of the topic claims, keyless ones included.
+   */
+  recordKey: z.string().default(""),
+  /** icd is the key of the ICD that holds the messages of the records. */
+  icd: icd.keyZ,
+  /**
+   * messages are the messages the records carry. Each record value is read as the
+   * message whose match rule it meets.
+   */
+  messages: icd.readMessageZ.array().default(() => []),
+});
+export interface ReadRecord extends z.infer<typeof readRecordZ> {}
 
 /** NoneSASL authenticates with no credentials. */
 export const noneSASLZ = z.object({
@@ -153,25 +149,6 @@ export const SASL_SCHEMAS: {
   scram_sha_512: scramSha512SASLZ,
 };
 
-/** ReadRecord is a set of fields read from the records with one Kafka key. */
-export const readRecordZ = z.object({
-  /** key uniquely identifies the record within the task. */
-  key: z.string().default(id.create),
-  /**
-   * recordKey is the Kafka key of the records read here. Empty reads every record that
-   * no other record of the task claims, keyless ones included.
-   */
-  recordKey: z.string().default(""),
-  /**
-   * index is the key of the field whose channel indexes the others. Empty when the task
-   * stamps samples on arrival.
-   */
-  index: z.string().default(""),
-  /** fields contains the values to extract from the record. */
-  fields: readFieldZ.array().default(() => []),
-});
-export interface ReadRecord extends z.infer<typeof readRecordZ> {}
-
 export const writeConfigZ = task.startConfigZ.extend({
   device: device.keyZ.default(""),
   topic: z.string().default(""),
@@ -181,6 +158,17 @@ export const writeConfigZ = task.startConfigZ.extend({
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
+/** ReadTopic reads the records of one topic. */
+export const readTopicZ = z.object({
+  /** key uniquely identifies the topic within the task. */
+  key: z.string().default(id.create),
+  /** name is the name of the topic. */
+  name: z.string().default(""),
+  /** records contains the records the task reads from the topic, one per record key. */
+  records: readRecordZ.array().default(() => []),
+});
+export interface ReadTopic extends z.infer<typeof readTopicZ> {}
+
 /** Properties configures the connection to a Kafka cluster device. */
 export const propertiesZ = z.object({
   /** brokers contains the bootstrap broker addresses, as host:port. */
@@ -188,8 +176,8 @@ export const propertiesZ = z.object({
     .string()
     .array()
     .default(() => []),
-  /** tls is true when every broker connection uses TLS. */
-  tls: z.boolean().default(false),
+  /** secure is true when every broker connection uses TLS. */
+  secure: z.boolean().default(false),
   /**
    * caCertificate is the PEM-encoded certificate authority that signs the brokers'
    * certificates. Empty trusts the system roots.
@@ -202,9 +190,8 @@ export interface Properties extends z.infer<typeof propertiesZ> {}
 
 export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),
-  topic: z.string().default(""),
   group: z.string().default(""),
   startOffset: startOffsetZ.default("latest"),
-  records: readRecordZ.array().default(() => []),
+  topics: readTopicZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}

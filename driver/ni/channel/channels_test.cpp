@@ -775,7 +775,7 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
         {"port", 1},
         {"disabled", false},
         {"wave_type", "Sine"},
-        {"frequency", 0},
+        {"frequency", 10},
         {"amplitude", 0},
         {"offset", 0}
     };
@@ -793,9 +793,25 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ao1");
     EXPECT_EQ(call["args"]["type"], DAQmx_Val_Sine);
-    EXPECT_EQ(call["args"]["freq"], 0);
+    EXPECT_EQ(call["args"]["freq"], 10);
     EXPECT_EQ(call["args"]["amplitude"], 0);
     EXPECT_EQ(call["args"]["offset"], 0);
+}
+
+/// @brief it should reject a function generator channel with no frequency.
+TEST(ChannelsTest, ParseAOFuncGenChanRequiresFrequency) {
+    x::json::json j = {
+        {"type", "ao_func_gen"},
+        {"key", "AepqBDjsgwx"},
+        {"port", 1},
+        {"disabled", false},
+        {"wave_type", "Sine"},
+        {"amplitude", 1},
+        {"offset", 0}
+    };
+    x::json::Parser p(j);
+    channel::parse_output(p, "ni_analog_write");
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 TEST(ChannelsTest, ParseDIChan) {
@@ -860,7 +876,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanHz) {
         {"units", "Hz"},
         {"edge", "Rising"},
         {"meas_method", "DynamicAvg"},
-        {"meas_time", 0.001},
+        {"meas_time", 1000000},
         {"divisor", 4},
         {"terminal", ""},
         {"custom_scale", {{"type", "none"}}},
@@ -901,7 +917,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
         {"units", "Ticks"},
         {"edge", "Falling"},
         {"meas_method", "LowFreq1Ctr"},
-        {"meas_time", 0.01},
+        {"meas_time", "10000000"},
         {"divisor", 1},
         {"terminal", "PFI0"},
         {"custom_scale", {{"type", "none"}}},
@@ -1008,7 +1024,7 @@ TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
         {"units", "Seconds"},
         {"starting_edge", "Rising"},
         {"meas_method", "DynamicAvg"},
-        {"meas_time", 0.001},
+        {"meas_time", 1000000},
         {"divisor", 4},
         {"terminal", ""},
         {"custom_scale", {{"type", "none"}}},
@@ -1044,7 +1060,7 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
         {"units", "Ticks"},
         {"starting_edge", "Falling"},
         {"meas_method", "LowFreq1Ctr"},
-        {"meas_time", 0.001},
+        {"meas_time", 1000000},
         {"divisor", 4},
         {"terminal", "PFI5"},
         {"custom_scale", {{"type", "none"}}},

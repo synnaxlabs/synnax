@@ -11,8 +11,8 @@ import { TimeStamp } from "@synnaxlabs/x";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
-import { Indicator, indicatorStateZ } from "@/telem/control/aether/indicator";
-import { buildStack } from "@/testutil/providers";
+import { control } from "@/telem/control/aether";
+import { buildStack } from "@/testutil/internal";
 
 describe("Indicator", () => {
   let teardown: (() => void) | null = null;
@@ -22,13 +22,15 @@ describe("Indicator", () => {
   });
 
   it("should leave the color absent when it has no color source", () => {
-    const stack = buildStack({ registry: { [Indicator.TYPE]: Indicator } });
+    const stack = buildStack({
+      registry: { [control.Indicator.TYPE]: control.Indicator },
+    });
     teardown = () => stack.driver.delete([aetherTest.ROOT_KEY]);
     const path = [...stack.basePath, "indicator"];
     stack.driver.update(
       path,
-      Indicator.TYPE,
-      indicatorStateZ.parse({
+      control.Indicator.TYPE,
+      control.indicatorStateZ.parse({
         status: {
           key: "no_chip",
           variant: "warning",
@@ -37,6 +39,6 @@ describe("Indicator", () => {
         },
       }),
     );
-    expect(stack.driver.find<Indicator>(path).state.color).toBeUndefined();
+    expect(stack.driver.find<control.Indicator>(path).state.color).toBeUndefined();
   });
 });

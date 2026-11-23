@@ -10,9 +10,18 @@
  */
 
 .console-download-csv {
+    /* From, the arrow, and To, so the times of each span line up. */
+    .console-download-csv__spans {
+        display: grid;
+        grid-template-columns: repeat(3, max-content);
+        align-items: end;
+        gap: 1rem 1.5rem;
+    }
+
+    /* As tall as an h4 time, so the arrow centers on the times. */
     .console-download-csv__arrow {
         width: 3rem;
-        height: 3rem;
+        height: var(--pluto-height-large);
     }
 
     .console-download-csv__downsample-factor {

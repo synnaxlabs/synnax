@@ -14,6 +14,7 @@ import {
   location,
   math,
   scale,
+  TimeSpan,
   TimeStamp,
   xy,
 } from "@synnaxlabs/x";
@@ -21,6 +22,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
+import { formatRelativeTime } from "@/vis/axis/relative";
 import { Draw2D } from "@/vis/draw2d";
 import type { FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
@@ -29,6 +31,10 @@ const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);
 const TOOLTIP_LIST_SPACING: number = 3;
 const TOOLTIP_LIST_ITEM_HEIGHT: number = 14;
 const TOOLTIP_PADDING: xy.XY = xy.construct(6);
+// A label past this width fades at its end. The cap matches the legend's.
+const LABEL_MAX_REM = 40;
+const LABEL_FADE_REM = 2.25;
+const CHAR_WIDTH = 7;
 
 export const tooltipStateZ = z.object({
   position: xy.xyZ.or(z.null()),
@@ -38,7 +44,70 @@ export const tooltipStateZ = z.object({
   ruleColor: color.colorZ.optional(),
   ruleStrokeWidth: z.number().default(1),
   ruleStrokeDash: z.number().default(0),
+  /** True when x is a span from a zero, shown as T+ time. */
+  relative: z.boolean().default(false),
+  /** The line nearest the cursor and the x of its value, set by the tooltip. */
+  hovered: z.object({ key: z.string(), x: z.number() }).nullable().default(null),
 });
+
+export type Hovered = NonNullable<z.infer<typeof tooltipStateZ>["hovered"]>;
+
+// A line is hovered when the cursor is within this many pixels of its value.
+const HOVER_DISTANCE = 12;
+
+// Row is one row of the tooltip list: a heading, or an entry with a value.
+interface Row {
+  label: string;
+  value?: string;
+  color?: color.Color;
+  bold?: boolean;
+}
+
+// byValue sorts high to low, with NaN last.
+const byValue = (
+  { value: { y: a } }: FindResult,
+  { value: { y: b } }: FindResult,
+): number => (a === b ? 0 : Number.isNaN(a) ? 1 : Number.isNaN(b) ? -1 : b - a);
+
+// rows lists the results of each tooltip group under a heading, sorted by value.
+// Results with no tooltip group keep their order.
+const rows = (results: FindResult[], hovered: Hovered | null): Row[] => {
+  const entry = (r: FindResult, label: string | undefined): Row => ({
+    label: label ?? "",
+    value: formatValue(r),
+    color: r.color,
+    bold: r.key === hovered?.key,
+  });
+  if (!results.some((r) => r.tooltipGroup != null))
+    return results.map((r) => entry(r, r.label));
+  const groups = new Map<string, FindResult[]>();
+  results.forEach((r) => {
+    const key = r.tooltipGroup ?? r.key;
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  });
+  return [...groups.values()].flatMap((members) => [
+    { label: members[0].label ?? "", bold: true },
+    ...[...members].sort(byValue).map((r) => entry(r, r.tooltipLabel)),
+  ]);
+};
+
+const rowWidth = (r: Row, labelMax: number): number =>
+  Math.min(r.label.length * CHAR_WIDTH, labelMax) + (r.value?.length ?? 0) * CHAR_WIDTH;
+
+// fit is how many list items fit in height.
+const fit = (height: number): number =>
+  Math.floor(
+    (height - TOOLTIP_PADDING.y * 2 + TOOLTIP_LIST_SPACING) /
+      (TOOLTIP_LIST_ITEM_HEIGHT + TOOLTIP_LIST_SPACING),
+  );
+
+// capped returns at most max rows, ending with "and N more" when it drops any.
+const capped = (all: Row[], max: number): Row[] => {
+  if (all.length <= max) return all;
+  const kept = all.slice(0, max - 1);
+  const dropped = all.slice(max - 1).filter((r) => r.value != null).length;
+  return [...kept, { label: `and ${dropped} more` }];
+};
 
 interface InternalState {
   render: render.Context;
@@ -47,10 +116,18 @@ interface InternalState {
   dotColorContrast: color.Color;
   textColor: color.Color;
   ruleColor: color.Color;
+  hintColor: color.Color;
+  labelMax: number;
+  labelFade: number;
 }
 
 export interface TooltipProps {
   findByXDecimal: (position: number) => FindResult[];
+  /**
+   * @returns the values that a closed break at a decimal position across the region
+   * hides, or null.
+   */
+  hiddenAt: (position: number) => bounds.Bounds | null;
   region: box.Box;
 }
 
@@ -65,9 +142,14 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     this.internal.ruleColor = ruleColor ?? theme.colors.gray.l7;
     this.internal.dotColor = theme.colors.text;
     this.internal.dotColorContrast = theme.colors.textInverted;
+    this.internal.hintColor = theme.colors.gray.l9;
+    this.internal.labelMax = LABEL_MAX_REM * theme.sizes.base;
+    this.internal.labelFade = LABEL_FADE_REM * theme.sizes.base;
 
     this.internal.render = render.Context.use(ctx);
     this.internal.draw = new Draw2D(this.internal.render.upper2d, theme);
+    if (this.state.position == null && this.state.hovered != null)
+      this.setState((p) => ({ ...p, hovered: null }));
     render.request(ctx, "tool");
   }
 
@@ -80,15 +162,23 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     const { region } = props;
     const scale_ = scale.XY.scale(box.DECIMAL).scale(region);
     const reverseScale = scale.XY.scale(region).scale(box.DECIMAL);
-    const values = props.findByXDecimal(reverseScale.x.pos(this.state.position.x));
+    const x = reverseScale.x.pos(this.state.position.x);
+    const hidden = props.hiddenAt(x);
+    if (hidden != null) {
+      this.updateHovered([], scale_);
+      return this.renderHidden(hidden, region);
+    }
+    const values = props.findByXDecimal(x);
     const validValues = values.filter((c) => Number.isFinite(c.value.x));
     const { draw } = this.internal;
 
     const avgXPosition =
       validValues.reduce((p, c) => p + c.position.x, 0) / validValues.length;
-    const avgXValue = new TimeStamp(
-      validValues.reduce((p, c) => p + c.value.x, 0) / validValues.length,
-    );
+    const avgX = validValues.reduce((p, c) => p + c.value.x, 0) / validValues.length;
+    const timeValue = this.state.relative
+      ? formatRelativeTime(avgX, MILLISECOND)
+      : new TimeStamp(avgX).toString("preciseDate", "local");
+    this.updateHovered(validValues, scale_);
 
     const rulePosition = scale_.x.pos(avgXPosition);
     if (!bounds.contains(box.xBounds(region), rulePosition)) return;
@@ -118,74 +208,103 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       });
     });
 
-    const relativePosition = reverseScale.pos(this.state.position);
+    // The time heading takes one item, and "and N more" always fits.
+    const maxRows = Math.max(1, fit(box.height(region)) - 1);
+    const listed = capped(rows(validValues, this.state.hovered), maxRows);
+    const { labelMax } = this.internal;
+    const width = Math.max(
+      timeValue.length * CHAR_WIDTH,
+      ...listed.map((r) => rowWidth(r, labelMax)),
+    );
+    this.drawList([{ label: "Time", value: timeValue }, ...listed], region, width);
+  }
 
+  // renderHidden lists the values that a closed break hides.
+  private renderHidden(hidden: bounds.Bounds, region: box.Box): void {
+    const start = new TimeStamp(hidden.lower);
+    const end = new TimeStamp(hidden.upper);
+    const span = new TimeSpan(hidden.upper - hidden.lower);
+    const listed: Row[] = [
+      { label: "Hidden", value: span.toString("semantic"), bold: true },
+      { label: "From", value: start.toString("dateTime", "local") },
+      { label: "To", value: end.toString("dateTime", "local") },
+      { label: "Click to show", color: this.internal.hintColor },
+    ];
+    const { labelMax } = this.internal;
+    this.drawList(
+      listed,
+      region,
+      Math.max(...listed.map((r) => rowWidth(r, labelMax))),
+    );
+  }
+
+  // drawList draws rows in a list next to the cursor, wide enough for width pixels of
+  // text.
+  private drawList(listed: Row[], region: box.Box, width: number): void {
+    const { draw, labelMax, labelFade } = this.internal;
+    const { position } = this.state;
+    if (position == null) return;
+    const relativePosition = scale.XY.scale(region).scale(box.DECIMAL).pos(position);
     const root = { ...location.TOP_LEFT };
     if (relativePosition.x > 0.6) root.x = "right";
     if (relativePosition.y > 0.6) root.y = "bottom";
-
-    // The time takes one item, and "and N more" always fits.
-    const maxLines = Math.max(1, fit(box.height(region)) - 1);
-    const listed =
-      validValues.length <= maxLines ? validValues : validValues.slice(0, maxLines - 1);
-    const dropped = validValues.length - listed.length;
-
-    let maxLabelLength = values.reduce((p, c) => Math.max(p, c.label?.length ?? 0), 0);
-    const timeValueLength = avgXValue.toString("preciseDate", "local").length;
-    if (timeValueLength > maxLabelLength) maxLabelLength = timeValueLength;
-
     draw.list({
       root,
       offset: TOOLTIP_LIST_OFFSET,
-      length: listed.length + (dropped > 0 ? 2 : 1),
+      length: listed.length,
       padding: TOOLTIP_PADDING,
       itemHeight: TOOLTIP_LIST_ITEM_HEIGHT,
       spacing: TOOLTIP_LIST_SPACING,
-      width: maxLabelLength * 7 + 48,
-      position: this.state.position,
+      width: width + 48,
+      position,
       bound: region,
       draw: (i, b) => {
-        let label: string;
-        let value: string;
-        let color = this.internal.textColor;
-        if (i === 0) {
-          label = "Time";
-          value = avgXValue.toString("preciseDate", "local");
-        } else if (i > listed.length) {
-          label = `and ${dropped} more`;
-          value = "";
-        } else {
-          const v = listed[i - 1];
-          label = v.label ?? "";
-          value = formatValue(v);
-          color = v.color;
-        }
+        const row = listed[i];
         draw.text({
           position: box.topLeft(b),
-          text: label,
+          text: row.label,
           level: "small",
-          weight: 500,
-          color,
+          maxWidth: labelMax,
+          fade: labelFade,
+          weight: row.bold === true ? 700 : 500,
+          color: row.color ?? this.internal.textColor,
         });
+        if (row.value == null) return;
         draw.text({
           position: xy.translateY(box.topRight(b), -1),
-          text: value,
+          text: row.value,
           level: "small",
           justify: "right",
           code: true,
           shade: 10,
+          weight: row.bold === true ? 700 : undefined,
         });
       },
     });
   }
+
+  // updateHovered sets hovered to the key of the line whose value is nearest the
+  // cursor, or null when no value is within HOVER_DISTANCE.
+  private updateHovered(results: FindResult[], toPixels: scale.XY): void {
+    const { position } = this.state;
+    if (position == null) return;
+    let nearest: FindResult | null = null;
+    let distance = HOVER_DISTANCE;
+    for (const r of results) {
+      if (!Number.isFinite(r.value.y)) continue;
+      const d = Math.abs(toPixels.pos(r.position).y - position.y);
+      if (d >= distance) continue;
+      nearest = r;
+      distance = d;
+    }
+    const hovered = nearest == null ? null : { key: nearest.key, x: nearest.value.x };
+    const prev = this.state.hovered;
+    if (prev?.key === hovered?.key && prev?.x === hovered?.x) return;
+    this.setState((p) => ({ ...p, hovered }));
+  }
 }
 
-// fit is how many list items fit in height.
-const fit = (height: number): number =>
-  Math.floor(
-    (height - TOOLTIP_PADDING.y * 2 + TOOLTIP_LIST_SPACING) /
-      (TOOLTIP_LIST_ITEM_HEIGHT + TOOLTIP_LIST_SPACING),
-  );
+const MILLISECOND = 1e6;
 
 const formatValue = ({ value: { y }, bounds }: FindResult): string => {
   if (y === Infinity) return "∞";

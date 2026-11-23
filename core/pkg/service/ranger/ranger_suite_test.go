@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -34,6 +35,7 @@ var (
 	w        ranger.Writer
 	tx       gorp.Tx
 	labelSvc *label.Service
+	colorSvc *color.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -45,6 +47,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
+	}))
+	colorSvc = MustOpen(color.OpenService(ctx, color.ServiceConfig{
+		DB: db, Group: g,
 	}))
 	svc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 		DB: db, Group: g,

@@ -39,6 +39,7 @@ type codeActionSnapshot struct {
 	Diagnostics diagnostics.Diagnostics
 	Tokens      []antlr.Token
 	IsBlock     bool
+	Config      parser.Config
 }
 
 // CodeAction returns quick-fix actions for the diagnostics that intersect the requested
@@ -52,46 +53,12 @@ func (s *Server) CodeAction(
 	if !ok {
 		return nil, nil
 	}
-	s.mu.RLock()
-	content := doc.Content
-	symbols := doc.IR.Symbols
-	var analyzed diagnostics.Diagnostics
-	// A fix from the analysis of older content has the wrong ranges.
-	if doc.analyzed == content {
-		analyzed = doc.Diagnostics
-	}
-	isBlock := doc.isBlock()
-	s.mu.RUnlock()
-	snap := codeActionSnapshot{
-		URI:         doc.URI,
-		Content:     content,
-		Symbols:     symbols,
-		Diagnostics: analyzed,
-		Tokens:      tokenizeContent(content),
-		IsBlock:     isBlock,
-	}
+	snap := s.snapshotForCodeAction(doc)
+	listModules := s.moduleLister(ctx, snap.Symbols)
 	var (
 		actions []protocol.CommandOrCodeAction
 		hoist   *protocol.CodeAction
-		modules []*symbol.Symbol
-		listed  bool
 	)
-	// Every diagnostic of a request shares one listing of the user modules.
-	listModules := func() []*symbol.Symbol {
-		if listed {
-			return modules
-		}
-		listed = true
-		r := symbols.ModuleResolver()
-		if r == nil {
-			return nil
-		}
-		var err error
-		if modules, err = r.Search(ctx, ""); err != nil {
-			s.cfg.L.Error("failed to search modules", zap.Error(err))
-		}
-		return modules
-	}
 	for _, diag := range params.Context.Diagnostics {
 		code, _ := diag.Code.(protocol.String)
 		if string(code) == string(codes.DeclarationAfterStep.Code) {
@@ -118,6 +85,57 @@ func (s *Server) CodeAction(
 		actions = append(actions, hoist)
 	}
 	return actions, nil
+}
+
+// snapshotForCodeAction snapshots the state of doc under s.mu.
+func (s *Server) snapshotForCodeAction(doc *document) codeActionSnapshot {
+	s.mu.RLock()
+	content := doc.Content
+	symbols := doc.IR.Symbols
+	var analyzed diagnostics.Diagnostics
+	// A fix from the analysis of older content has the wrong ranges.
+	if doc.analyzed == content {
+		analyzed = doc.Diagnostics
+	}
+	isBlock := doc.isBlock()
+	s.mu.RUnlock()
+	cfg := s.parserConfig()
+	return codeActionSnapshot{
+		URI:         doc.URI,
+		Content:     content,
+		Symbols:     symbols,
+		Diagnostics: analyzed,
+		Tokens:      tokenizeContent(content, cfg),
+		Config:      cfg,
+		IsBlock:     isBlock,
+	}
+}
+
+// moduleLister returns a function that lists the user modules of symbols. The function
+// searches on its first call only, so every diagnostic of a request shares one listing.
+func (s *Server) moduleLister(
+	ctx context.Context,
+	symbols *symbol.Symbol,
+) func() []*symbol.Symbol {
+	var (
+		modules []*symbol.Symbol
+		listed  bool
+	)
+	return func() []*symbol.Symbol {
+		if listed {
+			return modules
+		}
+		listed = true
+		r := symbols.ModuleResolver()
+		if r == nil {
+			return nil
+		}
+		var err error
+		if modules, err = r.Search(ctx, ""); err != nil {
+			s.cfg.L.Error("failed to search modules", zap.Error(err))
+		}
+		return modules
+	}
 }
 
 // analyzedQuickFixes builds one action for each fix the analyzer attached to diag.
@@ -148,7 +166,7 @@ func analyzedQuickFixes(
 
 // hoistDeclarationsQuickFix builds the action that applies the formatter's hoists.
 func hoistDeclarationsQuickFix(snap codeActionSnapshot) *protocol.CodeAction {
-	moves := formatter.DeclarationHoists(snap.Content)
+	moves := formatter.DeclarationHoists(snap.Content, snap.Config)
 	if len(moves) == 0 {
 		return nil
 	}
@@ -218,6 +236,39 @@ func missingImportQuickFixes(
 	diag protocol.Diagnostic,
 	listModules func() []*symbol.Symbol,
 ) []protocol.CommandOrCodeAction {
+	paths := missingImportPaths(ctx, snap, diag, listModules)
+	var actions []protocol.CommandOrCodeAction
+	for _, path := range paths {
+		edits := buildAutoImportEditFromSnapshot(
+			snap.Content,
+			snap.Symbols,
+			path,
+			snap.Config,
+		)
+		if len(edits) == 0 {
+			continue
+		}
+		actions = append(actions, &protocol.CodeAction{
+			Title:       fmt.Sprintf("Add import '%s'", path),
+			Kind:        new(protocol.CodeActionKindQuickFix),
+			Diagnostics: []protocol.Diagnostic{diag},
+			IsPreferred: new(len(paths) == 1),
+			Edit: &protocol.WorkspaceEdit{
+				Changes: map[uri.URI][]protocol.TextEdit{snap.URI: edits},
+			},
+		})
+	}
+	return actions
+}
+
+// missingImportPaths returns the module paths that could import the first identifier
+// in the range of diag, or none when that identifier resolves in its scope.
+func missingImportPaths(
+	ctx context.Context,
+	snap codeActionSnapshot,
+	diag protocol.Diagnostic,
+	listModules func() []*symbol.Symbol,
+) []string {
 	if snap.Symbols == nil {
 		return nil
 	}
@@ -252,23 +303,7 @@ func missingImportQuickFixes(
 			}
 		}
 	}
-	var actions []protocol.CommandOrCodeAction
-	for _, path := range paths {
-		edits := buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, path)
-		if len(edits) == 0 {
-			continue
-		}
-		actions = append(actions, &protocol.CodeAction{
-			Title:       fmt.Sprintf("Add import '%s'", path),
-			Kind:        new(protocol.CodeActionKindQuickFix),
-			Diagnostics: []protocol.Diagnostic{diag},
-			IsPreferred: new(len(paths) == 1),
-			Edit: &protocol.WorkspaceEdit{
-				Changes: map[uri.URI][]protocol.TextEdit{snap.URI: edits},
-			},
-		})
-	}
-	return actions
+	return paths
 }
 
 // firstIdentifierInRange returns the first IDENTIFIER token whose start

@@ -26,6 +26,8 @@ import { Provider } from "react-redux";
 
 import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
+import { Portal } from "@/platform/portal";
+import { createTestPortal } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
@@ -34,6 +36,8 @@ import {
   createSynnaxWrapper,
   type TestStore,
 } from "@/testutil";
+
+const PORTAL = createTestPortal().client;
 
 // Modal content mounts inside an error Boundary that reads the layout slice, so the
 // stack needs a Redux Provider even though modals themselves live in a separate store.
@@ -46,9 +50,11 @@ const createWrapper = (connectionStatus?: connection.Status): FC<PropsWithChildr
   const Base = createSynnaxWrapper({ client: null, connectionStatus });
   const InnerWrapper: FC<PropsWithChildren> = ({ children }): ReactElement => (
     <Base>
-      <Provider store={store}>
-        <Session.Modals.Context>{children}</Session.Modals.Context>
-      </Provider>
+      <Portal.Provider client={PORTAL}>
+        <Provider store={store}>
+          <Session.Modals.Context>{children}</Session.Modals.Context>
+        </Provider>
+      </Portal.Provider>
     </Base>
   );
   InnerWrapper.displayName = "Wrapper";
@@ -57,8 +63,9 @@ const createWrapper = (connectionStatus?: connection.Status): FC<PropsWithChildr
 
 /**
  * The provider stack every modal spec renders within: the proven Pluto-rendering Synnax
- * wrapper (with a null client, since modals never touch the Core), a Redux Provider
- * backing the error Boundary, and the per-window modal store Provider.
+ * wrapper (with a null client, since modals never touch the Core), a portal that cannot
+ * be reached, a Redux Provider backing the error Boundary, and the per-window modal
+ * store Provider.
  */
 export const Wrapper = createWrapper();
 
@@ -99,10 +106,16 @@ export const renderModalHook = <T,>(
   return renderHook(useHandle, { wrapper: Wrapper });
 };
 
-/** Presses and releases Escape on the window, where the trigger provider listens. */
-export const pressEscape = (): void => {
-  fireEvent.keyDown(window, { code: "Escape" });
-  fireEvent.keyUp(window, { code: "Escape" });
+/**
+ * Presses Escape through the browser driver. A native modal dialog sees only a real key
+ * press, which the browser sends from wherever the focus is.
+ */
+export const pressEscape = async (): Promise<void> => {
+  // jsdom specs import this file too, and vitest/browser loads only in a browser.
+  const { userEvent } = await import("vitest/browser");
+  await act(async () => {
+    await userEvent.keyboard("{Escape}");
+  });
 };
 
 /**
@@ -125,6 +138,8 @@ export interface RenderModalOpenerOptions extends Pick<RenderOptions, "onCaughtE
   analytics?: Analytics.Sink;
   /** Extra siblings rendered alongside the modal stack, e.g. CaptureStatuses. */
   extra?: ReactNode;
+  /** Wraps the hook but not the modal stack, such as a context that the hook reads. */
+  provider?: FC<PropsWithChildren>;
 }
 
 export interface ModalOpenerHandle<R> {
@@ -156,6 +171,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
     onCaughtError,
     analytics = Analytics.NOOP,
     extra,
+    provider: HookProvider,
   } = options;
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
@@ -167,7 +183,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
     <Console>
       <Analytics.Provider sink={analytics}>
         <Triggers.Provider>
-          {children}
+          {HookProvider == null ? children : <HookProvider>{children}</HookProvider>}
           <Modals.Stack />
           {extra}
         </Triggers.Provider>

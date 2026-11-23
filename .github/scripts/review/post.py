@@ -81,9 +81,10 @@ ANSWER_END = " -->"
 # The REST fields of a comment, in the shape that GraphQL serves.
 _FIXED = re.compile(r"(?:\*agent reply\.\*\s*)?fixed (?:in|by)\b", re.IGNORECASE)
 _COMMENT = (
-    "{id, login: .user.login, author: {__typename: .user.type, login: .user.login}, "
-    "body}"
+    "{id, login: .user.login, author: {__typename: .user.type, login: (.user.login | "
+    'rtrimstr("[bot]"))}, body}'
 )
+_MENTION = re.compile(r"@sedosaur\b", re.IGNORECASE)
 
 _SUMMARY = re.compile(
     f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.DOTALL
@@ -113,18 +114,19 @@ class Target:
 
 
 def post(rec: dict[str, Any], *, target: Target, gh: GH) -> None:
-    """Posts the review of a record, without the findings that someone with write
-    access dismissed or that the bot withdrew. A review with no finding left scores 5,
-    and so does the head when the rest are dismissed or withdrawn while the review
-    posts. Findings on lines of the diff become one review of inline threads, skipping
-    any finding an unresolved thread of the bot already holds. Such a thread gets the
-    finding's new heading when its severity changed, and keeps the rest of its comment.
-    The findings outside the diff go in one comment the bot edits on each review. The
-    check run takes its output before any other write. Then the summary in the pull
-    request body is replaced and the check run completes. Last, while the target is
-    still the head of the pull request, each open thread of the bot whose finding the
-    review marks fixed, and does not report, is resolved with the reason as a reply. A
-    failure there only warns.
+    """Posts the review of a record, without the findings that someone with write access
+    dismissed or that the bot withdrew. A review with no finding left scores 5, and so
+    does the head when the rest are dismissed or withdrawn while the review posts.
+    Findings on lines of the diff become one review of inline threads, and other
+    findings on a file of the diff become file threads, skipping any finding an
+    unresolved thread of the bot already holds. Such a thread gets the finding's new
+    heading when its severity changed, and keeps the rest of its comment. The findings
+    on other files go in one comment the bot edits on each review. The check run takes
+    its output before any other write. Then the summary in the pull request body is
+    replaced and the check run completes. Last, while the target is still the head of
+    the pull request, each open thread of the bot whose finding the review marks fixed,
+    and does not report, is resolved with the reason as a reply. A failure there only
+    warns.
     """
     t = target
     review = parse(rec["review"])
@@ -138,17 +140,20 @@ def post(rec: dict[str, Any], *, target: Target, gh: GH) -> None:
     write(gh, "PATCH", run, {"output": render.check(review)})
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
-    inline = [f for f in review.findings if set(f.lines) <= diff.get(f.path, set())]
+    # GitHub threads only the files of the diff. A finding on another file goes in the
+    # outside comment, which takes no rebuttal.
+    threaded = [f for f in review.findings if f.path in diff]
     posted = {(th.path, th.title): th for th in found if not th.resolved}
-    fresh = [f for f in inline if (f.path, f.title) not in posted]
-    for f in inline:
+    fresh = [f for f in threaded if (f.path, f.title) not in posted]
+    inline = [f for f in fresh if set(f.lines) <= diff[f.path]]
+    for f in threaded:
         th = posted.get((f.path, f.title))
         if th is not None and th.heading != render.heading(f):
             body = render.heading(f) + th.body[len(th.heading) :]
             comment = f"repos/{t.repo}/pulls/comments/{th.comment}"
             write(gh, "PATCH", comment, {"body": body})
-    if fresh:
-        comments = [_anchor(f) | {"body": render.comment(f, blob=blob)} for f in fresh]
+    if inline:
+        comments = [_anchor(f) | {"body": render.comment(f, blob=blob)} for f in inline]
         payload = {
             "commit_id": t.head,
             "event": "COMMENT",
@@ -156,7 +161,15 @@ def post(rec: dict[str, Any], *, target: Target, gh: GH) -> None:
             "comments": comments,
         }
         write(gh, "POST", f"repos/{t.repo}/pulls/{t.pr}/reviews", payload)
-    outside = [f for f in review.findings if f not in inline]
+    for f in (f for f in fresh if f not in inline):
+        payload = {
+            "commit_id": t.head,
+            "path": f.path,
+            "subject_type": "file",
+            "body": render.comment(f, blob=blob, located=True),
+        }
+        write(gh, "POST", f"repos/{t.repo}/pulls/{t.pr}/comments", payload)
+    outside = [f for f in review.findings if f not in threaded]
     _upsert_outside(t, gh, render.outside(outside, blob=blob), created=bool(outside))
     message = gh("api", f"repos/{t.repo}/commits/{t.head}", "--jq", ".commit.message")
     body = gh("api", f"repos/{t.repo}/pulls/{t.pr}", "--jq", '.body // ""')
@@ -564,6 +577,16 @@ def comments(t: Target, gh: GH) -> list[dict[str, Any]]:
         f".[] | {_COMMENT} | tojson",
     )
     return [json.loads(s) for s in out.splitlines() if s]
+
+
+def replies(t: Target, gh: GH, can: Authority) -> list[dict[str, Any]]:
+    """Returns each comment on the pull request that mentions the bot outside a quote,
+    from someone with write access or an agent, oldest first."""
+    return [
+        c
+        for c in comments(t, gh)
+        if _MENTION.search(_unquoted(c["body"])) and trusted(c, can)
+    ]
 
 
 def _outside(t: Target, gh: GH) -> dict[str, Any] | None:

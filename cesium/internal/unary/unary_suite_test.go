@@ -10,10 +10,13 @@
 package unary_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -23,3 +26,12 @@ func TestUnary(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+func deleteRange(ctx context.Context, db *unary.DB, tr telem.TimeRange) error {
+	del, release, err := db.OpenDelete(tr)
+	if err != nil {
+		return err
+	}
+	defer release()
+	return del(ctx)
+}

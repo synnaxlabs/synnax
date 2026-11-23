@@ -165,8 +165,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
 
   /**
    * Applies actions to the cached table and sends them to the server, recording an
-   * undoable entry. Returns false without side effects when the table isn't cached.
-   * Rolls back the local apply and rethrows on send failure.
+   * undoable entry. Rolls back the local apply and rethrows on send failure.
+   * @throws {NotCachedError} if the table isn't cached, before any change.
    */
   async dispatch(
     key: Key,
@@ -210,7 +210,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     return this.dispatcher.onUndoStateChange(callback, key);
   }
 
-  /** Stages actions committed atomically as one undoable entry. */
+  /**
+   * Stages actions committed atomically as one undoable entry.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, kind);
   }

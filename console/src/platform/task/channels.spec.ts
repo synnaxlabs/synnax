@@ -162,6 +162,36 @@ describe("channels", () => {
       expect(data).toMatchObject({ name: `${prefix}_temperature`, index: index.key });
     });
 
+    it("should keep the channel of the index field when the device stores no index", async () => {
+      const prefix = uniqueName("src");
+      const index = await createIndex(`${prefix}_time`);
+      const fields = [
+        createField("f1", "/temperature"),
+        { ...createField("ts", "/ts", "timestamp"), channel: index.key },
+      ];
+      await configure({ fields, namePrefix: prefix, indexKey: "ts" });
+      expect(fields[1].channel).toBe(index.key);
+      expect((await client.channels.retrieve(fields[0].channel)).index).toBe(index.key);
+    });
+
+    it("should create an index when the channel of the index field is not one", async () => {
+      const prefix = uniqueName("src");
+      const time = await client.channels.create({
+        name: `${prefix}_ts`,
+        dataType: "timestamp",
+        virtual: true,
+      });
+      const fields = [
+        createField("f1", "/temperature"),
+        { ...createField("ts", "/ts", "timestamp"), channel: time.key },
+      ];
+      await configure({ fields, namePrefix: prefix, indexKey: "ts" });
+      const index = await client.channels.retrieve(fields[1].channel);
+      expect(index.key).not.toBe(time.key);
+      expect(index.isIndex).toBe(true);
+      expect((await client.channels.retrieve(fields[0].channel)).index).toBe(index.key);
+    });
+
     it("should create no channel or index for a disabled field", async () => {
       const read: Record<string, Task.ReadChannelProps> = {};
       const fields = [{ ...createField("f1", "/temperature"), disabled: true }];
@@ -408,6 +438,138 @@ describe("channels", () => {
       const ch = await client.channels.retrieve(key);
       expect(ch.name).toBe(name);
       expect((await client.channels.retrieve(ch.index)).name).toBe(`${name}_time`);
+    });
+
+    it("should replace a channel that does not suit the target, and move it", async () => {
+      const name = uniqueName("cmd");
+      const write: Record<string, number> = {};
+      const old = await client.channels.retrieve(
+        await Task.configureCommandChannel(client, write, {
+          propertiesKey: "/cmd",
+          channel: 0,
+          name,
+          dataType: "int64",
+        }),
+      );
+      const key = await Task.configureCommandChannel(client, write, {
+        propertiesKey: "/cmd",
+        channel: old.key,
+        name,
+        dataType: "float64",
+        suits: (ch) => ch.dataType.isFloat,
+      });
+      expect(key).not.toBe(old.key);
+      expect(write).toEqual({ "/cmd": key });
+      const ch = await client.channels.retrieve(key);
+      expect([ch.name, ch.dataType.toString()]).toEqual([name, "float64"]);
+      const [moved, movedIndex] = await client.channels.retrieve([old.key, old.index]);
+      expect([moved.name, movedIndex.name]).toEqual([`${name}_2`, `${name}_2_time`]);
+    });
+
+    it("should replace a stored channel that does not suit the target", async () => {
+      const storedName = uniqueName("cmd");
+      const stored = await client.channels.create({
+        name: storedName,
+        dataType: "int64",
+        virtual: true,
+      });
+      const write = { "/cmd": stored.key };
+      const key = await Task.configureCommandChannel(client, write, {
+        propertiesKey: "/cmd",
+        channel: 0,
+        name: uniqueName("cmd"),
+        dataType: "float64",
+        suits: (ch) => ch.dataType.isFloat,
+      });
+      expect(key).not.toBe(stored.key);
+      expect(write).toEqual({ "/cmd": key });
+      expect((await client.channels.retrieve(stored.key)).name).toBe(storedName);
+    });
+
+    it("should move a stored channel that holds the name when the current one differs", async () => {
+      const name = uniqueName("cmd");
+      const write: Record<string, number> = {};
+      const stored = await client.channels.retrieve(
+        await Task.configureCommandChannel(client, write, {
+          propertiesKey: "/cmd",
+          channel: 0,
+          name,
+          dataType: "int64",
+        }),
+      );
+      const pickedName = uniqueName("picked");
+      const picked = await client.channels.create({
+        name: pickedName,
+        dataType: "int64",
+        virtual: true,
+      });
+      const key = await Task.configureCommandChannel(client, write, {
+        propertiesKey: "/cmd",
+        channel: picked.key,
+        name,
+        dataType: "float64",
+        suits: (ch) => ch.dataType.isFloat,
+      });
+      expect((await client.channels.retrieve(key)).name).toBe(name);
+      const [moved, movedIndex, kept] = await client.channels.retrieve([
+        stored.key,
+        stored.index,
+        picked.key,
+      ]);
+      expect([moved.name, movedIndex.name, kept.name]).toEqual([
+        `${name}_2`,
+        `${name}_2_time`,
+        pickedName,
+      ]);
+    });
+
+    it("should replace a deleted channel of the target with a new one", async () => {
+      const name = uniqueName("cmd");
+      const write: Record<string, number> = {};
+      const old = await client.channels.retrieve(
+        await Task.configureCommandChannel(client, write, {
+          propertiesKey: "/cmd",
+          channel: 0,
+          name,
+          dataType: "float64",
+        }),
+      );
+      await client.channels.delete(old.key);
+      await client.channels.delete(old.index);
+      const key = await Task.configureCommandChannel(client, write, {
+        propertiesKey: "/cmd",
+        channel: old.key,
+        name,
+        dataType: "float64",
+        suits: (ch) => ch.dataType.isFloat,
+      });
+      expect(key).not.toBe(old.key);
+      expect(write).toEqual({ "/cmd": key });
+      expect((await client.channels.retrieve(key)).name).toBe(name);
+    });
+
+    it("should fall back to the stored channel when the current one was deleted", async () => {
+      const current = await client.channels.create({
+        name: uniqueName("cmd"),
+        dataType: "float64",
+        virtual: true,
+      });
+      const stored = await client.channels.create({
+        name: uniqueName("cmd"),
+        dataType: "float64",
+        virtual: true,
+      });
+      await client.channels.delete(current.key);
+      const write = { "/cmd": stored.key };
+      expect(
+        await Task.configureCommandChannel(client, write, {
+          propertiesKey: "/cmd",
+          channel: current.key,
+          name: "unused",
+          dataType: "float64",
+          suits: (ch) => ch.dataType.isFloat,
+        }),
+      ).toBe(stored.key);
     });
 
     it("should create a virtual channel for a variable-density type", async () => {

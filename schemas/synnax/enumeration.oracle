@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/color"
+import "schemas/synnax/resource"
 import "schemas/x/filter"
 import "schemas/x/patch"
 
@@ -50,7 +51,7 @@ Enumeration struct {
         @doc value "is the key of the enumeration."
         @key
     }
-    name    string  {
+    name    string         {
         @doc value           "is the name of the enumeration."
         @index sorted
         @patch
@@ -60,6 +61,15 @@ Enumeration struct {
     entries Entry[] = [] {
         @doc value "are the states of the enumeration."
         @patch
+    }
+    uses    resource.ID[]? {
+        @doc value     """
+            are the resources that use the enumeration and that the caller can read,
+            filled only when a retrieve request asks for them.
+        """
+        @go marshal    omit
+        @include
+        @validate skip
     }
 
     action Create {

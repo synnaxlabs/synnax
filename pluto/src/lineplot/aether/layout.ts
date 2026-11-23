@@ -1,0 +1,476 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import {
+  bounds,
+  box,
+  resolveWindow,
+  scale,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  type Window,
+} from "@synnaxlabs/x";
+
+import type { axis } from "@/vis/axis";
+import type { line } from "@/vis/line/aether";
+
+/** The window of a line on an x axis, in axis values. */
+export interface Trace extends line.DataBounds {
+  /** The key of the line. */
+  key: string;
+  /** Lines of one group split the time between them on a time axis. */
+  group?: string;
+}
+
+/** A span of x axis values that maps to positions with one affine scale. */
+export interface Segment {
+  /** The values that the segment holds. */
+  bounds: bounds.Bounds;
+  /** Maps a value to its decimal position across the viewport. */
+  scale: scale.Scale;
+  /**
+   * The decimal positions across the viewport that the segment fills. The first and
+   * last segments extend without end.
+   */
+  position: bounds.Bounds;
+  /** The values that the segment draws: its bounds, extended as its position is. */
+  extent: bounds.Bounds;
+}
+
+/** A gap between two segments of windows, which collapses into a break when closed. */
+export interface Gap {
+  /** The values of the gap. Its lower bound keys it. */
+  bounds: bounds.Bounds;
+  /** Set when the gap shows its values in place of a break. */
+  open: boolean;
+}
+
+/**
+ * @returns the segments that pieces form when each gap whose lower bound is in open
+ * shows its values, with each gap between two pieces.
+ */
+export const join = (
+  pieces: bounds.Bounds[],
+  open: readonly number[],
+): { segments: bounds.Bounds[]; gaps: Gap[] } => {
+  const segments = pieces.slice(0, 1);
+  const gaps: Gap[] = [];
+  pieces.slice(1).forEach((piece, i) => {
+    const gap = { lower: pieces[i].upper, upper: piece.lower };
+    const isOpen = open.includes(gap.lower);
+    gaps.push({ bounds: gap, open: isOpen });
+    const last = segments.length - 1;
+    if (isOpen) segments[last] = { ...segments[last], upper: piece.upper };
+    else segments.push(piece);
+  });
+  return { segments, gaps };
+};
+
+/**
+ * Layout maps the values of an x axis to decimal positions across its home view and
+ * across its viewport. Its segments sit side by side in value order and share one scale
+ * per unit of value. The values between two segments map to the position where the
+ * segments meet, and the first and last segments extend past their bounds.
+ */
+export class Layout {
+  /** The segments, in value order. */
+  readonly segments: readonly Segment[];
+  /** The values from the lower bound of the first segment to the upper of the last. */
+  readonly bounds: bounds.Bounds;
+  // homes maps a value of each segment to a decimal position across the home view, and
+  // positions holds the home position bounds of each segment.
+  private readonly homes: readonly scale.Scale[];
+  private readonly reverseHomes: readonly scale.Scale[];
+  private readonly positions: readonly bounds.Bounds[];
+  private readonly lowers: readonly number[];
+  private readonly positionLowers: readonly number[];
+  private readonly viewport: scale.Scale;
+  private readonly reverseViewport: scale.Scale;
+  private readonly spans: ReadonlyMap<string, bounds.Bounds>;
+  /** The gaps between the windows of the axis, in value order. */
+  readonly gaps: readonly Gap[];
+
+  /**
+   * @param segments - the value bounds of each segment, in value order. None may
+   * overlap, and each must have a span above zero.
+   * @param viewport - the viewport, in decimal space across the home view.
+   * @param spans - the span of each line that has one, in axis values.
+   * @param gaps - the gaps between the windows of the axis, from join.
+   */
+  constructor(
+    segments: bounds.Bounds[],
+    viewport: box.Box,
+    spans: ReadonlyMap<string, bounds.Bounds> = new Map(),
+    gaps: Gap[] = [],
+  ) {
+    this.spans = spans;
+    this.gaps = gaps;
+    const total = segments.reduce((sum, b) => sum + bounds.span(b), 0);
+    let before = 0;
+    this.positions = segments.map((b) => {
+      const lower = before / total;
+      before += bounds.span(b);
+      return { lower, upper: before / total };
+    });
+    this.homes = segments.map((b, i) => scale.Scale.scale(b).scale(this.positions[i]));
+    this.reverseHomes = this.homes.map((s) => s.reverse());
+    const translate = -box.root(viewport).x;
+    const magnify = 1 / box.width(viewport);
+    this.viewport = scale.Scale.translate(translate).magnify(magnify);
+    this.reverseViewport = this.viewport.reverse();
+    this.segments = segments.map((b, i) => {
+      const s = this.homes[i].translate(translate).magnify(magnify);
+      return {
+        bounds: b,
+        scale: s,
+        extent: {
+          lower: i === 0 ? -Infinity : b.lower,
+          upper: i === segments.length - 1 ? Infinity : b.upper,
+        },
+        position: {
+          lower: i === 0 ? -Infinity : s.pos(b.lower),
+          upper: i === segments.length - 1 ? Infinity : s.pos(b.upper),
+        },
+      };
+    });
+    this.bounds = {
+      lower: segments[0].lower,
+      upper: segments[segments.length - 1].upper,
+    };
+    this.lowers = segments.map((b) => b.lower);
+    this.positionLowers = this.positions.map((b) => b.lower);
+  }
+
+  /** @returns whether the layout gives the line of key a span. */
+  hasSpan(key: string): boolean {
+    return this.spans.has(key);
+  }
+
+  /**
+   * @returns the span of values that the line of key reads and draws. A line with no
+   * span spans every value.
+   */
+  span(key: string): bounds.Bounds {
+    return this.spans.get(key) ?? bounds.INFINITE;
+  }
+
+  /**
+   * @returns the segment that draws the line of key: the segment of its span. A line
+   * with no span draws with the first segment.
+   */
+  segment(key: string): Segment {
+    const span = this.span(key);
+    const value = Number.isFinite(span.lower) ? span.lower : span.upper;
+    if (!Number.isFinite(value)) return this.segments[0];
+    const i = lastAtOrBelow(this.lowers, value);
+    return this.segments[i];
+  }
+
+  /**
+   * @returns the gap whose mark is within tolerance of a decimal position across the
+   * viewport, or null. A closed gap marks its seam, and an open one its middle.
+   * @param closedOnly - set to find only the gaps that collapse into breaks.
+   */
+  gapAt(position: number, tolerance: number, closedOnly = false): Gap | null {
+    let found: Gap | null = null;
+    let distance = tolerance;
+    this.gaps.forEach((g) => {
+      if (closedOnly && g.open) return;
+      const d = Math.abs(this.mark(g) - position);
+      if (d > distance) return;
+      found = g;
+      distance = d;
+    });
+    return found;
+  }
+
+  /** The decimal positions across the home view where segments meet, in order. */
+  get seams(): number[] {
+    return this.positions.slice(1).map((p) => p.lower);
+  }
+
+  /** @returns true when a closed gap lies between the values a and b. */
+  closedBetween(a: number, b: number): boolean {
+    const lower = Math.min(a, b);
+    const upper = Math.max(a, b);
+    return this.gaps.some(
+      (g) => !g.open && g.bounds.lower >= lower && g.bounds.upper <= upper,
+    );
+  }
+
+  /** @returns the decimal position across the viewport of the mark of a gap. */
+  mark({ bounds: b, open }: Gap): number {
+    return this.pos(open ? (b.lower + b.upper) / 2 : b.lower);
+  }
+
+  /** @returns the decimal position of value across the viewport. */
+  pos(value: number): number {
+    return this.viewport.pos(this.home(value));
+  }
+
+  /** @returns the value at a decimal position across the viewport. */
+  reverse(position: number): number {
+    return this.reverseHome(this.reverseViewport.pos(position));
+  }
+
+  /** @returns the decimal position of value across the home view. */
+  home(value: number): number {
+    const i = lastAtOrBelow(this.lowers, value);
+    const { upper } = this.segments[i].bounds;
+    if (i < this.segments.length - 1 && value > upper) return this.positions[i].upper;
+    return this.homes[i].pos(value);
+  }
+
+  /**
+   * @returns the value at a decimal position across the home view. A position where two
+   * segments meet gives the lower bound of the later one.
+   */
+  reverseHome(position: number): number {
+    const i = lastAtOrBelow(this.positionLowers, position);
+    return this.reverseHomes[i].pos(position);
+  }
+
+  /**
+   * @returns the values that a span of decimal positions across the home view holds. An
+   * edge where two segments meet gives the bound of the segment inside the span.
+   */
+  reverseHomeBounds({ lower, upper }: bounds.Bounds): bounds.Bounds {
+    let i = lastAtOrBelow(this.positionLowers, upper);
+    if (i > 0 && this.positionLowers[i] === upper) i--;
+    return { lower: this.reverseHome(lower), upper: this.reverseHomes[i].pos(upper) };
+  }
+}
+
+// The margin on each side of a window is a share of the window's span, and at least the
+// floor.
+const MARGIN_SHARE = 0.05;
+const MARGIN_FLOOR = Number(TimeSpan.SECOND.valueOf());
+
+const margin = (b: bounds.Bounds): number =>
+  Math.max(bounds.span(b) * MARGIN_SHARE, MARGIN_FLOOR);
+
+// A span that holds no value, for a line whose time the other lines of its group draw.
+const EMPTY: bounds.Bounds = { lower: 0, upper: 0 };
+
+/**
+ * @returns the segments of a time axis whose gaps collapse: the window of each trace
+ * with a margin on each side, merged where they overlap. The outer edges take a share
+ * of the total span, padding, in place of a margin. Returns none when no trace has a
+ * window.
+ * @param traces - the traces, with their edges aligned.
+ */
+export const collapse = (
+  traces: line.DataBounds[],
+  padding: number,
+): bounds.Bounds[] => {
+  const windows = traces
+    .filter((t) => bounds.isFinite(t.bounds))
+    .map((t) => ({ window: t.bounds, margined: margined(t) }))
+    .sort((a, b) => a.margined.lower - b.margined.lower);
+  if (windows.length === 0) return [];
+  const merged: Array<{ window: bounds.Bounds; margined: bounds.Bounds }> = [];
+  windows.forEach((w) => {
+    const last = merged.at(-1);
+    if (last == null || w.margined.lower > last.margined.upper) {
+      merged.push({ window: { ...w.window }, margined: { ...w.margined } });
+      return;
+    }
+    last.window = bounds.union([last.window, w.window]);
+    last.margined = bounds.union([last.margined, w.margined]);
+  });
+  const result = merged.map((m) => m.margined);
+  const last = result.length - 1;
+  result[0] = { ...result[0], lower: merged[0].window.lower };
+  result[last] = { ...result[last], upper: merged[last].window.upper };
+  const total = result.reduce((sum, b) => sum + bounds.span(b), 0);
+  // A single sample has no span to take a share of.
+  const pad = total === 0 ? 1 : total * padding;
+  result[0] = { ...result[0], lower: result[0].lower - pad };
+  result[last] = { ...result[last], upper: result[last].upper + pad };
+  return result;
+};
+
+export interface ShownSpansProps {
+  /**
+   * A static window that ends after now runs. The plot instead counts a window as
+   * running while its channels stream, so this rule is an estimate of the plot.
+   */
+  now: TimeStamp;
+  /**
+   * The newest sample, where each dynamic window ends and a running window stops for
+   * laying out the gaps.
+   */
+  newest: TimeStamp;
+  /** The open breaks, as the lower bounds of their gaps. */
+  open?: readonly number[];
+}
+
+/**
+ * @returns the spans of time that a plot of windows shows with its gaps collapsed, in
+ * time order. Each span holds one or more windows, the margins and time between them,
+ * and each open gap between them. The outer edges are the exact edges of the windows,
+ * so the last span stays open when a window has no end.
+ */
+export const shownSpans = (
+  windows: Window[],
+  { now, newest, open = [] }: ShownSpansProps,
+): TimeRange[] => {
+  const resolved = windows.map((w) => resolveWindow(w, newest));
+  const traces = windows.map((w, i): line.DataBounds => {
+    const r = resolved[i];
+    if (w.variant === "dynamic")
+      return { bounds: r.numericBounds, loading: false, edge: "rolling" };
+    if (!r.end.after(now)) return { bounds: r.numericBounds, loading: false };
+    const upper = TimeStamp.max(r.start, TimeStamp.min(r.end, newest));
+    return {
+      bounds: new TimeRange(r.start, upper).numericBounds,
+      loading: false,
+      edge: "growing",
+    };
+  });
+  const { segments: shown } = join(collapse(traces, 0), open);
+  if (shown.length === 0) return [];
+  // A number cannot hold a timestamp to the nanosecond, so the outer edges come from
+  // the windows.
+  const merged = TimeRange.merge(...resolved);
+  const last = shown.length - 1;
+  return shown.map(
+    (b, i) =>
+      new TimeRange(
+        i === 0 ? merged.start : b.lower,
+        i === last ? merged.end : b.upper,
+      ),
+  );
+};
+
+// margined returns the window of a trace with a margin on each side. A window that ends
+// at the newest sample gets no margin after it, as no samples exist there. The margin
+// before a window grows with it, so a range that ends keeps its layout.
+const margined = ({ bounds: b, edge }: line.DataBounds): bounds.Bounds => ({
+  lower: b.lower - margin(b),
+  upper: edge == null ? b.upper + margin(b) : b.upper,
+});
+
+/**
+ * @returns the span of each trace that has one, in axis values. On a relative axis each
+ * trace spans its window and a margin on each side, with no margin after a window that
+ * ends at the newest sample. On a time axis the traces of one group split the time, so
+ * each time draws from one trace, and a trace with no group is a group of its own. A
+ * linear axis gives no spans.
+ * @param segments - the segments of a time axis. Each span stays inside the segment of
+ * its window, so no trace reads or draws the gap between two segments. The first and
+ * last segments extend past their bounds.
+ */
+export const spans = (
+  traces: Trace[],
+  type: axis.TickType,
+  segments: bounds.Bounds[] = [],
+): Map<string, bounds.Bounds> => {
+  const finite = traces.filter((t) => bounds.isFinite(t.bounds));
+  if (type === "relative") return new Map(finite.map((t) => [t.key, relativeSpan(t)]));
+  const result = new Map<string, bounds.Bounds>();
+  if (type === "linear") return result;
+  const groups = new Map<string, Trace[]>();
+  finite.forEach((t) => {
+    const group = t.group ?? t.key;
+    const members = groups.get(group);
+    if (members == null) groups.set(group, [t]);
+    else members.push(t);
+  });
+  groups.forEach((members) =>
+    split(members, segments).forEach((b, key) => result.set(key, b)),
+  );
+  return result;
+};
+
+const relativeSpan = (t: Trace): bounds.Bounds => {
+  const m = margined(t);
+  return t.edge == null ? m : { lower: m.lower, upper: Infinity };
+};
+
+// split gives each trace the time of its window that no trace before it takes. Rolling
+// windows go first, then fixed windows, each in order of start. A rolling window ends
+// at now, so each window keeps one piece. The time between two windows goes half to
+// each, and the time before the first window and after the last goes to the outer
+// traces. No span leaves the segment of its window.
+const split = (
+  traces: Trace[],
+  segments: bounds.Bounds[],
+): Map<string, bounds.Bounds> => {
+  const ordered = [...traces].sort(
+    (a, b) =>
+      Number(b.edge === "rolling") - Number(a.edge === "rolling") ||
+      a.bounds.lower - b.bounds.lower,
+  );
+  const result = new Map<string, bounds.Bounds>();
+  const owned: Array<[string, bounds.Bounds]> = [];
+  const taken: bounds.Bounds[] = [];
+  ordered.forEach(({ key, bounds: b }) => {
+    const piece = newestLeft(b, taken);
+    if (piece == null) {
+      result.set(key, EMPTY);
+      return;
+    }
+    owned.push([key, piece]);
+    taken.push(piece);
+  });
+  owned.sort(([, a], [, b]) => a.lower - b.lower);
+  owned.forEach(([key, piece], i) => {
+    const before = owned[i - 1]?.[1];
+    const after = owned[i + 1]?.[1];
+    const span = {
+      lower: before == null ? -Infinity : (before.upper + piece.lower) / 2,
+      upper: after == null ? Infinity : (piece.upper + after.lower) / 2,
+    };
+    result.set(key, bounds.intersection([span, extended(segments, piece.lower)]));
+  });
+  return result;
+};
+
+// extended returns the bounds of the segment that holds value, with the first and last
+// segments extended past their bounds.
+const extended = (segments: bounds.Bounds[], value: number): bounds.Bounds => {
+  if (segments.length < 2) return bounds.INFINITE;
+  const i = lastAtOrBelow(
+    segments.map((s) => s.lower),
+    value,
+  );
+  return {
+    lower: i === 0 ? -Infinity : segments[i].lower,
+    upper: i === segments.length - 1 ? Infinity : segments[i].upper,
+  };
+};
+
+// newestLeft returns the newest part of b that no bound of taken holds, or null when
+// they hold all of it.
+const newestLeft = (b: bounds.Bounds, taken: bounds.Bounds[]): bounds.Bounds | null => {
+  let left = [b];
+  taken.forEach((t) => {
+    left = left.flatMap((l) =>
+      [
+        { lower: l.lower, upper: Math.min(l.upper, t.lower) },
+        { lower: Math.max(l.lower, t.upper), upper: l.upper },
+      ].filter((p) => p.lower < p.upper),
+    );
+  });
+  return left.at(-1) ?? null;
+};
+
+// lastAtOrBelow returns the index of the last of the ascending keys that is at or below
+// target, or 0 when every key is above it.
+const lastAtOrBelow = (keys: readonly number[], target: number): number => {
+  let [lo, hi] = [0, keys.length - 1];
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (keys[mid] <= target) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+};

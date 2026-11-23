@@ -7,24 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { DEFAULT_TIMEOUT } from "@/vis/staleness/aether/staleness";
+import { staleness } from "@/vis/staleness/aether";
 
 /**
- * configZ carries the staleness keys a symbol config holds. Extend a symbol's schema
- * with its shape to pair the schema with {@link Fields}, which writes these exact keys.
- * Both are optional, because a symbol saved before it gained staleness config carries
- * neither.
+ * configZ is the staleness timeout of a symbol config, the key {@link TimeoutField}
+ * writes. It is optional, because an older symbol does not carry it.
  */
 export const configZ = z.object({
   // Positive matches the aether schema, so the form rejects a timeout the worker would
   // rather than pushing it across and failing there.
   stalenessTimeout: z.number().positive().optional(),
-  stalenessColor: color.colorZ.optional(),
 });
 export interface Config extends z.infer<typeof configZ> {}
 
-/** The staleness a symbol starts with. An unset color resolves to the theme warning. */
-export const ZERO_CONFIG: Config = { stalenessTimeout: DEFAULT_TIMEOUT };
+/** The staleness a symbol starts with. */
+export const ZERO_CONFIG: Config = { stalenessTimeout: staleness.DEFAULT_TIMEOUT };

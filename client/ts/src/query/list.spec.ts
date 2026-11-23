@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { sleep, TimeSpan } from "@synnaxlabs/x";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, vi } from "vitest";
 
-import { ValidationError } from "@/errors";
+import { ValidationError } from "@/index";
 import { query } from "@/query";
 import { Lists, MAX_SEARCH_LIMIT } from "@/query/list";
-import { DEFAULT_DEBOUNCE, type SpaceHooks } from "@/query/query";
+import { space } from "@/query/space";
 
 interface Rec {
   key: string;
@@ -68,7 +69,7 @@ const createCore = (records: Rec[]) => {
 
 const byName: Order = { field: "name" };
 
-const setup = (records: Rec[], hooks: SpaceHooks = {}) => {
+const setup = (records: Rec[], hooks: space.Hooks = {}) => {
   const table = new query.Table<string, Rec>({ onError: () => {} });
   const { core, fetch } = createCore(records);
   const lists = new Lists<Q, Rec, string, Rec, Cursor, Order>(
@@ -186,6 +187,45 @@ describe("Lists", () => {
       const list = lists.list({ order: byName, limit: 2 });
       expect(lists.list({ limit: 2, order: { field: "name" } })).toBe(list);
       expect(lists.list({ order: byName, limit: 3 })).not.toBe(list);
+    });
+
+    it("should return undefined from getCached while a smaller limit shortens the window", async () => {
+      const { lists } = setup([rec("1", "a"), rec("2", "b"), rec("3", "c")]);
+      const small = lists.list({ order: byName, limit: 1 });
+      small.onChange(vi.fn());
+      await small.retrieve();
+      expect(names(small.getCached())).toEqual(["a"]);
+      const larger = lists.list({ order: byName, limit: 2 });
+      expect(larger.getCached()).toBeUndefined();
+      expect(lists.list({ order: byName }).getCached()).toBeUndefined();
+      expect(names(await larger.retrieve())).toEqual(["a", "b"]);
+      expect(names(larger.getCached())).toEqual(["a", "b"]);
+      expect(names(await lists.list({ order: byName }).retrieve())).toEqual([
+        "a",
+        "b",
+        "c",
+      ]);
+      expect(names(lists.list({ order: byName }).getCached())).toEqual(["a", "b", "c"]);
+    });
+
+    it("should not deliver a short window to a reader whose fetch is in flight", async () => {
+      const { lists, fetch, table } = setup([rec("2", "b"), rec("3", "c")]);
+      const small = lists.list({ order: byName, limit: 1 });
+      small.onChange(vi.fn());
+      await small.retrieve();
+      const all = lists.list({ order: byName });
+      const handler = vi.fn();
+      all.onChange(handler);
+      const page = Promise.withResolvers<Rec[]>();
+      fetch.mockImplementationOnce(async () => await page.promise);
+      const read = all.retrieve();
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      table.set("1", rec("1", "a"));
+      expect(names(small.getCached())).toEqual(["a", "b"]);
+      expect(handler).not.toHaveBeenCalled();
+      page.resolve([rec("1", "a"), rec("2", "b"), rec("3", "c")]);
+      expect(names(await read)).toEqual(["a", "b", "c"]);
+      expect(names(handler.mock.lastCall?.[0])).toEqual(["a", "b", "c"]);
     });
 
     it("should return undefined from getCached before a fetch", () => {
@@ -335,6 +375,17 @@ describe("Lists", () => {
       expect(names(list.getCached())).toEqual(["b"]);
     });
 
+    it("should serve and deliver a paged window that a delete shortens", async () => {
+      const { table, list, handler } = await maintained([
+        rec("1", "a"),
+        rec("2", "b"),
+        rec("3", "c"),
+      ]);
+      table.delete("1");
+      expect(names(list.getCached())).toEqual(["b"]);
+      expect(names(handler.mock.lastCall?.[0])).toEqual(["b"]);
+    });
+
     it("should remove a deleted member and keep the end", async () => {
       const { table, list } = await maintained([
         rec("1", "a"),
@@ -345,6 +396,40 @@ describe("Lists", () => {
       const window = list.getCached();
       expect(names(window)).toEqual(["a"]);
       expect(window?.end).toEqual({ key: "2", name: "b" });
+    });
+
+    it("should fill a window that a deleted member leaves short", async () => {
+      const { table, core, list, handler } = await maintained(
+        [rec("1", "a"), rec("2", "b"), rec("3", "c")],
+        { order: byName, limit: 1 },
+      );
+      core.records = core.records.filter((r) => r.key !== "1");
+      table.delete("1");
+      await expect.poll(() => names(list.getCached())).toEqual(["b"]);
+      expect(names(handler.mock.lastCall?.[0])).toEqual(["b"]);
+    });
+
+    it("should fill a window that a member moved past the end leaves short", async () => {
+      const { table, core, list } = await maintained(
+        [rec("1", "a"), rec("2", "b"), rec("3", "c")],
+        { order: byName, limit: 1 },
+      );
+      core.records[0] = rec("1", "z");
+      table.set("1", rec("1", "z"));
+      await expect.poll(() => names(list.getCached())).toEqual(["b"]);
+    });
+
+    it("should not fetch again when a change leaves the window full", async () => {
+      const { table, core, list, fetch } = await maintained([
+        rec("1", "a"),
+        rec("2", "c"),
+        rec("3", "d"),
+      ]);
+      core.records.push(rec("4", "b"));
+      table.set("4", rec("4", "b"));
+      expect(names(list.getCached())).toEqual(["a", "b", "c"]);
+      await sleep.sleep(TimeSpan.milliseconds(space.DEFAULT_DEBOUNCE.milliseconds * 2));
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it("should place several changes of one batch", async () => {
@@ -362,6 +447,124 @@ describe("Lists", () => {
       table.set("3", rec("3", "b"));
       expect(names(list.getCached())).toEqual(["c", "b", "a"]);
     });
+
+    it("should place again a written key that a refetch left out", async () => {
+      const { table, lists, list, fetch, core } = await maintained([rec("1", "a")], {
+        order: byName,
+      });
+      table.set("2", rec("2", "b"));
+      lists.refetchMatching(() => true);
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      await expect.poll(() => names(list.getCached())).toEqual(["a"]);
+      core.records.push(rec("2", "b"));
+      table.set("2", rec("2", "b"));
+      expect(names(list.getCached())).toEqual(["a", "b"]);
+    });
+  });
+
+  describe("local edits", () => {
+    /**
+     * Puts the record in the table as its base and shows the value on top of it until
+     * the Core applies the edit, as the action controller does.
+     */
+    const showEdit = (table: query.Table<string, Rec>, base: Rec, value: number) => {
+      const bases = new Map<string, Rec>();
+      table.intercept({
+        base: (key) => bases.get(key),
+        apply: (key, next) => {
+          if (key !== base.key) return next;
+          bases.set(key, next);
+          return { ...next, value };
+        },
+        keys: () => bases.keys(),
+      });
+      table.set(base.key, base);
+    };
+
+    it("should place a record by its local edit when the Core answers without the edit", async () => {
+      const { table, lists } = setup([rec("1", "a", 0), rec("2", "b")]);
+      // Shows key 1 as matching until the Core applies its edit, as the action
+      // controller does.
+      const bases = new Map<string, Rec>();
+      table.intercept({
+        base: (key) => bases.get(key),
+        apply: (key, value) => {
+          if (key !== "1") return value;
+          bases.set(key, value);
+          return { ...value, value: 1 };
+        },
+        keys: () => bases.keys(),
+      });
+      table.set("1", rec("1", "a", 0));
+      const window = await lists.list({ min: 1, order: byName, limit: 5 }).retrieve();
+      expect(names(window)).toEqual(["a", "b"]);
+    });
+
+    it("should place on more a record that an unsent edit makes match", async () => {
+      const base = rec("3", "c", 0);
+      const { lists, table } = setup([
+        rec("1", "a"),
+        rec("2", "b"),
+        base,
+        rec("4", "d"),
+      ]);
+      showEdit(table, base, 1);
+      const list = lists.list({ order: byName, min: 1, limit: 2 });
+      list.onChange(vi.fn());
+      expect(names(await list.retrieve())).toEqual(["a", "b"]);
+      expect(names(await list.more(2))).toEqual(["a", "b", "c", "d"]);
+    });
+
+    it("should leave out on more a record an unsent edit stops matching", async () => {
+      const base = rec("3", "c");
+      const { lists, table } = setup([
+        rec("1", "a"),
+        rec("2", "b"),
+        base,
+        rec("4", "d"),
+      ]);
+      showEdit(table, base, 0);
+      const list = lists.list({ order: byName, min: 1, limit: 2 });
+      list.onChange(vi.fn());
+      expect(names(await list.retrieve())).toEqual(["a", "b"]);
+      expect(names(await list.more(2))).toEqual(["a", "b", "d"]);
+    });
+  });
+
+  it("should place an edited key whose edit the Core applies while a page is in flight", async () => {
+    const { table, fetch, lists } = setup([rec("1", "a", 0), rec("2", "b")]);
+    // Shows key 1 as matching until the Core applies its edit, as the action
+    // controller does.
+    const bases = new Map<string, Rec>();
+    table.intercept({
+      base: (key) => bases.get(key),
+      apply: (key, value) => {
+        if (key !== "1") return value;
+        bases.set(key, value);
+        return { ...value, value: 1 };
+      },
+      keys: () => bases.keys(),
+    });
+    table.set("1", rec("1", "a", 0));
+    const list = lists.list({ min: 1, order: byName, limit: 5 });
+    list.onChange(() => {});
+    const { promise: answered, resolve: answer } = Promise.withResolvers<void>();
+    const fetchCore = fetch.getMockImplementation();
+    assertDefined(fetchCore);
+    // The Core answers for the base, which the edit does not reach yet.
+    fetch.mockImplementationOnce(async (q) => {
+      const page = await fetchCore(q);
+      await answered;
+      return page;
+    });
+    const retrieving = list.retrieve();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    // The echo of the edit lands before the page, so the edit is no longer pending.
+    bases.delete("1");
+    table.renotify("1");
+    answer();
+    await retrieving;
+    expect(names(list.getCached())).toEqual(["a", "b"]);
   });
 
   describe("search", () => {
@@ -390,7 +593,7 @@ describe("Lists", () => {
     it("should not fetch again when another list finds new records", async () => {
       const { lists, list, fetch } = await searching([rec("1", "ab"), rec("2", "c")]);
       await lists.list({ order: byName }).retrieve();
-      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      await sleep.sleep(TimeSpan.milliseconds(space.DEFAULT_DEBOUNCE.milliseconds * 2));
       expect(fetch).toHaveBeenCalledTimes(2);
       expect(names(list.getCached())).toEqual(["ab"]);
     });
@@ -409,8 +612,53 @@ describe("Lists", () => {
       await lists.list({ order: byName }).retrieve();
       table.mirrorSet("2", rec("2", "ac"));
       await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
-      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      await sleep.sleep(TimeSpan.milliseconds(space.DEFAULT_DEBOUNCE.milliseconds * 2));
       expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should fetch again after a write that leaves a record as it was", async () => {
+      const { table, list, fetch, core } = await searching([rec("1", "ab")]);
+      table.set("2", rec("2", "ac"));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      await fetch.mock.results[1].value;
+      expect(names(list.getCached())).toEqual(["ab"]);
+      core.records.push(rec("2", "ac"));
+      table.set("2", rec("2", "ac"));
+      await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should fetch again after a write during a fetch", async () => {
+      const { lists, table, fetch, core } = setup([rec("1", "ab")]);
+      table.set("2", rec("2", "ac"));
+      const list = lists.list({ searchTerm: "a", limit: 2 });
+      list.onChange(vi.fn());
+      fetch.mockImplementationOnce(async () => {
+        core.records.push(rec("2", "ac"));
+        table.set("2", rec("2", "ac"));
+        return [rec("1", "ab")];
+      });
+      await list.retrieve();
+      await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should fetch once for writes inside one debounce", async () => {
+      const { table, fetch } = await searching([rec("1", "ab")]);
+      table.set("2", rec("2", "ac"));
+      table.set("2", rec("2", "ac"));
+      table.stampWrite("2");
+      await sleep.sleep(TimeSpan.milliseconds(space.DEFAULT_DEBOUNCE.milliseconds * 3));
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should not fetch an unmaintained search after a write", async () => {
+      const { lists, table, fetch } = setup([rec("1", "ab")]);
+      table.set("2", rec("2", "ac"));
+      await lists.list({ searchTerm: "a", limit: 2 }).retrieve();
+      table.set("2", rec("2", "ac"));
+      await sleep.sleep(TimeSpan.milliseconds(space.DEFAULT_DEBOUNCE.milliseconds * 3));
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it("should show a change to a member at once", async () => {
@@ -468,7 +716,7 @@ describe("Lists", () => {
         onError: () => {},
       });
       const table = new query.Table<string, Rec>({ onError: () => {} });
-      const { fetch } = createCore(records);
+      const { core, fetch } = createCore(records);
       const lists = new Lists<
         Q,
         Rec & { variant?: string },
@@ -482,17 +730,35 @@ describe("Lists", () => {
           table,
           fetch,
           compose: (r) => ({ ...r, variant: statuses.get(r.key)?.variant }),
-          // A pending status leaves the match undecided.
-          matches: (r, q) =>
-            statuses.get(r.key)?.variant === "pending" ? null : matches(r, q),
+          // A pending status leaves the match undecided, and a hidden one rejects it.
+          matches: (r, q) => {
+            const variant = statuses.get(r.key)?.variant;
+            if (variant === "pending") return null;
+            return variant !== "hidden" && matches(r, q);
+          },
           cursor,
           compare: compareCursors,
           triggers: [query.trigger(statuses, ({ key }) => [key], { contentOnly })],
         },
         { teardownGrace: TimeSpan.ZERO },
       );
-      return { statuses, table, fetch, lists };
+      return { statuses, table, core, fetch, lists };
     };
+
+    it("should fill a window that a watched change leaves short", async () => {
+      const { statuses, core, lists } = setupWatched([
+        rec("1", "a"),
+        rec("2", "b"),
+        rec("3", "c"),
+      ]);
+      const list = lists.list({ order: byName, limit: 1 });
+      const release = list.onChange(() => {});
+      await list.retrieve();
+      core.records = core.records.filter((r) => r.key !== "1");
+      statuses.set("1", { key: "1", variant: "hidden" });
+      await expect.poll(() => names(list.getCached())).toEqual(["b"]);
+      release();
+    });
 
     it("should compose a member again when a watched table changes it", async () => {
       const { statuses, lists } = setupWatched([rec("1", "a"), rec("2", "b")]);
@@ -630,6 +896,21 @@ describe("Lists", () => {
       expect(fetch).toHaveBeenLastCalledWith({ order: byName, limit: 2 }, undefined);
     });
 
+    it("should refetch a maintained window on a miss", async () => {
+      let miss = (): void => {};
+      const { lists, fetch } = setup([rec("1", "a"), rec("2", "b")], {
+        onMissed: (callback) => {
+          miss = callback;
+          return () => {};
+        },
+      });
+      const list = lists.list({ order: byName });
+      list.onChange(vi.fn());
+      await list.retrieve();
+      miss();
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
     it("should size a new epoch's refetch of an unread window to its subscriber", async () => {
       let bump = (_: number): void => {};
       const { lists, fetch } = setup([rec("1", "a"), rec("2", "b"), rec("3", "c")], {
@@ -672,6 +953,20 @@ describe("Lists", () => {
       list.onChange(vi.fn());
       await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
       expect(fetch).toHaveBeenCalledTimes(2);
+      lists.close();
+    });
+
+    it("should not refetch a search after its last subscriber leaves", async () => {
+      const { lists, table, fetch } = setup([rec("1", "ab")], {
+        teardownGrace: TimeSpan.minutes(1),
+      });
+      const list = lists.list({ searchTerm: "a" });
+      const release = list.onChange(vi.fn());
+      await list.retrieve();
+      table.set("2", rec("2", "ac"));
+      release();
+      await sleep.sleep(TimeSpan.milliseconds(space.DEFAULT_DEBOUNCE.milliseconds * 2));
+      expect(fetch).toHaveBeenCalledTimes(1);
       lists.close();
     });
 

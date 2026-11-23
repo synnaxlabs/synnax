@@ -159,6 +159,9 @@ All shots require channels with data (live streaming for the rolling-range ones)
 - `console/line-plots/slope` (reference/visualize/line-plots.mdx) -> click the slope
   button -> click a first point, then press `2` and click a second point -> the overlay
   shows slope and x/y deltas between the two points.
+- `console/line-plots/compare` (reference/visualize/line-plots.mdx) -> with a plot of
+  three ranges on three days, click Relative on the Data tab -> the ranges draw from one
+  zero in three colors -> hover a range name in the legend to dim the others.
 
 ## console/tables
 

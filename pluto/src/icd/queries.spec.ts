@@ -19,8 +19,7 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ICD } from "@/icd";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 

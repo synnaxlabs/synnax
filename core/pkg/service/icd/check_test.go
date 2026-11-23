@@ -22,17 +22,34 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/x/payload"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
+// problem is a problem that Check finds, with its path dotted.
+type problem struct {
+	Path    string `json:"path"`
+	Message string `json:"message"`
+}
+
+// problemsOf returns the problems that icd.Check finds in ic. Each must wrap
+// validate.ErrValidation.
+func problemsOf(ic icd.ICD) []problem {
+	GinkgoHelper()
+	return lo.Map(icd.Check(ic), func(p validate.PathError, _ int) problem {
+		Expect(p).To(MatchError(validate.ErrValidation))
+		return problem{Path: strings.Join(p.Path, "."), Message: p.Err.Error()}
+	})
+}
+
 // checkFixture is one ICD from testdata/fixtures. An invalid fixture lists the exact
 // problems Check must find, and says whether the Driver's codec also rejects it.
 type checkFixture struct {
-	Description  string            `json:"description"`
-	CodecRejects bool              `json:"codec_rejects"`
-	Problems     validate.Problems `json:"problems"`
-	ICD          icd.ICD           `json:"icd"`
+	Description  string    `json:"description"`
+	CodecRejects bool      `json:"codec_rejects"`
+	Problems     []problem `json:"problems"`
+	ICD          icd.ICD   `json:"icd"`
 }
 
 var checkFixtures = os.DirFS("testdata/fixtures")
@@ -59,7 +76,7 @@ var _ = Describe("Check", func() {
 	DescribeTable("Should find no problems in a valid fixture", func(path string) {
 		f := loadCheckFixture(path)
 		Expect(f.Problems).To(BeEmpty())
-		Expect(icd.Check(f.ICD)).To(BeEmpty())
+		Expect(problemsOf(f.ICD)).To(BeEmpty())
 	}, checkFixtureEntries("valid"))
 
 	DescribeTable(
@@ -67,7 +84,7 @@ var _ = Describe("Check", func() {
 		func(path string) {
 			f := loadCheckFixture(path)
 			Expect(f.Problems).ToNot(BeEmpty())
-			Expect(icd.Check(f.ICD)).To(ConsistOf(f.Problems))
+			Expect(problemsOf(f.ICD)).To(ConsistOf(f.Problems))
 		},
 		checkFixtureEntries("invalid"),
 	)
@@ -84,41 +101,88 @@ var _ = Describe("Check", func() {
 	})
 
 	It("Should find every problem in an ICD, not only the first", func() {
-		mux := binaryField("mux", 0, 4)
-		mux.Key = uuid.New()
-		sig := binaryField("sig", 8, 8)
-		sig.Scale = 0
-		sig.Multiplexor = new(mux.Key)
-		sig.MultiplexValues = []int32{16}
+		muxKey := uuid.New()
+		mux := updateBase(binaryField("mux", 0, 4), func(b *icd.BinaryBaseField) {
+			b.Key = muxKey
+		})
+		sig := updateBase(binaryField("sig", 8, 8), func(b *icd.BinaryBaseField) {
+			b.Scale = 0
+			b.Multiplexor = new(muxKey)
+			b.MultiplexValues = []int32{16}
+		})
 		ic := icd.ICD{Messages: []icd.Message{
 			canMessage("M", 0x800, mux, sig),
 			binaryMessage("M"),
 		}}
-		Expect(icd.Check(ic)).To(ConsistOf(
-			validate.Problem{Path: "name", Message: "name is required"},
-			validate.Problem{
+		Expect(problemsOf(ic)).To(ConsistOf(
+			problem{Path: "name", Message: "name is required"},
+			problem{
 				Path:    "messages.0.payload.fields.1.scale",
 				Message: "scale must be finite and non-zero",
 			},
-			validate.Problem{
+			problem{
 				Path:    "messages.0.payload.fields.1.multiplex_values.0",
 				Message: `value 16 does not fit the multiplexor "mux"`,
 			},
-			validate.Problem{
+			problem{
 				Path:    "messages.0.payload.identifier.id",
 				Message: "id 0x800 exceeds the maximum 0x7FF",
 			},
-			validate.Problem{
+			problem{
 				Path:    "messages.1.name",
 				Message: `duplicate message name "M"`,
 			},
 		))
 	})
 
+	DescribeTable(
+		"Should refuse a tag that the Driver cannot match",
+		func(tag, message string) {
+			ic := icd.ICD{Name: "L", Messages: []icd.Message{
+				textMessage("M", icd.TextField{Variant: icd.TaggedTextField{
+					BaseField: icd.BaseField{Name: "temp", Scale: 1},
+					Tag:       tag,
+				}}),
+			}}
+			Expect(problemsOf(ic)).To(ConsistOf(problem{
+				Path:    "messages.0.payload.fields.0.tag",
+				Message: message,
+			}))
+		},
+		Entry(
+			"a tag that holds the delimiter",
+			"T,1",
+			`the tag contains the delimiter ","`,
+		),
+		Entry("a tag that starts with a space", " T", "the tag starts with whitespace"),
+		Entry("a tag that starts with a tab", "\tT", "the tag starts with whitespace"),
+		Entry(
+			"a tag that starts with a carriage return",
+			"\rT",
+			"the tag starts with whitespace",
+		),
+	)
+
+	It("Should refuse an empty delimiter but not each tag in its message", func() {
+		ic := icd.ICD{Name: "L", Messages: []icd.Message{{
+			Name: "M",
+			Payload: icd.Payload{Variant: icd.TextPayload{
+				Fields: []icd.TextField{{Variant: icd.TaggedTextField{
+					BaseField: icd.BaseField{Name: "temp", Scale: 1},
+					Tag:       "T",
+				}}},
+			}},
+		}}}
+		Expect(problemsOf(ic)).To(ConsistOf(problem{
+			Path:    "messages.0.payload.delimiter",
+			Message: "delimiter is required",
+		}))
+	})
+
 	DescribeTable("Should require a format, encoding, or type",
 		func(ic icd.ICD, path, message string) {
-			Expect(icd.Check(ic)).To(ConsistOf(
-				validate.Problem{Path: path, Message: message},
+			Expect(problemsOf(ic)).To(ConsistOf(
+				problem{Path: path, Message: message},
 			))
 		},
 		Entry("message without a format",
@@ -157,6 +221,12 @@ var _ = Describe("Check", func() {
 			}}},
 			"messages.0.payload.match.type", "type is required",
 		),
+		Entry("binary field without a kind",
+			icd.ICD{Name: "L", Messages: []icd.Message{
+				binaryMessage("M", icd.BinaryField{}),
+			}},
+			"messages.0.payload.fields.0.kind", "kind is required",
+		),
 		Entry("identifier without a type",
 			icd.ICD{Name: "L", Messages: []icd.Message{updateBinary(
 				binaryMessage("M", binaryField("a", 0, 8)),
@@ -167,35 +237,132 @@ var _ = Describe("Check", func() {
 	)
 
 	DescribeTable("Should require finite numbers, which JSON cannot carry",
-		func(update func(*icd.BinaryField), path, message string) {
-			f := binaryField("a", 0, 8)
-			update(&f)
+		func(update func(*icd.BinaryBaseField), path, message string) {
+			f := updateBase(binaryField("a", 0, 8), update)
 			ic := icd.ICD{Name: "L", Messages: []icd.Message{
 				canMessage("M", 1, f),
 			}}
-			Expect(icd.Check(ic)).To(ConsistOf(
-				validate.Problem{
+			Expect(problemsOf(ic)).To(ConsistOf(
+				problem{
 					Path:    "messages.0.payload.fields.0." + path,
 					Message: message,
 				},
 			))
 		},
 		Entry("NaN scale",
-			func(f *icd.BinaryField) { f.Scale = math.NaN() },
+			func(f *icd.BinaryBaseField) { f.Scale = math.NaN() },
 			"scale", "scale must be finite and non-zero",
 		),
 		Entry("infinite scale",
-			func(f *icd.BinaryField) { f.Scale = math.Inf(1) },
+			func(f *icd.BinaryBaseField) { f.Scale = math.Inf(1) },
 			"scale", "scale must be finite and non-zero",
 		),
 		Entry("infinite offset",
-			func(f *icd.BinaryField) { f.Offset = math.Inf(-1) },
+			func(f *icd.BinaryBaseField) { f.Offset = math.Inf(-1) },
 			"offset", "offset must be finite",
 		),
 		Entry("NaN minimum",
-			func(f *icd.BinaryField) { f.Min = new(math.NaN()) },
+			func(f *icd.BinaryBaseField) { f.Min = new(math.NaN()) },
 			"min", "min must be finite",
 		),
+	)
+
+	DescribeTable("Should refuse a value outside the min and max of its field",
+		func(m icd.Message, path, message string) {
+			ic := icd.ICD{Name: "L", Messages: []icd.Message{m}}
+			Expect(problemsOf(ic)).To(ConsistOf(problem{
+				Path:    "messages.0.payload.fields.0." + path,
+				Message: message,
+			}))
+		},
+		Entry("a JSON default above the max",
+			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
+				Name: "v", Scale: 1, Pointer: "/v",
+				Max: new(100.0), Default: new(payload.Float(120)),
+			}}),
+			"default", "default 120 is above the max 100",
+		),
+		Entry("a scaled JSON default that decodes above the max",
+			jsonMessage(icd.JSONField{Variant: icd.IntegerJSONField{
+				Name: "v", Scale: 10, Pointer: "/v",
+				Max: new(100.0), Default: new(payload.Integer(12)),
+			}}),
+			"default", "default 12 decodes to 120, which is above the max 100",
+		),
+		Entry("a JSON enum value above the max",
+			jsonMessage(icd.JSONField{Variant: icd.UnsignedJSONField{
+				Name: "v", Scale: 1, Pointer: "/v", Max: new(10.0),
+				EnumValues: []payload.UnsignedEntry{{Label: "BOOST", Value: 20}},
+			}}),
+			"enum_values.0.value", "enum value 20 is above the max 10",
+		),
+		Entry("a JSON enum value below the min, which takes no scale",
+			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
+				Name: "v", Scale: 10, Pointer: "/v", Min: new(0.0),
+				EnumValues: []payload.FloatEntry{{Label: "OFF", Value: -1}},
+			}}),
+			"enum_values.0.value", "enum value -1 is below the min 0",
+		),
+		Entry("a binary default above the max",
+			canMessage("M", 1, icd.BinaryField{Variant: icd.UnsignedBinaryField{
+				Name: "a", Scale: 1, BitLength: 8, ByteOrder: icd.ByteOrderLittleEndian,
+				Max: new(100.0), Default: new(payload.Unsigned(200)),
+			}}),
+			"default", "default 200 is above the max 100",
+		),
+		Entry("a text default below the min",
+			textMessage("M", icd.TextField{Variant: icd.TaggedTextField{
+				BaseField: icd.BaseField{Name: "temp", Scale: 1, Min: new(0.0)},
+				Tag:       "T",
+				Default:   new(payload.Float(-1)),
+			}}),
+			"default", "default -1 is below the min 0",
+		),
+		Entry("a default that is not finite, which reports only that",
+			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
+				Name: "v", Scale: 1, Pointer: "/v",
+				Max: new(100.0), Default: new(payload.Float(math.Inf(1))),
+			}}),
+			"default", "default must be finite",
+		),
+	)
+
+	DescribeTable("Should accept a value at a limit of its field",
+		func(m icd.Message) {
+			ic := icd.ICD{Name: "L", Messages: []icd.Message{m}}
+			Expect(problemsOf(ic)).To(BeEmpty())
+		},
+		Entry("a scaled JSON default that float error puts above the max",
+			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
+				Name: "v", Scale: 0.1, Pointer: "/v",
+				Max: new(0.3), Default: new(payload.Float(3)),
+			}}),
+		),
+		Entry("a JSON enum value at the max",
+			jsonMessage(icd.JSONField{Variant: icd.IntegerJSONField{
+				Name: "v", Scale: 1, Pointer: "/v", Max: new(10.0),
+				EnumValues: []payload.IntegerEntry{{Label: "HIGH", Value: 10}},
+			}}),
+		),
+		Entry("a binary default at the min",
+			canMessage("M", 1, icd.BinaryField{Variant: icd.IntegerBinaryField{
+				Name: "a", Scale: 1, BitLength: 8, ByteOrder: icd.ByteOrderLittleEndian,
+				Min: new(-5.0), Default: new(payload.Integer(-5)),
+			}}),
+		),
+	)
+
+	DescribeTable("Should accept every digit of a 64-bit unsigned default",
+		func(d payload.Unsigned) {
+			f := icd.BinaryField{Variant: icd.UnsignedBinaryField{
+				BinaryBaseField: binaryField("a", 0, 64).Base(),
+				Default:         new(d),
+			}}
+			ic := icd.ICD{Name: "L", Messages: []icd.Message{canMessage("M", 1, f)}}
+			Expect(icd.Check(ic)).To(BeEmpty())
+		},
+		Entry("the largest unsigned integer", payload.Unsigned(math.MaxUint64)),
+		Entry("an integer past a float64", payload.Unsigned(9007199254740993)),
 	)
 
 	It("Should not count messages and fields without keys as duplicates", func() {
@@ -203,38 +370,42 @@ var _ = Describe("Check", func() {
 			canMessage("A", 1, binaryField("a", 0, 8), binaryField("b", 8, 8)),
 			canMessage("B", 2, binaryField("a", 0, 8)),
 		}}
-		Expect(icd.Check(ic)).To(BeEmpty())
+		Expect(problemsOf(ic)).To(BeEmpty())
 	})
 
 	Describe("Overlapping fields", func() {
-		check := func(fields ...icd.BinaryField) validate.Problems {
-			return icd.Check(icd.ICD{Name: "L", Messages: []icd.Message{
+		check := func(fields ...icd.BinaryField) []problem {
+			return problemsOf(icd.ICD{Name: "L", Messages: []icd.Message{
 				canMessage("M", 1, fields...),
 			}})
 		}
-		overlapping := func(i int) validate.Problem {
-			return validate.Problem{
+		overlapping := func(i int) problem {
+			return problem{
 				Path:    fmt.Sprintf("messages.0.payload.fields.%d.start_bit", i),
 				Message: `field overlaps the bits of field "a"`,
 			}
 		}
 		bigEndian := func(f icd.BinaryField) icd.BinaryField {
-			f.ByteOrder = icd.ByteOrderBigEndian
-			return f
+			return updateBase(f, func(b *icd.BinaryBaseField) {
+				b.ByteOrder = icd.ByteOrderBigEndian
+			})
 		}
 		multiplexed := func(
 			f icd.BinaryField,
 			mux icd.BinaryField,
 			values ...int32,
 		) icd.BinaryField {
-			f.Multiplexor = new(mux.Key)
-			f.MultiplexValues = values
-			return f
+			return updateBase(f, func(b *icd.BinaryBaseField) {
+				b.Multiplexor = new(mux.Base().Key)
+				b.MultiplexValues = values
+			})
+		}
+		withKey := func(f icd.BinaryField) icd.BinaryField {
+			return updateBase(f, func(b *icd.BinaryBaseField) { b.Key = uuid.New() })
 		}
 		var mux icd.BinaryField
 		BeforeEach(func() {
-			mux = binaryField("mux", 0, 4)
-			mux.Key = uuid.New()
+			mux = withKey(binaryField("mux", 0, 4))
 		})
 
 		It("Should find two fields that read the same bits", func() {
@@ -303,8 +474,7 @@ var _ = Describe("Check", func() {
 		)
 
 		It("Should not compare fields under different multiplexors", func() {
-			other := binaryField("other", 4, 4)
-			other.Key = uuid.New()
+			other := withKey(binaryField("other", 4, 4))
 			Expect(check(
 				mux,
 				other,

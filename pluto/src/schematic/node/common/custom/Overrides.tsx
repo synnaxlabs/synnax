@@ -15,18 +15,25 @@ import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep, strings } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
+import {
+  listValues,
+  type PaintContext,
+  resolveRegions,
+  usePaintContext,
+} from "@/schematic/node/common/custom/paint";
 import { Region } from "@/schematic/node/common/region";
 import { Symbol } from "@/schematic/symbol";
 
 const root = deep.path<{
   specKey: string;
-  stateOverrides: schematic.symbol.State[];
+  stateOverrides: schematic.symbol.StateOverride[];
 }>();
 
 type RegionPath = deep.Path<schematic.symbol.Region>;
@@ -37,10 +44,28 @@ interface RegionControlsProps {
   original?: schematic.symbol.Region;
 }
 
+// defaultOverrides returns an override for each value that the node of spec draws, with
+// the colors that the looks give each part at that value.
+const defaultOverrides = (
+  spec: schematic.symbol.Spec,
+  ctx: Omit<PaintContext, "value">,
+): schematic.symbol.StateOverride[] => {
+  const [state] = spec.states;
+  const entries =
+    state?.type === "enumeration" && state.enumeration != null
+      ? ctx.enumerations.get(state.enumeration)?.entries
+      : undefined;
+  return listValues(spec, entries).map(({ key, name, value }) => ({
+    key,
+    name,
+    regions: resolveRegions(spec, { ...ctx, value }),
+  }));
+};
+
 const syncStateOverrides = (
-  currentOverrides: schematic.symbol.State[],
-  specStates: schematic.symbol.State[],
-): schematic.symbol.State[] => {
+  currentOverrides: schematic.symbol.StateOverride[],
+  specStates: schematic.symbol.StateOverride[],
+): schematic.symbol.StateOverride[] => {
   let syncedStates = [...currentOverrides];
 
   if (currentOverrides.length !== specStates.length) {
@@ -154,35 +179,28 @@ const RegionList = ({ svg, selectedState, originalRegions }: RegionListProps) =>
   );
 };
 
-export const StateOverrideForm = (): ReactElement => {
-  const specKey = Form.useFieldValue(root.specKey);
+interface SymbolOverridesProps {
+  spec: schematic.symbol.Spec;
+}
+
+const SymbolOverrides = ({ spec }: SymbolOverridesProps): ReactElement => {
   const form = Form.useContext();
-  const [originalStates, setOriginalStates] = useState<schematic.symbol.State[]>([]);
+  const ctx = usePaintContext(spec);
+  const defaults = useMemoDeepEqual(
+    ctx == null ? undefined : defaultOverrides(spec, ctx),
+  );
   const { data: states } = Form.useFieldList(root.stateOverrides);
   const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);
 
-  const applySymbol = (symbol: schematic.symbol.Symbol) => {
-    if (symbol.data == null) return;
-    const symbolSpec = symbol.data;
-    setOriginalStates(deep.copy(symbolSpec.states));
-    const currentOverrides = form.get(root.stateOverrides);
-    if (currentOverrides.value?.length === 0) {
-      form.set(root.stateOverrides, deep.copy(symbolSpec.states));
-      setSelectedState(symbolSpec.states[0].key);
-    } else {
-      const syncedStates = syncStateOverrides(
-        currentOverrides.value,
-        symbolSpec.states,
-      );
-      form.set(root.stateOverrides, syncedStates);
-    }
-  };
-  // A dangling spec key must not throw here: the owner renders a repair form for it.
-  const { symbol } = Symbol.useResolved(specKey);
   useEffect(() => {
-    if (symbol == null) return;
-    applySymbol(symbol);
-  }, [symbol, applySymbol]);
+    if (defaults == null || defaults.length === 0) return;
+    const currentOverrides = form.get(root.stateOverrides).value;
+    if (currentOverrides.length === 0) {
+      form.set(root.stateOverrides, deep.copy(defaults));
+      setSelectedState(defaults[0].key);
+    } else
+      form.set(root.stateOverrides, syncStateOverrides(currentOverrides, defaults));
+  }, [defaults, form]);
 
   // The form can swap to a different symbol's overrides beneath the locally
   // held selection, so fall back to the first state when the key disappears.
@@ -202,13 +220,23 @@ export const StateOverrideForm = (): ReactElement => {
       )}
       {shownState != null && (
         <RegionList
-          svg={symbol?.data?.svg ?? ""}
+          svg={spec.drawing.markup}
           selectedState={shownState}
-          originalRegions={
-            originalStates.find(({ key }) => key === shownState)?.regions
-          }
+          originalRegions={defaults?.find(({ key }) => key === shownState)?.regions}
         />
       )}
     </Flex.Box>
   );
+};
+
+/**
+ * Edits the state overrides of a custom symbol node: for each entry of the symbol's
+ * enumeration, the colors of each part.
+ */
+export const StateOverrideForm = (): ReactElement | null => {
+  const specKey = Form.useFieldValue(root.specKey);
+  // A dangling spec key must not throw here: the owner renders a repair form for it.
+  const { symbol } = Symbol.useResolved(specKey);
+  if (symbol == null) return null;
+  return <SymbolOverrides spec={symbol.data} />;
 };

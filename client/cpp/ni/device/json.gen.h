@@ -373,12 +373,28 @@ inline x::json::json Configuration::to_json() const {
 inline Cursor Cursor::parse(x::json::Parser parser) {
     return Cursor{
         .key = parser.field<Key>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
     };
 }
 
 inline x::json::json Cursor::to_json() const {
     x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
+    if (this->name.has_value()) j["name"] = *this->name;
+    return j;
+}
+
+inline Order Order::parse(x::json::Parser parser) {
+    return Order{
+        .field = parser.field<std::string>("field"),
+        .descending = parser.field<bool>("descending", false),
+    };
+}
+
+inline x::json::json Order::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["field"] = this->field;
+    j["descending"] = this->descending;
     return j;
 }
 
@@ -386,6 +402,7 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
     return RetrieveRequest{
         .where = parser.field<std::optional<Where>>("where"),
         .search_term = parser.field<std::string>("search_term", ""),
+        .order = parser.field<std::optional<Order>>("order"),
         .after = parser.field<std::optional<Cursor>>("after"),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
         .include_status = parser.field<bool>("include_status", false),
@@ -396,6 +413,7 @@ inline x::json::json RetrieveRequest::to_json() const {
     x::json::json j = x::json::json::object();
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
+    if (this->order.has_value()) j["order"] = this->order->to_json();
     if (this->after.has_value()) j["after"] = this->after->to_json();
     if (this->limit.has_value()) j["limit"] = *this->limit;
     j["include_status"] = this->include_status;

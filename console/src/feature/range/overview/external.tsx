@@ -13,7 +13,7 @@ import { Ranger } from "@synnaxlabs/pluto";
 
 import { Panel } from "@/platform/panel";
 
-const TAB: Panel.Tab = {
+const TAB = {
   Content: Panel.lazyComponent(
     () => import("@/feature/range/overview/Overview"),
     "Overview",
@@ -35,8 +35,8 @@ const TAB: Panel.Tab = {
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Ranger.useTombstone }),
-};
+} satisfies Panel.Tab;
 
-export const TABS: Panel.Tabs = {
+export const TABS = {
   [ranger.TYPE_RESOURCE_ID.type]: TAB,
-};
+} satisfies Panel.Tabs;

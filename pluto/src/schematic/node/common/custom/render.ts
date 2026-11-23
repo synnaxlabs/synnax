@@ -13,6 +13,12 @@ import { color } from "@synnaxlabs/x";
 import { type RefCallback, useLayoutEffect, useRef } from "react";
 
 import { CSS } from "@/css";
+import {
+  Motion,
+  type MotionParams,
+  moves,
+} from "@/schematic/node/common/custom/motion";
+import type { Paint } from "@/schematic/node/common/custom/paint";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Region } from "@/schematic/node/common/region";
 
@@ -33,17 +39,17 @@ const ROOT_ONLY_ATTRIBUTES = new Set([
 ]);
 
 const iterElements = (
-  state: schematic.symbol.State,
+  paints: Paint[],
   drawing: Element,
-  fn: (el: SVGElement, region: schematic.symbol.Region) => void,
-) => {
-  state.regions.forEach((region) => {
-    region.selectors.forEach((selector) => {
-      const elements = drawing.querySelectorAll<SVGElement>(selector);
-      elements.forEach((el) => fn(el, region));
-    });
+  fn: (el: SVGElement, paint: Paint) => void,
+) =>
+  paints.forEach((paint) => {
+    if (paint.selectors == null)
+      return Region.collectVisualElements(drawing).forEach((el) => fn(el, paint));
+    paint.selectors.forEach((selector) =>
+      drawing.querySelectorAll<SVGElement>(selector).forEach((el) => fn(el, paint)),
+    );
   });
-};
 
 // The theme band paints the stroke, as on built-in symbols. The fill stays as stored,
 // as on the tank and the cylinder.
@@ -68,20 +74,24 @@ const setFill = (el: SVGElement, fillColor: color.Color | undefined) => {
   if (fill != null) el.setAttribute("fill", fill);
 };
 
-const clearState = (el: SVGElement) => {
-  setStroke(el, undefined);
-  setFill(el, undefined);
+const setHidden = (el: SVGElement, hidden: boolean) => {
+  if (hidden) el.style.setProperty("display", "none");
+  else el.style.removeProperty("display");
 };
 
-const applyState = (
-  drawing: Element,
-  state: schematic.symbol.State,
-  prevState?: schematic.symbol.State | null,
-) => {
-  if (prevState != null) iterElements(prevState, drawing, clearState);
-  iterElements(state, drawing, (el, { strokeColor, fillColor }) => {
-    setStroke(el, strokeColor);
-    setFill(el, fillColor);
+const clearPaint = (el: SVGElement) => {
+  setStroke(el, undefined);
+  setFill(el, undefined);
+  setHidden(el, false);
+};
+
+// A later paint wins on each field that it sets.
+const applyPaints = (drawing: Element, paints: Paint[], prevPaints: Paint[]) => {
+  iterElements(prevPaints, drawing, clearPaint);
+  iterElements(paints, drawing, (el, { stroke, fill, hidden }) => {
+    if (stroke != null) setStroke(el, stroke);
+    if (fill != null) setFill(el, fill);
+    if (hidden != null) setHidden(el, hidden);
   });
 };
 
@@ -92,67 +102,99 @@ const isStoredStrokeShown = (el: Element): boolean => {
   return !parsed.success || color.opacity(parsed.data) > 0;
 };
 
-// A symbol color, such as the stale color, replaces each stroke the drawing shows: the
-// stroke of the shape's region, or its stored stroke when no region sets one. It runs
-// after applyState and overrides it.
+// A symbol color replaces each stroke the drawing shows: the stroke of the shape's
+// paint, or its stored stroke when no paint sets one. It runs after applyPaints and
+// overrides it.
 const applySymbolStrokes = (
   drawing: Element,
-  state: schematic.symbol.State | undefined,
+  paints: Paint[],
   symbolColor: color.Crude | undefined,
 ) => {
-  const regionStrokes = new Map<Element, color.Color>();
-  if (state != null)
-    iterElements(state, drawing, (el, { strokeColor }) => {
-      if (strokeColor != null) regionStrokes.set(el, strokeColor);
-    });
+  const paintStrokes = new Map<Element, color.Color>();
+  iterElements(paints, drawing, (el, { stroke }) => {
+    if (stroke != null) paintStrokes.set(el, stroke);
+  });
   Region.collectVisualElements(drawing).forEach((el) => {
-    const regionStroke = regionStrokes.get(el);
+    const paintStroke = paintStrokes.get(el);
     const shown =
-      regionStroke != null ? color.opacity(regionStroke) > 0 : isStoredStrokeShown(el);
+      paintStroke != null ? color.opacity(paintStroke) > 0 : isStoredStrokeShown(el);
     if (symbolColor != null && shown) setStroke(el, symbolColor);
-    else if (regionStroke == null) setStroke(el, undefined);
+    else if (paintStroke == null) setStroke(el, undefined);
   });
 };
 
 export interface UseRenderParams {
-  activeState: string;
   spec?: schematic.symbol.Spec;
+  /** paints are the paints that the drawing shows, from usePaints. */
+  paints?: Paint[];
   /** Called with the <g> that holds the drawing each time the drawing mounts. */
   onMount?: (drawing: SVGGElement) => void;
-  stateOverrides?: schematic.symbol.State[];
-  /** The color of the whole symbol, such as the stale color. */
+  /** The color of the whole symbol. */
   strokeColor?: color.Crude;
   /** Marks markup that ships with Pluto, which mounts without the sanitizer. */
   builtIn?: boolean;
+  /** motion moves the parts of the drawing by its looks. With none, nothing moves. */
+  motion?: MotionParams;
 }
 
 interface RenderState {
   drawing: SVGGElement | null;
   // The markup of the mounted drawing, or of markup that failed to parse.
   prevSvg: string | undefined;
-  // The state whose colors are on the drawing, so the next state can undo them.
-  prevState: schematic.symbol.State | undefined;
+  // The paints on the drawing, so the next paints can undo them.
+  prevPaints: Paint[];
+  motion: Motion | null;
 }
+
+const NO_PAINTS: Paint[] = [];
 
 const createRenderState = (): RenderState => ({
   drawing: null,
   prevSvg: undefined,
-  prevState: undefined,
+  prevPaints: NO_PAINTS,
+  motion: null,
 });
 
-const selectState = ({
-  activeState,
-  spec,
-  stateOverrides,
-}: UseRenderParams): schematic.symbol.State | undefined => {
-  const index = activeState === "active" ? 1 : 0;
-  return stateOverrides?.[index] ?? spec?.states[index];
+const stopMotion = (state: RenderState) => {
+  state.motion?.stop();
+  state.motion = null;
+};
+
+const applyMotion = (
+  spec: schematic.symbol.Spec,
+  params: MotionParams | undefined,
+  state: RenderState,
+) => {
+  const { drawing } = state;
+  if (drawing == null) return;
+  if (params == null || state.motion?.loop !== params.loop) stopMotion(state);
+  if (params == null) return;
+  if (state.motion == null) {
+    if (!spec.looks.some(moves)) return;
+    const box = Region.measure(spec.drawing.markup);
+    if (box == null) return;
+    state.motion = new Motion(params.loop, drawing, box);
+  }
+  state.motion.update(spec, params);
 };
 
 /**
  * @returns whether svg is markup the renderer can mount. See {@link Region.measure}.
  */
 export const isValidSVG = (svg: string): boolean => Region.measure(svg) != null;
+
+// Motion writes these as presentation attributes, which inline declarations outrank.
+const MOTION_PROPERTIES = ["opacity", "stroke-dashoffset"];
+
+const moveMotionStyles = (drawing: SVGGElement) => {
+  for (const el of [drawing, ...drawing.querySelectorAll<SVGElement>("[style]")])
+    for (const property of MOTION_PROPERTIES) {
+      const value = el.style.getPropertyValue(property);
+      if (value === "") continue;
+      el.setAttribute(property, value);
+      el.style.removeProperty(property);
+    }
+};
 
 // buildDrawing moves the contents of root into one new <g> in the host. The <g> takes
 // the other root attributes, such as stroke-width. The caller re-applies state colors
@@ -163,12 +205,14 @@ const buildDrawing = (
   root: SVGSVGElement,
   onMount?: (drawing: SVGGElement) => void,
 ) => {
+  stopMotion(state);
   state.drawing?.remove();
   const drawing = root.ownerDocument.createElementNS(SVG_NAMESPACE, "g");
   for (const { namespaceURI, name, value } of Array.from(root.attributes))
     if (namespaceURI !== XMLNS_NAMESPACE && !ROOT_ONLY_ATTRIBUTES.has(name))
       drawing.setAttributeNS(namespaceURI, name, value);
   while (root.firstChild != null) drawing.appendChild(root.firstChild);
+  moveMotionStyles(drawing);
   host.appendChild(drawing);
   state.drawing = drawing;
   onMount?.(drawing);
@@ -186,13 +230,15 @@ const applyStrokeScaled = (drawing: Element, strokeScaled: boolean) => {
 };
 
 const runRender = (host: Element, params: UseRenderParams, state: RenderState) => {
-  const { spec, onMount, strokeColor, builtIn = false } = params;
+  const { spec, paints = NO_PAINTS, onMount, strokeColor, builtIn = false } = params;
   if (spec == null) return;
-  if (state.prevSvg !== spec.svg) {
-    state.prevSvg = spec.svg;
-    state.prevState = undefined;
-    const root = builtIn ? Region.parseTrusted(spec.svg) : Region.parseSVG(spec.svg);
+  const { markup } = spec.drawing;
+  if (state.prevSvg !== markup) {
+    state.prevSvg = markup;
+    state.prevPaints = NO_PAINTS;
+    const root = builtIn ? Region.parseTrusted(markup) : Region.parseSVG(markup);
     if (root == null) {
+      stopMotion(state);
       state.drawing?.remove();
       state.drawing = null;
       return;
@@ -202,17 +248,15 @@ const runRender = (host: Element, params: UseRenderParams, state: RenderState) =
   const { drawing } = state;
   // Markup that failed to parse mounts nothing until it changes.
   if (drawing == null) return;
-  const currState = selectState(params);
-  if (currState != null) {
-    applyState(drawing, currState, state.prevState);
-    state.prevState = currState;
-  }
-  applySymbolStrokes(drawing, currState, strokeColor);
+  applyPaints(drawing, paints, state.prevPaints);
+  state.prevPaints = paints;
+  applySymbolStrokes(drawing, paints, strokeColor);
   applyStrokeScaled(drawing, spec.strokeScaled);
+  applyMotion(spec, params.motion, state);
 };
 
 /// useRender returns a ref callback that mounts the drawing of a custom symbol into the
-/// element it attaches to, as one <g>, and keeps its state colors and strokes applied.
+/// element it attaches to, as one <g>, and keeps its paints and strokes applied.
 /// Attach it inside an <svg> that sizes and turns the drawing, such as Primitive.SVG.
 /// The returned callback is stable across renders. When the element detaches, the
 /// drawing is removed and internal state is cleared so the next attach re-creates it
@@ -220,20 +264,32 @@ const runRender = (host: Element, params: UseRenderParams, state: RenderState) =
 /// StrictMode's simulated remount). The drawing updates when a param it draws changes
 /// identity, so copy the spec on change and never change it in place.
 export const useRender = (params: UseRenderParams): RefCallback<Element> => {
-  const { spec, strokeColor } = params;
+  const { spec, paints, strokeColor, motion } = params;
   const hostRef = useRef<Element | null>(null);
   const paramsRef = useSyncedRef(params);
   const stateRef = useInitializerRef<RenderState>(createRenderState);
-  const currState = selectState(params);
   const strokeRGBA = color.rgbaString(strokeColor);
 
   useLayoutEffect(() => {
     if (hostRef.current != null)
       runRender(hostRef.current, paramsRef.current, stateRef.current);
-  }, [paramsRef, stateRef, spec?.svg, spec?.strokeScaled, currState, strokeRGBA]);
+  }, [
+    paramsRef,
+    stateRef,
+    spec?.drawing.markup,
+    spec?.strokeScaled,
+    paints,
+    strokeRGBA,
+  ]);
+
+  useLayoutEffect(() => {
+    const { spec, motion } = paramsRef.current;
+    if (spec != null) applyMotion(spec, motion, stateRef.current);
+  }, [paramsRef, stateRef, spec?.looks, spec?.parts, spec?.states, motion]);
 
   return (el) => {
     if (el == null) {
+      stopMotion(stateRef.current);
       stateRef.current.drawing?.remove();
       stateRef.current = createRenderState();
       hostRef.current = null;

@@ -13,8 +13,7 @@ import type { ReactElement } from "react";
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
-import type { Diagram } from "@/vis/diagram";
-import { selectZoom } from "@/vis/diagram/util";
+import { Diagram } from "@/vis/diagram";
 
 export const ConnectionLine = ({
   source,
@@ -23,7 +22,7 @@ export const ConnectionLine = ({
   targetBox,
   status,
 }: Diagram.ConnectionLineProps): ReactElement => {
-  const zoom = useViewportStore(selectZoom);
+  const zoom = useViewportStore(Diagram.selectZoom);
   const conn = Segmented.createConnector({ source, target, sourceBox, targetBox });
   const points = Segmented.segmentsToPoints(source.position, conn, zoom, false);
   const colorVar =

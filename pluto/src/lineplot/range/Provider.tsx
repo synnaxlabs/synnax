@@ -13,13 +13,14 @@ import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { box, xy } from "@synnaxlabs/x";
-import { type ReactElement, useEffect } from "react";
+import { xy } from "@synnaxlabs/x";
+import { type ReactElement, useEffect, useRef } from "react";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { useContext, useGridEntry } from "@/lineplot/Frame";
 import { range } from "@/lineplot/range/aether";
+import { Canvas } from "@/vis/canvas";
 
 /** The props of the menu of a range in the strip. */
 export interface MenuProps extends range.SelectedState {
@@ -31,6 +32,9 @@ export interface MenuProps extends range.SelectedState {
 
 export interface ProviderProps extends Aether.ComponentProps {
   visible?: boolean;
+  /** True when a click on the strip does not open a break, as on an axis with none. */
+  breaksDisabled?: boolean;
+  /** Called with whether the strip shows ranges, and with false when it unmounts. */
   onHasAnnotationsChange?: (hasAnnotations: boolean) => void;
   menu?: Component.RenderProp<MenuProps>;
 }
@@ -39,11 +43,14 @@ export const Provider = ({
   aetherKey,
   menu,
   visible = true,
+  breaksDisabled = false,
   onHasAnnotationsChange,
   ...rest
 }: ProviderProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
-  const { toggleZoom, zoomedKey } = useContext("Range.Provider");
+  const { toggleZoom, toggleBreak, zoomedKey } = useContext("Range.Provider");
+  const reported = useRef(false);
+  const onHasAnnotationsChangeRef = useSyncedRef(onHasAnnotationsChange);
   const [, { hovered, height }, setState] = Aether.use({
     aetherKey: cKey,
     type: range.Provider.TYPE,
@@ -57,9 +64,17 @@ export const Provider = ({
       count: 0,
       height: 0,
     },
-    onAetherChange: ({ count }: range.ProviderState) =>
-      onHasAnnotationsChange?.(count > 0),
+    onAetherChange: ({ count }: range.ProviderState) => {
+      reported.current = count > 0;
+      onHasAnnotationsChange?.(count > 0);
+    },
   });
+  useEffect(
+    () => () => {
+      if (reported.current) onHasAnnotationsChangeRef.current?.(false);
+    },
+    [onHasAnnotationsChangeRef],
+  );
   useEffect(() => {
     setState((s) => ({ ...s, visible }));
   }, [visible, setState]);
@@ -76,9 +91,9 @@ export const Provider = ({
   }, [menuProps.visible, setState]);
 
   const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
-    const canvas = document.querySelector(".pluto-canvas-container");
-    if (canvas == null) return;
-    const cursor = xy.sub(xy.construct(e), box.topLeft(canvas));
+    const topLeft = Canvas.topLeft();
+    if (topLeft == null) return;
+    const cursor = xy.sub(xy.construct(e), topLeft);
     setState((state) => ({ ...state, cursor }));
   };
 
@@ -106,8 +121,10 @@ export const Provider = ({
           hovered != null && CSS.M("hovered"),
           menuProps.className,
         )}
-        onClick={() => {
+        onClick={(e) => {
+          // A break band runs through the strip, so a click on it opens the break.
           if (hovered != null) toggleZoom(hovered.key, hovered.viewport);
+          else if (!breaksDisabled) toggleBreak(e.clientX, "plot");
         }}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}

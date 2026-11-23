@@ -74,12 +74,15 @@ def title(body: str) -> str | None:
     return m[1] if m else None
 
 
-def comment(f: Finding, *, blob: str) -> str:
-    """Renders a finding as an inline review comment.
+def comment(f: Finding, *, blob: str, located: bool = False) -> str:
+    """Renders a finding as a review comment.
 
     :param blob: The URL that a repository path appends to, at the reviewed commit.
+    :param located: The comment links the finding's line, for a thread on a whole file.
     """
     parts = [heading(f), f.body]
+    if located:
+        parts.insert(1, link(blob, f.path, f.line))
     if f.suggestion is not None:
         parts.append(fence(f.suggestion, "suggestion"))
     if f.rule is not None:
@@ -89,7 +92,7 @@ def comment(f: Finding, *, blob: str) -> str:
 
 
 def outside(findings: list[Finding], *, blob: str) -> str:
-    """Renders the comment that lists findings on lines outside the diff."""
+    """Renders the comment that lists findings on files outside the diff."""
     lines = [OUTSIDE, "", "<h3>Comments Outside Diff</h3>", ""]
     if not findings:
         return "\n".join([*lines, "No findings outside the diff remain."]) + "\n"

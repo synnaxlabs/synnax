@@ -10,9 +10,9 @@
 import { theme as baseTheme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
-  box,
+  type box,
   direction,
-  scale,
+  type scale,
   scheduler,
   TimeSpan,
   TimeStamp,
@@ -20,9 +20,10 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { collapse } from "@/lineplot/aether/layout";
 import { theming } from "@/theming/aether";
 import { axis } from "@/vis/axis";
-import type { TickType } from "@/vis/axis/ticks";
+import { Draw2D } from "@/vis/draw2d";
 import { grid } from "@/vis/grid";
 import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
@@ -60,8 +61,10 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
 const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 
 // Computed per call so an empty time axis tracks the present instead of app start.
-const emptyBounds = (type: TickType): bounds.Bounds => {
+const emptyBounds = (type: axis.TickType): bounds.Bounds => {
   if (type === "linear") return EMPTY_LINEAR_BOUNDS;
+  if (type === "relative")
+    return { lower: 0, upper: Number(TimeSpan.MINUTE.valueOf()) };
   const now = TimeStamp.now();
   return {
     lower: Number(now.valueOf()),
@@ -76,6 +79,10 @@ export interface AxisRenderProps {
   container: box.Box;
   canvases: render.CanvasVariant[];
   hold: boolean;
+  /** Set when a time axis shows its gaps at their true width, with no breaks. */
+  breaksHidden: boolean;
+  /** The lower bounds of the gaps that show their values in place of a break. */
+  openBreaks: number[];
 }
 
 /** @returns the newest sample of the bounds with an edge, or undefined if none. */
@@ -86,25 +93,32 @@ export const newestSample = (b: line.DataBounds[]): number | undefined => {
   return edges.length === 0 ? undefined : Math.max(...edges);
 };
 
-// Bounds with an edge end at the newest sample of their line. Each moves to end at the
-// newest of them, so a line whose samples stopped does not stretch the axis.
-const align = (b: line.DataBounds[]): bounds.Bounds[] => {
-  const finite = b.filter((d) => bounds.isFinite(d.bounds));
-  const newest = newestSample(finite);
-  if (newest == null) return finite.map((d) => d.bounds);
-  return finite.map(({ bounds: { lower, upper }, edge }) => {
-    if (edge === "rolling") return { lower: lower + newest - upper, upper: newest };
-    if (edge === "growing") return { lower, upper: newest };
-    return { lower, upper };
+/**
+ * @returns b with each finite bound that has an edge moved to end at the newest sample
+ * of them all, so a line whose samples stopped does not stretch the axis.
+ */
+export const align = <B extends line.DataBounds>(b: B[]): B[] => {
+  const newest = newestSample(b);
+  if (newest == null) return b;
+  return b.map((d) => {
+    const { lower, upper } = d.bounds;
+    if (!bounds.isFinite(d.bounds) || d.edge == null) return d;
+    if (d.edge === "rolling")
+      return { ...d, bounds: { lower: lower + newest - upper, upper: newest } };
+    return { ...d, bounds: { lower, upper: newest } };
   });
 };
 
 const autoBounds = (
   b: line.DataBounds[],
   padding: number = 0.1,
-  type: TickType,
+  type: axis.TickType,
 ): bounds.Bounds => {
-  const m = bounds.union(align(b));
+  const m = bounds.union(
+    align(b)
+      .filter((d) => bounds.isFinite(d.bounds))
+      .map((d) => d.bounds),
+  );
   if (!bounds.isFinite(m)) return emptyBounds(type);
   const { lower, upper } = m;
   if (upper === lower) return { lower: lower - 1, upper: upper + 1 };
@@ -114,11 +128,11 @@ const autoBounds = (
 
 interface InternalState {
   render: render.Context;
+  draw: Draw2D;
   base: axis.Axis;
-  // In the case where we're in a hold, we want to keep a snapshot of the hold bounds
-  // so that we can rerender the plot in the same position even if the data changes.
-  // changes.
-  boundSnapshot?: bounds.Bounds;
+  // A hold keeps a snapshot of the segments, so the plot draws in the same place while
+  // the data changes.
+  segmentSnapshot?: { segments: bounds.Bounds[]; collapsed: boolean };
   updateBounds?: (bounds: bounds.Bounds) => void;
 }
 
@@ -133,7 +147,10 @@ export abstract class BaseAxis<
     const { internal: i } = this;
     const { location, autoBoundUpdateInterval } = this.state;
     i.render = render.Context.use(ctx);
+    // A held view in one tick type means nothing in another.
+    if (this.state.type !== this.prevState.type) i.segmentSnapshot = undefined;
     const theme = theming.use(ctx);
+    i.draw = new Draw2D(i.render.upper2d, theme);
     this.state.autoBoundPadding ??=
       direction.swap(location) === "x"
         ? DEFAULT_X_BOUND_PADDING
@@ -155,7 +172,12 @@ export abstract class BaseAxis<
     render.request(ctx, "layout");
   }
 
-  renderAxis(props: AxisRenderProps, decimalToDataScale: scale.Scale): void {
+  renderAxis(
+    props: AxisRenderProps,
+    decimalToDataScale: scale.Scale,
+    segments?: axis.TickSegment[],
+    openBreaks?: number[],
+  ): void {
     if (!props.canvases.includes("lower2d")) return;
     const { base } = this.internal;
     const { grid: g, container } = props;
@@ -164,6 +186,8 @@ export abstract class BaseAxis<
       ...props,
       position,
       decimalToDataScale,
+      segments,
+      openBreaks,
       size: this.state.size + this.state.labelSize,
     };
     const { size } = base.render(p);
@@ -175,58 +199,108 @@ export abstract class BaseAxis<
     hold: boolean,
     fetchDataBounds: () => line.DataBounds[],
   ): [bounds.Bounds, Error | null] {
-    if (hold && this.internal.boundSnapshot != null)
-      return [this.internal.boundSnapshot, null];
-    const { manualBounds } = this.state;
-    const autoLower = !manualBounds.lower;
-    const autoUpper = !manualBounds.upper;
-    if (!autoLower && !autoUpper && this.state.bounds != null) {
-      this.internal.boundSnapshot = this.state.bounds;
-      return [this.state.bounds, null];
+    const [segments, err] = this.iSegments(hold, fetchDataBounds, false);
+    return [segments[0], err];
+  }
+
+  // iSegments returns the segments of the axis with the error that its data bounds met.
+  // With collapsed false it returns one segment. Manual bounds clip the outer segments.
+  protected iSegments(
+    hold: boolean,
+    fetchDataBounds: () => line.DataBounds[],
+    collapsed: boolean,
+  ): [bounds.Bounds[], Error | null] {
+    const { internal: i } = this;
+    // A snapshot cut with its gaps collapsed means nothing with them shown.
+    const snapshot = i.segmentSnapshot;
+    if (hold && snapshot?.collapsed === collapsed) return [snapshot.segments, null];
+    const { manualBounds, bounds: manual, type } = this.state;
+    const autoLower = !manualBounds.lower || manual == null;
+    const autoUpper = !manualBounds.upper || manual == null;
+    if (!collapsed && !autoLower && !autoUpper) {
+      i.segmentSnapshot = { segments: [manual], collapsed };
+      return [[manual], null];
     }
-    const merge = (auto: bounds.Bounds): bounds.Bounds => ({
-      upper:
-        autoUpper || this.state.bounds == null ? auto.upper : this.state.bounds.upper,
-      lower:
-        autoLower || this.state.bounds == null ? auto.lower : this.state.bounds.lower,
-    });
-    let ab: bounds.Bounds;
+    let clipped: bounds.Bounds[];
     let err: Error | null = null;
     let loading = false;
     try {
       const dataBounds = fetchDataBounds();
       loading = dataBounds.some((b) => b.loading);
-      ab = autoBounds(dataBounds, this.state.autoBoundPadding, this.state.type);
+      clipped = this.segments(dataBounds, collapsed);
     } catch (err_) {
-      ab = emptyBounds(this.state.type);
+      clipped = this.clipToManual([emptyBounds(type)]);
       err = err_ as Error;
     }
-    const bounds = merge(ab);
-    // A hold keeps bounds of loaded data, never of data still loading.
-    if (!loading) this.internal.boundSnapshot = bounds;
+    // A hold keeps segments of loaded data, never of data still loading.
+    if (!loading) i.segmentSnapshot = { segments: clipped, collapsed };
+    const outer = { lower: clipped[0].lower, upper: clipped[clipped.length - 1].upper };
     if (
-      this.state.bounds == null ||
-      (autoLower && this.state.bounds.lower !== bounds.lower) ||
-      (autoUpper && this.state.bounds.upper !== bounds.upper)
+      manual == null ||
+      (autoLower && manual.lower !== outer.lower) ||
+      (autoUpper && manual.upper !== outer.upper)
     )
-      this.internal.updateBounds?.(bounds);
-    return [bounds, err];
+      i.updateBounds?.(outer);
+    return [clipped, err];
   }
 
-  dataToDecimalScale(
-    hold: boolean,
-    fetchDataBounds: () => line.DataBounds[],
-    viewport: box.Box,
-  ): [scale.Scale, bounds.Bounds, Error | null] {
-    const [bounds, err] = this.iBounds(hold, fetchDataBounds);
-    const dir = direction.swap(direction.construct(this.state.location));
-    return [
-      scale.Scale.scale<number>(bounds)
-        .scale(1)
-        .translate(-box.root(viewport)[dir])
-        .magnify(1 / box.dim(viewport, dir)),
-      bounds,
-      err,
-    ];
+  /**
+   * @returns the segments of dataBounds on the axis, clipped to its manual bounds. It
+   * keeps no snapshot for a hold and moves no stored bounds.
+   */
+  protected segments(
+    dataBounds: line.DataBounds[],
+    collapsed: boolean,
+  ): bounds.Bounds[] {
+    const { autoBoundPadding, type } = this.state;
+    const auto = collapsed
+      ? collapse(align(dataBounds), autoBoundPadding ?? 0)
+      : [autoBounds(dataBounds, autoBoundPadding, type)];
+    return this.clipToManual(auto.length === 0 ? [emptyBounds(type)] : auto);
+  }
+
+  private clipToManual(segments: bounds.Bounds[]): bounds.Bounds[] {
+    const { manualBounds, bounds: manual } = this.state;
+    return clip(
+      segments,
+      manualBounds.lower ? manual?.lower : undefined,
+      manualBounds.upper ? manual?.upper : undefined,
+    );
   }
 }
+
+// clip drops the segments wholly outside lower and upper, and moves the outer edges to
+// them. A bound in a gap moves to the nearest segment it keeps, as the gap collapses. A
+// window of two bounds that holds no segment stays as set. With one bound and no
+// segment inside, the nearest segment takes that bound.
+const clip = (
+  segments: bounds.Bounds[],
+  lower?: number,
+  upper?: number,
+): bounds.Bounds[] => {
+  if (
+    lower != null &&
+    upper != null &&
+    !segments.some((b) => b.upper > lower && b.lower < upper)
+  )
+    return [{ lower, upper }];
+  let s = segments;
+  if (lower != null) {
+    const inside = s.filter((b) => b.upper > lower);
+    if (inside.length === 0) s = [{ ...s[s.length - 1], lower }];
+    else {
+      const edge = inside.length < s.length ? Math.max(lower, inside[0].lower) : lower;
+      s = [{ ...inside[0], lower: edge }, ...inside.slice(1)];
+    }
+  }
+  if (upper != null) {
+    const inside = s.filter((b) => b.lower < upper);
+    if (inside.length === 0) s = [{ ...s[0], upper }];
+    else {
+      const last = inside[inside.length - 1];
+      const edge = inside.length < s.length ? Math.min(upper, last.upper) : upper;
+      s = [...inside.slice(0, -1), { ...last, upper: edge }];
+    }
+  }
+  return s;
+};

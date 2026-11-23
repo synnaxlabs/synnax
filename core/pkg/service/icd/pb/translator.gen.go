@@ -98,27 +98,14 @@ func BaseFieldsFromPB(pbs []*BaseField) ([]icd.BaseField, error) {
 	return result, nil
 }
 
-// BinaryFieldToPB converts BinaryField to BinaryField.
-func BinaryFieldToPB(r icd.BinaryField) (*BinaryField, error) {
-	byteOrderVal, err := ByteOrderToPB(r.ByteOrder)
-	if err != nil {
-		return nil, err
-	}
-	kindVal, err := payloadpb.KindToPB(r.Kind)
-	if err != nil {
-		return nil, err
-	}
-	pb := &BinaryField{
-		Name:            r.Name,
-		Scale:           r.Scale,
-		Offset:          r.Offset,
-		Units:           r.Units,
-		StartBit:        uint32(r.StartBit),
-		BitLength:       uint32(r.BitLength),
-		MultiplexValues: r.MultiplexValues,
-		Key:             r.Key.String(),
-		ByteOrder:       byteOrderVal,
-		Kind:            kindVal,
+// TextBaseFieldToPB converts TextBaseField to TextBaseField.
+func TextBaseFieldToPB(r icd.TextBaseField) (*TextBaseField, error) {
+	pb := &TextBaseField{
+		Name:   r.Name,
+		Scale:  r.Scale,
+		Offset: r.Offset,
+		Units:  r.Units,
+		Key:    r.Key.String(),
 	}
 	if r.Min != nil {
 		pb.Min = r.Min
@@ -126,19 +113,19 @@ func BinaryFieldToPB(r icd.BinaryField) (*BinaryField, error) {
 	if r.Max != nil {
 		pb.Max = r.Max
 	}
-	if r.Multiplexor != nil {
-		v := r.Multiplexor.String()
-		pb.Multiplexor = &v
+	if r.Default != nil {
+		v := float64(*r.Default)
+		pb.Default = &v
 	}
 	return pb, nil
 }
 
-// BinaryFieldFromPB converts BinaryField to BinaryField.
+// TextBaseFieldFromPB converts TextBaseField to TextBaseField.
 //
 // A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
 // from a zero one, so a scalar keeps the value that pb holds.
-func BinaryFieldFromPB(pb *BinaryField) (icd.BinaryField, error) {
-	var r icd.BinaryField
+func TextBaseFieldFromPB(pb *TextBaseField) (icd.TextBaseField, error) {
+	var r icd.TextBaseField
 	if pb == nil {
 		return r, nil
 	}
@@ -146,46 +133,32 @@ func BinaryFieldFromPB(pb *BinaryField) (icd.BinaryField, error) {
 	var err error
 	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
-		return icd.BinaryField{}, err
-	}
-	r.ByteOrder, err = ByteOrderFromPB(pb.ByteOrder)
-	if err != nil {
-		return icd.BinaryField{}, err
-	}
-	r.Kind, err = payloadpb.KindFromPB(pb.Kind)
-	if err != nil {
-		return icd.BinaryField{}, err
+		return icd.TextBaseField{}, err
 	}
 	r.Name = pb.Name
 	r.Scale = pb.Scale
 	r.Offset = pb.Offset
 	r.Units = pb.Units
-	r.StartBit = uint16(pb.StartBit)
-	r.BitLength = uint8(pb.BitLength)
-	r.MultiplexValues = pb.MultiplexValues
 	if pb.Min != nil {
 		r.Min = pb.Min
 	}
 	if pb.Max != nil {
 		r.Max = pb.Max
 	}
-	if pb.Multiplexor != nil {
-		v, err := uuid.Parse(*pb.Multiplexor)
-		if err != nil {
-			return icd.BinaryField{}, err
-		}
-		r.Multiplexor = &v
+	if pb.Default != nil {
+		v := payload.Float(*pb.Default)
+		r.Default = &v
 	}
 	defaults.FillGroups(&r)
 	return r, nil
 }
 
-// BinaryFieldsToPB converts a slice of BinaryField to BinaryField.
-func BinaryFieldsToPB(rs []icd.BinaryField) ([]*BinaryField, error) {
-	result := make([]*BinaryField, len(rs))
+// TextBaseFieldsToPB converts a slice of TextBaseField to TextBaseField.
+func TextBaseFieldsToPB(rs []icd.TextBaseField) ([]*TextBaseField, error) {
+	result := make([]*TextBaseField, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = BinaryFieldToPB(rs[i])
+		result[i], err = TextBaseFieldToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -193,12 +166,12 @@ func BinaryFieldsToPB(rs []icd.BinaryField) ([]*BinaryField, error) {
 	return result, nil
 }
 
-// BinaryFieldsFromPB converts a slice of BinaryField to BinaryField.
-func BinaryFieldsFromPB(pbs []*BinaryField) ([]icd.BinaryField, error) {
-	result := make([]icd.BinaryField, len(pbs))
+// TextBaseFieldsFromPB converts a slice of TextBaseField to TextBaseField.
+func TextBaseFieldsFromPB(pbs []*TextBaseField) ([]icd.TextBaseField, error) {
+	result := make([]icd.TextBaseField, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = BinaryFieldFromPB(pb)
+		result[i], err = TextBaseFieldFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -341,6 +314,10 @@ func MessageToPB(r icd.Message) (*Message, error) {
 		Key:     r.Key.String(),
 		Payload: payloadVal,
 	}
+	if r.CycleTime != nil {
+		v := int64(*r.CycleTime)
+		pb.CycleTime = &v
+	}
 	return pb, nil
 }
 
@@ -366,6 +343,10 @@ func MessageFromPB(pb *Message) (icd.Message, error) {
 		}
 	}
 	r.Name = pb.Name
+	if pb.CycleTime != nil {
+		v := telem.TimeSpan(*pb.CycleTime)
+		r.CycleTime = &v
+	}
 	defaults.FillGroups(&r)
 	return r, nil
 }
@@ -629,6 +610,105 @@ func WheresFromPB(pbs []*Where) ([]icd.Where, error) {
 	return result, nil
 }
 
+// BinaryBaseFieldToPB converts BinaryBaseField to BinaryBaseField.
+func BinaryBaseFieldToPB(r icd.BinaryBaseField) (*BinaryBaseField, error) {
+	byteOrderVal, err := ByteOrderToPB(r.ByteOrder)
+	if err != nil {
+		return nil, err
+	}
+	pb := &BinaryBaseField{
+		Name:            r.Name,
+		Scale:           r.Scale,
+		Offset:          r.Offset,
+		Units:           r.Units,
+		StartBit:        uint32(r.StartBit),
+		BitLength:       uint32(r.BitLength),
+		MultiplexValues: r.MultiplexValues,
+		Key:             r.Key.String(),
+		ByteOrder:       byteOrderVal,
+	}
+	if r.Min != nil {
+		pb.Min = r.Min
+	}
+	if r.Max != nil {
+		pb.Max = r.Max
+	}
+	if r.Multiplexor != nil {
+		v := r.Multiplexor.String()
+		pb.Multiplexor = &v
+	}
+	return pb, nil
+}
+
+// BinaryBaseFieldFromPB converts BinaryBaseField to BinaryBaseField.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func BinaryBaseFieldFromPB(pb *BinaryBaseField) (icd.BinaryBaseField, error) {
+	var r icd.BinaryBaseField
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.Key, err = uuid.Parse(pb.Key)
+	if err != nil {
+		return icd.BinaryBaseField{}, err
+	}
+	r.ByteOrder, err = ByteOrderFromPB(pb.ByteOrder)
+	if err != nil {
+		return icd.BinaryBaseField{}, err
+	}
+	r.Name = pb.Name
+	r.Scale = pb.Scale
+	r.Offset = pb.Offset
+	r.Units = pb.Units
+	r.StartBit = uint16(pb.StartBit)
+	r.BitLength = uint8(pb.BitLength)
+	r.MultiplexValues = pb.MultiplexValues
+	if pb.Min != nil {
+		r.Min = pb.Min
+	}
+	if pb.Max != nil {
+		r.Max = pb.Max
+	}
+	if pb.Multiplexor != nil {
+		v, err := uuid.Parse(*pb.Multiplexor)
+		if err != nil {
+			return icd.BinaryBaseField{}, err
+		}
+		r.Multiplexor = &v
+	}
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// BinaryBaseFieldsToPB converts a slice of BinaryBaseField to BinaryBaseField.
+func BinaryBaseFieldsToPB(rs []icd.BinaryBaseField) ([]*BinaryBaseField, error) {
+	result := make([]*BinaryBaseField, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = BinaryBaseFieldToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// BinaryBaseFieldsFromPB converts a slice of BinaryBaseField to BinaryBaseField.
+func BinaryBaseFieldsFromPB(pbs []*BinaryBaseField) ([]icd.BinaryBaseField, error) {
+	result := make([]icd.BinaryBaseField, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = BinaryBaseFieldFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // CanIdentifierToPB converts CanIdentifier to IdentifierCanPayload.
 func CanIdentifierToPB(r icd.CanIdentifier) (*IdentifierCanPayload, error) {
 	pb := &IdentifierCanPayload{
@@ -745,6 +825,153 @@ func FieldIdentifiersFromPB(pbs []*IdentifierFieldPayload) ([]icd.FieldIdentifie
 	return result, nil
 }
 
+// FloatBinaryFieldToPB converts FloatBinaryField to BinaryFieldFloatPayload.
+func FloatBinaryFieldToPB(r icd.FloatBinaryField) (*BinaryFieldFloatPayload, error) {
+	pb := &BinaryFieldFloatPayload{}
+	if r.Default != nil {
+		v := float64(*r.Default)
+		pb.Default = &v
+	}
+	return pb, nil
+}
+
+// FloatBinaryFieldFromPB converts BinaryFieldFloatPayload to FloatBinaryField.
+func FloatBinaryFieldFromPB(pb *BinaryFieldFloatPayload) (icd.FloatBinaryField, error) {
+	var r icd.FloatBinaryField
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Default != nil {
+		v := payload.Float(*pb.Default)
+		r.Default = &v
+	}
+	return r, nil
+}
+
+// FloatBinaryFieldsToPB converts a slice of FloatBinaryField to BinaryFieldFloatPayload.
+func FloatBinaryFieldsToPB(rs []icd.FloatBinaryField) ([]*BinaryFieldFloatPayload, error) {
+	result := make([]*BinaryFieldFloatPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = FloatBinaryFieldToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// FloatBinaryFieldsFromPB converts a slice of BinaryFieldFloatPayload to FloatBinaryField.
+func FloatBinaryFieldsFromPB(pbs []*BinaryFieldFloatPayload) ([]icd.FloatBinaryField, error) {
+	result := make([]icd.FloatBinaryField, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = FloatBinaryFieldFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// IntegerBinaryFieldToPB converts IntegerBinaryField to BinaryFieldIntegerPayload.
+func IntegerBinaryFieldToPB(r icd.IntegerBinaryField) (*BinaryFieldIntegerPayload, error) {
+	pb := &BinaryFieldIntegerPayload{}
+	if r.Default != nil {
+		v := int64(*r.Default)
+		pb.Default = &v
+	}
+	return pb, nil
+}
+
+// IntegerBinaryFieldFromPB converts BinaryFieldIntegerPayload to IntegerBinaryField.
+func IntegerBinaryFieldFromPB(pb *BinaryFieldIntegerPayload) (icd.IntegerBinaryField, error) {
+	var r icd.IntegerBinaryField
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Default != nil {
+		v := payload.Integer(*pb.Default)
+		r.Default = &v
+	}
+	return r, nil
+}
+
+// IntegerBinaryFieldsToPB converts a slice of IntegerBinaryField to BinaryFieldIntegerPayload.
+func IntegerBinaryFieldsToPB(rs []icd.IntegerBinaryField) ([]*BinaryFieldIntegerPayload, error) {
+	result := make([]*BinaryFieldIntegerPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = IntegerBinaryFieldToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// IntegerBinaryFieldsFromPB converts a slice of BinaryFieldIntegerPayload to IntegerBinaryField.
+func IntegerBinaryFieldsFromPB(pbs []*BinaryFieldIntegerPayload) ([]icd.IntegerBinaryField, error) {
+	result := make([]icd.IntegerBinaryField, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = IntegerBinaryFieldFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UnsignedBinaryFieldToPB converts UnsignedBinaryField to BinaryFieldUnsignedPayload.
+func UnsignedBinaryFieldToPB(r icd.UnsignedBinaryField) (*BinaryFieldUnsignedPayload, error) {
+	pb := &BinaryFieldUnsignedPayload{}
+	if r.Default != nil {
+		v := uint64(*r.Default)
+		pb.Default = &v
+	}
+	return pb, nil
+}
+
+// UnsignedBinaryFieldFromPB converts BinaryFieldUnsignedPayload to UnsignedBinaryField.
+func UnsignedBinaryFieldFromPB(pb *BinaryFieldUnsignedPayload) (icd.UnsignedBinaryField, error) {
+	var r icd.UnsignedBinaryField
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Default != nil {
+		v := payload.Unsigned(*pb.Default)
+		r.Default = &v
+	}
+	return r, nil
+}
+
+// UnsignedBinaryFieldsToPB converts a slice of UnsignedBinaryField to BinaryFieldUnsignedPayload.
+func UnsignedBinaryFieldsToPB(rs []icd.UnsignedBinaryField) ([]*BinaryFieldUnsignedPayload, error) {
+	result := make([]*BinaryFieldUnsignedPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = UnsignedBinaryFieldToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UnsignedBinaryFieldsFromPB converts a slice of BinaryFieldUnsignedPayload to UnsignedBinaryField.
+func UnsignedBinaryFieldsFromPB(pbs []*BinaryFieldUnsignedPayload) ([]icd.UnsignedBinaryField, error) {
+	result := make([]icd.UnsignedBinaryField, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = UnsignedBinaryFieldFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // DelimitedTextFieldToPB converts DelimitedTextField to TextFieldDelimitedPayload.
 func DelimitedTextFieldToPB(r icd.DelimitedTextField) (*TextFieldDelimitedPayload, error) {
 	pb := &TextFieldDelimitedPayload{
@@ -831,6 +1058,180 @@ func TaggedTextFieldsFromPB(pbs []*TextFieldTaggedPayload) ([]icd.TaggedTextFiel
 	for i, pb := range pbs {
 		var err error
 		result[i], err = TaggedTextFieldFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ConstantTimestampDefaultToPB converts ConstantTimestampDefault to TimestampDefaultConstantPayload.
+func ConstantTimestampDefaultToPB(r icd.ConstantTimestampDefault) (*TimestampDefaultConstantPayload, error) {
+	pb := &TimestampDefaultConstantPayload{
+		Value: int64(r.Value),
+	}
+	return pb, nil
+}
+
+// ConstantTimestampDefaultFromPB converts TimestampDefaultConstantPayload to ConstantTimestampDefault.
+func ConstantTimestampDefaultFromPB(pb *TimestampDefaultConstantPayload) (icd.ConstantTimestampDefault, error) {
+	var r icd.ConstantTimestampDefault
+	if pb == nil {
+		return r, nil
+	}
+	r.Value = telem.TimeStamp(pb.Value)
+	return r, nil
+}
+
+// ConstantTimestampDefaultsToPB converts a slice of ConstantTimestampDefault to TimestampDefaultConstantPayload.
+func ConstantTimestampDefaultsToPB(rs []icd.ConstantTimestampDefault) ([]*TimestampDefaultConstantPayload, error) {
+	result := make([]*TimestampDefaultConstantPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ConstantTimestampDefaultToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ConstantTimestampDefaultsFromPB converts a slice of TimestampDefaultConstantPayload to ConstantTimestampDefault.
+func ConstantTimestampDefaultsFromPB(pbs []*TimestampDefaultConstantPayload) ([]icd.ConstantTimestampDefault, error) {
+	result := make([]icd.ConstantTimestampDefault, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ConstantTimestampDefaultFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NowTimestampDefaultToPB converts NowTimestampDefault to TimestampDefaultNowPayload.
+func NowTimestampDefaultToPB(r icd.NowTimestampDefault) (*TimestampDefaultNowPayload, error) {
+	pb := &TimestampDefaultNowPayload{}
+	return pb, nil
+}
+
+// NowTimestampDefaultFromPB converts TimestampDefaultNowPayload to NowTimestampDefault.
+func NowTimestampDefaultFromPB(pb *TimestampDefaultNowPayload) (icd.NowTimestampDefault, error) {
+	var r icd.NowTimestampDefault
+	if pb == nil {
+		return r, nil
+	}
+	return r, nil
+}
+
+// NowTimestampDefaultsToPB converts a slice of NowTimestampDefault to TimestampDefaultNowPayload.
+func NowTimestampDefaultsToPB(rs []icd.NowTimestampDefault) ([]*TimestampDefaultNowPayload, error) {
+	result := make([]*TimestampDefaultNowPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = NowTimestampDefaultToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NowTimestampDefaultsFromPB converts a slice of TimestampDefaultNowPayload to NowTimestampDefault.
+func NowTimestampDefaultsFromPB(pbs []*TimestampDefaultNowPayload) ([]icd.NowTimestampDefault, error) {
+	result := make([]icd.NowTimestampDefault, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = NowTimestampDefaultFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ConstantUUIDDefaultToPB converts ConstantUUIDDefault to UUIDDefaultConstantPayload.
+func ConstantUUIDDefaultToPB(r icd.ConstantUUIDDefault) (*UUIDDefaultConstantPayload, error) {
+	pb := &UUIDDefaultConstantPayload{
+		Value: r.Value.String(),
+	}
+	return pb, nil
+}
+
+// ConstantUUIDDefaultFromPB converts UUIDDefaultConstantPayload to ConstantUUIDDefault.
+func ConstantUUIDDefaultFromPB(pb *UUIDDefaultConstantPayload) (icd.ConstantUUIDDefault, error) {
+	var r icd.ConstantUUIDDefault
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Value, err = uuid.Parse(pb.Value)
+	if err != nil {
+		return icd.ConstantUUIDDefault{}, err
+	}
+	return r, nil
+}
+
+// ConstantUUIDDefaultsToPB converts a slice of ConstantUUIDDefault to UUIDDefaultConstantPayload.
+func ConstantUUIDDefaultsToPB(rs []icd.ConstantUUIDDefault) ([]*UUIDDefaultConstantPayload, error) {
+	result := make([]*UUIDDefaultConstantPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ConstantUUIDDefaultToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ConstantUUIDDefaultsFromPB converts a slice of UUIDDefaultConstantPayload to ConstantUUIDDefault.
+func ConstantUUIDDefaultsFromPB(pbs []*UUIDDefaultConstantPayload) ([]icd.ConstantUUIDDefault, error) {
+	result := make([]icd.ConstantUUIDDefault, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ConstantUUIDDefaultFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RandomUUIDDefaultToPB converts RandomUUIDDefault to UUIDDefaultRandomPayload.
+func RandomUUIDDefaultToPB(r icd.RandomUUIDDefault) (*UUIDDefaultRandomPayload, error) {
+	pb := &UUIDDefaultRandomPayload{}
+	return pb, nil
+}
+
+// RandomUUIDDefaultFromPB converts UUIDDefaultRandomPayload to RandomUUIDDefault.
+func RandomUUIDDefaultFromPB(pb *UUIDDefaultRandomPayload) (icd.RandomUUIDDefault, error) {
+	var r icd.RandomUUIDDefault
+	if pb == nil {
+		return r, nil
+	}
+	return r, nil
+}
+
+// RandomUUIDDefaultsToPB converts a slice of RandomUUIDDefault to UUIDDefaultRandomPayload.
+func RandomUUIDDefaultsToPB(rs []icd.RandomUUIDDefault) ([]*UUIDDefaultRandomPayload, error) {
+	result := make([]*UUIDDefaultRandomPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RandomUUIDDefaultToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RandomUUIDDefaultsFromPB converts a slice of UUIDDefaultRandomPayload to RandomUUIDDefault.
+func RandomUUIDDefaultsFromPB(pbs []*UUIDDefaultRandomPayload) ([]icd.RandomUUIDDefault, error) {
+	result := make([]icd.RandomUUIDDefault, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RandomUUIDDefaultFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -1144,8 +1545,11 @@ func TimestampJSONFieldToPB(r icd.TimestampJSONField) (*JSONFieldTimestampPayloa
 		TimeFormat: timeFormatVal,
 	}
 	if r.Default != nil {
-		v := int64(*r.Default)
-		pb.Default = &v
+		var err error
+		pb.Default, err = TimestampDefaultToPB(*r.Default)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pb, nil
 }
@@ -1162,8 +1566,11 @@ func TimestampJSONFieldFromPB(pb *JSONFieldTimestampPayload) (icd.TimestampJSONF
 		return icd.TimestampJSONField{}, err
 	}
 	if pb.Default != nil {
-		v := telem.TimeStamp(*pb.Default)
-		r.Default = &v
+		val, err := TimestampDefaultFromPB(pb.Default)
+		if err != nil {
+			return icd.TimestampJSONField{}, err
+		}
+		r.Default = &val
 	}
 	return r, nil
 }
@@ -1197,6 +1604,9 @@ func TimestampJSONFieldsFromPB(pbs []*JSONFieldTimestampPayload) ([]icd.Timestam
 // JSONJSONFieldToPB converts JSONJSONField to JSONFieldJsonPayload.
 func JSONJSONFieldToPB(r icd.JSONJSONField) (*JSONFieldJsonPayload, error) {
 	pb := &JSONFieldJsonPayload{}
+	if r.Default != nil {
+		pb.Default = r.Default
+	}
 	return pb, nil
 }
 
@@ -1205,6 +1615,9 @@ func JSONJSONFieldFromPB(pb *JSONFieldJsonPayload) (icd.JSONJSONField, error) {
 	var r icd.JSONJSONField
 	if pb == nil {
 		return r, nil
+	}
+	if pb.Default != nil {
+		r.Default = pb.Default
 	}
 	return r, nil
 }
@@ -1238,6 +1651,13 @@ func JSONJSONFieldsFromPB(pbs []*JSONFieldJsonPayload) ([]icd.JSONJSONField, err
 // UuidJSONFieldToPB converts UuidJSONField to JSONFieldUuidPayload.
 func UuidJSONFieldToPB(r icd.UuidJSONField) (*JSONFieldUuidPayload, error) {
 	pb := &JSONFieldUuidPayload{}
+	if r.Default != nil {
+		var err error
+		pb.Default, err = UUIDDefaultToPB(*r.Default)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return pb, nil
 }
 
@@ -1246,6 +1666,13 @@ func UuidJSONFieldFromPB(pb *JSONFieldUuidPayload) (icd.UuidJSONField, error) {
 	var r icd.UuidJSONField
 	if pb == nil {
 		return r, nil
+	}
+	if pb.Default != nil {
+		val, err := UUIDDefaultFromPB(pb.Default)
+		if err != nil {
+			return icd.UuidJSONField{}, err
+		}
+		r.Default = &val
 	}
 	return r, nil
 }
@@ -1279,6 +1706,9 @@ func UuidJSONFieldsFromPB(pbs []*JSONFieldUuidPayload) ([]icd.UuidJSONField, err
 // BytesJSONFieldToPB converts BytesJSONField to JSONFieldBytesPayload.
 func BytesJSONFieldToPB(r icd.BytesJSONField) (*JSONFieldBytesPayload, error) {
 	pb := &JSONFieldBytesPayload{}
+	if r.Default != nil {
+		pb.Default = r.Default
+	}
 	return pb, nil
 }
 
@@ -1287,6 +1717,9 @@ func BytesJSONFieldFromPB(pb *JSONFieldBytesPayload) (icd.BytesJSONField, error)
 	var r icd.BytesJSONField
 	if pb == nil {
 		return r, nil
+	}
+	if pb.Default != nil {
+		r.Default = pb.Default
 	}
 	return r, nil
 }
@@ -1530,6 +1963,47 @@ func BooleanJSONMatchesFromPB(pbs []*JSONMatchBooleanPayload) ([]icd.BooleanJSON
 	for i, pb := range pbs {
 		var err error
 		result[i], err = BooleanJSONMatchFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// PresentJSONMatchToPB converts PresentJSONMatch to JSONMatchPresentPayload.
+func PresentJSONMatchToPB(r icd.PresentJSONMatch) (*JSONMatchPresentPayload, error) {
+	pb := &JSONMatchPresentPayload{}
+	return pb, nil
+}
+
+// PresentJSONMatchFromPB converts JSONMatchPresentPayload to PresentJSONMatch.
+func PresentJSONMatchFromPB(pb *JSONMatchPresentPayload) (icd.PresentJSONMatch, error) {
+	var r icd.PresentJSONMatch
+	if pb == nil {
+		return r, nil
+	}
+	return r, nil
+}
+
+// PresentJSONMatchesToPB converts a slice of PresentJSONMatch to JSONMatchPresentPayload.
+func PresentJSONMatchesToPB(rs []icd.PresentJSONMatch) ([]*JSONMatchPresentPayload, error) {
+	result := make([]*JSONMatchPresentPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = PresentJSONMatchToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// PresentJSONMatchesFromPB converts a slice of JSONMatchPresentPayload to PresentJSONMatch.
+func PresentJSONMatchesFromPB(pbs []*JSONMatchPresentPayload) ([]icd.PresentJSONMatch, error) {
+	result := make([]icd.PresentJSONMatch, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = PresentJSONMatchFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -1824,6 +2298,125 @@ func IdentifiersFromPB(pbs []*Identifier) ([]icd.Identifier, error) {
 	return result, nil
 }
 
+// BinaryFieldToPB converts BinaryField to BinaryField.
+func BinaryFieldToPB(r icd.BinaryField) (*BinaryField, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &BinaryField{}
+	switch v := r.Variant.(type) {
+	case icd.FloatBinaryField:
+		inner, err := FloatBinaryFieldToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.BinaryBaseField, err = BinaryBaseFieldToPB(v.BinaryBaseField)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &BinaryField_Float{Float: inner}
+	case icd.IntegerBinaryField:
+		inner, err := IntegerBinaryFieldToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.BinaryBaseField, err = BinaryBaseFieldToPB(v.BinaryBaseField)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &BinaryField_Integer{Integer: inner}
+	case icd.UnsignedBinaryField:
+		inner, err := UnsignedBinaryFieldToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.BinaryBaseField, err = BinaryBaseFieldToPB(v.BinaryBaseField)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &BinaryField_Unsigned{Unsigned: inner}
+	default:
+		return nil, errors.Newf("BinaryField: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// BinaryFieldFromPB converts BinaryField to BinaryField.
+func BinaryFieldFromPB(pb *BinaryField) (icd.BinaryField, error) {
+	var r icd.BinaryField
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+	case *BinaryField_Float:
+		inner, err := FloatBinaryFieldFromPB(v.Float)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		if pb.BinaryBaseField != nil {
+			m.BinaryBaseField, err = BinaryBaseFieldFromPB(pb.BinaryBaseField)
+			if err != nil {
+				return r, err
+			}
+		}
+		r.Variant = m
+	case *BinaryField_Integer:
+		inner, err := IntegerBinaryFieldFromPB(v.Integer)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		if pb.BinaryBaseField != nil {
+			m.BinaryBaseField, err = BinaryBaseFieldFromPB(pb.BinaryBaseField)
+			if err != nil {
+				return r, err
+			}
+		}
+		r.Variant = m
+	case *BinaryField_Unsigned:
+		inner, err := UnsignedBinaryFieldFromPB(v.Unsigned)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		if pb.BinaryBaseField != nil {
+			m.BinaryBaseField, err = BinaryBaseFieldFromPB(pb.BinaryBaseField)
+			if err != nil {
+				return r, err
+			}
+		}
+		r.Variant = m
+	}
+	return r, nil
+}
+
+// BinaryFieldsToPB converts a slice of BinaryField to BinaryField.
+func BinaryFieldsToPB(rs []icd.BinaryField) ([]*BinaryField, error) {
+	result := make([]*BinaryField, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = BinaryFieldToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// BinaryFieldsFromPB converts a slice of BinaryField to BinaryField.
+func BinaryFieldsFromPB(pbs []*BinaryField) ([]icd.BinaryField, error) {
+	result := make([]icd.BinaryField, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = BinaryFieldFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // TextFieldToPB converts TextField to TextField.
 func TextFieldToPB(r icd.TextField) (*TextField, error) {
 	if r.Variant == nil {
@@ -1836,7 +2429,7 @@ func TextFieldToPB(r icd.TextField) (*TextField, error) {
 		if err != nil {
 			return nil, err
 		}
-		pb.BaseField, err = BaseFieldToPB(v.BaseField)
+		pb.TextBaseField, err = TextBaseFieldToPB(v.TextBaseField)
 		if err != nil {
 			return nil, err
 		}
@@ -1846,7 +2439,7 @@ func TextFieldToPB(r icd.TextField) (*TextField, error) {
 		if err != nil {
 			return nil, err
 		}
-		pb.BaseField, err = BaseFieldToPB(v.BaseField)
+		pb.TextBaseField, err = TextBaseFieldToPB(v.TextBaseField)
 		if err != nil {
 			return nil, err
 		}
@@ -1870,8 +2463,8 @@ func TextFieldFromPB(pb *TextField) (icd.TextField, error) {
 			return r, err
 		}
 		m := inner
-		if pb.BaseField != nil {
-			m.BaseField, err = BaseFieldFromPB(pb.BaseField)
+		if pb.TextBaseField != nil {
+			m.TextBaseField, err = TextBaseFieldFromPB(pb.TextBaseField)
 			if err != nil {
 				return r, err
 			}
@@ -1883,8 +2476,8 @@ func TextFieldFromPB(pb *TextField) (icd.TextField, error) {
 			return r, err
 		}
 		m := inner
-		if pb.BaseField != nil {
-			m.BaseField, err = BaseFieldFromPB(pb.BaseField)
+		if pb.TextBaseField != nil {
+			m.TextBaseField, err = TextBaseFieldFromPB(pb.TextBaseField)
 			if err != nil {
 				return r, err
 			}
@@ -1913,6 +2506,158 @@ func TextFieldsFromPB(pbs []*TextField) ([]icd.TextField, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = TextFieldFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TimestampDefaultToPB converts TimestampDefault to TimestampDefault.
+func TimestampDefaultToPB(r icd.TimestampDefault) (*TimestampDefault, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &TimestampDefault{}
+	switch v := r.Variant.(type) {
+	case icd.ConstantTimestampDefault:
+		inner, err := ConstantTimestampDefaultToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &TimestampDefault_Constant{Constant: inner}
+	case icd.NowTimestampDefault:
+		inner, err := NowTimestampDefaultToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &TimestampDefault_Now{Now: inner}
+	default:
+		return nil, errors.Newf("TimestampDefault: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// TimestampDefaultFromPB converts TimestampDefault to TimestampDefault.
+func TimestampDefaultFromPB(pb *TimestampDefault) (icd.TimestampDefault, error) {
+	var r icd.TimestampDefault
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+	case *TimestampDefault_Constant:
+		inner, err := ConstantTimestampDefaultFromPB(v.Constant)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	case *TimestampDefault_Now:
+		inner, err := NowTimestampDefaultFromPB(v.Now)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	}
+	return r, nil
+}
+
+// TimestampDefaultsToPB converts a slice of TimestampDefault to TimestampDefault.
+func TimestampDefaultsToPB(rs []icd.TimestampDefault) ([]*TimestampDefault, error) {
+	result := make([]*TimestampDefault, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TimestampDefaultToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TimestampDefaultsFromPB converts a slice of TimestampDefault to TimestampDefault.
+func TimestampDefaultsFromPB(pbs []*TimestampDefault) ([]icd.TimestampDefault, error) {
+	result := make([]icd.TimestampDefault, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TimestampDefaultFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UUIDDefaultToPB converts UUIDDefault to UUIDDefault.
+func UUIDDefaultToPB(r icd.UUIDDefault) (*UUIDDefault, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &UUIDDefault{}
+	switch v := r.Variant.(type) {
+	case icd.ConstantUUIDDefault:
+		inner, err := ConstantUUIDDefaultToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &UUIDDefault_Constant{Constant: inner}
+	case icd.RandomUUIDDefault:
+		inner, err := RandomUUIDDefaultToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &UUIDDefault_Random{Random: inner}
+	default:
+		return nil, errors.Newf("UUIDDefault: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// UUIDDefaultFromPB converts UUIDDefault to UUIDDefault.
+func UUIDDefaultFromPB(pb *UUIDDefault) (icd.UUIDDefault, error) {
+	var r icd.UUIDDefault
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+	case *UUIDDefault_Constant:
+		inner, err := ConstantUUIDDefaultFromPB(v.Constant)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	case *UUIDDefault_Random:
+		inner, err := RandomUUIDDefaultFromPB(v.Random)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	}
+	return r, nil
+}
+
+// UUIDDefaultsToPB converts a slice of UUIDDefault to UUIDDefault.
+func UUIDDefaultsToPB(rs []icd.UUIDDefault) ([]*UUIDDefault, error) {
+	result := make([]*UUIDDefault, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = UUIDDefaultToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UUIDDefaultsFromPB converts a slice of UUIDDefault to UUIDDefault.
+func UUIDDefaultsFromPB(pbs []*UUIDDefault) ([]icd.UUIDDefault, error) {
+	result := make([]icd.UUIDDefault, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = UUIDDefaultFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -2234,6 +2979,16 @@ func JSONMatchToPB(r icd.JSONMatch) (*JSONMatch, error) {
 			return nil, err
 		}
 		pb.Variant = &JSONMatch_Boolean{Boolean: inner}
+	case icd.PresentJSONMatch:
+		inner, err := PresentJSONMatchToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.JsonBaseMatch, err = JSONBaseMatchToPB(v.JSONBaseMatch)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &JSONMatch_Present{Present: inner}
 	default:
 		return nil, errors.Newf("JSONMatch: unknown variant %T", r.Variant)
 	}
@@ -2301,6 +3056,19 @@ func JSONMatchFromPB(pb *JSONMatch) (icd.JSONMatch, error) {
 		r.Variant = m
 	case *JSONMatch_Boolean:
 		inner, err := BooleanJSONMatchFromPB(v.Boolean)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		if pb.JsonBaseMatch != nil {
+			m.JSONBaseMatch, err = JSONBaseMatchFromPB(pb.JsonBaseMatch)
+			if err != nil {
+				return r, err
+			}
+		}
+		r.Variant = m
+	case *JSONMatch_Present:
+		inner, err := PresentJSONMatchFromPB(v.Present)
 		if err != nil {
 			return r, err
 		}

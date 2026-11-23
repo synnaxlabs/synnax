@@ -139,7 +139,7 @@ var _ = Describe("Upload", func() {
 	})
 
 	It("Should tag the run with the labels of the range", func(ctx SpecContext) {
-		l := label.Label{Name: "hotfire"}
+		l := label.Label{Name: "hotfire", Color: labelColor}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			if err := labelSvc.NewWriter(tx).Create(ctx, &l); err != nil {
 				return err

@@ -11,7 +11,7 @@ import { uuid } from "@synnaxlabs/x";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { activation, event, type Organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { activate, decide, reissue, release } from "@/server/license/activate";
 import type { Signer } from "@/server/license/sign";
@@ -102,7 +102,7 @@ const DESKTOP_REFUSED = {
 describe("activate", () => {
   let store: Memory;
   let signer: Signer;
-  let org: Organization;
+  let org: schema.Organization;
   beforeAll(async () => {
     store = await openMemory();
     signer = createHarness(store).portal.signer;
@@ -112,8 +112,8 @@ describe("activate", () => {
     org = await createOrganization(store, { kind: "team", clerkOrgID: "org_a" });
   });
 
-  const events = async () => await store.query.select().from(event);
-  const activations = async () => await store.query.select().from(activation);
+  const events = async () => await store.query.select().from(schema.event);
+  const activations = async () => await store.query.select().from(schema.activation);
 
   describe("activate", () => {
     it("should refuse a Synnax Desktop license", async () => {
@@ -414,8 +414,8 @@ describe("activate", () => {
       });
       const [row] = await store.query
         .select()
-        .from(activation)
-        .where(eq(activation.key, held.key));
+        .from(schema.activation)
+        .where(eq(schema.activation.key, held.key));
       expect(row.lastSeen).toEqual(NOW);
       expect(await events()).toEqual([
         expect.objectContaining({
@@ -449,8 +449,8 @@ describe("activate", () => {
       ).rejects.toThrow("KMS unavailable");
       const [row] = await store.query
         .select()
-        .from(activation)
-        .where(eq(activation.key, held.key));
+        .from(schema.activation)
+        .where(eq(schema.activation.key, held.key));
       expect(row.lastSeen).toEqual(lastSeen);
       expect(await events()).toHaveLength(0);
     });
@@ -527,8 +527,8 @@ describe("activate", () => {
       ).rejects.toMatchObject(DESKTOP_REFUSED);
       const [row] = await store.query
         .select()
-        .from(activation)
-        .where(eq(activation.key, held.key));
+        .from(schema.activation)
+        .where(eq(schema.activation.key, held.key));
       expect(row.releasedAt).toBeNull();
     });
 
@@ -541,8 +541,8 @@ describe("activate", () => {
       await release(store, { activationKey: held.key, actor: "user_a", now: NOW });
       const [row] = await store.query
         .select()
-        .from(activation)
-        .where(eq(activation.key, held.key));
+        .from(schema.activation)
+        .where(eq(schema.activation.key, held.key));
       expect(row.releasedAt).toEqual(NOW);
       expect(await events()).toEqual([
         expect.objectContaining({
@@ -568,8 +568,8 @@ describe("activate", () => {
       await release(store, { activationKey: held.key, actor: "user_a", now: NOW });
       const [row] = await store.query
         .select()
-        .from(activation)
-        .where(eq(activation.key, held.key));
+        .from(schema.activation)
+        .where(eq(schema.activation.key, held.key));
       expect(row.releasedAt).toEqual(releasedAt);
       expect(await events()).toHaveLength(0);
     });

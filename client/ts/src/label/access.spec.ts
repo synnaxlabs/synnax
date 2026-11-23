@@ -25,7 +25,7 @@ describe("label", () => {
       });
       const randomLabel = await client.labels.create({
         name: "test",
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       await expect(userClient.labels.retrieve(randomLabel.key)).rejects.toSatisfy(
         AccessDeniedError.matches,
@@ -40,7 +40,7 @@ describe("label", () => {
       });
       const randomLabel = await client.labels.create({
         name: "test",
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       const retrieved = await userClient.labels.retrieve(randomLabel.key);
       expect(retrieved.key).toBe(randomLabel.key);
@@ -56,7 +56,7 @@ describe("label", () => {
       });
       await userClient.labels.create({
         name: "test",
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
     });
 
@@ -69,7 +69,7 @@ describe("label", () => {
       await expect(
         userClient.labels.create({
           name: "test",
-          color: "#E774D0",
+          color: { type: "fixed", value: "#E774D0" },
         }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
     });
@@ -82,7 +82,7 @@ describe("label", () => {
       });
       const randomLabel = await client.labels.create({
         name: "test",
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       await userClient.labels.delete(randomLabel.key);
       await expect(userClient.labels.retrieve(randomLabel.key)).rejects.toThrow(
@@ -98,7 +98,7 @@ describe("label", () => {
       });
       const randomLabel = await client.labels.create({
         name: "test",
-        color: "#E774D0",
+        color: { type: "fixed", value: "#E774D0" },
       });
       await expect(userClient.labels.delete(randomLabel.key)).rejects.toSatisfy(
         AccessDeniedError.matches,

@@ -14,9 +14,9 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Locator, page, userEvent } from "vitest/browser";
 
-import { Base } from "@/log/Base";
+import { Log } from "@/log";
 import { createAetherSetup } from "@/log/testutil";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
 // state (empty, scrolling, selectionStart, etc.). All other Aether consumers
@@ -53,7 +53,7 @@ const renderLog = async (props: Record<string, unknown> = {}) =>
   await renderThemed(
     <Wrapper>
       <div style={{ width: 400, height: 500 }}>
-        <Base {...props} />
+        <Log.Base {...props} />
       </div>
     </Wrapper>,
   );

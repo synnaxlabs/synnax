@@ -24,7 +24,6 @@ import {
   Direction,
   type Properties as PProperties,
   Schematic,
-  Staleness,
 } from "@synnaxlabs/pluto";
 import {
   box,
@@ -44,6 +43,7 @@ import {
   VALUE_COLOR_FIELDS,
 } from "@/feature/schematic/toolbar/colorFields";
 import { CSS } from "@/platform/css";
+import { Enumeration } from "@/platform/enumeration";
 import { MultiEdit } from "@/platform/multiedit";
 import { Session } from "@/session";
 
@@ -111,16 +111,18 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
   return (
     <Flex.Box className={CSS.BE("schematic", "properties")} y>
       <Form.Form<typeof Schematic.elementConfigZ> {...form}>
-        {isCustom ? (
-          <CustomVariantForm
-            specKey={specKey}
-            elKey={elKey}
-            formProps={formProps}
-            VariantForm={C.Form}
-          />
-        ) : (
-          <C.Form key={elKey} {...formProps} />
-        )}
+        <Enumeration.CreatePromptProvider>
+          {isCustom ? (
+            <CustomVariantForm
+              specKey={specKey}
+              elKey={elKey}
+              formProps={formProps}
+              VariantForm={C.Form}
+            />
+          ) : (
+            <C.Form key={elKey} {...formProps} />
+          )}
+        </Enumeration.CreatePromptProvider>
       </Form.Form>
     </Flex.Box>
   );
@@ -156,7 +158,7 @@ const selectionColorRefs = (
     COLOR_FIELDS,
     VALUE_COLOR_FIELDS[cfg.variant],
   );
-  if (cfg.variant === "state_indicator")
+  if (cfg.variant === "state_indicator" && cfg.enumeration == null)
     cfg.options.forEach((o, i) => {
       if (o.color != null)
         refs.push({
@@ -591,13 +593,8 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
       )}
       {selection.has("stalenessTimeout") && (
         <MultiEdit.StalenessSection
-          colors={selection.colors("stalenessColor", () =>
-            Staleness.resolveColor(undefined, theme),
-          )}
           timeout={selection.first("stalenessTimeout")}
-          onColorChange={(c) => selection.setColor("stalenessColor", c)}
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}
-          palettesHidden={selection.valueOnly("stalenessColor")}
         />
       )}
       {selection.has("precision") && (

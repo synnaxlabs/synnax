@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/literal"
 	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
@@ -126,59 +127,8 @@ func generatePyFile(
 			data.imports.field = "PydanticField"
 		}
 	}
-
-	inOutput := func(typ resolution.Type, _ int) bool {
-		return output.GetPath(typ, "py") == outputPath
-	}
-	allStructs := lo.Filter(table.StructTypes(), inOutput)
-	allRawKeyFields := key.Collect(allStructs, table, nil)
-	data.Resource = extractResource(
-		slices.Concat(allStructs, lo.Filter(table.UnionTypes(), inOutput)),
-		allRawKeyFields,
-		nil,
-		table,
-	)
-	if data.Resource != nil {
-		data.imports.addResource("ID")
-	}
-
-	// Pre-collect the declared, field and TypeVar names, so a module import that one
-	// would shadow takes an alias.
-	for _, typ := range slices.Concat(structs, enums, typeDefs, unions) {
-		data.imports.reserve(getPyName(typ))
-	}
-	for _, typ := range slices.Concat(structs, typeDefs) {
-		for _, tp := range resolution.NonDefaultedTypeParams(
-			resolution.TypeParams(typ.Form),
-		) {
-			data.imports.reserve(tp.Name)
-		}
-	}
-	for _, s := range structs {
-		if form, ok := s.Form.(resolution.StructForm); ok {
-			for _, field := range form.Fields {
-				data.imports.reserve(fieldName(field.Name))
-			}
-		}
-		// Also collect unified fields (which include inherited fields)
-		for _, field := range resolution.UnifiedFields(s, table) {
-			data.imports.reserve(fieldName(field.Name))
-		}
-	}
-	for _, u := range unions {
-		form := resolution.MustForm[resolution.UnionForm](u)
-		for _, v := range form.Variants {
-			_, declared := resolver.VariantBases(form, v, "py", table)
-			for _, field := range declared {
-				data.imports.reserve(fieldName(field.Name))
-			}
-			if payload, ok := v.Type.Resolve(table); ok {
-				for _, field := range resolution.UnifiedFields(payload, table) {
-					data.imports.reserve(fieldName(field.Name))
-				}
-			}
-		}
-	}
+	setResource(table, data)
+	reserveNames(structs, enums, typeDefs, unions, table, data)
 
 	// A TypeAlias assignment evaluates its right-hand side eagerly, so an alias
 	// whose target names a type defined in the SAME file (e.g. Nodes = list[Node])
@@ -188,22 +138,9 @@ func generatePyFile(
 	// types have no same-file forward-reference hazard and keep their existing
 	// position: distinct primitive aliases (e.g. Key = uuid) up-front, other
 	// aliases (e.g. Status = status.Status[...]) topologically sorted with structs.
-	var aliasTypeDefs []resolution.Type
-	var trailingTypeDefs []resolution.Type
-	for _, td := range typeDefs {
-		_, isAlias := td.Form.(resolution.AliasForm)
-		switch {
-		case typeDefRefsSameNamespaceType(td, table):
-			trailingTypeDefs = append(trailingTypeDefs, td)
-		case isAlias:
-			aliasTypeDefs = append(aliasTypeDefs, td)
-		default:
-			tdd, err := processTypeDef(td, table, data)
-			if err != nil {
-				return nil, err
-			}
-			data.TypeDefs = append(data.TypeDefs, tdd)
-		}
+	aliasTypeDefs, trailingTypeDefs, err := partitionTypeDefs(typeDefs, table, data)
+	if err != nil {
+		return nil, err
 	}
 
 	for _, e := range enums {
@@ -224,9 +161,19 @@ func generatePyFile(
 		unions,
 		trailingTypeDefs,
 	)
-
 	sortedTypes := table.TopologicalSort(combinedTypes)
+	if err = addSortedDecls(sortedTypes, table, data); err != nil {
+		return nil, err
+	}
+	return data.render()
+}
 
+// addSortedDecls appends the declarations of sortedTypes to data in order.
+func addSortedDecls(
+	sortedTypes []resolution.Type,
+	table *resolution.Table,
+	data *templateData,
+) error {
 	typePos := make(map[string]int, len(sortedTypes))
 	for i, typ := range sortedTypes {
 		typePos[typ.QualifiedName] = i
@@ -237,35 +184,16 @@ func generatePyFile(
 		case resolution.AliasForm, resolution.DistinctForm:
 			tdd, err := processTypeDef(typ, table, data)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsTypeDef: true,
 				TypeDef:   tdd,
 			})
 		case resolution.StructForm:
-			sd, err := processStruct(typ, table, data)
+			sd, err := processStructDecl(typ, table, data)
 			if err != nil {
-				return nil, err
-			}
-			if err := addFilterInput(typ, &sd, table, data); err != nil {
-				return nil, err
-			}
-			// The alias keeps a field named override from shadowing the decorator in
-			// the class body.
-			if sd.KeyField != "" && !sd.Skip && !sd.IsAlias {
-				data.imports.addTyping("override as _override")
-			}
-			hasAlias := lo.SomeBy(
-				sd.Fields,
-				func(f fieldData) bool { return f.Alias != "" },
-			)
-			sd.ModelConfig = modelConfig(
-				hasAlias,
-				resolution.InFilterRequest(typ, table),
-			)
-			if sd.ModelConfig != "" {
-				data.imports.addPydantic("ConfigDict")
+				return err
 			}
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsStruct: true,
@@ -286,15 +214,136 @@ func generatePyFile(
 			})
 		}
 	}
+	return nil
+}
 
+// render executes the file template over d.
+func (d *templateData) render() ([]byte, error) {
 	var buf bytes.Buffer
-	if err := fileTemplate.Execute(&buf, data); err != nil {
+	if err := fileTemplate.Execute(&buf, d); err != nil {
 		return nil, err
 	}
-	if err := data.missingIncludesErr(); err != nil {
+	if err := d.missingIncludesErr(); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// setResource sets the resource of data from the structs and unions in its output path.
+func setResource(table *resolution.Table, data *templateData) {
+	inOutput := func(typ resolution.Type, _ int) bool {
+		return output.GetPath(typ, "py") == data.OutputPath
+	}
+	allStructs := lo.Filter(table.StructTypes(), inOutput)
+	allRawKeyFields := key.Collect(allStructs, table, nil)
+	data.Resource = extractResource(
+		slices.Concat(allStructs, lo.Filter(table.UnionTypes(), inOutput)),
+		allRawKeyFields,
+		nil,
+		table,
+	)
+	if data.Resource != nil {
+		data.imports.addResource("ID")
+	}
+}
+
+// reserveNames reserves the declared, field, and TypeVar names of the file, so a
+// module import that one would shadow takes an alias.
+func reserveNames(
+	structs []resolution.Type,
+	enums []resolution.Type,
+	typeDefs []resolution.Type,
+	unions []resolution.Type,
+	table *resolution.Table,
+	data *templateData,
+) {
+	for _, typ := range slices.Concat(structs, enums, typeDefs, unions) {
+		data.imports.reserve(getPyName(typ))
+	}
+	for _, typ := range slices.Concat(structs, typeDefs) {
+		for _, tp := range resolution.NonDefaultedTypeParams(
+			resolution.TypeParams(typ.Form),
+		) {
+			data.imports.reserve(tp.Name)
+		}
+	}
+	for _, s := range structs {
+		if form, ok := s.Form.(resolution.StructForm); ok {
+			reserveFieldNames(form.Fields, data)
+		}
+		// Unified fields include the inherited ones.
+		reserveFieldNames(resolution.UnifiedFields(s, table), data)
+	}
+	for _, u := range unions {
+		form := resolution.MustForm[resolution.UnionForm](u)
+		for _, v := range form.Variants {
+			_, declared := resolver.VariantBases(form, v, "py", table)
+			reserveFieldNames(declared, data)
+			if payload, ok := v.Type.Resolve(table); ok {
+				reserveFieldNames(resolution.UnifiedFields(payload, table), data)
+			}
+		}
+	}
+}
+
+func reserveFieldNames(fields []resolution.Field, data *templateData) {
+	for _, field := range fields {
+		data.imports.reserve(fieldName(field.Name))
+	}
+}
+
+// partitionTypeDefs adds each type definition that no other declaration needs to
+// order against to data.TypeDefs. It returns the aliases that reference no same-file
+// type and the definitions that do.
+func partitionTypeDefs(
+	typeDefs []resolution.Type,
+	table *resolution.Table,
+	data *templateData,
+) ([]resolution.Type, []resolution.Type, error) {
+	var aliasTypeDefs, trailingTypeDefs []resolution.Type
+	for _, td := range typeDefs {
+		_, isAlias := td.Form.(resolution.AliasForm)
+		switch {
+		case typeDefRefsSameNamespaceType(td, table):
+			trailingTypeDefs = append(trailingTypeDefs, td)
+		case isAlias:
+			aliasTypeDefs = append(aliasTypeDefs, td)
+		default:
+			tdd, err := processTypeDef(td, table, data)
+			if err != nil {
+				return nil, nil, err
+			}
+			data.TypeDefs = append(data.TypeDefs, tdd)
+		}
+	}
+	return aliasTypeDefs, trailingTypeDefs, nil
+}
+
+// processStructDecl processes the struct typ with its filter input, override import,
+// and model config.
+func processStructDecl(
+	typ resolution.Type,
+	table *resolution.Table,
+	data *templateData,
+) (structData, error) {
+	sd, err := processStruct(typ, table, data)
+	if err != nil {
+		return structData{}, err
+	}
+	if err = addFilterInput(typ, &sd, table, data); err != nil {
+		return structData{}, err
+	}
+	// The alias keeps a field named override from shadowing the decorator in the
+	// class body.
+	if sd.KeyField != "" && !sd.Skip && !sd.IsAlias {
+		data.imports.addTyping("override as _override")
+	}
+	hasAlias := lo.SomeBy(sd.Fields, func(f fieldData) bool { return f.Alias != "" })
+	sd.ModelConfig = modelConfig(hasAlias, resolution.InFilterRequest(typ, table))
+	if sd.ModelConfig != "" {
+		data.imports.addPydantic("ConfigDict")
+	}
+	return sd, nil
 }
 
 // missingIncludesErr returns an error naming the hand-written types that the file
@@ -597,27 +646,8 @@ func typeDefBaseToPython(
 	if resolution.IsPrimitive(typeRef.Name) {
 		return primitiveToPython(typeRef.Name, data)
 	}
-	// Handle Array type. Collection elements are resolved via typeToPython, which
-	// handles every form (struct, enum, alias, union); typeDefBaseToPython only
-	// special-cases distinct bases and would yield Any for a struct element.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
-		// Fixed-size array -> tuple type
-		if typeRef.ArraySize != nil {
-			data.imports.addTyping("Tuple")
-			elements := make([]string, *typeRef.ArraySize)
-			for i := range elements {
-				elements[i] = elemType
-			}
-			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
-		}
-		return fmt.Sprintf("list[%s]", elemType)
-	}
-	// Handle Map type
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
-		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
-		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
+	if pyType, ok := collectionToPython(typeRef, table, data); ok {
+		return pyType
 	}
 	// Try to resolve another typedef
 	resolved, ok := typeRef.Resolve(table)
@@ -697,189 +727,10 @@ func processStruct(
 
 	// Handle struct extension with Pydantic inheritance (supports multiple parents)
 	if len(form.Extends) > 0 && resolver.ParentsExist(form.Extends, "py", table) {
-		allParentsValid := true
-		for _, extendsRef := range form.Extends {
-			parent, ok := extendsRef.Resolve(table)
-			if !ok {
-				allParentsValid = false
-				break
-			}
-			extendsExpr := buildExtendsExpr(extendsRef, parent, table, data)
-			sd.ExtendsNames = append(sd.ExtendsNames, extendsExpr)
-		}
-
+		var allParentsValid bool
+		sd.ExtendsNames, allParentsValid = extendsNames(form, table, data)
 		if allParentsValid {
-			// A domain removal (-@domain) cannot be expressed through class
-			// inheritance — the base class still carries the domain — so emit a
-			// flattened standalone class. Typeless overrides are already resolved
-			// by the analyzer.
-			if resolver.HasDomainOmissions(form) {
-				sd.HasExtends = false
-				sd.ExtendsNames = nil
-				flat := resolution.UnifiedFields(entry, table)
-				sd.Fields = make([]fieldData, 0, len(flat))
-				for _, field := range flat {
-					sd.Fields = append(
-						sd.Fields,
-						processField(field, table, data, form.OmittedFields),
-					)
-					if hashableKey(field) {
-						sd.KeyField = fieldName(field.Name)
-					}
-				}
-				return sd, nil
-			}
-
-			// Get all parent fields for comparison (first parent wins on conflict)
-			parentFields := make([]resolution.Field, 0)
-			seenFields := make(set.Set[string])
-			for _, extendsRef := range form.Extends {
-				parent, ext, _ := resolution.Dealias(extendsRef, table)
-				typeArgs := resolution.TypeArgMap(
-					resolution.TypeParams(parent.Form),
-					ext.TypeArgs,
-				)
-				for _, pf := range resolution.UnifiedFields(parent, table) {
-					if !seenFields.Contains(pf.Name) {
-						seenFields.Add(pf.Name)
-						pf.Type = resolution.SubstituteTypeRef(pf.Type, typeArgs)
-						parentFields = append(parentFields, pf)
-					}
-				}
-			}
-
-			// A child that makes a required parent field optional, or omits one, cannot
-			// override it through inheritance without a type: ignore comment, so its
-			// fields are inlined instead.
-			hasTypeConflict := false
-			for _, field := range form.Fields {
-				if field.Optional {
-					for _, pf := range parentFields {
-						if pf.Name == field.Name && !pf.Optional {
-							hasTypeConflict = true
-							break
-						}
-					}
-				}
-				if hasTypeConflict {
-					break
-				}
-			}
-			for _, pf := range parentFields {
-				if lo.Contains(form.OmittedFields, pf.Name) &&
-					requiredInPython(pf, table) {
-					hasTypeConflict = true
-					break
-				}
-			}
-
-			if hasTypeConflict {
-				// Inline all fields from parents and child into a standalone class
-				sd.HasExtends = false
-				sd.ExtendsNames = nil
-				childFieldsByName := make(map[string]resolution.Field)
-				for _, f := range form.Fields {
-					childFieldsByName[f.Name] = f
-				}
-				sd.Fields = make([]fieldData, 0, len(parentFields)+len(form.Fields))
-				addedFields := make(set.Set[string])
-
-				// Add parent fields, using child overrides where they exist. An
-				// omitted field stays so that it parses, but it is never sent.
-				for _, pf := range parentFields {
-					if childField, ok := childFieldsByName[pf.Name]; ok {
-						fd := processField(
-							childField,
-							table,
-							data,
-							form.OmittedFields,
-						)
-						sd.Fields = append(sd.Fields, fd)
-						if hashableKey(childField) {
-							sd.KeyField = fieldName(childField.Name)
-						}
-					} else {
-						fd := processField(
-							pf,
-							table,
-							data,
-							form.OmittedFields,
-						)
-						sd.Fields = append(sd.Fields, fd)
-						if hashableKey(pf) {
-							sd.KeyField = fieldName(pf.Name)
-						}
-					}
-					addedFields.Add(pf.Name)
-				}
-				// Add child-only fields that aren't in the parent
-				for _, field := range form.Fields {
-					if addedFields.Contains(field.Name) {
-						continue
-					}
-					fd := processField(
-						field,
-						table,
-						data,
-						form.OmittedFields,
-					)
-					sd.Fields = append(sd.Fields, fd)
-					if hashableKey(field) {
-						sd.KeyField = fieldName(field.Name)
-					}
-				}
-				return sd, nil
-			}
-
-			sd.HasExtends = true
-			// For extends, only include child's own fields (not inherited)
-			// Pass OmittedFields so excluded fields get Field(exclude=True)
-			sd.Fields = make([]fieldData, 0, len(form.Fields)+len(form.OmittedFields))
-			redefinedFields := make(set.Set[string])
-			for _, field := range form.Fields {
-				redefinedFields.Add(field.Name)
-				fd := processField(field, table, data, form.OmittedFields)
-				sd.Fields = append(sd.Fields, fd)
-				// Only a required @key field yields a __hash__.
-				if hashableKey(field) {
-					sd.KeyField = fieldName(field.Name)
-				}
-			}
-			// Also check parent fields for @key if not redefined
-			for _, pf := range parentFields {
-				if !redefinedFields.Contains(pf.Name) && hashableKey(pf) {
-					sd.KeyField = fieldName(pf.Name)
-				}
-			}
-
-			// For omitted fields that aren't redefined, we need to explicitly
-			// add them with Field(exclude=True) to exclude from serialization
-			for _, omittedName := range form.OmittedFields {
-				if redefinedFields.Contains(omittedName) {
-					continue // Already handled above
-				}
-				// Find the field type from parent
-				for _, pf := range parentFields {
-					if pf.Name == omittedName {
-						data.imports.addField()
-						// Run the inherited field through the normal field
-						// pipeline so it keeps its real type, default, and
-						// validation; processField adds exclude=True because the
-						// name is in OmittedFields. A hand-built default here
-						// would drop the parent's default and make an excluded
-						// defaulted field wrongly required.
-						fd := processField(
-							pf,
-							table,
-							data,
-							form.OmittedFields,
-						)
-						sd.Fields = append(sd.Fields, fd)
-						break
-					}
-				}
-			}
-			return sd, nil
+			return processExtendingStruct(entry, form, sd, table, data), nil
 		}
 	}
 
@@ -887,13 +738,194 @@ func processStruct(
 	allFields := resolution.UnifiedFields(entry, table)
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
-		sd.Fields = append(sd.Fields, processField(field, table, data, nil))
-		// Only a required @key field yields a __hash__.
-		if hashableKey(field) {
-			sd.KeyField = fieldName(field.Name)
-		}
+		sd.addField(field, table, data, nil)
 	}
 	return sd, nil
+}
+
+// addField appends the processed field to s. Only a required @key field yields a
+// __hash__.
+func (s *structData) addField(
+	field resolution.Field,
+	table *resolution.Table,
+	data *templateData,
+	omitted []string,
+) {
+	s.Fields = append(s.Fields, processField(field, table, data, omitted))
+	if hashableKey(field) {
+		s.KeyField = fieldName(field.Name)
+	}
+}
+
+// extendsNames returns the base class expressions of the parents of form, up to the
+// first parent that does not resolve. It reports whether every parent resolves.
+func extendsNames(
+	form resolution.StructForm,
+	table *resolution.Table,
+	data *templateData,
+) ([]string, bool) {
+	var names []string
+	for _, extendsRef := range form.Extends {
+		parent, ok := extendsRef.Resolve(table)
+		if !ok {
+			return names, false
+		}
+		names = append(names, buildExtendsExpr(extendsRef, parent, table, data))
+	}
+	return names, true
+}
+
+// processExtendingStruct sets the fields of sd for a struct whose parents all
+// resolve. It inherits from the parents when Python allows it, and flattens the
+// fields into a standalone class when it does not.
+func processExtendingStruct(
+	entry resolution.Type,
+	form resolution.StructForm,
+	sd structData,
+	table *resolution.Table,
+	data *templateData,
+) structData {
+	// A domain removal (-@domain) cannot be expressed through class inheritance —
+	// the base class still carries the domain — so emit a flattened standalone
+	// class. Typeless overrides are already resolved by the analyzer.
+	if resolver.HasDomainOmissions(form) {
+		sd.HasExtends = false
+		sd.ExtendsNames = nil
+		flat := resolution.UnifiedFields(entry, table)
+		sd.Fields = make([]fieldData, 0, len(flat))
+		for _, field := range flat {
+			sd.addField(field, table, data, form.OmittedFields)
+		}
+		return sd
+	}
+	parentFields := collectParentFields(form, table)
+	if hasInheritanceConflict(form, parentFields, table) {
+		return inlineParentFields(form, sd, parentFields, table, data)
+	}
+	return inheritParentFields(form, sd, parentFields, table, data)
+}
+
+// collectParentFields returns the fields of every parent of form with their type
+// arguments substituted. The first parent wins on a name conflict.
+func collectParentFields(
+	form resolution.StructForm,
+	table *resolution.Table,
+) []resolution.Field {
+	parentFields := make([]resolution.Field, 0)
+	seenFields := make(set.Set[string])
+	for _, extendsRef := range form.Extends {
+		parent, ext, _ := resolution.Dealias(extendsRef, table)
+		typeArgs := resolution.TypeArgMap(
+			resolution.TypeParams(parent.Form),
+			ext.TypeArgs,
+		)
+		for _, pf := range resolution.UnifiedFields(parent, table) {
+			if !seenFields.Contains(pf.Name) {
+				seenFields.Add(pf.Name)
+				pf.Type = resolution.SubstituteTypeRef(pf.Type, typeArgs)
+				parentFields = append(parentFields, pf)
+			}
+		}
+	}
+	return parentFields
+}
+
+// hasInheritanceConflict reports whether form makes a required parent field optional
+// or omits one. Inheritance cannot express either without a type: ignore comment.
+func hasInheritanceConflict(
+	form resolution.StructForm,
+	parentFields []resolution.Field,
+	table *resolution.Table,
+) bool {
+	for _, field := range form.Fields {
+		requiredInParent := func(pf resolution.Field) bool {
+			return pf.Name == field.Name && !pf.Optional
+		}
+		if field.Optional && lo.ContainsBy(parentFields, requiredInParent) {
+			return true
+		}
+	}
+	return lo.ContainsBy(parentFields, func(pf resolution.Field) bool {
+		return lo.Contains(form.OmittedFields, pf.Name) && requiredInPython(pf, table)
+	})
+}
+
+// inlineParentFields sets the fields of sd to the parent fields, with the child
+// overrides in their place, followed by the child-only fields. An omitted field
+// stays so that it parses, but it is never sent.
+func inlineParentFields(
+	form resolution.StructForm,
+	sd structData,
+	parentFields []resolution.Field,
+	table *resolution.Table,
+	data *templateData,
+) structData {
+	sd.HasExtends = false
+	sd.ExtendsNames = nil
+	childFieldsByName := make(map[string]resolution.Field)
+	for _, f := range form.Fields {
+		childFieldsByName[f.Name] = f
+	}
+	sd.Fields = make([]fieldData, 0, len(parentFields)+len(form.Fields))
+	addedFields := make(set.Set[string])
+	for _, pf := range parentFields {
+		field := pf
+		if childField, ok := childFieldsByName[pf.Name]; ok {
+			field = childField
+		}
+		sd.addField(field, table, data, form.OmittedFields)
+		addedFields.Add(pf.Name)
+	}
+	for _, field := range form.Fields {
+		if !addedFields.Contains(field.Name) {
+			sd.addField(field, table, data, form.OmittedFields)
+		}
+	}
+	return sd
+}
+
+// inheritParentFields sets the fields of sd to the own fields of form, followed by
+// each omitted parent field that form does not redefine. OmittedFields gives the
+// omitted fields Field(exclude=True), which excludes them from serialization.
+func inheritParentFields(
+	form resolution.StructForm,
+	sd structData,
+	parentFields []resolution.Field,
+	table *resolution.Table,
+	data *templateData,
+) structData {
+	sd.HasExtends = true
+	sd.Fields = make([]fieldData, 0, len(form.Fields)+len(form.OmittedFields))
+	redefinedFields := make(set.Set[string])
+	for _, field := range form.Fields {
+		redefinedFields.Add(field.Name)
+		sd.addField(field, table, data, form.OmittedFields)
+	}
+	for _, pf := range parentFields {
+		if !redefinedFields.Contains(pf.Name) && hashableKey(pf) {
+			sd.KeyField = fieldName(pf.Name)
+		}
+	}
+	for _, omittedName := range form.OmittedFields {
+		if redefinedFields.Contains(omittedName) {
+			continue
+		}
+		pf, ok := lo.Find(parentFields, func(pf resolution.Field) bool {
+			return pf.Name == omittedName
+		})
+		if !ok {
+			continue
+		}
+		data.imports.addField()
+		// The normal field pipeline keeps the real type, default, and validation of
+		// the inherited field. A hand-built default would drop the parent's default
+		// and make an excluded defaulted field wrongly required.
+		sd.Fields = append(
+			sd.Fields,
+			processField(pf, table, data, form.OmittedFields),
+		)
+	}
+	return sd
 }
 
 func getPyName(typ resolution.Type) string {
@@ -969,13 +1001,12 @@ func processField(
 		Name:       fieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
 		IsOptional: optionalInPython(field),
-		IsArray:    field.Type.Name == "Array",
 	}
 	if fd.Name != wireName {
 		fd.Alias = wireName
 	}
 
-	baseType := typeToPython(field.Type, table, data)
+	fd.PyType = typeToPython(field.Type, table, data)
 	// The Core mints a key, so a client sends its zero value on create. An optional
 	// field is never required.
 	_, isKey := field.Domains["key"]
@@ -1012,31 +1043,21 @@ func processField(
 	// A type never sends an excluded field, so it cannot require one.
 	excludedRequired := isExcluded && requiredInPython(field, table)
 
-	if fd.IsArray {
-		fd.PyType = fmt.Sprintf("list[%s]", baseType)
-	} else {
-		fd.PyType = baseType
-	}
-
 	// Optional (?) fields become T | None in Python (no pointer distinction). A field
 	// typed as an optional type parameter (e.g. details Details, where Details?) is
 	// likewise optional: an unspecialized struct may omit it. A required collection
 	// defaults an absent value to its empty form, so it is always present and
 	// iterable; the server omits a nil ("not loaded") collection from the wire, so
-	// the default is what fills it. CollectionKind sees through aliases and
-	// type-parameter constraints so an alias- or type-parameter-typed collection is
-	// defaulted too.
+	// the default is what fills it. A fixed-size array has no empty form, so it stays
+	// required. CollectionKind sees through aliases and type-parameter constraints so
+	// an alias- or type-parameter-typed collection is defaulted too.
 	isOptionalTypeParam := field.Type.IsTypeParam() &&
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
 	optional := fd.IsOptional || isOptionalTypeParam || excludedRequired
 	if optional {
 		fd.PyType += " | None"
-	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
-		if kind == "Array" {
-			fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
-		} else {
-			fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
-		}
+	} else if factory, ok := emptyFactory(field.Type, table); ok {
+		fieldConstraints = ensureDefaultFactory(fieldConstraints, factory)
 	}
 
 	fd.Default = buildDefault(fieldConstraints, fd.Alias, data, optional)
@@ -1054,8 +1075,23 @@ func requiredInPython(field resolution.Field, table *resolution.Table) bool {
 		field.Type.TypeParam.Optional {
 		return false
 	}
-	_, isCollection := resolution.CollectionKind(field.Type, table)
-	return !isCollection
+	_, hasEmpty := emptyFactory(field.Type, table)
+	return !hasEmpty
+}
+
+// emptyFactory returns the factory of the empty value that a missing collection
+// defaults to. A fixed-size array has no empty value, so it has no factory.
+func emptyFactory(typeRef resolution.TypeRef, table *resolution.Table) (string, bool) {
+	kind, isCollection := resolution.CollectionKind(typeRef, table)
+	_, fixed := resolution.ArraySize(typeRef, table)
+	switch {
+	case !isCollection, fixed:
+		return "", false
+	case kind == "Array":
+		return "list", true
+	default:
+		return "dict", true
+	}
 }
 
 // optionalInPython reports whether field is optional in Python. `@py optional` makes a
@@ -1161,209 +1197,252 @@ func collectValidation(
 	var constraints []string
 	primitive := key.ResolvePrimitive(typeRef, table)
 	isString := resolution.IsStringPrimitive(primitive)
-	isNumber := resolution.IsNumberPrimitive(primitive)
 	// A required string, aliased or not, is nonempty. A UUID has no length.
 	requiredString := required && resolution.PrimitiveBase(typeRef, table) == "string"
 	if requiredString && !isString && rules.MinLength == nil {
 		constraints = append(constraints, "min_length=1")
 	}
-	if isString {
-		switch {
-		case rules.MinLength != nil:
-			constraints = append(
-				constraints,
-				fmt.Sprintf("min_length=%d", *rules.MinLength),
-			)
-		case requiredString:
-			constraints = append(constraints, "min_length=1")
-		}
-		if rules.MaxLength != nil {
-			constraints = append(
-				constraints,
-				fmt.Sprintf("max_length=%d", *rules.MaxLength),
-			)
-		}
+	// Pydantic bounds bytes after the base64 decode, so the bound counts bytes.
+	if isString || primitive == "bytes" {
+		constraints = appendLengthConstraints(constraints, rules, requiredString)
 	}
-	if isNumber {
-		// A required unsigned integer is nonzero, so it is greater than zero.
-		if required && strings.HasPrefix(primitive, "uint") && rules.Min == nil &&
-			rules.GT == nil {
-			constraints = append(constraints, "gt=0")
-		}
-		if rules.Min != nil {
-			if rules.Min.IsInt {
-				constraints = append(constraints, fmt.Sprintf("ge=%d", rules.Min.Int))
-			} else {
-				constraints = append(constraints, fmt.Sprintf("ge=%f", rules.Min.Float))
-			}
-		}
-		if rules.GT != nil {
-			if rules.GT.IsInt {
-				constraints = append(constraints, fmt.Sprintf("gt=%d", rules.GT.Int))
-			} else {
-				constraints = append(constraints, fmt.Sprintf("gt=%f", rules.GT.Float))
-			}
-		}
-		if rules.Max != nil {
-			if rules.Max.IsInt {
-				constraints = append(constraints, fmt.Sprintf("le=%d", rules.Max.Int))
-			} else {
-				constraints = append(constraints, fmt.Sprintf("le=%f", rules.Max.Float))
-			}
-		}
-		isFloat := primitive == "float32" || primitive == "float64"
-		if isFloat && (len(constraints) > 0 || rules.Finite) {
-			constraints = append(constraints, "allow_inf_nan=False")
-		}
+	if resolution.IsNumberPrimitive(primitive) {
+		constraints = appendNumberConstraints(constraints, rules, primitive, required)
 	}
 	if defaultVal != nil {
-		switch defaultVal.Kind {
-		case resolution.ValueKindBool:
-			if defaultVal.BoolValue {
-				constraints = append(constraints, "default=True")
-			} else {
-				constraints = append(constraints, "default=False")
-			}
-		case resolution.ValueKindInt:
-			// Type-aware: uuid with default 0 → UUID(int=0)
-			if resolution.PrimitiveBase(typeRef, table) == "uuid" &&
-				defaultVal.IntValue == 0 {
-				data.imports.addUUID("UUID")
-				constraints = append(constraints, "default=UUID(int=0)")
-			} else if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
-				// Wrap int defaults in the distinct type constructor (e.g.,
-				// TimeSpan(0))
-				constraints = append(
-					constraints,
-					fmt.Sprintf("default=%s(%d)", wrapper, defaultVal.IntValue),
-				)
-			} else {
-				constraints = append(
-					constraints,
-					fmt.Sprintf("default=%d", defaultVal.IntValue),
-				)
-			}
-		case resolution.ValueKindFloat:
-			if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
-				constraints = append(
-					constraints,
-					fmt.Sprintf("default=%s(%f)", wrapper, defaultVal.FloatValue),
-				)
-			} else {
-				constraints = append(
-					constraints,
-					fmt.Sprintf("default=%f", defaultVal.FloatValue),
-				)
-			}
-		case resolution.ValueKindString:
-			if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
-				constraints = append(
-					constraints,
-					fmt.Sprintf("default=%s(%q)", wrapper, defaultVal.StringValue),
-				)
-			} else {
-				constraints = append(
-					constraints,
-					fmt.Sprintf("default=%q", defaultVal.StringValue),
-				)
-			}
-		case resolution.ValueKindIdent:
-			// Handle identifier-based defaults like "now" for timestamps
-			if defaultVal.IdentValue == "now" {
-				if ts, ok := telem.TimeStampRef(typeRef, table, "py"); ok {
-					constraints = append(
-						constraints,
-						"default_factory="+typeToPython(ts, table, data)+".now",
-					)
-				}
-			}
-			// Handle "create" for auto-generating keys. uuid keys generate a UUID
-			// object; string keys generate a stringified UUID. uuid is a string
-			// primitive, so check it first. Use key.ResolvePrimitive to handle type
-			// aliases like `Key distinct string`.
-			primitive := key.ResolvePrimitive(typeRef, table)
-			if defaultVal.IdentValue == "create" {
-				if primitive == "uuid" {
-					data.imports.addUUID("uuid4")
-					constraints = append(constraints, "default_factory=uuid4")
-				} else if isString || primitive == "string" {
-					data.imports.addUUID("uuid4")
-					constraints = append(
-						constraints,
-						"default_factory=lambda: str(uuid4())",
-					)
-				}
-			}
-			if ev, ok := validation.ResolveEnumVariant(
-				defaultVal.IdentValue,
-				typeRef,
-				table,
-			); ok {
-				variantRef := enumVariantToPython(ev, table, data)
-				constraints = append(constraints, "default="+variantRef)
-			}
-			if uv, ok := validation.ResolveUnionVariant(
-				defaultVal.IdentValue,
-				typeRef,
-				table,
-			); ok {
-				// Models are mutable, so the variant needs default_factory. The
-				// discriminator Literal carries no default of its own and must be
-				// passed explicitly.
-				constraints = append(constraints, fmt.Sprintf(
-					"default_factory=lambda: %s(%s=%q)",
-					unionVariantToPython(uv, table, data),
-					fieldName(uv.Union.Discriminator),
-					uv.Variant.Name,
-				))
-			}
-		case resolution.ValueKindArray:
-			// Lists are mutable, so they must use default_factory, never default=.
-			if len(defaultVal.Elements) == 0 {
-				constraints = append(constraints, "default_factory=list")
-			} else {
-				constraints = append(
-					constraints,
-					"default_factory=lambda: "+pyDefaultLiteral(
-						typeRef,
-						*defaultVal,
-						table,
-						data,
-					),
-				)
-			}
-		case resolution.ValueKindStruct:
-			// Records (dict[str, JsonValue]) and maps are mutable dicts, so they
-			// use default_factory. An empty default becomes dict; a populated one a
-			// dict literal. Other struct types default to a model constructor.
-			kind, _ := resolution.CollectionKind(typeRef, table)
-			if typeRef.Name == "record" || kind == "Map" {
-				if len(defaultVal.Fields) == 0 {
-					constraints = append(constraints, "default_factory=dict")
-				} else {
-					constraints = append(
-						constraints,
-						"default_factory=lambda: "+pyDefaultLiteral(
-							typeRef,
-							*defaultVal,
-							table,
-							data,
-						),
-					)
-				}
-			} else {
-				// Models are mutable, so they must use default_factory, never default=.
-				constraints = append(
-					constraints,
-					"default_factory=lambda: "+pyDefaultLiteral(
-						typeRef,
-						*defaultVal,
-						table,
-						data,
-					),
-				)
-			}
+		constraints = appendDefault(
+			constraints,
+			*defaultVal,
+			typeRef,
+			isString,
+			table,
+			data,
+		)
+	}
+	return constraints
+}
+
+func appendLengthConstraints(
+	constraints []string,
+	rules *validation.Rules,
+	requiredString bool,
+) []string {
+	switch {
+	case rules.MinLength != nil:
+		constraints = append(
+			constraints,
+			fmt.Sprintf("min_length=%d", *rules.MinLength),
+		)
+	case requiredString:
+		constraints = append(constraints, "min_length=1")
+	}
+	if rules.MaxLength != nil {
+		constraints = append(
+			constraints,
+			fmt.Sprintf("max_length=%d", *rules.MaxLength),
+		)
+	}
+	return constraints
+}
+
+func appendNumberConstraints(
+	constraints []string,
+	rules *validation.Rules,
+	primitive string,
+	required bool,
+) []string {
+	// A required unsigned integer is nonzero, so it is greater than zero.
+	if required && strings.HasPrefix(primitive, "uint") && rules.Min == nil &&
+		rules.GT == nil {
+		constraints = append(constraints, "gt=0")
+	}
+	if rules.Min != nil {
+		constraints = append(constraints, boundConstraint("ge", *rules.Min))
+	}
+	if rules.GT != nil {
+		constraints = append(constraints, boundConstraint("gt", *rules.GT))
+	}
+	if rules.Max != nil {
+		constraints = append(constraints, boundConstraint("le", *rules.Max))
+	}
+	isFloat := primitive == "float32" || primitive == "float64"
+	if isFloat && (len(constraints) > 0 || rules.Finite) {
+		constraints = append(constraints, "allow_inf_nan=False")
+	}
+	return constraints
+}
+
+func boundConstraint(name string, n validation.Number) string {
+	if n.IsInt {
+		return fmt.Sprintf("%s=%d", name, n.Int)
+	}
+	return fmt.Sprintf("%s=%s", name, literal.Float(n.Float))
+}
+
+// appendDefault appends the default= or default_factory= constraints for the default
+// value of a field of type typeRef.
+func appendDefault(
+	constraints []string,
+	defaultVal resolution.ExpressionValue,
+	typeRef resolution.TypeRef,
+	isString bool,
+	table *resolution.Table,
+	data *templateData,
+) []string {
+	switch defaultVal.Kind {
+	case resolution.ValueKindBool:
+		if defaultVal.BoolValue {
+			return append(constraints, "default=True")
 		}
+		return append(constraints, "default=False")
+	case resolution.ValueKindInt:
+		// Type-aware: uuid with default 0 → UUID(int=0)
+		if resolution.PrimitiveBase(typeRef, table) == "uuid" &&
+			defaultVal.IntValue == 0 {
+			data.imports.addUUID("UUID")
+			return append(constraints, "default=UUID(int=0)")
+		}
+		// Wrap int defaults in the distinct type constructor (e.g., TimeSpan(0)).
+		return append(
+			constraints,
+			distinctDefault("%d", defaultVal.IntValue, typeRef, table, data),
+		)
+	case resolution.ValueKindFloat:
+		return append(
+			constraints,
+			distinctDefault(
+				"%s",
+				literal.Float(defaultVal.FloatValue),
+				typeRef,
+				table,
+				data,
+			),
+		)
+	case resolution.ValueKindString:
+		return append(
+			constraints,
+			distinctDefault("%q", defaultVal.StringValue, typeRef, table, data),
+		)
+	case resolution.ValueKindIdent:
+		return appendIdentDefault(
+			constraints,
+			defaultVal,
+			typeRef,
+			isString,
+			table,
+			data,
+		)
+	case resolution.ValueKindArray:
+		return append(constraints, arrayDefault(typeRef, defaultVal, table, data))
+	case resolution.ValueKindStruct:
+		// Records (dict[str, JsonValue]) and maps are mutable dicts, so they use
+		// default_factory. An empty default becomes dict; a populated one a dict
+		// literal. Other struct types are mutable models and default to a model
+		// constructor.
+		kind, _ := resolution.CollectionKind(typeRef, table)
+		if (typeRef.Name == "record" || kind == "Map") && len(defaultVal.Fields) == 0 {
+			return append(constraints, "default_factory=dict")
+		}
+		return append(constraints, defaultFactory(typeRef, defaultVal, table, data))
+	}
+	return constraints
+}
+
+// distinctDefault returns a default= constraint for v in format verb, wrapped in the
+// constructor of the distinct type that typeRef names, if any.
+func distinctDefault(
+	verb string,
+	v any,
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
+		return fmt.Sprintf("default=%s("+verb+")", wrapper, v)
+	}
+	return fmt.Sprintf("default="+verb, v)
+}
+
+// arrayDefault returns the default constraint for an array. Lists are mutable, so
+// they must use default_factory, never default=. Tuples are immutable, so they take a
+// plain default.
+func arrayDefault(
+	typeRef resolution.TypeRef,
+	defaultVal resolution.ExpressionValue,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	if _, fixed := resolution.ArraySize(typeRef, table); fixed {
+		return "default=" + pyDefaultLiteral(typeRef, defaultVal, table, data)
+	}
+	if len(defaultVal.Elements) == 0 {
+		return "default_factory=list"
+	}
+	return defaultFactory(typeRef, defaultVal, table, data)
+}
+
+func defaultFactory(
+	typeRef resolution.TypeRef,
+	defaultVal resolution.ExpressionValue,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	literal := pyDefaultLiteral(typeRef, defaultVal, table, data)
+	return "default_factory=lambda: " + literal
+}
+
+// appendIdentDefault appends the constraints for an identifier default: "now" for a
+// timestamp, "create" for a generated key, or an enum or union variant.
+func appendIdentDefault(
+	constraints []string,
+	defaultVal resolution.ExpressionValue,
+	typeRef resolution.TypeRef,
+	isString bool,
+	table *resolution.Table,
+	data *templateData,
+) []string {
+	if defaultVal.IdentValue == "now" {
+		if ts, ok := telem.TimeStampRef(typeRef, table, "py"); ok {
+			constraints = append(
+				constraints,
+				"default_factory="+typeToPython(ts, table, data)+".now",
+			)
+		}
+	}
+	// uuid keys generate a UUID object; string keys generate a stringified UUID. uuid
+	// is a string primitive, so check it first. key.ResolvePrimitive handles type
+	// aliases like `Key distinct string`.
+	primitive := key.ResolvePrimitive(typeRef, table)
+	if defaultVal.IdentValue == "create" {
+		if primitive == "uuid" {
+			data.imports.addUUID("uuid4")
+			constraints = append(constraints, "default_factory=uuid4")
+		} else if isString || primitive == "string" {
+			data.imports.addUUID("uuid4")
+			constraints = append(constraints, "default_factory=lambda: str(uuid4())")
+		}
+	}
+	if ev, ok := validation.ResolveEnumVariant(
+		defaultVal.IdentValue,
+		typeRef,
+		table,
+	); ok {
+		variantRef := enumVariantToPython(ev, table, data)
+		constraints = append(constraints, "default="+variantRef)
+	}
+	if uv, ok := validation.ResolveUnionVariant(
+		defaultVal.IdentValue,
+		typeRef,
+		table,
+	); ok {
+		// Models are mutable, so the variant needs default_factory. The discriminator
+		// Literal carries no default of its own and must be passed explicitly.
+		constraints = append(constraints, fmt.Sprintf(
+			"default_factory=lambda: %s(%s=%q)",
+			unionVariantToPython(uv, table, data),
+			fieldName(uv.Union.Discriminator),
+			uv.Variant.Name,
+		))
 	}
 	return constraints
 }
@@ -1383,7 +1462,7 @@ func pyDefaultLiteral(
 	case resolution.ValueKindInt:
 		return strconv.FormatInt(val.IntValue, 10)
 	case resolution.ValueKindFloat:
-		return fmt.Sprintf("%f", val.FloatValue)
+		return literal.Float(val.FloatValue)
 	case resolution.ValueKindBool:
 		if val.BoolValue {
 			return "True"
@@ -1400,7 +1479,13 @@ func pyDefaultLiteral(
 		for _, el := range val.Elements {
 			parts = append(parts, pyDefaultLiteral(elem, el, table, data))
 		}
-		return "[" + strings.Join(parts, ", ") + "]"
+		if _, fixed := resolution.ArraySize(typeRef, table); !fixed {
+			return "[" + strings.Join(parts, ", ") + "]"
+		}
+		if len(parts) == 1 {
+			return "(" + parts[0] + ",)"
+		}
+		return "(" + strings.Join(parts, ", ") + ")"
 	case resolution.ValueKindStruct:
 		if kind, _ := resolution.CollectionKind(
 			typeRef,
@@ -1650,8 +1735,9 @@ func sizedIntBounds(
 	return b, ok
 }
 
-// boundedArgToPython returns the Python type of a map key or value. A sized integer
-// carries its range in its type, since the bounds of a field do not reach into a dict.
+// boundedArgToPython returns the Python type of a map key, map value, or list element.
+// A sized integer carries its range in its type, since field bounds do not reach into a
+// collection.
 func boundedArgToPython(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
@@ -1670,6 +1756,35 @@ func boundedArgToPython(
 		bounds.min,
 		bounds.max,
 	)
+}
+
+// collectionToPython returns the Python type of an array (list[...], or a Tuple when
+// fixed-size) or a map (dict[...]), and false when typeRef is neither.
+func collectionToPython(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) (string, bool) {
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		return fmt.Sprintf(
+			"dict[%s, %s]",
+			boundedArgToPython(typeRef.TypeArgs[0], table, data),
+			boundedArgToPython(typeRef.TypeArgs[1], table, data),
+		), true
+	}
+	if typeRef.Name != "Array" || len(typeRef.TypeArgs) == 0 {
+		return "", false
+	}
+	elemType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
+	if typeRef.ArraySize == nil {
+		return fmt.Sprintf("list[%s]", elemType), true
+	}
+	data.imports.addTyping("Tuple")
+	elements := make([]string, *typeRef.ArraySize)
+	for i := range elements {
+		elements[i] = elemType
+	}
+	return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", ")), true
 }
 
 // importLocalHand imports name from typ's `@py include` module when typ is
@@ -1738,29 +1853,8 @@ func typeToPython(
 		return primitiveToPython(typeRef.Name, data)
 	}
 
-	// Handle Array type. The bare element type is returned (not list[...]); field
-	// processing wraps array-typed fields in list[...] itself off the element type,
-	// so wrapping here would double-wrap. Alias contexts that need list[...] use
-	// typeDefBaseToPython / typeRefToPythonAlias instead.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
-		// Fixed-size array -> tuple type
-		if typeRef.ArraySize != nil {
-			data.imports.addTyping("Tuple")
-			elements := make([]string, *typeRef.ArraySize)
-			for i := range elements {
-				elements[i] = elemType
-			}
-			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
-		}
-		return elemType
-	}
-
-	// Handle Map type
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
-		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
-		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
+	if pyType, ok := collectionToPython(typeRef, table, data); ok {
+		return pyType
 	}
 
 	// Try to resolve the type
@@ -1774,38 +1868,8 @@ func typeToPython(
 	pyName = importLocalHand(resolved, pyName, data)
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		if resolved.FilePath != data.FilePath {
-			outputPath := output.GetPath(resolved, "py")
-			if outputPath == "" {
-				outputPath = resolved.Namespace
-			}
-			modulePath := toPythonModulePath(outputPath)
-			pyName = addCrossNamespaceImport(resolved, modulePath, pyName, data)
-		}
+		pyName = importedName(resolved, pyName, table, data)
 		return pyName + typeArgsToPython(resolved, typeRef.TypeArgs, table, data)
-
-	case resolution.EnumForm:
-		if resolved.FilePath != data.FilePath {
-			outputPath := enum.FindOutputPath(resolved, table, "py")
-			if outputPath == "" {
-				outputPath = resolved.Namespace
-			}
-			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(resolved, modulePath, pyName, data)
-		}
-		return pyName
-
-	case resolution.DistinctForm:
-		if resolved.FilePath != data.FilePath {
-			outputPath := output.GetPath(resolved, "py")
-			if outputPath == "" {
-				outputPath = resolved.Namespace
-			}
-			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(resolved, modulePath, pyName, data)
-		}
-		return pyName
-
 	case resolution.AliasForm:
 		// A generic TypeAlias binds its arguments in the order its type variables first
 		// appear in the target, not in the declared order. A use that binds a type
@@ -1821,31 +1885,37 @@ func typeToPython(
 			)
 			return typeToPython(target, table, data)
 		}
-		if resolved.FilePath != data.FilePath {
-			outputPath := output.GetPath(resolved, "py")
-			if outputPath == "" {
-				outputPath = resolved.Namespace
-			}
-			modulePath := toPythonModulePath(outputPath)
-			pyName = addCrossNamespaceImport(resolved, modulePath, pyName, data)
-		}
-		return pyName
-
-	case resolution.UnionForm:
-		if resolved.FilePath != data.FilePath {
-			outputPath := output.GetPath(resolved, "py")
-			if outputPath == "" {
-				outputPath = resolved.Namespace
-			}
-			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(resolved, modulePath, pyName, data)
-		}
-		return pyName
-
+		return importedName(resolved, pyName, table, data)
+	case resolution.EnumForm, resolution.DistinctForm, resolution.UnionForm:
+		return importedName(resolved, pyName, table, data)
 	default:
 		data.imports.addTyping("Any")
 		return "Any"
 	}
+}
+
+// importedName returns pyName, imported from the output module of resolved when
+// resolved is in another file.
+func importedName(
+	resolved resolution.Type,
+	pyName string,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	if resolved.FilePath == data.FilePath {
+		return pyName
+	}
+	var outputPath string
+	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+		outputPath = enum.FindOutputPath(resolved, table, "py")
+	} else {
+		outputPath = output.GetPath(resolved, "py")
+	}
+	if outputPath == "" {
+		outputPath = resolved.Namespace
+	}
+	modulePath := toPythonModulePath(outputPath)
+	return addCrossNamespaceImport(resolved, modulePath, pyName, data)
 }
 
 func typeRefToPythonAlias(
@@ -1853,19 +1923,8 @@ func typeRefToPythonAlias(
 	table *resolution.Table,
 	data *templateData,
 ) string {
-	// Array and map alias targets (e.g. Nodes = Node[], Authorities = map<...>) are
-	// builtin generics that do not resolve to a struct, so handle them here rather
-	// than falling through to the scalar/struct path below.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 &&
-		typeRef.ArraySize == nil {
-		return fmt.Sprintf("list[%s]", typeToPython(typeRef.TypeArgs[0], table, data))
-	}
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		return fmt.Sprintf(
-			"dict[%s, %s]",
-			boundedArgToPython(typeRef.TypeArgs[0], table, data),
-			boundedArgToPython(typeRef.TypeArgs[1], table, data),
-		)
+	if pyType, ok := collectionToPython(typeRef, table, data); ok {
+		return pyType
 	}
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
@@ -2281,7 +2340,6 @@ type fieldData struct {
 	PyType     string
 	Default    string
 	IsOptional bool
-	IsArray    bool
 }
 
 type enumData struct {

@@ -156,8 +156,12 @@ const detectRequestStreams = (): boolean => {
 
 // Browsers implement streaming request bodies but send them only over HTTP/2 or HTTP/3,
 // and the negotiated protocol is unknowable before the request goes out. Everywhere
-// else a stream rides HTTP/1.1 chunked, which is what the Core speaks.
-const STREAMS_REQUEST_BODIES = runtime.RUNTIME === "node" && detectRequestStreams();
+// else a stream rides HTTP/1.1 chunked, which is what the Core speaks. An Electron
+// renderer sets process.versions.node but sends with the browser's fetch.
+const STREAMS_REQUEST_BODIES =
+  runtime.RUNTIME === "node" &&
+  typeof document === "undefined" &&
+  detectRequestStreams();
 
 const toSendableBody = async (body: UploadBody): Promise<UploadBody> => {
   if (STREAMS_REQUEST_BODIES || !(body instanceof ReadableStream)) return body;

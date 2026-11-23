@@ -8,13 +8,15 @@
 # included in the file licenses/APL.txt.
 
 # Raises a pull request to review/human when the results Check - Classify uploaded show
-# a changed interface, and keeps one comment with the evidence. Otherwise the author
-# picks the tier. A fork, or a change to the classifier itself, always gets a human:
-# either could forge the uploaded results. Check - Classify dispatches this, and Relay -
-# Sweep does for a fork or Dependabot. The workflow runs from the default branch and
-# never checks out or runs pull request code: the artifacts are data. The label goes on
-# with an App token, because a label set with GITHUB_TOKEN starts no other workflow, and
-# the review gate and auto-merge wait for it.
+# a changed interface or a failed report, and keeps one comment with the evidence. A
+# later run with no flagged report removes a review/human that it added, unless the
+# label was added again since. Otherwise the author picks the tier. A fork, or a change
+# to the classifier itself, always gets a human: either could forge the uploaded
+# results. Check - Classify dispatches this, and Relay - Sweep does for a fork or
+# Dependabot. The workflow runs from the default branch and never checks out or runs
+# pull request code: the artifacts are data. The label goes on with an App token,
+# because a label set with GITHUB_TOKEN starts no other workflow, and the review gate
+# and auto-merge wait for it. The classifier trusts only a comment that this App posted.
 
 name: Label - Classify
 
@@ -61,9 +63,28 @@ jobs:
           sparse-checkout: .github/scripts
           persist-credentials: false
 
+      # Picks the merge of the latest attempt. A run whose merge failed has no results,
+      # so the classifier marks each surface as an error. A failed request still fails
+      # the job.
+      - name: Find the results
+        id: find
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          names=$(.github/scripts/gh_api.sh --paginate \
+            "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.expired | not) | .name')
+          name=$(grep -E '^surfaces-[0-9]+$' <<< "$names" |
+            sort -t- -k2 -n | tail -n1 || true)
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
       - name: Download the results
+        if: steps.find.outputs.name != ''
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
+          name: ${{ steps.find.outputs.name }}
           run-id: ${{ inputs.run_id }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/results
@@ -90,6 +111,7 @@ jobs:
 
       - name: Classify
         env:
+          APP: ${{ steps.token.outputs.app-slug }}
           GH_TOKEN: ${{ steps.token.outputs.token }}
           HEAD_SHA: ${{ inputs.head_sha }}
           PR: ${{ inputs.pr }}

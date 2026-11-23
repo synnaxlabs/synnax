@@ -15,9 +15,9 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	colorpb "github.com/synnaxlabs/synnax/pkg/service/color/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	colorpb "github.com/synnaxlabs/x/color/pb"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
@@ -42,7 +42,7 @@ func RangeToPB(r ranger.Range) (*Range, error) {
 	}
 	if r.Color != nil {
 		var err error
-		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		pb.Color, err = colorpb.RefToPB(*r.Color)
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +92,7 @@ func RangeFromPB(pb *Range) (ranger.Range, error) {
 	r.Name = pb.Name
 	r.HasChildren = pb.HasChildren
 	if pb.Color != nil {
-		val, err := colorpb.ColorFromPB(pb.Color)
+		val, err := colorpb.RefFromPB(pb.Color)
 		if err != nil {
 			return ranger.Range{}, err
 		}

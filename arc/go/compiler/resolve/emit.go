@@ -201,18 +201,35 @@ var opToCompareName = map[string]string{
 	"!=": "ne",
 }
 
-// EmitSeriesComparison emits a call to a series-to-series comparison function.
+// EmitSeriesComparison emits a call to a series comparison function. If isScalar is
+// true, the right operand is a scalar of elemType; otherwise it is a series.
 func (r *Resolver) EmitSeriesComparison(
 	w *wasm.Writer,
 	wID int,
 	op string,
 	elemType types.Type,
+	isScalar bool,
 ) error {
 	name, ok := opToCompareName[op]
 	if !ok {
 		return errors.Newf("unknown comparison operator: %s", op)
 	}
-	r.emitSeriesBinary(w, wID, "compare_"+name, elemType)
+	if !isScalar {
+		r.emitSeriesBinary(w, wID, "compare_"+name, elemType)
+		return nil
+	}
+	ct := types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Type: types.I32()}, {Type: elemType}},
+		Outputs: types.Params{{Type: types.I32()}},
+	})
+	r.emitImportCallWithSuffix(
+		w,
+		wID,
+		"series",
+		"compare_"+name+"_scalar",
+		ct,
+		suffixForType(elemType),
+	)
 	return nil
 }
 

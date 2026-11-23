@@ -13,6 +13,7 @@ import (
 	"math"
 
 	"github.com/synnaxlabs/x/errors"
+	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -134,8 +135,7 @@ func (n number) float64() float64 {
 // range, which would become an infinity.
 func (n number) float32() (float32, bool) {
 	f := n.float64()
-	return float32(f), math.Abs(f) <= math.MaxFloat32 || math.IsInf(f, 0) ||
-		math.IsNaN(f)
+	return float32(f), math.Abs(f) <= math.MaxFloat32 || !xmath.Finite(f)
 }
 
 func fitsInt(i int64, bits int) bool {

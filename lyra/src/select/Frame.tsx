@@ -7,19 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { destructor, optional, record } from "@synnaxlabs/x";
+import { array, type destructor, type optional, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
+  useEffect,
   useState,
   useSyncExternalStore,
 } from "react";
 
 import { Dialog } from "@/dialog";
+import { useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Context } from "@/select/Context";
+import { onFirstInput } from "@/select/firstInput";
 import { type Registry, RegistryContext, useRegistry } from "@/select/registry";
-import { KeyboardContext } from "@/select/scope";
+import { KeyboardContext, ViewingContext } from "@/select/scope";
 import {
   useMultiple,
   type UseMultipleProps,
@@ -82,7 +85,15 @@ export interface TriggerProps<
 interface BaseFrameProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
-> extends optional.Optional<Omit<List.FrameProps<K, E>, "onChange">, "data"> {}
+> extends optional.Optional<Omit<List.FrameProps<K, E>, "onChange">, "data"> {
+  /**
+   * Whether to list the selected entries first each time the enclosing dialog opens.
+   * The order holds while the dialog stays open, except that an entry that loads before
+   * the user's first input joins the front. A search lists its matches in their own
+   * order.
+   */
+  selectedFirst?: boolean;
+}
 
 export interface MultipleFrameProps<
   K extends record.Key,
@@ -90,12 +101,6 @@ export interface MultipleFrameProps<
 >
   extends BaseFrameProps<K, E>, UseMultipleProps<K> {
   multiple: true;
-  /**
-   * Whether to list the selected entries first each time the enclosing dialog opens.
-   * The order holds while the dialog stays open, and a search lists its matches in
-   * their own order.
-   */
-  selectedFirst?: boolean;
 }
 
 export interface SingleFrameProps<
@@ -122,19 +127,46 @@ const useSelectedFirst = <K extends record.Key, E extends record.Keyed<K> | unde
   registry: Registry,
   data: K[],
   getItem: List.GetItem<K, E> | undefined,
+  subscribe: List.FrameProps<K, E>["subscribe"],
   value: K[] | null,
 ): K[] => {
   const { visible } = Dialog.useContext();
   const [opened, setOpened] = useState(false);
   const [front, setFront] = useState<K[]>(EMPTY);
+  const [pending, setPending] = useState<K[]>(EMPTY);
   if (opened !== visible) {
     setOpened(visible);
     // Only a readable entry goes first. A fixed item keeps its own place, and a deleted
     // entry stays out of the list.
     const readable = (key: K): boolean =>
       getItem == null ? data.includes(key) : getItem(key) != null;
-    setFront(visible && value != null ? value.filter(readable) : EMPTY);
+    const selected = visible && value != null ? value : EMPTY;
+    setFront(selected.filter(readable));
+    const loading = (key: K): boolean => !registry.hasItem(key) && !readable(key);
+    setPending(getItem == null ? EMPTY : selected.filter(loading));
   }
+  // An entry still loading when the dialog opens goes first once it loads, after the
+  // entries already there, until the user's first input. Subscribing can fetch, so only
+  // the keys still loading subscribe.
+  const readRef = useSyncedRef({ getItem, subscribe });
+  useEffect(() => {
+    const { subscribe } = readRef.current;
+    if (subscribe == null || pending.length === 0) return;
+    const waiting = new Set(pending);
+    const stops: destructor.Destructor[] = [];
+    const stop = (): void => stops.splice(0).forEach((s) => s());
+    const join = (key: K): void => {
+      if (!waiting.has(key) || readRef.current.getItem?.(key) == null) return;
+      waiting.delete(key);
+      setFront((keys) => [...keys, key]);
+      if (waiting.size === 0) stop();
+    };
+    stops.push(
+      onFirstInput(registry, stop),
+      ...pending.map((key) => subscribe(() => join(key), key)),
+    );
+    return stop;
+  }, [pending, readRef, registry]);
   const isSearching = (): boolean => registry.getTerm() !== "";
   const searching = useSyncExternalStore(
     value == null ? NOOP_SUBSCRIBE : registry.subscribe,
@@ -169,14 +201,21 @@ export const Frame = <
     pinned,
     value,
     onChange,
+    selectedFirst = false,
+    enableTriggers,
     ...rest
   } = props;
   const registry = useRegistry();
+  const { visible } = Dialog.useContext();
+  const [viewing, setViewing] = useState(false);
+  // A dialog that closes drops its view.
+  if (viewing && !visible) setViewing(false);
   const ordered = useSelectedFirst(
     registry,
     data,
     getItem,
-    props.multiple === true && props.selectedFirst === true ? props.value : null,
+    subscribe,
+    selectedFirst ? array.toArray<K>(value) : null,
   );
   return (
     <List.Frame<K, E>
@@ -190,11 +229,23 @@ export const Frame = <
       pinned={pinned}
     >
       <RegistryContext value={registry}>
-        {multiple ? (
-          <MultipleProvider value={value} onChange={onChange} {...rest} />
-        ) : (
-          <SingleProvider value={value} onChange={onChange} {...rest} />
-        )}
+        <ViewingContext value={setViewing}>
+          {multiple ? (
+            <MultipleProvider
+              value={value}
+              onChange={onChange}
+              enableTriggers={viewing ? false : enableTriggers}
+              {...rest}
+            />
+          ) : (
+            <SingleProvider
+              value={value}
+              onChange={onChange}
+              enableTriggers={viewing ? false : enableTriggers}
+              {...rest}
+            />
+          )}
+        </ViewingContext>
       </RegistryContext>
     </List.Frame>
   );

@@ -117,6 +117,17 @@ TEST(HTTPScanTask, ExpectedResponseConfigMissingBoth) {
     EXPECT_FALSE(parser.ok());
 }
 
+/// @brief it should reject a response pointer that is not a valid JSON Pointer.
+TEST(HTTPScanTask, ExpectedResponseConfigMalformedPointer) {
+    auto j = x::json::json{{"pointer", "status"}, {"expected_value", "ok"}};
+    auto parser = x::json::Parser(j);
+    const ExpectedResponseConfig cfg(parser);
+    ASSERT_FALSE(parser.ok());
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "pointer");
+}
+
 TEST(HTTPScanTask, HealthCheckConfigParsesAllFields) {
     auto j = x::json::json{
         {"method", "POST"},
@@ -1046,6 +1057,61 @@ TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
     EXPECT_EQ(
         result[0].status.value().description,
         "The response body has no value at '/status'."
+    );
+
+    server.stop();
+}
+
+/// @brief it should fail the health check when an array index in the pointer
+/// overflows.
+TEST(HTTPScanTask, ScanHealthCheckArrayIndexOverflow) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/health",
+                .response_body = R"({"items": [1]})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+
+    auto dev = make_device(
+        host_port_from_url(server.base_url()),
+        {
+            {"health_check",
+             {
+                 {"method", "GET"},
+                 {"path", "/health"},
+                 {"response",
+                  {
+                      {"pointer", "/items/99999999999999999999"},
+                      {"expected_value", "ok"},
+                  }},
+             }},
+        }
+    );
+
+    std::unordered_map<std::string, synnax::device::Device> devices;
+    devices[dev.key] = dev;
+    common::ScannerContext scan_ctx{.devices = &devices};
+
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].status.value().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status.value().message, "Health check failed");
+    EXPECT_EQ(
+        result[0].status.value().description,
+        "The response body has no value at '/items/99999999999999999999'."
     );
 
     server.stop();

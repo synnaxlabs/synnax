@@ -23,8 +23,7 @@ import { z } from "zod";
 import { Device } from "@/device";
 import { Errors } from "@/errors";
 import type { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = Device.formPath;
 

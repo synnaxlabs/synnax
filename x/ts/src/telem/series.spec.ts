@@ -7,20 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import vm from "node:vm";
+
 import { describe, expect, it, type Mock, test, vi } from "vitest";
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
-import type { GLBufferController } from "@/telem/gl";
-import { type CrudeSeries, MultiSeries, Series } from "@/telem/series";
 import {
   type CrudeDataType,
+  type CrudeSeries,
   DataType,
+  type GLBufferController,
+  MultiSeries,
+  Series,
   Size,
   TimeRange,
   TimeSpan,
   TimeStamp,
-} from "@/telem/telem";
+} from "@/telem";
 
 // WebGL copies data whether it is a buffer or a view.
 const viewBytes = (data: AllowSharedBufferSource): Uint8Array =>
@@ -127,6 +131,49 @@ describe("Series", () => {
       it(`should read ${JSON.stringify(value)} as data`, () => {
         expect(new Series(value).length).toEqual(length);
       });
+    });
+
+    describe("from a byte view", () => {
+      it("should read the bytes of a Uint8Array as samples of the data type", () => {
+        const bytes = new Uint8Array(new Float32Array([1.5, 2.5]).buffer);
+        const s = Series.z.parse({ data: bytes, dataType: "float32" });
+        expect(s.length).toEqual(2);
+        expect(Array.from(s)).toEqual([1.5, 2.5]);
+      });
+
+      it("should throw when the byte length is not a multiple of the density", () => {
+        expect(() =>
+          Series.z.parse({ data: new Uint8Array(7), dataType: "float32" }),
+        ).toThrow(RangeError);
+      });
+
+      it("should read only the bytes inside the view", () => {
+        const backing = new Uint8Array(12);
+        new DataView(backing.buffer).setFloat64(2, 3.25, true);
+        const s = Series.z.parse({
+          data: backing.subarray(2, 10),
+          dataType: "float64",
+        });
+        expect(s.length).toEqual(1);
+        expect(s.at(0)).toEqual(3.25);
+      });
+    });
+
+    it("should read an ArrayBuffer from another realm", () => {
+      const data: ArrayBuffer = vm.runInNewContext(
+        "new BigInt64Array([1n, 2n]).buffer",
+      );
+      const s = new Series({ data, dataType: DataType.INT64 });
+      expect(s.data).toBeInstanceOf(BigInt64Array);
+      expect(Array.from(s)).toEqual([1n, 2n]);
+    });
+
+    it("should convert the values of a typed array of another data type", () => {
+      const s = new Series({
+        data: new Int32Array([1, 2]),
+        dataType: DataType.FLOAT32,
+      });
+      expect(Array.from(s)).toEqual([1, 2]);
     });
 
     it("should read a plain object as params", () => {
@@ -453,6 +500,21 @@ describe("Series", () => {
       const series = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
       expect(series.at(0)).toEqual("123e4567-e89b-40d3-8056-426614174000");
       expect(series.at(1)).toEqual("7f3e4567-e89b-40d3-8056-426614174000");
+    });
+
+    it("should read a UUID series over a view that starts past byte 0", () => {
+      const series = new Series({
+        data: SAMPLE_UUID_BYTES.subarray(16),
+        dataType: DataType.UUID,
+      });
+      expect(series.at(0)).toEqual("7f3e4567-e89b-40d3-8056-426614174000");
+    });
+
+    it("should return undefined for an out of range index in a UUID series", () => {
+      const series = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+      expect(series.at(2)).toBeUndefined();
+      expect(series.at(5)).toBeUndefined();
+      expect(() => series.at(2, true)).toThrow();
     });
 
     it("should return the correct value for a JSON series", () => {
@@ -2098,6 +2160,27 @@ describe("Series", () => {
       expect(uuids[1]).toBe("7f3e4567-e89b-40d3-8056-426614174000");
     });
 
+    it("should iterate a UUID series over a view that starts past byte 0", () => {
+      const series = new Series({
+        data: SAMPLE_UUID_BYTES.subarray(16),
+        dataType: DataType.UUID,
+      });
+      expect(Array.from(series)).toEqual(["7f3e4567-e89b-40d3-8056-426614174000"]);
+    });
+
+    it("should read and iterate a partially written UUID series", () => {
+      const series = Series.alloc({ capacity: 32, dataType: DataType.UUID });
+      series.write(
+        new Series({
+          data: SAMPLE_UUID_BYTES.subarray(0, 16),
+          dataType: DataType.UUID,
+        }),
+      );
+      expect(series.length).toEqual(1);
+      expect(series.at(0)).toEqual("123e4567-e89b-40d3-8056-426614174000");
+      expect(Array.from(series)).toEqual(["123e4567-e89b-40d3-8056-426614174000"]);
+    });
+
     it("should handle empty UUID series", () => {
       const series = new Series({ data: new Uint8Array(), dataType: DataType.UUID });
       const uuids = Array.from(series);
@@ -2571,6 +2654,15 @@ describe("MultiSeries", () => {
       const b = new Series(new Float32Array([4, 5, 6]));
       const multi = new MultiSeries([a, b]);
       expect(multi.at(10)).toBeUndefined();
+    });
+
+    it("should return undefined for a negative index past the start", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
+      const b = new Series(new Float32Array([4, 5, 6]));
+      const multi = new MultiSeries([a, b]);
+      expect(multi.at(-7)).toBeUndefined();
+      expect(multi.at(-12)).toBeUndefined();
+      expect(() => multi.at(-7, true)).toThrow();
     });
 
     it("should throw an error if the index is not found and required is true", () => {

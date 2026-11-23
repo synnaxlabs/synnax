@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { lineplot } from "@synnaxlabs/client";
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { type ReactElement, useEffect } from "react";
 
@@ -18,6 +19,8 @@ export interface LineProps extends Base.LineProps, Aether.ComponentProps {
   legendGroup: string;
   /** Whether the line has a legend entry. A line drawn as several traces lists one. */
   legend?: boolean;
+  /** The y axis of the line, for its legend entry. */
+  axis?: lineplot.AxisKey;
 }
 
 export const Line = ({
@@ -27,15 +30,16 @@ export const Line = ({
   legendGroup,
   visible = true,
   legend = true,
+  axis,
   ...rest
 }: LineProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
   const { setLine, removeLine } = useContext("Line");
   useEffect(() => {
     if (!legend) return;
-    setLine({ key: cKey, color, label, visible, legendGroup });
+    setLine({ key: cKey, color, label, visible, legendGroup, axis });
     return () => removeLine(cKey);
-  }, [label, color, visible, legendGroup, legend]);
+  }, [label, color, visible, legendGroup, legend, axis]);
   return (
     <Base.Line
       aetherKey={cKey}

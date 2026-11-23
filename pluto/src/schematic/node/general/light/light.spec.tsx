@@ -24,6 +24,13 @@ const SynnaxWrapper = createSynnaxWrapper({ client: null });
 const CONFIG_Z = schematic.lightNodeConfigZ;
 
 const COLOR_VAR = "--pluto-symbol-color";
+const ON_COLOR_VAR = "--pluto-light-on-color";
+
+const getRoot = (container: HTMLElement): HTMLElement => {
+  const el = container.querySelector<HTMLElement>(".pluto-light");
+  if (el == null) throw new Error("expected a light element");
+  return el;
+};
 
 const getLamp = (container: HTMLElement): SVGGElement => {
   const el = container.querySelector<SVGGElement>(".pluto-light__lamp");
@@ -39,8 +46,8 @@ const getSVG = (container: HTMLElement): SVGSVGElement => {
 
 describe("light symbol", () => {
   describe("colors", () => {
-    // The outline and the lit fill paint from display vars in light.css; jsdom cannot
-    // compute them, so we assert the source var each part reads.
+    // light.css paints the outline and the lit fill from these vars, which jsdom cannot
+    // compute, so these specs assert the source vars and the classes that read them.
     it("should paint the outline from the stroke and the lamp from the on color", () => {
       const { container } = render(
         <Light
@@ -49,12 +56,16 @@ describe("light symbol", () => {
         />,
       );
       expect(getSVG(container).style.getPropertyValue(COLOR_VAR)).toBe("0, 255, 0, 1");
-      expect(getLamp(container).style.getPropertyValue(COLOR_VAR)).toBe("255, 0, 0, 1");
+      const root = getRoot(container);
+      expect(root.getAttribute("class")).toContain("pluto-light--on-colored");
+      expect(root.style.getPropertyValue(ON_COLOR_VAR)).toBe("255, 0, 0, 1");
     });
 
     it("should let the lamp inherit the stroke when the on color is absent", () => {
       const { container } = render(<Light strokeColor={color.construct("#00ff00")} />);
-      expect(getLamp(container).style.getPropertyValue(COLOR_VAR)).toBe("");
+      const root = getRoot(container);
+      expect(root.getAttribute("class")).not.toContain("pluto-light--on-colored");
+      expect(root.style.getPropertyValue(ON_COLOR_VAR)).toBe("");
     });
 
     it("should mark the lamp as a colored part", () => {

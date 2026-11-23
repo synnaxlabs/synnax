@@ -45,6 +45,12 @@ std::pair<TimeFormat, errors::Error> parse_time_format(const std::string &str) {
 
 namespace {
 
+constexpr int64_t NS = 1000000000;
+constexpr int64_t MAX_SECONDS = std::numeric_limits<int64_t>::max() / NS;
+constexpr int64_t MIN_SECONDS = std::numeric_limits<int64_t>::min() / NS;
+constexpr int64_t MAX_FRAC_NS = std::numeric_limits<int64_t>::max() % NS;
+constexpr int64_t MIN_FRAC_NS = std::numeric_limits<int64_t>::min() % NS;
+
 void iso_err(const std::string &reason) {
     throw std::runtime_error("not a valid ISO 8601 timestamp: " + reason);
 }
@@ -78,7 +84,6 @@ telem::SampleValue parse_rfc3339(const std::string &input) {
     if (!y_ok || !mo_ok || !d_ok || !h_ok || !mi_ok || !s_ok)
         iso_err("non-digit character in date or time fields");
     if (month < 1 || month > 12) iso_err("month must be between 1 and 12");
-    if (day < 1 || day > 31) iso_err("day must be between 1 and 31");
     if (hour > 23) iso_err("hour must be between 0 and 23");
     if (minute > 59) iso_err("minute must be between 0 and 59");
     if (second > 59) iso_err("second must be between 0 and 59");
@@ -117,16 +122,28 @@ telem::SampleValue parse_rfc3339(const std::string &input) {
         );
     }
 
-    const int32_t days = date::days_from_civil(
-        {static_cast<uint16_t>(year),
-         static_cast<uint8_t>(month),
-         static_cast<uint8_t>(day)}
-    );
+    const date::Date civil{
+        static_cast<uint16_t>(year),
+        static_cast<uint8_t>(month),
+        static_cast<uint8_t>(day)
+    };
+    const int32_t days = date::days_from_civil(civil);
+    if (const auto [_, m, d] = date::civil_from_days(days);
+        m != civil.month || d != civil.day)
+        iso_err("day must be a day of the month");
     const int64_t total_seconds = static_cast<int64_t>(days) * 86400 +
                                   static_cast<int64_t>(hour * 3600) +
                                   static_cast<int64_t>(minute * 60) + second -
                                   tz_offset_seconds;
-    return telem::SampleValue(telem::TimeStamp(total_seconds * 1000000000 + frac_ns));
+    // A negative fraction keeps whole * NS + part inside the int64_t range.
+    const bool negative = total_seconds < 0;
+    const int64_t whole = negative ? total_seconds + 1 : total_seconds;
+    const int64_t part = negative ? frac_ns - NS : frac_ns;
+    if (whole > MAX_SECONDS || whole < MIN_SECONDS ||
+        (whole == MAX_SECONDS && part > MAX_FRAC_NS) ||
+        (whole == MIN_SECONDS && part < MIN_FRAC_NS))
+        iso_err("outside the range of a timestamp");
+    return telem::SampleValue(telem::TimeStamp(whole * NS + part));
 }
 
 template<typename T>

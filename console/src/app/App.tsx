@@ -24,6 +24,7 @@ import { Embedded } from "@/feature/embedded";
 import { Core } from "@/platform/core";
 import { Errors } from "@/platform/errors";
 import { FileBrowser } from "@/platform/file-browser";
+import { Portal } from "@/platform/portal";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
@@ -41,34 +42,43 @@ const AnalyticsProvider = DESKTOP ? Analytics.Provider : Fragment;
 
 const BEFORE_CLOSE = DESKTOP ? Embedded.beforeClose : undefined;
 
+// `VITE_PORTAL_URL` points a development build at a local portal or a preview
+// deployment.
+const PORTAL = new Portal.Client({
+  url: import.meta.env.VITE_PORTAL_URL ?? "https://portal.synnaxlabs.com",
+  fetch: async (input, init) => await fetch(input, init),
+});
+
 export const App = ({ workerURL }: AppProps): ReactElement => (
   <>
     <SideEffect />
-    <Errors.OverlayWithoutStore>
-      <BuildContext>
-        <Session.Context beforeClose={BEFORE_CLOSE}>
-          <AnalyticsProvider>
-            <Pluto.Context workerURL={workerURL}>
-              {DESKTOP ? <Analytics.Watch /> : <Core.TokenKeeper />}
-              <Session.SettledProvider>
-                <Errors.OverlayWithStore>
-                  <FileBrowser.Provider>
-                    <Panel.Context>
-                      <Tree.Context>
-                        <Task.Context>
-                          <Vis.Canvas>
-                            <Window.Window />
-                          </Vis.Canvas>
-                        </Task.Context>
-                      </Tree.Context>
-                    </Panel.Context>
-                  </FileBrowser.Provider>
-                </Errors.OverlayWithStore>
-              </Session.SettledProvider>
-            </Pluto.Context>
-          </AnalyticsProvider>
-        </Session.Context>
-      </BuildContext>
-    </Errors.OverlayWithoutStore>
+    <Portal.Provider client={PORTAL}>
+      <Errors.OverlayWithoutStore>
+        <BuildContext>
+          <Session.Context beforeClose={BEFORE_CLOSE}>
+            <AnalyticsProvider>
+              <Pluto.Context workerURL={workerURL}>
+                {DESKTOP ? <Analytics.Watch /> : <Core.TokenKeeper />}
+                <Session.SettledProvider>
+                  <Errors.OverlayWithStore>
+                    <FileBrowser.Provider>
+                      <Panel.Context>
+                        <Tree.Context>
+                          <Task.Context>
+                            <Vis.Canvas>
+                              <Window.Window />
+                            </Vis.Canvas>
+                          </Task.Context>
+                        </Tree.Context>
+                      </Panel.Context>
+                    </FileBrowser.Provider>
+                  </Errors.OverlayWithStore>
+                </Session.SettledProvider>
+              </Pluto.Context>
+            </AnalyticsProvider>
+          </Session.Context>
+        </BuildContext>
+      </Errors.OverlayWithoutStore>
+    </Portal.Provider>
   </>
 );

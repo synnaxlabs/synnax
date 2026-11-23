@@ -193,7 +193,13 @@ func (t *writeTask) addChannels(channels map[channel.Key]channel.Channel) error 
 		if wc.Disabled {
 			continue
 		}
-		ch := channels[wc.Channel]
+		ch, ok := channels[wc.Channel]
+		if !ok {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"channel %q: channel %d does not exist", wc.Key, wc.Channel,
+			)
+		}
 		if err := validateTimestampChannel(wc, ch); err != nil {
 			return err
 		}
@@ -254,6 +260,15 @@ func validateTimestampChannel(wc WriteChannel, ch channel.Channel) error {
 		)
 	}
 	return nil
+}
+
+// enums returns the labels of entries in the form xjson takes.
+func enums(entries []payload.EnumEntry) []xjson.Enum {
+	out := make([]xjson.Enum, len(entries))
+	for i, e := range entries {
+		out[i] = xjson.NewEnum(e.Label, e.Value)
+	}
+	return out
 }
 
 func newWriteChannel(

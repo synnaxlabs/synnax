@@ -9,17 +9,20 @@
 
 import type { xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { createPortal } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
+import { Form } from "@/form";
+import { Haul } from "@/haul";
 import { Input } from "@/input";
 import { Select } from "@/select";
 import type { Status } from "@/status";
 import { computed, renderThemed, resolve } from "@/styletest";
 
-type ColumnType = NonNullable<Input.TableColumnProps["type"]>;
+type ColumnType = "string" | "number";
 
 interface TableOptions {
   type: ColumnType;
@@ -147,6 +150,126 @@ describe("Input.Table", () => {
     );
   });
 
+  it("should center the drag icon in its handle", async () => {
+    const { container } = await renderThemed(
+      <Input.Table value={[[1]]} onChange={() => {}} onMove={() => {}} rowKey={String}>
+        <Input.TableColumn />
+      </Input.Table>,
+    );
+    const handle = container.querySelector(`.${CSS.BE("input", "table-handle")}`);
+    const icon = handle?.querySelector("svg");
+    if (handle == null || icon == null) throw new Error("The row has no drag handle");
+    const center = (el: Element): number => {
+      const { left, width } = el.getBoundingClientRect();
+      return left + width / 2;
+    };
+    expect(center(icon)).toBeCloseTo(center(handle), 0);
+  });
+
+  it("should draw the drag icon in the color of the remove button", async () => {
+    const { container } = await renderThemed(
+      <Input.Table value={[[1]]} onChange={() => {}} onMove={() => {}} rowKey={String}>
+        <Input.TableColumn />
+      </Input.Table>,
+    );
+    const row = container.querySelector("tbody tr");
+    const handle = row?.querySelector(`.${CSS.BE("input", "table-handle")}`);
+    const remove = row?.lastElementChild?.querySelector("button");
+    if (handle == null || remove == null) throw new Error("The row has no controls");
+    expect(computed(handle, "color")).toBe(computed(remove, "color"));
+  });
+
+  it("should center a boolean cell's checkbox in its cell", async () => {
+    const { container } = await renderThemed(
+      <Input.Table value={[[true]]} onChange={() => {}}>
+        <Input.TableColumn name="Enabled" type="boolean" width={20} />
+      </Input.Table>,
+    );
+    const indicator = container.querySelector(
+      `.${CSS.BE("input", "checkbox", "indicator")}`,
+    );
+    const cell = indicator?.closest("td");
+    if (indicator == null || cell == null) throw new Error("The cell has no checkbox");
+    const center = (el: Element): number => {
+      const { left, width } = el.getBoundingClientRect();
+      return left + width / 2;
+    };
+    expect(center(indicator)).toBeCloseTo(center(cell), 0);
+  });
+
+  it("should center a boolean cell's checkbox in a labeled field", async () => {
+    const { container } = await renderThemed(
+      <Input.Item label="Flags">
+        <Input.Table value={[[true]]} onChange={() => {}}>
+          <Input.TableColumn name="Enabled" type="boolean" width={20} />
+        </Input.Table>
+      </Input.Item>,
+    );
+    const indicator = container.querySelector(
+      `.${CSS.BE("input", "checkbox", "indicator")}`,
+    );
+    const cell = indicator?.closest("td");
+    if (indicator == null || cell == null) throw new Error("The cell has no checkbox");
+    const center = (el: Element): number => {
+      const { left, width } = el.getBoundingClientRect();
+      return left + width / 2;
+    };
+    expect(center(indicator)).toBeCloseTo(center(cell), 0);
+  });
+
+  it("should center a switch in its cell inside a form section", async () => {
+    const { container } = await renderThemed(
+      <Form.Sections>
+        <Form.Section>
+          <Input.Table value={[[true]]} onChange={() => {}}>
+            <Input.TableColumn name="Enabled" type="boolean" width={20}>
+              {({ value, onChange, "aria-label": label }) => (
+                <Input.Switch value={value} onChange={onChange} aria-label={label} />
+              )}
+            </Input.TableColumn>
+          </Input.Table>
+        </Form.Section>
+      </Form.Sections>,
+    );
+    const indicator = container.querySelector(
+      `.${CSS.BE("input", "switch", "indicator")}`,
+    );
+    const cell = indicator?.closest("td");
+    if (indicator == null || cell == null) throw new Error("The cell has no switch");
+    const center = (el: Element): number => {
+      const { left, width } = el.getBoundingClientRect();
+      return left + width / 2;
+    };
+    expect(center(indicator)).toBeCloseTo(center(cell), 0);
+  });
+
+  it("should inset read-only text as far as editable text", async () => {
+    const { container } = await renderThemed(
+      <>
+        <Input.Table value={[["pump"]]} onChange={() => {}}>
+          <Input.TableColumn name="Name" type="string" />
+        </Input.Table>
+        <Input.Table value={[["pump"]]} onChange={() => {}} preview>
+          <Input.TableColumn name="Name" type="string" />
+        </Input.Table>
+      </>,
+    );
+    const [editable, readOnly] = Array.from(container.querySelectorAll("table"));
+    const textLeft = (el: Element | null): number => {
+      if (el == null) throw new Error("The cell has no text");
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return range.getBoundingClientRect().left;
+    };
+    const input = editable.querySelector("tbody input");
+    if (input == null) throw new Error("The editable cell has no input");
+    const inset =
+      input.getBoundingClientRect().left + parseFloat(computed(input, "padding-left"));
+    expect(
+      textLeft(readOnly.querySelector(`.${CSS.BE("input", "preview-value")}`)),
+    ).toBeCloseTo(inset, 0);
+  });
+
   describe.each<ColumnType>(["string", "number"])("%s cells", (type) => {
     it("should square a cell away from the corners of the box", async () => {
       const cells = await renderTable({ type, rows: 3, columns: 3, named: true });
@@ -193,6 +316,26 @@ describe("Input.Table", () => {
     });
   });
 
+  it("should fill the height of a cell whose control starts with no text", async () => {
+    const { container } = await renderThemed(
+      <Input.Table value={[[""]]} onChange={() => {}}>
+        <Input.TableColumn name="Color" type="string">
+          {({ value, onChange, variant }) => (
+            <Input.Text
+              value={value}
+              onChange={onChange}
+              variant={variant}
+              startContent={<div style={{ width: "4rem", height: "4rem" }} />}
+            />
+          )}
+        </Input.TableColumn>
+      </Input.Table>,
+    );
+    const frame = container.querySelector(`tbody .${CSS.B("input")}`)!;
+    const cell = frame.closest("td")!;
+    expect(frame.getBoundingClientRect().height).toBeCloseTo(cell.clientHeight);
+  });
+
   describe("wrapped cell controls", () => {
     /** @returns the shadow control in every cell, each inside a wrapper, by row. */
     const renderWrapped = async (
@@ -228,6 +371,61 @@ describe("Input.Table", () => {
       const r = rounded();
       expect(radii(cells[1][0])).toEqual([SQUARE, SQUARE, SQUARE, r]);
       expect(radii(cells[1][1])).toEqual([SQUARE, SQUARE, r, SQUARE]);
+    });
+  });
+
+  describe.each(["checkbox", "switch"] as const)("boolean %s cell frame", (control) => {
+    /** @returns the frame of a boolean cell whose status is the given one. */
+    const renderCell = async (status?: Status.Crude): Promise<HTMLElement> => {
+      const { container } = await renderThemed(
+        <Input.Table value={[[true]]} onChange={() => {}} cellStatus={() => status}>
+          {control === "checkbox" ? (
+            <Input.TableColumn name="Enabled" type="boolean" width={20} />
+          ) : (
+            <Input.TableColumn name="Enabled" type="boolean" width={20}>
+              {(props) => (
+                <Input.Switch
+                  value={props.value}
+                  onChange={props.onChange}
+                  variant={props.variant}
+                  aria-label={props["aria-label"]}
+                />
+              )}
+            </Input.TableColumn>
+          )}
+        </Input.Table>,
+      );
+      const box = container.querySelector<HTMLElement>(`.${CSS.BE("input", control)}`);
+      if (box == null) throw new Error(`The cell has no ${control}`);
+      return box;
+    };
+
+    const frame = (box: Element): string => computed(box, "outline-color");
+
+    it("should hide the frame at rest", async () => {
+      const box = await renderCell();
+      expect(frame(box)).toBe(resolve("transparent", "outline-color"));
+    });
+
+    it("should frame a marked cell in the error color", async () => {
+      const box = await renderCell({ variant: "error", message: "Not valid" });
+      expect(frame(box)).toBe(resolve("var(--pluto-error-z)", "outline-color"));
+    });
+
+    it("should frame a hovered cell", async () => {
+      const box = await renderCell();
+      await userEvent.hover(box);
+      await expect
+        .poll(() => frame(box))
+        .toBe(resolve("var(--pluto-gray-l7)", "outline-color"));
+    });
+
+    it("should frame a focused cell in the primary color", async () => {
+      const box = await renderCell();
+      box.querySelector("input")?.focus();
+      await expect
+        .poll(() => frame(box))
+        .toBe(resolve("var(--pluto-primary-z)", "outline-color"));
     });
   });
 
@@ -271,6 +469,28 @@ describe("Input.Table", () => {
     it("should fill a wider container when a column has no width", async () => {
       const table = await renderWide([10, undefined]);
       expect(table.getBoundingClientRect().width).toBe(2000);
+    });
+
+    it("should keep the add button in place as the first values arrive", async () => {
+      const table = (value: number[][]) => (
+        <div style={{ width: "600px" }}>
+          <Input.Table
+            value={value}
+            onChange={() => {}}
+            onMove={() => {}}
+            rowKey={String}
+          >
+            <Input.TableColumn name="On" width={3} />
+            <Input.TableColumn name="Name" />
+          </Input.Table>
+        </div>
+      );
+      const { container, rerender } = await renderThemed(table([]));
+      const add = (): number =>
+        container.querySelector("tfoot button")!.getBoundingClientRect().left;
+      const empty = add();
+      await rerender(table([[1, 2]]));
+      expect(add()).toBe(empty);
     });
   });
 });
@@ -317,14 +537,23 @@ describe("Input.Table", () => {
     createRow?: (value: Input.TableCell[][]) => Input.TableCell[];
     rowLabel?: (index: number) => string;
     resourceName?: string;
+    autoFocus?: boolean;
     cellStatus?: (at: xy.XY) => Status.Crude | undefined;
     onRemove?: (index: number) => void;
+    onMove?: (from: number, to: number) => void;
   }
 
-  const renderTable = ({ value = [[1, 10]], ...rest }: RenderOptions = {}) => {
+  /** @returns a row key that reads the row's first cell. */
+  const keyByFirstCell =
+    (value: Input.TableCell[][]) =>
+    (index: number): string =>
+      String(value[index][0]);
+
+  const renderTable = ({ value = [[1, 10]], onMove, ...rest }: RenderOptions = {}) => {
     const onChange = vi.fn();
+    const moves = onMove == null ? {} : { onMove, rowKey: keyByFirstCell(value) };
     render(
-      <Input.Table value={value} onChange={onChange} {...rest}>
+      <Input.Table value={value} onChange={onChange} {...rest} {...moves}>
         {COLUMNS}
       </Input.Table>,
     );
@@ -339,18 +568,18 @@ describe("Input.Table", () => {
     fireEvent.blur(input);
   };
 
-  const firePaste = (input: HTMLInputElement, text: string): void => {
+  const firePaste = (target: HTMLElement, text: string): void => {
     const clipboardData = new DataTransfer();
     clipboardData.setData("text/plain", text);
     fireEvent(
-      input,
+      target,
       new ClipboardEvent("paste", { clipboardData, bubbles: true, cancelable: true }),
     );
   };
 
-  const paste = (input: HTMLInputElement, text: string): void => {
-    fireEvent.focus(input);
-    firePaste(input, text);
+  const paste = (el: HTMLElement, text: string): void => {
+    fireEvent.focus(el);
+    firePaste(el, text);
   };
 
   const addButton = (): HTMLElement => screen.getByRole("button", { name: "Add row" });
@@ -601,6 +830,21 @@ describe("Input.Table", () => {
       render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
       fireEvent.click(removeButton(0));
       expect(document.activeElement).toBe(addButton());
+    });
+
+    it("should focus the first cell on mount with autoFocus", () => {
+      renderTable({ value: VALUE, autoFocus: true });
+      expect(document.activeElement).toBe(cell("Raw", "1"));
+    });
+
+    it("should focus the add button on mount with autoFocus and no rows", () => {
+      renderTable({ value: [], autoFocus: true });
+      expect(document.activeElement).toBe(addButton());
+    });
+
+    it("should take no focus on mount without autoFocus", () => {
+      renderTable({ value: VALUE });
+      expect(document.activeElement).toBe(document.body);
     });
   });
 
@@ -1226,6 +1470,17 @@ describe("Input.Table", () => {
       ]);
     });
 
+    it("should keep the first pasted row of a table with only text columns", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["on"]]} onChange={onChange}>
+          <Input.TableColumn name="Label" type="string" />
+        </Input.Table>,
+      );
+      paste(cell("Label", "1"), "Label\nON");
+      expect(onChange).toHaveBeenCalledWith([["Label"], ["ON"]]);
+    });
+
     it("should drop a heading row a text column would otherwise accept", () => {
       const onChange = renderMixed();
       paste(cell("Label", "1"), "Label\tValue\nON\t1\nOFF\t2");
@@ -1244,6 +1499,631 @@ describe("Input.Table", () => {
       from.focus();
       fireEvent.keyDown(from, { key: "ArrowDown" });
       expect(document.activeElement).toBe(cell("Label", "2"));
+    });
+  });
+
+  describe("move", () => {
+    const ROWS: Input.TableCell[][] = [
+      [1, 10],
+      [2, 20],
+      [3, 30],
+    ];
+
+    const handle = (row: string, table = 0): HTMLElement =>
+      screen.getAllByRole("button", { name: `Move row ${row}` })[table];
+
+    const rowOf = (row: string, table = 0): HTMLElement => {
+      const tr = handle(row, table).closest("tr");
+      if (tr == null) throw new Error(`Row ${row} has no element`);
+      return tr;
+    };
+
+    interface MovableProps {
+      initial: Input.TableCell[][];
+      /** Ignores each move, as a caller that keeps a row in place would. */
+      refused?: boolean;
+      preview?: boolean;
+      renderHaulPreview?: (index: number) => ReactNode;
+    }
+
+    interface KeyedRow {
+      key: string;
+      cells: Input.TableCell[];
+    }
+
+    // Holds keyed rows and applies each edit, removal, and move, as a form would.
+    const Movable = ({
+      initial,
+      refused = false,
+      ...rest
+    }: MovableProps): ReactElement => {
+      const [rows, setRows] = useState<KeyedRow[]>(() =>
+        initial.map((cells, i) => ({ key: `row-${i}`, cells })),
+      );
+      const handleChange = (next: Input.TableCell[][]) =>
+        setRows((prev) =>
+          next.map((cells, i) => ({ key: prev[i]?.key ?? `new-${i}`, cells })),
+        );
+      const handleRemove = (index: number) =>
+        setRows((prev) => prev.filter((_, i) => i !== index));
+      const handleMove = (from: number, to: number) => {
+        if (refused) return;
+        setRows((prev) => {
+          const next = [...prev];
+          const [row] = next.splice(from, 1);
+          next.splice(to, 0, row);
+          return next;
+        });
+      };
+      return (
+        <Haul.Provider>
+          <Input.Table
+            value={rows.map(({ cells }) => cells)}
+            onChange={handleChange}
+            onRemove={handleRemove}
+            onMove={handleMove}
+            rowKey={(i) => rows[i].key}
+            {...rest}
+          >
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>
+      );
+    };
+
+    const renderDraggable = (onMove: (from: number, to: number) => void) =>
+      render(
+        <Haul.Provider>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={onMove}
+            rowKey={keyByFirstCell(ROWS)}
+          >
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+
+    it("should move a row down and up with the arrow keys on its handle", () => {
+      const onMove = vi.fn();
+      renderTable({ value: ROWS, onMove });
+      fireEvent.keyDown(handle("2"), { key: "ArrowDown" });
+      fireEvent.keyDown(handle("2"), { key: "ArrowUp" });
+      expect(onMove.mock.calls).toEqual([
+        [1, 2],
+        [1, 0],
+      ]);
+    });
+
+    it("should keep each cell's input when the table leaves preview", () => {
+      const value: Input.TableCell[][] = [
+        [1, true],
+        [2, false],
+      ];
+      const props = { value, onChange: vi.fn(), onMove: vi.fn(), rowKey: String };
+      const columns = [
+        <Input.TableColumn key="raw" name="Raw" />,
+        <Input.TableColumn key="on" name="On" type="boolean" />,
+      ];
+      const { rerender } = render(
+        <Haul.Provider>
+          <Input.Table {...props} preview>
+            {columns}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      const on = cell("On", "1");
+      rerender(
+        <Haul.Provider>
+          <Input.Table {...props}>{columns}</Input.Table>
+        </Haul.Provider>,
+      );
+      expect(cell("On", "1")).toBe(on);
+    });
+
+    it("should not move the first row up or the last row down", () => {
+      const onMove = vi.fn();
+      renderTable({ value: ROWS, onMove });
+      fireEvent.keyDown(handle("1"), { key: "ArrowUp" });
+      fireEvent.keyDown(handle("3"), { key: "ArrowDown" });
+      expect(onMove).not.toHaveBeenCalled();
+    });
+
+    it("should keep focus on the handle of the row it moves", () => {
+      render(<Movable initial={ROWS} />);
+      handle("1").focus();
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      expect(cell("Raw", "2").value).toBe("1");
+      expect(document.activeElement).toBe(handle("2"));
+    });
+
+    it("should drop a dragged row in the place of the row it lands on", () => {
+      const onMove = vi.fn();
+      renderDraggable(onMove);
+      fireEvent.dragStart(handle("1"), { dataTransfer: new DataTransfer() });
+      fireEvent.drop(rowOf("3"));
+      expect(onMove).toHaveBeenCalledWith(0, 2);
+    });
+
+    it("should dim the whole row while it drags", () => {
+      renderDraggable(vi.fn());
+      fireEvent.dragStart(handle("1"), { dataTransfer: new DataTransfer() });
+      expect(rowOf("1").hasAttribute("data-haul-source")).toBe(true);
+      fireEvent.dragEnd(handle("1"), { dataTransfer: new DataTransfer() });
+      expect(rowOf("1").hasAttribute("data-haul-source")).toBe(false);
+    });
+
+    it("should not drag a row from one of its cells", () => {
+      const onMove = vi.fn();
+      renderDraggable(onMove);
+      fireEvent.dragStart(cell("Raw", "1"), { dataTransfer: new DataTransfer() });
+      fireEvent.drop(rowOf("3"));
+      expect(onMove).not.toHaveBeenCalled();
+    });
+
+    it("should not take a row from another table", () => {
+      const onMove = vi.fn();
+      render(
+        <Haul.Provider>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={vi.fn()}
+            rowKey={keyByFirstCell(ROWS)}
+          >
+            {COLUMNS}
+          </Input.Table>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={onMove}
+            rowKey={keyByFirstCell(ROWS)}
+          >
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(handle("1", 0), { dataTransfer: new DataTransfer() });
+      fireEvent.drop(rowOf("3", 1));
+      expect(onMove).not.toHaveBeenCalled();
+    });
+
+    it("should move a mark with its row", () => {
+      render(<Movable initial={ROWS} />);
+      paste(cell("Raw", "1"), "x\t11");
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      expect(marked(cell("Raw", "2"))).toBe(true);
+      expect(marked(cell("Raw", "1"))).toBe(false);
+    });
+
+    it("should move the mark of a row that a paste added with its row", () => {
+      render(<Movable initial={ROWS} />);
+      paste(cell("Raw", "3"), "3\t30\nx\t40");
+      expect(marked(cell("Raw", "4"))).toBe(true);
+      fireEvent.keyDown(handle("4"), { key: "ArrowUp" });
+      expect(cell("Scaled", "3").value).toBe("40");
+      expect(marked(cell("Raw", "3"))).toBe(true);
+      expect(marked(cell("Raw", "4"))).toBe(false);
+    });
+
+    it("should show no gutter in preview", () => {
+      renderTable({ value: ROWS, onMove: vi.fn(), preview: true });
+      expect(screen.queryByRole("button", { name: "Move row 1" })).toBeNull();
+      expect(screen.queryAllByRole("rowheader")).toHaveLength(0);
+    });
+
+    it("should name a handle after its row's label", () => {
+      renderTable({ value: ROWS, onMove: vi.fn(), rowLabel: (i) => `c${i}` });
+      expect(screen.getByRole("button", { name: "Move row c0" })).toBeTruthy();
+    });
+
+    it("should keep focus in the cell being edited after a refused move", () => {
+      render(<Movable initial={ROWS} refused />);
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      const input = cell("Raw", "3");
+      input.focus();
+      paste(input, "4\t40");
+      expect(cell("Scaled", "3").value).toBe("40");
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("should keep a mark on its row after a refused move", () => {
+      render(<Movable initial={ROWS} refused />);
+      paste(cell("Raw", "1"), "x\t11");
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      commit(cell("Scaled", "3"), "31");
+      expect(marked(cell("Raw", "1"))).toBe(true);
+      expect(marked(cell("Raw", "2"))).toBe(false);
+    });
+
+    it("should not take a remove after a refused move as the move", () => {
+      render(<Movable initial={ROWS} refused />);
+      paste(cell("Raw", "3"), "x\t31");
+      fireEvent.keyDown(handle("2"), { key: "ArrowUp" });
+      fireEvent.click(screen.getByRole("button", { name: "Remove row 1" }));
+      expect(marked(cell("Raw", "2"))).toBe(true);
+      expect(marked(cell("Raw", "1"))).toBe(false);
+    });
+
+    it("should move a mark with its row on a drop", () => {
+      render(<Movable initial={ROWS} />);
+      paste(cell("Raw", "1"), "x\t11");
+      fireEvent.dragStart(handle("1"), { dataTransfer: new DataTransfer() });
+      fireEvent.drop(rowOf("3"));
+      expect(marked(cell("Raw", "3"))).toBe(true);
+      expect(marked(cell("Raw", "1"))).toBe(false);
+    });
+
+    const renderKeyed = (
+      rows: Input.TableCell[][],
+      keys: string[],
+      onMove = vi.fn(),
+    ) => (
+      <Haul.Provider>
+        <Input.Table
+          value={rows}
+          onChange={vi.fn()}
+          onMove={onMove}
+          rowKey={(i) => keys[i]}
+        >
+          {COLUMNS}
+        </Input.Table>
+      </Haul.Provider>
+    );
+
+    it("should keep a mark on its row when the caller reorders the rows", () => {
+      const { rerender } = render(renderKeyed(ROWS, ["a", "b", "c"]));
+      paste(cell("Raw", "2"), "x\t21");
+      rerender(renderKeyed([ROWS[1], ROWS[0], ROWS[2]], ["b", "a", "c"]));
+      expect(marked(cell("Raw", "1"))).toBe(true);
+      expect(marked(cell("Raw", "2"))).toBe(false);
+    });
+
+    it("should drop the dragged row by its key after the rows above it change", () => {
+      const onMove = vi.fn();
+      const { rerender } = render(renderKeyed(ROWS, ["a", "b", "c"], onMove));
+      fireEvent.dragStart(handle("1"), { dataTransfer: new DataTransfer() });
+      rerender(renderKeyed([[0, 0], ...ROWS], ["z", "a", "b", "c"], onMove));
+      fireEvent.drop(rowOf("4"));
+      expect(onMove).toHaveBeenCalledWith(1, 3);
+    });
+
+    it("should draw the drop line on the side the row lands on", () => {
+      renderDraggable(vi.fn());
+      fireEvent.dragStart(handle("1"), { dataTransfer: new DataTransfer() });
+      fireEvent.dragOver(rowOf("3"));
+      expect(rowOf("3").classList).toContain(CSS.BEM("input", "table-row", "below"));
+      fireEvent.dragLeave(rowOf("3"));
+      expect(rowOf("3").classList).not.toContain(
+        CSS.BEM("input", "table-row", "below"),
+      );
+      fireEvent.dragEnd(handle("1"), { dataTransfer: new DataTransfer() });
+      fireEvent.dragStart(handle("3"), { dataTransfer: new DataTransfer() });
+      fireEvent.dragOver(rowOf("1"));
+      expect(rowOf("1").classList).toContain(CSS.BEM("input", "table-row", "above"));
+      fireEvent.drop(rowOf("1"));
+      expect(rowOf("1").classList).not.toContain(
+        CSS.BEM("input", "table-row", "above"),
+      );
+    });
+
+    it("should picture a dragged row with its name by default", () => {
+      renderDraggable(vi.fn());
+      fireEvent.dragStart(handle("2"), { dataTransfer: new DataTransfer() });
+      expect(screen.getByText("Row 2")).toBeTruthy();
+    });
+
+    it("should picture a dragged row with the caller's preview", () => {
+      render(
+        <Movable initial={ROWS} renderHaulPreview={(i) => <span>Pump {i}</span>} />,
+      );
+      fireEvent.dragStart(handle("2"), { dataTransfer: new DataTransfer() });
+      expect(screen.getByText("Pump 1")).toBeTruthy();
+    });
+
+    it("should take no drop in preview", () => {
+      const onMove = vi.fn();
+      const { rerender } = render(
+        <Haul.Provider>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={onMove}
+            rowKey={keyByFirstCell(ROWS)}
+          >
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(handle("1"), { dataTransfer: new DataTransfer() });
+      const target = rowOf("3");
+      rerender(
+        <Haul.Provider>
+          <Input.Table
+            value={ROWS}
+            onChange={vi.fn()}
+            onMove={onMove}
+            rowKey={keyByFirstCell(ROWS)}
+            preview
+          >
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      fireEvent.drop(target);
+      expect(onMove).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("boolean columns", () => {
+    const renderFlags = (value: Input.TableCell[][] = [["pump", true]]) => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={value} onChange={onChange}>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn name="Enabled" type="boolean" />
+        </Input.Table>,
+      );
+      return onChange;
+    };
+
+    it("should default a boolean column to a checkbox", () => {
+      renderFlags();
+      const box = cell("Enabled", "1");
+      expect(box.checked).toBe(true);
+      expect(box.classList).toContain(CSS.BE("input", "checkbox", "input"));
+    });
+
+    it("should show a read-only boolean cell as a disabled checkbox", () => {
+      render(
+        <Input.Table value={[["pump", true]]} onChange={vi.fn()} preview>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn name="Enabled" type="boolean" />
+        </Input.Table>,
+      );
+      const box = cell("Enabled", "1");
+      expect(box.checked).toBe(true);
+      expect(box.disabled).toBe(true);
+    });
+
+    it("should commit a toggled checkbox into its column", () => {
+      const onChange = renderFlags();
+      fireEvent.click(cell("Enabled", "1"));
+      expect(onChange).toHaveBeenCalledWith([["pump", false]]);
+    });
+
+    it("should append a row whose boolean cell is false", () => {
+      const onChange = renderFlags();
+      fireEvent.click(addButton());
+      expect(onChange).toHaveBeenCalledWith([
+        ["pump", true],
+        ["", false],
+      ]);
+    });
+
+    it.each([
+      ["true", true],
+      ["FALSE", false],
+      ["1", true],
+      ["0", false],
+    ])("should read a pasted %s", (text, expected) => {
+      const onChange = renderFlags();
+      paste(cell("Name", "1"), `valve\t${text}\nvent\ttrue`);
+      expect(onChange).toHaveBeenCalledWith([
+        ["valve", expected],
+        ["vent", true],
+      ]);
+    });
+
+    it("should read a single value pasted into a checkbox", () => {
+      const onChange = renderFlags();
+      paste(cell("Enabled", "1"), "0");
+      expect(onChange).toHaveBeenCalledWith([["pump", false]]);
+    });
+
+    it("should mark a checkbox whose single pasted value does not parse", () => {
+      render(
+        <Stateful initial={[["pump", true]]}>
+          {[
+            <Input.TableColumn key="name" name="Name" type="string" />,
+            <Input.TableColumn key="enabled" name="Enabled" type="boolean" />,
+          ]}
+        </Stateful>,
+      );
+      paste(cell("Enabled", "1"), "maybe");
+      expect(cell("Enabled", "1").checked).toBe(true);
+      expect(marked(cell("Enabled", "1"))).toBe(true);
+    });
+
+    it("should drop a heading row whose boolean cells do not parse", () => {
+      const onChange = renderFlags();
+      paste(cell("Name", "1"), "Name\tEnabled\nvalve\tfalse");
+      expect(onChange).toHaveBeenCalledWith([["valve", false]]);
+    });
+
+    it("should refuse pasted text that names an object property", () => {
+      const onChange = renderFlags([
+        ["pump", true],
+        ["fan", false],
+      ]);
+      paste(cell("Name", "1"), "valve\ttrue\nvent\tconstructor");
+      expect(onChange).toHaveBeenCalledWith([
+        ["valve", true],
+        ["vent", false],
+      ]);
+      expect(marked(cell("Enabled", "2"))).toBe(true);
+    });
+
+    it("should keep and mark a boolean cell whose pasted text does not parse", () => {
+      const onChange = renderFlags([
+        ["pump", true],
+        ["fan", false],
+      ]);
+      paste(cell("Name", "1"), "valve\tfalse\nvent\tmaybe");
+      expect(onChange).toHaveBeenCalledWith([
+        ["valve", false],
+        ["vent", false],
+      ]);
+      expect(marked(cell("Enabled", "2"))).toBe(true);
+    });
+  });
+
+  describe("custom columns", () => {
+    interface Point {
+      x: number;
+      y: number;
+    }
+
+    const parsePoint = (text: string): Point | null => {
+      const [x, y] = text.split(";").map(Number);
+      return isFinite(x) && isFinite(y) ? { x, y } : null;
+    };
+
+    const renderPoints = (parse?: (text: string) => Point | null) => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["origin", { x: 0, y: 0 }]]} onChange={onChange}>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn<Point>
+            name="Point"
+            type="custom"
+            empty={{ x: 1, y: 1 }}
+            parse={parse}
+          >
+            {({ value, onChange, "aria-label": label }) => (
+              <button
+                aria-label={label}
+                onClick={() => onChange({ x: value.x + 1, y: value.y })}
+              >
+                {`${value.x};${value.y}`}
+              </button>
+            )}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      return onChange;
+    };
+
+    const point = (): HTMLElement => screen.getByRole("button", { name: "Point 1" });
+
+    it("should give a custom cell the index of its row", () => {
+      render(
+        <Input.Table value={[["a"], ["b"]]} onChange={vi.fn()}>
+          <Input.TableColumn<string> name="Name" type="custom" empty="">
+            {({ value, row }) => <span>{`${value} at ${row}`}</span>}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      expect(screen.getByText("b at 1")).toBeTruthy();
+    });
+
+    it("should leave the row off the default inputs", () => {
+      renderPoints();
+      expect(cell("Name", "1").hasAttribute("row")).toBe(false);
+    });
+
+    it("should leave the row off an input that a typed column's renderer spreads", () => {
+      render(
+        <Input.Table value={[["a"]]} onChange={vi.fn()}>
+          <Input.TableColumn name="Name" type="string">
+            {(p) => <Input.Text {...p} />}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      expect(cell("Name", "1").hasAttribute("row")).toBe(false);
+    });
+
+    it("should render the cell a custom column builds from the cell's value", () => {
+      renderPoints();
+      expect(point().textContent).toBe("0;0");
+    });
+
+    it("should commit a custom cell's change into its column", () => {
+      const onChange = renderPoints();
+      fireEvent.click(point());
+      expect(onChange).toHaveBeenCalledWith([["origin", { x: 1, y: 0 }]]);
+    });
+
+    it("should append a row holding the custom column's empty value", () => {
+      const onChange = renderPoints();
+      fireEvent.click(addButton());
+      expect(onChange).toHaveBeenCalledWith([
+        ["origin", { x: 0, y: 0 }],
+        ["", { x: 1, y: 1 }],
+      ]);
+    });
+
+    it("should refuse a paste into a custom column without a parse", () => {
+      const onChange = renderPoints();
+      paste(cell("Name", "1"), "a\t2;3\nb\t4;5");
+      expect(onChange).toHaveBeenCalledWith([
+        ["a", { x: 0, y: 0 }],
+        ["b", { x: 1, y: 1 }],
+      ]);
+    });
+
+    it("should read a paste with a custom column's parse", () => {
+      const onChange = renderPoints(parsePoint);
+      paste(cell("Name", "1"), "a\t2;3");
+      expect(onChange).toHaveBeenCalledWith([["a", { x: 2, y: 3 }]]);
+    });
+
+    it("should write an undefined value that a custom column's parse reads", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["origin", "red"]]} onChange={onChange}>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn<string | undefined>
+            name="Tint"
+            type="custom"
+            empty={undefined}
+            parse={(text) => (text === "" ? undefined : text)}
+          >
+            {({ value, "aria-label": label }) => (
+              <button aria-label={label}>{value ?? "None"}</button>
+            )}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      paste(cell("Name", "1"), "origin\t\nnext\tblue");
+      expect(onChange).toHaveBeenCalledWith([
+        ["origin", undefined],
+        ["next", "blue"],
+      ]);
+    });
+  });
+
+  describe("select cells", () => {
+    const ORDERS = ["big", "little"];
+
+    const renderOrders = (parse?: (text: string) => string | null) => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["big"]]} onChange={onChange}>
+          <Input.TableColumn name="Byte order" type="string" parse={parse}>
+            {({ value, "aria-label": label }) => (
+              <button aria-label={label}>{value}</button>
+            )}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      const order = screen.getByRole("button", { name: "Byte order 1" });
+      return { onChange, order };
+    };
+
+    it("should leave one value pasted on a select whose column has no parse", () => {
+      const { onChange, order } = renderOrders();
+      paste(order, "foo");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should read a single value pasted on a select with its column's parse", () => {
+      const { onChange, order } = renderOrders((text) =>
+        ORDERS.includes(text) ? text : null,
+      );
+      paste(order, "little");
+      expect(onChange).toHaveBeenCalledWith([["little"]]);
     });
   });
 });

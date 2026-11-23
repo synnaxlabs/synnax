@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/color/v0"
+import "schemas/synnax/versions/resource/v0"
 
 Key = uuid {
     @doc value "is the key of an enumeration."
@@ -42,11 +43,18 @@ Enumeration struct {
         @doc value "is the key of the enumeration."
         @key
     }
-    name    string  {
+    name    string         {
         @doc value "is the name of the enumeration."
     }
     entries Entry[] = [] {
         @doc value "are the states of the enumeration."
+    }
+    uses    resource.ID[]? {
+        @doc value  """
+            are the resources that use the enumeration and that the caller can read,
+            filled only when a retrieve request asks for them.
+        """
+        @go marshal omit
     }
 
     @doc value  """

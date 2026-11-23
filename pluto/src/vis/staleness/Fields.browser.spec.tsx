@@ -23,17 +23,19 @@ const path = deep.path<Values>();
 
 let methods: Form.ContextValue<typeof schema>;
 
-const Host = ({ values, unit }: { values: Values; unit?: TimeSpan }): ReactElement => {
+const Host = ({ values }: { values: Values }): ReactElement => {
   methods = Form.use({ values, schema });
   return (
     <Form.Form<typeof schema> {...methods}>
-      <Staleness.Fields unit={unit} />
+      <Staleness.TimeoutField />
     </Form.Form>
   );
 };
 
 const value = (p: deep.Target<unknown>): unknown =>
   methods.get(p, { optional: true })?.value;
+
+const THREE_SECONDS = TimeSpan.seconds(3).nanoseconds;
 
 const field = () => page.getByLabelText("Timeout");
 
@@ -42,8 +44,8 @@ const typeTimeout = async (value: string): Promise<void> => {
   field().element().blur();
 };
 
-describe("Staleness.Fields", () => {
-  it("should show and store a timeout in nanoseconds by default", async () => {
+describe("Staleness.TimeoutField", () => {
+  it("should show and store a timeout in nanoseconds", async () => {
     await renderThemed(
       <Host values={{ stalenessTimeout: Number(TimeSpan.seconds(3).valueOf()) }} />,
     );
@@ -54,34 +56,21 @@ describe("Staleness.Fields", () => {
       .toBe(Number(TimeSpan.seconds(7).valueOf()));
   });
 
-  it("should show and store a timeout in the given unit", async () => {
-    await renderThemed(
-      <Host values={{ stalenessTimeout: 3 }} unit={TimeSpan.SECOND} />,
-    );
-    await expect.element(field()).toHaveValue("3s");
-    await typeTimeout("7s");
-    await expect.poll(() => value(path.stalenessTimeout)).toBe(7);
-  });
-
   it("should accept a timeout up to the longest that the Core stores", async () => {
-    await renderThemed(
-      <Host values={{ stalenessTimeout: 3 }} unit={TimeSpan.SECOND} />,
-    );
+    await renderThemed(<Host values={{ stalenessTimeout: THREE_SECONDS }} />);
     await typeTimeout("104d");
     await expect
       .poll(() => value(path.stalenessTimeout))
-      .toBe(TimeSpan.days(104).seconds);
+      .toBe(TimeSpan.days(104).nanoseconds);
   });
 
   it("should reject a timeout longer than the Core stores", async () => {
-    await renderThemed(
-      <Host values={{ stalenessTimeout: 3 }} unit={TimeSpan.SECOND} />,
-    );
+    await renderThemed(<Host values={{ stalenessTimeout: THREE_SECONDS }} />);
     await userEvent.fill(field(), "105d");
     await userEvent.keyboard("{Enter}");
     await expect
       .element(page.getByText(/^Timeout must be .* or less$/))
       .toBeInTheDocument();
-    expect(value(path.stalenessTimeout)).toBe(3);
+    expect(value(path.stalenessTimeout)).toBe(THREE_SECONDS);
   });
 });

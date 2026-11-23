@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import {
+  type label,
+  type status,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/client";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -56,8 +62,14 @@ export const createRanges = async (
 
 export interface LabelSpec {
   name: string;
+  /** A hex color, stored as a fixed color. */
   color: string;
 }
+
+const toNew = ({ name, color }: LabelSpec): label.New => ({
+  name,
+  color: { type: "fixed", value: color },
+});
 
 /**
  * resetLabels leaves the cluster holding exactly the given labels: a listed
@@ -77,12 +89,16 @@ export const resetLabels = async (
       const color = want.get(l.name);
       if (color != null && !kept.has(l.name)) {
         kept.add(l.name);
-        await client.labels.create({ key: l.key, name: l.name, color });
+        await client.labels.create({
+          key: l.key,
+          name: l.name,
+          color: { type: "fixed", value: color },
+        });
       } else remove.push(l.key);
     }
     if (remove.length > 0) await client.labels.delete(remove);
     const missing = specs.filter((s) => !kept.has(s.name));
-    if (missing.length > 0) await client.labels.create(missing);
+    if (missing.length > 0) await client.labels.create(missing.map(toNew));
   } finally {
     await client.close();
   }
@@ -103,7 +119,8 @@ export const ensureLabels = async (
     );
     const keys: Record<string, string> = {};
     for (const spec of specs)
-      keys[spec.name] = byName.get(spec.name) ?? (await client.labels.create(spec)).key;
+      keys[spec.name] =
+        byName.get(spec.name) ?? (await client.labels.create(toNew(spec))).key;
     return keys;
   } finally {
     await client.close();

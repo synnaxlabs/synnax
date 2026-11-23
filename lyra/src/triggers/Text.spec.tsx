@@ -65,6 +65,11 @@ describe("Text", () => {
     expect(container.textContent).toBe("SaveS");
   });
 
+  it("should show the period key as a dot", () => {
+    const { container } = render(<Triggers.Text trigger={["Shift", "Period"]} />);
+    expect(container.textContent).toBe("Shift.");
+  });
+
   it("should start a word key with a capital", () => {
     const { container } = render(<Triggers.Text trigger={["Escape"]} />);
     expect(container.textContent).toBe("Esc");

@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -38,6 +40,12 @@ std::optional<std::size_t> claim(Map &m, const Key &key, const std::size_t messa
     if (inserted) return std::nullopt;
     return it->second;
 }
+
+/// @brief reports whether inner is outer or a pointer into the value at outer.
+bool within(const x::json::Pointer &inner, const x::json::Pointer &outer) {
+    return outer.tokens.size() <= inner.tokens.size() &&
+           std::equal(outer.tokens.begin(), outer.tokens.end(), inner.tokens.begin());
+}
 }
 
 double JSON::Integer::to_float64() const {
@@ -54,11 +62,13 @@ std::string JSON::Integer::to_string() const {
 std::pair<JSON::Router, x::errors::Error>
 JSON::Router::create(const std::vector<JSONMessage> &messages) {
     Router r;
+    r.names.reserve(messages.size());
     std::optional<std::size_t> first;
     std::string first_pointer;
     std::unordered_map<double, Integer> rounded;
     for (std::size_t i = 0; i < messages.size(); i++) {
         const auto &m = messages[i];
+        r.names.push_back(m.name);
         if (!m.payload.match.has_value()) {
             if (r.fallback.has_value())
                 return {
@@ -82,6 +92,10 @@ JSON::Router::create(const std::vector<JSONMessage> &messages) {
                     "message " + m.name + ": match: " + err.data
                 ),
             };
+        if (std::holds_alternative<icd::PresentJSONMatch>(match)) {
+            r.present.push_back({.pointer = std::move(pointer), .message = i});
+            continue;
+        }
         if (!first.has_value()) {
             first = i;
             first_pointer = icd::base(match).pointer;
@@ -109,7 +123,41 @@ JSON::Router::create(const std::vector<JSONMessage> &messages) {
             };
     }
     r.ruled = first.has_value();
+    // A present rule at or above the pointer of another rule meets every document that
+    // the other rule meets.
+    for (std::size_t k = 0; k < r.present.size(); k++) {
+        const auto &p = r.present[k];
+        std::optional<std::size_t> other;
+        const x::json::Pointer *at = nullptr;
+        if (r.ruled && within(r.pointer, p.pointer)) {
+            other = first;
+            at = &r.pointer;
+        }
+        for (std::size_t j = 0; j < r.present.size(); j++)
+            if (j != k && within(r.present[j].pointer, p.pointer)) {
+                other = r.present[j].message;
+                at = &r.present[j].pointer;
+            }
+        if (other.has_value())
+            return {
+                Router{},
+                x::errors::Error(
+                    CONFIG_ERROR,
+                    "messages " + r.names[std::min(*other, p.message)] + " and " +
+                        r.names[std::max(*other, p.message)] +
+                        " both match a value at " + x::json::quote(at->to_string())
+                ),
+            };
+    }
     return {std::move(r), x::errors::NIL};
+}
+
+std::vector<x::json::Pointer> JSON::Router::pointers() const {
+    std::vector<x::json::Pointer> out;
+    if (this->ruled) out.push_back(this->pointer);
+    for (const auto &p: this->present)
+        out.push_back(p.pointer);
+    return out;
 }
 
 std::pair<std::optional<std::size_t>, std::string> JSON::Router::claim_match(
@@ -139,13 +187,15 @@ std::pair<std::optional<std::size_t>, std::string> JSON::Router::claim_match(
             } else if constexpr (std::is_same_v<M, icd::UnsignedJSONMatch>) {
                 const Integer k{.bits = v.value.value};
                 return {this->claim_integer(k, message, rounded), k.to_string()};
-            } else {
-                static_assert(std::is_same_v<M, icd::FloatJSONMatch>);
+            } else if constexpr (std::is_same_v<M, icd::FloatJSONMatch>) {
                 const double f = v.value.value;
                 const auto taken = claim(this->floats, f, message);
                 if (const auto k = rounded.find(f); k != rounded.end() && !taken)
                     return {this->integers.at(k->second), k->second.to_string()};
                 return {taken, x::json::Number(f).to_string()};
+            } else {
+                static_assert(std::is_same_v<M, icd::PresentJSONMatch>);
+                throw std::logic_error("a present rule has no value to claim");
             }
         },
         match
@@ -166,7 +216,35 @@ std::optional<std::size_t> JSON::Router::claim_integer(
 }
 
 std::pair<std::optional<std::size_t>, x::errors::Error>
-JSON::Router::find(const std::optional<std::string_view> &value) {
+JSON::Router::find(const std::vector<std::optional<std::string_view>> &values) {
+    std::optional<std::size_t> message;
+    std::size_t next = 0;
+    if (this->ruled) {
+        auto [found, err] = this->find_value(values[next++]);
+        if (err) return {std::nullopt, err};
+        message = found;
+    }
+    for (const auto &p: this->present) {
+        const auto &value = values[next++];
+        if (!value.has_value() || value->front() == 'n') continue;
+        if (message.has_value())
+            return {
+                std::nullopt,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "document matches messages " +
+                        this->names[std::min(*message, p.message)] + " and " +
+                        this->names[std::max(*message, p.message)]
+                ),
+            };
+        message = p.message;
+    }
+    if (!message.has_value()) message = this->fallback;
+    return {message, x::errors::NIL};
+}
+
+std::pair<std::optional<std::size_t>, x::errors::Error>
+JSON::Router::find_value(const std::optional<std::string_view> &value) {
     std::optional<std::size_t> message;
     if (value.has_value()) {
         const char kind = value->front();
@@ -203,7 +281,6 @@ JSON::Router::find(const std::optional<std::string_view> &value) {
                     message = it->second;
         }
     }
-    if (!message.has_value()) message = this->fallback;
     return {message, x::errors::NIL};
 }
 }

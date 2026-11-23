@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, NotFoundError, type rack, task } from "@synnaxlabs/client";
+import { DisconnectedError, type rack, task } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 
@@ -29,8 +29,7 @@ export const useToggleScanner = (rackKey: rack.Key) => {
       });
       const disabled = !SCAN_SCHEMAS.config.parse(scanner.config).disabled;
       const set = task.set({ path: ["config", "disabled"], value: disabled });
-      if (!(await client.tasks.dispatch(scanner.key, set)))
-        throw new NotFoundError(`Task ${scanner.key} is not cached`);
+      await client.tasks.dispatch(scanner.key, set);
       addStatus({
         variant: "success",
         message: `${disabled ? "Disabled" : "Enabled"} NI device scanning`,

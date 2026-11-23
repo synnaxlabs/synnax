@@ -10,8 +10,10 @@
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { computed, renderThemed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { fireDragEvent } from "@synnaxlabs/lyra/testutil";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
 import { Mosaic } from "@/mosaic";
@@ -54,6 +56,70 @@ const leaf = (key: number): Element => {
   return el;
 };
 
+const stubRect = (el: Element, x: number, y: number, w: number, h: number): void => {
+  vi.spyOn(el, "getBoundingClientRect").mockReturnValue({
+    x,
+    y,
+    width: w,
+    height: h,
+    top: y,
+    bottom: y + h,
+    left: x,
+    right: x + w,
+    toJSON: () => ({}),
+  });
+};
+
+/**
+ * Gives the leaf a 400x300 rect with a 32px tall strip across the top holding
+ * 100px wide tabs, so cursor positions resolve to deterministic regions.
+ */
+const stubLeafRects = (leaf: HTMLElement): void => {
+  stubRect(leaf, 0, 0, 400, 300);
+  const tabList = leaf.querySelector(Tabs.LIST_SELECTOR);
+  if (tabList != null) stubRect(tabList, 0, 0, 400, 32);
+  leaf
+    .querySelectorAll("[data-tab-key]")
+    .forEach((tab, i) => stubRect(tab, i * 100, 0, 100, 32));
+};
+
+const DRAG = { dataTransfer: new DataTransfer() };
+
+interface LeafTabsProps {
+  nodeKey: number;
+  tabs: string[];
+}
+
+const LeafTabs = ({ nodeKey, tabs }: LeafTabsProps): ReactElement => {
+  const { startDrag, onDragEnd } = Mosaic.useDragTab();
+  const selectorDropProps = Mosaic.useSelectorDropProps({ nodeKey, tabKeys: tabs });
+  return (
+    <Mosaic.Leaf nodeKey={nodeKey} data-testid={`leaf-${nodeKey}`}>
+      <Tabs.Frame initialValue={tabs[0] ?? ""}>
+        <Tabs.Selector {...selectorDropProps}>
+          {tabs.map((tab) => (
+            <Tabs.Tab
+              key={tab}
+              itemKey={tab}
+              draggable
+              onDragStart={(e) => startDrag(e, tab)}
+              onDragEnd={onDragEnd}
+            >
+              Tab {tab}
+            </Tabs.Tab>
+          ))}
+        </Tabs.Selector>
+        {tabs.map((tab) => (
+          <Tabs.Content key={tab} itemKey={tab}>
+            <span>Content {tab}</span>
+            <Mosaic.Shield />
+          </Tabs.Content>
+        ))}
+      </Tabs.Frame>
+    </Mosaic.Leaf>
+  );
+};
+
 describe("Mosaic", () => {
   it("should fill its container", async () => {
     const rect = (await renderMosaic()).getBoundingClientRect();
@@ -92,5 +158,60 @@ describe("Mosaic", () => {
     const inner = tabs.getBoundingClientRect();
     expect(inner.width).toBe(outer.width);
     expect(inner.height).toBe(outer.height);
+  });
+
+  describe("useDragTab", () => {
+    it("should picture a dragged tab without its close button", () => {
+      const ClosableTab = (): ReactElement => {
+        const { startDrag, onDragEnd } = Mosaic.useDragTab();
+        return (
+          <Tabs.Frame initialValue="a">
+            <Tabs.Selector>
+              <Tabs.Tab
+                itemKey="a"
+                draggable
+                onDragStart={(e) => startDrag(e, "a")}
+                onDragEnd={onDragEnd}
+              >
+                Tab a
+                <Tabs.Close />
+              </Tabs.Tab>
+            </Tabs.Selector>
+          </Tabs.Frame>
+        );
+      };
+      render(
+        <Haul.Provider>
+          <ClosableTab />
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(screen.getByRole("tab", { name: /Tab a/ }), DRAG);
+      const layer = document.querySelector(".lyra-haul__layer");
+      expect(layer?.textContent).toBe("Tab a");
+      expect(layer?.querySelector('[aria-label="Close"]')).toBeNull();
+      expect(screen.getByRole("button", { name: "Close" })).toBeDefined();
+    });
+
+    it("should haul a tab dragged from one leaf onto another", () => {
+      const onDrop = vi.fn();
+      render(
+        <Haul.Provider>
+          <Mosaic.Frame onDrop={onDrop}>
+            <LeafTabs nodeKey={1} tabs={["a", "b"]} />
+            <LeafTabs nodeKey={2} tabs={["c"]} />
+          </Mosaic.Frame>
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(screen.getByRole("tab", { name: "Tab a" }), DRAG);
+      const target = screen.getByTestId("leaf-2");
+      stubLeafRects(target);
+      fireDragEvent(target, "drop", { x: 200, y: 150 });
+      expect(onDrop).toHaveBeenCalledWith({
+        nodeKey: 2,
+        tabKey: "a",
+        location: "center",
+        index: undefined,
+      });
+    });
   });
 });

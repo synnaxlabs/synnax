@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Settings } from "@/app/settings";
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
 import { renderWithConsole } from "@/testutil";
+
+beforeAll(Settings.TABS.settings.Content.preload);
 
 describe("Settings.Splash", () => {
   const querySplash = (container: HTMLElement): Element | null =>

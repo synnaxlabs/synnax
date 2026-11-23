@@ -12,8 +12,7 @@ import { randomBytes } from "node:crypto";
 import { and, desc, eq, isNull, lt, notExists, or } from "drizzle-orm";
 
 import type { Analytics, Capture } from "@/server/analytics";
-import type { Reader, Store } from "@/server/db/db";
-import { type Referral, referral } from "@/server/db/schema";
+import { type Reader, schema, type Store } from "@/server/db";
 import type { Account, Directory } from "@/server/directory";
 import { badRequest, HTTPError, notFound } from "@/server/errors";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
@@ -45,29 +44,35 @@ export interface CreateArgs {
 export const create = async (
   store: Store,
   { recipient, actor, now }: CreateArgs,
-): Promise<Referral> => {
+): Promise<schema.Referral> => {
   const trimmed = recipient.trim();
   if (trimmed === "") throw badRequest("Say who the link is for");
   if (trimmed.length > MAX_NAME_LENGTH)
     throw badRequest(`The name must be at most ${MAX_NAME_LENGTH} characters`);
   const [row] = await store.query
-    .insert(referral)
+    .insert(schema.referral)
     .values({ key: mintKey(), recipient: trimmed, createdBy: actor, createdAt: now })
     .returning();
   return row;
 };
 
 /** retrieve returns a referral, or null for an unknown key. */
-export const retrieve = async (db: Reader, key: string): Promise<Referral | null> => {
+export const retrieve = async (
+  db: Reader,
+  key: string,
+): Promise<schema.Referral | null> => {
   if (!KEY.test(key)) return null;
-  const [row] = await db.select().from(referral).where(eq(referral.key, key));
+  const [row] = await db
+    .select()
+    .from(schema.referral)
+    .where(eq(schema.referral.key, key));
   return row ?? null;
 };
 
 /** referrerOf returns the name of the staff member who made a referral. */
 export const referrerOf = async (
   directory: Directory,
-  { createdBy }: Referral,
+  { createdBy }: schema.Referral,
 ): Promise<string> =>
   (await directory.names([createdBy]))[createdBy] ?? FALLBACK_REFERRER;
 
@@ -131,28 +136,28 @@ export interface VisitArgs {
 export const visit = async (
   store: Store,
   { key, session, now }: VisitArgs,
-): Promise<Referral | null> => {
+): Promise<schema.Referral | null> => {
   const found = await retrieve(store.query, key);
   if (found == null) throw notFound("Referral");
   if (session?.staff === true) return null;
   if (found.openedAt == null)
     await store.query
-      .update(referral)
+      .update(schema.referral)
       .set({ openedAt: now })
-      .where(and(eq(referral.key, key), isNull(referral.openedAt)));
+      .where(and(eq(schema.referral.key, key), isNull(schema.referral.openedAt)));
   if (session == null) return null;
   const [claimed] = await store.query
-    .update(referral)
+    .update(schema.referral)
     .set({ userID: session.userID, claimedAt: now })
     .where(
       and(
-        eq(referral.key, key),
-        isNull(referral.userID),
+        eq(schema.referral.key, key),
+        isNull(schema.referral.userID),
         notExists(
           store.query
-            .select({ key: referral.key })
-            .from(referral)
-            .where(eq(referral.userID, session.userID)),
+            .select({ key: schema.referral.key })
+            .from(schema.referral)
+            .where(eq(schema.referral.userID, session.userID)),
         ),
       ),
     )
@@ -186,15 +191,15 @@ export const mailLink = async (
   const since = new Date(now.getTime() - MAIL_WAIT_MS);
   await store.transact(async (tx) => {
     const [row] = await tx
-      .update(referral)
+      .update(schema.referral)
       .set({ mailedAt: now })
       .where(
         and(
-          eq(referral.key, key),
-          or(isNull(referral.mailedAt), lt(referral.mailedAt, since)),
+          eq(schema.referral.key, key),
+          or(isNull(schema.referral.mailedAt), lt(schema.referral.mailedAt, since)),
         ),
       )
-      .returning({ key: referral.key });
+      .returning({ key: schema.referral.key });
     if (row == null)
       throw new HTTPError(
         429,
@@ -228,14 +233,14 @@ const notice = (key: string, email: string): Message => ({
 export type Stage = "sent" | "opened" | "signed_up" | "installed";
 
 /** stageOf reads the stage of a referral from its claimant's Desktop usage. */
-export const stageOf = (ref: Referral, usage: Usage): Stage => {
+export const stageOf = (ref: schema.Referral, usage: Usage): Stage => {
   if (ref.userID == null) return ref.openedAt == null ? "sent" : "opened";
   return usage.lastLogin == null ? "signed_up" : "installed";
 };
 
 /** Entry is a referral with who made it and how far its recipient got. */
 export interface Entry {
-  referral: Referral;
+  referral: schema.Referral;
   referrer: string;
   /** account is the user who claimed the link, or null before a claim. */
   account: Account | null;
@@ -251,8 +256,8 @@ export const list = async (
 ): Promise<Entry[]> => {
   const rows = await store.query
     .select()
-    .from(referral)
-    .orderBy(desc(referral.createdAt));
+    .from(schema.referral)
+    .orderBy(desc(schema.referral.createdAt));
   const claimants = rows.flatMap((r) => (r.userID == null ? [] : [r.userID]));
   const [accounts, usage] = await Promise.all([
     directory.users(),
@@ -279,7 +284,7 @@ export const list = async (
 export const CONVERTED = "referral_converted";
 
 const converted = (
-  ref: Referral,
+  ref: schema.Referral,
   referrer: string,
   userID: string,
   now: Date,
@@ -317,12 +322,12 @@ export const convert = async (
   analytics: Analytics,
   { userID, shared, now }: ConvertArgs,
 ): Promise<string | undefined> => {
-  let found: { ref: Referral; referrer: string } | null;
+  let found: { ref: schema.Referral; referrer: string } | null;
   try {
     const [ref] = await store.query
       .select()
-      .from(referral)
-      .where(eq(referral.userID, userID));
+      .from(schema.referral)
+      .where(eq(schema.referral.userID, userID));
     found = ref == null ? null : { ref, referrer: await referrerOf(directory, ref) };
   } catch (err) {
     console.error("failed to read the referral of a first login", { userID }, err);

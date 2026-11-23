@@ -39,6 +39,184 @@ export type MessageKey = z.infer<typeof messageKeyZ>;
 export const fieldKeyZ = z.uuid();
 export type FieldKey = z.infer<typeof fieldKeyZ>;
 
+/** ConstantTimestampDefault is one fixed timestamp. */
+export const constantTimestampDefaultZ = z.object({
+  type: z.literal("constant"),
+  /** value is the timestamp that the default gives. */
+  value: telem.timeStampZ,
+});
+export interface ConstantTimestampDefault extends z.infer<
+  typeof constantTimestampDefaultZ
+> {}
+
+/** NowTimestampDefault is the time of each read or write. */
+export const nowTimestampDefaultZ = z.object({
+  type: z.literal("now"),
+});
+export interface NowTimestampDefault extends z.infer<typeof nowTimestampDefaultZ> {}
+
+export const TIMESTAMP_DEFAULT_TYPES = ["constant", "now"] as const;
+export const timestampDefaultTypeZ = z.enum(TIMESTAMP_DEFAULT_TYPES);
+export type TimestampDefaultType = z.infer<typeof timestampDefaultTypeZ>;
+
+/** TimestampDefault is the default of a timestamp field. */
+export const timestampDefaultZ = z.discriminatedUnion("type", [
+  constantTimestampDefaultZ,
+  nowTimestampDefaultZ,
+]);
+export type TimestampDefault = ConstantTimestampDefault | NowTimestampDefault;
+
+export const TIMESTAMP_DEFAULT_SCHEMAS: {
+  [K in TimestampDefaultType]: z.ZodType<Extract<TimestampDefault, { type: K }>>;
+} = {
+  constant: constantTimestampDefaultZ,
+  now: nowTimestampDefaultZ,
+};
+
+/** ConstantUUIDDefault is one fixed UUID. */
+export const constantUUIDDefaultZ = z.object({
+  type: z.literal("constant"),
+  /** value is the UUID that the default gives. */
+  value: z.uuid(),
+});
+export interface ConstantUUIDDefault extends z.infer<typeof constantUUIDDefaultZ> {}
+
+/** RandomUUIDDefault is a new random UUID for each read or write. */
+export const randomUUIDDefaultZ = z.object({
+  type: z.literal("random"),
+});
+export interface RandomUUIDDefault extends z.infer<typeof randomUUIDDefaultZ> {}
+
+export const UUID_DEFAULT_TYPES = ["constant", "random"] as const;
+export const uuidDefaultTypeZ = z.enum(UUID_DEFAULT_TYPES);
+export type UUIDDefaultType = z.infer<typeof uuidDefaultTypeZ>;
+
+/** UUIDDefault is the default of a UUID field. */
+export const uuidDefaultZ = z.discriminatedUnion("type", [
+  constantUUIDDefaultZ,
+  randomUUIDDefaultZ,
+]);
+export type UUIDDefault = ConstantUUIDDefault | RandomUUIDDefault;
+
+export const UUID_DEFAULT_SCHEMAS: {
+  [K in UUIDDefaultType]: z.ZodType<Extract<UUIDDefault, { type: K }>>;
+} = {
+  constant: constantUUIDDefaultZ,
+  random: randomUUIDDefaultZ,
+};
+
+/** FloatWriteValue is a fixed float. */
+export const floatWriteValueZ = z.object({
+  type: z.literal("float"),
+  /** value is the raw value, before scale and offset. */
+  value: payload.floatZ,
+});
+export interface FloatWriteValue extends z.infer<typeof floatWriteValueZ> {}
+
+/** IntegerWriteValue is a fixed signed integer. */
+export const integerWriteValueZ = z.object({
+  type: z.literal("integer"),
+  /** value is the raw value, before scale and offset. */
+  value: payload.integerZ,
+});
+export interface IntegerWriteValue extends z.infer<typeof integerWriteValueZ> {}
+
+/** UnsignedWriteValue is a fixed unsigned integer. */
+export const unsignedWriteValueZ = z.object({
+  type: z.literal("unsigned"),
+  /** value is the raw value, before scale and offset. */
+  value: payload.unsignedZ,
+});
+export interface UnsignedWriteValue extends z.infer<typeof unsignedWriteValueZ> {}
+
+/** StringWriteValue is a fixed string. */
+export const stringWriteValueZ = z.object({
+  type: z.literal("string"),
+  /** value is the string. */
+  value: z.string(),
+});
+export interface StringWriteValue extends z.infer<typeof stringWriteValueZ> {}
+
+/** BooleanWriteValue is a fixed boolean. */
+export const booleanWriteValueZ = z.object({
+  type: z.literal("boolean"),
+  /** value is the boolean. */
+  value: z.boolean(),
+});
+export interface BooleanWriteValue extends z.infer<typeof booleanWriteValueZ> {}
+
+/** TimestampWriteValue is a fixed timestamp. */
+export const timestampWriteValueZ = z.object({
+  type: z.literal("timestamp"),
+  /** value is the timestamp. */
+  value: telem.timeStampZ,
+});
+export interface TimestampWriteValue extends z.infer<typeof timestampWriteValueZ> {}
+
+/** JSONWriteValue is a fixed JSON value. */
+export const jsonWriteValueZ = z.object({
+  type: z.literal("json"),
+  /** value is the JSON text of the value. */
+  value: z.string(),
+});
+export interface JSONWriteValue extends z.infer<typeof jsonWriteValueZ> {}
+
+/** UuidWriteValue is a fixed UUID. */
+export const uuidWriteValueZ = z.object({
+  type: z.literal("uuid"),
+  /** value is the UUID. */
+  value: z.uuid(),
+});
+export interface UuidWriteValue extends z.infer<typeof uuidWriteValueZ> {}
+
+/** BytesWriteValue is fixed bytes. */
+export const bytesWriteValueZ = z.object({
+  type: z.literal("bytes"),
+  /** value is the base64 text of the value. */
+  value: z.string(),
+});
+export interface BytesWriteValue extends z.infer<typeof bytesWriteValueZ> {}
+
+/**
+ * WriteValue is a fixed value that a write binding sends as its field. Its type is the
+ * kind of the field.
+ */
+export const writeValueZ = z.discriminatedUnion("type", [
+  floatWriteValueZ,
+  integerWriteValueZ,
+  unsignedWriteValueZ,
+  stringWriteValueZ,
+  booleanWriteValueZ,
+  timestampWriteValueZ,
+  jsonWriteValueZ,
+  uuidWriteValueZ,
+  bytesWriteValueZ,
+]);
+export type WriteValue =
+  | FloatWriteValue
+  | IntegerWriteValue
+  | UnsignedWriteValue
+  | StringWriteValue
+  | BooleanWriteValue
+  | TimestampWriteValue
+  | JSONWriteValue
+  | UuidWriteValue
+  | BytesWriteValue;
+
+export const WRITE_VALUE_SCHEMAS: {
+  [K in payload.Kind]: z.ZodType<Extract<WriteValue, { type: K }>>;
+} = {
+  float: floatWriteValueZ,
+  integer: integerWriteValueZ,
+  unsigned: unsignedWriteValueZ,
+  string: stringWriteValueZ,
+  boolean: booleanWriteValueZ,
+  timestamp: timestampWriteValueZ,
+  json: jsonWriteValueZ,
+  uuid: uuidWriteValueZ,
+  bytes: bytesWriteValueZ,
+};
+
 /** FloatJSONMatch matches a JSON number equal to a float. */
 export const floatJSONMatchZ = jsonBaseMatchZ.extend({
   type: z.literal("float"),
@@ -79,12 +257,22 @@ export const booleanJSONMatchZ = jsonBaseMatchZ.extend({
 });
 export interface BooleanJSONMatch extends z.infer<typeof booleanJSONMatchZ> {}
 
+/**
+ * PresentJSONMatch matches a document that holds a value other than null at the
+ * pointer.
+ */
+export const presentJSONMatchZ = jsonBaseMatchZ.extend({
+  type: z.literal("present"),
+});
+export interface PresentJSONMatch extends z.infer<typeof presentJSONMatchZ> {}
+
 export const JSON_MATCH_TYPES = [
   "float",
   "integer",
   "unsigned",
   "string",
   "boolean",
+  "present",
 ] as const;
 export const jsonMatchTypeZ = z.enum(JSON_MATCH_TYPES);
 export type JSONMatchType = z.infer<typeof jsonMatchTypeZ>;
@@ -96,13 +284,15 @@ export const jsonMatchZ = z.discriminatedUnion("type", [
   unsignedJSONMatchZ,
   stringJSONMatchZ,
   booleanJSONMatchZ,
+  presentJSONMatchZ,
 ]);
 export type JSONMatch =
   | FloatJSONMatch
   | IntegerJSONMatch
   | UnsignedJSONMatch
   | StringJSONMatch
-  | BooleanJSONMatch;
+  | BooleanJSONMatch
+  | PresentJSONMatch;
 
 export const JSON_MATCH_SCHEMAS: {
   [K in JSONMatchType]: z.ZodType<Extract<JSONMatch, { type: K }>>;
@@ -112,6 +302,7 @@ export const JSON_MATCH_SCHEMAS: {
   unsigned: unsignedJSONMatchZ,
   string: stringJSONMatchZ,
   boolean: booleanJSONMatchZ,
+  present: presentJSONMatchZ,
 };
 
 /** Where is a filter that selects ICDs. */
@@ -184,6 +375,13 @@ export const readBindingZ = z.object({
 });
 export interface ReadBinding extends z.infer<typeof readBindingZ> {}
 
+/** WriteBaseBinding carries the parts every write binding shares. */
+export const writeBaseBindingZ = z.object({
+  /** field is the key of the message field to fill. */
+  field: fieldKeyZ,
+});
+export interface WriteBaseBinding extends z.infer<typeof writeBaseBindingZ> {}
+
 /** CanIdentifier matches a CAN frame by arbitration identifier. */
 export const canIdentifierZ = z.object({
   type: z.literal("can"),
@@ -244,26 +442,87 @@ export const retrieveRequestZ = z.strictObject({
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
-export const binaryFieldZ = baseFieldZ.extend({
-  startBit: zod.uint16.default(0),
-  bitLength: zod.uint8.min(1).max(64).default(8),
-  byteOrder: byteOrderZ.default("little_endian"),
-  kind: payload.kindZ.default("unsigned"),
-  multiplexor: fieldKeyZ.optional(),
-  multiplexValues: z
-    .int32()
-    .array()
-    .default(() => []),
+export const textBaseFieldZ = baseFieldZ.extend({
+  default: payload.floatZ.optional(),
 });
-export interface BinaryField extends z.infer<typeof binaryFieldZ> {}
+export interface TextBaseField extends z.infer<typeof textBaseFieldZ> {}
 
 export const jsonBaseFieldZ = baseFieldZ.extend({
   pointer: z.string().default(""),
 });
 export interface JSONBaseField extends z.infer<typeof jsonBaseFieldZ> {}
 
+export const binaryBaseFieldZ = baseFieldZ.extend({
+  startBit: zod.uint16.default(0),
+  bitLength: zod.uint8.min(1).max(64).default(8),
+  byteOrder: byteOrderZ.default("little_endian"),
+  multiplexor: fieldKeyZ.optional(),
+  multiplexValues: z
+    .int32()
+    .array()
+    .default(() => []),
+});
+export interface BinaryBaseField extends z.infer<typeof binaryBaseFieldZ> {}
+
+/** ReadMessage reads one message of an ICD. */
+export const readMessageZ = z.object({
+  /** message is the key of the ICD message to read. */
+  message: messageKeyZ,
+  /**
+   * index is the key of the field whose channel indexes the others. Absent when the
+   * task stamps samples on arrival, or with the timestamp of the Kafka record.
+   */
+  index: fieldKeyZ.optional(),
+  /** bindings are the fields the task reads. A field with no binding is not read. */
+  bindings: readBindingZ.array().default(() => []),
+});
+export interface ReadMessage extends z.infer<typeof readMessageZ> {}
+
+/** ChannelWriteBinding fills a field with the values of a command channel. */
+export const channelWriteBindingZ = writeBaseBindingZ.extend({
+  type: z.literal("channel"),
+  /**
+   * channel is the command channel whose values the field sends. 0 means that a client
+   * creates the channel on configure.
+   */
+  channel: channel.keyZ.default(0),
+  /**
+   * dataType is the data type of the command channel that a client creates for the
+   * field. Absent takes float64 for a scaled field and the default of the field's kind
+   * for any other. The Core ignores it once the channel exists.
+   */
+  dataType: z.string().optional(),
+});
+export interface ChannelWriteBinding extends z.infer<typeof channelWriteBindingZ> {}
+
+/** ValueWriteBinding fills a field with a fixed value. */
+export const valueWriteBindingZ = writeBaseBindingZ.extend({
+  type: z.literal("value"),
+  /** value is the fixed value that the field sends. */
+  value: writeValueZ,
+});
+export interface ValueWriteBinding extends z.infer<typeof valueWriteBindingZ> {}
+
+export const WRITE_BINDING_TYPES = ["channel", "value"] as const;
+export const writeBindingTypeZ = z.enum(WRITE_BINDING_TYPES);
+export type WriteBindingType = z.infer<typeof writeBindingTypeZ>;
+
+/** WriteBinding fills one message field with a command channel or a fixed value. */
+export const writeBindingZ = z.discriminatedUnion("type", [
+  channelWriteBindingZ,
+  valueWriteBindingZ,
+]);
+export type WriteBinding = ChannelWriteBinding | ValueWriteBinding;
+
+export const WRITE_BINDING_SCHEMAS: {
+  [K in WriteBindingType]: z.ZodType<Extract<WriteBinding, { type: K }>>;
+} = {
+  channel: channelWriteBindingZ,
+  value: valueWriteBindingZ,
+};
+
 /** DelimitedTextField is a field read from one item of a delimited text line. */
-export const delimitedTextFieldZ = baseFieldZ.extend({
+export const delimitedTextFieldZ = textBaseFieldZ.extend({
   encoding: z.literal("delimited"),
   /** position is the zero-based item index after splitting on the delimiter. */
   position: z.uint32().default(0),
@@ -271,7 +530,7 @@ export const delimitedTextFieldZ = baseFieldZ.extend({
 export interface DelimitedTextField extends z.infer<typeof delimitedTextFieldZ> {}
 
 /** TaggedTextField is a field read from the text that follows a tag. */
-export const taggedTextFieldZ = baseFieldZ.extend({
+export const taggedTextFieldZ = textBaseFieldZ.extend({
   encoding: z.literal("tagged"),
   /** tag is the text that comes just before the value in the line. */
   tag: z.string(),
@@ -282,7 +541,9 @@ export const TEXT_FIELD_TYPES = ["delimited", "tagged"] as const;
 export const textFieldTypeZ = z.enum(TEXT_FIELD_TYPES);
 export type TextFieldType = z.infer<typeof textFieldTypeZ>;
 
-/** TextField is a field read from a text line. */
+/**
+ * TextField is a field read from a text line. With no default, a write needs a channel.
+ */
 export const textFieldZ = z.discriminatedUnion("encoding", [
   delimitedTextFieldZ,
   taggedTextFieldZ,
@@ -296,26 +557,15 @@ export const TEXT_FIELD_SCHEMAS: {
   tagged: taggedTextFieldZ,
 };
 
-/** ReadMessage reads the documents of one ICD message. */
-export const readMessageZ = z.object({
-  /** message is the key of the ICD message to read. */
-  message: messageKeyZ,
-  /**
-   * index is the key of the field whose channel indexes the others. Absent when the
-   * task stamps samples on arrival.
-   */
-  index: fieldKeyZ.optional(),
-  /** bindings are the fields the task reads. A field with no binding is not read. */
-  bindings: readBindingZ.array().default(() => []),
-});
-export interface ReadMessage extends z.infer<typeof readMessageZ> {}
-
 /** FloatJSONField is a JSON number read as a float. */
 export const floatJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("float"),
   /** enumValues maps text labels in the document to values. */
   enumValues: payload.floatEntryZ.array().default(() => []),
-  /** default is the value when the document has none. Absent requires one. */
+  /**
+   * default is the raw value, before scale and offset, when a read finds none or no
+   * channel is bound.
+   */
   default: payload.floatZ.optional(),
 });
 export interface FloatJSONField extends z.infer<typeof floatJSONFieldZ> {}
@@ -325,7 +575,10 @@ export const integerJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("integer"),
   /** enumValues maps text labels in the document to values. */
   enumValues: payload.integerEntryZ.array().default(() => []),
-  /** default is the value when the document has none. Absent requires one. */
+  /**
+   * default is the raw value, before scale and offset, when a read finds none or no
+   * channel is bound.
+   */
   default: payload.integerZ.optional(),
 });
 export interface IntegerJSONField extends z.infer<typeof integerJSONFieldZ> {}
@@ -335,7 +588,10 @@ export const unsignedJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("unsigned"),
   /** enumValues maps text labels in the document to values. */
   enumValues: payload.unsignedEntryZ.array().default(() => []),
-  /** default is the value when the document has none. Absent requires one. */
+  /**
+   * default is the raw value, before scale and offset, when a read finds none or no
+   * channel is bound.
+   */
   default: payload.unsignedZ.optional(),
 });
 export interface UnsignedJSONField extends z.infer<typeof unsignedJSONFieldZ> {}
@@ -345,7 +601,7 @@ export const stringJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("string"),
   /** enumValues maps text labels in the document to values. */
   enumValues: payload.stringEntryZ.array().default(() => []),
-  /** default is the value when the document has none. Absent requires one. */
+  /** default is the value when a read finds none or no channel is bound. */
   default: z.string().optional(),
 });
 export interface StringJSONField extends z.infer<typeof stringJSONFieldZ> {}
@@ -355,7 +611,7 @@ export const booleanJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("boolean"),
   /** enumValues maps text labels in the document to values. */
   enumValues: payload.booleanEntryZ.array().default(() => []),
-  /** default is the value when the document has none. Absent requires one. */
+  /** default is the value when a read finds none or no channel is bound. */
   default: z.boolean().optional(),
 });
 export interface BooleanJSONField extends z.infer<typeof booleanJSONFieldZ> {}
@@ -365,30 +621,45 @@ export const timestampJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("timestamp"),
   /** timeFormat is the encoding of the timestamp. */
   timeFormat: payload.timeFormatZ,
-  /** default is the value when the document has none. Absent requires one. */
-  default: telem.timeStampZ.optional(),
+  /** default is the value when a read finds none or no channel is bound. */
+  default: zod.nullToUndefined(timestampDefaultZ),
 });
 export interface TimestampJSONField extends z.infer<typeof timestampJSONFieldZ> {}
 
 /** JSONJSONField is any JSON value. */
 export const jsonJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("json"),
+  /**
+   * default is the JSON text of the value when a read finds none or no channel is
+   * bound.
+   */
+  default: z.string().optional(),
 });
 export interface JSONJSONField extends z.infer<typeof jsonJSONFieldZ> {}
 
 /** UuidJSONField is a UUID held in a JSON string. */
 export const uuidJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("uuid"),
+  /** default is the value when a read finds none or no channel is bound. */
+  default: zod.nullToUndefined(uuidDefaultZ),
 });
 export interface UuidJSONField extends z.infer<typeof uuidJSONFieldZ> {}
 
 /** BytesJSONField is base64 text held in a JSON string. */
 export const bytesJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("bytes"),
+  /**
+   * default is the base64 text of the value when a read finds none or no channel is
+   * bound.
+   */
+  default: z.string().optional(),
 });
 export interface BytesJSONField extends z.infer<typeof bytesJSONFieldZ> {}
 
-/** JSONField is a field read from a JSON document. */
+/**
+ * JSONField is a field read from a JSON document. With no default, a read needs its
+ * value and a write needs a channel.
+ */
 export const jsonFieldZ = z.discriminatedUnion("type", [
   floatJSONFieldZ,
   integerJSONFieldZ,
@@ -424,6 +695,76 @@ export const JSON_FIELD_SCHEMAS: {
   uuid: uuidJSONFieldZ,
   bytes: bytesJSONFieldZ,
 };
+
+/**
+ * FloatBinaryField is a field whose raw bits are an IEEE 754 float of 32 or 64 bits.
+ */
+export const floatBinaryFieldZ = binaryBaseFieldZ.extend({
+  kind: z.literal("float"),
+  /**
+   * default is the raw value, before scale and offset, when a read finds none or no
+   * channel is bound.
+   */
+  default: payload.floatZ.optional(),
+});
+export interface FloatBinaryField extends z.infer<typeof floatBinaryFieldZ> {}
+
+/** IntegerBinaryField is a field whose raw bits are a two's complement integer. */
+export const integerBinaryFieldZ = binaryBaseFieldZ.extend({
+  kind: z.literal("integer"),
+  /**
+   * default is the raw value, before scale and offset, when a read finds none or no
+   * channel is bound.
+   */
+  default: payload.integerZ.optional(),
+});
+export interface IntegerBinaryField extends z.infer<typeof integerBinaryFieldZ> {}
+
+/** UnsignedBinaryField is a field whose raw bits are an unsigned integer. */
+export const unsignedBinaryFieldZ = binaryBaseFieldZ.extend({
+  kind: z.literal("unsigned"),
+  /**
+   * default is the raw value, before scale and offset, when a read finds none or no
+   * channel is bound.
+   */
+  default: payload.unsignedZ.optional(),
+});
+export interface UnsignedBinaryField extends z.infer<typeof unsignedBinaryFieldZ> {}
+
+export const BINARY_FIELD_TYPES = ["float", "integer", "unsigned"] as const;
+export const binaryFieldTypeZ = z.enum(BINARY_FIELD_TYPES);
+export type BinaryFieldType = z.infer<typeof binaryFieldTypeZ>;
+
+/**
+ * BinaryField is a field read from a bit range of a binary payload. With no default, a
+ * write needs a channel.
+ */
+export const binaryFieldZ = z.discriminatedUnion("kind", [
+  floatBinaryFieldZ,
+  integerBinaryFieldZ,
+  unsignedBinaryFieldZ,
+]);
+export type BinaryField = FloatBinaryField | IntegerBinaryField | UnsignedBinaryField;
+
+export const BINARY_FIELD_SCHEMAS: {
+  [K in BinaryFieldType]: z.ZodType<Extract<BinaryField, { kind: K }>>;
+} = {
+  float: floatBinaryFieldZ,
+  integer: integerBinaryFieldZ,
+  unsigned: unsignedBinaryFieldZ,
+};
+
+/** WriteMessage sends one message of an ICD. */
+export const writeMessageZ = z.object({
+  /** message is the key of the ICD message to send. */
+  message: messageKeyZ,
+  /**
+   * bindings are the fields that command channels or fixed values fill. Each other
+   * field sends its default.
+   */
+  bindings: writeBindingZ.array().default(() => []),
+});
+export interface WriteMessage extends z.infer<typeof writeMessageZ> {}
 
 /** BinaryPayload is a payload of raw bytes. */
 export const binaryPayloadZ = z.object({
@@ -492,6 +833,11 @@ export const messageZ = z.object({
   name: z.string().min(1),
   /** payload is the layout of the message's payload. */
   payload: payloadZ,
+  /**
+   * cycleTime is the send cycle that the protocol states for the message. When absent
+   * the protocol states none.
+   */
+  cycleTime: telem.timeSpanZ.optional(),
 });
 export interface Message extends z.infer<typeof messageZ> {}
 

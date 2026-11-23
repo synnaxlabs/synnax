@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -35,6 +36,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db         *gorp.DB
+	enumSvc    *enumeration.Service
 	groupSvc   *group.Service
 	colorSvc   *color.Service
 	proj       project.Project
@@ -47,6 +49,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	StartRun(db.Run)
+	enumSvc = MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
+		DB: db,
+	}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
@@ -59,9 +64,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	svc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
-		DB:    db,
-		Group: groupSvc,
-		ImEx:  imexSvc,
+		DB:          db,
+		Group:       groupSvc,
+		ImEx:        imexSvc,
+		Enumeration: enumSvc,
 	}))
 	proj.Name = "test-project"
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

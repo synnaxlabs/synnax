@@ -31,6 +31,7 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
@@ -135,6 +136,11 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to every method.
 	AuthMethods []auth.Method
+	// OIDCProviders are the OpenID Connect providers users log in through. The Core
+	// accepts the oidc method only when at least one is set.
+	//
+	// [OPTIONAL] - Defaults to none.
+	OIDCProviders []oidc.Provider
 	// License configures the license service. The layer supplies its DB and
 	// instrumentation.
 	//
@@ -189,6 +195,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		other.SessionIdleTimeout,
 	)
 	c.AuthMethods = override.Slice(c.AuthMethods, other.AuthMethods)
+	c.OIDCProviders = override.Slice(c.OIDCProviders, other.OIDCProviders)
 	c.License = c.License.Override(other.License)
 	c.EmbeddedDriverDisabled = override.If(
 		c.EmbeddedDriverDisabled,
@@ -233,6 +240,8 @@ type Layer struct {
 	Password *password.Service
 	// APIKey stores API keys and checks proofs of them.
 	APIKey *apikey.Service
+	// OIDC stores provider links and checks proofs of provider accounts.
+	OIDC *oidc.Service
 	// Auth logs subjects in and checks the session tokens their requests carry.
 	Auth *auth.Service
 	// Ranger is for working with ranges.
@@ -768,12 +777,30 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			)
 		}
 	}
+	if l.OIDC, err = oidc.OpenService(ctx, oidc.ServiceConfig{
+		Instrumentation: cfg.Child("oidc"),
+		DB:              cfg.Distribution.DB,
+		User:            l.User,
+		NewUserRole:     roles.Builtin.ViewerKey,
+		Providers:       cfg.OIDCProviders,
+	}); !ok(err, l.OIDC) {
+		return nil, err
+	}
 	authenticators := map[auth.Method]auth.Authenticator{
 		auth.MethodPassword: l.Password,
 		auth.MethodAPIKey:   l.APIKey,
 	}
+	if len(cfg.OIDCProviders) > 0 {
+		authenticators[auth.MethodOIDC] = l.OIDC
+	}
 	if len(cfg.AuthMethods) > 0 {
 		authenticators = lo.PickByKeys(authenticators, cfg.AuthMethods)
+	}
+	if len(authenticators) == 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"no login method is accepted: oidc needs at least one provider",
+		)
 	}
 	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
 		Instrumentation: cfg.Child("auth"),
@@ -825,6 +852,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:           l.Group,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
+		Enumeration:     l.Enumeration,
 	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
@@ -834,6 +862,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 		Color:           l.Color,
+		Ranger:          l.Ranger,
 	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
@@ -949,6 +978,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("http"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
+		ICD:             l.ICD,
 	}); !ok(err, l.HTTP) {
 		return nil, err
 	}
@@ -956,6 +986,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("kafka"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
+		ICD:             l.ICD,
 	}); !ok(err, l.Kafka) {
 		return nil, err
 	}
@@ -1144,6 +1175,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.Group.BuiltinDeleteMigration(),
 			rangeAliasDropMigration,
 			l.PagerDuty.SecretMigration(taskNames(l.Task)),
+			l.Kafka.ICDMigration(taskNames(l.Task)),
+			l.HTTP.ICDMigration(taskNames(l.Task)),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
 		),
@@ -1196,6 +1229,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Status:          l.Status,
+		ICD:             l.ICD,
 	})
 	if !ok(err, nil) {
 		return nil, err

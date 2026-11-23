@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from synnax import (
     channel as channel_,
     color as color__,
+    enumeration as enumeration_,
     group as group_,
     project as project_,
 )
@@ -186,13 +187,11 @@ class StalenessConfig(BaseModel):
 
     Attributes:
         staleness_timeout: Is the span after which the value is considered stale.
-        staleness_color: Is the color applied when the value is stale.
     """
 
     staleness_timeout: telem.TimeSpan = Field(
         default=telem.TimeSpan(5000000000), ge=1000000000, le=9007199254740991
     )
-    staleness_color: color_.Color | None = None
 
 
 class NumericTelemConfig(BaseModel):
@@ -223,6 +222,32 @@ class ScaledConfig(BaseModel):
     scale: float = Field(default=1, gt=0, allow_inf_nan=False)
 
 
+class FormatConfig(BaseModel):
+    """Is how a node shows a number.
+
+    Attributes:
+        units: Is the unit suffix shown after the value. Absent shows none.
+        precision: Is the number of decimal places shown, from 0 to 17. Absent shows 2.
+        notation: Is the notation of the value. Absent shows standard notation.
+    """
+
+    units: str | None = None
+    precision: int | None = Field(default=None, ge=0, le=17)
+    notation: notation_.Notation | None = None
+
+
+class CommandBinding(BaseModel):
+    """Is the channel of a command that has no state.
+
+    Attributes:
+        key: Is the key of the command of the symbol.
+        channel: Is the channel that the command writes to.
+    """
+
+    key: str
+    channel: channel_.Key = Field(ge=0, le=4294967295)
+
+
 class Order(BaseModel):
     """Is a sort of schematics.
 
@@ -233,6 +258,28 @@ class Order(BaseModel):
 
     field: OrderField
     descending: bool = False
+
+
+class ChannelSource(BaseModel):
+    """Reads a channel."""
+
+    type: Literal["channel"] = "channel"
+    key: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    command: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+
+
+class LocalSource(BaseModel):
+    """Holds a value in the node."""
+
+    type: Literal["local"] = "local"
+    value: float
+
+
+# Is where a state reads its value.
+Source = Annotated[
+    ChannelSource | LocalSource,
+    Field(discriminator="type"),
+]
 
 
 class Where(BaseModel):
@@ -354,6 +401,26 @@ class ScaleIndicatorConfig(NumericTelemConfig, StalenessConfig):
     side: spatial.OuterLocation = "right"
     caret_side: spatial.OuterLocation = "right"
     level: text.Level = "small"
+
+
+class StateBinding(FormatConfig):
+    """Is how one node reads one state of its symbol.
+
+    Attributes:
+        key: Is the key of the state of the symbol that the binding sets.
+        source: Is where the state reads its value, or nowhere.
+        enumeration: Replaces the enumeration of the state.
+        match: Replaces the match of the state.
+        bounds: Replaces the bounds of a number state.
+        default: Replaces the default of the state.
+    """
+
+    key: str
+    source: Source | None = None
+    enumeration: enumeration_.Key | None = None
+    match: symbol.Matcher | None = None
+    bounds: spatial.Bounds | None = None
+    default: float | None = None
 
 
 class RetrieveRequest(BaseModel):
@@ -719,6 +786,7 @@ class SelectNodeConfig(LabeledConfig, StalenessConfig):
     fill_color: color__.Ref | None = None
     inline_size: int = Field(default=100, ge=1, le=65535)
     options: list[StateMapping] = Field(default_factory=list)
+    enumeration: enumeration_.Key | None = None
     disabled: bool = False
     on_click_delay: telem.TimeSpan = Field(
         default=telem.TimeSpan(0), ge=0, le=2147483647000000
@@ -765,6 +833,7 @@ class StateIndicatorNodeConfig(LabeledConfig, StalenessConfig):
     stroke_color: color__.Ref | None = None
     inline_size: int = Field(default=100, ge=1, le=65535)
     options: list[StateMapping] = Field(default_factory=list)
+    enumeration: enumeration_.Key | None = None
     size: ComponentSize = "medium"
 
 
@@ -1068,7 +1137,6 @@ class TankNodeConfig(LabeledConfig):
     staleness_timeout: telem.TimeSpan = Field(
         default=telem.TimeSpan(5000000000), ge=1000000000, le=9007199254740991
     )
-    staleness_color: color_.Color | None = None
     bounds: spatial.Bounds = Field(
         default_factory=lambda: spatial.Bounds(lower=0, upper=100)
     )
@@ -1100,7 +1168,7 @@ class CustomActuatorNodeConfig(ToggleConfig):
 
     variant: Literal["custom_actuator"] = "custom_actuator"
     spec_key: str
-    state_overrides: list[symbol.State] = Field(default_factory=list)
+    state_overrides: list[symbol.StateOverride] = Field(default_factory=list)
 
 
 class CustomStaticNodeConfig(LabeledConfig, ScaledConfig):
@@ -1108,7 +1176,7 @@ class CustomStaticNodeConfig(LabeledConfig, ScaledConfig):
 
     variant: Literal["custom_static"] = "custom_static"
     spec_key: str
-    state_overrides: list[symbol.State] = Field(default_factory=list)
+    state_overrides: list[symbol.StateOverride] = Field(default_factory=list)
 
 
 class GroupBoxNodeConfig(BaseModel):
@@ -1118,6 +1186,22 @@ class GroupBoxNodeConfig(BaseModel):
 
     variant: Literal["group_box"] = "group_box"
     locked: bool = False
+
+
+class SymbolNodeConfig(LabeledConfig, ScaledConfig, StalenessConfig):
+    """Is the configuration for a node that draws a symbol."""
+
+    variant: Literal["symbol"] = "symbol"
+    spec: symbol.Ref
+    color: color__.Ref | None = None
+    disabled: bool = False
+    motion_disabled: bool = False
+    on_click_delay: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=0, le=2147483647000000
+    )
+    states: list[StateBinding] = Field(default_factory=list)
+    commands: list[CommandBinding] = Field(default_factory=list)
+    control: ControlStateConfig | None = None
 
 
 # Is the configuration of one node. The variant selects the symbol rendered for
@@ -1226,7 +1310,8 @@ NodeConfig = Annotated[
     | TJunctionNodeConfig
     | CustomActuatorNodeConfig
     | CustomStaticNodeConfig
-    | GroupBoxNodeConfig,
+    | GroupBoxNodeConfig
+    | SymbolNodeConfig,
     Field(discriminator="variant"),
 ]
 

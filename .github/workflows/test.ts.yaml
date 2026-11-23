@@ -110,8 +110,23 @@ on:
         required: false
         type: boolean
         default: true
+      ubuntu_arm:
+        description: Whether to test on Ubuntu on ARM
+        required: false
+        type: boolean
+        default: false
+      webkit_runs:
+        description: How many Vitest runs split each job's WebKit specs, from 1 to 4
+        required: false
+        type: number
+        default: 1
       windows:
         description: Whether to test on Windows
+        required: false
+        type: boolean
+        default: false
+      windows_arm:
+        description: Whether to test on Windows on ARM
         required: false
         type: boolean
         default: false
@@ -151,7 +166,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os:
+          [
+            macos-latest,
+            ubuntu-latest,
+            ubuntu-24.04-arm,
+            windows-latest,
+            windows-11-arm,
+          ]
         shard: [1, 2, 3, 4]
         # An empty node is the one in devEngines. The test tooling (jsdom 31 and
         # Stylelint 18) needs 22.22.2, so it stands in for the 22.12 floor.
@@ -159,7 +181,9 @@ jobs:
         exclude:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
+          - os: ${{ !inputs.ubuntu_arm && 'ubuntu-24.04-arm' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
+          - os: ${{ !inputs.windows_arm && 'windows-11-arm' }}
           - os: macos-latest
             node: "22.22.2"
           - os: macos-latest
@@ -167,6 +191,14 @@ jobs:
           - os: windows-latest
             node: "22.22.2"
           - os: windows-latest
+            node: "24"
+          - os: ubuntu-24.04-arm
+            node: "22.22.2"
+          - os: ubuntu-24.04-arm
+            node: "24"
+          - os: windows-11-arm
+            node: "22.22.2"
+          - os: windows-11-arm
             node: "24"
           - shard: ${{ inputs.shards < 2 && 2 }}
           - shard: ${{ inputs.shards < 3 && 3 }}
@@ -187,6 +219,14 @@ jobs:
           echo "::error::shards must be from 1 to 4, not ${{ inputs.shards }}."
           exit 1
 
+      - name: Check the WebKit run count
+        if: inputs.webkit_runs < 1 || inputs.webkit_runs > 4
+        env:
+          WEBKIT_RUNS: ${{ inputs.webkit_runs }}
+        run: |
+          echo "::error::webkit_runs must be from 1 to 4, not $WEBKIT_RUNS."
+          exit 1
+
       # The job bound leaves 25 minutes for the steps before and after the tests.
       - name: Check the test timeout
         if: inputs.test_timeout > 95
@@ -201,8 +241,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # The service images are only for linux/amd64.
       - name: Start Core
-        if: runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true'
+        if:
+          runner.os == 'Linux' && runner.arch == 'X64' && inputs.core_image != '' &&
+          env.FORK != 'true'
         uses: ./.github/actions/start-service
         env:
           SYNNAX_INSECURE: true
@@ -216,7 +259,7 @@ jobs:
           variables: SYNNAX_INSECURE SYNNAX_MEM SYNNAX_LICENSE_KEY
 
       - name: Start the Freighter server
-        if: runner.os == 'Linux' && inputs.freighter_image != ''
+        if: runner.os == 'Linux' && runner.arch == 'X64' && inputs.freighter_image != ''
         uses: ./.github/actions/start-service
         with:
           name: freighter
@@ -271,13 +314,13 @@ jobs:
         with:
           package: ${{ inputs.package }}
 
-      # Only the Linux runners start a Core, and not for a fork, so the others run only
-      # the spec files that create no test client. A spec also needs a Core when it
+      # Only the x86 Linux runners start a Core, and not for a fork, so the others run
+      # only the spec files that create no test client. A spec also needs a Core when it
       # imports a helper module that creates one.
       - name: Skip the specs that need a Core
         if:
-          inputs.test && inputs.core_image != '' && (runner.os != 'Linux' || env.FORK ==
-          'true')
+          inputs.test && inputs.core_image != '' && (runner.os != 'Linux' || runner.arch
+          != 'X64' || env.FORK == 'true')
         shell: bash
         working-directory: ${{ inputs.directory }}
         run: |
@@ -320,7 +363,8 @@ jobs:
       - name: Run the examples
         if:
           inputs.test && inputs.examples_package != '' && runner.os == 'Linux' &&
-          inputs.core_image != '' && env.FORK != 'true' && !matrix.node
+          runner.arch == 'X64' && inputs.core_image != '' && env.FORK != 'true' &&
+          !matrix.node
         shell: bash
         timeout-minutes: 5
         env:
@@ -328,25 +372,36 @@ jobs:
         run:
           pnpm turbo examples --filter "$PACKAGE" --log-order=stream --log-prefix=none
 
-      # Vitest rejects more shards than files, so a sharded package needs more browser
-      # spec files than shards.
+      # Vitest rejects more shards than files, so a package needs more browser spec files
+      # than shards times WebKit runs. Playwright's WebKit never frees the heap of a
+      # finished spec file (https://github.com/microsoft/playwright/issues/44290), so a
+      # page that runs too many files crashes. Each run starts new pages. Set
+      # webkit_runs back to 1 when the issue is fixed.
       - name: Test in WebKit
         if: inputs.test && inputs.browsers
         shell: bash
-        timeout-minutes: 10
+        timeout-minutes: 15
         env:
           PACKAGE: ${{ inputs.package }}
-          SHARD_ARG:
-            ${{ inputs.shards > 1 && format('--shard={0}/{1}', matrix.shard,
-            inputs.shards) || '' }}
+          RUNS: ${{ inputs.webkit_runs }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ inputs.shards }}
           SYNNAX_TEST_CACHE_KEY:
             ${{ format('{0}-{1}-{2}-{3}-webkit', github.run_id, github.run_attempt,
             github.job, strategy.job-index) }}
         run: |
-          read -ra args <<< "$SHARD_ARG"
           read -ra specs <<< "$SPECS"
-          pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run \
-            --project '*webkit' "${args[@]}" "${specs[@]}"
+          status=0
+          total=$((SHARDS * RUNS))
+          for ((run = 1; run <= RUNS; run++)); do
+            args=()
+            if ((total > 1)); then
+              args=(--shard="$(((SHARD - 1) * RUNS + run))/$total")
+            fi
+            pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run \
+              --project '*webkit' "${args[@]}" "${specs[@]}" || status=1
+          done
+          exit "$status"
 
       - name: Set up Deno
         if: inputs.runtimes && matrix.lint
@@ -370,13 +425,45 @@ jobs:
           PACKAGE: ${{ inputs.package }}
         run: pnpm --filter "@synnaxlabs/$PACKAGE" smoke
 
+      # Vitest saves a screenshot of each failed browser test in .vitest/attachments.
+      - name: Collect the failure diagnostics
+        if: failure()
+        shell: bash
+        env:
+          ATTACHMENTS: ${{ inputs.directory }}/.vitest/attachments
+        run: |
+          mkdir -p "$RUNNER_TEMP/diagnostics"
+          if [ "$RUNNER_OS" = Linux ] && docker inspect synnax &> /dev/null; then
+            docker logs synnax &> "$RUNNER_TEMP/diagnostics/core.log"
+            # The tail in the job output shows the Core side of a failure without the
+            # artifact.
+            tail -n 2000 "$RUNNER_TEMP/diagnostics/core.log"
+          fi
+          if [ -d "$ATTACHMENTS" ]; then
+            cp -R "$ATTACHMENTS" "$RUNNER_TEMP/diagnostics/attachments"
+          fi
+
+      - name: Upload the failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          # One run can call this workflow twice for a package, so the check run ID
+          # keeps the names apart.
+          name:
+            ${{ inputs.package }}-${{ matrix.os }}-${{ matrix.shard }}-diagnostics-${{
+            job.check_run_id }}
+          path: ${{ runner.temp }}/diagnostics
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
+
       - name: Upload coverage
         if: inputs.test && inputs.coverage_flag != '' && !matrix.node
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov
         with:
-          fail_ci_if_error: true
+          fail_ci_if_error: ${{ github.event_name != 'merge_group' }}
           flags: ${{ inputs.coverage_flag }}
           directory: ${{ inputs.directory }}
 

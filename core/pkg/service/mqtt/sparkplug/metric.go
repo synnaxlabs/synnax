@@ -156,23 +156,25 @@ func fromMillis(ms uint64) (ts telem.TimeStamp, ok bool) {
 	return telem.TimeStamp(ms) * telem.MillisecondTS, true
 }
 
+// integerBits returns the bits of the integer value of m, and false when m holds no
+// integer. Tahu puts integers of up to 32 bits in int_value and wider ones in
+// long_value. Some edge nodes do not, so an integer accepts both.
+func integerBits(m *pb.Payload_Metric) (uint64, bool) {
+	switch v := m.GetValue().(type) {
+	case *pb.Payload_Metric_IntValue:
+		return uint64(v.IntValue), true
+	case *pb.Payload_Metric_LongValue:
+		return v.LongValue, true
+	}
+	return 0, false
+}
+
 // decodeValue returns the value of m as the data type dt.
 func decodeValue(m *pb.Payload_Metric, dt DataType) Value {
 	if m.GetIsNull() {
 		return nil
 	}
-	// Tahu puts integers of up to 32 bits in int_value and wider ones in long_value.
-	// Some edge nodes do not, so an integer accepts both.
-	var (
-		bits    uint64
-		integer bool
-	)
-	switch v := m.GetValue().(type) {
-	case *pb.Payload_Metric_IntValue:
-		bits, integer = uint64(v.IntValue), true
-	case *pb.Payload_Metric_LongValue:
-		bits, integer = v.LongValue, true
-	}
+	bits, integer := integerBits(m)
 	switch dt {
 	case Int8:
 		if integer {

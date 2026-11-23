@@ -143,12 +143,12 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 				}
 				if err != nil {
 					cancel()
-					return oCtx, err
+					return oCtx, translateGRPCError(s.Errors, err)
 				}
 				md, hdrErr := grpcClient.Header()
 				if hdrErr != nil {
 					cancel()
-					return oCtx, hdrErr
+					return oCtx, translateGRPCError(s.Errors, hdrErr)
 				}
 				if errVals := md.Get("error"); len(errVals) > 0 {
 					cancel()
@@ -362,6 +362,9 @@ func translateGRPCError(codec *errors.Codec, err error) error {
 	s := status.Convert(err)
 	if s.Code() == codes.Canceled {
 		return context.Canceled
+	}
+	if s.Code() == codes.DeadlineExceeded {
+		return context.DeadlineExceeded
 	}
 	if decoded := codec.Decode(errors.ParsePayload(s.Message())); decoded != nil {
 		return decoded

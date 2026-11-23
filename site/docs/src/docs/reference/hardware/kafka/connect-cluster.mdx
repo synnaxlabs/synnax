@@ -9,6 +9,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import Platforms from "@/components/hardware/Platforms.astro";
 import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -27,6 +28,8 @@ Kafka tasks run inside the Synnax Core, not in a Driver. The Core uses the rack 
 <Divider.Divider x />
 
 ## Prerequisites
+
+<Platforms integration="kafka" />
 
 - A Kafka cluster with JSON records, or a topic that a write task can send records to.
 - A Core that can reach every broker on the network. Synnax Desktop runs one for you.
@@ -151,7 +154,7 @@ kafka.ScramSha512SASL(username="synnax", password="secret")
 | ---------------------------------------------- | ------- | ------------------------------------------------------------ |
 | Brokers <small>`brokers`</small>               |         | At least one `host:port`. A broker with no port uses 9092.   |
 | Connect from <small>`rack`</small>             | Node 1  | The rack of the Core. Set on the device, not in properties.  |
-| TLS <small>`tls`</small>                       | Off     | See [TLS](#tls).                                             |
+| TLS <small>`secure`</small>                    | Off     | See [TLS](#tls).                                             |
 | CA certificate <small>`ca_certificate`</small> | Empty   | PEM text. Shows when **TLS** is on. Empty uses system roots. |
 | Mechanism <small>`sasl`</small>                | None    | See [authentication](#authentication).                       |
 

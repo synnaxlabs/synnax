@@ -186,13 +186,36 @@ private:
         time_range(other.time_range),
         alignment(other.alignment) {}
 
+    /// @brief division that wraps a signed minimum divided by -1, which would
+    /// otherwise raise SIGFPE on x86-64. The caller handles a zero divisor.
+    template<typename A, typename B>
+    static auto wrapping_div(A a, B b) {
+        using R = decltype(a / b);
+        if constexpr (std::is_integral_v<R> && std::is_signed_v<R>)
+            if (b == -1)
+                return static_cast<R>(0 - static_cast<std::make_unsigned_t<R>>(a));
+        return a / b;
+    }
+
+    /// @brief modulo that returns 0 for a divisor of -1, which would otherwise raise
+    /// SIGFPE on x86-64 for a signed minimum. The caller handles a zero divisor.
+    template<typename A, typename B>
+    static auto wrapping_mod(A a, B b) {
+        using R = decltype(a % b);
+        if constexpr (std::is_signed_v<B>)
+            if (b == -1) return R{0};
+        return a % b;
+    }
+
     /// @brief division that throws on an integer zero divisor.
     struct Divide {
         template<typename A, typename B>
         auto operator()(A a, B b) const {
-            if constexpr (std::is_integral_v<A>)
+            if constexpr (std::is_integral_v<A>) {
                 if (b == 0) throw std::runtime_error("division by zero");
-            return a / b;
+                return wrapping_div(a, b);
+            } else
+                return a / b;
         }
     };
 
@@ -203,7 +226,7 @@ private:
         auto operator()(A a, B b) const {
             if constexpr (std::is_integral_v<A>) {
                 if (b == 0) throw std::runtime_error("modulo by zero");
-                return a % b;
+                return wrapping_mod(a, b);
             } else
                 return std::fmod(a, b);
         }
@@ -1438,7 +1461,12 @@ public:
     /// @brief Series-Series division operator. Returns a new Series.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator/(const Series &other) const {
-        return apply_binary_op(other, [](auto a, auto b) { return a / b; });
+        return apply_binary_op(other, [](auto a, auto b) {
+            if constexpr (std::is_integral_v<decltype(a)>)
+                return wrapping_div(a, b);
+            else
+                return a / b;
+        });
     }
 
     /// @brief Series-Series modulo operator. Returns a new Series.
@@ -1447,7 +1475,7 @@ public:
     Series operator%(const Series &other) const {
         return apply_binary_op(other, [](auto a, auto b) {
             if constexpr (std::is_integral_v<decltype(a)>) {
-                return a % b;
+                return wrapping_mod(a, b);
             } else {
                 return std::fmod(a, b);
             }
@@ -1800,7 +1828,8 @@ public:
         return write_casted(data.data(), data.size());
     }
 
-    /// @brief writes the data from another series to this series
+    /// @brief writes the data from another series to this series. A string or JSON
+    /// series grows its buffer to fit the data.
     /// @param other the series to write from
     /// @returns the number of samples written
     /// @throws std::runtime_error if the data types don't match
@@ -1811,6 +1840,20 @@ public:
                 this->data_type().name() + " series"
             );
         this->ensure_exclusive();
+        if (this->data_type().is_variable()) {
+            const auto needed = this->byte_size() + other.byte_size();
+            if (needed > this->byte_cap())
+                this->reserve_bytes(std::max(needed, 2 * this->byte_cap()));
+            memcpy(
+                this->buffer.get() + this->byte_size(),
+                other.buffer.get(),
+                other.byte_size()
+            );
+            this->cached_byte_size = needed;
+            this->sample_count += other.size();
+            this->capacity = this->sample_count;
+            return other.size();
+        }
         const size_t byte_count = std::min(
             other.byte_size(),
             this->byte_cap() - this->byte_size()
@@ -1911,7 +1954,8 @@ public:
     /// the total number of samples read.
     size_t fill_from(binary::Reader &reader) {
         this->ensure_exclusive();
-        auto n_read = reader.read(this->data() + this->byte_size(), this->byte_cap());
+        const auto room = this->byte_cap() - this->byte_size();
+        auto n_read = reader.read(this->data() + this->byte_size(), room);
         this->cached_byte_size += n_read;
         if (this->data_type().is_variable()) {
             this->sample_count = 0;

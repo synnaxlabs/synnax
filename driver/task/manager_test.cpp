@@ -24,6 +24,7 @@
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
+#include "client/cpp/errors/errors.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/pipe.h"
 #include "client/cpp/testutil/testutil.h"
@@ -301,6 +302,63 @@ public:
         }
         return {nullptr, false};
     }
+};
+
+/// @brief raises the rate in the stored config of task, which moves its config hash.
+void bump_rate(const std::shared_ptr<Context> &ctx, const synnax::task::Task &task) {
+    EXPECT_NIL(ctx->client->tasks.dispatch(
+        task.key,
+        {synnax::task::set(
+            {.path = {"config", "rate"}, .value = task.config.at("rate").get<int>() + 1}
+        )}
+    ));
+}
+
+/// @brief builds tracking tasks, then runs race during each of the first races
+/// configures, as a save of the task or of a record that its hash covers would. A gated
+/// factory holds its first configure until released.
+class RacingTaskFactory final : public Factory {
+public:
+    using Race = std::function<
+        void(const std::shared_ptr<Context> &, const synnax::task::Task &)>;
+
+    std::vector<std::shared_ptr<TrackingTaskState>> task_states;
+    /// @brief hashes holds the config hash of the revision each task was built from.
+    std::vector<std::string> hashes;
+    std::mutex mu;
+    std::atomic<bool> stuck{false};
+    std::atomic<bool> released;
+
+    RacingTaskFactory(Race race, const int races, const bool gated = false):
+        released(!gated), race(std::move(race)), races(races) {}
+
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &,
+        x::breaker::Breaker &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        if (!this->released) {
+            this->stuck = true;
+            while (!this->released)
+                std::this_thread::sleep_for((10 * x::telem::MILLISECOND).chrono());
+        }
+        std::lock_guard lock(this->mu);
+        auto state = std::make_shared<TrackingTaskState>();
+        auto built = std::make_unique<TrackingTask>(ctx, task, state);
+        this->task_states.push_back(state);
+        this->hashes.push_back(task.config_hash);
+        if (this->races > 0) {
+            this->races--;
+            this->race(ctx, task);
+        }
+        return {std::move(built), true};
+    }
+
+private:
+    Race race;
+    int races;
 };
 
 /// @brief a task whose start blocks until released or cancelled, then answers.
@@ -2424,6 +2482,377 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashIsRefused) {
     EXPECT_EQ(f->task_states.size(), 1);
 }
 
+/// @brief it should configure a task again when its config hash moves during the
+/// configure, and run the start on the newer revision.
+TEST_F(TaskManagerTest, ConfiguresAgainWhenHashMovesDuringConfigure) {
+    auto factory = std::make_unique<RacingTaskFactory>(bump_rate, 1);
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 2 &&
+                   f->task_states[1]->exec_count.load() == 1;
+        },
+        [] { return "task not configured again"; }
+    );
+    const auto stored = ASSERT_NIL_P(client->tasks.retrieve(task.key));
+    std::lock_guard lock(f->mu);
+    EXPECT_EQ(f->hashes[0], task.config_hash);
+    EXPECT_EQ(f->hashes[1], stored.config_hash);
+    EXPECT_TRUE(f->task_states[0]->stopped.load());
+    EXPECT_EQ(f->task_states[0]->exec_count.load(), 0);
+}
+
+/// @brief it should refuse a pinned start when the config hash moves during the
+/// configure, and run no instance built from the newer revision.
+TEST_F(TaskManagerTest, PinnedStartIsRefusedWhenHashMovesDuringConfigure) {
+    auto factory = std::make_unique<RacingTaskFactory>(bump_rate, 1);
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "s1",
+         .config_hash = task.config_hash,
+         .pinned = true}
+    );
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s1" && s.variant != synnax::status::VARIANT_LOADING;
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(s.message, "Config changed");
+    EXPECT_EQ(
+        s.description,
+        "The task config changed while the Driver configured it. Review the task, "
+        "then start it again."
+    );
+    EXPECT_FALSE(s.details.running);
+    std::lock_guard lock(f->mu);
+    EXPECT_TRUE(f->task_states[0]->stopped.load());
+    for (const auto &state: f->task_states)
+        EXPECT_EQ(state->exec_count.load(), 0);
+}
+
+/// @brief it should fail a start when the config hash moves during each of three
+/// configures.
+TEST_F(TaskManagerTest, StartFailsWhenHashKeepsMovingDuringConfigure) {
+    auto factory = std::make_unique<RacingTaskFactory>(bump_rate, 3);
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s1" && s.variant != synnax::status::VARIANT_LOADING;
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(s.message, "Failed to configure task");
+    EXPECT_EQ(
+        s.description,
+        "The task config kept changing while the Driver configured it. Start the "
+        "task again."
+    );
+    EXPECT_FALSE(s.details.running);
+    std::lock_guard lock(f->mu);
+    ASSERT_GE(f->task_states.size(), 3);
+    for (std::size_t i = 0; i < 3; i++) {
+        EXPECT_TRUE(f->task_states[i]->stopped.load());
+        EXPECT_EQ(f->task_states[i]->exec_count.load(), 0);
+    }
+}
+
+/// @brief it should stop a task deleted during its configure, run nothing on it, and
+/// write no status that would recreate the one the delete removed.
+TEST_F(TaskManagerTest, StopsTaskDeletedDuringConfigure) {
+    x::telem::TimeStamp deleted_at;
+    auto factory = std::make_unique<RacingTaskFactory>(
+        [&](const std::shared_ptr<Context> &ctx, const synnax::task::Task &task) {
+            deleted_at = x::telem::TimeStamp::now();
+            EXPECT_NIL(ctx->client->tasks.del(task.key));
+        },
+        1
+    );
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    std::shared_ptr<TrackingTaskState> state;
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            if (f->task_states.empty()) return false;
+            state = f->task_states[0];
+            return state->stopped.load();
+        },
+        [] { return "task not stopped"; }
+    );
+    EXPECT_TRUE(state->stop_will_reconfigure.load());
+    EXPECT_EQ(state->exec_count.load(), 0);
+    expect_no_driver_status(task, true, deleted_at);
+    std::lock_guard lock(f->mu);
+    EXPECT_EQ(f->task_states.size(), 1);
+}
+
+/// @brief builds a tracking task in its first configure, then cuts the Core connection,
+/// so the config hash check fails. Later configures build quiet tasks.
+class CutAtConfigureFactory final : public Factory {
+    std::unique_ptr<CorePipe> &pipe;
+    std::atomic<bool> cut{false};
+
+public:
+    const std::shared_ptr<TrackingTaskState>
+        state = std::make_shared<TrackingTaskState>();
+
+    explicit CutAtConfigureFactory(std::unique_ptr<CorePipe> &pipe): pipe(pipe) {}
+
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &,
+        x::breaker::Breaker &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        if (this->cut) return {std::make_unique<MockEchoTask>(ctx, task, true), true};
+        auto built = std::make_unique<TrackingTask>(ctx, task, this->state);
+        this->pipe->pause();
+        this->pipe->cut();
+        this->cut = true;
+        return {std::move(built), true};
+    }
+};
+
+/// @brief it should fail a start whose config hash check fails, and stop the task it
+/// configured.
+TEST_F(TaskManagerTest, StartFailsWhenTheHashCheckFails) {
+    auto factory = std::make_unique<CutAtConfigureFactory>(this->pipe);
+    const auto state = factory->state;
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    ASSERT_EVENTUALLY_TRUE(state->stopped.load());
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        // The run that lost the Core sends its status again, without the command.
+        [](const synnax::task::Status &s) {
+            return s.message == "Failed to configure task";
+        }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_FALSE(s.details.running);
+    EXPECT_EQ(state->exec_count.load(), 0);
+}
+
+/// @brief it should release a task that one save moves to another rack and changes
+/// during its configure, without configuring it again, and warn the start.
+TEST_F(TaskManagerTest, ReleasesTaskMovedToAnotherRackDuringConfigure) {
+    const auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    auto factory = std::make_unique<RacingTaskFactory>(
+        [&](const std::shared_ptr<Context> &ctx, const synnax::task::Task &task) {
+            EXPECT_NIL(ctx->client->tasks.dispatch(
+                task.key,
+                {synnax::task::set({.path = {"rack"}, .value = other.key}),
+                 synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+            ));
+        },
+        1
+    );
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    std::shared_ptr<TrackingTaskState> state;
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            if (f->task_states.empty()) return false;
+            state = f->task_states[0];
+            return state->stopped.load();
+        },
+        [] { return "task not stopped"; }
+    );
+    EXPECT_TRUE(state->stop_will_reconfigure.load());
+    EXPECT_EQ(state->exec_count.load(), 0);
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "s1" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(s.message, "Task moved to another rack");
+    EXPECT_EQ(
+        s.description,
+        "A save moved the task to another rack while the Driver configured it. Start "
+        "the task again."
+    );
+    EXPECT_FALSE(s.details.running);
+    std::lock_guard lock(f->mu);
+    EXPECT_EQ(f->task_states.size(), 1);
+}
+
+/// @brief it should refuse a start pinned to the older config that joined a start whose
+/// config hash moved during the configure, and run only the start it joined.
+TEST_F(TaskManagerTest, JoinedPinnedStartIsRefusedWhenHashMovesDuringConfigure) {
+    auto factory = std::make_unique<RacingTaskFactory>(nullptr, 0, true);
+    auto *f = factory.get();
+    x::defer::defer release([f] { f->released = true; });
+    start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    ASSERT_EVENTUALLY_TRUE(f->stuck.load());
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "s2",
+         .config_hash = task.config_hash,
+         .pinned = true}
+    );
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2" && s.message == "Starting task";
+    });
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
+    f->released = true;
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2" && s.variant != synnax::status::VARIANT_LOADING;
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(s.message, "Config changed");
+    EXPECT_EQ(
+        s.description,
+        "The task config changed after you saw it. Review the task, then start it "
+        "again."
+    );
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 2 &&
+                   f->task_states[1]->exec_count.load() == 1;
+        },
+        [] { return "task not configured again"; }
+    );
+    std::lock_guard lock(f->mu);
+    EXPECT_EQ(f->hashes[1], task.config_hash);
+    EXPECT_EQ(f->task_states[0]->exec_count.load(), 0);
+    std::lock_guard order_lock(f->task_states[1]->cmd_order_mu);
+    EXPECT_EQ(f->task_states[1]->cmd_order, std::vector<std::string>{"s1"});
+}
+
+/// @brief it should run a start that joined a pinned start on the newer config, when
+/// the config hash moves during the configure and the pinned start is refused.
+TEST_F(TaskManagerTest, JoinedStartDeploysNewerConfigWhenPinnedStartIsRefused) {
+    auto factory = std::make_unique<RacingTaskFactory>(nullptr, 0, true);
+    auto *f = factory.get();
+    x::defer::defer release([f] { f->released = true; });
+    start_manager(std::move(factory), {.poll_interval = 100 * x::telem::MILLISECOND});
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "s1",
+         .config_hash = task.config_hash,
+         .pinned = true}
+    );
+    ASSERT_EVENTUALLY_TRUE(f->stuck.load());
+    send_start(client, task, "s2");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2" && s.message == "Starting task";
+    });
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
+    f->released = true;
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s1" && s.variant != synnax::status::VARIANT_LOADING;
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(s.message, "Config changed");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 2 &&
+                   f->task_states[1]->exec_count.load() == 1;
+        },
+        [] { return "joined start not deployed"; }
+    );
+    std::lock_guard lock(f->mu);
+    EXPECT_EQ(f->hashes[1], task.config_hash);
+    EXPECT_EQ(f->task_states[0]->exec_count.load(), 0);
+    std::lock_guard order_lock(f->task_states[1]->cmd_order_mu);
+    EXPECT_EQ(f->task_states[1]->cmd_order, std::vector<std::string>{"s2"});
+}
+
 /// @brief it should keep the running state and config hash of the live instance after
 /// it refuses a pinned start, so the task still shows its deployed config.
 TEST_F(TaskManagerTest, PinnedStartWithStaleHashKeepsRunningStatus) {
@@ -4072,5 +4501,777 @@ TEST_F(TaskManagerTest, DeleteDropsStatusFromResend) {
     EXPECT_TRUE(statuses.at(kept_owner).details.running);
     EXPECT_FALSE(statuses.contains(synnax::task::resource_id(deleted.key)));
     expect_no_driver_status(deleted, true);
+}
+
+namespace {
+/// @brief a stream of responses that a spec pushes, in place of the Core's.
+class ScriptedStream final : public synnax::framer::StreamerStream {
+    std::mutex mu;
+    std::condition_variable cv;
+    std::vector<grpc::framer::StreamerResponse> responses;
+    bool closed = false;
+
+public:
+    void push(grpc::framer::StreamerResponse res) {
+        {
+            std::lock_guard lock(this->mu);
+            this->responses.push_back(std::move(res));
+        }
+        this->cv.notify_all();
+    }
+
+    std::pair<grpc::framer::StreamerResponse, x::errors::Error> receive() override {
+        std::unique_lock lock(this->mu);
+        this->cv.wait(lock, [this] {
+            return this->closed || !this->responses.empty();
+        });
+        if (this->responses.empty()) return {{}, freighter::ERR_EOF};
+        auto res = std::move(this->responses.front());
+        this->responses.erase(this->responses.begin());
+        return {std::move(res), x::errors::NIL};
+    }
+
+    x::errors::Error send(grpc::framer::StreamerRequest &) const override {
+        return x::errors::NIL;
+    }
+
+    void close_send() override {
+        {
+            std::lock_guard lock(this->mu);
+            this->closed = true;
+        }
+        this->cv.notify_all();
+    }
+
+    /// @returns true once the stream was closed.
+    bool is_closed() {
+        std::lock_guard lock(this->mu);
+        return this->closed;
+    }
+
+    /// @brief opens a closed stream again, for the next run.
+    void reopen() {
+        std::lock_guard lock(this->mu);
+        this->closed = false;
+    }
+};
+
+/// @brief opens the one scripted stream.
+class ScriptedStreamerClient final : public synnax::framer::StreamerClient {
+    std::shared_ptr<ScriptedStream> scripted;
+
+public:
+    explicit ScriptedStreamerClient(std::shared_ptr<ScriptedStream> stream):
+        scripted(std::move(stream)) {}
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<std::unique_ptr<synnax::framer::StreamerStream>, x::errors::Error>
+    stream(const std::string &) override {
+        class Handle final : public synnax::framer::StreamerStream {
+            std::shared_ptr<ScriptedStream> s;
+
+        public:
+            explicit Handle(std::shared_ptr<ScriptedStream> s): s(std::move(s)) {}
+            std::pair<grpc::framer::StreamerResponse, x::errors::Error>
+            receive() override {
+                return this->s->receive();
+            }
+            x::errors::Error send(grpc::framer::StreamerRequest &req) const override {
+                return this->s->send(req);
+            }
+            void close_send() override { this->s->close_send(); }
+        };
+        return {std::make_unique<Handle>(this->scripted), x::errors::NIL};
+    }
+};
+}
+
+/// @brief it should apply a command that arrived before a missed marker, remove a task
+/// the Core deleted, and keep a task with an unchanged config running.
+TEST_F(TaskManagerTest, MissedTaskChangesSyncTasksInPlace) {
+    auto kept = synnax::task::Task{
+        .rack = rack.key,
+        .name = "kept",
+        .type = SYNTHETIC_TASK_TYPE
+    };
+    ASSERT_NIL(rack.tasks.create(kept));
+    auto deleted = synnax::task::Task{
+        .rack = rack.key,
+        .name = "deleted",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(deleted));
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    const auto stream = std::make_shared<ScriptedStream>();
+    const auto managed = std::make_shared<synnax::Synnax>(new_test_client());
+    managed->telem = synnax::framer::Client(
+        std::make_unique<ScriptedStreamerClient>(stream),
+        nullptr,
+        managed->channels
+    );
+    // The open ack.
+    stream->push({});
+    const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
+    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
+    std::promise<void> started;
+    thread = std::thread([&] {
+        ASSERT_NIL(manager->run([&] { started.set_value(); }));
+    });
+    ASSERT_EQ(
+        started.get_future().wait_for((5 * x::telem::SECOND).chrono()),
+        std::future_status::ready
+    );
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 2);
+    // The stream never delivers this delete.
+    ASSERT_NIL(rack.tasks.del(deleted.key));
+    const auto cmd_ch = ASSERT_NIL_P(
+        client->channels.retrieve(synnax::task::CMD_CHANNEL)
+    );
+    const synnax::task::Command cmd{.task = kept.key, .type = "test", .key = "before"};
+    grpc::framer::StreamerResponse cmd_res;
+    *cmd_res.mutable_frame() = x::telem::Frame(
+                                   cmd_ch.key,
+                                   x::telem::Series(cmd.to_json())
+    )
+                                   .to_proto();
+    stream->push(cmd_res);
+    grpc::framer::StreamerResponse missed;
+    missed.set_missed(true);
+    stream->push(missed);
+    const auto stopped = [&] {
+        const auto states = built(*f);
+        return std::ranges::count_if(states, [](const auto &st) {
+            return st->stopped.load();
+        });
+    };
+    ASSERT_EVENTUALLY_EQ(stopped(), 1);
+    const auto states = built(*f);
+    ASSERT_EQ(states.size(), 2);
+    const auto running = std::ranges::find_if(states, [](const auto &st) {
+        return !st->stopped.load();
+    });
+    ASSERT_NE(running, states.end());
+    ASSERT_EVENTUALLY_EQ((*running)->exec_count.load(), 1);
+    EXPECT_EQ(built(*f).size(), 2);
+}
+
+/// @brief it should read the control state and the rack name again after a missed
+/// marker, so a transfer and a rename that the stream dropped still apply.
+TEST_F(TaskManagerTest, MissedChangesReadControlStateAndRackNameAgain) {
+    auto index_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("missed_ctrl_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("missed_ctrl_data"),
+        x::telem::FLOAT32_T,
+        index_ch.key,
+        false
+    ));
+    auto factory = std::make_unique<ContextCaptureFactory>();
+    auto *f = factory.get();
+    const auto stream = std::make_shared<ScriptedStream>();
+    const auto managed = std::make_shared<synnax::Synnax>(new_test_client());
+    managed->telem = synnax::framer::Client(
+        std::make_unique<ScriptedStreamerClient>(stream),
+        nullptr,
+        managed->channels
+    );
+    // The open ack.
+    stream->push({});
+    const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
+    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
+    std::promise<void> started;
+    thread = std::thread([&] {
+        ASSERT_NIL(manager->run([&] { started.set_value(); }));
+    });
+    ASSERT_EQ(
+        started.get_future().wait_for((5 * x::telem::SECOND).chrono()),
+        std::future_status::ready
+    );
+    ASSERT_NE(f->captured_ctx, nullptr);
+    const auto states = f->captured_ctx->control_states();
+    // The scripted stream never delivers this transfer or this rename.
+    const x::control::Subject writer_sub{"missed_writer", "mw-1"};
+    auto writer = ASSERT_NIL_P(client->telem.open_writer(
+        synnax::framer::WriterConfig{
+            .channels = {index_ch.key, data_ch.key},
+            .start = x::telem::TimeStamp::now(),
+            .authorities = {200},
+            .subject = writer_sub,
+        }
+    ));
+    ASSERT_NIL(client->racks.dispatch(
+        rack.key,
+        {synnax::rack::set({.path = {"name"}, .value = "missed_rack"})}
+    ));
+    // The mirror still treats the channel as uncontrolled.
+    ASSERT_TRUE(states->is_authorized(data_ch.key, {"other", "other-3"}));
+    grpc::framer::StreamerResponse missed;
+    missed.set_missed(true);
+    stream->push(missed);
+    ASSERT_EVENTUALLY_EQ(f->captured_ctx->rack_name(), "missed_rack");
+    ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
+    ASSERT_FALSE(states->is_authorized(data_ch.key, {"other", "other-3"}));
+    ASSERT_NIL(writer.close());
+}
+
+/// @brief it should keep the control state mirror when the read of control state
+/// after a missed marker fails, and end the run with no error when the task sync after
+/// it fails too, so the rack starts another run.
+TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
+    auto index_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("missed_fail_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("missed_fail_data"),
+        x::telem::FLOAT32_T,
+        index_ch.key,
+        false
+    ));
+    const x::control::Subject writer_sub{"held_writer", "hw-1"};
+    const x::control::Subject other_sub{"other", "other-4"};
+    // Opened before the manager starts, so the initial read puts it in the mirror.
+    auto writer = ASSERT_NIL_P(client->telem.open_writer(
+        synnax::framer::WriterConfig{
+            .channels = {index_ch.key, data_ch.key},
+            .start = x::telem::TimeStamp::now(),
+            .authorities = {200},
+            .subject = writer_sub,
+        }
+    ));
+    pipe = std::make_unique<CorePipe>(test_client_config().port);
+    auto conn = test_client_config();
+    conn.host = "127.0.0.1";
+    conn.port = pipe->port;
+    const auto managed = std::make_shared<synnax::Synnax>(conn);
+    const auto stream = std::make_shared<ScriptedStream>();
+    managed->telem = synnax::framer::Client(
+        std::make_unique<ScriptedStreamerClient>(stream),
+        nullptr,
+        managed->channels
+    );
+    // The open ack.
+    stream->push({});
+    auto factory = std::make_unique<ContextCaptureFactory>();
+    auto *f = factory.get();
+    const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
+    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
+    std::promise<void> started;
+    std::promise<x::errors::Error> ended;
+    thread = std::thread([&] {
+        ended.set_value(manager->run([&] { started.set_value(); }));
+    });
+    ASSERT_EQ(
+        started.get_future().wait_for((5 * x::telem::SECOND).chrono()),
+        std::future_status::ready
+    );
+    const auto states = f->captured_ctx->control_states();
+    ASSERT_FALSE(states->is_authorized(data_ch.key, other_sub));
+    pipe->pause();
+    grpc::framer::StreamerResponse missed;
+    missed.set_missed(true);
+    const auto missed_at = std::chrono::steady_clock::now();
+    stream->push(missed);
+    auto end = ended.get_future();
+    ASSERT_EQ(
+        end.wait_for((10 * x::telem::SECOND).chrono()),
+        std::future_status::ready
+    );
+    // The failed task sync waits one poll interval before the run ends, so the rack
+    // does not start runs in a tight loop.
+    ASSERT_GE(
+        std::chrono::steady_clock::now() - missed_at,
+        ManagerConfig{}.poll_interval.chrono()
+    );
+    // The paused pipe fails the task sync too, which ends the run with no error, so
+    // the rack starts another run and the Driver keeps running.
+    ASSERT_NIL(end.get());
+    ASSERT_FALSE(states->is_authorized(data_ch.key, other_sub));
+    ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
+    pipe->resume();
+    // The rack closes a manager whose run failed, which stops its workers.
+    manager->close();
+    ASSERT_NIL(writer.close());
+}
+namespace {
+/// @brief answers control state reads with the replies a spec gives it, one per read,
+/// and blocks a read until its reply comes.
+class ScriptedControl final : public synnax::control::RetrieveClient {
+    using Reply = std::pair<grpc::control::RetrieveResponse, x::errors::Error>;
+    std::mutex mu;
+    std::condition_variable cv;
+    std::vector<Reply> replies;
+    std::unordered_map<int, Reply> targeted;
+    int waiting = 0;
+    int reads = 0;
+    bool closed = false;
+
+    static Reply encode(
+        const std::vector<synnax::control::State> &states,
+        const x::errors::Error &err
+    ) {
+        grpc::control::RetrieveResponse res;
+        for (const auto &st: states) {
+            auto *pb = res.add_states();
+            *pb->mutable_subject() = st.subject.to_proto().first;
+            pb->set_resource(st.resource);
+            pb->set_authority(st.authority);
+        }
+        return {std::move(res), err};
+    }
+
+public:
+    /// @brief answers the next read with states, or with err when it is set.
+    void reply(
+        const std::vector<synnax::control::State> &states,
+        const x::errors::Error &err = x::errors::NIL
+    ) {
+        {
+            std::lock_guard lock(this->mu);
+            this->replies.push_back(encode(states, err));
+        }
+        this->cv.notify_all();
+    }
+
+    /// @brief answers read n, counted from 1, with states, or with err when it is set.
+    void reply_to(
+        const int n,
+        const std::vector<synnax::control::State> &states,
+        const x::errors::Error &err = x::errors::NIL
+    ) {
+        {
+            std::lock_guard lock(this->mu);
+            this->targeted[n] = encode(states, err);
+        }
+        this->cv.notify_all();
+    }
+
+    /// @returns true once a read waits for its reply.
+    bool wait_for_read() {
+        std::unique_lock lock(this->mu);
+        return this->cv.wait_for(lock, std::chrono::seconds(5), [this] {
+            return this->waiting > 0;
+        });
+    }
+
+    /// @returns true once n reads have started.
+    bool wait_for_reads(const int n) {
+        std::unique_lock lock(this->mu);
+        return this->cv.wait_for(lock, std::chrono::seconds(5), [&] {
+            return this->reads >= n;
+        });
+    }
+
+    /// @returns the number of reads that have started.
+    int read_count() {
+        std::lock_guard lock(this->mu);
+        return this->reads;
+    }
+
+    /// @brief fails every read from now on, so no read blocks a stop.
+    void close() {
+        {
+            std::lock_guard lock(this->mu);
+            this->closed = true;
+        }
+        this->cv.notify_all();
+    }
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<grpc::control::RetrieveResponse, x::errors::Error>
+    send(const std::string &, grpc::control::RetrieveRequest &) override {
+        std::unique_lock lock(this->mu);
+        ++this->waiting;
+        const int n = ++this->reads;
+        this->cv.notify_all();
+        this->cv.wait(lock, [&] {
+            return this->closed || this->targeted.contains(n) || !this->replies.empty();
+        });
+        --this->waiting;
+        if (const auto it = this->targeted.find(n); it != this->targeted.end()) {
+            auto r = std::move(it->second);
+            this->targeted.erase(it);
+            return r;
+        }
+        if (this->replies.empty()) return {{}, freighter::UNREACHABLE};
+        auto r = std::move(this->replies.front());
+        this->replies.erase(this->replies.begin());
+        return r;
+    }
+};
+
+/// @brief a manager on a scripted stream and scripted control state reads.
+struct ScriptedManager {
+    std::shared_ptr<ScriptedStream> stream = std::make_shared<ScriptedStream>();
+    std::shared_ptr<ScriptedControl> control = std::make_shared<ScriptedControl>();
+    ContextCaptureFactory *factory = nullptr;
+};
+}
+
+/// @brief the channel that the scripted control state specs route frames on.
+constexpr synnax::channel::Key BUS_KEY = 4242;
+
+/// @brief a frame of one sample on BUS_KEY.
+x::telem::Frame bus_frame(const double v) {
+    return x::telem::Frame(BUS_KEY, x::telem::Series(v));
+}
+
+class ScriptedControlTest : public TaskManagerTest {
+protected:
+    ScriptedManager scripted;
+    std::vector<double> published;
+    std::mutex published_mu;
+    control::Publish publish = [this](const x::telem::Frame &fr) {
+        std::lock_guard lock(this->published_mu);
+        this->published.push_back(fr.at<double>(BUS_KEY, 0));
+    };
+
+    std::vector<double> got() {
+        std::lock_guard lock(this->published_mu);
+        return this->published;
+    }
+
+    /// @brief starts a manager whose first control read gets first. With piped set,
+    /// the manager reaches the Core through pipe.
+    void start(
+        const std::function<void()> &first,
+        const bool piped = false,
+        const x::telem::TimeSpan poll_interval = 50 * x::telem::MILLISECOND
+    ) {
+        auto conn = test_client_config();
+        if (piped) {
+            pipe = std::make_unique<CorePipe>(conn.port);
+            conn.host = "127.0.0.1";
+            conn.port = pipe->port;
+        }
+        const auto managed = std::make_shared<synnax::Synnax>(conn);
+        managed->telem = synnax::framer::Client(
+            std::make_unique<ScriptedStreamerClient>(this->scripted.stream),
+            nullptr,
+            managed->channels
+        );
+        managed->control = synnax::control::Client(this->scripted.control);
+        // The open ack.
+        this->scripted.stream->push({});
+        first();
+        auto factory = std::make_unique<ContextCaptureFactory>();
+        this->scripted.factory = factory.get();
+        const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
+        manager = std::make_unique<Manager>(
+            managed_rack,
+            managed,
+            std::move(factory),
+            ManagerConfig{.poll_interval = poll_interval}
+        );
+        std::promise<void> started;
+        thread = std::thread([&] {
+            ASSERT_NIL(manager->run([&] { started.set_value(); }));
+        });
+        ASSERT_EQ(
+            started.get_future().wait_for((5 * x::telem::SECOND).chrono()),
+            std::future_status::ready
+        );
+    }
+
+    [[nodiscard]] std::shared_ptr<control::States> states() const {
+        return this->scripted.factory->captured_ctx->control_states();
+    }
+
+    void miss() const {
+        grpc::framer::StreamerResponse missed;
+        missed.set_missed(true);
+        this->scripted.stream->push(missed);
+    }
+
+    void TearDown() override {
+        this->scripted.control->close();
+        TaskManagerTest::TearDown();
+    }
+};
+
+const x::control::Subject OWNER{"owner", "owner-1"};
+const x::control::Subject OTHER{"other", "other-5"};
+
+/// @brief it should hold the bus while the control read after a miss is in flight,
+/// then publish the held frames of the writer with authority in order.
+TEST_F(ScriptedControlTest, MissHoldsTheBusUntilTheReadLands) {
+    start([this] {
+        this->scripted.control->reply(
+            {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+        );
+    });
+    const auto st = this->states();
+    miss();
+    ASSERT_TRUE(this->scripted.control->wait_for_read());
+    st->route(bus_frame(1), OWNER, this->publish);
+    st->route(bus_frame(2), OTHER, this->publish);
+    st->route(bus_frame(3), OWNER, this->publish);
+    ASSERT_TRUE(got().empty());
+    this->scripted.control->reply(
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    const std::vector<double> want{1, 3};
+    ASSERT_EVENTUALLY_EQ_F([&] { return got() == want; }, true);
+}
+
+/// @brief it should publish the held frames filtered against the last mirror when the
+/// read after a miss fails, keep forwarding with that mirror, and keep the run going.
+TEST_F(ScriptedControlTest, FailedReadOnAMissReleasesWithTheLastMirror) {
+    start([this] {
+        this->scripted.control->reply(
+            {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+        );
+    });
+    const auto st = this->states();
+    miss();
+    ASSERT_TRUE(this->scripted.control->wait_for_read());
+    st->route(bus_frame(1), OWNER, this->publish);
+    st->route(bus_frame(2), OTHER, this->publish);
+    st->route(bus_frame(3), OWNER, this->publish);
+    ASSERT_TRUE(got().empty());
+    this->scripted.control->reply({}, freighter::UNREACHABLE);
+    const std::vector<double> released{1, 3};
+    ASSERT_EVENTUALLY_EQ_F([&] { return got() == released; }, true);
+    st->route(bus_frame(4), OWNER, this->publish);
+    st->route(bus_frame(5), OTHER, this->publish);
+    const std::vector<double> forwarded{1, 3, 4};
+    ASSERT_EQ(got(), forwarded);
+    // The monitor loop reads the control state again.
+    ASSERT_TRUE(this->scripted.control->wait_for_read());
+    this->scripted.control->reply(
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+}
+
+/// @returns a frame on the control channel that gives key to subject.
+x::telem::Frame transfer_frame(
+    const synnax::channel::Key control_ch,
+    const synnax::channel::Key key,
+    const x::control::Subject &subject
+) {
+    const x::control::Update<synnax::channel::Key> update{
+        .transfers = {{
+            .from = std::nullopt,
+            .to = x::control::State<synnax::channel::Key>{
+                .subject = subject,
+                .resource = key,
+                .authority = 220,
+            },
+        }},
+    };
+    return x::telem::Frame(control_ch, x::telem::Series(update.to_json()));
+}
+
+/// @brief it should apply the monitor loop's read and keep a transfer that the stream
+/// applied while the read was in flight.
+TEST_F(ScriptedControlTest, TransferDuringAMonitorReadIsKept) {
+    const auto control_ch = ASSERT_NIL_P(
+        client->channels.retrieve(synnax::control::CHANNEL_NAME)
+    );
+    start([this] {
+        this->scripted.control->reply(
+            {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+        );
+    });
+    const auto st = this->states();
+    // The read after the miss fails, so the monitor loop reads again.
+    this->scripted.control->reply({}, freighter::UNREACHABLE);
+    miss();
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(3));
+    grpc::framer::StreamerResponse transfer;
+    *transfer.mutable_frame() = transfer_frame(control_ch.key, BUS_KEY, OTHER)
+                                    .to_proto();
+    this->scripted.stream->push(transfer);
+    ASSERT_EVENTUALLY_EQ_F([&] { return st->is_authorized(BUS_KEY, OTHER); }, true);
+    // The monitor read started before the transfer.
+    this->scripted.control->reply(
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    // The read applied, so the monitor loop reads no more.
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    ASSERT_EQ(this->scripted.control->read_count(), 3);
+    ASSERT_TRUE(st->is_authorized(BUS_KEY, OTHER));
+    ASSERT_FALSE(st->is_authorized(BUS_KEY, OWNER));
+}
+
+/// @brief it should open a bus that the first read left closed once the monitor
+/// loop's read lands, even with transfers landing all through that read.
+TEST_F(ScriptedControlTest, SteadyTransfersDuringARetryLetItApply) {
+    const auto control_ch = ASSERT_NIL_P(
+        client->channels.retrieve(synnax::control::CHANNEL_NAME)
+    );
+    start([this] { this->scripted.control->reply({}, freighter::UNREACHABLE); });
+    const auto st = this->states();
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(2));
+    for (synnax::channel::Key key = 1; key <= 5; key++) {
+        grpc::framer::StreamerResponse transfer;
+        *transfer.mutable_frame() = transfer_frame(control_ch.key, key, OTHER)
+                                        .to_proto();
+        this->scripted.stream->push(transfer);
+    }
+    ASSERT_EVENTUALLY_EQ_F([&] { return st->is_authorized(5, OTHER); }, true);
+    this->scripted.control->reply(
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] {
+            st->route(bus_frame(1), OWNER, this->publish);
+            return !got().empty();
+        },
+        true
+    );
+    ASSERT_TRUE(st->is_authorized(5, OTHER));
+}
+
+/// @brief it should stop promptly while the monitor loop's read waits on a Core that
+/// does not answer.
+TEST_F(ScriptedControlTest, StopIsPromptWhileAReadWaits) {
+    start([this] { this->scripted.control->reply({}, freighter::UNREACHABLE); });
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(2));
+    const auto began = std::chrono::steady_clock::now();
+    manager->stop();
+    thread.join();
+    ASSERT_LT(std::chrono::steady_clock::now() - began, std::chrono::seconds(5));
+}
+
+/// @brief it should keep the last mirror in force through an outage that spans a run
+/// restart, so local frames of the writer with authority still reach the bus.
+TEST_F(ScriptedControlTest, OutageAcrossARunRestartKeepsTheLastMirror) {
+    start(
+        [this] {
+            this->scripted.control->reply(
+                {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+            );
+        },
+        true
+    );
+    const auto st = this->states();
+    pipe->pause();
+    // The read after the miss fails too, and the failed task sync ends the run.
+    this->scripted.control->reply({}, freighter::UNREACHABLE);
+    miss();
+    thread.join();
+    st->route(bus_frame(1), OWNER, this->publish);
+    st->route(bus_frame(2), OTHER, this->publish);
+    // The next run cannot reach the Core either.
+    ASSERT_TRUE(synnax::errors::is_unreachable(manager->run()));
+    st->route(bus_frame(3), OWNER, this->publish);
+    st->route(bus_frame(4), OTHER, this->publish);
+    const std::vector<double> want{1, 3};
+    ASSERT_EQ(got(), want);
+    pipe->resume();
+    // Unblock the detached monitor read, which still waits for a reply.
+    this->scripted.control->close();
+    manager->close();
+}
+
+/// @brief it should start with the bus closed when the first control read fails, keep
+/// the run going, and open the bus once a later read succeeds.
+TEST_F(ScriptedControlTest, FailedFirstReadKeepsTheRunAndOpensLater) {
+    start([this] { this->scripted.control->reply({}, freighter::UNREACHABLE); });
+    const auto st = this->states();
+    st->route(bus_frame(1), OWNER, this->publish);
+    ASSERT_TRUE(this->scripted.control->wait_for_read());
+    ASSERT_TRUE(got().empty());
+    this->scripted.control->reply(
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] {
+            st->route(bus_frame(2), OWNER, this->publish);
+            return !got().empty();
+        },
+        true
+    );
+    for (const auto v: got())
+        EXPECT_EQ(v, 2);
+}
+
+/// @brief it should read again from the monitor loop when a read after a miss fails
+/// just after a monitor read applied.
+TEST_F(ScriptedControlTest, FailedReadAfterAMonitorReadIsRetried) {
+    start([this] { this->scripted.control->reply({}, freighter::UNREACHABLE); });
+    const auto st = this->states();
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(2));
+    this->scripted.control->reply_to(
+        2,
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    ASSERT_EVENTUALLY_EQ_F([&] { return !st->stale(); }, true);
+    miss();
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(3));
+    this->scripted.control->reply_to(3, {}, freighter::UNREACHABLE);
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(4));
+    this->scripted.control->reply_to(
+        4,
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    ASSERT_EVENTUALLY_EQ_F([&] { return !st->stale(); }, true);
+}
+
+/// @brief it should ignore a monitor read that began before a run restart, since it
+/// can miss the transfers made while no stream ran.
+TEST_F(ScriptedControlTest, MonitorReadFromAnEarlierRunIsIgnored) {
+    start([this] { this->scripted.control->reply({}, freighter::UNREACHABLE); });
+    const auto st = this->states();
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(2));
+    this->scripted.stream->close_send();
+    thread.join();
+    this->scripted.stream->reopen();
+    // The open ack.
+    this->scripted.stream->push({});
+    thread = std::thread([this] { ASSERT_NIL(manager->run()); });
+    ASSERT_TRUE(this->scripted.control->wait_for_reads(3));
+    this->scripted.control->reply_to(
+        3,
+        {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+    );
+    ASSERT_EVENTUALLY_EQ_F([&] { return st->is_authorized(BUS_KEY, OWNER); }, true);
+    // The thread of the old read holds a reference to the mirror until it ends.
+    const auto refs = st.use_count();
+    this->scripted.control->reply_to(
+        2,
+        {{.subject = OTHER, .resource = BUS_KEY, .authority = 200}}
+    );
+    ASSERT_EVENTUALLY_EQ_F([&] { return st.use_count(); }, refs - 1);
+    ASSERT_TRUE(st->is_authorized(BUS_KEY, OWNER));
+    ASSERT_FALSE(st->is_authorized(BUS_KEY, OTHER));
+}
+
+/// @brief it should stop promptly during the wait that follows a failed task sync.
+TEST_F(ScriptedControlTest, StopIsPromptAfterAFailedSync) {
+    start(
+        [this] {
+            this->scripted.control->reply(
+                {{.subject = OWNER, .resource = BUS_KEY, .authority = 200}}
+            );
+        },
+        true,
+        30 * x::telem::SECOND
+    );
+    pipe->pause();
+    this->scripted.control->reply({}, freighter::UNREACHABLE);
+    miss();
+    // The run closes the stream just before the wait.
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] { return this->scripted.stream->is_closed(); },
+        true,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(10)
+    );
+    const auto began = std::chrono::steady_clock::now();
+    manager->stop();
+    thread.join();
+    ASSERT_LT(std::chrono::steady_clock::now() - began, std::chrono::seconds(5));
+    pipe->resume();
 }
 }

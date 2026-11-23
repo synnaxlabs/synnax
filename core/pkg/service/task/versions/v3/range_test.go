@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
 	rangerv2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
@@ -77,9 +78,11 @@ var _ = Describe("RangeMigration", func() {
 			Entry(&storedV2).
 			Exec(ctx, db)).To(Succeed())
 		storedCur := ranger.Range{
-			Key:   current,
-			Name:  "Current Range",
-			Color: &color.Color{R: 1, A: 128},
+			Key:  current,
+			Name: "Current Range",
+			Color: &servicecolor.Ref{
+				Variant: servicecolor.FixedRef{Value: color.Color{R: 1, A: 128}},
+			},
 		}
 		Expect(gorp.NewCreate[ranger.Key, ranger.Range]().
 			Entry(&storedCur).

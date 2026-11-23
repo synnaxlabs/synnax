@@ -10,19 +10,38 @@
 package v14_test
 
 import (
+	"embed"
+	"encoding/hex"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	v14 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/encoding/orc"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
+
+//go:embed testdata/*.hex
+var fixtures embed.FS
+
+// loadWire returns the Orc payload stored as hex in testdata. v13_released.hex is a v13
+// schematic with a select and a state indicator, encoded by the core/v0.62.0 codec.
+// v13_released_custom.hex is a v13 schematic with a custom_actuator and a custom_static
+// node that carry state overrides, stored by a core/v0.62.0 Core.
+func loadWire(name string) []byte {
+	GinkgoHelper()
+	raw := MustSucceed(fixtures.ReadFile("testdata/" + name))
+	return MustSucceed(hex.DecodeString(strings.ReplaceAll(string(raw), "\n", "")))
+}
 
 func shade(r uint8) *xcolor.Color { return &xcolor.Color{R: r, A: 255} }
 
@@ -44,9 +63,10 @@ var _ = Describe("Migration", func() {
 				)}},
 				{Key: "value", Config: v13.NodeConfig{Variant: defaults.Fill(
 					v13.ValueNodeConfig{
-						StrokeColor:    shade(2),
-						TextColor:      shade(3),
-						StalenessColor: shade(4),
+						StrokeColor:      shade(2),
+						TextColor:        shade(3),
+						StalenessColor:   shade(4),
+						StalenessTimeout: 3 * telem.Second,
 					},
 				)}},
 			},
@@ -83,7 +103,7 @@ var _ = Describe("Migration", func() {
 		Expect(value.StrokeColor).To(Equal(fixed(2)))
 		Expect(value.TextColor).To(Equal(fixed(3)))
 		Expect(value.FillColor).To(BeNil())
-		Expect(value.StalenessColor).To(Equal(shade(4)))
+		Expect(value.StalenessTimeout).To(Equal(3 * telem.Second))
 		Expect(got.Edges).To(HaveLen(1))
 		pipe, ok := got.Edges[0].Config.Variant.(v14.PipeEdgeConfig)
 		Expect(ok).To(BeTrue())
@@ -244,6 +264,30 @@ var _ = Describe("MigrateScaleIndicatorConfig", func() {
 	)
 })
 
+var _ = Describe("MigrateStalenessConfig", func() {
+	It("Should keep the timeout and drop the color", func(ctx SpecContext) {
+		out := MustSucceed(v14.MigrateStalenessConfig(ctx, v13.StalenessConfig{
+			StalenessTimeout: 3 * telem.Second,
+			StalenessColor:   shade(1),
+		}))
+		Expect(out).To(Equal(v14.StalenessConfig{StalenessTimeout: 3 * telem.Second}))
+	})
+})
+
+var _ = Describe("MigrateToggleConfig", func() {
+	It("Should keep the staleness timeout and drop the color", func(ctx SpecContext) {
+		out := MustSucceed(v14.MigrateToggleConfig(ctx, v13.ToggleConfig{
+			StalenessTimeout: 3 * telem.Second,
+			StalenessColor:   shade(1),
+			StateChannel:     7,
+		}))
+		Expect(out.StalenessConfig).To(Equal(
+			v14.StalenessConfig{StalenessTimeout: 3 * telem.Second},
+		))
+		Expect(out.StateChannel).To(BeEquivalentTo(7))
+	})
+})
+
 var _ = Describe("MigrateNode", func() {
 	It("Should keep the node and store its colors as fixed colors",
 		func(ctx SpecContext) {
@@ -309,6 +353,83 @@ var _ = Describe("MigrateSchematic", func() {
 			pipe, ok := out.Edges[0].Config.Variant.(v14.PipeEdgeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(pipe.StrokeColor).To(Equal(fixed(2)))
+		},
+	)
+	It(
+		"Should lift a schematic that 0.62.0 stored with no enumeration",
+		func(ctx SpecContext) {
+			var stored v13.Schematic
+			Expect(
+				orc.Codec.Decode(loadWire("v13_released.hex"), &stored),
+			).To(Succeed())
+			out := MustSucceed(v14.MigrateSchematic(ctx, stored))
+			Expect(out.Key).To(Equal(stored.Key))
+			Expect(out.Name).To(Equal("Valve panel"))
+			Expect(out.Nodes).To(HaveLen(2))
+			sel, ok := out.Nodes[0].Config.Variant.(v14.SelectNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(sel.Enumeration).To(BeNil())
+			Expect(sel.CommandChannel).To(BeEquivalentTo(1048577))
+			Expect(sel.Options).To(HaveLen(2))
+			Expect(sel.Options[1].Name).To(Equal("Open"))
+			Expect(sel.Options[1].Color).ToNot(BeNil())
+			ind, ok := out.Nodes[1].Config.Variant.(v14.StateIndicatorNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(ind.Enumeration).To(BeNil())
+			Expect(ind.Channel).To(BeEquivalentTo(1048578))
+			Expect(ind.Options).To(HaveLen(2))
+		},
+	)
+
+	It(
+		"Should keep the state overrides of custom nodes that 0.62.0 stored",
+		func(ctx SpecContext) {
+			var stored v13.Schematic
+			Expect(
+				orc.Codec.Decode(loadWire("v13_released_custom.hex"), &stored),
+			).To(Succeed())
+			out := MustSucceed(v14.MigrateSchematic(ctx, stored))
+			Expect(out.Nodes).To(HaveLen(2))
+			region := func(stroke, fill *xcolor.Color) symbol.Region {
+				return symbol.Region{
+					Key:         "body",
+					Name:        "Body",
+					Selectors:   []string{"#body"},
+					StrokeColor: stroke,
+					FillColor:   fill,
+				}
+			}
+			act, ok := out.Nodes[0].Config.Variant.(v14.CustomActuatorNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(act.SpecKey).To(Equal("3e46d160-a00b-4224-8119-ffabc45cdc24"))
+			Expect(act.StateOverrides).To(Equal([]symbol.StateOverride{
+				{
+					Key:  "base",
+					Name: "Base",
+					Regions: []symbol.Region{region(
+						&xcolor.Color{R: 220, G: 19, B: 108, A: 255},
+						&xcolor.Color{R: 255, G: 107, B: 107, A: 128},
+					)},
+				},
+				{
+					Key:  "active",
+					Name: "Active",
+					Regions: []symbol.Region{
+						region(nil, &xcolor.Color{R: 62, G: 142, B: 247, A: 255}),
+					},
+				},
+			}))
+			static, ok := out.Nodes[1].Config.Variant.(v14.CustomStaticNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(static.StateOverrides).To(Equal([]symbol.StateOverride{
+				{
+					Key:  "base",
+					Name: "Base",
+					Regions: []symbol.Region{
+						region(&xcolor.Color{R: 1, G: 2, B: 3, A: 4}, nil),
+					},
+				},
+			}))
 		},
 	)
 })

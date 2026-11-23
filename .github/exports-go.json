@@ -2,5 +2,21 @@
   "gated": [
     { "module": "freighter/integration", "usage": "tests-only" },
     { "module": "freighter/integration", "usage": "unused" }
+  ],
+  "pending": [
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/validate",
+      "receiver": "Validator",
+      "name": "MaxBytes",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/validate",
+      "receiver": "Validator",
+      "name": "MinBytes",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
+    }
   ]
 }

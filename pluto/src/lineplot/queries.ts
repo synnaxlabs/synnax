@@ -165,6 +165,20 @@ const useLinesBase = (params: KeyParams): DerivedLine[] => {
   }));
 };
 
+const useRangeColorsBase = (params: KeyParams): xcolor.Color[] => {
+  const ranges = useRanges(params);
+  const colors = useColors();
+  const stored = ranges.map((r) => r.color);
+  const auto = autoKeys(stored, colors.series);
+  return stored.map((c, i) => resolveColor(c, auto[i], colors).color);
+};
+
+/**
+ * @returns the color that a relative x axis draws each of the plot's ranges in, in the
+ * order of useRanges. A range with no stored color takes a series color.
+ */
+export const useRangeColors = Scope.bindHook(useRangeColorsBase);
+
 // useLines returns the plot's lines, each with its render color resolved for the
 // theme (a line with no stored color takes a series color). Lines are materialized
 // eagerly by the reducer, so this is the complete set of styled lines.

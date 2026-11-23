@@ -12,7 +12,7 @@ import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { colorFallbacks, SelectForm } from "@/schematic/node/general/select/Form";
+import { colorFallbacks, NAME, SelectForm } from "@/schematic/node/general/select/Form";
 import { Select } from "@/schematic/node/general/select/Primitive";
 import { Symbol } from "@/schematic/node/general/select/Symbol";
 import type { Spec } from "@/schematic/node/spec";
@@ -33,7 +33,7 @@ const Preview = ({ fillColor, size }: schematic.SelectNodeConfig): ReactElement 
 
 export const spec: Spec<"select", schematic.SelectNodeConfig> = {
   key: "select",
-  name: "Select",
+  name: NAME,
   Form: SelectForm,
   Node: Symbol,
   Preview,

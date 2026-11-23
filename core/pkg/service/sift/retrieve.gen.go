@@ -41,6 +41,11 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 					e.Device = ""
 				}
 			},
+			Retarget: func(e *StreamConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, StreamConfig, channel.Key]{
 			Name:     "channels",
@@ -59,6 +64,21 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 					return k2 == t
 				})
 			},
+			Retarget: func(e *StreamConfig, from, to channel.Key) {
+				if slices.ContainsFunc(e.Channels, func(k3 channel.Key) bool {
+					return k3 == to
+				}) {
+					e.Channels = slices.DeleteFunc(e.Channels, func(k3 channel.Key) bool {
+						return k3 == from
+					})
+				} else {
+					for i4 := range e.Channels {
+						if e.Channels[i4] == from {
+							e.Channels[i4] = to
+						}
+					}
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, StreamConfig, label.Key]{
 			Name:     "labels",
@@ -76,6 +96,21 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 				e.Labels = slices.DeleteFunc(e.Labels, func(k2 label.Key) bool {
 					return k2 == t
 				})
+			},
+			Retarget: func(e *StreamConfig, from, to label.Key) {
+				if slices.ContainsFunc(e.Labels, func(k3 label.Key) bool {
+					return k3 == to
+				}) {
+					e.Labels = slices.DeleteFunc(e.Labels, func(k3 label.Key) bool {
+						return k3 == from
+					})
+				} else {
+					for i4 := range e.Labels {
+						if e.Labels[i4] == from {
+							e.Labels[i4] = to
+						}
+					}
+				}
 			},
 		}),
 	}

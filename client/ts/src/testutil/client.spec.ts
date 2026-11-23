@@ -8,9 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { sleep, TimeSpan } from "@synnaxlabs/x";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { createTestClient, holdRequests, rejectRequests } from "@/testutil/client";
+import { AuthError, type Synnax } from "@/index";
+import {
+  createRequestHold,
+  createTestClient,
+  holdRequests,
+  rejectRequests,
+} from "@/testutil";
 
 describe("createTestClient", () => {
   it("should retry a request without writing to the console", async () => {
@@ -41,6 +48,23 @@ describe("createTestClient", () => {
   });
 });
 
+describe("createTestClient lifetime", () => {
+  it("should close a client made inside a test once the test finishes", async () => {
+    const made: { client?: Synnax } = {};
+    // Finished hooks run in stack order, so this one runs after the client closes.
+    onTestFinished(async () => {
+      assertDefined(made.client);
+      // Closing the client ends its session, so it can no longer sign its requests.
+      const err = await made.client.channels
+        .retrieve(["no-such-channel"])
+        .catch((e: unknown) => e);
+      expect(AuthError.matches(err)).toBe(true);
+    });
+    made.client = createTestClient();
+    await made.client.connect();
+  });
+});
+
 describe("holdRequests", () => {
   it("should send a held request only once released", async () => {
     const client = createTestClient();
@@ -58,6 +82,23 @@ describe("holdRequests", () => {
     release();
     await expect(retrieving).resolves.toEqual([]);
     expect(reachedCore()).toBe(true);
+  });
+});
+
+describe("createRequestHold", () => {
+  it("should hold a matching request from engage to release and send the others", async () => {
+    const hold = createRequestHold((target) => target.endsWith("/channel/retrieve"));
+    const client = createTestClient({ middleware: [hold.middleware] });
+    await expect(client.channels.retrieve(["no-such-channel"])).resolves.toEqual([]);
+    hold.engage();
+    let settled = false;
+    const retrieving = client.channels
+      .retrieve(["no-such-channel"])
+      .finally(() => (settled = true));
+    await expect(client.ranges.retrieve({ searchTerm: "rng" })).resolves.toBeDefined();
+    expect(settled).toBe(false);
+    hold.release();
+    await expect(retrieving).resolves.toEqual([]);
   });
 });
 

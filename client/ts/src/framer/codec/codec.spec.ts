@@ -1,0 +1,600 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import type { WebsocketMessage } from "@synnaxlabs/freighter";
+import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
+import { z } from "zod";
+
+import type { channel } from "@/channel";
+import { framer } from "@/framer";
+import { Codec, WSIteratorCodec, WSStreamerCodec, WSWriterCodec } from "@/framer/codec";
+import { ValidationError } from "@/index";
+
+// Wire bytes the Core uses to mark JSON and binary WebSocket messages.
+const LOW_PERF_SPECIAL_CHAR = 254;
+const HIGH_PERF_SPECIAL_CHAR = 255;
+
+describe("encoder", () => {
+  describe("base codec", () => {
+    interface Spec {
+      name: string;
+      channels: channel.Key[];
+      dataTypes: DataType[];
+      frame: framer.Frame;
+    }
+
+    const SPECS: Spec[] = [
+      {
+        name: "All Channels Present, In Order",
+        channels: [1, 2, 3],
+        dataTypes: [DataType.INT64, DataType.FLOAT32, DataType.FLOAT64],
+        frame: new framer.Frame(
+          [1, 2, 3],
+          [
+            new Series(new BigInt64Array([1n, 2n, 3n])),
+            new Series(new Float32Array([4, 5, 6])),
+            new Series(new Float64Array([7, 8, 9])),
+          ],
+        ),
+      },
+      {
+        name: "All Channels Present, Out of Order",
+        channels: [3, 1, 2],
+        dataTypes: [DataType.FLOAT64, DataType.INT64, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [2, 3, 1],
+          [
+            new Series(new Float32Array([4, 5, 6])),
+            new Series(new Float64Array([7, 8, 9])),
+            new Series(new BigInt64Array([1n, 2n, 3n])),
+          ],
+        ),
+      },
+      {
+        name: "Some Channels Present, In Order",
+        channels: [1, 2, 3],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32, DataType.FLOAT64],
+        frame: new framer.Frame(
+          [1, 3],
+          [
+            new Series(new Uint8Array([1, 2, 3])),
+            new Series(new Float64Array([7, 8, 9])),
+          ],
+        ),
+      },
+      {
+        name: "Some Channels Present, Out of Order",
+        channels: [1, 2, 3],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32, DataType.FLOAT64],
+        frame: new framer.Frame(
+          [3, 1],
+          [
+            new Series(new Float64Array([7, 8, 9])),
+            new Series(new Uint8Array([1, 2, 3])),
+          ],
+        ),
+      },
+      {
+        name: "Only One Channel Present",
+        channels: [1, 2, 3, 4, 5],
+        dataTypes: [
+          DataType.UINT8,
+          DataType.UINT8,
+          DataType.UINT8,
+          DataType.UINT8,
+          DataType.UINT8,
+        ],
+        frame: new framer.Frame([3], [new Series(new Uint8Array([1, 2, 3, 4, 5]))]),
+      },
+      {
+        name: "All Same Time Range",
+        channels: [1, 2],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [1, 2],
+          [
+            new Series({
+              dataType: DataType.UINT8,
+              data: new Uint8Array([1]),
+              timeRange: new TimeStamp(0).spanRange(5),
+            }),
+            new Series({
+              dataType: DataType.FLOAT32,
+              data: new Float32Array([1, 2, 3, 4]),
+              timeRange: new TimeStamp(0).spanRange(5),
+            }),
+          ],
+        ),
+      },
+      {
+        name: "All Same Non-Zero Time Range",
+        channels: [1, 2],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [1, 2],
+          [
+            new Series({
+              dataType: DataType.UINT8,
+              data: new Uint8Array([1]),
+              timeRange: new TimeStamp(1000000000).spanRange(5000000000),
+            }),
+            new Series({
+              dataType: DataType.FLOAT32,
+              data: new Float32Array([1, 2, 3, 4]),
+              timeRange: new TimeStamp(1000000000).spanRange(5000000000),
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Different Non-Zero Time Ranges",
+        channels: [1, 2],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [1, 2],
+          [
+            new Series({
+              dataType: DataType.UINT8,
+              data: new Uint8Array([1]),
+              timeRange: new TimeStamp(1000000000).spanRange(5000000000),
+            }),
+            new Series({
+              dataType: DataType.FLOAT32,
+              data: new Float32Array([1, 2, 3, 4]),
+              timeRange: new TimeStamp(2000000000).spanRange(3000000000),
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Partial Present, Different Lengths",
+        channels: [1, 2, 3],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32, DataType.FLOAT64],
+        frame: new framer.Frame(
+          [1, 3],
+          [new Series(new Uint8Array([1])), new Series(new Float64Array([1, 2, 3, 4]))],
+        ),
+      },
+      {
+        name: "Same Alignments",
+        channels: [1, 2],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [1, 2],
+          [
+            new Series({
+              dataType: DataType.UINT8,
+              data: new Uint8Array([1]),
+              alignment: 5n,
+            }),
+            new Series({
+              dataType: DataType.FLOAT32,
+              data: new Uint8Array([1, 2, 3, 4]),
+              alignment: 5n,
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Different Alignments",
+        channels: [1, 2],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [1, 2],
+          [
+            new Series({
+              dataType: DataType.UINT8,
+              data: new Uint8Array([1]),
+              alignment: 5n,
+            }),
+            new Series({
+              dataType: DataType.FLOAT32,
+              data: new Uint8Array([1, 2, 3, 4]),
+              alignment: 10n,
+            }),
+          ],
+        ),
+      },
+      // Keys are (12-bit node key << 20 | 20-bit local key), so their decimal widths
+      // differ across nodes. These two pairs sort differently under a lexicographic
+      // comparator than under a numeric one, which is the order the Core encodes in.
+      {
+        name: "All Channels Present, Keys Spanning A Decimal Width",
+        // Node 9 (7 digits) and node 10 (8 digits).
+        channels: [9437185, 10485761],
+        dataTypes: [DataType.INT64, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [9437185, 10485761],
+          [
+            new Series(new BigInt64Array([1n, 2n, 3n])),
+            new Series(new Float32Array([4, 5, 6])),
+          ],
+        ),
+      },
+      {
+        name: "All Channels Present, Free Channel Alongside A Leased One",
+        // Node 5, and a free channel (node key 4095).
+        channels: [5242881, 4293918721],
+        dataTypes: [DataType.INT64, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [5242881, 4293918721],
+          [
+            new Series(new BigInt64Array([1n, 2n, 3n])),
+            new Series(new Float32Array([4, 5, 6])),
+          ],
+        ),
+      },
+      {
+        name: "Variable Data Types",
+        channels: [1, 2, 3],
+        dataTypes: [DataType.UINT8, DataType.STRING, DataType.JSON],
+        frame: new framer.Frame(
+          [1, 2, 3],
+          [
+            new Series(new Uint8Array([1])),
+            new Series({
+              data: ["one", "two", "three"],
+              dataType: DataType.STRING,
+            }),
+            new Series({
+              data: [{ a: 1 }, { b: 2 }, { c: 3 }],
+              dataType: DataType.JSON,
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Bool Single Sample",
+        channels: [1],
+        dataTypes: [DataType.BOOLEAN],
+        frame: new framer.Frame(
+          [1],
+          [new Series({ data: [true], dataType: DataType.BOOLEAN })],
+        ),
+      },
+      {
+        name: "Bool Exact Byte Boundary",
+        channels: [1],
+        dataTypes: [DataType.BOOLEAN],
+        frame: new framer.Frame(
+          [1],
+          [
+            new Series({
+              data: [true, false, true, false, true, false, true, false],
+              dataType: DataType.BOOLEAN,
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Bool One Past Byte Boundary",
+        channels: [1],
+        dataTypes: [DataType.BOOLEAN],
+        frame: new framer.Frame(
+          [1],
+          [
+            new Series({
+              data: [true, false, true, false, true, false, true, false, true],
+              dataType: DataType.BOOLEAN,
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Bool Seven Samples Partial Last Byte",
+        channels: [1],
+        dataTypes: [DataType.BOOLEAN],
+        frame: new framer.Frame(
+          [1],
+          [
+            new Series({
+              data: [true, false, true, true, false, false, true],
+              dataType: DataType.BOOLEAN,
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Bool Mixed With Other Types",
+        channels: [1, 2, 3],
+        dataTypes: [DataType.BOOLEAN, DataType.FLOAT32, DataType.UINT8],
+        frame: new framer.Frame(
+          [1, 2, 3],
+          [
+            new Series({
+              data: [true, false, true],
+              dataType: DataType.BOOLEAN,
+            }),
+            new Series(new Float32Array([1.5, 2.5, 3.5])),
+            new Series(new Uint8Array([7, 8, 9])),
+          ],
+        ),
+      },
+    ];
+
+    SPECS.forEach((spec) => {
+      it(`should encode & decode ${spec.name}`, () => {
+        const codec = new Codec(spec.channels, spec.dataTypes);
+        const encoded = codec.encode(spec.frame.toPayload());
+        const decoded = codec.decode(encoded);
+        decoded.keys.forEach((k, i) => {
+          const dcs = decoded.series[i];
+          const ser = spec.frame.get(k);
+          expect(ser.series.length).toBeGreaterThan(0);
+          const os = ser.series[0];
+          if (dcs.timeRange != null && !dcs.timeRange.span.isZero)
+            expect(dcs.timeRange.toString()).toEqual(os.timeRange?.toString());
+          expect(new Series(dcs).toString()).toEqual(os.toString());
+        });
+      });
+    });
+  });
+
+  describe("series views", () => {
+    it("should encode only the samples of a sub-series", () => {
+      const codec = new Codec([1], [DataType.INT32]);
+      const sub = new Series(new Int32Array([1, 2, 3, 4, 5])).sub(1, 3);
+      const decoded = codec.decode(codec.encode(new framer.Frame([1], [sub])));
+      expect(Array.from(new Series(decoded.series[0]))).toEqual([2, 3]);
+    });
+
+    it("should encode only the written samples of an allocated series", () => {
+      const codec = new Codec([1], [DataType.FLOAT64]);
+      const s = Series.alloc({ capacity: 10, dataType: DataType.FLOAT64 });
+      s.write(new Series(new Float64Array([1.5, 2.5])));
+      const decoded = codec.decode(codec.encode(new framer.Frame([1], [s])));
+      expect(Array.from(new Series(decoded.series[0]))).toEqual([1.5, 2.5]);
+    });
+
+    it("should encode only the samples of a subarray", () => {
+      const codec = new Codec([1], [DataType.UINT8]);
+      const data = new Uint8Array([9, 8, 7, 6]).subarray(2);
+      const decoded = codec.decode(
+        codec.encode(new framer.Frame([1], [new Series(data)])),
+      );
+      expect(Array.from(new Series(decoded.series[0]))).toEqual([7, 6]);
+    });
+  });
+
+  describe("channel keys", () => {
+    it("should keep a repeated key when the series count matches the channel count", () => {
+      const codec = new Codec([1, 2], [DataType.FLOAT32, DataType.FLOAT32]);
+      const fr = new framer.Frame(
+        [1, 1],
+        [new Series(new Float32Array([1])), new Series(new Float32Array([2]))],
+      );
+      expect(codec.decode(codec.encode(fr)).keys).toEqual([1, 1]);
+    });
+  });
+
+  describe("alignment multiples", () => {
+    const MULTIPLES_PRESENT_BIT = 1 << 6;
+    const EXTENDED_BIT = 1 << 7;
+
+    it("should round-trip the alignment multiple of each series", () => {
+      const codec = new Codec([1, 2], [DataType.FLOAT32, DataType.FLOAT32]);
+      const encoded = codec.encode(
+        new framer.Frame(
+          [1, 2],
+          [
+            new Series({
+              data: new Float32Array([1, 2]),
+              alignment: 8n,
+              alignmentMultiple: 4n,
+            }),
+            new Series({ data: new Float32Array([3, 4]), alignment: 12n }),
+          ],
+        ),
+      );
+      expect(encoded[0] & MULTIPLES_PRESENT_BIT).toEqual(MULTIPLES_PRESENT_BIT);
+      const decoded = new framer.Frame(codec.decode(encoded));
+      expect(decoded.series[0].alignment).toEqual(8n);
+      expect(decoded.series[0].alignmentMultiple).toEqual(4n);
+      expect(decoded.series[1].alignment).toEqual(12n);
+      expect(decoded.series[1].alignmentMultiple).toEqual(1n);
+      expect(Array.from(decoded.series[1])).toEqual([3, 4]);
+    });
+
+    it("should leave the multiples flag unset when every multiple is one", () => {
+      const codec = new Codec([1], [DataType.FLOAT32]);
+      const encoded = codec.encode(
+        new framer.Frame([1], [new Series(new Float32Array([1, 2]))]),
+      );
+      expect(encoded[0] & MULTIPLES_PRESENT_BIT).toEqual(0);
+    });
+
+    it("should reject a frame that sets the extended flags bit", () => {
+      const codec = new Codec([1], [DataType.FLOAT32]);
+      const encoded = codec.encode(
+        new framer.Frame([1], [new Series(new Float32Array([1, 2]))]),
+      );
+      encoded[0] |= EXTENDED_BIT;
+      expect(() => codec.decode(encoded)).toThrow(
+        new ValidationError(
+          "remote sent an extended flags byte, which this codec does not support",
+        ),
+      );
+    });
+  });
+
+  describe("dynamic codec", () => {
+    it("should allow the caller to update the codec", () => {
+      const codec = new Codec();
+      codec.update([1], [DataType.INT32]);
+      const encoded = codec.encode(
+        new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]),
+      );
+      const decoded1 = new framer.Frame(codec.decode(encoded));
+      expect(Array.from(decoded1.series[0])).toEqual([1, 2, 3]);
+      expect(decoded1.keys[0]).toEqual(1);
+      codec.update([2], [DataType.INT64]);
+      const encoded2 = codec.encode(
+        new framer.Frame([2], [new Series(new BigInt64Array([1n, 2n, 3n]))]),
+      );
+      const decoded2 = new framer.Frame(codec.decode(encoded2));
+      expect(Array.from(decoded2.series[0])).toEqual([1n, 2n, 3n]);
+      expect(decoded2.keys[0]).toEqual(2);
+    });
+
+    it("should throw an error if the codec is not initialized", () => {
+      const codec = new Codec();
+      expect(() =>
+        codec.encode(new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))])),
+      ).toThrow(ValidationError);
+    });
+
+    it("should use the correct encode/decode state even if the codecs are out of sync", () => {
+      const encoder = new Codec();
+      const decoder = new Codec();
+      encoder.update([1], [DataType.INT32]);
+      decoder.update([1], [DataType.INT32]);
+
+      const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
+      let encoded = encoder.encode(fr);
+      let decoded = new framer.Frame(decoder.decode(encoded));
+      expect(decoded.keys[0]).toEqual(1);
+      expect(decoded.series[0].data).toEqual(fr.series[0].data);
+
+      decoder.update([2], [DataType.INT64]);
+      encoded = encoder.encode(fr);
+      decoded = new framer.Frame(decoder.decode(encoded));
+      expect(decoded.keys[0]).toEqual(1);
+      expect(decoded.series[0].data).toEqual(fr.series[0].data);
+
+      encoder.update([2], [DataType.INT64]);
+      expect(() => encoder.encode(fr)).toThrow(ValidationError);
+      const fr2 = new framer.Frame([2], [new Series(new BigInt64Array([1n, 2n, 3n]))]);
+      encoded = encoder.encode(fr2);
+      decoded = new framer.Frame(decoder.decode(encoded));
+      expect(decoded.keys[0]).toEqual(2);
+      expect(decoded.series[0].data).toEqual(fr2.series[0].data);
+    });
+
+    it("should reject a frame encoded with keys older than the last frame decoded", () => {
+      const encoder = new Codec();
+      const decoder = new Codec();
+      encoder.update([1], [DataType.INT32]);
+      decoder.update([1], [DataType.INT32]);
+      const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
+      const stale = encoder.encode(fr);
+      encoder.update([1, 2], [DataType.INT32, DataType.INT64]);
+      decoder.update([1, 2], [DataType.INT32, DataType.INT64]);
+      decoder.decode(encoder.encode(fr));
+      expect(() => decoder.decode(stale)).toThrow(
+        new ValidationError("remote sent invalid sequence number 1"),
+      );
+    });
+  });
+
+  describe("websocket codec JSON fallback", () => {
+    [WSWriterCodec, WSStreamerCodec, WSIteratorCodec].forEach((WSCodec) => {
+      it(`should label parse errors in ${WSCodec.name}`, () => {
+        const codec = new WSCodec(new Codec([1], [DataType.INT32]));
+        const json = new TextEncoder().encode(JSON.stringify({ id: "a" }));
+        const data = new Uint8Array([LOW_PERF_SPECIAL_CHAR, ...json]);
+        const schema = z.object({ id: z.number() });
+        expect(() => codec.decode(data, schema, { label: "test response" })).toThrow(
+          /test response/,
+        );
+      });
+    });
+  });
+
+  describe("websocket writer codec", () => {
+    it("should correctly encode and decode a websocket write request", () => {
+      const baseCodec = new Codec([1], [DataType.INT32]);
+      const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
+      const writeReq: framer.WriteRequest = {
+        command: framer.WriterCommand.Write,
+        frame: fr.toPayload(),
+      };
+      const msg: WebsocketMessage<framer.WriteRequest> = {
+        type: "data",
+        payload: writeReq,
+      };
+      const codec = new WSWriterCodec(baseCodec);
+      const encoded = codec.encode(msg);
+      expect(encoded[0]).toEqual(HIGH_PERF_SPECIAL_CHAR);
+      const decoded = codec.decode(encoded) as WebsocketMessage<framer.WriteRequest>;
+      expect(decoded.payload?.command).toEqual(framer.WriterCommand.Write);
+      const decodedFr = new framer.Frame(decoded.payload?.frame);
+      expect(decodedFr.series[0].data).toEqual(fr.series[0].data);
+    });
+
+    it("should correctly e +d a WS write set authority request", () => {
+      const baseCodec = new Codec([1], [DataType.INT32]);
+      const writeReq: framer.WriteRequest = {
+        command: framer.WriterCommand.SetAuthority,
+        config: { authorities: [123] },
+      };
+      const codec = new WSWriterCodec(baseCodec);
+      const msg: WebsocketMessage<framer.WriteRequest> = {
+        type: "data",
+        payload: writeReq,
+      };
+      const encoded = codec.encode(msg);
+      expect(encoded[0]).toEqual(LOW_PERF_SPECIAL_CHAR);
+      const decoded = codec.decode(encoded);
+      expect(decoded).toEqual(msg);
+    });
+  });
+
+  describe("websocket iterator codec", () => {
+    it("should JSON-encode an iterator request without a special char prefix", () => {
+      const baseCodec = new Codec([1], [DataType.INT32]);
+      const codec = new WSIteratorCodec(baseCodec);
+      const msg: WebsocketMessage<unknown> = {
+        type: "data",
+        payload: { command: 1, span: 0 },
+      };
+      const encoded = codec.encode(msg);
+      // Iterator requests are sent as raw JSON; no special-char prefix.
+      // Confirm the first byte is JSON ('{' or '[').
+      expect([0x7b, 0x5b]).toContain(encoded[0]);
+    });
+
+    it("should binary-decode a data variant response and synthesize variant=Data", () => {
+      const baseCodec = new Codec([1], [DataType.INT32]);
+      const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
+      const codec = new WSIteratorCodec(baseCodec);
+      const encoded = new Uint8Array(baseCodec.encode(fr.toPayload(), 1));
+      encoded[0] = HIGH_PERF_SPECIAL_CHAR;
+      const decoded = codec.decode(
+        encoded,
+      ) as WebsocketMessage<framer.IteratorResponse>;
+      expect(decoded.payload?.variant).toEqual(framer.IteratorResponseVariant.Data);
+      const decodedFr = new framer.Frame(decoded.payload?.frame);
+      expect(decodedFr.series[0].data).toEqual(fr.series[0].data);
+    });
+
+    it("should JSON-decode an ack variant response prefixed with the low-perf char", () => {
+      const baseCodec = new Codec([1], [DataType.INT32]);
+      const codec = new WSIteratorCodec(baseCodec);
+      const ackMsg: WebsocketMessage<framer.IteratorResponse> = {
+        type: "data",
+        payload: {
+          variant: framer.IteratorResponseVariant.Ack,
+          ack: true,
+          command: framer.IteratorCommand.Next,
+        },
+      };
+      // Simulate what the server sends: LOW_PERF_SPECIAL_CHAR + JSON-encoded message.
+      const json = new TextEncoder().encode(JSON.stringify(ackMsg));
+      const encoded = new Uint8Array(json.byteLength + 1);
+      encoded[0] = LOW_PERF_SPECIAL_CHAR;
+      encoded.set(json, 1);
+      const decoded = codec.decode(
+        encoded,
+      ) as WebsocketMessage<framer.IteratorResponse>;
+      expect(decoded.payload?.variant).toEqual(framer.IteratorResponseVariant.Ack);
+      expect(decoded.payload?.ack).toEqual(true);
+    });
+  });
+});

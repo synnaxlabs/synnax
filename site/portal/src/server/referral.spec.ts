@@ -9,7 +9,7 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { event, type Organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, memory } from "@/server/directory";
 import { NOW } from "@/server/license/testutil";
@@ -22,7 +22,7 @@ const EARLIER = new Date(NOW.getTime() - 60 * 60 * 1000);
 
 describe("referral", () => {
   let store: Memory;
-  let ada: Organization;
+  let ada: schema.Organization;
   const directory = memory({
     people: {
       user_a: { name: "Ada Lovelace", email: "ada@example.com" },
@@ -43,9 +43,9 @@ describe("referral", () => {
     ada = await createOrganization(store, { kind: "personal", ownerUserID: "user_a" });
   });
 
-  const login = async (org: Organization, at = NOW): Promise<void> => {
+  const login = async (org: schema.Organization, at = NOW): Promise<void> => {
     await store.query
-      .insert(event)
+      .insert(schema.event)
       .values({ kind: "link", actor: "user_a", organization: org.key, at });
   };
 

@@ -25,45 +25,40 @@ import {
   sql,
 } from "drizzle-orm";
 
-import type { Reader } from "@/server/db/db";
-import {
-  type Activation,
-  activation,
-  type License,
-  license,
-  type Organization,
-  organization,
-} from "@/server/db/schema";
+import { type Reader, schema } from "@/server/db";
 import { deny } from "@/server/license/deny";
 import { EXPIRING, type Status } from "@/server/license/status";
 
 /** Held is a license beside the number of machines holding one of its seats. */
 export interface Held {
-  license: License;
+  license: schema.License;
   seats: number;
 }
 
 /** Owned is a license beside the organization it belongs to. */
 export interface Owned {
-  license: License;
-  organization: Organization;
+  license: schema.License;
+  organization: schema.Organization;
 }
 
 const listHeld = async (db: Reader, where?: SQL): Promise<Held[]> =>
   await db
-    .select({ license, seats: count(activation.key) })
-    .from(license)
+    .select({ license: schema.license, seats: count(schema.activation.key) })
+    .from(schema.license)
     .leftJoin(
-      activation,
-      and(eq(activation.license, license.key), isNull(activation.releasedAt)),
+      schema.activation,
+      and(
+        eq(schema.activation.license, schema.license.key),
+        isNull(schema.activation.releasedAt),
+      ),
     )
     .where(where)
-    .groupBy(license.key)
-    .orderBy(desc(license.issuedAt));
+    .groupBy(schema.license.key)
+    .orderBy(desc(schema.license.issuedAt));
 
 /** listForOrganization returns an organization's licenses, newest first. */
 export const listForOrganization = async (db: Reader, org: string): Promise<Held[]> =>
-  await listHeld(db, eq(license.organization, org));
+  await listHeld(db, eq(schema.license.organization, org));
 
 /** listAllHeld returns every license and its seats in use, newest first. Staff only. */
 export const listAllHeld = async (db: Reader): Promise<Held[]> => await listHeld(db);
@@ -96,26 +91,26 @@ export interface Page {
   next: Cursor | null;
 }
 
-const live = isNull(license.revokedAt);
+const live = isNull(schema.license.revokedAt);
 
 /** STATUS_WHERE matches the licenses that statusOf reads as each status. */
 const STATUS_WHERE: Record<Status, (now: Date, soon: Date) => SQL | undefined> = {
-  revoked: () => isNotNull(license.revokedAt),
-  expired: (now) => and(live, lte(license.expiresAt, now)),
+  revoked: () => isNotNull(schema.license.revokedAt),
+  expired: (now) => and(live, lte(schema.license.expiresAt, now)),
   expiring: (now, soon) =>
     and(
       live,
-      gt(license.expiresAt, now),
-      lte(license.expiresAt, soon),
-      ne(license.edition, "desktop"),
+      gt(schema.license.expiresAt, now),
+      lte(schema.license.expiresAt, soon),
+      ne(schema.license.edition, "desktop"),
     ),
   active: (now, soon) =>
     and(
       live,
       or(
-        isNull(license.expiresAt),
-        gt(license.expiresAt, soon),
-        and(gt(license.expiresAt, now), eq(license.edition, "desktop")),
+        isNull(schema.license.expiresAt),
+        gt(schema.license.expiresAt, soon),
+        and(gt(schema.license.expiresAt, now), eq(schema.license.edition, "desktop")),
       ),
     ),
 };
@@ -128,19 +123,20 @@ const matches = ({ search = "", status }: Query, now: Date): SQL | undefined => 
       : STATUS_WHERE[status](now, new Date(now.getTime() + EXPIRING)),
     needle === ""
       ? undefined
-      : sql`strpos(lower(${license.label} || ' ' || ${organization.name} || ' ' ||
-          ${license.key}::text), lower(${needle})) > 0`,
+      : sql`strpos(lower(${schema.license.label} || ' ' ||
+          ${schema.organization.name} || ' ' || ${schema.license.key}::text),
+          lower(${needle})) > 0`,
   );
 };
 
 const after = (cursor: Cursor | undefined, soonest: boolean): SQL | undefined => {
   if (cursor == null) return undefined;
   if (!soonest)
-    return sql`(${license.issuedAt}, ${license.key}) < (select c.issued_at, c.key
-      from ${license} c where c.key = ${cursor.key})`;
+    return sql`(${schema.license.issuedAt}, ${schema.license.key}) <
+      (select c.issued_at, c.key from ${schema.license} c where c.key = ${cursor.key})`;
   if (cursor.expiresAt == null)
     throw new Error("A cursor in the expiring order needs an expiry");
-  return sql`(${license.expiresAt}, ${license.key}) >
+  return sql`(${schema.license.expiresAt}, ${schema.license.key}) >
     (${cursor.expiresAt.toISOString()}::timestamptz, ${cursor.key}::uuid)`;
 };
 
@@ -153,25 +149,38 @@ export const listPage = async (db: Reader, query: Query, now: Date): Promise<Pag
   const where = matches(query, now);
   const soonest = query.status === "expiring";
   const rows = await db
-    .select({ license, organization, seats: count(activation.key) })
-    .from(license)
-    .innerJoin(organization, eq(license.organization, organization.key))
+    .select({
+      license: schema.license,
+      organization: schema.organization,
+      seats: count(schema.activation.key),
+    })
+    .from(schema.license)
+    .innerJoin(
+      schema.organization,
+      eq(schema.license.organization, schema.organization.key),
+    )
     .leftJoin(
-      activation,
-      and(eq(activation.license, license.key), isNull(activation.releasedAt)),
+      schema.activation,
+      and(
+        eq(schema.activation.license, schema.license.key),
+        isNull(schema.activation.releasedAt),
+      ),
     )
     .where(and(where, after(query.after, soonest)))
-    .groupBy(license.key, organization.key)
+    .groupBy(schema.license.key, schema.organization.key)
     .orderBy(
       ...(soonest
-        ? [asc(license.expiresAt), asc(license.key)]
-        : [desc(license.issuedAt), desc(license.key)]),
+        ? [asc(schema.license.expiresAt), asc(schema.license.key)]
+        : [desc(schema.license.issuedAt), desc(schema.license.key)]),
     )
     .limit(PAGE_SIZE + 1);
   const [{ total }] = await db
     .select({ total: count() })
-    .from(license)
-    .innerJoin(organization, eq(license.organization, organization.key))
+    .from(schema.license)
+    .innerJoin(
+      schema.organization,
+      eq(schema.license.organization, schema.organization.key),
+    )
     .where(where);
   const entries = rows.slice(0, PAGE_SIZE);
   if (rows.length <= PAGE_SIZE) return { entries, total, next: null };
@@ -187,16 +196,32 @@ const listActivatableWhere = async (
   now: Date,
 ): Promise<(Owned & Held)[]> => {
   const rows = await db
-    .select({ license, organization, seats: count(activation.key) })
-    .from(license)
-    .innerJoin(organization, eq(license.organization, organization.key))
-    .leftJoin(
-      activation,
-      and(eq(activation.license, license.key), isNull(activation.releasedAt)),
+    .select({
+      license: schema.license,
+      organization: schema.organization,
+      seats: count(schema.activation.key),
+    })
+    .from(schema.license)
+    .innerJoin(
+      schema.organization,
+      eq(schema.license.organization, schema.organization.key),
     )
-    .where(and(where, isNull(license.revokedAt), ne(license.edition, "desktop")))
-    .groupBy(license.key, organization.key)
-    .orderBy(desc(license.issuedAt));
+    .leftJoin(
+      schema.activation,
+      and(
+        eq(schema.activation.license, schema.license.key),
+        isNull(schema.activation.releasedAt),
+      ),
+    )
+    .where(
+      and(
+        where,
+        isNull(schema.license.revokedAt),
+        ne(schema.license.edition, "desktop"),
+      ),
+    )
+    .groupBy(schema.license.key, schema.organization.key)
+    .orderBy(desc(schema.license.issuedAt));
   return rows.filter((r) => deny(r.license, now) == null);
 };
 
@@ -210,7 +235,11 @@ export const listActivatable = async (
   now: Date,
 ): Promise<(Owned & Held)[]> => {
   if (orgs.length === 0) return [];
-  return await listActivatableWhere(db, inArray(license.organization, orgs), now);
+  return await listActivatableWhere(
+    db,
+    inArray(schema.license.organization, orgs),
+    now,
+  );
 };
 
 /**
@@ -222,7 +251,7 @@ export const findActivatable = async (
   key: string,
   now: Date,
 ): Promise<(Owned & Held) | undefined> => {
-  const [found] = await listActivatableWhere(db, eq(license.key, key), now);
+  const [found] = await listActivatableWhere(db, eq(schema.license.key, key), now);
   return found;
 };
 
@@ -234,19 +263,19 @@ export const findSeat = async (
   db: Reader,
   licenses: string[],
   fingerprint: string[],
-): Promise<Activation | undefined> => {
+): Promise<schema.Activation | undefined> => {
   if (licenses.length === 0) return undefined;
   const [seat] = await db
     .select()
-    .from(activation)
+    .from(schema.activation)
     .where(
       and(
-        inArray(activation.license, licenses),
-        isNull(activation.releasedAt),
-        arrayOverlaps(activation.fingerprint, fingerprint),
+        inArray(schema.activation.license, licenses),
+        isNull(schema.activation.releasedAt),
+        arrayOverlaps(schema.activation.fingerprint, fingerprint),
       ),
     )
-    .orderBy(desc(activation.lastSeen))
+    .orderBy(desc(schema.activation.lastSeen))
     .limit(1);
   return seat;
 };

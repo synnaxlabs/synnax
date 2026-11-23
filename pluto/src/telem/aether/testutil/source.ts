@@ -10,10 +10,14 @@
 import type { status } from "@synnaxlabs/client";
 import {
   type Aggregation,
+  type bounds,
   type color,
   type destructor,
   id,
+  MultiSeries,
   observe,
+  Series,
+  TimeRange,
   type TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -24,6 +28,7 @@ import {
   type Edge,
   type NumberSourceSpec,
   type Result,
+  type SeriesSourceSpec,
   type Source,
   type StringSourceSpec,
   SUCCESS_STATUS,
@@ -107,3 +112,18 @@ export const colorSourceSpec = (source: TestSource<color.Color>): ColorSourceSpe
   variant: "source",
   valueType: "color",
 });
+
+/** @returns the spec of a test source that holds one float64 series of data. */
+export const seriesSpec = (data: number[]): SeriesSourceSpec => {
+  const s = new Series({
+    data: new Float64Array(data),
+    timeRange: new TimeRange(0, 1),
+  });
+  const src = source<[bounds.Bounds, MultiSeries]>([s.bounds, new MultiSeries([s])]);
+  return {
+    type: TestSource.TYPE,
+    props: { testId: src.id },
+    variant: "source",
+    valueType: "series",
+  };
+};

@@ -496,6 +496,30 @@ var _ = Describe("Python Types Plugin", func() {
 		)
 
 		It(
+			"Should bound a bytes field by its byte count",
+			func() {
+				source := `
+				@py output "out"
+
+				Frame struct {
+					data bytes @validate {
+						min_length 1
+						max_length 64
+					}
+				}
+			`
+				table, diag := Analyze(source, "frame", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				resp := MustSucceed(
+					typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+				Expect(string(resp.Files[0].Content)).To(ContainSubstring(
+					`data: Bytes = Field(min_length=1, max_length=64)`,
+				))
+			},
+		)
+
+		It(
 			"Should apply an exclusive lower bound in place of the implied one",
 			func() {
 				source := `
@@ -558,6 +582,25 @@ var _ = Describe("Python Types Plugin", func() {
 				))
 			},
 		)
+
+		It("Should keep precision of small float bounds", func() {
+			source := `
+				@py output "out"
+
+				Entry struct {
+					low  float64 @validate min 0.0000001
+					high float64 @validate max 0.0000001
+				}
+			`
+			table, diag := Analyze(source, "entry", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			resp := MustSucceed(typesPlugin.Generate(
+				&plugin.Request{Resolutions: table},
+			))
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring("ge=1e-07"))
+			Expect(content).To(ContainSubstring("le=1e-07"))
+		})
 
 		It("Should reject infinity and NaN on a float with a finite rule", func() {
 			source := `
@@ -656,6 +699,27 @@ var _ = Describe("Python Types Plugin", func() {
 				))
 			},
 		)
+
+		It("Should keep wide integer enum values and a non-first default", func() {
+			source := `
+				@py output "out"
+
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+					baud_230400 = 230400
+				}
+
+				Connection struct {
+					baud_rate BaudRate = baud_19200
+				}
+			`
+			resp := MustGenerate(source, "serial", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").
+				ToContain("class BaudRate(IntEnum):").
+				ToContain("baud_230400 = 230400").
+				ToContain("baud_rate: BaudRate = BaudRate.baud_19200")
+		})
 
 		It("Should generate IntEnum for integer enums", func() {
 			source := `
@@ -1327,6 +1391,19 @@ var _ = Describe("Python Types Plugin", func() {
 				).To(ContainSubstring(`class ReadConfig(common.BaseConfig):`))
 			},
 		)
+
+		It("Should keep a small float default exact", func() {
+			source := `
+				@py output "client/py/synnax/wave"
+
+				Wave struct {
+					tolerance float64 = 0.0000001
+				}
+			`
+			resp := MustGenerate(source, "wave", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`tolerance: float = 1e-07`))
+		})
 
 		It(
 			"Should qualify a union default whose union lives in another module",
@@ -2811,6 +2888,71 @@ ChannelStatus = status.Status<nil>
 						ToContain(`Tuple[float, float, float]`)
 				},
 			)
+
+			It(
+				"Should require a fixed-size array field with no default",
+				func() {
+					source := `
+					@py output "out"
+
+					Pair = uint8[2]
+
+					Point struct {
+						coords float64[3]
+						pair   Pair
+					}
+				`
+					resp := MustGenerate(source, "geo", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							"coords: Tuple[float, float, float]\n",
+							"pair: Pair\n",
+						).
+						ToNotContain("default_factory=list")
+				},
+			)
+
+			It(
+				"Should require a field typed by a fixed-size array type parameter",
+				func() {
+					source := `
+					@py output "out"
+
+					Bounded struct<T extends uint8[2]> {
+						pair T
+					}
+
+					Defaulted struct<T = uint8[2]> {
+						pair T
+					}
+				`
+					resp := MustGenerate(source, "geo", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain("pair: T\n").
+						ToNotContain("default_factory=list")
+				},
+			)
+
+			It(
+				"Should default a fixed-size array field to a tuple",
+				func() {
+					source := `
+					@py output "out"
+
+					Point struct {
+						coords float64[3] = [1.5, 2.5, 3.5]
+						one    int32[1] = [7]
+					}
+				`
+					resp := MustGenerate(source, "geo", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							"coords: Tuple[float, float, float] = "+
+								"(1.500000, 2.500000, 3.500000)\n",
+							"le=2147483647)]] = (7,)\n",
+						)
+				},
+			)
 		})
 
 		Context("@py name directive", func() {
@@ -3505,6 +3647,53 @@ var _ = Describe("Collection type aliases and maps", func() {
 	)
 
 	It(
+		"Should bound sized integer list elements to the range of their type",
+		func() {
+			loader := NewMockFileLoader()
+			typesPlugin := types.New(types.DefaultOptions())
+			source := `
+			@py output "out"
+
+			Key uint32
+
+			Keys Key[]
+
+			KeyList = Key[]
+
+			Quad uint8[4]
+
+			Elements struct {
+				small  uint8[]
+				port   uint16[]
+				wide   int64[]
+				keys   Key[]
+				opt    uint16[]?
+				names  string[]
+				pair   uint8[2]
+			}
+		`
+			resp := MustGenerate(source, "elements", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				"Keys: TypeAlias = list[Annotated[Key, Field(ge=0, le=4294967295)]]",
+				"KeyList: TypeAlias = list[Annotated[Key, Field(ge=0, le=4294967295)]]",
+				"Quad: TypeAlias = Tuple[Annotated[int, Field(ge=0, le=255)], "+
+					"Annotated[int, Field(ge=0, le=255)], "+
+					"Annotated[int, Field(ge=0, le=255)], "+
+					"Annotated[int, Field(ge=0, le=255)]]",
+				"pair: Tuple[Annotated[int, Field(ge=0, le=255)], "+
+					"Annotated[int, Field(ge=0, le=255)]]\n",
+				"small: list[Annotated[int, Field(ge=0, le=255)]]",
+				"port: list[Annotated[int, Field(ge=0, le=65535)]]",
+				"wide: list[Annotated[int, Field(ge=-9223372036854775808, "+
+					"le=9223372036854775807)]]",
+				"keys: list[Annotated[Key, Field(ge=0, le=4294967295)]]",
+				"opt: list[Annotated[int, Field(ge=0, le=65535)]] | None = None",
+				"names: list[str]",
+			)
+		},
+	)
+
+	It(
 		"Should bound sized integer map values to the range of their type",
 		func() {
 			loader := NewMockFileLoader()
@@ -3533,6 +3722,53 @@ var _ = Describe("Collection type aliases and maps", func() {
 				"nested: dict[str, dict[Annotated[int, Field(ge=0, le=255)], "+
 					"Annotated[int, Field(ge=0, le=65535)]]]",
 				"name: dict[str, str]",
+			)
+		},
+	)
+
+	It(
+		"Should keep lists inside map values, list elements, and type arguments",
+		func() {
+			loader := NewMockFileLoader()
+			typesPlugin := types.New(types.DefaultOptions())
+			source := `
+			@py output "out"
+
+			Key uint32
+
+			KeysByPort map<uint16, Key[]>
+
+			Row<T> = T[]
+
+			Box struct<T> {
+				value T
+			}
+
+			Lists struct {
+				bytes   map<string, uint8[]>
+				keys    map<uint16, Key[]>
+				names   map<string, string[]>
+				opt     map<string, uint8[]>?
+				rows    Row<uint16>[]
+				rowMap  map<string, Row<Key>[]>
+				pairs   map<string, uint8[2]>
+				boxed   Box<uint8[]>
+			}
+		`
+			resp := MustGenerate(source, "lists", loader, typesPlugin)
+			u8 := "Annotated[int, Field(ge=0, le=255)]"
+			u16 := "Annotated[int, Field(ge=0, le=65535)]"
+			key := "Annotated[Key, Field(ge=0, le=4294967295)]"
+			ExpectContent(resp, "types_gen.py").ToContain(
+				"KeysByPort: TypeAlias = dict["+u16+", list["+key+"]]",
+				"bytes: dict[str, list["+u8+"]] = Field(default_factory=dict)",
+				"keys: dict["+u16+", list["+key+"]] = Field(default_factory=dict)",
+				"names: dict[str, list[str]] = Field(default_factory=dict)",
+				"opt: dict[str, list["+u8+"]] | None = None",
+				"rows: list[list["+u16+"]] = Field(default_factory=list)",
+				"row_map: dict[str, list[list["+key+"]]] = Field(default_factory=dict)",
+				"pairs: dict[str, Tuple["+u8+", "+u8+"]] = Field(default_factory=dict)",
+				"boxed: Box[list["+u8+"]]",
 			)
 		},
 	)
