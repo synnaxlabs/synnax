@@ -9,17 +9,15 @@
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access } from "@synnaxlabs/pluto";
 import { caseconv, deep, errors, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
-  MAKE,
   type Properties as DeviceProperties,
   SCHEMAS,
 } from "@/feature/opcua/device/types";
@@ -28,13 +26,11 @@ import {
   deployWriteConfigZ,
   type ScannedNode,
   WRITE_SCHEMAS,
-  WRITE_TYPE,
   type WriteChannel,
   type WriteSchemas,
 } from "@/feature/opcua/task/types";
 import { ContextMenu } from "@/platform/context-menu";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<WriteSchemas>>();
@@ -100,15 +96,6 @@ const TaskForm: FC = createForm<WriteChannel>({
   contextMenuItems,
   resolve,
 });
-
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "OPC UA write task", type: WRITE_TYPE, config: cfg };
-};
 
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
@@ -181,16 +168,3 @@ export const Write = Task.wrapForm({
   type: "opc_write",
   onConfigure,
 });
-
-export const useCreateWrite = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const WriteSelectable: Selector.Selectable = {
-  type: WRITE_TYPE,
-  title: "OPC UA write task",
-  label: "Write",
-  icon: <Icon.Logo.OPCUA />,
-  useOnSelect: useCreateWrite,
-};

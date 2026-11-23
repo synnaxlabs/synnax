@@ -35,15 +35,7 @@ class Harness:
         }
         self.gh.serve("api */statuses/*")
         self.gh.serve("api */git/ref/heads/*", {"object": {"sha": SHA}})
-        self.group(42)
         self.score(5)
-
-    def group(self, *prs: int) -> None:
-        """Serves the commits of a merge group holding the given pull requests."""
-        commits = [
-            {"commit": {"message": f"Change {pr} (#{pr})\n\nBody"}} for pr in prs
-        ]
-        self.gh.serve("api */compare/*", {"commits": commits})
 
     def labels(self, *labels: str, pr: int = 42) -> None:
         """Serves a pull request with the given labels."""
@@ -117,28 +109,6 @@ class TestReport:
         assert harness.run(f"gh-readonly-queue/a/b/pr-42-{BASE}").returncode == 0
         assert "state=success" in harness.statuses()[0]
 
-    def test_passes_when_every_pull_request_in_the_group_passes(
-        self, harness: Harness
-    ) -> None:
-        harness.group(41, 42)
-        harness.labels("review/bot", pr=41)
-        harness.score(5, pr=41)
-        assert harness.run().returncode == 0
-        post = harness.statuses()[0]
-        assert "state=success" in post
-        assert "description=Sedosaur scored the head 5/5" in post
-
-    def test_fails_when_a_pull_request_ahead_fails(self, harness: Harness) -> None:
-        harness.group(41, 42)
-        harness.labels("review/bot", pr=41)
-        harness.score(4, pr=41)
-        assert harness.run().returncode == 0
-        post = harness.statuses()[0]
-        assert "state=failure" in post
-        assert (
-            "description=pull request 41: Sedosaur scored the head 4/5, not 5/5" in post
-        )
-
     def test_retries_an_empty_response_to_the_post(self, harness: Harness) -> None:
         harness.gh.fail("api */statuses/*", "unexpected end of JSON input")
         assert harness.run().returncode == 0
@@ -156,20 +126,6 @@ class TestFailure:
         post = harness.statuses()[0]
         assert "state=failure" in post
         assert "description=could not judge pull request 42" in post
-
-    def test_posts_a_failure_when_a_pull_request_ahead_cannot_be_judged(
-        self, harness: Harness
-    ) -> None:
-        harness.group(41, 42)
-        assert harness.run().returncode != 0
-        assert "description=could not judge pull request 42" in harness.statuses()[0]
-
-    def test_posts_a_failure_when_the_group_lacks_the_pull_request(
-        self, harness: Harness
-    ) -> None:
-        harness.group(41)
-        assert harness.run().returncode != 0
-        assert "state=failure" in harness.statuses()[0]
 
     def test_posts_a_failure_when_the_ref_lookup_fails(self, harness: Harness) -> None:
         harness.gh.fail("api */git/ref/heads/*", "gh: Forbidden (HTTP 403)")

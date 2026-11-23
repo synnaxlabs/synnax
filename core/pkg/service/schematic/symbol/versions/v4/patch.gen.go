@@ -33,20 +33,3 @@ func (r *Region) Patch(c patch.Cursor) error {
 
 // PatchKey returns the key that paths name the value by in a list.
 func (r *Region) PatchKey() string { return r.Key }
-
-// Patch applies the path action at c, which is not done, to the value.
-func (s *State) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&s.Key, c.Next())
-	case "name":
-		return patch.Value(&s.Name, c.Next())
-	case "regions":
-		return patch.List(&s.Regions, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// PatchKey returns the key that paths name the value by in a list.
-func (s *State) PatchKey() string { return s.Key }

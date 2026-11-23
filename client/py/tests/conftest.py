@@ -20,7 +20,7 @@ from tests.task_targets import TaskTargets
 from x.strings import random_name
 
 HOST = os.environ.get("SYNNAX_TEST_HOST", "localhost")
-PORT = int(os.environ.get("SYNNAX_TEST_PORT", 9090))
+PORT = int(os.environ.get("SYNNAX_TEST_PORT", "9090"))
 USERNAME = "synnax"
 PASSWORD = "seldon"
 

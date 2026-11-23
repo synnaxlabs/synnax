@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type certificate, type secret } from "@synnaxlabs/client";
+import type { certificate, secret } from "@synnaxlabs/client";
 import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 
 const EXPIRY_WARNING = TimeSpan.days(30);
@@ -39,7 +39,8 @@ export interface Validity {
   status?: "warning" | "error";
 }
 
-const describeDetails = (
+/** Describes whether the details of a certificate are valid at the given time. */
+export const describeDetails = (
   { notBefore, notAfter }: certificate.Details,
   now: TimeStamp,
 ): Validity => {
@@ -51,6 +52,19 @@ const describeDetails = (
   if (now.afterEq(notAfter.sub(EXPIRY_WARNING)))
     return { text: `Expires ${expiry}`, status: "warning" };
   return { text: `Expires ${expiry}` };
+};
+
+/**
+ * Describes whether a certificate is valid at the given time in a few words, such as
+ * "Expires May 4, 2027" or "Expired". Null for a certificate with no details.
+ */
+export const summarizeCertificate = (
+  c: certificate.Certificate,
+  now: TimeStamp,
+): Validity | null => {
+  if (c.details == null) return null;
+  if (now.afterEq(c.details.notAfter)) return { text: "Expired", status: "error" };
+  return describeDetails(c.details, now);
 };
 
 /** Describes whether a certificate is valid at the given time. */

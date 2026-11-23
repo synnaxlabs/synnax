@@ -10,7 +10,7 @@
 import "@/cursor/drag.css";
 
 import { box, xy } from "@synnaxlabs/x";
-import { type PointerEvent as ReactPointerEvent } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { CSS } from "@/css";
 import { Triggers } from "@/triggers";

@@ -83,8 +83,9 @@ var _ = Describe("TruncateToIndex", func() {
 				"Should truncate a domain that holds more samples than its index",
 				func(ctx SpecContext, data, expected telem.Series) {
 					dataDB := openData(ctx, data)
-					Expect(indexDB.Delete(
+					Expect(deleteRange(
 						ctx,
+						indexDB,
 						(14 * telem.SecondTS).Range(20*telem.SecondTS),
 					)).To(Succeed())
 					Expect(ReadUnary(ctx, dataDB, tr)).Error().
@@ -123,8 +124,9 @@ var _ = Describe("TruncateToIndex", func() {
 			DescribeTable("Should copy the samples it cuts to a file",
 				func(ctx SpecContext, data, cut telem.Series) {
 					dataDB := openData(ctx, data)
-					Expect(indexDB.Delete(
+					Expect(deleteRange(
 						ctx,
+						indexDB,
 						(14 * telem.SecondTS).Range(20*telem.SecondTS),
 					)).To(Succeed())
 					Expect(dataDB.TruncateToIndex(ctx)).To(Succeed())
@@ -143,7 +145,7 @@ var _ = Describe("TruncateToIndex", func() {
 
 			It("Should copy a domain that it removes to a file", func(ctx SpecContext) {
 				dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3))
-				Expect(indexDB.Delete(ctx, tr)).To(Succeed())
+				Expect(deleteRange(ctx, indexDB, tr)).To(Succeed())
 				Expect(dataDB.TruncateToIndex(ctx)).To(Succeed())
 				Expect(quarantined(10*telem.SecondTS, 12*telem.SecondTS+1)).
 					To(Equal(telem.NewSeriesV[int64](1, 2, 3).Data))
@@ -152,8 +154,9 @@ var _ = Describe("TruncateToIndex", func() {
 			It("Should not overwrite an earlier file for the same cut",
 				func(ctx SpecContext) {
 					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))
-					Expect(indexDB.Delete(
+					Expect(deleteRange(
 						ctx,
+						indexDB,
 						(14 * telem.SecondTS).Range(20*telem.SecondTS),
 					)).To(Succeed())
 					name := fmt.Sprintf(
@@ -177,8 +180,9 @@ var _ = Describe("TruncateToIndex", func() {
 			It("Should copy to a new file when an earlier one of the same size differs",
 				func(ctx SpecContext) {
 					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))
-					Expect(indexDB.Delete(
+					Expect(deleteRange(
 						ctx,
+						indexDB,
 						(14 * telem.SecondTS).Range(20*telem.SecondTS),
 					)).To(Succeed())
 					name := fmt.Sprintf(
@@ -204,8 +208,9 @@ var _ = Describe("TruncateToIndex", func() {
 				"Should reuse the file of a truncation that failed",
 				func(ctx SpecContext) {
 					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))
-					Expect(indexDB.Delete(
+					Expect(deleteRange(
 						ctx,
+						indexDB,
 						(14 * telem.SecondTS).Range(20*telem.SecondTS),
 					)).To(Succeed())
 					fs.SetOptions(WithFailWriteAt())
@@ -225,8 +230,9 @@ var _ = Describe("TruncateToIndex", func() {
 			It("Should replace a temporary file that an earlier copy left",
 				func(ctx SpecContext) {
 					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))
-					Expect(indexDB.Delete(
+					Expect(deleteRange(
 						ctx,
+						indexDB,
 						(14 * telem.SecondTS).Range(20*telem.SecondTS),
 					)).To(Succeed())
 					tmp := fmt.Sprintf(
@@ -250,8 +256,9 @@ var _ = Describe("TruncateToIndex", func() {
 			DescribeTable("Should not truncate when the copy fails",
 				func(ctx SpecContext, fault FaultyFSOption) {
 					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))
-					Expect(indexDB.Delete(
+					Expect(deleteRange(
 						ctx,
+						indexDB,
 						(14 * telem.SecondTS).Range(20*telem.SecondTS),
 					)).To(Succeed())
 					fs.SetOptions(fault)
@@ -290,8 +297,9 @@ var _ = Describe("TruncateToIndex", func() {
 				func(ctx SpecContext) {
 					written := openData(ctx, telem.NewSeriesV("a", "b", "c", "d"))
 					Expect(written.Close()).To(Succeed())
-					Expect(indexDB.Delete(
+					Expect(deleteRange(
 						ctx,
+						indexDB,
 						(12 * telem.SecondTS).Range(20*telem.SecondTS),
 					)).To(Succeed())
 					dataDB := MustOpen(unary.Open(ctx, unary.Config{
@@ -316,8 +324,9 @@ var _ = Describe("TruncateToIndex", func() {
 
 			It("Should name the domain when the delete fails", func(ctx SpecContext) {
 				dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4))
-				Expect(indexDB.Delete(
+				Expect(deleteRange(
 					ctx,
+					indexDB,
 					(12 * telem.SecondTS).Range(20*telem.SecondTS),
 				)).To(Succeed())
 				fs.SetOptions(WithFailWriteAt())
@@ -357,8 +366,9 @@ var _ = Describe("TruncateToIndex", func() {
 						12*telem.SecondTS,
 						telem.NewSeriesV[int64](1, 2),
 					)).To(Succeed())
-					Expect(indexDB.Delete(
+					Expect(deleteRange(
 						ctx,
+						indexDB,
 						(13 * telem.SecondTS).Range(20*telem.SecondTS),
 					)).To(Succeed())
 					fs.SetOptions(WithFailReadAt())
@@ -374,7 +384,7 @@ var _ = Describe("TruncateToIndex", func() {
 			It("Should remove a domain whose start no index domain holds",
 				func(ctx SpecContext) {
 					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3))
-					Expect(indexDB.Delete(ctx, tr)).To(Succeed())
+					Expect(deleteRange(ctx, indexDB, tr)).To(Succeed())
 					Expect(dataDB.TruncateToIndex(ctx)).To(Succeed())
 					Expect(dataDB.HasDataFor(ctx, telem.TimeRangeMax)).To(BeFalse())
 				},

@@ -20,7 +20,7 @@ import { bucket, CDN, OUT_ROOT, ROOT, run, select } from "@/cli/common";
 import { versionOf } from "@/cli/hash";
 import { type MailHero, runMailHeroes, runMailShot } from "@/cli/pipeline";
 import { type Entry, stillKey } from "@/manifest";
-import { type Region } from "@/remotion/Mail";
+import type { Region } from "@/remotion/Mail";
 
 const usage = `usage: pnpm mail <id>[@seconds[:x,y,width]]... [options]
 Makes the mail copies of the docs media that a release notes letter shows, as 2x JPEGs.

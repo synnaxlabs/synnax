@@ -13,7 +13,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 
 export interface UseCreateDirectoryProps {
   /** The directory to create the new directory in. */

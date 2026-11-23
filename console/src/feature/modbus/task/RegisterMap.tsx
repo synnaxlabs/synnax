@@ -10,7 +10,7 @@
 import { context } from "@synnaxlabs/lyra/context";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type deep } from "@synnaxlabs/x";
+import type { deep } from "@synnaxlabs/x";
 import {
   type PointerEvent,
   type PropsWithChildren,

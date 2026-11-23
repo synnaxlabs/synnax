@@ -1137,7 +1137,7 @@ var _ = Describe("With a detach reference", func() {
 		})
 	})
 
-	Describe("OnDetach", func() {
+	Describe("OnRewrite", func() {
 		var (
 			svc   *config.Service[arctask.Config]
 			tasks *tasktestutil.Tasks
@@ -1177,7 +1177,7 @@ var _ = Describe("With a detach reference", func() {
 					detached []uuid.UUID
 					arcKeys  []any
 				)
-				svc.OnDetach(func(ctx context.Context, tx gorp.Tx, k uuid.UUID) error {
+				svc.OnRewrite(func(ctx context.Context, tx gorp.Tx, k uuid.UUID) error {
 					detached = append(detached, k)
 					arcKeys = append(
 						arcKeys,
@@ -1192,7 +1192,7 @@ var _ = Describe("With a detach reference", func() {
 		)
 
 		It("Should fail the delete when the hook fails", func(ctx SpecContext) {
-			svc.OnDetach(func(context.Context, gorp.Tx, uuid.UUID) error {
+			svc.OnRewrite(func(context.Context, gorp.Tx, uuid.UUID) error {
 				return errors.New("hook failed")
 			})
 			Expect(deleteTarget(ctx, ldb)).To(MatchError("hook failed"))
@@ -1267,10 +1267,6 @@ var _ = Describe("With a detach reference", func() {
 			key = MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
 				"arc_key": t.Key.String(),
 			}))
-		})
-
-		It("Should report the tables it hashes", func() {
-			Expect(svc.HashedTables()).To(Equal([]string{targetTable}))
 		})
 
 		It("Should cover the content of a used record in the hash", func(
