@@ -35,6 +35,11 @@ export interface PaintProps {
   drawingColor?: color.Crude;
   /** entryColor is the color of the entry that the editor shows. */
   entryColor?: color.Crude;
+  /**
+   * inherited is whether a look of the whole drawing gives the paint, so a part cannot
+   * pick Drawing to clear it.
+   */
+  inherited?: boolean;
   "aria-label": string;
 }
 
@@ -58,6 +63,7 @@ const FILLS = ["--pluto-bg", "--pluto-hover-bg", "--pluto-active-bg"];
 
 const ICONS: Partial<Record<Kind, ReactElement>> = {
   entry: <Icon.Enumeration />,
+  contrast: <Icon.Contrast />,
   node: <Icon.Node />,
 };
 
@@ -72,6 +78,7 @@ export const Paint = ({
   entryState,
   drawingColor,
   entryColor,
+  inherited = false,
   "aria-label": ariaLabel,
 }: PaintProps): ReactElement => {
   const { gray } = Theming.use().colors;
@@ -130,7 +137,15 @@ export const Paint = ({
                 key={k}
                 itemKey={k}
                 size="small"
-                disabled={(k === "entry" || k === "contrast") && entryState == null}
+                disabled={
+                  (k === "drawing" && inherited) ||
+                  ((k === "entry" || k === "contrast") && entryState == null)
+                }
+                tooltip={
+                  k === "drawing" && inherited
+                    ? "The whole drawing gives this paint. Change it there."
+                    : undefined
+                }
               >
                 {NAMES[k]}
               </Select.Item>
