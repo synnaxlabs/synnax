@@ -21,7 +21,6 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -79,7 +78,6 @@ var _ = Describe("Symbol node bindings", func() {
 		)
 		file := MustSucceed(env.Decode[schematic.Schematic]())
 		node := as[schematic.SymbolNodeConfig](file.Nodes[0].Config.Variant)
-		cfg = defaults.Fill(cfg)
 		node.States, node.Commands = cfg.States, cfg.Commands
 		file.Nodes[0].Config.Variant = node
 		Expect(env.Encode(file)).To(Succeed())
@@ -401,7 +399,7 @@ var _ = Describe("Symbol node bindings", func() {
 					Spec: customRef(sym),
 					States: []schematic.StateBinding{{
 						Key:         "level",
-						Units:       "C",
+						Units:       new("C"),
 						Enumeration: &enum.Key,
 						Match:       &symbol.Matcher{Variant: symbol.ExactMatcher{}},
 						Default:     new(1.0),
@@ -410,7 +408,7 @@ var _ = Describe("Symbol node bindings", func() {
 			},
 			HaveExactElements(SatisfyAll(
 				HaveField("Key", "level"),
-				HaveField("Units", "C"),
+				HaveField("Units", HaveValue(Equal("C"))),
 				HaveField("Enumeration", BeNil()),
 				HaveField("Match", BeNil()),
 				HaveField("Default", BeNil()),
