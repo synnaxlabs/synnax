@@ -575,6 +575,37 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(findButton("None").getAttribute("aria-disabled")).toBe("true");
     });
 
+    it("clears the own blink and motion of a part under those of the drawing", async () => {
+      const all: schematic.symbol.Look = {
+        key: "all",
+        blink: { period: 1e9 },
+        motion: { type: "spin", rate: 1 },
+      };
+      const symbol = await openPainted({
+        looks: [
+          all,
+          {
+            key: "own",
+            part: "body",
+            blink: { period: 1e9 },
+            motion: { type: "flow", rate: 1 },
+          },
+        ],
+      });
+      const blink = () => screen.getByLabelText<HTMLInputElement>("Blink");
+      expect(blink().disabled).toBe(false);
+      fireEvent.click(blink());
+      await waitFor(() => expect(blink().disabled).toBe(true));
+      fireEvent.click(findButton("None"));
+      await waitFor(() =>
+        expect(findButton("None").getAttribute("aria-disabled")).toBe("true"),
+      );
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([all]),
+      );
+    });
+
     it("clears the paint of a part at the value when Drawing is picked", async () => {
       const symbol = await openPainted({
         states: [createState()],
