@@ -107,16 +107,16 @@ export const setOwn = <F extends Field>(
   value?: number,
 ): Spec => {
   const looks = value == null ? spec.looks : split(spec.looks, target, field, value);
+  // Only the look at keep sets field, so no old motion of another kind keeps running.
+  const clear = (ls: Look[], keep = -1): Look[] =>
+    ls.flatMap((l, k): Look[] => {
+      if (k === keep || l[field] == null || !owns(l, target, value)) return [l];
+      const cleared = { ...l, [field]: undefined };
+      return setsNothing(cleared) ? [] : [cleared];
+    });
   if (v == null) {
     if (!looks.some((l) => owns(l, target, value) && l[field] != null)) return spec;
-    return {
-      ...spec,
-      looks: looks.flatMap((l): Look[] => {
-        if (!owns(l, target, value)) return [l];
-        const cleared = { ...l, [field]: undefined };
-        return setsNothing(cleared) ? [] : [cleared];
-      }),
-    };
+    return { ...spec, looks: clear(looks) };
   }
   // Pluto gives each part its own motion and blink, and one motion of each kind, so
   // only those looks hide v.
@@ -129,16 +129,10 @@ export const setOwn = <F extends Field>(
   const last = looks.findLastIndex(hides);
   const i = looks.findLastIndex((l) => owns(l, target, value));
   if (i >= 0 && last <= i)
-    return { ...spec, looks: looks.with(i, { ...looks[i], [field]: v }) };
+    return { ...spec, looks: clear(looks.with(i, { ...looks[i], [field]: v }), i) };
   const look: Look = { key: `look-${id.create()}`, part: target, [field]: v };
   if (value != null) look.when = { type: "equals", state: STATE, values: [value] };
-  // The new look replaces field on the look that target owns, which would otherwise
-  // keep a motion of another kind running.
-  const rest = looks.flatMap((l, k): Look[] => {
-    if (k !== i) return [l];
-    const cleared = { ...l, [field]: undefined };
-    return setsNothing(cleared) ? [] : [cleared];
-  });
+  const rest = clear(looks);
   const at = Math.max(slot(rest, look), rest.findLastIndex(hides) + 1);
   return {
     ...spec,
