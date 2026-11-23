@@ -111,10 +111,10 @@ var _ = Describe("Resolver", func() {
 			))
 		})
 
-		// scaled returns f with scale as its scale.
-		scaled := func(f icd.JSONField, scale float64) icd.JSONField {
+		// scaled returns f with scale and offset.
+		scaled := func(f icd.JSONField, scale, offset float64) icd.JSONField {
 			b := f.Base()
-			b.Scale = scale
+			b.Scale, b.Offset = scale, offset
 			f.SetBase(b)
 			return f
 		}
@@ -145,10 +145,10 @@ var _ = Describe("Resolver", func() {
 			Entry(
 				"its own data type",
 				jsonField("mode", icd.StringJSONField{}),
-				new(telem.Float64T),
+				new(telem.Int32T),
 				MatchError(
 					"targets.0.message: message Command: field mode: cannot write "+
-						"float64 channels to string fields: validation error",
+						"int32 channels to string fields: validation error",
 				),
 			),
 			Entry("the default of its field's kind",
@@ -157,7 +157,12 @@ var _ = Describe("Resolver", func() {
 				Succeed(),
 			),
 			Entry("float64 for a scaled field",
-				scaled(jsonField("raw", icd.IntegerJSONField{}), 0.5),
+				scaled(jsonField("raw", icd.IntegerJSONField{}), 0.5, 0),
+				nil,
+				Succeed(),
+			),
+			Entry("float64 for an offset field",
+				scaled(jsonField("raw", icd.IntegerJSONField{}), 1, 4),
 				nil,
 				Succeed(),
 			),
