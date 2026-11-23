@@ -16,10 +16,14 @@ FROM ubuntu:22.04@sha256:9abcaffc92a5279fff3a6a41635c0800ea33e528425fb3896588064
 ARG BAZELISK_VERSION=1.30.0
 ARG BAZELISK_SHA256=a248ae2b2b62b5baebb748f6fba7203bff1a27e5d01b55399a8406744cb539e8
 
+# ppa.launchpadcontent.net returns 503 for package files in a Launchpad outage, so the
+# PPA comes from ppa.launchpad.net. HTTP is safe, as APT checks the signed InRelease.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates gnupg \
         software-properties-common \
-    && add-apt-repository -y ppa:ubuntu-toolchain-r/test \
+    && add-apt-repository -y -n ppa:ubuntu-toolchain-r/test \
+    && sed -i 's|https://ppa.launchpadcontent.net|http://ppa.launchpad.net|' \
+        /etc/apt/sources.list.d/ubuntu-toolchain-r-ubuntu-test-*.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends autoconf automake curl gcc-13 g++-13 \
         git libsystemd-dev libtool make python3 unzip xz-utils \
