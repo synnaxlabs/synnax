@@ -602,8 +602,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DeleteName:   "sy_calculation_delete",
 			Changes:      l.Calculation.Changes,
 			Resource:     calculation.ResourceID,
-			SetCheck:     l.Calculation.Readable,
+			SetCheck:     l.Calculation.SetCheck,
 			DeleteChecks: l.Calculation.DeleteChecks,
+			DeleteSets:   l.Calculation.DeleteSets,
 		},
 	); !ok(err, nil) {
 		return nil, err

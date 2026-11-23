@@ -76,7 +76,7 @@ type Service struct {
 type batchCheck struct {
 	key   Key
 	seq   uint64
-	check func(allowed func(resource.ID) bool) bool
+	check StreamCheck
 }
 
 // OpenService opens a Service. When the error is nil, the caller must close the
@@ -187,11 +187,11 @@ func (s *Service) Denied(
 // Readable returns whether a subject reads c, given whether it can retrieve each
 // resource. It finds the channels of c once, so a check of many subjects reads them
 // once.
-func (s *Service) Readable(c Calculation) func(allowed func(resource.ID) bool) bool {
+func (s *Service) Readable(c Calculation) StreamCheck {
 	channels := s.Channels(c)
-	return func(allowed func(resource.ID) bool) bool {
+	return func(allowed func(resource.ID) bool) ([]byte, bool) {
 		_, refused := s.denied(c, channels, allowed)
-		return !refused
+		return nil, !refused
 	}
 }
 
@@ -237,13 +237,13 @@ func refused(
 // who receives an earlier one.
 func (s *Service) BatchChecks(
 	c gorp.Commit,
-) func(key Key, seq uint64) (func(allowed func(resource.ID) bool) bool, bool) {
+) func(key Key, seq uint64) (StreamCheck, bool) {
 	attached := s.checks.Of(c)
-	byBatch := make(map[batchID]func(func(resource.ID) bool) bool, len(attached))
+	byBatch := make(map[batchID]StreamCheck, len(attached))
 	for _, b := range attached {
 		byBatch[batchID{key: b.key, seq: b.seq}] = b.check
 	}
-	return func(key Key, seq uint64) (func(func(resource.ID) bool) bool, bool) {
+	return func(key Key, seq uint64) (StreamCheck, bool) {
 		check, ok := byBatch[batchID{key: key, seq: seq}]
 		return check, ok
 	}
@@ -259,8 +259,8 @@ type batchID struct {
 // key. Only a subject that read the calculation before the delete passes it.
 func (s *Service) DeleteChecks(
 	c gorp.Commit,
-) func(key Key) (func(allowed func(resource.ID) bool) bool, bool) {
-	byKey := make(map[string]func(func(resource.ID) bool) bool)
+) func(key Key) (StreamCheck, bool) {
+	byKey := make(map[string]StreamCheck)
 	for _, ch := range c.Changes {
 		if ch.Record.Table != tableName || ch.Kind != gorp.ChangeDelete {
 			continue
@@ -273,12 +273,12 @@ func (s *Service) DeleteChecks(
 				Key:  l.Target.Key,
 			}
 		}
-		byKey[ch.Record.Key] = func(allowed func(resource.ID) bool) bool {
+		byKey[ch.Record.Key] = func(allowed func(resource.ID) bool) ([]byte, bool) {
 			_, denied := refused(calc, channels, allowed)
-			return !denied
+			return nil, !denied
 		}
 	}
-	return func(key Key) (func(func(resource.ID) bool) bool, bool) {
+	return func(key Key) (StreamCheck, bool) {
 		check, ok := byKey[gorp.FormatKey(key)]
 		return check, ok
 	}

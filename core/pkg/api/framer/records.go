@@ -156,26 +156,30 @@ func (s *recordSender) policies() ([]policy.Policy, error) {
 	return policies, err
 }
 
-// admits returns whether a subject that allowed admits may receive sample, a sample of
-// the channel of record: by the check of record when it has one, and else by the
-// record of the sample.
+// admits returns what a subject that allowed admits receives of sample, a sample of the
+// channel of record: by the check of record when it has one, and else by the record of
+// the sample. It returns false when the subject receives nothing.
 func admits(
 	record signals.Record,
 	allowed func(resource.ID) bool,
 	sample []byte,
-) (bool, error) {
+) ([]byte, bool, error) {
 	if record.Check != nil {
 		check, err := record.Check(sample)
 		if err != nil {
-			return false, err
+			return nil, false, err
 		}
-		return check(allowed), nil
+		replacement, send := check(allowed)
+		if replacement != nil {
+			sample = replacement
+		}
+		return sample, send, nil
 	}
 	id, err := record.Of(sample)
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
-	return allowed(id), nil
+	return sample, allowed(id), nil
 }
 
 // keepAllowed returns a copy of the series with only the samples that a subject that
@@ -194,7 +198,7 @@ func keepAllowed(
 	}
 	variable := series.DataType.IsVariable()
 	for sample := range series.Samples() {
-		ok, err := admits(record, allowed, sample)
+		sample, ok, err := admits(record, allowed, sample)
 		if err != nil {
 			return telem.Series{}, err
 		}
