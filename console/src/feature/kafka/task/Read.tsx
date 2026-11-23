@@ -149,33 +149,11 @@ const messagePrefix = (
 /** @returns the key of a record of topic in the read properties of a device. */
 const sourceKey = (topic: string, recordKey: string): string => `${topic}#${recordKey}`;
 
-/**
- * @returns the channel that the device stores for each pointer of a record, for a
- * message that the record reads first. The channels of the message itself come first.
- * The channels of a later read of the record stay with that read.
- */
-const recordChannels = (
-  stored: Device.Device["properties"]["read"],
+/** @returns where the device stores the channels of the messages of a record. */
+const storedSource = (
   topic: string,
   { recordKey, messages }: Pick<ReadRecord, "recordKey" | "messages">,
-  message: icd.MessageKey,
-): Record<string, channel.Key> => {
-  const source = sourceKey(topic, recordKey);
-  const prefix = `${source}#`;
-  const claimed = new Set(
-    messages.slice(1).map((m) => ICD.Stored.key(source, m.message)),
-  );
-  const channels: Record<string, channel.Key> = {};
-  // A record key may hold "#", and a message key never does.
-  for (const [key, props] of Object.entries(stored))
-    if (
-      key.startsWith(prefix) &&
-      !key.slice(prefix.length).includes("#") &&
-      !claimed.has(key)
-    )
-      Object.assign(channels, props.channels);
-  return { ...channels, ...stored[ICD.Stored.key(source, message)]?.channels };
-};
+): ICD.Stored.Source => ({ key: sourceKey(topic, recordKey), messages });
 
 /** @returns the channels that enabled records bind. The Core skips disabled ones. */
 const writtenChannels = (topics: ReadTopic[]): Set<channel.Key> => {
@@ -506,9 +484,8 @@ const Records: FC<RecordsProps> = ({
       const { message } = rec.messages[read];
       const channels =
         rec.messages.length === 1
-          ? recordChannels(stored, topic, rec, message)
-          : (stored[ICD.Stored.key(sourceKey(topic, rec.recordKey), message)]
-              ?.channels ?? {});
+          ? ICD.Stored.channels(stored, storedSource(topic, rec), message)
+          : (ICD.Stored.of(stored, storedSource(topic, rec), read)?.channels ?? {});
       return ICD.Stored.bindingsOf(
         channels,
         [field],
