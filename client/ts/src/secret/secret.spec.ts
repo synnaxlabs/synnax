@@ -91,8 +91,11 @@ const createFakeSecrets = async ({
   const streams = { current: new PushStreamer() };
   const gate = Promise.withResolvers<void>();
   if (!closed) gate.resolve();
+  let onMissed: (() => void) | undefined;
   const cache = new query.Cache({
-    openStreamer: async () => {
+    openStreamer: async (config) => {
+      if (typeof config === "object" && "onMissed" in config)
+        onMissed = config.onMissed;
       await gate.promise;
       return streams.current;
     },
@@ -118,7 +121,8 @@ const createFakeSecrets = async ({
     dropped.drop();
     await expect.poll(() => cache.epoch).toBe(epoch + 1);
   };
-  return { secrets, core, usesRequests, push, change, reconnect, open };
+  const miss = (): void => onMissed?.();
+  return { secrets, core, usesRequests, push, change, reconnect, open, miss };
 };
 
 type Fake = Awaited<ReturnType<typeof createFakeSecrets>>;
@@ -1213,6 +1217,19 @@ describe("Secret", () => {
       await reconnect();
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(usesRequests).toEqual([[q.key]]);
+    });
+
+    it("should refetch the uses that a maintained query watches on a miss", async () => {
+      useFakeTimers();
+      const { secrets, core, miss } = await createFakeSecrets();
+      const key = uuid.create();
+      const q = { key, includeUses: true };
+      onTestFinished(secrets.watch(q).onChange(() => {}));
+      await secrets.retrieve(q);
+      core.usesOf = movedUsesOf;
+      miss();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(expectLive(secrets.watch(q).getCached()).uses).toEqual(movedUsesOf(key));
     });
 
     it("should not put back uses that a reply read before a refetch dropped them", async () => {

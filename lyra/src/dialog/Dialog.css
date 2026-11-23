@@ -55,8 +55,12 @@
         }
     }
 
-    &:not(.lyra--modal) {
+    /* The entrance animation sets opacity, so it starts once the dialog is placed. */
+    &:not(.lyra--modal, .lyra--hidden) {
         animation: var(--pluto-dialog-animation);
+    }
+
+    &:not(.lyra--modal) {
         box-shadow: var(--pluto-shadow-overlay);
 
         /* The frame writes the space left between the trigger and the window edges. */
