@@ -17,11 +17,15 @@ import { expect } from "vitest";
 import {
   createPanelWrapper,
   createServerPanel,
+  type PanelWrapperParams,
   primePanel,
 } from "@/platform/panel/testutil";
 import { getBySelector, getIconButton, type TestStore } from "@/testutil";
 
-export interface TabWrapperParams {
+export interface TabWrapperParams extends Pick<
+  PanelWrapperParams,
+  "skipPermissionLoad"
+> {
   /** Creates the panel on the Core. */
   client: Synnax;
   /** The user the Console signs in as. Defaults to the client. */
@@ -50,6 +54,7 @@ export const createTabWrapper = async ({
   tab,
   beside = [],
   store,
+  skipPermissionLoad,
 }: TabWrapperParams): Promise<TabWrapper> => {
   const tabKey = uuid.create();
   const { key: panelKey } = await createServerPanel(client, {
@@ -62,6 +67,7 @@ export const createTabWrapper = async ({
     project: await createPanelProject(client),
     panelKey,
     tabKey,
+    skipPermissionLoad,
   });
   await primePanel(wrapper, panelKey);
   // A tab suspends inside a boundary in the mosaic.

@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
 import { alignmentOf, type Block, RAW_LEVEL, rawKey } from "@/framer/cache/block";
-import { tileRange } from "@/framer/cache/grid";
+import { grid } from "@/framer/cache/grid";
 import { Store } from "@/framer/cache/store";
 import { UnexpectedError } from "@/index";
 import { ManualClock } from "@/testutil";
@@ -45,7 +45,7 @@ const createBlock = (overrides: Partial<TestBlock> = {}): TestBlock => ({
   ...overrides,
 });
 
-const BLOCK = tileRange({ level: RAW_LEVEL, tile: 100 });
+const BLOCK = grid.tileRange({ level: RAW_LEVEL, tile: 100 });
 
 // Returns a piece of float32 values at the block offset, stamped one second apart from
 // the start of raw block 100.
@@ -205,6 +205,27 @@ describe("Store", () => {
       clock.advance(TimeSpan.hours(1));
       expect(store.expired(sealed)).toBe(false);
       expect(store.expired(unsealed)).toBe(true);
+    });
+
+    it("should keep a sealed block valid only to the threshold after a restart", () => {
+      const clock = new ManualClock();
+      const store = new Store({ now: clock.now, node: () => 1 });
+      store.setChannel(
+        new channel.Channel({
+          key: 1,
+          name: "data",
+          dataType: "float32",
+          leaseholder: 1,
+        }).payload,
+      );
+      store.setSignalKey(99);
+      store.setAcked(new Set([99]));
+      const sealed = createBlock({ fetchedAt: clock.now(), sealed: true });
+      clock.advance(TimeSpan.minutes(1));
+      store.restartSignals();
+      expect(store.expired(sealed)).toBe(false);
+      clock.advance(TimeSpan.hours(1));
+      expect(store.expired(sealed)).toBe(true);
     });
 
     it("should default the stale threshold to ten minutes", () => {

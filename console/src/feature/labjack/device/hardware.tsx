@@ -10,8 +10,12 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { suggestIdentifiers } from "@/feature/labjack/device/identifier";
-import { INTEGRATION_KEY, MAKE, ZERO_PROPERTIES } from "@/feature/labjack/device/types";
-import { SCAN_TYPE } from "@/feature/labjack/task/types";
+import {
+  INTEGRATION_KEY,
+  MAKE,
+  SCAN_TYPE,
+  ZERO_PROPERTIES,
+} from "@/feature/labjack/device/types";
 import { Device } from "@/platform/device";
 
 const ICON = <Icon.Logo.LabJack />;

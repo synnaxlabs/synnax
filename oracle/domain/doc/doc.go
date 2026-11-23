@@ -224,6 +224,27 @@ type FieldDoc struct {
 	Doc  string
 }
 
+// appendWrapped appends text to lines, capitalized and wrapped to maxLineWidth. The
+// first line starts with firstPrefix, and the others with contIndent unless empty.
+func appendWrapped(lines []string, text, firstPrefix, contIndent string) []string {
+	wrapped := wrapText(
+		capitalize(text),
+		maxLineWidth-len(firstPrefix),
+		maxLineWidth-len(contIndent),
+	)
+	for i, line := range wrapped {
+		switch {
+		case i == 0:
+			lines = append(lines, firstPrefix+line)
+		case line == "":
+			lines = append(lines, "")
+		default:
+			lines = append(lines, contIndent+line)
+		}
+	}
+	return lines
+}
+
 // FormatPyDocstringGoogle formats a Google-style class docstring with an Attributes
 // section, indented for a class body. Text is wrapped to 88 characters including
 // indentation.
@@ -247,21 +268,7 @@ func FormatPyDocstringGoogle(classDoc string, fields []FieldDoc) string {
 
 	if hasClassDoc {
 		firstPrefix := bodyIndent + `"""`
-		classLines := wrapText(
-			capitalize(classDoc),
-			maxLineWidth-len(firstPrefix),
-			maxLineWidth-len(bodyIndent),
-		)
-		for i, line := range classLines {
-			switch {
-			case i == 0:
-				lines = append(lines, firstPrefix+line)
-			case line == "":
-				lines = append(lines, "")
-			default:
-				lines = append(lines, bodyIndent+line)
-			}
-		}
+		lines = appendWrapped(lines, classDoc, firstPrefix, bodyIndent)
 	} else {
 		lines = append(lines, bodyIndent+`"""`)
 	}
@@ -274,22 +281,7 @@ func FormatPyDocstringGoogle(classDoc string, fields []FieldDoc) string {
 		const contIndent = "            "
 		lines = append(lines, bodyIndent+"Attributes:")
 		for _, f := range fieldsWithDocs {
-			firstPrefix := fieldIndent + f.Name + ": "
-			fieldLines := wrapText(
-				capitalize(f.Doc),
-				maxLineWidth-len(firstPrefix),
-				maxLineWidth-len(contIndent),
-			)
-			for i, line := range fieldLines {
-				switch {
-				case i == 0:
-					lines = append(lines, firstPrefix+line)
-				case line == "":
-					lines = append(lines, "")
-				default:
-					lines = append(lines, contIndent+line)
-				}
-			}
+			lines = appendWrapped(lines, f.Doc, fieldIndent+f.Name+": ", contIndent)
 		}
 	}
 

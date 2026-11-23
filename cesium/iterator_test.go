@@ -96,7 +96,6 @@ var _ = Describe("Iterator Behavior", func() {
 				var (
 					data1Key, index1Key, data2Key, index2Key cesium.ChannelKey
 					data1, index1, data2, index2             cesium.Channel
-					i                                        *cesium.Iterator
 				)
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
@@ -245,7 +244,7 @@ var _ = Describe("Iterator Behavior", func() {
 				})
 
 				Specify("With bound", func() {
-					i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 						Bounds:   (1 * telem.SecondTS).Range(13 * telem.SecondTS),
 						Channels: []cesium.ChannelKey{data1Key, data2Key},
 					}))
@@ -327,7 +326,7 @@ var _ = Describe("Iterator Behavior", func() {
 				})
 
 				Specify("No bound", func() {
-					i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 						Bounds:   telem.TimeRangeMax,
 						Channels: []cesium.ChannelKey{data1Key, data2Key},
 					}))
@@ -385,7 +384,7 @@ var _ = Describe("Iterator Behavior", func() {
 					// Data1:  [10 11 12 / _ 14]  _  _ [17  _ 19 / 20  _  22]  _  _  25
 					// Index2: _  _ [2  3  _  _  6  _  8]  _  /  _  [11  12  13  _]  15
 					// Data2:  _  _ [2  3  _  _  6  _  8]  _  /  _  [11  12  13  _]  15
-					i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 						Bounds:        telem.TimeRangeMax,
 						Channels:      []cesium.ChannelKey{data1Key, data2Key},
 						AutoChunkSize: 4,

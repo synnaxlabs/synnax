@@ -134,6 +134,7 @@ export const Splash = (props: SplashProps): ReactElement => {
           )}
           {hasRetrievePermission && data.length > 0 ? (
             <List.Scroll
+              role="listbox"
               grow
               className={CSS.cls(
                 CSS.BE("shell", "items"),

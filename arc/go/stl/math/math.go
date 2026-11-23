@@ -426,22 +426,7 @@ func (r *avgNode) Next(ctx node.Context) {
 		r.startTime = inputTime.ValueAt[telem.TimeStamp](0)
 	}
 
-	shouldReset := false
-
-	if r.resetIdx >= 0 {
-		resetData := r.Input(r.resetIdx)
-		resetTime := r.InputTime(r.resetIdx)
-		for i := range resetData.Len() {
-			ts := resetTime.ValueAt[telem.TimeStamp](int(i))
-			if ts > r.lastResetTime && resetData.ValueAt[bool](int(i)) {
-				shouldReset = true
-				break
-			}
-		}
-		if resetTime.Len() > 0 {
-			r.lastResetTime = resetTime.ValueAt[telem.TimeStamp](-1)
-		}
-	}
+	shouldReset := r.resetSignaled()
 
 	duration := telem.TimeSpan(r.NumericInput[int64](durationInputParam))
 	if duration > 0 && inputTime.Len() > 0 {
@@ -472,6 +457,41 @@ func (r *avgNode) Next(ctx node.Context) {
 	} else {
 		r.StampCycle(ctx, 0)
 	}
+	alignment, timeRange := r.outputBounds(inputData)
+	r.Output(0).Alignment = alignment
+	r.Output(0).TimeRange = timeRange
+	r.OutputTime(0).Alignment = alignment
+	r.OutputTime(0).TimeRange = timeRange
+	r.Emit(ctx, 0)
+}
+
+// resetSignaled reports whether the reset input holds a true sample newer than the last
+// reset, and moves the last reset time to its newest sample.
+func (r *avgNode) resetSignaled() bool {
+	if r.resetIdx < 0 {
+		return false
+	}
+	signaled := false
+	resetData := r.Input(r.resetIdx)
+	resetTime := r.InputTime(r.resetIdx)
+	for i := range resetData.Len() {
+		ts := resetTime.ValueAt[telem.TimeStamp](int(i))
+		if ts > r.lastResetTime && resetData.ValueAt[bool](int(i)) {
+			signaled = true
+			break
+		}
+	}
+	if resetTime.Len() > 0 {
+		r.lastResetTime = resetTime.ValueAt[telem.TimeStamp](-1)
+	}
+	return signaled
+}
+
+// outputBounds returns the alignment and time range of the output for inputData,
+// widened to cover the reset input.
+func (r *avgNode) outputBounds(
+	inputData telem.Series,
+) (telem.Alignment, telem.TimeRange) {
 	alignment := inputData.Alignment
 	timeRange := inputData.TimeRange
 	if r.resetIdx >= 0 {
@@ -485,11 +505,7 @@ func (r *avgNode) Next(ctx node.Context) {
 			timeRange.End = resetData.TimeRange.End
 		}
 	}
-	r.Output(0).Alignment = alignment
-	r.Output(0).TimeRange = timeRange
-	r.OutputTime(0).Alignment = alignment
-	r.OutputTime(0).TimeRange = timeRange
-	r.Emit(ctx, 0)
+	return alignment, timeRange
 }
 
 // withMean gives an Avg reduction its own running state. Avg clears the state when

@@ -10,17 +10,10 @@
 import { labjack, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import {
-  AIN_PORT_REGEX,
-  DAC_PORT_REGEX,
-  DIO_PORT_REGEX,
-  negativeChannelOf,
-} from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "labjack";
-
-export const SCAN_TYPE = `${PREFIX}_scan`;
 
 const NO_SCALE: task.Scale = { type: "none" };
 
@@ -60,17 +53,17 @@ export type Channel = ReadChannel | WriteChannel;
 const deployPortZ = z.string().min(1, "Port must be specified");
 
 const deployAIPortZ = deployPortZ.regex(
-  AIN_PORT_REGEX,
+  Device.AIN_PORT_REGEX,
   "Invalid port, ports must start with AIN and end with an integer",
 );
 
 const deployDigitalPortZ = deployPortZ.regex(
-  DIO_PORT_REGEX,
+  Device.DIO_PORT_REGEX,
   "Invalid port, port must start with DIO and end with an integer",
 );
 
 const deployAOPortZ = deployPortZ.regex(
-  DAC_PORT_REGEX,
+  Device.DAC_PORT_REGEX,
   "Invalid port, ports must start with DAC and end with an integer",
 );
 
@@ -82,7 +75,7 @@ const validateNegativeChannel = ({
   value: { port, negChan },
   issues,
 }: z.core.ParsePayload<{ port: string; negChan?: number }>) => {
-  const pair = negativeChannelOf(port);
+  const pair = Device.negativeChannelOf(port);
   if (negChan == null || negChan === pair) return;
   issues.push({
     continue: true,

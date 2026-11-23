@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/app/vis/useSelectorVisible";
-export * from "@/platform/vis/Canvas";
+export * from "@/platform/vis/external";

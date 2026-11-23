@@ -11,4 +11,5 @@ export {
   createAsyncSynnaxWrapper,
   createSynnaxWrapper,
   disableActEnvironment,
+  pickOption,
 } from "@synnaxlabs/pluto/testutil";
