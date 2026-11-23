@@ -89,6 +89,13 @@ func newIndexes() indexes {
 					}
 				}
 			},
+			Retarget: func(e *Channel, from, to Key) {
+				for i3 := range e.Rewires {
+					if e.Rewires[i3].From == from {
+						e.Rewires[i3].From = to
+					}
+				}
+			},
 		}),
 		search: gorp.NewSearchIndex[Key, Channel](
 			"search",
