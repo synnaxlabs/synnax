@@ -59,6 +59,10 @@ packages = ["synnax"]
 [tool.hatch.build.targets.sdist]
 exclude = ["examples"]
 
+[tool.hatch.build.hooks.version]
+path = "synnax/version.py"
+pattern = true
+
 [tool.ruff]
 extend = "../../pyproject.toml"
 extend-exclude = ["*_pb2.py", "*_pb2.pyi"]
