@@ -50,25 +50,28 @@ type document struct {
 	analyzed  string
 	Version   int32
 	debouncer *debounce.Debouncer
-	wordChars lsp.WordChars
 	// names is shared by every snapshot of the document.
 	names *nameTokens
 }
 
-// nameTokens holds the tokens of one content that can hold a quoted channel name (the
-// quoted names and the string literals, whose placeholders can hold them) and its
-// dotted names. It lexes the content on first use and keeps them until the content
-// changes, so a lookup by position costs the same at any document length.
+// nameTokens holds the tokens of one content that can hold a quoted channel name, its
+// dotted names, and the quote facts of each of its lines. It lexes the tokens and the
+// dotted names in one pass on first use and keeps them until the content changes. It
+// scans the facts again only from the lines that changed, so a lookup by position costs
+// the same at any document length.
 type nameTokens struct {
-	cfg     parser.Config
 	mu      sync.Mutex
 	content string
 	lexed   bool
 	tokens  []antlr.Token
+	scanned string
+	scan    *quoteScan
 	paths   []pathToken
+	scanner *lineScanner
 }
 
-// of returns the name tokens of content in order. Callers must not change them.
+// of returns the name tokens of content in order: the quoted names and the string
+// literals, whose placeholders can hold them. Callers must not change them.
 func (n *nameTokens) of(content string) []antlr.Token {
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -88,9 +91,26 @@ func (n *nameTokens) lex(content string) {
 	if n.lexed && n.content == content {
 		return
 	}
-	tokens := tokenizeContent(content, n.cfg)
+	tokens := tokenizeContent(content)
 	n.content, n.lexed = content, true
 	n.tokens, n.paths = keepNameTokens(tokens), linePaths(tokens)
+}
+
+// scanOf returns the quote facts of content. Callers must not change them.
+func (n *nameTokens) scanOf(content string) *quoteScan {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.scanner == nil {
+		n.scanner = newLineScanner()
+	}
+	switch {
+	case n.scan == nil:
+		n.scan = scanQuotes(content, n.scanner)
+	case n.scanned != content:
+		n.scan = n.scan.update(n.scanned, content, n.scanner)
+	}
+	n.scanned = content
+	return n.scan
 }
 
 func keepNameTokens(tokens []antlr.Token) []antlr.Token {
@@ -180,11 +200,11 @@ func (d *document) toDocLocations(locs []protocol.Location) []protocol.Location 
 }
 
 func (d *document) getWordAtPosition(pos protocol.Position) string {
-	return lsp.GetWordAtPosition(d.displayContent(), pos, d.wordChars)
+	return lsp.GetWordAtPosition(d.displayContent(), pos)
 }
 
 func (d *document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range {
-	return lsp.GetWordRangeAtPosition(d.displayContent(), pos, d.wordChars)
+	return lsp.GetWordRangeAtPosition(d.displayContent(), pos)
 }
 
 // findScopeAtPosition returns the scope at pos, a protocol position in UTF-16 units.
@@ -265,7 +285,7 @@ func (d *document) channelNameAt(
 	i := sort.Search(len(ts), func(i int) bool { return ts[i].GetLine() > line })
 	for j := i - 1; j >= 0; j-- {
 		// A name token sits on the line of pos.
-		if n, r, ok := channelNameIn(ts[j], at, d.names.cfg); ok {
+		if n, r, ok := channelNameIn(ts[j], at); ok {
 			return n, protocol.Range{
 				Start: toUTF16In(text, r.Start),
 				End:   toUTF16In(text, r.End),
@@ -312,10 +332,9 @@ func (d *document) pathAt(pos protocol.Position) (parser.Name, bool) {
 func channelNameIn(
 	t antlr.Token,
 	pos protocol.Position,
-	cfg parser.Config,
 ) (parser.Name, protocol.Range, bool) {
 	if t.GetTokenType() != parser.ArcLexerCHANNEL_NAME {
-		return placeholderChannelNameAt(t, pos, cfg)
+		return placeholderChannelNameAt(t, pos)
 	}
 	if r := tokenRange(t); holds(r, pos) {
 		return parser.TokenName(t), r, true
@@ -328,7 +347,6 @@ func channelNameIn(
 func placeholderChannelNameAt(
 	t antlr.Token,
 	pos protocol.Position,
-	cfg parser.Config,
 ) (parser.Name, protocol.Range, bool) {
 	f, ok := parseFormatString(t)
 	if !ok {
@@ -338,7 +356,7 @@ func placeholderChannelNameAt(
 		if !seg.IsPlaceholder {
 			continue
 		}
-		inner, spans := f.innerTokens(seg, cfg)
+		inner, spans := f.innerTokens(seg)
 		for i, it := range inner {
 			if it.GetTokenType() != parser.ArcLexerCHANNEL_NAME {
 				continue

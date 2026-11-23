@@ -15,9 +15,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	arclang "github.com/synnaxlabs/arc"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
-	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/symbol"
-	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -345,7 +342,9 @@ func (s *Service) Retrieve(
 
 // Compiled returns a handler that runs retrieve and then, when the request includes
 // programs, compiles each automation that retrieve returns and each calculated channel
-// that the automation reads. Compilation runs after retrieve releases its snapshot.
+// that the automation reads. Compilation runs after retrieve releases its snapshot. A
+// rack's request is its Driver taking the programs to run, so it records each
+// program's channels for the task that the rack holds.
 func (s *Service) Compiled(
 	retrieve freighter.UnaryHandler[RetrieveRequest, RetrieveResponse],
 ) freighter.UnaryHandler[RetrieveRequest, RetrieveResponse] {
@@ -473,33 +472,14 @@ func materialize(a Arc) Arc {
 
 // compile compiles the source of an automation into its program and the calculated
 // channels that the program reads, as resolver.RetryChanged does, and leaves a module
-// as
-// is. Returns an error if parsing, analysis, or compilation fails.
+// as is. A rack's compile records the program's channels for the rack's task. Returns
+// an error if parsing, analysis, or compilation fails.
 func (s *Service) compile(ctx context.Context, a *Arc) error {
 	automation, ok := a.Variant.(arc.AutomationArc)
 	if !ok {
 		return nil
 	}
-	prog, err := resolver.RetryChanged(ctx, func() (arclang.Program, error) {
-		return resolver.CompileConsistent(ctx, s.db, func(
-			snap gorp.Snapshot,
-			lookups *resolver.Lookups,
-		) (arclang.Program, error) {
-			root := s.internal.NewRoot(snap, lookups)
-			switch src := automation.Source.Variant.(type) {
-			case arc.TextSource:
-				return s.compileText(ctx, src.Text, root)
-			case arc.GraphSource:
-				return arclang.CompileGraph(
-					ctx,
-					src.Graph,
-					root,
-					arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
-				)
-			}
-			return arclang.Program{}, nil
-		})
-	})
+	prog, err := s.program(ctx, automation)
 	if err != nil {
 		return err
 	}
@@ -513,6 +493,35 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	automation.Calculations = calculations
 	a.Variant = automation
 	return nil
+}
+
+// program compiles the program of automation by the one rule that every caller takes. A
+// rack's fetch is its Driver taking the program to run, which records the program's
+// channels for the task that the rack holds. Diagnostics return as a CompileError.
+func (s *Service) program(
+	ctx context.Context,
+	automation arc.AutomationArc,
+) (arclang.Program, error) {
+	var (
+		compiled arc.AutomationArc
+		err      error
+	)
+	if subject := auth.GetSubject(ctx); subject.Type == resource.TypeRack {
+		var driver rack.Key
+		if driver, err = rack.KeyFromResourceID(subject); err != nil {
+			return arclang.Program{}, err
+		}
+		compiled, err = s.internal.DeployProgram(ctx, automation.Key, driver)
+	} else {
+		compiled, err = s.internal.CompileProgram(ctx, automation.Key)
+	}
+	if diag, ok := errors.AsType[*diagnostics.Diagnostics](err); ok {
+		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
+	}
+	if err != nil {
+		return arclang.Program{}, err
+	}
+	return *compiled.Program, nil
 }
 
 // compileCalculations compiles the calculated channels that prog reads and the ones
@@ -574,23 +583,4 @@ func (s *Service) compileCalculations(
 		calculations[i] = arc.Calculation{Channel: m.Channel.Key(), Program: m.Program}
 	}
 	return calculations, nil
-}
-
-// compileText compiles t against root, reporting parse and analysis failures as a
-// CompileError.
-func (s *Service) compileText(
-	ctx context.Context,
-	t arctext.Text,
-	root *symbol.Symbol,
-) (arclang.Program, error) {
-	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
-	parsed, diag := arctext.Parse(t, cfg)
-	if diag != nil && !diag.Ok() {
-		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
-	}
-	ir, diag := arctext.Analyze(ctx, parsed, root, cfg)
-	if diag != nil && !diag.Ok() {
-		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
-	}
-	return arctext.Compile(ctx, ir)
 }

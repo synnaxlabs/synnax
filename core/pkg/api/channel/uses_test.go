@@ -14,11 +14,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -127,6 +129,44 @@ var _ = Describe("Uses", func() {
 			))
 		},
 	)
+
+	It("Should list an Arc and its deployed task, through its drift record, as uses",
+		func(ctx SpecContext) {
+			grant(ctx, resource.TypeChannel, resource.TypeTask, resource.TypeArc)
+			out := createChannel(ctx, telem.Float32T)
+			a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+				Name: uuid.New().String(),
+				Source: arc.Source{Variant: arc.TextSource{
+					Text: text.Text{Raw: ch.Name + " -> " + out.Name},
+				}},
+			}}}
+			var deployed *task.Task
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				w := layer.Arc.NewWriter(tx)
+				if err = w.Create(ctx, &a); err != nil {
+					return err
+				}
+				deployed, err = w.UpdateTask(
+					ctx,
+					a.Base().Key,
+					arc.TaskUpdate{Rack: new(layer.Rack.EmbeddedKey)},
+				)
+				return err
+			})).To(Succeed())
+			// The Driver takes the program at its configure.
+			MustSucceed(layer.Arc.DeployProgram(
+				ctx,
+				a.Base().Key,
+				layer.Rack.EmbeddedKey,
+			))
+			Expect(retrieve(ctx, true).Uses).To(ContainElements(
+				apichannel.Use{ID: a.ResourceID(), Direction: channel.DirectionRead},
+				apichannel.Use{
+					ID:        deployed.ResourceID(),
+					Direction: channel.DirectionRead,
+				},
+			))
+		})
 
 	It("Should leave out a record the caller cannot retrieve", func(ctx SpecContext) {
 		grant(ctx, resource.TypeChannel, resource.TypeTask)

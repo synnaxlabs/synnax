@@ -54,7 +54,6 @@ type CoreConfig struct {
 	fips                 *bool
 	debug                *bool
 	autoCert             *bool
-	validateChannelNames *bool
 	memBacked            *bool
 	noDriver             *bool
 	updateBackupDisabled *bool
@@ -145,7 +144,6 @@ func (c CoreConfig) Validate() error {
 		len(c.enabledIntegrations) > 0 && len(c.disabledIntegrations) > 0,
 		"cannot be used with disable_integrations",
 	)
-	v.NotNil("validate_channel_names", c.validateChannelNames)
 	v.Exec(c.certFactoryConfig.Validate)
 	return v.Error()
 }
@@ -210,10 +208,6 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		disabledIntegrations: override.Slice(
 			c.disabledIntegrations,
 			other.disabledIntegrations,
-		),
-		validateChannelNames: override.Nil(
-			c.validateChannelNames,
-			other.validateChannelNames,
 		),
 	}
 }
@@ -411,7 +405,6 @@ func BootupCore(
 			Version:  version.Get(),
 			Loopback: new(cfg.listeners.Loopback()),
 		},
-		ValidateChannelNames:   cfg.validateChannelNames,
 		SecretsKey:             secretsKey,
 		SecretsDir:             cfg.secretsDir,
 		EmbeddedDriverDisabled: !cfg.driverEnabled() || !driver.Bundled(),

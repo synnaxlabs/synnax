@@ -20,7 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	grpcframer "github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
 	. "github.com/synnaxlabs/x/testutil"
@@ -48,6 +50,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
 	channelSvc = svc.Channel
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
+		Holders:     taskconfig.NewHolders(arc.DriftTable),
 		DB:          db,
 		RBAC:        svc.RBAC,
 		Channel:     svc.Channel,

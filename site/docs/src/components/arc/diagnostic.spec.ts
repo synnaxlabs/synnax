@@ -14,11 +14,10 @@ import { Arc } from "@/components/arc";
 describe("kinds", () => {
   it("should return the kinds by band, with warnings before errors", () => {
     const codes = Arc.kinds().map((kind) => kind.code);
-    expect(codes.slice(0, 7)).toEqual([
+    expect(codes.slice(0, 6)).toEqual([
       "E1000",
       "E1001",
       "E1002",
-      "E1003",
       "W2000",
       "W2001",
       "W2002",

@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	certtestutil "github.com/synnaxlabs/synnax/pkg/service/certificate/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -31,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/filter"
@@ -98,6 +100,7 @@ var _ = Describe("ServiceConfig", func() {
 		return apisecret.ServiceConfig{
 			Secret:      &secret.Service{},
 			RBAC:        &rbac.Service{},
+			Holders:     taskconfig.NewHolders(arc.DriftTable),
 			Task:        &task.Service{},
 			Rack:        &rack.Service{},
 			Certificate: &certificate.Service{},
@@ -114,6 +117,11 @@ var _ = Describe("ServiceConfig", func() {
 			"secret: must be non-nil"),
 		Entry("rbac", func(c *apisecret.ServiceConfig) { c.RBAC = nil },
 			"rbac: must be non-nil"),
+		Entry(
+			"holders",
+			func(c *apisecret.ServiceConfig) { c.Holders = nil },
+			"holders: must be non-nil",
+		),
 		Entry("task", func(c *apisecret.ServiceConfig) { c.Task = nil },
 			"task: must be non-nil"),
 		Entry("rack", func(c *apisecret.ServiceConfig) { c.Rack = nil },
@@ -129,6 +137,7 @@ var _ = Describe("ServiceConfig", func() {
 		merged := apisecret.ServiceConfig{}.Override(cfg)
 		Expect(merged.Secret).To(BeIdenticalTo(cfg.Secret))
 		Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+		Expect(merged.Holders).To(BeIdenticalTo(cfg.Holders))
 		Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 		Expect(merged.Rack).To(BeIdenticalTo(cfg.Rack))
 		Expect(merged.Certificate).To(BeIdenticalTo(cfg.Certificate))

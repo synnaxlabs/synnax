@@ -11,13 +11,13 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/arc/drift/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/arc/drift/versions/v1"
 
 // Key is the key of the task a record describes.
-type Key = v0.Key
+type Key = v1.Key
 
 // Hashes names the content of an automation and of the modules it imports.
-type Hashes = v0.Hashes
+type Hashes = v1.Hashes
 
 // Record records what changed in an automation since its task was deployed.
-type Record = v0.Record
+type Record = v1.Record

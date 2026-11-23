@@ -157,9 +157,7 @@ CHANNEL_NAME
 // Identifiers
 // =============================================================================
 
-// '-' joins an identifier (dashed names on) unless it starts '->' or '-='. The
-// predicate comes after the '-' so that the lexer caches identifiers without one.
-IDENTIFIER  : [a-zA-Z_] ( [a-zA-Z0-9_] | '-' {p.dashJoinsIdentifier()}? )*;
+IDENTIFIER  : [a-zA-Z_] [a-zA-Z0-9_]*;
 
 // =============================================================================
 // Comments & Whitespace

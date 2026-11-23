@@ -49,12 +49,6 @@ func NewSubject(
 	return &symbolResolver{channels: channels, snap: snap, access: access}
 }
 
-// AllowDashedNames reports whether Arc may treat '-' as an identifier character, which
-// a channel name can hold when channels does not validate names.
-func AllowDashedNames(channels *channel.Service) bool {
-	return !channels.ShouldValidateNames()
-}
-
 // symbolResolver resolves cluster channels into Arc symbols by path, name, or key. It
 // is the dynamic resolver attached to a program root's GlobalResolver: cluster channels
 // can appear or disappear at runtime, so they cannot be snapshotted into the ambient

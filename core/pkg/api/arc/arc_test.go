@@ -342,6 +342,68 @@ var _ = Describe("Service", func() {
 			},
 		)
 
+		It("Should record the deployed channels when a rack takes an automation's "+
+			"program, and not when a user reads it", func(ctx SpecContext) {
+			in := channel.Channel{Name: "dl_in", DataType: telem.Float64T}
+			out := channel.Channel{Name: "dl_out", DataType: telem.Float64T}
+			in.Virtual, out.Virtual = true, true
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := channelSvc.NewWriter(tx)
+				for _, ch := range []*channel.Channel{&in, &out} {
+					if err := w.Create(ctx, ch); err != nil {
+						return err
+					}
+				}
+				return nil
+			})).To(Succeed())
+			a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+				Name: "dl_automation",
+				Source: arc.Source{Variant: arc.TextSource{
+					Text: text.Text{Raw: "dl_in * 2.0 -> dl_out"},
+				}},
+			}}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := arcSvc.NewWriter(tx)
+				if err := w.Create(ctx, &a); err != nil {
+					return err
+				}
+				_, err := w.UpdateTask(
+					ctx,
+					a.Base().Key,
+					arc.TaskUpdate{Rack: new(testRack.Key)},
+				)
+				return err
+			})).To(Succeed())
+			key := a.Base().Key
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := arcSvc.NewWriter(tx).Delete(ctx, key); err != nil {
+						return err
+					}
+					return channelSvc.NewWriter(tx).DeleteMany(
+						ctx,
+						[]channel.Key{in.Key(), out.Key()},
+						false,
+					)
+				})).To(Succeed())
+			})
+			deployed := func() [2][]channel.Key {
+				rec := MustSucceed(arcSvc.RetrieveDrift(ctx, db, key))[key]
+				return [2][]channel.Key{rec.Reads, rec.Writes}
+			}
+			req := apiarc.RetrieveRequest{
+				Where: &arc.Where{
+					Key: &filter.Set[arc.Key]{In: []arc.Key{key}},
+				},
+				IncludeProgram: true,
+			}
+			grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
+			MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			Expect(deployed()).To(Equal([2][]channel.Key{nil, nil}))
+			MustSucceed(retrieve(SubjectCtx(ctx, testRack.ResourceID()), req))
+			Expect(deployed()).To(Equal([2][]channel.Key{{in.Key()}, {out.Key()}}))
+		})
+
 		It(
 			"Should return the calculated channels that an automation reads",
 			func(ctx SpecContext) {

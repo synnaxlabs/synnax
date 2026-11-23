@@ -101,11 +101,7 @@ func analyzePlaceholder[T antlr.ParserRuleContext](
 		return
 	}
 	if !analyzed {
-		expr, diags := parser.ParseExpressionAt(
-			seg.Text,
-			textPosition(at, seg),
-			ctx.Config,
-		)
+		expr, diags := parser.ParseExpressionAt(seg.Text, textPosition(at, seg))
 		if diags != nil && !diags.Ok() {
 			emit(codes.InvalidStringLiteral.Atf(ctx.AST,
 				"invalid placeholder expression %q: %s", seg.Text, diags.String()))

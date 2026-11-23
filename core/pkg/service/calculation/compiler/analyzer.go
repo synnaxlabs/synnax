@@ -51,7 +51,6 @@ type cachingResolver struct {
 type Analyzer struct {
 	symbols  arc.SymbolResolver
 	resolver *cachingResolver
-	cfg      parser.Config
 	// stl holds the Arc standard library symbols, built on the first analysis.
 	// symbol.NewRoot copies them into each analysis, so later analyses reuse them.
 	stl []*symbol.Symbol
@@ -59,10 +58,7 @@ type Analyzer struct {
 
 // NewAnalyzer returns an Analyzer that falls back to symbolResolver for
 // symbols not yet in the internal cache.
-func NewAnalyzer(
-	symbolResolver arc.SymbolResolver,
-	cfgs ...parser.Config,
-) *Analyzer {
+func NewAnalyzer(symbolResolver arc.SymbolResolver) *Analyzer {
 	r := &cachingResolver{}
 	r.temp.keys = make(map[int]*symbol.Symbol)
 	r.temp.names = make(map[string]*symbol.Symbol)
@@ -70,7 +66,6 @@ func NewAnalyzer(
 	return &Analyzer{
 		symbols:  symbolResolver,
 		resolver: r,
-		cfg:      parser.ConfigOf(cfgs...),
 	}
 }
 
@@ -153,7 +148,7 @@ func (a *Analyzer) AnalyzeExpression(
 	a.resolver.SymbolResolver = resolver.NewConsistent(a.symbols)
 	a.resolver.unresolved = make(set.Set[string])
 	a.resolver.readErr = nil
-	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", expression), a.cfg)
+	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", expression))
 	if err != nil {
 		return AnalysisResult{}, err
 	}
@@ -161,7 +156,7 @@ func (a *Analyzer) AnalyzeExpression(
 		a.stl = calculationSymbols()
 	}
 	root := symbol.NewRoot(a.resolver, a.stl)
-	aCtx := acontext.NewRoot(ctx, t, root).WithConfig(a.cfg)
+	aCtx := acontext.NewRoot(ctx, t, root)
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if a.resolver.readErr != nil {
 		return AnalysisResult{}, a.resolver.readErr

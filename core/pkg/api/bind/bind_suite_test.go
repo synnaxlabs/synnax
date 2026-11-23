@@ -21,6 +21,7 @@ import (
 	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -42,6 +43,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
+		Holders:     taskconfig.NewHolders(),
 		DB:          db,
 		RBAC:        svc.RBAC,
 		Held:        apiauth.HeldTables(),

@@ -29,11 +29,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
@@ -165,6 +167,7 @@ var _ = Describe("Calculated channels of a channel-only subject after upgrade", 
 			return err
 		})).To(Succeed())
 		apiChannels := MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
+			Holders:     taskconfig.NewHolders(arc.DriftTable),
 			DB:          n.DB,
 			RBAC:        l.RBAC,
 			Channel:     l.Channel,
@@ -180,9 +183,10 @@ var _ = Describe("Calculated channels of a channel-only subject after upgrade", 
 			},
 		))
 		binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-			DB:   n.DB,
-			RBAC: l.RBAC,
-			Held: apiauth.HeldTables(),
+			Holders: taskconfig.NewHolders(arc.DriftTable),
+			DB:      n.DB,
+			RBAC:    l.RBAC,
+			Held:    apiauth.HeldTables(),
 		}))
 		authed := AuthedCtx(ctx, u)
 

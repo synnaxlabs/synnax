@@ -23,25 +23,6 @@ import (
 )
 
 var _ = Describe("Service", func() {
-	Describe("ShouldValidateNames", func() {
-		It("Should report true by default", func() {
-			Expect(svc.ShouldValidateNames()).To(BeTrue())
-		})
-		It(
-			"Should report false when name validation is disabled",
-			func(ctx SpecContext) {
-				noValidateSvc := openService(
-					ctx,
-					testutil.NewNode(ctx),
-					channel.ServiceConfig{
-						ValidateNames: new(false),
-					},
-				)
-				Expect(noValidateSvc.ShouldValidateNames()).To(BeFalse())
-			},
-		)
-	})
-
 	Describe("NewRetrieve", func() {
 		It(
 			"Should retrieve a channel created through the service",

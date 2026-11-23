@@ -99,12 +99,11 @@ func tokensAdjacent(a, b antlr.Token) bool {
 func DetectCompletionContext(
 	content string,
 	pos protocol.Position,
-	cfg parser.Config,
 ) CompletionContext {
-	if isPositionInComment(content, pos, cfg) {
+	if isPositionInComment(content, pos) {
 		return ContextComment
 	}
-	tokens := tokenizeContent(content, cfg)
+	tokens := tokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 	if len(tokensBeforeCursor) == 0 {
 		return ContextStatementStart
@@ -154,9 +153,8 @@ func DetectCompletionContext(
 func isPositionInComment(
 	content string,
 	pos protocol.Position,
-	cfg parser.Config,
 ) bool {
-	allTokens := tokenizeContent(content, cfg)
+	allTokens := tokenizeContent(content)
 	line := int(pos.Line) + 1
 	col := int(pos.Character)
 	for _, t := range allTokens {
@@ -628,9 +626,8 @@ func isAuthorityEntryContext(tokens []antlr.Token) bool {
 func extractAuthorityExistingChannels(
 	content string,
 	pos protocol.Position,
-	cfg parser.Config,
 ) []string {
-	tokens := tokenizeContent(content, cfg)
+	tokens := tokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 	// Find the opening paren of the authority block.
 	parenDepth := 0
@@ -654,12 +651,12 @@ func extractAuthorityExistingChannels(
 	if parenIdx < 0 {
 		return nil
 	}
-	// Collect identifiers inside the block — these are channel names in entries
-	// like `valve 100`.
+	// Each name inside the block is the channel of an entry like `valve 100` or
+	// `'pt-01' 100`.
 	var existing []string
 	for i := parenIdx + 1; i < len(tokensBeforeCursor); i++ {
-		if tokensBeforeCursor[i].GetTokenType() == parser.ArcLexerIDENTIFIER {
-			existing = append(existing, tokensBeforeCursor[i].GetText())
+		if n := parser.TokenName(tokensBeforeCursor[i]); n.Head != "" {
+			existing = append(existing, n.Head)
 		}
 	}
 	return existing
@@ -748,9 +745,8 @@ func isArrow(t antlr.Token) bool {
 func extractInputContext(
 	content string,
 	pos protocol.Position,
-	cfg parser.Config,
 ) *inputContextInfo {
-	tokens := tokenizeContent(content, cfg)
+	tokens := tokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 	result := findInputParen(tokensBeforeCursor)
 	if result == nil {

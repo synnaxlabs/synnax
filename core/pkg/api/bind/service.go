@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -51,6 +52,11 @@ type ServiceConfig struct {
 	// rack's write cannot add a use of one, or move a record that uses one onto a rack.
 	// tx holds the write. Nil vouches for no record.
 	Vouched func(ctx context.Context, tx gorp.Tx, target resource.ID) (bool, error)
+	// Holders maps a config record of a task to its task, so a read shows a use that a
+	// task's records hold as the task.
+	//
+	// [REQUIRED]
+	Holders *taskconfig.Holders
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -63,6 +69,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Owned = override.Slice(c.Owned, other.Owned)
 	c.OwnedPlaces = override.Slice(c.OwnedPlaces, other.OwnedPlaces)
 	c.Vouched = override.Nil(c.Vouched, other.Vouched)
+	c.Holders = override.Nil(c.Holders, other.Holders)
 	return c
 }
 
@@ -72,6 +79,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("rbac", c.RBAC)
 	v.NotEmptySlice("held", c.Held)
+	v.NotNil("holders", c.Holders)
 	return v.Error()
 }
 

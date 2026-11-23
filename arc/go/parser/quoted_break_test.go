@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("Quoted channel names in the parser (break)", func() {
 	tokensOf := func(src string) []antlr.Token {
-		l := parser.NewLexer(src, parser.Config{})
+		l := parser.NewArcLexer(antlr.NewInputStream(src))
 		var out []antlr.Token
 		for _, t := range l.GetAllTokens() {
 			if t.GetChannel() == antlr.TokenDefaultChannel {
@@ -43,7 +43,7 @@ var _ = Describe("Quoted channel names in the parser (break)", func() {
 		Entry("P4 multi", "x := `it's\n'a'`"),
 		Entry("P5 line comment", "x := 1 // it's"),
 		Entry("P6 block comment", "x := 1 /* it's\n 'a */"),
-		Entry("P7 dashed off", `x := "a'b'c"`),
+		Entry("P7 several quotes", `x := "a'b'c"`),
 	)
 	DescribeTable("P fails to parse",
 		func(src string) {
@@ -99,12 +99,6 @@ var _ = Describe("Quoted channel names in the parser (break)", func() {
 	})
 	It("P24 a quoted channel in an authority entry", func() {
 		MustSucceed(parser.Parse("authority ('valve-cmd' 200)\n'pt' -> 'valve-cmd'"))
-	})
-	It("P25 a dashed channel in an authority entry with dashed names on", func() {
-		MustSucceed(parser.Parse(
-			"authority (valve-cmd 200)\npt -> valve-cmd",
-			parser.Config{AllowDashedNames: true},
-		))
 	})
 	It("P23 a quoted call in a flow", func() {
 		MustSucceed(parser.Parse(`trig -> 'f'(1) -> out`))

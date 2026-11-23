@@ -39,8 +39,6 @@ var _ = Describe("Name breaker", Ordered, ContinueOnFailure, func() {
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		cfg, _ := serviceConfig(ctx, node, node.DB)
-		// A Core started with the old flag, as the Names suite models it.
-		cfg.ValidateNames = new(false)
 		bsvc = MustOpen(channel.OpenService(ctx, cfg))
 	})
 	BeforeEach(func() {

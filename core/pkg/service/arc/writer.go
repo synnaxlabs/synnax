@@ -91,6 +91,12 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if b.Source.Variant == nil {
 		return errors.Wrap(validate.ErrValidation, "source: required")
 	}
+	if len(b.Reads) > 0 || len(b.Writes) > 0 {
+		return errors.Wrap(
+			validate.ErrValidation,
+			"reads and writes: set by the Core at each compile",
+		)
+	}
 	if src, ok := b.Source.Variant.(TextSource); ok &&
 		len(src.Text.Doc.Inserts) == 0 && src.Text.Raw != "" {
 		src.Text.Doc = text.Create(src.Text.Raw)
@@ -111,8 +117,8 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	}
 	if module {
 		w.pathChanges.Add(w.tx, struct{}{})
-		w.resyncs.Add(w.tx, b.Key)
 	}
+	w.resyncs.Add(w.tx, b.Key)
 	w.dispatcher.Attach(
 		w.tx,
 		b.Key,
@@ -255,6 +261,9 @@ func (w Writer) UpdateTask(
 	if err != nil {
 		return nil, err
 	}
+	if err = w.syncKeys(ctx, a.Base(), b); err != nil {
+		return nil, err
+	}
 	rec.Task = written.Key
 	if err = w.writeRecord(ctx, tsk, rec, hashes); err != nil {
 		return nil, err
@@ -363,13 +372,35 @@ func (w Writer) hash(
 	return hash, hashes, nil
 }
 
-// sync rewrites an automation's task config or a module's compile status from b, a
-// build of its content.
+// sync stores the channel lists of b, a build of a's content, then rewrites an
+// automation's task config or a module's compile status from b.
 func (w Writer) sync(ctx context.Context, a Arc, b Build) error {
+	if err := w.syncKeys(ctx, a.Base(), b); err != nil {
+		return err
+	}
 	if module, ok := a.Variant.(ModuleArc); ok {
 		return w.syncStatus(ctx, module, b)
 	}
 	return w.syncTask(ctx, a, b)
+}
+
+// syncKeys stores the channels that b found as the lists of the Arc with base. A build
+// that failed keeps the lists, and equal lists write nothing.
+func (w Writer) syncKeys(ctx context.Context, base Base, b Build) error {
+	changed := !slices.Equal(base.Reads, b.reads) ||
+		!slices.Equal(base.Writes, b.writes)
+	if b.err == nil && changed {
+		return w.table.NewUpdate().
+			Where(gorp.MatchKeys[Key, Arc](base.Key)).
+			Change(func(_ gorp.Context, a Arc) Arc {
+				next := a.Base()
+				next.Reads, next.Writes = b.reads, b.writes
+				a.SetBase(next)
+				return a
+			}).
+			Exec(ctx, w.tx)
+	}
+	return nil
 }
 
 // syncStatus stores the result of b, the module's analysis, as its status.

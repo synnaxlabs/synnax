@@ -92,7 +92,11 @@ func buildGraphNodes(
 	return nodes, configs
 }
 
-func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.AutomationArc, error) {
+func moduleNotFoundGetter(
+	context.Context,
+	uuid.UUID,
+	rack.Key,
+) (svcarc.AutomationArc, error) {
 	return svcarc.AutomationArc{}, query.ErrNotFound
 }
 
@@ -193,7 +197,7 @@ var _ = Describe("Task", Ordered, func() {
 	}
 
 	newFactoryWith := func(
-		getModule func(context.Context, uuid.UUID) (svcarc.AutomationArc, error),
+		getModule func(context.Context, uuid.UUID, rack.Key) (svcarc.AutomationArc, error),
 		cfgs ...arctask.FactoryConfig,
 	) driver.Factory {
 		GinkgoHelper()
@@ -213,7 +217,7 @@ var _ = Describe("Task", Ordered, func() {
 	) driver.Factory {
 		GinkgoHelper()
 		return newFactoryWith(
-			func(ctx context.Context, key uuid.UUID) (svcarc.AutomationArc, error) {
+			func(ctx context.Context, key uuid.UUID, _ rack.Key) (svcarc.AutomationArc, error) {
 				symbols := resolver.New(channelSvc, db)
 				root := arc.NewRoot(symbols, arcstatus.NewSymbols()...)
 				module, err := arc.CompileGraph(ctx, g, root)
@@ -238,7 +242,7 @@ var _ = Describe("Task", Ordered, func() {
 	) driver.Factory {
 		GinkgoHelper()
 		return newFactoryWith(
-			func(_ context.Context, _ uuid.UUID) (svcarc.AutomationArc, error) {
+			func(_ context.Context, _ uuid.UUID, _ rack.Key) (svcarc.AutomationArc, error) {
 				symbols := resolver.New(channelSvc, db)
 				root := arc.NewRoot(symbols, slices.Concat(
 					arcstatus.NewSymbols(), ranges.NewSymbols(),
@@ -426,7 +430,7 @@ var _ = Describe("Task", Ordered, func() {
 					Framer:  framerSvc,
 					Status:  statusSvc,
 					Ranger:  rangerSvc,
-					GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) {
+					GetProgram: func(context.Context, uuid.UUID, rack.Key) (svcarc.AutomationArc, error) {
 						return svcarc.AutomationArc{}, nil
 					},
 				}))
@@ -456,12 +460,14 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error for invalid config", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-				DB:         db,
-				Channel:    channelSvc,
-				Framer:     framerSvc,
-				Status:     statusSvc,
-				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
-				Ranger:     rangerSvc,
+				DB:      db,
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				Status:  statusSvc,
+				GetProgram: func(context.Context, uuid.UUID, rack.Key) (svcarc.AutomationArc, error) {
+					return svcarc.AutomationArc{}, nil
+				},
+				Ranger: rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    uuid.New(),
@@ -515,12 +521,14 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-				DB:         db,
-				Channel:    channelSvc,
-				Framer:     framerSvc,
-				Status:     statusSvc,
-				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
-				Ranger:     rangerSvc,
+				DB:      db,
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				Status:  statusSvc,
+				GetProgram: func(context.Context, uuid.UUID, rack.Key) (svcarc.AutomationArc, error) {
+					return svcarc.AutomationArc{}, nil
+				},
+				Ranger: rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    uuid.New(),
@@ -576,6 +584,7 @@ var _ = Describe("Task", Ordered, func() {
 				return func(
 					_ context.Context,
 					key uuid.UUID,
+					_ rack.Key,
 				) (svcarc.AutomationArc, error) {
 					*calls++
 					if *calls <= changes {
@@ -585,16 +594,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 			}
 
-			It("Should get the program again until the lookups hold", func(
-				ctx SpecContext,
-			) {
-				var calls int
-				Expect(newTask(ctx, newFactoryWith(changingGetter(2, &calls)))).
-					ToNot(BeNil())
-				Expect(calls).To(Equal(3))
-			})
-
-			It("Should fail the configure when the lookups keep changing", func(
+			It("Should fail the configure when the fetch's lookups changed", func(
 				ctx SpecContext,
 			) {
 				var calls int
@@ -608,7 +608,8 @@ var _ = Describe("Task", Ordered, func() {
 				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 					To(MatchError(resolver.ErrLookupsChanged))
-				Expect(calls).To(Equal(3))
+				// The program fetch compiles again itself, so the configure asks once.
+				Expect(calls).To(Equal(1))
 			})
 		})
 
@@ -788,12 +789,14 @@ var _ = Describe("Task", Ordered, func() {
 			"Should write an error status when config is invalid at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-					DB:         db,
-					Channel:    channelSvc,
-					Framer:     framerSvc,
-					Status:     statusSvc,
-					GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
-					Ranger:     rangerSvc,
+					DB:      db,
+					Channel: channelSvc,
+					Framer:  framerSvc,
+					Status:  statusSvc,
+					GetProgram: func(context.Context, uuid.UUID, rack.Key) (svcarc.AutomationArc, error) {
+						return svcarc.AutomationArc{}, nil
+					},
+					Ranger: rangerSvc,
 				}))
 				svcTask := task.Task{
 					Key:    uuid.New(),
@@ -947,11 +950,13 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("FactoryConfig", func() {
 		full := func() arctask.FactoryConfig {
 			return arctask.FactoryConfig{
-				DB:         db,
-				Channel:    channelSvc,
-				Framer:     framerSvc,
-				Status:     statusSvc,
-				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
+				DB:      db,
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				Status:  statusSvc,
+				GetProgram: func(context.Context, uuid.UUID, rack.Key) (svcarc.AutomationArc, error) {
+					return svcarc.AutomationArc{}, nil
+				},
 				Ranger:     rangerSvc,
 				Now:        telem.Now,
 				LoopBudget: 1000,

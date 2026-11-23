@@ -17,9 +17,11 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -49,6 +51,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Calculation: svc.Calculation,
 	}
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
+		Holders:     taskconfig.NewHolders(arc.DriftTable),
 		DB:          db,
 		RBAC:        svc.RBAC,
 		Channel:     svc.Channel,

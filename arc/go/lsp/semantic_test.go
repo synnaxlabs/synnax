@@ -367,6 +367,7 @@ var _ = Describe("Semantic Tokens", func() {
 			server, uri = SetupTestServer()
 			OpenArcDocument(server, ctx, uri, `x := 'pt-01'`)
 			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeNumber)).To(BeEmpty())
 			Expect(filterByType(all, tokenTypeChannel)).To(Equal([]decodedToken{
 				{Line: 0, StartChar: 5, Length: 7, TokenType: tokenTypeChannel},
 			}))
@@ -791,27 +792,6 @@ func cat() {
 			}
 			Expect(lengths).To(ConsistOf(uint32(6), uint32(4)))
 		})
-	})
-
-	It("should color a dashed channel name as one token", func(ctx SpecContext) {
-		channels := []symbol.Symbol{{
-			Name: "sensor-1",
-			Type: types.Chan(types.F64()),
-			Kind: symbol.KindChannel,
-		}}
-		server, uri = SetupTestServer(lsp.Config{
-			NewRoot:          func() *symbol.Symbol { return NewRoot(nil, channels...) },
-			AllowDashedNames: true,
-		})
-		OpenArcDocument(server, ctx, uri, "func f() f64 {\n    return sensor-1\n}\n")
-		tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
-		Expect(filterByType(tokens, tokenTypeNumber)).To(BeEmpty())
-		Expect(filterByType(tokens, tokenTypeChannel)).To(ConsistOf(decodedToken{
-			Line:      1,
-			StartChar: 11,
-			Length:    8,
-			TokenType: tokenTypeChannel,
-		}))
 	})
 
 	Describe("variable kinds", func() {

@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -73,9 +74,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Errors:       errs,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: svc.RBAC,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(),
+		DB:      db,
+		RBAC:    svc.RBAC,
+		Held:    apiauth.HeldTables(),
 	}))
 	exec = bind.Write(binder, apiLayer.Batch.Exec)
 	router := MustSucceed(

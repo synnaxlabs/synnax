@@ -1542,9 +1542,8 @@ func Analyze(
 	ctx context.Context,
 	t Text,
 	root *symbol.Symbol,
-	cfgs ...parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
-	return analyze(ctx, t, root, false, cfgs)
+	return analyze(ctx, t, root, false)
 }
 
 // AnalyzeModule is Analyze under the module rules.
@@ -1552,9 +1551,8 @@ func AnalyzeModule(
 	ctx context.Context,
 	t Text,
 	root *symbol.Symbol,
-	cfgs ...parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
-	return analyze(ctx, t, root, true, cfgs)
+	return analyze(ctx, t, root, true)
 }
 
 func analyze(
@@ -1562,9 +1560,8 @@ func analyze(
 	t Text,
 	root *symbol.Symbol,
 	module bool,
-	cfgs []parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
-	u, diag := analyzeUnit(ctx, t, root, module, cfgs)
+	u, diag := analyzeUnit(ctx, t, root, module)
 	return u.ir, diag
 }
 
@@ -1575,13 +1572,10 @@ func analyzeUnit(
 	t Text,
 	root *symbol.Symbol,
 	module bool,
-	cfgs []parser.Config,
 ) (unit, *diagnostics.Diagnostics) {
 	var (
-		aCtx = acontext.NewRoot(ctx, t.AST, root).
-			WithConfig(parser.ConfigOf(cfgs...)).
-			WithModule(module)
-		i = ir.IR{
+		aCtx = acontext.NewRoot(ctx, t.AST, root).WithModule(module)
+		i    = ir.IR{
 			Symbols:    aCtx.Scope,
 			TypeMap:    aCtx.TypeMap,
 			FmtStrings: aCtx.FmtStrings,

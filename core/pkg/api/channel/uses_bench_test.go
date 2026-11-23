@@ -24,10 +24,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
@@ -83,6 +85,7 @@ func benchRetrieve(
 ) freighter.UnaryHandler[apichannel.RetrieveRequest, apichannel.RetrieveResponse] {
 	b.Helper()
 	svc, err := apichannel.NewService(apichannel.ServiceConfig{
+		Holders:     taskconfig.NewHolders(arc.DriftTable),
 		DB:          db,
 		RBAC:        layer.RBAC,
 		Channel:     layer.Channel,
@@ -94,9 +97,10 @@ func benchRetrieve(
 		b.Fatalf("failed to open the API service: %v", err)
 	}
 	binder, err := bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: layer.RBAC,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(arc.DriftTable),
+		DB:      db,
+		RBAC:    layer.RBAC,
+		Held:    apiauth.HeldTables(),
 	})
 	if err != nil {
 		b.Fatalf("failed to open the binder: %v", err)

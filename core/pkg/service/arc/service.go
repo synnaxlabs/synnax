@@ -17,11 +17,12 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/lsp"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
@@ -32,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -112,7 +114,6 @@ type ServiceConfig struct {
 		ctx context.Context,
 		automation AutomationArc,
 		root *symbol.Symbol,
-		opts ...arc.Option,
 	) (arc.Program, error)
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
@@ -220,7 +221,6 @@ func (s *Service) newRoot(
 		Paths:    paths,
 		Channels: channels,
 		Ambient:  standardSymbols,
-		Config:   parser.Config{AllowDashedNames: s.AllowDashedNames()},
 	})
 	return symbol.NewRoot(channels, standardSymbols(), symbol.WithModules(modules))
 }
@@ -254,9 +254,8 @@ func (s *Service) NewLSP(cfg LSPConfig) (*lsp.Server, error) {
 		return nil, err
 	}
 	return lsp.New(lsp.Config{
-		Instrumentation:  s.cfg.Child("lsp"),
-		NewRoot:          func() *symbol.Symbol { return s.newLSPRoot(cfg.Allowed) },
-		AllowDashedNames: s.AllowDashedNames(),
+		Instrumentation: s.cfg.Child("lsp"),
+		NewRoot:         func() *symbol.Symbol { return s.newLSPRoot(cfg.Allowed) },
 		OnRename: func(
 			ctx context.Context,
 			sym *symbol.Symbol,
@@ -353,43 +352,120 @@ func (s *Service) NewDirectoryRetrieve() directory.Retrieve {
 	return s.directories.NewRetrieve()
 }
 
-// AllowDashedNames reports whether Arc may treat '-' as an identifier character, which
-// is permitted exactly when channel-name validation is disabled.
-func (s *Service) AllowDashedNames() bool {
-	return resolver.AllowDashedNames(s.cfg.Channel)
+// CompileProgram compiles the program of the automation with key, compiling again when
+// a write changed what the compile read. It records nothing. A module is a validation
+// error, and a source that does not compile returns its diagnostics.
+func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, error) {
+	return resolver.RetryChanged(ctx, func() (AutomationArc, error) {
+		return s.takeProgram(ctx, key, nil)
+	})
 }
 
-// CompileProgram retrieves the automation with key and compiles its program. A module
-// is a validation error. CompileProgram returns resolver.ErrLookupsChanged when writes
-// changed what each of its compiles read, and the caller must try again.
-func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, error) {
-	var entry Arc
-	err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, snap)
+// DeployProgram is CompileProgram for the Driver of driver, a rack, which takes the
+// program to run the automation's task. When driver holds the task, it stores the
+// program's channels as the automation's lists and as the task's deployed lists, in a
+// write that checks the compile's reads.
+func (s *Service) DeployProgram(
+	ctx context.Context,
+	key Key,
+	driver rack.Key,
+) (AutomationArc, error) {
+	return resolver.RetryChanged(ctx, func() (AutomationArc, error) {
+		return s.takeProgram(ctx, key, &driver)
 	})
+}
+
+// takeProgram compiles the automation with key. When driver, the rack of the Driver
+// that takes the program, is not nil, it records the program's channels in one
+// transaction that checks the compile's reads.
+func (s *Service) takeProgram(
+	ctx context.Context,
+	key Key,
+	driver *rack.Key,
+) (AutomationArc, error) {
+	b, err := s.Build(ctx, key)
 	if err != nil {
 		return AutomationArc{}, err
 	}
-	automation, ok := entry.Variant.(AutomationArc)
+	automation, ok := b.entry.Variant.(AutomationArc)
 	if !ok {
 		return AutomationArc{}, errors.Wrapf(
 			validate.ErrValidation,
 			"modules cannot be deployed independently. Import %q from an "+
 				"automation instead",
-			entry.Base().Name,
+			b.entry.Base().Name,
 		)
 	}
-	prog, err := resolver.CompileConsistent(ctx, s.cfg.DB, func(
-		snap gorp.Snapshot,
-		lookups *resolver.Lookups,
-	) (arc.Program, error) {
-		return s.compileWith(ctx, s.NewRoot(snap, lookups), automation)
-	})
-	if err != nil {
+	if b.err != nil {
+		return AutomationArc{}, b.err
+	}
+	automation.Program = &b.program
+	if driver == nil {
+		return automation, nil
+	}
+	if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		same, err := b.lookups.Unchanged(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if !same {
+			return resolver.ErrLookupsChanged
+		}
+		return s.recordDeploy(ctx, tx, b, *driver)
+	}); err != nil {
 		return AutomationArc{}, err
 	}
-	automation.Program = &prog
 	return automation, nil
+}
+
+// recordDeploy stores the channels of b, a build that the Driver of driver takes to
+// run, as the lists of its automation and the deployed lists of the automation's task.
+// The deployed lists hold a graph's node channels too, since the drift record holds no
+// node configs. A driver that does not hold the task records nothing, and equal lists
+// write nothing.
+func (s *Service) recordDeploy(
+	ctx context.Context,
+	tx gorp.Tx,
+	b Build,
+	driver rack.Key,
+) error {
+	key := b.entry.Base().Key
+	var tasks []task.Task
+	if err := s.cfg.Task.NewRetrieve().
+		Where(s.cfg.MatchTasks(key)).
+		Entries(&tasks).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	if len(tasks) == 0 || tasks[0].Rack != driver {
+		return nil
+	}
+	var a Arc
+	if err := s.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Arc](key)).
+		Entry(&a).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	if err := s.NewWriter(tx).syncKeys(ctx, a.Base(), b); err != nil {
+		return err
+	}
+	rec, err := s.NewWriter(tx).record(ctx, tasks[0].Key)
+	if err != nil {
+		return err
+	}
+	reads, writes := channelKeys(b.program.IR, false)
+	if slices.Equal(rec.Reads, reads) && slices.Equal(rec.Writes, writes) {
+		return nil
+	}
+	rec.Reads, rec.Writes = reads, writes
+	return s.drifts.NewCreate().Entry(&rec).Exec(ctx, tx)
+}
+
+// DanglingMigration returns the migration identified by key that clears, from each
+// stored Arc, every channel whose key issued reports the Core never issued.
+func (s *Service) DanglingMigration(key string, issued gorp.IssuedFunc) gorp.Migration {
+	return s.table.IssuedDanglingMigration(key, issued)
 }
 
 // Build is a compile of an Arc that Service.Build makes outside any transaction. The
@@ -400,6 +476,10 @@ type Build struct {
 	loaded []string
 	// err is the reason that the Arc does not compile.
 	err error
+	// reads and writes hold the channels that a compile that passed found, sorted.
+	reads, writes []channel.Key
+	// entry is the Arc that the build compiled.
+	entry Arc
 	// lookups holds each read that the compile made, the read of the Arc included.
 	lookups *resolver.Lookups
 }
@@ -436,16 +516,70 @@ func (s *Service) buildIn(
 		}
 		return again == hash, err
 	})
-	b := Build{lookups: lookups}
+	b := Build{lookups: lookups, entry: a}
 	root := s.NewRoot(snap, lookups)
 	switch v := a.Variant.(type) {
 	case AutomationArc:
-		b.program, b.err = s.compileWith(ctx, root, v)
+		b.program, b.err = s.cfg.Compile(ctx, v, root)
 		b.loaded = arctext.LoadedPaths(root)
+		if b.err == nil {
+			_, graph := v.Source.Variant.(GraphSource)
+			b.reads, b.writes = channelKeys(b.program.IR, graph)
+		}
 	case ModuleArc:
-		b.err = s.analyzeModule(ctx, root, v)
+		var analysis ir.IR
+		if analysis, b.err = s.analyzeModule(ctx, root, v); b.err == nil {
+			b.reads, b.writes = channelKeys(analysis, false)
+		}
 	}
 	return b, nil
+}
+
+// channelKeys returns the channels that the nodes and functions of program read and
+// write, each sorted with no repeats. For a graph, only its functions count: the node
+// configs reference their own channels.
+func channelKeys(program ir.IR, graph bool) (reads, writes []channel.Key) {
+	if graph {
+		program.Nodes = nil
+	}
+	reads = collectKeys(program, func(c types.Channels) map[uint32]string {
+		return c.Read
+	})
+	writes = collectKeys(program, func(c types.Channels) map[uint32]string {
+		return c.Write
+	})
+	return reads, writes
+}
+
+// collectKeys returns the keys of the map that held picks from the channels of each
+// node and function of program, sorted with no repeats, in one allocation.
+func collectKeys(
+	program ir.IR,
+	held func(types.Channels) map[uint32]string,
+) []channel.Key {
+	n := 0
+	for i := range program.Nodes {
+		n += len(held(program.Nodes[i].Channels))
+	}
+	for i := range program.Functions {
+		n += len(held(program.Functions[i].Channels))
+	}
+	if n == 0 {
+		return nil
+	}
+	keys := make([]channel.Key, 0, n)
+	for i := range program.Nodes {
+		for k := range held(program.Nodes[i].Channels) {
+			keys = append(keys, channel.Key(k))
+		}
+	}
+	for i := range program.Functions {
+		for k := range held(program.Functions[i].Channels) {
+			keys = append(keys, channel.Key(k))
+		}
+	}
+	slices.Sort(keys)
+	return slices.Compact(keys)
 }
 
 // retrieveHashed returns the Arc with key in snap and the hash of its content.
@@ -468,28 +602,16 @@ func (s *Service) retrieveHashed(
 	return a, hash, nil
 }
 
-// compileWith compiles the automation's source against root.
-func (s *Service) compileWith(
-	ctx context.Context,
-	root *symbol.Symbol,
-	automation AutomationArc,
-) (arc.Program, error) {
-	return s.cfg.Compile(
-		ctx, automation, root, arc.WithAllowDashedNames(s.AllowDashedNames()),
-	)
-}
-
 func compileSource(
 	ctx context.Context,
 	automation AutomationArc,
 	root *symbol.Symbol,
-	opts ...arc.Option,
 ) (arc.Program, error) {
 	switch src := automation.Source.Variant.(type) {
 	case TextSource:
-		return arc.CompileText(ctx, src.Text.Materialize(), root, opts...)
+		return arc.CompileText(ctx, src.Text.Materialize(), root)
 	case GraphSource:
-		return arc.CompileGraph(ctx, src.Graph, root, opts...)
+		return arc.CompileGraph(ctx, src.Graph, root)
 	}
 	return arc.Program{}, errors.Newf("automation %s has no source", automation.Key)
 }
@@ -520,28 +642,27 @@ func (s *Service) hashModules(
 	return hashes, nil
 }
 
-// analyzeModule checks the module's source under the module rules against root. A
-// module links no code of its own, so analysis is its whole compile.
+// analyzeModule checks the module's source under the module rules against root and
+// returns its analysis. A module links no code of its own, so analysis is its whole
+// compile.
 func (s *Service) analyzeModule(
 	ctx context.Context,
 	root *symbol.Symbol,
 	module ModuleArc,
-) error {
+) (ir.IR, error) {
 	src, ok := module.Source.Variant.(TextSource)
 	if !ok {
-		return errors.New("a module must be written as text")
+		return ir.IR{}, errors.New("a module must be written as text")
 	}
-	cfg := parser.Config{AllowDashedNames: s.AllowDashedNames()}
-	parsed, diag := arctext.Parse(src.Text.Materialize(), cfg)
+	parsed, diag := arctext.Parse(src.Text.Materialize())
 	if diag != nil && !diag.Ok() {
-		return diag
+		return ir.IR{}, diag
 	}
-	if _, diag = arctext.AnalyzeModule(
-		ctx, parsed, root, cfg,
-	); diag != nil && !diag.Ok() {
-		return diag
+	analysis, diag := arctext.AnalyzeModule(ctx, parsed, root)
+	if diag != nil && !diag.Ok() {
+		return ir.IR{}, diag
 	}
-	return nil
+	return analysis, nil
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each
@@ -569,6 +690,9 @@ func OpenService(
 		return nil, err
 	}
 	ok(nil, xio.NoFailCloserFunc(cfg.DB.Observe().OnChange(s.followCommit)))
+	if err = s.resyncAll(ctx); !ok(err, nil) {
+		return nil, err
+	}
 	if err = s.registerImEx(ok); !ok(err, nil) {
 		return nil, err
 	}

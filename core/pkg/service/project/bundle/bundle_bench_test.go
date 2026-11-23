@@ -13,16 +13,20 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"uuid"
 
 	"github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/gorp"
 	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -31,18 +35,20 @@ import (
 	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	xjson "github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// benchWorkspace is a project whose schematics, line plots, logs, and tables link 5,000
-// channels in folders three deep.
+// benchWorkspace is a project whose schematics, line plots, logs, tables, and graph
+// Arcs link 5,000 channels in folders three deep.
 type benchWorkspace struct {
 	ctx     context.Context
 	db      *gorp.DB
 	layer   *service.Layer
 	project project.Key
+	arcs    []arc.Key
 }
 
 // openBenchWorkspace opens a Core and creates the workspace in it, closed when b ends.
@@ -63,7 +69,7 @@ func openBenchWorkspace(b *testing.B) benchWorkspace {
 		return layer.Project.NewWriter(tx).Create(ctx, &proj)
 	})).To(gomega.Succeed())
 	w.project = proj.Key
-	w.createVisualizations(b, keys)
+	w.arcs = w.createVisualizations(b, keys)
 	return w
 }
 
@@ -131,9 +137,14 @@ func (w benchWorkspace) createLeafChannels(
 }
 
 // createVisualizations creates 50 schematics with 100 links each, 20 line plots with 20
-// channels each, 10 logs with 20 channels each, and 10 tables with 50 cells each.
-func (w benchWorkspace) createVisualizations(b *testing.B, keys []channel.Key) {
+// channels each, 10 logs with 20 channels each, 10 tables with 50 cells each, and the
+// graph Arcs of createArcPanel. It returns the keys of the Arcs.
+func (w benchWorkspace) createVisualizations(
+	b *testing.B,
+	keys []channel.Key,
+) []arc.Key {
 	b.Helper()
+	var arcs []arc.Key
 	next := 0
 	take := func() channel.Key {
 		k := keys[next%len(keys)]
@@ -173,8 +184,46 @@ func (w benchWorkspace) createVisualizations(b *testing.B, keys []channel.Key) {
 				return err
 			}
 		}
-		return nil
+		var err error
+		arcs, err = w.createArcPanel(tx, take)
+		return err
 	})).To(gomega.Succeed())
+	return arcs
+}
+
+// createArcPanel creates 10 graph Arcs with 20 channel inputs each, and a panel whose
+// tabs open them, so that the bundle exports them.
+func (w benchWorkspace) createArcPanel(
+	tx gorp.Tx,
+	take func() channel.Key,
+) ([]arc.Key, error) {
+	keys := make([]arc.Key, 0, 10)
+	tabs := make([]panel.Tab, 0, 10)
+	for a := range 10 {
+		g := graph.Graph{Inputs: make(map[string]msgpack.EncodedJSON, 20)}
+		for n := range 20 {
+			node := fmt.Sprintf("on_%d", n)
+			g.Nodes = append(g.Nodes, graph.Node{Key: node})
+			g.Inputs[node] = msgpack.EncodedJSON{"type": "on", "channel": take()}
+		}
+		automation := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+			Name:   fmt.Sprintf("arc_%d", a),
+			Source: arc.Source{Variant: arc.GraphSource{Graph: g}},
+		}}}
+		if err := w.layer.Arc.NewWriter(tx).Create(w.ctx, &automation); err != nil {
+			return nil, err
+		}
+		keys = append(keys, automation.Base().Key)
+		tabs = append(tabs, panel.Tab{Variant: panel.ResourceTab{
+			Key:      uuid.New(),
+			Resource: automation.ResourceID(),
+		}})
+	}
+	return keys, w.layer.Panel.NewWriter(tx).Create(w.ctx, &panel.Panel{
+		Name:    "arcs",
+		Project: &w.project,
+		Root:    panel.Node{Variant: panel.LeafNode{Tabs: tabs}},
+	})
 }
 
 func benchSchematic(
@@ -251,6 +300,10 @@ func BenchmarkImport(b *testing.B) {
 	files, _ := MustSucceed2(
 		w.layer.Bundle.Export(w.ctx, w.db, w.project, xjson.Codec, readAll),
 	)
+	// An imported Arc takes its file's name, which the original holds.
+	gomega.Expect(w.db.WithTx(w.ctx, func(tx gorp.Tx) error {
+		return w.layer.Arc.NewWriter(tx).Delete(w.ctx, w.arcs...)
+	})).To(gomega.Succeed())
 	b.ReportAllocs()
 	for b.Loop() {
 		bundle := MustSucceed(w.layer.Bundle.Decode(w.ctx, files, "bench", readAll))
