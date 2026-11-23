@@ -165,12 +165,33 @@ describe("symbol editor spec", () => {
         fixed(RED),
         0,
       );
-      expect(next.slice(0, 2)).toEqual(looks);
-      expect(next[2]).toMatchObject({
+      expect(next.slice(0, 1)).toEqual([looks[1]]);
+      expect(next[1]).toMatchObject({
         part: "body",
         when: equals(0),
         stroke: fixed(RED),
       });
+    });
+
+    it("should take an old motion of another kind off the owned look", () => {
+      const spin = {
+        key: "a",
+        part: "body",
+        when: equals(0),
+        motion: { type: "spin" as const, rate: 1 },
+      };
+      const flow = {
+        key: "b",
+        part: "body",
+        motion: { type: "flow" as const, rate: 1 },
+      };
+      const spec = createSpec({ looks: [{ ...spin, stroke: fixed(RED) }, flow] });
+      const next = Spec.setOwn(spec, "body", "motion", flow.motion, 0);
+      expect(next.looks).toEqual([
+        { key: "a", part: "body", when: equals(0), stroke: fixed(RED) },
+        flow,
+        { key: expect.any(String), part: "body", when: equals(0), motion: flow.motion },
+      ]);
     });
 
     it("should set the field on the look of the part for every value", () => {
@@ -225,7 +246,7 @@ describe("symbol editor spec", () => {
       expect(
         Spec.setOwn(createSpec({ looks }), "body", "fill", fixed(RED)).looks,
       ).toEqual([
-        ...looks,
+        looks[1],
         { key: expect.any(String), part: "body", fill: fixed(RED) },
       ]);
     });
