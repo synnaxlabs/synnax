@@ -33,7 +33,7 @@ import {
   UnauthorizedError,
   UnexpectedError,
   ValidationError,
-} from "@/errors";
+} from "@/index";
 import { status } from "@/status";
 import { createTestClient } from "@/testutil";
 

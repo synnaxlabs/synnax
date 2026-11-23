@@ -28,8 +28,9 @@ TEST(Client, CreatesUpdatesAndDeletes) {
     ASSERT_NIL(client.ni.chassis.create(chassis));
     ConfigurationUpdate configuration;
     configuration.name = "Bench chassis";
-    ASSERT_NIL(client.ni.chassis.update(chassis.key, Update(configuration)));
-    const auto got = ASSERT_NIL_P(client.ni.chassis.retrieve(chassis.key));
+    const auto got = ASSERT_NIL_P(
+        client.ni.chassis.update(chassis.key, Update(configuration))
+    );
     ASSERT_EQ(got.name, "Bench chassis");
     ASSERT_EQ(got.resource_name, chassis.resource_name);
     ASSERT_NIL(client.ni.chassis.del({chassis.key}));

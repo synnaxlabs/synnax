@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -374,7 +375,7 @@ func (f *Factory) configureRead(
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	enabled, keys, err := enabledReadEntries(cfg.Entries)
+	enabled, keys, icdKeys, err := enabledReadEntries(cfg.Entries)
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
@@ -382,7 +383,7 @@ func (f *Factory) configureRead(
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	icds, err := f.retrieveICDs(ctx, enabled)
+	icds, err := f.retrieveICDs(ctx, icdKeys)
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
@@ -435,11 +436,15 @@ func (f *Factory) openRead(
 	return rt, nil
 }
 
-// enabledReadEntries returns the enabled entries and the channels that they name.
-func enabledReadEntries(entries []ReadEntry) ([]ReadEntryVariant, channel.Keys, error) {
+// enabledReadEntries returns the enabled entries, the channels that they name, and the
+// ICDs that their messages belong to.
+func enabledReadEntries(
+	entries []ReadEntry,
+) ([]ReadEntryVariant, channel.Keys, []icd.Key, error) {
 	var (
 		enabled []ReadEntryVariant
 		keys    channel.Keys
+		icds    []icd.Key
 	)
 	for _, e := range entries {
 		switch entry := e.Variant.(type) {
@@ -447,6 +452,7 @@ func enabledReadEntries(entries []ReadEntry) ([]ReadEntryVariant, channel.Keys, 
 			if entry.Disabled {
 				continue
 			}
+			icds = append(icds, entry.ICD)
 			for _, m := range entry.Messages {
 				for _, b := range m.Bindings {
 					keys = append(keys, b.Channel)
@@ -458,7 +464,7 @@ func enabledReadEntries(entries []ReadEntry) ([]ReadEntryVariant, channel.Keys, 
 			}
 			keys = append(keys, entry.Channel)
 		case nil:
-			return nil, nil, errors.Wrap(
+			return nil, nil, nil, errors.Wrap(
 				validate.ErrValidation, "entries: an entry is null",
 			)
 		default:
@@ -467,32 +473,28 @@ func enabledReadEntries(entries []ReadEntry) ([]ReadEntryVariant, channel.Keys, 
 		enabled = append(enabled, e.Variant)
 	}
 	if len(enabled) == 0 {
-		return nil, nil, errors.Wrap(
+		return nil, nil, nil, errors.Wrap(
 			validate.ErrValidation, "entries: the task has no enabled entries",
 		)
 	}
-	return enabled, keys, nil
+	return enabled, keys, icds, nil
 }
 
-// retrieveICDs returns the ICDs that the plain entries of enabled name, by key.
+// retrieveICDs returns the ICDs of keys, by key.
 func (f *Factory) retrieveICDs(
 	ctx context.Context,
-	enabled []ReadEntryVariant,
+	keys []icd.Key,
 ) (map[icd.Key]icd.ICD, error) {
 	icds := make(map[icd.Key]icd.ICD)
-	for _, variant := range enabled {
-		entry, ok := variant.(PlainReadEntry)
-		if !ok {
+	for _, key := range keys {
+		if _, ok := icds[key]; ok {
 			continue
 		}
-		if _, ok = icds[entry.ICD]; ok {
-			continue
-		}
-		ic, err := f.retrieveICD(ctx, entry.ICD)
+		ic, err := f.retrieveICD(ctx, key)
 		if err != nil {
 			return nil, err
 		}
-		icds[entry.ICD] = ic
+		icds[key] = ic
 	}
 	return icds, nil
 }
@@ -586,19 +588,6 @@ func (s *readSource) addEntry(
 	}
 }
 
-// enabledTarget returns the command channel and the name of a target. ok is false
-// for a disabled target. v must not be nil.
-func enabledTarget(v WriteTargetVariant) (key channel.Key, name string, ok bool) {
-	switch t := v.(type) {
-	case PlainWriteTarget:
-		return t.Channel.Channel, t.Topic, !t.Disabled
-	case SparkplugWriteTarget:
-		return t.Channel, t.Tag, !t.Disabled
-	default:
-		panic(errors.Newf("mqtt: unknown write target variant %T", v))
-	}
-}
-
 func (f *Factory) configureWrite(
 	ctx context.Context,
 	t task.Task,
@@ -611,7 +600,7 @@ func (f *Factory) configureWrite(
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	keys, err := enabledTargetKeys(cfg.Targets)
+	enabled, keys, icdKeys, err := enabledTargets(cfg.Targets)
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
@@ -619,12 +608,16 @@ func (f *Factory) configureWrite(
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	sink := &writeSink{
-		pool:    f.pool,
-		broker:  dev.Key,
-		targets: make(map[channel.Key][]target, len(keys)),
+	icds, err := f.retrieveICDs(ctx, icdKeys)
+	if err != nil {
+		return nil, cfg.AutoStart, err
 	}
-	if err = sink.addTargets(cfg.Targets, channels); err != nil {
+	sink := &writeSink{
+		pool:      f.pool,
+		broker:    dev.Key,
+		byChannel: make(map[channel.Key][]int),
+	}
+	if err = sink.addTargets(enabled, icds, channels); err != nil {
 		return nil, cfg.AutoStart, err
 	}
 	wt, err := driver.NewWriteTask(driver.WriteTaskConfig{
@@ -643,59 +636,79 @@ func (f *Factory) configureWrite(
 	return wt, cfg.AutoStart, nil
 }
 
-// enabledTargetKeys returns the command channels of the enabled targets.
-func enabledTargetKeys(targets []WriteTarget) (channel.Keys, error) {
-	var keys channel.Keys
+// enabledTargets returns the enabled targets, their command channels, and the ICDs that
+// their messages belong to.
+func enabledTargets(
+	targets []WriteTarget,
+) ([]WriteTargetVariant, channel.Keys, []icd.Key, error) {
+	var (
+		enabled []WriteTargetVariant
+		keys    channel.Keys
+		icds    []icd.Key
+	)
 	for _, tg := range targets {
-		if tg.Variant == nil {
-			return nil, errors.Wrap(validate.ErrValidation, "targets: a target is null")
+		switch target := tg.Variant.(type) {
+		case PlainWriteTarget:
+			if target.Disabled {
+				continue
+			}
+			icds = append(icds, target.ICD)
+			for _, b := range write.ChannelBindings(target.Message) {
+				keys = append(keys, b.Channel)
+			}
+		case SparkplugWriteTarget:
+			if target.Disabled {
+				continue
+			}
+			keys = append(keys, target.Channel)
+		case nil:
+			return nil, nil, nil, errors.Wrap(
+				validate.ErrValidation, "targets: a target is null",
+			)
+		default:
+			panic(errors.Newf("mqtt: unknown write target variant %T", target))
 		}
-		if key, _, ok := enabledTarget(tg.Variant); ok {
-			keys = append(keys, key)
-		}
+		enabled = append(enabled, tg.Variant)
 	}
-	if len(keys) == 0 {
-		return nil, errors.Wrap(
+	if len(enabled) == 0 {
+		return nil, nil, nil, errors.Wrap(
 			validate.ErrValidation, "targets: the task has no enabled targets",
 		)
 	}
-	return keys, nil
+	return enabled, keys, icds, nil
 }
 
-// addTargets adds the enabled targets to s. channels holds the command channel of
-// each enabled target.
+// addTargets adds the targets of enabled to s. icds holds the ICD of each plain target,
+// and channels holds the command channels.
 func (s *writeSink) addTargets(
-	targets []WriteTarget,
+	enabled []WriteTargetVariant,
+	icds map[icd.Key]icd.ICD,
 	channels map[channel.Key]channel.Channel,
 ) error {
-	for _, tg := range targets {
-		key, name, ok := enabledTarget(tg.Variant)
-		if !ok {
-			continue
-		}
-		ch, ok := channels[key]
-		if !ok {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"target %s: channel %d does not exist", name, key,
-			)
-		}
-		var (
-			built target
-			err   error
-		)
-		switch variant := tg.Variant.(type) {
+	for _, variant := range enabled {
+		switch target := variant.(type) {
 		case PlainWriteTarget:
-			built, err = newWriteTarget(variant, ch)
+			built, err := newMessageTarget(target, icds[target.ICD], channels)
+			if err != nil {
+				return err
+			}
+			s.add(built, built.docs.Channels()...)
 		case SparkplugWriteTarget:
-			built, err = newCommandTarget(variant, ch)
+			ch, ok := channels[target.Channel]
+			if !ok {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"target %s: channel %d does not exist", target.Tag, target.Channel,
+				)
+			}
+			built, err := newCommandTarget(target, ch)
+			if err != nil {
+				return err
+			}
+			s.add(built, target.Channel)
 		default:
-			panic(errors.Newf("mqtt: unknown write target variant %T", variant))
+			panic(errors.Newf("mqtt: unknown write target variant %T", target))
 		}
-		if err != nil {
-			return err
-		}
-		s.targets[key] = append(s.targets[key], built)
 	}
 	return nil
 }

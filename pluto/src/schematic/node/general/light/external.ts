@@ -22,3 +22,5 @@ export const spec: Spec<"light", schematic.LightNodeConfig> = {
   Preview: Light,
   zIndex: 4,
 };
+
+export { SYMBOL } from "@/schematic/node/general/light/Primitive";

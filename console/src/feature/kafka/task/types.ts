@@ -8,13 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { kafka, type task } from "@synnaxlabs/client";
-import {
-  type CrudeDataType,
-  DataType,
-  json,
-  type payload,
-  record,
-} from "@synnaxlabs/x";
+import { type CrudeDataType, DataType, json, type payload } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -139,16 +133,6 @@ export const WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
-
-export const SCAN_TYPE = `${PREFIX}_scan`;
-
-export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
-
-export const SCAN_SCHEMAS = {
-  type: z.literal(SCAN_TYPE),
-  config: record.nullishToEmpty(),
-  statusData: z.unknown().optional(),
-} as const satisfies task.Schemas;
 
 /** Whether a value of the data type travels as a JSON string. */
 export const isString = (dataType: CrudeDataType): boolean => {

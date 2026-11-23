@@ -485,6 +485,62 @@ var _ = Describe("Service", func() {
 			),
 		)
 
+		const identifierMessage = "Identifier must be 2 to 12 characters"
+
+		DescribeTable("Should reject an invalid identifier",
+			func(ctx SpecContext, identifier string) {
+				d := create(ctx)
+				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+					Variant: device.ConfigurationUpdate{
+						Configuration: device.Configuration{
+							Name:       "Renamed",
+							Identifier: identifier,
+						},
+					},
+				})).To(MatchError(ContainSubstring(identifierMessage)))
+				Expect(svc.NewWriter(tx).Update(
+					ctx,
+					d.Key,
+					func(d device.Device) (device.Device, error) {
+						d.Identifier = identifier
+						return d, nil
+					},
+				)).To(MatchError(ContainSubstring(identifierMessage)))
+			},
+			Entry("one character", "a"),
+			Entry("thirteen characters", "abcdefghijklm"),
+			Entry("a leading digit", "1dev"),
+			Entry("a leading underscore", "_dev"),
+			Entry("a hyphen", "dev-1"),
+		)
+
+		It("Should refuse to create a device with an invalid identifier", func(
+			ctx SpecContext,
+		) {
+			d := newDevice()
+			d.Identifier = "1dev"
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).
+				To(MatchError(ContainSubstring(identifierMessage)))
+		})
+
+		DescribeTable("Should accept a valid identifier",
+			func(ctx SpecContext, identifier string) {
+				d := create(ctx)
+				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+					Variant: device.ConfigurationUpdate{
+						Configuration: device.Configuration{
+							Name:       "Renamed",
+							Identifier: identifier,
+						},
+					},
+				})).To(Succeed())
+				Expect(retrieve(ctx, d.Key).Identifier).To(Equal(identifier))
+			},
+			Entry("an empty identifier, which leaves the device unconfigured", ""),
+			Entry("two characters", "d1"),
+			Entry("twelve characters", "Dev_12345678"),
+		)
+
 		newIdentity := func() device.Identity {
 			return device.Identity{
 				Rack:         rackKey,

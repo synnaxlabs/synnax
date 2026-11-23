@@ -39,14 +39,6 @@ func autoMigrateScanConfig(_ context.Context, old v2.ScanConfig) (ScanConfig, er
 	}, nil
 }
 
-func autoMigrateWriteConfig(_ context.Context, old v2.WriteConfig) (WriteConfig, error) {
-	return WriteConfig{
-		WriteConfig: old.WriteConfig,
-		StateRate:   old.StateRate,
-		Channels:    old.Channels,
-	}, nil
-}
-
 func autoMigrateReadChannel(_ context.Context, old v2.ReadChannel) (ReadChannel, error) {
 	switch variant := old.Variant.(type) {
 	case nil:

@@ -11,7 +11,6 @@ import { label, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithPolicy,
-  waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { color } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -240,7 +239,6 @@ describe("Label.Settings", () => {
     const l = await createLabel();
     await renderLabels();
     await search(l.name);
-    await waitForStreamLive(client.connection);
     const remote = createTestClient();
     await remote.labels.retrieve(l.key);
     const next = uniqueName("label");
@@ -252,7 +250,6 @@ describe("Label.Settings", () => {
     const l = await createLabel();
     await renderLabels();
     await search(l.name);
-    await waitForStreamLive(client.connection);
     await createTestClient().labels.delete(l.key);
     expect(await screen.findByText("No labels")).toBeTruthy();
   });

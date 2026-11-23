@@ -169,7 +169,7 @@ func (c *Controller[K, R]) HolderAt(tr telem.TimeRange) (Subject, bool) {
 		curr := reg.curr
 		reg.RUnlock()
 		if curr != nil {
-			return curr.Subject(), true
+			return curr.subject, true
 		}
 	}
 	return Subject{}, false
