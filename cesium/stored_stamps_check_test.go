@@ -295,8 +295,8 @@ var _ = Describe("Check: data written against stored stamps", func() {
 	})
 
 	It(
-		"Should end the sync of data against stamps that no sync has made durable, when "+
-			"one goroutine syncs the data before the clock",
+		"Should end the sync of data against stamps that no sync made durable, when one "+
+			"goroutine syncs the data before the clock",
 		func(ctx SpecContext) {
 			c := unsynced(ctx, 40, 41)
 			w := writer(ctx, 40)
