@@ -412,7 +412,12 @@ describe("proxies", () => {
     tunnels = [];
     refusal = null;
     vi.stubEnv("HTTP_PROXY", proxyURL);
+    vi.stubEnv("http_proxy", undefined);
     vi.stubEnv("NO_PROXY", "");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   const sendAndStream = async (secure: boolean, caCert?: string): Promise<void> => {
@@ -480,6 +485,48 @@ describe("proxies", () => {
     );
     expect(() => trustCA(ca)).toThrow("HTTP_PROXY is not a valid proxy URL");
   });
+
+  it.each(["proxy.example.com:3128", "localhost:3128"])(
+    "should name a proxy variable with no scheme: %s",
+    (value) => {
+      vi.stubEnv("HTTP_PROXY", value);
+      const config = { endpoint: plainEndpoint, codec: binary.JSON_CODEC };
+      expect(() => new HTTPClient(config)).toThrow(
+        `HTTP_PROXY is not a valid proxy URL: "${value}"`,
+      );
+    },
+  );
+
+  it("should use a lowercase proxy variable over an uppercase one", async () => {
+    vi.stubEnv("HTTP_PROXY", " ");
+    vi.stubEnv("http_proxy", proxyURL);
+    await sendAndStream(false);
+    const port = plainEndpoint.port.toString();
+    expect(tunnels).toEqual([port, port]);
+  });
+
+  it("should name an invalid lowercase proxy variable", () => {
+    vi.stubEnv("http_proxy", " ");
+    const config = { endpoint: plainEndpoint, codec: binary.JSON_CODEC };
+    expect(() => new HTTPClient(config)).toThrow(
+      'http_proxy is not a valid proxy URL: " "',
+    );
+  });
+
+  it("should connect directly when the lowercase proxy variable is empty", async () => {
+    vi.stubEnv("http_proxy", "");
+    await sendAndStream(false);
+    expect(tunnels).toEqual([]);
+  });
+
+  it.each(["Bun", "Deno"])(
+    "should leave the proxy to the runtime in %s",
+    async (name) => {
+      vi.stubGlobal(name, {});
+      await sendAndStream(false);
+      expect(tunnels).toEqual([]);
+    },
+  );
 
   it("should connect directly to a host in NO_PROXY", async () => {
     vi.stubEnv("NO_PROXY", "127.0.0.1");

@@ -134,11 +134,15 @@ const proxyVariables = (): Array<[string, string]> =>
     return value == null || value === "" ? [] : [[name, value]];
   });
 
+// URL reads the host of "host:port" as a scheme, so the protocol must be checked.
+const isProxyURL = (value: string): boolean =>
+  URL.canParse(value) && ["http:", "https:"].includes(new URL(value).protocol);
+
 const nodeConnector = (ca?: string): Connector => {
   // Undici throws for an invalid proxy URL only at the first connection, and without
   // the name of the variable.
   for (const [name, value] of proxyVariables())
-    if (!URL.canParse(value))
+    if (!isProxyURL(value))
       throw new Error(`${name} is not a valid proxy URL: "${value}"`);
   // Node's built-in fetch and WebSocket reject an Agent from the undici package, so
   // the connections use the package's own fetch and WebSocket. The import waits for
