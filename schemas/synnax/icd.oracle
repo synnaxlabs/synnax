@@ -589,6 +589,139 @@ ReadMessage struct {
     @pb omit
 }
 
+WriteValue union on type payload.Kind {
+    float {
+        value payload.Float {
+            @doc value "is the raw value, before scale and offset."
+        }
+
+        @doc value "is a fixed float."
+    }
+    integer {
+        value payload.Integer {
+            @doc value "is the raw value, before scale and offset."
+        }
+
+        @doc value "is a fixed signed integer."
+    }
+    unsigned {
+        value payload.Unsigned {
+            @doc value "is the raw value, before scale and offset."
+        }
+
+        @doc value "is a fixed unsigned integer."
+    }
+    string {
+        value string {
+            @doc value "is the string."
+        }
+
+        @doc value "is a fixed string."
+    }
+    boolean {
+        value bool {
+            @doc value "is the boolean."
+        }
+
+        @doc value "is a fixed boolean."
+    }
+    timestamp {
+        value telem.TimeStamp {
+            @doc value "is the timestamp."
+        }
+
+        @doc value "is a fixed timestamp."
+    }
+    json {
+        value string {
+            @doc value "is the JSON text of the value."
+        }
+
+        @doc value "is a fixed JSON value."
+    }
+    uuid {
+        value uuid {
+            @doc value "is the UUID."
+        }
+
+        @doc value "is a fixed UUID."
+    }
+    bytes {
+        value string {
+            @doc value "is the base64 text of the value."
+        }
+
+        @doc value "is fixed bytes."
+    }
+
+    @doc value  """
+        is a fixed value that a write binding sends as its field. Its type is the kind
+        of the field.
+    """
+    @go marshal
+    @pb omit
+}
+
+WriteBaseBinding struct {
+    field FieldKey {
+        @doc value "is the key of the message field to fill."
+    }
+
+    @doc value  "carries the parts every write binding shares."
+    @go marshal
+    @pb omit
+}
+
+WriteBinding union on type extends WriteBaseBinding {
+    channel {
+        channel   channel.Key = 0 {
+            @doc value     """
+                is the command channel whose values the field sends. 0 means that a
+                client creates the channel on configure.
+            """
+            @ref kind      use
+            @ref on_delete restrict
+        }
+        data_type telem.DataType? {
+            @doc value """
+                is the data type of the command channel that a client creates for the
+                field. Absent takes float64 for a scaled field and the default of the
+                field's kind for any other. The Core ignores it once the channel exists.
+            """
+            @ts type   "string"
+        }
+
+        @doc value "fills a field with the values of a command channel."
+    }
+    value {
+        value WriteValue {
+            @doc value "is the fixed value that the field sends."
+        }
+
+        @doc value "fills a field with a fixed value."
+    }
+
+    @doc value  "fills one message field with a command channel or a fixed value."
+    @go marshal
+    @pb omit
+}
+
+WriteMessage struct {
+    message  MessageKey     {
+        @doc value "is the key of the ICD message to send."
+    }
+    bindings WriteBinding[] = [] {
+        @doc value """
+            are the fields that command channels or fixed values fill. Each other field
+            sends its default.
+        """
+    }
+
+    @doc value  "sends one message of an ICD."
+    @go marshal
+    @pb omit
+}
+
 BinaryBaseField struct extends BaseField {
     start_bit        uint16 = 0 {
         @doc value """

@@ -10,6 +10,7 @@
 package checkpoint_test
 
 import (
+	"context"
 	"os"
 	"sync"
 
@@ -165,14 +166,29 @@ var _ = Describe("Part cache", func() {
 
 	It("Should keep a part with its dead marks when a read for its rewrite fails",
 		func() {
-			switchTo(2, withSealed(sealed(1, 10), sealed(2, 20), sealed(3, 30)))
+			// d is a checkpointer that the spec closes, since Close returns the error
+			// of
+			// the last head.
+			d := MustSucceed(checkpoint.New(checkpoint.Config{
+				FS:       fs,
+				DB:       db,
+				LogSize:  logSize,
+				Prepared: func(uint64, error) {},
+				Executor: goExec,
+				PartSize: 1,
+			}))
+			ran := make(chan error, 1)
+			go func() { ran <- d.Run(context.Background()) }()
+			d.Head(2, withSealed(sealed(1, 10), sealed(2, 20), sealed(3, 30)))
+			Eventually(func() error { return readErr(fs, 2) }).Should(Succeed())
 			flip(fs, partFile, checkpoint.BodyStart+10)
-			c.Head(3, withSealed(sealed(1, 10)))
+			d.Head(3, withSealed(sealed(1, 10)))
 			Eventually(func() error { return readErr(fs, 3) }).Should(Succeed())
-			Expect(c.Err()).To(And(
+			Expect(d.Close()).To(And(
 				MatchError(place.ErrCorrupt),
 				MatchError(ContainSubstring("of part 1 fails its check")),
 			))
+			Eventually(ran).Should(Receive(BeNil()))
 			h, _ := MustSucceed2(checkpoint.Read(fs, 3))
 			Expect(h.Parts).To(HaveLen(1))
 			Expect(h.Parts[0].ID).To(Equal(uint64(1)))

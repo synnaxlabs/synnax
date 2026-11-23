@@ -17,6 +17,9 @@ export const MAKE = "LabJack";
 
 /** The name a rack lists in its integrations when its Driver runs this one. */
 export const INTEGRATION_KEY = "labjack";
+
+export const SCAN_TYPE = "labjack_scan";
+
 export const makeZ = z.literal(MAKE);
 
 export const T4_MODEL = "LJM_dtT4";

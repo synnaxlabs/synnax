@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { color, table } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color as xcolor, id, TimeSpan } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -33,39 +34,48 @@ class CapturingValue extends aether.Leaf<typeof valueState> {
   }
 }
 
+const renderValue = (config: Partial<table.ValueCellConfig>): void => {
+  const [workerSide, mainSide] = aether.createMockPair();
+  aether.render({
+    worker: workerSide,
+    registry: { [CapturingValue.TYPE]: CapturingValue },
+  });
+  render(
+    <Aether.Provider worker={mainSide}>
+      <table>
+        <tbody>
+          <tr>
+            <Cell.Value
+              {...table.valueCellConfigZ.parse({ variant: "value", ...config })}
+              cellKey="c1"
+              box={box.construct(0, 0, 100, 20)}
+              selected={false}
+              editable={false}
+              onSelect={vi.fn()}
+              onChange={vi.fn()}
+            />
+          </tr>
+        </tbody>
+      </table>
+    </Aether.Provider>,
+  );
+};
+
 describe("Cells.Value", () => {
   it("should send its staleness timeout to the worker in nanoseconds", async () => {
-    const [workerSide, mainSide] = aether.createMockPair();
-    aether.render({
-      worker: workerSide,
-      registry: { [CapturingValue.TYPE]: CapturingValue },
-    });
-    render(
-      <Aether.Provider worker={mainSide}>
-        <table>
-          <tbody>
-            <tr>
-              <Cell.Value
-                {...table.valueCellConfigZ.parse({
-                  variant: "value",
-                  stalenessTimeout: 2,
-                })}
-                cellKey="c1"
-                box={box.construct(0, 0, 100, 20)}
-                selected={false}
-                editable={false}
-                onSelect={vi.fn()}
-                onChange={vi.fn()}
-              />
-            </tr>
-          </tbody>
-        </table>
-      </Aether.Provider>,
-    );
+    renderValue({ stalenessTimeout: 2 });
     await waitFor(() =>
       expect(CapturingValue.states.at(-1)?.stalenessTimeout).toBe(
         Number(TimeSpan.seconds(2).valueOf()),
       ),
+    );
+  });
+
+  it("should send the theme warning color with no staleness color", async () => {
+    renderValue({});
+    const { warning } = theme.themeZ.parse(theme.SYNNAX_LIGHT).colors;
+    await waitFor(() =>
+      expect(CapturingValue.states.at(-1)?.stalenessColor).toEqual(warning.m1),
     );
   });
 
@@ -75,7 +85,6 @@ describe("Cells.Value", () => {
       client,
       additionalRegistry: { [CapturingValue.TYPE]: CapturingValue },
     });
-    await waitForStreamLive(client.connection);
     const [text, fill, stale] = await Promise.all(
       ["#111111", "#222222", "#333333"].map(
         async (light) =>
@@ -146,7 +155,6 @@ describe("Cells.Text", () => {
   it("should fill with its named color and repaint when the color changes", async () => {
     const client = createTestClient();
     const wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
     const named = await client.colors.create({
       name: `fill-${id.create()}`,
       light: "#123456",

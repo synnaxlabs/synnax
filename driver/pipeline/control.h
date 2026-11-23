@@ -42,6 +42,11 @@ public:
     /// before its Core half, as the bypass streamer does while the Core is unreachable.
     virtual void opened() {}
 
+    /// @brief called when the Core dropped commands because the pipeline fell behind.
+    /// The dropped commands never reach write(). It can run on a thread other than the
+    /// pipeline thread, so it must be thread safe.
+    virtual void missed() {}
+
     virtual ~Sink() = default;
 };
 

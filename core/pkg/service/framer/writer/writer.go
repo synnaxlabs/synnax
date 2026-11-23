@@ -86,7 +86,9 @@ type Writer struct {
 
 // Write writes the given frame to the cluster, returning whether the write was
 // authorized. When the writer was opened with Sync set to false, authorization failures
-// are only surfaced on Commit or Close.
+// are only surfaced on Commit or Close. The writer sets the alignment of each series in
+// frame and can set its time range, possibly after Write returns, so the caller must
+// not use frame again. Pass a ShallowCopy to keep using it.
 func (w *Writer) Write(frame frame.Frame) (authorized bool, err error) {
 	res, err := w.exec(Request{Frame: frame, Command: CommandWrite}, *w.cfg.Sync)
 	if err != nil {

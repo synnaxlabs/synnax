@@ -24,7 +24,7 @@ var _ = Describe("Skips", func() {
 		start time.Time
 	)
 	BeforeEach(func() {
-		s = driver.NewSkips("record")
+		s = driver.NewSkips("record", driver.SkipHold)
 		start = time.Unix(1_000, 0)
 	})
 

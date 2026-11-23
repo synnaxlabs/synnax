@@ -112,7 +112,7 @@ var _ = Describe("Check: a crash in a switch that writes parts", func() {
 				Executor: goExec,
 				PartSize: 1,
 			}))
-			start(c)
+			stop := running(c)
 			// Head 2 writes part 1. Head 3 writes part 1 again as part 2, since two of
 			// its three segments are dead. Head 4 removes head 2 and part 1.
 			want := map[uint64][]uint64{
@@ -127,7 +127,7 @@ var _ = Describe("Check: a crash in a switch that writes parts", func() {
 				c.Head(g, snapshots[g])
 				Eventually(func() error { return readErr(disk, g) }).Should(Succeed())
 			}
-			Expect(c.Err()).ToNot(HaveOccurred())
+			Expect(stop()).To(Succeed())
 			im.mu.Lock()
 			defer im.mu.Unlock()
 			var failures []string

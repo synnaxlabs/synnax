@@ -9,45 +9,50 @@
 
 import { describe, expect, it } from "vitest";
 
-import { desugar, sugar } from "@/sugar";
+import { MAIN_WINDOW, setWindowTitle, type StoreState } from "@/index";
+import { configureMockStore, MockRuntime } from "@/testutil";
+
+const title = (
+  store: Awaited<ReturnType<typeof configureMockStore>>,
+): string | undefined => store.getState().drift.windows[MAIN_WINDOW].title;
 
 describe("sugar", () => {
-  describe("sugar", () => {
-    it("should sugar the provided action correctly", () => {
-      const a = {
-        type: "myReducer/myAction",
-        payload: {},
-      };
-      const v = sugar(a, "1");
-      expect(v).toEqual({
-        type: "DA@1://myReducer/myAction",
-        payload: {},
-      });
-    });
+  it("should apply an action that another window emits", async () => {
+    const runtime = new MockRuntime<StoreState>(true, { key: MAIN_WINDOW });
+    const store = await configureMockStore(runtime);
+    runtime.subscribeCallback({ action: setWindowTitle({ title: "a" }), emitter: "b" });
+    expect(title(store)).toEqual("a");
   });
-  describe("desugar", () => {
-    it("should desugar a sugared action into its components", () => {
-      const a = {
-        type: "DA@1://myReducer/myAction",
-        payload: {},
-      };
-      const { emitted, emitter, action } = desugar(a);
-      expect(emitted).toBeTruthy();
-      expect(emitter).toBe("1");
-      expect(action).toEqual({
-        type: "myReducer/myAction",
-        payload: {},
-      });
+
+  it("should not emit an action that another window emitted", async () => {
+    const runtime = new MockRuntime<StoreState>(true, { key: MAIN_WINDOW });
+    const store = await configureMockStore(runtime);
+    runtime.subscribeCallback({ action: setWindowTitle({ title: "a" }), emitter: "b" });
+    // Drift emits in dispatch order, so the later local action marks the end.
+    store.dispatch(setWindowTitle({ title: "c" }));
+    const titles = (): unknown[] =>
+      runtime.emissions.map((e) => (e.action?.payload as { title?: string })?.title);
+    await expect.poll(titles).toContain("c");
+    expect(titles()).not.toContain("a");
+  });
+
+  it("should ignore an action that returns to the window that emitted it", async () => {
+    const runtime = new MockRuntime<StoreState>(true, { key: MAIN_WINDOW });
+    const store = await configureMockStore(runtime);
+    runtime.subscribeCallback({
+      action: setWindowTitle({ title: "a" }),
+      emitter: MAIN_WINDOW,
     });
-    it("should not desugar an action that is not sugared", () => {
-      const a = {
-        type: "myReducer/myAction",
-        payload: {},
-      };
-      const { emitted, emitter, action } = desugar(a);
-      expect(emitted).toBeFalsy();
-      expect(emitter).toBeFalsy();
-      expect(action).toEqual(a);
-    });
+    expect(title(store)).toBeUndefined();
+  });
+
+  it("should emit a local action to other windows without the window prefix", async () => {
+    const runtime = new MockRuntime<StoreState>(true, { key: MAIN_WINDOW });
+    const store = await configureMockStore(runtime);
+    const action = setWindowTitle({ title: "a" });
+    store.dispatch(action);
+    await expect
+      .poll(() => runtime.emissions.map((e) => e.action?.type))
+      .toContain(action.type);
   });
 });

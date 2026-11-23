@@ -11,7 +11,7 @@ import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { latestSample } from "@/vis/latestSample/aether";
 
 const START = TimeStamp.seconds(1000);

@@ -10,13 +10,16 @@
 package cesium
 
 import (
+	"cmp"
 	"context"
 	"encoding/binary"
 	"slices"
+	"sort"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -117,12 +120,15 @@ func (e *engine) cutAt(
 	left bool,
 ) (*log.Cut, error) {
 	p := edge.Pointer
-	stamps, err := e.stamps(clock, p.Alignment, p.Samples)
+	c, err := e.openStamps(clock, p.Alignment, p.Samples)
 	if err != nil {
 		return nil, err
 	}
-	k, _ := slices.BinarySearch(stamps, at)
-	if k == 0 || k == len(stamps) {
+	k, stamp, err := c.search(at, left)
+	if err = errors.Join(err, c.close()); err != nil {
+		return nil, err
+	}
+	if k == 0 || k == int(p.Samples) {
 		return nil, errors.Newf(
 			"stamps of segment %d of key %d do not hold %d inside its pointer",
 			edge.Segment.ID,
@@ -138,10 +144,6 @@ func (e *engine) cutAt(
 	} else {
 		offset = p.Offset + uint32(dt.Density().Size(int64(k)))
 	}
-	stamp := stamps[k]
-	if left {
-		stamp = stamps[k-1]
-	}
 	return &log.Cut{
 		Segment:   edge.Segment.ID,
 		Offset:    offset,
@@ -150,20 +152,46 @@ func (e *engine) cutAt(
 	}, nil
 }
 
-// stamps returns the stamps of the samples samples of clock from alignment on, which
-// the pointers of clock at the same domain hold.
-func (e *engine) stamps(
+// stampSpan is the run of stamps of a stampReader that one pointer of the clock holds:
+// those of samples lo to below hi, the first at stream offset off of seg.
+type stampSpan struct {
+	seg    state.Segment
+	lo, hi int
+	off    int64
+}
+
+// stampReader reads the stamps of samples of a clock for a search by time. It reads one
+// block of the clock at a time and keeps the last one, so a search reads a few blocks,
+// not every stamp.
+type stampReader struct {
+	e       *engine
+	clock   ChannelKey
+	samples int
+	spans   []stampSpan
+	// h is the handle of segment hSeg. buf holds stream bytes of span from stream
+	// offset
+	// from, or nothing when span is -1.
+	h    *segment.Handle
+	hSeg uint64
+	span int
+	from int64
+	buf  []byte
+}
+
+// openStamps returns the reader of the stamps of samples samples of clock from
+// alignment on, which the pointers of clock at the same domain hold. The caller closes
+// it.
+func (e *engine) openStamps(
 	clock ChannelKey,
 	alignment telem.Alignment,
 	samples uint32,
-) ([]telem.TimeStamp, error) {
-	out := make([]telem.TimeStamp, samples)
-	from, found := alignment.SampleIndex(), uint32(0)
+) (*stampReader, error) {
 	ch := e.state.Channel(clock)
 	if ch == nil {
 		return nil, errors.Newf("clock %d holds no stamps", clock)
 	}
-	var b []byte
+	r := &stampReader{e: e, clock: clock, samples: int(samples), span: -1}
+	from, found := alignment.SampleIndex(), uint32(0)
 	for _, seg := range ch.Segments {
 		for _, q := range seg.Pointers {
 			if q.Alignment.DomainIndex() != alignment.DomainIndex() {
@@ -174,14 +202,12 @@ func (e *engine) stamps(
 			if lo >= hi {
 				continue
 			}
-			b = slices.Grow(b[:0], int(hi-lo)*8)[:int(hi-lo)*8]
-			off := int64(q.Offset) + int64(lo-q.Alignment.SampleIndex())*8
-			if err := e.readSegment(clock, seg, b, off); err != nil {
-				return nil, err
-			}
-			for i := range hi - lo {
-				out[lo-from+i] = telem.TimeStamp(binary.LittleEndian.Uint64(b[8*i:]))
-			}
+			r.spans = append(r.spans, stampSpan{
+				seg: seg,
+				lo:  int(lo - from),
+				hi:  int(hi - from),
+				off: int64(q.Offset) + int64(lo-q.Alignment.SampleIndex())*8,
+			})
 			found += hi - lo
 		}
 	}
@@ -189,46 +215,121 @@ func (e *engine) stamps(
 		return nil, errors.Newf("clock %d holds %d of the %d stamps from alignment %d",
 			clock, found, samples, uint64(alignment))
 	}
-	return out, nil
+	slices.SortFunc(
+		r.spans,
+		func(a, b stampSpan) int { return cmp.Compare(a.lo, b.lo) },
+	)
+	return r, nil
+}
+
+// search returns k, the index of the first stamp at or after at, by a binary search
+// that reads one block at each step that leaves the block it holds. It also returns
+// the stamp at k-1 when left is true, and the stamp at k otherwise, or zero when that
+// index holds no stamp.
+func (r *stampReader) search(
+	at telem.TimeStamp,
+	left bool,
+) (int, telem.TimeStamp, error) {
+	var err error
+	n := r.samples
+	k := sort.Search(n, func(i int) bool {
+		if err != nil {
+			return true
+		}
+		var stamp telem.TimeStamp
+		stamp, err = r.at(i)
+		return err != nil || stamp >= at
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+	i := k
+	if left {
+		i = k - 1
+	}
+	if i < 0 || i >= n {
+		return k, 0, nil
+	}
+	stamp, err := r.at(i)
+	return k, stamp, err
+}
+
+// at returns the stamp of sample i.
+func (r *stampReader) at(i int) (telem.TimeStamp, error) {
+	s, _ := slices.BinarySearchFunc(r.spans, i, func(sp stampSpan, i int) int {
+		if i >= sp.hi {
+			return -1
+		}
+		if i < sp.lo {
+			return 1
+		}
+		return 0
+	})
+	off := r.spans[s].off + int64(i-r.spans[s].lo)*8
+	if s != r.span || off < r.from || off+8 > r.from+int64(len(r.buf)) {
+		if err := r.load(s, off); err != nil {
+			return 0, err
+		}
+	}
+	return telem.TimeStamp(binary.LittleEndian.Uint64(r.buf[off-r.from:])), nil
+}
+
+// load reads the bytes of span s in the block of stream offset off, and the rest of
+// the stamp at off when it crosses the end of that block.
+func (r *stampReader) load(s int, off int64) error {
+	sp := r.spans[s]
+	if r.h == nil || r.hSeg != sp.seg.ID {
+		if err := r.close(); err != nil {
+			return err
+		}
+		r.h = r.e.budget.Open(r.e.fs, segmentName(r.clock, sp.seg.ID))
+		r.hSeg = sp.seg.ID
+	}
+	start := off - off%segment.BlockSize
+	from := max(start, sp.off)
+	to := min(max(start+segment.BlockSize, off+8), sp.off+int64(sp.hi-sp.lo)*8)
+	r.buf = slices.Grow(r.buf[:0], int(to-from))[:to-from]
+	r.span = -1
+	if err := r.e.segmentConfig(sp.seg).ReadAt(r.h, r.buf, from); err != nil {
+		return err
+	}
+	r.span, r.from = s, from
+	return nil
+}
+
+// close closes the handle of the segment that r reads.
+func (r *stampReader) close() error {
+	if r.h == nil {
+		return nil
+	}
+	h := r.h
+	r.h = nil
+	return h.Close()
 }
 
 // variableOffset returns the stream offset of sample k of the pointer of edge, whose
-// samples each hold a uint32 length and then that many bytes.
+// samples each hold a uint32 length and then that many bytes. It reads the trailers of
+// a few blocks, not the whole pointer.
 func (e *engine) variableOffset(
 	key ChannelKey,
 	edge *state.Edge,
 	k int,
 ) (uint32, error) {
 	p := edge.Pointer
-	b := make([]byte, p.Length)
-	if err := e.readSegment(key, edge.Segment, b, int64(p.Offset)); err != nil {
+	h := e.budget.Open(e.fs, segmentName(key, edge.Segment.ID))
+	at, err := e.segmentConfig(edge.Segment).SeekFrom(
+		h,
+		make([]byte, segment.BlockSize),
+		int64(p.Offset),
+		uint32(k),
+		int64(edge.Segment.Length),
+	)
+	if err = errors.Join(err, h.Close()); err != nil {
 		return 0, err
 	}
-	var at uint32
-	for range k {
-		if int(at)+4 > len(b) {
-			return 0, errors.Newf(
-				"pointer of segment %d of key %d ends inside a sample",
-				edge.Segment.ID,
-				key,
-			)
-		}
-		at += 4 + binary.LittleEndian.Uint32(b[at:])
-	}
-	if at >= p.Length {
+	if at >= int64(p.Offset)+int64(p.Length) {
 		return 0, errors.Newf("pointer of segment %d of key %d ends inside a sample",
 			edge.Segment.ID, key)
 	}
-	return p.Offset + at, nil
-}
-
-// readSegment reads len(b) stream bytes at off of segment seg of key.
-func (e *engine) readSegment(
-	key ChannelKey,
-	seg state.Segment,
-	b []byte,
-	off int64,
-) error {
-	h := e.budget.Open(e.fs, segmentName(key, seg.ID))
-	return errors.Join(e.segmentConfig(seg).ReadAt(h, b, off), h.Close())
+	return uint32(at), nil
 }

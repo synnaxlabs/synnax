@@ -23,3 +23,5 @@ export const spec: Spec<"cross_junction", schematic.CrossJunctionNodeConfig> = {
   Preview: CrossJunction,
   zIndex: 24,
 };
+
+export { SYMBOL } from "@/schematic/node/vessels/crossJunction/Primitive";

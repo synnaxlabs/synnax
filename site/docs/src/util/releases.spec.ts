@@ -18,6 +18,7 @@ import {
   type Release,
   Releases,
   tag,
+  train,
 } from "@/util/releases";
 
 const release = (
@@ -54,6 +55,13 @@ describe("releases", () => {
       expect(manifestURL("desktop", "1.2.0")).toEqual(
         "https://github.com/synnaxlabs/synnax/releases/download/desktop/v1.2.0/latest.json",
       );
+    });
+  });
+
+  describe("train", () => {
+    it("should keep the major and minor version", () => {
+      expect(train("0.61.4")).toEqual("0.61");
+      expect(train("1.0.0-rc.1")).toEqual("1.0");
     });
   });
 
@@ -285,6 +293,39 @@ describe("releases", () => {
       await expect(releases.documented("core")).rejects.toThrow(
         "GitHub lists no stable core release on train 0.59",
       );
+    });
+
+    describe("previous", () => {
+      const listing = [
+        release("core/v0.62.1"),
+        release("core/v0.61.4"),
+        release("core/v0.61.0"),
+        release("core/v0.59.2"),
+        release("core/v0.63.0-rc.1", true),
+      ];
+
+      it("should return the newest release on the train before the newest", async () => {
+        const releases = new Releases({ fetch: vi.fn(async () => respond(listing)) });
+        expect(await releases.previous("core")).toEqual("0.61.4");
+      });
+
+      it("should skip a train with no stable release", async () => {
+        const releases = new Releases({
+          fetch: vi.fn(async () => respond(listing)),
+          train: "0.61",
+        });
+        expect(await releases.previous("core")).toEqual("0.59.2");
+      });
+
+      it("should throw when no earlier train has a release", async () => {
+        const releases = new Releases({
+          fetch: vi.fn(async () => respond(listing)),
+          train: "0.59",
+        });
+        await expect(releases.previous("core")).rejects.toThrow(
+          "GitHub lists no stable core release before 0.59",
+        );
+      });
     });
 
     it("should throw when the product has no release", async () => {

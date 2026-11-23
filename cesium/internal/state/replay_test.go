@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/set"
@@ -54,14 +55,10 @@ var _ = Describe("Config", func() {
 		func(change func(*state.Config), field string) {
 			cfg := config(&appended{})
 			change(&cfg)
-			Expect(cfg.Validate()).To(SatisfyAll(
+			Expect(state.Open(cfg, head(1, 1))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(field)),
 			))
-			Expect(
-				state.Open(cfg, head(1, 1)),
-			).Error().
-				To(MatchError(validate.ErrValidation))
 		},
 		Entry("a version it does not read", func(c *state.Config) { c.Version = 2 },
 			"versions"),
@@ -83,56 +80,56 @@ var _ = Describe("Load", func() {
 
 	DescribeTable(
 		"Should refuse a head whose values break a rule",
-		func(change func(*state.Snapshot), wraps error, msg string) {
+		func(change func(*state.Snapshot), wraps types.GomegaMatcher, msg string) {
 			h := sample()
 			change(h)
 			Expect(state.Open(config(&appended{}), h)).Error().To(SatisfyAll(
-				MatchError(wraps),
+				wraps,
 				MatchError(ContainSubstring(msg)),
 			))
 		},
 		Entry("an alignment number limit above stored data", func(h *state.Snapshot) {
 			h.Limits.Alignments = 1<<31 + 1
-		}, state.ErrRefused, "alignment number limit 2147483649"),
+		}, refused(), "alignment number limit 2147483649"),
 		Entry("segment 0", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].ID = 0
-		}, state.ErrRefused, "head names segment 0"),
+		}, refused(), "head names segment 0"),
 		Entry("a segment at the limit", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].ID = 20
-		}, state.ErrRefused, "segment 20, not from 1 to below the limit 20"),
+		}, refused(), "segment 20, not from 1 to below the limit 20"),
 		Entry("a segment in two keys", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].ID = 2
-		}, state.ErrRefused, "head names segment 2 twice"),
+		}, refused(), "head names segment 2 twice"),
 		Entry("a sealed segment with no pointer", func(h *state.Snapshot) {
 			seg := &h.Channels[1].Segments[0]
 			seg.Sealed, seg.Pointers = true, nil
-		}, state.ErrRefused, "head names segment 3, sealed with no pointer"),
+		}, refused(), "head names segment 3, sealed with no pointer"),
 		Entry("a version this binary does not read", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].Version = 2
-		}, log.ErrUnknown, "segment 3 has format version 2"),
+		}, MatchError(log.ErrUnknown), "segment 3 has format version 2"),
 		Entry("a pointer of no samples", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].Pointers[0].Samples = 0
-		}, state.ErrRefused, "a pointer of 0 samples"),
+		}, refused(), "a pointer of 0 samples"),
 		Entry("fewer bytes than samples", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].Pointers[0].Length = 2
-		}, state.ErrRefused, "a pointer of 3 samples in 2 bytes"),
+		}, refused(), "a pointer of 3 samples in 2 bytes"),
 		Entry("a first stamp after the last", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].Pointers[0].First = 31
-		}, state.ErrRefused, "from 31 to 30"),
+		}, refused(), "from 31 to 30"),
 		Entry("one sample with two stamps", func(h *state.Snapshot) {
 			p := &h.Channels[1].Segments[0].Pointers[0]
 			p.Samples, p.Length = 1, 4
-		}, state.ErrRefused, "a pointer of 1 samples in 4 bytes from 10 to 30"),
+		}, refused(), "a pointer of 1 samples in 4 bytes from 10 to 30"),
 		Entry("pointers that share stream bytes", func(h *state.Snapshot) {
 			seg := &h.Channels[0].Segments[1]
 			seg.Pointers = append(seg.Pointers, pointer(3, 0, 60, 70, 8, 8, 2))
-		}, state.ErrRefused, "a pointer at 8, before the end 16"),
+		}, refused(), "a pointer at 8, before the end 16"),
 		Entry("alignment number 0", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].Pointers[0] = pointer(0, 0, 10, 30, 0, 12, 3)
-		}, state.ErrRefused, "with alignment 0 of 3 samples"),
+		}, refused(), "with alignment 0 of 3 samples"),
 		Entry("an alignment number at the limit", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].Pointers[0] = pointer(10, 0, 10, 30, 0, 12, 3)
-		}, state.ErrRefused, "with alignment 42949672960"),
+		}, refused(), "with alignment 42949672960"),
 		Entry("a sample index past its stretch", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].Pointers[0] = pointer(
 				1,
@@ -143,13 +140,13 @@ var _ = Describe("Load", func() {
 				12,
 				3,
 			)
-		}, state.ErrRefused, "of 3 samples"),
+		}, refused(), "of 3 samples"),
 		Entry("a pointer past the length", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].Length = 11
-		}, state.ErrRefused, "segment 3 has a pointer past its length 11"),
+		}, refused(), "segment 3 has a pointer past its length 11"),
 		Entry("pointers of one key that overlap", func(h *state.Snapshot) {
 			h.Channels[0].Segments[1].Pointers[0] = pointer(2, 0, 30, 50, 0, 16, 2)
-		}, state.ErrRefused, "key 5 has pointers that overlap at 30"),
+		}, refused(), "key 5 has pointers that overlap at 30"),
 	)
 })
 
@@ -251,7 +248,7 @@ var _ = Describe("Replay", func() {
 			commit(1, 3, 0, 32, 32, slot(4, 20)),
 			commit(1, 4, 0, 32, 32, slot(4, 24)),
 		)).To(SatisfyAll(
-			MatchError(state.ErrRefused),
+			refused(),
 			MatchError(
 				ContainSubstring("from 32 to 32 overlaps its pointer from 32 to "+
 					"32"),
@@ -273,73 +270,82 @@ var _ = Describe("Replay", func() {
 
 	DescribeTable(
 		"Should refuse a record that breaks a rule",
-		func(r log.Record, wraps error, msg string) {
+		func(r log.Record, wraps types.GomegaMatcher, msg string) {
 			Expect(replay(r)).To(SatisfyAll(
-				MatchError(wraps),
+				wraps,
 				MatchError(ContainSubstring(msg)),
 			))
 		},
 		Entry("a reserve above stored data", &log.Reserve{
 			Segments:   20,
 			Alignments: 1<<31 + 1,
-		}, state.ErrRefused, "alignment number limit 2147483649"),
+		}, refused(), "alignment number limit 2147483649"),
 		Entry("a reserve below the limits", &log.Reserve{Segments: 19, Alignments: 10},
-			state.ErrRefused, "reserve of limits 19 and 10, below 20 and 10"),
-		Entry("a create of segment 0", create(0, 9, 5), state.ErrRefused,
+			refused(), "reserve of limits 19 and 10, below 20 and 10"),
+		Entry("a create of segment 0", create(0, 9, 5), refused(),
 			"create of segment 0"),
-		Entry("a create at the limit", create(20, 9, 5), state.ErrRefused,
+		Entry("a create at the limit", create(20, 9, 5), refused(),
 			"create of segment 20, not from 1 to below the limit 20"),
-		Entry("a create of a segment that exists", create(3, 9, 5), state.ErrRefused,
+		Entry("a create of a segment that exists", create(3, 9, 5), refused(),
 			"create of segment 3, which exists"),
-		Entry("a create of a version this binary does not read",
-			&log.Create{Segment: 7, Key: 9, Clock: 5, Version: 2}, log.ErrUnknown,
-			"segment 7 has format version 2"),
-		Entry("a commit with no slot", commit(1, 3, 0, 60, 60), state.ErrRefused,
+		Entry(
+			"a create of a version this binary does not read",
+			&log.Create{
+				Segment: 7,
+				Key:     9,
+				Clock:   5,
+				Version: 2,
+			},
+			MatchError(log.ErrUnknown),
+			"segment 7 has format version 2",
+		),
+		Entry("a commit with no slot", commit(1, 3, 0, 60, 60), refused(),
 			"commit with no slot"),
 		Entry("a commit of no samples", commit(0, 3, 0, 60, 60, slot(4, 20)),
-			state.ErrRefused, "commit of 0 samples"),
+			refused(), "commit of 0 samples"),
 		Entry("a commit that ends before it starts", commit(2, 3, 0, 60, 59,
-			slot(4, 20)), state.ErrRefused, "commit of 2 samples from 60 to 59"),
+			slot(4, 20)), refused(), "commit of 2 samples from 60 to 59"),
 		Entry("one sample with two stamps", commit(1, 3, 0, 60, 61, slot(4, 20)),
-			state.ErrRefused, "commit of 1 samples from 60 to 61"),
+			refused(), "commit of 1 samples from 60 to 61"),
 		Entry("alignment number 0", commit(1, 0, 0, 60, 60, slot(4, 20)),
-			state.ErrRefused, "alignment number 0"),
+			refused(), "alignment number 0"),
 		Entry("an alignment number at the limit", commit(1, 10, 0, 60, 60, slot(4, 20)),
-			state.ErrRefused, "alignment number 10, not from 1 to below the limit 10"),
+			refused(), "alignment number 10, not from 1 to below the limit 10"),
 		Entry("a sample index past its stretch", commit(2, 3, 1<<32-1, 60, 61,
-			slot(4, 20)), state.ErrRefused, "commit of 2 samples from sample index"),
+			slot(4, 20)), refused(), "commit of 2 samples from sample index"),
 		Entry("slots out of order", commit(1, 3, 0, 60, 60, slot(4, 20), slot(3, 16)),
-			state.ErrRefused, "slot 1 names segment 3, not above segment 4"),
+			refused(), "slot 1 names segment 3, not above segment 4"),
 		Entry("a segment no create made", commit(1, 3, 0, 60, 60, slot(11, 4)),
-			state.ErrRefused, "names segment 11, which no create made"),
+			refused(), "names segment 11, which no create made"),
 		Entry("a sealed segment", commit(1, 3, 0, 60, 60, slot(2, 28)),
-			state.ErrRefused, "names segment 2, which is sealed"),
+			refused(), "names segment 2, which is sealed"),
 		Entry("a length that does not grow", commit(1, 3, 0, 60, 60, slot(4, 16)),
-			state.ErrRefused, "gives segment 4 length 16, not above 16"),
+			refused(), "gives segment 4 length 16, not above 16"),
 		Entry("a commit over stored data", commit(1, 3, 0, 45, 45, slot(4, 20)),
-			state.ErrRefused, "commit of key 5 from 45 to 45 overlaps its pointer"),
+			refused(), "commit of key 5 from 45 to 45 overlaps its pointer"),
 		Entry("a commit whose stamps go back inside its stretch",
-			commit(1, 2, 2, 35, 35, slot(4, 20)), state.ErrRefused,
+			commit(1, 2, 2, 35, 35, slot(4, 20)), refused(),
 			"commit of key 5 at 35 goes back inside its stretch, which reaches 50"),
 		Entry("a commit of fewer bytes than samples",
-			commit(4, 3, 0, 60, 70, slot(4, 18)), state.ErrRefused,
+			commit(4, 3, 0, 60, 70, slot(4, 18)), refused(),
 			"segment 4 of key 5 has a pointer of 4 samples in 2 bytes"),
 		Entry("a seal of a segment no create made", &log.Seal{Segment: 11},
-			state.ErrRefused, "seal of segment 11, which no create made"),
+			refused(), "seal of segment 11, which no create made"),
 		Entry("a seal of a sealed segment", &log.Seal{
 			Segment: 2, Length: 24,
 			TailCRC: 1,
-		}, state.ErrRefused, "seal of segment 2, which is sealed"),
+		}, refused(), "seal of segment 2, which is sealed"),
 		Entry("a seal at another length", &log.Seal{Segment: 4, Length: 12, TailCRC: 2},
-			state.ErrRefused, "seal of segment 4 at length 12"),
+			refused(), "seal of segment 4 at length 12"),
 		Entry("a seal with another tail", &log.Seal{Segment: 4, Length: 16, TailCRC: 9},
-			state.ErrRefused, "seal of segment 4 at length 16 and tail 0x9"),
+			refused(), "seal of segment 4 at length 16 and tail 0x9"),
 		Entry("a drop of a clock that a kept segment names", &log.Drop{Key: 5},
-			state.ErrRefused, "drop of key 5, the clock of segment 3 of key 6"),
+			refused(), "drop of key 5, the clock of segment 3 of key 6"),
 		Entry("a clear of a key with no intent", &log.Intent{Key: 9, Cleared: true},
-			state.ErrRefused, "intent of key 9 cleared, but it has none"),
-		Entry("a replace", &log.Replace{Old: 2, New: 5}, log.ErrUnknown, "Replace"),
-		Entry("a check", &log.Check{Segment: 2}, log.ErrUnknown, "Check"),
+			refused(), "intent of key 9 cleared, but it has none"),
+		Entry("a replace", &log.Replace{Old: 2, New: 5}, MatchError(log.ErrUnknown),
+			"Replace"),
+		Entry("a check", &log.Check{Segment: 2}, MatchError(log.ErrUnknown), "Check"),
 	)
 
 	It("Should refuse a commit that names segments of two clocks", func() {

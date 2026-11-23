@@ -33,7 +33,7 @@ import {
   rawKey,
   split,
 } from "@/framer/cache/block";
-import { tileRange, tiles } from "@/framer/cache/grid";
+import { grid } from "@/framer/cache/grid";
 import type { Store } from "@/framer/cache/store";
 import type { Frame } from "@/framer/frame";
 
@@ -136,7 +136,7 @@ export class Reader {
    */
   async fill(tr: TimeRange, ch: channel.Key): Promise<void> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
-    const blocks = tiles(tr, RAW_LEVEL).map((i) => this.props.store.raw(ch, i));
+    const blocks = grid.tiles(tr, RAW_LEVEL).map((i) => this.props.store.raw(ch, i));
     const waits: Array<Promise<void>> = [];
     for (const b of blocks) {
       if (b.covers(tr)) continue;
@@ -288,7 +288,7 @@ export class Reader {
     // it ran, and null when every channel's did.
     const rewritten = new Set<channel.Key | null>();
     const span = new TimeRange(
-      tileRange({ level: RAW_LEVEL, tile: first }).start,
+      grid.tileRange({ level: RAW_LEVEL, tile: first }).start,
       tr.end,
     );
     const stopWatching = store.onInvalidate((ch, changed) => {

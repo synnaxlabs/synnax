@@ -64,12 +64,7 @@ func start(c *checkpoint.Checkpointer) {
 	ran := make(chan error, 1)
 	go func() { ran <- c.Run(ctx) }()
 	DeferCleanup(func() {
-		err := c.Err()
-		if err != nil {
-			Expect(c.Close()).To(MatchError(err))
-		} else {
-			Expect(c.Close()).To(Succeed())
-		}
+		Expect(c.Close()).To(Succeed())
 		Eventually(ran).Should(Receive(BeNil()))
 		cancel()
 	})
@@ -150,12 +145,11 @@ var _ = Describe("Checkpointer", func() {
 					Expect(s.Sequence).To(Equal(sample(2).Sequence))
 					Expect(exists(checkpoint.Name(1))).To(BeTrue())
 					c.Head(3, sample(2))
-					// Clean removes the head before the log, so wait for both.
+					// The clean removes the head before the log, so wait for both.
 					Eventually(func() bool {
 						return exists(checkpoint.Name(1)) || exists(log.Name(1))
 					}).WithTimeout(fileTimeout).Should(BeFalse())
 					Expect(exists(checkpoint.Name(2))).To(BeTrue())
-					Expect(c.Err()).ToNot(HaveOccurred())
 				},
 			)
 
@@ -171,35 +165,33 @@ var _ = Describe("Checkpointer", func() {
 				)
 				Expect(leftover.Close()).To(Succeed())
 				c.Head(2, sample(2))
-				Eventually(c.Err).
-					WithTimeout(fileTimeout).
-					Should(MatchError(ContainSubstring("exists")))
-				Expect(readErr(fs, 2)).To(MatchError(checkpoint.ErrIncomplete))
-				Expect(exists(log.Name(1))).To(BeTrue())
 				c.Head(3, sample(2))
 				Eventually(func() error { return readErr(fs, 3) }).
 					WithTimeout(fileTimeout).
 					Should(Succeed())
-				Eventually(c.Err).WithTimeout(fileTimeout).Should(Succeed())
+				Expect(readErr(fs, 2)).To(MatchError(checkpoint.ErrIncomplete))
 				Expect(exists(checkpoint.Name(1))).To(BeTrue(), "the newest older head")
 				Expect(exists(log.Name(1))).To(BeTrue())
 			})
 
-			It("Should refuse the file of a next log when the root holds MaxLogs "+
-				"logs", func() {
-				for g := range uint64(checkpoint.MaxLogs) {
-					f := MustSucceed(fs.Open(log.Name(g+1), os.O_CREATE|os.O_RDWR))
-					Expect(f.Close()).To(Succeed())
-				}
-				c.Prepare(checkpoint.MaxLogs + 1)
-				Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(1))
-				Expect(p.errs[0]).To(MatchError(checkpoint.ErrDiskFull))
-				Expect(exists(log.Name(checkpoint.MaxLogs + 1))).To(BeFalse())
-				Expect(fs.Remove(log.Name(1))).To(Succeed())
-				c.Prepare(checkpoint.MaxLogs + 1)
-				Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(2))
-				Expect(p.errs[1]).ToNot(HaveOccurred())
-			})
+			It(
+				"Should refuse the file of a next log when the root holds 16 logs",
+				func() {
+					for g := range uint64(16) {
+						f := MustSucceed(fs.Open(log.Name(g+1), os.O_CREATE|os.O_RDWR))
+						Expect(f.Close()).To(Succeed())
+					}
+					c.Prepare(17)
+					Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(1))
+					Expect(p.errs[0]).
+						To(MatchError("16 logs since the oldest head: disk full"))
+					Expect(exists(log.Name(17))).To(BeFalse())
+					Expect(fs.Remove(log.Name(1))).To(Succeed())
+					c.Prepare(17)
+					Eventually(p.count).WithTimeout(fileTimeout).Should(Equal(2))
+					Expect(p.errs[1]).ToNot(HaveOccurred())
+				},
+			)
 		})
 	}
 
@@ -296,7 +288,6 @@ var _ = Describe("Checkpointer", func() {
 				Eventually(func() error { return readErr(fs, 2) }).
 					WithTimeout(fileTimeout).
 					Should(Succeed())
-				Eventually(cp.Err).WithTimeout(fileTimeout).Should(Succeed())
 				_, head := MustSucceed2(checkpoint.Read(fs, 2))
 				next := MustSucceed(
 					log.DecodeHeader(fileBytes(fs, log.Name(2)), db, 2, 0),
