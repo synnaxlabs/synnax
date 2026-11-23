@@ -1050,10 +1050,10 @@ func probeData(data *templateData) *templateData {
 // typeNeedsMethod reports whether the type named by ref emits the method of rule: it is
 // a union and rule.everyUnion is set, or it has a field satisfying rule.hasOwn, or a
 // nested struct field, slice/array element, map value, union base, or union variant
-// payload that (transitively) does. Generic types and type parameters never emit a
-// method. visited guards against cycles in recursive types. Probing must not leak
-// imports into the emitted file, so rule.hasOwn runs against a scratch-import copy of
-// data.
+// payload that (transitively) does. A type parameter, or a struct with a type parameter
+// that has no default, never emits a method. visited guards against cycles in recursive
+// types. Probing must not leak imports into the emitted file, so rule.hasOwn runs
+// against a scratch-import copy of data.
 func typeNeedsMethod(
 	ref resolution.TypeRef,
 	data *templateData,
@@ -1368,12 +1368,13 @@ func typeSetsDefaults(
 		return false
 	}
 	form, ok := resolved.Form.(resolution.StructForm)
-	if !ok || form.IsGeneric() {
+	if !ok || len(resolution.NonDefaultedTypeParams(form.TypeParams)) > 0 {
 		return false
 	}
 	probe := probeData(data)
+	fields, _ := resolution.RecordFields(resolved, data.table)
 	return lo.SomeBy(
-		resolution.UnifiedFields(resolved, data.table),
+		fields,
 		func(f resolution.Field) bool {
 			return defaultsHasOwn(f, probe) ||
 				(!f.Optional && typeSetsDefaults(f.Type, data, visited))
@@ -1459,12 +1460,13 @@ func typeHasGroups(
 		return false
 	}
 	form, ok := resolved.Form.(resolution.StructForm)
-	if !ok || form.IsGeneric() {
+	if !ok || len(resolution.NonDefaultedTypeParams(form.TypeParams)) > 0 {
 		return false
 	}
 	probe := probeData(data)
+	fields, _ := resolution.RecordFields(resolved, data.table)
 	return lo.SomeBy(
-		resolution.UnifiedFields(resolved, data.table),
+		fields,
 		func(f resolution.Field) bool {
 			return (defaultGroupName(f) != "" && defaultsHasOwn(f, probe)) ||
 				(!f.Optional && typeHasGroups(f.Type, data, visited))
