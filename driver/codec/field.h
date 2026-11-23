@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
@@ -30,4 +31,12 @@ x::errors::Error wrap(const x::errors::Error &err, const std::string &context);
 
 /// @brief returns err as a CONFIG_ERROR with context before its text.
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context);
+
+/// @brief returns VALIDATION when v, a value after the scale and offset of b, is
+/// outside the min and max of b.
+x::errors::Error check_limits(const synnax::icd::BaseField &b, double v);
+
+/// @brief returns VALIDATION when v, a float32 sample, is outside the min and max of b.
+/// A sample that equals a limit at float32 precision is at that limit.
+x::errors::Error check_limits(const synnax::icd::BaseField &b, float v);
 }

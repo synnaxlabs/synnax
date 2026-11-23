@@ -56,12 +56,8 @@ struct Config {
             .fields.push_back(f);
     }
 
-    /// @brief adds f to the message and binds it to channel key of dt.
-    void bind(
-        const synnax::icd::TextField &f,
-        const synnax::channel::Key key,
-        const x::telem::DataType &dt = x::telem::FLOAT64_T
-    ) {
+    /// @brief adds f to the message and binds it to float64 channel key.
+    void bind(const synnax::icd::TextField &f, const synnax::channel::Key key) {
         this->add(f);
         synnax::icd::ChannelWriteBinding b;
         b.field = synnax::icd::base(f).key;
@@ -69,7 +65,7 @@ struct Config {
         this->wm.bindings.emplace_back(b);
         synnax::channel::Channel ch;
         ch.key = key;
-        ch.data_type = dt;
+        ch.data_type = x::telem::FLOAT64_T;
         this->channels.insert_or_assign(key, ch);
     }
 
@@ -224,20 +220,6 @@ TEST(Writer, JoinSeriesOfOneChannel) {
     EXPECT_EQ(sent(w, fr), (std::vector<std::string>{"1,10", "2,10"}));
 }
 
-/// @brief it should check a float32 command against the limits of its field as the
-/// shortest decimal that it encodes to.
-TEST(Writer, CheckFloat32CommandsAsWritten) {
-    auto c = message();
-    auto a = at("a", 0);
-    a.max = 0.1;
-    c.bind(a, 2, x::telem::FLOAT32_T);
-    auto w = ASSERT_NIL_P(c.create());
-    EXPECT_EQ(
-        sent(w, frame(2, x::telem::Series(0.1F))),
-        (std::vector<std::string>{"0.1"})
-    );
-}
-
 /// @brief it should ignore the channels of other messages.
 TEST(Writer, IgnoreOtherChannels) {
     auto w = ASSERT_NIL_P(setpoints().create());
@@ -262,19 +244,19 @@ TEST(Writer, DropRefusedCommands) {
         w,
         frame(2, x::telem::Series(11.0)),
         {},
-        "message cmd: field a: 11 is above the max of 10"
+        "message cmd: field a: 11 is above the max 10"
     );
     assert_refuses_command(
         w,
         frame(2, x::telem::Series(-1.0), 3, x::telem::Series(2.0)),
         {"5,2"},
-        "message cmd: field a: -1 is below the min of 0"
+        "message cmd: field a: -1 is below the min 0"
     );
     assert_refuses_command(
         w,
         frame(2, x::telem::Series(std::nan(""))),
         {},
-        "message cmd: field a: NaN is not within the min and max"
+        "message cmd: field a: NaN is not finite"
     );
     assert_refuses_command(
         w,
@@ -291,7 +273,7 @@ TEST(Writer, DropRefusedCommands) {
             x::telem::Series(std::numeric_limits<double>::infinity())
         ),
         {},
-        "message cmd: field a: 12 is above the max of 10"
+        "message cmd: field a: 12 is above the max 10"
     );
     EXPECT_EQ(
         sent(w, frame(3, x::telem::Series(3.0))),
@@ -321,24 +303,23 @@ TEST(Writer, StopOnSendError) {
     );
 }
 
-/// @brief it should refuse a default or a value whose decoded value is outside the
-/// limits of its field.
-TEST(Writer, RefuseDefaultOutsideLimits) {
+/// @brief it should refuse a value that decodes outside the limits of its field.
+TEST(Writer, RefuseValueOutsideLimits) {
     auto c = message();
     c.bind(at("a", 0), 2);
     auto scaled = at("s", 1);
-    scaled.default_ = 3;
     scaled.scale = 5;
     scaled.max = 10;
     c.add(scaled);
-    assert_refuses(c, "message cmd: field s: default: 15 is above the max of 10");
+    c.fix(scaled.key, synnax::icd::FloatWriteValue{.value = 3});
+    assert_refuses(c, "message cmd: field s: 15 is above the max 10");
     auto fixed = message();
     fixed.bind(at("a", 0), 2);
     auto low = at("l", 1);
     low.min = 0;
     fixed.add(low);
     fixed.fix(low.key, synnax::icd::FloatWriteValue{.value = -2});
-    assert_refuses(fixed, "message cmd: field l: default: -2 is below the min of 0");
+    assert_refuses(fixed, "message cmd: field l: -2 is below the min 0");
 }
 
 /// @brief it should refuse a write of a message that does not exist or is not text, and

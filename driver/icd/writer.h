@@ -35,17 +35,10 @@ namespace driver::icd {
 /// command. A command that its field refuses is dropped, and the field keeps its last
 /// good command. It is not safe for concurrent use.
 class Writer {
-    /// @brief Binding is the command channel of a field and the field's limits.
-    struct Binding {
-        synnax::channel::Key channel = 0;
-        std::string field;
-        std::optional<double> min;
-        std::optional<double> max;
-    };
-
     std::string name;
     codec::TextEncoder encoder;
-    std::vector<Binding> bindings;
+    /// @brief channels holds the command channel of each binding.
+    std::vector<synnax::channel::Key> channels;
     /// @brief last holds the last good command of each binding, or no sample before its
     /// first.
     std::vector<x::telem::Series> last;
@@ -55,9 +48,6 @@ class Writer {
     /// @brief payload is scratch space for the payload to send.
     std::vector<std::uint8_t> payload;
 
-    /// @returns VALIDATION when binding cannot send v.
-    [[nodiscard]] x::errors::Error
-    check(std::size_t binding, const x::telem::SampleValue &v);
     /// @brief returns true when each field with no default has a command.
     [[nodiscard]] bool ready() const;
     /// @brief returns command i of binding in the frame of the current write, or
@@ -85,8 +75,8 @@ public:
     /// @returns CONFIGURATION_ERROR when ic has no message that wm names, the message
     /// is not text, wm binds no channels, channels has no channel that a binding names,
     /// a value binding names no field, a field has two bindings, a value is not of its
-    /// field's kind, a default decodes to a value outside the min and max of its field,
-    /// or the encoder refuses the message.
+    /// field's kind or decodes outside the min and max of its field, or the encoder
+    /// refuses the message.
     static std::pair<Writer, x::errors::Error> create(
         const synnax::icd::WriteMessage &wm,
         const synnax::icd::ICD &ic,

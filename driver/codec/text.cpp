@@ -58,6 +58,15 @@ x::errors::Error check_tag(const std::string &tag, const std::string_view delimi
     return x::errors::NIL;
 }
 
+/// @brief returns the double of the shortest decimal text of v, so that a float32
+/// sample gains no float64 digits. A value that is not finite stays as it is.
+double widen(const float v) {
+    if (!std::isfinite(v)) return v;
+    std::array<char, 32> buf{};
+    const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), v);
+    return x::json::parse_float64({buf.data(), res.ptr}).first;
+}
+
 /// @brief appends the shortest decimal text that reads back as v to out.
 template<typename T>
 void append_number(const T v, std::string &out) {
@@ -65,13 +74,6 @@ void append_number(const T v, std::string &out) {
     const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), v);
     out.append(buf.data(), res.ptr);
 }
-}
-
-double widen(const float v) {
-    if (!std::isfinite(v)) return v;
-    std::array<char, 32> buf{};
-    const auto res = std::to_chars(buf.data(), buf.data() + buf.size(), v);
-    return x::json::parse_float64({buf.data(), res.ptr}).first;
 }
 
 std::pair<Text::Field, x::errors::Error> Text::Field::create(
@@ -289,7 +291,7 @@ TextEncoder::Field::append(const x::telem::SampleValue &v, std::string &out) con
     }
     auto d = this->number == Number::FLOAT32 ? widen(x::telem::cast<float>(v))
                                              : x::telem::cast<double>(v);
-    if (this->scaled) d = (d - this->offset) / this->scale;
+    if (this->scaled) d = (d - this->base.offset) / this->base.scale;
     if (!std::isfinite(d))
         return x::errors::Error(
             x::errors::VALIDATION,
@@ -306,10 +308,8 @@ std::pair<TextEncoder::Field, x::errors::Error> TextEncoder::Field::create(
 ) {
     const auto &b = icd::base(f);
     Field field{
-        .name = b.name,
+        .base = b,
         .scaled = b.scale != 1 || b.offset != 0,
-        .scale = b.scale,
-        .offset = b.offset,
     };
     if (const auto *t = std::get_if<icd::TaggedTextField>(&f)) {
         if (auto err = check_tag(t->tag, delimiter)) return {Field{}, err};
@@ -418,7 +418,7 @@ std::pair<TextEncoder, x::errors::Error> TextEncoder::create(const TextMessage &
             for (const auto i: enc.tagged)
                 if (enc.fields[i].tag == t->tag)
                     return refuse(
-                        "fields " + enc.fields[i].name + " and " + b.name +
+                        "fields " + enc.fields[i].base.name + " and " + b.name +
                         " both have the tag " + x::json::quote(t->tag)
                     );
             enc.tagged.push_back(index);
@@ -437,7 +437,8 @@ std::pair<TextEncoder, x::errors::Error> TextEncoder::create(const TextMessage &
             auto &item = enc.items[position];
             if (item.field >= 0)
                 return refuse(
-                    "fields " + enc.fields[static_cast<std::size_t>(item.field)].name +
+                    "fields " +
+                    enc.fields[static_cast<std::size_t>(item.field)].base.name +
                     " and " + b.name + " both have position " + std::to_string(position)
                 );
             item.field = static_cast<int>(index);
@@ -468,14 +469,14 @@ x::errors::Error TextEncoder::encode(
         }
         const auto &f = this->fields[static_cast<std::size_t>(item.field)];
         if (auto err = f.append(samples, this->line))
-            return wrap(err, "field " + f.name);
+            return wrap(err, "field " + f.base.name);
     }
     for (const auto i: this->tagged) {
         next();
         const auto &f = this->fields[i];
         this->line += f.tag;
         if (auto err = f.append(samples, this->line))
-            return wrap(err, "field " + f.name);
+            return wrap(err, "field " + f.base.name);
     }
     payload.assign(this->line.begin(), this->line.end());
     return x::errors::NIL;
@@ -485,7 +486,12 @@ x::errors::Error
 TextEncoder::check(const std::size_t binding, const x::telem::SampleValue &v) {
     const auto &f = this->fields[this->bound[binding]];
     this->line.clear();
-    if (auto err = f.append(v, this->line)) return wrap(err, "field " + f.name);
+    auto err = f.append(v, this->line);
+    if (!err)
+        err = f.number == Number::FLOAT32
+                ? check_limits(f.base, x::telem::cast<float>(v))
+                : check_limits(f.base, x::telem::cast<double>(v));
+    if (err) return wrap(err, "field " + f.base.name);
     return x::errors::NIL;
 }
 }

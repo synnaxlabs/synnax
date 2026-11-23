@@ -11,7 +11,9 @@
 #include <string>
 #include <string_view>
 
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/number.h"
 #include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/telem.h"
 
@@ -20,6 +22,13 @@
 
 namespace driver::codec {
 namespace payload = x::payload;
+namespace icd = synnax::icd;
+
+namespace {
+std::string format(const double v) {
+    return x::json::Number(v).to_string();
+}
+}
 
 std::optional<std::string_view> kind_of(const x::telem::DataType &dt) {
     if (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T)
@@ -58,5 +67,25 @@ x::errors::Error wrap(const x::errors::Error &err, const std::string &context) {
 
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context) {
     return {CONFIG_ERROR, context + ": " + err.data};
+}
+
+x::errors::Error check_limits(const icd::BaseField &b, const double v) {
+    if (b.min.has_value() && v < *b.min)
+        return {
+            x::errors::VALIDATION,
+            format(v) + " is below the min " + format(*b.min)
+        };
+    if (b.max.has_value() && v > *b.max)
+        return {
+            x::errors::VALIDATION,
+            format(v) + " is above the max " + format(*b.max)
+        };
+    return x::errors::NIL;
+}
+
+x::errors::Error check_limits(const icd::BaseField &b, const float v) {
+    for (const auto &limit: {b.min, b.max})
+        if (limit.has_value() && static_cast<float>(*limit) == v) return x::errors::NIL;
+    return check_limits(b, static_cast<double>(v));
 }
 }

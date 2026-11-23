@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <map>
 #include <optional>
@@ -20,12 +19,12 @@
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/json/number.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/codec/binding.h"
+#include "driver/codec/field.h"
 #include "driver/codec/text.h"
 #include "driver/errors/errors.h"
 #include "driver/icd/writer.h"
@@ -33,34 +32,6 @@
 namespace driver::icd {
 namespace {
 namespace icd = synnax::icd;
-
-std::string format(const double v) {
-    return x::json::Number(v).to_string();
-}
-
-/// @returns VALIDATION when v, a decoded value, is outside min and max.
-x::errors::Error check_limits(
-    const double v,
-    const std::optional<double> &min,
-    const std::optional<double> &max
-) {
-    if (std::isnan(v) && (min.has_value() || max.has_value()))
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            "NaN is not within the min and max"
-        );
-    if (min.has_value() && v < *min)
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            format(v) + " is below the min of " + format(*min)
-        );
-    if (max.has_value() && v > *max)
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            format(v) + " is above the max of " + format(*max)
-        );
-    return x::errors::NIL;
-}
 }
 
 std::pair<Writer, x::errors::Error> Writer::create(
@@ -104,21 +75,13 @@ std::pair<Writer, x::errors::Error> Writer::create(
     w.name = msg->name;
     codec::TextMessage encoded{.name = msg->name};
     for (const auto &b: wm.bindings) {
-        const auto found = fields.find(icd::base(b).field);
         if (const auto *cb = std::get_if<icd::ChannelWriteBinding>(&b)) {
             const auto ch = channels.find(cb->channel);
             if (ch == channels.end())
                 return refuse(
                     "channel " + std::to_string(cb->channel) + " does not exist"
                 );
-            Binding binding{.channel = cb->channel};
-            if (found != fields.end()) {
-                const auto &base = icd::base(*found->second);
-                binding.field = base.name;
-                binding.min = base.min;
-                binding.max = base.max;
-            }
-            w.bindings.push_back(binding);
+            w.channels.push_back(cb->channel);
             w.last.emplace_back(ch->second.data_type, 1);
             encoded.bindings.push_back(
                 {.field = cb->field, .data_type = ch->second.data_type}
@@ -126,6 +89,7 @@ std::pair<Writer, x::errors::Error> Writer::create(
             continue;
         }
         const auto &vb = std::get<icd::ValueWriteBinding>(b);
+        const auto found = fields.find(vb.field);
         if (found == fields.end())
             return refuse("field " + vb.field.to_string() + " does not exist");
         auto &f = *found->second;
@@ -138,30 +102,17 @@ std::pair<Writer, x::errors::Error> Writer::create(
                 "field " + field + " of kind float needs a value of its kind"
             );
         std::visit([&](auto &v) { v.default_ = value->value; }, f);
-    }
-    for (const auto &f: payload.fields) {
-        const auto &b = icd::base(f);
-        if (!b.default_.has_value()) continue;
-        const double decoded = b.default_->value * b.scale + b.offset;
-        if (const auto err = check_limits(decoded, b.min, b.max))
-            return refuse("field " + b.name + ": default: " + err.data);
+        const auto &base = icd::base(f);
+        const double decoded = value->value.value * base.scale + base.offset;
+        if (const auto err = codec::check_limits(base, decoded))
+            return refuse("field " + field + ": " + err.data);
     }
     encoded.payload = std::move(payload);
     auto [encoder, err] = codec::TextEncoder::create(encoded);
     if (err) return {Writer{}, err};
     w.encoder = std::move(encoder);
-    w.commands.resize(w.bindings.size());
+    w.commands.resize(w.channels.size());
     return {std::move(w), x::errors::NIL};
-}
-
-x::errors::Error
-Writer::check(const std::size_t binding, const x::telem::SampleValue &v) {
-    const auto &b = this->bindings[binding];
-    const auto *f = std::get_if<float>(&v);
-    const double d = f != nullptr ? codec::widen(*f) : x::telem::cast<double>(v);
-    if (auto err = check_limits(d, b.min, b.max))
-        return x::errors::Error(err, "field " + b.field + ": " + err.data);
-    return this->encoder.check(binding, v);
 }
 
 bool Writer::ready() const {
@@ -183,8 +134,8 @@ Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
     for (auto &series: this->commands)
         series.clear();
     for (const auto &[key, s]: fr)
-        for (std::size_t b = 0; b < this->bindings.size(); b++)
-            if (this->bindings[b].channel == key) this->commands[b].push_back(&s);
+        for (std::size_t b = 0; b < this->channels.size(); b++)
+            if (this->channels[b] == key) this->commands[b].push_back(&s);
     std::size_t n = 0;
     for (const auto &series: this->commands) {
         std::size_t size = 0;
@@ -195,10 +146,10 @@ Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
     Result result;
     for (std::size_t row = 0; row < n; row++) {
         bool good = false;
-        for (std::size_t b = 0; b < this->bindings.size(); b++) {
+        for (std::size_t b = 0; b < this->channels.size(); b++) {
             const auto v = this->command(b, row);
             if (!v.has_value()) continue;
-            if (auto err = this->check(b, *v)) {
+            if (auto err = this->encoder.check(b, *v)) {
                 if (!result.refused)
                     result.refused = x::errors::Error(
                         err,
