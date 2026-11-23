@@ -17,23 +17,41 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// prepareExport replaces each channel input of a graph Arc's nodes that holds a number
-// with its channel key, so that the channel link options of an export write it as a
-// path. An input that holds no number, such as text or null, exports as stored.
+// prepareExport replaces each channel input of a graph Arc's nodes with its channel
+// key, so that the channel link options of an export write it as a path. A null input
+// exports as no channel. An input that holds text or an invalid number fails the
+// export, naming the Arc, the node, and the input: such an Arc cannot compile.
 func (s *Service) prepareExport(a *Arc) error {
-	return s.mapChannelInputs(a, func(v any) (any, error) {
-		if !isNumber(v) {
-			return v, nil
-		}
+	if err := s.mapChannelInputs(a, exportKey); err != nil {
+		return errors.Wrapf(err, "Arc %s", a.Base().Name)
+	}
+	return nil
+}
+
+// exportKey returns the channel key that v, a stored channel input, holds.
+func exportKey(v any) (any, error) {
+	switch {
+	case v == nil:
+		return channel.Key(0), nil
+	case isNumber(v):
 		var k uint32
 		if err := zyn.Uint32().Coerce().Parse(v, &k); err != nil {
 			return nil, err
 		}
 		return channel.Key(k), nil
-	})
+	case reflect.ValueOf(v).Kind() == reflect.String:
+		return nil, errors.Wrap(validate.ErrValidation, "holds text, not a channel key")
+	default:
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"holds a %T, not a channel key",
+			v,
+		)
+	}
 }
 
 // isNumber reports whether v is a Go number.

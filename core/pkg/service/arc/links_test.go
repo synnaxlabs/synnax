@@ -58,17 +58,17 @@ var _ = Describe("Channel links", func() {
 		})).To(Succeed())
 	})
 
-	// createGraphArc creates a graph Arc whose source node reads key and whose sink
-	// node writes the value 3 to key.
-	createGraphArc := func(ctx SpecContext) arc.Arc {
+	// createGraphArcWith creates a graph Arc whose source node reads input and whose
+	// sink node writes the value 3 to input.
+	createGraphArcWith := func(ctx SpecContext, input any) arc.Arc {
 		GinkgoHelper()
 		a := newAutomation(arc.Base{
 			Name: "graph_" + uuid.New().String()[:8],
 			Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
 				Nodes: graph.Nodes{{Key: "source"}, {Key: "sink"}},
 				Inputs: map[string]msgpack.EncodedJSON{
-					"source": {"type": "on", "channel": key},
-					"sink":   {"type": "write", "channel": key, "value": 3},
+					"source": {"type": "on", "channel": input},
+					"sink":   {"type": "write", "channel": input, "value": 3},
 				},
 			}}},
 		})
@@ -81,6 +81,12 @@ var _ = Describe("Channel links", func() {
 			})).To(Succeed())
 		})
 		return a
+	}
+
+	// createGraphArc creates a graph Arc whose nodes read and write key.
+	createGraphArc := func(ctx SpecContext) arc.Arc {
+		GinkgoHelper()
+		return createGraphArcWith(ctx, key)
 	}
 
 	// inputsOf returns the inputs of each node of the graph in a file's body.
@@ -142,6 +148,32 @@ var _ = Describe("Channel links", func() {
 		Expect(inputs["source"]).To(HaveKeyWithValue("channel", path))
 		Expect(inputs["sink"]).To(HaveKeyWithValue("channel", path))
 		Expect(inputs["sink"]).To(HaveKeyWithValue("value", BeNumerically("==", 3)))
+	})
+
+	It("Should export a null channel input as no channel", func(ctx SpecContext) {
+		inputs := inputsOf(exportFile(ctx, createGraphArcWith(ctx, nil)))
+		Expect(inputs["source"]).To(HaveKeyWithValue("channel", BeNumerically("==", 0)))
+	})
+
+	It("Should fail the export of a channel input that holds text", func(
+		ctx SpecContext,
+	) {
+		a := createGraphArcWith(ctx, "pump.speed")
+		Expect(svc.Export(ctx, db, arc.ResourceID(a.Base().Key))).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"Arc %s: input channel of node source: holds text, not a channel key",
+				a.Base().Name,
+			)),
+		))
+	})
+
+	It("Should fail the export of a channel input that holds an invalid number", func(
+		ctx SpecContext,
+	) {
+		a := createGraphArcWith(ctx, -1)
+		Expect(svc.Export(ctx, db, arc.ResourceID(a.Base().Key))).Error().
+			To(MatchError(ContainSubstring("Arc %s: input channel of node source", a.Base().Name)))
 	})
 
 	It("Should bind a channel input named by path on import", func(ctx SpecContext) {
