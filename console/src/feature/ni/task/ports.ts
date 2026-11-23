@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type ni } from "@synnaxlabs/client";
-import { primitive } from "@synnaxlabs/x";
+import { array, primitive } from "@synnaxlabs/x";
 
-import { type Device } from "@/feature/ni/device/types";
+import type { Device } from "@/feature/ni/device/types";
 import { getAIChannelSuffix } from "@/feature/ni/task/getAIChannelDeviceKey";
 import {
   type AIChannel,
@@ -94,7 +94,7 @@ export const lowestFreePort = (
   }
   const found = ports.find(free);
   if (found != null) return found.port;
-  return ports.length === 0 ? 0 : Math.max(...ports.map(({ port }) => port)) + 1;
+  return (array.maxBy(ports, ({ port }) => port)?.port ?? -1) + 1;
 };
 
 const numbered = (list: { port: number }[]): Port[] =>

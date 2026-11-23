@@ -21,7 +21,7 @@ import (
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/set"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // configKeysToExclude contains keys that should not be written to the config file.
@@ -63,8 +63,8 @@ func WriteConfig() error {
 	return os.WriteFile(ConfigPath(), data, 0o640)
 }
 
-// resolvePaths makes the data, log, certificate, and secrets key paths in viper
-// absolute against the working directory, because a service starts in another
+// resolvePaths makes the data, log, certificate, secrets key, and secrets folder paths
+// in viper absolute against the working directory, because a service starts in another
 // directory. It leaves an empty path empty.
 func resolvePaths() error {
 	workDir, err := os.Getwd()
@@ -76,6 +76,7 @@ func resolvePaths() error {
 		cmdinst.FlagLogFilePath,
 		cert.FlagCertsDir,
 		cmdstart.FlagSecretsKeyFile,
+		cmdstart.FlagSecretsDir,
 	} {
 		if p := viper.GetString(key); p != "" && !filepath.IsAbs(p) {
 			viper.Set(key, filepath.Join(workDir, p))

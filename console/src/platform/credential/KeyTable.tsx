@@ -25,7 +25,7 @@ import { Modals } from "@/platform/modals";
 import { Settings } from "@/platform/settings";
 
 const COLUMNS: List.Column[] = [
-  { name: "Name", width: "1fr" },
+  { name: "Name", width: "minmax(24rem, 1fr)" },
   { name: "Created", width: "34rem" },
   { name: "Live sessions", width: "14rem" },
 ];

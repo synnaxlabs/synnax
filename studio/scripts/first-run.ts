@@ -141,6 +141,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   // The ramp draws on wall time, which the capture runs behind, so a few seconds of
   // video show more than one climb.
   await session.hold(4000);
+  // The range dialog reads the selection's status from the virtual clock, which runs
+  // behind the ramp's wall-time stamps.
+  await session.jumpToWall();
 
   const plotBox = await plot.boundingBox();
   if (plotBox == null) throw new Error("the line plot is hidden");
@@ -149,11 +152,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     y: plotBox.y + plotBox.height * fy,
   });
   await session.zoom(plot, 1.2);
+  // The page clock runs behind the ramp's timestamps, so the selection sits far from
+  // the live edge.
   await page.keyboard.down("Alt");
-  await session.drag(at(0.45, 0.35), at(0.75, 0.65));
+  await session.drag(at(0.06, 0.35), at(0.36, 0.65));
   await page.keyboard.up("Alt");
   await session.hold(500);
-  await session.rightClick(at(0.6, 0.5));
+  await session.rightClick(at(0.21, 0.5));
   const menu = page.locator(".lyra-menu-context").first();
   await session.waitFor(menu);
   await session.hold(400);

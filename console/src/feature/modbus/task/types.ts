@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { modbus, type task } from "@synnaxlabs/client";
-import { DataType, record } from "@synnaxlabs/x";
+import { DataType, map, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -193,7 +193,7 @@ export const findOverlaps = (channels: Channel[]): Overlaps => {
       } else start = address;
     }
     if (shared.length > 0)
-      sharedByType.set(type, [...(sharedByType.get(type) ?? []), ...shared]);
+      map.getOrInsert(sharedByType, type, () => []).push(...shared);
   }
   for (const [type, spans] of sharedByType) ranges[type] = mergeRanges(spans);
   return { keys, ranges };

@@ -11,7 +11,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Telem } from "@synnaxlabs/pluto";
 import { type DataType, deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { SHADOW_TRIGGER_PROPS } from "@/feature/modbus/device/Option";
 import {

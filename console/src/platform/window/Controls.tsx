@@ -12,8 +12,8 @@ import "@/platform/window/Controls.css";
 import { Drift, setWindowMaximized, setWindowMinimized } from "@synnaxlabs/drift";
 import { useSelectWindow } from "@synnaxlabs/drift/react";
 import { OS } from "@synnaxlabs/pluto";
-import { type runtime } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { runtime } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Buttons, type ButtonsProps } from "@/platform/window/Buttons";
@@ -35,7 +35,8 @@ export const Controls = ({
   forceOS,
   ...rest
 }: ControlsProps): ReactElement | null => {
-  const os = OS.use({ force: forceOS });
+  const detected = OS.use();
+  const os = forceOS ?? detected;
   const window = useSelectWindow();
   const dispatch = Session.useDispatch();
   const handleClose = () => {

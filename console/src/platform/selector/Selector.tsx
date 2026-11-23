@@ -9,8 +9,8 @@
 
 import "@/platform/selector/Selector.css";
 
-import { type panel } from "@synnaxlabs/client";
-import { type CSS as PCSS } from "@synnaxlabs/lyra/css";
+import type { panel } from "@synnaxlabs/client";
+import type { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -30,7 +30,7 @@ import {
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
 import { Item } from "@/platform/selector/Item";
-import { type Group, type Section, type Selectable } from "@/platform/selector/types";
+import type { Group, Section, Selectable } from "@/platform/selector/types";
 
 export interface CreateParams {
   sections: Section[];

@@ -63,7 +63,6 @@
     ],
     "console/src/feature/task/Toolbar.css": ["lyra-icon", "lyra-list__item"],
     "console/src/feature/theme/Modal.css": ["lyra-modal__body"],
-    "console/src/platform/button/CreateListItem.css": ["lyra-btn"],
     "console/src/platform/channel/CalculatedModal.css": [
       "lyra-field__expression",
       "lyra-modal",
@@ -149,10 +148,6 @@
       "lyra-tabs__tab"
     ],
     "pluto/src/schematic/Tooltip.css": ["lyra-icon"],
-    "pluto/src/schematic/node/common/form/StateMapping.css": [
-      "lyra-btn",
-      "lyra-list__item"
-    ],
     "pluto/src/schematic/node/common/orientation/select.css": [
       "lyra-btn",
       "lyra-form-section__body",
@@ -182,12 +177,6 @@
       "lyra-input"
     ],
     "pluto/src/schematic/node/general/stringDisplay/stringDisplay.css": ["lyra-text"],
-    "pluto/src/schematic/node/general/switch/switch.css": [
-      "lyra--disabled",
-      "lyra-btn",
-      "lyra-input__switch",
-      "lyra-input__switch-indicator"
-    ],
     "pluto/src/schematic/node/general/value/value.css": ["lyra-text"],
     "pluto/src/table/Table.css": ["lyra-text"],
     "pluto/src/table/cells/Cells.css": ["lyra-text--editable"],

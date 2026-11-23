@@ -100,8 +100,7 @@ describe("differential against the per-character reference", () => {
         const log: Recorded[] = [];
         for (let round = 0; round < ROUNDS; round++) {
           const roundOps: Recorded[] = [];
-          for (let i = 0; i < pairs.length; i++) {
-            const pr = pairs[i];
+          for (const [i, pr] of pairs.entries()) {
             const n = pr.p.len();
             if (n > 0 && randInt(3) === 0) {
               const index = randInt(n);
@@ -116,18 +115,18 @@ describe("differential against the per-character reference", () => {
             roundOps.push({ owner: i, inserts: pr.insert(randInt(n + 1), text) });
           }
           log.push(...roundOps);
-          for (let i = 0; i < pairs.length; i++) {
-            const delivery = roundOps.map((_, j) => j);
+          for (const [i, pr] of pairs.entries()) {
+            const delivery = [...roundOps];
             for (let j = delivery.length - 1; j > 0; j--) {
               const k = randInt(j + 1);
-              [delivery[j], delivery[k]] = [delivery[k], delivery[j]];
+              // j and k stay below delivery.length.
+              [delivery[j], delivery[k]] = [delivery[k]!, delivery[j]!];
             }
-            for (const j of delivery)
-              if (roundOps[j].owner !== i) applyTo(roundOps[j], pairs[i]);
+            for (const rec of delivery) if (rec.owner !== i) applyTo(rec, pr);
           }
           if (round % 10 === 9) for (const pr of pairs) expectEquivalent(pr);
         }
-        const want = pairs[0].p.toString();
+        const want = pairs[0]?.p.toString();
         for (const pr of pairs) {
           expectEquivalent(pr);
           expect(pr.p.toString()).toEqual(want);
@@ -138,7 +137,8 @@ describe("differential against the per-character reference", () => {
         const shuffled = [...log];
         for (let j = shuffled.length - 1; j > 0; j--) {
           const k = randInt(j + 1);
-          [shuffled[j], shuffled[k]] = [shuffled[k], shuffled[j]];
+          // j and k stay below shuffled.length.
+          [shuffled[j], shuffled[k]] = [shuffled[k]!, shuffled[j]!];
         }
         const fresh = new Pair(999);
         for (const rec of shuffled) applyTo(rec, fresh);

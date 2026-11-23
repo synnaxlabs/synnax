@@ -10,7 +10,7 @@
 import "@/feature/project/Splash.css";
 
 import { project, UnexpectedError } from "@synnaxlabs/client";
-import { Button as PButton } from "@synnaxlabs/lyra/button";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -25,7 +25,6 @@ import { type ReactElement, useEffect, useState } from "react";
 import { ContextMenu, listItem } from "@/feature/project/Selector";
 import { useOpenSample } from "@/feature/project/useOpenSample";
 import { Shell } from "@/feature/shell";
-import { Button } from "@/platform/button";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -36,10 +35,10 @@ const LogOutAction = (): ReactElement => {
   const logout = Core.useLogout();
   return (
     <Header.Actions>
-      <PButton.Button variant="text" textColor={9} size="medium" onClick={logout}>
+      <Button.Button variant="text" textColor={9} size="medium" onClick={logout}>
         <Icon.Logout />
         Log out
-      </PButton.Button>
+      </Button.Button>
     </Header.Actions>
   );
 };

@@ -16,8 +16,9 @@ import {
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { LinePlot, Synnax } from "@synnaxlabs/pluto";
-import { resolveWindow, TimeRange, TimeSpan, TimeStamp, unique } from "@synnaxlabs/x";
+import { resolveWindow, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 
+import { FLAGS } from "@/flags";
 import { Framer } from "@/platform/framer";
 import { Session } from "@/session";
 
@@ -32,10 +33,6 @@ export interface DownloadAsCSVParams {
   lines: DownloadLine[];
   name: string;
 }
-
-// The modal holds its range in float nanoseconds, which round by up to 128 ns, so a
-// live window ends this far past the newest sample to keep it inside.
-const ROUNDING_MARGIN = TimeSpan.MILLISECOND;
 
 const channelsOf = (lines: DownloadLine[]): channel.Key[] =>
   unique.unique(
@@ -76,16 +73,13 @@ const readEdge = async (
 
 export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
   const openDownloadCSVModal = Framer.useDownloadCSVModal();
-  return ({ timeRanges, lines, name }) => {
-    const channels = channelsOf(lines);
-    const timeRange = TimeRange.merge(...timeRanges);
+  return ({ timeRanges, lines, name }) =>
     openDownloadCSVModal({
-      timeRange: timeRange.numeric,
+      timeRanges,
       name,
-      channels,
+      channels: channelsOf(lines),
       icon: <Icon.LinePlot />,
     });
-  };
 };
 
 export const useDownloadPlotAsCSV = (key: string): (() => void) => {
@@ -96,6 +90,8 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const ranges = LinePlot.useRanges({ key });
   const name = LinePlot.useName({ key });
   const windows = Session.Range.useResolveWindows(ranges);
+  const breaksHidden = Session.LinePlot.useSelectBreaksHidden({ key });
+  const openBreaks = Session.LinePlot.useSelectOpenBreaks({ key });
   return () =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
@@ -103,10 +99,15 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
         channels: { x: d.xChannel, y: d.yChannel },
       }));
       const live = windows.some((w) => w.variant === "dynamic");
-      const end = live
-        ? (await readEdge(client, channelsOf(lines))).add(ROUNDING_MARGIN)
-        : TimeStamp.now();
-      const timeRanges = windows.map((w) => resolveWindow(w, end));
+      const end = live ? await readEdge(client, channelsOf(lines)) : TimeStamp.now();
+      const timeRanges =
+        !FLAGS.breaks || breaksHidden
+          ? [TimeRange.merge(...windows.map((w) => resolveWindow(w, end)))]
+          : LinePlot.shownSpans(windows, {
+              now: TimeStamp.now(),
+              newest: end,
+              open: openBreaks,
+            });
       downloadAsCSV({ timeRanges, lines, name });
     }, "Failed to download plot as CSV");
 };

@@ -148,7 +148,7 @@ export const Provider = ({
       const nextState: RefState = {
         next,
         prev: prev.next,
-        last: new TimeStamp(),
+        last: TimeStamp.now(),
       };
       if (shouldPreventDefault(next, preventDefaultOn, preventDefaultOptions))
         e.preventDefault();

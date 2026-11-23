@@ -117,7 +117,11 @@ var _ = Describe("Calculator", Ordered, func() {
 			c := open(ctx, nil, &base, &calc)
 			fr := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](1))
 			Expect(c.Next(ctx, fr, frame.Frame{})).Error().
-				To(MatchError(runtime.ErrLoopBudget))
+				To(MatchError(fmt.Sprintf(
+					"The program ran more than %d loop iterations and function calls "+
+						"in one cycle.",
+					runtime.DefaultLoopBudget,
+				)))
 		})
 
 		It("Should run a loop that stays under the budget", func(ctx SpecContext) {

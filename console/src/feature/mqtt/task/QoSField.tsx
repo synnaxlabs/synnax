@@ -10,10 +10,10 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type deep } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { FC } from "react";
 
-import { type QoS } from "@/feature/mqtt/task/types";
+import type { QoS } from "@/feature/mqtt/task/types";
 
 const SelectQoS = (
   p: Omit<Select.SingleSimpleProps<QoS>, "children" | "resourceName">,

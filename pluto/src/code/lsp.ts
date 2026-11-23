@@ -12,11 +12,11 @@ import { EOF } from "@synnaxlabs/freighter";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { breaker, errors, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
-import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
-import {
-  type BaseLanguageClient,
-  type LanguageClientOptions,
-  type MessageTransports,
+import type { Message, MessageReader, MessageWriter } from "vscode-jsonrpc";
+import type {
+  BaseLanguageClient,
+  LanguageClientOptions,
+  MessageTransports,
 } from "vscode-languageclient/browser";
 
 /** LSPMessage is a single framed LSP message carried over the transport. */
@@ -52,8 +52,7 @@ const createFreighterTransport = ({
   let onErrorCallback: ((error: Error) => void) | null = null;
   let onMessageCallback: ((message: Message) => void) | null = null;
 
-  let resolveClosed: () => void;
-  const closed = new Promise<void>((r) => (resolveClosed = r));
+  const { promise: closed, resolve: resolveClosed } = Promise.withResolvers<void>();
 
   const receiveLoop = async () => {
     try {

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type theme } from "@synnaxlabs/lyra/theme";
-import { type color, type xy } from "@synnaxlabs/x";
-import { type FC, type ReactNode } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import type { theme } from "@synnaxlabs/lyra/theme";
+import type { color, xy } from "@synnaxlabs/x";
+import type { FC, ReactNode } from "react";
 
-import { type Properties } from "@/vis/properties";
+import type { Properties } from "@/vis/properties";
 
 export interface FormProps extends Properties.SelectionProps {
   /** actions render at the foot of the form's tab rail. */
@@ -35,8 +35,11 @@ export type PreviewProps<P extends object = object> = P & {
 
 export type Node<Config extends object = object> = FC<NodeProps<Config>>;
 
-/** Resolves the color a symbol paints while one of its colors is absent. */
-export type ColorFallback = (theme: theme.Theme) => color.Color;
+/**
+ * Resolves the color a symbol paints while one of its colors is absent, from the theme
+ * and the series colors in palette order.
+ */
+export type ColorFallback = (theme: theme.Theme, series: color.Color[]) => color.Color;
 
 /** A color field that element forms edit with a per-variant fallback. */
 export type ColorKey = "fillColor" | "strokeColor" | "textColor";

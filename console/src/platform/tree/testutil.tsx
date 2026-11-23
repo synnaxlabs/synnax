@@ -10,10 +10,11 @@
 import { channel, group, resource, type Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { array, sleep, TimeSpan } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -27,17 +28,12 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import {
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import type { FC, PropsWithChildren, ReactElement, ReactNode } from "react";
 
 import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 import {
   CaptureStatuses,
   type ConsolePreloadedState,
@@ -48,7 +44,6 @@ import {
   renderWithConsole,
   selectTestProject,
   type TestStore,
-  uniqueName,
   uniqueToken,
 } from "@/testutil";
 
@@ -443,6 +438,8 @@ const SHOW_MORE = "Show more";
 const MAX_PAGES = 20;
 const BOTTOM_SPAN = 5 * SCROLL_STEP;
 
+const bottomOffset = (): number => Math.max(0, rowsHeight() - BOTTOM_SPAN);
+
 // Loads the next page of a folder, as a user does, until the label shows. A page that
 // lands where the show more node was, so the label sweep starts there. The last folder
 // pages near the bottom, so the node sweep starts there. A tree with no rows has no
@@ -452,8 +449,8 @@ const pageTo = async (text: Matcher): Promise<HTMLElement | null> => {
   if (rowsHeight() === 0) return null;
   for (let page = 0; page < MAX_PAGES; page++) {
     const height = rowsHeight();
-    const bottom = Math.max(0, height - BOTTOM_SPAN);
-    const more = (await sweepTree(SHOW_MORE, bottom)) ?? (await sweepTree(SHOW_MORE));
+    const more =
+      (await sweepTree(SHOW_MORE, bottomOffset())) ?? (await sweepTree(SHOW_MORE));
     if (more == null) return null;
     const at = document.querySelector<HTMLElement>(VISIBLE_TREE)?.scrollTop ?? 0;
     await act(async () => {
@@ -478,7 +475,11 @@ const pageTo = async (text: Matcher): Promise<HTMLElement | null> => {
  */
 const findTreeLabel = async (text: Matcher): Promise<HTMLElement> => {
   const deadline = performance.now() + getConfig().asyncUtilTimeout;
-  const attempt = async () => (await sweepTree(text)) ?? (await pageTo(text));
+  // A sweep from the top reaches the end of a full page only after a hundred steps.
+  const attempt = async () =>
+    (await sweepTree(text, bottomOffset())) ??
+    (await sweepTree(text)) ??
+    (await pageTo(text));
   let label = screen.queryByText(text, QUERY_OPTIONS) ?? (await attempt());
   while (label == null && performance.now() < deadline) {
     await act(async () => await sleep.sleep(SWEEP_INTERVAL));

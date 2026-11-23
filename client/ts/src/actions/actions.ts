@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, patch, type record, zod } from "@synnaxlabs/x";
+import { caseconv, deep, narrow, patch, record, zod } from "@synnaxlabs/x";
 import { current, type Draft, isDraft, produce } from "immer";
 import { z } from "zod";
 
@@ -49,17 +49,58 @@ export interface ReduceAllResult<S, A> {
  */
 export const snapshotDraft = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
 
+// The slot that holds one part of a path in a node: a field of an object, or the index
+// of the list entry with that key.
+const slotOf = (node: record.Unknown, part: string): string | number =>
+  Array.isArray(node)
+    ? node.findIndex((e: unknown) => narrow.isObject(e) && e.key === part)
+    : part;
+
+// Parses value through schema. On a failure, each field of an object or list parses on
+// its own, and a field that fails stays as it is: a form holds an invalid value in the
+// cache until it passes.
+const decode = (schema: z.ZodType, value: unknown): unknown => {
+  const parsed = schema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  if (!narrow.isPlainObject(value) && !Array.isArray(value)) return value;
+  const decodeChild = (child: unknown, key: string | number) => {
+    const childZ = zod.getFieldSchema(schema, String(key), {
+      optional: true,
+      values: value,
+    });
+    return childZ == null ? child : decode(childZ, child);
+  };
+  return Array.isArray(value) ? value.map(decodeChild) : record.map(value, decodeChild);
+};
+
+// Decodes the value that a set or insert placed in the document through the schema at
+// its path, so a value such as a TimeStamp holds its class. The decode runs after the
+// apply, which copies the value and drops its classes.
+const decodePlaced = (doc: record.Unknown, action: patch.Action, schema: z.ZodType) => {
+  if (action.type !== "set" && action.type !== "insert") return;
+  const path = patch.pathOf(action);
+  const valueZ = zod.getFieldSchema(schema, path.join(deep.SEPARATOR), {
+    optional: true,
+    values: doc,
+  });
+  if (valueZ == null) return;
+  const parent = path
+    .slice(0, -1)
+    .reduce((node, part) => node[slotOf(node, part)] as record.Unknown, doc);
+  const slot = slotOf(parent, path[path.length - 1]);
+  parent[slot] = decode(valueZ, parent[slot]);
+};
+
 const applyInverse = <S extends object>(
   state: Draft<S>,
   action: patch.Action,
   schema: z.ZodType,
 ): patch.Action[] => {
   const opts = { schema, data: state };
-  const inverse = patch.apply(
-    state as record.Unknown,
-    patch.snakeToCamel(action, opts),
-    { snapshot: snapshotDraft },
-  );
+  const doc = state as record.Unknown;
+  const camel = patch.snakeToCamel(action, opts);
+  const inverse = patch.apply(doc, camel, { snapshot: snapshotDraft });
+  if (inverse.length > 0) decodePlaced(doc, camel, schema);
   return inverse.map((a) => patch.camelToSnake(a, opts));
 };
 
@@ -68,7 +109,8 @@ const applyInverse = <S extends object>(
  * Core stores, with snake_case keys, and the draft holds the camelCase form that the
  * client decodes. The result targets the path that the action changes, and holds the
  * inverse actions in the form the Core stores.
- * @param schema - The document's schema, which names the keys that keep their case.
+ * @param schema - The document's schema, which names the keys that keep their case and
+ * decodes the value that the action places.
  * @throws {Error} if the document cannot hold the action.
  */
 export const applyPath = <S extends object>(
@@ -85,7 +127,8 @@ export const applyPath = <S extends object>(
  * Applies a path action to an entry of the map at root in a draft of a cached document,
  * such as one element config of a schematic. The result targets that entry.
  * @param root - The path of the map.
- * @param schema - The document's schema, which names the keys that keep their case.
+ * @param schema - The document's schema, which names the keys that keep their case and
+ * decodes the value that the action places.
  * @throws {Error} if the action's path does not reach an entry of the map, or if the
  * document cannot hold the action.
  */
@@ -195,11 +238,25 @@ export const createPathHandlers = <D, A>(
   move: (state: D, move: patch.Move) => apply(state, { type: "move", move }),
 });
 
+// Returns a copy of the plain objects and arrays in value. Other objects, such as a
+// TimeStamp, are shared.
+const copyPlain = <T>(value: T): T => {
+  if (typeof value !== "object" || value === null) return value;
+  if (!Array.isArray(value) && !narrow.isPlainObject(value)) return value;
+  const out: T & object = Array.isArray(value)
+    ? Object.assign([], value)
+    : { ...value };
+  for (const [key, child] of Object.entries(value))
+    Reflect.set(out, key, copyPlain(child));
+  return out;
+};
+
 /**
  * createReduceAll lifts a per-variant `reduceOne` switch into a batched
  * reducer. The returned function applies each action against an Immer draft of
  * `state` in order, accumulates the inverses in reverse application order so a
- * single undo replays them correctly, and unions the touched targets.
+ * single undo replays them correctly, and unions the touched targets. The caller's
+ * actions stay unchanged.
  */
 export const createReduceAll =
   <S, A>(reduceOne: (draft: Draft<S>, action: A) => HandlerResult<A>) =>
@@ -208,7 +265,10 @@ export const createReduceAll =
     const targetsSet = new Set<string>();
     const next = produce(state, (draft) => {
       for (const action of actions) {
-        const result = reduceOne(draft, action);
+        // Immer does not draft an object that an action puts into the draft, so a later
+        // action in the batch edits it in place. The copy keeps that edit off the
+        // caller's action, which an earlier reduce can have frozen.
+        const result = reduceOne(draft, copyPlain(action));
         if (result.inverse.length > 0) inverse.unshift(...result.inverse);
         for (const t of result.targets) targetsSet.add(t);
       }
@@ -249,9 +309,11 @@ export const dispatchReqZ = <K extends z.ZodType, A extends z.ZodType>(
     actions: actionZ.array(),
   });
 
-/** The payload of a dispatch entry in a batch. The entry carries no dispatch key. */
+/** The payload of a dispatch entry in a batch. */
 export interface DispatchPayload<K, A> {
   key: K;
+  /** Set when the controller of the document holds the entry as pending. */
+  dispatchKey?: string;
   actions: A[];
 }
 

@@ -13,3 +13,16 @@
 .console-icd-fields {
     contain: inline-size;
 }
+
+/* The offset sits in the control of the scale, after the scale, with the form's gap.
+   The form gives the offset field its control width. */
+.console-icd-fields__scale {
+    display: flex;
+    gap: 4rem;
+    align-items: center;
+
+    & > :first-child {
+        flex: none;
+        width: var(--pluto-control-width, auto);
+    }
+}

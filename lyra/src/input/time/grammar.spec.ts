@@ -106,6 +106,8 @@ describe("parseTimeStamp", () => {
       ["1756000000000", { kind: "epoch", unit: "milliseconds" }],
       ["1756000000000000000", { kind: "epoch", unit: "nanoseconds" }],
       ["2026-08-23T14:05:00Z", { kind: "iso" }],
+      ["2026-08-23 14:05:00Z", { kind: "iso" }],
+      ["2026-08-23 16:05+02:00", { kind: "iso" }],
       ["14:05", { kind: "clock" }],
       ["14:05:00.250 137", { kind: "clock" }],
       ["2026-08-23", { kind: "local" }],

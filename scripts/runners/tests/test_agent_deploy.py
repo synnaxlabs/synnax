@@ -296,7 +296,7 @@ class TestInstallCommands:
         )
         assert (
             "-Prefix 'windows-tester' "
-            "-Labels 'self-hosted,Windows,X64,windows-latest,windows-test-bot'"
+            "-Labels 'self-hosted,Windows,X64,windows-test-bot'"
         ) in windows[-1]
 
     def test_should_search_every_known_runner_folder(self) -> None:

@@ -19,17 +19,13 @@ import {
 import { Drift } from "@synnaxlabs/drift";
 import { Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Session } from "@/session";
 import { pickSynchronizer } from "@/session/synchronizer/testutil";
-import {
-  createTestStore,
-  renderHookWithConsole,
-  type TestStore,
-  uniqueName,
-} from "@/testutil";
+import { createTestStore, renderHookWithConsole, type TestStore } from "@/testutil";
 
 const client = createTestClient();
 
@@ -443,8 +439,11 @@ describe("reconcile panel order and selection", () => {
     await waitFor(() =>
       expect(stripOrder(store)).toEqual([alpha.key, mike.key, zulu.key]),
     );
-    await expect(client.panels.retrieve({ key: draft.key })).rejects.toThrow(
-      NotFoundError,
+    await waitFor(
+      async () =>
+        await expect(client.panels.retrieve({ key: draft.key })).rejects.toThrow(
+          NotFoundError,
+        ),
     );
   });
 

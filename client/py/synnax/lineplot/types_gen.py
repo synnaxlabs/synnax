@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -48,6 +48,13 @@ TICK_TYPE_TIME: Literal["time"] = "time"
 
 
 TickType = Literal["linear", "time"]
+
+TIME_MODE_ABSOLUTE: Literal["absolute"] = "absolute"
+
+TIME_MODE_RELATIVE: Literal["relative"] = "relative"
+
+
+TimeMode = Literal["absolute", "relative"]
 
 Y_AXIS_KEY_Y1: Literal["y1"] = "y1"
 
@@ -138,10 +145,18 @@ class Channels(BaseModel):
 
     x1: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
     x2: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    y1: list[channel.Key] = Field(default_factory=list)
-    y2: list[channel.Key] = Field(default_factory=list)
-    y3: list[channel.Key] = Field(default_factory=list)
-    y4: list[channel.Key] = Field(default_factory=list)
+    y1: list[Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
+    y2: list[Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
+    y3: list[Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
+    y4: list[Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
 
 
 class ManualBounds(BaseModel):
@@ -304,6 +319,7 @@ class Axis(BaseModel):
         tick_spacing: Is the target pixel distance between adjacent tick marks.
         type: Selects the tick label style. Null means default (linear). X-axes
             typically carry "time" when bound to a timestamp channel.
+        time_mode: Selects where an x axis draws the ranges. Null is absolute.
     """
 
     key: AxisKey
@@ -316,6 +332,7 @@ class Axis(BaseModel):
     manual_bounds: ManualBounds = Field(default_factory=lambda: ManualBounds())
     tick_spacing: float = 75
     type: TickType | None = None
+    time_mode: TimeMode | None = None
 
 
 class RetrieveRequest(BaseModel):

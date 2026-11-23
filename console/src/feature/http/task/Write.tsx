@@ -13,7 +13,6 @@ import { channel, type http } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep, id, primitive } from "@synnaxlabs/x";
@@ -21,7 +20,7 @@ import { type FC, useState } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/http/device/types";
+import { SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployWriteConfigZ,
@@ -35,7 +34,6 @@ import { CSS } from "@/platform/css";
 import { Device } from "@/platform/device";
 import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
@@ -199,15 +197,6 @@ const Form: FC = () => {
   );
 };
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "HTTP write task", type: WRITE_TYPE, config: cfg };
-};
-
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
@@ -247,16 +236,3 @@ export const Write = Task.wrapForm({
   type: WRITE_TYPE,
   onConfigure,
 });
-
-export const useCreateWrite = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const WriteSelectable: Selector.Selectable = {
-  type: WRITE_TYPE,
-  title: "HTTP write task",
-  label: "Write",
-  icon: <Icon.Logo.HTTP />,
-  useOnSelect: useCreateWrite,
-};

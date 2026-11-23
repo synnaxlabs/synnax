@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/array/equal";
+export * from "@/array/extremum";
 export * from "@/array/partitionPoint";
 export * from "@/array/toArray";
 export * from "@/array/update";

@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Action as BaseAction,
-  type configureStore,
-  type Dispatch,
-  type Middleware,
-  type PayloadAction,
-  type Tuple,
-  type UnknownAction,
+import type {
+  Action as BaseAction,
+  configureStore,
+  Dispatch,
+  Middleware,
+  PayloadAction,
+  Tuple,
+  UnknownAction,
 } from "@reduxjs/toolkit";
-import { errors } from "@synnaxlabs/x";
-import { Mutex } from "async-mutex";
+import { errors, sync as xsync } from "@synnaxlabs/x";
 
 import { log } from "@/debug";
-import { type Runtime } from "@/runtime";
+import type { Runtime } from "@/runtime";
 import {
   type Action,
   assignLabel,
@@ -40,13 +39,6 @@ import { validateAction } from "@/validate";
 
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 
-// Used to ensure two things:
-// 1. Only one set of window update operations is applied at a time, and they are
-//    applied in the correct order.
-// 2. Ensure that we emit actions to other windows in the correct order i.e. after
-//    synchronized window operations have been applied.
-const mu = new Mutex();
-
 const EXCLUDE_SYNC_ACTIONS: string[] = [runtimeSetWindowProps.type, reloadWindow.type];
 
 /**
@@ -56,11 +48,14 @@ const EXCLUDE_SYNC_ACTIONS: string[] = [runtimeSetWindowProps.type, reloadWindow
  *      2. Execute window lifecycle actions.
  *
  * @param runtime - The runtime of the current application window.
+ * @param mu - Applies window operations one set at a time, in order, and holds each
+ * emission to other windows until its window operations are applied.
  * @returns a Redux middleware.
  */
 const middleware =
   <S extends StoreState, A extends BaseAction = UnknownAction>(
     runtime: Runtime<S, A | Action>,
+    mu: xsync.Mutex<{}>,
     debug: boolean = false,
   ): Middleware<Dispatch<A | Action>, S, Dispatch<A | Action>> =>
   (store) =>
@@ -110,7 +105,7 @@ const middleware =
     // and then propagate actions to other windows.
     void mu.runExclusive(async (): Promise<void> => {
       try {
-        if (shouldSync) await sync(prevS, nextS, runtime, debug);
+        if (shouldSync) await sync(prevS, nextS, store.dispatch, runtime, debug);
         if (shouldEmit_) await runtime.emit({ action });
       } catch (err) {
         const e = errors.fromUnknown(err);
@@ -145,7 +140,8 @@ export const configureMiddleware =
   ): ((def: GetDefaultMiddleware<S>) => M) =>
   (def) => {
     const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
-    return [middleware<S, A>(runtime, debug), ...base] as unknown as M;
+    const mu = xsync.createMutex({});
+    return [middleware<S, A>(runtime, mu, debug), ...base] as unknown as M;
   };
 
 type ConfigureStoreOptions<

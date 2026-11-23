@@ -9,10 +9,10 @@
 
 import "@/schematic/node/common/primitive/primitive.css";
 
-import { type ComponentPropsWithRef, type ReactElement } from "react";
+import type { ComponentPropsWithRef, ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
+import type { OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
 export interface DivProps
   extends Omit<ComponentPropsWithRef<"div">, "color" | "onResize">, OrientableProps {}

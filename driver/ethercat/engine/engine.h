@@ -446,6 +446,10 @@ private:
     [[nodiscard]] x::errors::Error
     lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const;
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> discover_locked();
+    /// @brief returns the slaves of the running bus, and has the master read each
+    /// starting slave again first. Requires mu.
+    std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
+    running_slaves_locked();
     /// @returns errors::SETTING_CONFLICT when an open reader sets an object in settings
     /// to another value, apart from a slave that another program sets up.
     [[nodiscard]] x::errors::Error
@@ -648,7 +652,7 @@ public:
 
     /// @brief returns the slaves on the bus. While the bus is stopped, discovers them
     /// again when they changed since the last discovery, as when a slave restarts or is
-    /// plugged in. Thread-safe.
+    /// plugged in. While it runs, reads each starting slave again. Thread-safe.
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     discover();
 

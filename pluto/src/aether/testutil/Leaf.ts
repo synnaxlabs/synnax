@@ -27,18 +27,18 @@ export interface UpdateCall {
 export class Leaf extends aether.Leaf<typeof leafStateZ> {
   static readonly TYPE: string = "aetherTest.Leaf";
   static readonly stateZ = leafStateZ;
-  schema = Leaf.stateZ;
+  override schema = Leaf.stateZ;
 
   /** Every call to {@link afterUpdate}, in order. */
   readonly updateCalls: UpdateCall[] = [];
   /** Number of `afterDelete` invocations. */
   deleteCallCount = 0;
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     this.updateCalls.push({ state: this.state, prevState: this.prevState });
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.deleteCallCount += 1;
   }
 }

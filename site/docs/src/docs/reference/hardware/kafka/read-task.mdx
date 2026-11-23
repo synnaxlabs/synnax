@@ -1,0 +1,420 @@
+---
+title: "Kafka read task"
+description:
+  "Consume Kafka topics and record values from their JSON records in channels."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A Kafka read task consumes one or more topics and records values from their JSON records
+in channels. Before you start,
+[connect a Kafka cluster](/reference/hardware/kafka/connect-cluster).
+
+<Divider.Divider x />
+
+## Topics, records, and fields
+
+A topic of the task holds the records that the task reads from it. The task consumes
+each topic that has an enabled record, with one consumer group and one start offset for
+all of its topics.
+
+A record of the task is one Kafka record key of its topic. It names an ICD, which holds
+the layout of each message, and the messages of that ICD that records with the key
+carry. A field of a message is one value in the JSON value of the record, found by a
+[JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901) such as `/temperature`.
+The task reads a field into a channel only when the record binds the field to one.
+
+- **Record key** -> the task reads only records of the topic with this key as the
+  messages of the record. An empty key, shown as **Any key**, reads each record of the
+  topic that no other record of the topic claims, records with no key included.
+- **Messages** -> when one key carries more than one message, the match rule of each
+  message picks the message for a record value.
+- **Values** -> each record value must be JSON. The task does not read Avro or Protobuf.
+- **Strings** -> a string channel records the text. The **Enum mapping** of a field maps
+  text labels to channel values.
+
+<Divider.Divider x />
+
+## Create a Kafka read task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the cluster and select **Create read task**. You
+   can also run the "Create Kafka read task" command.
+2. Click **Add data**. The dialog lists the topics of the cluster. Select a topic, such
+   as `sensor-readings`, to see its partitions, rate, format, and newest record. The
+   dialog reads up to 100 records of the topic, spread back in time, and groups their
+   keys by the fields that their values hold.
+3. Select the fields to record. You can select fields from more than one topic. Then
+   click **Add** _N_ **fields**. Each group becomes a message in the ICD of the task,
+   with a record for each key that has no record yet. A timestamp that the dialog finds
+   becomes the index of the message.
+4. Click <Icon.Play /> (**Start**).
+
+The first message creates an ICD named after the task. For a topic with no records yet,
+click **Add an empty record** in the dialog, then click **Add field** to set the
+**Name**, **Pointer**, and **Type** of each field.
+
+A key with no record of its own goes to the **Any key** record of its topic. The dialog
+marks the fields that **Any key** reads for the key as **Any key**. A new record of the
+key reads them too, into new channels, so the key keeps every field.
+
+To read another topic later, click **Add data** again and select it. The tree shows each
+topic above its records. Select a topic to change its **Name**.
+
+The Console creates a channel for each field that the task reads, and an index channel
+for each message with a field of fixed size, such as a number. A message with only
+string, JSON, or bytes fields gets no index channel: its channels stream the values and
+do not store them. The Console names the channels from the cluster, the topic, the
+record key, and the field. A message after the first adds its name. To rename a channel,
+edit **Channel** after you start. Click the dot of a field to stop or start reading it.
+Click **Add message** on a record when one key carries more than one message.
+
+<Video id="hardware/kafka/read-task" label="Create and start a Kafka read task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create one index channel for each message first, and an
+ICD that holds the message.
+
+```python
+import synnax as sy
+from synnax import icd, kafka
+
+cluster = client.devices.retrieve(name="Plant cluster")
+time = client.channels.create(
+    name="oven_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+temperature = client.channels.create(
+    name="oven_temperature", index=time.key, data_type=sy.DataType.FLOAT64
+)
+
+field = icd.FloatJSONField(name="temperature", pointer="/temperature")
+oven = icd.Message(name="Oven", payload=icd.JSONPayload(fields=[field]))
+plant = client.icds.create(icd.ICD(name="Plant", messages=[oven]))
+
+task = client.tasks.create(
+    name="Oven read",
+    type="kafka_read",
+    rack=cluster.rack,
+    config=kafka.ReadConfig(
+        device=cluster.key,
+        topics=[
+            kafka.ReadTopic(
+                name="sensor-readings",
+                records=[
+                    kafka.ReadRecord(
+                        record_key="oven",
+                        icd=plant.key,
+                        messages=[
+                            icd.ReadMessage(
+                                message=oven.key,
+                                bindings=[
+                                    icd.ReadBinding(
+                                        field=field.key, channel=temperature.key
+                                    )
+                                ],
+                            )
+                        ],
+                    )
+                ],
+            )
+        ],
+    ),
+)
+task.start()
+```
+
+Pass `rack=cluster.rack`. With no rack, Python picks the embedded rack that runs Kafka.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create one index channel for each message first,
+and an ICD that holds the message.
+
+```typescript
+import { icd, kafka } from "@synnaxlabs/client";
+
+const [cluster] = await client.devices.retrieve({
+  where: { name: { eq: "Plant cluster" } },
+});
+const time = await client.channels.create({
+  name: "oven_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const temperature = await client.channels.create({
+  name: "oven_temperature",
+  index: time.key,
+  dataType: "float64",
+});
+
+const field = icd.floatJSONFieldZ.parse({
+  type: "float",
+  name: "temperature",
+  pointer: "/temperature",
+});
+const oven = icd.messageZ.parse({
+  name: "Oven",
+  payload: { format: "json", fields: [field] },
+});
+const plant = await client.icds.create({ name: "Plant", messages: [oven] });
+
+const task = await client.tasks.create({
+  name: "Oven read",
+  rack: cluster.rack,
+  type: "kafka_read",
+  config: kafka.readConfigZ.parse({
+    device: cluster.key,
+    topics: [
+      {
+        name: "sensor-readings",
+        records: [
+          {
+            recordKey: "oven",
+            icd: plant.key,
+            messages: [
+              {
+                message: oven.key,
+                bindings: [{ field: field.key, channel: temperature.key }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Timestamps
+
+The **Source** of a message sets the timestamps of its samples:
+
+- **Kafka timestamp** -> the timestamp of the Kafka record, in milliseconds. The
+  default.
+- **Payload value** -> a timestamp **Field** of the message: ISO 8601, or Unix time in
+  seconds, milliseconds, microseconds, or nanoseconds. The value goes to the index
+  channel of the message.
+
+Timestamps in an index channel must increase. A topic with more than one partition can
+deliver records out of time order, so the task skips a record that is not after the last
+timestamp that it wrote and shows a [skip warning](#skipped-of-records). Kafka
+timestamps only count milliseconds, so a record with a Kafka timestamp in the same
+millisecond as the last written timestamp goes 1 ns after it.
+
+In code, put the key of the timestamp field in `index` on the read message.
+
+<Divider.Divider x />
+
+## Consumer group and start offset
+
+The task reads its topics as a member of a Kafka consumer group. Set **Consumer group**
+to share offsets with other consumers. When it is empty, the group is `kafka-` followed
+by the key of the task.
+
+The task commits the offset of a record after the Core stores its samples. When the task
+starts again, it continues from the committed offset of the group. **Start from** sets
+where a group with no committed offset starts:
+
+| Start from     | Value      | Starts at                                                       |
+| -------------- | ---------- | --------------------------------------------------------------- |
+| Latest         | `latest`   | The end of the topic. The task reads only new records.          |
+| Earliest       | `earliest` | The oldest record that the topic keeps.                         |
+| Committed only | `none`     | Nowhere. The task does not start until the group has an offset. |
+
+Delivery is at least once, so a restart or a rebalance of the group can read a record
+again. After the task starts, and after the group assigns it partitions, it skips
+records with a timestamp at or before the last one in the index channel. On a topic with
+more than one partition, a replayed record that arrives after a newer one follows the
+rules in [timestamps](#timestamps), so it can be written again.
+
+<Divider.Divider x />
+
+## Task options
+
+| Setting                                           | Default | Notes                                                     |
+| ------------------------------------------------- | ------- | --------------------------------------------------------- |
+| Topics <small>`topics`</small>                    |         | See [topic reference](#topic-record-and-field-reference). |
+| Consumer group <small>`group`</small>             | Empty   | Empty uses `kafka-<task key>`.                            |
+| Start from <small>`start_offset`</small>          | Latest  | See [start offset](#consumer-group-and-start-offset).     |
+| Data saving <small>`data_saving_disabled`</small> | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start <small>`auto_start`</small>            | Off     | Starts the task each time the Core starts.                |
+
+TypeScript uses the same fields in camel case, such as `startOffset`.
+
+<Divider.Divider x />
+
+## Topic, record, and field reference
+
+A topic has these settings:
+
+| Setting                          | Default | Notes                                                 |
+| -------------------------------- | ------- | ----------------------------------------------------- |
+| Name <small>`name`</small>       |         | The name of the Kafka topic. One topic for each name. |
+| Records <small>`records`</small> |         | The records of the topic. One record for each key.    |
+
+A record has these settings:
+
+| Setting                                | Default | Notes                                                  |
+| -------------------------------------- | ------- | ------------------------------------------------------ |
+| Record key <small>`record_key`</small> | Any key | The Kafka key of the records. One record for each key. |
+| ICD <small>`icd`</small>               |         | The ICD that holds the messages of the records.        |
+| Messages <small>`messages`</small>     |         | The messages that the records carry.                   |
+
+Each message of a record has these settings:
+
+| Setting                            | Default         | Notes                                                    |
+| ---------------------------------- | --------------- | -------------------------------------------------------- |
+| Message <small>`message`</small>   |                 | The key of the message in the ICD.                       |
+| Source <small>`index`</small>      | Kafka timestamp | The key of the timestamp field. Absent is Kafka time.    |
+| Bindings <small>`bindings`</small> |                 | The fields to read. A field with no binding is not read. |
+
+A binding has a `field`, the key of a field of the message, and a `channel`, the channel
+that records the value. The field itself is part of the ICD:
+
+| Setting                                   | Default | Notes                                                     |
+| ----------------------------------------- | ------- | --------------------------------------------------------- |
+| Pointer <small>`pointer`</small>          | Empty   | The JSON pointer to the value. Empty reads all of it.     |
+| Kind <small>`type`</small>                |         | Must convert to the data type of the channel.             |
+| Time format <small>`time_format`</small>  |         | Required for a `timestamp` field.                         |
+| Enum mapping <small>`enum_values`</small> | None    | Maps text labels in the record to channel values.         |
+| Default <small>`default`</small>          | None    | Written when the record value has nothing at the pointer. |
+
+All bound channels of a message are on one index channel, and one index channel belongs
+to one message of the task.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"Skipped ... of ... records"}>
+<Problem.Cause>
+
+The task read some records that it cannot record. The description gives the reason for
+the last one, with its partition and offset:
+
+- **Record value: jsontext** -> the record value is not JSON.
+- **Record value matches no message** -> the value meets the match rule of no message of
+  its record key.
+- **Record value: field ...** -> the value has nothing at the pointer of a field with no
+  default, or its value does not fit the kind of the field or the channel. When the
+  record key has more than one message, the name of the message comes first.
+- **Record stamped ... is not after the last written** -> the value of a timestamp field
+  is older than the last one in the index channel.
+
+The warning clears 5 seconds after the last skip.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the pointers and kinds of the fields in the ICD against a record from the topic.
+Pointers start with `/` and are case sensitive.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Lost connection to cluster"}>
+<Problem.Cause>
+
+The Core cannot reach the cluster while the task runs. The task keeps trying, and the
+status changes to "Reconnected to cluster" when records arrive again. The task then
+continues from its committed offset.
+
+</Problem.Cause>
+</Problem.Item>
+
+<Problem.Item message={"consumer group ... has no committed offset on topic ..."}>
+<Problem.Cause>
+
+**Start from** is **Committed only**, and the consumer group has no committed offset on
+the topic.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set **Start from** to **Latest** or **Earliest**, or set **Consumer group** to a group
+that has read the topic.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"topic ...: record key ...: claimed by more than one record"}>
+<Problem.Cause>
+
+Two records of one topic have the same record key. Records of different topics can share
+a key.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give each record of the topic its own key. For a key that carries more than one message,
+read all of the messages through one record.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["every channel must share one index channel", "channel ... is also written by ...", "records: ... and ... write to the same ..."]}>
+<Problem.Cause>
+
+The bound channels of a message use more than one index channel, or two messages of the
+task write to the same channel or to channels on the same index channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give each message channels on one index channel of its own.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"field ... of kind ... cannot read into channel ... of data type ..."}>
+<Problem.Cause>
+
+The kind of the field in the ICD does not convert to the data type of the channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the kind of the field in the ICD, or bind the field to a channel with a data type
+that the kind converts to.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to fetch records"}>
+<Problem.Cause>
+
+The cluster refused to send records, for example because the user cannot read the topic.
+The task stops. The description gives the reason.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the topic name and the ACLs of the user, then start the task again.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For problems with the connection, see
+[Connect a Kafka cluster](/reference/hardware/kafka/connect-cluster#troubleshooting).
