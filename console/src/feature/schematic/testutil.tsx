@@ -18,7 +18,7 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Panel as PlutoPanel, Schematic as PSchematic } from "@synnaxlabs/pluto";
-import { type aether } from "@synnaxlabs/pluto/ether";
+import type { aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, render, screen, within } from "@testing-library/react";
@@ -241,13 +241,12 @@ export const SYMBOL_FILE_DROP_PROMPT =
 const SYMBOL_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect id="body" width="10" height="10" fill="#ffffff"/></svg>';
 
-/** Builds a valid symbol wire payload for import fixtures. */
-export const createSymbolPayload = (name: string) => ({
+/** Builds a valid symbol payload. */
+export const createSymbolPayload = (name: string): schematic.symbol.New => ({
   name,
   data: {
-    svg: SYMBOL_SVG,
+    drawing: { type: "svg", markup: SYMBOL_SVG },
     variant: "static",
-    states: [{ key: "base", name: "Base", regions: [] }],
     handles: [],
     previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
   },
@@ -256,7 +255,17 @@ export const createSymbolPayload = (name: string) => ({
 // A symbol file as main-era Consoles exported it: typeless camelCase symbolZ JSON
 // carrying the persisted version field the schema stamped by default.
 export const createLegacySymbolFile = (name: string): string =>
-  JSON.stringify({ version: 1, ...createSymbolPayload(name) });
+  JSON.stringify({
+    version: 1,
+    name,
+    data: {
+      svg: SYMBOL_SVG,
+      variant: "static",
+      states: [{ key: "base", name: "Base", regions: [] }],
+      handles: [],
+      previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
+    },
+  });
 
 /** Returns the names of the symbols in the group on the test Core. */
 export const symbolNames = async (key: group.Key): Promise<string[]> =>

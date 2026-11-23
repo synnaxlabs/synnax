@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { caseconv } from "@/caseconv";
-import { type Action } from "@/patch/patch";
-import { type Guard } from "@/patch/types.gen";
+import type { Action } from "@/patch/patch";
+import type { Guard } from "@/patch/types.gen";
 import { zod } from "@/zod";
 
 type PathConverter = typeof caseconv.snakeToCamelPath;
@@ -45,7 +45,8 @@ const convert = (
         type: "remove",
         remove: {
           path: converted.slice(0, -1),
-          key: converted[converted.length - 1],
+          // Conversion maps each segment to one segment, so the key is the last one.
+          key: converted.at(-1)!,
           guards: convertGuards(gs),
         },
       };

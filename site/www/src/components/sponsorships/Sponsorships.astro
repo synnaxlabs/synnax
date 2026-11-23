@@ -21,7 +21,8 @@ import logoUCF from "@/components/sponsorships/ucf.svg";
 import logoASU from "@/components/sponsorships/asu.svg";
 import logoDrexel from "@/components/sponsorships/drexel.svg";
 import logoConcordia from "@/components/sponsorships/concordia.svg";
-import CdnPicture from "@/components/common/CdnPicture.astro";
+import CdnPicture from "@synnaxlabs/site-common/CdnPicture.astro";
+import { cdn } from "@/cdn";
 
 const universities = [
     { name: "UCLA", logo: logoUCLA.src },
@@ -72,7 +73,7 @@ const universities = [
                     {path == null ? (
                         <img src={logo} alt={name} />
                     ) : (
-                        <CdnPicture path={path} alt={name} sizes="300px" />
+                        <CdnPicture src={cdn(path)} alt={name} sizes="300px" />
                     )}
                     <Text.Text level="p" className="sponsorships-cell__name">
                         {name}

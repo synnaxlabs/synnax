@@ -10,7 +10,7 @@
         "tsconfig*.json",
         "package.json"
       ],
-      "env": ["LICENSE_KID", "MAIL_FROM"]
+      "env": ["LICENSE_KID", "MAIL_FROM", "VERCEL_ENV"]
     },
     "lint": {
       "inputs": [

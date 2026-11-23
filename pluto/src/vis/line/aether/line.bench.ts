@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/x";
 import { type BenchRunOptions, test } from "vitest";
 
-import { type telem } from "@/telem/aether";
+import type { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { renderAether } from "@/testutil/renderAether";
 import { windowBounds } from "@/vis/line/aether/bounds";
