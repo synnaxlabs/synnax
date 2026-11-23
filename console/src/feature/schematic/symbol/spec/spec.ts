@@ -180,6 +180,39 @@ export const setVariesByValue = (
   return setOwn(cleared, target, field, first);
 };
 
+const CLIP_STYLE = /(^|;)\s*clip-path\s*:/;
+
+const clipped = (el: Element): boolean =>
+  el.hasAttribute("clip-path") || CLIP_STYLE.test(el.getAttribute("style") ?? "");
+
+/**
+ * LevelIssue is why a level motion cannot draw a part. Level clips each shape of the
+ * part by its own box, so "shapes" is a part of more than one shape. It also replaces
+ * the clip-path of the shape, so "clip" is a shape that has its own.
+ */
+export type LevelIssue = "shapes" | "clip";
+
+/** @returns each part whose level motion cannot draw, mapped to the reason. */
+export const levelIssues = (
+  spec: Pick<Spec, "drawing" | "parts" | "looks">,
+): Map<string, LevelIssue> => {
+  const issues = new Map<string, LevelIssue>();
+  const levels = new Set(
+    spec.looks.flatMap((l) =>
+      l.motion?.type === "level" && l.part != null ? [l.part] : [],
+    ),
+  );
+  if (levels.size === 0) return issues;
+  const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+  for (const p of spec.parts) {
+    if (!levels.has(p.key)) continue;
+    const shapes = new Set(p.selectors.flatMap((s) => [...doc.querySelectorAll(s)]));
+    if (shapes.size > 1) issues.set(p.key, "shapes");
+    else if ([...shapes].some(clipped)) issues.set(p.key, "clip");
+  }
+  return issues;
+};
+
 /** @returns the name "Part N" with the lowest N that no part in parts has. */
 export const nextPartName = (parts: schematic.symbol.Part[]): string => {
   const taken = new Set(parts.map((p) => p.name));

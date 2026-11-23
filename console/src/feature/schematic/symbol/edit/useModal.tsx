@@ -79,6 +79,34 @@ const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
   );
 };
 
+interface SaveButtonProps {
+  children: string;
+  variant: status.Variant;
+  onClick: () => void;
+}
+
+// SaveButton saves the symbol unless the level motion of a part cannot draw.
+const SaveButton = ({ children, variant, onClick }: SaveButtonProps): ReactElement => {
+  const blocked = Spec.levelIssues(Form.useFieldValue(path.data)).size > 0;
+  return (
+    <Button.Button
+      variant="filled"
+      status={status.keepVariants(variant, "loading")}
+      onClick={onClick}
+      disabled={blocked}
+      tooltip={
+        blocked
+          ? "A part has a fill motion that cannot draw. Select the part to see why."
+          : undefined
+      }
+      trigger={Triggers.SAVE}
+      triggerIndicator
+    >
+      {children}
+    </Button.Button>
+  );
+};
+
 const Editor = ({
   symbolKey,
   group,
@@ -288,15 +316,9 @@ const Editor = ({
         {hasSVG && (
           <Modal.Footer background={0}>
             <Nav.Bar.End>
-              <Button.Button
-                variant="filled"
-                status={status.keepVariants(variant, "loading")}
-                onClick={() => save()}
-                trigger={Triggers.SAVE}
-                triggerIndicator
-              >
+              <SaveButton variant={variant} onClick={() => save()}>
                 {createSaveText}
-              </Button.Button>
+              </SaveButton>
             </Nav.Bar.End>
           </Modal.Footer>
         )}

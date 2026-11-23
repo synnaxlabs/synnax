@@ -380,6 +380,71 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("levelIssues", () => {
+    const LEVEL: schematic.symbol.Motion = {
+      type: "level",
+      state: "fill",
+      side: "bottom",
+    };
+    const drawn = (shape: string): schematic.symbol.Spec["drawing"] => ({
+      type: "svg",
+      markup: `<svg xmlns="http://www.w3.org/2000/svg">${shape}<rect id="seat"/></svg>`,
+    });
+
+    it("should return a part with a level motion and a shape with a clip-path", () => {
+      const spec = createSpec({
+        drawing: drawn('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
+    });
+
+    it("should count a clip-path in the style of a shape", () => {
+      const spec = createSpec({
+        drawing: drawn('<rect id="body" style="fill: red; clip-path: inset(0)"/>'),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
+    });
+
+    it("should return a part with a level motion and more than one shape", () => {
+      const spec = createSpec({
+        drawing: drawn('<rect id="body"/>'),
+        parts: [{ key: "body", name: "Body", selectors: ["#body", "#seat"] }],
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "shapes"]]));
+    });
+
+    it("should count a shape that two selectors match once", () => {
+      const spec = createSpec({
+        drawing: drawn('<rect id="body" class="tank"/>'),
+        parts: [{ key: "body", name: "Body", selectors: ["#body", ".tank"] }],
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec).size).toBe(0);
+    });
+
+    it("should count a group of shapes as one shape", () => {
+      const spec = createSpec({
+        drawing: drawn('<g id="body"><rect/><rect/></g>'),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec).size).toBe(0);
+    });
+
+    it("should return no part when the clipped part has no level motion", () => {
+      const spec = createSpec({
+        drawing: drawn('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [
+          { key: "a", part: "body", motion: { type: "spin", rate: 1 } },
+          { key: "b", part: "seat", motion: LEVEL },
+        ],
+      });
+      expect(Spec.levelIssues(spec).size).toBe(0);
+    });
+  });
+
   describe("nextPartName", () => {
     it("should take the lowest number that no part has", () => {
       const parts = [
