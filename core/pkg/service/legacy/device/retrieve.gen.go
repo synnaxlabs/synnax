@@ -63,10 +63,11 @@ func newIndexes() indexes {
 			},
 		}),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, group.Key]{
-			Name:     "group",
-			Table:    "group",
-			OnDelete: gorp.Detach,
-			Kind:     gorp.Place,
+			Name:                "group",
+			Table:               "group",
+			OnDelete:            gorp.Detach,
+			Kind:                gorp.Place,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Device) []group.Key {
 				if e.Group == nil {
 					return nil
@@ -76,11 +77,12 @@ func newIndexes() indexes {
 			Detach: func(e *Device, _ group.Key) { e.Group = nil },
 		}),
 		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, Key]{
-			Name:     "parent",
-			Table:    "device",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
-			Acyclic:  true,
+			Name:                "parent",
+			Table:               "device",
+			OnDelete:            gorp.Cascade,
+			Kind:                gorp.Place,
+			Acyclic:             true,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Device) []Key {
 				if e.Parent == nil {
 					return nil

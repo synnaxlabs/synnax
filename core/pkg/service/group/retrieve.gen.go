@@ -51,11 +51,12 @@ func newIndexes() indexes {
 			func(e *Group) string { return compare.TextKey(string(e.Name)) },
 		),
 		parent: gorp.NewTargetReference(gorp.TargetReferenceConfig[Key, Group]{
-			Name:     "parent",
-			Tables:   []string{"group", "project", "rack"},
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
-			Acyclic:  true,
+			Name:                "parent",
+			Tables:              []string{"group", "project", "rack"},
+			OnDelete:            gorp.Cascade,
+			Kind:                gorp.Place,
+			Acyclic:             true,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Group) []gorp.Target {
 				if e.Parent == nil {
 					return nil

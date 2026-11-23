@@ -56,10 +56,11 @@ func newIndexes() indexes {
 			func(e *Schematic) string { return compare.TextKey(string(e.Name)) },
 		),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, group.Key]{
-			Name:     "group",
-			Table:    "group",
-			OnDelete: gorp.Detach,
-			Kind:     gorp.Place,
+			Name:                "group",
+			Table:               "group",
+			OnDelete:            gorp.Detach,
+			Kind:                gorp.Place,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Schematic) []group.Key {
 				if e.Group == nil {
 					return nil
@@ -69,10 +70,11 @@ func newIndexes() indexes {
 			Detach: func(e *Schematic, _ group.Key) { e.Group = nil },
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, project.Key]{
-			Name:     "project",
-			Table:    "project",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
+			Name:                "project",
+			Table:               "project",
+			OnDelete:            gorp.Cascade,
+			Kind:                gorp.Place,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Schematic) []project.Key {
 				if e.Project == nil {
 					return nil

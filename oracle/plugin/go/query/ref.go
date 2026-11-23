@@ -67,6 +67,9 @@ type refInfo struct {
 	// Zero is the Go zero value of a scalar field that holds no target while it is
 	// zero, because its default is zero. It is empty for any other field.
 	Zero string
+	// EmptyHoldersTracked is true when a generated MatchHas filter asks the reference
+	// for the entries that hold no target.
+	EmptyHoldersTracked bool
 }
 
 // HoldsNone reports whether an entry can hold no target through the field.

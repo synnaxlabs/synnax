@@ -429,6 +429,26 @@ var _ = Describe("@ref", func() {
 			ToNotContain("func MatchLabel(", "func setLabels")
 	})
 
+	It("Should track the empty holders of a ref that a MatchHas filter asks", func() {
+		resp := MustGenerate(device(`
+			labels label.Key[] @ref on_delete detach @ref kind use
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").ToPreserveOrder(
+			"labels: gorp.NewKeyReference(",
+			"EmptyHoldersTracked: true,",
+			"Targets: func(e *Device) []label.Key {",
+		)
+	})
+
+	It("Should not track the entries that hold none for a required ref", func() {
+		resp := MustGenerate(device(`
+			rack rack.Key @ref on_delete restrict @ref kind use
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").
+			ToContain("rack: gorp.NewKeyReference(").
+			ToNotContain("EmptyHoldersTracked", "func MatchHasRack(")
+	})
+
 	It("Should detach an optional field and write it", func() {
 		resp := MustGenerate(device(`
 			shelf rack.Key? @ref on_delete detach @ref kind use

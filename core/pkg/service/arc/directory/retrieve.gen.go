@@ -50,11 +50,12 @@ func newIndexes() indexes {
 			func(e *Directory) string { return compare.TextKey(string(e.Name)) },
 		),
 		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Directory, Key]{
-			Name:     "parent",
-			Table:    "arc_directory",
-			OnDelete: gorp.Restrict,
-			Kind:     gorp.Place,
-			Acyclic:  true,
+			Name:                "parent",
+			Table:               "arc_directory",
+			OnDelete:            gorp.Restrict,
+			Kind:                gorp.Place,
+			Acyclic:             true,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Directory) []Key {
 				if e.Parent == nil {
 					return nil

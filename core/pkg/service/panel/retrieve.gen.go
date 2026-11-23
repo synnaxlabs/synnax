@@ -54,10 +54,11 @@ func newIndexes() indexes {
 			func(e *Panel) string { return compare.TextKey(string(e.Name)) },
 		),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, group.Key]{
-			Name:     "group",
-			Table:    "group",
-			OnDelete: gorp.Detach,
-			Kind:     gorp.Place,
+			Name:                "group",
+			Table:               "group",
+			OnDelete:            gorp.Detach,
+			Kind:                gorp.Place,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Panel) []group.Key {
 				if e.Group == nil {
 					return nil
@@ -67,10 +68,11 @@ func newIndexes() indexes {
 			Detach: func(e *Panel, _ group.Key) { e.Group = nil },
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, project.Key]{
-			Name:     "project",
-			Table:    "project",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
+			Name:                "project",
+			Table:               "project",
+			OnDelete:            gorp.Cascade,
+			Kind:                gorp.Place,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Panel) []project.Key {
 				if e.Project == nil {
 					return nil
@@ -79,10 +81,11 @@ func newIndexes() indexes {
 			},
 		}),
 		owner: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, user.Key]{
-			Name:     "owner",
-			Table:    "user",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Use,
+			Name:                "owner",
+			Table:               "user",
+			OnDelete:            gorp.Cascade,
+			Kind:                gorp.Use,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Panel) []user.Key {
 				if e.Owner == nil {
 					return nil

@@ -488,7 +488,30 @@ func extractRetrieveInfo(
 			typ.QualifiedName,
 		)
 	}
+	info.trackEmptyHolders()
 	return info, nil
+}
+
+// trackEmptyHolders marks each reference that a MatchHas filter of r asks for the
+// entries that hold no target.
+func (r *retrieveInfo) trackEmptyHolders() {
+	if r.IndexesOnly {
+		return
+	}
+	asked := make(set.Set[string])
+	for _, f := range r.Filters {
+		if f.Ref != nil && f.Ref.HoldsNone() {
+			asked.Add(f.Ref.StructField)
+		}
+	}
+	for i := range r.Refs {
+		r.Refs[i].EmptyHoldersTracked = asked.Contains(r.Refs[i].StructField)
+	}
+	for i := range r.NestedRefs {
+		r.NestedRefs[i].EmptyHoldersTracked = asked.Contains(
+			r.NestedRefs[i].StructField,
+		)
+	}
 }
 
 func retrieveNoun(typ resolution.Type, name string) string {
@@ -1049,6 +1072,9 @@ func newIndexes() indexes {
 {{- if $ref.Acyclic}}
 			Acyclic:  true,
 {{- end}}
+{{- if $ref.EmptyHoldersTracked}}
+			EmptyHoldersTracked: true,
+{{- end}}
 			Targets: func(e *{{$ret.GoName}}) []{{$ref.TargetType}} {
 {{- if and $ref.IsSlice (not $ref.IsID)}}
 				return e.{{$ref.GoName}}
@@ -1444,6 +1470,9 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 {{- end}}
 {{- if .Acyclic}}
 			Acyclic:  true,
+{{- end}}
+{{- if .EmptyHoldersTracked}}
+			EmptyHoldersTracked: true,
 {{- end}}
 			Targets: func(e *{{.EntryType}}) []{{.TargetType}} {
 				{{.TargetsBody}}

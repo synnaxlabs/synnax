@@ -66,10 +66,11 @@ func newIndexes() indexes {
 			},
 		}),
 		chassis: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, chassis.Key]{
-			Name:     "chassis",
-			Table:    "ni_chassis",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
+			Name:                "chassis",
+			Table:               "ni_chassis",
+			OnDelete:            gorp.Cascade,
+			Kind:                gorp.Place,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Device) []chassis.Key {
 				if e.Chassis == nil {
 					return nil

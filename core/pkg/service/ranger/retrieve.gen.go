@@ -57,10 +57,11 @@ func newIndexes() indexes {
 			func(e *Range) telem.TimeStamp { return e.TimeRange.End },
 		),
 		labels: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Range, label.Key]{
-			Name:     "labels",
-			Table:    "label",
-			OnDelete: gorp.Detach,
-			Kind:     gorp.Use,
+			Name:                "labels",
+			Table:               "label",
+			OnDelete:            gorp.Detach,
+			Kind:                gorp.Use,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Range) []label.Key {
 				return e.Labels
 			},
@@ -71,11 +72,12 @@ func newIndexes() indexes {
 			},
 		}),
 		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Range, Key]{
-			Name:     "parent",
-			Table:    "range",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
-			Acyclic:  true,
+			Name:                "parent",
+			Table:               "range",
+			OnDelete:            gorp.Cascade,
+			Kind:                gorp.Place,
+			Acyclic:             true,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Range) []Key {
 				if e.Parent == nil {
 					return nil
