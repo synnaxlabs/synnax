@@ -9,7 +9,7 @@
 
 import type { color as clientColor, enumeration, schematic } from "@synnaxlabs/client";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { color } from "@synnaxlabs/x";
+import { bounds, color } from "@synnaxlabs/x";
 
 import { Color } from "@/color";
 import { Enumeration } from "@/enumeration";
@@ -57,7 +57,7 @@ const entryColor = (
 const contrastColor = (c: color.Color | undefined): color.Color | undefined => {
   if (c == null) return undefined;
   const [l] = color.oklch(c);
-  return color.fromOKLCH([Math.min(1, Math.max(0, (0.6 - l) * 100)), 0, 0, 0.9]);
+  return color.fromOKLCH([bounds.clamp(bounds.DECIMAL, (0.6 - l) * 100), 0, 0, 0.9]);
 };
 
 const resolvePaint = (
