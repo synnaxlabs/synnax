@@ -66,8 +66,8 @@ public:
 
     /// @brief Result is the outcome of a write.
     struct Result {
-        /// @brief error is the error of send, after which the write sends no more
-        /// payloads.
+        /// @brief error is the error of send or of an encode, after which the write
+        /// sends no more payloads.
         x::errors::Error error;
         /// @brief refused is the VALIDATION error of the first command that the write
         /// dropped.
