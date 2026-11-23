@@ -326,7 +326,7 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
     for (std::size_t i = 0; i < messages.size(); i++) {
         const auto &m = messages[i];
         Message msg{.name = m.name};
-        Layout by_key;
+        Multiplexors::Layout by_key;
         for (const auto &f: m.payload.fields)
             by_key[icd::base(f).key] = &f;
         for (const auto &b: m.bindings) {
@@ -367,8 +367,11 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
     return {std::move(bin), x::errors::NIL};
 }
 
-x::errors::Error
-Binary::route(const BinaryMessage &m, const std::size_t i, const Layout &fields) {
+x::errors::Error Binary::route(
+    const BinaryMessage &m,
+    const std::size_t i,
+    const Multiplexors::Layout &fields
+) {
     if (!m.payload.identifier.has_value()) {
         if (this->fallback.has_value())
             return x::errors::Error(
