@@ -77,8 +77,8 @@ describe("live virtual lists", () => {
       dataType: DataType.FLOAT32,
       virtual: true,
     });
-    // A calculation on a stored output creates and deletes no other channel, so only the
-    // announce of its delete can reach the list.
+    // A calculation on a stored output creates and deletes no other channel, so only
+    // the announce of its delete can reach the list.
     const calc = await admin.calculations.create({
       output: output.key,
       expression: `return ${input.name} * 2`,
