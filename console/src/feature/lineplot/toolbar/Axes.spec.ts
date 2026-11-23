@@ -135,6 +135,7 @@ describe("lineplot/toolbar/Axes", () => {
     const input = getLabeledInput("Lower bound");
     fireEvent.change(input, { target: { value: "10" } });
     fireEvent.blur(input);
+    expect(getLabeledInput("Lower bound").value).toBe("0");
     await waitFor(async () => {
       const { bounds } = (await client.lineplots.retrieve(key)).axes.x1;
       expect(bounds).toEqual({ lower: 0, upper: 10 });
