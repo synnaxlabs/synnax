@@ -127,6 +127,9 @@ private:
     }
 
 public:
+    /// @brief the timeout of the last session opened, in milliseconds.
+    unsigned int session_timeout_ms = 0;
+
     explicit FakeAPI(std::vector<Resource> resources):
         resources(std::move(resources)) {}
 
@@ -136,10 +139,11 @@ public:
         const char *,
         NISysCfgLocale,
         NISysCfgBool,
-        unsigned int,
+        const unsigned int timeout_ms,
         NISysCfgEnumExpertHandle *,
         NISysCfgSessionHandle *
     ) override {
+        this->session_timeout_ms = timeout_ms;
         return NISysCfg_OK;
     }
 
@@ -312,6 +316,38 @@ TEST(ScannerTest, testLogsIgnoredDeviceOnce) {
     }
     EXPECT_EQ(sink.count("skipping cRIO-9040 (022B5288)"), 1);
     EXPECT_EQ(sink.count("skipping cRIO-9045 (022B5299)"), 1);
+}
+
+/// @brief it should open the session with a timeout of 1 second at a scan rate of
+/// 10 Hz.
+TEST(ScannerTest, testSessionTimeoutAtFastRate) {
+    auto api = std::make_shared<FakeAPI>(std::vector<FakeAPI::Resource>{});
+    x::json::json j = {{"disabled", false}, {"rate", 10.0}};
+    auto p = x::json::Parser(j);
+    Scanner scanner(
+        loaded(api),
+        loaded(std::make_shared<daqmx::MockAPI>()),
+        ScanTaskConfig(p),
+        synnax::task::Task{}
+    );
+    ASSERT_NIL_P(scanner.scan(common::ScannerContext{}));
+    EXPECT_EQ(api->session_timeout_ms, 1000);
+}
+
+/// @brief it should open the session with a timeout of 1 second at a scan rate of
+/// 1 Hz.
+TEST(ScannerTest, testSessionTimeoutAtOneHz) {
+    auto api = std::make_shared<FakeAPI>(std::vector<FakeAPI::Resource>{});
+    x::json::json j = {{"disabled", false}, {"rate", 1.0}};
+    auto p = x::json::Parser(j);
+    Scanner scanner(
+        loaded(api),
+        loaded(std::make_shared<daqmx::MockAPI>()),
+        ScanTaskConfig(p),
+        synnax::task::Task{}
+    );
+    ASSERT_NIL_P(scanner.scan(common::ScannerContext{}));
+    EXPECT_EQ(api->session_timeout_ms, 1000);
 }
 
 /// @brief returns the devices found by one scan of the given resources.

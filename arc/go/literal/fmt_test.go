@@ -506,6 +506,8 @@ var _ = Describe("ValidateSpec", func() {
 			Entry("hex on integer constant", "05x", types.IntegerConstraint()),
 			Entry("float on float constant", ".2f", types.FloatConstraint()),
 			Entry("empty spec on string skips check", "", types.String()),
+			Entry("precision at the limit", ".1000000f", types.F64()),
+			Entry("width at the limit", "1000000d", types.I32()),
 		},
 	)
 	DescribeTable("valid specs", validArgs...)
@@ -576,6 +578,14 @@ var _ = Describe("ValidateSpec", func() {
 			Entry("missing verb", "5", types.I32(), "invalid format spec"),
 			Entry("only precision no verb", ".2", types.F64(), "invalid format spec"),
 			Entry("precision without digits", ".f", types.F64(), "invalid format spec"),
+			Entry("precision above the limit", ".1000001f", types.F64(), "exceeds"),
+			Entry("width above the limit", "1000001d", types.I32(), "exceeds"),
+			Entry(
+				"precision overflowing int",
+				"99999999999999999999.2f",
+				types.F64(),
+				"exceeds",
+			),
 		},
 	)
 	DescribeTable("error cases", invalidArgs...)

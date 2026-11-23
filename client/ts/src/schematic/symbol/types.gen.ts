@@ -274,8 +274,11 @@ export const PAINT_SCHEMAS: {
 /** SpinMotion turns a part around its pivot. */
 export const spinMotionZ = z.object({
   type: z.literal("spin"),
-  /** rate is the turns each second at the upper bound of the state. */
-  rate: z.number().min(0).default(0.5),
+  /**
+   * rate is the turns each second at the upper bound of the state. A negative rate
+   * turns the part the other way.
+   */
+  rate: z.number().default(0.5),
   /** state is the key of the number state that sets the speed. */
   state: z.string().optional(),
 });
@@ -284,8 +287,11 @@ export interface SpinMotion extends z.infer<typeof spinMotionZ> {}
 /** FlowMotion moves the dashes of a stroke along it. */
 export const flowMotionZ = z.object({
   type: z.literal("flow"),
-  /** rate is the cycles each second at the upper bound of the state. */
-  rate: z.number().min(0).default(0.5),
+  /**
+   * rate is the cycles each second at the upper bound of the state. A negative rate
+   * moves the dashes the other way.
+   */
+  rate: z.number().default(0.5),
   /** state is the key of the number state that sets the speed. */
   state: z.string().optional(),
 });
@@ -494,7 +500,7 @@ export interface Command extends z.infer<typeof commandZ> {}
 
 /**
  * Look is paint, visibility, or motion on a part. A later look wins on each field that
- * it sets.
+ * it sets. On motion, it replaces only an earlier motion of the same kind.
  */
 export const lookZ = z.object({
   /** key is the look identifier. */
