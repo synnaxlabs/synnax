@@ -143,10 +143,11 @@ var _ = Describe("Writer breaker", func() {
 			}
 			Expect(create(ctx, &second)).To(Succeed())
 			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channels.NewWriter(tx).DeleteManyByNames(
-					ctx,
-					[]string{"dep"},
-				)
+				keys, err := channels.KeysByNames(ctx, tx, []string{"dep"})
+				if err != nil {
+					return err
+				}
+				return channels.NewWriter(tx).DeleteMany(ctx, keys, false)
 			})).To(Succeed())
 			c := calculation.Calculation{
 				Output:     first.Key(),
