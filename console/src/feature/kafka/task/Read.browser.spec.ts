@@ -1994,6 +1994,37 @@ describe("Kafka read form", () => {
       await screen.findByRole("treeitem", { name: /^mode/ });
     });
 
+    it("should delete a message with no fields that the task made when its record stops reading it", async () => {
+      const message: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("status"),
+        payload: { format: "json", fields: [createField("pressure", "float")] },
+      };
+      const shared = await client.icds.create({
+        name: uniqueName("pump"),
+        messages: [message],
+      });
+      const { draft, dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const scan = await createScanTask(dev);
+      const { answered } = await answerCommandsUntil(client, [scan], "browse", {
+        browse: { data: browseOf(listTopic("plant", { records: 0 })) },
+      });
+      const dialog = await clickAddData();
+      await answered;
+      await dialog.findByText(/The topic holds no records/);
+      fireEvent.click(dialog.getByRole("button", { name: "Add an empty record" }));
+      const [rec] = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      await pickMessageFormat("Any key", message.name, shared.name);
+      await waitFor(async () =>
+        expect((await client.icds.retrieve({ key: rec.icd })).messages).toEqual([]),
+      );
+    });
+
     /** @returns a record that a deploy bound to a float channel for /temperature. */
     const createBoundRecord = async () => {
       const ch = await client.channels.create({

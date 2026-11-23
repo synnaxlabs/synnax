@@ -567,6 +567,7 @@ const Records: FC<RecordsProps> = ({
         }
       });
     }
+    for (const { key } of messages) made.current.add(key);
     const added = recordsOf(icdKey);
     const keys = [...added].map(([topic, recs]) => pushRecords(topic, recs));
     const [{ key: shown }] = [...added.values()].flat();
