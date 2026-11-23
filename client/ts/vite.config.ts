@@ -11,6 +11,7 @@
 
 import { isProd, lib } from "@synnaxlabs/vite-plugin";
 import { playwright } from "@vitest/browser-playwright";
+import { globSync } from "node:fs";
 import path from "path";
 import { defineConfig, type Plugin } from "vite";
 import type { TestProjectInlineConfiguration } from "vitest/config";
@@ -26,21 +27,26 @@ const NODE_SPECS = [
   "src/auth/auth.cookie.spec.ts",
   // Start HTTP, HTTPS, or WebSocket servers, or use the file system.
   "src/client.spec.ts",
-  "src/env.spec.ts",
+  "src/env/env.spec.ts",
   "src/framer/streamer.spec.ts",
   "src/testutil/keepAlive.spec.ts",
-  "src/transport.spec.ts",
+  "src/transport/transport.spec.ts",
   // Reach the Core through a TCP proxy.
   "src/channel/channel.spec.ts",
   "src/connection/downtime.spec.ts",
   "src/task/task.spec.ts",
   // Listen for unhandled rejections on `process`.
-  "src/framer/cache/streamer.spec.ts",
+  "src/framer/cache/streamer/streamer.spec.ts",
   // Read the filter vectors from the file system.
   "src/**/where.spec.ts",
   // Checks the error for a Core that no project provides.
   "src/testutil/address.spec.ts",
 ];
+
+// A stale entry would let a browser run a Node spec.
+for (const spec of NODE_SPECS)
+  if (globSync(spec, { cwd: import.meta.dirname }).length === 0)
+    throw new Error(`${spec} in NODE_SPECS matches no file`);
 
 /**
  * @returns a project that runs the specs in one browser. Browsers run one after
