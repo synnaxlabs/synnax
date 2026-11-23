@@ -109,15 +109,10 @@ public:
     /// @returns the error of the retrieve, the read, or the connection.
     std::pair<connection::Pool::Connection, x::errors::Error> connect() {
         auto [cfg, err] = read_connection(*this->client, *this->reader, this->key);
-        if (err) {
-            // The read sends no write, so an interrupted read also keeps the last
-            // settings.
-            const auto kind = synnax::errors::classify(err);
-            if (kind != synnax::errors::Kind::TRANSIENT &&
-                kind != synnax::errors::Kind::INTERRUPTED)
-                return {connection::Pool::Connection(nullptr, nullptr, ""), err};
-        } else
+        if (!err)
             this->cfg = std::move(cfg);
+        else if (synnax::errors::classify(err) != synnax::errors::Kind::TRANSIENT)
+            return {connection::Pool::Connection(nullptr, nullptr, ""), err};
         return this->pool->acquire(this->cfg, this->log_prefix);
     }
 
