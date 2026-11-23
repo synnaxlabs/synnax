@@ -305,7 +305,8 @@ describe("Certificate.Field", () => {
       "SHA-256": fingerprintOf(c),
     });
     for (const value of [c.details.subject, fingerprintOf(c)])
-      expect(treatment(screen.getByText(value)), value).toBe("prose");
+      for (const el of screen.getAllByText(value))
+        expect(treatment(el), value).toBe("prose");
     fireEvent.click(screen.getByRole("button", { name: "Hide details" }));
     expect(screen.queryByRole("term")).toBeNull();
     screen.getByRole("button", { name: "Details" });

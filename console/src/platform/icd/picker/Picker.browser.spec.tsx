@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -33,6 +34,29 @@ describe("ICD.Picker.PaneHeader", () => {
     );
     expect(screen.getByText("plant/oven")).toBeTruthy();
     expect(screen.getByText("Select the values to read.")).toBeTruthy();
+  });
+});
+
+describe("ICD.Picker.Values", () => {
+  it("should draw names in Inter and last values with tabular digits", async () => {
+    await renderWithConsole(
+      <ICD.Picker.Values
+        noun="Field"
+        groups={[
+          {
+            title: "plant/oven",
+            values: [
+              { key: "t", name: "temperature", sample: "21.5", dataType: "float64" },
+            ],
+          },
+        ]}
+        value={[]}
+        onChange={() => {}}
+      />,
+    );
+    expect(treatment(screen.getByText("plant/oven"))).toBe("prose");
+    expect(treatment(screen.getByText("temperature"))).toBe("prose");
+    expect(treatment(screen.getByText("21.5"))).toBe("numeric");
   });
 });
 
