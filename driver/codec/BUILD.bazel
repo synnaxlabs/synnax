@@ -19,6 +19,7 @@ cc_library(
         "field.h",
         "json.cpp",
         "match.cpp",
+        "mux.cpp",
         "text.cpp",
     ],
     hdrs = [
@@ -27,6 +28,7 @@ cc_library(
         "bits.h",
         "errors.h",
         "json.h",
+        "mux.h",
         "text.h",
     ],
     visibility = ["//visibility:public"],

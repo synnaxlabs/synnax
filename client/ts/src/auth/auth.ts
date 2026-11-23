@@ -121,6 +121,8 @@ export interface OIDCLink extends z.infer<typeof oidcLinkZ> {}
 const oidcLoginZ = z.object({
   /** provider is the name of the provider. */
   provider: z.string(),
+  /** issuer is the provider's issuer URL, which the links of its accounts hold. */
+  issuer: z.string(),
   /** authorizationEndpoint is the provider's login address. */
   authorizationEndpoint: z.string(),
   /** clientId is the Core's client ID at the provider. */

@@ -89,8 +89,9 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     go build -trimpath -ldflags="${LDFLAGS}" -o synnax .; \
     fi
 
-# Stage 3: Minimal runtime image with glibc for driver support
-FROM ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
+# Stage 3: Minimal runtime image with glibc for driver support. The base is Ubuntu 26.04
+# with curl for health checks, so the build installs no packages from an Ubuntu mirror.
+FROM buildpack-deps:26.04-curl@sha256:34c4efba19abf9bdf07ba9c90430a7efeb7b9e1e3c62a8c69a2a40bf8a0ebc70
 
 # Pass build args to final stage
 ARG VERSION=
@@ -118,12 +119,7 @@ WORKDIR /synnax
 # Copy binary and entrypoint script from builder
 COPY --from=builder /workspace/core/synnax /synnax/synnax
 COPY --from=builder /workspace/core/docker-entrypoint.sh /docker-entrypoint.sh
-
-# Install gosu for dropping privileges and curl for health checks
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends gosu curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && chmod +x /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # Expose default Synnax port (documentation only)
 EXPOSE 9090

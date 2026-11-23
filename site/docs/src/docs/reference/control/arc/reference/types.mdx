@@ -73,13 +73,16 @@ to compile. See [`math`](/reference/control/arc/standard-library/math#float-cons
 
 Write the type name and the value in parentheses: `f64(x)`.
 
-| From    | To      | Result                                                              |
-| ------- | ------- | ------------------------------------------------------------------- |
-| Integer | Float   | The same number                                                     |
-| Float   | Integer | Truncated toward zero. Out of range or NaN fails at runtime.        |
-| `bool`  | `u8`    | `1` or `0`                                                          |
-| Number  | `str`   | Shortest form: `str(1.0)` is `"1"`, and `"NaN"`, `"+Inf"`, `"-Inf"` |
-| `bool`  | `str`   | `"true"` or `"false"`                                               |
+| From    | To      | Result                                                                       |
+| ------- | ------- | ---------------------------------------------------------------------------- |
+| Integer | Float   | The same number                                                              |
+| Float   | Integer | Truncated toward zero. Out of range or NaN fails at runtime.                 |
+| `bool`  | `u8`    | `1` or `0`                                                                   |
+| Number  | `str`   | Shortest form: `str(1.0)` is `"1"`, and `"NaN"`, `"Infinity"`, `"-Infinity"` |
+| `bool`  | `str`   | `"true"` or `"false"`                                                        |
+
+A nonzero float whose magnitude is below `1e-6` or at least `1e21` uses exponent
+notation, such as `"1.5e-7"` and `"1e+21"`.
 
 ```arc channels="tank_pt, tank_high" bodies="high"
 func high() {p f64} u8 {

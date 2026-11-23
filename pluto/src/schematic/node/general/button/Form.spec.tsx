@@ -14,8 +14,8 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { ButtonForm } from "@/schematic/node/general/button/Form";
-import { createConfig } from "@/schematic/node/registry";
+import { Node } from "@/schematic/node";
+import { Button } from "@/schematic/node/general/button";
 import {
   createAsyncSynnaxWrapper,
   createSynnaxWrapper,
@@ -40,9 +40,9 @@ describe("ButtonForm", () => {
   });
 
   it("should unbind the command channel when it is cleared", async () => {
-    const config = createConfig({ variant: "button", commandChannel: ch.key });
+    const config = Node.createConfig({ variant: "button", commandChannel: ch.key });
     const { findByLabelText, value } = renderForm(
-      <ButtonForm tab="control" onTabChange={vi.fn()} />,
+      <Button.spec.Form tab="control" onTabChange={vi.fn()} />,
       config,
       schematic.buttonNodeConfigZ,
       wrapper,
@@ -55,7 +55,7 @@ describe("ButtonForm", () => {
 describe("ButtonForm size", () => {
   const renderStyle = (config: schematic.ButtonNodeConfig): RenderFormResult =>
     renderForm(
-      <ButtonForm tab="style" onTabChange={vi.fn()} />,
+      <Button.spec.Form tab="style" onTabChange={vi.fn()} />,
       config,
       schematic.buttonNodeConfigZ,
     );
@@ -69,7 +69,7 @@ describe("ButtonForm size", () => {
   ] as const)("should set the size from %s", async (option, size) => {
     const start = size === "huge" ? "tiny" : "huge";
     const { getByText, value } = renderStyle(
-      createConfig({ variant: "button", size: start }),
+      Node.createConfig({ variant: "button", size: start }),
     );
     fireEvent.click(getByText(option));
     await waitFor(() => expect(value(path.size)).toBe(size));
@@ -79,8 +79,8 @@ describe("ButtonForm size", () => {
 describe("ButtonForm label", () => {
   const renderStyleTab = (): RenderFormResult =>
     renderForm(
-      <ButtonForm tab="style" onTabChange={vi.fn()} />,
-      createConfig({ variant: "button" }),
+      <Button.spec.Form tab="style" onTabChange={vi.fn()} />,
+      Node.createConfig({ variant: "button" }),
       schematic.buttonNodeConfigZ,
       createSynnaxWrapper({ client: null }),
     );
@@ -110,8 +110,8 @@ describe("ButtonForm label", () => {
 
   it("should keep the wrap width when the input is cleared", async () => {
     const { getByText, value } = renderForm(
-      <ButtonForm tab="style" onTabChange={vi.fn()} />,
-      createConfig({ variant: "button", label: { maxInlineSize: 80 } }),
+      <Button.spec.Form tab="style" onTabChange={vi.fn()} />,
+      Node.createConfig({ variant: "button", label: { maxInlineSize: 80 } }),
       schematic.buttonNodeConfigZ,
       createSynnaxWrapper({ client: null }),
     );
