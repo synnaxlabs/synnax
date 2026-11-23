@@ -67,7 +67,7 @@ func (c Connection) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(v.SerialPort)
-		w.Uint32(uint32(v.BaudRate))
+		w.Int64(int64(v.BaudRate))
 		w.String(string(v.Parity))
 		w.Uint8(uint8(v.StopBits))
 		w.Uint8(uint8(v.UnitID))
@@ -107,8 +107,12 @@ func (c *Connection) DecodeOrc(r *orc.Reader) error {
 		if v.SerialPort, err = r.String(); err != nil {
 			return err
 		}
-		if v.BaudRate, err = r.Uint32(); err != nil {
-			return err
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.BaudRate = BaudRate(rawV)
 		}
 		{
 			rawV, err := r.String()

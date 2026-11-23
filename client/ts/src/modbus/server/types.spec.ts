@@ -90,6 +90,10 @@ describe("serverZ", () => {
   });
 
   const INVALID: [string, Record<string, unknown>][] = [
+    [
+      "a baud rate the Driver cannot set",
+      { connection: { transport: "rtu", serialPort: "COM3", baudRate: 14400 } },
+    ],
     ["an empty name", { name: "" }],
     ["no transport", { connection: { host: "plc", port: 502 } }],
     ["an empty host", { connection: { ...SERVER.connection, host: "" } }],

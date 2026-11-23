@@ -50,6 +50,19 @@ export const PARITYS = ["none", "even", "odd"] as const;
 export const parityZ = z.enum(PARITYS);
 export type Parity = z.infer<typeof parityZ>;
 
+export enum BaudRate {
+  b1200 = 1200,
+  b2400 = 2400,
+  b4800 = 4800,
+  b9600 = 9600,
+  b19200 = 19200,
+  b38400 = 38400,
+  b57600 = 57600,
+  b115200 = 115200,
+  b230400 = 230400,
+}
+export const baudRateZ = z.enum(BaudRate);
+
 /** BaseConnection carries the fields that every Modbus connection shares. */
 export const baseConnectionZ = z.object({
   /** bytesSwapped is true when the bytes of each 16-bit register are swapped. */
@@ -134,7 +147,7 @@ export const rtuConnectionZ = baseConnectionZ.extend({
   /** serialPort is the serial port of the line, such as /dev/ttyUSB0 or COM3. */
   serialPort: z.string().min(1, "serial_port is required"),
   /** baudRate is the baud rate of the line. */
-  baudRate: z.uint32().min(1200).max(230400).default(19200),
+  baudRate: baudRateZ.default(BaudRate.b19200),
   /** parity is the parity of the line. */
   parity: parityZ.default("even"),
   /** stopBits is the number of stop bits of the line. */

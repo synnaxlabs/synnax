@@ -28,6 +28,30 @@ const (
 	ParityOdd Parity = versions.ParityOdd
 )
 
+// BaudRate is a serial line rate that the Driver sets on every platform.
+type BaudRate = versions.BaudRate
+
+const (
+	// BaudRateB1200 is 1200 baud.
+	BaudRateB1200 BaudRate = versions.BaudRateB1200
+	// BaudRateB2400 is 2400 baud.
+	BaudRateB2400 BaudRate = versions.BaudRateB2400
+	// BaudRateB4800 is 4800 baud.
+	BaudRateB4800 BaudRate = versions.BaudRateB4800
+	// BaudRateB9600 is 9600 baud.
+	BaudRateB9600 BaudRate = versions.BaudRateB9600
+	// BaudRateB19200 is 19200 baud.
+	BaudRateB19200 BaudRate = versions.BaudRateB19200
+	// BaudRateB38400 is 38400 baud.
+	BaudRateB38400 BaudRate = versions.BaudRateB38400
+	// BaudRateB57600 is 57600 baud.
+	BaudRateB57600 BaudRate = versions.BaudRateB57600
+	// BaudRateB115200 is 115200 baud.
+	BaudRateB115200 BaudRate = versions.BaudRateB115200
+	// BaudRateB230400 is 230400 baud.
+	BaudRateB230400 BaudRate = versions.BaudRateB230400
+)
+
 // WriteCodes selects the function codes that write tasks use.
 type WriteCodes = versions.WriteCodes
 

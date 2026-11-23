@@ -30,6 +30,38 @@ Parity enum {
     @doc value "is the parity of a serial line."
 }
 
+BaudRate enum {
+    b1200   = 1200 {
+        @doc value "is 1200 baud."
+    }
+    b2400   = 2400 {
+        @doc value "is 2400 baud."
+    }
+    b4800   = 4800 {
+        @doc value "is 4800 baud."
+    }
+    b9600   = 9600 {
+        @doc value "is 9600 baud."
+    }
+    b19200  = 19200 {
+        @doc value "is 19200 baud."
+    }
+    b38400  = 38400 {
+        @doc value "is 38400 baud."
+    }
+    b57600  = 57600 {
+        @doc value "is 57600 baud."
+    }
+    b115200 = 115200 {
+        @doc value "is 115200 baud."
+    }
+    b230400 = 230400 {
+        @doc value "is 230400 baud."
+    }
+
+    @doc value "is a serial line rate that the Driver sets on every platform."
+}
+
 WriteCodes enum {
     multiple = "multiple" {
         @doc value "writes with function codes 15 and 16."
@@ -129,10 +161,10 @@ Connection union on transport extends BaseConnection {
         @doc value "connects to a server over Modbus TCP."
     }
     rtu {
-        serial_port string {
+        serial_port string   {
             @doc value "is the serial port of the line, such as /dev/ttyUSB0 or COM3."
         }
-        baud_rate   uint32 = 19200 {
+        baud_rate   BaudRate = b19200 {
             @doc value "is the baud rate of the line."
         }
         parity      Parity = even {

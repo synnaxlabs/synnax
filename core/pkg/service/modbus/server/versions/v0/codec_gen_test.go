@@ -75,7 +75,7 @@ var _ = Describe("Codec", func() {
 			Entry("rtu variant", v0.Connection{Variant: v0.RtuConnection{
 				BaseConnection: fullyPopulatedBaseConnection,
 				SerialPort:     "test_1",
-				BaudRate:       3,
+				BaudRate:       v0.BaudRate(1200),
 				Parity:         v0.Parity("none"),
 				StopBits:       5,
 				UnitID:         6,
@@ -558,7 +558,7 @@ func FuzzDecodeConnection(f *testing.F) {
 		seed := v0.Connection{Variant: v0.RtuConnection{
 			BaseConnection: fullyPopulatedBaseConnection,
 			SerialPort:     "test_1",
-			BaudRate:       3,
+			BaudRate:       v0.BaudRate(1200),
 			Parity:         v0.Parity("none"),
 			StopBits:       5,
 			UnitID:         6,

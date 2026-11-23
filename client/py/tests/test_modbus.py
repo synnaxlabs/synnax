@@ -1141,6 +1141,7 @@ class TestModbusServerResource:
             {"host": "plc", "port": 502},
             {"transport": "tcp", "host": "plc", "port": 502, "timeout": 1},
             {"transport": "rtu", "serial_port": "COM3", "parity": "mark"},
+            {"transport": "rtu", "serial_port": "COM3", "baud_rate": 14400},
             {"transport": "rtu", "serial_port": "COM3", "unit_id": 248},
         ],
     )

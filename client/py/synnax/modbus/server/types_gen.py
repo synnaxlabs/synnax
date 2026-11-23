@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+from enum import IntEnum
 from typing import Annotated, Literal, TypeAlias, override as _override
 from uuid import UUID, uuid4
 
@@ -83,6 +84,19 @@ PARITY_ODD: Literal["odd"] = "odd"
 
 
 Parity = Literal["none", "even", "odd"]
+
+
+class BaudRate(IntEnum):
+    b1200 = 1200
+    b2400 = 2400
+    b4800 = 4800
+    b9600 = 9600
+    b19200 = 19200
+    b38400 = 38400
+    b57600 = 57600
+    b115200 = 115200
+    b230400 = 230400
+
 
 Key: TypeAlias = UUID
 
@@ -180,7 +194,7 @@ class RtuConnection(BaseConnection):
 
     transport: Literal["rtu"] = "rtu"
     serial_port: str = Field(min_length=1)
-    baud_rate: int = Field(default=19200, ge=1200, le=230400)
+    baud_rate: BaudRate = BaudRate.b19200
     parity: Parity = "even"
     stop_bits: int = Field(default=1, ge=1, le=2)
     unit_id: int = Field(default=1, ge=1, le=247)

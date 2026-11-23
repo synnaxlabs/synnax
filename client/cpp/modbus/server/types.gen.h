@@ -60,6 +60,18 @@ constexpr const char *PARITY_NONE = "none";
 constexpr const char *PARITY_EVEN = "even";
 constexpr const char *PARITY_ODD = "odd";
 
+enum class BaudRate : std::uint32_t {
+    B1200 = 1200,
+    B2400 = 2400,
+    B4800 = 4800,
+    B9600 = 9600,
+    B19200 = 19200,
+    B38400 = 38400,
+    B57600 = 57600,
+    B115200 = 115200,
+    B230400 = 230400,
+};
+
 using Key = x::uuid::UUID;
 
 /// @brief BaseConnection carries the fields that every Modbus connection shares.
@@ -134,7 +146,7 @@ struct RtuConnection : public BaseConnection {
     /// @brief serial_port is the serial port of the line, such as /dev/ttyUSB0 or COM3.
     std::string serial_port;
     /// @brief baud_rate is the baud rate of the line.
-    std::uint32_t baud_rate = 19200;
+    BaudRate baud_rate = BaudRate::B19200;
     /// @brief parity is the parity of the line.
     std::string parity = PARITY_EVEN;
     /// @brief stop_bits is the number of stop bits of the line.

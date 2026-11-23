@@ -56,6 +56,43 @@ func (p Parity) IsValid() bool {
 	}
 }
 
+// BaudRate is a serial line rate that the Driver sets on every platform.
+type BaudRate uint32
+
+//go:generate go tool stringer -type=BaudRate
+
+const (
+	// BaudRateB1200 is 1200 baud.
+	BaudRateB1200 BaudRate = 1200
+	// BaudRateB2400 is 2400 baud.
+	BaudRateB2400 BaudRate = 2400
+	// BaudRateB4800 is 4800 baud.
+	BaudRateB4800 BaudRate = 4800
+	// BaudRateB9600 is 9600 baud.
+	BaudRateB9600 BaudRate = 9600
+	// BaudRateB19200 is 19200 baud.
+	BaudRateB19200 BaudRate = 19200
+	// BaudRateB38400 is 38400 baud.
+	BaudRateB38400 BaudRate = 38400
+	// BaudRateB57600 is 57600 baud.
+	BaudRateB57600 BaudRate = 57600
+	// BaudRateB115200 is 115200 baud.
+	BaudRateB115200 BaudRate = 115200
+	// BaudRateB230400 is 230400 baud.
+	BaudRateB230400 BaudRate = 230400
+)
+
+// IsValid reports whether b is one of the defined BaudRate
+// values.
+func (b BaudRate) IsValid() bool {
+	switch b {
+	case BaudRateB1200, BaudRateB2400, BaudRateB4800, BaudRateB9600, BaudRateB19200, BaudRateB38400, BaudRateB57600, BaudRateB115200, BaudRateB230400:
+		return true
+	default:
+		return false
+	}
+}
+
 // WriteCodes selects the function codes that write tasks use.
 type WriteCodes string
 
@@ -222,7 +259,7 @@ type RtuConnection struct {
 	// SerialPort is the serial port of the line, such as /dev/ttyUSB0 or COM3.
 	SerialPort string `json:"serial_port" msgpack:"serial_port"`
 	// BaudRate is the baud rate of the line.
-	BaudRate uint32 `json:"baud_rate" msgpack:"baud_rate"`
+	BaudRate BaudRate `json:"baud_rate" msgpack:"baud_rate"`
 	// Parity is the parity of the line.
 	Parity Parity `json:"parity" msgpack:"parity"`
 	// StopBits is the number of stop bits of the line.
@@ -236,7 +273,7 @@ func (RtuConnection) isConnectionVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (r *RtuConnection) SetDefaults() {
 	r.BaseConnection.SetDefaults()
-	r.BaudRate = 19200
+	r.BaudRate = BaudRateB19200
 	r.Parity = ParityEven
 	r.StopBits = 1
 	r.UnitID = 1
@@ -246,10 +283,9 @@ func (r *RtuConnection) SetDefaults() {
 // schema constraints.
 func (r RtuConnection) Validate() error {
 	v := validate.New("RtuConnection")
+	v.Ternaryf("baud_rate", !r.BaudRate.IsValid(), "invalid baud_rate: %v", r.BaudRate)
 	v.Ternaryf("parity", !r.Parity.IsValid(), "invalid parity: %v", r.Parity)
 	v.NotEmptyString("serial_port", r.SerialPort)
-	v.GreaterThanEq("baud_rate", r.BaudRate, 1200)
-	v.LessThanEq("baud_rate", r.BaudRate, 230400)
 	v.GreaterThanEq("stop_bits", r.StopBits, 1)
 	v.LessThanEq("stop_bits", r.StopBits, 2)
 	v.GreaterThanEq("unit_id", r.UnitID, 1)

@@ -179,9 +179,9 @@ var _ = Describe("Server", func() {
 			c.SerialPort = ""
 			s.Connection = v0.Connection{Variant: c}
 		}, "serial_port"),
-		Entry("a baud rate above the limit", func(s *v0.Server) {
+		Entry("a baud rate the Driver cannot set", func(s *v0.Server) {
 			c := rtu()
-			c.BaudRate = 460800
+			c.BaudRate = 14400
 			s.Connection = v0.Connection{Variant: c}
 		}, "baud_rate"),
 		Entry("an unknown parity", func(s *v0.Server) {

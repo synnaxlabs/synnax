@@ -211,7 +211,7 @@ inline RtuConnection RtuConnection::parse(x::json::Parser parser) {
     RtuConnection result;
     static_cast<BaseConnection &>(result) = BaseConnection::parse(parser);
     result.serial_port = parser.required_field<std::string>("serial_port");
-    result.baud_rate = parser.field<std::uint32_t>("baud_rate", 19200);
+    result.baud_rate = parser.field<BaudRate>("baud_rate", BaudRate::B19200);
     result.parity = parser.field<std::string>("parity", "even");
     result.stop_bits = parser.field<std::uint8_t>("stop_bits", 1);
     result.unit_id = parser.field<std::uint8_t>("unit_id", 1);
