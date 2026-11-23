@@ -15,6 +15,7 @@ import (
 
 	assetsv1 "github.com/sift-stack/sift/go/gen/sift/assets/v1"
 	pingv1 "github.com/sift-stack/sift/go/gen/sift/ping/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -40,11 +41,15 @@ const (
 	listUploadsCommand = "list_uploads"
 )
 
+// grantArgs are the arguments of a command that carries a grant. The task runs the
+// command that the grant stores, not the carrier's.
+type grantArgs struct {
+	Grant grant.Key `json:"grant"`
+}
+
 type testConnectionArgs struct {
 	// Connection is the connection to test.
 	Connection Properties `json:"connection"`
-	// Grant lets the rack of the task read the API key of the connection.
-	Grant grant.Key `json:"grant"`
 }
 
 type listAssetsArgs struct {
@@ -138,25 +143,37 @@ func (s scanner) Exec(
 }
 
 func (s scanner) testConnection(ctx context.Context, cmd task.Command) error {
-	var args testConnectionArgs
-	if err := cmd.Args.Unmarshal(&args); err != nil {
-		return errors.Wrap(err, "invalid connection")
-	}
-	if err := args.Connection.validate(); err != nil {
-		return err
+	var carrier grantArgs
+	if err := cmd.Args.Unmarshal(&carrier); err != nil {
+		return errors.Wrap(err, "invalid grant")
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.cfg.Timeout.Duration())
 	defer cancel()
-	values, err := s.cfg.Secret.Resolve(
+	g, values, err := s.cfg.Secret.Resolve(
 		ctx,
 		s.rack.ResourceID(),
-		args.Grant,
-		args.Connection.APIKey,
+		cmd.Task,
+		carrier.Grant,
 	)
 	if err != nil {
 		return err
 	}
-	conn, err := dial(args.Connection.URI, string(values[args.Connection.APIKey]))
+	var args testConnectionArgs
+	if err = g.Command.Args.Unmarshal(&args); err != nil {
+		return errors.Wrap(err, "invalid connection")
+	}
+	if err = args.Connection.validate(); err != nil {
+		return err
+	}
+	apiKey, ok := values[args.Connection.APIKey]
+	if !ok {
+		return errors.Wrapf(
+			access.ErrDenied,
+			"grant does not hold API key %s",
+			args.Connection.APIKey,
+		)
+	}
+	conn, err := dial(args.Connection.URI, string(apiKey))
 	if err != nil {
 		return err
 	}

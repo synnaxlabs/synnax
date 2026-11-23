@@ -26,7 +26,7 @@ import {
   type WriteSchemas,
   writesOverlap,
 } from "@/feature/modbus/task/types";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 export const getOpenReadChannel = (

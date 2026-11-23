@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 export {
+  type Grammar,
   grammar,
   grammarRaw,
-  type Grammar,
   languageConfigurationRaw,
   type SemanticTokenType,
   type Token,

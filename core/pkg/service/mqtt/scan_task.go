@@ -65,6 +65,11 @@ type browsedField struct {
 	Type string `json:"type"`
 	// Sample is the start of the JSON text of the scalar.
 	Sample string `json:"sample"`
+	// Kind is the kind of a payload field that holds most values heard at Pointer.
+	// Absent when the topic holds more fields than inference keeps.
+	Kind payload.Kind `json:"kind,omitempty"`
+	// TimeFormat is the format of a timestamp field. Nil for any other field.
+	TimeFormat *xjson.TimeFormat `json:"time_format,omitempty"`
 }
 
 // browsedTopic is one topic that a browse heard, with its last payload.
@@ -81,8 +86,11 @@ type browsedTopic struct {
 	// Format is the format of the whole last payload.
 	Format payload.Format `json:"format"`
 	// Fields are the scalars of the whole last payload. Empty when it is not JSON.
-	Fields   []browsedField `json:"fields"`
-	Retained bool           `json:"retained"`
+	Fields []browsedField `json:"fields"`
+	// Index is the pointer of the field in Fields that indexes the messages heard.
+	// Absent when no field can.
+	Index    string `json:"index,omitempty"`
+	Retained bool   `json:"retained"`
 }
 
 type browseResult struct {
@@ -191,6 +199,7 @@ func (s *scanner) browse(ctx context.Context, args browseArgs) (browseResult, er
 	topics := make([]browsedTopic, len(heard.topics))
 	for i, t := range heard.topics {
 		t.Rate = float64(t.Count-t.retained) / heard.duration.Seconds()
+		t.infer()
 		topics[i] = t.browsedTopic
 	}
 	kept, truncated, err := driver.Fit(browseResult{}, [][]browsedTopic{topics})

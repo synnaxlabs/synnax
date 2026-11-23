@@ -25,6 +25,35 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Command", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v4.Command) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v4.Command
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v4.Command{
+				Task:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Type:       "test_2",
+				Key:        "test_3",
+				ConfigHash: "test_4",
+				Args:       msgpack.EncodedJSON{"key_5": "value_5"},
+				Pinned:     false,
+			}),
+			Entry("zero values", v4.Command{
+				Task:       uuid.Nil(),
+				Type:       "",
+				Key:        "",
+				ConfigHash: "",
+				Args:       msgpack.EncodedJSON{},
+				Pinned:     false,
+			}),
+		)
+	})
 	Describe("Task", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v4.Task) {
@@ -58,6 +87,30 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+func BenchmarkEncodeDecodeCommand(b *testing.B) {
+	seed := v4.Command{
+		Task:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Type:       "test_2",
+		Key:        "test_3",
+		ConfigHash: "test_4",
+		Args:       msgpack.EncodedJSON{"key_5": "value_5"},
+		Pinned:     false,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v4.Command
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeTask(b *testing.B) {
 	seed := v4.Task{
 		Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -81,6 +134,59 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeCommand(f *testing.F) {
+	{
+		seed := v4.Command{
+			Task:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Type:       "test_2",
+			Key:        "test_3",
+			ConfigHash: "test_4",
+			Args:       msgpack.EncodedJSON{"key_5": "value_5"},
+			Pinned:     false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v4.Command{
+			Task:       uuid.Nil(),
+			Type:       "",
+			Key:        "",
+			ConfigHash: "",
+			Args:       msgpack.EncodedJSON{},
+			Pinned:     false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v4.Command
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v4.Command
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeTask(f *testing.F) {

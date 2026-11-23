@@ -10,7 +10,8 @@
 package api_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -62,6 +63,7 @@ var _ = Describe("Restrict", func() {
 			return err
 		})).To(Succeed())
 		Expect(post(
+			rootToken,
 			"/api/v1/access/role/delete",
 			apirole.DeleteRequest{Keys: []role.Key{r.Key}},
 			nil,
@@ -74,9 +76,69 @@ var _ = Describe("Restrict", func() {
 		Expect(roleExists(ctx, r.Key)).To(BeTrue())
 	})
 
+	It("Should not name a holder that the caller cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		r := createRole(ctx, "Supervisor")
+		var holder user.User
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			holder, err = svc.User.NewWriter(tx).Create(ctx, user.User{
+				Name: "Hidden",
+				Role: r.Key,
+			})
+			return err
+		})).To(Succeed())
+		creds := auth.Credentials{
+			Username: "caller-" + uuid.New().String(),
+			Password: "pwd",
+		}
+		caller := MustSucceed(rbactestutil.CreateUser(
+			ctx,
+			db,
+			svc.RBAC,
+			svc.User,
+			user.User{Name: creds.Username},
+		))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Password.NewWriter(tx).Set(
+				ctx,
+				caller.ResourceID(),
+				creds.Username,
+				MustSucceed(svc.Password.Hash(creds.Password)),
+			)
+		})).To(Succeed())
+		MustSucceed(rbactestutil.Grant(
+			ctx,
+			db,
+			svc.RBAC,
+			svc.User,
+			caller.Key,
+			[]access.Action{access.ActionRetrieve, access.ActionDelete},
+			r.ResourceID(),
+		))
+		var login apiauth.LoginResponse
+		Expect(post("", "/api/v1/auth/login", creds, &login)).To(Succeed())
+		Expect(post(
+			login.Token,
+			"/api/v1/access/role/delete",
+			apirole.DeleteRequest{Keys: []role.Key{r.Key}},
+			nil,
+		)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"cannot delete role Supervisor because the user that uses it as its "+
+					"role is not visible to you; ask someone who can see it to remove "+
+					"the use",
+			)),
+			Not(MatchError(ContainSubstring(holder.Key.String()))),
+		))
+		Expect(roleExists(ctx, r.Key)).To(BeTrue())
+	})
+
 	It("Should delete a record that no reference holds", func(ctx SpecContext) {
 		r := createRole(ctx, "Unused")
 		Expect(post(
+			rootToken,
 			"/api/v1/access/role/delete",
 			apirole.DeleteRequest{Keys: []role.Key{r.Key}},
 			nil,
@@ -86,7 +148,7 @@ var _ = Describe("Restrict", func() {
 
 	It("Should keep an error that holds no refused delete", func() {
 		// A batch.Payload does not encode, so the body is a map.
-		Expect(post("/api/v1/batch", map[string]any{
+		Expect(post(rootToken, "/api/v1/batch", map[string]any{
 			"requests": []map[string]any{
 				{"endpoint": "/does-not-exist", "payload": nil},
 			},
@@ -158,7 +220,7 @@ var _ = Describe("Restrict", func() {
 					Set(ctx, user.ResourceID(u.Key), creds.Username, hash)
 			})).To(Succeed())
 			var login apiauth.LoginResponse
-			Expect(post("/api/v1/auth/login", creds, &login)).To(Succeed())
+			Expect(post("", "/api/v1/auth/login", creds, &login)).To(Succeed())
 			token = login.Token
 		})
 		deleteOf := func() impact.Change {
@@ -167,33 +229,35 @@ var _ = Describe("Restrict", func() {
 			}
 		}
 
-		DescribeTable("Should name the holder by its type alone",
+		DescribeTable("Should not name the holder",
 			func(send func() error) {
 				Expect(send()).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(
-						"cannot delete channel "+ch.Name+" because a hidden task uses it",
+						"cannot delete channel "+ch.Name+" because the task that uses "+
+							"it is not visible to you; ask someone who can see it to "+
+							"remove the use",
 					)),
 					Not(MatchError(ContainSubstring(tsk.Key.String()))),
 				))
 			},
 			Entry("on the channel delete route", func() error {
-				return postAs(token, "/api/v1/channel/delete", apichannel.DeleteRequest{
+				return post(token, "/api/v1/channel/delete", apichannel.DeleteRequest{
 					Keys: channel.Keys{ch.Key()},
 				}, nil)
 			}),
 			Entry("on an apply with no plan", func() error {
-				return postAs(token, "/api/v1/impact/apply", apiimpact.ApplyRequest{
+				return post(token, "/api/v1/impact/apply", apiimpact.ApplyRequest{
 					Change: deleteOf(),
 				}, nil)
 			}),
 			Entry("on an apply with the token of its plan", func() error {
 				var p impact.Plan
-				Expect(postAs(token, "/api/v1/impact/plan", apiimpact.PlanRequest{
+				Expect(post(token, "/api/v1/impact/plan", apiimpact.PlanRequest{
 					Change: deleteOf(),
 				}, &p)).To(Succeed())
 				Expect(p.Hidden).To(Equal(uint32(1)))
-				return postAs(token, "/api/v1/impact/apply", apiimpact.ApplyRequest{
+				return post(token, "/api/v1/impact/apply", apiimpact.ApplyRequest{
 					Change: deleteOf(),
 					Token:  p.Token,
 				}, nil)
