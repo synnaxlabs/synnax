@@ -9,10 +9,10 @@
 
 import "@/tree/Item.css";
 
-import { type record } from "@synnaxlabs/x";
-import { type MouseEvent } from "react";
+import type { record } from "@synnaxlabs/x";
+import type { MouseEvent } from "react";
 
-import { type Button } from "@/button";
+import type { Button } from "@/button";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";

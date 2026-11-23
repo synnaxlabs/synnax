@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ethercat } from "@synnaxlabs/client";
+import type { ethercat } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep, strings } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { SettingInput } from "@/feature/ethercat/device/SettingInput";
 import {
@@ -20,7 +20,7 @@ import {
   visibleFields,
 } from "@/feature/ethercat/device/settings";
 import { setUpBy } from "@/feature/ethercat/device/setup";
-import { type SlaveDevice } from "@/feature/ethercat/device/types";
+import type { SlaveDevice } from "@/feature/ethercat/device/types";
 
 const PATH = deep.path<SlaveDevice>().properties;
 

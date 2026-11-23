@@ -144,7 +144,7 @@ func rtPlotRefs() []gorp.Reference[string, rtPlot] {
 	}
 }
 
-var _ = Describe("Retarget", func() {
+var _ = Describe("RetargetHolders", func() {
 	var (
 		db       *gorp.DB
 		channels *gorp.Table[uint32, rtChannel]
@@ -225,7 +225,7 @@ var _ = Describe("Retarget", func() {
 		holders []gorp.Dependent,
 	) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channels.Retarget(ctx, tx, to, holders)
+			return channels.RetargetHolders(ctx, tx, to, holders)
 		})
 	}
 	holder := func(key, reference string) gorp.Dependent {
@@ -348,9 +348,13 @@ var _ = Describe("Retarget", func() {
 	It("Should fail on a reference that has no Retarget", func(ctx SpecContext) {
 		createPlot(ctx, rtPlot{Key: "a", Frozen: 1})
 		Expect(retarget(ctx, map[uint32]uint32{1: 3}, dependents(ctx, 1))).
-			To(MatchError(ContainSubstring(
-				"reference frozen of table plot cannot retarget keys of table channel",
-			)))
+			To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"cannot retarget channel 1 because plot a references it through "+
+						"frozen, which cannot retarget",
+				)),
+			))
 		Expect(retrievePlot(ctx, "a").Frozen).To(Equal(uint32(1)))
 	})
 
@@ -363,7 +367,7 @@ var _ = Describe("Retarget", func() {
 			map[uint32]uint32{1: 3},
 			[]gorp.Dependent{holder("a", "sensor")},
 		)).To(MatchError(ContainSubstring(
-			"reference sensor of table plot cannot retarget keys of table channel",
+			"table plot has no reference sensor to table channel",
 		)))
 	})
 

@@ -10,9 +10,9 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { List } from "@synnaxlabs/lyra/list";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type DigitalChannel } from "@/feature/ni/task/types";
+import type { DigitalChannel } from "@/feature/ni/task/types";
 
 /** The port and line columns of a digital task's record table. */
 export const PORT_LINE_COLUMNS: List.Column[] = [

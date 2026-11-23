@@ -265,7 +265,7 @@ func (w Writer) healLinks(ctx context.Context, to map[Key]Key) error {
 			}
 		}
 	}
-	if err := w.svc.table.Retarget(ctx, w.tx, to, holders); err != nil {
+	if err := w.svc.table.RetargetHolders(ctx, w.tx, to, holders); err != nil {
 		return err
 	}
 	return w.svc.tombstones.table.NewDelete().

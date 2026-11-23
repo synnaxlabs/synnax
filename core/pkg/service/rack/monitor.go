@@ -110,16 +110,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 
 func (m *monitor) writeOutages(ctx context.Context) error {
 	m.L.Debug("checking health of racks")
-	m.mu.Lock()
-	now := m.svc.Now()
-	var stale []Key
-	for k, state := range m.mu.racks {
-		if m.outageStarted(state, now) {
-			stale = append(stale, k)
-		}
-	}
-	m.mu.Unlock()
-
+	stale := m.staleRacks()
 	if len(stale) == 0 {
 		return nil
 	}
@@ -140,7 +131,7 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 			delete(m.mu.racks, k)
 		}
 	}
-	now = m.svc.Now()
+	now := m.svc.Now()
 	var (
 		statuses    []Status
 		lastUpdated = make(map[Key]telem.TimeStamp, len(racks))
@@ -170,6 +161,17 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 	err := m.svc.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return m.svc.Status.NewWriter(tx).SetMany(ctx, &statuses)
 	})
+	return m.commitOutages(err, statuses, owners, lastUpdated, statusTimes)
+}
+
+// commitOutages records the result err of writing statuses, the outages of owners. On
+// an error, it restores the status time of each rack whose report did not change.
+func (m *monitor) commitOutages(
+	err error,
+	statuses []Status,
+	owners []Key,
+	lastUpdated, statusTimes map[Key]telem.TimeStamp,
+) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err != nil {
@@ -190,6 +192,20 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// staleRacks returns the keys of the racks whose outage has started.
+func (m *monitor) staleRacks() []Key {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	now := m.svc.Now()
+	var stale []Key
+	for k, state := range m.mu.racks {
+		if m.outageStarted(state, now) {
+			stale = append(stale, k)
+		}
+	}
+	return stale
 }
 
 func (m *monitor) outageStatus(r Rack, state rackState, now telem.TimeStamp) Status {

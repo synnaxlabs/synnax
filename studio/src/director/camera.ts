@@ -19,7 +19,7 @@ import {
 } from "@/director/constants";
 import { at, at2D, step, step2D } from "@/director/spring";
 import { fitAmount, type Focus, type Segment } from "@/director/zoom";
-import { type Point, type Rect, type Timeline } from "@/timeline";
+import type { Point, Rect, Timeline } from "@/timeline";
 
 /**
  * One camera sample per output frame. `cx`/`cy` are travel-space coordinates in

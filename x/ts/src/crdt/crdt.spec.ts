@@ -65,7 +65,7 @@ describe("crdt", () => {
     it("should report the id at a live index", () => {
       const t = new crdt.Text(1);
       const ops = t.insert(0, "ab");
-      expect(t.indexToID(1)).toEqual(ops[1].id);
+      expect(t.indexToID(1)).toEqual(ops[1]?.id);
       expect(t.indexToID(2)).toBeNull();
     });
 
@@ -129,7 +129,7 @@ describe("crdt", () => {
       const a = new crdt.Text(1);
       const b = new crdt.Text(2);
       const ops = a.insert(0, "abc");
-      b.applyInsert(ops[2], ops[0], ops[1]);
+      b.applyInsert(...ops.slice(2), ...ops.slice(0, 2));
       expect(b.toString()).toEqual("abc");
     });
 

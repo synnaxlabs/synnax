@@ -9,7 +9,7 @@
 
 import { Status } from "@synnaxlabs/lyra/status";
 import { Canvas } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactNode } from "react";
+import type { PropsWithChildren, ReactNode } from "react";
 
 export interface GPUBoundaryProps extends PropsWithChildren {
   /** The plural name of the visualization, such as "Line plots". */

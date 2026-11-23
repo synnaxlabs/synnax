@@ -61,10 +61,10 @@ interface BoundaryState {
  * Resets itself when the surrounding {@link ResetProvider} value changes.
  */
 export class Boundary extends Component<BoundaryProps, BoundaryState> {
-  static contextType = ResetContext;
+  static override contextType = ResetContext;
   declare context: number;
 
-  state: BoundaryState = {
+  override state: BoundaryState = {
     error: null,
     componentStack: null,
     caughtAt: null,
@@ -74,7 +74,7 @@ export class Boundary extends Component<BoundaryProps, BoundaryState> {
     return { error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({
       componentStack: errorInfo.componentStack ?? null,
       caughtAt: this.context,
@@ -82,7 +82,7 @@ export class Boundary extends Component<BoundaryProps, BoundaryState> {
     this.props.onError?.(error, errorInfo);
   }
 
-  componentDidUpdate(): void {
+  override componentDidUpdate(): void {
     const { error, caughtAt } = this.state;
     if (error != null && caughtAt != null && caughtAt !== this.context)
       this.resetErrorBoundary();
@@ -94,7 +94,7 @@ export class Boundary extends Component<BoundaryProps, BoundaryState> {
     this.setState({ error: null, componentStack: null, caughtAt: null });
   };
 
-  render(): ReactNode {
+  override render(): ReactNode {
     const { error, componentStack } = this.state;
     const { children, FallbackComponent = Fallback } = this.props;
 

@@ -62,6 +62,11 @@ func newIndexes() indexes {
 			Targets: func(e *Chassis) []rack.Key {
 				return []rack.Key{e.Rack}
 			},
+			Retarget: func(e *Chassis, to map[rack.Key]rack.Key) {
+				if t, ok := to[e.Rack]; ok {
+					e.Rack = t
+				}
+			},
 		}),
 		search: gorp.NewSearchIndex[Key, Chassis](
 			"search",

@@ -9,7 +9,7 @@
 
 import { Select } from "@synnaxlabs/lyra/select";
 import { DataType } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";
 import { resolveDataTypeName } from "@/telem/resolveDataTypeName";

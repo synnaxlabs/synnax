@@ -147,7 +147,13 @@ class CRIOCase(HardwareCase):
                 with self._try_to("stop the cRIO Driver"):
                     self.stop_driver()
                 with self._try_to("copy the cRIO Driver log"):
+                    # A retry shares the results directory, so each attempt keeps its
+                    # own log.
                     log = self.results_dir / "crio-driver.log"
+                    attempt = 1
+                    while log.exists():
+                        attempt += 1
+                        log = self.results_dir / f"crio-driver-{attempt}.log"
                     self._scp([f"{HOST}:{_DIR}/driver.log", str(log)])
             # Setup can fail before the Driver enrolls its rack.
             rack = getattr(self, "rack", None)

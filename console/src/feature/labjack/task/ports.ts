@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Model, type Port, PORTS } from "@/feature/labjack/device/types";
-import { type Channel } from "@/feature/labjack/task/types";
+import type { Channel } from "@/feature/labjack/task/types";
 import { Task } from "@/platform/task";
 
 /** The name on the port's terminal: its alias, such as "FIO4", or else its key. */

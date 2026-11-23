@@ -251,36 +251,34 @@ var _ = Describe("NewRootMigration", func() {
 	})
 })
 
-var _ = Describe("NameMigration", func() {
-	migrated := func(ctx SpecContext, in v4.Arc) v4.Arc {
-		GinkgoHelper()
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		StartRun(db.Run)
-		Expect(gorp.NewCreate[v4.Key, v4.Arc]().Entry(&in).Exec(ctx, db)).
-			To(Succeed())
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "Arc",
-			Migrations: []gorp.Migration{v4.NameMigration},
-		})).To(Succeed())
-		var out v4.Arc
-		Expect(gorp.NewRetrieve[v4.Key, v4.Arc]().
-			Where(gorp.MatchKeys[v4.Key, v4.Arc](in.GorpKey())).
-			Entry(&out).Exec(ctx, db)).To(Succeed())
-		return out
-	}
+var _ = Describe("Name migrations", func() {
 	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
 	DescribeTable(
 		"Should name only nameless Arcs",
-		func(ctx SpecContext, name, expected string) {
+		func(ctx SpecContext, mig gorp.Migration, name, expected string) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			in := v4.Arc{Variant: v4.AutomationArc{Base: v4.Base{
 				Key:    key,
 				Name:   name,
 				Source: v4.Source{Variant: v4.TextSource{}},
 			}}}
-			Expect(migrated(ctx, in).Base().Name).To(Equal(expected))
+			Expect(gorp.NewCreate[v4.Key, v4.Arc]().Entry(&in).Exec(ctx, db)).
+				To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "Arc",
+				Migrations: []gorp.Migration{mig},
+			})).To(Succeed())
+			var out v4.Arc
+			Expect(gorp.NewRetrieve[v4.Key, v4.Arc]().
+				Where(gorp.MatchKeys[v4.Key, v4.Arc](key)).
+				Entry(&out).Exec(ctx, db)).To(Succeed())
+			Expect(out.Base().Name).To(Equal(expected))
 		},
-		Entry("empty name", "", "Arc 1a2b3c4d"),
-		Entry("named Arc", "Named", "Named"),
+		Entry("v62 empty name", v4.NameMigration, "", "Arc 1a2b3c4d"),
+		Entry("v62 named Arc", v4.NameMigration, "Named", "Named"),
+		Entry("v63 empty name", v4.ApplyNameMigration, "", "Arc 1a2b3c4d"),
+		Entry("v63 named Arc", v4.ApplyNameMigration, "Named", "Named"),
 	)
 })

@@ -13,10 +13,10 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { z } from "zod";
 
-import { type Listed } from "@/server/directory";
+import type { Listed } from "@/server/directory";
 import { navigate, post } from "@/ui/api";
 import { Licenses } from "@/ui/licenses";
 import { Modal } from "@/ui/modal";

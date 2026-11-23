@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type icd } from "@synnaxlabs/client";
+import type { channel, icd } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -59,10 +59,16 @@ export interface ReadCheckboxProps {
   field: TreeField;
   /** Starts or stops reading the field. */
   onChange: (on: boolean) => void;
+  disabled?: boolean;
 }
 
 /** Reads the field into a channel, or stops reading it. */
-export const ReadCheckbox: FC<ReadCheckboxProps> = ({ bindings, field, onChange }) => {
+export const ReadCheckbox: FC<ReadCheckboxProps> = ({
+  bindings,
+  field,
+  onChange,
+  disabled = false,
+}) => {
   const isPreview = Task.useIsPreview();
   const bound = PForm.useFieldValue(bindings).some(
     ({ field: key }) => key === field.key,
@@ -78,7 +84,7 @@ export const ReadCheckbox: FC<ReadCheckboxProps> = ({ bindings, field, onChange 
       checkedIcon={<Status.Indicator variant="success" />}
       uncheckedIcon={<Status.Indicator variant="disabled" />}
       size="small"
-      disabled={isPreview || !readable}
+      disabled={isPreview || !readable || disabled}
       aria-label={`Read ${field.name}`}
       tooltip={tooltip}
     />

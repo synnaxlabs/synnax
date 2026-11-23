@@ -14,7 +14,7 @@ import compiler, {
   LintRules,
   type LoggerEvent,
 } from "babel-plugin-react-compiler";
-import { type Rule } from "eslint";
+import type { Rule } from "eslint";
 
 import { plugins } from "../compiler";
 

@@ -61,7 +61,7 @@ func newIndexes() indexes {
 			Retarget: func(e *Rack, to map[group.Key]group.Key) {
 				if e.Group != nil {
 					if t, ok := to[*e.Group]; ok {
-						e.Group = &t
+						*e.Group = t
 					}
 				}
 			},
@@ -73,6 +73,11 @@ func newIndexes() indexes {
 			Kind:     gorp.Use,
 			Targets: func(e *Rack) []role.Key {
 				return []role.Key{e.Role}
+			},
+			Retarget: func(e *Rack, to map[role.Key]role.Key) {
+				if t, ok := to[e.Role]; ok {
+					e.Role = t
+				}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Rack](

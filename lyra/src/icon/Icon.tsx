@@ -10,15 +10,11 @@
 import "@/icon/Icon.css";
 
 import { color } from "@synnaxlabs/x";
-import {
-  type FC as ReactFC,
-  type ReactElement as BaseReactElement,
-  type Ref,
-} from "react";
-import { type IconBaseProps } from "react-icons";
+import type { FC as ReactFC, ReactElement as BaseReactElement, Ref } from "react";
+import type { IconBaseProps } from "react-icons";
 
 import { CSS } from "@/css";
-import { type Theming } from "@/theming";
+import type { Theming } from "@/theming";
 
 /** Props for every icon in the set. */
 export interface IconProps extends Omit<IconBaseProps, "color" | "children"> {
