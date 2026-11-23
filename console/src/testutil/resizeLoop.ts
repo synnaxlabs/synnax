@@ -22,15 +22,41 @@ interface Size {
   frame: string;
 }
 
-// A ResizeObserver loop can come from a change of less than a pixel. The offset size
-// rounds it away, and Chromium writes a computed size to six digits, so only the
-// layout box keeps it. A callback that changes a scale reads as a resize.
+// An element without a layout box, or an inline one, has an auto size, which the
+// browser reports as zero.
+const px = (value: string): number => parseFloat(value) || 0;
+
+// Measures the boxes that the browser observes, which leave out transforms. The offset
+// size rounds away a change of less than a pixel. Chromium writes a computed size to
+// six significant digits, so it misses a smaller change on a very large element.
 const measure = (element: Element): Size => {
-  const { width, height } = element.getBoundingClientRect();
   const style = getComputedStyle(element);
-  const x = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-  const y = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
-  const inner = `${element.clientWidth - x}x${element.clientHeight - y}`;
+  const padding = {
+    x: px(style.paddingLeft) + px(style.paddingRight),
+    y: px(style.paddingTop) + px(style.paddingBottom),
+  };
+  const border = {
+    x: px(style.borderLeftWidth) + px(style.borderRightWidth),
+    y: px(style.borderTopWidth) + px(style.borderBottomWidth),
+  };
+  const outer = style.boxSizing === "border-box" ? 0 : 1;
+  const width = px(style.width) + outer * (padding.x + border.x);
+  const height = px(style.height) + outer * (padding.y + border.y);
+  // A scrollbar takes its space from the content box but not from the computed size.
+  const bar = { x: 0, y: 0 };
+  if (element instanceof HTMLElement) {
+    bar.x = Math.max(
+      0,
+      Math.round(element.offsetWidth - element.clientWidth - border.x),
+    );
+    bar.y = Math.max(
+      0,
+      Math.round(element.offsetHeight - element.clientHeight - border.y),
+    );
+  }
+  const contentWidth = width - padding.x - border.x - bar.x;
+  const contentHeight = height - padding.y - border.y - bar.y;
+  const inner = `${contentWidth}x${contentHeight}`;
   const frame = [
     style.paddingTop,
     style.paddingRight,
@@ -89,15 +115,14 @@ interface Context {
 
 const ZERO: Size = { width: 0, height: 0, inner: "0x0", frame: "" };
 
-// Layout sizes are multiples of 1/64 of a pixel.
-const SIZE_TOLERANCE = 1 / 128;
+// Layout sizes are multiples of 1/64 of a pixel, and Chromium writes a computed size
+// to six significant digits.
+const near = (a: number, b: number): boolean =>
+  Math.abs(a - b) < Math.max(1 / 128, Math.abs(b) * 1e-5);
 
 const matches = (entry: ResizeObserverEntry, size: Size): boolean => {
   const [{ inlineSize, blockSize }] = entry.borderBoxSize;
-  return (
-    Math.abs(inlineSize - size.width) < SIZE_TOLERANCE &&
-    Math.abs(blockSize - size.height) < SIZE_TOLERANCE
-  );
+  return near(inlineSize, size.width) && near(blockSize, size.height);
 };
 
 const formatSize = ({ width, height }: Size): string => `${width}x${height}`;

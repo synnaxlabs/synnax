@@ -83,7 +83,7 @@ describe("traceResizeLoops", () => {
   });
 
   it("should name an element that a callback resized by under a pixel", async () => {
-    // Chromium writes the computed height of a tall element to six digits.
+    // Chromium writes a computed size to six digits, which still keeps this step.
     const element = box(root, "shrinker", 12000.25);
     element.style.width = "10px";
     observe(element, () => {
@@ -91,8 +91,8 @@ describe("traceResizeLoops", () => {
     });
     await frames(3);
     expect(reports.length).toBeGreaterThan(0);
-    expect(reports[0]).toContain(
-      "div.shrinker changed from 10x12000.25 to 10x12000.125",
+    expect(reports[0]).toMatch(
+      /div\.shrinker changed from 10x12000\.(25|2) to 10x12000\.(125|1) /,
     );
   });
 
@@ -448,12 +448,13 @@ describe("traceResizeLoops", () => {
     expect(reports[0]).toContain("div.cause changed");
   });
 
-  it("should place an observer by the size the browser reported to it", async () => {
-    const shallow = box(root, "shallow", 10);
+  // Only WebKit joins the second call of the target observer to the pass of the first.
+  const placeByReported = async (parent: HTMLElement): Promise<void> => {
+    const shallow = box(parent, "shallow", 10);
     observe(shallow, () => {});
-    const first = box(nest(root, 1), "first", 10);
-    const target = box(nest(root, 6), "target", 10);
-    const middle = box(nest(root, 3), "middle", 10);
+    const first = box(nest(parent, 1), "first", 10);
+    const target = box(nest(parent, 6), "target", 10);
+    const middle = box(nest(parent, 3), "middle", 10);
     let armed = false;
     let firstCalls = 0;
     observe(first, () => {
@@ -491,6 +492,38 @@ describe("traceResizeLoops", () => {
     expect(reports[0]).toContain("div.shallow changed");
     const skipped = middleAt !== skippedAt;
     expect(reports[0].includes("div.middle changed")).toBe(skipped);
+  };
+
+  it("should place an observer by the size the browser reported to it", async () => {
+    await placeByReported(root);
+  });
+
+  it("should place an observer under a scaled ancestor", async () => {
+    const scaled = box(root, "scaled", 100);
+    scaled.style.transform = "scale(2)";
+    await placeByReported(scaled);
+  });
+
+  it("should leave out an element whose ancestor a callback scaled", async () => {
+    const shallow = box(root, "shallow", 10);
+    observe(shallow, () => {});
+    const scaled = box(root, "scaled", 10);
+    observe(box(scaled, "inner", 10), () => {});
+    const deep = box(nest(root, 3), "deep", 10);
+    let armed = false;
+    observe(deep, () => {
+      if (!armed) return;
+      armed = false;
+      scaled.style.transform = "scale(2)";
+      shallow.style.height = "20px";
+    });
+    await frames(2);
+    armed = true;
+    deep.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.shallow changed");
+    expect(reports[0]).not.toContain("div.inner");
   });
 
   it("should count depth through shadow roots and slots", async () => {
