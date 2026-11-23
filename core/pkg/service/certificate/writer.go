@@ -44,7 +44,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // Set creates the certificate, or replaces the one with the same key, and writes its
 // expiry status. It returns a validation error for an invalid certificate or key, or
 // for a replace of a certificate of another source. It returns a gorp.RestrictError
-// for a replace that moves a file certificate that anything uses to another rack.
+// for a replace that moves a file certificate that anything uses to another rack, or
+// that removes its private key file.
 //
 // For a stored certificate, Set reads the details from the PEM and keeps only its
 // certificate blocks. An optional PEM privateKey must match the leaf, and replaces the
@@ -124,8 +125,8 @@ func checkSource(prev, c Certificate) error {
 }
 
 // checkFile validates the file certificate f that replaces prev, if any, under key. It
-// returns a gorp.RestrictError when the replace moves f to another rack while anything
-// uses it.
+// returns a gorp.RestrictError when the replace moves f to another rack or removes its
+// private key file while anything uses it, since a use may sign with the key.
 func (w Writer) checkFile(
 	ctx context.Context,
 	key Key,
@@ -136,6 +137,16 @@ func (w Writer) checkFile(
 	prevFile, replaced := prev.Variant.(FileCertificate)
 	if replaced && prevFile.Rack != f.Rack {
 		if err := w.table.RestrictChange(ctx, w.tx, key, "rack"); err != nil {
+			return err
+		}
+	}
+	if replaced && prevFile.PrivateKeyFile != nil && f.PrivateKeyFile == nil {
+		if err := w.table.RestrictChange(
+			ctx,
+			w.tx,
+			key,
+			"private_key_file",
+		); err != nil {
 			return err
 		}
 	}

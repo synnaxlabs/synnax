@@ -455,6 +455,37 @@ var _ = Describe("Writer", func() {
 					).To(Equal("other.pem"))
 				},
 			)
+			It("Should let a file certificate that nothing uses drop its key file",
+				func(ctx SpecContext) {
+					c := e.create(ctx, keyedFile(), nil)
+					next := file("Plant", coreRack)
+					next.SetBase(c.Base())
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Set(ctx, &next, nil)
+					})).To(Succeed())
+					Expect(
+						fileOf(e.retrieve(ctx, c.Base().Key)).PrivateKeyFile,
+					).To(BeNil())
+				},
+			)
+			It(
+				"Should refuse to drop the key file of a file certificate that a record uses",
+				func(ctx SpecContext) {
+					c := e.create(ctx, keyedFile(), nil)
+					e.use(ctx, "l1", c.Base().Key)
+					next := file("Plant", coreRack)
+					next.SetBase(c.Base())
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Set(ctx, &next, nil)
+					})).To(MatchError(
+						"cannot change the private_key_file of certificate " +
+							c.Base().Key.String() +
+							" because listener l1 references it through certificate: " +
+							"validation error",
+					))
+					Expect(e.retrieve(ctx, c.Base().Key)).To(Equal(c))
+				},
+			)
 			It("Should refuse a replace of a file certificate with a stored one",
 				func(ctx SpecContext) {
 					c := e.create(ctx, file("Plant", coreRack), nil)
@@ -483,31 +514,7 @@ var _ = Describe("Writer", func() {
 				"Should refuse to move a file certificate that a record uses to another rack",
 				func(ctx SpecContext) {
 					c := e.create(ctx, file("Plant", coreRack), nil)
-					listeners := MustOpen(gorp.OpenTable(
-						ctx,
-						gorp.TableConfig[string, listener]{
-							DB:   e.db,
-							Name: "listener",
-							References: []gorp.Reference[string, listener]{
-								gorp.NewKeyReference(gorp.KeyReferenceConfig[
-									string,
-									listener,
-									certificate.Key,
-								]{
-									Name:     "certificate",
-									Table:    "certificate",
-									OnDelete: gorp.Restrict,
-									Kind:     gorp.Use,
-									Targets: func(l *listener) []certificate.Key {
-										return []certificate.Key{l.Certificate}
-									},
-								}),
-							},
-						},
-					))
-					Expect(listeners.NewCreate().
-						Entry(&listener{Key: "l1", Certificate: c.Base().Key}).
-						Exec(ctx, e.db)).To(Succeed())
+					e.use(ctx, "l1", c.Base().Key)
 					moved := file("Plant", otherRack)
 					moved.SetBase(c.Base())
 					Expect(e.write(ctx, func(w certificate.Writer) error {
