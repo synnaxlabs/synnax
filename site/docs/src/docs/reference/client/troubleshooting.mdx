@@ -171,7 +171,9 @@ import { Synnax } from "@synnaxlabs/client";
 
 <Releases.Code
   lang="text"
-  code={({ current, previous }) => `The Synnax Core version ${previous.version} is too old for client version ${current.version}. This may cause compatibility issues. We recommend updating the Core. For more information, see https://docs.synnaxlabs.com/reference/client/troubleshooting#old-core-version`}
+  code={({ current, previous }) =>
+    `The Synnax Core version ${previous.version} is too old for client version ${current.version}. This may cause compatibility issues. We recommend updating the Core. For more information, see https://docs.synnaxlabs.com/reference/client/troubleshooting#old-core-version`
+  }
 />
 
   </Fragment>
@@ -180,7 +182,10 @@ import { Synnax } from "@synnaxlabs/client";
 
 <Releases.Code
   lang="text"
-  code={({ current, previous }) => `The Synnax Core version ${previous.version} is too old for client version ${current.version}.
+  code={({
+    current,
+    previous,
+  }) => `The Synnax Core version ${previous.version} is too old for client version ${current.version}.
   This may cause compatibility issues. We recommend updating the Core. For more information, see
   https://docs.synnaxlabs.com/reference/client/troubleshooting#old-core-version`}
 />
@@ -235,7 +240,9 @@ matches the Core:
 
 <Releases.Code
   lang="text"
-  code={({ current, previous }) => `The Synnax Core version ${current.version} is too new for client version ${previous.version}. This may cause compatibility issues. We recommend updating the client. For more information, see https://docs.synnaxlabs.com/reference/client/troubleshooting#old-client-version`}
+  code={({ current, previous }) =>
+    `The Synnax Core version ${current.version} is too new for client version ${previous.version}. This may cause compatibility issues. We recommend updating the client. For more information, see https://docs.synnaxlabs.com/reference/client/troubleshooting#old-client-version`
+  }
 />
 
   </Fragment>
@@ -244,7 +251,10 @@ matches the Core:
 
 <Releases.Code
   lang="text"
-  code={({ current, previous }) => `The Synnax Core version ${current.version} is too new for client version ${previous.version}.
+  code={({
+    current,
+    previous,
+  }) => `The Synnax Core version ${current.version} is too new for client version ${previous.version}.
   This may cause compatibility issues. We recommend updating the client. For more information, see
   https://docs.synnaxlabs.com/reference/client/troubleshooting#old-client-version`}
 />
@@ -297,7 +307,9 @@ Python 3.13 or newer.
 
 <Releases.Code
   lang="text"
-  code={({ current, previous }) => `Client ${current.version} cannot work with Core ${previous.version}.`}
+  code={({ current, previous }) =>
+    `Client ${current.version} cannot work with Core ${previous.version}.`
+  }
 />
 
 <Problem.Body>
@@ -331,7 +343,9 @@ You can also [upgrade the Core](/reference/enterprise/upgrade).
 
 <Releases.Code
   lang="text"
-  code={({ current, previous }) => `Synnax Desktop runs Core version ${previous.version}, which does not match client version ${current.version}. Update Synnax Desktop, or run pip install "synnax~=${previous.train}.0".`}
+  code={({ current, previous }) =>
+    `Synnax Desktop runs Core version ${previous.version}, which does not match client version ${current.version}. Update Synnax Desktop, or run pip install "synnax~=${previous.train}.0".`
+  }
 />
 
 <Problem.Body>

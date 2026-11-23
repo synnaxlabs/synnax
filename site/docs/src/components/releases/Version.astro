@@ -17,13 +17,16 @@ export interface Props {
     previous?: boolean;
     /** Shows only the major and minor version, such as `0.62`. */
     train?: boolean;
+    /** Shows the version as inline code. */
+    code?: boolean;
 }
 
-const { product = "core", previous = false } = Astro.props;
+const { product = "core", previous = false, code = false } = Astro.props;
 const { releases } = Astro.locals;
 const version = previous
     ? await releases.previous(product)
     : await releases.documented(product);
+const text = Astro.props.train ? train(version) : version;
 ---
 
-{Astro.props.train ? train(version) : version}
+{code ? <code data-short>{text}</code> : text}

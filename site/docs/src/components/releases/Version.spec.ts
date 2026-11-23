@@ -56,6 +56,10 @@ describe("Version", () => {
     expect((await render({ previous: true })).trim()).toEqual("0.61.4");
   });
 
+  it("should show the version as inline code", async () => {
+    expect(await render({ code: true })).toContain('<code data-short="">0.62.1</code>');
+  });
+
   it("should show the release of another product", async () => {
     const html = await render({ product: "driver", previous: true });
     expect(html.trim()).toEqual("0.61.5");

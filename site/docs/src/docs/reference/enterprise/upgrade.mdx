@@ -112,8 +112,7 @@ Core again and stops with an error. The service keeps its settings in
 
 <Fragment slot="Docker">
 
-1. Pull the new image. Use a version tag, such as
-   <code>synnaxlabs/synnax:<Releases.Version /></code>:
+1. Pull the new image. Use a version tag, such as <Releases.Version code />:
 
    ```bash
    docker pull synnaxlabs/synnax:<version>
@@ -162,7 +161,10 @@ it puts the backup back and stops with a message such as:
 
 <Releases.Code
   lang="text"
-  code={({ current, previous }) => `Update to Core ${current.version} failed: no space left on device. The data is back at Core ${previous.version}.
+  code={({
+    current,
+    previous,
+  }) => `Update to Core ${current.version} failed: no space left on device. The data is back at Core ${previous.version}.
 Run Core ${previous.version}, or fix the cause and run \`synnax update retry\`.`}
 />
 
@@ -229,8 +231,15 @@ again, and you configure them again. Until then, tasks on that network do not st
 ## Go back to an earlier version
 
 Synnax does not support a downgrade. A Core does not open data that a newer Core opened,
-and stops with a message such as
-<code>Data was last opened by Core <Releases.Version />. Run Core <Releases.Version /> or newer, or undo the update with synnax update undo.</code>
+and stops with a message such as:
+
+<Releases.Code
+  lang="text"
+  code={({ current }) =>
+    `Data was last opened by Core ${current.version}. Run Core ${current.version} or newer, or undo the update with synnax update undo.`
+  }
+/>
+
 To go back, undo the update:
 
 1. Stop the Core.
@@ -263,12 +272,13 @@ the update does not come back. The undo cannot run while a Core runs on the data
 If an undo stops before it finishes, the Core does not start until you run the undo
 again.
 
-In Docker, run the undo with the image of the new version, such as
-<code><Releases.Version /></code>:
+In Docker, run the undo with the new image, such as <Releases.Version code />:
 
 <Releases.Code
   lang="bash"
-  code={({ current }) => `docker run --rm -v synnax-data:/synnax/synnax-data --entrypoint /synnax/synnax \\
+  code={({
+    current,
+  }) => `docker run --rm -v synnax-data:/synnax/synnax-data --entrypoint /synnax/synnax \\
   synnaxlabs/synnax:${current.version} update undo`}
 />
 
