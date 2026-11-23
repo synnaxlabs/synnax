@@ -182,6 +182,56 @@ std::string quote(const std::string_view text) {
     return out;
 }
 
+errors::Error append_quoted(const std::string_view text, std::string &out) {
+    const auto start = out.size();
+    out += '"';
+    for (std::size_t i = 0; i < text.size();) {
+        const auto c = static_cast<std::uint8_t>(text[i]);
+        if (c >= 0x80) {
+            const auto n = rune_length(text.substr(i));
+            if (n == 0) {
+                out.resize(start);
+                return errors::Error(errors::VALIDATION, "invalid UTF-8");
+            }
+            out += text.substr(i, n);
+            i += n;
+            continue;
+        }
+        switch (c) {
+            case '"':
+                out += "\\\"";
+                break;
+            case '\\':
+                out += "\\\\";
+                break;
+            case '\b':
+                out += "\\b";
+                break;
+            case '\f':
+                out += "\\f";
+                break;
+            case '\n':
+                out += "\\n";
+                break;
+            case '\r':
+                out += "\\r";
+                break;
+            case '\t':
+                out += "\\t";
+                break;
+            default:
+                if (c < 0x20) {
+                    out += "\\u00";
+                    append_hex(out, c, 2);
+                } else
+                    out += static_cast<char>(c);
+        }
+        i++;
+    }
+    out += '"';
+    return errors::NIL;
+}
+
 LiteralScan scan_literal(const std::string_view text, std::string *dst) {
     std::size_t i = 1;
     const auto fail = [&i](const std::string_view problem) {

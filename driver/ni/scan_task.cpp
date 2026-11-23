@@ -303,7 +303,8 @@ x::errors::Error Scanner::open() {
             NISysCfgLocaleDefault,
             NISysCfgBoolTrue,
             static_cast<unsigned int>(
-                (this->cfg.rate.period() - x::telem::SECOND).milliseconds()
+                std::max(this->cfg.rate.period() - x::telem::SECOND, x::telem::SECOND)
+                    .milliseconds()
             ),
             nullptr,
             &this->session
