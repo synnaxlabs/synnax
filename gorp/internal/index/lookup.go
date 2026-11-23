@@ -190,14 +190,8 @@ func (l *Lookup[S, K, V]) Value(scope S, key K) (V, bool, error) {
 		return none, false, err
 	}
 	if d, ok := l.overlay.get(scope); ok {
-		if s, staged := d.state[key]; staged {
-			if v, released := d.released[key]; released {
-				return v, true, nil
-			}
-			if s.deleted {
-				return none, false, nil
-			}
-			return s.values[0], true, nil
+		if v, found, staged := d.value(key); staged {
+			return v, found, nil
 		}
 	}
 	if s, ok := committingState(&l.overlay, key); ok {
@@ -210,6 +204,22 @@ func (l *Lookup[S, K, V]) Value(scope S, key K) (V, bool, error) {
 	defer l.mu.RUnlock()
 	v, ok := l.reverse[key]
 	return v, ok, nil
+}
+
+// value returns the value that d stages for key and whether key maps to one, with
+// staged false when d stages no change to key. A released value wins.
+func (d *delta[K, V]) value(key K) (v V, found, staged bool) {
+	s, staged := d.state[key]
+	if !staged {
+		return v, false, false
+	}
+	if r, released := d.released[key]; released {
+		return r, true, true
+	}
+	if s.deleted {
+		return v, false, true
+	}
+	return s.values[0], true, true
 }
 
 // Holder returns a key that maps to value, with the changes of scope applied, and false

@@ -81,11 +81,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	imexSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{
 		ImEx:    svc.ImEx,
 		Channel: svc.Channel,
+		RBAC:    svc.RBAC,
 	}))
 	importFile = bind.Write(binder, imexSvc.Import)
 	projectSvc := MustSucceed(apiproject.NewService(apiproject.ServiceConfig{
 		Project: svc.Project,
 		Bundle:  svc.Bundle,
+		DB:      node.DB,
+		RBAC:    svc.RBAC,
 	}))
 	importBundle = bind.WritePrepared(
 		binder,
