@@ -332,6 +332,7 @@ const MotionControl = (): ReactElement => {
           size="small"
           value={moving.rate}
           onChange={(rate) => onChange({ ...moving, rate })}
+          disabled={locked}
           showDragHandle={false}
           endContent="/s"
           className={CSS.BE("schematic-inspector", "rate")}
