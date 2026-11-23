@@ -83,6 +83,11 @@
 /* the labels share a width, so the "Delete all too" check lines up with each row's */
 .console-impact__label {
     min-width: 14rem;
+
+    /* a locked check dims its label as Lyra dims the box */
+    &.console--disabled {
+        color: var(--pluto-text-disabled);
+    }
 }
 
 /* the list's 1rem padding plus a row's own, so the checks line up with the list's */

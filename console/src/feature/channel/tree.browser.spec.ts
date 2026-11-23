@@ -37,7 +37,13 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Channel } from "@/feature/channel";
-import { createReadTask } from "@/feature/channel/testutil";
+import {
+  createPlot,
+  createReadTask,
+  createVirtualChannel,
+  openDelete,
+  waitForDelete,
+} from "@/feature/channel/testutil";
 import { findLastButton, findSurface } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
 import {
@@ -471,6 +477,26 @@ describe("channel/tree", () => {
       within(loses).getByText("1 record you cannot see");
       expect(within(loses).queryByRole("checkbox")).toBeNull();
       expect(screen.queryByRole("region", { name: "Blocks the delete" })).toBeNull();
+    });
+
+    it("marks a hidden count that a changed plan grows as New", async () => {
+      const ch = await createVirtualChannel(client);
+      await createPlot(client, ch.key);
+      const userClient = await createTestClientWithPolicy(client, {
+        name: uniqueName("impact"),
+        objects: [channelClient.resourceID(ch.key)],
+        actions: ["retrieve", "delete"],
+      });
+      await openDelete(userClient, [ch]);
+      const loses = await screen.findByRole("region", { name: "Loses the channel" });
+      within(loses).getByText("1 record you cannot see");
+      expect(within(loses).queryByText("New")).toBeNull();
+      await createPlot(client, ch.key);
+      await waitForDelete();
+      fireEvent.click(findLastButton("Delete"));
+      await screen.findByText("These records changed. Check them again.");
+      await within(loses).findByText("2 records you cannot see");
+      within(loses).getByText("New");
     });
 
     it("plans again when the user presses Try again", async () => {

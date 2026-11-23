@@ -35,11 +35,11 @@ import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
 import { compare, type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
-  createContext,
   type ReactElement,
-  use,
   useEffect,
   useId,
+  useLayoutEffect,
+  useReducer,
   useRef,
   useState,
 } from "react";
@@ -141,6 +141,8 @@ interface View {
   resources: Map<string, resource.Resource>;
   /** fresh holds each record that the plan lists and the plan before it did not. */
   fresh: Set<string>;
+  /** freshHidden holds each effect whose hidden count grew since the plan before. */
+  freshHidden: Set<impact.Effect>;
 }
 
 /**
@@ -155,15 +157,19 @@ const createView = async (
   const ids = plan.entries.map((e) => e.record);
   const found = ids.length === 0 ? [] : await client.resources.retrieve(ids);
   const fresh = new Set<string>();
+  const freshHidden = new Set<impact.Effect>();
   if (previous != null) {
     const listed = new Set(previous.entries.map(recordKey));
     for (const e of plan.entries)
       if (!listed.has(recordKey(e))) fresh.add(recordKey(e));
+    for (const effect of impact.EFFECTS)
+      if (plan.hidden[effect] > previous.hidden[effect]) freshHidden.add(effect);
   }
   return {
     plan,
     resources: new Map(found.map((r) => [resource.idToString(r.id), r])),
     fresh,
+    freshHidden,
   };
 };
 
@@ -216,10 +222,6 @@ const useSpinner = (loading: boolean): boolean => {
 /** The label of every check that deletes a blocking record too. */
 const PICK_LABEL = "Delete too";
 
-/** Applying is true while the one apply attempt is in flight. It locks every check. */
-const ApplyingContext = createContext(false);
-ApplyingContext.displayName = "Impact.ApplyingContext";
-
 interface CheckProps {
   label: string;
   /** nameID is the id of the text that names the record, read before the label. */
@@ -228,6 +230,7 @@ interface CheckProps {
   indeterminate?: boolean;
   /** mark says why the record blocks, after a delete that did not pick it. */
   mark?: string;
+  disabled: boolean;
   onChange: (picked: boolean) => void;
 }
 
@@ -237,9 +240,9 @@ const Check = ({
   picked,
   indeterminate,
   mark,
+  disabled,
   onChange,
 }: CheckProps): ReactElement => {
-  const applying = use(ApplyingContext);
   const id = useId();
   // The check's name and description hold the label and mark, so a screen reader reads
   // each once, on the check.
@@ -261,7 +264,7 @@ const Check = ({
         aria-describedby={mark == null ? undefined : `${id}-mark`}
         value={picked}
         indeterminate={indeterminate}
-        disabled={applying}
+        disabled={disabled}
         onChange={onChange}
       />
       <Text.Text
@@ -270,7 +273,7 @@ const Check = ({
         htmlFor={id}
         level="small"
         aria-hidden
-        className={CSS.BE("impact", "label")}
+        className={CSS.cls(CSS.BE("impact", "label"), disabled && CSS.M("disabled"))}
       >
         {label}
       </Text.Text>
@@ -284,6 +287,7 @@ interface EntryProps {
   translate?: number;
   picked: boolean;
   unpicked: boolean;
+  disabled: boolean;
   onPick: (keys: string[], picked: boolean) => void;
 }
 
@@ -293,6 +297,7 @@ const Entry = ({
   translate,
   picked,
   unpicked,
+  disabled,
   onPick,
 }: EntryProps): ReactElement => {
   const id = useId();
@@ -321,6 +326,7 @@ const Entry = ({
           nameID={`${id}-name`}
           picked={picked}
           mark={unpicked ? "Uses the channel" : undefined}
+          disabled={disabled}
           onChange={(v) => onPick([key], v)}
         />
       )}
@@ -335,6 +341,8 @@ interface HiddenEntryProps {
   index: number;
   translate?: number;
   count: number;
+  /** fresh is true when the count grew since the plan before. */
+  fresh: boolean;
   /** pick is the check for the records, absent when the user picks nothing for them. */
   pick?: Omit<CheckProps, "label" | "nameID" | "indeterminate">;
 }
@@ -344,6 +352,7 @@ const HiddenEntry = ({
   index,
   translate,
   count,
+  fresh,
   pick,
 }: HiddenEntryProps): ReactElement => {
   const id = useId();
@@ -362,6 +371,7 @@ const HiddenEntry = ({
       <Text.Text id={`${id}-name`} overflow="fade" grow>
         {count === 1 ? "1 record you cannot see" : `${count} records you cannot see`}
       </Text.Text>
+      {fresh && <Badge.Badge status="warning">New</Badge.Badge>}
       {pick != null && <Check label={PICK_LABEL} nameID={`${id}-name`} {...pick} />}
     </List.Item>
   );
@@ -378,14 +388,19 @@ interface GroupProps {
   onPick: (keys: string[], picked: boolean) => void;
   /** hidden is the number of the group's records that the user cannot see. */
   hidden: number;
-  /** hiddenPick is the check for the hidden records of a pickable group. */
-  hiddenPick: HiddenCheck;
+  /** hiddenFresh is true when the hidden count grew since the plan before. */
+  hiddenFresh: boolean;
+  /** hiddenCheck is the check for the hidden records of a pickable group. */
+  hiddenCheck: HiddenCheck;
+  /** disabled locks every check of the group. */
+  disabled: boolean;
 }
 
 /** The check for the hidden records that block the delete. */
 interface HiddenCheck {
   picked: boolean;
-  marked: boolean;
+  /** unpicked is true after a delete that the unpicked hidden records blocked. */
+  unpicked: boolean;
   onChange: (picked: boolean) => void;
 }
 
@@ -398,7 +413,9 @@ const Group = ({
   pickable,
   onPick,
   hidden,
-  hiddenPick,
+  hiddenFresh,
+  hiddenCheck,
+  disabled,
 }: GroupProps): ReactElement => {
   const [open, setOpen] = useState(initiallyOpen);
   const byKey = new Map(rows.map((r) => [r.key, r]));
@@ -412,7 +429,7 @@ const Group = ({
   const pickCount = rows.length + hiddenPicks;
   const pickedCount =
     rows.filter((r) => picks[r.key] === "delete").length +
-    (hiddenPicks > 0 && hiddenPick.picked ? 1 : 0);
+    (hiddenPicks > 0 && hiddenCheck.picked ? 1 : 0);
   const scrolls = items.length > DISPLAY_ITEMS;
   const scrollsClass = scrolls && CSS.M("scrolls");
   return (
@@ -435,12 +452,13 @@ const Group = ({
             label="Delete all too"
             picked={pickedCount === pickCount}
             indeterminate={pickedCount > 0 && pickedCount < pickCount}
+            disabled={disabled}
             onChange={(v) => {
               onPick(
                 rows.map((r) => r.key),
                 v,
               );
-              if (hiddenPicks > 0) hiddenPick.onChange(v);
+              if (hiddenPicks > 0) hiddenCheck.onChange(v);
             }}
           />
         </Flex.Box>
@@ -469,16 +487,18 @@ const Group = ({
                     index={index}
                     translate={translate}
                     count={hidden}
+                    fresh={hiddenFresh}
                     pick={
                       pickable
                         ? {
-                            picked: hiddenPick.picked,
-                            mark: hiddenPick.marked
+                            picked: hiddenCheck.picked,
+                            mark: hiddenCheck.unpicked
                               ? hidden === 1
                                 ? "Uses the channel"
                                 : "Use the channel"
                               : undefined,
-                            onChange: hiddenPick.onChange,
+                            disabled,
+                            onChange: hiddenCheck.onChange,
                           }
                         : undefined
                     }
@@ -491,6 +511,7 @@ const Group = ({
                     translate={translate}
                     picked={picks[key] === "delete"}
                     unpicked={unpicked.has(key)}
+                    disabled={disabled}
                     onPick={onPick}
                   />
                 )
@@ -505,7 +526,7 @@ const Group = ({
 
 interface EntriesProps extends Pick<
   GroupProps,
-  "picks" | "unpicked" | "onPick" | "hiddenPick"
+  "picks" | "unpicked" | "onPick" | "hiddenCheck" | "disabled"
 > {
   view: View;
   plural: boolean;
@@ -541,6 +562,7 @@ const Entries = ({ view, plural, ...rest }: EntriesProps): ReactElement => {
             rows={rows}
             pickable={effect === "restrict"}
             hidden={hidden}
+            hiddenFresh={view.freshHidden.has(effect)}
             initiallyOpen={initiallyOpen}
             {...rest}
           />
@@ -550,20 +572,75 @@ const Entries = ({ view, plural, ...rest }: EntriesProps): ReactElement => {
   );
 };
 
-/** Returns the keys of the entries that keys added, through every pick in between. */
-const addedBy = (origins: Record<string, string[]>, keys: string[]): Set<string> => {
-  const out = new Set<string>();
-  const roots = new Set(keys);
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const [key, causes] of Object.entries(origins))
-      if (!out.has(key) && causes.some((c) => roots.has(c) || out.has(c))) {
-        out.add(key);
-        grew = true;
-      }
+/** Request is the input of a plan. */
+interface Request {
+  picks: Picks;
+  /** hiddenPick is the pick for the hidden records that block the delete. */
+  hiddenPick?: impact.Choice;
+}
+
+/** Selection is what the user picked, and the plan request that the picks make. */
+interface Selection {
+  picks: Picks;
+  /** hiddenPicked is true when the user checked the hidden records that block. */
+  hiddenPicked: boolean;
+  /**
+   * request is the input of the plan to show. Only a pick, a retry, or a refused token
+   * sets it, so a plan that drops picks plans nothing more.
+   */
+  request: Request;
+}
+
+type SelectionAction =
+  | { type: "pick"; keys: string[]; picked: boolean }
+  | { type: "pickHidden"; picked: boolean }
+  /** keep drops each pick whose record the plan does not list. */
+  | { type: "keep"; plan: impact.Plan }
+  /** request plans again with the current picks. */
+  | { type: "request" };
+
+const INITIAL_SELECTION: Selection = {
+  picks: {},
+  hiddenPicked: false,
+  request: { picks: {} },
+};
+
+const requestOf = (picks: Picks, hiddenPicked: boolean): Request => ({
+  picks,
+  hiddenPick: hiddenPicked ? "delete" : undefined,
+});
+
+const updateSelection = (s: Selection, action: SelectionAction): Selection => {
+  switch (action.type) {
+    case "pick": {
+      const picks = { ...s.picks };
+      for (const key of action.keys)
+        if (action.picked) picks[key] = "delete";
+        else delete picks[key];
+      return { ...s, picks, request: requestOf(picks, s.hiddenPicked) };
+    }
+    case "pickHidden":
+      return {
+        ...s,
+        hiddenPicked: action.picked,
+        request: requestOf(s.picks, action.picked),
+      };
+    case "keep": {
+      const listed = new Set(action.plan.entries.map(recordKey));
+      const kept = Object.entries(s.picks).filter(([key]) => listed.has(key));
+      // A plan with no hidden blocker drops the hidden pick, so the hidden pick goes
+      // out only while a hidden record blocks.
+      const hiddenPicked = s.hiddenPicked && action.plan.hidden.restrict > 0;
+      if (
+        kept.length === Object.keys(s.picks).length &&
+        hiddenPicked === s.hiddenPicked
+      )
+        return s;
+      return { ...s, picks: Object.fromEntries(kept), hiddenPicked };
+    }
+    case "request":
+      return { ...s, request: requestOf(s.picks, s.hiddenPicked) };
   }
-  return out;
 };
 
 const Dialog = ({
@@ -572,12 +649,8 @@ const Dialog = ({
   close,
 }: Modals.ContentProps<DialogParams, impact.Plan>): ReactElement => {
   const client = Synnax.use();
-  const [picks, setPicks] = useState<Picks>({});
-  const [hiddenPicked, setHiddenPicked] = useState(false);
-  // origins maps each entry that a plan first listed after a pick to the keys of that
-  // pick, so unchecking a pick also drops the picks of the blockers that it added.
-  const [origins, setOrigins] = useState<Record<string, string[]>>({});
-  const lastPicked = useRef<string[] | null>(null);
+  const [selection, dispatch] = useReducer(updateSelection, INITIAL_SELECTION);
+  const { picks, hiddenPicked, request } = selection;
   // shownPlan is the plan that the user saw when the Core refused a stale token, which
   // the next plan marks its new entries against.
   const shownPlan = useRef<impact.Plan | null>(null);
@@ -589,9 +662,16 @@ const Dialog = ({
   const [unpicked, setUnpicked] = useState<Set<string>>(() => new Set());
   const [applying, setApplying] = useState(false);
   const [footer, setFooter] = useState<FooterStatus | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  const [hiddenBlocks, setHiddenBlocks] = useState(false);
+  const [hiddenUnpicked, setHiddenUnpicked] = useState(false);
   const frameRef = useRef<HTMLDivElement>(null);
+  // The checks lock while an apply runs, which takes the focus from a focused check.
+  // It goes back once the apply ends.
+  const refocus = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (applying) return;
+    refocus.current?.focus();
+    refocus.current = null;
+  }, [applying]);
   Modals.useBusy(applying);
   const listing = useSpinner(view == null && planError == null);
   // The dialog stays unseen until its first plan arrives or the spinner shows, so a
@@ -612,9 +692,6 @@ const Dialog = ({
     };
   }, [ready, painted]);
   const updating = useSpinner(planning && view != null);
-  // The hidden pick covers only hidden blockers, so it goes out only when one exists.
-  const hiddenPick =
-    hiddenPicked && (view?.plan.hidden.restrict ?? 0) > 0 ? "delete" : undefined;
   const plural = names.length > 1;
 
   useAsyncEffect(
@@ -625,7 +702,10 @@ const Dialog = ({
       let failure: unknown = null;
       const shown = shownPlan.current;
       try {
-        const planned = await client.impact.plan(change, { picks, hidden: hiddenPick });
+        const planned = await client.impact.plan(change, {
+          picks: request.picks,
+          hidden: request.hiddenPick,
+        });
         next = await createView(client, planned, shown);
       } catch (e) {
         failure = e;
@@ -638,26 +718,14 @@ const Dialog = ({
       }
       shownPlan.current = null;
       const planned = next;
-      const cause = lastPicked.current;
-      lastPicked.current = null;
       setPlanError(null);
+      dispatch({ type: "keep", plan: planned.plan });
       setView((prev) => {
-        if (cause != null && prev != null) {
-          const listed = new Set(prev.plan.entries.map(recordKey));
-          const added = planned.plan.entries
-            .map(recordKey)
-            .filter((k) => !listed.has(k));
-          if (added.length > 0)
-            setOrigins((o) => ({
-              ...o,
-              ...Object.fromEntries(added.map((k) => [k, cause])),
-            }));
-        }
         if (prev == null || shown != null) return planned;
-        return { ...planned, fresh: prev.fresh };
+        return { ...planned, fresh: prev.fresh, freshHidden: prev.freshHidden };
       });
     },
-    [client, change, picks, hiddenPick, attempt],
+    [client, change, request],
   );
 
   // The retry button unmounts, so focus moves to the modal's native dialog instead of
@@ -666,11 +734,10 @@ const Dialog = ({
     frameRef.current?.closest("dialog")?.focus();
     setPlanning(true);
     setPlanError(null);
-    setAttempt((prev) => prev + 1);
+    dispatch({ type: "request" });
   };
 
-  // A pick plans again, so Delete waits for that plan. Unchecking a pick also drops the
-  // picks of the blockers that it added, which the next plan no longer lists.
+  // A pick plans again, so Delete waits for that plan.
   const handlePick = (keys: string[], picked: boolean) => {
     setPlanning(true);
     setUnpicked((prev) => {
@@ -679,27 +746,14 @@ const Dialog = ({
       return next;
     });
     setFooter(null);
-    lastPicked.current = picked ? keys : null;
-    const dropped = picked ? new Set<string>() : addedBy(origins, keys);
-    setPicks((prev) => {
-      const next = { ...prev };
-      for (const key of keys)
-        if (picked) next[key] = "delete";
-        else delete next[key];
-      for (const key of dropped) delete next[key];
-      return next;
-    });
-    if (dropped.size > 0)
-      setOrigins((prev) =>
-        Object.fromEntries(Object.entries(prev).filter(([k]) => !dropped.has(k))),
-      );
+    dispatch({ type: "pick", keys, picked });
   };
 
   const handleHidden = (picked: boolean) => {
     setPlanning(true);
-    setHiddenBlocks(false);
+    setHiddenUnpicked(false);
     setFooter(null);
-    setHiddenPicked(picked);
+    dispatch({ type: "pickHidden", picked });
   };
 
   const handleDelete = async () => {
@@ -707,11 +761,11 @@ const Dialog = ({
     const blockers = view.plan.entries
       .filter((e) => e.effect === "restrict" && picks[recordKey(e)] !== "delete")
       .map(recordKey);
-    const hiddenBlocking = view.plan.hidden.restrict > 0 && !hiddenPicked;
-    const blocking = blockers.length + (hiddenBlocking ? view.plan.hidden.restrict : 0);
+    const hiddenBlockers = hiddenPicked ? 0 : view.plan.hidden.restrict;
+    const blocking = blockers.length + hiddenBlockers;
     if (blocking > 0) {
       setUnpicked(new Set(blockers));
-      setHiddenBlocks(hiddenBlocking);
+      setHiddenUnpicked(hiddenBlockers > 0);
       setFooter({
         variant: "error",
         message: blockedOf(blocking),
@@ -722,6 +776,8 @@ const Dialog = ({
       });
       return;
     }
+    refocus.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setApplying(true);
     setFooter(null);
     let applied: impact.Plan | null = null;
@@ -730,7 +786,7 @@ const Dialog = ({
       applied = await client.impact.apply(change, {
         token: view.plan.token,
         picks,
-        hidden: hiddenPick,
+        hidden: requestOf(picks, hiddenPicked).hiddenPick,
       });
     } catch (e) {
       failure = e;
@@ -750,16 +806,11 @@ const Dialog = ({
     }
     // The Core refused a stale token. The plan effect loads the current plan once, with
     // its own failure text and Try again, and marks what is new against this plan.
-    const listed = new Set(impact.planOf(failure).entries.map(recordKey));
     shownPlan.current = view.plan;
     setChanged(true);
     setPlanning(true);
-    const stale = Object.keys(picks).filter((key) => !listed.has(key));
-    if (stale.length === 0) setAttempt((prev) => prev + 1);
-    else
-      setPicks((prev) =>
-        Object.fromEntries(Object.entries(prev).filter(([key]) => listed.has(key))),
-      );
+    dispatch({ type: "keep", plan: impact.planOf(failure) });
+    dispatch({ type: "request" });
   };
 
   // A held spinner hides a failure until it ends, so the two never show together. A
@@ -781,118 +832,117 @@ const Dialog = ({
       ref={frameRef}
       className={CSS.cls(CSS.B("impact"), !painted && CSS.BM("impact", "unpainted"))}
     >
-      <ApplyingContext value={applying}>
-        <Modal.Header icon={<Icon.Channel />} closeDisabled={applying}>
-          Channel.Delete
-        </Modal.Header>
-        <Modal.Body gap="medium" className={CSS.BE("impact", "body")}>
-          {changed && (
-            <Note.Note variant="warning" role="alert">
-              <Text.Text level="small">
-                These records changed. Check them again.
-              </Text.Text>
-            </Note.Note>
-          )}
-          <Text.Text level="h3" weight={450}>
-            {messageOf(names)}
-          </Text.Text>
-          <Text.Text weight={450}>{descriptionOf(names, empty)}</Text.Text>
-          {listing && (
+      <Modal.Header icon={<Icon.Channel />} closeDisabled={applying}>
+        Channel.Delete
+      </Modal.Header>
+      <Modal.Body gap="medium" className={CSS.BE("impact", "body")}>
+        {changed && (
+          <Note.Note variant="warning" role="alert">
+            <Text.Text level="small">
+              These records changed. Check them again.
+            </Text.Text>
+          </Note.Note>
+        )}
+        <Text.Text level="h3" weight={450}>
+          {messageOf(names)}
+        </Text.Text>
+        <Text.Text weight={450}>{descriptionOf(names, empty)}</Text.Text>
+        {listing && (
+          <Status.Summary
+            variant="loading"
+            message="Listing the records that this delete touches"
+          />
+        )}
+        {listFailed && (
+          <Flex.Box
+            y
+            align="start"
+            gap="medium"
+            role="alert"
+            className={CSS.BE("impact", "failure")}
+          >
             <Status.Summary
-              variant="loading"
-              message="Listing the records that this delete touches"
+              variant="error"
+              message="Failed to list the records that this delete touches"
+              description={failure}
+              center={false}
             />
-          )}
-          {listFailed && (
-            <Flex.Box
-              y
-              align="start"
-              gap="medium"
-              role="alert"
-              className={CSS.BE("impact", "failure")}
-            >
-              <Status.Summary
-                variant="error"
-                message="Failed to list the records that this delete touches"
-                description={failure}
-                center={false}
-              />
-              <Button.Button variant="outlined" onClick={handleRetry}>
-                <Icon.Refresh />
+            <Button.Button variant="outlined" onClick={handleRetry}>
+              <Icon.Refresh />
+              Try again
+            </Button.Button>
+          </Flex.Box>
+        )}
+        {shown != null && !empty && (
+          <Entries
+            view={shown}
+            plural={plural}
+            picks={picks}
+            unpicked={unpicked}
+            onPick={handlePick}
+            hiddenCheck={{
+              picked: hiddenPicked,
+              unpicked: hiddenUnpicked,
+              onChange: handleHidden,
+            }}
+            disabled={applying}
+          />
+        )}
+        {plan != null && plan.kept > 0 && (
+          <Text.Text level="small" color={9}>
+            {plan.kept === 1
+              ? "1 more record keeps a link and does not change."
+              : `${plan.kept} more records keep a link and do not change.`}
+          </Text.Text>
+        )}
+      </Modal.Body>
+      <Modal.Footer>
+        {/* A live region stays mounted, so a screen reader reads each status. */}
+        <Nav.Bar.Start role="status" className={CSS.BE("impact", "status")}>
+          {failure != null && !listFailed ? (
+            <Status.Summary variant="error" description={failure} center={false}>
+              Failed to update the records
+              <Button.Button
+                variant="text"
+                size="tiny"
+                className={CSS.BE("impact", "retry")}
+                onClick={handleRetry}
+              >
                 Try again
               </Button.Button>
-            </Flex.Box>
+            </Status.Summary>
+          ) : (
+            status != null && (
+              <Status.Summary
+                variant={status.variant}
+                message={status.message}
+                description={status.description}
+                center={false}
+              />
+            )
           )}
-          {shown != null && !empty && (
-            <Entries
-              view={shown}
-              plural={plural}
-              picks={picks}
-              unpicked={unpicked}
-              onPick={handlePick}
-              hiddenPick={{
-                picked: hiddenPicked,
-                marked: hiddenBlocks,
-                onChange: handleHidden,
-              }}
-            />
-          )}
-          {plan != null && plan.kept > 0 && (
-            <Text.Text level="small" color={9}>
-              {plan.kept === 1
-                ? "1 more record keeps a link and does not change."
-                : `${plan.kept} more records keep a link and do not change.`}
-            </Text.Text>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          {/* A live region stays mounted, so a screen reader reads each status. */}
-          <Nav.Bar.Start role="status" className={CSS.BE("impact", "status")}>
-            {failure != null && !listFailed ? (
-              <Status.Summary variant="error" description={failure} center={false}>
-                Failed to update the records
-                <Button.Button
-                  variant="text"
-                  size="tiny"
-                  className={CSS.BE("impact", "retry")}
-                  onClick={handleRetry}
-                >
-                  Try again
-                </Button.Button>
-              </Status.Summary>
-            ) : (
-              status != null && (
-                <Status.Summary
-                  variant={status.variant}
-                  message={status.message}
-                  description={status.description}
-                  center={false}
-                />
-              )
-            )}
-          </Nav.Bar.Start>
-          <Nav.Bar.End x align="center">
-            <Button.Button
-              variant="outlined"
-              triggerIndicator={PTriggers.ESCAPE}
-              disabled={applying}
-              onClick={() => close()}
-            >
-              Cancel
-            </Button.Button>
-            <Button.Button
-              variant="filled"
-              status={applying ? "loading" : "error"}
-              disabled={shown == null || failure != null || planning || updating}
-              trigger={Triggers.SAVE}
-              triggerIndicator
-              onClick={() => void handleDelete()}
-            >
-              Delete
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modal.Footer>
-      </ApplyingContext>
+        </Nav.Bar.Start>
+        <Nav.Bar.End x align="center">
+          <Button.Button
+            variant="outlined"
+            triggerIndicator={PTriggers.ESCAPE}
+            disabled={applying}
+            onClick={() => close()}
+          >
+            Cancel
+          </Button.Button>
+          <Button.Button
+            variant="filled"
+            status={applying ? "loading" : "error"}
+            disabled={shown == null || failure != null || planning || updating}
+            trigger={Triggers.SAVE}
+            triggerIndicator
+            onClick={() => void handleDelete()}
+          >
+            Delete
+          </Button.Button>
+        </Nav.Bar.End>
+      </Modal.Footer>
     </Modal.Frame>
   );
 };
