@@ -68,6 +68,17 @@ class TestOpenLookupCheck:
             pass
         assert [(r.strict, r.include_path) for r in requests] == [(True, True)]
 
+    def test_retrieve_one_sends_a_text_strictly(
+        self, client: sy.Synnax, requests: list[RetrieveRequest]
+    ) -> None:
+        """Should send one name or path strictly from retrieve_one, and a key not."""
+        ch, path = in_group(client)
+        retriever = client.channels._retriever
+        retriever.retrieve_one(ch.name)
+        retriever.retrieve_one(path)
+        retriever.retrieve_one(ch.key)
+        assert [r.strict for r in requests] == [True, True, False]
+
     def test_open_names_every_miss(self, client: sy.Synnax) -> None:
         """Should name every lookup that finds no channel."""
         a, b = channel_name(), f"{channel_name()}.{channel_name()}"
