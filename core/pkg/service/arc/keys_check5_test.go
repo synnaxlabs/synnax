@@ -26,7 +26,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Compile keys check 5", Ordered, func() {
+var _ = Describe("Compile keys check 5", Ordered, ContinueOnFailure, func() {
 	var in, ctl, out channel.Channel
 	createGraph := func(ctx SpecContext, name string, source, sink any) arc.Key {
 		GinkgoHelper()
