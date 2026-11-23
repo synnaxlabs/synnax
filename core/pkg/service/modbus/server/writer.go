@@ -11,7 +11,6 @@ package server
 
 import (
 	"context"
-	"slices"
 	"strconv"
 	"uuid"
 
@@ -24,9 +23,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// baudRates are the rates that the Driver can set on every platform.
-var baudRates = []uint32{1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400}
 
 // registerKey is a comparable form of a Register.
 type registerKey struct {
@@ -47,22 +43,13 @@ func keyOf(r Register) registerKey {
 	return k
 }
 
-// validateServer checks s against its schema. It also checks that an RTU baud rate is
-// one that the Driver can set, that no two reads share a register and an index, and
-// that no two writes share a register.
+// validateServer checks s against its schema. It also checks that no two reads share a
+// register and an index, and that no two writes share a register.
 func validateServer(s Server) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
 	v := validate.New("Server")
-	if rtu, ok := s.Connection.Variant.(RtuConnection); ok {
-		v.Ternaryf(
-			"connection.baud_rate",
-			!slices.Contains(baudRates, rtu.BaudRate),
-			"must be one of %v",
-			baudRates,
-		)
-	}
 	type readKey struct {
 		register registerKey
 		index    channel.Key

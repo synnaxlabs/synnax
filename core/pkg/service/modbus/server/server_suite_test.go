@@ -49,7 +49,7 @@ func tcp(host string) server.Connection {
 }
 
 // rtu returns an RTU connection to a unit on /dev/ttyUSB0 at the baud rate.
-func rtu(baud uint32) server.Connection {
+func rtu(baud server.BaudRate) server.Connection {
 	return server.Connection{Variant: server.RtuConnection{
 		Timeout:    telem.Second,
 		Retries:    1,
