@@ -210,7 +210,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						expectStored(ctx, telem.NewSeriesSecondsTSV(10, 10, 10, 11))
 					})
 					It(
-						"Should not check the order of stream only writes",
+						"Should not check the order of unstored writes",
 						func(ctx SpecContext) {
 							live := open(ctx, config(10*telem.SecondTS))
 							MustSucceed2(
@@ -218,15 +218,21 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							)
 							MustSucceed(live.Commit(ctx))
 							cfg := config(10 * telem.SecondTS)
-							cfg.Persist = new(false)
-							stream := open(ctx, cfg)
+							cfg.Unstored = new(true)
+							unstored := open(ctx, cfg)
 							MustSucceed2(
-								stream.WriteUnless(telem.NewSeriesSecondsTSV(100), nil),
+								unstored.WriteUnless(
+									telem.NewSeriesSecondsTSV(100),
+									nil,
+								),
 							)
 							MustSucceed2(
-								stream.WriteUnless(telem.NewSeriesSecondsTSV(99), nil),
+								unstored.WriteUnless(
+									telem.NewSeriesSecondsTSV(99),
+									nil,
+								),
 							)
-							Expect(stream.Close()).To(Succeed())
+							Expect(unstored.Close()).To(Succeed())
 							MustSucceed2(
 								live.WriteUnless(telem.NewSeriesSecondsTSV(11), nil),
 							)

@@ -54,7 +54,7 @@ type storageConfig struct {
 	Channels          []cesium.ChannelKey
 	Authorities       []xcontrol.Authority
 	Start             telem.TimeStamp
-	Mode              cesium.WriterMode
+	Mode              writer.Mode
 }
 
 // controlUpdate is a batch of control transfers in Cesium keys.
@@ -160,7 +160,7 @@ func (db *testDB) OpenWriter(
 	})
 	db.mu.Unlock()
 	relays := 0
-	if cfg.Mode == 0 || cfg.Mode.Stream() {
+	if cfg.Mode != writer.ModePersistOnly {
 		relays = lo.Ternary(virtual > 0, 1, 0) +
 			lo.Ternary(virtual < len(cfg.Channels), 1, 0)
 	}

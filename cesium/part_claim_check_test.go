@@ -88,6 +88,7 @@ var _ = Describe("Check: claims over a parted segment that a delete cut", func()
 			writeAt := func(seconds ...telem.TimeStamp) error {
 				w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    keys[0],
 					Start:    seconds[0] * telem.SecondTS,
 				})
 				if err != nil {

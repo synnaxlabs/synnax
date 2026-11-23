@@ -113,10 +113,7 @@ func (db *DB) openLogIterator(
 	if !ok {
 		return nil, channel.NewNotFoundError(key)
 	}
-	clock := ch.Index
-	if ch.IsIndex {
-		clock = ch.Key
-	}
+	clock := ch.Clock()
 	view := &logView{e: db.engine, key: key, clock: clock}
 	idx := &index.Domain{
 		Instrumentation: db.Instrumentation,

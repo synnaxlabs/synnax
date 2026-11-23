@@ -77,6 +77,7 @@ var _ = Describe("Writer on the pointer log", func() {
 	openWriter := func(ctx context.Context, start telem.TimeStamp) *cesium.Writer {
 		GinkgoHelper()
 		return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
 			Channels: keys,
 			Start:    start,
 		}))
@@ -112,6 +113,7 @@ var _ = Describe("Writer on the pointer log", func() {
 		reopen(ctx)
 		Expect(MustSucceed(db.RetrieveChannel(ctx, data)).Index).To(Equal(idx))
 		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
 			Channels: keys,
 			Start:    10 * telem.SecondTS,
 		})).Error().To(MatchError(validate.ErrValidation))
@@ -186,6 +188,7 @@ var _ = Describe("Writer on the pointer log", func() {
 				Key: text, Name: "text", Index: idx, DataType: telem.StringT,
 			})).To(Succeed())
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Clock:    idx,
 				Channels: []cesium.ChannelKey{idx, text},
 				Start:    10 * telem.SecondTS,
 			}))
@@ -262,6 +265,7 @@ var _ = Describe("Writer on the pointer log", func() {
 				Expect(highest).To(Equal(idx))
 				Expect(segments(data)).To(BeEmpty())
 				Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+					Clock:    idx,
 					Channels: []cesium.ChannelKey{idx},
 					Start:    20 * telem.SecondTS,
 				})).Error().To(MatchError(cesium.ErrChannelNotFound))
@@ -325,10 +329,15 @@ var _ = Describe("Writer on the pointer log", func() {
 			Key: other, Name: "other", IsIndex: true, DataType: telem.TimestampT,
 		})).To(Succeed())
 		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
 			Channels: []cesium.ChannelKey{idx, data, other},
 			Start:    10 * telem.SecondTS,
-		})).Error().To(MatchError(xerrors.ErrUnsupported))
+		})).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("channel is not timed by the writer clock")),
+		))
 		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
 			Channels: []cesium.ChannelKey{data},
 			Start:    10 * telem.SecondTS,
 		})).Error().To(MatchError(xerrors.ErrUnsupported))

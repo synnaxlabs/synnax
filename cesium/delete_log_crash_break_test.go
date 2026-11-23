@@ -55,6 +55,7 @@ func breakWrite(ctx context.Context, db *cesium.DB, seconds ...telem.TimeStamp) 
 	}
 	w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 		Channels: keys,
+		Clock:    keys[0],
 		Start:    seconds[0] * telem.SecondTS,
 	}))
 	MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{

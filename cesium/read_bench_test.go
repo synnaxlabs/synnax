@@ -49,7 +49,7 @@ func benchmarkReadDomains(b *testing.B, count int, open bool) {
 	}
 	for i := range count {
 		start, fr := frame(i)
-		if err := db.Write(ctx, start, fr); err != nil {
+		if err := write(ctx, db, start, fr); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -58,6 +58,7 @@ func benchmarkReadDomains(b *testing.B, count int, open bool) {
 		count++
 		w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    keys[0],
 			Start:    start,
 		})
 		if err != nil {
@@ -118,8 +119,8 @@ func writeBenchStamps(
 	for i := range stamps {
 		stamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
 	}
-	if err := db.WriteSeries(
-		b.Context(),
+	if err := writeSeries(
+		b.Context(), db,
 		key,
 		stamps[0],
 		telem.NewSeriesV(stamps...),
@@ -140,8 +141,8 @@ func BenchmarkReadSamples(b *testing.B) {
 			keys := []cesium.ChannelKey{1, 2}
 			createBenchChannels(b, db, keys)
 			stamps := writeBenchStamps(b, db, keys[0], n)
-			if err := db.WriteSeries(
-				b.Context(),
+			if err := writeSeries(
+				b.Context(), db,
 				keys[1],
 				stamps[late],
 				telem.NewSeriesV(make([]float32, n-late)...),
@@ -174,8 +175,8 @@ func BenchmarkStreamFixedSpan(b *testing.B) {
 			stamps := writeBenchStamps(b, db, keys[0], c.samples)
 			data := telem.NewSeriesV(make([]float32, c.samples)...)
 			for _, key := range keys[1:] {
-				if err := db.WriteSeries(
-					b.Context(),
+				if err := writeSeries(
+					b.Context(), db,
 					key,
 					stamps[0],
 					data,

@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -95,7 +96,7 @@ var _ = Describe("Control moved from Cesium", func() {
 						},
 						Start:    start,
 						Channels: keys,
-						Mode:     cesium.WriterModePersistOnly,
+						Mode:     writer.ModePersistOnly,
 						Authorities: []xcontrol.Authority{
 							xcontrol.AuthorityAbsolute,
 						},
@@ -244,7 +245,7 @@ var _ = Describe("Control moved from Cesium", func() {
 					func(ctx SpecContext) {
 						live := openLive(ctx, xcontrol.AuthorityAbsolute)
 						cfg := persistConfig(1 * telem.SecondTS)
-						cfg.Mode = cesium.WriterModePersistStream
+						cfg.Mode = writer.ModePersistStream
 						cfg.Authorities = []xcontrol.Authority{1}
 						w := MustSucceed(db.OpenWriter(ctx, cfg))
 						expectUnauthorized(w.Write(ctx, frame(1, 2)))
@@ -349,6 +350,7 @@ var _ = Describe("Control moved from Cesium", func() {
 							MustSucceed(low.Commit(ctx)),
 						).To(Equal(14*telem.SecondTS + 1))
 						Expect(low.Close()).To(Succeed())
+						// The uncommitted 12 and 13 moved to high and back.
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						Expect(f.Get(idx).Len()).To(Equal(int64(5)))
 					},
@@ -550,7 +552,7 @@ var _ = Describe("Control moved from Cesium", func() {
 							w2Frame := telem.MultiFrame(
 								[]cesium.ChannelKey{indexChKey, dataChKey},
 								[]telem.Series{
-									telem.NewSeriesSecondsTSV(12, 13, 14),
+									telem.NewSeriesSecondsTSV(13, 14, 15),
 									telem.NewSeriesV[int16](4, 5, 6),
 								},
 							)
@@ -572,7 +574,7 @@ var _ = Describe("Control moved from Cesium", func() {
 							By("Committing the second writer")
 							Expect(
 								MustSucceed(w2.Commit(ctx)),
-							).To(Equal(telem.SecondTS*14 + 1))
+							).To(Equal(telem.SecondTS*15 + 1))
 
 							By("Shutting down the writers")
 							Expect(w1.Close()).To(Succeed())
@@ -584,10 +586,15 @@ var _ = Describe("Control moved from Cesium", func() {
 								start.SpanRange(10*telem.Second),
 								dataChKey,
 							))
-							Expect(f.Count()).To(Equal(1))
+							// The handoff seals the writer of w1, so the samples
+							// of w2 start a new stretch.
+							Expect(f.Count()).To(Equal(2))
 							Expect(
 								f.SeriesAt(0).Data,
-							).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
+							).To(Equal(telem.NewSeriesV[int16](1, 2, 3).Data))
+							Expect(
+								f.SeriesAt(1).Data,
+							).To(Equal(telem.NewSeriesV[int16](4, 5, 6).Data))
 						},
 					)
 				})

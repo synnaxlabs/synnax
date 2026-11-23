@@ -144,6 +144,7 @@ func writeParted(
 		values = append(values, vals...)
 		writer := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, data},
+			Clock:    idx,
 			Start:    stamps[0],
 		}))
 		MustSucceed2(writer.Write(ctx, telem.MultiFrame(
@@ -209,6 +210,7 @@ var _ = Describe("Reads through parts", func() {
 		// parts that the open loaded first.
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, data},
+			Clock:    idx,
 			Start:    telem.TimeStamp(1_000_000) * telem.SecondTS,
 		}))
 		Expect(w.Close()).To(Succeed())
@@ -382,6 +384,7 @@ var _ = Describe("Drop of parted records", func() {
 		start := telem.TimeStamp(1_000_000) * telem.SecondTS
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx},
+			Clock:    idx,
 			Start:    start,
 		}))
 		DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
@@ -526,7 +529,7 @@ var _ = Describe("Claims over parts", func() {
 		// Seconds 10 and 11 end and start two parted segments, so the commit reaches
 		// the bounds of their part and its check preloads their records.
 		gap := []telem.TimeStamp{10*telem.SecondTS + 250, 10*telem.SecondTS + 500}
-		Expect(db.Write(ctx, gap[0], telem.MultiFrame(
+		Expect(write(ctx, db, gap[0], telem.MultiFrame(
 			[]cesium.ChannelKey{idx, data},
 			[]telem.Series{telem.NewSeries(gap), telem.NewSeries([]int64{-1, -2})},
 		))).To(Succeed())
@@ -574,12 +577,13 @@ var _ = Describe("Claims over parts", func() {
 		DeferCleanup(StartRun(db.Run))
 		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, data},
+			Clock:    idx,
 			Start:    15 * telem.SecondTS,
 		})).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("inside its stored data from 11000000000")),
 		))
-		Expect(db.Write(ctx, telem.SecondTS/2, telem.MultiFrame(
+		Expect(write(ctx, db, telem.SecondTS/2, telem.MultiFrame(
 			[]cesium.ChannelKey{idx, data},
 			[]telem.Series{
 				telem.NewSeries(
