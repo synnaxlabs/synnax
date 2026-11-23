@@ -10,8 +10,11 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <functional>
+#include <span>
 #include <sstream>
+#include <string_view>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -47,6 +50,10 @@
 ///     );
 /// @endcode
 namespace x::testutil {
+/// @brief returns the bytes of text.
+inline std::span<const std::uint8_t> bytes(const std::string_view text) {
+    return {reinterpret_cast<const std::uint8_t *>(text.data()), text.size()};
+}
 
 /// @brief Core function that implements the eventual assertion logic with a generic
 /// condition
