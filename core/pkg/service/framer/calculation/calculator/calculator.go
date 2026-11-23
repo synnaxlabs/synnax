@@ -289,8 +289,7 @@ func (c *Calculator) ReadFrom() channel.Keys { return c.deps.Reads.Slice() }
 
 func (c *Calculator) Channel() channel.Channel { return c.cfg.Module.Channel }
 
-// Expression returns the expression that the calculator runs.
-func (c *Calculator) Expression() string { return c.cfg.Module.Calculation.Expression }
+func (c *Calculator) expression() string { return c.cfg.Module.Calculation.Expression }
 
 // Calculation returns the calculation the calculator runs.
 func (c *Calculator) Calculation() calculation.Calculation {
