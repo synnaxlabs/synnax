@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <filesystem>
 #include <variant>
 #include <vector>
 
@@ -60,9 +59,9 @@ x::errors::Error Records::sync(const std::string &rack_name) {
     std::vector<synnax::certificate::Key> stale;
     for (const auto &record: records) {
         const auto &file = std::get<synnax::certificate::FileCertificate>(record);
-        if (std::filesystem::path(file.certificate_path).parent_path() !=
-            this->store->certs_dir())
-            continue;
+        // A match by file name, not by folder, also finds the records of an earlier
+        // state directory.
+        if (!Store::is_cert_file(file.certificate_path)) continue;
         const auto match = std::ranges::find(
             wanted,
             file.certificate_path,

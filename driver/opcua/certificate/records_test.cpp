@@ -174,6 +174,20 @@ TEST_F(RecordsTest, SyncDeletesDuplicate) {
     ASSERT_EQ(this->on_rack().size(), 1);
 }
 
+/// @brief it should delete the records of a Store in an earlier state directory.
+TEST_F(RecordsTest, SyncDeletesMovedRecords) {
+    ASSERT_NIL_P(this->store->current());
+    auto records = this->records();
+    ASSERT_NIL(records.sync("Plant"));
+    const auto moved = std::make_shared<Store>(StoreConfig{.dir = this->dir / "moved"});
+    const auto id = ASSERT_NIL_P(moved->current());
+    Records restarted(moved, this->as_rack, this->rack.key);
+    ASSERT_NIL(restarted.sync("Plant"));
+    const auto files = this->on_rack();
+    ASSERT_EQ(files.size(), 1);
+    ASSERT_EQ(files[0].certificate_path, moved->cert_path(id).string());
+}
+
 /// @brief it should leave a file certificate on the rack outside the Store's folder.
 TEST_F(RecordsTest, SyncKeepsOtherRecords) {
     synnax::certificate::Certificate other = FileCertificate{};

@@ -61,8 +61,9 @@ public:
     /// Makes no identity and switches none.
     std::pair<std::vector<Identity>, x::errors::Error> list();
 
-    /// @returns the directory of the certificate files.
-    [[nodiscard]] std::filesystem::path certs_dir() const;
+    /// @returns whether path has the name that a Store gives a certificate file, in any
+    /// directory.
+    [[nodiscard]] static bool is_cert_file(const std::filesystem::path &path);
 
     /// @returns the path of the certificate file of id.
     [[nodiscard]] std::filesystem::path cert_path(const Identity &id) const;
@@ -87,6 +88,7 @@ private:
     std::vector<Identity> identities;
     bool loaded = false;
 
+    [[nodiscard]] std::filesystem::path certs_dir() const;
     x::errors::Error load();
     x::errors::Error issue(const std::string &application_uri);
     [[nodiscard]] x::errors::Error remove(const Identity &id) const;

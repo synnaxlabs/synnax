@@ -79,7 +79,7 @@ TEST_F(StoreTest, ListInOrder) {
     ASSERT_EQ(ids[0].certificate, current.certificate);
     for (const auto &id: ids) {
         const auto path = store.cert_path(id);
-        ASSERT_EQ(path.parent_path(), store.certs_dir());
+        ASSERT_TRUE(Store::is_cert_file(path));
         ASSERT_TRUE(std::filesystem::exists(path));
     }
 }

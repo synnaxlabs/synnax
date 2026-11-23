@@ -32,9 +32,9 @@ public:
         synnax::rack::Key rack
     );
 
-    /// @brief saves one record for each identity, and deletes every other record in
-    /// the directory of the Store. Calls the Core only when the identities or the rack
-    /// name changed since the last sync that succeeded.
+    /// @brief saves one record for each identity, and deletes every other record of a
+    /// Store certificate file, in any directory. Calls the Core only when the
+    /// identities or the rack name changed since the last sync that succeeded.
     /// @param rack_name the name of the rack, which starts the name of each record.
     [[nodiscard]] x::errors::Error sync(const std::string &rack_name);
 

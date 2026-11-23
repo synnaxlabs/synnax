@@ -75,6 +75,11 @@ std::filesystem::path Store::certs_dir() const {
     return this->cfg.dir / "own" / "certs";
 }
 
+bool Store::is_cert_file(const std::filesystem::path &path) {
+    const auto name = path.filename().string();
+    return name.starts_with(FILE_NAME + " [") && name.ends_with("].der");
+}
+
 std::filesystem::path Store::cert_path(const Identity &id) const {
     const auto name = FILE_NAME + " [" + id.certificate.thumbprint() + "].der";
     return this->certs_dir() / name;

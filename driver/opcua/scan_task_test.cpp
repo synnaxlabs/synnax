@@ -1259,6 +1259,37 @@ TEST_F(TestScanTask, testRenewalFailureIsPartialScan) {
     );
     ASSERT_EQ(scanned.size(), 1);
 }
+/// @brief it should keep the scanned devices and report a failed save of the Driver
+/// certificate as a partial scan failure.
+TEST_F(TestScanTask, testRecordsFailureIsPartialScan) {
+    synnax::certificate::Certificate stale = synnax::certificate::FileCertificate{};
+    auto &file = std::get<synnax::certificate::FileCertificate>(stale);
+    file.name = "Stale";
+    file.certificate_path = "/var/lib/synnax/Synnax Driver [00].der";
+    file.rack = rack.key;
+    ASSERT_NIL(client->certificates.set(stale));
+    // Another rack cannot delete the stale record on this rack.
+    const auto other = ASSERT_NIL_P(client->racks.create("opc_scan_task_other_rack"));
+    const auto denied = std::make_shared<task::MockContext>(
+        std::make_shared<synnax::Synnax>(rack_client_config(*client, other.key))
+    );
+    denied->set_rack_name(rack.name);
+    Scanner scanner(denied, task, conn_pool, store, reader);
+    const auto dev = secured_device(secured_config());
+    std::unordered_map<std::string, synnax::device::Device> devices{{dev.key, dev}};
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices;
+    const auto [scanned, err] = scanner.scan(scan_ctx);
+    ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "Failed to save the Driver certificate in the Core: rack:" +
+            std::to_string(other.key) + " cannot delete certificate:" +
+            file.key.to_string() + ": access denied: auth error"
+    );
+    ASSERT_EQ(scanned.size(), 1);
+}
+
 /// @brief browses the node at path in the server on port 4881, and returns the status.
 synnax::task::Status browse_node(
     const std::shared_ptr<task::MockContext> &ctx,
