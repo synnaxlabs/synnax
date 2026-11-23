@@ -31,6 +31,7 @@ var _ = Describe("Used channel checks", Ordered, func() {
 		db    *gorp.DB
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		layer = MustOpen(svctestutil.OpenLayer(ctx, node))
