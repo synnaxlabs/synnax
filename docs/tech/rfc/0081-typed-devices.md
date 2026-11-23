@@ -104,11 +104,9 @@ one shared behavior, and it stays in the status service (§4.2).
 - **Connected resource**: A resource a user creates from a connect form: OPC UA, Modbus,
   and HTTP servers.
 - **Identity group**: The fields of a discovered resource that the scanner owns: rack,
-  serial, NI-MAX resource name, model, chassis, bus topology. On a connected resource,
-  the fields that the connect form owns: rack, name, connection settings.
-- **Configuration group**: The fields a user owns on a discovered resource: name,
-  identifier, index channel keys, channel maps, enabled flags. On a connected resource,
-  the fields that the task forms own: index channel keys and channel maps.
+  serial, NI-MAX resource name, model, chassis, bus topology.
+- **Configuration group**: The fields a user owns: name, identifier, index channel keys,
+  channel maps, enabled flags, connection settings.
 - **Identifier**: The prefix a user chooses for a discovered resource's channel names. A
   discovered resource with an empty identifier is unconfigured.
 - **Scanner**: An integration's scan task in the Driver. It discovers hardware, reports
@@ -127,9 +125,8 @@ one shared behavior, and it stays in the status service (§4.2).
 4. **Repeat, then deduplicate across every resource**: Device services repeat the writer
    code that racks and schematics also carry. A later project removes that overlap for
    all resources, not for devices alone.
-5. **One writer per field**: The scanner, or the connect form of a connected resource,
-   writes the identity group, and the user writes the configuration group. Neither write
-   path touches the other group.
+5. **One writer per field**: The scanner writes the identity group and the user writes
+   the configuration group. Neither write path touches the other group.
 6. **Core-minted keys**: Every key is a UUID the Core creates. Hardware identity is an
    indexed field, never a key.
 7. **Delete refuses, then cascades**: A resource a task references cannot be deleted. A
@@ -220,20 +217,9 @@ Field groups per make:
   `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,
   `startup_parameters`, `read_index`, `write_state_index`, input and output channel
   maps.
-- **OPC UA server**: identity `rack`, `name`, and `connection`; configuration `reads`
-  and `writes`. The connect form and the scanner's server certificate pin write the
-  identity group; the task forms write the configuration group. `connection` holds the
-  endpoint, an `auth` union (`anonymous`, `username` with a password secret, or
-  `certificate` with a user certificate that has a private key), a `security` union
-  (`none`, or `sign` and `sign_and_encrypt` with a policy, an optional client
-  certificate, and a `server_trust` union of `first_use`, `pinned`, or
-  `validation_disabled`), and three `TimeSpan` timeouts with minimums of 100 ms and 1 s.
-  A read binds a node, a structure field, and an index channel to a channel; a write
-  binds a node to its command channel. A node ID names its namespace by URI
-  (`nsu=<uri>;<id>`), because a server can renumber its namespace indexes; the writer
-  normalizes node IDs, refuses an index other than 0, and refuses two reads on one node,
-  field, and index, or two writes to one node. The Core refuses an endpoint that is not
-  an `opc.tcp` URL.
+- **OPC UA server**: identity `rack`, `name`, and `connection` (`auth`, `security`, and
+  nested `server_trust` unions); configuration `reads` and `writes`. Node IDs name their
+  namespace by URI.
 - **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
   channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
@@ -242,14 +228,9 @@ Field groups per make:
   injects from `location` (`driver/http/device/device.cpp:100-106`) is derived from
   `host` and `secure` in generated code.
 
-A connected resource has no scanned identity: the user owns every field, `rack`
-included, and sets them in the connect form. Its identity group holds what the connect
-form and a scanner's certificate pin write, so neither clobbers the channel maps that
-the task forms write. The OPC UA pin is a narrow Core write, not an identity update: it
-sets `connection.security.server_trust` to `pinned` only while the stored value is still
-`first_use`, and changes nothing else. An identity update that sends `first_use` keeps a
-stored pin, so a connect form that loaded before the pin cannot drop it; to replace a
-pin, the user picks another trust setting. `configured` does not exist. A discovered
+A connected resource has no scanned identity: the connect form writes its identity
+group, `rack` included. The OPC UA certificate pin is a narrow write that only moves
+`server_trust` from `first_use` to `pinned`. `configured` does not exist. A discovered
 resource is unconfigured while `identifier` is empty.
 
 Task configs reference a resource by its typed key: `ni.Device.Key` on NI channels
@@ -391,20 +372,14 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    bus order in `position` (`console/src/feature/ethercat/device/types.ts:50-51`). Slave
    rows grouped by `rack` and `network` yield one `ethercat.Master` per group, `rack`
    and `interface` from the group, `slaves` ordered by `position`, and each slave's
-   `master` set to the new key. An OPC UA row is fixed so it passes the typed rules.
-   Timeouts in milliseconds become `TimeSpan` values; 0 takes the default and a smaller
-   value rises to the minimum. A user name becomes `username` auth with its password. A
-   password without a user name becomes `anonymous` with a warning, because an OPC UA
-   user name login needs a user name; otherwise the row is `anonymous`. Mode `None` with
-   a real policy becomes `sign`, and a secured mode with policy `None` takes
-   `Basic256Sha256`, so the migration never lowers security. A secured row trusts
-   `validation_disabled` when validation was off, else `pinned` with its server
-   certificate, else `first_use`. Each read takes the index of its channel from the
-   channel table; a binding whose channel is gone is dropped with a warning. A binding
-   whose node ID names a namespace index other than 0 cannot be resolved without the
-   server, so it is parked in KV under `sy_opcua_unresolved/<server key>` and the server
-   gets a warning status. An endpoint without a scheme gains `opc.tcp://`; any other
-   endpoint that is not an `opc.tcp` URL is quarantined.
+   `master` set to the new key. OPC UA rows change as follows:
+   - Timeouts in ms become `TimeSpan`; 0 takes the default, a lower value the minimum.
+   - A user name becomes `username` auth; a password alone becomes `anonymous`, warned.
+   - Mode `None` plus a policy is `sign`; secured with no policy gets `Basic256Sha256`.
+   - Trust: `validation_disabled`, else `pinned` to its certificate, else `first_use`.
+   - A read takes its channel's index; a binding to a missing channel drops, warned.
+   - An `ns=` binding is parked in KV under `sy_opcua_unresolved/<server key>`, warned.
+   - An endpoint without a scheme gains `opc.tcp://`; another bad one is quarantined.
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
    map.
@@ -459,17 +434,8 @@ green at every step. The migration brings 0.59 data forward near the end.
   OPC UA, Modbus, HTTP: the Oracle structs, generated types in four languages, the
   writers, and routes. Each lands dark.
 - **Phases 9 to 14: Driver, one integration each.** Scanner and tasks on the typed
-  client. Phase 9 also adds `common::Sync<D>`. The OPC UA phase logs in with a user
-  certificate (`UA_ClientConfig_setAuthenticationCert`), and its scanner resolves the
-  bindings parked under `sy_opcua_unresolved/<server key>` against the server's
-  `NamespaceArray` on its next connect and hands them to a Core route that appends them
-  to `reads` and `writes` in one transaction. The route keeps every binding a task form
-  wrote and skips a resolved binding on the key that the writer refuses to repeat: a
-  read on the same node, field, and index, or a write to the same node. So the route
-  never fails on a duplicate, and it is a narrow exception to principle 5: it adds to
-  the configuration group and never replaces it. The route deletes the entry and clears
-  the warning. The other exception is the scanner's server certificate pin, which writes
-  only `server_trust` (§4.1).
+  client. Phase 9 also adds `common::Sync<D>`. OPC UA adds certificate login, and its
+  scanner resolves parked `ns=` bindings through an append-only Core route.
 - **Phases 15 to 20: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 20 deletes the file.
@@ -535,3 +501,4 @@ reference, and policy carried forward. A client older than Phase 23 gets a not-f
 - Whether `rack` on an EtherCAT slave stays a filter column or is read through the
   master.
 - The retention period for quarantined rows.
+- How the OPC UA connect form keeps a pin that the scanner wrote after the form loaded.
