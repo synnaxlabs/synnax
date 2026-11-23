@@ -1265,12 +1265,13 @@ jobs:
 
   soem:
     needs: changes
+    # SOEM tests run only on macOS, so pull requests skip the job, not empty its matrix.
     if:
-      inputs.full || needs.changes.outputs.soem == 'true' ||
-      contains(fromJSON(needs.changes.outputs.ci), 'soem')
+      github.event_name != 'pull_request' && (inputs.full || needs.changes.outputs.soem
+      == 'true' || contains(fromJSON(needs.changes.outputs.ci), 'soem'))
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      macos: ${{ github.event_name != 'pull_request' }}
+      macos: true
       sanitizers: false
       targets: //vendor/soem:all
       ubuntu: false
