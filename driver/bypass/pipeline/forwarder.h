@@ -139,6 +139,9 @@ class Forwarder {
     std::atomic<size_t> queue_bytes = 0;
     /// @brief true while the forwarder thread waits for the queue.
     bool idle = false;
+    /// @brief true from a drop until the forwarder thread reports it while it waits
+    /// for the queue.
+    bool unreported = false;
     Drops drops;
     /// @brief drops.total(), which report() reads without mu.
     std::atomic<size_t> dropped_total = 0;
@@ -255,13 +258,33 @@ class Forwarder {
     }
 
     /// @brief waits for ops and moves all of them into batch, so the forwarder thread
-    /// sends them without the lock. Returns false once closing leaves none, or once the
+    /// sends them without the lock. While it waits, it reports new drops at most once
+    /// per drop report interval. Returns false once closing leaves none, or once the
     /// drain timeout passes.
     bool take() {
         std::unique_lock lock(this->mu);
-        this->idle = true;
-        this->cv.wait(lock, [this] { return this->closing || !this->queue.empty(); });
-        this->idle = false;
+        const auto ready = [this] { return this->closing || !this->queue.empty(); };
+        while (true) {
+            this->idle = true;
+            if (this->unreported)
+                this->cv.wait_until(
+                    lock,
+                    this->drops_shown_at + this->drop_report_interval,
+                    ready
+                );
+            else
+                this->cv.wait(lock, [&] { return ready() || this->unreported; });
+            this->idle = false;
+            if (ready()) break;
+            if (!this->unreported ||
+                std::chrono::steady_clock::now() <
+                    this->drops_shown_at + this->drop_report_interval)
+                continue;
+            this->unreported = false;
+            lock.unlock();
+            this->report();
+            lock.lock();
+        }
         if (this->queue.empty() || this->expired()) return false;
         this->batch.swap(this->queue);
         return true;
@@ -433,6 +456,10 @@ public:
                 this->drops.full++;
                 this->dropped_total = this->drops.total();
                 if (++this->cap_drops % 1000 == 1) logged_drops = this->cap_drops;
+                if (this->warn && !this->unreported) {
+                    this->unreported = true;
+                    wake = this->idle;
+                }
             } else
                 wake = this->push_locked(std::move(entry));
         }

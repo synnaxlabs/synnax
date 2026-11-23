@@ -190,6 +190,47 @@ TEST(ForwarderTest, ClearsItsLagWarningOnceItsQueueEmpties) {
     ASSERT_NIL(other.close());
 }
 
+/// @brief it should report the frames it drops while it waits with an empty queue,
+/// because other forwarders fill the budget.
+TEST(ForwarderTest, ReportsDropsWhileIdle) {
+    const auto budget = std::make_shared<Budget>(4 * FRAME_SIZE);
+    const auto server = factory();
+    const auto warnings = std::make_shared<Warnings>();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.budget = budget,
+         .drop_report_interval = 50 * x::telem::MILLISECOND,
+         .warn = record(warnings)}
+    );
+    ASSERT_NIL(forwarder.write(frame(0)));
+    ASSERT_EVENTUALLY_EQ(budget->used(), 0);
+    Forwarder other(
+        factory(std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)),
+        {.channels = {1}},
+        {.budget = budget, .breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    for (int i = 0; i < 4; i++)
+        ASSERT_NIL(other.write(frame(static_cast<float>(i))));
+    const auto last = [&] {
+        if (warnings->empty()) return std::pair<std::string, std::string>{};
+        return warnings->at(warnings->size() - 1);
+    };
+    ASSERT_NIL(forwarder.write(frame(1)));
+    ASSERT_EVENTUALLY_EQ(
+        last().second,
+        "Dropped 1 frame because the Driver's queue for the Core was full."
+    );
+    ASSERT_NIL(forwarder.write(frame(2)));
+    ASSERT_EVENTUALLY_EQ(
+        last().second,
+        "Dropped 2 frames because the Driver's queue for the Core was full."
+    );
+    ASSERT_EQ(server->writes->size(), 1);
+    ASSERT_NIL(other.close());
+    ASSERT_NIL(forwarder.close());
+}
+
 /// @brief it should give back the bytes of each op it sends to the Core.
 TEST(ForwarderTest, ReleasesItsBudgetOnSend) {
     const auto server = std::make_shared<GatedFactory>();
