@@ -114,6 +114,22 @@ describe("Symbol form", () => {
       ref = { type: "custom", key: symbol.key };
     });
 
+    it("should store no units when the units are cleared", async () => {
+      const { findByLabelText, value } = renderForm(
+        <Form tab="telemetry" onTabChange={vi.fn()} />,
+        parse({
+          spec: ref,
+          states: [schematic.stateBindingZ.parse({ key: "level", units: "psi" })],
+        }),
+        schematic.symbolNodeConfigZ,
+        wrapper,
+      );
+      fireEvent.change(await findByLabelText("Units"), { target: { value: "" } });
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({ key: "level" }),
+      ]);
+    });
+
     it("should show the format of a number state only", async () => {
       const { findByText, getAllByLabelText } = renderForm(
         <Form tab="telemetry" onTabChange={vi.fn()} />,
