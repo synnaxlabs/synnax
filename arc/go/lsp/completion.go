@@ -480,14 +480,8 @@ func (s *Server) literalCompletions(
 			}),
 			End: end,
 		}
-		return s.quotedChannels(
-			ctx,
-			doc,
-			line[path:start],
-			line[start+1:col],
-			replace,
-			nil,
-		), true
+		text := line[path:col]
+		return s.quotedChannels(ctx, doc, text, start-path, replace, nil), true
 	case inLiteral:
 		if str != nil {
 			return s.placeholderCompletions(ctx, doc, str, line, pos, at)
@@ -557,30 +551,26 @@ func (s *Server) placeholderCompletions(
 		escape := func(text string) (string, bool) {
 			return literal.Escape(text, f.flags)
 		}
-		return s.quotedChannels(
-			ctx,
-			doc,
-			seg.Text[path:quote],
-			seg.Text[quote+1:d],
-			replace,
-			escape,
-		), true
+		text := seg.Text[path:d]
+		return s.quotedChannels(ctx, doc, text, quote-path, replace, escape), true
 	}
 	return nil, true
 }
 
-// quotedChannels returns an item for each channel whose name starts with path and then
-// the decoded text, whose edit writes the quoted name over replace. escape, when not
-// nil, writes
-// the quoted name for the literal that holds it, and refuses a name it cannot hold.
+// quotedChannels returns an item for each channel whose name starts with the name that
+// text spells, with an edit that writes the quoted name over replace. quote is the byte
+// offset of the opening quote in text, and the text before it is a bare path. escape,
+// when not nil, writes the quoted name for the literal that holds it, and refuses a
+// name it cannot hold.
 func (s *Server) quotedChannels(
 	ctx context.Context,
 	doc *document,
-	path, text string,
+	text string,
+	quote int,
 	replace protocol.Range,
 	escape func(string) (string, bool),
 ) []protocol.CompletionItem {
-	prefix := path + parser.DecodeChannelName("'"+text+"'")
+	prefix := text[:quote] + parser.DecodeChannelName("'"+text[quote+1:]+"'")
 	seen := make(set.Set[string])
 	var items []protocol.CompletionItem
 	add := func(symbols []*symbol.Symbol) {
