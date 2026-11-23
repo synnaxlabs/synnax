@@ -9,7 +9,7 @@
 
 import { calculation, type channel, status } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type destructor } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { Synnax } from "@/synnax";
