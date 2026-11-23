@@ -44,8 +44,12 @@ var _ = Describe("CheckDefault", func() {
 		func(v icd.JSONFieldVariant, expected string) {
 			Expect(icd.CheckDefault(icd.JSONField{Variant: v})).To(MatchError(expected))
 		},
-		Entry("a float that is not finite",
+		Entry("a NaN float",
 			icd.FloatJSONField{Scale: 1, Default: new(payload.Float(math.NaN()))},
+			"must be finite: validation error",
+		),
+		Entry("an infinite float",
+			icd.FloatJSONField{Scale: 1, Default: new(payload.Float(math.Inf(1)))},
 			"must be finite: validation error",
 		),
 		Entry("text that is not base64",

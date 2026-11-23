@@ -180,11 +180,6 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
             if (!v.default_.has_value()) return x::errors::NIL;
             if constexpr (std::is_same_v<F, icd::FloatBinaryField>) {
                 double d = v.default_->value;
-                if (!std::isfinite(d))
-                    return x::errors::Error(
-                        CONFIG_ERROR,
-                        x::json::Number(d).to_string() + " is not finite"
-                    );
                 if (n == 32) {
                     if (std::abs(d) > std::numeric_limits<float>::max())
                         return x::errors::Error(

@@ -16,6 +16,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 	"uuid"
@@ -37,6 +38,27 @@ func unprefixed(dt telem.DataType, sample []byte) []byte {
 	}
 	data, _ := telem.UnmarshalVariableSample(sample)
 	return data
+}
+
+// finite reports whether c writes each float sample of m as a number. The fixtures
+// write NaN and infinity as strings, as JSON holds neither.
+func finite(m codec.JSONMessage, c decodeCase) bool {
+	for k, b := range m.Bindings {
+		float := b.DataType == telem.Float64T || b.DataType == telem.Float32T
+		if float && c.Samples[k][0] == '"' {
+			return false
+		}
+	}
+	return true
+}
+
+// nanDefault reports whether a float field of m has the default NaN, which a write
+// cannot send.
+func nanDefault(m codec.JSONMessage) bool {
+	return slices.ContainsFunc(m.Payload.Fields, func(f icd.JSONField) bool {
+		v, ok := f.Variant.(icd.FloatJSONField)
+		return ok && v.Default != nil && math.IsNaN(float64(*v.Default))
+	})
 }
 
 // documentEntries returns an entry for each decode fixture that holds documents.
@@ -133,6 +155,11 @@ var _ = Describe("JSONEncoder", func() {
 			dec := MustSucceed(codec.NewJSON(messages))
 			for i, m := range messages {
 				By("message " + m.Name)
+				if nanDefault(m) {
+					Expect(codec.NewJSONEncoder(m)).Error().
+						To(MatchError(ContainSubstring("default: must be finite")))
+					continue
+				}
 				enc := MustSucceed(codec.NewJSONEncoder(m))
 				for k, c := range f.Cases {
 					if c.Error != "" || c.Unmatched || c.Message != m.Name {
@@ -148,6 +175,11 @@ var _ = Describe("JSONEncoder", func() {
 					samples := make([][]byte, len(m.Bindings))
 					for b, binding := range m.Bindings {
 						samples[b] = unprefixed(binding.DataType, decoded[i][b])
+					}
+					if !finite(m, c) {
+						Expect(enc.Encode(nil, samples)).Error().
+							To(MatchError(validate.ErrValidation))
+						continue
 					}
 					encoded := MustSucceed(enc.Encode(nil, samples))
 					again := newSamples(messages)

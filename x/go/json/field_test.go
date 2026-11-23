@@ -356,6 +356,10 @@ var _ = Describe("Field", func() {
 			Entry("a whole float in an integer range",
 				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T}, 4.0,
 				sample(4.0)),
+			Entry("NaN into a float32", xjson.Field{DataType: telem.Float32T},
+				math.NaN(), sample(float32(math.NaN()))),
+			Entry("infinity into a float64", xjson.Field{DataType: telem.Float64T},
+				math.Inf(-1), sample(math.Inf(-1))),
 		)
 
 		DescribeTable("Should reject a float that does not convert",
@@ -366,10 +370,10 @@ var _ = Describe("Field", func() {
 					MatchError(ContainSubstring(message)),
 				))
 			},
-			Entry("infinity", xjson.Field{DataType: telem.Float64T}, math.Inf(1),
-				"Infinity is not finite"),
-			Entry("NaN", xjson.Field{DataType: telem.Float32T}, math.NaN(),
-				"NaN is not finite"),
+			Entry("NaN into an integer", xjson.Field{DataType: telem.Int32T},
+				math.NaN(), "NaN is not an integer"),
+			Entry("infinity into an integer", xjson.Field{DataType: telem.Int64T},
+				math.Inf(1), "Infinity is out of range for int64"),
 			Entry("a float past a float32", xjson.Field{DataType: telem.Float32T},
 				1e39, "1e+39 overflows float32"),
 			Entry("a fraction into an integer", xjson.Field{DataType: telem.Int32T},

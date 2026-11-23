@@ -241,6 +241,9 @@ no value at the pointer of the field:
 The scale and offset apply to a number default. When a field that a task reads has no
 default, the task skips each document that has no value for the field.
 
+A float default can be NaN, so that a read writes NaN for a missing value. A write
+cannot send a NaN default. A float default cannot be infinite.
+
 A JSON default is JSON text, and a bytes default is base64 text, such as `AQI=`. A
 timestamp default is now, the time of each read or write, or a constant time. In Python,
 the class is `NowTimestampDefault` or `ConstantTimestampDefault`. In TypeScript, `type`
@@ -578,14 +581,13 @@ code, `client.icds.check` returns the problems of an ICD.
 
 <Problem.Item
   message={[
-    "default must be finite",
+    "default cannot be infinite",
     "default <n> does not fit a 32-bit float",
     "default <n> does not fit the field",
   ]}
 >
   <Problem.Cause>
-    A float default is not a finite number, or a binary default does not fit the bits of
-    its field.
+    A float default is infinite, or a binary default does not fit the bits of its field.
   </Problem.Cause>
   <Problem.Fix>Enter a value that the field can hold.</Problem.Fix>
 </Problem.Item>

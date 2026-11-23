@@ -100,9 +100,8 @@ public:
     /// the message with no prefix.
     /// @returns CONFIG_ERROR when two messages have the same prefix or no prefix, a
     /// delimiter or tag is empty, a tag contains its delimiter or starts with
-    /// whitespace, a binding names no field of its message, a default is not finite or
-    /// does not fit its channel, or a field does not convert to the data type of its
-    /// binding.
+    /// whitespace, a binding names no field of its message, a default does not fit its
+    /// channel, or a field does not convert to the data type of its binding.
     static std::pair<Text, x::errors::Error>
     create(const std::vector<TextMessage> &messages);
 
@@ -116,9 +115,8 @@ public:
     /// to no message. A line of only spaces, tabs, and carriage returns belongs to
     /// none.
     /// @returns VALIDATION when a field with no default has no value in line, a value
-    /// is not a number, or a scaled value is not finite or does not fit its channel.
-    /// The error names the field, and also the message when the decoder holds more than
-    /// one.
+    /// is not a number, or a scaled value does not fit its channel. The error names the
+    /// field, and also the message when the decoder holds more than one.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::string_view line);
 
