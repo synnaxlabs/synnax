@@ -598,4 +598,86 @@ describe("Custom.Drawing motion", () => {
       expect(attr(".slider", "transform")).toBe("translate(2.5 0)");
     });
   });
+
+  describe("kinds", () => {
+    const MOVE: schematic.symbol.Look = {
+      key: "move",
+      part: "rotor",
+      motion: {
+        type: "move",
+        state: "speed",
+        from: { x: 0, y: 0 },
+        to: { x: 0.5, y: 0 },
+      },
+    };
+
+    it("should move a part, then spin it about its pivot", async () => {
+      const { frame, attr } = await setup({
+        spec: createSpec([SPIN, MOVE]),
+        readings: { speed: reading(100) },
+      });
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe(
+        "translate(5 0) rotate(90 3 3) translate(1 1)",
+      );
+    });
+
+    it("should add the angles of a rotate and a spin", async () => {
+      const look: schematic.symbol.Look = {
+        key: "rotate",
+        part: "rotor",
+        motion: { type: "rotate", state: "speed", from: 0, to: 90 },
+      };
+      const { frame, attr } = await setup({
+        spec: createSpec([look, SPIN]),
+        readings: { speed: reading(50) },
+      });
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("rotate(135 3 3) translate(1 1)");
+    });
+
+    it("should replace an earlier spin with a later spin", async () => {
+      const fast = { ...SPIN, key: "fast", motion: { type: "spin" as const, rate: 1 } };
+      const { frame, attr } = await setup({ spec: createSpec([SPIN, fast]) });
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("rotate(180 3 3) translate(1 1)");
+    });
+
+    it("should fill and flow one part at once", async () => {
+      const looks: schematic.symbol.Look[] = [
+        {
+          key: "level",
+          part: "pipe",
+          motion: { type: "level", state: "speed", side: "bottom" },
+        },
+        { key: "flow", part: "pipe", motion: { type: "flow", rate: 0.5 } },
+      ];
+      const { frame, attr } = await setup({
+        spec: createSpec(looks),
+        readings: { speed: reading(25) },
+      });
+      frame(0);
+      frame(1000);
+      expect(attr(".pipe", "clip-path")).toBe("inset(75% 0 0 0)");
+      expect(attr(".pipe", "stroke-dashoffset")).toBe("-2");
+    });
+
+    it("should keep the move of a part when its spin stops", async () => {
+      const spin = {
+        ...SPIN,
+        when: { type: "equals" as const, state: "active", values: [1] },
+      };
+      const { frame, attr, rerender } = await setup({
+        spec: createSpec([MOVE, spin]),
+        readings: { speed: reading(100), active: reading(1) },
+      });
+      frame(0);
+      frame(500);
+      await rerender({ readings: { speed: reading(100), active: reading(0) } });
+      expect(attr(".rotor", "transform")).toBe("translate(5 0) translate(1 1)");
+    });
+  });
 });
