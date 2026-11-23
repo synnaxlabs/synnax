@@ -62,6 +62,8 @@ var (
 	root       user.User
 	// faultyFS holds the Core's time-series data and fails the operations a spec sets.
 	faultyFS *FaultyFS
+	// relayBuffer is how many frames the relay holds for each streamer.
+	relayBuffer int
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -79,6 +81,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Insecure: new(true),
 	}))
 	db = node.DB
+	relayBuffer = node.Framer.StreamerBufferSize()
 	svc = MustOpen(service.OpenLayer(ctx, service.LayerConfig{
 		Distribution: node.Layer,
 		Security:     sec,
