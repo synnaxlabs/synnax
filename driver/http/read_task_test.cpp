@@ -10,7 +10,9 @@
 #include <cmath>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -33,6 +35,11 @@ using ::synnax::http::ReadEndpoint;
 using ::synnax::http::ReadField;
 
 namespace {
+/// @brief returns the bytes of text.
+std::span<const std::uint8_t> bytes(const std::string_view text) {
+    return {reinterpret_cast<const std::uint8_t *>(text.data()), text.size()};
+}
+
 /// @brief helper to build a ReadTaskSource from config and a mock server URL.
 /// Each call creates its own Processor so tests have independent lifecycles.
 std::pair<std::unique_ptr<ReadTaskSource>, std::shared_ptr<Processor>> make_source(
@@ -4264,7 +4271,7 @@ TEST(HTTPReadTask, BuildReadersReadsEachEndpoint) {
     ASSERT_EQ(readers.size(), 2);
     const x::telem::TimeStamp received(1000);
     x::telem::Frame fr;
-    ASSERT_NIL(readers[1].read(R"({"v": 2.5})", received, fr));
+    ASSERT_EQ(ASSERT_NIL_P(readers[1].read(bytes(R"({"v": 2.5})"), received, fr)), 0U);
     EXPECT_EQ(fr.at<double>(second.data.key, 0), 2.5);
     EXPECT_EQ(fr.at<std::int64_t>(second.index.key, 0), received.nanoseconds());
     EXPECT_FALSE(fr.contains(first.data.key));
@@ -4282,7 +4289,12 @@ TEST(HTTPReadTask, BuildReadersSkipsDisabledEndpoint) {
     );
     ASSERT_EQ(readers.size(), 1);
     x::telem::Frame fr;
-    ASSERT_NIL(readers[0].read(R"({"v": 2.5})", x::telem::TimeStamp(1000), fr));
+    ASSERT_EQ(
+        ASSERT_NIL_P(
+            readers[0].read(bytes(R"({"v": 2.5})"), x::telem::TimeStamp(1000), fr)
+        ),
+        0U
+    );
     EXPECT_EQ(fr.at<double>(ch.data.key, 0), 2.5);
 }
 

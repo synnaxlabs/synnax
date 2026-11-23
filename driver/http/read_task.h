@@ -25,9 +25,9 @@
 #include "driver/common/sample_clock.h"
 #include "driver/http/device/device.h"
 #include "driver/http/http.h"
-#include "driver/http/message/message.h"
 #include "driver/http/processor/processor.h"
 #include "driver/http/types/types.h"
+#include "driver/icd/reader.h"
 #include "driver/task/task.h"
 
 namespace driver::http {
@@ -139,10 +139,11 @@ public:
 /// @param endpoints the endpoints to build readers for.
 /// @returns one reader per enabled endpoint, in order. Returns CONFIGURATION_ERROR that
 /// names the endpoint when it reads no messages, when its ICD does not exist, or when
-/// message::Reader rejects its messages, and that names both endpoints when two of them
-/// write to one channel (an index channel included). Returns the error of a failed
+/// driver::icd::Reader rejects its messages, and that names both endpoints when two of
+/// them write to one channel (an index channel included). Returns the error of a failed
 /// retrieve as is.
-[[nodiscard]] std::pair<std::vector<message::Reader>, x::errors::Error> build_readers(
+[[nodiscard]] std::pair<std::vector<driver::icd::Reader>, x::errors::Error>
+build_readers(
     const synnax::Synnax &client,
     const std::vector<::synnax::http::ReadEndpoint> &endpoints
 );

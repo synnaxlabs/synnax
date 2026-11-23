@@ -58,9 +58,10 @@ class Reader {
     std::vector<bool> present;
 
     /// @brief sets the channels, the index groups, and the index field of m from the
-    /// bindings of rm, and returns the codec binding of each.
+    /// bindings of rm, which reads msg, and returns the codec binding of each.
     static std::pair<std::vector<codec::Binding>, x::errors::Error> bind(
         const synnax::icd::ReadMessage &rm,
+        const synnax::icd::Message &msg,
         const std::map<synnax::channel::Key, synnax::channel::Channel> &channels,
         Message &m
     );
@@ -82,6 +83,9 @@ public:
         const synnax::icd::ICD &ic,
         const std::map<synnax::channel::Key, synnax::channel::Channel> &channels
     );
+
+    /// @brief returns each channel that the reader writes, index channels last.
+    [[nodiscard]] std::vector<synnax::channel::Key> channels() const;
 
     /// @brief reads payload as the message it belongs to, and adds one sample for each
     /// channel of that message to fr. The index channel of the index field takes its

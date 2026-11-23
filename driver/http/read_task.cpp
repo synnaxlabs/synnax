@@ -222,7 +222,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     return {std::move(cfg), x::errors::NIL};
 }
 
-std::pair<std::vector<message::Reader>, x::errors::Error> build_readers(
+std::pair<std::vector<driver::icd::Reader>, x::errors::Error> build_readers(
     const synnax::Synnax &client,
     const std::vector<::synnax::http::ReadEndpoint> &endpoints
 ) {
@@ -251,7 +251,7 @@ std::pair<std::vector<message::Reader>, x::errors::Error> build_readers(
         for (auto &ch: found)
             channels.emplace(ch.key, std::move(ch));
     }
-    std::vector<message::Reader> readers;
+    std::vector<driver::icd::Reader> readers;
     readers.reserve(endpoints.size());
     // Every endpoint writes into one frame, so no two may write one channel.
     std::map<synnax::channel::Key, std::string> writers;
@@ -276,9 +276,9 @@ std::pair<std::vector<message::Reader>, x::errors::Error> build_readers(
                     name + ": ICD " + ep.icd->to_string() + " does not exist"
                 ),
             };
-        auto [reader, err] = message::Reader::create(ep.messages, *ic, channels);
+        auto [reader, err] = driver::icd::Reader::create(ep.messages, *ic, channels);
         if (err) return {{}, x::errors::Error(err, name + ": " + err.data)};
-        for (const auto key: reader.keys()) {
+        for (const auto key: reader.channels()) {
             const auto [other, claimed] = writers.try_emplace(key, name);
             if (!claimed)
                 return {
