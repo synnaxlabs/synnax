@@ -89,7 +89,7 @@ export const requestsZ = z.object({
   /** maskWriteSupported is true when bit writes use function code 22. */
   maskWriteSupported: z.boolean().default(false),
   /** delay is the wait between two requests. */
-  delay: telem.numericTimeSpanZ.check(z.lte(5000000000)).default(0),
+  delay: telem.numericTimeSpanZ.check(z.gte(0), z.lte(5000000000)).default(0),
 });
 export interface Requests extends z.infer<typeof requestsZ> {}
 

@@ -134,9 +134,7 @@ class Requests(BaseModel):
     max_gap: int = Field(default=125, ge=0, le=65535)
     write_codes: WriteCodes = "multiple"
     mask_write_supported: bool = False
-    delay: telem.TimeSpan = Field(
-        default=telem.TimeSpan(0), ge=-9223372036854775808, le=5000000000
-    )
+    delay: telem.TimeSpan = Field(default=telem.TimeSpan(0), ge=0, le=5000000000)
 
 
 class Register(BaseModel):

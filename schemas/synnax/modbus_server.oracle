@@ -222,6 +222,7 @@ Requests struct {
         @doc value    "is the wait between two requests."
         @ts type      telem.NumericTimeSpan
         @validate max 5000000000
+        @validate min 0
     }
 
     @doc value  "shapes the requests that the Driver sends to a server."

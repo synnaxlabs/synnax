@@ -467,6 +467,7 @@ func (r Requests) Validate() error {
 	v.Ternaryf("write_codes", !r.WriteCodes.IsValid(), "invalid write_codes: %v", r.WriteCodes)
 	v.GreaterThanEq("max_registers", r.MaxRegisters, 1)
 	v.LessThanEq("max_registers", r.MaxRegisters, 125)
+	v.GreaterThanEq("delay", r.Delay, 0)
 	v.LessThanEq("delay", r.Delay, 5000000000)
 	return v.Error()
 }

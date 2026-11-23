@@ -208,6 +208,9 @@ var _ = Describe("Server", func() {
 		Entry("a delay above five seconds", func(s *v0.Server) {
 			s.Requests.Delay = 5*telem.Second + 1
 		}, "delay"),
+		Entry("a negative delay", func(s *v0.Server) {
+			s.Requests.Delay = -1
+		}, "delay"),
 		Entry("a read with no index", func(s *v0.Server) {
 			s.Reads = []v0.Read{{
 				Register: v0.Register{Type: v0.RegisterTypeCoil},
