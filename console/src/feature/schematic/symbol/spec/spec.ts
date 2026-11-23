@@ -94,18 +94,6 @@ const withActive = (states: Spec["states"]): Spec["states"] =>
   states.some((s) => s.key === STATE) ? states : [...states, createState()];
 
 /**
- * @returns the field that the looks of target set at value alone, or at every value
- * when value is undefined.
- */
-export const own = <F extends Field>(
-  spec: Pick<Spec, "looks">,
-  target: Target,
-  field: F,
-  value?: number,
-): Look[F] | undefined =>
-  spec.looks.findLast((l) => owns(l, target, value) && l[field] != null)?.[field];
-
-/**
  * @returns the field that target shows at value after the looks apply in order, or at
  * every value when value is undefined. Looks of the whole drawing count for a part.
  */
@@ -180,10 +168,10 @@ export const setVariesByValue = (
   varies: boolean,
 ): Spec => {
   if (varies) {
-    const base = own(spec, target, field);
+    const base = spec.looks.findLast((l) => owns(l, target) && l[field] != null);
     if (base == null) return spec;
     const cleared = setOwn(spec, target, field, undefined);
-    return values.reduce((s, v) => setOwn(s, target, field, base, v), cleared);
+    return values.reduce((s, v) => setOwn(s, target, field, base[field], v), cleared);
   }
   // Looks of the whole drawing stay out, so target takes no field that it did not set.
   const mine = spec.looks.filter((l) => l.part === target);
