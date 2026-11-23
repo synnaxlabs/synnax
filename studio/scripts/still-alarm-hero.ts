@@ -9,6 +9,7 @@
 
 import {
   type channel,
+  type label,
   status,
   type table,
   TimeSpan,
@@ -28,9 +29,9 @@ const YELLOW = "#f4ca258c";
 const RED = "#f5242e73";
 const CLEAR = "#00000000";
 /** A gray that reads as a faint tint on both themes. */
-const HEADER_FILL = "#80808033";
+const HEADER_FILL = { type: "fixed", value: "#80808033" } as const;
 /** A gray legible on both themes, a step quieter than the labels. */
-const QUIET = "#8a8f98";
+const QUIET = { type: "fixed", value: "#8a8f98" } as const;
 
 /**
  * A reading and its limits. A high reading warns at or above `warning`, and a low one
@@ -244,7 +245,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const labels = new Map(
       (
         await client.labels.create(
-          Object.entries(LABELS).map(([name, color]) => ({ name, color })),
+          Object.entries(LABELS).map(([name, value]): label.New => ({
+            name,
+            color: { type: "fixed", value },
+          })),
         )
       ).map((l) => [l.name, l.key]),
     );

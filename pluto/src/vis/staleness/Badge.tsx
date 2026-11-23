@@ -12,7 +12,7 @@ import "@/vis/staleness/Badge.css";
 import { Badge as Base } from "@synnaxlabs/lyra/badge";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 

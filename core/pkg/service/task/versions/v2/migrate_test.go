@@ -124,6 +124,7 @@ var _ = Describe("Migrations", func() {
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secrettestutil.OpenService(ctx, db),
+				Rack:   secrettestutil.CoreRack,
 			}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
@@ -351,6 +352,7 @@ var _ = Describe("Migrations", func() {
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secrets,
+				Rack:   secrettestutil.CoreRack,
 			}))
 			at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 			lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))

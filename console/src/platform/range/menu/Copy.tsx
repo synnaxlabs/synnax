@@ -11,7 +11,7 @@ import { ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Core } from "@/platform/core";
 import { pythonCode, typescriptCode } from "@/platform/range/code";

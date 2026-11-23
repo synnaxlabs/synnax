@@ -123,7 +123,7 @@ var _ = Describe("Manager", func() {
 	Describe("StdImports", func() {
 		It("should return only sorted standard-library paths", func() {
 			mgr.AddExternal("strings")
-			mgr.AddExternal("github.com/google/uuid")
+			mgr.AddExternal("github.com/samber/lo")
 			mgr.AddExternal("encoding/json")
 			mgr.AddExternal("fmt")
 			Expect(mgr.StdImports()).To(Equal([]string{
@@ -132,7 +132,7 @@ var _ = Describe("Manager", func() {
 		})
 
 		It("should return empty when only external paths exist", func() {
-			mgr.AddExternal("github.com/google/uuid")
+			mgr.AddExternal("github.com/samber/lo")
 			Expect(mgr.StdImports()).To(BeEmpty())
 		})
 	})
@@ -141,11 +141,11 @@ var _ = Describe("Manager", func() {
 		It("should merge non-std external and internal imports sorted by path",
 			func() {
 				mgr.AddExternal("fmt")
-				mgr.AddExternal("github.com/google/uuid")
+				mgr.AddExternal("github.com/samber/lo")
 				mgr.AddInternal("user", "core/pkg/user")
 				Expect(mgr.NonStdImports()).To(Equal([]imports.InternalImportData{
 					{Path: "core/pkg/user", Alias: "user"},
-					{Path: "github.com/google/uuid"},
+					{Path: "github.com/samber/lo"},
 				}))
 			})
 

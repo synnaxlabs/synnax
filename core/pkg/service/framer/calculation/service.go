@@ -398,6 +398,9 @@ func (s *Service) updateGroup(
 			zap.Int("group_id", key),
 			zap.String("reason", "group composition changed"),
 		)
+		// A failed reopen must leave no closed group behind, so that the next rebuild
+		// opens the group again.
+		delete(s.mu.groups, key)
 		if err := g.Close(); err != nil {
 			return err
 		}
@@ -406,7 +409,7 @@ func (s *Service) updateGroup(
 	for i, m := range mods {
 		calc, err := s.openCalculator(ctx, m)
 		if err != nil {
-			return err
+			return errors.Join(err, calculator.Group(calculators[:i]).Close())
 		}
 		calculators[i] = calc
 	}
@@ -492,6 +495,8 @@ func (s *Service) updateRequests(
 	}); err != nil {
 		return err
 	}
+	// Other requests share the groups, so cancelling this request must not stop them.
+	ctx = context.WithoutCancel(ctx)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

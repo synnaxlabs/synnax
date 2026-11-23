@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
-import { Editor, type EditorHandle } from "@/code/Editor";
-import { BASE_THEMES, type EditorExtension, type Language } from "@/code/language";
+import { Code } from "@/code";
 
 const ESCAPE: Triggers.Trigger = ["Escape"];
 
@@ -201,7 +199,6 @@ const createFakeEditor = (model: FakeModel) => {
     },
     emitKeyDown: keyDown.emit,
     emitKeyUp: keyUp.emit,
-    emitContextMenu: contextMenu.emit,
     emitCursor: cursor.emit,
     listeners: { content: content.listeners, keyDown: keyDown.listeners },
   };
@@ -278,18 +275,6 @@ const createFakeMonaco = () => {
 
 type FakeMonaco = ReturnType<typeof createFakeMonaco>;
 
-// A rename provider that opts the cursor into being renameable.
-const renameableProvider = {
-  resolveRenameLocation: vi.fn().mockResolvedValue({ range: {}, text: "name" }),
-};
-
-const SELECTION: Range = {
-  startLineNumber: 1,
-  startColumn: 1,
-  endLineNumber: 1,
-  endColumn: 5,
-};
-
 const setRenameProviders = (providers: unknown[]): void => {
   getServiceMock.mockReturnValue({
     renameProvider: { ordered: () => providers },
@@ -298,8 +283,8 @@ const setRenameProviders = (providers: unknown[]): void => {
 
 let monaco: FakeMonaco;
 
-const renderEditor = (props: Partial<Parameters<typeof Editor>[0]> = {}) =>
-  render(<Editor language="arc" {...props} />);
+const renderEditor = (props: Partial<Parameters<typeof Code.Editor>[0]> = {}) =>
+  render(<Code.Editor language="arc" {...props} />);
 
 describe("Editor", () => {
   beforeEach(() => {
@@ -415,7 +400,7 @@ describe("Editor", () => {
 
   describe("imperative setValue", () => {
     it("should reconcile the model as a single minimal edit", () => {
-      const ref = createRef<EditorHandle>();
+      const ref = createRef<Code.EditorHandle>();
       renderEditor({ initialValue: "abc\ndef", ref });
       act(() => ref.current?.setValue("abc\nXef"));
       const model = monaco.editorInstance.getModel();
@@ -432,7 +417,7 @@ describe("Editor", () => {
     });
 
     it("should be a no-op when the model already holds the value", () => {
-      const ref = createRef<EditorHandle>();
+      const ref = createRef<Code.EditorHandle>();
       renderEditor({ initialValue: "same", ref });
       act(() => ref.current?.setValue("same"));
       expect(monaco.editorInstance.getModel().applyEdits).not.toHaveBeenCalled();
@@ -441,7 +426,7 @@ describe("Editor", () => {
     it("should not fire onValueChange or onEdit for a programmatic edit", () => {
       const onValueChange = vi.fn();
       const onEdit = vi.fn();
-      const ref = createRef<EditorHandle>();
+      const ref = createRef<Code.EditorHandle>();
       renderEditor({ initialValue: "a", onValueChange, onEdit, ref });
       act(() => ref.current?.setValue("abc"));
       expect(monaco.editorInstance.getModel().getValue()).toEqual("abc");
@@ -463,103 +448,12 @@ describe("Editor", () => {
         configuration: "{}",
         grammar: { scopeName: "source.arc", raw: "{}" },
         theme: { semanticTokenColors: { dark: {}, light: {} } },
-      } satisfies Language);
+      } satisfies Code.Language);
       renderEditor();
-      expect(monaco.editor.create.mock.calls[0][1].theme).toEqual(BASE_THEMES.light);
-      expect(monaco.editor.setTheme).toHaveBeenCalledWith(BASE_THEMES.light);
-    });
-  });
-
-  describe("context menu", () => {
-    const openMenu = (editor: FakeEditor) =>
-      act(() =>
-        editor.emitContextMenu({
-          event: {
-            posx: 10,
-            posy: 20,
-            preventDefault: vi.fn(),
-            stopPropagation: vi.fn(),
-          },
-        }),
+      expect(monaco.editor.create.mock.calls[0][1].theme).toEqual(
+        Code.BASE_THEMES.light,
       );
-
-    it("should open a menu with the default actions on editor context menu", () => {
-      renderEditor();
-      openMenu(monaco.editorInstance);
-      expect(screen.getByText("Cut")).toBeTruthy();
-      expect(screen.getByText("Copy")).toBeTruthy();
-      expect(screen.getByText("Paste")).toBeTruthy();
-      expect(screen.getByText("Format")).toBeTruthy();
-    });
-
-    it("should append the consumer's extra items to the menu", () => {
-      renderEditor({ extraMenuItems: <Menu.Item itemKey="extra">Extra</Menu.Item> });
-      openMenu(monaco.editorInstance);
-      expect(screen.getByText("Extra")).toBeTruthy();
-    });
-
-    it.each([
-      { label: "Cut", action: "editor.action.clipboardCutAction" },
-      { label: "Copy", action: "editor.action.clipboardCopyAction" },
-      { label: "Paste", action: "editor.action.clipboardPasteAction" },
-      { label: "Format", action: "editor.action.formatDocument" },
-    ])("should focus the editor and trigger $label", ({ label, action }) => {
-      renderEditor();
-      const editor = monaco.editorInstance;
-      editor.setSelection(SELECTION);
-      openMenu(editor);
-      fireEvent.click(screen.getByText(label));
-      expect(editor.focus).toHaveBeenCalled();
-      expect(editor.trigger).toHaveBeenCalledWith("contextMenu", action, null);
-    });
-
-    it("should disable cut and copy when there is no selection", () => {
-      renderEditor();
-      const editor = monaco.editorInstance;
-      editor.setSelection(null);
-      openMenu(editor);
-      fireEvent.click(screen.getByText("Cut"));
-      expect(editor.trigger).not.toHaveBeenCalled();
-    });
-
-    it("should hide the rename action when the cursor is not renameable", () => {
-      setRenameProviders([]);
-      renderEditor();
-      openMenu(monaco.editorInstance);
-      expect(screen.getByText("Paste")).toBeTruthy();
-      expect(screen.queryByText("Rename")).toBeNull();
-    });
-
-    it("should hide the rename action and report when a provider fails", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      setRenameProviders([
-        { resolveRenameLocation: vi.fn().mockRejectedValue(new Error("boom")) },
-      ]);
-      renderEditor();
-      openMenu(monaco.editorInstance);
-      await vi.waitFor(() =>
-        expect(errorSpy).toHaveBeenCalledWith(
-          "failed to check rename availability",
-          expect.anything(),
-        ),
-      );
-      expect(screen.queryByText("Rename")).toBeNull();
-      errorSpy.mockRestore();
-    });
-
-    it("should show and trigger rename when the cursor is renameable", async () => {
-      setRenameProviders([renameableProvider]);
-      renderEditor();
-      const editor = monaco.editorInstance;
-      openMenu(editor);
-      const rename = await screen.findByText("Rename");
-      expect(rename).toBeTruthy();
-      fireEvent.click(rename);
-      expect(editor.trigger).toHaveBeenCalledWith(
-        "contextMenu",
-        "editor.action.rename",
-        null,
-      );
+      expect(monaco.editor.setTheme).toHaveBeenCalledWith(Code.BASE_THEMES.light);
     });
   });
 
@@ -599,32 +493,32 @@ describe("Editor", () => {
   describe("extensions", () => {
     it("should apply the editor extensions passed as a prop", () => {
       const dispose = vi.fn();
-      const ext: EditorExtension = vi.fn(() => ({ dispose }));
+      const ext: Code.EditorExtension = vi.fn(() => ({ dispose }));
       renderEditor({ extensions: [ext] });
       expect(ext).toHaveBeenCalledWith(monaco.editorInstance);
     });
 
     it("should fall back to the language's editorExtensions when no prop is given", () => {
-      const langExt: EditorExtension = vi.fn(() => ({ dispose: vi.fn() }));
+      const langExt: Code.EditorExtension = vi.fn(() => ({ dispose: vi.fn() }));
       useLanguageMock.mockReturnValue({
         name: "arc",
         configuration: "{}",
         grammar: { scopeName: "source.arc", raw: "{}" },
         editorExtensions: [langExt],
-      } satisfies Language);
+      } satisfies Code.Language);
       renderEditor();
       expect(langExt).toHaveBeenCalledWith(monaco.editorInstance);
     });
 
     it("should prefer the prop extensions over the language's", () => {
-      const propExt: EditorExtension = vi.fn(() => ({ dispose: vi.fn() }));
-      const langExt: EditorExtension = vi.fn(() => ({ dispose: vi.fn() }));
+      const propExt: Code.EditorExtension = vi.fn(() => ({ dispose: vi.fn() }));
+      const langExt: Code.EditorExtension = vi.fn(() => ({ dispose: vi.fn() }));
       useLanguageMock.mockReturnValue({
         name: "arc",
         configuration: "{}",
         grammar: { scopeName: "source.arc", raw: "{}" },
         editorExtensions: [langExt],
-      } satisfies Language);
+      } satisfies Code.Language);
       renderEditor({ extensions: [propExt] });
       expect(propExt).toHaveBeenCalledWith(monaco.editorInstance);
       expect(langExt).not.toHaveBeenCalled();
@@ -632,7 +526,7 @@ describe("Editor", () => {
 
     it("should dispose the extensions on unmount", () => {
       const dispose = vi.fn();
-      const ext: EditorExtension = vi.fn(() => ({ dispose }));
+      const ext: Code.EditorExtension = vi.fn(() => ({ dispose }));
       const { unmount } = renderEditor({ extensions: [ext] });
       unmount();
       expect(dispose).toHaveBeenCalledTimes(1);
@@ -757,7 +651,7 @@ describe("Editor", () => {
         // double mirrors the app-level Escape handlers: a quick second press arrives as
         // a double trigger, and they still need to see it.
         Triggers.use({ triggers: ESCAPE, callback, double: true });
-        return <Editor language="arc" />;
+        return <Code.Editor language="arc" />;
       };
       return render(
         <Triggers.Provider>

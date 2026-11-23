@@ -7,15 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import type { connection, Synnax as Client } from "@synnaxlabs/client";
 import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
 import { theme } from "@synnaxlabs/lyra/theme";
+import { color } from "@synnaxlabs/x";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { Aether } from "@/aether";
-import { type aether } from "@/aether/aether";
+import type { aether } from "@/aether/aether";
 import { Alamos } from "@/alamos";
 import { alamos } from "@/alamos/aether";
+import { color as aetherColor } from "@/color/aether";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
@@ -60,6 +62,18 @@ const ThemingSeed = ({ children }: PropsWithChildren): ReactElement => {
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
 
+const SERIES_COLORS = ["#dc136c", "#20a4f3", "#52ffb8"].map((c) => color.construct(c));
+
+// Fixed series colors, so a spec never depends on the colors stored in the Core.
+const FixedSeries = ({ children }: PropsWithChildren): ReactElement => {
+  const { path } = Aether.useLifecycle({
+    type: aetherColor.SeriesProvider.TYPE,
+    schema: aetherColor.SeriesProvider.z,
+    initialState: { colors: SERIES_COLORS },
+  });
+  return <Aether.Composite path={path}>{children}</Aether.Composite>;
+};
+
 export interface CreateSynnaxWrapperParams {
   client: Client | null;
   /** Extra aether components merged into the test render registry. */
@@ -79,6 +93,8 @@ export interface CreateSynnaxWrapperParams {
   telemFactories?: telem.Factory[];
   /** Connection status the Synnax context reports; defaults to disconnected. */
   connectionStatus?: connection.Status;
+  /** Called with the root of the worker tree, to read component state in a spec. */
+  onRoot?: (root: aether.Root) => void;
 }
 
 export const createSynnaxWrapper = ({
@@ -87,26 +103,31 @@ export const createSynnaxWrapper = ({
   renderContext,
   telemFactories,
   connectionStatus,
+  onRoot,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
   if (client != null) disableActEnvironment();
-  const AetherProvider = createAetherProvider({
-    ...synnax.REGISTRY,
-    ...status.REGISTRY,
-    ...alamos.REGISTRY,
-    ...theming.REGISTRY,
-    ...staleness.REGISTRY,
-    ...(renderContext != null
-      ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
-      : {}),
-    ...(telemFactories != null
-      ? {
-          [telem.PROVIDER_TYPE]: telem.createProvider((c) =>
-            telem.createFactory(c, telemFactories),
-          ),
-        }
-      : {}),
-    ...additionalRegistry,
-  });
+  const AetherProvider = createAetherProvider(
+    {
+      ...synnax.REGISTRY,
+      ...status.REGISTRY,
+      ...alamos.REGISTRY,
+      ...theming.REGISTRY,
+      ...aetherColor.REGISTRY,
+      ...staleness.REGISTRY,
+      ...(renderContext != null
+        ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
+        : {}),
+      ...(telemFactories != null
+        ? {
+            [telem.PROVIDER_TYPE]: telem.createProvider((c) =>
+              telem.createFactory(c, telemFactories),
+            ),
+          }
+        : {}),
+      ...additionalRegistry,
+    },
+    onRoot,
+  );
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
     let inner =
       renderContext == null ? (
@@ -122,7 +143,9 @@ export const createSynnaxWrapper = ({
           <Alamos.Provider>
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>
-                <ThemingSeed>{inner}</ThemingSeed>
+                <ThemingSeed>
+                  <FixedSeries>{inner}</FixedSeries>
+                </ThemingSeed>
               </Suspense>
             </Synnax.TestProvider>
           </Alamos.Provider>

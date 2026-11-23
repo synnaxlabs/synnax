@@ -15,10 +15,10 @@ import {
   fromSparkplugDataType,
   toSparkplugDataType,
 } from "@/feature/mqtt/task/sparkplug";
-import {
-  type BrowsedTopic,
-  type SparkplugReadEntry,
-  type SparkplugTag,
+import type {
+  BrowsedTopic,
+  SparkplugReadEntry,
+  SparkplugTag,
 } from "@/feature/mqtt/task/types";
 
 /** The prefix configure gives the channels of a topic's fields. */

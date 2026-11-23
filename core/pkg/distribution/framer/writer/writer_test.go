@@ -798,6 +798,162 @@ var _ = Describe("Writer", func() {
 				Expect(fr.Get(data.Key()).Len()).To(Equal(fr.Get(idx.Key()).Len()))
 			},
 		)
+		Describe("Lost control of the index", func() {
+			var (
+				host        testutil.Node
+				keys        channel.Keys
+				both, index frameBuilder
+			)
+			BeforeEach(func(ctx SpecContext) {
+				host = testutil.NewNode(ctx)
+				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:     "pending_time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}}))[0]
+				data := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:       "pending",
+					DataType:   telem.Int64T,
+					LocalIndex: idx.LocalKey,
+				}}))[0]
+				keys = channel.Keys{idx.Key(), data.Key()}
+				both = func(values []int64, at ...telem.TimeStamp) frame.Frame {
+					return frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesSecondsTSV(at...),
+						telem.NewSeries(values),
+					})
+				}
+				index = func(_ []int64, at ...telem.TimeStamp) frame.Frame {
+					return frame.NewUnary(keys[0], telem.NewSeriesSecondsTSV(at...))
+				}
+			})
+			open := func(
+				ctx SpecContext,
+				key string,
+				authority control.Authority,
+				keys channel.Keys,
+			) *writer.Writer {
+				GinkgoHelper()
+				return MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject:   control.Subject{Key: key},
+					Keys:             keys,
+					Start:            10 * telem.SecondTS,
+					Authorities:      []control.Authority{authority},
+					EnableAutoCommit: new(false),
+					Sync:             new(true),
+				}))
+			}
+			// openFirst opens the first writer and writes four samples with control.
+			openFirst := func(ctx SpecContext) *writer.Writer {
+				GinkgoHelper()
+				w := open(ctx, "first", 100, keys)
+				Expect(w.Write(both([]int64{1, 2, 3, 4}, 10, 11, 12, 13))).To(BeTrue())
+				return w
+			}
+			expectLengths := func(ctx SpecContext, idxLen, dataLen int64) {
+				GinkgoHelper()
+				lengths := map[channel.Key]int64{}
+				iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
+					Keys:   keys,
+					Bounds: telem.TimeRangeMax,
+				}))
+				for ok := iter.SeekFirst(); ok && iter.Next(telem.TimeSpanMax); {
+					for _, key := range keys {
+						lengths[key] += iter.Value().Get(key).Len()
+					}
+				}
+				Expect(iter.Close()).To(Succeed())
+				Expect(lengths[keys[0]]).To(Equal(idxLen))
+				Expect(lengths[keys[1]]).To(Equal(dataLen))
+			}
+			DescribeTable(
+				"Should keep data and its index consistent after a refused commit",
+				func(
+					ctx SpecContext,
+					after func(w1, w2 *writer.Writer, both, index frameBuilder),
+					idxLen, dataLen int64,
+				) {
+					w1 := openFirst(ctx)
+					w2 := open(ctx, "second", 200, channel.Keys{keys[0]})
+					_, authorized := MustSucceed2(w1.Commit())
+					Expect(authorized).To(BeFalse())
+					after(w1, w2, both, index)
+					expectLengths(ctx, idxLen, dataLen)
+				},
+				Entry(
+					"commit the index and the data after control comes back",
+					func(w1, w2 *writer.Writer, _, _ frameBuilder) {
+						Expect(w2.Close()).To(Succeed())
+						_, authorized := MustSucceed2(w1.Commit())
+						Expect(authorized).To(BeTrue())
+						Expect(w1.Close()).To(Succeed())
+					},
+					int64(4), int64(4),
+				),
+				Entry(
+					"commit the index and the data after a refused write",
+					func(w1, w2 *writer.Writer, both, _ frameBuilder) {
+						Expect(w1.Write(both([]int64{5}, 14))).To(BeFalse())
+						Expect(w2.Close()).To(Succeed())
+						_, authorized := MustSucceed2(w1.Commit())
+						Expect(authorized).To(BeFalse(), "reports the refused write")
+						Expect(w1.Close()).To(Succeed())
+					},
+					int64(4), int64(4),
+				),
+				Entry(
+					"commit the data on a retry after a refused write",
+					func(w1, w2 *writer.Writer, both, index frameBuilder) {
+						Expect(w1.Write(both([]int64{5}, 20))).To(BeFalse())
+						Expect(w2.Write(index(nil, 14))).To(BeTrue())
+						MustSucceed2(w2.Commit())
+						Expect(w2.Close()).To(Succeed())
+						_, authorized := MustSucceed2(w1.Commit())
+						Expect(authorized).To(BeFalse(), "reports the refused write")
+						Expect(w1.Close()).To(Succeed())
+					},
+					int64(5), int64(4),
+				),
+				Entry(
+					"commit the data on a retry after another writer commits the index",
+					func(w1, w2 *writer.Writer, _, index frameBuilder) {
+						Expect(w2.Write(index(nil, 14))).To(BeTrue())
+						MustSucceed2(w2.Commit())
+						Expect(w2.Close()).To(Succeed())
+						_, authorized := MustSucceed2(w1.Commit())
+						Expect(authorized).To(BeTrue())
+						Expect(w1.Close()).To(Succeed())
+					},
+					int64(5), int64(4),
+				),
+				Entry(
+					"commit the data with a later write",
+					func(w1, w2 *writer.Writer, both, index frameBuilder) {
+						Expect(w2.Write(index(nil, 14))).To(BeTrue())
+						MustSucceed2(w2.Commit())
+						Expect(w2.Close()).To(Succeed())
+						Expect(w1.Write(both([]int64{5}, 15))).To(BeTrue())
+						MustSucceed2(w1.Commit())
+						Expect(w1.Close()).To(Succeed())
+					},
+					int64(6), int64(5),
+				),
+			)
+			It(
+				"Should commit the data written before a refused write once the "+
+					"writer controls the index again",
+				func(ctx SpecContext) {
+					w1 := openFirst(ctx)
+					w2 := open(ctx, "second", 200, channel.Keys{keys[0]})
+					Expect(w1.Write(both([]int64{5}, 14))).To(BeFalse())
+					Expect(w2.Close()).To(Succeed())
+					_, authorized := MustSucceed2(w1.Commit())
+					Expect(authorized).To(BeFalse(), "reports the refused write")
+					Expect(w1.Close()).To(Succeed())
+					expectLengths(ctx, 4, 4)
+				},
+			)
+		})
 	})
 
 	Describe("Persist Only", func() {
@@ -1574,3 +1730,6 @@ func freeWriterScenario(ctx context.Context) scenario {
 	keys := channel.KeysFromChannels(channels)
 	return scenario{name: "Free Writes", keys: keys, dist: dist, closer: dist}
 }
+
+// frameBuilder builds a frame of the given data values at the given seconds.
+type frameBuilder = func(values []int64, seconds ...telem.TimeStamp) frame.Frame

@@ -1,27 +1,23 @@
 ---
-title: "Version 0.61 release notes"
+title: "Arc modules, EtherCAT clock sync, MQTT, Kafka, and updates you can undo"
+version: "0.61.0"
+desktopVersion: "1.1.0"
+breakingChanges: true
 ---
 
 import { Hero } from "@/components/hero";
 import { Video } from "@/components/media/Media";
-import { Releases } from "@/components/releases";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
-
-<Releases.Release
-    version="0.61.0"
-    desktopVersion="1.1.0"
-    breakingChanges
-    title="Arc modules, EtherCAT clock sync, MQTT, Kafka, and updates you can undo"
->
 
 <Hero.Hero
   still="releases/0-61-0/hero"
   layout="bleed"
   tone="deep"
   palette="violet-pink"
+  alt="The add data dialog of an MQTT broker, with JSON topics and fields"
 />
 
 Synnax v0.61 brings Arc modules: write a conversion, a check, or a sequence one time,
@@ -39,7 +35,10 @@ Arc syntax and some client calls changed. Read the
 
 ### Arc modules
 
-<Video id="releases/0-61-0/arc-modules" />
+<Video
+  id="releases/0-61-0/arc-modules"
+  label="Import an Arc module into an automation"
+/>
 
 Before, each automation held its own copy of shared code, such as a unit conversion or a
 vent sequence. A fix meant an edit in every copy.
@@ -82,7 +81,10 @@ See [Arc modules](/reference/control/arc/modules).
 
 ### EtherCAT in clock sync
 
-<Video id="releases/0-61-0/ethercat-sync" />
+<Video
+  id="releases/0-61-0/ethercat-sync"
+  label="An EtherCAT task in distributed clock sync mode"
+/>
 
 Before, slaves that list only distributed clock (DC) modes refused SAFE-OP, and every
 task on the port failed. Frames drifted from 624 µs to 975 µs off target in 10 minutes.
@@ -111,7 +113,7 @@ See [EtherCAT](/reference/hardware/ethercat/configure-device).
 
 ### MQTT and Sparkplug B
 
-<Video id="releases/0-61-0/mqtt" />
+<Video id="releases/0-61-0/mqtt" label="Read MQTT and Sparkplug B data into channels" />
 
 Connect an MQTT broker as a device. Read tasks write JSON payloads and Sparkplug B tags
 into channels. Write tasks publish channels as commands, and an edge node task publishes
@@ -135,7 +137,7 @@ and in Synnax Enterprise. See [Kafka](/reference/hardware/kafka/connect-cluster)
 
 ### Logs that reach every stored value
 
-<Video id="releases/0-61-0/logs" />
+<Video id="releases/0-61-0/logs" label="Scroll a log back through stored values" />
 
 Before, a log showed the time that the Console received each value, and kept only recent
 values.
@@ -171,6 +173,7 @@ flat.
   still="releases/0-61-0/version-guard"
   layout="framed"
   palette="blue-pink"
+  alt="The Console reports that it cannot work with Core 0.60.1"
 />
 
 Before, an update changed the data folder for good. When the new Core failed to start,
@@ -212,6 +215,7 @@ it stops with an error. See
   still="releases/0-61-0/credentials"
   layout="framed"
   palette="green-blue"
+  alt="The credentials dialog with API keys and a password"
 />
 
 Before, scripts, `sy login`, the Console, and each Driver kept a password.
@@ -495,5 +499,3 @@ Driver.
   Click **Trust and connect** in the connect dialog. `uint8` maps to Byte, not Boolean.
 - LabVIEW: `synnax_client_open` takes `api_key` after `password`. Update the call node
   of `synnax client open.vi`.
-
-</Releases.Release>

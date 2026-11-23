@@ -17,13 +17,6 @@ cc_library(
         "//conditions:default": ["file_posix.cpp"],
     }),
     hdrs = ["file.h"],
-    copts = select({
-        "@platforms//os:windows": [
-            "/DWIN32_LEAN_AND_MEAN",
-            "/DNOMINMAX",
-        ],
-        "//conditions:default": [],
-    }),
     deps = ["//x/cpp/errors"],
 )
 

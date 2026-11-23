@@ -10,7 +10,7 @@
 import "@/platform/appearance/Dialog.css";
 
 import { Dialog as Base } from "@synnaxlabs/lyra/dialog";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
