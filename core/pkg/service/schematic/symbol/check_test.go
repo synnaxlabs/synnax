@@ -10,6 +10,8 @@
 package symbol_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
@@ -220,6 +222,12 @@ var _ = Describe("Checks", func() {
 				Side:  spatial.OuterLocationBottom,
 			})
 		}, `data.looks.1.motion.state: "active" names an enumeration state`),
+		Entry("a spin rate that is not a number", func(s *symbol.Spec) {
+			s.Looks[1].Motion = motion(symbol.SpinMotion{Rate: math.NaN()})
+		}, "data.looks.1.motion.rate: must be finite"),
+		Entry("an infinite flow rate", func(s *symbol.Spec) {
+			s.Looks[1].Motion = motion(symbol.FlowMotion{Rate: math.Inf(-1)})
+		}, "data.looks.1.motion.rate: must be finite"),
 		Entry("an interaction on no part", func(s *symbol.Spec) {
 			s.Interactions[0] = symbol.Interaction{Variant: symbol.FireInteraction{
 				BaseInteraction: symbol.BaseInteraction{Key: "click", Part: new("lid")},
