@@ -11,6 +11,7 @@
 
 from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 
+from console import color
 from console.layout import LayoutClient
 
 
@@ -147,16 +148,7 @@ class SymbolEditor:
         dialog = self._pick_paint_kind(paint, "Color")
         picker = dialog.locator(".lyra-color-picker")
         picker.wait_for(state="visible", timeout=2000)
-        # A picker with palettes opens on them for a named value.
-        custom = picker.get_by_text("Custom", exact=True)
-        if custom.count() > 0:
-            custom.click()
-        hex_input = picker.get_by_label("Hex", exact=True)
-        hex_input.click(click_count=3)
-        hex_input.fill(hex_color.lstrip("#"))
-        self.page.keyboard.press("Enter")
-        # Escape in a text box only leaves the box, so leave it first.
-        hex_input.blur()
+        color.enter(self.page, picker, hex_color=hex_color)
         self._close_paint(dialog)
 
     def set_part_stroke_color(self, hex_color: str, *, part_index: int = 0) -> None:
@@ -184,7 +176,7 @@ class SymbolEditor:
             self._pick_paint_kind(self._paint("Fill", part_index), "Drawing")
         )
 
-    def get_part_fill_swatch_color(self, *, part_index: int = 0) -> str:
+    def get_part_fill_button_color(self, *, part_index: int = 0) -> str:
         """Return the color a part's fill button shows, e.g. "#ff0000".
 
         :param part_index: Index of the part (0-based).

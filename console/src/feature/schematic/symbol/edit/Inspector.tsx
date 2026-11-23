@@ -71,21 +71,19 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const { at } = field;
   // A control for every value shows what the canvas draws at the preview value.
   const shown = at ?? preview;
+  const f = field.field as F;
   return {
     ...inspector,
     ...field,
-    value: Spec.effective({ looks }, part, field.field, shown) as Look[F] | undefined,
+    value: Spec.effective({ looks }, part, f, shown),
     inherited:
-      part == null
-        ? undefined
-        : (Spec.effective({ looks }, undefined, field.field, shown) as
-            Look[F] | undefined),
+      part == null ? undefined : Spec.effective({ looks }, undefined, f, shown),
     own: Spec.effective(
       { looks: looks.filter((l) => l.part === part) },
       part,
-      field.field,
+      f,
       shown,
-    ) as Look[F] | undefined,
+    ),
     onChange: (v) => {
       const spec = get(path.data).value;
       // A stored static symbol can hold looks on Base, which an edit at every value
@@ -94,7 +92,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
         spec.variant === "static"
           ? { ...spec, looks: Spec.staticLooks(spec.looks) }
           : spec;
-      set(path.data, Spec.setOwn(from, part, field.field, v, at));
+      set(path.data, Spec.setOwn(from, part, f, v, at));
     },
   };
 };

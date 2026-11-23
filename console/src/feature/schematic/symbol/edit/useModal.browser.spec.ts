@@ -36,6 +36,7 @@ import {
   createSymbolPayload,
   getEditSectionHeaderButton,
   getOverlayHandles,
+  getPartListItem,
   getPreviewTransformWrapper,
   SYMBOL_FILE_DROP_PROMPT,
   symbolNames,
@@ -46,7 +47,12 @@ import {
   pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
-import { fakePickedFile, getIconButton, interceptFilePicker } from "@/testutil";
+import {
+  fakePickedFile,
+  getIconButton,
+  interceptFilePicker,
+  queryIcon,
+} from "@/testutil";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -147,7 +153,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       expect(await screen.findByRole("heading", { name: "Part 1" })).toBeDefined();
       expect(screen.getByText("0 shapes")).toBeDefined();
-      expect(screen.getByText("Click shapes in the drawing to add or remove them."));
+      expect(
+        screen.getByText("Click shapes in the drawing to add or remove them."),
+      ).toBeDefined();
     });
 
     it("saves a part stroke picked in the inspector", async () => {
@@ -449,6 +457,20 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       default: 0,
     });
 
+    // createEnumeration creates an enumeration whose one entry, Closed at 0, is green.
+    const createEnumeration = async () =>
+      await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [
+          {
+            key: "closed",
+            value: 0,
+            name: "Closed",
+            color: { type: "fixed", value: GREEN },
+          },
+        ],
+      });
+
     // openPainted opens the editor on a new symbol whose one part, Body, selects #a,
     // and selects Body.
     const openPainted = async (data: Partial<schematic.symbol.Spec>) => {
@@ -539,26 +561,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("names the field and the kind in the tooltip of a paint", async () => {
       await openPainted({});
       fireEvent.pointerEnter(screen.getByLabelText("Fill"));
-      const tip = await waitFor(() => {
-        const el = document.querySelector<HTMLElement>(".lyra-tooltip");
-        assertDefined(el);
-        return el;
-      });
-      expect(tip.textContent).toBe("Fill: Drawing");
+      expect((await screen.findByRole("tooltip")).textContent).toBe("Fill: Drawing");
     });
 
     it("saves the state color and shows the default entry where no entry matches", async () => {
-      const enumeration = await client.enumerations.create({
-        name: uniqueName("valve"),
-        entries: [
-          {
-            key: "closed",
-            value: 0,
-            name: "Closed",
-            color: { type: "fixed", value: GREEN },
-          },
-        ],
-      });
+      const enumeration = await createEnumeration();
       const symbol = await openPainted({
         variant: "actuator",
         states: [createState(enumeration.key)],
@@ -584,17 +591,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("saves a contrast paint on the state", async () => {
-      const enumeration = await client.enumerations.create({
-        name: uniqueName("valve"),
-        entries: [
-          {
-            key: "closed",
-            value: 0,
-            name: "Closed",
-            color: { type: "fixed", value: GREEN },
-          },
-        ],
-      });
+      const enumeration = await createEnumeration();
       const symbol = await openPainted({
         variant: "actuator",
         states: [createState(enumeration.key)],
@@ -602,9 +599,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(screen.getByLabelText("Fill"));
       fireEvent.click(await screen.findByText("Contrast"));
       await waitFor(() =>
-        expect(
-          screen.getByLabelText("Fill").querySelector(".lyra-icon--contrast"),
-        ).not.toBeNull(),
+        expect(queryIcon(screen.getByLabelText("Fill"), "contrast")).not.toBeNull(),
       );
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
@@ -746,18 +741,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
           '<rect id="a" width="10" height="10"/></svg>',
       );
-      // The inspector heading repeats the name, so the row is the match in the list.
-      const row = (name: string): HTMLElement => {
-        const item = screen
-          .getAllByText(name)
-          .map((el) => el.closest<HTMLElement>(".console-schematic-part-list-item"))
-          .find((el) => el != null);
-        assertDefined(item);
-        return item;
-      };
-      fireEvent.click(getIconButton(row("Part 1"), "close"));
+      fireEvent.click(getIconButton(getPartListItem("Part 1"), "close"));
       await waitFor(() => expect(screen.queryByText("Part 1")).toBeNull());
-      expect(row("Whole drawing").classList.contains("lyra--selected")).toBe(true);
+      expect(
+        getPartListItem("Whole drawing").classList.contains("lyra--selected"),
+      ).toBe(true);
       const shape = getPreviewTransformWrapper(handle.baseElement).querySelector("#a");
       assertDefined(shape);
       fireEvent.click(shape);
@@ -768,22 +756,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("counts the looks of a part beside its shapes", async () => {
-      const grp = await createParentGroup();
-      const payload = createSymbolPayload(uniqueName("looked"));
-      const symbol = await client.schematics.symbols.create({
-        ...payload,
-        group: grp.key,
-        data: {
-          ...payload.data,
-          parts: [{ key: "one", name: "One", selectors: ["#a"] }],
-          looks: [{ key: "l", part: "one", hidden: true }],
-        },
-      });
-      await renderModalOpener(
-        Schematic.Symbol.Edit.useModal,
-        [{ symbolKey: symbol.key, group: grp.key }],
-        { client, additionalRegistry: theming.REGISTRY },
-      );
+      await openPainted({ looks: [{ key: "l", part: "body", hidden: true }] });
       expect(await screen.findByText("1 shape · 1 look")).toBeDefined();
     });
 

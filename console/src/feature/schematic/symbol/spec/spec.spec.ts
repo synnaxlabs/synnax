@@ -107,6 +107,20 @@ describe("symbol editor spec", () => {
       ]);
     });
 
+    it("should change the blink of a part that a whole drawing blink follows", () => {
+      const spec = createSpec({
+        looks: [
+          { key: "a", part: "body", when: equals(0), blink: { period: 1e9 } },
+          { key: "b", when: equals(0), blink: { period: 2e9 } },
+        ],
+      });
+      const blink: schematic.symbol.Blink = { period: 3e9 };
+      expect(Spec.setOwn(spec, "body", "blink", blink, 0).looks).toEqual([
+        { ...spec.looks[0], blink },
+        spec.looks[1],
+      ]);
+    });
+
     it("should clear a field at every value and keep it on single values", () => {
       const spec = createSpec({
         looks: [
@@ -191,12 +205,10 @@ describe("symbol editor spec", () => {
         fixed(RED),
         0,
       );
-      expect(next.slice(0, 1)).toEqual([looks[1]]);
-      expect(next[1]).toMatchObject({
-        part: "body",
-        when: equals(0),
-        stroke: fixed(RED),
-      });
+      expect(next).toEqual([
+        looks[1],
+        { key: expect.any(String), part: "body", when: equals(0), stroke: fixed(RED) },
+      ]);
     });
 
     it("should take an old motion of another kind off the owned look", () => {
