@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Access, ICD as PICD } from "@synnaxlabs/pluto";
 import {
   createContext,
@@ -56,6 +57,19 @@ export const useMessages = (): Messages => {
   }, [formats]);
   return messages;
 };
+
+/**
+ * @returns a message of an ICD that an enclosing WithFormat opens, current with each
+ * edit, or null when the ICD has no message with the key.
+ */
+export const useMessage = (
+  icdKey: icd.Key,
+  message: icd.MessageKey,
+): icd.Message | null =>
+  PForm.useFieldValue(PICD.formPath.messages[message], {
+    optional: true,
+    ctx: formatOf(useFormats(), icdKey),
+  });
 
 /** @returns the fields of a message of an ICD. */
 export const fieldsOf = (

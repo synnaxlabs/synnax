@@ -75,13 +75,12 @@ import {
   type Viewport,
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
-import { useFitView, useInitialFitView } from "@/vis/diagram/useFitView";
-import { useOnViewportChange } from "@/vis/diagram/useOnViewportChange";
 import {
   calculateCursorPosition,
   internalNodeBox,
   partitionNodeChanges,
 } from "@/vis/diagram/util";
+import { View } from "@/vis/diagram/view";
 
 export interface NodeProps {
   nodeKey: string;
@@ -328,7 +327,7 @@ export const create = ({
       [visible, autoRenderInterval],
     );
 
-    const fitView = useFitView();
+    const fitView = View.useFit();
     const debouncedFitView = useDebouncedCallback(
       (args: diagram.FitViewOptions) => fitView(args),
       FIT_VIEW_DEBOUNCE,
@@ -345,7 +344,7 @@ export const create = ({
       setState((prev) => ({ ...prev, region }));
     });
 
-    useInitialFitView(visible && isSized, fitViewOptions);
+    View.useInitialFit(visible && isSized, fitViewOptions);
 
     const triggers = useMemoCompare(
       () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,
@@ -367,7 +366,7 @@ export const create = ({
       setState((prev) => ({ ...prev, position: vp, zoom: vp.zoom }));
       onViewportChange(translateViewportBackward(vp));
     };
-    useOnViewportChange(handleViewportChange);
+    View.useOnChange(handleViewportChange);
 
     const selectedSet = new Set(selected);
     const selectedRef = useSyncedRef(selectedSet);
