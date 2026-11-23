@@ -8,8 +8,11 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cstddef>
+#include <cstring>
 #include <string>
 #include <system_error>
+#include <vector>
 
 #include <windows.h>
 
@@ -184,12 +187,41 @@ x::errors::Error sync_dir(const std::filesystem::path &) {
 
 x::errors::Error
 replace(const std::filesystem::path &from, const std::filesystem::path &to) {
-    if (!MoveFileExW(
-            from.c_str(),
-            to.c_str(),
-            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH
+    const HANDLE h = CreateFileW(
+        from.c_str(),
+        DELETE | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
+    if (h == INVALID_HANDLE_VALUE) return last_error("failed to open " + from.string());
+    std::error_code ec;
+    const auto target = std::filesystem::absolute(to, ec).wstring();
+    if (ec) {
+        CloseHandle(h);
+        return x::errors::Error(BASE_ERROR, "failed to resolve " + to.string());
+    }
+    const auto name_size = target.size() * sizeof(wchar_t);
+    std::vector<std::byte> buf(sizeof(FILE_RENAME_INFO) + name_size);
+    auto *info = reinterpret_cast<FILE_RENAME_INFO *>(buf.data());
+    // POSIX semantics replace a file that other handles hold open.
+    info->Flags = FILE_RENAME_FLAG_REPLACE_IF_EXISTS | FILE_RENAME_FLAG_POSIX_SEMANTICS;
+    info->RootDirectory = nullptr;
+    info->FileNameLength = static_cast<DWORD>(name_size);
+    std::memcpy(info->FileName, target.data(), name_size);
+    auto err = x::errors::NIL;
+    if (!SetFileInformationByHandle(
+            h,
+            FileRenameInfoEx,
+            info,
+            static_cast<DWORD>(buf.size())
         ))
-        return last_error("failed to rename " + from.string());
-    return x::errors::NIL;
+        err = last_error("failed to rename " + from.string());
+    else if (!FlushFileBuffers(h))
+        err = last_error("failed to sync " + to.string());
+    CloseHandle(h);
+    return err;
 }
 }

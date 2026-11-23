@@ -79,8 +79,8 @@ public:
 /// sync, so there it does nothing.
 x::errors::Error sync_dir(const std::filesystem::path &dir);
 
-/// @brief renames from to to, and replaces a file at to. On Windows, returns after
-/// the rename is on the disk.
+/// @brief renames from to to, and replaces a file at to, also one that other handles
+/// hold open. On Windows, returns after the rename is on the disk.
 x::errors::Error
 replace(const std::filesystem::path &from, const std::filesystem::path &to);
 
