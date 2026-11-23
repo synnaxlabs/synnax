@@ -156,7 +156,7 @@ const storedKey = (topic: string, recordKey: string, message: icd.MessageKey): s
  * The channels of a later read of the record stay with that read.
  */
 const recordChannels = (
-  stored: Device["properties"]["read"],
+  stored: Device.Device["properties"]["read"],
   topic: string,
   { recordKey, messages }: Pick<ReadRecord, "recordKey" | "messages">,
   message: icd.MessageKey,
