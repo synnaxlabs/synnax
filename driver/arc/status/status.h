@@ -9,12 +9,13 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "absl/log/log.h"
 
@@ -22,12 +23,14 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/types/types.h"
 #include "driver/arc/reporter.h"
+#include "driver/arc/status/keys.h"
 #include "driver/outbox/outbox.h"
 
 namespace driver::arc::status {
@@ -35,8 +38,7 @@ namespace driver::arc::status {
 // Reporter text. Keep in sync with core/pkg/service/arc/status/status.go.
 const std::string SET_FAILURE_MSG = "Failed to set status";
 const std::string MULTI_MATCH_MSG = "Found duplicate status names";
-/// @brief the most names whose resolved key the module keeps.
-constexpr size_t MAX_KEYS = 1024;
+const std::string KEY_FAILURE_MSG = "Failed to save status key";
 
 /// @brief returns the description for sets the outbox refused.
 inline std::string
@@ -66,14 +68,14 @@ class Sets {
     /// @brief held while a report runs, which can wait on the Core.
     std::mutex report_mu;
     Reporter reporter;
-    std::mutex keys_mu;
-    std::unordered_map<std::string, std::string> keys;
+    std::shared_ptr<Keys> keys;
     std::mutex refused_mu;
     size_t refused_sets = 0;
     x::errors::Error refused_err;
 
 public:
-    explicit Sets(Reporter reporter): reporter(std::move(reporter)) {}
+    Sets(std::shared_ptr<Keys> keys, Reporter reporter):
+        reporter(std::move(reporter)), keys(std::move(keys)) {}
 
     /// @brief reports through the reporter until close.
     void report(const std::string &message, const std::string &description) {
@@ -81,21 +83,17 @@ public:
         if (this->reporter != nullptr) this->reporter(message, description);
     }
 
-    /// @returns the key of the last resolved set of key_or_name, or "" before the
-    /// first.
+    /// @returns the key of the last resolved set of key_or_name, also from before a
+    /// restart, or "" when no set of it has resolved.
     std::string key(const std::string &key_or_name) {
-        std::lock_guard lock(this->keys_mu);
-        const auto it = this->keys.find(key_or_name);
-        return it == this->keys.end() ? "" : it->second;
+        return this->keys->get(key_or_name);
     }
 
-    /// @brief records key as the last resolved key of key_or_name. Past MAX_KEYS
-    /// names, it forgets the key of another name.
+    /// @brief records key as the last resolved key of key_or_name, and reports a
+    /// failure to save it.
     void resolve(const std::string &key_or_name, const std::string &key) {
-        std::lock_guard lock(this->keys_mu);
-        if (this->keys.size() >= MAX_KEYS && !this->keys.contains(key_or_name))
-            this->keys.erase(this->keys.begin());
-        this->keys[key_or_name] = key;
+        if (const auto err = this->keys->set(key_or_name, key))
+            this->report(KEY_FAILURE_MSG, err.data);
     }
 
     /// @brief counts a set the outbox refused, without waiting on the Core.
@@ -131,7 +129,8 @@ public:
 /// @brief queues a status set stamped with the current time, and reports a failure
 /// through sets. Reports a set the outbox refuses from the send thread of the outbox.
 /// Never waits for the Core.
-/// @returns the key of the last resolved set of key_or_name, or "" before the first.
+/// @returns the key of the last resolved set of key_or_name, or "" when none has
+/// resolved.
 inline std::string queue_set(
     ::driver::outbox::Outbox &outbox,
     const std::shared_ptr<Sets> &sets,
@@ -230,15 +229,39 @@ public:
     [[nodiscard]] bool is_output_truthy(size_t) const override { return this->queued; }
 };
 
+/// @returns whether the program sets statuses, as a node or as a function.
+inline bool sets_statuses(const ::arc::program::Program &program) {
+    for (const auto &node: program.nodes)
+        if (node.type == "set") return true;
+    if (program.wasm.empty()) return false;
+    wasmtime::Engine engine;
+    auto wasm = program.wasm;
+    auto mod = wasmtime::Module::compile(
+        engine,
+        wasmtime::Span<uint8_t>(wasm.data(), wasm.size())
+    );
+    // A module that does not compile fails when the runtime loads it.
+    if (!mod) return false;
+    for (const auto &import: mod.ok().imports())
+        if (import.module() == "status" && import.name() == "set") return true;
+    return false;
+}
+
 class Module : public ::arc::stl::Module, public ::arc::stl::strings::StateConsumer {
     std::shared_ptr<::driver::outbox::Outbox> outbox;
     std::shared_ptr<Sets> sets;
     std::shared_ptr<::arc::stl::strings::State> str_state;
 
 public:
+    /// @param keys the keys of resolved sets, shared by every task of the Driver.
     /// @param report called from the outbox thread too, until the module ends.
-    Module(std::shared_ptr<::driver::outbox::Outbox> outbox, Reporter report):
-        outbox(std::move(outbox)), sets(std::make_shared<Sets>(std::move(report))) {}
+    Module(
+        std::shared_ptr<::driver::outbox::Outbox> outbox,
+        std::shared_ptr<Keys> keys,
+        Reporter report
+    ):
+        outbox(std::move(outbox)),
+        sets(std::make_shared<Sets>(std::move(keys), std::move(report))) {}
 
     Module(const Module &) = delete;
     Module &operator=(const Module &) = delete;

@@ -153,17 +153,23 @@ protected:
     std::shared_ptr<synnax::Synnax> client;
     std::filesystem::path dir;
     std::shared_ptr<::driver::outbox::Outbox> outbox;
+    std::filesystem::path keys_path;
+    std::shared_ptr<Keys> keys;
 
     void SetUp() override {
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
         this->dir = std::filesystem::temp_directory_path() /
                     ("status_test_" + x::uuid::create().to_string());
         this->outbox = this->open_outbox(this->client);
+        this->keys_path = std::filesystem::temp_directory_path() /
+                          ("status_keys_" + x::uuid::create().to_string());
+        this->keys = ASSERT_NIL_P(Keys::open(this->keys_path));
     }
 
     void TearDown() override {
         this->outbox.reset();
         std::filesystem::remove_all(this->dir);
+        std::filesystem::remove(this->keys_path);
     }
 
     [[nodiscard]] std::shared_ptr<::driver::outbox::Outbox> open_outbox(
@@ -186,7 +192,7 @@ protected:
 
 /// @brief it should handle only the set node.
 TEST_F(StatusTest, HandlesSet) {
-    Module module(this->outbox, noopReporter());
+    Module module(this->outbox, this->keys, noopReporter());
     EXPECT_TRUE(module.handles("set"));
     EXPECT_FALSE(module.handles("delete"));
     EXPECT_FALSE(module.handles("set_status"));
@@ -195,7 +201,7 @@ TEST_F(StatusTest, HandlesSet) {
 
 /// @brief it should name the module status.
 TEST_F(StatusTest, ModuleNameIsStatus) {
-    Module module(this->outbox, noopReporter());
+    Module module(this->outbox, this->keys, noopReporter());
     EXPECT_EQ(module.module_name(), "status");
 }
 
@@ -208,7 +214,7 @@ TEST_F(StatusTest, CreatesSetNodeFromBareType) {
         ::arc::runtime::errors::noop_handler
     );
     auto st = ASSERT_NIL_P(s.node("status"));
-    Module module(this->outbox, noopReporter());
+    Module module(this->outbox, this->keys, noopReporter());
     auto created = ASSERT_NIL_P(
         module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
     );
@@ -227,7 +233,7 @@ TEST_F(StatusTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
         ::arc::runtime::errors::noop_handler
     );
     auto st = ASSERT_NIL_P(s.node("status"));
-    auto module = std::make_shared<Module>(this->outbox, noopReporter());
+    auto module = std::make_shared<Module>(this->outbox, this->keys, noopReporter());
     ::arc::runtime::node::MultiFactory multi({module});
     auto created = ASSERT_NIL_P(
         multi.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
@@ -246,7 +252,7 @@ TEST_F(StatusTest, ReturnsNotFoundForUnknownType) {
         ::arc::runtime::errors::noop_handler
     );
     auto st = ASSERT_NIL_P(s.node("status"));
-    Module module(this->outbox, noopReporter());
+    Module module(this->outbox, this->keys, noopReporter());
     const auto created = ASSERT_OCCURRED_AS_P(
         module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st))),
         x::errors::NOT_FOUND
@@ -265,7 +271,7 @@ TEST_F(StatusTest, ReadsAVarBoundMessageAtFireTime) {
          ),
          "info"}
     );
-    Module module(this->outbox, recordingReporter(reports));
+    Module module(this->outbox, this->keys, recordingReporter(reports));
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
 
     auto ctx = make_context();
@@ -285,7 +291,7 @@ TEST_F(StatusTest, ReadsAVarBoundMessageAtFireTime) {
 TEST_F(StatusTest, OutputsLastResolvedKey) {
     const auto name = unique_name("set_next_");
     const auto f = set_spec().config({name, "the message", "info"});
-    Module module(this->outbox, noopReporter());
+    Module module(this->outbox, this->keys, noopReporter());
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
     const auto node = f.make_node();
     auto ctx = make_context();
@@ -302,6 +308,29 @@ TEST_F(StatusTest, OutputsLastResolvedKey) {
     EXPECT_EQ(retrieved.variant, "info");
 }
 
+/// @brief it should output the key of a name that resolved before a restart at once.
+TEST_F(StatusTest, OutputsKnownKeyAfterRestart) {
+    const auto name = unique_name("set_restart_");
+    const auto f = set_spec().config({name, "the message", "info"});
+    std::string key;
+    {
+        Module module(this->outbox, this->keys, noopReporter());
+        auto created = ASSERT_NIL_P(module.create(f.make_config()));
+        auto ctx = make_context();
+        ASSERT_NIL(created->next(ctx));
+        this->wait_sent();
+        key = this->keys->get(name);
+        ASSERT_FALSE(key.empty());
+    }
+    this->keys = ASSERT_NIL_P(Keys::open(this->keys_path));
+    Module module(this->outbox, this->keys, noopReporter());
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+    const auto node = f.make_node();
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+    EXPECT_EQ(std::get<std::string>((*node.output(0)).at(0)), key);
+}
+
 /// @brief it should stamp the status with the time the node runs.
 TEST_F(StatusTest, NextStampsTimeWhenItRuns) {
     const auto name = unique_name("set_time_");
@@ -313,7 +342,7 @@ TEST_F(StatusTest, NextStampsTimeWhenItRuns) {
                                          ))
                                 .key;
     const auto f = set_spec().config({preset_key, "the message", "info"});
-    Module module(this->outbox, noopReporter());
+    Module module(this->outbox, this->keys, noopReporter());
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
 
     auto ctx = make_context();
@@ -339,7 +368,7 @@ TEST_F(StatusTest, NextRepeatedCallsKeepWriting) {
                                          ))
                                 .key;
     const auto f = set_spec().config({preset_key, "msg", "info"});
-    Module module(this->outbox, noopReporter());
+    Module module(this->outbox, this->keys, noopReporter());
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
 
     auto ctx = make_context();
@@ -355,7 +384,7 @@ TEST_F(StatusTest, NextRepeatedCallsKeepWriting) {
 TEST_F(StatusTest, NextWarnsOnInvalidVariant) {
     const auto reports = std::make_shared<Reports>();
     const auto f = set_spec().config({unique_name("set_iv_"), "msg", "bogus"});
-    Module module(this->outbox, recordingReporter(reports));
+    Module module(this->outbox, this->keys, recordingReporter(reports));
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
 
     auto ctx = make_context();
@@ -376,7 +405,7 @@ TEST_F(StatusTest, NeverBlocksWithCoreUnreachable) {
     this->outbox = this->open_outbox(std::make_shared<synnax::Synnax>(cfg));
     const auto reports = std::make_shared<Reports>();
     const auto f = set_spec().config({unique_name("set_down_"), "msg", "info"});
-    Module module(this->outbox, recordingReporter(reports));
+    Module module(this->outbox, this->keys, recordingReporter(reports));
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
     const auto node = f.make_node();
 
@@ -400,7 +429,7 @@ TEST_F(StatusTest, IsOutputTruthyDoesNotThrow) {
         ::arc::runtime::errors::noop_handler
     );
     auto st = ASSERT_NIL_P(s.node("status"));
-    Module module(this->outbox, noopReporter());
+    Module module(this->outbox, this->keys, noopReporter());
     auto created = ASSERT_NIL_P(
         module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
     );
@@ -415,7 +444,7 @@ TEST_F(StatusTest, OutputIsTruthyOnceQueued) {
     cfg.port = 1;
     this->outbox = this->open_outbox(std::make_shared<synnax::Synnax>(cfg));
     const auto f = set_spec().config({unique_name("set_truthy_"), "msg", "info"});
-    Module module(this->outbox, noopReporter());
+    Module module(this->outbox, this->keys, noopReporter());
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
 
     auto ctx = make_context();
@@ -445,6 +474,7 @@ TEST_F(StatusTest, ReportsARefusedSetFromTheOutboxThread) {
     const auto f = set_spec().config({unique_name("set_full_"), "msg", "info"});
     Module module(
         this->outbox,
+        this->keys,
         [&, record](const std::string &message, const std::string &description) {
             if (std::this_thread::get_id() == caller) on_caller = true;
             record(message, description);
@@ -482,7 +512,7 @@ TEST_F(StatusTest, SendsSetsQueuedDuringAnOutageAfterARestart) {
         x::telem::HOUR
     );
     {
-        Module module(this->outbox, noopReporter());
+        Module module(this->outbox, this->keys, noopReporter());
         auto ctx = make_context();
         for (const auto *msg: {"first", "second", "last"}) {
             const auto f = set_spec().config({key, msg, "info"});
@@ -509,7 +539,7 @@ TEST_F(StatusTest, ReportsARefusedSetDuringARetryWait) {
         x::telem::HOUR
     );
     const auto reports = std::make_shared<Reports>();
-    Module module(this->outbox, recordingReporter(reports));
+    Module module(this->outbox, this->keys, recordingReporter(reports));
     const auto f = set_spec().config({unique_name("set_wait_"), "msg", "info"});
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
     auto ctx = make_context();
@@ -521,7 +551,7 @@ TEST_F(StatusTest, ReportsARefusedSetDuringARetryWait) {
 /// @brief it should report the refused sets once, with their count and reason.
 TEST(SetsTest, ReportsRefusedSetsOnce) {
     const auto reports = std::make_shared<Reports>();
-    Sets sets(recordingReporter(reports));
+    Sets sets(nullptr, recordingReporter(reports));
     const auto full = x::errors::Error(::driver::outbox::FULL, "outbox is full");
     sets.refuse(full);
     sets.refuse(full);
@@ -541,27 +571,12 @@ TEST(SetsTest, ReportsRefusedSetsOnce) {
 /// @brief it should give the error of a set the outbox failed to write.
 TEST(SetsTest, ReportsTheErrorOfAFailedWrite) {
     const auto reports = std::make_shared<Reports>();
-    Sets sets(recordingReporter(reports));
+    Sets sets(nullptr, recordingReporter(reports));
     sets.refuse(x::errors::Error(::driver::outbox::ERROR, "disk failed"));
     sets.report_refused();
     const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].description, "Dropped 1 sets: disk failed");
-}
-
-/// @brief it should keep the keys of at most MAX_KEYS names.
-TEST(SetsTest, KeepsAtMostMaxKeys) {
-    Sets sets([](const std::string &, const std::string &) {});
-    for (size_t i = 0; i <= MAX_KEYS; i++)
-        sets.resolve("name_" + std::to_string(i), "key_" + std::to_string(i));
-    size_t kept = 0;
-    for (size_t i = 0; i <= MAX_KEYS; i++)
-        if (!sets.key("name_" + std::to_string(i)).empty()) kept++;
-    EXPECT_EQ(kept, MAX_KEYS);
-    EXPECT_EQ(
-        sets.key("name_" + std::to_string(MAX_KEYS)),
-        "key_" + std::to_string(MAX_KEYS)
-    );
 }
 
 }

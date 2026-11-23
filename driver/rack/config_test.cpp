@@ -775,6 +775,20 @@ TEST_F(RackConfigTest, RefuseConflictingOutboxSettings) {
     }
 }
 
+/// @brief it should load the most status keys from the environment, and default to
+/// DEFAULT_MAX_KEYS.
+TEST_F(RackConfigTest, LoadStatusKeysFromEnvironmentVariables) {
+    ASSERT_EQ(
+        ASSERT_NIL_P(Config::resolve(args, brk)).status_keys,
+        arc::status::DEFAULT_MAX_KEYS
+    );
+    x::env::set("SYNNAX_DRIVER_OUTBOX_STATUS_KEYS", "7");
+    x::defer::defer unset_env([] {
+        x::env::unset("SYNNAX_DRIVER_OUTBOX_STATUS_KEYS");
+    });
+    ASSERT_EQ(ASSERT_NIL_P(Config::resolve(args, brk)).status_keys, 7);
+}
+
 /// @brief it should refuse an outbox setting that is not greater than 0.
 TEST_F(RackConfigTest, RefuseNonPositiveOutboxSetting) {
     x::env::set("SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL", "0");

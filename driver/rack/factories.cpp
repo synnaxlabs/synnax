@@ -133,9 +133,18 @@ void configure_arc(
     FactoryList &factories,
     const std::shared_ptr<x::thread::rt::Manager> &rt_manager
 ) {
-    configure_integration(config, factories, arc::INTEGRATION_NAME, [&rt_manager]() {
-        return std::make_unique<arc::Factory>(rt_manager);
-    });
+    configure_integration(
+        config,
+        factories,
+        arc::INTEGRATION_NAME,
+        [&config, &rt_manager]() {
+            return std::make_unique<arc::Factory>(
+                rt_manager,
+                config.state_dir / DATA_DIR / arc::status::KEYS_FILE,
+                config.status_keys
+            );
+        }
+    );
 }
 
 void configure_ethercat(

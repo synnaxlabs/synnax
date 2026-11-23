@@ -160,6 +160,8 @@ struct Config {
     synnax::Config connection;
     /// @brief the settings of the outbox. The rack sets its directory and client.
     outbox::Config outbox;
+    /// @brief the most status names whose key the Driver keeps across restarts.
+    std::size_t status_keys = arc::status::DEFAULT_MAX_KEYS;
     /// @brief the list of integrations enabled for the driver.
     std::vector<std::string> integrations;
     /// @brief the directory that holds the persisted state file. Integrations keep
@@ -396,6 +398,7 @@ struct Config {
             );
         if (this->outbox.max_payload > this->outbox.max_bytes)
             p.field_err("outbox_max_payload", "must be at most outbox_size");
+        this->status_keys = count("outbox_status_keys", this->status_keys);
     }
 
     [[nodiscard]] x::errors::Error load_args(x::args::Parser &args);

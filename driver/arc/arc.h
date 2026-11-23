@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <cstddef>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <utility>
@@ -17,6 +19,7 @@
 #include "client/cpp/synnax.h"
 #include "x/cpp/thread/rt/rt.h"
 
+#include "driver/arc/status/keys.h"
 #include "driver/common/common.h"
 #include "driver/task/task.h"
 
@@ -29,6 +32,9 @@ const std::string TASK_TYPE = "arc";
 /// @brief factory for creating arc runtime tasks.
 class Factory final : public task::Factory {
     std::shared_ptr<x::thread::rt::Manager> rt_manager;
+    /// @brief the keys of resolved status sets, or the error that kept them from
+    /// loading, whose data tells the user what to do.
+    std::pair<std::shared_ptr<status::Keys>, x::errors::Error> keys;
 
     /// @brief configures an arc runtime task.
     std::pair<common::ConfigureResult, x::errors::Error> configure(
@@ -37,8 +43,12 @@ class Factory final : public task::Factory {
     );
 
 public:
-    explicit Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr):
-        rt_manager(std::move(rt_manager)) {}
+    /// @brief loads the status keys at keys_path, which hold at most max_keys names.
+    Factory(
+        std::shared_ptr<x::thread::rt::Manager> rt_manager,
+        const std::filesystem::path &keys_path,
+        std::size_t max_keys
+    );
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
