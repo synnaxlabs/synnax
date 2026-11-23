@@ -74,6 +74,9 @@ public:
         const std::map<synnax::channel::Key, synnax::channel::Channel> &channels
     );
 
+    /// @brief returns each channel that the reader writes, index channels last.
+    [[nodiscard]] std::vector<synnax::channel::Key> keys() const;
+
     /// @brief reads body as the message whose match rule it meets, and adds one sample
     /// for each channel of that message to fr. The index channel of the index field
     /// takes its value, and every other index channel takes received.

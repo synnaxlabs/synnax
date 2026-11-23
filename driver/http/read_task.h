@@ -139,7 +139,9 @@ public:
 /// @param endpoints the endpoints to build readers for.
 /// @returns one reader per endpoint, in order. Returns CONFIGURATION_ERROR that names
 /// the endpoint when it reads no messages, when its ICD does not exist, or when
-/// message::Reader rejects its messages, and the error of a failed retrieve as is.
+/// message::Reader rejects its messages, and that names both endpoints when two of them
+/// write to one channel (an index channel included). Returns the error of a failed
+/// retrieve as is.
 [[nodiscard]] std::pair<std::vector<message::Reader>, x::errors::Error> build_readers(
     const synnax::Synnax &client,
     const std::vector<::synnax::http::ReadEndpoint> &endpoints

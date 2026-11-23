@@ -4252,6 +4252,47 @@ TEST(HTTPReadTask, BuildReadersRejectsEndpointWithNoMessages) {
     }
 }
 
+/// @brief it should reject two endpoints that write to one channel, and name both.
+TEST(HTTPReadTask, BuildReadersRejectsChannelOfTwoEndpoints) {
+    const auto ch = create_field_channels(x::telem::FLOAT64_T);
+    const auto &client = *ch.client;
+    const std::vector endpoints{
+        create_icd_endpoint(client, "/a", ch.data),
+        create_icd_endpoint(client, "/b", ch.data)
+    };
+    const auto err = build_readers(client, endpoints).second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "endpoint GET /a and endpoint GET /b write to the same channel " +
+            std::to_string(ch.data.key)
+    );
+}
+
+/// @brief it should reject two endpoints whose channels share one index channel, since
+/// each would write it with its own arrival time.
+TEST(HTTPReadTask, BuildReadersRejectsIndexOfTwoEndpoints) {
+    const auto first = create_field_channels(x::telem::FLOAT64_T);
+    const auto &client = *first.client;
+    const auto second = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("value"),
+        x::telem::FLOAT64_T,
+        first.index.key,
+        false
+    ));
+    const std::vector endpoints{
+        create_icd_endpoint(client, "/a", first.data),
+        create_icd_endpoint(client, "/b", second)
+    };
+    const auto err = build_readers(client, endpoints).second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "endpoint GET /a and endpoint GET /b write to the same channel " +
+            std::to_string(first.index.key)
+    );
+}
+
 /// @brief it should reject an endpoint whose ICD does not exist.
 TEST(HTTPReadTask, BuildReadersRejectsMissingICD) {
     const auto client = new_test_client();

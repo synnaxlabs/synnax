@@ -161,6 +161,17 @@ std::pair<Reader, x::errors::Error> Reader::create(
     return {std::move(r), x::errors::NIL};
 }
 
+std::vector<synnax::channel::Key> Reader::keys() const {
+    std::vector<synnax::channel::Key> keys;
+    for (const auto &m: this->messages)
+        for (std::size_t k = 0; k < m.channels.size(); k++)
+            if (k != m.index_field) keys.push_back(m.channels[k]);
+    for (const auto &m: this->messages)
+        for (const auto &idx: m.indexes)
+            keys.push_back(idx.key);
+    return keys;
+}
+
 x::errors::Error Reader::read(
     const std::string_view body,
     const x::telem::TimeStamp received,

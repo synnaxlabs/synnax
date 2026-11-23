@@ -248,6 +248,8 @@ std::pair<std::vector<message::Reader>, x::errors::Error> build_readers(
     }
     std::vector<message::Reader> readers;
     readers.reserve(endpoints.size());
+    // Every endpoint writes into one frame, so no two may write one channel.
+    std::map<synnax::channel::Key, std::string> writers;
     for (const auto &ep: endpoints) {
         const auto name = "endpoint " + ep.method + " " + ep.path;
         if (!ep.icd.has_value() || ep.messages.empty())
@@ -270,6 +272,18 @@ std::pair<std::vector<message::Reader>, x::errors::Error> build_readers(
             };
         auto [reader, err] = message::Reader::create(ep.messages, *ic, channels);
         if (err) return {{}, x::errors::Error(err, name + ": " + err.data)};
+        for (const auto key: reader.keys()) {
+            const auto [other, claimed] = writers.try_emplace(key, name);
+            if (!claimed)
+                return {
+                    {},
+                    x::errors::Error(
+                        driver::errors::CONFIGURATION_ERROR,
+                        other->second + " and " + name + " write to the same channel " +
+                            std::to_string(key)
+                    ),
+                };
+        }
         readers.push_back(std::move(reader));
     }
     return {std::move(readers), x::errors::NIL};
