@@ -254,7 +254,7 @@ var _ = Describe("Stack", func() {
 			err := s.Stop(stopCtx)
 			Expect(err).To(MatchError(context.DeadlineExceeded))
 			Expect(err).To(MatchError(ContainSubstring(
-				"service did not close, 1 older lifetimes left open",
+				"service did not close, 1 older lifetime left open",
 			)))
 			Expect(err).ToNot(MatchError(ContainSubstring("storage")))
 			Eventually(storageDone).Should(BeClosed())
@@ -384,7 +384,9 @@ var _ = Describe("Stack", func() {
 			defer cancel()
 			err := s.Stop(stopCtx)
 			Expect(err).To(MatchError(ContainSubstring("server: drain failed")))
-			Expect(err).To(MatchError(ContainSubstring("storage did not return")))
+			Expect(err).To(MatchError(ContainSubstring(
+				"storage did not return, 0 older lifetimes left open",
+			)))
 			Expect(err).To(MatchError(context.DeadlineExceeded))
 		})
 	})

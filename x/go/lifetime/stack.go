@@ -162,12 +162,17 @@ func (s *Stack) abort(ctx context.Context, errs []error, i int, step string) err
 	for _, l := range older {
 		l.cancel()
 	}
+	noun := "lifetimes"
+	if len(older) == 1 {
+		noun = "lifetime"
+	}
 	errs = append(errs, errors.Wrapf(
 		ctx.Err(),
-		"%s did not %s, %d older lifetimes left open",
+		"%s did not %s, %d older %s left open",
 		s.layers[i].name,
 		step,
 		len(older),
+		noun,
 	))
 	return errors.Join(errs...)
 }
