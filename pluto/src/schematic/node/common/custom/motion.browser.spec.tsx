@@ -509,6 +509,20 @@ describe("Custom.Drawing motion", () => {
       expect(attr(".liquid", "clip-path")).toBe("inset(50% 0 0 0)");
     });
 
+    it("should land a value that arrives mid-slide when the slide ends", async () => {
+      const { frame, attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ readings: { speed: reading(75) } });
+      frame(0);
+      frame(75);
+      await rerender({ readings: { speed: reading(100) } });
+      expect(attr(".liquid", "clip-path")).toBe("inset(50% 0 0 0)");
+      frame(150);
+      expect(attr(".liquid", "clip-path")).toBe("inset(0% 0 0 0)");
+    });
+
     it("should jump to a new fraction on a node with motion disabled", async () => {
       const { pending, attr, rerender } = await setup({
         spec: level(),

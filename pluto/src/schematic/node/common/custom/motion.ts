@@ -321,6 +321,8 @@ class Track {
   private from = 0;
   private target = 0;
   private start?: number;
+  // startEase is how far along its curve the slide was when it took its target.
+  private startEase = 0;
 
   constructor(
     readonly kind: Kind,
@@ -378,9 +380,14 @@ class Track {
       this.target = f;
       this.draw();
     } else if (f !== this.target) {
+      // A running slide keeps its clock, so a value that streams in faster than the
+      // slide still lands within TRANSITION_MS of its arrival.
+      const { start, last } = this;
+      const running = this.moving && start != null && last != null;
+      this.startEase = running ? easeInOut((last - start) / TRANSITION_MS) : 0;
+      if (!running) this.start = undefined;
       this.from = this.value;
       this.target = f;
-      this.start = undefined;
     } else if (!this.moving) this.draw();
   }
 
@@ -393,8 +400,11 @@ class Track {
 
   private ease(now: number): number {
     this.start ??= now;
+    this.last = now;
     const t = Math.min(1, (now - this.start) / TRANSITION_MS);
-    return t === 1 ? this.target : lerp(this.from, this.target, easeInOut(t));
+    if (t === 1) return this.target;
+    const left = (1 - easeInOut(t)) / (1 - this.startEase);
+    return lerp(this.target, this.from, left);
   }
 
   private cycle(now: number): number {
