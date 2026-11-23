@@ -11,9 +11,9 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Invited } from "@/server/invitation";
+import type { Invited } from "@/server/invitation";
 import { scoped } from "@/shell";
 import { navigate, post } from "@/ui/api";
 import { Section as PageSection } from "@/ui/Page";

@@ -10,6 +10,7 @@
 package symbol_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -26,6 +27,7 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -33,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -107,6 +110,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:    db,
 		Group: groupSvc,
 		ImEx:  imex.NewService(),
+		Enumeration: MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
+			DB: db,
+		})),
+		Actuators: noActuators,
 	}))
 	apiSvc = MustSucceed(apisymbol.NewService(apisymbol.ServiceConfig{
 		Symbol: symbolSvc,
@@ -155,7 +162,13 @@ func groupSymbols(ctx SpecContext, key group.Key) []resource.ID {
 // newSymbol returns an unsaved symbol a create request can carry.
 func newSymbol(name string) symbol.Symbol {
 	return defaults.Fill(
-		symbol.Symbol{Name: name, Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"}},
+		symbol.Symbol{
+			Name: name,
+			Data: symbol.Spec{
+				Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
+				Variant: "valve",
+			},
+		},
 	)
 }
 
@@ -212,4 +225,8 @@ func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID)
 func grantDeleteOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionDelete, objects...)
+}
+
+func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
+	return nil, nil
 }

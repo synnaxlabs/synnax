@@ -3,6 +3,7 @@
   "extends": ["//"],
   "tasks": {
     "build": {
+      "env": ["VERCEL_ENV"],
       "inputs": [
         "src/**",
         "public/**",

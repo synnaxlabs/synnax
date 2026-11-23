@@ -91,6 +91,7 @@ func (s *Server) Hover(
 	qualifiedWord := lsp.GetQualifiedPrefixWordAtPosition(
 		displayContent,
 		params.Position,
+		d.wordChars,
 	)
 	var contents string
 	if qualifiedWord != word {
@@ -425,7 +426,7 @@ func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) st
 	if !ok {
 		return ""
 	}
-	col := int(pos.Character)
+	col := lsp.CharacterToByte(line, pos.Character)
 	if col >= len(line) {
 		return ""
 	}
@@ -460,12 +461,12 @@ type commentTokens struct {
 	tokens []antlr.Token
 }
 
-func (c *commentTokens) of(source antlr.CharStream) []antlr.Token {
+func (c *commentTokens) of(source antlr.CharStream, cfg parser.Config) []antlr.Token {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.source != source {
 		c.source = source
-		c.tokens = tokenizeContentWithComments(source.GetText(0, source.Size()-1))
+		c.tokens = tokenizeContentWithComments(source.GetText(0, source.Size()-1), cfg)
 	}
 	return c.tokens
 }
@@ -482,7 +483,7 @@ func (s *Server) extractDocComment(sym *symbol.Symbol) string {
 	}
 
 	symLine := start.GetLine()
-	tokens := s.comments.of(start.GetInputStream())
+	tokens := s.comments.of(start.GetInputStream(), s.parserConfig())
 	// The tokens sit in order, so the ones on or after the line of sym come last.
 	end := sort.Search(len(tokens), func(i int) bool {
 		return tokens[i].GetLine() >= symLine
@@ -565,28 +566,16 @@ func cleanDocComment(comments []string) string {
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
-// resolveDotted resolves a possibly-qualified name like "time.now" by
-// splitting on dots and walking: the head is resolved in scope, each
-// subsequent segment is resolved against the previous result's children.
-// Resolution mirrors user-code resolution (no IncludeInternal), so a
-// module that is reachable only through the ambient prelude — i.e. one the
-// document has not imported — does not resolve. Hovering a member of an
-// unimported module therefore returns nothing, matching the analyzer's
-// "undefined" diagnostic instead of rendering docs as if it were valid.
+// resolveDotted resolves a possibly-qualified name like "time.now". Resolution mirrors
+// user-code resolution (no IncludeInternal), so hovering a member of a module the
+// document has not imported returns nothing, matching the analyzer's diagnostic.
 func resolveDotted(
 	ctx context.Context,
 	scope *symbol.Symbol,
 	name string,
 ) (*symbol.Symbol, error) {
-	head, tail, hasDot := strings.Cut(name, ".")
-	sym, err := scope.Resolve(ctx, head, symbol.WithoutUsageTracking)
-	if err != nil {
-		return nil, err
-	}
-	if !hasDot {
-		return sym, nil
-	}
-	return resolveDotted(ctx, sym, tail)
+	head, tail, _ := strings.Cut(name, ".")
+	return scope.ResolveMember(ctx, head, tail, symbol.WithoutUsageTracking)
 }
 
 // variableTypeDetail renders a value variable's hover type, tagged by its kind.

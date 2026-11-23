@@ -8,13 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { EOF } from "@synnaxlabs/freighter";
-import { sleep, TimeSpan } from "@synnaxlabs/x";
+import { disposable, sleep, TimeSpan } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
-import { type framer } from "@/framer";
+import type { channel } from "@/channel";
+import type { framer } from "@/framer";
 
 /** A change stream that delivers the frames a spec pushes, in push order. */
 export class PushStreamer implements framer.Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   keys: channel.Key[] = [];
   private readonly frames: framer.Frame[] = [];
   private done = false;

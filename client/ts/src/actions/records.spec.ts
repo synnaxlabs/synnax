@@ -179,7 +179,11 @@ const CASES: Case[] = [
       });
       return await c.schematics.symbols.create({
         name: uniqueName("dispatch"),
-        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+        data: {
+          drawing: { type: "svg", markup: "<svg></svg>" },
+          handles: [],
+          variant: "sensor",
+        },
         group: key,
       });
     },

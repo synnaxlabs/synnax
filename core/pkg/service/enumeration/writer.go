@@ -116,6 +116,17 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	return nil
 }
 
+// Replace moves each record that uses the enumeration with key from to the enumeration
+// with key to, then deletes from. It returns an error wrapping validate.ErrValidation
+// when from is built in or equals to, and one wrapping query.ErrNotFound when from or
+// to does not exist.
+func (w Writer) Replace(ctx context.Context, from, to Key) error {
+	if err := w.table.Retarget(ctx, w.tx, from, to); err != nil {
+		return err
+	}
+	return w.Delete(ctx, from)
+}
+
 // Delete deletes the enumerations with the given keys. A key with no enumeration is not
 // an error. It returns an error wrapping validate.ErrValidation for a built-in
 // enumeration or one that a record uses, and then deletes none of them.
