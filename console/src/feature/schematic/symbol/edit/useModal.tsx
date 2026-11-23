@@ -85,36 +85,6 @@ const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
   );
 };
 
-interface SaveButtonProps {
-  children: string;
-  variant: status.Variant;
-  onClick: () => void;
-}
-
-// SaveButton saves the symbol unless the level motion of a part cannot draw.
-const SaveButton = ({ children, variant, onClick }: SaveButtonProps): ReactElement => {
-  const data = Form.useFieldValue(path.data);
-  // The inspector shows the issues only with the flag on.
-  const blocked = FLAGS.symbolMotion && Spec.levelIssues(data).size > 0;
-  return (
-    <Button.Button
-      variant="filled"
-      status={status.keepVariants(variant, "loading")}
-      onClick={onClick}
-      disabled={blocked}
-      tooltip={
-        blocked
-          ? "A part has a fill motion that cannot draw. Select the part to see why."
-          : undefined
-      }
-      trigger={Triggers.SAVE}
-      triggerIndicator
-    >
-      {children}
-    </Button.Button>
-  );
-};
-
 const Editor = ({
   symbolKey,
   group,
@@ -205,6 +175,15 @@ const Editor = ({
       ctx: form,
     }).length > 0;
   const createSaveText = isCreate ? "Create" : "Save";
+  // A fill motion that cannot draw stops the save and selects its part, whose inspector
+  // shows why. The inspector shows the issues only with the flag on.
+  const handleSave = () => {
+    if (FLAGS.symbolMotion) {
+      const [part] = Spec.levelIssues(form.get(path.data).value).keys();
+      if (part != null) return setSelectedPart(part);
+    }
+    save();
+  };
 
   return (
     <Form.Form<typeof Schematic.Symbol.formSchema> {...form}>
@@ -334,9 +313,15 @@ const Editor = ({
         {hasSVG && (
           <Modal.Footer background={0}>
             <Nav.Bar.End>
-              <SaveButton variant={variant} onClick={() => save()}>
+              <Button.Button
+                variant="filled"
+                status={status.keepVariants(variant, "loading")}
+                onClick={handleSave}
+                trigger={Triggers.SAVE}
+                triggerIndicator
+              >
                 {createSaveText}
-              </SaveButton>
+              </Button.Button>
             </Nav.Bar.End>
           </Modal.Footer>
         )}
