@@ -10,7 +10,7 @@
 import asyncio
 import contextlib
 import unicodedata
-from typing import Any
+from typing import Any, override
 
 import numpy as np
 import pandas as pd
@@ -175,6 +175,7 @@ class TestWriterHeldCheck:
             def __init__(self) -> None:
                 self.instrumentation = NOOP
 
+            @override
             def filter(self, req: RetrieveRequest) -> list[sy.channel.Payload]:
                 return list(held)
 
