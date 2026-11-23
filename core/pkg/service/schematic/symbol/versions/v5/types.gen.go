@@ -619,7 +619,7 @@ func (u CommandValue) Validate() error {
 }
 
 // Look is paint, visibility, or motion on a part. A later look wins on each field that
-// it sets.
+// it sets. On motion, it replaces only an earlier motion of the same kind.
 type Look struct {
 	// Key is the look identifier.
 	Key string `json:"key" msgpack:"key"`

@@ -82,22 +82,29 @@ interface Pose {
   angle?: number;
 }
 
-/** Shape is one element of a moving part, for one attribute that its motions write. */
+// Offer is what one track gives an element: the value of the attribute, or a pose.
+type Offer = string | Pose;
+
+// ORDER is the order in which the poses of an element compose: the move, then turns.
+const ORDER: Kind[] = ["move", "rotate", "spin", "flow", "level", "blink"];
+
+/**
+ * Shape is one element of a drawing, for one attribute that motions write. Every part
+ * that selects the element shares it.
+ */
 class Shape {
-  /** written is the value that the motions last wrote. */
-  written?: string;
+  private written?: string | null;
   private cycle?: number;
   private turn?: { of: xy.XY; at: xy.XY };
-  private readonly poses = new Map<Kind, Pose>();
+  private readonly offers = new Map<Track, Offer>();
 
   constructor(
     readonly el: SVGElement,
-    /** own is the value of the attribute before the motion wrote it. */
+    private readonly attribute: Attribute,
+    /** own is the value of the attribute before any motion wrote it. */
     readonly own: string | null,
     /** matrix maps fractions of the box to the coordinates of the parent of el. */
-    readonly matrix: DOMMatrix,
-    /** pivotOf returns the pivot of the part as fractions of the box. */
-    private readonly pivotOf: () => xy.XY,
+    private readonly matrix: DOMMatrix,
   ) {}
 
   /** dash is the length of one cycle of the dash pattern of the element. */
@@ -105,9 +112,28 @@ class Shape {
     return (this.cycle ??= dashCycle(this.el));
   }
 
-  /** pivot is the pivot of the part in the coordinates of the parent of el. */
-  get pivot(): xy.XY {
-    const of = this.pivotOf();
+  /** Draws the element with the offer of track. */
+  offer(track: Track, offer: Offer): void {
+    this.offers.set(track, offer);
+    this.write();
+  }
+
+  /** Draws the element without the offer of track, or as drawn with no offer left. */
+  withdraw(track: Track): void {
+    this.offers.delete(track);
+    this.write();
+  }
+
+  private write(): void {
+    const v = this.value();
+    if (v === this.written) return;
+    if (v == null) this.el.removeAttribute(this.attribute);
+    else this.el.setAttribute(this.attribute, v);
+    this.written = v;
+  }
+
+  // pivotAt maps a pivot from fractions of the box to the coordinates of el's parent.
+  private pivotAt(of: xy.XY): xy.XY {
     if (this.turn == null || this.turn.of !== of) {
       const { x, y } = this.matrix.transformPoint(of);
       this.turn = { of, at: { x, y } };
@@ -115,25 +141,25 @@ class Shape {
     return this.turn.at;
   }
 
-  /** @returns the transform of every pose, after the motion of kind takes pose. */
-  pose(kind: Kind, pose: Pose): string {
-    this.poses.set(kind, pose);
-    return this.transform();
-  }
-
-  /** @returns the value to draw after the motion of kind lets go of the element. */
-  release(kind: Kind): string | null {
-    this.poses.delete(kind);
-    return this.poses.size === 0 ? this.own : this.transform();
-  }
-
-  // transform moves the element, then turns it about the pivot, then applies own.
-  private transform(): string {
+  // value draws the offer of the latest look of each kind: a value as it is, or the
+  // move, then each turn about the pivot of its part, then own.
+  private value(): string | null {
     let offset: xy.XY | undefined;
-    let angle: number | undefined;
-    for (const pose of this.poses.values()) {
-      if (pose.offset != null) offset = xy.translate(offset ?? xy.ZERO, pose.offset);
-      if (pose.angle != null) angle = (angle ?? 0) + pose.angle;
+    const turns: { angle: number; at: xy.XY }[] = [];
+    for (const kind of ORDER) {
+      let won: [Track, Offer] | undefined;
+      for (const entry of this.offers)
+        if (entry[0].kind === kind && (won == null || entry[0].order > won[0].order))
+          won = entry;
+      if (won == null) continue;
+      const [track, offer] = won;
+      if (typeof offer === "string") return offer;
+      if (offer.offset != null) offset = xy.translate(offset ?? xy.ZERO, offer.offset);
+      if (offer.angle == null) continue;
+      const at = this.pivotAt(track.pivotOf());
+      const last = turns.at(-1);
+      if (last != null && xy.equals(last.at, at)) last.angle += offer.angle;
+      else turns.push({ angle: offer.angle, at });
     }
     const list: string[] = [];
     if (offset != null) {
@@ -141,10 +167,9 @@ class Shape {
       const { x, y } = offset;
       list.push(`translate(${num(a * x + c * y)} ${num(b * x + d * y)})`);
     }
-    if (angle != null) {
-      const { x, y } = this.pivot;
-      list.push(`rotate(${num(angle)} ${num(x)} ${num(y)})`);
-    }
+    for (const { angle, at } of turns)
+      list.push(`rotate(${num(angle)} ${num(at.x)} ${num(at.y)})`);
+    if (list.length === 0) return this.own;
     if (this.own != null) list.push(this.own);
     return list.join(" ");
   }
@@ -175,8 +200,14 @@ interface Entry<M> {
   speed?: (motion: M) => number;
   /** held keeps the last cycle drawn while the motion stops. Otherwise it draws 0. */
   held?: boolean;
-  /** draw returns the attribute value at a cycle in [0, 1), or at a fraction. */
-  draw: (motion: M, shape: Shape, value: number) => string;
+  /**
+   * inherited is true when an element takes the attribute from its parent unless it
+   * sets its own. SVG composes any other attribute of nested elements, so the motion
+   * moves only the outermost elements of its part.
+   */
+  inherited?: boolean;
+  /** draw returns the offer of the motion at a cycle in [0, 1), or at a fraction. */
+  draw: (motion: M, shape: Shape, value: number) => Offer;
 }
 
 const MOTIONS: { [K in Kind]: Entry<Of<K>> } = {
@@ -184,12 +215,13 @@ const MOTIONS: { [K in Kind]: Entry<Of<K>> } = {
     attribute: "transform",
     speed: ({ rate }) => rate,
     held: true,
-    draw: (_, shape, turns) => shape.pose("spin", { angle: turns * 360 }),
+    draw: (_, __, turns) => ({ angle: turns * 360 }),
   },
   flow: {
     attribute: "stroke-dashoffset",
     speed: ({ rate }) => rate,
     held: true,
+    inherited: true,
     draw: (_, shape, cycles) => num(parse(shape.own, 0) - cycles * shape.dash),
   },
   blink: {
@@ -205,15 +237,13 @@ const MOTIONS: { [K in Kind]: Entry<Of<K>> } = {
   },
   rotate: {
     attribute: "transform",
-    draw: ({ from, to }, shape, f) =>
-      shape.pose("rotate", { angle: lerp(from, to, f) }),
+    draw: ({ from, to }, _, f) => ({ angle: lerp(from, to, f) }),
   },
   move: {
     attribute: "transform",
-    draw: ({ from, to }, shape, f) =>
-      shape.pose("move", {
-        offset: { x: lerp(from.x, to.x, f), y: lerp(from.y, to.y, f) },
-      }),
+    draw: ({ from, to }, _, f) => ({
+      offset: { x: lerp(from.x, to.x, f), y: lerp(from.y, to.y, f) },
+    }),
   },
 };
 
@@ -246,10 +276,19 @@ const toDrawing = (el: Element, { drawing, rest }: Space): DOMMatrix => {
 
 const MIDDLE: xy.XY = { x: 0.5, y: 0.5 };
 
-// center returns the center of the bounding box of elements, as fractions of the box,
-// or undefined while no element has a layout, as in a hidden tab.
+const SHAPES = "path, rect, circle, ellipse, line, polyline, polygon, text, use, image";
+const DEFINITIONS = "defs, clipPath, mask, marker, pattern, symbol";
+
+// leaves returns the shapes that el draws. Motion never changes the box of a shape.
+const leaves = (el: SVGElement): SVGGraphicsElement[] =>
+  (el.matches(SHAPES) ? [el] : Array.from(el.querySelectorAll(SHAPES))).filter(
+    (leaf) => leaf instanceof SVGGraphicsElement && leaf.closest(DEFINITIONS) == null,
+  );
+
+// center returns the center of the box around the shapes of elements at rest, as
+// fractions of the box, or undefined while no shape has a layout, as in a hidden tab.
 const center = (elements: SVGElement[], space: Space): xy.XY | undefined => {
-  const graphics = elements.filter((el) => el instanceof SVGGraphicsElement);
+  const graphics = elements.flatMap(leaves);
   if (graphics.length === 0) return MIDDLE;
   const xs: number[] = [];
   const ys: number[] = [];
@@ -303,6 +342,8 @@ interface Effect {
   value: schematic.symbol.Motion | schematic.symbol.Blink;
   /** reads are the keys of the states that the look reads in `when` or `state`. */
   reads: string[];
+  /** order is the index of the look in the spec. */
+  order: number;
 }
 
 interface Effects {
@@ -330,24 +371,27 @@ const resolve = (
   looks: schematic.symbol.Look[],
   ctx: Context,
 ): Map<string | undefined, Effects> => {
-  const applied = looks.filter((look) => applies(look, ctx));
+  const applied = new Set(looks.filter((look) => applies(look, ctx)));
   const effects = new Map<string | undefined, Effects>();
-  for (const look of applied) {
-    if (look.motion == null && look.blink == null) continue;
+  for (const [order, look] of looks.entries()) {
+    if (!applied.has(look) || (look.motion == null && look.blink == null)) continue;
     const effect = effects.get(look.part) ?? {
       motions: new Map<Kind, Effect>(),
       hidden: false,
     };
     const reads = look.when == null ? [] : [look.when.state];
     if (look.motion != null)
-      effect.motions.set(look.motion.type, { value: look.motion, reads });
-    if (look.blink != null) effect.motions.set("blink", { value: look.blink, reads });
+      effect.motions.set(look.motion.type, { value: look.motion, reads, order });
+    if (look.blink != null)
+      effect.motions.set("blink", { value: look.blink, reads, order });
     effects.set(look.part, effect);
   }
   for (const [part, effect] of effects)
     effect.hidden =
-      applied.findLast((l) => l.hidden != null && (l.part == null || l.part === part))
-        ?.hidden === true;
+      looks.findLast(
+        (l) =>
+          applied.has(l) && l.hidden != null && (l.part == null || l.part === part),
+      )?.hidden === true;
   return effects;
 };
 
@@ -366,10 +410,15 @@ class Track {
   // startEase is how far along its curve the slide was when it took its target.
   private startEase = 0;
 
+  /** order is the index of the look that sets the motion. A later look wins. */
+  order = 0;
+
   constructor(
-    private readonly kind: Kind,
+    readonly kind: Kind,
     private motion: Value,
     private readonly shapes: Shape[],
+    /** pivotOf returns the pivot of the part as fractions of the box. */
+    readonly pivotOf: () => xy.XY,
   ) {
     this.entry = MOTIONS[kind] as Entry<Value>;
   }
@@ -378,8 +427,11 @@ class Track {
     return this.entry.speed != null ? this.speed !== 0 : this.value !== this.target;
   }
 
-  set({ value, reads }: Effect, ctx: Context, fresh: boolean): void {
+  set({ value, reads, order }: Effect, ctx: Context, fresh: boolean): void {
     this.motion = value;
+    const reordered = !fresh && order !== this.order;
+    this.order = order;
+    if (reordered) this.draw();
     const state = "state" in value ? value.state : undefined;
     const { speed, held } = this.entry;
     if (speed == null) {
@@ -449,23 +501,12 @@ class Track {
   }
 
   private draw(): void {
-    const { attribute, draw } = this.entry;
-    for (const shape of this.shapes) {
-      const v = draw(this.motion, shape, this.value);
-      if (v === shape.written) continue;
-      shape.el.setAttribute(attribute, v);
-      shape.written = v;
-    }
+    for (const shape of this.shapes)
+      shape.offer(this, this.entry.draw(this.motion, shape, this.value));
   }
 
   restore(): void {
-    const { attribute } = this.entry;
-    for (const shape of this.shapes) {
-      const v = shape.release(this.kind);
-      if (v == null) shape.el.removeAttribute(attribute);
-      else shape.el.setAttribute(attribute, v);
-      shape.written = v ?? undefined;
-    }
+    for (const shape of this.shapes) shape.withdraw(this);
   }
 }
 
@@ -473,14 +514,19 @@ class Track {
 // kind of motion.
 class Part implements Mover {
   private readonly tracks = new Map<Kind, Track>();
-  private readonly shapes = new Map<Attribute, Shape[]>();
+  private readonly outermost: SVGElement[];
   private center?: xy.XY;
 
   constructor(
     readonly def: schematic.symbol.Part | undefined,
     private readonly elements: SVGElement[],
     private readonly space: Space,
-  ) {}
+    private readonly shapeOf: (el: SVGElement, attribute: Attribute) => Shape,
+  ) {
+    this.outermost = elements.filter(
+      (el) => !elements.some((other) => other !== el && other.contains(el)),
+    );
+  }
 
   get moving(): boolean {
     for (const track of this.tracks.values()) if (track.moving) return true;
@@ -492,20 +538,6 @@ class Part implements Mover {
   private readonly pivotOf = (): xy.XY =>
     this.def?.pivot ?? (this.center ??= center(this.elements, this.space)) ?? MIDDLE;
 
-  // The motions that write one attribute share its shapes, so each element keeps the
-  // attribute as drawn before any of them.
-  private shapesOf(attribute: Attribute): Shape[] {
-    let shapes = this.shapes.get(attribute);
-    if (shapes != null) return shapes;
-    const { width, height } = this.space.box;
-    shapes = this.elements.map((el) => {
-      const matrix = toDrawing(el, this.space).invertSelf().scaleSelf(width, height);
-      return new Shape(el, el.getAttribute(attribute), matrix, this.pivotOf);
-    });
-    this.shapes.set(attribute, shapes);
-    return shapes;
-  }
-
   set(effects: Effects, ctx: Context): void {
     const partCtx = { ...ctx, frozen: ctx.frozen || effects.hidden };
     for (const [kind, track] of this.tracks) {
@@ -516,7 +548,14 @@ class Part implements Mover {
     for (const [kind, effect] of effects.motions) {
       let track = this.tracks.get(kind);
       const fresh = track == null;
-      track ??= new Track(kind, effect.value, this.shapesOf(MOTIONS[kind].attribute));
+      const { attribute, inherited } = MOTIONS[kind];
+      const elements = inherited === true ? this.elements : this.outermost;
+      track ??= new Track(
+        kind,
+        effect.value,
+        elements.map((el) => this.shapeOf(el, attribute)),
+        this.pivotOf,
+      );
       track.set(effect, partCtx, fresh);
       this.tracks.set(kind, track);
     }
@@ -546,6 +585,7 @@ const select = (drawing: SVGGElement, def: schematic.symbol.Part): SVGElement[] 
  */
 export class Motion {
   private readonly parts = new Map<string | undefined, Part>();
+  private readonly shapes = new Map<SVGElement, Map<Attribute, Shape>>();
   private readonly space: Space;
 
   /** Builds a Motion for a drawing that nothing has moved yet. */
@@ -559,6 +599,22 @@ export class Motion {
       rest.set(el, transformOf(el));
     this.space = { drawing, box, rest };
   }
+
+  private readonly shapeOf = (el: SVGElement, attribute: Attribute): Shape => {
+    let shapes = this.shapes.get(el);
+    if (shapes == null) {
+      shapes = new Map();
+      this.shapes.set(el, shapes);
+    }
+    let shape = shapes.get(attribute);
+    if (shape == null) {
+      const { width, height } = this.space.box;
+      const matrix = toDrawing(el, this.space).invertSelf().scaleSelf(width, height);
+      shape = new Shape(el, attribute, el.getAttribute(attribute), matrix);
+      shapes.set(attribute, shape);
+    }
+    return shape;
+  };
 
   update(
     spec: schematic.symbol.Spec,
@@ -586,7 +642,7 @@ export class Motion {
         const { drawing } = this.space;
         const elements =
           key == null ? [drawing] : def == null ? [] : select(drawing, def);
-        part = new Part(def, elements, this.space);
+        part = new Part(def, elements, this.space, this.shapeOf);
         this.parts.set(key, part);
       }
       part.set(effect, ctx);
@@ -602,5 +658,6 @@ export class Motion {
       part.restore();
     }
     this.parts.clear();
+    this.shapes.clear();
   }
 }
