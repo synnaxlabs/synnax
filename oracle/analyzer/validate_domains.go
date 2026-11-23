@@ -204,6 +204,26 @@ func validateImex(c *analysisCtx, types []resolution.Type) {
 	}
 }
 
+// validateMigrate errors on a malformed @go migrate: the marker takes no argument or
+// decodes.
+func validateMigrate(c *analysisCtx, types []resolution.Type) {
+	for _, t := range types {
+		dom, ok := t.Domains["go"]
+		if !ok {
+			continue
+		}
+		expr, ok := dom.Expressions.Find("migrate")
+		if !ok || len(expr.Values) == 0 ||
+			len(expr.Values) == 1 && expr.Values[0].IdentValue == "decodes" {
+			continue
+		}
+		c.report(diagnostics.Errorf(nil,
+			"%s has a malformed @go migrate; the marker takes no argument or decodes",
+			t.QualifiedName,
+		))
+	}
+}
+
 // validateKeyTypes errors on a type-level @key outside a distinct type. Filters read
 // the mark through aliases to the distinct type, so it means nothing elsewhere.
 func validateKeyTypes(c *analysisCtx, types []resolution.Type) {

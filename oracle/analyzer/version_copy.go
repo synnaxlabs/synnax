@@ -10,6 +10,7 @@
 package analyzer
 
 import (
+	"maps"
 	"slices"
 	"strings"
 
@@ -111,6 +112,30 @@ func copyStruct(
 	return patchStruct(parent, decl), true
 }
 
+// withoutStepMarkers returns domains with the decodes argument of @go migrate removed.
+// It marks the migration step of the version that declares it, so a copy of the
+// declaration in a later version does not carry it.
+func withoutStepMarkers(
+	domains map[string]resolution.Domain,
+) map[string]resolution.Domain {
+	goDomain, ok := domains["go"]
+	if !ok {
+		return domains
+	}
+	i := slices.IndexFunc(goDomain.Expressions, func(e resolution.Expression) bool {
+		return e.Name == "migrate" && len(e.Values) > 0
+	})
+	if i < 0 {
+		return domains
+	}
+	out := maps.Clone(domains)
+	exprs := slices.Clone(goDomain.Expressions)
+	exprs[i].Values = nil
+	goDomain.Expressions = exprs
+	out["go"] = goDomain
+	return out
+}
+
 // patchStruct returns child applied as a patch over parent. See copyStruct.
 func patchStruct(parent, child structDecl) structDecl {
 	out := structDecl{
@@ -119,7 +144,7 @@ func patchStruct(parent, child structDecl) structDecl {
 			Extends:    appendRefs(parent.form.Extends, child.form.Extends),
 			Actions:    child.form.Actions,
 		},
-		domains: mergeDomains(parent.domains, child.domains),
+		domains: mergeDomains(withoutStepMarkers(parent.domains), child.domains),
 	}
 	out.form.Fields = patchEntries(
 		parent.form.Fields,

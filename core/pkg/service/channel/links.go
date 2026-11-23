@@ -14,6 +14,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/synnaxlabs/gorp"
@@ -59,8 +60,8 @@ type linkWriter struct {
 	snap     gorp.Snapshot
 	svc      *Service
 	readable func(resource.ID) bool
-	// links holds the link of each key written so far. A key of no channel has an
-	// empty text.
+	// links holds the link of each key written so far. A key of no channel has an empty
+	// text.
 	links map[Key]link
 	// prefixes holds the path text of each folder read so far, with a trailing
 	// separator.
@@ -144,10 +145,10 @@ func (w *linkWriter) prefix(folder group.Key) (link, error) {
 // as every file of core/v0.62.0 and older holds. A JSON string is the exact path of a
 // channel, which it resolves once against the snapshot it was made with: the committed
 // state and the snapshot's own changes, not a commit in flight. An import resolves its
-// links before it writes, so a file cannot link a channel that the same import
-// creates. A path that matches no channel, or that passes a folder or names a channel
-// that the importer cannot retrieve, decodes as 0, and Err then fails, so an import
-// never shows that a hidden path exists. A LinkReader is not safe for concurrent use.
+// links before it writes, so a file cannot link a channel that the same import creates.
+// A path that matches no channel, or that passes a folder or names a channel that the
+// importer cannot retrieve, decodes as 0, and Err then fails, so an import never shows
+// that a hidden path exists. A LinkReader is not safe for concurrent use.
 type LinkReader struct {
 	ctx      context.Context
 	snap     gorp.Snapshot
@@ -180,14 +181,17 @@ func (r *LinkReader) Options() json.Options {
 	return json.WithUnmarshalers(json.UnmarshalFromFunc(r.read))
 }
 
-// Err returns a validation error that lists each path that matched no channel, sorted,
-// or nil when every path matched one.
+// Err returns a validation error that lists each path that matched no channel, quoted
+// and sorted, or nil when every path matched one.
 func (r *LinkReader) Err() error {
 	if len(r.missing) == 0 {
 		return nil
 	}
 	paths := r.missing.Slice()
 	slices.Sort(paths)
+	for i, p := range paths {
+		paths[i] = strconv.Quote(p)
+	}
 	return errors.Wrapf(
 		validate.ErrValidation,
 		"no channel is at %s",

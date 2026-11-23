@@ -128,7 +128,7 @@ var _ = Describe("Channel link folders access check", func() {
 			Expect(importLogAs(subjectCtx(ctx, u), fmt.Sprintf("%q", path))).Error().
 				To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("no channel is at %s", path)),
+					MatchError(ContainSubstring("no channel is at %q", path)),
 				))
 		},
 	)

@@ -196,7 +196,7 @@ var _ = Describe("Links", Ordered, func() {
 				Expect(r.Err()).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(
-						"no channel is at plant.alpha, plant.zeta, %s", nestedName,
+						`no channel is at "plant.alpha", "plant.zeta", %q`, nestedName,
 					)),
 				))
 				Expect(v.Channel).To(BeZero())

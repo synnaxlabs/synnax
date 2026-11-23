@@ -13,6 +13,7 @@ package versions
 
 import (
 	"context"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
@@ -33,7 +34,6 @@ const Latest = v14.Version
 // shape and lifts it through the per-version migration chain to the current shape. A
 // version the ladder does not cover is rejected with a path-scoped validation error.
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, error) {
-	ctx = imex.DecodeContext(ctx, env)
 	switch env.Version {
 	case v7.Version:
 		t7, err := env.Decode[v7.Schematic]()
@@ -44,7 +44,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		if err != nil {
 			return Schematic{}, err
 		}
-		t9, err := v9.MigrateSchematic(ctx, t8)
+		t9, err := v9.MigrateSchematic(ctx, t8, env.DecodeOptions()...)
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -74,7 +74,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		if err != nil {
 			return Schematic{}, err
 		}
-		t9, err := v9.MigrateSchematic(ctx, t8)
+		t9, err := v9.MigrateSchematic(ctx, t8, env.DecodeOptions()...)
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -197,12 +197,12 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 
 // liftFirst lifts the first exported Schematic shape to the current shape. A decoder
 // of an older shape builds the first exported shape and enters the ladder here.
-func liftFirst(ctx context.Context, t7 v7.Schematic) (Schematic, error) {
+func liftFirst(ctx context.Context, t7 v7.Schematic, opts ...json.Options) (Schematic, error) {
 	t8, err := v8.MigrateSchematic(ctx, t7)
 	if err != nil {
 		return Schematic{}, err
 	}
-	t9, err := v9.MigrateSchematic(ctx, t8)
+	t9, err := v9.MigrateSchematic(ctx, t8, opts...)
 	if err != nil {
 		return Schematic{}, err
 	}

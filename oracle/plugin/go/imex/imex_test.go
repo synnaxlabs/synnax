@@ -518,7 +518,7 @@ Symbol struct {
 					"core/pkg/service/log/versions/imex.gen.go",
 				).ToContain(
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions/v2"`,
-					"\tctx = imex.DecodeContext(ctx, env)\n\tswitch env.Version {",
+					"(Log, error) {\n\tswitch env.Version {",
 					"case v2.Version:",
 					"t2, err := env.Decode[v2.Log]()",
 					"t3, err := v3.MigrateLog(ctx, t2)",
@@ -528,6 +528,48 @@ Symbol struct {
 						"\tif err != nil {\n\t\treturn Log{}, err\n\t}\n"+
 						"\treturn t3, nil\n}",
 				).
+					ToBeValidGoSource()
+			},
+		)
+
+		It(
+			"Should pass the decode options only to the step that decodes",
+			func() {
+				tmpDir := GinkgoT().TempDir()
+				for _, dir := range []string{"v2", "v3", "v4"} {
+					d := filepath.Join(tmpDir, "core/pkg/service/log/versions", dir)
+					Expect(os.MkdirAll(d, 0o755)).To(Succeed())
+					if dir == "v2" {
+						continue
+					}
+					Expect(os.WriteFile(
+						filepath.Join(d, "migrate.go"),
+						[]byte("package "+dir+"\n\nfunc MigrateLog() {}\n"),
+						0o644,
+					)).To(Succeed())
+				}
+				decoding := strings.Replace(
+					logChain(true), "@go imex", "@go imex\n\t@go migrate decodes", 1,
+				)
+				// v4 copies v3's declaration, which does not carry v3's step marker.
+				req := chainRequest(tmpDir, liveLog, map[int]string{
+					2: logChain(true),
+					3: decoding,
+					4: "Log struct extends v3.Log {}\n",
+				})
+				resp := MustSucceed(p.Generate(req))
+				ExpectContent(
+					resp,
+					"core/pkg/service/log/versions/imex.gen.go",
+				).ToContain(
+					"\t\"context\"\n\t\"encoding/json/v2\"\n",
+					"t3, err := v3.MigrateLog(ctx, t2, env.DecodeOptions()...)",
+					"t4, err := v4.MigrateLog(ctx, t3)",
+					"func liftFirst(ctx context.Context, t2 v2.Log, opts ...json.Options) "+
+						"(Log, error) {\n"+
+						"\tt3, err := v3.MigrateLog(ctx, t2, opts...)\n",
+				).
+					ToNotContain("DecodeContext", "v4.MigrateLog(ctx, t3, ").
 					ToBeValidGoSource()
 			},
 		)

@@ -16,6 +16,8 @@
 package legacy
 
 import (
+	"encoding/json/v2"
+
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v1"
@@ -65,34 +67,34 @@ type (
 // MigrateData decodes the opaque line plot data blob, dispatches on its declared
 // version, and walks the per-step Migrate functions forward to Data. A nil blob and a
 // blob without a version field both fall through to v0 and walk the full chain.
-func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
+func MigrateData(blob msgpack.EncodedJSON, opts ...json.Options) (Data, error) {
 	version, err := imex.PeekVersion(blob, "line plot data")
 	if err != nil {
 		return Data{}, err
 	}
 	switch version {
 	case v4.Version:
-		return imex.DecodeBlob[v4.Data](blob, "line plot data", version)
+		return imex.DecodeBlob[v4.Data](blob, "line plot data", version, opts...)
 	case v3.Version:
-		d, err := imex.DecodeBlob[v3.Data](blob, "line plot data", version)
+		d, err := imex.DecodeBlob[v3.Data](blob, "line plot data", version, opts...)
 		if err != nil {
 			return Data{}, err
 		}
 		return v4.Migrate(d), nil
 	case v2.Version:
-		d, err := imex.DecodeBlob[v2.Data](blob, "line plot data", version)
+		d, err := imex.DecodeBlob[v2.Data](blob, "line plot data", version, opts...)
 		if err != nil {
 			return Data{}, err
 		}
 		return v4.Migrate(v3.Migrate(d)), nil
 	case v1.Version:
-		d, err := imex.DecodeBlob[v1.Data](blob, "line plot data", version)
+		d, err := imex.DecodeBlob[v1.Data](blob, "line plot data", version, opts...)
 		if err != nil {
 			return Data{}, err
 		}
 		return v4.Migrate(v3.Migrate(v2.Migrate(d))), nil
 	case v0.Version:
-		d, err := imex.DecodeBlob[v0.Data](blob, "line plot data", version)
+		d, err := imex.DecodeBlob[v0.Data](blob, "line plot data", version, opts...)
 		if err != nil {
 			return Data{}, err
 		}

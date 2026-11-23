@@ -205,6 +205,9 @@ type target struct {
 	exported []int
 	// steps holds the exported versions whose package declares Migrate<Type>.
 	steps set.Set[int]
+	// decodes holds the steps that `@go migrate decodes` marks, which take the decode
+	// options of an import.
+	decodes set.Set[int]
 	// references holds the wire name of every @ref field, which Export leaves out.
 	references []string
 }
@@ -242,6 +245,10 @@ func newTarget(
 	if err != nil {
 		return target{}, err
 	}
+	decodes, err := decodingSteps(req, typ, livePath, steps)
+	if err != nil {
+		return target{}, err
+	}
 	return target{
 		typ:        typ,
 		goName:     naming.GetGoName(typ),
@@ -253,7 +260,31 @@ func newTarget(
 		floor:      floor,
 		exported:   exported,
 		steps:      steps,
+		decodes:    decodes,
 	}, nil
+}
+
+// decodingSteps returns the steps whose version declares typ with `@go migrate
+// decodes`.
+func decodingSteps(
+	req *plugin.Request,
+	typ resolution.Type,
+	livePath string,
+	steps set.Set[int],
+) (set.Set[int], error) {
+	decodes := make(set.Set[int])
+	for k := range steps {
+		surf, err := req.Versions.Surface(livePath, k)
+		if err != nil {
+			return nil, err
+		}
+		def, ok := surf[typ.Name]
+		if ok && def.Version == k &&
+			domain.GetStringFromType(def.Type, "go", "migrate") == decodesMarker {
+			decodes.Add(k)
+		}
+	}
+	return decodes, nil
 }
 
 // referenceNames returns the wire name of every field of typ that holds a Gorp
@@ -274,6 +305,11 @@ const (
 	// prepareMarker is the @go imex argument that makes Export call prepareExport.
 	prepareMarker = "prepare"
 )
+
+// decodesMarker is the `@go migrate` argument of a version's step that decodes an
+// opaque
+// payload, so the ladder passes it the decode options of an import.
+const decodesMarker = "decodes"
 
 func (p *Plugin) generatePackage(
 	req *plugin.Request,
@@ -425,7 +461,7 @@ func (p *Plugin) executeChain(buf *bytes.Buffer, t target, imports []string) err
 	return chainTemplate.Execute(buf, &chainData{
 		Type:       t.goName,
 		CurrentPkg: versioning.Dir(t.current),
-		Arms:       chainArms(t, envelopeDecode),
+		Arms:       chainArms(t, envelopeDecode, "env.DecodeOptions()..."),
 		First:      firstLift(t),
 		Imports:    imports,
 		Runtime:    p.options.RuntimeImportPath,
@@ -447,7 +483,7 @@ func (p *Plugin) executeBody(
 			Type:     t.goName,
 			Name:     t.typ.QualifiedName,
 			FirstPkg: versioning.Dir(t.floor),
-			Arms:     chainArms(t, blobDecode(t.typ.QualifiedName)),
+			Arms:     chainArms(t, blobDecode(t.typ.QualifiedName), "opts..."),
 		})
 	}
 	return bodyTemplate.Execute(buf, data)
@@ -630,9 +666,9 @@ func blobDecode(name string) decodeExpr {
 }
 
 // chainArms builds one ladder arm per exported version of t below current: each decodes
-// the stamped vK shape and lifts it through every later bump's Migrate<Type> step.
-// Alias-only bumps pass the value through unchanged.
-func chainArms(t target, decode decodeExpr) []chainArm {
+// the stamped vK shape and lifts it through every later bump's Migrate<Type> step, with
+// opts passed to each decoding step. Alias-only bumps pass the value through unchanged.
+func chainArms(t target, decode decodeExpr, opts string) []chainArm {
 	nums, goName := t.exported, t.goName
 	arms := make([]chainArm, 0, len(nums)-1)
 	for i, k := range nums[:len(nums)-1] {
@@ -640,7 +676,7 @@ func chainArms(t target, decode decodeExpr) []chainArm {
 		cur := fmt.Sprintf("t%d", k)
 		fmt.Fprintf(&b, "\t\t%s, err := %s\n", cur, decode(versioning.Dir(k), goName))
 		fmt.Fprintf(&b, "\t\tif err != nil {\n\t\t\treturn %s{}, err\n\t\t}\n", goName)
-		cur = writeSteps(&b, t, i, cur, "\t\t")
+		cur = writeSteps(&b, t, i, cur, "\t\t", opts)
 		fmt.Fprintf(&b, "\t\treturn %s, nil", cur)
 		arms = append(arms, chainArm{Pkg: versioning.Dir(k), Body: b.String()})
 	}
@@ -648,29 +684,35 @@ func chainArms(t target, decode decodeExpr) []chainArm {
 }
 
 // firstLift builds liftFirst, which lifts the first exported shape through every later
-// bump's Migrate<Type> step.
+// bump's Migrate<Type> step. It takes the decode options when a step decodes.
 func firstLift(t target) liftData {
 	var b strings.Builder
 	in := fmt.Sprintf("t%d", t.floor)
-	out := writeSteps(&b, t, 0, in, "\t")
+	out := writeSteps(&b, t, 0, in, "\t", "opts...")
 	fmt.Fprintf(&b, "\treturn %s, nil", out)
-	return liftData{
-		Param: fmt.Sprintf("%s %s.%s", in, versioning.Dir(t.floor), t.goName),
-		Body:  b.String(),
+	param := fmt.Sprintf("%s %s.%s", in, versioning.Dir(t.floor), t.goName)
+	decodes := len(t.decodes) > 0
+	if decodes {
+		param += ", opts ...json.Options"
 	}
+	return liftData{Param: param, Body: b.String(), Decodes: decodes}
 }
 
 // writeSteps writes, at indent, the Migrate<Type> calls that lift cur, the value at
-// t.exported[i], to the current shape. It returns the variable holding the result.
-func writeSteps(b *strings.Builder, t target, i int, cur, indent string) string {
+// t.exported[i], to the current shape, with opts passed to each decoding step. It
+// returns the variable holding the result.
+func writeSteps(b *strings.Builder, t target, i int, cur, indent, opts string) string {
 	for _, j := range t.exported[i+1:] {
 		if !t.steps.Contains(j) {
 			continue
 		}
-		next := fmt.Sprintf("t%d", j)
+		next, args := fmt.Sprintf("t%d", j), cur
+		if t.decodes.Contains(j) {
+			args += ", " + opts
+		}
 		fmt.Fprintf(
 			b, "%s%s, err := %s.Migrate%s(ctx, %s)\n",
-			indent, next, versioning.Dir(j), t.goName, cur,
+			indent, next, versioning.Dir(j), t.goName, args,
 		)
 		fmt.Fprintf(
 			b, "%sif err != nil {\n%s\treturn %s{}, err\n%s}\n",
@@ -762,6 +804,8 @@ type chainArm struct {
 type liftData struct {
 	Param string
 	Body  string
+	// Decodes is true when liftFirst takes the decode options.
+	Decodes bool
 }
 
 type chainData struct {
@@ -780,6 +824,9 @@ package versions
 
 import (
 	"context"
+{{- if .First.Decodes}}
+	"encoding/json/v2"
+{{- end}}
 
 	"{{.Runtime}}"
 {{- range .Imports}}
@@ -795,9 +842,6 @@ const Latest = {{.CurrentPkg}}.Version
 // shape and lifts it through the per-version migration chain to the current shape. A
 // version the ladder does not cover is rejected with a path-scoped validation error.
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) ({{.Type}}, error) {
-{{- if .Arms}}
-	ctx = imex.DecodeContext(ctx, env)
-{{- end}}
 	switch env.Version {
 {{- range .Arms}}
 	case {{.Pkg}}.Version:

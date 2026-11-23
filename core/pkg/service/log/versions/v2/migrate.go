@@ -11,6 +11,7 @@ package v2
 
 import (
 	"context"
+	"encoding/json/v2"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -32,7 +33,7 @@ import (
 // (e.g. a channel key that cannot coerce to uint32) is an error. v0 is the last
 // snapshot in which Log.Data is untyped; future migrations transform one typed snapshot
 // into another and never need this blob handling.
-func MigrateLog(ctx context.Context, old v0.Log) (Log, error) {
+func MigrateLog(ctx context.Context, old v0.Log, opts ...json.Options) (Log, error) {
 	out, err := autoMigrateLog(ctx, old)
 	if err != nil {
 		return Log{}, err
@@ -40,7 +41,7 @@ func MigrateLog(ctx context.Context, old v0.Log) (Log, error) {
 	if len(old.Data) == 0 {
 		return out, nil
 	}
-	d, err := legacy.MigrateData(old.Data)
+	d, err := legacy.MigrateData(old.Data, opts...)
 	if err != nil {
 		return Log{}, err
 	}

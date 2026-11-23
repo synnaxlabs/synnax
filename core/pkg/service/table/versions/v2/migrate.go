@@ -14,7 +14,6 @@ import (
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -27,13 +26,16 @@ import (
 // wire form and decoded into the typed cell config union. Cells that fail to decode
 // fall back to an empty text cell rather than being dropped, so rows never reference
 // missing entries.
-func MigrateTable(ctx context.Context, old v1.Table) (Table, error) {
+func MigrateTable(
+	ctx context.Context,
+	old v1.Table,
+	opts ...json.Options,
+) (Table, error) {
 	out, err := autoMigrateTable(ctx, old)
 	if err != nil {
 		return Table{}, err
 	}
 	out.Cells = make(map[string]CellConfig, len(old.Cells))
-	opts := imex.DecodeOptions(ctx)
 	for k, c := range old.Cells {
 		out.Cells[k] = migrateCell(c, opts...)
 	}
@@ -88,4 +90,8 @@ func decodeCellConfig(
 
 // Migration lifts stored tables from the opaque v1 cell props to the typed v2 cell
 // config union.
-var Migration = migrate.NewEntry("v2_typed_cell_configs", MigrateTable)
+var Migration = migrate.NewEntry(
+	"v2_typed_cell_configs",
+	// A stored table holds channel keys, so it decodes with no link options.
+	func(ctx context.Context, old v1.Table) (Table, error) { return MigrateTable(ctx, old) },
+)

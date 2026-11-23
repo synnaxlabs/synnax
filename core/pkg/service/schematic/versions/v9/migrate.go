@@ -16,7 +16,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -27,9 +26,13 @@ import (
 // config's schema defaults. It keeps no partial result: it wraps validate.ErrValidation
 // naming every node whose config the union rejects. It restates old's v0.57 scales in
 // place.
-func MigrateSchematic(ctx context.Context, old v8.Schematic) (Schematic, error) {
+func MigrateSchematic(
+	ctx context.Context,
+	old v8.Schematic,
+	opts ...jsonv2.Options,
+) (Schematic, error) {
 	v8.NormalizeScales(old)
-	out, losses, err := lift(ctx, old)
+	out, losses, err := lift(ctx, old, opts...)
 	if err != nil {
 		return Schematic{}, err
 	}
@@ -74,13 +77,14 @@ func migrateStored(
 func lift(
 	ctx context.Context,
 	old v8.Schematic,
+	opts ...jsonv2.Options,
 ) (Schematic, map[string]configLoss, error) {
 	out, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
 		return Schematic{}, nil, err
 	}
 	var losses map[string]configLoss
-	out.Configs, losses = typeConfigs(old.Configs, imex.DecodeOptions(ctx)...)
+	out.Configs, losses = typeConfigs(old.Configs, opts...)
 	return out, losses, nil
 }
 

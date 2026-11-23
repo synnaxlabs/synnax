@@ -10,15 +10,18 @@
 package v2_test
 
 import (
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
@@ -322,6 +325,39 @@ var _ = Describe("MigrateTable", func() {
 			}}}
 		}`).Variant.(v2.ValueCellConfig)
 		Expect(*MustBeOk(cfg, ok).Precision).To(Equal(int32(0)))
+	})
+
+	It("Should decode a cell's channel with the options it is given", func(
+		ctx SpecContext,
+	) {
+		byName := json.WithUnmarshalers(json.UnmarshalFromFunc(
+			func(dec *jsontext.Decoder, k *channel.Key) error {
+				if dec.PeekKind() != '"' {
+					return errors.ErrUnsupported
+				}
+				tok, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if tok.String() == "pump.speed" {
+					*k = 7
+				}
+				return nil
+			},
+		))
+		out := MustSucceed(v2.MigrateTable(ctx, v1.Table{
+			Key:  uuid.New(),
+			Name: "t",
+			Cells: map[string]v1.Cell{"a": {
+				Key:     "a",
+				Variant: "value",
+				Props: jsonMap(`{"telem": {"props": {"segments": {
+					"valueStream": {"props": {"channel": "pump.speed"}}
+				}}}}`),
+			}},
+		}, byName))
+		cfg, ok := out.Cells["a"].Variant.(v2.ValueCellConfig)
+		Expect(MustBeOk(cfg, ok).Channel).To(BeEquivalentTo(7))
 	})
 
 	It("Should round down a fractional averaging window", func(ctx SpecContext) {

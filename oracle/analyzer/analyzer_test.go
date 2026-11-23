@@ -669,6 +669,33 @@ Node union on variant {
 			Expect(diag.String()).To(ContainSubstring("malformed @go imex"))
 		})
 
+		It("Should accept @go migrate decodes", func() {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go migrate decodes
+				}
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should error when @go migrate carries an unknown argument", func() {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go migrate decode
+				}
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"malformed @go migrate; the marker takes no argument or decodes",
+			))
+		})
+
 		It("Should error when @go imex is declared file-level", func() {
 			source := `
 				@go output "out"

@@ -12,6 +12,8 @@ package v9_test
 import (
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"math"
 	"os"
 	"slices"
@@ -22,6 +24,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
@@ -30,6 +33,7 @@ import (
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -75,6 +79,40 @@ var _ = Describe("Config typing", func() {
 			StalenessTimeout: 5,
 			StrokeColor:      new(MustSucceed(color.FromHex("#ff0000"))),
 		}))
+	})
+
+	It("Should decode a config's channel with the options it is given", func(
+		ctx SpecContext,
+	) {
+		byName := jsonv2.WithUnmarshalers(jsonv2.UnmarshalFromFunc(
+			func(dec *jsontext.Decoder, k *channel.Key) error {
+				if dec.PeekKind() != '"' {
+					return errors.ErrUnsupported
+				}
+				tok, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if tok.String() == "pump.speed" {
+					*k = 7
+				}
+				return nil
+			},
+		))
+		out := MustSucceed(v9.MigrateSchematic(ctx, v8.Schematic{
+			Configs: map[string]msgpack.EncodedJSON{"n1": {
+				"variant": "value",
+				"telem": map[string]any{
+					"props": map[string]any{"segments": map[string]any{
+						"valueStream": map[string]any{"props": map[string]any{
+							"channel": "pump.speed",
+						}},
+					}},
+				},
+			}},
+		}, byName))
+		cfg, ok := out.Configs["n1"].Variant.(v9.ValueElementConfig)
+		Expect(MustBeOk(cfg, ok).Channel).To(HaveValue(BeEquivalentTo(7)))
 	})
 
 	It("Should decode a segmented edge config", func(ctx SpecContext) {
