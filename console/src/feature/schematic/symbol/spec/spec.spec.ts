@@ -75,6 +75,26 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("own", () => {
+    it("should not count a look of the whole drawing for a part", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.own({ looks }, "body", "fill", 0)).toEqual(fixed(BLUE));
+      expect(Spec.own({ looks: looks.slice(1) }, "body", "fill", 0)).toBeUndefined();
+    });
+
+    it("should return the look of the whole drawing for the whole drawing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.own({ looks }, undefined, "fill", 0)).toEqual(fixed(RED));
+      expect(Spec.own({ looks }, undefined, "fill", 1)).toBeUndefined();
+    });
+  });
+
   describe("setOwn", () => {
     it("should add a drawing look after its last hider, not after every look", () => {
       const spec = createSpec({

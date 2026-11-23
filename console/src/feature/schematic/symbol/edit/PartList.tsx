@@ -69,12 +69,7 @@ const PartListItem = ({
       target == null
         ? undefined
         : Spec.effective({ looks }, undefined, field, selectedValue);
-    const own = Spec.effective(
-      { looks: looks.filter((l) => l.part === target) },
-      target,
-      field,
-      selectedValue,
-    );
+    const own = Spec.own({ looks }, target, field, selectedValue);
     return (
       <Paint
         aria-label={label}
