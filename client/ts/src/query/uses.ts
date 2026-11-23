@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, sync } from "@synnaxlabs/x";
+import { type destructor, type record, scheduler, sync, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { isConnectionError, NotFoundError } from "@/errors";
-import { type Cache } from "@/query/cache";
+import type { Cache } from "@/query/cache";
 import { type Retrieves, type Trigger, trigger } from "@/query/query";
-import { type Keyed, type Table } from "@/query/table";
-import { type Params } from "@/query/types";
+import { fetchSurvivors, type Keyed, type Table } from "@/query/table";
+import type { Params } from "@/query/types";
 
 /** A retrieve that can ask for the uses of the records it selects. */
 type Request = { includeUses?: boolean };
@@ -23,7 +23,10 @@ type Request = { includeUses?: boolean };
 type Single<K extends record.Key> = Request & { key: K };
 
 /** A record whose retrieve can fill the resources that use it. */
-type Used<K extends record.Key> = Keyed<K> & object & { uses?: unknown };
+type Used<K extends record.Key> = Keyed<K> & object & { uses?: unknown[] };
+
+/** Joins a burst of changes on the channels of uses, such as the moves of a drag. */
+const REFETCH_DEBOUNCE = TimeSpan.milliseconds(100);
 
 /** The deletes of records that land while fetches of uses run. */
 interface Deletes<K extends record.Key> {
@@ -51,15 +54,16 @@ export interface UsesConfig<
   request: (key: { eq: K } | { in: K[] }) => Q;
   /**
    * The channels that announce changes to the records that can use one. A change on
-   * one refetches the uses the client holds.
+   * one, or a reconnect, refetches the uses that a maintained query watches.
    */
   channels: string[];
 }
 
 /**
  * Holds the uses of records, which are the resources that use each one, apart from the
- * records. A query that asks for uses gets them composed onto its records, and a change
- * on a channel of the config refetches them.
+ * records. A query that asks for uses gets them composed onto its records. A change on
+ * a channel of the config, or a reconnect, refetches the uses that a maintained query
+ * watches and drops the rest.
  */
 export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Request> {
   /** Updates the queries that ask for uses when the uses of a record change. */
@@ -70,24 +74,21 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     space: Retrieves<Single<K>, R>;
   };
   private readonly cfg: UsesConfig<K, R, Q>;
-  private readonly store: Table<K, Pick<R, "key" | "uses">>;
+  private readonly store: Table<K, Used<K>>;
   private readonly deletes: Deletes<K> = { inFlight: 0, seq: 0, at: new Map() };
   private readonly changes = { count: 0 };
+  /** The members of each maintained query that asks for uses. */
+  private readonly watchers = new Set<() => readonly K[]>();
   private readonly refetch: () => void;
 
   constructor(cfg: UsesConfig<K, R, Q>) {
     const { name, cache, table, key } = cfg;
     this.cfg = cfg;
-    const store = cache.createTable<K, Pick<R, "key" | "uses">>({
+    // No table fetch, so the reconcile after a reconnect cannot write uses.
+    const store = cache.createTable<K, Used<K>>({
       name: `${name}.uses`,
-      fetch: async (keys) =>
-        (await this.retrieve(cfg.request({ in: keys }))).map(({ key, uses }) => ({
-          key,
-          uses,
-        })),
     });
-    // An answer that holds a record composes its uses too.
-    store.hold({ held: () => table.held() });
+    store.hold({ held: () => this.watched() });
     // A record created again under a deleted key reads its uses again.
     table.subscribe((event) => {
       if (event.variant !== "delete") return;
@@ -99,33 +100,48 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     // one at a time, so an older reply cannot overwrite a newer one. A change that
     // arrives while a refetch waits joins it.
     const mu = sync.createMutex({ waiting: false });
-    this.refetch = () => {
+    this.refetch = scheduler.debounce(() => {
       if (mu.waiting) return;
       mu.waiting = true;
       mu.runExclusive(async () => {
         mu.waiting = false;
-        await store.reconcile();
+        await this.refetchWatched();
       }).catch((exc: unknown) => {
-        // The reconcile after the next reconnect fetches the uses again.
+        // The refetch after the next reconnect fetches the uses again.
         if (isConnectionError(exc)) return;
         cache.onError(new Error(`failed to refetch ${name} uses`, { cause: exc }));
       });
+    }, REFETCH_DEBOUNCE);
+    const onChange = (): void => {
+      this.changes.count++;
+      this.refetch();
     };
     cfg.channels.forEach((channel) =>
-      cache.listen({
-        channel,
-        schema: z.unknown(),
-        onChange: () => {
-          this.changes.count++;
-          this.refetch();
-        },
-      }),
+      cache.listen({ channel, schema: z.unknown(), onChange }),
     );
-    this.trigger = trigger(
+    // A reopened stream missed the changes made while it was down.
+    cache.onEpoch((epoch) => {
+      if (epoch > 1) onChange();
+    });
+    const base = trigger(
       store,
       (event, q: Q | Single<K>) => (q.includeUses === true ? [event.key] : null),
       { contentOnly: true },
     );
+    this.trigger = {
+      ...base,
+      attach: (params, onEvent, members) => {
+        const detach = base.attach(params, onEvent, members);
+        if (params.includeUses !== true) return detach;
+        this.watchers.add(members);
+        return () => {
+          detach();
+          this.watchers.delete(members);
+        };
+      },
+      covers: (params, members) =>
+        params.includeUses !== true || members.every((key) => store.get(key) != null),
+    };
     const normalize = ({ key, includeUses }: Single<K>): Single<K> =>
       includeUses === true ? { key, includeUses } : { key };
     this.single = {
@@ -164,6 +180,15 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
   }
 
   /**
+   * Records that the records with the keys have no uses, since this client is creating
+   * them. A query that asks for uses then lists them with no fetch.
+   * @returns a destructor that restores the uses that the client held before.
+   */
+  created(keys: K[]): destructor.Destructor {
+    return this.store.set(keys.map((key) => ({ key, uses: [] })));
+  }
+
+  /**
    * Fetches the records that the request selects. A request that asks for uses keeps
    * them apart from the records it returns.
    */
@@ -178,6 +203,33 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
       const stripped = { ...r };
       delete stripped.uses;
       return stripped;
+    });
+  }
+
+  private watched(): Set<K> {
+    const watched = new Set<K>();
+    this.watchers.forEach((members) => members().forEach((key) => watched.add(key)));
+    return watched;
+  }
+
+  // Only the refetch mutex runs this, so no reply can put back the uses it drops.
+  private async refetchWatched(): Promise<void> {
+    const { store, cfg } = this;
+    const watched = this.watched();
+    const unwatched = store.keys().filter((key) => !watched.has(key));
+    if (unwatched.length > 0) store.evict(unwatched);
+    const keys = store.keys();
+    if (keys.length === 0) return;
+    await store.track(async (since) => {
+      const records = await fetchSurvivors(
+        async (keys: K[]) =>
+          (await this.retrieve(cfg.request({ in: keys }))).map(({ key, uses }) => ({
+            key,
+            uses,
+          })),
+        keys,
+      );
+      store.ingest(records, { mode: "set", since });
     });
   }
 

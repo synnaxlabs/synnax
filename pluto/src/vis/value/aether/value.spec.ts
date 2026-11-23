@@ -12,7 +12,7 @@ import { box, color, TimeSpan, type xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
-import { type ProviderOptions } from "@/testutil/providers";
+import type { ProviderOptions } from "@/testutil/providers";
 import { renderAether } from "@/testutil/renderAether";
 import { canvasTest } from "@/vis/render/testutil";
 import { value } from "@/vis/value/aether";
@@ -361,9 +361,16 @@ describe("value/aether/Value", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    // The worker draws the value, so a transition must not cost a state push.
-    it("should keep staleness off the state that crosses to the DOM", () => {
-      expect(value.Value.z.parse({ box: box.ZERO })).not.toHaveProperty("stale");
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
+      });
+      source.setValue("1");
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      source.setValue("2");
+      expect(component.state.stale).toBe(false);
     });
 
     it("should stay live before the source has ever sent", () => {
@@ -393,6 +400,23 @@ describe("value/aether/Value", () => {
       recorder.clear();
       component.render({});
       expect(fillStyles(recorder)).toContain(color.hex(stale));
+    });
+
+    it("should keep its own color while the stale color is hidden", () => {
+      const stale = color.construct("#ff0000");
+      const { component, source, recorder } = setup({
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+          staleColorHidden: true,
+        },
+      });
+      source.setValue("1");
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      recorder.clear();
+      component.render({});
+      expect(fillStyles(recorder)).not.toContain(color.hex(stale));
     });
 
     it("should fall back to the warning color when no staleness color is set", () => {

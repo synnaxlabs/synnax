@@ -18,6 +18,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { LinePlot, Synnax } from "@synnaxlabs/pluto";
 import { resolveWindow, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 
+import { FLAGS } from "@/flags";
 import { Framer } from "@/platform/framer";
 import { Session } from "@/session";
 
@@ -72,16 +73,13 @@ const readEdge = async (
 
 export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
   const openDownloadCSVModal = Framer.useDownloadCSVModal();
-  return ({ timeRanges, lines, name }) => {
-    const channels = channelsOf(lines);
-    const timeRange = TimeRange.merge(...timeRanges);
+  return ({ timeRanges, lines, name }) =>
     openDownloadCSVModal({
-      timeRange,
+      timeRanges,
       name,
-      channels,
+      channels: channelsOf(lines),
       icon: <Icon.LinePlot />,
     });
-  };
 };
 
 export const useDownloadPlotAsCSV = (key: string): (() => void) => {
@@ -92,6 +90,8 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const ranges = LinePlot.useRanges({ key });
   const name = LinePlot.useName({ key });
   const windows = Session.Range.useResolveWindows(ranges);
+  const breaksHidden = Session.LinePlot.useSelectBreaksHidden({ key });
+  const openBreaks = Session.LinePlot.useSelectOpenBreaks({ key });
   return () =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
@@ -100,7 +100,14 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
       }));
       const live = windows.some((w) => w.variant === "dynamic");
       const end = live ? await readEdge(client, channelsOf(lines)) : TimeStamp.now();
-      const timeRanges = windows.map((w) => resolveWindow(w, end));
+      const timeRanges =
+        !FLAGS.breaks || breaksHidden
+          ? [TimeRange.merge(...windows.map((w) => resolveWindow(w, end)))]
+          : LinePlot.shownSpans(windows, {
+              now: TimeStamp.now(),
+              newest: end,
+              open: openBreaks,
+            });
       downloadAsCSV({ timeRanges, lines, name });
     }, "Failed to download plot as CSV");
 };

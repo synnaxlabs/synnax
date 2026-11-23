@@ -46,31 +46,12 @@ dev = [
 packages = ["console", "framework", "tests"]
 
 [tool.ruff]
-line-length = 88
-target-version = "py313"
+extend = "../pyproject.toml"
 
 [tool.ruff.lint]
-select = [
-    "F",
-    "I",
-    "B",
-    "DTZ",
-    "E501",
-    "E7",
-    "E9",
-    "PLE",
-    "PLR1722",
-    "UP",
-    "SIM",
-    "C4",
-    "RET",
-    "PIE",
-    "PERF",
-    "RUF",
-    "S110",
-    "TID251",
-]
-ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
+extend-select = ["TID251"]
+# Most tests here run under the conductor, not pytest.
+ignore = ["PT"]
 
 # Tests wait with bounded polling helpers, or with framework.utils.hold for a fixed
 # window.
@@ -82,7 +63,6 @@ ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF
 
 [tool.ruff.lint.isort]
 known-first-party = ["synnax", "alamos", "freighter", "x"]
-combine-as-imports = true
 
 [tool.ruff.lint.per-file-ignores]
 # Test cases configure subclasses with class-level lists that nothing mutates.
@@ -131,5 +111,5 @@ testpaths = ["framework/tests"]
 omit = ["framework/tests/*"]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.33.0,<2"]
 build-backend = "hatchling.build"

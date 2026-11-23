@@ -347,12 +347,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							}))
 							w.SetDomainStart(20 * telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
-							Expect(db.Delete(
+							Expect(deleteRange(
 								ctx,
+								db,
 								(12 * telem.SecondTS).Range(15*telem.SecondTS),
 							)).To(Succeed())
-							Expect(db.Delete(
+							Expect(deleteRange(
 								ctx,
+								db,
 								(20 * telem.SecondTS).Range(21*telem.SecondTS),
 							)).To(MatchError(claim.ErrClaimed))
 							Expect(w.Close()).To(Succeed())
@@ -374,8 +376,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							)
 							high.SetDomainStart(20 * telem.SecondTS)
 							MustSucceed(high.Write(telem.NewSeriesSecondsTSV(20)))
-							Expect(db.Delete(
+							Expect(deleteRange(
 								ctx,
+								db,
 								(10 * telem.SecondTS).Range(11*telem.SecondTS),
 							)).To(MatchError(claim.ErrClaimed))
 							Expect(high.Close()).To(Succeed())
@@ -586,13 +589,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							w := openBounded(ctx, 1*telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 3)))
 							MustSucceed(w.Commit(ctx))
-							Expect(db.Delete(
+							Expect(deleteRange(
 								ctx,
+								db,
 								(2 * telem.SecondTS).Range(3*telem.SecondTS),
 							)).To(MatchError(claim.ErrClaimed))
 							Expect(w.Close()).To(Succeed())
-							Expect(db.Delete(
+							Expect(deleteRange(
 								ctx,
+								db,
 								(2 * telem.SecondTS).Range(3*telem.SecondTS),
 							)).To(Succeed())
 						},
@@ -609,8 +614,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								telem.NewSeriesSecondsTSV(1, 2, 3),
 							)).To(Succeed())
 							w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{}))
-							Expect(db.Delete(
+							Expect(deleteRange(
 								ctx,
+								db,
 								(1 * telem.SecondTS).Range(4*telem.SecondTS),
 							)).To(Succeed())
 							Expect(w.Close()).To(Succeed())
@@ -669,17 +675,20 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							w.SetDomainStart(5 * telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(5, 6, 7)))
 							MustSucceed(w.Commit(ctx))
-							Expect(db.Delete(
+							Expect(deleteRange(
 								ctx,
+								db,
 								(5 * telem.SecondTS).Range(7*telem.SecondTS),
 							)).To(MatchError(claim.ErrClaimed))
-							Expect(db.Delete(
+							Expect(deleteRange(
 								ctx,
+								db,
 								(1 * telem.SecondTS).Range(5*telem.SecondTS),
 							)).To(Succeed())
 							Expect(w.Close()).To(Succeed())
-							Expect(db.Delete(
+							Expect(deleteRange(
 								ctx,
+								db,
 								(5 * telem.SecondTS).Range(7*telem.SecondTS),
 							)).To(Succeed())
 						},

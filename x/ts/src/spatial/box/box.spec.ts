@@ -11,7 +11,7 @@ import { describe, expect, it, test } from "vitest";
 
 import { box } from "@/spatial/box";
 import { location } from "@/spatial/location";
-import { type xy } from "@/spatial/xy";
+import type { xy } from "@/spatial/xy";
 
 describe("Box", () => {
   describe("constants", () => {

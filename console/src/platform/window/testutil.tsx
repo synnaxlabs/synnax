@@ -9,7 +9,7 @@
 
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { type Mock, vi } from "vitest";
 
 import { Window } from "@/platform/window";

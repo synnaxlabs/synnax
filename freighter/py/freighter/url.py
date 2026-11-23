@@ -86,7 +86,10 @@ class URL:
 
     def stringify(self) -> str:
         """Returns the URL as a string."""
-        return f"{self.protocol}://{self.host}:{self.port}/{self.path}"
+        host = self.host
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        return f"{self.protocol}://{host}:{self.port}/{self.path}"
 
     def _child_prefix(self, path: str) -> str:
         return reduce(urljoin, [self.path, _format_path(path)])
@@ -98,4 +101,4 @@ class URL:
 
 def _format_path(path: str) -> str:
     path = path if path.endswith("/") else f"{path}/"
-    return path[1:] if path.startswith("/") else path
+    return path.removeprefix("/")

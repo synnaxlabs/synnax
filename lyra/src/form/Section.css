@@ -183,7 +183,9 @@
 }
 
 .lyra-form-section {
-    .lyra-input__switch {
+    /* A field's switch starts at the edge of its label. A table cell keeps it
+       centered. */
+    .lyra-input__switch:not(td *) {
         justify-content: flex-start;
     }
 

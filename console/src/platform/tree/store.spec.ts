@@ -10,36 +10,38 @@
 import { resource } from "@synnaxlabs/client";
 import { describe, expect, it, vi } from "vitest";
 
-import { type Source, type Window } from "@/platform/tree/children";
+import type { Tree } from "@/platform/tree";
 import {
   isMoreKey,
   type Results,
   Store,
   type StoreConfig,
 } from "@/platform/tree/store";
-import { type Resource } from "@/platform/tree/types";
 
 const ROOT: resource.ID = { type: "builtin", key: "root" };
 const ROOT_KEY = resource.idToString(ROOT);
 
-const res = (type: resource.Type, key: string, name: string): Resource => ({
+const res = (type: resource.Type, key: string, name: string): Tree.Resource => ({
   key: resource.idToString({ type, key }),
   id: { type, key },
   name,
 });
 
-interface MemorySource extends Source {
+interface MemorySource extends Tree.Source {
   /** Changes the window, as a change in the cache does. */
-  push: (window: Window | undefined) => void;
+  push: (window: Tree.Window | undefined) => void;
   subscribers: () => number;
 }
 
 // Answers a fetch with the window and each call for more with the next page, and holds
 // nothing before the first fetch.
-const createMemorySource = (fetched: Window, pages: Window[] = []): MemorySource => {
-  let cached: Window | undefined;
-  const handlers = new Set<(window: Window | undefined) => void>();
-  const push = (window: Window | undefined): void => {
+const createMemorySource = (
+  fetched: Tree.Window,
+  pages: Tree.Window[] = [],
+): MemorySource => {
+  let cached: Tree.Window | undefined;
+  const handlers = new Set<(window: Tree.Window | undefined) => void>();
+  const push = (window: Tree.Window | undefined): void => {
     cached = window;
     handlers.forEach((handler) => handler(window));
   };
@@ -63,10 +65,13 @@ const createMemorySource = (fetched: Window, pages: Window[] = []): MemorySource
   };
 };
 
-const listed = (...resources: Resource[]): Window => ({ resources, more: false });
+const listed = (...resources: Tree.Resource[]): Tree.Window => ({
+  resources,
+  more: false,
+});
 
 const createStore = (
-  sources: Record<string, Source[]>,
+  sources: Record<string, Tree.Source[]>,
   config: Partial<StoreConfig> = {},
 ): Store =>
   new Store({
@@ -268,7 +273,7 @@ describe("tree store", () => {
 
     it("should pass each failed fetch to the error handler", async () => {
       const onError = vi.fn();
-      const failing: Source = {
+      const failing: Tree.Source = {
         retrieve: async () => await Promise.reject(new Error("unreachable")),
         more: async () => {},
         retrieveAll: async () => await Promise.reject(new Error("unreachable")),
@@ -377,7 +382,7 @@ describe("tree store", () => {
 
     it("should end a draft whose own lists fail to fetch", async () => {
       const root = createMemorySource(listed(GROUP_A));
-      const failing: Source = {
+      const failing: Tree.Source = {
         retrieve: async () => await Promise.reject(new Error("unreachable")),
         more: async () => {},
         retrieveAll: async () => await Promise.reject(new Error("unreachable")),

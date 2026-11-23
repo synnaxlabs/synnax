@@ -13,15 +13,14 @@ import { kafka } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel as PChannel } from "@synnaxlabs/pluto";
 import { DataType, deep, id, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { Select as SelectDevice } from "@/feature/kafka/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/kafka/device/types";
+import { SCHEMAS } from "@/feature/kafka/device/types";
 import {
   deployWriteConfigZ,
   isString,
@@ -33,7 +32,6 @@ import {
   type WriteSchemas,
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
@@ -248,19 +246,6 @@ const Form: FC = () => (
   />
 );
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = WRITE_SCHEMAS.config.parse(
-    config ?? {
-      record: { channelPointer: "/channel", timestampPointer: "/timestamp" },
-    },
-  );
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "Kafka write task", type: WRITE_TYPE, config: cfg };
-};
-
 /**
  * A cleared pointer is omitted from the record instead of placed at "". A string,
  * JSON, or UUID channel goes out as a string, and a timestamp channel by its time
@@ -305,16 +290,3 @@ export const Write = Task.wrapForm({
   type: WRITE_TYPE,
   onConfigure,
 });
-
-export const useCreateWrite = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const WriteSelectable: Selector.Selectable = {
-  type: WRITE_TYPE,
-  title: "Kafka write task",
-  label: "Write",
-  icon: <Icon.Logo.Kafka />,
-  useOnSelect: useCreateWrite,
-};

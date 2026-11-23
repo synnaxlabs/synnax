@@ -78,6 +78,11 @@ export interface ValueProps {
   points?: number;
   /** True when every sample must fall inside the bounds of the returned series. */
   extremesKept?: boolean;
+  /**
+   * The span of x the caller draws. A source that reads by span fetches no tiles wholly
+   * outside it, but may return data that crosses its edges.
+   */
+  span?: bounds.Bounds;
 }
 
 export interface Telem {
@@ -255,7 +260,7 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
     return { ...result, data: this.transform(result.data) };
   }
 
-  onChange(handler: () => void): destructor.Destructor {
+  override onChange(handler: () => void): destructor.Destructor {
     return this.source.onChange(() => {
       if (this.shouldNotify(this.source.value())) handler();
     });
@@ -301,7 +306,7 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
     return { data: this.transform(data), status: worst, time, appended };
   }
 
-  onChange(handler: () => void): destructor.Destructor {
+  override onChange(handler: () => void): destructor.Destructor {
     const destructors = Object.values(this.sources).map((source) =>
       source.onChange(() => {
         if (this.shouldNotify()) handler();

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import type * as Monaco from "@codingame/monaco-vscode-editor-api";
-import { type Synnax } from "@synnaxlabs/client";
+import type { Synnax } from "@synnaxlabs/client";
 
-import { type LSPStream } from "@/code/lsp";
+import type { LSPStream } from "@/code/lsp";
 
 /** EditorExtension attaches language-specific behavior to a Monaco editor instance,
  * returning a disposable that detaches it when the editor is torn down. */
