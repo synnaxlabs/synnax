@@ -626,12 +626,6 @@ var _ = Describe("CheckDefault", func() {
 		Entry("JSON text", icd.JSONJSONField{Default: new(`{"max":10}`)}),
 		Entry("base64 text", icd.BytesJSONField{Default: new("AQI=")}),
 		Entry("a finite float", icd.FloatJSONField{Default: new(payload.Float(2.5))}),
-		Entry("a number at the max", icd.FloatJSONField{
-			Scale: 1, Max: new(100.0), Default: new(payload.Float(100)),
-		}),
-		Entry("a scaled number whose raw value is above the max", icd.FloatJSONField{
-			Scale: 0.1, Max: new(10.0), Default: new(payload.Float(50)),
-		}),
 	)
 
 	DescribeTable("Should refuse a default without naming it",
@@ -639,17 +633,11 @@ var _ = Describe("CheckDefault", func() {
 			Expect(codec.CheckDefault(icd.JSONField{Variant: v})).
 				To(MatchError(expected))
 		},
-		Entry("JSON text that is not valid",
-			icd.JSONJSONField{Default: new("{")},
-			"not valid JSON: validation error",
-		),
-		Entry("text that is not base64",
-			icd.BytesJSONField{Default: new("AQI")},
-			"not canonical base64: validation error",
-		),
-		Entry("a float that is not finite",
-			icd.FloatJSONField{Default: new(payload.Float(math.NaN()))},
-			"NaN is not a JSON number: validation error",
+		Entry("a default that icd.CheckDefault refuses",
+			icd.FloatJSONField{
+				Scale: 1, Max: new(100.0), Default: new(payload.Float(120)),
+			},
+			"120 is above the max 100: validation error",
 		),
 		Entry("a timestamp default with no type",
 			icd.TimestampJSONField{
@@ -661,24 +649,6 @@ var _ = Describe("CheckDefault", func() {
 		Entry("a UUID default with no type",
 			icd.UuidJSONField{Default: &icd.UUIDDefault{}},
 			"type is required: validation error",
-		),
-		Entry("a number above the max",
-			icd.FloatJSONField{
-				Scale: 1, Max: new(100.0), Default: new(payload.Float(120)),
-			},
-			"120 is above the max 100: validation error",
-		),
-		Entry("an integer below the min",
-			icd.IntegerJSONField{
-				Scale: 1, Min: new(0.0), Default: new(payload.Integer(-1)),
-			},
-			"-1 is below the min 0: validation error",
-		),
-		Entry("a scaled number whose raw value is inside the max",
-			icd.FloatJSONField{
-				Scale: 10, Max: new(100.0), Default: new(payload.Float(12)),
-			},
-			"12 decodes to 120, which is above the max 100: validation error",
 		),
 	)
 })

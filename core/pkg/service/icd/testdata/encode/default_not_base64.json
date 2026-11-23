@@ -19,5 +19,5 @@
     },
     "bindings": []
   },
-  "error": "message command: field blob: default: not canonical base64: validation error"
+  "error": "message command: field blob: default: must be base64: validation error"
 }

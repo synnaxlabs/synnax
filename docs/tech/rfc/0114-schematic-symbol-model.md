@@ -210,9 +210,9 @@ NodeConfig union on variant {
     }
 }
 FormatConfig struct {
-    units     string = ""
+    units     string?
     precision uint8?
-    notation  notation.Notation = "standard"
+    notation  notation.Notation?
 }
 StateBinding struct extends FormatConfig {
     key         string

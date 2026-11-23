@@ -19,5 +19,5 @@
     },
     "bindings": []
   },
-  "error": "message command: field doc: default: not valid JSON: validation error"
+  "error": "message command: field doc: default: must be valid JSON: validation error"
 }
