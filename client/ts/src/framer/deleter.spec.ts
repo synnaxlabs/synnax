@@ -10,8 +10,7 @@
 import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { UnauthorizedError } from "@/errors";
-import { NotFoundError } from "@/index";
+import { NotFoundError, UnauthorizedError } from "@/index";
 import {
   createTestClient,
   newIndexedPair,

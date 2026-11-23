@@ -1,0 +1,80 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type channel, lineplot, log, panel, type resource } from "@synnaxlabs/client";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Synnax } from "@synnaxlabs/pluto";
+
+import { Analytics } from "@/platform/analytics";
+import { LinePlot } from "@/platform/lineplot";
+import { Log } from "@/platform/log";
+import { Panel } from "@/platform/panel";
+import { Session } from "@/session";
+
+// A virtual channel without an expression has no stored data to plot, so it routes to a
+// log, which displays its live samples. Calculated channels plot like persisted ones.
+const isPlainVirtual = ({ virtual, expression }: channel.Channel): boolean =>
+  virtual && expression === "";
+
+// use returns a handler that opens a channel resource in a visualization:
+// plottable channels go to the focused line plot or a new one, plain virtual
+// channels to the focused log or a new one.
+export const use = (): ((resource: resource.Resource) => void) => {
+  const client = Synnax.use();
+  const openTab = Panel.useOpenTab();
+  const getFocusedTab = Session.Panel.useGetFocusedTab();
+  const getSelectedPanel = Session.Panel.useGetSelected();
+  const getSelectedProject = Session.Project.useGetSelected();
+  const store = Session.useStore();
+  const handleError = Status.useErrorHandler();
+  const { capture } = Analytics.use();
+  return (item) => {
+    if (client == null) return;
+    const channelKey = Number(item.id.key);
+    handleError(async () => {
+      const virtual = isPlainVirtual(await client.channels.retrieve(channelKey));
+      const focusedTab = getFocusedTab();
+      const panelKey = getSelectedPanel();
+      if (focusedTab != null && panelKey != null) {
+        const doc = await client.panels.retrieve(panelKey);
+        const tab = panel.findTab(doc.root, focusedTab);
+        if (tab?.variant === "resource")
+          if (virtual && tab.resource.type === "log") {
+            await Log.addChannelsToActiveLog(client, tab.resource.key, [channelKey]);
+            return;
+          } else if (!virtual && tab.resource.type === "lineplot") {
+            await LinePlot.addChannelsToActivePlot(client, tab.resource.key, [
+              channelKey,
+            ]);
+            return;
+          }
+      }
+      const project = getSelectedProject();
+      if (virtual) {
+        const { key } = await client.logs.create({
+          project,
+          name: "Log",
+          channels: [{ channel: channelKey }],
+        });
+        store.dispatch(Session.Log.create({ key }));
+        openTab({ variant: "resource", resource: log.resourceID(key) });
+        return;
+      }
+      const { key } = await client.lineplots.create({
+        project,
+        name: "Line plot",
+        channels: { y1: [channelKey] },
+        ranges: [Session.Range.RECENT_REF],
+      });
+      capture("plot_created", {});
+      store.dispatch(Session.LinePlot.create({ key }));
+      openTab({ variant: "resource", resource: lineplot.resourceID(key) });
+    }, "Failed to open channel");
+  };
+};

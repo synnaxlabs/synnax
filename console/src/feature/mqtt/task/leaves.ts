@@ -9,7 +9,7 @@
 
 import { DataType, type payload } from "@synnaxlabs/x";
 
-import type { BrowsedField } from "@/feature/mqtt/task/types";
+import type { Device } from "@/feature/mqtt/device";
 
 /** A value that a browsed payload offers. */
 export interface Leaf {
@@ -34,7 +34,7 @@ const createLeaf = (pointer: string, type: payload.JSONType): Leaf => ({
 });
 
 /** @returns one leaf for each scalar of a browsed payload. */
-export const createLeaves = (scalars: BrowsedField[]): Leaf[] =>
+export const createLeaves = (scalars: Device.BrowsedField[]): Leaf[] =>
   scalars.map(({ pointer, type }) => createLeaf(pointer, type));
 
 /** @returns the leaf of a payload that is not JSON, which reads it as one string. */
