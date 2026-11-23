@@ -676,6 +676,9 @@ func (p Paint) EncodeOrc(w *orc.Writer) error {
 	case EntryPaint:
 		w.String("entry")
 		w.String(v.State)
+	case ContrastPaint:
+		w.String("contrast")
+		w.String(v.State)
 	case NodePaint:
 		w.String("node")
 	case ColorPaint:
@@ -698,6 +701,12 @@ func (p *Paint) DecodeOrc(r *orc.Reader) error {
 	switch string(tag) {
 	case "entry":
 		var v EntryPaint
+		if v.State, err = r.String(); err != nil {
+			return err
+		}
+		p.Variant = v
+	case "contrast":
+		var v ContrastPaint
 		if v.State, err = r.String(); err != nil {
 			return err
 		}
