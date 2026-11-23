@@ -106,10 +106,16 @@ export const renderModalHook = <T,>(
   return renderHook(useHandle, { wrapper: Wrapper });
 };
 
-/** Presses and releases Escape on the window, where the trigger provider listens. */
-export const pressEscape = (): void => {
-  fireEvent.keyDown(window, { code: "Escape" });
-  fireEvent.keyUp(window, { code: "Escape" });
+/**
+ * Presses Escape through the browser driver. A native modal dialog sees only a real key
+ * press, which the browser sends from wherever the focus is.
+ */
+export const pressEscape = async (): Promise<void> => {
+  // jsdom specs import this file too, and vitest/browser loads only in a browser.
+  const { userEvent } = await import("vitest/browser");
+  await act(async () => {
+    await userEvent.keyboard("{Escape}");
+  });
 };
 
 /**

@@ -12,6 +12,7 @@ package channel_test
 import (
 	"encoding/json/v2"
 	"fmt"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -170,21 +171,23 @@ var _ = Describe("Old API breaker d", func() {
 			return out
 		}
 
-		It("Should broadcast the created channel with its expression", func(
-			ctx SpecContext,
-		) {
-			input := createChannel(ctx, telem.Float32T)
-			req := calculated(input)
-			ch := create(ctx, req)
-			var created *channel.Created
-			for _, a := range actionsOn(ch.Key, "") {
-				if a.Create != nil {
-					created = &a.Create.Channel
-				}
-			}
-			Expect(created).ToNot(BeNil())
-			Expect(created.Expression).To(Equal(req.Expression))
-		})
+		It(
+			"Should broadcast the created channel with no expression, then its "+
+				"expression",
+			func(ctx SpecContext) {
+				input := createChannel(ctx, telem.Float32T)
+				req := calculated(input)
+				ch := create(ctx, req)
+				acts := actionsOn(ch.Key, "")
+				created := slices.IndexFunc(acts, func(a channel.Action) bool {
+					return a.Create != nil
+				})
+				Expect(created).To(BeNumerically(">=", 0))
+				Expect(acts[created].Create.Channel.Expression).To(BeEmpty())
+				Expect(acts[created+1:]).
+					To(ContainElement(set("expression", req.Expression)))
+			},
+		)
 
 		It("Should broadcast an old API set of the expression on the channel", func(
 			ctx SpecContext,

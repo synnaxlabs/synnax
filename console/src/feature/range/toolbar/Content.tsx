@@ -38,21 +38,15 @@ import {
 } from "react";
 
 import { Explorer } from "@/feature/range/explorer";
-import { Card } from "@/feature/range/toolbar/Card";
+import { Card } from "@/feature/range/toolbar/card";
 import {
   type Forest,
   forest,
   type Groups,
   useGroups,
 } from "@/feature/range/toolbar/data";
-import { suggest, type Suggestion } from "@/feature/range/toolbar/suggest";
-import {
-  formatAgo,
-  formatSpan,
-  formatStart,
-  nextMinute,
-  nextSecond,
-} from "@/feature/range/toolbar/time";
+import { Suggestion } from "@/feature/range/toolbar/suggestion";
+import { Time } from "@/feature/range/toolbar/time";
 import { Tree } from "@/feature/range/tree";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
@@ -63,13 +57,13 @@ import { Session } from "@/session";
 const B = "range-toolbar";
 
 const Elapsed = ({ start }: { start: TimeStamp }): ReactElement => {
-  const now = useNow(nextSecond);
-  return <>{formatSpan(start, now)}</>;
+  const now = useNow(Time.nextSecond);
+  return <>{Time.formatSpan(start, now)}</>;
 };
 
 const Ago = ({ end }: { end: TimeStamp }): ReactElement => {
-  const now = useNow(nextMinute);
-  return <>{formatAgo(end, now)}</>;
+  const now = useNow(Time.nextMinute);
+  return <>{Time.formatAgo(end, now)}</>;
 };
 
 const startOf = (r: ranger.Range): TimeStamp => r.timeRange.makeValid().start;
@@ -134,7 +128,7 @@ const Line = ({
   const resolve = Color.useResolve();
   return (
     <Tooltip.Dialog location={CARD_LOCATION} hide={dragging}>
-      <Card range={range} />
+      <Card.Card range={range} />
       <div
         id={range.key}
         draggable
@@ -303,7 +297,7 @@ const Star = ({ range }: { range: ranger.Range }): ReactElement => (
   />
 );
 
-interface DraftState extends Suggestion {
+interface DraftState extends Suggestion.Suggestion {
   startedAt: TimeStamp;
   parent?: ranger.Key;
   /** The running range that the new one follows. */
@@ -600,7 +594,7 @@ const FavoriteLine = memo(({ range }: { range: ranger.Range }): ReactElement => 
             <Elapsed start={startOf(range)} />
           </>
         ) : (
-          formatStart(startOf(range), now)
+          Time.formatStart(startOf(range), now)
         )
       }
       actions={<Star range={range} />}
@@ -725,7 +719,7 @@ export const Content = (): ReactElement => {
   const openSuggested = (next: Omit<DraftState, "name" | "color">) => {
     const id = ++latest.current;
     if (client == null || next.parent == null) return;
-    void suggest(client, next.parent, next.after?.key).then((s) => {
+    void Suggestion.suggest(client, next.parent, next.after?.key).then((s) => {
       if (id === latest.current) open({ ...s, ...next });
     });
   };

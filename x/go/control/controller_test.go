@@ -113,9 +113,9 @@ var _ = Describe("Control", func() {
 					Expect(t.IsAcquire()).To(BeTrue())
 					Expect(createCount()).To(Equal(1))
 					Expect(g).ToNot(BeNil())
-					Expect(g.Authority()).To(Equal(control.AuthorityAbsolute))
-					Expect(g.Subject().Key).To(Equal("test"))
-					Expect(g.Subject().Name).To(Equal("test"))
+					Expect(t.To.Authority).To(Equal(control.AuthorityAbsolute))
+					Expect(t.To.Subject.Key).To(Equal("test"))
+					Expect(t.To.Subject.Name).To(Equal("test"))
 				},
 			)
 
@@ -381,14 +381,14 @@ var _ = Describe("Control", func() {
 				expectControlled(telem.NewRangeSeconds(1, 5), false)
 			})
 			It("Should not move the region into another region", func() {
-				other := openAt("other", telem.NewRangeSeconds(1, 3))
+				openAt("other", telem.NewRangeSeconds(1, 3))
 				g := openAt("test", telem.NewRangeSeconds(10, 20))
 				Expect(g.MoveStart(2 * telem.SecondTS)).To(And(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(fmt.Sprintf(
 						"cannot write to time range %v because writer %v holds it",
 						telem.NewRangeSeconds(2, 3),
-						other.Subject(),
+						control.Subject{Key: "other", Name: "test"},
 					))),
 				))
 				expectControlled(telem.NewRangeSeconds(5, 6), false)
@@ -528,7 +528,7 @@ var _ = Describe("Control", func() {
 				},
 			)
 			It("Should fail to open a bounded gate over a bounded region", func() {
-				other := openBounded("backfill", telem.NewRangeSeconds(1, 5))
+				openBounded("backfill", telem.NewRangeSeconds(1, 5))
 				cfg, _ := baseConfig(1)
 				cfg.Subject.Key = "second"
 				cfg.TimeRange = telem.NewRangeSeconds(3, 8)
@@ -538,7 +538,7 @@ var _ = Describe("Control", func() {
 					MatchError(ContainSubstring(fmt.Sprintf(
 						"cannot access time range %v because writer %v holds it",
 						telem.NewRangeSeconds(3, 5),
-						other.Subject(),
+						control.Subject{Key: "backfill", Name: "test"},
 					))),
 				))
 			})
@@ -1415,22 +1415,6 @@ var _ = Describe("Control", func() {
 			)
 		})
 
-		Describe("PeekResource", func() {
-			It(
-				"Should allow the caller to peek at a gate's resource without being controlled",
-				func() {
-					cfg1, _ := baseConfig(12)
-					cfg1.Subject.Key = "test"
-					cfg1.Subject.Name = "test"
-					cfg1.Authority = control.AuthorityAbsolute
-					g, t := MustSucceed2(c.OpenGate(cfg1))
-					Expect(t.Occurred()).To(BeTrue())
-					v := g.PeekResource()
-					Expect(v.value).To(Equal(12))
-				},
-			)
-		})
-
 		Describe("LeadingState", func() {
 			It("Should return the leading state of the controller", func() {
 				cfg1, _ := baseConfig(1)
@@ -1598,7 +1582,6 @@ var _ = Describe("Control", func() {
 			Expect(res).To(BeIdenticalTo(first))
 			var j *control.Gate[uint32, *hookedResource]
 			Eventually(joined).Should(Receive(&j))
-			Expect(j.PeekResource()).To(BeIdenticalTo(second))
 			res, t = j.Release()
 			Expect(t.IsRelease()).To(BeTrue())
 			Expect(res).To(BeIdenticalTo(second))
@@ -1767,7 +1750,10 @@ var _ = Describe("Control", func() {
 			first, _ := MustSucceed2(receive(opening))
 			second, t := MustSucceed2(receive(waiting))
 			Expect(t.Occurred()).To(BeFalse())
-			Expect(second.PeekResource()).To(Equal(first.PeekResource()))
+			first.Release()
+			res, t := second.Release()
+			Expect(t.IsRelease()).To(BeTrue())
+			Expect(res).To(Equal(testResource{value: 1}))
 		})
 
 		It("Should open one resource for gates racing for a time range", func() {
@@ -1789,9 +1775,13 @@ var _ = Describe("Control", func() {
 			}
 			wg.Wait()
 			Expect(count.Load()).To(Equal(int32(1)))
+			var last testResource
 			for _, g := range open {
-				Expect(g.PeekResource()).To(Equal(testResource{value: 1}))
+				if res, t := g.Release(); t.IsRelease() {
+					last = res
+				}
 			}
+			Expect(last).To(Equal(testResource{value: 1}))
 		})
 
 		It("Should let a waiting gate open the resource after a failed open", func() {
@@ -1803,7 +1793,10 @@ var _ = Describe("Control", func() {
 			Expect(receive(opening)).Error().To(MatchError(openErr))
 			g, t := MustSucceed2(receive(waiting))
 			Expect(t.IsAcquire()).To(BeTrue())
-			Expect(g.PeekResource()).To(Equal(testResource{value: 2}))
+			Expect(g.Authorize(func(r testResource) error {
+				Expect(r).To(Equal(testResource{value: 2}))
+				return nil
+			})).To(Succeed())
 		})
 
 		It("Should let a waiting gate open the resource after a panic", func() {
@@ -1829,7 +1822,10 @@ var _ = Describe("Control", func() {
 			Eventually(recovered).Should(Receive(Equal("open failed")))
 			g, t := MustSucceed2(receive(waiting))
 			Expect(t.IsAcquire()).To(BeTrue())
-			Expect(g.PeekResource()).To(Equal(testResource{value: 2}))
+			Expect(g.Authorize(func(r testResource) error {
+				Expect(r).To(Equal(testResource{value: 2}))
+				return nil
+			})).To(Succeed())
 		})
 
 		It("Should fail a reach into the region", func() {

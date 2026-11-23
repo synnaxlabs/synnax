@@ -75,10 +75,11 @@ var _ = Describe("Iterator breaker", func() {
 			Keys:   channel.Keys{output.Key()},
 			Bounds: telem.TimeRangeMax,
 		}))
-		DeferCleanup(func() { Expect(iter.Close()).To(Succeed()) })
 		Expect(iter.SeekFirst()).To(BeTrue())
 		Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 		Expect(merged(iter.Value().Get(output.Key()).Series)).
 			To(telem.MatchSeriesDataV[float32](2, 4, 6))
+		// The iterator lives in the context of the spec, which ends before a cleanup.
+		Expect(iter.Close()).To(Succeed())
 	})
 })

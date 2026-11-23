@@ -199,18 +199,18 @@ Channel struct {
 Created struct extends Channel {
     expression string      {
         @doc value """
-            is the expression of the calculation that writes the channel, or empty when
-            none writes it.
+            is empty. A set after the create carries the expression to each subject who
+            reads the calculation that writes the channel.
         """
     }
     operations Operation[] {
-        @doc value "are the operations of the calculation that writes the channel."
+        @doc value "are empty. A set after the create carries them, as the expression."
     }
 
     @cpp omit
     @doc value """
-        is a channel that a create action carries, with the expression and operations of
-        the calculation that writes it for clients that read them from the channel.
+        is a channel that a create action carries. It holds no field that a retrieve
+        hides, so its expression and operations are empty.
     """
     @go output "core/pkg/service/channel"
     @pb omit

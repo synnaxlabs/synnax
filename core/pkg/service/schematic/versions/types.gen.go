@@ -378,6 +378,8 @@ const (
 	// GroupBoxNodeConfigType is the configuration for a group box, the symbol that
 	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
 	GroupBoxNodeConfigType NodeConfigType = v14.GroupBoxNodeConfigType
+	// SymbolNodeConfigType is the configuration for a node that draws a symbol.
+	SymbolNodeConfigType NodeConfigType = v14.SymbolNodeConfigType
 )
 
 type CapNodeConfig = v14.CapNodeConfig
@@ -530,6 +532,9 @@ type CustomStaticNodeConfig = v14.CustomStaticNodeConfig
 // of grouped symbols. Groups nest: a member may itself be a group.
 type GroupBoxNodeConfig = v14.GroupBoxNodeConfig
 
+// SymbolNodeConfig is the configuration for a node that draws a symbol.
+type SymbolNodeConfig = v14.SymbolNodeConfig
+
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
@@ -566,3 +571,34 @@ type NumericTelemConfig = v14.NumericTelemConfig
 
 // ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
 type ScaledConfig = v14.ScaledConfig
+
+// FormatConfig is how a node shows a number.
+type FormatConfig = v14.FormatConfig
+
+// StateBinding is how one node reads one state of its symbol.
+type StateBinding = v14.StateBinding
+
+// Source is where a state reads its value.
+type Source = v14.Source
+
+// SourceVariant is implemented by every Source variant.
+type SourceVariant = v14.SourceVariant
+
+// SourceType is the "type" value that selects a variant of Source.
+type SourceType = v14.SourceType
+
+const (
+	// ChannelSourceType reads a channel.
+	ChannelSourceType SourceType = v14.ChannelSourceType
+	// LocalSourceType holds a value in the node.
+	LocalSourceType SourceType = v14.LocalSourceType
+)
+
+// ChannelSource reads a channel.
+type ChannelSource = v14.ChannelSource
+
+// LocalSource holds a value in the node.
+type LocalSource = v14.LocalSource
+
+// CommandBinding is the channel of a command that has no state.
+type CommandBinding = v14.CommandBinding

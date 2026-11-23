@@ -23,3 +23,5 @@ export const spec: Spec<"t_junction", schematic.TJunctionNodeConfig> = {
   Preview: TJunction,
   zIndex: 24,
 };
+
+export { SYMBOL } from "@/schematic/node/vessels/tJunction/Primitive";

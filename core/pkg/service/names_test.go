@@ -17,13 +17,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/gorp/migrate"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -47,9 +45,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// markApplied records each step of chain before the step with key next as applied in
-// namespace, as a v0.62 Core left it.
-func markApplied(
+// markAppliedBefore records each step of chain before the step with key next as applied
+// in namespace, as a v0.62 Core left it.
+func markAppliedBefore(
 	ctx context.Context,
 	db *gorp.DB,
 	namespace string,
@@ -62,18 +60,11 @@ func markApplied(
 		func(m gorp.Migration) bool { return m.Key() == next },
 	)
 	Expect(end).To(BeNumerically(">", 0))
-	applied := make([]gorp.Migration, end)
+	keys := make([]string, end)
 	for i, m := range chain[:end] {
-		applied[i] = migrate.New(
-			m.Key(),
-			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
-		)
+		keys[i] = m.Key()
 	}
-	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-		DB:         db,
-		Namespace:  namespace,
-		Migrations: applied,
-	})).To(Succeed())
+	markApplied(ctx, db, namespace, keys...)
 }
 
 // storeV062 makes n hold a store as a v0.62 Core left it: the chain steps before the
@@ -87,14 +78,20 @@ func storeV062(
 	folders ...groupv1.Group,
 ) []channelv1.Channel {
 	GinkgoHelper()
-	markApplied(
+	markAppliedBefore(
 		ctx,
 		n.DB,
 		"Channel",
 		channelversions.Migrations,
 		"v63_channel_name_rule",
 	)
-	markApplied(ctx, n.DB, "Group", groupversions.Migrations, "v63_folder_name_rule")
+	markAppliedBefore(
+		ctx,
+		n.DB,
+		"Group",
+		groupversions.Migrations,
+		"v63_folder_name_rule",
+	)
 	alloc := make([]distchannel.Channel, len(names))
 	for i, name := range names {
 		alloc[i] = distchannel.Channel{

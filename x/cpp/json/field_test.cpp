@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <limits>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -74,6 +76,42 @@ errors::Error decode_float_error(Field field, const double v) {
     telem::Series dst(field.data_type, 2);
     const auto d = ASSERT_NIL_P(Decoder::create(std::move(field)));
     return d.append_float(v, dst);
+}
+
+/// @brief returns the JSON text that an Encoder for field gives for v.
+std::string encode(Field field, const telem::SampleValue &v) {
+    const telem::Series s(v, field.data_type);
+    const auto e = ASSERT_NIL_P(Encoder::create(std::move(field)));
+    std::string out;
+    EXPECT_NIL(e.append(s, 0, out));
+    return out;
+}
+
+/// @brief returns the error that an Encoder for field gives for v, checking that it
+/// appends nothing.
+errors::Error encode_error(Field field, const telem::SampleValue &v) {
+    const telem::Series s(v, field.data_type);
+    const auto e = ASSERT_NIL_P(Encoder::create(std::move(field)));
+    std::string out = "x";
+    auto err = e.append(s, 0, out);
+    EXPECT_EQ(out, "x");
+    return err;
+}
+
+/// @brief returns the error that creating an Encoder for field gives.
+errors::Error create_encoder_error(Field field) {
+    return Encoder::create(std::move(field)).second;
+}
+
+struct EncodeCase {
+    Field field;
+    telem::SampleValue sample;
+    std::string expected;
+};
+
+void expect_encodes(const std::vector<EncodeCase> &cases) {
+    for (const auto &c: cases)
+        EXPECT_EQ(encode(c.field, c.sample), c.expected);
 }
 }
 
@@ -961,5 +999,219 @@ TEST(DecoderAppendFloat, RejectsFloatForString) {
     const auto err = decode_float_error({.data_type = telem::STRING_T}, 1.0);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(err.data, "cannot convert a float to string");
+}
+
+/// @brief it should write a number as the shortest JSON number that reads back as it.
+TEST(Encoder, WritesNumber) {
+    expect_encodes({
+        {{.data_type = telem::FLOAT64_T}, 100000.0, "100000"},
+        {{.data_type = telem::FLOAT64_T}, 0.1, "0.1"},
+        {{.data_type = telem::FLOAT64_T}, -0.0, "-0"},
+        {{.data_type = telem::FLOAT64_T}, 1e21, "1e+21"},
+        {{.data_type = telem::FLOAT64_T}, 1e-7, "1e-7"},
+        {{.data_type = telem::FLOAT32_T}, 0.5f, "0.5"},
+        {{.data_type = telem::UINT64_T}, UINT64_MAX_VALUE, "18446744073709551615"},
+        {{.data_type = telem::INT64_T}, INT64_MIN_VALUE, "-9223372036854775808"},
+        {{.data_type = telem::INT16_T}, std::int16_t{-300}, "-300"},
+        {{.data_type = telem::BOOLEAN_T}, std::uint8_t{2}, "1"},
+    });
+}
+
+/// @brief it should write a number as a boolean that is true when it is not zero.
+TEST(Encoder, WritesNumberAsBoolean) {
+    expect_encodes({
+        {{.data_type = telem::UINT8_T, .type = Type::Boolean}, std::uint8_t{2}, "true"},
+        {{.data_type = telem::INT32_T, .type = Type::Boolean},
+         std::int32_t{0},
+         "false"},
+        {{.data_type = telem::FLOAT64_T, .type = Type::Boolean},
+         -std::numeric_limits<double>::infinity(),
+         "true"},
+        {{.data_type = telem::BOOLEAN_T, .type = Type::Boolean},
+         std::uint8_t{1},
+         "true"},
+    });
+}
+
+/// @brief it should write a number as a string of its text, including a number that
+/// is not finite.
+TEST(Encoder, WritesNumberAsString) {
+    const auto inf = std::numeric_limits<float>::infinity();
+    expect_encodes({
+        {{.data_type = telem::FLOAT32_T, .type = Type::String}, 0.5f, R"("0.5")"},
+        {{.data_type = telem::FLOAT64_T, .type = Type::String}, 1e20, R"("1e+20")"},
+        {{.data_type = telem::UINT8_T, .type = Type::String, .enums = on_off()},
+         std::uint8_t{5},
+         R"("5")"},
+        {{.data_type = telem::FLOAT64_T, .type = Type::String}, NaN, R"("NaN")"},
+        {{.data_type = telem::FLOAT32_T, .type = Type::String}, inf, R"("Infinity")"},
+        {{.data_type = telem::FLOAT32_T, .type = Type::String}, -inf, R"("-Infinity")"},
+    });
+}
+
+/// @brief it should write a sample as the label of the first enum that matches it,
+/// whatever the type.
+TEST(Encoder, WritesEnumLabel) {
+    expect_encodes({
+        {{.data_type = telem::UINT8_T, .type = Type::String, .enums = on_off()},
+         std::uint8_t{1},
+         R"("ON")"},
+        {{.data_type = telem::FLOAT64_T, .enums = on_off()}, 1.0, R"("ON")"},
+        {{.data_type = telem::FLOAT64_T, .type = Type::Boolean, .enums = on_off()},
+         -0.0,
+         R"("OFF")"},
+        {{.data_type = telem::INT64_T,
+          .enums = {{"LOW", PAST_2_TO_53 - 1}, {"HIGH", PAST_2_TO_53}}},
+         PAST_2_TO_53,
+         R"("HIGH")"},
+        {{.data_type = telem::UINT64_T,
+          .enums = {{"LOW", UINT64_MAX_VALUE - 1}, {"HIGH", UINT64_MAX_VALUE}}},
+         UINT64_MAX_VALUE,
+         R"("HIGH")"},
+        {{.data_type = telem::FLOAT32_T, .enums = {{"TENTH", 0.1}}},
+         0.1f,
+         R"("TENTH")"},
+        {{.data_type = telem::FLOAT64_T,
+          .enums = {{"OVER", std::numeric_limits<double>::infinity()}}},
+         std::numeric_limits<double>::infinity(),
+         R"("OVER")"},
+        {{.data_type = telem::BOOLEAN_T, .enums = {{"ON", std::uint8_t{1}}}},
+         std::uint8_t{2},
+         R"("ON")"},
+        {{.data_type = telem::STRING_T,
+          .type = Type::String,
+          .enums = {{"ON", std::string("1")}}},
+         std::string("1"),
+         R"("ON")"},
+        {{.data_type = telem::UINT8_T, .enums = {{"a\"b", std::uint8_t{1}}}},
+         std::uint8_t{1},
+         R"("a\"b")"},
+    });
+}
+
+/// @brief it should write any NaN as the label of a NaN enum.
+TEST(Encoder, WritesAnyNaNAsNaNEnum) {
+    ASSERT_EQ(
+        encode(
+            {.data_type = telem::FLOAT32_T, .enums = {{"FAULT", NaN}}},
+            std::bit_cast<float>(std::uint32_t{0x7fc00001})
+        ),
+        R"("FAULT")"
+    );
+}
+
+/// @brief it should write text, UUIDs, and bytes as JSON strings.
+TEST(Encoder, WritesString) {
+    const auto id = ASSERT_NIL_P(
+        uuid::UUID::parse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+    );
+    const std::string id_bytes(reinterpret_cast<const char *>(id.data()), 16);
+    expect_encodes({
+        {{.data_type = telem::STRING_T, .type = Type::String},
+         std::string("a\"b"),
+         R"("a\"b")"},
+        {{.data_type = telem::JSON_T, .type = Type::String},
+         std::string(R"({"a":1})"),
+         R"("{\"a\":1}")"},
+        {{.data_type = telem::UUID_T, .type = Type::String},
+         id_bytes,
+         R"("6ba7b810-9dad-11d1-80b4-00c04fd430c8")"},
+        {{.data_type = telem::BYTES_T, .type = Type::String},
+         std::string("\x00\xff\x3f", 3),
+         R"("AP8/")"},
+        {{.data_type = telem::BYTES_T, .type = Type::String},
+         std::string("\xff"),
+         R"("/w==")"},
+        {{.data_type = telem::BYTES_T, .type = Type::String}, std::string(), R"("")"},
+    });
+}
+
+/// @brief it should write a timestamp in the time format of the field.
+TEST(Encoder, WritesTimestamp) {
+    expect_encodes({
+        {{.data_type = telem::TIMESTAMP_T, .type = Type::Boolean},
+         telem::TimeStamp(1500000006),
+         R"("1970-01-01T00:00:01.500000006Z")"},
+        {{.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+         telem::TimeStamp(1767323045123456789),
+         "1767323045.123456789"},
+    });
+}
+
+/// @brief it should append the sample at an index after what out holds.
+TEST(Encoder, AppendsSampleAtIndex) {
+    const telem::Series s(std::vector<std::int32_t>{4, 5});
+    const auto e = ASSERT_NIL_P(Encoder::create({.data_type = telem::INT32_T}));
+    std::string out = "[4,";
+    ASSERT_NIL(e.append(s, 1, out));
+    ASSERT_EQ(out, "[4,5");
+}
+
+/// @brief it should reject a sample that has no JSON value, appending nothing.
+TEST(Encoder, RejectsSampleWithNoJSONValue) {
+    const std::vector<std::tuple<Field, telem::SampleValue, std::string>> cases{
+        {{.data_type = telem::FLOAT64_T}, NaN, "NaN is not a JSON number"},
+        {{.data_type = telem::FLOAT32_T},
+         std::numeric_limits<float>::infinity(),
+         "Infinity is not a JSON number"},
+        {{.data_type = telem::FLOAT64_T, .enums = on_off()},
+         NaN,
+         "NaN is not a JSON number"},
+        {{.data_type = telem::FLOAT32_T, .type = Type::Boolean},
+         std::numeric_limits<float>::quiet_NaN(),
+         "NaN is not a JSON boolean"},
+        {{.data_type = telem::STRING_T, .type = Type::String},
+         std::string("a\xff"),
+         "invalid UTF-8"},
+    };
+    for (const auto &[field, sample, message]: cases) {
+        const auto err = encode_error(field, sample);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        EXPECT_EQ(err.data, message);
+    }
+}
+
+/// @brief it should reject a type that cannot hold a sample of the data type.
+TEST(Encoder, RejectsTypeThatCannotHoldDataType) {
+    for (const auto &[dt, type]: std::vector<std::pair<telem::DataType, Type>>{
+             {telem::STRING_T, Type::Number},
+             {telem::UUID_T, Type::Boolean},
+             {telem::JSON_T, Type::Number},
+             {telem::BYTES_T, Type::Number},
+         }) {
+        const auto err = create_encoder_error({.data_type = dt, .type = type});
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        EXPECT_EQ(err.data, "data type " + dt.name() + " only serializes as a string");
+    }
+}
+
+/// @brief it should reject a data type that no JSON value converts from.
+TEST(Encoder, RejectsUnknownDataType) {
+    const auto err = create_encoder_error(
+        {.data_type = telem::UNKNOWN_T, .type = Type::String}
+    );
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(
+        err.data,
+        "cannot convert " + telem::UNKNOWN_T.name() + " to a JSON value"
+    );
+}
+
+/// @brief it should reject an enum value that does not convert to the data type.
+TEST(Encoder, RejectsEnumThatDoesNotConvert) {
+    const auto err = create_encoder_error(
+        {.data_type = telem::UINT8_T, .enums = {{"HALF", 0.5}}}
+    );
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "enum label \"HALF\": 0.5 is not an integer");
+}
+
+/// @brief it should reject an enum label that is not valid UTF-8.
+TEST(Encoder, RejectsEnumLabelThatIsNotUTF8) {
+    const auto err = create_encoder_error(
+        {.data_type = telem::UINT8_T, .enums = {{"a\xff", std::uint8_t{1}}}}
+    );
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "enum label \"a\\xff\": invalid UTF-8");
 }
 }

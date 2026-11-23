@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
 import { TelemTest } from "@/telem/testutil";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { Input } from "@/vis/input";
 import { input } from "@/vis/input/aether";
 
