@@ -144,8 +144,8 @@ func (p *Provider) PublishTable[K gorp.Key, E gorp.Entry[K]](
 		cfg:          cfg,
 		L:            p.cfg.L,
 		del:          channel.Channel{Name: cfg.DeleteName, DataType: keyDataType[K]()},
-		setChecks:    &commitChecks[string]{},
-		deleteChecks: &commitChecks[string]{},
+		setChecks:    &commitChecks{},
+		deleteChecks: &commitChecks{},
 	}
 	channels := []*channel.Channel{&f.del}
 	if !*cfg.SetDisabled {
@@ -164,8 +164,8 @@ type tableFeed[K gorp.Key, E gorp.Entry[K]] struct {
 	del channel.Channel
 	// setChecks and deleteChecks hold the check of each set and delete, by the bytes of
 	// its sample.
-	setChecks    *commitChecks[string]
-	deleteChecks *commitChecks[string]
+	setChecks    *commitChecks
+	deleteChecks *commitChecks
 }
 
 func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
@@ -243,7 +243,7 @@ func (f *tableFeed[K, E]) records() map[channel.Key]Record {
 	del := Record{Of: recordOf(unmarshalKeySample[K], f.cfg.Resource), Deleted: true}
 	if f.cfg.DeleteChecks != nil {
 		del.Check = func(sample []byte) (Check, error) {
-			return getSample(f.deleteChecks, sample)
+			return f.deleteChecks.get(sample)
 		}
 	}
 	records := map[channel.Key]Record{f.del.Key(): del}
@@ -251,7 +251,7 @@ func (f *tableFeed[K, E]) records() map[channel.Key]Record {
 		r := Record{Of: recordOf(f.cfg.SetKey, f.cfg.Resource)}
 		if f.cfg.SetCheck != nil {
 			r.Check = func(sample []byte) (Check, error) {
-				return getSample(f.setChecks, sample)
+				return f.setChecks.get(sample)
 			}
 		}
 		records[f.set.Key()] = r

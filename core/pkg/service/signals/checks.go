@@ -26,15 +26,16 @@ const checkCommits = 256
 var errCheckGone = errors.New("[signals] - the check of a change is gone")
 
 // commitChecks holds the checks that a change channel made at publish for the samples
-// of its recent commits, so that each streamer reads a check rather than the record. It
-// holds the last checkCommits commits with checks. It is safe for concurrent use.
-type commitChecks[I comparable] struct {
+// of its recent commits, by the bytes of each sample, so that each streamer reads a
+// check rather than the record. It holds the last checkCommits commits with checks. It
+// is safe for concurrent use.
+type commitChecks struct {
 	mu sync.Mutex
 	// commits holds the checks of each commit, oldest first.
-	commits []map[I]Check
+	commits []map[string]Check
 }
 
-func (c *commitChecks[I]) add(checks map[I]Check) {
+func (c *commitChecks) add(checks map[string]Check) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.commits) == checkCommits {
@@ -44,21 +45,8 @@ func (c *commitChecks[I]) add(checks map[I]Check) {
 	c.commits = append(c.commits, checks)
 }
 
-// get returns the check of the sample named id, or errCheckGone.
-func (c *commitChecks[I]) get(id I) (Check, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for _, checks := range slices.Backward(c.commits) {
-		if check, ok := checks[id]; ok {
-			return check, nil
-		}
-	}
-	return nil, errCheckGone
-}
-
-// getSample is get for checks named by the bytes of their samples. It does not copy
-// sample.
-func getSample(c *commitChecks[string], sample []byte) (Check, error) {
+// get returns the check of sample, or errCheckGone. It does not copy sample.
+func (c *commitChecks) get(sample []byte) (Check, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, checks := range slices.Backward(c.commits) {

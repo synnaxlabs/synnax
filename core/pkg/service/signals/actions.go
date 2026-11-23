@@ -79,7 +79,7 @@ func (p *Provider) PublishActions[K gorp.Key, A any](
 		cfg:    cfg,
 		L:      p.cfg.L,
 		ch:     channel.Channel{Name: cfg.Name, DataType: telem.JSONT},
-		checks: &commitChecks[string]{},
+		checks: &commitChecks{},
 	}
 	return p.add(ctx, f, &f.ch)
 }
@@ -90,7 +90,7 @@ type actionFeed[K gorp.Key, A any] struct {
 	L   *alamos.Logger
 	ch  channel.Channel
 	// checks holds the check of each batch, by the bytes of its sample.
-	checks *commitChecks[string]
+	checks *commitChecks
 }
 
 func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
@@ -141,7 +141,7 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 func (f *actionFeed[K, A]) records() map[channel.Key]Record {
 	r := Record{Of: recordOf(unmarshalKey[K], f.cfg.Resource)}
 	if f.cfg.BatchChecks != nil {
-		r.Check = func(sample []byte) (Check, error) { return getSample(f.checks, sample) }
+		r.Check = func(sample []byte) (Check, error) { return f.checks.get(sample) }
 	}
 	return map[channel.Key]Record{f.ch.Key(): r}
 }
