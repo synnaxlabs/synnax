@@ -106,18 +106,20 @@ var _ = Describe("Writer", func() {
 		start(head(5, 1<<31-1))
 		w := open(clockWriter(0, false, 1))
 		Expect(w.NewAlignment()).To(Equal(uint32(1<<31 - 1)))
-		Expect(w.NewAlignment()).Error().To(MatchError(state.ErrExhausted))
+		Expect(w.NewAlignment()).Error().
+			To(MatchError("alignment numbers are exhausted"))
 	})
 
 	It("Should fail the requests that wait for a Reserve that the log refuses for "+
 		"room, and let no commit name its values", func() {
 		start(head(5, 3))
-		a.refuse(errors.Wrap(log.ErrFull, "no room"))
+		full := errors.New("log file is full")
+		a.refuse(errors.Wrap(full, "no room"))
 		w := open(clockWriter(0, false, 1))
-		Expect(w.NewAlignment()).Error().To(MatchError(log.ErrFull))
-		Expect(w.NewSegment(1)).Error().To(MatchError(log.ErrFull))
+		Expect(w.NewAlignment()).Error().To(MatchError(full))
+		Expect(w.NewSegment(1)).Error().To(MatchError(full))
 		Expect(w.Commit(commit(1, 3, 0, 100, 100, slot(5, 8)))).To(SatisfyAll(
-			MatchError(state.ErrRefused),
+			refused(),
 			MatchError(ContainSubstring("alignment number 3, not from 1 to below the "+
 				"limit 3")),
 		))
@@ -177,7 +179,7 @@ var _ = Describe("Writer", func() {
 			n := MustSucceed(w.NewAlignment())
 			Expect(w.Commit(commit(1, n, 0, 110, 110, slot(clk, 24),
 				slot(data, 12)))).To(SatisfyAll(
-				MatchError(state.ErrConflict),
+				conflict(),
 				MatchError(
 					ContainSubstring("overlaps its stored data from 100 to 110"),
 				),
@@ -193,7 +195,7 @@ var _ = Describe("Writer", func() {
 			n = MustSucceed(w.NewAlignment())
 			Expect(w.Commit(commit(1, n, 0, 50, 50, slot(clk, 32), slot(data, 16)))).
 				To(SatisfyAll(
-					MatchError(state.ErrConflict),
+					conflict(),
 					MatchError(
 						ContainSubstring("overlaps its stored data from 50 to 50"),
 					),
@@ -208,7 +210,7 @@ var _ = Describe("Writer", func() {
 				To(Succeed())
 			Expect(w.Close()).To(Succeed())
 			Expect(s.OpenWriter(clockWriter(50, true, 5))).Error().To(SatisfyAll(
-				MatchError(state.ErrConflict),
+				conflict(),
 				MatchError(ContainSubstring("inside its stored data from 40 to 60")),
 			))
 		})
@@ -217,7 +219,7 @@ var _ = Describe("Writer", func() {
 			"Should refuse a commit that breaks a value rule",
 			func(c func() *log.Commit, msg string) {
 				Expect(w.Commit(c())).To(SatisfyAll(
-					MatchError(state.ErrRefused),
+					refused(),
 					MatchError(ContainSubstring(msg)),
 				))
 			},
@@ -245,7 +247,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Commit(first())).To(Succeed())
 			Expect(w.Commit(commit(1, number, 2, 50, 50, slot(clk, 24),
 				slot(data, 12)))).To(SatisfyAll(
-				MatchError(state.ErrRefused),
+				refused(),
 				MatchError(ContainSubstring("at 50 goes back inside its stretch, "+
 					"which reaches 110")),
 			))
@@ -310,16 +312,16 @@ var _ = Describe("Writer", func() {
 			MustSucceed(w.Seal(6))
 			Expect(w.Commit(commit(1, number, 2, 120, 120, slot(clk, 24),
 				slot(data, 12)))).To(SatisfyAll(
-				MatchError(state.ErrRefused),
+				refused(),
 				MatchError(ContainSubstring("which the writer does not hold")),
 			))
 		})
 
 		It("Should fail the state on a durable record that breaks a rule", func() {
 			Expect(a.durable([]log.Record{create(0, 9, 9)})).To(Succeed())
-			Eventually(s.Err).Should(MatchError(state.ErrRefused))
+			Eventually(s.Err).Should(refused())
 			Expect(w.Commit(first())).To(MatchError(ContainSubstring("state failed")))
-			Expect(a.durable(nil)).To(MatchError(state.ErrRefused))
+			Expect(a.durable(nil)).To(refused())
 		})
 	})
 
@@ -329,7 +331,7 @@ var _ = Describe("Writer", func() {
 		It("Should refuse a second writer that is not bounded on a key", func() {
 			open(clockWriter(100, false, 5))
 			Expect(s.OpenWriter(clockWriter(200, false, 5))).Error().To(SatisfyAll(
-				MatchError(state.ErrConflict),
+				conflict(),
 				MatchError(
 					ContainSubstring("reaches the claim of another writer from 100"),
 				),
@@ -339,7 +341,7 @@ var _ = Describe("Writer", func() {
 		It("Should refuse a bounded writer that starts inside another claim", func() {
 			open(clockWriter(100, false, 5))
 			Expect(s.OpenWriter(clockWriter(150, true, 5))).Error().
-				To(MatchError(state.ErrConflict))
+				To(conflict())
 		})
 
 		It(
@@ -369,7 +371,7 @@ var _ = Describe("Writer", func() {
 				id := MustSucceed(w.NewSegment(5))
 				n := MustSucceed(w.NewAlignment())
 				Expect(w.Commit(commit(2, n, 0, 45, 50, slot(id, 16)))).
-					To(MatchError(state.ErrConflict))
+					To(conflict())
 			},
 		)
 
@@ -380,7 +382,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Commit(commit(2, n, 0, 100, 110, slot(id, 16)))).To(Succeed())
 			Expect(w.Close()).To(Succeed())
 			Expect(s.OpenWriter(clockWriter(105, true, 5))).Error().To(SatisfyAll(
-				MatchError(state.ErrConflict),
+				conflict(),
 				MatchError(ContainSubstring("inside its stored data from 100 to 110")),
 			))
 		})
@@ -392,7 +394,7 @@ var _ = Describe("Writer", func() {
 				n := MustSucceed(w.NewAlignment())
 				Expect(w.Commit(commit(2, n, 0, 50, 60, slot(id, 16)))).To(Succeed())
 				Expect(s.OpenWriter(clockWriter(70, true, 5))).Error().
-					To(MatchError(state.ErrConflict))
+					To(conflict())
 			})
 
 		It("Should let another writer claim a key after Close", func() {

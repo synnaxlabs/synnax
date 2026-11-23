@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Check: state", func() {
@@ -79,8 +80,9 @@ var _ = Describe("Check: state", func() {
 		Expect(w.Commit(commit(2, n2, 0, 50, 60, slot(id, 32)))).To(Succeed())
 		n3 := MustSucceed(w.NewAlignment())
 		Expect(w.Commit(commit(2, n3, 0, 55, 58, slot(id, 48)))).To(SatisfyAll(
-			MatchError(state.ErrConflict),
+			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("overlaps its stored data from 50 to 60")),
+			MatchError(ContainSubstring("write conflict")),
 		))
 	})
 
@@ -98,8 +100,9 @@ var _ = Describe("Check: state", func() {
 			logged(create(id, 5, 5), c1, c2)
 			Expect(w.Close()).To(Succeed())
 			Expect(s.OpenWriter(live(55, true))).Error().To(SatisfyAll(
-				MatchError(state.ErrConflict),
+				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("inside its stored data from 50 to 60")),
+				MatchError(ContainSubstring("write conflict")),
 			))
 		})
 
@@ -110,8 +113,11 @@ var _ = Describe("Check: state", func() {
 		n := MustSucceed(w.NewAlignment())
 		Expect(w.Commit(commit(2, n, 0, 100, 110, slot(id, 16)))).To(Succeed())
 		Expect(w.Commit(commit(1, n, 2, 50, 50, slot(id, 24)))).To(SatisfyAny(
-			MatchError(state.ErrConflict),
-			MatchError(state.ErrRefused),
+			SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("write conflict")),
+			),
+			MatchError(ContainSubstring("refused by the state")),
 		))
 		Expect(s.Channel(5).Segments[0].Pointers).To(HaveEach(
 			Satisfy(func(p state.Pointer) bool { return p.First <= p.Last }),
@@ -171,7 +177,10 @@ var _ = Describe("Check: state", func() {
 		id := MustSucceed(b.NewSegment(5))
 		n := MustSucceed(b.NewAlignment())
 		Expect(b.Commit(commit(2, n, 0, 60, 120, slot(id, 16)))).
-			To(MatchError(state.ErrConflict))
+			To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("write conflict")),
+			))
 		Expect(b.Close()).To(Succeed())
 		// The switch logs a Seal for each open segment that no writer holds.
 		seals := switched()

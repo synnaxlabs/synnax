@@ -5,6 +5,621 @@
   ],
   "pending": [
     {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "BodyStart",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Checkpointer",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "ChunkSize",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Clean",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Config",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Encode",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "ErrIncomplete",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Header",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Name",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "New",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Read",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "SectorSize",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Write",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "receiver": "Checkpointer",
+      "name": "Head",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "receiver": "Checkpointer",
+      "name": "Prepare",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "receiver": "Checkpointer",
+      "name": "Run",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "Ack",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "BlockSize",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "Check",
+      "caller": "sy-6575-18i-version0-check"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "Config",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "Cut",
+      "caller": "sy-6568-18b-tombstones"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "DecodeFrame",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "DecodeHeader",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "Decoder",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "DeleteReserve",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "FileSize",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "Frame",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "FrameHeaderSize",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "FramesStart",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "Header",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "HeaderCopy",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "HeaderSize",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "Log",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "MaxFrame",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "Pointer",
+      "caller": "sy-6571-18e1-replace-state"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "Replace",
+      "caller": "sy-6571-18e1-replace-state"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "Start",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "name": "Tombstone",
+      "caller": "sy-6568-18b-tombstones"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "receiver": "Ack",
+      "name": "Wait",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "receiver": "Decoder",
+      "name": "Next",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "receiver": "Decoder",
+      "name": "Reset",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "receiver": "Entry",
+      "name": "Bytes",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "receiver": "Entry",
+      "name": "Len",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "receiver": "Frame",
+      "name": "Append",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "receiver": "Header",
+      "name": "Encode",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "receiver": "Log",
+      "name": "Append",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "receiver": "Log",
+      "name": "Prepared",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
+      "receiver": "Log",
+      "name": "Run",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/place",
+      "name": "Check",
+      "caller": "sy-6575-18i-version0-check"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/place",
+      "name": "Part",
+      "caller": "sy-6569-18c-parts"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "BlockSize",
+      "caller": "sy-6568-18b-tombstones"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "Budget",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "Config",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "ErrDirSync",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "Executor",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "FixedTrailer",
+      "caller": "sy-6568-18b-tombstones"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "GoExecutor",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "Handle",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "NewBudget",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "NewWriter",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "NoStart",
+      "caller": "sy-6568-18b-tombstones"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "VariableTrailer",
+      "caller": "sy-6568-18b-tombstones"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "Version",
+      "caller": "sy-6568-18b-tombstones"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "name": "Writer",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "receiver": "Budget",
+      "name": "Create",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "receiver": "Budget",
+      "name": "Open",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "receiver": "Budget",
+      "name": "Sync",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "receiver": "Config",
+      "name": "FileOffset",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "receiver": "Config",
+      "name": "ReadAt",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "receiver": "Writer",
+      "name": "Commit",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "receiver": "Writer",
+      "name": "Len",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "receiver": "Writer",
+      "name": "Pending",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "receiver": "Writer",
+      "name": "PutBack",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "receiver": "Writer",
+      "name": "Write",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "name": "Config",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "name": "Open",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "name": "State",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "name": "Writer",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "name": "WriterConfig",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "name": "WriterKey",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "State",
+      "name": "Channel",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "State",
+      "name": "Durable",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "State",
+      "name": "Err",
+      "caller": "sy-6571-18e2-compactor"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "State",
+      "name": "OpenWriter",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "State",
+      "name": "Refused",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "State",
+      "name": "Replay",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "State",
+      "name": "Run",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "State",
+      "name": "Snapshot",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "State",
+      "name": "Switch",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "State",
+      "name": "TakeDead",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "Writer",
+      "name": "Commit",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "Writer",
+      "name": "Held",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "Writer",
+      "name": "NewAlignment",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "Writer",
+      "name": "NewSegment",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "Writer",
+      "name": "Seal",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "Writer",
+      "name": "TakeBack",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
       "module": "x/go",
       "package": "github.com/synnaxlabs/x/validate",
       "receiver": "Validator",

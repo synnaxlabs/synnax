@@ -354,11 +354,10 @@ var _ = Describe("Handle", func() {
 			It("Should refuse every call after Close", func() {
 				h := MustSucceed(newBudget(1).Create(fs, "1.seg"))
 				Expect(h.Close()).To(Succeed())
-				Expect(syncOf(h)).To(MatchError(segment.ErrClosed))
-				Expect(h.ReadAt(make([]byte, 1), 0)).Error().
-					To(MatchError(segment.ErrClosed))
-				Expect(h.WriteAt([]byte("x"), 0)).Error().
-					To(MatchError(segment.ErrClosed))
+				closed := "segment file 1.seg: segment handle is closed"
+				Expect(syncOf(h)).To(MatchError(closed))
+				Expect(h.ReadAt(make([]byte, 1), 0)).Error().To(MatchError(closed))
+				Expect(h.WriteAt([]byte("x"), 0)).Error().To(MatchError(closed))
 				Expect(h.Close()).To(Succeed())
 			})
 		})
