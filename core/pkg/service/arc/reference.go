@@ -13,7 +13,6 @@ import (
 	"math"
 	"reflect"
 	"slices"
-	"strconv"
 
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
@@ -78,8 +77,8 @@ func (c channelParams) nodeKeys(
 	return slices.Compact(keys)
 }
 
-// channelKey returns the channel key that v, a graph node's input, holds as a number
-// or as digits. ok is false for a value that is no channel key.
+// channelKey returns the channel key that v, a graph node's input, holds as a number,
+// the one form the graph compiler reads. ok is false for any other value.
 func channelKey(v any) (k channel.Key, ok bool) {
 	var n uint64
 	switch rv := reflect.ValueOf(v); rv.Kind() {
@@ -96,12 +95,6 @@ func channelKey(v any) (k channel.Key, ok bool) {
 			return 0, false
 		}
 		n = uint64(f)
-	case reflect.String:
-		parsed, err := strconv.ParseUint(rv.String(), 10, 32)
-		if err != nil {
-			return 0, false
-		}
-		n = parsed
 	default:
 		return 0, false
 	}
