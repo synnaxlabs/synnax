@@ -34,7 +34,14 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
 import { compare, type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useId, useRef, useState } from "react";
+import {
+  type ReactElement,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -556,6 +563,15 @@ const Dialog = ({
   const frameRef = useRef<HTMLDivElement>(null);
   Modals.useBusy(applying);
   const listing = useSpinner(view == null && planError == null);
+  // The dialog stays unseen until its first plan arrives or the spinner shows, so a
+  // plan inside the spinner delay opens the dialog at its final size. Once shown, it
+  // stays shown, also while a retry plans again.
+  const [painted, setPainted] = useState(false);
+  if (!painted && (view != null || planError != null || listing)) setPainted(true);
+  // A hidden dialog cannot take the focus it gets on open, so it takes it on its paint.
+  useLayoutEffect(() => {
+    if (painted) frameRef.current?.focus();
+  }, [painted]);
   const updating = useSpinner(planning && view != null);
   // The hidden pick covers only hidden blockers, so it goes out only when one exists.
   const hiddenPick =
@@ -706,7 +722,10 @@ const Dialog = ({
     plan.hidden.restrict + plan.hidden.cascade + plan.hidden.detach === 0;
 
   return (
-    <Modal.Frame ref={frameRef} className={CSS.B("impact")}>
+    <Modal.Frame
+      ref={frameRef}
+      className={CSS.cls(CSS.B("impact"), !painted && CSS.BM("impact", "unpainted"))}
+    >
       <Modal.Header icon={<Icon.Channel />} closeDisabled={applying}>
         Channel.Delete
       </Modal.Header>

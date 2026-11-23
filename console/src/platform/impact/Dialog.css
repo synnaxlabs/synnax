@@ -13,6 +13,11 @@
     width: 110rem;
 }
 
+/* Lyra sets the dialog's opacity, so the wait hides it by visibility. */
+.console-impact--unpainted {
+    visibility: hidden;
+}
+
 .console-impact__body {
     -webkit-user-select: text;
     user-select: text;

@@ -34,7 +34,7 @@ import {
   within,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Channel } from "@/feature/channel";
 import { findLastButton } from "@/platform/modals/testutil";
@@ -315,6 +315,48 @@ describe("channel/tree", () => {
       await clickDelete();
       await expectGone(async () => await client.channels.retrieve(ch.key));
       await expectGone(async () => await client.tasks.retrieve({ key: task.key }));
+    });
+
+    it("keeps the dialog unseen until its first plan arrives", async () => {
+      const ch = await createChannel();
+      await createReadTask(ch.key);
+      await renderChannelTree(hostChannels(ch));
+      await openTreeRowContextMenu(ch.name);
+      fireEvent.click(await screen.findByText("Delete"));
+      // A dialog that waits for its plan is hidden from the accessibility tree too.
+      const dialog = screen.getByRole("dialog", { hidden: true });
+      expect(dialog).not.toBeVisible();
+      await screen.findByRole("region", { name: "Blocks the delete" });
+      expect(dialog).toBeVisible();
+      expect(dialog).toHaveFocus();
+    });
+
+    it("shows the spinner when the plan is slow, then the records", async () => {
+      const ch = await createChannel();
+      await createReadTask(ch.key);
+      await renderChannelTree(hostChannels(ch));
+      await openTreeRowContextMenu(ch.name);
+      const item = await screen.findByText("Delete");
+      // Everything under fake timers runs at once, so the plan is still in flight when
+      // the spinner delay ends.
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      let dialog: HTMLElement;
+      try {
+        fireEvent.click(item);
+        dialog = screen.getByRole("dialog", { hidden: true });
+        expect(dialog).not.toBeVisible();
+        act(() => {
+          vi.advanceTimersByTime(1000);
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(dialog).toBeVisible();
+      screen.getByText("Listing the records that this delete touches");
+      await screen.findByRole("region", { name: "Blocks the delete" });
+      expect(
+        screen.queryByText("Listing the records that this delete touches"),
+      ).toBeNull();
     });
 
     it("deletes every task that blocks the delete with one check", async () => {
