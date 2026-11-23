@@ -96,7 +96,7 @@ const SaveButton = ({ children, variant, onClick }: SaveButtonProps): ReactEleme
       disabled={blocked}
       tooltip={
         blocked
-          ? "A part has a level motion that cannot draw. Select the part to see why."
+          ? "A part has a fill motion that cannot draw. Select the part to see why."
           : undefined
       }
       trigger={Triggers.SAVE}

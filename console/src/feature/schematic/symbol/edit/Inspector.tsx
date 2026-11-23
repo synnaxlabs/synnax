@@ -22,7 +22,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type bounds, type color, TimeSpan } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useState } from "react";
+import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
 import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
@@ -193,13 +193,42 @@ const BlinkControl = (): ReactElement => {
   );
 };
 
-type MotionKind = "none" | "spin" | "flow";
+type MotionKind = schematic.symbol.Motion["type"];
+type Loop = Extract<MotionKind, "spin" | "flow">;
+
+interface MotionGroup {
+  name: string;
+  kinds: { kind: MotionKind; name: string }[];
+}
+
+// MOTIONS groups the kinds by how they move. The picker offers only the loops, since
+// a motion that follows a value needs a number state.
+const MOTIONS: MotionGroup[] = [
+  {
+    name: "Follow a value",
+    kinds: [
+      { kind: "level", name: "Fill" },
+      { kind: "rotate", name: "Rotation" },
+      { kind: "move", name: "Position" },
+    ],
+  },
+  {
+    name: "Loop",
+    kinds: [
+      { kind: "spin", name: "Spin" },
+      { kind: "flow", name: "Flow" },
+    ],
+  },
+];
+
+const isLoop = (kind: MotionKind): kind is Loop => kind === "spin" || kind === "flow";
+
 const RATE_BOUNDS: bounds.Bounds = { lower: 0, upper: Infinity };
 
 const MotionControl = (): ReactElement => {
   const { value, onChange, label } = useScope<"motion">("MotionControl");
   const moving = value?.type === "spin" || value?.type === "flow" ? value : undefined;
-  const handleKindChange = (kind: MotionKind) => {
+  const handleKindChange = (kind: Loop | "none") => {
     if (kind === "none") return onChange(undefined);
     onChange(
       moving == null
@@ -208,7 +237,36 @@ const MotionControl = (): ReactElement => {
     );
   };
   return (
-    <Flex.Box x align="center" gap="small">
+    <Flex.Box y align="end" gap="small">
+      <Select.Buttons<Loop | "none">
+        value={value == null ? "none" : moving?.type}
+        onChange={handleKindChange}
+        size="small"
+        align="center"
+      >
+        <Select.Item itemKey="none" size="small">
+          None
+        </Select.Item>
+        {MOTIONS.map(({ name, kinds }) => {
+          const offered = kinds.filter((k): k is { kind: Loop; name: string } =>
+            isLoop(k.kind),
+          );
+          if (offered.length === 0) return null;
+          return (
+            <Fragment key={name}>
+              <Divider.Divider y />
+              <Text.Text level="small" color={8}>
+                {name}
+              </Text.Text>
+              {offered.map((k) => (
+                <Select.Item key={k.kind} itemKey={k.kind} size="small">
+                  {k.name}
+                </Select.Item>
+              ))}
+            </Fragment>
+          );
+        })}
+      </Select.Buttons>
       {moving != null && (
         <Input.Numeric
           aria-label={`${label} rate`}
@@ -221,21 +279,6 @@ const MotionControl = (): ReactElement => {
           className={CSS.BE("schematic-inspector", "rate")}
         />
       )}
-      <Select.Buttons<MotionKind>
-        value={value == null ? "none" : moving?.type}
-        onChange={handleKindChange}
-        size="small"
-      >
-        <Select.Item itemKey="none" size="small">
-          None
-        </Select.Item>
-        <Select.Item itemKey="spin" size="small">
-          Spin
-        </Select.Item>
-        <Select.Item itemKey="flow" size="small">
-          Flow
-        </Select.Item>
-      </Select.Buttons>
     </Flex.Box>
   );
 };
@@ -250,14 +293,14 @@ export interface InspectorProps {
 const LEVEL_ISSUES: Record<Spec.LevelIssue, { message: string; description: string }> =
   {
     shapes: {
-      message: "Level motion needs one shape",
+      message: "Fill motion needs one shape",
       description:
-        "Level motion fills each shape in this part by its own box. Put the shapes in one group in the drawing and make the group the part, or remove the motion from the part to save.",
+        "Fill motion fills each shape in this part by its own box. Put the shapes in one group in the drawing and make the group the part, or remove the motion from the part to save.",
     },
     clip: {
-      message: "Level motion replaces a clip-path",
+      message: "Fill motion replaces a clip-path",
       description:
-        "A shape in this part has its own clip-path, which level motion would replace. Remove the clip-path from the drawing or the motion from the part to save.",
+        "A shape in this part has its own clip-path, which fill motion would replace. Remove the clip-path from the drawing or the motion from the part to save.",
     },
   };
 

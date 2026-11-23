@@ -243,6 +243,14 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("offers the loop motions in a Loop group", async () => {
+      await createWithPart();
+      expect(screen.getByText("Loop")).toBeDefined();
+      expect(screen.getByText("Spin")).toBeDefined();
+      expect(screen.getByText("Flow")).toBeDefined();
+      expect(screen.queryByText("Follow a value")).toBeNull();
+    });
+
     it("saves a spin at the rate that its field shows whole", async () => {
       const createKey = await createWithPart();
       fireEvent.click(screen.getByText("Spin"));
@@ -606,13 +614,13 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      expect(screen.getByText("Level motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
       expect(findButton("Save").getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(screen.getByText("Spin"));
       await waitFor(() =>
         expect(findButton("Save").getAttribute("aria-disabled")).toBeNull(),
       );
-      expect(screen.queryByText("Level motion needs one shape")).toBeNull();
+      expect(screen.queryByText("Fill motion needs one shape")).toBeNull();
     });
 
     it("blocks the save while a level motion would replace a clip-path", async () => {
@@ -634,7 +642,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      const reason = "Level motion replaces a clip-path";
+      const reason = "Fill motion replaces a clip-path";
       expect(screen.getByText(reason)).toBeDefined();
       expect(findButton("Save").getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(screen.getByText("None"));
