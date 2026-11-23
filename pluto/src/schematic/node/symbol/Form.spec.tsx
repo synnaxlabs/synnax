@@ -288,6 +288,30 @@ describe("Symbol form", () => {
       ]);
     });
 
+    it("should start a within match at 0.9 to 1.1 on an exact symbol", async () => {
+      const exact = await client.schematics.symbols.create({
+        name: "Lamp",
+        data: schematic.symbol.specZ.parse({
+          drawing: { type: "svg", markup: "<svg/>" },
+          variant: "static",
+          states: [{ type: "enumeration", key: "active", name: "Active" }],
+        }),
+      });
+      const { findByText, value } = renderForm(
+        <Form tab="telemetry" onTabChange={vi.fn()} />,
+        parse({ spec: { type: "custom", key: exact.key } }),
+        schematic.symbolNodeConfigZ,
+        wrapper,
+      );
+      fireEvent.click(await findByText("Within"));
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({
+          key: "active",
+          match: { type: "within", bounds: { lower: 0.9, upper: 1.1 } },
+        }),
+      ]);
+    });
+
     it("should list only the commands with no state", async () => {
       const { findByText, queryByText } = renderForm(
         <Form tab="control" onTabChange={vi.fn()} />,
