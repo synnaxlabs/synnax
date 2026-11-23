@@ -212,7 +212,7 @@ var _ driver.Writer = (*edgeSession)(nil)
 // Open implements driver.Sink. It connects with the current properties of the broker
 // device, and returns after the first connection attempt. It returns an error when the
 // edge node cannot take those properties.
-func (n *edgeNode) Open(ctx context.Context) (driver.Writer, error) {
+func (n *edgeNode) Open(ctx context.Context, _ *driver.Skips) (driver.Writer, error) {
 	e := &edgeSession{
 		edgeNode: n,
 		commands: make(chan sparkplug.Command, commandBacklog),

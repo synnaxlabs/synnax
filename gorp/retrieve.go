@@ -634,7 +634,7 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 			continue
 		}
 		var e E
-		_, match, err := r.read(gorpCtx, reader, k, nil, &e)
+		_, match, err := r.read(gorpCtx, reader, k, r.prefix, &e)
 		if err != nil {
 			return err
 		}
