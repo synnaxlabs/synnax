@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -96,10 +97,10 @@ func grant(
 // tcp returns a TCP connection to host on the Modbus port.
 func tcp(host string) server.Connection {
 	return server.Connection{Variant: server.TcpConnection{
-		TimeoutMs: 1000,
-		Retries:   1,
-		Host:      host,
-		Port:      502,
-		UnitID:    255,
+		Timeout: telem.Second,
+		Retries: 1,
+		Host:    host,
+		Port:    502,
+		UnitID:  255,
 	}}
 }

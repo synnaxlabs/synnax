@@ -99,9 +99,8 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 		})
 	case ConfigurationUpdate:
 		return w.update(ctx, key, func(s Server) (Server, error) {
-			s.ReadIndex = v.ReadIndex
-			s.ReadChannels = v.ReadChannels
-			s.WriteChannels = v.WriteChannels
+			s.Reads = v.Reads
+			s.Writes = v.Writes
 			return s, nil
 		})
 	default:

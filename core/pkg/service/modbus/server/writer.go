@@ -12,12 +12,15 @@ package server
 import (
 	"context"
 	"slices"
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -25,8 +28,28 @@ import (
 // baudRates are the rates that the Driver can set on every platform.
 var baudRates = []uint32{1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400}
 
-// validateServer checks s against its schema, and checks that an RTU baud rate is one
-// that the Driver can set.
+// registerKey is a comparable form of a Register.
+type registerKey struct {
+	typ      RegisterType
+	address  uint16
+	dataType DataType
+	bit      int
+}
+
+func keyOf(r Register) registerKey {
+	k := registerKey{typ: r.Type, address: r.Address, bit: -1}
+	if r.DataType != nil {
+		k.dataType = *r.DataType
+	}
+	if r.Bit != nil {
+		k.bit = int(*r.Bit)
+	}
+	return k
+}
+
+// validateServer checks s against its schema. It also checks that an RTU baud rate is
+// one that the Driver can set, that no two reads share a register and an index, and
+// that no two writes share a register.
 func validateServer(s Server) error {
 	if err := s.Validate(); err != nil {
 		return err
@@ -39,6 +62,30 @@ func validateServer(s Server) error {
 			"must be one of %v",
 			baudRates,
 		)
+	}
+	type readKey struct {
+		register registerKey
+		index    channel.Key
+	}
+	reads := set.New[readKey]()
+	for i, r := range s.Reads {
+		k := readKey{register: keyOf(r.Register), index: r.Index}
+		v.Ternary(
+			"reads."+strconv.Itoa(i),
+			reads.Contains(k),
+			"repeats the register and index of another read",
+		)
+		reads.Add(k)
+	}
+	writes := set.New[registerKey]()
+	for i, w := range s.Writes {
+		k := keyOf(w.Register)
+		v.Ternary(
+			"writes."+strconv.Itoa(i),
+			writes.Contains(k),
+			"repeats the register of another write",
+		)
+		writes.Add(k)
 	}
 	return v.Error()
 }

@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/server"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -50,7 +51,7 @@ func tcp(host string) server.Connection {
 // rtu returns an RTU connection to a unit on /dev/ttyUSB0 at the baud rate.
 func rtu(baud uint32) server.Connection {
 	return server.Connection{Variant: server.RtuConnection{
-		TimeoutMs:  1000,
+		Timeout:    telem.Second,
 		Retries:    1,
 		SerialPort: "/dev/ttyUSB0",
 		BaudRate:   baud,
@@ -66,5 +67,26 @@ func requests() server.Requests {
 		MaxRegisters: 125,
 		MaxGap:       125,
 		WriteCodes:   server.WriteCodesMultiple,
+	}
+}
+
+// read binds a float32 holding register at address to channel under index.
+func read(address uint16, index, ch channel.Key) server.Read {
+	return server.Read{
+		Register: server.Register{
+			Type:     server.RegisterTypeHoldingRegister,
+			Address:  address,
+			DataType: new(server.DataTypeFloat32),
+		},
+		Index:   index,
+		Channel: ch,
+	}
+}
+
+// write binds the coil at address to channel.
+func write(address uint16, ch channel.Key) server.Write {
+	return server.Write{
+		Register: server.Register{Type: server.RegisterTypeCoil, Address: address},
+		Channel:  ch,
 	}
 }

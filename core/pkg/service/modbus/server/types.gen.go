@@ -14,12 +14,12 @@ package server
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/server/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key uniquely identifies a Modbus server.
@@ -287,12 +287,23 @@ func (i Identity) Validate() error {
 
 // Configuration holds the server fields that the task forms own.
 type Configuration struct {
-	// ReadIndex is the index channel of the channels that read tasks write to.
-	ReadIndex channel.Key `json:"read_index" msgpack:"read_index"`
-	// ReadChannels maps a register to the channel that holds its samples.
-	ReadChannels map[string]channel.Key `json:"read_channels" msgpack:"read_channels"`
-	// WriteChannels maps a register to the channel that commands it.
-	WriteChannels map[string]channel.Key `json:"write_channels" msgpack:"write_channels"`
+	// Reads bind the values that read tasks read to their channels.
+	Reads []Read `json:"reads" msgpack:"reads"`
+	// Writes bind the values that write tasks write to their command channels.
+	Writes []Write `json:"writes" msgpack:"writes"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Configuration) Validate() error {
+	v := validate.New("Configuration")
+	for i := range c.Reads {
+		v.Exec(func() error { return validate.PathedError(c.Reads[i].Validate(), "reads", strconv.Itoa(i)) })
+	}
+	for i := range c.Writes {
+		v.Exec(func() error { return validate.PathedError(c.Writes[i].Validate(), "writes", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // UpdateType is the "group" value that selects a variant of Update.
@@ -338,6 +349,14 @@ type ConfigurationUpdate struct {
 }
 
 func (ConfigurationUpdate) isUpdateVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c ConfigurationUpdate) Validate() error {
+	v := validate.New("ConfigurationUpdate")
+	v.Exec(c.Configuration.Validate)
+	return v.Error()
+}
 
 // Update is a write to one field group of a server.
 type Update struct {
@@ -431,6 +450,8 @@ func (u Update) Validate() error {
 	v.Ternary("group", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case IdentityUpdate:
+		v.Exec(variant.Validate)
+	case ConfigurationUpdate:
 		v.Exec(variant.Validate)
 	}
 	return v.Error()

@@ -14,8 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/server"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
@@ -32,9 +32,8 @@ var _ = Describe("Update", func() {
 	}}
 	configuration := server.Update{Variant: server.ConfigurationUpdate{
 		Configuration: server.Configuration{
-			ReadIndex:     1,
-			ReadChannels:  map[string]channel.Key{"holding-register-5-float32": 2},
-			WriteChannels: map[string]channel.Key{"coil-1": 3},
+			Reads:  []server.Read{read(5, 1, 2)},
+			Writes: []server.Write{write(1, 3)},
 		},
 	}}
 
@@ -121,11 +120,11 @@ var _ = Describe("Update", func() {
 			Rack: 1,
 			Name: "Boiler PLC",
 			Connection: server.Connection{Variant: server.TcpConnection{
-				TimeoutMs: 1000,
-				Retries:   1,
-				Host:      "plc",
-				Port:      502,
-				UnitID:    255,
+				Timeout: telem.Second,
+				Retries: 1,
+				Host:    "plc",
+				Port:    502,
+				UnitID:  255,
 			}},
 			Requests: requests(),
 		}

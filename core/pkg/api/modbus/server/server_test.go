@@ -359,13 +359,22 @@ var _ = Describe("Service", func() {
 
 		It("Should write only the identity group", func(ctx SpecContext) {
 			s := createServer(ctx, func(s *server.Server) {
-				s.ReadChannels = map[string]channel.Key{"holding-register-5-float32": 1}
+				s.Reads = []server.Read{
+					{
+						Register: server.Register{
+							Type:    server.RegisterTypeCoil,
+							Address: 5,
+						},
+						Index:   1,
+						Channel: 2,
+					},
+				}
 			})
 			grantWrites(ctx, s.Rack)
 			MustSucceed(update(testutil.AuthedCtx(ctx, u), rename(s)))
 			got := retrieveServer(ctx, s.Key)
 			Expect(got.Name).To(Equal("Renamed"))
-			Expect(got.ReadChannels).To(Equal(s.ReadChannels))
+			Expect(got.Reads).To(Equal(s.Reads))
 		})
 
 		It("Should write only the configuration group", func(ctx SpecContext) {
@@ -377,15 +386,20 @@ var _ = Describe("Service", func() {
 					Key: s.Key,
 					Update: server.Update{Variant: server.ConfigurationUpdate{
 						Configuration: server.Configuration{
-							WriteChannels: map[string]channel.Key{"coil-1": 2},
+							Writes: []server.Write{{
+								Register: server.Register{
+									Type:    server.RegisterTypeCoil,
+									Address: 1,
+								},
+								Channel: 2,
+							}},
 						},
 					}},
 				},
 			))
 			got := retrieveServer(ctx, s.Key)
-			Expect(
-				got.WriteChannels,
-			).To(HaveKeyWithValue("coil-1", channel.Key(2)))
+			Expect(got.Writes).To(HaveLen(1))
+			Expect(got.Writes[0].Channel).To(Equal(channel.Key(2)))
 			Expect(got.Name).To(Equal(s.Name))
 		})
 

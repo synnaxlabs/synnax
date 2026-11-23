@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/server"
@@ -27,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -134,6 +134,12 @@ var _ = Describe("Service", func() {
 			Expect(st.Details.Rack).To(Equal(s.Rack))
 		})
 
+		It("Should accept one register read into two indexes", func(ctx SpecContext) {
+			s := newServer()
+			s.Reads = []server.Read{read(5, 1, 2), read(5, 3, 4)}
+			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+		})
+
 		It("Should keep a caller-set key", func(ctx SpecContext) {
 			s := newServer()
 			s.Key = uuid.New()
@@ -170,6 +176,12 @@ var _ = Describe("Service", func() {
 				s.Connection = rtu(14400)
 			}),
 			Entry("a missing rack", func(s *server.Server) { s.Rack = 999 }),
+			Entry("two reads of one register into one index", func(s *server.Server) {
+				s.Reads = []server.Read{read(5, 1, 2), read(5, 1, 3)}
+			}),
+			Entry("two writes of one register", func(s *server.Server) {
+				s.Writes = []server.Write{write(1, 2), write(1, 3)}
+			}),
 		)
 	})
 
@@ -178,22 +190,20 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			s := newServer()
-			s.ReadIndex = 4
-			s.ReadChannels = map[string]channel.Key{"holding-register-5-float32": 5}
+			s.Reads = []server.Read{read(5, 4, 5)}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 			update := identity(s)
 			update.Name = "Renamed"
 			update.Connection = rtu(9600)
-			update.Requests.DelayMs = 10
+			update.Requests.Delay = 10 * telem.Millisecond
 			Expect(svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
 				Variant: server.IdentityUpdate{Identity: update},
 			})).To(Succeed())
 			got := retrieve(ctx, s.Key)
 			Expect(got.Name).To(Equal("Renamed"))
 			Expect(got.Connection).To(Equal(rtu(9600)))
-			Expect(got.Requests.DelayMs).To(BeEquivalentTo(10))
-			Expect(got.ReadIndex).To(Equal(s.ReadIndex))
-			Expect(got.ReadChannels).To(Equal(s.ReadChannels))
+			Expect(got.Requests.Delay).To(Equal(10 * telem.Millisecond))
+			Expect(got.Reads).To(Equal(s.Reads))
 			Expect(retrieveStatus(ctx, s.Key).Name).To(Equal("Renamed"))
 		})
 
@@ -203,17 +213,16 @@ var _ = Describe("Service", func() {
 			s := create(ctx)
 			Expect(svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
 				Variant: server.ConfigurationUpdate{Configuration: server.Configuration{
-					ReadIndex:     1,
-					ReadChannels:  map[string]channel.Key{"coil-1": 2},
-					WriteChannels: map[string]channel.Key{"coil-2": 3},
+					Reads:  []server.Read{read(1, 1, 2)},
+					Writes: []server.Write{write(2, 3)},
 				}},
 			})).To(Succeed())
 			got := retrieve(ctx, s.Key)
 			Expect(got.Name).To(Equal(s.Name))
 			Expect(got.Connection).To(Equal(s.Connection))
 			Expect(got.Requests).To(Equal(s.Requests))
-			Expect(got.ReadIndex).To(Equal(channel.Key(1)))
-			Expect(got.WriteChannels).To(HaveKeyWithValue("coil-2", channel.Key(3)))
+			Expect(got.Reads).To(Equal([]server.Read{read(1, 1, 2)}))
+			Expect(got.Writes).To(Equal([]server.Write{write(2, 3)}))
 		})
 
 		It("Should move the status with the rack", func(ctx SpecContext) {

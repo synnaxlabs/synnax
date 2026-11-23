@@ -478,16 +478,11 @@ Identity struct {
 }
 
 Configuration struct {
-    read_index     channel.Key = 0 {
-        @doc value "is the index channel of the channels that read tasks write to."
+    reads  Read[] = [] {
+        @doc value "bind the values that read tasks read to their channels."
     }
-    read_channels  map<string, channel.Key> = {} {
-        @doc value        "maps a register to the channel that holds its samples."
-        @ts preserve_keys
-    }
-    write_channels map<string, channel.Key> = {} {
-        @doc value        "maps a register to the channel that commands it."
-        @ts preserve_keys
+    writes Write[] = [] {
+        @doc value "bind the values that write tasks write to their command channels."
     }
 
     @doc value "holds the server fields that the task forms own."
