@@ -209,7 +209,7 @@ const Stress = (): ReactElement => {
           <Input.Numeric
             value={count}
             onChange={setCount}
-            bounds={{ lower: 0, upper: 1001 }}
+            bounds={{ lower: 0, upper: 1000 }}
           />
         </Input.Item>
         <Text.Text level="p">{fps} frames a second</Text.Text>
@@ -241,7 +241,7 @@ export const MotionShowcase = (): ReactElement => {
             <Input.Numeric
               value={value}
               onChange={setValue}
-              bounds={{ lower: 0, upper: 101 }}
+              bounds={{ lower: 0, upper: 100 }}
             />
           </Input.Item>
           <Input.Item label="Stale" x>
