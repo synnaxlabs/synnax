@@ -1,0 +1,111 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
+
+import { type channel } from "@/channel";
+import { NotFoundError } from "@/index";
+import { createTestClient, secondsLinspace, spyOnSend } from "@/testutil";
+
+const client = createTestClient();
+const remote = createTestClient();
+
+const virtual = (name: string): channel.New => ({
+  name,
+  dataType: DataType.FLOAT64,
+  virtual: true,
+});
+
+const digits = (): string => `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+
+describe("breaker2 channel lookups", () => {
+  describe("delete", () => {
+    it("should delete the channel named by digit text in a mixed list, not the channel with that key", async () => {
+      const other = await client.channels.create(virtual(id.create()));
+      const victim = await client.channels.create(virtual(id.create()));
+      const named = await client.channels.create(virtual(String(victim.key)));
+      await client.channels.delete([other.key, named.name] as unknown as channel.Key[]);
+      expect((await client.channels.retrieve(victim.key)).key).toEqual(victim.key);
+      await expect(client.channels.retrieve(named.key)).rejects.toThrow(NotFoundError);
+    });
+
+    it("should delete the data of the channel named by digit text in a mixed list", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const victim = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const named = await client.channels.create({
+        name: String(victim.key),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      for (const ch of [index, victim, named])
+        await client.write(TimeStamp.seconds(1), ch.key, secondsLinspace(1, 3));
+      await client.delete(
+        [index.key, named.name] as unknown as channel.Key[],
+        TimeRange.MAX,
+      );
+      expect((await client.read(TimeRange.MAX, victim.key)).length).toEqual(3);
+      expect((await client.read(TimeRange.MAX, named.key)).length).toEqual(0);
+    });
+  });
+
+  describe("list retrieve", () => {
+    it("should retrieve a digit name with the store cold", async () => {
+      const name = digits();
+      const made = await remote.channels.create(virtual(name));
+      const local = createTestClient();
+      const got = await local.channels.retrieve([name]);
+      expect(got.map((c) => c.key)).toEqual([made.key]);
+    });
+
+    it("should retrieve a list of one cached key with no channel retrieve", async () => {
+      const local = createTestClient();
+      await local.connect();
+      const ch = await local.channels.create(virtual(id.create()));
+      const send = spyOnSend(local);
+      try {
+        const got = await local.channels.retrieve([ch.key]);
+        expect(got.map((c) => c.key)).toEqual([ch.key]);
+        expect(
+          send.mock.calls.filter(([target]) => target === "/channel/retrieve"),
+        ).toHaveLength(0);
+      } finally {
+        send.mockRestore();
+      }
+    });
+
+    it("should retrieve a digit name and the channel whose key it spells", async () => {
+      const other = await client.channels.create(virtual(id.create()));
+      const named = await client.channels.create(virtual(String(other.key)));
+      const byName = await client.channels.retrieve([named.name]);
+      expect(byName.map((c) => c.key)).toEqual([named.key]);
+      const single = await client.channels.retrieve(named.name);
+      expect(single.key).toEqual(named.key);
+      const mixed = await client.channels.retrieve([other.key, named.name]);
+      expect(mixed.map((c) => c.key).sort()).toEqual([other.key, named.key].sort());
+    });
+
+    it("should read leading zeros as a name", async () => {
+      const name = `00${digits()}`;
+      const made = await client.channels.create(virtual(name));
+      expect((await client.channels.retrieve(name)).key).toEqual(made.key);
+      expect((await client.channels.retrieve([name])).map((c) => c.key)).toEqual([
+        made.key,
+      ]);
+    });
+  });
+});
