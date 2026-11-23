@@ -47,7 +47,7 @@ func autoMigrateAnalogWriteConfig(ctx context.Context, old v3.AnalogWriteConfig)
 
 func autoMigrateCounterReadConfig(ctx context.Context, old v3.CounterReadConfig) (CounterReadConfig, error) {
 	channels, err := lo.MapErr(old.Channels, func(v v3.CIChannel, _ int) (CIChannel, error) {
-		return autoMigrateCIChannel(ctx, v)
+		return MigrateCIChannel(ctx, v)
 	})
 	if err != nil {
 		return CounterReadConfig{}, err
@@ -574,7 +574,6 @@ func autoMigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, err
 			Units:         variant.Units,
 			Edge:          variant.Edge,
 			MeasMethod:    variant.MeasMethod,
-			MeasTime:      variant.MeasTime,
 			Divisor:       variant.Divisor,
 			Terminal:      variant.Terminal,
 		}}, nil
@@ -602,7 +601,6 @@ func autoMigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, err
 			Units:         variant.Units,
 			StartingEdge:  variant.StartingEdge,
 			MeasMethod:    variant.MeasMethod,
-			MeasTime:      variant.MeasTime,
 			Divisor:       variant.Divisor,
 			Terminal:      variant.Terminal,
 		}}, nil

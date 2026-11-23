@@ -1624,7 +1624,7 @@ inline x::errors::Error apply(
     const auto edge = get_ci_edge(ch.edge);
     const auto max_val = ch.max_val;
     const auto meas_method = get_ci_meas_method(ch.meas_method);
-    const auto meas_time = ch.meas_time;
+    const auto meas_time = ch.meas_time.seconds();
     const auto min_val = ch.min_val;
     const auto terminal = ch.terminal;
     auto [units, units_err] = parse_units(ch.units);
@@ -1806,7 +1806,7 @@ inline x::errors::Error apply(
     const auto edge = get_ci_edge(ch.starting_edge);
     const auto max_val = ch.max_val;
     const auto meas_method = get_ci_meas_method(ch.meas_method);
-    const auto meas_time = ch.meas_time;
+    const auto meas_time = ch.meas_time.seconds();
     const auto min_val = ch.min_val;
     const auto terminal = ch.terminal;
     auto [units, units_err] = parse_units(ch.units);
