@@ -9,9 +9,9 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { SCAN_TYPE } from "@/feature/mqtt/device/scan";
 import { INTEGRATION_KEY, MAKE } from "@/feature/mqtt/device/types";
 import { Connect } from "@/feature/mqtt/device/useConnectModal";
-import { SCAN_TYPE } from "@/feature/mqtt/task/types";
 import type { Device } from "@/platform/device";
 
 export const NETWORK: Device.Network = {
