@@ -363,12 +363,9 @@ func (s *Service) retrieve(
 	snap bind.Snapshot,
 	req RetrieveRequest,
 ) ([]channel.Channel, error) {
-	if req.Where != nil && readsOutputs(*req.Where) {
-		outputs, err := s.outputs(ctx, snap)
-		if err != nil {
-			return nil, err
-		}
-		where := withOutputs(*req.Where, outputs)
+	calculated := req.Where != nil && holdsCalculated(*req.Where)
+	if req.Where != nil && hasVirtual(*req.Where) {
+		where := withOldVirtual(*req.Where)
 		req.Where = &where
 	}
 	var res []channel.Channel
@@ -377,13 +374,20 @@ func (s *Service) retrieve(
 		return nil, err
 	}
 	named := namesByName(req.Where)
+	holders := named && calculated
 	if !named {
 		q = q.Where(bind.Filter(snap, channel.Match))
+	} else if holders {
+		// The calculated line must not show, by what it leaves out, which holders of a
+		// name are outputs.
+		if err = s.enforceHolders(ctx, snap, *req.Where.Name); err != nil {
+			return nil, err
+		}
 	}
 	if err = q.Exec(ctx, snap.Snapshot); err != nil {
 		return nil, err
 	}
-	if named {
+	if named && !holders {
 		if err = snap.Enforce(channel.ResourceIDsFromChannels(res)...); err != nil {
 			return nil, err
 		}
@@ -391,71 +395,65 @@ func (s *Service) retrieve(
 	return res, nil
 }
 
-// outputs returns the output of every calculation, whether or not the subject of snap
-// can retrieve the calculation. A channel that the subject cannot retrieve stays out of
-// a retrieve through the channel access filter.
-func (s *Service) outputs(
+// enforceHolders returns an error unless the subject of snap can retrieve every channel
+// that name matches.
+func (s *Service) enforceHolders(
 	ctx context.Context,
 	snap bind.Snapshot,
-) ([]channel.Key, error) {
-	var calcs []calculation.Calculation
-	if err := s.calculations.NewRetrieve().Entries(&calcs).Exec(ctx, snap); err != nil {
-		return nil, err
+	name filter.String,
+) error {
+	var holders []channel.Channel
+	q, err := ApplyRetrieve(
+		RetrieveRequest{Where: &channel.Where{Name: &name}},
+		s.internal.NewRetrieve().Entries(&holders),
+	)
+	if err != nil {
+		return err
 	}
-	return lo.Map(calcs, func(c calculation.Calculation, _ int) channel.Key {
-		return c.Output
-	}), nil
+	if err = q.Exec(ctx, snap.Snapshot); err != nil {
+		return err
+	}
+	return snap.Enforce(channel.ResourceIDsFromChannels(holders)...)
 }
 
-// readsOutputs reports whether w or a child of w holds a line that the outputs of
-// calculations decide: virtual or calculated.
-func readsOutputs(w channel.Where) bool {
-	return w.Virtual != nil || w.Calculated != nil ||
-		slices.ContainsFunc(w.And, readsOutputs) ||
-		slices.ContainsFunc(w.Or, readsOutputs) ||
-		(w.Not != nil && readsOutputs(*w.Not))
+// holdsCalculated reports whether w or a child of w filters on calculated.
+func holdsCalculated(w channel.Where) bool {
+	return w.Calculated != nil ||
+		slices.ContainsFunc(w.And, holdsCalculated) ||
+		slices.ContainsFunc(w.Or, holdsCalculated) ||
+		(w.Not != nil && holdsCalculated(*w.Not))
 }
 
-// withOutputs returns w with each line that outputs decide replaced by a match on
-// outputs, the outputs of every calculation.
-func withOutputs(w channel.Where, outputs []channel.Key) channel.Where {
+// hasVirtual reports whether w or a child of w filters on virtual.
+func hasVirtual(w channel.Where) bool {
+	return w.Virtual != nil ||
+		slices.ContainsFunc(w.And, hasVirtual) ||
+		slices.ContainsFunc(w.Or, hasVirtual) ||
+		(w.Not != nil && hasVirtual(*w.Not))
+}
+
+// withOldVirtual returns w with the meaning of virtual that the old channel API keeps:
+// a calculation's output is not virtual.
+func withOldVirtual(w channel.Where) channel.Where {
 	// An empty Or matches nothing, so a nil child list stays nil.
 	if w.And != nil {
 		w.And = lo.Map(w.And, func(c channel.Where, _ int) channel.Where {
-			return withOutputs(c, outputs)
+			return withOldVirtual(c)
 		})
 	}
 	if w.Or != nil {
 		w.Or = lo.Map(w.Or, func(c channel.Where, _ int) channel.Where {
-			return withOutputs(c, outputs)
+			return withOldVirtual(c)
 		})
 	}
 	if w.Not != nil {
-		not := withOutputs(*w.Not, outputs)
+		not := withOldVirtual(*w.Not)
 		w.Not = &not
 	}
-	if w.Calculated != nil {
-		output := channel.Where{Key: &filter.Set[channel.Key]{In: outputs}}
-		if !*w.Calculated {
-			output = channel.Where{Not: &channel.Where{Key: output.Key}}
-		}
-		w.Calculated = nil
-		w.And = append(slices.Clip(w.And), output)
-	}
-	return withOldVirtual(w, outputs)
-}
-
-// withOldVirtual returns w with the meaning of virtual that the old channel API keeps:
-// a calculation's output is not virtual. It changes only the top level of w.
-func withOldVirtual(w channel.Where, outputs []channel.Key) channel.Where {
-	if w.Virtual == nil || len(outputs) == 0 {
+	if w.Virtual == nil {
 		return w
 	}
-	output := channel.Where{Key: &filter.Set[channel.Key]{In: outputs}}
-	virtual := channel.Where{And: []channel.Where{
-		{Virtual: new(true)},
-		{Not: &output},
-	}}
+	virtual := channel.Where{Virtual: new(true), Calculated: new(false)}
 	rest := w
 	rest.Virtual = nil
 	if *w.Virtual {

@@ -117,14 +117,17 @@ var _ = Describe("Where", Ordered, func() {
 		lo.FilterMap(
 			v.Cases,
 			func(c vectors.Case[channel.Where], _ int) (TableEntry, bool) {
-				// Only the channel API knows the outputs of calculations, so it runs
-				// these cases.
+				// The service of this suite has no outputs source, and the API keeps
+				// the
+				// old meaning of virtual, so the API runs these cases.
 				return Entry(c.Name, c), !readsOutputs(c.Where)
 			},
 		),
 	)
 
-	It("Should fail a retrieve that holds the calculated line", func(ctx SpecContext) {
+	It("Should fail a retrieve on the calculated line with no outputs source", func(
+		ctx SpecContext,
+	) {
 		f := MustSucceed(channel.MatchWhere(channel.Where{
 			Not: &channel.Where{Calculated: new(true)},
 		}))
@@ -132,7 +135,7 @@ var _ = Describe("Where", Ordered, func() {
 			Where(f).
 			Entries(&[]channel.Channel{}).
 			Exec(ctx, chDB)).
-			To(MatchError("only the channel API can match the calculated line"))
+			To(MatchError("the channel service has no source of calculation outputs"))
 	})
 
 	It("Should return a path error for an invalid regex", func() {

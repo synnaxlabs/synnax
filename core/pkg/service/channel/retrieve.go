@@ -10,6 +10,7 @@
 package channel
 
 import (
+	"context"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/gorp"
@@ -22,6 +23,8 @@ type Retrieve struct {
 	indexes indexes
 	// builtIn holds the filters of MatchInternal.
 	builtIn *builtInFilters
+	// calculated holds the filters of MatchCalculated.
+	calculated *calculatedFilters
 }
 
 // builtInFilters holds the filters of MatchInternal for one Service. The Service builds
@@ -52,15 +55,42 @@ func MatchInternal(internal bool) Filter {
 	return matchNotBuiltIn
 }
 
-// MatchCalculated returns a filter that fails every query it is in. Only the channel
-// API knows which channels calculations write, and it replaces the calculated line of
-// a Where before the Where reaches the service.
-func MatchCalculated(bool) Filter {
-	return func(Retrieve) gorp.Filter[Key, Channel] {
-		return gorp.MatchKeysFunc[Key, Channel](func(gorp.Context) ([]Key, error) {
-			return nil, errors.New("only the channel API can match the calculated line")
-		})
+// calculatedFilters holds the filters of MatchCalculated for one Service. The Service
+// builds them once, so that a request allocates none.
+type calculatedFilters struct{ in, out gorp.Filter[Key, Channel] }
+
+var errNoOutputs = errors.New(
+	"the channel service has no source of calculation outputs",
+)
+
+func newCalculatedFilters(
+	outputs func(context.Context, gorp.Snapshot) (Keys, error),
+) calculatedFilters {
+	in := gorp.MatchKeysFunc[Key, Channel](func(ctx gorp.Context) ([]Key, error) {
+		if outputs == nil {
+			return nil, errNoOutputs
+		}
+		return outputs(ctx, ctx.Snapshot)
+	})
+	return calculatedFilters{in: in, out: gorp.Not(in)}
+}
+
+func matchCalculated(r Retrieve) gorp.Filter[Key, Channel] { return r.calculated.in }
+
+func matchNotCalculated(
+	r Retrieve,
+) gorp.Filter[Key, Channel] {
+	return r.calculated.out
+}
+
+// MatchCalculated returns a filter for the channels that calculations write when
+// calculated is true, or for every other channel when it is false. A query with the
+// filter fails when the Service has no Outputs source.
+func MatchCalculated(calculated bool) Filter {
+	if calculated {
+		return matchCalculated
 	}
+	return matchNotCalculated
 }
 
 // MatchVirtual returns a filter for channels that are virtual if virtual is true, or

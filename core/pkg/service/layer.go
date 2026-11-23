@@ -487,6 +487,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			return u.Holder.Table == string(resource.TypeCalculation) &&
 				u.Direction == channel.DirectionWrite
 		},
+		Outputs: func(ctx context.Context, snap gorp.Snapshot) (channel.Keys, error) {
+			return l.Calculation.Written(ctx, snap)
+		},
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}
