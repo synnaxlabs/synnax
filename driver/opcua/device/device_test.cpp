@@ -12,10 +12,10 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
-#include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/errors/errors.h"
 #include "driver/opcua/device/device.h"
 #include "driver/opcua/testutil/testutil.h"
 
@@ -34,14 +34,12 @@ Connector new_connector(const synnax::Config &cfg) {
 }
 
 /// @brief it should keep the last settings and connect with them when the Core is
-/// unreachable.
+/// unreachable, so the error comes from the device instead of the Core.
 TEST(ConnectorTest, ConnectKeepsSettingsWhenCoreUnreachable) {
     auto cfg = test_client_config();
     cfg.port = 1;
     auto connector = new_connector(cfg);
-    const auto [conn, err] = connector.connect();
-    ASSERT_TRUE(err);
-    EXPECT_FALSE(err.matches(freighter::UNREACHABLE)) << err;
+    ASSERT_OCCURRED_AS_P(connector.connect(), driver::errors::BASE_ERROR);
 }
 
 /// @brief it should return the Core error when the Core rejects the read.
