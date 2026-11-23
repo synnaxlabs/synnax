@@ -9,7 +9,7 @@
 
 import { type destructor, observe, sync, TimeSpan } from "@synnaxlabs/x";
 
-import { type Key } from "@/channel/types.gen";
+import type { Key } from "@/channel/types.gen";
 
 /**
  * The built-in keys of a client. Keys are known when keys is not null, even while a
