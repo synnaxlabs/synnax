@@ -12,8 +12,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { color, TimeSpan } from "@synnaxlabs/x";
 
 import { Base, type HandleSpec } from "@/arc/graph/node/Base";
-import { type Config } from "@/arc/graph/node/stable/config";
-import { type types } from "@/arc/graph/node/types";
+import type { Config } from "@/arc/graph/node/stable/config";
+import type { types } from "@/arc/graph/node/types";
 
 export type SymbolProps = types.SymbolProps<Config>;
 

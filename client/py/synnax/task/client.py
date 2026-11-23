@@ -46,9 +46,8 @@ from synnax.task.types_gen import (
 )
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.util import request_where, returns_one, sole
-from x import filter
+from x import filter, timer as timer_
 from x.params import deprecate_positional
-from x.timing import Timer
 
 
 class _CreateRequest(BaseModel):
@@ -209,6 +208,7 @@ class Task:
         *,
         args: Mapping[str, object] | None = None,
         timeout: CrudeTimeSpan = 5,
+        timer: timer_.Start = timer_.start,
     ) -> Status:
         """Executes a command on the task and waits for the final status that the
         driver sends for it. A loading status acknowledges the command, and the wait
@@ -219,21 +219,24 @@ class Task:
         :param timeout: How long to wait for the driver to acknowledge the command.
         Once it does, each loading status restarts the wait for the next status, which
         lasts two minutes or the timeout, whichever is longer.
+        :param timer: Starts each wait for a status. Defaults to a timer on the system
+        clock.
         :raises TimeoutError: If the driver does not acknowledge the command or send
         its final status in time.
         :raises RuntimeError: If the rack of the task reports that its driver is down
         while the command waits.
         """
         span = TimeSpan.from_seconds(timeout)
+        final_span = max(span, _FINAL_STATUS_TIMEOUT)
         rack_id = rack_.resource_id(self.rack) if self.rack != 0 else None
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args=args)
-            timer = Timer()
+            wait = timer(span)
             acknowledged = False
             while True:
                 # The channel carries every status in the cluster, so the wait is a
                 # deadline: a frame answering some other command must not renew it.
-                remaining = span - timer.elapsed()
+                remaining = wait.remaining()
                 frame = s.read(timeout=remaining) if remaining > TimeSpan.ZERO else None
                 if frame is None:
                     step = "finish" if acknowledged else "acknowledge"
@@ -261,10 +264,8 @@ class Task:
                             return status
                         # A loading status shows the Driver still works on the
                         # command, so the wait starts again.
-                        if not acknowledged:
-                            acknowledged = True
-                            span = max(span, _FINAL_STATUS_TIMEOUT)
-                        timer = Timer()
+                        acknowledged = True
+                        wait = timer(final_span)
 
 
 def _config_devices(config: Mapping[str, Any]) -> list[str]:

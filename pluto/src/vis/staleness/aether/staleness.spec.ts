@@ -16,7 +16,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/testutil";
@@ -46,7 +46,7 @@ class Leaf extends aether.Leaf<
 > {
   static readonly TYPE = "stalenessTestLeaf";
   static readonly z = staleness.stateZ;
-  schema = Leaf.z;
+  override schema = Leaf.z;
 
   readonly transitions: boolean[] = [];
   // The staleness each onTransition call sees.
@@ -55,7 +55,7 @@ class Leaf extends aether.Leaf<
   // different channel, which builds a new source under the same leaf.
   source: telem.Source<unknown> = createSource();
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.registration = staleness.useStateRegistration(
       ctx,
@@ -66,7 +66,7 @@ class Leaf extends aether.Leaf<
     );
   }
 
-  setState(next: state.SetArg<z.infer<typeof staleness.stateZ>>): void {
+  override setState(next: state.SetArg<z.infer<typeof staleness.stateZ>>): void {
     const prev = this.state.stale;
     super.setState(next);
     if (this.state.stale !== prev) this.transitions.push(this.state.stale);
@@ -76,7 +76,7 @@ class Leaf extends aether.Leaf<
     this.internal.registration.received();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.internal.registration?.cleanup();
   }
 }
@@ -88,11 +88,11 @@ class LeakyLeaf extends aether.Leaf<
 > {
   static readonly TYPE = "stalenessLeakyTestLeaf";
   static readonly z = staleness.stateZ;
-  schema = LeakyLeaf.z;
+  override schema = LeakyLeaf.z;
 
   readonly source = createSource();
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.registration = staleness.useStateRegistration(
       ctx,
@@ -640,6 +640,14 @@ describe("staleness", () => {
     it("should resolve the stale color while the content is stale", () => {
       const state = staleness.drawnStateZ.parse({ stale: true });
       expect(staleness.drawnColor(state, theme)).toEqual(theme.colors.warning.m1);
+    });
+
+    it("should return undefined while the stale color is hidden", () => {
+      const state = staleness.drawnStateZ.parse({
+        stale: true,
+        staleColorHidden: true,
+      });
+      expect(staleness.drawnColor(state, theme)).toBeUndefined();
     });
 
     it("should honor a configured stale color", () => {

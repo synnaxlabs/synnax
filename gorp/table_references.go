@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -26,10 +27,22 @@ func (t *Table[K, E]) register(named bool) error {
 	if !named && len(t.references) == 0 {
 		return nil
 	}
+	names := make(set.Set[string], len(t.references))
 	for i, r := range t.references {
-		if err := r.validate(t.name); err != nil {
+		err := r.validate(t.name)
+		if err == nil && names.Contains(r.referenceName()) {
+			err = validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"names another reference of the table",
+				),
+				"name",
+			)
+		}
+		if err != nil {
 			return validate.PathedError(err, t.name, "references", strconv.Itoa(i))
 		}
+		names.Add(r.referenceName())
 		r.bind(t.name, i)
 	}
 	if err := t.db.registry.register(t.name, t.keyPrefix, t); err != nil {
@@ -91,8 +104,12 @@ func (t *Table[K, E]) exists(
 	if err != nil {
 		return false, err
 	}
-	codec := key.NewCodec[K](t.keyPrefix)
-	_, closer, err := snap.Get(codec.Encode(pk))
+	return t.has(snap, key.NewCodec[K](t.keyPrefix), pk)
+}
+
+// has reports whether snap holds the entry with key k, which codec encodes.
+func (t *Table[K, E]) has(snap Snapshot, codec key.Codec[K], k K) (bool, error) {
+	_, closer, err := snap.Get(codec.Encode(k))
 	if errors.Is(err, query.ErrNotFound) {
 		return false, nil
 	}
@@ -103,6 +120,30 @@ func (t *Table[K, E]) exists(
 		return false, err
 	}
 	return true, nil
+}
+
+// links implements registeredTable.
+func (t *Table[K, E]) links(
+	ctx context.Context,
+	snap Snapshot,
+	k string,
+) ([]Link, error) {
+	pk, err := key.Parse[K](k)
+	if err != nil {
+		return nil, err
+	}
+	var e E
+	if err = t.NewRetrieve().
+		Where(MatchKeys[K, E](pk)).
+		Entry(&e).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	var out []Link
+	for _, r := range t.references {
+		out = r.links(out, &e)
+	}
+	return out, nil
 }
 
 // deleteKeys implements registeredTable.
@@ -158,10 +199,10 @@ func (t *Table[K, E]) detach(
 	}
 	w := t.writer(tx, false)
 	w.derived = true
-	if err = w.Set(ctx, e); err != nil || t.onDetach == nil {
+	if err = w.Set(ctx, e); err != nil || t.onRewrite == nil {
 		return err
 	}
-	return t.onDetach(ctx, tx, e)
+	return t.onRewrite(ctx, tx, e)
 }
 
 // delete deletes the entries with keys and applies the OnDelete of every reference
@@ -177,8 +218,8 @@ func (t *Table[K, E]) delete(
 			plan *deletePlan
 			err  error
 		)
-		if planned != nil {
-			plan, err = t.db.registry.planned(ctx, tx, t.name, *planned)
+		if planned != nil && current(*planned, tx, t.db.registry, t.name, keys) {
+			plan, err = t.db.registry.planned(tx, t.name, *planned)
 		} else {
 			formatted := make([]string, len(keys))
 			for i, k := range keys {
@@ -264,6 +305,81 @@ func (t *Table[K, E]) Dependents(
 		return nil, err
 	}
 	return deps[0], nil
+}
+
+// Uses returns the entries of every open table that hold a Use reference to the entry
+// with key k, as seen by snap. It waits and fails as Dependents does.
+func (t *Table[K, E]) Uses(ctx context.Context, snap Snapshot, k K) ([]Target, error) {
+	deps, err := t.Dependents(ctx, snap, k)
+	if err != nil {
+		return nil, err
+	}
+	var out []Target
+	for _, d := range deps {
+		if d.Kind == Use {
+			out = append(out, d.Holder)
+		}
+	}
+	return out, nil
+}
+
+// PlacedIn returns the records that hold a Place link to target, as seen by tx. It
+// waits for each index as Table.Dependents does.
+func PlacedIn(ctx context.Context, tx Tx, target Target) ([]Target, error) {
+	var out []Target
+	for _, ref := range txDB(tx).registry.referencesTo(target.Table) {
+		if ref.linkKind() != Place {
+			continue
+		}
+		keys, err := ref.dependentsOf(ctx, tx, target)
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range keys {
+			out = append(out, Target{Table: ref.ownerTable(), Key: k})
+		}
+	}
+	return out, nil
+}
+
+// LinksOf returns the links that the record target holds, as seen by tx. It returns an
+// error wrapping query.ErrNotFound when the record does not exist.
+func LinksOf(ctx context.Context, tx Tx, target Target) ([]Link, error) {
+	t, err := txDB(tx).registry.table(target.Table)
+	if err != nil {
+		return nil, err
+	}
+	return t.links(ctx, tx, target.Key)
+}
+
+// RestrictChange returns a RestrictError for a change to field of the entry with key k
+// when an entry holds it through a Restrict reference, as seen by snap. It returns nil
+// when no entry does.
+func (t *Table[K, E]) RestrictChange(
+	ctx context.Context,
+	snap Snapshot,
+	k K,
+	field string,
+) error {
+	target := Target{Table: t.name, Key: FormatKey(k)}
+	for _, ref := range t.db.registry.referencesTo(t.name) {
+		if ref.onDeletePolicy() != Restrict {
+			continue
+		}
+		keys, err := ref.dependentsOf(ctx, snap, target)
+		if err != nil {
+			return err
+		}
+		if len(keys) > 0 {
+			return RestrictError{
+				Target:    target,
+				Holder:    Target{Table: ref.ownerTable(), Key: keys[0]},
+				Reference: ref.referenceName(),
+				Field:     field,
+			}
+		}
+	}
+	return nil
 }
 
 // DependentsEach returns, at each position of keys, the dependents of the entry with

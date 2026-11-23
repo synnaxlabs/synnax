@@ -13,7 +13,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Log as Base } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Vis } from "@/platform/vis";

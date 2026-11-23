@@ -35,8 +35,8 @@ type Change struct {
 	Record Target
 	// Kind is what the transaction did to the record.
 	Kind ChangeKind
-	// Derived is true when Gorp made every write to the record by a cascade or a
-	// detach.
+	// Derived is true when Gorp made every write to the record by a cascade, a detach,
+	// or a Retarget.
 	Derived bool
 	// Value is a copy of the encoded record at the last set. It is nil for a delete.
 	Value []byte
@@ -66,6 +66,8 @@ func ChangesOf(tx Tx) Changes {
 
 // changeList merges the writes of one transaction into one entry per record.
 type changeList struct {
+	// seq is the number of writes the transaction made.
+	seq uint64
 	// at maps each record the transaction wrote to its position in entries.
 	at      map[Target]int
 	entries []changeEntry
@@ -77,13 +79,16 @@ type changeEntry struct {
 	existed bool
 	// present is true when the last write to the record was a set.
 	present bool
-	// derived is true when every write to the record was a cascade or a detach.
+	// derived is true when every write to the record was a cascade, a detach, or a
+	// retarget.
 	derived bool
 	value   []byte
 	// before holds the links of the record at the first write to it.
 	before []Link
 	// after holds the links of the record at the last set.
 	after []Link
+	// seq is the changeList.seq of the last write to the record.
+	seq uint64
 }
 
 // slot is the place of one write in a changeList. at is -1 on the first write to
@@ -144,7 +149,7 @@ func (l *changeList) present(s slot) bool {
 }
 
 // set merges a set of the record of s to value, which holds links. derived is true when
-// the set is a cascade or a detach.
+// the set is a detach or a retarget.
 func (l *changeList) set(s slot, value []byte, links []Link, derived bool) {
 	e := l.entry(s, derived)
 	e.present = true
@@ -177,6 +182,8 @@ func (l *changeList) entry(s slot, derived bool) *changeEntry {
 	}
 	e := &l.entries[s.at]
 	e.derived = e.derived && derived
+	l.seq++
+	e.seq = l.seq
 	return e
 }
 
@@ -250,4 +257,11 @@ func subtract(links, minus []Link) []Link {
 		}
 	}
 	return out
+}
+
+// deletedIn reports whether the last write of tx to target deleted it.
+func deletedIn(tx Tx, target Target) bool {
+	changes := &tx.txIdentity().changes
+	at, written := changes.at[target]
+	return written && !changes.entries[at].present
 }

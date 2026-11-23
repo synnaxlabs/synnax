@@ -11,12 +11,8 @@ import { SyntheticCore } from "@synnaxlabs/client/testutil";
 import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createFactory } from "@/telem/aether/factory";
-import { sourcePipeline } from "@/telem/aether/pipeline";
-import { streamChannelValue } from "@/telem/aether/remote";
-import { type BooleanSource } from "@/telem/aether/telem";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
-import { withinBounds } from "@/telem/aether/transformers";
 
 const START = TimeStamp.seconds(1_000_000);
 
@@ -30,16 +26,16 @@ describe("boolean symbol source on a channel with no data", () => {
   const setup = async () => {
     const core = new SyntheticCore({ rate: Rate.hz(1000), start: START, now: START });
     const client = telemTest.createClient(core);
-    const source = createFactory(client).create(
-      sourcePipeline("boolean", {
+    const source = telem.createFactory(client).create(
+      telem.sourcePipeline("boolean", {
         connections: [{ from: "valueStream", to: "threshold" }],
         segments: {
-          valueStream: streamChannelValue({ channel: core.data[0].key }),
-          threshold: withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
+          valueStream: telem.streamChannelValue({ channel: core.data[0].key }),
+          threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
         },
         outlet: "threshold",
       }),
-    ) as BooleanSource;
+    ) as telem.BooleanSource;
     closers.push(async () => {
       source.cleanup?.();
       await client.feed.close();

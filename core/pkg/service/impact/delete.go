@@ -17,15 +17,14 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // planned is a plan with what Apply needs to carry it out.
 type planned struct {
 	Plan
-	// cancels maps the text form of the record of each restrict entry to the error that
-	// a cancel returns.
-	cancels map[string]gorp.RestrictError
+	// cancels maps the record of each restrict entry to the error of its cancel.
+	cancels map[resource.ID]gorp.RestrictError
 	// keys are the keys of the channels that the delete removes.
 	keys channel.Keys
 	// effects is what the delete does to the records that hold the channels.
@@ -52,25 +51,33 @@ func (s *Service) planDelete(
 		return planned{}, err
 	}
 	p := planned{
-		cancels: make(map[string]gorp.RestrictError, len(effects.Restricts)),
+		cancels: make(map[resource.ID]gorp.RestrictError, len(effects.Restricts)),
 		keys:    deleted,
 		effects: effects,
 	}
-	listed := set.New[string]()
-	add := func(e gorp.DeleteEffect, effect Effect) (string, bool) {
+	n := len(effects.Restricts) + len(effects.Cascades) + len(effects.Detaches)
+	if n > 0 {
+		p.Entries = make([]Entry, 0, n)
+	}
+	// effectOf holds the effect of each record with an entry, and no effect for each
+	// record that keeps a weak link.
+	effectOf := make(
+		map[resource.ID]Effect,
+		len(effects.Restricts)+len(effects.Detaches),
+	)
+	add := func(e gorp.DeleteEffect, effect Effect) (resource.ID, bool) {
 		record := s.cfg.RecordOf(e.Holder)
-		id := record.String()
-		if listed.Contains(id) {
-			return id, false
+		if effectOf[record] != "" {
+			return record, false
 		}
-		listed.Add(id)
+		effectOf[record] = effect
 		entry := Entry{Record: record, Effect: effect}
 		if effect == EffectRestrict {
 			entry.Choices = []Choice{ChoiceCancel, ChoiceDelete}
 			entry.Default = new(ChoiceCancel)
 		}
 		p.Entries = append(p.Entries, entry)
-		return id, true
+		return record, true
 	}
 	for _, e := range effects.Restricts {
 		if id, ok := add(e, EffectRestrict); ok {
@@ -87,13 +94,17 @@ func (s *Service) planDelete(
 	for _, e := range effects.Detaches {
 		add(e, EffectDetach)
 	}
-	kept := set.New[string]()
 	for _, e := range effects.Weak {
-		if id := s.cfg.RecordOf(e.Holder).String(); !listed.Contains(id) {
-			kept.Add(id)
+		if record := s.cfg.RecordOf(e.Holder); !hasKey(effectOf, record) {
+			effectOf[record] = ""
+			p.Kept++
 		}
 	}
-	p.Kept = uint32(len(kept))
 	slices.SortFunc(p.Entries, compareEntries)
 	return p, nil
+}
+
+func hasKey(m map[resource.ID]Effect, k resource.ID) bool {
+	_, ok := m[k]
+	return ok
 }
