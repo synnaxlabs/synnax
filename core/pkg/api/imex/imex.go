@@ -16,10 +16,14 @@ import (
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/imex/session"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding"
@@ -71,6 +75,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// RBAC decides which records the subject of an import can retrieve, so a path
+	// through a record it cannot retrieve resolves to nothing.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
 }
 
 var (
@@ -84,6 +93,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -92,6 +102,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.imex")
 	v.NotNil("imex", c.ImEx)
 	v.NotNil("channel", c.Channel)
+	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
@@ -99,6 +110,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	internal *imex.Service
 	channel  *channel.Service
+	rbac     *rbac.Service
 }
 
 // NewService creates a new ImEx API service.
@@ -107,7 +119,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.ImEx, channel: cfg.Channel}, nil
+	return &Service{internal: cfg.ImEx, channel: cfg.Channel, rbac: cfg.RBAC}, nil
 }
 
 type (
@@ -128,16 +140,17 @@ func (s *Service) Import(
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	links := s.channel.NewLinkReader(ctx, tx)
-	write, err := s.internal.Decode(
-		ctx,
-		req.WithDecodeOptions(links.Options()),
-		opts.FileName,
-	)
+	readable, err := s.rbac.NewEnforcer(tx).
+		Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	if err = links.Err(); err != nil {
+	imp := session.NewImport(ctx, s.internal, s.channel, tx, readable)
+	write, err := imp.Decode(req, opts.FileName)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	if err = imp.Err(); err != nil {
 		return ImportResponse{}, err
 	}
 	return write(ctx, tx, opts)
@@ -214,11 +227,10 @@ func (s *Service) Export(
 	snap bind.Snapshot,
 	req ExportRequest,
 ) (ExportResponse, error) {
-	env, err := s.internal.Export(ctx, snap, resource.ID(req))
+	env, err := session.NewExport(ctx, s.internal, s.channel, snap, snap.Allowed).
+		Export(resource.ID(req))
 	if err != nil {
 		return ExportResponse{}, err
 	}
-	return env.WithEncodeOptions(
-		s.channel.LinkWriter(ctx, snap, snap.Allowed),
-	).Freeze()
+	return env.Freeze()
 }

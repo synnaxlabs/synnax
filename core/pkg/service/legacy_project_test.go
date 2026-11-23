@@ -43,7 +43,7 @@ var _ = Describe("Legacy project bundles", func() {
 	) (*service.Layer, *gorp.DB, project.Project) {
 		GinkgoHelper()
 		l, db := openLayer(ctx)
-		b := MustSucceed(l.Bundle.Decode(ctx, LoadBundle(path), fileName))
+		b := MustSucceed(l.Bundle.Decode(ctx, LoadBundle(path), fileName, readAll))
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
 		p := MustSucceed(l.Bundle.Import(ctx, tx, b))
@@ -151,7 +151,7 @@ var _ = Describe("Legacy project bundles", func() {
 			// import fails rather than dropping it quietly.
 			l, _ := openLayer(ctx)
 			Expect(l.Bundle.Decode(
-				ctx, LoadBundle(path), "Dropped.zip",
+				ctx, LoadBundle(path), "Dropped.zip", readAll,
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("98dbf43a")),
 				MatchError(ContainSubstring("not found")),

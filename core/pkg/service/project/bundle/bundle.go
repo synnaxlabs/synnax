@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/imex/session"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions/legacy"
@@ -169,13 +170,13 @@ func (s *Service) Export(
 		return nil, nil, err
 	}
 	files := make(zip.Files, len(w.refs)+len(w.panels)+1)
-	links := s.cfg.Channel.LinkWriter(ctx, snap, readable)
+	exp := session.NewExport(ctx, s.cfg.ImEx, s.cfg.Channel, snap, readable)
 	for id, path := range w.refs {
-		env, err := s.cfg.ImEx.Export(ctx, snap, id)
+		env, err := exp.Export(id)
 		if err != nil {
 			return nil, nil, err
 		}
-		if files[path], err = encoder.Encode(env.WithEncodeOptions(links)); err != nil {
+		if files[path], err = encoder.Encode(env); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -496,12 +497,14 @@ type legacyMember struct {
 // Decode reads the bundle in files and migrates each member, except panels, to its
 // current shape. It needs no transaction, so a caller can run it before taking the
 // write lock. The manifest, or the extension-stripped fileName, names the project. A
-// root LAYOUT.json with no manifest is the legacy (version 0) format. Invalid bundles
+// root LAYOUT.json with no manifest is the legacy (version 0) format. A channel path
+// resolves only through the folders and channels that readable allows. Invalid bundles
 // return validation errors naming the offending file.
 func (s *Service) Decode(
 	ctx context.Context,
 	files zip.Files,
 	fileName string,
+	readable func(resource.ID) bool,
 ) (Bundle, error) {
 	manifestFileName := imex.ManifestBaseName + json.Codec.Extension()
 	manifestData, ok := files[manifestFileName]
@@ -534,7 +537,7 @@ func (s *Service) Decode(
 		}
 		return b, nil
 	}
-	links := s.cfg.Channel.NewLinkReader(ctx, s.cfg.DB)
+	imp := session.NewImport(ctx, s.cfg.ImEx, s.cfg.Channel, s.cfg.DB, readable)
 	manifest, err := decodeManifest(manifestData, manifestFileName)
 	if err != nil {
 		return Bundle{}, err
@@ -551,15 +554,11 @@ func (s *Service) Decode(
 		if m.env.Type == string(resource.TypePanel) {
 			continue
 		}
-		if members[i].write, err = s.cfg.ImEx.Decode(
-			ctx,
-			m.env.WithDecodeOptions(links.Options()),
-			m.path,
-		); err != nil {
+		if members[i].write, err = imp.Decode(m.env, m.path); err != nil {
 			return Bundle{}, errors.Wrap(err, m.path)
 		}
 	}
-	if err = links.Err(); err != nil {
+	if err = imp.Err(); err != nil {
 		return Bundle{}, err
 	}
 	return Bundle{name: name, members: members}, nil

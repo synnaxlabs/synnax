@@ -119,7 +119,7 @@ var _ = Describe("Service", func() {
 			var file msgpack.EncodedJSON
 			Expect(json.Unmarshal(b, &file)).To(Succeed())
 			Expect(channel(file)).To(HaveKeyWithValue("channel", created.Name))
-			links := channelSvc.NewLinkReader(ctx, db)
+			links := channelSvc.NewLinkReader(ctx, db, readAll)
 			decoded := MustSucceed(svc.Read.Decode(
 				ctx,
 				svc.Read.Version(),

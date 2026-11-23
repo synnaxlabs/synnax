@@ -15,8 +15,11 @@ import (
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
@@ -38,6 +41,15 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Bundle *bundle.Service
+	// DB is the store that a bundle's channel paths resolve against.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
+	// RBAC decides which records the subject of an import can retrieve, so a path
+	// through a record it cannot retrieve resolves to nothing.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
 }
 
 var (
@@ -50,6 +62,8 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Project = override.Nil(c.Project, other.Project)
 	c.Bundle = override.Nil(c.Bundle, other.Bundle)
+	c.DB = override.Nil(c.DB, other.DB)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -58,12 +72,16 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.project")
 	v.NotNil("project", c.Project)
 	v.NotNil("bundle", c.Bundle)
+	v.NotNil("db", c.DB)
+	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 type Service struct {
 	internal *project.Service
 	bundle   *bundle.Service
+	db       *gorp.DB
+	rbac     *rbac.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -74,6 +92,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		internal: cfg.Project,
 		bundle:   cfg.Bundle,
+		db:       cfg.DB,
+		rbac:     cfg.RBAC,
 	}, nil
 }
 
@@ -205,7 +225,12 @@ func (s *Service) PrepareImport(
 	if err != nil {
 		return bundle.Bundle{}, err
 	}
-	return s.bundle.Decode(ctx, req, fileName)
+	readable, err := s.rbac.NewEnforcer(s.db).
+		Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
+	if err != nil {
+		return bundle.Bundle{}, err
+	}
+	return s.bundle.Decode(ctx, req, fileName, readable)
 }
 
 // Import imports the bundle that PrepareImport decoded into a new project.

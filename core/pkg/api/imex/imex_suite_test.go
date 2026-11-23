@@ -133,6 +133,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{
 		ImEx:    imexSvc,
 		Channel: channelSvc,
+		RBAC:    rbacSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   db,

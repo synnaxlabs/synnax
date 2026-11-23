@@ -142,26 +142,36 @@ func (w *linkWriter) prefix(folder group.Key) (link, error) {
 
 // LinkReader decodes the channel links of imported files. A JSON number is a raw key,
 // as every file of core/v0.62.0 and older holds. A JSON string is the exact path of a
-// channel, which it resolves once against the snapshot it was made with. A path that
-// matches no channel decodes as 0, and Err then fails. A LinkReader is not safe for
-// concurrent use.
+// channel, which it resolves once against the snapshot it was made with: the committed
+// state and the snapshot's own changes, not a commit in flight. An import resolves its
+// links before it writes, so a file cannot link a channel that the same import
+// creates. A path that matches no channel, or that passes a folder or names a channel
+// that the importer cannot retrieve, decodes as 0, and Err then fails, so an import
+// never shows that a hidden path exists. A LinkReader is not safe for concurrent use.
 type LinkReader struct {
-	ctx     context.Context
-	snap    gorp.Snapshot
-	svc     *Service
-	keys    map[string]Key
-	missing set.Set[string]
+	ctx      context.Context
+	snap     gorp.Snapshot
+	svc      *Service
+	readable func(resource.ID) bool
+	keys     map[string]Key
+	missing  set.Set[string]
 }
 
-// NewLinkReader returns a LinkReader that resolves paths against snap. Pass one value
-// to every file of one import, so that Err lists every path that matches nothing.
-func (s *Service) NewLinkReader(ctx context.Context, snap gorp.Snapshot) *LinkReader {
+// NewLinkReader returns a LinkReader that resolves paths against snap through the
+// folders and channels that readable allows. Pass one value to every file of one
+// import, so that Err lists every path that matches nothing.
+func (s *Service) NewLinkReader(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	readable func(resource.ID) bool,
+) *LinkReader {
 	return &LinkReader{
-		ctx:     ctx,
-		snap:    snap,
-		svc:     s,
-		keys:    make(map[string]Key),
-		missing: make(set.Set[string]),
+		ctx:      ctx,
+		snap:     snap,
+		svc:      s,
+		readable: readable,
+		keys:     make(map[string]Key),
+		missing:  make(set.Set[string]),
 	}
 }
 
@@ -213,13 +223,16 @@ func (r *LinkReader) resolve(path string) (Key, error) {
 }
 
 func (r *LinkReader) lookup(path string) (Key, bool, error) {
-	sibling, ok, err := Retrieve{indexes: r.svc.indexes}.siblingAt(
-		r.ctx,
-		r.snap,
-		validate.NormalizeName(path),
-	)
+	sibling, ok, err := Retrieve{
+		indexes:       r.svc.indexes,
+		folderAllowed: r.readable,
+	}.siblingAt(r.ctx, r.snap, validate.NormalizeName(path))
 	if err != nil || !ok {
 		return 0, false, err
 	}
-	return r.svc.indexes.sibling.Key(r.ctx, r.snap, sibling)
+	k, ok, err := r.svc.indexes.sibling.Key(r.ctx, r.snap, sibling)
+	if err != nil || !ok || !r.readable(ResourceID(k)) {
+		return 0, false, err
+	}
+	return k, true, nil
 }

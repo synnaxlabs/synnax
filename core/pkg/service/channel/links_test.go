@@ -157,7 +157,7 @@ var _ = Describe("Links", Ordered, func() {
 
 	Describe("LinkReader", func() {
 		It("Should resolve each path to the key of its channel", func(ctx SpecContext) {
-			r := svc.NewLinkReader(ctx, db)
+			r := svc.NewLinkReader(ctx, db, readAll)
 			var v linked
 			Expect(json.Unmarshal([]byte(`{
 				"channel": "`+rootName+`",
@@ -171,7 +171,7 @@ var _ = Describe("Links", Ordered, func() {
 		})
 
 		It("Should decode a number as a raw key", func(ctx SpecContext) {
-			r := svc.NewLinkReader(ctx, db)
+			r := svc.NewLinkReader(ctx, db, readAll)
 			var v linked
 			Expect(json.Unmarshal(
 				[]byte(`{"channel": 12345, "channels": [0]}`),
@@ -186,7 +186,7 @@ var _ = Describe("Links", Ordered, func() {
 		It(
 			"Should list every path that matches no channel, sorted",
 			func(ctx SpecContext) {
-				r := svc.NewLinkReader(ctx, db)
+				r := svc.NewLinkReader(ctx, db, readAll)
 				var v linked
 				Expect(json.Unmarshal([]byte(`{
 				"channel": "plant.zeta",
@@ -207,7 +207,7 @@ var _ = Describe("Links", Ordered, func() {
 		It("Should read back the keys that a LinkWriter wrote", func(ctx SpecContext) {
 			v := linked{Channel: nested, Channels: []channel.Key{root, nested}}
 			b := MustSucceed(json.Marshal(v, svc.LinkWriter(ctx, db, readAll)))
-			r := svc.NewLinkReader(ctx, db)
+			r := svc.NewLinkReader(ctx, db, readAll)
 			var read linked
 			Expect(json.Unmarshal(b, &read, r.Options())).To(Succeed())
 			Expect(r.Err()).To(Succeed())

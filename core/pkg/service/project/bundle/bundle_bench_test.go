@@ -253,7 +253,7 @@ func BenchmarkImport(b *testing.B) {
 	)
 	b.ReportAllocs()
 	for b.Loop() {
-		bundle := MustSucceed(w.layer.Bundle.Decode(w.ctx, files, "bench"))
+		bundle := MustSucceed(w.layer.Bundle.Decode(w.ctx, files, "bench", readAll))
 		tx := w.db.OpenTx()
 		MustSucceed(w.layer.Bundle.Import(w.ctx, tx, bundle))
 		gomega.Expect(tx.Close()).To(gomega.Succeed())

@@ -576,7 +576,7 @@ func importFiles(
 	files zip.Files,
 	fileName string,
 ) (project.Project, error) {
-	b, err := svc.Decode(ctx, files, fileName)
+	b, err := svc.Decode(ctx, files, fileName, readAll)
 	if err != nil {
 		return project.Project{}, err
 	}
@@ -986,10 +986,13 @@ var _ = Describe("Import", func() {
 var _ = Describe("Decode", func() {
 	DescribeTable("Should reject an invalid bundle",
 		func(ctx SpecContext, files zip.Files, reason string) {
-			Expect(svc.Decode(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(reason)),
-			))
+			Expect(
+				svc.Decode(ctx, files, "Fallback.zip", readAll),
+			).Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(reason)),
+				))
 		},
 		Entry("no manifest or legacy layout",
 			zip.Files{"Metrics.json": []byte("{}")}, "bundle holds no manifest.json"),
@@ -1023,7 +1026,7 @@ var _ = Describe("Decode", func() {
 		files := zip.Files{"manifest.json": []byte(
 			`{"version":2,"type":"project","name":"Future"}`,
 		)}
-		Expect(svc.Decode(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
+		Expect(svc.Decode(ctx, files, "Fallback.zip", readAll)).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("project version 2")),
 			MatchError(ContainSubstring("newer than this Core supports")),
 		))
@@ -1036,7 +1039,7 @@ var _ = Describe("Decode", func() {
 			"manifest.json": bundleManifest("Broken"),
 			"Bad.json":      []byte("not json"),
 		}
-		Expect(svc.Decode(ctx, files, "Fallback.zip")).Error().
+		Expect(svc.Decode(ctx, files, "Fallback.zip", readAll)).Error().
 			To(MatchError(ContainSubstring("Bad.json")))
 	})
 
@@ -1046,7 +1049,7 @@ var _ = Describe("Decode", func() {
 		files := zip.Files{"LAYOUT.json": legacyLayoutFile(map[string]map[string]any{
 			"k1": {"key": "k1", "type": "log", "name": "Metrics"},
 		})}
-		Expect(svc.Decode(ctx, files, "Legacy.zip")).Error().To(SatisfyAll(
+		Expect(svc.Decode(ctx, files, "Legacy.zip", readAll)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`data for layout "k1" not found`)),
 		))
@@ -1061,7 +1064,7 @@ var _ = Describe("Decode", func() {
 				`{"version":99,"type":"log","name":"Metrics","channels":[]}`,
 			),
 		}
-		Expect(svc.Decode(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
+		Expect(svc.Decode(ctx, files, "Fallback.zip", readAll)).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("Metrics.json")),
 			MatchError(ContainSubstring("newer than this Core supports")),
 		))
@@ -1076,7 +1079,7 @@ var _ = Describe("Decode", func() {
 			}),
 			"Metrics.json": legacyLogState(map[string]any{"version": 99}),
 		}
-		Expect(svc.Decode(ctx, files, "Legacy.zip")).Error().To(SatisfyAll(
+		Expect(svc.Decode(ctx, files, "Legacy.zip", readAll)).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("Metrics.json")),
 			MatchError(ContainSubstring("newer than this Core supports")),
 		))

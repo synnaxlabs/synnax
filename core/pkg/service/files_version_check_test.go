@@ -77,7 +77,7 @@ var _ = Describe("Channel paths at old versions", Ordered, ContinueOnFailure, fu
 		GinkgoHelper()
 		var env imex.Envelope
 		Expect(json.Unmarshal([]byte(body), &env)).To(Succeed())
-		links := l.Channel.NewLinkReader(ctx, tx)
+		links := l.Channel.NewLinkReader(ctx, tx, readAll)
 		write := MustSucceed(l.ImEx.Decode(
 			ctx,
 			env.WithDecodeOptions(links.Options()),

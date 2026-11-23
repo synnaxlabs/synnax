@@ -1093,6 +1093,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Project, err = project.NewService(project.ServiceConfig{
 		Project: cfg.Service.Project,
 		Bundle:  cfg.Service.Bundle,
+		DB:      cfg.Distribution.DB,
+		RBAC:    cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
@@ -1233,6 +1235,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.ImEx, err = imex.NewService(imex.ServiceConfig{
 		ImEx:    cfg.Service.ImEx,
 		Channel: cfg.Service.Channel,
+		RBAC:    cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}

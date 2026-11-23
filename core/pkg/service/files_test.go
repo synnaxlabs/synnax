@@ -213,7 +213,7 @@ var _ = Describe("Channel paths in files", Ordered, func() {
 		files, _ := MustSucceed2(
 			l.Bundle.Export(ctx, db, proj.Key, xjson.Codec, readAll),
 		)
-		b := MustSucceed(l.Bundle.Decode(ctx, files, "Paths.zip"))
+		b := MustSucceed(l.Bundle.Decode(ctx, files, "Paths.zip", readAll))
 		tx := DeferClose(db.OpenTx())
 		imported := MustSucceed(l.Bundle.Import(ctx, tx, b)).Key
 		Expect(imported).ToNot(Equal(proj.Key))
