@@ -59,19 +59,21 @@ Range struct {
         @patch
     }
     labels       label.Key[] = [] {
-        @doc value     "are the keys of the labels attached to the range."
-        @ref kind      use
-        @ref on_delete detach
+        @doc value                 "are the keys of the labels attached to the range."
+        @ref empty_holders_tracked
+        @ref kind                  use
+        @ref on_delete             detach
     }
     parent       Key?            {
-        @doc value     """
+        @doc value                 """
             is the key of the range this range is nested in. Empty for a top-level
             range.
         """
         @patch
         @ref acyclic
-        @ref kind      place
-        @ref on_delete cascade
+        @ref empty_holders_tracked
+        @ref kind                  place
+        @ref on_delete             cascade
     }
 
     action Create {

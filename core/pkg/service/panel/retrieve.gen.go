@@ -13,6 +13,7 @@ package panel
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
@@ -56,15 +57,16 @@ func newIndexes() indexes {
 			func(e *Panel) string { return compare.TextKey(string(e.Name)) },
 		),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, group.Key]{
-			Name:     "group",
-			Table:    "group",
-			OnDelete: gorp.Detach,
-			Kind:     gorp.Place,
+			Name:                "group",
+			Table:               "group",
+			OnDelete:            gorp.Detach,
+			Kind:                gorp.Place,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Panel) []group.Key {
 				if e.Group == nil {
 					return nil
 				}
-				return []group.Key{*e.Group}
+				return unsafe.Slice(e.Group, 1)
 			},
 			Detach: func(e *Panel, _ group.Key) { e.Group = nil },
 			Retarget: func(e *Panel, from, to group.Key) {
@@ -82,7 +84,7 @@ func newIndexes() indexes {
 				if e.Project == nil {
 					return nil
 				}
-				return []project.Key{*e.Project}
+				return unsafe.Slice(e.Project, 1)
 			},
 			Retarget: func(e *Panel, from, to project.Key) {
 				if e.Project != nil && *e.Project == from {
@@ -91,15 +93,16 @@ func newIndexes() indexes {
 			},
 		}),
 		owner: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Panel, user.Key]{
-			Name:     "owner",
-			Table:    "user",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Use,
+			Name:                "owner",
+			Table:               "user",
+			OnDelete:            gorp.Cascade,
+			Kind:                gorp.Use,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Panel) []user.Key {
 				if e.Owner == nil {
 					return nil
 				}
-				return []user.Key{*e.Owner}
+				return unsafe.Slice(e.Owner, 1)
 			},
 			Retarget: func(e *Panel, from, to user.Key) {
 				if e.Owner != nil && *e.Owner == from {
@@ -319,14 +322,6 @@ func setGroup(
 func MatchProjects(vals ...project.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Panel] {
 		return r.indexes.project.Filter(vals...)
-	}
-}
-
-// MatchHasProject returns a filter for panels whose
-// Project holds a target when has is true, and holds none when has is false.
-func MatchHasProject(has bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Panel] {
-		return r.indexes.project.FilterHolding(has)
 	}
 }
 

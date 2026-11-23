@@ -13,6 +13,7 @@ package user
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -48,7 +49,7 @@ func newIndexes() indexes {
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Place,
 			Targets: func(e *User) []role.Key {
-				return []role.Key{e.Role}
+				return unsafe.Slice(&e.Role, 1)
 			},
 			Retarget: func(e *User, from, to role.Key) {
 				if e.Role == from {

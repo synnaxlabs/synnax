@@ -239,6 +239,7 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	// [REQUIRED]
 	Table string
 	// Targets returns the keys of the targets that e holds, or nil when it holds none.
+	// The result may alias e, and is valid only while e is unchanged.
 	//
 	// [REQUIRED]
 	Targets func(e *E) []T
@@ -330,7 +331,8 @@ type TargetReferenceConfig[K Key, E Entry[K]] struct {
 	//
 	// [REQUIRED]
 	Tables []string
-	// Targets returns the targets that e holds, or nil when it holds none.
+	// Targets returns the targets that e holds, or nil when it holds none. The result
+	// may alias e, and is valid only while e is unchanged.
 	//
 	// [REQUIRED]
 	Targets func(e *E) []Target

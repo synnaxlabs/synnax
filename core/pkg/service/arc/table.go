@@ -11,6 +11,7 @@ package arc
 
 import (
 	"context"
+	"unsafe"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -165,7 +166,7 @@ func newDirectoryReference() *gorp.KeyReference[Key, Arc, directory.Key] {
 		Kind:     gorp.Place,
 		Targets: func(a *Arc) []directory.Key {
 			if d := a.Base().Directory; d != nil {
-				return []directory.Key{*d}
+				return unsafe.Slice(d, 1)
 			}
 			return nil
 		},

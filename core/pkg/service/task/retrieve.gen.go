@@ -12,6 +12,8 @@
 package task
 
 import (
+	"unsafe"
+
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/compare"
@@ -41,15 +43,16 @@ func newIndexes() indexes {
 			func(e *Task) string { return compare.TextKey(string(e.Name)) },
 		),
 		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Task, rack.Key]{
-			Name:     "rack",
-			Table:    "rack",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
+			Name:                "rack",
+			Table:               "rack",
+			OnDelete:            gorp.Cascade,
+			Kind:                gorp.Place,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Task) []rack.Key {
 				if e.Rack == 0 {
 					return nil
 				}
-				return []rack.Key{e.Rack}
+				return unsafe.Slice(&e.Rack, 1)
 			},
 			Retarget: func(e *Task, from, to rack.Key) {
 				if e.Rack == from {

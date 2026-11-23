@@ -39,11 +39,14 @@ Group struct {
         @filter
     }
     parent resource.ID?  {
-        @doc value     "is the group, project, or rack the group sits in, if any."
+        @doc value                 """
+            is the group, project, or rack the group sits in, if any.
+        """
         @ref acyclic
-        @ref kind      place
-        @ref on_delete cascade
-        @ref types     group project rack
+        @ref empty_holders_tracked
+        @ref kind                  place
+        @ref on_delete             cascade
+        @ref types                 group project rack
     }
 
     action Create {

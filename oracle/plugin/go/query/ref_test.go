@@ -165,7 +165,7 @@ var _ = Describe("@ref", func() {
 					`Table:    "rack",`,
 					"OnDelete: gorp.Restrict,",
 					"Targets: func(e *Device) []rack.Key {",
-					"return []rack.Key{e.Rack}",
+					"return unsafe.Slice(&e.Rack, 1)",
 					"func (i indexes) references() []gorp.Reference[Key, Device]",
 					`const tableName = "device"`,
 					`"github.com/synnaxlabs/synnax/core/pkg/service/rack"`,
@@ -319,8 +319,32 @@ var _ = Describe("@ref", func() {
 				"OnDelete: gorp.Cascade,",
 				"Acyclic:  true,",
 				"if e.Parent == nil {",
-				"return []Key{*e.Parent}",
+				"return unsafe.Slice(e.Parent, 1)",
 			)
+	})
+
+	It("Should return no target for a nil pointer before slicing it", func() {
+		resp := MustGenerate(device(`
+			shelf rack.Key? @ref on_delete detach @ref kind use
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").ToPreserveOrder(
+			"Targets: func(e *Device) []rack.Key {",
+			"if e.Shelf == nil {",
+			"return nil",
+			"return unsafe.Slice(e.Shelf, 1)",
+		)
+	})
+
+	It("Should return no target for a zero key before slicing it", func() {
+		resp := MustGenerate(device(`
+			spare rack.Key = 0 @ref on_delete detach @ref kind use
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").ToPreserveOrder(
+			"Targets: func(e *Device) []rack.Key {",
+			"if e.Spare == 0 {",
+			"return nil",
+			"return unsafe.Slice(&e.Spare, 1)",
+		)
 	})
 
 	Describe("union record", func() {
@@ -423,10 +447,48 @@ var _ = Describe("@ref", func() {
 				"return v == t",
 				"func MatchLabels(vals ...label.Key) Filter",
 				"return r.indexes.labels.Filter(vals...)",
+			).
+			ToNotContain(
+				"func MatchLabel(",
+				"func setLabels",
+				"func MatchHasLabels",
+				"EmptyHoldersTracked",
+			)
+	})
+
+	It("Should track the empty holders of a flagged ref and filter on them", func() {
+		resp := MustGenerate(device(`
+			labels label.Key[] @ref on_delete detach @ref kind use @ref empty_holders_tracked
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").
+			ToPreserveOrder(
+				"labels: gorp.NewKeyReference(",
+				"EmptyHoldersTracked: true,",
+				"Targets: func(e *Device) []label.Key {",
+			).
+			ToContain(
 				"func MatchHasLabels(has bool) Filter",
 				"return r.indexes.labels.FilterHolding(has)",
-			).
-			ToNotContain("func MatchLabel(", "func setLabels")
+			)
+	})
+
+	It("Should refuse to track the empty holders of a required ref", func() {
+		req := MustGenerateRequest(device(`
+			rack rack.Key @ref on_delete restrict @ref kind use @ref empty_holders_tracked
+		`), "device", loader)
+		Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+			"@ref field rack needs to be optional, an array, or zero by default to " +
+				"track empty holders",
+		)))
+	})
+
+	It("Should not track the entries that hold none for a required ref", func() {
+		resp := MustGenerate(device(`
+			rack rack.Key @ref on_delete restrict @ref kind use
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").
+			ToContain("rack: gorp.NewKeyReference(").
+			ToNotContain("EmptyHoldersTracked", "func MatchHasRack(")
 	})
 
 	It("Should detach an optional field and write it", func() {
@@ -436,7 +498,6 @@ var _ = Describe("@ref", func() {
 		ExpectContent(resp, "retrieve.gen.go").
 			ToContain(
 				"Detach: func(e *Device, _ rack.Key) { e.Shelf = nil },",
-				"func MatchHasShelf(has bool) Filter",
 				"func setShelf(",
 				"table *gorp.Table[Key, Device],",
 				"v *rack.Key,",
@@ -457,7 +518,6 @@ var _ = Describe("@ref", func() {
 					"return nil",
 					"Detach: func(e *Device, _ ",
 					"e.Spare = "+strings.Trim(zero, "()")+" },",
-					"func MatchHasSpare(has bool) Filter",
 					"func setSpare(",
 				)
 		},
@@ -1708,7 +1768,7 @@ var _ = Describe("@ref", func() {
 				ToContain(
 					`Name:     "spare",`,
 					"OnDelete: gorp.Weak,",
-					"return []rack.Key{e.Spare}",
+					"return unsafe.Slice(&e.Spare, 1)",
 				).
 				ToNotContain("Detach:", "Tag:")
 		})

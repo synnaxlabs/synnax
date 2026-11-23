@@ -13,6 +13,7 @@ package symbol
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
@@ -55,15 +56,16 @@ func newIndexes() indexes {
 			func(e *Symbol) string { return compare.TextKey(string(e.Name)) },
 		),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Symbol, group.Key]{
-			Name:     "group",
-			Table:    "group",
-			OnDelete: gorp.Detach,
-			Kind:     gorp.Place,
+			Name:                "group",
+			Table:               "group",
+			OnDelete:            gorp.Detach,
+			Kind:                gorp.Place,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Symbol) []group.Key {
 				if e.Group == nil {
 					return nil
 				}
-				return []group.Key{*e.Group}
+				return unsafe.Slice(e.Group, 1)
 			},
 			Detach: func(e *Symbol, _ group.Key) { e.Group = nil },
 			Retarget: func(e *Symbol, from, to group.Key) {

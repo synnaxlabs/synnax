@@ -12,6 +12,8 @@
 package kv
 
 import (
+	"unsafe"
+
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 )
@@ -35,7 +37,7 @@ func newIndexes() indexes {
 			OnDelete: gorp.Cascade,
 			Kind:     gorp.Place,
 			Targets: func(e *Pair) []ranger.Key {
-				return []ranger.Key{e.Range}
+				return unsafe.Slice(&e.Range, 1)
 			},
 			Retarget: func(e *Pair, from, to ranger.Key) {
 				if e.Range == from {

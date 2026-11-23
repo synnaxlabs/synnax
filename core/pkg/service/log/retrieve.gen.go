@@ -14,6 +14,7 @@ package log
 import (
 	"context"
 	"slices"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -57,15 +58,16 @@ func newIndexes() indexes {
 			func(e *Log) string { return compare.TextKey(string(e.Name)) },
 		),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, group.Key]{
-			Name:     "group",
-			Table:    "group",
-			OnDelete: gorp.Detach,
-			Kind:     gorp.Place,
+			Name:                "group",
+			Table:               "group",
+			OnDelete:            gorp.Detach,
+			Kind:                gorp.Place,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Log) []group.Key {
 				if e.Group == nil {
 					return nil
 				}
-				return []group.Key{*e.Group}
+				return unsafe.Slice(e.Group, 1)
 			},
 			Detach: func(e *Log, _ group.Key) { e.Group = nil },
 			Retarget: func(e *Log, from, to group.Key) {
@@ -83,7 +85,7 @@ func newIndexes() indexes {
 				if e.Project == nil {
 					return nil
 				}
-				return []project.Key{*e.Project}
+				return unsafe.Slice(e.Project, 1)
 			},
 			Retarget: func(e *Log, from, to project.Key) {
 				if e.Project != nil && *e.Project == from {
@@ -346,14 +348,6 @@ func setGroup(
 func MatchProjects(vals ...project.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Log] {
 		return r.indexes.project.Filter(vals...)
-	}
-}
-
-// MatchHasProject returns a filter for logs whose
-// Project holds a target when has is true, and holds none when has is false.
-func MatchHasProject(has bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Log] {
-		return r.indexes.project.FilterHolding(has)
 	}
 }
 

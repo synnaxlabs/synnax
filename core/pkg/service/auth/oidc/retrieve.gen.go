@@ -13,6 +13,7 @@ package oidc
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -54,7 +55,7 @@ func newIndexes() indexes {
 			OnDelete: gorp.Cascade,
 			Kind:     gorp.Place,
 			Targets: func(e *Link) []user.Key {
-				return []user.Key{e.User}
+				return unsafe.Slice(&e.User, 1)
 			},
 			Retarget: func(e *Link, from, to user.Key) {
 				if e.User == from {

@@ -13,6 +13,7 @@ package device
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -59,7 +60,7 @@ func newIndexes() indexes {
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Place,
 			Targets: func(e *Device) []rack.Key {
-				return []rack.Key{e.Rack}
+				return unsafe.Slice(&e.Rack, 1)
 			},
 			Retarget: func(e *Device, from, to rack.Key) {
 				if e.Rack == from {
@@ -68,15 +69,16 @@ func newIndexes() indexes {
 			},
 		}),
 		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, group.Key]{
-			Name:     "group",
-			Table:    "group",
-			OnDelete: gorp.Detach,
-			Kind:     gorp.Place,
+			Name:                "group",
+			Table:               "group",
+			OnDelete:            gorp.Detach,
+			Kind:                gorp.Place,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Device) []group.Key {
 				if e.Group == nil {
 					return nil
 				}
-				return []group.Key{*e.Group}
+				return unsafe.Slice(e.Group, 1)
 			},
 			Detach: func(e *Device, _ group.Key) { e.Group = nil },
 			Retarget: func(e *Device, from, to group.Key) {
@@ -86,16 +88,17 @@ func newIndexes() indexes {
 			},
 		}),
 		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, Key]{
-			Name:     "parent",
-			Table:    "device",
-			OnDelete: gorp.Cascade,
-			Kind:     gorp.Place,
-			Acyclic:  true,
+			Name:                "parent",
+			Table:               "device",
+			OnDelete:            gorp.Cascade,
+			Kind:                gorp.Place,
+			Acyclic:             true,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Device) []Key {
 				if e.Parent == nil {
 					return nil
 				}
-				return []Key{*e.Parent}
+				return unsafe.Slice(e.Parent, 1)
 			},
 			Retarget: func(e *Device, from, to Key) {
 				if e.Parent != nil && *e.Parent == from {

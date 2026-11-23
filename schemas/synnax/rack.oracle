@@ -79,11 +79,12 @@ Rack struct {
     }
     group        group.Key? {
         @cpp omit
-        @doc value     "is the group the rack sits in, if any."
+        @doc value                 "is the group the rack sits in, if any."
         @group pinned
-        @group scope   device
-        @ref kind      place
-        @ref on_delete detach
+        @group scope               device
+        @ref empty_holders_tracked
+        @ref kind                  place
+        @ref on_delete             detach
     }
     role         role.Key   {
         @cpp omit

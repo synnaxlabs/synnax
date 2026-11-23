@@ -13,6 +13,7 @@ package device
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
@@ -62,7 +63,7 @@ func newIndexes() indexes {
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Place,
 			Targets: func(e *Device) []rack.Key {
-				return []rack.Key{e.Rack}
+				return unsafe.Slice(&e.Rack, 1)
 			},
 			Retarget: func(e *Device, from, to rack.Key) {
 				if e.Rack == from {
@@ -79,7 +80,7 @@ func newIndexes() indexes {
 				if e.Chassis == nil {
 					return nil
 				}
-				return []chassis.Key{*e.Chassis}
+				return unsafe.Slice(e.Chassis, 1)
 			},
 			Retarget: func(e *Device, from, to chassis.Key) {
 				if e.Chassis != nil && *e.Chassis == from {
@@ -232,14 +233,6 @@ func MatchModels(vals ...string) Filter {
 func MatchChassisList(vals ...chassis.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return r.indexes.chassis.Filter(vals...)
-	}
-}
-
-// MatchHasChassis returns a filter for devices whose
-// Chassis holds a target when has is true, and holds none when has is false.
-func MatchHasChassis(has bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Device] {
-		return r.indexes.chassis.FilterHolding(has)
 	}
 }
 

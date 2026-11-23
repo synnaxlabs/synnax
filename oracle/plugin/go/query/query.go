@@ -314,6 +314,10 @@ func (r retrieveInfo) needsSlices() bool {
 	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
 }
 
+// needsUnsafe reports whether a generated Targets returns a slice over the entry's
+// own field.
+func (r retrieveInfo) needsUnsafe() bool { return lo.SomeBy(r.Refs, refInfo.AliasesField) }
+
 // needsSet reports whether the generated code calls the set package.
 func (r retrieveInfo) needsSet() bool {
 	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
@@ -414,6 +418,9 @@ func generateRetrieveFile(
 	if lo.SomeBy(infos, retrieveInfo.needsSlices) ||
 		lo.SomeBy(refRoots, referencesInfo.needsSlices) {
 		imps.AddExternal("slices")
+	}
+	if lo.SomeBy(infos, retrieveInfo.needsUnsafe) {
+		imps.AddExternal("unsafe")
 	}
 	if lo.SomeBy(infos, retrieveInfo.needsSet) {
 		imps.AddInternal(
@@ -1050,6 +1057,9 @@ func newIndexes() indexes {
 {{- if $ref.Acyclic}}
 			Acyclic:  true,
 {{- end}}
+{{- if $ref.EmptyHoldersTracked}}
+			EmptyHoldersTracked: true,
+{{- end}}
 			Targets: func(e *{{$ret.GoName}}) []{{$ref.TargetType}} {
 {{- if and $ref.IsSlice (not $ref.IsID)}}
 				return e.{{$ref.GoName}}
@@ -1063,14 +1073,22 @@ func newIndexes() indexes {
 				if e.{{$ref.GoName}} == nil {
 					return nil
 				}
+{{- if $ref.AliasesField}}
+				return unsafe.Slice(e.{{$ref.GoName}}, 1)
+{{- else}}
 				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "*e.%s" $ref.GoName) -}} }
-{{- else if $ref.Zero}}
+{{- end}}
+{{- else}}
+{{- if $ref.Zero}}
 				if e.{{$ref.GoName}} == {{$ref.ZeroOperand}} {
 					return nil
 				}
-				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "e.%s" $ref.GoName) -}} }
+{{- end}}
+{{- if $ref.AliasesField}}
+				return unsafe.Slice(&e.{{$ref.GoName}}, 1)
 {{- else}}
 				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "e.%s" $ref.GoName) -}} }
+{{- end}}
 {{- end}}
 			},
 {{- if $ref.Detaches}}
@@ -1263,7 +1281,7 @@ func {{.Func}}(vals ...{{.ElemGoType}}) Filter {
 {{- end}}
 	}
 }
-{{- if .Ref.HoldsNone}}
+{{- if .Ref.EmptyHoldersTracked}}
 
 // MatchHas{{.GoName}} returns a filter for {{$ret.Noun | pluralize}} whose
 // {{.GoName}} holds a target when has is true, and holds none when has is false.
@@ -1448,6 +1466,9 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 {{- end}}
 {{- if .Acyclic}}
 			Acyclic:  true,
+{{- end}}
+{{- if .EmptyHoldersTracked}}
+			EmptyHoldersTracked: true,
 {{- end}}
 			Targets: func(e *{{.EntryType}}) []{{.TargetType}} {
 				{{.TargetsBody}}

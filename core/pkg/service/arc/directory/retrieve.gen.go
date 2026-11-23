@@ -13,6 +13,7 @@ package directory
 
 import (
 	"context"
+	"unsafe"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/compare"
@@ -50,16 +51,17 @@ func newIndexes() indexes {
 			func(e *Directory) string { return compare.TextKey(string(e.Name)) },
 		),
 		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Directory, Key]{
-			Name:     "parent",
-			Table:    "arc_directory",
-			OnDelete: gorp.Restrict,
-			Kind:     gorp.Place,
-			Acyclic:  true,
+			Name:                "parent",
+			Table:               "arc_directory",
+			OnDelete:            gorp.Restrict,
+			Kind:                gorp.Place,
+			Acyclic:             true,
+			EmptyHoldersTracked: true,
 			Targets: func(e *Directory) []Key {
 				if e.Parent == nil {
 					return nil
 				}
-				return []Key{*e.Parent}
+				return unsafe.Slice(e.Parent, 1)
 			},
 			Retarget: func(e *Directory, from, to Key) {
 				if e.Parent != nil && *e.Parent == from {

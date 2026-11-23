@@ -69,7 +69,14 @@ type refInfo struct {
 	Zero string
 	// RetargetBody is the body of the reference's Retarget function.
 	RetargetBody string
+	// EmptyHoldersTracked is true for `@ref empty_holders_tracked`: the reference keeps
+	// the entries that hold no target, and the field gets a MatchHas filter.
+	EmptyHoldersTracked bool
 }
+
+// AliasesField reports whether the reference's Targets returns a slice over the
+// entry's own field: a key of one table, held by a field that is not an array.
+func (r refInfo) AliasesField() bool { return !r.IsID && !r.IsSlice }
 
 // HoldsNone reports whether an entry can hold no target through the field.
 func (r refInfo) HoldsNone() bool { return r.IsOptional || r.IsSlice || r.Zero != "" }
@@ -210,13 +217,14 @@ var refExpressions = set.New(
 	"unique",
 	"acyclic",
 	"direction",
+	"empty_holders_tracked",
 )
 
 // singleRefExpressions are the @ref expressions that hold one value.
 var singleRefExpressions = set.New("on_delete", "kind", "direction")
 
 // flagRefExpressions are the @ref expressions that hold no value.
-var flagRefExpressions = set.New("unique", "acyclic")
+var flagRefExpressions = set.New("unique", "acyclic", "empty_holders_tracked")
 
 // extractRef returns the reference that field of typ holds. inArray is true when a
 // detach can drop the array element that holds field.
@@ -261,6 +269,16 @@ func extractRef(
 	if onDelete == "Detach" && !info.IsOptional && !isSlice && info.Zero == "" &&
 		!inArray {
 		return fail("needs to be optional, an array, or zero by default to detach")
+	}
+	info.EmptyHoldersTracked = plugindomain.HasExprFromField(
+		field,
+		"ref",
+		"empty_holders_tracked",
+	)
+	if info.EmptyHoldersTracked && !info.IsOptional && !isSlice && info.Zero == "" {
+		return fail(
+			"needs to be optional, an array, or zero by default to track empty holders",
+		)
 	}
 	types := refTypes(field)
 	info.ElemGoType = r.ResolveTypeRef(elem, ctx)

@@ -112,20 +112,22 @@ Device struct<
     }
     group      group.Key? {
         @cpp omit
-        @doc value     "is the group the device sits in, if any."
+        @doc value                 "is the group the device sits in, if any."
         @group pinned
-        @group scope   device
-        @ref kind      place
-        @ref on_delete detach
+        @group scope               device
+        @ref empty_holders_tracked
+        @ref kind                  place
+        @ref on_delete             detach
     }
     parent     Key?       {
-        @doc value     """
+        @doc value                 """
             is the key of the device that holds this device, such as the NI chassis of a
             module. Empty for a device that sits directly on its rack.
         """
         @ref acyclic
-        @ref kind      place
-        @ref on_delete cascade
+        @ref empty_holders_tracked
+        @ref kind                  place
+        @ref on_delete             cascade
     }
 
     action Create {
