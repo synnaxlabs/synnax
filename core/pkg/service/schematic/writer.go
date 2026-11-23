@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -28,6 +29,8 @@ import (
 type Writer struct {
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Schematic]
+	symbols    *symbol.Service
+	builtins   map[string]symbol.Builtin
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
@@ -57,6 +60,9 @@ func (w Writer) Create(ctx context.Context, s *Schematic) error {
 		return err
 	}
 	if err := validateParents(*s); err != nil {
+		return err
+	}
+	if err := w.checkBindings(ctx, *s); err != nil {
 		return err
 	}
 	if err := project.CheckMember(s.Project); err != nil {
@@ -174,6 +180,9 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 				return Schematic{}, err
 			}
 			if err = validateParents(next); err != nil {
+				return Schematic{}, err
+			}
+			if err = w.checkBindings(ctx, next); err != nil {
 				return Schematic{}, err
 			}
 			return next, project.CheckMember(next.Project)
