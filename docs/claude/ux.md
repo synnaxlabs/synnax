@@ -724,8 +724,8 @@ bound, a log precision, or the line plot X channel.
   links never add one. The plot's Ranges picker searches every range, newest first, so
   no range needs a star to be plotted. A range that has not started shows in the toolbar
   only as a favorite.
-- The Favorites heading holds Unfavorite all while a favorite shows. It asks to confirm,
-  then removes every favorite. The ranges stay on the Core.
+- The Favorites heading holds a Clear text button while a favorite shows. It asks to
+  confirm, then removes every favorite. The ranges stay on the Core.
 - The header holds the explorer, then + (the create form set to the last hour), then
   Start. + and Start are outlined `Toolbar.CreateAction` buttons. The toolbar has no
   active range, and new plots open on Rolling 30s.

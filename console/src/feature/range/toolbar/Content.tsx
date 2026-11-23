@@ -640,7 +640,6 @@ const UnfavoriteAll = ({ favorites }: { favorites: ranger.Range[] }) => {
         confirm: { variant: "error", label: "Unfavorite" },
         cancel: { label: "Cancel" },
         title: "Range.Unfavorite all",
-        icon: <Icon.StarOutlined />,
       });
       if (confirmed !== true) return;
       dispatch(Session.Range.remove({ keys }));
@@ -651,10 +650,9 @@ const UnfavoriteAll = ({ favorites }: { favorites: ranger.Range[] }) => {
       size="small"
       textColor={9}
       tooltip="Unfavorite all ranges"
-      aria-label="Unfavorite all ranges"
       onClick={handleClick}
     >
-      <Icon.StarOutlined />
+      Clear
     </Button.Button>
   );
 };

@@ -690,9 +690,7 @@ describe("range/Toolbar", () => {
       const first = await createRange(uniqueName("unfavorite"), span);
       const second = await createRange(uniqueName("unfavorite"), span);
       const { store } = await renderToolbar({ favorites: [first, second] });
-      fireEvent.click(
-        await screen.findByRole("button", { name: "Unfavorite all ranges" }),
-      );
+      fireEvent.click(await screen.findByRole("button", { name: "Clear" }));
       await screen.findByText("Are you sure you want to unfavorite 2 ranges?");
       fireEvent.click(screen.getByRole("button", { name: "Unfavorite" }));
       await waitFor(() =>
@@ -708,7 +706,7 @@ describe("range/Toolbar", () => {
       await client.ranges.delete(deleted.key);
       const { store } = await renderToolbar({ favorites: [kept, deleted] });
       await findLine("Favorites", kept.name);
-      fireEvent.click(screen.getByRole("button", { name: "Unfavorite all ranges" }));
+      fireEvent.click(screen.getByRole("button", { name: "Clear" }));
       await screen.findByText("Are you sure you want to unfavorite 1 range?");
       fireEvent.click(screen.getByRole("button", { name: "Unfavorite" }));
       await waitFor(() =>
@@ -722,9 +720,7 @@ describe("range/Toolbar", () => {
         TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       );
       const { store } = await renderToolbar({ favorites: [rng] });
-      fireEvent.click(
-        await screen.findByRole("button", { name: "Unfavorite all ranges" }),
-      );
+      fireEvent.click(await screen.findByRole("button", { name: "Clear" }));
       await screen.findByText("Are you sure you want to unfavorite 1 range?");
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       await waitFor(() => expect(screen.queryByText("Cancel")).toBeNull());
@@ -736,9 +732,7 @@ describe("range/Toolbar", () => {
     it("should hide the action when no range is favorited", async () => {
       await renderToolbar();
       await screen.findByText("Star a range to add it here");
-      expect(
-        screen.queryByRole("button", { name: "Unfavorite all ranges" }),
-      ).toBeNull();
+      expect(screen.queryByRole("button", { name: "Clear" })).toBeNull();
     });
   });
 
