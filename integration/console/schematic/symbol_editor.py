@@ -107,7 +107,7 @@ class SymbolEditor:
         self.wait_for_form_visible()
 
     def _part_rows(self) -> Locator:
-        """Locate the rows of the part list, without the row of the whole drawing."""
+        """Locate the items of the part list, without the item of the whole drawing."""
         return self.modal.locator(".console-schematic-part-list-item").filter(
             has_not_text="Whole drawing"
         )
@@ -117,7 +117,7 @@ class SymbolEditor:
         return self._part_rows().count()
 
     def part_rows_fit(self) -> bool:
-        """Return whether every part row fits its width without overflowing."""
+        """Return whether every part item fits its width without overflowing."""
         return bool(
             self._part_rows().evaluate_all(
                 "(rows) => rows.every((row) => row.scrollWidth <= row.clientWidth)"
