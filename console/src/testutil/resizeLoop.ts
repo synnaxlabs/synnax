@@ -180,11 +180,12 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     observe(target: Element, options?: ResizeObserverOptions): void {
       // The first delivery of a target observed after a callback in the same frame
       // counts as a resize, so a shallow target ends the frame in a loop error.
-      if (delivered && document.timeline.currentTime === frame) {
-        const observer = `began to be observed after a callback, at:\n${callerStack()}`;
-        changes.push(`${label(target)} ${observer}`);
-      }
       if (!this.targets.has(target)) {
+        if (delivered && document.timeline.currentTime === frame) {
+          const cause = "began to be observed after a callback, at:";
+          changes.push(`${label(target)} ${cause}\n${callerStack()}`);
+          if (changes.length > MAX_CHANGES) changes.shift();
+        }
         this.targets.add(target);
         observed.set(target, (observed.get(target) ?? 0) + 1);
       }
