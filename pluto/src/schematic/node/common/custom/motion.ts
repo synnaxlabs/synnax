@@ -43,13 +43,15 @@ const BLINK_DIM = 0.2;
 // The duration and curve of --pluto-modal-animation.
 const TRANSITION_MS = 150;
 
-// easeInOut is the CSS ease-in-out curve, cubic-bezier(0.42, 0, 0.58, 1), at time t.
+// easeInOut is the CSS ease-in-out curve, cubic-bezier(X1, 0, X2, 1), at time t.
+const X1 = 0.42;
+const X2 = 0.58;
 const easeInOut = (t: number): number => {
   let lo = 0;
   let hi = 1;
   for (let i = 0; i < 20; i++) {
     const s = (lo + hi) / 2;
-    if (1.26 * s * (1 - s) ** 2 + 1.74 * s * s * (1 - s) + s ** 3 < t) lo = s;
+    if (3 * X1 * s * (1 - s) ** 2 + 3 * X2 * s * s * (1 - s) + s ** 3 < t) lo = s;
     else hi = s;
   }
   const s = (lo + hi) / 2;
@@ -469,8 +471,9 @@ class Part implements Mover {
 
   step(now: number): boolean {
     // Every track steps, so no short circuit.
-    const moving = FIELDS.map((field) => this.tracks[field]?.step(now) === true);
-    return moving.includes(true);
+    const motion = this.tracks.motion?.step(now) === true;
+    const blink = this.tracks.blink?.step(now) === true;
+    return motion || blink;
   }
 
   restore(): void {
