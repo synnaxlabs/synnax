@@ -82,20 +82,17 @@ This RFC changes the ICD in these ways:
 ### 3.1 Tasks
 
 A task entry names one ICD and lists messages. Each message lists bindings (`field`,
-`channel`, and `data_type`) and an optional index field. In the Driver, each read
-binding to an index channel stamps the channels on that index, so one HTTP or bus
-message can carry several timestamps. An MQTT or Kafka message keeps one index group.
-The index field is the one that the form makes an index channel for. A write binding is
-a union on `type`: the `channel` variant holds these keys, and the `value` variant holds
-`field` and `value`. An unbound field is not read. The ICD key sits on each entry,
-because one entry is one publishing device. The task holds all timing, because the rig
-chooses it: the poll rate of a queried message, and the `period` of a message a bus
-write task sends on a cycle. The form fills `period` from the message's `cycle_time`
-when a write task first binds it. An MQTT write target has no period: it publishes one
-message for each command on any bound channel, with the last value of each other bound
-channel. Commands that arrive in one frame share one message. A polled serial, TCP, or
-UDP entry holds its `query`, the request the device must receive before it answers, as
-an HTTP endpoint holds its request.
+`channel`, and `data_type`) and an optional index field. A write binding is a union on
+`type`: the `channel` variant holds these keys, and the `value` variant holds `field`
+and `value`. An unbound field is not read. The ICD key sits on each entry, because one
+entry is one publishing device. The task holds all timing, because the rig chooses it:
+the poll rate of a queried message, and the `period` of a message a bus write task sends
+on a cycle. The form fills `period` from the message's `cycle_time` when a write task
+first binds it. An MQTT write target has no period: it publishes one message for each
+command on any bound channel, with the last value of each other bound channel. Commands
+that arrive in one frame share one message. A polled serial, TCP, or UDP entry holds its
+`query`, the request the device must receive before it answers, as an HTTP endpoint
+holds its request.
 
 A write task binds each field to a channel or to a fixed `value` that the task picks,
 such as a unit ID. Two tasks on one ICD can then send different values. A field with no
@@ -152,9 +149,7 @@ payload. MQTT v3 migrates each v1 and v2 write target into an ICD message. Kafka
 migrates each v0 task into one ICD. HTTP v5 migrates each v4 endpoint's fields into one
 ICD message, with `fill_value` as the ICD `default`. A v4 endpoint can hold fields on
 several index channels, so the Driver writes each index group of a message on its own.
-The lift keeps each timestamp field: the first one becomes the index field, and each
-other one keeps its binding to its index channel. The Console still makes a new message
-on one index.
+The Console still makes a new message on one index.
 
 The bus integrations come from the SY-4971 branch. They drop that branch's own ICD
 stack, its `library` toolkit, and its `icd_hash` stamping, and use the ICD on `main`.
@@ -184,7 +179,9 @@ until 0.63.0. Each carries a migration from the version that shipped:
 - HTTP v5 migrates each v4 endpoint into one ICD message. An ICD default cannot be NaN,
   so the task's `nan_fill_enabled` turns on when v4 had it or when an optional field had
   no `fill_value`. A missing required float field in such a task then writes NaN with a
-  warning, where v4 skipped the endpoint's group.
+  warning, where v4 skipped the endpoint's group. A message has one timestamp field, so
+  a v4 endpoint with two keeps both fields but fails to configure. Its status tells the
+  user to split the endpoint into two, each with one timestamp.
 
 The MQTT v1 to v2 migration writes ICDs when a Core upgrades.
 
@@ -309,10 +306,9 @@ real adapter (§6.16).
     Desktop-first rule in `CONTRIBUTING.md` that the release owner ruled. A Desktop-only
     release first was rejected, so ICDs and the bus integrations reach the Console in
     0.63.0, not 0.64.0.
-20. **A Driver message can carry several timestamps**: Each field bound to an index
-    channel stamps the channels on that index (2026-11-22), as an HTTP v4 endpoint does
-    and RFC 0028 specifies. A script can make such an endpoint, so the lift keeps it.
-    The MQTT and Kafka runtimes build one index group per message, and their configure
-    step refuses a second. Keeping only the first timestamp was rejected: the other
-    channels would take the arrival time with no warning. Refusing the task was
-    rejected: v5 would have no way to hold it.
+20. **An HTTP endpoint with two timestamp fields fails to configure**: The user splits
+    it into two endpoints (2026-11-22). Only a script can make one, since the Console
+    form holds one timestamp per endpoint. Keeping only the first timestamp was
+    rejected: the other channels would take the arrival time with no warning. Several
+    timestamps per message was rejected: it changes a read rule that MQTT and Kafka
+    share, for a case that may not exist.
