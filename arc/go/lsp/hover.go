@@ -101,7 +101,6 @@ func (s *Server) Hover(
 	qualifiedWord := lsp.GetQualifiedPrefixWordAtPosition(
 		displayContent,
 		params.Position,
-		d.wordChars,
 	)
 	var contents string
 	if qualifiedWord != word {
@@ -473,12 +472,12 @@ type commentTokens struct {
 	tokens []antlr.Token
 }
 
-func (c *commentTokens) of(source antlr.CharStream, cfg parser.Config) []antlr.Token {
+func (c *commentTokens) of(source antlr.CharStream) []antlr.Token {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.source != source {
 		c.source = source
-		c.tokens = tokenizeContentWithComments(source.GetText(0, source.Size()-1), cfg)
+		c.tokens = tokenizeContentWithComments(source.GetText(0, source.Size()-1))
 	}
 	return c.tokens
 }
@@ -495,7 +494,7 @@ func (s *Server) extractDocComment(sym *symbol.Symbol) string {
 	}
 
 	symLine := start.GetLine()
-	tokens := s.comments.of(start.GetInputStream(), s.parserConfig())
+	tokens := s.comments.of(start.GetInputStream())
 	// The tokens sit in order, so the ones on or after the line of sym come last.
 	end := sort.Search(len(tokens), func(i int) bool {
 		return tokens[i].GetLine() >= symLine

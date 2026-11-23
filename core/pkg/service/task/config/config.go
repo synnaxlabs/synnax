@@ -318,19 +318,27 @@ const tableSuffix = "_config"
 // TableName returns the name of the table that stores the config records of taskType.
 func TableName(taskType string) string { return taskType + tableSuffix }
 
-// TaskOf returns the ID of the task whose config record target names, and false when
-// the table of target stores no config records.
-func TaskOf(target gorp.Target) (resource.ID, bool) {
-	if !strings.HasSuffix(target.Table, tableSuffix) {
+// Holders names the tables whose records stand for the task that shares their key: the
+// config tables and the tables given to NewHolders.
+type Holders struct{ tables []string }
+
+// NewHolders returns the Holders of the config tables and of tables.
+func NewHolders(tables ...string) *Holders { return &Holders{tables: tables} }
+
+// TaskOf returns the ID of the task whose record target names, and false when the table
+// of target stores no records that stand for a task.
+func (h Holders) TaskOf(target gorp.Target) (resource.ID, bool) {
+	if !strings.HasSuffix(target.Table, tableSuffix) &&
+		!slices.Contains(h.tables, target.Table) {
 		return resource.ID{}, false
 	}
 	return resource.ID{Type: resource.TypeTask, Key: target.Key}, true
 }
 
 // RecordOf returns the record that holder, the holder of a reference, stands for: the
-// task of a config record, or holder itself.
-func RecordOf(holder gorp.Target) resource.ID {
-	if id, ok := TaskOf(holder); ok {
+// task of a record that stands for one, or holder itself.
+func (h Holders) RecordOf(holder gorp.Target) resource.ID {
+	if id, ok := h.TaskOf(holder); ok {
 		return id
 	}
 	return resource.ID{Type: resource.Type(holder.Table), Key: holder.Key}

@@ -35,8 +35,6 @@ var _ = Describe("Name rule", Ordered, func() {
 		db = node.DB
 		cfg, gs := serviceConfig(ctx, node, node.DB)
 		groupSvc = gs
-		// The rule and the index apply whatever the old name validation flag says.
-		cfg.ValidateNames = new(false)
 		svc = MustOpen(channel.OpenService(ctx, cfg))
 		folder = MustSucceed(
 			groupSvc.CreateOrRetrieve(ctx, "Names", resource.TypeChannel),

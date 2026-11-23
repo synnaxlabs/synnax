@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
@@ -35,28 +34,6 @@ type (
 	Text           = text.Text
 	Program        = program.Program
 )
-
-// Option configures Arc compilation.
-type Option func(*options)
-
-type options struct {
-	cfg parser.Config
-}
-
-func newOptions(opts []Option) options {
-	var o options
-	for _, opt := range opts {
-		opt(&o)
-	}
-	return o
-}
-
-// WithAllowDashedNames permits '-' inside Arc channel-name identifiers (e.g.
-// "sensor-1"). Off by default; enable only when Core runs with channel-name validation
-// disabled.
-func WithAllowDashedNames(allow bool) Option {
-	return func(o *options) { o.cfg.AllowDashedNames = allow }
-}
 
 // NewRoot returns a program root with the standard library symbols and
 // any extras attached to the ambient prelude, and resolver installed as
@@ -77,19 +54,17 @@ func CompileGraph(
 	ctx context.Context,
 	g Graph,
 	root *symbol.Symbol,
-	opts ...Option,
 ) (Program, error) {
-	o := newOptions(opts)
-	graphWithAST, err := graph.Parse(g, o.cfg)
+	graphWithAST, err := graph.Parse(g)
 	if err != nil {
 		return Program{}, err
 	}
 	symbol.AutoImportModules(root)
-	inter, diagnostics := graph.Analyze(ctx, graphWithAST, root, o.cfg)
+	inter, diagnostics := graph.Analyze(ctx, graphWithAST, root)
 	if !diagnostics.Ok() {
 		return Program{}, diagnostics
 	}
-	output, cErr := compiler.Compile(ctx, inter, compiler.WithConfig(o.cfg))
+	output, cErr := compiler.Compile(ctx, inter)
 	if cErr != nil {
 		return Program{}, cErr
 	}
@@ -102,18 +77,16 @@ func CompileText(
 	ctx context.Context,
 	t Text,
 	root *symbol.Symbol,
-	opts ...Option,
 ) (Program, error) {
-	o := newOptions(opts)
-	textWithAST, err := text.Parse(t, o.cfg)
+	textWithAST, err := text.Parse(t)
 	if err != nil {
 		return Program{}, err
 	}
-	inter, diagnostics := text.Analyze(ctx, textWithAST, root, o.cfg)
+	inter, diagnostics := text.Analyze(ctx, textWithAST, root)
 	if !diagnostics.Ok() {
 		return Program{}, diagnostics
 	}
-	output, cErr := compiler.Compile(ctx, inter, compiler.WithConfig(o.cfg))
+	output, cErr := compiler.Compile(ctx, inter)
 	if cErr != nil {
 		return Program{}, cErr
 	}

@@ -104,7 +104,7 @@ var _ = Describe("Channel links", func() {
 		var env imex.Envelope
 		Expect(imex.Codec.Decode(file, &env)).To(Succeed())
 		env.Name = "imported_" + uuid.New().String()[:8]
-		links := channelSvc.NewLinkReader(ctx, db)
+		links := channelSvc.NewLinkReader(ctx, db, func(resource.ID) bool { return true })
 		write := MustSucceed(svc.Decode(ctx, env.WithDecodeOptions(links.Options())))
 		var id resource.ID
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {

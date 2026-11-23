@@ -27,12 +27,12 @@ func SplitLines(content string) []string {
 	return strings.Split(content, "\n")
 }
 
-func Format(content string, cfgs ...parser.Config) string {
+func Format(content string) string {
 	if content == "" {
 		return ""
 	}
 
-	tokens := parser.NewLexer(content, parser.ConfigOf(cfgs...)).GetAllTokens()
+	tokens := parser.NewArcLexer(antlr.NewInputStream(content)).GetAllTokens()
 
 	hasVisibleTokens := false
 	for _, tok := range tokens {
@@ -48,20 +48,16 @@ func Format(content string, cfgs ...parser.Config) string {
 
 	p := newPrinter()
 	// The printer puts each body item on its own line, which the hoist needs.
-	return HoistDeclarations(p.print(tokens), cfgs...)
+	return HoistDeclarations(p.print(tokens))
 }
 
-func FormatRange(
-	content string,
-	startLine, endLine int,
-	cfgs ...parser.Config,
-) string {
+func FormatRange(content string, startLine, endLine int) string {
 	lines := SplitLines(content)
 	if startLine < 0 || endLine >= len(lines) || startLine > endLine {
 		return content
 	}
 	rangeContent := strings.Join(lines[startLine:endLine+1], "\n")
-	formatted := Format(rangeContent, cfgs...)
+	formatted := Format(rangeContent)
 	formatted = strings.TrimSuffix(formatted, "\n")
 	var result strings.Builder
 	for i := range startLine {

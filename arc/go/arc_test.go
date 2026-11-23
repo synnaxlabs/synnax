@@ -27,7 +27,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Dashed names keep -> intact", func() {
+var _ = Describe("Dashed channel names", func() {
 	root := func() *symbol.Symbol {
 		r := symbol.NewRoot(nil, stl.NewSymbols())
 		syms := []symbol.Symbol{
@@ -63,56 +63,34 @@ var _ = Describe("Dashed names keep -> intact", func() {
 	}
 	It("resolves routing whether or not -> is spaced", func(ctx SpecContext) {
 		fn := "func calc() {val f32} f32 { return val * 2 }\n"
-		opt := arc.WithAllowDashedNames(true)
-		MustSucceed(
-			arc.CompileText(
-				ctx,
-				arc.Text{Raw: fn + "ox_pt_1 -> calc() -> ox_pt_doubled"},
-				root(),
-				opt,
-			),
-		)
-		MustSucceed(
-			arc.CompileText(
-				ctx,
-				arc.Text{Raw: fn + "ox_pt_1->calc()->ox_pt_doubled"},
-				root(),
-				opt,
-			),
-		)
+		MustSucceed(arc.CompileText(
+			ctx,
+			arc.Text{Raw: fn + "ox_pt_1 -> calc() -> ox_pt_doubled"},
+			root(),
+		))
+		MustSucceed(arc.CompileText(
+			ctx,
+			arc.Text{Raw: fn + "ox_pt_1->calc()->ox_pt_doubled"},
+			root(),
+		))
 	})
 
-	It("resolves channel names containing dashes", func(ctx SpecContext) {
+	It("resolves quoted channel names containing dashes", func(ctx SpecContext) {
+		fn := "func calc() {val f32} f32 { return val - 1.0 }\n"
+		MustSucceed(arc.CompileText(
+			ctx,
+			arc.Text{Raw: fn + "'ox-pt-1' -> calc() -> 'ox-pt-doubled'"},
+			root(),
+		))
+	})
+
+	It("reads a bare dashed name as a subtraction", func(ctx SpecContext) {
 		fn := "func calc() {val f32} f32 { return val * 2 }\n"
-		MustSucceed(arc.CompileText(
+		Expect(arc.CompileText(
 			ctx,
-			arc.Text{Raw: fn + "ox-pt-1 -> calc() -> ox-pt-doubled"},
+			arc.Text{Raw: fn + "ox-pt-1 -> calc() -> ox_pt_doubled"},
 			root(),
-			arc.WithAllowDashedNames(true),
-		))
-	})
-
-	It(
-		"keeps spaced subtraction working alongside dashed names",
-		func(ctx SpecContext) {
-			fn := "func calc() {val f32} f32 { return val - 1.0 }\n"
-			MustSucceed(arc.CompileText(
-				ctx,
-				arc.Text{Raw: fn + "ox-pt-1 -> calc() -> ox-pt-doubled"},
-				root(),
-				arc.WithAllowDashedNames(true),
-			))
-		},
-	)
-
-	It("keeps subtract-assign working alongside dashed names", func(ctx SpecContext) {
-		fn := "func calc() {val f32} f32 {\n\tx f32 := val\n\tx -= 1.0\n\treturn x\n}\n"
-		MustSucceed(arc.CompileText(
-			ctx,
-			arc.Text{Raw: fn + "ox-pt-1 -> calc() -> ox-pt-doubled"},
-			root(),
-			arc.WithAllowDashedNames(true),
-		))
+		)).Error().To(MatchError(ContainSubstring("undefined symbol: ox")))
 	})
 })
 

@@ -24,10 +24,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -84,6 +86,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		layer.RBAC
 	userSvc = layer.User
 	apiSvc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
+		Holders:     taskconfig.NewHolders(arc.DriftTable),
 		DB:          db,
 		RBAC:        rbacSvc,
 		Channel:     channelSvc,
@@ -93,9 +96,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	binder := MustSucceed(
 		bind.NewService(bind.ServiceConfig{
-			DB:   db,
-			RBAC: rbacSvc,
-			Held: apiauth.HeldTables(),
+			Holders: taskconfig.NewHolders(arc.DriftTable),
+			DB:      db,
+			RBAC:    rbacSvc,
+			Held:    apiauth.HeldTables(),
 		}),
 	)
 	createChannels = bind.Write(binder, apiSvc.Create)

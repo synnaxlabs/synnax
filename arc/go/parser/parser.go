@@ -41,51 +41,6 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// Config carries per-parse language settings. Adding a field threads a new setting
-// through every parse and analysis path without changing call signatures.
-type Config struct {
-	// AllowDashedNames permits '-' inside identifiers so "sensor-1" lexes as one token.
-	// Off by default; enable only when Core runs with channel-name validation disabled.
-	AllowDashedNames bool
-}
-
-// ConfigOf returns the effective config from a variadic list: the last entry, or the
-// zero Config when none is given. The zero Config means validation-on (dashed names
-// off), so omitting it preserves the default behavior.
-func ConfigOf(cfgs ...Config) Config {
-	if len(cfgs) == 0 {
-		return Config{}
-	}
-	return cfgs[len(cfgs)-1]
-}
-
-// dashAwareStream carries per-parse dashed-name configuration to the lexer predicate
-// without a package-level global.
-type dashAwareStream struct {
-	antlr.CharStream
-	allowDashedNames bool
-}
-
-// dashJoinsIdentifier reports whether the lexer should absorb the '-' it just matched
-// into the current IDENTIFIER token. Invoked from the generated IDENTIFIER predicate.
-func (l *ArcLexer) dashJoinsIdentifier() bool {
-	in := l.GetInputStream()
-	s, ok := in.(*dashAwareStream)
-	if !ok || !s.allowDashedNames {
-		return false
-	}
-	return in.LA(1) != '>' && in.LA(1) != '='
-}
-
-// NewLexer constructs an ArcLexer over source configured with cfg.
-func NewLexer(source string, cfg Config) *ArcLexer {
-	var input antlr.CharStream = antlr.NewInputStream(source)
-	if cfg.AllowDashedNames {
-		input = &dashAwareStream{CharStream: input, allowDashedNames: true}
-	}
-	return NewArcLexer(input)
-}
-
 // Parse parses a complete Arc program from source code.
 //
 // Returns an IProgramContext representing the parsed program's abstract syntax tree,
@@ -99,8 +54,8 @@ func NewLexer(source string, cfg Config) *ArcLexer {
 //	        return x * 2
 //	    }
 //	`)
-func Parse(source string, cfgs ...Config) (IProgramContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), nil, (*ArcParser).Program)
+func Parse(source string) (IProgramContext, *diagnostics.Diagnostics) {
+	return parseWithContext(source, nil, (*ArcParser).Program)
 }
 
 // ParseExpression parses a single Arc expression.
@@ -112,11 +67,8 @@ func Parse(source string, cfgs ...Config) (IProgramContext, *diagnostics.Diagnos
 // Example:
 //
 //	expr, err := parser.ParseExpression("(2 + 3) * 4")
-func ParseExpression(
-	source string,
-	cfgs ...Config,
-) (IExpressionContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), nil, (*ArcParser).Expression)
+func ParseExpression(source string) (IExpressionContext, *diagnostics.Diagnostics) {
+	return parseWithContext(source, nil, (*ArcParser).Expression)
 }
 
 // Position maps the index of a rune in a source to its 1-based line and its column in
@@ -128,14 +80,8 @@ type Position func(index int) (line, column int)
 func ParseExpressionAt(
 	source string,
 	position Position,
-	cfgs ...Config,
 ) (IExpressionContext, *diagnostics.Diagnostics) {
-	return parseWithContext(
-		source,
-		ConfigOf(cfgs...),
-		position,
-		(*ArcParser).Expression,
-	)
+	return parseWithContext(source, position, (*ArcParser).Expression)
 }
 
 // ParseStatement parses a single Arc statement.
@@ -147,11 +93,8 @@ func ParseExpressionAt(
 // Example:
 //
 //	stmt, err := parser.ParseStatement("total := total + 1")
-func ParseStatement(
-	source string,
-	cfgs ...Config,
-) (IStatementContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), nil, (*ArcParser).Statement)
+func ParseStatement(source string) (IStatementContext, *diagnostics.Diagnostics) {
+	return parseWithContext(source, nil, (*ArcParser).Statement)
 }
 
 // ParseBlock parses an Arc block (sequence of statements enclosed in braces).
@@ -162,11 +105,8 @@ func ParseStatement(
 //	    x := 10
 //	    y := x * 2
 //	}`)
-func ParseBlock(
-	source string,
-	cfgs ...Config,
-) (IBlockContext, *diagnostics.Diagnostics) {
-	return parseWithContext(source, ConfigOf(cfgs...), nil, (*ArcParser).Block)
+func ParseBlock(source string) (IBlockContext, *diagnostics.Diagnostics) {
+	return parseWithContext(source, nil, (*ArcParser).Block)
 }
 
 // parseWithContext executes the parsing with proper error handling.
@@ -174,7 +114,6 @@ func ParseBlock(
 // parse function to generate the appropriate parse tree node.
 func parseWithContext[T any](
 	source string,
-	cfg Config,
 	position Position,
 	parseFn func(*ArcParser) T,
 ) (T, *diagnostics.Diagnostics) {
@@ -185,7 +124,7 @@ func parseWithContext[T any](
 		return zeroT, diag
 	}
 	var (
-		lexer              = NewLexer(source, cfg)
+		lexer              = NewArcLexer(antlr.NewInputStream(source))
 		tokens antlr.Lexer = lexer
 		errLis             = &errorListener{Diagnostics: diag}
 		lexLis             = errLis

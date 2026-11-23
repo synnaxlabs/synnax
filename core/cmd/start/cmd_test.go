@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -150,6 +151,37 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		Entry("one above the maximum", 256),
 		Entry("far above the maximum", 300),
 	)
+
+	Describe("Removed channel name validation flag", func() {
+		removed := MatchError(ContainSubstring(
+			"--disable-channel-name-validation was removed",
+		))
+
+		It("Should refuse to start with the flag", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagDisableChannelNameValidation, true)
+			_, err := start.GetCoreConfigFromViper(alamos.Instrumentation{})
+			Expect(errors.Is(err, validate.ErrValidation)).To(BeTrue())
+			Expect(err).To(MatchError(
+				"--disable-channel-name-validation was removed: channel " +
+					"names follow the name rule, and Arc reads a dashed channel " +
+					"name only in quotes. Remove the flag, the " +
+					"SYNNAX_DISABLE_CHANNEL_NAME_VALIDATION environment " +
+					"variable, and the disable-channel-name-validation key of " +
+					"the config file to start",
+			))
+		})
+
+		It("Should refuse to start with the environment variable", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.SetEnvPrefix("synnax")
+			viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+			viper.AutomaticEnv()
+			GinkgoT().Setenv("SYNNAX_DISABLE_CHANNEL_NAME_VALIDATION", "true")
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(removed)
+		})
+	})
 
 	It("Should accept the largest task worker count that fits a byte", func() {
 		viper.Set(start.FlagInsecure, true)

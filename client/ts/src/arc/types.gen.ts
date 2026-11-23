@@ -150,6 +150,16 @@ export const baseZ = z.object({
   source: sourceZ.prefault({ mode: "text" }),
   /** directory is the key of the directory that holds the Arc. */
   directory: z.uuid().optional(),
+  /**
+   * reads are the channels that the Arc reads, as the last compile of its source that
+   * succeeded found them.
+   */
+  reads: channel.keyZ.array().default(() => []),
+  /**
+   * writes are the channels that the Arc writes, as the last compile of its source that
+   * succeeded found them.
+   */
+  writes: channel.keyZ.array().default(() => []),
 });
 export interface Base extends z.infer<typeof baseZ> {}
 

@@ -53,7 +53,8 @@ Base struct {
         @key
     }
     name      string {
-        @doc value "is a human-readable name for the module."
+        @doc value         "is a human-readable name for the module."
+        @validate required
     }
     source    Source = text {
         @doc value "is the Arc's source code, written as text or drawn as a graph."
@@ -136,7 +137,7 @@ Arc union on type Type extends Base {
         @doc value "is an Arc that holds code for other Arcs to import."
     }
 
-    @go imex    prepare
+    @go imex
     @go marshal
     @go migrate
 }

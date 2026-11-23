@@ -12,6 +12,7 @@ package lsp
 import (
 	"context"
 	"strings"
+	"unicode"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/formatter"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
+	"golang.org/x/text/unicode/norm"
 )
 
 type completionCategory int
@@ -421,10 +423,18 @@ func (s *Server) Completion(
 		return &protocol.CompletionList{}, nil
 	}
 
+	if items, quoted := s.quotedCompletions(
+		ctx,
+		doc,
+		line,
+		params.Position,
+	); quoted {
+		return &protocol.CompletionList{Items: items}, nil
+	}
+
 	col := lsp.CharacterToByte(line, params.Position.Character)
 	start := col
-	marks := doc.wordChars(line)
-	for start > 0 && (line[start-1] == '.' || marks[start-1]) {
+	for start > 0 && (lsp.IsWordChar(line[start-1]) || line[start-1] == '.') {
 		start--
 	}
 	prefix := line[start:col]
@@ -437,14 +447,141 @@ func (s *Server) Completion(
 	}, nil
 }
 
+// quotedCompletions returns the channels to complete when the cursor at pos sits in a
+// quoted channel name, and false when it sits in none. The prefix is the text from the
+// quote to the cursor, in NFC. A quote right after a path's dot, as in stand.'pt, makes
+// the path part of the prefix and of the replaced text. Each edit replaces that text,
+// and a closing quote right after the cursor, with the quoted name.
+func (s *Server) quotedCompletions(
+	ctx context.Context,
+	doc *document,
+	line string,
+	pos protocol.Position,
+) ([]protocol.CompletionItem, bool) {
+	text := doc.displayContent()
+	content := []rune(text)
+	lineStart := 0
+	for n := uint32(0); n < pos.Line; lineStart++ {
+		if content[lineStart] == '\n' {
+			n++
+		}
+	}
+	col := int(fromUTF16In(line, pos).Character)
+	cursor := lineStart + col
+	tokens := tokenizeContentWithComments(text)
+	quote, ok := openQuote(tokens, content, lineStart, cursor)
+	if !ok {
+		return nil, false
+	}
+	start := pathStart(content, lineStart, quote)
+	prefix := strings.NewReplacer(`\\`, `\`, `\'`, `'`).Replace(
+		string(content[quote+1 : cursor]),
+	)
+	prefix = norm.NFC.String(string(content[start:quote]) + prefix)
+	end := pos
+	if cursor < len(content) && content[cursor] == '\'' {
+		end.Character++
+	}
+	replace := protocol.Range{
+		Start: toUTF16In(line, protocol.Position{
+			Line:      pos.Line,
+			Character: uint32(start - lineStart),
+		}),
+		End: end,
+	}
+	var root *symbol.Symbol
+	if s.cfg.NewRoot != nil {
+		root = s.cfg.NewRoot()
+	}
+	channels := s.collectSymbols(ctx, doc, prefix, func(t types.Type) bool {
+		return t.Kind == types.KindChan
+	}, root)
+	items := make([]protocol.CompletionItem, 0, len(channels))
+	for _, item := range channels {
+		if !strings.HasPrefix(item.Label, prefix) {
+			continue
+		}
+		quoted := parser.QuoteChannelName(item.Label)
+		item.InsertText = protocol.Optional[string]{}
+		item.FilterText = protocol.NewOptional(quoted)
+		item.TextEdit = &protocol.TextEdit{Range: replace, NewText: quoted}
+		items = append(items, item)
+	}
+	return items, true
+}
+
+// pathStart returns the offset of the bare path that ends in a dot right before the
+// quote at offset quote, as stand. in stand.'pt, and quote when no such path precedes
+// it. Offsets count code points.
+func pathStart(content []rune, lineStart, quote int) int {
+	if quote == lineStart || content[quote-1] != '.' {
+		return quote
+	}
+	i := quote - 1
+	for i > lineStart {
+		r := content[i-1]
+		if r != '.' && (r > unicode.MaxASCII || !lsp.IsWordChar(byte(r))) {
+			break
+		}
+		i--
+	}
+	if i == quote-1 {
+		return quote
+	}
+	return i
+}
+
+// openQuote returns the offset in content of the quote that opens the channel name
+// that the cursor at offset cursor sits in, and false when it sits in none. Offsets
+// count code points, and lineStart is the offset of the cursor's line. A complete name
+// holds the cursor after its opening quote and up to its closing quote. An
+// unterminated name opens with a quote that no token holds.
+func openQuote(
+	tokens []antlr.Token,
+	content []rune,
+	lineStart, cursor int,
+) (int, bool) {
+	at := func(i int) antlr.Token {
+		for _, t := range tokens {
+			if t.GetStart() <= i && i <= t.GetStop() {
+				return t
+			}
+		}
+		return nil
+	}
+	if t := at(cursor - 1); t != nil &&
+		t.GetTokenType() == parser.ArcLexerCHANNEL_NAME &&
+		cursor-1 < t.GetStop() {
+		return t.GetStart(), true
+	}
+	for i := cursor - 1; i >= lineStart; i-- {
+		t := at(i)
+		if t == nil {
+			if content[i] == '\'' && (i == 0 || content[i-1] != '\\') {
+				return i, true
+			}
+			continue
+		}
+		switch t.GetTokenType() {
+		case parser.ArcLexerCHANNEL_NAME,
+			parser.ArcLexerSTR_LITERAL,
+			parser.ArcLexerSTR_LITERAL_MULTI,
+			parser.ArcLexerSINGLE_LINE_COMMENT,
+			parser.ArcLexerMULTI_LINE_COMMENT:
+			return 0, false
+		}
+		i = t.GetStart()
+	}
+	return 0, false
+}
+
 func (s *Server) getCompletionItems(
 	ctx context.Context,
 	doc *document,
 	prefix string,
 	pos protocol.Position,
 ) []protocol.CompletionItem {
-	cfg := s.parserConfig()
-	completionCtx := DetectCompletionContext(doc.displayContent(), pos, cfg)
+	completionCtx := DetectCompletionContext(doc.displayContent(), pos)
 
 	if completionCtx == ContextComment || completionCtx == ContextNone {
 		return []protocol.CompletionItem{}
@@ -466,7 +603,7 @@ func (s *Server) getCompletionItems(
 	// A block document is a func body, so a call in it takes positional arguments.
 	if !doc.isBlock() && (completionCtx == ContextInputParamName ||
 		completionCtx == ContextInputParamValue) {
-		inputInfo := extractInputContext(doc.displayContent(), pos, cfg)
+		inputInfo := extractInputContext(doc.displayContent(), pos)
 		if inputInfo != nil {
 			if completionCtx == ContextInputParamName {
 				return s.getInputParamCompletions(ctx, doc, prefix, inputInfo, root)
@@ -475,14 +612,14 @@ func (s *Server) getCompletionItems(
 		}
 	}
 
-	nesting := detectCursorNesting(doc, pos, cfg)
+	nesting := detectCursorNesting(doc, pos)
 	items := keywordCompletions(allowedCategories(completionCtx, nesting), prefix)
 	if completionCtx == ContextTypeAnnotation {
 		return items
 	}
 	return append(
 		items,
-		symbolCompletions(ctx, doc, root, prefix, pos, nesting, cfg)...,
+		symbolCompletions(ctx, doc, root, prefix, pos, nesting)...,
 	)
 }
 
@@ -493,7 +630,6 @@ func symbolCompletions(
 	prefix string,
 	pos protocol.Position,
 	nesting nestingKind,
-	cfg parser.Config,
 ) []protocol.CompletionItem {
 	// A flow expression can call a WASM function, so only a func body filters.
 	var execFilter symbol.ExecContext
@@ -510,7 +646,7 @@ func symbolCompletions(
 	}
 	if qualified {
 		return qualifiedCompletions(
-			ctx, doc, root, moduleName, memberPrefix, replace, execFilter, cfg,
+			ctx, doc, root, moduleName, memberPrefix, replace, execFilter,
 		)
 	}
 	searchScope := doc.findScopeAtPosition(pos)
@@ -520,18 +656,17 @@ func symbolCompletions(
 	if searchScope == nil {
 		return nil
 	}
-	items := scopeCompletions(ctx, doc, searchScope, prefix, execFilter, cfg)
+	items := scopeCompletions(ctx, doc, searchScope, prefix, execFilter)
 	return appendModuleMemberCompletions(
-		items, doc, searchScope, prefix, replace, execFilter, cfg,
+		items, doc, searchScope, prefix, replace, execFilter,
 	)
 }
 
 func detectCursorNesting(
 	doc *document,
 	pos protocol.Position,
-	cfg parser.Config,
 ) nestingKind {
-	tokens := tokenizeContent(doc.displayContent(), cfg)
+	tokens := tokenizeContent(doc.displayContent())
 	nesting := detectNesting(getTokensBeforeCursor(tokens, pos))
 	if doc.isBlock() && nesting == nestingTopLevel {
 		return nestingFunction
@@ -603,7 +738,6 @@ func qualifiedCompletions(
 	moduleName, memberPrefix string,
 	replace protocol.Range,
 	execFilter symbol.ExecContext,
-	cfg parser.Config,
 ) []protocol.CompletionItem {
 	mod, imported := resolveCompletionModule(ctx, doc, root, moduleName, replace.End)
 	if mod == nil || mod.Kind != symbol.KindModule {
@@ -611,7 +745,7 @@ func qualifiedCompletions(
 	}
 	var importEdit []protocol.TextEdit
 	if !imported {
-		importEdit = buildAutoImportEdit(doc, mod.Name, cfg)
+		importEdit = buildAutoImportEdit(doc, mod.Name)
 	}
 	var items []protocol.CompletionItem
 	for _, sym := range mod.Children() {
@@ -664,7 +798,6 @@ func scopeCompletions(
 	scope *symbol.Symbol,
 	prefix string,
 	execFilter symbol.ExecContext,
-	cfg parser.Config,
 ) []protocol.CompletionItem {
 	symbols, err := scope.Search(ctx, prefix)
 	if err != nil {
@@ -677,7 +810,7 @@ func scopeCompletions(
 		}
 		item := symbolCompletionItem(sym)
 		if sym.Kind == symbol.KindModule {
-			item.AdditionalTextEdits = buildAutoImportEdit(doc, sym.Name, cfg)
+			item.AdditionalTextEdits = buildAutoImportEdit(doc, sym.Name)
 		}
 		applyInvocationSuffix(&item, sym.Kind)
 		items = append(items, item)
@@ -744,10 +877,21 @@ func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {
 		kind = protocol.CompletionItemKindConstant
 	}
 	return protocol.CompletionItem{
-		Label:  sym.Name,
-		Kind:   kind,
-		Detail: optStr(detail),
+		Label:      sym.Name,
+		Kind:       kind,
+		Detail:     optStr(detail),
+		InsertText: channelInsertText(sym.Name, sym.Type),
 	}
+}
+
+// channelInsertText returns the quoted token of a channel name that is not an
+// identifier, since its bare text lexes as several tokens. It returns no text for any
+// other name.
+func channelInsertText(name string, t types.Type) protocol.Optional[string] {
+	if t.Kind != types.KindChan || parser.IsIdentifier(name) {
+		return protocol.Optional[string]{}
+	}
+	return protocol.NewOptional(parser.QuoteChannelName(name))
 }
 
 // getImportPathCompletions returns the modules in doc's scope chain and the user
@@ -822,8 +966,8 @@ func (s *Server) getImportPathCompletions(
 // tree is unavailable because the document has a parse error. The lexer
 // succeeds even when the parser fails, so this scan stays accurate while
 // the user is mid-typing a dot completion.
-func isModuleImportedInSource(content, moduleName string, cfg parser.Config) bool {
-	tokens := parserTokens(content, cfg)
+func isModuleImportedInSource(content, moduleName string) bool {
+	tokens := parserTokens(content)
 	for i := 0; i < len(tokens); i++ {
 		if tokens[i].GetTokenType() != parser.ArcLexerIMPORT {
 			continue
@@ -846,8 +990,8 @@ func isModuleImportedInSource(content, moduleName string, cfg parser.Config) boo
 	return false
 }
 
-func parserTokens(content string, cfg parser.Config) []antlr.Token {
-	raw := tokenizeContent(content, cfg)
+func parserTokens(content string) []antlr.Token {
+	raw := tokenizeContent(content)
 	tokens := make([]antlr.Token, 0, len(raw))
 	for _, t := range raw {
 		tt := t.GetTokenType()
@@ -939,13 +1083,11 @@ func applyInvocationSuffix(item *protocol.CompletionItem, kind symbol.Kind) {
 func buildAutoImportEdit(
 	doc *document,
 	moduleName string,
-	cfg parser.Config,
 ) []protocol.TextEdit {
 	return buildAutoImportEditFromSnapshot(
 		doc.displayContent(),
 		doc.IR.Symbols,
 		moduleName,
-		cfg,
 	)
 }
 
@@ -955,7 +1097,6 @@ func buildAutoImportEditFromSnapshot(
 	content string,
 	symbols *symbol.Symbol,
 	moduleName string,
-	cfg parser.Config,
 ) []protocol.TextEdit {
 	// The analyzer's symbol tree is dropped whenever the document has a
 	// parse error — which happens routinely while the user is mid-typing
@@ -963,7 +1104,7 @@ func buildAutoImportEditFromSnapshot(
 	// token-level fallback the dot completion would re-add the import
 	// the user just inserted. A textual scan answers "is moduleName
 	// already imported?" without needing a valid AST.
-	if isModuleImportedInSource(content, moduleName, cfg) {
+	if isModuleImportedInSource(content, moduleName) {
 		return nil
 	}
 	return formatter.AddImport(symbols, moduleName)
@@ -984,7 +1125,6 @@ func appendModuleMemberCompletions(
 	prefix string,
 	replace protocol.Range,
 	execFilter symbol.ExecContext,
-	cfg parser.Config,
 ) []protocol.CompletionItem {
 	seen := make(set.Set[string])
 	for s := scope; s != nil; s = s.Parent {
@@ -1005,7 +1145,7 @@ func appendModuleMemberCompletions(
 				item := qualifiedMemberItem(member, qualifiedName, replace)
 				item.Label = qualifiedName
 				if !imported {
-					item.AdditionalTextEdits = buildAutoImportEdit(doc, mod.Name, cfg)
+					item.AdditionalTextEdits = buildAutoImportEdit(doc, mod.Name)
 				}
 				items = append(items, item)
 			}
@@ -1052,7 +1192,6 @@ func (s *Server) getAuthorityEntryCompletions(
 	existing := extractAuthorityExistingChannels(
 		doc.displayContent(),
 		pos,
-		s.parserConfig(),
 	)
 	existingSet := set.New(existing...)
 	var items []protocol.CompletionItem
@@ -1061,9 +1200,10 @@ func (s *Server) getAuthorityEntryCompletions(
 			return
 		}
 		items = append(items, protocol.CompletionItem{
-			Label:  name,
-			Kind:   protocol.CompletionItemKindVariable,
-			Detail: protocol.NewOptional(t.String()),
+			Label:      name,
+			Kind:       protocol.CompletionItemKindVariable,
+			Detail:     protocol.NewOptional(t.String()),
+			InsertText: channelInsertText(name, t),
 		})
 	}
 	if root != nil {
@@ -1129,9 +1269,10 @@ func (s *Server) collectSymbols(
 		}
 		seen.Add(name)
 		items = append(items, protocol.CompletionItem{
-			Label:  name,
-			Kind:   protocol.CompletionItemKindVariable,
-			Detail: protocol.NewOptional(t.String()),
+			Label:      name,
+			Kind:       protocol.CompletionItemKindVariable,
+			Detail:     protocol.NewOptional(t.String()),
+			InsertText: channelInsertText(name, t),
 		})
 	}
 	if root != nil {

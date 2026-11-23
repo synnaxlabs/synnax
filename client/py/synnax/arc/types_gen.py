@@ -177,12 +177,22 @@ class Base(BaseModel):
         name: Is a human-readable name for the module.
         source: Is the Arc's source code, written as text or drawn as a graph.
         directory: Is the key of the directory that holds the Arc.
+        reads: Are the channels that the Arc reads, as the last compile of its source
+            that succeeded found them.
+        writes: Are the channels that the Arc writes, as the last compile of its source
+            that succeeded found them.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     source: Source = Field(default_factory=lambda: TextSource(mode="text"))
     directory: UUID | None = None
+    reads: list[Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
+    writes: list[Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
 
     @_override
     def __hash__(self) -> int:

@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -98,9 +99,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status: statusSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: rbacSvc,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(),
+		DB:      db,
+		RBAC:    rbacSvc,
+		Held:    apiauth.HeldTables(),
 	}))
 	setStatuses = bind.Write(binder, apiSvc.Set)
 	del = bind.Write(binder, apiSvc.Delete)

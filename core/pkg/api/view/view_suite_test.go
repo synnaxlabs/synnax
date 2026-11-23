@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -54,9 +55,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc := MustSucceed(apiview.NewService(apiview.ServiceConfig{View: svc.View}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: svc.RBAC,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(),
+		DB:      db,
+		RBAC:    svc.RBAC,
+		Held:    apiauth.HeldTables(),
 	}))
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	create = bind.Write(binder, apiSvc.Create)

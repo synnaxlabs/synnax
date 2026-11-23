@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -141,61 +140,6 @@ var _ = Describe("Module constants", func() {
 		t := atypes.InferFromExpression(ctx)
 		Expect(ctx.Constraints.Unify()).To(Succeed())
 		Expect(ctx.Constraints.ApplySubstitutions(t)).To(Equal(types.F64()))
-	})
-})
-
-var _ = Describe("Binary minus spacing", func() {
-	hasSpacingErr := func(expr string, cfg parser.Config) bool {
-		GinkgoHelper()
-		parsed := MustSucceed(parser.ParseExpression(expr, cfg))
-		ctx := acontext.NewRoot(context.Background(), parsed, NewRoot(nil)).
-			WithConfig(cfg)
-		atypes.InferFromExpression(ctx)
-		for _, d := range *ctx.Diagnostics {
-			if strings.Contains(d.Message, "whitespace on both sides") {
-				return true
-			}
-		}
-		return false
-	}
-
-	Context("with dashed names enabled", func() {
-		cfg := parser.Config{AllowDashedNames: true}
-
-		DescribeTable("a binary '-' must have whitespace on both sides",
-			func(expr string, wantErr bool) {
-				Expect(hasSpacingErr(expr, cfg)).To(Equal(wantErr))
-			},
-			Entry("spaced on both sides", "a - b", false),
-			Entry("missing space after '-'", "a -b", true),
-			Entry("missing space before '-'", "(a)-b", true),
-			Entry("addition is unaffected", "a + b", false),
-			Entry("dashed name is one identifier, not subtraction", "a-b", false),
-			Entry("fully dashed name has no subtraction", "a-b-c", false),
-			Entry("spaced subtraction between dashed names", "a-b - c-d", false),
-			Entry("dashed name right-adjacent to minus", "a-b -c", true),
-			Entry("minus left-adjacent to dashed name", "(a)-b-c", true),
-		)
-
-		It("anchors the diagnostic to the '-' token", func() {
-			parsed := MustSucceed(parser.ParseExpression("a -b", cfg))
-			ctx := acontext.NewRoot(context.Background(), parsed, NewRoot(nil)).
-				WithConfig(cfg)
-			atypes.InferFromExpression(ctx)
-			for _, d := range *ctx.Diagnostics {
-				if strings.Contains(d.Message, "whitespace on both sides") {
-					Expect(d.Code).To(Equal(codes.SubtractionSpacing.Code))
-					Expect(d.Range.Start.Character).To(Equal(uint32(2)))
-					Expect(d.Range.End.Character).To(Equal(uint32(3)))
-					return
-				}
-			}
-			Fail("expected a minus-spacing diagnostic")
-		})
-	})
-
-	It("is inert when dashed names are disabled", func() {
-		Expect(hasSpacingErr("a -b", parser.Config{})).To(BeFalse())
 	})
 })
 

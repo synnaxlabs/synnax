@@ -14,17 +14,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 )
 
 var _ = Describe("NewMigrations", func() {
-	It("Should end the chain with the root and name migrations", func() {
-		chain := versions.NewMigrations(uuid.New(), parser.Config{})
+	It("Should end the chain with the root, name, and compile key migrations", func() {
+		chain := versions.NewMigrations(uuid.New())
 		Expect(chain[0].Key()).To(Equal("normalize_keys"))
-		Expect(chain[len(chain)-3].Key()).To(Equal("v61_arcs_root_directory"))
-		Expect(chain[len(chain)-2].Key()).To(Equal("v62_require_name"))
-		Expect(chain[len(chain)-1].Key()).To(Equal("v63_require_name"))
+		Expect(chain[len(chain)-4].Key()).To(Equal("v61_arcs_root_directory"))
+		Expect(chain[len(chain)-3].Key()).To(Equal("v62_require_name"))
+		Expect(chain[len(chain)-2].Key()).To(Equal("v63_require_name"))
+		Expect(chain[len(chain)-1].Key()).To(Equal("v63_arc_compile_keys"))
 	})
 })
 

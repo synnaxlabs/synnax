@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -112,6 +113,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	arcSvc = svc.Arc
 	statusSvc = svc.Status
 	apiChannelSvc := MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
+		Holders:     taskconfig.NewHolders(arc.DriftTable),
 		DB:          db,
 		RBAC:        rbacSvc,
 		Channel:     channelSvc,
@@ -120,9 +122,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Impact:      svc.Impact,
 	}))
 	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: rbacSvc,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(arc.DriftTable),
+		DB:      db,
+		RBAC:    rbacSvc,
+		Held:    apiauth.HeldTables(),
 	}))
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
 		DB:              db,

@@ -1,0 +1,23 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v2"
+
+Key = v0.Key
+
+Hashes = v0.Hashes
+
+Record struct extends v0.Record {
+    reads  channel.Key[] = [] {
+        @doc value "are the channels that the program the Driver last ran reads."
+    }
+    writes channel.Key[] = [] {
+        @doc value "are the channels that the program the Driver last ran writes."
+    }
+}

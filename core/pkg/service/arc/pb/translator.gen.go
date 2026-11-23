@@ -36,6 +36,8 @@ func BaseToPB(r arc.Base) (*Base, error) {
 	}
 	pb := &Base{
 		Name:   r.Name,
+		Reads:  lo.Map(r.Reads, func(v channel.Key, _ int) uint32 { return uint32(v) }),
+		Writes: lo.Map(r.Writes, func(v channel.Key, _ int) uint32 { return uint32(v) }),
 		Key:    r.Key.String(),
 		Source: sourceVal,
 	}
@@ -68,6 +70,8 @@ func BaseFromPB(pb *Base) (arc.Base, error) {
 		}
 	}
 	r.Name = pb.Name
+	r.Reads = lo.Map(pb.Reads, func(v uint32, _ int) channel.Key { return channel.Key(v) })
+	r.Writes = lo.Map(pb.Writes, func(v uint32, _ int) channel.Key { return channel.Key(v) })
 	if pb.Directory != nil {
 		v, err := uuid.Parse(*pb.Directory)
 		if err != nil {

@@ -56,6 +56,7 @@ type Snapshot struct {
 	gorp.Snapshot
 	subject resource.ID
 	allowed func(resource.ID) bool
+	holders *taskconfig.Holders
 }
 
 // Allowed reports whether the subject of the request can retrieve the record with id.
@@ -65,7 +66,7 @@ func (s Snapshot) Allowed(id resource.ID) bool { return s.allowed(id) }
 // config record of a task appears as its task.
 func (s Snapshot) Visible(ids []resource.ID) []resource.ID {
 	return lo.FilterMap(ids, func(id resource.ID, _ int) (resource.ID, bool) {
-		if task, ok := taskconfig.TaskOf(
+		if task, ok := s.holders.TaskOf(
 			gorp.Target{Table: string(id.Type), Key: id.Key},
 		); ok {
 			id = task
@@ -117,7 +118,12 @@ func Read[RQ, RS freighter.Payload](
 			if err != nil {
 				return err
 			}
-			rs := Snapshot{Snapshot: snap, subject: subject, allowed: allowed}
+			rs := Snapshot{
+				Snapshot: snap,
+				subject:  subject,
+				allowed:  allowed,
+				holders:  s.cfg.Holders,
+			}
 			if n, ok := any(req).(Named); ok {
 				if err = rs.Enforce(n.Named()...); err != nil {
 					return err

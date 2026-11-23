@@ -11,11 +11,14 @@ package arc
 
 import (
 	"context"
+	"strings"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/set"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
@@ -45,14 +48,58 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 	if err = s.readChannelInputs(ctx, &a, env.DecodeOptions()); err != nil {
 		return nil, err
 	}
+	// The text of an Arc exported before v5 reads a dashed channel name bare.
+	bare := env.Version < versions.Latest
 	return func(
 		ctx context.Context,
 		tx gorp.Tx,
 		_ imex.ImportOptions,
 	) (resource.ID, error) {
+		if bare {
+			if err := s.quoteDashedNames(ctx, tx, &a); err != nil {
+				return resource.ID{}, err
+			}
+		}
+		// A file can hold the channel keys of another Core.
+		if _, err := s.table.DropDangling(ctx, tx, &a); err != nil {
+			return resource.ID{}, err
+		}
 		if err := s.NewWriter(tx).Create(ctx, &a); err != nil {
 			return resource.ID{}, err
 		}
 		return a.ResourceID(), nil
 	}, nil
+}
+
+// quoteDashedNames quotes each dashed channel name in the source of a that a channel
+// holds. A dashed name that no channel holds stays, as the v63 lexer reads it.
+func (s *Service) quoteDashedNames(ctx context.Context, tx gorp.Tx, a *Arc) error {
+	b := a.Base()
+	var dashed []channel.Name
+	RenameChannels(&b.Source, func(name string) (string, bool) {
+		if strings.IndexByte(name, '-') >= 0 {
+			dashed = append(dashed, name)
+		}
+		return "", false
+	})
+	if len(dashed) == 0 {
+		return nil
+	}
+	var held []channel.Channel
+	if err := s.cfg.Channel.NewRetrieve().
+		Where(channel.MatchNames(dashed...)).
+		Entries(&held).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	names := make(set.Set[string], len(held))
+	for _, c := range held {
+		names.Add(c.Name)
+	}
+	if RenameChannels(&b.Source, func(name string) (string, bool) {
+		return name, names.Contains(name)
+	}) {
+		a.SetBase(b)
+	}
+	return nil
 }
