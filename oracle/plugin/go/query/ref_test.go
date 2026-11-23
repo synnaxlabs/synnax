@@ -10,6 +10,7 @@
 package query_test
 
 import (
+	"os"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1558,6 +1559,79 @@ var _ = Describe("@ref", func() {
 			)
 		})
 
+		// RFC 0114's symbol node holds channels in a list of states, through an
+		// optional union, and in a list of commands.
+		Describe("RFC 0114 symbol node", func() {
+			generateSymbol := func() *ContentExpectation {
+				GinkgoHelper()
+				return generate(rfc0114Types, rfc0114Fields)
+			}
+
+			It("Should generate the golden references", func() {
+				schema := config(rfc0114Types, rfc0114Fields)
+				content := MustContentOf(
+					MustGenerate(schema, "modbus", loader, p),
+					"retrieve.gen.go",
+				)
+				golden, err := os.ReadFile("testdata/rfc0114_symbol_references.golden")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(content[strings.Index(content, "func readConfigReferences"):]).
+					To(Equal(string(golden)))
+			})
+
+			It("Should find each site through a list, an optional union, and a list",
+				func() {
+					generateSymbol().ToPreserveOrder(
+						`Name:     "states.source.key",`,
+						"for _, v1 := range e.States {",
+						"if v1.Source != nil {",
+						"case ChannelSource:",
+						`Name:     "states.source.command",`,
+						`Name:     "commands.channel",`,
+						"for _, v1 := range e.Commands {",
+					)
+				},
+			)
+
+			It("Should index the targets of each site under its direction", func() {
+				generateSymbol().ToPreserveOrder(
+					`Name:     "states.source.key",`,
+					"Tag:      1, // direction read",
+					"targets = append(targets, *v2.Key)",
+					`Name:     "states.source.command",`,
+					"Tag:      2, // direction write",
+					"targets = append(targets, *v2.Command)",
+					`Name:     "commands.channel",`,
+					"Tag:      2, // direction write",
+					"targets = append(targets, v1.Channel)",
+				)
+			})
+
+			It("Should retarget each key in place at its element's index", func() {
+				generateSymbol().
+					ToPreserveOrder(
+						"if t, ok := to[*v6.Key]; ok {",
+						"v6.Key = &t",
+						"e.States[i5].Source.Variant = v6",
+						"if t, ok := to[*v6.Command]; ok {",
+						"v6.Command = &t",
+						"e.States[i5].Source.Variant = v6",
+						"if t, ok := to[e.Commands[i3].Channel]; ok {",
+						"e.Commands[i3].Channel = t",
+					).
+					ToNotContain("e.States = append(", "e.Commands = append(")
+			})
+
+			It("Should link no target for an absent optional key", func() {
+				generateSymbol().ToPreserveOrder(
+					"if v2.Key != nil {",
+					"targets = append(targets, *v2.Key)",
+					"if v2.Command != nil {",
+					"targets = append(targets, *v2.Command)",
+				)
+			})
+		})
+
 		Describe("Retarget", func() {
 			It("Should move a zero key in place", func() {
 				generate("", `
@@ -1787,3 +1861,40 @@ var _ = Describe("@ref", func() {
 		})
 	})
 })
+
+const rfc0114Types = `
+StateBinding struct {
+	key    string
+	source Source?
+}
+Source union on type {
+	channel {
+		key channel.Key? {
+			@ref kind      use
+			@ref on_delete weak
+			@ref direction read
+		}
+		command channel.Key? {
+			@ref kind      use
+			@ref on_delete weak
+			@ref direction write
+		}
+	}
+	local {
+		value float64
+	}
+}
+CommandBinding struct {
+	key     string
+	channel channel.Key {
+		@ref kind      use
+		@ref on_delete weak
+		@ref direction write
+	}
+}
+`
+
+const rfc0114Fields = `
+states   StateBinding[]
+commands CommandBinding[]
+`
