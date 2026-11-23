@@ -978,6 +978,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("http"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
+		ICD:             l.ICD,
 	}); !ok(err, l.HTTP) {
 		return nil, err
 	}
@@ -1175,6 +1176,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			rangeAliasDropMigration,
 			l.PagerDuty.SecretMigration(taskNames(l.Task)),
 			l.Kafka.ICDMigration(taskNames(l.Task)),
+			l.HTTP.ICDMigration(taskNames(l.Task)),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
 		),

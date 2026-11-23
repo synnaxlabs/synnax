@@ -180,6 +180,7 @@ interface FieldItemProps extends Tree.ItemRenderProps<string> {
   node: FieldNode;
   onChange: (on: boolean) => void;
   readDisabled: boolean;
+  tareable: boolean;
 }
 
 const FieldItem = ({
@@ -187,6 +188,7 @@ const FieldItem = ({
   node: { read, field },
   onChange,
   readDisabled,
+  tareable,
   ...props
 }: FieldItemProps) => {
   const bindingsPath = path.messages[read].bindings;
@@ -209,6 +211,12 @@ const FieldItem = ({
       off={i < 0}
       skipped={i < 0 || sourceOff}
     >
+      {tareable && (
+        <Task.TareButton
+          channel={i < 0 ? 0 : bindings[i].channel}
+          disabled={sourceOff}
+        />
+      )}
       <ReadCheckbox
         bindings={bindingsPath}
         field={field}
@@ -245,6 +253,8 @@ interface BaseArgs<S extends Source> {
   bindingOf: (source: string, r: number, field: icd.JSONField) => icd.ReadBinding;
   /** Disables each control that binds a field to a channel. */
   bindDisabled?: boolean;
+  /** The fields with float channels can tare while the task runs. */
+  tareable?: boolean;
   /** @returns a name for a new message of a source that no message in held has. */
   messageName: (source: string, held: icd.Message[]) => string;
   /**
@@ -307,6 +317,7 @@ export const use = <
   SourceItem,
   bindingOf,
   bindDisabled = false,
+  tareable = false,
   messageName,
   made,
   selected,
@@ -593,6 +604,13 @@ export const use = <
     if (fields.length > 0 && fields.length === chosen.length)
       onRemove = () => removeFields(fields);
     else if (isRemovable(chosen)) onRemove = () => removeNodes(chosen);
+    const tareChannels = fields.flatMap(({ source, read, field }) => {
+      if (ctx.get(disabledPath(source)).value) return [];
+      const binding = ctx
+        .get(pathOf(source).messages[read].bindings)
+        .value.find(({ field: key }) => key === field.key);
+      return binding == null ? [] : [binding.channel];
+    });
     return (
       <Task.Views.ContextMenu
         keys={keys}
@@ -606,6 +624,7 @@ export const use = <
           switchable.some(isEnabled) ? () => setEnabled(switchable, false) : undefined
         }
         onAddField={bindDisabled ? undefined : onAddField}
+        tareChannels={tareable ? tareChannels : undefined}
         extraMenuItems={
           source != null && (
             <Menu.Item itemKey="addMessage" onClick={() => addMessage(source)}>
@@ -631,6 +650,7 @@ export const use = <
           node={node}
           onChange={(on) => read(node.source, node.read, node.field, on)}
           readDisabled={bindDisabled}
+          tareable={tareable}
         />
       );
     if (node?.kind === "message")
