@@ -42,11 +42,11 @@ var _ = Describe("Service", func() {
 			Rack: svc.Rack.EmbeddedKey,
 			Name: "PLC-" + uuid.New().String(),
 			Connection: server.Connection{Variant: server.TcpConnection{
-				TimeoutMs: 1000,
-				Retries:   1,
-				Host:      "plc",
-				Port:      502,
-				UnitID:    255,
+				Timeout: telem.Second,
+				Retries: 1,
+				Host:    "plc",
+				Port:    502,
+				UnitID:  255,
 			}},
 		}
 		for _, override := range overrides {

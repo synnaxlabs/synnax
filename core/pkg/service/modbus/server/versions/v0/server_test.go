@@ -307,13 +307,13 @@ var _ = Describe("Connection", func() {
 		},
 		Entry("TCP", v0.Connection{Variant: v0.TcpConnection{
 			BytesSwapped: true,
-			TimeoutMs:    500,
+			Timeout:      500 * telem.Millisecond,
 			Host:         "plc",
 			Port:         502,
 			UnitID:       3,
 		}}),
 		Entry("RTU", v0.Connection{Variant: v0.RtuConnection{
-			TimeoutMs:  1000,
+			Timeout:    telem.Second,
 			Retries:    2,
 			SerialPort: "COM3",
 			BaudRate:   9600,
@@ -332,7 +332,7 @@ var _ = Describe("Connection", func() {
 		var decoded v0.Connection
 		Expect(msgpack.Unmarshal(raw, &decoded)).To(Succeed())
 		Expect(decoded.Variant).To(Equal(v0.RtuConnection{
-			TimeoutMs:  1000,
+			Timeout:    telem.Second,
 			Retries:    1,
 			SerialPort: "COM3",
 			BaudRate:   19200,
