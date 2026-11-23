@@ -115,9 +115,13 @@ SYNNAX_DRIVER_PORT=9090
 SYNNAX_DRIVER_API_KEY=syk_...
 SYNNAX_DRIVER_SECURE=false
 SYNNAX_DRIVER_CORRECT_SKEW=true
-SYNNAX_DRIVER_OUTBOX_CALLS=10000
+SYNNAX_DRIVER_OUTBOX_SIZE=67108864
+SYNNAX_DRIVER_OUTBOX_SEGMENT_CALLS=1000
+SYNNAX_DRIVER_OUTBOX_SEND_TIMEOUT=10
 SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL=1
 SYNNAX_DRIVER_OUTBOX_MAX_RETRY_INTERVAL=5
+SYNNAX_DRIVER_OUTBOX_SYNC_INTERVAL=1
+SYNNAX_DRIVER_OUTBOX_STUCK_AFTER=300
 SYNNAX_DRIVER_OP_TIMEOUT=60
 SYNNAX_DRIVER_POLL_INTERVAL=1
 SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
@@ -165,9 +169,13 @@ The file cannot hold comments.
     "correct_skew": true
   },
   "outage": {
-    "outbox_calls": 10000,
+    "outbox_size": 67108864,
+    "outbox_segment_calls": 1000,
+    "outbox_send_timeout": 10,
     "outbox_retry_interval": 1,
-    "outbox_max_retry_interval": 5
+    "outbox_max_retry_interval": 5,
+    "outbox_sync_interval": 1,
+    "outbox_stuck_after": 300
   },
   "manager": {
     "op_timeout": 60,
@@ -244,10 +252,20 @@ a key is saved, the Driver ignores a username and password and logs a warning.
   configuration file, it goes in `connection`.
 </Field.Item>
 
-<Field.Item name="outbox_calls" default="10000">
-  The number of Arc status sets that wait for the Core while it is slow or unreachable.
-  When the Driver holds this many, Arc tasks drop new sets and show a warning. In the
-  configuration file, it goes in `outage`.
+<Field.Item name="outbox_size" default="67108864">
+  The number of bytes of Arc status sets that wait for the Core while it is slow or
+  unreachable. When it is full, the Driver keeps only the last set of each status, then
+  drops new sets and shows a warning. In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_segment_calls" default="1000">
+  The number of status sets in one outbox file before the Driver starts the next file.
+  In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_send_timeout" default="10">
+  The number of seconds that the Driver waits for the Core to take one status set. In
+  the configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="outbox_retry_interval" default="1">
@@ -259,6 +277,17 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 <Field.Item name="outbox_max_retry_interval" default="5">
   The largest number of seconds that the Driver waits between two tries to send an Arc
   status set to an unreachable Core. In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_sync_interval" default="1">
+  The largest number of seconds between a status set and the time the Driver writes it
+  to the disk. A power loss can lose the sets of this time. In the configuration file,
+  it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_stuck_after" default="300">
+  The number of seconds that the Core can refuse the first waiting status set before
+  the rack status shows "Outbox stuck". In the configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="op_timeout" default="60">

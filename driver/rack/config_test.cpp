@@ -8,8 +8,12 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -632,9 +636,13 @@ TEST_F(RackConfigTest, LoadManagerConfigFromFile) {
 TEST_F(RackConfigTest, OutboxConfigDefaults) {
     const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
     const outbox::Config def;
-    ASSERT_EQ(cfg.outbox.cap, def.cap);
+    ASSERT_EQ(cfg.outbox.max_bytes, std::uint64_t{64} * 1024 * 1024);
+    ASSERT_EQ(cfg.outbox.segment_calls, def.segment_calls);
+    ASSERT_EQ(cfg.outbox.send_timeout, def.send_timeout);
     ASSERT_EQ(cfg.outbox.retry.base_interval, def.retry.base_interval);
     ASSERT_EQ(cfg.outbox.retry.max_interval, def.retry.max_interval);
+    ASSERT_EQ(cfg.outbox.sync_interval, def.sync_interval);
+    ASSERT_EQ(cfg.outbox.stuck_after, def.stuck_after);
 }
 
 /// @brief it should load the outbox settings from the outage section of the config
@@ -643,9 +651,13 @@ TEST_F(RackConfigTest, LoadOutboxConfigFromFile) {
     const std::string config_path = "/tmp/rack-config-test/outbox-config.json";
     std::ofstream config_file(config_path);
     config_file << R"({"outage": {
-        "outbox_calls": 500,
+        "outbox_size": 1048576,
+        "outbox_segment_calls": 50,
+        "outbox_send_timeout": 3,
         "outbox_retry_interval": 0.5,
-        "outbox_max_retry_interval": 30
+        "outbox_max_retry_interval": 30,
+        "outbox_sync_interval": 2,
+        "outbox_stuck_after": 60
     }})";
     config_file.close();
     x::defer::defer cleanup([&] { std::remove(config_path.c_str()); });
@@ -654,25 +666,40 @@ TEST_F(RackConfigTest, LoadOutboxConfigFromFile) {
             std::string>{"program", "--state-file", STATE_PATH, "--config", config_path}
     );
     const auto cfg = ASSERT_NIL_P(Config::resolve(config_args, brk));
-    ASSERT_EQ(cfg.outbox.cap, 500);
+    ASSERT_EQ(cfg.outbox.max_bytes, 1048576);
+    ASSERT_EQ(cfg.outbox.segment_calls, 50);
+    ASSERT_EQ(cfg.outbox.send_timeout, 3 * x::telem::SECOND);
     ASSERT_EQ(cfg.outbox.retry.base_interval, 500 * x::telem::MILLISECOND);
     ASSERT_EQ(cfg.outbox.retry.max_interval, 30 * x::telem::SECOND);
+    ASSERT_EQ(cfg.outbox.sync_interval, 2 * x::telem::SECOND);
+    ASSERT_EQ(cfg.outbox.stuck_after, x::telem::MINUTE);
 }
 
 /// @brief it should load the outbox settings from environment variables.
 TEST_F(RackConfigTest, LoadOutboxConfigFromEnvironmentVariables) {
-    x::env::set("SYNNAX_DRIVER_OUTBOX_CALLS", "20");
-    x::env::set("SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL", "2");
-    x::env::set("SYNNAX_DRIVER_OUTBOX_MAX_RETRY_INTERVAL", "120");
-    x::defer::defer unset_env([] {
-        x::env::unset("SYNNAX_DRIVER_OUTBOX_CALLS");
-        x::env::unset("SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL");
-        x::env::unset("SYNNAX_DRIVER_OUTBOX_MAX_RETRY_INTERVAL");
+    const std::vector<std::pair<std::string, std::string>> vars = {
+        {"SYNNAX_DRIVER_OUTBOX_SIZE", "2097152"},
+        {"SYNNAX_DRIVER_OUTBOX_SEGMENT_CALLS", "20"},
+        {"SYNNAX_DRIVER_OUTBOX_SEND_TIMEOUT", "4"},
+        {"SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL", "2"},
+        {"SYNNAX_DRIVER_OUTBOX_MAX_RETRY_INTERVAL", "120"},
+        {"SYNNAX_DRIVER_OUTBOX_SYNC_INTERVAL", "3"},
+        {"SYNNAX_DRIVER_OUTBOX_STUCK_AFTER", "90"},
+    };
+    for (const auto &[k, v]: vars)
+        x::env::set(k, v);
+    x::defer::defer unset_env([&] {
+        for (const auto &[k, _]: vars)
+            x::env::unset(k);
     });
     const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
-    ASSERT_EQ(cfg.outbox.cap, 20);
+    ASSERT_EQ(cfg.outbox.max_bytes, 2097152);
+    ASSERT_EQ(cfg.outbox.segment_calls, 20);
+    ASSERT_EQ(cfg.outbox.send_timeout, 4 * x::telem::SECOND);
     ASSERT_EQ(cfg.outbox.retry.base_interval, 2 * x::telem::SECOND);
     ASSERT_EQ(cfg.outbox.retry.max_interval, 2 * x::telem::MINUTE);
+    ASSERT_EQ(cfg.outbox.sync_interval, 3 * x::telem::SECOND);
+    ASSERT_EQ(cfg.outbox.stuck_after, 90 * x::telem::SECOND);
 }
 
 /// @brief it should refuse an outbox setting that is not greater than 0.

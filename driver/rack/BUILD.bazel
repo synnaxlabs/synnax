@@ -176,10 +176,12 @@ cc_test(
     srcs = ["outbox_test.cpp"],
     deps = [
         ":rack",
+        "//freighter/cpp:freighter",
         "//driver/journal",
         "//driver/outbox",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
+        "@abseil-cpp//absl/crc:crc32c",
         "@googletest//:gtest_main",
     ],
 )
@@ -201,6 +203,7 @@ cc_test(
         "//driver/rack/status",
         "//x/cpp/defer",
         "//x/cpp/kv",
+        "@abseil-cpp//absl/crc:crc32c",
         "@googletest//:gtest_main",
     ],
 )

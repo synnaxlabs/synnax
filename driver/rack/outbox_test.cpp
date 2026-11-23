@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
 
+#include "absl/crc/crc32c.h"
 #include "gtest/gtest.h"
 
+#include "freighter/cpp/freighter.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -25,6 +28,17 @@
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
+/// @brief writes a segment file start at path with format version 2, which this
+/// Driver cannot read.
+void write_future_segment(const std::filesystem::path &path) {
+    std::string header(outbox::SEGMENT_MAGIC.data(), outbox::SEGMENT_MAGIC.size());
+    header += std::string("\x02\x00\x00\x00\x00\x00\x00\x00", 8);
+    const auto crc = static_cast<std::uint32_t>(absl::ComputeCrc32c(header));
+    for (int i = 0; i < 4; i++)
+        header.push_back(static_cast<char>(crc >> (8 * i)));
+    std::ofstream(path, std::ios::binary) << header;
+}
+
 class OutboxFailureTest : public ::testing::Test {
 protected:
     std::filesystem::path root;
@@ -52,11 +66,7 @@ protected:
 /// @brief it should tell the user to update the Driver when a newer Driver wrote the
 /// outbox, and leave its files in place.
 TEST_F(OutboxFailureTest, UnknownVersion) {
-    {
-        std::ofstream file(this->dir / "0.calls", std::ios::binary);
-        file.write(outbox::SEGMENT_MAGIC.data(), outbox::SEGMENT_MAGIC.size());
-        file.write("\x02\x00\x00\x00", 4);
-    }
+    write_future_segment(this->dir / "0.calls");
     const auto err = this->open_err();
     ASSERT_OCCURRED_AS(err, journal::UNKNOWN_VERSION);
     const auto failure = outbox_failure(this->dir, err);
@@ -69,7 +79,7 @@ TEST_F(OutboxFailureTest, UnknownVersion) {
             " aside to discard the changes it holds for the Core. Then restart the "
             "Driver."
     );
-    ASSERT_EQ(std::filesystem::file_size(this->dir / "0.calls"), 12);
+    ASSERT_EQ(std::filesystem::file_size(this->dir / "0.calls"), journal::HEADER_SIZE);
 }
 
 /// @brief it should tell the user to move a damaged outbox aside.
@@ -132,5 +142,24 @@ TEST_F(OutboxFailureTest, UnwritableDirectory) {
             "install' to update the service. Then restart the Driver."
     );
 #endif
+}
+
+/// @brief it should warn that the outbox is stuck, with the error and the fix.
+TEST(OutboxStuckTest, Warns) {
+    const auto health = outbox_stuck(
+        "/data/outbox",
+        5 * x::telem::MINUTE,
+        x::errors::Error(freighter::UNREACHABLE, "connection refused")
+    );
+    EXPECT_EQ(health.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(health.message, OUTBOX_STUCK_MSG);
+    EXPECT_EQ(
+        health.description,
+        "The Core has not taken an Arc status set for " +
+            (5 * x::telem::MINUTE).to_string() +
+            ": connection refused. Check that the Driver can reach the Core and that "
+            "the Core is running. The Driver keeps the sets in /data/outbox and sends "
+            "them once the Core takes them."
+    );
 }
 }

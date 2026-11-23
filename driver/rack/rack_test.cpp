@@ -8,11 +8,13 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>
 
+#include "absl/crc/crc32c.h"
 #include "gtest/gtest.h"
 
 #include "client/cpp/auth/auth.h"
@@ -22,11 +24,23 @@
 #include "x/cpp/kv/kv.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/journal/journal.h"
 #include "driver/outbox/outbox.h"
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
 const std::string RACK_STATE_PATH = "/tmp/rack-test/state.json";
+
+/// @brief writes a segment file start at path with format version 2, which this
+/// Driver cannot read.
+void write_future_segment(const std::filesystem::path &path) {
+    std::string header(outbox::SEGMENT_MAGIC.data(), outbox::SEGMENT_MAGIC.size());
+    header += std::string("\x02\x00\x00\x00\x00\x00\x00\x00", 8);
+    const auto crc = static_cast<std::uint32_t>(absl::ComputeCrc32c(header));
+    for (int i = 0; i < 4; i++)
+        header.push_back(static_cast<char>(crc >> (8 * i)));
+    std::ofstream(path, std::ios::binary) << header;
+}
 
 /// @brief returns arguments that point the rack at a fresh state file.
 x::args::Parser fresh_args(std::vector<std::string> extra) {
@@ -160,11 +174,7 @@ TEST(RackTest, RunsWithoutOutbox) {
     const auto dir = outbox_dir();
     std::filesystem::remove_all(dir);
     std::filesystem::create_directories(dir);
-    {
-        std::ofstream file(dir / "0.calls", std::ios::binary);
-        file.write(outbox::SEGMENT_MAGIC.data(), outbox::SEGMENT_MAGIC.size());
-        file.write("\x02\x00\x00\x00", 4);
-    }
+    write_future_segment(dir / "0.calls");
     x::defer::defer cleanup([&] { std::filesystem::remove_all(dir); });
     const auto client = new_test_client();
     const auto rack = ASSERT_NIL_P(client.racks.create("outbox rack"));
@@ -204,6 +214,6 @@ TEST(RackTest, RunsWithoutOutbox) {
     );
     ASSERT_FALSE(shut_down);
     ASSERT_NIL(r.stop());
-    ASSERT_EQ(std::filesystem::file_size(dir / "0.calls"), 12);
+    ASSERT_EQ(std::filesystem::file_size(dir / "0.calls"), journal::HEADER_SIZE);
 }
 }

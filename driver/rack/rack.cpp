@@ -47,6 +47,22 @@ outbox_failure(const std::filesystem::path &dir, const x::errors::Error &err) {
     };
 }
 
+status::Health outbox_stuck(
+    const std::filesystem::path &dir,
+    const x::telem::TimeSpan &stuck_after,
+    const x::errors::Error &err
+) {
+    return {
+        .variant = synnax::status::VARIANT_WARNING,
+        .message = OUTBOX_STUCK_MSG,
+        .description = "The Core has not taken an Arc status set for " +
+                       stuck_after.to_string() + ": " + err.data +
+                       ". Check that the Driver can reach the Core and that the Core "
+                       "is running. The Driver keeps the sets in " +
+                       dir.string() + " and sends them once the Core takes them.",
+    };
+}
+
 bool Rack::should_exit(
     const x::errors::Error &err,
     const std::function<void()> &on_shutdown,
@@ -93,6 +109,18 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
     auto outbox_cfg = cfg.outbox;
     outbox_cfg.dir = cfg.state_dir / DATA_DIR / OUTBOX_DIR;
     outbox_cfg.statuses = client->statuses;
+    outbox_cfg.on_stuck =
+        [alert = cfg.outbox_alert,
+         dir = outbox_cfg.dir,
+         after = outbox_cfg.stuck_after](const x::errors::Error &err) {
+            if (!err) {
+                alert->clear();
+                return;
+            }
+            auto health = outbox_stuck(dir, after, err);
+            LOG(WARNING) << health.message << ". " << health.description;
+            alert->raise(std::move(health));
+        };
     // The outbox serves only Arc status sets, so the rack runs without it.
     auto [outbox, outbox_err] = outbox::Outbox::open(outbox_cfg);
     if (outbox_err) {

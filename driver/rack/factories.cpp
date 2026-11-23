@@ -78,7 +78,9 @@ void configure_state(const Config &config, FactoryList &factories) {
         return;
     }
     if (!config.incompatible_core_version) {
-        factories.push_back(std::make_unique<status::Factory>());
+        factories.push_back(
+            std::make_unique<status::Factory>(status::Health{}, config.outbox_alert)
+        );
         return;
     }
     const auto message = mismatch_message(*config.incompatible_core_version);

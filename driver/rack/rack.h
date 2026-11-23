@@ -42,6 +42,7 @@
 #include "driver/file/file.h"
 #include "driver/http/http.h"
 #include "driver/opcua/opcua.h"
+#include "driver/rack/status/status.h"
 #include "driver/task/task.h"
 
 namespace driver::rack {
@@ -65,6 +66,17 @@ const std::string OUTBOX_DIR = "outbox";
 
 /// @brief the message of the rack status when the outbox cannot open.
 const std::string OUTBOX_FAILURE_MSG = "Failed to open outbox";
+
+/// @brief the message of the rack status when the outbox cannot send.
+const std::string OUTBOX_STUCK_MSG = "Outbox stuck";
+
+/// @brief returns the warning of an outbox in dir whose first call failed with err for
+/// stuck_after.
+status::Health outbox_stuck(
+    const std::filesystem::path &dir,
+    const x::telem::TimeSpan &stuck_after,
+    const x::errors::Error &err
+);
 
 /// @brief returns the error that tells the user why the outbox in dir cannot open and
 /// what to do. It matches err.
@@ -161,6 +173,8 @@ struct Config {
     /// @brief the error that kept the outbox from opening, from outbox_failure. The
     /// rack status reports it. Set by Rack::run.
     x::errors::Error outbox_err;
+    /// @brief the warning of a stuck outbox, which the rack status reports.
+    std::shared_ptr<status::Alert> outbox_alert = std::make_shared<status::Alert>();
 
     /// @brief returns a new task factory to use for creating tasks in the task manager.
     /// Give it the same client as the task manager. With an incompatible Core, the
@@ -184,12 +198,12 @@ struct Config {
            << cfg.connection << "\n"
            << cfg.timing << "\n"
            << cfg.manager << "\n"
-           << "  " << x::log::SHALE() << "outbox calls" << x::log::RESET() << ": "
-           << cfg.outbox.cap << "\n"
-           << "  " << x::log::SHALE() << "outbox retry interval" << x::log::RESET()
-           << ": " << cfg.outbox.retry.base_interval.seconds() << "s\n"
-           << "  " << x::log::SHALE() << "outbox max retry interval" << x::log::RESET()
-           << ": " << cfg.outbox.retry.max_interval.seconds() << "s\n"
+           << "  " << x::log::SHALE() << "outbox size" << x::log::RESET() << ": "
+           << cfg.outbox.max_bytes << " bytes\n"
+           << "  " << x::log::SHALE() << "outbox send timeout" << x::log::RESET()
+           << ": " << cfg.outbox.send_timeout.seconds() << "s\n"
+           << "  " << x::log::SHALE() << "outbox stuck after" << x::log::RESET() << ": "
+           << cfg.outbox.stuck_after.seconds() << "s\n"
            << "  " << x::log::SHALE() << "enabled integrations" << x::log::RESET()
            << ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
@@ -329,7 +343,15 @@ struct Config {
             if (n <= 0) p.field_err(name, "must be greater than 0");
             return static_cast<std::size_t>(n);
         };
-        this->outbox.cap = count("outbox_calls", this->outbox.cap);
+        this->outbox.max_bytes = count("outbox_size", this->outbox.max_bytes);
+        this->outbox.segment_calls = count(
+            "outbox_segment_calls",
+            this->outbox.segment_calls
+        );
+        this->outbox.send_timeout = span(
+            "outbox_send_timeout",
+            this->outbox.send_timeout
+        );
         this->outbox.retry.base_interval = span(
             "outbox_retry_interval",
             this->outbox.retry.base_interval
@@ -338,6 +360,11 @@ struct Config {
             "outbox_max_retry_interval",
             this->outbox.retry.max_interval
         );
+        this->outbox.sync_interval = span(
+            "outbox_sync_interval",
+            this->outbox.sync_interval
+        );
+        this->outbox.stuck_after = span("outbox_stuck_after", this->outbox.stuck_after);
     }
 
     [[nodiscard]] x::errors::Error load_args(x::args::Parser &args);
