@@ -112,6 +112,38 @@ describe("Symbol form", () => {
       ]);
     });
 
+    const within = (lower: number, upper: number) =>
+      schematic.stateBindingZ.parse({
+        key: "active",
+        match: { type: "within", bounds: { lower, upper } },
+      });
+    const INVALID = "Minimum value must be less than maximum value";
+
+    it("should hold a minimum above the maximum until the pair is valid", () => {
+      const { getByLabelText, getByText, value } = render();
+      commit(getByLabelText("Max value"), "100");
+      commit(getByLabelText("Min value"), "200");
+      expect(getByText(INVALID)).toBeDefined();
+      expect(value(path.states)).toEqual([within(0.9, 100)]);
+      commit(getByLabelText("Max value"), "300");
+      expect(value(path.states)).toEqual([within(200, 300)]);
+    });
+
+    it("should hold a minimum equal to the maximum and save nothing", () => {
+      const { getByLabelText, getByText, value } = render();
+      commit(getByLabelText("Min value"), "1.1");
+      expect(getByText(INVALID)).toBeDefined();
+      expect(value(path.states)).toEqual([]);
+    });
+
+    it("should drop a held pair when the stored bounds change", () => {
+      const { getByLabelText, getByText, queryByText } = render([within(2, 3)]);
+      commit(getByLabelText("Min value"), "5");
+      fireEvent.click(getByText("Reset to symbol"));
+      expect(queryByText(INVALID)).toBeNull();
+      expect(getByLabelText("Min value")).toHaveProperty("value", "0.9");
+    });
+
     it("should replace the default of an enumeration state", () => {
       const { getByLabelText, value } = render();
       commit(getByLabelText("Default"), "1");
