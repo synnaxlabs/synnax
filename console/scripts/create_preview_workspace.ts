@@ -15,15 +15,19 @@
 // (localhost) or https://core.example.com. The default is 9090.
 
 import {
-  type channel,
+  channel,
+  group,
+  type label,
   lineplot,
   log,
   type panel,
+  ranger,
   type resource,
+  type status,
   Synnax,
   table,
 } from "@synnaxlabs/client";
-import { dynamicWindow, TimeSpan } from "@synnaxlabs/x";
+import { dynamicWindow, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 import { KEYS as SAMPLE } from "../src/feature/project/sample.ts";
 import { parse } from "./coreURL.ts";
@@ -51,6 +55,22 @@ const KEYS = {
     linePlot: "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e32",
     log: "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e33",
   },
+  groups: {
+    channels: "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e40",
+    liveViews: "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e41",
+    reports: "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e42",
+  },
+  labels: {
+    hotFire: "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e50",
+    coldFlow: "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e51",
+    nominal: "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e52",
+    anomaly: "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e53",
+  },
+  ranges: [
+    "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e60",
+    "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e61",
+    "0d4f4c0b-5c39-4a8e-9f3c-6b1c2f7a0e62",
+  ],
 } as const;
 
 interface Channels {
@@ -162,6 +182,18 @@ const createProject = async (
   else await client.projects.create({ key, name });
 };
 
+// The Core refuses to delete a group that holds members, so a second run keeps it.
+const createGroup = async (
+  client: Synnax,
+  key: group.Key,
+  name: string,
+  parent?: resource.ID,
+): Promise<void> => {
+  const found = await client.groups.retrieve({ key: { eq: key } });
+  if (found.length > 0) return;
+  await client.groups.create({ key, name, parent, scope: parent?.type ?? "channel" });
+};
+
 const createSampleAdditions = async (client: Synnax, ch: Channels): Promise<void> => {
   const project = SAMPLE.project;
   await client.logs.create({ ...createLog(KEYS.sampleLog, "Tank log", ch), project });
@@ -182,9 +214,18 @@ const createOperations = async (client: Synnax, ch: Channels): Promise<void> => 
     TimeSpan.minutes(2),
     ch,
   );
-  await client.lineplots.create({ ...plot, project });
-  await client.logs.create({ ...createLog(k.log, "Operations log", ch), project });
-  await client.tables.create({ ...createTable(k.table, "Live values", ch), project });
+  const g = KEYS.groups.liveViews;
+  await createGroup(client, g, "Live views", { type: "project", key: project });
+  await client.lineplots.create({ ...plot, project, group: g });
+  await client.logs.create({
+    ...createLog(k.log, "Operations log", ch),
+    project,
+    group: g,
+  });
+  await client.tables.create({
+    ...createTable(k.table, "Live values", ch),
+    project,
+  });
   await client.panels.create({
     key: k.panel,
     name: "Tank operations",
@@ -216,8 +257,14 @@ const createReview = async (client: Synnax, ch: Channels): Promise<void> => {
     TimeSpan.minutes(10),
     ch,
   );
-  await client.lineplots.create({ ...plot, project });
-  await client.tables.create({ ...createTable(k.table, "Summary", ch), project });
+  const g = KEYS.groups.reports;
+  await createGroup(client, g, "Reports", { type: "project", key: project });
+  await client.lineplots.create({ ...plot, project, group: g });
+  await client.tables.create({
+    ...createTable(k.table, "Summary", ch),
+    project,
+    group: g,
+  });
   await client.panels.create({
     key: k.panel,
     name: "Test review",
@@ -253,6 +300,116 @@ const createValves = async (client: Synnax, ch: Channels): Promise<void> => {
   });
 };
 
+const createChannelGroup = async (client: Synnax, ch: Channels): Promise<void> => {
+  const key = KEYS.groups.channels;
+  await createGroup(client, key, "Sample tank");
+  const ids = [ch.time, ch.tankPT, ch.pressVlv, ch.ventVlv].map((k) =>
+    channel.resourceID(k),
+  );
+  await client.batch.send(client.groups.moveRequests(ids, group.resourceID(key)));
+};
+
+const createLabels = async (client: Synnax): Promise<void> => {
+  const k = KEYS.labels;
+  await client.labels.delete(Object.values(k));
+  await client.labels.create([
+    { key: k.hotFire, name: "Hot fire", color: { type: "fixed", value: "#E8590C" } },
+    { key: k.coldFlow, name: "Cold flow", color: { type: "fixed", value: "#1C7ED6" } },
+    { key: k.nominal, name: "Nominal", color: { type: "fixed", value: "#2F9E44" } },
+    { key: k.anomaly, name: "Anomaly", color: { type: "fixed", value: "#E03131" } },
+  ]);
+};
+
+interface Test {
+  key: ranger.Key;
+  name: string;
+  hoursAgo: number;
+  color: string;
+  labels: label.Key[];
+}
+
+// A line plot draws only the ranges that have a color.
+const PHASES = [
+  { name: "Pressurize", color: "#F59F00" },
+  { name: "Hold", color: "#7048E8" },
+  { name: "Vent", color: "#0CA678" },
+];
+
+const createRanges = async (client: Synnax): Promise<void> => {
+  const l = KEYS.labels;
+  const [first, second, third] = KEYS.ranges;
+  const tests: Test[] = [
+    {
+      key: first,
+      name: "Hot fire 1",
+      hoursAgo: 6,
+      color: "#E8590C",
+      labels: [l.hotFire, l.nominal],
+    },
+    {
+      key: second,
+      name: "Hot fire 2",
+      hoursAgo: 3,
+      color: "#F08C00",
+      labels: [l.hotFire, l.anomaly],
+    },
+    {
+      key: third,
+      name: "Cold flow 1",
+      hoursAgo: 1,
+      color: "#1C7ED6",
+      labels: [l.coldFlow, l.nominal],
+    },
+  ];
+  // A range delete also deletes the ranges nested in it.
+  await client.ranges.delete([...KEYS.ranges]);
+  const now = TimeStamp.now();
+  for (const test of tests) {
+    const start = now.sub(TimeSpan.hours(test.hoursAgo));
+    await client.ranges.create({
+      key: test.key,
+      name: test.name,
+      color: { type: "fixed", value: test.color },
+      timeRange: { start, end: start.add(TimeSpan.minutes(30)) },
+    });
+    await client.labels.label(ranger.resourceID(test.key), test.labels);
+    await client.ranges.create(
+      PHASES.map(({ name, color }, i): ranger.New => {
+        const phaseStart = start.add(TimeSpan.minutes(10 * i));
+        return {
+          name,
+          parent: test.key,
+          color: { type: "fixed", value: color },
+          timeRange: { start: phaseStart, end: phaseStart.add(TimeSpan.minutes(10)) },
+        };
+      }),
+    );
+  }
+};
+
+const STATUSES: status.New[] = [
+  {
+    key: "preview-workspace-ready",
+    name: "Preview workspace",
+    variant: "success",
+    message: "Created preview workspace",
+  },
+  {
+    key: "preview-tank-pressure",
+    name: "Tank",
+    variant: "warning",
+    message: "Tank pressure near limit",
+    description: "The tank pressure is above 450 psi. Vent the tank.",
+  },
+  {
+    key: "preview-vent-valve",
+    name: "Vent valve",
+    variant: "error",
+    message: "Vent valve did not close",
+    description: "The vent valve state did not change in 2 seconds. Check the valve.",
+  },
+];
+
 const deleteOld = async (client: Synnax): Promise<void> => {
   const { operations: o, review: r, valves: v } = KEYS;
   await Promise.all([
@@ -274,4 +431,8 @@ await createSampleAdditions(client, ch);
 await createOperations(client, ch);
 await createReview(client, ch);
 await createValves(client, ch);
+await createChannelGroup(client, ch);
+await createLabels(client);
+await createRanges(client);
+await client.statuses.set(STATUSES);
 await client.close();
