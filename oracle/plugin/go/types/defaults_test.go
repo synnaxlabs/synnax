@@ -1788,7 +1788,7 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 				resp := MustGenerate(source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
 					"func (i *Item) SetDefaults() {",
-					"i.Cjc.Variant = ConstValCJC{}",
+					"i.CJC.Variant = ConstValCJC{}",
 				)
 			},
 		)
@@ -1811,7 +1811,7 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 				resp := MustGenerate(withVariantDefault, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
 					"func (c *ConstValCJC) SetDefaults() {\n\tc.Val = 25\n}",
-					"v0 := ConstValCJC{}\n\t\tv0.SetDefaults()\n\t\ti.Cjc.Variant = v0",
+					"v0 := ConstValCJC{}\n\t\tv0.SetDefaults()\n\t\ti.CJC.Variant = v0",
 				)
 			},
 		)
@@ -1833,7 +1833,7 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			ExpectContent(resp, "types.gen.go").ToContain(
 				"v0 := ConstValCJC{}",
 				"v0.Val = 5",
-				"i.Cjc.Variant = v0",
+				"i.CJC.Variant = v0",
 			)
 		})
 
@@ -1979,7 +1979,7 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 					"func (c *Cfg) SetDefaults() {",
 					"v0 := ConstValCJC{}",
 					"v0.Val = 5",
-					"c.Item.Cjc.Variant = v0",
+					"c.Item.CJC.Variant = v0",
 				)
 			},
 		)

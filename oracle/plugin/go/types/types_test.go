@@ -569,7 +569,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Expect(
 						content,
 					).To(ContainSubstring(`RTDTypePt3750 RTDType = "Pt3750"`))
-					Expect(content).To(ContainSubstring(`RtdType RTDType`))
+					Expect(content).To(ContainSubstring(`RTDType RTDType`))
 					Expect(content).ToNot(ContainSubstring(`RtdTypePt3750`))
 				},
 			)

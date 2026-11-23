@@ -383,7 +383,7 @@ var _ = Describe("Go PB Plugin", func() {
 					resp := MustGenerate(source, "schematic", loader, pbPlugin)
 					ExpectContent(resp, "translator.gen.go").
 						ToContain(
-							"case schematic.IsoCapShape:",
+							"case schematic.ISOCapShape:",
 							"pb.Variant = &Shape_IsoCap{IsoCap: inner}",
 							"case *Shape_TJunction:",
 							"r.Variant = schematic.TJunctionShape{Body: inner}",
