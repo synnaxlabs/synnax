@@ -43,7 +43,7 @@ const client = createTestClient();
 
 const TARGET = "/channel/retrieve-built-ins";
 
-const MESSAGE = "Failed to fetch built-in channels.";
+const REPORT = "Failed to fetch built-in channels. refused";
 
 const createIndex = async () =>
   await client.channels.create({
@@ -190,14 +190,14 @@ describe("channel/Toolbar built-in keys", () => {
       return shown ? Channel.TOOLBAR.content : null;
     };
     await renderToolbar(<Drawer />, { client: reporting, items: Channel.TREE_ITEMS });
-    await waitFor(() => expect(internal.map((e) => e.message)).toEqual([MESSAGE]));
+    await waitFor(() => expect(internal.map((e) => e.message)).toEqual([REPORT]));
     // The user closes the channel drawer and opens it, which fetches again.
     const before = fetches();
     await act(async () => setShown(false));
     await act(async () => setShown(true));
     await waitFor(() => expect(fetches()).toBeGreaterThan(before));
     await act(async () => await reporting.channels.builtIns.retrieve());
-    expect(internal.map((e) => e.message)).toEqual([MESSAGE]);
+    expect(internal.map((e) => e.message)).toEqual([REPORT]);
   });
 
   it("should show one error status for one failed fetch under the real provider", async () => {
@@ -248,7 +248,7 @@ describe("channel/Toolbar built-in keys", () => {
     expect(errors()).toEqual([
       {
         message: "Failed to sync with Core",
-        description: "Failed to fetch built-in channels. refused",
+        description: REPORT,
         count: 1,
       },
     ]);

@@ -403,7 +403,7 @@ describe("channel/tree", () => {
       expect(await screen.findByText("Rename")).toBeTruthy();
       await waitFor(() =>
         expect(internal.map((e) => e.message)).toEqual([
-          "Failed to fetch built-in channels.",
+          "Failed to fetch built-in channels. built-in keys refused",
         ]),
       );
     });

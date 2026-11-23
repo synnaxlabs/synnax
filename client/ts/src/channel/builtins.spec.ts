@@ -32,7 +32,7 @@ const TARGET = "/channel/retrieve-built-ins";
 
 const PENDING = { keys: null, error: null };
 
-const MESSAGE = "Failed to fetch built-in channels.";
+const MESSAGE = "failed to fetch built-in channels";
 
 // Builds the built-in keys over a fetch whose answers the spec gives by hand.
 const createBuiltIns = () => {
@@ -237,7 +237,9 @@ describe("Built-in channels on a live client", () => {
     const state = await client.channels.builtIns.retrieve();
     expect(proxy.cuts()).toBe(1);
     expect(state.error?.message).toBe(MESSAGE);
-    expect(internal.map((e) => e.message)).toEqual([MESSAGE]);
+    expect(internal.map((e) => e.message)).toEqual([
+      `Failed to fetch built-in channels. Cannot reach Core at localhost:${proxy.port}`,
+    ]);
     expect(client.connection.status.details.epoch).toBe(epoch);
     // The link is healthy again, so the next awaited read gets the keys.
     expect((await client.channels.builtIns.retrieve()).keys).not.toBeNull();
@@ -379,7 +381,12 @@ const reconnectWithList = async (after: AfterReconnect): Promise<void> => {
         ?.records.map((c) => c.key)
         .sort();
     // A failed refetch keeps the last keys and reports once.
-    const reported = after === "fails-once" ? [MESSAGE] : [];
+    const reported =
+      after === "fails-once"
+        ? [
+            "Failed to fetch built-in channels. Operation failed because no Core is connected.",
+          ]
+        : [];
     await expect.poll(() => keys()?.length).toBe(2);
     expect(keys()).toEqual([first.key, second.key].sort());
     await expect.poll(() => internal.map((e) => e.message)).toEqual(reported);

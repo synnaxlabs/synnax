@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, observe, sync, TimeSpan } from "@synnaxlabs/x";
+import { type destructor, errors, observe, sync, TimeSpan } from "@synnaxlabs/x";
 
 import type { Key } from "@/channel/types.gen";
 
@@ -123,11 +123,13 @@ export class BuiltIns {
   }
 
   private fail(exc: unknown): void {
-    const error = new Error("Failed to fetch built-in channels.", { cause: exc });
-    // One report per run of failures, which a fetch that passes ends.
+    const error = new Error("failed to fetch built-in channels", { cause: exc });
+    // One report per run of failures, which a fetch that passes ends. The report's
+    // message is the status description: a sentence, then the cause's own text.
     if (!this.reported) {
       this.reported = true;
-      this.cfg.onError(error);
+      const cause = errors.fromUnknown(exc).message;
+      this.cfg.onError(new Error(`Failed to fetch built-in channels. ${cause}`));
     }
     this.set({ keys: this.current.keys, error });
   }
