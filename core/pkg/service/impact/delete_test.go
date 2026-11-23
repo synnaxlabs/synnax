@@ -285,15 +285,13 @@ var _ = Describe("Delete", Ordered, func() {
 		Expect(exists(ctx, data.Key())).To(BeFalse())
 	})
 
-	It("Should refuse a pick for no entry", func(ctx SpecContext) {
+	It("Should ignore a pick for no entry", func(ctx SpecContext) {
 		ch := createChannel(ctx, channel.Channel{})
-		Expect(apply(ctx, impact.ApplyOptions{
+		applied := MustSucceed(apply(ctx, impact.ApplyOptions{
 			Picks: map[string]impact.Choice{"task:none": impact.ChoiceDelete},
-		}, ch.Key())).Error().To(And(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("no entry is task:none")),
-		))
-		Expect(exists(ctx, ch.Key())).To(BeTrue())
+		}, ch.Key()))
+		Expect(applied.Entries).To(BeEmpty())
+		Expect(exists(ctx, ch.Key())).To(BeFalse())
 	})
 
 	It("Should refuse a pick that its entry does not allow", func(ctx SpecContext) {
@@ -388,6 +386,22 @@ var _ = Describe("Delete", Ordered, func() {
 			},
 		)
 
+		It("Should leave a pick that the plan does not reach out of the plan and its "+
+			"token", func(ctx SpecContext) {
+			ch := createChannel(ctx, channel.Channel{})
+			createPlot(ctx, ch.Key())
+			tsk := createTask(ctx, createChannel(ctx, channel.Channel{}).Key())
+			picked := MustSucceed(layer.Impact.Plan(
+				ctx,
+				db,
+				deleteOf(ch.Key()),
+				impact.PlanOptions{Picks: map[string]impact.Choice{
+					task.ResourceID(tsk.Key).String(): impact.ChoiceDelete,
+				}},
+			))
+			Expect(picked).To(Equal(plan(ctx, nil, ch.Key())))
+		})
+
 		It("Should plan and apply a current token with no picks", func(
 			ctx SpecContext,
 		) {
@@ -471,20 +485,22 @@ var _ = Describe("Delete", Ordered, func() {
 			}
 		})
 
-		It("Should refuse a pick that names an entry the caller cannot see", func(
+		It("Should not reach an entry that the caller cannot see through a pick", func(
 			ctx SpecContext,
 		) {
 			ch := createChannel(ctx, channel.Channel{})
 			tsk := createTask(ctx, ch.Key())
 			id := task.ResourceID(tsk.Key)
-			Expect(apply(ctx, impact.ApplyOptions{
+			_, err := apply(ctx, impact.ApplyOptions{
 				Picks:   map[string]impact.Choice{id.String(): impact.ChoiceDelete},
 				Visible: hide(id),
-			}, ch.Key())).Error().To(And(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("no entry is "+id.String())),
-			))
+			}, ch.Key())
+			_, ok := errors.AsType[gorp.RestrictError](err)
+			Expect(ok).To(BeTrue(), "%v", err)
 			Expect(exists(ctx, ch.Key())).To(BeTrue())
+			Expect(MustSucceed(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(tsk.Key)).
+				Exists(ctx, db))).To(BeTrue())
 		})
 	})
 })
