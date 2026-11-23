@@ -34,12 +34,14 @@ const TOOLTIPS: Record<Mode, string> = {
 
 /**
  * Selects the time mode of the plot's x axis: absolute or relative. Renders nothing
- * when the axis does not show time.
+ * when the axis does not show time, or when it is in absolute time and no range of the
+ * plot has a zero.
  */
 export const TimeModeSelect = (): ReactElement | null => {
   const key = LinePlot.useKey();
   const { dispatch } = LinePlot.useDispatch();
   const { type, timeMode } = LinePlot.useXAxis({ axisKey: "x1" });
+  const refs = LinePlot.useRanges();
   const handleChange = (next: Mode) =>
     dispatch({
       key,
@@ -58,7 +60,8 @@ export const TimeModeSelect = (): ReactElement | null => {
       </span>
     </Select.Item>
   );
-  if (!FLAGS.compare || type !== "time") return null;
+  const offered = timeMode === "relative" || refs.some(lineplot.hasZero);
+  if (!FLAGS.compare || type !== "time" || !offered) return null;
   return (
     <Select.Buttons<Mode>
       variant="outlined"

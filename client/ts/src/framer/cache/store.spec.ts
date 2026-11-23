@@ -207,6 +207,27 @@ describe("Store", () => {
       expect(store.expired(unsealed)).toBe(true);
     });
 
+    it("should keep a sealed block valid only to the threshold after a restart", () => {
+      const clock = new ManualClock();
+      const store = new Store({ now: clock.now, node: () => 1 });
+      store.setChannel(
+        new channel.Channel({
+          key: 1,
+          name: "data",
+          dataType: "float32",
+          leaseholder: 1,
+        }).payload,
+      );
+      store.setSignalKey(99);
+      store.setAcked(new Set([99]));
+      const sealed = createBlock({ fetchedAt: clock.now(), sealed: true });
+      clock.advance(TimeSpan.minutes(1));
+      store.restartSignals();
+      expect(store.expired(sealed)).toBe(false);
+      clock.advance(TimeSpan.hours(1));
+      expect(store.expired(sealed)).toBe(true);
+    });
+
     it("should default the stale threshold to ten minutes", () => {
       const clock = new ManualClock();
       const store = new Store({ now: clock.now });

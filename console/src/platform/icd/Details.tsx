@@ -23,7 +23,7 @@ import type { FC, ReactElement } from "react";
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import type { MessagePlan } from "@/platform/icd/configure";
-import { DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
+import { defaultDataType } from "@/platform/icd/dataType";
 import { FieldsStatus, JSONField } from "@/platform/icd/Fields";
 import type { FormatForm } from "@/platform/icd/Formats";
 import { Match } from "@/platform/icd/Match";
@@ -39,19 +39,27 @@ import {
 } from "@/platform/icd/read";
 import { Panel } from "@/platform/panel";
 import { Task } from "@/platform/task";
+import { Session } from "@/session";
 
 interface OpenInEditorProps {
   icdKey: icd.Key;
+  /** The message the editor selects. */
+  message: icd.MessageKey;
 }
 
-const EditorButton = ({ icdKey }: OpenInEditorProps): ReactElement => {
+const EditorButton = ({ icdKey, message }: OpenInEditorProps): ReactElement => {
   const openTab = Panel.useOpenTab();
+  const dispatch = Session.useDispatch();
+  const handleClick = () => {
+    dispatch(Session.ICD.setSelected({ key: icdKey, selected: [message] }));
+    openTab({ variant: "resource", resource: icd.resourceID(icdKey) });
+  };
   return (
     <Button.Button
       variant="text"
       size="small"
       tooltip="Open in the ICD editor"
-      onClick={() => openTab({ variant: "resource", resource: icd.resourceID(icdKey) })}
+      onClick={handleClick}
     >
       <Icon.Library />
       Open in editor
@@ -238,6 +246,9 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   const message = PForm.useFieldValue(readPath.message);
   const icdKey = PForm.useFieldValue(path.icd);
   const sourceDisabled = PForm.useFieldValue(path.disabled);
+  const formatted = PForm.useFieldValue(fieldsPath(message)[field.key], {
+    ctx: format,
+  });
   const i = bindings.findIndex(({ field: key }) => key === field.key);
   const preview =
     i < 0
@@ -254,7 +265,7 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
         <PForm.Form<typeof PICD.formSchema> {...format}>
           <JSONField
             path={fieldsPath(message)[field.key]}
-            actions={<OpenInEditor icdKey={icdKey} />}
+            actions={<OpenInEditor icdKey={icdKey} message={message} />}
           />
         </PForm.Form>
         <PForm.Section title="Channel">
@@ -268,8 +279,8 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
               <Task.Payload.DataTypeField
                 path={readPath.bindings[i].dataType}
                 channel={preview.channel}
-                defaultDataType={DEFAULT_DATA_TYPES[field.type]}
-                hideDataTypes={hiddenDataTypes(field.type)}
+                defaultDataType={defaultDataType(formatted)}
+                hideDataTypes={hiddenDataTypes(formatted)}
               />
             </>
           )}
@@ -316,7 +327,10 @@ export const MessageSections: FC<MessageSectionsProps> = ({
         </PForm.Section>
       )}
       {message != null && message.payload.format !== "json" && (
-        <PForm.Section title="Message" actions={<OpenInEditor icdKey={icdKey} />}>
+        <PForm.Section
+          title="Message"
+          actions={<OpenInEditor icdKey={icdKey} message={message.key} />}
+        >
           <Text.Text color={9}>
             The format of this message is not JSON.
             {FLAGS.icds && " Open it to change its format."}
@@ -367,7 +381,7 @@ export const MessageDetails: FC<MessageDetailsProps> = ({
               actions={
                 <>
                   <AddField onClick={onAddField} disabled={addFieldDisabled} />
-                  <OpenInEditor icdKey={icdKey} />
+                  <OpenInEditor icdKey={icdKey} message={key} />
                 </>
               }
             >

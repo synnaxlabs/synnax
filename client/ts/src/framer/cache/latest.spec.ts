@@ -23,13 +23,13 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import type { channel } from "@/channel";
-import { UnsupportedError } from "@/errors";
 import { framer } from "@/framer";
 import { domainOf } from "@/framer/cache/block";
 import { Joins } from "@/framer/cache/join";
 import { Latest, type LatestProps } from "@/framer/cache/latest";
 import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
+import { UnsupportedError } from "@/index";
 import { SyntheticCore } from "@/testutil";
 
 const START = TimeStamp.seconds(1_000_000);
@@ -82,6 +82,7 @@ const createLatest = (
     return latest;
   };
   return {
+    store,
     streamer,
     open,
     reads: () => reads,
@@ -140,6 +141,28 @@ describe("Latest", () => {
         await close();
       }
     });
+  });
+
+  it("should keep its samples on a missed invalidation and read on a history one", async () => {
+    const core = createCore();
+    const { store, open, reads, close } = createLatest(core);
+    const key = core.data[0].key;
+    const latest = open(100, () => {}, key);
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      const before = reads();
+      const held = timesOf(latest);
+      store.invalidate(key, TimeRange.MAX, true);
+      await sleep.sleep(TimeSpan.milliseconds(50));
+      expect(reads()).toBe(before);
+      expect(latest.value().status.variant).toBe("success");
+      expect(timesOf(latest)).toEqual(held);
+      store.invalidate(key, TimeRange.MAX);
+      await expect.poll(() => reads(), POLL).toBeGreaterThan(before);
+    } finally {
+      latest.close();
+      await close();
+    }
   });
 
   it("should serve every sample of a frame larger than the count", async () => {

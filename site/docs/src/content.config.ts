@@ -12,8 +12,8 @@ import { glob } from "astro/loaders";
 import { defineCollection } from "astro:content";
 import { z } from "zod";
 
-import { CLIENTS } from "@/components/client/choice";
-import { PLATFORMS } from "@/components/platform/choice";
+import { Client } from "@/components/client";
+import { Platform } from "@/components/platform";
 
 // A draft is a .md file, so the collection skips it.
 const releases = defineCollection({
@@ -51,8 +51,8 @@ const pageZ = z.object({
 const reference = defineCollection({
   loader: pages("reference"),
   schema: pageZ.extend({
-    clients: z.array(z.enum(CLIENTS)).optional(),
-    platforms: z.array(z.enum(PLATFORMS)).optional(),
+    clients: z.array(z.enum(Client.CLIENTS)).optional(),
+    platforms: z.array(z.enum(Platform.PLATFORMS)).optional(),
     breadcrumbHidden: z.boolean().default(false),
     onThisPageHidden: z.boolean().default(false),
   }),
