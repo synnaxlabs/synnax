@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"sync"
 	"sync/atomic"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -165,7 +166,7 @@ var _ = Describe("OIDC invites", func() {
 		})
 		It("Should leave out an expired invite", func(ctx SpecContext) {
 			create(ctx)
-			clock.Advance(invite.Lifetime)
+			clock.Advance(24 * time.Hour)
 			Expect(retrieve(ctx)).To(BeEmpty())
 		})
 		It("Should list the caller's invite by default", func(ctx SpecContext) {
@@ -291,7 +292,7 @@ var _ = Describe("OIDC invites", func() {
 		})
 		It("Should give one error for wrong and expired tokens", func(ctx SpecContext) {
 			expired := create(ctx).Token
-			clock.Advance(invite.Lifetime)
+			clock.Advance(24 * time.Hour)
 			Expect(redeem(ctx, expired, grantAccount(uuid.New().String()))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 			Expect(redeem(ctx, "syi_wrong", grantAccount(uuid.New().String()))).Error().

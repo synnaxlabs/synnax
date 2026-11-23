@@ -33,7 +33,7 @@ func (w Writer) Create(ctx context.Context, u user.Key) (Invite, string, error) 
 	i := Invite{
 		Key:    keyOf(u),
 		User:   u,
-		Expiry: telem.NewTimeStamp(w.svc.cfg.Clock.Now().Add(Lifetime)),
+		Expiry: telem.NewTimeStamp(w.svc.cfg.Clock.Now().Add(lifetime)),
 	}
 	token, hash, err := auth.NewToken(prefix, i.Key)
 	if err != nil {

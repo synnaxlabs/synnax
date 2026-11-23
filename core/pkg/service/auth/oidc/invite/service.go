@@ -28,8 +28,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Lifetime is how long an invite works after its creation.
-const Lifetime = 24 * time.Hour
+// lifetime is how long an invite works after its creation.
+const lifetime = 24 * time.Hour
 
 const prefix = "syi_"
 

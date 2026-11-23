@@ -254,6 +254,55 @@ var _ = Describe("Renew", func() {
 	})
 })
 
+var _ = Describe("Respond", func() {
+	open := func(ctx SpecContext, subject resource.ID, credential uuid.UUID) (
+		auth.Session,
+		string,
+	) {
+		GinkgoHelper()
+		var (
+			ses   auth.Session
+			token string
+		)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			ses, token, err = authSvc.NewWriter(tx).Open(ctx, subject, credential)
+			return err
+		})).To(Succeed())
+		return ses, token
+	}
+	It("Should return the session, its token, and its user", func(ctx SpecContext) {
+		created := MustSucceed(apiSvc.Create(
+			requestCtx(ctx),
+			session.CreateRequest{Proof: passwordProof(creds.Username, creds.Password)},
+		))
+		ses, token := open(ctx, root.ResourceID(), created.Session.Credential)
+		res := MustSucceed(apiSvc.Respond(requestCtx(ctx), ses, token, false))
+		Expect(res.Token).To(Equal(token))
+		Expect(res.Session).To(Equal(ses))
+		Expect(res.User).ToNot(BeNil())
+		expectLegacyUser(*res.User, creds.Username)
+	})
+	It("Should hand the token to the transport for a cookie", func(ctx SpecContext) {
+		created := MustSucceed(apiSvc.Create(
+			requestCtx(ctx),
+			session.CreateRequest{Proof: passwordProof(creds.Username, creds.Password)},
+		))
+		ses, token := open(ctx, root.ResourceID(), created.Session.Credential)
+		fctx := requestCtx(ctx)
+		res := MustSucceed(apiSvc.Respond(fctx, ses, token, true))
+		Expect(res.Token).To(BeEmpty())
+		Expect(MustBeOk(fctx.Get(apiauth.SessionCookieParam))).To(Equal(
+			apiauth.SessionCookie{Token: token, Lifetime: authSvc.IdleTimeout()},
+		))
+	})
+	It("Should return no user for a subject that is not a user", func(ctx SpecContext) {
+		ses := auth.Session{Subject: resource.ID{Type: resource.TypeRack, Key: "1"}}
+		res := MustSucceed(apiSvc.Respond(requestCtx(ctx), ses, "sys_token", false))
+		Expect(res.User).To(BeNil())
+		Expect(res.Token).To(Equal("sys_token"))
+	})
+})
+
 var _ = Describe("Session cookie", func() {
 	It(
 		"Should hand the token to the transport instead of the body",

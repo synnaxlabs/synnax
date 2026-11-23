@@ -31,7 +31,50 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+const lifetime = 24 * time.Hour
+
 func noop(gorp.Tx, invite.Invite) error { return nil }
+
+var _ = Describe("ServiceConfig", func() {
+	full := func() invite.ServiceConfig {
+		return invite.ServiceConfig{
+			DB:    db,
+			Clock: timetestutil.NewClock(time.Unix(1_700_000_000, 0)),
+		}
+	}
+	Describe("Validate", func() {
+		It("Should succeed when every field is set", func() {
+			Expect(full().Validate()).To(Succeed())
+		})
+		It("Should fail without a DB", func() {
+			cfg := full()
+			cfg.DB = nil
+			Expect(
+				cfg.Validate(),
+			).To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
+		It("Should fail without a clock", func() {
+			cfg := full()
+			cfg.Clock = nil
+			Expect(cfg.Validate()).
+				To(MatchError(ContainSubstring("clock: must be non-nil")))
+		})
+	})
+	Describe("Override", func() {
+		It("Should take the other config's fields when set", func() {
+			cfg := full()
+			merged := invite.ServiceConfig{}.Override(cfg)
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
+			Expect(merged.Clock).To(BeIdenticalTo(cfg.Clock))
+		})
+		It("Should keep the receiver's fields when the other's are nil", func() {
+			cfg := full()
+			merged := cfg.Override(invite.ServiceConfig{})
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
+			Expect(merged.Clock).To(BeIdenticalTo(cfg.Clock))
+		})
+	})
+})
 
 var _ = Describe("Service", func() {
 	var (
@@ -87,9 +130,8 @@ var _ = Describe("Service", func() {
 			i, _ := create(ctx, createUser(ctx))
 			Expect(i.Expiry.Time()).To(BeTemporally(
 				"==",
-				clock.Now().Add(invite.Lifetime),
+				clock.Now().Add(lifetime),
 			))
-			Expect(invite.Lifetime).To(Equal(24 * time.Hour))
 		})
 		It("Should replace a user's invite", func(ctx SpecContext) {
 			u := createUser(ctx)
@@ -145,7 +187,7 @@ var _ = Describe("Service", func() {
 					Where(svc.MatchLive()).
 					Exists(ctx, db))
 			}
-			clock.Advance(invite.Lifetime - time.Second)
+			clock.Advance(lifetime - time.Second)
 			Expect(live()).To(BeTrue())
 			clock.Advance(time.Second)
 			Expect(live()).To(BeFalse())
@@ -224,7 +266,7 @@ var _ = Describe("Service", func() {
 			Entry("expired", func(ctx SpecContext) string {
 				GinkgoHelper()
 				_, token := create(ctx, createUser(ctx))
-				clock.Advance(invite.Lifetime)
+				clock.Advance(lifetime)
 				return token
 			}),
 			Entry("wrong secret", func(ctx SpecContext) string {
