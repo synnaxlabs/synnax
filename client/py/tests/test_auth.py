@@ -452,3 +452,45 @@ class TestPasswords:
         with pytest.raises(sy.AuthError):
             admin.auth.create_password(username, "p", subject=user.resource_id)
         admin.close()
+
+    def test_retrieve_own(
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
+    ) -> None:
+        """Should retrieve the caller's own password by default."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        new_username = str(uuid4())
+        user = create_user(admin, new_username, "test", empty_role.key)
+        client = sy.Synnax(host=host, port=port, username=new_username, password="test")
+        [p] = client.auth.retrieve_passwords()
+        assert (p.subject, p.username) == (user.resource_id, new_username)
+        client.close()
+        admin.close()
+
+    def test_retrieve_by_username(
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
+    ) -> None:
+        """Should retrieve a password by its username and ignore unknown ones."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        new_username = str(uuid4())
+        user = create_user(admin, new_username, "test", empty_role.key)
+        res = admin.auth.retrieve_passwords(usernames=[new_username, str(uuid4())])
+        assert [(p.subject, p.username) for p in res] == [
+            (user.resource_id, new_username)
+        ]
+        admin.close()
+
+    def test_retrieve_by_subject(
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
+    ) -> None:
+        """Should retrieve a password by its subject."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        new_username = str(uuid4())
+        user = create_user(admin, new_username, "test", empty_role.key)
+        res = admin.auth.retrieve_passwords(subjects=[user.resource_id])
+        assert [(p.subject, p.username) for p in res] == [
+            (user.resource_id, new_username)
+        ]
+        admin.close()

@@ -493,8 +493,8 @@ const createUsers = async (client: Synnax): Promise<void> => {
     return role.key;
   };
   const usernames = USERS.map((u) => u.username);
-  const found = await client.users.retrieve({ usernames });
-  if (found.length > 0) await client.users.delete(found.map((u) => u.key));
+  const found = await client.auth.retrievePasswords({ usernames });
+  if (found.length > 0) await client.users.delete(found.map((p) => p.subject.key));
   const created = await client.users.create(
     USERS.map(({ name, role }) => ({ name, role: roleKey(role) })),
   );

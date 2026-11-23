@@ -61,15 +61,6 @@ User struct {
 
     action Move = patch.Move
 
-    action SetUsername {
-        username string
-
-        @doc value """
-            changes the username of the user's password. The Core refuses a username
-            that another user holds.
-        """
-    }
-
     @doc value       """
         is an account entity representing a person accessing the Synnax system. Each
         user holds one role, which grants its permissions.
@@ -82,10 +73,7 @@ User struct {
 
 Where filter User {
     key
-    usernames string[]   {
-        @doc value "matches the users whose password has any of the given usernames."
-    }
-    roles     role.Key[] {
+    roles role.Key[] {
         @doc value "matches the users that hold any of the given roles."
     }
 

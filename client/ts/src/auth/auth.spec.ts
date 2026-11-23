@@ -1063,6 +1063,50 @@ describe("auth", () => {
     });
   });
 
+  describe("retrievePasswords", () => {
+    it("should retrieve the caller's own password by default", async () => {
+      const owner = createTestClient();
+      const { key: role } = await createEmptyRole(owner);
+      const { user: u, username, password } = await createTestUser(owner, { role });
+      const client = createTestClient({ username, password });
+      const passwords = await client.auth.retrievePasswords();
+      expect(passwords).toEqual([
+        { key: expect.any(String), subject: user.resourceID(u.key), username },
+      ]);
+    });
+
+    it("should retrieve a password by its username", async () => {
+      const client = createTestClient();
+      const { key: role } = await createEmptyRole(client);
+      const { user: u, username } = await createTestUser(client, { role });
+      const passwords = await client.auth.retrievePasswords({ usernames: [username] });
+      expect(passwords).toEqual([
+        { key: expect.any(String), subject: user.resourceID(u.key), username },
+      ]);
+    });
+
+    it("should retrieve a password by its subject", async () => {
+      const client = createTestClient();
+      const { key: role } = await createEmptyRole(client);
+      const { user: u, username } = await createTestUser(client, { role });
+      const subject = user.resourceID(u.key);
+      const passwords = await client.auth.retrievePasswords({ subjects: [subject] });
+      expect(passwords).toEqual([{ key: expect.any(String), subject, username }]);
+    });
+
+    it("should ignore an unknown username", async () => {
+      const client = createTestClient();
+      const { key: role } = await createEmptyRole(client);
+      const { user: u, username } = await createTestUser(client, { role });
+      const passwords = await client.auth.retrievePasswords({
+        usernames: [username, id.create()],
+      });
+      expect(passwords).toEqual([
+        { key: expect.any(String), subject: user.resourceID(u.key), username },
+      ]);
+    });
+  });
+
   describe("API keys", () => {
     const makeClient = (authority: auth.Authority) => {
       const transport = new Transport({

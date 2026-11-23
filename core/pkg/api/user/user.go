@@ -11,7 +11,6 @@ package user
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -22,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -112,15 +110,6 @@ func (s *Service) Create(
 	return CreateResponse{Users: created}, nil
 }
 
-// checkOtherUser returns an error when the user with key is the subject, as a subject
-// cannot change its own username.
-func checkOtherUser(ctx context.Context, key user.Key) error {
-	if auth.GetSubject(ctx) != user.ResourceID(key) {
-		return nil
-	}
-	return errors.New("you cannot change your own username through the user service")
-}
-
 // DispatchRequest carries an action sequence to apply to a single user. DispatchKey is
 // a client-generated identifier for the batch, echoed on the broadcast so the sender
 // recognizes its own echo.
@@ -128,8 +117,7 @@ type DispatchRequest = actions.DispatchRequest[user.Key, user.Action]
 
 // Dispatch applies the action sequence to the target user atomically. It returns
 // access.ErrDenied when the subject cannot update the user, checked before the write
-// reads the user, an error when a set username action targets the subject, and the
-// errors of user.Writer.Apply.
+// reads the user, and the errors of user.Writer.Apply.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -141,13 +129,6 @@ func (s *Service) Dispatch(
 		[]user.Key{req.Key},
 	); err != nil {
 		return struct{}{}, err
-	}
-	if slices.ContainsFunc(req.Actions, func(a user.Action) bool {
-		return a.Type == user.ActionTypeSetUsername
-	}) {
-		if err := checkOtherUser(ctx, req.Key); err != nil {
-			return struct{}{}, err
-		}
 	}
 	return struct{}{}, s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
