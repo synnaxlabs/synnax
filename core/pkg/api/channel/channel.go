@@ -369,20 +369,6 @@ func translateChannelsBackward(channels []Channel) []channel.Channel {
 	return translated
 }
 
-// RetrieveBuiltInsRequest is a request for the keys of the built-in channels. It names
-// no record, so any subject may send it.
-type RetrieveBuiltInsRequest struct{}
-
-// RetrieveBuiltIns returns the keys of the channels that Core services declare for
-// their work.
-func (s *Service) RetrieveBuiltIns(
-	context.Context,
-	bind.Snapshot,
-	RetrieveBuiltInsRequest,
-) (RetrieveBuiltInsResponse, error) {
-	return RetrieveBuiltInsResponse{Keys: s.internal.BuiltIns()}, nil
-}
-
 // CountLimitedRequest is a request for the count of the channels that count against the
 // license channel limit.
 type CountLimitedRequest struct{}
