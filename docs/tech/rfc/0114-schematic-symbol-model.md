@@ -315,8 +315,7 @@ the `CommandBinding`s of commands that have a state there, and the move removes 
 a symbol save does. A later step that maps old keys to new ones is UI alone, with no
 shape change. A channel delete keeps the key in each binding, so the channel plan's link
 tracking can later show it as a deleted channel or link it again (§6). A schematic
-import drops channel keys that name no channel, as a line plot import does
-(`core/pkg/service/lineplot/imex.go:61`).
+import keeps every channel key the same way.
 
 The Core checks every save. It refuses a symbol with a duplicate key in a list, a key
 that names no part, state, or command, an `entry` paint or `equals` condition on a
@@ -343,8 +342,8 @@ symbol joins it, and with an old manifest, which has no key, it adds a new group
 refuses a group that is not a top-level `schematic_symbol` group. The Core refuses an
 import that lacks any access that it needs: retrieve on a reused symbol, create on an
 added symbol, update on a reused group, and create on an added group. A reused symbol
-stays in its group. Phase 9 changes the symbol importer to keep keys, and copies that an
-import made before phase 9 stay separate symbols.
+stays in its group. Phase 10 changes the symbol importer to keep keys, and copies that
+an import made before phase 10 stay separate symbols.
 
 A custom symbol holds only shapes. It starts from an SVG upload or a blank canvas, and
 the editor's drawing tools save SVG markup. A part names its shapes by `#id`, `.class`,
@@ -356,7 +355,7 @@ only to those.
 
 ### 4.5 Migration
 
-Phase 9 migrates nodes by this table, and phase 1 migrates stored custom symbols.
+Phase 10 migrates nodes by this table, and phase 1 migrates stored custom symbols.
 
 | Today              | `symbol`                                    | Bindings                                                       |
 | ------------------ | ------------------------------------------- | -------------------------------------------------------------- |
@@ -384,7 +383,7 @@ light's `on_color` moves to an enumeration. `stroke_color` becomes `color`,
 `staleness_color` goes, the time fields keep their values, and `state_overrides` become
 enumerations by RFC 0112 §4.6. The migration keeps every channel key, also the key of a
 deleted channel, as §4.4 does on a delete. Phase 1 has already given each custom symbol
-its default enumeration and `entry` looks, so phase 9 gives each node whose overrides
+its default enumeration and `entry` looks, so phase 10 gives each node whose overrides
 change its colors its own enumeration, or a copy of its symbol when an enumeration
 cannot carry them, so no node changes its look.
 
@@ -443,27 +442,32 @@ The generated `Export` (`core/pkg/service/schematic/symbol/imex.gen.go`) keeps t
 enumeration key of each state, and an import keeps a key that the Core has and clears
 one that it lacks. Pluto draws `entry` paint from the start, so no migrated symbol
 changes its look. It moves the symbol editor and the clients to the new shape, and
-phases 11 and 12 redesign the editor. Until phase 9 deletes them, it keeps `variant`,
+phases 12 and 13 redesign the editor. Until phase 11 deletes them, it keeps `variant`,
 which picks the node variant on placement, and today's state shape, under its own name,
-for `state_overrides`. Phase 9 ships in one release with RFC 0112 phase 21, and phase 8
+for `state_overrides`. Phase 10 ships in one release with RFC 0112 phase 21, and phase 9
 needs RFC 0112 phase 22, so the schematic multi-edit panel can edit the `color` of a
 `symbol` node. Each family is redesigned after phase 14 in its own PR.
 
 Phase 2 draws `light` and `switch` from built-in specs with no visible change, the
 switch as the Lyra switch draws it. Phase 3 adds the Core list of built-in symbols and
-its read-only route. Phases 4 to 10 replace the 86 equipment variants with the `symbol`
-variant, and each merges on its own. Phases 5 to 8 add the variant beside the old ones
-behind a flag, so no user can make a `symbol` node until phase 9 moves every node and
-removes the flag. Phase 4 gives each built-in spec its `active` state, its commands, its
-`entry` looks, and its `next` click, with no visible change. Phase 5 adds the node
-variant and its checks with the Core list of built-ins, and phase 6 removes the bindings
-and overrides that a symbol save orphans. Phase 7 draws the node with its indicators and
-sends its commands. The `switch` keeps its own wrapper around the `symbol` drawing,
-which turns it only to stand upright and slides its knob, as phase 2 draws it. Phase 8
-adds the form with the enumeration picker. Phase 9 adds the Core migration, the symbol
-import that keeps keys by §4.4, and "Change symbol", and phase 10 deletes the old
-variants. Phase 13 adds the save confirm, which lists the bindings and overrides that a
-save removes.
+its read-only route. Phases 4 to 11 replace the 86 equipment variants with the `symbol`
+variant, and each merges on its own. Phase 4 gives each built-in spec its `active`
+state, its commands, its `entry` looks, and its `next` click, with no visible change.
+The `switch` spec has no looks, because its wrapper keeps the colors that phase 2 draws.
+Phase 5 adds the node variant with the whole shape of §4.1 and its checks with the Core
+list of built-ins. Phase 6 removes the bindings and overrides that a symbol save
+orphans, and phase 7 adds the save confirm of §4.4, before the migration gives any node
+a binding that a save can remove. Phase 8 draws the node with its indicators and sends
+its commands. The `switch` keeps its own wrapper around the `symbol` drawing, which
+turns it only to stand upright and slides its knob, as phase 2 draws it. Phase 9 adds
+the form with the enumeration picker. Phase 10 adds the Core migration, the symbol
+import that keeps keys by §4.4, and "Change symbol". Phase 11 deletes the old variants
+from the schema, the clients, Pluto, and the Console.
+
+A Console flag hides the `symbol` variant until phase 10 moves every node and removes
+the flag. The Core and the clients accept the variant from phase 5. Phase 5 stores the
+whole shape, so a release between phases 5 and 10 needs no later migration, and the
+phase 10 migration leaves a node that is already `symbol` as it is.
 
 A binding stores each channel as a plain `channel.Key`, so no phase waits on the channel
 plan. Its link tracking (SY-6387) later adds a weak link with a read or write direction
@@ -499,14 +503,14 @@ thread 60% busy. Each moving part costs about 40 µs of main-thread time a frame
 | 4     | Give each built-in spec its states, commands, and looks | `pluto/src/schematic/node`                                                                                                                                                                                        | 3          |
 | 5     | Add the `symbol` node variant and its checks            | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`                                                                                                                                          | 3          |
 | 6     | Remove the bindings that a symbol save orphans          | `core/pkg/service/schematic/symbol`, `core/pkg/service/schematic`                                                                                                                                                 | 5          |
-| 7     | Draw `symbol` nodes and send their commands             | `pluto/src/schematic`                                                                                                                                                                                             | 2, 4, 5    |
-| 8     | Bind `symbol` nodes in their form                       | `pluto/src/schematic`, `console/src/feature/schematic`                                                                                                                                                            | 7          |
-| 9     | Migrate equipment nodes to `symbol` nodes               | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/api/schematic`, `core/pkg/service/imex`, `pluto/src/schematic`, `console/src/feature`, `client/py`, `integration`                                       | 6, 8       |
-| 10    | Delete the equipment variants                           | `pluto/src/schematic`, `console/src/feature`                                                                                                                                                                      | 9          |
-| 11    | Edit parts and looks, and duplicate built-ins           | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                                                       | 4          |
-| 12    | Edit states, commands, and clicks                       | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                                                       | 11         |
-| 13    | Confirm the symbol saves that remove bindings           | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                                                       | 6, 12      |
-| 14    | Draw motion in SVG with one animation loop              | `pluto/src/schematic/node/common/custom`                                                                                                                                                                          | 1          |
+| 7     | Confirm each save of a symbol in use                    | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                                                       | 6          |
+| 8     | Draw `symbol` nodes and send their commands             | `pluto/src/schematic`                                                                                                                                                                                             | 2, 4, 5    |
+| 9     | Bind `symbol` nodes in their form                       | `pluto/src/schematic`, `console/src/feature/schematic`                                                                                                                                                            | 8          |
+| 10    | Migrate equipment nodes to `symbol` nodes               | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/api/schematic`, `core/pkg/service/imex`, `pluto/src/schematic`, `console/src/feature`, `client/ts`, `client/py`, `integration`                          | 7, 9       |
+| 11    | Delete the equipment variants                           | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`, `pluto/src/schematic`, `console/src/feature`                                                                                            | 10         |
+| 12    | Edit parts and looks, and duplicate built-ins           | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                                                       | 4, 7       |
+| 13    | Edit states, commands, and clicks                       | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                                                       | 12         |
+| 14    | Draw motion in SVG with one animation loop              | `pluto/src/schematic/node/common/custom`                                                                                                                                                                          | 8          |
 
 ## 7 Resolved decisions
 
@@ -570,7 +574,7 @@ thread 60% busy. Each moving part costs about 40 µs of main-thread time a frame
     real: a schematic drops below 60 fps past 100 to 400 moving parts in WKWebView.
 22. **The `symbol` variant lands behind a flag before the migration**: One PR for the
     whole cutover is too large to review in one sitting, and it holds back the editor
-    and motion work. The trade is real: until phase 9, `main` holds both node shapes.
+    and motion work. The trade is real: until phase 10, `main` holds both node shapes.
 23. **Plain channel keys before channel links**: Waiting for the channel plan's link
     tracking holds every later phase. A plain key is the stored shape that the links
     annotate, so nothing migrates when they land. The trade is real: until then, a
