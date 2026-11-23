@@ -465,6 +465,98 @@ var _ = Describe("Relay", func() {
 				}
 			},
 		)
+
+		It(
+			"Should send the time range of each channel's dropped samples",
+			func(ctx SpecContext) {
+				store := storagetestutil.OpenLayer(ctx)
+				DeferCleanup(store.Close)
+				freeWrites := confluence.NewStream[relay.Response](10)
+				r := MustSucceed(relay.Open(relay.Config{
+					TS:                 store.TS,
+					FreeWrites:         freeWrites,
+					StreamerBufferSize: 4,
+				}))
+				DeferCleanup(r.Close)
+				var (
+					ranged   = channel.NewKey(node.KeyFree, 1)
+					unranged = channel.NewKey(node.KeyFree, 2)
+					other    = channel.NewKey(node.KeyFree, 3)
+				)
+				open := func(
+					keys channel.Keys,
+					buffer int,
+				) confluence.Outlet[relay.Response] {
+					GinkgoHelper()
+					reader := MustSucceed(r.NewStreamer(relay.StreamerConfig{
+						Keys:            keys,
+						SendOpenAck:     new(true),
+						MissedRequested: new(true),
+					}))
+					sCtx, cancel := signal.Isolated()
+					req, res := confluence.Attach(reader, buffer)
+					reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+					DeferCleanup(func() {
+						req.Close()
+						cancel()
+						confluence.Drain(res)
+					})
+					Eventually(res.Outlet()).Should(Receive())
+					return res
+				}
+				stalled := open(channel.Keys{ranged, unranged}, 0)
+				live := open(channel.Keys{ranged}, 10)
+				series := func(start int64, hasRange bool) telem.Series {
+					s := telem.NewSeriesV(start)
+					if hasRange {
+						s.TimeRange = telem.TimeStamp(start).SpanRange(10)
+					}
+					return s
+				}
+				// send writes frames whose samples span 10 ns from each start. The
+				// unranged channel's sample at unrangedAt has no time range.
+				send := func(starts []int64, unrangedAt int64) {
+					GinkgoHelper()
+					for _, start := range starts {
+						fr := frame.NewMulti(
+							channel.Keys{ranged, unranged, other},
+							[]telem.Series{
+								series(start, true),
+								series(start, start != unrangedAt),
+								series(start, true),
+							},
+						)
+						freeWrites.Inlet() <- relay.Response{Frame: fr}
+						Eventually(live.Outlet()).Should(Receive())
+					}
+				}
+				marker := func() relay.Response {
+					GinkgoHelper()
+					var res relay.Response
+					Eventually(func(g Gomega) {
+						g.Expect(stalled.Outlet()).To(Receive(&res))
+						g.Expect(res.Missed).To(BeTrue())
+					}).Should(Succeed())
+					return res
+				}
+				// The streamer holds one frame and buffers four, so it drops the last
+				// three.
+				send([]int64{0, 10, 20, 30, 40, 50, 60, 70}, 60)
+				Expect(marker().MissedRanges).To(Equal(
+					map[channel.Key]telem.TimeRange{
+						ranged:   {Start: 50, End: 80},
+						unranged: {},
+					},
+				))
+				send([]int64{100, 110, 120, 130, 140, 150, 160, 170}, -1)
+				Expect(marker().MissedRanges).To(Equal(
+					map[channel.Key]telem.TimeRange{
+						ranged:   {Start: 150, End: 180},
+						unranged: {Start: 150, End: 180},
+					},
+				))
+			},
+		)
 	})
 	Describe("ExcludeGroups", Ordered, func() {
 		It(
