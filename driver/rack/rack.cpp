@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <utility>
-
 #include "absl/log/log.h"
 
 #include "client/cpp/errors/errors.h"
@@ -22,18 +20,12 @@ namespace driver::rack {
 bool Rack::should_exit(
     const x::errors::Error &err,
     const std::function<void()> &on_shutdown,
-    const int retries
+    const bool reconnecting
 ) {
     if (!err) return false;
-    if (synnax::errors::classify(err) == synnax::errors::Kind::TRANSIENT) {
-        if (retries == x::breaker::RETRY_INFINITELY) {
-            if (this->breaker.wait_unlimited(err)) return false;
-        } else if (
-            std::cmp_less(this->breaker.retry_count(), retries) &&
-            this->breaker.wait(err)
-        )
-            return false;
-    }
+    if (synnax::errors::classify(err) == synnax::errors::Kind::TRANSIENT &&
+        (reconnecting ? this->breaker.wait_unlimited(err) : this->breaker.wait(err)))
+        return false;
     // A stop came first, so the error did not stop the rack.
     if (!this->breaker.running()) return true;
     this->run_err = err;
@@ -60,7 +52,8 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             cfg = std::move(loaded);
             break;
         }
-        if (this->should_exit(err, on_shutdown, loaded.retry.startup_retries)) return;
+        this->breaker.set_max_retries(loaded.retry.startup_retries);
+        if (this->should_exit(err, on_shutdown)) return;
     }
     VLOG(1) << "loaded config. starting task manager";
     const auto rt_manager = std::make_shared<x::thread::rt::Manager>();
@@ -82,14 +75,15 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
     x::defer::defer close([this] { this->task_manager->close(); });
     while (true) {
         const auto err = this->task_manager->run([this]() { this->breaker.reset(); });
-        if (this->should_exit(err, on_shutdown) || !this->breaker.running()) return;
+        if (this->should_exit(err, on_shutdown, true) || !this->breaker.running())
+            return;
         // The factories hold the Core version and cluster from startup, so a new one
         // needs a new Driver process. No run starts before a check passes.
         while (const auto check_err = cfg.check_core()) {
             if (check_err.matches(CORE_CHANGED))
                 LOG(ERROR) << "Core changed cluster or version, restarting: "
                            << check_err.data;
-            if (this->should_exit(check_err, on_shutdown)) return;
+            if (this->should_exit(check_err, on_shutdown, true)) return;
         }
     }
 }

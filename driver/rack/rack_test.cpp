@@ -116,28 +116,33 @@ struct PipedRack {
 const x::breaker::Config FAST_BREAKER{
     .name = "driver",
     .base_interval = x::telem::MILLISECOND,
-    .max_retries = x::breaker::RETRY_INFINITELY,
+    .max_retries = 2,
     .scale = 1,
     .max_interval = x::telem::MILLISECOND,
 };
 
 /// @brief it should stop after the startup retries of its config file when it cannot
-/// reach the Core before its first run.
+/// reach the Core before its first run. The default of 200 retries would take 20 s.
 TEST(RackTest, StopsAfterStartupRetries) {
     const std::string config_path = "/tmp/rack-test/config.json";
     std::filesystem::create_directories("/tmp/rack-test");
     std::ofstream(config_path) << R"({"retry": {"startup_retries": 2}})";
     auto args = fresh_args({"--port", "1", "--config", config_path});
     std::atomic shut_down = false;
-    Rack r(FAST_BREAKER);
+    Rack r({
+        .name = "driver",
+        .base_interval = x::telem::MILLISECOND * 100,
+        .scale = 1,
+        .max_interval = x::telem::MILLISECOND * 100,
+    });
     r.start(args, [&] { shut_down = true; });
     ASSERT_EVENTUALLY_TRUE(shut_down.load());
     ASSERT_OCCURRED_AS(r.stop(), freighter::UNREACHABLE);
 }
 
-/// @brief it should keep waiting for an unreachable Core with no limit after its first
-/// run.
-TEST(RackTest, WaitsForAnUnreachableCoreWithNoLimit) {
+/// @brief it should keep waiting for an unreachable Core past its retry limit after its
+/// first run.
+TEST(RackTest, WaitsForAnUnreachableCorePastTheRetryLimit) {
     PipedRack r(FAST_BREAKER);
     ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
         r.running(),

@@ -292,9 +292,9 @@ TEST(ControlPipeline, RetriesHardwareErrorAfterCoreOutage) {
     ASSERT_NIL(sink->stop_err);
 }
 
-/// @brief it should stop with the license error when the Core stays unlicensed past
-/// the retry limit of the breaker.
-TEST(ControlPipeline, StopsOnLicenseErrorPastLimit) {
+/// @brief it should wait for an unlicensed Core past the retry limit of the breaker,
+/// and stop on the first error that is not transient.
+TEST(ControlPipeline, WaitsForLicensePastLimit) {
     const auto factory = std::make_shared<ScriptedStreamerFactory>(std::vector{
         synnax::errors::LICENSE_MISSING,
         synnax::errors::LICENSE_MISSING,
@@ -313,7 +313,7 @@ TEST(ControlPipeline, StopsOnLicenseErrorPastLimit) {
     ASSERT_TRUE(control.start());
     ASSERT_EVENTUALLY_FALSE(control.running());
     control.stop();
-    ASSERT_EQ(factory->opens.load(), 2);
-    ASSERT_MATCHES(sink->stop_err, synnax::errors::LICENSE_MISSING);
+    ASSERT_EQ(factory->opens.load(), 3);
+    ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
 }
 }

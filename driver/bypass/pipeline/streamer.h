@@ -31,9 +31,9 @@ namespace driver::bypass::pipeline {
 /// authority filtering is applied here; the bypass Writer filters unauthorized channels
 /// before it publishes to the bus.
 ///
-/// While the Core is unreachable, the Core half reopens with backoff and no retry
-/// limit, and read() keeps returning bus frames. Any other Core error ends read() with
-/// that error.
+/// After a transient Core error (synnax::errors::classify), the Core half reopens with
+/// backoff and no retry limit, and read() keeps returning bus frames. Any other Core
+/// error ends read() with that error.
 class Streamer final : public ::driver::pipeline::Streamer {
     std::shared_ptr<::driver::pipeline::StreamerFactory> factory;
     synnax::framer::StreamerConfig config;

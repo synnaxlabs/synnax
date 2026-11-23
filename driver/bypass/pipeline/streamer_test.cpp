@@ -126,10 +126,9 @@ TEST(StreamerTest, OpensCoreBeforeReturning) {
     ASSERT_NIL(streamer->close());
 }
 
-/// @brief it should return a Core open error that is not an outage, without retry.
-TEST(StreamerTest, ReturnsNonOutageOpenError) {
-    for (const auto &open_err:
-         {x::errors::VALIDATION, synnax::errors::LICENSE_MISSING}) {
+/// @brief it should return a Core open error that is not transient, without retry.
+TEST(StreamerTest, ReturnsNonTransientOpenError) {
+    for (const auto &open_err: {x::errors::VALIDATION, x::errors::UNKNOWN}) {
         auto bus = std::make_shared<Bus>();
         auto mock_factory = failing_core_factory({open_err});
         StreamerFactory factory(mock_factory, bus, TEST_SUBJECT, TEST_BREAKER);
@@ -156,20 +155,20 @@ TEST(StreamerTest, DeliversLocalFramesWhileCoreIsUnreachable) {
     ASSERT_NIL(streamer->close());
 }
 
-/// @brief it should reopen the Core streamer after an unreachable Core, and deliver
-/// Core frames again.
-TEST(StreamerTest, ReopensCoreAfterUnreachable) {
+/// @brief reads Core frames through a Core streamer that fails with read_err, and
+/// checks that the streamer reopens and delivers Core frames again.
+void reopens_core_after(const x::errors::Error &read_err) {
     auto first_reads = std::make_shared<std::vector<x::telem::Frame>>();
     first_reads->push_back(float_frame(1));
     first_reads->emplace_back();
     auto first_errors = std::make_shared<std::vector<x::errors::Error>>(
-        std::vector{x::errors::NIL, freighter::UNREACHABLE}
+        std::vector{x::errors::NIL, read_err}
     );
     auto second_reads = std::make_shared<std::vector<x::telem::Frame>>();
     second_reads->push_back(float_frame(2));
     auto bus = std::make_shared<Bus>();
     auto mock_factory = failing_core_factory(
-        {x::errors::NIL, freighter::UNREACHABLE},
+        {x::errors::NIL, read_err},
         {
             {first_reads, first_errors, x::errors::NIL},
             {second_reads, {}, x::errors::NIL},
@@ -185,23 +184,14 @@ TEST(StreamerTest, ReopensCoreAfterUnreachable) {
     ASSERT_NIL(streamer->close());
 }
 
-/// @brief it should end read at the first license error and leave the retry to the
-/// pipeline.
-TEST(StreamerTest, LicenseReadErrorEndsRead) {
-    auto bus = std::make_shared<Bus>();
-    auto mock_factory = failing_core_factory(
-        {},
-        {{std::make_shared<std::vector<x::telem::Frame>>(),
-          std::make_shared<std::vector<x::errors::Error>>(
-              std::vector{synnax::errors::LICENSE_MISSING}
-          ),
-          x::errors::NIL}}
-    );
-    StreamerFactory factory(mock_factory, bus, TEST_SUBJECT, TEST_BREAKER);
-    auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
-    ASSERT_OCCURRED_AS_P(streamer->read(), synnax::errors::LICENSE_MISSING);
-    ASSERT_EQ(mock_factory->streamer_opens.load(), 1);
-    ASSERT_OCCURRED_AS(streamer->close(), synnax::errors::LICENSE_MISSING);
+/// @brief it should reopen the Core streamer after a transient Core error, and
+/// deliver Core frames again.
+TEST(StreamerTest, ReopensCoreAfterTransientError) {
+    for (const auto &read_err:
+         {freighter::UNREACHABLE,
+          freighter::TRANSPORT,
+          synnax::errors::LICENSE_MISSING})
+        reopens_core_after(read_err);
 }
 
 /// @brief it should let a control pipeline write local frames to its sink while the

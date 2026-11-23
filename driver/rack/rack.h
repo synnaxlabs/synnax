@@ -94,6 +94,8 @@ struct RetryConfig {
     template<typename Parser>
     void override(Parser &p) {
         this->startup_retries = p.field("startup_retries", this->startup_retries);
+        if (this->startup_retries < 0)
+            p.field_err("startup_retries", "must be zero or more");
     }
 };
 
@@ -347,12 +349,12 @@ class Rack {
 
     /// @brief returns true if the error cannot be recovered from and the rack
     /// should stop operations and shut down. Calls on_shutdown unless a stop caused
-    /// the exit. Waits for a transient error at most retries times, or with no limit
-    /// for x::breaker::RETRY_INFINITELY.
+    /// the exit. Waits for a transient error within the retry limit of the breaker,
+    /// or with no limit while reconnecting.
     bool should_exit(
         const x::errors::Error &err,
         const std::function<void()> &on_shutdown,
-        int retries = x::breaker::RETRY_INFINITELY
+        bool reconnecting = false
     );
 
     /// @brief starts the main loop for the rack.
@@ -360,14 +362,14 @@ class Rack {
 
 public:
     /// @brief creates a rack that backs off from transient Core errors with
-    /// breaker_config. Before its first run, it also stops waiting after the
-    /// startup_retries of its config.
+    /// breaker_config. Before its first run, it waits within the startup_retries of its
+    /// config. After that, it waits with no retry limit.
     explicit Rack(
         const x::breaker::Config &breaker_config =
             {
                 .name = "driver",
                 .base_interval = x::telem::SECOND,
-                .max_retries = x::breaker::RETRY_INFINITELY,
+                .max_retries = RetryConfig{}.startup_retries,
                 .scale = 1.1f,
                 .max_interval = x::telem::MINUTE,
             }

@@ -116,6 +116,7 @@ SYNNAX_DRIVER_OP_TIMEOUT=60
 SYNNAX_DRIVER_POLL_INTERVAL=1
 SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
 SYNNAX_DRIVER_WORKER_COUNT=4
+SYNNAX_DRIVER_STARTUP_RETRIES=200
 ```
 
 To learn what each parameter does, see [Parameters](#parameters).
@@ -255,9 +256,10 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 </Field.Item>
 
 <Field.Item name="startup_retries" default="200">
-  The number of times the Driver retries when it cannot reach the Core before its first
-  run. It then exits. After its first run, the Driver waits for the Core with no limit.
-  In the configuration file, it goes in `retry`.
+  The number of times the Driver retries before its first run when the Core is
+  unreachable, has no valid license, or drops the connection. It then exits. After its
+  first run, the Driver waits for the Core with no limit. In the configuration file, it
+  goes in `retry`.
 </Field.Item>
 
 <Field.Item name="integrations" default="all">
