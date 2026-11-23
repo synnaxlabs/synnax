@@ -369,19 +369,21 @@ export interface InspectorProps {
   preview: number;
 }
 
-const LEVEL_ISSUES: Record<Spec.LevelIssue, { message: string; description: string }> =
-  {
-    shapes: {
-      message: "Fill motion needs one shape",
-      description:
-        "Fill motion fills each shape in this part by its own box. Put the shapes in one group in the drawing and make the group the part, or remove the motion from the part to save.",
-    },
-    clip: {
-      message: "Fill motion replaces a clip-path",
-      description:
-        "A shape in this part has its own clip-path, which fill motion would replace. Remove the clip-path from the drawing or the motion from the part to save.",
-    },
-  };
+const LEVEL_ISSUES: Record<
+  Spec.LevelIssue,
+  Pick<Status.SummaryProps, "message" | "description">
+> = {
+  shapes: {
+    message: "Fill motion needs one shape",
+    description:
+      "Fill motion fills each shape in this part by its own box. Put the shapes in one group in the drawing and make the group the part, or remove the motion from the part to save.",
+  },
+  clip: {
+    message: "Fill motion replaces a clip-path",
+    description:
+      "A shape in this part has its own clip-path, which fill motion would replace. Remove the clip-path from the drawing or the motion from the part to save.",
+  },
+};
 
 /** Inspector edits the looks of one part, or of the whole drawing. */
 export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement => {
