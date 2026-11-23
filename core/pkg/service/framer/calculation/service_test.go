@@ -1106,6 +1106,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Framer:       dist.Framer,
 						Writer:       writerSvc,
 						Channel:      channelSvc,
+						Calculation:  calcSvc,
 						ChannelGraph: channelGraph,
 						Compile: func(
 							compileCtx context.Context,
@@ -1186,6 +1187,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Framer:       dist.Framer,
 						Writer:       writerSvc,
 						Channel:      channelSvc,
+						Calculation:  calcSvc,
 						ChannelGraph: channelGraph,
 						Compile: func(
 							compileCtx context.Context,

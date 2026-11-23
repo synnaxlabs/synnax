@@ -463,7 +463,7 @@ func (w Writer) validateCreate(ctx context.Context, channels []Channel) error {
 			return BatchError{At: i, Err: err}
 		}
 		if err := validateConcurrency(ch); err != nil {
-			return validate.PathedError(err, strconv.Itoa(i))
+			return BatchError{At: i, Err: err}
 		}
 		if err := group.CheckMember(
 			ctx,
@@ -737,7 +737,7 @@ func validateConcurrency(ch Channel) error {
 	case control.ConcurrencyExclusive:
 		return nil
 	case control.ConcurrencyShared:
-		if ch.Virtual || ch.IsCalculated() {
+		if ch.Virtual {
 			return nil
 		}
 		return validate.PathedError(
