@@ -187,7 +187,7 @@ func (f *factory) ConfigureTask(
 				return nil, err
 			}
 			if cfg.AutoStart {
-				if err = wt.Start(ctx, driver.NoCommand); err != nil {
+				if err = wt.Start(ctx, cmdKey); err != nil {
 					return nil, err
 				}
 			}

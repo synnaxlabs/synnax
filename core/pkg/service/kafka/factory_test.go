@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -143,6 +144,21 @@ var _ = Describe("Factory", func() {
 			Channels:  []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
 		}
 	}
+	targetsConfig := func(ctx context.Context, dev device.Key, autoStart bool) any {
+		GinkgoHelper()
+		_, data := createIndexed(ctx, telem.Float64T)
+		m := jsonMessage(
+			"Setpoint", nil, jsonField("value", "/value", icd.FloatJSONField{}),
+		)
+		ic := createICD(ctx, m)
+		return kafka.WriteConfig{
+			AutoStart: autoStart,
+			Device:    dev,
+			Targets: []kafka.WriteTarget{
+				writeTarget(uniqueTopic(), ic, m, command(m, 0, data)),
+			},
+		}
+	}
 	type buildConfig = func(ctx context.Context, dev device.Key, autoStart bool) any
 
 	DescribeTable("Should answer the command when an auto-started task fails to start",
@@ -158,6 +174,7 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
+		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	DescribeTable("Should answer a command that needs no work with the current state",
@@ -183,6 +200,7 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
+		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	DescribeTable("Should reject an unknown command",
@@ -196,6 +214,7 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
+		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	DescribeTable("Should reject a device that is not a Kafka cluster",
@@ -221,6 +240,7 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
+		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	DescribeTable("Should reject a device whose properties do not parse",
@@ -244,6 +264,7 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
+		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	DescribeTable("Should reject an unknown device",
@@ -254,6 +275,7 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
+		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	Describe("Scan task", func() {

@@ -74,7 +74,7 @@ func (t *target) records(
 ) iter.Seq[*kgo.Record] {
 	return func(yield func(*kgo.Record) bool) {
 		for row, doc := range t.docs.From(fr, skips) {
-			ts, ok := t.time(fr, row, now)
+			ts, ok := t.stamp(fr, row, now)
 			if !ok {
 				skips.Skip(time.Now(), fmt.Sprintf(
 					"Command for %s: the command arrived without its index", t.name,
@@ -93,10 +93,10 @@ func (t *target) records(
 	}
 }
 
-// time returns the time of the record of row: the time in the index of the first
+// stamp returns the time of the record of row: the time in the index of the first
 // command channel with a command at row, or now when that channel has no index. It
 // returns false when fr holds no such time.
-func (t *target) time(
+func (t *target) stamp(
 	fr framer.Frame,
 	row int,
 	now telem.TimeStamp,
