@@ -233,9 +233,6 @@ type searchInfo struct {
 	// IsString is false when the field's type is not the string primitive itself, so
 	// the generated code converts it.
 	IsString bool
-	// Secondary is true for a field marked @search secondary, whose matches rank below
-	// the matches of the other @search fields.
-	Secondary bool
 }
 
 // retrieveInfo holds extracted data about a @retrieve-annotated struct.
@@ -295,16 +292,6 @@ type siblingInfo struct {
 
 // HasSearch reports whether the retrieve declared any @search fields.
 func (r retrieveInfo) HasSearch() bool { return len(r.Search) > 0 }
-
-// PrimarySearch returns the @search fields that are not secondary.
-func (r retrieveInfo) PrimarySearch() []searchInfo {
-	return lo.Reject(r.Search, func(f searchInfo, _ int) bool { return f.Secondary })
-}
-
-// SecondarySearch returns the @search secondary fields.
-func (r retrieveInfo) SecondarySearch() []searchInfo {
-	return lo.Filter(r.Search, func(f searchInfo, _ int) bool { return f.Secondary })
-}
 
 // HasIndexes reports whether the retrieve declared any @index, @ref, or @search fields.
 // Used by the template to gate the indexes struct.
@@ -756,12 +743,6 @@ func (c *fieldCollector) collect(
 	if len(c.search) == 0 {
 		return nil
 	}
-	if lo.EveryBy(c.search, func(f searchInfo) bool { return f.Secondary }) {
-		return errors.Newf(
-			"%s: @search secondary needs a @search field that is not secondary",
-			c.typ.QualifiedName,
-		)
-	}
 	return checkSearchCollisions(c.typ, c.indexes, c.refs, nested)
 }
 
@@ -859,23 +840,6 @@ func (c *fieldCollector) addSearch(field resolution.Field, access string) error 
 	if textType.IsTypeParam() && textType.TypeParam.HasDefault() {
 		textType = *textType.TypeParam.Default
 	}
-	for _, expr := range field.Domains["search"].Expressions {
-		if expr.Name != "secondary" {
-			return errors.Newf(
-				"%s: @search field %s has unknown expression %s",
-				c.typ.QualifiedName,
-				field.Name,
-				expr.Name,
-			)
-		}
-		if len(expr.Values) > 0 {
-			return errors.Newf(
-				"%s: @search field %s needs no value for secondary",
-				c.typ.QualifiedName,
-				field.Name,
-			)
-		}
-	}
 	if field.Optional || key.ResolvePrimitive(textType, c.table) != "string" {
 		return errors.Newf(
 			"%s: @search field %s must be a string that is not optional",
@@ -884,9 +848,8 @@ func (c *fieldCollector) addSearch(field resolution.Field, access string) error 
 		)
 	}
 	c.search = append(c.search, searchInfo{
-		Access:    access,
-		IsString:  textType.Name == "string",
-		Secondary: plugindomain.HasExprFromField(field, "search", "secondary"),
+		Access:   access,
+		IsString: textType.Name == "string",
 	})
 	return nil
 }
@@ -1258,20 +1221,7 @@ func newIndexes() indexes {
 {{- range $ref := $ret.NestedRefs}}
 		{{$ref.StructField}}: {{template "nestedReference" $ref}},
 {{- end}}
-{{- if $ret.SecondarySearch}}
-		search: gorp.NewWeightedSearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}](
-			"search",
-			func(e *{{$ret.GoName}}) []string {
-				return []string{ {{- template "searchTexts" $ret.PrimarySearch -}} }
-			},
-			func(e *{{$ret.GoName}}) []string {
-				if {{range $i, $f := $ret.SecondarySearch}}{{if $i}} && {{end}}e.{{$f.Access}} == ""{{end}} {
-					return nil
-				}
-				return []string{ {{- template "searchTexts" $ret.SecondarySearch -}} }
-			},
-		),
-{{- else if $ret.HasSearch}}
+{{- if $ret.HasSearch}}
 		search: gorp.NewSearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}](
 			"search",
 			func(e *{{$ret.GoName}}) []string {
@@ -1638,9 +1588,6 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 	}
 }
 {{end}}
-{{- define "searchTexts"}}
-{{- range $i, $f := .}}{{if $i}}, {{end}}{{if $f.IsString}}e.{{$f.Access}}{{else}}string(e.{{$f.Access}}){{end}}{{end}}
-{{- end}}
 {{- define "nestedReference"}}{{.Constructor .KeyType .EntryType}}{
 			Name:     "{{.FieldName}}",
 			{{.TablesField}}
