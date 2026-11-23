@@ -23,7 +23,7 @@ import type { framer } from "@/framer";
 import { bindDerived, type DeriveParams } from "@/query/derived";
 import { type ListQuery, Lists, type ListsConfig } from "@/query/list";
 import { isOffline } from "@/query/offline";
-import { Space, type SpaceConfig, type SpaceHooks } from "@/query/query";
+import { space } from "@/query/space";
 import { createStreamer, type Listener, type Streamer } from "@/query/streamer";
 import { type Keyed, type ListenerSpec, Table, type TableParams } from "@/query/table";
 import type { Data, Params } from "@/query/types";
@@ -264,10 +264,10 @@ export class Cache {
     D extends Data,
     K extends record.Key = record.Key,
     V extends state.State = state.State,
-  >(config: SpaceConfig<Q, D, K, V>): Space<Q, D, K, V> {
-    const space = new Space(config, this.spaceHooks());
-    this.spaces.push(space);
-    return space;
+  >(config: space.Config<Q, D, K, V>): space.Space<Q, D, K, V> {
+    const answers = new space.Space(config, this.spaceHooks());
+    this.spaces.push(answers);
+    return answers;
   }
 
   /**
@@ -287,7 +287,7 @@ export class Cache {
     return lists;
   }
 
-  private spaceHooks(): SpaceHooks {
+  private spaceHooks(): space.Hooks {
     return {
       ensureStreaming: async () => await this.ensureStreaming(),
       onEpoch: (callback) => this.onEpoch(callback),
@@ -451,7 +451,7 @@ export class Cache {
       console.error("failed to close retired stream", exc);
     }
     this.tables.forEach(({ reset }) => reset());
-    this.spaces.forEach((space) => space.reset());
+    this.spaces.forEach((lifecycle) => lifecycle.reset());
     this.unmaintained = false;
     this.epochCount = 0;
     this.epochObserver.notify(0);
@@ -499,7 +499,7 @@ export class Cache {
    */
   async close(): Promise<void> {
     this.detachers.forEach((detach) => detach());
-    this.spaces.forEach((space) => space.close());
+    this.spaces.forEach((lifecycle) => lifecycle.close());
     this.tables.forEach(({ close }) => close());
     if (this.streamer == null) return;
     this.goDown();

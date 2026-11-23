@@ -157,6 +157,16 @@ jobs:
             for a simulated tank pressurization. The other projects show the same
             live data in more visualizations.
 
+            To test permissions, log in as one of these users. Each password is
+            `seldon`.
+
+            | Username   | Role     |
+            | ---------- | -------- |
+            | `admin`    | Owner    |
+            | `engineer` | Engineer |
+            | `operator` | Operator |
+            | `viewer`   | Viewer   |
+
             Built from ${{ github.event.pull_request.head.sha }}.
 
   # Eviction keeps previews waiting on a human review, so the host learns when the

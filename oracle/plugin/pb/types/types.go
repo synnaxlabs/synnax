@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -373,11 +374,15 @@ func (p *Plugin) processEnum(e resolution.Type) (enumData, error) {
 
 	for i, v := range form.Values {
 		number := i // Default to sequential for string enums
-		switch n := v.Value.(type) {
-		case int64:
+		if n, ok := v.Value.(int64); ok {
+			if n < math.MinInt32 || n > math.MaxInt32 {
+				return enumData{}, errors.Newf(
+					"enum %s cannot be written to protobuf: its member %s has value "+
+						"%d, and proto3 needs every member to fit in int32",
+					e.Name, v.Name, n,
+				)
+			}
 			number = int(n)
-		case int:
-			number = n
 		}
 		ed.Values = append(ed.Values, enumValueData{
 			Name:   prefix + toScreamingSnake(v.Name),

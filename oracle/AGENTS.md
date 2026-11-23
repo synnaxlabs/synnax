@@ -206,6 +206,13 @@ every language, the variant constants are the enum's members, and no `<Union>Typ
 emitted. The enum must be a string enum whose values are exactly the variant names; the
 analyzer rejects a variant without a member and a member without a variant.
 
+## Integer enums
+
+An integer enum's underlying type is the smallest one that holds all its values:
+unsigned, or signed when a value is negative (`std::uint32_t` and `uint32` for baud
+rates up to 230400). A field may default to any member. When a member has the value 0,
+the default must be that member, because 0 is also the type's zero value.
+
 ## Union bases
 
 When a union extends one base struct and every variant inherits it, Oracle generates
