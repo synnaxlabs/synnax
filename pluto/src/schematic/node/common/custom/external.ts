@@ -9,6 +9,11 @@
 
 export * from "@/schematic/node/common/custom/builtIn";
 export * from "@/schematic/node/common/custom/Drawing";
+export { Loop, type LoopConfig } from "@/schematic/node/common/custom/loop";
+export {
+  MotionProvider,
+  type MotionProviderProps,
+} from "@/schematic/node/common/custom/MotionProvider";
 export * from "@/schematic/node/common/custom/Overrides";
 export {
   listValues,

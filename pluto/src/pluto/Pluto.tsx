@@ -19,6 +19,7 @@ import { Arc } from "@/arc";
 import { Code } from "@/code";
 import { Color } from "@/color";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
+import { Custom } from "@/schematic/node/common/custom";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Telem } from "@/telem";
@@ -74,7 +75,9 @@ export const Provider = ({
                     <Code.Provider languages={ARC_LANGUAGES}>
                       <CanDisableTelem {...telem}>
                         <Staleness.Provider {...staleness}>
-                          <Control.Colors>{children}</Control.Colors>
+                          <Custom.MotionProvider>
+                            <Control.Colors>{children}</Control.Colors>
+                          </Custom.MotionProvider>
                         </Staleness.Provider>
                       </CanDisableTelem>
                     </Code.Provider>
