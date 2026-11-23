@@ -779,20 +779,24 @@ var _ = Describe("Scan task", func() {
 			},
 		)
 
-		It("Should give no kind to a field past the first 1,024 fields of a topic",
+		It("Should give no kind to a field past the first 1,024 fields of a shape",
 			func(ctx SpecContext) {
 				names := make([]string, 1024)
 				for i := range names {
 					names[i] = fmt.Sprintf(`"f%04d": %d`, i, i)
 				}
-				broker.publish("plant/a", "{"+strings.Join(names, ", ")+"}", true)
-				publishUntilDone(broker, "plant/a", `{"late": 1}`)
+				fields := strings.Join(names, ", ")
+				broker.publish("plant/a", "{"+fields+"}", true)
+				publishUntilDone(broker, "plant/a", `{"late": 1, `+fields+"}")
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
 				topics, ok := stat.Details.Data["topics"].([]any)
 				Expect(ok).To(BeTrue())
-				Expect(topics[0]).To(HaveKeyWithValue("fields", []any{
-					map[string]any{"pointer": "/late", "type": "number", "sample": "1"},
-				}))
+				Expect(topics[0]).To(HaveKeyWithValue("fields", SatisfyAll(
+					ContainElement(map[string]any{
+						"pointer": "/late", "type": "number", "sample": "1",
+					}),
+					ContainElement(field("/f0000", "number", "0", payload.KindInteger)),
+				)))
 			},
 		)
 
@@ -836,6 +840,35 @@ var _ = Describe("Scan task", func() {
 							"time_format": "unix_ms",
 						},
 						field("/v", "number", "2", payload.KindFloat),
+					}),
+				))
+			},
+		)
+
+		It("Should infer the kinds and the index from the messages of the last kind",
+			func(ctx SpecContext) {
+				ms := int64(telem.Now() / telem.MillisecondTS)
+				broker.publish("plant/a", fmt.Sprintf(`{"ts":%d,"rpm":1.5}`, ms), true)
+				publishUntilDone(
+					broker,
+					"plant/a",
+					fmt.Sprintf(`{"time":%d,"code":3}`, ms+1),
+				)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics).To(HaveLen(1))
+				Expect(topics[0]).To(SatisfyAll(
+					HaveKeyWithValue("index", "/time"),
+					HaveKeyWithValue("fields", []any{
+						map[string]any{
+							"pointer":     "/time",
+							"type":        "number",
+							"sample":      strconv.FormatInt(ms+1, 10),
+							"kind":        "timestamp",
+							"time_format": "unix_ms",
+						},
+						field("/code", "number", "3", payload.KindInteger),
 					}),
 				))
 			},
