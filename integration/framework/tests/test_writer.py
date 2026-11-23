@@ -19,11 +19,14 @@ class _Stream:
     def __init__(self) -> None:
         self.written: list[dict[str, int | float | str]] = []
         self.closed = False
+        self.close_failure: Exception | None = None
 
     def write(self, data: dict[str, int | float | str]) -> None:
         self.written.append(data)
 
     def close(self) -> None:
+        if self.close_failure is not None:
+            raise self.close_failure
         self.closed = True
 
 
@@ -74,10 +77,7 @@ class TestWriter:
         writer = _writer(client)
         writer.write("a", 1)
 
-        def fail() -> None:
-            raise ConnectionError("stream dropped")
-
-        setattr(client.streams[0], "close", fail)
+        client.streams[0].close_failure = ConnectionError("stream dropped")
         with pytest.raises(ConnectionError):
             writer.write("b", 2)
         writer.write("b", 3)
