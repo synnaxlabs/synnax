@@ -74,6 +74,8 @@ routed(const icd::JSONMatch &first, const icd::JSONMatch &second) {
     auto temp = field<icd::FloatJSONField>("temp");
     temp.scale = 0.5;
     temp.offset = -10;
+    temp.min = 0;
+    temp.max = 100;
     const auto count = field<icd::IntegerJSONField>("count");
     const auto state = field<icd::StringJSONField>("state");
     return {
@@ -445,6 +447,8 @@ TEST(JSONEncoder, EncodesWithoutAllocating) {
     auto temp = field<icd::FloatJSONField>("temp");
     temp.scale = 0.5;
     temp.offset = -10;
+    temp.min = 0;
+    temp.max = 100;
     auto m = command(
         {temp,
          field<icd::IntegerJSONField>("count"),
