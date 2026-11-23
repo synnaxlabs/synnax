@@ -364,16 +364,6 @@ const uniqueFieldName = (names: string[]): string => {
 export const createJSONField = (taken: string[]): icd.JSONField =>
   createJSON(uniqueFieldName(taken));
 
-/** @returns field under a new key, named as {@link createJSONField} names a field. */
-export const copyJSONField = (
-  field: icd.JSONField,
-  taken: string[],
-): icd.JSONField => ({
-  ...field,
-  key: uuid.create(),
-  name: uniqueFieldName(taken),
-});
-
 /**
  * Rebuilds the fields a grid shows from its rows. Each row updates the field at its
  * index and keeps that field's key, which other fields and tasks reference. Only

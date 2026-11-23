@@ -39,3 +39,22 @@ describe("ICD.fieldNames", () => {
     expect(ICD.fieldNames(["/speed"], ["speed", "speed_2"])).toEqual(["speed_3"]);
   });
 });
+
+describe("ICD.copyName", () => {
+  it("should number a name from 2", () => {
+    expect(ICD.copyName("flow", ["flow"])).toBe("flow_2");
+  });
+
+  it("should take the next number that no field holds", () => {
+    expect(ICD.copyName("flow", ["flow", "flow_2"])).toBe("flow_3");
+  });
+
+  it("should number the copy of a numbered name from one past its number", () => {
+    expect(ICD.copyName("flow_2", ["flow", "flow_2"])).toBe("flow_3");
+    expect(ICD.copyName("sensor_10", ["sensor_10"])).toBe("sensor_11");
+  });
+
+  it("should skip a number whose channel name a field takes", () => {
+    expect(ICD.copyName("flow", ["flow", "flow 2"])).toBe("flow_3");
+  });
+});

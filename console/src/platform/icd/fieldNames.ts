@@ -27,3 +27,18 @@ export const fieldNames = (pointers: string[], taken: string[] = []): string[] =
     return name;
   });
 };
+
+const TRAILING_NUMBER = /^(.*)_(\d+)$/;
+
+/**
+ * @returns a name for a copy of the field named name, apart from taken, also as a
+ * channel name. It numbers name from 2, or from one past the number that name ends
+ * in: "flow" names "flow_2", and "flow_2" names "flow_3".
+ */
+export const copyName = (name: string, taken: string[]): string => {
+  const names = new Set(taken.map((t) => channel.escapeInvalidName(t)));
+  const [, base = name, last = "1"] = TRAILING_NUMBER.exec(name) ?? [];
+  let n = Number(last) + 1;
+  while (names.has(channel.escapeInvalidName(`${base}_${n}`))) n++;
+  return `${base}_${n}`;
+};

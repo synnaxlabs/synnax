@@ -24,7 +24,8 @@ import {
 } from "react";
 
 import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
-import { copyJSONField, createJSONField } from "@/platform/icd/Fields";
+import { copyName } from "@/platform/icd/fieldNames";
+import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, type Formats, useFormats } from "@/platform/icd/Formats";
 import { createMatch } from "@/platform/icd/Match";
 import { usePlan } from "@/platform/icd/Plans";
@@ -515,7 +516,11 @@ export const use = <
         let copy = copies.get(at);
         if (copy == null) {
           const taken = fieldsOf(formats, icdKey, message).map(({ name }) => name);
-          copy = copyJSONField(fullField(source, r, field.key), taken);
+          copy = {
+            ...fullField(source, r, field.key),
+            key: uuid.create(),
+            name: copyName(field.name, taken),
+          };
           formatOf(formats, icdKey).insert(fieldsPath(message), copy, field.key);
           copies.set(at, copy);
         }

@@ -1071,7 +1071,7 @@ describe("MQTT read form", () => {
 
     it("should copy a field after it and read the copy into a new channel", async () => {
       const { ch, temperature, entry } = await createBoundEntry();
-      const { draft } = await renderRead({ entries: [entry] });
+      const { draft, dev } = await renderRead({ entries: [entry] });
       fireEvent.contextMenu(
         await screen.findByRole("treeitem", { name: /^temperature/ }),
       );
@@ -1081,7 +1081,7 @@ describe("MQTT read form", () => {
         if (message.payload.format !== "json") throw new Error("expected JSON");
         expect(message.payload.fields).toMatchObject([
           { key: temperature.key },
-          { name: "Field 3", pointer: "/temperature", type: "float" },
+          { name: "temperature_2", pointer: "/temperature", type: "float" },
           { name: "pressure" },
         ]);
         return message.payload.fields[1];
@@ -1093,7 +1093,8 @@ describe("MQTT read form", () => {
           { field: copy.key, channel: 0, dataType: "" },
         ]),
       );
-      await screen.findByRole("treeitem", { name: /^Field 3/, selected: true });
+      await screen.findByRole("treeitem", { name: /^temperature_2/, selected: true });
+      await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
     });
 
     it("should copy a field once for each topic that reads its message", async () => {
@@ -1123,7 +1124,7 @@ describe("MQTT read form", () => {
         if (message.payload.format !== "json") throw new Error("expected JSON");
         expect(message.payload.fields.map(({ name }) => name)).toEqual([
           "temperature",
-          "Field 3",
+          "temperature_2",
           "pressure",
         ]);
         return message.payload.fields[1];
