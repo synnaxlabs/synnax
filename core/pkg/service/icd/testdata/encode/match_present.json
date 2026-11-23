@@ -1,0 +1,40 @@
+{
+  "description": "A present rule takes its value from the fields inside its pointer.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "match": {
+        "type": "present",
+        "pointer": "/fault"
+      },
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "code",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/fault/code",
+          "type": "float"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [2],
+      "document": {
+        "fault": {
+          "code": 2
+        }
+      }
+    }
+  ]
+}
