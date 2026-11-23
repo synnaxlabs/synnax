@@ -149,13 +149,18 @@ const ACTIVE_SPEC: schematic.symbol.Spec = {
   ],
 };
 
-const Active = ({ value }: { value: number }): ReactElement => (
+interface ActiveProps {
+  value: number;
+}
+
+const ActiveDrawing = ({ value }: ActiveProps): ReactElement => (
+  <Custom.Drawing spec={ACTIVE_SPEC} paints={Custom.usePaints(ACTIVE_SPEC, value)} />
+);
+
+const Active = (props: ActiveProps): ReactElement => (
   <Wrapper>
     <Primitive.Div>
-      <Custom.Drawing
-        spec={ACTIVE_SPEC}
-        paints={Custom.usePaints(ACTIVE_SPEC, value)}
-      />
+      <ActiveDrawing {...props} />
     </Primitive.Div>
   </Wrapper>
 );
