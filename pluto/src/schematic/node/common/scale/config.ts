@@ -32,7 +32,6 @@ export type VisConfig = Pick<
   | "axisColor"
   | "textColor"
   | "units"
-  | "stalenessColor"
   | "stalenessTimeout"
   | "notation"
   | "precision"
@@ -54,7 +53,6 @@ export const useVisProps = ({
   bounds,
   textColor,
   units,
-  stalenessColor,
   stalenessTimeout,
   notation,
   precision,
@@ -71,7 +69,6 @@ export const useVisProps = ({
     axisColor: resolve(axisColor),
     textColor: resolve(textColor),
     units,
-    stalenessColor,
     stalenessTimeout,
     notation,
     precision,

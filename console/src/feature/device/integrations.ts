@@ -45,14 +45,14 @@ export type Integration = Network | Hardware;
 export const NETWORK: Network[] = [
   {
     ...OPCUA.Device.NETWORK,
-    ContextMenuItems: OPCUA.Device.ContextMenuItems,
+    ContextMenuItems: OPCUA.ContextMenuItems,
     RackMenuItems: OPCUA.Device.RackMenuItems,
   },
-  { ...Modbus.Device.NETWORK, ContextMenuItems: Modbus.Device.ContextMenuItems },
-  { ...HTTP.Device.NETWORK, ContextMenuItems: HTTP.Device.ContextMenuItems },
-  { ...Kafka.Device.NETWORK, ContextMenuItems: Kafka.Device.ContextMenuItems },
-  { ...MQTT.Device.NETWORK, ContextMenuItems: MQTT.Device.ContextMenuItems },
-  { ...Sift.Device.NETWORK, ContextMenuItems: Sift.Device.ContextMenuItems },
+  { ...Modbus.Device.NETWORK, ContextMenuItems: Modbus.ContextMenuItems },
+  { ...HTTP.Device.NETWORK, ContextMenuItems: HTTP.ContextMenuItems },
+  { ...Kafka.Device.NETWORK, ContextMenuItems: Kafka.ContextMenuItems },
+  { ...MQTT.Device.NETWORK, ContextMenuItems: MQTT.ContextMenuItems },
+  { ...Sift.Device.NETWORK, ContextMenuItems: Sift.ContextMenuItems },
 ];
 
 export const HARDWARE: Hardware[] = [

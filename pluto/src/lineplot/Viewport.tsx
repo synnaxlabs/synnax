@@ -28,7 +28,12 @@ export interface ViewportProps
   extends
     PropsWithChildren,
     Base.UseProps,
-    Pick<Base.MaskProps, "onDragOver" | "onDrop"> {}
+    Pick<Base.MaskProps, "onDragOver" | "onDrop" | "onDragEnter" | "onDragLeave"> {
+  /** Set while a drag that the plot area can take is in progress. */
+  "data-droppable"?: true;
+  /** Set while a drag that the plot area can take is over it. */
+  "data-drag-over"?: true;
+}
 
 export const selectViewportEl = (el: HTMLElement | null): Element | null =>
   el == null ? null : (el.closest(".pluto-line-plot__viewport") ?? null);
@@ -38,8 +43,12 @@ export const Viewport = ({
   children,
   initial = box.DECIMAL,
   onChange,
+  "data-droppable": droppable,
+  "data-drag-over": dragOver,
   onDragOver,
   onDrop,
+  onDragEnter,
+  onDragLeave,
   ...rest
 }: ViewportProps): ReactElement => {
   const { setViewport, setViewportElement, closeBreaks, selectBound } =
@@ -77,8 +86,12 @@ export const Viewport = ({
   return (
     <Base.Mask
       className={CSS.BE("line-plot", "viewport")}
+      data-droppable={droppable}
+      data-drag-over={dragOver}
       onDragOver={onDragOver}
       onDrop={onDrop}
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
       {...maskProps}
     >
       {loading && (

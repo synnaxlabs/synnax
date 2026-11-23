@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/http/device/commands";
-export * from "@/feature/http/device/ContextMenuItems";
 export * from "@/feature/http/device/network";
 export * from "@/feature/http/device/queries";
+export * from "@/feature/http/device/scan";
 export * from "@/feature/http/device/Select";
 export * from "@/feature/http/device/types";
 export * from "@/feature/http/device/useConnectModal";

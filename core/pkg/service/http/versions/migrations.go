@@ -13,7 +13,12 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 )
 
 // ReadMigrations is the ordered migration chain for stored HTTP read task configs.
-var ReadMigrations = []gorp.Migration{v3.Migration, v4.Migration}
+var ReadMigrations = []gorp.Migration{
+	v3.Migration,
+	v4.Migration,
+	v5.ReadMigration,
+}
