@@ -83,6 +83,129 @@ func parseNumber(text []byte) (number, error) {
 	}, nil
 }
 
+// quotedSpace is the whitespace that parseQuoted trims from each end of its text.
+const quotedSpace = " \t\n\v\f\r"
+
+// parseQuoted parses text, the content of a JSON string, as C's strtod reads a whole
+// string: a decimal or 0x hex number, inf, infinity, nan, or nan(chars) in any case,
+// each with an optional sign. It also trims whitespace from each end. A hex integer
+// that 64 bits hold stays exact.
+func parseQuoted(text []byte) (number, error) {
+	trimmed := bytes.Trim(text, quotedSpace)
+	body, negative := trimmed, false
+	if len(body) > 0 && (body[0] == '-' || body[0] == '+') {
+		body, negative = body[1:], body[0] == '-'
+	}
+	switch {
+	case bytes.EqualFold(body, []byte("inf")),
+		bytes.EqualFold(body, []byte("infinity")):
+		sign := 1
+		if negative {
+			sign = -1
+		}
+		return number{kind: floatNumber, f: math.Inf(sign), text: trimmed}, nil
+	case isNaN(body):
+		return number{kind: floatNumber, f: math.NaN(), text: trimmed}, nil
+	case len(body) > 1 && body[0] == '0' && (body[1] == 'x' || body[1] == 'X'):
+		return parseHex(trimmed, body[2:], negative)
+	}
+	return parseNumber(trimmed)
+}
+
+// isNaN reports whether text is nan or nan(chars) in any case, where chars are letters,
+// digits, and underscores.
+func isNaN(text []byte) bool {
+	if len(text) < 3 || !bytes.EqualFold(text[:3], []byte("nan")) {
+		return false
+	}
+	rest := text[3:]
+	if len(rest) == 0 {
+		return true
+	}
+	if len(rest) < 2 || rest[0] != '(' || rest[len(rest)-1] != ')' {
+		return false
+	}
+	for _, c := range rest[1 : len(rest)-1] {
+		if !isAlphanumeric(c) && c != '_' {
+			return false
+		}
+	}
+	return true
+}
+
+// parseHex parses digits, the text after the 0x of text, as strtod does: hex digits
+// with an optional point, then an optional binary exponent after p.
+func parseHex(text, digits []byte, negative bool) (number, error) {
+	mantissa, exponent := digits, []byte(nil)
+	if i := bytes.IndexAny(digits, "pP"); i >= 0 {
+		if _, ok := parseExponent(digits[i+1:]); !ok {
+			return number{}, invalidNumber(text)
+		}
+		mantissa, exponent = digits[:i], digits[i+1:]
+	}
+	whole, frac := mantissa, []byte(nil)
+	point := bytes.IndexByte(mantissa, '.')
+	if point >= 0 {
+		whole, frac = mantissa[:point], mantissa[point+1:]
+	}
+	if len(whole)+len(frac) == 0 || !isHexDigits(whole) || !isHexDigits(frac) {
+		return number{}, invalidNumber(text)
+	}
+	integer := point < 0 && exponent == nil
+	if u, ok := hexMagnitude(whole); integer && ok {
+		switch {
+		case !negative && u <= math.MaxInt64:
+			return number{kind: intNumber, i: int64(u)}, nil
+		case !negative:
+			return number{kind: uintNumber, u: u}, nil
+		case u <= 1<<63:
+			return number{kind: intNumber, i: int64(-u)}, nil
+		}
+	}
+	// strconv requires the binary exponent that strtod makes optional.
+	s := string(text)
+	if exponent == nil {
+		s += "p0"
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return number{}, invalidNumber(text)
+	}
+	return number{kind: floatNumber, f: f, outOfRange: integer, text: text}, nil
+}
+
+// hexMagnitude returns the value of digits, hex digits. ok is false when the value does
+// not fit a uint64.
+func hexMagnitude(digits []byte) (u uint64, ok bool) {
+	for _, c := range digits {
+		if u > math.MaxUint64>>4 {
+			return 0, false
+		}
+		u = u<<4 | uint64(hexValue(c))
+	}
+	return u, true
+}
+
+func isHexDigits(text []byte) bool {
+	for _, c := range text {
+		if (c < '0' || c > '9') && (c|0x20 < 'a' || c|0x20 > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func hexValue(c byte) byte {
+	if c <= '9' {
+		return c - '0'
+	}
+	return (c | 0x20) - 'a' + 10
+}
+
+func isAlphanumeric(c byte) bool {
+	return (c >= '0' && c <= '9') || (c|0x20 >= 'a' && c|0x20 <= 'z')
+}
+
 // ParsedNumber is a JSON number held without losing precision.
 type ParsedNumber struct{ n number }
 

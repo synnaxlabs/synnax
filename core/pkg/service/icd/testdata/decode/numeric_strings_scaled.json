@@ -1,0 +1,63 @@
+{
+  "description": "A scaled field scales a number in a string, and maps an enum label to its value with no scale.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 2,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float",
+            "enum_values": [
+              {
+                "label": "MAX",
+                "value": 100
+              }
+            ]
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "v": "1.5"
+      },
+      "message": "reading",
+      "samples": [3]
+    },
+    {
+      "document": {
+        "v": " 0x10 "
+      },
+      "message": "reading",
+      "samples": [32]
+    },
+    {
+      "document": {
+        "v": "MAX"
+      },
+      "message": "reading",
+      "samples": [100]
+    },
+    {
+      "document": {
+        "v": "abc"
+      },
+      "error": "field v: unknown enum label \"abc\": validation error"
+    }
+  ]
+}

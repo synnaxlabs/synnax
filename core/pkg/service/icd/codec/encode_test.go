@@ -39,6 +39,18 @@ func unprefixed(dt telem.DataType, sample []byte) []byte {
 	return data
 }
 
+// finite reports whether c writes each float sample of m as a number. The fixtures
+// write NaN and infinity as strings, as JSON holds neither.
+func finite(m codec.JSONMessage, c decodeCase) bool {
+	for k, b := range m.Bindings {
+		float := b.DataType == telem.Float64T || b.DataType == telem.Float32T
+		if float && c.Samples[k][0] == '"' {
+			return false
+		}
+	}
+	return true
+}
+
 // documentEntries returns an entry for each decode fixture that holds documents.
 func documentEntries() []TableEntry {
 	GinkgoHelper()
@@ -148,6 +160,11 @@ var _ = Describe("JSONEncoder", func() {
 					samples := make([][]byte, len(m.Bindings))
 					for b, binding := range m.Bindings {
 						samples[b] = unprefixed(binding.DataType, decoded[i][b])
+					}
+					if !finite(m, c) {
+						Expect(enc.Encode(nil, samples)).Error().
+							To(MatchError(validate.ErrValidation))
+						continue
 					}
 					encoded := MustSucceed(enc.Encode(nil, samples))
 					again := newSamples(messages)

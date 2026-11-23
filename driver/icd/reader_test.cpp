@@ -432,7 +432,7 @@ TEST(Reader, AddsNothingWhenValueOfOneIndexGroupDoesNotConvert) {
     x::telem::Frame fr(4);
     const auto err = r.read(bytes(R"({"v": 1, "w": "x"})"), RECEIVED, fr).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, R"(field w: unknown enum label "x")");
+    ASSERT_EQ(err.data, R"(field w: invalid number "x")");
     ASSERT_TRUE(fr.empty());
 }
 
@@ -457,7 +457,7 @@ TEST(Reader, AddsNothingWhenValueDoesNotConvert) {
     x::telem::Frame fr(2);
     const auto err = r.read(bytes(R"({"v": "x"})"), RECEIVED, fr).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, R"(field v: unknown enum label "x")");
+    ASSERT_EQ(err.data, R"(field v: invalid number "x")");
     ASSERT_TRUE(fr.empty());
 }
 

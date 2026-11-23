@@ -1,0 +1,134 @@
+{
+  "description": "An integer field reads a number in a string as a float field does. It refuses NaN, infinity, a fraction, and an integer that 64 bits do not hold, even when a float rounds it into range.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "integer"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "int64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "v": "42"
+      },
+      "message": "reading",
+      "samples": [42]
+    },
+    {
+      "document": {
+        "v": " +42 "
+      },
+      "message": "reading",
+      "samples": [42]
+    },
+    {
+      "document": {
+        "v": "-42"
+      },
+      "message": "reading",
+      "samples": [-42]
+    },
+    {
+      "document": {
+        "v": "1e3"
+      },
+      "message": "reading",
+      "samples": [1000]
+    },
+    {
+      "document": {
+        "v": "0x1F"
+      },
+      "message": "reading",
+      "samples": [31]
+    },
+    {
+      "document": {
+        "v": "-0x1F"
+      },
+      "message": "reading",
+      "samples": [-31]
+    },
+    {
+      "document": {
+        "v": "0x7FFFFFFFFFFFFFFF"
+      },
+      "message": "reading",
+      "samples": [9223372036854775807]
+    },
+    {
+      "document": {
+        "v": "0x1.8p1"
+      },
+      "message": "reading",
+      "samples": [3]
+    },
+    {
+      "document": {
+        "v": "12.5"
+      },
+      "error": "field v: 12.5 is not an integer: validation error"
+    },
+    {
+      "document": {
+        "v": "0x1.8"
+      },
+      "error": "field v: 0x1.8 is not an integer: validation error"
+    },
+    {
+      "document": {
+        "v": "nan"
+      },
+      "error": "field v: nan is not an integer: validation error"
+    },
+    {
+      "document": {
+        "v": "-inf"
+      },
+      "error": "field v: -inf is out of range for int64: validation error"
+    },
+    {
+      "document": {
+        "v": "0x8000000000000000"
+      },
+      "error": "field v: 9223372036854775808 is out of range for int64: validation error"
+    },
+    {
+      "document": {
+        "v": "0x10000000000000000"
+      },
+      "error": "field v: 0x10000000000000000 is out of range for int64: validation error"
+    },
+    {
+      "document": {
+        "v": "-0x8000000000000001"
+      },
+      "error": "field v: -0x8000000000000001 is out of range for int64: validation error"
+    },
+    {
+      "document": {
+        "v": -9223372036854775809
+      },
+      "error": "field v: -9223372036854775809 is out of range for int64: validation error"
+    }
+  ]
+}

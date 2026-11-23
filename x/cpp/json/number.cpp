@@ -37,6 +37,54 @@ constexpr std::uint64_t INT64_MIN_MAGNITUDE = INT64_MAX_VALUE + 1;
 /// @brief bounds the exponent parse_decimal reads. Any larger one overflows or
 /// truncates to zero.
 constexpr int MAX_EXPONENT = 1 << 20;
+/// @brief the whitespace that parse_quoted trims from each end of its text.
+constexpr std::string_view QUOTED_SPACE = " \t\n\v\f\r";
+
+char lower(const char c) {
+    return c >= 'A' && c <= 'Z' ? static_cast<char>(c | 0x20) : c;
+}
+
+/// @brief returns true when text equals word, which is lowercase, in any case.
+bool equal_fold(const std::string_view text, const std::string_view word) {
+    if (text.size() != word.size()) return false;
+    for (std::size_t i = 0; i < text.size(); i++)
+        if (lower(text[i]) != word[i]) return false;
+    return true;
+}
+
+bool is_alphanumeric(const char c) {
+    return (c >= '0' && c <= '9') || (lower(c) >= 'a' && lower(c) <= 'z');
+}
+
+bool is_hex_digits(const std::string_view text) {
+    for (const char c: text)
+        if ((c < '0' || c > '9') && (lower(c) < 'a' || lower(c) > 'f')) return false;
+    return true;
+}
+
+/// @brief returns true when text is nan or nan(chars) in any case, where chars are
+/// letters, digits, and underscores.
+bool is_nan(const std::string_view text) {
+    if (text.size() < 3 || !equal_fold(text.substr(0, 3), "nan")) return false;
+    const auto rest = text.substr(3);
+    if (rest.empty()) return true;
+    if (rest.size() < 2 || rest.front() != '(' || rest.back() != ')') return false;
+    for (const char c: rest.substr(1, rest.size() - 2))
+        if (!is_alphanumeric(c) && c != '_') return false;
+    return true;
+}
+
+/// @brief returns the value of digits, hex digits, or nothing when it does not fit a
+/// uint64.
+std::optional<std::uint64_t> hex_magnitude(const std::string_view digits) {
+    std::uint64_t u = 0;
+    for (const char c: digits) {
+        if (u > (UINT64_MAX_VALUE >> 4)) return std::nullopt;
+        const auto v = c <= '9' ? c - '0' : lower(c) - 'a' + 10;
+        u = u << 4 | static_cast<std::uint64_t>(v);
+    }
+    return u;
+}
 
 bool is_digits(const std::string_view text) {
     for (const char c: text)
@@ -255,7 +303,69 @@ std::pair<Number, errors::Error> Number::parse(const std::string_view text) {
     n.kind = Kind::Float;
     n.f = *v;
     n.fraction = d->fraction;
+    n.out_of_range = !d->fraction && d->magnitude != 0;
     n.text = text;
+    return {std::move(n), errors::NIL};
+}
+
+std::pair<Number, errors::Error> Number::parse_quoted(const std::string_view text) {
+    auto trimmed = text;
+    trimmed.remove_prefix(
+        std::min(trimmed.find_first_not_of(QUOTED_SPACE), trimmed.size())
+    );
+    trimmed.remove_suffix(
+        trimmed.size() - (trimmed.find_last_not_of(QUOTED_SPACE) + 1)
+    );
+    auto body = trimmed;
+    const bool negative = has_sign(body) && body[0] == '-';
+    if (has_sign(body)) body.remove_prefix(1);
+    Number n;
+    n.kind = Kind::Float;
+    n.text = trimmed;
+    if (equal_fold(body, "inf") || equal_fold(body, "infinity")) {
+        n.f = negative ? -std::numeric_limits<double>::infinity()
+                       : std::numeric_limits<double>::infinity();
+        return {std::move(n), errors::NIL};
+    }
+    if (is_nan(body)) {
+        n.f = std::numeric_limits<double>::quiet_NaN();
+        return {std::move(n), errors::NIL};
+    }
+    if (body.size() < 2 || body[0] != '0' || lower(body[1]) != 'x')
+        return parse(trimmed);
+    // The text after the 0x is hex digits with an optional point, then an optional
+    // binary exponent after p.
+    auto mantissa = body.substr(2);
+    bool has_exponent = false;
+    if (const auto i = mantissa.find_first_of("pP"); i != std::string_view::npos) {
+        if (!parse_exponent(mantissa.substr(i + 1)).has_value())
+            return {Number{}, invalid_number(trimmed)};
+        mantissa = mantissa.substr(0, i);
+        has_exponent = true;
+    }
+    auto whole = mantissa;
+    std::string_view frac;
+    const auto point = mantissa.find('.');
+    if (point != std::string_view::npos) {
+        whole = mantissa.substr(0, point);
+        frac = mantissa.substr(point + 1);
+    }
+    if (whole.size() + frac.size() == 0 || !is_hex_digits(whole) ||
+        !is_hex_digits(frac))
+        return {Number{}, invalid_number(trimmed)};
+    if (point == std::string_view::npos && !has_exponent) {
+        if (const auto u = hex_magnitude(whole); u.has_value()) {
+            if (!negative && *u <= INT64_MAX_VALUE)
+                return {Number(static_cast<std::int64_t>(*u)), errors::NIL};
+            if (!negative) return {Number(*u), errors::NIL};
+            if (*u <= INT64_MIN_MAGNITUDE)
+                return {Number(static_cast<std::int64_t>(0 - *u)), errors::NIL};
+        }
+    }
+    const auto v = parse_double(trimmed);
+    if (!v.has_value()) return {Number{}, invalid_number(trimmed)};
+    n.f = *v;
+    n.out_of_range = point == std::string_view::npos && !has_exponent;
     return {std::move(n), errors::NIL};
 }
 
@@ -383,7 +493,7 @@ bool Number::within(const std::int64_t lo, const std::uint64_t hi) const {
         case Kind::Float:
             // static_cast<double>(hi) + 1 rounds to the first value past hi for every
             // integer type.
-            return this->f >= static_cast<double>(lo) &&
+            return !this->out_of_range && this->f >= static_cast<double>(lo) &&
                    this->f < static_cast<double>(hi) + 1;
     }
     return false;

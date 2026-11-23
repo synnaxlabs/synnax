@@ -578,11 +578,74 @@ TEST(Decoder, RejectsNumberForString) {
     ASSERT_EQ(err.data, "expected a string, got a number");
 }
 
-/// @brief it should reject a string that is no enum label for a number.
-TEST(Decoder, RejectsStringForNumber) {
-    const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("1")");
+/// @brief it should reject a string that holds no number for a number.
+TEST(Decoder, RejectsStringOfNoNumberForNumber) {
+    const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("x")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "unknown enum label \"1\"");
+    ASSERT_EQ(err.data, "invalid number \"x\"");
+}
+
+/// @brief it should convert a number in a string with whitespace and a sign.
+TEST(Decoder, ConvertsNumberInStringWithWhitespaceAndSign) {
+    const auto s = decode({.data_type = telem::FLOAT64_T}, R"(" +1.5e1\n")");
+    ASSERT_EQ(s.at<double>(0), 15.0);
+}
+
+/// @brief it should convert a hex integer in a string past the precision of a float.
+TEST(Decoder, ConvertsHexIntegerInStringPastFloatPrecision) {
+    const auto s = decode({.data_type = telem::INT64_T}, R"("0x20000000000001")");
+    ASSERT_EQ(s.at<std::int64_t>(0), 9007199254740993);
+}
+
+/// @brief it should convert a hex float in a string.
+TEST(Decoder, ConvertsHexFloatInString) {
+    ASSERT_EQ(
+        decode({.data_type = telem::FLOAT64_T}, R"("-0x1.8p1")").at<double>(0),
+        -3.0
+    );
+}
+
+/// @brief it should convert infinity in a string.
+TEST(Decoder, ConvertsInfinityInString) {
+    const auto s = decode({.data_type = telem::FLOAT64_T}, R"("-Infinity")");
+    ASSERT_EQ(s.at<double>(0), -std::numeric_limits<double>::infinity());
+}
+
+/// @brief it should convert NaN in a string.
+TEST(Decoder, ConvertsNaNInString) {
+    const auto s = decode({.data_type = telem::FLOAT64_T}, R"json("nan(1)")json");
+    ASSERT_TRUE(std::isnan(s.at<double>(0)));
+}
+
+/// @brief it should reject a string that holds two numbers for a number.
+TEST(Decoder, RejectsStringOfTwoNumbersForNumber) {
+    const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("1 2")");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "invalid number \"1 2\"");
+}
+
+/// @brief it should reject a hex prefix with no digits for a number.
+TEST(Decoder, RejectsHexPrefixWithNoDigitsForNumber) {
+    const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("0x")");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "invalid number \"0x\"");
+}
+
+/// @brief it should reject NaN in a string for an integer.
+TEST(Decoder, RejectsNaNInStringForInteger) {
+    const auto err = decode_error({.data_type = telem::INT32_T}, R"("NaN")");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "NaN is not an integer");
+}
+
+/// @brief it should reject a string that is no label for a number with enums.
+TEST(Decoder, RejectsStringOfNoLabelForNumberWithEnums) {
+    const auto err = decode_error(
+        {.data_type = telem::UINT8_T, .enums = on_off()},
+        R"("1x")"
+    );
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "unknown enum label \"1x\"");
 }
 
 /// @brief it should reject null for a number.
