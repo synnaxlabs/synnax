@@ -45,12 +45,13 @@ var _ = Describe("Access", func() {
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  statuses,
-			Fills: func(
+			AnnounceOutputs: func(
 				ctx context.Context,
 				tx gorp.Tx,
+				w channel.Writer,
 				keys ...channel.Key,
-			) (map[channel.Key]channel.Fill, error) {
-				return svc.Fills(ctx, tx, keys...)
+			) error {
+				return svc.AnnounceOutputs(ctx, tx, w, keys...)
 			},
 		}))
 		DeferCleanup(func() { Expect(channels.Close()).To(Succeed()) })

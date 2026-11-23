@@ -119,6 +119,22 @@ func BenchmarkCreateOutput(b *testing.B) {
 	}
 }
 
+// BenchmarkDelete measures a delete of one calculation, one transaction each.
+func BenchmarkDelete(b *testing.B) {
+	svc, db := benchServices(b)
+	keys := createOutputs(b, svc, db, b.N)
+	runtime.GC()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := range b.N {
+		if err := db.WithTx(b.Context(), func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Delete(b.Context(), keys[i])
+		}); err != nil {
+			b.Fatalf("failed to delete calculation: %v", err)
+		}
+	}
+}
+
 // setOf returns an action that sets path to value.
 func setOf(path string, value any) calculation.Action {
 	return calculation.NewSetAction(calculation.SetPayload{
