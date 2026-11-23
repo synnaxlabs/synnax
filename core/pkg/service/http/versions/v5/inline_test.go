@@ -428,7 +428,7 @@ var _ = Describe("ResolveReadConfig", func() {
 							HaveField("Channel", channel.Key(6)),
 						),
 					))
-					Expect(notes).ToNot(ContainElement("endpoints.0.fields.0"))
+					Expect(notes).To(Equal([]string{"endpoints.0.fields.0"}))
 				},
 			)
 
@@ -438,7 +438,7 @@ var _ = Describe("ResolveReadConfig", func() {
 					ContainSubstring("endpoints.0.messages.0.bindings.0.channel"),
 					ContainSubstring(
 						"field t cannot write to index channel time, because only the "+
-							"index field can. Move field t into its own message",
+							"index field can. Bind field t to a data channel",
 					),
 				)))
 			})

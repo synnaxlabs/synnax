@@ -115,17 +115,51 @@ func PipeToLogger(
 		startedOnce:  startedOnce,
 		onLoaded:     onLoaded,
 	}
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		f.forward(scanner.Bytes())
+	lines := bufio.NewReader(reader)
+	var readErr error
+	for {
+		var line []byte
+		if line, readErr = readLine(lines); readErr != nil {
+			break
+		}
+		f.forward(line)
 	}
 	if len(f.crashLines) > 0 {
 		f.driverLogger.Error(strings.Join(f.crashLines, "\n"))
 	}
-	if err := scanner.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
-		logger.Error("Error reading from std pipe", zap.Error(err))
+	if !errors.Is(readErr, io.EOF) && !errors.Is(readErr, os.ErrClosed) {
+		logger.Error("Error reading from std pipe", zap.Error(readErr))
 	}
 	return f.lastErr
+}
+
+// maxLineSize is the most bytes of a line that PipeToLogger forwards. It drops the rest
+// of a longer line, so a long line never stalls the reader and blocks the Driver.
+const maxLineSize = 64 * 1024
+
+// readLine reads the next line, without its newline, up to maxLineSize bytes. It
+// returns the final unterminated line before the error that ends the stream. The
+// result is valid only until the next read.
+func readLine(r *bufio.Reader) ([]byte, error) {
+	var line []byte
+	for {
+		chunk, isPrefix, err := r.ReadLine()
+		if err != nil {
+			if len(line) > 0 {
+				return line, nil
+			}
+			return nil, err
+		}
+		if line == nil && !isPrefix {
+			return chunk, nil
+		}
+		if room := maxLineSize - len(line); room > 0 {
+			line = append(line, chunk[:min(room, len(chunk))]...)
+		}
+		if !isPrefix {
+			return line, nil
+		}
+	}
 }
 
 // forwarder holds the state of one PipeToLogger stream.
@@ -148,7 +182,7 @@ type forwarder struct {
 	crashLines []string
 }
 
-// forward handles one line of the stream. b is valid only until the next scan.
+// forward handles one line of the stream. b is valid only until the next read.
 func (f *forwarder) forward(b []byte) {
 	if len(b) == 0 {
 		if f.crashLines == nil {
@@ -165,8 +199,8 @@ func (f *forwarder) forward(b []byte) {
 		f.lastErr = strings.Clone(strings.TrimSpace(line))
 	}
 	if f.crashLines != nil {
-		// strings.Clone is required: the scanner reuses its buffer across
-		// iterations, so line must be copied to survive until the flush.
+		// strings.Clone is required: the reader reuses its buffer across
+		// reads, so line must be copied to survive until the flush.
 		f.crashLines = append(f.crashLines, strings.Clone(line))
 		return
 	}
