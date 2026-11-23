@@ -38,19 +38,34 @@ const (
 
 func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrNotFound) {
-		return errors.Payload{Type: notFound, Data: err.Error()}, true
+		return errors.Payload{
+			Type: notFound,
+			Data: errors.MessageWithout(err, ErrNotFound),
+		}, true
 	}
 	if errors.CheapIs(err, ErrUniqueViolation) {
-		return errors.Payload{Type: uniqueViolation, Data: err.Error()}, true
+		return errors.Payload{
+			Type: uniqueViolation,
+			Data: errors.MessageWithout(err, ErrUniqueViolation),
+		}, true
 	}
 	if errors.CheapIs(err, ErrInvalidParameters) {
-		return errors.Payload{Type: invalidParameters, Data: err.Error()}, true
+		return errors.Payload{
+			Type: invalidParameters,
+			Data: errors.MessageWithout(err, ErrInvalidParameters),
+		}, true
 	}
 	if errors.CheapIs(err, ErrUnsupported) {
-		return errors.Payload{Type: unsupported, Data: err.Error()}, true
+		return errors.Payload{
+			Type: unsupported,
+			Data: errors.MessageWithout(err, ErrUnsupported),
+		}, true
 	}
 	if errors.CheapIs(err, ErrQuery) {
-		return errors.Payload{Type: typePrefix, Data: err.Error()}, true
+		return errors.Payload{
+			Type: typePrefix,
+			Data: errors.MessageWithout(err, ErrQuery),
+		}, true
 	}
 	return errors.Payload{}, false
 }

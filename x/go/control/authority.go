@@ -33,7 +33,10 @@ var (
 
 func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrUnauthorized) {
-		return errors.Payload{Type: unauthorized, Data: err.Error()}, true
+		return errors.Payload{
+			Type: unauthorized,
+			Data: errors.MessageWithout(err, ErrUnauthorized),
+		}, true
 	}
 	return errors.Payload{}, false
 }

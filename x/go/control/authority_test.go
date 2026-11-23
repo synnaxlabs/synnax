@@ -26,6 +26,17 @@ var _ = Describe("ErrorProvider", func() {
 			MatchError(ContainSubstring("ch 5")),
 		))
 	})
+	It("Should not repeat the sentinel message on each hop", func() {
+		err := errors.Wrap(control.ErrUnauthorized, "ch 5")
+		hopped := codec.Decode(
+			codec.Encode(codec.Decode(codec.Encode(err, false)), false),
+		)
+		Expect(hopped).To(MatchError(err.Error()))
+	})
+	It("Should round-trip the bare sentinel", func() {
+		pld := codec.Encode(control.ErrUnauthorized, false)
+		Expect(codec.Decode(pld)).To(MatchError(control.ErrUnauthorized.Error()))
+	})
 	It("Should decode another control subtype as a control error", func() {
 		err := codec.Decode(errors.Payload{Type: "sy.control.other", Data: "x"})
 		Expect(err).To(MatchError(control.ErrControl))
