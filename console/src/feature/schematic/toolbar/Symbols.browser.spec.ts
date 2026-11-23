@@ -110,7 +110,22 @@ describe("Schematic toolbar Symbols", () => {
     expect(await screen.findByText("Tank")).toBeDefined();
   });
 
-  it("lists remote symbols for a remote group and adds them with their spec key", async () => {
+  it("adds a built-in symbol as a symbol node", async () => {
+    const { key } = await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText("Valves"));
+    fireEvent.click(await screen.findByText("Generic"));
+    await waitFor(async () => {
+      const retrieved = await client.schematics.retrieve(key);
+      expect(retrieved.nodes).toHaveLength(1);
+      expect(retrieved.nodes[0].config).toMatchObject({
+        variant: "symbol",
+        spec: { type: "builtin", name: "valve" },
+        label: { label: "Valve" },
+      });
+    });
+  });
+
+  it("lists remote symbols for a remote group and adds them as symbol nodes", async () => {
     const name = uniqueName("custom_sym");
     const { grp, symbols } = await createRemoteSymbolGroup([name]);
     const { key } = await renderSymbolsToolbar();
@@ -119,7 +134,11 @@ describe("Schematic toolbar Symbols", () => {
     await waitFor(async () => {
       const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.nodes).toHaveLength(1);
-      expect(retrieved.nodes[0].config).toMatchObject({ specKey: symbols[0].key });
+      expect(retrieved.nodes[0].config).toMatchObject({
+        variant: "symbol",
+        spec: { type: "custom", key: symbols[0].key },
+        label: { label: name },
+      });
     });
   });
 
