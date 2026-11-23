@@ -1,0 +1,335 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include <algorithm>
+#include <charconv>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <optional>
+#include <span>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include "gtest/gtest.h"
+#include "nlohmann/json.hpp"
+
+#include "client/cpp/icd/json.gen.h"
+#include "client/cpp/icd/types.gen.h"
+#include "x/cpp/base64/base64.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/extract.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/json/number.h"
+#include "x/cpp/json/pointer.h"
+#include "x/cpp/json/text.h"
+#include "x/cpp/telem/series.h"
+#include "x/cpp/telem/telem.h"
+#include "x/cpp/testutil/testutil.h"
+#include "x/cpp/uuid/uuid.h"
+
+#include "driver/codec/errors.h"
+#include "driver/codec/json.h"
+
+namespace driver::codec {
+namespace {
+namespace icd = synnax::icd;
+
+/// @brief the Core's codec fixtures.
+const std::filesystem::path FIXTURES = "core/pkg/service/icd/testdata";
+
+/// @brief the suffix of a Go validation error, which a C++ error keeps in its type.
+constexpr std::string_view VALIDATION_SUFFIX = ": validation error";
+
+/// @brief the prefix of an error from Go's JSON syntax parser, whose text the Driver
+/// does not copy.
+constexpr std::string_view SYNTAX_PREFIX = "jsontext: ";
+
+/// @brief returns the text of the value at pointer in doc. The fixtures hold numbers
+/// such as 1e999 that nlohmann rejects, so it reads them as text.
+std::optional<std::string> raw_at(const std::string &doc, const std::string &pointer) {
+    x::json::Extractor e({ASSERT_NIL_P(x::json::Pointer::parse(pointer))});
+    std::vector<std::optional<std::string_view>> values;
+    EXPECT_NIL(e.extract(doc, values));
+    const auto &value = values[0];
+    if (!value.has_value()) return std::nullopt;
+    return std::string(*value);
+}
+
+/// @brief returns the text of the value at pointer in doc, failing when there is none.
+std::string required_at(const std::string &doc, const std::string &pointer) {
+    auto raw = raw_at(doc, pointer);
+    if (!raw.has_value()) ADD_FAILURE() << "no value at " << pointer;
+    return std::move(raw).value_or("");
+}
+
+/// @brief returns the string at pointer in doc, or an empty string when there is none.
+std::string string_at(const std::string &doc, const std::string &pointer) {
+    const auto raw = raw_at(doc, pointer);
+    if (!raw.has_value()) return "";
+    std::string out;
+    EXPECT_NIL(x::json::unquote(*raw, out));
+    return out;
+}
+
+/// @brief returns the error text of a Go validation error without its suffix.
+std::string error_data(const std::string &go) {
+    EXPECT_TRUE(go.ends_with(VALIDATION_SUFFIX)) << go;
+    return go.substr(0, go.size() - VALIDATION_SUFFIX.size());
+}
+
+JSONMessage parse_message(const nlohmann::json &m) {
+    x::json::Parser parser(m["payload"]);
+    JSONMessage msg{
+        .name = m["name"].get<std::string>(),
+        .payload = icd::JSONPayload::parse(parser),
+    };
+    EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
+    for (const auto &b: m["bindings"])
+        msg.bindings.push_back({
+            .field = ASSERT_NIL_P(x::uuid::UUID::parse(b["field"].get<std::string>())),
+            .data_type = x::telem::DataType(b["data_type"].get<std::string>()),
+        });
+    return msg;
+}
+
+std::vector<JSONMessage> parse_messages(const std::string &doc) {
+    std::vector<JSONMessage> out;
+    for (const auto &m: nlohmann::json::parse(required_at(doc, "/messages")))
+        out.push_back(parse_message(m));
+    return out;
+}
+
+/// @brief returns the JSON form of the one sample in s, as the fixtures write it.
+nlohmann::json sample_json(const x::telem::Series &s) {
+    const auto dt = s.data_type();
+    if (dt == x::telem::FLOAT64_T) return s.at<double>(0);
+    if (dt == x::telem::FLOAT32_T) return static_cast<double>(s.at<float>(0));
+    if (dt == x::telem::INT64_T) return s.at<std::int64_t>(0);
+    if (dt == x::telem::INT32_T) return s.at<std::int32_t>(0);
+    if (dt == x::telem::INT16_T) return s.at<std::int16_t>(0);
+    if (dt == x::telem::INT8_T) return s.at<std::int8_t>(0);
+    if (dt == x::telem::UINT64_T) return s.at<std::uint64_t>(0);
+    if (dt == x::telem::TIMESTAMP_T)
+        return static_cast<std::uint64_t>(s.at<x::telem::TimeStamp>(0).nanoseconds());
+    if (dt == x::telem::UINT32_T) return s.at<std::uint32_t>(0);
+    if (dt == x::telem::UINT16_T) return s.at<std::uint16_t>(0);
+    if (dt == x::telem::UINT8_T) return s.at<std::uint8_t>(0);
+    if (dt == x::telem::BOOLEAN_T) return s.at<std::uint8_t>(0) == 1;
+    if (dt == x::telem::STRING_T) return s.at<std::string>(0);
+    if (dt == x::telem::JSON_T) return nlohmann::json::parse(s.at<std::string>(0));
+    if (dt == x::telem::UUID_T) return s.uuids()[0].to_string();
+    if (dt == x::telem::BYTES_T) return x::base64::encode(s.at<std::string>(0));
+    ADD_FAILURE() << "unknown data type " << dt.name();
+    return nullptr;
+}
+
+/// @brief checks the decode of one case of a fixture.
+void check_decode_case(
+    JSON &dec,
+    const std::vector<JSONMessage> &messages,
+    const std::string &doc,
+    const std::string &c
+) {
+    const auto document = raw_at(doc, c + "/text").has_value()
+                            ? string_at(doc, c + "/text")
+                            : required_at(doc, c + "/document");
+    const auto [message, err] = dec.decode(document);
+    if (const auto expected = string_at(doc, c + "/error"); !expected.empty()) {
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+        if (!expected.starts_with(SYNTAX_PREFIX)) {
+            ASSERT_EQ(err.data, error_data(expected));
+        }
+        return;
+    }
+    ASSERT_NIL(err);
+    if (raw_at(doc, c + "/unmatched") == "true") {
+        ASSERT_FALSE(message.has_value());
+        return;
+    }
+    const auto name = string_at(doc, c + "/message");
+    const auto want = static_cast<std::size_t>(
+        std::ranges::find(messages, name, &JSONMessage::name) - messages.begin()
+    );
+    ASSERT_LT(want, messages.size()) << "no message " << name;
+    ASSERT_EQ(message, want);
+    const auto expected = nlohmann::json::parse(required_at(doc, c + "/samples"));
+    const auto &samples = dec.samples(want);
+    ASSERT_EQ(samples.size(), expected.size());
+    for (std::size_t k = 0; k < samples.size(); k++) {
+        ASSERT_EQ(samples[k].size(), 1) << "binding " << k;
+        ASSERT_EQ(sample_json(samples[k]), expected[k]) << "binding " << k;
+    }
+}
+
+/// @brief returns the text of the fixture at path, which must have a description.
+std::string read_fixture(const std::filesystem::path &path) {
+    std::ifstream file(path);
+    std::stringstream buf;
+    buf << file.rdbuf();
+    auto doc = buf.str();
+    EXPECT_FALSE(string_at(doc, "/description").empty());
+    return doc;
+}
+
+/// @brief checks that a decoder for the messages of the fixture at path decodes its
+/// documents, or fails to create with its error.
+void check_decode_fixture(const std::filesystem::path &path) {
+    const auto doc = read_fixture(path);
+    const auto messages = parse_messages(doc);
+    auto [dec, err] = JSON::create(messages);
+    if (const auto expected = string_at(doc, "/error"); !expected.empty()) {
+        ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+        ASSERT_EQ(err.data, error_data(expected));
+        return;
+    }
+    ASSERT_NIL(err);
+    ASSERT_TRUE(raw_at(doc, "/cases/0").has_value());
+    for (std::size_t i = 0; raw_at(doc, "/cases/" + std::to_string(i)); i++) {
+        SCOPED_TRACE("case " + std::to_string(i));
+        check_decode_case(dec, messages, doc, "/cases/" + std::to_string(i));
+    }
+}
+
+/// @brief returns the integer that raw, the text of a JSON integer, holds exactly.
+template<typename T>
+T integer_of(const std::string &raw) {
+    T v{};
+    const auto [end, ec] = std::from_chars(raw.data(), raw.data() + raw.size(), v);
+    EXPECT_TRUE(ec == std::errc{} && end == raw.data() + raw.size())
+        << raw << " is not an integer of its channel";
+    return v;
+}
+
+/// @brief returns the series of dt that holds the sample raw, or an empty series for
+/// null. An integer reads without a double, which holds only 53 bits.
+x::telem::Series sample_of(const x::telem::DataType &dt, const std::string &raw) {
+    if (raw == "null") return {dt, std::size_t{0}};
+    if (dt == x::telem::FLOAT64_T || dt == x::telem::FLOAT32_T)
+        return x::telem::Series(dt.cast(ASSERT_NIL_P(x::json::parse_float64(raw))), dt);
+    if (dt == x::telem::INT64_T || dt == x::telem::INT32_T || dt == x::telem::INT16_T ||
+        dt == x::telem::INT8_T || dt == x::telem::TIMESTAMP_T)
+        return x::telem::Series(dt.cast(integer_of<std::int64_t>(raw)), dt);
+    if (dt == x::telem::UINT64_T || dt == x::telem::UINT32_T ||
+        dt == x::telem::UINT16_T || dt == x::telem::UINT8_T)
+        return x::telem::Series(dt.cast(integer_of<std::uint64_t>(raw)), dt);
+    if (dt == x::telem::BOOLEAN_T)
+        return x::telem::Series(static_cast<std::uint8_t>(raw == "true"), dt);
+    if (dt == x::telem::JSON_T) return x::telem::Series(raw, dt);
+    std::string text;
+    EXPECT_NIL(x::json::unquote(raw, text));
+    if (dt == x::telem::STRING_T) return x::telem::Series(text, dt);
+    if (dt == x::telem::BYTES_T)
+        return x::telem::Series(ASSERT_NIL_P(x::base64::decode_strict(text)), dt);
+    if (dt == x::telem::UUID_T) {
+        const auto id = ASSERT_NIL_P(x::uuid::UUID::parse(text));
+        x::telem::Series s(dt, 1);
+        s.write(id.data(), 1);
+        return s;
+    }
+    ADD_FAILURE() << "unknown data type " << dt.name();
+    return {dt, std::size_t{0}};
+}
+
+/// @brief checks the encode of one case of a fixture.
+void check_encode_case(
+    JSONEncoder &enc,
+    const JSONMessage &message,
+    const std::string &doc,
+    const std::string &c
+) {
+    std::vector<x::telem::Series> samples;
+    std::vector<x::errors::Error> rejected;
+    for (std::size_t k = 0; raw_at(doc, c + "/samples/" + std::to_string(k)); k++) {
+        ASSERT_LT(k, message.bindings.size());
+        samples.push_back(sample_of(
+            message.bindings[k].data_type,
+            required_at(doc, c + "/samples/" + std::to_string(k))
+        ));
+        if (!samples.back().empty())
+            if (auto err = enc.check(k, samples.back(), 0)) rejected.push_back(err);
+    }
+    ASSERT_EQ(samples.size(), message.bindings.size());
+    std::vector<std::uint8_t> payload;
+    const auto err = enc.encode(samples, payload);
+    if (const auto expected = string_at(doc, c + "/error"); !expected.empty()) {
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+        ASSERT_EQ(err.data, error_data(expected));
+        ASSERT_EQ(rejected.size(), 1);
+        ASSERT_OCCURRED_AS(rejected[0], x::errors::VALIDATION);
+        ASSERT_EQ(rejected[0].data, err.data);
+        return;
+    }
+    ASSERT_NIL(err);
+    ASSERT_TRUE(rejected.empty()) << rejected[0];
+    const std::string text(payload.begin(), payload.end());
+    if (raw_at(doc, c + "/text").has_value()) {
+        ASSERT_EQ(text, string_at(doc, c + "/text"));
+        return;
+    }
+    ASSERT_EQ(
+        nlohmann::json::parse(text),
+        nlohmann::json::parse(required_at(doc, c + "/document"))
+    );
+}
+
+/// @brief checks that an encoder for the message of the fixture at path encodes the
+/// samples of its cases, or fails to create with its error.
+void check_encode_fixture(const std::filesystem::path &path) {
+    const auto doc = read_fixture(path);
+    const auto message = parse_message(
+        nlohmann::json::parse(required_at(doc, "/message"))
+    );
+    auto [enc, err] = JSONEncoder::create(message);
+    if (const auto expected = string_at(doc, "/error"); !expected.empty()) {
+        ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+        ASSERT_EQ(err.data, error_data(expected));
+        return;
+    }
+    ASSERT_NIL(err);
+    ASSERT_TRUE(raw_at(doc, "/cases/0").has_value());
+    for (std::size_t i = 0; raw_at(doc, "/cases/" + std::to_string(i)); i++) {
+        SCOPED_TRACE("case " + std::to_string(i));
+        check_encode_case(enc, message, doc, "/cases/" + std::to_string(i));
+    }
+}
+
+/// @brief returns the fixtures in the directory dir of FIXTURES, in name order.
+std::vector<std::filesystem::path> fixture_paths(const std::string &dir) {
+    std::vector<std::filesystem::path> paths;
+    for (const auto &e: std::filesystem::directory_iterator(FIXTURES / dir))
+        if (e.path().extension() == ".json") paths.push_back(e.path());
+    std::ranges::sort(paths);
+    EXPECT_FALSE(paths.empty());
+    return paths;
+}
+}
+
+/// @brief it should decode the documents of every decode fixture of the Core, or reject
+/// its messages with the same error.
+TEST(DecodeFixtures, MatchTheCore) {
+    for (const auto &path: fixture_paths("decode")) {
+        SCOPED_TRACE(path.filename().string());
+        check_decode_fixture(path);
+    }
+}
+
+/// @brief it should encode the samples of every encode fixture of the Core, or reject
+/// its message or samples with the same error.
+TEST(EncodeFixtures, MatchTheCore) {
+    for (const auto &path: fixture_paths("encode")) {
+        SCOPED_TRACE(path.filename().string());
+        check_encode_fixture(path);
+    }
+}
+}
