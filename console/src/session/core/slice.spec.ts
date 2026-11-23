@@ -342,6 +342,7 @@ describe("coreZ", () => {
       "password",
       "port",
       "secure",
+      "token",
       "user",
       "username",
     ]);
@@ -375,6 +376,12 @@ describe("PERSIST_EXCLUDE", () => {
     const [purge] = Core.PERSIST_EXCLUDE;
     expect(purge(state)[Core.SLICE_NAME].cores.alpha).not.toHaveProperty("oidc");
     expect(state[Core.SLICE_NAME].cores.alpha.oidc).toEqual(oidc);
+  });
+
+  it("should keep every redeemed token out of the stored state", () => {
+    const state = { [Core.SLICE_NAME]: withCores({ ...ALPHA, token: "sys_invited" }) };
+    const [purge] = Core.PERSIST_EXCLUDE;
+    expect(purge(state)[Core.SLICE_NAME].cores.alpha).not.toHaveProperty("token");
   });
 });
 

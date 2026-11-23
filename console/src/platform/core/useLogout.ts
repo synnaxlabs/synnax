@@ -31,6 +31,7 @@ export const useLogout = (): (() => void) => {
       handleError(async () => await deleteToken(core), "Failed to forget the session");
     handleError(async () => await client?.auth.logout(), "Failed to log out");
     clearSession();
-    if (core != null) dispatch(Session.Core.set({ ...core, password: "" }));
+    if (core != null)
+      dispatch(Session.Core.set({ ...core, password: "", token: undefined }));
   };
 };

@@ -36,7 +36,11 @@ describe("Core.useLogout", () => {
     await client.connect();
     const session = client.auth.session;
     if (session == null) throw new Error("expected a session after connecting");
-    const core = createCore("Local", { password: "typed", user: "Pat" });
+    const core = createCore("Local", {
+      password: "typed",
+      user: "Pat",
+      token: "sys_invited",
+    });
     const { result, store } = await renderHookWithConsole(() => Core.useLogout(), {
       client,
       preloadedState: createCoreState([core], core.key),
@@ -46,6 +50,7 @@ describe("Core.useLogout", () => {
     expect(Session.Core.selectSelectedKey(state)).toBeUndefined();
     expect(Session.Core.selectState(state, core.key)?.password).toBe("");
     expect(Session.Core.selectState(state, core.key)?.user).toBe("Pat");
+    expect(Session.Core.selectState(state, core.key)?.token).toBeUndefined();
     await waitFor(() => expect(client.auth.authenticated).toBe(false));
     await waitFor(() => expect(deleted).toEqual([{ account: keychainAccount(core) }]));
     const other = createTestClient();

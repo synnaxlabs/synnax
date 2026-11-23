@@ -9,6 +9,7 @@
 
 import type { SynnaxParams } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
+import type { Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
 
@@ -45,7 +46,7 @@ const identityOf = ({
 
 interface Held {
   identity: Identity;
-  params: SynnaxParams;
+  params: Synnax.ConnParams;
 }
 
 /**
@@ -66,8 +67,8 @@ const servesPage = ({ host, port, secure }: Session.Core.Core): boolean => {
 const paramsOf = (
   core: Session.Core.Core,
   stored: StoredToken | undefined,
-): SynnaxParams | undefined => {
-  const { host, port, secure, username, password, oidc } = core;
+): Synnax.ConnParams | undefined => {
+  const { host, port, secure, username, password, oidc, token, lastLogin } = core;
   const params: SynnaxParams =
     oidc == null
       ? {
@@ -80,7 +81,13 @@ const paramsOf = (
       : { host, port, secure, oidc };
   if (!Session.Runtime.CORE_SELECTABLE) {
     const cookie = servesPage(core);
-    return { ...params, sessionCookie: cookie, sessionPersistent: cookie };
+    return {
+      ...params,
+      token,
+      sessionCookie: cookie,
+      sessionPersistent: cookie,
+      lastLogin,
+    };
   }
   if (stored?.account !== accountOf(core) || stored.lastLogin !== core.lastLogin)
     return undefined;
@@ -88,23 +95,25 @@ const paramsOf = (
 };
 
 /**
- * Reports whether a client for the Core has a password, OpenID Connect code, or saved
- * session to log in with. On the web, a Core on another origin keeps its session only
- * in the page's memory, so a reload loses it. On desktop, the keychain may hold one. On
- * the dev server, the tab holds one once a login saves it.
+ * Reports whether a client for the Core has a password, OpenID Connect code, redeemed
+ * invite token, or saved session to log in with. On the web, a Core on another origin
+ * keeps its session only in the page's memory, so a reload loses it. On desktop, the
+ * keychain may hold one. On the dev server, the tab holds one once a login saves it.
  */
 export const hasLogin = (core: Session.Core.Core): boolean =>
   Session.Runtime.ENGINE === "tauri" ||
   servesPage(core) ||
   core.password !== "" ||
   core.oidc != null ||
+  core.token != null ||
   (Session.Runtime.CORE_SELECTABLE && tabHoldsToken(core));
 
 /**
  * The parameters a client needs to reach the selected Core. A password or OpenID
  * Connect code the user has just entered logs in; otherwise the saved session resumes,
- * from the saved token on desktop and the dev server and from the session cookie on a
- * page the Core serves. Undefined while no Core is selected or the selected Core has no
+ * from the saved token on desktop and the dev server, from the session cookie on a
+ * page the Core serves, and from the in-memory token of a redeemed invite on a page it
+ * does not serve. Undefined while no Core is selected or the selected Core has no
  * login, and, on desktop and the dev server, until the saved token has been read. A
  * saved session outlives the client. Fields that only describe the Core stay out, so
  * renaming it keeps the connection.
@@ -113,7 +122,7 @@ export const hasLogin = (core: Session.Core.Core): boolean =>
  * follows a change to its own username or password, so the record's copy of one does
  * not replace the client.
  */
-export const useConnParams = (): SynnaxParams | undefined => {
+export const useConnParams = (): Synnax.ConnParams | undefined => {
   const core = Session.Core.useSelectSelected();
   const handleError = Status.useErrorHandler();
   const [stored, setStored] = useState<StoredToken>();

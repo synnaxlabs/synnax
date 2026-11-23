@@ -73,3 +73,9 @@ export const UNLINK: Verbs = {
   past: "unlinked",
   participle: "unlinking",
 };
+
+export const REVOKE: Verbs = {
+  present: "revoke",
+  past: "revoked",
+  participle: "revoking",
+};

@@ -23,7 +23,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import type { Input } from "@synnaxlabs/lyra/input";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -78,10 +78,30 @@ const errorMessage = (status: connection.Status): string | undefined => {
   return error.message;
 };
 
+const FAILURE_MESSAGES: Record<Core.Purpose, string> = {
+  login: "Failed to log in",
+  link: "Failed to link account",
+  invite: "Failed to redeem invite code",
+};
+
+type ProviderCore = Parameters<typeof Core.loginDesktop>[0];
+
+const assertAddressKept = (core: ProviderCore, current?: ProviderCore): void => {
+  if (
+    current?.host !== core.host ||
+    current.port !== core.port ||
+    current.secure !== core.secure
+  )
+    throw new Error(
+      "The Core was removed or its address changed during the login. Log in again.",
+    );
+};
+
 /**
  * Finishes a provider redirect, before any guard chooses between the login surface and
  * a session the browser already holds. A login replaces the session. A link keeps it,
- * and waits for the client to link the account to the logged-in user.
+ * and waits for the client to link the account to the logged-in user. An invite
+ * replaces the session once the Core accepts the code.
  */
 export const useCompleteBrowserLogin = (): void => {
   const client = Synnax.use();
@@ -89,6 +109,7 @@ export const useCompleteBrowserLogin = (): void => {
   const selected = Session.Core.useSelectSelectedKey();
   const servingCore = Core.detectConnection();
   const dispatch = Session.useDispatch();
+  const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const reportUnfinished = Core.useReportUnfinished();
@@ -118,13 +139,39 @@ export const useCompleteBrowserLogin = (): void => {
           pendingLink.current = completed;
           return;
         }
-        const core = cores.find((c) => c.key === completed.core) ?? servingCore;
+        const saved = cores.find((c) => c.key === completed.core);
+        const core = saved ?? servingCore;
         if (core == null) return;
-        const oidc = completed.credentials;
-        dispatch(Session.Core.set({ ...core, username: "", password: "", oidc }));
-        dispatch(Session.Core.select(core.key));
+        const { invite, credentials } = completed;
+        const cleared = {
+          username: "",
+          password: "",
+          oidc: undefined,
+          token: undefined,
+        };
+        if (invite == null) {
+          dispatch(Session.Core.set({ ...core, ...cleared, oidc: credentials }));
+          dispatch(Session.Core.select(core.key));
+          return;
+        }
+        handleError(async () => {
+          const cookie = Core.servesPage(core, window.location.origin);
+          const token = await Core.redeemInvite(core, invite, credentials, cookie);
+          const current = Session.Core.selectState(store.getState(), core.key);
+          // a serving Core has no record until this login makes one
+          if (saved != null) assertAddressKept(saved, current);
+          dispatch(
+            Session.Core.set({
+              ...(current ?? core),
+              ...cleared,
+              token: cookie ? undefined : token,
+              lastLogin: Date.now(),
+            }),
+          );
+          dispatch(Session.Core.select(core.key));
+        }, FAILURE_MESSAGES.invite);
       },
-      purpose === "link" ? "Failed to link account" : "Failed to log in",
+      FAILURE_MESSAGES[purpose ?? "login"],
     );
   }, []);
   useEffect(() => {
@@ -145,6 +192,16 @@ export const useCompleteBrowserLogin = (): void => {
         });
     }, "Failed to link account");
   }, [client]);
+};
+
+const startProviderLogin = async (
+  core: ProviderCore,
+  login: auth.OIDCLogin,
+  invite?: string,
+): Promise<void> => {
+  if (Session.Runtime.ENGINE === "tauri") await Core.loginDesktop(core, login, invite);
+  else if (invite == null) await Core.beginBrowserLogin(core.key, login);
+  else await Core.beginBrowserInvite(core.key, login, invite);
 };
 
 /**
@@ -174,6 +231,8 @@ export const Login = (): ReactElement => {
   const reportUnfinished = Core.useReportUnfinished();
   // a newer provider login replaces an older one, which then ends unreported
   const attempts = useRef(0);
+  const [inviteRevealed, setInviteRevealed] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
   const mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
@@ -186,13 +245,13 @@ export const Login = (): ReactElement => {
     const core = servingCore ?? selectedCore;
     if (core == null) return;
     const attempt = ++attempts.current;
+    const trimmed = inviteCode.trim();
+    const invite = trimmed === "" ? undefined : trimmed;
     handleError(
       async () => {
         let failure: Error | undefined;
         try {
-          if (Session.Runtime.ENGINE !== "tauri")
-            await Core.beginBrowserLogin(core.key, login);
-          else await Core.loginDesktop(core, login);
+          await startProviderLogin(core, login, invite);
         } catch (e) {
           failure = errors.fromUnknown(e);
         }
@@ -204,17 +263,14 @@ export const Login = (): ReactElement => {
         if (Session.Runtime.ENGINE !== "tauri") return;
         const current = Session.Core.selectState(store.getState(), core.key);
         // the token is saved under the address the login started with
-        if (
-          current?.host !== core.host ||
-          current.port !== core.port ||
-          current.secure !== core.secure
-        )
-          throw new Error("The Core's address changed during the login. Log in again.");
+        assertAddressKept(core, current);
         // a user who left the login surface has moved on
         if (mounted.current)
           dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));
       },
-      `Failed to log in with ${display(login).label}`,
+      invite == null
+        ? `Failed to log in with ${display(login).label}`
+        : FAILURE_MESSAGES.invite,
     );
   };
 
@@ -234,6 +290,7 @@ export const Login = (): ReactElement => {
         ...credentials,
         oidc: undefined,
         lastLogin: Date.now(),
+        token: undefined,
       }),
     );
     dispatch(Session.Core.select(key));
@@ -244,6 +301,8 @@ export const Login = (): ReactElement => {
     const next = cores.find((c) => c.key === key);
     if (next == null) return;
     methods.reset({ username: next.username ?? "", password: "" });
+    setInviteRevealed(false);
+    setInviteCode("");
     setSelectedKey(key);
     setStep("login");
   };
@@ -361,6 +420,25 @@ export const Login = (): ReactElement => {
                     full="x"
                     className={CSS.BE("login", "providers")}
                   >
+                    {inviteRevealed ? (
+                      <Input.Text
+                        value={inviteCode}
+                        onChange={setInviteCode}
+                        placeholder="Invite code"
+                        size="large"
+                        full="x"
+                        autoFocus
+                      />
+                    ) : (
+                      <Button.Button
+                        variant="text"
+                        full="x"
+                        justify="center"
+                        onClick={() => setInviteRevealed(true)}
+                      >
+                        I have an invite code
+                      </Button.Button>
+                    )}
                     <Icon.Colored>
                       {providers.map((login) => {
                         const { label, icon } = display(login);
