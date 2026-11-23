@@ -55,9 +55,8 @@ type ServiceConfig struct {
 }
 
 var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for the password API service.
-	DefaultServiceConfig = ServiceConfig{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	defaultServiceConfig                              = ServiceConfig{}
 )
 
 // Override implements config.Config.
@@ -92,7 +91,7 @@ type Service struct {
 
 // NewService opens a new password API service.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(defaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
