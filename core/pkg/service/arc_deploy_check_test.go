@@ -10,6 +10,7 @@
 package service_test
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,10 +26,17 @@ import (
 )
 
 var _ = Describe("Arc deploy check", func() {
-	It("Should record the deployed lists when the embedded Driver configures an Arc "+
+	It("Should record the deployed lists when the Core's Driver configures an Arc "+
 		"task", func(ctx SpecContext) {
 		n := testutil.NewNode(ctx)
 		l := MustOpen(svctestutil.OpenLayer(ctx, n))
+		// The Core's own Driver runs Arc tasks on its rack, which is not the rack of
+		// the
+		// embedded Driver.
+		core := MustSucceed(l.Rack.RetrieveOrCreateEmbedded(
+			ctx,
+			fmt.Sprintf("Node %d", n.Identity.HostKey),
+		))
 		in := channel.Channel{Name: "dc_in", Virtual: true, DataType: telem.Float64T}
 		out := channel.Channel{Name: "dc_out", Virtual: true, DataType: telem.Float64T}
 		Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -52,7 +60,7 @@ var _ = Describe("Arc deploy check", func() {
 			_, err := l.Arc.NewWriter(tx).UpdateTask(
 				ctx,
 				key,
-				arc.TaskUpdate{Rack: new(l.Rack.EmbeddedKey)},
+				arc.TaskUpdate{Rack: new(core.Key)},
 			)
 			return err
 		})).To(Succeed())
