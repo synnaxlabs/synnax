@@ -46,6 +46,19 @@ void append_record(const std::filesystem::path &path, const journal::Record &rec
     ASSERT_NIL(writer->close());
 }
 
+/// @brief reads every record of the segment at path.
+std::vector<journal::Record> read_records(const std::filesystem::path &path) {
+    auto reader = ASSERT_NIL_P(
+        journal::Reader::open({.path = path, .magic = SEGMENT_MAGIC, .types = {1, 2}})
+    );
+    EXPECT_EQ(reader->header.version, journal::VERSION);
+    std::vector<journal::Record> records;
+    while (auto record = ASSERT_NIL_P(reader->next()))
+        records.push_back(std::move(*record));
+    EXPECT_EQ(reader->cut(), 0);
+    return records;
+}
+
 x::uuid::UUID uuid_of(const std::uint8_t first) {
     std::array<std::uint8_t, 16> bytes{};
     for (std::size_t i = 0; i < bytes.size(); i++)
@@ -193,13 +206,25 @@ TEST_F(SpoolTest, ReadsV1Segment) {
     ASSERT_FALSE(ASSERT_NIL_P(reader->read()).has_value());
 }
 
-/// @brief it should write the same bytes as the v1 segment.
+/// @brief it should write the same records as the v1 segment.
 TEST_F(SpoolTest, WritesV1Segment) {
     {
         const auto spool = this->open_spool();
         ASSERT_NIL(spool->open_writer(v1_header())->write(v1_frame()));
     }
-    EXPECT_EQ(read_file(this->dir / "0.seg"), read_file(TESTDATA / "v1_segment.bin"));
+    const auto expected = read_records(TESTDATA / "v1_segment.bin");
+    const auto actual = read_records(this->dir / "0.seg");
+    ASSERT_EQ(actual.size(), expected.size());
+    pb::Header expected_header, actual_header;
+    ASSERT_TRUE(expected_header.ParseFromString(expected[0].payload));
+    ASSERT_TRUE(actual_header.ParseFromString(actual[0].payload));
+    EXPECT_EQ(actual[0].type, expected[0].type);
+    EXPECT_EQ(actual_header.SerializeAsString(), expected_header.SerializeAsString());
+    pb::Frame expected_frame, actual_frame;
+    ASSERT_TRUE(expected_frame.ParseFromString(expected[1].payload));
+    ASSERT_TRUE(actual_frame.ParseFromString(actual[1].payload));
+    EXPECT_EQ(actual[1].type, expected[1].type);
+    EXPECT_EQ(actual_frame.SerializeAsString(), expected_frame.SerializeAsString());
 }
 
 /// @brief it should read back every header field and the frames after a reopen.
@@ -385,7 +410,70 @@ TEST_F(SpoolTest, RemovesSegmentOfFailedWrite) {
     ASSERT_EQ(again.data, err.data);
     ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
     ASSERT_NIL(spool->open_writer(header_of(1))->write(frame_of(1)));
-    ASSERT_EQ(spool->refused(), 0);
+    ASSERT_EQ(spool->refused(), 2);
+}
+
+/// @brief it should refuse frames that would leave less than min_free on the disk.
+TEST_F(SpoolTest, RefusesFramesBelowMinFree) {
+    const auto spool = ASSERT_NIL_P(
+        Spool::open(Config{.dir = this->dir, .min_free = UINT64_MAX})
+    );
+    const auto writer = spool->open_writer(header_of(1));
+    ASSERT_MATCHES(writer->write(frame_of(1)), FULL);
+    ASSERT_MATCHES(writer->write(frame_of(2)), FULL);
+    ASSERT_EQ(spool->refused(), 2);
+    ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
+}
+
+/// @brief it should refuse and count a frame larger than the record limit, and every
+/// frame after it.
+TEST_F(SpoolTest, RefusesFrameLargerThanRecordLimit) {
+    const auto spool = this->open_spool();
+    const auto writer = spool->open_writer(header_of(1));
+    const x::telem::Frame large(
+        1,
+        x::telem::Series(std::vector<float>(journal::MAX_PAYLOAD / sizeof(float) + 1))
+    );
+    ASSERT_MATCHES(writer->write(large), BASE_ERROR);
+    ASSERT_MATCHES(writer->write(frame_of(1)), BASE_ERROR);
+    ASSERT_EQ(spool->refused(), 2);
+    ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
+}
+
+/// @brief it should reject a header that lists a channel twice.
+TEST_F(SpoolTest, RejectsHeaderWithDuplicateChannel) {
+    const auto spool = this->open_spool();
+    auto header = header_of(1);
+    header.channels[1] = 1;
+    ASSERT_MATCHES(spool->open_writer(header)->write(frame_of(1)), BASE_ERROR);
+}
+
+/// @brief it should reject a header with an index that is not one of its channels.
+TEST_F(SpoolTest, RejectsHeaderWithUnknownIndex) {
+    const auto spool = this->open_spool();
+    auto header = header_of(1);
+    header.indexes[1] = 9;
+    ASSERT_MATCHES(spool->open_writer(header)->write(frame_of(1)), BASE_ERROR);
+}
+
+/// @brief it should fail to open a reader on a segment that is not closed.
+TEST_F(SpoolTest, RejectsReaderOfOpenSegment) {
+    const auto spool = this->open_spool();
+    const auto writer = spool->open_writer(header_of(1));
+    ASSERT_NIL(writer->write(frame_of(1)));
+    ASSERT_OCCURRED_AS_P(spool->open_reader(0), BASE_ERROR);
+}
+
+/// @brief it should fail to commit a read offset after the segment is removed.
+TEST_F(SpoolTest, RejectsCommitAfterRemove) {
+    const auto spool = this->open_spool();
+    this->write_frames(*spool, header_of(1), 1);
+    const auto reader = ASSERT_NIL_P(spool->open_reader(0));
+    ASSERT_TRUE(ASSERT_NIL_P(reader->read()).has_value());
+    ASSERT_FALSE(ASSERT_NIL_P(reader->read()).has_value());
+    ASSERT_NIL(spool->remove(0));
+    ASSERT_MATCHES(reader->commit(), BASE_ERROR);
+    ASSERT_FALSE(std::filesystem::exists(this->dir / "0.offset"));
 }
 
 /// @brief it should resume a reader from the committed offset after a reopen.
@@ -663,6 +751,7 @@ TEST_F(SpoolTest, KeepsFrameWhenSyncFails) {
         ASSERT_MATCHES(writer->write(frame_of(1)), journal::BASE_ERROR);
         ASSERT_MATCHES(writer->write(frame_of(2)), journal::BASE_ERROR);
     }
+    ASSERT_EQ(spool->refused(), 1);
     const auto reader = ASSERT_NIL_P(spool->open_reader(0));
     for (int i = 0; i < 2; i++) {
         const auto frame = ASSERT_NIL_P(reader->read());
@@ -690,6 +779,7 @@ TEST_F(SpoolTest, RemovesSegmentWhenFirstSyncFails) {
     );
     ASSERT_TRUE(spool->segments().empty());
     ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
+    ASSERT_EQ(spool->refused(), 1);
 }
 
 /// @brief it should fail to open on a segment that starts with a frame.

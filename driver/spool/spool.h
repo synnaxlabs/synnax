@@ -34,6 +34,8 @@
 namespace driver::spool {
 /// @brief the default byte cap of a spool.
 constexpr std::uint64_t DEFAULT_CAP = 10ULL * 1000 * 1000 * 1000;
+/// @brief the default number of bytes a spool leaves free on its disk.
+constexpr std::uint64_t DEFAULT_MIN_FREE = 1000ULL * 1000 * 1000;
 /// @brief the magic at the start of each segment file.
 constexpr journal::Magic SEGMENT_MAGIC = {'S', 'Y', 'S', 'P', 'L', 'S', 'E', 'G'};
 /// @brief the magic at the start of each read offset file.
@@ -51,10 +53,14 @@ struct Config {
     std::filesystem::path dir;
     /// @brief the maximum number of bytes the segment files can hold.
     std::uint64_t cap = DEFAULT_CAP;
+    /// @brief the number of bytes the spool leaves free on the disk of dir. The spool
+    /// is full when a frame would leave less, also below the cap.
+    std::uint64_t min_free = DEFAULT_MIN_FREE;
     /// @brief the maximum time between a write and the sync that follows it.
     x::telem::TimeSpan sync_interval = x::telem::SECOND;
     /// @brief gets the result of each sync of a segment and returns the result the
-    /// spool uses.
+    /// spool uses. Writers call it from their own threads, so it must be safe for
+    /// concurrent use.
     std::function<x::errors::Error(const x::errors::Error &)> on_sync =
         [](const x::errors::Error &err) { return err; };
 };
@@ -110,11 +116,12 @@ public:
     /// writer refuses every later frame, so the segment has no gaps.
     /// @param frame the frame to append. Each of its channels must be in the header,
     /// with the data type of the header.
-    /// @returns FULL when the spool has no room for the frame, and counts the frame in
-    /// Spool::refused. BASE_ERROR when the frame does not match the header. After a
-    /// write fails to store a frame, the writer returns the same error for every later
-    /// frame. When only the sync after the frame fails, the frame stays in the segment,
-    /// and readers can read it.
+    /// @returns FULL when the spool has no room for the frame. BASE_ERROR when the
+    /// frame does not match the header, the writer is closed, or the frame is larger
+    /// than journal::MAX_PAYLOAD. After a write fails to store a valid frame, the
+    /// writer returns the same error for every later frame. Spool::refused counts each
+    /// of these frames. When only the sync after the frame fails, the frame stays in
+    /// the segment, and readers can read it.
     x::errors::Error write(const x::telem::Frame &frame);
 
     /// @brief syncs the segment when a sync is due. Call it when no frames come, so
@@ -153,6 +160,7 @@ public:
 
     /// @brief persists the read offset after the last frame read, so a reader opened
     /// later starts from it.
+    /// @returns BASE_ERROR when the spool removed the segment.
     x::errors::Error commit();
 };
 
@@ -165,6 +173,10 @@ class Spool {
     std::unique_ptr<journal::Lock> lock;
     mutable std::mutex mu;
     std::uint64_t used = 0;
+    /// @brief the most bytes used can grow to, from the free space at the last check.
+    std::uint64_t limit = 0;
+    /// @brief the value of used that starts the next check of the free space.
+    std::uint64_t next_check = 0;
     std::uint64_t next_key = 0;
     /// @brief the byte size of each closed segment, by key.
     std::map<std::uint64_t, std::uint64_t> closed;
@@ -176,10 +188,11 @@ class Spool {
     Spool(Config cfg, std::unique_ptr<journal::Lock> lock);
     [[nodiscard]] std::filesystem::path segment_path(std::uint64_t key) const;
     [[nodiscard]] std::filesystem::path offset_path(std::uint64_t key) const;
-    bool reserve(std::uint64_t bytes);
+    x::errors::Error reserve(std::uint64_t bytes);
     void release(std::uint64_t bytes);
     void close(std::uint64_t key, std::uint64_t size);
     void count_cut(std::uint64_t key, std::uint64_t bytes);
+    [[nodiscard]] bool is_closed(std::uint64_t key) const;
     x::errors::Error remove_files(std::uint64_t key);
     [[nodiscard]] x::errors::Error remove_temp_files() const;
     [[nodiscard]] x::errors::Error remove_orphan_offsets() const;
@@ -201,8 +214,9 @@ public:
 
     /// @brief opens a reader on a closed segment.
     /// @param key a key from segments().
-    /// @returns CORRUPT when the header or the read offset of the segment is not
-    /// valid. A journal error when a file of the segment is not valid.
+    /// @returns BASE_ERROR when the segment is not closed. CORRUPT when the header or
+    /// the read offset of the segment is not valid. A journal error when a file of the
+    /// segment is not valid.
     std::pair<std::unique_ptr<Reader>, x::errors::Error> open_reader(std::uint64_t key);
 
     /// @brief deletes a closed segment and its read offset. On Windows, a reader of the
@@ -210,11 +224,12 @@ public:
     /// @param key a key from segments().
     x::errors::Error remove(std::uint64_t key);
 
-    /// @returns the number of frames the spool refused because it was full.
+    /// @returns the number of frames that writes did not store because the spool was
+    /// full, the frame was too large, or the writer failed.
     [[nodiscard]] std::uint64_t refused() const;
 
-    /// @returns the number of bytes of segments that a crash, a power loss, or damage
-    /// to the disk made unreadable, since the spool opened.
+    /// @returns the number of bytes of segments that a crash, a power loss, a full
+    /// disk, or damage to the disk made unreadable, since the spool opened.
     [[nodiscard]] std::uint64_t cut() const;
 };
 }

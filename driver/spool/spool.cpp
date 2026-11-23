@@ -12,6 +12,7 @@
 #include <charconv>
 #include <cstring>
 #include <optional>
+#include <set>
 #include <string>
 #include <system_error>
 #include <tuple>
@@ -31,11 +32,27 @@ const std::string OFFSET_EXT = ".offset";
 const std::string TEMP_INFIX = ".tmp.";
 constexpr std::uint8_t HEADER_TYPE = 1;
 constexpr std::uint8_t FRAME_TYPE = 2;
+/// @brief the written bytes that start a sync, so large frames do not each sync.
+constexpr std::uint64_t SYNC_BYTES = 64ULL * 1000 * 1000;
+/// @brief the reserved bytes between two checks of the free disk space.
+constexpr std::uint64_t SPACE_CHECK_BYTES = 64ULL * 1000 * 1000;
 
 using Types = std::unordered_map<std::uint32_t, x::telem::DataType>;
 
 x::errors::Error fs_error(const std::string &msg, const std::error_code &ec) {
     return x::errors::Error(BASE_ERROR, msg + ": " + ec.message());
+}
+
+/// @returns the entries of dir.
+std::pair<std::vector<std::filesystem::path>, x::errors::Error>
+list(const std::filesystem::path &dir) {
+    std::error_code ec;
+    std::vector<std::filesystem::path> paths;
+    for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end;
+         it.increment(ec))
+        paths.push_back(it->path());
+    if (ec) return {{}, fs_error("failed to list spool directory", ec)};
+    return {std::move(paths), x::errors::NIL};
 }
 
 std::string bytes_of(const x::uuid::UUID &id) {
@@ -63,6 +80,16 @@ std::string check(const Header &header) {
     for (const auto &dt: header.data_types)
         if (!dt.is_variable() && dt.density() == 0)
             return "header has unknown data type " + dt.name();
+    const std::set<std::uint32_t> channels(
+        header.channels.begin(),
+        header.channels.end()
+    );
+    if (channels.size() != header.channels.size())
+        return "header has a duplicate channel";
+    for (const auto index: header.indexes)
+        if (index != 0 && !channels.contains(index))
+            return "header has index " + std::to_string(index) +
+                   ", which is not one of its channels";
     return "";
 }
 
@@ -256,7 +283,6 @@ Writer::~Writer() {
 x::errors::Error Writer::close() {
     if (this->closed) return x::errors::NIL;
     this->closed = true;
-    if (!this->failed) this->failed = x::errors::Error(BASE_ERROR, "writer is closed");
     if (this->size == 0) return x::errors::NIL;
     const auto err = this->file->close();
     this->file.reset();
@@ -265,7 +291,11 @@ x::errors::Error Writer::close() {
 }
 
 x::errors::Error Writer::write(const x::telem::Frame &frame) {
-    if (this->failed) return this->failed;
+    if (this->closed) return x::errors::Error(BASE_ERROR, "writer is closed");
+    if (this->failed) {
+        ++this->spool.refused_count;
+        return this->failed;
+    }
     if (this->refused) {
         ++this->spool.refused_count;
         return FULL;
@@ -281,17 +311,30 @@ x::errors::Error Writer::write(const x::telem::Frame &frame) {
     }
     auto [payload, err] = encode_frame(frame, this->types);
     if (err) return err;
-    bytes += journal::RECORD_PREFIX_SIZE + payload.size();
-    if (!this->spool.reserve(bytes)) {
-        this->refused = true;
+    if (payload.size() > journal::MAX_PAYLOAD) {
+        this->failed = x::errors::Error(
+            BASE_ERROR,
+            "frame of " + std::to_string(payload.size()) +
+                " bytes is larger than the record limit"
+        );
         ++this->spool.refused_count;
-        return FULL;
+        return this->failed;
+    }
+    bytes += journal::RECORD_PREFIX_SIZE + payload.size();
+    if (const auto r_err = this->spool.reserve(bytes)) {
+        if (r_err.matches(FULL))
+            this->refused = true;
+        else
+            this->failed = r_err;
+        ++this->spool.refused_count;
+        return r_err;
     }
     if (this->size == 0) {
         auto [file, o_err] = journal::Writer::open({
             .path = this->spool.segment_path(this->key),
             .magic = SEGMENT_MAGIC,
             .sync_interval = this->spool.cfg.sync_interval,
+            .sync_bytes = SYNC_BYTES,
             .on_sync = this->spool.cfg.on_sync,
         });
         if (o_err) return this->fail(o_err, bytes);
@@ -326,6 +369,7 @@ Writer::fail(const x::errors::Error &err, const std::uint64_t reserved) {
         return this->failed;
     }
     this->spool.release(reserved);
+    ++this->spool.refused_count;
     if (this->size > 0) return this->failed;
     // A segment without frames is useless to readers.
     this->file.reset();
@@ -358,6 +402,11 @@ std::pair<std::optional<x::telem::Frame>, x::errors::Error> Reader::read() {
 }
 
 x::errors::Error Reader::commit() {
+    if (!this->spool.is_closed(this->key))
+        return x::errors::Error(
+            BASE_ERROR,
+            "segment " + std::to_string(this->key) + " is removed"
+        );
     return journal::commit_offset(
         this->spool.offset_path(this->key),
         OFFSET_MAGIC,
@@ -376,9 +425,10 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
     if (l_err) return {nullptr, l_err};
     auto spool = std::unique_ptr<Spool>(new Spool(std::move(cfg), std::move(lock)));
     if (const auto err = spool->remove_temp_files()) return {nullptr, err};
+    auto [paths, ls_err] = list(spool->cfg.dir);
+    if (ls_err) return {nullptr, ls_err};
     std::vector<std::uint64_t> keys;
-    for (const auto &entry: std::filesystem::directory_iterator(spool->cfg.dir, ec)) {
-        const auto &path = entry.path();
+    for (const auto &path: paths) {
         if (path.extension() != SEGMENT_EXT) continue;
         const auto stem = path.stem().string();
         std::uint64_t key = 0;
@@ -391,7 +441,6 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
             return {nullptr, x::errors::Error(CORRUPT, "invalid segment " + stem)};
         keys.push_back(key);
     }
-    if (ec) return {nullptr, fs_error("failed to list spool directory", ec)};
     for (const auto key: keys) {
         const auto path = spool->segment_path(key);
         auto [file, err] = open_segment(path);
@@ -422,11 +471,21 @@ std::filesystem::path Spool::offset_path(const std::uint64_t key) const {
     return this->cfg.dir / (std::to_string(key) + OFFSET_EXT);
 }
 
-bool Spool::reserve(const std::uint64_t bytes) {
+x::errors::Error Spool::reserve(const std::uint64_t bytes) {
     std::lock_guard lock(this->mu);
-    if (this->used + bytes > this->cfg.cap) return false;
+    if (this->used + bytes > std::min(this->limit, this->next_check)) {
+        std::error_code ec;
+        const auto info = std::filesystem::space(this->cfg.dir, ec);
+        if (ec) return fs_error("failed to get free disk space", ec);
+        const auto spare = info.available > this->cfg.min_free
+                             ? info.available - this->cfg.min_free
+                             : 0;
+        this->limit = std::min(this->cfg.cap, this->used + spare);
+        this->next_check = this->used + SPACE_CHECK_BYTES;
+    }
+    if (this->used + bytes > this->limit) return FULL;
     this->used += bytes;
-    return true;
+    return x::errors::NIL;
 }
 
 void Spool::release(const std::uint64_t bytes) {
@@ -445,29 +504,27 @@ x::errors::Error Spool::remove_files(const std::uint64_t key) {
 }
 
 x::errors::Error Spool::remove_temp_files() const {
-    std::error_code ec;
-    std::vector<std::filesystem::path> temps;
-    for (const auto &entry: std::filesystem::directory_iterator(this->cfg.dir, ec))
-        if (entry.path().filename().string().contains(TEMP_INFIX))
-            temps.push_back(entry.path());
-    if (ec) return fs_error("failed to list spool directory", ec);
-    for (const auto &path: temps)
-        if (const auto err = journal::remove(path)) return err;
+    auto [paths, err] = list(this->cfg.dir);
+    if (err) return err;
+    for (const auto &path: paths)
+        if (path.filename().string().contains(TEMP_INFIX))
+            if (const auto rm_err = journal::remove(path)) return rm_err;
     return x::errors::NIL;
 }
 
 x::errors::Error Spool::remove_orphan_offsets() const {
-    std::error_code ec;
-    std::vector<std::filesystem::path> orphans;
-    for (const auto &entry: std::filesystem::directory_iterator(this->cfg.dir, ec)) {
-        auto segment = entry.path();
-        if (segment.extension() != OFFSET_EXT) continue;
+    auto [paths, err] = list(this->cfg.dir);
+    if (err) return err;
+    for (const auto &path: paths) {
+        if (path.extension() != OFFSET_EXT) continue;
+        auto segment = path;
         segment.replace_extension(SEGMENT_EXT);
-        if (!std::filesystem::exists(segment)) orphans.push_back(entry.path());
+        std::error_code ec;
+        const auto found = std::filesystem::exists(segment, ec);
+        if (ec) return fs_error("failed to stat segment", ec);
+        if (found) continue;
+        if (const auto rm_err = journal::remove(path)) return rm_err;
     }
-    if (ec) return fs_error("failed to list spool directory", ec);
-    for (const auto &path: orphans)
-        if (const auto err = journal::remove(path)) return err;
     return x::errors::NIL;
 }
 
@@ -489,6 +546,14 @@ std::vector<std::uint64_t> Spool::segments() const {
 
 std::pair<std::unique_ptr<Reader>, x::errors::Error>
 Spool::open_reader(const std::uint64_t key) {
+    if (!this->is_closed(key))
+        return {
+            nullptr,
+            x::errors::Error(
+                BASE_ERROR,
+                "segment " + std::to_string(key) + " is not closed"
+            )
+        };
     const auto path = this->segment_path(key);
     auto [file, err] = open_segment(path);
     if (err) return {nullptr, err};
@@ -520,15 +585,17 @@ Spool::open_reader(const std::uint64_t key) {
     return {std::move(reader), x::errors::NIL};
 }
 
+bool Spool::is_closed(const std::uint64_t key) const {
+    std::lock_guard lock(this->mu);
+    return this->closed.contains(key);
+}
+
 x::errors::Error Spool::remove(const std::uint64_t key) {
-    {
-        std::lock_guard lock(this->mu);
-        if (!this->closed.contains(key))
-            return x::errors::Error(
-                BASE_ERROR,
-                "segment " + std::to_string(key) + " is not closed"
-            );
-    }
+    if (!this->is_closed(key))
+        return x::errors::Error(
+            BASE_ERROR,
+            "segment " + std::to_string(key) + " is not closed"
+        );
     if (const auto err = this->remove_files(key)) return err;
     std::lock_guard lock(this->mu);
     const auto it = this->closed.find(key);
