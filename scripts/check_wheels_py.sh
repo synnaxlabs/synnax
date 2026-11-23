@@ -71,6 +71,9 @@ for name in ("alamos", "freighter", "synnax", "x"):
         sys.exit(f"{name} loads from {package.__file__}, not the wheel")
     for module in pkgutil.walk_packages(package.__path__, name + "."):
         importlib.import_module(module.name)
+from importlib.metadata import version
+if (got := importlib.import_module("synnax").__version__) != version("synnax"):
+    sys.exit(f"synnax.__version__ is {got}, not the version of the wheel")
 '
     "$venv/bin/sy" --help > /dev/null
     "$venv/bin/python" -I -m mypy --strict --no-incremental check.py

@@ -46,7 +46,9 @@ splash is one: its page is l1, so its nav and cards are l0.
 
 Hover moves one fill step from rest, and press moves one more. Disabled text is
 `--pluto-text-disabled`. A disabled outlined control (an input, a select trigger, an
-outlined button) has fill l2 and border l4, and its caret has the disabled text color.
+outlined button) has fill l2 and border l4, and its caret has the disabled text color. A
+disabled button inside an enabled input keeps the input's border (l7), so the field
+reads as one box; only its text dims.
 
 ### Status colors
 
