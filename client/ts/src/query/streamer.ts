@@ -237,8 +237,15 @@ export const createStreamer = ({
     },
     close: async () => {
       closed = true;
-      // Interrupts an in-flight open's retry loop; opened then settles.
-      hardened?.close();
+      try {
+        // Interrupts an in-flight open's retry loop; opened then settles.
+        hardened?.close();
+      } catch (exc) {
+        // The read loop can wait forever on a socket that failed to close, so only the
+        // changes already received are awaited.
+        await applied;
+        throw errors.fromUnknown(exc);
+      }
       const streamer = await opened?.catch(() => null);
       if (streamer != null) await streamer.close();
       await applied;

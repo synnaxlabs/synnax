@@ -1242,6 +1242,35 @@ describe("openStreamer", () => {
       expect(closed).toBe(true);
     });
 
+    it("should wait for a change in flight when closing the socket throws", async () => {
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
+      const onChange = vi.fn(async () => await gate);
+      const schema = z.object({ value: z.number() });
+      const frames = [new framer.Frame({ test: new Series([{ value: 1 }]) })];
+      const closeStreamer = await openStreamer(
+        createCacheArgs({
+          listeners: createListeners("test", schema, onChange),
+          openStreamer: async () => {
+            const streamer = new MockHardenedStreamer([], undefined, frames);
+            streamer.close = () => {
+              throw new Error("socket already dead");
+            };
+            return streamer;
+          },
+        }),
+      );
+      await expect.poll(() => onChange.mock.calls.length).toBe(1);
+      let closed = false;
+      const closing = expect(closeStreamer())
+        .rejects.toThrow("socket already dead")
+        .then(() => (closed = true));
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(closed).toBe(false);
+      release();
+      await closing;
+      expect(closed).toBe(true);
+    });
+
     it("should stop listeners from receiving data after close", async () => {
       const onChange = vi.fn();
       const schema = z.object({ value: z.number() });
