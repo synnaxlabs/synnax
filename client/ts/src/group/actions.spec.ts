@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { reduceAll } from "@/group/actions";
 import { setParent } from "@/group/actions.gen";
-import { type Group } from "@/group/types.gen";
+import type { Group } from "@/group/types.gen";
 
 const GROUP: Group = {
   key: "0198b5a4-0000-7000-8000-000000000001",

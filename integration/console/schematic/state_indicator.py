@@ -10,7 +10,7 @@
 
 import synnax as sy
 from console.notifications import click_past
-from console.schematic.symbol import Symbol, option_text
+from console.schematic.symbol import Symbol
 
 
 class StateIndicator(Symbol):
@@ -24,6 +24,7 @@ class StateIndicator(Symbol):
         label: str,
         channel_name: str,
         options: list[sy.schematic.StateMapping] | None = None,
+        enumeration: str | None = None,
     ):
         """Initialize a state indicator symbol with configuration.
 
@@ -31,13 +32,17 @@ class StateIndicator(Symbol):
         :param channel_name: Channel name for the state input
         :param options: List of option dicts with "name", "value", and optional "color"
             keys
+        :param enumeration: Name of the enumeration whose entries the symbol draws
         """
         super().__init__(label=label, symbol_type="State indicator", rotatable=False)
         self.channel_name = channel_name
         self.options = options or []
+        self.enumeration = enumeration
 
     def _apply_properties(self) -> None:
         self.set_properties(channel_name=self.channel_name, options=self.options)
+        if self.enumeration is not None:
+            self.set_enumeration(self.enumeration)
 
     def set_properties(
         self,
@@ -54,20 +59,7 @@ class StateIndicator(Symbol):
             self.set_channel(section="State", channel_name=channel_name)
 
         if options is not None and len(options) > 0:
-            self.click()
-            self.open_properties_tab()
-            self.page.get_by_text("Options", exact=True).click()
-            for i, option in enumerate(options):
-                if i == 0:
-                    self.page.get_by_text("Add an option").click()
-                else:
-                    self.page.get_by_text("Add option", exact=True).click()
-                items = self.page.locator(".lyra-list__item").all()
-                last_item = items[-1]
-                name_input = last_item.locator("input").first
-                name_input.fill(option.name)
-                value_input = last_item.locator("input").nth(1)
-                value_input.fill(option_text(option.value))
+            self.add_options(options)
 
     def get_label(self) -> str:
         """Read the currently displayed state label text.
@@ -77,3 +69,21 @@ class StateIndicator(Symbol):
         self._disable_edit_mode()
         content = self.locator.locator(".pluto-state-indicator__content").first
         return content.inner_text().strip()
+
+    def wait_for_label(self, expected: str, timeout: float = 5.0) -> None:
+        """Wait until the indicator shows a state label.
+
+        :param expected: The label to wait for.
+        :param timeout: Seconds to wait.
+        :raises AssertionError: If the label does not show within the timeout.
+        """
+
+        def shown() -> bool | None:
+            return True if self.get_label() == expected else None
+
+        sy.poll(shown, timeout=timeout, interval=0.25)
+        actual = self.get_label()
+        assert actual == expected, (
+            f"State Indicator label mismatch after {timeout}s: "
+            f"expected '{expected}', got '{actual}'"
+        )

@@ -20,7 +20,7 @@ import {
 
 import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
-import { type Generic } from "@/generic";
+import type { Generic } from "@/generic";
 import { useCombinedRefs, useHold, type UseHoldProps } from "@/hooks";
 import { Icon } from "@/icon";
 import { Text } from "@/text";

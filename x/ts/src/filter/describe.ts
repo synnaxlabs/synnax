@@ -81,8 +81,9 @@ const join = (terms: Conjunct[]): string =>
     .join(" and ");
 
 const disjunct = (terms: Conjunct[]): string => {
-  if (terms.length === 0) return "true";
-  if (terms.length === 1) return terms[0].text;
+  const [first, ...rest] = terms;
+  if (first == null) return "true";
+  if (rest.length === 0) return first.text;
   return `(${join(terms)})`;
 };
 
@@ -96,7 +97,7 @@ const conjuncts = (node: Node): Conjunct[] => {
   if (and != null) terms.push(...and.flatMap(conjuncts));
   if (or != null)
     if (or.length === 0) terms.push({ text: "false", disjunction: false });
-    else if (or.length === 1) terms.push(...conjuncts(or[0]));
+    else if (or.length === 1) terms.push(...or.flatMap(conjuncts));
     else
       terms.push({
         text: or.map((child) => disjunct(conjuncts(child))).join(" or "),

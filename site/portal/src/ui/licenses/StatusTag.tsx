@@ -9,9 +9,9 @@
 
 import { Status as LyraStatus } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Status } from "@/server/license/status";
+import type { Status } from "@/server/license/status";
 import { STATUS_LABELS } from "@/ui/format";
 
 const VARIANTS: Record<Status, "success" | "warning" | "error"> = {

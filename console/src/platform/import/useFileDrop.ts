@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Store } from "@reduxjs/toolkit";
+import type { Store } from "@reduxjs/toolkit";
 import {
   DisconnectedError,
   imex,
@@ -19,7 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { type Mosaic, Synnax } from "@synnaxlabs/pluto";
 
 import { FS } from "@/platform/fs";
-import { type BundleImporter } from "@/platform/import/import";
+import type { BundleImporter } from "@/platform/import/import";
 import { useImportBatch } from "@/platform/import/useImportBatch";
 import { isZipFile, zipFiles } from "@/platform/import/zip";
 import { Session } from "@/session";

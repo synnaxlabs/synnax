@@ -10,11 +10,11 @@
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:https";
-import { type AddressInfo } from "node:net";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { trustCA } from "@synnaxlabs/freighter";
+import { type Middleware, trustCA } from "@synnaxlabs/freighter";
 import { TimeSpan, url } from "@synnaxlabs/x";
 import {
   afterAll,
@@ -30,7 +30,7 @@ import {
 import { WebSocketServer } from "ws";
 import { z } from "zod";
 
-import { type connection } from "@/connection";
+import type { connection } from "@/connection";
 import {
   DisconnectedError,
   InvalidCredentialsError,
@@ -330,6 +330,16 @@ describe("connect", () => {
   });
 });
 
+describe("middleware", () => {
+  it("should run the middleware on each request", async () => {
+    const middleware = vi.fn<Middleware>(async (ctx, next) => await next(ctx));
+    const client = createTestClient({ middleware: [middleware] });
+    await client.channels.retrieve(["no-such-channel"]);
+    const targets = middleware.mock.calls.map(([ctx]) => ctx.target);
+    expect(targets.some((t) => t.endsWith("/channel/retrieve"))).toBe(true);
+  });
+});
+
 describe("denied change stream", () => {
   it("should connect with a warning when the user cannot stream changes", async () => {
     const root = createTestClient();
@@ -346,7 +356,7 @@ describe("denied change stream", () => {
     // the reads the user is allowed to make still work
     const created = await root.labels.create({
       name: "denied-stream",
-      color: "#000000",
+      color: { type: "fixed", value: "#000000" },
     });
     await expect(restricted.labels.retrieve(created.key)).resolves.toMatchObject({
       key: created.key,
@@ -400,6 +410,14 @@ describe("close", () => {
     await client.close();
     expect(performance.now() - start).toBeLessThan(5000);
   }, 10_000);
+
+  it("should close the client at the end of an await using block", async () => {
+    const client = createTestClient();
+    {
+      await using _ = client;
+    }
+    expect(client.connection.status.variant).toEqual("disabled");
+  });
 
   it("should settle the connection status on disabled", async () => {
     const client = createTestClient();

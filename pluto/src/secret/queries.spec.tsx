@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type secret } from "@synnaxlabs/client";
+import type { secret } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { assert, beforeAll, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";

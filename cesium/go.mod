@@ -30,9 +30,9 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50 // indirect
+	github.com/google/pprof v0.0.0-20261118010117-084b33a85f63 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.33.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.34.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -59,12 +59,12 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/mod v0.43.0 // indirect
-	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/net v0.63.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/text v0.44.0 // indirect
-	golang.org/x/tools v0.52.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
+	golang.org/x/tools v0.53.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20261118221215-c8830f628b3f // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261118221215-c8830f628b3f // indirect
 	google.golang.org/grpc v1.85.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )

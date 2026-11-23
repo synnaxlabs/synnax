@@ -10,20 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { assert, describe, expect, it } from "vitest";
 
-import {
-  buildParentOf,
-  canGroup,
-  canUngroup,
-  childrenOf,
-  closure,
-  createActions,
-  drillIn,
-  fanOutMoves,
-  lockMembers,
-  shielded,
-  ungroupActions,
-  withMembers,
-} from "@/schematic/group/group";
+import { Group } from "@/schematic/group";
 import { Node } from "@/schematic/node";
 
 const vent = schematic.nodeConfigZ.parse({ variant: "vent" });
@@ -80,7 +67,7 @@ const forestNodes = [
   node("l3", 70, 70),
 ];
 const forest = configsByKey(forestNodes);
-const forestParentOf = buildParentOf(forestNodes);
+const forestParentOf = Group.buildParentOf(forestNodes);
 
 const withLocked = (key: string): Record<string, schematic.ElementConfig> => ({
   ...forest,
@@ -96,7 +83,7 @@ const reduce = (
 describe("group", () => {
   describe("buildParentOf", () => {
     it("should map each grouped node to its group across the forest", () => {
-      const parentOf = buildParentOf(forestNodes);
+      const parentOf = Group.buildParentOf(forestNodes);
       expect(parentOf.size).toEqual(12);
       expect(parentOf.get("mid1")).toEqual("outer");
       expect(parentOf.get("mid2")).toEqual("outer");
@@ -111,7 +98,7 @@ describe("group", () => {
 
   describe("childrenOf", () => {
     it("should list the children of each group in node order", () => {
-      const children = childrenOf(forestParentOf);
+      const children = Group.childrenOf(forestParentOf);
       expect(children.get("outer")).toEqual(["mid1", "mid2", "s1"]);
       expect(children.get("mid1")).toEqual(["inner1", "s2", "s3"]);
       expect(children.get("side")).toEqual(["s8", "s9"]);
@@ -121,35 +108,39 @@ describe("group", () => {
 
   describe("canGroup", () => {
     it("should allow three loose symbols", () => {
-      expect(canGroup(["l1", "l2", "l3"], forestNodes, forestParentOf)).toEqual(true);
-    });
-
-    it("should reject a single symbol", () => {
-      expect(canGroup(["s6"], forestNodes, forestParentOf)).toEqual(false);
-    });
-
-    it("should reject a group selected with its members", () => {
-      const selected = withMembers(["outer"], forestParentOf);
-      expect(canGroup(selected, forestNodes, forestParentOf)).toEqual(false);
-    });
-
-    it("should reject members that resolve to the same outermost group", () => {
-      expect(canGroup(["s6", "s4", "s2", "s1"], forestNodes, forestParentOf)).toEqual(
-        false,
+      expect(Group.canGroup(["l1", "l2", "l3"], forestNodes, forestParentOf)).toEqual(
+        true,
       );
     });
 
+    it("should reject a single symbol", () => {
+      expect(Group.canGroup(["s6"], forestNodes, forestParentOf)).toEqual(false);
+    });
+
+    it("should reject a group selected with its members", () => {
+      const selected = Group.withMembers(["outer"], forestParentOf);
+      expect(Group.canGroup(selected, forestNodes, forestParentOf)).toEqual(false);
+    });
+
+    it("should reject members that resolve to the same outermost group", () => {
+      expect(
+        Group.canGroup(["s6", "s4", "s2", "s1"], forestNodes, forestParentOf),
+      ).toEqual(false);
+    });
+
     it("should allow deep members of different groups", () => {
-      expect(canGroup(["s6", "s8"], forestNodes, forestParentOf)).toEqual(true);
+      expect(Group.canGroup(["s6", "s8"], forestNodes, forestParentOf)).toEqual(true);
     });
 
     it("should allow a whole group plus a loose symbol", () => {
-      const selected = [...withMembers(["side"], forestParentOf), "l1"];
-      expect(canGroup(selected, forestNodes, forestParentOf)).toEqual(true);
+      const selected = [...Group.withMembers(["side"], forestParentOf), "l1"];
+      expect(Group.canGroup(selected, forestNodes, forestParentOf)).toEqual(true);
     });
 
     it("should ignore keys without nodes", () => {
-      expect(canGroup(["s6", "edge1"], forestNodes, forestParentOf)).toEqual(false);
+      expect(Group.canGroup(["s6", "edge1"], forestNodes, forestParentOf)).toEqual(
+        false,
+      );
     });
   });
 
@@ -163,7 +154,7 @@ describe("group", () => {
     ];
 
     it("should insert a group anchored at the members' min corner", () => {
-      const result = createActions({
+      const result = Group.createActions({
         selected: ["c", "a", "e", "b", "d"],
         nodes: flatNodes,
       });
@@ -189,7 +180,7 @@ describe("group", () => {
     });
 
     it("should group a member's outermost group, not the member", () => {
-      const result = createActions({
+      const result = Group.createActions({
         selected: ["s6", "l1", "s8"],
         nodes: forestNodes,
       });
@@ -219,13 +210,13 @@ describe("group", () => {
     });
 
     it("should return null when the selection resolves to one symbol", () => {
-      const result = createActions({ selected: ["l1"], nodes: forestNodes });
+      const result = Group.createActions({ selected: ["l1"], nodes: forestNodes });
       expect(result).toBeNull();
     });
 
     it("should return null when the selection holds one group and its members", () => {
-      const result = createActions({
-        selected: withMembers(["side"], forestParentOf),
+      const result = Group.createActions({
+        selected: Group.withMembers(["side"], forestParentOf),
         nodes: forestNodes,
       });
       expect(result).toBeNull();
@@ -234,7 +225,7 @@ describe("group", () => {
 
   describe("withMembers", () => {
     it("should add a selected group's members recursively", () => {
-      expect(withMembers(["outer"], forestParentOf)).toEqual([
+      expect(Group.withMembers(["outer"], forestParentOf)).toEqual([
         "outer",
         "mid1",
         "inner1",
@@ -250,7 +241,7 @@ describe("group", () => {
     });
 
     it("should close over each selected key", () => {
-      expect(withMembers(["inner1", "l1", "side"], forestParentOf)).toEqual([
+      expect(Group.withMembers(["inner1", "l1", "side"], forestParentOf)).toEqual([
         "inner1",
         "l1",
         "side",
@@ -262,7 +253,7 @@ describe("group", () => {
     });
 
     it("should not duplicate a member already selected", () => {
-      expect(withMembers(["s6", "inner1"], forestParentOf)).toEqual([
+      expect(Group.withMembers(["s6", "inner1"], forestParentOf)).toEqual([
         "s6",
         "inner1",
         "s7",
@@ -272,7 +263,7 @@ describe("group", () => {
 
   describe("fanOutMoves", () => {
     it("should apply a moved group's delta to every symbol inside it", () => {
-      const actions = fanOutMoves(doc(forestNodes), [
+      const actions = Group.fanOutMoves(doc(forestNodes), [
         schematic.setNodePosition({ key: "outer", position: { x: 5, y: -5 } }),
       ]);
       expect(actions.slice(1)).toEqual([
@@ -290,7 +281,7 @@ describe("group", () => {
     });
 
     it("should fan out each moved group in a batch", () => {
-      const actions = fanOutMoves(doc(forestNodes), [
+      const actions = Group.fanOutMoves(doc(forestNodes), [
         schematic.setNodePosition({ key: "mid2", position: { x: 31, y: 31 } }),
         schematic.setNodePosition({ key: "side", position: { x: 42, y: 38 } }),
       ]);
@@ -303,7 +294,7 @@ describe("group", () => {
     });
 
     it("should skip keys already moved in the batch", () => {
-      const actions = fanOutMoves(doc(forestNodes), [
+      const actions = Group.fanOutMoves(doc(forestNodes), [
         schematic.setNodePosition({ key: "mid1", position: { x: 20, y: 10 } }),
         schematic.setNodePosition({ key: "s2", position: { x: 0, y: 0 } }),
       ]);
@@ -314,7 +305,7 @@ describe("group", () => {
     });
 
     it("should fan out even when the delta is zero", () => {
-      const actions = fanOutMoves(doc(forestNodes), [
+      const actions = Group.fanOutMoves(doc(forestNodes), [
         schematic.setNodePosition({ key: "inner1", position: { x: 20, y: 20 } }),
       ]);
       expect(actions.slice(1)).toEqual([
@@ -328,18 +319,18 @@ describe("group", () => {
         schematic.setNodePosition({ key: "l1", position: { x: 1, y: 1 } }),
         schematic.setNodePosition({ key: "s2", position: { x: 2, y: 3 } }),
       ];
-      expect(fanOutMoves(doc(forestNodes), input)).toEqual(input);
+      expect(Group.fanOutMoves(doc(forestNodes), input)).toEqual(input);
     });
 
     it("should return batches without position changes unchanged", () => {
       const input = [schematic.removeNode({ key: "s2" })];
-      expect(fanOutMoves(doc(forestNodes), input)).toBe(input);
+      expect(Group.fanOutMoves(doc(forestNodes), input)).toBe(input);
     });
   });
 
   describe("lockMembers", () => {
     it("should mark every grouped symbol as non-draggable", () => {
-      const locked = lockMembers(forestNodes, forestParentOf, forest);
+      const locked = Group.lockMembers(forestNodes, forestParentOf, forest);
       locked.forEach((n, i) => {
         if (forestParentOf.has(n.key))
           expect(n).toEqual({ ...forestNodes[i], draggable: false });
@@ -348,11 +339,11 @@ describe("group", () => {
     });
 
     it("should return the input unchanged when there are no groups", () => {
-      expect(lockMembers(forestNodes, new Map(), {})).toBe(forestNodes);
+      expect(Group.lockMembers(forestNodes, new Map(), {})).toBe(forestNodes);
     });
 
     it("should mark a locked group's box as non-draggable", () => {
-      const locked = lockMembers(forestNodes, forestParentOf, withLocked("side"));
+      const locked = Group.lockMembers(forestNodes, forestParentOf, withLocked("side"));
       const byKey = new Map(locked.map((n) => [n.key, n]));
       expect(byKey.get("side")?.draggable).toBe(false);
       expect(byKey.get("outer")?.draggable).toBeUndefined();
@@ -362,7 +353,7 @@ describe("group", () => {
 
   describe("closure", () => {
     it("should expand a deep member to its outermost group and its contents", () => {
-      expect(closure(["s6"], forestParentOf)).toEqual([
+      expect(Group.closure(["s6"], forestParentOf)).toEqual([
         "outer",
         "mid1",
         "inner1",
@@ -378,15 +369,19 @@ describe("group", () => {
     });
 
     it("should pass loose symbols through", () => {
-      expect(closure(["l1", "l2"], forestParentOf)).toEqual(["l1", "l2"]);
+      expect(Group.closure(["l1", "l2"], forestParentOf)).toEqual(["l1", "l2"]);
     });
 
     it("should not duplicate a group clicked alongside its member", () => {
-      expect(closure(["s8", "side"], forestParentOf)).toEqual(["side", "s8", "s9"]);
+      expect(Group.closure(["s8", "side"], forestParentOf)).toEqual([
+        "side",
+        "s8",
+        "s9",
+      ]);
     });
 
     it("should expand each root of a multi-group selection", () => {
-      expect(closure(["s6", "l1", "s8"], forestParentOf)).toEqual([
+      expect(Group.closure(["s6", "l1", "s8"], forestParentOf)).toEqual([
         "outer",
         "l1",
         "side",
@@ -408,11 +403,11 @@ describe("group", () => {
 
   describe("drillIn", () => {
     it("should select a grouped member alone", () => {
-      expect(drillIn("s6", forestParentOf, forest)).toEqual(["s6"]);
+      expect(Group.drillIn("s6", forestParentOf, forest)).toEqual(["s6"]);
     });
 
     it("should select a nested group with its members", () => {
-      expect(drillIn("mid1", forestParentOf, forest)).toEqual([
+      expect(Group.drillIn("mid1", forestParentOf, forest)).toEqual([
         "mid1",
         "inner1",
         "s6",
@@ -423,87 +418,94 @@ describe("group", () => {
     });
 
     it("should not drill into an outermost group", () => {
-      expect(drillIn("outer", forestParentOf, forest)).toBeNull();
+      expect(Group.drillIn("outer", forestParentOf, forest)).toBeNull();
     });
 
     it("should not drill into a loose symbol", () => {
-      expect(drillIn("l1", forestParentOf, forest)).toBeNull();
+      expect(Group.drillIn("l1", forestParentOf, forest)).toBeNull();
     });
 
     it("should not drill into an unknown key", () => {
-      expect(drillIn("nope", forestParentOf, forest)).toBeNull();
+      expect(Group.drillIn("nope", forestParentOf, forest)).toBeNull();
     });
 
     it("should not drill under a locked root group", () => {
       const configs = withLocked("outer");
-      expect(drillIn("s6", forestParentOf, configs)).toBeNull();
-      expect(drillIn("mid1", forestParentOf, configs)).toBeNull();
+      expect(Group.drillIn("s6", forestParentOf, configs)).toBeNull();
+      expect(Group.drillIn("mid1", forestParentOf, configs)).toBeNull();
     });
 
     it("should not drill under a locked inner group", () => {
       const configs = withLocked("mid1");
-      expect(drillIn("s2", forestParentOf, configs)).toBeNull();
-      expect(drillIn("s6", forestParentOf, configs)).toBeNull();
-      expect(drillIn("s4", forestParentOf, configs)).toEqual(["s4"]);
+      expect(Group.drillIn("s2", forestParentOf, configs)).toBeNull();
+      expect(Group.drillIn("s6", forestParentOf, configs)).toBeNull();
+      expect(Group.drillIn("s4", forestParentOf, configs)).toEqual(["s4"]);
     });
 
     it("should still drill in a sibling unlocked group", () => {
-      expect(drillIn("s8", forestParentOf, withLocked("outer"))).toEqual(["s8"]);
+      expect(Group.drillIn("s8", forestParentOf, withLocked("outer"))).toEqual(["s8"]);
     });
   });
 
   describe("shielded", () => {
     it("should shield members of a locked group but not the box itself", () => {
       const keys = ["side", "s8", "s9", "l1"];
-      expect(shielded(keys, forestParentOf, withLocked("side"))).toEqual(
+      expect(Group.shielded(keys, forestParentOf, withLocked("side"))).toEqual(
         new Set(["s8", "s9"]),
       );
     });
 
     it("should shield the whole subtree of a locked outer group", () => {
-      const keys = withMembers(["outer"], forestParentOf);
-      expect(shielded(keys, forestParentOf, withLocked("outer"))).toEqual(
+      const keys = Group.withMembers(["outer"], forestParentOf);
+      expect(Group.shielded(keys, forestParentOf, withLocked("outer"))).toEqual(
         new Set(keys.filter((k) => k !== "outer")),
       );
     });
 
     it("should shield nothing when no group is locked", () => {
       expect(
-        shielded(withMembers(["side"], forestParentOf), forestParentOf, forest),
+        Group.shielded(
+          Group.withMembers(["side"], forestParentOf),
+          forestParentOf,
+          forest,
+        ),
       ).toEqual(new Set());
     });
   });
 
   describe("canUngroup", () => {
     it("should allow a selection that includes a group", () => {
-      expect(canUngroup(["l1", "mid2", "s4"], forest)).toEqual(true);
+      expect(Group.canUngroup(["l1", "mid2", "s4"], forest)).toEqual(true);
     });
 
     it("should reject members selected without their groups", () => {
-      expect(canUngroup(["s6", "s7", "s2", "s9"], forest)).toEqual(false);
+      expect(Group.canUngroup(["s6", "s7", "s2", "s9"], forest)).toEqual(false);
     });
 
     it("should reject a selection with no groups", () => {
-      expect(canUngroup(["l1", "l2"], forest)).toEqual(false);
+      expect(Group.canUngroup(["l1", "l2"], forest)).toEqual(false);
     });
   });
 
   describe("ungroupActions", () => {
     it("should remove a selected group and free its members", () => {
-      const result = ungroupActions(withMembers(["side"], forestParentOf), forestNodes);
+      const result = Group.ungroupActions(
+        Group.withMembers(["side"], forestParentOf),
+        forestNodes,
+      );
       expect(result?.actions).toEqual([schematic.removeNode({ key: "side" })]);
       expect(result?.freed).toEqual(["s8", "s9"]);
     });
 
     it("should target a selected member's immediate group", () => {
-      const result = ungroupActions(["s6"], forestNodes);
+      const result = Group.ungroupActions(["s6"], forestNodes);
       expect(result?.actions).toEqual([schematic.removeNode({ key: "inner1" })]);
       expect(result?.freed).toEqual(["s6", "s7"]);
     });
 
     it("should remove only the outermost group of a closed selection", () => {
-      const result = ungroupActions(
-        withMembers(["outer"], forestParentOf),
+      const result = Group.ungroupActions(
+        Group.withMembers(["outer"], forestParentOf),
         forestNodes,
       );
       expect(result?.actions).toEqual([schematic.removeNode({ key: "outer" })]);
@@ -522,10 +524,13 @@ describe("group", () => {
     });
 
     it("should promote a removed middle group's members into its parent", () => {
-      const result = ungroupActions(withMembers(["mid1"], forestParentOf), forestNodes);
+      const result = Group.ungroupActions(
+        Group.withMembers(["mid1"], forestParentOf),
+        forestNodes,
+      );
       expect(result?.actions).toEqual([schematic.removeNode({ key: "mid1" })]);
       expect(result?.freed).toEqual(["inner1", "s2", "s3", "s6", "s7"]);
-      const parentOf = buildParentOf(reduce(forestNodes, result?.actions ?? []));
+      const parentOf = Group.buildParentOf(reduce(forestNodes, result?.actions ?? []));
       expect(parentOf.get("inner1")).toEqual("outer");
       expect(parentOf.get("s2")).toEqual("outer");
       expect(parentOf.get("s6")).toEqual("inner1");
@@ -533,10 +538,10 @@ describe("group", () => {
 
     it("should peel a chain one layer per ungroup", () => {
       let nodes = forestNodes;
-      let selected = withMembers(["outer"], forestParentOf);
+      let selected = Group.withMembers(["outer"], forestParentOf);
       const layers: string[][] = [];
       while (layers.length < 3) {
-        const result = ungroupActions(selected, nodes);
+        const result = Group.ungroupActions(selected, nodes);
         expect(result).not.toBeNull();
         if (result == null) break;
         layers.push(
@@ -548,25 +553,25 @@ describe("group", () => {
         selected = result.freed;
       }
       expect(layers).toEqual([["outer"], ["mid1", "mid2"], ["inner1"]]);
-      expect(ungroupActions(selected, nodes)).toBeNull();
+      expect(Group.ungroupActions(selected, nodes)).toBeNull();
     });
 
     it("should return null when the selection touches no group", () => {
-      expect(ungroupActions(["l1", "l2"], forestNodes)).toBeNull();
+      expect(Group.ungroupActions(["l1", "l2"], forestNodes)).toBeNull();
     });
   });
 
   describe("grouping cycle", () => {
     it("should release members on ungroup and reclaim them on regroup", () => {
       let nodes = [group("g"), node("a", 0, 0, "g"), node("b", 50, 50, "g")];
-      const ungrouped = ungroupActions(["g", "a", "b"], nodes);
+      const ungrouped = Group.ungroupActions(["g", "a", "b"], nodes);
       nodes = reduce(nodes, ungrouped?.actions ?? []);
-      expect(buildParentOf(nodes).has("a")).toEqual(false);
-      const regrouped = createActions({ selected: ["a", "b"], nodes });
+      expect(Group.buildParentOf(nodes).has("a")).toEqual(false);
+      const regrouped = Group.createActions({ selected: ["a", "b"], nodes });
       const action = regrouped?.actions[0];
       assert(action?.type === "set_node");
       nodes = reduce(nodes, regrouped?.actions ?? []);
-      expect(buildParentOf(nodes).get("a")).toEqual(action.setNode.node.key);
+      expect(Group.buildParentOf(nodes).get("a")).toEqual(action.setNode.node.key);
     });
 
     it("should keep an inner group's members after the outer ungroups", () => {
@@ -576,11 +581,11 @@ describe("group", () => {
         node("c", 0, 0, "outer"),
         node("a", 0, 0, "inner"),
       ];
-      const result = ungroupActions(
-        withMembers(["outer"], buildParentOf(nodes)),
+      const result = Group.ungroupActions(
+        Group.withMembers(["outer"], Group.buildParentOf(nodes)),
         nodes,
       );
-      const parentOf = buildParentOf(reduce(nodes, result?.actions ?? []));
+      const parentOf = Group.buildParentOf(reduce(nodes, result?.actions ?? []));
       expect(parentOf.get("a")).toEqual("inner");
       expect(parentOf.has("inner")).toEqual(false);
     });

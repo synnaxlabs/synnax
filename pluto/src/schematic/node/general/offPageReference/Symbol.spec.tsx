@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";

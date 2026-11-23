@@ -16,7 +16,7 @@ import {
   SCOPE_PAD,
   SCOPE_SMOOTH_S,
 } from "@/director/constants";
-import { type Plane, type StageSample } from "@/director/stage";
+import type { Plane, StageSample } from "@/director/stage";
 import { FPS, type Overlays } from "@/film";
 import { type Mark, marks, type Point, type Rect, type Timeline } from "@/timeline";
 

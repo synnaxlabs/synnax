@@ -14,7 +14,7 @@ import { Errors as PErrors } from "@synnaxlabs/pluto";
 import { type ReactElement, useLayoutEffect } from "react";
 
 import { Errors } from "@/platform/errors";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 
 const [BusyContext, useSetBusy] = context.create<Session.Modals.Entry["setBusy"]>({
   displayName: "Modals.BusyContext",

@@ -11,7 +11,7 @@ import "@/platform/section/Section.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header as Base } from "@synnaxlabs/lyra/header";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

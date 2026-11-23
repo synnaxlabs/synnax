@@ -468,59 +468,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		interval: cfg.CollectionInterval,
 		stop:     s.stopCollector,
 	}
-	idx := []channel.Channel{{
-		Name:     namePrefix + "time",
-		DataType: telem.TimestampT,
-		IsIndex:  true,
-		Group:    &s.group.Key,
-	}}
-	off, err := openChannels(ctx, cfg, s.group.Key, idx, createChannel(cfg))
-	if err != nil {
-		return nil, err
-	}
-	warnings := offErrors(off, len(idx))
 	var metricsChannels []channel.Channel
-	if len(off) == 0 {
-		metrics := s.createMetrics(namePrefix, idx[0].LocalKey)
-		chs := lo.Map(metrics, func(m metric, _ int) channel.Channel {
-			m.ch.Group = &s.group.Key
-			return m.ch
-		})
-		if off, err = openChannels(
-			ctx,
-			cfg,
-			s.group.Key,
-			chs,
-			createChannel(cfg),
-		); err != nil {
-			return nil, err
-		}
-		warnings = append(warnings, offErrors(off, len(chs))...)
-		opened := make(map[string]channel.Channel, len(metrics))
-		for i, m := range metrics {
-			if _, isOff := off[i]; !isOff {
-				opened[m.ch.Name] = chs[i]
-				m.ch = chs[i]
-				c.metrics = append(c.metrics, m)
-				metricsChannels = append(metricsChannels, chs[i])
-			}
-		}
-		calculated := createCalculatedMetrics(namePrefix, opened)
-		outputs := lo.Map(calculated, func(m calculatedMetric, _ int) channel.Channel {
-			return channel.Channel{Name: m.name, Group: &s.group.Key}
-		})
-		if off, err = openChannels(
-			ctx,
-			cfg,
-			s.group.Key,
-			outputs,
-			createOutput(cfg, calculated),
-		); err != nil {
-			return nil, err
-		}
-		warnings = append(warnings, offErrors(off, len(outputs))...)
-	}
-	if err = s.report(ctx, warnings); err != nil {
+	if c.metrics, metricsChannels, err = s.createChannels(ctx, namePrefix); err != nil {
 		return nil, err
 	}
 	if len(metricsChannels) == 0 {
@@ -541,15 +490,88 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.run(w, c)
+	return s, nil
+}
 
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+// createChannels opens the index, metric, and calculated channels, and reports each
+// one that a name blocks. It returns the metrics bound to their stored channels.
+func (s *Service) createChannels(
+	ctx context.Context,
+	namePrefix string,
+) ([]metric, []channel.Channel, error) {
+	cfg := s.cfg
+	idx := []channel.Channel{{
+		Name:     namePrefix + "time",
+		DataType: telem.TimestampT,
+		IsIndex:  true,
+		Group:    &s.group.Key,
+	}}
+	off, err := openChannels(ctx, cfg, s.group.Key, idx, createChannel(cfg))
+	if err != nil {
+		return nil, nil, err
+	}
+	warnings := offErrors(off, len(idx))
+	var (
+		metrics         []metric
+		metricsChannels []channel.Channel
+	)
+	if len(off) == 0 {
+		all := s.createMetrics(namePrefix, idx[0].LocalKey)
+		chs := lo.Map(all, func(m metric, _ int) channel.Channel {
+			m.ch.Group = &s.group.Key
+			return m.ch
+		})
+		if off, err = openChannels(
+			ctx,
+			cfg,
+			s.group.Key,
+			chs,
+			createChannel(cfg),
+		); err != nil {
+			return nil, nil, err
+		}
+		warnings = append(warnings, offErrors(off, len(chs))...)
+		opened := make(map[string]channel.Channel, len(all))
+		for i, m := range all {
+			if _, isOff := off[i]; !isOff {
+				opened[m.ch.Name] = chs[i]
+				m.ch = chs[i]
+				metrics = append(metrics, m)
+				metricsChannels = append(metricsChannels, chs[i])
+			}
+		}
+		calculated := createCalculatedMetrics(namePrefix, opened)
+		outputs := lo.Map(calculated, func(m calculatedMetric, _ int) channel.Channel {
+			return channel.Channel{Name: m.name, Group: &s.group.Key}
+		})
+		if off, err = openChannels(
+			ctx,
+			cfg,
+			s.group.Key,
+			outputs,
+			createOutput(cfg, calculated),
+		); err != nil {
+			return nil, nil, err
+		}
+		warnings = append(warnings, offErrors(off, len(outputs))...)
+	}
+	if err = s.report(ctx, warnings); err != nil {
+		return nil, nil, err
+	}
+	return metrics, metricsChannels, nil
+}
+
+// run starts the pipeline that writes the metrics that c collects through w.
+func (s *Service) run(w framer.StreamWriter, c *collector) {
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
 	p := plumber.New()
 	p.SetSegment[framer.WriterRequest, framer.WriterResponse](writerAddr, w)
 	p.SetSource[framer.WriterRequest](collectorAddr, c)
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
 	o.OnChange(func(_ context.Context, response framer.WriterResponse) {
 		if response.Err != nil {
-			cfg.L.Error("failed to write metrics to node", zap.Error(response.Err))
+			s.cfg.L.Error("failed to write metrics to node", zap.Error(response.Err))
 		}
 	})
 	p.SetSink[framer.WriterResponse](loggerAddr, o)
@@ -557,7 +579,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	p.MustConnect[framer.WriterResponse](writerAddr, loggerAddr, channelBufferSize)
 	s.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-	return s, nil
 }
 
 // Close gracefully stops the service, waiting for all internal goroutines to exit.

@@ -8,14 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { narrow } from "@/narrow";
-import {
-  type Guard,
-  type Insert,
-  type Move,
-  type Remove,
-  type Set,
-} from "@/patch/types.gen";
-import { type record } from "@/record";
+import type { Guard, Insert, Move, Remove, Set } from "@/patch/types.gen";
+import type { record } from "@/record";
 
 /** A path action, tagged the way a document's action union tags its variants. */
 export type Action =
@@ -221,8 +215,7 @@ const descend = (
 ): Found | null => {
   let node: unknown = doc;
   let created: Created | undefined;
-  for (let depth = 0; depth < path.length; depth++) {
-    const seg = path[depth];
+  for (const [depth, seg] of path.entries()) {
     if (Array.isArray(node)) {
       const i = entryIndex(node, seg);
       if (i < 0) return null;
@@ -258,7 +251,8 @@ const guardsHold = (doc: record.Unknown, guards: Guard[]): boolean =>
 const undoCreate = (path: string[], created: Created, guards: Guard[]): Action => {
   const createdPath = path.slice(0, created.depth + 1);
   if (created.wasNull) return set(createdPath, null, guards);
-  return remove(createdPath.slice(0, -1), createdPath[createdPath.length - 1], guards);
+  const [parentPath, key] = split(createdPath);
+  return remove(parentPath, key, guards);
 };
 
 // A write to this field changes a prototype, so JavaScript cannot hold it as data.
@@ -274,8 +268,9 @@ const field = (node: record.Unknown, name: string): unknown =>
   Object.hasOwn(node, name) ? node[name] : undefined;
 
 const split = (path: string[]): [string[], string] => {
-  if (path.length === 0) throw new Error("the path is empty");
-  return [path.slice(0, -1), path[path.length - 1]];
+  const last = path.at(-1);
+  if (last == null) throw new Error("the path is empty");
+  return [path.slice(0, -1), last];
 };
 
 const position = (list: unknown[], after: string | undefined): number => {
