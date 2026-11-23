@@ -56,27 +56,47 @@ func newTooManyError(count uint32) error {
 	return errors.Wrapf(ErrTooMany, "limit is %d channels", count)
 }
 
+// data returns the message of err without ref. A bare sentinel keeps its own message
+// so that clients in other languages receive text.
+func data(err, ref error) string {
+	if msg := errors.MessageWithout(err, ref); msg != "" {
+		return msg
+	}
+	return err.Error()
+}
+
+// wrap decodes data into ref. Data equal to the message of ref is the bare sentinel.
+func wrap(ref error, data string) error {
+	if data == ref.Error() {
+		return ref
+	}
+	return errors.Wrap(ref, data)
+}
+
 func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrMissing) {
-		return errors.Payload{Type: missingType, Data: err.Error()}, true
+		return errors.Payload{Type: missingType, Data: data(err, ErrMissing)}, true
 	}
 	if errors.CheapIs(err, ErrExpired) {
-		return errors.Payload{Type: expiredType, Data: err.Error()}, true
+		return errors.Payload{Type: expiredType, Data: data(err, ErrExpired)}, true
 	}
 	if errors.CheapIs(err, ErrInvalid) {
-		return errors.Payload{Type: invalidType, Data: err.Error()}, true
+		return errors.Payload{Type: invalidType, Data: data(err, ErrInvalid)}, true
 	}
 	if errors.CheapIs(err, ErrEdition) {
-		return errors.Payload{Type: editionType, Data: err.Error()}, true
+		return errors.Payload{Type: editionType, Data: data(err, ErrEdition)}, true
 	}
 	if errors.CheapIs(err, ErrFingerprint) {
-		return errors.Payload{Type: fingerprintType, Data: err.Error()}, true
+		return errors.Payload{
+			Type: fingerprintType,
+			Data: data(err, ErrFingerprint),
+		}, true
 	}
 	if errors.CheapIs(err, ErrTooMany) {
-		return errors.Payload{Type: tooManyType, Data: err.Error()}, true
+		return errors.Payload{Type: tooManyType, Data: data(err, ErrTooMany)}, true
 	}
 	if errors.CheapIs(err, ErrLicense) {
-		return errors.Payload{Type: errorType, Data: err.Error()}, true
+		return errors.Payload{Type: errorType, Data: data(err, ErrLicense)}, true
 	}
 	return errors.Payload{}, false
 }
@@ -84,20 +104,20 @@ func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 func decode(_ *errors.Codec, p errors.Payload) (error, bool) {
 	switch p.Type {
 	case missingType:
-		return errors.Wrap(ErrMissing, p.Data), true
+		return wrap(ErrMissing, p.Data), true
 	case expiredType:
-		return errors.Wrap(ErrExpired, p.Data), true
+		return wrap(ErrExpired, p.Data), true
 	case invalidType:
-		return errors.Wrap(ErrInvalid, p.Data), true
+		return wrap(ErrInvalid, p.Data), true
 	case editionType:
-		return errors.Wrap(ErrEdition, p.Data), true
+		return wrap(ErrEdition, p.Data), true
 	case fingerprintType:
-		return errors.Wrap(ErrFingerprint, p.Data), true
+		return wrap(ErrFingerprint, p.Data), true
 	case tooManyType:
-		return errors.Wrap(ErrTooMany, p.Data), true
+		return wrap(ErrTooMany, p.Data), true
 	}
 	if strings.HasPrefix(p.Type, errorType) {
-		return errors.Wrap(ErrLicense, p.Data), true
+		return wrap(ErrLicense, p.Data), true
 	}
 	return nil, false
 }

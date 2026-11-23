@@ -47,15 +47,12 @@ var _ = Describe("Errors", func() {
 		func(base error) {
 			codec := errors.NewCodec(query.ErrorProvider())
 			err := errors.Wrap(base, "channel 5")
-			hopped := codec.Decode(
+			Expect(codec.Decode(
 				codec.Encode(codec.Decode(codec.Encode(err, false)), false),
-			)
-			Expect(hopped).To(MatchError(err.Error()))
+			)).To(MatchError(err.Error()))
 			pld := codec.Encode(base, false)
 			Expect(pld.Data).To(Equal(base.Error()))
-			bare := codec.Decode(pld)
-			Expect(bare).To(Equal(base))
-			Expect(bare).To(MatchError(base.Error()))
+			Expect(codec.Decode(pld)).To(Equal(base))
 		},
 		Entry("not found", query.ErrNotFound),
 		Entry("unique violation", query.ErrUniqueViolation),
