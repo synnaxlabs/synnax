@@ -184,14 +184,18 @@ describe("trustCA", () => {
 
   describe("in Node versions without tls.getCACertificates", () => {
     beforeAll(() => {
-      vi.doMock("node:tls", async (importOriginal) => ({
-        ...(await importOriginal<object>()),
+      const tls = {
+        ...process.getBuiltinModule("node:tls"),
         getCACertificates: undefined,
-      }));
+      };
+      const getBuiltinModule = process.getBuiltinModule.bind(process);
+      vi.spyOn(process, "getBuiltinModule").mockImplementation((id: string) =>
+        id === "node:tls" ? tls : getBuiltinModule(id),
+      );
     });
 
     afterAll(() => {
-      vi.doUnmock("node:tls");
+      vi.restoreAllMocks();
     });
 
     afterEach(() => {

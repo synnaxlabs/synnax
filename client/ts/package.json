@@ -59,11 +59,13 @@
     "@vitest/coverage-v8": "catalog:",
     "@types/node": "catalog:",
     "@types/ws": "catalog:",
+    "esbuild": "catalog:",
     "eslint": "catalog:",
     "playwright": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
+    "webpack": "catalog:",
     "ws": "catalog:"
   },
   "type": "module",
