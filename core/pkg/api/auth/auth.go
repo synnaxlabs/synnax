@@ -11,12 +11,14 @@ package auth
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
@@ -32,12 +34,13 @@ import (
 type Credentials = auth.Credentials
 
 // HeldTables returns the tables of the records that a user or rack holds: its API keys,
-// password, and sessions. Pass them as bind.ServiceConfig.Held.
+// password, provider links, and sessions. Pass them as bind.ServiceConfig.Held.
 func HeldTables() []string {
 	return []string{
 		types.Name[apikey.APIKey](),
 		types.Name[password.Password](),
 		types.Name[auth.Session](),
+		types.Name[oidc.Link](),
 	}
 }
 
@@ -72,6 +75,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	APIKey *apikey.Service
+	// OIDC stores provider links and checks proofs of provider accounts.
+	//
+	// [REQUIRED]
+	OIDC *oidc.Service
 	// User stores and retrieves users.
 	//
 	// [REQUIRED]
@@ -98,6 +105,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Auth = override.Nil(c.Auth, other.Auth)
 	c.Password = override.Nil(c.Password, other.Password)
 	c.APIKey = override.Nil(c.APIKey, other.APIKey)
+	c.OIDC = override.Nil(c.OIDC, other.OIDC)
 	c.User = override.Nil(c.User, other.User)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Identity = override.If(
@@ -115,6 +123,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("auth", c.Auth)
 	v.NotNil("password", c.Password)
 	v.NotNil("api_key", c.APIKey)
+	v.NotNil("oidc", c.OIDC)
 	v.NotNil("user", c.User)
 	v.NotNil("rbac", c.RBAC)
 	v.Ternary("identity.key", c.Identity.Key == uuid.Nil(), "must be set")
@@ -128,6 +137,7 @@ type Service struct {
 	auth     *auth.Service
 	password *password.Service
 	apiKey   *apikey.Service
+	oidc     *oidc.Service
 	user     *user.Service
 	access   *rbac.Service
 	identity cluster.Identity
@@ -143,6 +153,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		auth:     cfg.Auth,
 		password: cfg.Password,
 		apiKey:   cfg.APIKey,
+		oidc:     cfg.OIDC,
 		user:     cfg.User,
 		access:   cfg.RBAC,
 		identity: cfg.Identity,
@@ -200,11 +211,14 @@ type ChangePasswordRequest struct {
 
 // PrepareChangePassword checks the credentials of req and hashes its new password. It
 // returns [auth.ErrInvalidCredentials] when the credentials match no password, and a
-// validation error when the new password is empty.
+// validation error when the password method is off or the new password is empty.
 func (s *Service) PrepareChangePassword(
 	ctx context.Context,
 	req ChangePasswordRequest,
 ) (password.Hash, error) {
+	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return password.Hash{}, err
+	}
 	return s.password.HashProven(
 		ctx,
 		auth.PasswordProof{Credentials: req.Credentials},
@@ -231,4 +245,29 @@ func (s *Service) ChangePassword(
 
 func proofOf(creds Credentials) auth.Proof {
 	return auth.Proof{Variant: auth.PasswordProof{Credentials: creds}}
+}
+
+// MethodsResponse lists the login methods the Core accepts.
+type MethodsResponse struct {
+	// Methods are the accepted login methods, sorted.
+	Methods []auth.Method `json:"methods" msgpack:"methods"`
+	// Providers are where to log in through each OpenID Connect provider that the Core
+	// has reached. It is empty when the Core does not accept the oidc method.
+	Providers []OIDCLogin `json:"providers" msgpack:"providers"`
+}
+
+// Methods returns the login methods the Core accepts. It needs no session.
+func (s *Service) Methods(context.Context, struct{}) (MethodsResponse, error) {
+	res := MethodsResponse{Methods: s.auth.Methods(), Providers: []OIDCLogin{}}
+	if !slices.Contains(res.Methods, auth.MethodOIDC) {
+		return res, nil
+	}
+	for _, l := range s.oidc.Logins() {
+		res.Providers = append(res.Providers, OIDCLogin{
+			Provider:              l.Provider,
+			AuthorizationEndpoint: l.AuthorizationEndpoint,
+			ClientID:              l.ClientID,
+		})
+	}
+	return res, nil
 }

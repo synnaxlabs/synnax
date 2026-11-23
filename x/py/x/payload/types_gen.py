@@ -15,22 +15,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from x import telem
 from x.payload.float import Float
 from x.payload.integer import Integer, Unsigned
-
-TIME_FORMAT_ISO8601: Literal["iso8601"] = "iso8601"
-
-TIME_FORMAT_UNIX_SEC: Literal["unix_sec"] = "unix_sec"
-
-TIME_FORMAT_UNIX_MS: Literal["unix_ms"] = "unix_ms"
-
-TIME_FORMAT_UNIX_US: Literal["unix_us"] = "unix_us"
-
-TIME_FORMAT_UNIX_NS: Literal["unix_ns"] = "unix_ns"
-
-
-TimeFormat = Literal["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]
 
 KIND_FLOAT: Literal["float"] = "float"
 
@@ -62,6 +48,19 @@ Kind = Literal[
     "uuid",
     "bytes",
 ]
+
+TIME_FORMAT_ISO8601: Literal["iso8601"] = "iso8601"
+
+TIME_FORMAT_UNIX_SEC: Literal["unix_sec"] = "unix_sec"
+
+TIME_FORMAT_UNIX_MS: Literal["unix_ms"] = "unix_ms"
+
+TIME_FORMAT_UNIX_US: Literal["unix_us"] = "unix_us"
+
+TIME_FORMAT_UNIX_NS: Literal["unix_ns"] = "unix_ns"
+
+
+TimeFormat = Literal["iso8601", "unix_sec", "unix_ms", "unix_us", "unix_ns"]
 
 JSON_TYPE_NUMBER: Literal["number"] = "number"
 
@@ -149,20 +148,6 @@ class BooleanEntry(BaseModel):
     value: bool
 
 
-class TimestampRead(BaseModel):
-    """Holds the options of a field that reads a timestamp.
-
-    Attributes:
-        time_format: Is the encoding of the timestamp in the payload.
-        fill: Is written when the payload has no value. Absent requires one.
-    """
-
-    time_format: TimeFormat
-    fill: telem.TimeStamp | None = Field(
-        default=None, ge=-9223372036854775808, le=9223372036854775807
-    )
-
-
 class EnumEntry(BaseModel):
     """Maps a string label in a payload to a numeric channel value for enum-style
     parsing (e.g. "ON" -> 1, "OFF" -> 0).
@@ -174,71 +159,3 @@ class EnumEntry(BaseModel):
 
     label: str = ""
     value: float = 0
-
-
-class FloatRead(BaseModel):
-    """Holds the options of a field that reads a float.
-
-    Attributes:
-        data_type: Is the data type of a new channel. Absent for an existing one.
-        enum_values: Maps payload labels to channel values.
-        fill: Is written when the payload has no value. Absent requires one.
-    """
-
-    data_type: telem.DataType | None = None
-    enum_values: list[FloatEntry] = Field(default_factory=list)
-    fill: Float | None = None
-
-
-class IntegerRead(BaseModel):
-    """Holds the options of a field that reads a signed integer.
-
-    Attributes:
-        data_type: Is the data type of a new channel. Absent for an existing one.
-        enum_values: Maps payload labels to channel values.
-        fill: Is written when the payload has no value. Absent requires one.
-    """
-
-    data_type: telem.DataType | None = None
-    enum_values: list[IntegerEntry] = Field(default_factory=list)
-    fill: Integer | None = Field(
-        default=None, ge=-9223372036854775808, le=9223372036854775807
-    )
-
-
-class UnsignedRead(BaseModel):
-    """Holds the options of a field that reads an unsigned integer.
-
-    Attributes:
-        data_type: Is the data type of a new channel. Absent for an existing one.
-        enum_values: Maps payload labels to channel values.
-        fill: Is written when the payload has no value. Absent requires one.
-    """
-
-    data_type: telem.DataType | None = None
-    enum_values: list[UnsignedEntry] = Field(default_factory=list)
-    fill: Unsigned | None = Field(default=None, ge=0, le=18446744073709551615)
-
-
-class StringRead(BaseModel):
-    """Holds the options of a field that reads a string.
-
-    Attributes:
-        enum_values: Maps payload labels to channel values.
-        fill: Is written when the payload has no value. Absent requires one.
-    """
-
-    enum_values: list[StringEntry] = Field(default_factory=list)
-    fill: str | None = None
-
-
-class BooleanRead(BaseModel):
-    """Holds the options of a field that reads a boolean.
-
-    Attributes:
-        enum_values: Maps payload labels to channel values.
-        fill: Is written when the payload has no value. Absent requires one.
-    """
-
-    enum_values: list[BooleanEntry] = Field(default_factory=list)
-    fill: bool | None = None

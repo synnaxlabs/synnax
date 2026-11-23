@@ -15,7 +15,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from x import payload
-from x.payload import Unsigned
+from x.payload import Float, Integer, Unsigned
 from x.testutil import assert_eventually
 
 DBC = b"""VERSION ""
@@ -28,6 +28,11 @@ BO_ 256 EngineStatus: 8 ECU
 """
 
 
+def problems_of(problems: list[sy.PathError]) -> list[tuple[str, str]]:
+    """:returns: the dotted path and the message of each problem."""
+    return [(".".join(p.path), str(p.error)) for p in problems]
+
+
 def create_icd(name: str = "ICD") -> sy.ICD:
     return sy.ICD(
         name=name,
@@ -38,14 +43,16 @@ def create_icd(name: str = "ICD") -> sy.ICD:
                     identifier=sy.icd.CanIdentifier(id=0x101, extended=False, fd=False),
                     length=8,
                     fields=[
-                        sy.icd.BinaryField(name="state", start_bit=0, bit_length=8),
-                        sy.icd.BinaryField(
+                        sy.icd.UnsignedBinaryField(
+                            name="state", start_bit=0, bit_length=8
+                        ),
+                        sy.icd.IntegerBinaryField(
                             name="temperature",
                             start_bit=8,
                             bit_length=16,
-                            kind="integer",
                             scale=0.1,
                             units="degC",
+                            default=payload.Integer(250),
                         ),
                     ],
                 ),
@@ -71,13 +78,13 @@ class TestICD:
         assert payload.length == 8
         assert len(payload.fields) == 2
         temp = payload.fields[1]
-        assert isinstance(temp, sy.icd.BinaryField)
+        assert isinstance(temp, sy.icd.IntegerBinaryField)
         assert temp.name == "temperature"
         assert temp.start_bit == 8
         assert temp.bit_length == 16
-        assert temp.kind == "integer"
         assert temp.scale == 0.1
         assert temp.units == "degC"
+        assert temp.default == Integer(250)
         keys = [msg.key, *(f.key for f in payload.fields)]
         assert len(set(keys)) == len(keys)
 
@@ -97,6 +104,7 @@ class TestICD:
             sy.icd.BytesJSONField(name="blob", pointer="/blob"),
         ]
         match = sy.icd.UnsignedJSONMatch(pointer="/seq", value=Unsigned(2**64 - 1))
+        present = sy.icd.PresentJSONMatch(pointer="/fault")
         ic = client.icds.create(
             sy.ICD(
                 name="JSON",
@@ -104,11 +112,23 @@ class TestICD:
                     sy.icd.Message(
                         name="Reading",
                         payload=sy.icd.JSONPayload(match=match, fields=fields),
-                    )
+                    ),
+                    sy.icd.Message(
+                        name="Fault",
+                        payload=sy.icd.JSONPayload(
+                            match=present,
+                            fields=[
+                                sy.icd.StringJSONField(name="fault", pointer="/fault")
+                            ],
+                        ),
+                    ),
                 ],
             )
         )
         assert client.icds.retrieve(key=ic.key) == ic
+        fault = ic.messages[1].payload
+        assert isinstance(fault, sy.icd.JSONPayload)
+        assert fault.match == present
         payload = ic.messages[0].payload
         assert isinstance(payload, sy.icd.JSONPayload)
         assert payload.match == match
@@ -163,8 +183,28 @@ class TestICD:
                 name="time",
                 pointer="/ts",
                 time_format="unix_ns",
-                default=sy.TimeStamp(2**62 + 1),
+                default=sy.icd.ConstantTimestampDefault(value=sy.TimeStamp(2**62 + 1)),
             ),
+            sy.icd.TimestampJSONField(
+                name="sent",
+                pointer="/sent",
+                time_format="iso8601",
+                default=sy.icd.NowTimestampDefault(),
+            ),
+            sy.icd.JSONJSONField(
+                name="config", pointer="/config", default='{"mode": "auto"}'
+            ),
+            sy.icd.UuidJSONField(
+                name="device",
+                pointer="/device",
+                default=sy.icd.ConstantUUIDDefault(value=uuid4()),
+            ),
+            sy.icd.UuidJSONField(
+                name="request",
+                pointer="/request",
+                default=sy.icd.RandomUUIDDefault(),
+            ),
+            sy.icd.BytesJSONField(name="raw", pointer="/raw", default="AQI="),
         ]
         ic = client.icds.create(
             name="Defaults",
@@ -180,6 +220,51 @@ class TestICD:
         assert isinstance(stored, sy.icd.JSONPayload)
         assert stored.fields == fields
 
+    def test_create_exact_defaults(self, client: sy.Synnax) -> None:
+        """Should keep every digit of large binary defaults and of JSON text."""
+        binary: list[sy.icd.BinaryField] = [
+            sy.icd.UnsignedBinaryField(
+                name="max",
+                bit_length=64,
+                default=Unsigned(2**64 - 1),
+            ),
+            sy.icd.UnsignedBinaryField(
+                name="odd",
+                start_bit=64,
+                bit_length=64,
+                default=Unsigned(9007199254740993),
+            ),
+        ]
+        text = '{"id": 9007199254740993}'
+        ic = client.icds.create(
+            name="Exact",
+            messages=[
+                sy.icd.Message(
+                    name="Frame",
+                    payload=sy.icd.BinaryPayload(length=16, fields=binary),
+                ),
+                sy.icd.Message(
+                    name="Document",
+                    payload=sy.icd.JSONPayload(
+                        fields=[
+                            sy.icd.JSONJSONField(
+                                name="doc", pointer="/doc", default=text
+                            )
+                        ]
+                    ),
+                ),
+            ],
+        )
+        retrieved = client.icds.retrieve(key=ic.key)
+        frame = retrieved.messages[0].payload
+        assert isinstance(frame, sy.icd.BinaryPayload)
+        assert [f.default for f in frame.fields] == [2**64 - 1, 9007199254740993]
+        document = retrieved.messages[1].payload
+        assert isinstance(document, sy.icd.JSONPayload)
+        field = document.fields[0]
+        assert isinstance(field, sy.icd.JSONJSONField)
+        assert field.default == text
+
     def test_create_text(self, client: sy.Synnax) -> None:
         """Should create a message with a text payload."""
         ic = client.icds.create(
@@ -191,7 +276,9 @@ class TestICD:
                         prefix="$",
                         fields=[
                             sy.icd.TaggedTextField(name="temp", tag="T="),
-                            sy.icd.DelimitedTextField(name="rh", position=2),
+                            sy.icd.DelimitedTextField(
+                                name="rh", position=2, default=Float(0.5)
+                            ),
                         ],
                     ),
                 )
@@ -204,7 +291,7 @@ class TestICD:
         assert isinstance(temp, sy.icd.TaggedTextField)
         assert (temp.name, temp.tag) == ("temp", "T=")
         assert isinstance(rh, sy.icd.DelimitedTextField)
-        assert (rh.name, rh.position) == ("rh", 2)
+        assert (rh.name, rh.position, rh.default) == ("rh", 2, 0.5)
 
     def test_reject_binary_field_in_text_payload(self) -> None:
         """Should not parse a binary field in a text payload."""
@@ -259,10 +346,8 @@ class TestICD:
         )
         retrieved = client.icds.retrieve(key=ic.key)
         assert [m.name for m in retrieved.messages] == ["Mode", "Mode"]
-        assert client.icds.check(retrieved) == [
-            sy.icd.Problem(
-                path="messages.1.name", message='duplicate message name "Mode"'
-            ),
+        assert problems_of(client.icds.check(retrieved)) == [
+            ("messages.1.name", 'duplicate message name "Mode"'),
         ]
 
     def test_check_valid(self, client: sy.Synnax) -> None:
@@ -281,7 +366,7 @@ class TestICD:
                         identifier=sy.icd.CanIdentifier(id=0x101),
                         length=8,
                         fields=[
-                            sy.icd.BinaryField(
+                            sy.icd.UnsignedBinaryField(
                                 name="rpm", start_bit=0, bit_length=16, scale=0
                             )
                         ],
@@ -289,15 +374,12 @@ class TestICD:
                 ),
             ],
         )
-        assert client.icds.check(ic) == [
-            sy.icd.Problem(
-                path="messages.1.name", message='duplicate message name "Mode"'
-            ),
-            sy.icd.Problem(
-                path="messages.1.payload.fields.0.scale",
-                message="scale must be finite and non-zero",
-            ),
+        problems = client.icds.check(ic)
+        assert problems_of(problems) == [
+            ("messages.1.name", 'duplicate message name "Mode"'),
+            ("messages.1.payload.fields.0.scale", "scale must be finite and non-zero"),
         ]
+        assert all(isinstance(p.error, sy.ValidationError) for p in problems)
 
     def test_check_does_not_save(self, client: sy.Synnax) -> None:
         """Should not store the ICD it checks."""
@@ -359,7 +441,7 @@ class TestICD:
         assert isinstance(msg.payload, sy.icd.BinaryPayload)
         assert msg.payload.identifier == sy.icd.CanIdentifier(id=0x100)
         rpm = msg.payload.fields[0]
-        assert isinstance(rpm, sy.icd.BinaryField)
+        assert isinstance(rpm, sy.icd.UnsignedBinaryField)
         assert (rpm.name, rpm.bit_length, rpm.scale, rpm.units) == (
             "rpm",
             16,

@@ -79,7 +79,7 @@ const (
 
 // IteratorRequest is issued to an StreamIterator asking it to read data from a DB.
 //
-//go:generate stringer -type=IteratorCommand
+//go:generate go tool stringer -type=IteratorCommand
 type IteratorRequest struct {
 	// Command is the command to execute.
 	Command IteratorCommand

@@ -55,8 +55,8 @@ func (r Records) Reaching(first, last telem.TimeStamp, buf []int) []int {
 	return buf
 }
 
-// index sets the order and reach of r.
-func (r *Records) index() {
+// indexed returns r with its order and reach set.
+func (r Records) indexed() Records {
 	r.order = make([]int, 0, len(r.Segments))
 	for i, seg := range r.Segments {
 		if len(seg.Pointers) > 0 {
@@ -73,6 +73,7 @@ func (r *Records) index() {
 			r.reach[i] = max(r.reach[i], r.reach[i-1])
 		}
 	}
+	return r
 }
 
 // lowest returns the lowest first stamp of the pointers of seg, which has one or more.
@@ -437,8 +438,7 @@ func (c *Cache) loadRecords(p Part, l *partLayout, key uint32) (r Records, err e
 			r.Segments[j].Pointers = ptrs[a:b:b]
 		}
 	}
-	r.index()
-	return r, nil
+	return r.indexed(), nil
 }
 
 // read returns bytes lo to hi of the body of the part of l, from the whole chunks that

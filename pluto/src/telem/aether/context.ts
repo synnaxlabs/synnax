@@ -10,20 +10,20 @@
 import { UnexpectedError } from "@synnaxlabs/client";
 import { array, deep, type destructor, id, type observe } from "@synnaxlabs/x";
 
-import { type aether } from "@/aether/aether";
+import type { aether } from "@/aether/aether";
 import {
   CompoundFactory,
   type CreateOptions,
   type Factory,
 } from "@/telem/aether/factory";
 import { PipelineFactory } from "@/telem/aether/pipeline";
-import {
-  type Result,
-  type Sink,
-  type Source,
-  type Spec,
-  type Telem,
-  type ValueProps,
+import type {
+  Result,
+  Sink,
+  Source,
+  Spec,
+  Telem,
+  ValueProps,
 } from "@/telem/aether/telem";
 
 /** Provides utilities for creating and managing telemetry sources and sinks. */

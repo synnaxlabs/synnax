@@ -10,7 +10,7 @@
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, type record } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import {
   AI_PORT_TYPE,

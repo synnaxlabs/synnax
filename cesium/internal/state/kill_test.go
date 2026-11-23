@@ -57,6 +57,17 @@ var _ = Describe("Kills", func() {
 		Expect(kills()).To(Equal([]state.Kill{{Key: 6, All: true, Generation: 4}}))
 	})
 
+	It("Should not kill a dropped key that holds no data, which no head names", func() {
+		w := MustSucceed(s.OpenWriter(state.WriterConfig{
+			Clock: 7,
+			Start: 100,
+			Keys:  []state.WriterKey{{Key: 7, DataType: 4}},
+		}))
+		Expect(w.Close()).To(Succeed())
+		Expect(s.Durable(11, []log.Record{&log.Drop{Key: 7}})).To(Succeed())
+		Expect(kills()).To(BeEmpty())
+	})
+
 	It("Should stamp a kill after a switch with the generation of the new log", func() {
 		Expect(s.Switch(5)).To(Succeed())
 		Expect(s.Durable(11, []log.Record{cut})).To(Succeed())

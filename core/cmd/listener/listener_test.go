@@ -10,6 +10,9 @@
 package listener_test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
@@ -365,6 +368,29 @@ var _ = Describe("Listener", func() {
 			Entry("secure", false),
 			Entry("insecure", true),
 		)
+
+		It("Should give the certificate source of each secure listener", func() {
+			listeners := MustSucceed(listener.Configs{
+				{
+					Address: "localhost:9090",
+					Cert:    listener.CertConfig{Source: file.SourceType},
+				},
+			}.Resolve(prov, coreFC, false, false))
+			c := MustSucceed(listeners[0].Source.GetCertificate(&tls.ClientHelloInfo{}))
+			Expect(MustSucceed(x509.ParseCertificate(c.Certificate[0])).DNSNames).
+				To(ContainElement("localhost"))
+		})
+
+		It("Should give no certificate source in insecure mode", func() {
+			listeners := MustSucceed(listener.Configs{
+				{
+					Address: "localhost:9090",
+					Cert:    listener.CertConfig{Source: file.SourceType},
+				},
+			}.Resolve(prov, coreFC, true, false))
+			Expect(listeners[0].Source).To(BeNil())
+			Expect(listeners[0].TLS).To(BeNil())
+		})
 
 		It("Should reject an unknown certificate source", func() {
 			Expect(listener.Configs{

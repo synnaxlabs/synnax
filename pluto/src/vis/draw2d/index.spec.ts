@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color, scale, xy } from "@synnaxlabs/x";
+import { box, color, location, scale, xy } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { text } from "@/text/aether";
@@ -395,6 +395,40 @@ describe("Draw2D", () => {
       });
       const tops = boxes.map((b) => box.top(b));
       expect(tops[1] - tops[0]).toEqual(tops[2] - tops[1]);
+    });
+
+    it("should keep every item inside its bound", () => {
+      const [d] = create();
+      const bound = box.construct(0, 0, 200, 100);
+      const boxes: box.Box[] = [];
+      d.list({
+        length: 3,
+        position: xy.construct(190, 95),
+        root: location.BOTTOM_LEFT,
+        itemHeight: 10,
+        width: 50,
+        bound,
+        draw: (_, b) => boxes.push(b),
+      });
+      boxes.forEach((b) => {
+        expect(box.right(b)).toBeLessThanOrEqual(box.right(bound));
+        expect(box.bottom(b)).toBeLessThanOrEqual(box.bottom(bound));
+      });
+    });
+
+    it("should start a list taller than its bound at the bound's top", () => {
+      const [d] = create();
+      const bound = box.construct(0, 20, 200, 30);
+      const boxes: box.Box[] = [];
+      d.list({
+        length: 5,
+        position: xy.construct(10, 40),
+        itemHeight: 10,
+        width: 50,
+        bound,
+        draw: (_, b) => boxes.push(b),
+      });
+      expect(box.top(boxes[0])).toEqual(box.top(bound));
     });
 
     it("should not draw anything for an empty list", () => {

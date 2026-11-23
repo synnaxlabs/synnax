@@ -517,8 +517,9 @@ func segmentName(key ChannelKey, id uint64, n uint16) string {
 }
 
 // orphans removes each segment and check file of a channel directory that snapshot does
-// not name, and cuts each named segment file to its committed length. The checkpointer
-// cleans the root.
+// not name, and cuts each named segment file to its committed length. A segment file
+// that a live record in the parts of the opened head names stays, unless snapshot lacks
+// its key, which a Drop then took. The checkpointer cleans the root.
 func (e *engine) orphans(snapshot *state.Snapshot) error {
 	named := make(map[string]state.Segment)
 	for _, ch := range snapshot.Channels {
@@ -535,14 +536,23 @@ func (e *engine) orphans(snapshot *state.Snapshot) error {
 		if err != nil || !info.IsDir() {
 			continue
 		}
-		if err = e.orphansOf(ChannelKey(key), named); err != nil {
+		_, stored := slices.BinarySearchFunc(
+			snapshot.Channels,
+			ChannelKey(key),
+			func(ch *state.Channel, key ChannelKey) int { return cmp.Compare(ch.Key, key) },
+		)
+		if err = e.orphansOf(ChannelKey(key), named, stored); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error {
+func (e *engine) orphansOf(
+	key ChannelKey,
+	named map[string]state.Segment,
+	stored bool,
+) error {
 	dir := strconv.FormatUint(uint64(key), 10)
 	infos, err := e.fs.List(dir)
 	if err != nil {
@@ -556,7 +566,7 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 			continue
 		}
 		seg, ok := named[name]
-		if !ok && e.opened != nil && strings.HasSuffix(name, ".seg") {
+		if !ok && stored && e.opened != nil && strings.HasSuffix(name, ".seg") {
 			if id, err := strconv.ParseUint(
 				strings.TrimSuffix(info.Name(), ".seg"),
 				16,

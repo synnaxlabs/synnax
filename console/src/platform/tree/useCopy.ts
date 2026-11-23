@@ -13,7 +13,7 @@ import { strings } from "@synnaxlabs/x";
 
 import { Link } from "@/platform/link";
 import { useItems } from "@/platform/tree/context";
-import { type Resource } from "@/platform/tree/types";
+import type { Resource } from "@/platform/tree/types";
 import { Session } from "@/session";
 
 const write = async (text: string, html: string): Promise<void> => {

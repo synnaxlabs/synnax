@@ -9,9 +9,11 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { useCreateEdge } from "@/feature/mqtt/task/Edge";
-import { useCreateRead } from "@/feature/mqtt/task/Read";
-import { useCreateWrite } from "@/feature/mqtt/task/Write";
+import {
+  useCreateEdge,
+  useCreateRead,
+  useCreateWrite,
+} from "@/feature/mqtt/task/create";
 import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({

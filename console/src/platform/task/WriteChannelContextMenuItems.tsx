@@ -14,9 +14,9 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access } from "@synnaxlabs/pluto";
 
-import { type ContextMenuItemProps } from "@/platform/task/ChannelList";
+import type { ContextMenuItemProps } from "@/platform/task/ChannelList";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
-import { type Channel, type WriteChannelType } from "@/platform/task/types";
+import type { Channel, WriteChannelType } from "@/platform/task/types";
 
 export interface WriteChannelContextMenuItemsProps extends ContextMenuItemProps<Channel> {}
 

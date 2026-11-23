@@ -18,7 +18,7 @@ import (
 // RunReason indicates what triggered the current scheduler run.
 type RunReason int
 
-//go:generate stringer -type=RunReason
+//go:generate go tool stringer -type=RunReason
 const (
 	// ReasonTimerTick indicates the scheduler ran due to timer expiration.
 	ReasonTimerTick RunReason = iota
