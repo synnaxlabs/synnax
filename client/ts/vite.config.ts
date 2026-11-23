@@ -29,7 +29,6 @@ const NODE_SPECS = [
   "src/client.spec.ts",
   "src/env/env.spec.ts",
   "src/framer/streamer.spec.ts",
-  "src/testutil/keepAlive.spec.ts",
   "src/transport/transport.spec.ts",
   // Reach the Core through a TCP proxy.
   "src/channel/channel.spec.ts",
