@@ -717,6 +717,21 @@ describe("Custom.Drawing motion", () => {
       expect(attr(".slider", "transform")).toBeNull();
     });
 
+    it("should turn a group about the center of a nested svg in it", async () => {
+      const markup =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><g class="box">' +
+        '<svg x="2" y="2" width="4" height="4" viewBox="0 0 1 1">' +
+        '<rect width="1" height="1"/></svg></g></svg>';
+      const box = { key: "box", name: "Box", selectors: [".box"] };
+      const spec = createSpec([{ ...SPIN, part: "box" }], [box]);
+      const { frame, attr } = await setup({
+        spec: { ...spec, drawing: { type: "svg", markup } },
+      });
+      frame(0);
+      frame(500);
+      expect(attr(".box", "transform")).toBe("rotate(90 4 4)");
+    });
+
     it("should flow a dashed element in a selected group", async () => {
       const markup =
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><g class="line">' +
