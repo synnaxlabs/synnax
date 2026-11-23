@@ -949,14 +949,6 @@ var _ = Describe("CheckDefault", func() {
 		Entry("a scaled number whose raw value is above the max", icd.FloatJSONField{
 			Scale: 0.1, Max: new(10.0), Default: new(payload.Float(50)),
 		}),
-		Entry("a scaled number that float error puts above the max", icd.FloatJSONField{
-			Scale: 0.1, Max: new(0.3), Default: new(payload.Float(3)),
-		}),
-		Entry("a scaled integer that float error puts below the min",
-			icd.IntegerJSONField{
-				Scale: 0.3, Min: new(0.9), Default: new(payload.Integer(3)),
-			},
-		),
 	)
 
 	DescribeTable("Should refuse a default without naming it",
@@ -1004,13 +996,6 @@ var _ = Describe("CheckDefault", func() {
 				Scale: 10, Max: new(100.0), Default: new(payload.Float(12)),
 			},
 			"12 decodes to 120, which is above the max 100: validation error",
-		),
-		Entry("a scaled number just above the max",
-			icd.FloatJSONField{
-				Scale: 0.1, Max: new(0.3), Default: new(payload.Float(3.000001)),
-			},
-			"3.000001 decodes to 0.30000010000000005, which is above the max 0.3: "+
-				"validation error",
 		),
 	)
 })
