@@ -162,8 +162,15 @@ const MeasMethodField = Form.buildSelectField<CIMeasMethod>({
   },
 });
 
+const MEAS_TIME_BOUNDS = { lower: TimeSpan.NANOSECOND } as const;
+
 const MeasTimeField = ({ path }: { path: deep.Target<number> }) => (
-  <Form.TimeSpanField path={path} label="Measurement time" unit={TimeSpan.SECOND} />
+  <Form.TimeSpanField
+    path={path}
+    label="Measurement time"
+    unit={TimeSpan.NANOSECOND}
+    bounds={MEAS_TIME_BOUNDS}
+  />
 );
 
 const COUNT_INPUT_PROPS = { bounds: { lower: 1, upper: Infinity } } as const;

@@ -22,6 +22,7 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
@@ -3053,8 +3054,8 @@ type CIFrequencyChannel struct {
 	Edge CIEdge `json:"edge" msgpack:"edge"`
 	// MeasMethod selects the measurement method.
 	MeasMethod CIMeasMethod `json:"meas_method" msgpack:"meas_method"`
-	// MeasTime is the averaging window for high-frequency measurement, in seconds.
-	MeasTime float64 `json:"meas_time" msgpack:"meas_time"`
+	// MeasTime is the averaging window for high-frequency measurement.
+	MeasTime telem.TimeSpan `json:"meas_time" msgpack:"meas_time"`
 	// Divisor is the counter divisor for large-range measurement.
 	Divisor uint32 `json:"divisor" msgpack:"divisor"`
 	// Terminal is the terminal the counter signal is wired to.
@@ -3078,7 +3079,7 @@ func (c *CIFrequencyChannel) SetUngroupedDefaults() {
 	c.Units = CIFreqUnitsHz
 	c.Edge = CIEdgeRising
 	c.MeasMethod = CIMeasMethodDynamicAvg
-	c.MeasTime = 6e-06
+	c.MeasTime = 6000
 	c.Divisor = 4
 }
 
@@ -3100,6 +3101,8 @@ func (c CIFrequencyChannel) Validate() error {
 	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
 	v.Ternaryf("edge", !c.Edge.IsValid(), "invalid edge: %v", c.Edge)
 	v.Ternaryf("meas_method", !c.MeasMethod.IsValid(), "invalid meas_method: %v", c.MeasMethod)
+	v.GreaterThanEq("meas_time", c.MeasTime, 1)
+	v.LessThanEq("meas_time", c.MeasTime, 9007199254740991)
 	v.GreaterThanEq("divisor", c.Divisor, 1)
 	v.Exec(c.CustomScale.Validate)
 	v.Exec(c.MinMaxVal.Validate)
@@ -3147,8 +3150,8 @@ type CIPeriodChannel struct {
 	StartingEdge CIEdge `json:"starting_edge" msgpack:"starting_edge"`
 	// MeasMethod selects the measurement method.
 	MeasMethod CIMeasMethod `json:"meas_method" msgpack:"meas_method"`
-	// MeasTime is the averaging window for high-frequency measurement, in seconds.
-	MeasTime float64 `json:"meas_time" msgpack:"meas_time"`
+	// MeasTime is the averaging window for high-frequency measurement.
+	MeasTime telem.TimeSpan `json:"meas_time" msgpack:"meas_time"`
 	// Divisor is the counter divisor for large-range measurement.
 	Divisor uint32 `json:"divisor" msgpack:"divisor"`
 	// Terminal is the terminal the counter signal is wired to.
@@ -3172,7 +3175,7 @@ func (c *CIPeriodChannel) SetUngroupedDefaults() {
 	c.Units = CITimeUnitsSeconds
 	c.StartingEdge = CIEdgeRising
 	c.MeasMethod = CIMeasMethodDynamicAvg
-	c.MeasTime = 0.001
+	c.MeasTime = 1000000
 	c.Divisor = 4
 }
 
@@ -3194,6 +3197,8 @@ func (c CIPeriodChannel) Validate() error {
 	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
 	v.Ternaryf("starting_edge", !c.StartingEdge.IsValid(), "invalid starting_edge: %v", c.StartingEdge)
 	v.Ternaryf("meas_method", !c.MeasMethod.IsValid(), "invalid meas_method: %v", c.MeasMethod)
+	v.GreaterThanEq("meas_time", c.MeasTime, 1)
+	v.LessThanEq("meas_time", c.MeasTime, 9007199254740991)
 	v.GreaterThanEq("divisor", c.Divisor, 1)
 	v.Exec(c.CustomScale.Validate)
 	v.Exec(c.MinMaxVal.Validate)
