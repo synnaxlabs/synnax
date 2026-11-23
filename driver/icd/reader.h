@@ -67,6 +67,14 @@ class Reader {
     );
 
 public:
+    Reader() = default;
+    Reader(Reader &&) = default;
+    Reader &operator=(Reader &&) = default;
+    // The decoder holds vectors of move-only fields, which hide from type traits that
+    // it cannot be copied. Without these, MSVC grows a vector of readers by copying.
+    Reader(const Reader &) = delete;
+    Reader &operator=(const Reader &) = delete;
+
     /// @brief creates a Reader for messages that share one source of payloads.
     /// @param reads the messages to read and the channel of each field.
     /// @param ic the ICD that holds the messages of reads.
