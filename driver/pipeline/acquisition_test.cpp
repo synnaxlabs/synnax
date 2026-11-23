@@ -1212,6 +1212,27 @@ TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
     ASSERT_MATCHES(source->stopped_err, x::errors::UNKNOWN);
 }
 
+/// @brief it should open the writer again after a stream reset, past the retry limit
+/// of the breaker.
+TEST(AcquisitionPipeline, RetriesOpenAfterTransportError) {
+    const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
+        freighter::TRANSPORT,
+        freighter::TRANSPORT,
+        x::errors::UNKNOWN,
+    });
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_EQ(factory->opens.load(), 3);
+    pipeline.stop();
+    ASSERT_MATCHES(source->stopped_err, x::errors::UNKNOWN);
+}
+
 /// @brief it should retry a hardware error right after the Core comes back from an
 /// outage longer than the retry limit of the breaker.
 TEST(AcquisitionPipeline, RetriesHardwareErrorAfterCoreOutage) {
