@@ -109,7 +109,7 @@ describe("StringDisplay", () => {
 const client = createTestClient();
 
 describe("StringDisplay.Symbol deleted channel", () => {
-  it("should say Deleted channel inside its box, with no badge below", async () => {
+  it("should show the deleted badge below its box, with nothing in the box", async () => {
     const ch = await client.channels.create({
       name: `display_${id.create()}`,
       dataType: DataType.STRING,
@@ -123,7 +123,7 @@ describe("StringDisplay.Symbol deleted channel", () => {
       renderContext: canvasTest.record(),
     });
     const Display = Node.resolveSpec("string_display").Node;
-    const { findByText, container } = render(
+    const { findByText } = render(
       <Wrapper>
         <ReactFlowProvider>
           <Display
@@ -136,7 +136,8 @@ describe("StringDisplay.Symbol deleted channel", () => {
       </Wrapper>,
     );
     const text = await findByText("Deleted channel");
-    expect(text.closest(`.${CSS.BE("string-display", "content")}`)).not.toBeNull();
-    expect(container.querySelector(".lyra-badge")).toBeNull();
+    expect(text.closest(".lyra-badge")).not.toBeNull();
+    expect(text.closest(`.${CSS.BE("grid", "item")}`)).not.toBeNull();
+    expect(text.closest(`.${CSS.BE("string-display", "content")}`)).toBeNull();
   });
 });

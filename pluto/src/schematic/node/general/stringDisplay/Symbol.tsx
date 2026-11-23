@@ -12,6 +12,7 @@ import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -55,15 +56,14 @@ export const Symbol = ({
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
       {stale && <Stale.Indicator />}
+      {deleted && <Deleted.Item />}
       <StringDisplay
         strokeColor={resolve(strokeColor)}
         level={level}
         inlineSize={inlineSize}
         orientation={orientation}
         contentRef={content.ref}
-      >
-        {deleted && <Channel.Deleted />}
-      </StringDisplay>
+      />
     </Grid.Grid>
   );
 };
