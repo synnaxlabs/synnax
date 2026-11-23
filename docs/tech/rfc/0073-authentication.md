@@ -362,7 +362,7 @@ schema does not change.
 | `auth/session/delete`    | Yes   | Log out or revoke                                                 |
 | `auth/password/create`   | Yes   | Give a user its first password                                    |
 | `auth/password/retrieve` | Yes   | List usernames by user or username                                |
-| `auth/password/rename`   | Yes   | Change a username                                                 |
+| `auth/password/dispatch` | Yes   | Change a username                                                 |
 | `auth/password/set`      | Yes   | Change a password                                                 |
 | `auth/api-key/create`    | Yes   | Create an API key, returned once                                  |
 | `auth/api-key/retrieve`  | Yes   | List API keys                                                     |
