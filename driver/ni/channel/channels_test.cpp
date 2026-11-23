@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <string>
+
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
@@ -1630,4 +1632,63 @@ TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
     EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Falling);
 }
+
+/// @brief a channel type and the DAQmx function that creates it.
+struct RangeCase {
+    std::string type;
+    std::string fn;
+};
+
+class ChannelRangeTest : public ::testing::TestWithParam<RangeCase> {};
+
+/// @brief it should pass the ends of the channel range to DAQmx as its min and max.
+TEST_P(ChannelRangeTest, PassesRangeToDAQmx) {
+    const auto &[type, fn] = GetParam();
+    const bool output = type.starts_with("ao_");
+    x::json::json j = {
+        {"type", type},
+        {"key", "channel_a"},
+        {"port", 0},
+        {"range", {{"lower", -2}, {"upper", 3}}},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cdaq1Mod2"}
+    };
+    x::json::Parser p(j);
+    const auto chan = output ? parse_output(p, "ni_analog_write")
+                             : parse_input(p, "ni_analog_read");
+    ASSERT_NIL(p.error());
+    ASSERT_NE(chan, nullptr);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to(fn);
+    ASSERT_EQ(calls.size(), 1);
+    EXPECT_EQ(calls[0]["args"]["minVal"], -2);
+    EXPECT_EQ(calls[0]["args"]["maxVal"], 3);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Types,
+    ChannelRangeTest,
+    ::testing::Values(
+        RangeCase{"ai_accel_4_wire_dc_voltage", "CreateAIAccel4WireDCVoltageChan"},
+        RangeCase{"ai_charge", "CreateAIChargeChan"},
+        RangeCase{"ai_current_rms", "CreateAICurrentRMSChan"},
+        RangeCase{"ai_force_bridge_polynomial", "CreateAIForceBridgePolynomialChan"},
+        RangeCase{"ai_freq_voltage", "CreateAIFreqVoltageChan"},
+        RangeCase{
+            "ai_pressure_bridge_polynomial",
+            "CreateAIPressureBridgePolynomialChan"
+        },
+        RangeCase{"ai_resistance", "CreateAIResistanceChan"},
+        RangeCase{"ai_thermistor_iex", "CreateAIThrmstrChanIex"},
+        RangeCase{"ai_thermistor_vex", "CreateAIThrmstrChanVex"},
+        RangeCase{"ai_torque_bridge_polynomial", "CreateAITorqueBridgePolynomialChan"},
+        RangeCase{"ai_voltage_rms", "CreateAIVoltageRMSChan"},
+        RangeCase{"ai_voltage_with_excit", "CreateAIVoltageChanWithExcit"},
+        RangeCase{"ao_current", "CreateAOCurrentChan"}
+    ),
+    [](const ::testing::TestParamInfo<RangeCase> &info) { return info.param.type; }
+);
 }

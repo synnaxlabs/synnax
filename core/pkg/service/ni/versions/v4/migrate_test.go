@@ -539,6 +539,13 @@ var _ = Describe("Range defaults", func() {
 		},
 	)
 
+	It("Should keep a counter input with no variant", func(ctx SpecContext) {
+		cfg := MustSucceed(v4.MigrateCounterReadConfig(ctx, v3.CounterReadConfig{
+			Channels: []v3.CIChannel{{}},
+		}))
+		Expect(cfg.Channels[0].Variant).To(BeNil())
+	})
+
 	It("Should swap a reversed analog output range", func(ctx SpecContext) {
 		cfg := MustSucceed(v4.MigrateAnalogWriteConfig(ctx, v3.AnalogWriteConfig{
 			Channels: []v3.AOChannel{{Variant: v3.AOVoltageChannel{
