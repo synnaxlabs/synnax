@@ -1,0 +1,23 @@
+{
+  "description": "A JSON default must be valid JSON.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "doc",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/doc",
+          "type": "json",
+          "default": "{\"id\":"
+        }
+      ]
+    },
+    "bindings": []
+  },
+  "error": "message command: field doc: default: must be valid JSON: validation error"
+}

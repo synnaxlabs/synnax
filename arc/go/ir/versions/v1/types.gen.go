@@ -12,9 +12,12 @@
 package v1
 
 import (
+	"strconv"
+
 	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
 	"github.com/synnaxlabs/arc/symbol"
 	types "github.com/synnaxlabs/arc/types/versions/v1"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -53,6 +56,19 @@ type Function struct {
 	// Channels contains channel read/write declarations.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
 	Symbol   *symbol.Symbol `json:"-"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (f Function) Validate() error {
+	v := validate.New("Function")
+	for i := range f.Inputs {
+		v.Exec(func() error { return validate.PathedError(f.Inputs[i].Validate(), "inputs", strconv.Itoa(i)) })
+	}
+	for i := range f.Outputs {
+		v.Exec(func() error { return validate.PathedError(f.Outputs[i].Validate(), "outputs", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // Functions is a collection of function definitions in an Arc module.

@@ -161,13 +161,17 @@ export class Feed {
       store: this.store,
       joins: this.joins,
       onWait: (indexes) => this.joiner.wake(indexes),
-      openStreamer: async (config, { onReopen, onDrop, signal }) => {
-        const streamer = new HardenedStreamer(openStreamer, config, {
-          breaker,
-          onReopen,
-          onDrop,
-          onRetry,
-        });
+      openStreamer: async (config, { onReopen, onDrop, onMissed, signal }) => {
+        const streamer = new HardenedStreamer(
+          openStreamer,
+          { ...config, onMissed },
+          {
+            breaker,
+            onReopen,
+            onDrop,
+            onRetry,
+          },
+        );
         signal.addEventListener("abort", () => streamer.close());
         await streamer.start();
         return streamer;

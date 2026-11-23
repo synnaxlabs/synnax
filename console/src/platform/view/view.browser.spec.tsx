@@ -116,8 +116,15 @@ const renderHarness = async (
   as: Client = client,
   tab: panel.NewTab = EXPLORER,
   beside?: panel.NewTab[],
+  skipPermissionLoad?: boolean,
 ): Promise<TabWrapper> => {
-  const wrapped = await createTabWrapper({ client, as, tab, beside });
+  const wrapped = await createTabWrapper({
+    client,
+    as,
+    tab,
+    beside,
+    skipPermissionLoad,
+  });
   await renderSuspended(
     <>
       <Harness />
@@ -447,7 +454,7 @@ describe("View open in a tab", () => {
       ],
       update: [panel.TYPE_RESOURCE_ID],
     });
-    await renderHarness(subject);
+    await renderHarness(subject, EXPLORER, undefined, true);
     const tab = await screen.findByRole("tab", { name: saved.name });
     expect(tab.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(tab);

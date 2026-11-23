@@ -22,7 +22,6 @@ import {
 import type { Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
-import { BACKGROUND_CLASS, inTopModal } from "@/dialog/Background";
 import { contains, PORTAL_ID_ATTR, useClickOutside } from "@/dialog/useClickOutside";
 import { Flex } from "@/flex";
 import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
@@ -63,7 +62,6 @@ export interface FrameProps extends Omit<
   alignOffset?: (dialog: HTMLElement) => xy.Crude;
   variant?: Variant;
   maxHeight?: Component.Size | number;
-  zIndex?: number;
   modalPosition?: ModalPosition;
   /**
    * Places the dialog against this element instead of the frame's own box, for a dialog
@@ -135,6 +133,8 @@ interface InternalContextValue extends Pick<
   id: string;
   /** The element that `triggerRef` holds. */
   trigger: RefObject<HTMLElement | null>;
+  /** Handles a `cancel` event of a modal, which the browser sends on Escape. */
+  cancel: () => void;
 }
 
 const [InternalContext, useInternalContext] = context.create<InternalContextValue>({
@@ -147,6 +147,7 @@ export { useInternalContext };
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
 const FRAME_CLASS = CSS.BE("dialog", "frame");
+export const SURFACE_CLASS = CSS.BE("dialog", "dialog");
 const OPEN_EVENT_NAME = "open-dialog";
 
 /**
@@ -243,7 +244,6 @@ export const Frame = ({
   className,
   variant = "floating",
   maxHeight,
-  zIndex,
   initialVisible = false,
   visible: propsVisible,
   onVisibleChange: propsOnVisibleChange,
@@ -395,7 +395,6 @@ export const Frame = ({
     if (variant === "connected") style.width = box.width(roundedDialog);
     if (typeof maxHeight === "number")
       style[CSS.variable("dialog-max-height")] = `${maxHeight}px`;
-    if (visible) style.zIndex = zIndex;
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
   };
 
@@ -445,30 +444,48 @@ export const Frame = ({
       if (!exclude) e.stopImmediatePropagation();
       return exclude;
     }
-    if (!(e.target instanceof HTMLElement)) return true;
-    let dialog = e.target;
-    if (dialog.className.includes(BACKGROUND_CLASS))
-      dialog = dialog.children[0] as HTMLElement;
-    return dialog !== dialogRef.current;
+    // Only a click on the native dialog around the surface, which is the backdrop.
+    return e.target !== dialogRef.current.parentElement;
   };
 
-  const handleEscape = ({ stage, stopPropagation }: Triggers.UseEvent) => {
-    if (stage !== "start" || visibleRef.current === false || dialogRef.current == null)
-      return;
-    const dialogEl = dialogRef.current;
-    // A dialog with an open child dialog leaves Escape to the child.
-    if (dialogEl.querySelector(`.${FRAME_CLASS}.${CSS.visible(true)}`) != null) return;
-    // A context menu over the dialog closes first, unless the dialog opened in it.
-    if (contextMenus().some((menu) => !contains(menu, targetRef.current))) return;
-    if (variant !== "modal") {
-      close();
+  // Whether an overlay over the dialog takes Escape: a child dialog, or a context menu
+  // that the dialog did not open in.
+  const overlayOpen = (dialog: HTMLElement): boolean =>
+    dialog.querySelector(`.${FRAME_CLASS}.${CSS.visible(true)}`) != null ||
+    contextMenus().some((menu) => !contains(menu, targetRef.current));
+
+  // A modal closes on an Escape that reaches Triggers from inside it. The browser then
+  // sends cancel to the top modal unless the page prevented the key, so cancel closes
+  // the modal only for an Escape that Triggers saw from outside every modal, such as
+  // the body after the focused element went away.
+  const closeOnCancel = useRef(false);
+  useEffect(() => {
+    if (!visible || variant !== "modal") return;
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") closeOnCancel.current = false;
+    };
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, [visible, variant]);
+
+  const handleEscape = ({ stage, target, stopPropagation }: Triggers.UseEvent) => {
+    const dialog = dialogRef.current;
+    if (stage !== "start" || visibleRef.current === false || dialog == null) return;
+    if (overlayOpen(dialog)) return;
+    // Triggers also hears a key dispatched on the window, which is no node.
+    const inModal = target instanceof Node && dialog.parentElement?.contains(target);
+    if (variant === "modal" && inModal !== true) {
+      closeOnCancel.current = true;
       stopPropagation();
       return;
     }
-    if (inTopModal(dialogEl)) {
-      close();
-      stopPropagation();
-    }
+    close();
+    stopPropagation();
+  };
+
+  const cancel = (): void => {
+    if (closeOnCancel.current) close();
   };
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
@@ -511,6 +528,7 @@ export const Frame = ({
     ref: combinedDialogRef,
     id,
     trigger,
+    cancel,
     targetCorner,
     dialogCorner,
     style,

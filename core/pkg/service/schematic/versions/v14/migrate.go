@@ -24,7 +24,8 @@ import (
 
 // MigrateSchematic lifts a v13 schematic to v14, which stores each stroke, fill, text,
 // level, and axis color of an edge, shape, or readout as a color reference. Each such
-// color becomes a fixed color, and an absent color stays absent.
+// color becomes a fixed color, and an absent color stays absent. It drops the staleness
+// color.
 func MigrateSchematic(ctx context.Context, old v13.Schematic) (Schematic, error) {
 	return autoMigrateSchematic(ctx, old)
 }
@@ -70,6 +71,23 @@ func MigrateScaleIndicatorConfig(
 	cfg.AxisColor = fixed(old.AxisColor)
 	cfg.TextColor = fixed(old.TextColor)
 	return cfg, nil
+}
+
+// MigrateStalenessConfig lifts a v13 staleness config to v14. It drops the staleness
+// color.
+func MigrateStalenessConfig(
+	ctx context.Context,
+	old v13.StalenessConfig,
+) (StalenessConfig, error) {
+	return autoMigrateStalenessConfig(ctx, old)
+}
+
+// MigrateToggleConfig lifts a v13 toggle config to v14. See MigrateStalenessConfig.
+func MigrateToggleConfig(
+	ctx context.Context,
+	old v13.ToggleConfig,
+) (ToggleConfig, error) {
+	return autoMigrateToggleConfig(ctx, old)
 }
 
 // MigrateNodeConfig lifts a v13 node config to v14. See MigrateSchematic for colors. A

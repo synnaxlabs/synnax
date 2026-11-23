@@ -9,9 +9,7 @@
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { start } from "@/components/console/tour/controller";
-import { GROUPS, STEPS } from "@/components/console/tour/steps";
-import { BASE, hotspots, STILLS } from "@/components/console/tour/stills";
+import { tour } from "@/components/console/tour";
 
 class Observer {
   observe = vi.fn();
@@ -22,12 +20,13 @@ class Observer {
 const markup = (): string => `
   <figure data-tour-root>
     <div class="docs-tour__stage" tabindex="0">
-      ${STILLS.map((still) => `<div data-still="${still}"></div>`).join("")}
+      ${tour.STILLS.map((still) => `<div data-still="${still}"></div>`).join("")}
       <div data-spotlight></div>
-      ${STILLS.map(
+      ${tour.STILLS.map(
         (still) => `
-          <div data-hotspots="${still}" ${still === BASE ? "" : "hidden"}>
-            ${hotspots(still)
+          <div data-hotspots="${still}" ${still === tour.BASE ? "" : "hidden"}>
+            ${tour
+              .hotspots(still)
               .map(({ step }) =>
                 step == null
                   ? `<div class="docs-tour__blocker"></div>`
@@ -41,7 +40,7 @@ const markup = (): string => `
     <div data-card hidden>
       <div data-card-arrow></div>
       <div data-card-meta></div>
-      ${STEPS.map(
+      ${tour.STEPS.map(
         ({ key, anchor }) =>
           `<section id="${anchor}" data-step="${key}" hidden></section>`,
       ).join("")}
@@ -51,10 +50,10 @@ const markup = (): string => `
     <div>
       <button data-tour="start">Start the tour</button>
       <button data-tour="end" hidden>End the tour</button>
-      ${GROUPS.map(
+      ${tour.GROUPS.map(
         (group) => `
           <div data-progress-group="${group.key}">
-            ${STEPS.filter((s) => s.group === group.key)
+            ${tour.STEPS.filter((s) => s.group === group.key)
               .map(
                 (s) =>
                   `<button class="docs-tour__progress-step" data-step-target="${s.key}">
@@ -120,7 +119,7 @@ describe("tour", () => {
         hidden?.set?.call(this, value);
       },
     });
-    start();
+    tour.start();
   });
 
   beforeEach(() => {
@@ -136,8 +135,10 @@ describe("tour", () => {
 
   it("should open the first step when the tour starts", () => {
     control("start").click();
-    expect(shownStep()).toBe(STEPS[0].key);
-    expect(get("[data-card-meta]").textContent).toBe(`Mosaic · 1 of ${STEPS.length}`);
+    expect(shownStep()).toBe(tour.STEPS[0].key);
+    expect(get("[data-card-meta]").textContent).toBe(
+      `Mosaic · 1 of ${tour.STEPS.length}`,
+    );
     expect(control("back").disabled).toBe(true);
     expect(control("start").hidden).toBe(true);
     expect(control("end").hidden).toBe(false);
@@ -146,14 +147,14 @@ describe("tour", () => {
   it("should step forward and back through the steps", () => {
     control("start").click();
     control("next").click();
-    expect(shownStep()).toBe(STEPS[1].key);
+    expect(shownStep()).toBe(tour.STEPS[1].key);
     expect(control("back").disabled).toBe(false);
     control("back").click();
-    expect(shownStep()).toBe(STEPS[0].key);
+    expect(shownStep()).toBe(tour.STEPS[0].key);
   });
 
   it("should end the tour when Finish is selected on the last step", () => {
-    progress(STEPS[STEPS.length - 1].key).click();
+    progress(tour.STEPS[tour.STEPS.length - 1].key).click();
     expect(control("next").textContent).toBe("Finish");
     control("next").click();
     expect(shownStep()).toBeNull();
@@ -168,8 +169,8 @@ describe("tour", () => {
 
   it("should mark the steps before a selected progress step as done", () => {
     progress("search").click();
-    const index = STEPS.findIndex((s) => s.key === "search");
-    expect(progress(STEPS[index - 1].key).classList).toContain("docs-tour--done");
+    const index = tour.STEPS.findIndex((s) => s.key === "search");
+    expect(progress(tour.STEPS[index - 1].key).classList).toContain("docs-tour--done");
     expect(progress("search").classList).toContain("docs-tour--active");
     expect(progress("search").classList).not.toContain("docs-tour--done");
     expect(get('[data-progress-group="left"]').classList).toContain(
@@ -187,8 +188,8 @@ describe("tour", () => {
   });
 
   it("should move focus to the stills when the hotspots of a focused part hide", () => {
-    hotspot(BASE, "channel").focus();
-    hotspot(BASE, "channel").click();
+    hotspot(tour.BASE, "channel").focus();
+    hotspot(tour.BASE, "channel").click();
     expect(document.activeElement).toBe(get(".docs-tour__stage"));
   });
 
@@ -200,23 +201,23 @@ describe("tour", () => {
   });
 
   it("should show the still of a step and its hotspots", () => {
-    hotspot(BASE, "channel").click();
+    hotspot(tour.BASE, "channel").click();
     expect(shownStep()).toBe("channel");
     expect(shownStill()).toBe("channel");
     expect(get('[data-hotspots="channel"]').hidden).toBe(false);
-    expect(get(`[data-hotspots="${BASE}"]`).hidden).toBe(true);
+    expect(get(`[data-hotspots="${tour.BASE}"]`).hidden).toBe(true);
   });
 
   it("should close a toolbar step when its toolbar is selected again", () => {
-    hotspot(BASE, "channel").click();
+    hotspot(tour.BASE, "channel").click();
     hotspot("channel", "channel").click();
     expect(shownStep()).toBeNull();
-    expect(shownStill()).toBe(BASE);
+    expect(shownStill()).toBe(tour.BASE);
   });
 
   it("should keep a base still step open when its part is selected again", () => {
-    hotspot(BASE, "schematic").click();
-    hotspot(BASE, "schematic").click();
+    hotspot(tour.BASE, "schematic").click();
+    hotspot(tour.BASE, "schematic").click();
     expect(shownStep()).toBe("schematic");
   });
 
@@ -239,9 +240,9 @@ describe("tour", () => {
   it("should step with the arrow keys", () => {
     press({ key: "ArrowRight" });
     press({ key: "ArrowRight" });
-    expect(shownStep()).toBe(STEPS[1].key);
+    expect(shownStep()).toBe(tour.STEPS[1].key);
     press({ key: "ArrowLeft" });
-    expect(shownStep()).toBe(STEPS[0].key);
+    expect(shownStep()).toBe(tour.STEPS[0].key);
   });
 
   it("should end the tour on Escape", () => {
@@ -260,7 +261,7 @@ describe("tour", () => {
 
   it("should spotlight the regions of the active step", () => {
     const spotlight = get("[data-spotlight]");
-    hotspot(BASE, "lineplot").click();
+    hotspot(tour.BASE, "lineplot").click();
     vi.advanceTimersToNextFrame();
     expect(spotlight.classList).toContain("docs-tour--active");
     expect(spotlight.style.left).toMatch(/^calc\(.+% - 4px\)$/);
@@ -327,7 +328,7 @@ describe("tour", () => {
   });
 
   it("should open the step that the URL hash links to", () => {
-    const ranges = STEPS.find((s) => s.key === "range");
+    const ranges = tour.STEPS.find((s) => s.key === "range");
     window.location.hash = `#${ranges?.anchor}`;
     mount();
     expect(shownStep()).toBe("range");

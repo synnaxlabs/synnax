@@ -174,6 +174,51 @@ func (x *UpdateRequest) GetUpdate() *pb.Update {
 	return nil
 }
 
+// UpdateResponse carries the device as stored after an update.
+type UpdateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Device        *pb.Device             `protobuf:"bytes,1,opt,name=device,proto3" json:"device,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateResponse) Reset() {
+	*x = UpdateResponse{}
+	mi := &file_core_pkg_transport_grpc_ni_device_device_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateResponse) ProtoMessage() {}
+
+func (x *UpdateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_ni_device_device_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateResponse.ProtoReflect.Descriptor instead.
+func (*UpdateResponse) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_ni_device_device_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *UpdateResponse) GetDevice() *pb.Device {
+	if x != nil {
+		return x.Device
+	}
+	return nil
+}
+
 type DeleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
@@ -183,7 +228,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_core_pkg_transport_grpc_ni_device_device_proto_msgTypes[3]
+	mi := &file_core_pkg_transport_grpc_ni_device_device_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -195,7 +240,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_ni_device_device_proto_msgTypes[3]
+	mi := &file_core_pkg_transport_grpc_ni_device_device_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -208,7 +253,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_ni_device_device_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_transport_grpc_ni_device_device_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DeleteRequest) GetKeys() []string {
@@ -229,15 +274,17 @@ const file_core_pkg_transport_grpc_ni_device_device_proto_rawDesc = "" +
 	"\adevices\x18\x01 \x03(\v2\x1c.service.ni_device.pb.DeviceR\adevices\"W\n" +
 	"\rUpdateRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
-	"\x06update\x18\x02 \x01(\v2\x1c.service.ni_device.pb.UpdateR\x06update\"#\n" +
+	"\x06update\x18\x02 \x01(\v2\x1c.service.ni_device.pb.UpdateR\x06update\"F\n" +
+	"\x0eUpdateResponse\x124\n" +
+	"\x06device\x18\x01 \x01(\v2\x1c.service.ni_device.pb.DeviceR\x06device\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys2^\n" +
 	"\x15NIDeviceCreateService\x12E\n" +
 	"\x04Exec\x12\x1d.grpc.ni_device.CreateRequest\x1a\x1e.grpc.ni_device.CreateResponse2h\n" +
 	"\x17NIDeviceRetrieveService\x12M\n" +
-	"\x04Exec\x12!.api.ni_device.pb.RetrieveRequest\x1a\".api.ni_device.pb.RetrieveResponse2V\n" +
-	"\x15NIDeviceUpdateService\x12=\n" +
-	"\x04Exec\x12\x1d.grpc.ni_device.UpdateRequest\x1a\x16.google.protobuf.Empty2V\n" +
+	"\x04Exec\x12!.api.ni_device.pb.RetrieveRequest\x1a\".api.ni_device.pb.RetrieveResponse2^\n" +
+	"\x15NIDeviceUpdateService\x12E\n" +
+	"\x04Exec\x12\x1d.grpc.ni_device.UpdateRequest\x1a\x1e.grpc.ni_device.UpdateResponse2V\n" +
 	"\x15NIDeviceDeleteService\x12=\n" +
 	"\x04Exec\x12\x1d.grpc.ni_device.DeleteRequest\x1a\x16.google.protobuf.EmptyB\xb1\x01\n" +
 	"\x12com.grpc.ni_deviceB\vDeviceProtoP\x01Z9github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/device\xa2\x02\x03GNX\xaa\x02\rGrpc.NiDevice\xca\x02\rGrpc\\NiDevice\xe2\x02\x19Grpc\\NiDevice\\GPBMetadata\xea\x02\x0eGrpc::NiDeviceb\x06proto3"
@@ -254,35 +301,37 @@ func file_core_pkg_transport_grpc_ni_device_device_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_ni_device_device_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_ni_device_device_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_core_pkg_transport_grpc_ni_device_device_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_core_pkg_transport_grpc_ni_device_device_proto_goTypes = []any{
 	(*CreateRequest)(nil),        // 0: grpc.ni_device.CreateRequest
 	(*CreateResponse)(nil),       // 1: grpc.ni_device.CreateResponse
 	(*UpdateRequest)(nil),        // 2: grpc.ni_device.UpdateRequest
-	(*DeleteRequest)(nil),        // 3: grpc.ni_device.DeleteRequest
-	(*pb.Device)(nil),            // 4: service.ni_device.pb.Device
-	(*pb.Update)(nil),            // 5: service.ni_device.pb.Update
-	(*pb1.RetrieveRequest)(nil),  // 6: api.ni_device.pb.RetrieveRequest
-	(*pb1.RetrieveResponse)(nil), // 7: api.ni_device.pb.RetrieveResponse
-	(*emptypb.Empty)(nil),        // 8: google.protobuf.Empty
+	(*UpdateResponse)(nil),       // 3: grpc.ni_device.UpdateResponse
+	(*DeleteRequest)(nil),        // 4: grpc.ni_device.DeleteRequest
+	(*pb.Device)(nil),            // 5: service.ni_device.pb.Device
+	(*pb.Update)(nil),            // 6: service.ni_device.pb.Update
+	(*pb1.RetrieveRequest)(nil),  // 7: api.ni_device.pb.RetrieveRequest
+	(*pb1.RetrieveResponse)(nil), // 8: api.ni_device.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),        // 9: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_ni_device_device_proto_depIdxs = []int32{
-	4, // 0: grpc.ni_device.CreateRequest.devices:type_name -> service.ni_device.pb.Device
-	4, // 1: grpc.ni_device.CreateResponse.devices:type_name -> service.ni_device.pb.Device
-	5, // 2: grpc.ni_device.UpdateRequest.update:type_name -> service.ni_device.pb.Update
-	0, // 3: grpc.ni_device.NIDeviceCreateService.Exec:input_type -> grpc.ni_device.CreateRequest
-	6, // 4: grpc.ni_device.NIDeviceRetrieveService.Exec:input_type -> api.ni_device.pb.RetrieveRequest
-	2, // 5: grpc.ni_device.NIDeviceUpdateService.Exec:input_type -> grpc.ni_device.UpdateRequest
-	3, // 6: grpc.ni_device.NIDeviceDeleteService.Exec:input_type -> grpc.ni_device.DeleteRequest
-	1, // 7: grpc.ni_device.NIDeviceCreateService.Exec:output_type -> grpc.ni_device.CreateResponse
-	7, // 8: grpc.ni_device.NIDeviceRetrieveService.Exec:output_type -> api.ni_device.pb.RetrieveResponse
-	8, // 9: grpc.ni_device.NIDeviceUpdateService.Exec:output_type -> google.protobuf.Empty
-	8, // 10: grpc.ni_device.NIDeviceDeleteService.Exec:output_type -> google.protobuf.Empty
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	5, // 0: grpc.ni_device.CreateRequest.devices:type_name -> service.ni_device.pb.Device
+	5, // 1: grpc.ni_device.CreateResponse.devices:type_name -> service.ni_device.pb.Device
+	6, // 2: grpc.ni_device.UpdateRequest.update:type_name -> service.ni_device.pb.Update
+	5, // 3: grpc.ni_device.UpdateResponse.device:type_name -> service.ni_device.pb.Device
+	0, // 4: grpc.ni_device.NIDeviceCreateService.Exec:input_type -> grpc.ni_device.CreateRequest
+	7, // 5: grpc.ni_device.NIDeviceRetrieveService.Exec:input_type -> api.ni_device.pb.RetrieveRequest
+	2, // 6: grpc.ni_device.NIDeviceUpdateService.Exec:input_type -> grpc.ni_device.UpdateRequest
+	4, // 7: grpc.ni_device.NIDeviceDeleteService.Exec:input_type -> grpc.ni_device.DeleteRequest
+	1, // 8: grpc.ni_device.NIDeviceCreateService.Exec:output_type -> grpc.ni_device.CreateResponse
+	8, // 9: grpc.ni_device.NIDeviceRetrieveService.Exec:output_type -> api.ni_device.pb.RetrieveResponse
+	3, // 10: grpc.ni_device.NIDeviceUpdateService.Exec:output_type -> grpc.ni_device.UpdateResponse
+	9, // 11: grpc.ni_device.NIDeviceDeleteService.Exec:output_type -> google.protobuf.Empty
+	8, // [8:12] is the sub-list for method output_type
+	4, // [4:8] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_ni_device_device_proto_init() }
@@ -296,7 +345,7 @@ func file_core_pkg_transport_grpc_ni_device_device_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_ni_device_device_proto_rawDesc), len(file_core_pkg_transport_grpc_ni_device_device_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   4,
 		},
