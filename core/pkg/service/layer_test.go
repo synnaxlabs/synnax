@@ -1357,11 +1357,12 @@ var _ = Describe("Resource search", Ordered, func() {
 
 	It("Should find HTTP servers by name", func(ctx SpecContext) {
 		s := httpserver.Server{
-			Key:  uuid.New(),
-			Rack: layer.Rack.EmbeddedKey,
-			Name: "Pump Gateway",
-			Host: "pump.example.com",
-			Auth: httpserver.Auth{Variant: httpserver.NoneAuth{}},
+			Key:    uuid.New(),
+			Rack:   layer.Rack.EmbeddedKey,
+			Name:   "Pump Gateway",
+			Scheme: httpserver.Scheme{Variant: httpserver.HttpsScheme{}},
+			Host:   "pump.example.com",
+			Auth:   httpserver.Auth{Variant: httpserver.NoneAuth{}},
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return gorp.NewCreate[httpserver.Key, httpserver.Server]().
