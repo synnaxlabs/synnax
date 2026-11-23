@@ -297,9 +297,11 @@ Paint union on type {
 
 Motion union on type {
     spin {
-        rate  telem.Rate = 0.5 {
-            @doc value "is the turns each second at the upper bound of the state."
-            @ts type   "number"
+        rate  float64 = 0.5 {
+            @doc value """
+                is the turns each second at the upper bound of the state. A negative
+                rate turns the part the other way.
+            """
         }
         state string?    {
             @doc value "is the key of the number state that sets the speed."
@@ -308,9 +310,11 @@ Motion union on type {
         @doc value "turns a part around its pivot."
     }
     flow {
-        rate  telem.Rate = 0.5 {
-            @doc value "is the cycles each second at the upper bound of the state."
-            @ts type   "number"
+        rate  float64 = 0.5 {
+            @doc value """
+                is the cycles each second at the upper bound of the state. A negative
+                rate moves the dashes the other way.
+            """
         }
         state string?    {
             @doc value "is the key of the number state that sets the speed."
