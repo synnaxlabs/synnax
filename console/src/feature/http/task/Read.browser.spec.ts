@@ -25,7 +25,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { getLabeledInput } from "@/testutil";
+import { findDialogTriggerByText, getLabeledInput } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
@@ -204,6 +204,58 @@ describe("Read", () => {
         2,
       ),
     );
+  });
+
+  it("should read a message of another ICD with each of its fields", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    const pressure = createField("pressure");
+    const mode = createField("mode", "string");
+    const message: icd.Message = {
+      key: uuid.create(),
+      name: uniqueName("status"),
+      payload: { format: "json", fields: [pressure, mode] },
+    };
+    const shared = await client.icds.create({
+      name: uniqueName("pump"),
+      messages: [message],
+    });
+    const { draft } = await renderWithDevice([ep]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    fireEvent.click(await findDialogTriggerByText("GET /data"));
+    const dialogs = await screen.findAllByRole("dialog");
+    const dialog = within(dialogs[dialogs.length - 1]);
+    fireEvent.change(await dialog.findByPlaceholderText("Search message formats..."), {
+      target: { value: shared.name },
+    });
+    // waitFor resolves a timer tick after its match. A render in that tick can replace
+    // the option. A click in the callback goes to the option on the page.
+    await waitFor(() => {
+      const [match] = dialog
+        .getAllByText(message.name)
+        .filter((n) => n.parentElement?.textContent?.includes(shared.name));
+      if (match == null) throw new Error(`no ${message.name} of ${shared.name}`);
+      fireEvent.click(match);
+    });
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key))[0]).toMatchObject({
+        icd: shared.key,
+        messages: [
+          {
+            message: message.key,
+            bindings: [
+              { field: pressure.key, channel: 0 },
+              { field: mode.key, channel: 0 },
+            ],
+          },
+        ],
+      }),
+    );
+    await screen.findByRole("treeitem", { name: /^pressure/ });
+    await screen.findByRole("treeitem", { name: /^mode/ });
   });
 
   it("should reveal the request body field when the method switches to POST", async () => {

@@ -334,13 +334,13 @@ const TimestampFields: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
 
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
 
-interface RequestSectionProps {
+interface RequestSectionProps extends PropsWithChildren {
   path: deep.Path<ReadEndpoint>;
   actions?: ReactNode;
 }
 
-/** The request that polls an endpoint. */
-const RequestSection: FC<RequestSectionProps> = ({ path, actions }) => {
+/** The request that polls an endpoint. Children follow the path and body. */
+const RequestSection: FC<RequestSectionProps> = ({ path, actions, children }) => {
   const method = PForm.useFieldValue(path.method);
   return (
     <PForm.Section title="Request" actions={actions}>
@@ -359,6 +359,7 @@ const RequestSection: FC<RequestSectionProps> = ({ path, actions }) => {
           inputProps={REQUEST_BODY_INPUT_PROPS}
         />
       )}
+      {children}
       <PlatformForm.KeyValueEditor
         path={path.queryParams}
         resourceName="parameter"
@@ -672,6 +673,8 @@ interface ICDEndpointDetailsProps {
   onAddField: () => void;
   /** Adds a message to the endpoint, for responses that its messages do not cover. */
   onAddMessage: () => void;
+  /** Reads a message of an ICD instead of the one message that the endpoint reads. */
+  onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
 }
 
 /**
@@ -684,6 +687,7 @@ const ICDEndpointDetails: FC<ICDEndpointDetailsProps> = ({
   device,
   onAddField,
   onAddMessage,
+  onFormatChange,
 }) => {
   const isPreview = Task.useIsPreview();
   const path = root.config.endpoints[endpoint];
@@ -708,7 +712,14 @@ const ICDEndpointDetails: FC<ICDEndpointDetailsProps> = ({
               </>
             )
           }
-        />
+        >
+          {reads.length === 1 && (
+            <ICD.MessageFormatField
+              path={icdPath(endpoint)}
+              onChange={onFormatChange}
+            />
+          )}
+        </RequestSection>
         {format != null && reads.length === 1 && (
           <MessageSections
             path={icdPath(endpoint)}
@@ -749,29 +760,37 @@ const Endpoints: FC<EndpointsProps> = ({
   const { push } = PForm.useFieldList(root.config.endpoints);
   const endpoints = PForm.useFieldValue(root.config.endpoints);
   const stored = device.properties.read;
-  const { tree, handleSelect, contextMenu, renderItem, current, addField, addMessage } =
-    ICD.Tree.use({
-      sources: root.config.endpoints,
-      sourceOf: (ep) => (readsICD(ep) ? ep : null),
-      pathOf: icdPath,
-      SourceItem: EndpointItem,
-      // Starting reuses the channel that the device stores for the field's pointer,
-      // unless an enabled endpoint reads it.
-      bindingOf: (key, read, { key: field, pointer }) => {
-        const { path, messages } = ctx.get(icdPath(key)).value;
-        const ch =
-          stored[storedKey(path, messages[read].message)]?.channels[pointer] ?? 0;
-        const written = writtenChannels(ctx.get(root.config.endpoints).value);
-        return icd.readBindingZ.parse({ field, channel: written.has(ch) ? 0 : ch });
-      },
-      messageName: (key, held) =>
-        messageName(ctx.get(root.config.endpoints[key]).value, held),
-      made,
-      selected,
-      onSelect,
-      expanded,
-      onExpand,
-    });
+  const {
+    tree,
+    handleSelect,
+    contextMenu,
+    renderItem,
+    current,
+    addField,
+    addMessage,
+    setMessage,
+  } = ICD.Tree.use({
+    sources: root.config.endpoints,
+    sourceOf: (ep) => (readsICD(ep) ? ep : null),
+    pathOf: icdPath,
+    SourceItem: EndpointItem,
+    // Starting reuses the channel that the device stores for the field's pointer,
+    // unless an enabled endpoint reads it.
+    bindingOf: (key, read, { key: field, pointer }) => {
+      const { path, messages } = ctx.get(icdPath(key)).value;
+      const ch =
+        stored[storedKey(path, messages[read].message)]?.channels[pointer] ?? 0;
+      const written = writtenChannels(ctx.get(root.config.endpoints).value);
+      return icd.readBindingZ.parse({ field, channel: written.has(ch) ? 0 : ch });
+    },
+    messageName: (key, held) =>
+      messageName(ctx.get(root.config.endpoints[key]).value, held),
+    made,
+    selected,
+    onSelect,
+    expanded,
+    onExpand,
+  });
 
   /**
    * @returns ep reading a new message with no fields, in the ICD that the most
@@ -888,6 +907,7 @@ const Endpoints: FC<EndpointsProps> = ({
         device={device}
         onAddField={() => addField(ep.key, 0)}
         onAddMessage={() => handleAddMessage(ep.key)}
+        onFormatChange={(icdKey, message) => setMessage(ep.key, icdKey, message)}
       />
     );
   }
