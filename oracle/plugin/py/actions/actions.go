@@ -19,7 +19,6 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
-
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"

@@ -284,8 +284,10 @@ var _ = Describe("Python Actions Plugin", func() {
 			)
 		})
 
-		It("Should give an action named for a BaseModel attribute an aliased field", func() {
-			resp := MustGenerate(`
+		It(
+			"Should give an action named for a BaseModel attribute an aliased field",
+			func() {
+				resp := MustGenerate(`
 				@py output "client/py/synnax/counter"
 
 				Counter struct {
@@ -296,13 +298,14 @@ var _ = Describe("Python Actions Plugin", func() {
 					}
 				}
 			`, "counter", loader, p)
-			ExpectContent(resp, "actions_gen.py").ToContain(
-				`register_: str = Field(alias="register")`,
-				`copy_: CopyPayload = Field(alias="copy")`,
-				`type: Literal["copy"] = "copy"`,
-				"def copy_(payload: CopyPayload) -> CopyAction:",
-			)
-		})
+				ExpectContent(resp, "actions_gen.py").ToContain(
+					`register_: str = Field(alias="register")`,
+					`copy_: CopyPayload = Field(alias="copy")`,
+					`type: Literal["copy"] = "copy"`,
+					"def copy_(payload: CopyPayload) -> CopyAction:",
+				)
+			},
+		)
 
 		It("Should clear the protected namespaces of a model_dump action", func() {
 			resp := MustGenerate(`
