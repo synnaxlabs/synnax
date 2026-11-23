@@ -334,14 +334,14 @@ var _ = Describe("Writer", func() {
 					pathErr := MustBeOk(errors.AsType[validate.PathError](batchErr.Err))
 					Expect(pathErr.Path).To(Equal(path))
 				},
-				Entry("a name that is not valid", "bad name", []string{"name"}),
+				Entry("a name that is not valid", "bad.name", []string{"name"}),
 				Entry("no name", "", []string{"name"}),
 			)
 			It(
 				"Should return the error of one channel without its position",
 				func(ctx SpecContext) {
 					ch := channel.Channel{
-						Name:     "bad name",
+						Name:     "bad.name",
 						DataType: telem.Float64T,
 						Virtual:  true,
 					}
