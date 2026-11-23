@@ -132,9 +132,9 @@ describe("Custom.usePaints", () => {
         ],
       });
 
-    it("should draw the color of the entry that the value selects", async () => {
+    it("should draw the entry color that the value selects in the theme band", async () => {
       expect(await renderPaints(createEntrySpec(), 1)).toEqual([
-        { selectors: [".body"], fill: color.construct("#00ff00") },
+        { selectors: [".body"], fill: color.construct("#00e800") },
       ]);
     });
 
@@ -145,7 +145,7 @@ describe("Custom.usePaints", () => {
     });
 
     it.each([
-      [1.05, "#00ff00"],
+      [1.05, "#00e800"],
       [0.5, "#ff0000"],
       [1.1, "#ff0000"],
     ])("should read %d through a within match", async (value, hex) => {
@@ -222,12 +222,12 @@ describe("Custom.usePaints", () => {
       ]);
     });
 
-    it("should draw node paint in the node color", async () => {
+    it("should draw node paint in the theme band of the node color", async () => {
       const spec = createSpec({
         looks: [{ key: "stroke", part: "body", stroke: { type: "node" } }],
       });
       expect(await renderPaints(spec, 0, undefined, "#abcdef")).toEqual([
-        { selectors: [".body"], stroke: color.construct("#abcdef") },
+        { selectors: [".body"], stroke: color.construct("#a0c2e3") },
       ]);
     });
 
@@ -247,6 +247,65 @@ describe("Custom.usePaints", () => {
       ];
       expect(await renderPaints(spec, 0, overrides)).toEqual([
         { selectors: [".body"], stroke: color.construct("#123456") },
+      ]);
+    });
+  });
+
+  // The light theme of the wrapper snaps white to black, and keeps #abcdef at
+  // #a0c2e3.
+  describe("theme band", () => {
+    const WHITE = color.construct("#ffffff");
+    const BLACK = color.construct("#000000");
+
+    it("should draw a color stroke in the band and a color fill as stored", async () => {
+      const spec = createSpec({
+        looks: [
+          {
+            key: "white",
+            part: "body",
+            stroke: { type: "color", value: fixed("#ffffff") },
+            fill: { type: "color", value: fixed("#ffffff") },
+          },
+        ],
+      });
+      expect(await renderPaints(spec, 0)).toEqual([
+        { selectors: [".body"], stroke: BLACK, fill: WHITE },
+      ]);
+    });
+
+    it("should draw an override stroke in the band and its fill as stored", async () => {
+      const regions = [
+        {
+          key: "body",
+          name: "Body",
+          selectors: [".body"],
+          strokeColor: WHITE,
+          fillColor: WHITE,
+        },
+      ];
+      const overrides = [{ key: "base", name: "Base", regions }];
+      expect(await renderPaints(createSpec({}), 0, overrides)).toEqual([
+        { selectors: [".body"], stroke: BLACK, fill: WHITE },
+      ]);
+    });
+
+    const createNoColorSpec = () =>
+      createSpec({
+        states: [{ type: "enumeration", key: "active", name: "Active" }],
+        looks: [
+          { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
+        ],
+      });
+
+    it("should draw the node color for an entry with no color", async () => {
+      expect(await renderPaints(createNoColorSpec(), 0, undefined, "#abcdef")).toEqual([
+        { selectors: [".body"], fill: color.construct("#a0c2e3") },
+      ]);
+    });
+
+    it("should draw the theme gray for an entry with no color and no node color", async () => {
+      expect(await renderPaints(createNoColorSpec(), 0)).toEqual([
+        { selectors: [".body"], fill: BLACK },
       ]);
     });
   });
