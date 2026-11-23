@@ -11,4 +11,5 @@ export * from "@/feature/ni/device/hardware";
 export * from "@/feature/ni/device/identifier";
 export * from "@/feature/ni/device/queries";
 export * from "@/feature/ni/device/Select";
+export * from "@/feature/ni/device/tree";
 export * from "@/feature/ni/device/types";
