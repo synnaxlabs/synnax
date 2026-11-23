@@ -54,6 +54,7 @@ cc_test(
         "//driver/bypass",
         "//driver/bypass/pipeline",
         "//driver/control",
+        "//driver/journal",
         "//driver/outbox",
         "//driver/outbox/testutil",
         "//driver/pipeline/testutil",

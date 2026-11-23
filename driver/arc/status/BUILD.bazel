@@ -12,15 +12,34 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "status",
-    hdrs = ["status.h"],
+    srcs = ["keys.cpp"],
+    hdrs = [
+        "keys.h",
+        "status.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/runtime/node",
+        "//arc/cpp/program",
         "//arc/cpp/stl",
         "//client/cpp/status",
         "//driver/arc:reporter",
+        "//driver/journal",
         "//driver/outbox",
         "//x/cpp/errors",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "keys_test",
+    srcs = ["keys_test.cpp"],
+    deps = [
+        ":status",
+        "//driver/journal",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
     ],
 )
 

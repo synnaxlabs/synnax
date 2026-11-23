@@ -159,6 +159,8 @@ struct Config {
     synnax::Config connection;
     /// @brief the settings of the outbox. The rack sets its directory and client.
     outbox::Config outbox;
+    /// @brief the most status names whose key the Driver keeps across restarts.
+    std::size_t status_keys = arc::status::DEFAULT_MAX_KEYS;
     /// @brief the list of integrations enabled for the driver.
     std::vector<std::string> integrations;
     /// @brief the directory that holds the persisted state file. Integrations keep
@@ -383,6 +385,7 @@ struct Config {
             this->outbox.sync_interval
         );
         this->outbox.stuck_after = span("outbox_stuck_after", this->outbox.stuck_after);
+        this->status_keys = count("outbox_status_keys", this->status_keys);
     }
 
     [[nodiscard]] x::errors::Error load_args(x::args::Parser &args);

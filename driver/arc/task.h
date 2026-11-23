@@ -230,10 +230,16 @@ public:
         const synnax::task::Task &task_meta,
         const std::shared_ptr<task::Context> &ctx,
         const TaskConfig &cfg,
+        const std::pair<std::shared_ptr<status::Keys>, x::errors::Error> &keys,
         std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
         std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr,
         const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr
     ) {
+        auto [outbox, outbox_err] = ctx->outbox();
+        if (status::sets_statuses(cfg.program)) {
+            if (outbox_err) return {nullptr, outbox_err};
+            if (keys.second) return {nullptr, keys.second};
+        }
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 
         if (rt_manager != nullptr) {
@@ -267,7 +273,8 @@ public:
             .factories =
                 {
                     std::make_shared<::driver::arc::status::Module>(
-                        ctx->outbox(),
+                        outbox,
+                        keys.first,
                         [task_ptr = task.get()](
                             const std::string &message,
                             const std::string &description

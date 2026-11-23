@@ -7,11 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "absl/log/log.h"
+
 #include "driver/arc/arc.h"
 #include "driver/arc/task.h"
 #include "driver/common/status.h"
 
 namespace driver::arc {
+Factory::Factory(
+    std::shared_ptr<x::thread::rt::Manager> rt_manager,
+    const std::filesystem::path &keys_path,
+    const std::size_t max_keys
+):
+    rt_manager(std::move(rt_manager)) {
+    auto [keys, err] = status::Keys::open(keys_path, max_keys);
+    if (err) {
+        err = x::errors::Error(
+            err,
+            "The Driver cannot load the status keys in " + keys_path.string() + ": " +
+                err.data + ". Move " + keys_path.string() +
+                " aside, then restart the Driver."
+        );
+        LOG(ERROR) << "[arc] " << err.data;
+    }
+    this->keys = {std::move(keys), err};
+}
+
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -35,6 +56,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure(
         task,
         ctx,
         cfg,
+        this->keys,
         nullptr,
         nullptr,
         this->rt_manager
