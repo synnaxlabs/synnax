@@ -12,7 +12,7 @@ import { deep } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { LineForm } from "@/schematic/node/general/line/Form";
+import { Line } from "@/schematic/node/general/line";
 import { renderForm } from "@/testutil";
 
 const path = deep.path<schematic.LineNodeConfig>();
@@ -29,7 +29,7 @@ describe("LineForm", () => {
     { name: "above the maximum", typed: "21", expected: 20 },
   ])("should clamp a stroke width $name", async ({ typed, expected }) => {
     const { container, value } = renderForm(
-      <LineForm />,
+      <Line.spec.Form />,
       schematic.lineNodeConfigZ.parse({ variant: "line", strokeWidth: 4 }),
       schematic.lineNodeConfigZ,
     );
