@@ -16,7 +16,7 @@ import svg from "@/schematic/node/valves/Check.svg?raw";
 
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.042222, y: 0.488372 }, orientation: "left" },
@@ -37,7 +37,7 @@ export const Check = ({
     {...rest}
   >
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

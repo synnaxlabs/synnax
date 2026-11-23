@@ -16,7 +16,7 @@ import svg from "@/schematic/node/fittings/Thruster.svg?raw";
 
 export interface ThrusterProps extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   variant: "actuator",
   svg,
   handles: [
@@ -36,7 +36,7 @@ export const Thruster = ({
 }: ThrusterProps): ReactElement => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("thruster"), className)}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

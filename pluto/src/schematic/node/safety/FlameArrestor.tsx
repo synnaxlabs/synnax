@@ -16,7 +16,7 @@ import svg from "@/schematic/node/safety/FlameArrestor.svg?raw";
 
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.07575, y: 0.5 }, orientation: "left" },
@@ -33,7 +33,7 @@ export const FlameArrestor = ({
 }: Props): ReactElement => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("flame-arrestor"), className)}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

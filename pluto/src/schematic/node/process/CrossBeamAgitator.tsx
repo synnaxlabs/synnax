@@ -17,7 +17,7 @@ import svg from "@/schematic/node/process/CrossBeamAgitator.svg?raw";
 
 export interface Props extends AgitatorProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   variant: "actuator",
   svg,
   handles: [{ key: "4", position: { x: 0.51, y: 0.02 }, orientation: "top" }],
@@ -32,7 +32,7 @@ export const CrossBeamAgitator = ({
 }: Props): ReactElement => (
   <Toggle.Button {...rest} className={CSS.cls(CSS.B("agitator"))}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

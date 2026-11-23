@@ -20,7 +20,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import type { Toggle } from "@/schematic/node/common/toggle";
 import svg from "@/schematic/node/general/switch/Switch.svg?raw";
 
-const SPEC = Custom.createBuiltIn({ svg, handles: [] });
+export const SYMBOL = Custom.createBuiltIn({ svg, handles: [] });
 
 const SWITCH_SCALE = CSS.variable("switch-scale");
 
@@ -62,7 +62,7 @@ export const Switch = ({
       onClick={disabled === true ? undefined : hold.onClick}
     >
       <Custom.Drawing
-        spec={SPEC}
+        spec={SYMBOL}
         builtIn
         strokeColor={strokeColor}
         // The switch turns only to stand upright, with off at the bottom.

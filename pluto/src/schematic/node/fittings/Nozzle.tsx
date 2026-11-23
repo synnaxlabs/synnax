@@ -16,7 +16,7 @@ import svg from "@/schematic/node/fittings/Nozzle.svg?raw";
 
 export interface NozzleProps extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.1875, y: 0.1746 }, orientation: "left" },
@@ -34,7 +34,7 @@ export const Nozzle = ({
 }: NozzleProps): ReactElement => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("nozzle"), className)}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

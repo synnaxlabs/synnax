@@ -17,7 +17,7 @@ import svg from "@/schematic/node/process/Agitator.svg?raw";
 
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   variant: "actuator",
   svg,
   handles: [{ key: "4", position: { x: 0.5, y: 0.01 }, orientation: "top" }],
@@ -31,7 +31,7 @@ export const Agitator = ({
 }: Props): ReactElement => (
   <Toggle.Button {...rest} className={CSS.cls(CSS.B("agitator"))}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

@@ -16,7 +16,7 @@ import svg from "@/schematic/node/valves/ElectricRegulatorMotorized.svg?raw";
 
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "2", position: { x: 0.356321, y: 0.1372549 }, orientation: "left" },
@@ -42,7 +42,7 @@ export const ElectricRegulatorMotorized = ({
     orientation={orientation}
   >
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

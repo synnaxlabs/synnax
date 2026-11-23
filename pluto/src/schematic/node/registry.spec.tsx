@@ -43,6 +43,15 @@ describe("Schematic.Node.REGISTRY", () => {
   });
 });
 
+describe("Schematic.Node.BUILT_INS", () => {
+  it("should hold a spec for each symbol that the Core lists", async () => {
+    const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
+    expect(Object.keys(Node.BUILT_INS).sort()).toEqual(
+      builtins.map((b) => b.name).sort(),
+    );
+  });
+});
+
 describe("Schematic.Node.isConfig", () => {
   it("should accept a node config", () => {
     expect(Node.isConfig(Node.createConfig({ variant: "tank" }))).toBe(true);

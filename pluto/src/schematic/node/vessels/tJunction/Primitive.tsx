@@ -16,7 +16,7 @@ import svg from "@/schematic/node/vessels/tJunction/Primitive.svg?raw";
 
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.038462, y: 0.214286 }, orientation: "left" },
@@ -34,7 +34,7 @@ export const TJunction = ({
 }: Props): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("t-junction"), className)} {...rest}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

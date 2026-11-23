@@ -16,7 +16,7 @@ import svg from "@/schematic/node/fittings/ISOFilter.svg?raw";
 
 export interface ISOFilterProps extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.05, y: 0.5 }, orientation: "left" },
@@ -33,7 +33,7 @@ export const ISOFilter = ({
 }: ISOFilterProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("iso-filter"), className)} {...rest}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

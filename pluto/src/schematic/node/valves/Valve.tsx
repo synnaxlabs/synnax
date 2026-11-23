@@ -16,7 +16,7 @@ import svg from "@/schematic/node/valves/Valve.svg?raw";
 
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   variant: "actuator",
   svg,
   handles: [
@@ -33,7 +33,7 @@ export const Valve = ({
 }: Props): ReactElement => (
   <Toggle.Button {...rest}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

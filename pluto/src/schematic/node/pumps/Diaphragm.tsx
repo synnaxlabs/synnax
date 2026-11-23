@@ -17,7 +17,7 @@ import svg from "@/schematic/node/pumps/Diaphragm.svg?raw";
 
 export interface DiaphragmProps extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   variant: "actuator",
   svg,
   handles: [
@@ -41,7 +41,7 @@ export const Diaphragm = ({
     orientation={orientation}
   >
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

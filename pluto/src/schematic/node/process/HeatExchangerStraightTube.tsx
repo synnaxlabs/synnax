@@ -16,7 +16,7 @@ import svg from "@/schematic/node/process/HeatExchangerStraightTube.svg?raw";
 
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.09, y: 0.0625 }, orientation: "top" },
@@ -38,7 +38,7 @@ export const HeatExchangerStraightTube = ({
 }: Props): ReactElement => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("heat-exchanger-M"), className)}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

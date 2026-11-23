@@ -16,7 +16,7 @@ import svg from "@/schematic/node/fittings/Filter.svg?raw";
 
 export interface FilterProps extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.115385, y: 0.5 }, orientation: "left" },
@@ -33,7 +33,7 @@ export const Filter = ({
 }: FilterProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("filter"), className)} {...rest}>
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}
