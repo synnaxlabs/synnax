@@ -24,10 +24,20 @@ import (
 // describes. It returns an error when the sample does not hold a key.
 type RecordOf func(sample []byte) (resource.ID, error)
 
+// Check returns what a subject receives of a sample, given whether the subject can
+// retrieve each resource: the sample when send is true and replacement is nil, another
+// sample when replacement is not nil, and nothing when send is false.
+type Check = func(allowed func(resource.ID) bool) (replacement []byte, send bool)
+
 // Record finds the records that the samples of a change channel describe.
 type Record struct {
 	// Of returns the record of one sample.
 	Of RecordOf
+	// Check returns the check of one sample. A streamer sends the sample only to a
+	// subject that passes it, in place of a check of the record that Of returns. It
+	// returns an error when the check of the sample is gone, which fails the stream.
+	// Nil for a channel that checks only that record.
+	Check func(sample []byte) (Check, error)
 	// Deleted is true when each sample describes a record that was deleted.
 	Deleted bool
 }
