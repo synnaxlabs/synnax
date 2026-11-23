@@ -18,6 +18,8 @@ from console.task_page import TaskPage
 
 BROKER_FIELD_LABEL = "MQTT broker"
 _DETAILS_SELECTOR = ".console-details__form"
+# The add dialog is the element with this class.
+_DISCOVER_SELECTOR = ".console-mqtt-discover"
 _ENTRY_TITLE_SELECTOR = ".console-mqtt-entry-label > .lyra-text--overflow-fade"
 _CHANNEL_NAME_SELECTOR = ".console-task__channel-name"
 _ENTRY_LIST_SELECTOR = ".console-panes__list"
@@ -59,8 +61,7 @@ class MQTTTask(TaskPage):
         return self._pane().get_by_role("button", name=self.add_label, exact=True)
 
     def _dialog(self) -> Locator:
-        tabs = self.page.get_by_role("button", name="JSON topics", exact=True)
-        return self.page.get_by_role("dialog").filter(has=tabs)
+        return self.page.locator(_DISCOVER_SELECTOR)
 
     def _open_dialog(self) -> Locator:
         self._add_button().click()
@@ -129,14 +130,6 @@ class MQTTTask(TaskPage):
         for tag in tags:
             self._pick(dialog.get_by_role("checkbox", name=f"Record {tag}", exact=True))
         self._submit(dialog)
-
-    def add_entry(self) -> None:
-        """Add an entry with no topic through the add dialog, and select it."""
-        dialog = self._open_dialog()
-        dialog.get_by_role("button", name="Add a topic by name", exact=True).click()
-        dialog.wait_for(state="hidden", timeout=5000)
-        topic = self._details().get_by_text("Topic", exact=True)
-        topic.wait_for(state="visible", timeout=5000)
 
     def select_entry(self, title: str) -> None:
         """Select the listed entry ``title`` so its details show."""
@@ -231,7 +224,7 @@ class MQTTRead(MQTTTask):
 
 
 class MQTTWrite(MQTTTask):
-    """MQTT write task page. A plain target publishes one command channel."""
+    """MQTT write task page."""
 
     page_type: PageType = "mqtt_write"
     pluto_label: str = ".console-task-configure--mqtt_write"
@@ -239,19 +232,6 @@ class MQTTWrite(MQTTTask):
 
     def _rows(self) -> Locator:
         return self._channel_list().get_by_role("option")
-
-    def configure_channel(
-        self, *, pointer: str, json_type: str, data_type: str
-    ) -> None:
-        """Set the command channel of the selected plain target.
-
-        :param pointer: JSON pointer the value takes in the payload.
-        :param json_type: JSON type as listed, e.g. "Number".
-        :param data_type: Synnax data type of the channel, e.g. "float64".
-        """
-        self._fill("Pointer", pointer)
-        self._select("JSON type", json_type)
-        self._select("Data type", data_type)
 
 
 class MQTTEdge(TaskPage):

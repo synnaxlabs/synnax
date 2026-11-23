@@ -544,6 +544,37 @@ class TestSymbolClient:
         retrieved = client.schematics.symbols.retrieve(keys=[s1.key, s2.key])
         assert {s.key for s in retrieved} == {s1.key, s2.key}
 
+    def test_retrieve_unused(
+        self, client: sy.Synnax, parent_group: group.Group
+    ) -> None:
+        """Should retrieve empty uses for a symbol that nothing uses."""
+        created = client.schematics.symbols.create(_symbol("Unused", parent_group))
+        symbols = client.schematics.symbols
+        assert symbols.retrieve(key=created.key, include_uses=True).uses == []
+        assert symbols.retrieve(key=created.key).uses is None
+
+    def test_retrieve_uses(self, client: sy.Synnax, parent_group: group.Group) -> None:
+        """Should retrieve the schematics whose symbol nodes draw a symbol."""
+        created = client.schematics.symbols.create(_symbol("Used", parent_group))
+        project = client.projects.create(name=str(uuid4()))
+        s = client.schematics.create(
+            sy.Schematic(
+                project=project.key,
+                name=str(uuid4()),
+                nodes=[
+                    schematic.Node(
+                        key="symbol",
+                        position=spatial.XY(x=0, y=0),
+                        config=schematic.SymbolNodeConfig(
+                            spec=symbol.CustomRef(key=created.key)
+                        ),
+                    )
+                ],
+            )
+        )
+        res = client.schematics.symbols.retrieve(keys=[created.key], include_uses=True)
+        assert [r.uses for r in res] == [[schematic.resource_id(s.key)]]
+
     def test_retrieve_where(self, client: sy.Synnax, parent_group: group.Group) -> None:
         """Should keep the symbols that match the where and the other filters."""
         a, b = client.schematics.symbols.create(

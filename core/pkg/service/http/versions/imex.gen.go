@@ -50,13 +50,21 @@ func decodeReadConfig(
 		if err != nil {
 			return ReadConfig{}, err
 		}
-		return t4, nil
+		t5, err := v5.MigrateReadConfig(ctx, t4)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		return t5, nil
 	case v4.Version:
 		t4, err := imex.DecodeBlob[v4.ReadConfig](data, "http.ReadConfig", version)
 		if err != nil {
 			return ReadConfig{}, err
 		}
-		return t4, nil
+		t5, err := v5.MigrateReadConfig(ctx, t4)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		return t5, nil
 	case v5.Version:
 		return imex.DecodeBlob[ReadConfig](data, "http.ReadConfig", version)
 	}

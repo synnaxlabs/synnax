@@ -14,6 +14,7 @@ import {
   type CrudeTimeSpan,
   disposable,
   observe,
+  record,
   sleep,
   TimeSpan,
   TimeStamp,
@@ -34,7 +35,7 @@ import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
 import { enumeration } from "@/enumeration";
-import { nodeSystem, resolveParams } from "@/env";
+import { env } from "@/env";
 import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
@@ -256,7 +257,8 @@ export default class Synnax extends framer.Client {
 
   readonly key: string;
   readonly createdAt: TimeStamp;
-  readonly params: ParsedSynnaxParams;
+  /** The parameters the client connects with. Credentials stay in auth. */
+  readonly params: Omit<ParsedSynnaxParams, "password" | "apiKey" | "token" | "oidc">;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client;
@@ -334,10 +336,10 @@ export default class Synnax extends framer.Client {
    * Deno.
    */
   constructor(params: ConstructorParams = {}) {
-    const system = nodeSystem();
+    const system = env.nodeSystem();
     const parsedParams = zod.parse(
       constructorParamsZ,
-      resolveParams(params, globalThis.process?.env, system),
+      env.resolveParams(params, globalThis.process?.env, system),
     );
     const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
       parsedParams;
@@ -419,7 +421,7 @@ export default class Synnax extends framer.Client {
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
     this.createdAt = TimeStamp.now();
-    this.params = parsedParams;
+    this.params = record.omit(parsedParams, "password", "apiKey", "token", "oidc");
     this.transport = transport;
     const unary = this.transport.unary;
     this.batch = new batch.Client(unary);

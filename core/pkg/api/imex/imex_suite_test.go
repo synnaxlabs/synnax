@@ -104,7 +104,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Enumeration: MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
 			DB: db,
 		})),
-		Actuators: noActuators,
+		Actuators:     noActuators,
+		RemoveOrphans: noOrphans,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
@@ -147,3 +148,5 @@ func subjectCtx(ctx SpecContext, u user.User) freighter.Context {
 func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
 	return nil, nil
 }
+
+func noOrphans(context.Context, gorp.Tx, symbol.Symbol) error { return nil }

@@ -64,24 +64,8 @@ describe("StalenessSection", () => {
     );
   });
 
-  it("should show and write a timeout in the given unit", async () => {
-    const onTimeoutChange = vi.fn();
-    await renderWithConsole(
-      <MultiEdit.StalenessSection
-        timeout={3}
-        unit={TimeSpan.SECOND}
-        onTimeoutChange={onTimeoutChange}
-      />,
-    );
-    expect(field().value).toBe("3s");
-    typeTimeout("7s");
-    expect(onTimeoutChange).toHaveBeenLastCalledWith(7);
-  });
-
   it("should show the default timeout when no element has one", async () => {
-    await renderWithConsole(
-      <MultiEdit.StalenessSection unit={TimeSpan.SECOND} onTimeoutChange={vi.fn()} />,
-    );
+    await renderWithConsole(<MultiEdit.StalenessSection onTimeoutChange={vi.fn()} />);
     expect(field().value).toBe("5s");
   });
 });

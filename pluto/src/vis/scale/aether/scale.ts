@@ -27,10 +27,9 @@ import { aether } from "@/aether/aether";
 import { color as aetherColor } from "@/color/aether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
-import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
-import type { Element } from "@/vis/diagram/aether/Diagram";
-import { Draw2D } from "@/vis/draw2d";
-import { domRadii } from "@/vis/draw2d/canvas";
+import { axis } from "@/vis/axis";
+import type { diagram } from "@/vis/diagram/aether";
+import { domRadii, Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -126,16 +125,16 @@ interface InternalState {
   fillColor: color.Color;
   axisColor: color.Color;
   textColor: color.Color;
-  tickFactory: TickFactory;
-  minorTickFactory: TickFactory;
-  ticks: Tick[];
-  minorTicks: Tick[];
+  tickFactory: axis.TickFactory;
+  minorTickFactory: axis.TickFactory;
+  ticks: axis.Tick[];
+  minorTicks: axis.Tick[];
   tickLevel: text.Level;
 }
 
 export class Scale
   extends aether.Leaf<typeof scaleStateZ, InternalState>
-  implements Element
+  implements diagram.Element
 {
   static readonly TYPE = "scale";
   static readonly z = scaleStateZ;
@@ -163,8 +162,8 @@ export class Scale
 
     const { lower, upper } = this.state.bounds;
     const decimalToDataScale = scale.Scale.scale<number>(0, 1).scale(lower, upper);
-    i.tickFactory ??= newTickFactory({ type: "linear" });
-    i.minorTickFactory ??= newTickFactory({
+    i.tickFactory ??= axis.newTickFactory({ type: "linear" });
+    i.minorTickFactory ??= axis.newTickFactory({
       type: "linear",
       tickSpacing: MINOR_TICK_SPACING,
     });
