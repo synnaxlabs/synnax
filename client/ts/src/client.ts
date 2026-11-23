@@ -214,6 +214,7 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   group: changes(group.ACTION_CHANNEL_NAME, group.DELETE_CHANNEL_NAME),
   http_server: null,
   icd: changes(icd.ACTION_CHANNEL_NAME, icd.DELETE_CHANNEL_NAME),
+  kafka_cluster: null,
   label: changes(label.ACTION_CHANNEL_NAME, label.DELETE_CHANNEL_NAME),
   labjack_device: null,
   lineplot: changes(lineplot.SET_CHANNEL_NAME, lineplot.DELETE_CHANNEL_NAME),

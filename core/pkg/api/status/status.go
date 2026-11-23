@@ -108,7 +108,8 @@ func resolveDetails(s *status.Status[any]) error {
 		resource.TypeHTTPServer, resource.TypeLabjackDevice, resource.TypeModbusServer,
 		resource.TypeNiChassis, resource.TypeNiDevice, resource.TypeOpcuaServer,
 		resource.TypeArcDirectory, resource.TypeSecret, resource.TypeCertificate,
-		resource.TypeColor, resource.TypeICD, resource.TypeEnumeration:
+		resource.TypeColor, resource.TypeICD, resource.TypeEnumeration,
+		resource.TypeKafkaCluster:
 	}
 	return err
 }

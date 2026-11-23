@@ -87,6 +87,8 @@ const (
 	TypeICD Type = versions.TypeICD
 	// TypeEnumeration identifies an enumeration.
 	TypeEnumeration Type = versions.TypeEnumeration
+	// TypeKafkaCluster identifies a Kafka cluster.
+	TypeKafkaCluster Type = versions.TypeKafkaCluster
 )
 
 // ID is a unique identifier for a Resource. An example:

@@ -1,0 +1,162 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/certificate/v1"
+import "schemas/synnax/versions/channel/v1"
+import "schemas/synnax/versions/icd/v1"
+import "schemas/synnax/versions/rack/v3"
+import "schemas/synnax/versions/secret/v1"
+import "schemas/synnax/versions/status/v2"
+
+Key = uuid {
+    @doc value "uniquely identifies a Kafka cluster."
+}
+
+Broker struct {
+    host string  {
+        @doc value "is the hostname or IP address of the broker."
+    }
+    port uint16? {
+        @doc value "is the TCP port. Absent takes 9092."
+    }
+
+    @doc value  "is a bootstrap broker of a cluster."
+    @go marshal
+}
+
+Transport union on type {
+    plaintext {
+        @doc value "connects over plain TCP."
+    }
+    tls {
+        ca_certificate certificate.Key? {
+            @doc value """
+                is the certificate authority that signs the certificates of the brokers.
+                Absent trusts the system roots.
+            """
+        }
+
+        @doc value "connects over TLS."
+    }
+
+    @doc value  """
+        is the transport that the Core connects to the brokers of a cluster over.
+    """
+    @go marshal
+}
+
+Credentials struct {
+    username string     {
+        @doc value "is the user name to authenticate with."
+    }
+    password secret.Key {
+        @doc value "is the secret that holds the password."
+    }
+
+    @doc value  "carries the user name and password of a SASL mechanism."
+    @go marshal
+}
+
+Auth union on mechanism {
+    none {
+        @doc value "authenticates with no credentials."
+    }
+    plain extends Credentials {
+        @doc value "authenticates with the SASL PLAIN mechanism."
+    }
+    scram_sha_256 extends Credentials {
+        @doc value "authenticates with the SASL SCRAM-SHA-256 mechanism."
+    }
+    scram_sha_512 extends Credentials {
+        @doc value "authenticates with the SASL SCRAM-SHA-512 mechanism."
+    }
+
+    @doc value  "selects the SASL mechanism and the credentials it carries."
+    @go marshal
+}
+
+Read struct {
+    topic      string         {
+        @doc value "is the topic to consume."
+    }
+    record_key string = "" {
+        @doc value """
+            is the Kafka key of the records read here. Empty reads every record of the
+            topic that no other read of the topic claims, keyless ones included.
+        """
+    }
+    message    icd.MessageKey {
+        @doc value "is the ICD message that the values of the records hold."
+    }
+    pointer    string = "" {
+        @doc value "is the JSON Pointer to the value in the message."
+    }
+    index      channel.Key    {
+        @doc value "is the index channel of the channel."
+    }
+    channel    channel.Key    {
+        @doc value "is the channel that holds the samples of the value."
+    }
+
+    @doc value  "binds a value in the records of a topic to a channel."
+    @go marshal
+}
+
+StatusDetails struct {
+    rack      rack.Key {
+        @doc value "is the key of the rack the cluster belongs to."
+    }
+    cluster   Key      {
+        @doc value "is the key of the cluster."
+    }
+    connected bool = false {
+        @doc value "is true when the Core is connected to the cluster."
+    }
+
+    @doc value "identifies the cluster and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the connection status of a cluster."
+}
+
+Cluster struct {
+    key       Key = create {
+        @doc value "uniquely identifies the cluster."
+        @key
+    }
+    rack      rack.Key  {
+        @doc value "is the key of the rack that connects to the cluster."
+    }
+    name      string    {
+        @doc value "is a human-readable name for the cluster."
+    }
+    brokers   Broker[]  {
+        @doc value """
+            are the bootstrap brokers of the cluster. A cluster has at least one.
+        """
+    }
+    transport Transport = plaintext {
+        @doc value "is the transport that the Core connects to the brokers over."
+    }
+    auth      Auth = none {
+        @doc value "is the authentication that the brokers require."
+    }
+    reads     Read[] = [] {
+        @doc value "bind the values that read tasks consume to channels."
+    }
+    status    Status?   {
+        @doc value  "is the current connection status of the cluster."
+        @go marshal omit
+    }
+
+    @doc value  "is a Kafka cluster that a rack connects to."
+    @go marshal
+    @go migrate
+}
