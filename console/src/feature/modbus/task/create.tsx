@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { id } from "@synnaxlabs/x";
 
-import { MAKE } from "@/feature/modbus/device/types";
+import { Device } from "@/feature/modbus/device";
 import {
   nextOpenChannel,
   READ_CHANNEL_SCHEMAS,
@@ -72,7 +72,7 @@ const getReadInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey })
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues: getReadInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const ReadSelectable: Selector.Selectable = {
@@ -92,7 +92,7 @@ const getWriteInitialValues: Task.GetInitialValues<WriteSchemas> = ({ deviceKey 
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues: getWriteInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable: Selector.Selectable = {

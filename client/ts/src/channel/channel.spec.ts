@@ -857,7 +857,7 @@ describe("cached reads", () => {
     it("coalesces concurrent single retrieves into one request", async () => {
       const created = [await createVirtual(), await createVirtual()];
       const local = createTestClient();
-      await local.connect();
+      await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
       const res = await Promise.all(
         created.map(async ({ key }) => await local.channels.retrieve(key)),
@@ -899,7 +899,7 @@ describe("cached reads", () => {
         ),
       );
       const local = createTestClient();
-      await local.connect();
+      await waitForStreamLive(local.connection);
       const send = spyOnSend(local);
       const res = await Promise.all(
         created.map(async ({ key }) => await local.channels.retrieve(key)),

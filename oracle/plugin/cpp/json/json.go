@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
+	"github.com/synnaxlabs/oracle/plugin/internal/literal"
 	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -373,7 +374,8 @@ func (p *Plugin) parentTypes(
 
 // objectMap returns the map type behind ref, whether its values are structs, and
 // whether to_json must build its JSON object by hand: nlohmann_json writes non-string
-// keys as an array of pairs and cannot reach the to_json member of a struct.
+// keys as an array of pairs, cannot reach the to_json member of a struct, and writes
+// bytes as an array instead of base64.
 func objectMap(
 	ref resolution.TypeRef,
 	table *resolution.Table,
@@ -390,7 +392,8 @@ func objectMap(
 	}
 	key := ref.TypeArgs[0]
 	return ref, isStruct, isStruct || key.IsTypeParam() ||
-		mapKeyBase(key, table) != "string"
+		mapKeyBase(key, table) != "string" ||
+		resolution.PrimitiveBase(ref.TypeArgs[1], table) == "bytes"
 }
 
 // mapKeyBase returns the primitive that a map key is written as. C++ holds a string
@@ -970,8 +973,11 @@ func toJSONExprForField(
 		telem.IsTimeSpan(typeRef, data.table, "cpp") {
 		return w.method("nanoseconds")
 	}
-	if resolution.PrimitiveBase(typeRef, data.table) == "uuid" {
+	switch resolution.PrimitiveBase(typeRef, data.table) {
+	case "uuid":
 		return w.method("to_json")
+	case "bytes":
+		return w.call("x::json::to_json")
 	}
 	return w.value()
 }
@@ -1028,6 +1034,8 @@ func (w fieldWriter) objectMap(mapRef resolution.TypeRef, isStruct bool) string 
 	value := "item"
 	if isStruct {
 		value = "item.to_json()"
+	} else if resolution.PrimitiveBase(mapRef.TypeArgs[1], w.data.table) == "bytes" {
+		value = "x::json::to_json(item)"
 	}
 	return w.guard(fmt.Sprintf(`{
         auto obj = x::json::json::object();
@@ -1064,6 +1072,9 @@ func (w fieldWriter) array(elemType resolution.TypeRef) string {
         for (const auto& item : %s) arr.push_back(item.to_json());
         j["%s"] = arr;
     }`, w.source(), w.jsonName))
+	}
+	if resolution.PrimitiveBase(elemType, w.data.table) == "bytes" {
+		return w.call("x::json::to_array")
 	}
 	elem, _, ok := resolution.Dealias(elemType, w.data.table)
 	if !ok {
@@ -1214,7 +1225,7 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 	case resolution.ValueKindInt:
 		return strconv.FormatInt(v.IntValue, 10)
 	case resolution.ValueKindFloat:
-		return fmt.Sprintf("%f", v.FloatValue)
+		return literal.Float(v.FloatValue)
 	case resolution.ValueKindBool:
 		return strconv.FormatBool(v.BoolValue)
 	case resolution.ValueKindStruct:

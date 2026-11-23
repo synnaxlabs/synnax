@@ -17,10 +17,25 @@ import "core/pkg/service/ni/chassis/pb/ni_chassis.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/ni/chassis/pb";
 
+// OrderField is a field that chassis can be sorted by.
+enum OrderField {
+  ORDER_FIELD_NAME = 0;
+}
+
 // Cursor is a position in an order of chassis: the sort value and the key of a chassis.
 message Cursor {
   // key is the key of the chassis at the position.
   string key = 1;
+  // name is the name of the chassis at the position, when the order sorts by it.
+  optional string name = 2;
+}
+
+// Order is a sort of chassis.
+message Order {
+  // field is the field to sort by. Records with equal values sort by key.
+  OrderField field = 1;
+  // descending sorts from the greatest value to the least.
+  bool descending = 2;
 }
 
 // RetrieveRequest is a request to retrieve chassis.
@@ -29,12 +44,14 @@ message RetrieveRequest {
   optional .service.ni_chassis.pb.Where where = 1;
   // search_term keeps the chassis that match the term, closest match first.
   string search_term = 2;
+  // order sorts the chassis. An absent order sorts them by key.
+  optional Order order = 3;
   // after starts the chassis strictly past this position in their order.
-  optional Cursor after = 3;
+  optional Cursor after = 4;
   // limit is the most chassis to return.
-  optional uint32 limit = 4;
+  optional uint32 limit = 5;
   // include_status includes the status of each record.
-  bool include_status = 5;
+  bool include_status = 6;
 }
 
 // RetrieveResponse holds the chassis a RetrieveRequest selects.

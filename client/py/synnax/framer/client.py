@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import TypeAlias, overload
 
 import synnax.channel.payload as channel
@@ -405,6 +405,7 @@ class Client:
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
         keep_alive: CrudeTimeSpan = DEFAULT_KEEP_ALIVE,
+        on_missed: Callable[[], None] | None = None,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
         being receiving frames of data from the given channels.
@@ -419,6 +420,9 @@ class Client:
         :param keep_alive: Interval at which the Core sends keep-alive responses. A read
         that stays silent for three intervals raises Unreachable. Zero disables
         detection. Numbers are seconds.
+        :param on_missed: Called when the Core drops frames because the streamer fell
+        behind. Called once for each run of drops, after a logged warning. The stream
+        continues, and the dropped frames never arrive.
         """
         adapter = ReadFrameAdapter(self._channels)
         adapter.update(channels)
@@ -429,6 +433,7 @@ class Client:
             throttle_rate=throttle_rate,
             exclude_groups=exclude_groups,
             keep_alive=keep_alive,
+            on_missed=on_missed,
         )
 
     @deprecate_positional(
@@ -442,6 +447,7 @@ class Client:
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
         keep_alive: CrudeTimeSpan = DEFAULT_KEEP_ALIVE,
+        on_missed: Callable[[], None] | None = None,
     ) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self._channels)
         adapter.update(channels)
@@ -452,6 +458,7 @@ class Client:
             throttle_rate=throttle_rate,
             exclude_groups=exclude_groups,
             keep_alive=keep_alive,
+            on_missed=on_missed,
         )
         await s._open()
         return s

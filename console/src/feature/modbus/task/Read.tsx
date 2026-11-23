@@ -17,9 +17,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import type { FC } from "react";
 
-import { useFromConfig } from "@/feature/modbus/device/queries";
-import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import { SCHEMAS } from "@/feature/modbus/device/types";
+import { Device } from "@/feature/modbus/device";
 import { AddressField } from "@/feature/modbus/task/AddressField";
 import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
 import { getOpenReadChannel } from "@/feature/modbus/task/create";
@@ -43,14 +41,14 @@ import {
   type ReadSchemas,
   UNSUPPORTED_DATA_TYPES,
 } from "@/feature/modbus/task/types";
-import { Device } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<ReadSchemas>>();
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <Flex.Box x grow wrap>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
@@ -72,7 +70,7 @@ const COLUMNS: List.Column[] = [
 const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   const entry = path.config.channels[itemKey];
   const ch = PForm.useFieldValue(entry);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const overlapping = useOverlaps(path.config.channels, itemKey);
   return (
     <Task.Views.ListChannelItem
@@ -135,7 +133,7 @@ const map = ({ selected, onSelect }: Task.Views.PortsProps<ReadChannel>) => (
 );
 
 const Form: FC = () => {
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const resolve = (c: ReadChannel) =>
     dev == null ? null : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 };
   return (
@@ -158,7 +156,7 @@ const Form: FC = () => {
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const before = deep.copy(dev.properties);
   let shouldCreateIndex = false;
@@ -212,7 +210,8 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (modified) await Device.setProperties(client, dev, before, SCHEMAS);
+    if (modified)
+      await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
   }
 
   config.channels.forEach((c) => {

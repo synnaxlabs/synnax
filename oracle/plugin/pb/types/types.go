@@ -293,9 +293,14 @@ func (p *Plugin) addTypes(
 	unions []resolution.Type,
 ) error {
 	for _, e := range enums {
-		if e.FilePath == data.filePath && !omit.IsSkipped(e, "pb") {
-			data.Enums = append(data.Enums, p.processEnum(e))
+		if e.FilePath != data.filePath || omit.IsSkipped(e, "pb") {
+			continue
 		}
+		ed, err := p.processEnum(e)
+		if err != nil {
+			return err
+		}
+		data.Enums = append(data.Enums, ed)
 	}
 	for _, entry := range structs {
 		if omit.IsSkipped(entry, "pb") {
@@ -345,10 +350,17 @@ func deriveGoPackage(outputPath, repoRoot string) string {
 	return gomod.ResolveImportPath(outputPath, repoRoot, defaultModulePrefix)
 }
 
-func (p *Plugin) processEnum(e resolution.Type) enumData {
+func (p *Plugin) processEnum(e resolution.Type) (enumData, error) {
 	form, ok := e.Form.(resolution.EnumForm)
 	if !ok {
-		return enumData{Name: e.Name}
+		return enumData{Name: e.Name}, nil
+	}
+	if form.IsIntEnum && len(form.Values) > 0 && form.Values[0].IntValue() != 0 {
+		return enumData{}, errors.Newf(
+			"enum %s cannot be written to protobuf: its first member %s has value "+
+				"%d, and proto3 needs the first member to be 0",
+			e.Name, form.Values[0].Name, form.Values[0].IntValue(),
+		)
 	}
 
 	ed := enumData{
@@ -373,7 +385,7 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 		})
 	}
 
-	return ed
+	return ed, nil
 }
 
 func (p *Plugin) processStruct(
