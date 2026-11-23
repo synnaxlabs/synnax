@@ -268,6 +268,20 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("saves a spin at a negative rate", async () => {
+      const createKey = await createWithPart();
+      fireEvent.click(screen.getByText("Spin"));
+      const rate = await screen.findByLabelText<HTMLInputElement>("Motion rate");
+      fireEvent.change(rate, { target: { value: "-1" } });
+      fireEvent.blur(rate);
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () =>
+        expect(await savedLooks(createKey)).toEqual([
+          expect.objectContaining({ motion: { type: "spin", rate: -1 } }),
+        ]),
+      );
+    });
+
     it("adds a placeable handle at the symbol center", async () => {
       const { picker, handle } = await openCreateModal();
       await loadSVG(picker);
