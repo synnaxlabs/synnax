@@ -103,6 +103,26 @@ export const readRecordZ = z.object({
 });
 export interface ReadRecord extends z.infer<typeof readRecordZ> {}
 
+/** WriteTarget produces the JSON documents of one ICD message as records of a topic. */
+export const writeTargetZ = z.object({
+  /** key uniquely identifies the target within the task. */
+  key: z.string().default(id.create),
+  /** disabled is true when the target is excluded from the task. */
+  disabled: z.boolean().default(false),
+  /** topic is the topic to produce to. */
+  topic: z.string().default(""),
+  /** recordKey is the key of each record. Empty sends records with no key. */
+  recordKey: z.string().default(""),
+  /** icd is the key of the ICD that holds the message. */
+  icd: icd.keyZ,
+  /**
+   * message is the message the target produces. A command on any bound channel produces
+   * one record.
+   */
+  message: icd.writeMessageZ,
+});
+export interface WriteTarget extends z.infer<typeof writeTargetZ> {}
+
 /** NoneSASL authenticates with no credentials. */
 export const noneSASLZ = z.object({
   mechanism: z.literal("none"),
@@ -149,15 +169,6 @@ export const SASL_SCHEMAS: {
   scram_sha_512: scramSha512SASLZ,
 };
 
-export const writeConfigZ = task.startConfigZ.extend({
-  device: device.keyZ.default(""),
-  topic: z.string().default(""),
-  recordKey: recordKeyZ.default("channel_name"),
-  record: recordZ.prefault({}),
-  channels: writeChannelZ.array().default(() => []),
-});
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-
 /** ReadTopic reads the records of one topic. */
 export const readTopicZ = z.object({
   /** key uniquely identifies the topic within the task. */
@@ -168,6 +179,16 @@ export const readTopicZ = z.object({
   records: readRecordZ.array().default(() => []),
 });
 export interface ReadTopic extends z.infer<typeof readTopicZ> {}
+
+export const writeConfigZ = task.startConfigZ.extend({
+  device: device.keyZ.default(""),
+  topic: z.string().default(""),
+  recordKey: recordKeyZ.default("channel_name"),
+  record: recordZ.prefault({}),
+  channels: writeChannelZ.array().default(() => []),
+  targets: writeTargetZ.array().default(() => []),
+});
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 /** Properties configures the connection to a Kafka cluster device. */
 export const propertiesZ = z.object({

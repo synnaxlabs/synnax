@@ -12,7 +12,7 @@
 package v1
 
 import (
-	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -178,6 +178,138 @@ func (rt *ReadTopic) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wc WriteConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(wc.Key[:])
+	w.Bool(wc.AutoStart)
+	w.String(wc.Device)
+	w.String(wc.Topic)
+	w.String(string(wc.RecordKey))
+	if err := wc.Record.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Bool(wc.Channels != nil)
+	if wc.Channels != nil {
+		w.Uint32(uint32(len(wc.Channels)))
+		for i := range wc.Channels {
+			if err := wc.Channels[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(wc.Targets != nil)
+	if wc.Targets != nil {
+		w.Uint32(uint32(len(wc.Targets)))
+		for i := range wc.Targets {
+			if err := wc.Targets[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(wc.Key[:]); err != nil {
+		return err
+	}
+	if wc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if wc.Device, err = r.String(); err != nil {
+		return err
+	}
+	if wc.Topic, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		wc.RecordKey = RecordKey(rawV)
+	}
+	if err = wc.Record.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wc.Channels = make([]WriteChannel, n)
+			for i := range wc.Channels {
+				if err = wc.Channels[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wc.Targets = make([]WriteTarget, n)
+			for i := range wc.Targets {
+				if err = wc.Targets[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wt WriteTarget) EncodeOrc(w *orc.Writer) error {
+	w.String(wt.Key)
+	w.Bool(wt.Disabled)
+	w.String(wt.Topic)
+	w.String(wt.RecordKey)
+	w.Write(wt.ICD[:])
+	if err := wt.Message.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wt *WriteTarget) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if wt.Key, err = r.String(); err != nil {
+		return err
+	}
+	if wt.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if wt.Topic, err = r.String(); err != nil {
+		return err
+	}
+	if wt.RecordKey, err = r.String(); err != nil {
+		return err
+	}
+	if _, err := r.Read(wt.ICD[:]); err != nil {
+		return err
+	}
+	if err = wt.Message.DecodeOrc(r); err != nil {
+		return err
 	}
 	return nil
 }

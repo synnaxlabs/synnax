@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -47,8 +48,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// ICD holds the ICDs whose messages read records decode, and creates the ICD of a
-	// read config from before ICDs.
+	// ICD holds the ICDs whose messages read records decode and write targets send,
+	// and creates the ICD of a read config from before ICDs.
 	//
 	// [REQUIRED]
 	ICD *icd.Service
@@ -95,11 +96,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
+	channels := icd.ReadChannels(cfg.Channel)
 	s = &Service{resolver: readResolver{
 		icds:     cfg.ICD,
 		channels: readChannels(cfg.Channel),
 		create:   createICD(cfg.ICD),
-		reads:    read.NewResolver(cfg.ICD, icd.ReadChannels(cfg.Channel)),
+		reads:    read.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
 	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
@@ -109,6 +111,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	); !ok(err, s.Read) {
 		return nil, err
 	}
+	writes := writeResolver{writes: write.NewResolver(cfg.ICD, channels)}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
 			DB:              cfg.DB,
@@ -119,6 +122,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
+			HashReferences:  writes.hash,
+			HashedTables:    []string{"icd"},
+			ResolveEntry:    writes.resolve,
 			ValidateEntry:   (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {

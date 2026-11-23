@@ -186,5 +186,79 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 			},
 		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, icd.Key]{
+			Name:     "targets.icd",
+			Table:    "icd",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *WriteConfig) []icd.Key {
+				var targets []icd.Key
+				for _, v1 := range e.Targets {
+					targets = append(targets, v1.ICD)
+				}
+				return targets
+			},
+			Detach: func(e *WriteConfig, t icd.Key) {
+				e.Targets = slices.DeleteFunc(e.Targets, func(v2 WriteTarget) bool {
+					if v2.ICD == t {
+						return true
+					}
+					return false
+				})
+			},
+			Retarget: func(e *WriteConfig, from, to icd.Key) {
+				for i3 := range e.Targets {
+					if e.Targets[i3].ICD == from {
+						e.Targets[i3].ICD = to
+					}
+				}
+			},
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
+			Name:     "targets.message.bindings.channel",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *WriteConfig) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Targets {
+					for _, v2 := range v1.Message.Bindings {
+						switch v3 := v2.Variant.(type) {
+						case icd.ChannelWriteBinding:
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *WriteConfig, t channel.Key) {
+				for i4 := range e.Targets {
+					for i5 := range e.Targets[i4].Message.Bindings {
+						switch v6 := e.Targets[i4].Message.Bindings[i5].Variant.(type) {
+						case icd.ChannelWriteBinding:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							e.Targets[i4].Message.Bindings[i5].Variant = v6
+						}
+					}
+				}
+			},
+			Retarget: func(e *WriteConfig, from, to channel.Key) {
+				for i7 := range e.Targets {
+					for i8 := range e.Targets[i7].Message.Bindings {
+						switch v9 := e.Targets[i7].Message.Bindings[i8].Variant.(type) {
+						case icd.ChannelWriteBinding:
+							if v9.Channel == from {
+								v9.Channel = to
+							}
+							e.Targets[i7].Message.Bindings[i8].Variant = v9
+						}
+					}
+				}
+			},
+		}),
 	}
 }

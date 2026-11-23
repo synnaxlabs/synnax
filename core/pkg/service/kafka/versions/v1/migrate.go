@@ -261,6 +261,12 @@ func MigrateReadConfig(ctx context.Context, old v0.ReadConfig) (ReadConfig, erro
 	return cfg, nil
 }
 
+// MigrateWriteConfig lifts a v0 write config to v1. It keeps the channels of old and
+// adds no targets.
+func MigrateWriteConfig(ctx context.Context, old v0.WriteConfig) (WriteConfig, error) {
+	return autoMigrateWriteConfig(ctx, old)
+}
+
 // CreateICD creates ic through tx.
 type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
 

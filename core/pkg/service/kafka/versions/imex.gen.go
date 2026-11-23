@@ -100,7 +100,11 @@ func decodeWriteConfig(
 		if err != nil {
 			return WriteConfig{}, err
 		}
-		return t0, nil
+		t1, err := v1.MigrateWriteConfig(ctx, t0)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t1, nil
 	case v1.Version:
 		return imex.DecodeBlob[WriteConfig](data, "kafka.WriteConfig", version)
 	}

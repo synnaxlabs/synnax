@@ -67,3 +67,6 @@ type InlineRecord = v1.InlineRecord
 
 // InlineRead holds the records of a read config from before ICDs.
 type InlineRead = v1.InlineRead
+
+// WriteTarget produces the JSON documents of one ICD message as records of a topic.
+type WriteTarget = v1.WriteTarget

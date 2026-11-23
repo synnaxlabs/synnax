@@ -11,7 +11,6 @@ package kafka_test
 
 import (
 	"context"
-	"encoding/json/v2"
 	"fmt"
 	"math"
 	"sync"
@@ -69,48 +68,6 @@ var _ = Describe("Write task", func() {
 		Expect(stat.Details.Running).To(BeTrue())
 		Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 		return dt, t
-	}
-
-	// consume reads at least n records from topic.
-	consume := func(ctx context.Context, topic string, n int) []*kgo.Record {
-		GinkgoHelper()
-		cl := newKafkaClient(
-			kgo.ConsumeTopics(topic),
-			kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
-		)
-		var recs []*kgo.Record
-		Eventually(func() int {
-			pollCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
-			defer cancel()
-			recs = append(recs, cl.PollFetches(pollCtx).Records()...)
-			return len(recs)
-		}).WithTimeout(15 * time.Second).Should(BeNumerically(">=", n))
-		return recs
-	}
-
-	decode := func(rec *kgo.Record) map[string]any {
-		GinkgoHelper()
-		var doc map[string]any
-		Expect(json.Unmarshal(rec.Value, &doc)).To(Succeed())
-		return doc
-	}
-
-	writeFrame := func(
-		ctx context.Context,
-		index, data channel.Channel,
-		stamps []telem.TimeStamp,
-		values telem.Series,
-	) {
-		GinkgoHelper()
-		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-			Keys:  channel.Keys{index.Key(), data.Key()},
-			Start: stamps[0],
-		}))
-		Expect(MustSucceed(w.Write(frame.NewMulti(
-			[]channel.Key{index.Key(), data.Key()},
-			[]telem.Series{telem.NewSeries(stamps), values},
-		)))).To(BeTrue())
-		Expect(w.Close()).To(Succeed())
 	}
 
 	It("Should produce one record per sample in the narrow layout",

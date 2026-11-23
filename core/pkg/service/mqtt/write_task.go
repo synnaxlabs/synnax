@@ -92,7 +92,7 @@ func (t *messageTarget) publications(
 	skips *driver.Skips,
 ) iter.Seq[publication] {
 	return func(yield func(publication) bool) {
-		for doc := range t.docs.From(fr, skips) {
+		for _, doc := range t.docs.From(fr, skips) {
 			if !yield(publication{
 				topic: t.topic, payload: doc, qos: t.qos, retained: t.retained,
 			}) {

@@ -24,6 +24,7 @@ from synnax.kafka.types_gen import (
     StartOffset,
     WriteChannel,
     WriteConfig,
+    WriteTarget,
 )
 
 __all__ = [
@@ -43,4 +44,5 @@ __all__ = [
     "StartOffset",
     "WriteChannel",
     "WriteConfig",
+    "WriteTarget",
 ]

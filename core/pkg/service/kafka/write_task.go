@@ -135,11 +135,8 @@ var _ driver.Task = (*writeTask)(nil)
 func (f *factory) configureWrite(
 	ctx context.Context,
 	t task.Task,
+	cfg WriteConfig,
 ) (*writeTask, error) {
-	var cfg WriteConfig
-	if err := t.Config.Unmarshal(&cfg); err != nil {
-		return nil, err
-	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
