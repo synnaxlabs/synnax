@@ -18,14 +18,13 @@ import {
 
 import type { channel } from "@/channel";
 import { isConnectionError, UnexpectedError } from "@/errors";
-import { Joins } from "@/framer/cache/join";
-import { Joiner } from "@/framer/cache/joiner";
+import { join } from "@/framer/cache/join";
 import {
   DEFAULT_BATCH_DEBOUNCE,
   Reader,
   type ReaderProps,
 } from "@/framer/cache/reader";
-import { Store, type StoreProps } from "@/framer/cache/store";
+import { store } from "@/framer/cache/store";
 import {
   type Demand,
   MultiplexedStreamer,
@@ -58,7 +57,7 @@ type LatestEntry = scheduler.BatcherEntry<LatestQuery, Frame>;
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
   extends
-    Pick<StoreProps, "instrumentation">,
+    Pick<store.Props, "instrumentation">,
     Omit<ReaderProps, "store">,
     Omit<MultiplexedStreamerProps, "store" | "joins" | "onWait" | "openStreamer"> {
   openStreamer: StreamOpener;
@@ -107,9 +106,9 @@ export class Feed {
   private readonly reader: Reader;
   private readonly streamer: MultiplexedStreamer;
   private readonly tiles: TileReader;
-  private readonly store: Store;
-  private readonly joins: Joins;
-  private readonly joiner: Joiner;
+  private readonly store: store.Store;
+  private readonly joins: join.Joins;
+  private readonly joiner: join.Joiner;
   private readonly latest: scheduler.Batcher<LatestQuery, Frame>;
   private readonly props: FeedProps;
   private readonly handles = new Set<Handle>();
@@ -135,13 +134,13 @@ export class Feed {
       node,
     } = props;
     this.props = props;
-    this.store = new Store({
+    this.store = new store.Store({
       budget,
       instrumentation: instrumentation?.child("store"),
       now,
       node,
     });
-    this.joins = new Joins(this.store);
+    this.joins = new join.Joins(this.store);
     this.reader = new Reader({
       readRemote,
       retrieveChannels,
@@ -180,7 +179,7 @@ export class Feed {
       breaker,
       instrumentation: instrumentation?.child("streamer"),
     });
-    this.joiner = new Joiner({
+    this.joiner = new join.Joiner({
       joins: this.joins,
       reader: this.reader,
       streamer: this.streamer,

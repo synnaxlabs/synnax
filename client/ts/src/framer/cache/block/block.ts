@@ -196,7 +196,7 @@ const sumBytes = (series: Series[]): number =>
  * Fetched series cover the block from its start. While a join writes the stream into
  * the block, the stream's buffer holds the samples after them.
  */
-export class RawBlock implements Block {
+export class Raw implements Block {
   readonly range: TimeRange;
   fetchedAt = TimeStamp.ZERO;
   sealed = false;
@@ -331,7 +331,7 @@ export class RawBlock implements Block {
    * @param index - The block of the channel's index with the same index. When given,
    * the series end at the end of tr.
    */
-  seriesIn(tr: TimeRange, index?: RawBlock): Series[] {
+  seriesIn(tr: TimeRange, index?: Raw): Series[] {
     const spans = this._fetched.map((s) => ({ s, span: s.timeRange }));
     const live = this.buffer?.leadingBuffer;
     const range = this.buffer?.dataTimeRange;

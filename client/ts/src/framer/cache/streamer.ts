@@ -25,8 +25,8 @@ import {
 
 import type { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import type { Joins } from "@/framer/cache/join";
-import type { Store } from "@/framer/cache/store";
+import type { join } from "@/framer/cache/join";
+import type { store as cacheStore } from "@/framer/cache/store";
 import { isDefinitive } from "@/framer/retry";
 import type { Streamer } from "@/framer/streamer";
 import { status } from "@/status";
@@ -95,9 +95,9 @@ interface AckWaiter {
 }
 
 export interface MultiplexedStreamerProps {
-  store: Store;
+  store: cacheStore.Store;
   /** Joins the stream's frames to the raw blocks of joined channels. */
-  joins: Joins;
+  joins: join.Joins;
   /** Receives the index channels of the joins that wait for a catch-up read. */
   onWait: (indexes: Set<channel.Key>) => void;
   openStreamer: HardenedOpener;

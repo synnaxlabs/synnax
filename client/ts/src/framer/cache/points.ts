@@ -27,13 +27,12 @@ import {
 import type { channel } from "@/channel";
 import { NotFoundError, UnsupportedError, ValidationError } from "@/errors";
 import type { ChannelRetriever } from "@/framer/adapter";
-import { type Block, RAW_LEVEL, type RawBlock, rawIndex } from "@/framer/cache/block";
+import { block as cacheBlock } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
-import type { Joins } from "@/framer/cache/join";
-import type { Joiner } from "@/framer/cache/joiner";
+import type { join } from "@/framer/cache/join";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
-import { calculated, type Floor, type Store } from "@/framer/cache/store";
+import { store as cacheStore } from "@/framer/cache/store";
 import type { Demand, MultiplexedStreamer } from "@/framer/cache/streamer";
 import {
   isCut,
@@ -48,12 +47,12 @@ import type { PointsLimit, Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
 
 export interface PointsProps {
-  store: Store;
-  joins: Joins;
+  store: cacheStore.Store;
+  joins: join.Joins;
   reader: Reader;
   tiles: TileReader;
   streamer: MultiplexedStreamer;
-  joiner: Joiner;
+  joiner: join.Joiner;
   retrieveChannels: ChannelRetriever;
   /** Reads the newest count stored samples of each channel in the time range. */
   readLatest: (keys: channel.Key[], count: number, tr: TimeRange) => Promise<Frame>;
@@ -66,7 +65,7 @@ interface Held {
   spec: TileSpec;
   series: MultiSeries;
   // The cached tile, when the read cached one.
-  block?: Block;
+  block?: cacheBlock.Block;
   // True once a history change named the tile. It draws until it reads again.
   stale: boolean;
 }
@@ -126,7 +125,7 @@ export class Points {
   // outlasts the breaker.
   private rawRead: "idle" | "reading" | "stopped" = "idle";
   private loading = true;
-  private pins = new Set<Block>();
+  private pins = new Set<cacheBlock.Block>();
   private generation = 0;
   // abort ends the wait of a raw read for the stream's ack.
   private abort = new AbortController();
@@ -310,8 +309,8 @@ export class Points {
   private edgeAfter(now: TimeStamp, home: TimeRange): bigint {
     const margin = COMMIT_MARGIN.valueOf();
     const committed = now.sub(COMMIT_MARGIN);
-    let until = nextEdge(now, RAW_LEVEL);
-    const commit = nextEdge(committed, RAW_LEVEL) + margin;
+    let until = nextEdge(now, cacheBlock.RAW_LEVEL);
+    const commit = nextEdge(committed, cacheBlock.RAW_LEVEL) + margin;
     if (commit < until) until = commit;
     if (!this.dynamic) {
       const end = home.end.valueOf() + margin;
@@ -387,7 +386,7 @@ export class Points {
         const [payload] = await this.props.retrieveChannels([this.key]);
         if (generation !== this.generation) return;
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
-        if (payload.virtual && !calculated(payload))
+        if (payload.virtual && !cacheStore.calculated(payload))
           throw new ValidationError(
             `virtual channel ${payload.name} has no samples to draw`,
           );
@@ -484,16 +483,19 @@ export class Points {
     if (!this.dynamic && !home.end.after(committed)) return home.end;
     const floor = this.floor()?.start ?? TimeStamp.MIN;
     const level = grid.level(home);
-    if (this.dynamic && level <= RAW_LEVEL)
+    if (this.dynamic && level <= cacheBlock.RAW_LEVEL)
       return TimeStamp.max(
         grid.tileRange({ level, index: grid.index(home.start, level) }).start,
         floor,
       );
-    const edge = grid.tileRange({ level: RAW_LEVEL, index: rawIndex(committed) }).start;
+    const edge = grid.tileRange({
+      level: cacheBlock.RAW_LEVEL,
+      index: cacheBlock.rawIndex(committed),
+    }).start;
     return TimeStamp.max(home.start, edge, floor);
   }
 
-  private floor(): Floor | undefined {
+  private floor(): cacheStore.Floor | undefined {
     return this.index == null ? undefined : this.props.store.floor(this.index);
   }
 
@@ -506,7 +508,7 @@ export class Points {
   // Moves the boundary to at most one raw block behind rawFrom, so a window that never
   // draws stops growing.
   private cutoff(home: TimeRange): void {
-    const floor = this.rawFrom(home).sub(grid.tileSpan(RAW_LEVEL));
+    const floor = this.rawFrom(home).sub(grid.tileSpan(cacheBlock.RAW_LEVEL));
     this.boundary = TimeStamp.max(this.boundary, floor);
   }
 
@@ -522,8 +524,8 @@ export class Points {
     // A raw series ends within its block, though an open one's range ends at MAX.
     const first = this.raw.find((s) => {
       const { end } = grid.tileRange({
-        level: RAW_LEVEL,
-        index: rawIndex(s.timeRange.start),
+        level: cacheBlock.RAW_LEVEL,
+        index: cacheBlock.rawIndex(s.timeRange.start),
       });
       return TimeStamp.min(s.timeRange.end, end).after(boundary);
     });
@@ -554,7 +556,7 @@ export class Points {
     );
     if (!tiled.start.before(tiled.end)) return [];
     const level = grid.level(view);
-    const floor = this.streaming ? RAW_LEVEL : level;
+    const floor = this.streaming ? cacheBlock.RAW_LEVEL : level;
     return grid
       .indexes(tiled, level)
       .flatMap((index) =>
@@ -727,10 +729,10 @@ export class Points {
   // stored sample when a writer's clock runs ahead of the Core's. A static window stops
   // at its end.
   private lastBlock(tr: TimeRange): number {
-    const now = rawIndex(this.props.now());
+    const now = cacheBlock.rawIndex(this.props.now());
     const last = Math.max(now, this.props.store.newestBlock(this.key));
     if (this.dynamic) return last;
-    return Math.min(rawIndex(tr.end.sub(TimeSpan.nanoseconds(1))), last);
+    return Math.min(cacheBlock.rawIndex(tr.end.sub(TimeSpan.nanoseconds(1))), last);
   }
 
   // Sets raw to the samples of the raw range, and returns the blocks of it that wait
@@ -753,10 +755,10 @@ export class Points {
     const joinFrom = this.streaming
       ? this.props.joins.catchUpFrom(this.key, now.sub(COMMIT_MARGIN))
       : Infinity;
-    const current = rawIndex(now);
-    const blocks: RawBlock[] = [];
+    const current = cacheBlock.rawIndex(now);
+    const blocks: cacheBlock.Raw[] = [];
     // A block after the one of now only draws once it holds samples.
-    for (let i = rawIndex(stored.start); i <= last; i++) {
+    for (let i = cacheBlock.rawIndex(stored.start); i <= last; i++) {
       const b = i <= current ? store.raw(this.key, i) : store.findRaw(this.key, i);
       if (b != null) blocks.push(b);
     }
@@ -774,7 +776,8 @@ export class Points {
       .flatMap((b) => b.seriesIn(stored, store.findRaw(index, b.index)));
     const standIns = this.raw.filter(
       (s) =>
-        (filling.has(rawIndex(s.timeRange.start)) || s.timeRange.start.before(kept)) &&
+        (filling.has(cacheBlock.rawIndex(s.timeRange.start)) ||
+          s.timeRange.start.before(kept)) &&
         !fresh.some((f) => f.timeRange.overlapsWith(s.timeRange)),
     );
     this.raw = [...fresh, ...standIns]
@@ -797,7 +800,7 @@ export class Points {
       return { raw: [], tail: [], filling: false };
     }
     this.raw = this.raw.filter((s) => s.timeRange.overlapsWith(tr));
-    const first = rawIndex(tr.start);
+    const first = cacheBlock.rawIndex(tr.start);
     const filling = [...fillingBlocks].some((i) => i >= first);
     const tail =
       this.live == null
@@ -850,7 +853,7 @@ export class Points {
 
   // Pins the tiles and raw blocks the snapshot serves, and unpins the rest.
   private pin(home: TimeRange): void {
-    const next = new Set<Block>();
+    const next = new Set<cacheBlock.Block>();
     this.held.forEach(({ block }) => {
       if (block != null) next.add(block);
     });
@@ -859,7 +862,11 @@ export class Points {
       const { store } = this.props;
       // The index's blocks find where the window's end cuts the channel's samples.
       const keys = unique.unique([this.key, this.index ?? this.key]);
-      for (let i = rawIndex(raw.start), last = this.lastBlock(raw); i <= last; i++)
+      for (
+        let i = cacheBlock.rawIndex(raw.start), last = this.lastBlock(raw);
+        i <= last;
+        i++
+      )
         keys.forEach((k) => {
           const b = store.findRaw(k, i);
           if (b != null) next.add(b);

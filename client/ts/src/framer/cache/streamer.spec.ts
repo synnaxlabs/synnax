@@ -21,15 +21,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
 import { framer } from "@/framer";
-import { Joins } from "@/framer/cache/join";
-import { Store } from "@/framer/cache/store";
+import { join } from "@/framer/cache/join";
+import { store as cacheStore } from "@/framer/cache/store";
 import { MultiplexedStreamer, type StreamHooks } from "@/framer/cache/streamer";
 import { NotFoundError, UnexpectedError } from "@/index";
 
 // Returns the stores a streamer writes into, with no join that can wait.
-const createCache = (store: Store = new Store()) => ({
+const createCache = (store: cacheStore.Store = new cacheStore.Store()) => ({
   store,
-  joins: new Joins(store),
+  joins: new join.Joins(store),
   onWait: () => {},
 });
 

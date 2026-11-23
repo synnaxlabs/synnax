@@ -24,10 +24,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
-import { domainOf } from "@/framer/cache/block";
-import { Joins } from "@/framer/cache/join";
+import { block } from "@/framer/cache/block";
+import { join } from "@/framer/cache/join";
 import { Latest, type LatestProps } from "@/framer/cache/latest";
-import { Store } from "@/framer/cache/store";
+import { store as cacheStore } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { UnsupportedError } from "@/index";
 import { SyntheticCore } from "@/testutil";
@@ -43,10 +43,10 @@ const createLatest = (
   readOf: (key: channel.Key, read: MultiSeries) => MultiSeries = (_, read) => read,
   onRetrieve: () => void | Promise<void> = () => {},
 ) => {
-  const store = new Store({ now: core.now });
+  const store = new cacheStore.Store({ now: core.now });
   const streamer = new MultiplexedStreamer({
     store,
-    joins: new Joins(store),
+    joins: new join.Joins(store),
     onWait: () => {},
     openStreamer: async (config) => core.openStreamer(config),
     removalDelay: TimeSpan.ZERO,
@@ -172,7 +172,7 @@ describe("Latest", () => {
     const latest = open(10_000, undefined, key);
     try {
       await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
-      const domain = domainOf(latest.value().series.series[0].alignment) + 1n;
+      const domain = block.domainOf(latest.value().series.series[0].alignment) + 1n;
       const start = core.now();
       const series = [0, 1].map(
         (i) =>

@@ -13,7 +13,7 @@ import { test } from "vitest";
 
 import type { channel } from "@/channel";
 import { grid } from "@/framer/cache/grid";
-import { Store } from "@/framer/cache/store";
+import { store as cacheStore } from "@/framer/cache/store";
 import { tileKey, TileReader, type TileSpec } from "@/framer/cache/tile";
 import { SyntheticCore } from "@/testutil";
 
@@ -31,7 +31,7 @@ const createReader = (core: SyntheticCore, budget?: Size): TileReader =>
   new TileReader({
     readRemote: async (tr, keys, reduction) => core.read(tr, keys, reduction),
     batchDebounce: TimeSpan.ZERO,
-    store: new Store({ budget }),
+    store: new cacheStore.Store({ budget }),
   });
 
 // specs returns the tiles of the last day for the index and every data channel.
@@ -117,7 +117,7 @@ const insertPastBudget = async (held: number): Promise<() => Promise<void>> => {
   sizer.close();
   let remoteReads = 0;
   // The budget fits the held tiles, with a tenth to spare for each tile's overhead.
-  const store = new Store({
+  const store = new cacheStore.Store({
     budget: Size.bytes(1.1 * sizes.reduce((sum, b) => sum + b, 0)),
   });
   const reader = new TileReader({

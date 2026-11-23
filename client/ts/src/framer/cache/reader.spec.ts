@@ -23,15 +23,15 @@ import { describe, expect, it } from "vitest";
 
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
-import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
+import { block as cacheBlock } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
 import { Reader, type ReaderProps } from "@/framer/cache/reader";
-import { Store } from "@/framer/cache/store";
+import { store as cacheStore } from "@/framer/cache/store";
 import { NotFoundError, UnexpectedError } from "@/index";
 import { createTestClient, SyntheticCore } from "@/testutil";
 
 const blockRange = (index: number): TimeRange =>
-  grid.tileRange({ level: RAW_LEVEL, index });
+  grid.tileRange({ level: cacheBlock.RAW_LEVEL, index });
 
 const blockAlignment = (index: number, offset: number): bigint =>
   (BigInt(index) << 32n) | BigInt(offset);
@@ -49,7 +49,7 @@ interface Fetch {
 interface Setup {
   core: SyntheticCore;
   reader: Reader;
-  store: Store;
+  store: cacheStore.Store;
   fetches: Fetch[];
   /** Fills the channel's blocks over tr, and returns their samples that overlap it. */
   read: (tr: TimeRange, ch: channel.Key) => Promise<MultiSeries>;
@@ -57,14 +57,14 @@ interface Setup {
 
 const readBlocks = async (
   reader: Reader,
-  store: Store,
+  store: cacheStore.Store,
   tr: TimeRange,
   ch: channel.Key,
 ): Promise<MultiSeries> => {
   await reader.fill(tr, ch);
   return new MultiSeries(
     grid
-      .indexes(tr, RAW_LEVEL)
+      .indexes(tr, cacheBlock.RAW_LEVEL)
       .flatMap((i) => store.findRaw(ch, i)?.seriesIn(tr) ?? []),
   );
 };
@@ -99,7 +99,7 @@ const createReader = ({
     channels: 2,
   });
   const fetches: Fetch[] = [];
-  const store = props.store ?? new Store({ staleThreshold, now: core.now });
+  const store = props.store ?? new cacheStore.Store({ staleThreshold, now: core.now });
   const reader = new Reader({
     readRemote: async (tr, keys) => {
       const fetch = { tr, keys };
@@ -242,7 +242,7 @@ describe("Reader", () => {
         expect(fetches).toHaveLength(1);
         expect(res.length).toBe(span.seconds);
         res.series.forEach((s) => {
-          const index = rawIndex(s.timeRange.start);
+          const index = cacheBlock.rawIndex(s.timeRange.start);
           const block = blockRange(index);
           expect(s.alignment >> 32n).toBe(BigInt(index));
           expect(s.timeRange.end.beforeEq(block.end)).toBe(true);
@@ -258,7 +258,7 @@ describe("Reader", () => {
       await reader.catchUp(2, 100);
       const held = (ch: channel.Key) =>
         grid
-          .indexes(new TimeRange(START, now), RAW_LEVEL)
+          .indexes(new TimeRange(START, now), cacheBlock.RAW_LEVEL)
           .filter((i) => store.findRaw(ch, i) != null);
       expect(held(2)).toEqual([100, 101, 102, 103, 104]);
       expect(held(1)).toEqual([100, 101, 102, 103, 104]);
@@ -314,17 +314,17 @@ describe("Reader", () => {
   describe("budget", () => {
     it("should keep every block it fills past the budget while they are pinned", async () => {
       const { store, read } = createReader({
-        store: new Store({ budget: Size.bytes(1) }),
+        store: new cacheStore.Store({ budget: Size.bytes(1) }),
       });
       const tr = new TimeRange(at(60), at(70));
       // Points pins the blocks of its raw range before it fills them.
-      grid.indexes(tr, RAW_LEVEL).forEach((i) => store.raw(1, i).pins++);
+      grid.indexes(tr, cacheBlock.RAW_LEVEL).forEach((i) => store.raw(1, i).pins++);
       const res = await read(tr, 1);
       expect(timestamps(res)).toEqual(expectedTimestamps(0, 132));
     });
 
     it("should evict the blocks of a back-fill past the budget once it lands", async () => {
-      const store = new Store({ budget: Size.bytes(1) });
+      const store = new cacheStore.Store({ budget: Size.bytes(1) });
       const { core, reader } = createReader({ elapsed: 600, store });
       await reader.fill(new TimeRange(at(0), core.now()), 2);
       const cached = [1, 2]
@@ -716,7 +716,7 @@ describe("Reader", () => {
       const start = TimeStamp.now().sub(TimeSpan.minutes(5));
       await client.write(start, { [time.key]: [start], [data.key]: [1] });
       const fetched: framer.Frame[] = [];
-      const store = new Store();
+      const store = new cacheStore.Store();
       const reader = new Reader({
         readRemote: async (tr, keys) => {
           const frame = await client.read(tr, keys);
@@ -727,7 +727,7 @@ describe("Reader", () => {
           (await client.channels.retrieve(keys as channel.Key[])).map((c) => c.payload),
         store,
       });
-      const empty = blockRange(rawIndex(start) - 3);
+      const empty = blockRange(cacheBlock.rawIndex(start) - 3);
       const tr = new TimeRange(empty.start, empty.start.add(TimeSpan.seconds(10)));
       expect(await readBlocks(reader, store, tr, data.key)).toHaveLength(0);
       expect(await readBlocks(reader, store, tr, data.key)).toHaveLength(0);
@@ -746,7 +746,7 @@ describe("Reader", () => {
         dataType: "float32",
         index: time.key,
       });
-      const first = rawIndex(TimeStamp.now().sub(TimeSpan.minutes(10)));
+      const first = cacheBlock.rawIndex(TimeStamp.now().sub(TimeSpan.minutes(10)));
       // One sample per second from 5 seconds into the first block to inside the third.
       const times = Array.from({ length: 146 }, (_, i) =>
         blockRange(first).start.add(TimeSpan.seconds(5 + i)),
@@ -755,7 +755,7 @@ describe("Reader", () => {
         [time.key]: times,
         [data.key]: times.map((_, i) => i),
       });
-      const store = new Store();
+      const store = new cacheStore.Store();
       const reader = new Reader({
         readRemote: async (tr, keys) => await client.read(tr, keys),
         retrieveChannels: async (keys) =>

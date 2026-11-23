@@ -10,17 +10,9 @@
 import { map, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import type { channel } from "@/channel";
-import {
-  alignmentOf,
-  domainOf,
-  offsetOf,
-  RAW_LEVEL,
-  type RawBlock,
-  rawIndex,
-  search,
-} from "@/framer/cache/block";
+import { block as cacheBlock } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
-import type { Store } from "@/framer/cache/store";
+import type { store as cacheStore } from "@/framer/cache/store";
 
 // A run of a streamed index series' samples that falls in one raw block. The offset is
 // the block offset of the run's first sample. The samples from fresh on are new to the
@@ -63,7 +55,7 @@ const spansOf = (runs: Run[], pos: number, end: number): Span[] =>
     });
 
 // Returns true when the streamed series starts at the first sample a writer wrote.
-const startsRun = (s: Series): boolean => offsetOf(s.alignment) === 0;
+const startsRun = (s: Series): boolean => cacheBlock.offsetOf(s.alignment) === 0;
 
 // A held series takes its Core alignment past every block alignment, so the x and y of
 // a waiting join still pair.
@@ -139,9 +131,9 @@ class Join {
   continues(s: Series): boolean {
     const { last } = this;
     if (last == null) return true;
-    if (domainOf(s.alignment) === domainOf(last.alignment))
+    if (cacheBlock.domainOf(s.alignment) === cacheBlock.domainOf(last.alignment))
       return s.alignment <= last.alignment + BigInt(last.length);
-    return offsetOf(s.alignment) === 0;
+    return cacheBlock.offsetOf(s.alignment) === 0;
   }
 
   remember(mapped: Mapped): void {
@@ -192,7 +184,7 @@ export class Joins {
   private readonly copies = new WeakMap<Series, Series>();
   private readonly pieces = new WeakMap<Series, Series[]>();
 
-  constructor(private readonly store: Store) {}
+  constructor(private readonly store: cacheStore.Store) {}
 
   /**
    * Adds the channel and its index to the join of the index. Each new member waits for
@@ -278,16 +270,16 @@ export class Joins {
    * it.
    */
   catchUpFrom(ch: channel.Key, at: TimeStamp): number {
-    let from = rawIndex(at);
+    let from = cacheBlock.rawIndex(at);
     const m = this.members.get(ch);
     if (m == null) return from;
     if (m.from != null) from = Math.min(from, m.from);
     const first = m.held.find((s) => s.length > 0);
     if (first == null) return from;
     if (m === m.join.indexMember)
-      return Math.min(from, rawIndex(new TimeStamp(first.data[0])));
+      return Math.min(from, cacheBlock.rawIndex(new TimeStamp(first.data[0])));
     if (first.timeRange.isZero) return from;
-    return Math.min(from, rawIndex(first.timeRange.start));
+    return Math.min(from, cacheBlock.rawIndex(first.timeRange.start));
   }
 
   /**
@@ -445,7 +437,7 @@ export class Joins {
       const at = this.timesAt(j, s.alignment + BigInt(count));
       if (at == null) break;
       const left = at.times.length - at.pos;
-      const kept = search(at.times, end, at.pos) - at.pos;
+      const kept = cacheBlock.search(at.times, end, at.pos) - at.pos;
       count += Math.min(kept, s.length - count);
       if (kept < left) break;
     }
@@ -534,12 +526,14 @@ export class Joins {
   private runs(index: channel.Key, s: Series): Run[] {
     const runs: Run[] = [];
     for (let lo = 0; lo < s.length;) {
-      const b = rawIndex(new TimeStamp(s.data[lo]));
-      const end = grid.tileRange({ level: RAW_LEVEL, index: b }).end.valueOf();
-      const hi = search(s, end, lo);
+      const b = cacheBlock.rawIndex(new TimeStamp(s.data[lo]));
+      const end = grid
+        .tileRange({ level: cacheBlock.RAW_LEVEL, index: b })
+        .end.valueOf();
+      const hi = cacheBlock.search(s, end, lo);
       const block = this.store.raw(index, b);
       const newest = newestOf(block);
-      const fresh = Math.max(lo, search(s, newest.end, lo));
+      const fresh = Math.max(lo, cacheBlock.search(s, newest.end, lo));
       runs.push({
         from: lo,
         to: hi,
@@ -585,7 +579,7 @@ export class Joins {
     { series: times, runs }: Mapped,
     pos: number,
   ): boolean {
-    const pieces: Array<{ block: RawBlock; p: Series; newRun: boolean }> = [];
+    const pieces: Array<{ block: cacheBlock.Raw; p: Series; newRun: boolean }> = [];
     for (const span of spansOf(runs, pos, pos + s.length)) {
       const block = this.store.raw(m.key, span.block);
       let { from, offset } = span;
@@ -615,14 +609,14 @@ export class Joins {
 
 // Returns the end of the span of the newest sample of an index channel's block, and the
 // block offset after it. A block that holds none gives its start and offset 0.
-const newestOf = (block: RawBlock): { end: bigint; count: number } => {
+const newestOf = (block: cacheBlock.Raw): { end: bigint; count: number } => {
   const live = block.buffer?.leadingBuffer;
   const newest = live != null && live.length > 0 ? live : block.fetched.at(-1);
   if (newest == null || newest.length === 0)
     return { end: block.range.start.valueOf(), count: 0 };
   return {
     end: BigInt(newest.data[newest.length - 1]) + 1n,
-    count: offsetOf(newest.alignment) + newest.length,
+    count: cacheBlock.offsetOf(newest.alignment) + newest.length,
   };
 };
 
@@ -645,6 +639,6 @@ const piece = (
     dataType: sub.dataType,
     sampleOffset: sub.sampleOffset,
     timeRange: new TimeRange(start, end),
-    alignment: alignmentOf(block, offset),
+    alignment: cacheBlock.alignmentOf(block, offset),
   });
 };

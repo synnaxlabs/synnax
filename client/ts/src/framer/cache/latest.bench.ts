@@ -15,9 +15,9 @@ import { test } from "vitest";
 
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
-import { Joins } from "@/framer/cache/join";
+import { join } from "@/framer/cache/join";
 import { Latest, type LatestProps } from "@/framer/cache/latest";
-import { Store } from "@/framer/cache/store";
+import { store as cacheStore } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { SyntheticCore } from "@/testutil";
 
@@ -37,10 +37,10 @@ const createCore = () => {
     now: START.add(TimeSpan.minutes(10)),
     derived: true,
   });
-  const store = new Store({ now: core.now });
+  const store = new cacheStore.Store({ now: core.now });
   const streamer = new MultiplexedStreamer({
     store,
-    joins: new Joins(store),
+    joins: new join.Joins(store),
     onWait: () => {},
     openStreamer: async (config) => core.openStreamer(config),
     removalDelay: TimeSpan.ZERO,

@@ -21,9 +21,9 @@ import { describe, expect, it } from "vitest";
 
 import type { channel } from "@/channel";
 import { framer } from "@/framer";
-import { rawKey } from "@/framer/cache/block";
+import { block as cacheBlock } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
-import { Store, type StoreProps } from "@/framer/cache/store";
+import { store as cacheStore } from "@/framer/cache/store";
 import {
   tileKey,
   TileReader,
@@ -44,11 +44,16 @@ const SAMPLES = 4;
 // Returns a reader whose remote fetch records each call and answers every key with
 // samples float64 samples equal to the key.
 const createReader = (
-  { budget, staleThreshold, now, ...props }: Partial<TileReaderProps> & StoreProps = {},
+  {
+    budget,
+    staleThreshold,
+    now,
+    ...props
+  }: Partial<TileReaderProps> & cacheStore.Props = {},
   samples: number = SAMPLES,
-): { reader: TileReader; calls: Call[]; store: Store } => {
+): { reader: TileReader; calls: Call[]; store: cacheStore.Store } => {
   const calls: Call[] = [];
-  const store = new Store({ budget, staleThreshold, now });
+  const store = new cacheStore.Store({ budget, staleThreshold, now });
   const reader = new TileReader({
     store,
     now,
@@ -152,7 +157,7 @@ describe("tile", () => {
         // The groups the Core picks follow the samples written into the tile.
         let multiple = 2n;
         const reader = new TileReader({
-          store: new Store(),
+          store: new cacheStore.Store(),
           batchDebounce: TimeSpan.milliseconds(5),
           readRemote: async (tr, keys) => {
             calls.push([...keys].sort());
@@ -418,7 +423,7 @@ describe("tile", () => {
           1,
         );
         await reader.read(createSpec());
-        expect(store.get(rawKey(1, 0))).toBeUndefined();
+        expect(store.get(cacheBlock.rawKey(1, 0))).toBeUndefined();
         reader.close();
       });
     });

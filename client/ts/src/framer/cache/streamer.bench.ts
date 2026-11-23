@@ -13,8 +13,8 @@ import { test } from "vitest";
 
 import type { channel } from "@/channel";
 import type { framer } from "@/framer";
-import { Joins } from "@/framer/cache/join";
-import { Store } from "@/framer/cache/store";
+import { join } from "@/framer/cache/join";
+import { store as cacheStore } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { createKeys, createSequence } from "@/framer/testutil";
 
@@ -74,13 +74,13 @@ const runIngest = async (
   keys: channel.Key[],
   handlerCount: number,
 ): Promise<void> => {
-  const store = new Store();
+  const store = new cacheStore.Store();
   let drained = (): void => undefined;
   const done = new Promise<void>((res) => (drained = res));
   const stub = new StubStreamer(frames, keys, () => drained());
   const streamer = new MultiplexedStreamer({
     store,
-    joins: new Joins(store),
+    joins: new join.Joins(store),
     onWait: () => {},
     openStreamer: async () => stub,
   });

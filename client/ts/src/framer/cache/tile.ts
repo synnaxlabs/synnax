@@ -23,10 +23,10 @@ import {
 
 import type { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import type { Block } from "@/framer/cache/block";
+import type { block } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
 import { DEFAULT_BATCH_DEBOUNCE, type RemoteReader } from "@/framer/cache/reader";
-import type { Store } from "@/framer/cache/store";
+import type { store as cacheStore } from "@/framer/cache/store";
 
 /** Identifies one tile of one channel, reduced under a point limit. */
 export interface TileSpec extends grid.Bounds {
@@ -39,7 +39,7 @@ export interface TileReaderProps {
   /** Reads reduced tiles from the Core. */
   readRemote: RemoteReader;
   /** Caches finished tiles. */
-  store: Store;
+  store: cacheStore.Store;
   /**
    * Window in which tile reads with equal bounds and options merge into one request.
    * @default TimeSpan.milliseconds(50)
@@ -58,7 +58,7 @@ export interface TileReaderProps {
 }
 
 /** A cached tile: one channel's reduced samples. */
-class Tile implements Block {
+class Tile implements block.Block {
   readonly bytes: number;
   readonly sealed: boolean;
   pins = 0;

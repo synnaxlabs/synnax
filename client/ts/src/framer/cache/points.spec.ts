@@ -25,13 +25,12 @@ import { describe, expect, it } from "vitest";
 
 import type { channel } from "@/channel";
 import type { framer } from "@/framer";
-import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
+import { block as cacheBlock } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
-import { Joins } from "@/framer/cache/join";
-import { Joiner } from "@/framer/cache/joiner";
+import { join } from "@/framer/cache/join";
 import { Points, type PointsProps } from "@/framer/cache/points";
 import { Reader, type RemoteReader } from "@/framer/cache/reader";
-import { Store, type StoreProps } from "@/framer/cache/store";
+import { store as cacheStore } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { tileKey, TileReader } from "@/framer/cache/tile";
 import { AccessDeniedError, UnsupportedError, ValidationError } from "@/index";
@@ -67,7 +66,7 @@ const isTile = (tr: TimeRange): boolean => {
   );
 };
 
-const leadingOf = (store: Store, key: channel.Key): Series | null =>
+const leadingOf = (store: cacheStore.Store, key: channel.Key): Series | null =>
   store.open(key)?.buffer?.leadingBuffer ?? null;
 
 const createCore = (): SyntheticCore =>
@@ -83,13 +82,13 @@ const createPoints = (
   core: SyntheticCore,
   readRemote: RemoteReader = async (tr, keys, reduction) =>
     core.read(tr, keys, reduction),
-  storeProps: StoreProps = {},
+  storeProps: cacheStore.Props = {},
   pointsBreaker: breaker.Config = BREAKER,
   readLatest: PointsProps["readLatest"] = async (keys, count, tr) =>
     core.readLatest(keys, count, tr),
 ) => {
-  const store = new Store({ now: core.now, ...storeProps });
-  const joins = new Joins(store);
+  const store = new cacheStore.Store({ now: core.now, ...storeProps });
+  const joins = new join.Joins(store);
   const { retrieveChannels, now } = core;
   const reader = new Reader({
     readRemote,
@@ -107,7 +106,7 @@ const createPoints = (
     removalDelay: TimeSpan.ZERO,
     breaker: BREAKER,
   });
-  const joiner = new Joiner({ joins, reader, streamer, now, breaker: BREAKER });
+  const joiner = new join.Joiner({ joins, reader, streamer, now, breaker: BREAKER });
   const props: PointsProps = {
     store,
     joins,
@@ -318,7 +317,7 @@ describe("Points", () => {
         await expect.poll(() => joins.joined(key), POLL).toBe(true);
         core.advance(TimeSpan.milliseconds(100));
         await expect.poll(servesBuffer, POLL).toBe(true);
-        const block = rawIndex(core.now());
+        const block = cacheBlock.rawIndex(core.now());
         core.advance(TimeSpan.seconds(4));
         await expect.poll(() => store.open(key)?.index, POLL).toBe(block + 1);
         expect(servesBuffer()).toBe(true);
@@ -720,7 +719,7 @@ describe("Points", () => {
       const points = subscribe(core.data[0].key, window, TILED);
       try {
         await expect.poll(() => raw.length, POLL).toBeGreaterThan(0);
-        const edge = core.now().sub(grid.tileSpan(RAW_LEVEL).mult(2));
+        const edge = core.now().sub(grid.tileSpan(cacheBlock.RAW_LEVEL).mult(2));
         raw.forEach((tr) =>
           expect(tr.start.valueOf()).toBeGreaterThanOrEqual(edge.valueOf()),
         );
@@ -744,7 +743,7 @@ describe("Points", () => {
       });
       const window = dynamicWindow(TimeSpan.days(30));
       const points = subscribe(core.data[0].key, window, TILED);
-      const block = grid.tileSpan(RAW_LEVEL);
+      const block = grid.tileSpan(cacheBlock.RAW_LEVEL);
       try {
         for (let i = 0; i < 8; i++) {
           await expect.poll(() => points.value().status.variant, POLL).toBe("success");
@@ -765,9 +764,13 @@ describe("Points", () => {
     const LIVE_SAMPLES = 2 ** 14;
 
     // Returns the raw samples the store holds of the channel near the clock.
-    const heldSamples = (store: Store, key: channel.Key, now: TimeStamp): number => {
+    const heldSamples = (
+      store: cacheStore.Store,
+      key: channel.Key,
+      now: TimeStamp,
+    ): number => {
       let sum = 0;
-      for (let i = rawIndex(now) - 2; i <= rawIndex(now); i++)
+      for (let i = cacheBlock.rawIndex(now) - 2; i <= cacheBlock.rawIndex(now); i++)
         store
           .findRaw(key, i)
           ?.seriesIn(TimeRange.MAX)
@@ -1265,7 +1268,7 @@ describe("Points", () => {
     });
     const key = core.index.key;
     const span = TimeSpan.seconds(10);
-    const first = rawIndex(core.now().sub(span));
+    const first = cacheBlock.rawIndex(core.now().sub(span));
     const points = subscribe(key, dynamicWindow(span), RAW);
     try {
       await expect.poll(() => points.value().status.variant, POLL).toBe("success");
@@ -1301,7 +1304,9 @@ describe("Points", () => {
         .series.series.filter((s) => s.alignmentMultiple > 1n)
         .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange))
         .slice(-2);
-      expect(cut.timeRange.span.lessThan(grid.tileSpan(RAW_LEVEL))).toBe(true);
+      expect(cut.timeRange.span.lessThan(grid.tileSpan(cacheBlock.RAW_LEVEL))).toBe(
+        true,
+      );
       const ratio = Number(cut.alignmentMultiple) / Number(whole.alignmentMultiple);
       expect(ratio).toBeGreaterThan(0.9);
     } finally {

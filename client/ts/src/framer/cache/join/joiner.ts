@@ -17,7 +17,7 @@ import {
 
 import type { channel } from "@/channel";
 import { UnsupportedError } from "@/errors";
-import type { Joins, Wait } from "@/framer/cache/join";
+import type { Joins, Wait } from "@/framer/cache/join/join";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { NO_HISTORY, READ_FAILED } from "@/framer/cache/status";
 import type { MultiplexedStreamer } from "@/framer/cache/streamer";
