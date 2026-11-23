@@ -38,7 +38,9 @@ type quoteScan struct {
 }
 
 // scanQuotes lexes text once into its quote facts.
-func scanQuotes(text string) *quoteScan { return scanTokens(text, tokenizeContent(text)) }
+func scanQuotes(text string) *quoteScan {
+	return scanTokens(text, tokenizeContent(text))
+}
 
 // scanTokens returns the quote facts of text from tokens, the tokens of text.
 func scanTokens(text string, tokens []antlr.Token) *quoteScan {

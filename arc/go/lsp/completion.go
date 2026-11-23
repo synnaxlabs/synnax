@@ -531,12 +531,13 @@ func (s *Server) placeholderCompletions(
 		case inQuote:
 		}
 		quote = runeOffset(seg.Text, quote)
+		path := pathStart(seg.Text, quote)
 		end := pos
 		if d < len(seg.Text) && seg.Text[d] == '\'' {
 			end = toUTF16In(line, f.at[f.bodyOff+seg.Offsets[d+1]])
 		}
 		replace := protocol.Range{
-			Start: toUTF16In(line, f.at[f.bodyOff+seg.Offsets[quote]]),
+			Start: toUTF16In(line, f.at[f.bodyOff+seg.Offsets[path]]),
 			End:   end,
 		}
 		escape := func(text string) (string, bool) {
@@ -545,7 +546,7 @@ func (s *Server) placeholderCompletions(
 		return s.quotedChannels(
 			ctx,
 			doc,
-			"",
+			seg.Text[path:quote],
 			seg.Text[quote+1:d],
 			replace,
 			escape,
@@ -555,7 +556,8 @@ func (s *Server) placeholderCompletions(
 }
 
 // quotedChannels returns an item for each channel whose name starts with path and then
-// the decoded text, whose edit writes the quoted name over replace. escape, when not nil, writes
+// the decoded text, whose edit writes the quoted name over replace. escape, when not
+// nil, writes
 // the quoted name for the literal that holds it, and refuses a name it cannot hold.
 func (s *Server) quotedChannels(
 	ctx context.Context,
