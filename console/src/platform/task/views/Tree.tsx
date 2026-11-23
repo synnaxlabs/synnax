@@ -12,6 +12,7 @@ import "@/platform/task/views/Tree.css";
 import type { channel } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import type { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -101,7 +102,9 @@ export const TreeGroupItem = ({
       off && CSS.M("off"),
     )}
   >
-    {label}
+    <Flex.Box x align="center" gap="small" className={CSS.BE("group-item", "label")}>
+      {label}
+    </Flex.Box>
     {channel != null && <ChannelIcon channel={channel} skipped={off} />}
     {children}
   </Tree.Item>

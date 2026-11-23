@@ -342,6 +342,17 @@ describe("GroupTree", () => {
     await waitFor(() => expect(disabled()).toBe(false));
   });
 
+  it("should end the checkbox of a leaf group at the right edge of a field's", async () => {
+    await renderTree([LEAF, GROUP], { groupsSwitchable: true });
+    const right = async (name: RegExp) =>
+      within(await screen.findByRole("treeitem", { name }))
+        .getByRole("checkbox", { name: "Enabled" })
+        .getBoundingClientRect().right;
+    const field = await right(/\/value/);
+    expect(field).toBeGreaterThan(0);
+    expect(await right(/group-l/)).toBe(field);
+  });
+
   it("should offer no switch on a group of a tree that does not switch groups", async () => {
     await renderTree([GROUP]);
     const item = await screen.findByRole("treeitem", { name: /group-g/ });
