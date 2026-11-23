@@ -14,9 +14,9 @@ import { Description } from "@synnaxlabs/lyra/description";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Telem } from "@synnaxlabs/lyra/telem";
-import { Theming } from "@synnaxlabs/lyra/theming";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
-import { type color, primitive, strings, TimeSpan } from "@synnaxlabs/x";
+import { primitive, strings, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Calculation } from "@/calculation";
@@ -25,7 +25,6 @@ import { CSS } from "@/css";
 import type { Node } from "@/schematic/node";
 import { Synnax } from "@/synnax";
 import { LatestSample } from "@/vis/latestSample";
-import { Staleness } from "@/vis/staleness";
 
 export interface TooltipProps {
   anchor: HTMLElement;
@@ -74,20 +73,13 @@ interface RowProps {
   label: ReactNode;
   value: ReactNode;
   labelColor?: Theming.Shade;
-  valueColor?: Theming.Shade | color.Crude;
   valueClassName?: string;
 }
 
-const Row = ({
-  label,
-  value,
-  labelColor,
-  valueColor,
-  valueClassName,
-}: RowProps): ReactElement => (
+const Row = ({ label, value, labelColor, valueClassName }: RowProps): ReactElement => (
   <Description.Item>
     <Description.Label color={labelColor}>{label}</Description.Label>
-    <Description.Value variant="code" color={valueColor} className={valueClassName}>
+    <Description.Value variant="code" className={valueClassName}>
       {value}
     </Description.Value>
   </Description.Item>
@@ -134,7 +126,6 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     return () => clearTimeout(timeout);
   }, []);
   useEffect(() => (visible ? markClosed : undefined), [visible]);
-  const theme = Theming.use();
   const values: Partial<Record<Field, primitive.Value>> = config;
   const keys = CHANNEL_ROWS.flatMap(({ field }) => {
     const key = values[field];
@@ -214,10 +205,6 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   const followed = SAMPLE_AGE_ORDER.map((field) =>
     data?.find((c) => c.key === values[field]),
   ).find((c) => c != null);
-  const stalenessColor = Staleness.resolveColor(
-    "stalenessColor" in config ? config.stalenessColor : undefined,
-    theme,
-  );
   const fields = FIELD_ROWS.flatMap(({ field, label }) => {
     const value = values[field];
     if (value == null) return [];
@@ -226,14 +213,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     const text = SPAN_FIELDS.has(field)
       ? new TimeSpan(Number(value)).toString("full")
       : String(value);
-    return (
-      <Row
-        key={field}
-        label={label ?? strings.toSentence(field)}
-        value={text}
-        valueColor={field === "stalenessTimeout" ? stalenessColor : undefined}
-      />
-    );
+    return <Row key={field} label={label ?? strings.toSentence(field)} value={text} />;
   });
   if (channels.length + fields.length === 0) return null;
   const divider = (

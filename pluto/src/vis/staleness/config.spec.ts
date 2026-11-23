@@ -12,8 +12,8 @@ import { describe, expect, it } from "vitest";
 import { Staleness } from "@/vis/staleness";
 
 describe("Staleness.configZ", () => {
-  // A symbol saved before it gained staleness config carries neither key.
-  it("should accept a config that carries neither key", () => {
+  // A symbol saved before it gained staleness config has no timeout.
+  it("should accept a config with no timeout", () => {
     expect(Staleness.configZ.parse({})).toEqual({});
   });
 

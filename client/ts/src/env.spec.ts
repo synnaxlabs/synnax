@@ -22,13 +22,20 @@ import {
   type Run,
   type System,
 } from "@/env";
-import { ValidationError } from "@/errors";
+import { ValidationError } from "@/index";
 
 const ENV = {
   SYNNAX_HOST: "core.env",
   SYNNAX_PORT: "9091",
   SYNNAX_API_KEY: "syk_env",
   SYNNAX_SECURE: "true",
+};
+
+const CODE = {
+  provider: "idp",
+  code: "code",
+  verifier: "verifier",
+  redirectUri: "http://127.0.0.1:4242/callback",
 };
 
 const throwing = (error: Error): Env =>
@@ -108,6 +115,12 @@ describe("resolveParams", () => {
       { host: "rig", token: "t" },
       ENV,
       { host: "rig", port: 9091, token: "t", apiKey: undefined, secure: true },
+    ],
+    [
+      "an OpenID Connect code in the params keeps SYNNAX_API_KEY out",
+      { host: "rig", oidc: CODE },
+      ENV,
+      { host: "rig", port: 9091, oidc: CODE, apiKey: undefined, secure: true },
     ],
     [
       "a variable that Deno cannot read is unset",

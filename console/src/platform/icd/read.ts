@@ -9,7 +9,7 @@
 
 import type { channel, icd, Synnax } from "@synnaxlabs/client";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import { DataType, deep, type payload, unique } from "@synnaxlabs/x";
+import { DataType, deep, unique } from "@synnaxlabs/x";
 
 import { converts } from "@/platform/icd/dataType";
 
@@ -89,9 +89,9 @@ export const isReadable = ({ type, pointer }: TreeField): boolean =>
 export const isIndexable = (field?: icd.JSONField): boolean =>
   field?.type === "timestamp" && field.default == null;
 
-/** @returns the data types that a channel of a field of the kind cannot take. */
-export const hiddenDataTypes = (kind: payload.Kind): DataType[] =>
-  DataType.ALL.filter((dt) => !converts(kind, dt.toString()));
+/** @returns the data types that a channel of field cannot take. */
+export const hiddenDataTypes = (field: icd.JSONField): DataType[] =>
+  DataType.ALL.filter((dt) => !converts(field, dt.toString()));
 
 /**
  * @returns read, changed to suit the fields of its message: no binding of a field that
@@ -115,7 +115,7 @@ export const suit = (
       (b.field === read.index && index == null)
     )
       return [];
-    if (b.dataType === "" || converts(field.type, b.dataType)) return [b];
+    if (b.dataType === "" || converts(field, b.dataType)) return [b];
     return [{ ...b, dataType: "" }];
   });
   return { message: read.message, ...(index == null ? {} : { index }), bindings };

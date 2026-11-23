@@ -220,6 +220,7 @@ export class Lists<
   private readonly config: ListsConfig<Q, D, K, V, C, O>;
   private readonly hooks: SpaceHooks & { onError: (error: Error) => void };
   private readonly detachEpoch?: destructor.Destructor;
+  private readonly detachMissed?: destructor.Destructor;
   private readonly release: destructor.Destructor;
   private readonly grace: TimeSpan;
   private readonly clock: () => TimeStamp;
@@ -235,14 +236,16 @@ export class Lists<
       drop: (keys) => this.drop(keys),
       written: (key) => this.written(key),
     });
-    this.detachEpoch = hooks.onEpoch?.((epoch) => {
-      // The fresh stream's own epoch refetches after a reset, not the reset itself.
-      if (epoch === 0) return;
+    const refetchAll = (): void =>
       this.entries.forEach((entry) => {
         entry.stale = true;
         if (entry.teardown != null) this.scheduleRefetch(entry);
       });
+    this.detachEpoch = hooks.onEpoch?.((epoch) => {
+      // The fresh stream's own epoch refetches after a reset, not the reset itself.
+      if (epoch !== 0) refetchAll();
     });
+    this.detachMissed = hooks.onMissed?.(refetchAll);
   }
 
   /**
@@ -303,6 +306,7 @@ export class Lists<
   /** Detaches every subscription. Windows and handlers are dropped. */
   close(): void {
     this.detachEpoch?.();
+    this.detachMissed?.();
     this.release();
     if (this.sweepTimer != null) clearTimeout(this.sweepTimer);
     this.sweepTimer = undefined;
@@ -643,6 +647,8 @@ export class Lists<
     return () => {
       entry.handlers.delete(handler);
       if (entry.handlers.size > 0) return;
+      // The window stays stale, so a subscriber in the grace window refetches it.
+      this.clearRefetch(entry);
       if (this.grace.isZero) return this.teardown(entry);
       entry.idleSince = this.clock();
       this.armSweep();

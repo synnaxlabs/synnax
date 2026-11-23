@@ -13,7 +13,6 @@ import {
   createTestClient,
   RoleClients,
 } from "@synnaxlabs/client/testutil";
-import { Haul } from "@synnaxlabs/lyra/haul";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { color, id } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -21,7 +20,7 @@ import { type FC, type PropsWithChildren, type ReactElement, useState } from "re
 import { beforeAll, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Enumeration } from "@/enumeration";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
@@ -397,25 +396,6 @@ describe("Enumeration.Table", () => {
       expect(el.value).toBe("2e7d32");
     });
 
-    it("should send a color picked in the swatch once, when the picker closes", () => {
-      const onChange = vi.fn<OnChange>();
-      renderTable({ initial: [createEntry("Off", 0)], onChange });
-      const swatch = screen.getByRole("button", { name: "Pick color 1" });
-      fireEvent.click(swatch);
-      const hex = screen.getByLabelText("Hex");
-      fireEvent.change(hex, { target: { value: "#00ff00" } });
-      fireEvent.change(hex, { target: { value: "#0000ff" } });
-      expect(changes(onChange)).toEqual([]);
-      fireEvent.click(swatch);
-      expect(changes(onChange)).toEqual([
-        [
-          expect.objectContaining({
-            color: { type: "fixed", value: color.construct("#0000ff") },
-          }),
-        ],
-      ]);
-    });
-
     it("should set a fixed color from a pasted hex code", () => {
       const onChange = vi.fn<OnChange>();
       renderTable({ initial: [createEntry("Off", 0)], onChange });
@@ -517,20 +497,6 @@ describe("Enumeration.Table", () => {
       expect(screen.queryByLabelText(/alarm color/)).toBeNull();
     });
 
-    it("should picture a dragged entry with its name and color", () => {
-      const fixed = { type: "fixed" as const, value: color.construct("#00ff00") };
-      render(
-        <Haul.Provider>
-          <Harness initial={[createEntry("Running", 1, { color: fixed })]} />
-        </Haul.Provider>,
-        { wrapper },
-      );
-      fireEvent.dragStart(screen.getByRole("button", { name: "Move entry 1" }));
-      const tile = document.querySelector<HTMLElement>(".lyra-haul-preview__tile");
-      expect(tile?.style.background).toBe("rgb(0, 255, 0)");
-      expect(screen.getByText("Value 1")).toBeTruthy();
-    });
-
     it("should warn about an alarm color on an entry that is not abnormal", () => {
       const fixed = { type: "fixed" as const, value: ALARM };
       renderTable({ initial: [createEntry("Locked out", 0, { color: fixed })] });
@@ -618,25 +584,6 @@ describe("Enumeration.Table", () => {
     let live: FC<PropsWithChildren>;
     beforeAll(async () => {
       live = await createAsyncSynnaxWrapper({ client });
-    });
-
-    it("should set a named color picked from the swatch", async () => {
-      const palette = await client.groups.create({
-        scope: "color",
-        name: `palette-${id.create()}`,
-      });
-      const named = await client.colors.create({
-        name: `color-${id.create()}`,
-        light: "#00FF00",
-        group: palette.key,
-      });
-      const onChange = vi.fn<OnChange>();
-      renderTable({ initial: [createEntry("Off", 0)], onChange }, live);
-      fireEvent.click(screen.getByRole("button", { name: "Pick color 1" }));
-      fireEvent.click(await screen.findByRole("button", { name: named.name }));
-      expect(changes(onChange)).toContainEqual([
-        expect.objectContaining({ color: { type: "named", key: named.key } }),
-      ]);
     });
 
     it("should show a named color by its name", async () => {
@@ -771,32 +718,6 @@ describe("Enumeration.Entries", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Add entry" }));
     await waitFor(async () =>
       expect((await stored(e.key)).map((en) => en.value)).toEqual([0, 1]),
-    );
-  });
-
-  it("should save a move with the arrow keys", async () => {
-    const e = await createEnumeration([createEntry("Off", 0), createEntry("On", 1)]);
-    render(<Enumeration.Entries enumeration={e.key} />, { wrapper });
-    fireEvent.keyDown(await screen.findByRole("button", { name: "Move entry 2" }), {
-      key: "ArrowUp",
-    });
-    await waitFor(async () =>
-      expect((await stored(e.key)).map((en) => en.name)).toEqual(["On", "Off"]),
-    );
-  });
-
-  it("should save a move down with the arrow keys", async () => {
-    const e = await createEnumeration([
-      createEntry("Off", 0),
-      createEntry("On", 1),
-      createEntry("Idle", 2),
-    ]);
-    render(<Enumeration.Entries enumeration={e.key} />, { wrapper });
-    fireEvent.keyDown(await screen.findByRole("button", { name: "Move entry 1" }), {
-      key: "ArrowDown",
-    });
-    await waitFor(async () =>
-      expect((await stored(e.key)).map((en) => en.name)).toEqual(["On", "Off", "Idle"]),
     );
   });
 

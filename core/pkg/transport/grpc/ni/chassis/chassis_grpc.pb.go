@@ -237,7 +237,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NIChassisUpdateServiceClient interface {
-	Exec(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Exec(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 }
 
 type nIChassisUpdateServiceClient struct {
@@ -248,9 +248,9 @@ func NewNIChassisUpdateServiceClient(cc grpc.ClientConnInterface) NIChassisUpdat
 	return &nIChassisUpdateServiceClient{cc}
 }
 
-func (c *nIChassisUpdateServiceClient) Exec(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *nIChassisUpdateServiceClient) Exec(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
+	out := new(UpdateResponse)
 	err := c.cc.Invoke(ctx, NIChassisUpdateService_Exec_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -262,7 +262,7 @@ func (c *nIChassisUpdateServiceClient) Exec(ctx context.Context, in *UpdateReque
 // All implementations should embed UnimplementedNIChassisUpdateServiceServer
 // for forward compatibility.
 type NIChassisUpdateServiceServer interface {
-	Exec(context.Context, *UpdateRequest) (*emptypb.Empty, error)
+	Exec(context.Context, *UpdateRequest) (*UpdateResponse, error)
 }
 
 // UnimplementedNIChassisUpdateServiceServer should be embedded to have
@@ -272,7 +272,7 @@ type NIChassisUpdateServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedNIChassisUpdateServiceServer struct{}
 
-func (UnimplementedNIChassisUpdateServiceServer) Exec(context.Context, *UpdateRequest) (*emptypb.Empty, error) {
+func (UnimplementedNIChassisUpdateServiceServer) Exec(context.Context, *UpdateRequest) (*UpdateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
 }
 func (UnimplementedNIChassisUpdateServiceServer) testEmbeddedByValue() {}

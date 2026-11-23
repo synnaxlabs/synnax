@@ -8,6 +8,7 @@ description:
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Diagram } from "@/components/diagram";
+import { Releases } from "@/components/releases";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -150,10 +151,10 @@ The Python client follows [SPEC 0](https://scientific-python.org/specs/spec-0000
 support schedule of NumPy, pandas, and SciPy. Each Python version gets support for three
 years after its first release. The client supports Python 3.13, 3.14, and 3.15.
 
-Use a client with the same major and minor version as your Core, such as client 0.61
-with Core 0.61. The patch version can differ. When the major or minor version differs,
-the client prints a warning. When the TypeScript client cannot read the replies of the
-Core, its connection status shows
+Use a client with the same major and minor version as your Core. The patch version can
+differ. For example, use client <Releases.Version train /> with Core <Releases.Version
+train />. When the major or minor version differs, the client prints a warning. When the
+TypeScript client cannot read the replies of the Core, its connection status shows
 [Core version not supported](/reference/client/troubleshooting#core-version-not-supported).
 
 The Python client is pure Python. It installs on each computer where its dependencies,

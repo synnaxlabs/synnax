@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { render, waitFor } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import type { ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Gauge } from "@/schematic/node/general/gauge";
 import { Scale } from "@/schematic/node/general/scale";
@@ -21,25 +21,19 @@ import { Tank } from "@/schematic/node/vessels/tank";
 import { createSynnaxWrapper } from "@/testutil";
 import { gauge } from "@/vis/gauge/aether";
 import { scale } from "@/vis/scale/aether";
-import { Staleness } from "@/vis/staleness";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { stringValue } from "@/vis/stringValue/aether";
 import { value } from "@/vis/value/aether";
 
-const staleColorHidden = vi.fn();
-const onUpdate = (state: { staleColorHidden: boolean }): void =>
-  staleColorHidden(state.staleColorHidden);
-
 const Wrapper = createSynnaxWrapper({
   client: null,
   additionalRegistry: {
-    ...stalenessTest.createRegistry(value.Value.TYPE, value.Value.z, onUpdate),
-    ...stalenessTest.createRegistry(gauge.Gauge.TYPE, gauge.Gauge.z, onUpdate),
-    ...stalenessTest.createRegistry(scale.Scale.TYPE, scale.Scale.z, onUpdate),
+    ...stalenessTest.createRegistry(value.Value.TYPE, value.Value.z),
+    ...stalenessTest.createRegistry(gauge.Gauge.TYPE, gauge.Gauge.z),
+    ...stalenessTest.createRegistry(scale.Scale.TYPE, scale.Scale.z),
     ...stalenessTest.createRegistry(
       stringValue.StringValue.TYPE,
       stringValue.StringValue.z,
-      onUpdate,
     ),
   },
   telemFactories: [],
@@ -99,31 +93,15 @@ const READOUTS: Array<[string, () => ReactElement]> = [
 ];
 
 describe.each(READOUTS)("Stale.Indicator on a %s", (_, node) => {
-  const ui = (badged: boolean): ReactElement => (
-    <Wrapper>
-      <Staleness.Provider badged={badged}>
+  it("should show the indicator below the readout", async () => {
+    const { findByRole } = render(
+      <Wrapper>
         <ReactFlowProvider>{node()}</ReactFlowProvider>
-      </Staleness.Provider>
-    </Wrapper>
-  );
-
-  beforeEach(() => staleColorHidden.mockClear());
-
-  it("should show the indicator and keep the readout's own color", async () => {
-    const { findByRole } = render(ui(true));
+      </Wrapper>,
+    );
     const indicator = await findByRole("img", { name: "Stale" });
     expect(indicator.closest(".pluto-grid__item")?.classList).toContain(
       "lyra--location-bottom",
     );
-    expect(staleColorHidden).toHaveBeenLastCalledWith(true);
-  });
-
-  // Starts badged, so the indicator proves the stale state reached the symbol first.
-  it("should paint the stale color with no indicator when not badged", async () => {
-    const { findByRole, queryByRole, rerender } = render(ui(true));
-    await findByRole("img", { name: "Stale" });
-    rerender(ui(false));
-    await waitFor(() => expect(staleColorHidden).toHaveBeenLastCalledWith(false));
-    expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 });
