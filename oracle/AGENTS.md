@@ -298,10 +298,6 @@ line in every client, and Go calls `Match<Line>` once per value of the operator.
 `@go match <Func>` on a typed line calls an existing matcher instead, such as
 `nested bool { @go match MatchHasParent }`. A bare line cannot carry it.
 
-`@search secondary` on a field puts its text in a second text function: a match in it
-ranks below the same match in the other `@search` fields, and an empty value indexes
-nothing. A type needs one `@search` field that is not secondary.
-
 `@index sorted` with several values on a struct field declares one sorted index per
 sub-field: `@index sorted start end` on `time_range` gives `OrderByTimeRangeStart` and
 `OrderByTimeRangeEnd`. Hand-written matchers filter each index by a range of values with
