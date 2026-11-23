@@ -531,6 +531,47 @@ describe("Read", () => {
     );
   });
 
+  it("should not reuse a stored channel of another endpoint with the same path", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const other = await createEndpoint({
+      key: "ep1",
+      method: "POST",
+      path: "/query",
+      disabled: true,
+      fields: [
+        icd.jsonFieldZ.parse({
+          name: "reading",
+          pointer: "/temperature",
+          type: "float",
+        }),
+      ],
+    });
+    other.messages[0].bindings[0].channel = ch.key;
+    const temperature = createField("temperature");
+    const ep = await createEndpoint({
+      key: "ep2",
+      method: "POST",
+      path: "/query",
+      fields: [temperature],
+    });
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    const { draft } = await renderWithDevice([other, ep], {
+      read: { [`/query#${other.messages[0].message}`]: stored },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[1].messages[0].bindings;
+    await readAgain("temperature", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: temperature.key, channel: 0, dataType: "" },
+      ]),
+    );
+  });
+
   it("should not reuse a stored channel that the field does not convert to", async () => {
     const ch = await client.channels.create({
       name: uniqueName("mode"),
