@@ -112,6 +112,9 @@ export const Boolean = ({
             checked={value ?? false}
             onChange={(e) => {
               e.stopPropagation();
+              // A dispatched click flips a disabled checkbox, and React still calls
+              // onChange. With no call, React restores the controlled value.
+              if (disabled === true) return;
               onChange?.(e.target.checked);
             }}
             value=""

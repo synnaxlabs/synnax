@@ -30,4 +30,13 @@ describe("Input.Boolean", () => {
     expect(proceeded).toBe(false);
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it("should keep a disabled input's value on a dispatched click", () => {
+    const onChange = vi.fn();
+    const { getByRole } = render(<Input.Checkbox value onChange={onChange} disabled />);
+    const input = getByRole("checkbox");
+    fireEvent.click(input);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input).toHaveProperty("checked", true);
+  });
 });
