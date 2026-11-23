@@ -76,7 +76,7 @@ describe("symbol editor spec", () => {
   });
 
   describe("setOwn", () => {
-    it("should add a hidden look after its last hider, not after every look", () => {
+    it("should add a drawing look after its last hider, not after every look", () => {
       const spec = createSpec({
         looks: [
           { key: "a", part: "body", when: equals(0), fill: fixed(RED) },
