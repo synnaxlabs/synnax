@@ -74,8 +74,8 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to true.
 	ValidateNames *bool
 	// AnnounceLinked announces through w, in tx, the fields of each stored channel
-	// among keys that a create links to a new index and that its create action does
-	// not hold.
+	// among keys that a create links to a new index and that its create action does not
+	// hold.
 	//
 	// [OPTIONAL] - Defaults to announcing nothing.
 	AnnounceLinked func(ctx context.Context, tx gorp.Tx, w Writer, keys ...Key) error

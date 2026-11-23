@@ -74,8 +74,7 @@ type Service struct {
 	outputChecks *gorp.Attachment[batchCheck[channel.Key]]
 }
 
-// batchCheck is the check of one action batch, from the calculation as the batch
-// leaves it.
+// batchCheck checks one action batch by the calculation as the batch leaves it.
 type batchCheck[K comparable] struct {
 	id    batchID[K]
 	check func(allowed func(resource.ID) bool) bool

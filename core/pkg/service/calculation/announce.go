@@ -72,8 +72,8 @@ func (s *Service) AnnounceOutputs(
 
 // ChannelBatchChecks returns the lookup of the check of each channel action batch that
 // c holds, by the key of its channel and its number. A batch that announces the
-// calculation fields of an output goes only to a subject who reads the calculation,
-// and any other batch has no check of its own.
+// calculation fields of an output goes only to a subject who reads the calculation, and
+// any other batch has no check of its own.
 func (s *Service) ChannelBatchChecks(
 	c gorp.Commit,
 ) func(key channel.Key, seq uint64) (func(allowed func(resource.ID) bool) bool, bool) {
