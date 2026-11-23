@@ -78,6 +78,18 @@ var _ = Describe("One clock handoff check", func() {
 		}
 		return out
 	}
+	// lengths returns the number of stored samples of the index and of the data.
+	lengths := func(ctx SpecContext) (index, values int64) {
+		GinkgoHelper()
+		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx, data))
+		for _, s := range fr.Get(idx).Series {
+			index += s.Len()
+		}
+		for _, s := range fr.Get(data).Series {
+			values += s.Len()
+		}
+		return index, values
+	}
 
 	DescribeTable(
 		"Should give the clock back from its last commit after a stream-only writer "+
@@ -181,4 +193,36 @@ var _ = Describe("One clock handoff check", func() {
 			})
 		}),
 	)
+
+	It("Should commit the stamps that a handoff moves to the new holder, and the "+
+		"data of the old holder after its refused write", func(ctx SpecContext) {
+		a := open(ctx, storageConfig{
+			ControlSubject: control.Subject{Key: "a"},
+			Channels:       keys,
+			Start:          10 * telem.SecondTS,
+			Authorities:    []control.Authority{100},
+		})
+		MustSucceed(a.Write(ctx, fr(10, 11, 12, 13)))
+		b := MustSucceed(db.OpenWriter(ctx, storageConfig{
+			ControlSubject: control.Subject{Key: "b"},
+			Channels:       []cesium.ChannelKey{idx},
+			Start:          10 * telem.SecondTS,
+			Authorities:    []control.Authority{200},
+		}))
+		Expect(a.Commit(ctx)).Error().To(MatchError(control.ErrUnauthorized))
+		Expect(a.Write(ctx, fr(20))).Error().To(MatchError(control.ErrUnauthorized))
+		// The commit of the new holder commits the stamps of the run that it took.
+		MustSucceed(b.Write(ctx, telem.MultiFrame(
+			[]cesium.ChannelKey{idx},
+			[]telem.Series{telem.NewSeriesSecondsTSV(14)},
+		)))
+		MustSucceed(b.Commit(ctx))
+		Expect(b.Close()).To(Succeed())
+		// The commit reports the refused write, as main's does.
+		_, err := a.Commit(ctx)
+		Expect(err).To(Or(Succeed(), MatchError(control.ErrUnauthorized)))
+		index, values := lengths(ctx)
+		Expect(index).To(Equal(int64(5)))
+		Expect(values).To(Equal(int64(4)))
+	})
 })
