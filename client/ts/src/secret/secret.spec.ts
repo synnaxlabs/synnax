@@ -44,15 +44,18 @@ const clock = (): TimeStamp => {
   return mocked == null ? TimeStamp.now() : new TimeStamp(mocked);
 };
 
-interface RetrieveRequest {
-  where: { key: { eq?: secret.Key; in?: secret.Key[] } };
+interface Request {
+  where?: { key?: { eq?: secret.Key; in?: secret.Key[] } };
   includeUses?: boolean;
+  secrets?: Array<{ key: secret.Key; name: string }>;
 }
 
 /**
  * Creates a secret client on a fake transport and a pushed change stream. Each secret
  * that the transport returns has the uses of `core.usesOf`. A retrieve that asks for
- * uses waits in `core.held` while `core.holding` is set.
+ * uses waits in `core.held` while `core.holding` is set. A set waits for `core.set`. A
+ * retrieve that selects by no key is a list fetch: it counts in `listFetches` and
+ * returns no secrets.
  * With `closed`, the stream opens only once `open` is called.
  * @returns the client, the fake Core, the keys of each retrieve that asks for uses, and
  * functions that push a frame, send one change on the channel of uses, drop the stream
@@ -63,15 +66,31 @@ const createFakeSecrets = async ({
   closed = false,
 }: { recordCap?: number; closed?: boolean } = {}) => {
   const usesRequests: secret.Key[][] = [];
-  const core = { usesOf, holding: false, held: [] as Array<() => void> };
-  const send = async (
-    target: string,
-    req: RetrieveRequest,
-    _: z.ZodType,
-    res: z.ZodType,
-  ) => {
+  const listFetches = { count: 0 };
+  const core = {
+    usesOf,
+    holding: false,
+    held: [] as Array<() => void>,
+    set: Promise.resolve(),
+  };
+  const send = async (target: string, req: Request, _: z.ZodType, res: z.ZodType) => {
+    if (target === "/secret/set") {
+      await core.set;
+      return res.parse({
+        secrets: (req.secrets ?? []).map(({ key, name }) => ({
+          key,
+          name,
+          source: "stored",
+          updated: 0,
+        })),
+      });
+    }
     if (target !== "/secret/retrieve")
       throw new Error(`unexpected request to ${target}`);
+    if (req.where?.key == null) {
+      listFetches.count++;
+      return res.parse({ secrets: [] });
+    }
     const { eq, in: keys = eq == null ? [] : [eq] } = req.where.key;
     if (req.includeUses === true) usesRequests.push(keys);
     const reply = res.parse({
@@ -122,7 +141,17 @@ const createFakeSecrets = async ({
     await expect.poll(() => cache.epoch).toBe(epoch + 1);
   };
   const miss = (): void => onMissed?.();
-  return { secrets, core, usesRequests, push, change, reconnect, open, miss };
+  return {
+    secrets,
+    core,
+    usesRequests,
+    listFetches,
+    push,
+    change,
+    reconnect,
+    open,
+    miss,
+  };
 };
 
 type Fake = Awaited<ReturnType<typeof createFakeSecrets>>;
@@ -490,6 +519,40 @@ describe("Secret", () => {
           .filter(([target]) => target === "/secret/retrieve")
           .map(([, req]) => (req as { after?: unknown }).after);
         expect(afters).toEqual([undefined, expect.anything()]);
+      } finally {
+        off();
+      }
+    });
+
+    it("should list a secret that the client creates with no fetch", async () => {
+      const prefix = id.create();
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const list = client.secrets.watch({
+        name: { startsWith: prefix },
+        includeUses: true,
+      });
+      const off = list.onChange(() => {});
+      try {
+        await list.retrieve();
+        const send = spyOnSend(client);
+        const created = await client.secrets.set({
+          name: `${prefix}-0`,
+          source: "stored",
+          value: "abc",
+        });
+        expect(
+          list.getCached()?.records.map(({ key, uses }) => ({ key, uses })),
+        ).toEqual([{ key: created.key, uses: [] }]);
+        // Past the debounce of a refetch that the echo of the set could start.
+        await sleep.sleep(TimeSpan.milliseconds(500));
+        // A refetch of uses selects by key, and a fetch of the list by name.
+        const listFetches = send.mock.calls.filter(
+          ([target, req]) =>
+            target === "/secret/retrieve" &&
+            (req as { where: { name?: unknown } }).where.name != null,
+        );
+        expect(listFetches).toHaveLength(0);
       } finally {
         off();
       }
@@ -1080,6 +1143,32 @@ describe("Secret", () => {
       change();
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(usesRequests).toEqual([[stopped.key], [watched.key], [watched.key]]);
+    });
+
+    it("should keep the no uses of a secret that a refetch meets during its set", async () => {
+      useFakeTimers();
+      const { secrets, core, listFetches, change } = await createFakeSecrets();
+      core.usesOf = () => [];
+      const prefix = id.create();
+      const list = secrets.watch({ name: { startsWith: prefix }, includeUses: true });
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      const set = Promise.withResolvers<void>();
+      core.set = set.promise;
+      const created = secrets.set({
+        name: `${prefix}-0`,
+        source: "stored",
+        value: "a",
+      });
+      change();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      set.resolve();
+      const { key } = await created;
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(list.getCached()?.records.map(({ key, uses }) => ({ key, uses }))).toEqual(
+        [{ key, uses: [] }],
+      );
+      expect(listFetches.count).toBe(1);
     });
 
     it("should retrieve uses once for a burst of changes", async () => {

@@ -183,7 +183,7 @@ describe("Custom.usePaints", () => {
 
   const renderPaints = async (
     spec: schematic.symbol.Spec,
-    value: number,
+    value: Custom.StateValue,
     options?: Custom.UsePaintsParams,
   ): Promise<Custom.Paint[]> => {
     const { result } = renderHook(() => Custom.usePaints(spec, value, options), {
@@ -242,6 +242,23 @@ describe("Custom.usePaints", () => {
     it("should draw the default entry for a value that no entry has", async () => {
       expect(await renderPaints(createEntrySpec(), 7)).toEqual([
         { selectors: [".body"], fill: color.construct("#ff0000") },
+      ]);
+    });
+
+    it("should draw the entry of each state at its own value, or at its default", async () => {
+      const spec = createSpec({
+        states: [
+          { type: "enumeration", key: "a", name: "A", enumeration: valve },
+          { type: "enumeration", key: "b", name: "B", enumeration: valve, default: 2 },
+        ],
+        looks: [
+          { key: "a", part: "body", fill: { type: "entry", state: "a" } },
+          { key: "b", part: "body", fill: { type: "entry", state: "b" } },
+        ],
+      });
+      expect(await renderPaints(spec, new Map([["a", 1]]))).toEqual([
+        { selectors: [".body"], fill: color.construct("#00ff00") },
+        { selectors: [".body"], fill: color.construct("#000080") },
       ]);
     });
 
@@ -348,6 +365,27 @@ describe("Custom.usePaints", () => {
       ];
       expect(await renderPaints(spec, 0, { overrides })).toEqual([
         { selectors: [".body"], stroke: color.construct("#123456") },
+      ]);
+    });
+
+    it("should ignore the overrides when the value is a map", async () => {
+      const spec = createSpec({ looks: [STROKE] });
+      const overrides = [
+        {
+          key: "closed",
+          name: "Closed",
+          regions: [
+            {
+              key: "body",
+              name: "Body",
+              selectors: [".body"],
+              strokeColor: color.construct("#123456"),
+            },
+          ],
+        },
+      ];
+      expect(await renderPaints(spec, new Map(), { overrides })).toEqual([
+        { selectors: [".body"], stroke: color.construct("#0000ff") },
       ]);
     });
   });
