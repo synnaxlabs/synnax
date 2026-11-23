@@ -140,6 +140,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
               size="small"
               value={varies}
               onChange={handleVariesChange}
+              aria-label={`${label} by state`}
               tooltip={
                 varies
                   ? `Use one ${name} in every state`
