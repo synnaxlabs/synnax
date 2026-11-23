@@ -311,7 +311,9 @@ export const useRegions = (
 const NO_PAINTS: Paint[] = [];
 
 export interface UsePaintsParams {
-  /** overrides replace the looks at the value of their index. */
+  /**
+   * overrides replace the looks at the value of their index, when value is a number.
+   */
   overrides?: schematic.symbol.StateOverride[];
   /** nodeColor is the color that `node` paint draws. */
   nodeColor?: color.Crude;
