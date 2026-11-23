@@ -1,0 +1,332 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import type { schematic } from "@synnaxlabs/client";
+import type { ReactElement } from "react";
+import { afterEach, describe, expect, it } from "vitest";
+import { commands } from "vitest/browser";
+import { render } from "vitest-browser-react";
+
+import { Custom } from "@/schematic/node/common/custom";
+import { Primitive } from "@/schematic/node/common/primitive";
+
+const MARKUP =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+  '<rect class="rotor" width="4" height="4" transform="translate(1 1)"/>' +
+  '<path class="pipe" d="M0 5H10" stroke="black" stroke-dasharray="4 2" ' +
+  'stroke-dashoffset="1"/>' +
+  '<rect class="liquid" width="10" height="10"/>' +
+  '<g transform="scale(2)"><rect class="slider" width="1" height="1"/></g>' +
+  "</svg>";
+
+const PARTS: schematic.symbol.Part[] = [
+  { key: "rotor", name: "Rotor", selectors: [".rotor"] },
+  { key: "pipe", name: "Pipe", selectors: [".pipe"] },
+  { key: "liquid", name: "Liquid", selectors: [".liquid"] },
+  { key: "slider", name: "Slider", selectors: [".slider"] },
+];
+
+const STATES: schematic.symbol.State[] = [
+  { type: "number", key: "speed", name: "Speed", bounds: { lower: 0, upper: 100 } },
+  {
+    type: "enumeration",
+    key: "active",
+    name: "Active",
+    match: { type: "exact" },
+    default: 0,
+  },
+];
+
+const createSpec = (
+  looks: schematic.symbol.Look[],
+  parts: schematic.symbol.Part[] = PARTS,
+): schematic.symbol.Spec => ({
+  drawing: { type: "svg", markup: MARKUP },
+  parts,
+  handles: [],
+  states: STATES,
+  commands: [],
+  looks,
+  interactions: [],
+  variant: "static",
+  scale: 1,
+  strokeScaled: false,
+});
+
+const SPIN: schematic.symbol.Look = {
+  key: "spin",
+  part: "rotor",
+  motion: { type: "spin", rate: 0.5 },
+};
+
+// createFrames builds a loop whose frames run only when a spec calls frame.
+const createFrames = () => {
+  let callback: FrameRequestCallback | null = null;
+  const loop = new Custom.Loop({
+    requestFrame: (cb) => {
+      callback = cb;
+      return 1;
+    },
+    cancelFrame: () => {
+      callback = null;
+    },
+  });
+  const frame = (now: number): void => {
+    const cb = callback;
+    callback = null;
+    cb?.(now);
+  };
+  return { loop, frame };
+};
+
+interface HarnessProps extends Partial<Custom.DrawingProps> {
+  loop: Custom.Loop;
+}
+
+const Harness = ({ loop, spec, ...rest }: HarnessProps): ReactElement => (
+  <Custom.MotionProvider loop={loop}>
+    <Primitive.Div>
+      <Custom.Drawing spec={spec ?? createSpec([SPIN])} {...rest} />
+    </Primitive.Div>
+  </Custom.MotionProvider>
+);
+
+const setup = async (props: Partial<Custom.DrawingProps> = {}) => {
+  const { loop, frame } = createFrames();
+  const result = await render(<Harness loop={loop} {...props} />);
+  const attr = (selector: string, name: string): string | null =>
+    result.container.querySelector(selector)?.getAttribute(name) ?? null;
+  const rerender = (next: Partial<Custom.DrawingProps>) =>
+    result.rerender(<Harness loop={loop} {...props} {...next} />);
+  return { ...result, loop, frame, attr, rerender };
+};
+
+const reading = (value: number, stale = false): Custom.Reading => ({ value, stale });
+
+describe("Custom.Drawing motion", () => {
+  afterEach(async () => {
+    await commands.emulateReducedMotion(false);
+  });
+
+  describe("spin", () => {
+    it("should turn a part around the center of its own box at its rate", async () => {
+      const { loop, frame, attr } = await setup();
+      expect(loop.size).toBe(1);
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("rotate(90 3 3) translate(1 1)");
+    });
+
+    it("should turn a part in a scaled group around the center of its own box", async () => {
+      const look = { ...SPIN, part: "slider" };
+      const { frame, attr } = await setup({ spec: createSpec([look]) });
+      frame(0);
+      frame(500);
+      expect(attr(".slider", "transform")).toBe("rotate(90 0.5 0.5)");
+    });
+
+    it("should turn a part around its pivot", async () => {
+      const parts = PARTS.map((p) =>
+        p.key === "rotor" ? { ...p, pivot: { x: 0.2, y: 0.4 } } : p,
+      );
+      const { frame, attr } = await setup({ spec: createSpec([SPIN], parts) });
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("rotate(90 2 4) translate(1 1)");
+    });
+
+    it("should turn the other way at a negative rate", async () => {
+      const look = { ...SPIN, motion: { type: "spin" as const, rate: -0.5 } };
+      const { frame, attr } = await setup({ spec: createSpec([look]) });
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("rotate(270 3 3) translate(1 1)");
+    });
+
+    it("should turn at its rate times the fraction of its state", async () => {
+      const look = {
+        ...SPIN,
+        motion: { type: "spin" as const, rate: 1, state: "speed" },
+      };
+      const { frame, attr } = await setup({
+        spec: createSpec([look]),
+        readings: { speed: reading(25) },
+      });
+      frame(0);
+      frame(1000);
+      expect(attr(".rotor", "transform")).toBe("rotate(90 3 3) translate(1 1)");
+    });
+
+    it("should leave the loop while its state reads 0, and join it again", async () => {
+      const look = {
+        ...SPIN,
+        motion: { type: "spin" as const, rate: 1, state: "speed" },
+      };
+      const spec = createSpec([look]);
+      const { loop, rerender } = await setup({ spec, readings: { speed: reading(0) } });
+      expect(loop.size).toBe(0);
+      await rerender({ readings: { speed: reading(50) } });
+      expect(loop.size).toBe(1);
+    });
+
+    it("should stop and keep its angle while its state is stale", async () => {
+      const look = {
+        ...SPIN,
+        motion: { type: "spin" as const, rate: 1, state: "speed" },
+      };
+      const spec = createSpec([look]);
+      const { loop, frame, attr, rerender } = await setup({
+        spec,
+        readings: { speed: reading(100) },
+      });
+      frame(0);
+      frame(250);
+      await rerender({ readings: { speed: reading(100, true) } });
+      expect(loop.size).toBe(0);
+      expect(attr(".rotor", "transform")).toBe("rotate(90 3 3) translate(1 1)");
+    });
+
+    it("should stop while its state is unknown", async () => {
+      const look = {
+        ...SPIN,
+        motion: { type: "spin" as const, rate: 1, state: "speed" },
+      };
+      const { loop } = await setup({
+        spec: createSpec([look]),
+        readings: { speed: reading(NaN) },
+      });
+      expect(loop.size).toBe(0);
+    });
+
+    it("should stop while a state that its look reads in when is stale", async () => {
+      const look = {
+        ...SPIN,
+        when: { type: "equals" as const, state: "active", values: [1] },
+      };
+      const spec = createSpec([look]);
+      const { loop, rerender } = await setup({
+        spec,
+        readings: { active: reading(1) },
+      });
+      expect(loop.size).toBe(1);
+      await rerender({ readings: { active: reading(1, true) } });
+      expect(loop.size).toBe(0);
+    });
+
+    it("should leave the loop and draw as drawn when its look no longer applies", async () => {
+      const look = {
+        ...SPIN,
+        when: { type: "equals" as const, state: "active", values: [1] },
+      };
+      const spec = createSpec([look]);
+      const { loop, frame, attr, rerender } = await setup({
+        spec,
+        readings: { active: reading(1) },
+      });
+      frame(0);
+      frame(500);
+      await rerender({ readings: { active: reading(0) } });
+      expect(loop.size).toBe(0);
+      expect(attr(".rotor", "transform")).toBe("translate(1 1)");
+    });
+
+    it("should leave the loop while a later look hides the part", async () => {
+      const hide: schematic.symbol.Look = { key: "hide", part: "rotor", hidden: true };
+      const { loop } = await setup({ spec: createSpec([SPIN, hide]) });
+      expect(loop.size).toBe(0);
+    });
+
+    it("should stop on a node with motion disabled", async () => {
+      const { loop, rerender } = await setup();
+      await rerender({ motionDisabled: true });
+      expect(loop.size).toBe(0);
+    });
+
+    it("should stop under the Reduce motion setting", async () => {
+      const { loop } = await setup();
+      expect(loop.size).toBe(1);
+      await commands.emulateReducedMotion(true);
+      await expect.poll(() => loop.size).toBe(0);
+    });
+
+    it("should leave the loop when the drawing is removed", async () => {
+      const { loop, unmount } = await setup();
+      await unmount();
+      expect(loop.size).toBe(0);
+    });
+
+    it("should move the new drawing when the markup changes", async () => {
+      const spec = createSpec([SPIN]);
+      const { loop, frame, attr, rerender } = await setup({ spec });
+      await rerender({
+        spec: { ...spec, drawing: { type: "svg", markup: MARKUP.replace("4", "3") } },
+      });
+      expect(loop.size).toBe(1);
+      frame(0);
+      frame(500);
+      expect(attr(".rotor", "transform")).toBe("rotate(90 2.5 3) translate(1 1)");
+    });
+  });
+
+  describe("flow", () => {
+    it("should move the dashes by one pattern a cycle from their own offset", async () => {
+      const look: schematic.symbol.Look = {
+        key: "flow",
+        part: "pipe",
+        motion: { type: "flow", rate: 0.5 },
+      };
+      const { frame, attr } = await setup({ spec: createSpec([look]) });
+      frame(0);
+      frame(1000);
+      expect(attr(".pipe", "stroke-dashoffset")).toBe("-2");
+    });
+  });
+
+  describe("blink", () => {
+    const blink = (period: number): schematic.symbol.Look => ({
+      key: "blink",
+      part: "rotor",
+      blink: { period },
+    });
+
+    it("should dim the part for the second half of each period", async () => {
+      const { frame, attr } = await setup({ spec: createSpec([blink(1e9)]) });
+      frame(0);
+      expect(attr(".rotor", "opacity")).toBe("1");
+      frame(600);
+      expect(attr(".rotor", "opacity")).toBe("0.2");
+    });
+
+    it("should flash at most 2.5 times a second", async () => {
+      const { frame, attr } = await setup({ spec: createSpec([blink(1e8)]) });
+      frame(0);
+      frame(150);
+      expect(attr(".rotor", "opacity")).toBe("1");
+      frame(250);
+      expect(attr(".rotor", "opacity")).toBe("0.2");
+    });
+
+    it("should show the part again when it stops", async () => {
+      const look = {
+        ...blink(1e9),
+        when: { type: "equals" as const, state: "active", values: [1] },
+      };
+      const spec = createSpec([look]);
+      const { loop, frame, attr, rerender } = await setup({
+        spec,
+        readings: { active: reading(1) },
+      });
+      frame(0);
+      frame(600);
+      await rerender({ readings: { active: reading(1, true) } });
+      expect(loop.size).toBe(0);
+      expect(attr(".rotor", "opacity")).toBe("1");
+    });
+  });
+});

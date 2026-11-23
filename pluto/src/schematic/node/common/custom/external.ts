@@ -10,6 +10,7 @@
 export * from "@/schematic/node/common/custom/builtIn";
 export * from "@/schematic/node/common/custom/Drawing";
 export { Loop, type LoopConfig } from "@/schematic/node/common/custom/loop";
+export type { Reading } from "@/schematic/node/common/custom/motion";
 export {
   MotionProvider,
   type MotionProviderProps,
