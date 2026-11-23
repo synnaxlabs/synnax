@@ -204,6 +204,33 @@ var _ = Describe("Stored key breaker 2", func() {
 		)))
 	})
 
+	It("Should name the folder that holds the index name in the metrics folder", func(
+		ctx SpecContext,
+	) {
+		const timeName = "sy_node_1_metrics_time"
+		folder := metricsFolder(ctx)
+		var members []channel.Channel
+		Expect(channels.NewRetrieve().
+			Where(channel.MatchGroups(folder.Key)).
+			Entries(&members).
+			Exec(ctx, db)).To(Succeed())
+		deleteChannels(ctx, channel.KeysFromChannels(members)...)
+		parent := folder.ResourceID()
+		blocker := group.Group{
+			Name:   timeName,
+			Parent: &parent,
+			Scope:  resource.TypeChannel,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return groups.NewWriter(tx).Create(ctx, &blocker)
+		})).To(Succeed())
+		Expect(MustSucceed(metrics.OpenService(ctx, cfg)).Close()).To(Succeed())
+		Expect(warning(ctx)).To(ConsistOf(HaveField(
+			"Description",
+			ContainSubstring(timeName),
+		)))
+	})
+
 	It("Should open when a user renamed an input of a deleted calculated metric", func(
 		ctx SpecContext,
 	) {
