@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v3"
@@ -161,9 +162,11 @@ func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
 
 // writeServiceConfig returns the config of the write task config service.
 func writeServiceConfig(cfg ServiceConfig) config.ServiceConfig[WriteConfig] {
+	channels := icd.ReadChannels(cfg.Channel)
 	resolver := writeResolver{
 		icds:     cfg.ICD,
-		channels: icd.ReadChannels(cfg.Channel),
+		channels: channels,
+		writes:   write.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
 	}
 	return config.ServiceConfig[WriteConfig]{

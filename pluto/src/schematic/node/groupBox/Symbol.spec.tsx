@@ -10,16 +10,14 @@
 import { schematic } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { fireEvent, render } from "@testing-library/react";
-import { type Node, ReactFlowProvider, useOptionsStore } from "@xyflow/react";
+import { type Node as RFNode, ReactFlowProvider, useOptionsStore } from "@xyflow/react";
 import type { ReactElement } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
-import type { Config } from "@/schematic/node/groupBox/config";
-import { MembersProvider } from "@/schematic/node/groupBox/context";
-import { Symbol } from "@/schematic/node/groupBox/Symbol";
-import type { NodeProps } from "@/schematic/node/spec";
+import type { Node } from "@/schematic/node";
+import { GroupBox } from "@/schematic/node/groupBox";
 
-const initialNodes: Node[] = [
+const initialNodes: RFNode[] = [
   { id: "g1", position: { x: -20, y: -40 }, data: {} },
   { id: "m1", position: { x: 0, y: 0 }, measured: { width: 40, height: 20 }, data: {} },
   {
@@ -33,15 +31,15 @@ const initialNodes: Node[] = [
 const MEMBERS = new Map([["g1", ["m1", "m2"]]]);
 
 const renderSymbol = (
-  props: Partial<NodeProps<Config>> = {},
+  props: Partial<Node.NodeProps<GroupBox.Config>> = {},
   members: ReadonlyMap<string, string[]> = MEMBERS,
 ): ReturnType<typeof render> =>
   render(
     <ReactFlowProvider initialNodes={initialNodes}>
       <Haul.Provider>
-        <MembersProvider value={members}>
+        <GroupBox.MembersProvider value={members}>
           <div data-id="g1">
-            <Symbol
+            <GroupBox.spec.Node
               nodeKey="g1"
               selected={false}
               onConfigChange={vi.fn()}
@@ -49,7 +47,7 @@ const renderSymbol = (
               {...props}
             />
           </div>
-        </MembersProvider>
+        </GroupBox.MembersProvider>
       </Haul.Provider>
     </ReactFlowProvider>,
   );
@@ -66,7 +64,7 @@ const chip = (container: HTMLElement): HTMLElement => {
   return el;
 };
 
-describe("GroupBox.Symbol", () => {
+describe("GroupBox.spec.Node", () => {
   it("should size the box to its members' bounds plus padding", () => {
     // Far member edge: m2 at (100, 60) measuring 50x40. Box anchored at (-20, -40):
     // width = 150 - (-20) + 20, height = 100 - (-40) + 20.
@@ -82,14 +80,14 @@ describe("GroupBox.Symbol", () => {
   });
 
   it("should track a member growing and shrinking", () => {
-    const resized = (m2: { width: number; height: number }): Node[] =>
+    const resized = (m2: { width: number; height: number }): RFNode[] =>
       initialNodes.map((n) => (n.id === "m2" ? { ...n, measured: m2 } : n));
     const Resize = ({
       label,
       nodes,
     }: {
       label: string;
-      nodes: Node[];
+      nodes: RFNode[];
     }): ReactElement => {
       const setNodes = useOptionsStore((s) => s.setNodes);
       return <button onClick={() => setNodes(nodes)}>{label}</button>;
@@ -97,16 +95,16 @@ describe("GroupBox.Symbol", () => {
     const { container, getByText } = render(
       <ReactFlowProvider initialNodes={initialNodes}>
         <Haul.Provider>
-          <MembersProvider value={MEMBERS}>
+          <GroupBox.MembersProvider value={MEMBERS}>
             <div data-id="g1">
-              <Symbol
+              <GroupBox.spec.Node
                 nodeKey="g1"
                 selected={false}
                 onConfigChange={vi.fn()}
                 config={schematic.groupBoxNodeConfigZ.parse({ variant: "group_box" })}
               />
             </div>
-          </MembersProvider>
+          </GroupBox.MembersProvider>
           <Resize label="grow" nodes={resized({ width: 80, height: 90 })} />
           <Resize label="shrink" nodes={resized({ width: 10, height: 10 })} />
         </Haul.Provider>

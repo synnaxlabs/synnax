@@ -49,4 +49,22 @@ var _ = Describe("Pointer", func() {
 			Entry("empty token", "/nested/"),
 		)
 	})
+
+	Describe("HasPrefix", func() {
+		DescribeTable("Should return whether a pointer equals or leads into a prefix",
+			func(pointer, prefix string, expected bool) {
+				p := MustSucceed(xjson.ParsePointer(pointer))
+				Expect(p.HasPrefix(MustSucceed(xjson.ParsePointer(prefix)))).
+					To(Equal(expected))
+			},
+			Entry("the same pointer", "/a/b", "/a/b", true),
+			Entry("a pointer into the prefix", "/a/b/c", "/a/b", true),
+			Entry("any pointer and the root", "/a", "", true),
+			Entry("the root and itself", "", "", true),
+			Entry("a pointer that holds the prefix", "/a", "/a/b", false),
+			Entry("a sibling", "/a/c", "/a/b", false),
+			Entry("a longer token", "/ab", "/a", false),
+			Entry("the root and a key", "", "/a", false),
+		)
+	})
 })
