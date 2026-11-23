@@ -11,6 +11,8 @@ package gorp
 
 import (
 	"context"
+	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
@@ -71,7 +73,7 @@ func (t *Table[K, E]) retarget(
 	tx Tx,
 	k string,
 	refs []int,
-	from, to Target,
+	to map[Target]Target,
 ) error {
 	pk, err := key.Parse[K](k)
 	if err != nil {
@@ -85,14 +87,13 @@ func (t *Table[K, E]) retarget(
 		return err
 	}
 	for _, ref := range refs {
-		t.references[ref].retargetTarget(&e, from, to)
+		t.references[ref].retargetTargets(&e, to)
 	}
 	if e.GorpKey() != pk {
 		return errors.Wrapf(
 			validate.ErrValidation,
-			"cannot retarget %s %s because the key of %s %s holds it",
-			from.Table,
-			from.Key,
+			"cannot retarget %s because the key of %s %s holds it",
+			formatSources(to),
 			t.name,
 			k,
 		)
@@ -124,6 +125,7 @@ func (r *registry) retarget(
 	var (
 		holders []retargetHolder
 		indexOf = make(map[Target]int)
+		moves   = map[Target]Target{from: to}
 	)
 	for _, ref := range r.referencesTo(from.Table) {
 		deps, err := ref.dependentsOf(ctx, tx, from)
@@ -167,9 +169,19 @@ func (r *registry) retarget(
 		if err != nil {
 			return err
 		}
-		if err = table.retarget(ctx, tx, h.entry.Key, h.refs, from, to); err != nil {
+		if err = table.retarget(ctx, tx, h.entry.Key, h.refs, moves); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// formatSources returns the keys of to as text, sorted, for an error.
+func formatSources(to map[Target]Target) string {
+	sources := make([]string, 0, len(to))
+	for from := range to {
+		sources = append(sources, from.Table+" "+from.Key)
+	}
+	slices.Sort(sources)
+	return strings.Join(sources, ", ")
 }

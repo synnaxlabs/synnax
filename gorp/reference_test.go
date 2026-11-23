@@ -149,7 +149,11 @@ func newDeviceRefs() deviceRefs {
 					}
 					return []string{d.Parent}
 				},
-				Retarget: func(d *refDevice, _, to string) { d.Parent = to },
+				Retarget: func(d *refDevice, to map[string]string) {
+					if t, ok := to[d.Parent]; ok {
+						d.Parent = t
+					}
+				},
 			},
 		),
 		labels: gorp.NewKeyReference(
@@ -178,17 +182,17 @@ func newDeviceRefs() deviceRefs {
 						},
 					)
 				},
-				Retarget: func(d *refDevice, from, to string) {
-					held := slices.Contains(d.Labels, to)
-					d.Labels = slices.DeleteFunc(
-						slices.Clone(d.Labels),
-						func(v string) bool { return held && v == from },
-					)
-					for i, v := range d.Labels {
-						if v == from {
-							d.Labels[i] = to
+				Retarget: func(d *refDevice, to map[string]string) {
+					moved := make([]string, 0, len(d.Labels))
+					for _, v := range d.Labels {
+						if t, ok := to[v]; ok {
+							v = t
+						}
+						if !slices.Contains(moved, v) {
+							moved = append(moved, v)
 						}
 					}
+					d.Labels = moved
 				},
 			},
 		),
@@ -212,8 +216,14 @@ func newOwnerRef() *gorp.TargetReference[string, refStatus] {
 			}
 			return []gorp.Target{{Table: s.Owner.Table, Key: s.Owner.Key}}
 		},
-		Retarget: func(s *refStatus, _, to gorp.Target) {
-			s.Owner = &refOwner{Table: to.Table, Key: to.Key}
+		Retarget: func(s *refStatus, to map[gorp.Target]gorp.Target) {
+			if s.Owner == nil {
+				return
+			}
+			held := gorp.Target{Table: s.Owner.Table, Key: s.Owner.Key}
+			if t, ok := to[held]; ok {
+				s.Owner = &refOwner{Table: t.Table, Key: t.Key}
+			}
 		},
 	})
 }
@@ -1664,7 +1674,11 @@ var _ = Describe("Reference", func() {
 							Targets: func(p *refPair) []uint32 {
 								return []uint32{p.Rack}
 							},
-							Retarget: func(p *refPair, _, to uint32) { p.Rack = to },
+							Retarget: func(p *refPair, to map[uint32]uint32) {
+								if t, ok := to[p.Rack]; ok {
+									p.Rack = t
+								}
+							},
 						},
 					),
 				},
@@ -1698,7 +1712,11 @@ var _ = Describe("Reference", func() {
 							Targets: func(b *refBadge) []string {
 								return []string{b.Front}
 							},
-							Retarget: func(b *refBadge, _, to string) { b.Front = to },
+							Retarget: func(b *refBadge, to map[string]string) {
+								if t, ok := to[b.Front]; ok {
+									b.Front = t
+								}
+							},
 						},
 					),
 					gorp.NewKeyReference(
@@ -1710,7 +1728,11 @@ var _ = Describe("Reference", func() {
 							Targets: func(b *refBadge) []string {
 								return []string{b.Back}
 							},
-							Retarget: func(b *refBadge, _, to string) { b.Back = to },
+							Retarget: func(b *refBadge, to map[string]string) {
+								if t, ok := to[b.Back]; ok {
+									b.Back = t
+								}
+							},
 						},
 					),
 				},

@@ -1086,7 +1086,7 @@ func newIndexes() indexes {
 			Detach: func(e *{{$ret.GoName}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = nil },
 {{- end}}
 {{- end}}
-			Retarget: func(e *{{$ret.GoName}}, from, to {{$ref.TargetType}}) {
+			Retarget: func(e *{{$ret.GoName}}, to map[{{$ref.TargetType}}]{{$ref.TargetType}}) {
 				{{$ref.RetargetBody -}}
 			},
 		}),
@@ -1457,7 +1457,7 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 				{{.DetachBody -}}
 			},
 {{- end}}
-			Retarget: func(e *{{.EntryType}}, from, to {{.TargetType}}) {
+			Retarget: func(e *{{.EntryType}}, to map[{{.TargetType}}]{{.TargetType}}) {
 				{{.RetargetBody -}}
 			},
 {{- if .InlineBody}}
