@@ -175,6 +175,31 @@ describe("symbol editor spec", () => {
       ]);
     });
 
+    it("should add a look of a part after the drawing looks on one value", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", when: equals(0), fill: fixed(BLUE) },
+      ];
+      expect(
+        Spec.setOwn(createSpec({ looks }), "body", "fill", fixed(RED)).looks,
+      ).toEqual([
+        looks[0],
+        { key: expect.any(String), part: "body", fill: fixed(RED) },
+      ]);
+    });
+
+    it("should add a look at the end when a later drawing look wins", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", fill: fixed(BLUE) },
+      ];
+      expect(
+        Spec.setOwn(createSpec({ looks }), "body", "fill", fixed(RED)).looks,
+      ).toEqual([
+        ...looks,
+        { key: expect.any(String), part: "body", fill: fixed(RED) },
+      ]);
+    });
+
     it("should clear the field and drop a look that then sets nothing", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", when: equals(0), stroke: fixed(RED) },
