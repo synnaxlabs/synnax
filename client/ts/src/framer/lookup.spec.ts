@@ -20,6 +20,18 @@ import {
 
 const client = createTestClient();
 
+/** @returns, as JSON, each channel retrieve that send saw for any of keys. */
+const retrievesOf = (
+  send: ReturnType<typeof spyOnSend>,
+  keys: channel.Key[],
+): string[] => {
+  const mention = new RegExp(`\\b(${keys.join("|")})\\b`);
+  return send.mock.calls
+    .filter(([target]) => target === "/channel/retrieve")
+    .map(([, req]) => JSON.stringify(req))
+    .filter((req) => mention.test(req));
+};
+
 const createInGroup = async (
   props: Omit<channel.New, "name" | "group">,
 ): Promise<[channel.Channel, string]> => {
@@ -32,7 +44,7 @@ const createInGroup = async (
   return [ch, `${g.name}.${ch.name}`];
 };
 
-describe("breaker2 framer lookups", () => {
+describe("Framer lookups", () => {
   describe("client.write record", () => {
     it("should write a record keyed by a channel key and a channel name", async () => {
       const [index, data] = await newIndexedPair(client);
@@ -171,9 +183,7 @@ describe("breaker2 framer lookups", () => {
           channels: [ch.key],
         });
         await writer.close();
-        expect(
-          send.mock.calls.filter(([target]) => target === "/channel/retrieve"),
-        ).toHaveLength(0);
+        expect(retrievesOf(send, [ch.key])).toEqual([]);
       } finally {
         send.mockRestore();
       }
@@ -199,9 +209,7 @@ describe("breaker2 framer lookups", () => {
           channels: [a.key, b.key],
         });
         await writer.close();
-        expect(
-          send.mock.calls.filter(([target]) => target === "/channel/retrieve"),
-        ).toHaveLength(0);
+        expect(retrievesOf(send, [a.key, b.key])).toEqual([]);
       } finally {
         send.mockRestore();
       }

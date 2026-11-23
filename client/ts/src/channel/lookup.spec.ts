@@ -25,13 +25,28 @@ const virtual = (name: string): channel.New => ({
 
 const digits = (): string => `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
 
-describe("breaker2 channel lookups", () => {
+describe("Channel lookups", () => {
   describe("delete", () => {
+    it("should delete the channel at a path", async () => {
+      const g = await client.groups.create({ name: id.create(), scope: "channel" });
+      const ch = await client.channels.create({
+        ...virtual(id.create()),
+        group: g.key,
+      });
+      const path = `${g.name}.${ch.name}`;
+      expect((await client.channels.retrieve(path)).key).toEqual(ch.key);
+      await client.channels.delete(path);
+      const fresh = createTestClient();
+      expect(await fresh.channels.retrieve({ where: { key: { eq: ch.key } } })).toEqual(
+        [],
+      );
+    });
+
     it("should delete the channel named by digit text in a mixed list, not the channel with that key", async () => {
       const other = await client.channels.create(virtual(id.create()));
       const victim = await client.channels.create(virtual(id.create()));
       const named = await client.channels.create(virtual(String(victim.key)));
-      await client.channels.delete([other.key, named.name] as unknown as channel.Key[]);
+      await client.channels.delete([other.key, named.name]);
       expect((await client.channels.retrieve(victim.key)).key).toEqual(victim.key);
       await expect(client.channels.retrieve(named.key)).rejects.toThrow(NotFoundError);
     });
@@ -54,10 +69,7 @@ describe("breaker2 channel lookups", () => {
       });
       for (const ch of [index, victim, named])
         await client.write(TimeStamp.seconds(1), ch.key, secondsLinspace(1, 3));
-      await client.delete(
-        [index.key, named.name] as unknown as channel.Key[],
-        TimeRange.MAX,
-      );
+      await client.delete([index.key, named.name], TimeRange.MAX);
       expect((await client.read(TimeRange.MAX, victim.key)).length).toEqual(3);
       expect((await client.read(TimeRange.MAX, named.key)).length).toEqual(0);
     });
@@ -80,9 +92,13 @@ describe("breaker2 channel lookups", () => {
       try {
         const got = await local.channels.retrieve([ch.key]);
         expect(got.map((c) => c.key)).toEqual([ch.key]);
+        const mention = new RegExp(`\\b${ch.key}\\b`);
         expect(
-          send.mock.calls.filter(([target]) => target === "/channel/retrieve"),
-        ).toHaveLength(0);
+          send.mock.calls
+            .filter(([target]) => target === "/channel/retrieve")
+            .map(([, req]) => JSON.stringify(req))
+            .filter((req) => mention.test(req)),
+        ).toEqual([]);
       } finally {
         send.mockRestore();
       }

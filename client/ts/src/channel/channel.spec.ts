@@ -957,7 +957,7 @@ describe("cached reads", () => {
       expect(res.map((c) => c.key)).toEqual([ch.key]);
     }, 30000);
 
-    it("should send a single name to the Core, which refuses an ambiguous one", async () => {
+    it("should retrieve a single name strictly", async () => {
       const ch = await createVirtual();
       const send = spyOnSend(client);
       try {

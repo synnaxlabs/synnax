@@ -216,6 +216,31 @@ describe("WriteFrameAdapter", () => {
       expect(hasChanged).toBe(false);
     });
   });
+
+  describe("record keys", () => {
+    it("should refuse a record key that names several held channels", async () => {
+      const twins = await WriteAdapter.open(
+        async () => [
+          { ...timeCh.payload, name: "twin" },
+          { ...dataCh.payload, name: "twin" },
+        ],
+        [timeCh.key, dataCh.key],
+      );
+      await expect(twins.adapt({ twin: [1] })).rejects.toThrow(
+        'The writer holds 2 channels named "twin"',
+      );
+    });
+
+    it("should adapt a record key of digits that both names and keys one channel", async () => {
+      const name = String(dataCh.key);
+      const self = await WriteAdapter.open(
+        async () => [{ ...dataCh.payload, name }],
+        [dataCh.key],
+      );
+      const fr = await self.adapt({ [name]: [1] });
+      expect(fr.columns).toEqual([dataCh.key]);
+    });
+  });
 });
 
 describe("ReadFrameAdapter", () => {
@@ -242,6 +267,17 @@ describe("ReadFrameAdapter", () => {
     });
 
     adapter = await ReadAdapter.open(retrieveChannels, [timeCh.key, dataCh.key]);
+  });
+
+  it("should label by key a list that mixes a key and a name", async () => {
+    const mixed = await ReadAdapter.open(retrieveChannels, [timeCh.key, dataCh.name]);
+    const fr = mixed.adapt(
+      new Frame(
+        [timeCh.key, dataCh.key, extraCh.key],
+        [new Series([1]), new Series([2]), new Series([3])],
+      ),
+    );
+    expect(fr.columns).toEqual([timeCh.key, dataCh.key]);
   });
 
   describe("adapt", () => {

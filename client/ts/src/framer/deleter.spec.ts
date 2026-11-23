@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { UnauthorizedError } from "@/errors";
@@ -22,6 +22,20 @@ import {
 const client = createTestClient();
 
 describe("Deleter", () => {
+  test("Client - delete the data of the channel at a path", async () => {
+    const g = await client.groups.create({ name: id.create(), scope: "channel" });
+    const index = await client.channels.create({
+      name: id.create(),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+      group: g.key,
+    });
+    await client.write(TimeStamp.seconds(1), index.key, secondsLinspace(1, 3));
+    expect((await client.read(TimeRange.MAX, index.key)).length).toEqual(3);
+    await client.delete(`${g.name}.${index.name}`, TimeRange.MAX);
+    expect((await client.read(TimeRange.MAX, index.key)).length).toEqual(0);
+  });
+
   test("Client - basic delete", async () => {
     const [indexCh, dataCh] = await newIndexedPair(client);
     const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];

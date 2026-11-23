@@ -56,11 +56,11 @@ export class ReadAdapter {
     const resolved = await channel.resolveLookups(lookups, this.retrieveChannels);
     const fetched = uniqueByKey(resolved);
     const newKeys = new Set(fetched.map((c) => c.key));
-    // Frames label a channel looked up by name or path with the caller's own text.
+    // A frame holds keys or names, never both, so a list that holds any key labels by
+    // key. Otherwise each channel takes the name or path that looked it up.
     const labels = new Map<channel.Key, string>();
-    lookups.forEach((l, i) => {
-      if (typeof l === "string") labels.set(resolved[i].key, l);
-    });
+    if (lookups.every((l) => typeof l === "string"))
+      lookups.forEach((l, i) => labels.set(resolved[i].key, l));
     this.adapter = labels.size === 0 ? null : labels;
     if (newKeys.size === this.keys.size && newKeys.isSubsetOf(this.keys)) return false;
     this.fetched = fetched;
@@ -92,12 +92,12 @@ export class ReadAdapter {
       if (shouldFilter) return frm.filter((k) => this.keys.has(k as channel.Key));
       return frm;
     }
-    const { adapter, keys } = this;
+    const { adapter } = this;
     return frm.mapFilter((col, arr) => {
       if (typeof col !== "number") return [col, arr, true];
       const label = adapter.get(col);
-      if (label != null) return [label, arr, true];
-      return [col, arr, keys.has(col)];
+      if (label == null) return [col, arr, false];
+      return [label, arr, true];
     });
   }
 }

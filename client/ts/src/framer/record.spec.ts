@@ -29,7 +29,7 @@ const virtual = (name: string): channel.New => ({
 
 const quiet = (): void => {};
 
-describe("breaker2 record keys, NFC names, and the store", () => {
+describe("Record keys, NFC names, and the store", () => {
   describe("record columns of digits", () => {
     it("should refuse to set authority by a record key that names a key and a channel", async () => {
       const [index, data] = await newIndexedPair(client);
