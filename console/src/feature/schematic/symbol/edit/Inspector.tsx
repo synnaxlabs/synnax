@@ -185,7 +185,8 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
     <Paint
       aria-label={label}
       value={value}
-      inherited={inherited != null && own == null}
+      inherited={inherited}
+      own={own}
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
