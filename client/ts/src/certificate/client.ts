@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, filter } from "@synnaxlabs/x";
+import type { UnaryClient } from "@synnaxlabs/freighter";
+import { array, filter, narrow } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -31,6 +31,7 @@ import {
   retrieveResponseZ,
   storedCertificateZ,
 } from "@/certificate/types.gen";
+import { LINES } from "@/certificate/where";
 import {
   compareCursors,
   cursor,
@@ -41,23 +42,32 @@ import {
   shortcutZ,
 } from "@/certificate/where.gen";
 import { query } from "@/query";
+import type { resource } from "@/resource";
 
 export const ACTION_CHANNEL_NAME = "sy_certificate_action_set";
 export const DELETE_CHANNEL_NAME = "sy_certificate_delete";
 
-const newStoredZ = storedCertificateZ.omit({ details: true, privateKey: true }).extend({
-  /**
-   * privateKeyPem is the private key as PEM. The Core checks that it matches the
-   * certificate and saves it as a secret.
-   */
-  privateKeyPem: z.string().optional(),
-});
+const newStoredZ = storedCertificateZ
+  .omit({
+    details: true,
+    privateKey: true,
+    uses: true,
+  })
+  .extend({
+    /**
+     * privateKeyPem is the private key as PEM. The Core checks that it matches the
+     * certificate and saves it as a secret.
+     */
+    privateKeyPem: z.string().optional(),
+  });
+
+const newFileZ = fileCertificateZ.omit({ uses: true });
 
 /**
  * A certificate to create, or to replace when its key exists. The Core reads the
  * details of a stored certificate from its PEM.
  */
-export const newZ = z.discriminatedUnion("source", [newStoredZ, fileCertificateZ]);
+export const newZ = z.discriminatedUnion("source", [newStoredZ, newFileZ]);
 export type New = z.input<typeof newZ>;
 
 const setReqZ = z.object({ certificates: newZ.array() });
@@ -70,7 +80,14 @@ const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
 );
 
-export type RetrieveSingleParams = { key: Key };
+export type RetrieveSingleParams = {
+  key: Key;
+  /**
+   * Fills `uses` with the resources that use the certificate and that the caller can
+   * read. The retrieve then reads the Core, and the cache never holds the uses.
+   */
+  includeUses?: boolean;
+};
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 export interface ClientConfig {
@@ -85,6 +102,8 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Certificate>;
+  /** The uses of the last retrieve that asked for them, keyed by certificate. */
+  private readonly uses: Map<Key, resource.ID[] | undefined>;
   private readonly dispatcher: actions.Controller<Key, Certificate, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -93,6 +112,10 @@ export class Client extends query.Retriever<
       name: "certificates",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
+    });
+    const uses = new Map<Key, resource.ID[] | undefined>();
+    store.subscribe((event) => {
+      if (event.variant === "delete") uses.delete(event.key);
     });
     // Every write to a certificate reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Certificate, Action>({
@@ -118,20 +141,30 @@ export class Client extends query.Retriever<
       request: {
         list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.execRetrieve(req),
-        matches: (certificate, req) => matches(certificate, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        fetch: async (req) => await this.fetchThrough(req),
+        // A certificate whose uses the client does not hold fetches the query again.
+        matches: (certificate, req) =>
+          req.includeUses === true && !uses.has(certificate.key)
+            ? null
+            : matches(LINES, certificate, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
+      compose: (certificate, q) =>
+        narrow.isObject(q) && q.includeUses === true
+          ? { ...certificate, uses: uses.get(certificate.key) }
+          : certificate,
     });
     this.cfg = cfg;
     this.store = store;
+    this.uses = uses;
     this.dispatcher = dispatcher;
   }
 
   /**
    * Creates certificates, or replaces the certificates whose keys exist.
-   * @throws {PathError} if a certificate has no name, a PEM does not parse, or a
-   * private key does not match its certificate.
+   * @throws {PathError} if a certificate has no name, a PEM does not parse, a private
+   * key does not match its certificate, or a replace adds a private key to a
+   * certificate saved without one.
    * @throws {AccessDeniedError} if the caller may not create certificates, create
    * secrets for private keys, or update a certificate it replaces and the secret of its
    * private key.
@@ -195,6 +228,15 @@ export class Client extends query.Retriever<
         ),
     });
     drop();
+  }
+
+  private async fetchThrough(req: RetrieveRequest): Promise<Certificate[]> {
+    const certificates = await this.execRetrieve(req);
+    if (req.includeUses !== true) return certificates;
+    return certificates.map(({ uses, ...certificate }) => {
+      this.uses.set(certificate.key, uses);
+      return certificate;
+    });
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Certificate[]> {

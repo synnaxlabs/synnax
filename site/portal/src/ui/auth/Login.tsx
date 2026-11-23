@@ -15,7 +15,7 @@ import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
-import { type Invited } from "@/server/invitation";
+import type { Invited } from "@/server/invitation";
 import { Card } from "@/ui/auth/Card";
 import { OAuth } from "@/ui/auth/OAuth";
 import { withTarget } from "@/ui/auth/redirect";

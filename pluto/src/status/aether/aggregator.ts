@@ -33,9 +33,9 @@ interface ContextValue {
 
 export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   static readonly TYPE: string = "status.Aggregator";
-  schema = aggregatorStateZ;
+  override schema = aggregatorStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     if (ctx.wasSetPreviously(CONTEXT_KEY)) return;
     ctx.set(CONTEXT_KEY, {
       add: this.add.bind(this),

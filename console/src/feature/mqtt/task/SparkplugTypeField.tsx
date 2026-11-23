@@ -11,7 +11,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 
-import { type SparkplugDataType } from "@/feature/mqtt/task/types";
+import type { SparkplugDataType } from "@/feature/mqtt/task/types";
 
 const SelectDataType = (
   p: Omit<Select.SingleSimpleProps<SparkplugDataType>, "children" | "resourceName">,

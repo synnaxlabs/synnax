@@ -70,16 +70,77 @@ func openServiceLayer(b *testing.B) (*service.Layer, *gorp.DB) {
 	return layer, node.DB
 }
 
-// BenchmarkStreamKeyChange measures a streamer request that resends the same keys and
-// waits for its ack. The keys are raw virtual channels and the calculated channels that
-// read the first of them.
-func BenchmarkStreamKeyChange(b *testing.B) {
-	layer, db := openServiceLayer(b)
+// createCalculatedChannels creates raw virtual channels and calculated channels that
+// read the first of them. It returns the keys of all of them, the raw channels first.
+func createCalculatedChannels(
+	ctx context.Context,
+	layer *service.Layer,
+	db *gorp.DB,
+	raw, calculated int,
+) channel.Keys {
+	bases := make([]channel.Channel, raw)
+	for i := range bases {
+		bases[i] = channel.Channel{
+			Name:     channeltestutil.UniqueChannelName(),
+			DataType: telem.Float32T,
+			Virtual:  true,
+		}
+	}
+	calculations := make([]calctestutil.Calculation, calculated)
+	for i := range calculations {
+		calculations[i] = calctestutil.Calculation{
+			Name:       channeltestutil.UniqueChannelName(),
+			DataType:   telem.Float32T,
+			Expression: "return " + bases[0].Name + " * 2",
+		}
+	}
+	gomega.Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return layer.Channel.NewWriter(tx).CreateMany(ctx, &bases)
+	})).To(gomega.Succeed())
 	creator := calctestutil.Creator{
 		DB:          db,
 		Channel:     layer.Channel,
 		Calculation: layer.Calculation,
 	}
+	calcs := xtestutil.MustSucceed(creator.CreateMany(ctx, calculations))
+	calcs = append(calcs, xtestutil.MustSucceed(creator.Indexes(ctx, calcs))...)
+	return channel.KeysFromChannels(slices.Concat(bases, calcs))
+}
+
+// subjectContext creates a user that may retrieve keys and returns a Freighter context
+// that carries the user as its subject.
+func subjectContext(
+	ctx context.Context,
+	layer *service.Layer,
+	db *gorp.DB,
+	keys channel.Keys,
+) freighter.Context {
+	u := xtestutil.MustSucceed(rbactestutil.CreateUser(
+		ctx,
+		db,
+		layer.RBAC,
+		layer.User,
+		user.User{Name: "bench-" + uuid.New().String()},
+	))
+	xtestutil.MustSucceed(rbactestutil.Grant(
+		ctx,
+		db,
+		layer.RBAC,
+		layer.User,
+		u.Key,
+		[]access.Action{access.ActionRetrieve},
+		svcframer.ResourceIDs(keys)...,
+	))
+	fCtx := freighter.Context{Context: ctx, Params: freighter.Params{}}
+	fCtx.Set("Subject", u.ResourceID())
+	return fCtx
+}
+
+// BenchmarkStreamKeyChange measures a streamer request that resends the same keys and
+// waits for its ack. The keys are raw virtual channels and the calculated channels that
+// read the first of them.
+func BenchmarkStreamKeyChange(b *testing.B) {
+	layer, db := openServiceLayer(b)
 	api := xtestutil.MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
 		DB:          db,
 		Framer:      layer.Framer,
@@ -102,46 +163,8 @@ func BenchmarkStreamKeyChange(b *testing.B) {
 	for _, c := range cases {
 		b.Run(c.name, func(b *testing.B) {
 			ctx := b.Context()
-			raw := make([]channel.Channel, c.raw)
-			for i := range raw {
-				raw[i] = channel.Channel{
-					Name:     channeltestutil.UniqueChannelName(),
-					DataType: telem.Float32T,
-					Virtual:  true,
-				}
-			}
-			calculations := make([]calctestutil.Calculation, c.calculated)
-			for i := range calculations {
-				calculations[i] = calctestutil.Calculation{
-					Name:       channeltestutil.UniqueChannelName(),
-					DataType:   telem.Float32T,
-					Expression: "return " + raw[0].Name + " * 2",
-				}
-			}
-			gomega.Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return layer.Channel.NewWriter(tx).CreateMany(ctx, &raw)
-			})).To(gomega.Succeed())
-			calcs := xtestutil.MustSucceed(creator.CreateMany(ctx, calculations))
-			calcs = append(calcs, xtestutil.MustSucceed(creator.Indexes(ctx, calcs))...)
-			keys := channel.KeysFromChannels(slices.Concat(raw, calcs))
-			u := xtestutil.MustSucceed(rbactestutil.CreateUser(
-				ctx,
-				db,
-				layer.RBAC,
-				layer.User,
-				user.User{Name: "bench-" + uuid.New().String()},
-			))
-			xtestutil.MustSucceed(rbactestutil.Grant(
-				ctx,
-				db,
-				layer.RBAC,
-				layer.User,
-				u.Key,
-				[]access.Action{access.ActionRetrieve},
-				svcframer.ResourceIDs(keys)...,
-			))
-			fCtx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-			fCtx.Set("Subject", u.ResourceID())
+			keys := createCalculatedChannels(ctx, layer, db, c.raw, c.calculated)
+			fCtx := subjectContext(ctx, layer, db, keys)
 			client, server := freightertestutil.NewStreams[
 				apiframer.StreamerRequest,
 				apiframer.StreamerResponse,

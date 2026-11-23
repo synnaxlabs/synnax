@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Notation } from "@/notation/types.gen";
-import { type bounds } from "@/spatial";
+import type { Notation } from "@/notation/types.gen";
+import type { bounds } from "@/spatial";
 
 /** The bounds of a display precision. A float64 holds about 17 significant digits. */
 export const PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 17 };
@@ -19,7 +19,10 @@ const decompose = (
   value: number | bigint,
 ): { sign: string; digits: string; exp: number } => {
   if (typeof value === "number") {
-    const [mantissa, exp] = value.toExponential().split("e");
+    const exponential = value.toExponential();
+    const e = exponential.indexOf("e");
+    const mantissa = exponential.slice(0, e);
+    const exp = exponential.slice(e + 1);
     const sign = mantissa.startsWith("-") ? "-" : "";
     return { sign, digits: mantissa.replace(/[-.]/g, ""), exp: Number(exp) };
   }

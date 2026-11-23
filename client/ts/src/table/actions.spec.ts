@@ -84,11 +84,11 @@ describe("table path actions", () => {
   it("should set a field of a cell config from its wire form", () => {
     const state = create();
     const { next, targets } = table.reduceAll(state, [
-      set(configPath("a", "fill_color"), "#ff0000"),
+      set(configPath("a", "fill_color"), { type: "fixed", value: "#ff0000" }),
     ]);
     expect(next.rows[0].cells[0].config).toMatchObject({
       variant: "text",
-      fillColor: [255, 0, 0, 255],
+      fillColor: { type: "fixed", value: [255, 0, 0, 255] },
     });
     expect(next.rows[0].cells[1]).toBe(state.rows[0].cells[1]);
     expect(targets).toEqual(["a"]);
@@ -205,6 +205,7 @@ describe("table edits after an insert in one batch", () => {
 });
 
 describe("table setChanged", () => {
+  const RED = { type: "fixed", value: "#ff0000" };
   const text = (value: string, extra: object = {}): table.CellConfig =>
     table.cellConfigZ.parse({ variant: "text", value, ...extra });
 
@@ -214,7 +215,7 @@ describe("table setChanged", () => {
       rows: [
         {
           key: "r0",
-          cells: [{ key: "a", config: text("Pressure", { fillColor: "#ff0000" }) }],
+          cells: [{ key: "a", config: text("Pressure", { fillColor: RED }) }],
         },
       ],
     });
@@ -228,9 +229,7 @@ describe("table setChanged", () => {
       state,
       actions.map((a) => table.encode(state, a)),
     );
-    expect(next.rows[0].cells[0].config).toEqual(
-      text("Flow", { fillColor: "#ff0000" }),
-    );
+    expect(next.rows[0].cells[0].config).toEqual(text("Flow", { fillColor: RED }));
   });
 
   it("should list no action when nothing differs", () => {
@@ -247,7 +246,7 @@ describe("table setChanged", () => {
       row: "r0",
       key: "a",
       base,
-      next: text("Flow", { fillColor: "#ff0000" }),
+      next: text("Flow", { fillColor: RED }),
     });
     const whole = table.setCell({ cell: { key: "a", config: base } });
     expect(table.kindOf(single)).toEqual("set_cell:a");

@@ -158,7 +158,9 @@ class Calculation(BaseModel):
     expression: str = Field(min_length=1)
     operations: list[Operation] = Field(default_factory=list)
     primary: channel.Key | None = Field(default=None, ge=0, le=4294967295)
-    reads: list[channel.Key] = Field(default_factory=list)
+    reads: list[Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
     status: Status | None = None
 
     @_override
@@ -177,7 +179,9 @@ class RetrieveResponse(BaseModel):
     """
 
     calculations: list[Calculation] = Field(default_factory=list)
-    hidden_outputs: list[channel.Key] = Field(default_factory=list)
+    hidden_outputs: list[Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
 
 
 Where.model_rebuild()

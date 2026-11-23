@@ -10,11 +10,11 @@
 import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, scale, TimeSpan, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { telemTest } from "@/telem/aether/testutil";
 import { renderAether } from "@/testutil/renderAether";
-import { type FillTextOptions } from "@/vis/draw2d/canvas";
+import type { FillTextOptions } from "@/vis/draw2d/canvas";
 import { canvasTest } from "@/vis/render/testutil";
 import { stringValue } from "@/vis/stringValue/aether";
 
@@ -241,6 +241,20 @@ describe("stringValue.StringValue", () => {
       vi.advanceTimersByTime(1250);
       expect(fillTexts(recorder)).toEqual(["ARMED"]);
       expect(lastFillStyle(recorder)).toBe(color.hex(stale));
+    });
+
+    it("should keep the text color while the stale color is hidden", () => {
+      const { component, source, recorder } = setup({
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+          staleColorHidden: true,
+        },
+      });
+      source.setValue("ARMED");
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      expect(lastFillStyle(recorder)).toBe(color.hex(THEME.colors.text));
     });
 
     it("should fall back to the warning color when no staleness color is set", () => {

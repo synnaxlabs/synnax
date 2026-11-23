@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { type Analytics } from "@/platform/analytics";
+import type { Analytics } from "@/platform/analytics";
 
 /**
  * The Synnax project, which the websites share. The key is public, and every install
