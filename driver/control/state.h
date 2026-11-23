@@ -188,6 +188,18 @@ class States {
             this->predict(*g, channel);
     }
 
+    /// @brief applies to every channel the increases of the writers open on the Core,
+    /// earlier gate first, as predict_opened does for one channel. Requires mu.
+    void predict_all_opened() {
+        std::vector<const Gate *> opened;
+        for (const auto &[key, g]: this->gates)
+            if (this->on_core.contains(key)) opened.push_back(&g);
+        std::ranges::sort(opened, {}, &Gate::order);
+        for (const auto *g: opened)
+            for (const auto &[channel, _]: g->authorities)
+                this->predict(*g, channel);
+    }
+
     /// @brief recomputes every channel that the mirror, the Core, or a gate names.
     /// Requires mu.
     void recompute_all() {
@@ -363,10 +375,7 @@ public:
                 this->core[state.resource] = state;
             for (auto i = read.log_pos - this->log_base; i < this->log.size(); i++)
                 this->apply_locked(this->log[i]);
-            for (const auto &[_, g]: this->gates)
-                if (this->on_core.contains(g.subject.key))
-                    for (const auto &[channel, _]: g.authorities)
-                        this->predict_opened(channel);
+            this->predict_all_opened();
             this->recompute_all();
             // Under mu, so close_gate waits for a call that reaches a closing writer.
             for (const auto &[_, g]: this->gates)

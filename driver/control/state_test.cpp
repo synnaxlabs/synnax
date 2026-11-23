@@ -992,6 +992,30 @@ TEST(StatesTest, ClosedOnCoreAppliesTheLocalRule) {
     ASSERT_FALSE(states.is_authorized(1, ARC));
 }
 
+/// @brief it should give each channel on set to the writer open on the Core with the
+/// most authority over the Core's holder, and a tie between them to the earlier gate.
+TEST(StatesTest, SetPredictsTheIncreasesOfWritersOpenOnTheCore) {
+    States states;
+    const x::control::Subject console{.key = "console", .name = "console"};
+    const x::control::Subject third{.key = "third", .name = "third"};
+    states.open_gate(ARC, {1, 2, 3}, {100, 200, 60});
+    states.open_gate(OPERATOR, {1, 2, 3}, {150, 200, 60});
+    states.open_gate(third, {2, 3}, {200, 60});
+    states.opened_on_core(third);
+    states.opened_on_core(OPERATOR);
+    states.opened_on_core(ARC);
+    states.set({
+        {.subject = console, .resource = 1, .authority = 120},
+        {.subject = console, .resource = 2, .authority = 200},
+        {.subject = console, .resource = 3, .authority = 50},
+    });
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    ASSERT_TRUE(states.is_authorized(2, console));
+    ASSERT_TRUE(states.is_authorized(3, ARC));
+    ASSERT_FALSE(states.is_authorized(3, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(3, third));
+}
+
 /// @brief it should call the on_connect of each open gate on each set, and never after
 /// the gate closes.
 TEST(StatesTest, SetCallsOnConnectOfOpenGates) {
