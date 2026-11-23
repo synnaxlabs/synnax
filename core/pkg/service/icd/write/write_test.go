@@ -33,6 +33,14 @@ func jsonField(name string, v icd.JSONFieldVariant) icd.JSONField {
 	return f
 }
 
+// withMax returns f with limit as its max.
+func withMax(f icd.JSONField, limit float64) icd.JSONField {
+	b := f.Base()
+	b.Max = &limit
+	f.SetBase(b)
+	return f
+}
+
 func jsonMessage(name string, fields ...icd.JSONField) icd.Message {
 	return icd.Message{
 		Key:     uuid.New(),
@@ -48,12 +56,12 @@ var (
 	id       = jsonField("id", icd.UuidJSONField{})
 	setpoint = jsonMessage("Setpoint", temp, mode, limit)
 	tagged   = jsonMessage("Tagged", id)
-	frame    = icd.Message{
+	binary   = icd.Message{
 		Key:     uuid.New(),
 		Name:    "Frame",
 		Payload: icd.Payload{Variant: icd.BinaryPayload{}},
 	}
-	plant = icd.ICD{Name: "Plant", Messages: []icd.Message{setpoint, tagged, frame}}
+	plant = icd.ICD{Name: "Plant", Messages: []icd.Message{setpoint, tagged, binary}}
 )
 
 const valueKey channel.Key = 2
@@ -189,6 +197,11 @@ var _ = Describe("Write", func() {
 				icd.FloatWriteValue{Value: payload.Float(math.Inf(1))},
 				"bindings.1.value: field v: Infinity is not a JSON number",
 			),
+			Entry("a float above the max",
+				withMax(jsonField("v", icd.FloatJSONField{}), 100),
+				icd.FloatWriteValue{Value: 120},
+				"bindings.1.value: field v: 120 is above the max 100",
+			),
 		)
 
 		It("Should accept a fixed value for a field that has no default", func() {
@@ -272,7 +285,7 @@ var _ = Describe("Write", func() {
 				"does not exist in ICD Plant",
 			),
 			Entry("a message that is not JSON",
-				writeOf(frame, bind(temp)),
+				writeOf(binary, bind(temp)),
 				"message Frame is not a JSON message",
 			),
 			Entry("a message with no bindings",
