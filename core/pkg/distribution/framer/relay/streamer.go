@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
@@ -163,13 +162,10 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			s.relay.removeDemand(s.addr, state)
 			return err
 		}
-		dropped := false
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
 			// we do this before updating our demands, otherwise we may deadlock.
-			if !dropped {
-				disconnect()
-			}
+			disconnect()
 			s.relay.removeDemand(s.addr, state)
 		}()
 		if s.sendOpenAck {
@@ -177,9 +173,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				return err
 			}
 		}
-		err = s.forward(ctx, sub, state)
-		dropped = errors.Is(err, errDropped)
-		return err
+		return s.forward(ctx, sub, state)
 	}, o.Signal...)
 }
 

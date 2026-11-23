@@ -246,7 +246,7 @@ func (r *Relay) removeDemand(addr address.Address, state *demandState) {
 
 // connectToDelta connects a subscriber to the delta and returns it. Its responses close
 // when the delta drops it. It fails when ctx ends or the relay stops first. Call the
-// returned disconnect only before the responses close.
+// returned disconnect once, before or after the responses close.
 func (r *Relay) connectToDelta(
 	ctx context.Context,
 	accepts func(Response) bool,
