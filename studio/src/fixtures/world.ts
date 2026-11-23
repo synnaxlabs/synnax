@@ -354,8 +354,7 @@ const hardware = async (
         ...base,
         type: "ai_voltage" as const,
         terminalConfig: "RSE" as const,
-        minVal: 0,
-        maxVal: 100,
+        range: { lower: 0, upper: 100 },
         // A 0 to 10 V level probe over the tank's capacity.
         customScale: {
           type: "linear" as const,
@@ -370,8 +369,7 @@ const hardware = async (
         ...base,
         type: "ai_voltage" as const,
         terminalConfig: "RSE" as const,
-        minVal: 0,
-        maxVal: 1000,
+        range: { lower: 0, upper: 1000 },
         // A 0.5 to 4.5 V transducer over 0 to 1000 psi.
         customScale: {
           type: "linear" as const,
@@ -387,8 +385,7 @@ const hardware = async (
       type: "ai_thermocouple" as const,
       units: "DegC" as const,
       thermocoupleType: cryogenic ? ("T" as const) : ("K" as const),
-      minVal: cryogenic ? -200 : -50,
-      maxVal: cryogenic ? 50 : 150,
+      range: { lower: cryogenic ? -200 : -50, upper: cryogenic ? 50 : 150 },
       cjc: { source: "const_val" as const, val: 25 },
     };
   });

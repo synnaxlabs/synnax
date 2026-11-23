@@ -73,6 +73,7 @@ Python does not create channels. Create them first.
 ```python
 import synnax as sy
 from synnax import ni
+from x import spatial
 
 dev = client.devices.retrieve(key="<device key>")
 time = client.channels.create(
@@ -89,7 +90,9 @@ task = ni.AnalogReadTask(
     stream_rate=25,
     channels=[
         ni.AIVoltageChannel(
-            port=0, min_val=-10, max_val=10, channel=pressure.key
+            port=0,
+            range=spatial.ClosedBounds(lower=-10, upper=10),
+            channel=pressure.key,
         ),
     ],
 )
@@ -133,8 +136,7 @@ const task = await client.tasks.create({
         type: "ai_voltage",
         device: dev.key,
         port: 0,
-        minVal: -10,
-        maxVal: 10,
+        range: { lower: -10, upper: 10 },
         channel: pressure.key,
       },
     ],
@@ -234,7 +236,7 @@ Reads a voltage.
 
 | Setting                                                 | Default       | Notes                                                  |
 | ------------------------------------------------------- | ------------- | ------------------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small>               | `0` to `1`    | In volts.                                              |
+| Range <small>`range`</small>                            | `0` to `1`    | In volts.                                              |
 | Terminal configuration <small>`terminal_config`</small> | `Cfg_Default` | See [terminal configuration](#terminal-configuration). |
 
 </Channel.Type>
@@ -252,7 +254,7 @@ Reads the RMS value of a voltage.
 
 | Setting                                                 | Default       | Notes                                                  |
 | ------------------------------------------------------- | ------------- | ------------------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small>               | `0` to `1`    | In volts.                                              |
+| Range <small>`range`</small>                            | `0` to `1`    | In volts.                                              |
 | Terminal configuration <small>`terminal_config`</small> | `Cfg_Default` | See [terminal configuration](#terminal-configuration). |
 
 </Channel.Type>
@@ -271,7 +273,7 @@ the excitation.
 
 | Setting                                                          | Default       | Notes                                                  |
 | ---------------------------------------------------------------- | ------------- | ------------------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small>                        | `0` to `1`    | In volts.                                              |
+| Range <small>`range`</small>                                     | `0` to `1`    | In volts.                                              |
 | Terminal configuration <small>`terminal_config`</small>          | `Cfg_Default` | See [terminal configuration](#terminal-configuration). |
 | Bridge configuration <small>`bridge_config`</small>              | `FullBridge`  | `FullBridge`, `HalfBridge`, `QuarterBridge`.           |
 | Voltage excitation source <small>`voltage_excit_source`</small>  | `Internal`    | `Internal`, `External`, `None`.                        |
@@ -293,7 +295,7 @@ Reads a current through a shunt resistor.
 
 | Setting                                                     | Default       | Notes                                                  |
 | ----------------------------------------------------------- | ------------- | ------------------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small>                   | `0` to `1`    | In amps.                                               |
+| Range <small>`range`</small>                                | `0` to `1`    | In amps.                                               |
 | Terminal configuration <small>`terminal_config`</small>     | `Cfg_Default` | See [terminal configuration](#terminal-configuration). |
 | Shunt resistor location <small>`shunt_resistor_loc`</small> | `Default`     | `Default`, `Internal`, `External`.                     |
 | Shunt resistance <small>`ext_shunt_resistor_val`</small>    | `1`           | In ohms.                                               |
@@ -313,7 +315,7 @@ Reads the RMS value of a current through a shunt resistor.
 
 | Setting                                                     | Default       | Notes                                                  |
 | ----------------------------------------------------------- | ------------- | ------------------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small>                   | `0` to `1`    | In amps.                                               |
+| Range <small>`range`</small>                                | `0` to `1`    | In amps.                                               |
 | Terminal configuration <small>`terminal_config`</small>     | `Cfg_Default` | See [terminal configuration](#terminal-configuration). |
 | Shunt resistor location <small>`shunt_resistor_loc`</small> | `Default`     | `Default`, `Internal`, `External`.                     |
 | Shunt resistance <small>`ext_shunt_resistor_val`</small>    | `1`           | In ohms.                                               |
@@ -333,7 +335,7 @@ Reads a raw charge.
 
 | Setting                                                 | Default       | Notes                                                  |
 | ------------------------------------------------------- | ------------- | ------------------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small>               | `0` to `1`    | In **Charge units**.                                   |
+| Range <small>`range`</small>                            | `0` to `1`    | In **Charge units**.                                   |
 | Terminal configuration <small>`terminal_config`</small> | `Cfg_Default` | See [terminal configuration](#terminal-configuration). |
 | Charge units <small>`units`</small>                     | `Coulombs`    | `Coulombs`, `PicoCoulombs`.                            |
 
@@ -352,7 +354,7 @@ Reads a resistance, with current excitation.
 
 | Setting                                                         | Default    | Notes                           |
 | --------------------------------------------------------------- | ---------- | ------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                       | `0` to `1` | In ohms.                        |
+| Range <small>`range`</small>                                    | `0` to `1` | In ohms.                        |
 | Resistance configuration <small>`resistance_config`</small>     | `2Wire`    | `2Wire`, `3Wire`, `4Wire`.      |
 | Current excitation source <small>`current_excit_source`</small> | `Internal` | `Internal`, `External`, `None`. |
 | Current excitation value <small>`current_excit_val`</small>     | `0`        | In amps.                        |
@@ -373,7 +375,7 @@ threshold level.
 
 | Setting                                          | Default    | Notes                                      |
 | ------------------------------------------------ | ---------- | ------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small>        | `0` to `1` | In hertz.                                  |
+| Range <small>`range`</small>                     | `0` to `1` | In hertz.                                  |
 | Threshold level <small>`threshold_level`</small> | `0`        | Voltage level at which a cycle is counted. |
 | Hysteresis <small>`hysteresis`</small>           | `0`        | In volts.                                  |
 
@@ -392,7 +394,7 @@ Reads temperature from a thermocouple, with cold-junction compensation (CJC).
 
 | Setting                                              | Default    | Notes                                                                                       |
 | ---------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>            | `0` to `1` | In **Temperature units**.                                                                   |
+| Range <small>`range`</small>                         | `0` to `1` | In **Temperature units**.                                                                   |
 | Temperature units <small>`units`</small>             | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`.                                                          |
 | Thermocouple type <small>`thermocouple_type`</small> | `J`        | `J`, `K`, `N`, `R`, `S`, `T`, `B`, `E`.                                                     |
 | CJC source <small>`cjc`</small>                      | `built_in` | **Built in** (`built_in`), **Constant value** (`const_val`), or **Channel** (`chan`).       |
@@ -414,7 +416,7 @@ Reads temperature from an RTD.
 
 | Setting                                                         | Default    | Notes                                                       |
 | --------------------------------------------------------------- | ---------- | ----------------------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                       | `0` to `1` | In **Temperature units**.                                   |
+| Range <small>`range`</small>                                    | `0` to `1` | In **Temperature units**.                                   |
 | Temperature units <small>`units`</small>                        | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`.                          |
 | RTD type <small>`rtd_type`</small>                              | `Pt3750`   | `Pt3750`, `Pt3851`, `Pt3911`, `Pt3916`, `Pt3920`, `Pt3928`. |
 | R0 resistance <small>`r0`</small>                               | `0`        | At 0 °C, in ohms.                                           |
@@ -437,7 +439,7 @@ Reads temperature from a thermistor with current excitation.
 
 | Setting                                                         | Default    | Notes                              |
 | --------------------------------------------------------------- | ---------- | ---------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                       | `0` to `1` | In **Temperature units**.          |
+| Range <small>`range`</small>                                    | `0` to `1` | In **Temperature units**.          |
 | Temperature units <small>`units`</small>                        | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`. |
 | Resistance configuration <small>`resistance_config`</small>     | `2Wire`    | `2Wire`, `3Wire`, `4Wire`.         |
 | Current excitation source <small>`current_excit_source`</small> | `Internal` | `Internal`, `External`, `None`.    |
@@ -461,7 +463,7 @@ Reads temperature from a thermistor with voltage excitation.
 
 | Setting                                                         | Default    | Notes                              |
 | --------------------------------------------------------------- | ---------- | ---------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                       | `0` to `1` | In **Temperature units**.          |
+| Range <small>`range`</small>                                    | `0` to `1` | In **Temperature units**.          |
 | Temperature units <small>`units`</small>                        | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`. |
 | Resistance configuration <small>`resistance_config`</small>     | `2Wire`    | `2Wire`, `3Wire`, `4Wire`.         |
 | Voltage excitation source <small>`voltage_excit_source`</small> | `Internal` | `Internal`, `External`, `None`.    |
@@ -504,7 +506,7 @@ voltage.
 
 | Setting                                                              | Default         | Notes                                        |
 | -------------------------------------------------------------------- | --------------- | -------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                            | `0` to `1`      | In **Electrical units**.                     |
+| Range <small>`range`</small>                                         | `0` to `1`      | In **Electrical units**.                     |
 | Electrical units <small>`units`</small>                              | `mVoltsPerVolt` | `mVoltsPerVolt`, `VoltsPerVolt`.             |
 | Bridge configuration <small>`bridge_config`</small>                  | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`. |
 | Voltage excitation source <small>`voltage_excit_source`</small>      | `Internal`      | `Internal`, `External`, `None`.              |
@@ -526,7 +528,7 @@ Reads strain from a strain gauge.
 
 | Setting                                                          | Default       | Notes                                                                                                               |
 | ---------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                        | `0` to `1`    | As strain, with no unit.                                                                                            |
+| Range <small>`range`</small>                                     | `0` to `1`    | As strain, with no unit.                                                                                            |
 | Strain configuration <small>`strain_config`</small>              | `FullBridgeI` | `FullBridgeI`, `FullBridgeII`, `FullBridgeIII`, `HalfBridgeI`, `HalfBridgeII`, `QuarterBridgeI`, `QuarterBridgeII`. |
 | Voltage excitation source <small>`voltage_excit_source`</small>  | `Internal`    | `Internal`, `External`, `None`.                                                                                     |
 | Voltage excitation value <small>`voltage_excit_val`</small>      | `0`           | In volts.                                                                                                           |
@@ -552,7 +554,7 @@ electrical value to force.
 
 | Setting                                                              | Default         | Notes                                                       |
 | -------------------------------------------------------------------- | --------------- | ----------------------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                            | `0` to `1`      | In **Force units**.                                         |
+| Range <small>`range`</small>                                         | `0` to `1`      | In **Force units**.                                         |
 | Force units <small>`units`</small>                                   | `Newtons`       | `Newtons`, `Pounds`, `KilogramForce`.                       |
 | Bridge configuration <small>`bridge_config`</small>                  | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`.                |
 | Voltage excitation source <small>`voltage_excit_source`</small>      | `Internal`      | `Internal`, `External`, `None`.                             |
@@ -579,7 +581,7 @@ the electrical value to force.
 
 | Setting                                                              | Default         | Notes                                        |
 | -------------------------------------------------------------------- | --------------- | -------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                            | `0` to `1`      | In **Force units**.                          |
+| Range <small>`range`</small>                                         | `0` to `1`      | In **Force units**.                          |
 | Force units <small>`units`</small>                                   | `Newtons`       | `Newtons`, `Pounds`, `KilogramForce`.        |
 | Bridge configuration <small>`bridge_config`</small>                  | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`. |
 | Voltage excitation source <small>`voltage_excit_source`</small>      | `Internal`      | `Internal`, `External`, `None`.              |
@@ -606,7 +608,7 @@ electrical value to force.
 
 | Setting                                                              | Default         | Notes                                        |
 | -------------------------------------------------------------------- | --------------- | -------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                            | `0` to `1`      | In **Force units**.                          |
+| Range <small>`range`</small>                                         | `0` to `1`      | In **Force units**.                          |
 | Force units <small>`units`</small>                                   | `Newtons`       | `Newtons`, `Pounds`, `KilogramForce`.        |
 | Bridge configuration <small>`bridge_config`</small>                  | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`. |
 | Voltage excitation source <small>`voltage_excit_source`</small>      | `Internal`      | `Internal`, `External`, `None`.              |
@@ -635,7 +637,7 @@ electrical value to pressure.
 
 | Setting                                                              | Default               | Notes                                                       |
 | -------------------------------------------------------------------- | --------------------- | ----------------------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                            | `0` to `1`            | In **Pressure units**.                                      |
+| Range <small>`range`</small>                                         | `0` to `1`            | In **Pressure units**.                                      |
 | Pressure units <small>`units`</small>                                | `PoundsPerSquareInch` | `Pascals`, `PoundsPerSquareInch`, `Bar`.                    |
 | Bridge configuration <small>`bridge_config`</small>                  | `FullBridge`          | `FullBridge`, `HalfBridge`, `QuarterBridge`.                |
 | Voltage excitation source <small>`voltage_excit_source`</small>      | `Internal`            | `Internal`, `External`, `None`.                             |
@@ -662,7 +664,7 @@ converts the electrical value to pressure.
 
 | Setting                                                              | Default               | Notes                                        |
 | -------------------------------------------------------------------- | --------------------- | -------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                            | `0` to `1`            | In **Pressure units**.                       |
+| Range <small>`range`</small>                                         | `0` to `1`            | In **Pressure units**.                       |
 | Pressure units <small>`units`</small>                                | `PoundsPerSquareInch` | `Pascals`, `PoundsPerSquareInch`, `Bar`.     |
 | Bridge configuration <small>`bridge_config`</small>                  | `FullBridge`          | `FullBridge`, `HalfBridge`, `QuarterBridge`. |
 | Voltage excitation source <small>`voltage_excit_source`</small>      | `Internal`            | `Internal`, `External`, `None`.              |
@@ -689,7 +691,7 @@ electrical value to pressure.
 
 | Setting                                                              | Default               | Notes                                        |
 | -------------------------------------------------------------------- | --------------------- | -------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                            | `0` to `1`            | In **Pressure units**.                       |
+| Range <small>`range`</small>                                         | `0` to `1`            | In **Pressure units**.                       |
 | Pressure units <small>`units`</small>                                | `PoundsPerSquareInch` | `Pascals`, `PoundsPerSquareInch`, `Bar`.     |
 | Bridge configuration <small>`bridge_config`</small>                  | `FullBridge`          | `FullBridge`, `HalfBridge`, `QuarterBridge`. |
 | Voltage excitation source <small>`voltage_excit_source`</small>      | `Internal`            | `Internal`, `External`, `None`.              |
@@ -718,7 +720,7 @@ electrical value to torque.
 
 | Setting                                                              | Default         | Notes                                                       |
 | -------------------------------------------------------------------- | --------------- | ----------------------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                            | `0` to `1`      | In **Torque units**.                                        |
+| Range <small>`range`</small>                                         | `0` to `1`      | In **Torque units**.                                        |
 | Torque units <small>`units`</small>                                  | `NewtonMeters`  | `NewtonMeters`, `InchPounds`, `FootPounds`, `InchOunces`.   |
 | Bridge configuration <small>`bridge_config`</small>                  | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`.                |
 | Voltage excitation source <small>`voltage_excit_source`</small>      | `Internal`      | `Internal`, `External`, `None`.                             |
@@ -745,7 +747,7 @@ the electrical value to torque.
 
 | Setting                                                              | Default         | Notes                                                     |
 | -------------------------------------------------------------------- | --------------- | --------------------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                            | `0` to `1`      | In **Torque units**.                                      |
+| Range <small>`range`</small>                                         | `0` to `1`      | In **Torque units**.                                      |
 | Torque units <small>`units`</small>                                  | `NewtonMeters`  | `NewtonMeters`, `InchPounds`, `FootPounds`, `InchOunces`. |
 | Bridge configuration <small>`bridge_config`</small>                  | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`.              |
 | Voltage excitation source <small>`voltage_excit_source`</small>      | `Internal`      | `Internal`, `External`, `None`.                           |
@@ -772,7 +774,7 @@ electrical value to torque.
 
 | Setting                                                              | Default         | Notes                                                     |
 | -------------------------------------------------------------------- | --------------- | --------------------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                            | `0` to `1`      | In **Torque units**.                                      |
+| Range <small>`range`</small>                                         | `0` to `1`      | In **Torque units**.                                      |
 | Torque units <small>`units`</small>                                  | `NewtonMeters`  | `NewtonMeters`, `InchPounds`, `FootPounds`, `InchOunces`. |
 | Bridge configuration <small>`bridge_config`</small>                  | `FullBridge`    | `FullBridge`, `HalfBridge`, `QuarterBridge`.              |
 | Voltage excitation source <small>`voltage_excit_source`</small>      | `Internal`      | `Internal`, `External`, `None`.                           |
@@ -800,7 +802,7 @@ Reads acceleration from an IEPE accelerometer.
 
 | Setting                                                         | Default       | Notes                                                          |
 | --------------------------------------------------------------- | ------------- | -------------------------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                       | `0` to `1`    | In **Acceleration units**.                                     |
+| Range <small>`range`</small>                                    | `0` to `1`    | In **Acceleration units**.                                     |
 | Terminal configuration <small>`terminal_config`</small>         | `Cfg_Default` | See [terminal configuration](#terminal-configuration).         |
 | Sensitivity <small>`sensitivity`</small>                        | `0`           |                                                                |
 | Sensitivity units <small>`sensitivity_units`</small>            | `mVoltsPerG`  | The select next to **Sensitivity**: `mVoltsPerG`, `VoltsPerG`. |
@@ -823,7 +825,7 @@ Reads acceleration from a 4-wire DC-voltage accelerometer.
 
 | Setting                                                          | Default       | Notes                                                          |
 | ---------------------------------------------------------------- | ------------- | -------------------------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                        | `0` to `1`    | In **Acceleration units**.                                     |
+| Range <small>`range`</small>                                     | `0` to `1`    | In **Acceleration units**.                                     |
 | Terminal configuration <small>`terminal_config`</small>          | `Cfg_Default` | See [terminal configuration](#terminal-configuration).         |
 | Acceleration units <small>`units`</small>                        | `g`           | `g`, `MetersPerSecondSquared`, `InchesPerSecondSquared`.       |
 | Sensitivity <small>`sensitivity`</small>                         | `0`           |                                                                |
@@ -847,7 +849,7 @@ Reads acceleration from a charge-mode accelerometer.
 
 | Setting                                                 | Default            | Notes                                                                                                                                     |
 | ------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>               | `0` to `1`         | In **Acceleration units**.                                                                                                                |
+| Range <small>`range`</small>                            | `0` to `1`         | In **Acceleration units**.                                                                                                                |
 | Terminal configuration <small>`terminal_config`</small> | `Cfg_Default`      | See [terminal configuration](#terminal-configuration).                                                                                    |
 | Acceleration units <small>`units`</small>               | `g`                | `g`, `MetersPerSecondSquared`, `InchesPerSecondSquared`.                                                                                  |
 | Sensitivity <small>`sensitivity`</small>                | `0`                |                                                                                                                                           |
@@ -868,7 +870,7 @@ Reads velocity from an IEPE velocity sensor.
 
 | Setting                                                         | Default                            | Notes                                                                                                 |
 | --------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Range <small>`min_val`, `max_val`</small>                       | `0` to `1`                         | In **Velocity units**.                                                                                |
+| Range <small>`range`</small>                                    | `0` to `1`                         | In **Velocity units**.                                                                                |
 | Velocity units <small>`units`</small>                           | `MetersPerSecond`                  | `MetersPerSecond`, `InchesPerSecond`.                                                                 |
 | Terminal configuration <small>`terminal_config`</small>         | `Cfg_Default`                      | See [terminal configuration](#terminal-configuration).                                                |
 | Sensitivity <small>`sensitivity`</small>                        | `0`                                |                                                                                                       |
@@ -891,7 +893,7 @@ Reads force from an IEPE force sensor.
 
 | Setting                                                         | Default           | Notes                                                                    |
 | --------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------ |
-| Range <small>`min_val`, `max_val`</small>                       | `0` to `1`        | In **Force units**.                                                      |
+| Range <small>`range`</small>                                    | `0` to `1`        | In **Force units**.                                                      |
 | Terminal configuration <small>`terminal_config`</small>         | `Cfg_Default`     | See [terminal configuration](#terminal-configuration).                   |
 | Force units <small>`units`</small>                              | `Newtons`         | `Newtons`, `Pounds`, `KilogramForce`.                                    |
 | Sensitivity <small>`sensitivity`</small>                        | `0`               |                                                                          |
