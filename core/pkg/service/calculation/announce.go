@@ -17,16 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
-// outputCheck is the check of a channel action batch that announces the calculation
-// fields of an output.
-type outputCheck struct {
-	key   channel.Key
-	seq   uint64
-	check func(allowed func(resource.ID) bool) bool
-}
-
-// fieldsOf returns the channel actions that set the expression and operations of
-// output to those of c, or to none when c no longer writes it.
+// fieldsOf returns the channel actions that set the expression and operations of the
+// output of c to those of c, or to none when c no longer writes it.
 func fieldsOf(c Calculation, writes bool) []channel.Action {
 	expression, operations := "", []channel.Operation{}
 	if writes {
@@ -54,7 +46,10 @@ func (s *Service) announce(
 	acts ...channel.Action,
 ) {
 	seq := cw.Announce(output, acts...)
-	s.outputChecks.Add(tx, outputCheck{key: output, seq: seq, check: s.Readable(c)})
+	s.outputChecks.Add(tx, batchCheck[channel.Key]{
+		id:    batchID[channel.Key]{key: output, seq: seq},
+		check: s.Readable(c),
+	})
 }
 
 // AnnounceOutputs announces through w, in tx, the calculation fields of each channel
@@ -77,21 +72,27 @@ func (s *Service) AnnounceOutputs(
 
 // ChannelBatchChecks returns the lookup of the check of each channel action batch that
 // c holds, by the key of its channel and its number. A batch that announces the
-// calculation fields of an output goes only to a subject who reads the calculation,
-// and any other batch has no check of its own.
+// calculation fields of an output goes only to a subject who reads the calculation, and
+// any other batch has no check of its own.
 func (s *Service) ChannelBatchChecks(
 	c gorp.Commit,
 ) func(key channel.Key, seq uint64) (func(allowed func(resource.ID) bool) bool, bool) {
 	attached := s.outputChecks.Of(c)
+	if len(attached) == 0 {
+		return noChannelCheck
+	}
+	byBatch := checksOf(attached)
 	return func(
 		key channel.Key,
 		seq uint64,
 	) (func(allowed func(resource.ID) bool) bool, bool) {
-		for _, a := range attached {
-			if a.key == key && a.seq == seq {
-				return a.check, true
-			}
-		}
-		return nil, true
+		return byBatch[batchID[channel.Key]{key: key, seq: seq}], true
 	}
+}
+
+func noChannelCheck(
+	channel.Key,
+	uint64,
+) (func(allowed func(resource.ID) bool) bool, bool) {
+	return nil, true
 }

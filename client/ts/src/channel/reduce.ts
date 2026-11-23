@@ -36,9 +36,9 @@ const fromStored = ({ localKey, localIndex, ...rest }: Stored): Payload =>
     { label: "created channel" },
   );
 
-// The fields that a set after a create carries, which only a subject who reads the
+// calculatedOf reads only the expression, which only a subject who reads the
 // calculation receives. Another subject holds calculated with no expression.
-const CALCULATION_FIELDS = ["expression", "operations"] as const;
+const EXPRESSION = ["expression"] as const;
 
 /** @returns the channel that a create action carries, or undefined otherwise. */
 export const createOf = (action: Action): Payload | undefined =>
@@ -75,7 +75,7 @@ export const reduceAll = actions.createReduceAll<Payload, Action>((state, action
     }
     default: {
       const result = applyPath(state, action);
-      if (!actions.changesField(action, CALCULATION_FIELDS)) return result;
+      if (!actions.changesField(action, EXPRESSION)) return result;
       const calculated = calculatedOf(state);
       if (calculated === state.calculated) return result;
       state.calculated = calculated;
