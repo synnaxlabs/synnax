@@ -455,22 +455,26 @@ switch as the Lyra switch draws it. Phase 3 adds the Core list of built-in symbo
 its read-only route. Phases 4 to 11 replace the 86 equipment variants with the `symbol`
 variant, and each merges on its own. Phase 4 gives each built-in spec its `active`
 state, its commands, its `entry` looks, and its `next` click, with no visible change.
-The `switch` spec has no looks, because its wrapper keeps the colors that phase 2 draws.
-The `thruster` spec has no looks and no `next`, because today it draws as a static
-picture and takes no clicks. Phase 5 adds the node variant with the whole shape of §4.1
-and its checks with the Core list of built-ins. Phase 6 removes the bindings and
-overrides that a symbol save orphans, and phase 7 adds the save confirm of §4.4, before
-the migration gives any node a binding that a save can remove. Phase 8 draws the node
-with its indicators and sends its commands. The `switch` keeps its own wrapper around
-the `symbol` drawing, which turns it only to stand upright and slides its knob, as phase
-2 draws it. Phase 9 adds the form with the enumeration picker. Phase 10 adds the Core
-migration, the symbol import that keeps keys by §4.4, and "Change symbol". Phase 11
-deletes the old variants from the schema, the clients, Pluto, and the Console.
+The pump and agitator specs draw their detail lines with the `contrast` paint, which
+phase 15 adds to the schema, the clients, the Core checks, and Pluto. The `switch` spec
+has no looks, because its wrapper keeps the colors that phase 2 draws. The `thruster`
+spec has no looks and no `next`, because today it draws as a static picture and takes no
+clicks. Phase 5 adds the node variant with the whole shape of §4.1 and its checks with
+the Core list of built-ins. Phase 6 removes the bindings and overrides that a symbol
+save orphans, and phase 7 adds the save confirm of §4.4, before the migration gives any
+node a binding that a save can remove. Phase 8 draws the node with its indicators and
+sends its commands. The `switch` keeps its own wrapper around the `symbol` drawing,
+which turns it only to stand upright and slides its knob, as phase 2 draws it. Phase 9
+adds the form with the enumeration picker. Phase 10 adds the Core migration, the symbol
+import that keeps keys by §4.4, and "Change symbol". Phase 11 deletes the old variants
+from the schema, the clients, Pluto, and the Console.
 
 A Console flag hides the `symbol` variant until phase 10 moves every node and removes
 the flag. The Core and the clients accept the variant from phase 5. Phase 5 stores the
 whole shape, so a release between phases 5 and 10 needs no later migration, and the
-phase 10 migration leaves a node that is already `symbol` as it is.
+phase 10 migration leaves a node that is already `symbol` as it is. Phase 10 takes the
+equipment variants out of the Console picker, and phases 10 and 11 ship in one release,
+so no stable release saves an equipment node after the migration.
 
 A binding stores each channel as a plain `channel.Key`, so no phase waits on the channel
 plan. Its link tracking (SY-6387) later adds a weak link with a read or write direction
@@ -503,7 +507,7 @@ thread 60% busy. Each moving part costs about 40 µs of main-thread time a frame
 | 1     | Store parts, states, commands, and looks on all specs   | `schemas/synnax`, `oracle`, `core/pkg/service/schematic/symbol`, `core/pkg/service/enumeration`, `core/pkg/service/imex`, `pluto/src/schematic`, `console/src/feature/schematic/symbol`, `client/ts`, `client/py` | -          |
 | 2     | Draw `light` and `switch` from built-in specs           | `pluto/src/schematic/node/general`, `configs/stylelint`                                                                                                                                                           | 1          |
 | 3     | List the built-in symbols in the Core                   | `core/pkg/service/schematic/symbol`, `core/pkg/api/schematic`                                                                                                                                                     | 1          |
-| 4     | Give each built-in spec its states, commands, and looks | `pluto/src/schematic/node`                                                                                                                                                                                        | 3          |
+| 4     | Give each built-in spec its states, commands, and looks | `pluto/src/schematic/node`                                                                                                                                                                                        | 3, 15      |
 | 5     | Add the `symbol` node variant and its checks            | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`                                                                                                                                          | 3          |
 | 6     | Remove the bindings that a symbol save orphans          | `core/pkg/service/schematic/symbol`, `core/pkg/service/schematic`                                                                                                                                                 | 5          |
 | 7     | Confirm each save of a symbol in use                    | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                                                       | 6          |
@@ -514,6 +518,7 @@ thread 60% busy. Each moving part costs about 40 µs of main-thread time a frame
 | 12    | Edit parts and looks, and duplicate built-ins           | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                                                       | 4, 7       |
 | 13    | Edit states, commands, and clicks                       | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                                                       | 12         |
 | 14    | Draw motion in SVG with one animation loop              | `pluto/src/schematic/node/common/custom`                                                                                                                                                                          | 8          |
+| 15    | Add the `contrast` paint                                | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic/node/common/custom`, `client/ts`, `client/py`                                                                                         | 1          |
 
 ## 7 Resolved decisions
 
@@ -577,7 +582,7 @@ thread 60% busy. Each moving part costs about 40 µs of main-thread time a frame
     real: a schematic drops below 60 fps past 100 to 400 moving parts in WKWebView.
 22. **The `symbol` variant lands behind a flag before the migration**: One PR for the
     whole cutover is too large to review in one sitting, and it holds back the editor
-    and motion work. The trade is real: until phase 10, `main` holds both node shapes.
+    and motion work. The trade is real: until phase 11, `main` holds both node shapes.
 23. **Plain channel keys before channel links**: Waiting for the channel plan's link
     tracking holds every later phase. A plain key is the stored shape that the links
     annotate, so nothing migrates when they land. The trade is real: until then, a
