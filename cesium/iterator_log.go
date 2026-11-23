@@ -268,10 +268,16 @@ func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
 	c.e.pin(r.seg.ID)
+	cfg := c.e.segmentConfig(r.seg)
+	cfg.Key = c.key
 	return &logReader{
-		e:      c.e,
-		id:     r.seg.ID,
-		cfg:    c.e.segmentConfig(r.seg),
+		e:  c.e,
+		rd: c.e.reader(),
+		seg: segment.Committed{
+			Config:  cfg,
+			Length:  int64(r.seg.Length),
+			TailCRC: r.seg.TailCRC,
+		},
 		h:      c.e.budget.Open(c.e.fs, segmentName(c.key, r.seg.ID)),
 		offset: int64(r.ptr.Offset),
 		size:   int64(r.ptr.Length),
@@ -290,11 +296,12 @@ func (c *logCursor) Close() error {
 }
 
 // logReader reads the bytes of one pointer from its segment file, which it pins until
-// Close.
+// Close. It checks each block that it reads with a segment reader from the pool of the
+// engine.
 type logReader struct {
 	e      *engine
-	id     uint64
-	cfg    segment.Config
+	rd     *segment.Reader
+	seg    segment.Committed
 	h      *segment.Handle
 	offset int64
 	size   int64
@@ -303,13 +310,14 @@ type logReader struct {
 var _ domain.RangeReader = (*logReader)(nil)
 
 // ReadAt implements domain.RangeReader. A read past the end of the pointer returns the
-// bytes before it with io.EOF.
+// bytes before it with io.EOF. A block that fails its check on two reads returns an
+// error that wraps place.ErrCorrupt.
 func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
 	if off >= r.size {
 		return 0, io.EOF
 	}
 	n := int(min(int64(len(p)), r.size-off))
-	if err := r.cfg.ReadAt(r.h, p[:n], r.offset+off); err != nil {
+	if err := r.rd.Read(r.h, r.seg, p[:n], r.offset+off); err != nil {
 		return 0, err
 	}
 	if n < len(p) {
@@ -323,5 +331,7 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
-	return errors.Join(r.h.Close(), r.e.unpin(held{segments: []uint64{r.id}}))
+	r.rd.Reset()
+	r.e.readers.Put(r.rd)
+	return errors.Join(r.h.Close(), r.e.unpin(held{segments: []uint64{r.seg.ID}}))
 }
