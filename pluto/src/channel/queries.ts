@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import {
-  actions,
   calculation,
   channel,
   DataType,
@@ -34,13 +33,23 @@ import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 import { Synnax } from "@/synnax";
 
-export const formSchema = channel.payloadZ
-  .required({ expression: true })
+// The channel fields that both forms edit.
+const fieldsZ = channel.payloadZ
+  .pick({
+    key: true,
+    leaseholder: true,
+    isIndex: true,
+    index: true,
+    virtual: true,
+    concurrency: true,
+  })
   .extend({
     name: channel.nameZ,
     dataType: DataType.z.transform((v) => v.toString()),
-    requires: channel.keyZ.array().optional(),
-  })
+  });
+
+export const formSchema = fieldsZ
+  .extend({ requires: channel.keyZ.array().optional() })
   .refine(
     (v) => !v.isIndex || DataType.z.parse(v.dataType).equals(DataType.TIMESTAMP),
     {
@@ -48,56 +57,81 @@ export const formSchema = channel.payloadZ
       path: ["dataType"],
     },
   )
-  .refine((v) => v.isIndex || v.index !== 0 || v.virtual || v.expression !== "", {
+  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
     message: "Data channel must have an index",
     path: ["index"],
   });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
-export const calculatedFormSchema = formSchema.safeExtend({
+// The form edits one operation, and "none" stands for a calculation with no operations.
+const formOperationZ = z.object({
+  type: z.enum(["none", ...calculation.OPERATION_TYPES]),
+  resetChannel: channel.keyZ,
+  duration: TimeSpan.z,
+});
+
+type FormOperation = z.infer<typeof formOperationZ>;
+
+export const calculatedFormSchema = fieldsZ.extend({
   expression: z
     .string()
     .min(1, "Expression must not be empty")
     .refine((v) => v.includes("return"), {
       message: "Expression must contain a return statement",
     }),
+  operations: formOperationZ.array(),
   /** calculation is the key of the record that writes the channel, once saved. */
   calculation: calculation.keyZ.optional(),
 });
 
 export const calculatedFormPath = deep.path<z.infer<typeof calculatedFormSchema>>();
 
-const ZERO_OPERATION: channel.Operation = {
+const ZERO_OPERATION: FormOperation = {
   type: "none",
   resetChannel: 0,
   duration: TimeSpan.ZERO,
 };
 
-// The form edits operations[0], so a channel without operations loads as "none".
-const channelToFormValues = (ch: channel.Channel) => ({
-  ...ch.payload,
-  dataType: ch.dataType.toString(),
-  operations: ch.operations.length > 0 ? ch.operations : [ZERO_OPERATION],
+const channelToFormValues = ({
+  key,
+  name,
+  leaseholder,
+  dataType,
+  isIndex,
+  index,
+  virtual,
+  concurrency,
+}: channel.Channel): z.infer<typeof fieldsZ> => ({
+  key,
+  name,
+  leaseholder,
+  dataType: dataType.toString(),
+  isIndex,
+  index,
+  virtual,
+  concurrency,
 });
 
 export type { RetrieveMultipleQuery, RetrieveQuery } from "@/channel/aether/queries";
 
-export const ZERO_FORM_VALUES: z.infer<
-  typeof formSchema | typeof calculatedFormSchema
-> = {
+export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   key: 0,
   name: "",
   index: 0,
   dataType: DataType.FLOAT32.toString(),
-  internal: false,
   isIndex: false,
   leaseholder: 0,
   virtual: false,
-  expression: "",
-  calculated: false,
   concurrency: control.Concurrency.exclusive,
+};
+
+const ZERO_CALCULATED_FORM_VALUES: z.infer<typeof calculatedFormSchema> = {
+  ...ZERO_FORM_VALUES,
+  virtual: true,
+  expression: "",
   operations: [ZERO_OPERATION],
+  calculation: undefined,
 };
 
 export const { use, useResult, useEnsure, createSelector, createResultSelector } =
@@ -196,7 +230,7 @@ const updateForm = async ({
   set,
   value,
   stored,
-}: Flux.FormUpdateParams<typeof formSchema | typeof calculatedFormSchema>) => {
+}: Flux.FormUpdateParams<typeof formSchema>) => {
   const values = value();
   if (values.requires != null) delete values.requires;
   if (primitive.isZero(values.key)) {
@@ -204,20 +238,15 @@ const updateForm = async ({
     set(formPath.key, ch.key);
     return;
   }
-  const edits: channel.Action[] = actions.diffFields(channel.payloadZ, stored, values, [
-    "expression",
-    "operations",
-  ]);
   if (stored?.name !== values.name)
-    edits.unshift(channel.rename({ name: values.name }));
-  if (edits.length > 0) await client.channels.dispatch(values.key, edits);
+    await client.channels.dispatch(values.key, channel.rename({ name: values.name }));
 };
 
 export type FormQuery = RetrieveQuery;
 
 const formMountListeners: Flux.CreateFormParams<
   FormQuery,
-  typeof formSchema | typeof calculatedFormSchema
+  typeof formSchema
 >["mountListeners"] = ({ client, query: { key }, reset }) =>
   client.channels.watch({ key }).onChange((result) => {
     if (query.isLive(result)) reset(channelToFormValues(result));
@@ -233,25 +262,18 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   mountListeners: formMountListeners,
 });
 
-// The form edits one operation in the channel form that its fields name, so these
-// convert between it and the operations of a calculation.
-const toFormOperation = (op?: calculation.Operation): channel.Operation => {
+// These convert between the form's operation and the operations of a calculation.
+const toFormOperation = (op?: calculation.Operation): FormOperation => {
   if (op == null) return ZERO_OPERATION;
   if (op.type === "derivative") return { ...ZERO_OPERATION, type: "derivative" };
   return { type: op.type, duration: op.duration, resetChannel: op.reset ?? 0 };
 };
 
-const toCalculationOperations = (op?: channel.Operation): calculation.Operation[] => {
+const toCalculationOperations = (op?: FormOperation): calculation.Operation[] => {
   if (op == null || op.type === "none") return [];
   if (op.type === "derivative") return [{ type: "derivative" }];
   const reset = op.resetChannel === 0 ? undefined : op.resetChannel;
   return [{ type: op.type, duration: new TimeSpan(op.duration), reset }];
-};
-
-// The values of the calculated form that the channel holds.
-const toChannelFormValues = (ch: channel.Channel) => {
-  const { expression: _, operations: __, ...values } = channelToFormValues(ch);
-  return values;
 };
 
 // The values of the calculated form that the calculation holds.
@@ -264,7 +286,7 @@ const toCalculationFormValues = (calc?: calculation.Calculation) => ({
 const toCalculatedFormValues = (
   ch: channel.Channel,
   calc?: calculation.Calculation,
-) => ({ ...toChannelFormValues(ch), ...toCalculationFormValues(calc) });
+) => ({ ...channelToFormValues(ch), ...toCalculationFormValues(calc) });
 
 const retrieveCalculatedFormValues = async ({
   query: { key },
@@ -291,7 +313,7 @@ const calculatedFormMountListeners: Flux.CreateFormParams<
   };
   const destructors = [
     client.channels.watch({ key }).onChange((result) => {
-      if (query.isLive(result)) reload(toChannelFormValues(result));
+      if (query.isLive(result)) reload(channelToFormValues(result));
     }),
   ];
   if (latest.calculation != null)
@@ -341,7 +363,7 @@ export const useCalculatedForm = Flux.createForm<
 >({
   name: "calculated channel",
   schema: calculatedFormSchema,
-  initialValues: { ...ZERO_FORM_VALUES, calculation: undefined },
+  initialValues: ZERO_CALCULATED_FORM_VALUES,
   retrieve: retrieveCalculatedFormValues,
   update: updateCalculatedForm,
   mountListeners: calculatedFormMountListeners,

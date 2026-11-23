@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType, project, type Synnax } from "@synnaxlabs/client";
+import { DataType, project, type Synnax } from "@synnaxlabs/client";
 import {
   createTestClient,
   holdRequests,
@@ -24,6 +24,7 @@ import { Channel } from "@/channel";
 import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = Channel.formPath;
+const calculatedPath = Channel.calculatedFormPath;
 
 const SCROLL_COUNT = 1010;
 
@@ -690,7 +691,10 @@ describe("queries", () => {
         result.current.form.set(path.name, calculatedName);
         result.current.form.set(path.dataType, DataType.FLOAT32.toString());
         result.current.form.set(path.virtual, true);
-        result.current.form.set(path.expression, `return ${sourceChannel.name} * 2`);
+        result.current.form.set(
+          calculatedPath.expression,
+          `return ${sourceChannel.name} * 2`,
+        );
         result.current.save({ signal: controller.signal });
       });
 
@@ -712,12 +716,14 @@ describe("queries", () => {
       });
 
       const existingName = id.create();
-      const existingCalculated = await client.channels.create({
-        name: existingName,
-        dataType: DataType.FLOAT32,
-        virtual: true,
-        expression: `return ${sourceChannel.name} + 1`,
-      });
+      const existingCalculated = await client.channels.retrieve(
+        (
+          await client.calculations.create({
+            name: existingName,
+            expression: `return ${sourceChannel.name} + 1`,
+          })
+        ).output,
+      );
 
       const { result } = await renderHookSuspended(
         () => Channel.useCalculatedForm({ query: { key: existingCalculated.key } }),
@@ -734,7 +740,10 @@ describe("queries", () => {
       ]);
 
       act(() => {
-        result.current.form.set(path.expression, `return ${sourceChannel.name} * 3`);
+        result.current.form.set(
+          calculatedPath.expression,
+          `return ${sourceChannel.name} * 3`,
+        );
         result.current.save({ signal: controller.signal });
       });
 
@@ -760,24 +769,29 @@ describe("queries", () => {
         dataType: DataType.BOOLEAN,
         virtual: true,
       });
-      const existing = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-        expression: `return ${sourceChannel.name}`,
-      });
+      const existing = await client.channels.retrieve(
+        (
+          await client.calculations.create({
+            name: id.create(),
+            expression: `return ${sourceChannel.name}`,
+          })
+        ).output,
+      );
       const { result } = await renderHookSuspended(
         () => Channel.useCalculatedForm({ query: { key: existing.key } }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       const name = id.create();
-      const operations: channel.Operation[] = [
-        { type: "avg", resetChannel: resetChannel.key, duration: TimeSpan.seconds(5) },
-      ];
       act(() => {
         result.current.form.set(path.name, name);
-        result.current.form.set(path.operations, operations);
+        result.current.form.set(calculatedPath.operations, [
+          {
+            type: "avg",
+            resetChannel: resetChannel.key,
+            duration: TimeSpan.seconds(5),
+          },
+        ]);
       });
       await act(async () => {
         await result.current.saveAsync();
@@ -800,13 +814,13 @@ describe("queries", () => {
 
       act(() => {
         result.current.form.set(path.name, id.create());
-        result.current.form.set(path.expression, "");
+        result.current.form.set(calculatedPath.expression, "");
       });
 
       expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get(path.expression).status.message).toContain(
-        "Expression must contain a return statement",
-      );
+      expect(
+        result.current.form.get(calculatedPath.expression).status.message,
+      ).toContain("Expression must contain a return statement");
     });
 
     it("should validate that expression contains return statement", async () => {
@@ -816,13 +830,13 @@ describe("queries", () => {
 
       act(() => {
         result.current.form.set(path.name, id.create());
-        result.current.form.set(path.expression, "sourceChannel * 2");
+        result.current.form.set(calculatedPath.expression, "sourceChannel * 2");
       });
 
       expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get(path.expression).status.message).toContain(
-        "Expression must contain a return statement",
-      );
+      expect(
+        result.current.form.get(calculatedPath.expression).status.message,
+      ).toContain("Expression must contain a return statement");
     });
 
     it("should handle form with default values", async () => {
@@ -843,12 +857,14 @@ describe("queries", () => {
         virtual: true,
       });
 
-      const testCalculated = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-        expression: `return ${sourceChannel.name}`,
-      });
+      const testCalculated = await client.channels.retrieve(
+        (
+          await client.calculations.create({
+            name: id.create(),
+            expression: `return ${sourceChannel.name}`,
+          })
+        ).output,
+      );
 
       const { result } = await renderHookSuspended(
         () => {
