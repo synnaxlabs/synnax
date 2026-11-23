@@ -106,7 +106,8 @@ func ResolveReadConfig(
 // readFields returns the fields of e to lift and the key of its index field: the field
 // that writes an index channel in found, preferring the field that e names. A field
 // binds no channel when claimed holds an earlier field that writes it. readFields adds
-// each field it binds to claimed, and note receives each change at path.
+// each field it binds to claimed, and note receives each change at path and each other
+// field that writes an index channel.
 func readFields(
 	e InlineEndpoint,
 	found map[channel.Key]icdv0.Channel,
@@ -116,6 +117,7 @@ func readFields(
 ) ([]icdv0.InlineField, string) {
 	fields := lo.Map(e.Fields, toInline)
 	index := ""
+	var indexFields []int
 	for j := range fields {
 		f := &fields[j]
 		ch, exists := found[f.Channel]
@@ -130,8 +132,19 @@ func readFields(
 			continue
 		}
 		claimed[f.Channel] = at
-		if ch.Index && (index == "" || f.Key == e.Index) {
+		if !ch.Index {
+			continue
+		}
+		indexFields = append(indexFields, j)
+		if index == "" || f.Key == e.Index {
 			index = f.Key
+		}
+	}
+	for _, j := range indexFields {
+		if key := fields[j].Key; key != index {
+			note(path+".fields."+strconv.Itoa(j), "field "+key+" and index field "+
+				index+" both write index channels. Split the endpoint into two, each "+
+				"with one index field")
 		}
 	}
 	switch index {
