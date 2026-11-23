@@ -20,13 +20,11 @@ import (
 // Compile generates WebAssembly bytecode from the provided IR.
 //
 // Returns a Module containing both the IR and the compiled WebAssembly output.
-// Compiler options can be provided to customize the compilation process.
 func Compile(
 	ctx context.Context,
 	ir ir.IR,
-	opts ...compiler.Option,
 ) (program.Program, error) {
-	o, err := compiler.Compile(ctx, ir, opts...)
+	o, err := compiler.Compile(ctx, ir)
 	if err != nil {
 		return program.Program{}, err
 	}

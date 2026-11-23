@@ -54,11 +54,6 @@ type Config struct {
 	//
 	// [REQUIRED]
 	NewRoot func() *symbol.Symbol
-	// AllowDashedNames permits '-' inside channel-name identifiers, set when Core runs
-	// with channel-name validation disabled.
-	//
-	// [OPTIONAL]
-	AllowDashedNames bool
 	// OnRename is invoked when a rename request targets a symbol the LSP itself cannot
 	// fully relocate by text edits alone (e.g., a channel). When nil, rename is
 	// restricted to source-defined symbols.
@@ -106,11 +101,6 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.NewRoot = override.Nil(c.NewRoot, other.NewRoot)
 	c.OnRename = override.Nil(c.OnRename, other.OnRename)
-	c.AllowDashedNames = override.If(
-		c.AllowDashedNames,
-		other.AllowDashedNames,
-		other.AllowDashedNames,
-	)
 	c.OnExternalChange = override.Nil(c.OnExternalChange, other.OnExternalChange)
 	c.RepublishTimeout = override.Numeric(c.RepublishTimeout, other.RepublishTimeout)
 	c.DebounceDelay = override.Numeric(c.DebounceDelay, other.DebounceDelay)
@@ -189,34 +179,6 @@ func New(cfgs ...Config) (*Server, error) {
 			},
 		},
 	}, nil
-}
-
-func (s *Server) parserConfig() parser.Config {
-	return parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
-}
-
-// wordChars marks the bytes of line that belong to a word. With dashed names on, a '-'
-// joins a name, as in the lexer, unless it starts "->" or "-=". A run of only digits
-// lexes as a number, so a '-' after it is a minus.
-func (s *Server) wordChars(line string) []bool {
-	marks := lsp.DefaultWordChars(line)
-	if !s.cfg.AllowDashedNames {
-		return marks
-	}
-	inName := false
-	for i := range len(line) {
-		c := line[i]
-		switch {
-		case marks[i]:
-			inName = inName || c < '0' || c > '9'
-		case c == '-' && inName &&
-			(i+1 == len(line) || (line[i+1] != '>' && line[i+1] != '=')):
-			marks[i] = true
-		default:
-			inName = false
-		}
-	}
-	return marks
 }
 
 // SetClient sets the LSP client for sending notifications.
@@ -336,12 +298,11 @@ func (s *Server) DidOpen(
 		zap.Bool("hasMetadata", metadata != nil),
 		zap.Bool("isBlock", metadata != nil && metadata.isFunctionBlock))
 	doc := &document{
-		URI:       docURI,
-		Version:   params.TextDocument.Version,
-		Content:   params.TextDocument.Text,
-		metadata:  metadata,
-		wordChars: s.wordChars,
-		names:     &nameTokens{cfg: s.parserConfig()},
+		URI:      docURI,
+		Version:  params.TextDocument.Version,
+		Content:  params.TextDocument.Text,
+		metadata: metadata,
+		names:    &nameTokens{},
 	}
 	// ctx ends when DidOpen returns, but analysis runs until the document closes.
 	deb, err := debounce.New(context.WithoutCancel(ctx), debounce.Config{
@@ -527,25 +488,23 @@ func (s *Server) analyze(
 		pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
 	})
 	s.cfg.L.Debug("analyzing program")
-	cfg := s.parserConfig()
 	if meta.isFunctionBlock {
-		return s.analyzeFunctionBlock(ctx, content, cfg)
+		return s.analyzeFunctionBlock(ctx, content)
 	}
-	return s.analyzeProgram(ctx, content, meta.isModule, cfg)
+	return s.analyzeProgram(ctx, content, meta.isModule)
 }
 
 // analyzeFunctionBlock analyzes content as the body of a function block.
 func (s *Server) analyzeFunctionBlock(
 	ctx context.Context,
 	content string,
-	cfg parser.Config,
 ) ([]protocol.Diagnostic, ir.IR, diagnostics.Diagnostics) {
-	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", content), cfg)
+	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", content))
 	if err != nil {
 		docDiag := unwrapDiagnostics(*err)
 		return lsp.TranslateDiagnostics(docDiag, translateSource), ir.IR{}, nil
 	}
-	aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot()).WithConfig(cfg)
+	aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot())
 	statement.AnalyzeFunctionBody(aCtx)
 	docDiag := unwrapDiagnostics(*aCtx.Diagnostics)
 	pDiagnostics := lsp.TranslateDiagnostics(docDiag, translateSource)
@@ -557,9 +516,8 @@ func (s *Server) analyzeProgram(
 	ctx context.Context,
 	content string,
 	module bool,
-	cfg parser.Config,
 ) ([]protocol.Diagnostic, ir.IR, diagnostics.Diagnostics) {
-	t, diag := text.Parse(text.Text{Raw: content}, cfg)
+	t, diag := text.Parse(text.Text{Raw: content})
 	if diag != nil {
 		return lsp.TranslateDiagnostics(*diag, translateSource), ir.IR{}, nil
 	}
@@ -567,7 +525,7 @@ func (s *Server) analyzeProgram(
 	if module {
 		analyze = text.AnalyzeModule
 	}
-	docIR, analysisDiag := analyze(ctx, t, s.cfg.NewRoot(), cfg)
+	docIR, analysisDiag := analyze(ctx, t, s.cfg.NewRoot())
 	if analysisDiag == nil {
 		return nil, docIR, nil
 	}

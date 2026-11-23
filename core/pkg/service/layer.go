@@ -19,7 +19,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -38,7 +37,6 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
@@ -158,12 +156,6 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL]
 	SecretsDir string
-	// ValidateChannelNames enables channel name validation during creation and
-	// renaming. When false, channels may have names with spaces, special characters,
-	// etc.
-	//
-	// [OPTIONAL] - Defaults to true (validation enabled)
-	ValidateChannelNames *bool
 	// EmbeddedDriverDisabled is true when the Core runs without its embedded Driver.
 	//
 	// [OPTIONAL] - Defaults to false.
@@ -203,9 +195,6 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		c.EmbeddedDriverDisabled,
 		other.EmbeddedDriverDisabled,
 		other.EmbeddedDriverDisabled,
-	)
-	c.ValidateChannelNames = override.Nil(
-		c.ValidateChannelNames, other.ValidateChannelNames,
 	)
 	c.SecretsKey = override.If(
 		c.SecretsKey,
@@ -471,7 +460,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		HostKey:         cfg.Distribution.Identity.HostKey,
 		Limit:           l.License.CheckChannelLimit,
-		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
 		// The calculation service opens after this one, so a fill reads it as it runs.
 		Fills: func(
@@ -1060,9 +1048,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	arcTable, err := arc.OpenTable(ctx, arc.TableConfig{
 		Instrumentation: cfg.Child("arc"),
 		DB:              cfg.Distribution.DB,
-		Parser: parser.Config{
-			AllowDashedNames: resolver.AllowDashedNames(l.Channel),
-		},
 	})
 	if !ok(err, arcTable) {
 		return nil, err

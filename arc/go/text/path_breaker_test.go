@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
@@ -138,17 +137,16 @@ var _ = Describe("Bare channel paths (breaker)", func() {
 		Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
 	})
 
-	It("C6 compiles a bare path with a dashed segment when dashed names are on", func(
+	It("C6 compiles a path with a dashed segment in quoted form", func(
 		ctx SpecContext,
 	) {
-		cfg := parser.Config{AllowDashedNames: true}
-		source := "func f() {\n    y := stand.pt-01\n}\nstand.trig -> f()\n"
+		source := "func f() {\n    y := 'stand.pt-01'\n}\nstand.trig -> f()\n"
 		root := NewRoot(nil, append(
 			[]symbol.Symbol{channel("stand.pt-01", types.Chan(types.F64()), 70)},
 			channels...,
 		)...)
-		parsed := MustSucceed(text.Parse(text.Text{Raw: source}, cfg))
-		_, diagnostics := text.Analyze(ctx, parsed, root, cfg)
+		parsed := MustSucceed(text.Parse(text.Text{Raw: source}))
+		_, diagnostics := text.Analyze(ctx, parsed, root)
 		Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	})
 

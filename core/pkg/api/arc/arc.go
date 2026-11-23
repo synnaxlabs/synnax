@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	arclang "github.com/synnaxlabs/arc"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
@@ -490,12 +489,7 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 			case arc.TextSource:
 				return s.compileText(ctx, src.Text, root)
 			case arc.GraphSource:
-				return arclang.CompileGraph(
-					ctx,
-					src.Graph,
-					root,
-					arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
-				)
+				return arclang.CompileGraph(ctx, src.Graph, root)
 			}
 			return arclang.Program{}, nil
 		})
@@ -583,12 +577,11 @@ func (s *Service) compileText(
 	t arctext.Text,
 	root *symbol.Symbol,
 ) (arclang.Program, error) {
-	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
-	parsed, diag := arctext.Parse(t, cfg)
+	parsed, diag := arctext.Parse(t)
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}
-	ir, diag := arctext.Analyze(ctx, parsed, root, cfg)
+	ir, diag := arctext.Analyze(ctx, parsed, root)
 	if diag != nil && !diag.Ok() {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}

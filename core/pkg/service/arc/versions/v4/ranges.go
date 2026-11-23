@@ -27,12 +27,12 @@ import (
 // typed argument not of the widest type is cast to it, signed when any argument is
 // signed. Untyped number arguments and the rest of src are kept. A call with an
 // argument whose type does not resolve is left unchanged, and so is a src that does not
-// parse. cfgs sets how names lex, as in parser.Parse.
-func CastRanges(ctx context.Context, src string, cfgs ...parser.Config) string {
+// parse.
+func CastRanges(ctx context.Context, src string) string {
 	// A cast can widen a loop variable that a later range() reads, so each pass casts
 	// one call and the next pass analyzes the result.
 	for {
-		next := castRanges(ctx, src, cfgs)
+		next := castRanges(ctx, src)
 		if next == src {
 			return src
 		}
@@ -40,19 +40,14 @@ func CastRanges(ctx context.Context, src string, cfgs ...parser.Config) string {
 	}
 }
 
-func castRanges(ctx context.Context, src string, cfgs []parser.Config) string {
-	t, diag := text.Parse(text.Text{Raw: src}, cfgs...)
+func castRanges(ctx context.Context, src string) string {
+	t, diag := text.Parse(text.Text{Raw: src})
 	if diag != nil {
 		return src
 	}
 	// A stored program can name channels and modules no root here resolves, so only
 	// the arguments that resolved are typed.
-	program, diag := text.Analyze(
-		ctx,
-		t,
-		symbol.NewRoot(nil, stl.NewSymbols()),
-		cfgs...,
-	)
+	program, diag := text.Analyze(ctx, t, symbol.NewRoot(nil, stl.NewSymbols()))
 	c := rangeCaster{types: program.TypeMap, diag: diag, insert: map[int]string{}}
 	antlr.ParseTreeWalkerDefault.Walk(&c, t.AST)
 	if len(c.insert) == 0 {

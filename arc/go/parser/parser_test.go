@@ -20,76 +20,25 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Dashed identifier lexing", func() {
-	tokens := func(src string, cfg parser.Config) []string {
-		lexer := parser.NewLexer(src, cfg)
-		lexer.RemoveErrorListeners()
-		var out []string
-		for _, t := range lexer.GetAllTokens() {
-			if t.GetChannel() == antlr.TokenDefaultChannel {
-				out = append(out, t.GetText())
+var _ = Describe("Dash lexing", func() {
+	DescribeTable("Should lex '-' as an operator and never as part of a name",
+		func(src string, want []string) {
+			lexer := parser.NewArcLexer(antlr.NewInputStream(src))
+			lexer.RemoveErrorListeners()
+			var out []string
+			for _, t := range lexer.GetAllTokens() {
+				if t.GetChannel() == antlr.TokenDefaultChannel {
+					out = append(out, t.GetText())
+				}
 			}
-		}
-		return out
-	}
-
-	Context("enabled", func() {
-		DescribeTable(
-			"'-' joins identifiers, but not '->'/'-=' or non-identifiers",
-			func(src string, want []string) {
-				Expect(
-					tokens(src, parser.Config{AllowDashedNames: true}),
-				).To(Equal(want))
-			},
-			Entry("internal dash", "a-b", []string{"a-b"}),
-			Entry(
-				"multiple dashes and digits",
-				"sensor-1-raw",
-				[]string{"sensor-1-raw"},
-			),
-			Entry("dash before digit", "a-1", []string{"a-1"}),
-			Entry("trailing dash", "log-", []string{"log-"}),
-			Entry("trailing dash before space", "a- b", []string{"a-", "b"}),
-			Entry("leading dash is MINUS", "-a", []string{"-", "a"}),
-			Entry("arrow stays intact", "a->b", []string{"a", "->", "b"}),
-			Entry("chained arrows", "a->b->c", []string{"a", "->", "b", "->", "c"}),
-			Entry("minus-assign stays intact", "a-=b", []string{"a", "-=", "b"}),
-			Entry("space before dash is MINUS", "a -b", []string{"a", "-", "b"}),
-			Entry("spaced subtraction", "a - b", []string{"a", "-", "b"}),
-			Entry("spaced arrow", "a -> b", []string{"a", "->", "b"}),
-			Entry("digits do not start a dashed name", "1-2", []string{"1", "-", "2"}),
-			Entry(
-				"dashed name then spaced subtraction",
-				"a-b - c",
-				[]string{"a-b", "-", "c"},
-			),
-			Entry(
-				"subtraction between dashed names",
-				"a-b - c-d",
-				[]string{"a-b", "-", "c-d"},
-			),
-			Entry("dashed name then arrow", "a-b->c", []string{"a-b", "->", "c"}),
-			Entry(
-				"dashed name then minus-assign",
-				"a-b-=c",
-				[]string{"a-b", "-=", "c"},
-			),
-			Entry("leading dash then dashed name", "-a-b", []string{"-", "a-b"}),
-			Entry("trailing dash then arrow", "a- ->b", []string{"a-", "->", "b"}),
-		)
-	})
-
-	Context("disabled", func() {
-		DescribeTable("'-' is always an operator",
-			func(src string, want []string) {
-				Expect(tokens(src, parser.Config{})).To(Equal(want))
-			},
-			Entry("dashed name splits", "a-b", []string{"a", "-", "b"}),
-			Entry("named channel splits", "sensor-1", []string{"sensor", "-", "1"}),
-			Entry("arrow unaffected", "a->b", []string{"a", "->", "b"}),
-			Entry("minus-assign unaffected", "a-=b", []string{"a", "-=", "b"}),
-		)
-	})
+			Expect(out).To(Equal(want))
+		},
+		Entry("a dashed name", "a-b", []string{"a", "-", "b"}),
+		Entry("a dashed name with digits", "sensor-1", []string{"sensor", "-", "1"}),
+		Entry("a trailing dash", "log-", []string{"log", "-"}),
+		Entry("an arrow", "a->b", []string{"a", "->", "b"}),
+		Entry("a minus-assign", "a-=b", []string{"a", "-=", "b"}),
+	)
 })
 
 var _ = Describe("Parser", func() {
@@ -822,7 +771,7 @@ any(ox_pt_1, ox_pt_2) -> average() -> ox_pt_avg`)
 		DescribeTable("CalleeTouchesParen",
 			func(code string, want bool) {
 				stream := antlr.NewCommonTokenStream(
-					parser.NewLexer(code, parser.Config{}),
+					parser.NewArcLexer(antlr.NewInputStream(code)),
 					antlr.TokenDefaultChannel,
 				)
 				Expect(parser.NewArcParser(stream).CalleeTouchesParen()).To(Equal(want))

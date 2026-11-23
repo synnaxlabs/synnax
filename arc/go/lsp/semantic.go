@@ -85,7 +85,7 @@ func (s *Server) SemanticTokensFull(
 	if !ok {
 		return &protocol.SemanticTokens{Data: []uint32{}}, nil
 	}
-	tokens := extractSemanticTokens(ctx, doc.Content, doc.IR, s.parserConfig())
+	tokens := extractSemanticTokens(ctx, doc.Content, doc.IR)
 	return &protocol.SemanticTokens{Data: tokens}, nil
 }
 
@@ -93,9 +93,8 @@ func extractSemanticTokens(
 	ctx context.Context,
 	content string,
 	docIR ir.IR,
-	cfg parser.Config,
 ) []uint32 {
-	allTokens := tokenizeContent(content, cfg)
+	allTokens := tokenizeContent(content)
 	importIdents := importContextIdents(allTokens)
 	channels := pathChannelIdents(ctx, allTokens, importIdents, docIR)
 	var tokens []lsp.Token
@@ -107,7 +106,7 @@ func extractSemanticTokens(
 		}
 		if t.GetTokenType() == parser.ArcLexerSTR_LITERAL ||
 			t.GetTokenType() == parser.ArcLexerSTR_LITERAL_MULTI {
-			tokens = append(tokens, expandStringToken(ctx, t, docIR, cfg)...)
+			tokens = append(tokens, expandStringToken(ctx, t, docIR)...)
 			continue
 		}
 		if isRoutingKey(allTokens, i) {
@@ -562,7 +561,6 @@ func expandStringToken(
 	ctx context.Context,
 	t antlr.Token,
 	docIR ir.IR,
-	cfg parser.Config,
 ) []lsp.Token {
 	f, ok := parseFormatString(t)
 	if !ok {
@@ -571,7 +569,6 @@ func expandStringToken(
 	e := fmtStrEmitter{
 		ctx:     ctx,
 		docIR:   docIR,
-		cfg:     cfg,
 		text:    f.text,
 		bodyOff: f.bodyOff,
 		at:      f.at,
@@ -639,9 +636,8 @@ func parseFormatString(t antlr.Token) (formatString, bool) {
 // parses it, and Offsets maps each of its bytes back to the source.
 func (f formatString) innerTokens(
 	seg literal.FmtStrSegment,
-	cfg parser.Config,
 ) ([]antlr.Token, [][2]int) {
-	inner := tokenizeContent(seg.Text, cfg)
+	inner := tokenizeContent(seg.Text)
 	runeStart := make([]int, 0, len(seg.Text)+1)
 	for i := range seg.Text {
 		runeStart = append(runeStart, i)
@@ -689,7 +685,6 @@ func plainStringTokens(t antlr.Token, prefixLen int) []lsp.Token {
 type fmtStrEmitter struct {
 	ctx     context.Context
 	docIR   ir.IR
-	cfg     parser.Config
 	text    string
 	at      []protocol.Position
 	bodyOff int
@@ -711,7 +706,7 @@ func (e *fmtStrEmitter) emit(a, b int, tt uint32) {
 
 // emitInner emits the classified tokens of the placeholder seg of f.
 func (e *fmtStrEmitter) emitInner(f formatString, seg literal.FmtStrSegment) {
-	inner, spans := f.innerTokens(seg, e.cfg)
+	inner, spans := f.innerTokens(seg)
 	for i, it := range inner {
 		if it.GetTokenType() == antlr.TokenEOF {
 			continue

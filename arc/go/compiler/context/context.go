@@ -49,8 +49,6 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	blockDepth int
 	// loopStack tracks active loops for break/continue label resolution.
 	loopStack []LoopEntry
-	// Config carries per-parse language settings (e.g. dashed channel names).
-	Config parser.Config
 	// LoopBudget is the index of the global that loop iterations and function calls
 	// take from.
 	LoopBudget uint32
@@ -76,7 +74,6 @@ func (ctx Context[P]) Child[ASTNode antlr.ParserRuleContext](
 		WriterID:         ctx.WriterID,
 		blockDepth:       ctx.blockDepth,
 		loopStack:        ctx.loopStack,
-		Config:           ctx.Config,
 		LoopBudget:       ctx.LoopBudget,
 	}
 }

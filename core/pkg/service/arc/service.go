@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/lsp"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
@@ -112,7 +111,6 @@ type ServiceConfig struct {
 		ctx context.Context,
 		automation AutomationArc,
 		root *symbol.Symbol,
-		opts ...arc.Option,
 	) (arc.Program, error)
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
@@ -220,7 +218,6 @@ func (s *Service) newRoot(
 		Paths:    paths,
 		Channels: channels,
 		Ambient:  standardSymbols,
-		Config:   parser.Config{AllowDashedNames: s.AllowDashedNames()},
 	})
 	return symbol.NewRoot(channels, standardSymbols(), symbol.WithModules(modules))
 }
@@ -254,9 +251,8 @@ func (s *Service) NewLSP(cfg LSPConfig) (*lsp.Server, error) {
 		return nil, err
 	}
 	return lsp.New(lsp.Config{
-		Instrumentation:  s.cfg.Child("lsp"),
-		NewRoot:          func() *symbol.Symbol { return s.newLSPRoot(cfg.Allowed) },
-		AllowDashedNames: s.AllowDashedNames(),
+		Instrumentation: s.cfg.Child("lsp"),
+		NewRoot:         func() *symbol.Symbol { return s.newLSPRoot(cfg.Allowed) },
 		OnRename: func(
 			ctx context.Context,
 			sym *symbol.Symbol,
@@ -353,12 +349,6 @@ func (s *Service) NewDirectoryRetrieve() directory.Retrieve {
 	return s.directories.NewRetrieve()
 }
 
-// AllowDashedNames reports whether Arc may treat '-' as an identifier character, which
-// is permitted exactly when channel-name validation is disabled.
-func (s *Service) AllowDashedNames() bool {
-	return resolver.AllowDashedNames(s.cfg.Channel)
-}
-
 // CompileProgram retrieves the automation with key and compiles its program. A module
 // is a validation error. CompileProgram returns resolver.ErrLookupsChanged when writes
 // changed what each of its compiles read, and the caller must try again.
@@ -383,7 +373,7 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 		snap gorp.Snapshot,
 		lookups *resolver.Lookups,
 	) (arc.Program, error) {
-		return s.compileWith(ctx, s.NewRoot(snap, lookups), automation)
+		return s.cfg.Compile(ctx, automation, s.NewRoot(snap, lookups))
 	})
 	if err != nil {
 		return AutomationArc{}, err
@@ -440,7 +430,7 @@ func (s *Service) buildIn(
 	root := s.NewRoot(snap, lookups)
 	switch v := a.Variant.(type) {
 	case AutomationArc:
-		b.program, b.err = s.compileWith(ctx, root, v)
+		b.program, b.err = s.cfg.Compile(ctx, v, root)
 		b.loaded = arctext.LoadedPaths(root)
 	case ModuleArc:
 		b.err = s.analyzeModule(ctx, root, v)
@@ -468,28 +458,16 @@ func (s *Service) retrieveHashed(
 	return a, hash, nil
 }
 
-// compileWith compiles the automation's source against root.
-func (s *Service) compileWith(
-	ctx context.Context,
-	root *symbol.Symbol,
-	automation AutomationArc,
-) (arc.Program, error) {
-	return s.cfg.Compile(
-		ctx, automation, root, arc.WithAllowDashedNames(s.AllowDashedNames()),
-	)
-}
-
 func compileSource(
 	ctx context.Context,
 	automation AutomationArc,
 	root *symbol.Symbol,
-	opts ...arc.Option,
 ) (arc.Program, error) {
 	switch src := automation.Source.Variant.(type) {
 	case TextSource:
-		return arc.CompileText(ctx, src.Text.Materialize(), root, opts...)
+		return arc.CompileText(ctx, src.Text.Materialize(), root)
 	case GraphSource:
-		return arc.CompileGraph(ctx, src.Graph, root, opts...)
+		return arc.CompileGraph(ctx, src.Graph, root)
 	}
 	return arc.Program{}, errors.Newf("automation %s has no source", automation.Key)
 }
@@ -531,14 +509,11 @@ func (s *Service) analyzeModule(
 	if !ok {
 		return errors.New("a module must be written as text")
 	}
-	cfg := parser.Config{AllowDashedNames: s.AllowDashedNames()}
-	parsed, diag := arctext.Parse(src.Text.Materialize(), cfg)
+	parsed, diag := arctext.Parse(src.Text.Materialize())
 	if diag != nil && !diag.Ok() {
 		return diag
 	}
-	if _, diag = arctext.AnalyzeModule(
-		ctx, parsed, root, cfg,
-	); diag != nil && !diag.Ok() {
+	if _, diag = arctext.AnalyzeModule(ctx, parsed, root); diag != nil && !diag.Ok() {
 		return diag
 	}
 	return nil

@@ -94,9 +94,7 @@ func preProcess(
 	cfg Config,
 	symbols arc.SymbolResolver,
 ) (arc.Program, error) {
-	ana := NewAnalyzer(symbols, parser.Config{
-		AllowDashedNames: resolver.AllowDashedNames(cfg.ChannelService),
-	})
+	ana := NewAnalyzer(symbols)
 	result, err := ana.AnalyzeExpression(
 		ctx,
 		cfg.Channel,
@@ -114,8 +112,7 @@ func preProcess(
 		Body: ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Calculation.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
-	return arc.CompileGraph(ctx, g, NewCalculationRoot(symbols),
-		arc.WithAllowDashedNames(resolver.AllowDashedNames(cfg.ChannelService)))
+	return arc.CompileGraph(ctx, g, NewCalculationRoot(symbols))
 }
 
 // outputType returns the type of the output of the calculation of cfg, which result
@@ -346,9 +343,7 @@ func compile(
 	cfg Config,
 	symbols arc.SymbolResolver,
 ) (Module, error) {
-	result, err := NewAnalyzer(symbols, parser.Config{
-		AllowDashedNames: resolver.AllowDashedNames(cfg.ChannelService),
-	}).AnalyzeExpression(
+	result, err := NewAnalyzer(symbols).AnalyzeExpression(
 		ctx,
 		cfg.Channel,
 		cfg.Calculation.Expression,
@@ -386,8 +381,7 @@ func compileAnalyzed(
 	if err := addReads(ctx, &g, symbols, result.Reads, result.Quoted); err != nil {
 		return Module{}, err
 	}
-	program, err := arc.CompileGraph(ctx, g, NewCalculationRoot(symbols),
-		arc.WithAllowDashedNames(resolver.AllowDashedNames(cfg.ChannelService)))
+	program, err := arc.CompileGraph(ctx, g, NewCalculationRoot(symbols))
 	if err != nil {
 		return Module{}, err
 	}
