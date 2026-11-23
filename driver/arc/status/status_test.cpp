@@ -568,6 +568,19 @@ TEST(SetsTest, ReportsRefusedSetsOnce) {
     );
 }
 
+/// @brief it should report a key that it failed to save.
+TEST(SetsTest, ReportsAKeyItFailedToSave) {
+    const auto path = std::filesystem::temp_directory_path() /
+                      ("missing_" + x::uuid::create().to_string()) / KEYS_FILE;
+    const auto reports = std::make_shared<Reports>();
+    Sets sets(ASSERT_NIL_P(Keys::open(path)), recordingReporter(reports));
+    sets.resolve("name", "key");
+    const auto calls = reports->snapshot();
+    ASSERT_EQ(calls.size(), 1u);
+    EXPECT_EQ(calls[0].message, KEY_FAILURE_MSG);
+    EXPECT_EQ(sets.key("name"), "key");
+}
+
 /// @brief it should give the error of a set the outbox failed to write.
 TEST(SetsTest, ReportsTheErrorOfAFailedWrite) {
     const auto reports = std::make_shared<Reports>();

@@ -2176,6 +2176,52 @@ TEST(ArcNoOutbox, FailsToStartSetWithoutKeys) {
     );
 }
 
+/// @brief it should fail to configure a task that sets a status when the keys file is
+/// damaged, and tell the user to move it aside.
+TEST(ArcNoOutbox, FactoryReportsDamagedKeys) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto keys_path = std::filesystem::temp_directory_path() /
+                           ("status_keys_" + x::uuid::create().to_string());
+    x::defer::defer remove([&] { std::filesystem::remove(keys_path); });
+    {
+        const auto keys = ASSERT_NIL_P(status::Keys::open(keys_path));
+        ASSERT_NIL(keys->set("a", "key_a"));
+    }
+    std::filesystem::resize_file(keys_path, std::filesystem::file_size(keys_path) - 1);
+    synnax::task::Task task_meta;
+    set_status_task(
+        client,
+        task_meta,
+        "import status\n\n"
+        "interval(period=50ms) -> status.set(\n"
+        "    key_or_name=\"damaged_keys\",\n"
+        "    message=\"m\",\n"
+        "    variant=\"info\"\n"
+        ")\n"
+    );
+    task_meta.type = TASK_TYPE;
+    const auto ctx = std::make_shared<task::MockContext>(
+        client,
+        outbox::testutil::open(client->statuses)
+    );
+    Factory factory(nullptr, keys_path, status::DEFAULT_MAX_KEYS);
+    x::breaker::Breaker cancel;
+    const auto [tsk, handled] = factory.configure_task(
+        ctx,
+        task_meta,
+        task::NO_COMMAND,
+        cancel
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 1);
+    EXPECT_NE(
+        statuses[0].description.find("Move " + keys_path.string() + " aside"),
+        std::string::npos
+    ) << statuses[0].description;
+}
+
 TEST(ArcEdgeCases, RapidStartStop) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 

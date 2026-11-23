@@ -106,7 +106,8 @@ Keys::open(const std::filesystem::path &path, const std::size_t max) {
     return {keys, x::errors::NIL};
 }
 
-x::errors::Error Keys::save() const {
+x::errors::Error
+Keys::save(const std::vector<std::pair<std::string, std::string>> &entries) const {
     const auto tmp = temp_path(this->path);
     std::error_code ec;
     std::filesystem::remove(tmp, ec);
@@ -118,12 +119,8 @@ x::errors::Error Keys::save() const {
         .sync_bytes = std::numeric_limits<std::uint64_t>::max(),
     });
     if (err) return err;
-    // The least recently used name goes first, so a load puts the last one first.
-    for (auto it = this->entries.rbegin(); it != this->entries.rend(); ++it)
-        if (err = writer->write(
-                {.type = KEY_TYPE, .payload = encode(it->first, it->second)}
-            );
-            err)
+    for (const auto &[name, key]: entries)
+        if (err = writer->write({.type = KEY_TYPE, .payload = encode(name, key)}); err)
             return err;
     if (err = writer->close(); err) return err;
     if (err = journal::replace(tmp, this->path); err) return err;
@@ -140,13 +137,19 @@ std::string Keys::get(const std::string &name) {
 }
 
 x::errors::Error Keys::set(const std::string &name, const std::string &key) {
-    std::lock_guard lock(this->mu);
-    if (const auto it = this->index.find(name);
-        it != this->index.end() && it->second->second == key) {
-        this->entries.splice(this->entries.begin(), this->entries, it->second);
-        return x::errors::NIL;
+    std::lock_guard save_lock(this->save_mu);
+    std::vector<std::pair<std::string, std::string>> entries;
+    {
+        std::lock_guard lock(this->mu);
+        if (const auto it = this->index.find(name);
+            it != this->index.end() && it->second->second == key) {
+            this->entries.splice(this->entries.begin(), this->entries, it->second);
+            return x::errors::NIL;
+        }
+        this->put(name, key);
+        // The least recently used name goes first, so a load puts the last one first.
+        entries.assign(this->entries.rbegin(), this->entries.rend());
     }
-    this->put(name, key);
-    return this->save();
+    return this->save(entries);
 }
 }
