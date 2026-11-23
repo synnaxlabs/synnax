@@ -34,6 +34,7 @@ var _ = Describe("Named retrieves", Ordered, func() {
 		readable, unreadable channel.Channel
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		chs := []channel.Channel{
 			{Name: UniqueChannelName(), DataType: telem.Float32T, Virtual: true},
 			{Name: UniqueChannelName(), DataType: telem.Float32T, Virtual: true},
