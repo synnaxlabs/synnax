@@ -352,7 +352,7 @@ JSON::Message::decode(const std::vector<std::optional<std::string_view>> &values
             if (!f.nan.has_value()) return wrap(err, "field " + f.name);
             dst.clear();
             dst.write(*f.nan);
-            this->filled.push_back({.binding = i, .error = std::move(err)});
+            this->filled.push_back({.binding = i, .error = err});
         } else if (f.generate != nullptr)
             f.generate(dst);
         else if (f.fallback.has_value())
