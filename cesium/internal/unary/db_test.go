@@ -127,7 +127,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			func(ctx SpecContext) {
 				Expect(db.Close()).To(Succeed())
 				Expect(
-					db.Delete(ctx, telem.TimeRange{}),
+					deleteRange(ctx, db, telem.TimeRange{}),
 				).To(MatchError(unary.ErrDBClosed))
 				Expect(db.GarbageCollect(ctx)).To(MatchError(unary.ErrDBClosed))
 				Expect(

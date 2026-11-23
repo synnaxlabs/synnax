@@ -58,8 +58,7 @@ func loadV55(fixture string) v0.Log {
 // randomizes its message wording per process, so the match reads the error's fields.
 func decodeError(pointer jsontext.Pointer, goType reflect.Type) types.GomegaMatcher {
 	return WithTransform(func(err error) *json.SemanticError {
-		var semErr *json.SemanticError
-		errors.As(err, &semErr)
+		semErr, _ := errors.AsType[*json.SemanticError](err)
 		return semErr
 	}, And(
 		Not(BeNil()),

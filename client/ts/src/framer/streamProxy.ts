@@ -9,7 +9,7 @@
 
 import { EOF, type Stream } from "@synnaxlabs/freighter";
 import { errors } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { UnexpectedError } from "@/errors";
 

@@ -9,13 +9,12 @@
 
 // @vitest-environment node
 
-import reactRenderer from "@astrojs/react/server.js";
-import { experimental_AstroContainer } from "astro/container";
-import { type Element, type Root } from "hast";
+import type { Element, Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { describe, expect, it } from "vitest";
 
 import Header from "@/components/layout/Header.astro";
+import { createContainer } from "@/testutil/container";
 import { resolve, ROOT, type Version } from "@/util/version";
 
 const elements = (node: Root | Element): Element[] =>
@@ -32,8 +31,7 @@ const text = (node: Element): string =>
     .trim();
 
 const render = async (version: Version | null = null): Promise<Element[]> => {
-  const container = await experimental_AstroContainer.create();
-  container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
+  const container = await createContainer();
   const html = await container.renderToString(Header, {
     props: { version },
     request: new Request("https://docs.synnaxlabs.com/reference/"),
@@ -111,6 +109,15 @@ describe("Header", () => {
     expect(hrefs(await render(resolve("0.60", ["0.60"], "0.60.1")), "Blog")).toEqual([
       "/blog/",
       "/blog/",
+    ]);
+  });
+
+  it("should hydrate search on interaction, with K as its hotkey", async () => {
+    const islands = (await render()).filter(
+      ({ tagName }) => tagName === "astro-island",
+    );
+    expect(islands.map(({ properties: { client, opts } }) => [client, opts])).toEqual([
+      ["interaction", JSON.stringify({ name: "S", value: "k" })],
     ]);
   });
 

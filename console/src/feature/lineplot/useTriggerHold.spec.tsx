@@ -10,7 +10,7 @@
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { client, project } from "@/feature/lineplot/testutil";

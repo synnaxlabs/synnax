@@ -12,8 +12,9 @@ prints the vulnerabilities as SARIF.
 
 Usage: security_osv.py, from the repository root.
 
-Checks each Git submodule by its commit, and each Bazel module in BAZEL by its release
-tag. OSV has no Git data for the other Bazel modules.
+Checks each Git submodule by its commit, each Bazel module in BAZEL by its release
+tag, and the prebuilt wasmtime by its crate version. OSV has no Git data for the other
+Bazel modules.
 """
 
 import json
@@ -27,11 +28,12 @@ from typing import Any
 OSV_URL = "https://api.osv.dev/v1/query"
 # Bazel module name to its upstream repository and its release tag for a version.
 BAZEL = {
+    "boringssl": ("https://boringssl.googlesource.com/boringssl", "{}"),
     "cpp-httplib": ("https://github.com/yhirose/cpp-httplib.git", "v{}"),
     "curl": ("https://github.com/curl/curl.git", "curl-{}"),
     "grpc": ("https://github.com/grpc/grpc.git", "v{}"),
-    "openssl": ("https://github.com/openssl/openssl.git", "openssl-{}"),
 }
+WASMTIME_VERSION = re.compile(r'^WASMTIME_VERSION = "([^"]+)"', re.MULTILINE)
 BAZEL_DEP = re.compile(
     r'bazel_dep\(\s*name\s*=\s*"([^"]+)"\s*,\s*version\s*=\s*"([^"]+)"'
 )
@@ -55,6 +57,11 @@ def queries(module: str, gitlinks: str) -> list[tuple[str, str, dict[str, Any]]]
         package = {"name": BAZEL[name][0], "ecosystem": "GIT"}
         query = {"package": package, "version": tag(name, versions[name])}
         found.append(("MODULE.bazel", f"{name} {versions[name]}", query))
+    if not (wasmtime := WASMTIME_VERSION.search(module)):
+        raise ValueError("MODULE.bazel has no WASMTIME_VERSION")
+    crate = {"name": "wasmtime", "ecosystem": "crates.io"}
+    query = {"package": crate, "version": wasmtime[1]}
+    found.append(("MODULE.bazel", f"wasmtime {wasmtime[1]}", query))
     for line in gitlinks.splitlines():
         mode, commit, _, path = line.split(maxsplit=3)
         if mode == "160000":

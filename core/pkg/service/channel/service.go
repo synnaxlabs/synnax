@@ -331,7 +331,7 @@ func calculationReads(
 		return nil, nil
 	}
 	result, err := analyzer.Analyze(ctx, ch)
-	if errors.As(err, new(*diagnostics.Diagnostics)) {
+	if _, ok := errors.AsType[*diagnostics.Diagnostics](err); ok {
 		return nil, nil
 	}
 	if err != nil {
@@ -371,8 +371,8 @@ func (r channelResolver) Resolve(
 	return facts, nil
 }
 
-// ChannelResolver returns the resolver the distribution framer writer uses for the
-// records of free and virtual channels.
+// Resolver returns the resolver the distribution framer writer uses for the records of
+// free and virtual channels.
 func (s *Service) Resolver() writer.ChannelResolver {
 	return channelResolver{svc: s}
 }

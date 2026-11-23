@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Pair } from "@/ranger/kv/types.gen";
+import type { Pair } from "@/ranger/kv/types.gen";
 
 export const SET_CHANNEL_NAME = "sy_range_kv_set";
 export const DELETE_CHANNEL_NAME = "sy_range_kv_delete";

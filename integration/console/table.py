@@ -183,6 +183,13 @@ class Table(ConsolePage):
         cell_index = row * self.get_column_count() + col
         return cells.nth(cell_index)
 
+    def expect_fill(self, row: int, col: int, rgb: tuple[int, int, int]) -> None:
+        """Wait until the cell paints its fill in the given color."""
+        r, g, b = rgb
+        expect(self._get_cell(row, col)).to_have_css(
+            "background-color", f"rgb({r}, {g}, {b})"
+        )
+
     def _get_indicator(self, direction: str, index: int) -> Locator:
         """Get a locator for the indicator of the row ("y") or column ("x") at index."""
         return self.page.locator(f'td[id^="resizer-{direction}-"]').nth(index)

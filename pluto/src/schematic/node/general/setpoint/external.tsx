@@ -7,26 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type ReactElement } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { colorFallbacks, SetpointForm } from "@/schematic/node/general/setpoint/Form";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { Symbol } from "@/schematic/node/general/setpoint/Symbol";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 
 const Preview = ({
   label: _label,
+  fillColor,
   ...rest
-}: schematic.SetpointNodeConfig): ReactElement => (
-  <Setpoint
-    {...rest}
-    onSend={() => {}}
-    className={CSS.BM("setpoint", "preview")}
-    disabled
-  />
-);
+}: schematic.SetpointNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <Setpoint
+      {...rest}
+      fillColor={resolve(fillColor)}
+      onSend={() => {}}
+      className={CSS.BM("setpoint", "preview")}
+      disabled
+    />
+  );
+};
 
 export const spec: Spec<"setpoint", schematic.SetpointNodeConfig> = {
   key: "setpoint",
