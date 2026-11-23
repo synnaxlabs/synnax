@@ -236,9 +236,9 @@ func (c CoreConfig) resolveSecretsKey() (secret.EncryptionKey, error) {
 	return secret.LoadEncryptionKey(filepath.Join(c.dataPath, secretsKeyFileName))
 }
 
-// storageStopTimeout bounds the whole stop of the layer lifetimes at shutdown: the wait
-// for each Run to return and for each Close.
-const storageStopTimeout = 20 * time.Second
+// stopTimeout bounds the whole stop of the layer lifetimes at shutdown: the wait for
+// each Run to return and for each Close.
+const stopTimeout = 20 * time.Second
 
 // BootupCore contains the most important Core startup logic. It does and should not
 // read any variables from viper, and instead should be called with  fully configured
@@ -295,17 +295,16 @@ func BootupCore(
 	}
 	defer func() {
 		err = errors.Combine(err, closer.Close())
-		ctx, cancel := context.WithTimeout(root, storageStopTimeout)
+		ctx, cancel := context.WithTimeout(root, stopTimeout)
 		defer cancel()
 		stopErr := lifetimes.Stop(ctx)
 		// A failed run is the cause of the errors it leads to, so it comes first.
 		err = errors.Combine(stopErr, err)
-		// The storage layer may still run, so it stays open, and the next start undoes
+		// A storage layer that did not close stays as it is, and the next start undoes
 		// the update.
-		if errors.Is(stopErr, context.DeadlineExceeded) {
-			return
-		}
-		if update != nil && (err != nil || stop.Err() != nil) {
+		if update != nil &&
+			lifetimes.Closed("storage") &&
+			(err != nil || stop.Err() != nil) {
 			err = update.Undo(stop, errors.Combine(err, stop.Err()))
 		}
 	}()

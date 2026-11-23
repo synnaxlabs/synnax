@@ -253,11 +253,51 @@ var _ = Describe("Stack", func() {
 			defer cancel()
 			err := s.Stop(stopCtx)
 			Expect(err).To(MatchError(context.DeadlineExceeded))
-			Expect(err).To(MatchError(ContainSubstring("service did not close")))
-			Expect(err).ToNot(MatchError(ContainSubstring("storage did not close")))
+			Expect(err).To(MatchError(ContainSubstring(
+				"service did not close, 1 older lifetimes left open",
+			)))
+			Expect(err).ToNot(MatchError(ContainSubstring("storage")))
 			Eventually(storageDone).Should(BeClosed())
 			Expect(storageClosed).To(BeFalse())
+			Expect(s.Closed("storage")).To(BeFalse())
 		})
+	})
+
+	Describe("Closed", func() {
+		run := func(ctx context.Context) error {
+			<-ctx.Done()
+			return nil
+		}
+		It("reports a lifetime whose closer returned nil", func(ctx SpecContext) {
+			s := lifetime.NewStack()
+			s.Go(ctx, "storage", run, func() error { return nil })
+			Expect(s.Stop(ctx)).To(Succeed())
+			Expect(s.Closed("storage")).To(BeTrue())
+		})
+
+		It("does not report a lifetime whose closer panicked", func(ctx SpecContext) {
+			s := lifetime.NewStack()
+			s.Go(ctx, "storage", run, func() error { panic("disk gone") })
+			Expect(s.Stop(ctx)).
+				To(MatchError(ContainSubstring("storage close: panic: disk gone")))
+			Expect(s.Closed("storage")).To(BeFalse())
+		})
+
+		It(
+			"reports a lifetime that closed after a newer closer failed with a deadline",
+			func(
+				ctx SpecContext,
+			) {
+				s := lifetime.NewStack()
+				storage := s.Go(ctx, "storage", run, func() error { return nil })
+				s.Go(storage, "service", run, func() error {
+					return errors.Wrap(context.DeadlineExceeded, "flush")
+				})
+				Expect(s.Stop(ctx)).To(MatchError(context.DeadlineExceeded))
+				Expect(s.Closed("storage")).To(BeTrue())
+				Expect(s.Closed("service")).To(BeFalse())
+			},
+		)
 	})
 
 	Describe("Failed", func() {
