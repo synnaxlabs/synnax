@@ -73,8 +73,8 @@ func (db *DB) SetIndex(idx *index.Domain) { db.idx = idx }
 // starting at ts with. When a writer holds the region covering ts, the cursor is that
 // writer's next write position, so the indexed channel lands in the same sample space
 // as the timestamps it is being written against. Otherwise a fresh leading domain is
-// reserved, keeping the data ordered after everything already persisted. It returns
-// telem.ErrAlignmentsExhausted when no leading domain is left.
+// reserved, keeping the data ordered after everything already persisted. It fails when
+// no leading domain is left.
 func (db *DB) WriteCursor(ts telem.TimeStamp) (telem.Alignment, error) {
 	if cw, ok := db.claims.ResourceAt(ts.Range(ts + 1)); ok {
 		return cw.loadAlignment(), nil
@@ -110,31 +110,14 @@ func (db *DB) Size() telem.Size { return db.domain.Size() }
 // still be marked closed and no read/write operations are allowed on it to protect data
 // integrity.
 func (db *DB) Close() error {
-	if err := db.MarkClosed(); err != nil {
-		return errors.Skip(err, ErrDBClosed)
-	}
-	return db.Release()
-}
-
-// MarkClosed marks the database closed, so that it refuses new writers and iterators.
-// It returns an error wrapping resource.ErrOpen and leaves the database open if a
-// writer, iterator, or delete is open, or ErrDBClosed if the database is already
-// closed. After a nil error, call Release or UnmarkClosed.
-func (db *DB) MarkClosed() error {
 	if !db.closed.CompareAndSwap(false, true) {
-		return db.wrapError(ErrDBClosed)
+		return nil
 	}
 	if err := db.domain.MarkClosed(); err != nil {
 		db.closed.Store(false)
 		return db.wrapError(err)
 	}
-	return nil
-}
-
-// UnmarkClosed opens a database that MarkClosed marked closed.
-func (db *DB) UnmarkClosed() {
-	db.domain.UnmarkClosed()
-	db.closed.Store(false)
+	return db.wrapError(db.domain.Release())
 }
 
 // Drop marks the database closed, then frees its files and runs free once no writer,
@@ -144,6 +127,3 @@ func (db *DB) Drop(free func() error) error {
 	db.closed.Store(true)
 	return db.wrapError(db.domain.Drop(free))
 }
-
-// Release frees the files of a database that MarkClosed marked closed.
-func (db *DB) Release() error { return db.wrapError(db.domain.Release()) }
