@@ -432,6 +432,25 @@ var _ = Describe("Service", func() {
 			Expect(got.CertificatePath).To(Equal("/var/lib/synnax/next.der"))
 			Expect(got.Details).To(Equal(&details))
 		})
+		It("Should let a rack clear the details of a file certificate on it",
+			func(ctx SpecContext) {
+				r := createRack(ctx)
+				c := createFileCertificate(ctx, r.Key)
+				MustSucceed(set(SubjectCtx(ctx, r.Key.ResourceID()),
+					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
+						Key:             c.Base().Key,
+						Source:          secret.SourceFile,
+						Name:            "Driver",
+						CertificatePath: "/var/lib/synnax/driver.der",
+						Rack:            r.Key,
+					}}},
+				))
+				got, ok := retrieveCertificate(ctx, c.Base().Key).
+					Variant.(certificate.FileCertificate)
+				Expect(ok).To(BeTrue())
+				Expect(got.Details).To(BeNil())
+			},
+		)
 		It("Should deny a rack moving a file certificate on it to another rack",
 			func(ctx SpecContext) {
 				r := createRack(ctx)
