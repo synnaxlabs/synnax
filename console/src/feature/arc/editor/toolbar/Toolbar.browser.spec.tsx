@@ -154,7 +154,6 @@ describe("arc editor toolbar", () => {
 
     it("shows an edit that another client makes to the selected node", async () => {
       const a = await renderNodeForm();
-      await waitForStreamLive(client.connection);
       const remote = createTestClient();
       await remote.arcs.retrieve(a.key);
       await act(async () => {

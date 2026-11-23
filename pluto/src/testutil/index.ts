@@ -11,5 +11,6 @@ export * from "@/aether/testutil";
 export * from "@/testutil/Aether";
 export * from "@/testutil/form";
 export * from "@/testutil/render";
+export * from "@/testutil/select";
 export * from "@/testutil/Synnax";
 export * from "@synnaxlabs/lyra/testutil";

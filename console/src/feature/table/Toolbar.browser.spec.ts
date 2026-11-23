@@ -124,7 +124,6 @@ describe("table/Toolbar", () => {
       tableState: { selectedCells: ["a"], lastSelected: "a" },
     });
     await screen.findByDisplayValue("Cell A");
-    await waitForStreamLive(client.connection);
     const remote = createTestClient();
     await remote.tables.retrieve(key);
     await act(async () => {

@@ -17,6 +17,7 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/number.h"
+#include "x/cpp/json/text.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -252,5 +253,28 @@ TEST(NumberToString, PrintsExponentForm) {
 TEST(NumberToString, PrintsParsedIntegerExactly) {
     const auto n = ASSERT_NIL_P(Number::parse("1e2"));
     ASSERT_EQ(n.to_string(), "100");
+}
+
+/// @brief it should parse a decimal number as the nearest double.
+TEST(ParseFloat64, Parses) {
+    EXPECT_EQ(ASSERT_NIL_P(parse_float64("-122.41941550000")), -122.4194155);
+    EXPECT_EQ(ASSERT_NIL_P(parse_float64("1e3")), 1000);
+    EXPECT_EQ(ASSERT_NIL_P(parse_float64(".5")), 0.5);
+    EXPECT_EQ(ASSERT_NIL_P(parse_float64("+7")), 7);
+    EXPECT_EQ(
+        ASSERT_NIL_P(parse_float64("18446744073709551617")),
+        18446744073709551616.0
+    );
+    EXPECT_EQ(ASSERT_NIL_P(parse_float64("1e-400")), 0);
+}
+
+/// @brief it should reject text that is not a decimal number or is past the range of a
+/// double.
+TEST(ParseFloat64, Rejects) {
+    for (const auto *text: {"", "nan", "inf", "0x10", "1e999", "1.2.3", " 1"}) {
+        const auto [v, err] = parse_float64(text);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        EXPECT_EQ(err.data, "invalid number " + quote(text));
+    }
 }
 }

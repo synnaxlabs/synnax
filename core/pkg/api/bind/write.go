@@ -145,17 +145,9 @@ func unchanged[RS any](tx gorp.Tx, res RS) []resource.ID {
 // check returns an error wrapping access.ErrDenied when the subject of ctx cannot make
 // the changes of tx or read sources.
 func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) error {
-	needs := make(map[access.Action][]resource.ID, len(access.AllActions))
+	needs := make(accessNeeds, len(access.AllActions))
 	needs[access.ActionRetrieve] = slices.Clone(sources)
 	subject := auth.GetSubject(ctx)
-	need := func(action access.Action, target gorp.Target) error {
-		id, ok := resourceOf(target)
-		if !ok {
-			return errors.Newf("[bind] - table %s has no resource type", target.Table)
-		}
-		needs[action] = append(needs[action], id)
-		return nil
-	}
 	changes := gorp.ChangesOf(tx)
 	createdOrDeleted := make(set.Set[gorp.Target], len(changes))
 	for _, c := range changes {
@@ -164,54 +156,10 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 		}
 	}
 	for _, c := range changes {
-		// owner is zero for a record with a resource type.
-		var owner gorp.Target
-		owned := s.owned(c, subject)
-		if _, ok := resourceOf(c.Record); ok {
-			if !owned {
-				if err := need(actionOf(c.Kind), c.Record); err != nil {
-					return err
-				}
-			}
-		} else {
-			var err error
-			if owner, err = ownerOf(c); err != nil {
-				return err
-			}
-			if action, ok := s.ownerAction(c, owner, subject, createdOrDeleted); ok {
-				if err = need(action, owner); err != nil {
-					return err
-				}
-			}
-		}
-		if err := s.checkVouched(ctx, tx, subject, c); err != nil {
+		if err := s.changeNeeds(
+			ctx, tx, subject, c, createdOrDeleted, needs,
+		); err != nil {
 			return err
-		}
-		for _, l := range c.Added {
-			if l.Target == owner || createdOrDeleted.Contains(l.Target) {
-				continue
-			}
-			action := addedLinkAction(l.Kind)
-			if owned && s.ownedPlace(l) {
-				action = access.ActionRetrieve
-			}
-			if err := need(action, l.Target); err != nil {
-				return err
-			}
-		}
-		for _, l := range c.Removed {
-			if l.Kind != gorp.Place ||
-				l.Target == owner ||
-				createdOrDeleted.Contains(l.Target) {
-				continue
-			}
-			action := access.ActionUpdate
-			if owned && s.ownedPlace(l) {
-				action = access.ActionRetrieve
-			}
-			if err := need(action, l.Target); err != nil {
-				return err
-			}
 		}
 	}
 	// The write lock holds commits off, and committed policies decide, so a write
@@ -227,6 +175,106 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 			Action:  action,
 			Objects: lo.Uniq(objects),
 		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// accessNeeds maps each action to the resources that a write needs it on.
+type accessNeeds map[access.Action][]resource.ID
+
+// add records that a write needs action on the resource of target. It returns an error
+// when the table of target has no resource type.
+func (n accessNeeds) add(action access.Action, target gorp.Target) error {
+	id, ok := resourceOf(target)
+	if !ok {
+		return errors.Newf("[bind] - table %s has no resource type", target.Table)
+	}
+	n[action] = append(n[action], id)
+	return nil
+}
+
+// changeNeeds adds the access that subject needs to make c to needs.
+func (s *Service) changeNeeds(
+	ctx context.Context,
+	tx gorp.Tx,
+	subject resource.ID,
+	c gorp.Change,
+	createdOrDeleted set.Set[gorp.Target],
+	needs accessNeeds,
+) error {
+	owned := s.owned(c, subject)
+	owner, err := s.recordNeeds(c, owned, subject, createdOrDeleted, needs)
+	if err != nil {
+		return err
+	}
+	if err := s.checkVouched(ctx, tx, subject, c); err != nil {
+		return err
+	}
+	return s.linkNeeds(c, owner, owned, createdOrDeleted, needs)
+}
+
+// recordNeeds adds the access that subject needs on the record of c, or on its owner
+// for a record with no resource type, to needs. It returns the owner, which is zero for
+// a record with a resource type.
+func (s *Service) recordNeeds(
+	c gorp.Change,
+	owned bool,
+	subject resource.ID,
+	createdOrDeleted set.Set[gorp.Target],
+	needs accessNeeds,
+) (gorp.Target, error) {
+	if _, ok := resourceOf(c.Record); ok {
+		if owned {
+			return gorp.Target{}, nil
+		}
+		return gorp.Target{}, needs.add(actionOf(c.Kind), c.Record)
+	}
+	owner, err := ownerOf(c)
+	if err != nil {
+		return gorp.Target{}, err
+	}
+	if action, ok := s.ownerAction(c, owner, subject, createdOrDeleted); ok {
+		if err = needs.add(action, owner); err != nil {
+			return gorp.Target{}, err
+		}
+	}
+	return owner, nil
+}
+
+// linkNeeds adds the access that the links c adds and removes need to needs. A link to
+// owner or to a record that the write creates or deletes needs none.
+func (s *Service) linkNeeds(
+	c gorp.Change,
+	owner gorp.Target,
+	owned bool,
+	createdOrDeleted set.Set[gorp.Target],
+	needs accessNeeds,
+) error {
+	for _, l := range c.Added {
+		if l.Target == owner || createdOrDeleted.Contains(l.Target) {
+			continue
+		}
+		action := addedLinkAction(l.Kind)
+		if owned && s.ownedPlace(l) {
+			action = access.ActionRetrieve
+		}
+		if err := needs.add(action, l.Target); err != nil {
+			return err
+		}
+	}
+	for _, l := range c.Removed {
+		if l.Kind != gorp.Place ||
+			l.Target == owner ||
+			createdOrDeleted.Contains(l.Target) {
+			continue
+		}
+		action := access.ActionUpdate
+		if owned && s.ownedPlace(l) {
+			action = access.ActionRetrieve
+		}
+		if err := needs.add(action, l.Target); err != nil {
 			return err
 		}
 	}

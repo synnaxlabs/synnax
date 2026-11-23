@@ -114,10 +114,15 @@ const renderTriggers = async (ui?: ReactNode) => {
 
 // The Core-writing shortcuts need a panel that exists on the Core. The triggers mount
 // above every panel scope, the way the app shell mounts them.
-const renderLiveTriggers = async (panelKey: panel.Key, as: Client = client) => {
+const renderLiveTriggers = async (
+  panelKey: panel.Key,
+  as: Client = client,
+  skipPermissionLoad?: boolean,
+) => {
   const { wrapper: Panels, store } = await createPanelWrapper({
     client: as,
     project: await createPanelProject(client),
+    skipPermissionLoad,
   });
   await primePanel(Panels, panelKey);
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -294,7 +299,7 @@ describe("app/triggers", () => {
         client,
         { retrieve: [panel.TYPE_RESOURCE_ID], update: [panel.TYPE_RESOURCE_ID] },
       );
-      const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor);
+      const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor, true);
       focusTab(store, pan.key, closed.key);
       expect(canEditPanel()).toBeUndefined();
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -319,7 +324,7 @@ describe("app/triggers", () => {
         retrieve: [panel.TYPE_RESOURCE_ID],
         update: [panel.TYPE_RESOURCE_ID],
       });
-      const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor);
+      const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor, true);
       expect(canEditPanel()).toBeUndefined();
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       act(() => hold(CONTROL, "KeyW"));

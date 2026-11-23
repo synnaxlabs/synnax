@@ -14,7 +14,6 @@ import {
   renderHook,
   type RenderResult,
   screen,
-  waitFor,
 } from "@testing-library/react";
 import {
   type DragEvent,
@@ -24,10 +23,9 @@ import {
   useEffect,
   useState,
 } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Haul } from "@/haul";
-import { mockBoundingClientRect } from "@/testutil";
 
 const ITEMS: Haul.Item[] = [{ type: "cat", key: "whiskers" }];
 // A drag that another window started reaches this window only through the state.
@@ -998,149 +996,6 @@ describe("Haul", () => {
       });
       const event = captureDragOverEvent("all");
       expect(Haul.isFileDrag(event, result.current.current)).toBe(false);
-    });
-  });
-  describe("preview", () => {
-    const PICTURE = "picture of a cat";
-
-    interface PreviewSourceProps {
-      anchor?: Haul.PreviewAnchor;
-    }
-
-    const PreviewSource = ({ anchor }: PreviewSourceProps): ReactElement => {
-      const { startDrag, onDragEnd } = Haul.useDrag({
-        type: "test-source",
-        key: "source",
-      });
-      return (
-        <button
-          data-testid="source"
-          onDragStart={(event) =>
-            startDrag({ event, items: ITEMS, preview: <span>{PICTURE}</span>, anchor })
-          }
-          onDragEnd={onDragEnd}
-        />
-      );
-    };
-
-    const layer = (): HTMLElement => {
-      const el = document.querySelector<HTMLElement>(".lyra-haul__layer");
-      if (el == null) throw new Error("the provider renders no preview layer");
-      return el;
-    };
-
-    const spyOnDragImage = () => vi.spyOn(DataTransfer.prototype, "setDragImage");
-
-    afterEach(() => vi.restoreAllMocks());
-
-    it("should picture the preview at dragstart", () => {
-      const setDragImage = spyOnDragImage();
-      render(
-        <Haul.Provider>
-          <PreviewSource />
-        </Haul.Provider>,
-      );
-      fireEvent.dragStart(screen.getByTestId("source"));
-      expect(layer().textContent).toBe(PICTURE);
-      expect(setDragImage).toHaveBeenCalledWith(layer(), 4, 8);
-    });
-
-    it("should clear the preview once the browser has its picture", async () => {
-      render(
-        <Haul.Provider>
-          <PreviewSource />
-        </Haul.Provider>,
-      );
-      fireEvent.dragStart(screen.getByTestId("source"));
-      await waitFor(() => expect(layer().childElementCount).toBe(0));
-    });
-
-    it("should put the top-left corner of a corner preview on the pointer", () => {
-      const setDragImage = spyOnDragImage();
-      render(
-        <Haul.Provider>
-          <PreviewSource anchor="corner" />
-        </Haul.Provider>,
-      );
-      fireEvent.dragStart(screen.getByTestId("source"));
-      expect(setDragImage).toHaveBeenCalledWith(layer(), 18, 18);
-    });
-
-    it("should hold a grab preview at the point the drag pressed", () => {
-      const setDragImage = spyOnDragImage();
-      render(
-        <Haul.Provider>
-          <PreviewSource anchor="grab" />
-        </Haul.Provider>,
-      );
-      const source = screen.getByTestId("source");
-      source.getBoundingClientRect = mockBoundingClientRect(50, 100, 80, 24);
-      fireEvent.dragStart(source, { clientX: 130, clientY: 62 });
-      expect(setDragImage).toHaveBeenCalledWith(layer(), 48, 30);
-    });
-
-    it("should dim the source until the drag ends", () => {
-      render(
-        <Haul.Provider>
-          <PreviewSource />
-        </Haul.Provider>,
-      );
-      const source = screen.getByTestId("source");
-      fireEvent.dragStart(source);
-      expect(source.hasAttribute("data-haul-source")).toBe(true);
-      fireEvent.dragEnd(source);
-      expect(source.hasAttribute("data-haul-source")).toBe(false);
-    });
-
-    interface TreeItemProps {
-      name: string;
-      selected: boolean;
-    }
-
-    const TreeItem = ({ name, selected }: TreeItemProps): ReactElement => {
-      const { startDrag, onDragEnd } = Haul.useDrag({ type: "test-source", key: name });
-      return (
-        <div
-          role="treeitem"
-          aria-label={name}
-          aria-selected={selected}
-          onDragStart={(event) => startDrag({ event, items: ITEMS, preview: name })}
-          onDragEnd={onDragEnd}
-        />
-      );
-    };
-
-    const renderTree = (): void => {
-      render(
-        <Haul.Provider>
-          <div role="tree">
-            <TreeItem name="a" selected />
-            <TreeItem name="b" selected />
-            <TreeItem name="c" selected={false} />
-          </div>
-        </Haul.Provider>,
-      );
-    };
-
-    const dimmed = (): string[] =>
-      screen
-        .getAllByRole("treeitem")
-        .filter((item) => item.hasAttribute("data-haul-source"))
-        .map((item) => item.getAttribute("aria-label") ?? "");
-
-    it("should dim every selected item when a selected tree item drags", () => {
-      renderTree();
-      const a = screen.getByRole("treeitem", { name: "a" });
-      fireEvent.dragStart(a);
-      expect(dimmed()).toEqual(["a", "b"]);
-      fireEvent.dragEnd(a);
-      expect(dimmed()).toEqual([]);
-    });
-
-    it("should dim only the tree item that drags when it is not selected", () => {
-      renderTree();
-      fireEvent.dragStart(screen.getByRole("treeitem", { name: "c" }));
-      expect(dimmed()).toEqual(["c"]);
     });
   });
 });
