@@ -651,7 +651,12 @@ func (s *Server) quotedChannels(
 	replace protocol.Range,
 	escape func(string) (string, bool),
 ) []protocol.CompletionItem {
-	prefix := text[:quote] + parser.DecodeChannelName("'"+text[quote+1:]+"'")
+	name := text[quote+1:]
+	// An unpaired backslash before the cursor starts an escape that is not typed yet.
+	if tail := len(name) - len(strings.TrimRight(name, `\`)); tail%2 == 1 {
+		name = name[:len(name)-1]
+	}
+	prefix := text[:quote] + parser.DecodeChannelName("'"+name+"'")
 	seen := make(set.Set[string])
 	var items []protocol.CompletionItem
 	add := func(symbols []*symbol.Symbol) {

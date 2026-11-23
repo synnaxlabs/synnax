@@ -988,6 +988,14 @@ var _ = Describe("Completion", func() {
 			Expect(completions.Items[0].Label).To(Equal("ox-pt-1"))
 		})
 
+		It("should complete after a backslash that starts an escape", func(
+			ctx SpecContext,
+		) {
+			OpenArcDocument(server, ctx, docURI, "func f() {\n    x := 'ox\\\n}")
+			completions := Completion(server, ctx, docURI, 1, 13)
+			Expect(HasCompletion(completions.Items, "ox-pt-1")).To(BeTrue())
+		})
+
 		Describe("after an edit", func() {
 			const code = "func f() {\n    o_local f64 := 1.0\n    y := 1\n    x := o\n}"
 
