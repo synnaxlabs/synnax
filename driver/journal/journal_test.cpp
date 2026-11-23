@@ -924,6 +924,14 @@ TEST_F(JournalTest, OffsetWithWrongLengthIsCorrupt) {
     ASSERT_OCCURRED_AS_P(read_offset(offset_path, OFFSET), CORRUPT);
 }
 
+/// @brief it should return UNKNOWN_TYPE for an unknown record after the offset.
+TEST_F(JournalTest, OffsetWithUnknownRecordIsUnknownType) {
+    const auto offset_path = this->dir / "0.offset";
+    ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 1, .pos = 20}));
+    append_file(offset_path, encode(2, "new"));
+    ASSERT_OCCURRED_AS_P(read_offset(offset_path, OFFSET), UNKNOWN_TYPE);
+}
+
 /// @brief it should return UNKNOWN_MAGIC for a file that is not an offset file.
 TEST_F(JournalTest, OffsetWithBadMagicIsUnknownMagic) {
     this->write({});

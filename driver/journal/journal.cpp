@@ -484,7 +484,8 @@ read_offset(const std::filesystem::path &path, const Magic &magic) {
         return {std::nullopt, x::errors::Error(CORRUPT, path.string())};
     // The file is renamed into place whole, so any bytes after the record are corrupt.
     auto [extra, e_err] = reader->next();
-    if (e_err || extra || reader->cut() > 0)
+    if (e_err) return {std::nullopt, e_err};
+    if (extra || reader->cut() > 0)
         return {std::nullopt, x::errors::Error(CORRUPT, path.string())};
     return {
         Offset{
