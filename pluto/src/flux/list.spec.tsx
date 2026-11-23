@@ -447,6 +447,66 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.data).toEqual([b.key]));
   });
 
+  it("should read past a page that the filter hides whole", async () => {
+    const a = await create("a");
+    await create("h1");
+    await create("h2");
+    const z = await create("z");
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          filter: (r) => !r.name.startsWith("h"),
+          pageSize: 1,
+        }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key]));
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, z.key]));
+  });
+
+  it("should read past a first page that the filter hides whole", async () => {
+    await create("h1");
+    await create("h2");
+    const z = await create("z");
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          filter: (r) => !r.name.startsWith("h"),
+          pageSize: 1,
+        }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([z.key]));
+  });
+
+  it("should stop at the end of a list that the filter hides whole", async () => {
+    await create("h1");
+    await create("h2");
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          filter: (r) => !r.name.startsWith("h"),
+          pageSize: 1,
+        }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => {
+      expect(result.current.variant).toEqual("success");
+      expect(result.current.complete).toBe(true);
+    });
+    expect(result.current.data).toEqual([]);
+  });
+
   it("should fetch a subscribed record outside the list", async () => {
     const outside = await client.ranges.create({
       name: "outside",

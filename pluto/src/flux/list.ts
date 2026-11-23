@@ -247,9 +247,33 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     setStatus(next);
   };
 
+  const countShown = (records: E[]): number =>
+    filter == null ? records.length : records.filter(filter).length;
+
+  // A page that the filter hides whole shows nothing new, so the read goes on to the
+  // next page until a record shows, the list ends, or a newer read starts.
+  const readShown = async (
+    l: query.List<E, unknown>,
+    shown: number,
+    first: Promise<query.Window<E, unknown>>,
+  ): Promise<void> => {
+    const token = reading.current;
+    let w = await first;
+    while (
+      filter != null &&
+      w.end != null &&
+      reading.current === token &&
+      countShown(w.records) === shown
+    ) {
+      const size = w.records.length;
+      w = await l.more(pageSize);
+      if (w.records.length === size) return;
+    }
+  };
+
   useEffect(() => {
     if (list == null || !started) return;
-    void read(op, async () => await list.retrieve());
+    void read(op, async () => await readShown(list, 0, list.retrieve()));
     return () => {
       reading.current = null;
     };
@@ -259,9 +283,14 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     if (!started) return setStarted(true);
     if (list == null || reading.current != null) return;
     // A failed first read leaves no window, so the first page reads again.
-    if (current == null) return void read(op, async () => await list.retrieve());
+    if (current == null)
+      return void read(op, async () => await readShown(list, 0, list.retrieve()));
     if (current.end == null) return;
-    void read(`retrieve more ${name}`, async () => await list.more(pageSize));
+    const shown = countShown(current.records);
+    void read(
+      `retrieve more ${name}`,
+      async () => await readShown(list, shown, list.more(pageSize)),
+    );
   };
 
   const search = (next: string) => debouncedSearch(next);
