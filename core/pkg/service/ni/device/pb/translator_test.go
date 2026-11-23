@@ -35,8 +35,10 @@ func newHardware() *device.Hardware {
 				device.TerminalConfigDiff,
 			},
 			DefaultTerminalConfig: device.TerminalConfigDiff,
-			Types:                 []device.AIChannelType{device.AIChannelTypeAiVoltage},
-			Negative:              9,
+			Types: []device.AIChannelType{
+				device.AIChannelTypeAiVoltage,
+			},
+			Negative: 9,
 		}},
 		AnalogOutputs: []device.AnalogOutputPort{{
 			Port:            0,

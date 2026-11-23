@@ -525,7 +525,7 @@ TEST(ProbeTest, testLeavesZeroRateAbsent) {
     api->doubles[DAQmx_Dev_AI_MaxSingleChanRate] = 250000;
     const auto hw = probe_api(api);
     EXPECT_FALSE(hw.ai_min_rate.has_value());
-    EXPECT_EQ(hw.ai_max_single_channel_rate->hz(), 250000);
+    EXPECT_EQ(hw.ai_max_single_channel_rate.value_or(x::telem::Rate(0)).hz(), 250000);
 }
 
 /// @brief it should drop a DAQmx type that no channel type reads.
@@ -558,10 +558,13 @@ TEST(ProbeTest, testReadsRatesAndRanges) {
     api->double_arrays[DAQmx_Dev_AI_CurrentRngs] = {-0.02, 0.02};
     api->double_arrays[DAQmx_Dev_AO_VoltageRngs] = {-10, 10};
     const auto hw = probe_api(api);
-    EXPECT_DOUBLE_EQ(hw.ai_min_rate->hz(), 0.1);
-    EXPECT_EQ(hw.ai_max_single_channel_rate->hz(), 250000);
-    EXPECT_EQ(hw.ai_max_multi_channel_rate->hz(), 250000);
-    EXPECT_DOUBLE_EQ(hw.ao_max_rate->hz(), 833333.3333333334);
+    EXPECT_DOUBLE_EQ(hw.ai_min_rate.value_or(x::telem::Rate(0)).hz(), 0.1);
+    EXPECT_EQ(hw.ai_max_single_channel_rate.value_or(x::telem::Rate(0)).hz(), 250000);
+    EXPECT_EQ(hw.ai_max_multi_channel_rate.value_or(x::telem::Rate(0)).hz(), 250000);
+    EXPECT_DOUBLE_EQ(
+        hw.ao_max_rate.value_or(x::telem::Rate(0)).hz(),
+        833333.3333333334
+    );
     EXPECT_TRUE(hw.ai_voltage_ranges.empty());
     ASSERT_EQ(hw.ai_current_ranges.size(), 1);
     EXPECT_EQ(hw.ai_current_ranges[0].lower, -0.02);

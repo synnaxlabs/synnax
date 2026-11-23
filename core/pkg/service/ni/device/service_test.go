@@ -431,7 +431,8 @@ var _ = Describe("Service", func() {
 			Expect(got.Serial).To(Equal("02B"))
 			Expect(got.ResourceName).To(Equal("Mod2"))
 			Expect(got.Model).To(Equal("PXI-6259"))
-			Expect(got.Hardware).To(Equal(&device.Hardware{AiMinRate: new(telem.Rate(10))}))
+			Expect(got.Hardware).
+				To(Equal(&device.Hardware{AiMinRate: new(telem.Rate(10))}))
 			Expect(got.Name).To(Equal(d.Name))
 			Expect(got.Identifier).To(Equal("dev1"))
 		})
@@ -631,7 +632,8 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 			got := retrieve(ctx, d.Key)
 			Expect(got.Model).To(Equal("PXI-6259A"))
-			Expect(got.Hardware).To(Equal(&device.Hardware{AiMinRate: new(telem.Rate(10))}))
+			Expect(got.Hardware).
+				To(Equal(&device.Hardware{AiMinRate: new(telem.Rate(10))}))
 		})
 	})
 
