@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/switch/switch.css";
 
+import type { schematic } from "@synnaxlabs/client";
 import { useHold } from "@synnaxlabs/lyra/hooks";
 import { location } from "@synnaxlabs/x";
 import type { CSSProperties, MouseEventHandler, ReactElement } from "react";
@@ -21,7 +22,7 @@ import type { Toggle } from "@/schematic/node/common/toggle";
 import svg from "@/schematic/node/general/switch/Switch.svg?raw";
 
 // The wrapper paints the switch, so the spec has no looks.
-export const SYMBOL = Custom.createBuiltIn({
+export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   family: "switch",
   svg,
   handles: [],

@@ -25,7 +25,7 @@ interface RenderProps extends Partial<
   enabled?: boolean;
 }
 
-export const SYMBOL = Custom.createBuiltIn({
+export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   family: "light",
   svg,
   handles: [

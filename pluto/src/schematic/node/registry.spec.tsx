@@ -46,15 +46,19 @@ describe("Schematic.Node.REGISTRY", () => {
 describe("Schematic.Node.BUILT_INS", () => {
   it("should hold a spec for each symbol that the Core lists", async () => {
     const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
-    expect(Object.keys(Node.BUILT_INS).sort()).toEqual(
+    expect([...Node.BUILT_INS.keys()].sort()).toEqual(
       builtins.map((b) => b.name).sort(),
     );
+  });
+
+  it("should hold no spec for a name that only an object prototype has", () => {
+    expect(Node.BUILT_INS.get("constructor")).toBeUndefined();
   });
 
   it("should give each symbol the states and commands that the Core lists", async () => {
     const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
     for (const { name, states, commands } of builtins) {
-      const spec = Node.BUILT_INS[name];
+      const spec = Node.BUILT_INS.get(name);
       expect({ name, states: spec?.states, commands: spec?.commands }).toEqual({
         name,
         states,
@@ -66,9 +70,7 @@ describe("Schematic.Node.BUILT_INS", () => {
   it("should give each symbol a spec that the Core accepts", async () => {
     const client = createTestClient();
     const symbols = await client.schematics.symbols.create({
-      symbols: Object.entries(Node.BUILT_INS).flatMap(([name, data]) =>
-        data == null ? [] : [{ name, data }],
-      ),
+      symbols: [...Node.BUILT_INS].map(([name, data]) => ({ name, data })),
     });
     await client.schematics.symbols.delete(symbols.map((s) => s.key));
   });
