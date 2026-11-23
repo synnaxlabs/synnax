@@ -45,7 +45,7 @@ Master struct {
         @doc value         """
             is the network interface the master drives, such as eth0 or igh:0.
         """
-        @go validate pattern "^(igh:[0-9]+|\\\\Device\\\\NPF_[{][0-9A-Fa-f-]{36}[}]|[A-Za-z0-9][A-Za-z0-9_.-]{0,14})$" "Interface must be a network interface name, such as eth0, or igh: and a master index"
+        @go validate       pattern "^(igh:[0-9]+|\\\\Device\\\\NPF_[{][0-9A-Fa-f-]{36}[}]|[A-Za-z0-9][A-Za-z0-9_.-]{0,14})$" "Interface must be a network interface name, such as eth0, or igh: and a master index"
         @validate required
     }
     slaves    uuid[] = [] {
