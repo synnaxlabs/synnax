@@ -9,12 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  errorResult,
-  loadingResult,
-  nullClientResult,
-  successResult,
-} from "@/flux/result";
+import { Flux } from "@/flux";
 
 interface TestState {
   id: string;
@@ -25,7 +20,7 @@ interface TestState {
 describe("result", () => {
   describe("loadingResult", () => {
     it("should create a loading result with correct structure", () => {
-      const result = loadingResult<TestState>("fetch user", undefined);
+      const result = Flux.loadingResult<TestState>("fetch user", undefined);
 
       expect(result.variant).toBe("loading");
       expect(result.status.message).toBe("Fetch user");
@@ -33,13 +28,13 @@ describe("result", () => {
     });
 
     it("should capitalize the operation name", () => {
-      const result = loadingResult<TestState>("create channel", undefined);
+      const result = Flux.loadingResult<TestState>("create channel", undefined);
 
       expect(result.status.message).toBe("Create channel");
     });
 
     it("should handle complex operation names", () => {
-      const result = loadingResult<TestState>(
+      const result = Flux.loadingResult<TestState>(
         "establish database connection",
         undefined,
       );
@@ -56,7 +51,7 @@ describe("result", () => {
         value: 42,
       };
 
-      const result = successResult<TestState>("fetched user", testData);
+      const result = Flux.successResult<TestState>("fetched user", testData);
 
       expect(result.variant).toBe("success");
       expect(result.status.message).toBe("Fetched user");
@@ -70,7 +65,7 @@ describe("result", () => {
         value: 100,
       };
 
-      const result = successResult<TestState>("save entity", complexData);
+      const result = Flux.successResult<TestState>("save entity", complexData);
 
       expect(result.data).toBe(complexData);
       expect(result.data?.id).toBe("456");
@@ -85,7 +80,7 @@ describe("result", () => {
         value: 0,
       };
 
-      const result = successResult<TestState>("updated item", testData);
+      const result = Flux.successResult<TestState>("updated item", testData);
 
       expect(result.status.message).toBe("Updated item");
     });
@@ -95,7 +90,7 @@ describe("result", () => {
     it("should create an error result with correct structure", () => {
       const testError = new Error("Test error");
 
-      const result = errorResult("fetch user", testError);
+      const result = Flux.errorResult("fetch user", testError);
 
       expect(result.variant).toBe("error");
       expect(result.status.message).toBe("Failed to fetch user");
@@ -104,7 +99,7 @@ describe("result", () => {
 
     it("should include exception details when error is an Error object", () => {
       const error = new Error("Database connection timeout");
-      const result = errorResult("establish connection", error);
+      const result = Flux.errorResult("establish connection", error);
       expect(result.variant).toBe("error");
       expect(result.status.description).toBe("Database connection timeout");
     });
@@ -112,7 +107,7 @@ describe("result", () => {
 
   describe("nullClientResult", () => {
     it("should create a disabled result when no client is connected", () => {
-      const result = nullClientResult<TestState>("fetch user");
+      const result = Flux.nullClientResult<TestState>("fetch user");
 
       expect(result.variant).toBe("disabled");
       expect(result.status.message).toBe("Failed to fetch user");
@@ -120,20 +115,20 @@ describe("result", () => {
     });
 
     it("should include correct disconnection message", () => {
-      const result = nullClientResult<TestState>("create channel");
+      const result = Flux.nullClientResult<TestState>("create channel");
 
       expect(result.status.description).toBe("No Core is connected.");
     });
 
     it("should handle different operation names", () => {
-      const result = nullClientResult<TestState>("query database");
+      const result = Flux.nullClientResult<TestState>("query database");
 
       expect(result.status.message).toBe("Failed to query database");
       expect(result.status.description).toBe("No Core is connected.");
     });
 
     it("should maintain consistent structure with other error results", () => {
-      const result = nullClientResult<TestState>("start service");
+      const result = Flux.nullClientResult<TestState>("start service");
       expect(result.variant).toBe("disabled");
       expect(result.data).toBeUndefined();
       expect(result.status.message).toBeDefined();

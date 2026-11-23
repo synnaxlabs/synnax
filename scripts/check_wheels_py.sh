@@ -57,7 +57,7 @@ for python in "$@"; do
     venv=$work/venv-$python
     rm -rf "$venv"
     uv venv --quiet --python "$python" "$venv"
-    uv pip install --quiet --python "$venv" "$work"/dist/*.whl "alamos[dev]" \
+    uv pip install --quiet --python "$venv" "$work"/dist/*.whl "alamos[uptrace]" \
         "mypy==$mypy"
     # The filter makes the lazy imports of Python 3.15 eager, so that a missing module
     # fails at its import.

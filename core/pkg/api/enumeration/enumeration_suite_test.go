@@ -43,21 +43,18 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	db  *gorp.DB
 	svc *service.Layer
-	// create, del, dispatch, retrieve, and dependents run their routes as the API
-	// layer binds them.
+	// create, del, replace, dispatch, and retrieve run their routes as the API layer
+	// binds them.
 	create freighter.UnaryHandler[
 		apienumeration.CreateRequest,
 		apienumeration.CreateResponse,
 	]
 	del      freighter.UnaryHandler[apienumeration.DeleteRequest, struct{}]
+	replace  freighter.UnaryHandler[apienumeration.ReplaceRequest, struct{}]
 	dispatch freighter.UnaryHandler[apienumeration.DispatchRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apienumeration.RetrieveRequest,
 		apienumeration.RetrieveResponse,
-	]
-	dependents freighter.UnaryHandler[
-		apienumeration.RetrieveDependentsRequest,
-		apienumeration.RetrieveDependentsResponse,
 	]
 	apiSvc *apienumeration.Service
 )
@@ -77,9 +74,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
+	replace = bind.Write(binder, apiSvc.Replace)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
-	dependents = bind.Read(binder, apiSvc.RetrieveDependents)
 })
 
 // createUser creates a user that can do nothing.

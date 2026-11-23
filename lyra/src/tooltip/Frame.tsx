@@ -21,6 +21,7 @@ import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
+import { Portal } from "@/portal";
 import { position } from "@/position";
 import { getRootElement } from "@/util/rootElement";
 
@@ -56,6 +57,7 @@ export const Frame = ({
   onAnchorLost,
   children,
 }: FrameProps): ReactElement => {
+  const portalTarget = Portal.useTarget();
   const ref = useRef<HTMLDivElement | null>(null);
   const prevPlacementRef = useRef<position.Preference | null>(null);
   const locationRef = useSyncedRef(locationProp);
@@ -69,10 +71,6 @@ export const Frame = ({
     let prefer = PREFERENCES;
     if (prevPlacementRef.current != null)
       prefer = [prevPlacementRef.current, ...PREFERENCES];
-    // A fixed box near the right edge shrinks to the space left there, so it is
-    // measured at the origin, where the whole window is available.
-    el.style.left = "0px";
-    el.style.top = "0px";
     const { adjustedDialog, ...placement } = position.position({
       target,
       // offset* ignores the entrance animation's scale, unlike getBoundingClientRect.
@@ -104,6 +102,6 @@ export const Frame = ({
     >
       {children}
     </div>,
-    getRootElement(),
+    portalTarget ?? getRootElement(),
   );
 };

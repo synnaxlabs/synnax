@@ -55,25 +55,6 @@ func (f imageFile) Sync() error {
 	return f.File.Sync()
 }
 
-// errs gathers the errors of the callbacks and runs that a spec starts on other
-// goroutines, for the spec to check once they stop.
-type errs struct {
-	mu  sync.Mutex
-	err error
-}
-
-func (e *errs) add(err error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.err = errors.Join(e.err, err)
-}
-
-func (e *errs) get() error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return e.err
-}
-
 // replay replays the valid frames of log 1 in image into a new state on the head h,
 // and returns the first refusal.
 func replay(image *fault.FS, h *state.Snapshot) error {
@@ -143,7 +124,7 @@ var _ = Describe("Check: a Reserve at each crash point", func() {
 					images []*fault.FS
 					l      *log.Log
 					goExe  = func(f func()) { go f() }
-					failed errs
+					errs   hookErrs
 				)
 				take := func() {
 					mu.Lock()
@@ -166,24 +147,24 @@ var _ = Describe("Check: a Reserve at each crash point", func() {
 					FS:       imageFS{FS: disk, take: take},
 					Executor: goExe,
 					OnDurable: func(seq uint64, records []log.Record) {
-						failed.add(st.Durable(seq, records))
+						errs.add(st.Durable(seq, records))
 					},
 					OnRefused: func(records []log.Record, err error) {
-						failed.add(st.Refused(records, err))
+						errs.add(st.Refused(records, err))
 					},
 					// No next file, so every entry stays in log 1.
 					Prepare: func(next uint64) {
 						go l.Prepared(next, errors.New("no next log"))
 					},
-					Switched:   func(g uint64) { failed.add(st.Switch(g)) },
+					Switched:   func(g uint64) { errs.add(st.Switch(g)) },
 					DB:         7,
 					Generation: 1,
 					Sequence:   1,
 				}))
 				ctx, cancel := context.WithCancel(context.Background())
 				var wg sync.WaitGroup
-				wg.Go(func() { failed.add(st.Run(ctx)) })
-				wg.Go(func() { failed.add(l.Run(ctx)) })
+				wg.Go(func() { errs.add(errors.Skip(st.Run(ctx), context.Canceled)) })
+				wg.Go(func() { errs.add(errors.Skip(l.Run(ctx), context.Canceled)) })
 				// 40 identities cross the first Reserve block of 16 and the next of
 				// 1,024.
 				keys := make([]state.WriterKey, 40)
@@ -206,7 +187,7 @@ var _ = Describe("Check: a Reserve at each crash point", func() {
 				Expect(st.Close()).To(Succeed())
 				cancel()
 				wg.Wait()
-				Expect(failed.get()).ToNot(HaveOccurred())
+				Expect(errs.err()).ToNot(HaveOccurred())
 				mu.Lock()
 				Expect(len(images)).To(BeNumerically(">", 40))
 				for i, image := range images {

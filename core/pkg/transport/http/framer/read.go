@@ -70,7 +70,7 @@ func (e frameEncoder) EncodeStream(w io.Writer, value any) error {
 		return err
 	}
 	keys, dataTypes := keysAndDataTypes(res.Channels)
-	iter, err := res.OpenIterator(e.ctx, keys, res.Bounds)
+	iter, err := openRanges(e.ctx, res, keys, res.TimeRanges)
 	if err != nil {
 		return err
 	}
@@ -105,10 +105,82 @@ func writeRecord(w io.Writer, kind byte, payload []byte) error {
 	return err
 }
 
-// drain seeks iter to the start of its bounds and calls f with every frame it returns,
+// rangeIterator reads a list of time ranges through one iterator, in order, as if they
+// were one range.
+type rangeIterator struct {
+	iter   *svcframer.Iterator
+	ranges []telem.TimeRange
+	// current is the index of the range the iterator reads.
+	current int
+}
+
+// openRanges opens an iterator over keys that reads ranges, which holds at least one
+// range. The caller must close it.
+func openRanges(
+	ctx context.Context,
+	res ReadResponse,
+	keys channel.Keys,
+	ranges []telem.TimeRange,
+) (*rangeIterator, error) {
+	iter, err := res.OpenIterator(ctx, keys, ranges[0])
+	if err != nil {
+		return nil, err
+	}
+	return &rangeIterator{iter: iter, ranges: ranges}, nil
+}
+
+// SeekFirst seeks to the first sample of the ranges, and reports whether they hold one.
+func (r *rangeIterator) SeekFirst() bool { return r.seek(0, 1) }
+
+// SeekLast seeks to the last sample of the ranges, and reports whether they hold one.
+func (r *rangeIterator) SeekLast() bool { return r.seek(len(r.ranges)-1, -1) }
+
+// Next reads the next span of samples, moving on to the next range that holds samples
+// when the current one runs out. It reports whether it read any.
+func (r *rangeIterator) Next(span telem.TimeSpan) bool {
+	for !r.iter.Next(span) {
+		if !r.seek(r.current+1, 1) {
+			return false
+		}
+	}
+	return true
+}
+
+// Prev reads the previous span of samples in the current range. It reports whether it
+// read any.
+func (r *rangeIterator) Prev(span telem.TimeSpan) bool { return r.iter.Prev(span) }
+
+// Value returns the frame of the last read.
+func (r *rangeIterator) Value() Frame { return r.iter.Value() }
+
+// Close closes the iterator and returns the error that stopped its reads.
+func (r *rangeIterator) Close() error { return r.iter.Close() }
+
+// seek seeks to the nearest sample of the first range, from the i-th on in the
+// direction of step, that holds one, and reports whether one does. A step of 1 seeks to
+// the first sample of a range, and -1 to the last. It stops at the error that stopped
+// the iterator, and leaves it for Close to return.
+func (r *rangeIterator) seek(i, step int) bool {
+	for ; i >= 0 && i < len(r.ranges); i += step {
+		if i != r.current {
+			// Setting the bounds clears the error.
+			if r.iter.Error() != nil {
+				return false
+			}
+			r.iter.SetBounds(r.ranges[i])
+			r.current = i
+		}
+		if step > 0 && r.iter.SeekFirst() || step < 0 && r.iter.SeekLast() {
+			return true
+		}
+	}
+	return false
+}
+
+// drain seeks iter to its first sample and calls f with every frame it returns,
 // stopping at the first error. It always closes iter, and it returns the read error
 // that Close reports.
-func drain(iter *svcframer.Iterator, f func(Frame) error) error {
+func drain(iter *rangeIterator, f func(Frame) error) error {
 	var err error
 	if iter.SeekFirst() {
 		for iter.Next(IteratorAutoSpan) {
@@ -120,10 +192,10 @@ func drain(iter *svcframer.Iterator, f func(Frame) error) error {
 	return errors.Combine(err, iter.Close())
 }
 
-// drainLatest seeks iter to the end of its bounds and calls f with the frame it reads
+// drainLatest seeks iter to the end of its ranges and calls f with the frame it reads
 // back, which holds up to the chunk size of iter for each channel. It always closes
 // iter, and it returns the read error that Close reports.
-func drainLatest(iter *svcframer.Iterator, f func(Frame) error) error {
+func drainLatest(iter *rangeIterator, f func(Frame) error) error {
 	var err error
 	if iter.SeekLast() && iter.Prev(IteratorAutoSpan) {
 		err = f(iter.Value())
@@ -131,10 +203,10 @@ func drainLatest(iter *svcframer.Iterator, f func(Frame) error) error {
 	return errors.Combine(err, iter.Close())
 }
 
-// drainEarliest seeks iter to the start of its bounds and calls f with the frame it
-// reads, which holds up to the chunk size of iter for each channel. It always closes
-// iter, and it returns the read error that Close reports.
-func drainEarliest(iter *svcframer.Iterator, f func(Frame) error) error {
+// drainEarliest seeks iter to its first sample and calls f with the frame it reads,
+// which holds up to the chunk size of iter for each channel. It always closes iter, and
+// it returns the read error that Close reports.
+func drainEarliest(iter *rangeIterator, f func(Frame) error) error {
 	var err error
 	if iter.SeekFirst() && iter.Next(IteratorAutoSpan) {
 		err = f(iter.Value())
@@ -143,7 +215,7 @@ func drainEarliest(iter *svcframer.Iterator, f func(Frame) error) error {
 }
 
 // drainer returns the drain that reads the samples res asks for.
-func drainer(res ReadResponse) func(*svcframer.Iterator, func(Frame) error) error {
+func drainer(res ReadResponse) func(*rangeIterator, func(Frame) error) error {
 	switch {
 	case res.Latest > 0:
 		return drainLatest
@@ -215,7 +287,7 @@ type column struct {
 	dataType telem.DataType
 	// size is the byte size of one sample, or 0 for a variable-length data type.
 	size int
-	iter *svcframer.Iterator
+	iter *rangeIterator
 	// done is true once iter has no samples left.
 	done bool
 	// pending holds the series read for the channel that are not fully written.
@@ -242,17 +314,17 @@ func newColumn(ch channel.Channel) column {
 // openColumns opens an iterator for every column. On failure, it closes the iterators
 // it opened.
 func openColumns(ctx context.Context, res ReadResponse, columns []*column) error {
-	bounds := make(map[channel.Key]telem.TimeRange)
+	ranges := make(map[channel.Key][]telem.TimeRange)
 	for _, c := range columns {
-		b, ok := bounds[c.index]
+		r, ok := ranges[c.index]
 		if !ok {
 			var err error
-			if b, err = rowBounds(ctx, res, c.index); err != nil {
+			if r, err = rowRanges(ctx, res, c.index); err != nil {
 				return errors.Combine(err, closeColumns(columns))
 			}
-			bounds[c.index] = b
+			ranges[c.index] = r
 		}
-		iter, err := res.OpenIterator(ctx, channel.Keys{c.key}, b)
+		iter, err := openRanges(ctx, res, channel.Keys{c.key}, r)
 		if err != nil {
 			return errors.Combine(err, closeColumns(columns))
 		}
@@ -261,35 +333,35 @@ func openColumns(ctx context.Context, res ReadResponse, columns []*column) error
 	return nil
 }
 
-// rowBounds returns the bounds of the rows of index: the bounds of res, narrowed to the
-// newest or oldest rows when res asks for them. The columns of an index read the same
-// bounds, so a channel that lags its index leaves its cells empty.
-func rowBounds(
+// rowRanges returns the time ranges of the rows of index: the ranges of res, narrowed
+// to the newest or oldest rows when res asks for them. The columns of an index read the
+// same ranges, so a channel that lags its index leaves its cells empty.
+func rowRanges(
 	ctx context.Context,
 	res ReadResponse,
 	index channel.Key,
-) (telem.TimeRange, error) {
+) ([]telem.TimeRange, error) {
 	if res.Latest == 0 && res.Earliest == 0 {
-		return res.Bounds, nil
+		return res.TimeRanges, nil
 	}
-	iter, err := res.OpenIterator(ctx, channel.Keys{index}, res.Bounds)
+	iter, err := openRanges(ctx, res, channel.Keys{index}, res.TimeRanges)
 	if err != nil {
-		return telem.TimeRange{}, err
+		return nil, err
 	}
-	bounds := res.Bounds
+	ranges := res.TimeRanges
 	err = drainer(res)(iter, func(fr Frame) error {
 		first, last := telem.TimeStampMax, telem.TimeStampMin
 		for _, s := range fr.Get(index).Series {
 			first = min(first, s.ValueAt[telem.TimeStamp](0))
 			last = max(last, s.ValueAt[telem.TimeStamp](-1))
 		}
-		bounds = telem.TimeRange{Start: first, End: last.Add(telem.Nanosecond)}
+		ranges = []telem.TimeRange{{Start: first, End: last.Add(telem.Nanosecond)}}
 		return nil
 	})
 	if err != nil {
-		return telem.TimeRange{}, err
+		return nil, err
 	}
-	return bounds, nil
+	return ranges, nil
 }
 
 // closeColumns closes the iterator of every column and returns their read errors.

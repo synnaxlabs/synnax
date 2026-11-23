@@ -9,8 +9,6 @@
 
 import "@/feature/opcua/device/Certificate.css";
 
-import { sha1 } from "@noble/hashes/legacy.js";
-import { bytesToHex } from "@noble/hashes/utils.js";
 import {
   DisconnectedError,
   type rack,
@@ -54,14 +52,6 @@ const PEM_ARMOR = /-----(BEGIN|END) CERTIFICATE-----|\s/g;
 
 const toDER = (pem: string): Uint8Array<ArrayBuffer> =>
   Uint8Array.from(atob(pem.replace(PEM_ARMOR, "")), (c) => c.charCodeAt(0));
-
-const readThumbprint = (pem: string): string | status.Status => {
-  try {
-    return bytesToHex(sha1(toDER(pem))).toUpperCase();
-  } catch (error) {
-    return status.fromException(error, "Failed to read the server certificate");
-  }
-};
 
 const formatThumbprint = (thumbprint: string): string =>
   thumbprint.match(/.{1,2}/g)?.join(":") ?? thumbprint;
@@ -419,8 +409,8 @@ export const DriverCertificate = ({ rack }: DriverCertificateProps): ReactElemen
 };
 
 export interface ServerCertificateProps {
-  /** The pinned certificate as PEM, or empty when the device trusts none. */
-  pem: string;
+  /** Whether the device trusts a server certificate. */
+  trusted: boolean;
   /** The certificate the server presented on a failed connect. */
   offer: CertificateInfo | null;
   onTrust: (offer: CertificateInfo) => void;
@@ -428,38 +418,26 @@ export interface ServerCertificateProps {
 
 const NO_CERTIFICATE_NOTE = "No certificate yet. Connect to get one from the server.";
 
-const TRUSTED_NOTE = "The device trusts this certificate.";
-
 const OFFER_NOTE =
   "The server sent this certificate. Compare its thumbprint with the certificate on the server, then trust it.";
 
 const CHANGED_NOTE =
   "The server sent a different certificate. Compare its thumbprint with the certificate on the server, then trust it.";
 
-/** Shows the server certificate the device trusts, and offers one the server sent. */
+/** Says how the device trusts a server certificate, and offers one the server sent. */
 export const ServerCertificate = ({
-  pem,
+  trusted,
   offer,
   onTrust,
-}: ServerCertificateProps): ReactElement => {
-  const pinned = pem === "" ? null : readThumbprint(pem);
-  let note = pinned == null ? NO_CERTIFICATE_NOTE : TRUSTED_NOTE;
-  if (offer != null) note = pinned == null ? OFFER_NOTE : CHANGED_NOTE;
+}: ServerCertificateProps): ReactElement | null => {
+  let note: string | null = trusted ? null : NO_CERTIFICATE_NOTE;
+  if (offer != null) note = trusted ? CHANGED_NOTE : OFFER_NOTE;
+  if (note == null) return null;
   return (
     <Flex.Box y gap={2}>
       <Text.Text level="small" color={9} className={CSS.BE("opc-certificate", "line")}>
         {note}
       </Text.Text>
-      {typeof pinned === "string" && (
-        <InlineCard actions={<CopyButton thumbprint={pinned} iconOnly />}>
-          <Description.List level="small">
-            <ThumbprintDetail value={pinned} />
-          </Description.List>
-        </InlineCard>
-      )}
-      {pinned != null && typeof pinned !== "string" && (
-        <Status.Summary status={pinned} />
-      )}
       {offer != null && (
         <Card
           actions={

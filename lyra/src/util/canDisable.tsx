@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FC, type ReactNode } from "react";
+import type { FC, ReactNode } from "react";
 
 export type CanDisabledProps<T extends object & { children?: ReactNode }> = T & {
   disabled?: boolean;

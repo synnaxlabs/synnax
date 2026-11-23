@@ -71,10 +71,9 @@ const digits = (a: string, b: string): number => {
 export const natural = (a: string, b: string): number => {
   const aRuns = a.match(RUNS) ?? [];
   const bRuns = b.match(RUNS) ?? [];
-  const n = Math.min(aRuns.length, bRuns.length);
-  for (let i = 0; i < n; i++) {
-    const x = aRuns[i];
+  for (const [i, x] of aRuns.entries()) {
     const y = bRuns[i];
+    if (y == null) break;
     const c = DIGITS.test(x) && DIGITS.test(y) ? digits(x, y) : text(x, y);
     if (c !== 0) return c;
   }

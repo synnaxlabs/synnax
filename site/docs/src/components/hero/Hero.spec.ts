@@ -10,11 +10,12 @@
 // @vitest-environment node
 
 import reactRenderer from "@astrojs/react/server.js";
+import { stubImageSize } from "@synnaxlabs/site-common/testutil/image";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
-import { type ComponentProps } from "astro/types";
-import { type Element, type Root } from "hast";
+import type { ComponentProps } from "astro/types";
+import type { Element, Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Hero } from "@/components/hero";
 import linePlots from "@/components/hero/stills/console/line-plots/hero.json";
@@ -35,16 +36,29 @@ const withClass = (node: Root | Element, name: string): Element[] =>
 const classes = (root: Root): unknown =>
   withClass(root, "docs-hero")[0].properties.className;
 
+// The CDN URL of each image, read from the URL of its transform.
 const images = (node: Root | Element): unknown[] =>
   elements(node)
     .filter((child) => child.tagName === "img")
-    .map((img) => img.properties.src);
+    .map((img) => {
+      const src = String(img.properties.src);
+      return new URL(src, "https://docs.synnaxlabs.com").searchParams.get("url") ?? src;
+    });
+
+const alts = (node: Root | Element): unknown[] =>
+  elements(node)
+    .filter((child) => child.tagName === "img")
+    .map((img) => img.properties.alt);
 
 let container: AstroContainer;
 
 beforeAll(async () => {
   container = await AstroContainer.create();
   container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
+});
+
+beforeEach(() => {
+  stubImageSize(3840, 2400);
 });
 
 const render = async (props: ComponentProps<typeof Hero.Hero>): Promise<Root> =>
@@ -58,6 +72,7 @@ describe("Hero.Hero", () => {
         layout: "bleed",
         tone: "deep",
         palette: "violet-pink",
+        alt: "A hero",
       });
       expect(images(root)).toEqual([
         CDN.url(
@@ -69,6 +84,17 @@ describe("Hero.Hero", () => {
       expect(classes(root)).toEqual(["docs-hero", "bleed", "deep"]);
     });
 
+    it("should name the still with its alt text", async () => {
+      const root = await render({
+        still: "console/schematics/hero",
+        layout: "bleed",
+        tone: "deep",
+        palette: "violet-pink",
+        alt: "A schematic",
+      });
+      expect(alts(root)).toEqual(["A schematic"]);
+    });
+
     it("should throw on a still that Studio did not record", async () => {
       await expect(
         render({
@@ -76,6 +102,7 @@ describe("Hero.Hero", () => {
           layout: "bleed",
           tone: "soft",
           palette: "teal-blue",
+          alt: "A hero",
         }),
       ).rejects.toThrow(
         "no hero still console/missing/hero: add a hero entry to studio/videos.ts and run pnpm batch",
@@ -88,11 +115,13 @@ describe("Hero.Hero", () => {
         layout: "layered",
         tone: "deep",
         palette: "blue-violet",
+        alt: "A hero",
       });
       const [toolbar] = withClass(root, "toolbar");
       expect(images(toolbar)).toEqual([
         CDN.url(`console/line-plots/hero/${linePlots.version}/window`, "webp", "light"),
       ]);
+      expect(alts(toolbar)).toEqual([""]);
     });
 
     it("should throw on a layered still with no toolbar", async () => {
@@ -102,6 +131,7 @@ describe("Hero.Hero", () => {
           layout: "layered",
           tone: "deep",
           palette: "violet-pink",
+          alt: "A hero",
         }),
       ).rejects.toThrow(
         "the console/schematics/hero still records no toolbar for the layered layout",
@@ -116,6 +146,7 @@ describe("Hero.Hero", () => {
         layout: "framed",
         inset: true,
         palette: "green-blue",
+        alt: "A hero",
       });
       expect(classes(root)).toEqual(["docs-hero", "framed", "inset"]);
     });
@@ -127,6 +158,7 @@ describe("Hero.Hero", () => {
           layout: "layered",
           inset: true,
           palette: "blue-violet",
+          alt: "A hero",
         }),
       ).rejects.toThrow(
         "the console/line-plots/hero hero cannot be both layered and inset",
@@ -143,6 +175,7 @@ describe("Hero.Hero", () => {
         layout: "framed",
         tone: "soft",
         palette: "teal-violet",
+        alt: "A hero",
       });
       expect(images(root)).toEqual([CDN.url("releases/0-49-0/thumbnail", "webp")]);
       expect(classes(root)).toEqual(["docs-hero", "framed", "soft", "media"]);
@@ -154,9 +187,12 @@ describe("Hero.Hero", () => {
         layout: "framed",
         tone: "deep",
         palette: "blue-violet",
+        alt: "Switch panels",
       });
       expect(withClass(root, "docs-video")).toHaveLength(1);
       expect(images(root)).toEqual([]);
+      const [video] = elements(root).filter((child) => child.tagName === "video");
+      expect(video.properties.ariaLabel).toBe("Switch panels");
     });
   });
 });
