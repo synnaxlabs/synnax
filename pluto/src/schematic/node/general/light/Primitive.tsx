@@ -25,7 +25,7 @@ interface RenderProps extends Partial<
   enabled?: boolean;
 }
 
-const SPEC = Custom.createBuiltIn({
+export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "1", position: { x: 0.03125, y: 0.5 }, orientation: "left" },
@@ -58,7 +58,7 @@ export const Light = ({
     style={onColor == null ? undefined : { [ON_COLOR]: color.rgbaString(onColor) }}
   >
     <Custom.Drawing
-      spec={SPEC}
+      spec={SYMBOL}
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}

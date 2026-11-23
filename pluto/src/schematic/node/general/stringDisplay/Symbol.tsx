@@ -12,6 +12,7 @@ import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -19,7 +20,6 @@ import { Stale } from "@/schematic/node/common/stale";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { Staleness } from "@/vis/staleness";
 import { StringValue as BaseStringValue } from "@/vis/stringValue";
 
 export const Symbol = ({
@@ -31,7 +31,6 @@ export const Symbol = ({
     label,
     channel,
     stalenessTimeout,
-    stalenessColor,
     strokeColor,
     textColor,
     level,
@@ -39,7 +38,6 @@ export const Symbol = ({
     orientation,
   },
 }: NodeProps<schematic.StringDisplayNodeConfig>): ReactElement => {
-  const badged = Staleness.useBadged();
   const resolve = Color.useResolve();
   const content = Primitive.useCanvasBox<HTMLDivElement>(position);
   const { stale } = BaseStringValue.use({
@@ -48,9 +46,7 @@ export const Symbol = ({
     telem: telem.streamChannelStringValue({ channel }),
     level,
     color: resolve(textColor),
-    stalenessColor,
     stalenessTimeout,
-    staleColorHidden: badged,
   });
   const deleted = Channel.useDeleted(channel);
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
@@ -59,16 +55,15 @@ export const Symbol = ({
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && badged && <Stale.Indicator />}
+      {stale && <Stale.Indicator />}
+      {deleted && <Deleted.Item />}
       <StringDisplay
         strokeColor={resolve(strokeColor)}
         level={level}
         inlineSize={inlineSize}
         orientation={orientation}
         contentRef={content.ref}
-      >
-        {deleted && <Channel.Deleted />}
-      </StringDisplay>
+      />
     </Grid.Grid>
   );
 };

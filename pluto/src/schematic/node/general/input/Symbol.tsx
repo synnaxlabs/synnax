@@ -10,7 +10,7 @@
 import type { channel, schematic } from "@synnaxlabs/client";
 import type { Component } from "@synnaxlabs/lyra/component";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import type { color, xy } from "@synnaxlabs/x";
+import type { xy } from "@synnaxlabs/x";
 import type { ReactElement, RefCallback } from "react";
 
 import { Color } from "@/color";
@@ -32,9 +32,7 @@ interface UseReadbackProps {
   position?: xy.XY;
   channel: channel.Key;
   size: Component.Size;
-  stalenessColor?: color.Color;
   stalenessTimeout?: number;
-  staleColorHidden: boolean;
 }
 
 interface UseReadbackReturn {
@@ -47,9 +45,7 @@ const useReadback = ({
   position,
   channel,
   size,
-  stalenessColor,
   stalenessTimeout,
-  staleColorHidden,
 }: UseReadbackProps): UseReadbackReturn => {
   const theme = Theming.use();
   const cell = Primitive.useCanvasBox<HTMLParagraphElement>(position);
@@ -59,9 +55,7 @@ const useReadback = ({
     telem: telem.streamChannelStringValue({ channel }),
     level: Primitive.READOUT_LEVELS[size],
     color: theme.colors.gray.l10,
-    stalenessColor,
     stalenessTimeout,
-    staleColorHidden,
   });
   return { stale, valueRef: cell.ref };
 };
@@ -76,7 +70,6 @@ export const Symbol = ({
     control,
     commandChannel,
     stateChannel,
-    stalenessColor,
     stalenessTimeout,
     size,
     inlineSize,
@@ -89,15 +82,12 @@ export const Symbol = ({
   const source = telem.streamChannelStringValue({ channel: commandChannel });
   const { set, value } = InputTelem.use({ aetherKey: nodeKey, sink, source });
   const deleted = Deleted.useEither(stateChannel, commandChannel);
-  const badged = Staleness.useBadged();
   const { stale, valueRef } = useReadback({
     nodeKey,
     position,
     channel: stateChannel,
     size,
-    stalenessColor,
     stalenessTimeout,
-    staleColorHidden: badged,
   });
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
@@ -110,7 +100,7 @@ export const Symbol = ({
         onChange={onConfigChange}
         deleted={deleted}
       >
-        {!deleted && stale && badged ? <Staleness.Badge /> : null}
+        {stale ? <Staleness.Badge /> : null}
       </Control.State>
       {deleted && <Deleted.Item />}
       <Label.Label config={label} onChange={onConfigChange} />

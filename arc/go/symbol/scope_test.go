@@ -790,7 +790,7 @@ var _ = Describe("Scope", func() {
 				It("Should resolve a bare name like Resolve", func(bCtx SpecContext) {
 					alias := buildAlias(bCtx, buildSourceModule())
 					Expect(
-						MustSucceed(alias.Parent.ResolveMember(bCtx, []string{"m"})),
+						MustSucceed(alias.Parent.ResolveMember(bCtx, "m", "")),
 					).To(BeIdenticalTo(alias))
 				})
 
@@ -800,7 +800,7 @@ var _ = Describe("Scope", func() {
 						alias := buildAlias(bCtx, buildSourceModule())
 						Expect(
 							MustSucceed(
-								alias.Parent.ResolveMember(bCtx, []string{"m", "f"}),
+								alias.Parent.ResolveMember(bCtx, "m", "f"),
 							).Name,
 						).To(Equal("f"))
 					},
@@ -811,7 +811,7 @@ var _ = Describe("Scope", func() {
 					func(bCtx SpecContext) {
 						alias := buildAlias(bCtx, buildSourceModule())
 						Expect(alias.Parent.ResolveMember(
-							bCtx, []string{"m", "h"}, symbol.IncludeInternal,
+							bCtx, "m", "h", symbol.IncludeInternal,
 						)).Error().To(MatchError(`not exported: 'h' in module "m"`))
 					},
 				)
@@ -827,16 +827,14 @@ var _ = Describe("Scope", func() {
 								Type: types.F64(),
 							}))
 						}
-						Expect(root.ResolveMember(bCtx, []string{"a", "b"})).Error().
+						Expect(root.ResolveMember(bCtx, "a", "b")).Error().
 							To(MatchError(ContainSubstring("undefined symbol: a.b")))
 					},
 				)
 
 				It("Should report an undefined head", func(bCtx SpecContext) {
 					alias := buildAlias(bCtx, buildSourceModule())
-					Expect(
-						alias.Parent.ResolveMember(bCtx, []string{"x", "f"}),
-					).Error().
+					Expect(alias.Parent.ResolveMember(bCtx, "x", "f")).Error().
 						To(MatchError(ContainSubstring("undefined symbol: x")))
 				})
 			})

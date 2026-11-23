@@ -84,6 +84,7 @@ func newAliasTemplateData(ctx *framework.GenerateContext, pkg string) *templateD
 		PrimitiveMapper: primitiveMapper,
 	}
 	return &templateData{
+		patterns:   &[]patternVar{},
 		Package:    pkg,
 		OutputPath: ctx.OutputPath,
 		Namespace:  ctx.Namespace,

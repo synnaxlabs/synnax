@@ -32,7 +32,7 @@ inline Output Output::parse(x::json::Parser parser) {
 
 inline x::json::json Output::to_json() const {
     x::json::json j = x::json::json::object();
-    j["wasm"] = this->wasm;
+    j["wasm"] = x::json::to_json(this->wasm);
     j["output_memory_bases"] = this->output_memory_bases;
     return j;
 }

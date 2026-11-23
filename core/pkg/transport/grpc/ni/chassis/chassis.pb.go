@@ -174,6 +174,51 @@ func (x *UpdateRequest) GetUpdate() *pb.Update {
 	return nil
 }
 
+// UpdateResponse carries the chassis as stored after an update.
+type UpdateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Chassis       *pb.Chassis            `protobuf:"bytes,1,opt,name=chassis,proto3" json:"chassis,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateResponse) Reset() {
+	*x = UpdateResponse{}
+	mi := &file_core_pkg_transport_grpc_ni_chassis_chassis_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateResponse) ProtoMessage() {}
+
+func (x *UpdateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_ni_chassis_chassis_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateResponse.ProtoReflect.Descriptor instead.
+func (*UpdateResponse) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_ni_chassis_chassis_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *UpdateResponse) GetChassis() *pb.Chassis {
+	if x != nil {
+		return x.Chassis
+	}
+	return nil
+}
+
 type DeleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
@@ -183,7 +228,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_core_pkg_transport_grpc_ni_chassis_chassis_proto_msgTypes[3]
+	mi := &file_core_pkg_transport_grpc_ni_chassis_chassis_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -195,7 +240,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_ni_chassis_chassis_proto_msgTypes[3]
+	mi := &file_core_pkg_transport_grpc_ni_chassis_chassis_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -208,7 +253,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_ni_chassis_chassis_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_transport_grpc_ni_chassis_chassis_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DeleteRequest) GetKeys() []string {
@@ -229,15 +274,17 @@ const file_core_pkg_transport_grpc_ni_chassis_chassis_proto_rawDesc = "" +
 	"\achassis\x18\x01 \x03(\v2\x1e.service.ni_chassis.pb.ChassisR\achassis\"X\n" +
 	"\rUpdateRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x125\n" +
-	"\x06update\x18\x02 \x01(\v2\x1d.service.ni_chassis.pb.UpdateR\x06update\"#\n" +
+	"\x06update\x18\x02 \x01(\v2\x1d.service.ni_chassis.pb.UpdateR\x06update\"J\n" +
+	"\x0eUpdateResponse\x128\n" +
+	"\achassis\x18\x01 \x01(\v2\x1e.service.ni_chassis.pb.ChassisR\achassis\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys2a\n" +
 	"\x16NIChassisCreateService\x12G\n" +
 	"\x04Exec\x12\x1e.grpc.ni_chassis.CreateRequest\x1a\x1f.grpc.ni_chassis.CreateResponse2k\n" +
 	"\x18NIChassisRetrieveService\x12O\n" +
-	"\x04Exec\x12\".api.ni_chassis.pb.RetrieveRequest\x1a#.api.ni_chassis.pb.RetrieveResponse2X\n" +
-	"\x16NIChassisUpdateService\x12>\n" +
-	"\x04Exec\x12\x1e.grpc.ni_chassis.UpdateRequest\x1a\x16.google.protobuf.Empty2X\n" +
+	"\x04Exec\x12\".api.ni_chassis.pb.RetrieveRequest\x1a#.api.ni_chassis.pb.RetrieveResponse2a\n" +
+	"\x16NIChassisUpdateService\x12G\n" +
+	"\x04Exec\x12\x1e.grpc.ni_chassis.UpdateRequest\x1a\x1f.grpc.ni_chassis.UpdateResponse2X\n" +
 	"\x16NIChassisDeleteService\x12>\n" +
 	"\x04Exec\x12\x1e.grpc.ni_chassis.DeleteRequest\x1a\x16.google.protobuf.EmptyB\xb8\x01\n" +
 	"\x13com.grpc.ni_chassisB\fChassisProtoP\x01Z:github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/chassis\xa2\x02\x03GNX\xaa\x02\x0eGrpc.NiChassis\xca\x02\x0eGrpc\\NiChassis\xe2\x02\x1aGrpc\\NiChassis\\GPBMetadata\xea\x02\x0fGrpc::NiChassisb\x06proto3"
@@ -254,35 +301,37 @@ func file_core_pkg_transport_grpc_ni_chassis_chassis_proto_rawDescGZIP() []byte 
 	return file_core_pkg_transport_grpc_ni_chassis_chassis_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_ni_chassis_chassis_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_core_pkg_transport_grpc_ni_chassis_chassis_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_core_pkg_transport_grpc_ni_chassis_chassis_proto_goTypes = []any{
 	(*CreateRequest)(nil),        // 0: grpc.ni_chassis.CreateRequest
 	(*CreateResponse)(nil),       // 1: grpc.ni_chassis.CreateResponse
 	(*UpdateRequest)(nil),        // 2: grpc.ni_chassis.UpdateRequest
-	(*DeleteRequest)(nil),        // 3: grpc.ni_chassis.DeleteRequest
-	(*pb.Chassis)(nil),           // 4: service.ni_chassis.pb.Chassis
-	(*pb.Update)(nil),            // 5: service.ni_chassis.pb.Update
-	(*pb1.RetrieveRequest)(nil),  // 6: api.ni_chassis.pb.RetrieveRequest
-	(*pb1.RetrieveResponse)(nil), // 7: api.ni_chassis.pb.RetrieveResponse
-	(*emptypb.Empty)(nil),        // 8: google.protobuf.Empty
+	(*UpdateResponse)(nil),       // 3: grpc.ni_chassis.UpdateResponse
+	(*DeleteRequest)(nil),        // 4: grpc.ni_chassis.DeleteRequest
+	(*pb.Chassis)(nil),           // 5: service.ni_chassis.pb.Chassis
+	(*pb.Update)(nil),            // 6: service.ni_chassis.pb.Update
+	(*pb1.RetrieveRequest)(nil),  // 7: api.ni_chassis.pb.RetrieveRequest
+	(*pb1.RetrieveResponse)(nil), // 8: api.ni_chassis.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),        // 9: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_ni_chassis_chassis_proto_depIdxs = []int32{
-	4, // 0: grpc.ni_chassis.CreateRequest.chassis:type_name -> service.ni_chassis.pb.Chassis
-	4, // 1: grpc.ni_chassis.CreateResponse.chassis:type_name -> service.ni_chassis.pb.Chassis
-	5, // 2: grpc.ni_chassis.UpdateRequest.update:type_name -> service.ni_chassis.pb.Update
-	0, // 3: grpc.ni_chassis.NIChassisCreateService.Exec:input_type -> grpc.ni_chassis.CreateRequest
-	6, // 4: grpc.ni_chassis.NIChassisRetrieveService.Exec:input_type -> api.ni_chassis.pb.RetrieveRequest
-	2, // 5: grpc.ni_chassis.NIChassisUpdateService.Exec:input_type -> grpc.ni_chassis.UpdateRequest
-	3, // 6: grpc.ni_chassis.NIChassisDeleteService.Exec:input_type -> grpc.ni_chassis.DeleteRequest
-	1, // 7: grpc.ni_chassis.NIChassisCreateService.Exec:output_type -> grpc.ni_chassis.CreateResponse
-	7, // 8: grpc.ni_chassis.NIChassisRetrieveService.Exec:output_type -> api.ni_chassis.pb.RetrieveResponse
-	8, // 9: grpc.ni_chassis.NIChassisUpdateService.Exec:output_type -> google.protobuf.Empty
-	8, // 10: grpc.ni_chassis.NIChassisDeleteService.Exec:output_type -> google.protobuf.Empty
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	5, // 0: grpc.ni_chassis.CreateRequest.chassis:type_name -> service.ni_chassis.pb.Chassis
+	5, // 1: grpc.ni_chassis.CreateResponse.chassis:type_name -> service.ni_chassis.pb.Chassis
+	6, // 2: grpc.ni_chassis.UpdateRequest.update:type_name -> service.ni_chassis.pb.Update
+	5, // 3: grpc.ni_chassis.UpdateResponse.chassis:type_name -> service.ni_chassis.pb.Chassis
+	0, // 4: grpc.ni_chassis.NIChassisCreateService.Exec:input_type -> grpc.ni_chassis.CreateRequest
+	7, // 5: grpc.ni_chassis.NIChassisRetrieveService.Exec:input_type -> api.ni_chassis.pb.RetrieveRequest
+	2, // 6: grpc.ni_chassis.NIChassisUpdateService.Exec:input_type -> grpc.ni_chassis.UpdateRequest
+	4, // 7: grpc.ni_chassis.NIChassisDeleteService.Exec:input_type -> grpc.ni_chassis.DeleteRequest
+	1, // 8: grpc.ni_chassis.NIChassisCreateService.Exec:output_type -> grpc.ni_chassis.CreateResponse
+	8, // 9: grpc.ni_chassis.NIChassisRetrieveService.Exec:output_type -> api.ni_chassis.pb.RetrieveResponse
+	3, // 10: grpc.ni_chassis.NIChassisUpdateService.Exec:output_type -> grpc.ni_chassis.UpdateResponse
+	9, // 11: grpc.ni_chassis.NIChassisDeleteService.Exec:output_type -> google.protobuf.Empty
+	8, // [8:12] is the sub-list for method output_type
+	4, // [4:8] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_ni_chassis_chassis_proto_init() }
@@ -296,7 +345,7 @@ func file_core_pkg_transport_grpc_ni_chassis_chassis_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_ni_chassis_chassis_proto_rawDesc), len(file_core_pkg_transport_grpc_ni_chassis_chassis_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   4,
 		},

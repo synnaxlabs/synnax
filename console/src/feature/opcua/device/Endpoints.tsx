@@ -26,6 +26,11 @@ import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
+import {
+  type Endpoint,
+  endpointsResponseZ,
+  GET_ENDPOINTS_COMMAND_TYPE,
+} from "@/feature/opcua/device/scan";
 import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
 import { SECURITY_MODE_NAMES } from "@/feature/opcua/device/SelectSecurityMode";
 import { SECURITY_POLICY_NAMES } from "@/feature/opcua/device/SelectSecurityPolicy";
@@ -36,11 +41,6 @@ import {
   type SecurityMode,
   type SecurityPolicy,
 } from "@/feature/opcua/device/types";
-import {
-  type Endpoint,
-  endpointsResponseZ,
-  GET_ENDPOINTS_COMMAND_TYPE,
-} from "@/feature/opcua/task/types";
 
 const path = deep.path<Device>();
 

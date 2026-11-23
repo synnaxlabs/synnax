@@ -115,23 +115,23 @@ const FOOTER_COLUMNS = [
     <script>
         import { QUERY as CLIENT_QUERY } from "@/components/client/choice";
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
-        import { start as startLightbox } from "@/components/media/lightbox";
-        import { start as startVideos } from "@/components/media/video";
-        import { start as startCollapse } from "@/components/nav/collapse";
-        import { start as startOnThisPage } from "@/components/nav/onThisPage";
-        import { start as startSidebar } from "@/components/nav/sidebar";
+        import { lightbox } from "@/components/media/lightbox";
+        import { playback } from "@/components/media/playback";
+        import { collapse } from "@/components/nav/collapse";
+        import { onThisPage } from "@/components/nav/onThisPage";
+        import { sidebar } from "@/components/nav/sidebar";
         import { QUERY as PLATFORM_QUERY } from "@/components/platform/choice";
-        import { start as startTabs } from "@/components/tabs/sync";
+        import { sync } from "@/components/tabs/sync";
         import { startPinningHashTarget } from "@/util/hash";
         import { startUpdatingIframeHref } from "@/util/iframe";
 
-        startSidebar();
-        startCollapse();
-        startVideos();
-        startLightbox();
+        sidebar.start();
+        collapse.start();
+        playback.start();
+        lightbox.start();
         // Before the tabs, so the outline hears the first tab change.
-        startOnThisPage();
-        startTabs({ client: CLIENT_QUERY, platform: PLATFORM_QUERY, context: {} });
+        onThisPage.start();
+        sync.start({ client: CLIENT_QUERY, platform: PLATFORM_QUERY, context: {} });
         const bindClickHandlersToHeadingAnchors = () => {
             const anchors =
                 document.querySelectorAll<HTMLAnchorElement>(".heading-anchor");

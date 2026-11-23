@@ -151,7 +151,7 @@ export const useSource = <V, S extends Source<V> = Source<V>>(
 export const useSink = <V>(
   ctx: aether.Context,
   spec: Spec,
-  prev: Sink<V>,
+  prev: Sink<V> | undefined,
   options?: CreateOptions,
 ): MemoizedSink<V> => {
   const prov = useContext(ctx);
