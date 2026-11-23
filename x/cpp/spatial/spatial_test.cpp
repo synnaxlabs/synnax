@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/spatial/json.gen.h"
+#include "x/cpp/spatial/spatial.h"
 #include "x/cpp/spatial/types.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -24,5 +25,11 @@ TEST(StickyXY, ParsesMissingRootAndUnits) {
     EXPECT_EQ(sticky.root.y, expected.root.y);
     EXPECT_EQ(sticky.units.x, expected.units.x);
     EXPECT_EQ(sticky.units.y, expected.units.y);
+}
+
+/// @brief it should return upper minus lower.
+TEST(ClosedBounds, Span) {
+    EXPECT_EQ(span(ClosedBounds{.lower = -10, .upper = 10}), 20);
+    EXPECT_EQ(span(ClosedBounds{.lower = 2, .upper = 1}), -1);
 }
 }

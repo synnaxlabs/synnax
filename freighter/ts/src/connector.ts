@@ -100,13 +100,14 @@ export const DEFAULT_CONNECTOR: Connector = {
 
 // A CA list replaces the default list in Node and Bun, so it must keep the defaults.
 const withDefaultCAs = async (ca: string): Promise<string[]> => {
-  const { getCACertificates, rootCertificates } = await import("node:tls");
+  // webpack cannot build a node: import for a browser, but it skips getBuiltinModule.
+  const { getCACertificates, rootCertificates } = process.getBuiltinModule("node:tls");
   // Node 22.15 added getCACertificates. Before it, the defaults are the bundled roots
   // and NODE_EXTRA_CA_CERTS.
   if (getCACertificates != null) return [...getCACertificates("default"), ca];
   const extra = process.env.NODE_EXTRA_CA_CERTS;
   if (extra == null || extra === "") return [...rootCertificates, ca];
-  const { readFile } = await import("node:fs/promises");
+  const { readFile } = process.getBuiltinModule("node:fs/promises");
   // Node warns and skips an unreadable NODE_EXTRA_CA_CERTS file, so this skips it too.
   const extraCAs = await readFile(extra, "utf8").catch(() => null);
   return extraCAs == null

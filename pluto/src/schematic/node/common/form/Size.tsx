@@ -13,7 +13,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep, type text } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import { LEVEL_SIZES, SIZE_LEVELS } from "@/schematic/node/common/size";
+import { size } from "@/schematic/node/common/size";
 
 const path = deep.path<{ size: Component.Size; level: text.Level }>();
 
@@ -44,8 +44,8 @@ const SelectLevelSize = ({
   onChange: (level: text.Level) => void;
 }): ReactElement => (
   <Select.Component.Size
-    value={LEVEL_SIZES[value]}
-    onChange={(size: Component.Size) => onChange(SIZE_LEVELS[size])}
+    value={size.BY_LEVEL[value]}
+    onChange={(value: Component.Size) => onChange(size.LEVELS[value])}
   />
 );
 
