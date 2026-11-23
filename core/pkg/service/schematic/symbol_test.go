@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/defaults"
-	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -253,17 +252,20 @@ var _ = Describe("Symbol nodes", func() {
 		})
 	})
 
-	It("Should decode a state with no notation as standard notation", func(
-		ctx SpecContext,
-	) {
+	It("Should store no format for a state that sets none", func(ctx SpecContext) {
 		var s schematic.Schematic
 		Expect(json.Unmarshal([]byte(
 			`{"name":"symbols","nodes":[{"key":"n","config":{"variant":"symbol",`+
 				`"spec":{"type":"builtin","name":"valve"},"states":[{"key":"active"}]}}]}`,
 		), &s)).To(Succeed())
-		cfg := as[schematic.SymbolNodeConfig](s.Nodes[0].Config.Variant)
-		Expect(cfg.States[0].Notation).To(Equal(notation.NotationStandard))
 		s.Project = &proj.Key
 		createSchematic(ctx, &s)
+		var res schematic.Schematic
+		Expect(svc.NewRetrieve().
+			Where(schematic.MatchKeys(s.Key)).
+			Entry(&res).
+			Exec(ctx, db)).To(Succeed())
+		cfg := as[schematic.SymbolNodeConfig](res.Nodes[0].Config.Variant)
+		Expect(cfg.States[0].FormatConfig).To(BeZero())
 	})
 })

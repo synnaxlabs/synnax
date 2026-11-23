@@ -20,7 +20,7 @@ import {
 } from "@/log/aether/telem/mock";
 import type { LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 

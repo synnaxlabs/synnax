@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <optional>
@@ -19,6 +20,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -82,6 +84,22 @@ void (*put_for(const x::telem::DataType &dt))(x::telem::Series &, std::uint64_t)
 
 x::errors::Error config_error(const std::string &text) {
     return x::errors::Error(CONFIG_ERROR, text);
+}
+
+constexpr std::uint32_t MAX_STANDARD_CAN_ID = 0x7FF;
+constexpr std::uint32_t MAX_EXTENDED_CAN_ID = 0x1FFFFFFF;
+/// @brief EXTENDED_BIT marks an extended identifier in the keys of Binary::exact.
+constexpr std::uint32_t EXTENDED_BIT = 1U << 31;
+
+/// @brief returns v as uppercase hexadecimal text with a 0x prefix.
+std::string hex(std::uint32_t v) {
+    constexpr std::string_view digits = "0123456789ABCDEF";
+    std::string out;
+    do {
+        out.insert(out.begin(), digits[v & 0xF]);
+        v >>= 4;
+    } while (v != 0);
+    return "0x" + out;
 }
 
 /// @brief returns the error for a payload of size bytes that is shorter than the end
@@ -342,22 +360,6 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
     bin.messages.reserve(messages.size());
     for (std::size_t i = 0; i < messages.size(); i++) {
         const auto &m = messages[i];
-        if (m.payload.identifier.has_value())
-            return {
-                Binary{},
-                config_error(
-                    "message " + m.name + ": identifiers are not supported yet"
-                ),
-            };
-        if (bin.fallback.has_value())
-            return {
-                Binary{},
-                config_error(
-                    "messages " + messages[*bin.fallback].name + " and " + m.name +
-                    " both have no identifier"
-                ),
-            };
-        bin.fallback = i;
         Message msg{.name = m.name};
         Layout by_key;
         for (const auto &f: m.payload.fields)
@@ -394,18 +396,168 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
         }
         msg.raw.resize(msg.muxes.size());
         bin.messages.push_back(std::move(msg));
+        if (auto err = bin.route(m, i, by_key)) return {Binary{}, err};
     }
     return {std::move(bin), x::errors::NIL};
 }
 
-std::pair<std::optional<std::size_t>, x::errors::Error>
-Binary::decode(const std::span<const std::uint8_t> payload) {
-    if (!this->fallback.has_value()) return {std::nullopt, x::errors::NIL};
-    auto &m = this->messages[*this->fallback];
+x::errors::Error
+Binary::route(const BinaryMessage &m, const std::size_t i, const Layout &fields) {
+    if (!m.payload.identifier.has_value()) {
+        if (this->fallback.has_value())
+            return config_error(
+                "messages " + this->messages[*this->fallback].name + " and " + m.name +
+                " both have no identifier"
+            );
+        this->fallback = i;
+        return x::errors::NIL;
+    }
+    const auto &identifier = *m.payload.identifier;
+    if (const auto *can = std::get_if<icd::CanIdentifier>(&identifier))
+        return this->route_can(*can, i);
+    const auto &id = std::get<icd::FieldIdentifier>(identifier);
+    const auto context = "message " + m.name + ": identifier";
+    const auto found = fields.find(id.field);
+    if (found == fields.end())
+        return config_error(
+            context + ": field " + id.field.to_string() + " does not exist"
+        );
+    const auto &f = *found->second;
+    const auto &b = icd::base(f);
+    if (std::holds_alternative<icd::FloatBinaryField>(f))
+        return config_error(context + ": field " + b.name + " is a float field");
+    auto [bits, err] = BitRange::create(b);
+    if (err) return as_config(err, context + ": field " + b.name);
+    if (const auto length = m.payload.length;
+        length.has_value() && bits.end() > *length)
+        return config_error(
+            context + ": field " + b.name + ": the field ends past the " +
+            std::to_string(*length) + "-byte payload"
+        );
+    const bool is_signed = std::holds_alternative<icd::IntegerBinaryField>(f);
+    const std::int64_t v = id.value;
+    const auto n = b.bit_length;
+    const bool fits = is_signed ? n >= 64 || (v >= -(std::int64_t{1} << (n - 1)) &&
+                                              v < (std::int64_t{1} << (n - 1)))
+                                : v >= 0 && (n >= 63 || v < (std::int64_t{1} << n));
+    if (!fits)
+        return config_error(
+            context + ": " + std::to_string(v) + " is out of range for field " + b.name
+        );
+    auto h = std::ranges::find(this->headers, bits, &Header::bits);
+    if (h == this->headers.end()) {
+        this->headers.push_back({.bits = bits});
+        h = std::prev(this->headers.end());
+    }
+    const auto raw = n >= 64
+                       ? static_cast<std::uint64_t>(v)
+                       : static_cast<std::uint64_t>(v) & ((std::uint64_t{1} << n) - 1);
+    const auto [it, inserted] = h->messages.try_emplace(raw, i);
+    if (!inserted)
+        return config_error(
+            "messages " + this->messages[it->second].name + " and " + m.name +
+            " match the same identifier value " + std::to_string(v)
+        );
+    return x::errors::NIL;
+}
+
+x::errors::Error Binary::route_can(const icd::CanIdentifier &id, const std::size_t i) {
+    const std::uint32_t width = id.extended ? MAX_EXTENDED_CAN_ID : MAX_STANDARD_CAN_ID;
+    const auto &name = this->messages[i].name;
+    if (id.id > width)
+        return config_error(
+            "message " + name + ": identifier: id " + hex(id.id) +
+            " exceeds the maximum " + hex(width)
+        );
+    const std::uint32_t mask = id.mask.value_or(width) & width;
+    const Masked rule{
+        .id = id.id & mask,
+        .mask = mask,
+        .extended = id.extended,
+        .message = i,
+    };
+    std::optional<Masked> clash;
+    const auto check = [&](const Masked &other) {
+        if (other.extended != rule.extended ||
+            ((other.id ^ rule.id) & other.mask & rule.mask) != 0)
+            return;
+        if (!clash.has_value() || other.message < clash->message) clash = other;
+    };
+    for (const auto &[key, message]: this->exact)
+        check({
+            .id = key & MAX_EXTENDED_CAN_ID,
+            .mask = (key & EXTENDED_BIT) != 0 ? MAX_EXTENDED_CAN_ID
+                                              : MAX_STANDARD_CAN_ID,
+            .extended = (key & EXTENDED_BIT) != 0,
+            .message = message,
+        });
+    for (const auto &other: this->masked)
+        check(other);
+    if (clash.has_value())
+        return config_error(
+            "messages " + this->messages[clash->message].name + " and " + name +
+            " both match " + (id.extended ? "extended " : "") + "CAN identifier " +
+            hex((clash->id & clash->mask) | (rule.id & rule.mask))
+        );
+    if (mask == width)
+        this->exact[rule.id | (id.extended ? EXTENDED_BIT : 0)] = i;
+    else
+        this->masked.push_back(rule);
+    return x::errors::NIL;
+}
+
+std::pair<std::optional<std::size_t>, x::errors::Error> Binary::decode_as(
+    const std::optional<std::size_t> i,
+    const std::span<const std::uint8_t> payload
+) {
+    if (!i.has_value()) return {std::nullopt, x::errors::NIL};
+    auto &m = this->messages[*i];
     if (auto err = m.decode(payload)) {
         if (this->messages.size() > 1) err = wrap(err, "message " + m.name);
         return {std::nullopt, err};
     }
-    return {this->fallback, x::errors::NIL};
+    return {i, x::errors::NIL};
+}
+
+std::pair<std::optional<std::size_t>, x::errors::Error>
+Binary::decode(const std::span<const std::uint8_t> payload) {
+    std::optional<std::size_t> found;
+    for (const auto &h: this->headers) {
+        if (payload.size() < h.bits.end()) continue;
+        const auto it = h.messages.find(h.bits.read(payload.data()));
+        if (it == h.messages.end()) continue;
+        if (found.has_value())
+            return {
+                std::nullopt,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "frame matches messages " +
+                        this->messages[std::min(*found, it->second)].name + " and " +
+                        this->messages[std::max(*found, it->second)].name
+                ),
+            };
+        found = it->second;
+    }
+    if (!found.has_value()) found = this->fallback;
+    return this->decode_as(found, payload);
+}
+
+std::pair<std::optional<std::size_t>, x::errors::Error> Binary::decode(
+    const std::uint32_t id,
+    const bool extended,
+    const std::span<const std::uint8_t> payload
+) {
+    std::optional<std::size_t> found;
+    if (const auto it = this->exact.find(id | (extended ? EXTENDED_BIT : 0));
+        it != this->exact.end())
+        found = it->second;
+    else
+        for (const auto &m: this->masked)
+            if (m.extended == extended && (id & m.mask) == m.id) {
+                found = m.message;
+                break;
+            }
+    if (!found.has_value()) found = this->fallback;
+    return this->decode_as(found, payload);
 }
 }
