@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 #include <array>
+#include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <span>
 #include <string>
 #include <string_view>
+#include <thread>
+#include <vector>
 
 #include "asio/buffer.hpp"
 #include "asio/io_context.hpp"
@@ -148,7 +152,7 @@ TEST(Socket, ReceiveFromAnySender) {
     EXPECT_EQ(err.data, "no remote host is set to send to");
 }
 
-/// @brief it should keep reading after a send to a port with no listener.
+/// @brief it should keep reading and writing after a send to a port with no listener.
 TEST(Socket, IgnorePortUnreachable) {
     auto s = ASSERT_NIL_P(
         Socket::open(
@@ -160,6 +164,66 @@ TEST(Socket, IgnorePortUnreachable) {
     );
     ASSERT_NIL(s->write(bytes("x"), TIMEOUT));
     EXPECT_TRUE(ASSERT_NIL_P(s->read(SHORT)).data.empty());
+    ASSERT_NIL(s->write(bytes("y"), TIMEOUT));
+    EXPECT_TRUE(ASSERT_NIL_P(s->read(SHORT)).data.empty());
+}
+
+/// @brief it should skip empty datagrams.
+TEST(Socket, SkipEmptyDatagrams) {
+    Peer peer;
+    auto s = open_to(peer);
+    ASSERT_NIL(s->write(bytes("hello"), TIMEOUT));
+    peer.receive();
+    peer.send("", peer.from);
+    peer.send("x", peer.from);
+    EXPECT_EQ(text(ASSERT_NIL_P(s->read(TIMEOUT))), "x");
+}
+
+/// @brief it should return at the timeout while other senders flood the socket.
+TEST(Socket, ReturnAtTimeoutUnderFlood) {
+    Peer peer;
+    Peer other;
+    auto s = open_to(peer);
+    ASSERT_NIL(s->write(bytes("hello"), TIMEOUT));
+    peer.receive();
+    const auto to = peer.from;
+    std::atomic done = false;
+    std::atomic capped = false;
+    std::thread flood([&] {
+        const auto cap = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        while (!done) {
+            if (std::chrono::steady_clock::now() > cap) {
+                capped = true;
+                return;
+            }
+            other.send("noise", to);
+        }
+    });
+    EXPECT_TRUE(ASSERT_NIL_P(s->read(SHORT)).data.empty());
+    done = true;
+    flood.join();
+    EXPECT_FALSE(capped);
+}
+
+/// @brief it should refuse a datagram larger than UDP allows.
+TEST(Socket, RefuseOversizedDatagram) {
+    Peer peer;
+    auto s = open_to(peer);
+    const std::vector<std::uint8_t> big(70000);
+    const auto err = s->write(big, TIMEOUT);
+    ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
+    const auto prefix = "failed to send to 127.0.0.1:" + std::to_string(peer.port()) +
+                        ": ";
+    EXPECT_TRUE(err.data.starts_with(prefix)) << err.data;
+}
+
+/// @brief it should fail when no interface holds the local address.
+TEST(Socket, FailWhenNoInterfaceHoldsAddress) {
+    const Address addr{.local_address = "192.0.2.1"};
+    const auto err = Socket::open(addr, TIMEOUT).second;
+    ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
+    EXPECT_TRUE(err.data.starts_with("failed to bind UDP port 192.0.2.1:0: "))
+        << err.data;
 }
 
 /// @brief it should refuse a port that another socket holds.

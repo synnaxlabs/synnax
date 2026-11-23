@@ -12,8 +12,14 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "udp",
-    srcs = ["socket.cpp"],
-    hdrs = ["socket.h"],
+    srcs = ["socket.cpp"] + select({
+        "@platforms//os:windows": ["icmp_windows.cpp"],
+        "//conditions:default": ["icmp_posix.cpp"],
+    }),
+    hdrs = [
+        "icmp.h",
+        "socket.h",
+    ],
     linkopts = select({
         "@platforms//os:windows": ["ws2_32.lib"],
         "//conditions:default": [],

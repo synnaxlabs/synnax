@@ -29,6 +29,7 @@
 
 #include "driver/transport/errors.h"
 #include "driver/transport/transport.h"
+#include "driver/udp/icmp.h"
 #include "driver/udp/socket.h"
 
 namespace driver::udp {
@@ -77,13 +78,16 @@ void cancel(asio::ip::udp::socket &socket) {
     socket.cancel(ignored);
 }
 
-/// @brief resolves host on port through getaddrinfo, which cannot be cancelled, so a
-/// resolve that times out finishes on its own thread.
+/// @brief resolves host on port. A name resolves through getaddrinfo, which cannot be
+/// cancelled, so a resolve that times out finishes on its own thread.
 std::pair<std::vector<asio::ip::udp::endpoint>, std::error_code> resolve(
     const std::string &host,
     const std::uint16_t port,
     const x::telem::TimeSpan timeout
 ) {
+    std::error_code ec;
+    if (const auto literal = asio::ip::make_address(host, ec); !ec)
+        return {{asio::ip::udp::endpoint(literal, port)}, {}};
     return transport::abandon_after(timeout, [host, port] {
         asio::io_context ctx;
         asio::ip::udp::resolver resolver(ctx);
@@ -164,6 +168,8 @@ Socket::open(const Address &addr, const x::telem::TimeSpan timeout) {
     std::error_code ec;
     if (s->socket.open(bound.protocol(), ec))
         return {nullptr, translate("failed to open a UDP socket", ec)};
+    if (const auto ignored = icmp::ignore(s->socket.native_handle()))
+        return {nullptr, translate("failed to open a UDP socket", ignored)};
     if (s->socket.bind(bound, ec))
         return {nullptr, translate("failed to bind UDP port " + to_string(bound), ec)};
     return {std::move(s), x::errors::NIL};
@@ -186,18 +192,16 @@ Socket::read(const x::telem::TimeSpan timeout) {
             [this] { cancel(this->socket); }
         );
         if (done.timed_out()) return {{}, x::errors::NIL};
-        // Windows reports an ICMP port unreachable reply to an earlier send on the next
-        // receive. It says nothing about what this socket receives.
-        if (done.ec == asio::error::connection_refused ||
-            done.ec == asio::error::connection_reset)
-            continue;
         if (done.ec)
             return {{}, translate("failed to receive a UDP datagram", done.ec)};
-        if (this->remote && this->sender != *this->remote) continue;
-        return {
-            {.data = {this->buffer.data(), done.size}, .time = done.time},
-            x::errors::NIL
-        };
+        if (done.size > 0 && (!this->remote || this->sender == *this->remote))
+            return {
+                {.data = {this->buffer.data(), done.size}, .time = done.time},
+                x::errors::NIL
+            };
+        // A receive completes at once while datagrams are queued, so a flood of skipped
+        // datagrams never lets it time out.
+        if (x::telem::TimeStamp::now() >= deadline) return {{}, x::errors::NIL};
     }
 }
 

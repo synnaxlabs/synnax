@@ -35,6 +35,7 @@ struct Address {
     /// @brief remote_host is the host to send to and the only one to receive from, or
     /// empty to receive from any sender and send nothing.
     std::string remote_host;
+    /// @brief remote_port is the port to send to. It is required with remote_host.
     std::uint16_t remote_port = 0;
 };
 
@@ -62,9 +63,11 @@ public:
     open(const Address &addr, x::telem::TimeSpan timeout);
 
     /// @brief blocks until a datagram from the remote host, or from any sender when
-    /// there is none, arrives or timeout elapses.
+    /// there is none, arrives or timeout elapses. It skips empty datagrams, which carry
+    /// no message.
     /// @returns one datagram, or an empty chunk on timeout.
-    /// transport::UNREACHABLE_ERROR when the socket fails.
+    /// transport::UNREACHABLE_ERROR when the network fails, and transport::CONFIG_ERROR
+    /// or transport::CRITICAL_ERROR when reopening the socket cannot fix the failure.
     std::pair<transport::Chunk, x::errors::Error>
     read(x::telem::TimeSpan timeout) override;
 
