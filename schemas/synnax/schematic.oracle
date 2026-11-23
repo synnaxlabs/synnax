@@ -1292,7 +1292,7 @@ Page struct {
 }
 
 StalenessConfig struct {
-    staleness_timeout telem.TimeSpan = 5000000000 {
+    staleness_timeout telem.TimeSpan = 5s {
         @doc value    "is the span after which the value is considered stale."
         @ts type      telem.NumericTimeSpan
         @validate max 9007199254740991

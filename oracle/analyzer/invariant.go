@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 // checkOptionalDefaultInvariant enforces that a field is never both nullable (`?`) and
@@ -481,4 +482,43 @@ func checkGroupMember(
 			"string, or a string-enum member.",
 		f.Name, typ.Name, group,
 	))
+}
+
+// checkDurationDefaults enforces that a duration literal defaults only a field whose
+// type is telem's TimeSpan.
+func checkDurationDefaults(c *analysisCtx) {
+	forEachDefaultedField(c, func(typ resolution.Type, f resolution.Field) {
+		if f.Default.Duration == "" || isTimeSpan(f.Type, c.table) {
+			return
+		}
+		c.diag.Add(diagnostics.Errorf(
+			nil,
+			"default %s on field %q in %q has a duration unit, but the field's type is "+
+				"not telem.TimeSpan. Write the value without a unit.",
+			f.Default.Duration,
+			f.Name,
+			typ.Name,
+		))
+	})
+}
+
+// isTimeSpan reports whether ref denotes telem's TimeSpan through aliases and distinct
+// bases.
+func isTimeSpan(ref resolution.TypeRef, table *resolution.Table) bool {
+	visited := set.New[string]()
+	for {
+		typ, _, ok := resolution.Dealias(ref, table)
+		if !ok || visited.Contains(typ.QualifiedName) {
+			return false
+		}
+		visited.Add(typ.QualifiedName)
+		if typ.QualifiedName == "telem.TimeSpan" {
+			return true
+		}
+		distinct, ok := typ.Form.(resolution.DistinctForm)
+		if !ok {
+			return false
+		}
+		ref = distinct.Base
+	}
 }
