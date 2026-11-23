@@ -40,4 +40,31 @@ var _ = Describe("Request option check", func() {
 			Expect(diag.String()).To(ContainSubstring("where"))
 		},
 	)
+
+	It(
+		"Should refuse an @request option that takes the name of the one option",
+		func() {
+			loader := NewMockFileLoader()
+			AddFilterSchema(loader)
+			_, diag := Analyze(`
+			import "schemas/x/filter"
+
+			@go output "out"
+
+			Thing struct {
+				key  uuid   { @key }
+				name string { @filter }
+			}
+			Where filter Thing {
+				key
+				name
+				@request one "takes the name of the one retrieve option."
+			}
+		`, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"@request one takes the name of another retrieve option",
+			))
+		},
+	)
 })
