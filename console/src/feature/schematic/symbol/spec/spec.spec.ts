@@ -482,6 +482,33 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("owner", () => {
+    const spec = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<g id="g"><rect id="body"/><rect id="c"/></g><rect id="d"/></svg>',
+      },
+      parts: [
+        { key: "group", name: "Group", selectors: ["#g"] },
+        { key: "body", name: "Body", selectors: ["#body"] },
+      ],
+    });
+
+    it("should return the part that holds the shape itself", () => {
+      expect(Spec.owner(spec, "#body")?.key).toBe("body");
+    });
+
+    it("should return the part that holds the group around the shape", () => {
+      expect(Spec.owner(spec, "#c")?.key).toBe("group");
+    });
+
+    it("should return undefined for a shape that no part holds", () => {
+      expect(Spec.owner(spec, "#d")).toBeUndefined();
+    });
+  });
+
   describe("toggleSelector", () => {
     it("should move a selector to the part from the other parts", () => {
       const next = Spec.toggleSelector(createSpec().parts, "body", "#seat");

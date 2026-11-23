@@ -185,7 +185,8 @@ const Editor = ({
     const parts = form.get(path.data.parts).value;
     if (part != null)
       return form.set(path.data.parts, Spec.toggleSelector(parts, part, selector));
-    const owner = parts.find((p) => p.selectors.includes(selector));
+    const drawing = form.get(path.data.drawing).value;
+    const owner = Spec.owner({ drawing, parts }, selector);
     if (owner == null) return addPart(selector);
     setSelectedPart(owner.key);
   };

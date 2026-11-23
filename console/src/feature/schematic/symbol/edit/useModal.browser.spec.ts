@@ -692,6 +692,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       '<rect id="a" width="10" height="10"/><rect id="b" x="10" width="10" height="10"/>' +
       "</svg>";
 
+    const GROUPED =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+      '<g id="g"><rect id="c" width="10" height="10"/>' +
+      '<rect id="d" x="10" width="10" height="10"/></g></svg>';
+
     const findShape = (id: string): Element => {
       const shape = getPreviewTransformWrapper(document.body).querySelector(`#${id}`);
       assertDefined(shape);
@@ -748,17 +753,25 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("selects the part that holds the group of a shape clicked", async () => {
+      await openPainted({
+        drawing: { type: "svg", markup: GROUPED },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(findShape("c"));
+      expect(await screen.findByRole("heading", { name: "Body" })).toBeDefined();
+      expect(screen.queryByText("Part 1")).toBeNull();
+    });
+
     it("adds only the clicked shape of a group to a part", async () => {
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("grouped"));
-      const markup =
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
-        '<g id="g"><rect id="c" width="10" height="10"/>' +
-        '<rect id="d" x="10" width="10" height="10"/></g></svg>';
       const symbol = await client.schematics.symbols.create({
         ...payload,
         group: grp.key,
-        data: { ...payload.data, drawing: { type: "svg", markup } },
+        data: { ...payload.data, drawing: { type: "svg", markup: GROUPED } },
       });
       await renderModalOpener(
         Schematic.Symbol.Edit.useModal,

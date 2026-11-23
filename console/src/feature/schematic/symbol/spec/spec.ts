@@ -233,6 +233,25 @@ export const removePart = (spec: Spec, part: string): Spec => ({
 });
 
 /**
+ * @returns the part that holds the shape of selector, itself or through the nearest
+ * group around it that a part holds.
+ */
+export const owner = (
+  spec: Pick<Spec, "drawing" | "parts">,
+  selector: string,
+): schematic.symbol.Part | undefined => {
+  const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+  const around: Element[] = [];
+  for (let el = doc.querySelector(selector); el != null; el = el.parentElement)
+    around.push(el);
+  for (const el of around) {
+    const found = spec.parts.find((p) => p.selectors.some((s) => el.matches(s)));
+    if (found != null) return found;
+  }
+  return undefined;
+};
+
+/**
  * @returns parts in which part selects selector, or no longer selects it when it
  * already did. A shape belongs to one part, so the other parts drop selector.
  */
