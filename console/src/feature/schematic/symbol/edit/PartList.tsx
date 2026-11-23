@@ -64,21 +64,31 @@ const PartListItem = ({
     part == null ? "Every shape" : pluralize("shape", part.selectors.length, true);
   const drawn =
     part == null ? undefined : Schematic.Node.Region.paint(markup, part.selectors);
-  const paint = (field: "stroke" | "fill", label: string) => (
-    <Paint
-      aria-label={label}
-      value={Spec.effective({ looks }, target, field, selectedValue)}
-      onChange={(v) =>
-        set(
-          path.data,
-          Spec.setOwn(get(path.data).value, target, field, v, selectedValue),
-        )
-      }
-      entryState={values.entryState}
-      drawingColor={drawn?.[field]}
-      entryColor={values.entryColor(selectedValue)}
-    />
-  );
+  const paint = (field: "stroke" | "fill", label: string) => {
+    const value = Spec.effective({ looks }, target, field, selectedValue);
+    const own = Spec.effective(
+      { looks: looks.filter((l) => l.part === target) },
+      target,
+      field,
+      selectedValue,
+    );
+    return (
+      <Paint
+        aria-label={label}
+        value={value}
+        inherited={target != null && value != null && own == null}
+        onChange={(v) =>
+          set(
+            path.data,
+            Spec.setOwn(get(path.data).value, target, field, v, selectedValue),
+          )
+        }
+        entryState={values.entryState}
+        drawingColor={drawn?.[field]}
+        entryColor={values.entryColor(selectedValue)}
+      />
+    );
+  };
   return (
     <Select.Item
       {...props}

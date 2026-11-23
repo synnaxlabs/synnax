@@ -438,6 +438,16 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(fill.querySelector(".lyra-icon--node")).not.toBeNull();
     });
 
+    it("keeps Drawing from a part that the whole drawing paints", async () => {
+      const { fill } = await openPainted({
+        looks: [{ key: "node", fill: { type: "node" } }],
+      });
+      fireEvent.click(fill);
+      await waitFor(() =>
+        expect(findButton("Drawing").getAttribute("aria-disabled")).toBe("true"),
+      );
+    });
+
     it("saves the state color and shows the default entry where no entry matches", async () => {
       const enumeration = await client.enumerations.create({
         name: uniqueName("valve"),
