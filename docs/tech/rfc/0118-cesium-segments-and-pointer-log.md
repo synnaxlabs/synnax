@@ -415,6 +415,7 @@ not know. Without the bit, that binary refuses to open.
 | Restart (8)   | -        | 0    | -                       | No body. Replay seals every open segment at its committed length                                                                                                                                  |
 | Check (9)     | 0        | 8    | `uint64`                | Version 0 segment that now has a check file                                                                                                                                                       |
 | Intent (10)   | 0        | 8    | `uint32` each           | Key, then flags. A delete intent (§4.1). Bit 0 set clears the key's intent, which `Sweep` logs for a key with a record; the key's Drop also clears it                                             |
+| Kept (11)     | 0        | 8    | `uint64`                | Sealed version 1 clock segment whose progression encoding failed the half rule. It is no longer a candidate of encoding                                                                           |
 
 - **Commit**: One clock write is one Commit: 32 bytes plus 16 per channel. Its clock key
   is that of the segments in its slots. A Commit extends the newest pointer of a segment
@@ -472,18 +473,18 @@ table, 24 bytes per section: kind and record version (`uint16` each), record siz
 Record order is fixed (keys rising, then identities, then offsets), so the bytes of a
 file depend on the state alone. A count is the index of the next record minus its own.
 
-| Section           | Record size | Fields, in order                                                                                                                                                                                                                      |
-| ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 Parts (head)    | 48          | Part identity, generation of the switch that wrote it, file length, lowest and highest pointer time (8 bytes each); offset of its bitmap in section 2 or `0xFFFFFFFF`, header CRC of the part (4 each)                                |
-| 2 Dead (head)     | 1           | Bitmap bytes. Bit `i` of the bitmap of a part: segment record `i` of that part is dead                                                                                                                                                |
-| 3 Kills (head)    | 24          | Key and flags (4 each; bit 0: every segment of the key), segment identity (8), generation (8). A dead mark for parts of that generation or older that is not yet in a bitmap                                                          |
-| 4 Channels (head) | 16          | Key, index of its first segment record, oldest and newest part that hold the key (indexes in section 1, read by history lookups) (4 each)                                                                                             |
-| 4 Channels (part) | 8           | Key, index of its first segment record (4 each)                                                                                                                                                                                       |
-| 5 Segments        | 32          | Identity (8); clock key, length, `tail_crc`, index of its first pointer record (4 each); format version (2); type code (1); flags (1; bit 0 sealed, bit 1 has a check file); old file number `N` of a version 0 segment (2); zero (2) |
-| 6 Pointers        | 36          | First stamp, last stamp, alignment (8 each); stream offset, byte length, samples (4 each)                                                                                                                                             |
-| 7                 | -           | Not used, so sections 8 and 9 keep their numbers                                                                                                                                                                                      |
-| 8 Clocks          | 4           | The distinct clock keys that data segments in the file name, in rising order. `Drop`, `Sweep`, and the delete guard read it                                                                                                           |
-| 9 Intents (head)  | 4           | The key of each live delete intent (§4.1), in rising order                                                                                                                                                                            |
+| Section           | Record size | Fields, in order                                                                                                                                                                                                                                  |
+| ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Parts (head)    | 48          | Part identity, generation of the switch that wrote it, file length, lowest and highest pointer time (8 bytes each); offset of its bitmap in section 2 or `0xFFFFFFFF`, header CRC of the part (4 each)                                            |
+| 2 Dead (head)     | 1           | Bitmap bytes. Bit `i` of the bitmap of a part: segment record `i` of that part is dead                                                                                                                                                            |
+| 3 Kills (head)    | 24          | Key and flags (4 each; bit 0: every segment of the key), segment identity (8), generation (8). A dead mark for parts of that generation or older that is not yet in a bitmap                                                                      |
+| 4 Channels (head) | 16          | Key, index of its first segment record, oldest and newest part that hold the key (indexes in section 1, read by history lookups) (4 each)                                                                                                         |
+| 4 Channels (part) | 8           | Key, index of its first segment record (4 each)                                                                                                                                                                                                   |
+| 5 Segments        | 32          | Identity (8); clock key, length, `tail_crc`, index of its first pointer record (4 each); format version (2); type code (1); flags (1; bit 0 sealed, bit 1 has a check file, bit 2 kept); old file number `N` of a version 0 segment (2); zero (2) |
+| 6 Pointers        | 36          | First stamp, last stamp, alignment (8 each); stream offset, byte length, samples (4 each)                                                                                                                                                         |
+| 7                 | -           | Not used, so sections 8 and 9 keep their numbers                                                                                                                                                                                                  |
+| 8 Clocks          | 4           | The distinct clock keys that data segments in the file name, in rising order. `Drop`, `Sweep`, and the delete guard read it                                                                                                                       |
+| 9 Intents (head)  | 4           | The key of each live delete intent (§4.1), in rising order                                                                                                                                                                                        |
 
 - **Head**: Every open segment, every segment sealed since the last part, every segment
   that waits for a rewrite, and the dead marks that parts still need. Pointers in the
@@ -616,6 +617,10 @@ then has no head, the older head and its logs stay, and the next switch writes h
   entry is acked, and rewrite one segment to one segment. A version 2 segment is never
   compacted: it holds at most half the bytes of its stamps, and it is unlinked when
   nothing in it is live.
+- **Progression try**: A sealed version 1 clock segment with 2 blocks or more live and
+  no Kept mark is a candidate of encoding. The compactor tries it once. The try ends in
+  a Replace, or in a Kept record when the result is more than half the size. The head
+  keeps the mark, so the segment can go to a part and is never tried again.
 
 ### 5.7 Alignment
 
