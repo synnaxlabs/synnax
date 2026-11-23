@@ -145,6 +145,12 @@ var _ = Describe("Server", func() {
 		Entry("a host with a port", func(s *v0.Server) {
 			s.Host = "api.example.com:8080"
 		}, "host"),
+		Entry("an IPv4 host with a port", func(s *v0.Server) {
+			s.Host = "192.168.1.10:8080"
+		}, "host"),
+		Entry("a hex host with a port", func(s *v0.Server) {
+			s.Host = "cafe.beef:8080"
+		}, "host"),
 		Entry("a host with a path", func(s *v0.Server) {
 			s.Host = "api.example.com/v1"
 		}, "host"),
@@ -222,6 +228,13 @@ var _ = Describe("Server", func() {
 		},
 		Entry("an IPv4 host", func(s *v0.Server) { s.Host = "192.168.1.10" }),
 		Entry("an IPv6 host", func(s *v0.Server) { s.Host = "fe80::1" }),
+		Entry("the IPv6 loopback", func(s *v0.Server) { s.Host = "::1" }),
+		Entry("a full IPv6 host", func(s *v0.Server) {
+			s.Host = "2001:db8:0:0:0:0:0:1"
+		}),
+		Entry("an IPv4-mapped IPv6 host", func(s *v0.Server) {
+			s.Host = "0:0:0:0:0:ffff:192.168.1.10"
+		}),
 		Entry("a single label host", func(s *v0.Server) { s.Host = "localhost" }),
 		Entry("a port and base path", func(s *v0.Server) {
 			s.Port = new(uint16(8080))

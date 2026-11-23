@@ -32,7 +32,7 @@ import (
 
 var validatePattern0 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
 
-var validatePattern1 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f.]*:[0-9A-Fa-f:.]*)$")
+var validatePattern1 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$")
 
 var validatePattern2 = regexp.MustCompile("^$|^/")
 
