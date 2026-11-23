@@ -89,7 +89,7 @@ TEST_F(RecordsTest, SyncCurrent) {
     ASSERT_NIL(records.sync("Plant"));
     const auto files = this->on_rack();
     ASSERT_EQ(files.size(), 1);
-    ASSERT_EQ(files[0].name, "Plant Driver certificate");
+    ASSERT_EQ(files[0].name, "Plant OPC UA Driver certificate");
     ASSERT_EQ(files[0].certificate_path, this->store->cert_path(id).string());
     ASSERT_FALSE(files[0].private_key_file.has_value());
     ASSERT_TRUE(files[0].details.has_value());
@@ -112,14 +112,14 @@ TEST_F(RecordsTest, SyncRenewal) {
         &FileCertificate::certificate_path
     );
     ASSERT_NE(next, files.end());
-    ASSERT_EQ(next->name, "Plant next Driver certificate");
+    ASSERT_EQ(next->name, "Plant next OPC UA Driver certificate");
     const auto next_key = next->key;
     ASSERT_NIL(this->store->promote());
     ASSERT_NIL(records.sync("Plant"));
     files = this->on_rack();
     ASSERT_EQ(files.size(), 1);
     ASSERT_EQ(files[0].key, next_key);
-    ASSERT_EQ(files[0].name, "Plant Driver certificate");
+    ASSERT_EQ(files[0].name, "Plant OPC UA Driver certificate");
 }
 
 /// @brief it should rename the record when the rack is renamed.
@@ -130,7 +130,7 @@ TEST_F(RecordsTest, SyncRackRename) {
     ASSERT_NIL(records.sync("Line 2"));
     const auto files = this->on_rack();
     ASSERT_EQ(files.size(), 1);
-    ASSERT_EQ(files[0].name, "Line 2 Driver certificate");
+    ASSERT_EQ(files[0].name, "Line 2 OPC UA Driver certificate");
 }
 
 /// @brief it should replace the records after a regenerate.
@@ -154,6 +154,21 @@ TEST_F(RecordsTest, SyncRestoresAtStart) {
     ASSERT_NIL(this->client.certificates.del({this->on_rack()[0].key}));
     ASSERT_NIL(records.sync("Plant"));
     ASSERT_TRUE(this->on_rack().empty());
+    auto restarted = this->records();
+    ASSERT_NIL(restarted.sync("Plant"));
+    ASSERT_EQ(this->on_rack().size(), 1);
+}
+
+/// @brief it should keep one record of a file that has two, as after a save whose reply
+/// was lost.
+TEST_F(RecordsTest, SyncDeletesDuplicate) {
+    ASSERT_NIL_P(this->store->current());
+    auto records = this->records();
+    ASSERT_NIL(records.sync("Plant"));
+    synnax::certificate::Certificate duplicate = this->on_rack().at(0);
+    std::get<FileCertificate>(duplicate).key = x::uuid::UUID();
+    ASSERT_NIL(this->client.certificates.set(duplicate));
+    ASSERT_EQ(this->on_rack().size(), 2);
     auto restarted = this->records();
     ASSERT_NIL(restarted.sync("Plant"));
     ASSERT_EQ(this->on_rack().size(), 1);

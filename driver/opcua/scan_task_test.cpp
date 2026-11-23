@@ -1235,7 +1235,7 @@ TEST_F(TestScanTask, testScanSavesDriverCertificate) {
     );
     ASSERT_EQ(records.size(), 1);
     const auto &file = std::get<synnax::certificate::FileCertificate>(records[0]);
-    EXPECT_EQ(file.name, rack.name + " Driver certificate");
+    EXPECT_EQ(file.name, rack.name + " OPC UA Driver certificate");
     EXPECT_EQ(file.certificate_path, store->cert_path(current).string());
 }
 

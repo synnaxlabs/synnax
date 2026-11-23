@@ -10,13 +10,14 @@
 #include <algorithm>
 #include <filesystem>
 #include <variant>
+#include <vector>
 
 #include "driver/opcua/certificate/records.h"
 
 namespace driver::opcua::certificate {
 namespace {
-const std::string CURRENT_SUFFIX = " Driver certificate";
-const std::string NEXT_SUFFIX = " next Driver certificate";
+const std::string CURRENT_SUFFIX = " OPC UA Driver certificate";
+const std::string NEXT_SUFFIX = " next OPC UA Driver certificate";
 
 synnax::certificate::Details details_of(const x::x509::Certificate &cert) {
     return {
@@ -58,20 +59,21 @@ x::errors::Error Records::sync(const std::string &rack_name) {
     if (retrieve_err) return retrieve_err;
     std::vector<synnax::certificate::Key> stale;
     for (const auto &record: records) {
-        const auto *file = std::get_if<synnax::certificate::FileCertificate>(&record);
-        if (file == nullptr ||
-            std::filesystem::path(file->certificate_path).parent_path() !=
-                this->store->certs_dir())
+        const auto &file = std::get<synnax::certificate::FileCertificate>(record);
+        if (std::filesystem::path(file.certificate_path).parent_path() !=
+            this->store->certs_dir())
             continue;
         const auto match = std::ranges::find(
             wanted,
-            file->certificate_path,
+            file.certificate_path,
             &synnax::certificate::FileCertificate::certificate_path
         );
-        if (match == wanted.end())
-            stale.push_back(file->key);
+        // A second record of one file, such as one from a save whose reply was lost,
+        // is stale.
+        if (match == wanted.end() || !match->key.is_nil())
+            stale.push_back(file.key);
         else
-            match->key = file->key;
+            match->key = file.key;
     }
     if (!stale.empty())
         if (const auto del_err = this->client->certificates.del(stale)) return del_err;
