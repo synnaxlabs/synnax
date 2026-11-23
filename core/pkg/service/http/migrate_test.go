@@ -55,6 +55,8 @@ var _ = Describe("Task migration", func() {
 				DB:      db,
 				Channel: channelSvc,
 				ICD:     icds,
+				Status:  statusSvc,
+				Secret:  secretSvc,
 			}))
 			t := v2.Task{
 				Key:  uuid.New(),
@@ -126,6 +128,8 @@ var _ = Describe("ICDMigration", func() {
 			DB:      db,
 			Channel: channelSvc,
 			ICD:     icdSvc,
+			Status:  statusSvc,
+			Secret:  secretSvc,
 		}))
 		names, asked = map[uuid.UUID]string{}, nil
 		var core zapcore.Core
