@@ -20,7 +20,6 @@ from synnax import http
 from tests.driver.http_task import create_read_endpoint
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import (
-    DriverTask,
     assert_configure_rejected,
     assert_create_refused,
     assert_start_rejected,
@@ -145,7 +144,8 @@ class HTTPInvalidConfig(SimulatorCase):
                     bindings=[
                         (
                             sy.icd.FloatJSONField(
-                                name="field", pointer="/nonexistent/deeply/nested/field"
+                                name="nested",
+                                pointer="/nonexistent/deeply/nested/field",
                             ),
                             create_channel(
                                 self.client,
@@ -158,7 +158,14 @@ class HTTPInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_deploy_fails(task, "invalid JSON pointer")
+        message = assert_start_rejected(self.client, task, "invalid JSON pointer")
+        assert "Failed to read the response from /api/v1/data" in message, (
+            f"Warning should name the response it failed to read, got {message!r}"
+        )
+        assert "no value at /nonexistent/deeply/nested/field" in message, (
+            f"Warning should name the missing pointer, got {message!r}"
+        )
+        self.log(f"  Correctly rejected (invalid JSON pointer): {message}")
 
     def test_duplicate_channel(self) -> None:
         """Configure and run two tasks that use the same channel."""
@@ -216,10 +223,3 @@ class HTTPInvalidConfig(SimulatorCase):
                 "Driver did not reject second task using the "
                 "same channel — both tasks ran simultaneously"
             )
-
-    def _assert_deploy_fails(
-        self, task: DriverTask[sy.task.StartConfig], label: str
-    ) -> None:
-        """Save a task and assert the driver rejects it on start."""
-        message = assert_start_rejected(self.client, task, label)
-        self.log(f"  Correctly rejected ({label}): {message}")
