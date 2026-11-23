@@ -92,6 +92,18 @@ const withActive = (states: Spec["states"]): Spec["states"] =>
   states.some((s) => s.key === STATE) ? states : [...states, createState()];
 
 /**
+ * @returns the field that the looks of target set at value alone, or at every value
+ * when value is undefined.
+ */
+export const own = <F extends Field>(
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: F,
+  value?: number,
+): Look[F] | undefined =>
+  spec.looks.findLast((l) => owns(l, target, value) && l[field] != null)?.[field];
+
+/**
  * @returns the field that target shows at value after its looks apply in order, or at
  * every value when value is undefined. Looks of the whole drawing do not count for a
  * part.
