@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CodePanel } from "@/components/common/CodePanel";
 import { useTimeline } from "@/components/common/useTimeline";

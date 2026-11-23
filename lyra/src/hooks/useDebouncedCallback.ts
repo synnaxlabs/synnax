@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type CrudeTimeSpan, scheduler, TimeSpan } from "@synnaxlabs/x";
-import { type DependencyList } from "react";
+import type { DependencyList } from "react";
 
 import { compareDeps, useMemoCompare } from "@/memo";
 

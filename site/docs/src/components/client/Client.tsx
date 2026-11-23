@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { type Client } from "@/components/client/choice";
+import type { Client } from "@/components/client/choice";
 
 export interface Info {
   key: Client;

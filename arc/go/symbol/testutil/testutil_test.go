@@ -15,8 +15,10 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("StaticResolver", func() {
@@ -287,4 +289,20 @@ var _ = Describe("FirstChildOfKind", func() {
 			).To(Equal(first))
 		},
 	)
+})
+
+var _ = Describe("BeAValidationPathError", func() {
+	It("Should match a validation error under a path", func() {
+		err := validate.PathedError(validate.ErrValidation, "config", "channel")
+		Expect(err).To(BeAValidationPathError())
+	})
+
+	It("Should not match a validation error without a path", func() {
+		Expect(validate.ErrValidation).ToNot(BeAValidationPathError())
+	})
+
+	It("Should not match a path error that is not a validation error", func() {
+		err := validate.PathedError(errors.New("other"), "config")
+		Expect(err).ToNot(BeAValidationPathError())
+	})
 })

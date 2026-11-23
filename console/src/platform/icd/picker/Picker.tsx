@@ -19,11 +19,13 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Portal } from "@synnaxlabs/lyra/portal";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type CrudeTimeSpan } from "@synnaxlabs/x";
+import type { CrudeTimeSpan } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { HintContext } from "@/platform/icd/picker/hint";
 
 const [ActiveContext, useActiveContext] = context.create<string>({
   displayName: "Picker.ActiveContext",
@@ -67,27 +69,31 @@ export const Bar = ({ children }: PropsWithChildren): ReactElement => (
 
 export interface FrameProps extends PropsWithChildren {
   itemKey: string;
+  /** Says what a pick of the frame becomes, under the title of each pane. */
+  hint: string;
 }
 
 /**
  * The body of one tab. It mounts its children the first time it shows and keeps them
  * mounted while hidden, so a picker listens only once opened and keeps what it shows.
  */
-export const Frame = ({ itemKey, children }: FrameProps): ReactElement | null => {
+export const Frame = ({ itemKey, hint, children }: FrameProps): ReactElement | null => {
   const active = useActiveContext("Picker.Frame") === itemKey;
   const [opened, setOpened] = useState(active);
   if (active && !opened) setOpened(true);
   if (!opened) return null;
   return (
     <FrameContext value={itemKey}>
-      <Flex.Box
-        x
-        grow
-        empty
-        className={CSS.cls(CSS.BE("icd-picker", "frame"), !active && CSS.M("hidden"))}
-      >
-        {children}
-      </Flex.Box>
+      <HintContext value={hint}>
+        <Flex.Box
+          x
+          grow
+          empty
+          className={CSS.cls(CSS.BE("icd-picker", "frame"), !active && CSS.M("hidden"))}
+        >
+          {children}
+        </Flex.Box>
+      </HintContext>
     </FrameContext>
   );
 };
@@ -140,6 +146,53 @@ export const Side = ({ children }: PropsWithChildren): ReactElement => (
   </Flex.Box>
 );
 
+export interface SearchProps extends Pick<
+  Input.TextProps,
+  "value" | "onChange" | "placeholder"
+> {}
+
+/** A field at the head of a {@link Side} that filters its list. */
+export const Search = (props: SearchProps): ReactElement => (
+  <Input.Text
+    size="small"
+    startContent={<Icon.Search />}
+    className={CSS.BE("icd-picker", "search")}
+    {...props}
+  />
+);
+
+/** The part of a {@link Side} that lists what to pick. It fills the room left over. */
+export const SideList = ({ children }: PropsWithChildren): ReactElement => (
+  <Flex.Box y empty className={CSS.BE("icd-picker", "side-list")}>
+    {children}
+  </Flex.Box>
+);
+
+export interface SideActionProps extends Pick<
+  Button.ButtonProps,
+  "onClick" | "children"
+> {}
+
+/** A button at the foot of a {@link Side} that adds what its list does not hold. */
+export const SideAction = ({ children, ...rest }: SideActionProps): ReactElement => (
+  <Button.Button
+    variant="text"
+    size="small"
+    className={CSS.BE("icd-picker", "side-action")}
+    {...rest}
+  >
+    <Icon.Add />
+    {children}
+  </Button.Button>
+);
+
+export interface NoticeProps extends Pick<Empty.ActionProps, "message"> {}
+
+/** Says why a list or the pane shows nothing. */
+export const Notice = ({ message }: NoticeProps): ReactElement => (
+  <Empty.Action message={message} className={CSS.BE("icd-picker", "notice")} />
+);
+
 /** The area that shows the values of what the side selects. */
 export const Pane = ({ children }: PropsWithChildren): ReactElement => (
   <Flex.Box y grow empty className={CSS.BE("icd-picker", "pane")}>
@@ -169,7 +222,7 @@ export interface FooterProps extends PropsWithChildren {
   onCancel: () => void;
 }
 
-/** The footer of the dialog: its children, then Cancel and the add button. */
+/** The footer of the dialog: a summary of the picks, then Cancel and the add button. */
 export const Footer = ({
   counts,
   idle,
@@ -177,7 +230,7 @@ export const Footer = ({
   onCancel,
   children,
 }: FooterProps): ReactElement => (
-  <Modal.Footer>
+  <Modal.Footer bordered className={CSS.BE("icd-picker", "footer")}>
     <Nav.Bar.Start>{children}</Nav.Bar.Start>
     <Nav.Bar.End x align="center" gap="small">
       <Button.Button variant="outlined" onClick={onCancel}>

@@ -131,6 +131,57 @@ describe("createChannel", () => {
       expect(result.channel).not.toBe(3);
     });
 
+    it("should give a new voltage channel a range of ±10 V", () => {
+      expect(createNextAIChannel([])).toMatchObject({ minVal: -10, maxVal: 10 });
+    });
+
+    it("should give a copy on another device that device's range", () => {
+      const source = { ...aiChannel("1", 0), device: "a", minVal: -60, maxVal: 60 };
+      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
+        minVal: -10,
+        maxVal: 10,
+      });
+    });
+
+    it("should keep the range of a scaled voltage copy on another device", () => {
+      const customScale: NI.Task.Scale = {
+        type: "linear",
+        slope: 2,
+        yIntercept: 0,
+        preScaledUnits: "Volts",
+        scaledUnits: "psi",
+      };
+      const source = {
+        ...aiChannel("1", 0),
+        device: "a",
+        minVal: 0,
+        maxVal: 30,
+        customScale,
+      };
+      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
+        minVal: 0,
+        maxVal: 30,
+      });
+    });
+
+    it("should keep the range of a current copy on another device", () => {
+      const source = {
+        ...aiChannel("1", 0, "ai_current"),
+        device: "a",
+        minVal: -0.02,
+        maxVal: 0.02,
+      };
+      expect(createNextAIChannel([source], { device: "b" })).toMatchObject({
+        minVal: -0.02,
+        maxVal: 0.02,
+      });
+    });
+
+    it("should keep the range of the copied channel", () => {
+      const source = { ...aiChannel("1", 0), minVal: -1, maxVal: 1 };
+      expect(createNextAIChannel([source])).toMatchObject({ minVal: -1, maxVal: 1 });
+    });
+
     it("should copy the last channel when no channel to copy is given", () => {
       const channels = [aiChannel("1", 0, "ai_accel"), aiChannel("2", 1, "ai_bridge")];
       const result = createNextAIChannel(channels);

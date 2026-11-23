@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x";
 
-import { type CreateOptions, type Factory } from "@/telem/aether/factory";
-import { type Spec, type Telem } from "@/telem/aether/telem";
+import type { CreateOptions, Factory } from "@/telem/aether/factory";
+import type { Spec, Telem } from "@/telem/aether/telem";
 
 const instances = new Map<string, Telem>();
 

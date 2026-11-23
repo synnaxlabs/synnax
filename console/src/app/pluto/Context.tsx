@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type Alamos, Pluto } from "@synnaxlabs/pluto";
-import { memo } from "react";
 
 import { Triggers } from "@/app/triggers";
 import { Embedded } from "@/feature/embedded";
@@ -26,7 +25,7 @@ const STALENESS_PROPS: Pluto.ProviderProps["staleness"] = { badged: FLAGS.staleB
 
 const useConnParams = DESKTOP ? Embedded.useConnParams : Core.useConnParams;
 
-export const Context = memo((props: ContextProps) => {
+export const Context = (props: ContextProps) => {
   const connParams = useConnParams();
   const themingProps = Session.Theme.useProviderProps();
   const haulProps = Session.Haul.useProviderProps();
@@ -44,5 +43,5 @@ export const Context = memo((props: ContextProps) => {
       {...props}
     />
   );
-});
+};
 Context.displayName = "Pluto.Context";

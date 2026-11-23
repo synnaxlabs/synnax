@@ -45,3 +45,23 @@
 .console-kafka-properties__text {
     flex-basis: 160px;
 }
+
+.console-task-configure--kafka_read {
+    /* The message format grid needs more room than a channel list. */
+    --console-task-form-max-width: 1200px;
+
+    .console-panes {
+        --console-list-width: 300px;
+    }
+
+    .console--off .console-kafka-record-label > :last-child {
+        color: var(--pluto-gray-l8);
+        text-decoration: line-through;
+        text-decoration-color: var(--pluto-gray-l6);
+    }
+}
+
+.console-kafka-record-label {
+    flex-grow: 1;
+    min-width: 0;
+}
