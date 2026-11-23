@@ -10,7 +10,7 @@
 import { control } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type Action, type Stored } from "@/channel/actions";
+import type { Action, Stored } from "@/channel/actions";
 import { isCalculated } from "@/channel/payload";
 import { createOf } from "@/channel/reduce";
 
