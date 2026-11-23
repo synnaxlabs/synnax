@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/query"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("@ref", func() {
@@ -1716,10 +1717,12 @@ var _ = Describe("@ref", func() {
 					MustGenerate(schema, "modbus", loader, p),
 					"retrieve.gen.go",
 				)
-				golden, err := os.ReadFile("testdata/rfc0114_symbol_references.golden")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(content[strings.Index(content, "func readConfigReferences"):]).
-					To(Equal(string(golden)))
+				golden := MustSucceed(
+					os.ReadFile("testdata/rfc0114_symbol_references.golden"),
+				)
+				start := strings.Index(content, "func readConfigReferences")
+				Expect(start).To(BeNumerically(">=", 0))
+				Expect(content[start:]).To(Equal(string(golden)))
 			})
 
 			It("Should find each site through a list, an optional union, and a list",
