@@ -9,10 +9,7 @@
 
 package control
 
-import (
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
-)
+import "github.com/synnaxlabs/x/errors"
 
 // Gate controls access to a resource for a given region of time.
 type Gate[K comparable, R Resource[K]] struct {
@@ -107,22 +104,8 @@ func (g *Gate[K, R]) authorize() (r R, err error) {
 	)
 }
 
-// MoveStart moves the start of the gate's region to start, which frees any time before
-// it. It fails when the region would reach another region. A bounded region only moves
-// back, and a start at or after the end of the region does nothing.
-func (g *Gate[K, R]) MoveStart(start telem.TimeStamp) error {
-	return g.region.controller.moveStart(g.region, start)
-}
-
-// Reach moves the end of the gate's region forward to end. It does nothing when the
-// region already holds end, and fails when the region would reach another region.
-func (g *Gate[K, R]) Reach(end telem.TimeStamp) error {
-	return g.region.controller.reach(g.region, end)
-}
-
-// Release releases the gate's access to the resource. If the gate is the last gate in a
-// region, i.e., transfer.IsRelease() == true, the resource will be returned. Otherwise,
-// the zero value of the resource will be returned.
+// Release releases the gate's access to the resource. It returns the resource when the
+// gate is the last gate of its region, and the zero value otherwise.
 func (g *Gate[K, R]) Release() (resource R, transfer Transfer[K]) {
 	return g.region.release(g)
 }

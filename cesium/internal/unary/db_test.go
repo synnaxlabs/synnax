@@ -76,8 +76,11 @@ var _ = Describe("DB Metadata Operations", func() {
 						w := MustSucceed(indexDB.OpenWriter(ctx, unary.WriterConfig{
 							Start: 10 * telem.SecondTS,
 						}))
-						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)),
+						MustSucceed2(
+							w.WriteUnless(
+								telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
+								nil,
+							),
 						)
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
@@ -93,9 +96,13 @@ var _ = Describe("DB Metadata Operations", func() {
 						w := MustSucceed(indexDB.OpenWriter(ctx, unary.WriterConfig{
 							Start: 10 * telem.SecondTS,
 						}))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
+						MustSucceed2(
+							w.WriteUnless(telem.NewSeriesSecondsTSV(10, 11, 12), nil),
+						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(13, 14)))
+						MustSucceed2(
+							w.WriteUnless(telem.NewSeriesSecondsTSV(13, 14), nil),
+						)
 						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
 
@@ -164,68 +171,5 @@ var _ = Describe("DB Metadata Operations", func() {
 				Expect(db.Close()).To(Succeed())
 			},
 		)
-	})
-
-	Describe("MarkClosed", func() {
-		var (
-			cfg unary.Config
-			db  *unary.DB
-		)
-		BeforeEach(func(ctx SpecContext) {
-			cfg = unary.Config{
-				FS:        MustSucceed(xfs.NewMem().Sub("db")),
-				MetaCodec: json.Codec,
-				Channel: channel.Channel{
-					Key:      GenerateChannelKey(),
-					Name:     "test",
-					DataType: telem.TimestampT,
-					IsIndex:  true,
-				},
-			}
-			db = MustOpen(unary.Open(ctx, cfg))
-		})
-
-		It(
-			"Should refuse new writers and iterators until UnmarkClosed",
-			func(ctx SpecContext) {
-				Expect(db.MarkClosed()).To(Succeed())
-				Expect(
-					db.OpenWriter(ctx, unary.WriterConfig{}),
-				).Error().To(MatchError(unary.ErrDBClosed))
-				Expect(
-					db.OpenIterator(unary.IteratorConfig{}),
-				).Error().To(MatchError(unary.ErrDBClosed))
-				db.UnmarkClosed()
-				i := MustSucceed(db.OpenIterator(unary.IteratorConfig{}))
-				Expect(i.Close()).To(Succeed())
-			},
-		)
-
-		It(
-			"Should leave the DB open if a writer is open",
-			func(ctx SpecContext) {
-				w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{}))
-				Expect(db.MarkClosed()).To(MatchError(resource.ErrOpen))
-				Expect(w.Close()).To(Succeed())
-				i := MustSucceed(db.OpenIterator(unary.IteratorConfig{}))
-				Expect(i.Close()).To(Succeed())
-			},
-		)
-
-		It("Should return ErrDBClosed if the DB is closed", func() {
-			Expect(db.MarkClosed()).To(Succeed())
-			Expect(db.MarkClosed()).To(MatchError(unary.ErrDBClosed))
-			db.UnmarkClosed()
-		})
-
-		It("Should persist the data of a marked DB on Release", func(ctx SpecContext) {
-			Expect(
-				unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10)),
-			).To(Succeed())
-			Expect(db.MarkClosed()).To(Succeed())
-			Expect(db.Release()).To(Succeed())
-			db = MustOpen(unary.Open(ctx, cfg))
-			Expect(db.HasDataFor(ctx, telem.TimeRangeMax)).To(BeTrue())
-		})
 	})
 })

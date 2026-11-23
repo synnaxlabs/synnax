@@ -10,6 +10,8 @@
 package writer_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -47,10 +49,10 @@ var _ = Describe("Delete Claims", func() {
 		func(ctx SpecContext) {
 			w := MustSucceed(open(ctx, writer.Config{Keys: channel.Keys{data.Key()}}))
 			Expect(host.Framer.ClaimDelete(channel.Keys{idx.Key(), data.Key()})).
-				Error().To(SatisfyAll(
-				MatchError(writer.ErrChannelInUse),
-				MatchError(ContainSubstring("1 unclosed writers")),
-			))
+				Error().To(MatchError(fmt.Sprintf(
+				"there are 1 unclosed writers on channel %v: channel in use",
+				data.Key(),
+			)))
 			Expect(w.Close()).To(Succeed())
 			release := MustSucceed(host.Framer.ClaimDelete(channel.Keys{data.Key()}))
 			release()
@@ -62,7 +64,9 @@ var _ = Describe("Delete Claims", func() {
 		func(ctx SpecContext) {
 			release := MustSucceed(host.Framer.ClaimDelete(channel.Keys{data.Key()}))
 			Expect(open(ctx, writer.Config{Keys: channel.Keys{data.Key()}})).
-				Error().To(MatchError(writer.ErrChannelDeleting))
+				Error().To(MatchError(
+				fmt.Sprintf("channel %v: channel is being deleted", data.Key()),
+			))
 			release()
 			Expect(MustSucceed(open(ctx, writer.Config{
 				Keys: channel.Keys{data.Key()},
@@ -78,7 +82,9 @@ var _ = Describe("Delete Claims", func() {
 			first()
 			first()
 			Expect(open(ctx, writer.Config{Keys: channel.Keys{data.Key()}})).
-				Error().To(MatchError(writer.ErrChannelDeleting))
+				Error().To(MatchError(
+				fmt.Sprintf("channel %v: channel is being deleted", data.Key()),
+			))
 			second()
 			Expect(MustSucceed(open(ctx, writer.Config{
 				Keys: channel.Keys{data.Key()},
@@ -94,7 +100,10 @@ var _ = Describe("Delete Claims", func() {
 				AutoIndex: new(true),
 			}))
 			Expect(host.Framer.ClaimDelete(channel.Keys{idx.Key()})).
-				Error().To(MatchError(writer.ErrChannelInUse))
+				Error().To(MatchError(fmt.Sprintf(
+				"there are 1 unclosed writers on channel %v: channel in use",
+				idx.Key(),
+			)))
 			Expect(w.Close()).To(Succeed())
 		},
 	)
