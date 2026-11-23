@@ -152,8 +152,8 @@ var _ = Describe("One clock handoff check", func() {
 	})
 
 	DescribeTable(
-		"Should refuse the commit of samples that a handoff dropped after the clock "+
-			"comes back",
+		"Should commit the samples of the holder that a handoff took the clock from, "+
+			"once the clock comes back",
 		func(ctx SpecContext, giveBack func(*storageWriter) error) {
 			a := open(ctx, storageConfig{
 				ControlSubject: control.Subject{Key: "a"},
@@ -169,13 +169,8 @@ var _ = Describe("One clock handoff check", func() {
 				Authorities:    []control.Authority{200},
 			}))
 			Expect(giveBack(b)).To(Succeed())
-			end, err := a.Commit(ctx)
-			Expect(stored(ctx, telem.TimeRangeMax)).To(BeEmpty())
-			Expect(err).To(
-				MatchError(control.ErrUnauthorized),
-				"commit of dropped samples returned end %v",
-				end,
-			)
+			Expect(MustSucceed(a.Commit(ctx))).To(Equal(11*telem.SecondTS + 1))
+			Expect(stored(ctx, telem.TimeRangeMax)).To(Equal([]int64{10, 11}))
 		},
 		Entry("close", func(b *storageWriter) error { return b.Close() }),
 		Entry("set authority", func(b *storageWriter) error {
