@@ -156,7 +156,7 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	keys := slices.Clone(req.Keys)
+	keys := req.Keys
 	if len(req.Names) > 0 {
 		named, err := s.channel.KeysByNames(ctx, tx, req.Names)
 		if err != nil {
@@ -169,14 +169,9 @@ func (s *Service) Delete(
 		}
 		keys = slices.Concat(keys, named)
 	}
-	// A request that names no channel deletes nothing, never the data of every channel.
-	if len(keys) == 0 {
-		return struct{}{}, nil
-	}
-	slices.Sort(keys)
 	var resChannels []channel.Channel
 	if err := s.channel.NewRetrieve().
-		Where(channel.MatchKeys(slices.Compact(keys)...)).
+		Where(channel.MatchKeys(keys...)).
 		Entries(&resChannels).
 		Exec(ctx, tx); err != nil {
 		return struct{}{}, err
