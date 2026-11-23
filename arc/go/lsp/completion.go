@@ -12,6 +12,7 @@ package lsp
 import (
 	"context"
 	"strings"
+	"unicode"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/formatter"
@@ -448,8 +449,9 @@ func (s *Server) Completion(
 
 // quotedCompletions returns the channels to complete when the cursor at pos sits in a
 // quoted channel name, and false when it sits in none. The prefix is the text from the
-// quote to the cursor, in NFC. Each edit replaces that text, and a closing quote right
-// after the cursor, with the quoted name.
+// quote to the cursor, in NFC. A quote right after a path's dot, as in stand.'pt, makes
+// the path part of the prefix and of the replaced text. Each edit replaces that text,
+// and a closing quote right after the cursor, with the quoted name.
 func (s *Server) quotedCompletions(
 	ctx context.Context,
 	doc *document,
@@ -471,10 +473,11 @@ func (s *Server) quotedCompletions(
 	if !ok {
 		return nil, false
 	}
+	start := pathStart(content, lineStart, quote)
 	prefix := strings.NewReplacer(`\\`, `\`, `\'`, `'`).Replace(
 		string(content[quote+1 : cursor]),
 	)
-	prefix = norm.NFC.String(prefix)
+	prefix = norm.NFC.String(string(content[start:quote]) + prefix)
 	end := pos
 	if cursor < len(content) && content[cursor] == '\'' {
 		end.Character++
@@ -482,7 +485,7 @@ func (s *Server) quotedCompletions(
 	replace := protocol.Range{
 		Start: toUTF16In(line, protocol.Position{
 			Line:      pos.Line,
-			Character: uint32(quote - lineStart),
+			Character: uint32(start - lineStart),
 		}),
 		End: end,
 	}
@@ -505,6 +508,27 @@ func (s *Server) quotedCompletions(
 		items = append(items, item)
 	}
 	return items, true
+}
+
+// pathStart returns the offset of the bare path that ends in a dot right before the
+// quote at offset quote, as stand. in stand.'pt, and quote when no such path precedes
+// it. Offsets count code points.
+func pathStart(content []rune, lineStart, quote int) int {
+	if quote == lineStart || content[quote-1] != '.' {
+		return quote
+	}
+	i := quote - 1
+	for i > lineStart {
+		r := content[i-1]
+		if r != '.' && (r > unicode.MaxASCII || !lsp.IsWordChar(byte(r))) {
+			break
+		}
+		i--
+	}
+	if i == quote-1 {
+		return quote
+	}
+	return i
 }
 
 // openQuote returns the offset in content of the quote that opens the channel name

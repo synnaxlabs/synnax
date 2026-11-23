@@ -911,6 +911,11 @@ var _ = Describe("Completion", func() {
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F64()),
 				ID:   2,
+			}, {
+				Name: "stand.pt-01",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   3,
 			}}
 			server = MustSucceed(lsp.New(lsp.Config{
 				NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
@@ -946,6 +951,28 @@ var _ = Describe("Completion", func() {
 				NewText: "'ox-pt-1'",
 			}))
 		})
+
+		It(
+			"should complete a quoted segment after a path's dot",
+			func(ctx SpecContext) {
+				OpenArcDocument(
+					server,
+					ctx,
+					docURI,
+					"func f() {\n    x := stand.'pt-0\n}",
+				)
+				completions := Completion(server, ctx, docURI, 1, 20)
+				Expect(HasCompletion(completions.Items, "ox-pt-1")).To(BeFalse())
+				item := MustBeOk(FindCompletion(completions.Items, "stand.pt-01"))
+				Expect(item.TextEdit).To(Equal(&protocol.TextEdit{
+					Range: protocol.Range{
+						Start: protocol.Position{Line: 1, Character: 9},
+						End:   protocol.Position{Line: 1, Character: 20},
+					},
+					NewText: "'stand.pt-01'",
+				}))
+			},
+		)
 
 		It("should offer only channels inside a quote", func(ctx SpecContext) {
 			OpenArcDocument(
