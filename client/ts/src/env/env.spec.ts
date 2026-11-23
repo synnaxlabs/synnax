@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { EventEmitter } from "node:events";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -435,6 +436,37 @@ describe("resolveParams with Synnax Desktop", () => {
           `Cannot run the key helper of Synnax Desktop at ${helper}`,
         );
       }));
+  });
+});
+
+describe("nodeSystem", () => {
+  it("should reject when a helper that cannot start has no streams", async () => {
+    const real = process;
+    // older Deno versions spawn such a child and emit the error a tick later
+    const spawn = (): EventEmitter => {
+      const child = new EventEmitter();
+      real.nextTick(() => child.emit("error", new Error("spawn EACCES")));
+      return child;
+    };
+    vi.stubGlobal(
+      "process",
+      Object.assign(Object.create(real), {
+        getBuiltinModule: (id: string) =>
+          id === "node:child_process" ? { spawn } : real.getBuiltinModule(id),
+      }),
+    );
+    try {
+      const system = env.nodeSystem();
+      if (system == null) throw new Error("no system");
+      await expect(system.run("/app/helper")).rejects.toThrow(
+        new ValidationError(
+          "Cannot run the key helper of Synnax Desktop at /app/helper: spawn " +
+            "EACCES. Update Synnax Desktop and open it.",
+        ),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

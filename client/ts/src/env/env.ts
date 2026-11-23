@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { ChildProcess } from "node:child_process";
+
 import { errors, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -274,13 +276,12 @@ export const nodeSystem = (
       await new Promise((resolve, reject) => {
         const timeout = AbortSignal.timeout(helperTimeout.milliseconds);
         const stop = signal == null ? timeout : AbortSignal.any([signal, timeout]);
-        const child = proc
+        // older Deno versions give a child that failed to spawn no streams
+        const child: ChildProcess = proc
           .getBuiltinModule("node:child_process")
           .spawn(path, { signal: stop });
         let stdout = "";
         let stderr = "";
-        child.stdout.setEncoding("utf8").on("data", (d: string) => (stdout += d));
-        child.stderr.setEncoding("utf8").on("data", (d: string) => (stderr += d));
         child.on("error", (err) => {
           if (isNotFound(err)) return resolve(null);
           if (isNotCapable(err)) return reject(err);
@@ -306,6 +307,8 @@ export const nodeSystem = (
           );
         });
         child.on("close", (status) => resolve({ status, stdout, stderr }));
+        child.stdout?.setEncoding("utf8").on("data", (d: string) => (stdout += d));
+        child.stderr?.setEncoding("utf8").on("data", (d: string) => (stderr += d));
       }),
   };
 };
