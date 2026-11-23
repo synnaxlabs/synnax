@@ -7,12 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""A fake `gh` executable for tests that run repository scripts."""
+"""Fakes of `gh` and Vercel Blob for tests that run repository scripts."""
 
 import json
 import subprocess
 import sys
+import threading
+import urllib.parse
+from dataclasses import dataclass
 from fnmatch import fnmatchcase
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +68,57 @@ class FakeGH:
         """Returns the arguments of each call so far, oldest first."""
         lines = (self.bin_dir / _CALLS).read_text().splitlines()
         return [json.loads(line) for line in lines]
+
+
+@dataclass(frozen=True)
+class BlobPut:
+    """One upload that a FakeBlob received."""
+
+    pathname: str
+    headers: dict[str, str]
+    body: bytes
+
+
+class FakeBlob:
+    """A local Vercel Blob API. Point the script under test at `url`.
+
+    Records each upload and answers it with a public URL under `PUBLIC`, or with the
+    next status in `failures`. Call `close` when done.
+    """
+
+    PUBLIC = "https://blob.test"
+
+    def __init__(self) -> None:
+        self.puts: list[BlobPut] = []
+        self.failures: list[int] = []
+        fake = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_PUT(self) -> None:
+                query = urllib.parse.urlparse(self.path).query
+                pathname = urllib.parse.parse_qs(query)["pathname"][0]
+                body = self.rfile.read(int(self.headers["Content-Length"]))
+                headers = {k.lower(): v for k, v in self.headers.items()}
+                status = fake.failures.pop(0) if fake.failures else 200
+                if status == 200:
+                    fake.puts.append(BlobPut(pathname, headers, body))
+                reply = json.dumps({"url": f"{fake.PUBLIC}/{pathname}"}).encode()
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(reply)))
+                self.end_headers()
+                self.wfile.write(reply)
+
+            def log_message(self, format: str, *args: Any) -> None:
+                pass
+
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self._server.server_port}"
+        threading.Thread(target=self._server.serve_forever, daemon=True).start()
+
+    def close(self) -> None:
+        self._server.shutdown()
+        self._server.server_close()
 
 
 def _answer(bin_dir: Path, args: list[str]) -> None:
