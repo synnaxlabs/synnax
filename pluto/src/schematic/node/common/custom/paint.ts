@@ -33,7 +33,8 @@ export interface PaintContext {
   nodeColor?: color.Color;
 }
 
-const matched = (state: schematic.symbol.State, value: number): number => {
+/** @returns value as a state reads it after its match. */
+export const matched = (state: schematic.symbol.State, value: number): number => {
   if (state.type !== "enumeration" || state.match.type === "exact") return value;
   const { lower, upper } = state.match.bounds;
   return value >= lower && value < upper ? 1 : 0;

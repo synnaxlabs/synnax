@@ -69,7 +69,6 @@ export const Symbol = ({
     control,
     commandChannel,
     stateChannel,
-    stalenessColor,
     stalenessTimeout,
     size,
     inlineSize,

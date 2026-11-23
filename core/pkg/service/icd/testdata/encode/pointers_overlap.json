@@ -1,0 +1,37 @@
+{
+  "description": "Two field pointers cannot be equal, and one cannot hold the other.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "temp",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/temp",
+          "type": "float"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "inner",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/temp/inner",
+          "type": "float",
+          "default": 1
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "error": "message command: field temp \"/temp\" and field inner \"/temp/inner\" overlap: validation error"
+}
