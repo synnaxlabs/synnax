@@ -917,7 +917,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
         {"units", "Ticks"},
         {"edge", "Falling"},
         {"meas_method", "LowFreq1Ctr"},
-        {"meas_time", 10000000},
+        {"meas_time", "10000000"},
         {"divisor", 1},
         {"terminal", "PFI0"},
         {"custom_scale", {{"type", "none"}}},

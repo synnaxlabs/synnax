@@ -112,12 +112,14 @@ var legacySecrets = map[string]struct{ key, plain string }{
 // message of a new ICD, named after the task.
 var legacyICDs = set.New("http_read")
 
-// legacyReimportErrors holds, for each task type whose current shape the legacy rewrite
+// legacyReimportErrors holds, for each fixture whose current shape the legacy rewrite
 // cannot read, the error that normalizing an unversioned copy of its stored config
 // returns.
 var legacyReimportErrors = map[string]string{
-	"ethercat_read":  `within "/channels/0": ReadChannel: unknown type "unresolved"`,
-	"ethercat_write": `within "/channels/0": WriteChannel: unknown type "unresolved"`,
+	"ethercat_read":      `within "/channels/0": ReadChannel: unknown type "unresolved"`,
+	"ethercat_write":     `within "/channels/0": WriteChannel: unknown type "unresolved"`,
+	"ni_counter_read":    `unmarshal JSON string into Go float64 within "/meas_time"`,
+	"ni_counter_read_py": `unmarshal JSON string into Go float64 within "/meas_time"`,
 }
 
 // legacyVariantDiscarded lists the keys a rewrite drops on purpose from one union
@@ -755,7 +757,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			// The rewrite and the ladder must leave their own output unchanged. An
 			// unversioned copy of a config reads each secret key as a plain value, and
 			// stages again the fields that the import moved into an ICD.
-			reimportErr, unreadable := legacyReimportErrors[env.Type]
+			reimportErr, unreadable := legacyReimportErrors[fixture]
 			if unreadable {
 				Expect(store.Normalize(ctx, db, 0, imported.Config)).Error().
 					To(MatchError(ContainSubstring(reimportErr)))
