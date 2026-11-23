@@ -81,12 +81,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
     value: Spec.effective({ looks }, part, f, shown),
     inherited:
       part == null ? undefined : Spec.effective({ looks }, undefined, f, shown),
-    own: Spec.effective(
-      { looks: looks.filter((l) => l.part === part) },
-      part,
-      f,
-      shown,
-    ),
+    own: Spec.own({ looks }, part, f, shown),
     onChange: (v) => {
       const spec = get(path.data).value;
       // A stored static symbol can hold looks on Base, which an edit at every value
@@ -113,7 +108,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
   const [split, setSplit] = useState(() => Spec.variesByValue({ looks }, part, field));
-  const several = values.values.length > 1;
+  const several = values.list.length > 1;
   // A static symbol has one value, so it ends By state.
   if (split && !several) setSplit(false);
   const varies = several && (split || Spec.variesByValue({ looks }, part, field));
@@ -124,7 +119,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
         get(path.data).value,
         part,
         field,
-        values.values.map((v) => v.value),
+        values.list.map((v) => v.value),
         next,
       ),
     );
@@ -157,7 +152,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
         </Flex.Box>
       </Flex.Box>
       {varies &&
-        values.values.map((v) => (
+        values.list.map((v) => (
           <Flex.Box
             key={v.key}
             x
