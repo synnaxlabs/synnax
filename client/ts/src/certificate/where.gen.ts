@@ -28,6 +28,7 @@ import { secret } from "@/secret";
  */
 export interface Lines {
   racks: ((record: Certificate, value: NonNullable<Where["racks"]>) => boolean) | null;
+  keyed: ((record: Certificate, value: NonNullable<Where["keyed"]>) => boolean) | null;
 }
 
 /**
@@ -50,6 +51,10 @@ export const matches = (lines: Lines, record: Certificate, where?: Where): boole
     if (lines.racks == null) throw new Error("only the Core can check racks");
     if (!lines.racks(record, where.racks)) return false;
   }
+  if (where.keyed != null) {
+    if (lines.keyed == null) throw new Error("only the Core can check keyed");
+    if (!lines.keyed(record, where.keyed)) return false;
+  }
   return true;
 };
 
@@ -63,7 +68,8 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     where.or?.some((w) => serverComputed(lines, w)) === true ||
     (where.not != null && serverComputed(lines, where.not)) ||
     where.name?.regex != null ||
-    (where.racks != null && lines.racks == null));
+    (where.racks != null && lines.racks == null) ||
+    (where.keyed != null && lines.keyed == null));
 
 const inputs = {
   /** key selects by key. */
@@ -74,6 +80,8 @@ const inputs = {
   source: filter.setInputZ(secret.sourceZ).exactOptional(),
   /** racks matches the file certificates on any of the given racks. */
   racks: filter.listInputZ(rack.keyZ).exactOptional(),
+  /** keyed matches the certificates with a private key, or without one when false. */
+  keyed: z.boolean().exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -111,7 +119,16 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ...options,
     })
     .transform((input) =>
-      filter.split(input, ["and", "or", "not", "key", "name", "source", "racks"]),
+      filter.split(input, [
+        "and",
+        "or",
+        "not",
+        "key",
+        "name",
+        "source",
+        "racks",
+        "keyed",
+      ]),
     );
 
 /** LIST_FIELDS are the top-level fields that a list can read, by wire name. */

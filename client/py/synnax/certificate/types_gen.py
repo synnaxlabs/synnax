@@ -91,6 +91,7 @@ class Where(BaseModel):
         name: Selects by name.
         source: Selects by source.
         racks: Matches the file certificates on any of the given racks.
+        keyed: Matches the certificates with a private key, or without one when false.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -102,6 +103,7 @@ class Where(BaseModel):
     name: filter.String | None = None
     source: filter.Set[secret.Source] | None = None
     racks: list[Annotated[rack_.Key, Field(ge=0, le=4294967295)]] | None = None
+    keyed: bool | None = None
 
     @field_validator("racks", mode="before")
     @classmethod
@@ -121,6 +123,7 @@ WhereInput = TypedDict(
         "name": filter.StringInput,
         "source": filter.SetInput[secret.Source],
         "racks": rack_.Key | list[rack_.Key],
+        "keyed": bool,
     },
     total=False,
 )

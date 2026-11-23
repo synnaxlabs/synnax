@@ -56,4 +56,6 @@ type Where struct {
 	Source *filter.Set[secret.Source] `json:"source,omitzero" msgpack:"source,omitempty"`
 	// Racks matches the file certificates on any of the given racks.
 	Racks []rack.Key `json:"racks,omitzero" msgpack:"racks,omitempty"`
+	// Keyed matches the certificates with a private key, or without one when false.
+	Keyed *bool `json:"keyed,omitzero" msgpack:"keyed,omitempty"`
 }

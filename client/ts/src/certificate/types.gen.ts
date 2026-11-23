@@ -72,6 +72,7 @@ export type Where = {
   name?: filter.String;
   source?: filter.Set<typeof secret.sourceZ>;
   racks?: rack.Key[];
+  keyed?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -94,6 +95,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   source: filter.setZ(secret.sourceZ).optional(),
   /** racks matches the file certificates on any of the given racks. */
   racks: zod.nullToUndefined(rack.keyZ.array()),
+  /** keyed matches the certificates with a private key, or without one when false. */
+  keyed: z.boolean().optional(),
 });
 
 /**
