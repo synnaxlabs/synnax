@@ -22,7 +22,7 @@ import { CSS } from "@/platform/css";
 import { ChannelName } from "@/platform/task/ChannelName";
 import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
-import { useHoveredRef, useIsHovered } from "@/platform/task/port/Hovered";
+import { Port } from "@/platform/task/port";
 import { TareButton } from "@/platform/task/TareButton";
 import type { Channel } from "@/platform/task/types";
 
@@ -94,8 +94,8 @@ export const ListChannelItem = ({
 }: ListChannelItemProps): ReactElement => {
   const item = deep.widen(path);
   const disabled = Form.useFieldValue(item.disabled, { optional: true });
-  const linked = useIsHovered(rest.itemKey);
-  const hoveredRef = useHoveredRef(rest.itemKey);
+  const linked = Port.useIsHovered(rest.itemKey);
+  const hoveredRef = Port.useHoveredRef(rest.itemKey);
   const flow = <Icon.Arrow.Right className={CSS.BE("list-channel-item", "flow")} />;
   const enabled = <EnabledCheckbox path={item.disabled} />;
   let channels: ReactNode;

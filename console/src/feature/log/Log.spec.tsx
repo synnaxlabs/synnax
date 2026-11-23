@@ -11,10 +11,10 @@ import { DataType, log } from "@synnaxlabs/client";
 import { aether, canvas } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { Log } from "@/feature/log/Log";
+import { Log } from "@/feature/log";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
 import { Vis } from "@/platform/vis";
 import { installMissingGPU } from "@/testutil";
@@ -29,9 +29,13 @@ class WorkerStub extends aether.Leaf<typeof stateZ> {
 
 const REGISTRY = { [WorkerStub.TYPE]: WorkerStub };
 
-describe("log/Log", () => {
+const { Content } = Log.TABS[log.TYPE_RESOURCE_ID.type];
+
+beforeAll(Content.preload);
+
+describe("Log tab content", () => {
   it("asks for channels when the log has none", async () => {
-    await renderLog(Log, { additionalRegistry: REGISTRY });
+    await renderLog(Content, { additionalRegistry: REGISTRY });
     expect(await screen.findByText("No channels configured")).toBeDefined();
     expect(screen.getByText("Configure channels")).toBeDefined();
   });
@@ -42,7 +46,7 @@ describe("log/Log", () => {
       dataType: DataType.FLOAT32,
       virtual: true,
     });
-    await renderLog(Log, {
+    await renderLog(Content, {
       additionalRegistry: REGISTRY,
       log: {
         channels: [log.channelEntryZ.parse({ channel: ch.key })],
@@ -58,7 +62,7 @@ describe("log/Log", () => {
     it("shows a placeholder in place of the log", async () => {
       const InCanvas = () => (
         <Vis.Canvas>
-          <Log />
+          <Content />
         </Vis.Canvas>
       );
       await renderLog(InCanvas, { additionalRegistry: canvas.REGISTRY });

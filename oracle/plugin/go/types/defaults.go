@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -717,8 +718,9 @@ func enumConstRef(
 type constraintCheckData struct {
 	GoName    string
 	FieldName string
-	// Kind selects the assertion form: non_empty_string, min_len, max_len (string),
-	// non_zero (numeric or uuid), ge, le, lt (numeric), or pattern (string).
+	// Kind selects the assertion form: non_empty_string, min_len, max_len, pattern
+	// (string), min_bytes, max_bytes (bytes), non_zero (numeric or uuid), or ge, le,
+	// lt (numeric).
 	Kind string
 	// Arg is the length or numeric threshold literal for the kinds that take one, the
 	// Go name of the compared field for lt, or the regex var for pattern.
@@ -758,7 +760,7 @@ func goConstraintChecks(
 			FieldName: jsonName,
 			Kind:      kind,
 			Arg:       arg,
-			Deref:     field.Optional,
+			Deref:     field.Optional && !typemap.Nilable(field.Type, data.table),
 		}
 	}
 	required := rules.Required && !field.Optional
@@ -770,6 +772,8 @@ func goConstraintChecks(
 		}
 	case resolution.IsStringPrimitive(base):
 		checks = stringChecks(rules, required, check)
+	case base == "bytes":
+		checks = bytesChecks(rules, check)
 	}
 	if resolution.IsNumberPrimitive(base) {
 		checks = append(checks, numberChecks(rules, required, check)...)
@@ -777,6 +781,24 @@ func goConstraintChecks(
 	if field.Optional && len(checks) > 0 {
 		checks[0].Opens = true
 		checks[len(checks)-1].Closes = true
+	}
+	return checks
+}
+
+// bytesChecks returns the length checks of a bytes field, which count bytes.
+func bytesChecks(rules *validation.Rules, check constraintCheck) []constraintCheckData {
+	var checks []constraintCheckData
+	if rules.MinLength != nil {
+		checks = append(
+			checks,
+			check("min_bytes", strconv.FormatInt(*rules.MinLength, 10)),
+		)
+	}
+	if rules.MaxLength != nil {
+		checks = append(
+			checks,
+			check("max_bytes", strconv.FormatInt(*rules.MaxLength, 10)),
+		)
 	}
 	return checks
 }

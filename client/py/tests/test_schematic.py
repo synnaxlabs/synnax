@@ -200,6 +200,7 @@ class TestSymbol:
                                 "values": [1],
                             },
                             "fill": {"type": "entry", "state": "active"},
+                            "stroke": {"type": "contrast", "state": "active"},
                         }
                     ],
                     "handles": [
@@ -218,6 +219,7 @@ class TestSymbol:
             state="active", values=[1]
         )
         assert s.data.looks[0].fill == symbol.EntryPaint(state="active")
+        assert s.data.looks[0].stroke == symbol.ContrastPaint(state="active")
         assert s.data.handles[0].orientation == "left"
         assert s.data.scale == 1
         assert symbol.Symbol.model_validate_json(s.model_dump_json()) == s

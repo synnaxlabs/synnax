@@ -16,6 +16,8 @@ const COMPONENTS = 3;
 interface Size {
   width: number;
   height: number;
+  /** The client size, which a scrollbar or a border changes inside the layout box. */
+  inner: string;
 }
 
 // A ResizeObserver loop can come from a change of less than a pixel. The offset size
@@ -23,8 +25,19 @@ interface Size {
 // layout box keeps it. A callback that changes a scale reads as a resize.
 const measure = (element: Element): Size => {
   const { width, height } = element.getBoundingClientRect();
-  return { width, height };
+  return { width, height, inner: `${element.clientWidth}x${element.clientHeight}` };
 };
+
+const callerStack = (): string =>
+  (new Error().stack ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(
+      (line) =>
+        !["", "Error"].includes(line) && !line.includes("testutil/resizeLoop.ts"),
+    )
+    .slice(0, STACK_FRAMES)
+    .join("\n");
 
 const formatSize = ({ width, height }: Size): string => `${width}x${height}`;
 
@@ -81,7 +94,8 @@ const label = (element: Element): string => {
  * Wraps the global ResizeObserver to name the cause of each ResizeObserver loop error.
  * Each report lists the observed elements that a callback resized in the frame of the
  * error, at or above the shallowest target of that callback, with the stack that
- * created the observer.
+ * created the observer. It also lists the targets observed after a callback in that
+ * frame, with the stack that observed them.
  *
  * @param report - Receives each report.
  * @returns a function that puts back the previous ResizeObserver and stops reporting.
@@ -92,12 +106,14 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
   const observed = new Map<Element, number>();
   const changes: string[] = [];
   let frame: CSSNumberish | null = null;
+  let delivered = false;
 
   // Every callback and the loop error of one rendering update share a timeline time.
   const enterFrame = (): void => {
     const now = document.timeline.currentTime;
     if (now === frame) return;
     frame = now;
+    delivered = false;
     changes.length = 0;
   };
 
@@ -110,8 +126,11 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     for (const [element, size] of before) {
       if (!element.isConnected) continue;
       const after = measure(element);
-      if (after.width === size.width && after.height === size.height) continue;
-      const resize = `from ${formatSize(size)} to ${formatSize(after)}`;
+      const same = after.width === size.width && after.height === size.height;
+      if (same && after.inner === size.inner) continue;
+      const resize = same
+        ? `its client size from ${size.inner} to ${after.inner}`
+        : `from ${formatSize(size)} to ${formatSize(after)}`;
       const callback = `${phase} the callback for ${targets}, of the observer`;
       changes.push(
         `${label(element)} changed ${resize} ${callback} created at:\n${origin}`,
@@ -128,6 +147,7 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     observer: ResizeObserver,
   ): void => {
     enterFrame();
+    delivered = true;
     const shallowest = Math.min(...entries.map((e) => depth(e.target)));
     const before = new Map<Element, Size>();
     for (const element of observed.keys())
@@ -153,20 +173,19 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     private readonly targets = new Set<Element>();
 
     constructor(callback: ResizeObserverCallback) {
-      const origin = (new Error().stack ?? "")
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(
-          (line) =>
-            !["", "Error"].includes(line) && !line.includes("testutil/resizeLoop.ts"),
-        )
-        .slice(0, STACK_FRAMES)
-        .join("\n");
+      const origin = callerStack();
       this.observer = new Native((entries) => trace(callback, origin, entries, this));
     }
 
     observe(target: Element, options?: ResizeObserverOptions): void {
+      // The first delivery of a target observed after a callback in the same frame
+      // counts as a resize, so a shallow target ends the frame in a loop error.
       if (!this.targets.has(target)) {
+        if (delivered && document.timeline.currentTime === frame) {
+          const cause = "began to be observed after a callback, at:";
+          changes.push(`${label(target)} ${cause}\n${callerStack()}`);
+          if (changes.length > MAX_CHANGES) changes.shift();
+        }
         this.targets.add(target);
         observed.set(target, (observed.get(target) ?? 0) + 1);
       }

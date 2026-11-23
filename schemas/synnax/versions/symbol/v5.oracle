@@ -233,6 +233,15 @@ Paint union on type {
 
         @doc value "is the color of the current entry of a state."
     }
+    contrast {
+        state string {
+            @doc value """
+                is the key of the state whose current entry color the paint reads on.
+            """
+        }
+
+        @doc value "is black or white, whichever reads on the entry color of a state."
+    }
     node {
         @doc value "is the color that the node sets."
     }
