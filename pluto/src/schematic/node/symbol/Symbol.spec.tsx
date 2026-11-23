@@ -7,19 +7,56 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { type channel, schematic } from "@synnaxlabs/client";
 import { SyntheticCore } from "@synnaxlabs/client/testutil";
 import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import type { FC, PropsWithChildren } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { z } from "zod";
+import { z } from "zod";
 
+import { aether } from "@/aether/aether";
+import type { NodeProps } from "@/schematic/node/spec";
 import { symbolSpec } from "@/schematic/node/symbol/spec";
+import type { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
+import { control } from "@/telem/control/aether";
 import { createSynnaxWrapper } from "@/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
+
+const chipState = z.object({ sink: z.unknown() }).loose();
+const chipSinks = vi.fn();
+
+// Stands in for the chip worker component and records the sink it acquires with.
+class StubChip extends aether.Leaf<typeof chipState> {
+  static readonly TYPE = control.Chip.TYPE;
+  override schema = chipState;
+
+  override afterUpdate(): void {
+    chipSinks(this.state.sink);
+  }
+}
+
+const indicatorState = z.object({}).loose();
+
+class StubIndicator extends aether.Leaf<typeof indicatorState> {
+  static readonly TYPE = control.Indicator.TYPE;
+  override schema = indicatorState;
+}
+
+// Records each command write by its channel, in place of a control session.
+class CommandFactory implements telem.Factory {
+  type = "command";
+  readonly sinks = new Map<channel.Key, telemTest.TestSink<number>>();
+
+  create(spec: telem.Spec): telem.Telem | null {
+    if (spec.type !== control.SetChannelValue.TYPE) return null;
+    const sink = telemTest.sink<number>();
+    this.sinks.set(control.setChannelValuePropsZ.parse(spec.props).channel, sink);
+    return sink;
+  }
+}
 
 const LocalWrapper = createSynnaxWrapper({
   client: null,
@@ -43,6 +80,7 @@ const WITHIN = { type: "within" as const, bounds: { lower: -2, upper: 2 } };
 const renderNode = (
   config: Omit<z.input<typeof schematic.symbolNodeConfigZ>, "variant">,
   Wrapper: FC<PropsWithChildren> = LocalWrapper,
+  onConfigChange: NodeProps["onConfigChange"] = vi.fn(),
 ) =>
   render(
     <Wrapper>
@@ -50,7 +88,7 @@ const renderNode = (
         <symbolSpec.Node
           nodeKey="s1"
           selected={false}
-          onConfigChange={vi.fn()}
+          onConfigChange={onConfigChange}
           config={schematic.symbolNodeConfigZ.parse({ variant: "symbol", ...config })}
         />
       </ReactFlowProvider>
@@ -206,5 +244,84 @@ describe("Symbol node", () => {
   ] as const)("should warn for %s", async (_, spec) => {
     const { findByText } = renderNode({ spec });
     await findByText("Missing symbol");
+  });
+});
+
+describe("Symbol node clicks", () => {
+  const VALVE = { type: "builtin" as const, name: "valve" };
+  const BUTTON = "button.pluto-symbol";
+
+  it.each([
+    ["open", 0, 1],
+    ["close", 1, 0],
+  ])("should %s a local valve on a click", (_, from, to) => {
+    const onConfigChange = vi.fn();
+    const { container } = renderNode(
+      {
+        spec: VALVE,
+        states: [{ key: "active", source: { type: "local", value: from } }],
+      },
+      LocalWrapper,
+      onConfigChange,
+    );
+    fireEvent.click(container.querySelector(BUTTON)!);
+    expect(onConfigChange).toHaveBeenCalledWith({
+      states: [expect.objectContaining({ source: { type: "local", value: to } })],
+    });
+  });
+
+  it.each([
+    [
+      "while disabled",
+      {
+        disabled: true,
+        states: [{ key: "active", source: { type: "local" as const, value: 0 } }],
+      },
+    ],
+    ["for a state with no source", { states: [{ key: "active" }] }],
+  ])("should take no clicks %s", (_, config) => {
+    const { container } = renderNode({ spec: VALVE, ...config });
+    expect(container.querySelector(BUTTON)).toBeNull();
+    expect(container.querySelector(".pluto-symbol")).not.toBeNull();
+  });
+
+  it("should close a channel valve through its command channel", async () => {
+    const now = TimeStamp.now();
+    const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
+    const [reading] = core.data;
+    const commands = new CommandFactory();
+    const Wrapper = createSynnaxWrapper({
+      client: null,
+      additionalRegistry: {
+        ...symbolNode.REGISTRY,
+        [StubChip.TYPE]: StubChip,
+        [StubIndicator.TYPE]: StubIndicator,
+      },
+      telemFactories: [telemTest.createRemoteFactory(core), commands],
+    });
+    const { container } = renderNode(
+      {
+        spec: VALVE,
+        color: COLOR,
+        states: [
+          {
+            key: "active",
+            source: { type: "channel", key: reading.key, command: 7 },
+            match: WITHIN,
+          },
+        ],
+      },
+      Wrapper,
+    );
+    await act(
+      async () => await vi.waitFor(() => expect(core.streams(reading.key)).toBe(true)),
+    );
+    expect(chipSinks).toHaveBeenCalledWith(
+      control.acquireChannelControl({ channel: 7, authority: 255 }),
+    );
+    await act(async () => core.advance(TimeSpan.seconds(1)));
+    await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
+    fireEvent.click(container.querySelector(BUTTON)!);
+    await vi.waitFor(() => expect(commands.sinks.get(7)?.values).toEqual([0]));
   });
 });

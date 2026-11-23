@@ -11,18 +11,29 @@ import type { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
-import type { ReactElement } from "react";
+import type { MouseEvent, ReactElement } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { BUILT_INS } from "@/schematic/node/builtIns";
+import { Control } from "@/schematic/node/common/control";
 import { Custom } from "@/schematic/node/common/custom";
 import { Grid } from "@/schematic/node/common/grid";
 import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
 import { bindSpec, dataMissing, sources, values } from "@/schematic/node/symbol/bind";
+import {
+  clickable,
+  commandChannels,
+  fixedValue,
+  interactionAt,
+  pick,
+  sinks,
+  target,
+} from "@/schematic/node/symbol/command";
 import { Symbol } from "@/schematic/symbol";
 import { SymbolNode } from "@/vis/symbolNode";
 
@@ -48,14 +59,29 @@ const useResolved = (ref: schematic.symbol.Ref): Resolved => {
   }
 };
 
+interface Bound extends Resolved {
+  /** symbol is the spec before the bindings of the node apply. */
+  symbol?: schematic.symbol.Spec;
+}
+
 // useBound resolves the symbol of a node, with the bindings of its states applied.
-const useBound = ({ spec: ref, states }: Pick<Config, "spec" | "states">): Resolved => {
+const useBound = ({ spec: ref, states }: Pick<Config, "spec" | "states">): Bound => {
   const { spec, ...rest } = useResolved(ref);
-  return { ...rest, spec: spec == null ? undefined : bindSpec(spec, states) };
+  return {
+    ...rest,
+    symbol: spec,
+    spec: spec == null ? undefined : bindSpec(spec, states),
+  };
 };
 
-interface DrawnProps extends Resolved, Pick<Config, "color" | "orientation" | "scale"> {
+interface DrawnProps
+  extends
+    Resolved,
+    Pick<Config, "color" | "orientation" | "scale">,
+    Partial<Pick<Config, "onClickDelay">> {
   value: Custom.StateValue;
+  /** onClick makes the drawing a button. */
+  onClick?: (e: MouseEvent<HTMLElement>) => void;
 }
 
 const Drawn = ({
@@ -66,6 +92,8 @@ const Drawn = ({
   orientation,
   scale,
   value,
+  onClick,
+  onClickDelay,
 }: DrawnProps): ReactElement => {
   const [nodeColor] = Color.useValues([color]);
   const paints = Custom.usePaints(spec, value, { nodeColor, builtIn });
@@ -79,20 +107,34 @@ const Drawn = ({
         </Text.Text>
       </Note.Note>
     );
+  const drawing = spec != null && (
+    <Custom.Drawing
+      spec={spec}
+      builtIn={builtIn}
+      orientation={orientation}
+      scale={scale}
+      paints={paints}
+    />
+  );
+  if (onClick == null)
+    return (
+      <Primitive.Div orientation={orientation} className={CSS.B("symbol")}>
+        {drawing}
+      </Primitive.Div>
+    );
   return (
-    <Primitive.Div orientation={orientation} className={CSS.B("symbol")}>
-      {spec != null && (
-        <Custom.Drawing
-          spec={spec}
-          builtIn={builtIn}
-          orientation={orientation}
-          scale={scale}
-          paints={paints}
-        />
-      )}
-    </Primitive.Div>
+    <Toggle.Button
+      className={CSS.B("symbol")}
+      orientation={orientation}
+      onClick={onClick}
+      onClickDelay={onClickDelay}
+    >
+      {drawing}
+    </Toggle.Button>
   );
 };
+
+const DEFAULT_CONTROL = Control.stateConfigZ.parse({});
 
 export const Node = ({
   nodeKey,
@@ -100,17 +142,53 @@ export const Node = ({
   selected,
   onConfigChange,
 }: NodeProps<Config>): ReactElement => {
-  const { label, orientation, scale, color, states, stalenessTimeout } = config;
-  const { readings } = SymbolNode.use({
+  const {
+    label,
+    orientation,
+    scale,
+    color,
+    states,
+    stalenessTimeout,
+    disabled,
+    onClickDelay,
+    control = DEFAULT_CONTROL,
+  } = config;
+  const bound = useBound(config);
+  const { symbol, spec } = bound;
+  const channels = commandChannels(symbol, config);
+  const { readings, set } = SymbolNode.use({
     aetherKey: nodeKey,
     sources: sources(states),
-    sinks: {},
+    sinks: sinks(channels),
     stalenessTimeout,
   });
-  const bound = useBound(config);
   const value = values(states, readings);
-  const unmatched = Custom.useUnmatched(bound.spec, value);
+  const unmatched = Custom.useUnmatched(spec, value);
   const scaleResize = Grid.useScaleResize(config, onConfigChange);
+  const interactions = disabled || symbol == null ? [] : clickable(symbol, config);
+  const send = (command: schematic.symbol.Command, v: number): void => {
+    const t = target(command, config);
+    if (t == null) throw new Error(`command ${command.key} has no target`);
+    if (t.type === "channel") return set(String(t.channel), v);
+    onConfigChange({
+      states: states.map((b) =>
+        b.key === t.state ? { ...b, source: { type: "local", value: v } } : b,
+      ),
+    });
+  };
+  const handleClick = ({ target: el }: MouseEvent<HTMLElement>): void => {
+    if (symbol == null || spec == null || !(el instanceof Element)) return;
+    const root = el.closest(`.${CSS.B("symbol")}`);
+    if (root == null) return;
+    const interaction = interactionAt(symbol, interactions, root, el);
+    if (interaction == null) return;
+    const command = pick(symbol, spec, interaction, value);
+    if (command != null) send(command, fixedValue(command));
+  };
+  const badges = {
+    stale: Object.values(readings).some((r) => r.stale),
+    unknown: dataMissing(states, readings) || unmatched,
+  };
   return (
     <Grid.Grid
       editable={selected}
@@ -120,16 +198,21 @@ export const Node = ({
       {...scaleResize}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      <Indicator.Slot
-        stale={Object.values(readings).some((r) => r.stale)}
-        unknown={dataMissing(states, readings) || unmatched}
-      />
+      {channels.length === 1 ? (
+        <Control.State config={control} channel={channels[0]} onChange={onConfigChange}>
+          <Indicator.Badges {...badges} />
+        </Control.State>
+      ) : (
+        <Indicator.Slot {...badges} />
+      )}
       <Drawn
         {...bound}
         color={color}
         orientation={orientation}
         scale={scale}
         value={value}
+        onClick={interactions.length > 0 ? handleClick : undefined}
+        onClickDelay={onClickDelay}
       />
     </Grid.Grid>
   );

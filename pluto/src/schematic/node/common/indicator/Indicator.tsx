@@ -19,7 +19,7 @@ import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Staleness } from "@/vis/staleness";
 
-/** Unknown marks a symbol whose state has no data, or a value that names no entry. */
+/** Unknown shows that a state of a symbol has no data, or names no entry. */
 export const Unknown = (): ReactElement => (
   <Badge.Badge
     status="warning"
@@ -33,20 +33,28 @@ export const Unknown = (): ReactElement => (
   </Badge.Badge>
 );
 
-export interface SlotProps {
+export interface BadgesProps {
   stale: boolean;
   unknown: boolean;
 }
 
-/** Slot shows the indicators of a symbol in a row in its bottom slot, or nothing. */
-export const Slot = Grid.createItem(({ stale, unknown }: SlotProps) => {
+/** Badges shows the indicators of a symbol in a row, or nothing. */
+export const Badges = ({ stale, unknown }: BadgesProps): ReactElement | null => {
+  if (!stale && !unknown) return null;
+  return (
+    <Flex.Box x align="center" gap="tiny">
+      {stale && <Staleness.Badge />}
+      {unknown && <Unknown />}
+    </Flex.Box>
+  );
+};
+
+/** Slot shows the indicators of a symbol in its bottom slot, or nothing. */
+export const Slot = Grid.createItem(({ stale, unknown }: BadgesProps) => {
   if (!stale && !unknown) return null;
   return (
     <Grid.Item itemKey="indicator" location="bottom">
-      <Flex.Box x align="center" gap="tiny">
-        {stale && <Staleness.Badge />}
-        {unknown && <Unknown />}
-      </Flex.Box>
+      <Badges stale={stale} unknown={unknown} />
     </Grid.Item>
   );
 });
