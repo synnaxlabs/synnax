@@ -11,8 +11,8 @@ import { color as xcolor, id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 
 import { color } from "@/color";
-import { NotCachedError, NotFoundError } from "@/errors";
 import { group } from "@/group";
+import { NotCachedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";

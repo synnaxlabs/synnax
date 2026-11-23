@@ -72,8 +72,6 @@ class Binary {
         decode(std::span<const std::uint8_t> payload, x::telem::Series &dst) const;
     };
 
-    using Layout = Multiplexors::Layout;
-
     struct Message {
         std::string name;
         std::vector<Field> fields;
@@ -114,7 +112,8 @@ class Binary {
     /// @returns CONFIG_ERROR when the identifier is invalid, it and the identifier of
     /// an earlier message match the same CAN identifier or value, or both messages have
     /// no identifier.
-    x::errors::Error route(const BinaryMessage &m, std::size_t i, const Layout &fields);
+    x::errors::Error
+    route(const BinaryMessage &m, std::size_t i, const Multiplexors::Layout &fields);
     x::errors::Error route_can(const synnax::icd::CanIdentifier &id, std::size_t i);
     /// @brief decodes payload as the message at index i.
     std::pair<std::optional<std::size_t>, x::errors::Error>

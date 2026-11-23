@@ -54,8 +54,8 @@ public:
     std::pair<Condition, x::errors::Error>
     resolve(const synnax::icd::BinaryBaseField &f, const Layout &fields);
 
-    /// @brief reports whether raw, the value of each multiplexor in the order of
-    /// all(), selects c.
+    /// @brief reports whether raw, the value of each multiplexor in the order of all(),
+    /// selects c.
     [[nodiscard]] bool
     selected(const Condition &c, std::span<const std::int64_t> raw) const;
 

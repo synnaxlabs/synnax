@@ -206,6 +206,13 @@ class EntryPaint(BaseModel):
     state: str
 
 
+class ContrastPaint(BaseModel):
+    """Is black or white, whichever reads on the entry color of a state."""
+
+    type: Literal["contrast"] = "contrast"
+    state: str
+
+
 class NodePaint(BaseModel):
     """Is the color that the node sets."""
 
@@ -221,7 +228,7 @@ class ColorPaint(BaseModel):
 
 # Is the color of a fill or stroke.
 Paint = Annotated[
-    EntryPaint | NodePaint | ColorPaint,
+    EntryPaint | ContrastPaint | NodePaint | ColorPaint,
     Field(discriminator="type"),
 ]
 
