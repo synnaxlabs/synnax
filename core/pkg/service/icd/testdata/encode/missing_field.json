@@ -1,0 +1,17 @@
+{
+  "description": "A binding must name a field of the message.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": []
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "error": "message command: field 00000000-0000-4000-8000-000000000001 does not exist: validation error"
+}

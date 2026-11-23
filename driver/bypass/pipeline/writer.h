@@ -30,6 +30,9 @@ class Writer final : public ::driver::pipeline::Writer {
     std::shared_ptr<Bus> bus;
     std::shared_ptr<control::States> states;
     synnax::framer::WriterConfig cfg;
+    /// @brief publishes to the bus. It owns the bus, since a held frame publishes after
+    /// write returns.
+    control::Publish publish;
 
 public:
     Writer(
@@ -41,25 +44,11 @@ public:
         server(std::move(server)),
         bus(std::move(bus)),
         states(std::move(states)),
-        cfg(std::move(cfg)) {}
+        cfg(std::move(cfg)),
+        publish([bus = this->bus](const x::telem::Frame &f) { bus->publish(f); }) {}
 
     [[nodiscard]] x::errors::Error write(const x::telem::Frame &fr) override {
-        if (this->states->all_authorized(fr, this->cfg.subject)) {
-            VLOG(1) << "[bus.writer] publishing frame with " << fr.size()
-                    << " channels to bus";
-            this->bus->publish(fr);
-        } else {
-            auto filtered = this->states->filter(fr, this->cfg.subject);
-            LOG_FIRST_N(WARNING, 10)
-                << "[bus.writer] dropped " << fr.size() - filtered.size() << " of "
-                << fr.size() << " channels from bus for " << this->cfg.subject.name
-                << ": no authority. This is normal when another writer holds control.";
-            if (!filtered.empty()) {
-                VLOG(1) << "[bus.writer] publishing filtered frame with "
-                        << filtered.size() << " channels to bus";
-                this->bus->publish(filtered);
-            }
-        }
+        this->states->route(fr, this->cfg.subject, this->publish);
         return this->server->write(fr);
     }
 

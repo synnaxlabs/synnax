@@ -11,24 +11,17 @@ import "@/components/diagram/Block.css";
 
 import type { ReactElement } from "react";
 
-import {
-  type Direction,
-  type Edge,
-  layout,
-  type Node,
-  type PlacedNode,
-  TAB_EXTEND,
-} from "@/components/diagram/layout";
+import { layout } from "@/components/diagram/layout";
 
 export interface BlockProps {
-  nodes: Node[];
-  edges: Edge[];
+  nodes: layout.Node[];
+  edges: layout.Edge[];
   /** Describes the diagram for screen readers. */
   title: string;
 }
 
 const TAB_OVERLAP = 8;
-const TAB_WIDTH = TAB_EXTEND + TAB_OVERLAP;
+const TAB_WIDTH = layout.TAB_EXTEND + TAB_OVERLAP;
 const TAB_HEIGHT = 12;
 
 interface TabProps {
@@ -44,7 +37,7 @@ const Tab = ({ x, y, side }: TabProps): ReactElement => {
   const across = side === "left" || side === "right";
   const width = across ? TAB_WIDTH : TAB_HEIGHT;
   const height = across ? TAB_HEIGHT : TAB_WIDTH;
-  const start = side === "left" || side === "top" ? -TAB_EXTEND : -TAB_OVERLAP;
+  const start = side === "left" || side === "top" ? -layout.TAB_EXTEND : -TAB_OVERLAP;
   const left = across ? x + start : x - width / 2;
   const top = across ? y - height / 2 : y + start;
   return (
@@ -70,7 +63,7 @@ const Tab = ({ x, y, side }: TabProps): ReactElement => {
 };
 
 interface NodeProps {
-  node: Omit<PlacedNode, "key" | "column">;
+  node: Omit<layout.PlacedNode, "key" | "column">;
 }
 
 /** The icon chip and text of a block, drawn over the given box. */
@@ -107,7 +100,7 @@ export const Item = ({ node }: NodeProps): ReactElement => (
 );
 
 interface SvgProps extends BlockProps {
-  direction: Direction;
+  direction: layout.Direction;
 }
 
 const Svg = ({ nodes, edges, title, direction }: SvgProps): ReactElement => {
@@ -118,7 +111,7 @@ const Svg = ({ nodes, edges, title, direction }: SvgProps): ReactElement => {
     edges: lines,
     sources,
     targets,
-  } = layout(nodes, edges, direction);
+  } = layout.place(nodes, edges, direction);
   const right = direction === "right";
   return (
     <svg

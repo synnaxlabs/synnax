@@ -24,7 +24,13 @@ import type { RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
-import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
+import {
+  useCombinedRefs,
+  usePopover,
+  useResize,
+  useSyncedRef,
+  useWindowResize,
+} from "@/hooks";
 import { Filtered, useFilter } from "@/menu/filter";
 import {
   CLOSES_ATTRIBUTE,
@@ -297,7 +303,7 @@ export interface ContextMenuProps
   menu?: RenderProp<ContextMenuMenuProps>;
 }
 
-// The surface of an open menu. It mounts only while the menu is open.
+// The surface of an open menu, in the top layer. It mounts only while the menu is open.
 const Surface = ({
   ref,
   menu,
@@ -317,14 +323,17 @@ const Surface = ({
   ...rest
 }: ContextMenuProps): ReactNode => {
   const filter = useFilter();
-  const combinedRef = useCombinedRefs(ref, filter.ref);
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const combinedRef = useCombinedRefs(ref, filter.ref, surfaceRef);
   const portalTarget = Portal.useTarget();
+  usePopover(surfaceRef, true, portalTarget);
   const menuStyle = { ...xy.css(position), ...style };
   return createPortal(
     <Flex.Box
       className={CSS.cls(CONTEXT_MENU_CLASS, CSS.bordered(), className)}
       ref={combinedRef}
       role="menu"
+      popover="manual"
       tabIndex={-1}
       style={menuStyle}
       // The focus goes back before a chosen item acts, so a view or modal that the item

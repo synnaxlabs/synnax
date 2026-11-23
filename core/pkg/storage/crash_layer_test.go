@@ -205,7 +205,7 @@ var _ = Describe("Crash harness on the storage layer", func() {
 				workload = &writes{files: map[string]int{}}
 				opens    int
 			)
-			res, err := crash.Run(ctx, crash.Config{
+			res := MustSucceed(crash.Run(ctx, crash.Config{
 				Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
 					opens++
 					if opens == 1 {
@@ -217,13 +217,9 @@ var _ = Describe("Crash harness on the storage layer", func() {
 				Stride:     1,
 				Profile:    crash.Strict,
 				Exhaustive: true,
-			})
-			Expect(err).ToNot(HaveOccurred())
-			kvWrites, tsWrites := workload.under(
-				"data/kv",
-			), workload.under(
-				"data/cesium",
-			)
+			}))
+			kvWrites := workload.under("data/kv")
+			tsWrites := workload.under("data/cesium")
 			Expect(kvWrites).To(BeNumerically(">", 0))
 			Expect(tsWrites).To(BeNumerically(">", 0))
 			GinkgoWriter.Printf("kv %d, cesium %d, recoveries %d\n", kvWrites, tsWrites,

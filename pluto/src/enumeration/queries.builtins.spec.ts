@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { enumeration } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
@@ -24,7 +24,6 @@ describe("queries", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
     await remote.connect();
   });
 

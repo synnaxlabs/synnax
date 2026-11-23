@@ -63,7 +63,7 @@ func (r *region[K, R]) open(
 			ErrUnauthorized,
 			"cannot access time range %v because writer %v holds it",
 			cfg.TimeRange.Intersection(r.timeRange),
-			r.curr.Subject(),
+			r.curr.subject,
 		)
 		return g, t, err
 	}
@@ -97,8 +97,8 @@ func (r *region[K, R]) open(
 		err = errors.Wrapf(
 			ErrUnauthorized,
 			"%s has no control authority - it is currently held by %s",
-			g.Subject(),
-			r.curr.Subject(),
+			g.subject,
+			r.curr.subject,
 		)
 		g = nil
 		return g, t, err

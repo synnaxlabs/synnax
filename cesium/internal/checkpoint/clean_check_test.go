@@ -27,7 +27,21 @@ type crashAtSyncDir struct{ xfs.FS }
 
 func (crashAtSyncDir) SyncDir(string) error { return errors.New("crash") }
 
-var _ = Describe("Check: a crash in Clean", func() {
+var _ = Describe("Check: a crash in the first clean of a checkpointer", func() {
+	// clean runs a checkpointer over fs whose recovery opened head 10, until its first
+	// step cleans the root, and returns the error of Close.
+	clean := func(fs xfs.FS) error {
+		GinkgoHelper()
+		c := MustSucceed(checkpoint.New(checkpoint.Config{
+			FS:       fs,
+			DB:       db,
+			LogSize:  logSize,
+			Prepared: func(uint64, error) {},
+			Executor: goExec,
+			Live:     10,
+		}))
+		return running(c)()
+	}
 	for key := range uint64(32) {
 		It("Should leave the same files for one run key, run key "+itoa(int(key)),
 			func() {
@@ -41,7 +55,7 @@ var _ = Describe("Check: a crash in Clean", func() {
 						}
 					}
 					Expect(disk.SyncDir("")).To(Succeed())
-					Expect(checkpoint.Clean(crashAtSyncDir{disk}, 10)).
+					Expect(clean(crashAtSyncDir{disk})).
 						To(MatchError(ContainSubstring("crash")))
 					image := MustSucceed(disk.Crash(fault.CrashConfig{
 						RunKey:            key,

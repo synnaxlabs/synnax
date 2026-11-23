@@ -22,12 +22,12 @@ import (
 )
 
 var (
-	// ErrConflict is the error of a writer open or a commit that reaches stored data,
+	// errConflict is the error of a writer open or a commit that reaches stored data,
 	// or the claim of another writer or a delete.
-	ErrConflict = errors.Wrap(validate.ErrValidation, "write conflict")
-	// ErrExhausted is the error of a new stretch when every stored alignment number is
+	errConflict = errors.Wrap(validate.ErrValidation, "write conflict")
+	// errExhausted is the error of a new stretch when every stored alignment number is
 	// given out.
-	ErrExhausted = errors.New("alignment numbers are exhausted")
+	errExhausted = errors.New("alignment numbers are exhausted")
 )
 
 const (
@@ -105,11 +105,12 @@ func (r *openRequest) fail(err error) { r.w.done <- err }
 
 func (r *openRequest) run(s *State) { r.w.done <- s.openWriter(r.w) }
 
-// OpenWriter opens a writer of cfg. It returns an error that wraps ErrConflict when the
-// start lies in stored data of one of its keys, when a bounded claim starts inside
-// another claim, or when another writer that is not bounded claims one of its keys. The
-// writer takes over each open segment of its keys that no writer holds, when it has the
-// same clock, type, and version, and every commit of it is durable.
+// OpenWriter opens a writer of cfg. It returns an error that wraps
+// validate.ErrValidation when the start lies in stored data of one of its keys, when a
+// bounded claim starts inside another claim, or when another writer that is not bounded
+// claims one of its keys. The writer takes over each open segment of its keys that no
+// writer holds, when it has the same clock, type, and version, and every commit of it
+// is durable.
 func (s *State) OpenWriter(cfg WriterConfig) (*Writer, error) {
 	w := &Writer{
 		s:      s,
@@ -137,7 +138,7 @@ func (s *State) openWriter(w *Writer) error {
 		}
 		if p, ok := ch.overlaps(start, start, false); ok {
 			return errors.Wrapf(
-				ErrConflict,
+				errConflict,
 				"writer of key %d starts at %d, inside its "+
 					"stored data from %d to %d",
 				key,
@@ -156,7 +157,7 @@ func (s *State) openWriter(w *Writer) error {
 				refused = !o.bounded
 			}
 			if refused {
-				return errors.Wrapf(ErrConflict, "writer of key %d starting at %d "+
+				return errors.Wrapf(errConflict, "writer of key %d starting at %d "+
 					"reaches the claim of %s from %d", key, start, o.owner(), o.start)
 			}
 		}
@@ -267,7 +268,7 @@ func (r *alignmentRequest) run(s *State) {
 		s.reserveAhead()
 		r.w.done <- nil
 	case s.core.limits.Alignments >= uint64(telem.LeadingDomain):
-		r.w.done <- ErrExhausted
+		r.w.done <- errExhausted
 	default:
 		s.park(r)
 	}
@@ -408,7 +409,7 @@ func (s *State) Refused(records []log.Record, err error) error {
 	return s.enqueue(&refusedRequest{records: records, err: err})
 }
 
-// NewAlignment gives out the alignment number of a new stretch. It returns ErrExhausted
+// NewAlignment gives out the alignment number of a new stretch. It returns an error
 // when every number below the numbers of unstored data is given out.
 func (w *Writer) NewAlignment() (uint32, error) {
 	r := &alignmentRequest{w: w}
@@ -429,8 +430,8 @@ func (r *commitRequest) run(s *State) { r.w.done <- s.commit(r.w, r.c) }
 
 // Commit checks c against the claims and the stored data of its keys, and makes its
 // samples visible. The caller logs c at its next sync. It returns an error that wraps
-// ErrConflict when c overlaps stored data of a key or reaches another writer's claim,
-// and an error that wraps ErrRefused when c breaks a value rule.
+// validate.ErrValidation when c overlaps stored data of a key or reaches another
+// writer's claim, and another error when c breaks a value rule.
 func (w *Writer) Commit(c *log.Commit) error {
 	return w.call(&commitRequest{w: w, c: c})
 }
@@ -460,13 +461,13 @@ func (s *State) checkVisible(w *Writer, c *log.Commit) error {
 		}
 		ch := s.core.channels[seg.key]
 		if p, ok := ch.overlaps(first, last, false); ok {
-			return errors.Wrapf(ErrConflict, "commit of key %d from %d to %d overlaps "+
+			return errors.Wrapf(errConflict, "commit of key %d from %d to %d overlaps "+
 				"its stored data from %d to %d", seg.key, first, last, p.First, p.Last)
 		}
 		for _, o := range ch.claims {
 			if o.w != w && !o.pinned && o.reaches(first, last) {
 				return errors.Wrapf(
-					ErrConflict,
+					errConflict,
 					"commit of key %d from %d to %d reaches the claim of %s from %d",
 					seg.key,
 					first,
