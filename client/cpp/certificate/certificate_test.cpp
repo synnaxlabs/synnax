@@ -123,6 +123,44 @@ TEST(CertificateTest, RefreshRefusesOtherCaller) {
     );
 }
 
+/// @brief it should retrieve only the file certificates on the given rack.
+TEST(CertificateTest, RetrieveByRack) {
+    const auto client = new_test_client();
+    const auto r = create_rack(client);
+    const auto file = create_file(client, r.key);
+    create_file(client, create_rack(client).key);
+    const auto got = ASSERT_NIL_P(client.certificates.retrieve(Where{.racks = r.key}));
+    ASSERT_EQ(got.size(), 1);
+    ASSERT_EQ(std::get<FileCertificate>(got[0]).key, file.key);
+}
+
+/// @brief it should let a rack delete a file certificate on it.
+TEST(CertificateTest, DeleteFileOnRack) {
+    const auto client = new_test_client();
+    const auto r = create_rack(client);
+    const auto file = create_file(client, r.key);
+    const Synnax as_rack(rack_client_config(client, r.key));
+    ASSERT_NIL(as_rack.certificates.del({file.key}));
+    ASSERT_OCCURRED_AS_P(client.certificates.retrieve(file.key), x::errors::NOT_FOUND);
+}
+
+/// @brief it should refuse a delete from a rack that the file certificate does not
+/// name.
+TEST(CertificateTest, DeleteRefusesOtherRack) {
+    const auto client = new_test_client();
+    const auto file = create_file(client, create_rack(client).key);
+    const auto other = create_rack(client);
+    const Synnax as_other(rack_client_config(client, other.key));
+    const auto err = as_other.certificates.del({file.key});
+    ASSERT_OCCURRED_AS(err, auth::ERR_ACCESS_DENIED);
+    ASSERT_EQ(
+        err.data,
+        "rack:" + std::to_string(other.key) + " cannot delete certificate:" +
+            file.key.to_string() + ": access denied: auth error"
+    );
+    ASSERT_NIL_P(client.certificates.retrieve(file.key));
+}
+
 /// @brief it should return NOT_FOUND for a key that no certificate has.
 TEST(CertificateTest, RetrieveMissing) {
     const auto client = new_test_client();

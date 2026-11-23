@@ -316,7 +316,8 @@ public:
         certificates(
             this->t.certificate_retrieve,
             this->t.certificate_set,
-            this->t.certificate_refresh
+            this->t.certificate_refresh,
+            this->t.certificate_delete
         ),
         arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete),
         control(this->t.control_retrieve),

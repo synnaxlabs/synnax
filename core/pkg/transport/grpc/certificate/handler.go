@@ -44,6 +44,12 @@ type (
 		struct{},
 		*emptypb.Empty,
 	]
+	deleteServer = grpc.UnaryServer[
+		certificate.DeleteRequest,
+		*DeleteRequest,
+		struct{},
+		*emptypb.Empty,
+	]
 )
 
 type (
@@ -52,6 +58,7 @@ type (
 	setRequestTranslator       struct{}
 	setResponseTranslator      struct{}
 	refreshRequestTranslator   struct{}
+	deleteRequestTranslator    struct{}
 )
 
 var (
@@ -60,6 +67,7 @@ var (
 	_ grpc.BackwardTranslator[certificate.SetRequest, *SetRequest]               = setRequestTranslator{}
 	_ grpc.ForwardTranslator[certificate.SetResponse, *SetResponse]              = setResponseTranslator{}
 	_ grpc.BackwardTranslator[certificate.RefreshRequest, *RefreshRequest]       = refreshRequestTranslator{}
+	_ grpc.BackwardTranslator[certificate.DeleteRequest, *DeleteRequest]         = deleteRequestTranslator{}
 )
 
 func (retrieveRequestTranslator) Backward(
@@ -143,6 +151,19 @@ func (refreshRequestTranslator) Backward(
 	return certificate.RefreshRequest{Key: key, Details: details}, nil
 }
 
+func (deleteRequestTranslator) Backward(
+	_ context.Context,
+	req *DeleteRequest,
+) (certificate.DeleteRequest, error) {
+	keys, err := lo.MapErr(req.Keys, func(k string, _ int) (certificate.Key, error) {
+		return uuid.Parse(k)
+	})
+	if err != nil {
+		return certificate.DeleteRequest{}, err
+	}
+	return certificate.DeleteRequest{Keys: keys}, nil
+}
+
 // New binds the certificate routes that the C++ client calls to t and returns their
 // gRPC transport.
 func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
@@ -167,5 +188,12 @@ func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 		Errors:             errs,
 	}
 	t.CertificateRefresh = refresh
-	return grpc.CompoundBindableTransport{retrieve, set, refresh}
+	del := &deleteServer{
+		RequestTranslator:  deleteRequestTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
+		ServiceDesc:        &CertificateDeleteService_ServiceDesc,
+		Errors:             errs,
+	}
+	t.CertificateDelete = del
+	return grpc.CompoundBindableTransport{retrieve, set, refresh, del}
 }

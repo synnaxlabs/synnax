@@ -80,6 +80,38 @@ func createCertificateWithKey(ctx SpecContext, name string) certificate.Certific
 	return c
 }
 
+// createRack creates a rack, which holds the Driver role.
+func createRack(ctx SpecContext) rack.Rack {
+	GinkgoHelper()
+	r := rack.Rack{Name: "rack-" + uuid.New().String()}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Rack.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
+	return r
+}
+
+// createFileCertificate creates a file certificate with details, and so an expiry
+// status, on the rack with key rk.
+func createFileCertificate(ctx SpecContext, rk rack.Key) certificate.Certificate {
+	GinkgoHelper()
+	c := certificate.Certificate{Variant: certificate.FileCertificate{
+		Base:            certificate.Base{Name: "Driver"},
+		CertificatePath: "/var/lib/synnax/driver.der",
+		Details: &certificate.Details{
+			Subject:  "CN=driver",
+			Issuer:   "CN=driver",
+			NotAfter: telem.Now().Add(telem.Hour),
+			Sha1:     "aa",
+			Sha256:   "bb",
+		},
+		Rack: rk,
+	}}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Certificate.NewWriter(tx).Set(ctx, &c, nil)
+	})).To(Succeed())
+	return c
+}
+
 // storedOf returns the stored variant of c.
 func storedOf(c certificate.Certificate) certificate.StoredCertificate {
 	GinkgoHelper()
@@ -653,6 +685,46 @@ var _ = Describe("Service", func() {
 			Expect(del(AuthedCtx(ctx, u),
 				apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},
 			)).Error().To(MatchError(access.ErrDenied))
+		})
+		It("Should let a rack delete a file certificate on it", func(ctx SpecContext) {
+			r := createRack(ctx)
+			c := createFileCertificate(ctx, r.Key)
+			MustSucceed(del(SubjectCtx(ctx, r.Key.ResourceID()),
+				apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},
+			))
+			Expect(svc.Certificate.NewRetrieve().
+				Where(certificate.MatchKeys(c.Base().Key)).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		})
+		It("Should deny a rack a file certificate on another rack",
+			func(ctx SpecContext) {
+				c := createFileCertificate(ctx, createRack(ctx).Key)
+				other := createRack(ctx)
+				Expect(del(SubjectCtx(ctx, other.Key.ResourceID()),
+					apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						other.Key.ResourceID().String()+" cannot delete "+
+							c.ResourceID().String(),
+					)),
+				))
+				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
+			},
+		)
+		It("Should deny a rack a stored certificate", func(ctx SpecContext) {
+			r := createRack(ctx)
+			c := createCertificate(ctx, "Plant")
+			Expect(del(SubjectCtx(ctx, r.Key.ResourceID()),
+				apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},
+			)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					r.Key.ResourceID().String()+" cannot delete "+
+						c.ResourceID().String(),
+				)),
+			))
+			Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
 		})
 	})
 

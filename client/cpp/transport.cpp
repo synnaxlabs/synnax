@@ -242,6 +242,10 @@ Transport::Transport(
         grpc::certificate::RefreshRequest,
         google::protobuf::Empty,
         grpc::certificate::CertificateRefreshService>>(pool, base_target);
+    this->certificate_delete = std::make_shared<freighter::grpc::UnaryClient<
+        grpc::certificate::DeleteRequest,
+        google::protobuf::Empty,
+        grpc::certificate::CertificateDeleteService>>(pool, base_target);
     this->arc_create = std::make_shared<freighter::grpc::UnaryClient<
         grpc::arc::CreateRequest,
         grpc::arc::CreateResponse,
@@ -312,6 +316,7 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     certificate_retrieve->use(mw);
     certificate_set->use(mw);
     certificate_refresh->use(mw);
+    certificate_delete->use(mw);
     arc_create->use(mw);
     arc_retrieve->use(mw);
     arc_delete->use(mw);

@@ -88,3 +88,34 @@ var _ = Describe("Refresh", func() {
 		).To(Equal(certificate.RefreshRequest{Key: key, Details: details}))
 	})
 })
+
+var _ = Describe("Delete", func() {
+	It("Should decode the keys", func(ctx SpecContext) {
+		var received certificate.DeleteRequest
+		transport.CertificateDelete.BindHandler(func(
+			_ context.Context,
+			req certificate.DeleteRequest,
+		) (struct{}, error) {
+			received = req
+			return struct{}{}, nil
+		})
+		client := grpccertificate.NewCertificateDeleteServiceClient(conn)
+		keys := []uuid.UUID{uuid.New(), uuid.New()}
+		MustSucceed(client.Exec(ctx, &grpccertificate.DeleteRequest{
+			Keys: []string{keys[0].String(), keys[1].String()},
+		}))
+		Expect(received).To(Equal(certificate.DeleteRequest{Keys: keys}))
+	})
+	It("Should reject a key that is not a UUID", func(ctx SpecContext) {
+		transport.CertificateDelete.BindHandler(func(
+			context.Context,
+			certificate.DeleteRequest,
+		) (struct{}, error) {
+			return struct{}{}, nil
+		})
+		client := grpccertificate.NewCertificateDeleteServiceClient(conn)
+		Expect(client.Exec(ctx, &grpccertificate.DeleteRequest{
+			Keys: []string{"not-a-uuid"},
+		})).Error().To(MatchError(ContainSubstring("invalid uuid")))
+	})
+})
