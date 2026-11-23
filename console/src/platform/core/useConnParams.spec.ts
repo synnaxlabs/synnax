@@ -81,6 +81,23 @@ describe("Core.useConnParams", () => {
     expect(result.current).not.toHaveProperty("key");
   });
 
+  it("should log in with an OpenID Connect code the user just received", async () => {
+    const oidc = {
+      provider: "idp",
+      code: "code",
+      verifier: "verifier",
+      redirectUri: "https://example.com:9095/",
+    };
+    const { result } = await renderParams({ ...CORE, username: "", oidc });
+    expect(result.current).toMatchObject({ oidc });
+    expect(result.current).not.toHaveProperty("username");
+  });
+
+  it("should leave out an empty username once the code is spent", async () => {
+    const { result } = await renderParams({ ...CORE, username: "" });
+    expect(result.current?.username).toBeUndefined();
+  });
+
   it("should log in with a password the user entered", async () => {
     const { result } = await renderParams({ ...CORE, password: "typed" });
     expect(result.current?.password).toBe("typed");
@@ -102,6 +119,20 @@ describe("Core.useConnParams", () => {
     expect(result.current?.sessionPersistent).toBe(true);
     expect(result.current).not.toHaveProperty("name");
     expect(reads).toEqual([{ account: `http://synnax@example.com:9095#${CORE.key}` }]);
+  });
+
+  it("should read the keychain again after a login in another window", async () => {
+    mocks.engine = "tauri";
+    let saved = "sys_old";
+    mockIPC((cmd) => (cmd === "keychain_get" ? saved : undefined));
+    onTestFinished(clearMocks);
+    const { result, store } = await renderParams();
+    await waitFor(() => expect(result.current?.token).toBe("sys_old"));
+    saved = "sys_new";
+    act(() => {
+      store.dispatch(Session.Core.recordLogin({ key: CORE.key, at: Date.now() }));
+    });
+    await waitFor(() => expect(result.current?.token).toBe("sys_new"));
   });
 
   it("should not resume over plain text from a token saved for TLS", async () => {

@@ -9,8 +9,20 @@
 
 import type { PropsWithChildren, ReactNode } from "react";
 
-import { Login } from "@/feature/auth/Login";
+import { Login, useCompleteBrowserLogin } from "@/feature/auth/Login";
 import { Session } from "@/session";
 
-export const Guard = ({ children }: PropsWithChildren): ReactNode =>
-  Session.Core.useSelectIsAnySelected() ? children : <Login />;
+const CompleteBrowserLogin = (): null => {
+  useCompleteBrowserLogin();
+  return null;
+};
+
+export const Guard = ({ children }: PropsWithChildren): ReactNode => {
+  const selected = Session.Core.useSelectIsAnySelected();
+  return (
+    <>
+      <CompleteBrowserLogin />
+      {selected ? children : <Login />}
+    </>
+  );
+};
