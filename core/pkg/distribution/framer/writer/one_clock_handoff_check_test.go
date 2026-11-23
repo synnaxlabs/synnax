@@ -218,9 +218,8 @@ var _ = Describe("One clock handoff check", func() {
 		)))
 		MustSucceed(b.Commit(ctx))
 		Expect(b.Close()).To(Succeed())
-		// The commit reports the refused write, as main's does.
-		_, err := a.Commit(ctx)
-		Expect(err).To(Or(Succeed(), MatchError(control.ErrUnauthorized)))
+		// The commit of the old holder commits its data to its high water.
+		Expect(MustSucceed(a.Commit(ctx))).To(Equal(13*telem.SecondTS + 1))
 		index, values := lengths(ctx)
 		Expect(index).To(Equal(int64(5)))
 		Expect(values).To(Equal(int64(4)))
