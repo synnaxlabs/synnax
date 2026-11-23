@@ -13,6 +13,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import type { z } from "zod";
 
 import { batch } from "@/batch";
+import { calculation } from "@/calculation";
 import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { query } from "@/query";
@@ -73,6 +74,7 @@ const createFake = async () => {
     onError: () => {},
   });
   onTestFinished(async () => await cache.close());
+  const statuses = new status.Client({ unary, cache });
   const coreURL = new url.URL(testCoreAddress());
   const channels = new channel.Client({
     framer: new framer.Client({
@@ -83,9 +85,10 @@ const createFake = async () => {
     }),
     unary,
     writer: new channel.Writer(unary),
-    statuses: new status.Client({ unary, cache }),
+    statuses,
     cache,
     batch: new batch.Client(unary),
+    outputs: new calculation.Client({ unary, cache, statuses }).outputs,
   });
   await cache.ensureStreaming();
   const change = (...keys: channel.Key[]): void =>

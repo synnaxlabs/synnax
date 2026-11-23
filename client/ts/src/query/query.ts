@@ -161,7 +161,7 @@ export const trigger = <
   ForeignKey extends record.Key,
   ForeignValue extends state.State,
 >(
-  table: Table<ForeignKey, ForeignValue>,
+  table: Pick<Table<ForeignKey, ForeignValue>, "subscribeBatch" | "version">,
   affects: (
     event: TableEvent<ForeignKey, ForeignValue>,
     params: P,
