@@ -171,6 +171,19 @@ protected:
         ASSERT_NIL(node->next(ctx));
     }
 
+    /// @brief runs the node that f describes once, and returns the reports the
+    /// outbox thread makes after the run.
+    [[nodiscard]] std::vector<Report>
+    run_reported(const ::arc::stl::testutil::Fixture &f, const std::size_t count) {
+        const auto reports = std::make_shared<Reports>();
+        Module module(this->outbox, recordingReporter(reports));
+        auto node = ASSERT_NIL_P(module.create(f.make_config()));
+        auto ctx = make_context();
+        EXPECT_NIL(node->next(ctx));
+        ASSERT_EVENTUALLY_EQ(reports->snapshot().size(), count);
+        return reports->snapshot();
+    }
+
     [[nodiscard]] synnax::ranger::Range retrieve(const std::string &key) const {
         return ASSERT_NIL_P(
             this->client->ranges.retrieve(ASSERT_NIL_P(x::uuid::UUID::parse(key)))
@@ -271,14 +284,12 @@ TEST_F(RangesTest, CreatesRangeUnderParent) {
 /// @brief it should warn, emit an empty key, and queue nothing for a color that is
 /// not valid.
 TEST_F(RangesTest, WarnsOnInvalidColor) {
-    const auto reports = std::make_shared<Reports>();
     const auto f = create_spec().config(
         {unique_name("cpp_badcolor_"), "", "not-a-color"}
     );
-    this->run(f, recordingReporter(reports));
+    const auto calls = this->run_reported(f, 1);
     EXPECT_EQ(output_of(f), "");
     EXPECT_EQ(this->outbox->size(), 0);
-    const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to create range");
     EXPECT_TRUE(
@@ -288,15 +299,13 @@ TEST_F(RangesTest, WarnsOnInvalidColor) {
 
 /// @brief it should warn, emit an empty key, and queue nothing for a blank name.
 TEST_F(RangesTest, WarnsOnBlankName) {
-    const auto reports = std::make_shared<Reports>();
     const auto f = create_spec().config({" ", "", ""});
-    this->run(f, recordingReporter(reports));
+    const auto calls = this->run_reported(f, 1);
     EXPECT_EQ(output_of(f), "");
     EXPECT_EQ(this->outbox->size(), 0);
-    const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to create range");
-    EXPECT_EQ(calls[0].description, "The range name is empty.");
+    EXPECT_EQ(calls[0].description, "The range name is empty. Dropped 1 calls.");
 }
 
 /// @brief it should warn and drop a create the Core rejects.
@@ -319,7 +328,6 @@ TEST_F(RangesTest, WarnsWhenCoreRejectsCreate) {
 
 /// @brief it should read a var-bound parent when the node runs.
 TEST_F(RangesTest, ReadsAVarBoundParentAtFireTime) {
-    const auto reports = std::make_shared<Reports>();
     // The configured "" would succeed parentless; only the live slot value
     // can produce this warning.
     const auto f = create_spec().config(
@@ -329,14 +337,13 @@ TEST_F(RangesTest, ReadsAVarBoundParentAtFireTime) {
          ),
          ""}
     );
-    this->run(f, recordingReporter(reports));
+    const auto calls = this->run_reported(f, 1);
     EXPECT_EQ(output_of(f), "");
-    const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to create range");
     EXPECT_EQ(
         calls[0].description,
-        "The parent key \"not-a-uuid\" is not a valid range key."
+        "The parent key \"not-a-uuid\" is not a valid range key. Dropped 1 calls."
     );
 }
 
@@ -393,15 +400,16 @@ TEST_F(RangesTest, WarnsWhenEndedRangeDoesNotExist) {
 
 /// @brief it should warn and queue nothing for a key that is not valid.
 TEST_F(RangesTest, WarnsOnInvalidEndKey) {
-    const auto reports = std::make_shared<Reports>();
     const auto f = end_spec().config({"not-a-uuid"});
-    this->run(f, recordingReporter(reports));
+    const auto calls = this->run_reported(f, 1);
     EXPECT_EQ(output_of(f), "");
     EXPECT_EQ(this->outbox->size(), 0);
-    const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to end range");
-    EXPECT_EQ(calls[0].description, "The key \"not-a-uuid\" is not a valid range key.");
+    EXPECT_EQ(
+        calls[0].description,
+        "The key \"not-a-uuid\" is not a valid range key. Dropped 1 calls."
+    );
 }
 
 /// @brief it should refuse and count a create when the outbox is full, and still

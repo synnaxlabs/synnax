@@ -63,9 +63,9 @@ public:
         if (this->reporter != nullptr) this->reporter(message, description);
     }
 
-    /// @brief counts a call the outbox refused, to report later as message, without
-    /// waiting on the Core.
-    /// @returns true when no other refused call waits for a report.
+    /// @brief counts a dropped call, to report later as message, without waiting on
+    /// the Core.
+    /// @returns true when no other dropped call waits for a report.
     bool refuse(const std::string &message, const std::string &reason) {
         std::lock_guard lock(this->refused_mu);
         const bool first = this->refused.empty();
@@ -107,8 +107,7 @@ on_done(const std::shared_ptr<Calls> &calls, const std::string &message) {
     };
 }
 
-/// @brief counts a call the outbox refused, and reports it from the send thread of
-/// the outbox.
+/// @brief counts a dropped call, and reports it from the send thread of the outbox.
 inline void refuse(
     ::driver::outbox::Outbox &outbox,
     const std::shared_ptr<Calls> &calls,
@@ -135,14 +134,16 @@ inline std::string queue_create(
     if (std::ranges::all_of(name, [](const unsigned char ch) {
             return std::isspace(ch) != 0;
         })) {
-        calls->report(CREATE_FAILURE_MSG, "The range name is empty.");
+        refuse(outbox, calls, CREATE_FAILURE_MSG, "The range name is empty.");
         return "";
     }
     std::optional<synnax::color::Ref> c;
     if (!color_hex.empty()) {
         auto [parsed, err] = x::color::parse(color_hex);
         if (err) {
-            calls->report(
+            refuse(
+                outbox,
+                calls,
                 CREATE_FAILURE_MSG,
                 "The color \"" + color_hex + "\" is not valid: " + err.data
             );
@@ -161,7 +162,9 @@ inline std::string queue_create(
     if (!parent.empty()) {
         auto [uid, err] = x::uuid::UUID::parse(parent);
         if (err) {
-            calls->report(
+            refuse(
+                outbox,
+                calls,
                 CREATE_FAILURE_MSG,
                 "The parent key \"" + parent + "\" is not a valid range key."
             );
@@ -186,7 +189,9 @@ inline std::string queue_end(
 ) {
     auto [uid, parse_err] = x::uuid::UUID::parse(key);
     if (parse_err) {
-        calls->report(
+        refuse(
+            outbox,
+            calls,
             END_FAILURE_MSG,
             "The key \"" + key + "\" is not a valid range key."
         );
