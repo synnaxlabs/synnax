@@ -313,6 +313,42 @@ describe("Read", () => {
     );
   });
 
+  it("should not reuse a stored channel that another endpoint reads", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const temperature = createField("temperature");
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [temperature],
+    });
+    const other = await createEndpoint({
+      key: "ep2",
+      path: "/other",
+      fields: [createField("reading")],
+    });
+    other.messages[0].bindings[0].channel = ch.key;
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    const { draft } = await renderWithDevice([ep, other], {
+      read: { [`/data#${ep.messages[0].message}`]: stored },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^temperature/ }));
+    const box = await screen.findByRole("checkbox", { name: "Read temperature" });
+    fireEvent.click(box);
+    await waitFor(async () => expect(await bindings()).toEqual([]));
+    fireEvent.click(box);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: temperature.key, channel: 0, dataType: "" },
+      ]),
+    );
+  });
+
   it("should create and bind the channel of each field on deploy", async () => {
     const ep = await createEndpoint({
       key: "ep1",
