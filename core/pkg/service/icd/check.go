@@ -21,6 +21,7 @@ import (
 	xjson "github.com/synnaxlabs/x/json"
 	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -164,9 +165,24 @@ func (c *checker) checkTextFields(path []string, p TextPayload, untyped set.Set[
 		case TaggedTextField:
 			c.checkTag(pathOf(fieldPath, "tag"), v.Tag, p.Delimiter)
 		}
-		if d := f.Base().Default; d != nil && !xmath.Finite(*d) {
+		b := f.Base()
+		if d := b.Default; d != nil && !xmath.Finite(*d) {
 			c.addf(pathOf(fieldPath, "default"), "default must be finite")
 		}
+		checkDefaultRange(c, fieldPath, b.BaseField, b.Default)
+	}
+}
+
+// checkDefaultRange adds a problem when the finite default d of a number field with
+// base b decodes outside its min and max.
+func checkDefaultRange[N types.Numeric](
+	c *checker, path []string, b BaseField, d *N,
+) {
+	if d == nil || !xmath.Finite(float64(*d)) {
+		return
+	}
+	if message, out := outOfRawRange(b, float64(*d)); out {
+		c.addf(pathOf(path, "default"), "default %s", message)
 	}
 }
 
@@ -235,12 +251,17 @@ func (c *checker) checkJSONFields(
 		default:
 			unscaled.Add(i)
 		}
-		c.checkEnumLabels(fieldPath, f)
+		c.checkEnums(fieldPath, f)
 		switch v := f.Variant.(type) {
 		case FloatJSONField:
 			if d := v.Default; d != nil && !xmath.Finite(*d) {
 				c.addf(pathOf(fieldPath, "default"), "default must be finite")
 			}
+			checkDefaultRange(c, fieldPath, v.BaseField, v.Default)
+		case IntegerJSONField:
+			checkDefaultRange(c, fieldPath, v.BaseField, v.Default)
+		case UnsignedJSONField:
+			checkDefaultRange(c, fieldPath, v.BaseField, v.Default)
 		case BytesJSONField:
 			if v.Default != nil {
 				if _, err := xjson.DecodeBase64(*v.Default); err != nil {
@@ -268,22 +289,29 @@ func (c *checker) checkJSONFields(
 	}
 }
 
-// checkEnumLabels finds each enum label that is empty or that an earlier entry of the
-// field uses.
-func (c *checker) checkEnumLabels(path []string, f JSONField) {
-	var labels []string
+// checkEnums finds each enum label that is empty or that an earlier entry of the field
+// uses, and each number value outside the min and max of the field. The scale and
+// offset do not apply to an enum value.
+func (c *checker) checkEnums(path []string, f JSONField) {
+	var (
+		labels []string
+		values []float64
+	)
 	switch v := f.Variant.(type) {
 	case FloatJSONField:
 		for _, e := range v.EnumValues {
 			labels = append(labels, e.Label)
+			values = append(values, float64(e.Value))
 		}
 	case IntegerJSONField:
 		for _, e := range v.EnumValues {
 			labels = append(labels, e.Label)
+			values = append(values, float64(e.Value))
 		}
 	case UnsignedJSONField:
 		for _, e := range v.EnumValues {
 			labels = append(labels, e.Label)
+			values = append(values, float64(e.Value))
 		}
 	case StringJSONField:
 		for _, e := range v.EnumValues {
@@ -305,6 +333,16 @@ func (c *checker) checkEnumLabels(path []string, f JSONField) {
 			c.addf(labelPath, "duplicate enum label %q", label)
 		}
 		seen.Add(label)
+	}
+	b := f.Base().BaseField
+	for i, v := range values {
+		if message, out := outOfRange(b, v, v, 0); out {
+			c.addf(
+				pathOf(path, "enum_values", strconv.Itoa(i), "value"),
+				"enum value %s",
+				message,
+			)
+		}
 	}
 }
 
@@ -533,14 +571,17 @@ func (c *checker) checkBinaryDefault(path []string, f BinaryField) {
 		case n == 32 && math.Abs(d) > math.MaxFloat32:
 			c.addf(defaultPath, "default %g does not fit a 32-bit float", d)
 		}
+		checkDefaultRange(c, path, v.BaseField, v.Default)
 	case IntegerBinaryField:
 		if v.Default != nil && !fits(int64(*v.Default), f) {
 			c.addf(defaultPath, "default %d does not fit the field", *v.Default)
 		}
+		checkDefaultRange(c, path, v.BaseField, v.Default)
 	case UnsignedBinaryField:
 		if v.Default != nil && n < 64 && uint64(*v.Default) >= 1<<n {
 			c.addf(defaultPath, "default %d does not fit the field", *v.Default)
 		}
+		checkDefaultRange(c, path, v.BaseField, v.Default)
 	}
 }
 
