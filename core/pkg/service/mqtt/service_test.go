@@ -462,6 +462,25 @@ var _ = Describe("Service", func() {
 				}
 			}, "entries.1.channel", "is also written by "+
 				"entries.0.messages.0.bindings.0.channel"),
+			Entry("a channel that a later entry also writes",
+				func(f format) []map[string]any {
+					return []map[string]any{
+						{
+							"key":       "tag",
+							"type":      "sparkplug",
+							"group":     "plant",
+							"edge_node": "line1",
+							"tag":       "temp",
+							"channel":   f.value.Key(),
+						},
+						icdEntry(
+							"plant/a",
+							f.ic,
+							readMessage(f.m, binding(f.m, 1, f.value)),
+						),
+					}
+				}, "entries.1.messages.0.bindings.0.channel", "is also written by "+
+					"entries.0.channel"),
 		)
 
 		Describe("Import", func() {

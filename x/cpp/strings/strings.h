@@ -55,13 +55,17 @@ inline void write_number(char *p, int v, int width) noexcept {
     }
 }
 
+/// @brief the characters that trim removes from each end of a string.
+constexpr std::string_view TRIMMED = " \t\r";
+
 /// @brief removes leading and trailing spaces, tabs, and carriage returns.
 /// @param s the string to trim.
-/// @returns the trimmed string, or an empty string when s is all whitespace.
-[[nodiscard]] inline std::string trim(const std::string &s) {
-    const auto first = s.find_first_not_of(" \t\r");
-    if (first == std::string::npos) return {};
-    return s.substr(first, s.find_last_not_of(" \t\r") - first + 1);
+/// @returns a view into s without the TRIMMED characters at its ends, or an empty view
+/// when s holds only them. It is valid only while s is.
+[[nodiscard]] constexpr std::string_view trim(const std::string_view s) {
+    const auto first = s.find_first_not_of(TRIMMED);
+    if (first == std::string_view::npos) return {};
+    return s.substr(first, s.find_last_not_of(TRIMMED) - first + 1);
 }
 
 /// @brief removes one layer of matching single or double quotes.

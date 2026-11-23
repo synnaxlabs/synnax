@@ -119,10 +119,14 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     cfg.channels.forEach((channel) =>
       cache.listen({ channel, schema: z.unknown(), onChange }),
     );
-    // A reopened stream missed the changes made while it was down.
+    // Uses fetched before the stream went live may have missed a change. Only those
+    // held now refetch, since a later fetch reads them live.
     cache.onEpoch((epoch) => {
-      if (epoch > 1) onChange();
+      if (epoch === 0) return;
+      this.changes.count++;
+      if (store.keys().length > 0) this.refetch();
     });
+    cache.onMissed(onChange);
     const base = trigger(
       store,
       (event, q: Q | Single<K>) => (q.includeUses === true ? [event.key] : null),

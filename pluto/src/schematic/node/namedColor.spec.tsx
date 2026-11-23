@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, schematic } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { color as xcolor, uuid } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
@@ -277,7 +277,6 @@ describe("Schematic named colors", () => {
       additionalRegistry: REGISTRY,
       telemFactories: [new telemTest.TestFactory()],
     });
-    await waitForStreamLive(client.connection);
   });
 
   beforeEach(() => drawn.clear());

@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -1054,8 +1055,19 @@ func ruleDrift(live, frozen resolution.Type, goRules bool) []string {
 				drift = append(drift, "@"+d+" on "+live.Name+"."+f.Name)
 			}
 		}
+		if goValidateKey(f) != goValidateKey(fr) {
+			drift = append(drift, "@go validate on "+live.Name+"."+f.Name)
+		}
 	}
 	return drift
+}
+
+// goValidateKey returns a comparable key of f's `@go validate` rules.
+func goValidateKey(f resolution.Field) string {
+	return exprsKey(lo.Filter(
+		f.Domains["go"].Expressions,
+		func(e resolution.Expression, _ int) bool { return e.Name == "validate" },
+	))
 }
 
 // goRulesKey returns a comparable key of t's Go method expressions.
