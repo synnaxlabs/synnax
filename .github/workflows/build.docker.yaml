@@ -75,7 +75,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # The tag hashes the Git objects of every path the Dockerfile copies and the files
-      # that drive the build. The Dockerfile pins each base image by digest, so two
+      # that drive the build. A Dockerfile that copies nothing hashes alone, so only its
+      # own edits rebuild it. The Dockerfile pins each base image by digest, so two
       # commits with the same sources share an image.
       - name: Tag the image
         id: tag
@@ -95,8 +96,11 @@ jobs:
           fi
           sources=$(awk '$1 == "COPY" && $2 !~ /^--/ { $1 = $NF = ""; print }' \
             "$dockerfile")
-          read -ra paths <<< "${sources//$'\n'/ } $dockerfile .dockerignore \
-            .github/workflows/build.docker.yaml"
+          paths=("$dockerfile")
+          if [ -n "$sources" ]; then
+            read -ra paths <<< "${sources//$'\n'/ } $dockerfile .dockerignore \
+              .github/workflows/build.docker.yaml"
+          fi
           objects=$(git rev-parse "${paths[@]/#/HEAD:}")
           hash=$(sha256sum <<< "$objects" | cut -c1-32)
           echo "image=$REPOSITORY:src-$hash" >> "$GITHUB_OUTPUT"

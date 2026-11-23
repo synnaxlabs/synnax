@@ -343,9 +343,9 @@ jobs:
           if [ -n "$TAGS" ]; then TAGS="-tags $TAGS"; fi
           echo "GO_BUILD_TAGS=$TAGS" >> "$GITHUB_OUTPUT"
 
-  # The Linux Drivers build in this image. It runs on every build, since a skipped need
-  # would skip every job after it.
+  # The Linux Drivers build in this image.
   driver-image:
+    if: inputs.driver && inputs.ubuntu
     permissions:
       contents: read
       packages: write
@@ -359,7 +359,9 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     needs: [setup, driver-image]
-    if: needs.setup.outputs.build_matrix != '[]'
+    if: >-
+      ${{ !cancelled() && needs.setup.result == 'success' && needs.driver-image.result
+      != 'failure' && needs.setup.outputs.build_matrix != '[]' }}
     timeout-minutes: 75
     permissions: &build_permissions
       actions: read
@@ -393,7 +395,9 @@ jobs:
       VERSION: ${{ needs.setup.outputs.VERSION }}
       OS_NAME: ${{ matrix.os-name }}
       EXE: ${{ matrix.executable }}
-      DRIVER_BUILDER_IMAGE: ${{ needs.driver-image.outputs.image }}
+      # build-macos shares this environment and does not need driver-image, so the
+      # output comes through the needs filter.
+      DRIVER_BUILDER_IMAGE: ${{ join(needs.*.outputs.image, '') }}
     strategy:
       fail-fast: false
       matrix:
@@ -909,7 +913,7 @@ jobs:
   # the other systems.
   build-macos:
     name: Build (${{ matrix.os }})
-    needs: [setup, driver-image]
+    needs: setup
     if: inputs.macos
     timeout-minutes: 75
     permissions: *build_permissions
@@ -1418,7 +1422,10 @@ jobs:
     # build.tauri.yaml uploads the bundles to the draft release.
     permissions:
       contents: write
-    if: inputs.desktop && needs.setup.outputs.tauri_windows_matrix != '[]'
+    # build can run after a skipped driver-image, which can fail a default success().
+    if: >-
+      ${{ !cancelled() && needs.build.result == 'success' && needs.republish.result ==
+      'success' && inputs.desktop && needs.setup.outputs.tauri_windows_matrix != '[]' }}
     uses: ./.github/workflows/build.tauri.yaml
     with:
       desktop: true
