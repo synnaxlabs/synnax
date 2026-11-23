@@ -47,7 +47,6 @@ export const createToggle = <C extends ToggleConfig>(
       orientation = "left",
       onClickDelay = 0,
       stalenessTimeout,
-      stalenessColor,
       ...rest
     } = config;
     const source = Telem.booleanSource(stateChannel);

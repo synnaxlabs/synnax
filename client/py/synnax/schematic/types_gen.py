@@ -187,13 +187,11 @@ class StalenessConfig(BaseModel):
 
     Attributes:
         staleness_timeout: Is the span after which the value is considered stale.
-        staleness_color: Is the color applied when the value is stale.
     """
 
     staleness_timeout: telem.TimeSpan = Field(
         default=telem.TimeSpan(5000000000), ge=1000000000, le=9007199254740991
     )
-    staleness_color: color_.Color | None = None
 
 
 class NumericTelemConfig(BaseModel):
@@ -1139,7 +1137,6 @@ class TankNodeConfig(LabeledConfig):
     staleness_timeout: telem.TimeSpan = Field(
         default=telem.TimeSpan(5000000000), ge=1000000000, le=9007199254740991
     )
-    staleness_color: color_.Color | None = None
     bounds: spatial.Bounds = Field(
         default_factory=lambda: spatial.Bounds(lower=0, upper=100)
     )
