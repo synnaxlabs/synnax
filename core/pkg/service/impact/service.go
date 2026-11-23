@@ -14,6 +14,7 @@ package impact
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -356,7 +357,7 @@ func (s *Service) deleteGroups(
 		}
 		p.Token = opts.Token
 	}
-	if len(p.Entries) > 0 || p.Hidden > 0 {
+	if len(p.Entries) > 0 || p.Hidden != (Hidden{}) {
 		w := s.cfg.Channel.NewWriter(tx)
 		if _, err = w.DeleteTombstones(ctx, keys...); err != nil {
 			return Plan{}, err
@@ -488,7 +489,7 @@ func (s *Service) deleteChannels(
 }
 
 // seen returns p for the delete of the channels with keys, with the entries whose
-// records visible hides counted in Hidden instead.
+// records visible hides counted in Hidden by effect instead.
 func seen(p Plan, keys []channel.Key, visible func(resource.ID) bool) Plan {
 	p.Change = Change{Variant: DeleteChannelsChange{Keys: keys}}
 	return withHidden(p, visible)
@@ -512,7 +513,7 @@ func withHidden(p Plan, visible func(resource.ID) bool) Plan {
 		if visible(e.Record) {
 			entries = append(entries, e)
 		} else {
-			p.Hidden++
+			p.Hidden.count(e.Effect)
 		}
 	}
 	p.Entries = entries
@@ -642,4 +643,18 @@ func choose(
 		}
 	}
 	return channels, records, cancel, nil
+}
+
+// count counts one hidden entry with effect e.
+func (h *Hidden) count(e Effect) {
+	switch e {
+	case EffectRestrict:
+		h.Restrict++
+	case EffectCascade:
+		h.Cascade++
+	case EffectDetach:
+		h.Detach++
+	default:
+		panic(fmt.Sprintf("[impact] - no hidden count for effect %q", e))
+	}
 }

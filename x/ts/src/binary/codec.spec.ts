@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { binary } from "@/binary";
 import { color } from "@/color";
+import { payload } from "@/payload";
 import { zod } from "@/zod";
 
 describe("Codec", () => {
@@ -111,6 +112,24 @@ describe("Codec", () => {
       const parsed = JSON.parse(encoded);
       expect(parsed.value).toEqual(42);
     });
+
+    it("should encode a non-finite number as its text", () => {
+      const encoded = binary.JSON_CODEC.encodeString({
+        values: [NaN, Infinity, -Infinity, 1.5],
+      });
+      expect(JSON.parse(encoded)).toEqual({
+        values: ["NaN", "Infinity", "-Infinity", 1.5],
+      });
+    });
+
+    it.each([NaN, Infinity, -Infinity])(
+      "should encode and decode a float of %s",
+      (value) => {
+        const schema = z.object({ value: payload.floatZ });
+        const encoded = binary.JSON_CODEC.encode({ value }, schema);
+        expect(binary.JSON_CODEC.decode(encoded, schema).value).toBe(value);
+      },
+    );
   });
 
   describe("CSV", () => {

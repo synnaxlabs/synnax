@@ -13,7 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment, type ReactElement } from "react";
 
-import { type CSS } from "@/css";
+import type { CSS } from "@/css";
 
 // Value study. Reference row reproduces the shipped value; every other row is
 // the quiet chassis with channel color allowed in exactly one place. Columns

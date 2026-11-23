@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { errors, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type DurationJSON } from "compromise-dates";
+import { errors, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import type { DurationJSON } from "compromise-dates";
 
 import {
   type Anchors,
@@ -357,4 +357,151 @@ export const suggestTimeSpans = (
     out.push({ key: span.valueOf().toString(), value: span, reading: phrase });
   }
   return distinct(out);
+};
+
+const LAST_MILLISECOND = TimeSpan.milliseconds(999).valueOf();
+
+/**
+ * Reads a phrase as the span it names: all of a calendar unit (`yesterday`, `last
+ * week`), the time between two times (`1pm to 2pm`), or nothing for an instant (`2
+ * hours ago`, `monday 3pm`).
+ */
+const readPhrase = (
+  text: string,
+  language: Language,
+  now: TimeStamp,
+): TimeRange | null => {
+  const doc = language(expandAbbreviations(text).toLowerCase());
+  const dates = doc.dates({ today: now.date(), timezone: localZone() });
+  // Words outside the phrase, such as `test` in `monday test`, name a range instead.
+  if (dates.text() !== doc.text()) return null;
+  const found = dates.get();
+  if (found.length !== 1) return null;
+  const [{ start, end, unit }] = found;
+  if (start == null) return null;
+  const from = new TimeStamp(new Date(start));
+  const to = end == null ? from : new TimeStamp(new Date(end));
+  // A day, week, or month ends on its last millisecond, and a range excludes its end. A
+  // time of day gets the last millisecond of its day too, which is not a real end.
+  if (to.valueOf() % TimeSpan.SECOND.valueOf() !== LAST_MILLISECOND)
+    return new TimeRange(from, to);
+  if (unit == null || unit === "time") return new TimeRange(from, from);
+  return new TimeRange(from, to.add(TimeSpan.MILLISECOND));
+};
+
+const TIME_OF_DAY_RE =
+  /^(?:\d{1,2}:\d{2}\S*(?:\s*[ap]m)?|\d{1,2}\s*[ap]m|noon|midnight)$/i;
+
+interface Side {
+  range: TimeRange;
+  /** The side names a time of day and no day, as `2pm` does. */
+  timeOfDay: boolean;
+}
+
+// The same time of day on another day. A day with a clock change is not 24 hours long.
+const addDays = (value: TimeStamp, days: number): TimeStamp => {
+  const d = value.date();
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
+  return onDayOf(value, new TimeStamp(day));
+};
+
+/** Reads one side of a range: an instant, or a calendar unit with its whole span. */
+const readSide = (text: string, language: Language, now: TimeStamp): Side | null => {
+  const trimmed = text.trim();
+  const exact = parseTimeStamp(trimmed, { now });
+  const range = exact.ok
+    ? new TimeRange(exact.value, exact.value)
+    : readPhrase(trimmed, language, now);
+  if (range == null) return null;
+  const timeOfDay = TIME_OF_DAY_RE.test(trimmed);
+  // A time of day alone is the last one before now, so `10pm` at 01:00 is last night.
+  if (!timeOfDay || range.start.beforeEq(now)) return { range, timeOfDay };
+  const { start, end } = range;
+  return { range: new TimeRange(addDays(start, -1), addDays(end, -1)), timeOfDay };
+};
+
+type RangeForm = (text: string, language: Language, now: TimeStamp) => TimeRange | null;
+
+const FOR_RE = /^(.+?)\s+for\s+(.+)$/i;
+
+/** `2h ago for 1h`, `yesterday 1pm for 30m`. */
+const readFor: RangeForm = (text, language, now) => {
+  const match = FOR_RE.exec(text);
+  if (match == null) return null;
+  const from = readSide(match[1], language, now);
+  const [length] = suggestTimeSpans(match[2], language);
+  if (from == null || length == null) return null;
+  const { start } = from.range;
+  return new TimeRange(start, start.add(length.value));
+};
+
+const SINCE_RE = /^since\s+(.+)$/i;
+
+/** `since 8am`, `since yesterday`. */
+const readSince: RangeForm = (text, language, now) => {
+  const match = SINCE_RE.exec(text);
+  if (match == null) return null;
+  const from = readSide(match[1], language, now);
+  return from == null ? null : new TimeRange(from.range.start, now);
+};
+
+const BETWEEN_RE =
+  /^(?:from\s+)?(.+?)(?:\s+(?:to|until|till|through)\s+|\s*→\s*|\s+-\s+)(.+)$/i;
+
+/** `3h ago to 1h ago`, `monday 3pm to tuesday 4pm`, `13:00 to 14:00 yesterday`. */
+const readBetween: RangeForm = (text, language, now) => {
+  const match = BETWEEN_RE.exec(text);
+  if (match == null) return null;
+  const from = readSide(match[1], language, now);
+  const to = readSide(match[2], language, now);
+  if (from == null || to == null) return null;
+  let start = from.range.start;
+  let end = to.range.end;
+  // A time of day alone falls on the day of the other side.
+  if (to.timeOfDay && !from.timeOfDay) end = onDayOf(end, start);
+  if (from.timeOfDay && !to.timeOfDay) start = onDayOf(start, to.range.start);
+  // An end before the start crosses midnight: `10pm to 2am` ends the next day, and
+  // `10pm to 2am yesterday` starts the day before.
+  const crosses = end.beforeEq(start);
+  if (crosses && to.timeOfDay) end = addDays(end, 1);
+  else if (crosses && from.timeOfDay) start = addDays(start, -1);
+  return new TimeRange(start, end);
+};
+
+const INSTANT_LENGTH = TimeSpan.HOUR;
+
+/**
+ * `yesterday`, `nov 17 9am-10am`: the span the text names. An instant alone (`1h ago`,
+ * `yesterday 1pm`) starts an hour, cut short at now.
+ */
+const readWhole: RangeForm = (text, language, now) => {
+  const whole = readSide(text, language, now);
+  if (whole == null) return null;
+  const { range } = whole;
+  if (!range.span.isZero) return range;
+  const end = range.start.add(INSTANT_LENGTH);
+  return new TimeRange(range.start, end.valueOf() > now.valueOf() ? now : end);
+};
+
+const RANGE_FORMS: RangeForm[] = [readFor, readSince, readBetween, readWhole];
+
+/**
+ * Reads the text as one time range. It reads a start and a length (`2h ago for 1h`),
+ * a start until now (`since 8am`), two ends (`3h ago to 1h ago`, `13:00 to 14:00
+ * yesterday`), and phrases (`yesterday from 1pm to 2pm`, `nov 17 9am-10am`). A day,
+ * week, or month covers all of it. An instant alone (`1h ago`) starts an hour that
+ * ends at now at the latest.
+ * @returns the range, or null when the whole text is not one range of positive length.
+ */
+export const suggestTimeRange = (
+  text: string,
+  language: Language,
+  now: TimeStamp,
+): TimeRange | null => {
+  const trimmed = text.trim();
+  for (const read of RANGE_FORMS) {
+    const range = read(trimmed, language, now);
+    if (range != null && range.isValid && !range.span.isZero) return range;
+  }
+  return null;
 };

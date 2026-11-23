@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { type AddressInfo, createServer } from "node:net";
+
+import { Unreachable } from "@synnaxlabs/freighter";
+import { DataType, id, TimeSpan, url } from "@synnaxlabs/x";
+import { describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
 import { NotFoundError, PlanChangedError } from "@/errors";
@@ -18,6 +21,7 @@ import { lineplot } from "@/lineplot";
 import { resource } from "@/resource";
 import { task } from "@/task";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
+import { Transport } from "@/transport";
 
 const client = createTestClient();
 
@@ -82,7 +86,7 @@ describe("impact", () => {
     expect(plan.entries).toEqual([
       { record: lineplot.resourceID(plot.key), effect: "detach", choices: [] },
     ]);
-    expect(plan.hidden).toEqual(0);
+    expect(plan.hidden).toEqual({ restrict: 0, cascade: 0, detach: 0 });
     const applied = await client.impact.apply(deleteOf(ch.key), { token: plan.token });
     expect(applied.entries).toEqual(plan.entries);
     await expect
@@ -152,7 +156,7 @@ describe("impact", () => {
     expect(plan).toEqual({
       entries: [],
       kept: 0,
-      hidden: 0,
+      hidden: { restrict: 0, cascade: 0, detach: 0 },
       token: plan.token,
       change,
     });
@@ -210,6 +214,39 @@ describe("impact", () => {
     });
     const plan = await userClient.impact.plan(deleteOf(ch.key));
     expect(plan.entries).toEqual([]);
-    expect(plan.hidden).toEqual(1);
+    expect(plan.hidden).toEqual({ restrict: 1, cascade: 0, detach: 0 });
+  });
+});
+
+describe("impact over an unreachable Core", () => {
+  /** Returns a client whose transport points at a port that nothing listens on. */
+  const createUnreachable = async (onRetry: (e: Error) => void) => {
+    const server = createServer();
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    const transport = new Transport({
+      url: new url.URL({ host: "127.0.0.1", port }),
+      retry: { baseInterval: TimeSpan.milliseconds(1), maxRetries: 2 },
+      onRetry,
+    });
+    return new impact.Client({
+      unary: transport.unary,
+      unaryNoRetry: transport.unaryNoRetry,
+    });
+  };
+
+  it("Should make one attempt for an apply and reject", async () => {
+    const onRetry = vi.fn();
+    const unreachable = await createUnreachable(onRetry);
+    await expect(unreachable.apply(deleteOf(1))).rejects.toThrow(Unreachable);
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  it("Should retry a plan before it rejects", async () => {
+    const onRetry = vi.fn();
+    const unreachable = await createUnreachable(onRetry);
+    await expect(unreachable.plan(deleteOf(1))).rejects.toThrow(Unreachable);
+    expect(onRetry).toHaveBeenCalledTimes(2);
   });
 });

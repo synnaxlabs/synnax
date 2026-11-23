@@ -12,6 +12,7 @@ package gorp_test
 import (
 	"context"
 	"slices"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -76,6 +77,23 @@ type refGroup struct {
 
 func (g refGroup) GorpKey() string { return g.Key }
 
+// refPair is keyed by the rack it references.
+type refPair struct {
+	Rack uint32
+	Name string
+}
+
+func (p refPair) GorpKey() string { return strconv.Itoa(int(p.Rack)) + "/" + p.Name }
+
+// refBadge holds a label through each of two references.
+type refBadge struct {
+	Key   string
+	Front string
+	Back  string
+}
+
+func (b refBadge) GorpKey() string { return b.Key }
+
 type refSwatch struct {
 	Key   string
 	Group string
@@ -131,6 +149,11 @@ func newDeviceRefs() deviceRefs {
 					}
 					return []string{d.Parent}
 				},
+				Retarget: func(d *refDevice, to map[string]string) {
+					if t, ok := to[d.Parent]; ok {
+						d.Parent = t
+					}
+				},
 			},
 		),
 		labels: gorp.NewKeyReference(
@@ -140,6 +163,17 @@ func newDeviceRefs() deviceRefs {
 				OnDelete: gorp.Detach,
 				Kind:     gorp.Use,
 				Targets:  func(d *refDevice) []string { return d.Labels },
+				// Only a device on rack 2 may hold the label "r2".
+				Check: func(_ context.Context, _ gorp.Tx, d *refDevice, l string) error {
+					if l == "r2" && d.Rack != 2 {
+						return errors.Wrapf(
+							validate.ErrValidation,
+							"%s needs rack 2",
+							l,
+						)
+					}
+					return nil
+				},
 				Detach: func(d *refDevice, l string) {
 					d.Labels = slices.DeleteFunc(
 						slices.Clone(d.Labels),
@@ -147,6 +181,18 @@ func newDeviceRefs() deviceRefs {
 							return v == l
 						},
 					)
+				},
+				Retarget: func(d *refDevice, to map[string]string) {
+					moved := make([]string, 0, len(d.Labels))
+					for _, v := range d.Labels {
+						if t, ok := to[v]; ok {
+							v = t
+						}
+						if !slices.Contains(moved, v) {
+							moved = append(moved, v)
+						}
+					}
+					d.Labels = moved
 				},
 			},
 		),
@@ -169,6 +215,15 @@ func newOwnerRef() *gorp.TargetReference[string, refStatus] {
 				return nil
 			}
 			return []gorp.Target{{Table: s.Owner.Table, Key: s.Owner.Key}}
+		},
+		Retarget: func(s *refStatus, to map[gorp.Target]gorp.Target) {
+			if s.Owner == nil {
+				return
+			}
+			held := gorp.Target{Table: s.Owner.Table, Key: s.Owner.Key}
+			if t, ok := to[held]; ok {
+				s.Owner = &refOwner{Table: t.Table, Key: t.Key}
+			}
 		},
 	})
 }
@@ -219,7 +274,11 @@ var _ = Describe("Reference", func() {
 					DB:         db,
 					Name:       "device",
 					References: deviceRef.all(),
-					OnRewrite: func(ctx context.Context, tx gorp.Tx, d refDevice) error {
+					OnRewrite: func(
+						ctx context.Context,
+						tx gorp.Tx,
+						d refDevice,
+					) error {
 						if onRewrite == nil {
 							return nil
 						}
@@ -387,6 +446,73 @@ var _ = Describe("Reference", func() {
 				Exec(ctx, db)).To(MatchError(ContainSubstring(
 				"rack: rack 2 does not exist",
 			)))
+		})
+
+		Describe("Check", func() {
+			BeforeEach(func(ctx SpecContext) {
+				createRack(ctx, 1)
+				createRack(ctx, 2)
+				createLabels(ctx, "r2")
+			})
+
+			It("Should accept a target that the check allows", func(ctx SpecContext) {
+				Expect(
+					createDevice(
+						ctx,
+						refDevice{Key: "d1", Rack: 2, Labels: []string{"r2"}},
+					),
+				).
+					To(Succeed())
+			})
+
+			It("Should reject a create that the check refuses", func(ctx SpecContext) {
+				Expect(
+					createDevice(
+						ctx,
+						refDevice{Key: "d1", Rack: 1, Labels: []string{"r2"}},
+					),
+				).
+					To(SatisfyAll(
+						BeAssignableToTypeOf(validate.PathError{}),
+						MatchError("labels: r2 needs rack 2: validation error"),
+					))
+				Expect(deviceExists(ctx, "d1")).To(BeFalse())
+			})
+
+			It(
+				"Should check a target that an update keeps",
+				func(ctx SpecContext) {
+					Expect(createDevice(ctx, refDevice{
+						Key:    "d1",
+						Rack:   2,
+						Labels: []string{"r2"},
+					})).To(Succeed())
+					Expect(devices.NewUpdate().
+						Where(gorp.MatchKeys[string, refDevice]("d1")).
+						Change(func(_ gorp.Context, d refDevice) refDevice {
+							d.Rack = 1
+							return d
+						}).
+						Exec(ctx, db)).To(MatchError(
+						"labels: r2 needs rack 2: validation error",
+					))
+				},
+			)
+
+			It("Should roll back the transaction it fails", func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := racks.NewCreate().
+						Entry(&refRack{Key: 3}).
+						Exec(ctx, tx); err != nil {
+						return err
+					}
+					return devices.NewCreate().
+						Entry(&refDevice{Key: "d1", Rack: 3, Labels: []string{"r2"}}).
+						Exec(ctx, tx)
+				})).To(MatchError("labels: r2 needs rack 2: validation error"))
+				Expect(rackExists(ctx, 3)).To(BeFalse())
+				Expect(deviceExists(ctx, "d1")).To(BeFalse())
+			})
 		})
 
 		It(
@@ -745,6 +871,42 @@ var _ = Describe("Reference", func() {
 		})
 	})
 
+	Describe("RestrictChange", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It(
+			"Should name an entry that holds the target through a restrict reference",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+				Expect(racks.RestrictChange(ctx, db, 1, "name")).To(SatisfyAll(
+					BeAssignableToTypeOf(gorp.RestrictError{}),
+					MatchError("cannot change the name of rack 1 because device a "+
+						"references it through rack: validation error"),
+				))
+			},
+		)
+
+		It(
+			"Should return nil when only other references hold the target",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				createLabels(ctx, "l1")
+				Expect(createDevice(ctx, refDevice{
+					Key:    "a",
+					Rack:   1,
+					Labels: []string{"l1"},
+				})).To(Succeed())
+				Expect(labels.RestrictChange(ctx, db, "l1", "name")).To(Succeed())
+			},
+		)
+
+		It("Should return nil for a target no entry holds", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			Expect(racks.RestrictChange(ctx, db, 1, "name")).To(Succeed())
+		})
+	})
+
 	Describe("Dependents", func() {
 		BeforeEach(func(ctx SpecContext) { open(ctx) })
 
@@ -850,6 +1012,126 @@ var _ = Describe("Reference", func() {
 			deps := MustSucceed(racks.DependentsEach(ctx, tx, []uint32{1, 2}))
 			Expect(deps[0]).To(BeEmpty())
 			Expect(deps[1]).To(HaveLen(1))
+		})
+	})
+
+	Describe("Uses", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should list the entries that hold a target through a use reference", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			createLabels(ctx, "l1")
+			Expect(
+				createDevice(ctx, refDevice{Key: "a", Rack: 1, Labels: []string{"l1"}}),
+			).
+				To(Succeed())
+			Expect(labels.Uses(ctx, db, "l1")).
+				To(Equal([]gorp.Target{{Table: "device", Key: "a"}}))
+		})
+
+		It("Should leave out the entries that hold a target through a place reference",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+				Expect(statuses.NewCreate().
+					Entry(&refStatus{Key: "s", Owner: &refOwner{Table: "rack", Key: "1"}}).
+					Exec(ctx, db)).To(Succeed())
+				Expect(racks.Uses(ctx, db, 1)).To(BeEmpty())
+			},
+		)
+	})
+
+	Describe("PlacedIn", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should list the records placed in a target", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			Expect(statuses.NewCreate().
+				Entry(&refStatus{Key: "s", Owner: &refOwner{Table: "rack", Key: "1"}}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(gorp.PlacedIn(ctx, db, gorp.Target{Table: "rack", Key: "1"})).
+				To(ConsistOf(
+					gorp.Target{Table: "device", Key: "a"},
+					gorp.Target{Table: "status", Key: "s"},
+				))
+		})
+
+		It("Should leave out the records that only use a target", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			createLabels(ctx, "l1")
+			Expect(createDevice(ctx, refDevice{
+				Key:    "a",
+				Rack:   1,
+				Labels: []string{"l1"},
+			})).To(Succeed())
+			Expect(
+				gorp.PlacedIn(ctx, db, gorp.Target{Table: "label", Key: "l1"}),
+			).To(BeEmpty())
+		})
+	})
+
+	Describe("PlacedIn and LinksOf in a transaction", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			tx := DeferClose(db.OpenTx())
+			Expect(devices.NewCreate().
+				Entry(&refDevice{Key: "a", Rack: 1}).
+				Exec(ctx, tx)).To(Succeed())
+			rack := gorp.Target{Table: "rack", Key: "1"}
+			device := gorp.Target{Table: "device", Key: "a"}
+			Expect(gorp.PlacedIn(ctx, tx, rack)).To(Equal([]gorp.Target{device}))
+			Expect(gorp.LinksOf(ctx, tx, device)).To(Equal([]gorp.Link{
+				{Target: rack, Kind: gorp.Place},
+			}))
+			Expect(gorp.PlacedIn(ctx, db, rack)).To(BeEmpty())
+			Expect(gorp.LinksOf(ctx, db, device)).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("LinksOf", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should return the links that a stored record holds", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			createLabels(ctx, "l1")
+			Expect(createDevice(ctx, refDevice{
+				Key:    "a",
+				Rack:   1,
+				Labels: []string{"l1"},
+			})).To(Succeed())
+			Expect(gorp.LinksOf(ctx, db, gorp.Target{Table: "device", Key: "a"})).
+				To(ConsistOf(
+					gorp.Link{
+						Target: gorp.Target{Table: "rack", Key: "1"},
+						Kind:   gorp.Place,
+					},
+					gorp.Link{
+						Target: gorp.Target{Table: "label", Key: "l1"},
+						Kind:   gorp.Use,
+					},
+				))
+		})
+
+		It("Should return a not found error for a missing record", func(
+			ctx SpecContext,
+		) {
+			Expect(gorp.LinksOf(ctx, db, gorp.Target{Table: "device", Key: "z"})).
+				Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should return an error for a table that is not open", func(
+			ctx SpecContext,
+		) {
+			Expect(gorp.LinksOf(ctx, db, gorp.Target{Table: "pump", Key: "a"})).
+				Error().To(MatchError(`[gorp] - no open table is named "pump"`))
 		})
 	})
 
@@ -1191,6 +1473,317 @@ var _ = Describe("Reference", func() {
 		)
 	})
 
+	Describe("Retarget", func() {
+		BeforeEach(func(ctx SpecContext) {
+			open(ctx)
+			createRack(ctx, 1)
+		})
+		retrieveDevice := func(ctx SpecContext, key string) refDevice {
+			GinkgoHelper()
+			var d refDevice
+			Expect(devices.NewRetrieve().
+				Where(gorp.MatchKeys[string, refDevice](key)).
+				Entry(&d).
+				Exec(ctx, db)).To(Succeed())
+			return d
+		}
+		createLabeled := func(ctx SpecContext, key string, held ...string) {
+			GinkgoHelper()
+			Expect(createDevice(ctx, refDevice{Key: key, Rack: 1, Labels: held})).
+				To(Succeed())
+		}
+
+		It(
+			"Should move every holder from one target to another",
+			func(ctx SpecContext) {
+				createLabels(ctx, "l1", "l2", "l3")
+				createLabeled(ctx, "a", "l1", "l3")
+				createLabeled(ctx, "b", "l1")
+				Expect(labels.Retarget(ctx, db, "l1", "l2")).To(Succeed())
+				Expect(retrieveDevice(ctx, "a").Labels).To(Equal([]string{"l2", "l3"}))
+				Expect(retrieveDevice(ctx, "b").Labels).To(Equal([]string{"l2"}))
+				Expect(deviceRef.labels.Get(ctx, nil, "l1")).To(BeEmpty())
+				Expect(deviceRef.labels.Get(ctx, nil, "l2")).To(ConsistOf("a", "b"))
+			},
+		)
+
+		It("Should leave the old target in place for the caller to delete", func(
+			ctx SpecContext,
+		) {
+			createLabels(ctx, "l1", "l2")
+			createLabeled(ctx, "a", "l1")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := labels.Retarget(ctx, tx, "l1", "l2"); err != nil {
+					return err
+				}
+				return labels.NewDelete().
+					Where(gorp.MatchKeys[string, refLabel]("l1")).
+					Exec(ctx, tx)
+			})).To(Succeed())
+			Expect(retrieveDevice(ctx, "a").Labels).To(Equal([]string{"l2"}))
+		})
+
+		It("Should move the holders of a reference to several tables", func(
+			ctx SpecContext,
+		) {
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "b", Rack: 1})).To(Succeed())
+			owner := &refOwner{Table: "device", Key: "a"}
+			Expect(statuses.NewCreate().
+				Entry(&refStatus{Key: "s", Owner: owner}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(devices.Retarget(ctx, db, "a", "b")).To(Succeed())
+			var s refStatus
+			Expect(statuses.NewRetrieve().
+				Where(gorp.MatchKeys[string, refStatus]("s")).
+				Entry(&s).
+				Exec(ctx, db)).To(Succeed())
+			Expect(s.Owner).To(Equal(&refOwner{Table: "device", Key: "b"}))
+			Expect(ownerRef.Get(ctx, nil, gorp.Target{Table: "device", Key: "a"})).
+				To(BeEmpty())
+		})
+
+		It(
+			"Should mark each rewrite as derived and run the hook in its transaction",
+			func(ctx SpecContext) {
+				createLabels(ctx, "l1", "l2")
+				createLabeled(ctx, "a", "l1")
+				var (
+					commits   []gorp.Commit
+					rewritten []refDevice
+				)
+				DeferCleanup(
+					db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
+						commits = append(commits, c)
+					}),
+				)
+				onRewrite = func(ctx context.Context, tx gorp.Tx, d refDevice) error {
+					rewritten = append(rewritten, d)
+					return racks.NewCreate().Entry(&refRack{Key: 7}).Exec(ctx, tx)
+				}
+				tx := DeferClose(db.OpenTx())
+				Expect(labels.Retarget(ctx, tx, "l1", "l2")).To(Succeed())
+				written := refDevice{Key: "a", Rack: 1, Labels: []string{"l2"}}
+				Expect(rewritten).To(Equal([]refDevice{written}))
+				Expect(rackExists(ctx, 7)).To(BeFalse())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(rackExists(ctx, 7)).To(BeTrue())
+				Expect(commits).To(HaveLen(1))
+				Expect(slices.Collect(devices.Changes(commits[0]))).To(Equal(
+					[]gorp.EntryChange[string, refDevice]{{
+						Key:     "a",
+						Value:   written,
+						Kind:    gorp.ChangeUpdate,
+						Derived: true,
+					}},
+				))
+			},
+		)
+
+		It("Should fail the retarget when the hook fails", func(ctx SpecContext) {
+			createLabels(ctx, "l1", "l2")
+			createLabeled(ctx, "a", "l1")
+			hookErr := errors.New("hook failed")
+			onRewrite = func(context.Context, gorp.Tx, refDevice) error {
+				return hookErr
+			}
+			Expect(labels.Retarget(ctx, db, "l1", "l2")).To(MatchError(hookErr))
+			Expect(retrieveDevice(ctx, "a").Labels).To(Equal([]string{"l1"}))
+		})
+
+		It("Should succeed when no entry holds the target", func(
+			ctx SpecContext,
+		) {
+			createLabels(ctx, "l1", "l2")
+			Expect(labels.Retarget(ctx, db, "l1", "l2")).To(Succeed())
+		})
+
+		It("Should refuse to retarget an entry to itself", func(ctx SpecContext) {
+			createLabels(ctx, "l1")
+			Expect(labels.Retarget(ctx, db, "l1", "l1")).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot retarget label l1 to itself")),
+			))
+		})
+
+		DescribeTable("Should fail when an entry does not exist",
+			func(ctx SpecContext, from, to, missing string) {
+				createLabels(ctx, "l1")
+				Expect(labels.Retarget(ctx, db, from, to)).To(And(
+					MatchError(query.ErrNotFound),
+					MatchError(ContainSubstring("label "+missing+" does not exist")),
+				))
+			},
+			Entry("from", "l9", "l1", "l9"),
+			Entry("to", "l1", "l9", "l9"),
+		)
+
+		It(
+			"Should refuse a holder whose reference has no Retarget and change nothing",
+			func(ctx SpecContext) {
+				createRack(ctx, 2)
+				createLabels(ctx, "l1")
+				owner := &refOwner{Table: "rack", Key: "1"}
+				Expect(statuses.NewCreate().
+					Entry(&refStatus{Key: "s", Owner: owner}).
+					Exec(ctx, db)).To(Succeed())
+				Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+				Expect(racks.Retarget(ctx, db, 1, 2)).To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"cannot retarget rack 1 because device a references it "+
+							"through rack, which cannot retarget",
+					)),
+				))
+				Expect(ownerRef.Get(ctx, nil, gorp.Target{Table: "rack", Key: "1"})).
+					To(Equal([]string{"s"}))
+			},
+		)
+
+		It("Should refuse a rewrite that breaks a unique reference", func(
+			ctx SpecContext,
+		) {
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "b", Rack: 1})).To(Succeed())
+			Expect(statuses.NewCreate().Entries(&[]refStatus{
+				{Key: "s1", Owner: &refOwner{Table: "device", Key: "a"}},
+				{Key: "s2", Owner: &refOwner{Table: "device", Key: "b"}},
+			}).Exec(ctx, db)).To(Succeed())
+			Expect(devices.Retarget(ctx, db, "a", "b")).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"owner: status s2 already references device b",
+				)),
+			))
+		})
+
+		It("Should refuse a rewrite that changes the key of a holder", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 2)
+			pairs := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refPair]{
+				DB:   db,
+				Name: "pair",
+				References: []gorp.Reference[string, refPair]{
+					gorp.NewKeyReference(
+						gorp.KeyReferenceConfig[string, refPair, uint32]{
+							Name:     "rack",
+							Table:    "rack",
+							OnDelete: gorp.Cascade,
+							Kind:     gorp.Place,
+							Targets: func(p *refPair) []uint32 {
+								return []uint32{p.Rack}
+							},
+							Retarget: func(p *refPair, to map[uint32]uint32) {
+								if t, ok := to[p.Rack]; ok {
+									p.Rack = t
+								}
+							},
+						},
+					),
+				},
+			}))
+			Expect(pairs.NewCreate().
+				Entry(&refPair{Rack: 1, Name: "a"}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(racks.Retarget(ctx, db, 1, 2)).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"cannot retarget rack 1 because the key of pair 1/a holds it",
+				)),
+			))
+		})
+
+		It("Should rewrite a holder once when two references hold the target", func(
+			ctx SpecContext,
+		) {
+			open(ctx, gorp.WithMaxDeleteSize(1))
+			var rewritten []refBadge
+			badges := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refBadge]{
+				DB:   db,
+				Name: "badge",
+				References: []gorp.Reference[string, refBadge]{
+					gorp.NewKeyReference(
+						gorp.KeyReferenceConfig[string, refBadge, string]{
+							Name:     "front",
+							Table:    "label",
+							OnDelete: gorp.Restrict,
+							Kind:     gorp.Use,
+							Targets: func(b *refBadge) []string {
+								return []string{b.Front}
+							},
+							Retarget: func(b *refBadge, to map[string]string) {
+								if t, ok := to[b.Front]; ok {
+									b.Front = t
+								}
+							},
+						},
+					),
+					gorp.NewKeyReference(
+						gorp.KeyReferenceConfig[string, refBadge, string]{
+							Name:     "back",
+							Table:    "label",
+							OnDelete: gorp.Restrict,
+							Kind:     gorp.Use,
+							Targets: func(b *refBadge) []string {
+								return []string{b.Back}
+							},
+							Retarget: func(b *refBadge, to map[string]string) {
+								if t, ok := to[b.Back]; ok {
+									b.Back = t
+								}
+							},
+						},
+					),
+				},
+				OnRewrite: func(_ context.Context, _ gorp.Tx, b refBadge) error {
+					rewritten = append(rewritten, b)
+					return nil
+				},
+			}))
+			createLabels(ctx, "l1", "l2")
+			Expect(badges.NewCreate().
+				Entry(&refBadge{Key: "a", Front: "l1", Back: "l1"}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(labels.Retarget(ctx, db, "l1", "l2")).To(Succeed())
+			moved := refBadge{Key: "a", Front: "l2", Back: "l2"}
+			Expect(rewritten).To(Equal([]refBadge{moved}))
+			var b refBadge
+			Expect(badges.NewRetrieve().
+				Where(gorp.MatchKeys[string, refBadge]("a")).
+				Entry(&b).
+				Exec(ctx, db)).To(Succeed())
+			Expect(b).To(Equal(moved))
+		})
+
+		It("Should refuse a rewrite that forms a cycle", func(ctx SpecContext) {
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "b", Rack: 1, Parent: "a"})).
+				To(Succeed())
+			Expect(devices.Retarget(ctx, db, "a", "b")).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("parent: device b would form a cycle")),
+			))
+			Expect(retrieveDevice(ctx, "b").Parent).To(Equal("a"))
+		})
+
+		It("Should refuse a retarget that rewrites more than the limit", func(
+			ctx SpecContext,
+		) {
+			open(ctx, gorp.WithMaxDeleteSize(1))
+			createRack(ctx, 1)
+			createLabels(ctx, "l1", "l2")
+			createLabeled(ctx, "a", "l1")
+			createLabeled(ctx, "b", "l1")
+			Expect(labels.Retarget(ctx, db, "l1", "l2")).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"retargeting label l1 would change more than 1 entries",
+				)),
+			))
+		})
+	})
+
 	Describe("Populate", func() {
 		It(
 			"Should index entries written before the table opened",
@@ -1251,7 +1844,7 @@ var _ = Describe("Reference", func() {
 				kvs := DeferClose(memkv.New())
 				pre := gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec))
 				Expect(gorp.NewCreate[uint32, refRack]().
-					Entry(&refRack{Key: 1}).
+					Entries(&[]refRack{{Key: 1}, {Key: 2}}).
 					Exec(ctx, pre)).To(Succeed())
 				Expect(gorp.NewCreate[string, refDevice]().
 					Entry(&refDevice{Key: "d1", Rack: 1}).
@@ -1287,6 +1880,11 @@ var _ = Describe("Reference", func() {
 					Where(gorp.MatchKeys[uint32, refRack](1)).
 					Exec(ctx, db)).To(MatchError(gorp.ErrIndexInvalid))
 				Expect(rackExists(ctx, 1)).To(BeTrue())
+			})
+
+			It("Should fail a retarget of a target", func(ctx SpecContext) {
+				Expect(racks.Retarget(ctx, db, 1, 2)).
+					To(MatchError(gorp.ErrIndexInvalid))
 			})
 
 			It("Should fall back to a scan in a filter", func(ctx SpecContext) {
@@ -1430,32 +2028,6 @@ var _ = Describe("Reference", func() {
 					Targets:  func(*refProject) []string { return nil },
 				},
 				"project.references.1.detach: must be set when on_delete is Detach",
-			),
-			Entry(
-				"retargeting a Restrict reference",
-				gorp.KeyReferenceConfig[string, refProject, string]{
-					Name:     "label",
-					Table:    "label",
-					OnDelete: gorp.Restrict,
-					Kind:     gorp.Use,
-					Targets:  func(*refProject) []string { return nil },
-					Retarget: func(*refProject, map[string]string) {},
-				},
-				"project.references.1.retarget: "+
-					"must be nil unless on_delete is Detach or Weak",
-			),
-			Entry(
-				"retargeting a Cascade reference",
-				gorp.KeyReferenceConfig[string, refProject, string]{
-					Name:     "label",
-					Table:    "label",
-					OnDelete: gorp.Cascade,
-					Kind:     gorp.Place,
-					Targets:  func(*refProject) []string { return nil },
-					Retarget: func(*refProject, map[string]string) {},
-				},
-				"project.references.1.retarget: "+
-					"must be nil unless on_delete is Detach or Weak",
 			),
 			Entry(
 				"inlining with no Inline",

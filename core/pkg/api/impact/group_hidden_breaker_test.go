@@ -169,7 +169,7 @@ var _ = Describe(
 					Change: deleteOf(folder.Key),
 				}))
 				Expect(p.Entries).To(BeEmpty())
-				Expect(p.Hidden).To(Equal(uint32(1)))
+				Expect(p.Hidden).To(Equal(impact.Hidden{Cascade: 1}))
 			},
 		)
 
@@ -198,7 +198,7 @@ var _ = Describe(
 				})
 				changed := MustBeOk(errors.AsType[impact.PlanChangedError](err))
 				Expect(changed.Plan.Entries).To(BeEmpty())
-				Expect(changed.Plan.Hidden).To(Equal(uint32(2)))
+				Expect(changed.Plan.Hidden).To(Equal(impact.Hidden{Cascade: 2}))
 				Expect(apply(authed, apiimpact.ApplyRequest{
 					Change: deleteOf(folder.Key),
 					Token:  changed.Plan.Token,

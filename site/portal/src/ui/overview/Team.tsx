@@ -11,11 +11,11 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Organization } from "@/server/db/schema";
-import { type Invited } from "@/server/invitation";
-import { type Held } from "@/server/license/list";
+import type { schema } from "@/server/db";
+import type { Invited } from "@/server/invitation";
+import type { Held } from "@/server/license/list";
 import { statusOf } from "@/server/license/status";
 import { activatePath, scoped } from "@/shell";
 import { Fact, Facts } from "@/ui/Facts";
@@ -31,7 +31,7 @@ const RECENT = 3;
 const COLUMNS = "minmax(0, 2fr) 14rem 10rem";
 
 export interface TeamProps {
-  organization: Organization;
+  organization: schema.Organization;
   /** licenses are the team's licenses, newest first. */
   licenses: Held[];
   /** invitations are the open invitations to the user's verified addresses. */

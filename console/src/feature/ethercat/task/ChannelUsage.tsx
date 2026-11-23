@@ -14,10 +14,10 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, License } from "@synnaxlabs/pluto";
 import { type deep, math, primitive, strings, unique } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type SlaveDevice } from "@/feature/ethercat/device/types";
-import { type IndexOptions } from "@/feature/ethercat/task/configure";
+import type { SlaveDevice } from "@/feature/ethercat/device/types";
+import type { IndexOptions } from "@/feature/ethercat/task/configure";
 import {
   type Channel as TaskChannel,
   type DataTypes,

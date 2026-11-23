@@ -310,7 +310,7 @@ func (r retrieveInfo) needsSlices() bool {
 	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
 		return f.Ref == nil && f.IsSlice
 	}) || lo.SomeBy(r.Refs, func(ref refInfo) bool {
-		return ref.IsSlice && ref.Detaches()
+		return ref.IsSlice
 	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
 }
 
@@ -764,6 +764,7 @@ func (c *fieldCollector) addRef(field resolution.Field, hasIndex bool) error {
 		// The variant walk names the index after the field, ignoring @go name.
 		info.StructField = naming.LowerFirst(naming.ToPascalCase(field.Name))
 	} else {
+		renderRetarget(&info, field, c.r, c.ctx)
 		c.refs = append(c.refs, info)
 	}
 	c.filters = append(c.filters, filterInfo{
@@ -1085,27 +1086,9 @@ func newIndexes() indexes {
 			Detach: func(e *{{$ret.GoName}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = nil },
 {{- end}}
 {{- end}}
-{{- if $ref.Retargets}}
-			Retarget: func(e *{{$ret.GoName}}, to map[{{$ref.ElemGoType}}]{{$ref.ElemGoType}}) {
-{{- if $ref.IsSlice}}
-				for i, k := range e.{{$ref.GoName}} {
-					if t, ok := to[k]; ok {
-						e.{{$ref.GoName}}[i] = t
-					}
-				}
-{{- else if $ref.IsOptional}}
-				if e.{{$ref.GoName}} != nil {
-					if t, ok := to[*e.{{$ref.GoName}}]; ok {
-						e.{{$ref.GoName}} = &t
-					}
-				}
-{{- else}}
-				if t, ok := to[e.{{$ref.GoName}}]; ok {
-					e.{{$ref.GoName}} = t
-				}
-{{- end}}
+			Retarget: func(e *{{$ret.GoName}}, to map[{{$ref.TargetType}}]{{$ref.TargetType}}) {
+				{{$ref.RetargetBody -}}
 			},
-{{- end}}
 		}),
 {{- end}}
 {{- range $ref := $ret.NestedRefs}}
@@ -1474,11 +1457,9 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 				{{.DetachBody -}}
 			},
 {{- end}}
-{{- if .RetargetBody}}
 			Retarget: func(e *{{.EntryType}}, to map[{{.TargetType}}]{{.TargetType}}) {
 				{{.RetargetBody -}}
 			},
-{{- end}}
 {{- if .InlineBody}}
 			Inline: func(
 				ctx context.Context,

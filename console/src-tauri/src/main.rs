@@ -22,6 +22,7 @@ mod updater;
 
 use tauri::Manager;
 
+use tauri_plugin_prevent_default::Flags;
 use tauri_plugin_prevent_default::KeyboardShortcut;
 use tauri_plugin_prevent_default::ModifierKey::MetaKey;
 
@@ -34,6 +35,7 @@ fn main() {
         unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
     }
     let prevent = tauri_plugin_prevent_default::Builder::new()
+        .with_flags(Flags::all().difference(Flags::FOCUS_MOVE))
         .shortcut(KeyboardShortcut::with_modifiers("W", &[MetaKey]))
         .build();
     let builder = tauri::Builder::default();

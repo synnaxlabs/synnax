@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/compare"
@@ -36,10 +37,11 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name    *gorp.SortedIndex[Key, Log, string]
-	group   *gorp.KeyReference[Key, Log, group.Key]
-	project *gorp.KeyReference[Key, Log, project.Key]
-	search  *gorp.SearchIndex[Key, Log]
+	name             *gorp.SortedIndex[Key, Log, string]
+	group            *gorp.KeyReference[Key, Log, group.Key]
+	project          *gorp.KeyReference[Key, Log, project.Key]
+	channelsColorKey *gorp.KeyReference[Key, Log, color.Key]
+	search           *gorp.SearchIndex[Key, Log]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -66,7 +68,7 @@ func newIndexes() indexes {
 			Retarget: func(e *Log, to map[group.Key]group.Key) {
 				if e.Group != nil {
 					if t, ok := to[*e.Group]; ok {
-						e.Group = &t
+						*e.Group = t
 					}
 				}
 			},
@@ -81,6 +83,78 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []project.Key{*e.Project}
+			},
+			Retarget: func(e *Log, to map[project.Key]project.Key) {
+				if e.Project != nil {
+					if t, ok := to[*e.Project]; ok {
+						*e.Project = t
+					}
+				}
+			},
+		}),
+		channelsColorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Log, color.Key]{
+			Name:     "channels.color.key",
+			Table:    "color",
+			OnDelete: gorp.Inline,
+			Kind:     gorp.Use,
+			Targets: func(e *Log) []color.Key {
+				var targets []color.Key
+				for _, v1 := range e.Channels {
+					if v1.Color != nil {
+						switch v2 := v1.Color.Variant.(type) {
+						case color.NamedRef:
+							if targets == nil {
+								targets = make([]color.Key, 0, len(e.Channels))
+							}
+							targets = append(targets, v2.Key)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Log, t color.Key) {
+				for i5 := range e.Channels {
+					if e.Channels[i5].Color != nil {
+						if v6, ok := e.Channels[i5].Color.Variant.(color.NamedRef); ok && v6.Key == t {
+							e.Channels[i5].Color = nil
+						}
+					}
+				}
+			},
+			Retarget: func(e *Log, to map[color.Key]color.Key) {
+				for i7 := range e.Channels {
+					if e.Channels[i7].Color != nil {
+						switch v8 := e.Channels[i7].Color.Variant.(type) {
+						case color.NamedRef:
+							if t, ok := to[v8.Key]; ok {
+								v8.Key = t
+							}
+							e.Channels[i7].Color.Variant = v8
+						}
+					}
+				}
+			},
+			Inline: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				e *Log,
+				t color.Key,
+			) error {
+				var target color.Named
+				if err := gorp.NewRetrieve[color.Key, color.Named]().
+					Where(gorp.MatchKeys[color.Key, color.Named](t)).
+					Entry(&target).
+					Exec(ctx, tx); err != nil {
+					return err
+				}
+				for i3 := range e.Channels {
+					if e.Channels[i3].Color != nil {
+						if v4, ok := e.Channels[i3].Color.Variant.(color.NamedRef); ok && v4.Key == t {
+							e.Channels[i3].Color.Variant = target.Inline()
+						}
+					}
+				}
+				return nil
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Log](
@@ -107,6 +181,7 @@ func (i indexes) references() []gorp.Reference[Key, Log] {
 	return []gorp.Reference[Key, Log]{
 		i.group,
 		i.project,
+		i.channelsColorKey,
 	}
 }
 

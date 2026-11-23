@@ -16,11 +16,13 @@
 #endif
 #include "driver/arc/arc.h"
 #include "driver/ethercat/ethercat.h"
+#include "driver/file/file.h"
 #include "driver/http/http.h"
 #include "driver/modbus/names.h"
 #include "driver/rack/factories.h"
 #include "driver/rack/rack.h"
 #include "driver/rack/status/status.h"
+#include "driver/secret/secret.h"
 #include "driver/version/version.h"
 
 namespace driver::rack {
@@ -28,16 +30,28 @@ bool Config::integration_enabled(const std::string &i) const {
     return std::ranges::find(integrations, i) != integrations.end();
 }
 
-void configure_opcua(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, opcua::INTEGRATION_NAME, [&config]() {
-        auto [host, _] = x::os::get_hostname();
-        return std::make_unique<opcua::Factory>(
-            std::make_shared<opcua::certificate::Store>(opcua::certificate::StoreConfig{
-                .dir = config.state_dir / OPCUA_STATE_DIR / "pki",
-                .host = host,
-            })
-        );
-    });
+void configure_opcua(
+    const Config &config,
+    FactoryList &factories,
+    const std::shared_ptr<secret::Reader> &reader
+) {
+    configure_integration(
+        config,
+        factories,
+        opcua::INTEGRATION_NAME,
+        [&config, &reader]() {
+            auto [host, _] = x::os::get_hostname();
+            return std::make_unique<opcua::Factory>(
+                std::make_shared<opcua::certificate::Store>(
+                    opcua::certificate::StoreConfig{
+                        .dir = config.state_dir / OPCUA_STATE_DIR / "pki",
+                        .host = host,
+                    }
+                ),
+                reader
+            );
+        }
+    );
 }
 
 constexpr auto MISMATCH_DESCRIPTION = "Install the Driver release that matches the "
@@ -131,6 +145,16 @@ void configure_ethercat(
     );
 }
 
+void configure_file(const Config &config, FactoryList &factories) {
+    configure_integration(config, factories, file::INTEGRATION_NAME, [&config]() {
+        return std::make_unique<file::Factory>(file::Config{
+            .roots = file::roots(),
+            .home = file::home(),
+            .secrets_dir = config.secrets_dir,
+        });
+    });
+}
+
 void configure_http(const Config &config, FactoryList &factories) {
     configure_integration(config, factories, http::INTEGRATION_NAME, []() {
         return std::make_unique<http::Factory>();
@@ -142,13 +166,18 @@ std::unique_ptr<task::Factory> Config::new_factory(
     const std::shared_ptr<x::thread::rt::Manager> &rt_manager
 ) const {
     FactoryList factories;
+    const auto reader = std::make_shared<secret::Reader>(
+        client,
+        secret::Config{.secrets_dir = this->secrets_dir, .rack = this->rack.key}
+    );
     configure_state(*this, factories);
-    configure_opcua(*this, factories);
+    configure_opcua(*this, factories, reader);
     configure_ni(*this, factories);
     configure_labjack(*this, factories);
     configure_arc(*this, factories, rt_manager);
     configure_ethercat(*this, factories, client, rt_manager);
     configure_http(*this, factories);
+    configure_file(*this, factories);
     configure_modbus(*this, factories);
     return std::make_unique<task::MultiFactory>(std::move(factories));
 }

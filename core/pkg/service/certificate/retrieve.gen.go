@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/set"
@@ -38,6 +39,7 @@ type Retrieve struct {
 type indexes struct {
 	name       *gorp.SortedIndex[Key, Certificate, string]
 	privateKey *gorp.KeyReference[Key, Certificate, secret.Key]
+	rack       *gorp.KeyReference[Key, Certificate, rack.Key]
 	search     *gorp.SearchIndex[Key, Certificate]
 }
 
@@ -74,6 +76,40 @@ func newIndexes() indexes {
 					e.Variant = v2
 				}
 			},
+			Retarget: func(e *Certificate, to map[secret.Key]secret.Key) {
+				switch v3 := e.Variant.(type) {
+				case StoredCertificate:
+					if v3.PrivateKey != nil {
+						if t, ok := to[*v3.PrivateKey]; ok {
+							*v3.PrivateKey = t
+						}
+					}
+					e.Variant = v3
+				}
+			},
+		}),
+		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Certificate, rack.Key]{
+			Name:     "rack",
+			Table:    "rack",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Use,
+			Targets: func(e *Certificate) []rack.Key {
+				var targets []rack.Key
+				switch v1 := e.Variant.(type) {
+				case FileCertificate:
+					targets = append(targets, v1.Rack)
+				}
+				return targets
+			},
+			Retarget: func(e *Certificate, to map[rack.Key]rack.Key) {
+				switch v2 := e.Variant.(type) {
+				case FileCertificate:
+					if t, ok := to[v2.Rack]; ok {
+						v2.Rack = t
+					}
+					e.Variant = v2
+				}
+			},
 		}),
 		search: gorp.NewSearchIndex[Key, Certificate](
 			"search",
@@ -98,6 +134,7 @@ func (i indexes) all() []gorp.Index[Key, Certificate] {
 func (i indexes) references() []gorp.Reference[Key, Certificate] {
 	return []gorp.Reference[Key, Certificate]{
 		i.privateKey,
+		i.rack,
 	}
 }
 
@@ -208,6 +245,18 @@ func MatchNames(vals ...string) Filter {
 				return want.Contains(e.Base().Name), nil
 			}),
 		)
+	}
+}
+
+// MatchSources returns a filter for
+// certificates whose Source matches any of the
+// provided values.
+func MatchSources(vals ...secret.Source) Filter {
+	return func(Retrieve) gorp.Filter[Key, Certificate] {
+		want := set.New(vals...)
+		return gorp.Match(func(_ gorp.Context, e *Certificate) (bool, error) {
+			return want.Contains(e.Source()), nil
+		})
 	}
 }
 

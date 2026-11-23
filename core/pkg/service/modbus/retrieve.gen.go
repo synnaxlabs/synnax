@@ -39,6 +39,11 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					e.Device = ""
 				}
 			},
+			Retarget: func(e *ReadConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
 			Name:     "channels.channel",
@@ -156,6 +161,52 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
+			Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {
+				for i5 := range e.Channels {
+					switch v6 := e.Channels[i5].Variant.(type) {
+					case CoilReadChannel:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Channels[i5].Variant = v6
+					case DiscreteInputReadChannel:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Channels[i5].Variant = v6
+					case HoldingRegisterReadChannel:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Channels[i5].Variant = v6
+					case InputRegisterReadChannel:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Channels[i5].Variant = v6
+					case HoldingRegisterStringReadChannel:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Channels[i5].Variant = v6
+					case InputRegisterStringReadChannel:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Channels[i5].Variant = v6
+					case HoldingRegisterBitReadChannel:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Channels[i5].Variant = v6
+					case InputRegisterBitReadChannel:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Channels[i5].Variant = v6
+					}
+				}
+			},
 		}),
 	}
 }
@@ -178,6 +229,11 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Detach: func(e *WriteConfig, t device.Key) {
 				if e.Device == t {
 					e.Device = ""
+				}
+			},
+			Retarget: func(e *WriteConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
 				}
 			},
 		}),
@@ -234,6 +290,27 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 							v4.Channel = 0
 						}
 						e.Channels[i3].Variant = v4
+					}
+				}
+			},
+			Retarget: func(e *WriteConfig, to map[channel.Key]channel.Key) {
+				for i5 := range e.Channels {
+					switch v6 := e.Channels[i5].Variant.(type) {
+					case CoilWriteChannel:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Channels[i5].Variant = v6
+					case HoldingRegisterWriteChannel:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Channels[i5].Variant = v6
+					case HoldingRegisterBitWriteChannel:
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
+						}
+						e.Channels[i5].Variant = v6
 					}
 				}
 			},

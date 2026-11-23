@@ -35,7 +35,7 @@ export * from "@/platform/task/TableScaleForm";
 export * from "@/platform/task/TareButton";
 export * from "@/platform/task/types";
 export * from "@/platform/task/useChannelDeviceKeys";
-export * from "@/platform/task/useChannelPlan";
+export * from "@/platform/task/useChannelPlans";
 export * from "@/platform/task/useCreate";
 export * from "@/platform/task/useDrifted";
 export * from "@/platform/task/useIsPreview";

@@ -10,12 +10,12 @@
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { text } from "@synnaxlabs/x";
 import { useEffect } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
-import { Value } from "@/vis/value/aether/value";
+import { value } from "@/vis/value/aether";
 
-export const basePropsZ = Value.z
+export const basePropsZ = value.Value.z
   .partial({ color: true })
   .omit({ stale: true })
   .extend({ level: text.levelZ.optional() });
@@ -42,6 +42,7 @@ export const use = ({
   location,
   stalenessColor,
   stalenessTimeout,
+  staleColorHidden,
   useWidthForBackground,
   valueBackgroundOverScan,
   valueBackgroundShift,
@@ -59,6 +60,7 @@ export const use = ({
     backgroundTelem,
     stalenessColor,
     stalenessTimeout,
+    staleColorHidden,
     location,
     useWidthForBackground,
     valueBackgroundOverScan,
@@ -68,8 +70,8 @@ export const use = ({
   });
   const [, state, setState] = Aether.use({
     aetherKey,
-    type: Value.TYPE,
-    schema: Value.z,
+    type: value.Value.TYPE,
+    schema: value.Value.z,
     initialState: memoProps,
   });
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);

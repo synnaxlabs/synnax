@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type table } from "@synnaxlabs/client";
-import { type Locator } from "playwright";
+import type { channel, table } from "@synnaxlabs/client";
+import type { Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
 
@@ -65,9 +65,9 @@ const COLUMNS = [
 const HEADER_HEIGHT = 54;
 const ROW_HEIGHT = 74;
 /** A gray that reads as a faint tint on both themes. */
-const HEADER_FILL = "#80808033";
+const HEADER_FILL = { type: "fixed", value: "#80808033" } as const;
 /** A gray legible on both themes, a step quieter than the labels. */
-const UNITS_COLOR = "#8a8f98";
+const UNITS_COLOR = { type: "fixed", value: "#8a8f98" } as const;
 
 type Cell = NonNullable<NonNullable<table.New["rows"]>[number]["cells"]>[number];
 type CellConfig = Cell["config"];

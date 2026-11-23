@@ -444,14 +444,15 @@ export class Steps {
 
   // Sets the width a lone group asks for: that of all its tags, so the tags it hides
   // never change its size. In the resize callback, a new width would reach the observer
-  // a frame late with a loop error, so it waits for the next frame. Returns false when
-  // the group has no width yet: it then fits on the next frame too.
+  // a frame late with a loop error, so it waits for the next frame and returns false.
   private size(el: HTMLElement, f: Fit, resizing: boolean): boolean {
     const size = `${full(f, f.measures.length, 0)}px`;
-    const current = el.style.getPropertyValue(FULL);
     if (!resizing) set(el, FULL, size);
-    else if (current !== size) this.request();
-    return !resizing || current !== "";
+    else if (el.style.getPropertyValue(FULL) !== size) {
+      this.request();
+      return false;
+    }
+    return true;
   }
 }
 

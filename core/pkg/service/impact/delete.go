@@ -137,7 +137,7 @@ func channelsSum(keys []channel.Key, p Plan) uint64 {
 }
 
 // planSum returns an xxHash-64 of change, the bytes of a change, followed by p as the
-// caller sees it: every field of each visible entry, and the hidden count. Each field
+// caller sees it: every field of each visible entry, and the hidden counts. Each field
 // holds its length, and each optional field a mark of whether it is set, so no two
 // plans hash the same bytes. The token detects a stale view, not a forged one, so it
 // needs no cryptographic hash.
@@ -154,7 +154,9 @@ func planSum(change []byte, p Plan) uint64 {
 		buf = appendOptional(buf, (*string)(e.Default))
 		buf = appendOptional(buf, e.Path)
 	}
-	buf = binary.BigEndian.AppendUint32(buf, p.Hidden)
+	buf = binary.BigEndian.AppendUint32(buf, p.Hidden.Restrict)
+	buf = binary.BigEndian.AppendUint32(buf, p.Hidden.Cascade)
+	buf = binary.BigEndian.AppendUint32(buf, p.Hidden.Detach)
 	return xxhash.Sum64(buf)
 }
 

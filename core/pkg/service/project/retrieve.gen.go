@@ -64,7 +64,7 @@ func newIndexes() indexes {
 			Retarget: func(e *Project, to map[group.Key]group.Key) {
 				if e.Group != nil {
 					if t, ok := to[*e.Group]; ok {
-						e.Group = &t
+						*e.Group = t
 					}
 				}
 			},

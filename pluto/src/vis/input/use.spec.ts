@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
-import { renderHook } from "@/testutil/render";
+import { renderHook } from "@/testutil";
 import { Input } from "@/vis/input";
 import { input } from "@/vis/input/aether";
 

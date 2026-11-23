@@ -17,10 +17,12 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	namedcolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -53,14 +55,16 @@ var _ = Describe("Dispatch", func() {
 		StartRun(db.Run)
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-			DB:    db,
-			Group: groupSvc,
-			ImEx:  imex.NewService(),
+			DB:          db,
+			Group:       groupSvc,
+			ImEx:        imex.NewService(),
+			Enumeration: openEnumerations(ctx, db),
+			Actuators:   noActuators,
 		}))
 		g = createGroup(ctx, resource.TypeSchematicSymbol)
 		sym = symbol.Symbol{
 			Name: "Before",
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "static", Scale: 1},
+			Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "static", Scale: 1},
 		}
 		Expect(write(ctx, func(w symbol.Writer) error { return w.Create(ctx, &sym) })).
 			To(Succeed())
@@ -92,11 +96,15 @@ var _ = Describe("Dispatch", func() {
 
 	It("Should store the edited name, data, and group", func(ctx SpecContext) {
 		data := symbol.Spec{
-			SVG:     "<svg></svg>",
-			States:  []symbol.State{},
-			Variant: "actuator",
-			Handles: []symbol.Handle{},
-			Scale:   2,
+			Drawing:      svg("<svg></svg>"),
+			Parts:        []symbol.Part{},
+			Handles:      []symbol.Handle{},
+			States:       []symbol.State{},
+			Commands:     []symbol.Command{},
+			Looks:        []symbol.Look{},
+			Interactions: []symbol.Interaction{},
+			Variant:      "actuator",
+			Scale:        2,
 		}
 		Expect(apply(
 			ctx,
@@ -133,7 +141,12 @@ var _ = Describe("Dispatch", func() {
 	)
 
 	It("Should refuse an edit that sets a zero scale", func(ctx SpecContext) {
-		Expect(apply(ctx, set("data", symbol.Spec{SVG: "<svg/>", Variant: "static"}))).
+		Expect(
+			apply(
+				ctx,
+				set("data", symbol.Spec{Drawing: svg("<svg/>"), Variant: "static"}),
+			),
+		).
 			To(MatchError(ContainSubstring("data.scale: must be positive, got 0")))
 		Expect(retrieve(ctx)).To(Equal(sym))
 	})
@@ -152,7 +165,7 @@ var _ = Describe("Dispatch", func() {
 	It("Should refuse an invalid data", func(ctx SpecContext) {
 		// Generated validators return errors that do not wrap validate.ErrValidation.
 		Expect(apply(ctx, set("data", symbol.Spec{Variant: "static"}))).
-			To(MatchError(ContainSubstring("data.svg: required")))
+			To(MatchError(ContainSubstring("data.drawing.type: required")))
 		Expect(retrieve(ctx)).To(Equal(sym))
 	})
 
@@ -160,7 +173,7 @@ var _ = Describe("Dispatch", func() {
 		rec := record()
 		created := symbol.Symbol{
 			Name: "Created",
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "static", Scale: 1},
+			Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "static", Scale: 1},
 		}
 		Expect(write(ctx, func(w symbol.Writer) error {
 			return w.Create(ctx, &created)
@@ -210,7 +223,7 @@ var _ = Describe("Dispatch", func() {
 	) {
 		other := symbol.Symbol{
 			Name: "Other",
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "static", Scale: 1},
+			Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "static", Scale: 1},
 		}
 		Expect(write(ctx, func(w symbol.Writer) error {
 			return w.Create(ctx, &other)
@@ -226,5 +239,64 @@ var _ = Describe("Dispatch", func() {
 			{Key: sym.Key, DispatchKey: "dk", Seq: frames[0].Seq, Actions: want},
 			{Key: other.Key, DispatchKey: "dk", Seq: frames[1].Seq, Actions: want},
 		}))
+	})
+
+	Describe("Named color delete", func() {
+		It("Should inline the light value and broadcast the symbol", func(
+			ctx SpecContext,
+		) {
+			colors := MustOpen(namedcolor.OpenService(
+				ctx,
+				namedcolor.ServiceConfig{DB: db, Group: groupSvc},
+			))
+			red := MustSucceed(color.Parse("#ff0000"))
+			trip := namedcolor.Named{Name: "Trip", Light: red}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return colors.NewWriter(tx).Create(ctx, &trip)
+			})).To(Succeed())
+			paint := func(ref namedcolor.RefVariant) *symbol.Paint {
+				return &symbol.Paint{
+					Variant: symbol.ColorPaint{Value: namedcolor.Ref{Variant: ref}},
+				}
+			}
+			painted := symbol.Symbol{
+				Name: "Painted",
+				Data: symbol.Spec{
+					Drawing: svg(`<svg><rect id="body"/></svg>`),
+					Parts: []symbol.Part{
+						{Key: "body", Name: "Body", Selectors: []string{"#body"}},
+					},
+					Looks: []symbol.Look{{
+						Key:  "a",
+						Part: new("body"),
+						Fill: paint(namedcolor.NamedRef{Key: trip.Key}),
+					}},
+					Variant: "static",
+					Scale:   1,
+				},
+			}
+			Expect(write(ctx, func(w symbol.Writer) error {
+				return w.Create(ctx, &painted)
+			})).To(Succeed())
+			rec := record()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return colors.NewWriter(tx).Delete(ctx, trip.Key)
+			})).To(Succeed())
+			var stored symbol.Symbol
+			Expect(svc.NewRetrieve().
+				Where(symbol.MatchKeys(painted.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Data.Looks[0].Fill).
+				To(Equal(paint(namedcolor.FixedRef{Value: red})))
+			frames := rec.Snapshot()
+			Expect(frames).To(ConsistOf(frame{
+				Key: painted.Key,
+				Seq: frames[0].Seq,
+				Actions: []symbol.Action{
+					symbol.NewCreateAction(symbol.CreatePayload{Symbol: stored}),
+				},
+			}))
+		})
 	})
 })

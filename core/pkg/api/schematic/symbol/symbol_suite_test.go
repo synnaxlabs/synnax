@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
@@ -41,6 +42,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -127,6 +129,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:    db,
 		Group: groupSvc,
 		ImEx:  imex.NewService(),
+		Enumeration: MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
+			DB: db,
+		})),
 	}))
 	symbolSvc = schematicSvc.Symbol
 	impactSvc := MustSucceed(impact.OpenService(impact.ServiceConfig{
@@ -190,7 +195,13 @@ func groupSymbols(ctx SpecContext, key group.Key) []resource.ID {
 // newSymbol returns an unsaved symbol a create request can carry.
 func newSymbol(name string) symbol.Symbol {
 	return defaults.Fill(
-		symbol.Symbol{Name: name, Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"}},
+		symbol.Symbol{
+			Name: name,
+			Data: symbol.Spec{
+				Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
+				Variant: "valve",
+			},
+		},
 	)
 }
 
@@ -264,8 +275,7 @@ func suitePolicies() impact.Policies {
 }
 
 // suiteMoves returns moves that refuse every record, one for each type that can sit in
-// a
-// group.
+// a group.
 func suiteMoves() map[resource.Type]impact.Move {
 	moves := make(map[resource.Type]impact.Move)
 	for _, t := range group.MemberTypes() {
@@ -274,4 +284,8 @@ func suiteMoves() map[resource.Type]impact.Move {
 		}
 	}
 	return moves
+}
+
+func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
+	return nil, nil
 }

@@ -28,7 +28,7 @@ describe("planOf", () => {
         },
       ],
       kept: 0,
-      hidden: 1,
+      hidden: { restrict: 0, cascade: 0, detach: 1 },
       token: "0123456789abcdef",
       change: { type: "delete_channels", keys },
     };
