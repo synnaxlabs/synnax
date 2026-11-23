@@ -691,7 +691,7 @@ func (r *reference[K, E, T]) check(
 	if r.checkTarget != nil {
 		for _, v := range held {
 			if err := r.checkTarget(ctx, tx, e, v); err != nil {
-				return validate.PathedError(err, r.name)
+				return false, validate.PathedError(err, r.name)
 			}
 		}
 	}
