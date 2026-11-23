@@ -57,7 +57,7 @@ describe("Version", () => {
   });
 
   it("should show the version as inline code", async () => {
-    expect(await render({ code: true })).toContain('<code data-short="">0.62.1</code>');
+    expect(await render({ code: true })).toContain("<code data-short>0.62.1</code>");
   });
 
   it("should show the release of another product", async () => {
