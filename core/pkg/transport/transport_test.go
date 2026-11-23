@@ -56,7 +56,7 @@ var _ = Describe("Transport", func() {
 				Router: router,
 			}))
 
-			Expect(tl.GRPC).To(HaveLen(17))
+			Expect(tl.GRPC).To(HaveLen(19))
 
 			app := fiber.New()
 			defer func() { Expect(app.Shutdown()).To(Succeed()) }()

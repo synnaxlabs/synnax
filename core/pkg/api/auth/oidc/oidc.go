@@ -7,57 +7,97 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package auth
+package oidc
 
 import (
 	"context"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// OIDCLogin is where a client sends a person to log in through a provider.
-type OIDCLogin struct {
-	// Provider is the name of the provider.
-	Provider string `json:"provider" msgpack:"provider"`
-	// Issuer is the provider's issuer URL, which the links of its accounts hold.
-	Issuer string `json:"issuer" msgpack:"issuer"`
-	// AuthorizationEndpoint is the provider's login address.
-	AuthorizationEndpoint string `json:"authorization_endpoint" msgpack:"authorization_endpoint"`
-	// ClientID is the Core's client ID at the provider.
-	ClientID string `json:"client_id" msgpack:"client_id"`
+// ServiceConfig is the configuration for the OIDC API service.
+type ServiceConfig struct {
+	// Auth reports whether the Core accepts the oidc method and ends the sessions of
+	// removed links.
+	//
+	// [REQUIRED]
+	Auth *auth.Service
+	// OIDC stores provider links and checks proofs of provider accounts.
+	//
+	// [REQUIRED]
+	OIDC *oidc.Service
 }
 
-// OIDCLinkRequest links a provider account to the caller.
-type OIDCLinkRequest struct {
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the OIDC API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Auth = override.Nil(c.Auth, other.Auth)
+	c.OIDC = override.Nil(c.OIDC, other.OIDC)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.auth.oidc")
+	v.NotNil("auth", c.Auth)
+	v.NotNil("oidc", c.OIDC)
+	return v.Error()
+}
+
+// Service links, lists, and unlinks OpenID Connect provider accounts.
+type Service struct {
+	auth *auth.Service
+	oidc *oidc.Service
+}
+
+// NewService opens a new OIDC API service.
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{auth: cfg.Auth, oidc: cfg.OIDC}, nil
+}
+
+// LinkRequest links a provider account to the caller.
+type LinkRequest struct {
 	// Credentials prove the provider account.
 	Credentials auth.OIDCCredentials `json:"credentials" msgpack:"credentials"`
 }
 
-// OIDCLinkResponse is a new provider link.
-type OIDCLinkResponse struct {
+// LinkResponse is a new provider link.
+type LinkResponse struct {
 	// Link is the stored link.
 	Link oidc.Link `json:"link" msgpack:"link"`
 }
 
-// PrepareLinkOIDC verifies the provider account that the credentials of req prove. It
+// PrepareLink verifies the provider account that the credentials of req prove. It
 // returns a validation error when the oidc method is off or the caller is not a user,
 // and [auth.ErrInvalidCredentials] when the provider rejects the credentials.
-func (s *Service) PrepareLinkOIDC(
+func (s *Service) PrepareLink(
 	ctx context.Context,
-	req OIDCLinkRequest,
+	req LinkRequest,
 ) (oidc.Account, error) {
 	if err := s.auth.Accepts(auth.MethodOIDC); err != nil {
 		return oidc.Account{}, err
 	}
-	if caller := GetSubject(ctx); caller.Type != resource.TypeUser {
+	if caller := apiauth.GetSubject(ctx); caller.Type != resource.TypeUser {
 		return oidc.Account{}, errors.Wrapf(
 			validate.ErrValidation,
 			"a %s cannot link a provider account",
@@ -67,50 +107,50 @@ func (s *Service) PrepareLinkOIDC(
 	return s.oidc.Verify(ctx, req.Credentials)
 }
 
-// LinkOIDC links the account that PrepareLinkOIDC verified to the caller. It returns a
+// Link links the account that PrepareLink verified to the caller. It returns a
 // validation error when the account or the caller already has a link for the provider.
-func (s *Service) LinkOIDC(
+func (s *Service) Link(
 	ctx context.Context,
 	tx gorp.Tx,
-	_ OIDCLinkRequest,
+	_ LinkRequest,
 	account oidc.Account,
-) (OIDCLinkResponse, error) {
-	caller, err := user.KeyFromResourceID(GetSubject(ctx))
+) (LinkResponse, error) {
+	caller, err := user.KeyFromResourceID(apiauth.GetSubject(ctx))
 	if err != nil {
-		return OIDCLinkResponse{}, err
+		return LinkResponse{}, err
 	}
 	link, err := s.oidc.NewWriter(tx).Create(ctx, caller, account)
 	if err != nil {
-		return OIDCLinkResponse{}, err
+		return LinkResponse{}, err
 	}
-	return OIDCLinkResponse{Link: link}, nil
+	return LinkResponse{Link: link}, nil
 }
 
-// OIDCRetrieveRequest selects provider links to list.
-type OIDCRetrieveRequest struct {
+// RetrieveRequest selects provider links to list.
+type RetrieveRequest struct {
 	// Subjects limits the result to these users' links. Empty means the caller.
 	Subjects []resource.ID `json:"subjects" msgpack:"subjects"`
 }
 
 // Holders implements bind.Held.
-func (r OIDCRetrieveRequest) Holders() []resource.ID { return r.Subjects }
+func (r RetrieveRequest) Holders() []resource.ID { return r.Subjects }
 
-// OIDCRetrieveResponse lists provider links.
-type OIDCRetrieveResponse struct {
+// RetrieveResponse lists provider links.
+type RetrieveResponse struct {
 	// Links are the links that matched.
 	Links []oidc.Link `json:"links" msgpack:"links"`
 }
 
-// RetrieveOIDCLinks lists the provider links of the given users in snap, or the
-// caller's links when the request names no user.
-func (s *Service) RetrieveOIDCLinks(
+// Retrieve lists the provider links of the given users in snap, or the caller's links
+// when the request names no user.
+func (s *Service) Retrieve(
 	ctx context.Context,
 	snap gorp.Snapshot,
-	req OIDCRetrieveRequest,
-) (OIDCRetrieveResponse, error) {
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
 	subjects := req.Subjects
 	if len(subjects) == 0 {
-		subjects = []resource.ID{GetSubject(ctx)}
+		subjects = []resource.ID{apiauth.GetSubject(ctx)}
 	}
 	keys := make([]user.Key, 0, len(subjects))
 	for _, subject := range subjects {
@@ -119,7 +159,7 @@ func (s *Service) RetrieveOIDCLinks(
 		}
 		key, err := user.KeyFromResourceID(subject)
 		if err != nil {
-			return OIDCRetrieveResponse{}, err
+			return RetrieveResponse{}, err
 		}
 		keys = append(keys, key)
 	}
@@ -128,23 +168,23 @@ func (s *Service) RetrieveOIDCLinks(
 		Where(oidc.MatchUsers(keys...)).
 		Entries(&links).
 		Exec(ctx, snap); err != nil {
-		return OIDCRetrieveResponse{}, err
+		return RetrieveResponse{}, err
 	}
-	return OIDCRetrieveResponse{Links: links}, nil
+	return RetrieveResponse{Links: links}, nil
 }
 
-// OIDCUnlinkRequest names provider links to remove.
-type OIDCUnlinkRequest struct {
+// UnlinkRequest names provider links to remove.
+type UnlinkRequest struct {
 	// Keys are the links to remove.
 	Keys []oidc.LinkKey `json:"keys" msgpack:"keys"`
 }
 
-// UnlinkOIDC removes the given provider links and ends the sessions they opened.
-// Unknown keys are ignored.
-func (s *Service) UnlinkOIDC(
+// Unlink removes the given provider links and ends the sessions they opened. Unknown
+// keys are ignored.
+func (s *Service) Unlink(
 	ctx context.Context,
 	tx gorp.Tx,
-	req OIDCUnlinkRequest,
+	req UnlinkRequest,
 ) (struct{}, error) {
 	var links []oidc.Link
 	if err := s.oidc.NewRetrieve().
