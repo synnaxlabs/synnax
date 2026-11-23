@@ -59,7 +59,14 @@ const retrieveMultiParamsZ = z.union([
 ]);
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
-export type RetrieveSingleParams = { key: Key };
+/** Names one symbol. */
+export type RetrieveSingleParams = {
+  key: Key;
+  /**
+   * Fills `uses` with the schematics that use the symbol and that the caller can read.
+   */
+  includeUses?: boolean;
+};
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 const createResZ = z.object({ symbols: symbolZ.array() });
@@ -81,9 +88,21 @@ export interface ClientConfig {
   file: FileTransport;
   cache: query.Cache;
   groupStore: query.Table<group.Key, group.Group>;
+  /**
+   * The channels that announce changes to schematics, which can use a symbol. A change
+   * on one refetches the uses that a maintained query watches.
+   */
+  usesChannels: string[];
 }
 
-export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Symbol> {
+export class Client extends query.Retriever<
+  typeof retrieveMultiParamsZ,
+  Key,
+  Symbol,
+  Symbol,
+  RetrieveSingleParams,
+  RetrieveSingleParams
+> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Symbol>;
   private readonly dispatcher: actions.Controller<Key, Symbol, Action>;
@@ -96,6 +115,15 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       name: "schematicSymbols",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
+    });
+    const uses = new query.Uses<Key, Symbol, RetrieveRequest>({
+      name: "schematic symbol",
+      cache,
+      table: store,
+      key: keyZ,
+      retrieve: async (req) => await this.execRetrieve(req),
+      request: (key) => ({ where: { key }, includeUses: true }),
+      channels: cfg.usesChannels,
     });
     // Every write to a symbol reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Symbol, Action>({
@@ -120,10 +148,15 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       request: {
         list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.execRetrieve(req),
-        matches: (sym, req) => matches(group.MEMBER_LINES, sym, req.where),
+        fetch: async (req) => await uses.fetch(req),
+        // A symbol whose uses the client does not hold fetches the query again.
+        matches: (sym, req) =>
+          uses.lacks(sym, req) ? null : matches(group.MEMBER_LINES, sym, req.where),
         serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
+        triggers: [uses.trigger],
       },
+      compose: (record, q) => uses.compose(record, q),
+      single: uses.single,
     });
     this.cfg = cfg;
     this.store = store;

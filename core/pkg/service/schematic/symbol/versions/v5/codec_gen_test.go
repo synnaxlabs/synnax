@@ -564,6 +564,24 @@ var _ = Describe("Codec", func() {
 				},
 				Group: nil,
 			}),
+			Entry("empty collections", v5.Symbol{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Data: v5.Spec{
+					Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_5"}},
+					Parts:           []v5.Part{},
+					Handles:         []v5.Handle{},
+					States:          []v5.State{},
+					Commands:        []v5.Command{},
+					Looks:           []v5.Look{},
+					Interactions:    []v5.Interaction{},
+					Variant:         "test_12",
+					Scale:           13.5,
+					StrokeScaled:    false,
+					PreviewViewport: new(spatial.Viewport{Zoom: 16.5, Position: spatial.XY{X: 18.5, Y: 19.5}}),
+				},
+				Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+			}),
 		)
 	})
 })
@@ -2022,6 +2040,31 @@ func FuzzDecodeSymbol(f *testing.F) {
 				PreviewViewport: nil,
 			},
 			Group: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.Symbol{
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
+			Data: v5.Spec{
+				Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_5"}},
+				Parts:           []v5.Part{},
+				Handles:         []v5.Handle{},
+				States:          []v5.State{},
+				Commands:        []v5.Command{},
+				Looks:           []v5.Look{},
+				Interactions:    []v5.Interaction{},
+				Variant:         "test_12",
+				Scale:           13.5,
+				StrokeScaled:    false,
+				PreviewViewport: new(spatial.Viewport{Zoom: 16.5, Position: spatial.XY{X: 18.5, Y: 19.5}}),
+			},
+			Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

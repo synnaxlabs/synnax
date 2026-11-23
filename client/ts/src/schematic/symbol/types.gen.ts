@@ -578,6 +578,8 @@ export const retrieveRequestZ = z.strictObject({
   after: cursorZ.optional(),
   /** limit is the most symbols to return. */
   limit: z.uint32().optional(),
+  /** includeUses includes the uses of each record. */
+  includeUses: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
@@ -637,6 +639,11 @@ export const symbolZ = z.object({
   data: specZ,
   /** group is the group the symbol sits in, if any. */
   group: group.keyZ.optional(),
+  /**
+   * uses are the schematics that use the symbol and that the caller can read, filled
+   * only when a retrieve request asks for them.
+   */
+  uses: zod.nullToUndefined(resource.idZ.array()),
 });
 export interface Symbol extends z.infer<typeof symbolZ> {}
 export interface New extends z.input<typeof symbolZ> {}
