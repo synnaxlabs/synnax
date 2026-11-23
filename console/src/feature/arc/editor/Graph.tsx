@@ -11,7 +11,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Arc as Base, Diagram, Viewport } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
-import { TaskControls } from "@/feature/arc/editor/TaskControls";
+import { TaskControls } from "@/feature/arc/editor/controls";
 import { ContextMenu } from "@/platform/context-menu";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
@@ -75,7 +75,7 @@ export const Graph = (): ReactElement => {
           </Vis.Controls>
         </Base.Graph.Editor>
       </Vis.GPUBoundary>
-      <TaskControls />
+      <TaskControls.TaskControls />
     </>
   );
 };

@@ -15,13 +15,7 @@ import { Channel } from "@synnaxlabs/pluto";
 import { deep, primitive, unique } from "@synnaxlabs/x";
 import type { FC } from "react";
 
-import {
-  useResultSlave,
-  useSlavesByKeys,
-  useSlavesOnRack,
-} from "@/feature/ethercat/device/queries";
-import { needsSetup } from "@/feature/ethercat/device/SetupNote";
-import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
+import { Device } from "@/feature/ethercat/device";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
   ReadChannelDetails,
@@ -54,7 +48,7 @@ import {
   readNameSuffix,
   type ReadSchemas,
 } from "@/feature/ethercat/task/types";
-import { Device } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<ReadSchemas>>();
@@ -69,7 +63,7 @@ const Properties = () => (
 const toDataTypes = (channels: channel.Channel[]): DataTypes =>
   new Map(channels.map((c) => [c.key, c.dataType.toString()]));
 
-const readChannelKeys = (slaves: SlaveDevice[]): number[] =>
+const readChannelKeys = (slaves: Device.SlaveDevice[]): number[] =>
   unique.unique(
     slaves.flatMap((s) => s.properties.read.channels.map(({ channel }) => channel)),
   );
@@ -78,7 +72,7 @@ const readChannelKeys = (slaves: SlaveDevice[]): number[] =>
  * @returns the data types of the read channels that the slaves map, or undefined while
  * they load.
  */
-const useDataTypes = (slaves: SlaveDevice[]): DataTypes | undefined => {
+const useDataTypes = (slaves: Device.SlaveDevice[]): DataTypes | undefined => {
   const keys = readChannelKeys(slaves);
   const { data } = Channel.useResultMultiple(
     keys.length === 0 ? null : query.keysRequest(keys),
@@ -91,7 +85,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = path.config.channels[itemKey];
   const ch = PForm.useFieldValue(entry);
-  const { data: slave } = useResultSlave(
+  const { data: slave } = Device.useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const dataTypes = useDataTypes(slave == null ? [] : [slave]);
@@ -110,7 +104,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       defaultName={named ? readChannelName(slave, ch, dataTypes) : undefined}
       suffix={named ? readNameSuffix(slave, ch, dataTypes) : undefined}
       skipped={ch.disabled}
-      warned={!ch.disabled && slave != null && needsSetup(slave)}
+      warned={!ch.disabled && slave != null && Device.needsSetup(slave)}
       portMaxChars={20}
     />
   );
@@ -137,8 +131,10 @@ const ContextMenuItems = (props: Task.ContextMenuItemProps<ReadChannel>) => (
 const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
-  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
-  const onRack = useSlavesOnRack(slaves?.[0]?.rack);
+  const slaves = Device.useSlavesByKeys(
+    Task.useChannelDeviceKeys(path.config.channels),
+  );
+  const onRack = Device.useSlavesOnRack(slaves?.[0]?.rack);
   PForm.useCheck(path.config, slavesZ("inputs", slaves ?? [], onRack ?? []));
   const dataTypes = useDataTypes(slaves ?? []);
   const resolve = (ch: ReadChannel) => {
@@ -241,7 +237,8 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       created.forEach((c, i) => bindReadChannel(slave, toCreate[i], c.key, dataTypes));
     }
 
-    if (modified) await Device.setProperties(client, slave, before, SLAVE_SCHEMAS);
+    if (modified)
+      await PlatformDevice.setProperties(client, slave, before, Device.SLAVE_SCHEMAS);
 
     channels.forEach((ch) => {
       ch.channel = readChannelOf(slave, ch, dataTypes);

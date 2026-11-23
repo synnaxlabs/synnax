@@ -84,10 +84,6 @@ export const Select = ({
   const handleChange = useHandleChange(onConfigure);
   const [visible, setVisible] = useState(false);
   Form.useFocusHandler(path, () => setVisible(true));
-  const filter = (d: device.Device) =>
-    d.make === make &&
-    (model == null || d.model === model) &&
-    (filterProp?.(d) ?? true);
   return (
     <Form.Field
       className={CSS.B("device-select")}
@@ -103,8 +99,13 @@ export const Select = ({
         <Device.SelectSingle
           value={value}
           onChange={onChange}
-          query={{ where: { make: { eq: make } } }}
-          filter={filter}
+          query={{
+            where: {
+              make: { eq: make },
+              ...(model != null && { model: { eq: model } }),
+            },
+          }}
+          filter={filterProp}
           emptyContent={emptyContent}
           resourceName={resourceName}
           grow

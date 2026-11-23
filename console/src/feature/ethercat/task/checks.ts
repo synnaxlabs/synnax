@@ -11,14 +11,7 @@ import { ethercat } from "@synnaxlabs/client";
 import { compare, DataType, unique } from "@synnaxlabs/x";
 import type { z } from "zod";
 
-import { clashProblem, findClash } from "@/feature/ethercat/device/identifier";
-import { check, fill, findInput } from "@/feature/ethercat/device/settings";
-import { canSwitch, isShared, of, onlyReaderOf } from "@/feature/ethercat/device/setup";
-import type {
-  SlaveDevice,
-  SlaveOnRack,
-  SlaveProperties,
-} from "@/feature/ethercat/device/types";
+import { Device } from "@/feature/ethercat/device";
 import {
   addressKey,
   type Channel,
@@ -40,9 +33,10 @@ const entryWidth = (bitLength: number): number => {
 };
 
 /** @returns what the user must do before Synnax can read an entry of the slave. */
-const onlyReaderStep = (props: SlaveProperties): string => {
-  if (of(props).kind === "switched") return "Restart the power of the module.";
-  return canSwitch(props)
+const onlyReaderStep = (props: Device.SlaveProperties): string => {
+  if (Device.Setup.of(props).kind === "switched")
+    return "Restart the power of the module.";
+  return Device.Setup.canSwitch(props)
     ? "In Configure, switch the module to Synnax."
     : "Pick another entry.";
 };
@@ -51,7 +45,7 @@ const onlyReaderStep = (props: SlaveProperties): string => {
  * @returns why the task cannot reach the slave, or null. A scan gives each slave it
  * finds a network, so a slave with none was never found, such as one made in code.
  */
-const networkProblem = (slave: SlaveDevice): string | null =>
+const networkProblem = (slave: Device.SlaveDevice): string | null =>
   slave.properties.network === ""
     ? `The Driver has never found ${slave.name} on a network. Select a connected ` +
       `device for each channel that uses ${slave.name}.`
@@ -62,7 +56,7 @@ const networkProblem = (slave: SlaveDevice): string | null =>
  * channels holds the enabled channels of the task on the slave, ch among them.
  */
 const entryProblem = (
-  slave: SlaveDevice,
+  slave: Device.SlaveDevice,
   channels: Channel[],
   ch: Channel,
   pdoType: PDOType,
@@ -76,7 +70,8 @@ const entryProblem = (
       `Module ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
       "Pick an entry."
     );
-  const reader = pdoType === "inputs" ? onlyReaderOf(slave.properties, ch) : null;
+  const reader =
+    pdoType === "inputs" ? Device.Setup.onlyReaderOf(slave.properties, ch) : null;
   if (reader != null)
     return (
       `Entry ${address} on module ${slave.name} sends data that only ${reader} ` +
@@ -104,21 +99,24 @@ const entryProblem = (
  * reads, or null. held holds the startup parameters of the task.
  */
 const settingProblem = (
-  slave: SlaveDevice,
+  slave: Device.SlaveDevice,
   ch: EntryChannel,
   held: ethercat.SlaveStartupParameters[],
 ): string | null => {
-  if (isShared(slave.properties)) return null;
-  const input = findInput(slave.properties.settings, ch);
+  if (Device.Setup.isShared(slave.properties)) return null;
+  const input = Device.Settings.findInput(slave.properties.settings, ch);
   if (input == null) return null;
   const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
-  const [problem] = check(input, fill(input.settings, prior).values);
+  const [problem] = Device.Settings.check(
+    input,
+    Device.Settings.fill(input.settings, prior).values,
+  );
   if (problem == null) return null;
   const address = ethercat.formatAddress(ch);
   return `Entry ${address} on module ${slave.name}: ${problem.message}`;
 };
 
-type Slave = SlaveDevice | SlaveOnRack;
+type Slave = Device.SlaveDevice | Device.SlaveOnRack;
 
 const order = compare.chain<Slave>(
   compare.by((s) => s.name, compare.natural),
@@ -135,9 +133,9 @@ const inOrder = (a: Slave, b: Slave): [Slave, Slave] =>
 
 /** @returns the step that tells the user which of the two devices to delete. */
 const deleteStep = (
-  slave: SlaveDevice,
-  other: SlaveOnRack,
-  onRack: SlaveOnRack[],
+  slave: Device.SlaveDevice,
+  other: Device.SlaveOnRack,
+  onRack: Device.SlaveOnRack[],
 ): string => {
   const connected = ({ key }: { key: string }): boolean =>
     onRack.find((o) => o.key === key)?.connected === true;
@@ -155,9 +153,9 @@ const deleteStep = (
  * problem names the device that is not connected, which the user deletes.
  */
 const positionProblem = (
-  slave: SlaveDevice,
-  used: SlaveDevice[],
-  onRack: SlaveOnRack[],
+  slave: Device.SlaveDevice,
+  used: Device.SlaveDevice[],
+  onRack: Device.SlaveOnRack[],
 ): string | null => {
   const { network, position, serial } = slave.properties;
   const other = onRack.find(
@@ -183,7 +181,10 @@ const positionProblem = (
  * problem, as the Driver cannot tell its module apart. The Driver keeps a serial number
  * unique on one network only, so two networks can each hold a module with it.
  */
-const serialProblem = (slave: SlaveDevice, onRack: SlaveOnRack[]): string | null => {
+const serialProblem = (
+  slave: Device.SlaveDevice,
+  onRack: Device.SlaveOnRack[],
+): string | null => {
   const { network, vendorId, productCode, serial } = slave.properties;
   if (serial === 0) return null;
   const other = onRack.find(
@@ -204,17 +205,17 @@ const serialProblem = (slave: SlaveDevice, onRack: SlaveOnRack[]): string | null
 
 /** @returns why the slave cannot start while another slave has its identifier. */
 const identifierProblem = (
-  slave: SlaveDevice,
-  onRack: SlaveOnRack[],
+  slave: Device.SlaveDevice,
+  onRack: Device.SlaveOnRack[],
 ): string | null => {
-  const other = findClash(slave, onRack);
+  const other = Device.Identifier.findClash(slave, onRack);
   if (other == null) return null;
   const [first, second] = inOrder(slave, other);
-  return clashProblem(second, first);
+  return Device.Identifier.clashProblem(second, first);
 };
 
 /** @returns why the slaves of the task cannot run on one network, or null. */
-const mixedNetworksProblem = (slaves: SlaveDevice[]): string | null => {
+const mixedNetworksProblem = (slaves: Device.SlaveDevice[]): string | null => {
   const networks = unique
     .unique(slaves.map((s) => s.properties.network).filter((n) => n !== ""))
     .sort();
@@ -227,9 +228,9 @@ const mixedNetworksProblem = (slaves: SlaveDevice[]): string | null => {
 
 /** @returns why the task cannot start on the slave of a channel, or null. */
 const deviceProblem = (
-  slave: SlaveDevice,
-  used: SlaveDevice[],
-  onRack: SlaveOnRack[],
+  slave: Device.SlaveDevice,
+  used: Device.SlaveDevice[],
+  onRack: Device.SlaveOnRack[],
 ): string | null => {
   if (!slave.configured)
     return `${slave.name} is not configured. Configure it to start the task.`;
@@ -262,8 +263,8 @@ interface Problem {
 const problemsOf = (
   pdoType: PDOType,
   { channels, startupParameters = [] }: CheckedConfig,
-  slaves: SlaveDevice[],
-  onRack: SlaveOnRack[],
+  slaves: Device.SlaveDevice[],
+  onRack: Device.SlaveOnRack[],
 ): Problem[] => {
   const used = slaves.filter((s) => channels.some((ch) => ch.device === s.key));
   const mixed = mixedNetworksProblem(used);
@@ -302,8 +303,8 @@ const problemsOf = (
  */
 export const slavesZ = (
   pdoType: PDOType,
-  slaves: SlaveDevice[],
-  onRack: SlaveOnRack[],
+  slaves: Device.SlaveDevice[],
+  onRack: Device.SlaveOnRack[],
 ): z.ZodType =>
   Task.check<CheckedConfig>((config, report) =>
     problemsOf(pdoType, config, slaves, onRack).forEach(({ path, message }) =>
@@ -318,8 +319,8 @@ export const slavesZ = (
 export const checkSlaves = (
   pdoType: PDOType,
   config: CheckedConfig,
-  slaves: SlaveDevice[],
-  onRack: SlaveOnRack[],
+  slaves: Device.SlaveDevice[],
+  onRack: Device.SlaveOnRack[],
 ): void => {
   const [problem] = problemsOf(pdoType, config, slaves, onRack);
   if (problem != null) throw new Error(problem.message);
