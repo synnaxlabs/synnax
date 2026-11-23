@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Command, State } from "@/schematic/symbol/types.gen";
+import type { symbol } from "@/schematic/symbol";
 import type { SymbolNodeConfig } from "@/schematic/types.gen";
 
 /** A field of a state binding that replaces a default of its state. */
 export type Override = "bounds" | "enumeration" | "match" | "default";
 
-const LACKED_OVERRIDES: Record<State["type"], Override[]> = {
+const LACKED_OVERRIDES: Record<symbol.State["type"], Override[]> = {
   number: ["enumeration", "match", "default"],
   enumeration: ["bounds"],
 };
@@ -34,8 +34,8 @@ export interface Orphans {
  */
 export const orphans = (
   config: Pick<SymbolNodeConfig, "states" | "commands">,
-  states: State[],
-  commands: Command[],
+  states: symbol.State[],
+  commands: symbol.Command[],
 ): Orphans => {
   const result: Orphans = { states: [], overrides: [], commands: [] };
   for (const b of config.states) {
