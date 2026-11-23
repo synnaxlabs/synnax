@@ -48,7 +48,8 @@ func (p *Pending) Close() error { return errors.Join(p.idx.persist(), p.idx.Clos
 // writer that wrote them. Handoff returns the uncommitted samples of the keys of w that
 // cfg lacks as a Pending, or nil when they have none. adopt is a Pending of an earlier
 // Handoff for the keys of cfg, or nil. On an error, Handoff closes w and adopt, which
-// drops their uncommitted samples.
+// drops their uncommitted samples. On the pointer log layout, Handoff closes w, which
+// drops its uncommitted samples, opens a writer of cfg, and returns no Pending.
 func (db *DB) Handoff(
 	ctx context.Context,
 	w *Writer,
@@ -80,10 +81,17 @@ func (db *DB) Handoff(
 		)
 	}
 	if w.log != nil {
-		return nil, nil, errors.Wrap(
-			errors.ErrUnsupported,
-			"a handoff on the pointer log layout",
-		)
+		if adopt != nil {
+			return nil, nil, errors.Wrap(
+				validate.ErrValidation,
+				"a handoff on the pointer log layout adopts no pending samples",
+			)
+		}
+		if err = w.Close(); err != nil {
+			return nil, nil, err
+		}
+		next, err := db.OpenWriter(ctx, cfg)
+		return next, nil, err
 	}
 	if err = w.persist(); err != nil {
 		return nil, nil, err

@@ -10,6 +10,8 @@
 package cesium_test
 
 import (
+	"math/rand/v2"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -25,9 +27,8 @@ var _ = Describe("Handoff", func() {
 		db          *cesium.DB
 		clock, data cesium.ChannelKey
 	)
-	BeforeEach(func(ctx SpecContext) {
-		db = mustOpenDBOnFS(ctx, fs.NewMem())
-		clock, data = GenerateChannelKey(), GenerateChannelKey()
+	create := func(ctx SpecContext) {
+		GinkgoHelper()
 		Expect(db.CreateChannel(
 			ctx,
 			cesium.Channel{
@@ -43,6 +44,11 @@ var _ = Describe("Handoff", func() {
 				DataType: telem.Int64T,
 			},
 		)).To(Succeed())
+	}
+	BeforeEach(func(ctx SpecContext) {
+		db = mustOpenDBOnFS(ctx, fs.NewMem())
+		clock, data = GenerateChannelKey(), GenerateChannelKey()
+		create(ctx)
 	})
 	config := func(keys ...cesium.ChannelKey) cesium.WriterConfig {
 		return cesium.WriterConfig{
@@ -182,5 +188,23 @@ var _ = Describe("Handoff", func() {
 		w, p := MustSucceed2(db.Handoff(ctx, openFirst(ctx), config(clock), nil))
 		Expect(db.Handoff(ctx, w, config(clock), p)).Error().
 			To(MatchError(ContainSubstring("the writer lacks a key of the pending")))
+	})
+
+	It("Should drop the uncommitted samples on the pointer log layout", func(
+		ctx SpecContext,
+	) {
+		db = mustOpenDBOnFS(
+			ctx,
+			fs.NewMem(),
+			cesium.WithPointerLog(),
+			cesium.WithRandom(rand.NewPCG(1, 2)),
+		)
+		create(ctx)
+		w, p := MustSucceed2(db.Handoff(ctx, openFirst(ctx), config(clock), nil))
+		Expect(p).To(BeNil())
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		Expect(stored(ctx, clock)).To(BeZero())
+		Expect(stored(ctx, data)).To(BeZero())
 	})
 })
