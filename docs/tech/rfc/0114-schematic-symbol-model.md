@@ -150,14 +150,15 @@ Paint union on type {
     node {}
     color { value color.Ref }
 }
-// rate: cycles per second, times the fraction of its bounds that `state` reads
+// rate: cycles per second, times the fraction of its bounds that `state` reads. A
+// negative rate runs the other way.
 Motion union on type {
     spin {
-        rate  telem.Rate = 0.5 { @ts type "number" }
+        rate  float64 = 0.5 { @validate finite }
         state string?
     }
     flow {
-        rate  telem.Rate = 0.5 { @ts type "number" }
+        rate  float64 = 0.5 { @validate finite }
         state string?
     }
     level {
