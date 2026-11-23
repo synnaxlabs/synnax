@@ -111,10 +111,10 @@ var _ = Describe("Compile keys breaker 3", Ordered, ContinueOnFailure, func() {
 		out = newChannel(ctx, "kb3_out")
 	})
 
-	It("Should refuse a module in CompileRackProgram", func(ctx SpecContext) {
+	It("Should refuse a module in DeployProgram", func(ctx SpecContext) {
 		key := createArc(ctx, newModule(textBase("kb3_module", "func f() f64 {\n"+
 			"    return 1.0\n}")))
-		_, err := svc.CompileRackProgram(ctx, key, testRack.Key)
+		_, err := svc.DeployProgram(ctx, key, testRack.Key)
 		Expect(err).To(MatchError(validate.ErrValidation))
 		Expect(err).To(MatchError(ContainSubstring(
 			"modules cannot be deployed independently",
@@ -126,7 +126,7 @@ var _ = Describe("Compile keys breaker 3", Ordered, ContinueOnFailure, func() {
 		key := createArc(ctx, newAutomation(textBase(
 			"kb3_no_task", "kb3_in * 2.0 -> kb3_out",
 		)))
-		taken := MustSucceed(svc.CompileRackProgram(ctx, key, testRack.Key))
+		taken := MustSucceed(svc.DeployProgram(ctx, key, testRack.Key))
 		Expect(taken.Program).ToNot(BeNil())
 		_, ok := deployed(ctx, key)
 		Expect(ok).To(BeFalse())
@@ -139,7 +139,7 @@ var _ = Describe("Compile keys breaker 3", Ordered, ContinueOnFailure, func() {
 		)))
 		first := newChannel(ctx, "kb3_move_in")
 		bind(ctx, key, testRack.Key)
-		MustSucceed(svc.CompileRackProgram(ctx, key, testRack.Key))
+		MustSucceed(svc.DeployProgram(ctx, key, testRack.Key))
 		Expect(lists(ctx, key)).To(Equal([2][]channel.Key{
 			{first.Key()}, {out.Key()},
 		}))
@@ -151,11 +151,11 @@ var _ = Describe("Compile keys breaker 3", Ordered, ContinueOnFailure, func() {
 				Rename(ctx, first.Key(), "kb3_move_was", false)
 		})).To(Succeed())
 		again := newChannel(ctx, "kb3_move_in")
-		MustSucceed(svc.CompileRackProgram(ctx, key, testRack.Key))
+		MustSucceed(svc.DeployProgram(ctx, key, testRack.Key))
 		Expect(lists(ctx, key)).To(Equal([2][]channel.Key{
 			{first.Key()}, {out.Key()},
 		}))
-		MustSucceed(svc.CompileRackProgram(ctx, key, other.Key))
+		MustSucceed(svc.DeployProgram(ctx, key, other.Key))
 		Expect(lists(ctx, key)).To(Equal([2][]channel.Key{
 			{again.Key()}, {out.Key()},
 		}))
@@ -178,7 +178,7 @@ var _ = Describe("Compile keys breaker 3", Ordered, ContinueOnFailure, func() {
 		})).To(Succeed())
 		_, ok := deployed(ctx, key)
 		Expect(ok).To(BeFalse())
-		MustSucceed(svc.CompileProgram(ctx, key))
+		MustSucceed(svc.DeployProgram(ctx, key, testRack.Key))
 		Expect(lists(ctx, key)).To(Equal([2][]channel.Key{{in.Key()}, {out.Key()}}))
 		Expect(
 			uses(ctx, in),
@@ -194,7 +194,7 @@ var _ = Describe("Compile keys breaker 3", Ordered, ContinueOnFailure, func() {
 		)))
 		first := newChannel(ctx, "kb3_loop_in")
 		bind(ctx, key, testRack.Key)
-		MustSucceed(svc.CompileProgram(ctx, key))
+		MustSucceed(svc.DeployProgram(ctx, key, testRack.Key))
 		before, _ := deployed(ctx, key)
 		Expect(before).To(Equal([2][]channel.Key{{first.Key()}, {out.Key()}}))
 		var compiles atomic.Int32
@@ -254,15 +254,13 @@ var _ = Describe("Compile keys breaker 3", Ordered, ContinueOnFailure, func() {
 			},
 		}))
 		start := time.Now()
-		_, err := racing.CompileRackProgram(
+		Expect(racing.DeployProgram(
 			context.WithValue(ctx, loopMarker{}, true),
 			key,
 			testRack.Key,
-		)
-		elapsed := time.Since(start)
-		Expect(err).To(MatchError(resolver.ErrLookupsChanged))
+		)).Error().To(MatchError(resolver.ErrLookupsChanged))
+		Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
 		Expect(compiles.Load()).To(BeEquivalentTo(15))
-		Expect(elapsed).To(BeNumerically("<", 5*time.Second))
 		after, _ := deployed(ctx, key)
 		Expect(after).To(Equal(before))
 	})

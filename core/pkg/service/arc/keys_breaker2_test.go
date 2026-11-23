@@ -145,7 +145,7 @@ var _ = Describe("Compile keys breaker 2", Ordered, ContinueOnFailure, func() {
 			tsk, err = w.UpdateTask(ctx, key, arc.TaskUpdate{Rack: new(testRack.Key)})
 			return err
 		})).To(Succeed())
-		MustSucceed(svc.CompileProgram(ctx, key))
+		MustSucceed(svc.DeployProgram(ctx, key, testRack.Key))
 		return tsk.Key
 	}
 	// run reports the task with key as running the config it holds, as the Driver does.
@@ -257,7 +257,7 @@ var _ = Describe("Compile keys breaker 2", Ordered, ContinueOnFailure, func() {
 			},
 		}))
 		deployCtx := context.WithValue(ctx, deployMarker{}, true)
-		MustSucceed(racing.CompileProgram(deployCtx, key))
+		MustSucceed(racing.DeployProgram(deployCtx, key, testRack.Key))
 		// The Arc's text reads kb2_other, and no compile of that text is pending.
 		Consistently(lists(ctx, key), 500*time.Millisecond).
 			Should(Equal(want(other, out)))

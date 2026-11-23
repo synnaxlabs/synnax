@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -61,6 +62,7 @@ var _ = Describe("Compile keys check 5", Ordered, ContinueOnFailure, func() {
 	}
 
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		chs := []*channel.Channel{
 			{Name: "kc5_in", Virtual: true, DataType: telem.Float64T},
 			{Name: "kc5_ctl", Virtual: true, DataType: telem.Float64T},
@@ -94,15 +96,13 @@ var _ = Describe("Compile keys check 5", Ordered, ContinueOnFailure, func() {
 	It("Should leave a node's digit text in place when the upgrade clears the "+
 		"channels the Core never issued", func(ctx SpecContext) {
 		key := createGraph(ctx, "kc5_clear", digits(in), float64(ctl.Key()))
-		unissued := map[string]bool{
-			gorp.FormatKey(in.Key()):  true,
-			gorp.FormatKey(ctl.Key()): true,
-		}
-		clear := svc.DanglingMigration("kc5_clear", func(t gorp.Target) (bool, error) {
-			return !unissued[t.Key], nil
-		})
+		unissued := set.New(gorp.FormatKey(in.Key()), gorp.FormatKey(ctl.Key()))
+		migration := svc.DanglingMigration(
+			"kc5_clear",
+			func(t gorp.Target) (bool, error) { return !unissued.Contains(t.Key), nil },
+		)
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return clear.Run(ctx, tx, alamos.Instrumentation{})
+			return migration.Run(ctx, tx, alamos.Instrumentation{})
 		})).To(Succeed())
 		var a arc.Arc
 		Expect(svc.NewRetrieve().Where(arc.MatchKeys(key)).Entry(&a).Exec(ctx, db)).

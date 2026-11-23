@@ -34,6 +34,7 @@ import (
 var _ = Describe("Rack fetch breaker 3", Ordered, ContinueOnFailure, func() {
 	var in, out channel.Channel
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		in = channel.Channel{Name: "bk3_in", DataType: telem.Float64T, Virtual: true}
 		out = channel.Channel{Name: "bk3_out", DataType: telem.Float64T, Virtual: true}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -110,7 +111,7 @@ var _ = Describe("Rack fetch breaker 3", Ordered, ContinueOnFailure, func() {
 		a := create(ctx, textBase("bk3_bad_text", "bk3_missing * 2.0 -> bk3_out"))
 		deploy(ctx, a)
 		_, _, userErr, rackErr := fetch(ctx, a.Base().Key)
-		Expect(userErr).To(HaveOccurred())
+		Expect(userErr).To(MatchError(ContainSubstring("bk3_missing")))
 		Expect(describe(rackErr)).To(Equal(describe(userErr)))
 	})
 
@@ -124,12 +125,9 @@ var _ = Describe("Rack fetch breaker 3", Ordered, ContinueOnFailure, func() {
 		))
 		deploy(ctx, a)
 		_, _, userErr, rackErr := fetch(ctx, a.Base().Key)
-		Expect(userErr).To(HaveOccurred())
-		Expect(rackErr).To(HaveOccurred())
-		// The texts agree. The rack gets a CompileError, as a text compile gives, and a
-		// user gets the raw diagnostics of the graph compile.
-		Expect(rackErr.Error()).To(Equal(userErr.Error()))
-		Expect(rackErr).To(BeAssignableToTypeOf(apiarc.CompileError{}))
+		Expect(userErr).To(MatchError(ContainSubstring("bk3_no_such_function")))
+		Expect(userErr).To(BeAssignableToTypeOf(apiarc.CompileError{}))
+		Expect(describe(rackErr)).To(Equal(describe(userErr)))
 	})
 
 	It("Should fail a rack's fetch of a graph whose node input is no key with the "+
@@ -137,10 +135,9 @@ var _ = Describe("Rack fetch breaker 3", Ordered, ContinueOnFailure, func() {
 		a := create(ctx, graphBase("bk3_bad_input", "on", true, float64(out.Key())))
 		deploy(ctx, a)
 		_, _, userErr, rackErr := fetch(ctx, a.Base().Key)
-		Expect(userErr).To(HaveOccurred())
-		Expect(rackErr).To(HaveOccurred())
-		Expect(rackErr.Error()).To(Equal(userErr.Error()))
-		Expect(rackErr).To(BeAssignableToTypeOf(apiarc.CompileError{}))
+		Expect(userErr).To(MatchError(ContainSubstring("must be a channel key")))
+		Expect(userErr).To(BeAssignableToTypeOf(apiarc.CompileError{}))
+		Expect(describe(rackErr)).To(Equal(describe(userErr)))
 	})
 
 	It("Should give a rack the program and calculations that a user's fetch of a "+
@@ -223,8 +220,8 @@ var _ = Describe("Rack fetch breaker 3", Ordered, ContinueOnFailure, func() {
 				return channelSvc.NewWriter(tx).Rename(ctx, in.Key(), "bk3_in", false)
 			})).To(Succeed())
 		})
-		_, err := retrieve(SubjectCtx(ctx, testRack.ResourceID()), request(key))
-		Expect(err).To(HaveOccurred())
+		Expect(retrieve(SubjectCtx(ctx, testRack.ResourceID()), request(key))).Error().
+			To(MatchError(ContainSubstring("undefined symbol: bk3_in")))
 		Expect(deployed()).To(Equal(running))
 	})
 })

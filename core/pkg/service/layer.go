@@ -1185,8 +1185,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Status:          l.Status,
-		GetProgram:      l.Arc.CompileProgram,
-		Ranger:          l.Ranger,
+		GetProgram: func(ctx context.Context, key arc.Key) (arc.AutomationArc, error) {
+			return l.Arc.DeployProgram(ctx, key, l.Rack.EmbeddedKey)
+		},
+		Ranger: l.Ranger,
 	})
 	if !ok(err, nil) {
 		return nil, err

@@ -82,7 +82,7 @@ var _ = Describe("Compile keys check 2", Ordered, func() {
 		want := [2][]channel.Key{{in.Key()}, {out.Key()}}
 		Eventually(lists(ctx, key)).Should(Equal(want))
 		updateTask(ctx, key)
-		MustSucceed(svc.CompileProgram(ctx, key))
+		MustSucceed(svc.DeployProgram(ctx, key, testRack.Key))
 		var writes atomic.Int32
 		stop := db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
 			for _, ch := range c.Changes {
@@ -94,7 +94,7 @@ var _ = Describe("Compile keys check 2", Ordered, func() {
 		DeferCleanup(stop)
 		time.Sleep(200 * time.Millisecond)
 		writes.Store(0)
-		MustSucceed(svc.CompileProgram(ctx, key))
+		MustSucceed(svc.DeployProgram(ctx, key, testRack.Key))
 		Consistently(writes.Load, 100*time.Millisecond).Should(BeZero())
 	})
 

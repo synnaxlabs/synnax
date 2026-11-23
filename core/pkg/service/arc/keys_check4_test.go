@@ -69,7 +69,7 @@ var _ = Describe("Compile keys check 4", func() {
 			)
 			return err
 		})).To(Succeed())
-		MustSucceed(svc.CompileProgram(ctx, key))
+		MustSucceed(svc.DeployProgram(ctx, key, testRack.Key))
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			var stored task.Task
 			if err := taskSvc.NewRetrieve().

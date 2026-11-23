@@ -352,20 +352,20 @@ func (s *Service) NewDirectoryRetrieve() directory.Retrieve {
 	return s.directories.NewRetrieve()
 }
 
-// CompileProgram compiles the program of the automation with key for the embedded
-// Driver, which takes it to run the automation's task. It stores the program's
-// channels as the automation's lists and as the deployed lists of its task, compiling
-// again when a write changed what the compile read. A module is a validation error,
-// and a source that does not compile returns its diagnostics.
+// CompileProgram compiles the program of the automation with key, compiling again when
+// a write changed what the compile read. It records nothing. A module is a validation
+// error, and a source that does not compile returns its diagnostics.
 func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, error) {
 	return resolver.RetryChanged(ctx, func() (AutomationArc, error) {
 		return s.takeProgram(ctx, key, nil)
 	})
 }
 
-// CompileRackProgram is CompileProgram for the Driver of driver, a rack. The deployed
-// lists change only when driver holds the automation's task.
-func (s *Service) CompileRackProgram(
+// DeployProgram is CompileProgram for the Driver of driver, a rack, which takes the
+// program to run the automation's task. When driver holds the task, it stores the
+// program's channels as the automation's lists and as the task's deployed lists, in a
+// write that checks the compile's reads.
+func (s *Service) DeployProgram(
 	ctx context.Context,
 	key Key,
 	driver rack.Key,
@@ -375,10 +375,9 @@ func (s *Service) CompileRackProgram(
 	})
 }
 
-// takeProgram compiles the automation with key and, in one transaction that checks
-// the compile's reads, records its program's channels. driver is the rack of the
-// Driver that takes the program, or nil for the embedded Driver; a driver that does not
-// hold the task records nothing.
+// takeProgram compiles the automation with key. When driver, the rack of the Driver
+// that takes the program, is not nil, it records the program's channels in one
+// transaction that checks the compile's reads.
 func (s *Service) takeProgram(
 	ctx context.Context,
 	key Key,
@@ -401,6 +400,9 @@ func (s *Service) takeProgram(
 		return AutomationArc{}, b.err
 	}
 	automation.Program = &b.program
+	if driver == nil {
+		return automation, nil
+	}
 	if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		same, err := b.lookups.Unchanged(ctx, tx)
 		if err != nil {
@@ -409,23 +411,23 @@ func (s *Service) takeProgram(
 		if !same {
 			return resolver.ErrLookupsChanged
 		}
-		return s.recordDeploy(ctx, tx, b, driver)
+		return s.recordDeploy(ctx, tx, b, *driver)
 	}); err != nil {
 		return AutomationArc{}, err
 	}
 	return automation, nil
 }
 
-// recordDeploy stores the channels of b, a build that a Driver takes to run, as the
-// lists of its automation and the deployed lists of the automation's task. The
-// deployed lists hold a graph's node channels too, since the drift record holds no
+// recordDeploy stores the channels of b, a build that the Driver of driver takes to
+// run, as the lists of its automation and the deployed lists of the automation's task.
+// The deployed lists hold a graph's node channels too, since the drift record holds no
 // node configs. A driver that does not hold the task records nothing, and equal lists
 // write nothing.
 func (s *Service) recordDeploy(
 	ctx context.Context,
 	tx gorp.Tx,
 	b Build,
-	driver *rack.Key,
+	driver rack.Key,
 ) error {
 	key := b.entry.Base().Key
 	var tasks []task.Task
@@ -435,7 +437,7 @@ func (s *Service) recordDeploy(
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	if driver != nil && (len(tasks) == 0 || tasks[0].Rack != *driver) {
+	if len(tasks) == 0 || tasks[0].Rack != driver {
 		return nil
 	}
 	var a Arc
@@ -447,9 +449,6 @@ func (s *Service) recordDeploy(
 	}
 	if err := s.NewWriter(tx).syncKeys(ctx, a.Base(), b); err != nil {
 		return err
-	}
-	if len(tasks) == 0 {
-		return nil
 	}
 	rec, err := s.NewWriter(tx).record(ctx, tasks[0].Key)
 	if err != nil {

@@ -127,7 +127,7 @@ var _ = Describe("Compile keys", Ordered, func() {
 			tsk, err = w.UpdateTask(ctx, key, arc.TaskUpdate{Rack: new(testRack.Key)})
 			return err
 		})).To(Succeed())
-		MustSucceed(svc.CompileProgram(ctx, key))
+		MustSucceed(svc.DeployProgram(ctx, key, testRack.Key))
 		return tsk.Key
 	}
 	// run reports the task with key as running the config it holds, as the Driver does.
@@ -422,7 +422,7 @@ var _ = Describe("Compile keys", Ordered, func() {
 			return w.Create(ctx, &again)
 		})).To(Succeed())
 		// A Core start configures the task again, which takes the program again.
-		MustSucceed(svc.CompileProgram(ctx, key))
+		MustSucceed(svc.DeployProgram(ctx, key, testRack.Key))
 		Expect(deployed(ctx, key)()).To(Equal([2][]channel.Key{keys(again), keys(out)}))
 	})
 

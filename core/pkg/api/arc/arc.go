@@ -15,8 +15,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	arclang "github.com/synnaxlabs/arc"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
-	"github.com/synnaxlabs/arc/symbol"
-	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -497,42 +495,33 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	return nil
 }
 
-// program compiles the program of automation. A rack's fetch is its Driver taking the
-// program to run, which records the program's channels for the rack's task.
+// program compiles the program of automation by the one rule that every caller takes. A
+// rack's fetch is its Driver taking the program to run, which records the program's
+// channels for the task that the rack holds. Diagnostics return as a CompileError.
 func (s *Service) program(
 	ctx context.Context,
 	automation arc.AutomationArc,
 ) (arclang.Program, error) {
-	subject := auth.GetSubject(ctx)
-	if subject.Type != resource.TypeRack {
-		return resolver.RetryChanged(ctx, func() (arclang.Program, error) {
-			return resolver.CompileConsistent(ctx, s.db, func(
-				snap gorp.Snapshot,
-				lookups *resolver.Lookups,
-			) (arclang.Program, error) {
-				root := s.internal.NewRoot(snap, lookups)
-				switch src := automation.Source.Variant.(type) {
-				case arc.TextSource:
-					return s.compileText(ctx, src.Text, root)
-				case arc.GraphSource:
-					return arclang.CompileGraph(ctx, src.Graph, root)
-				}
-				return arclang.Program{}, nil
-			})
-		})
+	var (
+		compiled arc.AutomationArc
+		err      error
+	)
+	if subject := auth.GetSubject(ctx); subject.Type == resource.TypeRack {
+		var driver rack.Key
+		if driver, err = rack.KeyFromResourceID(subject); err != nil {
+			return arclang.Program{}, err
+		}
+		compiled, err = s.internal.DeployProgram(ctx, automation.Key, driver)
+	} else {
+		compiled, err = s.internal.CompileProgram(ctx, automation.Key)
 	}
-	driver, err := rack.KeyFromResourceID(subject)
-	if err != nil {
-		return arclang.Program{}, err
-	}
-	taken, err := s.internal.CompileRackProgram(ctx, automation.Key, driver)
 	if diag, ok := errors.AsType[*diagnostics.Diagnostics](err); ok {
 		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
 	}
 	if err != nil {
 		return arclang.Program{}, err
 	}
-	return *taken.Program, nil
+	return *compiled.Program, nil
 }
 
 // compileCalculations compiles the calculated channels that prog reads and the ones
@@ -594,22 +583,4 @@ func (s *Service) compileCalculations(
 		calculations[i] = arc.Calculation{Channel: m.Channel.Key(), Program: m.Program}
 	}
 	return calculations, nil
-}
-
-// compileText compiles t against root, reporting parse and analysis failures as a
-// CompileError.
-func (s *Service) compileText(
-	ctx context.Context,
-	t arctext.Text,
-	root *symbol.Symbol,
-) (arclang.Program, error) {
-	parsed, diag := arctext.Parse(t)
-	if diag != nil && !diag.Ok() {
-		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
-	}
-	ir, diag := arctext.Analyze(ctx, parsed, root)
-	if diag != nil && !diag.Ok() {
-		return arclang.Program{}, CompileError{Diagnostics: diag.Error()}
-	}
-	return arctext.Compile(ctx, ir)
 }

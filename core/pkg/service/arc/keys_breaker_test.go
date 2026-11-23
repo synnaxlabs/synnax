@@ -111,7 +111,7 @@ var _ = Describe("Compile keys breaker", Ordered, ContinueOnFailure, func() {
 			tsk, err = w.UpdateTask(ctx, key, arc.TaskUpdate{Rack: new(testRack.Key)})
 			return err
 		})).To(Succeed())
-		MustSucceed(svc.CompileProgram(ctx, key))
+		MustSucceed(svc.DeployProgram(ctx, key, testRack.Key))
 		return tsk.Key
 	}
 	// running returns the status of a Driver that runs the config the task with key
@@ -241,8 +241,8 @@ var _ = Describe("Compile keys breaker", Ordered, ContinueOnFailure, func() {
 		Eventually(lists(ctx, key)).Should(Equal(want(in, out)))
 	})
 
-	It("Should read the current lists as deployed in a snapshot where the Driver "+
-		"runs the current config", func(ctx SpecContext) {
+	It("Should read the deployed lists of a task in a snapshot where its Driver runs "+
+		"the current config", func(ctx SpecContext) {
 		key := createArc(ctx, textBase("kb_read", "kb_in * 2.0 -> kb_out")).Base().Key
 		Eventually(lists(ctx, key)).Should(Equal(want(in, out)))
 		tk := deploy(ctx, key)

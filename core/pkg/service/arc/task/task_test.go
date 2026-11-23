@@ -585,16 +585,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 			}
 
-			It("Should get the program again until the lookups hold", func(
-				ctx SpecContext,
-			) {
-				var calls int
-				Expect(newTask(ctx, newFactoryWith(changingGetter(2, &calls)))).
-					ToNot(BeNil())
-				Expect(calls).To(Equal(3))
-			})
-
-			It("Should fail the configure when the lookups keep changing", func(
+			It("Should fail the configure when the fetch's lookups changed", func(
 				ctx SpecContext,
 			) {
 				var calls int
@@ -608,7 +599,8 @@ var _ = Describe("Task", Ordered, func() {
 				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 					To(MatchError(resolver.ErrLookupsChanged))
-				Expect(calls).To(Equal(3))
+				// The program fetch compiles again itself, so the configure asks once.
+				Expect(calls).To(Equal(1))
 			})
 		})
 

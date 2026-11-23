@@ -741,7 +741,8 @@ var _ = Describe("Build", func() {
 		Expect(dispatch(ctx, a.Base().Key, "", insert("func f() { return x }"))).
 			To(Succeed())
 		b := MustSucceed(s.Build(ctx, a.Base().Key))
-		// Every Arc resyncs after an edit, so the count holds still before the deploy.
+		// The resyncs that the create and the edit schedule compile too, so the count
+		// holds still before the deploy.
 		var settled int32
 		Eventually(func(g Gomega) {
 			settled = compiles.Load()

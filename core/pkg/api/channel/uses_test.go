@@ -154,7 +154,11 @@ var _ = Describe("Uses", func() {
 				return err
 			})).To(Succeed())
 			// The Driver takes the program at its configure.
-			MustSucceed(layer.Arc.CompileProgram(ctx, a.Base().Key))
+			MustSucceed(layer.Arc.DeployProgram(
+				ctx,
+				a.Base().Key,
+				layer.Rack.EmbeddedKey,
+			))
 			Expect(retrieve(ctx, true).Uses).To(ContainElements(
 				apichannel.Use{ID: a.ResourceID(), Direction: channel.DirectionRead},
 				apichannel.Use{
