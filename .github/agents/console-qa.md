@@ -88,8 +88,8 @@ one. Then write `/tmp/console-qa/report.md` in ASD-STE100 Simplified Technical E
 Then publish it. This is the one GitHub write you may do:
 
 ```sh
-uv run --project .github/scripts python .github/scripts/publish_qa_report.py \
-  /tmp/console-qa
+PYTHONPATH=scripts uv run --project .github/scripts \
+  python .github/scripts/publish_qa_report.py /tmp/console-qa
 ```
 
 Add `--dry-run` when this prompt says dry run. Your last message is the issue URL (or
