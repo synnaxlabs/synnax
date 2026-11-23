@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
+	symboltestutil "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -413,7 +414,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 
 				symbols := resolver.New(channelSvc, db)
 				compiled := MustSucceed(
-					arc.CompileText(ctx, prog, arc.NewRoot(symbols)),
+					arc.CompileText(ctx, prog, symboltestutil.NewRoot(symbols)),
 				)
 
 				deps := MustSucceed(
@@ -462,7 +463,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 
 				symbols := resolver.New(channelSvc, db)
 				compiled := MustSucceed(
-					arc.CompileText(ctx, prog, arc.NewRoot(symbols)),
+					arc.CompileText(ctx, prog, symboltestutil.NewRoot(symbols)),
 				)
 
 				deps := MustSucceed(

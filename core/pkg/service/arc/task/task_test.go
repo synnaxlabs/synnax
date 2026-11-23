@@ -27,6 +27,8 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/symbol"
+	symboltestutil "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -215,7 +217,9 @@ var _ = Describe("Task", Ordered, func() {
 		return newFactoryWith(
 			func(ctx context.Context, key uuid.UUID) (svcarc.AutomationArc, error) {
 				symbols := resolver.New(channelSvc, db)
-				root := arc.NewRoot(symbols, arcstatus.NewSymbols()...)
+				root := symboltestutil.NewRoot(
+					symbols,
+					values(arcstatus.NewSymbols())...)
 				module, err := arc.CompileGraph(ctx, g, root)
 				if err != nil {
 					return svcarc.AutomationArc{}, err
@@ -240,9 +244,9 @@ var _ = Describe("Task", Ordered, func() {
 		return newFactoryWith(
 			func(_ context.Context, _ uuid.UUID) (svcarc.AutomationArc, error) {
 				symbols := resolver.New(channelSvc, db)
-				root := arc.NewRoot(symbols, slices.Concat(
+				root := symboltestutil.NewRoot(symbols, values(slices.Concat(
 					arcstatus.NewSymbols(), ranges.NewSymbols(),
-				)...)
+				))...)
 				module, err := arc.CompileText(ctx, prof, root)
 				if err != nil {
 					return svcarc.AutomationArc{}, err
@@ -4601,3 +4605,12 @@ START => main
 		)
 	})
 })
+
+// values copies symbols for symboltestutil.NewRoot, which takes its extras by value.
+func values(symbols []*symbol.Symbol) []symbol.Symbol {
+	out := make([]symbol.Symbol, len(symbols))
+	for i, s := range symbols {
+		out[i] = *s
+	}
+	return out
+}
