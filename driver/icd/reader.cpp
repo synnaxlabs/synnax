@@ -229,7 +229,8 @@ std::pair<std::vector<codec::Binding>, x::errors::Error> Reader::bind(
 std::pair<Reader, x::errors::Error> Reader::create(
     const std::vector<synnax::icd::ReadMessage> &reads,
     const synnax::icd::ICD &ic,
-    const std::map<synnax::channel::Key, synnax::channel::Channel> &channels
+    const std::map<synnax::channel::Key, synnax::channel::Channel> &channels,
+    const codec::JSON::Options &json
 ) {
     Reader r;
     Decoded decoded;
@@ -326,7 +327,7 @@ std::pair<Reader, x::errors::Error> Reader::create(
         r.decoder = std::move(d);
         err = d_err;
     } else {
-        auto [d, d_err] = codec::JSON::create(decoded.json);
+        auto [d, d_err] = codec::JSON::create(decoded.json, json);
         r.decoder = std::move(d);
         err = d_err;
     }
@@ -365,6 +366,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         },
         this->decoder
     );
+    this->last = i;
     if (err || !i.has_value()) return {std::nullopt, err};
     const auto msg = *i;
     const auto &m = this->messages[msg];
@@ -394,5 +396,11 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         series(fr, m.channels[k], samples[k].data_type(), cap).write(samples[k]);
     }
     return {msg, x::errors::NIL};
+}
+
+std::span<const codec::JSON::Fill> Reader::filled() const {
+    const auto *json = std::get_if<codec::JSON>(&this->decoder);
+    if (json == nullptr || !this->last.has_value()) return {};
+    return json->filled(*this->last);
 }
 }

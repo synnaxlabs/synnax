@@ -179,7 +179,7 @@ void check_fixture(const std::filesystem::path &path) {
     const auto doc = buf.str();
     ASSERT_FALSE(string_at(doc, "/description").empty());
     const auto messages = parse_messages(doc);
-    auto [dec, err] = JSON::create(messages);
+    auto [dec, err] = JSON::create(messages, {});
     if (const auto expected = string_at(doc, "/error"); !expected.empty()) {
         ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
         ASSERT_EQ(err.data, error_data(expected));
