@@ -27,6 +27,7 @@ const CORE = createCore("alpha", { name: "Alpha", port: 9098 });
 
 const PROVIDERS: auth.OIDCLogin[] = Array.from({ length: 10 }, (_, i) => ({
   provider: `idp-${i}`,
+  issuer: `https://idp-${i}.example.com`,
   authorizationEndpoint: `https://idp-${i}.example.com/authorize`,
   clientId: "synnax",
 }));

@@ -18,7 +18,15 @@ import {
 } from "@synnaxlabs/x";
 
 import { text } from "@/text/aether";
-import { applyOverScan } from "@/vis/render/util";
+
+/** @returns the box grown by overScan on each side. */
+export const applyOverScan = (b: box.Box, overScan: xy.XY): box.Box =>
+  box.construct(
+    box.left(b) - overScan.x,
+    box.top(b) - overScan.y,
+    box.width(b) + overScan.x * 2,
+    box.height(b) + overScan.y * 2,
+  );
 
 /**
  * A fade from the text's fill color to transparent, in the units of its position. Color

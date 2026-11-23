@@ -19,7 +19,7 @@ import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Box } from "@/schematic/node/general/box/Primitive";
 import type { NodeProps } from "@/schematic/node/spec";
-import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
+import { Tank } from "@/schematic/node/vessels/tank";
 
 export const Symbol = ({
   nodeKey,
@@ -44,7 +44,7 @@ export const Symbol = ({
       onResize={(dimensions) => onConfigChange({ dimensions })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      <TankPrimitive
+      <Tank.Primitive
         className={CSS.B("box")}
         strokeColor={resolve(strokeColor)}
         dimensions={dimensions}
