@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -261,7 +262,7 @@ median3(pt_1, pt_2, pt_3) -> tank_pt`)
 			parsed := MustSucceed(text.Parse(text.Text{Raw: got}))
 			ir, diags := text.Analyze(ctx, parsed, root)
 			Expect(diags.Ok()).To(BeTrue(), diags.String())
-			MustSucceed(text.Compile(ctx, ir))
+			MustSucceed(compiler.Compile(ctx, ir))
 		})
 
 	DescribeTable("Should keep a wrapped call apart from the stage item before it",
@@ -377,7 +378,7 @@ func analyzeAndCompile(ctx SpecContext, src string) ir.IR {
 	parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 	program, diags := text.Analyze(ctx, parsed, root)
 	Expect(diags.Ok()).To(BeTrue(), diags.String())
-	MustSucceed(text.Compile(ctx, program))
+	MustSucceed(compiler.Compile(ctx, program))
 	return program
 }
 

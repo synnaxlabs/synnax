@@ -34,7 +34,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
-	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/set"
@@ -224,16 +223,13 @@ func newTextHarness(
 	channelDigests ...channels.Digest,
 ) *testHarness {
 	GinkgoHelper()
-	parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 	root := symbol.NewRoot(nil, stl.NewSymbols())
 	for i := range chans {
 		s := chans[i]
 		root.Parent.AddChild(&s)
 	}
-	analyzed, diagnostics := text.Analyze(ctx, parsedText, root)
-	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-	prog := MustSucceed(text.Compile(ctx, analyzed))
-	s := node.New(analyzed)
+	prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
+	s := node.New(prog.IR)
 
 	stringsState := stlstrings.NewProgramState()
 	seriesState := series.NewProgramState()
@@ -264,7 +260,7 @@ func newTextHarness(
 	}
 	return &testHarness{
 		prog:         prog,
-		analyzed:     analyzed,
+		analyzed:     prog.IR,
 		state:        s,
 		wasmRT:       wasmRT,
 		guest:        guest,

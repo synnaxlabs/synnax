@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/codes"
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -86,7 +87,7 @@ stand.trig -> f()
 		Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
 		Expect(reads(inter, 10)).To(BeTrue())
 		Expect(writes(inter, 20)).To(BeTrue())
-		MustSucceed(text.Compile(ctx, inter))
+		MustSucceed(compiler.Compile(ctx, inter))
 	})
 
 	It("Should compile a bare path as its quoted form does", func(ctx SpecContext) {
@@ -94,7 +95,7 @@ stand.trig -> f()
 			GinkgoHelper()
 			inter, diagnostics := analyze(ctx, source)
 			Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
-			return MustSucceed(text.Compile(ctx, inter)).WASM
+			return MustSucceed(compiler.Compile(ctx, inter)).WASM
 		}
 		Expect(compile(
 			"func f() {\n\tstand.valve_cmd = stand.sensors.pt_01 * 2.0\n}\n" +

@@ -3545,7 +3545,7 @@ var _ = Describe("Text", func() {
 					NewRoot(nil, varResolver...),
 				)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				prog := MustSucceed(text.Compile(ctx, inter))
+				prog := MustSucceed(compiler.Compile(ctx, inter))
 				Expect(prog.WASM).ToNot(BeEmpty())
 			},
 		)
@@ -10025,8 +10025,8 @@ time.wait(duration=500ms) -> output`
 			ir, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-			module := MustSucceed(text.Compile(ctx, ir))
-			Expect(module.Output.WASM).ToNot(BeEmpty())
+			module := MustSucceed(compiler.Compile(ctx, ir))
+			Expect(module.WASM).ToNot(BeEmpty())
 		})
 
 		It(
@@ -10056,8 +10056,8 @@ time.wait(duration=500ms) -> output`
 					NewRoot(nil, resolver...),
 				)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				module := MustSucceed(text.Compile(ctx, ir))
-				Expect(module.Output.WASM).ToNot(BeEmpty())
+				module := MustSucceed(compiler.Compile(ctx, ir))
+				Expect(module.WASM).ToNot(BeEmpty())
 			},
 		)
 
@@ -10123,8 +10123,8 @@ time.wait(duration=500ms) -> output`
 					NewRoot(nil, resolver...),
 				)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				module := MustSucceed(text.Compile(ctx, ir))
-				Expect(module.Output.WASM).ToNot(BeEmpty())
+				module := MustSucceed(compiler.Compile(ctx, ir))
+				Expect(module.WASM).ToNot(BeEmpty())
 			},
 		)
 
@@ -10142,8 +10142,8 @@ time.wait(duration=500ms) -> output`
 				ir, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				module := MustSucceed(text.Compile(ctx, ir))
-				Expect(module.Output.WASM).ToNot(BeEmpty())
+				module := MustSucceed(compiler.Compile(ctx, ir))
+				Expect(module.WASM).ToNot(BeEmpty())
 			},
 		)
 
@@ -10207,8 +10207,8 @@ time.wait(duration=500ms) -> output`
 				Expect(ir.Nodes[1].Channels.Read).To(HaveLen(1))
 				Expect(ir.Nodes[1].Channels.Read).To(HaveKey(uint32(10025)))
 
-				module := MustSucceed(text.Compile(ctx, ir))
-				Expect(module.Output.WASM).ToNot(BeEmpty())
+				module := MustSucceed(compiler.Compile(ctx, ir))
+				Expect(module.WASM).ToNot(BeEmpty())
 			},
 		)
 
@@ -10264,8 +10264,8 @@ time.wait(duration=500ms) -> output`
 				Expect(writerNode.Channels.Write).To(HaveLen(1))
 				Expect(writerNode.Channels.Write).To(HaveKey(uint32(10200)))
 
-				module := MustSucceed(text.Compile(ctx, ir))
-				Expect(module.Output.WASM).ToNot(BeEmpty())
+				module := MustSucceed(compiler.Compile(ctx, ir))
+				Expect(module.WASM).ToNot(BeEmpty())
 			},
 		)
 
@@ -10319,8 +10319,8 @@ time.wait(duration=500ms) -> output`
 				Expect(writerNode.Channels.Write).To(HaveLen(1))
 				Expect(writerNode.Channels.Write).To(HaveKey(uint32(10210)))
 
-				module := MustSucceed(text.Compile(ctx, ir))
-				Expect(module.Output.WASM).ToNot(BeEmpty())
+				module := MustSucceed(compiler.Compile(ctx, ir))
+				Expect(module.WASM).ToNot(BeEmpty())
 			},
 		)
 	})
@@ -10397,8 +10397,8 @@ time.wait(duration=500ms) -> output`
 				Expect(exprNode.Outputs[0].Type).To(Equal(types.String()))
 				Expect(inter.Functions).To(HaveLen(1))
 				Expect(inter.Functions[0].Key).To(Equal("expression_0"))
-				module := MustSucceed(text.Compile(ctx, inter))
-				Expect(module.Output.WASM).ToNot(BeEmpty())
+				module := MustSucceed(compiler.Compile(ctx, inter))
+				Expect(module.WASM).ToNot(BeEmpty())
 			},
 		)
 
@@ -10432,8 +10432,8 @@ time.wait(duration=500ms) -> output`
 				exprNode := findNodeByType(inter.Nodes, "expression_0")
 				Expect(exprNode.Inputs).To(BeEmpty())
 				Expect(exprNode.Outputs[0].Type).To(Equal(types.String()))
-				module := MustSucceed(text.Compile(ctx, inter))
-				Expect(module.Output.WASM).ToNot(BeEmpty())
+				module := MustSucceed(compiler.Compile(ctx, inter))
+				Expect(module.WASM).ToNot(BeEmpty())
 			},
 		)
 

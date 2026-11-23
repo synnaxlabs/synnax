@@ -12,6 +12,7 @@ package text_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
@@ -141,7 +142,7 @@ var _ = Describe("Quoted channel names (break)", func() {
 		It("E1 reads the channel beside a flow variable", func(ctx SpecContext) {
 			inter, diagnostics := analyze(ctx, "x := 3.0\n'x' * 2.0 -> 'out'")
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			MustSucceed(text.Compile(ctx, inter))
+			MustSucceed(compiler.Compile(ctx, inter))
 			Expect(onKeys(inter)).To(ConsistOf(uint32(2024)))
 		})
 
