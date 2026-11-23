@@ -10,7 +10,7 @@
 import "@/platform/task/port/Rows.css";
 
 import { Text } from "@synnaxlabs/lyra/text";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

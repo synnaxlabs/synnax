@@ -1,21 +1,16 @@
 ---
-title: "Version 0.62 release notes"
+title: "Ranges built around your test, Sift uploads, and EtherCAT at 10 kHz"
+version: "0.62.0"
+desktopVersion: "1.2.0"
+breakingChanges: true
 ---
 
 import { Hero } from "@/components/hero";
 import { Video } from "@/components/media/Media";
-import { Releases } from "@/components/releases";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
-
-<Releases.Release
-    version="0.62.0"
-    desktopVersion="1.2.0"
-    breakingChanges
-    title="Ranges built around your test, Sift uploads, and EtherCAT at 10 kHz"
->
 
 <Hero.Hero
   still="releases/0-62-0/hero"
@@ -486,5 +481,3 @@ The client APIs for these records are removed:
 - The Core fails to start when `--enable-integrations` and `--disable-integrations` are
   both given, also when they come from different sources, such as a config file and an
   environment variable.
-
-</Releases.Release>

@@ -26,9 +26,12 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func TestAPIICD(t *testing.T) {
@@ -56,11 +59,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
-	apiSvc := MustSucceed(apiicd.NewService(apiicd.ServiceConfig{ICD: svc.ICD}))
+	apiSvc := MustSucceed(apiicd.NewService(apiicd.ServiceConfig{
+		ICD:    svc.ICD,
+		Errors: errors.NewCodec(validate.ErrorProvider()),
+	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: svc.RBAC,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(),
+		DB:      db,
+		RBAC:    svc.RBAC,
+		Held:    apiauth.HeldTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)

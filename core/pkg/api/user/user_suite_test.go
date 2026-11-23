@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -43,6 +44,7 @@ var (
 	userSvc     *user.Service
 	apiSvc      *apiuser.Service
 	rbacSvc     *rbac.Service
+	authSvc     *auth.Service
 	root        user.User
 	// The handlers below run their routes as the API layer binds them.
 	create   freighter.UnaryHandler[apiuser.CreateRequest, apiuser.CreateResponse]
@@ -59,7 +61,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	StartRun(db.Run)
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-	MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 		DB: db,
 		Authenticators: map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: passwordSvc,
@@ -91,12 +93,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:     rbacSvc,
 		User:     userSvc,
 		Password: passwordSvc,
+		Auth:     authSvc,
 	}))
 	root = findRoot(ctx, userSvc)
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: rbacSvc,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(),
+		DB:      db,
+		RBAC:    rbacSvc,
+		Held:    apiauth.HeldTables(),
 	}))
 	create = bind.WritePrepared(binder, apiSvc.PrepareCreate, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)

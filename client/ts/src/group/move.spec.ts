@@ -13,7 +13,7 @@ import { device } from "@/device";
 import { group } from "@/group";
 import { project } from "@/project";
 import { rack } from "@/rack";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 import { schematic } from "@/schematic";
 
 describe("canMove", () => {

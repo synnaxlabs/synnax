@@ -33,6 +33,7 @@ func NewMigrations(root uuid.UUID) []gorp.Migration {
 			v4.Migration,
 			v4.NewRootMigration(root),
 			v4.NameMigration,
+			v4.ApplyNameMigration,
 			v5.Migration,
 		},
 	)

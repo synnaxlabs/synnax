@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/filter"
 )
 
@@ -55,10 +56,24 @@ type Snapshot struct {
 	gorp.Snapshot
 	subject resource.ID
 	allowed func(resource.ID) bool
+	holders *taskconfig.Holders
 }
 
 // Allowed reports whether the subject of the request can retrieve the record with id.
 func (s Snapshot) Allowed(id resource.ID) bool { return s.allowed(id) }
+
+// Visible returns the records of ids that the subject of the request can retrieve. A
+// config record of a task appears as its task.
+func (s Snapshot) Visible(ids []resource.ID) []resource.ID {
+	return lo.FilterMap(ids, func(id resource.ID, _ int) (resource.ID, bool) {
+		if task, ok := s.holders.TaskOf(
+			gorp.Target{Table: string(id.Type), Key: id.Key},
+		); ok {
+			id = task
+		}
+		return id, s.allowed(id)
+	})
+}
 
 // Enforce returns an error that wraps access.ErrDenied and names the first of ids that
 // the subject of the request cannot retrieve.
@@ -103,7 +118,12 @@ func Read[RQ, RS freighter.Payload](
 			if err != nil {
 				return err
 			}
-			rs := Snapshot{Snapshot: snap, subject: subject, allowed: allowed}
+			rs := Snapshot{
+				Snapshot: snap,
+				subject:  subject,
+				allowed:  allowed,
+				holders:  s.cfg.Holders,
+			}
 			if n, ok := any(req).(Named); ok {
 				if err = rs.Enforce(n.Named()...); err != nil {
 					return err

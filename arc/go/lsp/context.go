@@ -96,7 +96,10 @@ func tokensAdjacent(a, b antlr.Token) bool {
 		a.GetColumn()+len(a.GetText()) == b.GetColumn()
 }
 
-func DetectCompletionContext(content string, pos protocol.Position) CompletionContext {
+func DetectCompletionContext(
+	content string,
+	pos protocol.Position,
+) CompletionContext {
 	if isPositionInComment(content, pos) {
 		return ContextComment
 	}
@@ -147,7 +150,10 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 	return ContextUnknown
 }
 
-func isPositionInComment(content string, pos protocol.Position) bool {
+func isPositionInComment(
+	content string,
+	pos protocol.Position,
+) bool {
 	allTokens := tokenizeContent(content)
 	line := int(pos.Line) + 1
 	col := int(pos.Character)
@@ -617,7 +623,10 @@ func isAuthorityEntryContext(tokens []antlr.Token) bool {
 
 // extractAuthorityExistingChannels returns channel names already listed in the
 // authority block before the cursor position.
-func extractAuthorityExistingChannels(content string, pos protocol.Position) []string {
+func extractAuthorityExistingChannels(
+	content string,
+	pos protocol.Position,
+) []string {
 	tokens := tokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 	// Find the opening paren of the authority block.
@@ -733,7 +742,10 @@ func isArrow(t antlr.Token) bool {
 	return tt == parser.ArcLexerARROW || tt == parser.ArcLexerTRANSITION
 }
 
-func extractInputContext(content string, pos protocol.Position) *inputContextInfo {
+func extractInputContext(
+	content string,
+	pos protocol.Position,
+) *inputContextInfo {
 	tokens := tokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 	result := findInputParen(tokensBeforeCursor)

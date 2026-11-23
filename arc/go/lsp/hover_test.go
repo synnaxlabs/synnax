@@ -803,6 +803,7 @@ func add() {a i32, b i32} i32 {
 		Entry("*=", "x *= 5", uint32(2), "*=", ""),
 		Entry("/=", "x /= 5", uint32(2), "/=", ""),
 		Entry("%=", "x %= 5", uint32(2), "%=", ""),
+		Entry("!= after a non-ASCII character", `"°" != y`, uint32(4), "!=", ""),
 	)
 
 	Describe("Edge Cases", func() {
@@ -868,6 +869,40 @@ func add() {a i32, b i32} i32 {
 		)
 	})
 
+	DescribeTable(
+		"should not resolve a unit suffix as a symbol",
+		func(ctx SpecContext, expr string, char uint32) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				NewRoot: func() *symbol.Symbol {
+					return NewRoot(
+						nil,
+						symbol.Symbol{
+							Name: "pt",
+							Type: types.I32(),
+							Kind: symbol.KindVariable,
+						},
+						symbol.Symbol{
+							Name: "ms",
+							Type: types.I32(),
+							Kind: symbol.KindVariable,
+						},
+					)
+				},
+			}))
+			server.SetClient(&MockClient{})
+			OpenArcDocument(
+				server,
+				ctx,
+				uri,
+				"func test() i32 {\n    return "+expr+"\n}",
+			)
+			Expect(Hover(server, ctx, uri, 1, char)).To(BeNil())
+		},
+		Entry("a time unit", "3min", uint32(13)),
+		Entry("a short time unit", "10ms", uint32(14)),
+		Entry("an unknown unit", "12pt", uint32(14)),
+	)
+
 	Describe("Qualified Module Identifiers", func() {
 		It("Should provide hover for qualified module function", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
@@ -927,6 +962,15 @@ func add() {a i32, b i32} i32 {
 				Expect(hover).ToNot(BeNil())
 				Expect(HoverContents(hover)).To(ContainSubstring("returns one"))
 				Expect(HoverContents(hover)).ToNot(ContainSubstring("unrelated note"))
+			},
+		)
+
+		It(
+			"Should not provide hover for a member of a non-module head",
+			func(ctx SpecContext) {
+				content := "func b() {}\n\nfunc test() {\n    a := 1\n    a.b()\n}"
+				OpenArcDocument(server, ctx, uri, content)
+				Expect(Hover(server, ctx, uri, 4, 6)).To(BeNil())
 			},
 		)
 

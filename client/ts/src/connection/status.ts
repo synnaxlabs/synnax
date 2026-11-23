@@ -285,17 +285,32 @@ const isCompatible = (nodeVersion: string, clientVersion: string): boolean =>
   isDev(clientVersion) ||
   semver.equal(clientVersion, nodeVersion, { patchIgnored: true });
 
-const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
+// Exceeded skew clears only below this fraction of the threshold, so skew that hovers
+// at the threshold does not flip the flag on every check.
+const CLOCK_SKEW_CLEAR_FRACTION = 0.5;
+
+const isSkewExceeded = (prev: Status, info: Info, config: Config): boolean => {
+  const skew = info.clockSkew.abs();
+  const { clockSkewThreshold } = config;
+  const { clockSkewExceeded, clusterKey } = prev.details;
+  if (clockSkewExceeded && clusterKey === info.clusterKey)
+    return !skew.lessThan(clockSkewThreshold.mult(CLOCK_SKEW_CLEAR_FRACTION));
+  // A slow round trip is not skew, so only skew beyond its error bound counts.
+  return skew.greaterThan(clockSkewThreshold.add(info.roundTrip.div(2)));
+};
+
+const checkFacts = (
+  prev: Status,
+  info: Info,
+  config: Config,
+): Partial<StatusDetails> => ({
   clusterKey: info.clusterKey,
   nodeVersion: info.nodeVersion,
   nodeKey: info.nodeKey,
   // the check traverses the auth middleware, so a response is proof of auth
   authenticated: true,
   clockSkew: info.clockSkew,
-  // A slow round trip is not skew, so only skew beyond its error bound counts.
-  clockSkewExceeded: info.clockSkew
-    .abs()
-    .greaterThan(config.clockSkewThreshold.add(info.roundTrip.div(2))),
+  clockSkewExceeded: isSkewExceeded(prev, info, config),
   clientServerCompatible: isCompatible(info.nodeVersion, config.clientVersion),
   license: info.license,
 });
@@ -324,7 +339,7 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   const { clusterKey } = prev.details;
   if (clusterKey !== "" && info.clusterKey !== clusterKey)
     return reduceClusterReplaced(prev, info, config);
-  const facts = checkFacts(info, config);
+  const facts = checkFacts(prev, info, config);
   if (info.license !== "ok")
     return enterError(prev, license.STATE_MESSAGES[info.license], {
       ...facts,
@@ -359,7 +374,7 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
 // first contact: loading at epoch 0 with a dark stream.
 const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status =>
   enter(prev, "loading", CONNECTING, {
-    ...checkFacts(info, config),
+    ...checkFacts(prev, info, config),
     streamLive: false,
     streamDenied: false,
     epoch: 0,
@@ -395,7 +410,7 @@ const reduceCheckFailure = (
       prev,
       INCOMPATIBLE,
       {
-        ...checkFacts(info, config),
+        ...checkFacts(prev, info, config),
         reason: "incompatible",
         error,
         authenticated: false,

@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -51,6 +52,7 @@ var (
 	]
 	del      freighter.UnaryHandler[apicertificate.DeleteRequest, struct{}]
 	dispatch freighter.UnaryHandler[apicertificate.DispatchRequest, struct{}]
+	refresh  freighter.UnaryHandler[apicertificate.RefreshRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -62,14 +64,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Certificate: svc.Certificate,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   node.DB,
-		RBAC: svc.RBAC,
-		Held: apiauth.HeldTables(),
+		Holders: taskconfig.NewHolders(),
+		DB:      node.DB,
+		RBAC:    svc.RBAC,
+		Held:    apiauth.HeldTables(),
 	}))
 	set = bind.Write(binder, apiSvc.Set)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	refresh = bind.WriteUnchecked(node.DB, apiSvc.Refresh)
 })
 
 // createUser creates a user whose role allows nothing.

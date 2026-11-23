@@ -11,6 +11,7 @@ import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   control,
   type CrudeSeries,
+  disposable,
   errors,
   TimeSpan,
   TimeStamp,
@@ -157,26 +158,31 @@ export interface CommitResult {
 const authorityParamsZ = z
   .tuple([
     z.union([
-      z.record(channel.keyZ.or(channel.nameZ), control.authorityZ),
-      channel.keyZ.or(channel.nameZ),
+      z.record(channel.nameZ, control.authorityZ),
+      z.uint32().or(channel.nameZ),
       control.authorityZ,
     ]),
     control.authorityZ.optional(),
   ])
   .transform(([value, authority]) => {
     if (z.validate(control.authorityZ, value))
-      return { keys: [], authorities: [value] };
-    if (z.validate(channel.keyZ.or(channel.nameZ), value)) {
+      return { keys: [], recordKeys: [], authorities: [value] };
+    if (typeof value !== "object") {
       if (authority == null)
         throw new Error(
           "authority is required when setting authority for a single channel",
         );
       return {
         keys: [value] as channel.Key[] | channel.Name[],
+        recordKeys: [],
         authorities: [authority],
       };
     }
-    return { keys: Object.keys(value), authorities: Object.values(value) };
+    return {
+      keys: [],
+      recordKeys: Object.keys(value),
+      authorities: Object.values(value),
+    };
   });
 
 /**
@@ -197,9 +203,15 @@ interface Response extends z.infer<typeof resZ> {}
  * failure surfaces on a later call: once the writer accumulates an error, every write
  * and commit returns false until `error` reads and clears it. `commit` blocks until the
  * cluster has the frames written since the last commit, and may be called repeatedly.
- * Close in a `finally` block to release resources; close throws any accumulated error.
+ * Declare it with `await using`, or close it in a `finally` block, to release
+ * resources; close throws any accumulated error.
  */
 export class Writer {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   private readonly stream: Stream<typeof reqZ, typeof resZ>;
   private readonly adapter: WriteAdapter;
   private closeErr: Error | null = null;
@@ -281,10 +293,11 @@ export class Writer {
     const parsed = zod.parse(authorityParamsZ, [value, authority], {
       label: "authority params",
     });
-    const config = {
-      keys: await this.adapter.adaptParams(parsed.keys),
-      authorities: parsed.authorities,
-    };
+    const keys =
+      parsed.recordKeys.length > 0
+        ? await this.adapter.adaptRecordKeys(parsed.recordKeys)
+        : await this.adapter.adaptParams(parsed.keys);
+    const config = { keys, authorities: parsed.authorities };
     await this.execute({ command: WriterCommand.SetAuthority, config });
   }
 
@@ -319,10 +332,11 @@ export class Writer {
 
   /**
    * Closes the writer, raising any accumulated error encountered during operation.
-   * A writer MUST be closed after use, and this method should probably be placed
-   * in a 'finally' block.
+   * A writer MUST be closed after use: declare it with `await using`, or close it in a
+   * `finally` block. Closing a closed writer raises the same error again, or nothing.
    */
   async close(): Promise<void> {
+    if (WriterClosedError.matches(this.closeErr)) return;
     await this.closeInternal(null);
   }
 
@@ -349,10 +363,11 @@ export class Writer {
     try {
       await this.stream.send(req);
     } catch (err) {
-      // A send failure is always EOF or StreamClosed, never WriterClosedError, so
-      // closeInternal re-throws here and the receive loop below is reached only when
-      // the send succeeds.
-      await this.closeInternal(errors.fromUnknown(err));
+      const e = errors.fromUnknown(err);
+      // An EOF means the Core closed the stream, and receive reports why.
+      if (!EOF.matches(e)) await this.closeInternal(e);
+      await this.closeInternal(null);
+      throw new WriterClosedError();
     }
     while (true) {
       let res: Response;

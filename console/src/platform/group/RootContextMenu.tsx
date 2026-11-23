@@ -11,12 +11,12 @@ import { group } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { isScope } from "@/platform/group/member";
 import { useCreateEmpty } from "@/platform/group/useCreateEmpty";
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 
 /** The menu for a right-click on the empty space of a tree. */
 export const RootContextMenu = ({

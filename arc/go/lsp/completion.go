@@ -421,14 +421,12 @@ func (s *Server) Completion(
 		return &protocol.CompletionList{}, nil
 	}
 
-	prefix := ""
-	if int(params.Position.Character) <= len(line) {
-		start := int(params.Position.Character)
-		for start > 0 && (lsp.IsWordChar(line[start-1]) || line[start-1] == '.') {
-			start--
-		}
-		prefix = line[start:params.Position.Character]
+	col := lsp.CharacterToByte(line, params.Position.Character)
+	start := col
+	for start > 0 && (lsp.IsWordChar(line[start-1]) || line[start-1] == '.') {
+		start--
 	}
+	prefix := line[start:col]
 
 	items := s.getCompletionItems(ctx, doc, prefix, params.Position)
 
@@ -480,7 +478,10 @@ func (s *Server) getCompletionItems(
 	if completionCtx == ContextTypeAnnotation {
 		return items
 	}
-	return append(items, symbolCompletions(ctx, doc, root, prefix, pos, nesting)...)
+	return append(
+		items,
+		symbolCompletions(ctx, doc, root, prefix, pos, nesting)...,
+	)
 }
 
 func symbolCompletions(
@@ -522,7 +523,10 @@ func symbolCompletions(
 	)
 }
 
-func detectCursorNesting(doc *document, pos protocol.Position) nestingKind {
+func detectCursorNesting(
+	doc *document,
+	pos protocol.Position,
+) nestingKind {
 	tokens := tokenizeContent(doc.displayContent())
 	nesting := detectNesting(getTokensBeforeCursor(tokens, pos))
 	if doc.isBlock() && nesting == nestingTopLevel {
@@ -937,7 +941,10 @@ func applyInvocationSuffix(item *protocol.CompletionItem, kind symbol.Kind) {
 // moduleName into doc. See buildAutoImportEditFromSnapshot for the edit
 // semantics; this wrapper exists for callers that still hold a *document
 // rather than snapshotted fields.
-func buildAutoImportEdit(doc *document, moduleName string) []protocol.TextEdit {
+func buildAutoImportEdit(
+	doc *document,
+	moduleName string,
+) []protocol.TextEdit {
 	return buildAutoImportEditFromSnapshot(
 		doc.displayContent(),
 		doc.IR.Symbols,
@@ -1043,7 +1050,10 @@ func (s *Server) getAuthorityEntryCompletions(
 	pos protocol.Position,
 	root *symbol.Symbol,
 ) []protocol.CompletionItem {
-	existing := extractAuthorityExistingChannels(doc.displayContent(), pos)
+	existing := extractAuthorityExistingChannels(
+		doc.displayContent(),
+		pos,
+	)
 	existingSet := set.New(existing...)
 	var items []protocol.CompletionItem
 	appendChanCompletions := func(name string, t types.Type) {

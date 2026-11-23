@@ -135,7 +135,7 @@ var _ = Describe("Rack fetch breaker 3", Ordered, ContinueOnFailure, func() {
 		a := create(ctx, graphBase("bk3_bad_input", "on", true, float64(out.Key())))
 		deploy(ctx, a)
 		_, _, userErr, rackErr := fetch(ctx, a.Base().Key)
-		Expect(userErr).To(MatchError(ContainSubstring("must be a channel key")))
+		Expect(userErr).To(MatchError(ContainSubstring("is not a channel key")))
 		Expect(userErr).To(BeAssignableToTypeOf(apiarc.CompileError{}))
 		Expect(describe(rackErr)).To(Equal(describe(userErr)))
 	})

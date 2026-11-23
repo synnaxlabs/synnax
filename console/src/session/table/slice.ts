@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type table } from "@synnaxlabs/client";
-import { type Drift } from "@synnaxlabs/drift";
+import type { table } from "@synnaxlabs/client";
+import type { Drift } from "@synnaxlabs/drift";
 import { Properties } from "@synnaxlabs/pluto";
 import z from "zod";
 

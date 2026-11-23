@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import type { Synnax as Client } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Synnax } from "@synnaxlabs/pluto";
 import { breaker, TimeSpan } from "@synnaxlabs/x";
 
-import { type Link } from "@/platform/link";
+import type { Link } from "@/platform/link";
 import { Session } from "@/session";
-import { type State } from "@/session/store";
+import type { State } from "@/session/store";
 
 const CONNECT_TIMEOUT = TimeSpan.seconds(10);
 const SWAP_POLL_INTERVAL = TimeSpan.milliseconds(50);

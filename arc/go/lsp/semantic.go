@@ -89,7 +89,11 @@ func (s *Server) SemanticTokensFull(
 	return &protocol.SemanticTokens{Data: tokens}, nil
 }
 
-func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []uint32 {
+func extractSemanticTokens(
+	ctx context.Context,
+	content string,
+	docIR ir.IR,
+) []uint32 {
 	allTokens := tokenizeContent(content)
 	importIdents := importContextIdents(allTokens)
 	channels := pathChannelIdents(ctx, allTokens, importIdents, docIR)
@@ -553,7 +557,11 @@ func mapLexerTokenType(antlrType int) *uint32 {
 // STR_LITERAL_MULTI. Format strings (f/rf prefix) with placeholders have their
 // {...} segments expanded with classified inner expression tokens; everything
 // else collapses to a single string-colored token.
-func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.Token {
+func expandStringToken(
+	ctx context.Context,
+	t antlr.Token,
+	docIR ir.IR,
+) []lsp.Token {
 	f, ok := parseFormatString(t)
 	if !ok {
 		return plainStringTokens(t, f.prefixLen)
@@ -626,7 +634,9 @@ func parseFormatString(t antlr.Token) (formatString, bool) {
 // innerTokens returns the tokens of the placeholder seg of f, each with its byte span
 // in the text of f. The placeholder's text has its escapes applied, as the compiler
 // parses it, and Offsets maps each of its bytes back to the source.
-func (f formatString) innerTokens(seg literal.FmtStrSegment) ([]antlr.Token, [][2]int) {
+func (f formatString) innerTokens(
+	seg literal.FmtStrSegment,
+) ([]antlr.Token, [][2]int) {
 	inner := tokenizeContent(seg.Text)
 	runeStart := make([]int, 0, len(seg.Text)+1)
 	for i := range seg.Text {

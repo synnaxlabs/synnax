@@ -15,11 +15,13 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() bind.ServiceConfig {
 		return bind.ServiceConfig{
+			Holders:     taskconfig.NewHolders(),
 			DB:          &gorp.DB{},
 			RBAC:        &rbac.Service{},
 			Held:        []string{"held"},
@@ -89,8 +91,9 @@ var _ = Describe("ServiceConfig", func() {
 var _ = Describe("NewService", func() {
 	It("Should return the error of an invalid config", func() {
 		Expect(bind.NewService(bind.ServiceConfig{
-			RBAC: &rbac.Service{},
-			Held: []string{"held"},
+			Holders: taskconfig.NewHolders(),
+			RBAC:    &rbac.Service{},
+			Held:    []string{"held"},
 		})).Error().To(MatchError("db: must be non-nil"))
 	})
 })

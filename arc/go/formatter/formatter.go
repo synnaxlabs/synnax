@@ -32,9 +32,7 @@ func Format(content string) string {
 		return ""
 	}
 
-	input := antlr.NewInputStream(content)
-	lexer := parser.NewArcLexer(input)
-	tokens := lexer.GetAllTokens()
+	tokens := parser.NewArcLexer(antlr.NewInputStream(content)).GetAllTokens()
 
 	hasVisibleTokens := false
 	for _, tok := range tokens {

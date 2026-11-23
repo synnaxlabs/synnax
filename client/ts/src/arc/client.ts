@@ -7,11 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Stream,
-  type StreamClient,
-  type UnaryClient,
-} from "@synnaxlabs/freighter";
+import type { Stream, StreamClient, UnaryClient } from "@synnaxlabs/freighter";
 import { array, deep, type destructor, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -50,11 +46,11 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/arc/where.gen";
-import { type batch } from "@/batch";
+import type { batch } from "@/batch";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
-import { type status } from "@/status";
+import type { status } from "@/status";
 import { task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -354,8 +350,8 @@ export class Client extends query.Retriever<
 
   /**
    * Applies actions to the cached Arc and sends them to the server, recording an
-   * undoable entry. Returns false without side effects when the Arc isn't cached. Rolls
-   * back the local apply and rethrows on send failure.
+   * undoable entry. Rolls back the local apply and rethrows on send failure.
+   * @throws {NotCachedError} if the Arc isn't cached, before any change.
    */
   async dispatch(
     key: Key,
@@ -399,7 +395,10 @@ export class Client extends query.Retriever<
     return this.dispatcher.onUndoStateChange(callback, key);
   }
 
-  /** Stages actions committed atomically as one undoable entry. */
+  /**
+   * Stages actions committed atomically as one undoable entry.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, kind);
   }
