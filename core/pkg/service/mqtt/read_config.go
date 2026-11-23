@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
@@ -95,7 +96,7 @@ func (r readResolver) check(
 	cfg *ReadConfig,
 	icds map[icd.Key]icd.ICD,
 ) error {
-	c, err := r.reads.NewChecker(ctx, snap, readsOf(cfg), icds)
+	c, err := r.reads.NewChecker(ctx, snap, readsOf(cfg), tagsOf(cfg), icds)
 	if err != nil {
 		return err
 	}
@@ -127,6 +128,18 @@ func readsOf(cfg *ReadConfig) []read.Read {
 		}
 	}
 	return reads
+}
+
+// tagsOf returns the channel of each enabled Sparkplug B entry of cfg.
+func tagsOf(cfg *ReadConfig) []channel.Key {
+	var tags []channel.Key
+	for _, e := range cfg.Entries {
+		if entry, ok := e.Variant.(SparkplugReadEntry); ok && !entry.Disabled &&
+			entry.Channel != 0 {
+			tags = append(tags, entry.Channel)
+		}
+	}
+	return tags
 }
 
 // readOf returns the read of e, the plain entry at i of a config.

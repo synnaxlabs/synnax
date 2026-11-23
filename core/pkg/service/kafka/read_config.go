@@ -124,7 +124,7 @@ func (r readResolver) check(
 	icds map[icd.Key]icd.ICD,
 ) error {
 	reads := readsOf(cfg)
-	c, err := r.reads.NewChecker(ctx, snap, reads, icds)
+	c, err := r.reads.NewChecker(ctx, snap, reads, nil, icds)
 	if err != nil {
 		return err
 	}
