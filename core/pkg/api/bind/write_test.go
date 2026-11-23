@@ -1167,6 +1167,26 @@ var _ = Describe("Records placed in owned records", func() {
 			return svc.Status.NewWriter(tx).Set(ctx, st)
 		}
 	}
+	setRack := func(key certificate.Key, r rack.Key) apply {
+		return func(ctx context.Context, tx gorp.Tx) error {
+			c := certificate.Certificate{Variant: certificate.FileCertificate{
+				Base:            certificate.Base{Key: key, Name: "Driver"},
+				CertificatePath: "/var/lib/synnax/driver.der",
+				Rack:            r,
+			}}
+			return svc.Certificate.NewWriter(tx).Set(ctx, &c, nil)
+		}
+	}
+	deniedUpdate := func(subject resource.ID) OmegaMatcher {
+		return SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring(
+				"%s cannot update %s",
+				subject,
+				cert.ResourceID(),
+			)),
+		)
+	}
 
 	It("Should let a rack place a status in a certificate that it owns",
 		func(ctx SpecContext) {
@@ -1196,14 +1216,59 @@ var _ = Describe("Records placed in owned records", func() {
 	It("Should require update to place a status in a certificate of another rack",
 		func(ctx SpecContext) {
 			st := newStatus()
-			Expect(writeAs(ctx, other.ResourceID(), setStatus(&st))).To(SatisfyAll(
-				MatchError(access.ErrDenied),
-				MatchError(ContainSubstring(
-					"%s cannot update %s",
+			Expect(writeAs(ctx, other.ResourceID(), setStatus(&st))).
+				To(deniedUpdate(other.ResourceID()))
+		},
+	)
+
+	It("Should require update to take a certificate and place a status in it",
+		func(ctx SpecContext) {
+			st := newStatus()
+			Expect(
+				writeAs(
+					ctx,
 					other.ResourceID(),
-					cert.ResourceID(),
-				)),
-			))
+					func(ctx context.Context, tx gorp.Tx) error {
+						if err := setRack(
+							cert.Base().Key,
+							other.Key,
+						)(
+							ctx,
+							tx,
+						); err != nil {
+							return err
+						}
+						return setStatus(&st)(ctx, tx)
+					},
+				),
+			).To(deniedUpdate(other.ResourceID()))
+		},
+	)
+
+	It("Should require update to give a certificate away and take a status out of it",
+		func(ctx SpecContext) {
+			st := newStatus()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return setStatus(&st)(ctx, tx)
+			})).To(Succeed())
+			Expect(
+				writeAs(
+					ctx,
+					rck.ResourceID(),
+					func(ctx context.Context, tx gorp.Tx) error {
+						if err := setRack(
+							cert.Base().Key,
+							other.Key,
+						)(
+							ctx,
+							tx,
+						); err != nil {
+							return err
+						}
+						return svc.Status.NewWriter(tx).Delete(ctx, st.Key)
+					},
+				),
+			).To(deniedUpdate(rck.ResourceID()))
 		},
 	)
 })

@@ -434,6 +434,40 @@ var _ = Describe("Service", func() {
 			Expect(got.CertificatePath).To(Equal("/var/lib/synnax/next.der"))
 			Expect(got.Details).To(Equal(&details))
 		})
+		It("Should let a rack add details to a file certificate on it",
+			func(ctx SpecContext) {
+				r := createRack(ctx)
+				c := certificate.Certificate{Variant: certificate.FileCertificate{
+					Base:            certificate.Base{Name: "Driver"},
+					CertificatePath: "/var/lib/synnax/driver.der",
+					Rack:            r.Key,
+				}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Certificate.NewWriter(tx).Set(ctx, &c, nil)
+				})).To(Succeed())
+				details := certificate.Details{
+					Subject:  "CN=driver",
+					Issuer:   "CN=driver",
+					NotAfter: telem.Now().Add(telem.Hour),
+					Sha1:     "aa",
+					Sha256:   "bb",
+				}
+				MustSucceed(set(SubjectCtx(ctx, r.Key.ResourceID()),
+					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
+						Key:             c.Base().Key,
+						Source:          secret.SourceFile,
+						Name:            "Driver",
+						CertificatePath: "/var/lib/synnax/driver.der",
+						Details:         &details,
+						Rack:            r.Key,
+					}}},
+				))
+				got, ok := retrieveCertificate(ctx, c.Base().Key).
+					Variant.(certificate.FileCertificate)
+				Expect(ok).To(BeTrue())
+				Expect(got.Details).To(Equal(&details))
+			},
+		)
 		It("Should let a rack clear the details of a file certificate on it",
 			func(ctx SpecContext) {
 				r := createRack(ctx)
