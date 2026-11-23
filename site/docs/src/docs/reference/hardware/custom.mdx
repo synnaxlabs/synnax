@@ -297,7 +297,7 @@ control of the schematic, and click the switch:
 />
 
 The switch changes when you click it, even when the script does not run. Five seconds
-after each click, it shows the stale color. The next section fixes this.
+after each click, it shows the stale indicator. The next section fixes this.
 
 <Divider.Divider x />
 
@@ -306,7 +306,7 @@ after each click, it shows the stale color. The next section fixes this.
 To show the real state of the device, use two channels. The switch writes to a command
 channel, and shows the value of a state channel that the script writes from the device.
 When the script or the device stops, the switch keeps its last state and shows the stale
-color after 5 seconds.
+indicator after 5 seconds.
 
 ### <Step step={1} level="h3">Upload the Arduino code</Step>
 

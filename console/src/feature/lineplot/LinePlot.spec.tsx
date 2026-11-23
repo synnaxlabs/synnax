@@ -7,23 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot } from "@synnaxlabs/client";
 import { canvas } from "@synnaxlabs/pluto/ether";
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
-import { LinePlot } from "@/feature/lineplot/LinePlot";
+import { LinePlot } from "@/feature/lineplot";
 import { renderLinePlot } from "@/feature/lineplot/testutil";
 import { Vis } from "@/platform/vis";
 import { installMissingGPU } from "@/testutil";
 
-describe("lineplot/LinePlot", () => {
+const { Content } = LinePlot.TABS[lineplot.TYPE_RESOURCE_ID.type];
+
+beforeAll(Content.preload);
+
+describe("LinePlot tab content", () => {
   describe("when the canvas has no GPU", () => {
     installMissingGPU();
 
     it("shows a placeholder in place of the plot", async () => {
       const InCanvas = () => (
         <Vis.Canvas>
-          <LinePlot />
+          <Content />
         </Vis.Canvas>
       );
       await renderLinePlot(InCanvas, { additionalRegistry: canvas.REGISTRY });

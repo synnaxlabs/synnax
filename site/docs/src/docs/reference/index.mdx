@@ -15,7 +15,7 @@ import Grid from "@/components/card/Grid.astro";
 import Choice from "@/components/landing/Choice.astro";
 import Hero from "@/components/landing/Hero.astro";
 import Use from "@/components/landing/Use.astro";
-import { ID } from "@/components/console/tour/stills";
+import { tour } from "@/components/console/tour";
 import Image from "@/components/media/Image.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -23,7 +23,7 @@ export const components = mdxOverrides;
 <Hero>
 <Fragment slot="media">
   <Image
-    id={`${ID}/mosaic`}
+    id={`${tour.ID}/mosaic`}
     extension="webp"
     loading="eager"
     alt="The Synnax Console with a schematic, a line plot, a table, a log, and an Arc sequence open"

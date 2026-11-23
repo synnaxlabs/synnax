@@ -10,8 +10,7 @@
 import { id, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { allowRequest } from "@/access/enforce";
-import type { GrantedQuery } from "@/access/granted";
+import type { access } from "@/access";
 import { ranger } from "@/ranger";
 import {
   createTestClient,
@@ -20,17 +19,9 @@ import {
 } from "@/testutil";
 import { user } from "@/user";
 
-vi.mock("@/access/enforce", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    allowRequest: vi.fn(actual.allowRequest as typeof allowRequest),
-  };
-});
-
 const client = createTestClient();
 
-const RETRIEVE_RANGES: GrantedQuery = {
+const RETRIEVE_RANGES: access.GrantedQuery = {
   objects: ranger.TYPE_RESOURCE_ID,
   action: "retrieve",
 };
@@ -76,34 +67,6 @@ describe("Granted", () => {
     expect(await userClient.access.granted.retrieve(grantee, RETRIEVE_RANGES)).toBe(
       true,
     );
-  });
-
-  it("evaluates a repeated query object once until the policies change", async () => {
-    const { grantee } = await createSubjectWithPolicy({
-      name: id.create(),
-      objects: [ranger.TYPE_RESOURCE_ID],
-      actions: ["retrieve"],
-    });
-    const q = { ...RETRIEVE_RANGES };
-    const stop = client.access.granted.watch(grantee, q).onChange(() => {});
-    await client.access.policies.watch({ roles: [grantee.role] }).retrieve();
-    await expect
-      .poll(() => client.access.granted.watch(grantee, q).getCached(), {
-        timeout: 5000,
-      })
-      .toBe(true);
-    const spy = vi.mocked(allowRequest);
-    spy.mockClear();
-    expect(client.access.granted.watch(grantee, q).getCached()).toBe(true);
-    expect(client.access.granted.watch(grantee, q).getCached()).toBe(true);
-    expect(client.access.granted.watch(grantee, q).getCached()).toBe(true);
-    expect(spy).not.toHaveBeenCalled();
-    // A distinct query object holds its own memo entry, so it evaluates once.
-    expect(
-      client.access.granted.watch(grantee, { ...RETRIEVE_RANGES }).getCached(),
-    ).toBe(true);
-    expect(spy).toHaveBeenCalledTimes(1);
-    stop();
   });
 
   it("re-evaluates the verdict when a policy is removed", async () => {

@@ -259,13 +259,13 @@ type Transport struct {
 	// NI DEVICE
 	NIDeviceCreate   freighter.UnaryServer[nidevice.CreateRequest, nidevice.CreateResponse]
 	NIDeviceRetrieve freighter.UnaryServer[nidevice.RetrieveRequest, nidevice.RetrieveResponse]
-	NIDeviceUpdate   freighter.UnaryServer[nidevice.UpdateRequest, struct{}]
+	NIDeviceUpdate   freighter.UnaryServer[nidevice.UpdateRequest, nidevice.UpdateResponse]
 	NIDeviceDelete   freighter.UnaryServer[nidevice.DeleteRequest, struct{}]
 
 	// NI CHASSIS
 	NIChassisCreate   freighter.UnaryServer[nichassis.CreateRequest, nichassis.CreateResponse]
 	NIChassisRetrieve freighter.UnaryServer[nichassis.RetrieveRequest, nichassis.RetrieveResponse]
-	NIChassisUpdate   freighter.UnaryServer[nichassis.UpdateRequest, struct{}]
+	NIChassisUpdate   freighter.UnaryServer[nichassis.UpdateRequest, nichassis.UpdateResponse]
 	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]

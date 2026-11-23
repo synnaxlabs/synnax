@@ -33,11 +33,57 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// OrderField is a field that devices can be sorted by.
+type OrderField int32
+
+const (
+	OrderField_ORDER_FIELD_NAME OrderField = 0
+)
+
+// Enum value maps for OrderField.
+var (
+	OrderField_name = map[int32]string{
+		0: "ORDER_FIELD_NAME",
+	}
+	OrderField_value = map[string]int32{
+		"ORDER_FIELD_NAME": 0,
+	}
+)
+
+func (x OrderField) Enum() *OrderField {
+	p := new(OrderField)
+	*p = x
+	return p
+}
+
+func (x OrderField) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OrderField) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_api_ni_device_pb_ni_device_proto_enumTypes[0].Descriptor()
+}
+
+func (OrderField) Type() protoreflect.EnumType {
+	return &file_core_pkg_api_ni_device_pb_ni_device_proto_enumTypes[0]
+}
+
+func (x OrderField) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use OrderField.Descriptor instead.
+func (OrderField) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_api_ni_device_pb_ni_device_proto_rawDescGZIP(), []int{0}
+}
+
 // Cursor is a position in an order of devices: the sort value and the key of a device.
 type Cursor struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the key of the device at the position.
-	Key           string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is the name of the device at the position, when the order sorts by it.
+	Name          *string `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -79,6 +125,68 @@ func (x *Cursor) GetKey() string {
 	return ""
 }
 
+func (x *Cursor) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+// Order is a sort of devices.
+type Order struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// field is the field to sort by. Records with equal values sort by key.
+	Field OrderField `protobuf:"varint,1,opt,name=field,proto3,enum=api.ni_device.pb.OrderField" json:"field,omitempty"`
+	// descending sorts from the greatest value to the least.
+	Descending    bool `protobuf:"varint,2,opt,name=descending,proto3" json:"descending,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Order) Reset() {
+	*x = Order{}
+	mi := &file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Order) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Order) ProtoMessage() {}
+
+func (x *Order) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Order.ProtoReflect.Descriptor instead.
+func (*Order) Descriptor() ([]byte, []int) {
+	return file_core_pkg_api_ni_device_pb_ni_device_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Order) GetField() OrderField {
+	if x != nil {
+		return x.Field
+	}
+	return OrderField_ORDER_FIELD_NAME
+}
+
+func (x *Order) GetDescending() bool {
+	if x != nil {
+		return x.Descending
+	}
+	return false
+}
+
 // RetrieveRequest is a request to retrieve devices.
 type RetrieveRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -86,19 +194,21 @@ type RetrieveRequest struct {
 	Where *pb.Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
 	// search_term keeps the devices that match the term, closest match first.
 	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
+	// order sorts the devices. An absent order sorts them by key.
+	Order *Order `protobuf:"bytes,3,opt,name=order,proto3,oneof" json:"order,omitempty"`
 	// after starts the devices strictly past this position in their order.
-	After *Cursor `protobuf:"bytes,3,opt,name=after,proto3,oneof" json:"after,omitempty"`
+	After *Cursor `protobuf:"bytes,4,opt,name=after,proto3,oneof" json:"after,omitempty"`
 	// limit is the most devices to return.
-	Limit *uint32 `protobuf:"varint,4,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	Limit *uint32 `protobuf:"varint,5,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// include_status includes the status of each record.
-	IncludeStatus bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
+	IncludeStatus bool `protobuf:"varint,6,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RetrieveRequest) Reset() {
 	*x = RetrieveRequest{}
-	mi := &file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[1]
+	mi := &file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -110,7 +220,7 @@ func (x *RetrieveRequest) String() string {
 func (*RetrieveRequest) ProtoMessage() {}
 
 func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[1]
+	mi := &file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -123,7 +233,7 @@ func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetrieveRequest.ProtoReflect.Descriptor instead.
 func (*RetrieveRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_ni_device_pb_ni_device_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_api_ni_device_pb_ni_device_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RetrieveRequest) GetWhere() *pb.Where {
@@ -138,6 +248,13 @@ func (x *RetrieveRequest) GetSearchTerm() string {
 		return x.SearchTerm
 	}
 	return ""
+}
+
+func (x *RetrieveRequest) GetOrder() *Order {
+	if x != nil {
+		return x.Order
+	}
+	return nil
 }
 
 func (x *RetrieveRequest) GetAfter() *Cursor {
@@ -172,7 +289,7 @@ type RetrieveResponse struct {
 
 func (x *RetrieveResponse) Reset() {
 	*x = RetrieveResponse{}
-	mi := &file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[2]
+	mi := &file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -184,7 +301,7 @@ func (x *RetrieveResponse) String() string {
 func (*RetrieveResponse) ProtoMessage() {}
 
 func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[2]
+	mi := &file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -197,7 +314,7 @@ func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
 func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_ni_device_pb_ni_device_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_api_ni_device_pb_ni_device_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RetrieveResponse) GetDevices() []*pb.Device {
@@ -211,21 +328,33 @@ var File_core_pkg_api_ni_device_pb_ni_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_ni_device_pb_ni_device_proto_rawDesc = "" +
 	"\n" +
-	")core/pkg/api/ni/device/pb/ni_device.proto\x12\x10api.ni_device.pb\x1a-core/pkg/service/ni/device/pb/ni_device.proto\"\x1a\n" +
+	")core/pkg/api/ni/device/pb/ni_device.proto\x12\x10api.ni_device.pb\x1a-core/pkg/service/ni/device/pb/ni_device.proto\"<\n" +
 	"\x06Cursor\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\"\xff\x01\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01B\a\n" +
+	"\x05_name\"[\n" +
+	"\x05Order\x122\n" +
+	"\x05field\x18\x01 \x01(\x0e2\x1c.api.ni_device.pb.OrderFieldR\x05field\x12\x1e\n" +
+	"\n" +
+	"descending\x18\x02 \x01(\bR\n" +
+	"descending\"\xbd\x02\n" +
 	"\x0fRetrieveRequest\x126\n" +
 	"\x05where\x18\x01 \x01(\v2\x1b.service.ni_device.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
-	"searchTerm\x123\n" +
-	"\x05after\x18\x03 \x01(\v2\x18.api.ni_device.pb.CursorH\x01R\x05after\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x04 \x01(\rH\x02R\x05limit\x88\x01\x01\x12%\n" +
-	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatusB\b\n" +
+	"searchTerm\x122\n" +
+	"\x05order\x18\x03 \x01(\v2\x17.api.ni_device.pb.OrderH\x01R\x05order\x88\x01\x01\x123\n" +
+	"\x05after\x18\x04 \x01(\v2\x18.api.ni_device.pb.CursorH\x02R\x05after\x88\x01\x01\x12\x19\n" +
+	"\x05limit\x18\x05 \x01(\rH\x03R\x05limit\x88\x01\x01\x12%\n" +
+	"\x0einclude_status\x18\x06 \x01(\bR\rincludeStatusB\b\n" +
 	"\x06_whereB\b\n" +
+	"\x06_orderB\b\n" +
 	"\x06_afterB\b\n" +
 	"\x06_limit\"J\n" +
 	"\x10RetrieveResponse\x126\n" +
-	"\adevices\x18\x01 \x03(\v2\x1c.service.ni_device.pb.DeviceR\adevicesB\xb6\x01\n" +
+	"\adevices\x18\x01 \x03(\v2\x1c.service.ni_device.pb.DeviceR\adevices*\"\n" +
+	"\n" +
+	"OrderField\x12\x14\n" +
+	"\x10ORDER_FIELD_NAME\x10\x00B\xb6\x01\n" +
 	"\x14com.api.ni_device.pbB\rNiDeviceProtoP\x01Z1github.com/synnaxlabs/synnax/pkg/api/ni/device/pb\xa2\x02\x03ANP\xaa\x02\x0fApi.NiDevice.Pb\xca\x02\x0fApi\\NiDevice\\Pb\xe2\x02\x1bApi\\NiDevice\\Pb\\GPBMetadata\xea\x02\x11Api::NiDevice::Pbb\x06proto3"
 
 var (
@@ -240,23 +369,28 @@ func file_core_pkg_api_ni_device_pb_ni_device_proto_rawDescGZIP() []byte {
 	return file_core_pkg_api_ni_device_pb_ni_device_proto_rawDescData
 }
 
-var file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_core_pkg_api_ni_device_pb_ni_device_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_core_pkg_api_ni_device_pb_ni_device_proto_goTypes = []any{
-	(*Cursor)(nil),           // 0: api.ni_device.pb.Cursor
-	(*RetrieveRequest)(nil),  // 1: api.ni_device.pb.RetrieveRequest
-	(*RetrieveResponse)(nil), // 2: api.ni_device.pb.RetrieveResponse
-	(*pb.Where)(nil),         // 3: service.ni_device.pb.Where
-	(*pb.Device)(nil),        // 4: service.ni_device.pb.Device
+	(OrderField)(0),          // 0: api.ni_device.pb.OrderField
+	(*Cursor)(nil),           // 1: api.ni_device.pb.Cursor
+	(*Order)(nil),            // 2: api.ni_device.pb.Order
+	(*RetrieveRequest)(nil),  // 3: api.ni_device.pb.RetrieveRequest
+	(*RetrieveResponse)(nil), // 4: api.ni_device.pb.RetrieveResponse
+	(*pb.Where)(nil),         // 5: service.ni_device.pb.Where
+	(*pb.Device)(nil),        // 6: service.ni_device.pb.Device
 }
 var file_core_pkg_api_ni_device_pb_ni_device_proto_depIdxs = []int32{
-	3, // 0: api.ni_device.pb.RetrieveRequest.where:type_name -> service.ni_device.pb.Where
-	0, // 1: api.ni_device.pb.RetrieveRequest.after:type_name -> api.ni_device.pb.Cursor
-	4, // 2: api.ni_device.pb.RetrieveResponse.devices:type_name -> service.ni_device.pb.Device
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	0, // 0: api.ni_device.pb.Order.field:type_name -> api.ni_device.pb.OrderField
+	5, // 1: api.ni_device.pb.RetrieveRequest.where:type_name -> service.ni_device.pb.Where
+	2, // 2: api.ni_device.pb.RetrieveRequest.order:type_name -> api.ni_device.pb.Order
+	1, // 3: api.ni_device.pb.RetrieveRequest.after:type_name -> api.ni_device.pb.Cursor
+	6, // 4: api.ni_device.pb.RetrieveResponse.devices:type_name -> service.ni_device.pb.Device
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_api_ni_device_pb_ni_device_proto_init() }
@@ -264,19 +398,21 @@ func file_core_pkg_api_ni_device_pb_ni_device_proto_init() {
 	if File_core_pkg_api_ni_device_pb_ni_device_proto != nil {
 		return
 	}
-	file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[1].OneofWrappers = []any{}
+	file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[0].OneofWrappers = []any{}
+	file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_api_ni_device_pb_ni_device_proto_rawDesc), len(file_core_pkg_api_ni_device_pb_ni_device_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   3,
+			NumEnums:      1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_core_pkg_api_ni_device_pb_ni_device_proto_goTypes,
 		DependencyIndexes: file_core_pkg_api_ni_device_pb_ni_device_proto_depIdxs,
+		EnumInfos:         file_core_pkg_api_ni_device_pb_ni_device_proto_enumTypes,
 		MessageInfos:      file_core_pkg_api_ni_device_pb_ni_device_proto_msgTypes,
 	}.Build()
 	File_core_pkg_api_ni_device_pb_ni_device_proto = out.File

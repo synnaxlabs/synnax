@@ -731,11 +731,15 @@ var _ = Describe("Framer", func() {
 			Expect(w.Close()).To(Succeed())
 			hasData := func() bool {
 				GinkgoHelper()
-				iter := MustOpen(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
-					Keys:   keys,
-					Bounds: telem.TimeRangeMax,
-				}))
-				return iter.SeekFirst()
+				iter := MustSucceed(
+					framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+						Keys:   keys,
+						Bounds: telem.TimeRangeMax,
+					}),
+				)
+				found := iter.SeekFirst()
+				Expect(iter.Close()).To(Succeed())
+				return found
 			}
 			Expect(apiSvc.Delete(rootCtx(ctx), db, apiframer.DeleteRequest{
 				Names:  []string{index.Name + ".*", data.Name + ".*"},
