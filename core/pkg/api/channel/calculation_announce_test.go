@@ -431,7 +431,9 @@ var _ = Describe("Calculation announcements", func() {
 				"fields, in one frame",
 			func(ctx SpecContext) {
 				Expect(retype(ctx, resource.ID{Type: resource.TypeCalculation})).
-					To(Equal([][][]string{{{"data_type"}, {"expression", "operations"}}}))
+					To(Equal([][][]string{
+						{{"data_type"}, {"expression", "operations"}},
+					}))
 			},
 			SpecTimeout(60*time.Second),
 		)
