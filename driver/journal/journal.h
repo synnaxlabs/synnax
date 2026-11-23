@@ -29,18 +29,22 @@
 #include "driver/journal/file.h"
 
 /// @brief an on-disk log of typed, checksummed records. A file starts with an 8-byte
-/// magic, a u16 format version, and u16 flags. Each record is a u32 payload length, a
-/// u32 CRC-32C of the length, type, and payload, a u8 type, and the payload. All
-/// integers are little-endian.
+/// magic, a u16 format version, u16 flags, a random u32 salt, and a u32 CRC-32C of the
+/// bytes before it. Each record is a u32 payload length, a u32 CRC-32C of the length,
+/// type, and payload seeded with the salt, a u8 type, and the payload. All integers are
+/// little-endian.
 namespace driver::journal {
 /// @brief identifies the kind of a file. Each kind of file has its own magic.
 using Magic = std::array<char, 8>;
 /// @brief the format version that this Driver writes.
 constexpr std::uint16_t VERSION = 1;
 /// @brief the byte size of the file start.
-constexpr std::uint64_t HEADER_SIZE = 12;
+constexpr std::uint64_t HEADER_SIZE = 20;
 /// @brief the byte size of the length, checksum, and type before each payload.
 constexpr std::uint64_t RECORD_PREFIX_SIZE = 9;
+/// @brief the flag bits that a reader must know to read a file. A reader ignores
+/// the other flag bits when it does not know them.
+constexpr std::uint16_t REQUIRED_FLAGS = 0xFF00;
 /// @brief the type bit that lets a reader skip a type it does not know.
 constexpr std::uint8_t SKIPPABLE = 0x80;
 /// @brief the largest payload of one record.
@@ -58,6 +62,9 @@ const x::errors::Error UNKNOWN_VERSION = BASE_ERROR.sub("unknown_version");
 /// @brief a file has a format version older than this Driver writes. A reader can
 /// read it, but a writer cannot append to it.
 const x::errors::Error OLD_VERSION = BASE_ERROR.sub("old_version");
+/// @brief a file has a required flag the reader does not know, so a newer Driver
+/// wrote it.
+const x::errors::Error UNKNOWN_FLAG = BASE_ERROR.sub("unknown_flag");
 /// @brief a file has a record type the reader does not know and cannot skip.
 const x::errors::Error UNKNOWN_TYPE = BASE_ERROR.sub("unknown_type");
 
@@ -67,6 +74,9 @@ struct Header {
     std::uint16_t version = VERSION;
     /// @brief flags that the owner of the file defines.
     std::uint16_t flags = 0;
+    /// @brief the random seed of the record checksums of the file, so a record from
+    /// another file fails its checksum.
+    std::uint32_t salt = 0;
 };
 
 /// @brief one record of a file.
@@ -118,13 +128,19 @@ class Writer {
     std::uint64_t cut_bytes = 0;
     std::uint64_t unsynced = 0;
     std::uint64_t synced = 0;
+    std::uint32_t salt = 0;
     x::telem::TimeStamp last_sync;
     /// @brief stops writes after a write, sync, or close.
     x::errors::Error failed;
     /// @brief stops syncs, because the OS can drop the pages of a failed sync.
     x::errors::Error sync_failed;
 
-    Writer(WriterConfig cfg, std::unique_ptr<File> file, std::uint64_t size);
+    Writer(
+        WriterConfig cfg,
+        std::unique_ptr<File> file,
+        std::uint64_t size,
+        std::uint32_t salt
+    );
 
 public:
     Writer(const Writer &) = delete;
@@ -183,6 +199,8 @@ struct ReaderConfig {
     /// @brief the record types the reader returns. The reader skips other types
     /// that have the SKIPPABLE bit.
     std::set<std::uint8_t> types;
+    /// @brief the REQUIRED_FLAGS bits the reader knows.
+    std::uint16_t flags = 0;
     /// @brief the byte position of the first record to read, or 0 for the first
     /// record of the file.
     std::uint64_t pos = 0;
@@ -220,9 +238,9 @@ public:
     /// @brief opens the file of the config and reads its start. A file shorter than a
     /// file start holds no records, as Writer::open treats it, and cut() returns its
     /// size. Other handles can rename, replace, or remove the file while it is open.
-    /// @returns UNKNOWN_MAGIC or UNKNOWN_VERSION when the start is not one this
-    /// reader reads. CORRUPT when the version is 0, or pos or end is outside the
-    /// file.
+    /// @returns UNKNOWN_MAGIC, UNKNOWN_VERSION, or UNKNOWN_FLAG when the start is
+    /// not one this reader reads. CORRUPT when the start fails its checksum, the
+    /// version is 0, or pos or end is outside the file.
     static std::pair<std::unique_ptr<Reader>, x::errors::Error> open(ReaderConfig cfg);
 
     /// @brief reads the next record. A record that is cut off or fails its checksum

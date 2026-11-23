@@ -45,15 +45,54 @@ void append_file(const std::filesystem::path &path, const std::string &data) {
     f.write(data.data(), static_cast<std::streamsize>(data.size()));
 }
 
-/// @brief encodes a record with a valid checksum, which the writer would refuse.
-std::string encode(const std::uint8_t type, const std::string &payload) {
-    std::string buf(4, '\0');
-    buf[0] = static_cast<char>(payload.size());
-    auto body = buf + static_cast<char>(type) + payload;
-    const auto crc = static_cast<std::uint32_t>(absl::ComputeCrc32c(body));
+/// @brief returns the little-endian bytes of value.
+std::string le32(const std::uint32_t value) {
+    std::string buf;
     for (int i = 0; i < 4; i++)
-        buf.push_back(static_cast<char>(crc >> (8 * i)));
-    return buf + static_cast<char>(type) + payload;
+        buf.push_back(static_cast<char>(value >> (8 * i)));
+    return buf;
+}
+
+/// @brief returns the checksum salt of the file at path.
+std::uint32_t salt_of(const std::filesystem::path &path) {
+    const auto data = read_file(path);
+    std::uint32_t salt = 0;
+    for (int i = 0; i < 4; i++)
+        salt |= static_cast<std::uint32_t>(static_cast<std::uint8_t>(data[12 + i]))
+             << (8 * i);
+    return salt;
+}
+
+/// @brief encodes a record with a valid checksum for salt, which the writer would
+/// refuse.
+std::string
+encode(const std::uint32_t salt, const std::uint8_t type, const std::string &payload) {
+    std::string len(4, '\0');
+    len[0] = static_cast<char>(payload.size());
+    const auto crc = static_cast<std::uint32_t>(absl::ExtendCrc32c(
+        absl::crc32c_t{salt},
+        len + static_cast<char>(type) + payload
+    ));
+    return len + le32(crc) + static_cast<char>(type) + payload;
+}
+
+/// @brief writes the file start of the file at path with version and flags, and a
+/// valid checksum.
+void set_header(
+    const std::filesystem::path &path,
+    const std::uint16_t version,
+    const std::uint16_t flags
+) {
+    auto data = read_file(path);
+    data[8] = static_cast<char>(version);
+    data[9] = static_cast<char>(version >> 8);
+    data[10] = static_cast<char>(flags);
+    data[11] = static_cast<char>(flags >> 8);
+    const auto crc = static_cast<std::uint32_t>(
+        absl::ComputeCrc32c(data.substr(0, 16))
+    );
+    data.replace(16, 4, le32(crc));
+    write_file(path, data);
 }
 
 std::vector<Record> read_all(Reader &reader) {
@@ -107,11 +146,15 @@ protected:
 TEST_F(JournalTest, ReadsV1Segment) {
     auto reader = ASSERT_NIL_P(
         Reader::open(
-            {.path = TESTDATA / "v1_segment.bin", .magic = SEGMENT, .types = {1, 3}}
+            {.path = TESTDATA / "v1_segment.bin",
+             .magic = SEGMENT,
+             .types = {1, 3},
+             .flags = 0x0100}
         )
     );
     EXPECT_EQ(reader->header.version, 1);
     EXPECT_EQ(reader->header.flags, 0x0102);
+    EXPECT_EQ(reader->header.salt, 0x5A17C0DE);
     const auto records = read_all(*reader);
     ASSERT_EQ(records.size(), 3);
     EXPECT_EQ(records[0].type, 1);
@@ -121,7 +164,7 @@ TEST_F(JournalTest, ReadsV1Segment) {
     EXPECT_EQ(records[2].type, 3);
     EXPECT_EQ(records[2].payload, std::string("\x00\x01\x02", 3));
     EXPECT_EQ(reader->cut(), 0);
-    EXPECT_EQ(reader->pos(), 60);
+    EXPECT_EQ(reader->pos(), 68);
 }
 
 /// @brief it should write the same bytes as the v1 segment fixture.
@@ -135,7 +178,59 @@ TEST_F(JournalTest, WritesV1Segment) {
     ASSERT_NIL(writer->write({.type = 3, .payload = std::string("\x00\x01\x02", 3)}));
     EXPECT_EQ(writer->pos(), HEADER_SIZE + 4 * RECORD_PREFIX_SIZE + 12);
     ASSERT_NIL(writer->close());
-    EXPECT_EQ(read_file(this->path), read_file(TESTDATA / "v1_segment.bin"));
+    // Each file has its own salt, so only the bytes before it match the fixture.
+    const auto written = read_file(this->path);
+    const auto fixture = read_file(TESTDATA / "v1_segment.bin");
+    EXPECT_EQ(written.size(), fixture.size());
+    EXPECT_EQ(written.substr(0, 12), fixture.substr(0, 12));
+    const auto reader = ASSERT_NIL_P(
+        Reader::open(
+            {.path = this->path, .magic = SEGMENT, .types = {1, 3}, .flags = 0x0100}
+        )
+    );
+    EXPECT_EQ(read_all(*reader).size(), 3);
+}
+
+/// @brief it should fail the checksum of a record copied from another file.
+TEST_F(JournalTest, RecordFromAnotherFileFailsChecksum) {
+    this->write({{.type = 1, .payload = "a"}});
+    const auto other = this->dir / "1.seg";
+    {
+        auto writer = ASSERT_NIL_P(Writer::open({.path = other, .magic = SEGMENT}));
+        ASSERT_NIL(writer->write({.type = 1, .payload = "copied"}));
+        ASSERT_NIL(writer->close());
+    }
+    append_file(this->path, read_file(other).substr(HEADER_SIZE));
+    const auto reader = this->open_reader();
+    EXPECT_EQ(read_all(*reader).size(), 1);
+    EXPECT_GT(reader->cut(), 0);
+}
+
+/// @brief it should return CORRUPT for a file start with a flipped bit.
+TEST_F(JournalTest, DamagedFileStartIsCorrupt) {
+    this->write({});
+    auto data = read_file(this->path);
+    data[10] = static_cast<char>(data[10] ^ 0x01);
+    write_file(this->path, data);
+    ASSERT_OCCURRED_AS_P(Reader::open({.path = this->path, .magic = SEGMENT}), CORRUPT);
+    ASSERT_OCCURRED_AS_P(Writer::open({.path = this->path, .magic = SEGMENT}), CORRUPT);
+}
+
+/// @brief it should refuse an unknown required flag and ignore an unknown other flag.
+TEST_F(JournalTest, RefusesUnknownRequiredFlag) {
+    this->write({{.type = 1, .payload = "a"}});
+    set_header(this->path, VERSION, 0x0001);
+    EXPECT_EQ(read_all(*this->open_reader()).size(), 1);
+    set_header(this->path, VERSION, 0x0200);
+    ASSERT_OCCURRED_AS_P(
+        Reader::open({.path = this->path, .magic = SEGMENT}),
+        UNKNOWN_FLAG
+    );
+    ASSERT_OCCURRED_AS_P(
+        Writer::open({.path = this->path, .magic = SEGMENT}),
+        UNKNOWN_FLAG
+    );
+    ASSERT_NIL_P(Reader::open({.path = this->path, .magic = SEGMENT, .flags = 0x0200}));
 }
 
 /// @brief it should append after the records of an existing file.
@@ -238,7 +333,7 @@ TEST_F(JournalTest, CutsAtHoleBeforeUnsyncedRecords) {
 /// leave unsynced, and leave the file unchanged.
 TEST_F(JournalTest, DamageBeforeUnsyncedBytesIsCorrupt) {
     this->write({});
-    auto bad = encode(1, "abc");
+    auto bad = encode(salt_of(this->path), 1, "abc");
     bad[RECORD_PREFIX_SIZE] = 'x';
     append_file(this->path, bad);
     const auto size = HEADER_SIZE + bad.size() + RECORD_PREFIX_SIZE + MAX_PAYLOAD + 1;
@@ -274,7 +369,10 @@ TEST_F(JournalTest, RecoversBadChecksumAtEnd) {
 TEST_F(JournalTest, PositionAtCutOffRecordIsEnd) {
     this->write({{.type = 1, .payload = "a"}});
     const auto end = std::filesystem::file_size(this->path);
-    append_file(this->path, encode(1, "bcd").substr(0, RECORD_PREFIX_SIZE + 1));
+    append_file(
+        this->path,
+        encode(salt_of(this->path), 1, "bcd").substr(0, RECORD_PREFIX_SIZE + 1)
+    );
     const auto reader = this->open_reader({1}, end);
     EXPECT_FALSE(ASSERT_NIL_P(reader->next()).has_value());
     EXPECT_EQ(reader->cut(), RECORD_PREFIX_SIZE + 1);
@@ -366,7 +464,7 @@ TEST_F(JournalTest, LengthPastEndEndsLog) {
 /// @brief it should return CORRUPT for a valid record with type 0.
 TEST_F(JournalTest, TypeZeroIsCorrupt) {
     this->write({});
-    append_file(this->path, encode(0, "a"));
+    append_file(this->path, encode(salt_of(this->path), 0, "a"));
     const auto reader = this->open_reader();
     ASSERT_OCCURRED_AS_P(reader->next(), CORRUPT);
     ASSERT_OCCURRED_AS_P(Writer::open({.path = this->path, .magic = SEGMENT}), CORRUPT);
@@ -375,7 +473,7 @@ TEST_F(JournalTest, TypeZeroIsCorrupt) {
 /// @brief it should return CORRUPT for a valid record with only the SKIPPABLE bit.
 TEST_F(JournalTest, SkippableTypeZeroIsCorrupt) {
     this->write({});
-    append_file(this->path, encode(SKIPPABLE, "a"));
+    append_file(this->path, encode(salt_of(this->path), SKIPPABLE, "a"));
     const auto reader = this->open_reader();
     ASSERT_OCCURRED_AS_P(reader->next(), CORRUPT);
     ASSERT_OCCURRED_AS_P(Writer::open({.path = this->path, .magic = SEGMENT}), CORRUPT);
@@ -450,9 +548,7 @@ TEST_F(JournalTest, BadMagicIsUnknownMagic) {
 /// @brief it should return UNKNOWN_VERSION for a newer format version.
 TEST_F(JournalTest, NewerVersionIsUnknownVersion) {
     this->write({});
-    auto data = read_file(this->path);
-    data[8] = 2;
-    write_file(this->path, data);
+    set_header(this->path, 2, 0);
     ASSERT_OCCURRED_AS_P(
         Reader::open({.path = this->path, .magic = SEGMENT}),
         UNKNOWN_VERSION
@@ -466,9 +562,7 @@ TEST_F(JournalTest, NewerVersionIsUnknownVersion) {
 /// @brief it should return CORRUPT for a format version of 0.
 TEST_F(JournalTest, VersionZeroIsCorrupt) {
     this->write({});
-    auto data = read_file(this->path);
-    data[8] = 0;
-    write_file(this->path, data);
+    set_header(this->path, 0, 0);
     ASSERT_OCCURRED_AS_P(Reader::open({.path = this->path, .magic = SEGMENT}), CORRUPT);
 }
 
@@ -514,7 +608,7 @@ TEST_F(JournalTest, WriterReplacesCutOffFileStart) {
 TEST_F(JournalTest, RecoversBadChecksumAtTail) {
     this->write({{.type = 1, .payload = "a"}});
     const auto size = std::filesystem::file_size(this->path);
-    auto bad = encode(1, "bc");
+    auto bad = encode(salt_of(this->path), 1, "bc");
     bad[4] = static_cast<char>(bad[4] ^ 0xFF);
     append_file(this->path, bad + std::string(100, '\0'));
     auto writer = ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));

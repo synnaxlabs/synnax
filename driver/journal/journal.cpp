@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <random>
 #include <span>
 #include <system_error>
 #include <utility>
@@ -35,9 +36,16 @@ T get(const char *data) {
     ));
 }
 
-std::uint32_t
-checksum(const char *len, const std::uint8_t type, const std::string_view payload) {
-    auto crc = absl::ComputeCrc32c({len, sizeof(std::uint32_t)});
+/// @brief the byte size of the header before its checksum.
+constexpr std::size_t HEADER_SUM_OFFSET = HEADER_SIZE - sizeof(std::uint32_t);
+
+std::uint32_t checksum(
+    const std::uint32_t salt,
+    const char *len,
+    const std::uint8_t type,
+    const std::string_view payload
+) {
+    auto crc = absl::ExtendCrc32c(absl::crc32c_t{salt}, {len, sizeof(std::uint32_t)});
     crc = absl::ExtendCrc32c(crc, {reinterpret_cast<const char *>(&type), 1});
     return static_cast<std::uint32_t>(absl::ExtendCrc32c(crc, payload));
 }
@@ -46,13 +54,15 @@ std::string encode_header(const Magic &magic, const std::uint16_t flags) {
     std::string buf(magic.data(), magic.size());
     put(buf, VERSION);
     put(buf, flags);
+    put(buf, static_cast<std::uint32_t>(std::random_device()()));
+    put(buf, static_cast<std::uint32_t>(absl::ComputeCrc32c(buf)));
     return buf;
 }
 
-void encode_record(std::string &buf, const Record &record) {
+void encode_record(std::string &buf, const std::uint32_t salt, const Record &record) {
     const auto start = buf.size();
     put(buf, static_cast<std::uint32_t>(record.payload.size()));
-    put(buf, checksum(buf.data() + start, record.type, record.payload));
+    put(buf, checksum(salt, buf.data() + start, record.type, record.payload));
     buf.push_back(static_cast<char>(record.type));
     buf.append(record.payload);
 }
@@ -67,11 +77,17 @@ x::errors::Error validate(const Magic &magic) {
 }
 }
 
-Writer::Writer(WriterConfig cfg, std::unique_ptr<File> file, const std::uint64_t size):
+Writer::Writer(
+    WriterConfig cfg,
+    std::unique_ptr<File> file,
+    const std::uint64_t size,
+    const std::uint32_t salt
+):
     cfg(std::move(cfg)),
     file(std::move(file)),
     size(size),
     synced(size),
+    salt(salt),
     last_sync(this->cfg.now()) {}
 
 Writer::~Writer() {
@@ -114,7 +130,10 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
     }
     const auto start_cut = start < HEADER_SIZE ? start : 0;
     auto [reader, r_err] = Reader::open(
-        {.path = cfg.path, .magic = cfg.magic, .sync_bytes = cfg.sync_bytes}
+        {.path = cfg.path,
+         .magic = cfg.magic,
+         .flags = cfg.flags,
+         .sync_bytes = cfg.sync_bytes}
     );
     if (r_err) return {nullptr, r_err};
     if (reader->header.version < VERSION)
@@ -129,6 +148,7 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
     }
     const auto size = reader->pos();
     const auto cut = reader->cut();
+    const auto salt = reader->header.salt;
     reader.reset();
     if (cut > 0)
         if (auto err = file->truncate(size); err) return {nullptr, err};
@@ -136,7 +156,7 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
     if (!created || cut > 0)
         if (auto err = cfg.on_sync(file->sync()); err) return {nullptr, err};
     auto writer = std::unique_ptr<Writer>(
-        new Writer(std::move(cfg), std::move(file), size)
+        new Writer(std::move(cfg), std::move(file), size, salt)
     );
     writer->cut_bytes = start_cut + cut;
     return {std::move(writer), x::errors::NIL};
@@ -148,7 +168,7 @@ x::errors::Error Writer::write(const Record &record) {
     if (record.payload.size() > MAX_PAYLOAD)
         return x::errors::Error(BASE_ERROR, "record payload is too large");
     std::string buf;
-    encode_record(buf, record);
+    encode_record(buf, this->salt, record);
     {
         std::lock_guard lock(this->mu);
         if (this->failed) return this->failed;
@@ -246,8 +266,13 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
     const auto &magic = reader->cfg.magic;
     if (!std::equal(magic.begin(), magic.end(), buf.begin()))
         return {nullptr, x::errors::Error(UNKNOWN_MAGIC, path)};
+    if (static_cast<std::uint32_t>(
+            absl::ComputeCrc32c({buf.data(), HEADER_SUM_OFFSET})
+        ) != get<std::uint32_t>(buf.data() + HEADER_SUM_OFFSET))
+        return {nullptr, x::errors::Error(CORRUPT, path + " has a damaged start")};
     reader->header.version = get<std::uint16_t>(buf.data() + magic.size());
     reader->header.flags = get<std::uint16_t>(buf.data() + magic.size() + 2);
+    reader->header.salt = get<std::uint32_t>(buf.data() + magic.size() + 4);
     if (reader->header.version == 0)
         return {nullptr, x::errors::Error(CORRUPT, path + " has version 0")};
     if (reader->header.version > VERSION)
@@ -256,6 +281,16 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
             x::errors::Error(
                 UNKNOWN_VERSION,
                 path + " has version " + std::to_string(reader->header.version)
+            )
+        };
+    if (const auto unknown = reader->header.flags & REQUIRED_FLAGS & ~reader->cfg.flags;
+        unknown != 0)
+        return {
+            nullptr,
+            x::errors::Error(
+                UNKNOWN_FLAG,
+                path + " has flags " + std::to_string(unknown) +
+                    " that a newer Driver writes. Update the Driver to read it."
             )
         };
     auto &pos = reader->cfg.pos;
@@ -317,7 +352,7 @@ std::pair<std::optional<Record>, x::errors::Error> Reader::next_record() {
         return n;
     });
     if (err) return {std::nullopt, err};
-    if (checksum(prefix.data(), record.type, record.payload) !=
+    if (checksum(this->header.salt, prefix.data(), record.type, record.payload) !=
         get<std::uint32_t>(prefix.data() + 4))
         return this->damaged();
     if ((record.type & ~SKIPPABLE) == 0)
