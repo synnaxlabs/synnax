@@ -17,16 +17,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
-// StreamCheck returns what a subject receives of a sample of a change channel of
+// streamCheck returns what a subject receives of a sample of a change channel of
 // calculations, given whether it can retrieve each resource: the sample when send is
 // true and replacement is nil, another sample when replacement is not nil, and nothing
 // when send is false.
-type StreamCheck = func(allowed func(resource.ID) bool) (replacement []byte, send bool)
+type streamCheck = func(allowed func(resource.ID) bool) (replacement []byte, send bool)
 
 // SetCheck returns the check of the set of c. A subject who reads c receives the set.
 // A subject who does not, but can retrieve the output of c, receives the HiddenOutput
 // of the output in its place.
-func (s *Service) SetCheck(c Calculation) (StreamCheck, error) {
+func (s *Service) SetCheck(c Calculation) (streamCheck, error) {
 	hidden, err := json.Marshal(HiddenOutput{Output: c.Output, Hidden: true})
 	if err != nil {
 		return nil, err
@@ -46,10 +46,10 @@ func (s *Service) SetCheck(c Calculation) (StreamCheck, error) {
 // learns of the delete from the delete channel. A subject who held the HiddenOutput of
 // its output receives this sample instead: a HiddenOutput that no calculation writes
 // the output.
-func (s *Service) DeleteSets(c gorp.Commit) func(key Key) ([]byte, StreamCheck, bool) {
+func (s *Service) DeleteSets(c gorp.Commit) func(key Key) ([]byte, streamCheck, bool) {
 	type deleteSet struct {
 		sample []byte
-		check  StreamCheck
+		check  streamCheck
 	}
 	byKey := make(map[string]deleteSet)
 	for _, ch := range c.Changes {
@@ -75,7 +75,7 @@ func (s *Service) DeleteSets(c gorp.Commit) func(key Key) ([]byte, StreamCheck, 
 			},
 		}
 	}
-	return func(key Key) ([]byte, StreamCheck, bool) {
+	return func(key Key) ([]byte, streamCheck, bool) {
 		d, ok := byKey[gorp.FormatKey(key)]
 		return d.sample, d.check, ok
 	}
