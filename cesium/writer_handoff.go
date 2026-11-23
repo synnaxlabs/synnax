@@ -48,15 +48,25 @@ func (p *Pending) Close() error { return errors.Join(p.idx.persist(), p.idx.Clos
 // writer that wrote them. Handoff returns the uncommitted samples of the keys of w that
 // cfg lacks as a Pending, or nil when they have none. adopt is a Pending of an earlier
 // Handoff for the keys of cfg, or nil. On an error, Handoff closes w and adopt, which
-// drops their uncommitted samples. On the pointer log layout, Handoff closes w, which
-// drops its uncommitted samples, opens a writer of cfg, and returns no Pending.
+// drops their uncommitted samples, and its error names the clock and their time range.
+// On the pointer log layout, Handoff fails when w has uncommitted samples. Otherwise it
+// closes w, opens a writer of cfg, and returns no Pending.
 func (db *DB) Handoff(
 	ctx context.Context,
 	w *Writer,
 	cfg WriterConfig,
 	adopt *Pending,
 ) (_ *Writer, _ *Pending, err error) {
+	dropped, uncommitted := w.uncommitted()
 	defer func() {
+		if err != nil && uncommitted {
+			err = errors.Wrapf(
+				err,
+				"dropped the uncommitted samples of clock %d in %s",
+				w.Clock,
+				dropped,
+			)
+		}
 		if err != nil {
 			err = errors.Join(err, w.Close())
 			if adopt != nil {
@@ -81,16 +91,7 @@ func (db *DB) Handoff(
 		)
 	}
 	if w.log != nil {
-		if adopt != nil {
-			return nil, nil, errors.Wrap(
-				validate.ErrValidation,
-				"a handoff on the pointer log layout adopts no pending samples",
-			)
-		}
-		if err = w.Close(); err != nil {
-			return nil, nil, err
-		}
-		next, err := db.OpenWriter(ctx, cfg)
+		next, err := db.handoffLog(ctx, w, cfg, adopt)
 		return next, nil, err
 	}
 	if err = w.persist(); err != nil {
@@ -106,16 +107,65 @@ func (db *DB) Handoff(
 	return &Writer{WriterConfig: cfg, idx: next}, pending, nil
 }
 
+// handoffLog closes w and opens a writer of cfg. It fails when w has uncommitted
+// samples, which the pointer log layout does not move.
+func (db *DB) handoffLog(
+	ctx context.Context,
+	w *Writer,
+	cfg WriterConfig,
+	adopt *Pending,
+) (*Writer, error) {
+	if adopt != nil {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a handoff on the pointer log layout adopts no pending samples",
+		)
+	}
+	if w.log.samples > 0 {
+		return nil, errors.Wrap(
+			errors.ErrUnsupported,
+			"the pointer log layout does not move uncommitted samples",
+		)
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	return db.OpenWriter(ctx, cfg)
+}
+
+// uncommitted returns the time range of the samples that w has not committed, and false
+// when it has none.
+func (w *Writer) uncommitted() (telem.TimeRange, bool) {
+	if w.log != nil {
+		tr := telem.TimeRange{Start: w.log.first, End: w.log.end + 1}
+		return tr, w.log.samples > 0
+	}
+	tr := telem.TimeRange{Start: w.idx.lastCommitEnd, End: w.idx.idx.highWaterMark + 1}
+	return tr, w.idx.hasUncommittedData || w.idx.dataPending
+}
+
 // handoffIdx moves the unary writers of the keys of cfg out of old and adopt into a new
 // index writer of cfg, and returns the writers of the other keys of old as a Pending.
-// The new writer takes the run state of adopt when it is not nil, or else of old. The
-// caller holds db.mu.
+// The new writer takes the run state of adopt when it is not nil, or else of old. When
+// old has no uncommitted samples, its keys open again at the start of cfg, which
+// refuses stored data there. The caller holds db.mu.
 func (db *DB) handoffIdx(
 	ctx context.Context,
 	old *idxWriter,
 	cfg WriterConfig,
 	adopt *Pending,
 ) (*idxWriter, *Pending, error) {
+	if !old.hasUncommittedData && !old.dataPending {
+		err := errors.Join(old.persist(), old.Close())
+		if err != nil {
+			return nil, nil, err
+		}
+		clear(old.internal)
+		if adopt == nil {
+			next, err := db.openClockWriter(ctx, cfg)
+			return next, nil, err
+		}
+	}
 	base := old
 	if adopt != nil {
 		base = adopt.idx

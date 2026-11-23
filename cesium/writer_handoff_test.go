@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -120,7 +121,9 @@ var _ = Describe("Handoff", func() {
 		w, p := MustSucceed2(db.Handoff(ctx, openFirst(ctx), config(clock), nil))
 		mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(14)))
 		MustSucceed2(w.Commit(ctx, nil))
-		back, _ := MustSucceed2(db.Handoff(ctx, w, config(clock, data), p))
+		cfg := config(clock, data)
+		cfg.Start = 14*telem.SecondTS + 1
+		back, _ := MustSucceed2(db.Handoff(ctx, w, cfg, p))
 		Expect(MustSucceed2(back.Commit(ctx, nil))).To(Equal(13*telem.SecondTS + 1))
 		Expect(stored(ctx, clock)).To(Equal(int64(5)))
 		Expect(stored(ctx, data)).To(Equal(int64(4)))
@@ -166,10 +169,22 @@ var _ = Describe("Handoff", func() {
 	) {
 		first := openFirst(ctx)
 		MustSucceed2(first.Commit(ctx, nil))
-		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock), nil))
+		cfg := config(clock)
+		cfg.Start = 13*telem.SecondTS + 1
+		w, p := MustSucceed2(db.Handoff(ctx, first, cfg, nil))
 		Expect(p).To(BeNil())
 		Expect(stored(ctx, data)).To(Equal(int64(4)))
 		Expect(w.Close()).To(Succeed())
+	})
+
+	It("Should refuse a writer with nothing to move that starts in stored data", func(
+		ctx SpecContext,
+	) {
+		first := openFirst(ctx)
+		MustSucceed2(first.Commit(ctx, nil))
+		Expect(db.Handoff(ctx, first, config(clock), nil)).Error().
+			To(MatchError(ContainSubstring("already data in the writer's time range")))
+		Expect(stored(ctx, clock)).To(Equal(int64(4)))
 	})
 
 	It("Should refuse a handoff to a writer that does not write the clock", func(
@@ -190,21 +205,46 @@ var _ = Describe("Handoff", func() {
 			To(MatchError(ContainSubstring("the writer lacks a key of the pending")))
 	})
 
-	It("Should drop the uncommitted samples on the pointer log layout", func(
-		ctx SpecContext,
-	) {
-		db = mustOpenDBOnFS(
-			ctx,
-			fs.NewMem(),
-			cesium.WithPointerLog(),
-			cesium.WithRandom(rand.NewPCG(1, 2)),
-		)
-		create(ctx)
-		w, p := MustSucceed2(db.Handoff(ctx, openFirst(ctx), config(clock), nil))
-		Expect(p).To(BeNil())
-		MustSucceed2(w.Commit(ctx, nil))
-		Expect(w.Close()).To(Succeed())
-		Expect(stored(ctx, clock)).To(BeZero())
-		Expect(stored(ctx, data)).To(BeZero())
+	Describe("On the pointer log layout", func() {
+		BeforeEach(func(ctx SpecContext) {
+			db = mustOpenDBOnFS(
+				ctx,
+				fs.NewMem(),
+				cesium.WithPointerLog(),
+				cesium.WithRandom(rand.NewPCG(1, 2)),
+			)
+			create(ctx)
+		})
+
+		It("Should refuse to move uncommitted samples, and drop them", func(
+			ctx SpecContext,
+		) {
+			Expect(db.Handoff(ctx, openFirst(ctx), config(clock), nil)).Error().To(
+				SatisfyAll(
+					MatchError(errors.ErrUnsupported),
+					MatchError(ContainSubstring(
+						"dropped the uncommitted samples of clock",
+					)),
+				),
+			)
+			Expect(stored(ctx, clock)).To(BeZero())
+			Expect(stored(ctx, data)).To(BeZero())
+		})
+
+		It("Should open the next writer when there is nothing to move", func(
+			ctx SpecContext,
+		) {
+			first := openFirst(ctx)
+			MustSucceed2(first.Commit(ctx, nil))
+			cfg := config(clock)
+			cfg.Start = 13*telem.SecondTS + 1
+			w, p := MustSucceed2(db.Handoff(ctx, first, cfg, nil))
+			Expect(p).To(BeNil())
+			mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(14)))
+			Expect(MustSucceed2(w.Commit(ctx, nil))).To(Equal(14*telem.SecondTS + 1))
+			Expect(w.Close()).To(Succeed())
+			Expect(stored(ctx, clock)).To(Equal(int64(5)))
+			Expect(stored(ctx, data)).To(Equal(int64(4)))
+		})
 	})
 })
