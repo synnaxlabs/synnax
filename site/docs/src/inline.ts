@@ -9,7 +9,7 @@
 
 import { hash } from "@synnaxlabs/site-common/csp";
 
-import { STORAGE_KEY } from "@/components/nav/collapse";
+import { collapse } from "@/components/nav/collapse";
 
 /**
  * MARK marks the reader's platform on the root before the body paints, so keys print in
@@ -42,7 +42,7 @@ export const MARK = `(() => {
  * the body would let the browser paint a half-loaded page that then shifts.
  */
 export const COLLAPSE = `try {
-  if (localStorage.getItem(${JSON.stringify(STORAGE_KEY)}) === "true")
+  if (localStorage.getItem(${JSON.stringify(collapse.STORAGE_KEY)}) === "true")
     document.documentElement.dataset.pageNavCollapsed = "";
 } catch {}`;
 

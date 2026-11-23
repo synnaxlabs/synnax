@@ -17,11 +17,11 @@ import {
   matches,
   serverComputed,
 } from "@/ni/chassis/where.gen";
-import { itMatchesVectors, readVectors } from "@/testutil/vectors";
+import { vectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  itMatchesVectors(
-    readVectors("niChassis", ni.chassis.chassisZ, ni.chassis.whereZ),
+  vectors.itMatches(
+    vectors.read("niChassis", ni.chassis.chassisZ, ni.chassis.whereZ),
     matches,
     serverComputed,
   );

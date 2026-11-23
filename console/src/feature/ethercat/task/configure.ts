@@ -16,16 +16,7 @@ import {
 } from "@synnaxlabs/client";
 import { errors, primitive, unique } from "@synnaxlabs/x";
 
-import { clashProblem, findClash } from "@/feature/ethercat/device/identifier";
-import { fill, findInput, sameAddress } from "@/feature/ethercat/device/settings";
-import { isShared } from "@/feature/ethercat/device/setup";
-import {
-  MAKE,
-  SLAVE_MODEL,
-  SLAVE_SCHEMAS,
-  type SlaveDevice,
-  toSlaveOnRack,
-} from "@/feature/ethercat/device/types";
+import { Device } from "@/feature/ethercat/device";
 import { type CheckedConfig, checkSlaves } from "@/feature/ethercat/task/checks";
 import {
   type EntryChannel,
@@ -42,7 +33,7 @@ import { Device as PlatformDevice } from "@/platform/device";
 type Channel = ReadChannel | WriteChannel;
 
 export interface Slaves<C extends Channel> {
-  slaves: SlaveDevice[];
+  slaves: Device.SlaveDevice[];
   rack: number;
   channelsBySlaveKey: Map<string, Extract<C, EntryChannel>[]>;
 }
@@ -57,16 +48,19 @@ export const createSlaveChannels = async <C extends Channel>(
   client: Synnax,
   keys: device.Key[],
   pdoType: PDOType,
-  create: (slave: SlaveDevice, entry: ethercat.PDOEntry) => C,
+  create: (slave: Device.SlaveDevice, entry: ethercat.PDOEntry) => C,
   empty: C,
 ): Promise<C[]> => {
-  const slaves = await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS });
+  const slaves = await client.devices.retrieve({
+    key: keys,
+    schemas: Device.SLAVE_SCHEMAS,
+  });
   const channels = slaves
     .sort((a, b) => a.properties.position - b.properties.position)
     .flatMap((slave) => {
       const { properties } = slave;
       const described = (entry: ethercat.PDOEntry) =>
-        findInput(properties.settings, entry) != null;
+        Device.Settings.findInput(properties.settings, entry) != null;
       const usable = usableEntries(properties, pdoType);
       const entries = properties.pdos[pdoType].some(described)
         ? usable.filter(described)
@@ -93,17 +87,17 @@ export const retrieveSlaves = async <C extends Channel>(
   const slaveKeys = unique.unique(channels.map((ch) => ch.device));
   const slaves = await client.devices.retrieve({
     key: slaveKeys,
-    schemas: SLAVE_SCHEMAS,
+    schemas: Device.SLAVE_SCHEMAS,
   });
   PlatformDevice.checkFound(slaveKeys, slaves);
   const onRack = await client.devices.retrieve({
-    make: MAKE,
-    model: SLAVE_MODEL,
+    make: Device.MAKE,
+    model: Device.SLAVE_MODEL,
     rack: slaves[0].rack,
-    schemas: SLAVE_SCHEMAS,
+    schemas: Device.SLAVE_SCHEMAS,
     includeStatus: true,
   });
-  checkSlaves(pdoType, config, slaves, onRack.map(toSlaveOnRack));
+  checkSlaves(pdoType, config, slaves, onRack.map(Device.toSlaveOnRack));
   const channelsBySlaveKey = new Map<string, Extract<C, EntryChannel>[]>();
   for (const slave of slaves)
     channelsBySlaveKey.set(
@@ -122,13 +116,13 @@ export const retrieveSlaves = async <C extends Channel>(
  * held stay. A slave that other software sets up gets none.
  */
 export const fillStartupParameters = (
-  slaves: SlaveDevice[],
+  slaves: Device.SlaveDevice[],
   channels: ReadChannel[],
   held: ethercat.SlaveStartupParameters[],
 ): ethercat.SlaveStartupParameters[] => {
   const filled: ethercat.SlaveStartupParameters[] = [];
   for (const slave of slaves) {
-    if (isShared(slave.properties)) continue;
+    if (Device.Setup.isShared(slave.properties)) continue;
     const inputs = slave.properties.settings?.channels ?? [];
     const entries = channels.filter(
       (ch): ch is EntryReadChannel =>
@@ -137,8 +131,12 @@ export const fillStartupParameters = (
     const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
     const parameters: ethercat.StartupParameter[] = [];
     for (const input of inputs)
-      if (entries.some((e) => input.entries.some((a) => sameAddress(a, e))))
-        parameters.push(...fill(input.settings, prior).values);
+      if (
+        entries.some((e) =>
+          input.entries.some((a) => Device.Settings.sameAddress(a, e)),
+        )
+      )
+        parameters.push(...Device.Settings.fill(input.settings, prior).values);
     if (parameters.length > 0) filled.push({ device: slave.key, parameters });
   }
   return filled;
@@ -166,16 +164,16 @@ export const retrieveByName = async (
  */
 const checkIndexFree = async (
   client: Synnax,
-  slave: SlaveDevice,
+  slave: Device.SlaveDevice,
   index: channel.Channel,
 ): Promise<void> => {
-  const other = findClash(slave, await client.devices.retrieve({}));
-  if (other != null) throw new Error(clashProblem(slave, other));
+  const other = Device.Identifier.findClash(slave, await client.devices.retrieve({}));
+  if (other != null) throw new Error(Device.Identifier.clashProblem(slave, other));
   const others = (
     await client.devices.retrieve({
-      make: MAKE,
-      model: SLAVE_MODEL,
-      schemas: SLAVE_SCHEMAS,
+      make: Device.MAKE,
+      model: Device.SLAVE_MODEL,
+      schemas: Device.SLAVE_SCHEMAS,
     })
   ).filter(({ key }) => key !== slave.key);
   const commands = others.flatMap(({ properties }) =>
@@ -214,7 +212,7 @@ const checkIndexFree = async (
  */
 export const checkOrCreateIndex = async (
   client: Synnax,
-  slave: SlaveDevice,
+  slave: Device.SlaveDevice,
   options: IndexOptions,
 ): Promise<boolean> => {
   const { indexProperty, channelsProperty, nameSuffix } = options;
@@ -342,9 +340,9 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
     slave == null
       ? []
       : await client.devices.retrieve({
-          make: MAKE,
-          model: SLAVE_MODEL,
-          schemas: SLAVE_SCHEMAS,
+          make: Device.MAKE,
+          model: Device.SLAVE_MODEL,
+          schemas: Device.SLAVE_SCHEMAS,
         });
   const bound = new Set([
     ...mapped,
