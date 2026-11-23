@@ -13,6 +13,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
 import { batch } from "@/batch";
+import { calculation } from "@/calculation";
 import { channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { framer } from "@/framer";
@@ -124,6 +125,7 @@ const createStreamedClient = async ({
     onError: () => {},
   });
   onTestFinished(async () => await cache.close());
+  const statuses = new status.Client({ unary, cache });
   const coreURL = new url.URL(testCoreAddress());
   const frames = new framer.Client({
     stream: new WebSocketClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
@@ -135,9 +137,10 @@ const createStreamedClient = async ({
     framer: frames,
     unary,
     writer: new channel.Writer(unary),
-    statuses: new status.Client({ unary, cache }),
+    statuses,
     cache,
     batch: batches,
+    outputs: new calculation.Client({ unary, cache, statuses }).outputs,
   });
   await cache.ensureStreaming();
   // Frames apply in order, so the delete applies after the late echo.
