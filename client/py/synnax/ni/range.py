@@ -41,7 +41,7 @@ class MinMaxVal(BaseModel):
             "min_val and max_val are deprecated; pass "
             "range=spatial.ClosedBounds(lower=..., upper=...) instead",
             DeprecationWarning,
-            stacklevel=2,
+            stacklevel=3,
         )
         data = dict(data)
         default = cls.model_fields["range"].get_default(call_default_factory=True)
