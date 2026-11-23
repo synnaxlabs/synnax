@@ -531,7 +531,9 @@ describe("symbol editor spec", () => {
           { key: "b", when: equals(1), fill: fixed(BLUE) },
         ],
       });
-      expect(Spec.setVariant(spec, "static").looks.map((l) => l.key)).toEqual(["a"]);
+      expect(Spec.setVariant(spec, "static").looks).toEqual([
+        { key: "a", fill: fixed(RED) },
+      ]);
     });
 
     it("should give an actuator the commands, the match, and the Base looks on Active", () => {
@@ -569,7 +571,10 @@ describe("symbol editor spec", () => {
         "actuator",
       );
       const next = Spec.setVariant(actuator, "static");
-      expect(next.looks.map((l) => l.key)).toEqual(["a", "b"]);
+      expect(next.looks).toEqual([
+        { key: "a", part: "body", stroke: fixed(RED) },
+        { key: "b", part: "body", fill: fixed(BLUE) },
+      ]);
       expect(next.commands).toEqual([]);
       expect(next.interactions).toEqual([]);
       expect(next.states[0]).toMatchObject({ match: { type: "exact" } });

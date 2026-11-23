@@ -791,6 +791,52 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("keeps By state when the last paint of a part at a value is cleared", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        looks: [
+          {
+            key: "red",
+            part: "body",
+            when: atBase,
+            fill: {
+              type: "color",
+              value: { type: "fixed", value: color.construct("#ff0000") },
+            },
+          },
+        ],
+      });
+      fireEvent.click(screen.getByLabelText("Fill while Base"));
+      fireEvent.click(await screen.findByText("Drawing"));
+      expect(screen.getByLabelText("Fill while Active")).toBeDefined();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([]),
+      );
+    });
+
+    it("leaves By state when the symbol turns static", async () => {
+      await openPainted({ variant: "actuator", states: [createState()] });
+      byState("Fill");
+      expect(screen.getByLabelText("Fill while Base")).toBeDefined();
+      fireEvent.click(screen.getByText("Static"));
+      await waitFor(() =>
+        expect(screen.queryByLabelText("Fill while Base")).toBeNull(),
+      );
+      expect(screen.getByLabelText("Fill")).toBeDefined();
+    });
+
+    it("shows the paint of the whole drawing at the preview value", async () => {
+      await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        looks: [{ key: "node", when: atBase, fill: { type: "node" } }],
+      });
+      const fill = screen.getByLabelText("Fill");
+      expect(fill.querySelector(".lyra-icon--node")).not.toBeNull();
+    });
+
     it("starts a picked color from the color of the drawing", async () => {
       const symbol = await openPainted({
         drawing: {

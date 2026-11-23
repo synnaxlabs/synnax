@@ -69,7 +69,12 @@ const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
       <Text.Text level="small" color={9}>
         Preview
       </Text.Text>
-      <Select.Buttons<number> value={value} onChange={onChange} size="small">
+      <Select.Buttons<number>
+        value={value}
+        onChange={onChange}
+        size="small"
+        variant="outlined"
+      >
         {values.map((v) => (
           <Select.Item<number> key={v.value} itemKey={v.value} size="small">
             {v.name}
