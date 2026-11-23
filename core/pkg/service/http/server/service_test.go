@@ -90,9 +90,12 @@ var _ = Describe("Service", func() {
 			Channel: 2,
 		}
 	}
-	write := func(path string, ch channel.Key) server.Write {
+	write := func(path string, ch channel.Key, query ...http.QueryParam) server.Write {
+		if query == nil {
+			query = []http.QueryParam{}
+		}
 		return server.Write{
-			Request: server.Request{Method: http.MethodPost, Path: path},
+			Request: server.Request{Method: http.MethodPost, Path: path, Query: query},
 			Channel: ch,
 		}
 	}
@@ -226,6 +229,14 @@ var _ = Describe("Service", func() {
 					read("now", "/t", http.QueryParam{Parameter: "a", Value: "1"}),
 				}
 			}),
+			Entry("a duplicate write with a reordered query", func(s *server.Server) {
+				a := http.QueryParam{Parameter: "a", Value: "1"}
+				b := http.QueryParam{Parameter: "b", Value: "2"}
+				s.Writes = []server.Write{
+					write("/valve", 3, a, b),
+					write("/valve", 4, b, a),
+				}
+			}),
 			Entry("a duplicate write", func(s *server.Server) {
 				s.Writes = []server.Write{write("/valve", 3), write("valve", 4)}
 			}),
@@ -257,7 +268,7 @@ var _ = Describe("Service", func() {
 			Expect(got.Writes[1].Request.Path).To(Equal("/valve/"))
 		})
 
-		It("Should accept reads that differ only in method, query, or index", func(
+		It("Should accept bindings that differ only in method, query, or index", func(
 			ctx SpecContext,
 		) {
 			s := newServer()
@@ -273,7 +284,11 @@ var _ = Describe("Service", func() {
 			}
 			put := write("/valve", 3)
 			put.Request.Method = http.MethodPut
-			s.Writes = []server.Write{write("/valve", 3), put}
+			s.Writes = []server.Write{
+				write("/valve", 3),
+				put,
+				write("/valve", 3, http.QueryParam{Parameter: "id", Value: "1"}),
+			}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		})
 	})

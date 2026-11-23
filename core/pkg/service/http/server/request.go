@@ -31,22 +31,32 @@ func normalizePath(path string) string {
 }
 
 // normalize puts the path of each binding of s in the form normalizePath returns and
-// sorts the query of each read by parameter, then value.
+// sorts each query by parameter, then value.
 func normalize(s *Server) {
 	for i := range s.Reads {
 		r := &s.Reads[i].Request
 		r.Path = normalizePath(r.Path)
 		sort.SliceStable(r.Query, func(a, b int) bool {
-			qa, qb := r.Query[a], r.Query[b]
 			return cmp.Or(
-				strings.Compare(qa.Parameter, qb.Parameter),
-				strings.Compare(qa.Value, qb.Value),
+				strings.Compare(r.Query[a].Parameter, r.Query[b].Parameter),
+				strings.Compare(r.Query[a].Value, r.Query[b].Value),
 			) < 0
 		})
 	}
 	for i := range s.Writes {
-		s.Writes[i].Request.Path = normalizePath(s.Writes[i].Request.Path)
+		r := &s.Writes[i].Request
+		r.Path = normalizePath(r.Path)
+		sort.SliceStable(r.Query, func(a, b int) bool {
+			return cmp.Or(
+				strings.Compare(r.Query[a].Parameter, r.Query[b].Parameter),
+				strings.Compare(r.Query[a].Value, r.Query[b].Value),
+			) < 0
+		})
 	}
+}
+
+type requestKey struct {
+	method, path, query string
 }
 
 // prepare normalizes and validates s. It refuses a read of the same request, pointer,
@@ -57,8 +67,9 @@ func prepare(s *Server) error {
 		return err
 	}
 	type readKey struct {
-		method, path, query, pointer string
-		index                        channel.Key
+		request requestKey
+		pointer string
+		index   channel.Key
 	}
 	v := validate.New("Server")
 	reads := make(set.Set[readKey], len(s.Reads))
@@ -68,9 +79,11 @@ func prepare(s *Server) error {
 			query.Add(q.Parameter, q.Value)
 		}
 		k := readKey{
-			method:  string(r.Request.Method),
-			path:    r.Request.Path,
-			query:   query.Encode(),
+			request: requestKey{
+				method: string(r.Request.Method),
+				path:   r.Request.Path,
+				query:  query.Encode(),
+			},
 			pointer: r.Pointer,
 			index:   r.Index,
 		}
@@ -84,16 +97,25 @@ func prepare(s *Server) error {
 		)
 		reads.Add(k)
 	}
-	writes := make(set.Set[Request], len(s.Writes))
+	writes := make(set.Set[requestKey], len(s.Writes))
 	for i, w := range s.Writes {
+		query := make(url.Values, len(w.Request.Query))
+		for _, q := range w.Request.Query {
+			query.Add(q.Parameter, q.Value)
+		}
+		k := requestKey{
+			method: string(w.Request.Method),
+			path:   w.Request.Path,
+			query:  query.Encode(),
+		}
 		v.Ternaryf(
 			fmt.Sprintf("writes.%d", i),
-			writes.Contains(w.Request),
+			writes.Contains(k),
 			"duplicates the write to %s %s",
 			w.Request.Method,
 			w.Request.Path,
 		)
-		writes.Add(w.Request)
+		writes.Add(k)
 	}
 	return v.Error()
 }
