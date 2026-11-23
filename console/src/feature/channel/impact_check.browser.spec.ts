@@ -121,8 +121,9 @@ describe("impact dialog checks", () => {
     expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
   });
 
-  // The apply has left with the pick, so the check must show that pick until it ends.
-  it("shows the pick that the delete in flight carries out", async () => {
+  // A disabled check takes no click, key, or label click, so the pick that the apply
+  // carries stays shown until it ends.
+  it("locks every check while the delete applies", async () => {
     const ch = await createIndex();
     const task = await createReadTask(ch.key);
     await openDelete(ch);
@@ -132,12 +133,10 @@ describe("impact dialog checks", () => {
     fireEvent.click(check);
     await waitFor(() => expect(deleteEnabled()).toBe(true));
     fireEvent.click(findLastButton("Delete"));
-    fireEvent.click(check);
-    const shownPicked = check.matches(":checked");
+    for (const box of within(screen.getByRole("dialog")).getAllByRole("checkbox"))
+      expect(box).toBeDisabled();
+    expect(check).toBeChecked();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect({ shownPicked, deleted: await taskDeleted(task.key) }).toEqual({
-      shownPicked: true,
-      deleted: true,
-    });
+    expect(await taskDeleted(task.key)).toBe(true);
   });
 });
