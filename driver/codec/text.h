@@ -180,6 +180,8 @@ class TextEncoder {
     std::vector<Item> items;
     /// @brief tagged holds the index in fields of each tagged field, in field order.
     std::vector<std::size_t> tagged;
+    /// @brief bound holds the index in fields of the field of each binding.
+    std::vector<std::size_t> bound;
     /// @brief line is scratch space for the text of a line.
     std::string line;
 
@@ -208,5 +210,16 @@ public:
         std::span<const x::telem::Series> samples,
         std::vector<std::uint8_t> &payload
     );
+
+    /// @brief returns the error that encode returns when binding holds v, or NIL when
+    /// the field of binding can hold v.
+    [[nodiscard]] x::errors::Error
+    check(std::size_t binding, const x::telem::SampleValue &v);
+
+    /// @brief returns true when the field of binding has a default, which encode writes
+    /// for an empty series.
+    [[nodiscard]] bool has_default(std::size_t binding) const {
+        return this->fields[this->bound[binding]].fallback.has_value();
+    }
 };
 }

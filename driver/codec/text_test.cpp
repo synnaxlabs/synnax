@@ -594,4 +594,20 @@ TEST(TextEncoder, EncodeWithoutAllocating) {
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
     EXPECT_EQ(std::string(payload.begin(), payload.end()), "$SET,-123456789,T=2.5");
 }
+
+/// @brief it should check a sample of a binding as encode does, and report which fields
+/// have a default.
+TEST(TextEncoder, CheckSample) {
+    auto b = at("b", 1);
+    b.default_ = 1;
+    auto m = message("cmd", {at("a", 0), b});
+    auto enc = ASSERT_NIL_P(TextEncoder::create(m));
+    ASSERT_NIL(enc.check(0, x::telem::SampleValue(2.5)));
+    ASSERT_NIL(enc.check(1, x::telem::SampleValue(2.5)));
+    const auto err = enc.check(1, x::telem::SampleValue(std::nan("")));
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "field b: NaN is not finite");
+    EXPECT_FALSE(enc.has_default(0));
+    EXPECT_TRUE(enc.has_default(1));
+}
 }

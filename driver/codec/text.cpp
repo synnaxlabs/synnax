@@ -378,6 +378,7 @@ std::pair<TextEncoder, x::errors::Error> TextEncoder::create(const TextMessage &
     }
     TextEncoder enc;
     enc.delimiter = delimiter;
+    enc.bound.resize(m.bindings.size());
     std::size_t fixed = 0;
     if (const auto &prefix = m.payload.prefix; !prefix.empty()) {
         for (std::size_t start = 0;;) {
@@ -400,8 +401,11 @@ std::pair<TextEncoder, x::errors::Error> TextEncoder::create(const TextMessage &
                 TextEncoder{},
                 as_config(err, "message " + m.name + ": " + context)
             };
-        if (found != bound.end()) field.binding = static_cast<int>(found->second);
         const auto index = enc.fields.size();
+        if (found != bound.end()) {
+            field.binding = static_cast<int>(found->second);
+            enc.bound[found->second] = index;
+        }
         if (const auto *t = std::get_if<icd::TaggedTextField>(&f)) {
             for (const auto i: enc.tagged)
                 if (enc.fields[i].tag == t->tag)
@@ -461,6 +465,14 @@ x::errors::Error TextEncoder::encode(
             return wrap(err, "field " + f.name);
     }
     payload.assign(this->line.begin(), this->line.end());
+    return x::errors::NIL;
+}
+
+x::errors::Error
+TextEncoder::check(const std::size_t binding, const x::telem::SampleValue &v) {
+    const auto &f = this->fields[this->bound[binding]];
+    this->line.clear();
+    if (auto err = f.append(v, this->line)) return wrap(err, "field " + f.name);
     return x::errors::NIL;
 }
 }
