@@ -349,11 +349,14 @@ class Track {
     this.speed = next;
   }
 
-  // follow jumps to the fraction of state when fresh, frozen, or unknown. Otherwise it
-  // starts a transition to it.
+  // follow jumps to the fraction of state when fresh, frozen, or unknown, and keeps its
+  // target while state is stale. Otherwise it starts a transition to the fraction. A
+  // part that does not move draws again, for a look whose fields changed.
   private follow(ctx: Context, state: string, fresh: boolean): void {
-    const f = fraction(ctx, state);
-    if (fresh || ctx.frozen || Number.isNaN(ctx.readings[state]?.value ?? 0)) {
+    const reading = ctx.readings[state];
+    const held = !fresh && reading?.stale === true;
+    const f = held ? this.target : fraction(ctx, state);
+    if (!held && (fresh || ctx.frozen || Number.isNaN(reading?.value ?? 0))) {
       this.value = f;
       this.target = f;
       this.draw();
@@ -361,7 +364,7 @@ class Track {
       this.from = this.value;
       this.target = f;
       this.start = undefined;
-    }
+    } else if (!this.moving) this.draw();
   }
 
   step(now: number): boolean {

@@ -490,9 +490,18 @@ describe("Custom.Drawing motion", () => {
         spec: level(),
         readings: { speed: reading(25) },
       });
-      await rerender({ readings: { speed: reading(25, true) } });
+      await rerender({ readings: { speed: reading(75, true) } });
       expect(loop.size).toBe(0);
       expect(attr(".liquid", "clip-path")).toBe("inset(75% 0 0 0)");
+    });
+
+    it("should draw an edited look while its fraction holds", async () => {
+      const { attr, rerender } = await setup({
+        spec: level(),
+        readings: { speed: reading(25) },
+      });
+      await rerender({ spec: level("top") });
+      expect(attr(".liquid", "clip-path")).toBe("inset(0 0 75% 0)");
     });
   });
 
