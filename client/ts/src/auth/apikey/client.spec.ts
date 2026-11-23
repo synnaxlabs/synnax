@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { apiKey } from "@/auth/apikey";
-import { InvalidCredentialsError, InvalidTokenError } from "@/errors";
+import { InvalidCredentialsError, InvalidTokenError } from "@/index";
 import { createTestAuthClient, createTestClient } from "@/testutil";
 
 describe("apiKey", () => {

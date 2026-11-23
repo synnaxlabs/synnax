@@ -10,7 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { ValidationError } from "@/errors";
+import { ValidationError } from "@/index";
 import { createTestClient } from "@/testutil";
 
 describe("oidc", () => {

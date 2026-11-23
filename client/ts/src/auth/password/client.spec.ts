@@ -16,7 +16,7 @@ import {
   InvalidCredentialsError,
   NotFoundError,
   ValidationError,
-} from "@/errors";
+} from "@/index";
 import {
   createEmptyRole,
   createTestAuthClient,
@@ -242,8 +242,17 @@ describe("password", () => {
     it("should let a user change its own username and log in again", async () => {
       const owner = createTestClient();
       const { key: role } = await createEmptyRole(owner);
-      const { username: old, password: secret } = await createTestUser(owner, {
+      const {
+        user: u,
+        username: old,
+        password: secret,
+      } = await createTestUser(owner, { role });
+      // a self-rename needs update on the user, as any rename does
+      await owner.access.policies.create({
+        name: "self rename",
         role,
+        objects: [user.resourceID(u.key)],
+        actions: ["update"],
       });
       const client = createTestAuthClient({
         credentials: { username: old, password: secret },
