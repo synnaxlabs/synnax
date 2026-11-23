@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/server/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
@@ -28,7 +29,7 @@ var (
 	fullyPopulatedBaseConnection = v0.BaseConnection{
 		BytesSwapped: true,
 		WordsSwapped: false,
-		TimeoutMs:    4,
+		Timeout:      telem.TimeSpan(4),
 		Retries:      5,
 	}
 )
@@ -49,7 +50,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.BaseConnection{
 				BytesSwapped: false,
 				WordsSwapped: false,
-				TimeoutMs:    0,
+				Timeout:      telem.TimeSpan(0),
 				Retries:      0,
 			}),
 		)
@@ -81,6 +82,64 @@ var _ = Describe("Codec", func() {
 			}}),
 		)
 	})
+	Describe("Read", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Read) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Read
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.Read{
+				Register: v0.Register{
+					Type:     v0.RegisterType("coil"),
+					Address:  4,
+					DataType: new(v0.DataType("int8")),
+					Bit:      new(uint8(6)),
+				},
+				Index:   channel.Key(7),
+				Channel: channel.Key(8),
+			}),
+			Entry("zero values", v0.Read{
+				Register: v0.Register{
+					Type:     v0.RegisterType(""),
+					Address:  0,
+					DataType: nil,
+					Bit:      nil,
+				},
+				Index:   channel.Key(0),
+				Channel: channel.Key(0),
+			}),
+		)
+	})
+	Describe("Register", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Register) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Register
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.Register{
+				Type:     v0.RegisterType("coil"),
+				Address:  3,
+				DataType: new(v0.DataType("int8")),
+				Bit:      new(uint8(5)),
+			}),
+			Entry("zero values", v0.Register{
+				Type:     v0.RegisterType(""),
+				Address:  0,
+				DataType: nil,
+				Bit:      nil,
+			}),
+		)
+	})
 	Describe("Requests", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.Requests) {
@@ -97,14 +156,14 @@ var _ = Describe("Codec", func() {
 				MaxGap:             3,
 				WriteCodes:         v0.WriteCodes("multiple"),
 				MaskWriteSupported: false,
-				DelayMs:            6,
+				Delay:              telem.TimeSpan(6),
 			}),
 			Entry("zero values", v0.Requests{
 				MaxRegisters:       0,
 				MaxGap:             0,
 				WriteCodes:         v0.WriteCodes(""),
 				MaskWriteSupported: false,
-				DelayMs:            0,
+				Delay:              telem.TimeSpan(0),
 			}),
 		)
 	})
@@ -134,11 +193,31 @@ var _ = Describe("Codec", func() {
 					MaxGap:             11,
 					WriteCodes:         v0.WriteCodes("multiple"),
 					MaskWriteSupported: false,
-					DelayMs:            14,
+					Delay:              telem.TimeSpan(14),
 				},
-				ReadIndex:     channel.Key(15),
-				ReadChannels:  map[string]channel.Key{"test_15": channel.Key(16)},
-				WriteChannels: map[string]channel.Key{"test_16": channel.Key(17)},
+				Reads: []v0.Read{
+					{
+						Register: v0.Register{
+							Type:     v0.RegisterType("coil"),
+							Address:  18,
+							DataType: new(v0.DataType("int8")),
+							Bit:      new(uint8(20)),
+						},
+						Index:   channel.Key(21),
+						Channel: channel.Key(22),
+					},
+				},
+				Writes: []v0.Write{
+					{
+						Register: v0.Register{
+							Type:     v0.RegisterType("coil"),
+							Address:  26,
+							DataType: new(v0.DataType("int8")),
+							Bit:      new(uint8(28)),
+						},
+						Channel: channel.Key(29),
+					},
+				},
 			}),
 			Entry("zero values", v0.Server{
 				Key:  uuid.Nil(),
@@ -148,7 +227,7 @@ var _ = Describe("Codec", func() {
 					BaseConnection: v0.BaseConnection{
 						BytesSwapped: false,
 						WordsSwapped: false,
-						TimeoutMs:    0,
+						Timeout:      telem.TimeSpan(0),
 						Retries:      0,
 					},
 					Host:   "",
@@ -160,11 +239,10 @@ var _ = Describe("Codec", func() {
 					MaxGap:             0,
 					WriteCodes:         v0.WriteCodes(""),
 					MaskWriteSupported: false,
-					DelayMs:            0,
+					Delay:              telem.TimeSpan(0),
 				},
-				ReadIndex:     channel.Key(0),
-				ReadChannels:  map[string]channel.Key{},
-				WriteChannels: map[string]channel.Key{},
+				Reads:  []v0.Read{},
+				Writes: []v0.Write{},
 			}),
 			Entry("empty collections", v0.Server{
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -174,7 +252,7 @@ var _ = Describe("Codec", func() {
 					BaseConnection: v0.BaseConnection{
 						BytesSwapped: true,
 						WordsSwapped: false,
-						TimeoutMs:    8,
+						Timeout:      telem.TimeSpan(8),
 						Retries:      9,
 					},
 					Host:   "test_9",
@@ -186,11 +264,41 @@ var _ = Describe("Codec", func() {
 					MaxGap:             15,
 					WriteCodes:         v0.WriteCodes("multiple"),
 					MaskWriteSupported: false,
-					DelayMs:            18,
+					Delay:              telem.TimeSpan(18),
 				},
-				ReadIndex:     channel.Key(19),
-				ReadChannels:  map[string]channel.Key{},
-				WriteChannels: map[string]channel.Key{},
+				Reads:  []v0.Read{},
+				Writes: []v0.Write{},
+			}),
+		)
+	})
+	Describe("Write", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Write) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Write
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.Write{
+				Register: v0.Register{
+					Type:     v0.RegisterType("coil"),
+					Address:  4,
+					DataType: new(v0.DataType("int8")),
+					Bit:      new(uint8(6)),
+				},
+				Channel: channel.Key(7),
+			}),
+			Entry("zero values", v0.Write{
+				Register: v0.Register{
+					Type:     v0.RegisterType(""),
+					Address:  0,
+					DataType: nil,
+					Bit:      nil,
+				},
+				Channel: channel.Key(0),
 			}),
 		)
 	})
@@ -235,13 +343,61 @@ func BenchmarkEncodeDecodeConnection(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeRead(b *testing.B) {
+	seed := v0.Read{
+		Register: v0.Register{
+			Type:     v0.RegisterType("coil"),
+			Address:  4,
+			DataType: new(v0.DataType("int8")),
+			Bit:      new(uint8(6)),
+		},
+		Index:   channel.Key(7),
+		Channel: channel.Key(8),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Read
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRegister(b *testing.B) {
+	seed := v0.Register{
+		Type:     v0.RegisterType("coil"),
+		Address:  3,
+		DataType: new(v0.DataType("int8")),
+		Bit:      new(uint8(5)),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Register
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeRequests(b *testing.B) {
 	seed := v0.Requests{
 		MaxRegisters:       2,
 		MaxGap:             3,
 		WriteCodes:         v0.WriteCodes("multiple"),
 		MaskWriteSupported: false,
-		DelayMs:            6,
+		Delay:              telem.TimeSpan(6),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -274,11 +430,31 @@ func BenchmarkEncodeDecodeServer(b *testing.B) {
 			MaxGap:             11,
 			WriteCodes:         v0.WriteCodes("multiple"),
 			MaskWriteSupported: false,
-			DelayMs:            14,
+			Delay:              telem.TimeSpan(14),
 		},
-		ReadIndex:     channel.Key(15),
-		ReadChannels:  map[string]channel.Key{"test_15": channel.Key(16)},
-		WriteChannels: map[string]channel.Key{"test_16": channel.Key(17)},
+		Reads: []v0.Read{
+			{
+				Register: v0.Register{
+					Type:     v0.RegisterType("coil"),
+					Address:  18,
+					DataType: new(v0.DataType("int8")),
+					Bit:      new(uint8(20)),
+				},
+				Index:   channel.Key(21),
+				Channel: channel.Key(22),
+			},
+		},
+		Writes: []v0.Write{
+			{
+				Register: v0.Register{
+					Type:     v0.RegisterType("coil"),
+					Address:  26,
+					DataType: new(v0.DataType("int8")),
+					Bit:      new(uint8(28)),
+				},
+				Channel: channel.Key(29),
+			},
+		},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -288,6 +464,31 @@ func BenchmarkEncodeDecodeServer(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.Server
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeWrite(b *testing.B) {
+	seed := v0.Write{
+		Register: v0.Register{
+			Type:     v0.RegisterType("coil"),
+			Address:  4,
+			DataType: new(v0.DataType("int8")),
+			Bit:      new(uint8(6)),
+		},
+		Channel: channel.Key(7),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Write
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -308,7 +509,7 @@ func FuzzDecodeBaseConnection(f *testing.F) {
 		seed := v0.BaseConnection{
 			BytesSwapped: false,
 			WordsSwapped: false,
-			TimeoutMs:    0,
+			Timeout:      telem.TimeSpan(0),
 			Retries:      0,
 		}
 		w := orc.NewWriter(0)
@@ -390,6 +591,112 @@ func FuzzDecodeConnection(f *testing.F) {
 	})
 }
 
+func FuzzDecodeRead(f *testing.F) {
+	{
+		seed := v0.Read{
+			Register: v0.Register{
+				Type:     v0.RegisterType("coil"),
+				Address:  4,
+				DataType: new(v0.DataType("int8")),
+				Bit:      new(uint8(6)),
+			},
+			Index:   channel.Key(7),
+			Channel: channel.Key(8),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Read{
+			Register: v0.Register{
+				Type:     v0.RegisterType(""),
+				Address:  0,
+				DataType: nil,
+				Bit:      nil,
+			},
+			Index:   channel.Key(0),
+			Channel: channel.Key(0),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Read
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Read
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRegister(f *testing.F) {
+	{
+		seed := v0.Register{
+			Type:     v0.RegisterType("coil"),
+			Address:  3,
+			DataType: new(v0.DataType("int8")),
+			Bit:      new(uint8(5)),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Register{
+			Type:     v0.RegisterType(""),
+			Address:  0,
+			DataType: nil,
+			Bit:      nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Register
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Register
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeRequests(f *testing.F) {
 	{
 		seed := v0.Requests{
@@ -397,7 +704,7 @@ func FuzzDecodeRequests(f *testing.F) {
 			MaxGap:             3,
 			WriteCodes:         v0.WriteCodes("multiple"),
 			MaskWriteSupported: false,
-			DelayMs:            6,
+			Delay:              telem.TimeSpan(6),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -411,7 +718,7 @@ func FuzzDecodeRequests(f *testing.F) {
 			MaxGap:             0,
 			WriteCodes:         v0.WriteCodes(""),
 			MaskWriteSupported: false,
-			DelayMs:            0,
+			Delay:              telem.TimeSpan(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -458,11 +765,31 @@ func FuzzDecodeServer(f *testing.F) {
 				MaxGap:             11,
 				WriteCodes:         v0.WriteCodes("multiple"),
 				MaskWriteSupported: false,
-				DelayMs:            14,
+				Delay:              telem.TimeSpan(14),
 			},
-			ReadIndex:     channel.Key(15),
-			ReadChannels:  map[string]channel.Key{"test_15": channel.Key(16)},
-			WriteChannels: map[string]channel.Key{"test_16": channel.Key(17)},
+			Reads: []v0.Read{
+				{
+					Register: v0.Register{
+						Type:     v0.RegisterType("coil"),
+						Address:  18,
+						DataType: new(v0.DataType("int8")),
+						Bit:      new(uint8(20)),
+					},
+					Index:   channel.Key(21),
+					Channel: channel.Key(22),
+				},
+			},
+			Writes: []v0.Write{
+				{
+					Register: v0.Register{
+						Type:     v0.RegisterType("coil"),
+						Address:  26,
+						DataType: new(v0.DataType("int8")),
+						Bit:      new(uint8(28)),
+					},
+					Channel: channel.Key(29),
+				},
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -479,7 +806,7 @@ func FuzzDecodeServer(f *testing.F) {
 				BaseConnection: v0.BaseConnection{
 					BytesSwapped: false,
 					WordsSwapped: false,
-					TimeoutMs:    0,
+					Timeout:      telem.TimeSpan(0),
 					Retries:      0,
 				},
 				Host:   "",
@@ -491,11 +818,10 @@ func FuzzDecodeServer(f *testing.F) {
 				MaxGap:             0,
 				WriteCodes:         v0.WriteCodes(""),
 				MaskWriteSupported: false,
-				DelayMs:            0,
+				Delay:              telem.TimeSpan(0),
 			},
-			ReadIndex:     channel.Key(0),
-			ReadChannels:  map[string]channel.Key{},
-			WriteChannels: map[string]channel.Key{},
+			Reads:  []v0.Read{},
+			Writes: []v0.Write{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -512,7 +838,7 @@ func FuzzDecodeServer(f *testing.F) {
 				BaseConnection: v0.BaseConnection{
 					BytesSwapped: true,
 					WordsSwapped: false,
-					TimeoutMs:    8,
+					Timeout:      telem.TimeSpan(8),
 					Retries:      9,
 				},
 				Host:   "test_9",
@@ -524,11 +850,10 @@ func FuzzDecodeServer(f *testing.F) {
 				MaxGap:             15,
 				WriteCodes:         v0.WriteCodes("multiple"),
 				MaskWriteSupported: false,
-				DelayMs:            18,
+				Delay:              telem.TimeSpan(18),
 			},
-			ReadIndex:     channel.Key(19),
-			ReadChannels:  map[string]channel.Key{},
-			WriteChannels: map[string]channel.Key{},
+			Reads:  []v0.Read{},
+			Writes: []v0.Write{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -548,6 +873,61 @@ func FuzzDecodeServer(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.Server
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWrite(f *testing.F) {
+	{
+		seed := v0.Write{
+			Register: v0.Register{
+				Type:     v0.RegisterType("coil"),
+				Address:  4,
+				DataType: new(v0.DataType("int8")),
+				Bit:      new(uint8(6)),
+			},
+			Channel: channel.Key(7),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Write{
+			Register: v0.Register{
+				Type:     v0.RegisterType(""),
+				Address:  0,
+				DataType: nil,
+				Bit:      nil,
+			},
+			Channel: channel.Key(0),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Write
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Write
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

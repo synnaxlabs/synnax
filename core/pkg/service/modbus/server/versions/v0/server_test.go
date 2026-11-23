@@ -15,9 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/modbus/server/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
@@ -26,16 +26,16 @@ import (
 var _ = Describe("Server", func() {
 	tcp := func() v0.TcpConnection {
 		return v0.TcpConnection{
-			TimeoutMs: 1000,
-			Retries:   1,
-			Host:      "plc",
-			Port:      502,
-			UnitID:    255,
+			Timeout: telem.Second,
+			Retries: 1,
+			Host:    "plc",
+			Port:    502,
+			UnitID:  255,
 		}
 	}
 	rtu := func() v0.RtuConnection {
 		return v0.RtuConnection{
-			TimeoutMs:  1000,
+			Timeout:    telem.Second,
 			Retries:    1,
 			SerialPort: "/dev/ttyUSB0",
 			BaudRate:   19200,
@@ -95,9 +95,27 @@ var _ = Describe("Server", func() {
 	It("Should round trip a server through JSON", func() {
 		s := server()
 		s.Connection = v0.Connection{Variant: rtu()}
-		s.ReadIndex = 3
-		s.ReadChannels = map[string]channel.Key{"holding-register-5-float32": 4}
-		s.WriteChannels = map[string]channel.Key{"coil-1": 5}
+		s.Reads = []v0.Read{{
+			Register: v0.Register{
+				Type:     v0.RegisterTypeHoldingRegister,
+				Address:  5,
+				DataType: new(v0.DataTypeFloat32),
+			},
+			Index:   3,
+			Channel: 4,
+		}, {
+			Register: v0.Register{
+				Type:    v0.RegisterTypeInputRegister,
+				Address: 6,
+				Bit:     new(uint8(3)),
+			},
+			Index:   3,
+			Channel: 5,
+		}}
+		s.Writes = []v0.Write{{
+			Register: v0.Register{Type: v0.RegisterTypeCoil, Address: 1},
+			Channel:  6,
+		}}
 		var decoded v0.Server
 		Expect(json.Unmarshal(MustSucceed(json.Marshal(s)), &decoded)).To(Succeed())
 		Expect(decoded).To(Equal(s))
@@ -136,11 +154,21 @@ var _ = Describe("Server", func() {
 			c.Port = 0
 			s.Connection = v0.Connection{Variant: c}
 		}, "port"),
-		Entry("a zero timeout", func(s *v0.Server) {
+		Entry("a timeout under a millisecond", func(s *v0.Server) {
 			c := tcp()
-			c.TimeoutMs = 0
+			c.Timeout = telem.Microsecond
 			s.Connection = v0.Connection{Variant: c}
-		}, "timeout_ms"),
+		}, "timeout"),
+		Entry("a timeout over a minute", func(s *v0.Server) {
+			c := tcp()
+			c.Timeout = 61 * telem.Second
+			s.Connection = v0.Connection{Variant: c}
+		}, "timeout"),
+		Entry("a host that is not a hostname or an address", func(s *v0.Server) {
+			c := tcp()
+			c.Host = "plc/1"
+			s.Connection = v0.Connection{Variant: c}
+		}, "Host must be a hostname"),
 		Entry("too many retries", func(s *v0.Server) {
 			c := tcp()
 			c.Retries = 11
@@ -178,7 +206,47 @@ var _ = Describe("Server", func() {
 			s.Requests.WriteCodes = "masked"
 		}, "write_codes"),
 		Entry("a delay above five seconds", func(s *v0.Server) {
-			s.Requests.DelayMs = 5001
-		}, "delay_ms"),
+			s.Requests.Delay = 5*telem.Second + 1
+		}, "delay"),
+		Entry("a read with no index", func(s *v0.Server) {
+			s.Reads = []v0.Read{{
+				Register: v0.Register{Type: v0.RegisterTypeCoil},
+				Channel:  1,
+			}}
+		}, "reads.0.index"),
+		Entry("a read with no channel", func(s *v0.Server) {
+			s.Reads = []v0.Read{
+				{Register: v0.Register{Type: v0.RegisterTypeCoil}, Index: 1},
+			}
+		}, "reads.0.channel"),
+		Entry("a read of an unknown register type", func(s *v0.Server) {
+			s.Reads = []v0.Read{{
+				Register: v0.Register{Type: "file_record"},
+				Index:    1,
+				Channel:  2,
+			}}
+		}, "reads.0.register.type"),
+		Entry("a read of bit 16", func(s *v0.Server) {
+			s.Reads = []v0.Read{{
+				Register: v0.Register{
+					Type: v0.RegisterTypeHoldingRegister,
+					Bit:  new(uint8(16)),
+				},
+				Index:   1,
+				Channel: 2,
+			}}
+		}, "reads.0.register.bit"),
+		Entry("a write of an unknown data type", func(s *v0.Server) {
+			s.Writes = []v0.Write{{
+				Register: v0.Register{
+					Type:     v0.RegisterTypeHoldingRegister,
+					DataType: new(v0.DataType("bfloat16")),
+				},
+				Channel: 1,
+			}}
+		}, "writes.0.register.data_type"),
+		Entry("a write with no channel", func(s *v0.Server) {
+			s.Writes = []v0.Write{{Register: v0.Register{Type: v0.RegisterTypeCoil}}}
+		}, "writes.0.channel"),
 	)
 })

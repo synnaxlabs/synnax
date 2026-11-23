@@ -1096,10 +1096,34 @@ class TestModbusServerResource:
         server = sy.modbus.server.Server.model_validate(self.SERVER)
         assert isinstance(server.connection, sy.modbus.server.TcpConnection)
         assert server.connection.unit_id == 255
-        assert server.connection.timeout_ms == 1000
+        assert server.connection.timeout == sy.TimeSpan.SECOND
         assert server.requests.max_registers == 125
         assert server.requests.write_codes == sy.modbus.server.WRITE_CODES_MULTIPLE
-        assert server.read_channels == {}
+        assert server.reads == []
+        assert server.writes == []
+
+    def test_parses_register_bindings(self) -> None:
+        """Should parse reads and writes that bind registers to channels."""
+        server = sy.modbus.server.Server.model_validate(
+            {
+                **self.SERVER,
+                "reads": [
+                    {
+                        "register": {
+                            "type": "holding_register",
+                            "address": 5,
+                            "data_type": "float32",
+                        },
+                        "index": 3,
+                        "channel": 4,
+                    }
+                ],
+                "writes": [{"register": {"type": "coil", "address": 1}, "channel": 6}],
+            }
+        )
+        assert server.reads[0].register.data_type == "float32"
+        assert server.reads[0].register.bit is None
+        assert server.writes[0].register.type == "coil"
 
     def test_applies_the_rtu_defaults(self) -> None:
         """Should parse an RTU server and fill in its line defaults."""
@@ -1115,7 +1139,7 @@ class TestModbusServerResource:
         "connection",
         [
             {"host": "plc", "port": 502},
-            {"transport": "tcp", "host": "plc", "port": 502, "timeout_ms": 0},
+            {"transport": "tcp", "host": "plc", "port": 502, "timeout": 1},
             {"transport": "rtu", "serial_port": "COM3", "parity": "mark"},
             {"transport": "rtu", "serial_port": "COM3", "unit_id": 248},
         ],

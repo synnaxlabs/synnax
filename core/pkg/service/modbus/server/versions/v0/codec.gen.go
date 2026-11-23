@@ -16,13 +16,14 @@ import (
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (bc BaseConnection) EncodeOrc(w *orc.Writer) error {
 	w.Bool(bc.BytesSwapped)
 	w.Bool(bc.WordsSwapped)
-	w.Uint32(uint32(bc.TimeoutMs))
+	w.Int64(int64(bc.Timeout))
 	w.Uint8(uint8(bc.Retries))
 	return nil
 }
@@ -36,8 +37,12 @@ func (bc *BaseConnection) DecodeOrc(r *orc.Reader) error {
 	if bc.WordsSwapped, err = r.Bool(); err != nil {
 		return err
 	}
-	if bc.TimeoutMs, err = r.Uint32(); err != nil {
-		return err
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		bc.Timeout = telem.TimeSpan(rawV)
 	}
 	if bc.Retries, err = r.Uint8(); err != nil {
 		return err
@@ -126,12 +131,110 @@ func (c *Connection) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (rv Read) EncodeOrc(w *orc.Writer) error {
+	if err := rv.Register.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Uint32(uint32(rv.Index))
+	w.Uint32(uint32(rv.Channel))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *Read) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = rv.Register.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		rv.Index = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		rv.Channel = channel.Key(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rv Register) EncodeOrc(w *orc.Writer) error {
+	w.String(string(rv.Type))
+	w.Uint16(uint16(rv.Address))
+	if rv.DataType != nil {
+		w.Bool(true)
+		w.String(string(*rv.DataType))
+	} else {
+		w.Bool(false)
+	}
+	if rv.Bit != nil {
+		w.Bool(true)
+		w.Uint8(uint8(*rv.Bit))
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *Register) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		rv.Type = RegisterType(rawV)
+	}
+	if rv.Address, err = r.Uint16(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv DataType
+			{
+				rawV, err := r.String()
+				if err != nil {
+					return err
+				}
+				hv = DataType(rawV)
+			}
+			rv.DataType = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv uint8
+			if hv, err = r.Uint8(); err != nil {
+				return err
+			}
+			rv.Bit = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (rv Requests) EncodeOrc(w *orc.Writer) error {
 	w.Uint16(uint16(rv.MaxRegisters))
 	w.Uint16(uint16(rv.MaxGap))
 	w.String(string(rv.WriteCodes))
 	w.Bool(rv.MaskWriteSupported)
-	w.Uint16(uint16(rv.DelayMs))
+	w.Int64(int64(rv.Delay))
 	return nil
 }
 
@@ -154,8 +257,12 @@ func (rv *Requests) DecodeOrc(r *orc.Reader) error {
 	if rv.MaskWriteSupported, err = r.Bool(); err != nil {
 		return err
 	}
-	if rv.DelayMs, err = r.Uint16(); err != nil {
-		return err
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		rv.Delay = telem.TimeSpan(rawV)
 	}
 	return nil
 }
@@ -171,21 +278,22 @@ func (s Server) EncodeOrc(w *orc.Writer) error {
 	if err := s.Requests.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.Uint32(uint32(s.ReadIndex))
-	w.Bool(s.ReadChannels != nil)
-	if s.ReadChannels != nil {
-		w.Uint32(uint32(len(s.ReadChannels)))
-		for key, val := range s.ReadChannels {
-			w.String(key)
-			w.Uint32(uint32(val))
+	w.Bool(s.Reads != nil)
+	if s.Reads != nil {
+		w.Uint32(uint32(len(s.Reads)))
+		for i := range s.Reads {
+			if err := s.Reads[i].EncodeOrc(w); err != nil {
+				return err
+			}
 		}
 	}
-	w.Bool(s.WriteChannels != nil)
-	if s.WriteChannels != nil {
-		w.Uint32(uint32(len(s.WriteChannels)))
-		for key, val := range s.WriteChannels {
-			w.String(key)
-			w.Uint32(uint32(val))
+	w.Bool(s.Writes != nil)
+	if s.Writes != nil {
+		w.Uint32(uint32(len(s.Writes)))
+		for i := range s.Writes {
+			if err := s.Writes[i].EncodeOrc(w); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -214,67 +322,65 @@ func (s *Server) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Reads = make([]Read, n)
+			for i := range s.Reads {
+				if err = s.Reads[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.Writes = make([]Write, n)
+			for i := range s.Writes {
+				if err = s.Writes[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wv Write) EncodeOrc(w *orc.Writer) error {
+	if err := wv.Register.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Uint32(uint32(wv.Channel))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wv *Write) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = wv.Register.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
 		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		s.ReadIndex = channel.Key(rawV)
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.ReadChannels = make(map[string]channel.Key, n)
-			for range n {
-				var key string
-				var val channel.Key
-				if key, err = r.String(); err != nil {
-					return err
-				}
-				{
-					rawV, err := r.Uint32()
-					if err != nil {
-						return err
-					}
-					val = channel.Key(rawV)
-				}
-				s.ReadChannels[key] = val
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.WriteChannels = make(map[string]channel.Key, n)
-			for range n {
-				var key string
-				var val channel.Key
-				if key, err = r.String(); err != nil {
-					return err
-				}
-				{
-					rawV, err := r.Uint32()
-					if err != nil {
-						return err
-					}
-					val = channel.Key(rawV)
-				}
-				s.WriteChannels[key] = val
-			}
-		}
+		wv.Channel = channel.Key(rawV)
 	}
 	return nil
 }

@@ -14,8 +14,8 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include <variant>
+#include <vector>
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/rack/key.h"
@@ -31,10 +31,30 @@ struct BaseConnection;
 struct Stats;
 struct StatusDetails;
 struct Requests;
+struct Register;
+struct Read;
+struct Write;
 struct Server;
 
 constexpr const char *WRITE_CODES_MULTIPLE = "multiple";
 constexpr const char *WRITE_CODES_SINGLE = "single";
+
+constexpr const char *REGISTER_TYPE_COIL = "coil";
+constexpr const char *REGISTER_TYPE_DISCRETE_INPUT = "discrete_input";
+constexpr const char *REGISTER_TYPE_HOLDING_REGISTER = "holding_register";
+constexpr const char *REGISTER_TYPE_INPUT_REGISTER = "input_register";
+
+constexpr const char *DATA_TYPE_INT_8 = "int8";
+constexpr const char *DATA_TYPE_INT_16 = "int16";
+constexpr const char *DATA_TYPE_INT_32 = "int32";
+constexpr const char *DATA_TYPE_INT_64 = "int64";
+constexpr const char *DATA_TYPE_UINT_8 = "uint8";
+constexpr const char *DATA_TYPE_UINT_16 = "uint16";
+constexpr const char *DATA_TYPE_UINT_32 = "uint32";
+constexpr const char *DATA_TYPE_UINT_64 = "uint64";
+constexpr const char *DATA_TYPE_FLOAT_32 = "float32";
+constexpr const char *DATA_TYPE_FLOAT_64 = "float64";
+constexpr const char *DATA_TYPE_STRING = "string";
 
 constexpr const char *PARITY_NONE = "none";
 constexpr const char *PARITY_EVEN = "even";
@@ -49,8 +69,8 @@ struct BaseConnection {
     /// @brief words_swapped is true when the low word of a multi-register value comes
     /// last.
     bool words_swapped = false;
-    /// @brief timeout_ms is the connect and response timeout, in milliseconds.
-    std::uint32_t timeout_ms = 1000;
+    /// @brief timeout is the connect and response timeout.
+    ::x::telem::TimeSpan timeout = ::x::telem::TimeSpan(1000000000);
     /// @brief retries is the number of immediate retries after a temporary error.
     std::uint8_t retries = 1;
 
@@ -147,14 +167,54 @@ struct Requests {
     std::string write_codes = WRITE_CODES_MULTIPLE;
     /// @brief mask_write_supported is true when bit writes use function code 22.
     bool mask_write_supported = false;
-    /// @brief delay_ms is the wait between two requests, in milliseconds.
-    std::uint16_t delay_ms = 0;
+    /// @brief delay is the wait between two requests.
+    ::x::telem::TimeSpan delay = ::x::telem::TimeSpan(0);
 
     static Requests parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Register identifies a value at one Modbus address.
+struct Register {
+    /// @brief type is the address space of the register.
+    std::string type;
+    /// @brief address is the address of the first register.
+    std::uint16_t address = 0;
+    /// @brief data_type is the type of the value in the registers. Absent for a coil, a
+    /// discrete input, and a bit of a register.
+    std::optional<std::string> data_type;
+    /// @brief bit is the bit of the register, from 0 to 15. Absent for a whole value.
+    std::optional<std::uint8_t> bit;
+
+    static Register parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief Read binds a value that read tasks read to its channel.
+struct Read {
+    /// @brief register_ is the value that the channel holds.
+    Register register_;
+    /// @brief index is the index channel of the channel.
+    ::synnax::channel::Key index = 0;
+    /// @brief channel is the channel that holds the samples of the value.
+    ::synnax::channel::Key channel = 0;
+
+    static Read parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Write binds a value that write tasks write to its command channel.
+struct Write {
+    /// @brief register_ is the value that the channel commands.
+    Register register_;
+    /// @brief channel is the channel whose commands write tasks send to the value.
+    ::synnax::channel::Key channel = 0;
+
+    static Write parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Server is a Modbus server that a rack's Driver connects to.
 struct Server {
@@ -168,12 +228,10 @@ struct Server {
     Connection connection;
     /// @brief requests shapes the requests that the Driver sends.
     Requests requests = {};
-    /// @brief read_index is the index channel of the channels that read tasks write to.
-    ::synnax::channel::Key read_index = ::synnax::channel::Key(0);
-    /// @brief read_channels maps a register to the channel that holds its samples.
-    std::unordered_map<std::string, ::synnax::channel::Key> read_channels = {};
-    /// @brief write_channels maps a register to the channel that commands it.
-    std::unordered_map<std::string, ::synnax::channel::Key> write_channels = {};
+    /// @brief reads bind the values that read tasks read to their channels.
+    std::vector<Read> reads = {};
+    /// @brief writes bind the values that write tasks write to their command channels.
+    std::vector<Write> writes = {};
     /// @brief status is the current connection status of the server.
     std::optional<Status> status;
 

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { modbus } from "@/modbus";
@@ -29,7 +28,7 @@ describe("serverZ", () => {
       unitId: 255,
       bytesSwapped: false,
       wordsSwapped: false,
-      timeoutMs: 1000,
+      timeout: 1000000000,
       retries: 1,
     });
     expect(server.requests).toEqual({
@@ -37,10 +36,10 @@ describe("serverZ", () => {
       maxGap: 125,
       writeCodes: "multiple",
       maskWriteSupported: false,
-      delayMs: 0,
+      delay: 0,
     });
-    expect(server.readIndex).toEqual(0);
-    expect(server.readChannels).toEqual({});
+    expect(server.reads).toEqual([]);
+    expect(server.writes).toEqual([]);
   });
 
   it("should apply the defaults of an RTU connection", () => {
@@ -56,17 +55,26 @@ describe("serverZ", () => {
     });
   });
 
-  it("should keep the case of register keys from the wire", () => {
-    const wire = {
+  it("should parse the register bindings", () => {
+    const server = modbus.server.serverZ.parse({
       ...SERVER,
-      read_channels: { "holding-register-5-float32": 5 },
-      write_channels: { "coil-1": 6 },
-    };
-    const server = modbus.server.serverZ.parse(
-      caseconv.snakeToCamel(wire, { schema: modbus.server.serverZ }),
-    );
-    expect(server.readChannels).toEqual({ "holding-register-5-float32": 5 });
-    expect(server.writeChannels).toEqual({ "coil-1": 6 });
+      reads: [
+        {
+          register: { type: "holding_register", address: 5, dataType: "float32" },
+          index: 3,
+          channel: 4,
+        },
+        {
+          register: { type: "input_register", address: 6, bit: 3 },
+          index: 3,
+          channel: 5,
+        },
+      ],
+      writes: [{ register: { type: "coil", address: 1 }, channel: 6 }],
+    });
+    expect(server.reads[0].register.dataType).toEqual("float32");
+    expect(server.reads[1].register.bit).toEqual(3);
+    expect(server.writes[0].register).toEqual({ type: "coil", address: 1 });
   });
 
   it("should parse the request counters of a status as numbers", () => {
@@ -85,7 +93,30 @@ describe("serverZ", () => {
     ["an empty name", { name: "" }],
     ["no transport", { connection: { host: "plc", port: 502 } }],
     ["an empty host", { connection: { ...SERVER.connection, host: "" } }],
-    ["a zero timeout", { connection: { ...SERVER.connection, timeoutMs: 0 } }],
+    [
+      "a timeout under a millisecond",
+      { connection: { ...SERVER.connection, timeout: 1 } },
+    ],
+    [
+      "a read with no index",
+      { reads: [{ register: { type: "coil", address: 0 }, channel: 1 }] },
+    ],
+    [
+      "a read of an unknown register type",
+      {
+        reads: [
+          { register: { type: "file_record", address: 0 }, index: 1, channel: 2 },
+        ],
+      },
+    ],
+    [
+      "a write of bit 16",
+      {
+        writes: [
+          { register: { type: "holding_register", address: 0, bit: 16 }, channel: 1 },
+        ],
+      },
+    ],
     [
       "an RTU unit of 248",
       { connection: { transport: "rtu", serialPort: "COM3", unitId: 248 } },

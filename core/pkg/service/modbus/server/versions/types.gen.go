@@ -38,6 +38,50 @@ const (
 	WriteCodesSingle WriteCodes = v0.WriteCodesSingle
 )
 
+// RegisterType is the Modbus address space that a register is in.
+type RegisterType = v0.RegisterType
+
+const (
+	// RegisterTypeCoil is a single-bit coil, which tasks can read and write.
+	RegisterTypeCoil RegisterType = v0.RegisterTypeCoil
+	// RegisterTypeDiscreteInput is a single-bit discrete input, which tasks can only
+	// read.
+	RegisterTypeDiscreteInput RegisterType = v0.RegisterTypeDiscreteInput
+	// RegisterTypeHoldingRegister is a 16-bit holding register, which tasks can read
+	// and write.
+	RegisterTypeHoldingRegister RegisterType = v0.RegisterTypeHoldingRegister
+	// RegisterTypeInputRegister is a 16-bit input register, which tasks can only read.
+	RegisterTypeInputRegister RegisterType = v0.RegisterTypeInputRegister
+)
+
+// DataType is the type of the value that one or more registers hold.
+type DataType = v0.DataType
+
+const (
+	// DataTypeInt8 is a signed 8-bit integer.
+	DataTypeInt8 DataType = v0.DataTypeInt8
+	// DataTypeInt16 is a signed 16-bit integer.
+	DataTypeInt16 DataType = v0.DataTypeInt16
+	// DataTypeInt32 is a signed 32-bit integer.
+	DataTypeInt32 DataType = v0.DataTypeInt32
+	// DataTypeInt64 is a signed 64-bit integer.
+	DataTypeInt64 DataType = v0.DataTypeInt64
+	// DataTypeUint8 is an unsigned 8-bit integer.
+	DataTypeUint8 DataType = v0.DataTypeUint8
+	// DataTypeUint16 is an unsigned 16-bit integer.
+	DataTypeUint16 DataType = v0.DataTypeUint16
+	// DataTypeUint32 is an unsigned 32-bit integer.
+	DataTypeUint32 DataType = v0.DataTypeUint32
+	// DataTypeUint64 is an unsigned 64-bit integer.
+	DataTypeUint64 DataType = v0.DataTypeUint64
+	// DataTypeFloat32 is a 32-bit float.
+	DataTypeFloat32 DataType = v0.DataTypeFloat32
+	// DataTypeFloat64 is a 64-bit float.
+	DataTypeFloat64 DataType = v0.DataTypeFloat64
+	// DataTypeString is a string of two characters to each register.
+	DataTypeString DataType = v0.DataTypeString
+)
+
 // BaseConnection carries the fields that every Modbus connection shares.
 type BaseConnection = v0.BaseConnection
 
@@ -65,6 +109,15 @@ type RtuConnection = v0.RtuConnection
 
 // Requests shapes the requests that the Driver sends to a server.
 type Requests = v0.Requests
+
+// Register identifies a value at one Modbus address.
+type Register = v0.Register
+
+// Read binds a value that read tasks read to its channel.
+type Read = v0.Read
+
+// Write binds a value that write tasks write to its command channel.
+type Write = v0.Write
 
 // Stats holds the request counters of a server.
 type Stats = v0.Stats

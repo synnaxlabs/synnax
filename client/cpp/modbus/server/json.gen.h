@@ -13,8 +13,8 @@
 
 #include <cstdint>
 #include <string>
-#include <unordered_map>
 #include <variant>
+#include <vector>
 
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/modbus/server/types.gen.h"
@@ -29,7 +29,10 @@ inline BaseConnection BaseConnection::parse(x::json::Parser parser) {
     return BaseConnection{
         .bytes_swapped = parser.field<bool>("bytes_swapped", false),
         .words_swapped = parser.field<bool>("words_swapped", false),
-        .timeout_ms = parser.field<std::uint32_t>("timeout_ms", 1000),
+        .timeout = parser.field<::x::telem::TimeSpan>(
+            "timeout",
+            ::x::telem::TimeSpan(1000000000)
+        ),
         .retries = parser.field<std::uint8_t>("retries", 1),
     };
 }
@@ -38,7 +41,7 @@ inline x::json::json BaseConnection::to_json() const {
     x::json::json j = x::json::json::object();
     j["bytes_swapped"] = this->bytes_swapped;
     j["words_swapped"] = this->words_swapped;
-    j["timeout_ms"] = this->timeout_ms;
+    j["timeout"] = this->timeout.nanoseconds();
     j["retries"] = this->retries;
     return j;
 }
@@ -49,7 +52,7 @@ inline Requests Requests::parse(x::json::Parser parser) {
         .max_gap = parser.field<std::uint16_t>("max_gap", 125),
         .write_codes = parser.field<std::string>("write_codes", "multiple"),
         .mask_write_supported = parser.field<bool>("mask_write_supported", false),
-        .delay_ms = parser.field<std::uint16_t>("delay_ms", 0),
+        .delay = parser.field<::x::telem::TimeSpan>("delay", ::x::telem::TimeSpan(0)),
     };
 }
 
@@ -59,7 +62,55 @@ inline x::json::json Requests::to_json() const {
     j["max_gap"] = this->max_gap;
     j["write_codes"] = this->write_codes;
     j["mask_write_supported"] = this->mask_write_supported;
-    j["delay_ms"] = this->delay_ms;
+    j["delay"] = this->delay.nanoseconds();
+    return j;
+}
+
+inline Register Register::parse(x::json::Parser parser) {
+    return Register{
+        .type = parser.field<std::string>("type"),
+        .address = parser.field<std::uint16_t>("address", 0),
+        .data_type = parser.field<std::optional<std::string>>("data_type"),
+        .bit = parser.field<std::optional<std::uint8_t>>("bit"),
+    };
+}
+
+inline x::json::json Register::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    j["address"] = this->address;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
+    if (this->bit.has_value()) j["bit"] = *this->bit;
+    return j;
+}
+
+inline Read Read::parse(x::json::Parser parser) {
+    return Read{
+        .register_ = parser.field<Register>("register"),
+        .index = parser.required_field<::synnax::channel::Key>("index"),
+        .channel = parser.required_field<::synnax::channel::Key>("channel"),
+    };
+}
+
+inline x::json::json Read::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["register"] = this->register_.to_json();
+    j["index"] = this->index;
+    j["channel"] = this->channel;
+    return j;
+}
+
+inline Write Write::parse(x::json::Parser parser) {
+    return Write{
+        .register_ = parser.field<Register>("register"),
+        .channel = parser.required_field<::synnax::channel::Key>("channel"),
+    };
+}
+
+inline x::json::json Write::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["register"] = this->register_.to_json();
+    j["channel"] = this->channel;
     return j;
 }
 
@@ -116,20 +167,8 @@ inline Server Server::parse(x::json::Parser parser) {
         .name = parser.required_field<std::string>("name"),
         .connection = parse_connection(parser.child("connection")),
         .requests = parser.field<Requests>("requests", Requests{}),
-        .read_index = parser.field<::synnax::channel::Key>(
-            "read_index",
-            ::synnax::channel::Key(0)
-        ),
-        .read_channels = parser.field<
-            std::unordered_map<std::string, ::synnax::channel::Key>>(
-            "read_channels",
-            std::unordered_map<std::string, ::synnax::channel::Key>{}
-        ),
-        .write_channels = parser.field<
-            std::unordered_map<std::string, ::synnax::channel::Key>>(
-            "write_channels",
-            std::unordered_map<std::string, ::synnax::channel::Key>{}
-        ),
+        .reads = parser.field<std::vector<Read>>("reads", std::vector<Read>{}),
+        .writes = parser.field<std::vector<Write>>("writes", std::vector<Write>{}),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
@@ -141,9 +180,8 @@ inline x::json::json Server::to_json() const {
     j["name"] = this->name;
     j["connection"] = ::synnax::modbus::server::to_json(this->connection);
     j["requests"] = this->requests.to_json();
-    j["read_index"] = this->read_index;
-    j["read_channels"] = this->read_channels;
-    j["write_channels"] = this->write_channels;
+    j["reads"] = x::json::to_array(this->reads);
+    j["writes"] = x::json::to_array(this->writes);
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }

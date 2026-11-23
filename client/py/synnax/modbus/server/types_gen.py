@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel, rack as rack_, status as status_
+from synnax import channel as channel_, rack as rack_, status as status_
 from synnax.resource import ID
 from x import telem
 
@@ -26,6 +26,54 @@ WRITE_CODES_SINGLE: Literal["single"] = "single"
 
 
 WriteCodes = Literal["multiple", "single"]
+
+REGISTER_TYPE_COIL: Literal["coil"] = "coil"
+
+REGISTER_TYPE_DISCRETE_INPUT: Literal["discrete_input"] = "discrete_input"
+
+REGISTER_TYPE_HOLDING_REGISTER: Literal["holding_register"] = "holding_register"
+
+REGISTER_TYPE_INPUT_REGISTER: Literal["input_register"] = "input_register"
+
+
+RegisterType = Literal["coil", "discrete_input", "holding_register", "input_register"]
+
+DATA_TYPE_INT8: Literal["int8"] = "int8"
+
+DATA_TYPE_INT16: Literal["int16"] = "int16"
+
+DATA_TYPE_INT32: Literal["int32"] = "int32"
+
+DATA_TYPE_INT64: Literal["int64"] = "int64"
+
+DATA_TYPE_UINT8: Literal["uint8"] = "uint8"
+
+DATA_TYPE_UINT16: Literal["uint16"] = "uint16"
+
+DATA_TYPE_UINT32: Literal["uint32"] = "uint32"
+
+DATA_TYPE_UINT64: Literal["uint64"] = "uint64"
+
+DATA_TYPE_FLOAT32: Literal["float32"] = "float32"
+
+DATA_TYPE_FLOAT64: Literal["float64"] = "float64"
+
+DATA_TYPE_STRING: Literal["string"] = "string"
+
+
+DataType = Literal[
+    "int8",
+    "int16",
+    "int32",
+    "int64",
+    "uint8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "float32",
+    "float64",
+    "string",
+]
 
 PARITY_NONE: Literal["none"] = "none"
 
@@ -45,13 +93,15 @@ class BaseConnection(BaseModel):
     Attributes:
         bytes_swapped: Is true when the bytes of each 16-bit register are swapped.
         words_swapped: Is true when the low word of a multi-register value comes last.
-        timeout_ms: Is the connect and response timeout, in milliseconds.
+        timeout: Is the connect and response timeout.
         retries: Is the number of immediate retries after a temporary error.
     """
 
     bytes_swapped: bool = False
     words_swapped: bool = False
-    timeout_ms: int = Field(default=1000, ge=1, le=60000)
+    timeout: telem.TimeSpan = Field(
+        default=telem.TimeSpan(1000000000), ge=1000000, le=60000000000
+    )
     retries: int = Field(default=1, ge=0, le=10)
 
 
@@ -63,14 +113,33 @@ class Requests(BaseModel):
         max_gap: Is the widest gap between two channels that one read spans.
         write_codes: Selects the function codes that write tasks use.
         mask_write_supported: Is true when bit writes use function code 22.
-        delay_ms: Is the wait between two requests, in milliseconds.
+        delay: Is the wait between two requests.
     """
 
     max_registers: int = Field(default=125, ge=1, le=125)
     max_gap: int = Field(default=125, ge=0, le=65535)
     write_codes: WriteCodes = "multiple"
     mask_write_supported: bool = False
-    delay_ms: int = Field(default=0, ge=0, le=5000)
+    delay: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=-9223372036854775808, le=5000000000
+    )
+
+
+class Register(BaseModel):
+    """Identifies a value at one Modbus address.
+
+    Attributes:
+        type: Is the address space of the register.
+        address: Is the address of the first register.
+        data_type: Is the type of the value in the registers. Absent for a coil, a
+            discrete input, and a bit of a register.
+        bit: Is the bit of the register, from 0 to 15. Absent for a whole value.
+    """
+
+    type: RegisterType
+    address: int = Field(default=0, ge=0, le=65535)
+    data_type: DataType | None = None
+    bit: int | None = Field(default=None, ge=0, le=15)
 
 
 class Stats(BaseModel):
@@ -124,6 +193,32 @@ Connection = Annotated[
 ]
 
 
+class Read(BaseModel):
+    """Binds a value that read tasks read to its channel.
+
+    Attributes:
+        register: Is the value that the channel holds.
+        index: Is the index channel of the channel.
+        channel: Is the channel that holds the samples of the value.
+    """
+
+    register: Register
+    index: channel_.Key = Field(gt=0, le=4294967295)
+    channel: channel_.Key = Field(gt=0, le=4294967295)
+
+
+class Write(BaseModel):
+    """Binds a value that write tasks write to its command channel.
+
+    Attributes:
+        register: Is the value that the channel commands.
+        channel: Is the channel whose commands write tasks send to the value.
+    """
+
+    register: Register
+    channel: channel_.Key = Field(gt=0, le=4294967295)
+
+
 class StatusDetails(BaseModel):
     """Identifies the server and rack that a status pertains to.
 
@@ -152,9 +247,8 @@ class Server(BaseModel):
         name: Is a human-readable name for the server.
         connection: Holds the settings that the Driver connects with.
         requests: Shapes the requests that the Driver sends.
-        read_index: Is the index channel of the channels that read tasks write to.
-        read_channels: Maps a register to the channel that holds its samples.
-        write_channels: Maps a register to the channel that commands it.
+        reads: Bind the values that read tasks read to their channels.
+        writes: Bind the values that write tasks write to their command channels.
         status: Is the current connection status of the server.
     """
 
@@ -163,13 +257,8 @@ class Server(BaseModel):
     name: str = Field(min_length=1)
     connection: Connection
     requests: Requests = Field(default_factory=lambda: Requests())
-    read_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    read_channels: dict[str, Annotated[channel.Key, Field(ge=0, le=4294967295)]] = (
-        Field(default_factory=dict)
-    )
-    write_channels: dict[str, Annotated[channel.Key, Field(ge=0, le=4294967295)]] = (
-        Field(default_factory=dict)
-    )
+    reads: list[Read] = Field(default_factory=list)
+    writes: list[Write] = Field(default_factory=list)
     status: Status | None = None
 
     @_override

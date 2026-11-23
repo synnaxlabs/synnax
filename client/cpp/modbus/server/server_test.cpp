@@ -33,9 +33,10 @@ TEST(Server, AppliesTCPDefaults) {
     ASSERT_EQ(tcp.host, "plc");
     ASSERT_EQ(tcp.port, 502);
     ASSERT_EQ(tcp.unit_id, 255);
-    ASSERT_EQ(tcp.timeout_ms, 1000);
+    ASSERT_EQ(tcp.timeout, x::telem::SECOND);
     ASSERT_EQ(server.requests.write_codes, WRITE_CODES_MULTIPLE);
-    ASSERT_TRUE(server.read_channels.empty());
+    ASSERT_TRUE(server.reads.empty());
+    ASSERT_TRUE(server.writes.empty());
     ASSERT_FALSE(server.status.has_value());
 }
 
@@ -57,15 +58,32 @@ TEST(Server, RoundTrips) {
     x::json::Parser parser(valid_server());
     auto server = Server::parse(parser);
     ASSERT_NIL(parser.error());
-    server.read_index = 3;
-    server.read_channels["holding-register-5-float32"] = 4;
-    server.write_channels["coil-1"] = 5;
+    server.reads.push_back(
+        Read{
+            .register_ =
+                Register{
+                    .type = REGISTER_TYPE_HOLDING_REGISTER,
+                    .address = 5,
+                    .data_type = DATA_TYPE_FLOAT32,
+                },
+            .index = 3,
+            .channel = 4,
+        }
+    );
+    server.writes.push_back(
+        Write{
+            .register_ = Register{.type = REGISTER_TYPE_COIL, .address = 1, .bit = 3},
+            .channel = 5,
+        }
+    );
     x::json::Parser round(server.to_json());
     const auto parsed = Server::parse(round);
     ASSERT_NIL(round.error());
     ASSERT_EQ(std::get<TcpConnection>(parsed.connection).host, "plc");
-    ASSERT_EQ(parsed.read_index, 3);
-    ASSERT_EQ(parsed.read_channels.at("holding-register-5-float32"), 4);
-    ASSERT_EQ(parsed.write_channels.at("coil-1"), 5);
+    ASSERT_EQ(parsed.reads.at(0).register_.data_type, DATA_TYPE_FLOAT32);
+    ASSERT_EQ(parsed.reads.at(0).index, 3);
+    ASSERT_EQ(parsed.reads.at(0).channel, 4);
+    ASSERT_EQ(parsed.writes.at(0).register_.bit, 3);
+    ASSERT_EQ(parsed.writes.at(0).channel, 5);
 }
 }

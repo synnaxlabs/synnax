@@ -15,6 +15,8 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
+	"regexp"
+	"strconv"
 	"uuid"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
@@ -25,6 +27,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
+
+var validatePattern0 = regexp.MustCompile("^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?([.][A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|[0-9A-Fa-f.]*:[0-9A-Fa-f:.]*)$")
 
 // Key uniquely identifies a Modbus server.
 type Key = uuid.UUID
@@ -73,21 +77,87 @@ func (w WriteCodes) IsValid() bool {
 	}
 }
 
+// RegisterType is the Modbus address space that a register is in.
+type RegisterType string
+
+const (
+	// RegisterTypeCoil is a single-bit coil, which tasks can read and write.
+	RegisterTypeCoil RegisterType = "coil"
+	// RegisterTypeDiscreteInput is a single-bit discrete input, which tasks can only
+	// read.
+	RegisterTypeDiscreteInput RegisterType = "discrete_input"
+	// RegisterTypeHoldingRegister is a 16-bit holding register, which tasks can read
+	// and write.
+	RegisterTypeHoldingRegister RegisterType = "holding_register"
+	// RegisterTypeInputRegister is a 16-bit input register, which tasks can only read.
+	RegisterTypeInputRegister RegisterType = "input_register"
+)
+
+// IsValid reports whether r is one of the defined RegisterType
+// values.
+func (r RegisterType) IsValid() bool {
+	switch r {
+	case RegisterTypeCoil, RegisterTypeDiscreteInput, RegisterTypeHoldingRegister, RegisterTypeInputRegister:
+		return true
+	default:
+		return false
+	}
+}
+
+// DataType is the type of the value that one or more registers hold.
+type DataType string
+
+const (
+	// DataTypeInt8 is a signed 8-bit integer.
+	DataTypeInt8 DataType = "int8"
+	// DataTypeInt16 is a signed 16-bit integer.
+	DataTypeInt16 DataType = "int16"
+	// DataTypeInt32 is a signed 32-bit integer.
+	DataTypeInt32 DataType = "int32"
+	// DataTypeInt64 is a signed 64-bit integer.
+	DataTypeInt64 DataType = "int64"
+	// DataTypeUint8 is an unsigned 8-bit integer.
+	DataTypeUint8 DataType = "uint8"
+	// DataTypeUint16 is an unsigned 16-bit integer.
+	DataTypeUint16 DataType = "uint16"
+	// DataTypeUint32 is an unsigned 32-bit integer.
+	DataTypeUint32 DataType = "uint32"
+	// DataTypeUint64 is an unsigned 64-bit integer.
+	DataTypeUint64 DataType = "uint64"
+	// DataTypeFloat32 is a 32-bit float.
+	DataTypeFloat32 DataType = "float32"
+	// DataTypeFloat64 is a 64-bit float.
+	DataTypeFloat64 DataType = "float64"
+	// DataTypeString is a string of two characters to each register.
+	DataTypeString DataType = "string"
+)
+
+// IsValid reports whether d is one of the defined DataType
+// values.
+func (d DataType) IsValid() bool {
+	switch d {
+	case DataTypeInt8, DataTypeInt16, DataTypeInt32, DataTypeInt64, DataTypeUint8, DataTypeUint16, DataTypeUint32, DataTypeUint64, DataTypeFloat32, DataTypeFloat64, DataTypeString:
+		return true
+	default:
+		return false
+	}
+}
+
 // BaseConnection carries the fields that every Modbus connection shares.
 type BaseConnection struct {
 	// BytesSwapped is true when the bytes of each 16-bit register are swapped.
 	BytesSwapped bool `json:"bytes_swapped" msgpack:"bytes_swapped"`
 	// WordsSwapped is true when the low word of a multi-register value comes last.
 	WordsSwapped bool `json:"words_swapped" msgpack:"words_swapped"`
-	// TimeoutMs is the connect and response timeout, in milliseconds.
-	TimeoutMs uint32 `json:"timeout_ms" msgpack:"timeout_ms"`
+	// Timeout is the connect and response timeout.
+	Timeout telem.TimeSpan `json:"timeout" msgpack:"timeout"`
 	// Retries is the number of immediate retries after a temporary error.
 	Retries uint8 `json:"retries" msgpack:"retries"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
 func (b *BaseConnection) SetDefaults() {
-	b.TimeoutMs = 1000
+	b.Timeout = 1000000000
 	b.Retries = 1
 }
 
@@ -95,8 +165,8 @@ func (b *BaseConnection) SetDefaults() {
 // schema constraints.
 func (b BaseConnection) Validate() error {
 	v := validate.New("BaseConnection")
-	v.GreaterThanEq("timeout_ms", b.TimeoutMs, 1)
-	v.LessThanEq("timeout_ms", b.TimeoutMs, 60000)
+	v.GreaterThanEq("timeout", b.Timeout, 1000000)
+	v.LessThanEq("timeout", b.Timeout, 60000000000)
 	v.LessThanEq("retries", b.Retries, 10)
 	return v.Error()
 }
@@ -140,6 +210,7 @@ func (t *TcpConnection) SetDefaults() {
 func (t TcpConnection) Validate() error {
 	v := validate.New("TcpConnection")
 	v.NotEmptyString("host", t.Host)
+	v.Ternary("host", !validatePattern0.MatchString(string(t.Host)), "Host must be a hostname, an IPv4 address, or an IPv6 address")
 	v.NonZero("port", t.Port)
 	v.Exec(t.BaseConnection.Validate)
 	return v.Error()
@@ -323,8 +394,8 @@ type Requests struct {
 	WriteCodes WriteCodes `json:"write_codes" msgpack:"write_codes"`
 	// MaskWriteSupported is true when bit writes use function code 22.
 	MaskWriteSupported bool `json:"mask_write_supported" msgpack:"mask_write_supported"`
-	// DelayMs is the wait between two requests, in milliseconds.
-	DelayMs uint16 `json:"delay_ms" msgpack:"delay_ms"`
+	// Delay is the wait between two requests.
+	Delay telem.TimeSpan `json:"delay" msgpack:"delay"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -360,7 +431,71 @@ func (r Requests) Validate() error {
 	v.Ternaryf("write_codes", !r.WriteCodes.IsValid(), "invalid write_codes: %v", r.WriteCodes)
 	v.GreaterThanEq("max_registers", r.MaxRegisters, 1)
 	v.LessThanEq("max_registers", r.MaxRegisters, 125)
-	v.LessThanEq("delay_ms", r.DelayMs, 5000)
+	v.LessThanEq("delay", r.Delay, 5000000000)
+	return v.Error()
+}
+
+// Register identifies a value at one Modbus address.
+type Register struct {
+	// Type is the address space of the register.
+	Type RegisterType `json:"type" msgpack:"type"`
+	// Address is the address of the first register.
+	Address uint16 `json:"address" msgpack:"address"`
+	// DataType is the type of the value in the registers. Absent for a coil, a discrete
+	// input, and a bit of a register.
+	DataType *DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// Bit is the bit of the register, from 0 to 15. Absent for a whole value.
+	Bit *uint8 `json:"bit,omitzero" msgpack:"bit,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Register) Validate() error {
+	v := validate.New("Register")
+	v.Ternaryf("type", !r.Type.IsValid(), "invalid type: %v", r.Type)
+	if r.DataType != nil {
+		v.Ternaryf("data_type", !r.DataType.IsValid(), "invalid data_type: %v", *r.DataType)
+	}
+	if r.Bit != nil {
+		v.LessThanEq("bit", *r.Bit, 15)
+	}
+	return v.Error()
+}
+
+// Read binds a value that read tasks read to its channel.
+type Read struct {
+	// Register is the value that the channel holds.
+	Register Register `json:"register" msgpack:"register"`
+	// Index is the index channel of the channel.
+	Index channel.Key `json:"index" msgpack:"index"`
+	// Channel is the channel that holds the samples of the value.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Read) Validate() error {
+	v := validate.New("Read")
+	v.NonZero("index", r.Index)
+	v.NonZero("channel", r.Channel)
+	v.Exec(func() error { return validate.PathedError(r.Register.Validate(), "register") })
+	return v.Error()
+}
+
+// Write binds a value that write tasks write to its command channel.
+type Write struct {
+	// Register is the value that the channel commands.
+	Register Register `json:"register" msgpack:"register"`
+	// Channel is the channel whose commands write tasks send to the value.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w Write) Validate() error {
+	v := validate.New("Write")
+	v.NonZero("channel", w.Channel)
+	v.Exec(func() error { return validate.PathedError(w.Register.Validate(), "register") })
 	return v.Error()
 }
 
@@ -407,12 +542,10 @@ type Server struct {
 	Connection Connection `json:"connection" msgpack:"connection"`
 	// Requests shapes the requests that the Driver sends.
 	Requests Requests `json:"requests" msgpack:"requests"`
-	// ReadIndex is the index channel of the channels that read tasks write to.
-	ReadIndex channel.Key `json:"read_index" msgpack:"read_index"`
-	// ReadChannels maps a register to the channel that holds its samples.
-	ReadChannels map[string]channel.Key `json:"read_channels" msgpack:"read_channels"`
-	// WriteChannels maps a register to the channel that commands it.
-	WriteChannels map[string]channel.Key `json:"write_channels" msgpack:"write_channels"`
+	// Reads bind the values that read tasks read to their channels.
+	Reads []Read `json:"reads" msgpack:"reads"`
+	// Writes bind the values that write tasks write to their command channels.
+	Writes []Write `json:"writes" msgpack:"writes"`
 	// Status is the current connection status of the server.
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
@@ -448,5 +581,11 @@ func (s Server) Validate() error {
 	v.NotEmptyString("name", s.Name)
 	v.Exec(func() error { return validate.PathedError(s.Connection.Validate(), "connection") })
 	v.Exec(func() error { return validate.PathedError(s.Requests.Validate(), "requests") })
+	for i := range s.Reads {
+		v.Exec(func() error { return validate.PathedError(s.Reads[i].Validate(), "reads", strconv.Itoa(i)) })
+	}
+	for i := range s.Writes {
+		v.Exec(func() error { return validate.PathedError(s.Writes[i].Validate(), "writes", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
