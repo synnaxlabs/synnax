@@ -112,6 +112,7 @@ TEST(ErrorsTest, IsTemporarilyUnavailable) {
     EXPECT_FALSE(is_temporarily_unavailable(LICENSE.sub("invalid")));
     EXPECT_FALSE(is_temporarily_unavailable(x::errors::UNKNOWN));
 }
+
 /// @brief it should classify each row of the table.
 TEST(ErrorsTest, ClassifyTable) {
     const std::vector<std::pair<x::errors::Error, Kind>> cases = {
