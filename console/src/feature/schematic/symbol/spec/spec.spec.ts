@@ -578,6 +578,13 @@ describe("symbol editor spec", () => {
       expect(Spec.toggleSelector(labeled, "body", "#t")[0].selectors).toEqual([]);
     });
 
+    it("should take a text out of a part that holds only its span", () => {
+      const parts = [{ key: "body", name: "Body", selectors: ["#s"] }];
+      expect(Spec.toggleSelector({ ...labeled, parts }, "body", "#t")).toEqual([
+        { key: "body", name: "Body", selectors: [] },
+      ]);
+    });
+
     it("should move the spans of a text with the text", () => {
       expect(Spec.toggleSelector(labeled, "seat", "#t")).toEqual([
         { key: "body", name: "Body", selectors: [] },

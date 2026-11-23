@@ -1053,7 +1053,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("takes the spans of a text out with the text", async () => {
+    it("takes a text out of a part that holds only its span", async () => {
       const symbol = await openPainted({
         drawing: {
           type: "svg",
@@ -1061,7 +1061,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
             '<text id="t" y="8"><tspan id="s">Tank</tspan></text></svg>',
         },
-        parts: [{ ...BODY, selectors: ["#s", "#t"] }],
+        parts: [{ ...BODY, selectors: ["#s"] }],
       });
       fireEvent.click(findShape("s"));
       fireEvent.click(findButton("Save"));

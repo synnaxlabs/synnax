@@ -284,7 +284,9 @@ export const toggleSelector = (
   if (target == null) return spec.parts;
   const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
   const covered = (s: string): boolean => s === selector || holds(doc, selector, s);
-  if (target.selectors.includes(selector))
+  // The spans of a text are part of its shape, so a part that holds one holds the text.
+  const text = doc.querySelector(selector)?.tagName === "text";
+  if (text ? target.selectors.some(covered) : target.selectors.includes(selector))
     return spec.parts.map((p) => ({
       ...p,
       selectors: p.selectors.filter((s) => !covered(s)),
