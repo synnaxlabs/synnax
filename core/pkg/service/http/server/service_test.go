@@ -54,11 +54,12 @@ var _ = Describe("Service", func() {
 	create := func(ctx context.Context, name string) server.Server {
 		GinkgoHelper()
 		s := server.Server{
-			Key:  uuid.New(),
-			Rack: rackSvc.EmbeddedKey,
-			Name: name,
-			Host: "plc.example.com",
-			Auth: server.Auth{Variant: server.NoneAuth{}},
+			Key:    uuid.New(),
+			Rack:   rackSvc.EmbeddedKey,
+			Name:   name,
+			Scheme: server.Scheme{Variant: server.HttpsScheme{}},
+			Host:   "plc.example.com",
+			Auth:   server.Auth{Variant: server.NoneAuth{}},
 		}
 		Expect(gorp.NewCreate[server.Key, server.Server]().
 			Entry(&s).
@@ -103,11 +104,12 @@ var _ = Describe("Service", func() {
 		other := rack.Rack{Name: "Other"}
 		Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
 		s := server.Server{
-			Key:  uuid.New(),
-			Rack: other.Key,
-			Name: "Gateway",
-			Host: "gateway.example.com",
-			Auth: server.Auth{Variant: server.NoneAuth{}},
+			Key:    uuid.New(),
+			Rack:   other.Key,
+			Name:   "Gateway",
+			Scheme: server.Scheme{Variant: server.HttpsScheme{}},
+			Host:   "gateway.example.com",
+			Auth:   server.Auth{Variant: server.NoneAuth{}},
 		}
 		Expect(gorp.NewCreate[server.Key, server.Server]().
 			Entry(&s).

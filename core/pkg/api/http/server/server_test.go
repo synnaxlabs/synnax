@@ -38,11 +38,12 @@ var _ = Describe("Service", func() {
 
 	newServer := func(overrides ...func(*server.Server)) server.Server {
 		s := server.Server{
-			Key:  uuid.New(),
-			Rack: svc.Rack.EmbeddedKey,
-			Name: "API-" + uuid.New().String(),
-			Host: "plc.example.com",
-			Auth: server.Auth{Variant: server.NoneAuth{}},
+			Key:    uuid.New(),
+			Rack:   svc.Rack.EmbeddedKey,
+			Name:   "API-" + uuid.New().String(),
+			Scheme: server.Scheme{Variant: server.HttpsScheme{}},
+			Host:   "plc.example.com",
+			Auth:   server.Auth{Variant: server.NoneAuth{}},
 		}
 		for _, override := range overrides {
 			override(&s)

@@ -281,6 +281,27 @@ var _ = Describe("Server", func() {
 })
 
 var _ = Describe("msgpack", func() {
+	DescribeTable("Should round trip a scheme",
+		func(sc v0.Scheme) {
+			var decoded v0.Scheme
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(sc)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(sc))
+		},
+		Entry("HTTPS", v0.Scheme{Variant: v0.HttpsScheme{
+			CertificateValidationDisabled: true,
+		}}),
+		Entry("HTTP", v0.Scheme{Variant: v0.HttpScheme{}}),
+		Entry("no variant", v0.Scheme{}),
+	)
+
+	It("Should reject an unknown scheme type", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{"type": "ftp"}))
+		var decoded v0.Scheme
+		Expect(msgpack.Unmarshal(raw, &decoded)).
+			To(MatchError(validate.ErrValidation))
+	})
+
 	DescribeTable("Should round trip an auth",
 		func(a v0.Auth) {
 			var decoded v0.Auth

@@ -117,11 +117,12 @@ var _ = Describe("Signals", Ordered, func() {
 		sets := openStreamer(ctx, "sy_http_server_set")
 		deletes := openStreamer(ctx, "sy_http_server_delete")
 		s := server.Server{
-			Key:  uuid.New(),
-			Rack: rackSvc.EmbeddedKey,
-			Name: "Boiler PLC",
-			Host: "boiler.example.com",
-			Auth: server.Auth{Variant: server.NoneAuth{}},
+			Key:    uuid.New(),
+			Rack:   rackSvc.EmbeddedKey,
+			Name:   "Boiler PLC",
+			Scheme: server.Scheme{Variant: server.HttpsScheme{}},
+			Host:   "boiler.example.com",
+			Auth:   server.Auth{Variant: server.NoneAuth{}},
 		}
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			return gorp.NewCreate[server.Key, server.Server]().Entry(&s).Exec(ctx, tx)

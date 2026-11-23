@@ -17,6 +17,68 @@ import (
 )
 
 var (
+	_ msgpack.CustomEncoder = Scheme{}
+	_ msgpack.CustomDecoder = (*Scheme)(nil)
+)
+
+// EncodeMsgpack implements msgpack.CustomEncoder. It writes the active variant's fields
+// with its type under "type", the same shape as the JSON encoding.
+func (u Scheme) EncodeMsgpack(enc *msgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case HttpsScheme:
+		return enc.Encode(struct {
+			Type SchemeType `msgpack:"type"`
+			HttpsScheme
+		}{Type: HttpsSchemeType, HttpsScheme: v})
+	case HttpScheme:
+		return enc.Encode(struct {
+			Type SchemeType `msgpack:"type"`
+		}{Type: HttpSchemeType})
+	default:
+		return errors.Newf("Scheme: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder. A nil value clears the variant, and
+// an omitted field takes its default, as in the JSON encoding. It returns a validation
+// error for an unknown type.
+func (u *Scheme) DecodeMsgpack(dec *msgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if len(raw) == 1 && raw[0] == msgpcode.Nil {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type SchemeType `msgpack:"type"`
+	}
+	if err = msgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case HttpsSchemeType:
+		var v HttpsScheme
+		if err = msgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HttpSchemeType:
+		u.Variant = HttpScheme{}
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"unknown scheme type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+var (
 	_ msgpack.CustomEncoder = Auth{}
 	_ msgpack.CustomDecoder = (*Auth)(nil)
 )
