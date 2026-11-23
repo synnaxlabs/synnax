@@ -306,9 +306,8 @@ const (
 	prepareMarker = "prepare"
 )
 
-// decodesMarker is the `@go migrate` argument of a version's step that decodes an
-// opaque
-// payload, so the ladder passes it the decode options of an import.
+// decodesMarker is the @go migrate argument of a step that decodes an opaque payload.
+// The ladder passes that step the decode options of an import.
 const decodesMarker = "decodes"
 
 func (p *Plugin) generatePackage(
