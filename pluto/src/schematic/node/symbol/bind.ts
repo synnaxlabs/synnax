@@ -19,7 +19,7 @@ import type { symbolNode } from "@/vis/symbolNode/aether";
  */
 export const bindSpec = (
   spec: schematic.symbol.Spec,
-  bindings: schematic.StateBinding[],
+  bindings: Omit<schematic.StateBinding, keyof schematic.FormatConfig | "source">[],
 ): schematic.symbol.Spec => {
   const byKey = new Map(bindings.map((b) => [b.key, b]));
   return {
@@ -41,7 +41,7 @@ export const bindSpec = (
 
 /** @returns a number source for each binding that reads a channel, by its state key. */
 export const sources = (
-  bindings: schematic.StateBinding[],
+  bindings: Pick<schematic.StateBinding, "key" | "source">[],
 ): Record<string, telem.NumberSourceSpec> =>
   Object.fromEntries(
     bindings.flatMap(({ key, source }) =>
@@ -56,7 +56,7 @@ export const sources = (
  * its local value. A state with no value draws its default.
  */
 export const values = (
-  bindings: schematic.StateBinding[],
+  bindings: Pick<schematic.StateBinding, "key" | "source">[],
   readings: Record<string, symbolNode.Reading>,
 ): Map<string, number> => {
   const out = new Map<string, number>();
