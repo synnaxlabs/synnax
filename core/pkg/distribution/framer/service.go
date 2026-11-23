@@ -181,9 +181,8 @@ func (s *Service) SetChannelResolver(resolver writer.ChannelResolver) {
 }
 
 // ClaimDelete claims keys for a delete and returns the function that releases the
-// claim. While the claim is held, a writer on one of keys fails to open with
-// ErrChannelDeleting. ClaimDelete fails with ErrChannelInUse when a writer holds one of
-// keys.
+// claim. While the claim is held, a writer on one of keys fails to open. ClaimDelete
+// fails when a writer holds one of keys.
 func (s *Service) ClaimDelete(keys channel.Keys) (release func(), err error) {
 	return s.writer.ClaimDelete(keys)
 }
