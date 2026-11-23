@@ -550,6 +550,18 @@ describe("symbol editor spec", () => {
       ]);
     });
 
+    it("should copy a Base look of the whole drawing before the looks of parts", () => {
+      const spec = createSpec({
+        looks: [
+          { key: "a", when: equals(0), fill: fixed(RED) },
+          { key: "b", part: "body", when: equals(0, 1), fill: fixed(BLUE) },
+        ],
+      });
+      const next = Spec.setVariant(spec, "actuator");
+      expect(next.looks.map((l) => l.key)).toEqual(["a", expect.any(String), "b"]);
+      expect(Spec.effective(next, "body", "fill", 1)).toEqual(fixed(BLUE));
+    });
+
     it("should drop an Active look of the whole drawing from a static symbol", () => {
       const spec = createSpec({
         variant: "actuator",

@@ -90,8 +90,13 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
       field.field,
       shown,
     ) as Look[F] | undefined,
-    onChange: (v) =>
-      set(path.data, Spec.setOwn(get(path.data).value, part, field.field, v, at)),
+    onChange: (v) => {
+      const spec = get(path.data).value;
+      // A stored static symbol can hold looks at Base, which an edit at every value
+      // would not reach, so setVariant first moves them to every value.
+      const from = spec.variant === "static" ? Spec.setVariant(spec, "static") : spec;
+      set(path.data, Spec.setOwn(from, part, field.field, v, at));
+    },
   };
 };
 
@@ -102,7 +107,7 @@ interface PropertyProps extends PropsWithChildren {
 }
 
 // Property shows its control once for every value, or once for each value when the
-// field varies by state. A symbol with one value shows its looks on that value too.
+// field varies by state. A symbol with one value has one control.
 const Property = ({ field, label, icon, children }: PropertyProps): ReactElement => {
   const { part, values } = useInspectorContext("Property");
   const looks = Form.useFieldValue(path.data.looks);
@@ -111,7 +116,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
   const several = values.values.length > 1;
   // A static symbol has one value, so it ends By state.
   if (split && !several) setSplit(false);
-  const varies = split || Spec.variesByValue({ looks }, part, field);
+  const varies = several && (split || Spec.variesByValue({ looks }, part, field));
   const handleVariesChange = (next: boolean) => {
     const keys = values.values.map((v) => v.value);
     set(
@@ -130,7 +135,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
         </Text.Text>
         <Flex.Box x align="center" gap="small">
           {!varies && <FieldContext value={{ field, label }}>{children}</FieldContext>}
-          {(several || varies) && (
+          {several && (
             <Button.Toggle
               size="small"
               value={varies}
