@@ -349,7 +349,8 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
     const std::span<const std::uint8_t> payload,
     const x::telem::TimeStamp received,
     x::telem::Frame &fr,
-    const std::size_t cap
+    const std::size_t cap,
+    const std::optional<double> fill
 ) {
     const auto [i, err] = std::visit(
         [&]<typename D>(D &d) {
@@ -365,10 +366,8 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         },
         this->decoder
     );
+    this->last = i;
     if (err || !i.has_value()) return {std::nullopt, err};
-    if (const auto *json = std::get_if<codec::JSON>(&this->decoder);
-        json != nullptr && !json->failures(*i).empty())
-        return {std::nullopt, json->failures(*i).front().error};
     const auto msg = *i;
     const auto &m = this->messages[msg];
     const auto &samples = std::visit(
@@ -377,9 +376,16 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         },
         this->decoder
     );
+    this->filled.assign(samples.size(), false);
+    if (fill.has_value())
+        for (const auto &f: this->failures())
+            if (const auto dt = samples[f.binding].data_type();
+                dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T)
+                this->filled[f.binding] = true;
     this->present.assign(m.indexes.size(), true);
     for (std::size_t k = 0; k < samples.size(); k++)
-        if (const auto group = m.groups[k]; samples[k].empty() && group.has_value())
+        if (const auto group = m.groups[k];
+            samples[k].empty() && !this->filled[k] && group.has_value())
             this->present[*group] = false;
     for (std::size_t g = 0; g < m.indexes.size(); g++) {
         if (!this->present[g]) continue;
@@ -391,11 +397,21 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
             );
     }
     for (std::size_t k = 0; k < samples.size(); k++) {
-        if (k == m.index_field || samples[k].empty()) continue;
+        if (k == m.index_field) continue;
         if (const auto group = m.groups[k]; group.has_value() && !this->present[*group])
             continue;
-        series(fr, m.channels[k], samples[k].data_type(), cap).write(samples[k]);
+        const auto &dt = samples[k].data_type();
+        if (this->filled[k])
+            series(fr, m.channels[k], dt, cap).write(dt.cast(*fill));
+        else if (!samples[k].empty())
+            series(fr, m.channels[k], dt, cap).write(samples[k]);
     }
     return {msg, x::errors::NIL};
+}
+
+std::span<const codec::JSON::Failure> Reader::failures() const {
+    const auto *json = std::get_if<codec::JSON>(&this->decoder);
+    if (json == nullptr || !this->last.has_value()) return {};
+    return json->failures(*this->last);
 }
 }

@@ -56,6 +56,11 @@ class Reader {
     /// @brief present is scratch space that marks the index groups of a read whose
     /// channels all have a sample.
     std::vector<bool> present;
+    /// @brief filled is scratch space that marks the bindings of a read that take its
+    /// fill value.
+    std::vector<bool> filled;
+    /// @brief last is the message of the last read, or nothing when it returned none.
+    std::optional<std::size_t> last;
 
     /// @brief sets the channels, the index groups, and the index field of m from the
     /// bindings of rm, which reads msg, and returns the codec binding of each.
@@ -99,9 +104,13 @@ public:
     /// channel of that message to fr. The index channel of the index field takes its
     /// value, and every other index channel takes received. An index channel and the
     /// channels it indexes take no sample when the multiplexors of payload select none
-    /// of their fields.
+    /// of their fields, or when the decoder cannot decode one of their fields. A
+    /// virtual channel whose field the decoder cannot decode takes no sample. failures
+    /// lists the fields that the decoder could not decode.
     /// @param cap the capacity of each series that read adds to fr. A series that fr
     /// already holds for a channel takes the sample instead, and must have room for it.
+    /// @param fill when set, the sample of a field on a float channel that the decoder
+    /// cannot decode, which keeps its index group.
     /// @returns the position in reads of the message, or nothing, adding nothing, when
     /// payload belongs to no message.
     /// @returns VALIDATION, adding nothing, when the decoder cannot decode payload.
@@ -109,7 +118,13 @@ public:
         std::span<const std::uint8_t> payload,
         x::telem::TimeStamp received,
         x::telem::Frame &fr,
-        std::size_t cap = 1
+        std::size_t cap = 1,
+        std::optional<double> fill = std::nullopt
     );
+
+    /// @brief returns the fields of the last read that its decoder could not decode, by
+    /// position in the bindings of the message that it returned. Empty after a read
+    /// that returned no message or an error, and for a format other than JSON.
+    [[nodiscard]] std::span<const codec::JSON::Failure> failures() const;
 };
 }
