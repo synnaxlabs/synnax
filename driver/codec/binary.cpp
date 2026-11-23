@@ -122,26 +122,14 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
         .offset = b.offset,
         .narrow = dt == x::telem::FLOAT32_T,
     };
-    std::string_view kind;
-    if (std::holds_alternative<icd::FloatBinaryField>(f)) {
-        kind = payload::KIND_FLOAT;
-        if (b.bit_length != 32 && b.bit_length != 64)
-            return {
-                Field{},
-                x::errors::Error(
-                    CONFIG_ERROR,
-                    "a float field must be 32 or 64 bits, not " +
-                        std::to_string(b.bit_length)
-                ),
-            };
-        field.type = b.bit_length == 32 ? Type::FLOAT32 : Type::FLOAT64;
-    } else if (std::holds_alternative<icd::IntegerBinaryField>(f)) {
+    auto [encoding, encoding_err] = encoding_of(f);
+    if (encoding_err) return {Field{}, encoding_err};
+    field.encoding = encoding;
+    std::string_view kind = payload::KIND_UNSIGNED;
+    if (encoding == Encoding::SIGNED)
         kind = payload::KIND_INTEGER;
-        field.type = Type::SIGNED;
-    } else {
-        kind = payload::KIND_UNSIGNED;
-        field.type = Type::UNSIGNED;
-    }
+    else if (encoding == Encoding::FLOAT32 || encoding == Encoding::FLOAT64)
+        kind = payload::KIND_FLOAT;
     if (!converts(kind, dt))
         return {
             Field{},
@@ -160,7 +148,7 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
             ),
         };
     if (const auto w = width_of(dt); w.has_value()) {
-        const bool is_signed = field.type == Type::SIGNED;
+        const bool is_signed = field.encoding == Encoding::SIGNED;
         const unsigned needed = b.bit_length + (w->is_signed && !is_signed ? 1U : 0U);
         if (needed > w->bits)
             return {
@@ -173,52 +161,14 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
             };
         field.put = is_signed ? put_for<true>(dt) : put_for<false>(dt);
     }
-    auto dst = x::telem::Series(dt, 1);
-    const auto n = b.bit_length;
-    const auto err = std::visit(
-        [&]<typename F>(const F &v) -> x::errors::Error {
-            if (!v.default_.has_value()) return x::errors::NIL;
-            if constexpr (std::is_same_v<F, icd::FloatBinaryField>) {
-                double d = v.default_->value;
-                if (!std::isfinite(d))
-                    return x::errors::Error(
-                        CONFIG_ERROR,
-                        x::json::Number(d).to_string() + " is not finite"
-                    );
-                if (n == 32) {
-                    if (std::abs(d) > std::numeric_limits<float>::max())
-                        return x::errors::Error(
-                            CONFIG_ERROR,
-                            x::json::Number(d).to_string() + " overflows float32"
-                        );
-                    d = static_cast<float>(d);
-                }
-                return field.append_float(d, dst);
-            } else if constexpr (std::is_same_v<F, icd::IntegerBinaryField>) {
-                const auto i = v.default_->value;
-                const auto shift = 64 - n;
-                if ((i << shift) >> shift != i)
-                    return x::errors::Error(
-                        CONFIG_ERROR,
-                        std::to_string(i) + " is out of range for " +
-                            std::to_string(n) + " bits"
-                    );
-                return field.append(static_cast<std::uint64_t>(i), dst);
-            } else {
-                const auto u = v.default_->value;
-                if (n < 64 && u >> n != 0)
-                    return x::errors::Error(
-                        CONFIG_ERROR,
-                        std::to_string(u) + " is out of range for " +
-                            std::to_string(n) + " bits"
-                    );
-                return field.append(u, dst);
-            }
-        },
-        f
-    );
-    if (err) return {Field{}, as_config(err, "default")};
-    if (!dst.empty()) field.fallback = std::move(dst);
+    auto [raw, default_err] = default_raw(f);
+    if (default_err) return {Field{}, as_config(default_err, "default")};
+    if (raw.has_value()) {
+        auto dst = x::telem::Series(dt, 1);
+        if (const auto err = field.append(*raw, dst))
+            return {Field{}, as_config(err, "default")};
+        field.fallback = std::move(dst);
+    }
     return {std::move(field), x::errors::NIL};
 }
 
@@ -229,17 +179,17 @@ Binary::Field::append(const std::uint64_t raw, x::telem::Series &dst) const {
         return x::errors::NIL;
     }
     double v = 0;
-    switch (this->type) {
-        case Type::UNSIGNED:
+    switch (this->encoding) {
+        case Encoding::UNSIGNED:
             v = static_cast<double>(raw);
             break;
-        case Type::SIGNED:
+        case Encoding::SIGNED:
             v = static_cast<double>(static_cast<std::int64_t>(raw));
             break;
-        case Type::FLOAT32:
+        case Encoding::FLOAT32:
             v = std::bit_cast<float>(static_cast<std::uint32_t>(raw));
             break;
-        case Type::FLOAT64:
+        case Encoding::FLOAT64:
             v = std::bit_cast<double>(raw);
             break;
     }
@@ -273,7 +223,7 @@ x::errors::Error Binary::Field::decode(
         return too_short(payload.size(), this->bits.end());
     }
     const auto *p = payload.data();
-    if (this->type == Type::SIGNED)
+    if (this->encoding == Encoding::SIGNED)
         return this->append(static_cast<std::uint64_t>(this->bits.read_signed(p)), dst);
     return this->append(this->bits.read(p), dst);
 }

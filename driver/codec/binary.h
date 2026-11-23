@@ -42,13 +42,10 @@ struct BinaryMessage {
 /// @brief Binary decodes frames that each belong to one of several binary messages into
 /// samples. It is not safe for concurrent use.
 class Binary {
-    /// @brief Type is how a field reads its raw bits.
-    enum class Type : std::uint8_t { UNSIGNED, SIGNED, FLOAT32, FLOAT64 };
-
     struct Field {
         std::string name;
         BitRange bits;
-        Type type = Type::UNSIGNED;
+        Encoding encoding = Encoding::UNSIGNED;
         /// @brief scaled is true when the field's scale or offset changes its value.
         bool scaled = false;
         double scale = 1;
