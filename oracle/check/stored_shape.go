@@ -182,7 +182,7 @@ func (s shapes) fields(at string, oldFields, newFields []resolution.Field) strin
 		case domain.HasDomainFromField(of, "key") !=
 			domain.HasDomainFromField(nf, "key"):
 			return fieldAt + ": changes @key"
-		case !reflect.DeepEqual(of.Default, nf.Default):
+		case !reflect.DeepEqual(writtenDefault(of), writtenDefault(nf)):
 			return fieldAt + ": changes its default"
 		}
 		if reason := s.ref(fieldAt, of.Type, nf.Type); reason != "" {
@@ -334,4 +334,16 @@ func fieldNames(fields []resolution.Field) []string {
 		names[i] = f.Name
 	}
 	return names
+}
+
+// writtenDefault returns the default that a generated Go writer stores for f, or nil
+// when it stores none. Go never fills a create or now default: a client computes it
+// when it makes a record, so such a default changes no stored byte.
+func writtenDefault(f resolution.Field) *resolution.ExpressionValue {
+	if f.Default != nil &&
+		f.Default.Kind == resolution.ValueKindIdent &&
+		(f.Default.IdentValue == "create" || f.Default.IdentValue == "now") {
+		return nil
+	}
+	return f.Default
 }

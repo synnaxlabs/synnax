@@ -490,6 +490,28 @@ Channel union on type {
 			))
 		})
 
+		It("Should pass a create default added in a shipped version file", func() {
+			write(releaseRoot, v0Path, `
+Channel struct {
+    key  uuid @key
+    unit string
+
+    @go marshal
+}
+`)
+			write(root, v0Path, `
+Channel struct {
+    key  uuid = create {
+        @key
+    }
+    unit string
+
+    @go marshal
+}
+`)
+			Expect(messages()).To(BeEmpty())
+		})
+
 		It("Should fail a member removed from a stored enum", func() {
 			write(releaseRoot, v0Path, `
 Mode enum {
