@@ -18,6 +18,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/synnaxlabs/cesium/internal/lru"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -98,15 +99,11 @@ func highest(seg state.Segment) telem.TimeStamp {
 // and the records of each key in it. It drops the least recently used first. A Cache is
 // safe for concurrent use.
 type Cache struct {
-	fs     xfs.FS
-	db     uint64
-	budget int
-	mu     struct {
+	fs xfs.FS
+	db uint64
+	mu struct {
 		sync.Mutex
-		entries map[cacheKey]*cacheEntry
-		// newest and oldest are the ends of the list of entries by last use.
-		newest, oldest *cacheEntry
-		size           int
+		entries *lru.Cache[cacheKey, *cacheEntry]
 	}
 }
 
@@ -118,11 +115,8 @@ type cacheKey struct {
 }
 
 type cacheEntry struct {
-	k          cacheKey
-	size       int
-	layout     *partLayout
-	records    Records
-	newer, old *cacheEntry
+	layout  *partLayout
+	records Records
 }
 
 // partLayout is what a read of the records of a part needs: its header, its sections,
@@ -176,8 +170,8 @@ func (c *Cache) Timed(p Part, clock uint32) ([]Timed, error) {
 // NewCache returns a cache of the parts of database db in the root fs that holds at
 // most budget bytes.
 func NewCache(fs xfs.FS, db uint64, budget int) *Cache {
-	c := &Cache{fs: fs, db: db, budget: budget}
-	c.mu.entries = make(map[cacheKey]*cacheEntry)
+	c := &Cache{fs: fs, db: db}
+	c.mu.entries = lru.New[cacheKey, *cacheEntry](budget)
 	return c
 }
 
@@ -203,7 +197,7 @@ func (c *Cache) Records(p Part, key uint32) (Records, error) {
 	for _, seg := range r.Segments {
 		size += 80 + 48*len(seg.Pointers)
 	}
-	c.put(&cacheEntry{k: k, size: size, records: r})
+	c.put(k, &cacheEntry{records: r}, size)
 	return r, nil
 }
 
@@ -220,58 +214,22 @@ func (c *Cache) Cached(p Part, key uint32) (Records, bool) {
 func (c *Cache) get(k cacheKey) (*cacheEntry, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	e, ok := c.mu.entries[k]
-	if ok {
-		c.unlink(e)
-		c.push(e)
-	}
-	return e, ok
+	return c.mu.entries.Get(k)
 }
 
-// put adds e, unless another load added its key first, and drops the least recently
-// used entries past the budget.
-func (c *Cache) put(e *cacheEntry) {
+// put adds e of size bytes under k, unless another load added k first, and drops the
+// least recently used entries past the budget.
+func (c *Cache) put(k cacheKey, e *cacheEntry, size int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if _, ok := c.mu.entries[e.k]; ok {
+	if !c.mu.entries.Put(k, e, size) {
 		return
 	}
-	c.mu.entries[e.k] = e
-	c.push(e)
-	c.mu.size += e.size
-	for c.mu.size > c.budget && c.mu.oldest != c.mu.newest {
-		old := c.mu.oldest
-		c.unlink(old)
-		delete(c.mu.entries, old.k)
-		c.mu.size -= old.size
+	for {
+		if _, ok := c.mu.entries.Evict(nil); !ok {
+			return
+		}
 	}
-}
-
-// push makes e the newest entry. The caller holds mu.
-func (c *Cache) push(e *cacheEntry) {
-	e.newer, e.old = nil, c.mu.newest
-	if c.mu.newest != nil {
-		c.mu.newest.newer = e
-	}
-	c.mu.newest = e
-	if c.mu.oldest == nil {
-		c.mu.oldest = e
-	}
-}
-
-// unlink takes e out of the list of entries. The caller holds mu.
-func (c *Cache) unlink(e *cacheEntry) {
-	if e.newer != nil {
-		e.newer.old = e.old
-	} else {
-		c.mu.newest = e.old
-	}
-	if e.old != nil {
-		e.old.newer = e.newer
-	} else {
-		c.mu.oldest = e.newer
-	}
-	e.newer, e.old = nil, nil
 }
 
 // layout returns the layout of p.
@@ -284,7 +242,7 @@ func (c *Cache) layout(p Part) (*partLayout, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.put(&cacheEntry{k: k, size: 256 + 4*len(l.sums) + 8*len(l.keys), layout: l})
+	c.put(k, &cacheEntry{layout: l}, 256+4*len(l.sums)+8*len(l.keys))
 	return l, nil
 }
 
