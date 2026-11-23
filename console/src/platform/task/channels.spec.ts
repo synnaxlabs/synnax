@@ -440,6 +440,52 @@ describe("channels", () => {
       expect((await client.channels.retrieve(ch.index)).name).toBe(`${name}_time`);
     });
 
+    it("should replace a channel that does not suit the target, and move it", async () => {
+      const name = uniqueName("cmd");
+      const write: Record<string, number> = {};
+      const old = await client.channels.retrieve(
+        await Task.configureCommandChannel(client, write, {
+          propertiesKey: "/cmd",
+          channel: 0,
+          name,
+          dataType: "int64",
+        }),
+      );
+      const key = await Task.configureCommandChannel(client, write, {
+        propertiesKey: "/cmd",
+        channel: old.key,
+        name,
+        dataType: "float64",
+        suits: (ch) => ch.dataType.isFloat,
+      });
+      expect(key).not.toBe(old.key);
+      expect(write).toEqual({ "/cmd": key });
+      const ch = await client.channels.retrieve(key);
+      expect([ch.name, ch.dataType.toString()]).toEqual([name, "float64"]);
+      const [moved, movedIndex] = await client.channels.retrieve([old.key, old.index]);
+      expect([moved.name, movedIndex.name]).toEqual([`${name}_2`, `${name}_2_time`]);
+    });
+
+    it("should replace a stored channel that does not suit the target", async () => {
+      const storedName = uniqueName("cmd");
+      const stored = await client.channels.create({
+        name: storedName,
+        dataType: "int64",
+        virtual: true,
+      });
+      const write = { "/cmd": stored.key };
+      const key = await Task.configureCommandChannel(client, write, {
+        propertiesKey: "/cmd",
+        channel: 0,
+        name: uniqueName("cmd"),
+        dataType: "float64",
+        suits: (ch) => ch.dataType.isFloat,
+      });
+      expect(key).not.toBe(stored.key);
+      expect(write).toEqual({ "/cmd": key });
+      expect((await client.channels.retrieve(stored.key)).name).toBe(storedName);
+    });
+
     it("should create a virtual channel for a variable-density type", async () => {
       const write = {};
       const key = await Task.configureCommandChannel(client, write, {
