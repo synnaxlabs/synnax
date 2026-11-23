@@ -12,12 +12,15 @@
 package v0
 
 import (
+	"regexp"
 	"uuid"
 
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 )
+
+var validatePattern0 = regexp.MustCompile("^(igh:[0-9]+|\\\\Device\\\\NPF_[{][0-9A-Fa-f-]{36}[}]|[A-Za-z0-9][A-Za-z0-9_.-]{0,14})$")
 
 // Key uniquely identifies an EtherCAT master.
 type Key = uuid.UUID
@@ -56,5 +59,6 @@ func (m Master) Validate() error {
 	v := validate.New("Master")
 	v.NotEmptyString("name", m.Name)
 	v.NotEmptyString("interface", m.Interface)
+	v.Ternary("interface", !validatePattern0.MatchString(string(m.Interface)), "Interface must be a network interface name, such as eth0, or igh: and a master index")
 	return v.Error()
 }

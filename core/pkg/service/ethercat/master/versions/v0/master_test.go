@@ -58,5 +58,26 @@ var _ = Describe("Master", func() {
 		},
 		Entry("no name", func(m *v0.Master) { m.Name = "" }, "name"),
 		Entry("no interface", func(m *v0.Master) { m.Interface = "" }, "interface"),
+		Entry(
+			"an interface with a slash",
+			func(m *v0.Master) { m.Interface = "eth0/1" },
+			"interface",
+		),
+		Entry(
+			"an IgH master without an index",
+			func(m *v0.Master) { m.Interface = "igh:x" },
+			"interface",
+		),
+	)
+
+	DescribeTable("Should accept an interface the Driver opens",
+		func(iface string) {
+			m := master()
+			m.Interface = iface
+			Expect(m.Validate()).To(Succeed())
+		},
+		Entry("a Linux interface", "enp3s0"),
+		Entry("an IgH master", "igh:0"),
+		Entry("an Npcap adapter", `\Device\NPF_{C5F5B5FA-0000-0000-0000-000000000000}`),
 	)
 })
