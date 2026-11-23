@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/lyra/component";
+import type { schematic } from "@synnaxlabs/client";
 
-import { Box } from "@/schematic/node/general/box/Primitive";
-import { Symbol } from "@/schematic/node/general/box/Symbol";
-import { type Spec } from "@/schematic/node/spec";
+import { Preview, Symbol } from "@/schematic/node/general/box/Symbol";
+import type { Spec } from "@/schematic/node/spec";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
 
 const NAME = "Box";
@@ -22,6 +20,6 @@ export const spec: Spec<"box", schematic.BoxNodeConfig> = {
   name: NAME,
   Form: (props) => <TankForm {...props} showBorderRadius showStrokeWidth />,
   Node: Symbol,
-  Preview: Component.removeProps(Box, ["dimensions"]),
+  Preview,
   zIndex: 2,
 };

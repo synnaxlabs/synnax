@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
@@ -16,7 +16,7 @@ import { useState } from "react";
 
 import { createPrompt } from "@/platform/modals/factory";
 import { Triggers } from "@/platform/triggers";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 
 export interface RenameParams {
   allowEmpty?: boolean;

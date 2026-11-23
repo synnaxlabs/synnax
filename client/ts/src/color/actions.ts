@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, patch, type record, zod } from "@synnaxlabs/x";
-import { type Draft } from "immer";
+import type { Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -18,7 +18,7 @@ import {
   type HandlerResult,
   type Handlers,
 } from "@/color/actions.gen";
-import { type Named } from "@/color/types.gen";
+import type { Named } from "@/color/types.gen";
 
 // The part of a named color that path actions edit. It checks shape, not validity: the
 // Core validates, and a form holds an invalid value unsent while the cache shows it.

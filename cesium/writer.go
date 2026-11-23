@@ -259,6 +259,10 @@ type idxWriter struct {
 	// successful commit. This prevents stale commits when another writer of the claim
 	// advances the domain writer's prevCommit beyond this writer's highWaterMark.
 	hasUncommittedData bool
+	// dataPending is true when a skipped index held back data that the writer wrote.
+	// Commit commits it once the writer commits the index again, or once another holder
+	// commits index stamps past the high water mark.
+	dataPending bool
 	// lastCommitEnd stores the end timestamp from the last successful commit,
 	// returned when Commit is called with no new data to commit.
 	lastCommitEnd telem.TimeStamp
@@ -360,9 +364,16 @@ func (w *idxWriter) write(
 		fr.SetRawSeriesAt(i, series)
 	}
 	if skipped {
-		w.hasUncommittedData = false
+		w.holdBack(idx.skipped)
 	}
 	return fr, nil
+}
+
+// holdBack ends the uncommitted data of a write that skipped a channel. The data that a
+// skipped index held back stays pending for a later commit.
+func (w *idxWriter) holdBack(indexSkipped bool) {
+	w.dataPending = w.dataPending || (indexSkipped && w.hasUncommittedData)
+	w.hasUncommittedData = false
 }
 
 // dataSeries returns the series at raw position i of fr and the writer of its data
@@ -403,7 +414,7 @@ func (w *idxWriter) writeIndex(
 		if series.Len() == 0 || !ok {
 			return idx, nil
 		}
-		if err = w.updateHighWater(series); err != nil {
+		if err = w.validateIndexSeries(series); err != nil {
 			return idx, err
 		}
 		first := series.ValueAt[telem.TimeStamp](0)
@@ -419,6 +430,7 @@ func (w *idxWriter) writeIndex(
 			return idx, nil
 		}
 		idx.written = true
+		w.idx.highWaterMark = series.ValueAt[telem.TimeStamp](-1)
 		w.sampleCount = int64(idx.alignment.SampleIndex()) + series.Len()
 		w.hasUncommittedData = true
 		series.Alignment = idx.alignment
@@ -451,8 +463,22 @@ func (w *idxWriter) Commit(
 	ctx context.Context,
 	skip func(ChannelKey) bool,
 ) (telem.TimeStamp, bool, error) {
-	if w.sampleCount == 0 || !w.hasUncommittedData {
+	if w.sampleCount == 0 {
 		return w.lastCommitEnd, false, nil
+	}
+	if !w.hasUncommittedData {
+		if !w.dataPending {
+			return w.lastCommitEnd, false, nil
+		}
+		// Another holder that committed the index also committed this writer's stamps
+		// in it. Otherwise this writer commits the index and the data itself.
+		held, err := w.indexHoldsHighWater(ctx)
+		if err != nil {
+			return 0, false, err
+		}
+		if held {
+			return w.commitPendingData(ctx, skip)
+		}
 	}
 	end, err := w.resolveCommitEnd(ctx)
 	if err != nil {
@@ -486,14 +512,57 @@ func (w *idxWriter) Commit(
 	if err != nil {
 		return 0, false, err
 	}
-	// A skipped commit also ends the uncommitted data: the writer that commits the
-	// skipped channels may advance their domains past this writer's high water mark.
+	// A skipped index holds the data back until a later commit. A skipped data channel
+	// ends its uncommitted data: the writer that commits it may advance its domain past
+	// this writer's high water mark.
+	w.dataPending = indexSkipped
 	w.hasUncommittedData = false
 	if skipped {
 		return 0, true, nil
 	}
 	w.lastCommitEnd = end.Lower
 	return end.Lower, false, nil
+}
+
+// indexHoldsHighWater reports whether the index holds a committed stamp at the writer's
+// high water mark.
+func (w *idxWriter) indexHoldsHighWater(ctx context.Context) (bool, error) {
+	end := w.idx.highWaterMark + 1
+	covered, _, err := w.idx.Coverage(ctx, w.idx.highWaterMark.Range(end))
+	return covered >= end, err
+}
+
+// commitPendingData commits the data channels that a skipped index held back. It never
+// commits the index: the holder that committed it may have moved its commit end past
+// this writer's.
+func (w *idxWriter) commitPendingData(
+	ctx context.Context,
+	skip func(ChannelKey) bool,
+) (telem.TimeStamp, bool, error) {
+	end := w.idx.highWaterMark + 1
+	defer w.group.Publish()
+	skipped := false
+	var err error
+	for key, chW := range w.internal {
+		if key == w.idx.ch.Key {
+			continue
+		}
+		keySkipped, cErr := chW.CommitWithEndUnless(ctx, end, &w.group, skip)
+		skipped = skipped || keySkipped
+		// Every channel shares the same end, so their errors repeat. Keep the first.
+		if err == nil {
+			err = cErr
+		}
+	}
+	if err != nil {
+		return 0, false, err
+	}
+	w.dataPending = false
+	if skipped {
+		return 0, true, nil
+	}
+	w.lastCommitEnd = end
+	return end, false, nil
 }
 
 func (w *idxWriter) endDomain(ctx context.Context) error {
@@ -665,11 +734,10 @@ func (w *idxWriter) channelsExcept(key ChannelKey) []Channel {
 	return channels
 }
 
-func (w *idxWriter) updateHighWater(s telem.Series) error {
+func (w *idxWriter) validateIndexSeries(s telem.Series) error {
 	if s.DataType != telem.TimestampT && s.DataType != telem.Int64T {
 		return invalidDataTypeError(w.idx.ch, s.DataType)
 	}
-	w.idx.highWaterMark = s.ValueAt[telem.TimeStamp](-1)
 	return nil
 }
 

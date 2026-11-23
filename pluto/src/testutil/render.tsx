@@ -20,13 +20,13 @@ import {
 import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
 
 import { Aether } from "@/aether";
-import { type aether } from "@/aether/aether";
+import type { aether } from "@/aether/aether";
 import {
   buildStack,
   type MountedProviders,
   type ProviderOptions,
 } from "@/testutil/providers";
-import { type canvasTest } from "@/vis/render/testutil";
+import type { canvasTest } from "@/vis/render/testutil";
 
 /** Options for {@link render}: provider toggles plus standard RTL render options
  * (minus `wrapper`, which the harness owns). */

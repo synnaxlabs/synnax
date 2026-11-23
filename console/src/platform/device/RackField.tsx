@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack } from "@synnaxlabs/client";
+import type { rack } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Rack } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 const path = deep.path<{ rack: rack.Key }>();
 

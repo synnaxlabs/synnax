@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type access } from "@synnaxlabs/client";
+import type { access } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 const BUILT_IN: Record<string, Icon.ReactElement> = {

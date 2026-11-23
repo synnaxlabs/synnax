@@ -70,7 +70,8 @@ type Config[R any] struct {
 	// Reach. A bounded claim is exclusive, and a claim that is not exclusive skips
 	// bounded claims at open.
 	Bounded bool
-	// Exclusive refuses the open with ErrClaimed when the time range reaches a claim.
+	// Exclusive refuses the open with ErrClaimed when the time range reaches a claim,
+	// and refuses each later open that reaches the claim.
 	Exclusive bool
 }
 
@@ -91,6 +92,7 @@ type region[R any] struct {
 	opening   chan struct{}
 	timeRange telem.TimeRange
 	bounded   bool
+	exclusive bool
 	// use serializes the holders of the region in Use.
 	use sync.Mutex
 }
@@ -130,7 +132,7 @@ func (s *Set[R]) joinOrCreate(cfg Config[R]) (
 		if r.opening != nil {
 			return nil, nil, r.opening, nil
 		}
-		if cfg.Exclusive {
+		if cfg.Exclusive || r.exclusive {
 			return nil, nil, nil, Error{
 				TimeRange: cfg.TimeRange.Intersection(r.timeRange),
 				Open:      true,
@@ -145,7 +147,7 @@ func (s *Set[R]) joinOrCreate(cfg Config[R]) (
 		joined = r
 	}
 	if joined == nil {
-		return nil, s.insertOpening(cfg.TimeRange, cfg.Bounded), nil, nil
+		return nil, s.insertOpening(cfg), nil, nil
 	}
 	return joined.add(cfg.TimeRange), nil, nil, nil
 }
@@ -164,12 +166,13 @@ func (s *Set[R]) finishOpening(r *region[R], cfg Config[R]) (c *Claim[R], err er
 	return r.add(cfg.TimeRange), nil
 }
 
-func (s *Set[R]) insertOpening(tr telem.TimeRange, bounded bool) *region[R] {
+func (s *Set[R]) insertOpening(cfg Config[R]) *region[R] {
 	r := &region[R]{
 		set:       s,
 		claims:    set.New[*Claim[R]](),
-		timeRange: tr,
-		bounded:   bounded,
+		timeRange: cfg.TimeRange,
+		bounded:   cfg.Bounded,
+		exclusive: cfg.Exclusive,
 		opening:   make(chan struct{}),
 	}
 	pos, _ := slices.BinarySearchFunc(s.regions, r, func(a, b *region[R]) int {

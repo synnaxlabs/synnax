@@ -293,7 +293,7 @@ var _ = Describe("Reads through parts", func() {
 			},
 			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
 		)).To(Succeed())
-		writeParted(ctx, db, gate, idx, data, 3, 10)
+		writeParted(ctx, db, gate, idx, data, 2, 15)
 		part := partFile(gate)
 		stop()
 		Expect(db.Close()).To(Succeed())
@@ -377,6 +377,20 @@ var _ = Describe("Drop of parted records", func() {
 		return n
 	}
 
+	// passOrphans waits for the orphan pass of db, since the first write of a writer
+	// waits for it. It writes one sample of idx, after the samples of parted, and
+	// closes the writer at cleanup, since that close unlinks dead segments.
+	passOrphans := func(ctx SpecContext, db *cesium.DB, idx cesium.ChannelKey) {
+		GinkgoHelper()
+		start := telem.TimeStamp(1_000_000) * telem.SecondTS
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{idx},
+			Start:    start,
+		}))
+		DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+		MustSucceed2(w.Write(ctx, telem.UnaryFrame(idx, telem.NewSeriesV(start)), nil))
+	}
+
 	It("Should keep at open the files of the segments that only parts hold", func(
 		ctx SpecContext,
 	) {
@@ -384,12 +398,7 @@ var _ = Describe("Drop of parted records", func() {
 		db, idx, data := parted(ctx, fs)
 		Expect(segments(fs, data)).To(Equal(3))
 		DeferCleanup(StartRun(db.Run))
-		// A writer's open waits for the pass that removes the files of orphans.
-		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-			Channels: []cesium.ChannelKey{idx, data},
-			Start:    telem.TimeStamp(1_000_000) * telem.SecondTS,
-		}))
-		Expect(w.Close()).To(Succeed())
+		passOrphans(ctx, db, idx)
 		Expect(segments(fs, data)).To(Equal(3))
 	})
 
@@ -409,6 +418,55 @@ var _ = Describe("Drop of parted records", func() {
 			Expect(highest).To(BeNumerically(">=", data))
 		},
 	)
+
+	Describe("A Drop during a load that pins parts", func() {
+		// dropDuringLoad drops data while a load of data holds the parts of its range,
+		// and returns the keys of parted and the iterator of that load.
+		dropDuringLoad := func(
+			ctx SpecContext,
+			gate *gateFS,
+		) (idx, data cesium.ChannelKey, iter *cesium.Iterator) {
+			GinkgoHelper()
+			db, idx, data := parted(ctx, gate)
+			DeferCleanup(StartRun(db.Run))
+			iter = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+				Bounds:   telem.TimeRangeMax,
+				Channels: []cesium.ChannelKey{data},
+			}))
+			gate.arm()
+			sought := make(chan bool, 1)
+			go func() { sought <- iter.SeekFirst() }()
+			Eventually(gate.waiting).WithTimeout(10 * time.Second).Should(Receive())
+			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(segments(gate, data)).To(Equal(3))
+			close(gate.release)
+			Eventually(sought).WithTimeout(10 * time.Second).Should(Receive())
+			return idx, data, iter
+		}
+
+		It("Should remove every segment file of the key once the load ends", func(
+			ctx SpecContext,
+		) {
+			gate := &gateFS{FS: xfs.NewMem()}
+			_, data, iter := dropDuringLoad(ctx, gate)
+			Expect(iter.Close()).To(Succeed())
+			Expect(segments(gate, data)).To(BeZero())
+		})
+
+		It("Should remove every segment file of the key at the open after a crash "+
+			"during the load", func(ctx SpecContext) {
+			gate := &gateFS{FS: xfs.NewMem()}
+			idx, data, iter := dropDuringLoad(ctx, gate)
+			crashed := xfs.NewMem()
+			Expect(xfs.CopyDir(gate.FS, crashed, "")).To(Succeed())
+			Expect(iter.Close()).To(Succeed())
+			db := partedDB(ctx, crashed)
+			DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
+			DeferCleanup(StartRun(db.Run))
+			passOrphans(ctx, db, idx)
+			Expect(segments(crashed, data)).To(BeZero())
+		})
+	})
 })
 
 var _ = Describe("Claims over parts", func() {

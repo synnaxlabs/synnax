@@ -99,8 +99,8 @@ class MQTTTask(TaskPage):
         self._add_button().wait_for(state="visible", timeout=10000)
 
     def add_topics(self, topics: list[str]) -> None:
-        """Pick topics in the add dialog and add them. A pick takes the numbers and
-        booleans of a payload, or the whole of a bare value.
+        """Pick topics in the add dialog and add them. A pick takes every value of a
+        payload, or the whole of a bare value.
 
         :param topics: Topics the broker publishes.
         """

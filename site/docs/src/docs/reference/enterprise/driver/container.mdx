@@ -1,0 +1,151 @@
+---
+title: "Run the Driver in a container"
+description:
+  "Run a standalone Driver in Docker or Kubernetes with an API key from the environment
+  and its state on a volume."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A standalone Driver can run in a Docker or Kubernetes container. There is no Driver
+image. Copy the Linux binary into an image with glibc 2.35 or later, such as
+`ubuntu:22.04`. See [Requirements](/reference/enterprise/requirements).
+
+<Divider.Divider x />
+
+## Start command
+
+Run `start --standalone` in the foreground. Do not use `install` or the service.
+
+```bash
+synnax-driver start --standalone --disable-stdin-stop \
+  --state-file /var/lib/synnax-driver/persisted-state.json
+```
+
+<Note.Note variant="warning">
+  Always give `--disable-stdin-stop`. A container without an interactive stdin closes it
+  at once, and the Driver then stops.
+</Note.Note>
+
+The Driver stops on SIGTERM, so `docker stop` and a Kubernetes pod shutdown stop it
+cleanly. Run the Driver as the main process of the container: use the exec form of `CMD`
+or `ENTRYPOINT`, or `exec` in a wrapper script. A shell does not pass SIGTERM to the
+Driver.
+
+<Divider.Divider x />
+
+## Connection
+
+Set the connection with
+[environment variables](/reference/enterprise/driver/configuration#environment-variables).
+The Driver reads `SYNNAX_DRIVER_` and the parameter name in upper case, such as
+`SYNNAX_DRIVER_HOST`, `SYNNAX_DRIVER_PORT`, `SYNNAX_DRIVER_SECURE`, and
+`SYNNAX_DRIVER_API_KEY`.
+
+Create an API key for a rack in the Console and give it as `SYNNAX_DRIVER_API_KEY`. In
+Kubernetes, keep the key in a Secret. The Driver logs in as the rack of the key, so the
+rack stays the same when the container starts again, also with an empty state file.
+
+Without an API key, the Driver logs in with a username and password, creates a new rack,
+and saves its key in the state file. If the state file is lost, the next start creates
+another rack. Use an API key in a container.
+
+<Divider.Divider x />
+
+## State on a volume
+
+The Driver writes the
+[state file](/reference/enterprise/driver/configuration#state-file) at each start, so
+its directory must be writable. Put the directory on a volume:
+
+- The Driver creates a missing directory with mode `0700` and a missing state file with
+  mode `0600`. It does not change the mode or owner of a directory or file that exists,
+  such as a volume mount. Create the directory with the owner and mode you want before
+  the Driver starts, and make sure the user of the Driver can write to it. Without
+  `--state-file`, a Driver that runs as root and finds a `synnax` user gives a directory
+  that it creates to root and the `synnax` group with mode `0751`, and a file that it
+  creates to the `synnax` user with mode `0600`.
+- If the state file exists, the user of the Driver must own it, and other users must not
+  be able to read it, or the Driver does not start. Set the file to mode `0600`.
+- With `fsGroup` and the default `fsGroupChangePolicy` of `Always`, the kubelet makes
+  the state file readable by the group at each mount, and the Driver does not start. Set
+  `fsGroupChangePolicy` to `OnRootMismatch`, or remove `fsGroup`, then run `chmod 600`
+  on the state file once. The new policy does not change a file that the kubelet already
+  made readable.
+- The directory and the file cannot be symbolic links. Do not mount the state file from
+  a Kubernetes Secret or ConfigMap.
+- Driver 0.61.0 to 0.61.4 set the state file to mode `0600` at each start. Without
+  `--state-file`, they also change the mode of the directory. With these versions,
+  always give the flag.
+
+### OPC UA certificates
+
+The Driver keeps its OPC UA client certificates in `opcua/pki/` in the directory of the
+state file. Keep this directory on a persistent volume. If it is lost, the Driver makes
+a new certificate, and an OPC UA server that uses signing or encryption rejects it until
+you trust it on the server again.
+
+<Divider.Divider x />
+
+## Kubernetes example
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: synnax-driver
+stringData:
+  api-key: syk_...
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: synnax-driver
+spec:
+  serviceName: synnax-driver
+  replicas: 1
+  selector:
+    matchLabels:
+      app: synnax-driver
+  template:
+    metadata:
+      labels:
+        app: synnax-driver
+    spec:
+      containers:
+        - name: driver
+          image: registry.example.com/synnax-driver:0.61.5
+          command:
+            - synnax-driver
+            - start
+            - --standalone
+            - --disable-stdin-stop
+            - --state-file
+            - /var/lib/synnax-driver/persisted-state.json
+          env:
+            - name: SYNNAX_DRIVER_HOST
+              value: synnax.example.com
+            - name: SYNNAX_DRIVER_PORT
+              value: "9090"
+            - name: SYNNAX_DRIVER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: synnax-driver
+                  key: api-key
+          volumeMounts:
+            - name: state
+              mountPath: /var/lib/synnax-driver
+  volumeClaimTemplates:
+    - metadata:
+        name: state
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+```
+
+Run one replica for each API key.

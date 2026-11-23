@@ -111,15 +111,15 @@ func (r logRange) timeRange() telem.TimeRange {
 type logCursor struct {
 	e      *engine
 	key    ChannelKey
+	view   *logView
+	clock  bool
 	bounds telem.TimeRange
 	ranges []logRange
 	pos    int
 	valid  bool
 	// cur is the range of the last valid move, which a move that fails keeps, as on the
 	// old layout.
-	cur   logRange
-	view  *logView
-	clock bool
+	cur logRange
 	// err holds the errors of the part record reads, which Close returns. broken is
 	// true once a load failed to read a part, which ends the cursor.
 	err    error

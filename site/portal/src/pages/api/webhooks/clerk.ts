@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { verifyWebhook } from "@clerk/astro/webhooks";
-import { type APIRoute } from "astro";
+import type { APIRoute } from "astro";
 
 import { isInternal } from "@/server/directory";
 import { ensurePersonal, mirrorTeams } from "@/server/organization";

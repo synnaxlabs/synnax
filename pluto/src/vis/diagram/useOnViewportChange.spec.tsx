@@ -12,11 +12,12 @@ import {
   ReactFlow,
   type ReactFlowInstance,
   ReactFlowProvider,
+  type ReactFlowStoreApi,
   useReactFlow,
-  useStoreApi,
+  useReactFlowStoreApi,
   type Viewport,
 } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { useOnViewportChange } from "@/vis/diagram/useOnViewportChange";
@@ -25,7 +26,7 @@ const MOUNTED: Viewport = { x: 10, y: 20, zoom: 0.75 };
 
 interface Api {
   flow: ReactFlowInstance;
-  store: ReturnType<typeof useStoreApi>;
+  store: ReactFlowStoreApi["viewportStore"];
 }
 
 interface ProbeProps {
@@ -35,7 +36,7 @@ interface ProbeProps {
 
 const Probe = ({ onChange, api }: ProbeProps): null => {
   useOnViewportChange(onChange);
-  api.current = { flow: useReactFlow(), store: useStoreApi() };
+  api.current = { flow: useReactFlow(), store: useReactFlowStoreApi().viewportStore };
   return null;
 };
 
@@ -96,7 +97,7 @@ describe("Diagram.useOnViewportChange", () => {
   it("ignores store changes that leave the transform alone", () => {
     const { onChange, api } = renderTree();
     onChange.mockClear();
-    act(() => api().store.setState({ nodesSelectionActive: true }));
+    act(() => api().store.setState({ paneDragging: true }));
     expect(onChange).not.toHaveBeenCalled();
   });
 

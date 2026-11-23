@@ -9,7 +9,7 @@
 
 import "@/steps/Steps.css";
 
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import type { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { CSS } from "@/css";
 

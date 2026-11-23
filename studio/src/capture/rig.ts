@@ -25,21 +25,14 @@ import {
   CLICK_DWELL_S,
   CLICK_HOLD_S,
   CLICK_ZOOM_SETTLE_S,
+  fitAmount,
+  minimumJerk,
   RECT_ZOOM_MIN,
   TRAVEL_MAX_S,
   TRAVEL_MIN_S,
   TRAVEL_SCALE_S,
-} from "@/director/constants";
-import { minimumJerk } from "@/director/cursor";
-import { fitAmount } from "@/director/zoom";
-import {
-  type CursorKind,
-  type Event,
-  type Meta,
-  type Point,
-  type Rect,
-  type Timeline,
-} from "@/timeline";
+} from "@/director";
+import type { CursorKind, Event, Meta, Point, Rect, Timeline } from "@/timeline";
 
 export interface CaptureOptions {
   /** URL of the Console web build. */

@@ -93,6 +93,30 @@ var _ = Describe("Preloads", func() {
 })
 
 var _ = Describe("Put-back", func() {
+	It("Should put a parted record back in the order of identity of its key", func() {
+		head := sample()
+		head.Channels[1].Parts = &state.Parts{Oldest: 7, Newest: 7}
+		cfg := config(&appended{})
+		cfg.Generation = 5
+		s := MustSucceed(state.Open(cfg, head))
+		run(s)
+		record := state.Segment{
+			ID: 9, Clock: 5, Version: 1, DataType: 4, Sealed: true, Length: 8,
+			TailCRC: 24, Part: 7,
+			Pointers: []state.Pointer{pointer(3, 0, 40, 50, 0, 8, 2)},
+		}
+		d := MustSucceed(s.BeginDelete(6, 45, 55, state.Preload{
+			Key: 6, Generation: 5, Segments: []state.Segment{record},
+		}))
+		DeferCleanup(func() { Expect(d.Release()).To(Succeed()) })
+		MustSucceed(s.Snapshot())
+		ids := make([]uint64, 0, 2)
+		for _, seg := range s.Channel(6).Segments {
+			ids = append(ids, seg.ID)
+		}
+		Expect(ids).To(Equal([]uint64{3, 9}))
+	})
+
 	It("Should put a parted record that the state lacks back for the cut of a delete",
 		func() {
 			head := sample()
@@ -300,5 +324,81 @@ var _ = Describe("Clock users", func() {
 		Expect(s.Snapshot()).Error().To(MatchError(
 			ContainSubstring("drop of key 5, the clock of segment 3 of key 6"),
 		))
+	})
+})
+
+var _ = Describe("Drop of parted records", func() {
+	// record is a sealed record of key 6 that part 7 of head 5 holds, and that the
+	// state lacks.
+	record := state.Segment{
+		ID: 3, Clock: 5, Version: 1, DataType: 4, Sealed: true, Length: 12,
+		TailCRC: 3, Part: 7,
+		Pointers: []state.Pointer{pointer(1, 0, 10, 30, 0, 12, 3)},
+	}
+	preload := state.Preload{Key: 6, Generation: 5, Segments: []state.Segment{record}}
+	open := func() *state.State {
+		GinkgoHelper()
+		head := sample()
+		head.Channels[1] = &state.Channel{
+			Key:   6,
+			Parts: &state.Parts{Oldest: 7, Newest: 7},
+		}
+		cfg := config(&appended{})
+		cfg.Generation = 5
+		return MustSucceed(state.Open(cfg, head))
+	}
+	dead := state.Dead{Segment: 3, Key: 6}
+
+	It("Should give the parted records of a key to TakeDead at its durable Drop",
+		func() {
+			s := open()
+			run(s)
+			Expect(s.BeginDrop(6, preload)).To(Succeed())
+			Expect(s.Durable(10, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
+			MustSucceed(s.Snapshot())
+			Expect(s.TakeDead()).To(Equal([]state.Dead{dead}))
+		})
+
+	It("Should give the parted records of a key to TakeDead at a replayed Drop",
+		func() {
+			s := open()
+			Expect(s.Replay(10, []log.Record{&log.Drop{Key: 6}}, preload)).
+				To(Succeed())
+			run(s)
+			Expect(s.TakeDead()).To(Equal([]state.Dead{dead}))
+		})
+
+	It("Should give a parted record that the state put back to TakeDead once", func() {
+		s := open()
+		run(s)
+		d := MustSucceed(s.BeginDelete(6, 15, 25, preload))
+		Expect(d.Release()).To(Succeed())
+		Expect(s.Channel(6).Segments).To(HaveLen(1))
+		Expect(s.BeginDrop(6, preload)).To(Succeed())
+		Expect(s.Durable(10, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
+		MustSucceed(s.Snapshot())
+		Expect(s.TakeDead()).To(Equal([]state.Dead{dead}))
+	})
+
+	It("Should give to TakeDead a segment of the key that a part took after "+
+		"BeginDrop", func() {
+		s := MustSucceed(state.Open(config(&appended{}), sample()))
+		Expect(s.Replay(10, []log.Record{
+			&log.Seal{Segment: 3, Length: 12, TailCRC: 3},
+		})).To(Succeed())
+		run(s)
+		MustSucceed(s.Snapshot())
+		Expect(s.BeginDrop(6)).To(Succeed())
+		tagged := s.Channel(6).Segments[0]
+		tagged.Part = 7
+		Expect(s.Parted(
+			5,
+			[]state.Tag{{Part: 7, Segment: tagged}},
+			[]state.Range{{Key: 6, Oldest: 7, Newest: 7}},
+			func() {},
+		)).To(Succeed())
+		Expect(s.Durable(11, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
+		MustSucceed(s.Snapshot())
+		Expect(s.TakeDead()).To(Equal([]state.Dead{dead}))
 	})
 })

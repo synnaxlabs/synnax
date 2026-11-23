@@ -18,7 +18,18 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 
 import { CSS } from "@/platform/css";
+import { useHint } from "@/platform/icd/picker/hint";
 import { CheckSkeleton } from "@/platform/icd/picker/Picker";
+
+/** Fixes the checkbox of a value that cannot be picked. */
+export interface Lock {
+  checked: boolean;
+  /** Says why, in place of the type of the value. */
+  label: string;
+}
+
+/** The lock of a value that the task reads already. */
+export const TAKEN: Lock = { checked: true, label: "In task" };
 
 /** A value the pane offers, such as one field of a message. */
 export interface Value {
@@ -26,9 +37,7 @@ export interface Value {
   name: string;
   sample: string | null;
   dataType: string;
-  /** The task reads it already. */
-  taken: boolean;
-  unsupported?: boolean;
+  lock?: Lock;
 }
 
 export interface ValueGroup {
@@ -46,6 +55,13 @@ interface PaneHeaderProps {
   onClear: () => void;
 }
 
+const Hint = () => (
+  <Text.Text level="small" color={9} className={CSS.BE("icd-picker", "hint")}>
+    {useHint("Picker.Hint")}
+  </Text.Text>
+);
+
+/** The head of a pane: its title, Select all or Clear, then the hint of the dialog. */
 export const PaneHeader = ({
   title,
   note,
@@ -54,34 +70,37 @@ export const PaneHeader = ({
   onPickAll,
   onClear,
 }: PaneHeaderProps) => (
-  <Header.Header bordered={false} className={CSS.BE("icd-picker", "pane-header")}>
-    <Header.Title weight={500} color={10} variant="code">
-      {title}
-      {note != null && (
-        <Text.Text el="span" level="small" color={9}>
-          {note}
-        </Text.Text>
-      )}
-    </Header.Title>
-    <Header.Actions>
-      {picked > 0 ? (
-        <Button.Button variant="text" size="small" onClick={onClear}>
-          Clear
-        </Button.Button>
-      ) : (
-        onPickAll != null && (
-          <Button.Button
-            variant="text"
-            size="small"
-            disabled={free === 0}
-            onClick={onPickAll}
-          >
-            Select all
+  <>
+    <Header.Header bordered={false} className={CSS.BE("icd-picker", "pane-header")}>
+      <Header.Title weight={500} color={10} variant="code">
+        {title}
+        {note != null && (
+          <Text.Text el="span" level="small" color={9}>
+            {note}
+          </Text.Text>
+        )}
+      </Header.Title>
+      <Header.Actions>
+        {picked > 0 ? (
+          <Button.Button variant="text" size="small" onClick={onClear}>
+            Clear
           </Button.Button>
-        )
-      )}
-    </Header.Actions>
-  </Header.Header>
+        ) : (
+          onPickAll != null && (
+            <Button.Button
+              variant="text"
+              size="small"
+              disabled={free === 0}
+              onClick={onPickAll}
+            >
+              Select all
+            </Button.Button>
+          )
+        )}
+      </Header.Actions>
+    </Header.Header>
+    <Hint />
+  </>
 );
 
 interface HeadProps {
@@ -103,10 +122,8 @@ const Item = (props: List.ItemRenderProps<string>) => {
   const value = List.useItem<string, Value>(props.itemKey);
   const { selected, onSelect } = Select.useItemState(props.itemKey);
   if (value == null) return null;
-  const locked = value.taken || value.unsupported === true;
-  let dataType = value.dataType;
-  if (value.taken) dataType = "In task";
-  else if (value.unsupported === true) dataType = "Not supported";
+  const { lock } = value;
+  const locked = lock != null;
   return (
     <Select.Item<string>
       {...props}
@@ -114,7 +131,7 @@ const Item = (props: List.ItemRenderProps<string>) => {
       className={CSS.BE("icd-picker", "value")}
     >
       <Input.Checkbox
-        value={value.taken || selected}
+        value={lock?.checked ?? selected}
         onChange={onSelect}
         disabled={locked}
         size="small"
@@ -127,7 +144,7 @@ const Item = (props: List.ItemRenderProps<string>) => {
         {value.sample ?? "–"}
       </Text.Text>
       <Text.Text level="small" color={9} overflow="fade">
-        {dataType}
+        {lock?.label ?? value.dataType}
       </Text.Text>
     </Select.Item>
   );
@@ -208,6 +225,7 @@ export const PaneSkeleton = ({ noun, title }: PaneSkeletonProps) => (
         </Header.Title>
       )}
     </Header.Header>
+    <Hint />
     <div aria-hidden className={CSS.BE("icd-picker", "values")}>
       <Head noun={noun} />
       <div className={CSS.BE("icd-picker", "value-list")}>
