@@ -13,12 +13,13 @@ import {
   disposable,
   Series,
   sleep,
+  TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { channel } from "@/channel";
+import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { Joins } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
@@ -964,6 +965,87 @@ describe("MultiplexedStreamer", () => {
       const block = store.raw(1, 0);
       expect(block.buffer).toBeNull();
       expect(block.fetched.flatMap((s) => Array.from(s))).toEqual(TIMES);
+      await streamer.close();
+    });
+
+    it("should outdate only open stored blocks, once per interval, on misses", async () => {
+      const cache = createJoined(1);
+      const { store, joins } = cache;
+      store.setChannel(
+        new channel.Channel({
+          key: 1,
+          name: "time",
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        }).payload,
+      );
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        ...cache,
+        openStreamer: createStreamOpener(
+          [oneFrameStreamer([1], new framer.Frame({ 1: createTimestamps() }))],
+          hooks,
+        ),
+      });
+      const sub = streamer.demand([1], () => {});
+      await vi.advanceTimersByTimeAsync(200);
+      const open = store.open(1);
+      expect(open).not.toBeNull();
+      const invalidate = vi.spyOn(joins, "invalidate");
+      const restart = vi.spyOn(store, "restartSignals");
+      hooks[0].onMissed();
+      hooks[0].onMissed();
+      await vi.advanceTimersByTimeAsync(10);
+      expect(invalidate.mock.calls).toEqual([
+        [1, new TimeRange(open?.range.start ?? TimeStamp.MIN, TimeStamp.MAX), true],
+      ]);
+      expect(restart).toHaveBeenCalledTimes(1);
+      hooks[0].onMissed();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(restart).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(600);
+      expect(restart).toHaveBeenCalledTimes(2);
+      expect(sub.status(1).variant).toEqual("success");
+      sub.close();
+      await streamer.close();
+    });
+
+    it("should outdate from the block a marker found after the block closes", async () => {
+      const cache = createJoined(1);
+      const { store, joins } = cache;
+      store.setChannel(
+        new channel.Channel({
+          key: 1,
+          name: "time",
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        }).payload,
+      );
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        ...cache,
+        openStreamer: createStreamOpener(
+          [oneFrameStreamer([1], new framer.Frame({ 1: createTimestamps() }))],
+          hooks,
+        ),
+      });
+      const sub = streamer.demand([1], () => {});
+      await vi.advanceTimersByTimeAsync(200);
+      const open = store.open(1);
+      expect(open).not.toBeNull();
+      const invalidate = vi.spyOn(joins, "invalidate");
+      const restart = vi.spyOn(store, "restartSignals");
+      hooks[0].onMissed();
+      // The stream moves past the block before the throttled outdate runs.
+      store.flush(1);
+      expect(store.open(1)).toBeNull();
+      await vi.advanceTimersByTimeAsync(10);
+      expect(invalidate.mock.calls).toEqual([
+        [1, new TimeRange(open?.range.start ?? TimeStamp.MIN, TimeStamp.MAX), true],
+      ]);
+      expect(restart).toHaveBeenCalledTimes(1);
+      expect(sub.status(1).variant).toEqual("success");
+      sub.close();
       await streamer.close();
     });
 

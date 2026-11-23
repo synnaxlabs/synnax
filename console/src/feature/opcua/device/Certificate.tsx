@@ -34,14 +34,14 @@ import {
   useState,
 } from "react";
 
-import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import {
   type CertificateInfo,
   type CertificatesResponse,
   certificatesResponseZ,
   GET_CERTIFICATE_COMMAND_TYPE,
   REGENERATE_CERTIFICATE_COMMAND_TYPE,
-} from "@/feature/opcua/task/types";
+} from "@/feature/opcua/device/scan";
+import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";

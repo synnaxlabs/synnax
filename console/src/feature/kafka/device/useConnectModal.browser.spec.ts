@@ -96,7 +96,7 @@ describe("Kafka.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "kafka");
     const scan = await rack.createTask({
       name: uniqueName("kafka_scan"),
-      type: Kafka.Task.SCAN_TYPE,
+      type: Kafka.Device.SCAN_TYPE,
       config: {},
     });
     const analytics = createTestSink();
@@ -124,7 +124,7 @@ describe("Kafka.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "kafka");
     const scan = await rack.createTask({
       name: uniqueName("kafka_scan"),
-      type: Kafka.Task.SCAN_TYPE,
+      type: Kafka.Device.SCAN_TYPE,
       config: {},
     });
     const { result } = await renderModalOpener(
@@ -151,7 +151,7 @@ describe("Kafka.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "kafka");
     const scan = await rack.createTask({
       name: uniqueName("kafka_scan"),
-      type: Kafka.Task.SCAN_TYPE,
+      type: Kafka.Device.SCAN_TYPE,
       config: {},
     });
     await renderModalOpener(Kafka.Device.useConnectModal, [{ rack: rack.key }], {

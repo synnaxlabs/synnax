@@ -55,6 +55,7 @@ export const Properties = (): ReactElement => {
             onChange={handlePrecisionChange}
             resetValue={0}
             bounds={TIMESTAMP_PRECISION_BOUNDS}
+            integer
             disabled={!hasEditPermission || timestampsHidden}
           />
         </Flex.Box>

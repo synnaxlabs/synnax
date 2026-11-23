@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, test, vi } from "vitest";
+import { beforeAll, describe, expect, onTestFinished, test, vi } from "vitest";
 
 import { role } from "@/access/role";
 import { AccessDeniedError, AuthError, NotFoundError, ValidationError } from "@/index";
@@ -20,6 +20,7 @@ import {
   expectDeleted,
   expectLive,
   holdResponses,
+  spyOnSend,
   TEST_CREDENTIALS,
   waitForStreamLive,
 } from "@/testutil";
@@ -456,6 +457,45 @@ describe("cached reads", () => {
     } finally {
       off();
     }
+  });
+
+  test("should keep a subscribed user unchanged on a remote username change", async () => {
+    const r = await createEmptyRole(client);
+    const u = await createUser();
+    const seen: Array<query.Cached<user.User> | undefined> = [];
+    const off = client.users.watch(u.key).onChange((res) => seen.push(res));
+    try {
+      const before = await client.users.retrieve(u.key);
+      seen.length = 0;
+      const send = spyOnSend(client);
+      onTestFinished(() => send.mockRestore());
+      await remote.users.changeUsername(u.key, id.create());
+      // A later role change of the same user arrives after the username change. The
+      // username handler cannot hide a change by writing the role.
+      await remote.users.setRole(u.key, r.key);
+      await expect
+        .poll(() => expectLive(client.users.watch(u.key).getCached()).role)
+        .toEqual(r.key);
+      expect(client.users.watch(u.key).getCached()).toEqual({ ...before, role: r.key });
+      // Every change the subscriber saw carries the new role, so the username change
+      // changed nothing, and a failed reduce would have fetched the user again.
+      expect(seen).not.toHaveLength(0);
+      seen.forEach((res) => expect(res).toEqual({ ...before, role: r.key }));
+      expect(send.mock.calls.filter(([to]) => to === "/user/retrieve")).toEqual([]);
+    } finally {
+      off();
+    }
+  });
+
+  test("should reduce a root_user set locally before the Core rejects it", async () => {
+    const u = await createUser();
+    await client.users.retrieve(u.key);
+    // The client applies the set to the held user before it sends. A client that could
+    // not apply it would throw a plain error, not the Core's validation error.
+    await expect(
+      client.users.dispatch(u.key, user.set({ path: ["root_user"], value: true })),
+    ).rejects.toThrow(ValidationError);
+    expect(expectLive(client.users.watch(u.key).getCached()).rootUser).toBe(false);
   });
 
   test("should deliver a remote role change to a subscribed user", async () => {

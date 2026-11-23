@@ -9,12 +9,12 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { useOpen } from "@/feature/channel/useOpen";
+import { Open } from "@/feature/channel/open";
 import { Search } from "@/platform/search";
 
 const SearchListItem = Search.createListItem({
   icon: <Icon.Channel />,
-  useOnSelect: useOpen,
+  useOnSelect: Open.use,
 });
 
 export const SEARCH_LIST_ITEMS: Search.ListItems = { channel: SearchListItem };

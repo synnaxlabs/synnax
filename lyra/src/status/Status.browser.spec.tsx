@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { Status } from "@/status";
-import { computed, renderThemed, resolve } from "@/styletest";
+import { computed, renderThemed, resolve, withMotion } from "@/styletest";
 
 const MESSAGE = "Failed to start the task because the device did not answer in time";
 
@@ -77,5 +77,21 @@ describe("Status", () => {
       expect(computed(stamp, "opacity")).toBe("0");
       expect(computed(controls, "opacity")).toBe("1");
     });
+  });
+
+  it("should play its entrance once, not each time a parent shows it again", async () => {
+    const card = await renderNotification();
+    card.dispatchEvent(new AnimationEvent("animationend", { bubbles: true }));
+    const host = card.parentElement;
+    assert(host != null);
+    await expect.poll(() => card.className).not.toContain(CSS.M("entering"));
+    const replays = withMotion(() => {
+      host.style.display = "none";
+      host.getBoundingClientRect();
+      host.style.display = "";
+      host.getBoundingClientRect();
+      return card.getAnimations().length;
+    });
+    expect(replays).toBe(0);
   });
 });

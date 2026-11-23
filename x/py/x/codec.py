@@ -17,7 +17,7 @@ P = TypeVar("P", bound=BaseModel)
 
 
 def _decode_base64(value: object) -> object:
-    return base64.b64decode(value) if isinstance(value, str) else value
+    return base64.b64decode(value, validate=True) if isinstance(value, str) else value
 
 
 def _encode_base64(value: bytes) -> str:

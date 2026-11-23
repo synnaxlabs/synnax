@@ -12,23 +12,12 @@ import { deep, id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { screen } from "@testing-library/react";
 
-import {
-  type Device,
-  MAKE,
-  type Properties,
-  SCHEMAS,
-  ZERO_PROPERTIES,
-} from "@/feature/opcua/device/types";
-import {
-  type CertificateInfo,
-  SCAN_TYPE,
-  type ScannedNode,
-} from "@/feature/opcua/task/types";
+import { Device } from "@/feature/opcua/device";
 import { createRunningRack, startRackHeartbeat } from "@/platform/device/testutil";
 import { dragOnto } from "@/testutil";
 
 /** A real self-signed certificate, with the details a Driver reports for it. */
-export const SERVER_CERTIFICATE: CertificateInfo = {
+export const SERVER_CERTIFICATE: Device.CertificateInfo = {
   pem: `-----BEGIN CERTIFICATE-----
 MIIBbjCCARSgAwIBAgIUbAC1w3Ys7iTmtmRuMq9Yc9mWGIYwCgYIKoZIzj0EAwIw
 HTEbMBkGA1UEAwwSVGVzdCBPUEMgVUEgU2VydmVyMB4XDTI2MTAyODAzMjYwNFoX
@@ -47,7 +36,7 @@ IQDyvwdbi7qXLS7bkjYtMlxZ94PTGKApVOsBgqdDntq6EA==
 
 export interface CreateOPCDeviceOptions {
   configured?: boolean;
-  properties?: Partial<Properties>;
+  properties?: Partial<Device.Properties>;
   /** The rack of the device. A new rack when absent. */
   rack?: rack.Key;
 }
@@ -56,7 +45,7 @@ export interface CreateOPCDeviceOptions {
 export const createOPCDevice = async (
   client: Synnax,
   { configured = true, properties, rack }: CreateOPCDeviceOptions = {},
-): Promise<Device> => {
+): Promise<Device.Device> => {
   const rackKey = rack ?? (await client.racks.create({ name: uniqueName("rack") })).key;
   return await client.devices.create(
     {
@@ -64,12 +53,12 @@ export const createOPCDevice = async (
       name: uniqueName("opc_server"),
       rack: rackKey,
       location: "opc.tcp://localhost:4840",
-      make: MAKE,
+      make: Device.MAKE,
       model: "OPC UA server",
       configured,
-      properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
+      properties: { ...deep.copy(Device.ZERO_PROPERTIES), ...properties },
     },
-    SCHEMAS,
+    Device.SCHEMAS,
   );
 };
 
@@ -77,7 +66,7 @@ export const createOPCDevice = async (
  * Creates a variable node with a unique name, as the browser lists it. A structure node
  * has no data type.
  */
-export const createVariableNode = (dataType: string = ""): ScannedNode => {
+export const createVariableNode = (dataType: string = ""): Device.ScannedNode => {
   const name = uniqueName("Node").replace(/_/g, "");
   return {
     key: `ns=1;s=${name}`,
@@ -96,12 +85,12 @@ export const createVariableNode = (dataType: string = ""): ScannedNode => {
  */
 export const createScannedDevice = async (
   client: Synnax,
-): Promise<{ scan: task.Task; device: Device }> => {
+): Promise<{ scan: task.Task; device: Device.Device }> => {
   const rack = await createRunningRack(client, "opc");
   await startRackHeartbeat(client, rack);
   const scan = await rack.createTask({
     name: uniqueName("opcua_scan"),
-    type: SCAN_TYPE,
+    type: Device.SCAN_TYPE,
     config: {},
   });
   return { scan, device: await createOPCDevice(client, { rack: rack.key }) };
@@ -109,10 +98,10 @@ export const createScannedDevice = async (
 
 /** Creates the member at field of a structure node, as the browser lists it. */
 export const createMember = (
-  node: ScannedNode,
+  node: Device.ScannedNode,
   field: string,
   dataType: string,
-): ScannedNode => ({
+): Device.ScannedNode => ({
   ...node,
   key: `${node.nodeId}/${field}`,
   name: field,

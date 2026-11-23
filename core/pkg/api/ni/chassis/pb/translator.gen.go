@@ -17,12 +17,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
 	ni_chassispb "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/pb"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // CursorToPB converts Cursor to Cursor.
 func CursorToPB(r chassis.Cursor) (*Cursor, error) {
 	pb := &Cursor{
 		Key: r.Key.String(),
+	}
+	if r.Name != nil {
+		pb.Name = r.Name
 	}
 	return pb, nil
 }
@@ -37,6 +41,9 @@ func CursorFromPB(pb *Cursor) (chassis.Cursor, error) {
 	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return chassis.Cursor{}, err
+	}
+	if pb.Name != nil {
+		r.Name = pb.Name
 	}
 	return r, nil
 }
@@ -67,6 +74,65 @@ func CursorsFromPB(pbs []*Cursor) ([]chassis.Cursor, error) {
 	return result, nil
 }
 
+// OrderToPB converts Order to Order.
+func OrderToPB(r chassis.Order) (*Order, error) {
+	fieldVal, err := OrderFieldToPB(r.Field)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Order{
+		Descending: r.Descending,
+		Field:      fieldVal,
+	}
+	return pb, nil
+}
+
+// OrderFromPB converts Order to Order.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func OrderFromPB(pb *Order) (chassis.Order, error) {
+	var r chassis.Order
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.Field, err = OrderFieldFromPB(pb.Field)
+	if err != nil {
+		return chassis.Order{}, err
+	}
+	r.Descending = pb.Descending
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// OrdersToPB converts a slice of Order to Order.
+func OrdersToPB(rs []chassis.Order) ([]*Order, error) {
+	result := make([]*Order, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = OrderToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// OrdersFromPB converts a slice of Order to Order.
+func OrdersFromPB(pbs []*Order) ([]chassis.Order, error) {
+	result := make([]chassis.Order, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = OrderFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
 func RetrieveRequestToPB(r chassis.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
@@ -76,6 +142,13 @@ func RetrieveRequestToPB(r chassis.RetrieveRequest) (*RetrieveRequest, error) {
 	if r.Where != nil {
 		var err error
 		pb.Where, err = ni_chassispb.WhereToPB(*r.Where)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Order != nil {
+		var err error
+		pb.Order, err = OrderToPB(*r.Order)
 		if err != nil {
 			return nil, err
 		}
@@ -111,6 +184,13 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (chassis.RetrieveRequest, error)
 			return chassis.RetrieveRequest{}, err
 		}
 		r.Where = &val
+	}
+	if pb.Order != nil {
+		val, err := OrderFromPB(pb.Order)
+		if err != nil {
+			return chassis.RetrieveRequest{}, err
+		}
+		r.Order = &val
 	}
 	if pb.After != nil {
 		val, err := CursorFromPB(pb.After)
@@ -202,4 +282,24 @@ func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]chassis.RetrieveRespons
 		}
 	}
 	return result, nil
+}
+
+// OrderFieldToPB converts chassis.OrderField to OrderField.
+func OrderFieldToPB(v chassis.OrderField) (OrderField, error) {
+	switch v {
+	case chassis.OrderFieldName:
+		return OrderField_ORDER_FIELD_NAME, nil
+	default:
+		return 0, errors.Newf("unrecognized chassis.OrderField value: %v", v)
+	}
+}
+
+// OrderFieldFromPB converts OrderField to chassis.OrderField.
+func OrderFieldFromPB(v OrderField) (chassis.OrderField, error) {
+	switch v {
+	case OrderField_ORDER_FIELD_NAME:
+		return chassis.OrderFieldName, nil
+	default:
+		return chassis.OrderField(""), errors.Newf("unrecognized OrderField value: %v", v)
+	}
 }
