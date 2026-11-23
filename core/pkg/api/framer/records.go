@@ -133,7 +133,10 @@ func admits(
 		if err != nil {
 			return false, err
 		}
-		return check(allowed), nil
+		// A batch with no check of its own goes by its resource.
+		if check != nil {
+			return check(allowed), nil
+		}
 	}
 	id, err := record.Of(sample)
 	if err != nil {

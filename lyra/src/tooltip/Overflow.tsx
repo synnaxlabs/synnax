@@ -10,6 +10,7 @@
 import { type ReactElement, useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
+import { Portal } from "@/portal";
 import { formatTip } from "@/tooltip/Dialog";
 import { Frame } from "@/tooltip/Frame";
 import { useVisibility } from "@/tooltip/useVisibility";
@@ -63,13 +64,17 @@ export const Overflow = (): ReactElement | null => {
     };
   }, [hover, close]);
   if (anchor == null) return null;
+  // A modal makes the page outside it inert and covers it, so a label in a modal gets
+  // its tooltip in the modal.
   return (
-    <Frame
-      anchor={anchor}
-      className={closing ? CSS.M("closing") : undefined}
-      onAnchorLost={() => close(true)}
-    >
-      {formatTip(anchor.textContent)}
-    </Frame>
+    <Portal.Target element={anchor.closest("dialog")}>
+      <Frame
+        anchor={anchor}
+        className={closing ? CSS.M("closing") : undefined}
+        onAnchorLost={() => close(true)}
+      >
+        {formatTip(anchor.textContent)}
+      </Frame>
+    </Portal.Target>
   );
 };

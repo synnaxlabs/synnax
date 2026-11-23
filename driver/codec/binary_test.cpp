@@ -12,7 +12,9 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -66,6 +68,33 @@ void assert_refuses(
     const auto err = create_error(f, dt);
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
     EXPECT_EQ(err.data, "message frame: field " + icd::base(f).name + ": " + text);
+}
+
+/// @brief returns a message named frame with fields, which binds the fields of keys to
+/// uint8 channels.
+BinaryMessage multiplexed(
+    const std::vector<icd::BinaryField> &fields,
+    const std::vector<icd::FieldKey> &keys
+) {
+    BinaryMessage m{.name = "frame", .payload = {.fields = fields}};
+    for (const auto &k: keys)
+        m.bindings.push_back({.field = k, .data_type = x::telem::UINT8_T});
+    return m;
+}
+
+/// @brief asserts that creating a decoder for messages fails with text.
+void assert_refuses_all(
+    const std::vector<BinaryMessage> &messages,
+    const std::string &text
+) {
+    const auto [dec, err] = Binary::create(messages);
+    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+    EXPECT_EQ(err.data, text);
+}
+
+/// @brief asserts that creating a decoder for m fails with text.
+void assert_refuses_message(const BinaryMessage &m, const std::string &text) {
+    assert_refuses_all({m}, text);
 }
 
 /// @brief returns the one sample that a decoder for f bound to dt decodes from bytes.
@@ -280,12 +309,133 @@ TEST(Binary, RefuseDefaultNotFinite) {
     assert_refuses(f, x::telem::FLOAT64_T, "default: NaN is not finite");
 }
 
-/// @brief it should refuse a multiplexed field.
-TEST(Binary, RefuseMultiplexed) {
-    auto f = field<icd::UnsignedBinaryField>("v", 8, 8);
-    f.multiplexor = x::uuid::create();
-    f.multiplex_values = {1};
-    assert_refuses(f, x::telem::UINT8_T, "multiplexed fields are not supported yet");
+/// @brief it should decode only the fields that the multiplexor of a frame selects.
+TEST(Binary, DecodeMultiplexed) {
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 0, 8);
+    auto a = field<icd::UnsignedBinaryField>("a", 8, 8);
+    a.multiplexor = mode.key;
+    a.multiplex_values = {1};
+    auto b = field<icd::UnsignedBinaryField>("b", 8, 8);
+    b.multiplexor = mode.key;
+    b.multiplex_values = {2, 3};
+    auto dec = ASSERT_NIL_P(
+        Binary::create({multiplexed({mode, a, b}, {a.key, b.key})})
+    );
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 16})), 0U);
+    ASSERT_EQ(dec.samples(0)[0].size(), 1);
+    EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 16);
+    EXPECT_EQ(dec.samples(0)[1].size(), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{3, 32})), 0U);
+    EXPECT_EQ(dec.samples(0)[0].size(), 0);
+    ASSERT_EQ(dec.samples(0)[1].size(), 1);
+    EXPECT_EQ(dec.samples(0)[1].at<std::uint8_t>(0), 32);
+}
+
+/// @brief it should write the default of a field that the multiplexor does not select.
+TEST(Binary, DecodeMultiplexedDefault) {
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 0, 8);
+    auto a = field<icd::UnsignedBinaryField>("a", 8, 8);
+    a.multiplexor = mode.key;
+    a.multiplex_values = {1};
+    a.default_ = 7;
+    auto dec = ASSERT_NIL_P(Binary::create({multiplexed({mode, a}, {a.key})}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{2, 16})), 0U);
+    ASSERT_EQ(dec.samples(0)[0].size(), 1);
+    EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 7);
+}
+
+/// @brief it should select a field only when each multiplexor in its chain holds one of
+/// its values.
+TEST(Binary, DecodeCascadedMultiplexors) {
+    const auto outer = field<icd::UnsignedBinaryField>("outer", 0, 8);
+    auto inner = field<icd::IntegerBinaryField>("inner", 8, 8);
+    inner.multiplexor = outer.key;
+    inner.multiplex_values = {1};
+    auto v = field<icd::UnsignedBinaryField>("v", 16, 8);
+    v.multiplexor = inner.key;
+    v.multiplex_values = {-1};
+    auto dec = ASSERT_NIL_P(Binary::create({multiplexed({outer, inner, v}, {v.key})}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 0xFF, 9})), 0U);
+    ASSERT_EQ(dec.samples(0)[0].size(), 1);
+    EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 9);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{0, 0xFF, 9})), 0U);
+    EXPECT_EQ(dec.samples(0)[0].size(), 0);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{1, 0xFE, 9})), 0U);
+    EXPECT_EQ(dec.samples(0)[0].size(), 0);
+}
+
+/// @brief it should reject a payload too short for a multiplexor, and name the first
+/// multiplexor that does not fit.
+TEST(Binary, RejectShortForMultiplexors) {
+    const auto bank = field<icd::UnsignedBinaryField>("bank", 0, 8);
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 16, 8);
+    auto a = field<icd::UnsignedBinaryField>("a", 8, 8);
+    a.multiplexor = bank.key;
+    a.multiplex_values = {1};
+    a.default_ = 0;
+    auto b = field<icd::UnsignedBinaryField>("b", 8, 8);
+    b.multiplexor = mode.key;
+    b.multiplex_values = {1};
+    b.default_ = 0;
+    auto dec = ASSERT_NIL_P(
+        Binary::create({multiplexed({bank, mode, a, b}, {a.key, b.key})})
+    );
+    const auto [message, err] = dec.decode(std::vector<std::uint8_t>{1, 0});
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "field mode: the payload has 2 bytes and the field needs 3");
+}
+
+/// @brief it should refuse a multiplexor that is not a field of the message.
+TEST(Binary, RefuseMissingMultiplexor) {
+    auto a = field<icd::UnsignedBinaryField>("a", 8, 8);
+    const auto key = x::uuid::create();
+    a.multiplexor = key;
+    a.multiplex_values = {1};
+    assert_refuses(
+        a,
+        x::telem::UINT8_T,
+        "multiplexor " + key.to_string() + " does not exist"
+    );
+}
+
+/// @brief it should refuse a float multiplexor.
+TEST(Binary, RefuseFloatMultiplexor) {
+    const auto mode = field<icd::FloatBinaryField>("mode", 0, 32);
+    auto a = field<icd::UnsignedBinaryField>("a", 32, 8);
+    a.multiplexor = mode.key;
+    a.multiplex_values = {1};
+    assert_refuses_message(
+        multiplexed({mode, a}, {a.key}),
+        "message frame: field a: multiplexor mode is a float field"
+    );
+}
+
+/// @brief it should refuse a multiplexed field with no multiplex values.
+TEST(Binary, RefuseEmptyMultiplexValues) {
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 0, 8);
+    auto a = field<icd::UnsignedBinaryField>("a", 8, 8);
+    a.multiplexor = mode.key;
+    assert_refuses_message(
+        multiplexed({mode, a}, {a.key}),
+        "message frame: field a: multiplex values are empty"
+    );
+}
+
+/// @brief it should refuse multiplexors that select each other.
+TEST(Binary, RefuseMultiplexorCycle) {
+    auto x = field<icd::UnsignedBinaryField>("x", 0, 8);
+    auto y = field<icd::UnsignedBinaryField>("y", 8, 8);
+    x.multiplexor = y.key;
+    x.multiplex_values = {1};
+    y.multiplexor = x.key;
+    y.multiplex_values = {1};
+    auto a = field<icd::UnsignedBinaryField>("a", 16, 8);
+    a.multiplexor = x.key;
+    a.multiplex_values = {1};
+    assert_refuses_message(
+        multiplexed({x, y, a}, {a.key}),
+        "message frame: field a: multiplexors form a cycle"
+    );
 }
 
 /// @brief it should refuse a field that ends past the length of its payload.
@@ -321,16 +471,6 @@ TEST(Binary, RefuseTwoFallbacks) {
     EXPECT_EQ(err.data, "messages frame and other both have no identifier");
 }
 
-/// @brief it should refuse a message with an identifier.
-TEST(Binary, RefuseIdentifier) {
-    const auto f = field<icd::UnsignedBinaryField>("v", 0, 8);
-    auto m = frame(f, x::telem::UINT8_T);
-    m.payload.identifier = icd::FieldIdentifier{.field = f.key, .value = 1};
-    const auto [dec, err] = Binary::create({m});
-    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "message frame: identifiers are not supported yet");
-}
-
 /// @brief it should decode a frame without allocating once a first decode is done.
 TEST(Binary, DecodeWithoutAllocating) {
     auto f = field<icd::IntegerBinaryField>("temp", 0, 16);
@@ -343,5 +483,225 @@ TEST(Binary, DecodeWithoutAllocating) {
         ASSERT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0U);
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
     EXPECT_NEAR(dec.samples(0)[0].at<double>(0), 1000, 1e-9);
+}
+
+namespace {
+/// @brief returns a message named name with one uint8 field at byte 1, bound to a uint8
+/// channel, and the identifier id.
+BinaryMessage
+identified(const std::string &name, const std::optional<icd::Identifier> &id) {
+    auto m = frame(field<icd::UnsignedBinaryField>("v", 8, 8), x::telem::UINT8_T);
+    m.name = name;
+    m.payload.identifier = id;
+    return m;
+}
+
+icd::Identifier
+can(const std::uint32_t id,
+    const bool extended = false,
+    const std::optional<std::uint32_t> mask = std::nullopt) {
+    icd::CanIdentifier c;
+    c.id = id;
+    c.extended = extended;
+    c.mask = mask;
+    return c;
+}
+
+/// @brief returns a message named name whose field kind, at byte 0, holds value.
+BinaryMessage tagged(
+    const std::string &name,
+    const std::int32_t value,
+    const icd::BinaryField &kind = field<icd::UnsignedBinaryField>("kind", 0, 8)
+) {
+    auto m = identified(name, std::nullopt);
+    m.payload.fields.push_back(kind);
+    icd::FieldIdentifier id;
+    id.field = icd::base(kind).key;
+    id.value = value;
+    m.payload.identifier = id;
+    return m;
+}
+
+const std::vector<std::uint8_t> PAYLOAD = {1, 42};
+}
+
+/// @brief it should match a CAN frame by its exact standard or extended identifier.
+TEST(Binary, MatchCANExact) {
+    auto dec = ASSERT_NIL_P(
+        Binary::create({
+            identified("a", can(0x100)),
+            identified("b", can(0x200)),
+            identified("c", can(0x100, true)),
+        })
+    );
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x100, false, PAYLOAD)), 0U);
+    EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 42);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x200, false, PAYLOAD)), 1U);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x100, true, PAYLOAD)), 2U);
+    EXPECT_FALSE(ASSERT_NIL_P(dec.decode(0x300, false, PAYLOAD)).has_value());
+}
+
+/// @brief it should match a CAN frame by the bits of its identifier under a mask, and
+/// give other frames to the message with no identifier.
+TEST(Binary, MatchCANMasked) {
+    auto dec = ASSERT_NIL_P(
+        Binary::create({
+            identified("pgn", can(0x18FEF100, true, 0x03FFFF00)),
+            identified("other", std::nullopt),
+        })
+    );
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x1CFEF1AB, true, PAYLOAD)), 0U);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x18FEF2AB, true, PAYLOAD)), 1U);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x0F1, false, PAYLOAD)), 1U);
+}
+
+/// @brief it should match a frame by the value of its identifier field.
+TEST(Binary, MatchFieldValue) {
+    auto dec = ASSERT_NIL_P(Binary::create({tagged("a", 1), tagged("b", 2)}));
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(PAYLOAD)), 0U);
+    EXPECT_EQ(dec.samples(0)[0].at<std::uint8_t>(0), 42);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{2, 7})), 1U);
+    EXPECT_FALSE(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{3, 7})).has_value());
+    EXPECT_FALSE(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{})).has_value());
+}
+
+/// @brief it should match a signed identifier field by its two's complement value.
+TEST(Binary, MatchSignedFieldValue) {
+    const auto kind = field<icd::IntegerBinaryField>("kind", 0, 8);
+    auto dec = ASSERT_NIL_P(Binary::create({tagged("a", -1, kind)}));
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(std::vector<std::uint8_t>{0xFF, 7})), 0U);
+}
+
+/// @brief it should match a CAN identifier only on a CAN frame, and a field identifier
+/// only on a frame from a stream or a datagram.
+TEST(Binary, MatchBySource) {
+    auto dec = ASSERT_NIL_P(
+        Binary::create({
+            identified("can", can(0x001)),
+            tagged("field", 1),
+        })
+    );
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(PAYLOAD)), 1U);
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(0x001, false, PAYLOAD)), 0U);
+    EXPECT_FALSE(ASSERT_NIL_P(dec.decode(0x002, false, PAYLOAD)).has_value());
+}
+
+/// @brief it should route and decode frames without allocating once a first decode is
+/// done.
+TEST(Binary, MatchWithoutAllocating) {
+    auto dec = ASSERT_NIL_P(
+        Binary::create({
+            identified("exact", can(0x100)),
+            identified("masked", can(0x200, false, 0x700)),
+            tagged("field", 1),
+        })
+    );
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(0x100, false, PAYLOAD)), 0U);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(0x2AB, false, PAYLOAD)), 1U);
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(PAYLOAD)), 2U);
+    const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
+    for (int i = 0; i < 100; i++) {
+        ASSERT_EQ(ASSERT_NIL_P(dec.decode(0x100, false, PAYLOAD)), 0U);
+        ASSERT_EQ(ASSERT_NIL_P(dec.decode(0x2AB, false, PAYLOAD)), 1U);
+        ASSERT_EQ(ASSERT_NIL_P(dec.decode(PAYLOAD)), 2U);
+    }
+    EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
+}
+
+/// @brief it should reject a frame that meets the field identifiers of two messages.
+TEST(Binary, RejectTwoFieldMatches) {
+    auto dec = ASSERT_NIL_P(
+        Binary::create({
+            tagged("a", 1),
+            tagged("b", 42, field<icd::UnsignedBinaryField>("kind", 8, 8)),
+        })
+    );
+    const auto [message, err] = dec.decode(PAYLOAD);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "frame matches messages a and b");
+}
+
+/// @brief it should refuse two messages with the same CAN identifier.
+TEST(Binary, RefuseSameCANIdentifier) {
+    assert_refuses_all(
+        {identified("a", can(0x100)), identified("b", can(0x100))},
+        "messages a and b both match CAN identifier 0x100"
+    );
+}
+
+/// @brief it should refuse a masked CAN identifier that meets another identifier.
+TEST(Binary, RefuseOverlappingMasks) {
+    assert_refuses_all(
+        {
+            identified("a", can(0x18FEF1AB, true)),
+            identified("b", can(0x18FEF100, true, 0x00FFFF00)),
+        },
+        "messages a and b both match extended CAN identifier 0x18FEF1AB"
+    );
+}
+
+/// @brief it should refuse a CAN identifier too large for its format.
+TEST(Binary, RefuseCANIdentifierPastMax) {
+    assert_refuses_all(
+        {identified("a", can(0x800))},
+        "message a: identifier: id 0x800 exceeds the maximum 0x7FF"
+    );
+}
+
+/// @brief it should refuse two messages whose identifier fields hold the same value.
+TEST(Binary, RefuseSameFieldValue) {
+    assert_refuses_all(
+        {tagged("a", 1), tagged("b", 1)},
+        "messages a and b match the same identifier value 1"
+    );
+}
+
+/// @brief it should refuse signed and unsigned identifier fields on the same bits whose
+/// values have the same raw bits.
+TEST(Binary, RefuseSameFieldBitsAcrossSigns) {
+    assert_refuses_all(
+        {
+            tagged("a", -1, field<icd::IntegerBinaryField>("kind", 0, 8)),
+            tagged("b", 255),
+        },
+        "messages a and b match the same identifier value 255"
+    );
+}
+
+/// @brief it should refuse an identifier field that ends past the fixed payload length.
+TEST(Binary, RefuseIdentifierPastLength) {
+    auto m = tagged("a", 1, field<icd::UnsignedBinaryField>("kind", 16, 8));
+    m.payload.length = 2;
+    assert_refuses_all(
+        {m},
+        "message a: identifier: field kind: the field ends past the 2-byte payload"
+    );
+}
+
+/// @brief it should refuse an identifier value that its field cannot hold.
+TEST(Binary, RefuseFieldValueOutOfRange) {
+    assert_refuses_all(
+        {tagged("a", 300)},
+        "message a: identifier: 300 is out of range for field kind"
+    );
+    assert_refuses_all(
+        {tagged("a", -1)},
+        "message a: identifier: -1 is out of range for field kind"
+    );
+}
+
+/// @brief it should refuse an identifier field that is a float or does not exist.
+TEST(Binary, RefuseInvalidIdentifierField) {
+    assert_refuses_all(
+        {tagged("a", 1, field<icd::FloatBinaryField>("kind", 0, 32))},
+        "message a: identifier: field kind is a float field"
+    );
+    auto m = tagged("a", 1);
+    const auto key = x::uuid::create();
+    std::get<icd::FieldIdentifier>(m.payload.identifier.value()).field = key;
+    assert_refuses_all(
+        {m},
+        "message a: identifier: field " + key.to_string() + " does not exist"
+    );
 }
 }

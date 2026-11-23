@@ -156,12 +156,12 @@ class LayoutClient:
 
     @property
     def dialog(self) -> Locator:
-        """The currently open dialog.
+        """The currently open dialog: an open native modal, or a dropdown.
 
-        A dialog mounts hidden until its frame places it, and still exposes its role;
+        A dropdown mounts hidden until its frame places it, and still exposes its role;
         the open-state class excludes it until then.
         """
-        return self.page.locator("[role='dialog'].lyra--visible")
+        return self.page.locator("dialog[open], [role='dialog'].lyra--visible")
 
     def form_section(self, title: str) -> Locator:
         """The form section with the given title."""

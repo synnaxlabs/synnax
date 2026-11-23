@@ -12,8 +12,11 @@
 package v0
 
 import (
+	"strconv"
+
 	"github.com/antlr4-go/antlr/v4"
 	types "github.com/synnaxlabs/arc/types/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -32,12 +35,23 @@ type EdgeKind uint8
 
 const (
 	// EdgeKindUnspecified has no kind set.
-	EdgeKindUnspecified EdgeKind = iota
+	EdgeKindUnspecified EdgeKind = 0
 	// EdgeKindContinuous fires on every output of the source.
-	EdgeKindContinuous
+	EdgeKindContinuous EdgeKind = 1
 	// EdgeKindConditional fires only when the source output is truthy.
-	EdgeKindConditional
+	EdgeKindConditional EdgeKind = 2
 )
+
+// IsValid reports whether e is one of the defined EdgeKind
+// values.
+func (e EdgeKind) IsValid() bool {
+	switch e {
+	case EdgeKindUnspecified, EdgeKindContinuous, EdgeKindConditional:
+		return true
+	default:
+		return false
+	}
+}
 
 // Edge is a dataflow connection between node parameters in the Arc graph.
 type Edge struct {
@@ -47,6 +61,14 @@ type Edge struct {
 	Target Handle `json:"target" msgpack:"target"`
 	// Kind defines execution semantics for this connection.
 	Kind EdgeKind `json:"kind" msgpack:"kind"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e Edge) Validate() error {
+	v := validate.New("Edge")
+	v.Ternaryf("kind", !e.Kind.IsValid(), "invalid kind: %v", e.Kind)
+	return v.Error()
 }
 
 // Edges is a collection of dataflow edges in an Arc graph.
@@ -74,6 +96,22 @@ type Function struct {
 	Outputs types.Params `json:"outputs" msgpack:"outputs"`
 	// Channels contains channel read/write declarations.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (f Function) Validate() error {
+	v := validate.New("Function")
+	for i := range f.Config {
+		v.Exec(func() error { return validate.PathedError(f.Config[i].Validate(), "config", strconv.Itoa(i)) })
+	}
+	for i := range f.Inputs {
+		v.Exec(func() error { return validate.PathedError(f.Inputs[i].Validate(), "inputs", strconv.Itoa(i)) })
+	}
+	for i := range f.Outputs {
+		v.Exec(func() error { return validate.PathedError(f.Outputs[i].Validate(), "outputs", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // Functions is a collection of function definitions in an Arc module.

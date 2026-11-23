@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { enumeration, schematic } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
@@ -28,7 +28,6 @@ describe("Options.use", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
-    await waitForStreamLive(client.connection);
   });
 
   it("should return the options of a node that names no enumeration", () => {

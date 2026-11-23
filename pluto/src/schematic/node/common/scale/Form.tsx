@@ -125,7 +125,7 @@ export const TelemForm = ({ allowNone = false }: TelemFormProps): ReactElement =
         <NodeForm.UnitsField path={root.units} />
       </Base.Section>
       <Base.Section title="Staleness">
-        <Staleness.Fields />
+        <Staleness.TimeoutField />
       </Base.Section>
     </>
   );

@@ -37,16 +37,19 @@ class Writer:
 
         with self._lock:
             if not data.keys() <= self._channels:
+                channels = self._channels | data.keys()
                 if self._writer is not None:
-                    self._writer.close()
-                self._channels |= data.keys()
+                    stale, self._writer = self._writer, None
+                    self._channels = set()
+                    stale.close()
                 # Use the current commit timestamp as the start for the new
                 # writer so we don't overlap with data we just committed.
                 self._writer = self._client.open_writer(
                     start=self._commit_ts,
-                    channels=list(self._channels),
+                    channels=list(channels),
                     enable_auto_commit=True,
                 )
+                self._channels = channels
             assert self._writer is not None
             self._writer.write(data)
             self._commit_ts = sy.TimeStamp.now()
@@ -54,6 +57,6 @@ class Writer:
     def close(self) -> None:
         with self._lock:
             if self._writer is not None:
-                self._writer.close()
-                self._writer = None
+                stale, self._writer = self._writer, None
                 self._channels = set()
+                stale.close()

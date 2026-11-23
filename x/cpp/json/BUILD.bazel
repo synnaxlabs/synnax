@@ -20,6 +20,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/base64",
         "//x/cpp/errors",
         "//x/cpp/mem",
         "@nlohmann_json//:json",
@@ -57,7 +58,6 @@ cc_library(
         "pointer.cpp",
         "text.cpp",
         "timestamp.cpp",
-        "timestamp.h",
     ],
     hdrs = [
         "extract.h",
@@ -65,6 +65,7 @@ cc_library(
         "number.h",
         "pointer.h",
         "text.h",
+        "timestamp.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -85,6 +86,7 @@ cc_test(
         "number_test.cpp",
         "pointer_test.cpp",
         "text_test.cpp",
+        "timestamp_test.cpp",
     ],
     deps = [
         ":convert",

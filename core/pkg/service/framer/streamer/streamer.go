@@ -46,6 +46,9 @@ type Config struct {
 	// request's Keys. A write issued after the ack is delivered, except on channels
 	// leased to another node. Ignored on the open request; see SendOpenAck.
 	AckRequested bool `json:"ack_requested" msgpack:"ack_requested"`
+	// MissedRequested asks for a response with Missed set after the Core drops frames
+	// because the streamer fell behind. Applied at open; ignored on later requests.
+	MissedRequested bool `json:"missed_requested" msgpack:"missed_requested"`
 	// DownsampleFactor keeps the samples whose alignment is a multiple of n, and drops
 	// a frame left with no samples. Values below 2 keep every sample.
 	DownsampleFactor uint32 `json:"downsample_factor" msgpack:"downsample_factor"`
@@ -77,6 +80,7 @@ func (c Config) Validate() error {
 func (c Config) Override(other Config) Config {
 	c.Keys = override.Slice(c.Keys, other.Keys)
 	c.SendOpenAck = other.SendOpenAck
+	c.MissedRequested = other.MissedRequested
 	c.DownsampleFactor = override.Numeric(c.DownsampleFactor, other.DownsampleFactor)
 	c.ThrottleRate = override.Numeric(c.ThrottleRate, other.ThrottleRate)
 	c.ExcludeGroups = override.Slice(c.ExcludeGroups, other.ExcludeGroups)
@@ -86,9 +90,10 @@ func (c Config) Override(other Config) Config {
 
 func (c Config) distribution() framer.StreamerConfig {
 	return framer.StreamerConfig{
-		Keys:          c.Keys,
-		SendOpenAck:   &c.SendOpenAck,
-		ExcludeGroups: c.ExcludeGroups,
+		Keys:            c.Keys,
+		SendOpenAck:     &c.SendOpenAck,
+		ExcludeGroups:   c.ExcludeGroups,
+		MissedRequested: &c.MissedRequested,
 	}
 }
 

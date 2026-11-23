@@ -10,7 +10,7 @@
 import { id, observe } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import {
   createProxiedTestClient,
   createTestClient,
