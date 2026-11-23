@@ -24,8 +24,8 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/mqtt/broker"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/broker"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -117,12 +117,15 @@ var _ = Describe("Signals", Ordered, func() {
 		sets := openStreamer(ctx, "sy_mqtt_broker_set")
 		deletes := openStreamer(ctx, "sy_mqtt_broker_delete")
 		s := broker.Broker{
-			Key:    uuid.New(),
-			Rack:   rackSvc.EmbeddedKey,
-			Name:   "Boiler PLC",
+			Key:       uuid.New(),
+			Rack:      rackSvc.EmbeddedKey,
+			Name:      "Boiler PLC",
 			Transport: broker.Transport{Variant: broker.TcpTransport{}},
-			Host:   "boiler.example.com",
-			Auth:   broker.Auth{Variant: broker.NoneAuth{}},
+			Host:      "boiler.example.com",
+			Auth:      broker.Auth{Variant: broker.NoneAuth{}},
+			Sparkplug: broker.Sparkplug{
+				Mode: broker.SparkplugMode{Variant: broker.PassiveSparkplugMode{}},
+			},
 		}
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			return gorp.NewCreate[broker.Key, broker.Broker]().Entry(&s).Exec(ctx, tx)

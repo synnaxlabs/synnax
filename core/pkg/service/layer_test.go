@@ -1336,6 +1336,9 @@ var _ = Describe("Resource search", Ordered, func() {
 			Host:      "pump.example.com",
 			Transport: broker.Transport{Variant: broker.TcpTransport{}},
 			Auth:      broker.Auth{Variant: broker.NoneAuth{}},
+			Sparkplug: broker.Sparkplug{
+				Mode: broker.SparkplugMode{Variant: broker.PassiveSparkplugMode{}},
+			},
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return gorp.NewCreate[broker.Key, broker.Broker]().

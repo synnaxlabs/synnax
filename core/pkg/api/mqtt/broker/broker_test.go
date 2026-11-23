@@ -38,12 +38,15 @@ var _ = Describe("Service", func() {
 
 	newBroker := func(overrides ...func(*broker.Broker)) broker.Broker {
 		s := broker.Broker{
-			Key:    uuid.New(),
-			Rack:   svc.Rack.EmbeddedKey,
-			Name:   "API-" + uuid.New().String(),
+			Key:       uuid.New(),
+			Rack:      svc.Rack.EmbeddedKey,
+			Name:      "API-" + uuid.New().String(),
 			Transport: broker.Transport{Variant: broker.TcpTransport{}},
-			Host:   "plc.example.com",
-			Auth:   broker.Auth{Variant: broker.NoneAuth{}},
+			Host:      "plc.example.com",
+			Auth:      broker.Auth{Variant: broker.NoneAuth{}},
+			Sparkplug: broker.Sparkplug{
+				Mode: broker.SparkplugMode{Variant: broker.PassiveSparkplugMode{}},
+			},
 		}
 		for _, override := range overrides {
 			override(&s)

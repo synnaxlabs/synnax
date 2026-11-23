@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/mqtt/broker"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/broker"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -54,12 +54,15 @@ var _ = Describe("Service", func() {
 	create := func(ctx context.Context, name string) broker.Broker {
 		GinkgoHelper()
 		s := broker.Broker{
-			Key:    uuid.New(),
-			Rack:   rackSvc.EmbeddedKey,
-			Name:   name,
+			Key:       uuid.New(),
+			Rack:      rackSvc.EmbeddedKey,
+			Name:      name,
 			Transport: broker.Transport{Variant: broker.TcpTransport{}},
-			Host:   "plc.example.com",
-			Auth:   broker.Auth{Variant: broker.NoneAuth{}},
+			Host:      "plc.example.com",
+			Auth:      broker.Auth{Variant: broker.NoneAuth{}},
+			Sparkplug: broker.Sparkplug{
+				Mode: broker.SparkplugMode{Variant: broker.PassiveSparkplugMode{}},
+			},
 		}
 		Expect(gorp.NewCreate[broker.Key, broker.Broker]().
 			Entry(&s).
@@ -104,12 +107,15 @@ var _ = Describe("Service", func() {
 		other := rack.Rack{Name: "Other"}
 		Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
 		s := broker.Broker{
-			Key:    uuid.New(),
-			Rack:   other.Key,
-			Name:   "Gateway",
+			Key:       uuid.New(),
+			Rack:      other.Key,
+			Name:      "Gateway",
 			Transport: broker.Transport{Variant: broker.TcpTransport{}},
-			Host:   "gateway.example.com",
-			Auth:   broker.Auth{Variant: broker.NoneAuth{}},
+			Host:      "gateway.example.com",
+			Auth:      broker.Auth{Variant: broker.NoneAuth{}},
+			Sparkplug: broker.Sparkplug{
+				Mode: broker.SparkplugMode{Variant: broker.PassiveSparkplugMode{}},
+			},
 		}
 		Expect(gorp.NewCreate[broker.Key, broker.Broker]().
 			Entry(&s).
