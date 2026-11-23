@@ -32,6 +32,7 @@ from synnax.config import (
     Cluster,
     Clusters,
     File,
+    config_dirs,
     load_desktop_options,
     load_env_options,
     load_options,
@@ -89,6 +90,16 @@ def time_out(path: Path) -> subprocess.CompletedProcess[str]:
     raise subprocess.TimeoutExpired(str(path), 60)
 
 
+def home_env(home: Path) -> dict[str, str]:
+    """Returns the variables that point every config directory into home."""
+    return {
+        "HOME": str(home),
+        "USERPROFILE": str(home),
+        "APPDATA": str(home / "AppData" / "Roaming"),
+        "XDG_CONFIG_HOME": str(home / ".config"),
+    }
+
+
 @pytest.fixture
 def clusters(tmp_path: Path) -> Clusters:
     return Clusters(File(config_dir=tmp_path), MemoryKeyring())
@@ -99,7 +110,68 @@ def desktop_file(tmp_path: Path) -> Path:
     return tmp_path / "desktop.json"
 
 
+class TestConfigDirs:
+    @pytest.mark.parametrize(
+        ("platform", "env", "current"),
+        [
+            ("linux", {}, ".config/synnax"),
+            ("linux", {"XDG_CONFIG_HOME": "xdg"}, "xdg/synnax"),
+            ("linux", {"XDG_CONFIG_HOME": "relative"}, ".config/synnax"),
+            ("linux", {"XDG_CONFIG_HOME": ""}, ".config/synnax"),
+            ("freebsd14", {}, ".config/synnax"),
+            (
+                "darwin",
+                {"XDG_CONFIG_HOME": "xdg"},
+                "Library/Application Support/Synnax",
+            ),
+            ("win32", {}, "AppData/Roaming/Synnax"),
+            ("win32", {"APPDATA": "roaming"}, "roaming/Synnax"),
+            ("win32", {"APPDATA": "relative"}, "AppData/Roaming/Synnax"),
+        ],
+    )
+    def test_dirs(
+        self, platform: str, env: dict[str, str], current: str, tmp_path: Path
+    ) -> None:
+        """Should place the config directory where the operating system keeps config,
+        then ~/.synnax.
+        """
+        # A relative value stays relative, and other values sit in the home.
+        env = {
+            k: v if v in ("", "relative") else str(tmp_path / v) for k, v in env.items()
+        }
+        assert config_dirs(tmp_path, env, platform) == (
+            tmp_path / current,
+            tmp_path / ".synnax",
+        )
+
+    def test_unknown_home(self) -> None:
+        """Should ask for SYNNAX_HOST when the home is unknown."""
+        with pytest.raises(ConfigurationError) as e:
+            config_dirs(Path("~"), {}, "linux")
+        assert str(e.value) == NO_HOME_MSG
+
+
 class TestFile:
+    def test_reads_the_fallback(self, tmp_path: Path) -> None:
+        """Should load the fallback file when the config directory holds none, and
+        copy it on the first write without changing it.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        legacy.mkdir()
+        (legacy / "config.json").write_text('{"a": 1}', encoding="utf-8")
+        config = File(config_dir=current, fallback_dir=legacy)
+        assert config.config == {"a": 1}
+        config.set("b", 2)
+        assert File(config_dir=current).config == {"a": 1, "b": 2}
+        assert File(config_dir=legacy).config == {"a": 1}
+
+    def test_prefers_the_config_dir(self, tmp_path: Path) -> None:
+        """Should load the file in the config directory over the fallback."""
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        File(config_dir=legacy).set("a", 1)
+        File(config_dir=current).set("a", 2)
+        assert File(config_dir=current, fallback_dir=legacy).config == {"a": 2}
+
     def test_missing_file(self, tmp_path: Path) -> None:
         """Should load an empty config, and write nothing, when no file exists."""
         assert File(config_dir=tmp_path / ".synnax").config == {}
@@ -166,6 +238,20 @@ class TestFile:
 
 
 class TestLoadDesktopOptions:
+    @pytest.mark.parametrize("current", [True, False])
+    def test_reads_the_config_dir_then_the_home(
+        self, current: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should read the file in the config directory, or else in ~/.synnax."""
+        for k, v in home_env(tmp_path).items():
+            monkeypatch.setenv(k, v)
+        write_desktop_file(tmp_path / ".synnax" / "desktop.json", port=1)
+        if current:
+            write_desktop_file(config_dirs()[0] / "desktop.json", port=2)
+        opts = load_desktop_options(run=FakeHelper())
+        assert opts is not None
+        assert opts.port == (2 if current else 1)
+
     def test_reads_the_file_and_the_helper(self, desktop_file: Path) -> None:
         """Should read the address from the file and the API key from the helper that
         the file names.
@@ -747,7 +833,8 @@ class TestHome:
         """Should ask for a host, and write nothing, when the home is read-only."""
         if os.geteuid() == 0:
             pytest.skip("root writes to a read-only directory")
-        monkeypatch.setenv("HOME", str(tmp_path))
+        for k, v in home_env(tmp_path).items():
+            monkeypatch.setenv(k, v)
         tmp_path.chmod(0o500)
         try:
             with pytest.raises(ValidationError, match="SYNNAX_HOST"):
@@ -761,6 +848,7 @@ class TestHome:
     ) -> None:
         """Should ask for SYNNAX_HOST, and write nothing, when the home is unknown."""
         monkeypatch.delenv("HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
         monkeypatch.setattr("pwd.getpwuid", _no_passwd_entry)
         monkeypatch.chdir(tmp_path)
         with pytest.raises(ConfigurationError) as e:
@@ -773,6 +861,7 @@ class TestHome:
     ) -> None:
         """Should connect to a given host when the home is unknown."""
         monkeypatch.delenv("HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
         monkeypatch.setattr("pwd.getpwuid", _no_passwd_entry)
         monkeypatch.chdir(tmp_path)
         opts, embedded = load_options(host="core.lab", api_key="syk_k")
@@ -798,8 +887,7 @@ class TestDesktopConnection:
         # A fresh interpreter reads the home directory of the test.
         env = {
             **{k: v for k, v in os.environ.items() if not k.startswith("SYNNAX_")},
-            "HOME": str(tmp_path),
-            "USERPROFILE": str(tmp_path),
+            **home_env(tmp_path),
         }
         script = "import synnax as sy\nsy.Synnax(max_retries=0)\n"
         result = subprocess.run(
@@ -835,8 +923,7 @@ class TestDesktopConnection:
         )
         env = {
             **{k: v for k, v in os.environ.items() if not k.startswith("SYNNAX_")},
-            "HOME": str(tmp_path),
-            "USERPROFILE": str(tmp_path),
+            **home_env(tmp_path),
         }
         with listener:
             result = subprocess.run(
@@ -860,8 +947,7 @@ class TestEnvConnection:
             port = int(s.getsockname()[1])
         env = {
             **{k: v for k, v in os.environ.items() if not k.startswith("SYNNAX_")},
-            "HOME": str(tmp_path),
-            "USERPROFILE": str(tmp_path),
+            **home_env(tmp_path),
             "SYNNAX_HOST": "127.0.0.1",
             "SYNNAX_PORT": str(port),
             "SYNNAX_API_KEY": "syk_env",

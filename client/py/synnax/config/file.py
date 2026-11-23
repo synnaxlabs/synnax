@@ -21,18 +21,24 @@ from synnax.exceptions import ConfigurationError
 
 
 class File:
-    """The global synnax py configuration file."""
+    """The global synnax py configuration file. Writes go to config_dir. When
+    config_dir holds no file, the config loads from fallback_dir, so the first write
+    copies it.
+    """
 
-    file: pathlib.Path
+    config_file: pathlib.Path
+    fallback_file: pathlib.Path | None
     config: dict[str, Any]
 
     def __init__(
         self,
         *,
         config_dir: pathlib.Path,
+        fallback_dir: pathlib.Path | None = None,
         file_name: str = "config.json",
     ):
         self.config_file = config_dir / file_name
+        self.fallback_file = None if fallback_dir is None else fallback_dir / file_name
         self.config = {}
         self.load()
 
@@ -41,22 +47,24 @@ class File:
 
         :raises ConfigurationError: If the file cannot be read or is not valid JSON.
         """
-        try:
-            data = self.config_file.read_bytes()
-        except FileNotFoundError:
-            self.config = {}
+        self.config = {}
+        for path in (self.config_file, self.fallback_file):
+            if path is None:
+                continue
+            try:
+                data = path.read_bytes()
+            except FileNotFoundError:
+                continue
+            except OSError as e:
+                raise ConfigurationError(f"Cannot read {path}: {e.strerror}.") from e
+            try:
+                self.config = json.loads(data.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                raise ConfigurationError(
+                    f"{path} is not valid JSON: {e}. Delete it, then log in again "
+                    "with `sy login`."
+                ) from e
             return
-        except OSError as e:
-            raise ConfigurationError(
-                f"Cannot read {self.config_file}: {e.strerror}."
-            ) from e
-        try:
-            self.config = json.loads(data.decode("utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            raise ConfigurationError(
-                f"{self.config_file} is not valid JSON: {e}. Delete it, then log in "
-                "again with `sy login`."
-            ) from e
 
     def save(self) -> None:
         """Saves the config file to disk."""
