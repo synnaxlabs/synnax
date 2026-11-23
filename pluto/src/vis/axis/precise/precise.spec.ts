@@ -10,12 +10,12 @@
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { preciseTimeScale } from "@/vis/axis/preciseTimeScale";
+import { precise } from "@/vis/axis/precise";
 
-describe("PreciseTimeScale", () => {
+describe("precise.TimeScale", () => {
   describe("scale", () => {
     it("should correctly scale timestamps to the given range", () => {
-      const scale = preciseTimeScale().domain([0n, 100n]).range([0, 1000]);
+      const scale = precise.timeScale().domain([0n, 100n]).range([0, 1000]);
 
       expect(scale.scale(0n)).toBe(0);
       expect(scale.scale(50n)).toBe(500);
@@ -23,7 +23,7 @@ describe("PreciseTimeScale", () => {
     });
 
     it("should handle negative ranges", () => {
-      const scale = preciseTimeScale().domain([0n, 100n]).range([1000, 0]);
+      const scale = precise.timeScale().domain([0n, 100n]).range([1000, 0]);
 
       expect(scale.scale(0n)).toBe(1000);
       expect(scale.scale(50n)).toBe(500);
@@ -33,7 +33,8 @@ describe("PreciseTimeScale", () => {
 
   describe("ticks", () => {
     it("should generate appropriate ticks for nanosecond scale", () => {
-      const scale = preciseTimeScale()
+      const scale = precise
+        .timeScale()
         .domain([0n, TimeSpan.nanoseconds(10).valueOf()])
         .range([0, 100]);
 
@@ -43,7 +44,8 @@ describe("PreciseTimeScale", () => {
     });
 
     it("should generate appropriate ticks for microsecond scale", () => {
-      const scale = preciseTimeScale()
+      const scale = precise
+        .timeScale()
         .domain([0n, TimeSpan.microseconds(100).valueOf()])
         .range([0, 100]);
 
@@ -57,7 +59,8 @@ describe("PreciseTimeScale", () => {
     });
 
     it("should handle domain not starting at zero", () => {
-      const scale = preciseTimeScale()
+      const scale = precise
+        .timeScale()
         .domain([
           TimeSpan.microseconds(50).valueOf(),
           TimeSpan.microseconds(150).valueOf(),
@@ -75,7 +78,8 @@ describe("PreciseTimeScale", () => {
 
   describe("formatTick", () => {
     it("should format ticks in microseconds for small time spans", () => {
-      const scale = preciseTimeScale()
+      const scale = precise
+        .timeScale()
         .domain([0n, TimeSpan.microseconds(40).valueOf()])
         .range([0, 100]);
 
@@ -84,7 +88,8 @@ describe("PreciseTimeScale", () => {
     });
 
     it("should format ticks in milliseconds for larger time spans", () => {
-      const scale = preciseTimeScale()
+      const scale = precise
+        .timeScale()
         .domain([0n, TimeSpan.milliseconds(100).valueOf()])
         .range([0, 100]);
 

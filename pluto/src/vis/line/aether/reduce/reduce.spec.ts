@@ -17,8 +17,8 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { bridgeVertices, type DrawOperation } from "@/vis/line/aether/draw";
-import { groupSize, inView, Reducer } from "@/vis/line/aether/reduce";
+import { line } from "@/vis/line/aether";
+import { reduce } from "@/vis/line/aether/reduce";
 
 const alignment = (domain: number, sample: number): bigint =>
   (BigInt(domain) << 32n) | BigInt(sample);
@@ -33,7 +33,7 @@ const ramp = (length: number, a: bigint = 0n): Series =>
     alignment: a,
   });
 
-const op = (x: Series, y: Series): DrawOperation => {
+const op = (x: Series, y: Series): line.DrawOperation => {
   const xOffset = Number(y.alignment > x.alignment ? y.alignment - x.alignment : 0n);
   const yOffset = Number(x.alignment > y.alignment ? x.alignment - y.alignment : 0n);
   return {
@@ -46,18 +46,22 @@ const op = (x: Series, y: Series): DrawOperation => {
   };
 };
 
-const spanned = (o: DrawOperation, start: number, end: number): DrawOperation => ({
+const spanned = (
+  o: line.DrawOperation,
+  start: number,
+  end: number,
+): line.DrawOperation => ({
   ...o,
   span: new TimeRange(TimeStamp.seconds(start), TimeStamp.seconds(end)),
 });
 
 // Returns the ops one op reduces to: its complete groups, then its partial group.
-const reduceOne = (o: DrawOperation, aggregation: Aggregation, size: number) =>
-  new Reducer().reduce([o], aggregation, size);
+const reduceOne = (o: line.DrawOperation, aggregation: Aggregation, size: number) =>
+  new reduce.Reducer().reduce([o], aggregation, size);
 
 // Returns the x or y points of ops in order, once each. A tail repeats the last point
 // of the op before it.
-const values = (ops: DrawOperation[], key: "x" | "y"): number[] =>
+const values = (ops: line.DrawOperation[], key: "x" | "y"): number[] =>
   ops.flatMap((o, i) => {
     const points = Array.from(o[key], Number);
     const prev = ops[i - 1];
@@ -74,11 +78,11 @@ describe("groupSize", () => {
   const VIEW = { bounds: { lower: 0, upper: N - 1 }, width: 800 };
   const dense = op(ramp(N), ramp(N));
   const size = (
-    ops: DrawOperation[],
+    ops: line.DrawOperation[],
     view = VIEW,
     groupsPerColumn = 1 / 2,
     previous = 1,
-  ): number => groupSize(ops, view, groupsPerColumn, "min_max", previous);
+  ): number => reduce.groupSize(ops, view, groupsPerColumn, "min_max", previous);
 
   it("should hold a pixel of samples per group, rounded down to a power of two", () => {
     expect(size([dense])).toBe(16);
@@ -105,7 +109,7 @@ describe("groupSize", () => {
 
   describe("with ops of reduced series", () => {
     // density is how many times denser the samples of the op are than those of dense.
-    const reduced = (multiple: bigint, density = 1): DrawOperation => {
+    const reduced = (multiple: bigint, density = 1): line.DrawOperation => {
       const x = new Series({
         data: new Float32Array(
           Array.from({ length: N }, (_, i) => (i * Number(multiple)) / density),
@@ -123,21 +127,27 @@ describe("groupSize", () => {
     });
 
     it("should take one point per group for an aggregation other than min_max", () => {
-      expect(groupSize([reduced(300n), dense], VIEW, 1 / 2, "average", 1)).toBe(300);
+      expect(reduce.groupSize([reduced(300n), dense], VIEW, 1 / 2, "average", 1)).toBe(
+        300,
+      );
     });
 
     it("should keep the previous size within one group of the largest", () => {
       expect(size([reduced(300n), dense], VIEW, 1 / 2, 602)).toBe(602);
       expect(size([reduced(300n), dense], VIEW, 1 / 2, 598)).toBe(598);
       expect(size([reduced(300n), dense], VIEW, 1 / 2, 604)).toBe(600);
-      expect(groupSize([reduced(300n), dense], VIEW, 1 / 2, "average", 301)).toBe(301);
-      expect(groupSize([reduced(300n), dense], VIEW, 1 / 2, "average", 302)).toBe(300);
+      expect(
+        reduce.groupSize([reduced(300n), dense], VIEW, 1 / 2, "average", 301),
+      ).toBe(301);
+      expect(
+        reduce.groupSize([reduced(300n), dense], VIEW, 1 / 2, "average", 302),
+      ).toBe(300);
     });
 
     it("should not keep a previous size that no tile of the aggregation has", () => {
       expect(size([reduced(150n), dense], VIEW, 1 / 2, 301)).toBe(300);
       expect(size([reduced(2n), dense], VIEW, 1 / 2, 2)).toBe(4);
-      expect(groupSize([reduced(2n), dense], VIEW, 1 / 2, "average", 1)).toBe(2);
+      expect(reduce.groupSize([reduced(2n), dense], VIEW, 1 / 2, "average", 1)).toBe(2);
     });
 
     it("should take the size from the view for samples over two times sparser", () => {
@@ -167,32 +177,32 @@ describe("groupSize", () => {
 describe("inView", () => {
   const N = 10_000;
   const VIEW = { lower: 5000, upper: 5100 };
-  const offsets = (o: DrawOperation) => [o.xOffset, o.yOffset, o.count];
+  const offsets = (o: line.DrawOperation) => [o.xOffset, o.yOffset, o.count];
 
   it("should cut an op to its samples in view, widened to the cut grid", () => {
-    expect(inView([op(ramp(N), ramp(N))], VIEW, 1).map(offsets)).toEqual([
+    expect(reduce.inView([op(ramp(N), ramp(N))], VIEW, 1).map(offsets)).toEqual([
       [4096, 4096, 1024],
     ]);
-    expect(inView([op(ramp(N), ramp(N))], VIEW, 2).map(offsets)).toEqual([
+    expect(reduce.inView([op(ramp(N), ramp(N))], VIEW, 2).map(offsets)).toEqual([
       [4096, 4096, 2048],
     ]);
   });
 
   it("should move the y offset with the x offset", () => {
     const o = op(ramp(N), ramp(N - 10, 10n));
-    expect(inView([o], VIEW, 1).map(offsets)).toEqual([[4096, 4086, 1024]]);
+    expect(reduce.inView([o], VIEW, 1).map(offsets)).toEqual([[4096, 4086, 1024]]);
   });
 
   it("should keep a sample past each side of the view", () => {
     const view = { lower: 4097, upper: 5119 };
-    expect(inView([op(ramp(N), ramp(N))], view, 1).map(offsets)).toEqual([
+    expect(reduce.inView([op(ramp(N), ramp(N))], view, 1).map(offsets)).toEqual([
       [3072, 3072, 3072],
     ]);
   });
 
   it("should leave an op that the cut grid holds whole unchanged", () => {
     const o = op(ramp(N), ramp(N));
-    expect(inView([o], { lower: 0, upper: N }, 1)[0]).toBe(o);
+    expect(reduce.inView([o], { lower: 0, upper: N }, 1)[0]).toBe(o);
   });
 
   it("should keep only the sample next to the view of the nearest op outside", () => {
@@ -206,7 +216,7 @@ describe("inView", () => {
       return op(x, ramp(100, alignment(domain, 0)));
     };
     const ops = [at(0), at(1), at(2), at(3)];
-    const cut = inView(ops, { lower: 1500, upper: 1600 }, 1);
+    const cut = reduce.inView(ops, { lower: 1500, upper: 1600 }, 1);
     expect(cut.map((o) => [o.x, ...offsets(o)])).toEqual([
       [ops[1].x, 99, 99, 1],
       [ops[2].x, 0, 0, 1],
@@ -219,13 +229,13 @@ describe("inView", () => {
       alignmentMultiple: 2n,
     });
     const o = op(reduced, reduced);
-    expect(inView([o], VIEW, 1)[0]).toBe(o);
+    expect(reduce.inView([o], VIEW, 1)[0]).toBe(o);
   });
 });
 
 // The expected y values below are the output of telem.Series.Reduce in x/go on the same
 // input. Each x holds its sample index, so x shows the indices the pair kept.
-describe("Reducer", () => {
+describe("reduce.Reducer", () => {
   describe("min_max", () => {
     it("should keep the y extremes of each group and x at their indices", () => {
       const tr = new TimeRange(TimeStamp.seconds(10), TimeStamp.seconds(20));
@@ -457,8 +467,10 @@ describe("Reducer", () => {
   it("should bridge from the tail of an op to the op after it", () => {
     const o = spanned(op(ramp(6), ramp(6)), 0, 6);
     const next = spanned(op(ramp(2, alignment(1, 0)), ramp(2, alignment(1, 0))), 6, 8);
-    const ops = new Reducer().reduce([o, next], "min_max", 4);
-    expect(Array.from(bridgeVertices(ops, scale.XY.IDENTITY))).toEqual([5, 5, 0, 0]);
+    const ops = new reduce.Reducer().reduce([o, next], "min_max", 4);
+    expect(Array.from(line.bridgeVertices(ops, scale.XY.IDENTITY))).toEqual([
+      5, 5, 0, 0,
+    ]);
   });
 
   describe("contiguous ops", () => {
@@ -467,7 +479,7 @@ describe("Reducer", () => {
 
     // Returns the ops of XS and YS cut into series at the given sample indices. Each
     // series past the first holds its values off the given sample offsets.
-    const cut = (at: number[], xOffset = 0, yOffset = 0): DrawOperation[] => {
+    const cut = (at: number[], xOffset = 0, yOffset = 0): line.DrawOperation[] => {
       const ends = [...at, XS.length];
       return ends.map((end, i) => {
         const start = i === 0 ? 0 : ends[i - 1];
@@ -484,13 +496,13 @@ describe("Reducer", () => {
         return op(series(XS, xOffset), series(YS, yOffset));
       });
     };
-    const whole = (aggregation: Aggregation): DrawOperation[] =>
+    const whole = (aggregation: Aggregation): line.DrawOperation[] =>
       reduceOne(cut([])[0], aggregation, 8);
 
     it.each<Aggregation>(["min_max", "average", "decimate"])(
       "should reduce %s groups across ops as one run of samples",
       (aggregation) => {
-        const parts = new Reducer().reduce(cut([10]), aggregation, 8);
+        const parts = new reduce.Reducer().reduce(cut([10]), aggregation, 8);
         const w = whole(aggregation);
         expect(values(parts, "y")).toEqual(values(w, "y"));
         expect(values(parts, "x")).toEqual(values(w, "x"));
@@ -499,7 +511,11 @@ describe("Reducer", () => {
     );
 
     it("should reduce a group that spans three or more ops", () => {
-      const parts = new Reducer().reduce(cut([3, 6, 9, 12, 15, 18]), "min_max", 8);
+      const parts = new reduce.Reducer().reduce(
+        cut([3, 6, 9, 12, 15, 18]),
+        "min_max",
+        8,
+      );
       expect(values(parts, "y")).toEqual(values(whole("min_max"), "y"));
       expect(parts.map((o) => o.y.alignment)).toEqual([0n, 8n, 16n]);
     });
@@ -507,7 +523,7 @@ describe("Reducer", () => {
     it.each<Aggregation>(["min_max", "average"])(
       "should move %s values onto the sample offsets of the op a group starts in",
       (aggregation) => {
-        const parts = new Reducer().reduce(cut([6], 100, 50), aggregation, 8);
+        const parts = new reduce.Reducer().reduce(cut([6], 100, 50), aggregation, 8);
         expect(values(parts, "y")).toEqual(values(whole(aggregation), "y"));
         expect(values(parts, "x")).toEqual(values(whole(aggregation), "x"));
       },
@@ -515,7 +531,7 @@ describe("Reducer", () => {
 
     it("should draw the group an op starts inside once the op before it leaves", () => {
       const [a, b] = cut([10]);
-      const reducer = new Reducer();
+      const reducer = new reduce.Reducer();
       reducer.reduce([a, b], "min_max", 8);
       const r = reducer.reduce([b], "min_max", 8);
       const alone = reduceOne(b, "min_max", 8);
@@ -525,20 +541,20 @@ describe("Reducer", () => {
 
     it("should reduce a group again when the op that continues it leaves", () => {
       const [a, b] = cut([10]);
-      const reducer = new Reducer();
+      const reducer = new reduce.Reducer();
       reducer.reduce([a, b], "min_max", 8);
       const r = reducer.reduce([a], "min_max", 8);
       expect(values(r, "y")).toEqual(values(reduceOne(a, "min_max", 8), "y"));
     });
 
     it("should leave out an op that draws no group", () => {
-      const ops = new Reducer().reduce(cut([3, 6]).slice(0, 2), "min_max", 8);
+      const ops = new reduce.Reducer().reduce(cut([3, 6]).slice(0, 2), "min_max", 8);
       expect(ops).toHaveLength(1);
     });
 
     it("should give the span of an op that draws no group to the op before it", () => {
       const [a, b, c] = cut([3, 6]);
-      const [first, last] = new Reducer().reduce(
+      const [first, last] = new reduce.Reducer().reduce(
         [spanned(a, 0, 3), spanned(b, 3, 6), spanned(c, 6, 20)],
         "min_max",
         8,
@@ -554,7 +570,7 @@ describe("Reducer", () => {
         alignmentMultiple: 8n,
       });
       const passed = spanned(op(reduced, reduced), 0, 3);
-      new Reducer().reduce(
+      new reduce.Reducer().reduce(
         [spanned(a, 0, 3), passed, spanned(b, 3, 6), spanned(c, 6, 20)],
         "min_max",
         8,
@@ -568,7 +584,7 @@ describe("Reducer", () => {
         const [a, b] = cut([10]);
         const before = spanned(a, 0, 10);
         const after = spanned(b, 20, 30);
-        const parts = new Reducer().reduce([before, after], aggregation, 8);
+        const parts = new reduce.Reducer().reduce([before, after], aggregation, 8);
         const alone = [before, after].flatMap((o) =>
           values(reduceOne(o, aggregation, 8), "y"),
         );
@@ -586,7 +602,7 @@ describe("Reducer", () => {
         x.write(new Series(new Float32Array(indices.map((i) => XS[i]))));
         y.write(new Series(new Float32Array(indices.map((i) => YS[i]))));
       };
-      const reducer = new Reducer();
+      const reducer = new reduce.Reducer();
       write(6);
       const partial = reducer.reduce([a, op(x, y)], "min_max", 8)[0];
       write(7, 8);
@@ -610,7 +626,7 @@ describe("Reducer", () => {
       const y = createGrowing();
       write(x, 0, 1, 2, 3, 4, 5);
       write(y, 3, 1, 4, 1, 5, 9);
-      const reducer = new Reducer();
+      const reducer = new reduce.Reducer();
       const first = reducer.reduce([op(x, y)], "min_max", 4);
       expect(values(first, "y")).toEqual([1, 4, 5, 9]);
       // A complete group reduced again would pick up the change.
@@ -627,8 +643,8 @@ describe("Reducer", () => {
 
     it("should move its complete groups to a series with more room when full", () => {
       const source = op(ramp(256), ramp(256));
-      const counted = (count: number): DrawOperation => ({ ...source, count });
-      const reducer = new Reducer();
+      const counted = (count: number): line.DrawOperation => ({ ...source, count });
+      const reducer = new reduce.Reducer();
       const first = reducer.reduce([counted(128)], "average", 2);
       const second = reducer.reduce([counted(130)], "average", 2);
       expect(values(second, "y")).toEqual(
@@ -643,14 +659,18 @@ describe("Reducer", () => {
       const y = createGrowing();
       write(x, 0, 1, 2);
       write(y, 0, 1, 2);
-      const reducer = new Reducer();
+      const reducer = new reduce.Reducer();
       const first = reducer.reduce([op(x, y)], "min_max", 4)[0];
       expect(reducer.reduce([op(x, y)], "min_max", 4)[0].y).toBe(first.y);
     });
   });
 
   describe("cut ops", () => {
-    const cutAt = (o: DrawOperation, lo: number, count: number): DrawOperation => ({
+    const cutAt = (
+      o: line.DrawOperation,
+      lo: number,
+      count: number,
+    ): line.DrawOperation => ({
       ...o,
       xOffset: o.xOffset + lo,
       yOffset: o.yOffset + lo,
@@ -665,7 +685,7 @@ describe("Reducer", () => {
 
     it("should keep its groups while a cut op keeps its start", () => {
       const o = op(ramp(64), ramp(64));
-      const reducer = new Reducer();
+      const reducer = new reduce.Reducer();
       const first = reducer.reduce([cutAt(o, 32, 8)], "min_max", 4)[0];
       const second = reducer.reduce([cutAt(o, 32, 8)], "min_max", 4)[0];
       expect(second.y).toBe(first.y);
@@ -673,7 +693,7 @@ describe("Reducer", () => {
 
     it("should reduce from the new start of a cut op that moves", () => {
       const o = op(ramp(64), ramp(64));
-      const reducer = new Reducer();
+      const reducer = new reduce.Reducer();
       const first = reducer.reduce([cutAt(o, 32, 8)], "min_max", 4)[0];
       const moved = reducer.reduce([cutAt(o, 40, 8)], "min_max", 4)[0];
       expect(Array.from(moved.y)).toEqual([40, 43, 44, 47]);
@@ -682,12 +702,12 @@ describe("Reducer", () => {
   });
 
   describe("release", () => {
-    const refCounts = (o: DrawOperation): number[] => [o.x.refCount, o.y.refCount];
+    const refCounts = (o: line.DrawOperation): number[] => [o.x.refCount, o.y.refCount];
 
     it("should release the pairs of ops that leave the list", () => {
       const a = op(ramp(8), ramp(8));
       const b = op(ramp(8, 8n), ramp(8, 8n));
-      const reducer = new Reducer();
+      const reducer = new reduce.Reducer();
       const [ra, rb] = reducer.reduce([a, b], "min_max", 4);
       expect(reducer.reduce([b], "min_max", 4)[0].y).toBe(rb.y);
       expect(refCounts(ra)).toEqual([0, 0]);
@@ -696,7 +716,7 @@ describe("Reducer", () => {
 
     it("should release every pair when the group size changes", () => {
       const o = op(ramp(16), ramp(16));
-      const reducer = new Reducer();
+      const reducer = new reduce.Reducer();
       const four = reducer.reduce([o], "min_max", 4)[0];
       const eight = reducer.reduce([o], "min_max", 8)[0];
       expect(refCounts(four)).toEqual([0, 0]);
@@ -707,14 +727,14 @@ describe("Reducer", () => {
 
     it("should release every pair when the aggregation changes", () => {
       const o = op(ramp(16), ramp(16));
-      const reducer = new Reducer();
+      const reducer = new reduce.Reducer();
       const minMax = reducer.reduce([o], "min_max", 4)[0];
       reducer.reduce([o], "decimate", 4);
       expect(refCounts(minMax)).toEqual([0, 0]);
     });
 
     it("should release every pair on release", () => {
-      const reducer = new Reducer();
+      const reducer = new reduce.Reducer();
       const r = reducer.reduce([op(ramp(8), ramp(8))], "min_max", 4)[0];
       reducer.release();
       expect(refCounts(r)).toEqual([0, 0]);

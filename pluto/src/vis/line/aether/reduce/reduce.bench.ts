@@ -18,14 +18,10 @@ import {
 } from "@synnaxlabs/x";
 import { afterAll, test } from "vitest";
 
-import { ChannelData, type ChannelDataProps } from "@/telem/aether/remote";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
-import {
-  buildDrawOperations,
-  DEFAULT_OVERLAP_THRESHOLD,
-  type DrawOperation,
-} from "@/vis/line/aether/draw";
-import { groupSize, Reducer, type View } from "@/vis/line/aether/reduce";
+import { line } from "@/vis/line/aether";
+import { reduce } from "@/vis/line/aether/reduce";
 
 // Reduces the full-resolution samples of a live line 1000 pixels wide that shows the
 // last 10 minutes of a 1 kHz channel, as the line does once per frame.
@@ -43,13 +39,13 @@ const core = new SyntheticCore({
 const client = telemTest.createClient(core);
 afterAll(async () => await client.feed.close());
 
-const view = (): View => ({
+const view = (): reduce.View => ({
   bounds: new TimeRange(core.now().sub(SPAN), core.now()).numericBounds,
   width: 1000,
 });
 
-const createSource = (props: ChannelDataProps): ChannelData =>
-  new ChannelData(client, props);
+const createSource = (props: telem.ChannelDataProps): telem.ChannelData =>
+  new telem.ChannelData(client, props);
 
 const channel = core.data[0].key;
 const x = createSource({
@@ -59,13 +55,13 @@ const x = createSource({
 });
 const y = createSource({ channel, window: dynamicWindow(SPAN) });
 
-const read = (): DrawOperation[] => {
+const read = (): line.DrawOperation[] => {
   const { bounds, width } = view();
   const v = { bounds, points: width * GROUPS_PER_COLUMN * 2 };
-  return buildDrawOperations(
+  return line.buildDrawOperations(
     x.value(v).data[1],
     y.value(v).data[1],
-    DEFAULT_OVERLAP_THRESHOLD,
+    line.DEFAULT_OVERLAP_THRESHOLD,
   );
 };
 
@@ -77,18 +73,18 @@ while ([x, y].some((s) => s.value().status.variant === "loading")) {
 }
 
 let ops = read();
-const size = groupSize(ops, view(), GROUPS_PER_COLUMN, "min_max", 1);
+const size = reduce.groupSize(ops, view(), GROUPS_PER_COLUMN, "min_max", 1);
 
 const cold = (aggregation: Aggregation) => (): void =>
-  void new Reducer().reduce(ops, aggregation, size);
+  void new reduce.Reducer().reduce(ops, aggregation, size);
 
-const warm = new Reducer();
+const warm = new reduce.Reducer();
 
 test("reduce a 10 minute live window of 1 kHz samples", async ({ bench }) => {
   await bench.compare(
     bench(
       "group size",
-      () => void groupSize(ops, view(), GROUPS_PER_COLUMN, "min_max", size),
+      () => void reduce.groupSize(ops, view(), GROUPS_PER_COLUMN, "min_max", size),
     ),
     bench("min_max, no reduced pairs held", cold("min_max")),
     bench("average, no reduced pairs held", cold("average")),

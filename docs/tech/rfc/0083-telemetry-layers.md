@@ -111,8 +111,8 @@ interface Source<V> extends Telem, observe.Observable<void> {
   needs no forwarding code. A transformer with several inputs reports the worst status
   and the newest `time`.
 - A source may ignore `points`. The line then reduces what it gets with the reducer it
-  uses for live data (`pluto/src/vis/line/aether/reduce.ts`), so a raw WebSocket source
-  is a buffer and a change notification.
+  uses for live data (`pluto/src/vis/line/aether/reduce/reduce.ts`), so a raw WebSocket
+  source is a buffer and a change notification.
 
 ### 3.2 The live request
 

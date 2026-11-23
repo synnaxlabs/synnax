@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { forEachPair, windowBounds } from "@/vis/line/aether/bounds";
+import { pair } from "@/vis/line/aether/pair";
 
 const THRESHOLD = TimeSpan.milliseconds(2);
 
@@ -59,7 +59,7 @@ const xWindow = (loSec: number, hiSec: number): bounds.Bounds => ({
 const FALLBACK: bounds.Bounds = { lower: -1234, upper: 1234 };
 
 const calc = (x: Series[], y: Series[], win: bounds.Bounds): bounds.Bounds =>
-  windowBounds(new MultiSeries(x), new MultiSeries(y), win, THRESHOLD, FALLBACK);
+  pair.windowBounds(new MultiSeries(x), new MultiSeries(y), win, THRESHOLD, FALLBACK);
 
 // A seeded mulberry32 generator, so each random case reproduces from its seed.
 const random = (seed: number) => (): number => {
@@ -177,7 +177,7 @@ interface Pair {
 
 const pairsOf = (xs: Series[], ys: Series[]): Pair[] => {
   const pairs: Pair[] = [];
-  forEachPair(xs, ys, THRESHOLD, (x, y, start, end) => {
+  pair.forEach(xs, ys, THRESHOLD, (x, y, start, end) => {
     pairs.push({ x: xs.indexOf(x), y: ys.indexOf(y), start, end });
   });
   return pairs;
@@ -185,7 +185,7 @@ const pairsOf = (xs: Series[], ys: Series[]): Pair[] => {
 
 const byIndex = (a: Pair, b: Pair): number => a.x - b.x || a.y - b.y;
 
-// The all-pairs rule that forEachPair replaces.
+// The all-pairs rule that pair.forEach replaces.
 const referencePairs = (xs: Series[], ys: Series[]): Pair[] => {
   const pairs: Pair[] = [];
   xs.forEach((x, xi) =>
@@ -210,7 +210,7 @@ const referencePairs = (xs: Series[], ys: Series[]): Pair[] => {
   return pairs;
 };
 
-// The all-pairs windowBounds that forEachPair replaces.
+// The all-pairs windowBounds that pair.forEach replaces.
 const referenceWindowBounds = (
   xs: Series[],
   ys: Series[],
@@ -258,7 +258,7 @@ const createWindow = (rand: () => number, xs: Series[]): bounds.Bounds => {
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i + 1);
 
-describe("forEachPair", () => {
+describe("pair.forEach", () => {
   it("should find the pairs of the all-pairs rule in random lists", () => {
     let total = 0;
     for (const seed of SEEDS) {
@@ -351,7 +351,7 @@ describe("forEachPair", () => {
   });
 });
 
-describe("windowBounds", () => {
+describe("pair.windowBounds", () => {
   it("should bound only the samples inside the window", () => {
     const x = stamps(0, 10);
     const y = values(0, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
