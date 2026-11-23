@@ -1034,6 +1034,37 @@ NodeConfig union on variant {
             grouped symbols. Groups nest: a member may itself be a group.
         """
     }
+    symbol extends LabeledConfig, ScaledConfig, StalenessConfig {
+        spec            symbol.Ref          {
+            @doc value "is the symbol that the node draws."
+        }
+        color           color.Ref?          {
+            @doc value "is the color that node paint reads."
+        }
+        disabled        bool = false {
+            @doc value "is true when the node takes no clicks."
+        }
+        motion_disabled bool = false {
+            @doc value "is true when the node draws no motion."
+        }
+        on_click_delay  telem.TimeSpan = 0 {
+            @doc value    "is the debounce delay applied to clicks."
+            @ts type      telem.NumericTimeSpan
+            @validate max 2147483647000000
+            @validate min 0
+        }
+        states          StateBinding[] = [] {
+            @doc value "are how the node reads the states of its symbol."
+        }
+        commands        CommandBinding[] = [] {
+            @doc value "are the channels of the commands that have no state."
+        }
+        control         ControlStateConfig? {
+            @doc value "is the control state display configuration."
+        }
+
+        @doc value "is the configuration for a node that draws a symbol."
+    }
 
     @doc value  """
         is the configuration of one node. The variant selects the symbol rendered for
@@ -1308,5 +1339,84 @@ ScaledConfig struct {
     }
 
     @doc value  "is the base configuration for any symbol drawn at a scale multiplier."
+    @go marshal
+}
+
+FormatConfig struct {
+    units     string?            {
+        @doc value "is the unit suffix shown after the value. Absent shows none."
+    }
+    precision uint8?             {
+        @doc value    """
+            is the number of decimal places shown, from 0 to 17. Absent shows 2.
+        """
+        @validate max 17
+    }
+    notation  notation.Notation? {
+        @doc value "is the notation of the value. Absent shows standard notation."
+    }
+
+    @doc value  "is how a node shows a number."
+    @go marshal
+}
+
+StateBinding struct extends FormatConfig {
+    key         string           {
+        @doc value "is the key of the state of the symbol that the binding sets."
+    }
+    source      Source?          {
+        @doc value "is where the state reads its value, or nowhere."
+    }
+    enumeration enumeration.Key? {
+        @doc value     "replaces the enumeration of the state."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    match       symbol.Matcher?  {
+        @doc value "replaces the match of the state."
+    }
+    bounds      spatial.Bounds?  {
+        @doc value "replaces the bounds of a number state."
+    }
+    default     float64?         {
+        @doc value "replaces the default of the state."
+    }
+
+    @doc value  "is how one node reads one state of its symbol."
+    @go marshal
+}
+
+Source union on type {
+    channel {
+        key     channel.Key? {
+            @doc value "is the channel that the state reads."
+        }
+        command channel.Key? {
+            @doc value "is the channel that the commands of the state write to."
+        }
+
+        @doc value "reads a channel."
+    }
+    local {
+        value float64 {
+            @doc value "is the value that the state reads and its commands write."
+        }
+
+        @doc value "holds a value in the node."
+    }
+
+    @doc value  "is where a state reads its value."
+    @go marshal
+}
+
+CommandBinding struct {
+    key     string      {
+        @doc value "is the key of the command of the symbol."
+    }
+    channel channel.Key {
+        @doc value "is the channel that the command writes to."
+    }
+
+    @doc value  "is the channel of a command that has no state."
     @go marshal
 }

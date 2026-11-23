@@ -123,7 +123,7 @@ export interface SuitReadProps {
  * to.
  */
 export const SuitRead: FC<SuitReadProps> = ({ path, read }) => {
-  const { set } = PForm.useContext();
+  const { get, set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
   const formats = useFormats();
   const icdKey = PForm.useFieldValue(path.icd);
@@ -136,8 +136,10 @@ export const SuitRead: FC<SuitReadProps> = ({ path, read }) => {
   const fields = jsonFields(message);
   useEffect(() => {
     if (isPreview || message?.payload.format !== "json") return;
-    const suited = suit(readMessage, fields);
-    if (!deep.equal(suited, readMessage)) set(readPath, suited);
+    // An Unbind effect runs first and can change the read after this render.
+    const current = get(readPath).value;
+    const suited = suit(current, fields);
+    if (!deep.equal(suited, current)) set(readPath, suited);
   }, [isPreview, readMessage, message]);
   if (isPreview) return null;
   return readMessage.bindings.map((b, i) => {
