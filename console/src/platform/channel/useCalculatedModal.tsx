@@ -133,7 +133,7 @@ const Calculated = ({
                   )}
                 </Form.Field>
                 <Form.Field
-                  path={path.operations[0].resetChannel}
+                  path={path.operations[0].reset}
                   label="Reset channel"
                   helpText="Resets the calculation when this boolean channel is triggered."
                   grow
@@ -141,7 +141,7 @@ const Calculated = ({
                   {({ value, onChange }) => (
                     <Channel.SelectSingle
                       value={value}
-                      onChange={(v: channel.Key | undefined) => onChange(v ?? 0)}
+                      onChange={onChange}
                       query={BOOLEAN_QUERY}
                       grow
                       allowNone

@@ -65,10 +65,8 @@ export const formSchema = fieldsZ
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 // The form edits one operation, and "none" stands for a calculation with no operations.
-const formOperationZ = z.object({
+const formOperationZ = calculation.windowZ.extend({
   type: z.enum(["none", ...calculation.OPERATION_TYPES]),
-  resetChannel: channel.keyZ,
-  duration: TimeSpan.z,
 });
 
 type FormOperation = z.infer<typeof formOperationZ>;
@@ -87,11 +85,7 @@ export const calculatedFormSchema = fieldsZ.extend({
 
 export const calculatedFormPath = deep.path<z.infer<typeof calculatedFormSchema>>();
 
-const ZERO_OPERATION: FormOperation = {
-  type: "none",
-  resetChannel: 0,
-  duration: TimeSpan.ZERO,
-};
+const ZERO_OPERATION: FormOperation = { type: "none", duration: TimeSpan.ZERO };
 
 const channelToFormValues = ({
   key,
@@ -265,14 +259,13 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
 const toFormOperation = (op?: calculation.Operation): FormOperation => {
   if (op == null) return ZERO_OPERATION;
   if (op.type === "derivative") return { ...ZERO_OPERATION, type: "derivative" };
-  return { type: op.type, duration: op.duration, resetChannel: op.reset ?? 0 };
+  return { type: op.type, duration: op.duration, reset: op.reset };
 };
 
 const toCalculationOperations = (op?: FormOperation): calculation.Operation[] => {
   if (op == null || op.type === "none") return [];
   if (op.type === "derivative") return [{ type: "derivative" }];
-  const reset = op.resetChannel === 0 ? undefined : op.resetChannel;
-  return [{ type: op.type, duration: new TimeSpan(op.duration), reset }];
+  return [{ type: op.type, duration: new TimeSpan(op.duration), reset: op.reset }];
 };
 
 // The values of the calculated form that the calculation holds.

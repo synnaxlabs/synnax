@@ -736,7 +736,7 @@ describe("queries", () => {
         `return ${sourceChannel.name} + 1`,
       );
       expect(result.current.form.value().operations).toEqual([
-        { type: "none", resetChannel: 0, duration: TimeSpan.ZERO },
+        { type: "none", duration: TimeSpan.ZERO },
       ]);
 
       act(() => {
@@ -788,7 +788,7 @@ describe("queries", () => {
         result.current.form.set(calculatedPath.operations, [
           {
             type: "avg",
-            resetChannel: resetChannel.key,
+            reset: resetChannel.key,
             duration: TimeSpan.seconds(5),
           },
         ]);
