@@ -54,8 +54,10 @@ Driver that restarts while the Core is down still starts with no tasks.
 
 `bypass::pipeline::Writer::write` (`driver/bypass/pipeline/writer.h:43-61`) publishes to
 the bus and hands the frame to a `bypass::pipeline::Forwarder` (NEW), which opens,
-writes, and reopens the task's Core writer on its own thread. `open_writer` returns at
-once. The handoff queue holds 64 MB.
+writes, and reopens the task's Core writer on its own thread. `open_writer` waits for
+the first open, and returns once it succeeds, fails for good, or finds the Core
+unreachable. The handoff queue holds 64 MB. A stop sends what the queue holds for at
+most 5 s, then drops and counts the rest.
 
 When the Core is unreachable, the forwarder closes the live writer, spools the queued
 frames in order, and reopens the live writer only after the queue is empty. Every
@@ -79,6 +81,11 @@ applies decreases and closes too, so two tasks on one Driver can hand off a chan
 forwarder opens each Core writer with the authorities in effect. On reconnect, the
 forwarders open before the task manager retrieves control states
 (`driver/task/manager.cpp:260-271`).
+
+Authority changes go through the forwarder queue in order with the frames. While the
+Core is up, only an increase applies to the local mirror at once. A decrease reaches the
+Core and the other writers only after the frames queued before it, which can take
+seconds when the Core is slow.
 
 ### 3.2 Streamers read the bus without the Core
 
