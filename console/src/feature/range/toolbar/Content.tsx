@@ -646,8 +646,8 @@ const UnfavoriteAll = ({ favorites }: { favorites: ranger.Range[] }) => {
     }, "Failed to unfavorite ranges");
   return (
     <Button.Button
-      variant="text"
-      size="small"
+      size="tiny"
+      rounded="small"
       textColor={9}
       tooltip="Unfavorite all ranges"
       onClick={handleClick}
