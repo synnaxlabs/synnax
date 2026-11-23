@@ -235,7 +235,7 @@ TEST(InputScale, InverseScaleOfAnInput) {
 /// @brief builds a type with a rate unit of the given name and scale.
 arc::types::Type with_rate(arc::types::Type t, std::string name, const double scale) {
     t = with_unit(std::move(t), std::move(name), scale);
-    t.unit->dimensions.time = -1;
+    t.unit.value().dimensions.time = -1;
     return t;
 }
 

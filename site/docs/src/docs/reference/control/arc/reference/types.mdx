@@ -215,7 +215,7 @@ written to. With `x := 400.0`, `x > 300psi` compares `400.0` with `300.0`.
 | Dimension   | Units                                                                          |
 | ----------- | ------------------------------------------------------------------------------ |
 | Time        | `ns` `us` `ms` `s` `min` `h` `d`                                               |
-| Frequency   | `Hz` `hz` `kHz` `khz` `MHz` `mhz` `GHz`                                        |
+| Frequency   | `Hz` `hz` `kHz` `khz` `MHz` `mhz` `GHz` `ghz`                                  |
 | Length      | `fm` `pm` `nm` `um` `mm` `cm` `dm` `m` `meter` `km` `in` `ft` `yd` `mi` `nmi`  |
 | Mass        | `fg` `pg` `ng` `ug` `mg` `g` `kg` `lb` `oz` `ton`                              |
 | Pressure    | `pPa` `nPa` `uPa` `mPa` `Pa` `kPa` `MPa` `GPa` `bar` `mbar` `psi` `atm` `torr` |
@@ -268,3 +268,13 @@ the smaller unit. A variable, an input, and a function result use their own unit
 | `q i64 Pa := 5psi`     | `q` is `34473`, with a warning that the integer truncates                    |
 | `[1s, 500ms]`          | `[1000, 500]`, in `ms`                                                       |
 | `ys = xs`              | Error, `type mismatch: 'ys' is a series in ms and cannot take a series in s` |
+
+A rate converts to a time span. The result is the period of the rate, in the unit of the
+time span. An integer rounds to the nearest value. A time span does not convert to a
+rate.
+
+| Code                  | Result             |
+| --------------------- | ------------------ |
+| `d i64 ns := 10hz`    | `d` is `100000000` |
+| `d i64 ms := 60hz`    | `d` is `17`        |
+| `time.interval(10hz)` | Waits 100 ms       |
