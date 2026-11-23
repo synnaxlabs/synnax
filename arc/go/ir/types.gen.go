@@ -63,12 +63,23 @@ type ScopeMode uint8
 
 const (
 	// ScopeModeUnspecified has no mode set.
-	ScopeModeUnspecified ScopeMode = iota
+	ScopeModeUnspecified ScopeMode = 0
 	// ScopeModeParallel runs every member of the scope in strata.
-	ScopeModeParallel
+	ScopeModeParallel ScopeMode = 1
 	// ScopeModeSequential runs one step of the scope at a time.
-	ScopeModeSequential
+	ScopeModeSequential ScopeMode = 2
 )
+
+// IsValid reports whether s is one of the defined ScopeMode
+// values.
+func (s ScopeMode) IsValid() bool {
+	switch s {
+	case ScopeModeUnspecified, ScopeModeParallel, ScopeModeSequential:
+		return true
+	default:
+		return false
+	}
+}
 
 // Liveness defines whether a Scope is continuously active or must be activated.
 type Liveness uint8
@@ -77,12 +88,23 @@ type Liveness uint8
 
 const (
 	// LivenessUnspecified has no liveness set.
-	LivenessUnspecified Liveness = iota
+	LivenessUnspecified Liveness = 0
 	// LivenessAlways activates the scope with its parent.
-	LivenessAlways
+	LivenessAlways Liveness = 1
 	// LivenessGated activates the scope when one of its activations fires.
-	LivenessGated
+	LivenessGated Liveness = 2
 )
+
+// IsValid reports whether l is one of the defined Liveness
+// values.
+func (l Liveness) IsValid() bool {
+	switch l {
+	case LivenessUnspecified, LivenessAlways, LivenessGated:
+		return true
+	default:
+		return false
+	}
+}
 
 // TargetType is the "type" value that selects a variant of Target.
 type TargetType string
@@ -247,6 +269,7 @@ type Transition struct {
 // schema constraints.
 func (t Transition) Validate() error {
 	v := validate.New("Transition")
+	v.Ternaryf("kind", !t.Kind.IsValid(), "invalid kind: %v", t.Kind)
 	v.Exec(func() error { return validate.PathedError(t.Target.Validate(), "target") })
 	return v.Error()
 }
@@ -258,6 +281,14 @@ type Activation struct {
 	// Kind is conditional when only a truthy output activates the scope (`=>`), and
 	// continuous when every output does (`->`).
 	Kind EdgeKind `json:"kind" msgpack:"kind"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a Activation) Validate() error {
+	v := validate.New("Activation")
+	v.Ternaryf("kind", !a.Kind.IsValid(), "invalid kind: %v", a.Kind)
+	return v.Error()
 }
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
@@ -312,6 +343,11 @@ type Scope struct {
 // schema constraints.
 func (s Scope) Validate() error {
 	v := validate.New("Scope")
+	v.Ternaryf("mode", !s.Mode.IsValid(), "invalid mode: %v", s.Mode)
+	v.Ternaryf("liveness", !s.Liveness.IsValid(), "invalid liveness: %v", s.Liveness)
+	for i := range s.Activations {
+		v.Exec(func() error { return validate.PathedError(s.Activations[i].Validate(), "activations", strconv.Itoa(i)) })
+	}
 	for i := range s.Strata {
 		for j := range s.Strata[i] {
 			v.Exec(func() error {
@@ -340,6 +376,19 @@ type Node struct {
 	Outputs types.Params `json:"outputs" msgpack:"outputs"`
 	// Channels contains channel read/write mappings.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (n Node) Validate() error {
+	v := validate.New("Node")
+	for i := range n.Inputs {
+		v.Exec(func() error { return validate.PathedError(n.Inputs[i].Validate(), "inputs", strconv.Itoa(i)) })
+	}
+	for i := range n.Outputs {
+		v.Exec(func() error { return validate.PathedError(n.Outputs[i].Validate(), "outputs", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // Nodes is a collection of node instantiations in an Arc module.
@@ -375,8 +424,17 @@ type IR struct {
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IR) Validate() error {
+func (ir IR) Validate() error {
 	v := validate.New("IR")
-	v.Exec(func() error { return validate.PathedError(i.Root.Validate(), "root") })
+	for i := range ir.Functions {
+		v.Exec(func() error { return validate.PathedError(ir.Functions[i].Validate(), "functions", strconv.Itoa(i)) })
+	}
+	for i := range ir.Nodes {
+		v.Exec(func() error { return validate.PathedError(ir.Nodes[i].Validate(), "nodes", strconv.Itoa(i)) })
+	}
+	for i := range ir.Edges {
+		v.Exec(func() error { return validate.PathedError(ir.Edges[i].Validate(), "edges", strconv.Itoa(i)) })
+	}
+	v.Exec(func() error { return validate.PathedError(ir.Root.Validate(), "root") })
 	return v.Error()
 }

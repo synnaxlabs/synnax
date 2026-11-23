@@ -1,0 +1,47 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "bus",
+    srcs = ["reader.cpp"],
+    hdrs = ["reader.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/codec/framing",
+        "//driver/common",
+        "//driver/errors",
+        "//driver/icd",
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "bus_test",
+    srcs = ["reader_test.cpp"],
+    deps = [
+        ":bus",
+        "//client/cpp/channel",
+        "//client/cpp/icd",
+        "//driver/codec/framing",
+        "//driver/common",
+        "//driver/errors",
+        "//driver/icd",
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)

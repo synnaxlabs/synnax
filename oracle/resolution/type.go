@@ -412,10 +412,8 @@ func refersTo(
 	if ref.Name == targetQN {
 		return true
 	}
-	for _, arg := range ref.TypeArgs {
-		if refersTo(arg, targetQN, table, visited) {
-			return true
-		}
+	if anyRefersTo(ref.TypeArgs, targetQN, table, visited) {
+		return true
 	}
 	if visited.Contains(ref.Name) {
 		return false
@@ -427,36 +425,37 @@ func refersTo(
 	}
 	switch form := resolved.Form.(type) {
 	case StructForm:
-		for _, ext := range form.Extends {
-			if refersTo(ext, targetQN, table, visited) {
-				return true
-			}
+		if anyRefersTo(form.Extends, targetQN, table, visited) {
+			return true
 		}
-		for _, f := range form.Fields {
-			if refersTo(f.Type, targetQN, table, visited) {
-				return true
-			}
-		}
+		return slices.ContainsFunc(form.Fields, func(f Field) bool {
+			return refersTo(f.Type, targetQN, table, visited)
+		})
 	case UnionForm:
-		for _, ext := range form.Extends {
-			if refersTo(ext, targetQN, table, visited) {
-				return true
-			}
+		if anyRefersTo(form.Extends, targetQN, table, visited) {
+			return true
 		}
 		if form.BorrowsEnum() && refersTo(form.Enum, targetQN, table, visited) {
 			return true
 		}
-		for _, v := range form.Variants {
-			if refersTo(v.Type, targetQN, table, visited) {
-				return true
-			}
-		}
+		return slices.ContainsFunc(form.Variants, func(v UnionVariant) bool {
+			return refersTo(v.Type, targetQN, table, visited)
+		})
 	case AliasForm:
 		return refersTo(form.Target, targetQN, table, visited)
 	case DistinctForm:
 		return refersTo(form.Base, targetQN, table, visited)
 	}
 	return false
+}
+
+// anyRefersTo reports whether any of refs refers to the type named targetQN.
+func anyRefersTo(
+	refs []TypeRef, targetQN string, table *Table, visited set.Set[string],
+) bool {
+	return slices.ContainsFunc(refs, func(ref TypeRef) bool {
+		return refersTo(ref, targetQN, table, visited)
+	})
 }
 
 // PrimitiveBase follows ref through distinct-type and alias chains to the underlying
@@ -676,10 +675,37 @@ func UnifiedFields(typ Type, table *Table) []Field {
 		childFieldMap[form.Fields[i].Name] = &form.Fields[i]
 	}
 
-	// Collect fields from all parents (left-to-right, first wins on conflict)
+	allParentFields := inheritedFields(form, table)
+	parentFieldMap := make(map[string]*Field, len(allParentFields))
+	for i := range allParentFields {
+		parentFieldMap[allParentFields[i].Name] = &allParentFields[i]
+	}
+
+	// Parent fields the child does not override, in parent order. Overrides are emitted
+	// below in child-declaration order.
+	var result []Field
+	for _, pf := range allParentFields {
+		if childFieldMap[pf.Name] != nil {
+			continue
+		}
+		result = append(result, pf)
+	}
+
+	for _, cf := range form.Fields {
+		if pf, isOverride := parentFieldMap[cf.Name]; isOverride {
+			result = append(result, MergeOverrideField(*pf, cf))
+		} else {
+			result = append(result, cf)
+		}
+	}
+	return result
+}
+
+// inheritedFields returns the fields that form takes from its parents, left to right.
+// The first parent wins on a conflict, and omitted fields drop.
+func inheritedFields(form StructForm, table *Table) []Field {
 	seenFields := make(set.Set[string])
 	var allParentFields []Field
-
 	for _, ext := range form.Extends {
 		parent, extendsRef, ok := Dealias(ext, table)
 		if !ok {
@@ -707,30 +733,7 @@ func UnifiedFields(typ Type, table *Table) []Field {
 			allParentFields = append(allParentFields, substitutedField)
 		}
 	}
-
-	parentFieldMap := make(map[string]*Field, len(allParentFields))
-	for i := range allParentFields {
-		parentFieldMap[allParentFields[i].Name] = &allParentFields[i]
-	}
-
-	// Parent fields the child does not override, in parent order. Overrides are
-	// emitted below in child-declaration order.
-	var result []Field
-	for _, pf := range allParentFields {
-		if childFieldMap[pf.Name] != nil {
-			continue
-		}
-		result = append(result, pf)
-	}
-
-	for _, cf := range form.Fields {
-		if pf, isOverride := parentFieldMap[cf.Name]; isOverride {
-			result = append(result, MergeOverrideField(*pf, cf))
-		} else {
-			result = append(result, cf)
-		}
-	}
-	return result
+	return allParentFields
 }
 
 // InheritedFields returns the fields the given parents contribute, keyed by name, with

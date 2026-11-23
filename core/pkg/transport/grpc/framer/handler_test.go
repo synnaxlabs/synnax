@@ -344,6 +344,18 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Expect(req.AckRequested).To(BeTrue())
 		})
 
+		It("Should receive a request for missed markers", func(ctx SpecContext) {
+			requests, _ := serve(transport.FrameStreamer, 1)
+			exchange(
+				MustSucceed(client.Exec(ctx)),
+				0,
+				&grpcframer.StreamerRequest{MissedRequested: true},
+			)
+			var req framer.StreamerRequest
+			Eventually(requests).Should(Receive(&req))
+			Expect(req.MissedRequested).To(BeTrue())
+		})
+
 		DescribeTable(
 			"Should send an ack",
 			func(ctx SpecContext, keyed bool) {
@@ -354,6 +366,21 @@ var _ = Describe("gRPC Framer Transport", func() {
 				serve(transport.FrameStreamer, 1, framer.StreamerResponse{Ack: true})
 				res := exchange(MustSucceed(client.Exec(ctx)), 1, &req)[0]
 				Expect(res.Ack).To(BeTrue())
+			},
+			Entry("through the protobuf frame", false),
+			Entry("through the codec", true),
+		)
+
+		DescribeTable(
+			"Should send a missed marker",
+			func(ctx SpecContext, keyed bool) {
+				var req grpcframer.StreamerRequest
+				if keyed {
+					req.Keys = createVirtualChannel(ctx, telem.Int64T).Uint32()
+				}
+				serve(transport.FrameStreamer, 1, framer.StreamerResponse{Missed: true})
+				res := exchange(MustSucceed(client.Exec(ctx)), 1, &req)[0]
+				Expect(res.Missed).To(BeTrue())
 			},
 			Entry("through the protobuf frame", false),
 			Entry("through the codec", true),

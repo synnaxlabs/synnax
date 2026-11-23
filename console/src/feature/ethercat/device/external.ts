@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/feature/ethercat/device/ContextMenuItems";
 export * from "@/feature/ethercat/device/hardware";
+export * as Identifier from "@/feature/ethercat/device/identifier";
 export * from "@/feature/ethercat/device/queries";
 export * from "@/feature/ethercat/device/replace";
 export * from "@/feature/ethercat/device/Replacements";
 export * from "@/feature/ethercat/device/SelectSlave";
+export * from "@/feature/ethercat/device/SettingInput";
 export * as Settings from "@/feature/ethercat/device/settings";
 export * as Setup from "@/feature/ethercat/device/setup";
+export * from "@/feature/ethercat/device/SetupNote";
 export * from "@/feature/ethercat/device/types";

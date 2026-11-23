@@ -13,7 +13,7 @@ import { Telem } from "@synnaxlabs/pluto";
 import { type DataType, deep } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import { SHADOW_TRIGGER_PROPS } from "@/feature/modbus/device/Option";
+import { Device } from "@/feature/modbus/device";
 import {
   BIT_BOUNDS,
   type Channel,
@@ -38,7 +38,7 @@ const DataTypeField = ({
       preview={field.preview}
       hideDataTypes={hideDataTypes}
       location="bottom"
-      triggerProps={SHADOW_TRIGGER_PROPS}
+      triggerProps={Device.SHADOW_TRIGGER_PROPS}
     />
   );
 };
