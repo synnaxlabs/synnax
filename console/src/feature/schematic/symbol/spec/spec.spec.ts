@@ -626,6 +626,10 @@ describe("symbol editor spec", () => {
     it("should return undefined for a shape that no part holds", () => {
       expect(Spec.owner(spec, "#d")).toBeUndefined();
     });
+
+    it("should not return the part of a shape inside a group", () => {
+      expect(Spec.owner({ ...spec, parts: [spec.parts[1]] }, "#g")).toBeUndefined();
+    });
   });
 
   describe("toggleSelector", () => {

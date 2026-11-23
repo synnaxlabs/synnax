@@ -247,8 +247,8 @@ export const removePart = (spec: Spec, part: string): Spec => ({
 });
 
 /**
- * @returns the part that holds the shape of selector: the shape itself, a shape inside
- * it such as the span of a text, or the nearest group around it.
+ * @returns the part that holds the shape of selector: the shape itself, a span of the
+ * text, or the nearest group around it.
  */
 export const owner = (
   spec: Pick<Spec, "drawing" | "parts">,
@@ -259,7 +259,9 @@ export const owner = (
   if (shape == null) return undefined;
   const around: Element[] = [];
   for (let el = shape.parentElement; el != null; el = el.parentElement) around.push(el);
-  for (const el of [shape, ...shape.querySelectorAll("*"), ...around]) {
+  // The spans of a text are part of its shape, but the shapes of a group are not.
+  const spans = shape.tagName === "text" ? [...shape.querySelectorAll("*")] : [];
+  for (const el of [shape, ...spans, ...around]) {
     const found = spec.parts.find((p) => p.selectors.some((s) => el.matches(s)));
     if (found != null) return found;
   }

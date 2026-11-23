@@ -1315,7 +1315,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("makes a part of the group of a shape alt-clicked", async () => {
-      const symbol = await openPainted({ drawing: { type: "svg", markup: GROUPED } });
+      const symbol = await openPainted({
+        drawing: { type: "svg", markup: GROUPED },
+        parts: [{ ...BODY, selectors: ["#c"] }],
+      });
       fireEvent.click(screen.getByText("Whole drawing"));
       await screen.findByRole("heading", { name: "Whole drawing" });
       fireEvent.click(findShape("c"), { altKey: true });
@@ -1323,7 +1326,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.parts).toEqual([
-          BODY,
+          { ...BODY, selectors: [] },
           { key: expect.any(String), name: "Part 1", selectors: ["#g"] },
         ]),
       );
