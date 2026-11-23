@@ -11,13 +11,12 @@ import { enumeration } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Enumeration } from "@/enumeration";
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -135,15 +134,15 @@ describe("queries", () => {
     });
   });
 
-  describe("useResultDependents", () => {
-    it("should return no records for an unused enumeration", async () => {
+  describe("useResult", () => {
+    it("should return empty uses of an unused enumeration", async () => {
       const created = await createEnumeration();
       const { result } = renderHook(
-        () => Enumeration.useResultDependents({ key: created.key }),
+        () => Enumeration.useResult({ key: created.key, includeUses: true }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toBe("success"));
-      expect(result.current.data).toEqual([]);
+      expect(result.current.data?.uses).toEqual([]);
     });
   });
 
@@ -201,6 +200,20 @@ describe("queries", () => {
     });
   });
 
+  describe("useReplace", () => {
+    it("should delete the replaced enumeration and keep the other", async () => {
+      const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+      const { result } = renderHook(Enumeration.useReplace, { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ from: from.key, to: to.key });
+      });
+      expect(result.current.variant).toEqual("success");
+      const other = createTestClient();
+      await expect(other.enumerations.retrieve(from.key)).rejects.toThrow();
+      expect((await other.enumerations.retrieve(to.key)).key).toEqual(to.key);
+    });
+  });
+
   describe("useForm", () => {
     it("should send an entry rename", async () => {
       const created = await createEnumeration();
@@ -236,26 +249,6 @@ describe("queries", () => {
       const stored = await createTestClient().enumerations.retrieve(created.key);
       expect(stored.entries.map((e) => e.key)).toEqual(["on", "tripped"]);
       expect(stored.entries[1].abnormal).toBe(true);
-    });
-  });
-
-  describe("useRestore", () => {
-    it("should write the shipped entries back onto an edited built-in", async () => {
-      const shipped = (await client.enumerations.retrieveBuiltins()).at(-1);
-      if (shipped == null) throw new Error("the Core ships no enumerations");
-      await remote.enumerations.retrieve(shipped.key);
-      await remote.enumerations.dispatch(shipped.key, [
-        enumeration.set({ path: ["name"], value: `edited-${id.create()}` }),
-        enumeration.set({ path: ["entries"], value: [] }),
-      ]);
-      const { result } = renderHook(Enumeration.useRestore, { wrapper });
-      await act(async () => {
-        await result.current.updateAsync(shipped);
-      });
-      expect(result.current.variant).toEqual("success");
-      const stored = await createTestClient().enumerations.retrieve(shipped.key);
-      expect(stored.name).toBe(shipped.name);
-      expect(stored.entries).toEqual(shipped.entries);
     });
   });
 });

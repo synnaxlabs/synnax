@@ -9,8 +9,8 @@
 
 import { unique } from "@synnaxlabs/x";
 
-import { type ReportIssue } from "@/platform/task/check";
-import { type Cell, type State } from "@/platform/task/port/Grid";
+import type { ReportIssue } from "@/platform/task/check";
+import type { Cell, State } from "@/platform/task/port/Grid";
 
 /** A channel's hold on a port. */
 export interface Claim {

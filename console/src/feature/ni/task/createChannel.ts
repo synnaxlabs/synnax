@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ni } from "@synnaxlabs/client";
+import type { ni } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 
-import { type Device } from "@/feature/ni/device/types";
+import type { Device } from "@/feature/ni/device/types";
 import {
   ANALOG_INPUT,
   ANALOG_OUTPUT,
@@ -30,6 +30,7 @@ import {
   createCIChannel,
   createDIChannel,
   createDOChannel,
+  defaultAIVoltageRange,
   type DIChannel,
   type DigitalChannel,
   type DOChannel,
@@ -56,22 +57,30 @@ const hardwareOf = (devices: Device[], key: string): ni.Hardware | undefined =>
 /**
  * Creates an analog input channel. Without a port, it takes the lowest port on its
  * device that is free, along with its negative input when the channel is
- * differential.
+ * differential. An unscaled voltage channel that copies no channel on its own device
+ * takes the widest voltage range of that device.
  */
 export const createNextAIChannel = (
   channels: AIChannel[],
   { copy, device, port }: Placement = {},
   devices: Device[] = [],
 ): AIChannel => {
+  const source = Task.channelToCopy(channels, copy);
   const next: AIChannel = {
-    ...template(channels, createAIChannel(), copy),
+    ...deep.copy(source ?? createAIChannel()),
     key: id.create(),
     ...Task.READ_CHANNEL_OVERRIDE,
   };
   if (device != null) next.device = device;
+  const hardware = hardwareOf(devices, next.device);
+  const sameDevice = source?.device === next.device;
+  if (next.type === "ai_voltage" && next.customScale.type === "none" && !sameDevice) {
+    const { lower, upper } = defaultAIVoltageRange(hardware);
+    next.minVal = lower;
+    next.maxVal = upper;
+  }
   if (!("port" in next)) return next;
   if (port != null) return { ...next, port };
-  const hardware = hardwareOf(devices, next.device);
   const own = channels.filter((c) => c.device === next.device);
   const free = lowestFreePort(
     hardware == null ? null : ANALOG_INPUT.ports(hardware),

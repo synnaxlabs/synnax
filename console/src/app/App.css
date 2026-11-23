@@ -26,6 +26,10 @@ body {
     color: var(--pluto-gray-l10);
     -webkit-user-select: none;
     user-select: none;
+
+    /* Geist Mono draws pairs such as "~=" as one glyph. Lyra keeps ligatures for the
+       sites. */
+    font-variant-ligatures: no-common-ligatures;
 }
 
 .console-root {

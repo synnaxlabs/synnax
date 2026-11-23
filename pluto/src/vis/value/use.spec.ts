@@ -12,16 +12,16 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { aether } from "@/aether/aether";
-import { renderHook } from "@/testutil/render";
+import { renderHook } from "@/testutil";
 import { Value } from "@/vis/value";
 import { value } from "@/vis/value/aether";
 
 // Stands in for the worker component and reports its source as stale.
 class StaleValue extends aether.Leaf<typeof value.Value.z> {
   static readonly TYPE = value.Value.TYPE;
-  schema = value.Value.z;
+  override schema = value.Value.z;
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
   }
 }

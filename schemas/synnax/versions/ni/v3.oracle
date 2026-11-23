@@ -126,7 +126,8 @@ BaseCIChannel struct extends v2.BaseCIChannel {
 CIChannel union on type extends v2.CIChannel {
     ci_frequency {
         divisor uint32 = 4 {
-            @doc value "is the counter divisor for large-range measurement."
+            @doc value    "is the counter divisor for large-range measurement."
+            @validate min 1
         }
     }
     ci_edge_count {
@@ -136,17 +137,20 @@ CIChannel union on type extends v2.CIChannel {
     }
     ci_period {
         divisor uint32 = 4 {
-            @doc value "is the counter divisor for large-range measurement."
+            @doc value    "is the counter divisor for large-range measurement."
+            @validate min 1
         }
     }
     ci_velocity_angular {
         pulses_per_rev uint32 = 24 {
-            @doc value "is the number of encoder pulses per revolution."
+            @doc value    "is the number of encoder pulses per revolution."
+            @validate min 1
         }
     }
     ci_position_angular {
         pulses_per_rev uint32 = 24 {
-            @doc value "is the number of encoder pulses per revolution."
+            @doc value    "is the number of encoder pulses per revolution."
+            @validate min 1
         }
     }
 }
@@ -219,7 +223,8 @@ DIChannel struct extends v2.DIChannel {
         @doc value "is the physical port the channel reads from."
     }
     line uint8 = 0 {
-        @doc value "is the digital line within the port the channel reads from."
+        @doc value    "is the digital line within the port the channel reads from."
+        @validate max 31
     }
 }
 
@@ -228,7 +233,8 @@ DOChannel struct extends v2.DOChannel {
         @doc value "is the physical port the channel writes to."
     }
     line uint8 = 0 {
-        @doc value "is the digital line within the port the channel writes to."
+        @doc value    "is the digital line within the port the channel writes to."
+        @validate max 31
     }
 }
 

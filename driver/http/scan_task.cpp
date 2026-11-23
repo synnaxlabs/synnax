@@ -105,8 +105,11 @@ static std::string validate_health_response(
         return "The response body is not valid JSON: " + std::string(e.what()) + ".";
     }
     const auto ptr = x::json::json::json_pointer(er.pointer);
-    if (!body.contains(ptr))
-        return "The response body has no value at '" + er.pointer + "'.";
+    auto missing = "The response body has no value at '" + er.pointer + "'.";
+    try {
+        // contains throws when an array index token overflows size_t.
+        if (!body.contains(ptr)) return missing;
+    } catch (const x::json::json::out_of_range &) { return missing; }
     if (body[ptr] == er.expected_value) return "";
     return "The value at '" + er.pointer + "' is " + body[ptr].dump() +
            ", but the health check expects " + er.expected_value.dump() + ".";

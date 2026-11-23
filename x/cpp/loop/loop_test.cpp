@@ -412,6 +412,113 @@ TEST(LoopTest, testSleepSleepsOnTheGivenClock) {
     EXPECT_LT(telem::TimeSpan(hs_clock::now() - host_start), telem::SECOND);
 }
 
+/// @brief it should start at one sleep step.
+TEST(StepEstimator, testStartsAtOneStep) {
+    EXPECT_EQ(StepEstimator().estimate(), RESOLUTION);
+}
+
+/// @brief it should estimate the mean plus one deviation when a step's squared
+/// deviation is past the range of an int64 of nanoseconds.
+TEST(StepEstimator, testHoldsAStallPastTheInt64Range) {
+    StepEstimator estimator;
+    estimator.add(RESOLUTION);
+    estimator.add(telem::SECOND * 10);
+    EXPECT_NEAR(
+        estimator.estimate().nanoseconds(),
+        (telem::SECOND * 10).nanoseconds(),
+        static_cast<double>(RESOLUTION.nanoseconds())
+    );
+}
+
+/// @brief adds count steps that alternate between 90 µs and 110 µs.
+void add_normal_steps(StepEstimator &estimator, const int count) {
+    for (int i = 0; i < count; i++)
+        estimator.add(telem::MICROSECOND * (i % 2 == 0 ? 90 : 110));
+}
+
+/// @brief it should hold back one stall after its distribution is set, so the stall
+/// cannot raise the estimate past every wait.
+TEST(StepEstimator, testHoldsBackAnIsolatedStall) {
+    StepEstimator estimator;
+    add_normal_steps(estimator, 1000);
+    const auto before = estimator.estimate();
+    estimator.add(telem::MILLISECOND * 50);
+    EXPECT_EQ(estimator.estimate(), before);
+    add_normal_steps(estimator, 20000);
+    estimator.add(telem::SECOND * 3);
+    EXPECT_LT(estimator.estimate(), telem::MICROSECOND * 200);
+}
+
+/// @brief it should keep a large estimate on a host whose normal steps are large, as
+/// on the Windows sleep_for fallback, so a high-rate timer spins.
+TEST(StepEstimator, testKeepsTheEstimateOfLargeSteps) {
+    StepEstimator estimator;
+    for (int i = 0; i < 1000; i++)
+        estimator.add(telem::MILLISECOND * (i % 50 == 0 ? 31 : 1 + i % 16));
+    EXPECT_GT(estimator.estimate(), telem::MILLISECOND * 10);
+}
+
+/// @brief it should add a stall among the first steps, so a high-rate timer spins
+/// instead of trusting too low an estimate. Such a timer then takes no more steps and
+/// spins on every wait.
+TEST(StepEstimator, testAddsAStallAmongTheFirstSteps) {
+    StepEstimator estimator;
+    add_normal_steps(estimator, 3);
+    estimator.add(telem::MILLISECOND * 50);
+    EXPECT_GT(estimator.estimate(), HIGH_RES_THRESHOLD);
+}
+
+/// @brief it should hold back a stall on a host with a recurring tail of slow steps,
+/// as the tail steps are far smaller than the stall.
+TEST(StepEstimator, testHoldsBackAStallAmongARecurringTail) {
+    StepEstimator estimator;
+    const auto add_tail = [&estimator](const int count) {
+        for (int i = 1; i <= count; i++) {
+            if (i % 1000 == 0)
+                estimator.add(telem::MICROSECOND * (i % 2000 == 0 ? 1000 : 600));
+            else
+                estimator.add(telem::MICROSECOND * 100);
+        }
+    };
+    add_normal_steps(estimator, 16);
+    add_tail(20000);
+    estimator.add(telem::SECOND * 3);
+    add_tail(5000);
+    EXPECT_LT(estimator.estimate(), telem::MICROSECOND * 300);
+}
+
+/// @brief it should drop a held stall when the next long step is far smaller than it.
+TEST(StepEstimator, testDropsAHeldStallForASmallLongStep) {
+    StepEstimator estimator;
+    add_normal_steps(estimator, 1000);
+    const auto before = estimator.estimate();
+    estimator.add(telem::SECOND * 3);
+    estimator.add(telem::MILLISECOND);
+    EXPECT_EQ(estimator.estimate(), before);
+    estimator.add(telem::MILLISECOND);
+    EXPECT_LT(estimator.estimate(), telem::MICROSECOND * 300);
+}
+
+/// @brief it should add both long steps when a second one confirms the first, so the
+/// estimate follows a host whose steps became longer.
+TEST(StepEstimator, testFollowsALastingRiseInStepDuration) {
+    StepEstimator estimator;
+    add_normal_steps(estimator, 1000);
+    for (int i = 0; i < 10000; i++)
+        estimator.add(telem::MILLISECOND * 2);
+    EXPECT_GT(estimator.estimate(), telem::MILLISECOND * 2);
+}
+
+/// @brief it should add long steps that recur within the window, so a host with a
+/// steady tail of slow steps keeps them in its estimate.
+TEST(StepEstimator, testAddsARecurringTail) {
+    StepEstimator estimator;
+    add_normal_steps(estimator, 16);
+    for (int i = 1; i <= 1000; i++)
+        estimator.add(i % 50 == 0 ? telem::MILLISECOND : telem::MICROSECOND * 100);
+    EXPECT_GT(estimator.estimate(), telem::MICROSECOND * 200);
+}
+
 /// @brief it should read the host's wall time by default.
 TEST(HostClock, testReadsTheHostWallTimeByDefault) {
     const HostClock clock;

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 
-import { type PersistedState } from "@/session/range/slice";
+import type { PersistedState } from "@/session/range/slice";
 
 /** References the Core's ranges. Their names and windows stay on the Core. */
 export const fromClient = (

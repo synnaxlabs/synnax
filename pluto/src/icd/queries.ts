@@ -9,7 +9,7 @@
 
 import { icd } from "@synnaxlabs/client";
 import { deep, verbs } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Flux } from "@/flux";
 
