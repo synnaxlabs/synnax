@@ -882,10 +882,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("fits the motion picker and its By state button in the inspector", async () => {
       await openPainted({ variant: "actuator", states: [createState()] });
-      const header = screen.getByText("Motion").parentElement;
-      assertDefined(header);
       const right = getInspector().getBoundingClientRect().right;
-      for (const el of [within(header).getByText("By state"), findButton("Flow")])
+      for (const el of [screen.getByLabelText("Motion by state"), findButton("Flow")])
         expect(el.getBoundingClientRect().right).toBeLessThanOrEqual(right);
     });
 
