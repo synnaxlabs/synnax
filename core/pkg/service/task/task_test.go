@@ -1222,6 +1222,28 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res).To(Equal(expected))
 		})
 
+		It("Should match the drafts on no rack for rack 0", func(ctx SpecContext) {
+			draft := &task.Task{Type: testType, Name: "Draft"}
+			racked := &task.Task{Type: testType, Rack: testRack.Key, Name: "Racked"}
+			Expect(w.Create(ctx, draft)).To(Succeed())
+			Expect(w.Create(ctx, racked)).To(Succeed())
+			keysOn := func(racks ...rack.Key) []task.Key {
+				GinkgoHelper()
+				var res []task.Task
+				Expect(svc.NewRetrieve().
+					Where(task.And(
+						task.MatchKeys(draft.Key, racked.Key),
+						task.MatchRacks(racks...),
+					)).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				return lo.Map(res, func(t task.Task, _ int) task.Key { return t.Key })
+			}
+			Expect(keysOn(0)).To(Equal([]task.Key{draft.Key}))
+			Expect(keysOn(0, testRack.Key)).
+				To(ConsistOf(Equal(draft.Key), Equal(racked.Key)))
+		})
+
 		It("Should resume strictly past the key", func(ctx SpecContext) {
 			keys := make([]task.Key, 3)
 			for i := range keys {
