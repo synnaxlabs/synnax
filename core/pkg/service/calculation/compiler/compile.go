@@ -112,7 +112,7 @@ func preProcess(
 		Body: ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Calculation.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
-	return arc.CompileGraph(ctx, g, NewCalculationRoot(symbols))
+	return arc.CompileGraph(ctx, g, newCalculationRoot(symbols))
 }
 
 // outputType returns the type of the output of the calculation of cfg, which result
@@ -381,7 +381,7 @@ func compileAnalyzed(
 	if err := addReads(ctx, &g, symbols, result.Reads, result.Quoted); err != nil {
 		return Module{}, err
 	}
-	program, err := arc.CompileGraph(ctx, g, NewCalculationRoot(symbols))
+	program, err := arc.CompileGraph(ctx, g, newCalculationRoot(symbols))
 	if err != nil {
 		return Module{}, err
 	}
