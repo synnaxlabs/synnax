@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/opcua/server/types.gen";
-export * from "@/opcua/server/where.gen";
+export type { WhereInput } from "@/opcua/server/where.gen";
