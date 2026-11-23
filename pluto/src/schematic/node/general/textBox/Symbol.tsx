@@ -7,28 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type ReactElement } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Grid } from "@/schematic/node/common/grid";
 import { TextBox } from "@/schematic/node/general/textBox/Primitive";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 
 export const Symbol = ({
   nodeKey,
   onConfigChange,
   config: { textColor, inlineSize, align, autoFitDisabled, level, value, orientation },
-}: NodeProps<schematic.TextBoxNodeConfig>): ReactElement => (
-  <TextBox
-    className={Grid.DRAG_HANDLE_CLASS}
-    onChange={(value) => onConfigChange({ value })}
-    value={value}
-    level={level}
-    textColor={textColor}
-    key={nodeKey}
-    inlineSize={inlineSize}
-    align={align}
-    autoFitDisabled={autoFitDisabled}
-    orientation={orientation}
-  />
-);
+}: NodeProps<schematic.TextBoxNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <TextBox
+      className={Grid.DRAG_HANDLE_CLASS}
+      onChange={(value) => onConfigChange({ value })}
+      value={value}
+      level={level}
+      textColor={resolve(textColor)}
+      key={nodeKey}
+      inlineSize={inlineSize}
+      align={align}
+      autoFitDisabled={autoFitDisabled}
+      orientation={orientation}
+    />
+  );
+};

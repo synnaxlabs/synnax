@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ni } from "@synnaxlabs/client";
+import type { ni } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, record } from "@synnaxlabs/x";
@@ -70,8 +70,8 @@ export const SelectAIChannelTypeField = ({
       const schema = AI_CHANNEL_SCHEMAS[value];
       const merged = deep.overrideValidItems(next, prevParent, schema);
       // A custom scale gives the range in scaled units, not in device units.
-      const unscaled = "customScale" in merged && merged.customScale.type === "none";
-      const range = unscaled ? defaultAIRange(value, hardware) : undefined;
+      const scaled = "customScale" in merged && merged.customScale.type !== "none";
+      const range = scaled ? undefined : defaultAIRange(prevType, merged, hardware);
       set(path, {
         ...merged,
         ...(range != null && { minVal: range.lower, maxVal: range.upper }),

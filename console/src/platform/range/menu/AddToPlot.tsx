@@ -13,7 +13,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { LinePlot, Panel as PPanel, Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";

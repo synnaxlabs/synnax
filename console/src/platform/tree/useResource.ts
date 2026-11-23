@@ -10,7 +10,7 @@
 import { resource } from "@synnaxlabs/client";
 import { Store } from "@synnaxlabs/lyra/store";
 
-import { type Resource, type TreeState } from "@/platform/tree/types";
+import type { Resource, TreeState } from "@/platform/tree/types";
 
 export interface ResourceSource extends Pick<
   TreeState,

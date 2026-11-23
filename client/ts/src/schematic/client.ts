@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
+import type { FileTransport, UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -23,7 +23,7 @@ import {
   scopedActionZ,
   set,
 } from "@/schematic/actions.gen";
-import { type ElementConfig } from "@/schematic/element";
+import type { ElementConfig } from "@/schematic/element";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -206,8 +206,8 @@ export class Client extends query.Retriever<
 
   /**
    * Applies actions to the cached document and sends them to the server, recording an
-   * undoable entry. Returns false without side effects when the document isn't cached.
-   * Rolls back the local apply and rethrows on send failure.
+   * undoable entry. Rolls back the local apply and rethrows on send failure.
+   * @throws {NotCachedError} if the document isn't cached, before any change.
    */
   async dispatch(
     key: Key,
@@ -251,7 +251,10 @@ export class Client extends query.Retriever<
     return this.dispatcher.onUndoStateChange(callback, key);
   }
 
-  /** Stages actions committed atomically as one undoable entry. */
+  /**
+   * Stages actions committed atomically as one undoable entry.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, kind);
   }

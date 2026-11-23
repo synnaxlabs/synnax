@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type log, type project } from "@synnaxlabs/client";
+import type { channel, log, project } from "@synnaxlabs/client";
 import { array, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";

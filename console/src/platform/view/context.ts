@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type view } from "@synnaxlabs/client";
+import type { view } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 
 export interface FormContextValue {
@@ -27,6 +27,8 @@ export interface ContextValue {
   resourceType: view.Type;
   selected: view.Key;
   select: (key: view.Key) => void;
+  /** True while the permission to select a view loads. */
+  selectPending: boolean;
   /** Opens a view in a new tab. Null when the user may not open a tab. */
   openInNewTab: ((key: view.Key) => void) | null;
   editable: boolean;

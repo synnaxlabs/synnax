@@ -107,6 +107,7 @@ var _ = Describe("Dispatch", func() {
 		created := certificate.Certificate{Variant: certificate.FileCertificate{
 			Base:            certificate.Base{Name: "Created"},
 			CertificatePath: "/etc/plant.pem",
+			Rack:            coreRack,
 		}}
 		Expect(write(ctx, func(w certificate.Writer) error {
 			return w.Set(ctx, &created, nil)

@@ -13,9 +13,9 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Entry, type Stage } from "@/server/referral";
+import type { Entry, Stage } from "@/server/referral";
 import { referralPath, userPath } from "@/shell";
 import { ReferralDialog } from "@/ui/admin/ReferralDialog";
 import { Fact, Facts } from "@/ui/Facts";

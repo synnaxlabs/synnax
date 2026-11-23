@@ -12,8 +12,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Access, Flux, Label as PLabel } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { Access, Color, Flux, Label as PLabel } from "@synnaxlabs/pluto";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
@@ -25,10 +25,11 @@ interface ItemProps extends List.ItemRenderProps<label.Key> {
 
 const Item = ({ itemKey, partial, ...rest }: ItemProps): ReactElement | null => {
   const item = List.useItem<label.Key, label.Label>(itemKey);
+  const resolve = Color.useResolve();
   if (item == null) return null;
   return (
     <Select.Item itemKey={itemKey} {...rest}>
-      <Icon.Circle color={item.color} size="2.5em" />
+      <Icon.Circle color={resolve(item.color)} size="2.5em" />
       {item.name}
       {partial.has(itemKey) && (
         <Icon.Subtract className={CSS.BE("range-menu", "partial")} aria-label="Some" />

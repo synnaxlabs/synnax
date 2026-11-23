@@ -30,8 +30,8 @@ describe("Range.useAddToNewPlot", () => {
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     await waitFor(async () =>
       expect((await client.lineplots.retrieve(tab.resource.key)).ranges).toEqual([
-        { variant: "key", key: a.key },
-        { variant: "key", key: b.key },
+        expect.objectContaining({ variant: "key", key: a.key }),
+        expect.objectContaining({ variant: "key", key: b.key }),
       ]),
     );
     expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]);

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from ..pdu import ModbusPDU
+from pymodbus.pdu import ModbusPDU
 
 class ModbusTcpClient:
     def __init__(

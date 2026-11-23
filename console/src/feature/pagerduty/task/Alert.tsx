@@ -40,18 +40,19 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Secret } from "@/platform/secret";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<AlertSchemas>>();
 
 const RoutingKeyField = () => {
   const name = PForm.useFieldValue(path.name);
+  const rackKey = PForm.useFieldValue(path.rack);
   return (
     <Secret.Field
       path={deep.present(path.config.routingKey)}
       label="Routing key"
       defaultName={`${name} routing key`}
+      rack={rackKey}
       grow
       className={CSS.B("pagerduty-routing-key")}
     />
@@ -278,15 +279,6 @@ const Form: FC = () => {
   );
 };
 
-const getInitialValues: Task.GetInitialValues<AlertSchemas> = ({ config }) => {
-  const parsed = ALERT_SCHEMAS.config.safeParse(config ?? {});
-  return {
-    name: "PagerDuty alert task",
-    type: ALERT_TYPE,
-    config: parsed.success ? parsed.data : ALERT_SCHEMAS.config.parse({}),
-  };
-};
-
 const onConfigure: Task.OnConfigure<AlertSchemas["config"]> = async (
   _client: Client,
   config,
@@ -300,15 +292,3 @@ export const Alert = Task.wrapForm({
   type: ALERT_TYPE,
   onConfigure,
 });
-
-export const useCreateAlert = Task.createUseCreate({
-  getInitialValues,
-});
-
-export const AlertSelectable: Selector.Selectable = {
-  type: ALERT_TYPE,
-  title: "PagerDuty alert task",
-  label: "Alert",
-  icon: <Icon.Logo.PagerDuty />,
-  useOnSelect: useCreateAlert,
-};

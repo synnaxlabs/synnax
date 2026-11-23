@@ -11,5 +11,6 @@ export * from "@/ui/licenses/Activate";
 export * from "@/ui/licenses/License";
 export * from "@/ui/licenses/Licenses";
 export * from "@/ui/licenses/RenameDialog";
+export { MAIL_PARAM } from "@/ui/licenses/StaffActions";
 export * from "@/ui/licenses/StatusTag";
 export * from "@/ui/licenses/Terms";

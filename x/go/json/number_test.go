@@ -71,3 +71,31 @@ var _ = Describe("ParseNumber", func() {
 		Entry("a number past a float64", "1e999", `invalid number "1e999"`),
 	)
 })
+
+var _ = Describe("AppendFloat", func() {
+	DescribeTable("Should append the shortest JSON number that round trips",
+		func(v float64, expected string) {
+			Expect(xjson.AppendFloat([]byte("x"), v)).To(Equal([]byte("x" + expected)))
+		},
+		Entry("a whole number", 40.0, "40"),
+		Entry("a fraction", 0.1, "0.1"),
+		Entry("a large number", 1e21, "1e+21"),
+		Entry("a small number", 1e-9, "1e-9"),
+	)
+
+	DescribeTable(
+		"Should reject a float that JSON cannot hold",
+		func(v float64, expected string) {
+			Expect(xjson.AppendFloat(nil, v)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(expected),
+			))
+		},
+		Entry("NaN", math.NaN(), "NaN is not a JSON number: validation error"),
+		Entry(
+			"infinity",
+			math.Inf(1),
+			"Infinity is not a JSON number: validation error",
+		),
+	)
+})

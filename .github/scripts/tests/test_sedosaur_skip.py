@@ -46,6 +46,7 @@ class Harness:
             **os.environ,
             "PATH": f"{self.gh.bin_dir}:{os.environ['PATH']}",
             "GITHUB_REPOSITORY": "synnaxlabs/synnax",
+            "PR": "7",
             "HEAD_SHA": "head",
             "KEY": "7:main",
             "FORK": "false",
@@ -132,11 +133,61 @@ class TestRepeat:
 
 
 class TestFork:
-    def test_should_skip_a_fork_without_reading_the_reviews(
+    @pytest.fixture(autouse=True)
+    def maintainer(self, harness: Harness) -> None:
+        harness.gh.serve(
+            "api */collaborators/maintainer/permission", {"permission": "write"}
+        )
+        harness.gh.serve(
+            "api */collaborators/someone/permission", {"permission": "read"}
+        )
+
+    @staticmethod
+    def approve(harness: Harness, login: str, sha: str = "head") -> None:
+        review = {
+            "user": {"login": login, "type": "User"},
+            "state": "APPROVED",
+            "commit_id": sha,
+        }
+        harness.gh.serve("api */pulls/7/reviews*", [review])
+
+    def test_should_review_a_head_a_maintainer_approved(self, harness: Harness) -> None:
+        self.approve(harness, "maintainer")
+        assert not harness.run(FORK="true")
+
+    def test_should_skip_a_reviewed_head_a_maintainer_approved(
         self, harness: Harness
     ) -> None:
+        self.approve(harness, "maintainer")
+        harness.reviews(review(BEFORE))
         assert harness.run(FORK="true")
-        assert harness.gh.calls() == []
+
+    def test_should_skip_a_head_no_one_approved(self, harness: Harness) -> None:
+        harness.gh.serve("api */pulls/7/reviews*", [])
+        assert harness.run(FORK="true", REPEAT="true")
+        assert all("check-runs" not in c[1] for c in harness.gh.calls())
+
+    def test_should_skip_a_head_pushed_after_the_approval(
+        self, harness: Harness
+    ) -> None:
+        self.approve(harness, "maintainer", sha="earlier")
+        assert harness.run(FORK="true", REPEAT="true")
+
+    def test_should_fail_when_the_reviews_cannot_be_read(
+        self, harness: Harness
+    ) -> None:
+        harness.env["GH_API_RETRY_DELAY"] = "0"
+        harness.gh.fail("api */pulls/7/reviews*", "HTTP 404", times=1)
+        result = subprocess.run(
+            [str(SCRIPT)], env=harness.env | {"FORK": "true"}, capture_output=True
+        )
+        assert result.returncode != 0
+
+    def test_should_skip_an_approval_without_write_access(
+        self, harness: Harness
+    ) -> None:
+        self.approve(harness, "someone")
+        assert harness.run(FORK="true", REPLAY="true")
 
 
 class TestReplay:
