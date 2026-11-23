@@ -9,7 +9,6 @@
 
 import type { ranger, Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -89,17 +88,26 @@ describe("Range.useCreateModal", () => {
     expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]);
   });
 
-  it("should create the range with the color picked from its swatch", async () => {
+  it("should link the range to the named color picked from its swatch", async () => {
+    const palette = await client.groups.create({
+      scope: "color",
+      name: uniqueName("palette"),
+    });
+    const named = await client.colors.create({
+      name: uniqueName("color"),
+      light: "#00ff00",
+      group: palette.key,
+    });
     const name = createTestRangeName(client, "colored");
     await openModal({ name, timeRange: { start: 1, end: 2 } }, { client });
     fireEvent.click(screen.getByRole("button", { name: "Color" }));
-    const hex = await screen.findByLabelText("Hex");
-    fireEvent.change(hex, { target: { value: "123456" } });
-    fireEvent.keyDown(hex, { code: "Escape" });
+    const swatch = await screen.findByRole("button", { name: named.name });
+    fireEvent.click(swatch);
+    fireEvent.keyDown(swatch, { code: "Escape" });
     await clickWhenEnabled("Create");
     await waitFor(async () => {
       const { color: stored } = await client.ranges.retrieve(name);
-      expect(stored == null ? null : color.hex(stored)).toBe("#123456");
+      expect(stored).toEqual({ type: "named", key: named.key });
     });
   });
 
