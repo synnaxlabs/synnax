@@ -245,8 +245,12 @@ Field groups per make:
 A connected resource has no scanned identity: the user owns every field, `rack`
 included, and sets them in the connect form. Its identity group holds what the connect
 form and a scanner's certificate pin write, so neither clobbers the channel maps that
-the task forms write. `configured` does not exist. A discovered resource is unconfigured
-while `identifier` is empty.
+the task forms write. The OPC UA pin is a narrow Core write, not an identity update: it
+sets `connection.security.server_trust` to `pinned` only while the stored value is still
+`first_use`, and changes nothing else. The connect form sends the stored trust back
+unchanged unless the user changes the trust setting, so a save never drops a pin.
+`configured` does not exist. A discovered resource is unconfigured while `identifier` is
+empty.
 
 Task configs reference a resource by its typed key: `ni.Device.Key` on NI channels
 (`schemas/synnax/ni.oracle:489,941,1389`), `labjack.Device.Key` on `labjack.oracle:216`,
