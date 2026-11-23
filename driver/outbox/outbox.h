@@ -16,6 +16,7 @@
 #include <deque>
 #include <filesystem>
 #include <functional>
+#include <list>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -27,11 +28,13 @@
 #include <utility>
 #include <vector>
 
+#include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/fs/file.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/journal/journal.h"
 #include "driver/outbox/pb/call.pb.h"
@@ -61,8 +64,11 @@ struct Config {
     std::filesystem::path dir;
     /// @brief the client that sends status sets to the Core.
     synnax::status::Client statuses;
+    /// @brief the client that creates and ends ranges on the Core.
+    synnax::ranger::Client ranges;
     /// @brief the most bytes the files of the outbox can hold. A full outbox keeps only
-    /// the last status set of each status, and then refuses calls.
+    /// the last status set of each status and every range call, and then refuses calls
+    /// other than the first end of a range it took a create of.
     std::uint64_t max_bytes = std::uint64_t{64} * 1024 * 1024;
     /// @brief the most calls the outbox holds. Each queued call also takes a few
     /// hundred bytes of memory, so this bounds the memory of the outbox.
@@ -73,6 +79,11 @@ struct Config {
     /// @brief the share of max_bytes or max_calls that a compaction must free before it
     /// runs, or half of the free room when the outbox is close to either limit.
     double compact_share = 0.25;
+    /// @brief the number of ranges the outbox remembers as open, so that a full
+    /// outbox still takes their first end.
+    std::size_t max_open_ranges = 10000;
+    /// @brief the number of range ends that a full outbox holds at most.
+    std::size_t max_ends_when_full = 10000;
     /// @brief the number of calls in a segment file, after which the next starts.
     std::size_t segment_calls = 1000;
     /// @brief how long one send waits for the Core.
@@ -113,6 +124,10 @@ struct Config {
 using SetStatusDone = std::function<
     void(const synnax::status::SetByKeyOrNameResult &, const x::errors::Error &)>;
 
+/// @brief called on the send thread once the Core answers a range call. An error
+/// means the outbox dropped the call. The outbox sends no other call until it returns.
+using RangeDone = std::function<void(const x::errors::Error &)>;
+
 /// @returns whether synnax::errors::classify sorts err as REJECTED, so a retry cannot
 /// succeed. The outbox retries every other error, also one that classify calls a bug,
 /// and warns through on_stuck when the retries last.
@@ -123,15 +138,19 @@ using SetStatusDone = std::function<
 /// each sync_interval, so a power loss can lose the calls of the last interval. The
 /// same thread saves the send position each sync_interval, so after a crash the outbox
 /// can send the calls of the last interval again. This is safe, because the Core does
-/// not let an older status set replace a newer one. The send thread skips a status set
-/// when a newer set of the same status is queued. It drops a call the Core rejected,
-/// and retries any other error with no limit. Safe for concurrent use.
+/// not let an older status set replace a newer one, the outbox counts a create of a
+/// range that exists as sent, and an end sets the same time again. The send thread
+/// skips a status set when a newer set of the same status is queued. It drops a call
+/// the Core rejected, and retries any other error with no limit. Safe for concurrent
+/// use.
 class Outbox {
     struct Call {
         /// @brief shared, so a compaction can encode it outside the lock.
         std::shared_ptr<const pb::Call> request;
         /// @brief null for a call loaded from disk.
         SetStatusDone set_status_done;
+        /// @brief null for a call loaded from disk.
+        RangeDone range_done;
         std::uint64_t segment = 0;
         /// @brief the byte position after the call in its segment.
         std::uint64_t end = 0;
@@ -139,6 +158,8 @@ class Outbox {
         std::uint64_t seq = 0;
         /// @brief the byte size of the record of the call.
         std::uint64_t size = 0;
+        /// @brief a range end that the outbox took while full.
+        bool over_cap = false;
     };
 
     /// @brief a segment file that a writer appends to.
@@ -171,6 +192,12 @@ class Outbox {
     std::size_t replaced = 0;
     /// @brief the byte size of the records of the replaced sets.
     std::uint64_t replaced_bytes = 0;
+    /// @brief the keys of the last max_open_ranges ranges the outbox took a create of
+    /// and no end of, oldest first.
+    std::list<std::string> open_order;
+    std::unordered_map<std::string, std::list<std::string>::iterator> open_ranges;
+    /// @brief the number of queued range ends that the outbox took while full.
+    std::size_t over_cap_ends = 0;
     /// @brief the byte size of each segment file on the disk.
     std::map<std::uint64_t, std::uint64_t> segments;
     /// @brief the byte size of all segment files.
@@ -231,9 +258,14 @@ class Outbox {
         std::optional<std::uint32_t> max_payload = std::nullopt
     ) const;
     x::errors::Error load(std::uint64_t key, std::uint64_t pos);
-    /// @brief queues a call that is on the disk. Requires mu.
+    /// @brief queues a call that is on the disk, and tracks its range. Requires mu.
     void enqueue(Call call);
-    x::errors::Error push(pb::Call request, SetStatusDone done);
+    void open_range(const std::string &key);
+    void close_range(const std::string &key);
+    /// @returns whether a full outbox takes request. Requires mu.
+    [[nodiscard]] bool takes_when_full(const pb::Call &request) const;
+    /// @brief writes request, and queues it with the callbacks of call.
+    x::errors::Error push(pb::Call request, Call call);
     /// @brief moves the tail to the spare, and waits up to sync_interval for the sync
     /// thread to open one. Keeps a full tail when the wait ends with no spare. Requires
     /// a lock on mu.
@@ -257,6 +289,9 @@ class Outbox {
     /// @returns false when the outbox stops.
     bool wait_retry(std::size_t failures);
     x::errors::Error send(const Call &call) const;
+    [[nodiscard]] x::errors::Error send_set(const Call &call) const;
+    [[nodiscard]] x::errors::Error send_create(const pb::CreateRange &create) const;
+    [[nodiscard]] x::errors::Error send_end(const pb::EndRange &end) const;
     /// @brief takes the call with seq off the queue once it is sent or dropped.
     void commit(std::uint64_t seq);
     void run_syncs();
@@ -313,6 +348,28 @@ public:
     /// the outbox does not hold the set.
     x::errors::Error
     set_status(const ::grpc::status::SetByKeyOrNameRequest &req, SetStatusDone done);
+
+    /// @brief queues the create of a range and returns without waiting for the Core
+    /// or the disk. When the Core rejects the create as not valid and a range with its
+    /// key exists, the outbox counts the create as sent.
+    /// @param range the range, with its key and time range set by the caller.
+    /// @param done called once the Core answers the create.
+    /// @returns FULL when the outbox has no room, and counts the create in refused().
+    /// The error of a failed write, and then the outbox does not hold the create.
+    x::errors::Error create_range(const synnax::ranger::Range &range, RangeDone done);
+
+    /// @brief queues a call that sets the end of a range, and returns without waiting
+    /// for the Core or the disk. The outbox sends it after the calls queued before it.
+    /// A full outbox still takes the first end of one of the last max_open_ranges
+    /// ranges it took a create of, while it holds fewer than max_ends_when_full such
+    /// ends.
+    /// @param key the key of the range.
+    /// @param end the end of the range.
+    /// @param done called once the Core answers the call.
+    /// @returns FULL when the outbox refuses the end, and counts it in refused(). The
+    /// error of a failed write, and then the outbox does not hold the end.
+    x::errors::Error
+    end_range(const x::uuid::UUID &key, x::telem::TimeStamp end, RangeDone done);
 
     /// @brief runs fn on the send thread before its next send, during a retry wait, or
     /// at once when the outbox holds no calls. fn must not call the outbox.

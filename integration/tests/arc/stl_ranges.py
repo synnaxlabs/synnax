@@ -24,6 +24,8 @@ START_SLACK = 500 * sy.TimeSpan.MILLISECOND
 # flow_capture_seq waits out two 100ms stages between creating RangeFlow_Parent
 # and ending it.
 FLOW_END_DELAY = 200 * sy.TimeSpan.MILLISECOND
+# How long the Driver may take to send its queued range calls to the Core.
+SENT_TIMEOUT = 10 * sy.TimeSpan.SECOND
 
 ARC_STL_RANGES_SOURCE = """
 import ranges
@@ -239,10 +241,22 @@ class StlRanges(ArcCase):
         super().teardown()
 
     def _retrieve_ranges(self) -> dict[str, sy.Range]:
-        found = {r.name: r for r in self.client.ranges.retrieve(names=NAMES)}
-        missing = [n for n in NAMES if n not in found]
-        if missing:
-            self.fail(f"ranges not created: {missing}")
+        """Waits until the Core holds every range and RangeFlow_Parent has its end,
+        since the Driver sends range calls after the nodes return."""
+        found: dict[str, sy.Range] = {}
+
+        def all_sent() -> dict[str, sy.Range] | None:
+            nonlocal found
+            found = {r.name: r for r in self.client.ranges.retrieve(names=NAMES)}
+            if any(n not in found for n in NAMES):
+                return None
+            if int(found["RangeFlow_Parent"].time_range.end) == int(sy.TimeStamp.MAX):
+                return None
+            return found
+
+        if sy.poll(all_sent, timeout=SENT_TIMEOUT, interval=0.1) is None:
+            missing = [n for n in NAMES if n not in found]
+            self.fail(f"ranges not created or ended: missing {missing}")
         return found
 
     def verify_sequence_execution(self) -> None:

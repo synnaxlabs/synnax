@@ -11,15 +11,19 @@
 #include <charconv>
 #include <chrono>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <ranges>
 #include <string>
 #include <system_error>
+#include <variant>
 #include <vector>
 
 #include "absl/log/log.h"
 
+#include "client/cpp/color/types.gen.h"
 #include "client/cpp/errors/errors.h"
+#include "x/cpp/color/color.h"
 
 #include "driver/outbox/outbox.h"
 
@@ -49,16 +53,13 @@ std::pair<pb::Call, x::errors::Error> decode(const journal::Record &record) {
     // call for that Driver.
     if (call.call_case() == pb::Call::CALL_NOT_SET)
         return {call, x::errors::Error(UNKNOWN_VERSION, "call has an unknown kind")};
-    if (call.call_case() != pb::Call::kSetStatus)
-        return {
-            call,
-            x::errors::Error(
-                UNKNOWN_VERSION,
-                "this Driver cannot send call kind " +
-                    std::to_string(static_cast<int>(call.call_case()))
-            )
-        };
     return {call, x::errors::NIL};
+}
+
+std::pair<x::uuid::UUID, x::errors::Error> parse_key(const std::string &key) {
+    auto [parsed, err] = x::uuid::UUID::parse(key);
+    if (err) return {parsed, x::errors::Error(CORRUPT, "invalid range key " + key)};
+    return {parsed, x::errors::NIL};
 }
 
 }
@@ -229,13 +230,16 @@ x::errors::Error Outbox::load(const std::uint64_t key, const std::uint64_t pos) 
         if (!record) return x::errors::NIL;
         auto [request, decode_err] = decode(*record);
         if (decode_err) return decode_err;
+        const auto size = journal::RECORD_PREFIX_SIZE + record->payload.size();
+        const bool over_cap = request.has_end_range() &&
+                              this->queued_bytes + size > this->cfg.max_bytes;
         this->enqueue({
             .request = std::make_shared<const pb::Call>(std::move(request)),
-            .set_status_done = nullptr,
             .segment = key,
             .end = reader->pos(),
             .seq = this->next_seq++,
-            .size = journal::RECORD_PREFIX_SIZE + record->payload.size(),
+            .size = size,
+            .over_cap = over_cap,
         });
     }
     // The whole segment passed its checks, so only the saved position can be wrong.
@@ -261,8 +265,34 @@ void Outbox::enqueue(Call call) {
             it->second = {.seq = call.seq, .size = call.size};
         }
     }
+    if (call.request->has_create_range())
+        this->open_range(call.request->create_range().key());
+    if (call.request->has_end_range()) this->close_range(call.request->end_range().key());
+    if (call.over_cap) ++this->over_cap_ends;
     this->queued_bytes += call.size;
     this->calls.push_back(std::move(call));
+}
+
+void Outbox::open_range(const std::string &key) {
+    if (this->open_ranges.contains(key)) return;
+    this->open_order.push_back(key);
+    this->open_ranges[key] = std::prev(this->open_order.end());
+    if (this->open_ranges.size() <= this->cfg.max_open_ranges) return;
+    this->open_ranges.erase(this->open_order.front());
+    this->open_order.pop_front();
+}
+
+void Outbox::close_range(const std::string &key) {
+    const auto it = this->open_ranges.find(key);
+    if (it == this->open_ranges.end()) return;
+    this->open_order.erase(it->second);
+    this->open_ranges.erase(it);
+}
+
+bool Outbox::takes_when_full(const pb::Call &request) const {
+    return request.has_end_range() &&
+           this->open_ranges.contains(request.end_range().key()) &&
+           this->over_cap_ends < this->cfg.max_ends_when_full;
 }
 
 bool Outbox::reclaimable() const {
@@ -329,10 +359,48 @@ x::errors::Error Outbox::set_status(
     set->set_message(req.message());
     set->set_variant(req.variant());
     set->set_time(req.time());
-    return this->push(std::move(request), std::move(done));
+    return this->push(std::move(request), {.set_status_done = std::move(done)});
 }
 
-x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
+x::errors::Error
+Outbox::create_range(const synnax::ranger::Range &range, RangeDone done) {
+    pb::Call request;
+    auto *create = request.mutable_create_range();
+    create->set_key(range.key.to_string());
+    create->set_name(range.name);
+    create->set_start(range.time_range.start.nanoseconds());
+    create->set_end(range.time_range.end.nanoseconds());
+    if (range.parent.has_value()) create->set_parent(range.parent->to_string());
+    if (range.color.has_value()) {
+        if (const auto *named = std::get_if<synnax::color::NamedRef>(&*range.color)) {
+            create->set_named_color(named->key.to_string());
+        } else {
+            const auto &value = std::get<synnax::color::FixedRef>(*range.color).value;
+            auto *color = create->mutable_fixed_color();
+            color->set_r(value.r);
+            color->set_g(value.g);
+            color->set_b(value.b);
+            color->set_a(value.a);
+        }
+    }
+    for (const auto &label: range.labels)
+        create->add_labels(label.to_string());
+    return this->push(std::move(request), {.range_done = std::move(done)});
+}
+
+x::errors::Error Outbox::end_range(
+    const x::uuid::UUID &key,
+    const x::telem::TimeStamp end,
+    RangeDone done
+) {
+    pb::Call request;
+    auto *end_range = request.mutable_end_range();
+    end_range->set_key(key.to_string());
+    end_range->set_end(end.nanoseconds());
+    return this->push(std::move(request), {.range_done = std::move(done)});
+}
+
+x::errors::Error Outbox::push(pb::Call request, Call call) {
     const auto payload = request.SerializeAsString();
     if (payload.size() > this->cfg.max_payload)
         return x::errors::Error(
@@ -342,13 +410,16 @@ x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
                 std::to_string(this->cfg.max_payload)
         );
     const auto size = journal::RECORD_PREFIX_SIZE + payload.size();
-    auto shared = std::make_shared<const pb::Call>(std::move(request));
+    call.request = std::make_shared<const pb::Call>(std::move(request));
     {
         std::unique_lock lock(this->mu);
         if (this->tail.writer == nullptr || this->tail_calls >= this->cfg.segment_calls)
             if (const auto err = this->next_tail(lock)) return err;
-        if (this->bytes + size > this->cfg.max_bytes ||
-            this->calls.size() >= this->cfg.max_calls) {
+        call.over_cap = this->bytes + size > this->cfg.max_bytes ||
+                        this->calls.size() >= this->cfg.max_calls;
+        // A full outbox still takes the first end of a range, so the range does not
+        // stay open.
+        if (call.over_cap && !this->takes_when_full(*call.request)) {
             ++this->refused_count;
             if (this->reclaimable()) {
                 this->compact_wanted = true;
@@ -373,14 +444,11 @@ x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
         const auto end = this->tail.writer->pos();
         this->bytes += end - this->segments[this->tail.key];
         this->segments[this->tail.key] = end;
-        this->enqueue({
-            .request = std::move(shared),
-            .set_status_done = std::move(done),
-            .segment = this->tail.key,
-            .end = end,
-            .seq = this->next_seq++,
-            .size = size,
-        });
+        call.segment = this->tail.key;
+        call.end = end;
+        call.seq = this->next_seq++;
+        call.size = size;
+        this->enqueue(std::move(call));
         ++this->tail_calls;
         // Compacting before the files are full keeps the newest sets from refusal.
         if (this->near_full() && this->reclaimable()) {
@@ -522,6 +590,15 @@ bool Outbox::wait_retry(const std::size_t failures) {
 }
 
 x::errors::Error Outbox::send(const Call &call) const {
+    if (call.request->has_set_status()) return this->send_set(call);
+    const auto err = call.request->has_create_range()
+                       ? this->send_create(call.request->create_range())
+                       : this->send_end(call.request->end_range());
+    if ((!err || rejected(err)) && call.range_done != nullptr) call.range_done(err);
+    return err;
+}
+
+x::errors::Error Outbox::send_set(const Call &call) const {
     const auto &set = call.request->set_status();
     auto [res, err] = this->cfg.statuses.set_by_key_or_name(
         set.key_or_name(),
@@ -535,6 +612,60 @@ x::errors::Error Outbox::send(const Call &call) const {
     return err;
 }
 
+x::errors::Error Outbox::send_create(const pb::CreateRange &create) const {
+    auto [key, key_err] = parse_key(create.key());
+    if (key_err) return key_err;
+    synnax::ranger::Range range{
+        .key = key,
+        .name = create.name(),
+        .time_range = x::telem::TimeRange(
+            x::telem::TimeStamp(create.start()),
+            x::telem::TimeStamp(create.end())
+        ),
+    };
+    if (create.has_parent()) {
+        auto [parent, parent_err] = parse_key(create.parent());
+        if (parent_err) return parent_err;
+        range.parent = parent;
+    }
+    if (create.has_named_color()) {
+        auto [color_key, color_err] = parse_key(create.named_color());
+        if (color_err) return color_err;
+        range.color = synnax::color::NamedRef{.key = color_key};
+    } else if (create.has_fixed_color()) {
+        const auto &color = create.fixed_color();
+        range.color = synnax::color::FixedRef{
+            .value = x::color::Color{
+                .r = static_cast<std::uint8_t>(color.r()),
+                .g = static_cast<std::uint8_t>(color.g()),
+                .b = static_cast<std::uint8_t>(color.b()),
+                .a = static_cast<std::uint8_t>(color.a()),
+            },
+        };
+    }
+    for (const auto &label: create.labels()) {
+        auto [label_key, label_err] = parse_key(label);
+        if (label_err) return label_err;
+        range.labels.push_back(label_key);
+    }
+    const auto err = this->cfg.ranges.create(range, this->cfg.send_timeout);
+    if (!err.matches(x::errors::VALIDATION)) return err;
+    // The Core rejects a key it holds, which an earlier send of this create made.
+    const auto retrieve_err = this->cfg.ranges
+                                  .retrieve(range.key, {}, this->cfg.send_timeout)
+                                  .second;
+    if (!retrieve_err) return x::errors::NIL;
+    if (!rejected(retrieve_err)) return retrieve_err;
+    return err;
+}
+
+x::errors::Error Outbox::send_end(const pb::EndRange &end) const {
+    auto [key, err] = parse_key(end.key());
+    if (err) return err;
+    return this->cfg.ranges
+        .set_end(key, x::telem::TimeStamp(end.end()), this->cfg.send_timeout);
+}
+
 void Outbox::commit(const std::uint64_t seq) {
     std::lock_guard lock(this->mu);
     // A compaction can drop a replaced call while the send thread skips it, and it can
@@ -543,6 +674,7 @@ void Outbox::commit(const std::uint64_t seq) {
     const auto done = std::move(this->calls.front());
     this->calls.pop_front();
     this->queued_bytes -= done.size;
+    if (done.over_cap) --this->over_cap_ends;
     if (done.request->call_case() == pb::Call::kSetStatus) {
         const auto it = this->latest.find(done.request->set_status().key_or_name());
         if (it->second.seq == done.seq)

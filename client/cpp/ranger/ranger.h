@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -42,10 +43,12 @@ using DispatchClient = freighter::
 /// @brief a client for performing operations on the ranges in a Synnax cluster.
 class Client {
 public:
+    Client() = default;
+
     Client(
-        std::unique_ptr<RetrieveClient> retrieve_client,
-        std::unique_ptr<CreateClient> create_client,
-        std::unique_ptr<DispatchClient> dispatch_client,
+        std::shared_ptr<RetrieveClient> retrieve_client,
+        std::shared_ptr<CreateClient> create_client,
+        std::shared_ptr<DispatchClient> dispatch_client,
         ranger::kv::Client kv_client
     ):
         retrieve_client(std::move(retrieve_client)),
@@ -56,10 +59,15 @@ public:
     /// @brief retrieves the range with the given key.
     /// @param key the key of the range.
     /// @param options the options of the retrieve.
+    /// @param timeout how long the call waits for the Core, or std::nullopt for the
+    /// default of the transport.
     /// @returns the range, and an error that matches NOT_FOUND when no range has the
     /// key.
-    [[nodiscard]] std::pair<Range, x::errors::Error>
-    retrieve(const Key &key, const RetrieveOptions &options = {}) const;
+    [[nodiscard]] std::pair<Range, x::errors::Error> retrieve(
+        const Key &key,
+        const RetrieveOptions &options = {},
+        std::optional<x::telem::TimeSpan> timeout = std::nullopt
+    ) const;
 
     /// @brief retrieves the range with the given name.
     /// @param name the name of the range.
@@ -87,26 +95,39 @@ public:
     /// @param where the filter that the ranges match. An empty filter matches all
     /// ranges.
     /// @param options the options of the retrieve.
-    [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
-    retrieve(const Where &where, const RetrieveOptions &options = {}) const;
+    /// @param timeout how long the call waits for the Core, or std::nullopt for the
+    /// default of the transport.
+    [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error> retrieve(
+        const Where &where,
+        const RetrieveOptions &options = {},
+        std::optional<x::telem::TimeSpan> timeout = std::nullopt
+    ) const;
 
     /// @brief retrieves the one range that where selects.
     /// @param where the filter that the range matches.
     /// @param options the options of the retrieve.
+    /// @param timeout how long the call waits for the Core, or std::nullopt for the
+    /// default of the transport.
     /// @returns the range, and an error that matches NOT_FOUND when no range matches,
     /// MULTIPLE_RESULTS when more than one does, or VALIDATION when options set a
     /// limit or a cursor.
     [[nodiscard]] std::pair<Range, x::errors::Error> retrieve(
         const Where &where,
         x::filter::One,
-        const RetrieveOptions &options = {}
+        const RetrieveOptions &options = {},
+        std::optional<x::telem::TimeSpan> timeout = std::nullopt
     ) const;
 
     /// @brief creates the given ranges.
     [[nodiscard]] x::errors::Error create(std::vector<Range> &ranges) const;
 
     /// @brief creates the given range.
-    [[nodiscard]] x::errors::Error create(Range &range) const;
+    /// @param timeout how long the call waits for the Core, or std::nullopt for the
+    /// default of the transport.
+    [[nodiscard]] x::errors::Error create(
+        Range &range,
+        std::optional<x::telem::TimeSpan> timeout = std::nullopt
+    ) const;
 
     /// @brief creates a range with the given name and time range.
     [[nodiscard]] std::pair<Range, x::errors::Error>
@@ -117,23 +138,33 @@ public:
     /// @param key the key of the range.
     /// @param actions the actions to apply. A set on the time range may hold its
     /// timestamps as integers.
+    /// @param timeout how long the call waits for the Core, or std::nullopt for the
+    /// default of the transport.
     /// @returns an error that matches NOT_FOUND when no range has the key, or
     /// VALIDATION when the range cannot hold an action.
-    [[nodiscard]] x::errors::Error
-    dispatch(const Key &key, const std::vector<Action> &actions) const;
+    [[nodiscard]] x::errors::Error dispatch(
+        const Key &key,
+        const std::vector<Action> &actions,
+        std::optional<x::telem::TimeSpan> timeout = std::nullopt
+    ) const;
 
     /// @brief sets the end bound of the range with the given key in a single request,
     /// preserving all other fields.
-    [[nodiscard]] x::errors::Error
-    set_end(const Key &key, x::telem::TimeStamp end) const;
+    /// @param timeout how long the call waits for the Core, or std::nullopt for the
+    /// default of the transport.
+    [[nodiscard]] x::errors::Error set_end(
+        const Key &key,
+        x::telem::TimeStamp end,
+        std::optional<x::telem::TimeSpan> timeout = std::nullopt
+    ) const;
 
 private:
     /// @brief range retrieval transport.
-    std::unique_ptr<RetrieveClient> retrieve_client;
+    std::shared_ptr<RetrieveClient> retrieve_client;
     /// @brief create retrieval transport.
-    std::unique_ptr<CreateClient> create_client;
+    std::shared_ptr<CreateClient> create_client;
     /// @brief range dispatch transport.
-    std::unique_ptr<DispatchClient> dispatch_client;
+    std::shared_ptr<DispatchClient> dispatch_client;
     /// @brief range kv get transport.
     ranger::kv::Client kv;
 };

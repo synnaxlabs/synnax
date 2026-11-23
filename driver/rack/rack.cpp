@@ -118,6 +118,7 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
     auto outbox_cfg = cfg.outbox;
     outbox_cfg.dir = data / OUTBOX_DIR;
     outbox_cfg.statuses = client->statuses;
+    outbox_cfg.ranges = client->ranges;
     outbox_cfg.on_stuck =
         [alert = cfg.outbox_alert,
          dir = outbox_cfg.dir,
@@ -130,7 +131,8 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             LOG(WARNING) << health.message << ". " << health.description;
             alert->raise(std::move(health));
         };
-    // The outbox serves only Arc status sets, so the rack runs without it.
+    // The outbox serves only Arc status sets and range calls, so the rack runs
+    // without it.
     auto [outbox, outbox_err] =
         [&]() -> std::pair<std::unique_ptr<outbox::Outbox>, x::errors::Error> {
         std::error_code ec;

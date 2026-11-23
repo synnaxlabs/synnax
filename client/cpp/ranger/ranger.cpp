@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
+#include <optional>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -36,11 +39,32 @@ x::json::json encode(const Action &action) {
             time = exact(time);
     return j;
 }
+
+/// @brief sends req to target through client, and waits for timeout when it has one.
+template<typename RQ, typename RS>
+std::pair<RS, x::errors::Error> send(
+    freighter::UnaryClient<RQ, RS> &client,
+    const std::string &target,
+    RQ &req,
+    const std::optional<x::telem::TimeSpan> &timeout
+) {
+    if (!timeout.has_value()) return client.send(target, req);
+    return client.send_until(
+        target,
+        req,
+        std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+            std::chrono::system_clock::now() + timeout->chrono()
+        )
+    );
+}
 }
 
-std::pair<Range, x::errors::Error>
-Client::retrieve(const Key &key, const RetrieveOptions &options) const {
-    return this->retrieve(Where{.key = key}, x::filter::one, options);
+std::pair<Range, x::errors::Error> Client::retrieve(
+    const Key &key,
+    const RetrieveOptions &options,
+    const std::optional<x::telem::TimeSpan> timeout
+) const {
+    return this->retrieve(Where{.key = key}, x::filter::one, options, timeout);
 }
 
 std::pair<Range, x::errors::Error>
@@ -60,13 +84,21 @@ std::pair<std::vector<Range>, x::errors::Error> Client::retrieve(
     return this->retrieve(Where{.name = names}, options);
 }
 
-std::pair<std::vector<Range>, x::errors::Error>
-Client::retrieve(const Where &where, const RetrieveOptions &options) const {
+std::pair<std::vector<Range>, x::errors::Error> Client::retrieve(
+    const Where &where,
+    const RetrieveOptions &options,
+    const std::optional<x::telem::TimeSpan> timeout
+) const {
     auto [pb_req, pb_err] = RetrieveRequest::from(where, options).to_proto();
     if (pb_err) return {std::vector<Range>(), pb_err};
     grpc::ranger::RetrieveRequest grpc_req;
     *grpc_req.mutable_request() = pb_req;
-    auto [res, err] = retrieve_client->send("/range/retrieve", grpc_req);
+    auto [res, err] = send(
+        *this->retrieve_client,
+        "/range/retrieve",
+        grpc_req,
+        timeout
+    );
     if (err) return {std::vector<Range>(), err};
     auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
     if (proto_err) return {std::vector<Range>(), proto_err};
@@ -78,11 +110,12 @@ Client::retrieve(const Where &where, const RetrieveOptions &options) const {
 std::pair<Range, x::errors::Error> Client::retrieve(
     const Where &where,
     x::filter::One,
-    const RetrieveOptions &options
+    const RetrieveOptions &options,
+    const std::optional<x::telem::TimeSpan> timeout
 ) const {
     if (options.limit.has_value() || options.after.has_value())
         return {Range(), errors::paged_one_error()};
-    auto [ranges, err] = this->retrieve(where, options);
+    auto [ranges, err] = this->retrieve(where, options, timeout);
     if (err) return {Range(), err};
     if (const auto one_err = errors::check_one(
             "range",
@@ -113,12 +146,13 @@ x::errors::Error Client::create(std::vector<Range> &ranges) const {
     return x::errors::NIL;
 }
 
-x::errors::Error Client::create(Range &range) const {
+x::errors::Error
+Client::create(Range &range, const std::optional<x::telem::TimeSpan> timeout) const {
     auto req = grpc::ranger::CreateRequest();
     auto [proto_range, pb_err] = range.to_proto();
     if (pb_err) return pb_err;
     *req.add_ranges() = proto_range;
-    auto [res, err] = create_client->send("/range/create", req);
+    auto [res, err] = send(*this->create_client, "/range/create", req, timeout);
     if (err) return err;
     if (res.ranges_size() == 0) return errors::unexpected_missing_error("range");
     auto [rng, proto_err] = Range::from_proto(res.ranges(0));
@@ -137,19 +171,27 @@ Client::create(const std::string &name, x::telem::TimeRange time_range) const {
     return {rng, err};
 }
 
-x::errors::Error
-Client::dispatch(const Key &key, const std::vector<Action> &actions) const {
+x::errors::Error Client::dispatch(
+    const Key &key,
+    const std::vector<Action> &actions,
+    const std::optional<x::telem::TimeSpan> timeout
+) const {
     grpc::ranger::DispatchRequest req;
     req.set_key(key.to_string());
     for (const auto &action: actions)
         req.add_actions(encode(action).dump());
-    return this->dispatch_client->send("/range/dispatch", req).second;
+    return send(*this->dispatch_client, "/range/dispatch", req, timeout).second;
 }
 
-x::errors::Error Client::set_end(const Key &key, const x::telem::TimeStamp end) const {
+x::errors::Error Client::set_end(
+    const Key &key,
+    const x::telem::TimeStamp end,
+    const std::optional<x::telem::TimeSpan> timeout
+) const {
     return this->dispatch(
         key,
-        {set({.path = {"time_range", "end"}, .value = end.nanoseconds()})}
+        {set({.path = {"time_range", "end"}, .value = end.nanoseconds()})},
+        timeout
     );
 }
 
