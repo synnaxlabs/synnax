@@ -781,7 +781,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("clears the paint of a part at the value when Drawing is picked", async () => {
+    it("edits the paint at Base of a static symbol with one control", async () => {
       const symbol = await openPainted({
         states: [createState()],
         looks: [
@@ -796,7 +796,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      fireEvent.click(screen.getByLabelText("Fill while Base"));
+      expect(screen.queryByText("By state")).toBeNull();
+      fireEvent.click(screen.getByLabelText("Fill"));
       fireEvent.click(await screen.findByText("Drawing"));
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
