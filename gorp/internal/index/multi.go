@@ -323,6 +323,61 @@ func (m *Multi[S, K, V]) CommittingHolding(holding bool) []K {
 	return keys.Slice()
 }
 
+// Values returns the values that at least one key holds, with the changes of scope
+// applied. It blocks until the bulk load finishes. The caller owns the returned slice.
+func (m *Multi[S, K, V]) Values(scope S) ([]V, error) {
+	<-m.population.done
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if err := m.population.err; err != nil {
+		return nil, err
+	}
+	d, staged := m.overlay.get(scope)
+	if !staged {
+		values := make([]V, 0, len(m.forward))
+		for v := range m.forward {
+			values = append(values, v)
+		}
+		return values, nil
+	}
+	// kept reports whether a committed holder keeps its values under the changes.
+	kept := func(k K) bool {
+		_, changed := d.state[k]
+		return !changed
+	}
+	values := make([]V, 0, len(m.forward)+len(d.forward))
+	for v, h := range m.forward {
+		if h.some(kept) || d.forward[v].len() > 0 {
+			values = append(values, v)
+		}
+	}
+	for v, h := range d.forward {
+		if h.len() > 0 && m.forward[v].len() == 0 {
+			values = append(values, v)
+		}
+	}
+	return values, nil
+}
+
+// CommittingValues returns the values that a transaction in its commit maps to at
+// least one key. See Lookup.Committing for its contract.
+func (m *Multi[S, K, V]) CommittingValues() []V {
+	m.overlay.mu.RLock()
+	defer m.overlay.mu.RUnlock()
+	var values []V
+	for scope, d := range m.overlay.deltas {
+		if !scope.Committing() {
+			continue
+		}
+		for v, h := range d.forward {
+			if h.len() > 0 {
+				values = append(values, v)
+			}
+		}
+	}
+	return values
+}
+
 // HeldValues returns those of values that at least one key that in accepts holds, with
 // the changes of scope applied. It blocks until the bulk load finishes, and calls in
 // with the index locked.
