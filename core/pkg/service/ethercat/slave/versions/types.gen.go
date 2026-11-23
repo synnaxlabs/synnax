@@ -22,9 +22,6 @@ type StatusDetails = v0.StatusDetails
 // Status is the operational status of a slave.
 type Status = v0.Status
 
-// StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP.
-type StartupParameter = v0.StartupParameter
-
 // OpMode is a synchronization mode that a slave lists in its SII.
 type OpMode = v0.OpMode
 

@@ -17,7 +17,6 @@
 #include <vector>
 
 #include "client/cpp/channel/json.gen.h"
-#include "client/cpp/ethercat/json.gen.h"
 #include "client/cpp/ethercat/master/json.gen.h"
 #include "client/cpp/ethercat/slave/types.gen.h"
 #include "client/cpp/rack/key.h"
@@ -46,11 +45,20 @@ inline OpMode OpMode::parse(x::json::Parser parser) {
     return OpMode{
         .name = parser.field<std::string>("name", ""),
         .assign_activate = parser.field<std::uint16_t>("assign_activate", 0),
-        .sync0_cycle = parser.field<std::uint32_t>("sync0_cycle", 0),
+        .sync0_cycle = parser.field<::x::telem::TimeSpan>(
+            "sync0_cycle",
+            ::x::telem::TimeSpan(0)
+        ),
         .sync0_factor = parser.field<std::int16_t>("sync0_factor", 0),
-        .sync0_shift = parser.field<std::int32_t>("sync0_shift", 0),
+        .sync0_shift = parser.field<::x::telem::TimeSpan>(
+            "sync0_shift",
+            ::x::telem::TimeSpan(0)
+        ),
         .sync1_factor = parser.field<std::int16_t>("sync1_factor", 0),
-        .sync1_shift = parser.field<std::int32_t>("sync1_shift", 0),
+        .sync1_shift = parser.field<::x::telem::TimeSpan>(
+            "sync1_shift",
+            ::x::telem::TimeSpan(0)
+        ),
     };
 }
 
@@ -58,11 +66,11 @@ inline x::json::json OpMode::to_json() const {
     x::json::json j = x::json::json::object();
     j["name"] = this->name;
     j["assign_activate"] = this->assign_activate;
-    j["sync0_cycle"] = this->sync0_cycle;
+    j["sync0_cycle"] = this->sync0_cycle.nanoseconds();
     j["sync0_factor"] = this->sync0_factor;
-    j["sync0_shift"] = this->sync0_shift;
+    j["sync0_shift"] = this->sync0_shift.nanoseconds();
     j["sync1_factor"] = this->sync1_factor;
-    j["sync1_shift"] = this->sync1_shift;
+    j["sync1_shift"] = this->sync1_shift.nanoseconds();
     return j;
 }
 
@@ -138,7 +146,7 @@ inline ReadBinding ReadBinding::parse(x::json::Parser parser) {
         .sub_index = parser.field<std::uint8_t>("sub_index"),
         .scaled = parser.field<bool>("scaled", false),
         .calibrated = parser.field<bool>("calibrated", false),
-        .channel = parser.field<::synnax::channel::Key>("channel"),
+        .channel = parser.required_field<::synnax::channel::Key>("channel"),
     };
 }
 
@@ -152,14 +160,27 @@ inline x::json::json ReadBinding::to_json() const {
     return j;
 }
 
+inline StartupParameterBase StartupParameterBase::parse(x::json::Parser parser) {
+    return StartupParameterBase{
+        .index = parser.field<std::uint16_t>("index"),
+        .sub_index = parser.field<std::uint8_t>("sub_index"),
+        .name = parser.field<std::string>("name", ""),
+    };
+}
+
+inline x::json::json StartupParameterBase::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["index"] = this->index;
+    j["sub_index"] = this->sub_index;
+    j["name"] = this->name;
+    return j;
+}
+
 inline WriteBinding WriteBinding::parse(x::json::Parser parser) {
     return WriteBinding{
         .index = parser.field<std::uint16_t>("index"),
         .sub_index = parser.field<std::uint8_t>("sub_index"),
-        .command = parser.field<::synnax::channel::Key>(
-            "command",
-            ::synnax::channel::Key(0)
-        ),
+        .command = parser.required_field<::synnax::channel::Key>("command"),
         .state = parser
                      .field<::synnax::channel::Key>("state", ::synnax::channel::Key(0)),
     };
@@ -187,17 +208,21 @@ inline Slave Slave::parse(x::json::Parser parser) {
         .pdos = parser.field<PDOs>("pdos", PDOs{}),
         .op_modes = parser
                         .field<std::vector<OpMode>>("op_modes", std::vector<OpMode>{}),
-        .switched_at = parser.field<::x::telem::TimeStamp>(
-            "switched_at",
-            ::x::telem::TimeStamp(0)
+        .switched_at = parser.field<std::optional<::x::telem::TimeStamp>>(
+            "switched_at"
         ),
         .identifier = parser.field<std::string>("identifier", ""),
         .disabled = parser.field<bool>("disabled", false),
         .op_mode = parser.field<std::optional<OpModeChoice>>("op_mode"),
-        .startup_parameters = parser.field<std::vector<StartupParameter>>(
-            "startup_parameters",
-            std::vector<StartupParameter>{}
-        ),
+        .startup_parameters =
+            [&] {
+                std::vector<StartupParameter> result;
+                if (parser.has("startup_parameters"))
+                    parser.iter("startup_parameters", [&result](x::json::Parser &p) {
+                        result.push_back(parse_startup_parameter(p));
+                    });
+                return result;
+            }(),
         .read_index = parser.field<::synnax::channel::Key>(
             "read_index",
             ::synnax::channel::Key(0)
@@ -230,11 +255,17 @@ inline x::json::json Slave::to_json() const {
     j["master"] = this->master.to_json();
     j["pdos"] = this->pdos.to_json();
     j["op_modes"] = x::json::to_array(this->op_modes);
-    j["switched_at"] = this->switched_at.nanoseconds();
+    if (this->switched_at.has_value())
+        j["switched_at"] = this->switched_at->nanoseconds();
     j["identifier"] = this->identifier;
     j["disabled"] = this->disabled;
     if (this->op_mode.has_value()) j["op_mode"] = this->op_mode->to_json();
-    j["startup_parameters"] = x::json::to_array(this->startup_parameters);
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->startup_parameters)
+            arr.push_back(::synnax::ethercat::slave::to_json(item));
+        j["startup_parameters"] = arr;
+    }
     j["read_index"] = this->read_index;
     j["write_state_index"] = this->write_state_index;
     j["read_bindings"] = x::json::to_array(this->read_bindings);
@@ -295,9 +326,8 @@ inline Identity Identity::parse(x::json::Parser parser) {
         .pdos = parser.field<PDOs>("pdos", PDOs{}),
         .op_modes = parser
                         .field<std::vector<OpMode>>("op_modes", std::vector<OpMode>{}),
-        .switched_at = parser.field<::x::telem::TimeStamp>(
-            "switched_at",
-            ::x::telem::TimeStamp(0)
+        .switched_at = parser.field<std::optional<::x::telem::TimeStamp>>(
+            "switched_at"
         ),
     };
 }
@@ -312,7 +342,8 @@ inline x::json::json Identity::to_json() const {
     j["master"] = this->master.to_json();
     j["pdos"] = this->pdos.to_json();
     j["op_modes"] = x::json::to_array(this->op_modes);
-    j["switched_at"] = this->switched_at.nanoseconds();
+    if (this->switched_at.has_value())
+        j["switched_at"] = this->switched_at->nanoseconds();
     return j;
 }
 
@@ -322,10 +353,15 @@ inline Configuration Configuration::parse(x::json::Parser parser) {
         .identifier = parser.field<std::string>("identifier", ""),
         .disabled = parser.field<bool>("disabled", false),
         .op_mode = parser.field<std::optional<OpModeChoice>>("op_mode"),
-        .startup_parameters = parser.field<std::vector<StartupParameter>>(
-            "startup_parameters",
-            std::vector<StartupParameter>{}
-        ),
+        .startup_parameters =
+            [&] {
+                std::vector<StartupParameter> result;
+                if (parser.has("startup_parameters"))
+                    parser.iter("startup_parameters", [&result](x::json::Parser &p) {
+                        result.push_back(parse_startup_parameter(p));
+                    });
+                return result;
+            }(),
         .read_index = parser.field<::synnax::channel::Key>(
             "read_index",
             ::synnax::channel::Key(0)
@@ -351,7 +387,12 @@ inline x::json::json Configuration::to_json() const {
     j["identifier"] = this->identifier;
     j["disabled"] = this->disabled;
     if (this->op_mode.has_value()) j["op_mode"] = this->op_mode->to_json();
-    j["startup_parameters"] = x::json::to_array(this->startup_parameters);
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->startup_parameters)
+            arr.push_back(::synnax::ethercat::slave::to_json(item));
+        j["startup_parameters"] = arr;
+    }
     j["read_index"] = this->read_index;
     j["write_state_index"] = this->write_state_index;
     j["read_bindings"] = x::json::to_array(this->read_bindings);
@@ -403,6 +444,176 @@ inline x::json::json RetrieveResponse::to_json() const {
     return j;
 }
 
+inline Int8StartupParameter Int8StartupParameter::parse(x::json::Parser parser) {
+    Int8StartupParameter result;
+    static_cast<StartupParameterBase &>(result) = StartupParameterBase::parse(parser);
+    result.value = parser.field<std::int8_t>("value");
+    result.data_type = parser.field<std::string>("data_type");
+    return result;
+}
+
+inline x::json::json Int8StartupParameter::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = StartupParameterBase::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
+inline Int16StartupParameter Int16StartupParameter::parse(x::json::Parser parser) {
+    Int16StartupParameter result;
+    static_cast<StartupParameterBase &>(result) = StartupParameterBase::parse(parser);
+    result.value = parser.field<std::int16_t>("value");
+    result.data_type = parser.field<std::string>("data_type");
+    return result;
+}
+
+inline x::json::json Int16StartupParameter::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = StartupParameterBase::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
+inline Int32StartupParameter Int32StartupParameter::parse(x::json::Parser parser) {
+    Int32StartupParameter result;
+    static_cast<StartupParameterBase &>(result) = StartupParameterBase::parse(parser);
+    result.value = parser.field<std::int32_t>("value");
+    result.data_type = parser.field<std::string>("data_type");
+    return result;
+}
+
+inline x::json::json Int32StartupParameter::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = StartupParameterBase::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
+inline Int64StartupParameter Int64StartupParameter::parse(x::json::Parser parser) {
+    Int64StartupParameter result;
+    static_cast<StartupParameterBase &>(result) = StartupParameterBase::parse(parser);
+    result.value = parser.field<std::int64_t>("value");
+    result.data_type = parser.field<std::string>("data_type");
+    return result;
+}
+
+inline x::json::json Int64StartupParameter::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = StartupParameterBase::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
+inline Uint8StartupParameter Uint8StartupParameter::parse(x::json::Parser parser) {
+    Uint8StartupParameter result;
+    static_cast<StartupParameterBase &>(result) = StartupParameterBase::parse(parser);
+    result.value = parser.field<std::uint8_t>("value");
+    result.data_type = parser.field<std::string>("data_type");
+    return result;
+}
+
+inline x::json::json Uint8StartupParameter::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = StartupParameterBase::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
+inline Uint16StartupParameter Uint16StartupParameter::parse(x::json::Parser parser) {
+    Uint16StartupParameter result;
+    static_cast<StartupParameterBase &>(result) = StartupParameterBase::parse(parser);
+    result.value = parser.field<std::uint16_t>("value");
+    result.data_type = parser.field<std::string>("data_type");
+    return result;
+}
+
+inline x::json::json Uint16StartupParameter::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = StartupParameterBase::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
+inline Uint32StartupParameter Uint32StartupParameter::parse(x::json::Parser parser) {
+    Uint32StartupParameter result;
+    static_cast<StartupParameterBase &>(result) = StartupParameterBase::parse(parser);
+    result.value = parser.field<std::uint32_t>("value");
+    result.data_type = parser.field<std::string>("data_type");
+    return result;
+}
+
+inline x::json::json Uint32StartupParameter::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = StartupParameterBase::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
+inline Uint64StartupParameter Uint64StartupParameter::parse(x::json::Parser parser) {
+    Uint64StartupParameter result;
+    static_cast<StartupParameterBase &>(result) = StartupParameterBase::parse(parser);
+    result.value = parser.field<std::uint64_t>("value");
+    result.data_type = parser.field<std::string>("data_type");
+    return result;
+}
+
+inline x::json::json Uint64StartupParameter::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = StartupParameterBase::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
+inline Float32StartupParameter Float32StartupParameter::parse(x::json::Parser parser) {
+    Float32StartupParameter result;
+    static_cast<StartupParameterBase &>(result) = StartupParameterBase::parse(parser);
+    result.value = parser.field<float>("value");
+    result.data_type = parser.field<std::string>("data_type");
+    return result;
+}
+
+inline x::json::json Float32StartupParameter::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = StartupParameterBase::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
+inline Float64StartupParameter Float64StartupParameter::parse(x::json::Parser parser) {
+    Float64StartupParameter result;
+    static_cast<StartupParameterBase &>(result) = StartupParameterBase::parse(parser);
+    result.value = parser.field<double>("value");
+    result.data_type = parser.field<std::string>("data_type");
+    return result;
+}
+
+inline x::json::json Float64StartupParameter::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = StartupParameterBase::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = this->value;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
 inline IdentityUpdate IdentityUpdate::parse(x::json::Parser parser) {
     IdentityUpdate result;
     static_cast<Identity &>(result) = Identity::parse(parser);
@@ -430,6 +641,29 @@ inline x::json::json ConfigurationUpdate::to_json() const {
         j.update(parent);
     j["group"] = this->group;
     return j;
+}
+
+inline StartupParameter parse_startup_parameter(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("data_type");
+    if (discriminator == "int8") return Int8StartupParameter::parse(parser);
+    if (discriminator == "int16") return Int16StartupParameter::parse(parser);
+    if (discriminator == "int32") return Int32StartupParameter::parse(parser);
+    if (discriminator == "int64") return Int64StartupParameter::parse(parser);
+    if (discriminator == "uint8") return Uint8StartupParameter::parse(parser);
+    if (discriminator == "uint16") return Uint16StartupParameter::parse(parser);
+    if (discriminator == "uint32") return Uint32StartupParameter::parse(parser);
+    if (discriminator == "uint64") return Uint64StartupParameter::parse(parser);
+    if (discriminator == "float32") return Float32StartupParameter::parse(parser);
+    if (discriminator == "float64") return Float64StartupParameter::parse(parser);
+    parser.field_err(
+        "data_type",
+        "unknown StartupParameter data_type: " + discriminator
+    );
+    return {};
+}
+
+inline x::json::json to_json(const StartupParameter &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 inline Update parse_update(x::json::Parser parser) {
