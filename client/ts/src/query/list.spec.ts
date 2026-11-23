@@ -896,6 +896,21 @@ describe("Lists", () => {
       expect(fetch).toHaveBeenLastCalledWith({ order: byName, limit: 2 }, undefined);
     });
 
+    it("should refetch a maintained window on a miss", async () => {
+      let miss = (): void => {};
+      const { lists, fetch } = setup([rec("1", "a"), rec("2", "b")], {
+        onMissed: (callback) => {
+          miss = callback;
+          return () => {};
+        },
+      });
+      const list = lists.list({ order: byName });
+      list.onChange(vi.fn());
+      await list.retrieve();
+      miss();
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
     it("should size a new epoch's refetch of an unread window to its subscriber", async () => {
       let bump = (_: number): void => {};
       const { lists, fetch } = setup([rec("1", "a"), rec("2", "b"), rec("3", "c")], {

@@ -293,6 +293,21 @@ export class Store {
     );
   }
 
+  /** @returns true when the Core stores the channel's samples. */
+  stored(ch: channel.Key): boolean {
+    return this.leaseholders.has(ch);
+  }
+
+  /**
+   * Restarts the time from which history signals count as delivered, after the stream
+   * dropped frames that could hold them. A sealed block fetched before now then stays
+   * valid only until it is older than the stale threshold, and a held block until it
+   * is released.
+   */
+  restartSignals(): void {
+    if (this.signalsSince != null) this.signalsSince = this.now();
+  }
+
   /** @returns true when the channel is calculated. */
   isCalculated(ch: channel.Key): boolean {
     return this.calculated.has(ch);
