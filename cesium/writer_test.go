@@ -146,7 +146,7 @@ var _ = Describe("Writer Behavior", func() {
 							))
 
 							Expect(f.Count()).To(Equal(1))
-							d.Alignment = telem.LeadingAlignment(1, 0)
+							d.Alignment = telem.NewAlignment(telem.LeadingDomain+1, 0)
 							d.TimeRange = (10 * telem.SecondTS).Range(
 								12*telem.SecondTS + 1,
 							)
