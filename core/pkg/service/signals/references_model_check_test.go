@@ -118,7 +118,7 @@ var _ = Describe("Reference changes over random commits", Ordered, func() {
 			channels = append(channels, ch.Key())
 		}
 		for range 3 {
-			l := label.Label{Key: uuid.New(), Name: nextName()}
+			l := label.Label{Key: uuid.New(), Name: nextName(), Color: labelColor}
 			Expect(gorp.NewCreate[uuid.UUID, label.Label]().Entry(&l).Exec(ctx, db)).
 				To(Succeed())
 			labels = append(labels, l.Key)
