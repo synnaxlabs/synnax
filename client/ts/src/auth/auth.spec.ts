@@ -24,6 +24,7 @@ import {
 import {
   createEmptyRole,
   createTestClient,
+  holdResponses,
   TEST_CREDENTIALS,
   testClientParams,
 } from "@/testutil";
@@ -345,24 +346,24 @@ describe("auth", () => {
       await observer.logout();
     });
 
-    it("should keep a session another request opened during the logout", async () => {
-      const client = makeClient();
-      await login(client);
-      const first = client.session?.key;
-      const logout = client.logout();
-      // A rejected token makes the middleware log in again while the delete is
-      // still in flight.
-      await expect(
-        client.middleware()(DUMMY_CTX, async () => {
-          throw new InvalidTokenError();
-        }),
-      ).rejects.toThrow(InvalidTokenError);
+    it("should not log in again for a request that fails during the logout", async () => {
+      const client = createTestClient();
+      await client.connect();
+      const deleting = holdResponses(
+        client,
+        "/auth/session/delete",
+        "transport",
+        "unaryNoRetry",
+      );
+      const logout = client.auth.logout();
+      // The Core ended the session, so this request fails on its token and retries.
+      await deleting.responded;
+      await expect(client.channels.retrieve(["no-such-channel"])).rejects.toThrow(
+        MissingCredentialsError,
+      );
+      deleting.release();
       await logout;
-      expect(client.authenticated).toBe(true);
-      expect(client.session?.key).toBeDefined();
-      expect(client.session?.key).not.toEqual(first);
-      await client.logout();
-      expect(client.authenticated).toBe(false);
+      expect(client.auth.authenticated).toBe(false);
     });
 
     it("should resume a session from its token", async () => {
