@@ -507,6 +507,14 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       return symbol;
     };
 
+    it("keeps Drawing from a part that the whole drawing paints", async () => {
+      await openPainted({ looks: [{ key: "node", fill: { type: "node" } }] });
+      fireEvent.click(screen.getByLabelText("Fill"));
+      await waitFor(() =>
+        expect(findButton("Drawing").getAttribute("aria-disabled")).toBe("true"),
+      );
+    });
+
     it("saves the state color and shows the default entry where no entry matches", async () => {
       const enumeration = await client.enumerations.create({
         name: uniqueName("valve"),
@@ -561,6 +569,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
       fireEvent.click(screen.getByLabelText("Fill"));
       fireEvent.click(await screen.findByText("Contrast"));
+      await waitFor(() =>
+        expect(
+          screen.getByLabelText("Fill").querySelector(".lyra-icon--contrast"),
+        ).not.toBeNull(),
+      );
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.looks).toEqual([

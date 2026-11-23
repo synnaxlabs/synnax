@@ -324,14 +324,50 @@ TEST(Reader, RejectsIndexGroupWithDifferentSelections) {
     );
 }
 
-/// @brief it should stamp the samples of a message with the time the response arrived.
+/// @brief it should add one sample for each channel of a message, stamped with the time
+/// the response arrived.
 TEST(Reader, StampsSamplesOnArrival) {
     auto r = ASSERT_NIL_P(reading().create());
     x::telem::Frame fr(2);
     ASSERT_NIL_P(r.read(bytes(R"({"v": 1.5})"), RECEIVED, fr));
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
-    ASSERT_EQ(fr.at<std::int64_t>(1, 0), RECEIVED.nanoseconds());
-    ASSERT_EQ(fr.at<double>(2, 0), 1.5);
+    ASSERT_EQ(
+        fr.series->at(0).values<std::int64_t>(),
+        (std::vector{RECEIVED.nanoseconds()})
+    );
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{1.5}));
+}
+
+/// @brief it should read a string field into a string channel.
+TEST(Reader, ReadsStringField) {
+    auto e = message("reading", synnax::icd::JSONPayload{});
+    synnax::icd::StringJSONField f;
+    f.key = x::uuid::create();
+    f.name = "s";
+    f.pointer = "/s";
+    e.bind(f, channel(2, x::telem::STRING_T));
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(2);
+    ASSERT_NIL_P(r.read(bytes(R"({"s": "outlet valve open"})"), RECEIVED, fr));
+    ASSERT_EQ(
+        fr.series->at(1).strings(),
+        (std::vector<std::string>{"outlet valve open"})
+    );
+}
+
+/// @brief it should add the samples of a read to the series that the frame holds.
+TEST(Reader, AppendsToSeriesInFrame) {
+    auto r = ASSERT_NIL_P(frame().create());
+    x::telem::Frame fr;
+    const auto later = RECEIVED + x::telem::NANOSECOND;
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{7}, RECEIVED, fr, 2));
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{9}, later, fr, 2));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(
+        fr.series->at(0).values<std::int64_t>(),
+        (std::vector{RECEIVED.nanoseconds(), later.nanoseconds()})
+    );
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0, 9.0}));
 }
 
 /// @brief it should stamp the samples of a message with the value of its index field.
