@@ -204,14 +204,21 @@ const clipped = (el: Element): boolean => {
  */
 export type LevelIssue = "shapes" | "clip";
 
-/** @returns each part whose level motion cannot draw, mapped to the reason. */
+/**
+ * @returns each part whose level motion cannot draw, mapped to the reason. Only the
+ * looks that the editor reaches count, so the user can remove each one.
+ */
 export const levelIssues = (
   spec: Pick<Spec, "drawing" | "parts" | "looks">,
 ): Map<string, LevelIssue> => {
   const issues = new Map<string, LevelIssue>();
   const levels = new Set(
     spec.looks.flatMap((l) =>
-      l.motion?.type === "level" && l.part != null ? [l.part] : [],
+      l.motion?.type === "level" &&
+      l.part != null &&
+      (l.when == null || l.when.state === STATE)
+        ? [l.part]
+        : [],
     ),
   );
   if (levels.size === 0) return issues;

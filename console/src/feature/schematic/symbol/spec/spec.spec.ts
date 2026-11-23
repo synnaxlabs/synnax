@@ -494,6 +494,21 @@ describe("symbol editor spec", () => {
       expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
     });
 
+    it("should not count a level motion on a state that the editor does not edit", () => {
+      const spec = createSpec({
+        drawing: drawn('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [
+          {
+            key: "a",
+            part: "body",
+            when: { type: "equals", state: "other", values: [0] },
+            motion: LEVEL,
+          },
+        ],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map());
+    });
+
     it("should count a clip-path in the style of a shape", () => {
       const spec = createSpec({
         drawing: drawn('<rect id="body" style="fill: red; clip-path: inset(0)"/>'),
