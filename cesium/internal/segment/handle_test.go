@@ -212,7 +212,10 @@ var _ = Describe("Handle", func() {
 				release := fs.Hold()
 				synced := make(chan error, 1)
 				go func() { synced <- syncOf(h) }()
-				Eventually(fs.held).Should(Receive(Equal("1.seg")))
+				Eventually(
+					fs.held,
+				).WithTimeout(syncTimeout).
+					Should(Receive(Equal("1.seg")))
 				wrote := make(chan error, 1)
 				go func() {
 					_, err := h.WriteAt([]byte("2.seg"), 0)
@@ -221,8 +224,8 @@ var _ = Describe("Handle", func() {
 				Consistently(wrote).ShouldNot(Receive())
 				fs.Unhold()
 				close(release)
-				Eventually(synced).Should(Receive(BeNil()))
-				Eventually(wrote).Should(Receive(BeNil()))
+				Eventually(synced).WithTimeout(syncTimeout).Should(Receive(BeNil()))
+				Eventually(wrote).WithTimeout(syncTimeout).Should(Receive(BeNil()))
 				Expect(syncOf(h)).To(Succeed())
 				Expect(fs.Ops()).To(Equal([]string{
 					"open 1.seg", "sync 1.seg", "syncdir ", "sync 1.seg",
@@ -239,7 +242,10 @@ var _ = Describe("Handle", func() {
 					release := fs.Hold()
 					first := make(chan error, 1)
 					go func() { first <- syncOf(h) }()
-					Eventually(fs.held).Should(Receive(Equal("1.seg")))
+					Eventually(
+						fs.held,
+					).WithTimeout(syncTimeout).
+						Should(Receive(Equal("1.seg")))
 					second := make(chan error, 1)
 					go func() { second <- syncOf(h) }()
 					wrote := make(chan error, 1)
@@ -251,9 +257,18 @@ var _ = Describe("Handle", func() {
 					fs.FailSync("1.seg", nil)
 					fs.Unhold()
 					close(release)
-					Eventually(first).Should(Receive(MatchError(errInjected)))
-					Eventually(second).Should(Receive(MatchError(errInjected)))
-					Eventually(wrote).Should(Receive(MatchError(errInjected)))
+					Eventually(
+						first,
+					).WithTimeout(syncTimeout).
+						Should(Receive(MatchError(errInjected)))
+					Eventually(
+						second,
+					).WithTimeout(syncTimeout).
+						Should(Receive(MatchError(errInjected)))
+					Eventually(
+						wrote,
+					).WithTimeout(syncTimeout).
+						Should(Receive(MatchError(errInjected)))
 					Expect(fs.Ops()).ToNot(ContainElement("sync 1.seg"))
 					Expect(h.Close()).To(Succeed())
 				},
@@ -268,7 +283,10 @@ var _ = Describe("Handle", func() {
 					release := fs.Hold()
 					created := make(chan *segment.Handle, 1)
 					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
-					Eventually(fs.held).Should(Receive(Equal("1.seg")))
+					Eventually(
+						fs.held,
+					).WithTimeout(syncTimeout).
+						Should(Receive(Equal("1.seg")))
 					synced := make(chan error, 1)
 					go func() { synced <- syncOf(first) }()
 					read := make(chan error, 1)
@@ -281,11 +299,17 @@ var _ = Describe("Handle", func() {
 					fs.FailSync("1.seg", nil)
 					fs.Unhold()
 					close(release)
-					Eventually(synced).Should(Receive(MatchError(errInjected)))
+					Eventually(
+						synced,
+					).WithTimeout(syncTimeout).
+						Should(Receive(MatchError(errInjected)))
 					var second *segment.Handle
-					Eventually(created).Should(Receive(&second))
+					Eventually(
+						created,
+					).WithTimeout(syncTimeout).
+						Should(Receive(&second))
 					Expect(second.Close()).To(Succeed())
-					Eventually(read).Should(Receive(BeNil()))
+					Eventually(read).WithTimeout(syncTimeout).Should(Receive(BeNil()))
 					Expect(fs.Ops()).ToNot(ContainElement("sync 1.seg"))
 					Expect(fs.Ops()).ToNot(ContainElement("syncdir "))
 					Expect(first.Close()).To(Succeed())
@@ -298,13 +322,16 @@ var _ = Describe("Handle", func() {
 					release := fs.Hold()
 					done := make(chan error, 2)
 					go func() { done <- syncOf(h) }()
-					Eventually(fs.held).Should(Receive(Equal("12")))
+					Eventually(
+						fs.held,
+					).WithTimeout(syncTimeout).
+						Should(Receive(Equal("12")))
 					go func() { done <- syncOf(h) }()
 					Consistently(fs.held).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)
-					Eventually(done).Should(Receive(BeNil()))
-					Eventually(done).Should(Receive(BeNil()))
+					Eventually(done).WithTimeout(syncTimeout).Should(Receive(BeNil()))
+					Eventually(done).WithTimeout(syncTimeout).Should(Receive(BeNil()))
 					Expect(fs.Ops()).To(Equal([]string{"open 12/1.seg", "syncdir 12"}))
 					Expect(h.Close()).To(Succeed())
 				},
@@ -316,14 +343,17 @@ var _ = Describe("Handle", func() {
 				release := fs.Hold()
 				synced := make(chan error, 1)
 				go func() { synced <- syncOf(h) }()
-				Eventually(fs.held).Should(Receive(Equal("1.seg")))
+				Eventually(
+					fs.held,
+				).WithTimeout(syncTimeout).
+					Should(Receive(Equal("1.seg")))
 				closed := make(chan error, 1)
 				go func() { closed <- h.Close() }()
 				Consistently(closed).ShouldNot(Receive())
 				fs.Unhold()
 				close(release)
-				Eventually(synced).Should(Receive(BeNil()))
-				Eventually(closed).Should(Receive(BeNil()))
+				Eventually(synced).WithTimeout(syncTimeout).Should(Receive(BeNil()))
+				Eventually(closed).WithTimeout(syncTimeout).Should(Receive(BeNil()))
 				Expect(fs.Ops()).To(ContainElement("close 1.seg"))
 			})
 
@@ -336,15 +366,21 @@ var _ = Describe("Handle", func() {
 					release := fs.Hold()
 					synced := make(chan error, 1)
 					go func() { synced <- syncOf(first) }()
-					Eventually(fs.held).Should(Receive(Equal("1.seg")))
+					Eventually(
+						fs.held,
+					).WithTimeout(syncTimeout).
+						Should(Receive(Equal("1.seg")))
 					created := make(chan *segment.Handle, 1)
 					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
 					Consistently(created).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)
-					Eventually(synced).Should(Receive(BeNil()))
+					Eventually(synced).WithTimeout(syncTimeout).Should(Receive(BeNil()))
 					var second *segment.Handle
-					Eventually(created).Should(Receive(&second))
+					Eventually(
+						created,
+					).WithTimeout(syncTimeout).
+						Should(Receive(&second))
 					Expect(fs.MaxOpen()).To(Equal(1))
 					Expect(second.Close()).To(Succeed())
 					Expect(first.Close()).To(Succeed())
