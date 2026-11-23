@@ -711,6 +711,21 @@ describe("Custom.useRender", () => {
       expect(rect.getAttribute("fill")).toBe("blue");
     });
 
+    it("should remove a paint fill from a shape with no fill of its own", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec({
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50"/></svg>',
+      });
+      const { rerender } = renderAttached(
+        { paints: [createPaint([".main"], undefined, "#ff0000")], spec },
+        container,
+      );
+      const rect = container.querySelector(".main") as SVGRectElement;
+      expect(rect.getAttribute("fill")).toBe("#ff0000");
+      rerender({ paints: [], spec });
+      expect(rect.hasAttribute("fill")).toBe(false);
+    });
+
     it("should restore colors when a paint drops a shape", () => {
       const container = document.createElement("div");
       const [off, on] = [

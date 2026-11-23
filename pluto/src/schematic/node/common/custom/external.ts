@@ -16,7 +16,7 @@ export {
   listValues,
   matched,
   type Paint,
-  type StateValue,
+  type StateValues,
   usePaints,
   type UsePaintsParams,
   useRegions,
