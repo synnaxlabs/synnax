@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/credential/Form.css";
+import "@/platform/credential/password/Form.css";
 
 import { type resource, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
@@ -19,7 +19,7 @@ import { type ReactElement, useState } from "react";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
-export interface PasswordProps {
+export interface FormProps {
   /** The user whose password to set. */
   subject: resource.ID;
   /** Called with true after a change succeeds, and with false on the next edit. */
@@ -30,12 +30,12 @@ export interface PasswordProps {
  * Sets the subject's password. The logged-in user must give the current password to
  * change their own.
  */
-export const Password = ({ subject, onChanged }: PasswordProps): ReactElement => {
+export const Form = ({ subject, onChanged }: FormProps): ReactElement => {
   const { data: currentKey } = User.useResultKey({});
   const own = currentKey === subject.key;
   const [password, setPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
-  const set = Credential.useSetPassword({
+  const set = Credential.Password.useSet({
     afterSuccess: () => {
       setPassword("");
       setCurrentPassword("");
