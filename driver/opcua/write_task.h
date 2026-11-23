@@ -62,7 +62,12 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         parser.iter("channels", [&](x::json::Parser &cp) {
             const auto parsed = ::synnax::opcua::WriteChannel::parse(cp);
             if (parsed.disabled) return;
-            channels[parsed.cmd_channel] = std::make_unique<OutputChan>(parsed, cp);
+            auto chan = std::make_unique<OutputChan>(parsed, cp);
+            if (!channels.try_emplace(parsed.cmd_channel, std::move(chan)).second)
+                cp.field_err(
+                    "cmd_channel",
+                    "another channel in the task takes commands from it"
+                );
         });
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");

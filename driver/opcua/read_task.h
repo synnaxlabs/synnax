@@ -154,9 +154,14 @@ private:
         nan_fill_enabled(parser.field<bool>("nan_fill_enabled", false)),
         // Array sampling never uses samples_per_chan and its stream rate may be zero.
         samples_per_chan(this->array() ? 0 : this->sample_rate / this->stream_rate) {
+        std::set<synnax::channel::Key> claimed;
         parser.iter("channels", [&](x::json::Parser &cp) {
             const auto parsed = ::synnax::opcua::ReadChannel::parse(cp);
             if (parsed.disabled) return;
+            if (parsed.channel != 0 && !claimed.insert(parsed.channel).second) {
+                cp.field_err("channel", "another channel in the task reads into it");
+                return;
+            }
             if (this->array() && !parsed.field.empty())
                 cp.field_err("field", "array sampling cannot read structure fields");
             channels.push_back(std::make_unique<InputChan>(parsed, cp));
