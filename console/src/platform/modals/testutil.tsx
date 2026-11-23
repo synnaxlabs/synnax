@@ -271,6 +271,17 @@ export const findLastButton = (text: string): HTMLButtonElement => {
   return btn;
 };
 
+/**
+ * Finds the surface of the open modal: the box inside its native dialog that holds the
+ * modal's content and class names.
+ */
+export const findSurface = (): HTMLElement => {
+  const dialog = screen.getByRole("dialog", { hidden: true });
+  const surface = dialog.querySelector<HTMLElement>(":scope > .lyra--modal");
+  if (surface == null) throw new Error("modal surface not found");
+  return surface;
+};
+
 /** Finds the icon-only dismiss button a modal Header renders. */
 export const findDismissButton = (): HTMLButtonElement => {
   const btn = screen

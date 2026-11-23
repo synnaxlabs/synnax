@@ -37,7 +37,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Channel } from "@/feature/channel";
-import { findLastButton } from "@/platform/modals/testutil";
+import { findLastButton, findSurface } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
 import {
   createHostItems,
@@ -354,11 +354,11 @@ describe("channel/tree", () => {
       fireEvent.click(await screen.findByText("Delete"));
       // The opacity reads the reveal: vitest's toBeVisible counts an opacity of 0 as
       // visible, as Playwright does.
-      const dialog = screen.getByRole("dialog", { hidden: true });
-      expect(getComputedStyle(dialog).opacity).toBe("0");
+      const surface = findSurface();
+      expect(getComputedStyle(surface).opacity).toBe("0");
       await screen.findByRole("region", { name: "Blocks the delete" });
-      await waitFor(() => expect(getComputedStyle(dialog).opacity).toBe("1"));
-      expect(dialog).toHaveFocus();
+      await waitFor(() => expect(getComputedStyle(surface).opacity).toBe("1"));
+      expect(screen.getByRole("dialog")).toHaveFocus();
     });
 
     it("shows the spinner when the plan is slow, then the records", async () => {
@@ -370,11 +370,11 @@ describe("channel/tree", () => {
       // Everything under fake timers runs at once, so the plan is still in flight when
       // the spinner delay ends.
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-      let dialog: HTMLElement;
+      let surface: HTMLElement;
       try {
         fireEvent.click(item);
-        dialog = screen.getByRole("dialog", { hidden: true });
-        expect(getComputedStyle(dialog).opacity).toBe("0");
+        surface = findSurface();
+        expect(getComputedStyle(surface).opacity).toBe("0");
         act(() => {
           vi.advanceTimersByTime(1000);
         });
@@ -382,7 +382,7 @@ describe("channel/tree", () => {
         vi.useRealTimers();
       }
       screen.getByText("Listing the records that this delete touches");
-      await waitFor(() => expect(getComputedStyle(dialog).opacity).toBe("1"));
+      await waitFor(() => expect(getComputedStyle(surface).opacity).toBe("1"));
       await screen.findByRole("region", { name: "Blocks the delete" });
       expect(
         screen.queryByText("Listing the records that this delete touches"),

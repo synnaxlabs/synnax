@@ -660,9 +660,10 @@ const Dialog = ({
     [client, change, picks, hiddenPick, attempt],
   );
 
-  // The retry button unmounts, so focus moves to the dialog instead of the page.
+  // The retry button unmounts, so focus moves to the modal's native dialog instead of
+  // the page.
   const handleRetry = () => {
-    frameRef.current?.focus();
+    frameRef.current?.closest("dialog")?.focus();
     setPlanning(true);
     setPlanError(null);
     setAttempt((prev) => prev + 1);
