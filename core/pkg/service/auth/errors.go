@@ -48,27 +48,59 @@ const (
 	accessDeniedType       = errorType + ".access_denied"
 )
 
+// wrap decodes data into ref. The sentinel text that data ends with is not repeated.
+func wrap(ref error, data string) error {
+	if data == ref.Error() {
+		return ref
+	}
+	if detail, ok := strings.CutSuffix(data, ": "+ref.Error()); ok {
+		return errors.Wrap(ref, detail)
+	}
+	return errors.Wrap(ref, data)
+}
+
 func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrSessionEnded) {
-		return errors.Payload{Type: sessionEndedType, Data: err.Error()}, true
+		return errors.Payload{
+			Type: sessionEndedType,
+			Data: err.Error(),
+		}, true
 	}
 	if errors.CheapIs(err, ErrInvalidToken) {
-		return errors.Payload{Type: invalidTokenType, Data: err.Error()}, true
+		return errors.Payload{
+			Type: invalidTokenType,
+			Data: err.Error(),
+		}, true
 	}
 	if errors.CheapIs(err, ErrInvalidCredentials) {
-		return errors.Payload{Type: invalidCredentialsType, Data: err.Error()}, true
+		return errors.Payload{
+			Type: invalidCredentialsType,
+			Data: err.Error(),
+		}, true
 	}
 	if errors.CheapIs(err, ErrMissingCredentials) {
-		return errors.Payload{Type: missingCredentialsType, Data: err.Error()}, true
+		return errors.Payload{
+			Type: missingCredentialsType,
+			Data: err.Error(),
+		}, true
 	}
 	if errors.CheapIs(err, ErrExpiredToken) {
-		return errors.Payload{Type: expiredTokenType, Data: err.Error()}, true
+		return errors.Payload{
+			Type: expiredTokenType,
+			Data: err.Error(),
+		}, true
 	}
 	if errors.CheapIs(err, ErrRepeatedUsername) {
-		return errors.Payload{Type: repeatedUsernameType, Data: err.Error()}, true
+		return errors.Payload{
+			Type: repeatedUsernameType,
+			Data: err.Error(),
+		}, true
 	}
 	if errors.CheapIs(err, ErrAccessDenied) {
-		return errors.Payload{Type: accessDeniedType, Data: err.Error()}, true
+		return errors.Payload{
+			Type: accessDeniedType,
+			Data: err.Error(),
+		}, true
 	}
 	if errors.CheapIs(err, ErrAuth) {
 		return errors.Payload{Type: errorType, Data: err.Error()}, true
@@ -79,22 +111,22 @@ func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 func decode(_ *errors.Codec, p errors.Payload) (error, bool) {
 	switch p.Type {
 	case invalidCredentialsType:
-		return errors.Wrap(ErrInvalidCredentials, p.Data), true
+		return wrap(ErrInvalidCredentials, p.Data), true
 	case missingCredentialsType:
-		return errors.Wrap(ErrMissingCredentials, p.Data), true
+		return wrap(ErrMissingCredentials, p.Data), true
 	case invalidTokenType:
-		return errors.Wrap(ErrInvalidToken, p.Data), true
+		return wrap(ErrInvalidToken, p.Data), true
 	case sessionEndedType:
-		return errors.Wrap(ErrSessionEnded, p.Data), true
+		return wrap(ErrSessionEnded, p.Data), true
 	case repeatedUsernameType:
-		return errors.Wrap(ErrRepeatedUsername, p.Data), true
+		return wrap(ErrRepeatedUsername, p.Data), true
 	case expiredTokenType:
-		return errors.Wrap(ErrExpiredToken, p.Data), true
+		return wrap(ErrExpiredToken, p.Data), true
 	case accessDeniedType:
-		return errors.Wrap(ErrAccessDenied, p.Data), true
+		return wrap(ErrAccessDenied, p.Data), true
 	}
 	if strings.HasPrefix(p.Type, errorType) {
-		return errors.Wrap(ErrAuth, p.Data), true
+		return wrap(ErrAuth, p.Data), true
 	}
 	return nil, false
 }
