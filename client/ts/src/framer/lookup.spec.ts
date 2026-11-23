@@ -18,6 +18,7 @@ import {
   newIndexedPair,
   secondsLinspace,
   spyOnSend,
+  waitForStreamLive,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -198,6 +199,9 @@ describe("Framer lookups", () => {
         virtual: true,
       });
       const fresh = createTestClient();
+      // A record cached before the change stream opens is fetched again when it opens.
+      await fresh.connect();
+      await waitForStreamLive(fresh.connection);
       const byName = await fresh.openWriter({
         start: TimeStamp.now(),
         channels: [ch.name],
