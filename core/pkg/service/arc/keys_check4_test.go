@@ -10,8 +10,6 @@
 package arc_test
 
 import (
-	"strconv"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -19,17 +17,18 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Compile keys check 3", func() {
-	It("Should name a graph Arc as a use of the channel that a node holds as digit "+
-		"text", func(ctx SpecContext) {
-		in := channel.Channel{Name: "kc3_in", Virtual: true, DataType: telem.Float64T}
-		out := channel.Channel{Name: "kc3_out", Virtual: true, DataType: telem.Float64T}
+var _ = Describe("Compile keys check 4", func() {
+	It("Should read the stored deployed lists of a graph whose Driver runs the "+
+		"current config", func(ctx SpecContext) {
+		in := channel.Channel{Name: "kc4_in", Virtual: true, DataType: telem.Float64T}
+		out := channel.Channel{Name: "kc4_out", Virtual: true, DataType: telem.Float64T}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			w := channelSvc.NewWriter(tx)
 			if err := w.Create(ctx, &in); err != nil {
@@ -38,7 +37,7 @@ var _ = Describe("Compile keys check 3", func() {
 			return w.Create(ctx, &out)
 		})).To(Succeed())
 		a := newAutomation(arc.Base{
-			Name: "kc3_digits",
+			Name: "kc4_graph",
 			Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
 				Nodes: graph.Nodes{{Key: "source"}, {Key: "sink"}},
 				Edges: graph.Edges{{
@@ -47,11 +46,8 @@ var _ = Describe("Compile keys check 3", func() {
 					Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
 				}},
 				Inputs: map[string]msgpack.EncodedJSON{
-					"source": {
-						"type":    "on",
-						"channel": strconv.FormatUint(uint64(in.Key()), 10),
-					},
-					"sink": {"type": "write", "channel": float64(out.Key())},
+					"source": {"type": "on", "channel": float64(in.Key())},
+					"sink":   {"type": "write", "channel": float64(out.Key())},
 				},
 			}}},
 		})
@@ -64,13 +60,39 @@ var _ = Describe("Compile keys check 3", func() {
 				return svc.NewWriter(tx).Delete(ctx, key)
 			})).To(Succeed())
 		})
-		held := MustSucceed(channelSvc.Uses(ctx, db, []channel.Key{in.Key()}))
-		holders := make([]gorp.Target, len(held[0]))
-		for i, u := range held[0] {
-			holders[i] = u.Holder
-		}
-		Expect(
-			holders,
-		).To(ContainElement(gorp.NewTarget(string(resource.TypeArc), key)))
+		var tsk *task.Task
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			tsk, err = svc.NewWriter(tx).UpdateTask(
+				ctx,
+				key,
+				arc.TaskUpdate{Rack: new(testRack.Key)},
+			)
+			return err
+		})).To(Succeed())
+		MustSucceed(svc.CompileProgram(ctx, key))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			var stored task.Task
+			if err := taskSvc.NewRetrieve().
+				Where(task.MatchKeys(tsk.Key)).
+				Entry(&stored).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
+			return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
+				Owner:   new(task.ResourceID(tsk.Key)),
+				Name:    "kc4",
+				Variant: status.VariantSuccess,
+				Time:    telem.Now(),
+				Details: task.StatusDetails{
+					Running:    true,
+					ConfigHash: stored.ConfigHash,
+				},
+			})
+		})).To(Succeed())
+		rec := MustSucceed(svc.RetrieveDrift(ctx, db, key))[key]
+		// The Arc's own lists leave out a graph's node channels; the deployed lists
+		// hold them.
+		Expect([2][]channel.Key{rec.Reads, rec.Writes}).
+			To(Equal([2][]channel.Key{{in.Key()}, {out.Key()}}))
 	})
 })
