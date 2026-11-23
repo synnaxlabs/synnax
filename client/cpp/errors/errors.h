@@ -11,11 +11,16 @@
 
 #include <cstddef>
 #include <string>
+#include <utility>
+#include <vector>
 
+#include "client/cpp/auth/auth.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/describe.h"
 #include "x/cpp/json/json.h"
+
+#include "arc/cpp/errors/errors.h"
 
 namespace synnax::errors {
 /// @brief the base of every license error the Core returns.
@@ -39,6 +44,46 @@ inline bool is_unreachable(const x::errors::Error &err) {
 inline bool is_temporarily_unavailable(const x::errors::Error &err) {
     return is_unreachable(err) || err.matches(LICENSE_MISSING) ||
            err.matches(LICENSE_EXPIRED);
+}
+
+/// @brief how a caller handles an error from the Core.
+enum class Kind {
+    /// @brief the Core or the path to it fails for now. Wait, then retry.
+    TRANSIENT,
+    /// @brief the Core refused the request. The same request fails again.
+    REJECTED,
+    /// @brief a defect in the Driver or the Core. Fail loud.
+    BUG,
+};
+
+/// @brief the kind of each error type. The first match wins, so a sub-type comes
+/// before its parent. A type that matches no row is a BUG.
+const std::vector<std::pair<x::errors::Error, Kind>> KINDS = {
+    {freighter::UNREACHABLE, Kind::TRANSIENT},
+    {freighter::TIMEOUT, Kind::TRANSIENT},
+    {freighter::TRANSPORT, Kind::TRANSIENT},
+    {freighter::RESOURCE_EXHAUSTED, Kind::TRANSIENT},
+    {freighter::CANCELLED, Kind::TRANSIENT},
+    {LICENSE_MISSING, Kind::TRANSIENT},
+    {LICENSE_EXPIRED, Kind::TRANSIENT},
+    {auth::ERR_INVALID_TOKEN, Kind::TRANSIENT},
+    {auth::ERR_EXPIRED_TOKEN, Kind::TRANSIENT},
+    {auth::ERR_SESSION_ENDED, Kind::TRANSIENT},
+    {LICENSE, Kind::REJECTED},
+    {auth::ERR, Kind::REJECTED},
+    {x::errors::VALIDATION, Kind::REJECTED},
+    {x::errors::QUERY, Kind::REJECTED},
+    {x::errors::CONTROL, Kind::REJECTED},
+    {x::errors::NOT_SUPPORTED, Kind::REJECTED},
+    {::arc::errors::BASE, Kind::REJECTED},
+};
+
+/// @brief returns how a caller handles err.
+/// @param err a non-nil error that a request to the Core returned.
+inline Kind classify(const x::errors::Error &err) {
+    for (const auto &[type, kind]: KINDS)
+        if (err.matches(type)) return kind;
+    return Kind::BUG;
 }
 
 inline x::errors::Error unexpected_missing_error(const std::string &name) {
