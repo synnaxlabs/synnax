@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -34,6 +35,14 @@ namespace driver::tcp {
 namespace {
 using Handler = std::function<void(const std::error_code &, std::size_t)>;
 
+/// @brief HOST_DOWN is the native error of a host on the local network that stops
+/// answering, which no std::errc names.
+#ifdef _WIN32
+constexpr int HOST_DOWN = WSAEHOSTDOWN;
+#else
+constexpr int HOST_DOWN = EHOSTDOWN;
+#endif
+
 /// @brief returns a transport error of the native error ec, whose message is context
 /// followed by the message of ec.
 x::errors::Error translate(const std::string &context, const std::error_code &ec) {
@@ -42,7 +51,8 @@ x::errors::Error translate(const std::string &context, const std::error_code &ec
         ec == asio::error::no_recovery)
         return transport::error(transport::UNREACHABLE_ERROR, context, ec);
     const auto native = transport::from_asio(ec);
-    if (transport::matches(
+    if (native == std::error_code(HOST_DOWN, std::system_category()) ||
+        transport::matches(
             native,
             {std::errc::connection_refused,
              std::errc::connection_reset,
