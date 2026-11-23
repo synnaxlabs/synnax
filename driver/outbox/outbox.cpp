@@ -269,13 +269,25 @@ x::errors::Error Outbox::next_tail() {
         return x::errors::NIL;
     }
     // Only a burst faster than the sync thread opens a segment here.
-    const auto key = this->next_key++;
+    const auto key = this->failed_key.has_value() && *this->failed_key > this->tail.key
+                       ? *this->failed_key
+                       : this->next_key++;
+    this->failed_key.reset();
     auto [writer, err] = this->open_writer(key);
-    if (err) return err;
+    if (err) {
+        this->fail_open(key);
+        return err;
+    }
     this->tail = {.key = key, .writer = writer};
     this->writers[key] = writer;
     this->segments.insert(key);
     return x::errors::NIL;
+}
+
+void Outbox::fail_open(const std::uint64_t key) {
+    // A failed open can leave the file, which remove_sent removes once it is sent.
+    this->segments.insert(key);
+    this->failed_key = key;
 }
 
 void Outbox::run() {
@@ -375,8 +387,13 @@ void Outbox::sync_once(
             this->tail.writer = nullptr;
             if (this->spare.has_value()) to_close.push_back(*this->spare);
             this->spare.reset();
-        } else if (!this->spare.has_value())
-            spare_key = this->next_key++;
+        } else if (!this->spare.has_value()) {
+            if (this->failed_key.has_value() && *this->failed_key > this->tail.key)
+                spare_key = this->failed_key;
+            else
+                spare_key = this->next_key++;
+            this->failed_key.reset();
+        }
         this->spare_wanted = false;
     }
     for (const auto &segment: to_close) {
@@ -399,7 +416,9 @@ void Outbox::sync_once(
         auto [writer, err] = this->open_writer(*spare_key);
         if (err) LOG(ERROR) << "[outbox] failed to open a segment: " << err;
         std::unique_lock lock(this->mu);
-        if (!err && *spare_key > this->tail.key) {
+        if (err)
+            this->fail_open(*spare_key);
+        else if (*spare_key > this->tail.key) {
             this->spare = Segment{.key = *spare_key, .writer = writer};
             this->writers[*spare_key] = writer;
             this->segments.insert(*spare_key);

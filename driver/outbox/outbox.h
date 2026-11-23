@@ -125,6 +125,9 @@ class Outbox {
     bool spare_wanted = false;
     /// @brief the key of the next new segment.
     std::uint64_t next_key = 0;
+    /// @brief the key of a segment that failed to open, which the next open tries
+    /// again, so a lasting fault does not leave a file for each try.
+    std::optional<std::uint64_t> failed_key;
     /// @brief the segments that left the tail, which the sync thread closes.
     std::vector<Segment> closing;
     /// @brief the position after the last sent call.
@@ -147,6 +150,8 @@ class Outbox {
     x::errors::Error push(pb::Call request, SetStatusDone done);
     /// @brief moves the tail to a new segment. Requires mu.
     x::errors::Error next_tail();
+    /// @brief records a segment that failed to open. Requires mu.
+    void fail_open(std::uint64_t key);
     void run();
     /// @brief waits for the retry interval after the number of failed sends.
     /// @returns false when the outbox stops.
