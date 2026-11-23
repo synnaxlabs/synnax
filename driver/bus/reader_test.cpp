@@ -311,6 +311,22 @@ TEST(Reader, DropsPartialFrameWhenIdle) {
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
 }
 
+/// @brief it should warn about a frame that the framing drops, and read the frames
+/// after it.
+TEST(Reader, ReadsFramesAfterInvalidFrame) {
+    Config cfg{synnax::icd::BinaryPayload{}};
+    cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
+    auto r = Reader(codec::framing::cobs(), cfg.create());
+    Memory t;
+    t.push(std::vector<std::uint8_t>{0x05, 0x01, 0x00, 0x01, 0x02, 0x07, 0x00});
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Dropped invalid data");
+    ASSERT_EQ(res.warning.description, "dropped a frame with invalid COBS bytes");
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
+}
+
 /// @brief it should return the error of the transport, and drop the bytes it holds.
 TEST(Reader, DropsBytesOnTransportError) {
     auto r = fixed();
