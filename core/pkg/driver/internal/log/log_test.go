@@ -635,6 +635,38 @@ var _ = Describe("ParseLine", func() {
 	})
 })
 
+var _ = Describe("Long lines", func() {
+	It("Should keep reading after a line longer than the scan buffer", func() {
+		r, w := io.Pipe()
+		buffer := &bytes.Buffer{}
+		core := zapcore.NewCore(
+			zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
+			zapcore.Lock(zapcore.AddSync(buffer)),
+			zapcore.DebugLevel,
+		)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			log.PipeToLogger(r, logger, nil, nil, nil)
+		}()
+		written := make(chan struct{})
+		go func() {
+			defer close(written)
+			_, _ = w.Write(
+				[]byte("I [mock] [opc] " + strings.Repeat("x", 200_000) + "\n"),
+			)
+			_, _ = w.Write([]byte("I [mock] [opc] after\n"))
+			_ = w.Close()
+		}()
+		Eventually(written).Should(BeClosed())
+		Eventually(done).Should(BeClosed())
+		Expect(buffer.String()).To(ContainSubstring(`"M":"after"`))
+	})
+})
+
 var _ = Describe("Logger caching", func() {
 	It("Should produce correct N field for repeated module names", func() {
 		entries := pipeAndCollect(nil, nil, nil,

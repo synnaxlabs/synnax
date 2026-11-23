@@ -115,17 +115,48 @@ func PipeToLogger(
 		startedOnce:  startedOnce,
 		onLoaded:     onLoaded,
 	}
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		f.forward(scanner.Bytes())
+	lines := bufio.NewReader(reader)
+	var readErr error
+	for {
+		var line []byte
+		if line, readErr = readLine(lines); readErr != nil {
+			break
+		}
+		f.forward(line)
 	}
 	if len(f.crashLines) > 0 {
 		f.driverLogger.Error(strings.Join(f.crashLines, "\n"))
 	}
-	if err := scanner.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
-		logger.Error("Error reading from std pipe", zap.Error(err))
+	if !errors.Is(readErr, io.EOF) && !errors.Is(readErr, os.ErrClosed) {
+		logger.Error("Error reading from std pipe", zap.Error(readErr))
 	}
 	return f.lastErr
+}
+
+// maxLineSize is the most bytes of a line that PipeToLogger forwards. It drops the rest
+// of a longer line, so a long line never stalls the reader and blocks the Driver.
+const maxLineSize = 64 * 1024
+
+// readLine reads the next line, without its newline, up to maxLineSize bytes. It
+// returns
+// the final unterminated line before the error that ends the stream.
+func readLine(r *bufio.Reader) ([]byte, error) {
+	var line []byte
+	for {
+		chunk, isPrefix, err := r.ReadLine()
+		if err != nil {
+			if len(line) > 0 {
+				return line, nil
+			}
+			return nil, err
+		}
+		if room := maxLineSize - len(line); room > 0 {
+			line = append(line, chunk[:min(room, len(chunk))]...)
+		}
+		if !isPrefix {
+			return line, nil
+		}
+	}
 }
 
 // forwarder holds the state of one PipeToLogger stream.
