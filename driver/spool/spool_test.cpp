@@ -425,6 +425,60 @@ TEST_F(SpoolTest, RefusesFramesBelowMinFree) {
     ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
 }
 
+/// @brief it should check the free space again within 64 MB of new frames after a
+/// remove lowers the bytes it holds.
+TEST_F(SpoolTest, ChecksFreeSpaceAfterRemove) {
+    auto free = std::make_shared<std::uint64_t>(1000ULL * 1000 * 1000 * 1000);
+    const auto spool = ASSERT_NIL_P(
+        Spool::open(
+            Config{
+                .dir = this->dir,
+                .min_free = 0,
+                .available = [free](const std::filesystem::path &) {
+                    return std::pair{*free, x::errors::NIL};
+                },
+            }
+        )
+    );
+    const x::telem::Frame frame(1, x::telem::Series(std::vector<float>(250 * 1000)));
+    {
+        const auto writer = spool->open_writer(header_of(1));
+        for (int i = 0; i < 70; i++)
+            ASSERT_NIL(writer->write(frame));
+    }
+    ASSERT_NIL(spool->remove(0));
+    *free = 0;
+    const auto writer = spool->open_writer(header_of(1));
+    int written = 0;
+    while (!writer->write(frame))
+        written++;
+    ASSERT_LT(written, 64);
+    ASSERT_MATCHES(writer->write(frame), FULL);
+}
+
+/// @brief it should stop a writer and count its frames when the free space is not
+/// known.
+TEST_F(SpoolTest, FailsWriterWhenFreeSpaceUnknown) {
+    const auto spool = ASSERT_NIL_P(
+        Spool::open(
+            Config{
+                .dir = this->dir,
+                .available = [](const std::filesystem::path &) {
+                    return std::pair<std::uint64_t, x::errors::Error>{
+                        0,
+                        x::errors::Error(BASE_ERROR, "no disk")
+                    };
+                },
+            }
+        )
+    );
+    const auto writer = spool->open_writer(header_of(1));
+    ASSERT_MATCHES(writer->write(frame_of(1)), BASE_ERROR);
+    ASSERT_MATCHES(writer->write(frame_of(2)), BASE_ERROR);
+    ASSERT_EQ(spool->refused(), 2);
+    ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
+}
+
 /// @brief it should refuse and count a frame larger than the record limit, and every
 /// frame after it.
 TEST_F(SpoolTest, RefusesFrameLargerThanRecordLimit) {

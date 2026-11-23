@@ -47,6 +47,10 @@ const x::errors::Error FULL = BASE_ERROR.sub("full");
 /// @brief a record passes its checksum but is not a valid header or frame.
 const x::errors::Error CORRUPT = BASE_ERROR.sub("corrupt");
 
+/// @returns the number of bytes free to this process on the disk of dir.
+std::pair<std::uint64_t, x::errors::Error>
+disk_available(const std::filesystem::path &dir);
+
 /// @brief the configuration of a spool.
 struct Config {
     /// @brief the directory that holds only the files of the spool.
@@ -56,6 +60,10 @@ struct Config {
     /// @brief the number of bytes the spool leaves free on the disk of dir. The spool
     /// is full when a frame would leave less, also below the cap.
     std::uint64_t min_free = DEFAULT_MIN_FREE;
+    /// @brief returns the number of bytes free for the spool on the disk of dir.
+    std::function<
+        std::pair<std::uint64_t, x::errors::Error>(const std::filesystem::path &dir)>
+        available = disk_available;
     /// @brief the maximum time between a write and the sync that follows it.
     x::telem::TimeSpan sync_interval = x::telem::SECOND;
     /// @brief gets the result of each sync of a segment and returns the result the
@@ -175,8 +183,8 @@ class Spool {
     std::uint64_t used = 0;
     /// @brief the most bytes used can grow to, from the free space at the last check.
     std::uint64_t limit = 0;
-    /// @brief the value of used that starts the next check of the free space.
-    std::uint64_t next_check = 0;
+    /// @brief the bytes reserved since the last check of the free space.
+    std::uint64_t unchecked = 0;
     std::uint64_t next_key = 0;
     /// @brief the byte size of each closed segment, by key.
     std::map<std::uint64_t, std::uint64_t> closed;

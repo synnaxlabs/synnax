@@ -271,6 +271,14 @@ std::pair<std::optional<Header>, x::errors::Error> read_header(journal::Reader &
 }
 }
 
+std::pair<std::uint64_t, x::errors::Error>
+disk_available(const std::filesystem::path &dir) {
+    std::error_code ec;
+    const auto info = std::filesystem::space(dir, ec);
+    if (ec) return {0, fs_error("failed to get free disk space", ec)};
+    return {info.available, x::errors::NIL};
+}
+
 Writer::Writer(Spool &spool, Header header, const std::uint64_t key):
     spool(spool), header(std::move(header)), key(key) {
     if (check(this->header).empty()) this->types = types_of(this->header);
@@ -473,18 +481,19 @@ std::filesystem::path Spool::offset_path(const std::uint64_t key) const {
 
 x::errors::Error Spool::reserve(const std::uint64_t bytes) {
     std::lock_guard lock(this->mu);
-    if (this->used + bytes > std::min(this->limit, this->next_check)) {
-        std::error_code ec;
-        const auto info = std::filesystem::space(this->cfg.dir, ec);
-        if (ec) return fs_error("failed to get free disk space", ec);
-        const auto spare = info.available > this->cfg.min_free
-                             ? info.available - this->cfg.min_free
+    if (this->unchecked + bytes > SPACE_CHECK_BYTES ||
+        this->used + bytes > this->limit) {
+        const auto [available, err] = this->cfg.available(this->cfg.dir);
+        if (err) return err;
+        const auto spare = available > this->cfg.min_free
+                             ? available - this->cfg.min_free
                              : 0;
         this->limit = std::min(this->cfg.cap, this->used + spare);
-        this->next_check = this->used + SPACE_CHECK_BYTES;
+        this->unchecked = 0;
     }
     if (this->used + bytes > this->limit) return FULL;
     this->used += bytes;
+    this->unchecked += bytes;
     return x::errors::NIL;
 }
 
