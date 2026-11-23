@@ -620,6 +620,19 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.getByLabelText("Fill")).toBeDefined();
     });
 
+    it("stays out of By state when the symbol turns static and back", async () => {
+      await openPainted({ variant: "actuator", states: [createState()] });
+      byState("Fill");
+      fireEvent.click(screen.getByText("Static"));
+      await waitFor(() =>
+        expect(screen.queryByLabelText("Fill while Base")).toBeNull(),
+      );
+      fireEvent.click(screen.getByText("Actuator"));
+      await screen.findAllByText("Active");
+      expect(screen.queryByLabelText("Fill while Base")).toBeNull();
+      expect(screen.getByLabelText("Fill")).toBeDefined();
+    });
+
     it("shows the paint of the whole drawing at the preview value", async () => {
       await openPainted({
         variant: "actuator",
