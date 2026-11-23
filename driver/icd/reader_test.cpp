@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <cmath>
 #include <cstdint>
 #include <map>
 #include <optional>
@@ -113,9 +112,8 @@ struct Config {
         this->channels.insert(other.channels.begin(), other.channels.end());
     }
 
-    [[nodiscard]] std::pair<Reader, x::errors::Error>
-    create(const codec::JSON::Options &json = {}) const {
-        return Reader::create(this->reads, this->ic, this->channels, json);
+    [[nodiscard]] std::pair<Reader, x::errors::Error> create() const {
+        return Reader::create(this->reads, this->ic, this->channels);
     }
 };
 
@@ -616,29 +614,5 @@ TEST(Reader, RejectsBindingTheDecoderRejects) {
         err.data,
         "message reading: field v: cannot write float values to string channels"
     );
-}
-
-/// @brief it should name each field of the last read that took NaN, and none after a
-/// read that returned an error.
-TEST(Reader, NamesFieldsThatTookNaN) {
-    auto e = reading();
-    e.bind(float_field("w"), channel(3, x::telem::FLOAT32_T));
-    auto r = ASSERT_NIL_P(e.create({.nan_filled = true}));
-    x::telem::Frame fr(3);
-    ASSERT_EQ(
-        ASSERT_NIL_P(r.read(bytes(R"({"v": 1.5, "w": "hot"})"), RECEIVED, fr)),
-        0U
-    );
-    ASSERT_EQ(fr.at<double>(2, 0), 1.5);
-    ASSERT_TRUE(std::isnan(fr.at<float>(3, 0)));
-    ASSERT_EQ(r.filled().size(), 1U);
-    ASSERT_EQ(r.filled()[0].binding, 1U);
-    ASSERT_OCCURRED_AS(r.filled()[0].error, x::errors::VALIDATION);
-    x::telem::Frame next(3);
-    ASSERT_OCCURRED_AS_P(
-        r.read(bytes("not json"), RECEIVED, next),
-        x::errors::VALIDATION
-    );
-    ASSERT_TRUE(r.filled().empty());
 }
 }

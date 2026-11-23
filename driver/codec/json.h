@@ -46,20 +46,15 @@ struct JSONMessage {
 /// samples. It is not safe for concurrent use.
 class JSON {
 public:
-    /// @brief Options changes how the decoder treats a value it cannot decode.
-    struct Options {
-        /// @brief nan_filled is true when a float field takes NaN for a value that is
-        /// missing or does not convert, in place of failing the document. A field with
-        /// a default still takes its default for a missing value.
-        bool nan_filled = false;
-    };
-
-    /// @brief Fill is a field of a decode that took NaN in place of its value.
-    struct Fill {
+    /// @brief Failure is a field that the last decode of its message could not decode.
+    struct Failure {
         /// @brief binding is the position of the field in the bindings of its message.
         std::size_t binding = 0;
-        /// @brief error is why the value did not convert, or NIL when the document has
-        /// no value for the field.
+        /// @brief missing is true when the document has no value for the field, and the
+        /// field has no default.
+        bool missing = false;
+        /// @brief error is why the field did not decode. It names the field, and also
+        /// the message when the decoder holds more than one.
         x::errors::Error error;
     };
 
@@ -148,9 +143,6 @@ private:
         std::optional<x::telem::Series> fallback;
         /// @brief generate, when set, appends a new sample in place of fallback.
         void (*generate)(x::telem::Series &dst) = nullptr;
-        /// @brief nan holds the NaN sample used for a value that the field cannot
-        /// decode, or nothing when such a value fails the document.
-        std::optional<x::telem::Series> nan;
 
         static std::pair<Field, x::errors::Error>
         create(const synnax::icd::JSONField &f, const x::telem::DataType &dt);
@@ -166,12 +158,11 @@ private:
         /// field.
         std::size_t first_value = 0;
         std::vector<x::telem::Series> samples;
-        /// @brief filled holds the fields of the last decode that took NaN.
-        std::vector<Fill> filled;
+        std::vector<Failure> failures;
 
-        /// @brief decodes the value of each field in values into samples.
-        x::errors::Error
-        decode(const std::vector<std::optional<std::string_view>> &values);
+        /// @brief decodes the value of each field in values into samples, and each
+        /// field that it cannot decode into failures.
+        void decode(const std::vector<std::optional<std::string_view>> &values);
     };
 
     Router router;
@@ -191,30 +182,30 @@ public:
     /// field of its message, or a field does not convert to the data type of its
     /// binding.
     static std::pair<JSON, x::errors::Error>
-    create(const std::vector<JSONMessage> &messages, const Options &opts);
+    create(const std::vector<JSONMessage> &messages);
 
     /// @brief finds the message that doc belongs to and decodes one sample for each of
-    /// its bindings into its samples.
+    /// its bindings into its samples. A field with no value and no default, or with a
+    /// value that does not convert, gets no sample and goes into its failures.
     /// @returns the index of the message in create order, or nothing when doc belongs
     /// to no message.
-    /// @returns VALIDATION when doc is not JSON, it meets two match rules, or a value
-    /// does not convert. A conversion error names the field, and also the message when
-    /// the decoder holds more than one. A field that takes NaN returns no error.
+    /// @returns VALIDATION when doc is not JSON, or it meets two match rules.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::string_view doc);
 
     /// @brief returns the samples of the last decode of message: one series for each
-    /// binding, in binding order, each holding one sample. They are unspecified after a
-    /// decode that does not return message.
+    /// binding, in binding order, each holding one sample, or none for a field in its
+    /// failures. They are unspecified after a decode that does not return message.
     [[nodiscard]] const std::vector<x::telem::Series> &
     samples(const std::size_t message) const {
         return this->messages[message].samples;
     }
 
-    /// @brief returns the fields of the last decode of message that took NaN, in
+    /// @brief returns the fields that the last decode of message could not decode, in
     /// binding order. They are unspecified after a decode that does not return message.
-    [[nodiscard]] const std::vector<Fill> &filled(const std::size_t message) const {
-        return this->messages[message].filled;
+    [[nodiscard]] const std::vector<Failure> &
+    failures(const std::size_t message) const {
+        return this->messages[message].failures;
     }
 };
 }

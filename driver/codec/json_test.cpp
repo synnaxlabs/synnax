@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
-#include <cmath>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -59,12 +58,22 @@ JSONMessage reading(const x::telem::DataType &dt) {
 /// channel of dt gives.
 template<typename F>
 x::errors::Error create_error(const x::telem::DataType &dt) {
-    return JSON::create({reading<F>(dt)}, {}).second;
+    return JSON::create({reading<F>(dt)}).second;
 }
 
-/// @brief returns a decoder of m that gives NaN for a float value it cannot decode.
-JSON nan_filled(const JSONMessage &m) {
-    return ASSERT_NIL_P(JSON::create({m}, {.nan_filled = true}));
+/// @brief returns a message named reading with integer fields v and w at /v and /w,
+/// each bound to an int64 channel.
+JSONMessage two_integers() {
+    const auto v = field<icd::IntegerJSONField>("v");
+    const auto w = field<icd::IntegerJSONField>("w");
+    return {
+        .name = "reading",
+        .payload = {.fields = {v, w}},
+        .bindings = {
+            {.field = v.key, .data_type = x::telem::INT64_T},
+            {.field = w.key, .data_type = x::telem::INT64_T},
+        },
+    };
 }
 
 /// @brief returns two messages that first and second match: other, with one field, and
@@ -118,7 +127,7 @@ void assert_decodes_without_allocating(
     const icd::JSONMatch &second,
     const std::string_view doc
 ) {
-    auto dec = ASSERT_NIL_P(JSON::create(routed(first, second), {}));
+    auto dec = ASSERT_NIL_P(JSON::create(routed(first, second)));
     ASSERT_EQ(ASSERT_NIL_P(dec.decode(doc)), std::size_t{1});
     const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
     for (int i = 0; i < 100; i++)
@@ -156,7 +165,7 @@ TEST(JSON, RejectsKindsThatDoNotConvert) {
 /// @brief it should replace the samples of a message on each decode.
 TEST(JSON, ReplacesSamplesOnEachDecode) {
     auto dec = ASSERT_NIL_P(
-        JSON::create({reading<icd::FloatJSONField>(x::telem::FLOAT64_T)}, {})
+        JSON::create({reading<icd::FloatJSONField>(x::telem::FLOAT64_T)})
     );
     ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1})")), std::size_t{0});
     ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 2})")), std::size_t{0});
@@ -166,7 +175,7 @@ TEST(JSON, ReplacesSamplesOnEachDecode) {
 /// @brief it should reject a document that is not JSON.
 TEST(JSON, RejectsDocumentThatIsNotJSON) {
     auto dec = ASSERT_NIL_P(
-        JSON::create({reading<icd::FloatJSONField>(x::telem::FLOAT64_T)}, {})
+        JSON::create({reading<icd::FloatJSONField>(x::telem::FLOAT64_T)})
     );
     const auto [message, err] = dec.decode("not json");
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
@@ -178,7 +187,7 @@ TEST(JSON, DecodesNowDefault) {
     auto m = reading<icd::TimestampJSONField>(x::telem::TIMESTAMP_T);
     std::get<icd::TimestampJSONField>(m.payload.fields[0])
         .default_ = icd::NowTimestampDefault{};
-    auto dec = ASSERT_NIL_P(JSON::create({m}, {}));
+    auto dec = ASSERT_NIL_P(JSON::create({m}));
     const auto before = x::telem::TimeStamp::now();
     ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), std::size_t{0});
     const auto stamp = dec.samples(0)[0].at<x::telem::TimeStamp>(0);
@@ -191,7 +200,7 @@ TEST(JSON, DecodesRandomDefault) {
     auto m = reading<icd::UuidJSONField>(x::telem::UUID_T);
     std::get<icd::UuidJSONField>(m.payload.fields[0])
         .default_ = icd::RandomUUIDDefault{};
-    auto dec = ASSERT_NIL_P(JSON::create({m}, {}));
+    auto dec = ASSERT_NIL_P(JSON::create({m}));
     ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), std::size_t{0});
     const auto first = dec.samples(0)[0].uuids()[0];
     ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), std::size_t{0});
@@ -203,7 +212,7 @@ TEST(JSON, DecodesRandomDefault) {
 TEST(JSON, RejectsJSONDefaultThatIsNotJSON) {
     auto m = reading<icd::JSONJSONField>(x::telem::JSON_T);
     std::get<icd::JSONJSONField>(m.payload.fields[0]).default_ = "{";
-    const auto err = JSON::create({m}, {}).second;
+    const auto err = JSON::create({m}).second;
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
     ASSERT_EQ(err.data, "message reading: field v: default: not valid JSON");
 }
@@ -238,56 +247,52 @@ TEST(JSON, DecodesWithoutAllocatingByPresence) {
     );
 }
 
-/// @brief it should give a missing float NaN and name its field with no error, and name
-/// no field on the next decode that has the value.
-TEST(JSON, FillsMissingFloatWithNaN) {
-    auto dec = nan_filled(reading<icd::FloatJSONField>(x::telem::FLOAT32_T));
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), std::size_t{0});
-    ASSERT_TRUE(std::isnan(dec.samples(0)[0].at<float>(0)));
-    ASSERT_EQ(dec.filled(0).size(), 1U);
-    ASSERT_EQ(dec.filled(0)[0].binding, 0U);
-    ASSERT_NIL(dec.filled(0)[0].error);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 2})")), std::size_t{0});
-    ASSERT_EQ(dec.samples(0)[0].at<float>(0), 2.0F);
-    ASSERT_TRUE(dec.filled(0).empty());
+/// @brief it should give a field whose value does not convert no sample, list it in the
+/// failures of its message, and decode the other fields.
+TEST(JSON, ListsFieldThatDoesNotConvert) {
+    auto dec = ASSERT_NIL_P(JSON::create({two_integers()}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1.5, "w": 2})")), std::size_t{0});
+    ASSERT_TRUE(dec.samples(0)[0].empty());
+    ASSERT_EQ(dec.samples(0)[1].at<std::int64_t>(0), 2);
+    ASSERT_EQ(dec.failures(0).size(), 1U);
+    ASSERT_EQ(dec.failures(0)[0].binding, 0U);
+    ASSERT_FALSE(dec.failures(0)[0].missing);
+    ASSERT_OCCURRED_AS(dec.failures(0)[0].error, x::errors::VALIDATION);
+    ASSERT_EQ(dec.failures(0)[0].error.data, "field v: 1.5 is not an integer");
 }
 
-/// @brief it should give a float that does not convert NaN, and keep the conversion
-/// error.
-TEST(JSON, FillsUnconvertibleFloatWithNaN) {
-    auto dec = nan_filled(reading<icd::FloatJSONField>(x::telem::FLOAT64_T));
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": "hot"})")), std::size_t{0});
-    ASSERT_TRUE(std::isnan(dec.samples(0)[0].at<double>(0)));
-    ASSERT_EQ(dec.filled(0).size(), 1U);
-    ASSERT_OCCURRED_AS(dec.filled(0)[0].error, x::errors::VALIDATION);
-    ASSERT_EQ(dec.filled(0)[0].error.data, R"(unknown enum label "hot")");
+/// @brief it should list a field with no value and no default as missing.
+TEST(JSON, ListsMissingField) {
+    auto dec = ASSERT_NIL_P(JSON::create({two_integers()}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1})")), std::size_t{0});
+    ASSERT_TRUE(dec.samples(0)[1].empty());
+    ASSERT_EQ(dec.failures(0).size(), 1U);
+    ASSERT_EQ(dec.failures(0)[0].binding, 1U);
+    ASSERT_TRUE(dec.failures(0)[0].missing);
+    ASSERT_OCCURRED_AS(dec.failures(0)[0].error, x::errors::VALIDATION);
+    ASSERT_EQ(dec.failures(0)[0].error.data, "field w: no value at /w");
 }
 
-/// @brief it should give a missing float its default and not NaN.
-TEST(JSON, PrefersDefaultOfMissingFloatOverNaN) {
-    auto m = reading<icd::FloatJSONField>(x::telem::FLOAT64_T);
-    std::get<icd::FloatJSONField>(m.payload.fields[0]).default_ = 5.0;
-    auto dec = nan_filled(m);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), std::size_t{0});
-    ASSERT_EQ(dec.samples(0)[0].at<double>(0), 5.0);
-    ASSERT_TRUE(dec.filled(0).empty());
+/// @brief it should list no failures for a decode after one that had them.
+TEST(JSON, ClearsFailuresOnEachDecode) {
+    auto dec = ASSERT_NIL_P(JSON::create({two_integers()}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1.5, "w": 2})")), std::size_t{0});
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1, "w": 2})")), std::size_t{0});
+    ASSERT_TRUE(dec.failures(0).empty());
+    ASSERT_EQ(dec.samples(0)[0].at<std::int64_t>(0), 1);
 }
 
-/// @brief it should give a float with a default NaN when its value does not convert.
-TEST(JSON, FillsUnconvertibleFloatWithDefaultWithNaN) {
-    auto m = reading<icd::FloatJSONField>(x::telem::FLOAT64_T);
-    std::get<icd::FloatJSONField>(m.payload.fields[0]).default_ = 5.0;
-    auto dec = nan_filled(m);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": "hot"})")), std::size_t{0});
-    ASSERT_TRUE(std::isnan(dec.samples(0)[0].at<double>(0)));
-    ASSERT_EQ(dec.filled(0).size(), 1U);
-}
-
-/// @brief it should still reject a document with no value for an integer channel.
-TEST(JSON, RejectsMissingIntegerWhenNaNFilled) {
-    auto dec = nan_filled(reading<icd::IntegerJSONField>(x::telem::INT64_T));
-    const auto [message, err] = dec.decode("{}");
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "field v: no value at /v");
+/// @brief it should name the message of a failure when the decoder holds more than one.
+TEST(JSON, NamesMessageOfFailure) {
+    auto dec = ASSERT_NIL_P(JSON::create(routed(present("/other"), present("/temp"))));
+    ASSERT_EQ(
+        ASSERT_NIL_P(dec.decode(R"({"temp": 40, "count": 1.5, "state": "run"})")),
+        std::size_t{1}
+    );
+    ASSERT_EQ(dec.failures(1).size(), 1U);
+    ASSERT_EQ(
+        dec.failures(1)[0].error.data,
+        "message status: field count: 1.5 is not an integer"
+    );
 }
 }
