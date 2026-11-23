@@ -566,6 +566,30 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should drop a whole picked topic when any of its fields is unticked", async () => {
+      const { dev } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      const topic = {
+        topic: "plant/valve/set",
+        payload: '{"setpoint": 1, "mode": "auto"}',
+        fields: [
+          { pointer: "/setpoint", type: "number", sample: "1" },
+          { pointer: "/mode", type: "string", sample: '"auto"' },
+        ],
+        retained: true,
+      };
+      await scanner.answer({ data: { topics: [topic], truncated: false } });
+      scanner.close();
+      const box = (name: string) =>
+        dialog.getByRole<HTMLInputElement>("checkbox", { name: `Record ${name}` });
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record setpoint" }));
+      dialog.getByText("1 topic selected");
+      fireEvent.click(box("mode"));
+      expect([box("setpoint").checked, box("mode").checked]).toEqual([false, false]);
+      expect(dialog.queryByText("1 topic selected")).toBeNull();
+    });
+
     it("should add a topic by name only once a message format is picked", async () => {
       const setpoint = createField("setpoint", "float");
       const mode = createField("mode", "string", { default: "auto" });
