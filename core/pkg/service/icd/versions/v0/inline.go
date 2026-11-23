@@ -110,7 +110,7 @@ func LiftMessage(
 		key := uuid.New()
 		field, dataType, changes := liftField(old, isIndex, ch, JSONBaseField{
 			Key:     key,
-			Name:    fieldName(names, old.Name, old.Pointer),
+			Name:    FieldName(names, old.Name, old.Pointer),
 			Scale:   1,
 			Pointer: old.Pointer,
 		})
@@ -152,11 +152,11 @@ func UniqueName(taken set.Set[string], name string) string {
 	return unique
 }
 
-// fieldName returns name, or else a name made from pointer, apart from the names in
+// FieldName returns name, or else a name made from pointer, apart from the names in
 // taken, and adds it to taken. The tokens of pointer join with "_", and the whole
 // document gives "value". A taken name gets the lowest free suffix "_n", from 2. Two
 // names clash when they are the same as channel names. taken holds channel names.
-func fieldName(taken set.Set[string], name, pointer string) string {
+func FieldName(taken set.Set[string], name, pointer string) string {
 	base := lo.CoalesceOrEmpty(name, pointerName(pointer))
 	unique := base
 	for n := 2; taken.Contains(channelName(unique)); n++ {
