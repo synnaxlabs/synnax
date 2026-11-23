@@ -59,6 +59,12 @@ export type SinkSpec<V extends string> = z.infer<typeof sinkSpecZ> & {
   valueType: V;
 };
 
+/**
+ * How bounds that end at the newest sample move as samples arrive: rolling bounds keep
+ * their span, and growing bounds keep their start.
+ */
+export type Edge = "rolling" | "growing";
+
 export interface ValueProps {
   /**
    * The span of x the caller shows. A source that reads by span returns data for it,
@@ -72,6 +78,11 @@ export interface ValueProps {
   points?: number;
   /** True when every sample must fall inside the bounds of the returned series. */
   extremesKept?: boolean;
+  /**
+   * The span of x the caller draws. A source that reads by span fetches no tiles wholly
+   * outside it, but may return data that crosses its edges.
+   */
+  span?: bounds.Bounds;
 }
 
 export interface Telem {
@@ -95,11 +106,8 @@ export interface Result<V> {
   aggregation?: Aggregation;
   /** True when the samples of each series in data ascend. */
   sorted?: boolean;
-  /**
-   * True when the bounds in data end at the newest sample and span a window that moves
-   * as samples arrive.
-   */
-  rolling?: boolean;
+  /** Set when the bounds in data end at the newest sample. */
+  edge?: Edge;
   /** The time of the newest sample. */
   time?: TimeStamp;
   /**
@@ -199,14 +207,18 @@ export type StringSink = Sink<string>;
 export const stringSinkSpecZ = sinkSpecZ.extend({ valueType: z.literal("string") });
 export type StringSinkSpec = z.infer<typeof stringSinkSpecZ>;
 
-export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
+export abstract class Base<P extends z.ZodType> implements observe.Observable<void> {
+  protected readonly observer = new observe.Observer<void>();
   private props_: z.infer<P> | undefined = undefined;
   private readonly uProps_: unknown | undefined = undefined;
   abstract schema: P;
 
   constructor(props: unknown) {
-    super();
     this.uProps_ = props;
+  }
+
+  onChange(handler: observe.Handler<void>): destructor.Destructor {
+    return this.observer.onChange(handler);
   }
 
   get props(): z.infer<P> {
@@ -248,7 +260,7 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
     return { ...result, data: this.transform(result.data) };
   }
 
-  onChange(handler: () => void): destructor.Destructor {
+  override onChange(handler: () => void): destructor.Destructor {
     return this.source.onChange(() => {
       if (this.shouldNotify(this.source.value())) handler();
     });
@@ -294,7 +306,7 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
     return { data: this.transform(data), status: worst, time, appended };
   }
 
-  onChange(handler: () => void): destructor.Destructor {
+  override onChange(handler: () => void): destructor.Destructor {
     const destructors = Object.values(this.sources).map((source) =>
       source.onChange(() => {
         if (this.shouldNotify()) handler();

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -18,7 +17,7 @@ import {
   ZERO_PROPERTIES as BASE_ZERO_PROPERTIES,
 } from "@/feature/opcua/device/types/v0";
 
-export const VERSION = "1.0.0";
+const VERSION = "1.0.0";
 
 export const readZ = z.object({
   indexes: z.array(channel.keyZ).default(() => []),
@@ -41,16 +40,11 @@ export const ZERO_PROPERTIES: Properties = {
   version: VERSION,
 };
 
-export const PROPERTIES_MIGRATION_NAME = "hardware.opc.device.properties";
-
-export const propertiesMigration = migrate.createMigration<BaseProperties, Properties>({
-  name: PROPERTIES_MIGRATION_NAME,
-  migrate: (p) => {
-    const read = p.read;
-    return {
-      ...p,
-      version: VERSION,
-      read: { indexes: read.index === 0 ? [] : [read.index], channels: read.channels },
-    };
+export const propertiesMigration = (p: BaseProperties): Properties => ({
+  ...p,
+  version: VERSION,
+  read: {
+    indexes: p.read.index === 0 ? [] : [p.read.index],
+    channels: p.read.channels,
   },
 });

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
-import { array, TimeStamp, unique } from "@synnaxlabs/x";
+import { array, map, TimeStamp, unique } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { Session } from "@/session";
@@ -37,11 +37,7 @@ export const forest = (ranges: ranger.Range[]): Forest => {
   const children = new Map<ranger.Key, ranger.Range[]>();
   for (const r of ranges)
     if (r.parent == null || !keys.has(r.parent)) roots.push(r);
-    else {
-      const siblings = children.get(r.parent) ?? [];
-      siblings.push(r);
-      children.set(r.parent, siblings);
-    }
+    else map.getOrInsert(children, r.parent, () => []).push(r);
   return { roots, children };
 };
 
@@ -100,8 +96,10 @@ export const useGroups = (): Groups => {
     .sort(latestEndFirst);
   const upcoming = Ranger.useNextRanges(STAGES, at);
   const crossing = Ranger.nextCrossing(STAGES, upcoming, at);
-  const now = useNow(() => crossing);
-  if (crossing != null && !now.before(crossing)) setAt(now);
+  // A new `at` restarts both reads, so crossings wait for the reads in flight to land.
+  // Otherwise crossings that come faster than a read keep the lists from ever landing.
+  const now = useNow(() => (reading ? null : crossing));
+  if (!reading && crossing != null && !now.before(crossing)) setAt(now);
   const favoriteKeys = Session.Range.useSelectFavoriteKeys();
   const { data: favoriteData } = Ranger.useResultMultiple(
     favoriteKeys.length === 0 ? null : { keys: favoriteKeys },

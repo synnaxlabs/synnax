@@ -9,6 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,7 +19,7 @@ import { createActiveState } from "@/platform/project/testutil";
 import { renderVisible, select } from "@/platform/selector/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
-import { assertDefined, createConsoleWrapper, resolveFocusedTab } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab } from "@/testutil";
 
 const roles = new RoleClients(client);
 

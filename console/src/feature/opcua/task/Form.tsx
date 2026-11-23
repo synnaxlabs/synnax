@@ -11,7 +11,7 @@ import "@/feature/opcua/task/Task.css";
 
 import { channel, DisconnectedError, status, type Synnax } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Haul } from "@synnaxlabs/lyra/haul";
@@ -22,7 +22,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, id, primitive, TimeSpan } from "@synnaxlabs/x";
+import { deep, id, primitive, strings, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import { Browser } from "@/feature/opcua/device/Browser";
@@ -35,7 +35,7 @@ import {
 import { use } from "@/feature/opcua/device/queries";
 import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import { useNoneSelected } from "@/feature/opcua/device/Select";
-import { type Device } from "@/feature/opcua/device/types";
+import type { Device } from "@/feature/opcua/device/types";
 import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
 import { CSV } from "@/feature/opcua/task/csv";
 import {
@@ -263,7 +263,7 @@ const findVariables = async (
       device.rack,
       {
         type: BROWSE_VARIABLES_COMMAND_TYPE,
-        args: { connection: device.properties.connection, node_id: folder.nodeId },
+        args: { device: device.key, node_id: folder.nodeId },
         schema: browseVariablesResponseZ,
         timeout: SEARCH_TIMEOUT,
       },
@@ -296,7 +296,7 @@ const describeMissing = ({ truncated, skipped }: Search): string | null => {
   const count = skipped.length;
   if (count > 0)
     notes.push(
-      `The server did not browse ${count} ${count === 1 ? "object" : "objects"}, so their variables are missing. First failure: ${skipped[0]}`,
+      `The server did not browse ${strings.count(count, "object")}, so their variables are missing. First failure: ${skipped[0]}`,
     );
   return notes.length === 0 ? null : notes.join(" ");
 };
@@ -394,16 +394,15 @@ const ChannelList = <C extends Channel>({
         });
         return;
       }
-      const noun = count === 1 ? "variable" : "variables";
       addStatus({
         key,
         variant: "success",
         name,
-        message: `Found ${count} new ${noun}`,
+        message: `Found ${strings.count(count, "new variable")}`,
       });
       const source = name === "" ? `${folders.length} folders` : name;
       const confirmed = await confirm({
-        message: `Add ${count} ${noun} from ${source}?`,
+        message: `Add ${strings.count(count, "variable")} from ${source}?`,
         description: missing ?? NAMING_NOTE,
         confirm: { label: "Add", variant: "success" },
       });

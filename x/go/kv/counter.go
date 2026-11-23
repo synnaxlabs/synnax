@@ -12,6 +12,7 @@ package kv
 import (
 	"context"
 	"encoding/binary"
+	"sync"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/x/errors"
@@ -22,8 +23,10 @@ import (
 // key-value store. AtomicInt64Counter is safe for concurrent use. To create a new
 // AtomicInt64Counter, call NewCounter.
 type AtomicInt64Counter struct {
-	db    Writer
-	key   []byte
+	db  Writer
+	key []byte
+	// mu serializes Add so that values persist in increment order.
+	mu    sync.Mutex
 	value atomic.Int64
 }
 
@@ -52,13 +55,17 @@ func NewCounter(
 func (c *AtomicInt64Counter) Value() int64 { return c.value.Load() }
 
 // Add increments the counter by the given delta. Returns the new counter value as well
-// as any errors encountered while flushing the counter to storage.
+// as any errors encountered while flushing the counter to storage. The counter does
+// not change if the flush fails.
 func (c *AtomicInt64Counter) Add(ctx context.Context, delta int64) (int64, error) {
-	next := c.value.Add(delta)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	next := c.value.Load() + delta
 	var buf [8]byte
 	binary.LittleEndian.PutUint64(buf[:], uint64(next))
 	if err := c.db.Set(ctx, c.key, buf[:]); err != nil {
 		return 0, err
 	}
+	c.value.Store(next)
 	return next, nil
 }

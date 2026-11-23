@@ -9,15 +9,18 @@
 
 import "@/platform/icd/Fields.css";
 
-import { type icd } from "@synnaxlabs/client";
+import type { icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, payload, type record, uuid } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
+import { EnumValues } from "@/platform/icd/EnumValues";
+import { binaryOptionsOf, numberOptionsOf } from "@/platform/icd/number";
+import { Optional, Options } from "@/platform/icd/Options";
 
 type Field = icd.BinaryField | icd.TextField | icd.JSONField;
 type Encoding = "binary" | icd.TextFieldType | "json";
@@ -35,11 +38,26 @@ const encodingOf = (field: Field): Encoding => {
 /** Marks an absent multiplexor in a select cell. */
 const NONE = "none";
 
-type Render = "text" | "number" | "byteOrder" | "type" | "jsonType" | "multiplexor";
+/** Renders a cell that edits its field through the form, given the field's path. */
+type Cell<F extends Field> = (
+  field: F,
+  path: deep.Path<F>,
+  props: Input.TableCellProps<string>,
+) => ReactElement;
+
+type Render<F extends Field> =
+  | "text"
+  | "number"
+  | "default"
+  | "byteOrder"
+  | "type"
+  | "jsonType"
+  | "multiplexor"
+  | Cell<F>;
 
 interface Column<F extends Field> {
   name: string;
-  render: Render;
+  render: Render<F>;
   /** The column's width in rem. Omitted, it shares what the others leave. */
   width?: number;
   get(field: F): Input.TableCell;
@@ -102,6 +120,35 @@ const multiplexValues: Column<icd.BinaryField> = {
 
 const conversion = <F extends Field>(): Column<F>[] => [scale(), offset(), units()];
 
+/** @returns the float that text names, or null when it names none. */
+const toFloat = (text: string): number | null => {
+  const value = Number(text);
+  return Number.isNaN(value) && text !== "NaN" ? null : value;
+};
+
+/**
+ * Sets the default that cell text names, or removes it when the text is blank. Text
+ * that is not a number of the field's kind stays as typed: the form holds it, and Check
+ * marks it as not valid.
+ */
+const withDefault = <F extends icd.BinaryField | icd.TextField>(
+  field: F,
+  text: string,
+): F => {
+  if (text === "") return { ...field, default: undefined };
+  const float = !("kind" in field) || field.kind === "float";
+  return { ...field, default: float ? (toFloat(text) ?? text) : text };
+};
+
+/** The default as text, empty when the field has none. */
+const defaultColumn = <F extends icd.BinaryField | icd.TextField>(): Column<F> => ({
+  name: "Default",
+  render: "default",
+  width: 16,
+  get: (f) => (f.default == null ? "" : String(f.default)),
+  set: (f, cell) => withDefault(f, String(cell).trim()),
+});
+
 /** The kinds a binary field can hold. */
 type NumberKind = Extract<payload.Kind, "unsigned" | "integer" | "float">;
 
@@ -141,17 +188,58 @@ const JSON_TYPE_NAMES: Record<JSONType, string> = {
 const jsonTypeOf = (field: icd.JSONField): JSONType =>
   field.type === "timestamp" ? field.timeFormat : field.type;
 
-/** Only a number field scales, so a field that stops being one drops its scaling. */
+/** A binary field that becomes another kind keeps a default the kind holds exactly. */
+const withBinaryKind = (field: icd.BinaryField, kind: NumberKind): icd.BinaryField => {
+  const options = binaryOptionsOf(field, kind);
+  switch (options.type) {
+    case "float":
+      return { ...field, kind: options.type, default: options.default };
+    case "integer":
+      return { ...field, kind: options.type, default: options.default };
+    case "unsigned":
+      return { ...field, kind: options.type, default: options.default };
+  }
+};
+
+/**
+ * Only a number field scales, so a field that stops being one drops its scaling. A
+ * number field that becomes another number kind keeps each mapping and the default
+ * that the new kind holds exactly.
+ */
 const withJSONType = (field: icd.JSONField, type: JSONType): icd.JSONField => {
   const { key, name, pointer, units } = field;
   const base = { key, name, pointer, units, scale: 1, offset: 0 };
-  if (isTimeFormat(type)) return { ...base, type: "timestamp", timeFormat: type };
+  if (isTimeFormat(type))
+    return {
+      ...base,
+      type: "timestamp",
+      timeFormat: type,
+      // The default holds a time, not its encoding, so it outlives a format change.
+      default: field.type === "timestamp" ? field.default : undefined,
+    };
   if (isNumberKind(type)) {
     const { scale, offset, min, max } = field;
-    return { ...base, scale, offset, min, max, type, enumValues: [] };
+    return { ...base, scale, offset, min, max, ...numberOptionsOf(field, type) };
   }
   if (type === "string" || type === "boolean") return { ...base, type, enumValues: [] };
   return { ...base, type };
+};
+
+/** The cell holds the field's key, and its dialog edits the field. */
+const options: Column<icd.JSONField> = {
+  name: "Options",
+  render: (field, path, { preview, variant, "aria-label": ariaLabel }) => (
+    <Options
+      path={path}
+      field={field}
+      preview={preview}
+      variant={variant}
+      aria-label={ariaLabel}
+    />
+  ),
+  width: 30,
+  get: ({ key }) => key,
+  set: (f) => f,
 };
 
 const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
@@ -183,9 +271,10 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       render: "type",
       width: 20,
       get: ({ kind }) => kind,
-      set: (f, cell) => ({ ...f, kind: cell as NumberKind }),
+      set: (f, cell) => withBinaryKind(f, cell as NumberKind),
     },
     ...conversion<icd.BinaryField>(),
+    defaultColumn(),
     multiplexor,
     multiplexValues,
   ],
@@ -199,6 +288,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => ({ ...f, position: Number(cell) }),
     },
     ...conversion<icd.DelimitedTextField>(),
+    defaultColumn<icd.DelimitedTextField>(),
   ],
   tagged: [
     name(),
@@ -210,6 +300,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => ({ ...f, tag: String(cell) }),
     },
     ...conversion<icd.TaggedTextField>(),
+    defaultColumn<icd.TaggedTextField>(),
   ],
   json: [
     name(),
@@ -227,6 +318,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => withJSONType(f, cell as JSONType),
     },
     ...conversion<icd.JSONField>(),
+    options,
   ],
 };
 
@@ -293,7 +385,7 @@ const fieldsFromRows = (
   );
 
 /** A change to one of these picks a new union member, so it replaces the field. */
-const DISCRIMINATORS = ["encoding", "type"] as const;
+const DISCRIMINATORS = ["encoding", "type", "kind"] as const;
 
 /**
  * Writes each changed property of a field as its own edit, so another client's edit to
@@ -345,13 +437,30 @@ const renderColumn = (
   column: Column<Field>,
   index: number,
   fields: Field[],
+  path: deep.Target<Field[]>,
 ): ReactElement<Input.TableColumnProps> => {
   const { name, render, width } = column;
+  if (typeof render === "function")
+    return (
+      <Input.TableColumn key={index} name={name} width={width} type="string">
+        {(props) => {
+          const field = fields.find(({ key }) => key === props.value);
+          if (field == null) throw new Error(`no field has the key ${props.value}`);
+          return render(field, deep.widen(path)[field.key], props);
+        }}
+      </Input.TableColumn>
+    );
   switch (render) {
     case "number":
       return <Input.TableColumn key={index} name={name} width={width} />;
     case "text":
       return <Input.TableColumn key={index} name={name} width={width} type="string" />;
+    case "default":
+      return (
+        <Input.TableColumn key={index} name={name} width={width} type="string">
+          {(props) => <Input.Text {...props} placeholder="None" onlyChangeOnBlur />}
+        </Input.TableColumn>
+      );
     case "type":
       return selectColumn(column, index, "type", NUMBER_KIND_NAMES);
     case "jsonType":
@@ -415,9 +524,10 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
         createRow={createRow}
         resourceName="field"
         rowLabel={(i) => (i + 1).toString()}
+        rowKey={(i) => own[i].key}
         preview={ctx.mode === "preview"}
       >
-        {columns.map((column, i) => renderColumn(column, i, fields))}
+        {columns.map((column, i) => renderColumn(column, i, fields, path))}
       </Input.Table>
       {helpText != null && (
         <Input.HelpText variant={status?.variant}>{helpText}</Input.HelpText>
@@ -440,6 +550,18 @@ export const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null =
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
+interface ScaleControlProps extends Input.Control<number> {
+  offset: deep.Target<number>;
+}
+
+/** The scale, with the offset beside it in the same control. */
+const ScaleControl = ({ offset, ...rest }: ScaleControlProps): ReactElement => (
+  <div className={CSS.BE("icd-fields", "scale")}>
+    <Input.Numeric {...rest} />
+    <Form.NumericField path={offset} label="Offset" padHelpText={false} />
+  </div>
+);
+
 export interface JSONFieldProps {
   /** The form path of the field. */
   path: deep.Path<icd.JSONField>;
@@ -447,7 +569,10 @@ export interface JSONFieldProps {
   actions?: ReactNode;
 }
 
-/** Edits one field of a JSON message: its name, pointer, type, and conversion. */
+/**
+ * Edits one field of a JSON message: its name, pointer, type, and conversion, then its
+ * default and enum mapping when its kind has them.
+ */
 export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const field = Form.useFieldValue(path);
@@ -482,11 +607,14 @@ export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
       </Input.Item>
       {isNumberKind(type) && (
         <>
-          <Form.NumericField path={path.scale} label="Scale" padHelpText={false} />
-          <Form.NumericField path={path.offset} label="Offset" padHelpText={false} />
+          <Form.Field<number> path={path.scale} label="Scale" padHelpText={false}>
+            {(p) => <ScaleControl {...p} offset={path.offset} />}
+          </Form.Field>
+          <Form.TextField path={path.units} label="Units" padHelpText={false} />
         </>
       )}
-      <Form.TextField path={path.units} label="Units" padHelpText={false} />
+      <Optional path={path} field={field} />
+      <EnumValues path={path} label="Enum mapping" />
     </Form.Section>
   );
 };

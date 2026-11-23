@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type deep } from "@synnaxlabs/x";
+import type { deep } from "@synnaxlabs/x";
 import { useEffect } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { useContext } from "@/form/Context";
 

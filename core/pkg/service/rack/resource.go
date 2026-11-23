@@ -10,9 +10,11 @@
 package rack
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -37,6 +39,16 @@ func ResourceIDs(keys []Key) []resource.ID {
 // ResourceIDsFromRacks returns the resource ID of each rack.
 func ResourceIDsFromRacks(racks []Rack) []resource.ID {
 	return lo.Map(racks, func(r Rack, _ int) resource.ID { return r.ResourceID() })
+}
+
+// Dependents returns the ID of every record in snap that references the rack with
+// key: its status, the devices and tasks on it, and the file items it reads.
+func (s *Service) Dependents(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key Key,
+) ([]resource.ID, error) {
+	return resource.Dependents(ctx, snap, s.table, key)
 }
 
 // KeyFromResourceID parses the key of a rack resource ID. A malformed key is a

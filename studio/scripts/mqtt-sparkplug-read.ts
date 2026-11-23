@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { openDiscover, pickValues, submitDiscover } from "./common/mqtt";
+import { openDiscover } from "./common/mqtt";
+import { pickValues, submitPicks } from "./common/picker";
 import { MQTT, serverTaskScript } from "./common/server";
 
 export const driver = true;
@@ -32,6 +33,6 @@ export default serverTaskScript(MQTT, {
     await session.hold(1000);
     await session.click(node, { text: true });
     await pickValues(session, dialog, ["temperature", "speed"]);
-    await submitDiscover(session, dialog, form, "Add 2 tags");
+    await submitPicks(session, dialog, form, "Add 2 tags");
   },
 });

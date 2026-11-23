@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type RenderResult } from "@testing-library/react";
-import { type ReactNode } from "react";
+import type { RenderResult } from "@testing-library/react";
+import type { ReactNode } from "react";
 
 import { Modals } from "@/platform/modals";
 import {

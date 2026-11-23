@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Persist } from "@/session/persist";
+import type { Persist } from "@/session/persist";
 
 /**
  * How persistence splits a window-keyed slice: the windows record splits one entry per

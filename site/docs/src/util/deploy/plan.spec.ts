@@ -56,38 +56,59 @@ describe("plan", () => {
     expect(ref).toEqual("core/v0.62.1");
   });
 
-  it.each(["0.60", "0.61"])("should build %s from its docs branch", async (train) => {
-    const branches = { [`release/${train}`]: [`core/v${NEWEST[train]}`] };
-    const [{ ref }] = await plan([train], {}, lookups(["0.61", "0.60"], branches));
-    expect(ref).toEqual(`release/docs-${train}`);
+  it.each(["0.60", "0.61"])(
+    "should reject frozen train %s with no ref",
+    async (train) => {
+      await expect(
+        plan([train], {}, lookups(["0.62", "0.61", "0.60"])),
+      ).rejects.toThrow(`Train ${train} is frozen, so it builds only from a given ref`);
+    },
+  );
+
+  it("should leave a frozen train out of previous", async () => {
+    const deployments = await plan(
+      ["next", "latest", "previous"],
+      {},
+      lookups(["0.62", "0.61", "0.60"]),
+    );
+    expect(deployments.map(({ version }) => version)).toEqual(["next", "0.62"]);
+  });
+
+  it("should skip a frozen released train", async () => {
+    const deployments = await plan(
+      ["next", "latest"],
+      { released: "0.61" },
+      lookups(["0.62", "0.61", "0.60"]),
+    );
+    expect(deployments.map(({ version }) => version)).toEqual(["next", "0.62"]);
   });
 
   it("should deploy a version once", async () => {
-    const deployments = await plan(["latest", "0.61"], {}, lookups(["0.61"]));
-    expect(deployments.map(({ version }) => version)).toEqual(["0.61"]);
+    const deployments = await plan(["latest", "0.63"], {}, lookups(["0.63"]));
+    expect(deployments.map(({ version }) => version)).toEqual(["0.63"]);
   });
 
   it("should add no previous train while only one exists", async () => {
-    const deployments = await plan(["latest", "previous"], {}, lookups(["0.61"]));
-    expect(deployments.map(({ version }) => version)).toEqual(["0.61"]);
+    const deployments = await plan(["latest", "previous"], {}, lookups(["0.63"]));
+    expect(deployments.map(({ version }) => version)).toEqual(["0.63"]);
   });
 
   it("should add a released train that has a site", async () => {
     const deployments = await plan(
       ["next", "latest"],
-      { released: "0.60" },
-      lookups(["0.61", "0.60"]),
+      { released: "0.62" },
+      lookups(["0.63", "0.62"]),
     );
-    expect(deployments.map(({ version }) => version)).toEqual(["next", "0.61", "0.60"]);
+    expect(deployments.map(({ version }) => version)).toEqual(["next", "0.63", "0.62"]);
   });
 
   it("should skip a released train with no site", async () => {
     const deployments = await plan(
       ["next", "latest"],
-      { released: "0.62" },
-      lookups(["0.61", "0.60"]),
+      { released: "0.64" },
+      lookups(["0.63", "0.62"]),
     );
-    expect(deployments.map(({ version }) => version)).toEqual(["next", "0.61"]);
+    expect(deployments.map(({ version }) => version)).toEqual(["next", "0.63"]);
   });
 
   it("should build one version from a given ref", async () => {
@@ -98,13 +119,13 @@ describe("plan", () => {
 
   it("should reject a ref with more than one version", async () => {
     await expect(
-      plan(["next", "latest"], { ref: "abc123" }, lookups(["0.61"])),
+      plan(["next", "latest"], { ref: "abc123" }, lookups(["0.63"])),
     ).rejects.toThrow("A ref builds exactly one version, not 2");
   });
 
   it("should reject a train with no site", async () => {
-    await expect(plan(["0.62"], {}, lookups(["0.61"]))).rejects.toThrow(
-      "Train 0.62 has no docs site",
+    await expect(plan(["0.64"], {}, lookups(["0.63"]))).rejects.toThrow(
+      "Train 0.64 has no docs site",
     );
   });
 

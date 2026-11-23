@@ -53,7 +53,7 @@ interface Name {
 
 const DYNAMIC = "([\\w-]+)";
 const NUMBER = /^\d+$/;
-const CODE = /\.(tsx?|astro|html|mdx?)$/;
+const CODE = /\.(tsx?|astro|html|mdx?|svg)$/;
 const STYLE = /\.(css|astro)$/;
 const TEST = /\.(spec|test)\.tsx?$/;
 const STYLE_BLOCK = /<style\b[^>]*>[\s\S]*?<\/style>/g;
@@ -88,7 +88,7 @@ const span = (text: string, open: number): string | undefined => {
   const closers: string[] = [];
   for (let i = open; i < text.length; i++) {
     const c = text[i];
-    const top = closers[closers.length - 1];
+    const top = closers.at(-1);
     if (top === '"' || top === "'") {
       if (c === "\\") i++;
       else if (c === top) closers.pop();

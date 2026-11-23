@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Resize } from "@synnaxlabs/lyra/resize";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useContext } from "@/mosaic/Frame";
 

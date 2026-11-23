@@ -8,7 +8,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Image, type ImageProps, Video } from "@/components/media/Media";
+import type { ComponentProps } from "astro/types";
+
+import Image from "@/components/media/Image.astro";
+import { Video } from "@/components/media/Media";
 
 interface Rect {
     x: number;
@@ -42,6 +45,7 @@ const PALETTES = {
     "violet-blue": ["#a855f7", "#3774d0"],
     "green-blue": ["#50c878", "#3774d0"],
     "red-orange": ["#f5242e", "#ff9b42"],
+    "red-crimson": ["#e21f2c", "#a90000"],
     "green-teal": ["#50c878", "#0fa3a3"],
     "teal-violet": ["#0fa3a3", "#a855f7"],
 } as const;
@@ -49,6 +53,8 @@ const PALETTES = {
 interface BaseProps {
     /** The two colors of the gradient. */
     palette: keyof typeof PALETTES;
+    /** Describes what the hero shows, for screen readers. */
+    alt: string;
 }
 
 interface CoverProps {
@@ -91,7 +97,7 @@ interface ImageMediaProps extends BaseProps {
     /** A docs image id, for a picture that Studio did not capture. */
     image: string;
     themed?: boolean;
-    extension?: ImageProps["extension"];
+    extension?: ComponentProps<typeof Image>["extension"];
     layout: MediaLayout;
 }
 
@@ -106,7 +112,7 @@ export type Props = (StillProps | ImageMediaProps | VideoMediaProps) &
     (CoverProps | InsetProps);
 
 const props = Astro.props;
-const { layout, palette } = props;
+const { layout, palette, alt } = props;
 const [from, to] = PALETTES[palette];
 let toolbar: Rect | undefined;
 let still: string | undefined;
@@ -125,6 +131,9 @@ if ("still" in props) {
     if (layout === "layered" && props.inset === true)
         throw new Error(`the ${props.still} hero cannot be both layered and inset`);
 }
+// The window is at most 960 of the hero's 792 units wide, and the toolbar still is 1280.
+const WINDOW_SIZES = "min(122vw, 960px)";
+const TOOLBAR_SIZES = "min(162vw, 1300px)";
 const style = [
     `--from: ${from}`,
     `--to: ${to}`,
@@ -150,16 +159,24 @@ const style = [
 >
     <div class="window">
         {still != null ? (
-            <Image id={still} extension="webp" />
+            <Image id={still} extension="webp" alt={alt} sizes={WINDOW_SIZES} />
         ) : "image" in props ? (
-            <Image id={props.image} themed={props.themed} extension={props.extension} />
+            <Image
+                id={props.image}
+                themed={props.themed}
+                extension={props.extension}
+                alt={alt}
+                sizes={WINDOW_SIZES}
+            />
         ) : (
-            "video" in props && <Video id={props.video} themed={props.themed} />
+            "video" in props && (
+                <Video id={props.video} themed={props.themed} label={alt} />
+            )
         )}
     </div>
     {layout === "layered" && still != null && (
         <div class="toolbar">
-            <Image id={still} extension="webp" />
+            <Image id={still} extension="webp" alt="" sizes={TOOLBAR_SIZES} />
         </div>
     )}
 </div>
