@@ -26,15 +26,16 @@ type RecordOf func(sample []byte) (resource.ID, error)
 
 // Check reports whether a subject may receive a sample, given whether the subject can
 // retrieve each resource.
-type Check func(allowed func(resource.ID) bool) bool
+type Check = func(allowed func(resource.ID) bool) bool
 
 // Record finds the records that the samples of a change channel describe.
 type Record struct {
 	// Of returns the record of one sample.
 	Of RecordOf
 	// Check returns the check of one sample. A streamer sends the sample only to a
-	// subject that passes it, in place of a check of the record that Of returns. Nil
-	// for a channel that checks only that record.
+	// subject that passes it, in place of a check of the record that Of returns. It
+	// returns an error when the check of the sample is gone, which fails the stream.
+	// Nil for a channel that checks only that record.
 	Check func(sample []byte) (Check, error)
 	// Deleted is true when each sample describes a record that was deleted.
 	Deleted bool

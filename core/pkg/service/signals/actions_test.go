@@ -113,11 +113,15 @@ var _ = Describe("Actions", func() {
 				Name:     name,
 				Actions:  state,
 				Resource: testResource[uuid.UUID],
-				BatchCheck: func(gorp.Commit, uuid.UUID) (signals.Check, error) {
+				BatchChecks: func(
+					gorp.Commit,
+				) func(uuid.UUID, uint64) (signals.Check, bool) {
 					checks++
-					return func(allowed func(resource.ID) bool) bool {
-						return allowed(marker)
-					}, nil
+					return func(uuid.UUID, uint64) (signals.Check, bool) {
+						return func(allowed func(resource.ID) bool) bool {
+							return allowed(marker)
+						}, true
+					}
 				},
 			})).To(Succeed())
 			MustOpen(sigs.Start(ctx))
@@ -125,7 +129,7 @@ var _ = Describe("Actions", func() {
 			received = openStreamer(ctx, ch.Key())
 		})
 
-		It("Should check a batch once by the check that its commit made", func(
+		It("Should check each batch by the lookup that its commit made once", func(
 			ctx SpecContext,
 		) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -146,10 +150,10 @@ var _ = Describe("Actions", func() {
 			Expect(checks).To(Equal(1))
 		})
 
-		It("Should refuse a batch whose check it does not hold", func() {
+		It("Should fail the check of a batch whose check it does not hold", func() {
 			sample := MustSucceed(json.Marshal(scoped{Key: uuid.New(), Seq: 1 << 40}))
-			check := MustSucceed(sigs.Records()[ch.Key()].Check(sample))
-			Expect(check(func(resource.ID) bool { return true })).To(BeFalse())
+			Expect(sigs.Records()[ch.Key()].Check(sample)).Error().
+				To(MatchError("[signals] - the check of a change is gone"))
 		})
 	})
 
