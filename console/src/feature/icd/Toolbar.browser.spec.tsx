@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { icd, NotFoundError, panel, project } from "@synnaxlabs/client";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -22,14 +22,25 @@ import {
   awaitTextEditing,
   commitTextEdit,
   createConsoleWrapper,
+  createTestClientWithGrants,
   resolveFocusedTab,
   type TestStore,
 } from "@/testutil";
 
-const renderToolbar = async (): Promise<{ store: TestStore }> => {
+const TAB_TYPES = [project.TYPE_RESOURCE_ID, panel.TYPE_RESOURCE_ID];
+
+// The toolbar lists every ICD its user can read, and other specs leave theirs on the
+// Core. A user that reads only the ICD of the test sees the same rows on any Core.
+const renderToolbar = async (shown: icd.ICD): Promise<{ store: TestStore }> => {
   const proj = await client.projects.create({ name: uniqueName("project") });
+  const subject = await createTestClientWithGrants(client, {
+    retrieve: [icd.resourceID(shown.key), ...TAB_TYPES],
+    create: TAB_TYPES,
+    update: [icd.TYPE_RESOURCE_ID, ...TAB_TYPES],
+    delete: [icd.TYPE_RESOURCE_ID],
+  });
   const { wrapper, store } = await createConsoleWrapper({
-    client,
+    client: subject,
     preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
   });
   render(
@@ -51,7 +62,7 @@ const focusedResourceKey = async (store: TestStore): Promise<string> => {
 describe("ICD toolbar", () => {
   it("should open an ICD in a tab on double click", async () => {
     const ic = await createICD();
-    const { store } = await renderToolbar();
+    const { store } = await renderToolbar(ic);
     fireEvent.doubleClick(await screen.findByRole("option", { name: ic.name }));
     expect(await focusedResourceKey(store)).toBe(ic.key);
   });
@@ -59,7 +70,7 @@ describe("ICD toolbar", () => {
   describe("context menu", () => {
     it("should open an ICD from Open", async () => {
       const ic = await createICD();
-      const { store } = await renderToolbar();
+      const { store } = await renderToolbar(ic);
       fireEvent.contextMenu(await screen.findByText(ic.name));
       fireEvent.click(await screen.findByText("Open"));
       expect(await focusedResourceKey(store)).toBe(ic.key);
@@ -67,7 +78,7 @@ describe("ICD toolbar", () => {
 
     it("should rename an ICD through the inline editor", async () => {
       const ic = await createICD();
-      await renderToolbar();
+      await renderToolbar(ic);
       fireEvent.contextMenu(await screen.findByText(ic.name));
       fireEvent.click(await screen.findByText("Rename"));
       const editor = await awaitTextEditing(`icd-name-${ic.key}`);
@@ -80,7 +91,7 @@ describe("ICD toolbar", () => {
 
     it("should delete an ICD after confirmation", async () => {
       const ic = await createICD();
-      await renderToolbar();
+      await renderToolbar(ic);
       fireEvent.contextMenu(await screen.findByText(ic.name));
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText(`Are you sure you want to delete ${ic.name}?`);
