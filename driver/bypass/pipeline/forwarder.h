@@ -10,10 +10,13 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <functional>
+#include <iterator>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -106,12 +109,6 @@ class Forwarder {
         size_t bytes;
     };
 
-    /// @brief the queue state that report() shows.
-    struct Snapshot {
-        size_t bytes;
-        Drops dropped;
-    };
-
     std::shared_ptr<::driver::pipeline::WriterFactory> server;
     synnax::framer::WriterConfig config;
     const size_t max_queue_bytes;
@@ -127,15 +124,25 @@ class Forwarder {
     std::string shown_description;
     std::chrono::steady_clock::time_point drops_shown_at;
 
+    /// @brief the entries that the forwarder thread took from the queue and sends.
+    std::deque<Entry> batch;
+
     std::mutex mu;
     std::condition_variable cv;
     std::deque<Entry> queue;
-    size_t queue_bytes = 0;
+    /// @brief the bytes that queue and batch hold. Changed only under mu, except that
+    /// the forwarder thread subtracts each op it sends.
+    std::atomic<size_t> queue_bytes = 0;
+    /// @brief true while the forwarder thread waits for the queue.
+    bool idle = false;
     Drops drops;
+    /// @brief drops.total(), which report() reads without mu.
+    std::atomic<size_t> dropped_total = 0;
     /// @brief the frames this forwarder dropped at the cap, for its log.
     size_t cap_drops = 0;
     bool closing = false;
-    std::chrono::steady_clock::time_point close_deadline;
+    /// @brief the steady clock time at which close() stops sending, in nanoseconds.
+    std::atomic<int64_t> close_deadline{std::numeric_limits<int64_t>::max()};
     x::errors::Error err = x::errors::NIL;
     bool settled = false;
     std::condition_variable settled_cv;
@@ -163,18 +170,17 @@ class Forwarder {
                auth.authorities.size() * sizeof(x::control::Authority);
     }
 
-    /// @brief queues entry. Requires mu. Returns true when the queue was empty, so the
-    /// forwarder thread may wait on it.
+    /// @brief queues entry. Requires mu. Returns true when the forwarder thread waits
+    /// for it.
     bool push_locked(Entry entry) {
-        const bool was_empty = this->queue.empty();
-        this->queue_bytes += entry.bytes;
+        this->queue_bytes.fetch_add(entry.bytes, std::memory_order_relaxed);
         this->queue.push_back(std::move(entry));
-        return was_empty;
+        return this->idle;
     }
 
-    Snapshot snapshot() {
-        std::lock_guard lock(this->mu);
-        return {this->queue_bytes, this->drops};
+    [[nodiscard]] bool expired() const {
+        return std::chrono::steady_clock::now().time_since_epoch().count() >=
+               this->close_deadline.load(std::memory_order_relaxed);
     }
 
     void show(const std::string &message, const std::string &description) {
@@ -202,17 +208,18 @@ class Forwarder {
     }
 
     /// @brief shows on the task status whether the queue lags or drops frames.
-    void report(const Snapshot &snap) {
+    void report() {
         if (!this->warn) return;
-        if (snap.bytes * 2 >= this->max_queue_bytes)
+        const auto bytes = this->queue_bytes.load(std::memory_order_relaxed);
+        if (bytes * 2 >= this->max_queue_bytes)
             this->lagging = true;
-        else if (snap.bytes * 4 < this->max_queue_bytes)
+        else if (bytes * 4 < this->max_queue_bytes)
             this->lagging = false;
-        if (snap.dropped.total() > 0) {
+        if (this->dropped_total.load(std::memory_order_relaxed) > 0) {
             if (this->shown_message != "Dropped frames" ||
                 std::chrono::steady_clock::now() - this->drops_shown_at >=
                     this->drop_report_interval)
-                this->show_drops(snap.dropped);
+                this->show_drops(this->dropped());
             return;
         }
         if (!this->lagging) {
@@ -232,30 +239,36 @@ class Forwarder {
     /// stop status, or clears the warning when no frame dropped.
     void report_closed() {
         if (!this->warn) return;
-        const auto dropped = this->snapshot().dropped;
+        const auto dropped = this->dropped();
         if (dropped.total() == 0)
             this->show("", "");
         else
             this->show_drops(dropped);
     }
 
-    /// @brief waits for an op. Returns null once closing leaves none, or once the close
-    /// timeout passes. The entry stays valid until pop(), because only this thread
-    /// removes entries.
-    const Entry *next() {
+    /// @brief waits for ops and moves all of them into batch, so the forwarder thread
+    /// sends them without the lock. Returns false once closing leaves none, or once the
+    /// close timeout passes.
+    bool take() {
         std::unique_lock lock(this->mu);
+        this->idle = true;
         this->cv.wait(lock, [this] { return this->closing || !this->queue.empty(); });
-        if (this->queue.empty()) return nullptr;
-        if (this->closing && std::chrono::steady_clock::now() >= this->close_deadline)
-            return nullptr;
-        return &this->queue.front();
+        this->idle = false;
+        if (this->queue.empty() || this->expired()) return false;
+        this->batch.swap(this->queue);
+        return true;
     }
 
-    Snapshot pop() {
+    /// @brief puts the ops of batch that were not sent back at the front of the queue.
+    void unsent() {
+        if (this->batch.empty()) return;
         std::lock_guard lock(this->mu);
-        this->queue_bytes -= this->queue.front().bytes;
-        this->queue.pop_front();
-        return {this->queue_bytes, this->drops};
+        this->queue.insert(
+            this->queue.begin(),
+            std::make_move_iterator(this->batch.begin()),
+            std::make_move_iterator(this->batch.end())
+        );
+        this->batch.clear();
     }
 
     /// @brief drops every waiting frame and counts it under cause.
@@ -264,6 +277,7 @@ class Forwarder {
         for (const auto &entry: this->queue)
             if (std::holds_alternative<x::telem::Frame>(entry.op))
                 ++(this->drops.*cause);
+        this->dropped_total = this->drops.total();
         this->queue.clear();
         this->queue_bytes = 0;
     }
@@ -277,7 +291,6 @@ class Forwarder {
                      << this->failures << " in " << interval.seconds() << " s: " << err;
         const auto until = std::chrono::steady_clock::now() + interval.chrono();
         while (true) {
-            Snapshot snap;
             {
                 std::unique_lock lock(this->mu);
                 const auto wake = std::min(
@@ -286,10 +299,9 @@ class Forwarder {
                 );
                 this->cv.wait_until(lock, wake, [this] { return this->closing; });
                 if (this->closing) return false;
-                snap = {this->queue_bytes, this->drops};
             }
             if (std::chrono::steady_clock::now() >= until) return true;
-            this->report(snap);
+            this->report();
         }
     }
 
@@ -333,7 +345,7 @@ class Forwarder {
             this->report_closed();
         });
         while (true) {
-            this->report(this->snapshot());
+            this->report();
             auto [writer, open_err] = this->server->open_writer(this->config);
             if (open_err) {
                 if (this->wait(open_err)) continue;
@@ -342,9 +354,18 @@ class Forwarder {
             this->settle();
             this->failures = 0;
             x::errors::Error op_err;
-            while (const auto *entry = this->next()) {
-                if (op_err = this->apply(*writer, entry->op); op_err) break;
-                this->report(this->pop());
+            while (!op_err && this->take()) {
+                while (!this->batch.empty() && !this->expired()) {
+                    if (op_err = this->apply(*writer, this->batch.front().op); op_err)
+                        break;
+                    this->queue_bytes.fetch_sub(
+                        this->batch.front().bytes,
+                        std::memory_order_relaxed
+                    );
+                    this->batch.pop_front();
+                    this->report();
+                }
+                this->unsent();
             }
             const auto close_err = writer->close();
             const auto err = close_err ? close_err : op_err;
@@ -369,7 +390,8 @@ public:
         close_timeout(cfg.close_timeout.chrono()),
         warn(cfg.warn),
         backoff(cfg.breaker),
-        drops(cfg.dropped) {
+        drops(cfg.dropped),
+        dropped_total(cfg.dropped.total()) {
         this->thread = std::thread([this] { this->run(); });
     }
 
@@ -398,9 +420,10 @@ public:
         {
             std::lock_guard lock(this->mu);
             if (this->err) return this->err;
-            if (this->queue_bytes > 0 &&
-                this->queue_bytes + entry.bytes > this->max_queue_bytes) {
+            const auto bytes = this->queue_bytes.load(std::memory_order_relaxed);
+            if (bytes > 0 && bytes + entry.bytes > this->max_queue_bytes) {
                 this->drops.full++;
+                this->dropped_total = this->drops.total();
                 if (++this->cap_drops % 1000 == 1) logged_drops = this->cap_drops;
             } else
                 wake = this->push_locked(std::move(entry));
@@ -437,8 +460,12 @@ public:
             std::lock_guard lock(this->mu);
             if (!this->closing) {
                 this->closing = true;
-                this->close_deadline = std::chrono::steady_clock::now() +
-                                       this->close_timeout;
+                const auto deadline = std::chrono::steady_clock::now() +
+                                      this->close_timeout;
+                this->close_deadline.store(
+                    deadline.time_since_epoch().count(),
+                    std::memory_order_relaxed
+                );
             }
         }
         this->cv.notify_one();
