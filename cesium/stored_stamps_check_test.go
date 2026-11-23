@@ -224,7 +224,10 @@ var _ = Describe("Check: data written against stored stamps", func() {
 			if err == nil {
 				_, _, err = w.Commit(ctx, nil)
 			}
-			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(err).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("failed to resolve position")),
+			))
 			Expect(w.Close()).To(MatchError(validate.ErrValidation))
 			Expect(read(ctx, data, telem.TimeRangeMax).Series).To(BeEmpty())
 		})
@@ -253,29 +256,64 @@ var _ = Describe("Check: data written against stored stamps", func() {
 		Expect(int64s(series[0])).To(Equal([]int64{1}))
 	})
 
-	It("Should hold the sync of data until its stamps are durable, and fail it when a "+
-		"failed sync of the clock pulls them back", func(ctx SpecContext) {
+	// unsynced opens a writer of the clock at the first of seconds, and commits their
+	// stamps with no sync.
+	unsynced := func(
+		ctx context.Context,
+		seconds ...telem.TimeStamp,
+	) *cesium.Writer {
+		GinkgoHelper()
 		c := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: clockKeys,
-			Start:    30 * telem.SecondTS,
+			Start:    seconds[0] * telem.SecondTS,
 		}))
 		MustSucceed2(c.Write(ctx, telem.MultiFrame(
 			clockKeys,
-			[]telem.Series{telem.NewSeriesSecondsTSV(30, 31)},
+			[]telem.Series{telem.NewSeriesSecondsTSV(seconds...)},
 		), nil))
 		MustSucceed2(c.Commit(ctx, nil))
+		return c
+	}
+
+	It("Should fail the sync of data when a failed sync of the clock pulls its stamps "+
+		"back", func(ctx SpecContext) {
+		failing.Store(true)
+		c := unsynced(ctx, 30, 31)
 		w := writer(ctx, 30)
 		MustSucceed2(w.Write(ctx, frame(1, 2), nil))
 		MustSucceed2(w.Commit(ctx, nil))
 		synced := make(chan error, 1)
 		go func() { synced <- w.Sync() }()
-		Consistently(synced, 200*time.Millisecond).ShouldNot(Receive())
-		failing.Store(true)
 		Expect(c.Sync()).To(MatchError(syscall.EIO))
+		pulled := fmt.Sprintf("clock %d took back the stamps from", idx)
+		Eventually(synced).Should(Receive(MatchError(ContainSubstring(pulled))))
 		failing.Store(false)
-		Eventually(synced).Should(Receive(HaveOccurred()))
 		Expect(c.Close()).To(MatchError(syscall.EIO))
-		Expect(w.Close()).To(HaveOccurred())
+		Expect(w.Close()).To(MatchError(ContainSubstring(pulled)))
 		Expect(read(ctx, data, span(30, 32)).Series).To(BeEmpty())
+		Expect(read(ctx, idx, span(30, 32)).Series).To(BeEmpty())
 	})
+
+	It(
+		"Should end the sync of data against stamps that no sync has made durable, when "+
+			"one goroutine syncs the data before the clock",
+		func(ctx SpecContext) {
+			c := unsynced(ctx, 40, 41)
+			w := writer(ctx, 40)
+			MustSucceed2(w.Write(ctx, frame(1, 2), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			synced := make(chan error, 1)
+			go func() { synced <- w.Sync() }()
+			Eventually(synced, 30*time.Second).Should(Receive(Succeed()))
+			Expect(c.Sync()).To(Succeed())
+			Expect(c.Close()).To(Succeed())
+			Expect(w.Close()).To(Succeed())
+			stop()
+			Expect(db.Close()).To(Succeed())
+			open(ctx)
+			series := read(ctx, data, span(40, 42)).Series
+			Expect(series).To(HaveLen(1))
+			Expect(int64s(series[0])).To(Equal([]int64{1, 2}))
+		},
+	)
 })
