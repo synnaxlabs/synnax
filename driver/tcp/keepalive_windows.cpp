@@ -18,7 +18,7 @@
 #include "driver/tcp/keepalive.h"
 
 namespace driver::tcp::keepalive {
-std::error_code enable(const SOCKET socket) {
+std::error_code enable(const asio::ip::tcp::socket::native_handle_type socket) {
     tcp_keepalive values{
         .onoff = 1,
         .keepalivetime = static_cast<ULONG>(IDLE.milliseconds()),
