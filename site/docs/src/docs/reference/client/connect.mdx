@@ -498,6 +498,45 @@ pages on the origin of the Core.
 
 <Divider.Divider x />
 
+## Use the client in worker processes
+
+A Python client cannot go to a worker process: it raises an error when `multiprocessing`
+pickles it. Create a client in each worker instead:
+
+```python
+import multiprocessing
+
+import synnax as sy
+
+
+client: sy.Synnax | None = None
+
+
+def connect() -> None:
+    global client
+    client = sy.Synnax()
+
+
+def read_latest(name: str) -> sy.MultiSeries:
+    assert client is not None
+    return client.read_latest(name, n=10)
+
+
+if __name__ == "__main__":
+    ctx = multiprocessing.get_context("spawn")
+    with ctx.Pool(4, initializer=connect) as pool:
+        print(pool.map(read_latest, ["temp_1", "temp_2"]))
+```
+
+The pool runs `connect` once in each worker, so each worker logs in once.
+
+Use the `spawn` or `forkserver` start method. Python uses `spawn` on Windows and macOS,
+and `forkserver` on Linux from Python 3.14. On Linux, Python 3.13 uses `fork`. With
+`fork`, a client that the parent made before the fork is not safe to use in the worker.
+The two processes share its connections, and requests fail.
+
+<Divider.Divider x />
+
 ## Close the client
 
 Close the client when your code is done with it:
