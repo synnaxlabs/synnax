@@ -373,7 +373,10 @@ const MAX_REGISTERS_INPUT_PROPS = {
   integer: true,
 } as const;
 
-const MAX_GAP_INPUT_PROPS = { bounds: { lower: 0, upper: 65535 }, integer: true } as const;
+const MAX_GAP_INPUT_PROPS = {
+  bounds: { lower: 0, upper: 65535 },
+  integer: true,
+} as const;
 
 const formatResponse = (span: TimeSpan): string => `${span.milliseconds.toFixed(1)} ms`;
 
