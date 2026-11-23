@@ -1,0 +1,117 @@
+{
+  "description": "A field with no binding writes its default, and a float default takes no scale.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "float",
+          "scale": 2,
+          "offset": 0,
+          "units": "",
+          "pointer": "/float",
+          "type": "float",
+          "default": 1.5
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "integer",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/integer",
+          "type": "integer",
+          "default": "-3"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000003",
+          "name": "unsigned",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/unsigned",
+          "type": "unsigned",
+          "default": "7"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000004",
+          "name": "boolean",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/boolean",
+          "type": "boolean",
+          "default": true
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000005",
+          "name": "timestamp",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/timestamp",
+          "type": "timestamp",
+          "time_format": "unix_ns",
+          "default": {
+            "type": "constant",
+            "value": "1700000000000000000"
+          }
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000006",
+          "name": "json",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/json",
+          "type": "json",
+          "default": "{\"set_point\":1.5,\"mode\":\"auto\"}"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000007",
+          "name": "uuid",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/uuid",
+          "type": "uuid",
+          "default": {
+            "type": "constant",
+            "value": "00000000-0000-4000-8000-0000000000aa"
+          }
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000008",
+          "name": "bytes",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/bytes",
+          "type": "bytes",
+          "default": "AQI="
+        }
+      ]
+    },
+    "bindings": []
+  },
+  "cases": [
+    {
+      "samples": [],
+      "document": {
+        "float": 1.5,
+        "integer": -3,
+        "unsigned": 7,
+        "boolean": true,
+        "timestamp": 1700000000000000000,
+        "json": {
+          "set_point": 1.5,
+          "mode": "auto"
+        },
+        "uuid": "00000000-0000-4000-8000-0000000000aa",
+        "bytes": "AQI="
+      }
+    }
+  ]
+}

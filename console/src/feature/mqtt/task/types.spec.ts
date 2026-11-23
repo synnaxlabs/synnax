@@ -232,7 +232,13 @@ describe("MQTT Task Types", () => {
     type: "plain",
     key: "t1",
     topic: "plant/valve/set",
-    channel: { pointer: "/value", channel: 1 },
+    icd: entry.icd,
+    message: {
+      message: read.message,
+      bindings: [
+        { type: "channel", field: "8d6a1ec4-7c8e-4f0a-9b8e-0c7f0d5c1a03", channel: 1 },
+      ],
+    },
   };
   const tagTarget = { type: "sparkplug", key: "s1", ...tagID };
   const writeConfig = (...targets: object[]) => ({ device: "dev-001", targets });
@@ -249,8 +255,14 @@ describe("MQTT Task Types", () => {
       expect(result.targets[0]).toMatchObject({
         qos: "at_least_once",
         retained: false,
-        fields: [],
       });
+    });
+
+    it("should reject a plain target with no message", () => {
+      const result = MQTT.Task.WRITE_SCHEMAS.config.safeParse(
+        writeConfig({ ...target, message: undefined }),
+      );
+      expect(issuesOf(result).map(({ path }) => path)).toEqual(["targets.0.message"]);
     });
   });
 
@@ -294,13 +306,7 @@ describe("MQTT Task Types", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
         writeConfig(
           target,
-          {
-            type: "plain",
-            key: "t2",
-            topic: "",
-            disabled: true,
-            fields: [{ key: "g1", type: "generated", pointer: "", generator: "uuid" }],
-          },
+          { ...target, key: "t2", topic: "", disabled: true },
           { type: "sparkplug", key: "s2", disabled: true },
         ),
       );
@@ -352,174 +358,6 @@ describe("MQTT Task Types", () => {
       );
       expect(issuesOf(result)).toEqual([
         { message: 'Duplicate tag "temperature"', path: "targets.1.tag" },
-      ]);
-    });
-
-    it("should reject additional fields when the channel value is the whole payload", () => {
-      const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({
-          ...target,
-          channel: { pointer: "", channel: 1 },
-          fields: [
-            {
-              key: "s1",
-              type: "static",
-              pointer: "/unit",
-              jsonType: "string",
-              value: "C",
-            },
-          ],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message:
-            "An empty channel pointer sends the raw value as the payload, so additional fields are not allowed",
-          path: "targets.0.channel.pointer",
-        },
-      ]);
-    });
-
-    it("should allow the channel value as the whole payload with no other fields", () => {
-      const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({ ...target, channel: { pointer: "", channel: 1 } }),
-      );
-      expect(issuesOf(result)).toEqual([]);
-    });
-
-    it("should reject an additional field with no pointer", () => {
-      const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({
-          ...target,
-          fields: [{ key: "g1", type: "generated", pointer: "", generator: "uuid" }],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: "Additional field pointer cannot be empty",
-          path: "targets.0.fields.0.pointer",
-        },
-      ]);
-    });
-
-    it("should reject an additional field at the pointer of the channel", () => {
-      const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({
-          ...target,
-          fields: [
-            { key: "g1", type: "generated", pointer: "/value", generator: "uuid" },
-          ],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: 'Pointer "/value" overlaps another field',
-          path: "targets.0.fields.0.pointer",
-        },
-      ]);
-    });
-
-    it("should reject an additional field inside the channel value", () => {
-      const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({
-          ...target,
-          fields: [{ key: "s1", type: "static", pointer: "/value/unit", value: "rpm" }],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: 'Pointer "/value/unit" overlaps another field',
-          path: "targets.0.fields.0.pointer",
-        },
-      ]);
-    });
-
-    it("should reject an additional field that holds another field", () => {
-      const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({
-          ...target,
-          fields: [
-            { key: "s1", type: "static", pointer: "/meta/unit", value: "rpm" },
-            { key: "g1", type: "generated", pointer: "/meta", generator: "uuid" },
-          ],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: 'Pointer "/meta" overlaps another field',
-          path: "targets.0.fields.1.pointer",
-        },
-      ]);
-    });
-
-    it("should reject enum values on a JSON type other than string", () => {
-      const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({
-          ...target,
-          channel: {
-            ...target.channel,
-            jsonType: "number",
-            enumValues: [{ label: "ON", value: 1 }],
-          },
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: "Enum values require the string JSON type",
-          path: "targets.0.channel.jsonType",
-        },
-      ]);
-    });
-
-    it("should reject a channel value that two enum labels map", () => {
-      const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({
-          ...target,
-          channel: {
-            ...target.channel,
-            jsonType: "string",
-            enumValues: [
-              { label: "ON", value: 1 },
-              { label: "OPEN", value: 1 },
-            ],
-          },
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: "Duplicate enum value 1",
-          path: "targets.0.channel.enumValues.1.value",
-        },
-      ]);
-    });
-
-    it("should accept a timestamp channel with no time format", () => {
-      const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({
-          ...target,
-          channel: { ...target.channel, dataType: "timestamp" },
-        }),
-      );
-      expect(issuesOf(result)).toEqual([]);
-    });
-
-    it("should reject a static value that is not a JSON primitive", () => {
-      const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({
-          ...target,
-          fields: [
-            {
-              key: "s1",
-              type: "static",
-              pointer: "/meta",
-              jsonType: "string",
-              value: { nested: true },
-            },
-          ],
-        }),
-      );
-      expect(issuesOf(result).map(({ path }) => path)).toEqual([
-        "targets.0.fields.0.value",
       ]);
     });
   });
@@ -679,79 +517,6 @@ describe("MQTT Edge Task", () => {
       );
       expect(issuesOf(result).map(({ path }) => path)).toEqual(["tags.0.tagType"]);
     });
-  });
-});
-
-describe("MQTT Scan Task", () => {
-  it("should accept a null and an absent config", () => {
-    expect(z.validate(MQTT.Task.SCAN_SCHEMAS.config, null)).toBe(true);
-    expect(z.validate(MQTT.Task.SCAN_SCHEMAS.config, undefined)).toBe(true);
-  });
-
-  it("should accept the null status data of a reply with no data", () => {
-    expect(z.validate(MQTT.Task.SCAN_SCHEMAS.statusData, null)).toBe(true);
-  });
-
-  it("should parse the status data of a browse reply", () => {
-    const data = {
-      topics: [
-        {
-          topic: "plant/temp",
-          payload: "21.5",
-          fields: [{ pointer: "", type: "number", sample: "21.5" }],
-          retained: true,
-        },
-      ],
-      truncated: false,
-    };
-    expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual(data);
-  });
-
-  it("should parse the edge nodes of a Sparkplug B browse reply", () => {
-    const data = {
-      nodes: [{ group: "plant", edgeNode: "line_1", devices: ["ovenA"] }],
-      tags: [],
-    };
-    expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual(data);
-  });
-
-  it("should parse the tags of a Sparkplug B browse reply", () => {
-    const tag = {
-      device: "",
-      name: "Node Control/Rebirth",
-      dataType: "boolean",
-      value: "false",
-      supported: true,
-    };
-    const data = { nodes: [], tags: [tag] };
-    expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual(data);
-  });
-
-  it("should accept the status data of a sample reply", () => {
-    const data = {
-      topics: [
-        {
-          topic: "plant/temp",
-          messages: [{ time: 0, format: "json", payload: "21.5", retained: false }],
-        },
-      ],
-      shapes: [],
-      truncated: false,
-    };
-    expect(z.validate(MQTT.Task.SCAN_SCHEMAS.statusData, data)).toBe(true);
-  });
-
-  it("should keep the shapes of a sample reply with no topics", () => {
-    const shape = { sources: ["plant/temp"], fields: [], index: -1, count: 1 };
-    const data = { topics: [], shapes: [shape], truncated: false };
-    expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual({
-      ...data,
-      shapes: [{ ...shape, index: undefined }],
-    });
-  });
-
-  it("should reject a browse reply with no truncated flag", () => {
-    expect(z.validate(MQTT.Task.SCAN_SCHEMAS.statusData, { topics: [] })).toBe(false);
   });
 });
 

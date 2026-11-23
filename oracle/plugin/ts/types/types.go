@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/literal"
 	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -2799,6 +2800,9 @@ func (p *Plugin) applyValidation(
 	if isString {
 		zodType = applyStringRules(zodType, rules, fieldName, data)
 	}
+	if effectiveType == "bytes" {
+		zodType = applyBytesRules(zodType, rules, data)
+	}
 	if isNumber {
 		zodType = applyNumberRules(zodType, rules, fieldName)
 	}
@@ -2861,6 +2865,23 @@ func validationType(
 		}
 	}
 	return effectiveType
+}
+
+// applyBytesRules bounds the decoded byte count, not the length of the base64 text.
+func applyBytesRules(
+	zodType string,
+	rules *validation.Rules,
+	data *templateData,
+) string {
+	if rules.MinLength != nil {
+		addXImport(data, xImport{name: "zod", submodule: "zod"})
+		zodType = fmt.Sprintf("%s.check(zod.minBytes(%d))", zodType, *rules.MinLength)
+	}
+	if rules.MaxLength != nil {
+		addXImport(data, xImport{name: "zod", submodule: "zod"})
+		zodType = fmt.Sprintf("%s.check(zod.maxBytes(%d))", zodType, *rules.MaxLength)
+	}
+	return zodType
 }
 
 func applyStringRules(
@@ -2938,7 +2959,7 @@ func numberBoundCall(zodType, method string, n validation.Number) string {
 	if n.IsInt {
 		return fmt.Sprintf("%s.%s(%d)", zodType, method, n.Int)
 	}
-	return fmt.Sprintf("%s.%s(%f)", zodType, method, n.Float)
+	return fmt.Sprintf("%s.%s(%s)", zodType, method, literal.Float(n.Float))
 }
 
 // applyBoundChecks appends the numeric bounds of rules as zod checks.
@@ -3087,7 +3108,7 @@ func floatDefault(
 	if ok {
 		return fmt.Sprintf("%s.default(%s)", zodType, expr)
 	}
-	return fmt.Sprintf("%s.default(%f)", zodType, value)
+	return fmt.Sprintf("%s.default(%s)", zodType, literal.Float(value))
 }
 
 // identDefault appends an identifier default such as now, create, an enum member, or a
@@ -3217,7 +3238,7 @@ func (p *Plugin) tsDefaultLiteral(
 	case resolution.ValueKindInt:
 		return strconv.FormatInt(val.IntValue, 10)
 	case resolution.ValueKindFloat:
-		return fmt.Sprintf("%f", val.FloatValue)
+		return literal.Float(val.FloatValue)
 	case resolution.ValueKindBool:
 		return strconv.FormatBool(val.BoolValue)
 	case resolution.ValueKindIdent:

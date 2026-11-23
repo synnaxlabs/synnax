@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, icd } from "@synnaxlabs/client";
+import { channel, type icd } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -23,10 +23,11 @@ import type { FC, ReactElement } from "react";
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import type { MessagePlan } from "@/platform/icd/configure";
-import { DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
+import { defaultDataType } from "@/platform/icd/dataType";
 import { FieldsStatus, JSONField } from "@/platform/icd/Fields";
 import type { FormatForm } from "@/platform/icd/Formats";
 import { Match } from "@/platform/icd/Match";
+import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 import { usePlan } from "@/platform/icd/Plans";
 import {
   fieldsPath,
@@ -37,37 +38,7 @@ import {
   reindex,
   type TreeField,
 } from "@/platform/icd/read";
-import { Panel } from "@/platform/panel";
 import { Task } from "@/platform/task";
-import { Session } from "@/session";
-
-interface OpenInEditorProps {
-  icdKey: icd.Key;
-  /** The message the editor selects. */
-  message: icd.MessageKey;
-}
-
-const EditorButton = ({ icdKey, message }: OpenInEditorProps): ReactElement => {
-  const openTab = Panel.useOpenTab();
-  const dispatch = Session.useDispatch();
-  const handleClick = () => {
-    dispatch(Session.ICD.setSelected({ key: icdKey, selected: [message] }));
-    openTab({ variant: "resource", resource: icd.resourceID(icdKey) });
-  };
-  return (
-    <Button.Button
-      variant="text"
-      size="small"
-      tooltip="Open in the ICD editor"
-      onClick={handleClick}
-    >
-      <Icon.Library />
-      Open in editor
-    </Button.Button>
-  );
-};
-
-const OpenInEditor: FC<OpenInEditorProps> = FLAGS.icds ? EditorButton : () => null;
 
 export interface AddFieldProps {
   onClick: () => void;
@@ -246,6 +217,9 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   const message = PForm.useFieldValue(readPath.message);
   const icdKey = PForm.useFieldValue(path.icd);
   const sourceDisabled = PForm.useFieldValue(path.disabled);
+  const formatted = PForm.useFieldValue(fieldsPath(message)[field.key], {
+    ctx: format,
+  });
   const i = bindings.findIndex(({ field: key }) => key === field.key);
   const preview =
     i < 0
@@ -276,8 +250,8 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
               <Task.Payload.DataTypeField
                 path={readPath.bindings[i].dataType}
                 channel={preview.channel}
-                defaultDataType={DEFAULT_DATA_TYPES[field.type]}
-                hideDataTypes={hiddenDataTypes(field.type)}
+                defaultDataType={defaultDataType(formatted)}
+                hideDataTypes={hiddenDataTypes(formatted)}
               />
             </>
           )}
@@ -305,6 +279,7 @@ export const MessageSections: FC<MessageSectionsProps> = ({
   const { path, read } = rest;
   const plan = usePlan(path, read);
   const icdKey = PForm.useFieldValue(path.icd);
+  const several = PForm.useFieldValue(path.messages).length > 1;
   const readMessage = PForm.useFieldValue(path.messages[read]);
   const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {
     optional: true,
@@ -326,11 +301,12 @@ export const MessageSections: FC<MessageSectionsProps> = ({
       {message != null && message.payload.format !== "json" && (
         <PForm.Section
           title="Message"
-          actions={<OpenInEditor icdKey={icdKey} message={message.key} />}
+          // A source that reads one message opens the editor from its format picker.
+          actions={several && <OpenInEditor icdKey={icdKey} message={message.key} />}
         >
           <Text.Text color={9}>
             The format of this message is not JSON.
-            {FLAGS.icds && " Open it to change its format."}
+            {FLAGS.icds && " Open it in the editor to change its format."}
           </Text.Text>
         </PForm.Section>
       )}
