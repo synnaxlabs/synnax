@@ -43,7 +43,7 @@ describe("Uses", () => {
       key: z.string(),
       retrieve,
       request: (key) => ({ keys: "in" in key ? key.in : [key.eq], includeUses: true }),
-      channels: ["recs_changes"],
+      type: "recs",
     });
     uses.created(["a"]);
     uses.trigger.attach(
@@ -54,7 +54,11 @@ describe("Uses", () => {
     await cache.ensureStreaming();
     await expect.poll(() => retrieve.mock.calls.length).toBe(1);
     // The second refetch fails in a way that reports, so the first has settled.
-    stream.push(new framer.Frame({ recs_changes: new Series([1]) }));
+    stream.push(
+      new framer.Frame({
+        [query.REFERENCE_CHANGE_CHANNEL_NAME]: new Series(["recs:a"]),
+      }),
+    );
     await expect.poll(() => onError.mock.calls.length).toBe(1);
     expect(onError.mock.calls[0][0]).toEqual(
       expect.objectContaining({
