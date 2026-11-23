@@ -171,9 +171,10 @@ export const Preview = ({
     const addInteractivity = (el: Element) => {
       if (!(el instanceof SVGElement) || el.tagName === "svg") return;
       el.classList.add(CSS.BEM("schematic", "svg-region", "hoverable"));
-      // The CSS filter of a hover or a selection replaces the filter attribute.
-      const own = el.getAttribute("filter");
-      if (own != null && own !== "none")
+      // The CSS filter of a hover or a selection replaces the filter of the drawing.
+      const own = el.style.filter || el.getAttribute("filter");
+      el.style.removeProperty("filter");
+      if (own != null && own !== "" && own !== "none")
         el.style.setProperty("--console-schematic-own-filter", own);
       if (
         el.tagName === "line" ||
