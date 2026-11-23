@@ -74,4 +74,62 @@ TEST(Slave, RoundTrips) {
     ASSERT_EQ(parsed.write_bindings[0].command, 8);
     ASSERT_EQ(parsed.write_bindings[0].state, 0);
 }
+
+/// @brief it should parse the startup parameter variant that its data type names and
+/// keep a 64-bit value exactly.
+TEST(Slave, ParsesStartupParameterByDataType) {
+    auto j = valid_slave();
+    j["startup_parameters"] = x::json::json::array(
+        {{{"index", 0x8000},
+          {"sub_index", 1},
+          {"data_type", "uint64"},
+          {"value", 9223372036854775809ULL}}}
+    );
+    x::json::Parser parser(j);
+    const auto parsed = Slave::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(parsed.startup_parameters.size(), 1);
+    const auto *param = std::get_if<Uint64StartupParameter>(
+        &parsed.startup_parameters[0]
+    );
+    ASSERT_NE(param, nullptr);
+    ASSERT_EQ(param->value, 9223372036854775809ULL);
+}
+
+/// @brief it should reject a startup parameter with a data type the slave cannot take.
+TEST(Slave, RejectsUnknownStartupDataType) {
+    auto j = valid_slave();
+    j["startup_parameters"] = x::json::json::array(
+        {{{"index", 0x8000}, {"sub_index", 1}, {"data_type", "bool"}, {"value", 1}}}
+    );
+    x::json::Parser parser(j);
+    Slave::parse(parser);
+    ASSERT_FALSE(parser.ok());
+    ASSERT_EQ(parser.errors->size(), 1);
+    ASSERT_EQ(parser.errors->at(0)["path"], "startup_parameters.0.data_type");
+}
+
+/// @brief it should reject a read binding without a channel.
+TEST(Slave, RequiresReadBindingChannel) {
+    auto j = valid_slave();
+    j["read_bindings"] = x::json::json::array(
+        {{{"index", 0x6000}, {"sub_index", 1}, {"channel", 0}}}
+    );
+    x::json::Parser parser(j);
+    Slave::parse(parser);
+    ASSERT_FALSE(parser.ok());
+    ASSERT_EQ(parser.errors->size(), 1);
+    ASSERT_EQ(parser.errors->at(0)["path"], "read_bindings.0.channel");
+}
+
+/// @brief it should reject a write binding without a command channel.
+TEST(Slave, RequiresWriteBindingCommand) {
+    auto j = valid_slave();
+    j["write_bindings"] = x::json::json::array({{{"index", 0x7000}, {"sub_index", 1}}});
+    x::json::Parser parser(j);
+    Slave::parse(parser);
+    ASSERT_FALSE(parser.ok());
+    ASSERT_EQ(parser.errors->size(), 1);
+    ASSERT_EQ(parser.errors->at(0)["path"], "write_bindings.0.command");
+}
 }

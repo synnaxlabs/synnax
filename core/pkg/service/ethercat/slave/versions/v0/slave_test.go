@@ -71,6 +71,16 @@ var _ = Describe("Slave", func() {
 			"identifier",
 		),
 		Entry(
+			"a serial above the exact range of a JSON number",
+			func(m *v0.Slave) { m.Serial = 1 << 53 },
+			"serial",
+		),
+		Entry(
+			"a startup parameter without a data type",
+			func(m *v0.Slave) { m.StartupParameters = []v0.StartupParameter{{}} },
+			"startup_parameters.0.data_type",
+		),
+		Entry(
 			"a read binding without a channel",
 			func(m *v0.Slave) {
 				m.ReadBindings = []v0.ReadBinding{{Index: 0x6000, SubIndex: 1}}

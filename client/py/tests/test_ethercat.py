@@ -898,3 +898,46 @@ class TestEtherCATSlaveResource:
         """Should name the slave by its key under the ethercat_slave type."""
         assert sy.ethercat.slave.resource_id(self.KEY).type == "ethercat_slave"
         assert sy.ethercat.slave.resource_id(self.KEY).key == str(self.KEY)
+
+    def test_parses_a_startup_parameter_by_data_type(self) -> None:
+        """Should parse the variant that the data type names and keep a 64-bit value."""
+        slave = sy.ethercat.slave.Slave.model_validate(
+            {
+                **self.SLAVE,
+                "startup_parameters": [
+                    {
+                        "index": 0x8000,
+                        "sub_index": 1,
+                        "data_type": "uint64",
+                        "value": 2**63 + 1,
+                    }
+                ],
+            }
+        )
+        param = slave.startup_parameters[0]
+        assert isinstance(param, sy.ethercat.slave.Uint64StartupParameter)
+        assert param.value == 2**63 + 1
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"serial": 2**53},
+            {
+                "startup_parameters": [
+                    {"index": 1, "sub_index": 0, "data_type": "uint8", "value": 256}
+                ]
+            },
+            {
+                "startup_parameters": [
+                    {"index": 1, "sub_index": 0, "data_type": "bool", "value": 1}
+                ]
+            },
+            {"read_bindings": [{"index": 0x6000, "sub_index": 1, "channel": 0}]},
+            {"write_bindings": [{"index": 0x7000, "sub_index": 1, "command": 0}]},
+        ],
+    )
+    def test_rejects_an_invalid_slave(self, change: dict[str, object]) -> None:
+        """Should reject a large serial, a bad startup value or type, and a zero
+        binding channel."""
+        with pytest.raises(ValidationError):
+            sy.ethercat.slave.Slave.model_validate({**self.SLAVE, **change})
