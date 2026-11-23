@@ -103,7 +103,7 @@ export class Frame {
   /**
    * @param columnsOrData - the columns of series, or the frame data. A record keys its
    * series by string, and a frame has no writer to hold channel names, so a record key
-   * of all digits that fits a channel key is a key.
+   * that is a channel key in canonical decimal is a key.
    */
   constructor(
     columnsOrData:

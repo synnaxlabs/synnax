@@ -76,7 +76,9 @@ describe("WriteFrameAdapter", () => {
     const pattern = `(${timeCh.name}|${dataCh.name})`;
     const adapt = adapter.adapt(pattern, new Series(1));
     await expect(adapt).rejects.toThrow(NotFoundError);
-    await expect(adapt).rejects.toThrow(`Found no channel where name = "${pattern}"`);
+    await expect(adapt).rejects.toThrow(
+      `channels not found matching ${JSON.stringify([pattern])}`,
+    );
   });
 
   it("should correctly adapt multiple names to multiple series", async () => {

@@ -35,7 +35,6 @@ import {
 import {
   isCalculated,
   type Lookup,
-  lookupRequest,
   lookupWhere,
   type Params,
   type PrimitiveParams,
@@ -647,34 +646,46 @@ export class Client extends query.Retriever<
     }
     if (isSingle && typeof lookups[0] === "number")
       return await super.retrieve({ key: lookups[0] });
-    // One lookup needs exactly one channel, so the Core refuses an ambiguous name.
-    const req = lookupRequest(lookups, isSingle);
-    const res = await super.retrieve(req);
-    checkForMultipleOrNoResults("channel", { where: req.where }, res, isSingle);
+    const where = lookupWhere(lookups);
+    // One lookup needs exactly one channel, so the Core refuses an ambiguous name. Any
+    // field beside where skips the record store, so a list sends no strict field.
+    const res = await super.retrieve(isSingle ? { where, strict: true } : { where });
+    checkForMultipleOrNoResults("channel", { where }, res, isSingle);
     return isSingle ? res[0] : res;
   }
 
   /**
    * Retrieves the channels that lookups name, for an open or a delete that needs each
    * lookup to name one channel. Keys alone read through the record store. Any name or
-   * path makes one strict request to the Core, which refuses an ambiguous name, and
-   * each payload then holds its path.
+   * path makes one strict request to the Core, which refuses an ambiguous name. The
+   * record store saves the channels it finds, and each payload holds its path when a
+   * lookup is a path.
    * @returns the payload of each channel that lookups find. A lookup that finds no
    * channel adds none.
    */
   async retrieveLookups(lookups: Lookup[]): Promise<Payload[]> {
     if (lookups.length === 0) return [];
-    const where = lookupWhere(lookups);
-    const { names, paths } = splitLookups(lookups);
-    if (names.length === 0 && paths.length === 0)
-      return (await super.retrieve({ where })).map((ch) => ch.payload);
-    // A strict request skips the record store, which holds no paths.
-    const payloads = await this.execRetrieve({
-      where,
-      strict: true,
-      includePath: paths.length > 0,
+    if (lookups.every((l) => typeof l === "number"))
+      return (await super.retrieve({ where: { key: { in: lookups } } })).map(
+        (ch) => ch.payload,
+      );
+    const { paths } = splitLookups(lookups);
+    // The table cannot carry a path, so the strict fetch saves its channels to the
+    // record store and returns its payloads as they came.
+    return await this.store.track(async (since) => {
+      const payloads = (
+        await this.execRetrieve({
+          where: lookupWhere(lookups),
+          strict: true,
+          includePath: paths.length > 0,
+        })
+      ).map(stripComposed);
+      this.store.ingest(
+        payloads.map((p) => this.sugar(p)),
+        { since },
+      );
+      return payloads;
     });
-    return payloads.map(stripComposed);
   }
 
   /**

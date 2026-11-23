@@ -111,19 +111,6 @@ export const lookupWhere = (lookups: Lookup[]): Where => {
 };
 
 /**
- * @returns the request that retrieves the channels of lookups. A strict request makes
- * the Core refuse an ambiguous name. A request that is not strict holds only its where,
- * since any other field keeps the record store from serving it.
- */
-export const lookupRequest = (
-  lookups: Lookup[],
-  strict: boolean,
-): { where: Where; strict?: true } => {
-  const where = lookupWhere(lookups);
-  return strict ? { where, strict: true } : { where };
-};
-
-/**
  * Resolves each lookup to its channel through one call of retrieve. A channel matches a
  * lookup by its key, its name in NFC, or its path in NFC.
  * @param retrieve - returns the channels that a list of lookups finds, each with its
@@ -136,9 +123,12 @@ export const resolveLookups = async <C extends { key: Key; name: Name; path?: st
   retrieve: (lookups: Lookup[]) => Promise<C[]>,
 ): Promise<C[]> => {
   if (lookups.length === 0) return [];
+  const named = lookups.some((l) => typeof l === "string");
   const found = new Map<Key | string, C>();
   for (const ch of await retrieve(lookups)) {
-    found.set(ch.key, ch).set(ch.name, ch);
+    found.set(ch.key, ch);
+    if (!named) continue;
+    found.set(ch.name, ch);
     if (ch.path != null) found.set(ch.path, ch);
   }
   const missing: Lookup[] = [];

@@ -11,7 +11,7 @@ import { DataType, id, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { ValidationError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/errors";
 import { Frame } from "@/framer/frame";
 import {
   createTestClient,
@@ -36,6 +36,24 @@ const retrievesOf = (
     .map(([, req]) => JSON.stringify(req))
     .filter((req) => mention.test(req));
 };
+
+const drain = async (stream: ReadableStream<Uint8Array>): Promise<string> => {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let out = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    out += decoder.decode(value);
+  }
+  return out;
+};
+
+const channelRetrieves = (send: ReturnType<typeof spyOnSend>, mention: string[]) =>
+  send.mock.calls
+    .filter(([target]) => target === "/channel/retrieve")
+    .map(([, req]) => JSON.stringify(req))
+    .filter((req) => mention.some((m) => req.includes(m)));
 
 const createInGroup = async (
   props: Omit<channel.New, "name" | "group">,
@@ -173,6 +191,36 @@ describe("Framer lookups", () => {
   });
 
   describe("key-only lookups and the record store", () => {
+    it("should serve a key from the store after a writer opened its channel by name", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const fresh = createTestClient();
+      const byName = await fresh.openWriter({
+        start: TimeStamp.now(),
+        channels: [ch.name],
+      });
+      await byName.close();
+      const send = spyOnSend(fresh);
+      try {
+        const byKey = await fresh.openWriter({
+          start: TimeStamp.now(),
+          channels: [ch.key],
+        });
+        await byKey.close();
+        const mention = new RegExp(`\\b${ch.key}\\b`);
+        const retrieves = send.mock.calls.filter(
+          ([target, req]) =>
+            target === "/channel/retrieve" && mention.test(JSON.stringify(req)),
+        );
+        expect(retrieves).toHaveLength(0);
+      } finally {
+        send.mockRestore();
+      }
+    });
+
     it("should open a writer on one cached key with no channel retrieve", async () => {
       const local = createTestClient();
       await local.connect();
@@ -330,6 +378,149 @@ describe("Framer lookups", () => {
         for (const l of lookups) expect(mine[0]).toContain(`"${l}"`);
       } finally {
         send.mockRestore();
+      }
+    });
+  });
+  describe("a file read names one channel twice", () => {
+    it("should refuse a CSV read that names one channel by its name and its path", async () => {
+      const [index, path] = await createInGroup({
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      await client.write(TimeStamp.seconds(1), index.key, secondsLinspace(1, 3));
+      await expect(
+        client.readCSV(TimeRange.MAX, [index.name, path]).then(drain),
+      ).rejects.toThrow(
+        new ValidationError(`"${index.name}" and "${path}" name one channel`),
+      );
+    });
+
+    it("should refuse a TDMS read that names one channel by its key and its name", async () => {
+      const [index] = await newIndexedPair(client);
+      await client.write(TimeStamp.seconds(1), index.key, secondsLinspace(1, 3));
+      await expect(
+        client.readTDMS(TimeRange.MAX, [index.key, index.name]).then(drain),
+      ).rejects.toThrow(
+        new ValidationError(`${index.key} and "${index.name}" name one channel`),
+      );
+    });
+
+    it("should refuse a CSV read of a name that finds no channel", async () => {
+      const [index] = await newIndexedPair(client);
+      await client.write(TimeStamp.seconds(1), index.key, secondsLinspace(1, 3));
+      const missing = id.create();
+      await expect(
+        client.readCSV(TimeRange.MAX, [index.name, missing]).then(drain),
+      ).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe("setAuthority names one channel twice", () => {
+    it("should refuse a record that gives one channel two authorities by its key and its name", async () => {
+      const [ch] = await createInGroup({ dataType: DataType.FLOAT64, virtual: true });
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: [ch.key],
+        authorities: 50,
+      });
+      try {
+        await expect(
+          writer.setAuthority({ [ch.key]: 10, [ch.name]: 200 }),
+        ).rejects.toThrow(ValidationError);
+      } finally {
+        await writer.close();
+      }
+    });
+  });
+
+  describe("one retrieve per lookup set", () => {
+    it("should resolve the paths of a setAuthority record in one retrieve", async () => {
+      const [a, aPath] = await createInGroup({
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const [b, bPath] = await createInGroup({
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: [a.key, b.key],
+      });
+      const send = spyOnSend(client);
+      try {
+        await writer.setAuthority({ [aPath]: 100, [bPath]: 100 });
+        expect(channelRetrieves(send, [aPath, bPath])).toHaveLength(1);
+      } finally {
+        send.mockRestore();
+        await writer.close();
+      }
+    });
+
+    it("should resolve the paths of a record write in one retrieve", async () => {
+      const [a, aPath] = await createInGroup({
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const [b, bPath] = await createInGroup({
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: [a.key, b.key],
+      });
+      const send = spyOnSend(client);
+      try {
+        await writer.write({ [aPath]: [1], [bPath]: [2] });
+        expect(channelRetrieves(send, [aPath, bPath])).toHaveLength(1);
+      } finally {
+        send.mockRestore();
+        await writer.close();
+      }
+    });
+  });
+
+  describe("NFC and NFD names", () => {
+    it("should open a streamer on one channel named in NFC and in NFD", async () => {
+      const nfc = `caf\u00e9_${id.create()}`;
+      const ch = await client.channels.create({
+        name: nfc,
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const nfd = nfc.normalize("NFD");
+      expect(nfd).not.toEqual(nfc);
+      const streamer = await client.openStreamer([nfc, nfd]);
+      try {
+        expect(streamer.keys).toEqual([ch.key]);
+      } finally {
+        streamer.close();
+      }
+    });
+  });
+
+  describe("a record that names one channel twice", () => {
+    it("should refuse a record that names one channel in NFC and in NFD", async () => {
+      const name = `${id.create()}_e\u0301`;
+      const ch = await client.channels.create({
+        name,
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: [ch.key],
+      });
+      try {
+        const nfc = name.normalize("NFC");
+        await expect(writer.write({ [nfc]: [1], [name]: [2] })).rejects.toThrow(
+          new ValidationError(
+            `${JSON.stringify(nfc)} and ${JSON.stringify(name)} name one channel`,
+          ),
+        );
+      } finally {
+        await writer.close();
       }
     });
   });

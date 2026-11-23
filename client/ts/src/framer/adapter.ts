@@ -14,33 +14,83 @@ import { ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
 import { recordColumn } from "@/framer/record";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
-
-/** Fetches channel payloads. Missing channels are omitted, not thrown. */
-export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
 
 /**
- * @returns the channel of each lookup, one per channel, for an open.
+ * Fetches the channels that a list of lookups names, omitting any that no lookup finds.
+ * A request with a name or a path must be strict, so the Core refuses an ambiguous
+ * name, and each channel found by a path must hold its path.
+ */
+export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
+
+const nfc = (lookup: channel.Lookup): channel.Lookup =>
+  typeof lookup === "string" ? lookup.normalize("NFC") : lookup;
+
+/**
+ * @returns the channel of each lookup, one per channel, in the order of its first
+ * lookup. Lookups compare in NFC, so a repeat of one lookup keeps one channel.
  * @throws {ValidationError} if two different lookups name one channel.
  */
 const distinct = (
   lookups: channel.Lookup[],
-  resolved: channel.Payload[],
+  each: channel.Payload[],
 ): channel.Payload[] => {
+  if (lookups.length < 2) return each;
   const byKey = new Map<channel.Key, channel.Lookup>();
   const channels: channel.Payload[] = [];
   lookups.forEach((lookup, i) => {
-    const ch = resolved[i];
-    const held = byKey.get(ch.key);
-    if (held == null) {
+    const ch = each[i];
+    const first = byKey.get(ch.key);
+    if (first == null) {
       byKey.set(ch.key, lookup);
       channels.push(ch);
-    } else if (held !== lookup)
+    } else if (nfc(first) !== nfc(lookup))
       throw new ValidationError(
-        `${JSON.stringify(held)} and ${JSON.stringify(lookup)} name one channel`,
+        `${JSON.stringify(first)} and ${JSON.stringify(lookup)} name one channel`,
       );
   });
   return channels;
+};
+
+/** The channels of an open, a read, or a file read. */
+export interface Resolved {
+  /** The channels as the caller gave them, each payload as its key. */
+  lookups: channel.Lookup[];
+  /** The channel of each lookup, at the index of its lookup. */
+  each: channel.Payload[];
+  /** Each channel once, in the order of its first lookup. */
+  channels: channel.Payload[];
+}
+
+/**
+ * Resolves the channels of an open, a read, or a file read in one retrieve.
+ * @throws {NotFoundError} naming every lookup that finds no channel.
+ * @throws {ValidationError} if two different lookups name one channel.
+ */
+export const resolveOpen = async (
+  retrieve: ChannelRetriever,
+  params: channel.Params,
+): Promise<Resolved> => {
+  const lookups = channel.toLookups(params);
+  const each = await channel.resolveLookups(lookups, retrieve);
+  return { lookups, each, channels: distinct(lookups, each) };
+};
+
+/**
+ * Checks that the entries of one write name different channels.
+ * @param texts - the reference of each entry, as the caller gave it.
+ * @throws {ValidationError} if two entries name one channel.
+ */
+const refuseShared = (texts: string[], channels: channel.Payload[]): void => {
+  if (channels.length < 2) return;
+  const byKey = new Map<channel.Key, string>();
+  channels.forEach((ch, i) => {
+    const first = byKey.get(ch.key);
+    if (first != null)
+      throw new ValidationError(
+        `${JSON.stringify(first)} and ${JSON.stringify(texts[i])} name one channel`,
+      );
+    byKey.set(ch.key, texts[i]);
+  });
 };
 
 export class ReadAdapter {
@@ -72,16 +122,21 @@ export class ReadAdapter {
    * @returns true when the keys changed.
    */
   async update(channels: channel.Params): Promise<boolean> {
-    const lookups = channel.toLookups(channels);
-    const resolved = await channel.resolveLookups(lookups, this.retrieveChannels);
-    const fetched = distinct(lookups, resolved);
+    const {
+      lookups,
+      each,
+      channels: fetched,
+    } = await resolveOpen(this.retrieveChannels, channels);
     const newKeys = new Set(fetched.map((c) => c.key));
     // A frame holds keys or names, never both, so a list that holds any key labels by
-    // key. Otherwise each channel takes the name or path that looked it up.
-    const labels = new Map<channel.Key, string>();
-    if (lookups.every((l) => typeof l === "string"))
-      lookups.forEach((l, i) => labels.set(resolved[i].key, l));
-    this.adapter = labels.size === 0 ? null : labels;
+    // key. Otherwise each channel takes the name or path that first looked it up.
+    let labels: Map<channel.Key, string> | null = null;
+    if (lookups.every((l) => typeof l === "string")) {
+      labels = new Map();
+      for (let i = 0; i < lookups.length; i++)
+        if (!labels.has(each[i].key)) labels.set(each[i].key, lookups[i]);
+    }
+    this.adapter = labels;
     if (newKeys.size === this.keys.size && newKeys.isSubsetOf(this.keys)) return false;
     this.fetched = fetched;
     this.keys = newKeys;
@@ -150,23 +205,30 @@ export class WriteAdapter {
     return adapter;
   }
 
+  /**
+   * @returns the key of each channel of data.
+   * @throws {NotFoundError} naming every channel that is not found.
+   * @throws {ValidationError} if two entries name one channel.
+   */
   async adaptParams(data: channel.Params): Promise<channel.Key[]> {
-    const arrParams = channel.paramsZ.parse(data);
-    const keys = await Promise.all(
-      arrParams.map(async (p) => await this.adaptToKey(p)),
-    );
-    return keys;
+    const refs = channel.paramsZ.parse(data);
+    const channels = await this.resolveRefs(refs);
+    refuseShared(refs.map(String), channels);
+    return channels.map((c) => c.key);
   }
 
   async update(channels: channel.Params): Promise<boolean> {
-    const lookups = channel.toLookups(channels);
-    const resolved = await channel.resolveLookups(lookups, this.retrieveChannels);
-    const results = distinct(lookups, resolved);
+    const {
+      lookups,
+      each,
+      channels: results,
+    } = await resolveOpen(this.retrieveChannels, channels);
     this.byText = new Map();
     for (const c of results) this.hold(c.name, c);
-    lookups.forEach((l, i) => {
-      if (typeof l === "string") this.hold(l, resolved[i]);
-    });
+    for (let i = 0; i < lookups.length; i++) {
+      const l = lookups[i];
+      if (typeof l === "string") this.hold(l, each[i]);
+    }
     this.byKey = new Map(results.map((c) => [c.key, c]));
     this.byRecordKey = new Map();
     const newKeys = results.map((c) => c.key);
@@ -186,18 +248,16 @@ export class WriteAdapter {
    * @returns the keys of the channels that the keys of a record name, by the same rule
    * as a record frame.
    * @throws {ValidationError} if a key names both a channel key and a channel name of
-   * the writer.
+   * the writer, or if two keys name one channel.
    */
   async adaptRecordKeys(keys: string[]): Promise<channel.Key[]> {
-    return await Promise.all(
-      keys.map(async (k) => await this.adaptToKey(this.recordKey(k))),
-    );
+    return (await this.resolveRecord(keys)).map((c) => c.key);
   }
 
   /**
-   * @returns the channel that a key of a record frame names. A record keys its columns
-   * by string, so a key of all digits is a channel key unless a channel of the writer
-   * holds it as a name.
+   * @returns the channel that a key of a record frame names. A key that is a channel
+   * key in canonical decimal is a key, unless a channel of the writer holds it as a
+   * name. Any other key is a name or a path.
    * @throws {ValidationError} if the writer holds both a channel with that name and a
    * channel with that key.
    */
@@ -211,6 +271,50 @@ export class WriteAdapter {
         `Record column "${k}" names both channel ${col} and the channel named "${k}"`,
       );
     return k;
+  }
+
+  /**
+   * @returns the channel of each key of a record, resolved once until an update.
+   * @throws {ValidationError} if two keys name one channel.
+   */
+  private async resolveRecord(keys: string[]): Promise<channel.Payload[]> {
+    const channels = keys.map((k) => this.byRecordKey.get(k));
+    const missing: number[] = [];
+    for (let i = 0; i < keys.length; i++) if (channels[i] == null) missing.push(i);
+    if (missing.length > 0) {
+      const found = await this.resolveRefs(missing.map((i) => this.recordKey(keys[i])));
+      missing.forEach((i, j) => {
+        channels[i] = found[j];
+        this.byRecordKey.set(keys[i], found[j]);
+      });
+    }
+    const resolved = channels as channel.Payload[];
+    refuseShared(keys, resolved);
+    return resolved;
+  }
+
+  /**
+   * @returns the channel of each reference. A held channel answers by key, NFC name, or
+   * the NFC path that opened it, with no request. The other references go in one
+   * retrieve.
+   * @throws {NotFoundError} naming every reference that finds no channel.
+   */
+  private async resolveRefs(refs: channel.Lookup[]): Promise<channel.Payload[]> {
+    const channels = refs.map((r) =>
+      typeof r === "number" ? this.byKey.get(r) : this.held(r),
+    );
+    const unheld = refs.filter((_, i) => channels[i] == null);
+    if (unheld.length === 0) return channels as channel.Payload[];
+    const found = await channel.resolveLookups(unheld, this.retrieveChannels);
+    let j = 0;
+    return channels.map((ch, i) => {
+      if (ch != null) return ch;
+      const f = found[j++];
+      const r = refs[i];
+      // The channel set is fixed between updates, so a held channel cannot go stale.
+      if (typeof r === "string" && this.byKey.has(f.key)) this.hold(r, f);
+      return f;
+    });
   }
 
   private hold(text: string, ch: channel.Payload): void {
@@ -233,33 +337,6 @@ export class WriteAdapter {
     return held?.[0];
   }
 
-  private async fetchChannel(
-    ch: channel.Key | channel.Name | channel.Payload,
-  ): Promise<channel.Payload> {
-    // The channel set is fixed between updates, so cached payloads cannot go stale.
-    const cached =
-      typeof ch === "string"
-        ? this.held(ch)
-        : this.byKey.get(typeof ch === "number" ? ch : ch.key);
-    if (cached != null) return cached;
-    const lookups = channel.toLookups(ch);
-    const res = await this.retrieveChannels(lookups);
-    checkForMultipleOrNoResults(
-      "channel",
-      { where: channel.lookupWhere(lookups) },
-      res,
-      true,
-    );
-    if (typeof ch === "string" && this.byKey.has(res[0].key)) this.hold(ch, res[0]);
-    return res[0];
-  }
-
-  private async adaptToKey(k: channel.Key | channel.Name): Promise<channel.Key> {
-    if (typeof k === "number") return k;
-    const res = await this.fetchChannel(k);
-    return res.key;
-  }
-
   encode(frame: Frame): Uint8Array {
     return this.codec.encode(frame.toPayload());
   }
@@ -280,7 +357,7 @@ export class WriteAdapter {
           Received a single channel name or key but multiple series.
           `);
 
-      const pld = await this.fetchChannel(columnsOrData);
+      const [pld] = await this.resolveRefs([columnsOrData]);
       const s = new Series({ data: series, dataType: pld.dataType });
       return new Frame(pld.key, s);
     }
@@ -294,49 +371,43 @@ export class WriteAdapter {
         throw new ValidationError(`
         Received an array of channel names or keys but no array of series.
         `);
-      const cols = [];
-      const data = [];
-      for (let i = 0; i < columnsOrData.length; i++) {
-        const pld = await this.fetchChannel(columnsOrData[i]);
-        if (i >= series.length)
-          throw new ValidationError(`
+      if (series.length < columnsOrData.length)
+        throw new ValidationError(`
           Received an array of channel names or keys but not enough series.
           `);
-
-        const s = new Series({
-          data: series[i] as CrudeSeries,
-          dataType: pld.dataType,
-        });
-        cols.push(pld.key);
-        data.push(s);
-      }
-      return new Frame(cols, data);
+      const refs = channel.toLookups(columnsOrData);
+      const plds = await this.resolveRefs(refs);
+      refuseShared(refs.map(String), plds);
+      const data = plds.map(
+        (pld, i) =>
+          new Series({ data: series[i] as CrudeSeries, dataType: pld.dataType }),
+      );
+      return new Frame(
+        plds.map((pld) => pld.key),
+        data,
+      );
     }
 
     if (columnsOrData instanceof Frame || columnsOrData instanceof Map) {
       const fr = new Frame(columnsOrData);
       if (fr.colType !== "name") return fr;
-      const cols = [];
-      for (const col of fr.columns as channel.Name[])
-        cols.push((await this.fetchChannel(col)).key);
-      return new Frame(cols, fr.series);
+      const names = fr.columns as channel.Name[];
+      const plds = await this.resolveRefs(names);
+      refuseShared(names, plds);
+      return new Frame(
+        plds.map((pld) => pld.key),
+        fr.series,
+      );
     }
 
-    const cols = [];
-    const data = [];
     const kvs = Object.entries(columnsOrData);
-    for (let i = 0; i < kvs.length; i++) {
-      const [k, v] = kvs[i];
-      let pld = this.byRecordKey.get(k);
-      if (pld == null) {
-        pld = await this.fetchChannel(this.recordKey(k));
-        this.byRecordKey.set(k, pld);
-      }
-      const s = new Series({ data: v, dataType: pld.dataType });
-      cols.push(pld.key);
-      data.push(s);
-    }
-
-    return new Frame(cols, data);
+    const plds = await this.resolveRecord(kvs.map(([k]) => k));
+    const data = kvs.map(
+      ([, v], i) => new Series({ data: v, dataType: plds[i].dataType }),
+    );
+    return new Frame(
+      plds.map((pld) => pld.key),
+      data,
+    );
   }
 }
