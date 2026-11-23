@@ -296,6 +296,16 @@ var _ = Describe("Delete", Ordered, func() {
 		Expect(exists(ctx, ch.Key())).To(BeTrue())
 	})
 
+	It("Should refuse a plan whose pick names no entry", func(ctx SpecContext) {
+		ch := createChannel(ctx, channel.Channel{})
+		Expect(layer.Impact.Plan(ctx, db, deleteOf(ch.Key()), impact.PlanOptions{
+			Picks: map[string]impact.Choice{"task:none": impact.ChoiceDelete},
+		})).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("no entry is task:none")),
+		))
+	})
+
 	It("Should refuse a pick that its entry does not allow", func(ctx SpecContext) {
 		ch := createChannel(ctx, channel.Channel{})
 		plot := createPlot(ctx, ch.Key())
