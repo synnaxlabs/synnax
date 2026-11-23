@@ -12,16 +12,16 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { aether } from "@/aether/aether";
-import { renderHook } from "@/testutil/render";
+import { renderHook } from "@/testutil";
 import { Scale } from "@/vis/scale";
 import { scale } from "@/vis/scale/aether";
 
 // Stands in for the worker component and reports its source as stale.
 class StaleScale extends aether.Leaf<typeof scale.Scale.z> {
   static readonly TYPE = scale.Scale.TYPE;
-  schema = scale.Scale.z;
+  override schema = scale.Scale.z;
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
   }
 }

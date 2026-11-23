@@ -15,7 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { List } from "@synnaxlabs/lyra/list";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
@@ -190,7 +190,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       if (existing == null) toCreate.push(c);
       else
         try {
-          await client.channels.retrieve(existing.toString());
+          await client.channels.retrieve(existing);
         } catch (e) {
           if (NotFoundError.matches(e)) toCreate.push(c);
           else throw errors.fromUnknown(e);

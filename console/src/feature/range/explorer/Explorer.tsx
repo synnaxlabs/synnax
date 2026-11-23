@@ -11,7 +11,6 @@ import "@/feature/range/explorer/Explorer.css";
 
 import { ranger, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { useDebouncedCallback, useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -29,7 +28,7 @@ import { pin } from "@/feature/range/explorer/time";
 import { Tree } from "@/feature/range/tree";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { View } from "@/platform/view";
 
@@ -39,11 +38,18 @@ interface SortSelectProps {
   preview: boolean;
 }
 
-const SORT_ICONS: Record<view.RangeSort, Icon.ReactElement> = {
-  newest: <Icon.Arrow.Down />,
-  oldest: <Icon.Arrow.Up />,
-  name: <Icon.Text />,
+interface SortInfo {
+  name: string;
+  icon: Icon.ReactElement;
+}
+
+const SORTS: Record<view.RangeSort, SortInfo> = {
+  newest: { name: "Newest first", icon: <Icon.Arrow.Down /> },
+  oldest: { name: "Oldest first", icon: <Icon.Arrow.Up /> },
+  name: { name: "Name", icon: <Icon.Text /> },
 };
+
+const SORT_NAME_CLASS = CSS.BE("range-explorer", "sort-name");
 
 const SortSelect = ({ value, onChange, preview }: SortSelectProps): ReactElement => (
   <Select.Simple<view.RangeSort>
@@ -52,20 +58,34 @@ const SortSelect = ({ value, onChange, preview }: SortSelectProps): ReactElement
     value={value}
     onChange={onChange}
     preview={preview}
-    triggerProps={{ variant: "text", size: "medium", hideCaret: true, textColor: 9 }}
+    className={CSS.BE("range-explorer", "sort")}
+    triggerProps={{
+      variant: "text",
+      size: "medium",
+      hideCaret: true,
+      textColor: 9,
+      className: CSS.BE("range-explorer", "sort-trigger"),
+      tooltip: SORTS[value].name,
+      tooltipLocation: "bottom",
+      hideTooltip: View.textShown(SORT_NAME_CLASS),
+    }}
   >
-    <Select.Item<view.RangeSort> itemKey="newest">
-      {SORT_ICONS.newest}
-      Newest first
-    </Select.Item>
-    <Select.Item<view.RangeSort> itemKey="oldest">
-      {SORT_ICONS.oldest}
-      Oldest first
-    </Select.Item>
-    <Select.Item<view.RangeSort> itemKey="name">
-      {SORT_ICONS.name}
-      Name
-    </Select.Item>
+    {view.RANGE_SORTS.map((sort) => (
+      <Select.Item<view.RangeSort>
+        key={sort}
+        itemKey={sort}
+        // A narrow toolbar hides the name in the trigger, and the menu keeps it.
+        label={
+          <>
+            {SORTS[sort].icon}
+            <span className={SORT_NAME_CLASS}>{SORTS[sort].name}</span>
+          </>
+        }
+      >
+        {SORTS[sort].icon}
+        {SORTS[sort].name}
+      </Select.Item>
+    ))}
   </Select.Simple>
 );
 
@@ -225,34 +245,28 @@ const Internal = (): ReactElement => {
       }}
       itemHeight={Tree.itemHeight(layout)}
     >
-      <View.Toolbar>
-        <Flex.Box x align="center" gap="small" grow wrap>
-          <View.Filter.Menu properties={PROPERTIES} />
-          <View.Filter.Chips properties={PROPERTIES} />
-        </Flex.Box>
-        <Flex.Box x align="center" gap="small">
-          {searchTerm === "" && (
-            <SortSelect value={sort} onChange={setSort} preview={!editable} />
-          )}
-          <Tree.LayoutSelect
-            value={layout}
-            onChange={setLayout}
-            layouts={LAYOUTS}
+      <View.Toolbar properties={PROPERTIES}>
+        {searchTerm === "" && (
+          <SortSelect value={sort} onChange={setSort} preview={!editable} />
+        )}
+        <Tree.LayoutSelect
+          value={layout}
+          onChange={setLayout}
+          layouts={LAYOUTS}
+          size="medium"
+          preview={!editable}
+        />
+        {canCreate && (
+          <Button.Button
+            variant="outlined"
             size="medium"
-            preview={!editable}
-          />
-          {canCreate && (
-            <Button.Button
-              variant="outlined"
-              size="medium"
-              tooltip="Create range"
-              tooltipLocation={location.BOTTOM_LEFT}
-              onClick={() => void openCreate()}
-            >
-              <Icon.Add />
-            </Button.Button>
-          )}
-        </Flex.Box>
+            tooltip="Create range"
+            tooltipLocation={location.BOTTOM_LEFT}
+            onClick={() => void openCreate()}
+          >
+            <Icon.Add />
+          </Button.Button>
+        )}
       </View.Toolbar>
       <Tree.Layout
         layout={layout}

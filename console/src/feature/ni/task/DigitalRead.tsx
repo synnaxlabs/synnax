@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { deep, errors, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
@@ -149,7 +149,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       if (primitive.isZero(exKey)) toCreate.push(channel);
       else
         try {
-          await client.channels.retrieve(exKey.toString());
+          await client.channels.retrieve(exKey);
         } catch (e) {
           if (NotFoundError.matches(e)) toCreate.push(channel);
           else throw errors.fromUnknown(e);

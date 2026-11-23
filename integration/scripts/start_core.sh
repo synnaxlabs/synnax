@@ -13,12 +13,14 @@ set -euo pipefail
 
 echo "Starting Synnax server..."
 
-# Create data directory
-mkdir -p $HOME/synnax-data
+# Create the data directory, with the secrets folder of the embedded Driver
+secrets_dir="$HOME/synnax-data/secrets"
+mkdir -p "$secrets_dir"
 
 # Start Synnax in background
 cd $HOME/synnax-data
-$HOME/synnax-binaries/synnax start -mi > $HOME/synnax-data/synnax-core.log 2>&1 &
+$HOME/synnax-binaries/synnax start -mi --secrets-dir "$secrets_dir" \
+    > $HOME/synnax-data/synnax-core.log 2>&1 &
 
 # Wait for startup
 echo "Waiting for server startup..."

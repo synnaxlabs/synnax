@@ -9,7 +9,7 @@
 
 import { zip } from "@synnaxlabs/x";
 
-import { type FS } from "@/platform/fs";
+import type { FS } from "@/platform/fs";
 
 /** Reports whether the file at name is a zip archive by its extension. */
 export const isZipFile = (name: string): boolean => name.toLowerCase().endsWith(".zip");

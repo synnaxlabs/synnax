@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import type { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 export interface StartStopButtonProps extends Omit<Button.ButtonProps, "onClick"> {
   /** Whether the task is currently running */

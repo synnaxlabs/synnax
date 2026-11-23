@@ -23,7 +23,7 @@ import fs from "fs";
 import { styleText } from "util";
 
 import { warning } from "@/util/checks/annotation";
-import { type Check, type Context, type Source } from "@/util/checks/check";
+import type { Check, Context, Source } from "@/util/checks/check";
 import { crawlPages, enumerateRoutes } from "@/util/checks/crawl";
 import { createFetcher } from "@/util/checks/fetch";
 import { links } from "@/util/checks/links";

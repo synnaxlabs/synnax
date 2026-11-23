@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { LinePlot } from "@/platform/lineplot";
-import { type Link } from "@/platform/link";
+import type { Link } from "@/platform/link";
 import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
   const create = LinePlot.useCreate();
   return async ({ client, key }) => {
-    const channel = await client.channels.retrieve(key);
+    const channel = await client.channels.retrieve(Number(key));
     create({
       name: `${channel.name} Plot`,
       channels: { y1: [channel.key] },

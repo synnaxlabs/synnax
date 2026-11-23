@@ -9,6 +9,7 @@
 
 import { ValidationError } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { describe, expect, it } from "vitest";
 
 import { Region } from "@/schematic/node/common/region";
@@ -483,6 +484,25 @@ describe("Region.normalizeElement", () => {
       expect(svg.querySelector("rect")!.hasAttribute("data-region-id")).toBe(false);
     });
 
+    it("should tag the shapes inside a nested svg, but not the svg", () => {
+      const svg = parse('<svg><rect width="1" height="1"/></svg>');
+      Region.normalizeElement(svg, readResolver);
+      const nested = svg.querySelector("svg")!;
+      expect(nested.hasAttribute("data-region-id")).toBe(false);
+      const rect = nested.querySelector("rect")! as SVGElement;
+      expect(Region.selector(rect)).toMatch(/^\[data-region-id="region-.+"\]$/);
+    });
+
+    it("should skip a region-N that a shape already takes", () => {
+      const svg = parse(
+        '<rect data-region-id="region-1" width="1" height="1"/><circle r="1"/>',
+      );
+      Region.normalizeElement(svg, readResolver);
+      expect(svg.querySelector("circle")!.getAttribute("data-region-id")).toBe(
+        "region-2",
+      );
+    });
+
     it("should not overwrite an existing data-region-id", () => {
       const svg = parse('<rect data-region-id="region-fixed" width="1" height="1"/>');
       Region.normalizeElement(svg, readResolver);
@@ -671,5 +691,58 @@ describe("Region.selector", () => {
     const svg = doc.documentElement as unknown as SVGElement;
     const rect = svg.querySelector("rect") as SVGElement;
     expect(Region.extract(svg)[0].selectors).toEqual([Region.selector(rect)]);
+  });
+});
+
+describe("Region.name", () => {
+  // draw builds the drawing as useRender does: the root's children move into a group.
+  const draw = (markup: string): SVGGElement => {
+    const root = Region.parseSVG(markup);
+    assertDefined(root);
+    const drawing = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    while (root.firstChild != null) drawing.appendChild(root.firstChild);
+    return drawing;
+  };
+
+  const svg = (content: string): string =>
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${content}</svg>`;
+
+  it("should give an unnamed shape a region-N that no shape takes", () => {
+    const markup = svg(
+      '<rect data-region-id="region-1" width="1" height="1"/>' +
+        '<rect data-region-id="region-3" width="1" height="1"/><circle r="1"/>',
+    );
+    const drawing = draw(markup);
+    const named = Region.name(markup, drawing, drawing.querySelector("circle")!);
+    expect(named.selector).toBe('[data-region-id="region-2"]');
+    const root = Region.parseSVG(named.markup);
+    assertDefined(root);
+    const ids = Array.from(root.querySelectorAll("[data-region-id]"), (el) =>
+      el.getAttribute("data-region-id"),
+    );
+    expect(ids).toEqual(["region-1", "region-3", "region-2"]);
+    expect(root.querySelector(named.selector)?.tagName).toBe("circle");
+  });
+
+  it("should find a shape inside a group by its place", () => {
+    const markup = svg('<circle id="a" r="1"/><g><rect/><rect/></g>');
+    const drawing = draw(markup);
+    const second = drawing.querySelectorAll("rect")[1];
+    const named = Region.name(markup, drawing, second);
+    const root = Region.parseSVG(named.markup);
+    assertDefined(root);
+    expect(root.querySelectorAll("rect")[1].getAttribute("data-region-id")).toBe(
+      "region-1",
+    );
+    expect(root.querySelectorAll("rect")[0].hasAttribute("data-region-id")).toBe(false);
+  });
+
+  it("should keep the markup of a shape that has a name", () => {
+    const markup = svg('<rect id="body" width="1" height="1"/>');
+    const drawing = draw(markup);
+    expect(Region.name(markup, drawing, drawing.querySelector("rect")!)).toEqual({
+      markup,
+      selector: "#body",
+    });
   });
 });

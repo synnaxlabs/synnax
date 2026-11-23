@@ -17,7 +17,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
 import { UnauthorizedError, ValidationError } from "@/errors";
@@ -34,35 +34,149 @@ import {
 const client = createTestClient();
 
 describe("Writer", () => {
-  describe("Writer", () => {
-    test("basic write", async () => {
-      const channels = await newIndexedPair(client);
-      const start = TimeStamp.seconds(1);
-      const writer = await client.openWriter({ start, channels });
-      const [index, data] = channels;
+  describe("channels named by digit text", () => {
+    const writeByName = async (name: string): Promise<void> => {
+      const [index, data] = await newIndexedPair(client);
+      await client.channels.rename(data.key, name);
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels: [index.name, name],
+      });
       try {
         await writer.write({
-          [index.key]: secondsLinspace(1, 10),
-          [data.key]: randomSeries(10, data.dataType),
+          [index.key]: secondsLinspace(1, 3),
+          [name]: new Series({ data: [1, 2, 3], dataType: data.dataType }),
         });
         await writer.commit();
       } finally {
         await writer.close();
       }
-      expect(true).toBe(true);
+      const fr = await client.read(TimeRange.MAX, [data.key]);
+      expect(Array.from(fr.get(data.key).series[0])).toEqual([1, 2, 3]);
+    };
+    const rand = (): number => Math.floor(Math.random() * 1e9);
+
+    it("should write to a channel named by digits", async () => {
+      await writeByName(`${Date.now()}${rand()}`);
+    });
+
+    it("should write to a channel whose name starts with digits", async () => {
+      await writeByName(`${rand()}-tank`);
+    });
+
+    it("should write to channels named like number literals", async () => {
+      await writeByName(`1e${rand()}`);
+      await writeByName(`0x${rand().toString(16)}`);
+    });
+
+    const takeControl = async (
+      name: string,
+      set: (w: framer.Writer) => Promise<void>,
+    ): Promise<void> => {
+      const [index, data] = await newIndexedPair(client);
+      await client.channels.rename(data.key, name);
+      const start = TimeStamp.seconds(5);
+      const low = await client.openWriter({
+        start,
+        channels: [index, data],
+        authorities: 10,
+      });
+      const high = await client.openWriter({
+        start,
+        channels: [index, data],
+        authorities: 20,
+      });
+      try {
+        await set(low);
+        await low.write({
+          [index.key]: secondsLinspace(5, 10),
+          [data.key]: randomSeries(10, data.dataType),
+        });
+      } finally {
+        await low.close();
+        await high.close();
+      }
+      expect((await data.read(TimeRange.MAX)).length).toEqual(10);
+    };
+
+    it("should set authority by a record keyed by a digit name", async () => {
+      const name = `${Date.now()}${rand()}`;
+      await takeControl(name, async (w) => await w.setAuthority({ [name]: 100 }));
+    });
+
+    it("should set authority on one channel named like a number literal", async () => {
+      const name = `0x${rand().toString(16)}`;
+      await takeControl(name, async (w) => await w.setAuthority(name, 100));
+    });
+
+    it("should refuse a record column that names both a key and a channel", async () => {
+      const [index, data] = await newIndexedPair(client);
+      const named = await client.channels.create({
+        name: String(data.key),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels: [index.key, data.key, named.key],
+      });
+      try {
+        await expect(writer.write({ [String(data.key)]: [1, 2, 3] })).rejects.toThrow(
+          `Record column "${data.key}" names both channel ${data.key} and the ` +
+            `channel named "${data.key}"`,
+        );
+      } finally {
+        await writer.close();
+      }
+    });
+  });
+
+  describe("dispose", () => {
+    test("should close the writer once at the end of an await using block", async () => {
+      const channels = await newIndexedPair(client);
+      const writer = await client.openWriter({ start: TimeStamp.seconds(1), channels });
+      const close = vi.spyOn(writer, "close");
+      {
+        await using _ = writer;
+      }
+      expect(close).toHaveBeenCalledTimes(1);
+      await expect(writer.commit()).rejects.toThrow(framer.WriterClosedError);
+    });
+
+    test("should dispose a writer that was closed explicitly", async () => {
+      const channels = await newIndexedPair(client);
+      const writer = await client.openWriter({ start: TimeStamp.seconds(1), channels });
+      const close = vi.spyOn(writer, "close");
+      {
+        await using w = writer;
+        await w.close();
+      }
+      expect(close).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("Writer", () => {
+    test("basic write", async () => {
+      const channels = await newIndexedPair(client);
+      const start = TimeStamp.seconds(1);
+      const [index, data] = channels;
+      await using writer = await client.openWriter({ start, channels });
+      await writer.write({
+        [index.key]: secondsLinspace(1, 10),
+        [data.key]: randomSeries(10, data.dataType),
+      });
+      await writer.commit();
     });
 
     test("write without a start", async () => {
       const [index, data] = await newIndexedPair(client);
-      const writer = await client.openWriter({ channels: [index, data] });
-      try {
+      {
+        await using writer = await client.openWriter({ channels: [index, data] });
         await writer.write({
           [index.key]: secondsLinspace(1, 3),
           [data.key]: new Series({ data: [1, 2, 3], dataType: data.dataType }),
         });
         await writer.commit();
-      } finally {
-        await writer.close();
       }
       const fr = await client.read(TimeRange.MAX, [index.key, data.key]);
       expect(fr.get(index.key).series[0].at(0)).toEqual(TimeStamp.seconds(1).valueOf());
@@ -348,30 +462,26 @@ describe("Writer", () => {
         [index.key]: secondsLinspace(second, 1),
         [data.key]: randomSeries(1, data.dataType),
       });
-      const low = await client.openWriter({
+      await using low = await client.openWriter({
         start,
         channels,
         authorities: 10,
         enableAutoCommit: false,
       });
+      await low.write(frame(5));
+      // The acknowledged command orders the write before the next writer opens.
+      await low.setAuthority(10);
+      const high = await client.openWriter({ start, channels, authorities: 20 });
       try {
-        await low.write(frame(5));
-        // The acknowledged command orders the write before the next writer opens.
-        await low.setAuthority(10);
-        const high = await client.openWriter({ start, channels, authorities: 20 });
-        try {
-          const denied = await low.commitResult();
-          expect(denied.authorized).toBe(false);
-        } finally {
-          await high.close();
-        }
-        await low.write(frame(6));
-        const granted = await low.commitResult();
-        expect(granted.authorized).toBe(true);
-        expect(granted.end).toEqual(TimeStamp.seconds(6).add(1));
+        const denied = await low.commitResult();
+        expect(denied.authorized).toBe(false);
       } finally {
-        await low.close();
+        await high.close();
       }
+      await low.write(frame(6));
+      const granted = await low.commitResult();
+      expect(granted.authorized).toBe(true);
+      expect(granted.end).toEqual(TimeStamp.seconds(6).add(1));
     });
 
     describe("commitResult after the stream ends", () => {
@@ -424,6 +534,43 @@ describe("Writer", () => {
         const { writer } = await openEndable();
         await writer.close();
         await expect(writer.commitResult()).rejects.toThrow(framer.WriterClosedError);
+      });
+    });
+
+    describe("setAuthority after the Core closes the writer with an error", () => {
+      const time = new channel.Channel({
+        key: 1,
+        name: "time",
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+
+      test("should throw the error the Core closed the writer with", async () => {
+        const state = { opened: false };
+        const stream = {
+          send: () => {
+            if (state.opened) throw new EOF();
+          },
+          closeSend: () => {},
+          received: () => false,
+          receive: async () => {
+            if (state.opened) throw new ValidationError("invalid frame");
+            state.opened = true;
+            return {
+              command: framer.WriterCommand.Open,
+              end: TimeStamp.ZERO,
+              authorized: true,
+            };
+          },
+        };
+        const transport = { withCodec: () => transport, stream: async () => stream };
+        const writer = await framer.Writer._open(
+          async () => [time.payload],
+          transport as unknown as WebSocketClient,
+          { channels: [time.key] },
+        );
+        await expect(writer.setAuthority(10)).rejects.toThrow(ValidationError);
+        await expect(writer.close()).rejects.toThrow(ValidationError);
       });
     });
 
