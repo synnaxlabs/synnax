@@ -82,6 +82,9 @@ public:
     /// @brief returns the number of payload bytes that the field needs.
     [[nodiscard]] std::size_t end() const { return this->end_byte; }
 
+    /// @brief returns the number of bits in the field.
+    [[nodiscard]] std::uint8_t width() const { return this->length; }
+
     /// @brief reports whether both ranges read the same bits in the same order.
     bool operator==(const BitRange &) const = default;
 };

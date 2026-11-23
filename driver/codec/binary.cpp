@@ -82,6 +82,71 @@ void (*put_for(const x::telem::DataType &dt))(x::telem::Series &, std::uint64_t)
     return put<std::uint64_t, Signed>;
 }
 
+/// @brief returns the payload kind of the values of a field of encoding e.
+std::string_view field_kind(const Encoding e) {
+    if (e == Encoding::SIGNED) return payload::KIND_INTEGER;
+    if (e == Encoding::UNSIGNED) return payload::KIND_UNSIGNED;
+    return payload::KIND_FLOAT;
+}
+
+/// @brief returns the layout of the field of identifier id in payload p.
+/// @param context comes before the text of an error.
+/// @returns CONFIG_ERROR when the field does not exist, is a float field, has an
+/// invalid layout, ends past the payload length, or cannot hold the identifier value.
+std::pair<BitRange, x::errors::Error> identifier_bits(
+    const icd::FieldIdentifier &id,
+    const icd::BinaryPayload &p,
+    const Multiplexors::Layout &fields,
+    const std::string &context
+) {
+    const auto found = fields.find(id.field);
+    if (found == fields.end())
+        return {
+            BitRange{},
+            x::errors::Error(
+                CONFIG_ERROR,
+                context + ": field " + id.field.to_string() + " does not exist"
+            ),
+        };
+    const auto &f = *found->second;
+    const auto &b = icd::base(f);
+    if (std::holds_alternative<icd::FloatBinaryField>(f))
+        return {
+            BitRange{},
+            x::errors::Error(
+                CONFIG_ERROR,
+                context + ": field " + b.name + " is a float field"
+            ),
+        };
+    auto [bits, err] = BitRange::create(b);
+    if (err) return {BitRange{}, as_config(err, context + ": field " + b.name)};
+    if (p.length.has_value() && bits.end() > *p.length)
+        return {
+            BitRange{},
+            x::errors::Error(
+                CONFIG_ERROR,
+                context + ": field " + b.name + ": the field ends past the " +
+                    std::to_string(*p.length) + "-byte payload"
+            ),
+        };
+    const bool is_signed = std::holds_alternative<icd::IntegerBinaryField>(f);
+    const std::int64_t v = id.value;
+    const auto n = b.bit_length;
+    const bool fits = is_signed ? n >= 64 || (v >= -(std::int64_t{1} << (n - 1)) &&
+                                              v < (std::int64_t{1} << (n - 1)))
+                                : v >= 0 && (n >= 63 || v < (std::int64_t{1} << n));
+    if (!fits)
+        return {
+            BitRange{},
+            x::errors::Error(
+                CONFIG_ERROR,
+                context + ": " + std::to_string(v) + " is out of range for field " +
+                    b.name
+            ),
+        };
+    return {bits, x::errors::NIL};
+}
+
 constexpr std::uint32_t MAX_STANDARD_CAN_ID = 0x7FF;
 constexpr std::uint32_t MAX_EXTENDED_CAN_ID = 0x1FFFFFFF;
 /// @brief EXTENDED_BIT marks an extended identifier in the keys of Binary::exact.
@@ -125,11 +190,7 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
     auto [encoding, encoding_err] = encoding_of(f);
     if (encoding_err) return {Field{}, encoding_err};
     field.encoding = encoding;
-    std::string_view kind = payload::KIND_UNSIGNED;
-    if (encoding == Encoding::SIGNED)
-        kind = payload::KIND_INTEGER;
-    else if (encoding == Encoding::FLOAT32 || encoding == Encoding::FLOAT64)
-        kind = payload::KIND_FLOAT;
+    const auto kind = field_kind(encoding);
     if (!converts(kind, dt))
         return {
             Field{},
@@ -322,40 +383,15 @@ Binary::route(const BinaryMessage &m, const std::size_t i, const Layout &fields)
     if (const auto *can = std::get_if<icd::CanIdentifier>(&identifier))
         return this->route_can(*can, i);
     const auto &id = std::get<icd::FieldIdentifier>(identifier);
-    const auto context = "message " + m.name + ": identifier";
-    const auto found = fields.find(id.field);
-    if (found == fields.end())
-        return x::errors::Error(
-            CONFIG_ERROR,
-            context + ": field " + id.field.to_string() + " does not exist"
-        );
-    const auto &f = *found->second;
-    const auto &b = icd::base(f);
-    if (std::holds_alternative<icd::FloatBinaryField>(f))
-        return x::errors::Error(
-            CONFIG_ERROR,
-            context + ": field " + b.name + " is a float field"
-        );
-    auto [bits, err] = BitRange::create(b);
-    if (err) return as_config(err, context + ": field " + b.name);
-    if (const auto length = m.payload.length;
-        length.has_value() && bits.end() > *length)
-        return x::errors::Error(
-            CONFIG_ERROR,
-            context + ": field " + b.name + ": the field ends past the " +
-                std::to_string(*length) + "-byte payload"
-        );
-    const bool is_signed = std::holds_alternative<icd::IntegerBinaryField>(f);
+    auto [bits, err] = identifier_bits(
+        id,
+        m.payload,
+        fields,
+        "message " + m.name + ": identifier"
+    );
+    if (err) return err;
     const std::int64_t v = id.value;
-    const auto n = b.bit_length;
-    const bool fits = is_signed ? n >= 64 || (v >= -(std::int64_t{1} << (n - 1)) &&
-                                              v < (std::int64_t{1} << (n - 1)))
-                                : v >= 0 && (n >= 63 || v < (std::int64_t{1} << n));
-    if (!fits)
-        return x::errors::Error(
-            CONFIG_ERROR,
-            context + ": " + std::to_string(v) + " is out of range for field " + b.name
-        );
+    const auto n = bits.width();
     auto h = std::ranges::find(this->headers, bits, &Header::bits);
     if (h == this->headers.end()) {
         this->headers.push_back({.bits = bits});
