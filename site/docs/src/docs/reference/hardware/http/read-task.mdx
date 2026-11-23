@@ -157,9 +157,10 @@ be running.
 | Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving).        |
 | Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.                     |
 
-An invalid field skips every field that shares its endpoint and index channel. Turn on
-**NaN fill** (`nan_fill_enabled`) to write `NaN` for an invalid float field instead. It
-still sends a warning. Invalid non-float fields always skip the group.
+A missing or invalid value skips the whole response of its endpoint. Turn on **NaN
+fill** (`nan_fill_enabled`) to write `NaN` for a missing or invalid float field instead.
+It still sends a warning. A missing or invalid non-float field always skips the
+response.
 
 The task has no [stream rate](/reference/hardware/tasks#read-tasks). Each response goes
 to the Core at once.
@@ -214,15 +215,45 @@ real reading.
 
 <Problem.List>
 
-<Problem.Item message={"index channel ... is referenced by fields on different endpoints"}>
+<Problem.Item message={"endpoint ... and endpoint ... write to the same channel ..."}>
 <Problem.Cause>
 
-Two endpoints record into channels that share one index channel.
+Two endpoints record into one channel, or into channels that share one index channel.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Give each endpoint its own index channel.
+Give each endpoint its own channels and its own index channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to read the response from ..."}>
+<Problem.Cause>
+
+The response is not JSON, or a value is missing or does not convert. The task records
+nothing from the response. The description names the field.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the pointer and the type of the field against a response from the server. Pointers
+start with `/` and are case sensitive.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"The response from ... matches no message"}>
+<Problem.Cause>
+
+Each message of the endpoint has a match rule, and the response meets none of them. The
+task records nothing from the response.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the match rules of the messages of the endpoint against a response from the
+server.
 
 </Problem.Fix>
 </Problem.Item>
@@ -230,7 +261,8 @@ Give each endpoint its own index channel.
 <Problem.Item message={"Field ... not found in response from ..."}>
 <Problem.Cause>
 
-The response has no value at the pointer.
+**NaN fill** is on, and the response has no value at the pointer of a float field. The
+task records `NaN` for the field.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -244,9 +276,9 @@ case sensitive.
 <Problem.Item message={"Failed to read some data"}>
 <Problem.Cause>
 
-Some fields of a response were missing or invalid. The description lists each problem.
-The task keeps running. See [task options](#task-options) for how an invalid field
-affects the other fields on its index channel.
+Some responses were missing values, or had invalid ones. The description lists each
+problem. The task keeps running. See [task options](#task-options) for how an invalid
+value affects the rest of its response.
 
 </Problem.Cause>
 <Problem.Fix>
