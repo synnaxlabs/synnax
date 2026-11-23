@@ -65,14 +65,10 @@ func validateDevice(d Device) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
+	if err := d.ValidatePorts(); err != nil {
+		return err
+	}
 	v := validate.New("device")
-	v.Ternaryf(
-		"ports",
-		d.Ports.Model() != d.Model,
-		"are for %s, not %s",
-		d.Ports.Model(),
-		d.Model,
-	)
 	if t7, ok := d.Ports.Variant.(T7Ports); ok && !t7.Mux80Attached {
 		for _, port := range slices.Sorted(maps.Keys(t7.AnalogInput)) {
 			n, err := strconv.Atoi(strings.TrimPrefix(string(port), "AIN"))
