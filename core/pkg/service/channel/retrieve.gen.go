@@ -58,9 +58,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Channel, _ group.Key) { e.Group = nil },
-			Retarget: func(e *Channel, from, to group.Key) {
-				if e.Group != nil && *e.Group == from {
-					*e.Group = to
+			Retarget: func(e *Channel, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						*e.Group = t
+					}
 				}
 			},
 		}),
@@ -89,10 +91,10 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Channel, from, to Key) {
+			Retarget: func(e *Channel, to map[Key]Key) {
 				for i3 := range e.Rewires {
-					if e.Rewires[i3].From == from {
-						e.Rewires[i3].From = to
+					if t, ok := to[e.Rewires[i3].From]; ok {
+						e.Rewires[i3].From = t
 					}
 				}
 			},
