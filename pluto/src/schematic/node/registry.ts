@@ -40,7 +40,8 @@ export const REGISTRY = {
   custom_actuator: customActuatorSpec,
   custom_static: customStaticSpec,
   group_box: GroupBox.spec,
-} as const satisfies Record<schematic.NodeConfigType, unknown>;
+  // SY-6750 adds the symbol spec, satisfies the full Record, and drops the key casts.
+} as const satisfies Record<Exclude<schematic.NodeConfigType, "symbol">, unknown>;
 
 export const variantZ = schematic.nodeConfigTypeZ;
 export type Variant = schematic.NodeConfigType;
@@ -59,7 +60,7 @@ export type Input<V extends Variant> = { variant: V } & Omit<
 >;
 
 export const resolveSpec = (variant: string): Spec => {
-  const spec = REGISTRY[variant as Variant];
+  const spec = REGISTRY[variant as keyof typeof REGISTRY];
   if (spec == null) throw new NotFoundError(`Symbol with variant ${variant} not found`);
   return spec as Spec;
 };
