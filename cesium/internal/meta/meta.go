@@ -27,27 +27,27 @@ const File = "meta.json"
 // ignored when opening a DB.
 var ErrIgnoreChannel = errors.New("channel should be ignored")
 
-// Open reads the metadata file for a database whose data is kept in fs and is encoded
+// Open reads the metadata file for a database whose data is kept in fsys and is encoded
 // by the provided encoder. If the file does not exist, it will be created. If the file
-// does exist, it will be read and migrated to the current version in memory. The file
-// keeps its stored version until the next Create. The provided channel should have all
-// fields required by the DB correctly set.
+// does exist, it will be read and migrated to the current version in memory, and keeps
+// its stored version. The provided channel should have all fields required by the DB
+// correctly set.
 func Open(
 	ctx context.Context,
-	fs fs.FS,
+	fsys fs.FS,
 	ch channel.Channel,
 	codec encoding.Codec,
 ) (channel.Channel, error) {
-	exists, err := fs.Exists(File)
+	exists, err := fsys.Exists(File)
 	if err != nil {
 		return channel.Channel{}, err
 	}
 	if exists {
-		ch, err = Read(ctx, fs, codec)
+		ch, err = Read(ctx, fsys, codec)
 		if err != nil {
 			return channel.Channel{}, err
 		}
-		state := migrate.Migrate(migrate.DBState{Channel: ch, FS: fs})
+		state := migrate.Migrate(migrate.DBState{Channel: ch, FS: fsys})
 		if state.ShouldIgnoreChannel {
 			return channel.Channel{}, ErrIgnoreChannel
 		}
@@ -56,7 +56,14 @@ func Open(
 		}
 		return state.Channel, nil
 	}
-	if err := Create(ctx, fs, codec, ch); err != nil {
+	if err := ch.Validate(); err != nil {
+		return channel.Channel{}, err
+	}
+	data, err := codec.Encode(ch)
+	if err != nil {
+		return channel.Channel{}, err
+	}
+	if err := fs.WriteFile(fsys, File, data); err != nil {
 		return channel.Channel{}, err
 	}
 	return ch, nil
@@ -86,23 +93,4 @@ func Read(
 		return channel.Channel{}, err
 	}
 	return ch, nil
-}
-
-// Create creates the metadata file for a database whose data is kept in fsys and is
-// encoded by the provided encoder. The provided channel should have all fields required
-// by the DB correctly set.
-func Create(
-	ctx context.Context,
-	fsys fs.FS,
-	codec encoding.Encoder,
-	ch channel.Channel,
-) error {
-	if err := ch.Validate(); err != nil {
-		return err
-	}
-	data, err := codec.Encode(ch)
-	if err != nil {
-		return err
-	}
-	return fs.WriteFile(fsys, File, data)
 }
