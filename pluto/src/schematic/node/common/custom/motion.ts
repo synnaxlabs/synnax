@@ -469,8 +469,9 @@ class Part implements Mover {
 
   step(now: number): boolean {
     // Every track steps, so no short circuit.
-    const moving = FIELDS.map((field) => this.tracks[field]?.step(now) === true);
-    return moving.includes(true);
+    const motion = this.tracks.motion?.step(now) === true;
+    const blink = this.tracks.blink?.step(now) === true;
+    return motion || blink;
   }
 
   restore(): void {
