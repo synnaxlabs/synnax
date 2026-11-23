@@ -37,13 +37,13 @@ each device says so. RFC 0101 §6 leaves the Driver certificate out with no deci
 For each certificate in its folder, the OPC UA scan task saves a file certificate on its
 rack:
 
-| Field              | Value                                                         |
-| ------------------ | ------------------------------------------------------------- |
+| Field              | Value                                                            |
+| ------------------ | ---------------------------------------------------------------- |
 | `name`             | "<rack> Driver certificate", or "<rack> next Driver certificate" |
-| `certificate_path` | The certificate file in `<state_dir>/opcua/pki/own/certs`     |
-| `private_key_file` | Empty                                                         |
-| `details`          | Read by the Driver from the file                              |
-| `rack`             | The rack of the Driver                                        |
+| `certificate_path` | The certificate file in `<state_dir>/opcua/pki/own/certs`        |
+| `private_key_file` | Empty                                                            |
+| `details`          | Read by the Driver from the file                                 |
+| `rack`             | The rack of the Driver                                           |
 
 The Core writes its expiry status as for any certificate with details
 (`core/pkg/service/certificate/expiry.go`), and deletes it with the rack
@@ -83,20 +83,20 @@ certificates, which the field lists today
 
 ## 4 Implementation phases
 
-| Phase | Scope                                               | Touches                                                                                                         | Depends on |
-| ----- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Let a rack delete its own file certificates         | `core/pkg/api/certificate`, `core/pkg/service/access/rbac/builtin`, `core/pkg/transport/grpc`, `client/cpp/certificate` | -          |
-| 2     | Offer only certificates with a key as client certificates | `console/src/platform/certificate`, `console/src/feature/opcua`                                                 | -          |
-| 3     | List the Driver certificate in the Core             | `driver/opcua`, `site/docs`                                                                                     | 1          |
+| Phase | Scope                                                     | Touches                                                                                                                 | Depends on |
+| ----- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Let a rack delete its own file certificates               | `core/pkg/api/certificate`, `core/pkg/service/access/rbac/builtin`, `core/pkg/transport/grpc`, `client/cpp/certificate` | -          |
+| 2     | Offer only certificates with a key as client certificates | `console/src/platform/certificate`, `console/src/feature/opcua`                                                         | -          |
+| 3     | List the Driver certificate in the Core                   | `driver/opcua`, `site/docs`                                                                                             | 1          |
 
 ## 5 Resolved decisions
 
 1. **The key on the Driver, not in the Core**: A stored key reaches anyone who copies
    the Core's data folder with its secrets key, and any rack whose devices use the
-   certificate. A key that someone takes still works after their access ends. The OPC
-   UA GDS prefers keys that the application makes, and Vault PKI does not store the keys
-   it issues. Ignition, Kepware, Litmus Edge, and AWS SiteWise keep the client key on
-   the computer that connects. Only Azure IoT Operations holds it centrally, for keys that a
+   certificate. A key that someone takes still works after their access ends. The OPC UA
+   GDS prefers keys that the application makes, and Vault PKI does not store the keys it
+   issues. Ignition, Kepware, Litmus Edge, and AWS SiteWise keep the client key on the
+   computer that connects. Only Azure IoT Operations holds it centrally, for keys that a
    user uploads. The trade is real: a Driver that loses its folder needs a new trust on
    each server.
 2. **A file certificate, not a new source**: A source says where a certificate lives,
