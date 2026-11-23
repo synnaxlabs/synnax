@@ -430,27 +430,24 @@ func CheckDefault(f icd.JSONField) error {
 // defaultOf returns the default of jf, or the zero fieldDefault when jf has none. Its
 // errors do not name the default.
 func defaultOf(jf icd.JSONField) (fieldDefault, error) {
+	if err := icd.CheckDefault(jf); err != nil {
+		return fieldDefault{}, err
+	}
 	var (
-		d fieldDefault
-		// raw is the default of a number field, before its scale and offset.
-		raw    float64
-		number bool
-		err    error
+		d   fieldDefault
+		err error
 	)
 	switch v := jf.Variant.(type) {
 	case icd.FloatJSONField:
 		if v.Default != nil {
-			raw, number = float64(*v.Default), true
-			d.literal, err = xjson.AppendFloat(nil, raw)
+			d.literal, err = xjson.AppendFloat(nil, float64(*v.Default))
 		}
 	case icd.IntegerJSONField:
 		if v.Default != nil {
-			raw, number = float64(*v.Default), true
 			d.literal = strconv.AppendInt(nil, int64(*v.Default), 10)
 		}
 	case icd.UnsignedJSONField:
 		if v.Default != nil {
-			raw, number = float64(*v.Default), true
 			d.literal = strconv.AppendUint(nil, uint64(*v.Default), 10)
 		}
 	case icd.StringJSONField:
@@ -467,7 +464,7 @@ func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 		}
 	case icd.JSONJSONField:
 		if v.Default != nil {
-			d.literal, err = jsonText(*v.Default)
+			d.literal = []byte(*v.Default)
 		}
 	case icd.UuidJSONField:
 		if v.Default != nil {
@@ -475,13 +472,10 @@ func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 		}
 	case icd.BytesJSONField:
 		if v.Default != nil {
-			d.literal, err = bytesDefault(*v.Default)
+			d.literal, err = quote(*v.Default)
 		}
 	case nil:
 		err = errUntyped
-	}
-	if err == nil && number {
-		err = icd.CheckRawRange(jf.Base().BaseField, raw)
 	}
 	if err != nil {
 		return fieldDefault{}, err
@@ -527,13 +521,6 @@ func appendUUID(dst []byte, id uuid.UUID) ([]byte, error) {
 		return nil, err
 	}
 	return append(dst, '"'), nil
-}
-
-func bytesDefault(text string) ([]byte, error) {
-	if _, err := xjson.DecodeBase64(text); err != nil {
-		return nil, err
-	}
-	return quote(text)
 }
 
 func quote(s string) ([]byte, error) {
