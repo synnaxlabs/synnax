@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -59,11 +60,11 @@ synnax::icd::FloatJSONField float_field(const std::string &name) {
     return f;
 }
 
-synnax::icd::TimestampJSONField time_field() {
+synnax::icd::TimestampJSONField time_field(const std::string &name = "t") {
     synnax::icd::TimestampJSONField f;
     f.key = x::uuid::create();
-    f.name = "t";
-    f.pointer = "/t";
+    f.name = name;
+    f.pointer = "/" + name;
     f.time_format = "unix_ns";
     return f;
 }
@@ -92,15 +93,30 @@ struct Config {
     synnax::icd::ICD ic;
     std::map<synnax::channel::Key, synnax::channel::Channel> channels;
 
-    /// @brief adds f to the first message, whose payload is a Payload, and binds it to
-    /// ch.
+    /// @brief adds f to the message of the read at position read, whose payload is a
+    /// Payload, and binds it to ch in that read.
     template<typename Payload = synnax::icd::JSONPayload, typename Field>
-    void bind(const Field &f, const synnax::channel::Channel &ch) {
-        std::get<Payload>(this->ic.messages[0].payload).fields.push_back(f);
-        this->reads[0].bindings.push_back(
-            {.field = synnax::icd::base(f).key, .channel = ch.key}
+    void bind(
+        const Field &f,
+        const synnax::channel::Channel &ch,
+        const std::size_t read = 0
+    ) {
+        auto &rm = this->reads[read];
+        const auto msg = std::ranges::find(
+            this->ic.messages,
+            rm.message,
+            &synnax::icd::Message::key
         );
+        std::get<Payload>(msg->payload).fields.push_back(f);
+        rm.bindings.push_back({.field = synnax::icd::base(f).key, .channel = ch.key});
         this->channels.insert_or_assign(ch.key, ch);
+    }
+
+    /// @brief adds a read with no bindings of the message of the read at position read,
+    /// and returns the position of the new read.
+    std::size_t reread(const std::size_t read = 0) {
+        this->reads.push_back({.message = this->reads[read].message});
+        return this->reads.size() - 1;
     }
 
     /// @brief adds the reads, messages, and channels of other.
@@ -486,6 +502,116 @@ TEST(Reader, DropsGroupOfNonFloatFieldWithFill) {
     ASSERT_EQ(r.failures()[0].channel, 3U);
     ASSERT_TRUE(r.failures()[0].missing);
     ASSERT_EQ(r.failures()[0].error.data, "field w: no value at /w");
+}
+
+/// @brief returns a config whose message reading has two reads: field t indexes field v
+/// in the first, and field t2 indexes field w in the second.
+Config indexed_twice() {
+    auto e = indexed();
+    const auto second = e.reread();
+    const auto t2 = time_field("t2");
+    e.bind(t2, channel(4, x::telem::TIMESTAMP_T), second);
+    e.reads[second].index = t2.key;
+    e.bind(float_field("w"), channel(3, x::telem::FLOAT64_T, 4), second);
+    return e;
+}
+
+/// @brief it should stamp the index channel of each read of one message with the index
+/// field of that read.
+TEST(Reader, StampsEachReadOfMessageWithItsIndexField) {
+    auto r = ASSERT_NIL_P(indexed_twice().create());
+    ASSERT_EQ(r.channels(), (std::vector<synnax::channel::Key>{2, 3, 1, 4}));
+    x::telem::Frame fr(4);
+    const auto doc = bytes(R"({"v": 1, "t": 5, "t2": 7, "w": 2})");
+    ASSERT_EQ(ASSERT_NIL_P(r.read(doc, RECEIVED, fr)), 0U);
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 4, 2, 3}));
+    ASSERT_EQ(fr.at<std::int64_t>(1, 0), 5);
+    ASSERT_EQ(fr.at<std::int64_t>(4, 0), 7);
+    ASSERT_EQ(fr.at<double>(2, 0), 1.0);
+    ASSERT_EQ(fr.at<double>(3, 0), 2.0);
+}
+
+/// @brief it should drop only the index group of the read whose index field has no
+/// value.
+TEST(Reader, DropsIndexGroupOfReadWithNoIndexValue) {
+    auto r = ASSERT_NIL_P(indexed_twice().create());
+    x::telem::Frame fr(4);
+    ASSERT_NIL_P(r.read(bytes(R"({"v": 1, "t": 5, "w": 2})"), RECEIVED, fr));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(r.failures().size(), 1U);
+    ASSERT_EQ(r.failures()[0].channel, 4U);
+}
+
+/// @brief it should stamp a channel of a read with no index field with the index field
+/// of another read of its message on the same index channel.
+TEST(Reader, SharesIndexChannelOfReadsOfOneMessage) {
+    auto e = indexed();
+    e.bind(float_field("w"), channel(3, x::telem::FLOAT64_T), e.reread());
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(3);
+    ASSERT_NIL_P(r.read(bytes(R"({"v": 1, "t": 5, "w": 2})"), RECEIVED, fr));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2, 3}));
+    ASSERT_EQ(fr.at<std::int64_t>(1, 0), 5);
+}
+
+/// @brief it should return the position of the first read of the message that a payload
+/// belongs to.
+TEST(Reader, ReturnsFirstReadOfMessage) {
+    auto e = matching("status");
+    e.join(matching("other", channel(3, x::telem::FLOAT64_T, 4)));
+    e.bind(float_field("w"), channel(5, x::telem::FLOAT64_T, 4), e.reread(1));
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(3);
+    const auto doc = bytes(R"({"type": "other", "v": 1, "w": 2})");
+    ASSERT_EQ(ASSERT_NIL_P(r.read(doc, RECEIVED, fr)), 1U);
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3, 5}));
+}
+
+/// @brief it should reject two reads of one message whose index fields give the
+/// timestamp of one index channel.
+TEST(Reader, RejectsTwoIndexFieldsOnOneIndexChannel) {
+    auto e = indexed();
+    const auto second = e.reread();
+    const auto t2 = time_field("t2");
+    e.bind(t2, channel(1, x::telem::TIMESTAMP_T), second);
+    e.reads[second].index = t2.key;
+    const auto err = e.create().second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "message reading: fields t and t2 both give the timestamp of index channel 1"
+    );
+}
+
+/// @brief it should reject two reads of one binary message that bind fields on one
+/// index channel that different multiplexor values select.
+TEST(Reader, RejectsReadsOfOneMessageWithDifferentSelections) {
+    auto [e, mux] = multiplexed();
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("a", 1, mux, 1),
+        channel(2, x::telem::FLOAT64_T)
+    );
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("b", 1, mux, 2),
+        channel(3, x::telem::FLOAT64_T),
+        e.reread()
+    );
+    const auto err = e.create().second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "message frame: fields a and b share index channel 1, but different "
+        "multiplexor values select them"
+    );
+}
+
+/// @brief it should reject two reads of one message that write to one channel.
+TEST(Reader, RejectsChannelThatTwoReadsOfOneMessageWrite) {
+    auto e = reading();
+    e.bind(float_field("w"), channel(2, x::telem::FLOAT64_T), e.reread());
+    const auto err = e.create().second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(err.data, "message reading writes to channel 2 twice");
 }
 
 /// @brief it should read a response as the message whose match rule it meets, or else

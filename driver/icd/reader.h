@@ -62,8 +62,14 @@ private:
         /// @brief indexes holds the index channel of each bound channel once, in
         /// binding order. Virtual channels add none.
         std::vector<Index> indexes;
-        /// @brief index_field is the position in the bindings of the index field.
-        std::optional<std::size_t> index_field;
+        /// @brief first_read is the position in reads of the first read of the message.
+        std::size_t first_read = 0;
+
+        /// @brief returns true when binding k gives the timestamp of its index group.
+        [[nodiscard]] bool is_index_field(const std::size_t k) const {
+            return this->groups[k].has_value() &&
+                   this->indexes[*this->groups[k]].field == k;
+        }
     };
     std::vector<Message> messages;
     std::variant<codec::Binary, codec::Text, codec::JSON> decoder;
@@ -76,13 +82,14 @@ private:
     /// @brief failed holds the failures of the last read.
     std::vector<Failure> failed;
 
-    /// @brief sets the channels, the index groups, and the index field of m from the
-    /// bindings of rm, which reads msg, and returns the codec binding of each.
-    static std::pair<std::vector<codec::Binding>, x::errors::Error> bind(
+    /// @brief adds the channel and the index group of each binding of rm, which reads
+    /// msg, to m, and its codec binding to bindings, which holds those of m.
+    static x::errors::Error bind(
         const synnax::icd::ReadMessage &rm,
         const synnax::icd::Message &msg,
         const std::map<synnax::channel::Key, synnax::channel::Channel> &channels,
-        Message &m
+        Message &m,
+        std::vector<codec::Binding> &bindings
     );
 
 public:
@@ -94,17 +101,19 @@ public:
     Reader(const Reader &) = delete;
     Reader &operator=(const Reader &) = delete;
 
-    /// @brief creates a Reader for messages that share one source of payloads.
+    /// @brief creates a Reader for messages that share one source of payloads. The
+    /// reads of one message share each decode of it, and the index field of each read
+    /// gives the timestamp of its own index channel.
     /// @param reads the messages to read and the channel of each field.
     /// @param ic the ICD that holds the messages of reads.
     /// @param channels the channels of the bindings of reads.
     /// @returns CONFIGURATION_ERROR when ic has no message that a read names, two
     /// messages have different formats, a message binds no fields, channels has no
     /// channel that a binding names, the index field does not write to an index channel
-    /// or takes a default, another field writes to an index channel, two bindings or
-    /// two messages write to one channel (an index channel included), different
-    /// multiplexor values select two fields on one index channel, or the decoder
-    /// rejects the messages.
+    /// or takes a default, another field writes to an index channel, two index fields
+    /// give the timestamp of one index channel, two bindings or two messages write to
+    /// one channel (an index channel included), different multiplexor values select two
+    /// fields on one index channel, or the decoder rejects the messages.
     static std::pair<Reader, x::errors::Error> create(
         const std::vector<synnax::icd::ReadMessage> &reads,
         const synnax::icd::ICD &ic,
@@ -125,8 +134,8 @@ public:
     /// already holds for a channel takes the sample instead, and must have room for it.
     /// @param fill when set, the sample of a field on a float channel that the decoder
     /// cannot decode, which keeps its index group.
-    /// @returns the position in reads of the message, or nothing, adding nothing, when
-    /// payload belongs to no message.
+    /// @returns the position in reads of the first read of the message, or nothing,
+    /// adding nothing, when payload belongs to no message.
     /// @returns VALIDATION, adding nothing, when the decoder cannot decode payload.
     std::pair<std::optional<std::size_t>, x::errors::Error> read(
         std::span<const std::uint8_t> payload,
