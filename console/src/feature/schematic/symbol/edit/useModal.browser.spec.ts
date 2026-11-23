@@ -785,7 +785,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("keeps a motion that follows a value", async () => {
+    it("shows a motion that follows a value and replaces it with a loop", async () => {
       const level: schematic.symbol.Look = {
         key: "level",
         part: "body",
@@ -798,11 +798,13 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         looks: [level],
       });
       expect(findButton("Fill").classList.contains("lyra--selected")).toBe(true);
-      expect(findButton("Spin").getAttribute("aria-disabled")).toBe("true");
+      expect(findButton("Fill").getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(findButton("Spin"));
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
-        expect((await retrieveStored(symbol.key)).data.looks).toEqual([level]),
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          { ...level, motion: expect.objectContaining({ type: "spin" }) },
+        ]),
       );
     });
 
