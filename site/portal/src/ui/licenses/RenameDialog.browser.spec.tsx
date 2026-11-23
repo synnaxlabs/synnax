@@ -7,35 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// @vitest-environment jsdom
-
-import { ResizeObserver } from "@juggle/resize-observer";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { activationOf, HASH_A } from "@/server/license/testutil";
 import { Licenses } from "@/ui/licenses";
 
 describe("RenameDialog", () => {
-  // jsdom lacks the ResizeObserver, matchMedia, and canvas that Lyra's background uses.
-  beforeAll(() => {
-    vi.stubGlobal("ResizeObserver", ResizeObserver);
-    vi.stubGlobal("matchMedia", (media: string): MediaQueryList =>
-      Object.assign(new EventTarget(), {
-        media,
-        matches: false,
-        onchange: null,
-        addListener: () => {},
-        removeListener: () => {},
-      }),
-    );
-    HTMLCanvasElement.prototype.getContext = () => null;
-  });
-
-  afterAll(() => {
-    vi.unstubAllGlobals();
-  });
-
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
