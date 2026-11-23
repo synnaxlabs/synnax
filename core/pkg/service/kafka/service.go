@@ -18,8 +18,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -38,9 +40,9 @@ const (
 	WriteTaskType = "kafka_write"
 )
 
-// ServiceConfig is the configuration for opening the Kafka task config service.
+// ServiceConfig is the configuration for opening the Kafka service.
 type ServiceConfig struct {
-	// DB is the database config records are stored in.
+	// DB is the database config records and clusters are stored in.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -53,6 +55,9 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ICD *icd.Service
+	// Signals publishes cluster changes.
+	// [OPTIONAL]
+	Signals *signals.Provider
 	alamos.Instrumentation
 }
 
@@ -63,6 +68,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ICD = override.Nil(c.ICD, other.ICD)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -76,8 +82,11 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// Service owns the stored configuration records of the Kafka task types.
+// Service owns the Kafka clusters and the stored configuration records of the Kafka
+// task types.
 type Service struct {
+	// Clusters stores Kafka clusters.
+	Clusters *cluster.Service
 	// Read stores kafka_read task configuration records.
 	Read *config.Service[ReadConfig]
 	// Write stores kafka_write task configuration records.
@@ -89,7 +98,7 @@ type Service struct {
 	closer   xio.MultiCloser
 }
 
-// OpenService opens the Kafka task config service with the provided configuration.
+// OpenService opens the Kafka service with the provided configuration.
 // If error is nil, the service is ready for use and must be closed by calling Close
 // to prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
@@ -106,6 +115,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	if s.Clusters, err = cluster.OpenService(ctx, cluster.ServiceConfig{
+		DB:              cfg.DB,
+		Signals:         cfg.Signals,
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.Clusters) {
+		return nil, err
+	}
 	if s.Read, err = config.OpenService(
 		ctx, readServiceConfig(cfg, s.resolver),
 	); !ok(err, s.Read) {

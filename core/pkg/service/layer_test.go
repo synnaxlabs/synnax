@@ -49,6 +49,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka/cluster"
 	kafkav0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	kafkav1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
@@ -1251,6 +1252,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Device", resource.TypeDevice),
 		Entry("Enumeration", resource.TypeEnumeration),
 		Entry("Group", resource.TypeGroup),
+		Entry("KafkaCluster", resource.TypeKafkaCluster),
 		Entry("Label", resource.TypeLabel),
 		Entry("Lineplot", resource.TypeLineplot),
 		Entry("Log", resource.TypeLog),
@@ -1324,6 +1326,29 @@ var _ = Describe("Resource search", Ordered, func() {
 		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
 			return r.ID
 		})).To(ConsistOf(s.ResourceID()))
+	})
+
+	It("Should find Kafka clusters by name", func(ctx SpecContext) {
+		c := cluster.Cluster{
+			Key:       uuid.New(),
+			Rack:      layer.Rack.EmbeddedKey,
+			Name:      "Pump Cluster",
+			Brokers:   []cluster.Broker{{Host: "pump.example.com"}},
+			Transport: cluster.Transport{Variant: cluster.PlaintextTransport{}},
+			Auth:      cluster.Auth{Variant: cluster.NoneAuth{}},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return gorp.NewCreate[cluster.Key, cluster.Cluster]().
+				Entry(&c).
+				Exec(ctx, tx)
+		})).To(Succeed())
+		res := MustSucceed(layer.Resource.Search(ctx, db, resource.SearchQuery{
+			Term:  "pump cluster",
+			Types: []resource.Type{resource.TypeKafkaCluster},
+		}))
+		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
+			return r.ID
+		})).To(ConsistOf(c.ResourceID()))
 	})
 })
 

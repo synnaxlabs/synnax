@@ -13,6 +13,7 @@ import "schemas/synnax/icd"
 import "schemas/synnax/rack"
 import "schemas/synnax/secret"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 
 @go output "core/pkg/service/kafka/cluster"
 @py output "client/py/synnax/kafka/cluster"
@@ -195,4 +196,13 @@ Cluster struct {
     @go migrate
     @resource type "kafka_cluster"
     @retrieve
+}
+
+Where filter Cluster {
+    key
+    name
+    rack
+
+    @doc value         "is a filter that selects Kafka clusters."
+    @go request_output "core/pkg/api/kafka/cluster"
 }

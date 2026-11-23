@@ -11,6 +11,7 @@ package v0_test
 
 import (
 	"encoding/json/v2"
+	"io"
 	"strings"
 	"uuid"
 
@@ -21,6 +22,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Cluster", func() {
@@ -233,4 +235,114 @@ var _ = Describe("Cluster", func() {
 			c.Reads = []v0.Read{read()}
 		}),
 	)
+})
+
+var _ = Describe("msgpack", func() {
+	roundTrip := func(in, out any) {
+		GinkgoHelper()
+		Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(in)), out)).To(Succeed())
+	}
+
+	DescribeTable("Should round trip a transport",
+		func(t v0.Transport) {
+			var decoded v0.Transport
+			roundTrip(t, &decoded)
+			Expect(decoded).To(Equal(t))
+		},
+		Entry("plaintext", v0.Transport{Variant: v0.PlaintextTransport{}}),
+		Entry("TLS", v0.Transport{Variant: v0.TlsTransport{
+			CaCertificate: new(uuid.New()),
+		}}),
+		Entry("TLS with no CA", v0.Transport{Variant: v0.TlsTransport{}}),
+		Entry("no variant", v0.Transport{}),
+	)
+
+	credentials := v0.Credentials{Username: "admin", Password: uuid.New()}
+
+	DescribeTable("Should round trip an auth",
+		func(a v0.Auth) {
+			var decoded v0.Auth
+			roundTrip(a, &decoded)
+			Expect(decoded).To(Equal(a))
+		},
+		Entry("none", v0.Auth{Variant: v0.NoneAuth{}}),
+		Entry("PLAIN", v0.Auth{Variant: v0.PlainAuth{Credentials: credentials}}),
+		Entry("SCRAM-SHA-256", v0.Auth{
+			Variant: v0.ScramSha256Auth{Credentials: credentials},
+		}),
+		Entry("SCRAM-SHA-512", v0.Auth{
+			Variant: v0.ScramSha512Auth{Credentials: credentials},
+		}),
+		Entry("no variant", v0.Auth{}),
+	)
+
+	It("Should write the mechanism and credentials at the top level", func() {
+		raw := MustSucceed(msgpack.Marshal(v0.Auth{
+			Variant: v0.PlainAuth{Credentials: credentials},
+		}))
+		var fields map[string]any
+		Expect(msgpack.Unmarshal(raw, &fields)).To(Succeed())
+		Expect(fields).To(HaveKeyWithValue("mechanism", "plain"))
+		Expect(fields).To(HaveKeyWithValue("username", "admin"))
+	})
+
+	DescribeTable("Should reject an unknown discriminator",
+		func(target any, field string) {
+			raw := MustSucceed(msgpack.Marshal(map[string]any{field: "unknown"}))
+			Expect(msgpack.Unmarshal(raw, target)).
+				To(MatchError(validate.ErrValidation))
+		},
+		Entry("transport", &v0.Transport{}, "type"),
+		Entry("auth", &v0.Auth{}, "mechanism"),
+	)
+
+	DescribeTable("Should reject a variant whose fields have the wrong type",
+		func(target any, fields map[string]any) {
+			raw := MustSucceed(msgpack.Marshal(fields))
+			Expect(msgpack.Unmarshal(raw, target)).
+				To(MatchError(ContainSubstring("msgpack: ")))
+		},
+		Entry("TLS", &v0.Transport{}, map[string]any{
+			"type":           "tls",
+			"ca_certificate": 1,
+		}),
+		Entry("SCRAM", &v0.Auth{}, map[string]any{
+			"mechanism": "scram_sha_512",
+			"username":  1,
+		}),
+		Entry("plaintext", &v0.Transport{}, map[string]any{"type": []int{1}}),
+		Entry("none", &v0.Auth{}, map[string]any{"mechanism": []int{1}}),
+	)
+
+	DescribeTable("Should reject truncated input",
+		func(target any) {
+			Expect(msgpack.Unmarshal([]byte{0x81}, target)).To(MatchError(io.EOF))
+		},
+		Entry("transport", &v0.Transport{}),
+		Entry("auth", &v0.Auth{}),
+	)
+
+	It("Should round trip a cluster", func() {
+		c := v0.Cluster{
+			Key:  uuid.New(),
+			Rack: 1,
+			Name: "Plant Cluster",
+			Brokers: []v0.Broker{
+				{Host: "kafka.example.com", Port: new(uint16(9093))},
+			},
+			Transport: v0.Transport{Variant: v0.TlsTransport{}},
+			Auth:      v0.Auth{Variant: v0.ScramSha256Auth{Credentials: credentials}},
+			Reads: []v0.Read{{
+				Topic:     "plant",
+				RecordKey: "pump",
+				Message:   uuid.New(),
+				Pointer:   "/temp",
+				Index:     1,
+				Channel:   2,
+			}},
+		}
+		var decoded v0.Cluster
+		roundTrip(c, &decoded)
+		Expect(decoded).To(Equal(c))
+	})
 })

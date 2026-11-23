@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	kafkacluster "github.com/synnaxlabs/synnax/pkg/api/kafka/cluster"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
@@ -662,6 +663,11 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/opcua/server/delete",
 		),
+		// KAFKA CLUSTER
+		KafkaClusterRetrieve: unary[
+			kafkacluster.RetrieveRequest,
+			kafkacluster.RetrieveResponse,
+		](router, "/api/v1/kafka/cluster/retrieve"),
 
 		// ACCESS
 		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](
