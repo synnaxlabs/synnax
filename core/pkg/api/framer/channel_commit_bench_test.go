@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// BenchmarkChannelCommit measures a channel commit through the service layer, with
-// the signals that it feeds: a create of 1 or 100 channels, and a rename.
+// BenchmarkChannelCommit measures a channel commit through the service layer, with the
+// signals that it feeds: a create of 1 or 100 channels, and a rename.
 func BenchmarkChannelCommit(b *testing.B) {
 	for _, n := range []int{1, 100} {
 		b.Run(fmt.Sprintf("create=%d", n), func(b *testing.B) {
