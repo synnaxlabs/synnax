@@ -39,11 +39,11 @@ const iterElements = (
   fn: (el: SVGElement, paint: Paint) => void,
 ) =>
   paints.forEach((paint) => {
-    if (paint.selectors == null)
-      return Region.collectVisualElements(drawing).forEach((el) => fn(el, paint));
-    paint.selectors.forEach((selector) =>
-      drawing.querySelectorAll<SVGElement>(selector).forEach((el) => fn(el, paint)),
-    );
+    const shapes =
+      paint.selectors == null
+        ? Region.collectVisualElements(drawing)
+        : Region.shapes(drawing, paint.selectors);
+    shapes.forEach((el) => fn(el, paint));
   });
 
 // The theme band paints the stroke, as on built-in symbols. The fill stays as stored,
