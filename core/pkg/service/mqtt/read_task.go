@@ -366,7 +366,7 @@ func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
 	r := &reader{
 		readSource: s,
 		attachment: a,
-		skips:      driver.NewSkips("message"),
+		skips:      driver.NewSkips("message", driver.SkipHold),
 		awaited:    make(map[tagScope]time.Time),
 		offline:    make(set.Set[tagScope]),
 	}

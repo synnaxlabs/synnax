@@ -269,14 +269,18 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
       </Form.Section>
       {selection.has("stalenessTimeout") && (
         <MultiEdit.StalenessSection
-          colors={selection.colors("stalenessColor", () =>
-            Staleness.resolveColor(undefined, theme),
-          )}
           timeout={selection.first("stalenessTimeout")}
           unit={TimeSpan.SECOND}
-          onColorChange={(c) => selection.set("stalenessColor", c)}
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}
-        />
+        >
+          <MultiEdit.ColorField
+            label="Color"
+            values={selection.colors("stalenessColor", () =>
+              Staleness.resolveColor(undefined, theme),
+            )}
+            onChange={(c) => selection.set("stalenessColor", c)}
+          />
+        </MultiEdit.StalenessSection>
       )}
       {selection.has("precision") && (
         <MultiEdit.NumberFormatSection

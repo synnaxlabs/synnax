@@ -583,12 +583,8 @@ func (mv *Motion) DecodeOrc(r *orc.Reader) error {
 	switch string(tag) {
 	case "spin":
 		var v SpinMotion
-		{
-			rawV, err := r.Float64()
-			if err != nil {
-				return err
-			}
-			v.Rate = telem.Rate(rawV)
+		if v.Rate, err = r.Float64(); err != nil {
+			return err
 		}
 		{
 			present, err := r.Bool()
@@ -606,12 +602,8 @@ func (mv *Motion) DecodeOrc(r *orc.Reader) error {
 		mv.Variant = v
 	case "flow":
 		var v FlowMotion
-		{
-			rawV, err := r.Float64()
-			if err != nil {
-				return err
-			}
-			v.Rate = telem.Rate(rawV)
+		if v.Rate, err = r.Float64(); err != nil {
+			return err
 		}
 		{
 			present, err := r.Bool()
@@ -676,6 +668,9 @@ func (p Paint) EncodeOrc(w *orc.Writer) error {
 	case EntryPaint:
 		w.String("entry")
 		w.String(v.State)
+	case ContrastPaint:
+		w.String("contrast")
+		w.String(v.State)
 	case NodePaint:
 		w.String("node")
 	case ColorPaint:
@@ -698,6 +693,12 @@ func (p *Paint) DecodeOrc(r *orc.Reader) error {
 	switch string(tag) {
 	case "entry":
 		var v EntryPaint
+		if v.State, err = r.String(); err != nil {
+			return err
+		}
+		p.Variant = v
+	case "contrast":
+		var v ContrastPaint
 		if v.State, err = r.String(); err != nil {
 			return err
 		}
@@ -778,6 +779,55 @@ func (p *Part) DecodeOrc(r *orc.Reader) error {
 			}
 			p.Pivot = &hv
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rv Ref) EncodeOrc(w *orc.Writer) error {
+	switch v := rv.Variant.(type) {
+	case BuiltinRef:
+		w.String("builtin")
+		w.String(v.Name)
+	case CustomRef:
+		w.String("custom")
+		w.Write(v.Key[:])
+	case MissingRef:
+		w.String("missing")
+		w.String(v.Key)
+	default:
+		return errors.Newf("Ref: nil or unknown variant %T", rv.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *Ref) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "builtin":
+		var v BuiltinRef
+		if v.Name, err = r.String(); err != nil {
+			return err
+		}
+		rv.Variant = v
+	case "custom":
+		var v CustomRef
+		if _, err := r.Read(v.Key[:]); err != nil {
+			return err
+		}
+		rv.Variant = v
+	case "missing":
+		var v MissingRef
+		if v.Key, err = r.String(); err != nil {
+			return err
+		}
+		rv.Variant = v
+	default:
+		return errors.Newf("Ref: unknown variant %q", tag)
 	}
 	return nil
 }

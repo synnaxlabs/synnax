@@ -113,7 +113,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 // Open opens a new iterator for reading historical data from channels. If the returned
 // error is nil, the iterator must be closed after use. For information on configuration
-// parameters, see the IteratorConfig struct.
+// parameters, see the IteratorConfig struct. The iterator stops when ctx ends, so ctx
+// must outlive every use of it.
 //
 // The returned iterator uses a synchronous, method-based model. For a channel-based
 // iterator model, use NewStream.
@@ -122,7 +123,10 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 	if err != nil {
 		return nil, err
 	}
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
+	sCtx, cancel := signal.WithCancel(
+		ctx,
+		signal.WithInstrumentation(s.cfg.Instrumentation),
+	)
 	req := confluence.NewStream[Request]()
 	res := confluence.NewStream[Response]()
 	stream.InFrom(req)
