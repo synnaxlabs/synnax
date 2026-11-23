@@ -72,7 +72,7 @@ func (s *Service) ICDMigration(names TaskNames) gorp.Migration {
 				ic, _, err := v5.ResolveReadConfig(
 					ctx,
 					tx,
-					s.channels,
+					s.resolver.channels,
 					taskNames[cfg.Key],
 					cfg,
 					v5.NoteLift(ins, cfg.Key),
@@ -80,7 +80,7 @@ func (s *Service) ICDMigration(names TaskNames) gorp.Migration {
 				if err != nil {
 					return errors.Wrapf(err, "config %s", cfg.Key)
 				}
-				if err = s.icds.NewWriter(tx).Create(ctx, &ic); err != nil {
+				if err = s.resolver.icds.NewWriter(tx).Create(ctx, &ic); err != nil {
 					return errors.Wrapf(err, "config %s", cfg.Key)
 				}
 			}

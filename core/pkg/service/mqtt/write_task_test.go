@@ -497,6 +497,46 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
+		It("Should drop a command above the max of its field", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.Float64T)
+			v := jsonField("v", "/v", icd.FloatJSONField{})
+			base := v.Base()
+			base.Max = new(100.0)
+			v.SetBase(base)
+			t, _ := start(ctx, writeConfig(dev, fieldTarget(ctx, "plant/max", ch, v)))
+			command(ctx, ch, telem.NewSeriesV(120.0), func(g Gomega) {
+				stat := taskStatus(ctx, t)
+				g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+				g.Expect(stat.Description).To(Equal(
+					"Command for target plant/max: message Command: field v: " +
+						"120 is above the max 100: validation error",
+				))
+			})
+			command(ctx, ch, telem.NewSeriesV(100.0), func(g Gomega) {
+				g.Expect(payloads("plant/max")).To(SatisfyAll(
+					ContainElement(`{"v":100}`), Not(ContainElement(`{"v":120}`)),
+				))
+			})
+		})
+
+		It("Should clear the warning of a dropped command with no new command",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx, telem.Float64T)
+				t, _ := start(ctx, writeConfig(dev, fieldTarget(
+					ctx, "plant/hold", ch, jsonField("v", "/v", icd.FloatJSONField{}),
+				)))
+				command(ctx, ch, telem.NewSeriesV(math.NaN()), func(g Gomega) {
+					g.Expect(taskStatus(ctx, t).Variant).
+						To(Equal(status.VariantWarning))
+				})
+				Eventually(
+					func() status.Variant { return taskStatus(ctx, t).Variant },
+					2*driver.SkipHold, 100*time.Millisecond,
+				).Should(Equal(status.VariantSuccess))
+				Expect(payloads("plant/hold")).To(BeEmpty())
+			},
+		)
+
 		It("Should warn while the broker is down and drop the commands of the outage",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Float64T)
