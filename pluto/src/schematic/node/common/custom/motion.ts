@@ -293,7 +293,7 @@ const STOPS = "svg, defs, clipPath, mask, marker, pattern, symbol";
 // leaves returns the shapes that el draws. Motion never changes the box of a shape.
 const leaves = (el: SVGElement): SVGGraphicsElement[] =>
   (el.matches(SHAPES) ? [el] : Array.from(el.querySelectorAll(SHAPES))).filter(
-    (leaf) =>
+    (leaf): leaf is SVGGraphicsElement =>
       leaf instanceof SVGGraphicsElement &&
       !el.contains(leaf.parentElement?.closest(STOPS) ?? null),
   );
