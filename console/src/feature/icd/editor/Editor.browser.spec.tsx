@@ -17,9 +17,9 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
-import { Editor } from "@/feature/icd/editor/Editor";
+import { ICD } from "@/feature/icd";
 import { client, createICD, ENGINE_CSV } from "@/feature/icd/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Session } from "@/session";
@@ -29,6 +29,10 @@ import {
   interceptFilePicker,
   renderSuspended,
 } from "@/testutil";
+
+const { Content } = ICD.TABS[icd.TYPE_RESOURCE_ID.type];
+
+beforeAll(Content.preload);
 
 const renderEditor = async (
   ic: icd.ICD,
@@ -42,7 +46,7 @@ const renderEditor = async (
   await renderSuspended(
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
-        <Editor />
+        <Content />
       </PlutoPanel.TabScope.Provider>
     </PlutoPanel.Scope.Provider>,
     { wrapper },

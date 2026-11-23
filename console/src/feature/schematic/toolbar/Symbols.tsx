@@ -55,23 +55,24 @@ export interface SymbolsChangeProps {
 const ChangeContext = createContext<SymbolsChangeProps | undefined>(undefined);
 ChangeContext.displayName = "Symbols.ChangeContext";
 
+const createSymbolParams = (
+  spec: Schematic.Node.Input<"symbol">["spec"],
+  label?: string,
+): Schematic.AddNodeProps<"symbol"> => ({
+  key: id.create(),
+  config: { variant: "symbol", spec, label: { label } },
+});
+
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
   const variant = itemKey as Schematic.Node.Variant;
   const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
-  const createParams = (): Schematic.AddNodeProps => ({
-    key: id.create(),
-    config:
-      FLAGS.symbolNodes && Schematic.Node.BUILT_INS.has(variant) && spec != null
-        ? {
-            variant: "symbol",
-            spec: { type: "builtin", name: variant },
-            label: { label: spec.label ?? spec.name },
-          }
-        : { variant },
-  });
+  const createParams = (): Schematic.AddNodeProps<"symbol"> | Schematic.AddNodeProps =>
+    FLAGS.symbolNodes && Schematic.Node.BUILT_INS.has(variant) && spec != null
+      ? createSymbolParams({ type: "builtin", name: variant }, spec.label ?? spec.name)
+      : { key: id.create(), config: { variant } };
   const handleAddNode = () => addNode(createParams());
   const change = use(ChangeContext);
   const config = spec == null ? null : Schematic.Node.createConfig({ variant });
@@ -141,16 +142,12 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
 
-  const createParams = (): Schematic.AddNodeProps => ({
-    key: id.create(),
-    config: FLAGS.symbolNodes
-      ? {
-          variant: "symbol",
-          spec: { type: "custom", key: itemKey },
-          label: { label: symbol?.name },
-        }
-      : { variant, specKey: itemKey },
-  });
+  const createParams = ():
+    | Schematic.AddNodeProps<"symbol">
+    | Schematic.AddNodeProps<Schematic.Node.CustomVariant> =>
+    FLAGS.symbolNodes
+      ? createSymbolParams({ type: "custom", key: itemKey }, symbol?.name)
+      : { key: id.create(), config: { variant, specKey: itemKey } };
   const handleAddNode = () => addNode(createParams());
   const change = use(ChangeContext);
   const { update: rename } = Schematic.Symbol.useRename();

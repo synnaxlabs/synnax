@@ -108,7 +108,7 @@ const FormatFields = ({ binding, onChange }: BindingProps): ReactElement => (
   <>
     <Input.Item label="Notation" padHelpText={false}>
       <Notation.Select
-        value={binding.notation}
+        value={binding.notation ?? "standard"}
         onChange={(n: notation.Notation) => onChange({ ...binding, notation: n })}
       />
     </Input.Item>
@@ -122,8 +122,10 @@ const FormatFields = ({ binding, onChange }: BindingProps): ReactElement => (
     </Input.Item>
     <Input.Item label="Units" padHelpText={false}>
       <Input.Text
-        value={binding.units}
-        onChange={(units) => onChange({ ...binding, units })}
+        value={binding.units ?? ""}
+        onChange={(units) =>
+          onChange({ ...binding, units: units === "" ? undefined : units })
+        }
       />
     </Input.Item>
   </>
