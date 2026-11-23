@@ -52,13 +52,12 @@ const upsert = <T extends { key: string }>(entries: T[], next: T): T[] =>
 
 interface BindingProps {
   binding: Binding;
-  onChange: (next: Binding) => void;
+  onChange: (patch: Partial<Binding>) => void;
 }
 
 const SourceFields = ({ binding, onChange }: BindingProps): ReactElement => {
   const { source } = binding;
-  const setSource = (next?: schematic.Source): void =>
-    onChange({ ...binding, source: next });
+  const setSource = (next?: schematic.Source): void => onChange({ source: next });
   return (
     <>
       <Input.Item label="Source" padHelpText={false}>
@@ -112,22 +111,19 @@ const FormatFields = ({ binding, onChange }: BindingProps): ReactElement => (
     <Input.Item label="Notation" padHelpText={false}>
       <Notation.Select
         value={binding.notation}
-        onChange={(n: notation.Notation) => onChange({ ...binding, notation: n })}
+        onChange={(n: notation.Notation) => onChange({ notation: n })}
       />
     </Input.Item>
     <Input.Item label="Precision" padHelpText={false}>
       <Input.Numeric
         value={binding.precision ?? 2}
-        onChange={(precision) => onChange({ ...binding, precision })}
+        onChange={(precision) => onChange({ precision })}
         integer
         bounds={notation.PRECISION_BOUNDS}
       />
     </Input.Item>
     <Input.Item label="Units" padHelpText={false}>
-      <Input.Text
-        value={binding.units}
-        onChange={(units) => onChange({ ...binding, units })}
-      />
+      <Input.Text value={binding.units} onChange={(units) => onChange({ units })} />
     </Input.Item>
   </>
 );
@@ -167,15 +163,23 @@ const DefaultEntry = ({
   value,
   onChange,
 }: DefaultEntryProps): ReactElement => {
-  const entries = Enumeration.useResult({ key }).data?.entries ?? [];
+  const { data } = Enumeration.useResult({ key });
+  const unmatched = data != null && !data.entries.some((e) => e.value === value);
   return (
-    <Select.Simple<number> value={value} onChange={onChange} resourceName="entry">
-      {entries.map((e) => (
-        <Select.Item<number> key={e.value} itemKey={e.value}>
-          {e.name}
-        </Select.Item>
-      ))}
-    </Select.Simple>
+    <Input.Item
+      label="Default"
+      padHelpText={false}
+      status={unmatched ? "warning" : undefined}
+      helpText={unmatched ? `No entry has the value ${value}.` : undefined}
+    >
+      <Select.Simple<number> value={value} onChange={onChange} resourceName="entry">
+        {data?.entries.map((e) => (
+          <Select.Item<number> key={e.value} itemKey={e.value}>
+            {e.name}
+          </Select.Item>
+        ))}
+      </Select.Simple>
+    </Input.Item>
   );
 };
 
@@ -191,11 +195,10 @@ const EnumerationOverrides = ({
   const match = binding.match ?? state.match;
   const within =
     state.match.type === "within" ? state.match.bounds : Telem.DEFAULT_THRESHOLD;
-  const setMatch = (next: schematic.symbol.Matcher): void =>
-    onChange({ ...binding, match: next });
+  const setMatch = (next: schematic.symbol.Matcher): void => onChange({ match: next });
   const enumerationKey = binding.enumeration ?? state.enumeration;
   const value = binding.default ?? state.default;
-  const setDefault = (next: number): void => onChange({ ...binding, default: next });
+  const setDefault = (next: number): void => onChange({ default: next });
   const client = Synnax.use();
   // A new enumeration starts with the entries that the state draws.
   const draft = (): NodeForm.Draft => {
@@ -226,7 +229,7 @@ const EnumerationOverrides = ({
       )}
       <NodeForm.EnumerationField
         value={binding.enumeration}
-        onChange={(next) => onChange({ ...binding, enumeration: next })}
+        onChange={(next) => onChange({ enumeration: next })}
         draft={draft}
         fallback={() =>
           state.enumeration == null ? (
@@ -236,17 +239,17 @@ const EnumerationOverrides = ({
           )
         }
       />
-      <Input.Item label="Default" padHelpText={false}>
-        {enumerationKey == null ? (
+      {enumerationKey == null ? (
+        <Input.Item label="Default" padHelpText={false}>
           <Input.Numeric value={value} onChange={setDefault} />
-        ) : (
-          <DefaultEntry
-            enumeration={enumerationKey}
-            value={value}
-            onChange={setDefault}
-          />
-        )}
-      </Input.Item>
+        </Input.Item>
+      ) : (
+        <DefaultEntry
+          enumeration={enumerationKey}
+          value={value}
+          onChange={setDefault}
+        />
+      )}
     </>
   );
 };
@@ -260,11 +263,17 @@ interface StateSectionProps {
 
 // A state with no binding shows the defaults, and its first edit adds the binding.
 const StateSection = ({ state }: StateSectionProps): ReactElement => {
-  const { value, onChange } = Base.useField(path.states);
-  const binding =
-    value.find((b) => b.key === state.key) ??
+  const { get, set } = Base.useContext();
+  const find = (states: Binding[]): Binding =>
+    states.find((b) => b.key === state.key) ??
     schematic.stateBindingZ.parse({ key: state.key });
-  const handleChange = (next: Binding): void => onChange(upsert(value, next));
+  const binding = find(Base.useFieldValue(path.states));
+  // A change reads the states when it applies, so the link of an enumeration that
+  // resolves late keeps the edits made while it ran.
+  const handleChange = (patch: Partial<Binding>): void => {
+    const states = get<Binding[]>(path.states).value;
+    set(path.states, upsert(states, { ...find(states), ...patch }));
+  };
   return (
     <Base.Section
       title={state.name}
@@ -276,7 +285,7 @@ const StateSection = ({ state }: StateSectionProps): ReactElement => {
           <FormatFields binding={binding} onChange={handleChange} />
           <BoundsInputs
             value={binding.bounds ?? state.bounds}
-            onChange={(b) => handleChange({ ...binding, bounds: b })}
+            onChange={(b) => handleChange({ bounds: b })}
           />
         </>
       ) : (
@@ -287,7 +296,6 @@ const StateSection = ({ state }: StateSectionProps): ReactElement => {
           variant="text"
           onClick={() =>
             handleChange({
-              ...binding,
               enumeration: undefined,
               match: undefined,
               bounds: undefined,

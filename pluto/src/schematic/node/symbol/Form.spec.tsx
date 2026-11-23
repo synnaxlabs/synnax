@@ -201,6 +201,14 @@ describe("Symbol form", () => {
     });
   });
 
+  it("should warn when no entry has the value of the default", async () => {
+    const { findByText } = await render({
+      spec: VALVE,
+      states: [schematic.stateBindingZ.parse({ key: "active", default: 5 })],
+    });
+    expect(await findByText("No entry has the value 5.")).toBeDefined();
+  });
+
   it("should tell the user when the symbol names no enumeration", async () => {
     const { findByText } = await render({ spec: heater });
     expect(await findByText("The symbol names no enumeration.")).toBeDefined();

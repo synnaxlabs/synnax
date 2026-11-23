@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { type enumeration, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, deep, id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -84,6 +84,28 @@ describe("Symbol form", () => {
     await waitFor(() =>
       expect(value(path.states)).toEqual([
         schematic.stateBindingZ.parse({ key: "active", default: 1 }),
+      ]),
+    );
+  });
+
+  it("should keep the edits made while a new enumeration is created", async () => {
+    let link: (key: enumeration.Key) => void = () => {};
+    prompt.mockImplementationOnce(
+      async () => await new Promise((resolve) => (link = resolve)),
+    );
+    const { findByRole, findByText, value } = await render();
+    fireEvent.click(await findByRole("button", { name: /^Enumeration/ }));
+    fireEvent.click(await screen.findByRole("option", { name: "New enumeration" }));
+    fireEvent.click(await findByText("Exact"));
+    const created = await client.enumerations.create({ name: `Valve ${id.create()}` });
+    link(created.key);
+    await waitFor(() =>
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({
+          key: "active",
+          match: { type: "exact" },
+          enumeration: created.key,
+        }),
       ]),
     );
   });
