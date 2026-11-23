@@ -54,6 +54,10 @@ const [FieldContext, useFieldContext] = context.create<FieldContextValue>({
 
 interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContextValue {
   value: Look[F] | undefined;
+  /** inherited is what a look on the whole drawing gives the part. */
+  inherited: Look[F] | undefined;
+  /** own is what a look of the part itself gives it. */
+  own: Look[F] | undefined;
   onChange: (value: Look[F] | undefined) => void;
 }
 
@@ -69,6 +73,17 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
     ...inspector,
     ...field,
     value: Spec.effective({ looks }, part, field.field, at) as Look[F] | undefined,
+    inherited:
+      part == null
+        ? undefined
+        : (Spec.effective({ looks }, undefined, field.field, at) as
+            Look[F] | undefined),
+    own: Spec.effective(
+      { looks: looks.filter((l) => l.part === part) },
+      part,
+      field.field,
+      at,
+    ) as Look[F] | undefined,
     onChange: (v) =>
       set(path.data, Spec.setOwn(get(path.data).value, part, field.field, v, at)),
   };
@@ -151,13 +166,14 @@ interface PaintControlProps {
 }
 
 const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
-  const { value, onChange, label, at, preview, values } = useScope<"fill" | "stroke">(
-    "PaintControl",
-  );
+  const { value, inherited, own, onChange, label, at, preview, values } = useScope<
+    "fill" | "stroke"
+  >("PaintControl");
   return (
     <Paint
       aria-label={label}
       value={value}
+      inherited={inherited != null && own == null}
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
