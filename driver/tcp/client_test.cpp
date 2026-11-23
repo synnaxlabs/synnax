@@ -113,12 +113,14 @@ TEST(Client, FailWhenPeerCloses) {
 /// keep failing.
 TEST(Client, FailWriteAtTimeout) {
     Server s;
-    // A fixed receive buffer stops Windows from growing the loopback window, which lets
-    // the peer take all of big without reading.
+    // Windows buffers one send of any size while its send buffer is under SO_SNDBUF, so
+    // only a second write stalls there. A fixed receive buffer keeps the peer from
+    // draining the first.
     s.acceptor.set_option(asio::socket_base::receive_buffer_size(64 * 1024));
     auto client = s.connect();
     const std::vector<std::uint8_t> big(std::size_t{64} * 1024 * 1024);
-    const auto err = client->write(big, 50 * x::telem::MILLISECOND);
+    auto err = client->write(big, 50 * x::telem::MILLISECOND);
+    if (!err) err = client->write(big, 50 * x::telem::MILLISECOND);
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
         err.data,
