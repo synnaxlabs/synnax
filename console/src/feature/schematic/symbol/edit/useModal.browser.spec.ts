@@ -885,7 +885,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
-    it("blocks the save while a level motion has more than one shape", async () => {
+    it("selects the part when a save meets a level motion of two shapes", async () => {
       await openPainted({
         drawing: {
           type: "svg",
@@ -906,16 +906,19 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      expect(findButton("Save").getAttribute("aria-disabled")).toBeNull();
+      fireEvent.click(findButton("Save"));
+      await screen.findByRole("heading", { name: "Body" });
       expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
-      expect(findButton("Save").getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(screen.getByText("Spin"));
       await waitFor(() =>
-        expect(findButton("Save").getAttribute("aria-disabled")).toBeNull(),
+        expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
       );
-      expect(screen.queryByText("Fill motion needs one shape")).toBeNull();
     });
 
-    it("blocks the save while a level motion would replace a clip-path", async () => {
+    it("saves once the level motion that replaces a clip-path goes", async () => {
       const symbol = await openPainted({
         drawing: {
           type: "svg",
@@ -936,12 +939,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
       const reason = "Fill motion replaces a clip-path";
       expect(screen.getByText(reason)).toBeDefined();
-      expect(findButton("Save").getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(screen.getByText("None"));
-      await waitFor(() =>
-        expect(findButton("Save").getAttribute("aria-disabled")).toBeNull(),
-      );
-      expect(screen.queryByText(reason)).toBeNull();
+      await waitFor(() => expect(screen.queryByText(reason)).toBeNull());
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.looks).toEqual([]),
