@@ -2288,6 +2288,16 @@ var _ = Describe("Range compare", func() {
 			)
 		})
 
+		It("Should refuse a manual edge with no bounds", func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{})
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+				lineplot.NewSetAxisBoundsAction(lineplot.SetAxisBoundsPayload{
+					Key:          lineplot.AxisKeyY1,
+					ManualBounds: lineplot.ManualBounds{Lower: true},
+				}),
+			})).To(MatchError(ContainSubstring("a manual edge needs bounds")))
+		})
+
 		It("Should refuse bounds whose lower is not below the upper", func(
 			ctx SpecContext,
 		) {

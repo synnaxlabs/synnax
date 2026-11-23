@@ -366,11 +366,18 @@ func (p SetAxisLabelLevelPayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle sets the axis value-space window together with its per-edge auto flags.
+// Handle sets the axis value-space window together with its per-edge auto flags. A
+// manual edge without bounds is invalid, since absent bounds mean both edges are auto.
 func (p SetAxisBoundsPayload) Handle(state LinePlot) (LinePlot, error) {
 	axis := axisPointer(&state.Axes, p.Key)
 	if axis == nil {
 		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	if p.Bounds == nil && (p.ManualBounds.Lower || p.ManualBounds.Upper) {
+		return LinePlot{}, errors.Wrap(
+			validate.ErrValidation,
+			"a manual edge needs bounds",
+		)
 	}
 	axis.Bounds = p.Bounds
 	axis.ManualBounds = p.ManualBounds
