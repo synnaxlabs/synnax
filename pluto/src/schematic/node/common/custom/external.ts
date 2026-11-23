@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/schematic/node/common/custom/Actuator";
 export * from "@/schematic/node/common/custom/builtIn";
 export * from "@/schematic/node/common/custom/Drawing";
+export type { Reading } from "@/schematic/node/common/custom/motion";
 export { MotionProvider } from "@/schematic/node/common/custom/MotionProvider";
 export * from "@/schematic/node/common/custom/Overrides";
 export {
@@ -19,3 +21,4 @@ export {
   type Value,
 } from "@/schematic/node/common/custom/paint";
 export * from "@/schematic/node/common/custom/render";
+export * from "@/schematic/node/common/custom/Static";

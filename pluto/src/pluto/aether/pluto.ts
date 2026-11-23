@@ -14,8 +14,7 @@ import { alamos } from "@/alamos/aether";
 import { color } from "@/color/aether";
 import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
-import { log } from "@/log/aether";
-import { LogFactory } from "@/log/aether/telem/factory";
+import { log, LogFactory } from "@/log/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { table } from "@/table/aether";
@@ -36,6 +35,7 @@ import { setpoint } from "@/vis/setpoint/aether";
 import { staleness } from "@/vis/staleness/aether";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 import { stringValue } from "@/vis/stringValue/aether";
+import { symbolNode } from "@/vis/symbolNode/aether";
 import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
 
@@ -60,6 +60,7 @@ export const render = (): void => {
     ...stateIndicator.REGISTRY,
     ...status.REGISTRY,
     ...stringValue.REGISTRY,
+    ...symbolNode.REGISTRY,
     ...synnax.REGISTRY,
     ...telem.createRegistry((client) => new LogFactory(client)),
     ...theming.REGISTRY,

@@ -350,7 +350,7 @@ const NAME_INPUT_PROPS = {
 
 const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "localhost" } as const;
 
-const PORT_INPUT_PROPS = { bounds: { lower: 1, upper: 65535 } } as const;
+const PORT_INPUT_PROPS = { bounds: { lower: 1, upper: 65535 }, integer: true } as const;
 
 const SERIAL_PORT_INPUT_PROPS = {
   autoFocus: true,
@@ -358,21 +358,25 @@ const SERIAL_PORT_INPUT_PROPS = {
 } as const;
 
 const UNIT_ID_INPUT_PROPS = {
-  tcp: { bounds: { lower: 0, upper: 255 } },
-  rtu: { bounds: { lower: 1, upper: 247 } },
+  tcp: { bounds: { lower: 0, upper: 255 }, integer: true },
+  rtu: { bounds: { lower: 1, upper: 247 }, integer: true },
 } as const;
 
 const TIMEOUT_BOUNDS = { lower: TimeSpan.MILLISECOND, upper: TimeSpan.MINUTE };
 
-const RETRIES_INPUT_PROPS = { bounds: { lower: 0, upper: 10 } } as const;
+const RETRIES_INPUT_PROPS = { bounds: { lower: 0, upper: 10 }, integer: true } as const;
 
 const DELAY_BOUNDS = { upper: TimeSpan.seconds(5) };
 
 const MAX_REGISTERS_INPUT_PROPS = {
   bounds: { lower: 1, upper: 125 },
+  integer: true,
 } as const;
 
-const MAX_GAP_INPUT_PROPS = { bounds: { lower: 0, upper: 65535 } } as const;
+const MAX_GAP_INPUT_PROPS = {
+  bounds: { lower: 0, upper: 65535 },
+  integer: true,
+} as const;
 
 const formatResponse = (span: TimeSpan): string => `${span.milliseconds.toFixed(1)} ms`;
 

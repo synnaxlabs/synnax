@@ -68,6 +68,34 @@ describe("ICD data types", () => {
     });
   });
 
+  describe("encodes", () => {
+    it.each([
+      ["float", DataType.INT32, true],
+      ["integer", DataType.FLOAT64, true],
+      ["unsigned", DataType.INT64, true],
+      ["boolean", DataType.UINT8, true],
+      ["string", DataType.STRING, true],
+      ["string", DataType.FLOAT64, false],
+      ["timestamp", DataType.TIMESTAMP, true],
+      ["timestamp", DataType.INT64, false],
+      ["json", DataType.STRING, false],
+    ] as const)("should report whether a %s field takes %s", (kind, dt, expected) => {
+      expect(ICD.encodes({ type: kind, scale: 1, offset: 0 }, dt.toString())).toBe(
+        expected,
+      );
+    });
+
+    it.each([
+      [DataType.INT64, false],
+      [DataType.FLOAT32, true],
+    ] as const)(
+      "should report whether a scaled integer field takes %s",
+      (dt, expected) => {
+        expect(ICD.encodes(fieldOf("integer", 0.5), dt.toString())).toBe(expected);
+      },
+    );
+  });
+
   describe("bindingDataType", () => {
     it("should keep the data type of a binding that names one", () => {
       expect(ICD.bindingDataType({ dataType: "float32" }, fieldOf("float"))).toBe(
@@ -85,5 +113,9 @@ describe("ICD data types", () => {
         expect(ICD.bindingDataType({ dataType: "" }, field)).toBe(expected);
       },
     );
+
+    it("should give a binding with an absent data type the default of its field", () => {
+      expect(ICD.bindingDataType({}, fieldOf("integer"))).toBe("int64");
+    });
   });
 });

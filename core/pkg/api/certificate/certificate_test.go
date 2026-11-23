@@ -938,3 +938,31 @@ var _ = Describe("Service", func() {
 		})
 	})
 })
+
+var _ = Describe("OwnedTables", func() {
+	It("Should name the table of a file certificate that uses a rack", func(
+		ctx SpecContext,
+	) {
+		r := createRack(ctx)
+		tx := DeferClose(db.OpenTx())
+		c := certificate.Certificate{Variant: certificate.FileCertificate{
+			Base:            certificate.Base{Name: "Driver"},
+			CertificatePath: "/var/lib/synnax/driver.der",
+			Rack:            r.Key,
+		}}
+		Expect(svc.Certificate.NewWriter(tx).Set(ctx, &c, nil)).To(Succeed())
+		changes := gorp.ChangesOf(tx)
+		tables := make([]string, 0, len(changes))
+		var uses []string
+		for _, ch := range changes {
+			tables = append(tables, ch.Record.Table)
+			for _, l := range ch.Added {
+				if l.Kind == gorp.Use {
+					uses = append(uses, l.Target.Table)
+				}
+			}
+		}
+		Expect(tables).To(ConsistOf(apicertificate.OwnedTables()))
+		Expect(uses).To(ConsistOf(string(resource.TypeRack)))
+	})
+})

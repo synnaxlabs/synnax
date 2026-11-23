@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -30,6 +31,7 @@
 
 #include "driver/bus/reader.h"
 #include "driver/codec/framing/framing.h"
+#include "driver/errors/errors.h"
 #include "driver/icd/reader.h"
 #include "driver/transport/errors.h"
 #include "driver/transport/transport.h"
@@ -39,7 +41,7 @@ namespace {
 const x::telem::TimeStamp ARRIVED(1000);
 
 /// @brief Memory is a transport whose reads return the chunks that a spec queues, and
-/// whose writes drop their bytes.
+/// whose writes keep their bytes.
 class Memory final : public transport::Transport {
     std::vector<std::uint8_t> held;
 
@@ -49,12 +51,16 @@ public:
     std::deque<std::pair<std::vector<std::uint8_t>, x::errors::Error>> chunks;
     /// @brief time is the arrival time of each chunk.
     x::telem::TimeStamp time = ARRIVED;
-    /// @brief reads counts the calls to read.
-    std::size_t reads = 0;
+    /// @brief timeouts holds the timeout of each read.
+    std::vector<x::telem::TimeSpan> timeouts;
+    /// @brief writes holds the bytes of each write.
+    std::vector<std::vector<std::uint8_t>> writes;
+    /// @brief write_err is the error of each write, which then keeps no bytes.
+    x::errors::Error write_err;
 
     std::pair<transport::Chunk, x::errors::Error>
-    read(x::telem::TimeSpan /*timeout*/) override {
-        this->reads++;
+    read(const x::telem::TimeSpan timeout) override {
+        this->timeouts.push_back(timeout);
         if (this->chunks.empty()) return {{.time = this->time}, x::errors::NIL};
         auto [bytes, err] = std::move(this->chunks.front());
         this->chunks.pop_front();
@@ -63,9 +69,11 @@ public:
     }
 
     x::errors::Error write(
-        std::span<const std::uint8_t> /*data*/,
+        const std::span<const std::uint8_t> data,
         x::telem::TimeSpan /*timeout*/
     ) override {
+        if (this->write_err) return this->write_err;
+        this->writes.emplace_back(data.begin(), data.end());
         return x::errors::NIL;
     }
 
@@ -140,7 +148,9 @@ byte_field(const std::string &name, const std::uint16_t offset) {
 Reader fixed() {
     Config cfg{synnax::icd::BinaryPayload{}};
     cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
-    return Reader(ASSERT_NIL_P(codec::framing::fixed(2)), cfg.create());
+    return ASSERT_NIL_P(
+        Reader::create(ASSERT_NIL_P(codec::framing::fixed(2)), cfg.create())
+    );
 }
 
 /// @brief returns a reader of lines that start with prefix and hold the value of
@@ -151,7 +161,33 @@ Reader lines(const std::string &prefix = "") {
     v.name = "v";
     v.position = 1;
     cfg.bind<synnax::icd::TextPayload>(v, 2);
-    return Reader(ASSERT_NIL_P(codec::framing::delimited({'\n'})), cfg.create());
+    return ASSERT_NIL_P(
+        Reader::create(ASSERT_NIL_P(codec::framing::delimited({'\n'})), cfg.create())
+    );
+}
+
+/// @brief Steady is a steady clock that a spec moves by hand.
+struct Steady {
+    std::chrono::steady_clock::time_point time;
+
+    [[nodiscard]] Clock clock() {
+        return [this] { return this->time; };
+    }
+};
+
+/// @brief returns a reader of two-byte frames, which sends the two-byte query at 10
+/// Hz on clock.
+Reader polling(Steady &clock) {
+    Config cfg{synnax::icd::BinaryPayload{}};
+    cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
+    return ASSERT_NIL_P(
+        Reader::create(
+            ASSERT_NIL_P(codec::framing::fixed(2)),
+            cfg.create(),
+            Poll{.query = {0xAA, 0x01}, .rate = x::telem::Rate(10)},
+            clock.clock()
+        )
+    );
 }
 
 std::vector<std::int64_t> stamps(const std::vector<std::int64_t> &offsets) {
@@ -208,7 +244,9 @@ TEST(Reader, KeepsGroupsAlignedWithTheirIndexes) {
     b.multiplexor = mux.key;
     b.multiplex_values = {2};
     cfg.bind<synnax::icd::BinaryPayload>(b, 3, 4);
-    Reader r(ASSERT_NIL_P(codec::framing::fixed(2)), cfg.create());
+    auto r = ASSERT_NIL_P(
+        Reader::create(ASSERT_NIL_P(codec::framing::fixed(2)), cfg.create())
+    );
     Memory t;
     t.push(std::vector<std::uint8_t>{1, 7, 2, 9, 1, 8});
     x::telem::Frame fr;
@@ -234,7 +272,7 @@ TEST(Reader, LeavesFramesPastBatchForNextRead) {
     ASSERT_EQ(first.series->at(1).size(), BATCH);
     x::telem::Frame second;
     ASSERT_NIL(r.read(t, second).error);
-    ASSERT_EQ(t.reads, 1U);
+    ASSERT_EQ(t.timeouts.size(), 1U);
     ASSERT_EQ(
         second.series->at(0).values<std::int64_t>(),
         stamps({static_cast<std::int64_t>(BATCH)})
@@ -278,7 +316,7 @@ TEST(Reader, DropsPartialFrameWhenIdle) {
 TEST(Reader, ReadsFramesAfterInvalidFrame) {
     Config cfg{synnax::icd::BinaryPayload{}};
     cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
-    auto r = Reader(codec::framing::cobs(), cfg.create());
+    auto r = ASSERT_NIL_P(Reader::create(codec::framing::cobs(), cfg.create()));
     Memory t;
     t.push(std::vector<std::uint8_t>{0x05, 0x01, 0x00, 0x01, 0x02, 0x07, 0x00});
     x::telem::Frame fr;
@@ -330,5 +368,155 @@ TEST(Reader, SkipsFrameOfNoMessage) {
     ASSERT_NIL(res.error);
     ASSERT_TRUE(res.warning.empty());
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{2.0}));
+}
+/// @brief it should send the query at its first read and then once per period.
+TEST(Reader, SendsQueryAtRate) {
+    Steady clock;
+    auto r = polling(clock);
+    Memory t;
+    x::telem::Frame fr;
+    const std::vector<std::vector<std::uint8_t>> one{{0xAA, 0x01}};
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes, one);
+    clock.time += std::chrono::milliseconds(50);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes, one);
+    clock.time += std::chrono::milliseconds(50);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes.size(), 2U);
+}
+
+/// @brief it should wait for bytes no later than the time of the next query.
+TEST(Reader, WaitsNoLaterThanNextQuery) {
+    Steady clock;
+    auto r = polling(clock);
+    Memory t;
+    x::telem::Frame fr;
+    ASSERT_NIL(r.read(t, fr).error);
+    clock.time += std::chrono::milliseconds(80);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.timeouts, (std::vector{READ_TIMEOUT, 20 * x::telem::MILLISECOND}));
+}
+
+/// @brief it should send one query after a stall, not one for each missed period.
+TEST(Reader, SkipsMissedQueries) {
+    Steady clock;
+    auto r = polling(clock);
+    Memory t;
+    x::telem::Frame fr;
+    ASSERT_NIL(r.read(t, fr).error);
+    clock.time += std::chrono::milliseconds(350);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes.size(), 2U);
+    ASSERT_EQ(t.timeouts.back(), READ_TIMEOUT);
+}
+
+/// @brief it should send the query in the framing of the reader.
+TEST(Reader, FramesQuery) {
+    Config cfg{synnax::icd::TextPayload{}};
+    synnax::icd::DelimitedTextField v;
+    v.name = "v";
+    cfg.bind<synnax::icd::TextPayload>(v, 2);
+    Steady clock;
+    auto r = ASSERT_NIL_P(
+        Reader::create(
+            ASSERT_NIL_P(codec::framing::delimited({'\n'})),
+            cfg.create(),
+            Poll{.query = {'?'}, .rate = x::telem::Rate(10)},
+            clock.clock()
+        )
+    );
+    Memory t;
+    x::telem::Frame fr;
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes, (std::vector<std::vector<std::uint8_t>>{{'?', '\n'}}));
+}
+
+/// @brief it should reject a query that the framing cannot hold.
+TEST(Reader, RejectsQueryThatFramingCannotHold) {
+    Config cfg{synnax::icd::BinaryPayload{}};
+    cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
+    const auto err = Reader::create(
+                         ASSERT_NIL_P(codec::framing::fixed(2)),
+                         cfg.create(),
+                         Poll{.query = {1, 2, 3}, .rate = x::telem::Rate(10)}
+    )
+                         .second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "the framing cannot hold the poll query: the frame has 3 bytes, not the fixed "
+        "length of 2"
+    );
+}
+
+/// @brief it should refuse a poll rate that is not above 0 Hz, or whose period is
+/// shorter than 1 ns.
+TEST(Reader, RejectsPollRateOutOfRange) {
+    for (const auto &[hz, text]: std::vector<std::pair<double, std::string>>{
+             {0, "0 Hz"},
+             {-1, "-1 Hz"},
+             {2e9, "2e+09 Hz"},
+         }) {
+        Config cfg{synnax::icd::BinaryPayload{}};
+        cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
+        const auto err = Reader::create(
+                             ASSERT_NIL_P(codec::framing::fixed(2)),
+                             cfg.create(),
+                             Poll{.query = {1, 2}, .rate = x::telem::Rate(hz)}
+        )
+                             .second;
+        ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+        ASSERT_EQ(
+            err.data,
+            "the poll rate must be above 0 Hz and at most 1 GHz, not " + text
+        );
+    }
+}
+
+/// @brief it should keep a partial frame until reads have waited READ_TIMEOUT in all,
+/// even when the next query cuts each wait short.
+TEST(Reader, KeepsPartialFrameUntilReadTimeout) {
+    Config cfg{synnax::icd::BinaryPayload{}};
+    cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
+    Steady clock;
+    auto r = ASSERT_NIL_P(
+        Reader::create(
+            ASSERT_NIL_P(codec::framing::fixed(2)),
+            cfg.create(),
+            Poll{.query = {0xAA, 0x01}, .rate = x::telem::Rate(50)},
+            clock.clock()
+        )
+    );
+    Memory t;
+    t.push(std::vector<std::uint8_t>{0});
+    x::telem::Frame fr;
+    ASSERT_NIL(r.read(t, fr).error);
+    clock.time += std::chrono::milliseconds(20);
+    ASSERT_TRUE(r.read(t, fr).warning.empty());
+    clock.time += std::chrono::milliseconds(20);
+    ASSERT_TRUE(r.read(t, fr).warning.empty());
+    clock.time += std::chrono::milliseconds(20);
+    ASSERT_EQ(r.read(t, fr).warning.message, "Dropped invalid data");
+}
+
+/// @brief it should return the error of a query that fails to send, and drop the bytes
+/// in the framer.
+TEST(Reader, DropsBytesWhenQueryFails) {
+    Steady clock;
+    auto r = polling(clock);
+    Memory t;
+    t.push(std::vector<std::uint8_t>{0});
+    x::telem::Frame fr;
+    ASSERT_NIL(r.read(t, fr).error);
+    t.write_err = x::errors::Error(transport::UNREACHABLE_ERROR, "the port closed");
+    clock.time += std::chrono::milliseconds(100);
+    ASSERT_OCCURRED_AS(r.read(t, fr).error, transport::UNREACHABLE_ERROR);
+    t.write_err = x::errors::NIL;
+    t.push(std::vector<std::uint8_t>{0, 7});
+    clock.time += std::chrono::milliseconds(100);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
 }
 }

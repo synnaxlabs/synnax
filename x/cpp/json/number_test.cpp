@@ -12,6 +12,8 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -275,6 +277,41 @@ TEST(ParseFloat64, Rejects) {
         const auto [v, err] = parse_float64(text);
         ASSERT_OCCURRED_AS(err, errors::VALIDATION);
         EXPECT_EQ(err.data, "invalid number " + quote(text));
+    }
+}
+
+/// @brief it should append the shortest JSON number that reads back as the double.
+TEST(AppendFloat, AppendsShortestNumber) {
+    for (const auto &[v, expected]: std::vector<std::pair<double, std::string>>{
+             {40.0, "40"},
+             {0.1, "0.1"},
+             {-0.0, "-0"},
+             {1e-6, "0.000001"},
+             {1e20, "100000000000000000000"},
+             {1e21, "1e+21"},
+             {1e-7, "1e-7"},
+             {1.5e-10, "1.5e-10"},
+             {5e-324, "5e-324"},
+             {std::numeric_limits<double>::max(), "1.7976931348623157e+308"},
+         }) {
+        std::string out = "x";
+        ASSERT_NIL(append_float(v, out));
+        EXPECT_EQ(out, "x" + expected);
+    }
+}
+
+/// @brief it should reject a double that JSON cannot hold, appending nothing.
+TEST(AppendFloat, RejectsNumberJSONCannotHold) {
+    for (const auto &[v, expected]: std::vector<std::pair<double, std::string>>{
+             {NaN, "NaN is not a JSON number"},
+             {INF, "Infinity is not a JSON number"},
+             {-INF, "-Infinity is not a JSON number"},
+         }) {
+        std::string out;
+        const auto err = append_float(v, out);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        EXPECT_EQ(err.data, expected);
+        EXPECT_EQ(out, "");
     }
 }
 }

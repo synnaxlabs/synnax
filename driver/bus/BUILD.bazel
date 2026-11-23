@@ -18,6 +18,7 @@ cc_library(
     deps = [
         "//driver/codec/framing",
         "//driver/common",
+        "//driver/errors",
         "//driver/icd",
         "//driver/transport",
         "//x/cpp/errors",
@@ -34,6 +35,7 @@ cc_test(
         "//client/cpp/icd",
         "//driver/codec/framing",
         "//driver/common",
+        "//driver/errors",
         "//driver/icd",
         "//driver/transport",
         "//x/cpp/errors",

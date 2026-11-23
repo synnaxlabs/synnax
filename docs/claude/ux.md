@@ -46,7 +46,9 @@ splash is one: its page is l1, so its nav and cards are l0.
 
 Hover moves one fill step from rest, and press moves one more. Disabled text is
 `--pluto-text-disabled`. A disabled outlined control (an input, a select trigger, an
-outlined button) has fill l2 and border l4, and its caret has the disabled text color.
+outlined button) has fill l2 and border l4, and its caret has the disabled text color. A
+disabled button inside an enabled input keeps the input's border (l7), so the field
+reads as one box; only its text dims.
 
 ### Status colors
 
@@ -132,7 +134,6 @@ a color picker has no "+".
   exist: 0.1 s for dropdowns and menus (`--pluto-dialog-animation`), and 0.15 s for
   modals (`--pluto-modal-animation`) and button colors (`--pluto-btn-transition`). Do
   not add a duration or a curve.
-- Live data values never animate.
 
 ## Components
 
@@ -725,6 +726,8 @@ bound, a log precision, or the line plot X channel.
   links never add one. The plot's Ranges picker searches every range, newest first, so
   no range needs a star to be plotted. A range that has not started shows in the toolbar
   only as a favorite.
+- The Favorites heading holds a Clear button while a favorite shows. A click removes
+  every favorite at once, with no confirmation. The ranges stay on the Core.
 - The header holds the explorer, then + (the create form set to the last hour), then
   Start. + and Start are outlined `Toolbar.CreateAction` buttons. The toolbar has no
   active range, and new plots open on Rolling 30s.
