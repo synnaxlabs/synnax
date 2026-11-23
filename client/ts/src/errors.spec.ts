@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Timeout } from "@synnaxlabs/freighter";
-import { errors, id, uuid } from "@synnaxlabs/x";
+import { type Context, Timeout, Unreachable } from "@synnaxlabs/freighter";
+import { errors, id, url, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
+import { errorsMiddleware } from "@/errors";
 import {
   AccessDeniedError,
+  APIKeyUnavailableError,
   AuthError,
   ContiguityError,
   ControlError,
@@ -99,6 +101,12 @@ describe("error", () => {
       expect(NotFoundError.matches(decoded)).toBe(true);
     });
 
+    test("round trips an API key that cannot load through the registry", () => {
+      const decoded = errors.decode(errors.encode(new APIKeyUnavailableError("gone")));
+      expect(APIKeyUnavailableError.matches(decoded)).toBe(true);
+      expect(decoded?.message).toEqual("gone");
+    });
+
     test("round trips a path error through the registry", () => {
       const original = new PathError("field", new ValidationError("bad"));
       const decoded = errors.decode(errors.encode(original));
@@ -112,6 +120,29 @@ describe("error", () => {
       expect(payload.type).toBe(errors.UNKNOWN);
       expect(payload.data).toBe("boom");
     });
+  });
+});
+
+describe("errorsMiddleware", () => {
+  const ctx: Context = { target: "", protocol: "", params: {}, role: "client" };
+  const endpoint = new url.URL({ host: "core.example.com", port: 9090 });
+
+  const failWith = async (err: Error): Promise<unknown> =>
+    await errorsMiddleware(ctx, async () => {
+      throw err;
+    }).catch((e: unknown) => e);
+
+  test("should name the Core in an Unreachable error", async () => {
+    const err = await failWith(new Unreachable({ url: endpoint }));
+    expect(err).toHaveProperty("message", "Cannot reach Core at core.example.com:9090");
+  });
+
+  test("should keep the hint of an Unreachable error", async () => {
+    const err = await failWith(new Unreachable({ url: endpoint, hint: "Check TLS" }));
+    expect(err).toHaveProperty(
+      "message",
+      "Cannot reach Core at core.example.com:9090. Check TLS",
+    );
   });
 });
 

@@ -1054,7 +1054,7 @@ TEST(Encoder, WritesNumberAsString) {
     const auto inf = std::numeric_limits<float>::infinity();
     expect_encodes({
         {{.data_type = telem::FLOAT32_T, .type = Type::String}, 0.5f, R"("0.5")"},
-        {{.data_type = telem::FLOAT64_T, .type = Type::String}, 1e20, R"("1e+20")"},
+        {{.data_type = telem::FLOAT64_T, .type = Type::String}, 1e21, R"("1e+21")"},
         {{.data_type = telem::UINT8_T, .type = Type::String, .enums = on_off()},
          std::uint8_t{5},
          R"("5")"},

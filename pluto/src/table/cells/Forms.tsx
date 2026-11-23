@@ -13,7 +13,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, deep, notation, TimeSpan } from "@synnaxlabs/x";
+import { color, deep, notation } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -82,7 +82,7 @@ const TelemForm = () => {
           path={path.stalenessColor}
           fallback={Staleness.resolveColor(undefined, theme)}
         />
-        <Staleness.TimeoutField unit={TimeSpan.SECOND} />
+        <Staleness.TimeoutField />
       </Form.Section>
     </>
   );

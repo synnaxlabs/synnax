@@ -67,8 +67,6 @@ import (
 // LayerConfig is the configuration for opening the API layer.
 type LayerConfig = config.LayerConfig
 
-var DefaultLayerConfig = config.DefaultLayerConfig
-
 type Transport struct {
 	// AUTH
 	AuthLogin           freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
@@ -87,6 +85,8 @@ type Transport struct {
 	AuthOIDCRetrieve freighter.UnaryServer[auth.OIDCRetrieveRequest, auth.OIDCRetrieveResponse]
 	// AuthOIDCUnlink removes provider links and ends their sessions.
 	AuthOIDCUnlink freighter.UnaryServer[auth.OIDCUnlinkRequest, struct{}]
+	// AuthPasswordCreate gives the caller or another user its first password.
+	AuthPasswordCreate freighter.UnaryServer[auth.PasswordCreateRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
 	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, auth.PasswordSetResponse]
 	// USER
@@ -421,6 +421,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthOIDCLink,
 		t.AuthOIDCRetrieve,
 		t.AuthOIDCUnlink,
+		t.AuthPasswordCreate,
 		t.AuthPasswordSet,
 
 		// USER
@@ -680,6 +681,11 @@ func (l *Layer) BindTo(t Transport) {
 		return l.Auth.RetrieveOIDCLinks(ctx, snap, req)
 	}))
 	t.AuthOIDCUnlink.BindHandler(bind.Write(l.binder, l.Auth.UnlinkOIDC))
+	t.AuthPasswordCreate.BindHandler(bind.WritePrepared(
+		l.binder,
+		l.Auth.PrepareCreatePassword,
+		l.Auth.CreatePassword,
+	))
 	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.Auth.PrepareSetPassword,
@@ -931,7 +937,7 @@ func (l *Layer) BindTo(t Transport) {
 // NewLayer instantiates the server API layer using the provided Configs. This should
 // only be called once.
 func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	cfg, err := xconfig.New(LayerConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

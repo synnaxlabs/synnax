@@ -985,5 +985,32 @@ var _ = Describe("Read task", func() {
 			DeferCleanup(func() { Expect(configured.Stop(false)).To(Succeed()) })
 			Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
 		})
+
+		It("Should answer the command when the task fails to start",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.Float64T)
+				port := broker.port
+				broker.stop()
+				broker = startBrokerWith(brokerOptions{
+					port:    port,
+					refused: []string{"plant/denied"},
+				})
+				cfg := readConfig(
+					ctx,
+					dev,
+					plainEntry("plant/denied", field("v", data[0], "")),
+				)
+				cfg["auto_start"] = true
+				t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
+				Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().To(MatchError(
+					ContainSubstring("refused the subscription to plant/denied"),
+				))
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Details.Running).To(BeFalse())
+				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+			},
+		)
 	})
 })
