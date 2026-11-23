@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
 #include <map>
+#include <optional>
+#include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -17,6 +21,7 @@
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/payload/number.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
@@ -24,13 +29,16 @@
 
 #include "driver/codec/errors.h"
 #include "driver/errors/errors.h"
-#include "driver/http/message/message.h"
+#include "driver/icd/reader.h"
 
-namespace driver::http::message {
+namespace driver::icd {
 namespace {
-namespace icd = synnax::icd;
-
 const x::telem::TimeStamp RECEIVED(1000);
+
+/// @brief returns the bytes of text.
+std::span<const std::uint8_t> bytes(const std::string_view text) {
+    return {reinterpret_cast<const std::uint8_t *>(text.data()), text.size()};
+}
 
 /// @brief returns a channel of dt with key that index indexes.
 synnax::channel::Channel channel(
@@ -46,16 +54,16 @@ synnax::channel::Channel channel(
     return ch;
 }
 
-icd::FloatJSONField float_field(const std::string &name) {
-    icd::FloatJSONField f;
+synnax::icd::FloatJSONField float_field(const std::string &name) {
+    synnax::icd::FloatJSONField f;
     f.key = x::uuid::create();
     f.name = name;
     f.pointer = "/" + name;
     return f;
 }
 
-icd::TimestampJSONField time_field() {
-    icd::TimestampJSONField f;
+synnax::icd::TimestampJSONField time_field() {
+    synnax::icd::TimestampJSONField f;
     f.key = x::uuid::create();
     f.name = "t";
     f.pointer = "/t";
@@ -63,24 +71,43 @@ icd::TimestampJSONField time_field() {
     return f;
 }
 
-/// @brief Endpoint holds what Reader::create takes: the reads of an endpoint, the ICD
-/// that holds their messages, and their channels.
-struct Endpoint {
-    std::vector<icd::ReadMessage> reads;
-    icd::ICD ic;
+/// @brief returns an unsigned binary field named name in the byte at offset that the
+/// multiplexor mux selects with value, or that no multiplexor selects.
+synnax::icd::UnsignedBinaryField byte_field(
+    const std::string &name,
+    const std::uint16_t offset,
+    const std::optional<synnax::icd::FieldKey> mux = std::nullopt,
+    const std::int32_t value = 0
+) {
+    synnax::icd::UnsignedBinaryField f;
+    f.key = x::uuid::create();
+    f.name = name;
+    f.start_bit = offset * 8;
+    f.multiplexor = mux;
+    if (mux.has_value()) f.multiplex_values = {value};
+    return f;
+}
+
+/// @brief Config holds what Reader::create takes: the reads, the ICD that holds their
+/// messages, and their channels.
+struct Config {
+    std::vector<synnax::icd::ReadMessage> reads;
+    synnax::icd::ICD ic;
     std::map<synnax::channel::Key, synnax::channel::Channel> channels;
 
-    /// @brief adds f to the first message and binds it to ch.
-    void bind(const icd::JSONField &f, const synnax::channel::Channel &ch) {
-        std::get<icd::JSONPayload>(this->ic.messages[0].payload).fields.push_back(f);
+    /// @brief adds f to the first message, whose payload is a Payload, and binds it to
+    /// ch.
+    template<typename Payload = synnax::icd::JSONPayload, typename Field>
+    void bind(const Field &f, const synnax::channel::Channel &ch) {
+        std::get<Payload>(this->ic.messages[0].payload).fields.push_back(f);
         this->reads[0].bindings.push_back(
-            {.field = icd::base(f).key, .channel = ch.key}
+            {.field = synnax::icd::base(f).key, .channel = ch.key}
         );
         this->channels.insert_or_assign(ch.key, ch);
     }
 
     /// @brief adds the reads, messages, and channels of other.
-    void join(const Endpoint &other) {
+    void join(const Config &other) {
         this->reads.insert(this->reads.end(), other.reads.begin(), other.reads.end());
         this->ic.messages.insert(
             this->ic.messages.end(),
@@ -95,25 +122,32 @@ struct Endpoint {
     }
 };
 
-/// @brief returns an endpoint that reads a message named name whose field v writes to
-/// ch.
-Endpoint reading(
+/// @brief returns a config that reads a message named name with payload and no
+/// bindings.
+Config message(const std::string &name, const synnax::icd::Payload &payload) {
+    synnax::icd::Message m;
+    m.key = x::uuid::create();
+    m.name = name;
+    m.payload = payload;
+    Config e{.reads = {{.message = m.key}}};
+    e.ic.name = "sensors";
+    e.ic.messages = {m};
+    return e;
+}
+
+/// @brief returns a config that reads a JSON message named name whose field v writes
+/// to ch.
+Config reading(
     const std::string &name = "reading",
     const synnax::channel::Channel &ch = channel(2, x::telem::FLOAT64_T)
 ) {
-    icd::Message m;
-    m.key = x::uuid::create();
-    m.name = name;
-    m.payload = icd::JSONPayload{};
-    Endpoint e{.reads = {{.message = m.key}}};
-    e.ic.name = "sensors";
-    e.ic.messages = {m};
+    auto e = message(name, synnax::icd::JSONPayload{});
     e.bind(float_field("v"), ch);
     return e;
 }
 
-/// @brief returns an endpoint whose field t indexes field v.
-Endpoint indexed() {
+/// @brief returns a config whose field t indexes field v.
+Config indexed() {
     auto e = reading();
     const auto t = time_field();
     e.bind(t, channel(1, x::telem::TIMESTAMP_T));
@@ -121,26 +155,180 @@ Endpoint indexed() {
     return e;
 }
 
-/// @brief returns an endpoint that reads the documents whose type is type, as a message
+/// @brief returns a config that reads the documents whose type is type, as a message
 /// named type whose field v writes to ch.
-Endpoint matching(
+Config matching(
     const std::string &type,
     const synnax::channel::Channel &ch = channel(2, x::telem::FLOAT64_T)
 ) {
     auto e = reading(type, ch);
-    icd::StringJSONMatch match;
+    synnax::icd::StringJSONMatch match;
     match.pointer = "/type";
     match.value = type;
-    std::get<icd::JSONPayload>(e.ic.messages[0].payload).match = match;
+    std::get<synnax::icd::JSONPayload>(e.ic.messages[0].payload).match = match;
     return e;
 }
+
+/// @brief returns a config that reads a binary message named frame whose first byte v
+/// writes to channel 2.
+Config frame() {
+    auto e = message("frame", synnax::icd::BinaryPayload{});
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("v", 0),
+        channel(2, x::telem::FLOAT64_T)
+    );
+    return e;
+}
+
+/// @brief returns a config that reads a binary message named frame with a multiplexor
+/// in its first byte, and returns the key of the multiplexor.
+std::pair<Config, synnax::icd::FieldKey> multiplexed() {
+    auto e = message("frame", synnax::icd::BinaryPayload{});
+    const auto mux = byte_field("mux", 0);
+    std::get<synnax::icd::BinaryPayload>(e.ic.messages[0].payload)
+        .fields.emplace_back(mux);
+    return {e, mux.key};
+}
+}
+
+/// @brief it should read a binary frame into the channels of its message.
+TEST(Reader, ReadsBinaryMessage) {
+    auto r = ASSERT_NIL_P(frame().create());
+    x::telem::Frame fr(2);
+    const std::vector<std::uint8_t> payload{7};
+    ASSERT_EQ(ASSERT_NIL_P(r.read(payload, RECEIVED, fr)), 0U);
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(fr.at<std::int64_t>(1, 0), RECEIVED.nanoseconds());
+    ASSERT_EQ(fr.at<double>(2, 0), 7.0);
+}
+
+/// @brief it should read a text line into the channels of its message.
+TEST(Reader, ReadsTextMessage) {
+    auto e = message("line", synnax::icd::TextPayload{});
+    synnax::icd::DelimitedTextField v;
+    v.key = x::uuid::create();
+    v.name = "v";
+    v.position = 1;
+    e.bind<synnax::icd::TextPayload>(v, channel(2, x::telem::FLOAT64_T));
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(2);
+    ASSERT_EQ(ASSERT_NIL_P(r.read(bytes("oven, 21.5"), RECEIVED, fr)), 0U);
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(fr.at<double>(2, 0), 21.5);
+}
+
+/// @brief it should write an index channel and the channels it indexes only when the
+/// multiplexors of the frame select their fields.
+TEST(Reader, WritesOnlySelectedIndexGroups) {
+    auto [e, mux] = multiplexed();
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("a", 1, mux, 1),
+        channel(2, x::telem::FLOAT64_T, 1)
+    );
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("b", 1, mux, 2),
+        channel(3, x::telem::FLOAT64_T, 4)
+    );
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame first(2);
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{1, 7}, RECEIVED, first));
+    ASSERT_EQ(*first.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(first.at<double>(2, 0), 7.0);
+    x::telem::Frame second(2);
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{2, 9}, RECEIVED, second));
+    ASSERT_EQ(*second.channels, (std::vector<std::uint32_t>{4, 3}));
+    ASSERT_EQ(second.at<double>(3, 0), 9.0);
+}
+
+/// @brief it should write a multiplexed field that has a default in every frame.
+TEST(Reader, WritesMultiplexedFieldWithDefault) {
+    auto [e, mux] = multiplexed();
+    auto a = byte_field("a", 1, mux, 1);
+    a.default_ = x::payload::Unsigned{5};
+    e.bind<synnax::icd::BinaryPayload>(a, channel(2, x::telem::FLOAT64_T));
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("b", 2),
+        channel(3, x::telem::FLOAT64_T)
+    );
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(3);
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{2, 7, 9}, RECEIVED, fr));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2, 3}));
+    ASSERT_EQ(fr.at<double>(2, 0), 5.0);
+    ASSERT_EQ(fr.at<double>(3, 0), 9.0);
+}
+
+/// @brief it should add no series for a virtual channel whose field the multiplexors of
+/// a frame do not select.
+TEST(Reader, AddsNoSeriesForUnselectedVirtualChannel) {
+    auto [e, mux] = multiplexed();
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("a", 1, mux, 1),
+        channel(2, x::telem::FLOAT64_T, 0)
+    );
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("b", 2),
+        channel(3, x::telem::FLOAT64_T)
+    );
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(2);
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{2, 7, 9}, RECEIVED, fr));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 3}));
+}
+
+/// @brief it should reject a binary index field that takes a default.
+TEST(Reader, RejectsBinaryIndexFieldWithDefault) {
+    auto e = message("frame", synnax::icd::BinaryPayload{});
+    auto t = byte_field("t", 0);
+    t.default_ = x::payload::Unsigned{5};
+    e.bind<synnax::icd::BinaryPayload>(t, channel(1, x::telem::TIMESTAMP_T));
+    e.reads[0].index = t.key;
+    const auto err = e.create().second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(err.data, "message frame: the index field t cannot take a default");
+}
+
+/// @brief it should reject a binary index field, since a binary field cannot write
+/// timestamps.
+TEST(Reader, RejectsBinaryIndexField) {
+    auto e = message("frame", synnax::icd::BinaryPayload{});
+    const auto t = byte_field("t", 0);
+    e.bind<synnax::icd::BinaryPayload>(t, channel(1, x::telem::TIMESTAMP_T));
+    e.reads[0].index = t.key;
+    const auto err = e.create().second;
+    ASSERT_OCCURRED_AS(err, codec::CONFIG_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "message frame: field t: cannot write unsigned values to timestamp channels"
+    );
+}
+
+/// @brief it should reject two fields on one index channel that different multiplexor
+/// values select.
+TEST(Reader, RejectsIndexGroupWithDifferentSelections) {
+    auto [e, mux] = multiplexed();
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("a", 1, mux, 1),
+        channel(2, x::telem::FLOAT64_T)
+    );
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("b", 2),
+        channel(3, x::telem::FLOAT64_T)
+    );
+    const auto err = e.create().second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "message frame: fields a and b share index channel 1, but different "
+        "multiplexor values select them"
+    );
 }
 
 /// @brief it should stamp the samples of a message with the time the response arrived.
 TEST(Reader, StampsSamplesOnArrival) {
     auto r = ASSERT_NIL_P(reading().create());
     x::telem::Frame fr(2);
-    ASSERT_NIL(r.read(R"({"v": 1.5})", RECEIVED, fr));
+    ASSERT_NIL_P(r.read(bytes(R"({"v": 1.5})"), RECEIVED, fr));
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
     ASSERT_EQ(fr.at<std::int64_t>(1, 0), RECEIVED.nanoseconds());
     ASSERT_EQ(fr.at<double>(2, 0), 1.5);
@@ -150,7 +338,7 @@ TEST(Reader, StampsSamplesOnArrival) {
 TEST(Reader, StampsSamplesWithIndexField) {
     auto r = ASSERT_NIL_P(indexed().create());
     x::telem::Frame fr(2);
-    ASSERT_NIL(r.read(R"({"v": 2, "t": 5})", RECEIVED, fr));
+    ASSERT_NIL_P(r.read(bytes(R"({"v": 2, "t": 5})"), RECEIVED, fr));
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
     ASSERT_EQ(fr.at<std::int64_t>(1, 0), 5);
     ASSERT_EQ(fr.at<double>(2, 0), 2.0);
@@ -162,7 +350,7 @@ TEST(Reader, WritesNoIndexForVirtualChannels) {
         reading("reading", channel(2, x::telem::FLOAT64_T, 0)).create()
     );
     x::telem::Frame fr(1);
-    ASSERT_NIL(r.read(R"({"v": 3})", RECEIVED, fr));
+    ASSERT_NIL_P(r.read(bytes(R"({"v": 3})"), RECEIVED, fr));
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{2}));
 }
 
@@ -175,7 +363,7 @@ TEST(Reader, StampsEachIndexChannelOnArrival) {
     e.bind(float_field("y"), channel(6, x::telem::FLOAT64_T, 4));
     auto r = ASSERT_NIL_P(e.create());
     x::telem::Frame fr(6);
-    ASSERT_NIL(r.read(R"({"v": 1, "w": 2, "x": 3, "y": 4})", RECEIVED, fr));
+    ASSERT_NIL_P(r.read(bytes(R"({"v": 1, "w": 2, "x": 3, "y": 4})"), RECEIVED, fr));
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 4, 2, 3, 5, 6}));
     ASSERT_EQ(fr.at<std::int64_t>(1, 0), RECEIVED.nanoseconds());
     ASSERT_EQ(fr.at<std::int64_t>(4, 0), RECEIVED.nanoseconds());
@@ -188,7 +376,7 @@ TEST(Reader, StampsOtherIndexChannelsOnArrival) {
     e.bind(float_field("w"), channel(3, x::telem::FLOAT64_T, 4));
     auto r = ASSERT_NIL_P(e.create());
     x::telem::Frame fr(4);
-    ASSERT_NIL(r.read(R"({"v": 2, "t": 5, "w": 3})", RECEIVED, fr));
+    ASSERT_NIL_P(r.read(bytes(R"({"v": 2, "t": 5, "w": 3})"), RECEIVED, fr));
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 4, 2, 3}));
     ASSERT_EQ(fr.at<std::int64_t>(1, 0), 5);
     ASSERT_EQ(fr.at<std::int64_t>(4, 0), RECEIVED.nanoseconds());
@@ -202,7 +390,7 @@ TEST(Reader, AddsNothingWhenValueOfOneIndexGroupDoesNotConvert) {
     e.bind(float_field("w"), channel(3, x::telem::FLOAT64_T, 4));
     auto r = ASSERT_NIL_P(e.create());
     x::telem::Frame fr(4);
-    const auto err = r.read(R"({"v": 1, "w": "x"})", RECEIVED, fr);
+    const auto err = r.read(bytes(R"({"v": 1, "w": "x"})"), RECEIVED, fr).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(err.data, R"(field w: unknown enum label "x")");
     ASSERT_TRUE(fr.empty());
@@ -215,11 +403,11 @@ TEST(Reader, ReadsMatchedMessage) {
     e.join(reading("other", channel(3, x::telem::FLOAT64_T, 4)));
     auto r = ASSERT_NIL_P(e.create());
     x::telem::Frame matched(2);
-    ASSERT_NIL(r.read(R"({"type": "status", "v": 5})", RECEIVED, matched));
+    ASSERT_NIL_P(r.read(bytes(R"({"type": "status", "v": 5})"), RECEIVED, matched));
     ASSERT_EQ(*matched.channels, (std::vector<std::uint32_t>{1, 2}));
     ASSERT_EQ(matched.at<double>(2, 0), 5.0);
     x::telem::Frame fallback(2);
-    ASSERT_NIL(r.read(R"({"type": "event", "v": 4})", RECEIVED, fallback));
+    ASSERT_NIL_P(r.read(bytes(R"({"type": "event", "v": 4})"), RECEIVED, fallback));
     ASSERT_EQ(*fallback.channels, (std::vector<std::uint32_t>{4, 3}));
 }
 
@@ -227,27 +415,28 @@ TEST(Reader, ReadsMatchedMessage) {
 TEST(Reader, AddsNothingWhenValueDoesNotConvert) {
     auto r = ASSERT_NIL_P(reading().create());
     x::telem::Frame fr(2);
-    const auto err = r.read(R"({"v": "x"})", RECEIVED, fr);
+    const auto err = r.read(bytes(R"({"v": "x"})"), RECEIVED, fr).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(err.data, R"(field v: unknown enum label "x")");
     ASSERT_TRUE(fr.empty());
 }
 
-/// @brief it should reject a response that meets no message.
-TEST(Reader, RejectsResponseThatMeetsNoMessage) {
+/// @brief it should add nothing for a payload that belongs to no message.
+TEST(Reader, ReturnsNothingForPayloadOfNoMessage) {
     auto r = ASSERT_NIL_P(matching("status").create());
     x::telem::Frame fr(2);
-    const auto err = r.read(R"({"type": "event", "v": 1})", RECEIVED, fr);
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "the response matches no message");
+    const auto msg = ASSERT_NIL_P(
+        r.read(bytes(R"({"type": "event", "v": 1})"), RECEIVED, fr)
+    );
+    ASSERT_FALSE(msg.has_value());
     ASSERT_TRUE(fr.empty());
 }
 
-/// @brief it should reject an endpoint that reads no messages.
-TEST(Reader, RejectsNoMessages) {
-    const auto err = Endpoint{}.create().second;
-    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "the endpoint reads no messages");
+/// @brief it should read nothing when it holds no messages.
+TEST(Reader, ReadsNothingWithNoMessages) {
+    auto r = ASSERT_NIL_P(Config{}.create());
+    x::telem::Frame fr;
+    ASSERT_FALSE(ASSERT_NIL_P(r.read(bytes("{}"), RECEIVED, fr)).has_value());
 }
 
 /// @brief it should reject a read of a message that the ICD does not hold.
@@ -263,13 +452,13 @@ TEST(Reader, RejectsMessageNotInICD) {
     );
 }
 
-/// @brief it should reject a message that is not JSON.
-TEST(Reader, RejectsMessageThatIsNotJSON) {
+/// @brief it should reject two messages of different formats.
+TEST(Reader, RejectsMessagesOfDifferentFormats) {
     auto e = reading();
-    e.ic.messages[0].payload = icd::BinaryPayload{};
+    e.join(frame());
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "message reading is not a JSON message");
+    ASSERT_EQ(err.data, "messages reading and frame have different formats");
 }
 
 /// @brief it should reject a message that binds no fields.
@@ -326,9 +515,11 @@ TEST(Reader, RejectsIndexFieldWithNoChannel) {
 /// @brief it should reject an index field that takes a default.
 TEST(Reader, RejectsIndexFieldWithDefault) {
     auto e = indexed();
-    auto &fields = std::get<icd::JSONPayload>(e.ic.messages[0].payload).fields;
-    std::get<icd::TimestampJSONField>(fields.back())
-        .default_ = icd::ConstantTimestampDefault{.value = x::telem::TimeStamp(5)};
+    auto &fields = std::get<synnax::icd::JSONPayload>(e.ic.messages[0].payload).fields;
+    std::get<synnax::icd::TimestampJSONField>(fields.back())
+        .default_ = synnax::icd::ConstantTimestampDefault{
+        .value = x::telem::TimeStamp(5)
+    };
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(err.data, "message reading: the index field t cannot take a default");
