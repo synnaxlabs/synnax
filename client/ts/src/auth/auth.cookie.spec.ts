@@ -12,7 +12,7 @@ import { url } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { auth } from "@/auth";
-import { MissingCredentialsError, SessionEndedError } from "@/errors";
+import { MissingCredentialsError, SessionEndedError } from "@/index";
 import { TEST_CREDENTIALS, testClientParams } from "@/testutil";
 import { Transport } from "@/transport";
 
