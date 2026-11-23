@@ -58,7 +58,8 @@ var (
 		apiauth.PasswordSetRequest,
 		apiauth.PasswordSetResponse,
 	]
-	createKey freighter.UnaryHandler[
+	createPassword freighter.UnaryHandler[apiauth.PasswordCreateRequest, struct{}]
+	createKey      freighter.UnaryHandler[
 		apiauth.KeyCreateRequest,
 		apiauth.KeyCreateResponse,
 	]
@@ -154,6 +155,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		binder,
 		apiSvc.PrepareSetPassword,
 		apiSvc.SetPassword,
+	)
+	createPassword = bind.WritePrepared(
+		binder,
+		apiSvc.PrepareCreatePassword,
+		apiSvc.CreatePassword,
 	)
 	createKey = bind.Write(binder, apiSvc.CreateKey)
 	retrieveKeys = bind.Read(binder, func(
