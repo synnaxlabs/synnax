@@ -35,7 +35,7 @@ export const colorFallback = (
   theme: theme.Theme,
   series: color.Color[],
 ): color.Color =>
-  (
-    ELEMENT_REGISTRY[variant as keyof typeof ELEMENT_REGISTRY].colorFallbacks?.[key] ??
-    DEFAULT_COLOR_FALLBACKS[key]
-  )(theme, series);
+  (ELEMENT_REGISTRY[variant].colorFallbacks?.[key] ?? DEFAULT_COLOR_FALLBACKS[key])(
+    theme,
+    series,
+  );
