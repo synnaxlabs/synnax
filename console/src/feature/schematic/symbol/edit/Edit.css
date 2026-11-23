@@ -101,9 +101,10 @@
         transition: all 0.2s ease;
     }
 
-    /* This rule owns the filter, so the hover and the selected mark both show. */
+    /* This rule owns the filter, so the hover and the selected mark both show. A shape
+       at rest keeps the filter of the drawing. */
     :is(
-        .console-schematic__svg-region--hoverable,
+        .console-schematic__svg-region--hover,
         .console-schematic__svg-region--selected
     ) {
         filter: var(--console-schematic-selected-filter, brightness(1))

@@ -1150,6 +1150,22 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("keeps the filter of the drawing on a shape at rest", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+            '<defs><filter id="f"><feGaussianBlur stdDeviation="1"/></filter></defs>' +
+            '<rect id="a" width="10" height="10"/>' +
+            '<rect id="b" x="10" width="10" height="10" filter="url(#f)"/></svg>',
+        },
+      });
+      await waitFor(() =>
+        expect(getComputedStyle(findShape("b")).filter).toContain("url("),
+      );
+    });
+
     it("marks a selected group and not each shape inside it", async () => {
       await openPainted({
         drawing: { type: "svg", markup: GROUPED },
