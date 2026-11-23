@@ -62,8 +62,8 @@ interface ValueBarProps {
 
 // ValueBar picks the value of the state that the canvas draws.
 const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
-  const { values } = useValues();
-  if (values.length < 2) return null;
+  const { list } = useValues();
+  if (list.length < 2) return null;
   return (
     <Flex.Box x align="center" gap="small" className={CSS.BE("schematic", "value-bar")}>
       <Text.Text level="small" color={9}>
@@ -75,7 +75,7 @@ const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
         size="small"
         variant="outlined"
       >
-        {values.map((v) => (
+        {list.map((v) => (
           <Select.Item<number> key={v.value} itemKey={v.value} size="small">
             {v.name}
           </Select.Item>
