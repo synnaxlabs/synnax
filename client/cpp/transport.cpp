@@ -48,11 +48,6 @@
 #include "core/pkg/transport/grpc/task/task.pb.h"
 
 namespace synnax::details {
-namespace {
-/// @brief how long a status set by key or name waits for the Core.
-constexpr auto SET_BY_KEY_OR_NAME_TIMEOUT = std::chrono::seconds(10);
-}
-
 Transport::Transport(
     const uint16_t port,
     const std::string &ip,
@@ -227,10 +222,6 @@ Transport::Transport(
         grpc::status::SetByKeyOrNameRequest,
         grpc::status::SetByKeyOrNameResponse,
         grpc::status::StatusSetByKeyOrNameService>>(pool, base_target);
-    // A set is small, and the Driver outbox waits for it before it can stop.
-    this->status_set_by_key_or_name->use(
-        std::make_shared<freighter::Deadline>(SET_BY_KEY_OR_NAME_TIMEOUT)
-    );
     this->secret_retrieve = std::make_shared<freighter::grpc::UnaryClient<
         ::api::secret::pb::RetrieveRequest,
         ::api::secret::pb::RetrieveResponse,

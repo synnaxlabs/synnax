@@ -26,13 +26,6 @@ namespace driver::outbox {
 namespace {
 const std::string SEGMENT_EXT = ".calls";
 const std::string OFFSET_FILE = "offset";
-/// @brief the number of calls in a segment, after which the next segment starts.
-constexpr std::size_t SEGMENT_CALLS = 1000;
-/// @brief the maximum time between a write and the sync that follows it, and between
-/// a send and the save of its offset.
-const auto SYNC_INTERVAL = x::telem::SECOND;
-/// @brief the time between the checks of the sync thread.
-const auto SYNC_CHECK_INTERVAL = 250 * x::telem::MILLISECOND;
 
 x::telem::TimeStamp steady_now() {
     return x::telem::TimeStamp(
@@ -44,7 +37,7 @@ x::telem::TimeStamp steady_now() {
 }
 
 x::errors::Error fs_error(const std::string &msg, const std::error_code &ec) {
-    return x::errors::Error(ERROR, msg + ": " + ec.message());
+    return x::errors::Error(BASE_ERROR, msg + ": " + ec.message());
 }
 
 std::pair<pb::Call, x::errors::Error> decode(const journal::Record &record) {
@@ -66,6 +59,32 @@ std::pair<pb::Call, x::errors::Error> decode(const journal::Record &record) {
         };
     return {call, x::errors::NIL};
 }
+
+/// @returns whether err has type, or a type under it. Error::matches also matches
+/// a type that only starts with the same letters.
+bool is_kind(const x::errors::Error &err, const std::string &type) {
+    return err.type == type || err.type.starts_with(type + ".");
+}
+}
+
+bool rejected(const x::errors::Error &err) {
+    // The auth middleware renews a token, and a license can come back.
+    for (const auto &type:
+         {std::string("sy.auth.invalid_token"),
+          std::string("sy.auth.expired_token"),
+          std::string("sy.auth.session_ended"),
+          synnax::errors::LICENSE_MISSING.type,
+          synnax::errors::LICENSE_EXPIRED.type})
+        if (is_kind(err, type)) return false;
+    for (const auto &type:
+         {x::errors::VALIDATION.type,
+          x::errors::QUERY.type,
+          x::errors::CONTROL.type,
+          std::string("sy.auth"),
+          synnax::errors::LICENSE.type,
+          std::string("arc")})
+        if (is_kind(err, type)) return true;
+    return false;
 }
 
 Outbox::Outbox(Config cfg): cfg(std::move(cfg)) {}
@@ -113,8 +132,10 @@ std::pair<std::unique_ptr<Outbox>, x::errors::Error> Outbox::open(Config cfg) {
             key
         );
         if (parse_ec != std::errc() || end != stem.data() + stem.size())
-            return {nullptr, x::errors::Error(ERROR, "invalid segment " + stem)};
-        outbox->segments.insert(key);
+            return {nullptr, x::errors::Error(BASE_ERROR, "invalid segment " + stem)};
+        std::error_code size_ec;
+        const auto size = std::filesystem::file_size(path, size_ec);
+        outbox->segments[key] = size_ec ? 0 : size;
     }
     if (ec) return {nullptr, fs_error("failed to list outbox directory", ec)};
     for (const auto &path: stale)
@@ -129,12 +150,14 @@ std::pair<std::unique_ptr<Outbox>, x::errors::Error> Outbox::open(Config cfg) {
     const auto offset = saved.value_or(journal::Offset{});
     // New segments go after the saved offset, which outlives its sent segments.
     if (saved.has_value()) outbox->next_key = offset.segment + 1;
-    for (const auto key: outbox->segments) {
+    for (const auto &[key, size]: outbox->segments) {
         outbox->next_key = std::max(outbox->next_key, key + 1);
         if (key < offset.segment) continue;
         const auto pos = key == offset.segment ? offset.pos : 0;
         if (const auto err = outbox->load(key, pos)) return {nullptr, err};
     }
+    for (const auto &[key, size]: outbox->segments)
+        outbox->bytes += size;
     {
         std::lock_guard lock(outbox->mu);
         if (const auto err = outbox->next_tail()) return {nullptr, err};
@@ -156,6 +179,7 @@ x::errors::Error Outbox::load(const std::uint64_t key, const std::uint64_t pos) 
             LOG(WARNING) << "[outbox] lost " << cut << " bytes at the end of "
                          << path.string();
         }
+        this->segments[key] = writer->pos();
         if (err = writer->close(); err) return err;
     }
     auto [reader, err] = journal::Reader::open({
@@ -173,11 +197,13 @@ x::errors::Error Outbox::load(const std::uint64_t key, const std::uint64_t pos) 
         if (!record) return x::errors::NIL;
         auto [request, decode_err] = decode(*record);
         if (decode_err) return decode_err;
-        this->calls.push_back({
+        this->enqueue({
             .request = std::move(request),
             .set_status_done = nullptr,
             .segment = key,
             .end = reader->pos(),
+            .seq = this->next_seq++,
+            .size = journal::RECORD_PREFIX_SIZE + record->payload.size(),
         });
     }
     // The whole segment passed its checks, so only the saved position can be wrong.
@@ -189,6 +215,33 @@ x::errors::Error Outbox::load(const std::uint64_t key, const std::uint64_t pos) 
                 " to send all of its calls again (" + err.message() + ")"
         );
     return err;
+}
+
+void Outbox::enqueue(Call call) {
+    if (call.request.call_case() == pb::Call::kSetStatus) {
+        const auto [it, inserted] = this->latest.try_emplace(
+            call.request.set_status().key_or_name(),
+            call.seq
+        );
+        if (!inserted) {
+            ++this->replaced;
+            it->second = call.seq;
+        }
+    }
+    this->queued_bytes += call.size;
+    this->calls.push_back(std::move(call));
+}
+
+bool Outbox::reclaimable() const {
+    const auto needed = this->queued_bytes +
+                        journal::HEADER_SIZE * this->segments.size();
+    return this->replaced > 0 ||
+           (this->bytes > needed && this->bytes - needed >= this->cfg.max_bytes / 4);
+}
+
+bool Outbox::is_replaced(const Call &call) const {
+    if (call.request.call_case() != pb::Call::kSetStatus) return false;
+    return this->latest.at(call.request.set_status().key_or_name()) != call.seq;
 }
 
 Outbox::~Outbox() {
@@ -223,18 +276,23 @@ x::errors::Error Outbox::set_status(
 
 x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
     const auto payload = request.SerializeAsString();
+    const auto size = journal::RECORD_PREFIX_SIZE + payload.size();
     {
         std::lock_guard lock(this->mu);
-        if (this->calls.size() >= this->cfg.cap) {
+        if (this->bytes + size > this->cfg.max_bytes) {
             ++this->refused_count;
+            if (this->reclaimable()) {
+                this->compact_wanted = true;
+                this->sync_cv.notify_one();
+            }
             return x::errors::Error(
                 FULL,
-                "The Driver holds " + std::to_string(this->cfg.cap) +
-                    " calls that the Core has not taken. Restore the connection to "
-                    "the Core."
+                "The Driver holds " + std::to_string(this->cfg.max_bytes) +
+                    " bytes of calls that the Core has not taken. Check the "
+                    "connection to the Core."
             );
         }
-        if (this->tail.writer == nullptr || this->tail_calls >= SEGMENT_CALLS)
+        if (this->tail.writer == nullptr || this->tail_calls >= this->cfg.segment_calls)
             if (const auto err = this->next_tail()) return err;
         if (const auto err = this->tail.writer->write(
                 {.type = CALL_TYPE, .payload = payload}
@@ -245,13 +303,23 @@ x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
             this->sync_cv.notify_one();
             return err;
         }
-        this->calls.push_back({
+        const auto end = this->tail.writer->pos();
+        this->bytes += end - this->segments[this->tail.key];
+        this->segments[this->tail.key] = end;
+        this->enqueue({
             .request = std::move(request),
             .set_status_done = std::move(done),
             .segment = this->tail.key,
-            .end = this->tail.writer->pos(),
+            .end = end,
+            .seq = this->next_seq++,
+            .size = size,
         });
         ++this->tail_calls;
+        // Compacting before the files are full keeps the newest sets from refusal.
+        if (this->bytes >= this->cfg.max_bytes / 4 * 3 && this->reclaimable()) {
+            this->compact_wanted = true;
+            this->sync_cv.notify_one();
+        }
     }
     this->cv.notify_one();
     return x::errors::NIL;
@@ -280,20 +348,24 @@ x::errors::Error Outbox::next_tail() {
     }
     this->tail = {.key = key, .writer = writer};
     this->writers[key] = writer;
-    this->segments.insert(key);
+    this->bytes += writer->pos() - this->segments[key];
+    this->segments[key] = writer->pos();
     return x::errors::NIL;
 }
 
 void Outbox::fail_open(const std::uint64_t key) {
     // A failed open can leave the file, which remove_sent removes once it is sent.
-    this->segments.insert(key);
+    this->segments.try_emplace(key, 0);
     this->failed_key = key;
 }
 
 void Outbox::run() {
     std::size_t failures = 0;
+    auto failing_since = steady_now();
+    bool stuck = false;
     while (true) {
         Call call;
+        bool skip = false;
         {
             std::unique_lock lock(this->mu);
             this->cv.wait(lock, [this] {
@@ -301,21 +373,34 @@ void Outbox::run() {
             });
             if (this->stopped) return;
             call = this->calls.front();
+            skip = this->is_replaced(call);
+        }
+        if (skip) {
+            this->commit();
+            continue;
         }
         const auto err = this->send(call);
-        if (synnax::errors::is_temporarily_unavailable(err)) {
-            if (++failures == 1)
-                LOG(WARNING) << "[outbox] the Core is unavailable, retrying: " << err;
+        if (err && !rejected(err)) {
+            if (++failures == 1) {
+                failing_since = steady_now();
+                LOG(WARNING) << "[outbox] failed to send a call, retrying: " << err;
+            }
+            if (!stuck && steady_now() - failing_since >= this->cfg.stuck_after) {
+                stuck = true;
+                this->cfg.on_stuck(err);
+            }
             if (!this->wait_retry(failures)) return;
             continue;
         }
-        if (failures > 0) LOG(INFO) << "[outbox] the Core is available again";
+        if (failures > 0) LOG(INFO) << "[outbox] sent a call after a retry";
+        if (stuck) this->cfg.on_stuck(x::errors::NIL);
+        stuck = false;
         failures = 0;
         if (err) {
             ++this->dropped_count;
             LOG(WARNING) << "[outbox] dropped a call the Core rejected: " << err;
         }
-        this->commit(call);
+        this->commit();
     }
 }
 
@@ -333,20 +418,30 @@ x::errors::Error Outbox::send(const Call &call) const {
         set.key_or_name(),
         set.message(),
         set.variant(),
-        x::telem::TimeStamp(set.time())
+        x::telem::TimeStamp(set.time()),
+        this->cfg.send_timeout
     );
-    if (!synnax::errors::is_temporarily_unavailable(err) &&
-        call.set_status_done != nullptr)
+    if ((!err || rejected(err)) && call.set_status_done != nullptr)
         call.set_status_done(res, err);
     return err;
 }
 
-void Outbox::commit(const Call &call) {
+void Outbox::commit() {
     std::lock_guard lock(this->mu);
+    // A compaction can move the call to a new segment.
+    const auto done = std::move(this->calls.front());
     this->calls.pop_front();
-    this->sent = journal::Offset{.segment = call.segment, .pos = call.end};
-    if (call.segment != this->tail.key &&
-        (this->calls.empty() || this->calls.front().segment != call.segment)) {
+    this->queued_bytes -= done.size;
+    if (done.request.call_case() == pb::Call::kSetStatus) {
+        const auto it = this->latest.find(done.request.set_status().key_or_name());
+        if (it->second == done.seq)
+            this->latest.erase(it);
+        else
+            --this->replaced;
+    }
+    this->sent = journal::Offset{.segment = done.segment, .pos = done.end};
+    if (done.segment != this->tail.key &&
+        (this->calls.empty() || this->calls.front().segment != done.segment)) {
         this->segment_sent = true;
         this->sync_cv.notify_one();
     }
@@ -359,10 +454,15 @@ void Outbox::run_syncs() {
         bool stopping = false;
         {
             std::unique_lock lock(this->mu);
-            this->sync_cv.wait_for(lock, SYNC_CHECK_INTERVAL.chrono(), [this] {
-                return this->sync_stopped || !this->closing.empty() ||
-                       this->segment_sent || this->spare_wanted;
-            });
+            this->sync_cv.wait_for(
+                lock,
+                (this->cfg.sync_interval / std::int64_t{4}).chrono(),
+                [this] {
+                    return this->sync_stopped || !this->closing.empty() ||
+                           this->segment_sent || this->spare_wanted ||
+                           this->compact_wanted;
+                }
+            );
             stopping = this->sync_stopped;
         }
         this->sync_once(stopping, last_sync, last_save);
@@ -378,10 +478,12 @@ void Outbox::sync_once(
     std::vector<Segment> to_close;
     std::shared_ptr<journal::Writer> tail_writer;
     std::optional<std::uint64_t> spare_key;
+    bool compacting = false;
     {
         std::lock_guard lock(this->mu);
         std::swap(to_close, this->closing);
         tail_writer = this->tail.writer;
+        compacting = this->compact_wanted && !stopping;
         if (stopping) {
             to_close.push_back(this->tail);
             this->tail.writer = nullptr;
@@ -396,17 +498,11 @@ void Outbox::sync_once(
         }
         this->spare_wanted = false;
     }
-    for (const auto &segment: to_close) {
-        if (segment.writer == nullptr) continue;
-        const auto err = segment.writer->close();
-        if (err)
-            LOG(ERROR) << "[outbox] failed to close " << this->segment_path(segment.key)
-                       << ": " << err;
-        std::lock_guard lock(this->mu);
-        if (!err) this->writers.erase(segment.key);
-    }
+    // A closed segment can be one that a compaction or a send left behind.
+    if (this->close_segments(to_close)) this->remove_sent();
     const auto now = steady_now();
-    if (!stopping && tail_writer != nullptr && now - last_sync >= SYNC_INTERVAL) {
+    if (!stopping && tail_writer != nullptr &&
+        now - last_sync >= this->cfg.sync_interval) {
         last_sync = now;
         // A failed sync also fails the next write, which moves the tail.
         if (const auto err = tail_writer->sync())
@@ -421,21 +517,23 @@ void Outbox::sync_once(
         else if (*spare_key > this->tail.key) {
             this->spare = Segment{.key = *spare_key, .writer = writer};
             this->writers[*spare_key] = writer;
-            this->segments.insert(*spare_key);
-        } else if (!err) {
+            this->bytes += writer->pos();
+            this->segments[*spare_key] = writer->pos();
+        } else {
             lock.unlock();
-            // The send thread opened a later segment first.
+            // The send thread or a compaction took a later segment first.
             (void) writer->close();
             if (const auto rm_err = journal::remove(this->segment_path(*spare_key)))
                 LOG(WARNING) << "[outbox] failed to remove an unused segment: "
                              << rm_err;
         }
     }
+    if (compacting) this->compact();
     std::optional<journal::Offset> offset;
     {
         std::lock_guard lock(this->mu);
         const auto due = stopping || this->segment_sent ||
-                         now - last_save >= SYNC_INTERVAL;
+                         now - last_save >= this->cfg.sync_interval;
         this->segment_sent = false;
         if (due && this->sent.has_value()) {
             offset = this->sent;
@@ -462,13 +560,97 @@ void Outbox::sync_once(
     this->remove_sent();
 }
 
+bool Outbox::close_segments(const std::vector<Segment> &segments) {
+    for (const auto &segment: segments) {
+        if (segment.writer == nullptr) continue;
+        const auto err = segment.writer->close();
+        if (err)
+            LOG(ERROR) << "[outbox] failed to close " << this->segment_path(segment.key)
+                       << ": " << err;
+        std::lock_guard lock(this->mu);
+        if (!err) this->writers.erase(segment.key);
+    }
+    return !segments.empty();
+}
+
+void Outbox::compact() {
+    std::vector<std::pair<std::uint64_t, std::string>> kept;
+    std::vector<Segment> old;
+    std::uint64_t key = 0;
+    std::uint64_t first_new_seq = 0;
+    {
+        std::lock_guard lock(this->mu);
+        this->compact_wanted = false;
+        if (!this->reclaimable()) return;
+        key = this->next_key++;
+        first_new_seq = this->next_seq;
+        // The first call can be in flight on the send thread, so it stays.
+        for (const auto &call: this->calls)
+            if (kept.empty() || !this->is_replaced(call))
+                kept.emplace_back(call.seq, call.request.SerializeAsString());
+        // Later calls go to segments after the new one.
+        if (this->tail.writer != nullptr) this->closing.push_back(this->tail);
+        if (this->spare.has_value()) this->closing.push_back(*this->spare);
+        this->spare.reset();
+        this->tail = {.key = key, .writer = nullptr};
+    }
+    auto [writer, err] = this->open_writer(key);
+    std::vector<std::uint64_t> ends;
+    for (std::size_t i = 0; !err && i < kept.size(); i++) {
+        err = writer->write({.type = CALL_TYPE, .payload = kept[i].second});
+        ends.push_back(writer->pos());
+    }
+    const auto size = writer == nullptr ? 0 : writer->pos();
+    if (!err) err = writer->close();
+    // The new segment and the offset at its start are on the disk before the old
+    // segments go, so a crash leaves the old calls or the new ones.
+    const auto offset = journal::Offset{.segment = key, .pos = journal::HEADER_SIZE};
+    if (!err)
+        err = journal::commit_offset(this->cfg.dir / OFFSET_FILE, OFFSET_MAGIC, offset);
+    if (err) {
+        LOG(ERROR) << "[outbox] failed to compact: " << err;
+        writer.reset();
+        if (const auto rm_err = journal::remove(this->segment_path(key)))
+            LOG(WARNING) << "[outbox] failed to remove " << this->segment_path(key)
+                         << ": " << rm_err;
+        return;
+    }
+    this->saved = offset;
+    {
+        std::lock_guard lock(this->mu);
+        this->segments[key] = size;
+        this->bytes += size;
+        std::deque<Call> next;
+        std::size_t i = 0;
+        for (auto &call: this->calls) {
+            while (i < kept.size() && kept[i].first < call.seq)
+                i++;
+            if (i < kept.size() && kept[i].first == call.seq) {
+                call.segment = key;
+                call.end = ends[i];
+                next.push_back(std::move(call));
+            } else if (call.seq >= first_new_seq)
+                next.push_back(std::move(call));
+            else {
+                --this->replaced;
+                this->queued_bytes -= call.size;
+            }
+        }
+        this->calls = std::move(next);
+        if (this->sent.has_value() && this->sent->segment < key) this->sent = offset;
+        std::swap(old, this->closing);
+    }
+    this->close_segments(old);
+    this->remove_sent();
+}
+
 void Outbox::remove_sent() {
     std::vector<std::uint64_t> sent_keys;
     {
         std::lock_guard lock(this->mu);
         const auto first = this->calls.empty() ? this->tail.key
                                                : this->calls.front().segment;
-        for (const auto key: this->segments) {
+        for (const auto &[key, size]: this->segments) {
             if (key >= first) break;
             // A segment the sync thread has not closed yet stays.
             if (std::ranges::any_of(this->closing, [key](const Segment &s) {
@@ -486,6 +668,7 @@ void Outbox::remove_sent() {
             continue;
         }
         std::lock_guard lock(this->mu);
+        this->bytes -= this->segments[key];
         this->segments.erase(key);
         this->writers.erase(key);
     }

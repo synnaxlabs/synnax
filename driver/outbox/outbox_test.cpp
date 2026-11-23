@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/crc/crc32c.h"
 #include "gtest/gtest.h"
 
 #include "client/cpp/errors/errors.h"
@@ -54,13 +55,30 @@ std::shared_ptr<Transport> transport_of(const std::vector<x::errors::Error> &err
     );
 }
 
-::grpc::status::SetByKeyOrNameRequest set_of(const std::string &message) {
+/// @brief returns a set of the status named key, which is message by default.
+::grpc::status::SetByKeyOrNameRequest
+set_of(const std::string &message, const std::string &key = "") {
     ::grpc::status::SetByKeyOrNameRequest req;
-    req.set_key_or_name("status");
+    req.set_key_or_name(key.empty() ? message : key);
     req.set_message(message);
     req.set_variant("info");
     req.set_time(42);
     return req;
+}
+
+/// @brief returns the payloads of the call records of the segment at path.
+std::vector<std::string> payloads_of(const std::filesystem::path &path) {
+    auto reader = ASSERT_NIL_P(
+        journal::Reader::open(
+            {.path = path, .magic = SEGMENT_MAGIC, .types = {CALL_TYPE}}
+        )
+    );
+    std::vector<std::string> payloads;
+    while (true) {
+        auto record = ASSERT_NIL_P(reader->next());
+        if (!record) return payloads;
+        payloads.push_back(record->payload);
+    }
 }
 
 std::vector<std::string> messages_of(const Transport &transport) {
@@ -85,13 +103,13 @@ protected:
 
     [[nodiscard]] std::unique_ptr<Outbox> open_outbox(
         const std::shared_ptr<Transport> &transport,
-        const std::size_t cap = DEFAULT_CAP,
+        const std::uint64_t max_bytes = Config{}.max_bytes,
         const x::telem::TimeSpan retry = x::telem::MILLISECOND
     ) const {
         Config cfg{
             .dir = this->dir,
             .statuses = synnax::status::Client(nullptr, nullptr, nullptr, transport),
-            .cap = cap,
+            .max_bytes = max_bytes,
         };
         cfg.retry.base_interval = retry;
         cfg.retry.max_interval = retry;
@@ -118,9 +136,12 @@ protected:
     /// @brief opens an outbox whose first send finds the Core unreachable, and that
     /// waits an hour before it retries.
     [[nodiscard]] std::unique_ptr<Outbox>
-    open_unreachable(const std::size_t cap = DEFAULT_CAP) const {
-        return this
-            ->open_outbox(transport_of({freighter::UNREACHABLE}), cap, x::telem::HOUR);
+    open_unreachable(const std::uint64_t max_bytes = Config{}.max_bytes) const {
+        return this->open_outbox(
+            transport_of({freighter::UNREACHABLE}),
+            max_bytes,
+            x::telem::HOUR
+        );
     }
 
     [[nodiscard]] std::filesystem::path segment() const {
@@ -191,7 +212,7 @@ TEST_F(OutboxTest, SendsOnlyUnsentCallsAfterReopen) {
     {
         const auto outbox = this->open_outbox(
             transport_of({x::errors::NIL, freighter::UNREACHABLE}),
-            DEFAULT_CAP,
+            Config{}.max_bytes,
             x::telem::HOUR
         );
         ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
@@ -290,10 +311,20 @@ TEST_F(OutboxTest, DropsRejectedCalls) {
 
 /// @brief it should refuse and count calls when it is full.
 TEST_F(OutboxTest, RefusesCallsWhenFull) {
-    const auto outbox = this->open_unreachable(2);
-    ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
-    ASSERT_NIL(outbox->set_status(set_of("second"), nullptr));
-    const auto err = outbox->set_status(set_of("third"), nullptr);
+    pb::Call call;
+    auto *set = call.mutable_set_status();
+    set->set_key_or_name(std::string(30, 'a'));
+    set->set_message(std::string(30, 'a'));
+    set->set_variant("info");
+    set->set_time(42);
+    const auto call_bytes = journal::RECORD_PREFIX_SIZE + call.ByteSizeLong();
+    // Room for two calls, with or without the header of a new segment.
+    const auto outbox = this->open_unreachable(
+        2 * journal::HEADER_SIZE + 2 * call_bytes + call_bytes / 2
+    );
+    ASSERT_NIL(outbox->set_status(set_of(std::string(30, 'a')), nullptr));
+    ASSERT_NIL(outbox->set_status(set_of(std::string(30, 'b')), nullptr));
+    const auto err = outbox->set_status(set_of(std::string(30, 'c')), nullptr);
     ASSERT_OCCURRED_AS(err, FULL);
     ASSERT_FALSE(err.data.empty());
     ASSERT_EQ(outbox->refused(), 1);
@@ -369,9 +400,12 @@ TEST_F(OutboxTest, CutsSegmentWithCutOffFileStart) {
 TEST_F(OutboxTest, RefusesUnknownVersion) {
     std::filesystem::create_directories(this->dir);
     {
-        std::ofstream file(this->segment(), std::ios::binary);
-        file.write(SEGMENT_MAGIC.data(), SEGMENT_MAGIC.size());
-        file.write("\x02\x00\x00\x00", 4);
+        std::string header(SEGMENT_MAGIC.data(), SEGMENT_MAGIC.size());
+        header += std::string("\x02\x00\x00\x00\x00\x00\x00\x00", 8);
+        const auto crc = static_cast<std::uint32_t>(absl::ComputeCrc32c(header));
+        for (int i = 0; i < 4; i++)
+            header.push_back(static_cast<char>(crc >> (8 * i)));
+        std::ofstream(this->segment(), std::ios::binary) << header;
     }
     ASSERT_OCCURRED_AS_P(Outbox::open({.dir = this->dir}), journal::UNKNOWN_VERSION);
 }
@@ -438,7 +472,7 @@ TEST_F(OutboxTest, SendsV1Segment) {
     ASSERT_EQ(messages_of(*transport), (std::vector<std::string>{"first", "second"}));
     ASSERT_EQ(outbox->cut(), 0);
     for (const auto &req: transport->requests) {
-        EXPECT_EQ(req.key_or_name(), "status");
+        EXPECT_EQ(req.key_or_name(), req.message());
         EXPECT_EQ(req.variant(), "info");
         EXPECT_EQ(req.time(), 42);
     }
@@ -462,7 +496,12 @@ TEST_F(OutboxTest, WritesV1Segment) {
         ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
         ASSERT_NIL(outbox->set_status(set_of("second"), nullptr));
     }
-    ASSERT_EQ(read_file(this->segment()), read_file(TESTDATA / "v1_segment.bin"));
+    // Each file has its own salt, so only the bytes before it match the fixture.
+    const auto written = read_file(this->segment());
+    const auto fixture = read_file(TESTDATA / "v1_segment.bin");
+    ASSERT_EQ(written.size(), fixture.size());
+    ASSERT_EQ(written.substr(0, 12), fixture.substr(0, 12));
+    ASSERT_EQ(payloads_of(this->segment()), payloads_of(TESTDATA / "v1_segment.bin"));
 }
 
 /// @brief it should remove each segment once the Core took all of its calls.
@@ -602,5 +641,179 @@ TEST_F(OutboxTest, RefusesOffsetPastSegmentEnd) {
     auto [outbox, err] = Outbox::open({.dir = this->dir});
     ASSERT_OCCURRED_AS(err, journal::CORRUPT);
     EXPECT_TRUE(err.message().contains("Delete"));
+}
+
+/// @brief it should treat only the errors of a Core refusal as rejections.
+TEST(RejectedTest, ClassifiesErrors) {
+    for (const auto &err:
+         {x::errors::VALIDATION,
+          x::errors::NOT_FOUND,
+          x::errors::UNAUTHORIZED,
+          x::errors::Error("sy.auth.access_denied", ""),
+          x::errors::Error("sy.license.invalid", ""),
+          x::errors::Error("arc.runtime", "")})
+        EXPECT_TRUE(rejected(err)) << err;
+    for (const auto &err:
+         {freighter::UNREACHABLE,
+          x::errors::Error("sy.auth.expired_token", ""),
+          synnax::errors::LICENSE_MISSING,
+          synnax::errors::LICENSE_EXPIRED,
+          x::errors::INTERNAL,
+          x::errors::Error("sy.validationx", ""),
+          x::errors::Error("Received RST_STREAM with error code 2", "")})
+        EXPECT_FALSE(rejected(err)) << err;
+}
+
+/// @brief it should retry a call that fails with an error the Core did not type.
+TEST_F(OutboxTest, RetriesUntypedErrors) {
+    const auto transport = transport_of(
+        {x::errors::Error("Received RST_STREAM with error code 2", ""), x::errors::NIL}
+    );
+    const auto outbox = this->open_outbox(transport);
+    ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    ASSERT_EQ(transport->requests.size(), 2);
+    ASSERT_EQ(outbox->dropped(), 0);
+}
+
+/// @brief it should report a call that keeps failing, and report again once it is
+/// sent.
+TEST_F(OutboxTest, ReportsStuckCall) {
+    std::mutex mu;
+    std::vector<x::errors::Error> reports;
+    Config cfg{
+        .dir = this->dir,
+        .statuses = synnax::status::Client(
+            nullptr,
+            nullptr,
+            nullptr,
+            transport_of(
+                {freighter::UNREACHABLE, freighter::UNREACHABLE, x::errors::NIL}
+            )
+        ),
+        .stuck_after = x::telem::TimeSpan(0),
+        .on_stuck = [&](const x::errors::Error &err) {
+            std::lock_guard lock(mu);
+            reports.push_back(err);
+        },
+    };
+    cfg.retry.base_interval = x::telem::MILLISECOND;
+    cfg.retry.max_interval = x::telem::MILLISECOND;
+    const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+    ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    std::lock_guard lock(mu);
+    ASSERT_EQ(reports.size(), 2);
+    EXPECT_TRUE(reports[0].matches(freighter::UNREACHABLE));
+    EXPECT_NIL(reports[1]);
+}
+
+/// @brief it should give each send the deadline of the config.
+TEST_F(OutboxTest, SendsWithDeadline) {
+    const auto transport = transport_of({x::errors::NIL});
+    const auto outbox = this->open_outbox(transport);
+    const auto start = std::chrono::system_clock::now();
+    ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    ASSERT_TRUE(transport->deadlines.at(0).has_value());
+    EXPECT_GE(transport->deadlines[0].value(), start + Config{}.send_timeout.chrono());
+}
+
+/// @brief it should skip a set when a newer set of the same status is queued.
+TEST_F(OutboxTest, SkipsReplacedSets) {
+    const auto transport = transport_of(
+        {freighter::UNREACHABLE, x::errors::NIL, x::errors::NIL}
+    );
+    const auto outbox = this->open_outbox(
+        transport,
+        Config{}.max_bytes,
+        x::telem::SECOND
+    );
+    ASSERT_NIL(outbox->set_status(set_of("1", "a"), nullptr));
+    ASSERT_EVENTUALLY_EQ(transport->requests.size(), 1);
+    ASSERT_NIL(outbox->set_status(set_of("x", "b"), nullptr));
+    ASSERT_NIL(outbox->set_status(set_of("2", "a"), nullptr));
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        outbox->size(),
+        0,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    ASSERT_EQ(messages_of(*transport), (std::vector<std::string>{"1", "x", "2"}));
+}
+
+/// @brief it should skip the replaced sets it loads after a reopen.
+TEST_F(OutboxTest, SkipsReplacedSetsAfterReopen) {
+    {
+        const auto outbox = this->open_unreachable();
+        for (const auto *msg: {"1", "2"})
+            ASSERT_NIL(outbox->set_status(set_of(msg, "a"), nullptr));
+        ASSERT_NIL(outbox->set_status(set_of("x", "b"), nullptr));
+        ASSERT_NIL(outbox->set_status(set_of("3", "a"), nullptr));
+    }
+    const auto transport = transport_of({x::errors::NIL, x::errors::NIL});
+    const auto outbox = this->open_outbox(transport);
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    ASSERT_EQ(messages_of(*transport), (std::vector<std::string>{"x", "3"}));
+}
+
+/// @brief it should compact its files to the newest set of each status before they
+/// fill, and send only those sets after a reopen.
+TEST_F(OutboxTest, CompactsToNewestSets) {
+    constexpr std::uint64_t max_bytes = 4096;
+    {
+        const auto outbox = this->open_unreachable(max_bytes);
+        for (int i = 0; i < 300; i++) {
+            const auto set = set_of(std::to_string(i), i % 2 == 0 ? "a" : "b");
+            ASSERT_EVENTUALLY_NIL_WITH_TIMEOUT(
+                outbox->set_status(set, nullptr),
+                std::chrono::seconds(30),
+                std::chrono::milliseconds(5)
+            );
+        }
+    }
+    const auto transport = transport_of(
+        std::vector<x::errors::Error>(3, x::errors::NIL)
+    );
+    const auto outbox = this->open_outbox(transport);
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    const auto messages = messages_of(*transport);
+    ASSERT_GE(messages.size(), 2);
+    EXPECT_EQ(messages[messages.size() - 2], "298");
+    EXPECT_EQ(messages.back(), "299");
+}
+
+/// @brief it should send no set twice when a crash leaves the old segments next to
+/// the compacted one.
+TEST_F(OutboxTest, SkipsOldSegmentsAfterCrashInCompaction) {
+    const auto aside = this->dir.string() + "_aside";
+    {
+        const auto outbox = this->open_unreachable(4096);
+        for (int i = 0; i < 300; i++) {
+            if (i == 20)
+                std::filesystem::copy(
+                    this->dir,
+                    aside,
+                    std::filesystem::copy_options::recursive
+                );
+            ASSERT_EVENTUALLY_NIL_WITH_TIMEOUT(
+                outbox->set_status(set_of(std::to_string(i), "a"), nullptr),
+                std::chrono::seconds(30),
+                std::chrono::milliseconds(5)
+            );
+        }
+    }
+    for (const auto &entry: std::filesystem::directory_iterator(aside))
+        if (entry.path().extension() == ".calls" &&
+            !std::filesystem::exists(this->dir / entry.path().filename()))
+            std::filesystem::copy_file(
+                entry.path(),
+                this->dir / entry.path().filename()
+            );
+    std::filesystem::remove_all(aside);
+    const auto transport = transport_of({x::errors::NIL, x::errors::NIL});
+    const auto outbox = this->open_outbox(transport);
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    ASSERT_EQ(messages_of(*transport), (std::vector<std::string>{"299"}));
 }
 }

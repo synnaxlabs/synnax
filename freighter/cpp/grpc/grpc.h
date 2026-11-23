@@ -209,6 +209,17 @@ public:
         return mw.exec(ctx, this, request);
     }
 
+    /// @implements UnaryClient::send
+    std::pair<RS, x::errors::Error> send(
+        const std::string &target,
+        RQ &request,
+        const std::chrono::system_clock::time_point deadline
+    ) override {
+        Context ctx(priv::PROTOCOL, this->base_target.child(target), UNARY);
+        ctx.deadline = deadline;
+        return mw.exec(ctx, this, request);
+    }
+
     /// @brief the finalizer that executes the request.
     FinalizerReturn<RS> operator()(Context req_ctx, RQ &req) override {
         // Set outbound metadata.

@@ -52,6 +52,7 @@ cc_test(
         "//freighter/cpp/testutil",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
+        "@abseil-cpp//absl/crc:crc32c",
         "@googletest//:gtest_main",
     ],
 )

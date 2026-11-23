@@ -136,20 +136,6 @@ public:
     }
 };
 
-/// @brief gives each request a deadline a fixed time after it starts.
-class Deadline final : public PassthroughMiddleware {
-    std::chrono::milliseconds timeout;
-
-public:
-    explicit Deadline(const std::chrono::milliseconds timeout): timeout(timeout) {}
-
-    std::pair<Context, x::errors::Error>
-    operator()(Context context, Next &next) override {
-        context.deadline = std::chrono::system_clock::now() + this->timeout;
-        return next(context);
-    }
-};
-
 template<typename RS>
 struct FinalizerReturn {
     Context context;
@@ -271,6 +257,15 @@ public:
     /// @returns a pair containing the response and an error.
     virtual std::pair<RS, x::errors::Error>
     send(const std::string &target, RQ &request) = 0;
+
+    /// @brief sends the request to the target, and gives up at deadline.
+    /// @returns the response and an error, which is DEADLINE_EXCEEDED when the target
+    /// does not answer before deadline.
+    virtual std::pair<RS, x::errors::Error> send(
+        const std::string &target,
+        RQ &request,
+        std::chrono::system_clock::time_point deadline
+    ) = 0;
 
     virtual ~UnaryClient() = default;
 };
