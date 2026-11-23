@@ -23,11 +23,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// BenchmarkOpenService opens the channel service over 100,000 stored channels, half
-// of them in 100 folders, and waits for its indexes to fill, as a Core start does.
-func BenchmarkOpenService(b *testing.B) {
-	const n, folders = 100_000, 100
-	gomega.RegisterTestingT(b)
+// openBenchConfig opens a node and the services that the channel service needs, all
+// closed when b ends, and returns the config of a channel service on the node.
+func openBenchConfig(b *testing.B) (channel.ServiceConfig, *group.Service) {
+	b.Helper()
 	ctx := b.Context()
 	node := testutil.OpenNode(ctx)
 	b.Cleanup(func() {
@@ -51,18 +50,30 @@ func BenchmarkOpenService(b *testing.B) {
 			b.Error(err)
 		}
 	})
-	cfg := channel.ServiceConfig{
+	return channel.ServiceConfig{
 		Channel: node.Channel,
 		TS:      node.Storage.TS,
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statuses,
-	}
+	}, groups
+}
+
+// createFolderedChannels creates folders channel folders and n channels through cfg,
+// half of the channels in those folders.
+func createFolderedChannels(
+	b *testing.B,
+	cfg channel.ServiceConfig,
+	groups *group.Service,
+	n, folders int,
+) {
+	b.Helper()
+	ctx := b.Context()
 	svc, err := channel.OpenService(ctx, cfg)
 	if err != nil {
 		b.Fatal(err)
 	}
-	if err = node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		keys := make([]group.Key, folders)
 		for i := range keys {
 			g := group.Group{
@@ -92,6 +103,15 @@ func BenchmarkOpenService(b *testing.B) {
 	if err = svc.Close(); err != nil {
 		b.Fatal(err)
 	}
+}
+
+// BenchmarkOpenService opens the channel service over 100,000 stored channels, half
+// of them in 100 folders, and waits for its indexes to fill, as a Core start does.
+func BenchmarkOpenService(b *testing.B) {
+	gomega.RegisterTestingT(b)
+	ctx := b.Context()
+	cfg, groups := openBenchConfig(b)
+	createFolderedChannels(b, cfg, groups, 100_000, 100)
 	b.ReportAllocs()
 	for b.Loop() {
 		opened, err := channel.OpenService(ctx, cfg)
@@ -101,7 +121,7 @@ func BenchmarkOpenService(b *testing.B) {
 		// A query on the group reference waits for the indexes to fill.
 		if _, err = opened.NewRetrieve().
 			Where(channel.MatchGrouped(false)).
-			Exists(ctx, node.DB); err != nil {
+			Exists(ctx, cfg.DB); err != nil {
 			b.Fatal(err)
 		}
 		if err = opened.Close(); err != nil {
