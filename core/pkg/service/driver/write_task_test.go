@@ -266,6 +266,27 @@ var _ = Describe("WriteTask", func() {
 			},
 		)
 
+		It("Should keep a write error when the skip hold passes",
+			func(ctx SpecContext) {
+				hold := 200 * time.Millisecond
+				wt := open(driver.WriteTaskConfig{SkipHold: hold})
+				Expect(wt.Start(ctx, driver.NoCommand)).To(Succeed())
+				command(ctx, -1, func(g Gomega) {
+					g.Expect(retrieve(ctx).Message).To(Equal("Skipped 1 of 1 command"))
+				})
+				timeout := errors.Mark(
+					errors.New("publish timed out"), driver.ErrTemporary,
+				)
+				sink.writeErr.Store(&timeout)
+				command(ctx, 1, func(g Gomega) {
+					g.Expect(retrieve(ctx).Description).To(Equal("publish timed out"))
+				})
+				Consistently(func() string { return retrieve(ctx).Description }).
+					WithTimeout(3 * hold).
+					Should(Equal("publish timed out"))
+			},
+		)
+
 		It("Should show a sink error over the skip warning", func(ctx SpecContext) {
 			wt := open()
 			Expect(wt.Start(ctx, driver.NoCommand)).To(Succeed())

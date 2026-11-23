@@ -86,11 +86,9 @@ type WriteTaskConfig struct {
 	SkipHold time.Duration
 }
 
-var (
-	_ config.Config[WriteTaskConfig] = WriteTaskConfig{}
-	// DefaultWriteTaskConfig is the default configuration for a WriteTask.
-	DefaultWriteTaskConfig = WriteTaskConfig{SkipHold: SkipHold}
-)
+var _ config.Config[WriteTaskConfig] = WriteTaskConfig{}
+
+var defaultWriteTaskConfig = WriteTaskConfig{SkipHold: SkipHold}
 
 // Override implements config.Config.
 func (c WriteTaskConfig) Override(other WriteTaskConfig) WriteTaskConfig {
@@ -132,7 +130,7 @@ var _ Task = (*WriteTask)(nil)
 
 // NewWriteTask validates the configuration and returns a stopped WriteTask.
 func NewWriteTask(cfgs ...WriteTaskConfig) (*WriteTask, error) {
-	cfg, err := config.New(DefaultWriteTaskConfig, cfgs...)
+	cfg, err := config.New(defaultWriteTaskConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -231,27 +229,15 @@ func (t *WriteTask) run(
 		healthCtx, stopHealth = context.WithCancel(ctx)
 	)
 	s.sCtx.Go(func(context.Context) error {
-		for {
-			hErr := w.Health(healthCtx)
-			select {
-			case <-healthCtx.Done():
-				return nil
-			default:
-			}
-			select {
-			case <-healthCtx.Done():
-				return nil
-			case health <- hErr:
-			}
-		}
+		return watchHealth(healthCtx, w, health)
 	}, signal.RecoverWithErrOnPanic())
 	defer func() {
 		stopHealth()
 		err = errors.Combine(err, s.close())
 	}()
 	// The sink's health holds until the sink reports a change: a write that succeeds
-	// says nothing about it.
-	var healthErr error
+	// says nothing about it. A write error holds until the next write or health change.
+	var healthErr, writeErr error
 	// skipsChanged wakes the loop when the skip warning changes with no command.
 	skipsChanged := time.NewTimer(0)
 	skipsChanged.Stop()
@@ -274,26 +260,46 @@ func (t *WriteTask) run(
 			if wErr != nil && !errors.IsAny(wErr, ErrTemporary, ErrDegraded) {
 				return wErr
 			}
-			t.reportHealth(ctx, errors.Combine(healthErr, wErr), skips, skipsChanged)
+			writeErr = wErr
+			t.reportHealth(ctx, healthErr, writeErr, skips, skipsChanged)
 		case healthErr = <-health:
 			if healthErr != nil && !errors.Is(healthErr, ErrTemporary) {
 				return healthErr
 			}
-			t.reportHealth(ctx, healthErr, skips, skipsChanged)
+			writeErr = nil
+			t.reportHealth(ctx, healthErr, writeErr, skips, skipsChanged)
 		case <-skipsChanged.C:
-			t.reportHealth(ctx, healthErr, skips, skipsChanged)
+			t.reportHealth(ctx, healthErr, writeErr, skips, skipsChanged)
 		}
 	}
 }
 
-// reportHealth writes err, or else the warning of skips, to the task status, and sets
-// skipsChanged to fire when that warning next changes.
+// watchHealth sends each health report of w on health until ctx is done.
+func watchHealth(ctx context.Context, w Writer, health chan<- error) error {
+	for {
+		err := w.Health(ctx)
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case health <- err:
+		}
+	}
+}
+
+// reportHealth writes the health and write errors, or else the warning of skips, to
+// the task status, and sets skipsChanged to fire when that warning next changes.
 func (t *WriteTask) reportHealth(
 	ctx context.Context,
-	err error,
+	healthErr, writeErr error,
 	skips *Skips,
 	skipsChanged *time.Timer,
 ) {
+	err := errors.Combine(healthErr, writeErr)
 	if warning := skips.Warning(time.Now()); warning != nil && err == nil {
 		err = warning.Degraded()
 	}
