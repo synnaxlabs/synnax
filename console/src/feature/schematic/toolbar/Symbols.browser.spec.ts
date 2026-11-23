@@ -82,7 +82,7 @@ const createRemoteSymbolGroup = async (
 preloadTab();
 
 describe("Schematic toolbar Symbols", () => {
-  it("adds a static symbol node to the schematic on click", async () => {
+  it("adds a symbol with no built-in spec as its own variant node", async () => {
     const { key } = await renderSymbolsToolbar();
     fireEvent.click(await screen.findByText("Gauge"));
     await waitFor(async () => {

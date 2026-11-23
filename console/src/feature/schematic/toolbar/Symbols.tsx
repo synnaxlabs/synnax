@@ -56,11 +56,11 @@ const ChangeContext = createContext<SymbolsChangeProps | undefined>(undefined);
 ChangeContext.displayName = "Symbols.ChangeContext";
 
 const createSymbolParams = (
-  spec: Schematic.Node.Input<"symbol">["spec"],
-  label?: string,
+  ref: schematic.symbol.Ref,
+  label: string,
 ): Schematic.AddNodeProps<"symbol"> => ({
   key: id.create(),
-  config: { variant: "symbol", spec, label: { label } },
+  config: { variant: "symbol", spec: ref, label: { label } },
 });
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
@@ -71,19 +71,19 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
   const ref: schematic.symbol.BuiltinRef = { type: "builtin", name: variant };
   const symbolNode = FLAGS.symbolNodes && Schematic.Node.BUILT_INS.has(variant);
+  const change = use(ChangeContext);
+  const config = spec == null ? null : Schematic.Node.createConfig({ variant });
+  if (spec == null || config == null) return null;
+  const { name, Preview } = spec;
   const createParams = (): Schematic.AddNodeProps<"symbol"> | Schematic.AddNodeProps =>
-    symbolNode && spec != null
-      ? createSymbolParams(ref, spec.label ?? spec.name)
+    symbolNode
+      ? createSymbolParams(ref, spec.label ?? name)
       : { key: id.create(), config: { variant } };
   const handleChange = (target: SymbolsChangeProps) =>
     symbolNode
       ? target.onChange({ variant: "symbol", spec: ref })
       : target.onChange({ variant });
   const handleAddNode = () => addNode(createParams());
-  const change = use(ChangeContext);
-  const config = spec == null ? null : Schematic.Node.createConfig({ variant });
-  if (spec == null || config == null) return null;
-  const { name, Preview } = spec;
   const handleDragStart = (event: DragEvent<HTMLElement>) =>
     startDrag({
       event,
@@ -148,23 +148,23 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
 
-  const createParams = ():
-    | Schematic.AddNodeProps<"symbol">
-    | Schematic.AddNodeProps<Schematic.Node.CustomVariant> =>
-    FLAGS.symbolNodes
-      ? createSymbolParams({ type: "custom", key: itemKey }, symbol?.name)
-      : { key: id.create(), config: { variant, specKey: itemKey } };
-  const handleChange = (target: SymbolsChangeProps) =>
-    FLAGS.symbolNodes
-      ? target.onChange({ variant: "symbol", spec: { type: "custom", key: itemKey } })
-      : target.onChange({ variant, specKey: itemKey });
-  const handleAddNode = () => addNode(createParams());
   const change = use(ChangeContext);
   const { update: rename } = Schematic.Symbol.useRename();
   const canRename = Access.useUpdateGranted(schematic.symbol.resourceID(itemKey));
   const handleRename = (name: string) => rename({ key: itemKey, name });
 
   if (symbol == null) return null;
+  const createParams = ():
+    | Schematic.AddNodeProps<"symbol">
+    | Schematic.AddNodeProps<Schematic.Node.CustomVariant> =>
+    FLAGS.symbolNodes
+      ? createSymbolParams({ type: "custom", key: itemKey }, symbol.name)
+      : { key: id.create(), config: { variant, specKey: itemKey } };
+  const handleChange = (target: SymbolsChangeProps) =>
+    FLAGS.symbolNodes
+      ? target.onChange({ variant: "symbol", spec: { type: "custom", key: itemKey } })
+      : target.onChange({ variant, specKey: itemKey });
+  const handleAddNode = () => addNode(createParams());
   // The node's own drawing reads the symbol through a hook, which a preview cannot.
   const handleDragStart = (event: DragEvent<HTMLElement>) =>
     startDrag({
