@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -207,7 +208,7 @@ var _ = Describe("Symbol node bindings", func() {
 		))
 	})
 
-	Describe("A node that a symbol edit leaves stale", func() {
+	Describe("A node that a symbol change outside a save leaves stale", func() {
 		var s schematic.Schematic
 		BeforeEach(func(ctx SpecContext) {
 			s = diagram(
@@ -217,16 +218,16 @@ var _ = Describe("Symbol node bindings", func() {
 				}),
 			)
 			Expect(create(ctx, &s)).To(Succeed())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Symbol.NewWriter(tx).Apply(
-					ctx,
-					sym.Key,
-					symbol.NewRemoveAction(symbol.RemovePayload{
-						Path: []string{"data", "states"},
-						Key:  "level",
-					}),
-				)
-			})).To(Succeed())
+			// A raw update skips the symbol Writer, so no save removes the level
+			// binding. A built-in that a new Core changes leaves a node stale the same
+			// way.
+			Expect(gorp.NewUpdate[symbol.Key, symbol.Symbol]().
+				Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](sym.Key)).
+				Change(func(_ gorp.Context, sym symbol.Symbol) symbol.Symbol {
+					sym.Data.States = sym.Data.States[:1]
+					return sym
+				}).
+				Exec(ctx, db)).To(Succeed())
 		})
 		refused := func(index string) types.GomegaMatcher {
 			return SatisfyAll(
@@ -346,6 +347,162 @@ var _ = Describe("Symbol node bindings", func() {
 				})
 			}, refused("1")),
 		)
+	})
+
+	Describe("A symbol save", func() {
+		var (
+			s    schematic.Schematic
+			twin symbol.Symbol
+		)
+		// bound returns the bindings of fits, with a default on the active state.
+		bound := func() schematic.SymbolNodeConfig {
+			cfg := fits()
+			cfg.States[0].Default = new(1.0)
+			return cfg
+		}
+		BeforeEach(func(ctx SpecContext) {
+			twin = heater()
+			createSymbol(ctx, &twin)
+			other := bound()
+			other.Spec = customRef(twin)
+			s = diagram(
+				symbolNode("n", bound()),
+				symbolNode("twin", other),
+				symbolNode("valve", schematic.SymbolNodeConfig{
+					Spec: builtinRef("valve"),
+				}),
+			)
+			Expect(create(ctx, &s)).To(Succeed())
+		})
+		save := func(ctx SpecContext, act symbol.Action) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Symbol.NewWriter(tx).Apply(ctx, sym.Key, act)
+			})).To(Succeed())
+		}
+		stored := func(ctx SpecContext) schematic.Schematic {
+			GinkgoHelper()
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(s.Key)).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			return res
+		}
+		removeLevel := symbol.NewRemoveAction(symbol.RemovePayload{
+			Path: []string{"data", "states"},
+			Key:  "level",
+		})
+
+		DescribeTable(
+			"Should remove the bindings that the save orphans",
+			func(
+				ctx SpecContext,
+				act func() symbol.Action,
+				states types.GomegaMatcher,
+				commands types.GomegaMatcher,
+			) {
+				save(ctx, act())
+				cfg := as[schematic.SymbolNodeConfig](
+					stored(ctx).Nodes[0].Config.Variant,
+				)
+				Expect(cfg.States).To(states)
+				Expect(cfg.Commands).To(commands)
+			},
+			Entry(
+				"a binding of a removed state",
+				func() symbol.Action { return removeLevel },
+				HaveExactElements(HaveField("Key", "active")),
+				Equal(bound().Commands),
+			),
+			Entry(
+				"the bounds of a state that becomes an enumeration",
+				func() symbol.Action {
+					return symbol.NewSetAction(symbol.SetPayload{
+						Path: []string{"data", "states", "level"},
+						Value: fields(symbol.State{Variant: symbol.EnumerationState{
+							BaseState: symbol.BaseState{Key: "level", Name: "Level"},
+							Match:     symbol.Matcher{Variant: symbol.ExactMatcher{}},
+						}}),
+					})
+				},
+				HaveExactElements(
+					Equal(bound().States[0]),
+					SatisfyAll(HaveField("Key", "level"), HaveField("Bounds", BeNil())),
+				),
+				Equal(bound().Commands),
+			),
+			Entry(
+				"the default of a state that becomes a number",
+				func() symbol.Action {
+					return symbol.NewSetAction(symbol.SetPayload{
+						Path: []string{"data", "states", "active"},
+						Value: fields(symbol.State{Variant: symbol.NumberState{
+							BaseState: symbol.BaseState{Key: "active", Name: "Active"},
+							Bounds:    spatial.Bounds{Lower: 0, Upper: 1},
+						}}),
+					})
+				},
+				HaveExactElements(
+					Equal(fits().States[0]),
+					Equal(bound().States[1]),
+				),
+				Equal(bound().Commands),
+			),
+			Entry(
+				"a binding of a removed command",
+				func() symbol.Action {
+					return symbol.NewRemoveAction(symbol.RemovePayload{
+						Path: []string{"data", "commands"},
+						Key:  "reset",
+					})
+				},
+				Equal(bound().States),
+				BeEmpty(),
+			),
+			Entry(
+				"a binding of a command that gains a state",
+				func() symbol.Action {
+					return symbol.NewSetAction(symbol.SetPayload{
+						Path:  []string{"data", "commands", "reset", "state"},
+						Value: "active",
+					})
+				},
+				Equal(bound().States),
+				BeEmpty(),
+			),
+		)
+
+		It("Should send a set node action for each node that it changes", func(
+			ctx SpecContext,
+		) {
+			rec := &Recorder[schematic.Key, schematic.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			save(ctx, removeLevel)
+			res := stored(ctx)
+			Expect(res.Nodes[1:]).To(Equal(s.Nodes[1:]))
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Key).To(Equal(s.Key))
+			Expect(seen[0].Actions).To(HaveExactElements(
+				schematic.NewSetNodeAction(
+					schematic.SetNodePayload{Node: res.Nodes[0]},
+				),
+			))
+		})
+
+		It("Should change no schematic when the save orphans no binding", func(
+			ctx SpecContext,
+		) {
+			rec := &Recorder[schematic.Key, schematic.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			save(ctx, symbol.NewSetAction(symbol.SetPayload{
+				Path:  []string{"data", "states", "level", "name"},
+				Value: "Fill",
+			}))
+			Expect(stored(ctx).Nodes).To(Equal(s.Nodes))
+			Expect(rec.Snapshot()).To(BeEmpty())
+		})
 	})
 
 	DescribeTable(

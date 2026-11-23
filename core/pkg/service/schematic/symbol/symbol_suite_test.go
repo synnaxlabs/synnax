@@ -55,11 +55,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	enumSvc = MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
 	svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-		DB:          db,
-		Group:       groupSvc,
-		ImEx:        imexSvc,
-		Enumeration: enumSvc,
-		Actuators:   noActuators,
+		DB:            db,
+		Group:         groupSvc,
+		ImEx:          imexSvc,
+		Enumeration:   enumSvc,
+		Actuators:     noActuators,
+		RemoveOrphans: noOrphans,
 	}))
 	proj.Name = "test-project"
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -86,3 +87,6 @@ func colorPaint(hex string) symbol.Paint {
 func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
 	return nil, nil
 }
+
+// noOrphans removes no node binding, as no schematic draws a symbol.
+func noOrphans(context.Context, gorp.Tx, symbol.Symbol) error { return nil }

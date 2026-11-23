@@ -145,6 +145,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ImEx:            cfg.ImEx,
 		Enumeration:     cfg.Enumeration,
 		Actuators:       s.actuatorSymbols,
+		RemoveOrphans:   s.removeOrphans,
 	}); !ok(err, s.Symbol) {
 		return nil, err
 	}
