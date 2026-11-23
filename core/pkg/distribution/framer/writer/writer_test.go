@@ -1026,6 +1026,27 @@ var _ = Describe("Writer", func() {
 				),
 			)
 			It(
+				"Should keep the samples of a writer while a stream-only writer holds "+
+					"its clock",
+				func(ctx SpecContext) {
+					w1 := openFirst(ctx)
+					streamer := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+						ControlSubject: control.Subject{Key: "streamer"},
+						Keys:           keys,
+						Start:          10 * telem.SecondTS,
+						Authorities:    []control.Authority{200},
+						Mode:           writer.ModeStreamOnly,
+					}))
+					_, authorized := MustSucceed2(w1.Commit())
+					Expect(authorized).To(BeFalse())
+					Expect(streamer.Close()).To(Succeed())
+					_, authorized = MustSucceed2(w1.Commit())
+					Expect(authorized).To(BeTrue())
+					Expect(w1.Close()).To(Succeed())
+					expectLengths(ctx, 4, 4)
+				},
+			)
+			It(
 				"Should commit the data written before a refused write once the "+
 					"writer controls the index again",
 				func(ctx SpecContext) {
