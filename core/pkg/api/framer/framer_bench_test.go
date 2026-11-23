@@ -10,6 +10,7 @@
 package framer_test
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"testing"
@@ -285,7 +286,9 @@ func openCalculationStreams(
 		[]resource.ID{calculation.ResourceID(c.Key)},
 		layer.Calculation.Channels(c),
 	)...)
-	fCtx := freighter.Context{Context: ctx, Params: freighter.Params{}}
+	// The streams outlive b.Context, which ends before the cleanup closes them.
+	streamCtx, cancel := context.WithCancel(context.Background())
+	fCtx := freighter.Context{Context: streamCtx, Params: freighter.Params{}}
 	fCtx.Set("Subject", u.ResourceID())
 	clients := make([]calculationStream, count)
 	done := make(chan error, count)
@@ -293,7 +296,7 @@ func openCalculationStreams(
 		client, server := freightertestutil.NewStreams[
 			apiframer.StreamerRequest,
 			apiframer.StreamerResponse,
-		](ctx)
+		](streamCtx)
 		clients[i] = client
 		go func() { done <- api.Stream(fCtx, server) }()
 		gomega.Expect(client.Send(apiframer.StreamerRequest{
@@ -310,6 +313,7 @@ func openCalculationStreams(
 			gomega.Eventually(done).WithTimeout(5 * time.Second).
 				Should(gomega.Receive(gomega.Succeed()))
 		}
+		cancel()
 	})
 	return clients
 }

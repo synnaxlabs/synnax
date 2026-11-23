@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -48,14 +47,14 @@ type ActionConfig[K gorp.Key, A any] struct {
 	//
 	// [OPTIONAL] - Defaults to no table.
 	Table string
-	// BatchCheck returns the check of a batch from the commit that attached it and the
-	// key of the entry that it edits. It runs once for each batch. A streamer sends the
-	// batch only to a subject that passes it, in place of a check of Resource, and
-	// sends
-	// no batch whose check it no longer holds.
+	// BatchChecks returns the lookup of the check of each batch that the transaction of
+	// c attached, by the key of its entry and its number. It runs once for each commit
+	// with batches. A streamer sends a batch only to a subject that passes its check,
+	// in
+	// place of a check of Resource.
 	//
 	// [OPTIONAL] - Defaults to a check of Resource.
-	BatchCheck func(c gorp.Commit, key K) (Check, error)
+	BatchChecks func(c gorp.Commit) func(key K, seq uint64) (Check, bool)
 }
 
 // Validate checks that the required fields of c are set.
@@ -80,17 +79,18 @@ func (p *Provider) PublishActions[K gorp.Key, A any](
 		cfg:    cfg,
 		L:      p.cfg.L,
 		ch:     channel.Channel{Name: cfg.Name, DataType: telem.JSONT},
-		checks: &commitChecks[batchID[K]]{},
+		checks: &commitChecks{},
 	}
 	return p.add(ctx, f, &f.ch)
 }
 
 // actionFeed writes the samples of one action channel.
 type actionFeed[K gorp.Key, A any] struct {
-	cfg    ActionConfig[K, A]
-	L      *alamos.Logger
-	ch     channel.Channel
-	checks *commitChecks[batchID[K]]
+	cfg ActionConfig[K, A]
+	L   *alamos.Logger
+	ch  channel.Channel
+	// checks holds the check of each batch, by the bytes of its sample.
+	checks *commitChecks
 }
 
 func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
@@ -99,24 +99,16 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 		f.check(c, batches)
 	}
 	samples := telem.Series{DataType: telem.JSONT}
-	var checks map[batchID[K]]Check
-	if f.cfg.BatchCheck != nil && len(batches) > 0 {
-		checks = make(map[batchID[K]]Check, len(batches))
+	var (
+		checks map[string]Check
+		lookup func(K, uint64) (Check, bool)
+	)
+	if f.cfg.BatchChecks != nil && len(batches) > 0 {
+		checks = make(map[string]Check, len(batches))
+		lookup = f.cfg.BatchChecks(c)
 		defer func() { f.checks.add(checks) }()
 	}
 	for _, batch := range batches {
-		if checks != nil {
-			check, err := f.cfg.BatchCheck(c, batch.Key)
-			if err != nil {
-				f.L.Error(
-					"failed to check an action batch",
-					zap.String("channel", f.ch.Name),
-					zap.Error(err),
-				)
-				continue
-			}
-			checks[batchID[K]{key: batch.Key, seq: batch.Seq}] = check
-		}
 		b, err := json.Marshal(batch)
 		if err != nil {
 			f.L.Error(
@@ -125,6 +117,18 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 				zap.Error(err),
 			)
 			continue
+		}
+		if checks != nil {
+			check, ok := lookup(batch.Key, batch.Seq)
+			if !ok {
+				f.L.DPanic(
+					"an action batch has no check",
+					zap.String("channel", f.ch.Name),
+					zap.Uint64("seq", batch.Seq),
+				)
+				continue
+			}
+			checks[string(b)] = check
 		}
 		samples.Data = append(samples.Data, telem.MarshalVariableSample(b)...)
 	}
@@ -136,31 +140,10 @@ func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 
 func (f *actionFeed[K, A]) records() map[channel.Key]Record {
 	r := Record{Of: recordOf(unmarshalKey[K], f.cfg.Resource)}
-	if f.cfg.BatchCheck != nil {
-		r.Check = f.checkOf
+	if f.cfg.BatchChecks != nil {
+		r.Check = func(sample []byte) (Check, error) { return f.checks.get(sample) }
 	}
 	return map[channel.Key]Record{f.ch.Key(): r}
-}
-
-// batchID names one batch of an action channel.
-type batchID[K gorp.Key] struct {
-	key K
-	seq uint64
-}
-
-// checkOf returns the check of the batch that sample holds.
-func (f *actionFeed[K, A]) checkOf(sample []byte) (Check, error) {
-	var v struct {
-		Key *K     `json:"key"`
-		Seq uint64 `json:"seq"`
-	}
-	if err := json.Unmarshal(sample, &v); err != nil {
-		return nil, err
-	}
-	if v.Key == nil {
-		return nil, errors.New("[signals] - batch has no key")
-	}
-	return f.checks.get(batchID[K]{key: *v.Key, seq: v.Seq}), nil
 }
 
 // check reports each create or update in c of a record of the table of f that has no
