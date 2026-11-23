@@ -159,36 +159,6 @@ var _ = Describe("Service", func() {
 			Expect(v3["entries"]).To(HaveLen(2))
 			Expect(svc.Read.Normalize(ctx, db, 2, cfg)).To(Equal(v3))
 		})
-
-		It("Should import a v2 write config as the same config at v3", func(
-			ctx SpecContext,
-		) {
-			Expect(tasks.CreateDevice(ctx, "broker-1")).To(Succeed())
-			cfg := msgpack.EncodedJSON{
-				"device": "broker-1",
-				"targets": []any{map[string]any{
-					"key":      "target-1",
-					"type":     "plain",
-					"topic":    "plant/valve",
-					"qos":      "exactly_once",
-					"retained": true,
-					"channel": map[string]any{
-						"pointer":   "/open",
-						"json_type": "boolean",
-					},
-					"fields": []any{map[string]any{
-						"key":       "unit",
-						"type":      "static",
-						"pointer":   "/unit",
-						"json_type": "string",
-						"value":     "psi",
-					}},
-				}},
-			}
-			v3 := MustSucceed(svc.Write.Normalize(ctx, db, 3, cfg))
-			Expect(v3["targets"]).To(HaveLen(1))
-			Expect(svc.Write.Normalize(ctx, db, 2, cfg)).To(Equal(v3))
-		})
 	})
 
 	Describe("Write", func() {
@@ -220,6 +190,15 @@ var _ = Describe("Service", func() {
 			)))
 		})
 
+		It("Should reject a null read entry", func(ctx SpecContext) {
+			Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"entries": []any{nil},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("entries.0.type: required"),
+			))
+		})
+
 		It("Should store a Sparkplug read entry", func(ctx SpecContext) {
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"entries": []any{map[string]any{
@@ -234,19 +213,6 @@ var _ = Describe("Service", func() {
 			Expect(data["entries"]).To(HaveExactElements(SatisfyAll(
 				HaveKeyWithValue("edge_node", "line1"),
 				HaveKeyWithValue("data_type", "float64"),
-			)))
-		})
-
-		It("Should default a plain write target to QoS 1 and not retained", func(
-			ctx SpecContext,
-		) {
-			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
-				"targets": []any{map[string]any{"key": "target-1", "type": "plain"}},
-			}))
-			data := MustSucceed(svc.Write.Read(ctx, db, key))
-			Expect(data["targets"]).To(HaveExactElements(SatisfyAll(
-				HaveKeyWithValue("qos", "at_least_once"),
-				HaveKeyWithValue("retained", false),
 			)))
 		})
 
@@ -473,7 +439,7 @@ var _ = Describe("Service", func() {
 				read := readMessage(f.m, binding(f.m, 0, f.idx))
 				return []map[string]any{icdEntry("plant/x", f.ic, read)}
 			}, "entries.0.messages.0.bindings.0.channel",
-				"only the index field can write to index channel"),
+				"because only the index field can. Bind field ts to a data channel"),
 			Entry("a channel that two entries write", func(f format) []map[string]any {
 				return []map[string]any{
 					icdEntry(
@@ -507,6 +473,25 @@ var _ = Describe("Service", func() {
 				}
 			}, "entries.1.channel", "is also written by "+
 				"entries.0.messages.0.bindings.0.channel"),
+			Entry("a channel that a later entry also writes",
+				func(f format) []map[string]any {
+					return []map[string]any{
+						{
+							"key":       "tag",
+							"type":      "sparkplug",
+							"group":     "plant",
+							"edge_node": "line1",
+							"tag":       "temp",
+							"channel":   f.value.Key(),
+						},
+						icdEntry(
+							"plant/a",
+							f.ic,
+							readMessage(f.m, binding(f.m, 1, f.value)),
+						),
+					}
+				}, "entries.1.messages.0.bindings.0.channel", "is also written by "+
+					"entries.0.channel"),
 		)
 
 		Describe("Import", func() {
@@ -699,6 +684,262 @@ var _ = Describe("Service", func() {
 				set(ctx, pointerPath(f.m, 1), "/temperature")
 				Expect(hash(ctx)).To(Equal(MustSucceed(svc.Read.Hash(ctx, db, key))))
 			})
+		})
+	})
+
+	Describe("Write config", func() {
+		createCommand := func(ctx context.Context, dt telem.DataType) channel.Channel {
+			GinkgoHelper()
+			ch := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: dt,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channels.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			return ch
+		}
+		retrieveICD := func(ctx context.Context, key icd.Key) icd.ICD {
+			GinkgoHelper()
+			var ic icd.ICD
+			Expect(icds.NewRetrieve().
+				Where(icd.MatchKeys(key)).
+				Entry(&ic).
+				Exec(ctx, db)).To(Succeed())
+			return ic
+		}
+		// createSetpoint creates an ICD with a message whose value field takes no
+		// default, and a command channel for the field. It returns the message, and
+		// a plain target that sends it to plant/x.
+		createSetpoint := func(
+			ctx context.Context,
+			fields ...icd.JSONField,
+		) (icd.ICD, icd.Message, map[string]any) {
+			GinkgoHelper()
+			m := jsonMessage("Setpoint", nil, append([]icd.JSONField{
+				jsonField("value", "/value", icd.FloatJSONField{}),
+			}, fields...)...)
+			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return icds.NewWriter(tx).Create(ctx, &ic)
+			})).To(Succeed())
+			cmd := createCommand(ctx, telem.Float64T)
+			return ic, m, messageTarget("plant/x", ic, m, channelBinding(m, 0, cmd))
+		}
+		plainTarget := func(cfg mqtt.WriteConfig) mqtt.PlainWriteTarget {
+			GinkgoHelper()
+			Expect(cfg.Targets).To(HaveLen(1))
+			t, ok := cfg.Targets[0].Variant.(mqtt.PlainWriteTarget)
+			Expect(ok).To(BeTrue())
+			return t
+		}
+
+		Describe("Import", func() {
+			// v2 is a v2 write config with one plain target that sends a command
+			// channel and a static unit.
+			v2 := func(command map[string]any) msgpack.EncodedJSON {
+				return msgpack.EncodedJSON{"targets": []any{map[string]any{
+					"key":      "target-1",
+					"type":     "plain",
+					"topic":    "plant/valve",
+					"qos":      "exactly_once",
+					"retained": true,
+					"channel":  command,
+					"fields": []any{map[string]any{
+						"key":       "unit",
+						"type":      "static",
+						"pointer":   "/unit",
+						"json_type": "string",
+						"value":     "psi",
+					}},
+				}}}
+			}
+			importV2 := func(ctx context.Context, command map[string]any) mqtt.WriteConfig {
+				GinkgoHelper()
+				data := MustSucceed(svc.Write.Normalize(ctx, db, 2, v2(command)))
+				key := MustSucceed(tasks.Create(ctx, svc.Write, data))
+				stored := MustSucceed(svc.Write.Read(ctx, db, key))
+				Expect(stored).ToNot(HaveKey("inline"))
+				var cfg mqtt.WriteConfig
+				Expect(stored.Unmarshal(&cfg)).To(Succeed())
+				return cfg
+			}
+
+			It(
+				"Should move the targets of a v2 config into an ICD named after its task",
+				func(ctx SpecContext) {
+					cmd := createCommand(ctx, telem.Uint8T)
+					t := plainTarget(importV2(ctx, map[string]any{
+						"channel":   cmd.Key(),
+						"pointer":   "/open",
+						"json_type": "boolean",
+					}))
+					Expect(t.Key).To(Equal("target-1"))
+					Expect(t.Topic).To(Equal("plant/valve"))
+					Expect(t.Qos).To(Equal(mqtt.QoSExactlyOnce))
+					Expect(t.Retained).To(BeTrue())
+					ic := retrieveICD(ctx, t.ICD)
+					Expect(ic.Name).To(Equal(mqtt.WriteTaskType))
+					Expect(ic.Messages).To(HaveLen(1))
+					m := ic.Messages[0]
+					Expect(m.Name).To(Equal("plant/valve"))
+					fields := jsonFields(m)
+					Expect(fields).To(HaveLen(2))
+					Expect(fields[0].Type()).To(Equal(payload.KindBoolean))
+					unit, ok := fields[1].Variant.(icd.StringJSONField)
+					Expect(ok).To(BeTrue())
+					Expect(unit.Default).To(HaveValue(Equal("psi")))
+					Expect(t.Message).To(Equal(icd.WriteMessage{
+						Message: m.Key,
+						Bindings: []icd.WriteBinding{{Variant: icd.ChannelWriteBinding{
+							Field:   fieldKey(m, 0),
+							Channel: cmd.Key(),
+						}}},
+					}))
+				},
+			)
+
+			It("Should bind a field to a new channel of the stored data type when its "+
+				"channel does not exist", func(ctx SpecContext) {
+				t := plainTarget(importV2(ctx, map[string]any{
+					"pointer":   "/setpoint",
+					"json_type": "number",
+					"data_type": "float32",
+				}))
+				m := retrieveICD(ctx, t.ICD).Messages[0]
+				Expect(t.Message.Bindings).To(Equal([]icd.WriteBinding{{
+					Variant: icd.ChannelWriteBinding{
+						Field:    fieldKey(m, 0),
+						DataType: new(telem.Float32T),
+					},
+				}}))
+			})
+
+			It("Should leave a v2 config with no plain target without an ICD",
+				func(ctx SpecContext) {
+					data := MustSucceed(
+						svc.Write.Normalize(ctx, db, 2, msgpack.EncodedJSON{
+							"targets": []any{map[string]any{
+								"key":       "tag",
+								"type":      "sparkplug",
+								"group":     "plant",
+								"edge_node": "line1",
+								"tag":       "valve",
+							}},
+						}),
+					)
+					MustSucceed(tasks.Create(ctx, svc.Write, data))
+					var found []icd.ICD
+					Expect(icds.NewRetrieve().Entries(&found).Exec(ctx, db)).
+						To(Succeed())
+					Expect(found).To(BeEmpty())
+				},
+			)
+		})
+
+		It("Should default a plain write target to QoS 1 and not retained", func(
+			ctx SpecContext,
+		) {
+			_, _, target := createSetpoint(ctx)
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+				"targets": []any{target},
+			}))
+			data := MustSucceed(svc.Write.Read(ctx, db, key))
+			Expect(data["targets"]).To(HaveExactElements(SatisfyAll(
+				HaveKeyWithValue("qos", "at_least_once"),
+				HaveKeyWithValue("retained", false),
+			)))
+		})
+
+		It("Should reject a target with the path of a field it cannot send",
+			func(ctx SpecContext) {
+				_, _, target := createSetpoint(
+					ctx, jsonField("unit", "/unit", icd.StringJSONField{}),
+				)
+				Expect(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+					"targets": []any{target},
+				})).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"targets.0.message: message Setpoint: field unit: needs a "+
+							"channel or a default",
+					)),
+				))
+			},
+		)
+
+		It("Should reject a null binding", func(ctx SpecContext) {
+			_, _, target := createSetpoint(ctx)
+			message, ok := target["message"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			bindings, ok := message["bindings"].([]any)
+			Expect(ok).To(BeTrue())
+			message["bindings"] = append(bindings, nil)
+			Expect(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+				"targets": []any{target},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("targets.0.message.bindings.1.type: required"),
+			))
+		})
+
+		Describe("Fixed values", func() {
+			// fixedTarget returns a target that sends the value field from a channel
+			// and the fixed value of the unit field.
+			fixedTarget := func(ctx context.Context, fixed map[string]any) map[string]any {
+				GinkgoHelper()
+				ic, m, _ := createSetpoint(
+					ctx, jsonField("unit", "/unit", icd.StringJSONField{}),
+				)
+				cmd := createCommand(ctx, telem.Float64T)
+				return messageTarget(
+					"plant/x",
+					ic,
+					m,
+					channelBinding(m, 0, cmd),
+					valueBinding(m, 1, fixed),
+				)
+			}
+			degC := map[string]any{"type": "string", "value": "degC"}
+
+			It("Should store a fixed value for a field that has no default",
+				func(ctx SpecContext) {
+					key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+						"targets": []any{
+							fixedTarget(ctx, degC),
+						},
+					}))
+					var cfg mqtt.WriteConfig
+					Expect(MustSucceed(svc.Write.Read(ctx, db, key)).Unmarshal(&cfg)).
+						To(Succeed())
+					t := plainTarget(cfg)
+					Expect(t.Message.Bindings).To(HaveLen(2))
+					Expect(t.Message.Bindings[1].Variant).To(HaveField(
+						"Value",
+						icd.WriteValue{Variant: icd.StringWriteValue{Value: "degC"}},
+					))
+				},
+			)
+		})
+
+		It("Should change the config hash when the format of a message that a target "+
+			"sends changes", func(ctx SpecContext) {
+			ic, m, target := createSetpoint(ctx)
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+				"targets": []any{target},
+			}))
+			before := MustSucceed(svc.Write.Hash(ctx, db, key))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return icds.NewWriter(tx).Apply(ctx, ic.Key, icd.NewSetAction(
+					icd.SetPayload{Path: []string{
+						"messages", m.Key.String(),
+						"payload", "fields", fieldKey(m, 0).String(),
+						"pointer",
+					}, Value: "/setpoint"},
+				))
+			})).To(Succeed())
+			Expect(svc.Write.Hash(ctx, db, key)).ToNot(Equal(before))
 		})
 	})
 

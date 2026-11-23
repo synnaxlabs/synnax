@@ -14,7 +14,7 @@ import { Progress } from "@synnaxlabs/lyra/progress";
 import type { DetailedHTMLProps, ReactElement, VideoHTMLAttributes } from "react";
 
 import { CDN } from "@/components/media/cdn";
-import { DARK } from "@/components/media/video";
+import { playback } from "@/components/media/playback";
 import videos from "@/components/media/videos.json";
 
 interface Uploaded {
@@ -44,8 +44,8 @@ export interface VideoProps
 
 /**
  * Renders a looping, muted docs video that follows the reader's color scheme. The
- * script in `@/components/media/video` plays it while it is in view, and the script in
- * `@/components/media/lightbox` expands it.
+ * script in `@/components/media/playback` plays it while it is in view, and the script
+ * in `@/components/media/lightbox` expands it.
  * @throws {Error} if Studio has uploaded no version of the video.
  */
 export const Video = ({
@@ -75,7 +75,7 @@ export const Video = ({
         style={{ aspectRatio: `auto ${width} / ${height}`, ...style }}
         {...rest}
       >
-        {themed && <source src={src("dark")} media={DARK} type="video/mp4" />}
+        {themed && <source src={src("dark")} media={playback.DARK} type="video/mp4" />}
         <source src={src(themed ? "light" : undefined)} type="video/mp4" />
       </video>
       <div className="docs-video__play" aria-hidden>

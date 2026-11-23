@@ -322,7 +322,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       assertDefined(circle);
       fireEvent.click(circle);
-      await screen.findByText("1 elements");
+      await screen.findByText("1 element");
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);
@@ -363,6 +363,27 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         const retrieved = await client.schematics.symbols.retrieve(symbol.key);
         expect(retrieved.name).toBe(renamed);
       });
+    });
+
+    it("counts the elements of each part in the singular and the plural", async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("counted"));
+      const parts = [
+        { key: "one", name: "One", selectors: ["#a"] },
+        { key: "two", name: "Two", selectors: ["#a", "#b"] },
+      ];
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: { ...payload.data, parts },
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      expect(await screen.findByText("1 element")).toBeDefined();
+      expect(screen.getByText("2 elements")).toBeDefined();
     });
   });
 });

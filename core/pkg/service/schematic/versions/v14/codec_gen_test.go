@@ -72,27 +72,21 @@ var (
 		Orientation:      spatial.OuterLocation("top"),
 		Scale:            9.5,
 		StalenessTimeout: telem.TimeSpan(11),
-		StalenessColor: new(xcolor.Color{
-			R: 13,
-			G: 14,
-			B: 15,
-			A: 16,
-		}),
-		StateChannel:   channel.Key(17),
-		CommandChannel: channel.Key(18),
+		StateChannel:     channel.Key(12),
+		CommandChannel:   channel.Key(13),
 		Control: v14.ControlStateConfig{
-			Authority:       new(uint8(20)),
-			Hidden:          false,
-			ChipHidden:      true,
-			IndicatorHidden: false,
+			Authority:       new(uint8(15)),
+			Hidden:          true,
+			ChipHidden:      false,
+			IndicatorHidden: true,
 			Orientation:     spatial.Location("top"),
 		},
-		OnClickDelay: telem.TimeSpan(25),
+		OnClickDelay: telem.TimeSpan(20),
 		StrokeColor: new(xcolor.Color{
-			R: 27,
-			G: 28,
-			B: 29,
-			A: 30,
+			R: 22,
+			G: 23,
+			B: 24,
+			A: 25,
 		}),
 	}
 	fullyPopulatedLabeledConfig = v14.LabeledConfig{
@@ -112,15 +106,7 @@ var (
 		Precision:      new(uint8(4)),
 		Notation:       notation.Notation("standard"),
 	}
-	fullyPopulatedStalenessConfig = v14.StalenessConfig{
-		StalenessTimeout: telem.TimeSpan(2),
-		StalenessColor: new(xcolor.Color{
-			R: 4,
-			G: 5,
-			B: 6,
-			A: 7,
-		}),
-	}
+	fullyPopulatedStalenessConfig      = v14.StalenessConfig{StalenessTimeout: telem.TimeSpan(2)}
 	fullyPopulatedScaledConfig         = v14.ScaledConfig{Scale: 1.5}
 	fullyPopulatedScaleIndicatorConfig = v14.ScaleIndicatorConfig{
 		Channel:          channel.Key(2),
@@ -128,26 +114,20 @@ var (
 		Precision:        new(uint8(4)),
 		Notation:         notation.Notation("standard"),
 		StalenessTimeout: telem.TimeSpan(6),
-		StalenessColor: new(xcolor.Color{
-			R: 8,
-			G: 9,
-			B: 10,
-			A: 11,
-		}),
-		Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
+		Bounds:           spatial.Bounds{Lower: 7.5, Upper: 8.5},
 		LevelColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
 		}}),
 		AxisColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
+			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
 		}}),
 		TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"),
+			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"),
 		}}),
-		Units:       "test_20",
-		LevelHidden: true,
-		CaretHidden: false,
-		ScaleHidden: true,
+		Units:       "test_15",
+		LevelHidden: false,
+		CaretHidden: true,
+		ScaleHidden: false,
 		Side:        spatial.OuterLocation("top"),
 		CaretSide:   spatial.OuterLocation("top"),
 		Level:       text.Level("h1"),
@@ -184,22 +164,16 @@ var (
 		Orientation:      spatial.OuterLocation("top"),
 		Scale:            9.5,
 		StalenessTimeout: telem.TimeSpan(11),
-		StalenessColor: new(xcolor.Color{
-			R: 13,
-			G: 14,
-			B: 15,
-			A: 16,
-		}),
-		StateChannel:   channel.Key(17),
-		CommandChannel: channel.Key(18),
+		StateChannel:     channel.Key(12),
+		CommandChannel:   channel.Key(13),
 		Control: v14.ControlStateConfig{
-			Authority:       new(uint8(20)),
-			Hidden:          false,
-			ChipHidden:      true,
-			IndicatorHidden: false,
+			Authority:       new(uint8(15)),
+			Hidden:          true,
+			ChipHidden:      false,
+			IndicatorHidden: true,
 			Orientation:     spatial.Location("top"),
 		},
-		OnClickDelay: telem.TimeSpan(25),
+		OnClickDelay: telem.TimeSpan(20),
 	}
 )
 
@@ -788,42 +762,36 @@ var _ = Describe("Codec", func() {
 				Precision:        new(uint8(4)),
 				Notation:         notation.Notation("standard"),
 				StalenessTimeout: telem.TimeSpan(6),
-				StalenessColor: new(xcolor.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 11,
-				}),
-				Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
+				Bounds:           spatial.Bounds{Lower: 7.5, Upper: 8.5},
 				LevelColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
 				}}),
 				AxisColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
 				}}),
 				TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"),
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"),
 				}}),
-				Units:       "test_20",
-				LevelHidden: true,
+				Units:       "test_15",
+				LevelHidden: false,
 				CaretSide:   spatial.OuterLocation("top"),
 				Level:       text.Level("h1"),
-				Position:    spatial.XY{X: 25.5, Y: 26.5},
+				Position:    spatial.XY{X: 20.5, Y: 21.5},
 				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c"),
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"),
 				}}),
 				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e"),
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819"),
 				}}),
-				Dimensions: spatial.Dimensions{Width: 32.5, Height: 33.5},
+				Dimensions: spatial.Dimensions{Width: 27.5, Height: 28.5},
 				BorderRadius: new(border.Radius{
-					TopLeft:     spatial.XY{X: 36.5, Y: 37.5},
-					TopRight:    spatial.XY{X: 39.5, Y: 40.5},
-					BottomLeft:  spatial.XY{X: 42.5, Y: 43.5},
-					BottomRight: spatial.XY{X: 45.5, Y: 46.5},
+					TopLeft:     spatial.XY{X: 31.5, Y: 32.5},
+					TopRight:    spatial.XY{X: 34.5, Y: 35.5},
+					BottomLeft:  spatial.XY{X: 37.5, Y: 38.5},
+					BottomRight: spatial.XY{X: 40.5, Y: 41.5},
 				}),
-				CaretVisible: true,
-				ScaleVisible: false,
+				CaretVisible: false,
+				ScaleVisible: true,
 				Side:         spatial.OuterLocation("top"),
 			}}),
 			Entry("t_junction variant", v14.NodeConfig{Variant: v14.TJunctionNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
@@ -887,7 +855,6 @@ var _ = Describe("Codec", func() {
 				Precision:        nil,
 				Notation:         notation.Notation(""),
 				StalenessTimeout: telem.TimeSpan(0),
-				StalenessColor:   nil,
 				Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
 				LevelColor:       nil,
 				AxisColor:        nil,
@@ -977,6 +944,96 @@ var _ = Describe("Codec", func() {
 				}}),
 				Segments:    []v14.Segment{},
 				StrokeWidth: 5,
+			}),
+		)
+	})
+	Describe("StalenessConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v14.StalenessConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v14.StalenessConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedStalenessConfig),
+			Entry("zero values", v14.StalenessConfig{StalenessTimeout: telem.TimeSpan(0)}),
+		)
+	})
+	Describe("ToggleConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v14.ToggleConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v14.ToggleConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedToggleConfig),
+			Entry("zero values", v14.ToggleConfig{
+				Label: v14.LabelConfig{
+					Label:         "",
+					Level:         text.Level(""),
+					Orientation:   spatial.Location(""),
+					Direction:     spatial.Direction(""),
+					MaxInlineSize: 0,
+					Align:         v14.FlexAlignment(""),
+				},
+				Orientation:      spatial.OuterLocation(""),
+				Scale:            0,
+				StalenessTimeout: telem.TimeSpan(0),
+				StateChannel:     channel.Key(0),
+				CommandChannel:   channel.Key(0),
+				Control: v14.ControlStateConfig{
+					Authority:       nil,
+					Hidden:          false,
+					ChipHidden:      false,
+					IndicatorHidden: false,
+					Orientation:     spatial.Location(""),
+				},
+				OnClickDelay: telem.TimeSpan(0),
+			}),
+		)
+	})
+	Describe("ToggleSymbolConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v14.ToggleSymbolConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v14.ToggleSymbolConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedToggleSymbolConfig),
+			Entry("zero values", v14.ToggleSymbolConfig{
+				Label: v14.LabelConfig{
+					Label:         "",
+					Level:         text.Level(""),
+					Orientation:   spatial.Location(""),
+					Direction:     spatial.Direction(""),
+					MaxInlineSize: 0,
+					Align:         v14.FlexAlignment(""),
+				},
+				Orientation:      spatial.OuterLocation(""),
+				Scale:            0,
+				StalenessTimeout: telem.TimeSpan(0),
+				StateChannel:     channel.Key(0),
+				CommandChannel:   channel.Key(0),
+				Control: v14.ControlStateConfig{
+					Authority:       nil,
+					Hidden:          false,
+					ChipHidden:      false,
+					IndicatorHidden: false,
+					Orientation:     spatial.Location(""),
+				},
+				OnClickDelay: telem.TimeSpan(0),
+				StrokeColor:  nil,
 			}),
 		)
 	})
@@ -1127,6 +1184,57 @@ func BenchmarkEncodeDecodeSegmentedEdgeConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v14.SegmentedEdgeConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStalenessConfig(b *testing.B) {
+	seed := fullyPopulatedStalenessConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v14.StalenessConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeToggleConfig(b *testing.B) {
+	seed := fullyPopulatedToggleConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v14.ToggleConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeToggleSymbolConfig(b *testing.B) {
+	seed := fullyPopulatedToggleSymbolConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v14.ToggleSymbolConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2509,42 +2617,36 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			Precision:        new(uint8(4)),
 			Notation:         notation.Notation("standard"),
 			StalenessTimeout: telem.TimeSpan(6),
-			StalenessColor: new(xcolor.Color{
-				R: 8,
-				G: 9,
-				B: 10,
-				A: 11,
-			}),
-			Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
+			Bounds:           spatial.Bounds{Lower: 7.5, Upper: 8.5},
 			LevelColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
 			}}),
 			AxisColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
 			}}),
 			TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"),
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"),
 			}}),
-			Units:       "test_20",
-			LevelHidden: true,
+			Units:       "test_15",
+			LevelHidden: false,
 			CaretSide:   spatial.OuterLocation("top"),
 			Level:       text.Level("h1"),
-			Position:    spatial.XY{X: 25.5, Y: 26.5},
+			Position:    spatial.XY{X: 20.5, Y: 21.5},
 			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c"),
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"),
 			}}),
 			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e"),
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819"),
 			}}),
-			Dimensions: spatial.Dimensions{Width: 32.5, Height: 33.5},
+			Dimensions: spatial.Dimensions{Width: 27.5, Height: 28.5},
 			BorderRadius: new(border.Radius{
-				TopLeft:     spatial.XY{X: 36.5, Y: 37.5},
-				TopRight:    spatial.XY{X: 39.5, Y: 40.5},
-				BottomLeft:  spatial.XY{X: 42.5, Y: 43.5},
-				BottomRight: spatial.XY{X: 45.5, Y: 46.5},
+				TopLeft:     spatial.XY{X: 31.5, Y: 32.5},
+				TopRight:    spatial.XY{X: 34.5, Y: 35.5},
+				BottomLeft:  spatial.XY{X: 37.5, Y: 38.5},
+				BottomRight: spatial.XY{X: 40.5, Y: 41.5},
 			}),
-			CaretVisible: true,
-			ScaleVisible: false,
+			CaretVisible: false,
+			ScaleVisible: true,
 			Side:         spatial.OuterLocation("top"),
 		}}
 		w := orc.NewWriter(0)
@@ -2660,7 +2762,6 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 			Precision:        nil,
 			Notation:         notation.Notation(""),
 			StalenessTimeout: telem.TimeSpan(0),
-			StalenessColor:   nil,
 			Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
 			LevelColor:       nil,
 			AxisColor:        nil,
@@ -2831,6 +2932,168 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v14.SegmentedEdgeConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStalenessConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedStalenessConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.StalenessConfig{StalenessTimeout: telem.TimeSpan(0)}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v14.StalenessConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v14.StalenessConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeToggleConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedToggleConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.ToggleConfig{
+			Label: v14.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v14.FlexAlignment(""),
+			},
+			Orientation:      spatial.OuterLocation(""),
+			Scale:            0,
+			StalenessTimeout: telem.TimeSpan(0),
+			StateChannel:     channel.Key(0),
+			CommandChannel:   channel.Key(0),
+			Control: v14.ControlStateConfig{
+				Authority:       nil,
+				Hidden:          false,
+				ChipHidden:      false,
+				IndicatorHidden: false,
+				Orientation:     spatial.Location(""),
+			},
+			OnClickDelay: telem.TimeSpan(0),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v14.ToggleConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v14.ToggleConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeToggleSymbolConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedToggleSymbolConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.ToggleSymbolConfig{
+			Label: v14.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v14.FlexAlignment(""),
+			},
+			Orientation:      spatial.OuterLocation(""),
+			Scale:            0,
+			StalenessTimeout: telem.TimeSpan(0),
+			StateChannel:     channel.Key(0),
+			CommandChannel:   channel.Key(0),
+			Control: v14.ControlStateConfig{
+				Authority:       nil,
+				Hidden:          false,
+				ChipHidden:      false,
+				IndicatorHidden: false,
+				Orientation:     spatial.Location(""),
+			},
+			OnClickDelay: telem.TimeSpan(0),
+			StrokeColor:  nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v14.ToggleSymbolConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v14.ToggleSymbolConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

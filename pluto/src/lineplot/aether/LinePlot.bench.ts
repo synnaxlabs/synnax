@@ -23,7 +23,7 @@ import { aetherTest } from "@/aether/testutil";
 import { lineplot } from "@/lineplot/aether";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
-import { buildStack } from "@/testutil/providers";
+import { buildStack } from "@/testutil/internal";
 import { line } from "@/vis/line/aether";
 import { lineTest } from "@/vis/line/aether/testutil";
 import { canvasTest } from "@/vis/render/testutil";

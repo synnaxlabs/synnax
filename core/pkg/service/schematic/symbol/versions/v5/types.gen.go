@@ -619,7 +619,7 @@ func (u CommandValue) Validate() error {
 }
 
 // Look is paint, visibility, or motion on a part. A later look wins on each field that
-// it sets.
+// it sets. On motion, it replaces only an earlier motion of the same kind.
 type Look struct {
 	// Key is the look identifier.
 	Key string `json:"key" msgpack:"key"`
@@ -791,6 +791,9 @@ type PaintType string
 const (
 	// EntryPaintType is the color of the current entry of a state.
 	EntryPaintType PaintType = "entry"
+	// ContrastPaintType is black or white, whichever reads on the entry color of a
+	// state.
+	ContrastPaintType PaintType = "contrast"
 	// NodePaintType is the color that the node sets.
 	NodePaintType PaintType = "node"
 	// ColorPaintType is one color.
@@ -809,6 +812,14 @@ type EntryPaint struct {
 }
 
 func (EntryPaint) isPaintVariant() {}
+
+// ContrastPaint is black or white, whichever reads on the entry color of a state.
+type ContrastPaint struct {
+	// State is the key of the state whose current entry color the paint reads on.
+	State string `json:"state" msgpack:"state"`
+}
+
+func (ContrastPaint) isPaintVariant() {}
 
 // NodePaint is the color that the node sets.
 type NodePaint struct {
@@ -847,6 +858,11 @@ func (u Paint) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type PaintType `json:"type"`
 			EntryPaint
 		}{Type: EntryPaintType, EntryPaint: v})
+	case ContrastPaint:
+		return json.MarshalEncode(enc, struct {
+			Type PaintType `json:"type"`
+			ContrastPaint
+		}{Type: ContrastPaintType, ContrastPaint: v})
 	case NodePaint:
 		return json.MarshalEncode(enc, struct {
 			Type PaintType `json:"type"`
@@ -891,6 +907,15 @@ func (u *Paint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.EntryPaint
+	case ContrastPaintType:
+		var v struct {
+			Type PaintType `json:"type"`
+			ContrastPaint
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ContrastPaint
 	case NodePaintType:
 		var v struct {
 			Type PaintType `json:"type"`
@@ -924,6 +949,8 @@ func (u Paint) Type() PaintType {
 	switch u.Variant.(type) {
 	case EntryPaint:
 		return EntryPaintType
+	case ContrastPaint:
+		return ContrastPaintType
 	case NodePaint:
 		return NodePaintType
 	case ColorPaint:
@@ -967,8 +994,9 @@ type MotionVariant interface {
 
 // SpinMotion turns a part around its pivot.
 type SpinMotion struct {
-	// Rate is the turns each second at the upper bound of the state.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Rate is the turns each second at the upper bound of the state. A negative rate
+	// turns the part the other way.
+	Rate float64 `json:"rate" msgpack:"rate"`
 	// State is the key of the number state that sets the speed.
 	State *string `json:"state,omitzero" msgpack:"state,omitempty"`
 }
@@ -984,14 +1012,15 @@ func (s *SpinMotion) SetDefaults() {
 // schema constraints.
 func (s SpinMotion) Validate() error {
 	v := validate.New("SpinMotion")
-	v.GreaterThanEq("rate", s.Rate, 0)
+	v.Finite("rate", s.Rate)
 	return v.Error()
 }
 
 // FlowMotion moves the dashes of a stroke along it.
 type FlowMotion struct {
-	// Rate is the cycles each second at the upper bound of the state.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Rate is the cycles each second at the upper bound of the state. A negative rate
+	// moves the dashes the other way.
+	Rate float64 `json:"rate" msgpack:"rate"`
 	// State is the key of the number state that sets the speed.
 	State *string `json:"state,omitzero" msgpack:"state,omitempty"`
 }
@@ -1007,7 +1036,7 @@ func (f *FlowMotion) SetDefaults() {
 // schema constraints.
 func (f FlowMotion) Validate() error {
 	v := validate.New("FlowMotion")
-	v.GreaterThanEq("rate", f.Rate, 0)
+	v.Finite("rate", f.Rate)
 	return v.Error()
 }
 

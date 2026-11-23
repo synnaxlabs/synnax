@@ -8,10 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import type { status } from "@synnaxlabs/client";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { usePopover } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, screen } from "@testing-library/react";
-import type { ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { type ReactElement, useRef, useState } from "react";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { Notifications } from "@/platform/notifications";
 import { installPortalRoot, renderWithConsole } from "@/testutil";
@@ -137,6 +140,219 @@ describe("Notifications", () => {
       fireEvent.click(screen.getByText("Clear all"));
       expect(screen.queryByText(/Message n/)).toBeNull();
       expect(screen.queryByText("Clear all")).toBeNull();
+    });
+  });
+
+  describe("in a modal", () => {
+    const Dismissable: Notifications.Notification = ({ status, silence }) => (
+      <button onClick={() => silence(status.key)}>{status.message}</button>
+    );
+    Dismissable.match = () => true;
+
+    const ModalHarness = (): ReactElement => {
+      const add = Status.useAdder();
+      return (
+        <>
+          <button onClick={() => add({ key: "n1", variant: "info", message: "Hello" })}>
+            add
+          </button>
+          <Dialog.Frame variant="modal">
+            <Dialog.Trigger>Open</Dialog.Trigger>
+            <Dialog.Dialog>Modal</Dialog.Dialog>
+          </Dialog.Frame>
+          <Notifications.Feed notifications={[Dismissable]} />
+        </>
+      );
+    };
+    ModalHarness.displayName = "ModalHarness";
+
+    /** A popover over the whole window, opened after the feed mounts. */
+    const Cover = (): ReactElement => {
+      const ref = useRef<HTMLDivElement>(null);
+      return (
+        <>
+          <button onClick={() => ref.current?.showPopover()}>cover</button>
+          <div
+            ref={ref}
+            popover="manual"
+            style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh" }}
+          />
+        </>
+      );
+    };
+
+    /** @returns true when the element is the topmost one at its own center. */
+    const onTop = (el: Element): boolean => {
+      const { left, top, width, height } = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(left + width / 2, top + height / 2);
+      return hit != null && el.contains(hit);
+    };
+
+    it("shows above an open modal and stays usable there", async () => {
+      await renderWithConsole(<ModalHarness />);
+      fireEvent.click(screen.getByRole("button", { name: "add" }));
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      const notification = await screen.findByRole("button", { name: "Hello" });
+      expect(screen.getByRole("dialog").contains(notification)).toBe(true);
+      expect(onTop(notification)).toBe(true);
+      fireEvent.click(notification);
+      await waitFor(() => expect(screen.queryByText("Hello")).toBeNull());
+      expect(screen.queryByText("Modal")).not.toBeNull();
+    });
+
+    /** A popover over the whole window that Lyra shows, as it shows a dropdown. */
+    const LyraCover = (): ReactElement => {
+      const ref = useRef<HTMLDivElement>(null);
+      const [shown, setShown] = useState(false);
+      usePopover(ref, shown, null);
+      return (
+        <>
+          <button onClick={() => setShown(true)}>lyra cover</button>
+          <div
+            ref={ref}
+            popover="manual"
+            style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh" }}
+          />
+        </>
+      );
+    };
+
+    it("keeps a notification over an overlay opened after it", async () => {
+      await renderWithConsole(
+        <>
+          <ModalHarness />
+          <LyraCover />
+        </>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "add" }));
+      const notification = await screen.findByRole("button", { name: "Hello" });
+      fireEvent.click(screen.getByRole("button", { name: "lyra cover" }));
+      await waitFor(() => expect(onTop(notification)).toBe(true));
+    });
+
+    it("leaves an overlay opened from the feed over it", async () => {
+      await renderWithConsole(
+        <>
+          <ModalHarness />
+          <LyraCover />
+        </>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "add" }));
+      const notification = await screen.findByRole("button", { name: "Hello" });
+      notification.focus();
+      fireEvent.click(screen.getByRole("button", { name: "lyra cover" }));
+      await new Promise(requestAnimationFrame);
+      expect(onTop(notification)).toBe(false);
+    });
+
+    it("shows a new notification over a popover opened before it", async () => {
+      await renderWithConsole(
+        <>
+          <ModalHarness />
+          <Cover />
+        </>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "cover" }));
+      fireEvent.click(screen.getByRole("button", { name: "add" }));
+      const notification = await screen.findByRole("button", { name: "Hello" });
+      expect(onTop(notification)).toBe(true);
+    });
+
+    it("shows again in the top layer after a modal closes", async () => {
+      await renderWithConsole(<ModalHarness />);
+      fireEvent.click(screen.getByRole("button", { name: "add" }));
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      await screen.findByText("Modal");
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      await waitFor(() => expect(screen.queryByText("Modal")).toBeNull());
+      const notification = await screen.findByRole("button", { name: "Hello" });
+      expect(notification.closest("[popover]")?.matches(":popover-open")).toBe(true);
+      expect(onTop(notification)).toBe(true);
+    });
+  });
+
+  describe("a card tooltip", () => {
+    // These specs hover for real, and the feed and the tooltip then update on the
+    // browser's schedule, which no act can wrap.
+    let actEnvironment: boolean | undefined;
+    beforeAll(() => {
+      actEnvironment = globalThis.IS_REACT_ACT_ENVIRONMENT;
+      globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+    });
+    afterAll(() => {
+      globalThis.IS_REACT_ACT_ENVIRONMENT = actEnvironment;
+    });
+
+    const TooltipHarness = (): ReactElement => {
+      const add = Status.useAdder();
+      return (
+        <>
+          <button onClick={() => add({ key: "n1", variant: "info", message: "First" })}>
+            first
+          </button>
+          <button
+            onClick={() => add({ key: "n2", variant: "info", message: "Second" })}
+          >
+            second
+          </button>
+          <Dialog.Frame variant="modal">
+            <Dialog.Trigger>Open</Dialog.Trigger>
+            <Dialog.Dialog>Modal</Dialog.Dialog>
+          </Dialog.Frame>
+          <Notifications.Feed notifications={[]} />
+        </>
+      );
+    };
+    TooltipHarness.displayName = "TooltipHarness";
+
+    /**
+     * Hovers the Silence button of the lowest card until its tooltip shows, where a
+     * card above it can draw over the tooltip.
+     */
+    const openTooltip = async (statuses: string[]): Promise<HTMLElement> => {
+      await renderWithConsole(<TooltipHarness />);
+      for (const name of statuses)
+        fireEvent.click(screen.getByRole("button", { name }));
+      await waitFor(() =>
+        expect(screen.getAllByRole("button", { name: "Silence" })).toHaveLength(
+          statuses.length,
+        ),
+      );
+      const lowest = screen
+        .getAllByRole("button", { name: "Silence" })
+        .sort(
+          (a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top,
+        )[0];
+      await userEvent.hover(lowest);
+      const tooltip = await screen.findByRole("tooltip");
+      await waitFor(() => expect(tooltip.matches(":popover-open")).toBe(true));
+      return tooltip;
+    };
+
+    /** @returns true when the tooltip draws over everything at its center. */
+    const tooltipOnTop = (tooltip: HTMLElement): boolean => {
+      // The tooltip lets the pointer through, so a hit test needs it to take it.
+      tooltip.style.pointerEvents = "auto";
+      const { left, top, width, height } = tooltip.getBoundingClientRect();
+      const hit = document.elementFromPoint(left + width / 2, top + height / 2);
+      tooltip.style.pointerEvents = "";
+      return hit != null && tooltip.contains(hit);
+    };
+
+    it("stays over the feed when a status arrives", async () => {
+      const tooltip = await openTooltip(["first"]);
+      fireEvent.click(screen.getByRole("button", { name: "second" }));
+      await screen.findByText("Second");
+      await new Promise(requestAnimationFrame);
+      expect(tooltipOnTop(tooltip)).toBe(true);
+    });
+
+    it("leaves the feed showing when a card opens a modal", async () => {
+      await openTooltip(["first"]);
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      await screen.findByText("Modal");
+      const feed = document.querySelector(".console-notifications");
+      await waitFor(() => expect(feed?.matches(":popover-open")).toBe(true));
     });
   });
 });

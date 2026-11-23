@@ -43,7 +43,7 @@ var (
 	apiSvc *apichassis.Service
 	// These handlers run their routes as the API layer binds them.
 	create   freighter.UnaryHandler[apichassis.CreateRequest, apichassis.CreateResponse]
-	update   freighter.UnaryHandler[apichassis.UpdateRequest, struct{}]
+	update   freighter.UnaryHandler[apichassis.UpdateRequest, apichassis.UpdateResponse]
 	del      freighter.UnaryHandler[apichassis.DeleteRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apichassis.RetrieveRequest,

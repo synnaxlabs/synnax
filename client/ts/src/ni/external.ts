@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export { niChassis as chassis } from "@/ni/chassis";
+export * from "@/ni/client";
 export { niDevice as device } from "@/ni/device";
 export * from "@/ni/types.gen";

@@ -2742,7 +2742,16 @@ TEST_F(EngineTest, StartLeavesOutNoSlaveAfterTheStartTimeout) {
     this->master->set_activate_duration(x::telem::SECOND * 25);
     this->master->refuse(1, STALE_LAYOUT_REFUSAL);
     auto cfg = quick_start_config();
-    cfg.host_clock = clock;
+    // The bus cycle waits on the host, so only the activations move the time that the
+    // start timeout reads.
+    cfg.host_clock = x::loop::HostClock(
+        x::loop::Clock{
+            .now = [clock] { return clock.steady(); },
+            .sleep = [](
+                         const x::telem::TimeSpan span
+                     ) { std::this_thread::sleep_for(span.chrono()); },
+        }
+    );
     cfg.start_timeout = x::telem::MINUTE;
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     const auto res = this->engine->open_reader(
