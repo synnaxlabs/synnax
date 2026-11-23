@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, NotFoundError } from "@synnaxlabs/client";
+import { type channel, DataType, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
-import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Channel } from "@/feature/channel";
+import { createReadTask, openDelete } from "@/feature/channel/testutil";
 import { findLastButton } from "@/platform/modals/testutil";
-import { createResource, renderTreeContextMenu } from "@/platform/tree/testutil";
 
 const client = createTestClient();
 
@@ -29,37 +27,6 @@ const createIndex = async (): Promise<channel.Channel> =>
     dataType: DataType.TIMESTAMP,
     isIndex: true,
   });
-
-const createReadTask = async (ch: channel.Key) => {
-  const rack = await client.racks.create({ name: uniqueName("rack") });
-  const device = await client.devices.create({
-    key: uuid.create(),
-    rack: rack.key,
-    location: "127.0.0.1:502",
-    name: uniqueName("plc"),
-    make: "modbus",
-    model: "modbus",
-    properties: {},
-  });
-  return await rack.createTask({
-    name: uniqueName("read"),
-    type: "modbus_read",
-    config: {
-      device: device.key,
-      channels: [{ type: "coil", key: "coil", channel: ch }],
-    },
-  });
-};
-
-const openDelete = async (ch: channel.Channel) => {
-  const menu = Channel.TREE_ITEMS.channel.ContextMenu;
-  assertDefined(menu);
-  await renderTreeContextMenu(menu, {
-    client,
-    resources: [createResource(channel.resourceID(ch.key), ch.name)],
-  });
-  fireEvent.click(await screen.findByText("Delete"));
-};
 
 const deleteEnabled = (): boolean =>
   findLastButton("Delete").getAttribute("aria-disabled") == null;
@@ -84,8 +51,8 @@ describe("impact dialog checks", () => {
       dataType: DataType.UINT8,
       index: index.key,
     });
-    const task = await createReadTask(data.key);
-    await openDelete(index);
+    const task = await createReadTask(client, [data.key]);
+    await openDelete(client, [index]);
     fireEvent.click(
       await screen.findByRole("checkbox", { name: `${data.name} Delete too` }),
     );
@@ -103,8 +70,8 @@ describe("impact dialog checks", () => {
 
   it("shows the new plan when a picked blocker goes before the delete", async () => {
     const ch = await createIndex();
-    const task = await createReadTask(ch.key);
-    await openDelete(ch);
+    const task = await createReadTask(client, [ch.key]);
+    await openDelete(client, [ch]);
     fireEvent.click(
       await screen.findByRole("checkbox", { name: `${task.name} Delete too` }),
     );
@@ -125,8 +92,8 @@ describe("impact dialog checks", () => {
   // carries stays shown until it ends.
   it("locks every check while the delete applies", async () => {
     const ch = await createIndex();
-    const task = await createReadTask(ch.key);
-    await openDelete(ch);
+    const task = await createReadTask(client, [ch.key]);
+    await openDelete(client, [ch]);
     const check = await screen.findByRole("checkbox", {
       name: `${task.name} Delete too`,
     });

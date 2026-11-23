@@ -7,79 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel as channelClient, DataType, NotFoundError } from "@synnaxlabs/client";
+import { channel as channelClient, NotFoundError } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { TimeStamp, uuid } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Channel } from "@/feature/channel";
+import {
+  createPlot,
+  createReadTask,
+  createVirtualChannel,
+  openDelete,
+  waitForDelete,
+} from "@/feature/channel/testutil";
 import { findLastButton } from "@/platform/modals/testutil";
-import { createResource, renderTreeContextMenu } from "@/platform/tree/testutil";
 
 const client = createTestClient();
-
-const Item = Channel.TREE_ITEMS.channel;
-
-const createChannel = async () =>
-  await client.channels.create({
-    name: uniqueName("ch"),
-    dataType: DataType.FLOAT32,
-    virtual: true,
-  });
-
-const createReadTask = async (ch: channelClient.Key) => {
-  const rack = await client.racks.create({ name: uniqueName("rack") });
-  const device = await client.devices.create({
-    key: uuid.create(),
-    rack: rack.key,
-    location: "127.0.0.1:502",
-    name: uniqueName("plc"),
-    make: "modbus",
-    model: "modbus",
-    properties: {},
-  });
-  return await rack.createTask({
-    name: uniqueName("read"),
-    type: "modbus_read",
-    config: {
-      device: device.key,
-      channels: [{ type: "coil", key: "coil", channel: ch }],
-    },
-  });
-};
-
-const createPlot = async (ch: channelClient.Key, name = uniqueName("plot")) => {
-  const proj = await client.projects.create({ name: uniqueName("proj") });
-  return await client.lineplots.create({
-    project: proj.key,
-    name,
-    channels: { y1: [ch] },
-  });
-};
-
-const openDelete = async (
-  channels: channelClient.Channel[],
-  as: typeof client = client,
-): Promise<void> => {
-  assertDefined(Item.ContextMenu);
-  await renderTreeContextMenu(Item.ContextMenu, {
-    client: as,
-    resources: channels.map((ch) =>
-      createResource(channelClient.resourceID(ch.key), ch.name),
-    ),
-  });
-  fireEvent.click(await screen.findByText("Delete"));
-};
-
-const waitForDelete = async () =>
-  await waitFor(() =>
-    expect(findLastButton("Delete").getAttribute("aria-disabled")).toBeNull(),
-  );
 
 const expectGone = async (retrieve: () => Promise<unknown>) =>
   await waitFor(async () => {
@@ -88,7 +35,7 @@ const expectGone = async (retrieve: () => Promise<unknown>) =>
 
 describe("impact dialog claims check", () => {
   it("should list a status that the channel owns under Deleted with it", async () => {
-    const ch = await createChannel();
+    const ch = await createVirtualChannel(client);
     const name = uniqueName("alarm");
     await client.statuses.set({
       key: uniqueName("status"),
@@ -98,13 +45,13 @@ describe("impact dialog claims check", () => {
       time: TimeStamp.now(),
       owner: channelClient.resourceID(ch.key),
     });
-    await openDelete([ch]);
+    await openDelete(client, [ch]);
     const group = await screen.findByRole("region", { name: "Deleted with it" });
     await within(group).findByText(name);
   });
 
   it("should count a table that keeps a link to the channel", async () => {
-    const ch = await createChannel();
+    const ch = await createVirtualChannel(client);
     const proj = await client.projects.create({ name: uniqueName("proj") });
     await client.tables.create({
       project: proj.key,
@@ -117,7 +64,7 @@ describe("impact dialog claims check", () => {
         },
       ],
     });
-    await openDelete([ch]);
+    await openDelete(client, [ch]);
     await screen.findByText("1 more record keeps a link and does not change.");
     expect(
       screen.getByText(
@@ -127,9 +74,9 @@ describe("impact dialog claims check", () => {
   });
 
   it("should name the count of channels in a delete of two", async () => {
-    const a = await createChannel();
-    const b = await createChannel();
-    await openDelete([a, b]);
+    const a = await createVirtualChannel(client);
+    const b = await createVirtualChannel(client);
+    await openDelete(client, [a, b]);
     await screen.findByText("Delete 2 channels");
     await screen.findByText(
       "Deletes the channels and their data. Nothing else uses them. " +
@@ -142,8 +89,8 @@ describe("impact dialog claims check", () => {
   });
 
   it("should start every group but the first closed past 100 records", async () => {
-    const ch = await createChannel();
-    const task = await createReadTask(ch.key);
+    const ch = await createVirtualChannel(client);
+    const task = await createReadTask(client, [ch.key]);
     const proj = await client.projects.create({ name: uniqueName("proj") });
     const plots = await client.lineplots.create(
       Array.from({ length: 101 }, (_, i) => ({
@@ -152,7 +99,7 @@ describe("impact dialog claims check", () => {
         channels: { y1: [ch.key] },
       })),
     );
-    await openDelete([ch]);
+    await openDelete(client, [ch]);
     const blocks = await screen.findByRole("region", { name: "Blocks the delete" });
     await within(blocks).findByText(task.name);
     const loses = screen.getByRole("region", { name: "Loses the channel" });
@@ -162,11 +109,11 @@ describe("impact dialog claims check", () => {
   });
 
   it("should order the records of a group by name", async () => {
-    const ch = await createChannel();
+    const ch = await createVirtualChannel(client);
     const prefix = uniqueName("plot");
     const names = ["e", "c", "a", "d", "b", "f"].map((s) => `${prefix}-${s}`);
-    for (const n of names) await createPlot(ch.key, n);
-    await openDelete([ch]);
+    for (const n of names) await createPlot(client, ch.key, n);
+    await openDelete(client, [ch]);
     const loses = await screen.findByRole("region", { name: "Loses the channel" });
     await within(loses).findByText(names[0]);
     const shown = within(loses)
@@ -176,13 +123,13 @@ describe("impact dialog claims check", () => {
   });
 
   it("should mark a record that a changed plan adds as New", async () => {
-    const ch = await createChannel();
-    await openDelete([ch]);
+    const ch = await createVirtualChannel(client);
+    await openDelete(client, [ch]);
     await screen.findByText(
       "Deletes the channel and its data. Nothing else uses it. " +
         "This action cannot be undone.",
     );
-    const plot = await createPlot(ch.key);
+    const plot = await createPlot(client, ch.key);
     await waitForDelete();
     fireEvent.click(findLastButton("Delete"));
     await screen.findByText("These records changed. Check them again.");
@@ -194,9 +141,9 @@ describe("impact dialog claims check", () => {
   });
 
   it("should keep Delete disabled while a pick plans again", async () => {
-    const ch = await createChannel();
-    const task = await createReadTask(ch.key);
-    await openDelete([ch]);
+    const ch = await createVirtualChannel(client);
+    const task = await createReadTask(client, [ch.key]);
+    await openDelete(client, [ch]);
     const check = await screen.findByRole("checkbox", {
       name: `${task.name} Delete too`,
     });
@@ -207,8 +154,8 @@ describe("impact dialog claims check", () => {
   });
 
   it("should lock Cancel, the close, and Escape while the delete applies", async () => {
-    const ch = await createChannel();
-    await openDelete([ch]);
+    const ch = await createVirtualChannel(client);
+    await openDelete(client, [ch]);
     await waitForDelete();
     fireEvent.click(findLastButton("Delete"));
     expect(findLastButton("Cancel")).toHaveAttribute("aria-disabled", "true");
@@ -222,14 +169,14 @@ describe("impact dialog claims check", () => {
   });
 
   it("should name the role's limit when the Core refuses the delete", async () => {
-    const ch = await createChannel();
-    await createReadTask(ch.key);
+    const ch = await createVirtualChannel(client);
+    await createReadTask(client, [ch.key]);
     const userClient = await createTestClientWithPolicy(client, {
       name: uniqueName("impact"),
       objects: [channelClient.resourceID(ch.key)],
       actions: ["retrieve", "delete"],
     });
-    await openDelete([ch], userClient);
+    await openDelete(userClient, [ch]);
     const blocks = await screen.findByRole("region", { name: "Blocks the delete" });
     fireEvent.click(
       within(blocks).getByRole("checkbox", {

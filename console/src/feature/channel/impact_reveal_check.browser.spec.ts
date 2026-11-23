@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel as channelClient, DataType, query } from "@synnaxlabs/client";
+import { type channel as channelClient, query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
-import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
+import { createReadTask, createVirtualChannel } from "@/feature/channel/testutil";
 import { CSS } from "@/platform/css";
 import { findSurface } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
@@ -27,34 +26,6 @@ import {
 
 const client = createTestClient();
 
-const createChannel = async () =>
-  await client.channels.create({
-    name: uniqueName("ch"),
-    dataType: DataType.FLOAT32,
-    virtual: true,
-  });
-
-const createReadTask = async (ch: channelClient.Key) => {
-  const rack = await client.racks.create({ name: uniqueName("rack") });
-  const device = await client.devices.create({
-    key: uuid.create(),
-    rack: rack.key,
-    location: "127.0.0.1:502",
-    name: uniqueName("plc"),
-    make: "modbus",
-    model: "modbus",
-    properties: {},
-  });
-  return await rack.createTask({
-    name: uniqueName("read"),
-    type: "modbus_read",
-    config: {
-      device: device.key,
-      channels: [{ type: "coil", key: "coil", channel: ch }],
-    },
-  });
-};
-
 const hostChannels = (...channels: { key: channelClient.Key }[]) =>
   createHostItems((c) => [
     Tree.createSource(
@@ -66,8 +37,8 @@ const hostChannels = (...channels: { key: channelClient.Key }[]) =>
 
 describe("impact dialog reveal check", () => {
   it("should keep focus out of the tree while the dialog waits for its plan", async () => {
-    const ch = await createChannel();
-    await createReadTask(ch.key);
+    const ch = await createVirtualChannel(client);
+    await createReadTask(client, [ch.key]);
     await renderLiveTree({
       client,
       root: HOST_ID,

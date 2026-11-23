@@ -12,14 +12,12 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
-import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Channel } from "@/feature/channel";
+import { createReadTask, openDelete } from "@/feature/channel/testutil";
 import { findLastButton } from "@/platform/modals/testutil";
-import { createResource, renderTreeContextMenu } from "@/platform/tree/testutil";
 
 const client = createTestClient();
 
@@ -40,41 +38,6 @@ const createData = async (index: channel.Channel): Promise<channel.Channel> =>
     dataType: DataType.UINT8,
     index: index.key,
   });
-
-const createReadTask = async (channels: channel.Key[]) => {
-  const rack = await client.racks.create({ name: uniqueName("rack") });
-  const device = await client.devices.create({
-    key: uuid.create(),
-    rack: rack.key,
-    location: "127.0.0.1:502",
-    name: uniqueName("plc"),
-    make: "modbus",
-    model: "modbus",
-    properties: {},
-  });
-  return await rack.createTask({
-    name: uniqueName("read"),
-    type: "modbus_read",
-    config: {
-      device: device.key,
-      channels: channels.map((ch, i) => ({
-        type: "coil",
-        key: `coil-${i}`,
-        channel: ch,
-      })),
-    },
-  });
-};
-
-const openDelete = async (ch: channel.Channel, as: typeof client = client) => {
-  const menu = Channel.TREE_ITEMS.channel.ContextMenu;
-  assertDefined(menu);
-  await renderTreeContextMenu(menu, {
-    client: as,
-    resources: [createResource(channel.resourceID(ch.key), ch.name)],
-  });
-  fireEvent.click(await screen.findByText("Delete"));
-};
 
 const deleteEnabled = (): boolean =>
   findLastButton("Delete").getAttribute("aria-disabled") == null;
@@ -101,10 +64,10 @@ describe("impact dialog round 2 checks", () => {
   it("drops the pick of a task from a changed plan with its channel", async () => {
     const index = await createIndex();
     const data = await createData(index);
-    await openDelete(index);
+    await openDelete(client, [index]);
     fireEvent.click(await findPickOf(data.name));
     await settle();
-    const task = await createReadTask([data.key]);
+    const task = await createReadTask(client, [data.key]);
     fireEvent.click(findLastButton("Delete"));
     await screen.findByText(CHANGED);
     await findPickOf(task.name);
@@ -122,8 +85,8 @@ describe("impact dialog round 2 checks", () => {
     const index = await createIndex();
     const first = await createData(index);
     const second = await createData(index);
-    const task = await createReadTask([first.key, second.key]);
-    await openDelete(index);
+    const task = await createReadTask(client, [first.key, second.key]);
+    await openDelete(client, [index]);
     fireEvent.click(await findPickOf(first.name));
     await findPickOf(task.name);
     await settle();
@@ -142,13 +105,13 @@ describe("impact dialog round 2 checks", () => {
   it("drops the pick of a task that the hidden pick brings with it", async () => {
     const index = await createIndex();
     const data = await createData(index);
-    const task = await createReadTask([data.key]);
+    const task = await createReadTask(client, [data.key]);
     const userClient = await createTestClientWithPolicy(client, {
       name: uniqueName("impact"),
       objects: [channel.resourceID(index.key), taskClient.resourceID(task.key)],
       actions: ["retrieve", "delete"],
     });
-    await openDelete(index, userClient);
+    await openDelete(userClient, [index]);
     const blocks = await screen.findByRole("region", { name: "Blocks the delete" });
     fireEvent.click(within(blocks).getByRole("checkbox", { name: HIDDEN_CHECK }));
     await findPickOf(task.name);
@@ -167,8 +130,8 @@ describe("impact dialog round 2 checks", () => {
     const index = await createIndex();
     const first = await createData(index);
     const second = await createData(index);
-    const task = await createReadTask([first.key]);
-    await openDelete(index);
+    const task = await createReadTask(client, [first.key]);
+    await openDelete(client, [index]);
     await findPickOf(first.name);
     await settle();
     fireEvent.click(pickOf(first.name));

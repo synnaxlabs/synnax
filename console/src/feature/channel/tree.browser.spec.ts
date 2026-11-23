@@ -37,6 +37,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Channel } from "@/feature/channel";
+import { createReadTask } from "@/feature/channel/testutil";
 import { findLastButton, findSurface } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
 import {
@@ -63,27 +64,6 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
     isIndex: true,
     ...overrides,
   });
-
-const createReadTask = async (ch: channelClient.Key) => {
-  const rack = await client.racks.create({ name: uniqueName("rack") });
-  const device = await client.devices.create({
-    key: uuid.create(),
-    rack: rack.key,
-    location: "127.0.0.1:502",
-    name: uniqueName("plc"),
-    make: "modbus",
-    model: "modbus",
-    properties: {},
-  });
-  return await rack.createTask({
-    name: uniqueName("read"),
-    type: "modbus_read",
-    config: {
-      device: device.key,
-      channels: [{ type: "coil", key: "coil", channel: ch }],
-    },
-  });
-};
 
 /** Waits for the dialog's Delete button to finish planning, then clicks it. */
 const clickDelete = async () => {
@@ -326,7 +306,7 @@ describe("channel/tree", () => {
 
     it("deletes a task that blocks the delete once the user picks it", async () => {
       const ch = await createChannel();
-      const task = await createReadTask(ch.key);
+      const task = await createReadTask(client, [ch.key]);
       await renderChannelTree(hostChannels(ch));
       await openTreeRowContextMenu(ch.name);
       fireEvent.click(await screen.findByText("Delete"));
@@ -348,7 +328,7 @@ describe("channel/tree", () => {
 
     it("keeps the dialog unseen until its first plan arrives", async () => {
       const ch = await createChannel();
-      await createReadTask(ch.key);
+      await createReadTask(client, [ch.key]);
       await renderChannelTree(hostChannels(ch));
       await openTreeRowContextMenu(ch.name);
       fireEvent.click(await screen.findByText("Delete"));
@@ -363,7 +343,7 @@ describe("channel/tree", () => {
 
     it("shows the spinner when the plan is slow, then the records", async () => {
       const ch = await createChannel();
-      await createReadTask(ch.key);
+      await createReadTask(client, [ch.key]);
       await renderChannelTree(hostChannels(ch));
       await openTreeRowContextMenu(ch.name);
       const item = await screen.findByText("Delete");
@@ -391,8 +371,8 @@ describe("channel/tree", () => {
 
     it("deletes every task that blocks the delete with one check", async () => {
       const ch = await createChannel();
-      const first = await createReadTask(ch.key);
-      const second = await createReadTask(ch.key);
+      const first = await createReadTask(client, [ch.key]);
+      const second = await createReadTask(client, [ch.key]);
       await renderChannelTree(hostChannels(ch));
       await openTreeRowContextMenu(ch.name);
       fireEvent.click(await screen.findByText("Delete"));
@@ -441,7 +421,7 @@ describe("channel/tree", () => {
 
     it("tells the user to pick a hidden task that blocks the delete", async () => {
       const ch = await createChannel();
-      await createReadTask(ch.key);
+      await createReadTask(client, [ch.key]);
       const userClient = await createTestClientWithPolicy(client, {
         name: uniqueName("impact"),
         objects: [channelClient.resourceID(ch.key)],
@@ -524,7 +504,7 @@ describe("channel/tree", () => {
 
     it("keeps the records listed when a plan after a pick fails", async () => {
       const ch = await createChannel();
-      await createReadTask(ch.key);
+      await createReadTask(client, [ch.key]);
       const { userClient, retrieve, grantRetrieve } = await createChannelUser(ch);
       assertDefined(Item.ContextMenu);
       await renderTreeContextMenu(Item.ContextMenu, {
