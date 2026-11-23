@@ -430,19 +430,15 @@ var _ = Describe("Service", func() {
 			)
 			core := e.create(ctx, file("Core", coreRack), nil)
 			other := e.create(ctx, file("Other", otherRack), nil)
-			keys := func(w certificate.Where) []certificate.Key {
-				GinkgoHelper()
-				return matching(ctx, e, w)
-			}
 			src := secret.SourceStored
-			Expect(
-				keys(certificate.Where{Source: &filter.Set[secret.Source]{Eq: &src}}),
-			).
-				To(Equal([]certificate.Key{s.Base().Key}))
-			Expect(keys(certificate.Where{Racks: []rack.Key{otherRack}})).
+			Expect(matching(ctx, e, certificate.Where{
+				Source: &filter.Set[secret.Source]{Eq: &src},
+			})).To(Equal([]certificate.Key{s.Base().Key}))
+			Expect(matching(ctx, e, certificate.Where{Racks: []rack.Key{otherRack}})).
 				To(Equal([]certificate.Key{other.Base().Key}))
-			Expect(keys(certificate.Where{Racks: []rack.Key{coreRack, otherRack}})).
-				To(ConsistOf(core.Base().Key, other.Base().Key))
+			Expect(matching(ctx, e, certificate.Where{
+				Racks: []rack.Key{coreRack, otherRack},
+			})).To(ConsistOf(core.Base().Key, other.Base().Key))
 		})
 		It("Should match certificates by whether they have a private key", func(
 			ctx SpecContext,
