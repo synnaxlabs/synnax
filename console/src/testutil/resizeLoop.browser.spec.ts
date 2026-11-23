@@ -378,6 +378,30 @@ describe("traceResizeLoops", () => {
     expect(reports[0]).not.toContain("div.leaf");
   });
 
+  it("should keep a cause that many deep changes follow", async () => {
+    const shallow = box(nest(root, 1), "shallow", 10);
+    observe(shallow, () => {});
+    const deep = Array.from({ length: 25 }, () => box(nest(root, 6), "deep", 10));
+    const watcher = new ResizeObserver(() => {});
+    for (const element of deep) watcher.observe(element);
+    onTestFinished(() => watcher.disconnect());
+    const trigger = box(nest(root, 3), "trigger", 10);
+    let armed = false;
+    observe(trigger, () => {
+      if (!armed) return;
+      armed = false;
+      shallow.style.height = "20px";
+      for (const element of deep) element.style.height = "20px";
+    });
+    await frames(2);
+    armed = true;
+    trigger.style.height = "15px";
+    await frames(3);
+    expect(reports.length).toBeGreaterThan(0);
+    expect(reports[0]).toContain("div.shallow changed");
+    expect(reports[0]).not.toContain("div.deep");
+  });
+
   it("should count depth through shadow roots and slots", async () => {
     const shallow = box(root, "shallow", 10);
     observe(shallow, () => {});

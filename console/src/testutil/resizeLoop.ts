@@ -9,7 +9,7 @@
 
 const LOOP_MESSAGE = /^ResizeObserver loop/;
 const MICROTASKS = 3;
-const MAX_CHANGES = 20;
+const MAX_CAUSES = 20;
 const STACK_FRAMES = 4;
 const COMPONENTS = 3;
 
@@ -171,11 +171,6 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     late = null;
   };
 
-  const record = (text: string, at: number, during: Pass): void => {
-    changes.push({ text, depth: at, pass: during });
-    if (changes.length > MAX_CHANGES) changes.shift();
-  };
-
   // Whether a box that some observer watches on the element changed.
   const resized = (element: Element, before: Size, after: Size): boolean => {
     const border = before.width !== after.width || before.height !== after.height;
@@ -196,7 +191,11 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
         // page.
         if (observed.has(element) && (size.width > 0 || size.height > 0)) {
           const text = `${label(element)} left the page ${callback} created at:`;
-          record(`${text}\n${origin}`, depth(element), during);
+          changes.push({
+            text: `${text}\n${origin}`,
+            depth: depth(element),
+            pass: during,
+          });
         }
         continue;
       }
@@ -207,7 +206,7 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
         ? `its content size from ${size.inner} to ${after.inner}`
         : `from ${formatSize(size)} to ${formatSize(after)}`;
       const text = `${label(element)} changed ${resize} ${callback} created at:`;
-      record(`${text}\n${origin}`, depth(element), during);
+      changes.push({ text: `${text}\n${origin}`, depth: depth(element), pass: during });
       before.set(element, after);
     }
   };
@@ -268,7 +267,8 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
       if (this.targets.get(target) !== box) {
         if (pass != null && document.timeline.currentTime === frame) {
           const cause = "began to be observed after a callback, at:";
-          record(`${label(target)} ${cause}\n${callerStack()}`, depth(target), pass);
+          const text = `${label(target)} ${cause}\n${callerStack()}`;
+          changes.push({ text, depth: depth(target), pass });
         }
         this.targets.set(target, box);
         const boxes = observed.get(target) ?? new Map();
@@ -302,11 +302,15 @@ export const traceResizeLoops = (report: (text: string) => void): (() => void) =
     if (!(event instanceof ErrorEvent) || !LOOP_MESSAGE.test(event.message)) return;
     enterFrame();
     closeLate();
-    const skipped = changes.filter((c) => c.depth <= c.pass.shallowest);
+    const skipped = changes
+      .filter((c) => c.depth <= c.pass.shallowest)
+      .map((c) => c.text);
+    const omitted = skipped.length - MAX_CAUSES;
+    if (omitted > 0) skipped.splice(MAX_CAUSES, omitted, `And ${omitted} more.`);
     const causes =
       skipped.length === 0
         ? "No observed element at or above the targets of a callback changed size."
-        : skipped.map((c) => c.text).join("\n");
+        : skipped.join("\n");
     changes = [];
     report(`ResizeObserver loop diagnostic:\n${causes}`);
   };
