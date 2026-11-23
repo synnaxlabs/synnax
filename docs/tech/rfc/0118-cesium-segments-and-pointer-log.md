@@ -607,12 +607,15 @@ then has no head, the older head and its logs stay, and the next switch writes h
 - **Delete of a time range**: One Tombstone per key. The delete is refused while the
   claim of an open writer holds part of the range (RFC 0095 §4.0). A sealed segment with
   no live pointer is unlinked.
-- **Compaction**: When the dead share of a sealed segment passes the threshold (today
-  `GCConfig`, `cesium/delete.go:32`), the compactor copies the live ranges to a new
-  segment, syncs the file and its directory, and logs a Create and a Replace in one
-  entry. Time ranges and alignments do not change. Progression encoding is the same copy
-  and Replace. Both skip version 0 segments unless `WithVersion0Rewritable` (§5.1), pick
-  only a segment whose sealing entry is acked, and rewrite one segment to one segment.
+- **Compaction**: When a rewrite of a sealed segment would free more than the threshold
+  of its length (today `GCConfig`, `cesium/delete.go:32`), with its padding counted, the
+  compactor copies the live ranges to a new segment, syncs the file and its directory,
+  and logs a Create and a Replace in one entry. Time ranges and alignments do not
+  change. Progression encoding is the same copy and Replace. Both skip version 0
+  segments unless `WithVersion0Rewritable` (§5.1), pick only a segment whose sealing
+  entry is acked, and rewrite one segment to one segment. A version 2 segment is never
+  compacted: it holds at most half the bytes of its stamps, and it is unlinked when
+  nothing in it is live.
 
 ### 5.7 Alignment
 
