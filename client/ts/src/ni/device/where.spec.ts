@@ -7,72 +7,114 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, uuid } from "@synnaxlabs/x";
+import { compare, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { ni } from "@/ni";
-import { compareCursors, cursor, matches, serverComputed } from "@/ni/device/where.gen";
+import { createTestClient, waitForStreamLive } from "@/testutil";
 import { vectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  vectors.itMatches(
+  vectors.itFiltersLive(
     vectors.read("niDevices", ni.device.deviceZ, ni.device.whereZ),
-    matches,
-    serverComputed,
+    () => {
+      const client = createTestClient();
+      let racks = new Map<number, number>();
+      const keys = new Map<string, string>();
+      return {
+        client,
+        target: "/ni/device/retrieve",
+        prepare: async (records) => {
+          racks = await vectors.createRacks(
+            client,
+            records.map(([, d]) => d.rack),
+          );
+          records.forEach(([, d]) => keys.set(d.key, uuid.create()));
+          return {
+            keys: new Map(
+              records.map(([alias, d]) => [alias, keys.get(d.key) ?? d.key]),
+            ),
+            values: new Map<unknown, unknown>([...racks, ...keys]),
+          };
+        },
+        write: async (records) => {
+          await client.ni.devices.create(
+            records.map(([, { status: _, ...d }]) => ({
+              ...d,
+              key: keys.get(d.key),
+              rack: racks.get(d.rack) ?? d.rack,
+            })),
+          );
+        },
+        watch: (where) => client.ni.devices.watch({ where }),
+      };
+    },
   );
 });
 
-describe("compareCursors", () => {
-  const [low, high] = [uuid.create(), uuid.create()].sort(compare.uuids);
-  const record = (key: string, name: string): ni.device.Device =>
-    ni.device.deviceZ.parse({ key, rack: 1, name, resourceName: "r", model: "m" });
+describe("live list order", () => {
+  const orderOf = async (
+    order: ni.device.Order | undefined,
+    records: Array<{ key: string; name: string }>,
+  ): Promise<string[]> => {
+    const client = createTestClient();
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    const rack = await client.racks.create({ name: `where-order-${id.create()}` });
+    const list = client.ni.devices.watch({
+      where: { key: { in: records.map(({ key }) => key) } },
+      order,
+    });
+    const close = list.onChange(() => {});
+    try {
+      await list.retrieve();
+      await client.ni.devices.create(
+        records.map(({ key, name }) => ({
+          key,
+          name,
+          rack: rack.key,
+          resourceName: "r",
+          model: "m",
+        })),
+      );
+      const held = () => list.getCached()?.records.map(({ key }) => key) ?? [];
+      await expect.poll(() => held().length).toBe(records.length);
+      return held();
+    } finally {
+      close();
+    }
+  };
+  const keys = () => [uuid.create(), uuid.create(), uuid.create()].sort(compare.uuids);
 
-  it("should order names by lower case, then by key", () => {
-    const order: ni.device.Order = { field: "name", descending: false };
-    const positions = [
-      record(high, "alpha"),
-      record(low, "Beta"),
-      record(low, "ALPHA"),
-    ].map((r) => cursor(r, order));
-    positions.sort((a, b) => compareCursors(a, b, order));
-    expect(positions).toEqual([
-      { key: low, name: "ALPHA" },
-      { key: high, name: "alpha" },
-      { key: low, name: "Beta" },
-    ]);
+  it("should order names by lower case, then by key", async () => {
+    const [a, b, c] = keys();
+    expect(
+      await orderOf({ field: "name", descending: false }, [
+        { key: c, name: "alpha" },
+        { key: b, name: "Beta" },
+        { key: a, name: "ALPHA" },
+      ]),
+    ).toEqual([a, c, b]);
   });
 
-  it("should reverse the order and the key tie when descending", () => {
-    const order: ni.device.Order = { field: "name", descending: true };
-    const early = cursor(record(low, "a"), order);
-    const tie = cursor(record(high, "a"), order);
-    const late = cursor(record(low, "b"), order);
-    expect([early, late, tie].sort((a, b) => compareCursors(a, b, order))).toEqual([
-      late,
-      tie,
-      early,
-    ]);
+  it("should reverse the order and the key tie when descending", async () => {
+    const [a, b, c] = keys();
+    expect(
+      await orderOf({ field: "name", descending: true }, [
+        { key: a, name: "a" },
+        { key: b, name: "a" },
+        { key: c, name: "b" },
+      ]),
+    ).toEqual([c, b, a]);
   });
 
-  it("should return 0 for the same position", () => {
-    const order: ni.device.Order = { field: "name", descending: false };
-    const a = cursor(record(low, "a"), order);
-    expect(compareCursors(a, { ...a }, order)).toBe(0);
-  });
-
-  it("should order by key alone with no order", () => {
-    const positions = [record(high, "a"), record(low, "b")].map((r) => cursor(r));
-    expect(positions).toEqual([{ key: high }, { key: low }]);
-    expect(positions.sort((a, b) => compareCursors(a, b))).toEqual([
-      { key: low },
-      { key: high },
-    ]);
-  });
-
-  it("should throw for a position with no name", () => {
-    const order: ni.device.Order = { field: "name", descending: false };
-    expect(() => compareCursors({ key: low }, { key: high, name: "a" }, order)).toThrow(
-      "a cursor has no name",
-    );
+  it("should order by key alone with no order", async () => {
+    const [a, b] = keys();
+    expect(
+      await orderOf(undefined, [
+        { key: b, name: "a" },
+        { key: a, name: "b" },
+      ]),
+    ).toEqual([a, b]);
   });
 });

@@ -583,6 +583,8 @@ export class Client {
       return;
     }
     const { key } = authState.session;
+    // a request that fails on the ended session must not log in again mid-delete
+    this.forget();
     try {
       await this.sendAs(
         authState.token,
@@ -594,13 +596,11 @@ export class Client {
     } catch (err) {
       if (!RETRY_ON.some((e) => e.matches(err))) throw errors.fromUnknown(err);
     } finally {
-      this.resumeToken = undefined;
-      // a request that logged in again during the delete holds a session this logout
+      // new credentials set during the delete may have opened a session this logout
       // did not end
       if (this.authState.authenticated && this.authState.session.key === key) {
         this.authState = { authenticated: false };
         this.authenticating = undefined;
-        this.forget();
       }
     }
   }
