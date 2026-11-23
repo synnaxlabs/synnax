@@ -19,6 +19,7 @@ import (
 	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	apioidc "github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
 	apipassword "github.com/synnaxlabs/synnax/pkg/api/auth/password"
+	apisession "github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -105,6 +106,22 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		apioidc.RetrieveResponse,
 	]{}
 	t.AuthOIDCUnlink = noop.UnaryServer[apioidc.UnlinkRequest, struct{}]{}
+	t.AuthOIDCInviteCreate = noop.UnaryServer[
+		apioidc.CreateInviteRequest,
+		apioidc.CreateInviteResponse,
+	]{}
+	t.AuthOIDCInviteRetrieve = noop.UnaryServer[
+		apioidc.RetrieveInvitesRequest,
+		apioidc.RetrieveInvitesResponse,
+	]{}
+	t.AuthOIDCInviteDelete = noop.UnaryServer[
+		apioidc.DeleteInvitesRequest,
+		struct{},
+	]{}
+	t.AuthOIDCInviteRedeem = noop.UnaryServer[
+		apioidc.RedeemInviteRequest,
+		apisession.CreateResponse,
+	]{}
 	t.AuthPasswordCreate = noop.UnaryServer[apipassword.CreateRequest, struct{}]{}
 	t.AuthPasswordRetrieve = noop.UnaryServer[
 		apipassword.RetrieveRequest,

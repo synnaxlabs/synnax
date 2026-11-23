@@ -90,6 +90,15 @@ type Transport struct {
 	AuthOIDCRetrieve freighter.UnaryServer[oidc.RetrieveRequest, oidc.RetrieveResponse]
 	// AuthOIDCUnlink removes provider links and ends their sessions.
 	AuthOIDCUnlink freighter.UnaryServer[oidc.UnlinkRequest, struct{}]
+	// AuthOIDCInviteCreate replaces a user's invite and returns its token.
+	AuthOIDCInviteCreate freighter.UnaryServer[oidc.CreateInviteRequest, oidc.CreateInviteResponse]
+	// AuthOIDCInviteRetrieve lists live invites.
+	AuthOIDCInviteRetrieve freighter.UnaryServer[oidc.RetrieveInvitesRequest, oidc.RetrieveInvitesResponse]
+	// AuthOIDCInviteDelete revokes invites.
+	AuthOIDCInviteDelete freighter.UnaryServer[oidc.DeleteInvitesRequest, struct{}]
+	// AuthOIDCInviteRedeem links a provider account through an invite and opens a
+	// session. It needs no session.
+	AuthOIDCInviteRedeem freighter.UnaryServer[oidc.RedeemInviteRequest, session.CreateResponse]
 	// AuthPasswordCreate gives the caller or another user its first password.
 	AuthPasswordCreate freighter.UnaryServer[password.CreateRequest, struct{}]
 	// AuthPasswordRetrieve lists passwords by subject or username, without hashes.
@@ -417,6 +426,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthLogin,
 		t.AuthMethods,
 		t.AuthSessionCreate,
+		t.AuthOIDCInviteRedeem,
 		t.ConnectivityCheck,
 	)
 
@@ -448,6 +458,9 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthOIDCLink,
 		t.AuthOIDCRetrieve,
 		t.AuthOIDCUnlink,
+		t.AuthOIDCInviteCreate,
+		t.AuthOIDCInviteRetrieve,
+		t.AuthOIDCInviteDelete,
 		t.AuthPasswordCreate,
 		t.AuthPasswordRetrieve,
 		t.AuthPasswordDispatch,
@@ -716,6 +729,16 @@ func (l *Layer) BindTo(t Transport) {
 		return l.OIDC.Retrieve(ctx, snap, req)
 	}))
 	t.AuthOIDCUnlink.BindHandler(bind.Write(l.binder, l.OIDC.Unlink))
+	t.AuthOIDCInviteCreate.BindHandler(bind.Write(l.binder, l.OIDC.CreateInvite))
+	t.AuthOIDCInviteRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req oidc.RetrieveInvitesRequest,
+	) (oidc.RetrieveInvitesResponse, error) {
+		return l.OIDC.RetrieveInvites(ctx, snap, req)
+	}))
+	t.AuthOIDCInviteDelete.BindHandler(bind.Write(l.binder, l.OIDC.DeleteInvites))
+	t.AuthOIDCInviteRedeem.BindHandler(l.OIDC.RedeemInvite)
 	t.AuthPasswordCreate.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.Password.PrepareCreate,
@@ -1032,8 +1055,10 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.OIDC, err = oidc.NewService(oidc.ServiceConfig{
-		Auth: cfg.Service.Auth,
-		OIDC: cfg.Service.OIDC,
+		Auth:    cfg.Service.Auth,
+		OIDC:    cfg.Service.OIDC,
+		Invite:  cfg.Service.Invite,
+		Session: l.Session,
 	}); err != nil {
 		return nil, err
 	}

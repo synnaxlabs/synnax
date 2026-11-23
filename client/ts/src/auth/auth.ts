@@ -20,6 +20,7 @@ import {
   type Method,
   methodZ,
   type OIDCCredentials,
+  oidcCredentialsZ,
   type Proof,
   proofZ,
   type Session,
@@ -44,6 +45,11 @@ const createResZ = z.object({
   token: z.string(),
   session: sessionZ,
   user: user.userZ.optional(),
+});
+const redeemInviteReqZ = z.object({
+  token: z.string(),
+  credentials: oidcCredentialsZ,
+  cookie: z.boolean().optional(),
 });
 const renewResZ = z.object({ session: sessionZ, user: user.userZ.optional() });
 
@@ -80,6 +86,7 @@ const TOKENLESS_ENDPOINTS = [
   METHODS_ENDPOINT,
   SESSION_CREATE_ENDPOINT,
   LEGACY_LOGIN_ENDPOINT,
+  oidc.invite.REDEEM_ENDPOINT,
 ];
 
 // a newer Core may accept methods this client does not know, so they are dropped, and
@@ -166,6 +173,38 @@ export const createSession = async (
     createResZ,
   );
   return { token, session };
+};
+
+export interface RedeemInviteParams {
+  /** The token of the invite. */
+  token: string;
+  /** The proof of the provider account to link to the invited user. */
+  credentials: OIDCCredentials;
+  /** Whether the Core keeps the session's token in a cookie the client never sees. */
+  cookie?: boolean;
+}
+
+/**
+ * Links a provider account to the invited user and opens a session, without a logged-in
+ * client. An invite works once. With cookie set, the returned token is empty.
+ * @param client - A client from {@link createTokenlessClient}.
+ * @throws {InvalidCredentialsError} when the token is unknown, used, or expired, or
+ * the provider rejects the credentials.
+ * @throws {ValidationError} when the Core does not accept the oidc method, the account
+ * is already linked, or the user already has a link for the provider.
+ * @throws {Unreachable} if the Core cannot be reached.
+ */
+export const redeemInvite = async (
+  client: UnaryClient,
+  { token, credentials, cookie }: RedeemInviteParams,
+): Promise<CreateSessionResult> => {
+  const res = await client.send(
+    oidc.invite.REDEEM_ENDPOINT,
+    { token, credentials, cookie },
+    redeemInviteReqZ,
+    createResZ,
+  );
+  return { token: res.token, session: res.session };
 };
 
 const MAX_RETRIES = 3;

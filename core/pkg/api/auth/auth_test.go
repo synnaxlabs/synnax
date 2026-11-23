@@ -68,6 +68,7 @@ var _ = Describe("HeldTables", func() {
 			},
 		),
 		)
+		MustSucceed2(inviteSvc.NewWriter(tx).Create(ctx, root.Key))
 		tables := lo.Map(gorp.ChangesOf(tx), func(c gorp.Change, _ int) string {
 			return c.Record.Table
 		})

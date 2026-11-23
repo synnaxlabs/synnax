@@ -12,6 +12,7 @@ package oidc_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	apioidc "github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -27,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -34,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
+	timetestutil "github.com/synnaxlabs/x/time/testutil"
 )
 
 func TestOIDC(t *testing.T) {
@@ -53,6 +57,8 @@ var (
 	userSvc     *user.Service
 	rackSvc     *rack.Service
 	oidcSvc     *oidc.Service
+	inviteSvc   *invite.Service
+	clock       *timetestutil.Clock
 	provider    *testutil.Provider
 	apiSvc      *apioidc.Service
 	// These handlers run their routes as the API layer binds them.
@@ -61,9 +67,18 @@ var (
 		apioidc.RetrieveRequest,
 		apioidc.RetrieveResponse,
 	]
-	unlinkOIDC freighter.UnaryHandler[apioidc.UnlinkRequest, struct{}]
-	root       user.User
-	creds      = auth.Credentials{Username: "api-oidc-suite-root", Password: "p"}
+	unlinkOIDC   freighter.UnaryHandler[apioidc.UnlinkRequest, struct{}]
+	createInvite freighter.UnaryHandler[
+		apioidc.CreateInviteRequest,
+		apioidc.CreateInviteResponse,
+	]
+	retrieveInvites freighter.UnaryHandler[
+		apioidc.RetrieveInvitesRequest,
+		apioidc.RetrieveInvitesResponse,
+	]
+	deleteInvites freighter.UnaryHandler[apioidc.DeleteInvitesRequest, struct{}]
+	root          user.User
+	creds         = auth.Credentials{Username: "api-oidc-suite-root", Password: "p"}
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -93,15 +108,24 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc, rackSvc = fixture.RBAC, fixture.Rack
 	provider = testutil.NewProvider()
 	DeferCleanup(provider.Close)
+	clock = timetestutil.NewClock(time.Unix(1_700_000_000, 0))
+	inviteSvc = MustOpen(invite.OpenService(ctx, invite.ServiceConfig{
+		DB:    db,
+		Clock: clock,
+	}))
 	oidcSvc = MustOpen(oidc.OpenService(ctx, oidc.ServiceConfig{
 		DB:          db,
 		User:        userSvc,
 		NewUserRole: rbacSvc.Builtin.ViewerKey,
-		Providers: []oidc.Provider{{
-			Name:     "idp",
-			Issuer:   provider.Issuer(),
-			ClientID: testutil.ClientID,
-		}},
+		Providers: []oidc.Provider{
+			{Name: "idp", Issuer: provider.Issuer(), ClientID: testutil.ClientID},
+			{
+				Name:                 "closed",
+				Issuer:               provider.Issuer(),
+				ClientID:             testutil.ClientID,
+				UserCreationDisabled: true,
+			},
+		},
 	}))
 	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 		DB: db,
@@ -126,13 +150,30 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		return apiSvc.Retrieve(ctx, snap, req)
 	})
 	unlinkOIDC = bind.Write(binder, apiSvc.Unlink)
+	createInvite = bind.Write(binder, apiSvc.CreateInvite)
+	retrieveInvites = bind.Read(binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req apioidc.RetrieveInvitesRequest,
+	) (apioidc.RetrieveInvitesResponse, error) {
+		return apiSvc.RetrieveInvites(ctx, snap, req)
+	})
+	deleteInvites = bind.Write(binder, apiSvc.DeleteInvites)
 })
 
 func newService(svc *auth.Service) *apioidc.Service {
 	GinkgoHelper()
 	return MustSucceed(apioidc.NewService(apioidc.ServiceConfig{
-		Auth: svc,
-		OIDC: oidcSvc,
+		Auth:   svc,
+		OIDC:   oidcSvc,
+		Invite: inviteSvc,
+		Session: MustSucceed(session.NewService(session.ServiceConfig{
+			DB:       db,
+			Auth:     svc,
+			Password: passwordSvc,
+			User:     userSvc,
+			Identity: node.Identity,
+		})),
 	}))
 }
 
