@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Delete is a query that deletes Entries from the DB.
