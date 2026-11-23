@@ -305,6 +305,7 @@ describe("channel/tree", () => {
       await clickDelete();
       await screen.findByText("Uses the channel");
       await screen.findByText("1 record blocks the delete");
+      screen.getByText("Delete it too, or cancel.");
       expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
       fireEvent.click(
         screen.getByRole("checkbox", { name: `${task.name} Delete too` }),
@@ -382,17 +383,17 @@ describe("channel/tree", () => {
       await screen.findByText("1 record you cannot see.");
       expect(screen.queryByText("Blocks the delete")).toBeNull();
       await clickDelete();
-      const step =
-        `A record you cannot see uses channel ${ch.name}. ` +
-        'Check "Delete it too", or cancel.';
-      await screen.findByText(step);
+      const blocked = "A record you cannot see blocks the delete";
+      await screen.findByText(blocked);
+      screen.getByText('Check "Delete it too", or cancel.');
+      const hidden = screen.getByRole("checkbox", {
+        name: "1 record you cannot see. Delete it too",
+      });
+      expect(hidden).toHaveAccessibleDescription("Uses the channel");
       expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
-      fireEvent.click(
-        screen.getByRole("checkbox", {
-          name: "1 record you cannot see. Delete it too",
-        }),
-      );
-      await waitFor(() => expect(screen.queryByText(step)).toBeNull());
+      fireEvent.click(hidden);
+      await waitFor(() => expect(screen.queryByText(blocked)).toBeNull());
+      expect(screen.queryByText("Uses the channel")).toBeNull();
     });
 
     it("plans again when the user presses Try again", async () => {
@@ -425,8 +426,12 @@ describe("channel/tree", () => {
       fireEvent.click(item);
       const failed = "Failed to list the records that this delete touches";
       await screen.findByText(failed);
+      expect(findLastButton("Delete")).toHaveAttribute("aria-disabled", "true");
       await grant("retrieve");
-      fireEvent.click(findLastButton("Try again"));
+      const retry = findLastButton("Try again");
+      retry.focus();
+      fireEvent.click(retry);
+      expect(screen.getByRole("dialog")).toHaveFocus();
       await screen.findByText(
         "Deletes the channel and its data. Nothing else uses it. " +
           "This action cannot be undone.",

@@ -35,7 +35,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
 import { compare, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useId, useState } from "react";
+import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -119,24 +119,23 @@ const unanswered = (err: unknown): boolean =>
 /** Returns why err failed step, as sentences, with the next step when one helps. */
 const reasonOf = (err: unknown, step: Step): string => {
   const text = (err instanceof Error ? err.message : String(err)).trim();
-  if (AccessDeniedError.matches(err)) return `${DENIED[step]} ${text}`;
   let sentence = text.charAt(0).toUpperCase() + text.slice(1);
   if (!/[.!?]$/.test(sentence)) sentence += ".";
+  if (AccessDeniedError.matches(err)) return `${DENIED[step]} ${sentence}`;
   if (!isConnectionError(err)) return sentence;
-  if (step === "apply" && unanswered(err)) return `${sentence} ${UNANSWERED}`;
-  return `${sentence} ${UNREACHABLE[step]}`;
+  if (step === "apply" && unanswered(err)) return `${UNANSWERED} ${sentence}`;
+  return `${UNREACHABLE[step]} ${sentence}`;
 };
 
-/** Why records that the user cannot see and did not pick block a delete. */
-const hiddenReasonOf = (hidden: number, names: string[]): string => {
-  const records =
+/** The status when records that the user cannot see and did not pick block a delete. */
+const hiddenBlockedOf = (hidden: number): FooterStatus => ({
+  variant: "error",
+  message:
     hidden === 1
-      ? "A record you cannot see uses"
-      : `${hidden} records you cannot see use`;
-  const target = names.length === 1 ? `channel ${names[0]}` : "the channels";
-  const pick = hidden === 1 ? "Delete it too" : "Delete them too";
-  return `${records} ${target}. Check "${pick}", or cancel.`;
-};
+      ? "A record you cannot see blocks the delete"
+      : "Records you cannot see block the delete",
+  description: `Check "${hidden === 1 ? "Delete it too" : "Delete them too"}", or cancel.`,
+});
 
 /** A plan with the records it names, as the dialog shows it. */
 interface View {
@@ -222,7 +221,6 @@ interface EntryProps {
   translate?: number;
   picked: boolean;
   unpicked: boolean;
-  autoFocus: boolean;
   onPick: (keys: string[], picked: boolean) => void;
 }
 
@@ -232,7 +230,6 @@ const Entry = ({
   translate,
   picked,
   unpicked,
-  autoFocus,
   onPick,
 }: EntryProps): ReactElement => {
   const id = useId();
@@ -272,9 +269,14 @@ const Entry = ({
             aria-describedby={unpicked ? `${id}-error` : undefined}
             value={picked}
             onChange={(v) => onPick([key], v)}
-            autoFocus={autoFocus}
           />
-          <Text.Text el="label" id={`${id}-label`} htmlFor={id} level="small">
+          <Text.Text
+            el="label"
+            id={`${id}-label`}
+            htmlFor={id}
+            level="small"
+            className={CSS.BE("impact", "label")}
+          >
             Delete too
           </Text.Text>
         </Flex.Box>
@@ -288,7 +290,6 @@ interface GroupProps {
   rows: Row[];
   picks: Picks;
   unpicked: Set<string>;
-  focusFirst: boolean;
   initiallyOpen: boolean;
   /** pickable is true for the records that block the delete, which the user picks. */
   pickable: boolean;
@@ -300,7 +301,6 @@ const Group = ({
   rows,
   picks,
   unpicked,
-  focusFirst,
   initiallyOpen,
   pickable,
   onPick,
@@ -309,37 +309,48 @@ const Group = ({
   const [open, setOpen] = useState(initiallyOpen);
   const byKey = new Map(rows.map((r) => [r.key, r]));
   const { data, getItem } = List.useStaticData<string, Row>({ data: rows });
-  const allPicked = rows.every((r) => picks[r.key] === "delete");
-  const pickAll = pickable && rows.length > 1 && (
-    <Flex.Box x align="center" gap="small" className={CSS.BE("impact", "pick")}>
-      <Input.Checkbox
-        id={allID}
-        value={allPicked}
-        onChange={(v) =>
-          onPick(
-            rows.map((r) => r.key),
-            v,
-          )
-        }
-      />
-      <Text.Text el="label" htmlFor={allID} level="small">
-        Delete all too
-      </Text.Text>
-    </Flex.Box>
-  );
+  const pickedCount = rows.filter((r) => picks[r.key] === "delete").length;
+  const scrolls = rows.length > DISPLAY_ITEMS;
   return (
     <section className={CSS.BE("impact", "group")} aria-label={title}>
-      <Header.Group
-        size="medium"
-        open={open}
-        onOpenChange={setOpen}
-        actions={pickAll === false ? undefined : pickAll}
-      >
+      <Header.Group size="medium" open={open} onOpenChange={setOpen}>
         {title}
         <Text.Text level="tiny" color={9}>
           {rows.length}
         </Text.Text>
       </Header.Group>
+      {open && pickable && rows.length > 1 && (
+        <Flex.Box
+          x
+          align="center"
+          justify="end"
+          gap="small"
+          className={CSS.cls(
+            CSS.BE("impact", "all"),
+            scrolls && CSS.BEM("impact", "all", "scrolls"),
+          )}
+        >
+          <Input.Checkbox
+            id={allID}
+            value={pickedCount === rows.length}
+            indeterminate={pickedCount > 0 && pickedCount < rows.length}
+            onChange={(v) =>
+              onPick(
+                rows.map((r) => r.key),
+                v,
+              )
+            }
+          />
+          <Text.Text
+            el="label"
+            htmlFor={allID}
+            level="small"
+            className={CSS.BE("impact", "label")}
+          >
+            Delete all too
+          </Text.Text>
+        </Flex.Box>
+      )}
       {open && (
         <List.Frame<string, Row>
           data={data}
@@ -350,7 +361,7 @@ const Group = ({
           <List.Scroll
             displayItems={DISPLAY_ITEMS}
             className={CSS.BE("impact", "scroll")}
-            {...(rows.length > DISPLAY_ITEMS && {
+            {...(scrolls && {
               tabIndex: 0,
               role: "region",
               "aria-label": `${title}, ${rows.length} records`,
@@ -365,7 +376,6 @@ const Group = ({
                   translate={translate}
                   picked={picks[key] === "delete"}
                   unpicked={unpicked.has(key)}
-                  autoFocus={focusFirst && index === 0}
                   onPick={onPick}
                 />
               )}
@@ -407,7 +417,6 @@ const Entries = ({ view, plural, ...rest }: EntriesProps): ReactElement => {
             key={effect}
             title={title}
             rows={rows}
-            focusFirst={effect === "restrict"}
             pickable={effect === "restrict"}
             initiallyOpen={initiallyOpen}
             {...rest}
@@ -435,6 +444,8 @@ const Dialog = ({
   const [applying, setApplying] = useState(false);
   const [footer, setFooter] = useState<FooterStatus | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [hiddenBlocks, setHiddenBlocks] = useState(false);
+  const frameRef = useRef<HTMLDivElement>(null);
   Modals.useBusy(applying);
   const listing = useSpinner(view == null && planError == null);
   const updating = useSpinner(planning && view != null);
@@ -470,7 +481,9 @@ const Dialog = ({
     [client, change, picks, hiddenPick, attempt],
   );
 
+  // The retry button unmounts, so focus moves to the dialog instead of the page.
   const handleRetry = () => {
+    frameRef.current?.focus();
     setPlanning(true);
     setPlanError(null);
     setAttempt((prev) => prev + 1);
@@ -496,6 +509,7 @@ const Dialog = ({
 
   const handleHidden = (picked: boolean) => {
     setPlanning(true);
+    setHiddenBlocks(false);
     setFooter(null);
     setHidden(picked);
   };
@@ -510,7 +524,10 @@ const Dialog = ({
       setFooter({
         variant: "error",
         message: blockedOf(blockers.length),
-        description: "Delete each one too, or cancel.",
+        description:
+          blockers.length === 1
+            ? "Delete it too, or cancel."
+            : "Delete each one too, or cancel.",
       });
       return;
     }
@@ -534,11 +551,16 @@ const Dialog = ({
     }
     if (!(failure instanceof PlanChangedError)) {
       setApplying(false);
-      const description =
-        ValidationError.matches(failure) && view.plan.hidden > 0 && !hidden
-          ? hiddenReasonOf(view.plan.hidden, names)
-          : reasonOf(failure, "apply");
-      setFooter({ variant: "error", message: failureOf(names), description });
+      if (ValidationError.matches(failure) && view.plan.hidden > 0 && !hidden) {
+        setHiddenBlocks(true);
+        setFooter(hiddenBlockedOf(view.plan.hidden));
+        return;
+      }
+      setFooter({
+        variant: "error",
+        message: unanswered(failure) ? "No answer from the Core" : failureOf(names),
+        description: reasonOf(failure, "apply"),
+      });
       return;
     }
     const current = impact.planOf(failure);
@@ -576,8 +598,10 @@ const Dialog = ({
     plan != null && plan.entries.length === 0 && plan.kept === 0 && plan.hidden === 0;
 
   return (
-    <Modal.Frame className={CSS.B("impact")}>
-      <Modal.Header icon={<Icon.Channel />}>Channel.Delete</Modal.Header>
+    <Modal.Frame ref={frameRef} className={CSS.B("impact")}>
+      <Modal.Header icon={<Icon.Channel />} closeDisabled={applying}>
+        Channel.Delete
+      </Modal.Header>
       <Modal.Body gap="medium" className={CSS.BE("impact", "body")}>
         {changed && (
           <Note.Note variant="warning" role="alert">
@@ -619,9 +643,19 @@ const Dialog = ({
                 ? "1 record you cannot see."
                 : `${plan.hidden} records you cannot see.`}
             </Text.Text>
+            {hiddenBlocks && (
+              <Text.Text
+                id={`${hiddenID}-error`}
+                level="small"
+                className={CSS.BE("impact", "error")}
+              >
+                {plan.hidden === 1 ? "Uses the channel" : "Use the channel"}
+              </Text.Text>
+            )}
             <Input.Checkbox
               id={hiddenID}
               aria-labelledby={`${hiddenID}-count ${hiddenID}-label`}
+              aria-describedby={hiddenBlocks ? `${hiddenID}-error` : undefined}
               value={hidden}
               onChange={handleHidden}
             />
@@ -637,15 +671,28 @@ const Dialog = ({
         )}
       </Modal.Body>
       <Modal.Footer>
-        {/* A live region stays mounted, so a screen reader reads each status. */}
-        <Nav.Bar.Start role="status" className={CSS.BE("impact", "status")}>
-          {status != null && (
-            <Status.Summary
-              variant={status.variant}
-              message={status.message}
-              description={status.description}
-              center={false}
-            />
+        <Nav.Bar.Start
+          x
+          align="center"
+          gap="large"
+          className={CSS.BE("impact", "band")}
+        >
+          {/* A live region stays mounted, so a screen reader reads each status. */}
+          <div role="status" className={CSS.BE("impact", "status")}>
+            {status != null && (
+              <Status.Summary
+                variant={status.variant}
+                message={status.message}
+                description={status.description}
+                center={false}
+              />
+            )}
+          </div>
+          {failure != null && (
+            <Button.Button variant="outlined" onClick={handleRetry}>
+              <Icon.Refresh />
+              Try again
+            </Button.Button>
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End x align="center">
@@ -657,28 +704,16 @@ const Dialog = ({
           >
             Cancel
           </Button.Button>
-          {failure == null ? (
-            <Button.Button
-              variant="filled"
-              status={applying ? "loading" : "error"}
-              disabled={shown == null || planning || updating}
-              trigger={Triggers.SAVE}
-              triggerIndicator
-              onClick={() => void handleDelete()}
-            >
-              Delete
-            </Button.Button>
-          ) : (
-            <Button.Button
-              variant="filled"
-              trigger={Triggers.SAVE}
-              triggerIndicator
-              onClick={handleRetry}
-            >
-              <Icon.Refresh />
-              Try again
-            </Button.Button>
-          )}
+          <Button.Button
+            variant="filled"
+            status={applying ? "loading" : "error"}
+            disabled={shown == null || failure != null || planning || updating}
+            trigger={Triggers.SAVE}
+            triggerIndicator
+            onClick={() => void handleDelete()}
+          >
+            Delete
+          </Button.Button>
         </Nav.Bar.End>
       </Modal.Footer>
     </Modal.Frame>
