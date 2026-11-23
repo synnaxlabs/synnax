@@ -72,12 +72,33 @@ const resolveSymbol = (
   return query.isLive(sym) ? sym.data : undefined;
 };
 
+// Changes an old node to the old node of the symbol that the reference names, so it
+// keeps its channels.
+const changeLegacy = (
+  client: Client,
+  config: Node.Config,
+  ref: schematic.symbol.Ref,
+): Node.Config => {
+  if (ref.type === "builtin")
+    return Node.changeConfig(config, { variant: Node.variantZ.parse(ref.name) });
+  const sym =
+    ref.type === "custom"
+      ? client.schematics.symbols.watch(ref.key).getCached()
+      : undefined;
+  if (!query.isLive(sym)) throw new NotFoundError(`symbol ${ref.key} is missing`);
+  return Node.changeConfig(config, {
+    variant: Node.customVariant(sym),
+    specKey: ref.key,
+  });
+};
+
 /**
  * useChangeSymbol returns a callback that changes the given symbols to the symbol the
  * input names, dispatched as a single undoable step. A label that still reads the old
  * symbol's name takes the new symbol's name. A symbol node keeps the bindings that
- * {@link Node.rebind} keeps.
- * @throws {NotFoundError} if the input names a symbol node whose symbol is missing.
+ * {@link Node.rebind} keeps. Any other node changes to the old node of the symbol, so
+ * it keeps its channels.
+ * @throws {NotFoundError} if the input names a symbol that is missing.
  */
 export const useChangeSymbol = () => {
   const key = Scope.use();
@@ -90,7 +111,9 @@ export const useChangeSymbol = () => {
       const config = s.nodes.find((n) => n.key === k)?.config;
       if (config == null || !Node.isConfig(config))
         throw new Error(`Element ${k} is not a symbol`);
-      const next: Node.Config = Node.changeConfig(config, input);
+      let next: Node.Config = Node.changeConfig(config, input);
+      if (config.variant !== "symbol" && next.variant === "symbol")
+        next = changeLegacy(client, config, next.spec);
       if (Node.symbolKey(next) === Node.symbolKey(config)) return [];
       if (config.variant === "symbol" && next.variant === "symbol") {
         const to = resolveSymbol(client, next.spec);

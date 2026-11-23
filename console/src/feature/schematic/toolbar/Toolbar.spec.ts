@@ -197,7 +197,7 @@ describe("Toolbar", () => {
       await pickSymbol("Solenoid");
       await waitFor(async () =>
         expect((await retrieveConfigs(key)).n1).toMatchObject({
-          ...builtIn("solenoid_valve"),
+          variant: "solenoid_valve",
           label: { label: "OX-1" },
           orientation: "top",
         }),
@@ -241,9 +241,7 @@ describe("Toolbar", () => {
       });
       await pickSymbol("Solenoid");
       await waitFor(async () =>
-        expect((await retrieveConfigs(key)).n1).toMatchObject(
-          builtIn("solenoid_valve"),
-        ),
+        expect((await retrieveConfigs(key)).n1.variant).toBe("solenoid_valve"),
       );
       expect(Object.keys(await retrieveConfigs(key))).toEqual(["n1"]);
     });
@@ -269,7 +267,7 @@ describe("Toolbar", () => {
       await pickSymbol("Solenoid");
       await waitFor(async () =>
         expect((await retrieveConfigs(key)).n1).toMatchObject({
-          ...builtIn("solenoid_valve"),
+          variant: "solenoid_valve",
           label: { label: "Solenoid" },
         }),
       );
@@ -284,9 +282,9 @@ describe("Toolbar", () => {
       await pickSymbol("Ball");
       await waitFor(async () => {
         const configs = await retrieveConfigs(key);
-        expect([configs.n1, configs.n2]).toMatchObject([
-          builtIn("ball_valve"),
-          builtIn("ball_valve"),
+        expect([configs.n1.variant, configs.n2.variant]).toEqual([
+          "ball_valve",
+          "ball_valve",
         ]);
       });
     });
@@ -301,9 +299,31 @@ describe("Toolbar", () => {
       await pickSymbol(symbol.name);
       await waitFor(async () =>
         expect((await retrieveConfigs(key)).n1).toMatchObject({
-          variant: "symbol",
-          spec: { type: "custom", key: symbol.key },
+          variant: "custom_static",
+          specKey: symbol.key,
           label: { label: symbol.name },
+        }),
+      );
+    });
+
+    it("keeps the channels of an old symbol", async () => {
+      const [state, command] = await client.channels.create([
+        { name: uniqueName("state"), dataType: DataType.UINT8, virtual: true },
+        { name: uniqueName("command"), dataType: DataType.UINT8, virtual: true },
+      ]);
+      const { key } = await renderSelected({
+        n1: Schematic.Node.createConfig({
+          variant: "valve",
+          stateChannel: state.key,
+          commandChannel: command.key,
+        }),
+      });
+      await pickSymbol("Solenoid");
+      await waitFor(async () =>
+        expect((await retrieveConfigs(key)).n1).toMatchObject({
+          variant: "solenoid_valve",
+          stateChannel: state.key,
+          commandChannel: command.key,
         }),
       );
     });
