@@ -187,8 +187,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(await screen.findByText("Actuator"));
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
-      const [fill] = screen.getAllByText("By state");
+      const fill = screen.getAllByText("By state")[0].closest("button");
+      assertDefined(fill);
+      expect(fill.getAttribute("aria-pressed")).toBe("false");
       fireEvent.click(fill);
+      expect(fill.getAttribute("aria-pressed")).toBe("true");
       fireEvent.click(await screen.findByLabelText("Fill while Active"));
       fireEvent.click(screen.getByText("Node color"));
       fireEvent.change(findNameInput(), {
