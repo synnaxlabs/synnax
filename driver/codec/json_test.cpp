@@ -377,6 +377,33 @@ TEST(JSONEncoder, RejectsNaNSample) {
     ASSERT_EQ(check_err.data, err.data);
 }
 
+/// @brief it should reject an infinite sample before it scales or rounds it.
+TEST(JSONEncoder, RejectsInfiniteSampleBeforeConversion) {
+    auto v = field<icd::IntegerJSONField>("v");
+    v.scale = -1;
+    auto enc = ASSERT_NIL_P(JSONEncoder::create(command({v}, {x::telem::FLOAT64_T})));
+    const auto samples = series_of(
+        x::telem::Series(std::vector{std::numeric_limits<double>::infinity()})
+    );
+    std::vector<std::uint8_t> payload;
+    const auto err = enc.encode(samples, payload);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data, "message command: field v: Infinity is not a JSON number");
+}
+
+/// @brief it should write a boolean sample to a number field as 0 or 1.
+TEST(JSONEncoder, WritesBooleanSampleAsZeroOrOne) {
+    auto enc = ASSERT_NIL_P(
+        JSONEncoder::create(
+            command({field<icd::IntegerJSONField>("v")}, {x::telem::BOOLEAN_T})
+        )
+    );
+    const auto samples = series_of(
+        x::telem::Series(std::uint8_t{2}, x::telem::BOOLEAN_T)
+    );
+    ASSERT_EQ(encoded(enc, samples), nlohmann::json({{"v", 1}}));
+}
+
 /// @brief it should check the sample at an index of a series.
 TEST(JSONEncoder, ChecksSampleAtIndex) {
     auto enc = ASSERT_NIL_P(

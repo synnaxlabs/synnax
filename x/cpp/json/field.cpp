@@ -78,24 +78,6 @@ bool convertible(const telem::DataType &dt) {
            dt == telem::UUID_T || dt == telem::BYTES_T || numeric(dt);
 }
 
-/// @brief returns v as a Number, or nothing when it is not numeric.
-std::optional<Number> to_number(const telem::SampleValue &v) {
-    return std::visit(
-        [](const auto &s) -> std::optional<Number> {
-            using T = std::decay_t<decltype(s)>;
-            if constexpr (std::is_floating_point_v<T>)
-                return Number(static_cast<double>(s));
-            else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
-                return Number(static_cast<std::int64_t>(s));
-            else if constexpr (std::is_integral_v<T>)
-                return Number(static_cast<std::uint64_t>(s));
-            else
-                return std::nullopt;
-        },
-        v
-    );
-}
-
 /// @brief checks that the value of e converts to a sample of dt.
 /// @returns VALIDATION, naming the label of e, when it does not.
 errors::Error check_enum(const Enum &e, const telem::DataType &dt) {
@@ -365,6 +347,12 @@ std::pair<Encoder, errors::Error> Encoder::create(Field field) {
     return {std::move(e), errors::NIL};
 }
 
+const std::string *Encoder::label(const telem::SampleValue &v) const {
+    for (const auto &l: this->labels)
+        if (l.sample == v || (is_nan(l.sample) && is_nan(v))) return &l.text;
+    return nullptr;
+}
+
 errors::Error
 Encoder::append(const telem::Series &s, const std::size_t i, std::string &out) const {
     const auto &dt = this->field.data_type;
@@ -388,11 +376,10 @@ Encoder::append(const telem::Series &s, const std::size_t i, std::string &out) c
     auto sample = s.at(index);
     // A boolean matches and writes as 0 or 1.
     if (dt == telem::BOOLEAN_T) sample = dt.cast(sample);
-    for (const auto &l: this->labels)
-        if (l.sample == sample || (is_nan(l.sample) && is_nan(sample))) {
-            out += l.text;
-            return errors::NIL;
-        }
+    if (const auto *l = this->label(sample)) {
+        out += *l;
+        return errors::NIL;
+    }
     if (!numeric(dt)) return append_quoted(std::get<std::string>(sample), out);
     const auto n = to_number(sample).value();
     if (this->field.type == Type::Boolean) {

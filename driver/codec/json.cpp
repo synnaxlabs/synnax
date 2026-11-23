@@ -573,7 +573,7 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
     if (v.kind == payload::KIND_STRING || v.kind == payload::KIND_UUID ||
         v.kind == payload::KIND_BYTES)
         type = x::json::Type::String;
-    else if (v.kind == payload::KIND_BOOLEAN && !field.converted)
+    else if (v.kind == payload::KIND_BOOLEAN)
         type = x::json::Type::Boolean;
     auto [encoder, err] = x::json::Encoder::create({
         .data_type = dt,
@@ -597,22 +597,22 @@ x::errors::Error JSONEncoder::Field::append(
         out += text;
         return x::errors::NIL;
     }
-    const auto start = out.size();
-    if (auto err = this->encoder.append(s, i, out)) return err;
-    // An enum label writes a channel value, which takes no conversion.
-    if (!this->converted || out[start] == '"') return x::errors::NIL;
-    const auto [n, err] = x::json::Number::parse(std::string_view(out).substr(start));
-    out.resize(start);
-    if (err) return err;
-    if (auto limit_err = check_limits(this->base, this->at_limit(n.to_float64())))
-        return limit_err;
-    if (this->kind == payload::KIND_FLOAT)
-        return x::json::append_float(
-            (n.to_float64() - this->offset) / this->scale,
-            out
-        );
-    if (this->kind != payload::KIND_BOOLEAN) return this->append_integer(n, out);
+    if (!this->converted) return this->encoder.append(s, i, out);
+    auto sample = s.at(static_cast<int>(i));
+    // A boolean matches and converts as 0 or 1.
+    if (s.data_type() == x::telem::BOOLEAN_T) sample = x::telem::BOOLEAN_T.cast(sample);
+    // An enum label writes a value that the ICD names, which takes no conversion.
+    if (const auto *label = this->encoder.label(sample)) {
+        out += *label;
+        return x::errors::NIL;
+    }
+    const auto n = x::json::to_number(sample).value();
     const auto v = n.to_float64();
+    if (!std::isfinite(v)) return invalid(n.to_string() + " is not a JSON number");
+    if (auto err = check_limits(this->base, this->at_limit(v))) return err;
+    if (this->kind == payload::KIND_FLOAT)
+        return x::json::append_float((v - this->offset) / this->scale, out);
+    if (this->kind != payload::KIND_BOOLEAN) return this->append_integer(n, out);
     if (v != 0 && v != 1)
         return invalid(x::json::Number(v).to_string() + " is not 0 or 1");
     out += v == 1 ? "true" : "false";
