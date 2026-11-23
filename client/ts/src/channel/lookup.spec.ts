@@ -10,7 +10,7 @@
 import { DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { NotFoundError } from "@/index";
 import { createTestClient, secondsLinspace, spyOnSend } from "@/testutil";
 
