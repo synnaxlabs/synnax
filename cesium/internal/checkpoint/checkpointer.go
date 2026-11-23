@@ -44,8 +44,8 @@ type Config struct {
 	// moves them to a part. Zero means 8 MiB.
 	PartSize int
 	// Live is the generation of the head that recovery opened. Before its first switch,
-	// the checkpointer cleans the root against it, as Clean does, so a part that a
-	// crash left is gone before a switch writes a part of its identity. Zero means no
+	// the checkpointer cleans the root against it, as each switch does, so a part that
+	// a crash left is gone before a switch writes a part of its identity. Zero means no
 	// such clean.
 	Live uint64
 }

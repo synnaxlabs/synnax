@@ -10,6 +10,7 @@
 package checkpoint_test
 
 import (
+	"context"
 	"os"
 	"strconv"
 
@@ -220,6 +221,24 @@ var _ = Describe("Files", func() {
 					return names
 				}
 				head, lg := checkpoint.Name, log.Name
+				// clean runs the first step of a checkpointer whose recovery opened the
+				// head
+				// of live, which cleans the root against it.
+				clean := func(live uint64) {
+					GinkgoHelper()
+					c := MustSucceed(checkpoint.New(checkpoint.Config{
+						FS:       fs,
+						DB:       db,
+						LogSize:  log.BlockSize,
+						Prepared: func(uint64, error) {},
+						Executor: goExec,
+						Live:     live,
+					}))
+					ran := make(chan error, 1)
+					go func() { ran <- c.Run(context.Background()) }()
+					Expect(c.Close()).To(Succeed())
+					Eventually(ran).WithTimeout(fileTimeout).Should(Receive(BeNil()))
+				}
 				// complete writes a head that Read takes for each generation of gs.
 				complete := func(gs ...uint64) {
 					GinkgoHelper()
@@ -234,7 +253,7 @@ var _ = Describe("Files", func() {
 					func() {
 						complete(1, 2, 3)
 						create(lg(1), lg(2), lg(3), lg(4))
-						Expect(checkpoint.Clean(fs, 3)).To(Succeed())
+						clean(3)
 						Expect(
 							left(),
 						).To(ConsistOf(head(2), head(3), lg(2), lg(3), lg(4)))
@@ -247,7 +266,7 @@ var _ = Describe("Files", func() {
 					func() {
 						complete(1, 3)
 						create(lg(1), lg(2), lg(3))
-						Expect(checkpoint.Clean(fs, 3)).To(Succeed())
+						clean(3)
 						Expect(
 							left(),
 						).To(ConsistOf(head(1), head(3), lg(1), lg(2), lg(3)))
@@ -257,7 +276,7 @@ var _ = Describe("Files", func() {
 				It("Should read only names of 16 hex digits as generations", func() {
 					complete(1, 4)
 					create("3.head", lg(1), lg(2), lg(3), lg(4))
-					Expect(checkpoint.Clean(fs, 4)).To(Succeed())
+					clean(4)
 					Expect(
 						left(),
 					).To(ConsistOf(head(1), "3.head", head(4), lg(1), lg(2),
@@ -268,7 +287,7 @@ var _ = Describe("Files", func() {
 					func() {
 						complete(1, 3)
 						create(head(2), lg(1), lg(2), lg(3))
-						Expect(checkpoint.Clean(fs, 3)).To(Succeed())
+						clean(3)
 						Expect(left()).To(ConsistOf(head(1), head(2), head(3), lg(1),
 							lg(2), lg(3)))
 					})
@@ -276,7 +295,7 @@ var _ = Describe("Files", func() {
 				It("Should keep no older head whose logs are not all there", func() {
 					complete(1, 2, 4)
 					create(lg(1), lg(3), lg(4), "meta.json", head(1)+".damaged")
-					Expect(checkpoint.Clean(fs, 4)).To(Succeed())
+					clean(4)
 					Expect(left()).
 						To(ConsistOf(head(4), lg(4), "meta.json", head(1)+".damaged"))
 				})

@@ -145,7 +145,7 @@ var _ = Describe("Checkpointer", func() {
 					Expect(s.Sequence).To(Equal(sample(2).Sequence))
 					Expect(exists(checkpoint.Name(1))).To(BeTrue())
 					c.Head(3, sample(2))
-					// Clean removes the head before the log, so wait for both.
+					// The clean removes the head before the log, so wait for both.
 					Eventually(func() bool {
 						return exists(checkpoint.Name(1)) || exists(log.Name(1))
 					}).WithTimeout(fileTimeout).Should(BeFalse())

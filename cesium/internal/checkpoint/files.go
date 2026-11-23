@@ -238,15 +238,13 @@ func prepareLog(fs xfs.FS, next uint64, size int64) error {
 	return fs.SyncDir("")
 }
 
-// Clean removes from the root fs what the switch to generation live no longer needs:
+// clean removes from the root fs what the switch to generation live no longer needs:
 // every head and log older than the newest older head that passes its checks and whose
 // logs all exist from its generation to live, and each part that neither of the two
-// heads names. It tries every removal, then syncs the root, and returns the errors of
-// the removals that failed, which the next switch tries again.
-func Clean(fs xfs.FS, live uint64) error { return clean(fs, live, nil) }
-
-// clean is Clean with the identities of the parts that the head of live names, or nil
-// to read them from the head when the root holds a part.
+// heads names. liveParts holds the identities of the parts that the head of live names,
+// or is nil to read them from the head when the root holds a part. It tries every
+// removal, then syncs the root, and returns the errors of the removals that failed,
+// which the next switch tries again.
 func clean(fs xfs.FS, live uint64, liveParts set.Set[uint64]) error {
 	entries, err := fs.List("")
 	if err != nil {
