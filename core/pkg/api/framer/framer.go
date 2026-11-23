@@ -578,7 +578,7 @@ type (
 
 const (
 	streamingRequestBufferSize  = 5
-	streamingResponseBufferSize = 200
+	streamingResponseBufferSize = framer.StreamerResponseBufferSize
 )
 
 func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
