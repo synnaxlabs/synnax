@@ -32,7 +32,7 @@ import type { Streamer } from "@/framer/streamer";
 import { status } from "@/status";
 
 /** Stream lifecycle hooks the streamer uses to track connection health. */
-export interface StreamHooks {
+export interface Hooks {
   /** Called after every successful reconnect of the underlying stream. */
   onReopen: () => void;
   /** Called when the underlying stream fails and reconnection begins. */
@@ -48,7 +48,7 @@ export interface StreamHooks {
 export interface HardenedOpener {
   (
     config: { channels: channel.Key[]; throttleRate: number },
-    hooks: StreamHooks,
+    hooks: Hooks,
   ): Promise<Streamer>;
 }
 
