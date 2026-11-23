@@ -346,9 +346,9 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
       ? undefined
       : Schematic.Node.Region.paint(drawing.markup, part.selectors);
   const issue =
-    part == null
-      ? undefined
-      : Spec.levelIssues({ drawing, parts, looks }).get(part.key);
+    FLAGS.symbolMotion && part != null
+      ? Spec.levelIssues({ drawing, parts, looks }).get(part.key)
+      : undefined;
   return (
     <InspectorContext value={{ part: part?.key, preview, values }}>
       <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
