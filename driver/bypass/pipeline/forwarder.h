@@ -196,7 +196,7 @@ class Forwarder {
         std::string description;
         const auto add = [&description](const size_t count, const std::string &cause) {
             if (count == 0) return;
-            if (!description.empty()) description += " ";
+            if (!description.empty()) description += ' ';
             description += "Dropped " + std::to_string(count) +
                            (count == 1 ? " frame" : " frames") + " because " + cause +
                            ".";

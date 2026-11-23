@@ -410,7 +410,7 @@ TEST(ForwarderTest, ReportsDropsDuringALongBackoff) {
     for (int i = 0; i < 5; i++)
         ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
     const auto last = [&] {
-        if (warnings->size() == 0) return std::pair<std::string, std::string>{};
+        if (warnings->empty()) return std::pair<std::string, std::string>{};
         return warnings->at(warnings->size() - 1);
     };
     ASSERT_EVENTUALLY_EQ(
