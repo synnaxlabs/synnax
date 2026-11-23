@@ -116,6 +116,7 @@ const SESSION = {
 
 const PROVIDER: auth.OIDCLogin = {
   provider: "company-sso",
+  issuer: "https://sso.example.com",
   authorizationEndpoint: "https://sso.example.com/authorize",
   clientId: "synnax",
 };
@@ -262,6 +263,7 @@ describe("Auth login", () => {
       [
         {
           provider: "company-sso",
+          issuer: "https://sso.example.com",
           authorizationEndpoint: "https://sso.example.com/authorize",
           clientId: "synnax",
         },
@@ -280,6 +282,7 @@ describe("Auth login", () => {
       [
         {
           provider: "company-sso",
+          issuer: "https://sso.example.com",
           authorizationEndpoint: "https://sso.example.com/authorize",
           clientId: "synnax",
         },
@@ -299,21 +302,25 @@ describe("Auth login", () => {
       [
         {
           provider: "google",
+          issuer: "https://accounts.google.com",
           authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
           clientId: "synnax",
         },
         {
           provider: "corp-sso",
+          issuer: "https://acme.okta.com",
           authorizationEndpoint: "https://acme.okta.com/oauth2/v1/authorize",
           clientId: "synnax",
         },
         {
           provider: "azure-ad",
+          issuer: "https://login.microsoftonline.com",
           authorizationEndpoint: "https://login.microsoftonline.com/acme/authorize",
           clientId: "synnax",
         },
         {
           provider: "plant-sso",
+          issuer: "https://sso.plant.example.com",
           authorizationEndpoint: "https://sso.plant.example.com/authorize",
           clientId: "synnax",
         },
@@ -336,6 +343,7 @@ describe("Auth login", () => {
       [
         {
           provider: "company-sso",
+          issuer: "https://sso.example.com",
           authorizationEndpoint: "https://sso.example.com/authorize",
           clientId: "synnax",
         },
@@ -370,6 +378,7 @@ describe("Auth login", () => {
       [
         {
           provider: "company-sso",
+          issuer: "https://sso.example.com",
           authorizationEndpoint: "https://sso.example.com/authorize",
           clientId: "synnax",
         },

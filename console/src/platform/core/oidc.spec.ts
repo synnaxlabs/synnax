@@ -55,6 +55,7 @@ import { Core } from "@/platform/core";
 
 const LOGIN = {
   provider: "idp",
+  issuer: "https://idp.example.com",
   authorizationEndpoint: "https://idp.example.com/authorize?tenant=a",
   clientId: "synnax",
 };
