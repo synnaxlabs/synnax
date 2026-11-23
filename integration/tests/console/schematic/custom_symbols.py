@@ -141,7 +141,7 @@ class CustomSymbols(ConsoleCase):
         assert editor.part_count() == 2, (
             f"expected 2 parts (clip-path excluded), got {editor.part_count()}"
         )
-        assert editor.part_rows_fit(), "part rows overflow the editor sidebar"
+        assert editor.part_rows_fit(), "part items overflow the editor sidebar"
 
         editor.set_part_fill_color("#FF0000", part_index=0)
         editor.assert_preview_fill("#body", "rgb(255, 0, 0)")
