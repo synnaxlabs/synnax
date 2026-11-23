@@ -30,10 +30,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   client,
   createSymbolPayload,
+  preloadTab,
   renderSchematic,
   SYMBOL_FILE_DROP_PROMPT,
+  TabToolbar,
 } from "@/feature/schematic/testutil";
-import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
@@ -54,7 +55,7 @@ afterEach(() => {
 });
 
 const renderSymbolsToolbar = async (as?: Client) =>
-  await renderSchematic(Toolbar, {
+  await renderSchematic(TabToolbar, {
     sessionState: { editable: true },
     additionalRegistry: theming.REGISTRY,
     as,
@@ -77,6 +78,8 @@ const createRemoteSymbolGroup = async (
     );
   return { grp, symbols };
 };
+
+preloadTab();
 
 describe("Schematic toolbar Symbols", () => {
   it("adds a static symbol node to the schematic on click", async () => {
@@ -284,7 +287,7 @@ describe("Schematic toolbar Symbols", () => {
 });
 
 const DraggableToolbar = (): ReactElement =>
-  createElement(HaulProvider, null, createElement(Toolbar));
+  createElement(HaulProvider, null, createElement(TabToolbar));
 
 const layer = (): Element | null => document.querySelector(".lyra-haul__layer");
 
@@ -350,6 +353,52 @@ describe("Schematic toolbar Symbols drag preview", () => {
     });
     const body = layer()?.querySelector(".pluto-custom-drawing #body");
     expect(body?.getAttribute("fill")).toBe("#ff0000");
+  });
+});
+
+describe("Schematic toolbar Symbols drag", () => {
+  it("should haul a built-in symbol as a symbol node", async () => {
+    const { store } = await renderSchematic(DraggableToolbar, {
+      sessionState: { editable: true },
+    });
+    fireEvent.click(await screen.findByText("Valves"));
+    fireEvent.dragStart(await screen.findByText("Generic"), {
+      dataTransfer: new DataTransfer(),
+    });
+    expect(store.getState()[Session.Haul.SLICE_NAME].state.items).toMatchObject([
+      {
+        data: {
+          config: {
+            variant: "symbol",
+            spec: { type: "builtin", name: "valve" },
+            label: { label: "Valve" },
+          },
+        },
+      },
+    ]);
+  });
+
+  it("should haul a remote symbol as a symbol node", async () => {
+    const name = uniqueName("custom_sym");
+    const { grp, symbols } = await createRemoteSymbolGroup([name]);
+    const { store } = await renderSchematic(DraggableToolbar, {
+      sessionState: { editable: true },
+    });
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.dragStart(await screen.findByText(name), {
+      dataTransfer: new DataTransfer(),
+    });
+    expect(store.getState()[Session.Haul.SLICE_NAME].state.items).toMatchObject([
+      {
+        data: {
+          config: {
+            variant: "symbol",
+            spec: { type: "custom", key: symbols[0].key },
+            label: { label: name },
+          },
+        },
+      },
+    ]);
   });
 });
 

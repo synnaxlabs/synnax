@@ -279,6 +279,17 @@ describe("Symbol form", () => {
     });
   });
 
+  it("should store no units when the units are cleared", async () => {
+    const { findByLabelText, value } = await render({
+      spec: heater,
+      states: [schematic.stateBindingZ.parse({ key: "level", units: "psi" })],
+    });
+    fireEvent.change(await findByLabelText("Units"), { target: { value: "" } });
+    expect(value(path.states)).toEqual([
+      schematic.stateBindingZ.parse({ key: "level" }),
+    ]);
+  });
+
   it("should show the format of a number state only", async () => {
     const { findByText, getAllByLabelText } = await render({ spec: heater });
     await findByText("Level");

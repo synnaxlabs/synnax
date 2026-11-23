@@ -15,7 +15,7 @@ import type { ReactElement } from "react";
 import { Mosaic } from "@/app/mosaic";
 import { Nav } from "@/app/nav";
 import { Triggers } from "@/app/triggers";
-import { Guard } from "@/app/window/Guard";
+import { Guard } from "@/app/window/guard";
 import { Panel } from "@/feature/panel";
 import { CSS } from "@/platform/css";
 
@@ -37,13 +37,13 @@ const ProjectSideEffect = (): null => {
 export const Secondary = (): ReactElement => (
   <>
     <SideEffect />
-    <Guard>
+    <Guard.Guard>
       <ProjectSideEffect />
       <Nav.Bar.Top secondary />
       <Flex.Box gap="small" grow className={CSS.B("secondary")}>
         <Mosaic.Mosaic />
         <Nav.Drawer.Bottom />
       </Flex.Box>
-    </Guard>
+    </Guard.Guard>
   </>
 );

@@ -21,17 +21,17 @@ import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 
 import {
+  SCAN_SCHEMAS,
+  SCAN_TYPE,
+  TEST_CONNECTION_COMMAND_TYPE,
+} from "@/feature/kafka/device/scan";
+import {
   type Device,
   INTEGRATION_KEY,
   type SASLType,
   SCHEMAS,
   ZERO_PROPERTIES,
 } from "@/feature/kafka/device/types";
-import {
-  SCAN_SCHEMAS,
-  SCAN_TYPE,
-  TEST_CONNECTION_COMMAND_TYPE,
-} from "@/feature/kafka/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
